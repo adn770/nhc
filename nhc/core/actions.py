@@ -333,7 +333,7 @@ class UseItemAction(Action):
 
 
 class DescendStairsAction(Action):
-    """Descend stairs (win condition for test level)."""
+    """Descend to the next dungeon level."""
 
     async def validate(self, world: "World", level: "Level") -> bool:
         pos = world.get_component(self.actor, "Position")
@@ -343,9 +343,14 @@ class DescendStairsAction(Action):
         return tile is not None and tile.feature == "stairs_down"
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
+        from nhc.core.events import LevelEntered
         return [
-            GameWon(message="You descend deeper into the dungeon..."),
-            MessageEvent(text="You descend the stairs. Victory!"),
+            LevelEntered(
+                entity=self.actor,
+                level_id=level.id,
+                depth=level.depth + 1,
+            ),
+            MessageEvent(text="You descend deeper into the dungeon..."),
         ]
 
 

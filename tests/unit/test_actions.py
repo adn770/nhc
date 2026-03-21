@@ -275,9 +275,10 @@ class TestDescendStairs:
         assert await action.validate(world, level)
         events = await action.execute(world, level)
 
-        from nhc.core.events import GameWon
-        won_events = [e for e in events if isinstance(e, GameWon)]
-        assert len(won_events) == 1
+        from nhc.core.events import LevelEntered
+        level_events = [e for e in events if isinstance(e, LevelEntered)]
+        assert len(level_events) == 1
+        assert level_events[0].depth == level.depth + 1
 
     @pytest.mark.asyncio
     async def test_descend_not_on_stairs_invalid(self):

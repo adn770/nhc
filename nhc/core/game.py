@@ -19,6 +19,7 @@ from nhc.core.events import (
     CreatureDied,
     EventBus,
     GameWon,
+    LevelEntered,
     MessageEvent,
     PlayerDied,
 )
@@ -123,6 +124,7 @@ class Game:
         self.event_bus.subscribe(MessageEvent, self._on_message)
         self.event_bus.subscribe(GameWon, self._on_game_won)
         self.event_bus.subscribe(CreatureDied, self._on_creature_died)
+        self.event_bus.subscribe(LevelEntered, self._on_level_entered)
 
         # Compute initial FOV
         self._update_fov()
@@ -413,6 +415,51 @@ class Game:
             self.renderer.add_message("Game loaded.")
         except Exception as e:
             self.renderer.add_message(f"Load failed: {e}")
+
+    def _on_level_entered(self, event: LevelEntered) -> None:
+        """Transition to a new dungeon level."""
+        from nhc.dungeon.classic import ClassicGenerator
+        from nhc.dungeon.generator import GenerationParams
+        from nhc.dungeon.populator import populate_level
+
+        new_depth = event.depth
+
+        # Remove all non-player entities (creatures, items on map)
+        player_inv = self.world.get_component(self.player_id, "Inventory")
+        keep_ids = {self.player_id}
+        if player_inv:
+            keep_ids.update(player_inv.slots)
+
+        all_eids = list(self.world._entities)
+        for eid in all_eids:
+            if eid not in keep_ids:
+                self.world.destroy_entity(eid)
+
+        # Generate new level
+        params = GenerationParams(depth=new_depth)
+        gen = ClassicGenerator()
+        self.level = gen.generate(params)
+        populate_level(
+            self.level,
+            creature_count=3 + new_depth,
+            item_count=2 + new_depth // 2,
+            trap_count=1 + new_depth // 3,
+        )
+
+        # Spawn level entities
+        self._spawn_level_entities()
+
+        # Move player to stairs_up in new level
+        if self.level.rooms:
+            px, py = self.level.rooms[0].rect.center
+            pos = self.world.get_component(self.player_id, "Position")
+            if pos:
+                pos.x = px
+                pos.y = py
+                pos.level_id = self.level.id
+
+        self._seen_creatures.clear()
+        self._update_fov()
 
     def _on_creature_died(self, event: CreatureDied) -> None:
         """Award XP when the player kills a creature."""
