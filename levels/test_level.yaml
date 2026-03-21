@@ -1,0 +1,154 @@
+id: test_level
+name: "The Sunken Cellar"
+depth: 1
+width: 40
+height: 20
+theme: crypt
+difficulty: 1
+ambient: "Damp air clings to the stone. Something drips in the darkness."
+faction: undead
+
+narrative_hooks:
+  - "Claw marks on the walls suggest something escaped from below."
+  - "A faded sigil on the floor hums faintly when you step near it."
+
+# Legend:
+#   '#' = wall
+#   '.' = floor
+#   '+' = closed door
+#   '<' = stairs up (entrance)
+#   '>' = stairs down (exit)
+#   '~' = water
+#   ' ' = void
+map: |
+  ########################################
+  #......#            #........#.........#
+  #......#            #........#.........#
+  #.<....+############+........#.........#
+  #......#............#........#....>....#
+  #......#............#........+.........#
+  ########............####+#####.........#
+                      #......#  #........#
+                      #......#  ###+######
+                      #......#  #.......##
+                      #..~~..#  #........#
+                      #..~~..#  #........#
+                      #......#  ##########
+                      ########
+  ########################################
+
+legend:
+  '#': wall
+  '.': floor
+  '+': door_closed
+  '<': stairs_up
+  '>': stairs_down
+  '~': water
+  ' ': void
+
+rooms:
+  - id: entry
+    x: 1
+    y: 1
+    width: 6
+    height: 5
+    tags: [entry, safe]
+    description: >
+      A small antechamber with crumbling mortar.
+      Broken crates line the walls.
+    connections: [corridor_main]
+
+  - id: hall
+    x: 14
+    y: 3
+    width: 8
+    height: 3
+    tags: [corridor]
+    description: >
+      A long narrow passage. The ceiling is low
+      and the air is stale.
+    connections: [entry, guard_room, cistern]
+
+  - id: guard_room
+    x: 22
+    y: 1
+    width: 8
+    height: 5
+    tags: [combat]
+    description: >
+      An old guard post. A broken weapon rack
+      stands against the north wall.
+    connections: [hall, exit_chamber]
+
+  - id: exit_chamber
+    x: 31
+    y: 1
+    width: 9
+    height: 7
+    tags: [exit, treasure]
+    description: >
+      A large chamber with a vaulted ceiling.
+      Stairs descend into deeper darkness.
+    connections: [guard_room, armory]
+
+  - id: cistern
+    x: 22
+    y: 7
+    width: 6
+    height: 6
+    tags: [water, puzzle]
+    description: >
+      A flooded cistern. Dark water fills the
+      center of the room. Something glints below.
+    connections: [hall, armory]
+
+  - id: armory
+    x: 30
+    y: 8
+    width: 9
+    height: 4
+    tags: [treasure, hidden]
+    description: >
+      A forgotten armory. Rusted weapons hang
+      from pegs, but one gleams differently.
+    connections: [exit_chamber, cistern]
+
+corridors:
+  - id: corridor_main
+    points: [[7, 3], [13, 3]]
+    connects: [entry, hall]
+
+entities:
+  # Creatures
+  - type: creature
+    id: skeleton
+    position: {x: 25, y: 3}
+
+  - type: creature
+    id: skeleton
+    position: {x: 27, y: 4}
+
+  - type: creature
+    id: goblin
+    position: {x: 24, y: 10}
+
+  # Items
+  - type: item
+    id: healing_potion
+    position: {x: 3, y: 2}
+
+  - type: item
+    id: sword
+    position: {x: 34, y: 10}
+
+  # Features
+  - type: feature
+    id: trap_pit
+    position: {x: 16, y: 4}
+    extra:
+      hidden: true
+      dc: 12
+
+player_start:
+  x: 2
+  y: 3

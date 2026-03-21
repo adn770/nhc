@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "nhc"
+version = "0.1.0"
+description = "Nethack-like Crawler — roguelike with LLM narrative"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml",
+    "blessed",
+    "aiofiles",
+]
+
+[project.optional-dependencies]
+llm = [
+    "anthropic",
+    "ollama",
+]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[project.scripts]
+nhc = "nhc.main:entry"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "core: core engine tests",
+    "dungeon: dungeon generation tests",
+    "entities: entity registry tests",
+    "rules: Knave rules tests",
+    "narrative: LLM narrative tests",
+]
