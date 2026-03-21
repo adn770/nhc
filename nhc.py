@@ -62,6 +62,11 @@ def parse_args() -> argparse.Namespace:
         help="Load a specific level file (YAML)",
     )
     game_group.add_argument(
+        "--generate", "-G",
+        action="store_true",
+        help="Generate a random dungeon instead of loading a level file",
+    )
+    game_group.add_argument(
         "--no-narrative",
         action="store_true",
         help="Disable LLM narrative (equivalent to --provider none)",
@@ -99,15 +104,18 @@ async def main() -> int:
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)
 
-    # Determine level file
-    level_path = args.level
-    if not level_path:
-        level_path = str(Path(__file__).parent / "levels" / "test_level.yaml")
-
     # Create and run game
     game = Game(backend=backend, seed=args.seed)
     try:
-        await game.initialize(level_path)
+        if args.generate:
+            await game.initialize(generate=True)
+        else:
+            level_path = args.level
+            if not level_path:
+                level_path = str(
+                    Path(__file__).parent / "levels" / "test_level.yaml",
+                )
+            await game.initialize(level_path=level_path)
         await game.run()
     finally:
         await game.shutdown()

@@ -67,8 +67,13 @@ class Game:
         self._seen_creatures: set[int] = set()
         self.killed_by: str = ""
 
-    async def initialize(self, level_path: str | Path) -> None:
-        """Set up initial game state from a level file."""
+    async def initialize(
+        self,
+        level_path: str | Path | None = None,
+        generate: bool = False,
+        depth: int = 1,
+    ) -> None:
+        """Set up initial game state from a level file or generator."""
         if self.seed is not None:
             from nhc.utils.rng import set_seed
             set_seed(self.seed)
@@ -76,9 +81,25 @@ class Game:
         # Discover all entity types
         EntityRegistry.discover_all()
 
-        # Load level
-        self.level = load_level(level_path)
-        px, py = get_player_start(level_path)
+        if generate:
+            from nhc.dungeon.classic import ClassicGenerator
+            from nhc.dungeon.generator import GenerationParams
+            from nhc.dungeon.populator import populate_level
+
+            params = GenerationParams(depth=depth)
+            gen = ClassicGenerator()
+            self.level = gen.generate(params)
+            populate_level(self.level)
+
+            # Player starts at stairs_up (first room center)
+            if self.level.rooms:
+                px, py = self.level.rooms[0].rect.center
+            else:
+                px, py = 1, 1
+        else:
+            # Load from YAML file
+            self.level = load_level(level_path)
+            px, py = get_player_start(level_path)
 
         # Create player entity
         self.player_id = self.world.create_entity({
