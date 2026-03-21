@@ -71,6 +71,9 @@ class Disguise:
 @dataclass
 class Player:
     """Tag component identifying the player entity."""
+    xp: int = 0
+    level: int = 1
+    xp_to_next: int = 20
 
 
 @dataclass

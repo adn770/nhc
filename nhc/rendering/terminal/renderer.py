@@ -197,12 +197,17 @@ class TerminalRenderer:
             if desc:
                 weapon_name = desc.name
 
+        player = world.get_component(player_id, "Player")
+
         return {
             "hp": health.current if health else 0,
             "hp_max": health.maximum if health else 0,
             "turn": turn,
             "depth": level.depth,
             "level_name": level.name,
+            "plevel": player.level if player else 1,
+            "xp": player.xp if player else 0,
+            "xp_next": player.xp_to_next if player else 20,
             "str": stats.strength if stats else 0,
             "dex": stats.dexterity if stats else 0,
             "con": stats.constitution if stats else 0,

@@ -60,10 +60,15 @@ def render_status(
     filled = max(0, int(bar_w * hp_pct))
     bar = hp_color("█" * filled) + term.bright_black("░" * (bar_w - filled))
 
+    plevel = stats.get("plevel", 1)
+    xp = stats.get("xp", 0)
+    xp_next = stats.get("xp_next", 20)
+
     line1 = (
         f" 📍 {term.bold(level_name)}"
         f"{SEP}⬇ Depth {depth}"
         f"{SEP}⏳ Turn {turn}"
+        f"{SEP}Lv {plevel} ({xp}/{xp_next} XP)"
         f"{SEP}❤️  {bar} {hp_color(str(hp))}/{hp_max}"
     )
     output += term.move_xy(0, y + 1) + _pad(line1, width)

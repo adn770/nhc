@@ -16,6 +16,7 @@ from nhc.core.actions import (
 )
 from nhc.core.ecs import World
 from nhc.core.events import (
+    CreatureDied,
     EventBus,
     GameWon,
     MessageEvent,
@@ -121,6 +122,7 @@ class Game:
         # Subscribe event handlers
         self.event_bus.subscribe(MessageEvent, self._on_message)
         self.event_bus.subscribe(GameWon, self._on_game_won)
+        self.event_bus.subscribe(CreatureDied, self._on_creature_died)
 
         # Compute initial FOV
         self._update_fov()
@@ -411,6 +413,21 @@ class Game:
             self.renderer.add_message("Game loaded.")
         except Exception as e:
             self.renderer.add_message(f"Load failed: {e}")
+
+    def _on_creature_died(self, event: CreatureDied) -> None:
+        """Award XP when the player kills a creature."""
+        if event.killer != self.player_id:
+            return
+
+        from nhc.rules.advancement import award_xp, check_level_up
+
+        xp = award_xp(self.world, self.player_id, event.entity)
+        if xp > 0:
+            self.renderer.add_message(f"+{xp} XP")
+
+        level_msgs = check_level_up(self.world, self.player_id)
+        for msg in level_msgs:
+            self.renderer.add_message(msg)
 
     def _on_message(self, event: MessageEvent) -> None:
         """Handle message events by adding to renderer log."""

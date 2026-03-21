@@ -7,14 +7,18 @@ from nhc.utils.rng import get_rng
 
 # Creature pools by difficulty tier
 CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
-    1: [("goblin", 0.6), ("skeleton", 0.4)],
-    2: [("goblin", 0.3), ("skeleton", 0.7)],
+    1: [("rat", 0.3), ("goblin", 0.5), ("skeleton", 0.2)],
+    2: [("goblin", 0.3), ("skeleton", 0.4), ("zombie", 0.3)],
+    3: [("skeleton", 0.2), ("orc", 0.4), ("zombie", 0.4)],
 }
 
 # Item pools by difficulty tier
 ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [("healing_potion", 0.5), ("dagger", 0.3), ("short_sword", 0.2)],
-    2: [("healing_potion", 0.4), ("short_sword", 0.3), ("sword", 0.3)],
+    2: [("healing_potion", 0.3), ("short_sword", 0.3), ("sword", 0.2),
+         ("scroll_lightning", 0.2)],
+    3: [("healing_potion", 0.3), ("sword", 0.3), ("shield", 0.2),
+         ("scroll_lightning", 0.2)],
 }
 
 # Feature pools

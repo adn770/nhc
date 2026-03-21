@@ -287,12 +287,14 @@ class UseItemAction(Action):
         consumable = world.get_component(self.item, "Consumable")
         item_name = _entity_name(world, self.item)
 
+        consumed = True
+
         if consumable.effect == "heal":
             health = world.get_component(self.actor, "Health")
             if health:
                 if health.current >= health.maximum:
                     events.append(MessageEvent(
-                        text=f"Already at full health.",
+                        text="Already at full health.",
                     ))
                     return events
                 amount = roll_dice(consumable.dice)
@@ -303,6 +305,20 @@ class UseItemAction(Action):
                 events.append(MessageEvent(
                     text=f"Quaff {item_name}. Healed {actual} HP.",
                 ))
+
+        elif consumable.effect == "damage_nearest":
+            events += _use_damage_nearest(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        else:
+            events.append(MessageEvent(
+                text=f"Nothing happens.",
+            ))
+            consumed = False
+
+        if not consumed:
+            return events
 
         # Remove item from inventory and world
         if self.item in inv.slots:
@@ -522,5 +538,62 @@ def _check_traps(
 
         trap.triggered = True
         trap.hidden = False
+
+    return events
+
+
+def _use_damage_nearest(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Damage the nearest visible creature."""
+    from nhc.utils.spatial import chebyshev
+    events: list[Event] = []
+
+    apos = world.get_component(actor, "Position")
+    if not apos:
+        return events
+
+    # Find nearest creature with AI
+    best_eid = None
+    best_dist = 999
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if tile and tile.visible:
+            dist = chebyshev(apos.x, apos.y, cpos.x, cpos.y)
+            if dist < best_dist:
+                best_dist = dist
+                best_eid = eid
+
+    if best_eid is None:
+        events.append(MessageEvent(text="No target in sight!"))
+        return events
+
+    damage = roll_dice(consumable.dice)
+    target_health = world.get_component(best_eid, "Health")
+    target_name = _entity_name(world, best_eid)
+
+    if target_health:
+        actual = apply_damage(target_health, damage)
+        events.append(ItemUsed(
+            entity=actor, item=item, effect="damage_nearest",
+        ))
+        events.append(MessageEvent(
+            text=f"Lightning from {item_name} strikes {target_name} "
+                 f"for {actual} damage!",
+        ))
+
+        if is_dead(target_health):
+            events.append(CreatureDied(entity=best_eid, killer=actor))
+            events.append(MessageEvent(
+                text=f"{target_name} is destroyed!",
+            ))
+            world.destroy_entity(best_eid)
 
     return events
