@@ -1,0 +1,175 @@
+# NHC Catalan locale — traducció al català
+# Les claus utilitzen notació amb punts: secció.subsecció.clau
+# Utilitzar {nom} per a marcadors d'interpolació
+
+# ── Combat ────────────────────────────────────────────────────────────
+combat:
+  hit: "{attacker} colpeja {target} per {damage} de dany."
+  miss: "{attacker} falla {target}."
+  slain: "{target} ha estat abatut!"
+  destroyed: "{target} ha estat destruït!"
+  drops: "{target} deixa caure: {items}."
+  unarmed: "desarmat"
+
+# ── Movement & Exploration ────────────────────────────────────────────
+explore:
+  open_door: "{actor} obre una porta."
+  see_item: "Veus {item} aquí."
+  see_items: "Veus {count} objectes aquí: {items}."
+  see_feature: "Veus {feature} aquí."
+  see_creature: "Veus {creature}{status}."
+  nothing_special: "Res d'especial aquí."
+  spot_creature: "Divises {creature}!"
+  descend: "Descendeixes més endins de la masmorra..."
+
+# ── Health status descriptions ────────────────────────────────────────
+health_status:
+  uninjured: " (il·lès)"
+  lightly_wounded: " (lleugerament ferit)"
+  badly_wounded: " (greument ferit)"
+  near_death: " (a punt de morir)"
+
+# ── Feature names ─────────────────────────────────────────────────────
+feature:
+  stairs_up: "unes escales cap amunt"
+  stairs_down: "unes escales cap avall"
+  door_open: "una porta oberta"
+  door_closed: "una porta tancada"
+
+# ── Items & Inventory ─────────────────────────────────────────────────
+item:
+  picked_up: "Has agafat {item}."
+  equipped: "Has equipat {item}."
+  full_inventory: "L'inventari és ple!"
+  nothing_to_pickup: "No hi ha res per agafar aquí."
+  full_health: "Ja estàs a plena salut."
+  quaff_heal: "Beus {item}. Curat {amount} PV."
+  nothing_happens: "No passa res."
+  no_target: "Cap objectiu a la vista!"
+  lightning_strike: >-
+    Un llamp de {item} colpeja {target}
+    per {damage} de dany!
+
+# ── Traps ─────────────────────────────────────────────────────────────
+trap:
+  avoided: "{entity} detecta {trap} i l'evita!"
+  triggered: "{entity} cau a {trap}! {damage} de dany!"
+
+# ── Game state ────────────────────────────────────────────────────────
+game:
+  welcome: "Benvingut a {name}."
+  died: "Has mort!"
+  slain_by: "Has estat abatut per {killer}!"
+  game_saved: "Partida desada."
+  save_failed: "Error en desar: {error}"
+  no_save: "No s'ha trobat cap partida desada."
+  game_loaded: "Partida carregada."
+  load_failed: "Error en carregar: {error}"
+  xp_gained: "+{xp} XP"
+  player_name: "Tu"
+
+# ── Level up ──────────────────────────────────────────────────────────
+levelup:
+  with_ability: "Nivell {level}! +{hp} PV, +1 {ability}."
+  no_ability: "Nivell {level}! +{hp} PV."
+
+# ── UI labels ─────────────────────────────────────────────────────────
+ui:
+  depth: "Profunditat"
+  turn: "Torn"
+  empty: "buit"
+  scroll_hint: "desplaçar"
+  esc_cancel: "  ESC per cancel·lar"
+  inventory_title: "Inventari (ESC per tancar)"
+  use_which: "Quin objecte vols usar?"
+  victory_title: "VICTÒRIA!"
+  victory_desc: "Has descendit més endins de la masmorra."
+  death_title: "HAS MORT"
+  death_desc: "La teva aventura acaba aquí."
+  end_footer: "Has sobreviscut {turn} torns. Prem qualsevol tecla per sortir."
+
+# ── Creature descriptions ────────────────────────────────────────────
+creature:
+  goblin:
+    name: "Goblin"
+    short: "un goblin grunyidor"
+    long: >-
+      Una criatura prima de pell verda amb ullals grocs
+      i una fulla rovellada.
+  skeleton:
+    name: "Esquelet"
+    short: "un esquelet sorollós"
+    long: >-
+      Ossos blanquejats mantinguts per màgia fosca,
+      empunyant una fulla mellada.
+  rat:
+    name: "Rata Gegant"
+    short: "una rata gegant"
+    long: >-
+      Una rata sarnosa de la mida d'un gos, amb els ulls
+      brillants de fam salvatge.
+  orc:
+    name: "Orc"
+    short: "un orc corpulent"
+    long: >-
+      Un brut musculós amb ullals i armadura de ferro tosca.
+      Gruny agressivament.
+  zombie:
+    name: "Zombie"
+    short: "un zombie arrossegat"
+    long: >-
+      Un cadàver en descomposició que es nega a restar mort.
+      La pudor és aclaparadora.
+
+# ── Item descriptions ─────────────────────────────────────────────────
+items:
+  sword:
+    name: "Espasa"
+    short: "una espasa d'acer"
+    long: >-
+      Una fulla ben equilibrada d'acer temperat, gastada però esmolada.
+  dagger:
+    name: "Daga"
+    short: "una daga esmolada"
+    long: >-
+      Una fulla curta amb empunyadura de cuir.
+      Ràpida de treure, ràpida de tallar.
+  short_sword:
+    name: "Espasa Curta"
+    short: "una espasa curta"
+    long: >-
+      Una fulla compacta preferida pels escaramussers.
+      Ideal per a espais reduïts.
+  healing_potion:
+    name: "Poció de Curació"
+    short: "una poció carmesí"
+    long: >-
+      Un petit vial de vidre ple d'un líquid vermell brillant.
+      Fa una lleugera olor de ferro i herbes.
+  gold:
+    name: "Or"
+    short: "un munt de monedes d'or"
+    long: >-
+      Monedes ennegrides amb un emblema desconegut.
+      Encara prou bones per gastar.
+  shield:
+    name: "Escut"
+    short: "un escut de fusta"
+    long: >-
+      Un escut rodó de fusta reforçat amb bandes de ferro.
+      Atorga +1 defensa d'armadura.
+  scroll_lightning:
+    name: "Pergamí de Llamp"
+    short: "un pergamí crepitant"
+    long: >-
+      Un pergamí inscrit amb símbols arcans.
+      Llamps salten entre les lletres.
+
+# ── Feature descriptions ─────────────────────────────────────────────
+features:
+  trap_pit:
+    name: "Trampa de Fossa"
+    short: "una fossa oculta"
+    long: >-
+      Les lloses aquí semblen subtilment diferents — més clares,
+      com si haguessin estat col·locades més recentment.

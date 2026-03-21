@@ -1,0 +1,175 @@
+# NHC Spanish locale — traducción al español
+# Las claves usan notación con puntos: sección.subsección.clave
+# Usar {nombre} para marcadores de interpolación
+
+# ── Combat ────────────────────────────────────────────────────────────
+combat:
+  hit: "{attacker} golpea a {target} por {damage} de daño."
+  miss: "{attacker} falla a {target}."
+  slain: "¡{target} ha sido abatido!"
+  destroyed: "¡{target} ha sido destruido!"
+  drops: "{target} deja caer: {items}."
+  unarmed: "desarmado"
+
+# ── Movement & Exploration ────────────────────────────────────────────
+explore:
+  open_door: "{actor} abre una puerta."
+  see_item: "Ves {item} aquí."
+  see_items: "Ves {count} objetos aquí: {items}."
+  see_feature: "Ves {feature} aquí."
+  see_creature: "Ves {creature}{status}."
+  nothing_special: "Nada especial aquí."
+  spot_creature: "¡Divisas {creature}!"
+  descend: "Desciendes más profundo en la mazmorra..."
+
+# ── Health status descriptions ────────────────────────────────────────
+health_status:
+  uninjured: " (ileso)"
+  lightly_wounded: " (levemente herido)"
+  badly_wounded: " (gravemente herido)"
+  near_death: " (al borde de la muerte)"
+
+# ── Feature names ─────────────────────────────────────────────────────
+feature:
+  stairs_up: "unas escaleras hacia arriba"
+  stairs_down: "unas escaleras hacia abajo"
+  door_open: "una puerta abierta"
+  door_closed: "una puerta cerrada"
+
+# ── Items & Inventory ─────────────────────────────────────────────────
+item:
+  picked_up: "Has recogido {item}."
+  equipped: "Has equipado {item}."
+  full_inventory: "¡El inventario está lleno!"
+  nothing_to_pickup: "No hay nada que recoger aquí."
+  full_health: "Ya estás a plena salud."
+  quaff_heal: "Bebes {item}. Curado {amount} PV."
+  nothing_happens: "No pasa nada."
+  no_target: "¡Ningún objetivo a la vista!"
+  lightning_strike: >-
+    ¡Un rayo de {item} golpea a {target}
+    por {damage} de daño!
+
+# ── Traps ─────────────────────────────────────────────────────────────
+trap:
+  avoided: "¡{entity} detecta {trap} y la evita!"
+  triggered: "¡{entity} cae en {trap}! ¡{damage} de daño!"
+
+# ── Game state ────────────────────────────────────────────────────────
+game:
+  welcome: "Bienvenido a {name}."
+  died: "¡Has muerto!"
+  slain_by: "¡Has sido abatido por {killer}!"
+  game_saved: "Partida guardada."
+  save_failed: "Error al guardar: {error}"
+  no_save: "No se encontró partida guardada."
+  game_loaded: "Partida cargada."
+  load_failed: "Error al cargar: {error}"
+  xp_gained: "+{xp} XP"
+  player_name: "Tú"
+
+# ── Level up ──────────────────────────────────────────────────────────
+levelup:
+  with_ability: "¡Nivel {level}! +{hp} PV, +1 {ability}."
+  no_ability: "¡Nivel {level}! +{hp} PV."
+
+# ── UI labels ─────────────────────────────────────────────────────────
+ui:
+  depth: "Profundidad"
+  turn: "Turno"
+  empty: "vacío"
+  scroll_hint: "desplazar"
+  esc_cancel: "  ESC para cancelar"
+  inventory_title: "Inventario (ESC para cerrar)"
+  use_which: "¿Qué objeto quieres usar?"
+  victory_title: "¡VICTORIA!"
+  victory_desc: "Has descendido más profundo en la mazmorra."
+  death_title: "HAS MUERTO"
+  death_desc: "Tu aventura termina aquí."
+  end_footer: "Sobreviviste {turn} turnos. Pulsa cualquier tecla para salir."
+
+# ── Creature descriptions ────────────────────────────────────────────
+creature:
+  goblin:
+    name: "Goblin"
+    short: "un goblin gruñón"
+    long: >-
+      Una criatura delgada de piel verde con colmillos amarillentos
+      y una hoja oxidada.
+  skeleton:
+    name: "Esqueleto"
+    short: "un esqueleto ruidoso"
+    long: >-
+      Huesos blanqueados sostenidos por magia oscura,
+      empuñando una hoja mellada.
+  rat:
+    name: "Rata Gigante"
+    short: "una rata gigante"
+    long: >-
+      Una rata sarnosa del tamaño de un perro, con ojos
+      brillantes de hambre salvaje.
+  orc:
+    name: "Orco"
+    short: "un orco corpulento"
+    long: >-
+      Un bruto musculoso con colmillos y armadura de hierro tosca.
+      Gruñe agresivamente.
+  zombie:
+    name: "Zombi"
+    short: "un zombi tambaleante"
+    long: >-
+      Un cadáver en descomposición que se niega a quedarse muerto.
+      El hedor es abrumador.
+
+# ── Item descriptions ─────────────────────────────────────────────────
+items:
+  sword:
+    name: "Espada"
+    short: "una espada de acero"
+    long: >-
+      Una hoja bien equilibrada de acero templado, gastada pero afilada.
+  dagger:
+    name: "Daga"
+    short: "una daga afilada"
+    long: >-
+      Una hoja corta con empuñadura de cuero.
+      Rápida de sacar, rápida de cortar.
+  short_sword:
+    name: "Espada Corta"
+    short: "una espada corta"
+    long: >-
+      Una hoja compacta preferida por los escaramuzadores.
+      Ideal para espacios reducidos.
+  healing_potion:
+    name: "Poción de Curación"
+    short: "una poción carmesí"
+    long: >-
+      Un pequeño frasco de cristal lleno de un líquido rojo brillante.
+      Huele ligeramente a hierro y hierbas.
+  gold:
+    name: "Oro"
+    short: "un montón de monedas de oro"
+    long: >-
+      Monedas ennegrecidas con un emblema desconocido.
+      Todavía lo suficientemente buenas para gastar.
+  shield:
+    name: "Escudo"
+    short: "un escudo de madera"
+    long: >-
+      Un escudo redondo de madera reforzado con bandas de hierro.
+      Otorga +1 defensa de armadura.
+  scroll_lightning:
+    name: "Pergamino de Rayo"
+    short: "un pergamino crepitante"
+    long: >-
+      Un pergamino inscrito con símbolos arcanos.
+      Rayos saltan entre las letras.
+
+# ── Feature descriptions ─────────────────────────────────────────────
+features:
+  trap_pit:
+    name: "Trampa de Foso"
+    short: "un foso oculto"
+    long: >-
+      Las losas aquí parecen sutilmente diferentes — más claras,
+      como si hubieran sido colocadas más recientemente.

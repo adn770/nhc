@@ -67,6 +67,12 @@ def parse_args() -> argparse.Namespace:
         help="Generate a random dungeon instead of loading a level file",
     )
     game_group.add_argument(
+        "--lang",
+        choices=["en", "ca", "es"],
+        default=None,
+        help="Game language (default: en, or from ~/.nhcrc)",
+    )
+    game_group.add_argument(
         "--no-narrative",
         action="store_true",
         help="Disable LLM narrative (equivalent to --provider none)",
@@ -100,6 +106,13 @@ async def main() -> int:
         cli_overrides["provider"] = "none"
 
     merged = config.merge(cli_overrides)
+
+    # Initialize i18n (CLI --lang overrides config lang)
+    from nhc.i18n import init as i18n_init
+    lang = merged.get("lang", "en")
+    if args.lang:
+        lang = args.lang
+    i18n_init(lang)
 
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)

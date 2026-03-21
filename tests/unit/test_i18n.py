@@ -1,0 +1,137 @@
+"""Tests for the internationalization system."""
+
+import pytest
+
+from nhc.i18n import init, t, current_lang
+from nhc.i18n.manager import TranslationManager
+
+
+class TestTranslationManager:
+    def test_load_english(self):
+        mgr = TranslationManager()
+        mgr.load("en")
+        assert mgr.lang == "en"
+
+    def test_resolve_simple_key(self):
+        mgr = TranslationManager()
+        mgr.load("en")
+        result = mgr.get("game.game_saved")
+        assert result == "Game saved."
+
+    def test_resolve_with_interpolation(self):
+        mgr = TranslationManager()
+        mgr.load("en")
+        result = mgr.get("game.welcome", name="Test Dungeon")
+        assert result == "Welcome to Test Dungeon."
+
+    def test_missing_key_returns_key(self):
+        mgr = TranslationManager()
+        mgr.load("en")
+        result = mgr.get("nonexistent.key")
+        assert result == "nonexistent.key"
+
+    def test_nested_key(self):
+        mgr = TranslationManager()
+        mgr.load("en")
+        result = mgr.get("creature.goblin.name")
+        assert result == "Goblin"
+
+    def test_fallback_to_english(self):
+        """Non-English locale falls back to English for missing keys."""
+        mgr = TranslationManager()
+        mgr.load("ca")
+        # This key should exist in Catalan
+        result = mgr.get("game.game_saved")
+        assert result == "Partida desada."
+
+    def test_unknown_locale_falls_back(self):
+        """Unknown locale code falls back entirely to English."""
+        mgr = TranslationManager()
+        mgr.load("xx")  # Non-existent locale
+        result = mgr.get("game.game_saved")
+        assert result == "Game saved."
+
+
+class TestGlobalInterface:
+    def test_init_and_translate(self):
+        init("en")
+        assert current_lang() == "en"
+        assert t("game.died") == "You have died!"
+
+    def test_switch_to_catalan(self):
+        init("ca")
+        assert current_lang() == "ca"
+        assert t("game.died") == "Has mort!"
+        assert t("creature.goblin.name") == "Goblin"
+        assert t("creature.skeleton.name") == "Esquelet"
+
+    def test_switch_to_spanish(self):
+        init("es")
+        assert current_lang() == "es"
+        assert t("game.died") == "¡Has muerto!"
+        assert t("creature.skeleton.name") == "Esqueleto"
+
+    def test_interpolation_catalan(self):
+        init("ca")
+        result = t("combat.hit", attacker="Tu", target="Goblin",
+                   damage=5)
+        assert "Tu" in result
+        assert "Goblin" in result
+        assert "5" in result
+
+    def test_interpolation_spanish(self):
+        init("es")
+        result = t("item.picked_up", item="Espada")
+        assert "Espada" in result
+
+    def test_all_locales_have_combat_keys(self):
+        """All locales must have the core combat message keys."""
+        keys = [
+            "combat.hit", "combat.miss", "combat.slain",
+            "explore.open_door", "explore.nothing_special",
+            "game.welcome", "game.died",
+            "item.picked_up", "item.equipped",
+        ]
+        for lang in ("en", "ca", "es"):
+            init(lang)
+            for key in keys:
+                result = t(key)
+                assert result != key, (
+                    f"Missing key '{key}' in locale '{lang}'"
+                )
+
+    def test_all_creature_descriptions(self):
+        """All locales have creature name/short/long."""
+        creatures = ["goblin", "skeleton", "rat", "orc", "zombie"]
+        for lang in ("en", "ca", "es"):
+            init(lang)
+            for cid in creatures:
+                for field in ("name", "short", "long"):
+                    key = f"creature.{cid}.{field}"
+                    result = t(key)
+                    assert result != key, (
+                        f"Missing '{key}' in locale '{lang}'"
+                    )
+
+    def test_all_item_descriptions(self):
+        """All locales have item name/short/long."""
+        items = [
+            "sword", "dagger", "short_sword",
+            "healing_potion", "gold", "shield", "scroll_lightning",
+        ]
+        for lang in ("en", "ca", "es"):
+            init(lang)
+            for iid in items:
+                for field in ("name", "short", "long"):
+                    key = f"items.{iid}.{field}"
+                    result = t(key)
+                    assert result != key, (
+                        f"Missing '{key}' in locale '{lang}'"
+                    )
+
+
+# Reset to English after all tests in this module
+@pytest.fixture(autouse=True, scope="module")
+def _reset_lang():
+    yield
+    init("en")

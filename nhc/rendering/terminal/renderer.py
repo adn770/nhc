@@ -19,6 +19,8 @@ from typing import Any
 
 from blessed import Terminal
 
+from nhc.i18n import t as tr
+
 from nhc.core.ecs import World
 from nhc.dungeon.model import Level, Terrain
 from nhc.rendering.terminal.glyphs import FEATURE_GLYPHS, TERRAIN_GLYPHS
@@ -280,7 +282,7 @@ class TerminalRenderer:
         bot = menu_y + 3 + len(items)
         output += t.move_xy(menu_x, bot) + "├" + "─" * (menu_w - 2) + "┤"
         output += t.move_xy(menu_x, bot + 1)
-        esc_line = "│" + t.bright_black("  ESC to cancel").ljust(menu_w + 10) + "│"
+        esc_line = "│" + t.bright_black(tr("ui.esc_cancel")).ljust(menu_w + 10) + "│"
         output += esc_line
         output += t.move_xy(menu_x, bot + 2) + "╰" + "─" * (menu_w - 2) + "╯"
         print(output, end="", flush=True)
@@ -306,17 +308,17 @@ class TerminalRenderer:
         output = t.home + t.clear
 
         if won:
-            title = "⚔️  VICTORY! ⚔️"
-            msg = "You have descended deeper into the dungeon."
+            title = f"⚔️  {tr('ui.victory_title')} ⚔️"
+            msg = tr("ui.victory_desc")
             color = t.bright_green
         else:
-            title = "💀 YOU DIED 💀"
-            msg = "Your adventure ends here."
+            title = f"💀 {tr('ui.death_title')} 💀"
+            msg = tr("ui.death_desc")
             color = t.bright_red
 
         output += t.move_xy(cx - 8, cy - 1) + color(t.bold(title))
         output += t.move_xy(cx - len(msg) // 2, cy + 1) + msg
-        footer = f"Survived {turn} turns. Press any key to exit."
+        footer = tr("ui.end_footer", turn=turn)
         output += t.move_xy(cx - len(footer) // 2, cy + 3) + t.bright_black(footer)
 
         print(output, end="", flush=True)

@@ -30,6 +30,7 @@ from nhc.entities.components import (
     Trap,
     Weapon,
 )
+from nhc.i18n import t
 from nhc.rules.combat import apply_damage, heal, is_dead, resolve_melee_attack
 from nhc.rules.loot import generate_loot
 from nhc.utils.rng import d20, roll_dice
@@ -97,7 +98,7 @@ class MoveAction(Action):
             events.append(DoorOpened(entity=self.actor, x=nx, y=ny))
             actor_desc = _entity_name(world, self.actor)
             events.append(MessageEvent(
-                text=f"{actor_desc} opens a door.",
+                text=t("explore.open_door", actor=actor_desc),
             ))
             return events
 
@@ -164,7 +165,8 @@ class MeleeAttackAction(Action):
                 damage=actual, hit=True,
             ))
             events.append(MessageEvent(
-                text=f"{attacker_name} hits {target_name} for {actual} damage.",
+                text=t("combat.hit", attacker=attacker_name,
+                       target=target_name, damage=actual),
             ))
 
             if is_dead(t_health):
@@ -172,7 +174,7 @@ class MeleeAttackAction(Action):
                     entity=self.target, killer=self.actor,
                 ))
                 events.append(MessageEvent(
-                    text=f"{target_name} is slain!",
+                    text=t("combat.slain", target=target_name),
                 ))
 
                 # Drop loot before destroying
@@ -190,8 +192,8 @@ class MeleeAttackAction(Action):
                                 names.append(d.name)
                         if names:
                             events.append(MessageEvent(
-                                text=f"{target_name} drops: "
-                                     f"{', '.join(names)}.",
+                                text=t("combat.drops", target=target_name,
+                                       items=", ".join(names)),
                             ))
 
                 # Leave a corpse marker, then destroy
@@ -214,7 +216,8 @@ class MeleeAttackAction(Action):
                 damage=0, hit=False,
             ))
             events.append(MessageEvent(
-                text=f"{attacker_name} misses {target_name}.",
+                text=t("combat.miss", attacker=attacker_name,
+                       target=target_name),
             ))
 
         return events
@@ -252,7 +255,7 @@ class PickupItemAction(Action):
         item_name = _entity_name(world, self.item)
         events.append(ItemPickedUp(entity=self.actor, item=self.item))
         events.append(MessageEvent(
-            text=f"Picked up {item_name}.",
+            text=t("item.picked_up", item=item_name),
         ))
 
         # Auto-equip weapon if nothing equipped
@@ -261,7 +264,7 @@ class PickupItemAction(Action):
         if wpn and equip and equip.weapon is None:
             equip.weapon = self.item
             events.append(MessageEvent(
-                text=f"Equipped {item_name}.",
+                text=t("item.equipped", item=item_name),
             ))
 
         return events
@@ -294,7 +297,7 @@ class UseItemAction(Action):
             if health:
                 if health.current >= health.maximum:
                     events.append(MessageEvent(
-                        text="Already at full health.",
+                        text=t("item.full_health"),
                     ))
                     return events
                 amount = roll_dice(consumable.dice)
@@ -303,7 +306,8 @@ class UseItemAction(Action):
                     entity=self.actor, item=self.item, effect="heal",
                 ))
                 events.append(MessageEvent(
-                    text=f"Quaff {item_name}. Healed {actual} HP.",
+                    text=t("item.quaff_heal", item=item_name,
+                           amount=actual),
                 ))
 
         elif consumable.effect == "damage_nearest":
@@ -313,7 +317,7 @@ class UseItemAction(Action):
 
         else:
             events.append(MessageEvent(
-                text=f"Nothing happens.",
+                text=t("item.nothing_happens"),
             ))
             consumed = False
 
@@ -350,7 +354,7 @@ class DescendStairsAction(Action):
                 level_id=level.id,
                 depth=level.depth + 1,
             ),
-            MessageEvent(text="You descend deeper into the dungeon..."),
+            MessageEvent(text=t("explore.descend")),
         ]
 
 
@@ -370,14 +374,13 @@ class LookAction(Action):
 
         # Describe tile feature
         if tile and tile.feature:
-            feature_names = {
-                "stairs_up": "stairs leading up",
-                "stairs_down": "stairs leading down",
-                "door_open": "an open door",
-                "door_closed": "a closed door",
-            }
-            fname = feature_names.get(tile.feature, tile.feature)
-            events.append(MessageEvent(text=f"You see {fname} here."))
+            fname = t(f"feature.{tile.feature}")
+            # Fallback to raw feature name if no translation
+            if fname == f"feature.{tile.feature}":
+                fname = tile.feature
+            events.append(MessageEvent(
+                text=t("explore.see_feature", feature=fname),
+            ))
 
         # Describe items on tile
         items = _items_at(world, pos.x, pos.y, self.actor)
@@ -386,7 +389,9 @@ class LookAction(Action):
             if desc and desc.long:
                 events.append(MessageEvent(text=desc.long))
             elif desc:
-                events.append(MessageEvent(text=f"You see {desc.short}."))
+                events.append(MessageEvent(
+                    text=t("explore.see_item", item=desc.short),
+                ))
 
         # Describe visible creatures
         for eid, _, cpos in world.query("AI", "Position"):
@@ -401,19 +406,20 @@ class LookAction(Action):
                     if health:
                         pct = health.current / health.maximum
                         if pct >= 1.0:
-                            hp_desc = " (uninjured)"
+                            hp_desc = t("health_status.uninjured")
                         elif pct > 0.5:
-                            hp_desc = " (lightly wounded)"
+                            hp_desc = t("health_status.lightly_wounded")
                         elif pct > 0.25:
-                            hp_desc = " (badly wounded)"
+                            hp_desc = t("health_status.badly_wounded")
                         else:
-                            hp_desc = " (near death)"
+                            hp_desc = t("health_status.near_death")
                     events.append(MessageEvent(
-                        text=f"You see {desc.short}{hp_desc}.",
+                        text=t("explore.see_creature",
+                               creature=desc.short, status=hp_desc),
                     ))
 
         if not events:
-            events.append(MessageEvent(text="Nothing special here."))
+            events.append(MessageEvent(text=t("explore.nothing_special")))
 
         return events
 
@@ -459,7 +465,7 @@ def _entity_name(world: "World", eid: int) -> str:
         return desc.name
     player = world.get_component(eid, "Player")
     if player is not None:
-        return "You"
+        return t("game.player_name")
     return "something"
 
 
@@ -491,14 +497,17 @@ def _announce_ground_items(
     if len(items) == 1:
         desc = world.get_component(items[0], "Description")
         name = desc.short if desc else "something"
-        events.append(MessageEvent(text=f"You see {name} here."))
+        events.append(MessageEvent(
+            text=t("explore.see_item", item=name),
+        ))
     else:
         names = []
         for eid in items:
             desc = world.get_component(eid, "Description")
             names.append(desc.name if desc else "???")
         events.append(MessageEvent(
-            text=f"You see {len(items)} items here: {', '.join(names)}.",
+            text=t("explore.see_items", count=len(items),
+                   items=", ".join(names)),
         ))
     return events
 
@@ -526,7 +535,8 @@ def _check_traps(
 
         if save_roll + dex_bonus >= trap.dc:
             events.append(MessageEvent(
-                text=f"{entity_name} notices {trap_name} and avoids it!",
+                text=t("trap.avoided", entity=entity_name,
+                       trap=trap_name),
             ))
         else:
             damage = roll_dice(trap.damage)
@@ -537,8 +547,8 @@ def _check_traps(
                     entity=entity_id, damage=actual, trap_name=trap_name,
                 ))
                 events.append(MessageEvent(
-                    text=f"{entity_name} falls into {trap_name}! "
-                         f"{actual} damage!",
+                    text=t("trap.triggered", entity=entity_name,
+                           trap=trap_name, damage=actual),
                 ))
 
         trap.triggered = True
@@ -577,7 +587,7 @@ def _use_damage_nearest(
                 best_eid = eid
 
     if best_eid is None:
-        events.append(MessageEvent(text="No target in sight!"))
+        events.append(MessageEvent(text=t("item.no_target")))
         return events
 
     damage = roll_dice(consumable.dice)
@@ -590,14 +600,14 @@ def _use_damage_nearest(
             entity=actor, item=item, effect="damage_nearest",
         ))
         events.append(MessageEvent(
-            text=f"Lightning from {item_name} strikes {target_name} "
-                 f"for {actual} damage!",
+            text=t("item.lightning_strike", item=item_name,
+                   target=target_name, damage=actual),
         ))
 
         if is_dead(target_health):
             events.append(CreatureDied(entity=best_eid, killer=actor))
             events.append(MessageEvent(
-                text=f"{target_name} is destroyed!",
+                text=t("combat.destroyed", target=target_name),
             ))
             world.destroy_entity(best_eid)
 

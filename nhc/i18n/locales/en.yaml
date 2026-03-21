@@ -1,0 +1,173 @@
+# NHC English locale — authoritative string catalog
+# Keys use dotted notation: section.subsection.key
+# Use {name} for interpolation placeholders
+
+# ── Combat ────────────────────────────────────────────────────────────
+combat:
+  hit: "{attacker} hits {target} for {damage} damage."
+  miss: "{attacker} misses {target}."
+  slain: "{target} is slain!"
+  destroyed: "{target} is destroyed!"
+  drops: "{target} drops: {items}."
+  unarmed: "unarmed"
+
+# ── Movement & Exploration ────────────────────────────────────────────
+explore:
+  open_door: "{actor} opens a door."
+  see_item: "You see {item} here."
+  see_items: "You see {count} items here: {items}."
+  see_feature: "You see {feature} here."
+  see_creature: "You see {creature}{status}."
+  nothing_special: "Nothing special here."
+  spot_creature: "You spot {creature}!"
+  descend: "You descend deeper into the dungeon..."
+
+# ── Health status descriptions ────────────────────────────────────────
+health_status:
+  uninjured: " (uninjured)"
+  lightly_wounded: " (lightly wounded)"
+  badly_wounded: " (badly wounded)"
+  near_death: " (near death)"
+
+# ── Feature names ─────────────────────────────────────────────────────
+feature:
+  stairs_up: "stairs leading up"
+  stairs_down: "stairs leading down"
+  door_open: "an open door"
+  door_closed: "a closed door"
+
+# ── Items & Inventory ─────────────────────────────────────────────────
+item:
+  picked_up: "Picked up {item}."
+  equipped: "Equipped {item}."
+  full_inventory: "Inventory is full!"
+  nothing_to_pickup: "Nothing to pick up here."
+  full_health: "Already at full health."
+  quaff_heal: "Quaff {item}. Healed {amount} HP."
+  nothing_happens: "Nothing happens."
+  no_target: "No target in sight!"
+  lightning_strike: "Lightning from {item} strikes {target} for {damage} damage!"
+
+# ── Traps ─────────────────────────────────────────────────────────────
+trap:
+  avoided: "{entity} notices {trap} and avoids it!"
+  triggered: "{entity} falls into {trap}! {damage} damage!"
+
+# ── Game state ────────────────────────────────────────────────────────
+game:
+  welcome: "Welcome to {name}."
+  died: "You have died!"
+  slain_by: "You were slain by {killer}!"
+  game_saved: "Game saved."
+  save_failed: "Save failed: {error}"
+  no_save: "No save file found."
+  game_loaded: "Game loaded."
+  load_failed: "Load failed: {error}"
+  xp_gained: "+{xp} XP"
+  player_name: "You"
+
+# ── Level up ──────────────────────────────────────────────────────────
+levelup:
+  with_ability: "Level {level}! +{hp} HP, +1 {ability}."
+  no_ability: "Level {level}! +{hp} HP."
+
+# ── UI labels ─────────────────────────────────────────────────────────
+ui:
+  depth: "Depth"
+  turn: "Turn"
+  empty: "empty"
+  scroll_hint: "scroll"
+  esc_cancel: "  ESC to cancel"
+  inventory_title: "Inventory (ESC to close)"
+  use_which: "Use which item?"
+  victory_title: "VICTORY!"
+  victory_desc: "You have descended deeper into the dungeon."
+  death_title: "YOU DIED"
+  death_desc: "Your adventure ends here."
+  end_footer: "Survived {turn} turns. Press any key to exit."
+
+# ── Creature descriptions ────────────────────────────────────────────
+creature:
+  goblin:
+    name: "Goblin"
+    short: "a snarling goblin"
+    long: >-
+      A wiry, green-skinned creature with yellowed fangs
+      and a rusty blade.
+  skeleton:
+    name: "Skeleton"
+    short: "a rattling skeleton"
+    long: >-
+      Bleached bones held together by dark magic,
+      wielding a notched blade.
+  rat:
+    name: "Giant Rat"
+    short: "a giant rat"
+    long: >-
+      A mangy rat the size of a dog, its eyes gleaming
+      with feral hunger.
+  orc:
+    name: "Orc"
+    short: "a hulking orc"
+    long: >-
+      A muscular brute with tusks and crude iron armor.
+      It grunts aggressively.
+  zombie:
+    name: "Zombie"
+    short: "a shambling zombie"
+    long: >-
+      A decomposing corpse that refuses to stay dead.
+      The stench is overwhelming.
+
+# ── Item descriptions ─────────────────────────────────────────────────
+items:
+  sword:
+    name: "Sword"
+    short: "a steel sword"
+    long: >-
+      A well-balanced blade of tempered steel, worn but sharp.
+  dagger:
+    name: "Dagger"
+    short: "a sharp dagger"
+    long: >-
+      A short blade with a leather-wrapped grip.
+      Quick to draw, quick to cut.
+  short_sword:
+    name: "Short Sword"
+    short: "a short sword"
+    long: >-
+      A compact blade favored by skirmishers.
+      Well-suited for close quarters.
+  healing_potion:
+    name: "Healing Potion"
+    short: "a crimson potion"
+    long: >-
+      A small glass vial filled with a glowing red liquid.
+      It smells faintly of iron and herbs.
+  gold:
+    name: "Gold"
+    short: "a pile of gold coins"
+    long: >-
+      Tarnished coins bearing an unfamiliar crest.
+      Still good enough to spend.
+  shield:
+    name: "Shield"
+    short: "a wooden shield"
+    long: >-
+      A round wooden shield reinforced with iron bands.
+      Grants +1 armor defense.
+  scroll_lightning:
+    name: "Scroll of Lightning"
+    short: "a crackling scroll"
+    long: >-
+      A parchment scroll inscribed with arcane symbols.
+      Lightning arcs between the letters.
+
+# ── Feature descriptions ─────────────────────────────────────────────
+features:
+  trap_pit:
+    name: "Pit Trap"
+    short: "a concealed pit"
+    long: >-
+      The flagstones here look subtly different — lighter,
+      as if placed more recently.

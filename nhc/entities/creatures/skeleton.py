@@ -4,6 +4,7 @@ from nhc.entities.components import (
     AI, Description, Health, LootTable, Renderable, Stats,
 )
 from nhc.entities.registry import EntityRegistry
+from nhc.i18n import t
 
 
 @EntityRegistry.register_creature("skeleton")
@@ -17,9 +18,8 @@ def create_skeleton() -> dict:
         "LootTable": LootTable(entries=[("gold", 0.5, "1d6"),
                                         ("short_sword", 0.2)]),
         "Description": Description(
-            name="Skeleton",
-            short="a rattling skeleton",
-            long="Bleached bones held together by dark magic, "
-                 "wielding a notched blade.",
+            name=t("creature.skeleton.name"),
+            short=t("creature.skeleton.short"),
+            long=t("creature.skeleton.long"),
         ),
     }

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.entities.components import Health, Player, Stats
+from nhc.i18n import t
 from nhc.utils.rng import roll_dice
 
 if TYPE_CHECKING:
@@ -66,12 +67,13 @@ def check_level_up(world: "World", player_id: int) -> list[str]:
             old_val = getattr(stats, ability)
             setattr(stats, ability, old_val + 1)
             messages.append(
-                f"Level {player.level}! +{hp_gain} HP, "
-                f"+1 {ability.upper()}.",
+                t("levelup.with_ability", level=player.level,
+                  hp=hp_gain, ability=ability.upper()),
             )
         else:
             messages.append(
-                f"Level {player.level}! +{hp_gain} HP.",
+                t("levelup.no_ability", level=player.level,
+                  hp=hp_gain),
             )
 
     return messages

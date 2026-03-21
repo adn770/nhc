@@ -4,6 +4,7 @@ from nhc.entities.components import (
     AI, Description, Health, LootTable, Renderable, Stats,
 )
 from nhc.entities.registry import EntityRegistry
+from nhc.i18n import t
 
 
 @EntityRegistry.register_creature("zombie")
@@ -16,9 +17,8 @@ def create_zombie() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=12, faction="undead"),
         "LootTable": LootTable(entries=[("gold", 0.3, "1d6")]),
         "Description": Description(
-            name="Zombie",
-            short="a shambling zombie",
-            long="A decomposing corpse that refuses to stay dead. "
-                 "The stench is overwhelming.",
+            name=t("creature.zombie.name"),
+            short=t("creature.zombie.short"),
+            long=t("creature.zombie.long"),
         ),
     }

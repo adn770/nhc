@@ -4,6 +4,7 @@ from nhc.entities.components import (
     AI, Description, Health, LootTable, Renderable, Stats,
 )
 from nhc.entities.registry import EntityRegistry
+from nhc.i18n import t
 
 
 @EntityRegistry.register_creature("rat")
@@ -15,9 +16,8 @@ def create_rat() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=4, faction="vermin"),
         "LootTable": LootTable(entries=[]),
         "Description": Description(
-            name="Giant Rat",
-            short="a giant rat",
-            long="A mangy rat the size of a dog, its eyes gleaming "
-                 "with feral hunger.",
+            name=t("creature.rat.name"),
+            short=t("creature.rat.short"),
+            long=t("creature.rat.long"),
         ),
     }

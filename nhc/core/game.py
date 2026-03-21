@@ -24,6 +24,7 @@ from nhc.core.events import (
     PlayerDied,
 )
 from nhc.dungeon.loader import get_player_start, load_level
+from nhc.i18n import t
 from nhc.dungeon.model import Level
 from nhc.entities.components import (
     BlocksMovement,
@@ -113,7 +114,7 @@ class Game:
             "Health": Health(current=12, maximum=12),
             "Inventory": Inventory(max_slots=12),
             "Player": Player(),
-            "Description": Description(name="You"),
+            "Description": Description(name=t("game.player_name")),
             "Equipment": Equipment(),
         })
 
@@ -133,7 +134,7 @@ class Game:
         self.renderer.initialize()
 
         # Welcome message
-        self.renderer.add_message(f"Welcome to {self.level.name}.")
+        self.renderer.add_message(t("game.welcome", name=self.level.name))
         if self.level.metadata.ambient:
             self.renderer.add_message(self.level.metadata.ambient)
 
@@ -209,7 +210,8 @@ class Game:
                     desc = self.world.get_component(eid, "Description")
                     if desc:
                         self.renderer.add_message(
-                            f"You spot {desc.short}!",
+                            t("explore.spot_creature",
+                              creature=desc.short),
                         )
             else:
                 self._seen_creatures.discard(eid)
@@ -271,9 +273,9 @@ class Game:
                         )
                         if desc:
                             self.killed_by = desc.name
-                death_msg = "You have died!"
+                death_msg = t("game.died")
                 if self.killed_by:
-                    death_msg = f"You were slain by {self.killed_by}!"
+                    death_msg = t("game.slain_by", killer=self.killed_by)
                 self.renderer.add_message(death_msg)
                 self.renderer.render(
                     self.world, self.level, self.player_id, self.turn,
@@ -364,10 +366,10 @@ class Game:
         # Check if inventory is full
         inv = self.world.get_component(self.player_id, "Inventory")
         if inv and len(inv.slots) >= inv.max_slots:
-            self.renderer.add_message("Inventory is full!")
+            self.renderer.add_message(t("item.full_inventory"))
             return None
 
-        self.renderer.add_message("Nothing to pick up here.")
+        self.renderer.add_message(t("item.nothing_to_pickup"))
         return None
 
     def _find_use_action(self) -> "Action | None":
@@ -393,15 +395,15 @@ class Game:
                 self.world, self.level, self.player_id,
                 self.turn, self.renderer.messages,
             )
-            self.renderer.add_message(f"Game saved.")
+            self.renderer.add_message(t("game.game_saved"))
         except Exception as e:
-            self.renderer.add_message(f"Save failed: {e}")
+            self.renderer.add_message(t("game.save_failed", error=e))
 
     def _load_game(self) -> None:
         """Load game state from save file."""
         from nhc.core.save import has_save, load_game
         if not has_save():
-            self.renderer.add_message("No save file found.")
+            self.renderer.add_message(t("game.no_save"))
             return
         try:
             world, level, player_id, turn, messages = load_game()
@@ -412,9 +414,9 @@ class Game:
             self.renderer.messages = messages
             self._seen_creatures.clear()
             self._update_fov()
-            self.renderer.add_message("Game loaded.")
+            self.renderer.add_message(t("game.game_loaded"))
         except Exception as e:
-            self.renderer.add_message(f"Load failed: {e}")
+            self.renderer.add_message(t("game.load_failed", error=e))
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a new dungeon level."""
@@ -470,7 +472,7 @@ class Game:
 
         xp = award_xp(self.world, self.player_id, event.entity)
         if xp > 0:
-            self.renderer.add_message(f"+{xp} XP")
+            self.renderer.add_message(t("game.xp_gained", xp=xp))
 
         level_msgs = check_level_up(self.world, self.player_id)
         for msg in level_msgs:

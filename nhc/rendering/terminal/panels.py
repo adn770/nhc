@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from nhc.i18n import t as tr
+
 if TYPE_CHECKING:
     from blessed import Terminal
 
@@ -66,8 +68,8 @@ def render_status(
 
     line1 = (
         f" 📍 {term.bold(level_name)}"
-        f"{SEP}⬇ Depth {depth}"
-        f"{SEP}⏳ Turn {turn}"
+        f"{SEP}⬇ {tr('ui.depth')} {depth}"
+        f"{SEP}⏳ {tr('ui.turn')} {turn}"
         f"{SEP}Lv {plevel} ({xp}/{xp_next} XP)"
         f"{SEP}❤️  {bar} {hp_color(str(hp))}/{hp_max}"
     )
@@ -93,7 +95,7 @@ def render_status(
     # ── Line 3: Inventory ──
     count = len(items)
     if count == 0:
-        inv_detail = term.bright_black("empty")
+        inv_detail = term.bright_black(tr("ui.empty"))
     else:
         parts = []
         for name in items:
@@ -125,7 +127,7 @@ def render_messages(
     scroll_hint = ""
     total = len(messages)
     if scroll_offset > 0:
-        scroll_hint = f" ↑↓ scroll ({total - scroll_offset}-{total})"
+        scroll_hint = f" ↑↓ {tr('ui.scroll_hint')} ({total - scroll_offset}-{total})"
     sep_line = H_LINE * (width - len(scroll_hint)) + scroll_hint
     output += term.move_xy(0, y) + term.bright_black(sep_line)
 
