@@ -37,6 +37,9 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     # Message scroll
     "[": ("scroll_up", None),
     "]": ("scroll_down", None),
+    # Save/Load
+    "S": ("save", None),
+    "L": ("load", None),
     # Quit
     "q": ("quit", None),
     "Q": ("quit", None),

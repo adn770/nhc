@@ -325,6 +325,14 @@ class Game:
             self.renderer.scroll_messages(-1)
             return None
 
+        if intent == "save":
+            self._save_game()
+            return None
+
+        if intent == "load":
+            self._load_game()
+            return None
+
         if intent == "quit":
             self.running = False
             return None
@@ -372,6 +380,37 @@ class Game:
         self.renderer.show_inventory_menu(
             self.world, self.player_id, "Inventory (ESC to close)",
         )
+
+    def _save_game(self) -> None:
+        """Save current game state."""
+        from nhc.core.save import save_game
+        try:
+            path = save_game(
+                self.world, self.level, self.player_id,
+                self.turn, self.renderer.messages,
+            )
+            self.renderer.add_message(f"Game saved.")
+        except Exception as e:
+            self.renderer.add_message(f"Save failed: {e}")
+
+    def _load_game(self) -> None:
+        """Load game state from save file."""
+        from nhc.core.save import has_save, load_game
+        if not has_save():
+            self.renderer.add_message("No save file found.")
+            return
+        try:
+            world, level, player_id, turn, messages = load_game()
+            self.world = world
+            self.level = level
+            self.player_id = player_id
+            self.turn = turn
+            self.renderer.messages = messages
+            self._seen_creatures.clear()
+            self._update_fov()
+            self.renderer.add_message("Game loaded.")
+        except Exception as e:
+            self.renderer.add_message(f"Load failed: {e}")
 
     def _on_message(self, event: MessageEvent) -> None:
         """Handle message events by adding to renderer log."""
