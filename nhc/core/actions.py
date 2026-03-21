@@ -23,12 +23,15 @@ from nhc.entities.components import (
     Equipment,
     Health,
     Inventory,
+    LootTable,
     Position,
+    Renderable,
     Stats,
     Trap,
     Weapon,
 )
 from nhc.rules.combat import apply_damage, heal, is_dead, resolve_melee_attack
+from nhc.rules.loot import generate_loot
 from nhc.utils.rng import d20, roll_dice
 from nhc.utils.spatial import adjacent
 
@@ -78,7 +81,6 @@ class MoveAction(Action):
         tile = level.tile_at(nx, ny)
         if not tile:
             return False
-        # Closed doors can be bumped open
         if tile.feature == "door_closed":
             return True
         return tile.walkable
@@ -97,13 +99,12 @@ class MoveAction(Action):
             events.append(MessageEvent(
                 text=f"{actor_desc} opens a door.",
             ))
-            # Opening a door costs the move — don't step into the tile
             return events
 
         # Check for blocking creatures at target
         for eid, _, bpos in world.query("BlocksMovement", "Position"):
             if bpos.x == nx and bpos.y == ny and eid != self.actor:
-                return []  # Blocked
+                return []
 
         # Move
         pos.x = nx
@@ -111,6 +112,10 @@ class MoveAction(Action):
 
         # Check for traps
         events += _check_traps(world, level, self.actor, nx, ny)
+
+        # Announce items on ground (player only)
+        if world.has_component(self.actor, "Player"):
+            events += _announce_ground_items(world, nx, ny, self.actor)
 
         return events
 
@@ -169,7 +174,39 @@ class MeleeAttackAction(Action):
                 events.append(MessageEvent(
                     text=f"{target_name} is slain!",
                 ))
-                # Remove dead creature from world
+
+                # Drop loot before destroying
+                tpos = world.get_component(self.target, "Position")
+                loot = world.get_component(self.target, "LootTable")
+                if loot and tpos:
+                    dropped = generate_loot(
+                        world, loot, tpos.x, tpos.y, tpos.level_id,
+                    )
+                    if dropped:
+                        names = []
+                        for did in dropped:
+                            d = world.get_component(did, "Description")
+                            if d:
+                                names.append(d.name)
+                        if names:
+                            events.append(MessageEvent(
+                                text=f"{target_name} drops: "
+                                     f"{', '.join(names)}.",
+                            ))
+
+                # Leave a corpse marker, then destroy
+                if tpos:
+                    corpse_name = f"{target_name} corpse"
+                    world.create_entity({
+                        "Position": Position(
+                            x=tpos.x, y=tpos.y, level_id=tpos.level_id,
+                        ),
+                        "Renderable": Renderable(
+                            glyph="%", color="bright_red", render_order=0,
+                        ),
+                        "Description": Description(name=corpse_name),
+                    })
+
                 world.destroy_entity(self.target)
         else:
             events.append(CreatureAttacked(
@@ -189,12 +226,14 @@ class PickupItemAction(Action):
     def __init__(self, actor: int, item: int) -> None:
         super().__init__(actor)
         self.item = item
+        self.full = False
 
     async def validate(self, world: "World", level: "Level") -> bool:
         inv = world.get_component(self.actor, "Inventory")
         if not inv:
             return False
         if len(inv.slots) >= inv.max_slots:
+            self.full = True
             return False
         item_pos = world.get_component(self.item, "Position")
         actor_pos = world.get_component(self.actor, "Position")
@@ -251,18 +290,27 @@ class UseItemAction(Action):
         if consumable.effect == "heal":
             health = world.get_component(self.actor, "Health")
             if health:
+                if health.current >= health.maximum:
+                    events.append(MessageEvent(
+                        text=f"Already at full health.",
+                    ))
+                    return events
                 amount = roll_dice(consumable.dice)
                 actual = heal(health, amount)
                 events.append(ItemUsed(
                     entity=self.actor, item=self.item, effect="heal",
                 ))
                 events.append(MessageEvent(
-                    text=f"Used {item_name}. Healed {actual} HP.",
+                    text=f"Quaff {item_name}. Healed {actual} HP.",
                 ))
 
         # Remove item from inventory and world
         if self.item in inv.slots:
             inv.slots.remove(self.item)
+        # Unequip if it was equipped
+        equip = world.get_component(self.actor, "Equipment")
+        if equip and equip.weapon == self.item:
+            equip.weapon = None
         world.destroy_entity(self.item)
 
         return events
@@ -283,6 +331,70 @@ class DescendStairsAction(Action):
             GameWon(message="You descend deeper into the dungeon..."),
             MessageEvent(text="You descend the stairs. Victory!"),
         ]
+
+
+class LookAction(Action):
+    """Examine the current tile and surroundings."""
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return events
+
+        tile = level.tile_at(pos.x, pos.y)
+
+        # Describe tile feature
+        if tile and tile.feature:
+            feature_names = {
+                "stairs_up": "stairs leading up",
+                "stairs_down": "stairs leading down",
+                "door_open": "an open door",
+                "door_closed": "a closed door",
+            }
+            fname = feature_names.get(tile.feature, tile.feature)
+            events.append(MessageEvent(text=f"You see {fname} here."))
+
+        # Describe items on tile
+        items = _items_at(world, pos.x, pos.y, self.actor)
+        for eid in items:
+            desc = world.get_component(eid, "Description")
+            if desc and desc.long:
+                events.append(MessageEvent(text=desc.long))
+            elif desc:
+                events.append(MessageEvent(text=f"You see {desc.short}."))
+
+        # Describe visible creatures
+        for eid, _, cpos in world.query("AI", "Position"):
+            if cpos is None:
+                continue
+            ctile = level.tile_at(cpos.x, cpos.y)
+            if ctile and ctile.visible:
+                desc = world.get_component(eid, "Description")
+                health = world.get_component(eid, "Health")
+                if desc:
+                    hp_desc = ""
+                    if health:
+                        pct = health.current / health.maximum
+                        if pct >= 1.0:
+                            hp_desc = " (uninjured)"
+                        elif pct > 0.5:
+                            hp_desc = " (lightly wounded)"
+                        elif pct > 0.25:
+                            hp_desc = " (badly wounded)"
+                        else:
+                            hp_desc = " (near death)"
+                    events.append(MessageEvent(
+                        text=f"You see {desc.short}{hp_desc}.",
+                    ))
+
+        if not events:
+            events.append(MessageEvent(text="Nothing special here."))
+
+        return events
 
 
 class BumpAction(Action):
@@ -307,13 +419,16 @@ class BumpAction(Action):
         return MoveAction(actor=self.actor, dx=self.dx, dy=self.dy)
 
     async def validate(self, world: "World", level: "Level") -> bool:
-        return True  # Resolved action will validate itself
+        return True
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         resolved = self.resolve(world, level)
         if await resolved.validate(world, level):
             return await resolved.execute(world, level)
         return []
+
+
+# ── Helpers ──────────────────────────────────────────────────────────
 
 
 def _entity_name(world: "World", eid: int) -> str:
@@ -325,6 +440,46 @@ def _entity_name(world: "World", eid: int) -> str:
     if player is not None:
         return "You"
     return "something"
+
+
+def _items_at(
+    world: "World", x: int, y: int, exclude: int = -1,
+) -> list[int]:
+    """Find item entities at a given position."""
+    items: list[int] = []
+    for eid, _, ipos in world.query("Description", "Position"):
+        if ipos is None or eid == exclude:
+            continue
+        if ipos.x == x and ipos.y == y:
+            if (not world.has_component(eid, "AI")
+                    and not world.has_component(eid, "BlocksMovement")
+                    and not world.has_component(eid, "Trap")):
+                items.append(eid)
+    return items
+
+
+def _announce_ground_items(
+    world: "World", x: int, y: int, actor: int,
+) -> list[Event]:
+    """Generate messages for items lying on the ground at position."""
+    items = _items_at(world, x, y, exclude=actor)
+    if not items:
+        return []
+
+    events: list[Event] = []
+    if len(items) == 1:
+        desc = world.get_component(items[0], "Description")
+        name = desc.short if desc else "something"
+        events.append(MessageEvent(text=f"You see {name} here."))
+    else:
+        names = []
+        for eid in items:
+            desc = world.get_component(eid, "Description")
+            names.append(desc.name if desc else "???")
+        events.append(MessageEvent(
+            text=f"You see {len(items)} items here: {', '.join(names)}.",
+        ))
+    return events
 
 
 def _check_traps(
@@ -341,14 +496,14 @@ def _check_traps(
 
         # DEX save vs trap DC
         stats = world.get_component(entity_id, "Stats")
-        dex_defense = 10 + (stats.dexterity if stats else 0)
+        dex_bonus = stats.dexterity if stats else 0
         save_roll = d20()
 
         entity_name = _entity_name(world, entity_id)
         trap_desc = world.get_component(eid, "Description")
         trap_name = trap_desc.name if trap_desc else "a trap"
 
-        if save_roll + (stats.dexterity if stats else 0) >= trap.dc:
+        if save_roll + dex_bonus >= trap.dc:
             events.append(MessageEvent(
                 text=f"{entity_name} notices {trap_name} and avoids it!",
             ))

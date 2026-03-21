@@ -31,6 +31,7 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     "i": ("inventory", None),
     "a": ("use_item", None),
     ">": ("descend", None),
+    "x": ("look", None),
     ".": ("wait", None),
     "5": ("wait", None),
     # Message scroll

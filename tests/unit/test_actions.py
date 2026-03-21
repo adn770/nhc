@@ -5,21 +5,25 @@ import pytest
 from nhc.core.actions import (
     BumpAction,
     DescendStairsAction,
+    LookAction,
     MeleeAttackAction,
     MoveAction,
     PickupItemAction,
+    UseItemAction,
     WaitAction,
 )
 from nhc.core.ecs import World
 from nhc.core.events import CreatureAttacked, CreatureDied, ItemPickedUp, MessageEvent
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
+    AI,
     BlocksMovement,
     Consumable,
     Description,
     Equipment,
     Health,
     Inventory,
+    LootTable,
     Player,
     Position,
     Renderable,
@@ -296,3 +300,210 @@ class TestWaitAction:
         assert await action.validate(world, level)
         events = await action.execute(world, level)
         assert events == []
+
+
+class TestLookAction:
+    @pytest.mark.asyncio
+    async def test_look_nothing_special(self):
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+
+        action = LookAction(actor=pid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("Nothing special" in m for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_look_sees_stairs(self):
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][5].feature = "stairs_down"
+        pid = _make_player(world, x=5, y=5)
+
+        action = LookAction(actor=pid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("stairs" in m for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_look_sees_items(self):
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=5, y=5),
+            "Description": Description(
+                name="Potion", short="a healing potion",
+                long="A bubbling red potion.",
+            ),
+        })
+
+        action = LookAction(actor=pid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("bubbling" in m for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_look_sees_visible_creatures(self):
+        world = World()
+        level = _make_test_level()
+        # Mark tiles visible
+        for row in level.tiles:
+            for tile in row:
+                tile.visible = True
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "AI": AI(behavior="aggressive_melee"),
+            "Health": Health(current=4, maximum=4),
+            "Description": Description(name="Goblin", short="a goblin"),
+            "BlocksMovement": BlocksMovement(),
+        })
+
+        action = LookAction(actor=pid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("goblin" in m for m in msgs)
+        assert any("uninjured" in m for m in msgs)
+
+
+class TestGroundItemAnnouncement:
+    @pytest.mark.asyncio
+    async def test_move_announces_single_item(self):
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(
+                name="Dagger", short="a sharp dagger",
+            ),
+        })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("dagger" in m for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_move_announces_multiple_items(self):
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(name="Dagger"),
+        })
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(name="Gold"),
+        })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("2 items" in m for m in msgs)
+
+
+class TestCorpseAndLoot:
+    @pytest.mark.asyncio
+    async def test_killing_leaves_corpse(self):
+        world = World()
+        level = _make_test_level()
+        pid = world.create_entity({
+            "Position": Position(x=5, y=5),
+            "Stats": Stats(strength=20),
+            "Health": Health(current=10, maximum=10),
+            "Equipment": Equipment(),
+            "Description": Description(name="You"),
+        })
+        cid = world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Stats": Stats(strength=1, dexterity=1),
+            "Health": Health(current=1, maximum=1),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="Goblin"),
+            "Renderable": Renderable(glyph="g"),
+        })
+
+        action = MeleeAttackAction(actor=pid, target=cid)
+        events = await action.execute(world, level)
+
+        death_events = [e for e in events if isinstance(e, CreatureDied)]
+        assert len(death_events) == 1
+
+        # Check a corpse entity was created at the creature's position
+        corpse_found = False
+        for eid, rend, pos in world.query("Renderable", "Position"):
+            if rend.glyph == "%":
+                assert pos.x == 6
+                assert pos.y == 5
+                corpse_found = True
+        assert corpse_found
+
+    @pytest.mark.asyncio
+    async def test_killing_with_loot_drops_items(self):
+        world = World()
+        level = _make_test_level()
+        from nhc.entities.registry import EntityRegistry
+        EntityRegistry._items["test_loot"] = lambda: {
+            "Renderable": Renderable(glyph="!"),
+            "Description": Description(name="Loot Item"),
+        }
+
+        pid = world.create_entity({
+            "Position": Position(x=5, y=5),
+            "Stats": Stats(strength=20),
+            "Health": Health(current=10, maximum=10),
+            "Equipment": Equipment(),
+            "Description": Description(name="You"),
+        })
+        cid = world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Stats": Stats(strength=1, dexterity=1),
+            "Health": Health(current=1, maximum=1),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="Goblin"),
+            "Renderable": Renderable(glyph="g"),
+            "LootTable": LootTable(entries=[("test_loot", 1.0)]),
+        })
+
+        from nhc.utils.rng import set_seed
+        set_seed(42)
+
+        action = MeleeAttackAction(actor=pid, target=cid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("drops" in m for m in msgs)
+
+        del EntityRegistry._items["test_loot"]
+
+
+class TestUseItemAction:
+    @pytest.mark.asyncio
+    async def test_heal_at_full_hp_refused(self):
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        item_id = world.create_entity({
+            "Description": Description(name="Healing Potion"),
+            "Consumable": Consumable(effect="heal", dice="2d4"),
+        })
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(item_id)
+
+        action = UseItemAction(actor=pid, item=item_id)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("full health" in m for m in msgs)
+        # Item should not be consumed
+        assert item_id in inv.slots

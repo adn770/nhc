@@ -9,6 +9,7 @@ from nhc.ai.behavior import decide_action
 from nhc.core.actions import (
     BumpAction,
     DescendStairsAction,
+    LookAction,
     PickupItemAction,
     UseItemAction,
     WaitAction,
@@ -63,6 +64,8 @@ class Game:
         self.player_id: int = -1
         self.level: Level | None = None
         self.renderer = TerminalRenderer()
+        self._seen_creatures: set[int] = set()
+        self.killed_by: str = ""
 
     async def initialize(self, level_path: str | Path) -> None:
         """Set up initial game state from a level file."""
@@ -170,6 +173,22 @@ class Game:
                 tile.visible = True
                 tile.explored = True
 
+        # Announce newly spotted creatures
+        for eid, _, cpos in self.world.query("AI", "Position"):
+            if cpos is None:
+                continue
+            tile = self.level.tile_at(cpos.x, cpos.y)
+            if tile and tile.visible:
+                if eid not in self._seen_creatures:
+                    self._seen_creatures.add(eid)
+                    desc = self.world.get_component(eid, "Description")
+                    if desc:
+                        self.renderer.add_message(
+                            f"You spot {desc.short}!",
+                        )
+            else:
+                self._seen_creatures.discard(eid)
+
     async def run(self) -> None:
         """Main game loop."""
         self.running = True
@@ -217,7 +236,20 @@ class Game:
             health = self.world.get_component(self.player_id, "Health")
             if health and health.current <= 0:
                 self.game_over = True
-                self.renderer.add_message("You have died!")
+                # Find killer from events
+                from nhc.core.events import CreatureAttacked
+                for ev in events:
+                    if (isinstance(ev, CreatureAttacked)
+                            and ev.target == self.player_id and ev.hit):
+                        desc = self.world.get_component(
+                            ev.attacker, "Description",
+                        )
+                        if desc:
+                            self.killed_by = desc.name
+                death_msg = "You have died!"
+                if self.killed_by:
+                    death_msg = f"You were slain by {self.killed_by}!"
+                self.renderer.add_message(death_msg)
                 self.renderer.render(
                     self.world, self.level, self.player_id, self.turn,
                 )
@@ -258,6 +290,9 @@ class Game:
             self._show_inventory()
             return None
 
+        if intent == "look":
+            return LookAction(actor=self.player_id)
+
         if intent == "descend":
             return DescendStairsAction(actor=self.player_id)
 
@@ -292,6 +327,12 @@ class Game:
                     return PickupItemAction(
                         actor=self.player_id, item=eid,
                     )
+
+        # Check if inventory is full
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if inv and len(inv.slots) >= inv.max_slots:
+            self.renderer.add_message("Inventory is full!")
+            return None
 
         self.renderer.add_message("Nothing to pick up here.")
         return None
