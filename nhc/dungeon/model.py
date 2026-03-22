@@ -58,7 +58,7 @@ class Tile:
 
     @property
     def blocks_sight(self) -> bool:
-        if self.feature == "door_secret":
+        if self.feature in ("door_secret", "door_closed", "door_locked"):
             return True
         return self.terrain == Terrain.WALL
 

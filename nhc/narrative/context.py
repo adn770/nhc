@@ -94,15 +94,18 @@ class ContextBuilder:
         # Visible features (doors, stairs, water — NOT secret doors/hidden traps)
         visible_features = self._visible_features(level, pos)
 
-        # Visible entities (excluding player, excluding hidden traps)
-        visible = self._visible_entities(world, level, player_id)
+        # Entities split into seen (identified) and perceived (vague)
+        seen, perceived = self._categorize_entities(
+            world, level, player_id, location,
+        )
 
         return {
             "turn": turn,
             "player": player_data,
             "location": location,
             "surroundings": visible_features,
-            "visible_entities": visible,
+            "seen_entities": seen,
+            "perceived_entities": perceived,
             "recent_events": self.recent_events[-10:],
             "level": {
                 "name": level.name,
@@ -231,17 +234,38 @@ class ContextBuilder:
             parts.append("west")
         return " ".join(parts) if parts else "here"
 
-    def _visible_entities(
-        self, world: "World", level: "Level", player_id: int,
-    ) -> list[dict[str, Any]]:
-        """List visible non-player entities.
+    def _categorize_entities(
+        self,
+        world: "World",
+        level: "Level",
+        player_id: int,
+        location: dict[str, Any],
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        """Split entities into *seen* (identified) and *perceived* (vague).
 
-        Hidden traps are excluded — only things the player can see.
+        **Seen** — in the same room as the player, or within 3 tiles in
+        a corridor.  Full name, type, and direction.  The LLM can
+        describe these freely.
+
+        **Perceived** — on a visible tile but in a different room or
+        beyond close range.  No name or type — only a vague sensory
+        hint ("something", direction).  The LLM may hint at sounds or
+        movement but must NOT reveal what the entity is.
         """
-        entities = []
+        pos = world.get_component(player_id, "Position")
+        if not pos:
+            return [], []
+
+        player_room = location.get("id", "")
+        close_range = 3
+
+        seen: list[dict[str, Any]] = []
+        perceived: list[dict[str, Any]] = []
+
         for eid, desc, epos in world.query("Description", "Position"):
             if eid == player_id or epos is None:
                 continue
+
             tile = level.tile_at(epos.x, epos.y)
             if not tile or not tile.visible:
                 continue
@@ -251,20 +275,46 @@ class ContextBuilder:
             if trap and trap.hidden:
                 continue
 
+            dist = abs(epos.x - pos.x) + abs(epos.y - pos.y)
+            direction = self._relative_direction(
+                pos.x, pos.y, epos.x, epos.y,
+            )
+
             entity_type = "item"
             if world.has_component(eid, "AI"):
                 entity_type = "creature"
             elif trap:
                 entity_type = "trap"
 
-            entities.append({
-                "id": eid,
-                "type": entity_type,
-                "name": desc.name,
-                "direction": self._relative_direction(
-                    world.get_component(player_id, "Position").x,
-                    world.get_component(player_id, "Position").y,
-                    epos.x, epos.y,
-                ),
-            })
-        return entities
+            # Determine if entity is in the same room as the player
+            same_room = False
+            if player_room and player_room != "corridor":
+                entity_room = self._room_at(level, epos.x, epos.y)
+                same_room = (entity_room == player_room)
+
+            # Close range OR same room → fully seen
+            if same_room or dist <= close_range:
+                seen.append({
+                    "id": eid,
+                    "type": entity_type,
+                    "name": desc.name,
+                    "direction": direction,
+                })
+            else:
+                # Perceived but not identified
+                perceived.append({
+                    "hint": "something" if entity_type == "creature"
+                            else "an object",
+                    "direction": direction,
+                })
+
+        return seen, perceived
+
+    def _room_at(self, level: "Level", x: int, y: int) -> str:
+        """Return the room ID at a position, or empty string."""
+        for room in level.rooms:
+            r = room.rect
+            if (r.x <= x < r.x + r.width
+                    and r.y <= y < r.y + r.height):
+                return room.id
+        return ""
