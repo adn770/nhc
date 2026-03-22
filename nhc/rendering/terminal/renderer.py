@@ -88,13 +88,21 @@ class TerminalRenderer:
         _show_help(self.term)
 
     def add_message(self, text: str) -> None:
-        """Add a message to the log."""
+        """Add a message to the log.
+
+        In typed mode, messages also appear in the narrative log as
+        mechanical entries so the story stays complete regardless of
+        whether the action came from a shortcut key or typed text.
+        """
         logger.info("MSG: %s", text)
         self._messages.append(text)
         if len(self._messages) > 200:
             self._messages = self._messages[-200:]
         # Reset scroll to bottom on new message
         self._msg_scroll = 0
+        # Mirror to narrative log in typed mode
+        if self.game_mode == "typed":
+            self.narrative_log.add_mechanical(text)
 
     def scroll_messages(self, direction: int) -> None:
         """Scroll message log. direction: +1 = older, -1 = newer."""
