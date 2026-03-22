@@ -100,17 +100,16 @@ def action_plan_to_actions(
 ) -> list:
     """Convert parsed action dicts to Action objects."""
     from nhc.core.actions import (
+        BumpAction,
         CustomAction,
         DescendStairsAction,
         ImpossibleAction,
         LookAction,
         MeleeAttackAction,
-        MoveAction,
         PickupItemAction,
         UseItemAction,
         WaitAction,
     )
-    from nhc.entities.components import Position
 
     actions = []
     pos = world.get_component(actor, "Position")
@@ -121,8 +120,8 @@ def action_plan_to_actions(
         if action_type == "move":
             direction = item.get("direction", "")
             dx, dy = DIRECTIONS.get(direction, (0, 0))
-            if pos and (dx or dy):
-                actions.append(MoveAction(actor, pos.x + dx, pos.y + dy))
+            if dx or dy:
+                actions.append(BumpAction(actor, dx, dy))
 
         elif action_type == "attack":
             target = item.get("target")

@@ -91,14 +91,17 @@ class TerminalRenderer:
         _show_help(self.term)
 
     def add_message(self, text: str) -> None:
-        """Add a message to the log.
+        """Add a message to the log, word-wrapping long lines.
 
         In typed mode, messages also appear in the narrative log as
         mechanical entries so the story stays complete regardless of
         whether the action came from a shortcut key or typed text.
         """
         logger.info("MSG: %s", text)
-        self._messages.append(text)
+        # Word-wrap to terminal width (minus 2 for padding)
+        max_w = max(40, self.term.width - 2)
+        for line in self._wrap(text, max_w):
+            self._messages.append(line)
         if len(self._messages) > 200:
             self._messages = self._messages[-200:]
         # Reset scroll to bottom on new message
@@ -106,6 +109,25 @@ class TerminalRenderer:
         # Mirror to narrative log in typed mode
         if self.game_mode == "typed":
             self.narrative_log.add_mechanical(text)
+
+    @staticmethod
+    def _wrap(text: str, width: int) -> list[str]:
+        """Word-wrap text into lines that fit within width."""
+        lines: list[str] = []
+        for raw_line in text.split("\n"):
+            raw_line = raw_line.rstrip()
+            if not raw_line:
+                lines.append("")
+                continue
+            while len(raw_line) > width:
+                split = raw_line[:width].rfind(" ")
+                if split <= 0:
+                    split = width
+                lines.append(raw_line[:split])
+                raw_line = raw_line[split:].lstrip()
+            if raw_line:
+                lines.append(raw_line)
+        return lines or [""]
 
     def scroll_messages(self, direction: int) -> None:
         """Scroll message log. direction: +1 = older, -1 = newer."""
