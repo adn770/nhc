@@ -470,24 +470,34 @@ class TerminalRenderer:
             items.append((item_id, name))
 
         # Draw menu overlay with box
+        # Pad plain text BEFORE applying ANSI colors to avoid
+        # escape codes throwing off the right border alignment.
         menu_x = 5
         menu_y = 3
         menu_w = 40
+        inner = menu_w - 2  # space between │ and │
         output = ""
-        output += t.move_xy(menu_x, menu_y) + "╭" + "─" * (menu_w - 2) + "╮"
+        output += t.move_xy(menu_x, menu_y) + "╭" + "─" * inner + "╮"
+
+        title = f" 🎒 {prompt}"
         output += t.move_xy(menu_x, menu_y + 1)
-        output += "│" + t.bold(f" 🎒 {prompt}").ljust(menu_w + 10) + "│"
-        output += t.move_xy(menu_x, menu_y + 2) + "├" + "─" * (menu_w - 2) + "┤"
+        output += "│" + t.bold(title[:inner].ljust(inner)) + "│"
+
+        output += t.move_xy(menu_x, menu_y + 2) + "├" + "─" * inner + "┤"
         for i, (_, name) in enumerate(items):
             letter = chr(ord("a") + i)
-            line = f"│  {letter}) {name}"
-            output += t.move_xy(menu_x, menu_y + 3 + i) + line.ljust(menu_w - 1) + "│"
+            entry = f"  {letter}) {name}"
+            output += t.move_xy(menu_x, menu_y + 3 + i)
+            output += "│" + entry[:inner].ljust(inner) + "│"
+
         bot = menu_y + 3 + len(items)
-        output += t.move_xy(menu_x, bot) + "├" + "─" * (menu_w - 2) + "┤"
+        output += t.move_xy(menu_x, bot) + "├" + "─" * inner + "┤"
+
+        esc_text = tr("ui.esc_cancel")
         output += t.move_xy(menu_x, bot + 1)
-        esc_line = "│" + t.bright_black(tr("ui.esc_cancel")).ljust(menu_w + 10) + "│"
-        output += esc_line
-        output += t.move_xy(menu_x, bot + 2) + "╰" + "─" * (menu_w - 2) + "╯"
+        output += "│" + t.bright_black(esc_text[:inner].ljust(inner)) + "│"
+
+        output += t.move_xy(menu_x, bot + 2) + "╰" + "─" * inner + "╯"
         print(output, end="", flush=True)
 
         with t.cbreak():
