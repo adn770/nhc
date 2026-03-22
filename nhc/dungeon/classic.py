@@ -110,7 +110,11 @@ class ClassicGenerator(DungeonGenerator):
         points: list[tuple[int, int]] = []
         for x in range(min(x1, x2), max(x1, x2) + 1):
             if level.in_bounds(x, y):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                existing = level.tiles[y][x]
+                if existing.terrain != Terrain.FLOOR:
+                    level.tiles[y][x] = Tile(
+                        terrain=Terrain.FLOOR, is_corridor=True,
+                    )
                 points.append((x, y))
         return points
 
@@ -121,7 +125,11 @@ class ClassicGenerator(DungeonGenerator):
         points: list[tuple[int, int]] = []
         for y in range(min(y1, y2), max(y1, y2) + 1):
             if level.in_bounds(x, y):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                existing = level.tiles[y][x]
+                if existing.terrain != Terrain.FLOOR:
+                    level.tiles[y][x] = Tile(
+                        terrain=Terrain.FLOOR, is_corridor=True,
+                    )
                 points.append((x, y))
         return points
 

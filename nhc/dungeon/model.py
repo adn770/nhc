@@ -48,6 +48,7 @@ class Tile:
     feature: str | None = None  # door, stairs_up, stairs_down, trap, etc.
     explored: bool = False
     visible: bool = False
+    is_corridor: bool = False  # True for tunnel tiles (rendered as #)
 
     @property
     def walkable(self) -> bool:

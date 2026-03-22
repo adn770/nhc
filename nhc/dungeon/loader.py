@@ -20,7 +20,7 @@ from nhc.dungeon.model import (
 
 # Default legend mapping ASCII chars to terrain/features
 DEFAULT_LEGEND: dict[str, str] = {
-    "#": "wall",
+    "#": "corridor",
     ".": "floor",
     "+": "door_closed",
     "<": "stairs_up",
@@ -28,6 +28,10 @@ DEFAULT_LEGEND: dict[str, str] = {
     "~": "water",
     "^": "trap",
     " ": "void",
+    # Box-drawing wall characters
+    "─": "wall", "│": "wall",
+    "┌": "wall", "┐": "wall", "└": "wall", "┘": "wall",
+    "├": "wall", "┤": "wall", "┬": "wall", "┴": "wall", "┼": "wall",
 }
 
 # Map legend values to Terrain enum
@@ -51,6 +55,9 @@ FEATURE_TYPES: set[str] = {
 def _parse_tile(char: str, legend: dict[str, str]) -> Tile:
     """Convert a single ASCII character to a Tile using the legend."""
     meaning = legend.get(char, "void")
+
+    if meaning == "corridor":
+        return Tile(terrain=Terrain.FLOOR, is_corridor=True)
 
     if meaning in FEATURE_TYPES:
         return Tile(terrain=Terrain.FLOOR, feature=meaning)

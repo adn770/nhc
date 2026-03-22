@@ -16,7 +16,7 @@ class TestLoadLevel:
         assert level.name == "The Sunken Cellar"
         assert level.depth == 1
         assert level.width == 40
-        assert level.height == 20
+        assert level.height == 15
 
     def test_tile_grid_dimensions(self):
         level = load_level(LEVEL_PATH)
@@ -25,10 +25,10 @@ class TestLoadLevel:
 
     def test_walls_parsed(self):
         level = load_level(LEVEL_PATH)
-        # Top-left corner is a wall
+        # Top-left corner is a wall (box-drawing ┌)
         assert level.tile_at(0, 0).terrain == Terrain.WALL
-        # Border is walls
-        for x in range(level.width):
+        # Top border of entry room (x=0-7) is walls
+        for x in range(8):
             assert level.tile_at(x, 0).terrain == Terrain.WALL
 
     def test_floor_parsed(self):
@@ -40,7 +40,7 @@ class TestLoadLevel:
 
     def test_door_parsed_as_feature(self):
         level = load_level(LEVEL_PATH)
-        # Door between entry room and corridor at (7, 3) based on map
+        # Door between entry room and corridor at (7, 3)
         tile = level.tile_at(7, 3)
         assert tile.terrain == Terrain.FLOOR
         assert tile.feature == "door_closed"
@@ -52,15 +52,15 @@ class TestLoadLevel:
         assert tile.terrain == Terrain.FLOOR
         assert tile.feature == "stairs_up"
 
-        # Stairs down in exit chamber at (34, 4)
-        tile = level.tile_at(34, 4)
+        # Stairs down in exit chamber at (35, 4)
+        tile = level.tile_at(35, 4)
         assert tile.terrain == Terrain.FLOOR
         assert tile.feature == "stairs_down"
 
     def test_water_parsed(self):
         level = load_level(LEVEL_PATH)
-        # Cistern water at (24, 10) and (25, 10)
-        tile = level.tile_at(24, 10)
+        # Cistern water at (23, 11)
+        tile = level.tile_at(23, 11)
         assert tile.terrain == Terrain.WATER
         assert tile.walkable
 
@@ -71,12 +71,27 @@ class TestLoadLevel:
         assert tile.terrain == Terrain.VOID
         assert not tile.walkable
 
+    def test_corridor_parsed(self):
+        level = load_level(LEVEL_PATH)
+        # Corridor at y=3, x=8-19 (marked '#' in map)
+        tile = level.tile_at(12, 3)
+        assert tile.terrain == Terrain.FLOOR
+        assert tile.is_corridor
+        assert tile.walkable
+
+    def test_room_floor_not_corridor(self):
+        level = load_level(LEVEL_PATH)
+        # Room floor inside entry room should not be a corridor
+        tile = level.tile_at(3, 2)
+        assert tile.terrain == Terrain.FLOOR
+        assert not tile.is_corridor
+
     def test_rooms_loaded(self):
         level = load_level(LEVEL_PATH)
-        assert len(level.rooms) == 6
+        assert len(level.rooms) == 5
         room_ids = {r.id for r in level.rooms}
         assert room_ids == {
-            "entry", "hall", "guard_room",
+            "entry", "guard_room",
             "exit_chamber", "cistern", "armory",
         }
 
@@ -96,15 +111,15 @@ class TestLoadLevel:
 
     def test_room_connections(self):
         level = load_level(LEVEL_PATH)
-        hall = next(r for r in level.rooms if r.id == "hall")
-        assert "entry" in hall.connections
-        assert "guard_room" in hall.connections
+        guard = next(r for r in level.rooms if r.id == "guard_room")
+        assert "corridor_main" in guard.connections
+        assert "exit_chamber" in guard.connections
 
     def test_corridors_loaded(self):
         level = load_level(LEVEL_PATH)
-        assert len(level.corridors) == 1
-        assert level.corridors[0].id == "corridor_main"
-        assert level.corridors[0].connects == ["entry", "hall"]
+        assert len(level.corridors) == 4
+        main = next(c for c in level.corridors if c.id == "corridor_main")
+        assert main.connects == ["entry", "guard_room"]
 
     def test_entities_loaded(self):
         level = load_level(LEVEL_PATH)
@@ -122,9 +137,9 @@ class TestLoadLevel:
         level = load_level(LEVEL_PATH)
         skeleton = next(
             e for e in level.entities
-            if e.entity_id == "skeleton" and e.x == 25
+            if e.entity_id == "skeleton" and e.x == 24
         )
-        assert skeleton.y == 3
+        assert skeleton.y == 2
 
     def test_entity_extra_data(self):
         level = load_level(LEVEL_PATH)

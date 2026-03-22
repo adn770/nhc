@@ -23,7 +23,13 @@ from nhc.i18n import t as tr
 
 from nhc.core.ecs import World
 from nhc.dungeon.model import Level, Terrain
-from nhc.rendering.terminal.glyphs import FEATURE_GLYPHS, TERRAIN_GLYPHS
+from nhc.dungeon.model import Terrain
+from nhc.rendering.terminal.glyphs import (
+    CORRIDOR_GLYPH,
+    FEATURE_GLYPHS,
+    TERRAIN_GLYPHS,
+    wall_glyph,
+)
 from nhc.rendering.terminal.input import map_key_to_intent
 from nhc.rendering.terminal.panels import render_messages, render_status
 
@@ -171,10 +177,24 @@ class TerminalRenderer:
                         row_out += color_fn(glyph)
                         continue
 
-                # Terrain
-                glyph, color, dim_color = TERRAIN_GLYPHS.get(
-                    tile.terrain, ("?", "white", "bright_black"),
-                )
+                # Corridor tiles render as #
+                if tile.is_corridor:
+                    glyph, color, dim_color = CORRIDOR_GLYPH
+                elif tile.terrain == Terrain.WALL:
+                    nb_n = level.tile_at(mx, my - 1)
+                    nb_s = level.tile_at(mx, my + 1)
+                    nb_e = level.tile_at(mx + 1, my)
+                    nb_w = level.tile_at(mx - 1, my)
+                    cn = nb_n is not None and nb_n.terrain == Terrain.WALL
+                    cs = nb_s is not None and nb_s.terrain == Terrain.WALL
+                    ce = nb_e is not None and nb_e.terrain == Terrain.WALL
+                    cw = nb_w is not None and nb_w.terrain == Terrain.WALL
+                    _, color, dim_color = TERRAIN_GLYPHS[Terrain.WALL]
+                    glyph = wall_glyph(cn, cs, ce, cw)
+                else:
+                    glyph, color, dim_color = TERRAIN_GLYPHS.get(
+                        tile.terrain, ("?", "white", "bright_black"),
+                    )
                 if tile.visible:
                     color_fn = getattr(t, color, None) or t.white
                 else:
