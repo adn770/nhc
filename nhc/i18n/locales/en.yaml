@@ -17,6 +17,8 @@ combat:
   petrify_saved: "{target} averts their eyes just in time."
   paralyzed_turn: "You are paralyzed and cannot move!"
   sleeping_turn: "You sleep helplessly..."
+  miss_invisible: "{target} is invisible — your strike finds only air!"
+  mirror_absorbed: "Your blow strikes an image of {target} — it shatters! ({remaining} remain)"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -63,6 +65,21 @@ item:
   hold_no_humanoids: "No humanoids are in sight."
   fireball_cast: "A roaring ball of fire explodes!"
   fireball_hits: "{target} is scorched for {damage} damage!"
+  web_cast: "Sticky webs burst from the scroll!"
+  web_caught: "{target} is caught in the webs!"
+  charm_cast: "Words of glamour wash over your foes..."
+  charm_affects: "{target} looks at you with adoring eyes."
+  charm_no_target: "No creatures are close enough to charm."
+  bless_cast: "A warm radiance flows through you."
+  bless_active: "You feel blessed and fight with greater resolve!"
+  invis_cast: "You dissolve into the shadows."
+  invis_active: "You are invisible!"
+  haste_cast: "The world seems to slow as you speed up."
+  haste_active: "You move with blinding speed!"
+  protect_cast: "A ward of holy power settles over you."
+  protect_active: "Evil creatures struggle to harm you!"
+  mirror_cast: "Flickering copies of you appear!"
+  mirror_images: "{count} mirror images surround you."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -322,6 +339,54 @@ items:
     long: >-
       Warm to the touch and smelling of sulfur. A diagram
       depicts a 20-foot sphere of roaring flame.
+  scroll_web:
+    name: "Scroll of Web"
+    short: "a sticky scroll"
+    long: >-
+      Fine threads are woven between the letters of this scroll.
+      It fills a room with clinging webs that slow all who touch them.
+  scroll_charm_person:
+    name: "Scroll of Charm Person"
+    short: "a rose-tinted scroll"
+    long: >-
+      Calligraphed in rose ink with spiraling hearts and moons.
+      The words make one humanoid see you as a trusted friend.
+  scroll_bless:
+    name: "Scroll of Bless"
+    short: "a gilded scroll"
+    long: >-
+      Etched in gold leaf on white parchment. Reading it
+      fills allies with divine courage and martial resolve.
+  scroll_mirror_image:
+    name: "Scroll of Mirror Image"
+    short: "a silvered scroll"
+    long: >-
+      The parchment reflects your face back at you. Reading it
+      conjures 1d4 illusory duplicates to confuse attackers.
+  scroll_invisibility:
+    name: "Scroll of Invisibility"
+    short: "a translucent scroll"
+    long: >-
+      Nearly transparent parchment with faint words visible only
+      at certain angles. Reading it renders you unseen.
+  scroll_haste:
+    name: "Scroll of Haste"
+    short: "a blurred scroll"
+    long: >-
+      The letters seem to move as you read this scroll.
+      Haste doubles your attacks for 3 turns.
+  scroll_cure_wounds:
+    name: "Scroll of Cure Wounds"
+    short: "a green scroll"
+    long: >-
+      Written in soothing emerald ink. Reading it closes
+      minor wounds and restores 1d6+1 HP.
+  scroll_protection_evil:
+    name: "Scroll of Protection from Evil"
+    short: "a bright-blue scroll"
+    long: >-
+      Inscribed with holy wards and warding circles.
+      Grants +1 saves and hampers evil creatures for 12 turns.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

@@ -17,6 +17,8 @@ combat:
   petrify_saved: "{target} aparta la vista just a temps."
   paralyzed_turn: "Estàs paralitzat i no pots moure't!"
   sleeping_turn: "Dormes indefens..."
+  miss_invisible: "{target} és invisible — el teu cop no troba res!"
+  mirror_absorbed: "El teu cop impacta una imatge de {target} — es trenca! ({remaining} queden)"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -65,6 +67,21 @@ item:
   hold_no_humanoids: "No hi ha humanoides a la vista."
   fireball_cast: "Una bola de foc rugent explota!"
   fireball_hits: "{target} és calcinat per {damage} de dany!"
+  web_cast: "Teranyines enganxoses sorgeixen del pergamí!"
+  web_caught: "{target} queda atrapat en les teranyines!"
+  charm_cast: "Paraules de glamur embriaguen els teus enemics..."
+  charm_affects: "{target} et mira amb ulls adoradors."
+  charm_no_target: "No hi ha criatures prou properes per encantar."
+  bless_cast: "Una calidesa radiant t'omple."
+  bless_active: "Et sents beneït i combatre amb major convicció!"
+  invis_cast: "Et dissols en les ombres."
+  invis_active: "Ets invisible!"
+  haste_cast: "El món sembla alentir-se mentre tu t'acceleres."
+  haste_active: "Et mous a cegadora velocitat!"
+  protect_cast: "Un escudo de poder sagrat t'envolta."
+  protect_active: "Les criatures malvades lluiten per fer-te mal!"
+  mirror_cast: "Còpies parpellejants teves apareixen!"
+  mirror_images: "{count} imatges en mirall t'envolten."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -324,6 +341,54 @@ items:
     long: >-
       Calent al tacte i amb olor de sofre. Un diagrama
       mostra una esfera de flama de sis metres de diàmetre.
+  scroll_web:
+    name: "Pergamí de Teranyina"
+    short: "un pergamí enganxós"
+    long: >-
+      Fils fins estan teixits entre les lletres d'aquest pergamí.
+      Omple una sala de teranyines que paralitzen qui les toca.
+  scroll_charm_person:
+    name: "Pergamí d'Encantar Persona"
+    short: "un pergamí rosat"
+    long: >-
+      Cal·ligrafiat en tinta rosa amb espirals i llunes.
+      Les paraules fan que un humanoide et vegi com un amic de confiança.
+  scroll_bless:
+    name: "Pergamí de Benedicció"
+    short: "un pergamí daurat"
+    long: >-
+      Gravat en or sobre pergamí blanc. Llegir-lo
+      omple els aliats de coratge diví i determinació marcial.
+  scroll_mirror_image:
+    name: "Pergamí d'Imatge en Mirall"
+    short: "un pergamí platejat"
+    long: >-
+      El pergamí reflecteix la teva cara. Llegir-lo
+      conjura 1d4 duplicats il·lusoris per confondre els atacants.
+  scroll_invisibility:
+    name: "Pergamí d'Invisibilitat"
+    short: "un pergamí translúcid"
+    long: >-
+      Pergamí quasi transparent amb paraules visibles sols
+      a certs angles. Llegir-lo et torna invisible.
+  scroll_haste:
+    name: "Pergamí d'Acceleració"
+    short: "un pergamí borrós"
+    long: >-
+      Les lletres semblen moure's mentre llegeixes el pergamí.
+      L'acceleració dobla els teus atacs durant 3 torns.
+  scroll_cure_wounds:
+    name: "Pergamí de Curar Ferides"
+    short: "un pergamí verd"
+    long: >-
+      Escrit en tinta esmeralda tranquil·litzadora. Llegir-lo
+      tanca ferides menors i restaura 1d6+1 PV.
+  scroll_protection_evil:
+    name: "Pergamí de Protecció del Mal"
+    short: "un pergamí blau brillant"
+    long: >-
+      Inscrit amb guàrdies santes i cercles protectors.
+      Atorga +1 als salvaments i dificulta les criatures malvades durant 12 torns.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

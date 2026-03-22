@@ -171,6 +171,14 @@ class MeleeAttackAction(Action):
                 text=t("combat.petrify_saved", target=attacker_name),
             ))
 
+        # Invisible target: attacker misses automatically
+        t_status_pre = world.get_component(self.target, "StatusEffect")
+        if t_status_pre and t_status_pre.invisible > 0:
+            events.append(MessageEvent(
+                text=t("combat.miss_invisible", target=target_name),
+            ))
+            return events
+
         # Get weapon damage: inline Weapon (creatures) > equipped Weapon (player)
         weapon_damage = "1d4"  # Unarmed fallback
         inline_wpn = world.get_component(self.actor, "Weapon")
@@ -185,11 +193,25 @@ class MeleeAttackAction(Action):
 
         hit, damage = resolve_melee_attack(a_stats, t_stats, weapon_damage)
 
+        # Blessed attacker: +1 damage on a hit
+        a_status = world.get_component(self.actor, "StatusEffect")
+        if hit and a_status and a_status.blessed > 0:
+            damage += 1
+
         # Sleeping targets are auto-hit and wake on damage
         t_status = world.get_component(self.target, "StatusEffect")
         if t_status and t_status.sleeping > 0:
             t_status.sleeping = 0
             hit = True
+
+        # Mirror images absorb hits before real damage
+        if hit and t_status and t_status.mirror_images > 0:
+            t_status.mirror_images -= 1
+            events.append(MessageEvent(
+                text=t("combat.mirror_absorbed", target=target_name,
+                       remaining=t_status.mirror_images),
+            ))
+            return events
 
         if hit:
             actual = apply_damage(t_health, damage)
@@ -201,6 +223,10 @@ class MeleeAttackAction(Action):
                 text=t("combat.hit", attacker=attacker_name,
                        target=target_name, damage=actual),
             ))
+
+            # Attacking while invisible breaks the effect
+            if a_status and a_status.invisible > 0:
+                a_status.invisible = 0
 
             # DrainTouch: drain XP and reduce max HP on player
             if world.has_component(self.actor, "DrainTouch"):
@@ -389,6 +415,45 @@ class UseItemAction(Action):
         elif consumable.effect == "fireball":
             events += _use_fireball(
                 world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "web":
+            events += _use_web(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "charm_person":
+            events += _use_charm_person(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "bless":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "blessed",
+                t("item.bless_cast"), t("item.bless_active"),
+            )
+
+        elif consumable.effect == "mirror_image":
+            events += _use_mirror_image(
+                world, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "invisibility":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "invisible",
+                t("item.invis_cast"), t("item.invis_active"),
+            )
+
+        elif consumable.effect == "haste":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "hasted",
+                t("item.haste_cast"), t("item.haste_active"),
+            )
+
+        elif consumable.effect == "protection_evil":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "protected",
+                t("item.protect_cast"), t("item.protect_active"),
             )
 
         else:
@@ -898,4 +963,146 @@ def _use_damage_nearest(
             ))
             world.destroy_entity(best_eid)
 
+    return events
+
+
+def _use_web(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Entangle all visible creatures for consumable.dice turns."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.web_cast")))
+
+    duration = roll_dice(consumable.dice)
+    affected = 0
+
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        status = world.get_component(eid, "StatusEffect")
+        if status is None:
+            world.add_component(eid, "StatusEffect", StatusEffect(webbed=duration))
+        else:
+            status.webbed = duration
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(text=t("item.web_caught", target=name)))
+        affected += 1
+
+    if affected == 0:
+        events.append(MessageEvent(text=t("item.no_target")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="web"))
+    return events
+
+
+def _use_charm_person(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Charm the nearest visible non-undead humanoid for consumable.dice turns."""
+    from nhc.utils.spatial import chebyshev
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.charm_cast")))
+
+    try:
+        duration = int(consumable.dice)
+    except ValueError:
+        duration = 9
+
+    apos = world.get_component(actor, "Position")
+    if not apos:
+        return events
+
+    best_eid = None
+    best_dist = 999
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        if world.has_component(eid, "Undead"):
+            continue
+        dist = chebyshev(apos.x, apos.y, cpos.x, cpos.y)
+        if dist < best_dist:
+            best_dist = dist
+            best_eid = eid
+
+    if best_eid is None:
+        events.append(MessageEvent(text=t("item.charm_no_target")))
+        return events
+
+    status = world.get_component(best_eid, "StatusEffect")
+    if status is None:
+        world.add_component(best_eid, "StatusEffect", StatusEffect(charmed=duration))
+    else:
+        status.charmed = duration
+
+    name = _entity_name(world, best_eid)
+    events.append(MessageEvent(text=t("item.charm_affects", target=name)))
+    events.append(ItemUsed(entity=actor, item=item, effect="charm_person"))
+    return events
+
+
+def _use_self_buff(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    field: str,
+    cast_msg: str,
+    active_msg: str,
+) -> list[Event]:
+    """Apply a self-targeted buff (blessed/invisible/hasted/protected)."""
+    events: list[Event] = []
+    try:
+        duration = int(consumable.dice)
+    except ValueError:
+        duration = roll_dice(consumable.dice)
+
+    status = world.get_component(actor, "StatusEffect")
+    if status is None:
+        world.add_component(actor, "StatusEffect", StatusEffect(**{field: duration}))
+    else:
+        setattr(status, field, duration)
+
+    events.append(MessageEvent(text=cast_msg))
+    events.append(MessageEvent(text=active_msg))
+    events.append(ItemUsed(entity=actor, item=item, effect=consumable.effect))
+    return events
+
+
+def _use_mirror_image(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Create 1d4 illusory duplicates; each absorbs one incoming hit."""
+    events: list[Event] = []
+    count = roll_dice(consumable.dice)
+
+    status = world.get_component(actor, "StatusEffect")
+    if status is None:
+        world.add_component(actor, "StatusEffect",
+                            StatusEffect(mirror_images=count))
+    else:
+        status.mirror_images = count
+
+    events.append(MessageEvent(text=t("item.mirror_cast")))
+    events.append(MessageEvent(text=t("item.mirror_images", count=count)))
+    events.append(ItemUsed(entity=actor, item=item, effect="mirror_image"))
     return events

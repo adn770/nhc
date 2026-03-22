@@ -17,6 +17,8 @@ combat:
   petrify_saved: "{target} aparta la vista justo a tiempo."
   paralyzed_turn: "¡Estás paralizado y no puedes moverte!"
   sleeping_turn: "Duermes indefenso..."
+  miss_invisible: "¡{target} es invisible — tu golpe no encuentra nada!"
+  mirror_absorbed: "¡Tu golpe impacta una imagen de {target} — ¡se rompe! ({remaining} quedan)"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -65,6 +67,21 @@ item:
   hold_no_humanoids: "No hay humanoides a la vista."
   fireball_cast: "¡Una rugiente bola de fuego explota!"
   fireball_hits: "¡{target} es chamuscado por {damage} de daño!"
+  web_cast: "¡Telarañas pegajosas brotan del pergamino!"
+  web_caught: "¡{target} queda atrapado en las telarañas!"
+  charm_cast: "Palabras de glamour envuelven a tus enemigos..."
+  charm_affects: "{target} te mira con ojos adoradores."
+  charm_no_target: "No hay criaturas lo suficientemente cerca para encantar."
+  bless_cast: "Un cálido resplandor te llena."
+  bless_active: "¡Te sientes bendecido y combates con mayor resolución!"
+  invis_cast: "Te disuelves en las sombras."
+  invis_active: "¡Eres invisible!"
+  haste_cast: "El mundo parece ralentizarse mientras tú te aceleras."
+  haste_active: "¡Te mueves a velocidad cegadora!"
+  protect_cast: "Un escudo de poder sagrado se asienta sobre ti."
+  protect_active: "¡Las criaturas malignas tienen dificultades para hacerte daño!"
+  mirror_cast: "¡Copias parpadeantes tuyas aparecen!"
+  mirror_images: "{count} imágenes especulares te rodean."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -324,6 +341,54 @@ items:
     long: >-
       Caliente al tacto y con olor a azufre. Un diagrama
       muestra una esfera de llamas de seis metros de diámetro.
+  scroll_web:
+    name: "Pergamino de Telaraña"
+    short: "un pergamino pegajoso"
+    long: >-
+      Hilos finos están tejidos entre las letras de este pergamino.
+      Llena una sala de telarañas que inmovilizan a quien las toca.
+  scroll_charm_person:
+    name: "Pergamino de Encantar Persona"
+    short: "un pergamino rosado"
+    long: >-
+      Caligrafía en tinta rosa con espirales y lunas.
+      Las palabras hacen que un humanoide te vea como un amigo de confianza.
+  scroll_bless:
+    name: "Pergamino de Bendición"
+    short: "un pergamino dorado"
+    long: >-
+      Grabado en oro sobre pergamino blanco. Leerlo
+      llena a los aliados de coraje divino y determinación marcial.
+  scroll_mirror_image:
+    name: "Pergamino de Imagen Especular"
+    short: "un pergamino plateado"
+    long: >-
+      El pergamino refleja tu cara. Leerlo
+      conjura 1d4 duplicados ilusorios para confundir a los atacantes.
+  scroll_invisibility:
+    name: "Pergamino de Invisibilidad"
+    short: "un pergamino translúcido"
+    long: >-
+      Pergamino casi transparente con palabras visibles solo
+      en ciertos ángulos. Leerlo te vuelve invisible.
+  scroll_haste:
+    name: "Pergamino de Prisa"
+    short: "un pergamino borroso"
+    long: >-
+      Las letras parecen moverse mientras lees este pergamino.
+      La prisa duplica tus ataques durante 3 turnos.
+  scroll_cure_wounds:
+    name: "Pergamino de Curar Heridas"
+    short: "un pergamino verde"
+    long: >-
+      Escrito en tranquilizadora tinta esmeralda. Leerlo
+      cierra heridas menores y restaura 1d6+1 PV.
+  scroll_protection_evil:
+    name: "Pergamino de Protección del Mal"
+    short: "un pergamino azul brillante"
+    long: >-
+      Inscrito con protecciones santas y círculos de guarda.
+      Otorga +1 a las salvaciones y dificulta a las criaturas malignas durante 12 turnos.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

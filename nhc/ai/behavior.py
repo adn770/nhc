@@ -38,7 +38,7 @@ def decide_action(
     if not ai or not pos or not player_pos:
         return None
 
-    # Status effects: skip turn when paralyzed or sleeping
+    # Status effects: skip turn when immobilised
     status = world.get_component(entity_id, "StatusEffect")
     if status:
         if status.paralyzed > 0:
@@ -46,6 +46,12 @@ def decide_action(
             return None
         if status.sleeping > 0:
             status.sleeping -= 1
+            return None
+        if status.webbed > 0:
+            status.webbed -= 1
+            return None
+        if status.charmed > 0:
+            status.charmed -= 1
             return None
 
     dist = chebyshev(pos.x, pos.y, player_pos.x, player_pos.y)

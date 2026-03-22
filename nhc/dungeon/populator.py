@@ -32,14 +32,32 @@ CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
 
 # Item pools by difficulty tier
 ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
-    1: [("healing_potion", 0.4), ("dagger", 0.3), ("short_sword", 0.2),
-        ("scroll_sleep", 0.1)],
-    2: [("healing_potion", 0.25), ("short_sword", 0.2), ("sword", 0.15),
-        ("scroll_lightning", 0.15), ("scroll_magic_missile", 0.15),
-        ("scroll_sleep", 0.1)],
-    3: [("healing_potion", 0.2), ("sword", 0.15), ("shield", 0.15),
+    1: [
+        ("healing_potion", 0.35), ("dagger", 0.25), ("short_sword", 0.15),
+        ("scroll_sleep", 0.1), ("scroll_cure_wounds", 0.1),
+        ("scroll_bless", 0.05),
+    ],
+    2: [
+        ("healing_potion", 0.2), ("short_sword", 0.15), ("sword", 0.1),
         ("scroll_lightning", 0.1), ("scroll_magic_missile", 0.1),
-        ("scroll_hold_person", 0.15), ("scroll_fireball", 0.15)],
+        ("scroll_sleep", 0.08), ("scroll_cure_wounds", 0.08),
+        ("scroll_web", 0.07), ("scroll_bless", 0.07),
+        ("scroll_mirror_image", 0.05),
+    ],
+    3: [
+        ("healing_potion", 0.15), ("sword", 0.1), ("shield", 0.1),
+        ("scroll_lightning", 0.08), ("scroll_magic_missile", 0.08),
+        ("scroll_hold_person", 0.1), ("scroll_fireball", 0.1),
+        ("scroll_charm_person", 0.07), ("scroll_haste", 0.07),
+        ("scroll_invisibility", 0.07), ("scroll_protection_evil", 0.08),
+    ],
+    4: [
+        ("healing_potion", 0.1), ("sword", 0.08), ("shield", 0.08),
+        ("scroll_fireball", 0.1), ("scroll_hold_person", 0.1),
+        ("scroll_haste", 0.1), ("scroll_invisibility", 0.1),
+        ("scroll_mirror_image", 0.1), ("scroll_charm_person", 0.1),
+        ("scroll_protection_evil", 0.14),
+    ],
 }
 
 # Feature pools
