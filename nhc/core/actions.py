@@ -18,13 +18,17 @@ from nhc.core.events import (
 )
 from nhc.entities.components import (
     AI,
+    BloodDrain,
     BlocksMovement,
     Consumable,
     Description,
+    DisenchantTouch,
     Equipment,
+    FrostBreath,
     Health,
     Inventory,
     LootTable,
+    PetrifyingTouch,
     Poison,
     Position,
     Renderable,
@@ -250,6 +254,63 @@ class MeleeAttackAction(Action):
                     events.append(MessageEvent(
                         text=t("combat.poisoned", target=target_name),
                     ))
+
+            # BloodDrain: drain HP and heal self
+            bd = world.get_component(self.actor, "BloodDrain")
+            if bd:
+                drain = bd.drain_per_hit
+                drain_actual = apply_damage(t_health, drain)
+                a_health = world.get_component(self.actor, "Health")
+                if a_health:
+                    heal(a_health, drain)
+                events.append(MessageEvent(
+                    text=t("combat.blood_drain", attacker=attacker_name,
+                           target=target_name, damage=drain_actual),
+                ))
+
+            # PetrifyingTouch: target saves DEX 12 or paralyzed
+            if world.has_component(self.actor, "PetrifyingTouch"):
+                if d20() + t_stats.dexterity < 12:
+                    if t_status is None:
+                        world.add_component(
+                            self.target, "StatusEffect",
+                            StatusEffect(paralyzed=9),
+                        )
+                    else:
+                        t_status.paralyzed = 9
+                    events.append(MessageEvent(
+                        text=t("combat.petrify_touch", target=target_name),
+                    ))
+
+            # FrostBreath: extra cold damage on hit
+            fb = world.get_component(self.actor, "FrostBreath")
+            if fb:
+                cold = roll_dice(fb.dice)
+                cold_actual = apply_damage(t_health, cold)
+                events.append(MessageEvent(
+                    text=t("combat.frost_breath", attacker=attacker_name,
+                           target=target_name, damage=cold_actual),
+                ))
+
+            # DisenchantTouch: destroy one consumable in target's inventory
+            if world.has_component(self.actor, "DisenchantTouch"):
+                t_inv = world.get_component(self.target, "Inventory")
+                if t_inv:
+                    magic_items = [
+                        eid for eid in t_inv.slots
+                        if world.has_component(eid, "Consumable")
+                    ]
+                    if magic_items:
+                        from nhc.utils.rng import roll_dice as _rd
+                        chosen = magic_items[0]
+                        c_desc = world.get_component(chosen, "Description")
+                        c_name = c_desc.name if c_desc else "item"
+                        t_inv.slots.remove(chosen)
+                        world.destroy_entity(chosen)
+                        events.append(MessageEvent(
+                            text=t("combat.disenchant", attacker=attacker_name,
+                                   target=target_name, item=c_name),
+                        ))
 
             if is_dead(t_health):
                 events.append(CreatureDied(
@@ -1106,3 +1167,26 @@ def _use_mirror_image(
     events.append(MessageEvent(text=t("item.mirror_images", count=count)))
     events.append(ItemUsed(entity=actor, item=item, effect="mirror_image"))
     return events
+
+
+class ShriekAction(Action):
+    """Shrieker emits a piercing shriek that wakes all sleeping creatures."""
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        attacker_name = _entity_name(world, self.actor)
+        events.append(MessageEvent(
+            text=t("combat.shrieker_shriek", creature=attacker_name),
+        ))
+        # Wake all sleeping creatures on this level
+        for eid, status, _ in world.query("StatusEffect", "Position"):
+            if status and status.sleeping > 0:
+                status.sleeping = 0
+                name = _entity_name(world, eid)
+                events.append(MessageEvent(
+                    text=t("combat.shriek_wakes", creature=name),
+                ))
+        return events

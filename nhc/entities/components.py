@@ -112,9 +112,15 @@ class Equipment:
 @dataclass
 class StatusEffect:
     """Temporary status affecting an entity's actions."""
-    paralyzed: int = 0   # turns remaining (Hold Person)
-    sleeping: int = 0    # turns remaining (Sleep — broken by damage)
-    hasted: int = 0      # turns remaining (double movement/attacks)
+    paralyzed: int = 0      # turns remaining (Hold Person / PetrifyingGaze)
+    sleeping: int = 0       # turns remaining (Sleep — broken by damage)
+    hasted: int = 0         # turns remaining (double attacks)
+    blessed: int = 0        # turns remaining (+1 attack/damage)
+    invisible: int = 0      # turns remaining (breaks on attack)
+    mirror_images: int = 0  # illusion copies remaining (each absorbs 1 hit)
+    protected: int = 0      # turns remaining (+1 saves, -1 enemy attacks)
+    webbed: int = 0         # turns remaining (cannot move)
+    charmed: int = 0        # turns remaining (fights for caster)
 
 
 @dataclass
@@ -127,3 +133,25 @@ class Poison:
     """Tag: entity is currently poisoned."""
     damage_per_turn: int = 1
     turns_remaining: int = 3
+
+
+@dataclass
+class BloodDrain:
+    """Attacker drains blood: deals bonus drain damage and heals self for that amount."""
+    drain_per_hit: int = 2
+
+
+@dataclass
+class PetrifyingTouch:
+    """Tag: on a successful melee hit, target must save DEX 12 or be paralyzed."""
+
+
+@dataclass
+class FrostBreath:
+    """Attacker exhales cold on a hit, dealing bonus cold damage."""
+    dice: str = "1d6"
+
+
+@dataclass
+class DisenchantTouch:
+    """Tag: on a hit, destroys one consumable item in the target's inventory."""

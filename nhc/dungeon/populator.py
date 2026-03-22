@@ -8,25 +8,33 @@ from nhc.utils.rng import get_rng
 # Creature pools by difficulty tier
 CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [
-        ("rat", 0.2), ("goblin", 0.25), ("skeleton", 0.15),
-        ("kobold", 0.15), ("giant_bee", 0.1), ("escarabat_foc", 0.1),
-        ("ratpenat_gegant", 0.05),
+        ("rat", 0.15), ("goblin", 0.2), ("skeleton", 0.1),
+        ("kobold", 0.1), ("giant_bee", 0.08), ("escarabat_foc", 0.08),
+        ("ratpenat_gegant", 0.05), ("centpeus_gegant", 0.1),
+        ("stirge", 0.07), ("cridaner", 0.07),
     ],
     2: [
-        ("goblin", 0.1), ("skeleton", 0.15), ("zombie", 0.1),
-        ("gnoll", 0.15), ("hobgoblin", 0.1), ("bandoler", 0.1),
-        ("llop", 0.1), ("granyotic", 0.1), ("gentmalgama", 0.1),
+        ("goblin", 0.08), ("skeleton", 0.1), ("zombie", 0.08),
+        ("gnoll", 0.1), ("hobgoblin", 0.08), ("bandoler", 0.08),
+        ("llop", 0.08), ("granyotic", 0.07), ("gentmalgama", 0.07),
+        ("gul", 0.07), ("tarantula_gegant", 0.07), ("sangonera_gegant", 0.05),
+        ("home_serp", 0.07),
     ],
     3: [
-        ("orc", 0.1), ("zombie", 0.1), ("gnoll", 0.1),
-        ("osgo", 0.1), ("llangardanic", 0.1), ("llop_terrible", 0.1),
-        ("wight", 0.1), ("spectre", 0.05), ("basilisk", 0.05),
-        ("os_negre", 0.1), ("uarg", 0.1),
+        ("orc", 0.07), ("zombie", 0.07), ("gnoll", 0.07),
+        ("osgo", 0.07), ("llangardanic", 0.06), ("llop_terrible", 0.06),
+        ("wight", 0.06), ("spectre", 0.04), ("basilisk", 0.04),
+        ("os_negre", 0.06), ("uarg", 0.07),
+        ("escorpi_gegant", 0.07), ("cocatriu", 0.06),
+        ("cuc_tentacles", 0.07), ("llop_hivern", 0.07),
+        ("desencantador", 0.06),
     ],
     4: [
-        ("ogre", 0.15), ("os_bru", 0.15), ("uarg", 0.15),
-        ("wight", 0.15), ("spectre", 0.1), ("basilisk", 0.15),
-        ("llop_terrible", 0.15),
+        ("ogre", 0.1), ("os_bru", 0.1), ("uarg", 0.1),
+        ("wight", 0.1), ("spectre", 0.08), ("basilisk", 0.1),
+        ("llop_terrible", 0.1), ("ocell_mal_averany", 0.08),
+        ("serp_gegant", 0.08), ("desencantador", 0.08),
+        ("llop_hivern", 0.08),
     ],
 }
 

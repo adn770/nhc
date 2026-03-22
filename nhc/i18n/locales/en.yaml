@@ -19,6 +19,12 @@ combat:
   sleeping_turn: "You sleep helplessly..."
   miss_invisible: "{target} is invisible — your strike finds only air!"
   mirror_absorbed: "Your blow strikes an image of {target} — it shatters! ({remaining} remain)"
+  blood_drain: "{attacker} latches on and drains the blood of {target}! ({damage} drain)"
+  petrify_touch: "{target} feels stone-cold dread seep through their body — paralyzed!"
+  frost_breath: "{attacker} exhales a blast of arctic cold at {target} for {damage} damage!"
+  disenchant: "{attacker} drains the magic from {target}'s {item}! It crumbles to dust."
+  shrieker_shriek: "The {creature} emits a piercing shriek!"
+  shriek_wakes: "{creature} is jolted awake by the terrible noise!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -271,6 +277,90 @@ creature:
     long: >-
       A patchwork creature assembled from mismatched animal parts.
       Two heads argue over which direction to attack from.
+  gul:
+    name: "Ghoul"
+    short: "a foul ghoul"
+    long: >-
+      An undead horror that reeks of the grave. Its clawed touch
+      drains the vital spark of the living.
+  escorpi_gegant:
+    name: "Giant Scorpion"
+    short: "a giant scorpion"
+    long: >-
+      An arachnid the size of a horse with massive pincers and a
+      barbed tail dripping with potent venom.
+  centpeus_gegant:
+    name: "Giant Centipede"
+    short: "a giant centipede"
+    long: >-
+      A segmented horror two feet long with hundreds of legs and
+      tiny venomous mandibles. Its bite is surprisingly dangerous.
+  tarantula_gegant:
+    name: "Giant Tarantula"
+    short: "a giant tarantula"
+    long: >-
+      A hairy spider large enough to tackle a man. Its fangs
+      deliver a slow, agonizing venom.
+  home_serp:
+    name: "Snakeman"
+    short: "a serpentine snakeman"
+    long: >-
+      A humanoid with a cobra's head and scaly green skin.
+      It hisses a curse before striking with practiced precision.
+  stirge:
+    name: "Stirge"
+    short: "a blood-sucking stirge"
+    long: >-
+      A mosquito-winged horror with a needle proboscis.
+      Once it pierces flesh it drains blood with terrifying speed.
+  sangonera_gegant:
+    name: "Giant Leech"
+    short: "a giant leech"
+    long: >-
+      A bloated, rubbery worm nearly three feet long. It attaches
+      itself to prey and drains blood until sated or slain.
+  cocatriu:
+    name: "Cockatrice"
+    short: "a cockatrice"
+    long: >-
+      A two-legged dragon with a rooster's head and a serpentine
+      tail. Its touch turns flesh to cold grey stone.
+  ocell_mal_averany:
+    name: "Bird of Ill Omen"
+    short: "a bird of ill omen"
+    long: >-
+      A giant raven with midnight-black feathers and pale eyes
+      that gleam with unnatural malice. Its cry chills the blood.
+  cuc_tentacles:
+    name: "Tentacle Worm"
+    short: "a tentacle worm"
+    long: >-
+      A fat pale worm ringed with grasping tentacles. It secretes
+      a numbing venom that leaves prey helpless.
+  llop_hivern:
+    name: "Winter Wolf"
+    short: "a winter wolf"
+    long: >-
+      A great white wolf from the frozen north. It exhales arctic
+      frost that coats enemies in ice alongside its savage bite.
+  desencantador:
+    name: "Disenchanter"
+    short: "a disenchanter"
+    long: >-
+      A pale, slug-like predator that feeds on magical energy.
+      Its touch unravels enchantments and leaves scrolls as dust.
+  cridaner:
+    name: "Shrieker"
+    short: "a shrieker"
+    long: >-
+      A violet-capped mushroom that emits a deafening shriek when
+      disturbed, alerting every creature in earshot.
+  serp_gegant:
+    name: "Giant Snake"
+    short: "a giant snake"
+    long: >-
+      A colossal serpent that can swallow a man whole. Its hollow
+      fangs inject a lethal venom.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

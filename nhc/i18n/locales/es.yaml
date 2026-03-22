@@ -19,6 +19,12 @@ combat:
   sleeping_turn: "Duermes indefenso..."
   miss_invisible: "¡{target} es invisible — tu golpe no encuentra nada!"
   mirror_absorbed: "¡Tu golpe impacta una imagen de {target} — ¡se rompe! ({remaining} quedan)"
+  blood_drain: "¡{attacker} se aferra a {target} y le drena la sangre! ({damage} de drenaje)"
+  petrify_touch: "¡{target} siente un frío pétreo que le recorre el cuerpo — paralizado!"
+  frost_breath: "¡{attacker} exhala un soplo de frío ártico sobre {target} por {damage} de daño!"
+  disenchant: "¡{attacker} drena la magia del {item} de {target}! Se desintegra en polvo."
+  shrieker_shriek: "¡El {creature} emite un chillido estridente!"
+  shriek_wakes: "¡{creature} se despierta sobresaltado por el terrible ruido!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -273,6 +279,91 @@ creature:
     long: >-
       Una criatura ensamblada con partes animales dispares.
       Dos cabezas discuten desde qué lado atacar.
+  gul:
+    name: "Gul"
+    short: "un fétido gul"
+    long: >-
+      Un horror no muerto que apesta a tumba. Sus garras
+      drenan la chispa vital de los vivos.
+  escorpi_gegant:
+    name: "Escorpión Gigante"
+    short: "un escorpión gigante"
+    long: >-
+      Un arácnido del tamaño de un caballo con enormes pinzas y
+      una cola con aguijón chorreando potente veneno.
+  centpeus_gegant:
+    name: "Ciempiés Gigante"
+    short: "un ciempiés gigante"
+    long: >-
+      Un horror segmentado de sesenta centímetros con cientos de
+      patas y mandíbulas venenosas. Su mordisco es sorprendentemente peligroso.
+  tarantula_gegant:
+    name: "Tarántula Gigante"
+    short: "una tarántula gigante"
+    long: >-
+      Una araña peluda lo suficientemente grande para atacar a un hombre.
+      Sus colmillos inyectan un veneno lento y agónico.
+  home_serp:
+    name: "Hombre Serpiente"
+    short: "un escamoso hombre serpiente"
+    long: >-
+      Un humanoide con cabeza de cobra y piel verde escamosa.
+      Silba una maldición antes de golpear con precisión.
+  stirge:
+    name: "Estirge"
+    short: "un estirge chupasingre"
+    long: >-
+      Un horror con alas de mosquito y trompa de aguja.
+      Una vez perfora la carne, drena la sangre a velocidad aterradora.
+  sangonera_gegant:
+    name: "Sanguijuela Gigante"
+    short: "una sanguijuela gigante"
+    long: >-
+      Un gusano gordo y gomoso de casi un metro de largo. Se aferra
+      a su presa y le drena la sangre hasta saciarse o morir.
+  cocatriu:
+    name: "Cocatriz"
+    short: "una cocatriz"
+    long: >-
+      Un dragón de dos patas con cabeza de gallo y cola de serpiente.
+      Su toque convierte la carne en piedra fría y gris.
+  ocell_mal_averany:
+    name: "Pájaro de Mal Agüero"
+    short: "un pájaro de mal agüero"
+    long: >-
+      Un cuervo gigante de plumas negras como la noche y ojos pálidos
+      que brillan con malicia sobrenatural. Su grito hiela la sangre.
+  cuc_tentacles:
+    name: "Gusano de Tentáculos"
+    short: "un gusano de tentáculos"
+    long: >-
+      Un gusano pálido y gordo rodeado de tentáculos que agarran.
+      Segrega un veneno adormecedor que deja a las presas indefensas.
+  llop_hivern:
+    name: "Lobo de Invierno"
+    short: "un lobo de invierno"
+    long: >-
+      Un gran lobo blanco del norte helado. Exhala hielo ártico
+      que cubre a los enemigos mientras los muerde salvajemente.
+  desencantador:
+    name: "Desencantador"
+    short: "un desencantador"
+    long: >-
+      Un depredador pálido con forma de babosa que se alimenta
+      de energía mágica. Su toque deshace encantamientos y deja
+      los pergaminos hechos polvo.
+  cridaner:
+    name: "Chillador"
+    short: "un chillador"
+    long: >-
+      Un hongo de sombrero violeta que emite un chillido ensordecedor
+      cuando es perturbado, alertando a todas las criaturas del área.
+  serp_gegant:
+    name: "Serpiente Gigante"
+    short: "una serpiente gigante"
+    long: >-
+      Una serpiente colosal capaz de tragarse a un hombre entero.
+      Sus colmillos huecos inyectan un veneno letal.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

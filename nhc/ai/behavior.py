@@ -19,6 +19,7 @@ CHASE_RADIUS: dict[str, int] = {
     "aggressive_melee": 8,
     "guard": 5,
     "idle": 0,
+    "shrieker": 5,  # detection range; shrieker never moves
 }
 
 
@@ -29,7 +30,7 @@ def decide_action(
     player_id: int,
 ) -> "Action | None":
     """Determine what action a creature should take this turn."""
-    from nhc.core.actions import MeleeAttackAction, MoveAction
+    from nhc.core.actions import MeleeAttackAction, MoveAction, ShriekAction
 
     ai = world.get_component(entity_id, "AI")
     pos = world.get_component(entity_id, "Position")
@@ -56,6 +57,12 @@ def decide_action(
 
     dist = chebyshev(pos.x, pos.y, player_pos.x, player_pos.y)
     chase_radius = CHASE_RADIUS.get(ai.behavior, 0)
+
+    # Shrieker: stationary; screams when player enters detection range
+    if ai.behavior == "shrieker":
+        if dist <= chase_radius:
+            return ShriekAction(actor=entity_id)
+        return None
 
     if chase_radius == 0:
         return None

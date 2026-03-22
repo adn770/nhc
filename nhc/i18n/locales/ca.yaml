@@ -19,6 +19,12 @@ combat:
   sleeping_turn: "Dormes indefens..."
   miss_invisible: "{target} és invisible — el teu cop no troba res!"
   mirror_absorbed: "El teu cop impacta una imatge de {target} — es trenca! ({remaining} queden)"
+  blood_drain: "{attacker} s'agafa a {target} i li drena la sang! ({damage} de drenatge)"
+  petrify_touch: "{target} sent un fred de pedra que li recorre el cos — paralitzat!"
+  frost_breath: "{attacker} exhala un buf de fred àrtic sobre {target} per {damage} de dany!"
+  disenchant: "{attacker} drena la màgia de {item} de {target}! Es desintegra en pols."
+  shrieker_shriek: "El {creature} emet un crit estrident!"
+  shriek_wakes: "{creature} es desperta sobresaltat pel soroll terrible!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -273,6 +279,91 @@ creature:
     long: >-
       Una criatura apedaçada assemblada amb parts animals desiguals.
       Dues caps discuteixen des de quin costat atacar.
+  gul:
+    name: "Gul"
+    short: "un fètid gul"
+    long: >-
+      Un horror no mort que pesta a tomba. Les seves urpes
+      drenen l'espurna vital dels vivents.
+  escorpi_gegant:
+    name: "Escorpí Gegant"
+    short: "un escorpí gegant"
+    long: >-
+      Un arácnid de la mida d'un cavall amb pinces massives
+      i una cua amb agulló que degota verí potent.
+  centpeus_gegant:
+    name: "Centpeus Gegant"
+    short: "un centpeus gegant"
+    long: >-
+      Un horror segmentat de seixanta centímetres amb centenars de
+      potes i mandíbules verinoses. La seva mossegada és sorprenentment perillosa.
+  tarantula_gegant:
+    name: "Taràntula Gegant"
+    short: "una taràntula gegant"
+    long: >-
+      Una aranya peluda prou gran per atacar un home.
+      Els seus ullals injecten un verí lent i agònic.
+  home_serp:
+    name: "Home Serp"
+    short: "un home serp escatós"
+    long: >-
+      Un humanoide amb cap de cobra i pell verda escatosa.
+      Xiula una maledicció abans de colpejar amb precisió.
+  stirge:
+    name: "Estirge"
+    short: "un estirge xuclasang"
+    long: >-
+      Un horror amb ales de mosquit i trompa d'agulla.
+      Un cop perfora la carn, drena la sang a velocitat aterridora.
+  sangonera_gegant:
+    name: "Sangonera Gegant"
+    short: "una sangonera gegant"
+    long: >-
+      Un cuc gras i gomós de quasi un metre de llarg. S'agafa
+      a la presa i li drena la sang fins a saciar-se o ser abatuda.
+  cocatriu:
+    name: "Cocatriu"
+    short: "una cocatriu"
+    long: >-
+      Un drac de dues potes amb cap de gall i cua de serp.
+      El seu tacte converteix la carn en pedra freda i grisa.
+  ocell_mal_averany:
+    name: "Ocell Mal Averany"
+    short: "un ocell mal averany"
+    long: >-
+      Un corb gegant de plomes negres com la nit i ulls pàl·lids
+      que brillen amb malícia sobrenatural. El seu crit glaça la sang.
+  cuc_tentacles:
+    name: "Cuc de Tentacles"
+    short: "un cuc de tentacles"
+    long: >-
+      Un cuc pal·lid i gras envoltat de tentacles que s'agafen.
+      Secreta un verí adormir que deixa les preses indefenses.
+  llop_hivern:
+    name: "Llop d'Hivern"
+    short: "un llop d'hivern"
+    long: >-
+      Un gran llop blanc del nord glaçat. Exhala glaç àrtic
+      que cobreix els enemics de gel alhora que els mossega salvagement.
+  desencantador:
+    name: "Desencantador"
+    short: "un desencantador"
+    long: >-
+      Un depredador pal·lid i en forma de llimac que s'alimenta
+      d'energia màgica. El seu tacte desfà encanteris i deixa els
+      pergamins fets pols.
+  cridaner:
+    name: "Cridaner"
+    short: "un cridaner"
+    long: >-
+      Un bolet de tapadora violeta que emet un crit ensordidor quan
+      és pertorbat, alertant totes les criatures que senten el so.
+  serp_gegant:
+    name: "Serp Gegant"
+    short: "una serp gegant"
+    long: >-
+      Una serp colossal que pot empassar-se un home sencer.
+      Els seus ullals buits injecten un verí letal.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
