@@ -172,7 +172,9 @@ class TerminalRenderer:
                 mode_indicator="✏️  ",
             )
         else:
-            output += t.move_xy(0, input_y) + " " * t.width
+            hint = "TAB → typed mode  ? → help"
+            padded = hint.center(t.width)
+            output += t.move_xy(0, input_y) + t.color_rgb(80, 140, 210)(padded)
 
         print(output, end="", flush=True)
 
