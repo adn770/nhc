@@ -14,8 +14,6 @@ _DOCS_DIR = Path(__file__).parent.parent.parent.parent / "docs"
 
 # Border color: sky blue via RGB
 _BORDER_RGB = (80, 140, 210)
-# Footer text: darker sky blue
-_FOOTER_RGB = (50, 90, 140)
 
 
 def _load_help() -> list[str]:
@@ -109,7 +107,7 @@ def _draw(
     fill_total = max(0, max_text - len(footer_text))
     left_fill = fill_total // 2
     right_fill = fill_total - left_fill
-    footer_colored = term.color_rgb(*_FOOTER_RGB)(
+    footer_colored = _border(term,
         "─" * left_fill + " " + footer_text + " " + "─" * right_fill
     )
 
