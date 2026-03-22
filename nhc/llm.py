@@ -148,20 +148,20 @@ def auto_detect_provider() -> tuple[str, str]:
 
 
 def ensure_mlx_model(model_id: str) -> str:
-    """Download an MLX model if not already cached. Returns local path."""
-    import sys
-    from pathlib import Path
+    """Ensure an MLX model is available. Returns the model ID or path.
 
-    cache_dir = Path(_MLX_CACHE_DIR).expanduser()
-    local_dir = cache_dir / model_id
-    if local_dir.exists() and any(local_dir.iterdir()):
-        return str(local_dir)
-
-    print(f"Downloading {model_id} (first run)...", file=sys.stderr, flush=True)
-    from huggingface_hub import snapshot_download
-    snapshot_download(model_id, local_dir=str(local_dir))
-    print("Download complete.", file=sys.stderr, flush=True)
-    return str(local_dir)
+    ``mlx_lm.load()`` handles HuggingFace Hub downloads and caching
+    internally, so we just verify the package is importable and return
+    the model identifier as-is.
+    """
+    try:
+        import mlx_lm  # noqa: F401
+    except ImportError as exc:
+        raise ImportError(
+            "mlx-lm is required for the MLX provider. "
+            "Install it with: pip install mlx-lm"
+        ) from exc
+    return model_id
 
 
 def check_ollama_available(url: str, model: str) -> bool:
