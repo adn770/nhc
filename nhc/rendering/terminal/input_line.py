@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from blessed import Terminal
 
 
+_HISTORY_PATH = "~/.cache/nhc/input_history.json"
+
+
 class TextInput:
     """Single-line text editor with history."""
 
@@ -22,6 +25,7 @@ class TextInput:
         self._history_idx: int = -1
         self._max_history = max_history
         self._stash: str = ""  # stash current text when browsing history
+        self._load_history()
 
     def insert(self, ch: str) -> None:
         """Insert a character or string at the cursor position."""
@@ -87,10 +91,33 @@ class TextInput:
             self.history.append(text)
             if len(self.history) > self._max_history:
                 self.history = self.history[-self._max_history:]
+            self._save_history()
         self.text = ""
         self.cursor = 0
         self._history_idx = -1
         return text
+
+    def _load_history(self) -> None:
+        """Load input history from disk."""
+        import json
+        from pathlib import Path
+        path = Path(_HISTORY_PATH).expanduser()
+        if path.exists():
+            try:
+                self.history = json.loads(path.read_text())[-self._max_history:]
+            except (json.JSONDecodeError, OSError):
+                pass
+
+    def _save_history(self) -> None:
+        """Persist input history to disk."""
+        import json
+        from pathlib import Path
+        path = Path(_HISTORY_PATH).expanduser()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            path.write_text(json.dumps(self.history[-self._max_history:]))
+        except OSError:
+            pass
 
 
 def render_input_line(

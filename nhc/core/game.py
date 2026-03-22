@@ -340,8 +340,18 @@ class Game:
                 if ai_action:
                     creature_actions.append(ai_action)
 
+            creature_events = []
             for ca in creature_actions:
-                events += await self._resolve(ca)
+                creature_events += await self._resolve(ca)
+            events += creature_events
+
+            # Narrate creature actions in typed mode
+            if self.mode == "typed" and self._gm and creature_events:
+                c_outcomes = self._events_to_outcomes(creature_events)
+                if c_outcomes:
+                    c_narr = await self._gm.narrate_creatures(c_outcomes)
+                    if c_narr.strip():
+                        self.renderer.narrative_log.add_narrative(c_narr)
 
             # Tick poison on all affected entities
             self._tick_poison()
@@ -457,9 +467,14 @@ class Game:
             # Actions already resolved, return empty to skip double-resolve
             return [WaitAction(self.player_id)]
         else:
-            # No LLM — just show the text as a message
-            self.renderer.add_message(typed_text)
-            return [WaitAction(self.player_id)]
+            # No LLM — use keyword fallback parser
+            from nhc.narrative.fallback_parser import parse_intent_keywords
+            plan = parse_intent_keywords(
+                typed_text, self.world, self.level, self.player_id,
+            )
+            return action_plan_to_actions(
+                plan, self.player_id, self.world, self.level,
+            )
 
     def _events_to_outcomes(self, events: list) -> list[dict]:
         """Convert ECS events to outcome dicts for the narrator."""
