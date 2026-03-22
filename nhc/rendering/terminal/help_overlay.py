@@ -26,8 +26,8 @@ def show_help(term: "Terminal") -> None:
     """Display a scrollable help overlay. Blocks until ESC/q/?."""
     lines = _load_help()
     scroll = 0
-    # Reserve top border + bottom border
-    view_h = term.height - 3
+    # Reserve top border + bottom border + 2 empty lines below
+    view_h = term.height - 5
     max_scroll = max(0, len(lines) - view_h)
 
     while True:
@@ -87,18 +87,18 @@ def _draw(
         indicator = ""
 
     # Bottom border with embedded footer
+    # Layout: ╰─ footer ──────╯  (total width = box_w)
     footer_line = " ESC/q: close  ↑↓: scroll  PgUp/PgDn: page"
     footer_line += indicator
-    footer_text = footer_line[:box_w - 4]
-    # ╰─ footer ─╯
-    remaining = box_w - 4 - len(footer_text)
-    left_pad = 1
-    right_pad = max(0, remaining - left_pad)
+    # Budget: 1(╰) + 1(─) + footer + right_fill + 1(╯) = box_w
+    max_footer = box_w - 3  # 1 + 1 + footer + 1 = box_w
+    footer_text = footer_line[:max_footer]
+    right_fill = max(0, max_footer - len(footer_text))
     bot_y = box_y + 1 + view_h
     output += term.move_xy(box_x, bot_y)
-    output += ("╰" + "─" * left_pad
+    output += ("╰─"
                + term.bright_black(footer_text)
-               + "─" * right_pad + "─╯")
+               + "─" * right_fill + "╯")
 
     print(output, end="", flush=True)
 
