@@ -48,8 +48,11 @@ actual ECS world state.
 - **Local-first.** Uses gemma3:27b running locally — MLX on macOS
   (auto-download, cached), Ollama on Linux/others. No cloud dependency
   for gameplay.
-- **Bilingual narrative.** The GM narrates in the active game language
-  (ca/en/es). The system prompt instructs the model accordingly.
+- **Fully multilingual.** All LLM prompts (system, interpret, narrate,
+  compress) are written natively in each supported language — not
+  translated at runtime. The GM thinks, reasons, and narrates in the
+  player's language. Prompt files live alongside the i18n locale
+  system and are selected by the active `--lang` flag.
 - **Graceful fallback.** If the LLM is slow or unavailable, the game
   remains playable — typed commands are parsed as best-effort
   mechanical intents without narrative.
@@ -199,37 +202,14 @@ The LLM receives the player's typed text plus structured game state
 and returns a **JSON action plan**: a list of mechanical actions to
 execute.
 
-**System prompt** (condensed):
-```
-You are the Game Master for a Knave roguelike. The player types
-what they want to do. You must interpret their intent and return
-a JSON action plan grounded in the current game state.
+The system prompt is loaded from the active language's prompt file
+(see **Section 14** for full prompts in all languages). The prompt
+is written natively in each language so the LLM can understand
+player intents expressed in that language. The action schema
+(JSON keys, action names) stays in English across all languages
+for reliable parsing.
 
-Return ONLY valid JSON. Do not narrate yet.
-
-Available actions:
-  {"action": "move", "direction": "north|south|east|west|..."}
-  {"action": "attack", "target": "<entity_id>"}
-  {"action": "pickup", "item": "<entity_id>"}
-  {"action": "use_item", "item": "<entity_id>", "target": "<entity_id>|self"}
-  {"action": "wait"}
-  {"action": "look", "target": "<entity_id>|room|around"}
-  {"action": "talk", "target": "<entity_id>"}
-  {"action": "search", "target": "room|corpse|<entity_id>"}
-  {"action": "descend"}
-  {"action": "open_door", "direction": "north|south|east|west"}
-  {"action": "custom", "description": "..."}
-
-Rules:
-- You may return multiple actions for complex intents.
-- Maximum 3 actions per turn.
-- Actions must reference entities/items that exist in the game state.
-- If the intent is impossible, return {"action": "impossible",
-  "reason": "..."} and explain why.
-- "custom" actions are for TTRPG-style creativity that the rules
-  can adjudicate via ability checks (e.g., "I try to intimidate
-  the goblin" → STR or CHA check).
-```
+**Prompt loaded from:** `nhc/narrative/prompts/{lang}/interpret.txt`
 
 **User message includes:**
 ```json
@@ -302,26 +282,19 @@ class CustomActionEvent(Event):
 ### 5.3 Phase 3 — Narrate
 
 A second LLM call takes the mechanical outcomes and produces prose.
+The narration prompt is loaded from the active language's prompt file,
+written entirely in that language so the LLM generates natural prose
+without translation artifacts.
 
-**System prompt** (condensed):
-```
-You are the Game Master narrating a Knave roguelike adventure.
-Given the mechanical outcomes of the player's actions, write a
-vivid but concise narrative (2-4 sentences). Write in {language}.
+**Prompt loaded from:** `nhc/narrative/prompts/{lang}/narrate.txt`
 
-Style guidelines:
-- Second person ("You search the corpse...").
-- Mix action and atmosphere. Not every sentence needs drama.
+The prompt instructs the GM to:
+- Write in second person ("You search...", "Escorcolles...", "Registras...")
+- Mix action and atmosphere; not every sentence needs drama.
 - Reference the dungeon theme and ambient when relevant.
-- Keep mechanical numbers in brackets: [4 damage], [WIS check: 15
-  vs DC 12 — success].
-- If something dramatic happens (near death, rare find, boss kill),
-  give it more weight.
-- End with what the player sees/perceives next, setting up their
-  next decision.
-
-Character: {name}, {background}. {virtue} yet {vice}.
-```
+- Keep mechanical numbers in brackets: [4 damage], [WIS 15 vs DC 12].
+- Give dramatic moments more weight (near death, rare find, boss kill).
+- End by setting up the player's next decision.
 
 **User message includes:**
 ```json
@@ -372,14 +345,11 @@ Every 10 turns, the story summary is recompressed by asking the
 LLM to condense the last 10 turns of narrative into 2-3 sentences.
 This prevents context overflow while preserving narrative continuity.
 
-```python
-compress_prompt = """
-Compress this adventure log into 2-3 sentences preserving key
-events, discoveries, and character development:
+**Prompt loaded from:** `nhc/narrative/prompts/{lang}/compress.txt`
 
-{recent_narrative}
-"""
-```
+The prompt asks the LLM to condense the narrative in the same
+language it was written in, preserving key events and character
+development.
 
 ### 6.3 Event → Context Mapping
 
@@ -568,31 +538,34 @@ snapshot_download(
 5. Implement `GameMaster` class orchestrating interpret → resolve →
    narrate.
 6. Implement `ContextBuilder` to produce structured game state JSON.
-7. Implement interpret prompt + JSON parsing with validation.
-8. Implement narrate prompt with streaming output.
-9. Wire `GameMaster` into the game loop as alternative to keypress
-   input.
+7. Write prompt files for all 3 languages (en/ca/es × 5 prompts).
+8. Implement `load_prompt()` with language fallback.
+9. Implement interpret prompt + JSON parsing with validation.
+10. Implement narrate prompt with streaming output.
+11. Wire `GameMaster` into the game loop as alternative to keypress
+    input.
 
 ### Phase 3 — Model Management
 
-10. Implement `auto_detect_provider()` platform logic.
-11. Implement MLX model auto-download with progress display.
-12. Add Ollama health check + model availability check.
-13. Update `create_backend()` with typed-mode defaults.
+12. Implement `auto_detect_provider()` platform logic.
+13. Implement MLX model auto-download with progress display.
+14. Add Ollama health check + model availability check.
+15. Update `create_backend()` with typed-mode defaults.
 
 ### Phase 4 — Custom Actions & Dialogue
 
-14. Implement `CustomActionEvent` and ability check resolution.
-15. Implement NPC dialogue sub-mode.
-16. Implement story summary compression.
-17. Add creature AI narration batching.
+16. Implement `CustomActionEvent` and ability check resolution.
+17. Implement NPC dialogue sub-mode.
+18. Implement story summary compression (using compress prompt).
+19. Add creature AI narration batching (using creature_phase prompt).
 
 ### Phase 5 — Polish
 
-18. Input history persistence across sessions.
-19. Streaming narration (word-by-word display).
-20. Fallback keyword parser for `--provider none --mode typed`.
-21. Tests for GM pipeline, context builder, action parsing.
+20. Input history persistence across sessions.
+21. Streaming narration (word-by-word display).
+22. Fallback keyword parser for `--provider none --mode typed`.
+23. Tests for GM pipeline, context builder, action parsing,
+    prompt loading across all languages.
 
 ---
 
@@ -602,7 +575,10 @@ snapshot_download(
 |------|---------|
 | `nhc/narrative/gm.py` | GameMaster: orchestrates the GM pipeline |
 | `nhc/narrative/context.py` | ContextBuilder: game state → LLM context |
-| `nhc/narrative/prompts.py` | System prompts for interpret/narrate |
+| `nhc/narrative/prompts.py` | `load_prompt()` loader with lang fallback |
+| `nhc/narrative/prompts/en/*.txt` | English prompt files (5 files) |
+| `nhc/narrative/prompts/ca/*.txt` | Catalan prompt files (5 files) |
+| `nhc/narrative/prompts/es/*.txt` | Spanish prompt files (5 files) |
 | `nhc/narrative/parser.py` | JSON action plan parser + validator |
 | `nhc/narrative/story.py` | Story state: summary, threads, compression |
 | `nhc/rendering/terminal/input_line.py` | Text input widget |
@@ -614,7 +590,338 @@ snapshot_download(
 
 ---
 
-## 13. Example Session
+## 13. Multilingual Prompt Architecture
+
+### 13.1 Prompt File Layout
+
+All LLM prompts live as plain text files organized by language.
+Each prompt is written **natively** in its target language — not
+machine-translated. This ensures the LLM receives natural,
+idiomatic instructions and produces equally natural output.
+
+```
+nhc/narrative/prompts/
+├── en/
+│   ├── interpret.txt      # Intent → JSON action plan
+│   ├── narrate.txt        # Outcomes → prose narrative
+│   ├── compress.txt       # Story summary compression
+│   ├── intro.txt          # Opening scene narration
+│   └── creature_phase.txt # Creature AI action narration
+├── ca/
+│   ├── interpret.txt
+│   ├── narrate.txt
+│   ├── compress.txt
+│   ├── intro.txt
+│   └── creature_phase.txt
+└── es/
+    ├── interpret.txt
+    ├── narrate.txt
+    ├── compress.txt
+    ├── intro.txt
+    └── creature_phase.txt
+```
+
+### 13.2 Loading Mechanism
+
+```python
+# nhc/narrative/prompts.py
+
+from pathlib import Path
+from nhc.i18n import current_lang
+
+_PROMPT_DIR = Path(__file__).parent / "prompts"
+
+def load_prompt(name: str, **kwargs) -> str:
+    """Load a prompt file for the active language.
+
+    Falls back to English if the file doesn't exist for the
+    active language.  Interpolates {placeholders} from kwargs.
+    """
+    lang = current_lang()
+    path = _PROMPT_DIR / lang / f"{name}.txt"
+    if not path.exists():
+        path = _PROMPT_DIR / "en" / f"{name}.txt"
+    text = path.read_text()
+    if kwargs:
+        text = text.format(**kwargs)
+    return text
+```
+
+### 13.3 Design Principles for Prompts
+
+- **JSON keys stay English.** Action names (`move`, `attack`,
+  `pickup`), JSON field names, and entity IDs are always English
+  regardless of the active language. This makes parsing reliable.
+- **Instructions in the player's language.** The prose around
+  the schema, the rules, the style guide — all written natively.
+- **No runtime translation.** The prompt is never passed through
+  `t()` or any translation layer. It's authored by a human in each
+  language and loaded as-is.
+- **Cultural tone.** Each language can have its own narrative voice:
+  English prompts might be terse and Anglo-Saxon; Catalan prompts
+  can lean into Mediterranean flair; Spanish can be more formal.
+
+### 13.4 Prompt: Interpret (English)
+
+```
+You are the Game Master for a Knave roguelike dungeon crawler.
+The player types what they want to do in natural language. Your
+job is to interpret their intent and return a JSON action plan
+grounded in the current game state.
+
+Return ONLY a valid JSON array. Do not narrate or explain.
+
+Available actions:
+  {{"action": "move", "direction": "north|south|east|west|ne|nw|se|sw"}}
+  {{"action": "attack", "target": <entity_id>}}
+  {{"action": "pickup", "item": <entity_id>}}
+  {{"action": "use_item", "item": <entity_id>, "target": <entity_id>|"self"}}
+  {{"action": "wait"}}
+  {{"action": "look", "target": <entity_id>|"room"|"around"}}
+  {{"action": "talk", "target": <entity_id>}}
+  {{"action": "search", "target": "room"|"corpse"|<entity_id>}}
+  {{"action": "descend"}}
+  {{"action": "open_door", "direction": "north|south|east|west"}}
+  {{"action": "custom", "description": "...",
+   "check": {{"ability": "strength|dexterity|constitution|intelligence|wisdom|charisma", "dc": <int>}}}}
+  {{"action": "impossible", "reason": "..."}}
+
+Rules:
+- You may return up to 3 actions for complex intents.
+- Actions must reference entities/items visible in the game state.
+- If the intent is impossible given the current state, return a
+  single "impossible" action explaining why.
+- Use "custom" for creative TTRPG actions (bluffing, searching,
+  intimidating, etc.) and choose the appropriate ability and DC.
+```
+
+### 13.5 Prompt: Interpret (Catalan)
+
+```
+Ets el Director de Joc d'un dungeon crawler roguelike basat en
+Knave. El jugador escriu el que vol fer en llenguatge natural.
+La teva feina és interpretar la seva intenció i retornar un pla
+d'accions en format JSON fonamentat en l'estat actual del joc.
+
+Retorna NOMÉS un array JSON vàlid. No narris ni expliquis res.
+
+Accions disponibles:
+  {{"action": "move", "direction": "north|south|east|west|ne|nw|se|sw"}}
+  {{"action": "attack", "target": <entity_id>}}
+  {{"action": "pickup", "item": <entity_id>}}
+  {{"action": "use_item", "item": <entity_id>, "target": <entity_id>|"self"}}
+  {{"action": "wait"}}
+  {{"action": "look", "target": <entity_id>|"room"|"around"}}
+  {{"action": "talk", "target": <entity_id>}}
+  {{"action": "search", "target": "room"|"corpse"|<entity_id>}}
+  {{"action": "descend"}}
+  {{"action": "open_door", "direction": "north|south|east|west"}}
+  {{"action": "custom", "description": "...",
+   "check": {{"ability": "strength|dexterity|constitution|intelligence|wisdom|charisma", "dc": <int>}}}}
+  {{"action": "impossible", "reason": "..."}}
+
+Regles:
+- Pots retornar fins a 3 accions per intencions complexes.
+- Les accions han de fer referència a entitats/objectes visibles
+  a l'estat del joc.
+- Si la intenció és impossible donat l'estat actual, retorna una
+  única acció "impossible" explicant per què.
+- Utilitza "custom" per a accions creatives de TTRPG (enganyar,
+  escorcollar, intimidar, etc.) i escull l'habilitat i el DC
+  apropiats.
+```
+
+### 13.6 Prompt: Interpret (Spanish)
+
+```
+Eres el Director de Juego de un dungeon crawler roguelike basado
+en Knave. El jugador escribe lo que quiere hacer en lenguaje
+natural. Tu trabajo es interpretar su intención y devolver un plan
+de acciones en formato JSON basado en el estado actual del juego.
+
+Devuelve SOLO un array JSON válido. No narres ni expliques nada.
+
+Acciones disponibles:
+  {{"action": "move", "direction": "north|south|east|west|ne|nw|se|sw"}}
+  {{"action": "attack", "target": <entity_id>}}
+  {{"action": "pickup", "item": <entity_id>}}
+  {{"action": "use_item", "item": <entity_id>, "target": <entity_id>|"self"}}
+  {{"action": "wait"}}
+  {{"action": "look", "target": <entity_id>|"room"|"around"}}
+  {{"action": "talk", "target": <entity_id>}}
+  {{"action": "search", "target": "room"|"corpse"|<entity_id>}}
+  {{"action": "descend"}}
+  {{"action": "open_door", "direction": "north|south|east|west"}}
+  {{"action": "custom", "description": "...",
+   "check": {{"ability": "strength|dexterity|constitution|intelligence|wisdom|charisma", "dc": <int>}}}}
+  {{"action": "impossible", "reason": "..."}}
+
+Reglas:
+- Puedes devolver hasta 3 acciones para intenciones complejas.
+- Las acciones deben referenciar entidades/objetos visibles en
+  el estado del juego.
+- Si la intención es imposible dado el estado actual, devuelve una
+  única acción "impossible" explicando por qué.
+- Usa "custom" para acciones creativas de TTRPG (engañar, registrar,
+  intimidar, etc.) y elige la habilidad y DC apropiados.
+```
+
+### 13.7 Prompt: Narrate (English)
+
+```
+You are the Game Master narrating a Knave roguelike adventure.
+Given the mechanical outcomes of the player's actions, write a
+vivid but concise narrative (2-4 sentences).
+
+Style:
+- Second person ("You search the corpse...").
+- Mix action and atmosphere. Not every sentence needs drama.
+- Reference the dungeon theme and ambient when relevant.
+- Keep mechanical results in brackets: [4 damage], [WIS 15 vs
+  DC 12 — success].
+- Give dramatic moments more weight (near death, rare find, boss).
+- End by setting up the player's next decision.
+
+Character: {name}, {background}. {virtue} yet {vice}.
+```
+
+### 13.8 Prompt: Narrate (Catalan)
+
+```
+Ets el Director de Joc que narra una aventura roguelike de Knave.
+Donats els resultats mecànics de les accions del jugador, escriu
+una narració vívida però concisa (2-4 frases) en català.
+
+Estil:
+- Segona persona ("Escorcolles el cadàver...", "Avances amb cautela...").
+- Barreja acció i atmosfera. No cal drama a cada frase.
+- Fes referència al tema de la masmorra i l'ambient quan sigui adient.
+- Mantén els resultats mecànics entre claudàtors: [4 de dany],
+  [SAV 15 vs DC 12 — èxit].
+- Dona més pes als moments dramàtics (a punt de morir, troballa
+  rara, cap de zona).
+- Acaba preparant la pròxima decisió del jugador.
+
+Personatge: {name}, {background}. {virtue} però {vice}.
+```
+
+### 13.9 Prompt: Narrate (Spanish)
+
+```
+Eres el Director de Juego narrando una aventura roguelike de
+Knave. Dados los resultados mecánicos de las acciones del jugador,
+escribe una narración vívida pero concisa (2-4 frases) en español.
+
+Estilo:
+- Segunda persona ("Registras el cadáver...", "Avanzas con cautela...").
+- Mezcla acción y atmósfera. No toda frase necesita drama.
+- Haz referencia al tema de la mazmorra y el ambiente cuando sea
+  pertinente.
+- Mantén los resultados mecánicos entre corchetes: [4 de daño],
+  [SAB 15 vs DC 12 — éxito].
+- Da más peso a los momentos dramáticos (al borde de la muerte,
+  hallazgo raro, jefe de zona).
+- Termina preparando la siguiente decisión del jugador.
+
+Personaje: {name}, {background}. {virtue} pero {vice}.
+```
+
+### 13.10 Prompt: Compress (English)
+
+```
+Compress this adventure log into 2-3 sentences. Preserve key
+events, discoveries, and character development. Write in English.
+
+{recent_narrative}
+```
+
+### 13.11 Prompt: Compress (Catalan)
+
+```
+Comprimeix aquest registre d'aventura en 2-3 frases. Preserva
+els esdeveniments clau, descobriments i desenvolupament del
+personatge. Escriu en català.
+
+{recent_narrative}
+```
+
+### 13.12 Prompt: Compress (Spanish)
+
+```
+Comprime este registro de aventura en 2-3 frases. Preserva los
+eventos clave, descubrimientos y desarrollo del personaje.
+Escribe en español.
+
+{recent_narrative}
+```
+
+### 13.13 Prompt: Intro (English)
+
+```
+You are the Game Master. The player has just entered the dungeon.
+Write a brief atmospheric introduction (3-5 sentences) in English.
+Establish the character, the setting, and a hint of what lies ahead.
+
+Character: {name}, {background}. {virtue} yet {vice}. {alignment}.
+Location: {level_name} — {ambient}
+Narrative hooks: {hooks}
+```
+
+### 13.14 Prompt: Intro (Catalan)
+
+```
+Ets el Director de Joc. El jugador acaba d'entrar a la masmorra.
+Escriu una breu introducció atmosfèrica (3-5 frases) en català.
+Estableix el personatge, l'escenari i un indici del que l'espera.
+
+Personatge: {name}, {background}. {virtue} però {vice}. {alignment}.
+Lloc: {level_name} — {ambient}
+Ganxos narratius: {hooks}
+```
+
+### 13.15 Prompt: Intro (Spanish)
+
+```
+Eres el Director de Juego. El jugador acaba de entrar en la
+mazmorra. Escribe una breve introducción atmosférica (3-5 frases)
+en español. Establece el personaje, el escenario y una pista de
+lo que le espera.
+
+Personaje: {name}, {background}. {virtue} pero {vice}. {alignment}.
+Lugar: {level_name} — {ambient}
+Ganchos narrativos: {hooks}
+```
+
+### 13.16 Prompt: Creature Phase (English)
+
+```
+Briefly narrate the creatures' actions this turn (1-2 sentences).
+Keep it tense and atmospheric. Write in English.
+
+{creature_actions}
+```
+
+### 13.17 Prompt: Creature Phase (Catalan)
+
+```
+Narra breument les accions de les criatures aquest torn (1-2 frases).
+Mantén la tensió i l'atmosfera. Escriu en català.
+
+{creature_actions}
+```
+
+### 13.18 Prompt: Creature Phase (Spanish)
+
+```
+Narra brevemente las acciones de las criaturas en este turno
+(1-2 frases). Mantén la tensión y la atmósfera. Escribe en español.
+
+{creature_actions}
+```
+
+---
+
+## 14. Example Session (English)
 
 ```
 ══════════════════════════════════════════════
@@ -658,3 +965,71 @@ And something else. A low, wet chewing sound.
 
 > ...
 ```
+
+---
+
+## 15. Example Session (Catalan)
+
+```
+══════════════════════════════════════════════
+  El Celler Enfonsat — Profunditat 1, Torn 1
+══════════════════════════════════════════════
+
+DJ: Ets Blanca Montcada, mercenària. Valenta per
+naturalesa, però imprudent quan la sang bull — i avui
+la sang bull. Les escales del celler cruixen darrere
+teu mentre l'aire humit et banya la cara. A algun lloc
+endavant, ossos repiquetegen en la foscor.
+
+> Desenveino l'espasa i avanço amb cautela cap a la sala
+
+DJ: Tregues la fulla de la beina — bon acer, almenys
+has conservat això. L'antecambra és petita: caixes
+trencades, morter que s'esmicola, una poció carmesí
+que brilla sobre una lleixa. Per un corredor obert a
+l'est, captes la lluentor pàl·lida d'alguna cosa que
+es mou. [→ Moviment a l'est. Divisat: 2 Esquelets a
+la sala de guàrdia.]
+
+> Agafo la poció i m'acosto a poc a poc per veure millor
+
+DJ: Et guardes el vial carmesí a la bossa. [→ Agafada
+Poció de Curació.] Arrapant-te contra la paret del
+corredor, espies la sala de guàrdia. Dos esquelets
+s'alcen entre les restes d'un portaarmes, les seves
+conques buides escanejant metòdicament. Encara no t'han
+detectat. [DES 15 vs DC 10 — no detectada] El de
+l'esquerra porta una fulla que potser va ser decent.
+
+> Faig servir el pergamí de dormir contra ells
+
+DJ: Desenrotlles el pergamí blau pàl·lid i xiuxiueges
+les paraules de la son. La tinta violeta es dissol
+mentre l'encantament pren forma — els dos esquelets
+cauen sobre les lloses com titelles amb els fils
+tallats. [→ Pergamí de Dormir usat. 2 criatures
+adormides.] El silenci que segueix és gairebé pitjor.
+Des de més avall, sents aigua degotant. I alguna cosa
+més. Un so humit i mastegador.
+
+> ...
+```
+
+---
+
+## 16. Adding a New Language
+
+To add prompt support for a new language (e.g., French):
+
+1. Create `nhc/narrative/prompts/fr/` directory.
+2. Copy the English prompt files as templates.
+3. Rewrite each prompt **natively in French** — do not machine-translate.
+   Pay attention to:
+   - Second person conjugation ("Tu fouilles le cadavre...").
+   - Cultural tone and vocabulary.
+   - Ability abbreviations from the locale file (`stats.str`, etc.).
+   - Keep JSON keys and action names in English.
+4. Add French translations to `nhc/i18n/locales/fr.yaml`.
+5. The `load_prompt()` function will automatically pick up the new
+   language when `--lang fr` is used, falling back to English for
+   any missing prompt files.
