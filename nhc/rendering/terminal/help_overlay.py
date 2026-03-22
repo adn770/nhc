@@ -12,6 +12,11 @@ if TYPE_CHECKING:
 
 _DOCS_DIR = Path(__file__).parent.parent.parent.parent / "docs"
 
+# Border color: sky blue via RGB
+_BORDER_RGB = (80, 140, 210)
+# Footer text: darker sky blue
+_FOOTER_RGB = (50, 90, 140)
+
 
 def _load_help() -> list[str]:
     """Load the help document for the active language, line by line."""
@@ -24,10 +29,18 @@ def _load_help() -> list[str]:
 
 def show_help(term: "Terminal") -> None:
     """Display a scrollable help overlay. Blocks until ESC/q/?."""
+    from nhc.rendering.terminal.renderer import (
+        CHROME_HEIGHT_CLASSIC,
+        STATUS_HEIGHT,
+    )
+
     lines = _load_help()
     scroll = 0
-    # Reserve top border + bottom border + 2 empty lines below
-    view_h = term.height - 5
+
+    # Fit inside the map zone: leave chrome at the bottom untouched
+    # and 1 empty line above + 1 below the box
+    map_h = term.height - CHROME_HEIGHT_CLASSIC
+    view_h = max(5, map_h - 4)  # 1 above + 1 top border + content + 1 bot border + 1 below
     max_scroll = max(0, len(lines) - view_h)
 
     while True:
@@ -50,55 +63,63 @@ def show_help(term: "Terminal") -> None:
             scroll = min(max_scroll, scroll + view_h)
 
 
+def _border(term: "Terminal", text: str) -> str:
+    """Apply border color to text."""
+    return term.color_rgb(*_BORDER_RGB)(text)
+
+
 def _draw(
     term: "Terminal", lines: list[str], scroll: int, view_h: int,
 ) -> None:
-    """Render the help overlay as a centered box."""
-    box_w = min(72, term.width - 4)
+    """Render the help overlay as a centered box over the map zone."""
+    box_w = min(term.width - 4, 112)
     box_x = (term.width - box_w) // 2
     box_y = 1
-    inner_w = box_w - 4  # 2 border + 2 padding
+    inner_w = box_w - 4  # │ + space + content + space + │
 
     output = ""
 
     # Top border
     output += term.move_xy(box_x, box_y)
-    output += "╭" + "─" * (box_w - 2) + "╮"
+    output += _border(term, "╭" + "─" * (box_w - 2) + "╮")
 
     # Content lines
     visible = lines[scroll:scroll + view_h]
     for i in range(view_h):
         y = box_y + 1 + i
         if i < len(visible):
-            raw = visible[i]
-            rendered = _render_md_line(term, raw, inner_w)
+            rendered = _render_md_line(term, visible[i], inner_w)
         else:
             rendered = " " * inner_w
         output += term.move_xy(box_x, y)
-        output += "│ " + rendered + " │"
+        output += _border(term, "│") + " " + rendered + " " + _border(term, "│")
 
     # Scroll indicator
     total = len(lines)
     if total > view_h:
         pct = int(100 * scroll / max(1, total - view_h))
-        indicator = f" {scroll + 1}-{min(scroll + view_h, total)}/{total}"
-        indicator += f" ({pct}%)"
+        indicator = f"  {scroll + 1}-{min(scroll + view_h, total)}/{total} ({pct}%)"
     else:
         indicator = ""
 
-    # Bottom border with embedded footer
-    # Layout: ╰─ footer ──────╯  (total width = box_w)
-    footer_line = " ESC/q: close  ↑↓: scroll  PgUp/PgDn: page"
-    footer_line += indicator
-    # Budget: 1(╰) + 1(─) + footer + right_fill + 1(╯) = box_w
-    max_footer = box_w - 3  # 1 + 1 + footer + 1 = box_w
-    footer_text = footer_line[:max_footer]
-    right_fill = max(0, max_footer - len(footer_text))
+    # Bottom border: ╰──── footer ────╯ (centered)
+    footer_text = "ESC/q: close  ↑↓: scroll  PgUp/PgDn: page" + indicator
+    max_text = box_w - 4  # ╰ + left_fill + text + right_fill + ╯
+    footer_text = footer_text[:max_text]
+    fill_total = max(0, max_text - len(footer_text))
+    left_fill = fill_total // 2
+    right_fill = fill_total - left_fill
+    footer_colored = term.color_rgb(*_FOOTER_RGB)(
+        "─" * left_fill + " " + footer_text + " " + "─" * right_fill
+    )
+
     bot_y = box_y + 1 + view_h
     output += term.move_xy(box_x, bot_y)
-    output += ("╰─"
-               + term.bright_black(footer_text)
-               + "─" * right_fill + "╯")
+    output += _border(term, "╰") + footer_colored + _border(term, "╯")
+
+    # Empty lines below the box (clear any leftover from previous draw)
+    for dy in range(1, 3):
+        output += term.move_xy(box_x, bot_y + dy) + " " * box_w
 
     print(output, end="", flush=True)
 
