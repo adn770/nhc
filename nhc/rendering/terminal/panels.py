@@ -78,13 +78,19 @@ def render_status(
     )
     output += term.move_xy(0, y + 1) + _pad(line1, width)
 
-    # ── Line 2: Abilities, Weapon, AC ──
+    # ── Line 2: Name, Background, Abilities, Weapon, AC ──
     s = stats
     weapon = s.get("weapon", "unarmed")
     armor_def = 10 + s.get("dex", 0)
+    char_name = s.get("char_name", "")
+    char_bg = s.get("char_background", "")
+    identity = f" {term.bold(char_name)}"
+    if char_bg:
+        identity += f" ({char_bg})"
 
     line2 = (
-        f" {tr('stats.str')}:{s.get('str', 0):+d}"
+        f"{identity}"
+        f"{SEP}{tr('stats.str')}:{s.get('str', 0):+d}"
         f" {tr('stats.dex')}:{s.get('dex', 0):+d}"
         f" {tr('stats.con')}:{s.get('con', 0):+d}"
         f" {tr('stats.int')}:{s.get('int', 0):+d}"

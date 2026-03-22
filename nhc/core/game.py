@@ -138,7 +138,10 @@ class Game:
             "Health": Health(current=char.hp, maximum=char.hp),
             "Inventory": Inventory(max_slots=inv_slots),
             "Player": Player(gold=char.gold),
-            "Description": Description(name=char.name),
+            "Description": Description(
+                name=char.name,
+                short=t(f"traits.{char.background}"),
+            ),
             "Equipment": Equipment(),
         })
         self._character = char

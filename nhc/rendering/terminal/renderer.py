@@ -231,8 +231,11 @@ class TerminalRenderer:
                 weapon_name = desc.name
 
         player = world.get_component(player_id, "Player")
+        pdesc = world.get_component(player_id, "Description")
 
         return {
+            "char_name": pdesc.name if pdesc else "",
+            "char_background": pdesc.short if pdesc else "",
             "hp": health.current if health else 0,
             "hp_max": health.maximum if health else 0,
             "turn": turn,
