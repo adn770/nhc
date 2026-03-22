@@ -73,6 +73,7 @@ class MLXBackend(LLMBackend):
         tools: list[dict[str, Any]] | None = None,
     ) -> Generator[str, None, None]:
         from mlx_lm import stream_generate
+        from mlx_lm.sample_utils import make_sampler
 
         if hasattr(self.tokenizer, "apply_chat_template"):
             prompt = self.tokenizer.apply_chat_template(
@@ -83,14 +84,17 @@ class MLXBackend(LLMBackend):
                 f"{m['role']}: {m['content']}" for m in messages
             )
 
-        for token in stream_generate(
+        sampler = make_sampler(temp=self.options.get("temperature", 0.1))
+
+        for response in stream_generate(
             self.model,
             self.tokenizer,
             prompt=prompt,
             max_tokens=self.options.get("num_predict", 2048),
-            temp=self.options.get("temperature", 0.1),
+            sampler=sampler,
         ):
-            yield token
+            if response.text:
+                yield response.text
 
 
 class AnthropicBackend(LLMBackend):
