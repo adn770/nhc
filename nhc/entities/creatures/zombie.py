@@ -1,10 +1,9 @@
 """Zombie — slow, durable undead."""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats,
+    AI, Health, LootTable, Renderable, Stats,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("zombie")
@@ -16,9 +15,5 @@ def create_zombie() -> dict:
         "Renderable": Renderable(glyph="Z", color="bright_green", render_order=2),
         "AI": AI(behavior="aggressive_melee", morale=12, faction="undead"),
         "LootTable": LootTable(entries=[("gold", 0.3, "1d6")]),
-        "Description": Description(
-            name=t("creature.zombie.name"),
-            short=t("creature.zombie.short"),
-            long=t("creature.zombie.long"),
-        ),
+        "Description": creature_desc("zombie"),
     }

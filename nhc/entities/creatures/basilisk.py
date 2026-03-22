@@ -1,10 +1,9 @@
 """Basilisk — 8-legged reptile with petrifying gaze. (BEB: Basilisc)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats,
+    AI, Health, LootTable, Renderable, Stats,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("basilisk")
@@ -17,9 +16,5 @@ def create_basilisk() -> dict:
         "LootTable": LootTable(entries=[("gold", 0.3, "4d6")]),
         # PetrifyingGaze: player entering melee range must save vs. paralysis
         "PetrifyingGaze": True,
-        "Description": Description(
-            name=t("creature.basilisk.name"),
-            short=t("creature.basilisk.short"),
-            long=t("creature.basilisk.long"),
-        ),
+        "Description": creature_desc("basilisk"),
     }

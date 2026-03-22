@@ -10,6 +10,9 @@ import importlib
 from pathlib import Path
 from typing import Any, Callable
 
+from nhc.entities.components import Description
+from nhc.i18n import t
+
 
 class EntityRegistry:
     """Central registry for all entity factories."""
@@ -95,3 +98,34 @@ class EntityRegistry:
     @classmethod
     def list_features(cls) -> list[str]:
         return sorted(cls._features.keys())
+
+
+def creature_desc(key: str) -> Description:
+    """Build a Description from locale keys, including grammatical gender.
+
+    Usage in creature factories:
+        "Description": creature_desc("skeleton"),
+    """
+    gender_val = t(f"creature.{key}.gender")
+    # t() returns the key itself if missing — detect that
+    if gender_val.startswith("creature."):
+        gender_val = ""
+    return Description(
+        name=t(f"creature.{key}.name"),
+        short=t(f"creature.{key}.short"),
+        long=t(f"creature.{key}.long"),
+        gender=gender_val,
+    )
+
+
+def item_desc(key: str) -> Description:
+    """Build a Description from locale keys for items."""
+    gender_val = t(f"items.{key}.gender")
+    if gender_val.startswith("items."):
+        gender_val = ""
+    return Description(
+        name=t(f"items.{key}.name"),
+        short=t(f"items.{key}.short"),
+        long=t(f"items.{key}.long"),
+        gender=gender_val,
+    )

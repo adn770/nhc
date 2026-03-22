@@ -621,7 +621,7 @@ class TestSleepingAutoHit:
 
         msgs = [e.text for e in events if isinstance(e, MessageEvent)]
         # Must have a hit (never miss against sleeping target)
-        assert any("hits" in m for m in msgs)
+        assert any("hit" in m.lower() for m in msgs)
 
         # Target should be awake now
         status = world.get_component(cid, "StatusEffect")

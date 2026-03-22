@@ -1,10 +1,9 @@
 """Llop (Wolf) — pack hunter. (BEB: Llop normal)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Weapon,
+    AI, Health, LootTable, Renderable, Stats, Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("llop")
@@ -16,9 +15,5 @@ def create_llop() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=6, faction="beast"),
         "Weapon": Weapon(damage="1d6"),
         "LootTable": LootTable(entries=[]),
-        "Description": Description(
-            name=t("creature.llop.name"),
-            short=t("creature.llop.short"),
-            long=t("creature.llop.long"),
-        ),
+        "Description": creature_desc("llop"),
     }

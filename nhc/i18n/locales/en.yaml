@@ -9,7 +9,18 @@ combat:
   slain: "{target} is slain!"
   destroyed: "{target} is destroyed!"
   drops: "{target} drops: {items}."
+  corpse: "{name} corpse"
   unarmed: "unarmed"
+  # Player attacks
+  you_hit: "You hit {target} for {damage} damage."
+  you_miss: "You miss {target}."
+  you_slain: "You slay {target}!"
+  you_destroyed: "You destroy {target}!"
+  # Player is attacked
+  hit_you: "{attacker} hits you for {damage} damage."
+  miss_you: "{attacker} misses you."
+  slain_you: "You have been slain!"
+  destroyed_you: "You have been destroyed!"
   drained: "{attacker} drains the life from {target}! Max HP reduced."
   poisoned: "{target} is poisoned!"
   poison_tick: "{target} writhes in agony from the poison! {damage} damage."
@@ -37,6 +48,7 @@ combat:
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
   open_door: "{actor} opens a door."
+  you_open_door: "You open a door."
   see_item: "You see {item} here."
   see_items: "You see {count} items here: {items}."
   see_feature: "You see {feature} here."
@@ -94,11 +106,57 @@ item:
   protect_active: "Evil creatures struggle to harm you!"
   mirror_cast: "Flickering copies of you appear!"
   mirror_images: "{count} mirror images surround you."
+  detect_magic_cast: "Arcane sight floods your vision!"
+  detect_magic_reveal: "You sense {count} magical items on this level."
+  detect_magic_none: "You sense no magic on this level."
+  detect_evil_cast: "Your senses extend beyond walls..."
+  detect_evil_reveal: "You sense {count} hostile presences nearby."
+  detect_evil_none: "You sense no evil nearby."
+  detect_invis_cast: "Your eyes pierce the veil of invisibility!"
+  detect_invis_active: "You can see invisible creatures!"
+  find_traps_cast: "Hidden dangers reveal themselves!"
+  find_traps_reveal: "You spot {count} hidden traps."
+  find_traps_none: "No hidden traps on this level."
+  light_cast: "Brilliant light erupts from the scroll!"
+  light_active: "Everything around you is bathed in light!"
+  remove_fear_cast: "Courage surges through your veins!"
+  remove_fear_active: "Your mind is clear of all fear."
+  shield_cast: "A shimmering barrier springs into existence!"
+  shield_active: "A magical shield protects you!"
+  resist_cold_cast: "A warm aura wraps around you."
+  resist_cold_active: "You are resistant to cold!"
+  resist_fire_cast: "A cool shimmer coats your skin."
+  resist_fire_active: "You are resistant to fire!"
+  levitate_cast: "Your feet lift from the ground!"
+  levitate_active: "You float above the floor!"
+  fly_cast: "Wings of magic carry you aloft!"
+  fly_active: "You soar through the air freely!"
+  dispel_cast: "A wave of nullifying energy pulses outward!"
+  dispel_affects: "Magical effects are stripped from {target}!"
+  dispel_none: "There is nothing to dispel."
+  prot_missiles_cast: "A deflecting ward surrounds you."
+  prot_missiles_active: "Ranged attacks are deflected away from you!"
+  silence_cast: "A sphere of silence expands from the scroll..."
+  silence_affects: "{target} is engulfed in magical silence!"
+  phantasmal_cast: "Terrifying illusions assail your enemies!"
+  phantasmal_affects: "{target} is confused by phantasmal horrors!"
+  clairvoyance_cast: "Your mind's eye opens wide..."
+  clairvoyance_reveal: "The surrounding area is revealed to you!"
+  infravision_cast: "Your eyes adjust to see beyond visible light."
+  infravision_active: "You see heat signatures in the darkness!"
+  continual_light_cast: "A permanent orb of light blazes into existence!"
+  water_breathing_cast: "Your lungs adapt to breathe water."
+  water_breathing_active: "You can breathe underwater!"
+  charm_snakes_cast: "A hypnotic melody fills the air..."
+  charm_snakes_affects: "{target} sways peacefully to the music."
+  charm_snakes_none: "No serpents are nearby."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
   avoided: "{entity} notices {trap} and avoids it!"
+  you_avoided: "You notice {trap} and avoid it!"
   triggered: "{entity} falls into {trap}! {damage} damage!"
+  you_triggered: "You fall into {trap}! {damage} damage!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -147,7 +205,7 @@ creature:
     long: >-
       Bleached bones held together by dark magic,
       wielding a notched blade.
-  rat:
+  giant_rat:
     name: "Giant Rat"
     short: "a giant rat"
     long: >-
@@ -419,6 +477,192 @@ creature:
     long: >-
       A two-legged draconic predator with a barbed tail coated in
       venom. It lacks a dragon's magic but makes up for it in savagery.
+  wraith:
+    name: "Wraith"
+    short: "a spectral wraith"
+    long: >-
+      An incorporeal horror of shadow and malice. Its chilling touch
+      drains the life from the living, leaving only cold husks behind.
+  rat:
+    name: "Rat"
+    short: "a scurrying rat"
+    long: >-
+      A common rat, small and quick. Alone it is barely a nuisance,
+      but in swarms they can overwhelm the unwary.
+  bat:
+    name: "Bat"
+    short: "a fluttering bat"
+    long: >-
+      A small bat that flits erratically through the dark corridors.
+      Its echolocation guides it unerringly in pitch darkness.
+  giant_eagle:
+    name: "Giant Eagle"
+    short: "a giant eagle"
+    long: >-
+      A magnificent raptor with a wingspan of twenty feet. It dives
+      from above with talons that can crush a man's skull.
+  giant_frog:
+    name: "Giant Frog"
+    short: "a giant frog"
+    long: >-
+      A bloated amphibian the size of a pony. Its sticky tongue
+      lashes out to drag prey into its cavernous gullet.
+  owlbear:
+    name: "Owlbear"
+    short: "a raging owlbear"
+    long: >-
+      A monstrous hybrid of owl and bear, with a hooked beak and
+      crushing forelimbs. It hugs prey to death in a feathered embrace.
+  giant_lizard:
+    name: "Giant Lizard"
+    short: "a giant lizard"
+    long: >-
+      A massive reptile with powerful jaws and a heavy tail.
+      It basks in the dungeon's warmth, waiting for prey to wander close.
+  werewolf:
+    name: "Werewolf"
+    short: "a snarling werewolf"
+    long: >-
+      A cursed human trapped between wolf and man. Only silver or
+      magic weapons can pierce its supernaturally tough hide.
+  wererat:
+    name: "Wererat"
+    short: "a shifty wererat"
+    long: >-
+      A gaunt figure with twitching whiskers and beady eyes. It shifts
+      between human and rat form, lurking in sewers and shadows.
+  werebear:
+    name: "Werebear"
+    short: "a massive werebear"
+    long: >-
+      A towering lycanthrope with the strength of a bear. Unlike most
+      shapeshifters, werebears are sometimes protectors of the wild.
+  ochre_jelly:
+    name: "Ochre Jelly"
+    short: "a quivering ochre jelly"
+    long: >-
+      A shapeless mass of ochre slime that oozes along floors and walls.
+      It splits into smaller copies when struck with slashing weapons.
+  green_slime:
+    name: "Green Slime"
+    short: "a patch of green slime"
+    long: >-
+      A glistening green film clinging to the ceiling. It drops onto
+      the unwary, dissolving armor and flesh with terrifying speed.
+  black_pudding:
+    name: "Black Pudding"
+    short: "a black pudding"
+    long: >-
+      The largest and deadliest of oozes, a tarry mass of acid that
+      dissolves metal weapons on contact and splits when struck.
+  violet_fungus:
+    name: "Violet Fungus"
+    short: "a violet fungus"
+    long: >-
+      A mushroom-like growth with writhing tendrils tipped in necrotic
+      rot. Its touch withers flesh on contact.
+  yellow_mold:
+    name: "Yellow Mold"
+    short: "a patch of yellow mold"
+    long: >-
+      A fuzzy golden growth coating the walls. When disturbed it
+      releases a cloud of deadly spores that choke the lungs.
+  mycelian:
+    name: "Mycelian"
+    short: "a mycelian"
+    long: >-
+      An intelligent fungal creature that communicates through spore
+      clouds. It tends its underground gardens with quiet purpose.
+  carnivorous_flower:
+    name: "Carnivorous Flower"
+    short: "a carnivorous flower"
+    long: >-
+      A massive bloom with toothed petals that snap shut on prey.
+      Sweet perfume masks the stench of digesting victims within.
+  dung_worm:
+    name: "Dung Worm"
+    short: "a dung worm"
+    long: >-
+      A segmented worm that burrows through refuse and loose earth.
+      Its acidic secretions dissolve organic matter with ease.
+  animated_armor:
+    name: "Animated Armor"
+    short: "a suit of animated armor"
+    long: >-
+      An empty suit of plate mail that moves with eerie purpose.
+      No mind dwells within — only magic animates its hollow shell.
+  invisible_stalker:
+    name: "Invisible Stalker"
+    short: "a shimmer in the air"
+    long: >-
+      An air elemental bound to servitude, permanently invisible.
+      Only the faintest distortion in the air betrays its presence.
+  centaur:
+    name: "Centaur"
+    short: "a centaur"
+    long: >-
+      A noble creature with the torso of a human and the body of a
+      horse. It charges with lance lowered at tremendous speed.
+  dragon_lizard:
+    name: "Dragon Lizard"
+    short: "a dragon lizard"
+    long: >-
+      A large reptile with vestigial wings and a throat that glows
+      with inner fire. It spews gouts of flame at anything that moves.
+  geckonid:
+    name: "Geckonid Lizard"
+    short: "a geckonid lizard"
+    long: >-
+      A nimble lizard with adhesive pads on its feet that let it
+      scurry across walls and ceilings with unnatural speed.
+  cave_locust:
+    name: "Giant Cave Locust"
+    short: "a giant cave locust"
+    long: >-
+      An enormous insect with powerful hind legs that propel it in
+      great leaps. It spits a foul brown liquid when threatened.
+  insect_swarm:
+    name: "Insect Swarm"
+    short: "a buzzing insect swarm"
+    long: >-
+      A roiling cloud of biting, stinging insects. Individual blows
+      do little — the swarm must be burned or fled from.
+  mechanical_raven:
+    name: "Mechanical Raven"
+    short: "a mechanical raven"
+    long: >-
+      A clockwork bird of brass and silver gears. Its glass eyes
+      record everything they see for its distant master.
+  chaos_spawn:
+    name: "Desori"
+    short: "a writhing desori"
+    long: >-
+      A creature of pure entropy, its form constantly shifting between
+      states. Reality warps and frays in its chaotic wake.
+  fell_spirit:
+    name: "Drapat"
+    short: "a cackling drapat"
+    long: >-
+      A tiny imp-like creature with bat wings and a wicked grin.
+      It delights in petty mischief and cruel pranks.
+  gray_ooze:
+    name: "Gray Ooze"
+    short: "a gray ooze"
+    long: >-
+      A pool of viscous gray slime that resembles wet stone. Its
+      acidic body dissolves metal on contact, ruining weapons and armor.
+  merchant:
+    name: "Merchant"
+    short: "a travelling merchant"
+    long: >-
+      A weathered trader with a heavy pack and shrewd eyes. They
+      brave the dungeon depths in search of profit and rare finds.
+  animated_bones:
+    name: "Animated Bones"
+    short: "a pile of animated bones"
+    long: >-
+      A loose collection of bones held together by fading necromancy.
+      They clatter and scrape as they drag themselves toward the living.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
@@ -535,6 +779,126 @@ items:
     long: >-
       Inscribed with holy wards and warding circles.
       Grants +1 saves and hampers evil creatures for 12 turns.
+  scroll_detect_magic:
+    name: "Scroll of Detect Magic"
+    short: "a glowing cyan scroll"
+    long: >-
+      Runes pulse faintly on this parchment. Reading it reveals
+      every magical item on the current level.
+  scroll_detect_evil:
+    name: "Scroll of Detect Evil"
+    short: "a pale scroll with dark runes"
+    long: >-
+      Inked in blood-red sigils that seem to writhe. Reading it
+      reveals hostile creatures even through walls.
+  scroll_detect_invisibility:
+    name: "Scroll of Detect Invisibility"
+    short: "a shimmering scroll"
+    long: >-
+      The parchment shifts between visible and translucent. Reading
+      it grants sight of invisible creatures for 12 turns.
+  scroll_find_traps:
+    name: "Scroll of Find Traps"
+    short: "a cautious yellow scroll"
+    long: >-
+      Geometric diagrams fill this parchment. Reading it reveals
+      every hidden trap on the current level.
+  scroll_light:
+    name: "Scroll of Light"
+    short: "a radiant scroll"
+    long: >-
+      Warm golden light seeps from between the rolled edges. Reading
+      it bathes the area in bright light for 20 turns.
+  scroll_remove_fear:
+    name: "Scroll of Remove Fear"
+    short: "a calming white scroll"
+    long: >-
+      Soothing words of courage fill this parchment. Reading it
+      dispels paralysis and fear from your mind.
+  scroll_shield:
+    name: "Scroll of Shield"
+    short: "a reinforced scroll"
+    long: >-
+      A shimmering barrier diagram covers this parchment. Reading
+      it conjures a magical shield granting +2 AC for 8 turns.
+  scroll_resist_cold:
+    name: "Scroll of Resist Cold"
+    short: "a frost-rimmed scroll"
+    long: >-
+      Ice crystals form along the edges of this parchment. Reading
+      it halves all cold damage for 12 turns.
+  scroll_resist_fire:
+    name: "Scroll of Resist Fire"
+    short: "a heat-resistant scroll"
+    long: >-
+      The parchment is warm to the touch yet never burns. Reading
+      it halves all fire damage for 12 turns.
+  scroll_levitate:
+    name: "Scroll of Levitate"
+    short: "a weightless scroll"
+    long: >-
+      This scroll drifts upward if released. Reading it lets you
+      float above the ground, avoiding traps for 12 turns.
+  scroll_fly:
+    name: "Scroll of Fly"
+    short: "a wind-swept scroll"
+    long: >-
+      Feather-light ink traces wing patterns on this scroll. Reading
+      it grants free flight for 6 turns.
+  scroll_dispel_magic:
+    name: "Scroll of Dispel Magic"
+    short: "a nullifying scroll"
+    long: >-
+      Anti-magic sigils cover every inch of this parchment. Reading
+      it strips all magical effects from creatures nearby.
+  scroll_protection_missiles:
+    name: "Scroll of Protection from Missiles"
+    short: "a warded blue scroll"
+    long: >-
+      Concentric warding circles cover this scroll. Reading it
+      deflects all ranged attacks for 12 turns.
+  scroll_silence:
+    name: "Scroll of Silence"
+    short: "a mute grey scroll"
+    long: >-
+      No sound emerges when you ruffle this parchment. Reading it
+      creates a zone of absolute silence for 12 turns.
+  scroll_phantasmal_force:
+    name: "Scroll of Phantasmal Force"
+    short: "a swirling scroll"
+    long: >-
+      Illusory shapes dance across the parchment. Reading it fills
+      enemies' minds with terrifying hallucinations.
+  scroll_clairvoyance:
+    name: "Scroll of Clairvoyance"
+    short: "a far-seeing scroll"
+    long: >-
+      A tiny eye is drawn at the center of this scroll. Reading it
+      reveals the layout of the surrounding area.
+  scroll_infravision:
+    name: "Scroll of Infravision"
+    short: "a dark-red scroll"
+    long: >-
+      Written in ink visible only in darkness. Reading it grants
+      the ability to see heat signatures for 20 turns.
+  scroll_continual_light:
+    name: "Scroll of Continual Light"
+    short: "a blazing scroll"
+    long: >-
+      Blinding white text on golden parchment. Reading it creates
+      a permanent light source that never dims.
+  scroll_water_breathing:
+    name: "Scroll of Water Breathing"
+    short: "a damp scroll"
+    long: >-
+      The ink shimmers like water. Reading it grants the ability
+      to breathe underwater for 20 turns.
+  scroll_charm_snakes:
+    name: "Scroll of Charm Snakes"
+    short: "a serpentine scroll"
+    long: >-
+      Sinuous patterns coil across this parchment. Reading it
+      pacifies all serpent-type creatures nearby.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

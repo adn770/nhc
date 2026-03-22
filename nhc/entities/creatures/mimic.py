@@ -3,26 +3,20 @@
 from nhc.entities.components import (
     AI,
     BlocksMovement,
-    Description,
     Disguise,
     Health,
     Renderable,
     Stats,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("mimic")
 def create_mimic() -> dict:
     return {
         "Renderable": Renderable(glyph="$", color="yellow", render_order=2),
-        "Description": Description(
-            name=t("creature.mimic.name"),
-            short=t("creature.mimic.short"),
-            long=t("creature.mimic.long"),
-        ),
+        "Description": creature_desc("mimic"),
         "Stats": Stats(strength=4, dexterity=2),
         "Health": Health(current=22, maximum=22),
         "Weapon": Weapon(damage="2d6"),

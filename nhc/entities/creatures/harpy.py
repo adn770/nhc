@@ -4,25 +4,19 @@ from nhc.entities.components import (
     AI,
     BlocksMovement,
     CharmSong,
-    Description,
     Health,
     Renderable,
     Stats,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("harpy")
 def create_harpy() -> dict:
     return {
         "Renderable": Renderable(glyph="H", color="magenta", render_order=2),
-        "Description": Description(
-            name=t("creature.harpy.name"),
-            short=t("creature.harpy.short"),
-            long=t("creature.harpy.long"),
-        ),
+        "Description": creature_desc("harpy"),
         "Stats": Stats(strength=2, dexterity=4),
         "Health": Health(current=14, maximum=14),
         "Weapon": Weapon(damage="1d6"),

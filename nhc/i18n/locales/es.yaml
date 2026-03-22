@@ -9,7 +9,18 @@ combat:
   slain: "¡{target} ha sido abatido!"
   destroyed: "¡{target} ha sido destruido!"
   drops: "{target} deja caer: {items}."
+  corpse: "cadáver de {name}"
   unarmed: "desarmado"
+  # Player attacks
+  you_hit: "¡Golpeas a {target} por {damage} de daño!"
+  you_miss: "Fallas a {target}."
+  you_slain: "¡Abates a {target}!"
+  you_destroyed: "¡Destruyes a {target}!"
+  # Player is attacked
+  hit_you: "¡{attacker} te golpea por {damage} de daño!"
+  miss_you: "{attacker} te falla."
+  slain_you: "¡Has caído en combate!"
+  destroyed_you: "¡Has sido destruido!"
   drained: "¡{attacker} drena la vida de {target}! PV máximos reducidos."
   poisoned: "¡{target} ha sido envenenado!"
   poison_tick: "¡{target} se retuerce de agonía por el veneno! {damage} de daño."
@@ -37,6 +48,7 @@ combat:
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
   open_door: "{actor} abre una puerta."
+  you_open_door: "Abres una puerta."
   see_item: "Ves {item} aquí."
   see_items: "Ves {count} objetos aquí: {items}."
   see_feature: "Ves {feature} aquí."
@@ -96,11 +108,57 @@ item:
   protect_active: "¡Las criaturas malignas tienen dificultades para hacerte daño!"
   mirror_cast: "¡Copias parpadeantes tuyas aparecen!"
   mirror_images: "{count} imágenes especulares te rodean."
+  detect_magic_cast: "¡La visión arcana inunda tus ojos!"
+  detect_magic_reveal: "Detectas {count} objetos mágicos en este nivel."
+  detect_magic_none: "No detectas magia en este nivel."
+  detect_evil_cast: "Tus sentidos se extienden más allá de las paredes..."
+  detect_evil_reveal: "Detectas {count} presencias hostiles cercanas."
+  detect_evil_none: "No detectas ningún mal cercano."
+  detect_invis_cast: "¡Tus ojos atraviesan el velo de invisibilidad!"
+  detect_invis_active: "¡Puedes ver las criaturas invisibles!"
+  find_traps_cast: "¡Los peligros ocultos se revelan!"
+  find_traps_reveal: "Divisas {count} trampas ocultas."
+  find_traps_none: "No hay trampas ocultas en este nivel."
+  light_cast: "¡Luz brillante erupciona del pergamino!"
+  light_active: "¡Todo a tu alrededor está bañado en luz!"
+  remove_fear_cast: "¡El coraje surge por tus venas!"
+  remove_fear_active: "Tu mente está libre de todo miedo."
+  shield_cast: "¡Una barrera centelleante aparece!"
+  shield_active: "¡Un escudo mágico te protege!"
+  resist_cold_cast: "Un aura cálida te envuelve."
+  resist_cold_active: "¡Eres resistente al frío!"
+  resist_fire_cast: "Un destello fresco cubre tu piel."
+  resist_fire_active: "¡Eres resistente al fuego!"
+  levitate_cast: "¡Tus pies se elevan del suelo!"
+  levitate_active: "¡Flotas sobre el suelo!"
+  fly_cast: "¡Alas de magia te llevan al aire!"
+  fly_active: "¡Vuelas por el aire libremente!"
+  dispel_cast: "¡Una ola de energía anuladora pulsa hacia fuera!"
+  dispel_affects: "¡Los efectos mágicos son eliminados de {target}!"
+  dispel_none: "No hay nada que disipar."
+  prot_missiles_cast: "Una protección deflectora te rodea."
+  prot_missiles_active: "¡Los ataques a distancia son desviados!"
+  silence_cast: "Una esfera de silencio se expande del pergamino..."
+  silence_affects: "¡{target} es envuelto en silencio mágico!"
+  phantasmal_cast: "¡Ilusiones aterradoras asaltan a tus enemigos!"
+  phantasmal_affects: "¡{target} está confundido por horrores fantasmales!"
+  clairvoyance_cast: "El ojo de tu mente se abre de par en par..."
+  clairvoyance_reveal: "¡El área circundante se te revela!"
+  infravision_cast: "Tus ojos se ajustan para ver más allá de la luz visible."
+  infravision_active: "¡Ves firmas de calor en la oscuridad!"
+  continual_light_cast: "¡Un orbe de luz permanente se enciende!"
+  water_breathing_cast: "Tus pulmones se adaptan para respirar agua."
+  water_breathing_active: "¡Puedes respirar bajo el agua!"
+  charm_snakes_cast: "Una melodía hipnótica llena el aire..."
+  charm_snakes_affects: "{target} se balancea pacíficamente con la música."
+  charm_snakes_none: "No hay serpientes cerca."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
   avoided: "¡{entity} detecta {trap} y la evita!"
+  you_avoided: "¡Detectas {trap} y la evitas!"
   triggered: "¡{entity} cae en {trap}! ¡{damage} de daño!"
+  you_triggered: "¡Caes en {trap}! ¡{damage} de daño!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -149,7 +207,7 @@ creature:
     long: >-
       Huesos blanqueados sostenidos por magia oscura,
       empuñando una hoja mellada.
-  rat:
+  giant_rat:
     name: "Rata Gigante"
     short: "una rata gigante"
     long: >-
@@ -427,6 +485,197 @@ creature:
       Un depredador dracónico de dos patas con una cola con púas
       cubierta de veneno. Carece de la magia de un dragón pero lo
       compensa con ferocidad.
+  wraith:
+    name: "Aparecido"
+    short: "un aparecido espectral"
+    long: >-
+      Un horror incorpóreo de sombra y malicia. Su toque helado
+      drena la vida de los vivientes, dejando solo cáscaras frías.
+  rat:
+    name: "Rata"
+    short: "una rata"
+    long: >-
+      Una rata común, pequeña y rápida. Sola apenas es una molestia,
+      pero en enjambres pueden abrumar a los desprevenidos.
+  bat:
+    name: "Murciélago"
+    short: "un murciélago"
+    long: >-
+      Un pequeño murciélago que vuela erráticamente por los pasillos
+      oscuros. Su ecolocalización lo guía infaliblemente en la oscuridad.
+  giant_eagle:
+    name: "Águila Gigante"
+    short: "un águila gigante"
+    long: >-
+      Un rapaz magnífico con una envergadura de seis metros.
+      Se lanza desde arriba con garras que pueden aplastar un cráneo.
+  giant_frog:
+    name: "Rana Gigante"
+    short: "una rana gigante"
+    long: >-
+      Un anfibio hinchado del tamaño de un poni. Su lengua pegajosa
+      se extiende para arrastrar a las presas a su garganta cavernosa.
+  owlbear:
+    name: "Oso Búho"
+    short: "un oso búho furioso"
+    long: >-
+      Un híbrido monstruoso de búho y oso, con un pico ganchudo y
+      brazos aplastantes. Abraza a las presas hasta matarlas.
+  giant_lizard:
+    name: "Lagarto Gigante"
+    short: "un lagarto gigante"
+    long: >-
+      Un reptil masivo con mandíbulas poderosas y una cola pesada.
+      Descansa en el calor de la mazmorra, esperando que la presa se acerque.
+  werewolf:
+    name: "Hombre Lobo"
+    short: "un hombre lobo gruñón"
+    long: >-
+      Un humano maldito atrapado entre lobo y hombre. Solo las armas
+      de plata o mágicas pueden atravesar su piel sobrenaturalmente dura.
+  wererat:
+    name: "Hombre Rata"
+    short: "un furtivo hombre rata"
+    long: >-
+      Una figura delgada con bigotes temblorosos y ojos pequeños. Cambia
+      entre forma humana y de rata, acechando en alcantarillas y sombras.
+  werebear:
+    name: "Hombre Oso"
+    short: "un masivo hombre oso"
+    long: >-
+      Un licántropo imponente con la fuerza de un oso. A diferencia de
+      la mayoría de cambiaformas, los hombres oso a veces protegen la
+      naturaleza.
+  ochre_jelly:
+    name: "Gelatina Ocre"
+    short: "una gelatina ocre temblorosa"
+    long: >-
+      Una masa informe de limo ocre que se desliza por suelos y paredes.
+      Se divide en copias menores al ser golpeada con armas cortantes.
+  green_slime:
+    name: "Limo Verde"
+    short: "una mancha de limo verde"
+    long: >-
+      Una película verde brillante pegada al techo. Cae sobre los
+      desprevenidos, disolviendo armadura y carne a velocidad aterradora.
+  black_pudding:
+    name: "Pudín Negro"
+    short: "un pudín negro"
+    long: >-
+      El más grande y letal de los oozes, una masa alquitranosa de ácido
+      que disuelve armas metálicas al contacto y se divide al ser golpeado.
+  violet_fungus:
+    name: "Hongo Violeta"
+    short: "un hongo violeta"
+    long: >-
+      Un crecimiento similar a un hongo con tentáculos que se retuercen
+      con podredumbre necrótica. Su toque marchita la carne al contacto.
+  yellow_mold:
+    name: "Moho Amarillo"
+    short: "una mancha de moho amarillo"
+    long: >-
+      Un crecimiento dorado peludo que cubre las paredes. Cuando es
+      perturbado libera una nube de esporas mortales que ahogan los pulmones.
+  mycelian:
+    name: "Miceliano"
+    short: "un miceliano"
+    long: >-
+      Una criatura fúngica inteligente que se comunica mediante nubes
+      de esporas. Cuida sus jardines subterráneos con calma.
+  carnivorous_flower:
+    name: "Flor Carnívora"
+    short: "una flor carnívora"
+    long: >-
+      Una floración masiva con pétalos dentados que se cierran sobre
+      la presa. Un perfume dulce enmascara el hedor de víctimas digeridas.
+  dung_worm:
+    name: "Gusano de Estiércol"
+    short: "un gusano de estiércol"
+    long: >-
+      Un gusano segmentado que excava entre la basura y la tierra suelta.
+      Sus secreciones ácidas disuelven la materia orgánica con facilidad.
+  animated_armor:
+    name: "Armadura Animada"
+    short: "una armadura animada"
+    long: >-
+      Una armadura de placas vacía que se mueve con un propósito
+      inquietante. Ninguna mente habita dentro — solo la magia anima
+      su cáscara hueca.
+  invisible_stalker:
+    name: "Acechador Invisible"
+    short: "un temblor en el aire"
+    long: >-
+      Un elemental de aire atado a la servidumbre, permanentemente
+      invisible. Solo la más leve distorsión en el aire delata su presencia.
+  centaur:
+    name: "Centauro"
+    short: "un centauro"
+    long: >-
+      Una criatura noble con el torso de un humano y el cuerpo de un
+      caballo. Carga con la lanza baja a velocidad tremenda.
+  dragon_lizard:
+    name: "Lagarto Dragón"
+    short: "un lagarto dragón"
+    long: >-
+      Un reptil grande con alas vestigiales y una garganta que brilla
+      con fuego interior. Escupe chorros de llama a todo lo que se mueve.
+  geckonid:
+    name: "Lagarto Gecónido"
+    short: "un lagarto gecónido"
+    long: >-
+      Un lagarto ágil con almohadillas adhesivas en los pies que le
+      permiten correr por paredes y techos con velocidad antinatural.
+  cave_locust:
+    name: "Langosta de Cueva Gigante"
+    short: "una langosta de cueva gigante"
+    long: >-
+      Un insecto enorme con poderosas patas traseras que lo impulsan
+      en grandes saltos. Escupe un líquido marrón asqueroso cuando se
+      siente amenazado.
+  insect_swarm:
+    name: "Enjambre de Insectos"
+    short: "un enjambre de insectos zumbante"
+    long: >-
+      Una nube agitada de insectos que muerden y pican. Los golpes
+      individuales hacen poco — el enjambre debe ser quemado o huido.
+  mechanical_raven:
+    name: "Cuervo Mecánico"
+    short: "un cuervo mecánico"
+    long: >-
+      Un pájaro de relojería de latón y engranajes de plata. Sus
+      ojos de cristal registran todo lo que ven para su amo distante.
+  chaos_spawn:
+    name: "Desori"
+    short: "un desori retorcido"
+    long: >-
+      Una criatura de pura entropía, su forma cambiando constantemente
+      entre estados. La realidad se deforma y se deshace a su paso caótico.
+  fell_spirit:
+    name: "Drapat"
+    short: "un drapat cacareante"
+    long: >-
+      Una pequeña criatura parecida a un diablillo con alas de murciélago
+      y una sonrisa perversa. Se deleita en travesuras y bromas crueles.
+  gray_ooze:
+    name: "Limo Gris"
+    short: "un limo gris"
+    long: >-
+      Una poza de limo gris viscoso que se asemeja a piedra mojada. Su
+      cuerpo ácido disuelve el metal al contacto, arruinando armas y
+      armaduras.
+  merchant:
+    name: "Mercader"
+    short: "un mercader itinerante"
+    long: >-
+      Un comerciante curtido con un fardo pesado y ojos astutos.
+      Se aventura en las profundidades de la mazmorra buscando beneficio
+      y hallazgos raros.
+  animated_bones:
+    name: "Huesos Animados"
+    short: "un montón de huesos animados"
+    long: >-
+      Una colección de huesos sostenidos por nigromancia desvaneciéndose.
+      Traquetean y raspan mientras se arrastran hacia los vivos.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
@@ -543,6 +792,126 @@ items:
     long: >-
       Inscrito con protecciones santas y círculos de guarda.
       Otorga +1 a las salvaciones y dificulta a las criaturas malignas durante 12 turnos.
+  scroll_detect_magic:
+    name: "Pergamino de Detectar Magia"
+    short: "un pergamino cian brillante"
+    long: >-
+      Runas pulsan suavemente en este pergamino. Leerlo revela
+      todos los objetos mágicos del nivel actual.
+  scroll_detect_evil:
+    name: "Pergamino de Detectar el Mal"
+    short: "un pergamino pálido con runas oscuras"
+    long: >-
+      Inscrito con sigilos rojo sangre que parecen retorcerse. Leerlo
+      revela las criaturas hostiles incluso a través de las paredes.
+  scroll_detect_invisibility:
+    name: "Pergamino de Detectar Invisibilidad"
+    short: "un pergamino centelleante"
+    long: >-
+      El pergamino alterna entre visible y translúcido. Leerlo
+      otorga visión de criaturas invisibles durante 12 turnos.
+  scroll_find_traps:
+    name: "Pergamino de Encontrar Trampas"
+    short: "un pergamino amarillo cauteloso"
+    long: >-
+      Diagramas geométricos llenan este pergamino. Leerlo revela
+      todas las trampas ocultas del nivel actual.
+  scroll_light:
+    name: "Pergamino de Luz"
+    short: "un pergamino radiante"
+    long: >-
+      Luz dorada cálida sale de entre los bordes enrollados. Leerlo
+      baña el área con luz brillante durante 20 turnos.
+  scroll_remove_fear:
+    name: "Pergamino de Quitar Miedo"
+    short: "un pergamino blanco tranquilo"
+    long: >-
+      Palabras reconfortantes de coraje llenan este pergamino. Leerlo
+      disipa la parálisis y el miedo de tu mente.
+  scroll_shield:
+    name: "Pergamino de Escudo Mágico"
+    short: "un pergamino reforzado"
+    long: >-
+      Un diagrama de barrera centelleante cubre este pergamino. Leerlo
+      conjura un escudo mágico que otorga +2 CA durante 8 turnos.
+  scroll_resist_cold:
+    name: "Pergamino de Resistir Frío"
+    short: "un pergamino bordeado de escarcha"
+    long: >-
+      Cristales de hielo se forman a lo largo de los bordes del pergamino.
+      Leerlo reduce a la mitad todo el daño de frío durante 12 turnos.
+  scroll_resist_fire:
+    name: "Pergamino de Resistir Fuego"
+    short: "un pergamino resistente al calor"
+    long: >-
+      El pergamino está caliente al tacto pero nunca se quema. Leerlo
+      reduce a la mitad todo el daño de fuego durante 12 turnos.
+  scroll_levitate:
+    name: "Pergamino de Levitar"
+    short: "un pergamino ingrávido"
+    long: >-
+      Este pergamino flota hacia arriba si lo sueltas. Leerlo te
+      permite flotar sobre el suelo, evitando trampas durante 12 turnos.
+  scroll_fly:
+    name: "Pergamino de Volar"
+    short: "un pergamino azotado por el viento"
+    long: >-
+      Tinta ligera como pluma traza patrones de alas. Leerlo
+      otorga vuelo libre durante 6 turnos.
+  scroll_dispel_magic:
+    name: "Pergamino de Disipar Magia"
+    short: "un pergamino anulador"
+    long: >-
+      Sigilos antimágicos cubren cada centímetro del pergamino. Leerlo
+      elimina todos los efectos mágicos de las criaturas cercanas.
+  scroll_protection_missiles:
+    name: "Pergamino de Protección de Proyectiles"
+    short: "un pergamino azul protegido"
+    long: >-
+      Círculos protectores concéntricos cubren este pergamino. Leerlo
+      desvía todos los ataques a distancia durante 12 turnos.
+  scroll_silence:
+    name: "Pergamino de Silencio"
+    short: "un pergamino gris mudo"
+    long: >-
+      Ningún sonido sale al hojear este pergamino. Leerlo
+      crea una zona de silencio absoluto durante 12 turnos.
+  scroll_phantasmal_force:
+    name: "Pergamino de Fuerza Fantasmal"
+    short: "un pergamino arremolinado"
+    long: >-
+      Formas ilusorias danzan sobre el pergamino. Leerlo llena
+      la mente de los enemigos con alucinaciones aterradoras.
+  scroll_clairvoyance:
+    name: "Pergamino de Clarividencia"
+    short: "un pergamino de visión lejana"
+    long: >-
+      Un ojo diminuto está dibujado en el centro del pergamino. Leerlo
+      revela la disposición del área circundante.
+  scroll_infravision:
+    name: "Pergamino de Infravisión"
+    short: "un pergamino rojo oscuro"
+    long: >-
+      Escrito con tinta visible solo en la oscuridad. Leerlo otorga
+      la capacidad de ver firmas de calor durante 20 turnos.
+  scroll_continual_light:
+    name: "Pergamino de Luz Continua"
+    short: "un pergamino resplandeciente"
+    long: >-
+      Texto blanco cegador sobre pergamino dorado. Leerlo crea
+      una fuente de luz permanente que nunca se apaga.
+  scroll_water_breathing:
+    name: "Pergamino de Respirar bajo el Agua"
+    short: "un pergamino húmedo"
+    long: >-
+      La tinta centellea como agua. Leerlo otorga la capacidad
+      de respirar bajo el agua durante 20 turnos.
+  scroll_charm_snakes:
+    name: "Pergamino de Encantar Serpientes"
+    short: "un pergamino serpentino"
+    long: >-
+      Patrones sinuosos se enroscan por el pergamino. Leerlo
+      pacifica todas las criaturas de tipo serpiente cercanas.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

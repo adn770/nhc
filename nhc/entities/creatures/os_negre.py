@@ -1,10 +1,9 @@
 """Os Negre (Black Bear) — forest-dwelling bear. (BEB: Os negre)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Weapon,
+    AI, Health, LootTable, Renderable, Stats, Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("os_negre")
@@ -17,9 +16,5 @@ def create_os_negre() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=7, faction="beast"),
         "Weapon": Weapon(damage="1d6"),
         "LootTable": LootTable(entries=[]),
-        "Description": Description(
-            name=t("creature.os_negre.name"),
-            short=t("creature.os_negre.short"),
-            long=t("creature.os_negre.long"),
-        ),
+        "Description": creature_desc("os_negre"),
     }

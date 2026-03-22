@@ -1,18 +1,13 @@
 """Gold coins — currency."""
 
-from nhc.entities.components import Description, Renderable
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.components import Renderable
+from nhc.entities.registry import EntityRegistry, item_desc
 
 
 @EntityRegistry.register_item("gold")
 def create_gold() -> dict:
     return {
         "Renderable": Renderable(glyph="$", color="bright_yellow", render_order=1),
-        "Description": Description(
-            name=t("items.gold.name"),
-            short=t("items.gold.short"),
-            long=t("items.gold.long"),
-        ),
+        "Description": item_desc("gold"),
         "Gold": True,  # Tag component
     }

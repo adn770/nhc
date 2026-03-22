@@ -8,7 +8,7 @@ from nhc.utils.rng import get_rng
 # Creature pools by difficulty tier
 CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [
-        ("rat", 0.15), ("goblin", 0.2), ("skeleton", 0.1),
+        ("giant_rat", 0.15), ("goblin", 0.2), ("skeleton", 0.1),
         ("kobold", 0.1), ("giant_bee", 0.08), ("escarabat_foc", 0.08),
         ("ratpenat_gegant", 0.05), ("centpeus_gegant", 0.1),
         ("stirge", 0.07), ("cridaner", 0.07),

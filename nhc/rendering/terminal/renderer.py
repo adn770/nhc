@@ -17,9 +17,13 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
+import logging
+
 from blessed import Terminal
 
 from nhc.i18n import t as tr
+
+logger = logging.getLogger(__name__)
 
 from nhc.core.ecs import World
 from nhc.dungeon.model import Level, Terrain
@@ -59,6 +63,7 @@ class TerminalRenderer:
 
     def add_message(self, text: str) -> None:
         """Add a message to the log."""
+        logger.info("MSG: %s", text)
         self._messages.append(text)
         if len(self._messages) > 200:
             self._messages = self._messages[-200:]

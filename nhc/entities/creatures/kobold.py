@@ -1,8 +1,7 @@
 """Kobold — tiny, cunning trap-builder. (BEB: Kobold)"""
 
-from nhc.entities.components import AI, Description, Health, LootTable, Renderable, Stats
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.components import AI, Health, LootTable, Renderable, Stats
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("kobold")
@@ -13,9 +12,5 @@ def create_kobold() -> dict:
         "Renderable": Renderable(glyph="k", color="yellow", render_order=2),
         "AI": AI(behavior="aggressive_melee", morale=6, faction="goblinoid"),
         "LootTable": LootTable(entries=[("gold", 0.5, "1d4")]),
-        "Description": Description(
-            name=t("creature.kobold.name"),
-            short=t("creature.kobold.short"),
-            long=t("creature.kobold.long"),
-        ),
+        "Description": creature_desc("kobold"),
     }

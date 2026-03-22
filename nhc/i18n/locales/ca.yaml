@@ -4,39 +4,67 @@
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
+  # 3rd person (creature vs creature, or default fallback)
   hit: "{attacker} colpeja {target} per {damage} de dany."
   miss: "{attacker} falla {target}."
   slain: "{target} ha estat abatut!"
   destroyed: "{target} ha estat destruït!"
   drops: "{target} deixa caure: {items}."
+  corpse: "cadàver de {name}"
   unarmed: "desarmat"
+  # Player attacks (2nd person singular)
+  you_hit: "Colpeges {target} per {damage} de dany."
+  you_miss: "Falles {target}."
+  you_slain: "Abats {target}!"
+  you_destroyed: "Destrueixes {target}!"
+  # Player is attacked (2nd person, passive)
+  hit_you: "{attacker} et colpeja per {damage} de dany."
+  miss_you: "{attacker} et falla."
+  slain_you: "Has caigut en combat!"
+  destroyed_you: "Has estat destruït!"
+  # Status effects (always on target)
   drained: "{attacker} drena la vida de {target}! PV màxims reduïts."
+  drained_you: "{attacker} et drena la vida! PV màxims reduïts."
   poisoned: "{target} ha estat enverrinat!"
+  poisoned_you: "Has estat enverrinat!"
   poison_tick: "{target} es retorç d'agonia pel verí! {damage} de dany."
+  poison_tick_you: "Et retorces d'agonia pel verí! {damage} de dany."
   petrified: "{target} mira als ulls del basilisc i es converteix en pedra!"
+  petrified_you: "Mires als ulls del basilisc i et converteixes en pedra!"
   petrify_saved: "{target} aparta la vista just a temps."
+  petrify_saved_you: "Apartes la vista just a temps."
   paralyzed_turn: "Estàs paralitzat i no pots moure't!"
   sleeping_turn: "Dormes indefens..."
   miss_invisible: "{target} és invisible — el teu cop no troba res!"
   mirror_absorbed: "El teu cop impacta una imatge de {target} — es trenca! ({remaining} queden)"
   blood_drain: "{attacker} s'agafa a {target} i li drena la sang! ({damage} de drenatge)"
+  blood_drain_you: "{attacker} s'agafa a tu i et drena la sang! ({damage} de drenatge)"
   petrify_touch: "{target} sent un fred de pedra que li recorre el cos — paralitzat!"
+  petrify_touch_you: "Sents un fred de pedra que et recorre el cos — paralitzat!"
   frost_breath: "{attacker} exhala un buf de fred àrtic sobre {target} per {damage} de dany!"
+  frost_breath_you: "{attacker} t'exhala un buf de fred àrtic per {damage} de dany!"
   disenchant: "{attacker} drena la màgia de {item} de {target}! Es desintegra en pols."
+  disenchant_you: "{attacker} et drena la màgia de {item}! Es desintegra en pols."
+  charm_touch: "{target} cau sota un encantament màgic!"
+  charm_touch_you: "Caus sota un encantament màgic!"
+  mummy_rot: "{target} sent el terror de la podridura de la mòmia apoderar-se d'ell!"
+  mummy_rot_you: "Sents el terror de la podridura de la mòmia apoderar-se de tu!"
+  magic_weapon_needed: "La teva arma llisca sobre {target} — només la màgia pot fer-li mal!"
   shrieker_shriek: "El {creature} emet un crit estrident!"
   shriek_wakes: "{creature} es desperta sobresaltat pel soroll terrible!"
   regenerates: "{creature} regenera la carn davant dels teus ulls!"
-  rot_drain: "{target} sent la podridura de la mòmia debilitar el seu cos! PV màxims reduïts."
-  charm_touch: "{target} cau sota un encantament màgic!"
-  mummy_rot: "{target} sent el terror de la podridura de la mòmia apoderar-se d'ell!"
-  magic_weapon_needed: "La teva arma llisca sobre {target} — només la màgia pot fer-li mal!"
+  rot_drain: "{target} sent la podridura debilitar el seu cos! PV màxims reduïts."
+  rot_drain_you: "Sents la podridura debilitar el teu cos! PV màxims reduïts."
   banshee_wail: "{creature} emet un udol que esquinça l'ànima!"
   banshee_kills: "{target} sucumbeix a l'udol de la banshee!"
+  banshee_kills_you: "Sucumbeixes a l'udol de la banshee!"
   banshee_saved: "{target} resisteix l'udol de la banshee!"
+  banshee_saved_you: "Resisteixes l'udol de la banshee!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
   open_door: "{actor} obre una porta."
+  you_open_door: "Obres una porta."
   see_item: "Veus {item} aquí."
   see_items: "Veus {count} objectes aquí: {items}."
   see_feature: "Veus {feature} aquí."
@@ -96,11 +124,57 @@ item:
   protect_active: "Les criatures malvades lluiten per fer-te mal!"
   mirror_cast: "Còpies parpellejants teves apareixen!"
   mirror_images: "{count} imatges en mirall t'envolten."
+  detect_magic_cast: "La visió arcana inunda els teus ulls!"
+  detect_magic_reveal: "Detectes {count} objectes màgics en aquest nivell."
+  detect_magic_none: "No detectes cap màgia en aquest nivell."
+  detect_evil_cast: "Els teus sentits s'estenen més enllà de les parets..."
+  detect_evil_reveal: "Detectes {count} presències hostils a prop."
+  detect_evil_none: "No detectes cap mal a prop."
+  detect_invis_cast: "Els teus ulls travessen el vel d'invisibilitat!"
+  detect_invis_active: "Pots veure les criatures invisibles!"
+  find_traps_cast: "Els perills ocults es revelen!"
+  find_traps_reveal: "Divises {count} trampes ocultes."
+  find_traps_none: "No hi ha trampes ocultes en aquest nivell."
+  light_cast: "Llum brillant erupciona del pergamí!"
+  light_active: "Tot al teu voltant està banyat de llum!"
+  remove_fear_cast: "El coratge sorgeix per les teves venes!"
+  remove_fear_active: "La teva ment és neta de tota por."
+  shield_cast: "Una barrera centellejant apareix!"
+  shield_active: "Un escut màgic et protegeix!"
+  resist_cold_cast: "Una aura càlida t'envolta."
+  resist_cold_active: "Ets resistent al fred!"
+  resist_fire_cast: "Un centelleig fresc cobreix la teva pell."
+  resist_fire_active: "Ets resistent al foc!"
+  levitate_cast: "Els teus peus s'alcen del terra!"
+  levitate_active: "Flores sobre el terra!"
+  fly_cast: "Ales de màgia et porten enlaire!"
+  fly_active: "Planes per l'aire lliurement!"
+  dispel_cast: "Una ona d'energia anul·ladora polsa cap enfora!"
+  dispel_affects: "Els efectes màgics són eliminats de {target}!"
+  dispel_none: "No hi ha res a dissipar."
+  prot_missiles_cast: "Una protecció deflectora t'envolta."
+  prot_missiles_active: "Els atacs a distància són desviats!"
+  silence_cast: "Una esfera de silenci s'expandeix del pergamí..."
+  silence_affects: "{target} és engolfit pel silenci màgic!"
+  phantasmal_cast: "Il·lusions aterridores assetgen els teus enemics!"
+  phantasmal_affects: "{target} està confós per horrors fantasmals!"
+  clairvoyance_cast: "L'ull de la teva ment s'obre de bat a bat..."
+  clairvoyance_reveal: "L'àrea circumdant se't revela!"
+  infravision_cast: "Els teus ulls s'ajusten per veure més enllà de la llum visible."
+  infravision_active: "Veus signatures de calor en la foscor!"
+  continual_light_cast: "Un orbe de llum permanent s'encén!"
+  water_breathing_cast: "Els teus pulmons s'adapten per respirar aigua."
+  water_breathing_active: "Pots respirar sota l'aigua!"
+  charm_snakes_cast: "Una melodia hipnòtica omple l'aire..."
+  charm_snakes_affects: "{target} es balanceja pacíficament amb la música."
+  charm_snakes_none: "No hi ha serps a prop."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
-  avoided: "{entity} detecta {trap} i l'evita!"
-  triggered: "{entity} cau a {trap}! {damage} de dany!"
+  avoided: "{entity} detecta una {trap} i l'evita!"
+  you_avoided: "Detectes una {trap} i l'evites!"
+  triggered: "{entity} cau en una {trap}! {damage} de dany!"
+  you_triggered: "Caus en una {trap}! {damage} de dany!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -138,407 +212,833 @@ ui:
 # ── Creature descriptions ────────────────────────────────────────────
 creature:
   goblin:
-    name: "Goblin"
+    name: "goblin"
+    gender: "m"
     short: "un goblin grunyidor"
     long: >-
       Una criatura prima de pell verda amb ullals grocs
       i una fulla rovellada.
   skeleton:
-    name: "Esquelet"
+    name: "esquelet"
+    gender: "m"
     short: "un esquelet sorollós"
     long: >-
       Ossos blanquejats mantinguts per màgia fosca,
       empunyant una fulla mellada.
-  rat:
-    name: "Rata Gegant"
+  giant_rat:
+    name: "rata gegant"
+    gender: "f"
     short: "una rata gegant"
     long: >-
       Una rata sarnosa de la mida d'un gos, amb els ulls
       brillants de fam salvatge.
   orc:
-    name: "Orc"
+    name: "orc"
+    gender: "m"
     short: "un orc corpulent"
     long: >-
       Un brut musculós amb ullals i armadura de ferro tosca.
       Gruny agressivament.
   zombie:
-    name: "Zombie"
+    name: "zombie"
+    gender: "m"
     short: "un zombie arrossegat"
     long: >-
       Un cadàver en descomposició que es nega a restar mort.
       La pudor és aclaparadora.
   gnoll:
-    name: "Gnoll"
+    name: "gnoll"
+    gender: "m"
     short: "un gnoll cap d'hiena"
     long: >-
       Un humanoide corpulent amb cap d'hiena.
       Riu maníacament mentre es prepara per atacar.
   giant_bee:
-    name: "Abella Gegant"
+    name: "abella gegant"
+    gender: "f"
     short: "una abella gegant"
     long: >-
       Una abella de la mida d'un gat, amb l'agulló
       degotant verí ambre.
   wight:
-    name: "Entitat"
+    name: "entitat"
+    gender: "f"
     short: "una pàl·lida entitat"
     long: >-
       Un horror no mort que irradia maldat freda.
       El seu tacte drenava la força vital.
   spectre:
-    name: "Espectre"
+    name: "espectre"
+    gender: "m"
     short: "una ombra espectral"
     long: >-
       Un fantasma translúcid que plana per sobre del terra.
       La seva mirada et gela fins als ossos.
   basilisk:
-    name: "Basilisc"
+    name: "basilisc"
+    gender: "m"
     short: "un basilisc"
     long: >-
       Un llangardaix de vuit potes amb ulls brillants.
       No li miris als ulls o et petrificarà.
   kobold:
-    name: "Kobold"
+    name: "kobold"
+    gender: "m"
     short: "un kobold espavilat"
     long: >-
       Un humanoide minúscul amb morro de gos vestit amb restes de cuir.
       Xiscla i s'atansa amb una fulla rovellada.
   hobgoblin:
-    name: "Hobgoblin"
+    name: "hobgoblin"
+    gender: "m"
     short: "un soldat hobgoblin"
     long: >-
       Un goblinoide gran de pell vermella amb posat militar.
       Es mou en formació disciplinada i combat sense pietat.
   osgo:
-    name: "Osgo"
+    name: "osgo"
+    gender: "m"
     short: "un osgo amenaçant"
     long: >-
       Un goblinoide pelut semblant a un os que es mou amb silenci inquietant.
       Les seves urpes estan tenyides de sang vella.
   ogre:
-    name: "Ogre"
+    name: "ogre"
+    gender: "m"
     short: "un ogre colossal"
     long: >-
       Un gegant enorme i ximple que destrossa tot al seu pas.
       Porta un tronc d'arbre com a maça.
   bandoler:
-    name: "Bandoler"
+    name: "bandoler"
+    gender: "m"
     short: "un bandoler encaputxat"
     long: >-
       Un proscrip humà amb la cara marcada i ulls famèlics.
       Surt de les ombres amb la fulla desembeinada.
   uarg:
-    name: "Uarg"
+    name: "uarg"
+    gender: "m"
     short: "un gran uarg"
     long: >-
       Un llop enorme de pelatge negre i ulls intel·ligents i cruels.
       Caça acompanyat d'orcs i gruny amb veu gutural.
   llop:
-    name: "Llop"
+    name: "llop"
+    gender: "m"
     short: "un llop gris"
     long: >-
       Un llop gris i esmaperdut que rodeja cautelosament abans de llançar-se.
       En manada, són veritablement mortals.
   llop_terrible:
-    name: "Llop Terrible"
+    name: "llop terrible"
+    gender: "m"
     short: "un llop terrible"
     long: >-
       Un llop de la mida d'un cavall, amb mandíbules que podrien trencar pedra.
       Els seus ulls vermells et fixen amb certesa depredadora.
   ratpenat_gegant:
-    name: "Ratpenat Gegant"
+    name: "ratpenat gegant"
+    gender: "m"
     short: "un ratpenat gegant"
     long: >-
       Un ratpenat amb una envergadura d'ales més ampla que un home alt.
       S'abat des de la foscor amb un xiscle.
   os_negre:
-    name: "Os Negre"
+    name: "os negre"
+    gender: "m"
     short: "un os negre"
     long: >-
       Un os compacte però poderós, generalment desconfiat dels humans.
       Acorralat, combat amb ferocitat salvatge.
   os_bru:
-    name: "Os Bru"
+    name: "os bru"
+    gender: "m"
     short: "un os bru"
     long: >-
       Un os marró enorme de gairebé dos metres i mig d'alçada.
       El seu rugit fa tremolar les parets de la masmorra.
   granyotic:
-    name: "Granyotic"
+    name: "granyotic"
+    gender: "m"
     short: "un guerrer granyotic"
     long: >-
       Un humanoide amb pell verdosa maculada, ulls abombats i
       cames poderoses que el porten per sobre dels obstacles d'un salt.
   llangardanic:
-    name: "Llangardànic"
+    name: "llangardànic"
+    gender: "m"
     short: "un llangardànic"
     long: >-
       Un llangardaix bípede amb armadura tosca, escatós i de sang freda.
       Els seus ulls sense parpelles segueixen cada moviment teu.
   escarabat_foc:
-    name: "Escarabat de Foc Gegant"
+    name: "escarabat de foc gegant"
+    gender: "m"
     short: "un escarabat de foc"
     long: >-
       Un escarabat de la mida d'un gos, amb glàndules taronges brillants al
       tòrax i abdomen que emeten una llum carmesí inquietant.
   gentmalgama:
-    name: "Gentmalgama"
+    name: "gentmalgama"
+    gender: "m"
     short: "un gentmalgama"
     long: >-
       Una criatura apedaçada assemblada amb parts animals desiguals.
       Dues caps discuteixen des de quin costat atacar.
   gul:
-    name: "Gul"
+    name: "gul"
+    gender: "m"
     short: "un fètid gul"
     long: >-
       Un horror no mort que pesta a tomba. Les seves urpes
       drenen l'espurna vital dels vivents.
   escorpi_gegant:
-    name: "Escorpí Gegant"
+    name: "escorpí gegant"
+    gender: "m"
     short: "un escorpí gegant"
     long: >-
       Un arácnid de la mida d'un cavall amb pinces massives
       i una cua amb agulló que degota verí potent.
   centpeus_gegant:
-    name: "Centpeus Gegant"
+    name: "centpeus gegant"
+    gender: "m"
     short: "un centpeus gegant"
     long: >-
       Un horror segmentat de seixanta centímetres amb centenars de
       potes i mandíbules verinoses. La seva mossegada és sorprenentment perillosa.
   tarantula_gegant:
-    name: "Taràntula Gegant"
+    name: "taràntula gegant"
+    gender: "f"
     short: "una taràntula gegant"
     long: >-
       Una aranya peluda prou gran per atacar un home.
       Els seus ullals injecten un verí lent i agònic.
   home_serp:
-    name: "Home Serp"
+    name: "home serp"
+    gender: "m"
     short: "un home serp escatós"
     long: >-
       Un humanoide amb cap de cobra i pell verda escatosa.
       Xiula una maledicció abans de colpejar amb precisió.
   stirge:
-    name: "Estirge"
+    name: "estirge"
+    gender: "m"
     short: "un estirge xuclasang"
     long: >-
       Un horror amb ales de mosquit i trompa d'agulla.
       Un cop perfora la carn, drena la sang a velocitat aterridora.
   sangonera_gegant:
-    name: "Sangonera Gegant"
+    name: "sangonera gegant"
+    gender: "f"
     short: "una sangonera gegant"
     long: >-
       Un cuc gras i gomós de quasi un metre de llarg. S'agafa
       a la presa i li drena la sang fins a saciar-se o ser abatuda.
   cocatriu:
-    name: "Cocatriu"
+    name: "cocatriu"
+    gender: "f"
     short: "una cocatriu"
     long: >-
       Un drac de dues potes amb cap de gall i cua de serp.
       El seu tacte converteix la carn en pedra freda i grisa.
   ocell_mal_averany:
-    name: "Ocell Mal Averany"
+    name: "ocell mal averany"
+    gender: "m"
     short: "un ocell mal averany"
     long: >-
       Un corb gegant de plomes negres com la nit i ulls pàl·lids
       que brillen amb malícia sobrenatural. El seu crit glaça la sang.
   cuc_tentacles:
-    name: "Cuc de Tentacles"
+    name: "cuc de tentacles"
+    gender: "m"
     short: "un cuc de tentacles"
     long: >-
       Un cuc pal·lid i gras envoltat de tentacles que s'agafen.
       Secreta un verí adormir que deixa les preses indefenses.
   llop_hivern:
-    name: "Llop d'Hivern"
+    name: "llop d'hivern"
+    gender: "m"
     short: "un llop d'hivern"
     long: >-
       Un gran llop blanc del nord glaçat. Exhala glaç àrtic
       que cobreix els enemics de gel alhora que els mossega salvagement.
   desencantador:
-    name: "Desencantador"
+    name: "desencantador"
+    gender: "m"
     short: "un desencantador"
     long: >-
       Un depredador pal·lid i en forma de llimac que s'alimenta
       d'energia màgica. El seu tacte desfà encanteris i deixa els
       pergamins fets pols.
   cridaner:
-    name: "Cridaner"
+    name: "cridaner"
+    gender: "m"
     short: "un cridaner"
     long: >-
       Un bolet de tapadora violeta que emet un crit ensordidor quan
       és pertorbat, alertant totes les criatures que senten el so.
   serp_gegant:
-    name: "Serp Gegant"
+    name: "serp gegant"
+    gender: "f"
     short: "una serp gegant"
     long: >-
       Una serp colossal que pot empassar-se un home sencer.
       Els seus ullals buits injecten un verí letal.
   troll:
-    name: "Trol"
+    name: "trol"
+    gender: "m"
     short: "un repugnant trol"
     long: >-
       Un gegant gomós i rampant amb una boca enorme i urpes de ferro negre.
       Les seves ferides es tanquen davant teus — només el foc atura la regeneració.
   mummy:
-    name: "Mòmia"
+    name: "mòmia"
+    gender: "f"
     short: "una mòmia embolicada"
     long: >-
       Un cadàver desseccat embolcallat en lli groguenc. La simple vista
       inspira paor sobrenatural, i el seu tacte escampa la podridura que
       consumeix lentament els vius.
   gargoyle:
-    name: "Gàrgola"
+    name: "gàrgola"
+    gender: "f"
     short: "una gàrgola de pedra"
     long: >-
       Una estàtua alada que ha après a viure. La pell de pedra deflecteix
       les armes ordinàries — només la màgia pot travessar la seva pell.
   banshee:
-    name: "Banshee"
+    name: "banshee"
+    gender: "f"
     short: "una banshee ululant"
     long: >-
       L'esperit d'una dona injuriada en vida, planant amb robes
       fúnebres esqueixades. El seu crit pot aturar un cor en fred.
   mimic:
-    name: "Mímesi"
+    name: "mímesi"
+    gender: "f"
     short: "un cofre del tresor"
     long: >-
       El que prenies per un cofre del tresor s'atança amb una boca
       plena de dents. Les mímesis són caçadors d'emboscada pacients i letals.
   harpy:
-    name: "Hàrpia"
+    name: "hàrpia"
+    gender: "f"
     short: "una hàrpia cantora"
     long: >-
       Una dona alada amb cos de voltor i veu com campanes de plata.
       La seva cançó obliga els oients a caminar cegament cap a les seves
       urpes.
   dryad:
-    name: "Dríade"
+    name: "dríade"
+    gender: "f"
     short: "una dríade fascinadora"
     long: >-
       Un esperit del bosc de bellesa immaculada, guardiana d'un arbre
       antic. El seu tacte teixeix un encantament que converteix els
       enemics en servidors voluntaris.
   wyvern:
-    name: "Víbria"
+    name: "víbria"
+    gender: "f"
     short: "una víbria letal"
     long: >-
       Un depredador dracònic de dues potes amb una cua amb pues coberta
       de verí. Li manca la màgia d'un drac però ho compensa amb ferocitat.
+  wraith:
+    name: "aparegut"
+    gender: "m"
+    short: "un aparegut espectral"
+    long: >-
+      Un horror incorpori d'ombra i malícia. El seu tacte gelat
+      drena la vida dels vivents, deixant només closques fredes.
+  rat:
+    name: "rata"
+    gender: "f"
+    short: "una rata"
+    long: >-
+      Una rata comuna, petita i ràpida. Sola és apenas una molèstia,
+      però en eixams poden aclaparar els desprevinguts.
+  bat:
+    name: "ratpenat"
+    gender: "m"
+    short: "un ratpenat"
+    long: >-
+      Un petit ratpenat que vola erràticament pels corredors foscos.
+      La seva ecolocalització el guia infaliblement en la foscor total.
+  giant_eagle:
+    name: "àliga gegant"
+    gender: "f"
+    short: "una àliga gegant"
+    long: >-
+      Un raptor magnífic amb una envergadura d'ales de sis metres.
+      Es llança des de dalt amb urpes que poden esclafar un crani.
+  giant_frog:
+    name: "granota gegant"
+    gender: "f"
+    short: "una granota gegant"
+    long: >-
+      Un amfibi inflat de la mida d'un poni. La seva llengua enganxosa
+      s'allarga per arrossegar les preses a la seva gola cavernosa.
+  owlbear:
+    name: "os oliba"
+    gender: "m"
+    short: "un os oliba furiós"
+    long: >-
+      Un híbrid monstruós de mussol i os, amb un bec ganxut i
+      braços aixafadors. Abraça les preses fins a matar-les.
+  giant_lizard:
+    name: "llangardaix gegant"
+    gender: "m"
+    short: "un llangardaix gegant"
+    long: >-
+      Un rèptil massiu amb mandíbules poderoses i una cua pesada.
+      Descansa en la calor de la masmorra, esperant que la presa s'acosti.
+  werewolf:
+    name: "licàntrop llop"
+    gender: "m"
+    short: "un licàntrop llop"
+    long: >-
+      Un humà maleït atrapat entre llop i home. Només les armes de
+      plata o màgiques poden travessar la seva pell sobrenaturalment dura.
+  wererat:
+    name: "licàntrop rata"
+    gender: "m"
+    short: "un licàntrop rata furtiu"
+    long: >-
+      Una figura prima amb bigotis tremolosos i ulls petits. Canvia
+      entre forma humana i de rata, amagant-se en clavegueres i ombres.
+  werebear:
+    name: "licàntrop os"
+    gender: "m"
+    short: "un licàntrop os massís"
+    long: >-
+      Un licàntrop imponent amb la força d'un os. A diferència de la
+      majoria de canviaformes, els licàntrops os de vegades protegeixen
+      la natura.
+  ochre_jelly:
+    name: "gelatina ocre"
+    gender: "f"
+    short: "una gelatina ocre tremolosa"
+    long: >-
+      Una massa informe de llim ocre que s'escorre per terres i parets.
+      Es divideix en còpies més petites quan és colpejada amb armes tallants.
+  green_slime:
+    name: "llim verd"
+    gender: "m"
+    short: "una taca de llim verd"
+    long: >-
+      Una pel·lícula verda brillant enganxada al sostre. Cau sobre
+      els desprevinguts, dissolent armadura i carn a velocitat aterridora.
+  black_pudding:
+    name: "púding negre"
+    gender: "m"
+    short: "un púding negre"
+    long: >-
+      El més gran i mortal dels oozes, una massa quitranosa d'àcid que
+      dissol les armes metàl·liques al contacte i es divideix en ser colpejat.
+  violet_fungus:
+    name: "bolet violeta"
+    gender: "m"
+    short: "un bolet violeta"
+    long: >-
+      Un creixement semblant a un bolet amb tentacles que es retorcen
+      amb podridura necròtica. El seu tacte marceix la carn al contacte.
+  yellow_mold:
+    name: "fong groc"
+    gender: "m"
+    short: "una taca de fong groc"
+    long: >-
+      Un creixement daurat pelut que cobreix les parets. Quan és
+      pertorbat allibera un núvol d'espores mortals que ofeguen els pulmons.
+  mycelian:
+    name: "micèlic"
+    gender: "m"
+    short: "un micèlic"
+    long: >-
+      Una criatura fúngica intel·ligent que es comunica mitjançant
+      núvols d'espores. Cuida els seus jardins subterranis amb calma.
+  carnivorous_flower:
+    name: "flor carnívora"
+    gender: "f"
+    short: "una flor carnívora"
+    long: >-
+      Una floració massiva amb pètals dentats que es tanquen sobre la
+      presa. Un perfum dolç emmascara la pudor de les víctimes digerides.
+  dung_worm:
+    name: "cuc femer"
+    gender: "m"
+    short: "un cuc femer"
+    long: >-
+      Un cuc segmentat que excava entre les deixalles i la terra fluixa.
+      Les seves secrecions àcides dissolen la matèria orgànica amb facilitat.
+  animated_armor:
+    name: "armadura animada"
+    gender: "f"
+    short: "una armadura animada"
+    long: >-
+      Una armadura de plaques buida que es mou amb un propòsit inquietant.
+      Cap ment hi habita — només la màgia anima la seva closca buida.
+  invisible_stalker:
+    name: "assetjador invisible"
+    gender: "m"
+    short: "una tremolor a l'aire"
+    long: >-
+      Un elemental d'aire lligat a la servitud, permanentment invisible.
+      Només la més lleu distorsió a l'aire delata la seva presència.
+  centaur:
+    name: "centaure"
+    gender: "m"
+    short: "un centaure"
+    long: >-
+      Una criatura noble amb el tors d'un humà i el cos d'un cavall.
+      Carrega amb la llança baixa a velocitat tremenda.
+  dragon_lizard:
+    name: "llangardaix drac"
+    gender: "m"
+    short: "un llangardaix drac"
+    long: >-
+      Un rèptil gran amb ales vestigials i una gola que brilla amb
+      foc interior. Escup raigs de flama a tot el que es mou.
+  geckonid:
+    name: "llangardaix gecònid"
+    gender: "m"
+    short: "un llangardaix gecònid"
+    long: >-
+      Un llangardaix àgil amb coixinets adhesius als peus que li
+      permeten córrer per parets i sostres amb velocitat antinatural.
+  cave_locust:
+    name: "llagosta de cova"
+    gender: "f"
+    short: "una llagosta de cova gegant"
+    long: >-
+      Un insecte enorme amb potes posteriors poderoses que el propulsen
+      en grans salts. Escup un líquid marró fastigós quan se sent amenaçat.
+  insect_swarm:
+    name: "eixam d'insectes"
+    gender: "m"
+    short: "un eixam d'insectes brunzent"
+    long: >-
+      Un núvol agitat d'insectes que mosseguen i piquen. Els cops
+      individuals fan poc — l'eixam s'ha de cremar o fugir-ne.
+  mechanical_raven:
+    name: "corb mecànic"
+    gender: "m"
+    short: "un corb mecànic"
+    long: >-
+      Un ocell de rellotgeria de llautó i engranatges de plata. Els
+      seus ulls de vidre registren tot el que veuen per al seu amo distant.
+  chaos_spawn:
+    name: "desori"
+    gender: "m"
+    short: "un desori retorçat"
+    long: >-
+      Una criatura d'entropia pura, la seva forma canviant constantment
+      entre estats. La realitat es deforma i es desfà al seu pas caòtic.
+  fell_spirit:
+    name: "drapat"
+    gender: "m"
+    short: "un drapat rialler"
+    long: >-
+      Una petita criatura semblant a un dimoniet amb ales de ratpenat
+      i un somriure maliciós. Es delecta en entremaliadures i bromes cruels.
+  gray_ooze:
+    name: "llot gris"
+    gender: "m"
+    short: "un llot gris"
+    long: >-
+      Un bassiot de llim gris viscós que s'assembla a pedra mullada.
+      El seu cos àcid dissol el metall al contacte, arruïnant armes i
+      armadures.
+  merchant:
+    name: "mercader"
+    gender: "m"
+    short: "un mercader itinerant"
+    long: >-
+      Un comerciant curtit amb un farcell pesant i ulls astuts.
+      S'aventura a les profunditats de la masmorra cercant benefici
+      i troballes rares.
+  animated_bones:
+    name: "ossos animats"
+    gender: "m"
+    short: "un munt d'ossos animats"
+    long: >-
+      Una col·lecció d'ossos mantinguts per necromància esvaint-se.
+      Traquetegen i raspen mentre s'arrosseguen cap als vivents.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
   sword:
     name: "Espasa"
+    gender: "f"
     short: "una espasa d'acer"
     long: >-
       Una fulla ben equilibrada d'acer temperat, gastada però esmolada.
   dagger:
     name: "Daga"
+    gender: "f"
     short: "una daga esmolada"
     long: >-
       Una fulla curta amb empunyadura de cuir.
       Ràpida de treure, ràpida de tallar.
   short_sword:
     name: "Espasa Curta"
+    gender: "f"
     short: "una espasa curta"
     long: >-
       Una fulla compacta preferida pels escaramussers.
       Ideal per a espais reduïts.
   healing_potion:
     name: "Poció de Curació"
+    gender: "f"
     short: "una poció carmesí"
     long: >-
       Un petit vial de vidre ple d'un líquid vermell brillant.
       Fa una lleugera olor de ferro i herbes.
   gold:
     name: "Or"
+    gender: "m"
     short: "un munt de monedes d'or"
     long: >-
       Monedes ennegrides amb un emblema desconegut.
       Encara prou bones per gastar.
   shield:
     name: "Escut"
+    gender: "m"
     short: "un escut de fusta"
     long: >-
       Un escut rodó de fusta reforçat amb bandes de ferro.
       Atorga +1 defensa d'armadura.
   scroll_lightning:
     name: "Pergamí de Llamp"
+    gender: "m"
     short: "un pergamí crepitant"
     long: >-
       Un pergamí inscrit amb símbols arcans.
       Llamps salten entre les lletres.
   scroll_sleep:
     name: "Pergamí de Dormir"
+    gender: "m"
     short: "un pergamí blau pal·lid"
     long: >-
       Tinta violeta somnolenta omple aquest pergamí amb
       sígils en espiral que semblen moure's lentament.
   scroll_magic_missile:
     name: "Pergamí de Projectil Màgic"
+    gender: "m"
     short: "un pergamí lluminós"
     long: >-
       Una notació arcana densa descriu un dard de força
       que vola recte i mai no falla el seu objectiu.
   scroll_hold_person:
     name: "Pergamí de Retenir Persona"
+    gender: "m"
     short: "un pergamí groc"
     long: >-
       Paraules de lligament omplen aquest pergamí.
       Els humanoides que les senten pronunciar queden paralitzats.
   scroll_fireball:
     name: "Pergamí de Bola de Foc"
+    gender: "m"
     short: "un pergamí cremat"
     long: >-
       Calent al tacte i amb olor de sofre. Un diagrama
       mostra una esfera de flama de sis metres de diàmetre.
   scroll_web:
     name: "Pergamí de Teranyina"
+    gender: "m"
     short: "un pergamí enganxós"
     long: >-
       Fils fins estan teixits entre les lletres d'aquest pergamí.
       Omple una sala de teranyines que paralitzen qui les toca.
   scroll_charm_person:
     name: "Pergamí d'Encantar Persona"
+    gender: "m"
     short: "un pergamí rosat"
     long: >-
       Cal·ligrafiat en tinta rosa amb espirals i llunes.
       Les paraules fan que un humanoide et vegi com un amic de confiança.
   scroll_bless:
     name: "Pergamí de Benedicció"
+    gender: "m"
     short: "un pergamí daurat"
     long: >-
       Gravat en or sobre pergamí blanc. Llegir-lo
       omple els aliats de coratge diví i determinació marcial.
   scroll_mirror_image:
     name: "Pergamí d'Imatge en Mirall"
+    gender: "m"
     short: "un pergamí platejat"
     long: >-
       El pergamí reflecteix la teva cara. Llegir-lo
       conjura 1d4 duplicats il·lusoris per confondre els atacants.
   scroll_invisibility:
     name: "Pergamí d'Invisibilitat"
+    gender: "m"
     short: "un pergamí translúcid"
     long: >-
       Pergamí quasi transparent amb paraules visibles sols
       a certs angles. Llegir-lo et torna invisible.
   scroll_haste:
     name: "Pergamí d'Acceleració"
+    gender: "m"
     short: "un pergamí borrós"
     long: >-
       Les lletres semblen moure's mentre llegeixes el pergamí.
       L'acceleració dobla els teus atacs durant 3 torns.
   scroll_cure_wounds:
     name: "Pergamí de Curar Ferides"
+    gender: "m"
     short: "un pergamí verd"
     long: >-
       Escrit en tinta esmeralda tranquil·litzadora. Llegir-lo
       tanca ferides menors i restaura 1d6+1 PV.
   scroll_protection_evil:
     name: "Pergamí de Protecció del Mal"
+    gender: "m"
     short: "un pergamí blau brillant"
     long: >-
       Inscrit amb guàrdies santes i cercles protectors.
       Atorga +1 als salvaments i dificulta les criatures malvades durant 12 torns.
+  scroll_detect_magic:
+    name: "Pergamí de Detectar Màgia"
+    gender: "m"
+    short: "un pergamí cian brillant"
+    long: >-
+      Runes polsen suaument en aquest pergamí. Llegir-lo revela
+      tots els objectes màgics del nivell actual.
+  scroll_detect_evil:
+    name: "Pergamí de Detectar el Mal"
+    gender: "m"
+    short: "un pergamí pàl·lid amb runes fosques"
+    long: >-
+      Inscrit amb sígils vermells sang que semblen retorçar-se. Llegir-lo
+      revela les criatures hostils fins i tot a través de les parets.
+  scroll_detect_invisibility:
+    name: "Pergamí de Detectar Invisibilitat"
+    gender: "m"
+    short: "un pergamí centellejant"
+    long: >-
+      El pergamí alterna entre visible i translúcid. Llegir-lo
+      atorga visió de criatures invisibles durant 12 torns.
+  scroll_find_traps:
+    name: "Pergamí de Trobar Trampes"
+    gender: "m"
+    short: "un pergamí groc cautelós"
+    long: >-
+      Diagrames geomètrics omplen aquest pergamí. Llegir-lo revela
+      totes les trampes ocultes del nivell actual.
+  scroll_light:
+    name: "Pergamí de Llum"
+    gender: "m"
+    short: "un pergamí radiant"
+    long: >-
+      Llum daurada càlida surt d'entre les vores enrotllades. Llegir-lo
+      banya l'àrea de llum brillant durant 20 torns.
+  scroll_remove_fear:
+    name: "Pergamí de Treure Por"
+    gender: "m"
+    short: "un pergamí blanc tranquil"
+    long: >-
+      Paraules reconfortants de coratge omplen aquest pergamí. Llegir-lo
+      dissipa la paràlisi i la por de la teva ment.
+  scroll_shield:
+    name: "Pergamí d'Escut Màgic"
+    gender: "m"
+    short: "un pergamí reforçat"
+    long: >-
+      Un diagrama de barrera centellejant cobreix aquest pergamí. Llegir-lo
+      conjura un escut màgic que atorga +2 CA durant 8 torns.
+  scroll_resist_cold:
+    name: "Pergamí de Resistir Fred"
+    gender: "m"
+    short: "un pergamí voreiat de gel"
+    long: >-
+      Cristalls de gel es formen al llarg de les vores del pergamí.
+      Llegir-lo redueix a la meitat tot el dany de fred durant 12 torns.
+  scroll_resist_fire:
+    name: "Pergamí de Resistir Foc"
+    gender: "m"
+    short: "un pergamí resistent a la calor"
+    long: >-
+      El pergamí és calent al tacte però mai no crema. Llegir-lo
+      redueix a la meitat tot el dany de foc durant 12 torns.
+  scroll_levitate:
+    name: "Pergamí de Levitar"
+    gender: "m"
+    short: "un pergamí sense pes"
+    long: >-
+      Aquest pergamí flota amunt si el deixes anar. Llegir-lo et
+      permet flotar sobre el terra, evitant trampes durant 12 torns.
+  scroll_fly:
+    name: "Pergamí de Volar"
+    gender: "m"
+    short: "un pergamí bufat pel vent"
+    long: >-
+      Tinta lleugera com una ploma traça patrons d'ales. Llegir-lo
+      atorga vol lliure durant 6 torns.
+  scroll_dispel_magic:
+    name: "Pergamí de Dissipar Màgia"
+    gender: "m"
+    short: "un pergamí anul·lador"
+    long: >-
+      Sígils antimàgia cobreixen cada centímetre del pergamí. Llegir-lo
+      elimina tots els efectes màgics de les criatures properes.
+  scroll_protection_missiles:
+    name: "Pergamí de Protecció de Projectils"
+    gender: "m"
+    short: "un pergamí blau protegit"
+    long: >-
+      Cercles protectors concèntrics cobreixen aquest pergamí. Llegir-lo
+      desvia tots els atacs a distància durant 12 torns.
+  scroll_silence:
+    name: "Pergamí de Silenci"
+    gender: "m"
+    short: "un pergamí gris mut"
+    long: >-
+      Cap so surt quan fulleges aquest pergamí. Llegir-lo
+      crea una zona de silenci absolut durant 12 torns.
+  scroll_phantasmal_force:
+    name: "Pergamí de Força Fantasmal"
+    gender: "m"
+    short: "un pergamí arremolinat"
+    long: >-
+      Formes il·lusòries ballen sobre el pergamí. Llegir-lo omple
+      la ment dels enemics amb al·lucinacions aterridores.
+  scroll_clairvoyance:
+    name: "Pergamí de Clarividència"
+    gender: "m"
+    short: "un pergamí de visió llunyana"
+    long: >-
+      Un ull diminut està dibuixat al centre del pergamí. Llegir-lo
+      revela la disposició de l'àrea circumdant.
+  scroll_infravision:
+    name: "Pergamí d'Infravisió"
+    gender: "m"
+    short: "un pergamí vermell fosc"
+    long: >-
+      Escrit amb tinta visible només en la foscor. Llegir-lo atorga
+      la capacitat de veure signatures de calor durant 20 torns.
+  scroll_continual_light:
+    name: "Pergamí de Llum Contínua"
+    gender: "m"
+    short: "un pergamí llampant"
+    long: >-
+      Text blanc encegador sobre pergamí daurat. Llegir-lo crea
+      una font de llum permanent que mai no s'esvaeix.
+  scroll_water_breathing:
+    name: "Pergamí de Respirar sota l'Aigua"
+    gender: "m"
+    short: "un pergamí humit"
+    long: >-
+      La tinta centellea com l'aigua. Llegir-lo atorga la capacitat
+      de respirar sota l'aigua durant 20 torns.
+  scroll_charm_snakes:
+    name: "Pergamí d'Encantar Serps"
+    gender: "m"
+    short: "un pergamí serpentejant"
+    long: >-
+      Patrons sinuosos es cargolen pel pergamí. Llegir-lo
+      pacifica totes les criatures de tipus serp properes.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

@@ -132,6 +132,143 @@ class TestMoveAction:
         assert pos.x == 5
 
 
+class TestPlayerAwareMessages:
+    """Test _msg() selects player-perspective message variants."""
+
+    def test_player_attacks_uses_you_variant(self):
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("en")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=6, y=5)
+
+        result = _msg("combat.hit", world, actor=pid, target=cid, damage=5)
+        assert result == "You hit Goblin for 5 damage."
+
+    def test_creature_attacks_player_uses_you_variant(self):
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("en")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=6, y=5)
+
+        result = _msg("combat.hit", world, actor=cid, target=pid, damage=3)
+        assert result == "Goblin hits you for 3 damage."
+
+    def test_creature_vs_creature_uses_default(self):
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("en")
+        world = World()
+        c1 = _make_creature(world, x=5, y=5)
+        c2 = _make_creature(world, x=6, y=5)
+
+        result = _msg("combat.hit", world, actor=c1, target=c2, damage=2)
+        assert result == "Goblin hits Goblin for 2 damage."
+
+    def test_catalan_player_attacks(self):
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("ca")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=6, y=5)
+
+        result = _msg("combat.hit", world, actor=pid, target=cid, damage=5)
+        assert "Colpeges" in result
+        assert "goblin" in result.lower()
+
+    def test_catalan_creature_attacks_player(self):
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("ca")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=6, y=5)
+
+        result = _msg("combat.hit", world, actor=cid, target=pid, damage=3)
+        assert "et colpeja" in result
+        assert "goblin" in result.lower()
+
+    def test_catalan_article_masculine_consonant(self):
+        """Masculine noun starting with consonant gets 'el'."""
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("ca")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Stats": Stats(strength=1, dexterity=1),
+            "Health": Health(current=4, maximum=4),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="goblin", gender="m"),
+            "Renderable": Renderable(glyph="g"),
+        })
+        result = _msg("combat.hit", world, actor=cid, target=pid, damage=3)
+        assert result.startswith("El goblin")
+
+    def test_catalan_article_masculine_vowel(self):
+        """Masculine noun starting with vowel gets l' elision."""
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("ca")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Stats": Stats(strength=1, dexterity=1),
+            "Health": Health(current=4, maximum=4),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="esquelet", gender="m"),
+            "Renderable": Renderable(glyph="s"),
+        })
+        result = _msg("combat.hit", world, actor=cid, target=pid, damage=3)
+        assert result.startswith("L'esquelet")
+
+    def test_catalan_article_feminine(self):
+        """Feminine noun starting with consonant gets 'la'."""
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("ca")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Stats": Stats(strength=1, dexterity=1),
+            "Health": Health(current=4, maximum=4),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="rata gegant", gender="f"),
+            "Renderable": Renderable(glyph="r"),
+        })
+        result = _msg("combat.hit", world, actor=cid, target=pid, damage=3)
+        assert result.startswith("La rata gegant")
+
+    def test_fallback_when_variant_missing(self):
+        from nhc.core.actions import _msg
+        from nhc.i18n import init
+        init("en")
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=6, y=5)
+
+        # shrieker_shriek has no player variant — should use default
+        result = _msg("combat.shrieker_shriek", world,
+                      actor=pid, creature="Shrieker")
+        assert "Shrieker" in result
+
+    def test_corpse_translation(self):
+        from nhc.i18n import init, t
+        init("ca")
+        result = t("combat.corpse", name="Goblin")
+        assert result == "cadàver de Goblin"
+        init("en")
+        result = t("combat.corpse", name="Goblin")
+        assert result == "Goblin corpse"
+
+
 class TestMeleeAttackAction:
     @pytest.mark.asyncio
     async def test_attack_deals_damage(self):

@@ -1,10 +1,9 @@
 """Osgo (Bugbear) — hulking, stealthy goblinoid. (BEB: Osgo)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Weapon,
+    AI, Health, LootTable, Renderable, Stats, Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("osgo")
@@ -17,9 +16,5 @@ def create_osgo() -> dict:
         # 2d4 damage; modelled as 1d6 + STR 3
         "Weapon": Weapon(damage="1d6"),
         "LootTable": LootTable(entries=[("gold", 0.6, "2d8"), ("sword", 0.2)]),
-        "Description": Description(
-            name=t("creature.osgo.name"),
-            short=t("creature.osgo.short"),
-            long=t("creature.osgo.long"),
-        ),
+        "Description": creature_desc("osgo"),
     }

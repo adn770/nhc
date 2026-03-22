@@ -1,10 +1,9 @@
 """Orc — tough melee fighter."""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats,
+    AI, Health, LootTable, Renderable, Stats,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("orc")
@@ -17,9 +16,5 @@ def create_orc() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=9, faction="goblinoid"),
         "LootTable": LootTable(entries=[("gold", 0.7, "3d6"),
                                         ("short_sword", 0.4)]),
-        "Description": Description(
-            name=t("creature.orc.name"),
-            short=t("creature.orc.short"),
-            long=t("creature.orc.long"),
-        ),
+        "Description": creature_desc("orc"),
     }

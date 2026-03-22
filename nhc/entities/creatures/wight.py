@@ -1,10 +1,9 @@
 """Wight — undead level-drainer. (BEB: Entitat)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Undead,
+    AI, Health, LootTable, Renderable, Stats, Undead,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("wight")
@@ -19,9 +18,5 @@ def create_wight() -> dict:
         "Undead": Undead(),
         # DrainTouch: on hit drains XP and max HP
         "DrainTouch": True,
-        "Description": Description(
-            name=t("creature.wight.name"),
-            short=t("creature.wight.short"),
-            long=t("creature.wight.long"),
-        ),
+        "Description": creature_desc("wight"),
     }

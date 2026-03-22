@@ -1,23 +1,15 @@
-"""Giant Rat — weak, fast vermin."""
+"""Rat — tiny vermin, nuisance in swarms. (BEB: Rata)"""
 
-from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats,
-)
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.components import AI, Health, Renderable, Stats
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("rat")
 def create_rat() -> dict:
     return {
-        "Stats": Stats(strength=0, dexterity=3, constitution=0),
-        "Health": Health(current=2, maximum=2),
-        "Renderable": Renderable(glyph="r", color="bright_red", render_order=2),
-        "AI": AI(behavior="aggressive_melee", morale=4, faction="vermin"),
-        "LootTable": LootTable(entries=[]),
-        "Description": Description(
-            name=t("creature.rat.name"),
-            short=t("creature.rat.short"),
-            long=t("creature.rat.long"),
-        ),
+        "Renderable": Renderable(glyph="r", color="grey", render_order=2),
+        "Description": creature_desc("rat"),
+        "Stats": Stats(strength=-1, dexterity=2, constitution=-1),
+        "Health": Health(current=1, maximum=1),
+        "AI": AI(behavior="aggressive_melee", morale=5, faction="beast"),
     }

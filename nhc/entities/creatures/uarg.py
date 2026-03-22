@@ -1,10 +1,9 @@
 """Uarg (Warg) — massive, intelligent dire wolf. (BEB: Uarg)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Weapon,
+    AI, Health, LootTable, Renderable, Stats, Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("uarg")
@@ -16,9 +15,5 @@ def create_uarg() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=10, faction="beast"),
         "Weapon": Weapon(damage="3d6"),
         "LootTable": LootTable(entries=[("gold", 0.1, "1d4")]),
-        "Description": Description(
-            name=t("creature.uarg.name"),
-            short=t("creature.uarg.short"),
-            long=t("creature.uarg.long"),
-        ),
+        "Description": creature_desc("uarg"),
     }

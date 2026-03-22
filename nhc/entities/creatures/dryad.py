@@ -3,25 +3,19 @@
 from nhc.entities.components import (
     AI,
     BlocksMovement,
-    Description,
     Health,
     Renderable,
     Stats,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("dryad")
 def create_dryad() -> dict:
     return {
         "Renderable": Renderable(glyph="d", color="green", render_order=2),
-        "Description": Description(
-            name=t("creature.dryad.name"),
-            short=t("creature.dryad.short"),
-            long=t("creature.dryad.long"),
-        ),
+        "Description": creature_desc("dryad"),
         "Stats": Stats(strength=1, dexterity=4),
         "Health": Health(current=9, maximum=9),
         "Weapon": Weapon(damage="1d4"),

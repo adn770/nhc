@@ -3,7 +3,6 @@
 from nhc.entities.components import (
     AI,
     BlocksMovement,
-    Description,
     FearAura,
     Health,
     MummyRot,
@@ -12,19 +11,14 @@ from nhc.entities.components import (
     Undead,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("mummy")
 def create_mummy() -> dict:
     return {
         "Renderable": Renderable(glyph="M", color="yellow", render_order=2),
-        "Description": Description(
-            name=t("creature.mummy.name"),
-            short=t("creature.mummy.short"),
-            long=t("creature.mummy.long"),
-        ),
+        "Description": creature_desc("mummy"),
         "Stats": Stats(strength=4, dexterity=1),
         "Health": Health(current=25, maximum=25),
         "Weapon": Weapon(damage="1d8"),

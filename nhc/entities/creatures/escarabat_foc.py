@@ -1,10 +1,9 @@
 """Escarabat de Foc (Giant Fire Beetle) — bioluminescent insect. (BEB: Escarabat de foc)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Weapon,
+    AI, Health, LootTable, Renderable, Stats, Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("escarabat_foc")
@@ -17,9 +16,5 @@ def create_escarabat_foc() -> dict:
         # Defends with powerful mandibles (2d4)
         "Weapon": Weapon(damage="2d4"),
         "LootTable": LootTable(entries=[]),
-        "Description": Description(
-            name=t("creature.escarabat_foc.name"),
-            short=t("creature.escarabat_foc.short"),
-            long=t("creature.escarabat_foc.long"),
-        ),
+        "Description": creature_desc("escarabat_foc"),
     }

@@ -3,26 +3,20 @@
 from nhc.entities.components import (
     AI,
     BlocksMovement,
-    Description,
     DisenchantTouch,
     Health,
     Renderable,
     Stats,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("desencantador")
 def create_desencantador() -> dict:
     return {
         "Renderable": Renderable(glyph="d", color="magenta", render_order=2),
-        "Description": Description(
-            name=t("creature.desencantador.name"),
-            short=t("creature.desencantador.short"),
-            long=t("creature.desencantador.long"),
-        ),
+        "Description": creature_desc("desencantador"),
         "Stats": Stats(strength=2, dexterity=3),
         "Health": Health(current=14, maximum=14),
         "Weapon": Weapon(damage="1d4"),

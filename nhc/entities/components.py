@@ -54,6 +54,7 @@ class Description:
     name: str = ""
     short: str = ""
     long: str = ""
+    gender: str = ""  # "m" or "f" for grammatical gender (articles)
 
 
 @dataclass
@@ -121,6 +122,16 @@ class StatusEffect:
     protected: int = 0      # turns remaining (+1 saves, -1 enemy attacks)
     webbed: int = 0         # turns remaining (cannot move)
     charmed: int = 0        # turns remaining (fights for caster)
+    shielded: int = 0       # turns remaining (+2 AC bonus)
+    resist_cold: int = 0    # turns remaining (halve cold damage)
+    resist_fire: int = 0    # turns remaining (halve fire damage)
+    levitating: int = 0     # turns remaining (ignore traps, float over terrain)
+    flying: int = 0         # turns remaining (move freely, ignore terrain)
+    prot_missiles: int = 0  # turns remaining (immune to ranged attacks)
+    silenced: int = 0       # turns remaining (cannot use scrolls in radius)
+    infravision: int = 0    # turns remaining (see in dark, extended FOV)
+    water_breathing: int = 0  # turns remaining (survive water tiles)
+    confused: int = 0       # turns remaining (random movement)
 
 
 @dataclass

@@ -3,26 +3,20 @@
 from nhc.entities.components import (
     AI,
     BlocksMovement,
-    Description,
     Health,
     Renderable,
     Stats,
     Undead,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("gul")
 def create_gul() -> dict:
     return {
         "Renderable": Renderable(glyph="g", color="cyan", render_order=2),
-        "Description": Description(
-            name=t("creature.gul.name"),
-            short=t("creature.gul.short"),
-            long=t("creature.gul.long"),
-        ),
+        "Description": creature_desc("gul"),
         "Stats": Stats(strength=2, dexterity=2),
         "Health": Health(current=9, maximum=9),
         "Weapon": Weapon(damage="1d4"),

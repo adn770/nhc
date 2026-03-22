@@ -62,8 +62,8 @@ class TestGlobalInterface:
         init("ca")
         assert current_lang() == "ca"
         assert t("game.died") == "Has mort!"
-        assert t("creature.goblin.name") == "Goblin"
-        assert t("creature.skeleton.name") == "Esquelet"
+        assert t("creature.goblin.name") == "goblin"
+        assert t("creature.skeleton.name") == "esquelet"
 
     def test_switch_to_spanish(self):
         init("es")
@@ -84,11 +84,52 @@ class TestGlobalInterface:
         result = t("item.picked_up", item="Espada")
         assert "Espada" in result
 
+    def test_player_variants_catalan(self):
+        """Player-perspective variants produce 2nd person Catalan."""
+        init("ca")
+        # Player attacks
+        result = t("combat.you_hit", target="goblin", damage=5)
+        assert "Colpeges" in result
+        assert "goblin" in result
+        # Player is attacked
+        result = t("combat.hit_you", attacker="Esquelet", damage=3)
+        assert "et colpeja" in result
+        assert "Esquelet" in result
+        # Player opens door
+        result = t("explore.you_open_door")
+        assert "Obres" in result
+        # Trap variants
+        result = t("trap.you_triggered", trap="Trampa", damage=4)
+        assert "Caus" in result
+
+    def test_player_variants_english(self):
+        """Player-perspective variants produce natural English."""
+        init("en")
+        result = t("combat.you_hit", target="Goblin", damage=5)
+        assert "You hit Goblin" in result
+        result = t("combat.hit_you", attacker="Skeleton", damage=3)
+        assert "Skeleton hits you" in result
+        result = t("combat.you_slain", target="Goblin")
+        assert "You slay Goblin" in result
+
+    def test_corpse_translation(self):
+        """Corpse names are translated."""
+        init("ca")
+        result = t("combat.corpse", name="Goblin")
+        assert result == "cadàver de Goblin"
+        init("en")
+        result = t("combat.corpse", name="Goblin")
+        assert result == "Goblin corpse"
+
     def test_all_locales_have_combat_keys(self):
         """All locales must have the core combat message keys."""
         keys = [
             "combat.hit", "combat.miss", "combat.slain",
-            "explore.open_door", "explore.nothing_special",
+            "combat.you_hit", "combat.you_miss", "combat.you_slain",
+            "combat.hit_you", "combat.miss_you", "combat.slain_you",
+            "combat.corpse",
+            "explore.open_door", "explore.you_open_door",
+            "explore.nothing_special",
             "game.welcome", "game.died",
             "item.picked_up", "item.equipped",
         ]
@@ -102,7 +143,7 @@ class TestGlobalInterface:
 
     def test_all_creature_descriptions(self):
         """All locales have creature name/short/long."""
-        creatures = ["goblin", "skeleton", "rat", "orc", "zombie"]
+        creatures = ["goblin", "skeleton", "giant_rat", "orc", "zombie"]
         for lang in ("en", "ca", "es"):
             init(lang)
             for cid in creatures:

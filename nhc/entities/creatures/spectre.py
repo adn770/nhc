@@ -1,10 +1,9 @@
 """Spectre — powerful undead that drains life force. (BEB: Espectre)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats, Undead,
+    AI, Health, LootTable, Renderable, Stats, Undead,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("spectre")
@@ -19,9 +18,5 @@ def create_spectre() -> dict:
         "Undead": Undead(),
         # DrainTouch: on hit drains XP and max HP (stronger than wight)
         "DrainTouch": True,
-        "Description": Description(
-            name=t("creature.spectre.name"),
-            short=t("creature.spectre.short"),
-            long=t("creature.spectre.long"),
-        ),
+        "Description": creature_desc("spectre"),
     }

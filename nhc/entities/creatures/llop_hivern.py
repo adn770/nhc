@@ -3,26 +3,20 @@
 from nhc.entities.components import (
     AI,
     BlocksMovement,
-    Description,
     FrostBreath,
     Health,
     Renderable,
     Stats,
     Weapon,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("llop_hivern")
 def create_llop_hivern() -> dict:
     return {
         "Renderable": Renderable(glyph="W", color="bright_white", render_order=2),
-        "Description": Description(
-            name=t("creature.llop_hivern.name"),
-            short=t("creature.llop_hivern.short"),
-            long=t("creature.llop_hivern.long"),
-        ),
+        "Description": creature_desc("llop_hivern"),
         "Stats": Stats(strength=3, dexterity=3),
         "Health": Health(current=17, maximum=17),
         "Weapon": Weapon(damage="2d4"),

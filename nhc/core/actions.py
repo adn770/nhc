@@ -111,9 +111,8 @@ class MoveAction(Action):
         if tile.feature == "door_closed":
             tile.feature = "door_open"
             events.append(DoorOpened(entity=self.actor, x=nx, y=ny))
-            actor_desc = _entity_name(world, self.actor)
             events.append(MessageEvent(
-                text=t("explore.open_door", actor=actor_desc),
+                text=_msg("explore.open_door", world, actor=self.actor),
             ))
             return events
 
@@ -175,18 +174,21 @@ class MeleeAttackAction(Action):
                 else:
                     a_status.paralyzed = 9
                 events.append(MessageEvent(
-                    text=t("combat.petrified", target=attacker_name),
+                    text=_msg("combat.petrified", world,
+                              target=self.actor),
                 ))
                 return events
             events.append(MessageEvent(
-                text=t("combat.petrify_saved", target=attacker_name),
+                text=_msg("combat.petrify_saved", world,
+                          target=self.actor),
             ))
 
         # Invisible target: attacker misses automatically
         t_status_pre = world.get_component(self.target, "StatusEffect")
         if t_status_pre and t_status_pre.invisible > 0:
             events.append(MessageEvent(
-                text=t("combat.miss_invisible", target=target_name),
+                text=_msg("combat.miss_invisible", world,
+                          target=self.target),
             ))
             return events
 
@@ -219,7 +221,8 @@ class MeleeAttackAction(Action):
                     weapon_is_magic = world.has_component(equip.weapon, "Enchanted")
             if not weapon_is_magic:
                 events.append(MessageEvent(
-                    text=t("combat.magic_weapon_needed", target=target_name),
+                    text=_msg("combat.magic_weapon_needed", world,
+                              target=self.target),
                 ))
                 hit = False
                 damage = 0
@@ -239,8 +242,9 @@ class MeleeAttackAction(Action):
         if hit and t_status and t_status.mirror_images > 0:
             t_status.mirror_images -= 1
             events.append(MessageEvent(
-                text=t("combat.mirror_absorbed", target=target_name,
-                       remaining=t_status.mirror_images),
+                text=_msg("combat.mirror_absorbed", world,
+                          target=self.target,
+                          remaining=t_status.mirror_images),
             ))
             return events
 
@@ -251,8 +255,9 @@ class MeleeAttackAction(Action):
                 damage=actual, hit=True,
             ))
             events.append(MessageEvent(
-                text=t("combat.hit", attacker=attacker_name,
-                       target=target_name, damage=actual),
+                text=_msg("combat.hit", world,
+                          actor=self.actor, target=self.target,
+                          damage=actual),
             ))
 
             # Attacking while invisible breaks the effect
@@ -267,8 +272,8 @@ class MeleeAttackAction(Action):
                     t_health.current = min(t_health.current, t_health.maximum)
                     player.xp = max(0, player.xp - 5)
                     events.append(MessageEvent(
-                        text=t("combat.drained", attacker=attacker_name,
-                               target=target_name),
+                        text=_msg("combat.drained", world,
+                                  actor=self.actor, target=self.target),
                     ))
 
             # VenomousStrike: apply poison on hit
@@ -279,7 +284,8 @@ class MeleeAttackAction(Action):
                         Poison(damage_per_turn=1, turns_remaining=3),
                     )
                     events.append(MessageEvent(
-                        text=t("combat.poisoned", target=target_name),
+                        text=_msg("combat.poisoned", world,
+                                  target=self.target),
                     ))
 
             # BloodDrain: drain HP and heal self
@@ -291,8 +297,9 @@ class MeleeAttackAction(Action):
                 if a_health:
                     heal(a_health, drain)
                 events.append(MessageEvent(
-                    text=t("combat.blood_drain", attacker=attacker_name,
-                           target=target_name, damage=drain_actual),
+                    text=_msg("combat.blood_drain", world,
+                              actor=self.actor, target=self.target,
+                              damage=drain_actual),
                 ))
 
             # PetrifyingTouch: target saves DEX 12 or paralyzed
@@ -306,7 +313,8 @@ class MeleeAttackAction(Action):
                     else:
                         t_status.paralyzed = 9
                     events.append(MessageEvent(
-                        text=t("combat.petrify_touch", target=target_name),
+                        text=_msg("combat.petrify_touch", world,
+                                  target=self.target),
                     ))
 
             # FrostBreath: extra cold damage on hit
@@ -315,8 +323,9 @@ class MeleeAttackAction(Action):
                 cold = roll_dice(fb.dice)
                 cold_actual = apply_damage(t_health, cold)
                 events.append(MessageEvent(
-                    text=t("combat.frost_breath", attacker=attacker_name,
-                           target=target_name, damage=cold_actual),
+                    text=_msg("combat.frost_breath", world,
+                              actor=self.actor, target=self.target,
+                              damage=cold_actual),
                 ))
 
             # CharmTouch: charm the target (like dryad)
@@ -330,7 +339,8 @@ class MeleeAttackAction(Action):
                     else:
                         t_status.charmed = 9
                     events.append(MessageEvent(
-                        text=t("combat.charm_touch", target=target_name),
+                        text=_msg("combat.charm_touch", world,
+                                  target=self.target),
                     ))
 
             # MummyRot: curse the target with a slow HP-draining rot
@@ -340,7 +350,8 @@ class MeleeAttackAction(Action):
                         self.target, "Cursed", Cursed(ticks_until_drain=2),
                     )
                     events.append(MessageEvent(
-                        text=t("combat.mummy_rot", target=target_name),
+                        text=_msg("combat.mummy_rot", world,
+                                  target=self.target),
                     ))
 
             # DisenchantTouch: destroy one consumable in target's inventory
@@ -359,8 +370,9 @@ class MeleeAttackAction(Action):
                         t_inv.slots.remove(chosen)
                         world.destroy_entity(chosen)
                         events.append(MessageEvent(
-                            text=t("combat.disenchant", attacker=attacker_name,
-                                   target=target_name, item=c_name),
+                            text=_msg("combat.disenchant", world,
+                                      actor=self.actor, target=self.target,
+                                      item=c_name),
                         ))
 
             if is_dead(t_health):
@@ -372,7 +384,8 @@ class MeleeAttackAction(Action):
                     entity=self.target, killer=self.actor,
                 ))
                 events.append(MessageEvent(
-                    text=t("combat.slain", target=target_name),
+                    text=_msg("combat.slain", world,
+                              actor=self.actor, target=self.target),
                 ))
 
                 # Drop loot before destroying
@@ -390,13 +403,14 @@ class MeleeAttackAction(Action):
                                 names.append(d.name)
                         if names:
                             events.append(MessageEvent(
-                                text=t("combat.drops", target=target_name,
-                                       items=", ".join(names)),
+                                text=_msg("combat.drops", world,
+                                          target=self.target,
+                                          items=", ".join(names)),
                             ))
 
                 # Leave a corpse marker, then destroy
                 if tpos:
-                    corpse_name = f"{target_name} corpse"
+                    corpse_name = t("combat.corpse", name=target_name)
                     world.create_entity({
                         "Position": Position(
                             x=tpos.x, y=tpos.y, level_id=tpos.level_id,
@@ -414,8 +428,8 @@ class MeleeAttackAction(Action):
                 damage=0, hit=False,
             ))
             events.append(MessageEvent(
-                text=t("combat.miss", attacker=attacker_name,
-                       target=target_name),
+                text=_msg("combat.miss", world,
+                          actor=self.actor, target=self.target),
             ))
 
         return events
@@ -572,6 +586,106 @@ class UseItemAction(Action):
                 t("item.protect_cast"), t("item.protect_active"),
             )
 
+        elif consumable.effect == "detect_magic":
+            events += _use_detect_magic(world, level, self.actor, self.item)
+
+        elif consumable.effect == "detect_evil":
+            events += _use_detect_evil(world, level, self.actor, self.item)
+
+        elif consumable.effect == "detect_invisibility":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "infravision",
+                t("item.detect_invis_cast"), t("item.detect_invis_active"),
+            )
+
+        elif consumable.effect == "find_traps":
+            events += _use_find_traps(world, level, self.actor, self.item)
+
+        elif consumable.effect == "light":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "infravision",
+                t("item.light_cast"), t("item.light_active"),
+            )
+
+        elif consumable.effect == "remove_fear":
+            events += _use_remove_fear(world, self.actor, self.item)
+
+        elif consumable.effect == "shield":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "shielded",
+                t("item.shield_cast"), t("item.shield_active"),
+            )
+
+        elif consumable.effect == "resist_cold":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "resist_cold",
+                t("item.resist_cold_cast"), t("item.resist_cold_active"),
+            )
+
+        elif consumable.effect == "resist_fire":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "resist_fire",
+                t("item.resist_fire_cast"), t("item.resist_fire_active"),
+            )
+
+        elif consumable.effect == "levitate":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "levitating",
+                t("item.levitate_cast"), t("item.levitate_active"),
+            )
+
+        elif consumable.effect == "fly":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "flying",
+                t("item.fly_cast"), t("item.fly_active"),
+            )
+
+        elif consumable.effect == "dispel_magic":
+            events += _use_dispel_magic(
+                world, level, self.actor, self.item,
+            )
+
+        elif consumable.effect == "protection_missiles":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "prot_missiles",
+                t("item.prot_missiles_cast"),
+                t("item.prot_missiles_active"),
+            )
+
+        elif consumable.effect == "silence":
+            events += _use_silence(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "phantasmal_force":
+            events += _use_phantasmal_force(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "clairvoyance":
+            events += _use_clairvoyance(world, level, self.actor, self.item)
+
+        elif consumable.effect == "infravision":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "infravision",
+                t("item.infravision_cast"), t("item.infravision_active"),
+            )
+
+        elif consumable.effect == "continual_light":
+            events += _use_continual_light(world, self.actor, self.item)
+
+        elif consumable.effect == "water_breathing":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "water_breathing",
+                t("item.water_breathing_cast"),
+                t("item.water_breathing_active"),
+            )
+
+        elif consumable.effect == "charm_snakes":
+            events += _use_charm_snakes(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
         else:
             events.append(MessageEvent(
                 text=t("item.nothing_happens"),
@@ -720,7 +834,7 @@ class BumpAction(Action):
 
 
 def _entity_name(world: "World", eid: int) -> str:
-    """Get display name for an entity."""
+    """Get raw display name for an entity (no article)."""
     desc = world.get_component(eid, "Description")
     if desc and desc.name:
         return desc.name
@@ -728,6 +842,107 @@ def _entity_name(world: "World", eid: int) -> str:
     if player is not None:
         return t("game.player_name")
     return "something"
+
+
+def _is_player(world: "World", eid: int) -> bool:
+    """Check if an entity is the player."""
+    return world.has_component(eid, "Player")
+
+
+_CATALAN_VOWELS = set("aeiouàèéíòóúh")
+
+
+def _det_name(world: "World", eid: int) -> str:
+    """Get display name with article for Romance languages.
+
+    For Catalan/Spanish, prepends el/la/l' based on grammatical gender.
+    For English or entities without gender, returns the raw name.
+    """
+    from nhc.i18n import current_lang
+
+    desc = world.get_component(eid, "Description")
+    if not desc or not desc.name:
+        player = world.get_component(eid, "Player")
+        if player is not None:
+            return t("game.player_name")
+        return "something"
+
+    name = desc.name
+    gender = desc.gender
+    lang = current_lang()
+
+    if not gender or lang == "en":
+        return name
+
+    lower = name.lower()
+    if lang == "ca":
+        if lower[0] in _CATALAN_VOWELS:
+            return f"l'{lower}"
+        return f"el {lower}" if gender == "m" else f"la {lower}"
+    elif lang == "es":
+        if gender == "m":
+            return f"el {lower}"
+        return f"la {lower}"
+
+    return name
+
+
+def _msg(
+    key: str,
+    world: "World",
+    *,
+    actor: int | None = None,
+    target: int | None = None,
+    **kwargs: object,
+) -> str:
+    """Build a message, selecting player-aware variant if available.
+
+    For Romance languages (Catalan, Spanish), combat messages need different
+    verb conjugations when the player is involved. This helper selects:
+      - "you_{leaf}" variant when the player is the actor
+      - "{leaf}_you" variant when the player is the target
+      - the base key as fallback (3rd person)
+
+    Entity names are inserted with articles for Romance languages, and the
+    first character of the result is capitalized.
+    """
+    section, leaf = key.rsplit(".", 1)
+    actor_is_player = actor is not None and _is_player(world, actor)
+    target_is_player = target is not None and _is_player(world, target)
+
+    # Build kwargs with article-aware entity names
+    kw = dict(**kwargs)
+    if actor is not None:
+        name = _det_name(world, actor)
+        kw["attacker"] = name
+        kw["actor"] = name
+        kw["entity"] = name
+    if target is not None:
+        kw["target"] = _det_name(world, target)
+
+    # Try player-specific variant first
+    if actor_is_player:
+        variant = f"{section}.you_{leaf}"
+        result = t(variant, **kw)
+        if result != variant:
+            return _capitalize_first(result)
+    elif target_is_player:
+        variant = f"{section}.{leaf}_you"
+        result = t(variant, **kw)
+        if result != variant:
+            return _capitalize_first(result)
+
+    return _capitalize_first(t(key, **kw))
+
+
+def _capitalize_first(s: str) -> str:
+    """Capitalize the first character, handling elided articles like l'."""
+    if not s:
+        return s
+    if len(s) >= 3 and s[1] == "'":
+        # "l'esquelet" → "L'esquelet"
+        return s[0].upper() + s[1:]
+    return s[0].upper() + s[1:]
 
 
 def _items_at(
@@ -796,8 +1011,8 @@ def _check_traps(
 
         if save_roll + dex_bonus >= trap.dc:
             events.append(MessageEvent(
-                text=t("trap.avoided", entity=entity_name,
-                       trap=trap_name),
+                text=_msg("trap.avoided", world,
+                          actor=entity_id, trap=trap_name),
             ))
         else:
             damage = roll_dice(trap.damage)
@@ -808,8 +1023,9 @@ def _check_traps(
                     entity=entity_id, damage=actual, trap_name=trap_name,
                 ))
                 events.append(MessageEvent(
-                    text=t("trap.triggered", entity=entity_name,
-                           trap=trap_name, damage=actual),
+                    text=_msg("trap.triggered", world,
+                              actor=entity_id, trap=trap_name,
+                              damage=actual),
                 ))
 
         trap.triggered = True
@@ -918,7 +1134,8 @@ def _use_magic_missile(
         if is_dead(target_health):
             events.append(CreatureDied(entity=best_eid, killer=actor))
             events.append(MessageEvent(
-                text=t("combat.slain", target=target_name),
+                text=_msg("combat.slain", world,
+                          actor=actor, target=best_eid),
             ))
             world.destroy_entity(best_eid)
 
@@ -1021,9 +1238,10 @@ def _use_fireball(
     events.append(ItemUsed(entity=actor, item=item, effect="fireball"))
 
     for eid in dead_eids:
-        name = _entity_name(world, eid)
         events.append(CreatureDied(entity=eid, killer=actor))
-        events.append(MessageEvent(text=t("combat.slain", target=name)))
+        events.append(MessageEvent(
+            text=_msg("combat.slain", world, actor=actor, target=eid),
+        ))
         world.destroy_entity(eid)
 
     return events
@@ -1079,7 +1297,8 @@ def _use_damage_nearest(
         if is_dead(target_health):
             events.append(CreatureDied(entity=best_eid, killer=actor))
             events.append(MessageEvent(
-                text=t("combat.destroyed", target=target_name),
+                text=_msg("combat.destroyed", world,
+                          actor=actor, target=best_eid),
             ))
             world.destroy_entity(best_eid)
 
@@ -1228,6 +1447,322 @@ def _use_mirror_image(
     return events
 
 
+def _use_detect_magic(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal all magic items (consumables) on the current level."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.detect_magic_cast")))
+
+    count = 0
+    for eid, _, ipos in world.query("Consumable", "Position"):
+        if ipos is None:
+            continue
+        tile = level.tile_at(ipos.x, ipos.y)
+        if tile:
+            tile.explored = True
+            count += 1
+
+    if count:
+        events.append(MessageEvent(
+            text=t("item.detect_magic_reveal", count=count),
+        ))
+    else:
+        events.append(MessageEvent(text=t("item.detect_magic_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="detect_magic"))
+    return events
+
+
+def _use_detect_evil(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal hostile creatures on the current level."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.detect_evil_cast")))
+
+    count = 0
+    for eid, ai, cpos in world.query("AI", "Position"):
+        if cpos is None or ai is None:
+            continue
+        if ai.behavior in ("aggressive_melee",):
+            tile = level.tile_at(cpos.x, cpos.y)
+            if tile:
+                tile.explored = True
+                tile.visible = True
+                count += 1
+
+    if count:
+        events.append(MessageEvent(
+            text=t("item.detect_evil_reveal", count=count),
+        ))
+    else:
+        events.append(MessageEvent(text=t("item.detect_evil_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="detect_evil"))
+    return events
+
+
+def _use_find_traps(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal all hidden traps on the level."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.find_traps_cast")))
+
+    count = 0
+    for eid, trap, tpos in world.query("Trap", "Position"):
+        if trap.hidden:
+            trap.hidden = False
+            count += 1
+
+    if count:
+        events.append(MessageEvent(
+            text=t("item.find_traps_reveal", count=count),
+        ))
+    else:
+        events.append(MessageEvent(text=t("item.find_traps_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="find_traps"))
+    return events
+
+
+def _use_remove_fear(
+    world: "World",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Remove paralysis and fear effects from the player."""
+    events: list[Event] = []
+    status = world.get_component(actor, "StatusEffect")
+    if status:
+        status.paralyzed = 0
+        status.sleeping = 0
+
+    events.append(MessageEvent(text=t("item.remove_fear_cast")))
+    events.append(MessageEvent(text=t("item.remove_fear_active")))
+    events.append(ItemUsed(entity=actor, item=item, effect="remove_fear"))
+    return events
+
+
+def _use_dispel_magic(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Strip all status effects from visible creatures."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.dispel_cast")))
+
+    affected = 0
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        status = world.get_component(eid, "StatusEffect")
+        if status:
+            world.remove_component(eid, "StatusEffect")
+            name = _entity_name(world, eid)
+            events.append(MessageEvent(
+                text=t("item.dispel_affects", target=name),
+            ))
+            affected += 1
+
+    if affected == 0:
+        events.append(MessageEvent(text=t("item.dispel_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="dispel_magic"))
+    return events
+
+
+def _use_silence(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Silence visible creatures (prevents scroll use)."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.silence_cast")))
+
+    try:
+        duration = int(consumable.dice)
+    except ValueError:
+        duration = roll_dice(consumable.dice)
+
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        status = world.get_component(eid, "StatusEffect")
+        if status is None:
+            world.add_component(eid, "StatusEffect",
+                                StatusEffect(silenced=duration))
+        else:
+            status.silenced = duration
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(
+            text=t("item.silence_affects", target=name),
+        ))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="silence"))
+    return events
+
+
+def _use_phantasmal_force(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Confuse visible enemies."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.phantasmal_cast")))
+
+    try:
+        duration = int(consumable.dice)
+    except ValueError:
+        duration = roll_dice(consumable.dice)
+
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        if world.has_component(eid, "Undead"):
+            continue
+        status = world.get_component(eid, "StatusEffect")
+        if status is None:
+            world.add_component(eid, "StatusEffect",
+                                StatusEffect(confused=duration))
+        else:
+            status.confused = duration
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(
+            text=t("item.phantasmal_affects", target=name),
+        ))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="phantasmal_force"))
+    return events
+
+
+def _use_clairvoyance(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal map tiles in a large radius around the player."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.clairvoyance_cast")))
+
+    pos = world.get_component(actor, "Position")
+    if pos:
+        radius = 12
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if dx * dx + dy * dy <= radius * radius:
+                    tile = level.tile_at(pos.x + dx, pos.y + dy)
+                    if tile:
+                        tile.explored = True
+
+    events.append(MessageEvent(text=t("item.clairvoyance_reveal")))
+    events.append(ItemUsed(entity=actor, item=item, effect="clairvoyance"))
+    return events
+
+
+def _use_continual_light(
+    world: "World",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Create a permanent light (very long duration infravision)."""
+    events: list[Event] = []
+    # 999 turns is effectively permanent for a dungeon level
+    status = world.get_component(actor, "StatusEffect")
+    if status is None:
+        world.add_component(actor, "StatusEffect",
+                            StatusEffect(infravision=999))
+    else:
+        status.infravision = 999
+
+    events.append(MessageEvent(text=t("item.continual_light_cast")))
+    events.append(ItemUsed(entity=actor, item=item, effect="continual_light"))
+    return events
+
+
+def _use_charm_snakes(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Pacify serpent-type creatures (serp_gegant, home_serp, etc.)."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.charm_snakes_cast")))
+
+    try:
+        duration = int(consumable.dice)
+    except ValueError:
+        duration = roll_dice(consumable.dice)
+
+    serpent_ids = {"serp_gegant", "home_serp"}
+    affected = 0
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        desc = world.get_component(eid, "Description")
+        # Check by matching known serpent creature names
+        creature_name = desc.name.lower() if desc else ""
+        is_serpent = any(
+            kw in creature_name
+            for kw in ("serp", "snake", "serpent", "cobra", "víbria")
+        )
+        if not is_serpent:
+            continue
+        status = world.get_component(eid, "StatusEffect")
+        if status is None:
+            world.add_component(eid, "StatusEffect",
+                                StatusEffect(charmed=duration))
+        else:
+            status.charmed = duration
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(
+            text=t("item.charm_snakes_affects", target=name),
+        ))
+        affected += 1
+
+    if affected == 0:
+        events.append(MessageEvent(text=t("item.charm_snakes_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="charm_snakes"))
+    return events
+
+
 class BansheeWailAction(Action):
     """Banshee wail: every humanoid in range must save CON or die."""
 
@@ -1263,17 +1798,17 @@ class BansheeWailAction(Action):
             if dist <= wail.radius:
                 if d20() + p_stats.constitution < wail.save_dc:
                     p_health.current = 0
-                    name = _entity_name(world, self.player_id)
                     events.append(MessageEvent(
-                        text=t("combat.banshee_kills", target=name),
+                        text=_msg("combat.banshee_kills", world,
+                                  target=self.player_id),
                     ))
                     events.append(CreatureDied(
                         entity=self.player_id, killer=self.actor,
                     ))
                 else:
-                    name = _entity_name(world, self.player_id)
                     events.append(MessageEvent(
-                        text=t("combat.banshee_saved", target=name),
+                        text=_msg("combat.banshee_saved", world,
+                                  target=self.player_id),
                     ))
         return events
 

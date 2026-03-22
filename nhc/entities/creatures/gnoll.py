@@ -1,10 +1,9 @@
 """Gnoll — hyena-headed chaotic humanoid. (BEB: Gnoll)"""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats,
+    AI, Health, LootTable, Renderable, Stats,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("gnoll")
@@ -17,9 +16,5 @@ def create_gnoll() -> dict:
                                  render_order=2),
         "AI": AI(behavior="aggressive_melee", morale=8, faction="gnoll"),
         "LootTable": LootTable(entries=[("gold", 0.6, "3d6")]),
-        "Description": Description(
-            name=t("creature.gnoll.name"),
-            short=t("creature.gnoll.short"),
-            long=t("creature.gnoll.long"),
-        ),
+        "Description": creature_desc("gnoll"),
     }

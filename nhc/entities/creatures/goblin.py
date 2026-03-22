@@ -1,10 +1,9 @@
 """Goblin — weak, aggressive humanoid."""
 
 from nhc.entities.components import (
-    AI, Description, Health, LootTable, Renderable, Stats,
+    AI, Health, LootTable, Renderable, Stats,
 )
-from nhc.entities.registry import EntityRegistry
-from nhc.i18n import t
+from nhc.entities.registry import EntityRegistry, creature_desc
 
 
 @EntityRegistry.register_creature("goblin")
@@ -17,9 +16,5 @@ def create_goblin() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=7, faction="goblinoid"),
         "LootTable": LootTable(entries=[("gold", 0.8, "2d6"),
                                         ("dagger", 0.3)]),
-        "Description": Description(
-            name=t("creature.goblin.name"),
-            short=t("creature.goblin.short"),
-            long=t("creature.goblin.long"),
-        ),
+        "Description": creature_desc("goblin"),
     }
