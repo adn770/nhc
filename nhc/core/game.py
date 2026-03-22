@@ -296,9 +296,9 @@ class Game:
             self._tick_regeneration()
             self._tick_mummy_rot()
 
-            # Check player death
+            # Check player death (None means entity was destroyed)
             health = self.world.get_component(self.player_id, "Health")
-            if health and health.current <= 0:
+            if not health or health.current <= 0:
                 self.game_over = True
                 # Find killer from events
                 from nhc.core.events import CreatureAttacked

@@ -689,9 +689,11 @@ class BumpAction(Action):
         self.dx = dx
         self.dy = dy
 
-    def resolve(self, world: "World", level: "Level") -> Action:
+    def resolve(self, world: "World", level: "Level") -> Action | None:
         """Convert bump into a concrete action."""
         pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return None
         nx, ny = pos.x + self.dx, pos.y + self.dy
 
         # Check for creature at target: attack
@@ -707,6 +709,8 @@ class BumpAction(Action):
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         resolved = self.resolve(world, level)
+        if resolved is None:
+            return []
         if await resolved.validate(world, level):
             return await resolved.execute(world, level)
         return []
