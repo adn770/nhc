@@ -33,6 +33,7 @@ from nhc.rendering.terminal.glyphs import (
     dim_color_fn,
     wall_glyph,
 )
+from nhc.rendering.terminal.help_overlay import show_help as _show_help
 from nhc.rendering.terminal.input import map_key_to_intent
 from nhc.rendering.terminal.input_line import TextInput, render_input_line
 from nhc.rendering.terminal.narrative_log import (
@@ -81,6 +82,10 @@ class TerminalRenderer:
         """Restore terminal."""
         print(self.term.cnorm, end="", flush=True)
         print(self.term.exit_fullscreen, end="", flush=True)
+
+    def show_help(self) -> None:
+        """Display the scrollable help overlay."""
+        _show_help(self.term)
 
     def add_message(self, text: str) -> None:
         """Add a message to the log."""
@@ -178,10 +183,11 @@ class TerminalRenderer:
             # Read a single key
             val = await loop.run_in_executor(None, self._blocking_read)
 
-            # Movement keys bypass text input
+            # Special keys bypass text input
             intent, data = map_key_to_intent(val)
             if intent in ("move", "descend", "wait", "scroll_up",
-                          "scroll_down", "save", "load", "quit"):
+                          "scroll_down", "save", "load", "quit",
+                          "help", "toggle_mode"):
                 return (intent, data)
 
             # Text editing keys

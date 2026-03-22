@@ -430,6 +430,11 @@ class Game:
         if not typed_text:
             return []
 
+        # Text commands: help/ajuda/ayuda
+        if typed_text.lower() in ("help", "ajuda", "ayuda", "?"):
+            self.renderer.show_help()
+            return []
+
         self.renderer.narrative_log.add_mechanical(f"> {typed_text}")
 
         if self._gm:
@@ -558,11 +563,37 @@ class Game:
             self._load_game()
             return None
 
+        if intent == "help":
+            self.renderer.show_help()
+            return None
+
+        if intent == "toggle_mode":
+            self._toggle_mode()
+            return None
+
         if intent == "quit":
             self.running = False
             return None
 
         return None
+
+    def _toggle_mode(self) -> None:
+        """Switch between classic and typed game modes."""
+        if self.mode == "classic":
+            self.mode = "typed"
+            self.renderer.game_mode = "typed"
+            self.renderer.add_message(t("ui.mode_typed"))
+            # Initialize GM if backend available and not already set up
+            if self.backend and not self._gm:
+                from nhc.narrative.context import ContextBuilder
+                from nhc.narrative.gm import GameMaster
+                self._ctx_builder = ContextBuilder()
+                self._gm = GameMaster(self.backend, self._ctx_builder)
+        else:
+            self.mode = "classic"
+            self.renderer.game_mode = "classic"
+            self.renderer.add_message(t("ui.mode_classic"))
+        logger.info("Switched to %s mode", self.mode)
 
     def _find_pickup_action(self) -> "Action | None":
         """Find an item at the player's position to pick up."""

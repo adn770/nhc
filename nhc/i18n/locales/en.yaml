@@ -277,6 +277,8 @@ ui:
   death_title: "YOU DIED"
   death_desc: "Your adventure ends here."
   end_footer: "Survived {turn} turns. Press any key to exit."
+  mode_typed: "Switched to typed mode. Type your actions."
+  mode_classic: "Switched to classic mode. Use keys."
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:

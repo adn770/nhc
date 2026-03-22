@@ -40,6 +40,11 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     # Save/Load
     "S": ("save", None),
     "L": ("load", None),
+    # Help
+    "?": ("help", None),
+    # Mode toggle
+    "\t": ("toggle_mode", None),
+    "KEY_TAB": ("toggle_mode", None),
     # Quit
     "q": ("quit", None),
     "Q": ("quit", None),

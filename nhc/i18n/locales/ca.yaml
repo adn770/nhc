@@ -295,6 +295,8 @@ ui:
   death_title: "HAS MORT"
   death_desc: "La teva aventura acaba aquí."
   end_footer: "Has sobreviscut {turn} torns. Prem qualsevol tecla per sortir."
+  mode_typed: "Canviat a mode escrit. Escriu les teves accions."
+  mode_classic: "Canviat a mode clàssic. Usa les tecles."
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:
