@@ -44,15 +44,18 @@ from nhc.rendering.terminal.panels import render_messages, render_status
 
 # Zone sizes (separators included)
 STATUS_HEIGHT = 4   # separator + 3 lines
-MSG_HEIGHT = 4      # 4 visible message lines (classic mode)
-NARRATIVE_HEIGHT = 8  # narrative log lines (typed mode)
-INPUT_HEIGHT = 2    # input area (typed mode)
 MSG_SEP = 1         # separator above messages
-CHROME_HEIGHT_CLASSIC = STATUS_HEIGHT + MSG_SEP + MSG_HEIGHT
-CHROME_HEIGHT_TYPED = STATUS_HEIGHT + MSG_SEP + NARRATIVE_HEIGHT + INPUT_HEIGHT
+LOG_HEIGHT = 6      # message/narrative log lines (both modes)
+INPUT_HEIGHT = 1    # input line (typed mode only, within LOG_HEIGHT)
 
-# Keep old name for backwards compat in tests
-CHROME_HEIGHT = CHROME_HEIGHT_CLASSIC
+# Chrome is the same in both modes — the input line borrows
+# the last line of the log area so the map zone never shifts.
+CHROME_HEIGHT = STATUS_HEIGHT + MSG_SEP + LOG_HEIGHT
+
+# Backwards compat aliases
+CHROME_HEIGHT_CLASSIC = CHROME_HEIGHT
+CHROME_HEIGHT_TYPED = CHROME_HEIGHT
+MSG_HEIGHT = LOG_HEIGHT
 
 
 class TerminalRenderer:
@@ -125,9 +128,7 @@ class TerminalRenderer:
         if not pos:
             return
 
-        chrome = (CHROME_HEIGHT_TYPED if self.game_mode == "typed"
-                  else CHROME_HEIGHT_CLASSIC)
-        map_h = max(3, t.height - chrome)
+        map_h = max(3, t.height - CHROME_HEIGHT)
 
         output = t.home + t.clear
 
@@ -143,25 +144,25 @@ class TerminalRenderer:
         status_y = map_h
         output += render_status(t, status_y, t.width, stats, items, max_slots)
 
+        # ── Zone 3: Log area (same height in both modes) ──
+        log_y = status_y + STATUS_HEIGHT
         if self.game_mode == "typed":
-            # ── Zone 3: Narrative log ──
-            narr_y = status_y + STATUS_HEIGHT
+            # Narrative log takes all but the last line; input gets last line
+            narr_lines = LOG_HEIGHT - INPUT_HEIGHT
             output += render_narrative_log(
-                t, narr_y, t.width, NARRATIVE_HEIGHT,
+                t, log_y, t.width, narr_lines,
                 self.narrative_log.entries,
                 self.narrative_log.scroll_offset,
             )
-            # ── Zone 4: Input line ──
-            input_y = narr_y + NARRATIVE_HEIGHT
+            input_y = log_y + narr_lines
             output += render_input_line(
                 t, input_y, t.width,
                 self._text_input.text, self._text_input.cursor,
+                mode_indicator="✏️  ",
             )
         else:
-            # ── Zone 3: Classic messages ──
-            msg_y = status_y + STATUS_HEIGHT
             output += render_messages(
-                t, msg_y, t.width, MSG_HEIGHT,
+                t, log_y, t.width, LOG_HEIGHT,
                 self._messages, self._msg_scroll,
             )
 
@@ -196,13 +197,15 @@ class TerminalRenderer:
             # printable characters go into the text buffer.
             # When text is being edited, arrow keys control the cursor
             # and history instead of moving the character.
+            # Tab always toggles mode
+            if val in ("\t", "KEY_TAB"):
+                return ("toggle_mode", None)
+
             if val.startswith("KEY_"):
                 if not inp.text:
                     intent, data = map_key_to_intent(val)
                     if intent == "move":
                         return (intent, data)
-            elif val == "\t":
-                return ("toggle_mode", None)
             elif val == "?":
                 # Only bypass when the input line is empty (otherwise
                 # the user is typing a question)

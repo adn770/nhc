@@ -126,11 +126,21 @@ def render_input_line(
     width: int,
     text: str,
     cursor: int,
+    mode_indicator: str = "",
 ) -> str:
-    """Render the input line with prompt and cursor."""
-    prompt = term.bright_yellow("> ")
+    """Render the input line with mode indicator, prompt, and cursor."""
+    # mode_indicator is plain text like "✏️  " — measure its display width
+    indicator_len = len(mode_indicator.encode("ascii", "ignore"))
+    # Emoji + spaces: approximate display width
+    indicator_display = sum(2 if ord(c) > 0xFFFF else 1 for c in mode_indicator)
+    colored_indicator = term.bright_cyan(mode_indicator) if mode_indicator else ""
+
+    prompt_str = "> "
+    prompt = term.bright_yellow(prompt_str)
+    prefix_len = indicator_display + len(prompt_str)
+
     # Visible portion of text (scroll if longer than width)
-    max_text = width - 4  # "> " + cursor + margin
+    max_text = width - prefix_len - 1  # leave 1 for cursor at end
     if cursor > max_text:
         offset = cursor - max_text
         visible = text[offset:offset + max_text]
@@ -144,7 +154,7 @@ def render_input_line(
     cursor_char = visible[cursor_pos] if cursor_pos < len(visible) else " "
     after = visible[cursor_pos + 1:] if cursor_pos < len(visible) else ""
 
-    line = prompt + before + term.reverse(cursor_char) + after
-    padding = " " * max(0, width - len("> ") - len(visible) - 1)
+    line = colored_indicator + prompt + before + term.reverse(cursor_char) + after
+    padding = " " * max(0, width - prefix_len - len(visible) - 1)
 
     return term.move_xy(0, y) + line + padding
