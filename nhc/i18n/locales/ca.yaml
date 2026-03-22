@@ -25,6 +25,14 @@ combat:
   disenchant: "{attacker} drena la màgia de {item} de {target}! Es desintegra en pols."
   shrieker_shriek: "El {creature} emet un crit estrident!"
   shriek_wakes: "{creature} es desperta sobresaltat pel soroll terrible!"
+  regenerates: "{creature} regenera la carn davant dels teus ulls!"
+  rot_drain: "{target} sent la podridura de la mòmia debilitar el seu cos! PV màxims reduïts."
+  charm_touch: "{target} cau sota un encantament màgic!"
+  mummy_rot: "{target} sent el terror de la podridura de la mòmia apoderar-se d'ell!"
+  magic_weapon_needed: "La teva arma llisca sobre {target} — només la màgia pot fer-li mal!"
+  banshee_wail: "{creature} emet un udol que esquinça l'ànima!"
+  banshee_kills: "{target} sucumbeix a l'udol de la banshee!"
+  banshee_saved: "{target} resisteix l'udol de la banshee!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -364,6 +372,57 @@ creature:
     long: >-
       Una serp colossal que pot empassar-se un home sencer.
       Els seus ullals buits injecten un verí letal.
+  troll:
+    name: "Trol"
+    short: "un repugnant trol"
+    long: >-
+      Un gegant gomós i rampant amb una boca enorme i urpes de ferro negre.
+      Les seves ferides es tanquen davant teus — només el foc atura la regeneració.
+  mummy:
+    name: "Mòmia"
+    short: "una mòmia embolicada"
+    long: >-
+      Un cadàver desseccat embolcallat en lli groguenc. La simple vista
+      inspira paor sobrenatural, i el seu tacte escampa la podridura que
+      consumeix lentament els vius.
+  gargoyle:
+    name: "Gàrgola"
+    short: "una gàrgola de pedra"
+    long: >-
+      Una estàtua alada que ha après a viure. La pell de pedra deflecteix
+      les armes ordinàries — només la màgia pot travessar la seva pell.
+  banshee:
+    name: "Banshee"
+    short: "una banshee ululant"
+    long: >-
+      L'esperit d'una dona injuriada en vida, planant amb robes
+      fúnebres esqueixades. El seu crit pot aturar un cor en fred.
+  mimic:
+    name: "Mímesi"
+    short: "un cofre del tresor"
+    long: >-
+      El que prenies per un cofre del tresor s'atança amb una boca
+      plena de dents. Les mímesis són caçadors d'emboscada pacients i letals.
+  harpy:
+    name: "Hàrpia"
+    short: "una hàrpia cantora"
+    long: >-
+      Una dona alada amb cos de voltor i veu com campanes de plata.
+      La seva cançó obliga els oients a caminar cegament cap a les seves
+      urpes.
+  dryad:
+    name: "Dríade"
+    short: "una dríade fascinadora"
+    long: >-
+      Un esperit del bosc de bellesa immaculada, guardiana d'un arbre
+      antic. El seu tacte teixeix un encantament que converteix els
+      enemics en servidors voluntaris.
+  wyvern:
+    name: "Víbria"
+    short: "una víbria letal"
+    long: >-
+      Un depredador dracònic de dues potes amb una cua amb pues coberta
+      de verí. Li manca la màgia d'un drac però ho compensa amb ferocitat.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

@@ -30,11 +30,14 @@ CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
         ("desencantador", 0.06),
     ],
     4: [
-        ("ogre", 0.1), ("os_bru", 0.1), ("uarg", 0.1),
-        ("wight", 0.1), ("spectre", 0.08), ("basilisk", 0.1),
-        ("llop_terrible", 0.1), ("ocell_mal_averany", 0.08),
-        ("serp_gegant", 0.08), ("desencantador", 0.08),
-        ("llop_hivern", 0.08),
+        ("ogre", 0.06), ("os_bru", 0.06), ("uarg", 0.06),
+        ("wight", 0.06), ("spectre", 0.06), ("basilisk", 0.06),
+        ("llop_terrible", 0.06), ("ocell_mal_averany", 0.06),
+        ("serp_gegant", 0.06), ("desencantador", 0.06),
+        ("llop_hivern", 0.06),
+        ("troll", 0.06), ("mummy", 0.06), ("gargoyle", 0.06),
+        ("wyvern", 0.06),
+        ("banshee", 0.05), ("harpy", 0.05),
     ],
 }
 

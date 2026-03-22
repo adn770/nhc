@@ -5,7 +5,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.ai.pathfinding import astar
-from nhc.entities.components import AI, Position, StatusEffect
+from nhc.entities.components import (
+    AI,
+    CharmSong,
+    DeathWail,
+    FearAura,
+    Position,
+    StatusEffect,
+)
 from nhc.utils.spatial import adjacent, chebyshev
 
 if TYPE_CHECKING:
@@ -30,7 +37,12 @@ def decide_action(
     player_id: int,
 ) -> "Action | None":
     """Determine what action a creature should take this turn."""
-    from nhc.core.actions import MeleeAttackAction, MoveAction, ShriekAction
+    from nhc.core.actions import (
+        BansheeWailAction,
+        MeleeAttackAction,
+        MoveAction,
+        ShriekAction,
+    )
 
     ai = world.get_component(entity_id, "AI")
     pos = world.get_component(entity_id, "Position")
@@ -63,6 +75,44 @@ def decide_action(
         if dist <= chase_radius:
             return ShriekAction(actor=entity_id)
         return None
+
+    # Banshee: wail when player is in range, then also attack if adjacent
+    death_wail = world.get_component(entity_id, "DeathWail")
+    if death_wail and dist <= death_wail.radius:
+        return BansheeWailAction(actor=entity_id, player_id=player_id)
+
+    # FearAura: player must save STR or be webbed (paralyzed with fear)
+    fear_aura = world.get_component(entity_id, "FearAura")
+    if fear_aura and dist <= fear_aura.radius:
+        from nhc.utils.rng import d20
+        p_stats = world.get_component(player_id, "Stats")
+        if p_stats:
+            player_status = world.get_component(player_id, "StatusEffect")
+            # Only apply fear if not already paralyzed/feared
+            if (player_status is None or player_status.webbed == 0) and \
+               d20() + p_stats.strength < fear_aura.save_dc:
+                if player_status is None:
+                    from nhc.entities.components import StatusEffect as _SE
+                    world.add_component(player_id, "StatusEffect",
+                                        _SE(webbed=1))
+                else:
+                    player_status.webbed = 1
+
+    # CharmSong: force player toward creature each turn (skip player turn)
+    charm_song = world.get_component(entity_id, "CharmSong")
+    if charm_song and dist <= charm_song.radius:
+        from nhc.utils.rng import d20
+        p_stats = world.get_component(player_id, "Stats")
+        if p_stats:
+            player_status = world.get_component(player_id, "StatusEffect")
+            if (player_status is None or player_status.charmed == 0) and \
+               d20() + p_stats.wisdom < charm_song.save_dc:
+                if player_status is None:
+                    from nhc.entities.components import StatusEffect as _SE
+                    world.add_component(player_id, "StatusEffect",
+                                        _SE(charmed=2))
+                else:
+                    player_status.charmed = 2
 
     if chase_radius == 0:
         return None

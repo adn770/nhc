@@ -28,12 +28,14 @@ from nhc.i18n import t
 from nhc.dungeon.model import Level
 from nhc.entities.components import (
     BlocksMovement,
+    Cursed,
     Description,
     Equipment,
     Health,
     Inventory,
     Player,
     Position,
+    Regeneration,
     Renderable,
     Stats,
     StatusEffect,
@@ -275,6 +277,8 @@ class Game:
 
             # Tick poison on all affected entities
             self._tick_poison()
+            self._tick_regeneration()
+            self._tick_mummy_rot()
 
             # Check player death
             health = self.world.get_component(self.player_id, "Health")
@@ -456,6 +460,41 @@ class Game:
                     expired.append(eid)
         for eid in expired:
             self.world.remove_component(eid, "Poison")
+
+    def _creature_name(self, eid: int) -> str:
+        desc = self.world.get_component(eid, "Description")
+        return desc.name if desc else "?"
+
+    def _tick_regeneration(self) -> None:
+        """Troll-like regeneration: heal hp_per_turn if not fire-damaged."""
+        from nhc.rules.combat import heal
+        for eid, regen, health in self.world.query("Regeneration", "Health"):
+            if health is None:
+                continue
+            if regen.fire_damaged:
+                regen.fire_damaged = False  # reset flag; no heal this turn
+                continue
+            healed = heal(health, regen.hp_per_turn)
+            if healed > 0:
+                self.renderer.add_message(
+                    t("combat.regenerates", creature=self._creature_name(eid)),
+                )
+
+    def _tick_mummy_rot(self) -> None:
+        """Mummy rot curse: tick Cursed components and drain 1 max HP when due."""
+        for eid, cursed, health in self.world.query("Cursed", "Health"):
+            if health is None:
+                continue
+            cursed.ticks_until_drain -= 1
+            if cursed.ticks_until_drain <= 0:
+                if health.maximum > 1:
+                    health.maximum -= 1
+                    health.current = min(health.current, health.maximum)
+                    self.renderer.add_message(
+                        t("combat.rot_drain",
+                          target=self._creature_name(eid)),
+                    )
+                cursed.ticks_until_drain = 2
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a new dungeon level."""

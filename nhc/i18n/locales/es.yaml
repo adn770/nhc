@@ -25,6 +25,14 @@ combat:
   disenchant: "¡{attacker} drena la magia del {item} de {target}! Se desintegra en polvo."
   shrieker_shriek: "¡El {creature} emite un chillido estridente!"
   shriek_wakes: "¡{creature} se despierta sobresaltado por el terrible ruido!"
+  regenerates: "¡{creature} regenera carne ante tus ojos!"
+  rot_drain: "¡{target} siente que la podredumbre de la momia debilita su cuerpo! PV máximos reducidos."
+  charm_touch: "¡{target} cae bajo un encantamiento mágico!"
+  mummy_rot: "¡{target} siente el terror de la podredumbre de la momia apoderarse de él!"
+  magic_weapon_needed: "¡Tu arma resbala en {target} — solo la magia puede hacerle daño!"
+  banshee_wail: "¡{creature} lanza un aullido que desgarra el alma!"
+  banshee_kills: "¡{target} sucumbe al aullido de la banshee!"
+  banshee_saved: "¡{target} resiste el aullido de la banshee!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -364,6 +372,61 @@ creature:
     long: >-
       Una serpiente colosal capaz de tragarse a un hombre entero.
       Sus colmillos huecos inyectan un veneno letal.
+  troll:
+    name: "Trol"
+    short: "un repugnante trol"
+    long: >-
+      Un gigante gomoso y desgarbado con una boca enorme y garras de
+      hierro negro. Sus heridas se cierran ante tus ojos — solo el
+      fuego detiene su regeneración.
+  mummy:
+    name: "Momia"
+    short: "una momia vendada"
+    long: >-
+      Un cadáver disecado envuelto en lino amarillento. La simple vista
+      inspira un pavor sobrenatural, y su toque esparce la podredumbre
+      que consume lentamente a los vivos.
+  gargoyle:
+    name: "Gárgola"
+    short: "una gárgola de piedra"
+    long: >-
+      Una estatua alada que ha aprendido a vivir. La piel de piedra
+      desvía las armas ordinarias — solo la magia puede atravesar
+      su piel.
+  banshee:
+    name: "Banshee"
+    short: "una banshee aulladora"
+    long: >-
+      El espíritu de una mujer agraviada en vida, flotando con
+      ropas fúnebres rasgadas. Su grito puede detener un corazón.
+  mimic:
+    name: "Mímico"
+    short: "un cofre del tesoro"
+    long: >-
+      Lo que tomaste por un cofre del tesoro se abalanza con una boca
+      llena de dientes. Los mímicos son cazadores de emboscada
+      pacientes y letales.
+  harpy:
+    name: "Arpía"
+    short: "una arpía cantora"
+    long: >-
+      Una mujer alada con cuerpo de buitre y voz como campanas de plata.
+      Su canción obliga a los oyentes a caminar ciegamente hacia sus
+      garras.
+  dryad:
+    name: "Dríade"
+    short: "una dríade fascinadora"
+    long: >-
+      Un espíritu del bosque de belleza inmaculada, guardián de un
+      árbol antiguo. Su toque teje un encantamiento que convierte a
+      los enemigos en sirvientes voluntarios.
+  wyvern:
+    name: "Víbora Alada"
+    short: "una letal víbora alada"
+    long: >-
+      Un depredador dracónico de dos patas con una cola con púas
+      cubierta de veneno. Carece de la magia de un dragón pero lo
+      compensa con ferocidad.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

@@ -25,6 +25,14 @@ combat:
   disenchant: "{attacker} drains the magic from {target}'s {item}! It crumbles to dust."
   shrieker_shriek: "The {creature} emits a piercing shriek!"
   shriek_wakes: "{creature} is jolted awake by the terrible noise!"
+  regenerates: "{creature} regenerates flesh before your eyes!"
+  rot_drain: "{target} feels mummy rot weaken their body! Max HP reduced."
+  charm_touch: "{target} falls under a magical enchantment!"
+  mummy_rot: "{target} feels the dread of mummy rot take hold!"
+  magic_weapon_needed: "Your weapon glances off {target} — only magic can harm it!"
+  banshee_wail: "{creature} releases a soul-shredding wail!"
+  banshee_kills: "{target} succumbs to the banshee's wail!"
+  banshee_saved: "{target} resists the banshee's wail!"
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -361,6 +369,56 @@ creature:
     long: >-
       A colossal serpent that can swallow a man whole. Its hollow
       fangs inject a lethal venom.
+  troll:
+    name: "Troll"
+    short: "a loathsome troll"
+    long: >-
+      A rubbery, loping giant with a gaping maw and claws like black
+      iron. Its wounds knit closed before your eyes — only fire stops
+      its regeneration.
+  mummy:
+    name: "Mummy"
+    short: "a bandaged mummy"
+    long: >-
+      A desiccated corpse wrapped in yellowed linen. The mere sight
+      inspires supernatural dread, and its touch spreads the rot
+      that slowly consumes the living.
+  gargoyle:
+    name: "Gargoyle"
+    short: "a stone gargoyle"
+    long: >-
+      A winged statue that has learned to live. Stone skin turns
+      aside ordinary weapons — only magic can pierce its hide.
+  banshee:
+    name: "Banshee"
+    short: "a wailing banshee"
+    long: >-
+      The spirit of a woman wronged in life, hovering in torn burial
+      robes. Her scream can stop a heart cold.
+  mimic:
+    name: "Mimic"
+    short: "a treasure chest"
+    long: >-
+      What you took for a treasure chest lunges at you with a
+      tooth-lined maw. Mimics are patient, deadly ambush hunters.
+  harpy:
+    name: "Harpy"
+    short: "a singing harpy"
+    long: >-
+      A winged woman with a vulture's body and a voice like silver
+      bells. Her song compels listeners to walk blindly into her claws.
+  dryad:
+    name: "Dryad"
+    short: "a beguiling dryad"
+    long: >-
+      A wood-spirit of flawless beauty, guardian of an ancient tree.
+      Her touch weaves a charm that turns enemies into willing servants.
+  wyvern:
+    name: "Wyvern"
+    short: "a lethal wyvern"
+    long: >-
+      A two-legged draconic predator with a barbed tail coated in
+      venom. It lacks a dragon's magic but makes up for it in savagery.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

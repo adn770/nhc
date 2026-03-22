@@ -155,3 +155,52 @@ class FrostBreath:
 @dataclass
 class DisenchantTouch:
     """Tag: on a hit, destroys one consumable item in the target's inventory."""
+
+
+@dataclass
+class Regeneration:
+    """Creature heals hp_per_turn at end of each turn (unless fire-damaged)."""
+    hp_per_turn: int = 3
+    fire_damaged: bool = False  # set True when hit by fire; clears on tick
+
+
+@dataclass
+class MummyRot:
+    """Tag: on a hit, target's max HP drops by 1 per 2 turns until cured."""
+
+
+@dataclass
+class FearAura:
+    """Creatures within radius must pass a STR save or flee (skip turn)."""
+    radius: int = 3
+    save_dc: int = 12
+
+
+@dataclass
+class RequiresMagicWeapon:
+    """Tag: non-enchanted weapons deal no damage to this creature."""
+
+
+@dataclass
+class DeathWail:
+    """Banshee: each turn a humanoid is in range, must save CON or die."""
+    radius: int = 5
+    save_dc: int = 15
+
+
+@dataclass
+class CharmSong:
+    """Harpy: humanoids in radius must move toward the harpy each turn."""
+    radius: int = 6
+    save_dc: int = 12
+
+
+@dataclass
+class Enchanted:
+    """Tag: weapon is magical and can bypass RequiresMagicWeapon defense."""
+
+
+@dataclass
+class Cursed:
+    """Tag: creature is under a mummy's rot curse."""
+    ticks_until_drain: int = 2  # decrements each turn; drains 1 max HP at 0

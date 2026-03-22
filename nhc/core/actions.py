@@ -21,17 +21,21 @@ from nhc.entities.components import (
     BloodDrain,
     BlocksMovement,
     Consumable,
+    Cursed,
     Description,
     DisenchantTouch,
+    Enchanted,
     Equipment,
     FrostBreath,
     Health,
     Inventory,
     LootTable,
+    MummyRot,
     PetrifyingTouch,
     Poison,
     Position,
     Renderable,
+    RequiresMagicWeapon,
     Stats,
     StatusEffect,
     Trap,
@@ -197,6 +201,22 @@ class MeleeAttackAction(Action):
 
         hit, damage = resolve_melee_attack(a_stats, t_stats, weapon_damage)
 
+        # RequiresMagicWeapon: non-enchanted weapons deal 0 damage
+        if hit and world.has_component(self.target, "RequiresMagicWeapon"):
+            weapon_is_magic = False
+            if inline_wpn:
+                weapon_is_magic = world.has_component(self.actor, "Enchanted")
+            else:
+                equip = world.get_component(self.actor, "Equipment")
+                if equip and equip.weapon is not None:
+                    weapon_is_magic = world.has_component(equip.weapon, "Enchanted")
+            if not weapon_is_magic:
+                events.append(MessageEvent(
+                    text=t("combat.magic_weapon_needed", target=target_name),
+                ))
+                hit = False
+                damage = 0
+
         # Blessed attacker: +1 damage on a hit
         a_status = world.get_component(self.actor, "StatusEffect")
         if hit and a_status and a_status.blessed > 0:
@@ -291,6 +311,30 @@ class MeleeAttackAction(Action):
                     text=t("combat.frost_breath", attacker=attacker_name,
                            target=target_name, damage=cold_actual),
                 ))
+
+            # CharmTouch: charm the target (like dryad)
+            if world.has_component(self.actor, "CharmTouch"):
+                if not world.has_component(self.target, "Undead"):
+                    if t_status is None:
+                        world.add_component(
+                            self.target, "StatusEffect",
+                            StatusEffect(charmed=9),
+                        )
+                    else:
+                        t_status.charmed = 9
+                    events.append(MessageEvent(
+                        text=t("combat.charm_touch", target=target_name),
+                    ))
+
+            # MummyRot: curse the target with a slow HP-draining rot
+            if world.has_component(self.actor, "MummyRot"):
+                if not world.has_component(self.target, "Cursed"):
+                    world.add_component(
+                        self.target, "Cursed", Cursed(ticks_until_drain=2),
+                    )
+                    events.append(MessageEvent(
+                        text=t("combat.mummy_rot", target=target_name),
+                    ))
 
             # DisenchantTouch: destroy one consumable in target's inventory
             if world.has_component(self.actor, "DisenchantTouch"):
@@ -1167,6 +1211,56 @@ def _use_mirror_image(
     events.append(MessageEvent(text=t("item.mirror_images", count=count)))
     events.append(ItemUsed(entity=actor, item=item, effect="mirror_image"))
     return events
+
+
+class BansheeWailAction(Action):
+    """Banshee wail: every humanoid in range must save CON or die."""
+
+    def __init__(self, actor: int, player_id: int) -> None:
+        super().__init__(actor)
+        self.player_id = player_id
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        from nhc.utils.spatial import chebyshev
+
+        events: list[Event] = []
+        attacker_name = _entity_name(world, self.actor)
+        events.append(MessageEvent(
+            text=t("combat.banshee_wail", creature=attacker_name),
+        ))
+
+        wail = world.get_component(self.actor, "DeathWail")
+        if not wail:
+            return events
+
+        a_pos = world.get_component(self.actor, "Position")
+        if not a_pos:
+            return events
+
+        p_pos = world.get_component(self.player_id, "Position")
+        p_stats = world.get_component(self.player_id, "Stats")
+        p_health = world.get_component(self.player_id, "Health")
+        if p_pos and p_stats and p_health:
+            dist = chebyshev(a_pos.x, a_pos.y, p_pos.x, p_pos.y)
+            if dist <= wail.radius:
+                if d20() + p_stats.constitution < wail.save_dc:
+                    p_health.current = 0
+                    name = _entity_name(world, self.player_id)
+                    events.append(MessageEvent(
+                        text=t("combat.banshee_kills", target=name),
+                    ))
+                    events.append(CreatureDied(
+                        entity=self.player_id, killer=self.actor,
+                    ))
+                else:
+                    name = _entity_name(world, self.player_id)
+                    events.append(MessageEvent(
+                        text=t("combat.banshee_saved", target=name),
+                    ))
+        return events
 
 
 class ShriekAction(Action):
