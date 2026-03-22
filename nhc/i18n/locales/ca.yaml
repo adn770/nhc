@@ -71,6 +71,9 @@ explore:
   see_creature: "Veus {creature}{status}."
   nothing_special: "Res d'especial aquí."
   spot_creature: "Divises {creature}!"
+  search_found_trap: "Descobreixes {trap}!"
+  search_found_door: "Trobes una porta oculta!"
+  search_nothing: "Escorcolles amb atenció però no trobes res d'amagat."
   descend: "Descendeixes més endins de la masmorra..."
 
 # ── Health status descriptions ────────────────────────────────────────

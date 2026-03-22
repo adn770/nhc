@@ -29,6 +29,7 @@ Press TAB to switch between modes at any time during gameplay.
   a              Use an item (shows inventory menu)
   >              Descend stairs
   x              Look around (inspect tile)
+  s              Search for hidden traps and secret doors
 
 ### Interface
   [ ]            Scroll message log up/down

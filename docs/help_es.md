@@ -29,6 +29,7 @@ Pulsa TAB para cambiar entre modos en cualquier momento.
   a              Usar un objeto (muestra menú de inventario)
   >              Descender escaleras
   x              Mirar alrededor (inspeccionar casilla)
+  s              Buscar trampas ocultas y puertas secretas
 
 ### Interfaz
   [ ]            Desplazar registro de mensajes

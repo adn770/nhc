@@ -40,6 +40,8 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     # Save/Load
     "S": ("save", None),
     "L": ("load", None),
+    # Search adjacent tiles
+    "s": ("search", None),
     # Help
     "?": ("help", None),
     # Mode toggle

@@ -29,6 +29,7 @@ Prem TAB per canviar entre modes en qualsevol moment.
   a              Usar un objecte (mostra menú d'inventari)
   >              Descendir escales
   x              Mirar al voltant (inspeccionar casella)
+  s              Cercar trampes ocultes i portes secretes
 
 ### Interfície
   [ ]            Desplaçar registre de missatges

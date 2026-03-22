@@ -551,6 +551,10 @@ class Game:
         if intent == "look":
             return LookAction(actor=self.player_id)
 
+        if intent == "search":
+            from nhc.core.actions import SearchAction
+            return SearchAction(actor=self.player_id)
+
         if intent == "descend":
             return DescendStairsAction(actor=self.player_id)
 

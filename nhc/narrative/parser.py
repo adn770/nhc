@@ -27,8 +27,8 @@ DIRECTIONS: dict[str, tuple[int, int]] = {
 
 # Valid action types
 VALID_ACTIONS = {
-    "move", "attack", "pickup", "use_item", "wait", "look",
-    "talk", "search", "descend", "open_door", "custom", "impossible",
+    "move", "attack", "pickup", "use_item", "wait", "look", "search",
+    "talk", "descend", "open_door", "custom", "impossible",
 }
 
 
@@ -144,6 +144,10 @@ def action_plan_to_actions(
 
         elif action_type == "look":
             actions.append(LookAction(actor))
+
+        elif action_type == "search":
+            from nhc.core.actions import SearchAction
+            actions.append(SearchAction(actor))
 
         elif action_type == "wait":
             actions.append(WaitAction(actor))

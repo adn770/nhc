@@ -274,6 +274,10 @@ class TerminalRenderer:
         for eid, rend, epos in world.query("Renderable", "Position"):
             if epos is None:
                 continue
+            # Hidden traps are invisible until detected
+            trap = world.get_component(eid, "Trap")
+            if trap and trap.hidden:
+                continue
             tile = level.tile_at(epos.x, epos.y)
             if tile and tile.visible:
                 key = (epos.x, epos.y)

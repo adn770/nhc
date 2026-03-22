@@ -829,6 +829,65 @@ class LookAction(Action):
         return events
 
 
+class SearchAction(Action):
+    """Search adjacent tiles for hidden traps and secret doors.
+
+    Uses a WIS check: d20 + WIS bonus vs DC of each hidden feature.
+    """
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return events
+
+        stats = world.get_component(self.actor, "Stats")
+        wis_bonus = stats.wisdom if stats else 0
+        found = 0
+
+        # Check current tile and all 8 adjacent tiles
+        for dy in range(-1, 2):
+            for dx in range(-1, 2):
+                tx, ty = pos.x + dx, pos.y + dy
+
+                # Check for hidden traps (entities)
+                for eid, trap, tpos in world.query("Trap", "Position"):
+                    if tpos is None:
+                        continue
+                    if tpos.x == tx and tpos.y == ty and trap.hidden:
+                        roll_val = d20()
+                        if roll_val + wis_bonus >= trap.dc:
+                            trap.hidden = False
+                            desc = world.get_component(eid, "Description")
+                            name = desc.name if desc else "trap"
+                            events.append(MessageEvent(
+                                text=t("explore.search_found_trap",
+                                       trap=name),
+                            ))
+                            found += 1
+
+                # Check for secret doors (tile feature)
+                tile = level.tile_at(tx, ty)
+                if tile and tile.feature == "door_secret":
+                    roll_val = d20()
+                    if roll_val + wis_bonus >= 12:
+                        tile.feature = "door_closed"
+                        events.append(MessageEvent(
+                            text=t("explore.search_found_door"),
+                        ))
+                        found += 1
+
+        if found == 0:
+            events.append(MessageEvent(
+                text=t("explore.search_nothing"),
+            ))
+
+        return events
+
+
 class CustomAction(Action):
     """Freeform TTRPG action resolved as an ability check."""
 

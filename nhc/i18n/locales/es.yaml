@@ -55,6 +55,9 @@ explore:
   see_creature: "Ves {creature}{status}."
   nothing_special: "Nada especial aquí."
   spot_creature: "¡Divisas {creature}!"
+  search_found_trap: "¡Descubres {trap}!"
+  search_found_door: "¡Encuentras una puerta oculta!"
+  search_nothing: "Registras con atención pero no encuentras nada oculto."
   descend: "Desciendes más profundo en la mazmorra..."
 
 # ── Health status descriptions ────────────────────────────────────────
