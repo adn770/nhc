@@ -197,7 +197,7 @@ class Game:
                 ambient=self.level.metadata.ambient,
                 hooks=", ".join(self.level.metadata.narrative_hooks),
             )
-            self.renderer.narrative_log.add_narrative(intro)
+            self.renderer.add_message(intro)
 
     def _spawn_level_entities(self) -> None:
         """Spawn all entities defined in the level file."""
@@ -354,7 +354,7 @@ class Game:
                 if c_outcomes:
                     c_narr = await self._gm.narrate_creatures(c_outcomes)
                     if c_narr.strip():
-                        self.renderer.narrative_log.add_narrative(c_narr)
+                        self.renderer.add_message(c_narr)
 
             # Tick poison on all affected entities
             self._tick_poison()
@@ -502,7 +502,7 @@ class Game:
                 char_vice=t(f"traits.{char.vice}"),
                 ambient=self.level.metadata.ambient,
             )
-            self.renderer.narrative_log.add_narrative(narrative)
+            self.renderer.add_message(narrative)
 
             # Actions already resolved, return empty to skip double-resolve
             return [WaitAction(self.player_id)]

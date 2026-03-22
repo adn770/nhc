@@ -28,7 +28,7 @@ DIRECTIONS: dict[str, tuple[int, int]] = {
 # Valid action types
 VALID_ACTIONS = {
     "move", "attack", "pickup", "use_item", "wait", "look", "search",
-    "talk", "descend", "open_door", "custom", "impossible",
+    "talk", "descend", "open_door", "custom", "impossible", "narrative",
 }
 
 
@@ -160,6 +160,12 @@ def action_plan_to_actions(
             actions.append(CustomAction(
                 actor, description=desc, ability=ability, dc=dc,
             ))
+
+        elif action_type == "narrative":
+            # GM wants to emit a narrative message (no mechanical effect)
+            text = item.get("text", "")
+            if text:
+                actions.append(ImpossibleAction(actor, reason=text))
 
         elif action_type == "impossible":
             reason = item.get("reason", "That's not possible right now.")
