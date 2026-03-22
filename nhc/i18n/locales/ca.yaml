@@ -10,6 +10,13 @@ combat:
   destroyed: "{target} ha estat destruït!"
   drops: "{target} deixa caure: {items}."
   unarmed: "desarmat"
+  drained: "{attacker} drena la vida de {target}! PV màxims reduïts."
+  poisoned: "{target} ha estat enverrinat!"
+  poison_tick: "{target} es retorç d'agonia pel verí! {damage} de dany."
+  petrified: "{target} mira als ulls del basilisc i es converteix en pedra!"
+  petrify_saved: "{target} aparta la vista just a temps."
+  paralyzed_turn: "Estàs paralitzat i no pots moure't!"
+  sleeping_turn: "Dormes indefens..."
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -49,6 +56,15 @@ item:
   lightning_strike: >-
     Un llamp de {item} colpeja {target}
     per {damage} de dany!
+  sleep_cast: "El pergamí s'esmicula en pols..."
+  sleep_affects: "{target} cau en un somni màgic!"
+  sleep_none: "Cap criatura s'adorm."
+  missile_hits: "Un dard de força colpeja {target} per {damage} de dany!"
+  hold_cast: "Paraules de poder ressonen per la masmorra..."
+  hold_affects: "{target} queda immobilitzat!"
+  hold_no_humanoids: "No hi ha humanoides a la vista."
+  fireball_cast: "Una bola de foc rugent explota!"
+  fireball_hits: "{target} és calcinat per {damage} de dany!"
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -120,6 +136,36 @@ creature:
     long: >-
       Un cadàver en descomposició que es nega a restar mort.
       La pudor és aclaparadora.
+  gnoll:
+    name: "Gnoll"
+    short: "un gnoll cap d'hiena"
+    long: >-
+      Un humanoide corpulent amb cap d'hiena.
+      Riu maníacament mentre es prepara per atacar.
+  giant_bee:
+    name: "Abella Gegant"
+    short: "una abella gegant"
+    long: >-
+      Una abella de la mida d'un gat, amb l'agulló
+      degotant verí ambre.
+  wight:
+    name: "Entitat"
+    short: "una pàl·lida entitat"
+    long: >-
+      Un horror no mort que irradia maldat freda.
+      El seu tacte drenava la força vital.
+  spectre:
+    name: "Espectre"
+    short: "una ombra espectral"
+    long: >-
+      Un fantasma translúcid que plana per sobre del terra.
+      La seva mirada et gela fins als ossos.
+  basilisk:
+    name: "Basilisc"
+    short: "un basilisc"
+    long: >-
+      Un llangardaix de vuit potes amb ulls brillants.
+      No li miris als ulls o et petrificarà.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
@@ -164,6 +210,30 @@ items:
     long: >-
       Un pergamí inscrit amb símbols arcans.
       Llamps salten entre les lletres.
+  scroll_sleep:
+    name: "Pergamí de Dormir"
+    short: "un pergamí blau pal·lid"
+    long: >-
+      Tinta violeta somnolenta omple aquest pergamí amb
+      sígils en espiral que semblen moure's lentament.
+  scroll_magic_missile:
+    name: "Pergamí de Projectil Màgic"
+    short: "un pergamí lluminós"
+    long: >-
+      Una notació arcana densa descriu un dard de força
+      que vola recte i mai no falla el seu objectiu.
+  scroll_hold_person:
+    name: "Pergamí de Retenir Persona"
+    short: "un pergamí groc"
+    long: >-
+      Paraules de lligament omplen aquest pergamí.
+      Els humanoides que les senten pronunciar queden paralitzats.
+  scroll_fireball:
+    name: "Pergamí de Bola de Foc"
+    short: "un pergamí cremat"
+    long: >-
+      Calent al tacte i amb olor de sofre. Un diagrama
+      mostra una esfera de flama de sis metres de diàmetre.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

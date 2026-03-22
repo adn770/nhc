@@ -7,18 +7,22 @@ from nhc.utils.rng import get_rng
 
 # Creature pools by difficulty tier
 CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
-    1: [("rat", 0.3), ("goblin", 0.5), ("skeleton", 0.2)],
-    2: [("goblin", 0.3), ("skeleton", 0.4), ("zombie", 0.3)],
-    3: [("skeleton", 0.2), ("orc", 0.4), ("zombie", 0.4)],
+    1: [("rat", 0.3), ("goblin", 0.4), ("skeleton", 0.2), ("giant_bee", 0.1)],
+    2: [("goblin", 0.2), ("skeleton", 0.3), ("zombie", 0.2), ("gnoll", 0.3)],
+    3: [("orc", 0.2), ("zombie", 0.2), ("gnoll", 0.2),
+        ("wight", 0.2), ("spectre", 0.1), ("basilisk", 0.1)],
 }
 
 # Item pools by difficulty tier
 ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
-    1: [("healing_potion", 0.5), ("dagger", 0.3), ("short_sword", 0.2)],
-    2: [("healing_potion", 0.3), ("short_sword", 0.3), ("sword", 0.2),
-         ("scroll_lightning", 0.2)],
-    3: [("healing_potion", 0.3), ("sword", 0.3), ("shield", 0.2),
-         ("scroll_lightning", 0.2)],
+    1: [("healing_potion", 0.4), ("dagger", 0.3), ("short_sword", 0.2),
+        ("scroll_sleep", 0.1)],
+    2: [("healing_potion", 0.25), ("short_sword", 0.2), ("sword", 0.15),
+        ("scroll_lightning", 0.15), ("scroll_magic_missile", 0.15),
+        ("scroll_sleep", 0.1)],
+    3: [("healing_potion", 0.2), ("sword", 0.15), ("shield", 0.15),
+        ("scroll_lightning", 0.1), ("scroll_magic_missile", 0.1),
+        ("scroll_hold_person", 0.15), ("scroll_fireball", 0.15)],
 }
 
 # Feature pools

@@ -49,6 +49,10 @@ class World:
     def has_component(self, eid: EntityId, comp_type: str) -> bool:
         return eid in self._components.get(comp_type, {})
 
+    def remove_component(self, eid: EntityId, comp_type: str) -> None:
+        """Remove a single component from an entity."""
+        self._components.get(comp_type, {}).pop(eid, None)
+
     def query(self, *comp_types: str) -> list[tuple[EntityId, ...]]:
         """Query entities that have ALL specified component types.
 

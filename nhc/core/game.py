@@ -36,6 +36,7 @@ from nhc.entities.components import (
     Position,
     Renderable,
     Stats,
+    StatusEffect,
 )
 from nhc.entities.registry import EntityRegistry
 from nhc.rendering.terminal.renderer import TerminalRenderer
@@ -234,6 +235,19 @@ class Game:
             if action is None:
                 continue
 
+            # Status effects override player action
+            player_status = self.world.get_component(
+                self.player_id, "StatusEffect",
+            )
+            if player_status and player_status.paralyzed > 0:
+                player_status.paralyzed -= 1
+                self.renderer.add_message(t("combat.paralyzed_turn"))
+                action = WaitAction(actor=self.player_id)
+            elif player_status and player_status.sleeping > 0:
+                player_status.sleeping -= 1
+                self.renderer.add_message(t("combat.sleeping_turn"))
+                action = WaitAction(actor=self.player_id)
+
             # Resolve player action
             events = await self._resolve(action)
 
@@ -258,6 +272,9 @@ class Game:
 
             for ca in creature_actions:
                 events += await self._resolve(ca)
+
+            # Tick poison on all affected entities
+            self._tick_poison()
 
             # Check player death
             health = self.world.get_component(self.player_id, "Health")
@@ -417,6 +434,28 @@ class Game:
             self.renderer.add_message(t("game.game_loaded"))
         except Exception as e:
             self.renderer.add_message(t("game.load_failed", error=e))
+
+    def _tick_poison(self) -> None:
+        """Apply ongoing poison damage and decrement counters."""
+        from nhc.rules.combat import apply_damage, is_dead
+        expired = []
+        for eid, poison, health in self.world.query("Poison", "Health"):
+            if health is None:
+                continue
+            actual = apply_damage(health, poison.damage_per_turn)
+            desc = self.world.get_component(eid, "Description")
+            name = desc.name if desc else "?"
+            self.renderer.add_message(
+                t("combat.poison_tick", target=name, damage=actual),
+            )
+            if is_dead(health):
+                self.world.destroy_entity(eid)
+            else:
+                poison.turns_remaining -= 1
+                if poison.turns_remaining <= 0:
+                    expired.append(eid)
+        for eid in expired:
+            self.world.remove_component(eid, "Poison")
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a new dungeon level."""

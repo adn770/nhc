@@ -14,6 +14,7 @@ from nhc.core.actions import (
 )
 from nhc.core.ecs import World
 from nhc.core.events import CreatureAttacked, CreatureDied, ItemPickedUp, MessageEvent
+from nhc.utils.rng import set_seed
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
     AI,
@@ -161,6 +162,7 @@ class TestMeleeAttackAction:
         })
         cid = _make_creature(world, x=6, y=5, hp=1)
 
+        set_seed(42)  # Avoid natural-1 miss
         action = MeleeAttackAction(actor=pid, target=cid)
         events = await action.execute(world, level)
 

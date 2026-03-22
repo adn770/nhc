@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.ai.pathfinding import astar
-from nhc.entities.components import AI, Position
+from nhc.entities.components import AI, Position, StatusEffect
 from nhc.utils.spatial import adjacent, chebyshev
 
 if TYPE_CHECKING:
@@ -37,6 +37,16 @@ def decide_action(
 
     if not ai or not pos or not player_pos:
         return None
+
+    # Status effects: skip turn when paralyzed or sleeping
+    status = world.get_component(entity_id, "StatusEffect")
+    if status:
+        if status.paralyzed > 0:
+            status.paralyzed -= 1
+            return None
+        if status.sleeping > 0:
+            status.sleeping -= 1
+            return None
 
     dist = chebyshev(pos.x, pos.y, player_pos.x, player_pos.y)
     chase_radius = CHASE_RADIUS.get(ai.behavior, 0)

@@ -107,3 +107,23 @@ class Trap:
 class Equipment:
     """Currently equipped items."""
     weapon: int | None = None  # EntityId of equipped weapon
+
+
+@dataclass
+class StatusEffect:
+    """Temporary status affecting an entity's actions."""
+    paralyzed: int = 0   # turns remaining (Hold Person)
+    sleeping: int = 0    # turns remaining (Sleep — broken by damage)
+    hasted: int = 0      # turns remaining (double movement/attacks)
+
+
+@dataclass
+class Undead:
+    """Tag: undead creature (immune to sleep/charm, vulnerable to turning)."""
+
+
+@dataclass
+class Poison:
+    """Tag: entity is currently poisoned."""
+    damage_per_turn: int = 1
+    turns_remaining: int = 3

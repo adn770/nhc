@@ -17,6 +17,7 @@ from nhc.core.events import (
     TrapTriggered,
 )
 from nhc.entities.components import (
+    AI,
     BlocksMovement,
     Consumable,
     Description,
@@ -24,10 +25,13 @@ from nhc.entities.components import (
     Health,
     Inventory,
     LootTable,
+    Poison,
     Position,
     Renderable,
     Stats,
+    StatusEffect,
     Trap,
+    Undead,
     Weapon,
 )
 from nhc.i18n import t
@@ -145,6 +149,28 @@ class MeleeAttackAction(Action):
         if not a_stats or not t_stats or not t_health:
             return events
 
+        attacker_name = _entity_name(world, self.actor)
+        target_name = _entity_name(world, self.target)
+
+        # PetrifyingGaze: attacker must save DEX 12 or be paralyzed
+        if world.has_component(self.target, "PetrifyingGaze"):
+            if d20() + a_stats.dexterity < 12:
+                a_status = world.get_component(self.actor, "StatusEffect")
+                if a_status is None:
+                    world.add_component(
+                        self.actor, "StatusEffect",
+                        StatusEffect(paralyzed=9),
+                    )
+                else:
+                    a_status.paralyzed = 9
+                events.append(MessageEvent(
+                    text=t("combat.petrified", target=attacker_name),
+                ))
+                return events
+            events.append(MessageEvent(
+                text=t("combat.petrify_saved", target=attacker_name),
+            ))
+
         # Get weapon damage
         weapon_damage = "1d4"  # Unarmed
         equip = world.get_component(self.actor, "Equipment")
@@ -155,8 +181,11 @@ class MeleeAttackAction(Action):
 
         hit, damage = resolve_melee_attack(a_stats, t_stats, weapon_damage)
 
-        attacker_name = _entity_name(world, self.actor)
-        target_name = _entity_name(world, self.target)
+        # Sleeping targets are auto-hit and wake on damage
+        t_status = world.get_component(self.target, "StatusEffect")
+        if t_status and t_status.sleeping > 0:
+            t_status.sleeping = 0
+            hit = True
 
         if hit:
             actual = apply_damage(t_health, damage)
@@ -168,6 +197,29 @@ class MeleeAttackAction(Action):
                 text=t("combat.hit", attacker=attacker_name,
                        target=target_name, damage=actual),
             ))
+
+            # DrainTouch: drain XP and reduce max HP on player
+            if world.has_component(self.actor, "DrainTouch"):
+                player = world.get_component(self.target, "Player")
+                if player and t_health.maximum > 1:
+                    t_health.maximum = max(1, t_health.maximum - 1)
+                    t_health.current = min(t_health.current, t_health.maximum)
+                    player.xp = max(0, player.xp - 5)
+                    events.append(MessageEvent(
+                        text=t("combat.drained", attacker=attacker_name,
+                               target=target_name),
+                    ))
+
+            # VenomousStrike: apply poison on hit
+            if world.has_component(self.actor, "VenomousStrike"):
+                if not world.has_component(self.target, "Poison"):
+                    world.add_component(
+                        self.target, "Poison",
+                        Poison(damage_per_turn=1, turns_remaining=3),
+                    )
+                    events.append(MessageEvent(
+                        text=t("combat.poisoned", target=target_name),
+                    ))
 
             if is_dead(t_health):
                 events.append(CreatureDied(
@@ -312,6 +364,26 @@ class UseItemAction(Action):
 
         elif consumable.effect == "damage_nearest":
             events += _use_damage_nearest(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "sleep":
+            events += _use_sleep(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "magic_missile":
+            events += _use_magic_missile(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "hold_person":
+            events += _use_hold_person(
+                world, level, self.actor, self.item, consumable, item_name,
+            )
+
+        elif consumable.effect == "fireball":
+            events += _use_fireball(
                 world, level, self.actor, self.item, consumable, item_name,
             )
 
@@ -553,6 +625,217 @@ def _check_traps(
 
         trap.triggered = True
         trap.hidden = False
+
+    return events
+
+
+def _use_sleep(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Put visible creatures to sleep (2d8 total HD, weakest first)."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.sleep_cast")))
+
+    total_hd = roll_dice(consumable.dice)
+
+    # Gather visible AI creatures, sorted by HP ascending (weakest first)
+    candidates: list[tuple[int, int]] = []
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        if world.has_component(eid, "Undead"):
+            continue
+        health = world.get_component(eid, "Health")
+        if health:
+            candidates.append((health.current, eid))
+    candidates.sort()
+
+    hd_spent = 0
+    affected = 0
+    for hp, eid in candidates:
+        if hd_spent >= total_hd:
+            break
+        health = world.get_component(eid, "Health")
+        hd = max(1, health.maximum // 4)
+        if hd_spent + hd > total_hd:
+            break
+        hd_spent += hd
+        status = world.get_component(eid, "StatusEffect")
+        if status is None:
+            world.add_component(eid, "StatusEffect", StatusEffect(sleeping=9))
+        else:
+            status.sleeping = 9
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(text=t("item.sleep_affects", target=name)))
+        affected += 1
+
+    if affected == 0:
+        events.append(MessageEvent(text=t("item.sleep_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="sleep"))
+    return events
+
+
+def _use_magic_missile(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Auto-hit the nearest visible creature for 1d6+1."""
+    from nhc.utils.spatial import chebyshev
+    events: list[Event] = []
+
+    apos = world.get_component(actor, "Position")
+    if not apos:
+        return events
+
+    best_eid = None
+    best_dist = 999
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if tile and tile.visible:
+            dist = chebyshev(apos.x, apos.y, cpos.x, cpos.y)
+            if dist < best_dist:
+                best_dist = dist
+                best_eid = eid
+
+    if best_eid is None:
+        events.append(MessageEvent(text=t("item.no_target")))
+        return events
+
+    damage = roll_dice(consumable.dice)
+    target_health = world.get_component(best_eid, "Health")
+    target_name = _entity_name(world, best_eid)
+
+    if target_health:
+        actual = apply_damage(target_health, damage)
+        events.append(ItemUsed(entity=actor, item=item, effect="magic_missile"))
+        events.append(MessageEvent(
+            text=t("item.missile_hits", target=target_name, damage=actual),
+        ))
+        if is_dead(target_health):
+            events.append(CreatureDied(entity=best_eid, killer=actor))
+            events.append(MessageEvent(
+                text=t("combat.slain", target=target_name),
+            ))
+            world.destroy_entity(best_eid)
+
+    return events
+
+
+def _use_hold_person(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Paralyze 1d4 visible humanoids for consumable.dice turns."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.hold_cast")))
+
+    try:
+        duration = int(consumable.dice)
+    except ValueError:
+        duration = 9
+
+    humanoids = []
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if not tile or not tile.visible:
+            continue
+        if world.has_component(eid, "Undead"):
+            continue
+        humanoids.append(eid)
+
+    if not humanoids:
+        events.append(MessageEvent(text=t("item.hold_no_humanoids")))
+        return events
+
+    count = min(roll_dice("1d4"), len(humanoids))
+    from nhc.utils.rng import get_rng
+    targets = get_rng().sample(humanoids, count)
+
+    for eid in targets:
+        status = world.get_component(eid, "StatusEffect")
+        if status is None:
+            world.add_component(
+                eid, "StatusEffect", StatusEffect(paralyzed=duration),
+            )
+        else:
+            status.paralyzed = duration
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(text=t("item.hold_affects", target=name)))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="hold_person"))
+    return events
+
+
+def _use_fireball(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+    item_name: str,
+) -> list[Event]:
+    """Hit all visible creatures for 3d6 (DEX save for half)."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.fireball_cast")))
+
+    targets = []
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos is None:
+            continue
+        tile = level.tile_at(cpos.x, cpos.y)
+        if tile and tile.visible:
+            targets.append(eid)
+
+    if not targets:
+        events.append(MessageEvent(text=t("item.no_target")))
+        return events
+
+    base_damage = roll_dice(consumable.dice)
+    dead_eids = []
+
+    for eid in targets:
+        health = world.get_component(eid, "Health")
+        if not health:
+            continue
+        stats = world.get_component(eid, "Stats")
+        dex_bonus = stats.dexterity if stats else 0
+        dmg = max(1, base_damage // 2) if d20() + dex_bonus >= 12 else base_damage
+        actual = apply_damage(health, dmg)
+        name = _entity_name(world, eid)
+        events.append(MessageEvent(
+            text=t("item.fireball_hits", target=name, damage=actual),
+        ))
+        if is_dead(health):
+            dead_eids.append(eid)
+
+    events.append(ItemUsed(entity=actor, item=item, effect="fireball"))
+
+    for eid in dead_eids:
+        name = _entity_name(world, eid)
+        events.append(CreatureDied(entity=eid, killer=actor))
+        events.append(MessageEvent(text=t("combat.slain", target=name)))
+        world.destroy_entity(eid)
 
     return events
 

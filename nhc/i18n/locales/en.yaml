@@ -10,6 +10,13 @@ combat:
   destroyed: "{target} is destroyed!"
   drops: "{target} drops: {items}."
   unarmed: "unarmed"
+  drained: "{attacker} drains the life from {target}! Max HP reduced."
+  poisoned: "{target} is poisoned!"
+  poison_tick: "{target} writhes in agony from the poison! {damage} damage."
+  petrified: "{target} meets the basilisk's gaze and turns to stone!"
+  petrify_saved: "{target} averts their eyes just in time."
+  paralyzed_turn: "You are paralyzed and cannot move!"
+  sleeping_turn: "You sleep helplessly..."
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -47,6 +54,15 @@ item:
   nothing_happens: "Nothing happens."
   no_target: "No target in sight!"
   lightning_strike: "Lightning from {item} strikes {target} for {damage} damage!"
+  sleep_cast: "The scroll crumbles to dust..."
+  sleep_affects: "{target} falls into a magical slumber!"
+  sleep_none: "No creatures fall asleep."
+  missile_hits: "A bolt of force strikes {target} for {damage} damage!"
+  hold_cast: "Words of power echo through the dungeon..."
+  hold_affects: "{target} freezes in place!"
+  hold_no_humanoids: "No humanoids are in sight."
+  fireball_cast: "A roaring ball of fire explodes!"
+  fireball_hits: "{target} is scorched for {damage} damage!"
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -118,6 +134,36 @@ creature:
     long: >-
       A decomposing corpse that refuses to stay dead.
       The stench is overwhelming.
+  gnoll:
+    name: "Gnoll"
+    short: "a hyena-headed gnoll"
+    long: >-
+      A hulking humanoid with the head of a hyena.
+      It laughs maniacally as it prepares to strike.
+  giant_bee:
+    name: "Giant Bee"
+    short: "a giant bee"
+    long: >-
+      A bee the size of a house cat, its stinger
+      dripping with amber venom.
+  wight:
+    name: "Wight"
+    short: "a pale wight"
+    long: >-
+      An undead horror radiating cold malice.
+      Its touch drains the very life force.
+  spectre:
+    name: "Spectre"
+    short: "a spectral shade"
+    long: >-
+      A translucent wraith that drifts above the ground.
+      Its gaze chills you to the bone.
+  basilisk:
+    name: "Basilisk"
+    short: "a basilisk"
+    long: >-
+      A massive eight-legged lizard with glowing eyes.
+      Do not meet its gaze or face petrification.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
@@ -162,6 +208,30 @@ items:
     long: >-
       A parchment scroll inscribed with arcane symbols.
       Lightning arcs between the letters.
+  scroll_sleep:
+    name: "Scroll of Sleep"
+    short: "a pale blue scroll"
+    long: >-
+      Drowsy violet ink fills this parchment with spiraling
+      sigils. The words blur and slow before your eyes.
+  scroll_magic_missile:
+    name: "Scroll of Magic Missile"
+    short: "a shimmering scroll"
+    long: >-
+      Dense arcane notation describes an arrow of force
+      that flies true and never misses its mark.
+  scroll_hold_person:
+    name: "Scroll of Hold Person"
+    short: "a yellow scroll"
+    long: >-
+      Words of binding fill this scroll. Humanoids who
+      hear them spoken are frozen in place.
+  scroll_fireball:
+    name: "Scroll of Fireball"
+    short: "a scorched scroll"
+    long: >-
+      Warm to the touch and smelling of sulfur. A diagram
+      depicts a 20-foot sphere of roaring flame.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:

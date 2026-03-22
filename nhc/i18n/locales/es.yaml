@@ -10,6 +10,13 @@ combat:
   destroyed: "¡{target} ha sido destruido!"
   drops: "{target} deja caer: {items}."
   unarmed: "desarmado"
+  drained: "¡{attacker} drena la vida de {target}! PV máximos reducidos."
+  poisoned: "¡{target} ha sido envenenado!"
+  poison_tick: "¡{target} se retuerce de agonía por el veneno! {damage} de daño."
+  petrified: "¡{target} mira a los ojos del basilisco y se convierte en piedra!"
+  petrify_saved: "{target} aparta la vista justo a tiempo."
+  paralyzed_turn: "¡Estás paralizado y no puedes moverte!"
+  sleeping_turn: "Duermes indefenso..."
 
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
@@ -49,6 +56,15 @@ item:
   lightning_strike: >-
     ¡Un rayo de {item} golpea a {target}
     por {damage} de daño!
+  sleep_cast: "El pergamino se desmorona en polvo..."
+  sleep_affects: "¡{target} cae en un sueño mágico!"
+  sleep_none: "Ninguna criatura se queda dormida."
+  missile_hits: "¡Un dardo de fuerza golpea a {target} por {damage} de daño!"
+  hold_cast: "Palabras de poder resuenan por la mazmorra..."
+  hold_affects: "¡{target} queda inmovilizado!"
+  hold_no_humanoids: "No hay humanoides a la vista."
+  fireball_cast: "¡Una rugiente bola de fuego explota!"
+  fireball_hits: "¡{target} es chamuscado por {damage} de daño!"
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -120,6 +136,36 @@ creature:
     long: >-
       Un cadáver en descomposición que se niega a quedarse muerto.
       El hedor es abrumador.
+  gnoll:
+    name: "Gnoll"
+    short: "un gnoll con cabeza de hiena"
+    long: >-
+      Un humanoide corpulento con cabeza de hiena.
+      Ríe maniacamente mientras se prepara para atacar.
+  giant_bee:
+    name: "Abeja Gigante"
+    short: "una abeja gigante"
+    long: >-
+      Una abeja del tamaño de un gato, con el aguijón
+      goteando veneno ámbar.
+  wight:
+    name: "Aparecido"
+    short: "un pálido aparecido"
+    long: >-
+      Un horror no muerto que irradia malicia fría.
+      Su toque drena la propia fuerza vital.
+  spectre:
+    name: "Espectro"
+    short: "una sombra espectral"
+    long: >-
+      Un fantasma translúcido que flota sobre el suelo.
+      Su mirada te hiela hasta los huesos.
+  basilisk:
+    name: "Basilisco"
+    short: "un basilisco"
+    long: >-
+      Un lagarto de ocho patas con ojos brillantes.
+      No le mires a los ojos o te petrificará.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:
@@ -164,6 +210,30 @@ items:
     long: >-
       Un pergamino inscrito con símbolos arcanos.
       Rayos saltan entre las letras.
+  scroll_sleep:
+    name: "Pergamino de Dormir"
+    short: "un pergamino azul pálido"
+    long: >-
+      Tinta violeta soñolienta llena este pergamino con
+      sígiles en espiral que parecen moverse lentamente.
+  scroll_magic_missile:
+    name: "Pergamino de Proyectil Mágico"
+    short: "un pergamino reluciente"
+    long: >-
+      Una densa notación arcana describe un dardo de fuerza
+      que vuela recto y nunca falla a su objetivo.
+  scroll_hold_person:
+    name: "Pergamino de Retener Persona"
+    short: "un pergamino amarillo"
+    long: >-
+      Palabras de atadura llenan este pergamino. Los humanoides
+      que las escuchan pronunciadas quedan paralizados.
+  scroll_fireball:
+    name: "Pergamino de Bola de Fuego"
+    short: "un pergamino chamuscado"
+    long: >-
+      Caliente al tacto y con olor a azufre. Un diagrama
+      muestra una esfera de llamas de seis metros de diámetro.
 
 # ── Feature descriptions ─────────────────────────────────────────────
 features:
