@@ -40,7 +40,7 @@ from nhc.rendering.terminal.narrative_log import (
     NarrativeLog,
     render_narrative_log,
 )
-from nhc.rendering.terminal.panels import render_messages, render_status
+from nhc.rendering.terminal.panels import H_LINE, render_messages, render_status
 
 # Zone sizes (separators included)
 STATUS_HEIGHT = 4   # separator + 3 lines
@@ -144,27 +144,35 @@ class TerminalRenderer:
         status_y = map_h
         output += render_status(t, status_y, t.width, stats, items, max_slots)
 
-        # ── Zone 3: Log area (same height in both modes) ──
+        # ── Zone 3: Log + input (identical layout in both modes) ──
         log_y = status_y + STATUS_HEIGHT
+        msg_lines = LOG_HEIGHT - INPUT_HEIGHT  # lines for messages
+
+        # Separator
+        output += t.move_xy(0, log_y) + t.bright_black(H_LINE * t.width)
+
+        # Message lines (from unified message list)
+        total = len(self._messages)
+        end = total - self._msg_scroll
+        start = max(0, end - msg_lines)
+        visible = self._messages[start:end] if total else []
+        for i in range(msg_lines):
+            line_y = log_y + 1 + i
+            if i < len(visible):
+                output += t.move_xy(0, line_y) + f" {visible[i]}"[:t.width].ljust(t.width)
+            else:
+                output += t.move_xy(0, line_y) + " " * t.width
+
+        # Input line: prompt in typed mode, blank in classic
+        input_y = log_y + 1 + msg_lines
         if self.game_mode == "typed":
-            # Narrative log takes all but the last line; input gets last line
-            narr_lines = LOG_HEIGHT - INPUT_HEIGHT
-            output += render_narrative_log(
-                t, log_y, t.width, narr_lines,
-                self.narrative_log.entries,
-                self.narrative_log.scroll_offset,
-            )
-            input_y = log_y + narr_lines
             output += render_input_line(
                 t, input_y, t.width,
                 self._text_input.text, self._text_input.cursor,
                 mode_indicator="✏️  ",
             )
         else:
-            output += render_messages(
-                t, log_y, t.width, LOG_HEIGHT,
-                self._messages, self._msg_scroll,
-            )
+            output += t.move_xy(0, input_y) + " " * t.width
 
         print(output, end="", flush=True)
 
