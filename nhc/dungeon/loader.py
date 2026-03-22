@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 from nhc.dungeon.model import (
     Corridor,
@@ -197,6 +200,10 @@ def load_level(path: str | Path) -> Level:
         metadata=metadata,
     )
 
+    logger.info(
+        "Loaded level %r (%dx%d, %d rooms, %d entities)",
+        level.name, width, height, len(rooms), len(entities),
+    )
     return level
 
 

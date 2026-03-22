@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import random
 
 from nhc.entities.components import Health, Stats
 from nhc.utils.rng import d20, roll_dice, roll_dice_max
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_melee_attack(
@@ -29,10 +32,12 @@ def resolve_melee_attack(
     # Natural 20 always hits with max damage
     if roll == 20:
         damage = roll_dice_max(weapon_damage) + attacker_stats.strength
+        logger.debug("Nat 20! max dmg=%d", max(1, damage))
         return True, max(1, damage)
 
     # Natural 1 always misses
     if roll == 1:
+        logger.debug("Nat 1 — auto miss")
         return False, 0
 
     attack_total = roll + attacker_stats.strength
@@ -40,8 +45,17 @@ def resolve_melee_attack(
 
     if attack_total >= armor_defense:
         damage = roll_dice(weapon_damage, rng) + attacker_stats.strength
+        logger.debug(
+            "Hit: roll=%d+STR%d=%d vs AC%d, dmg=%d",
+            roll, attacker_stats.strength, attack_total,
+            armor_defense, max(1, damage),
+        )
         return True, max(1, damage)
 
+    logger.debug(
+        "Miss: roll=%d+STR%d=%d vs AC%d",
+        roll, attacker_stats.strength, attack_total, armor_defense,
+    )
     return False, 0
 
 

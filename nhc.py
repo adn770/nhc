@@ -6,12 +6,16 @@ Main entry point. Configures LLM backend, loads config, and launches the game.
 
 import argparse
 import asyncio
+import logging
 import sys
 from pathlib import Path
 
 from nhc.config import ConfigManager
 from nhc.core.game import Game
 from nhc.llm import create_backend
+from nhc.log_utils import list_topics, setup_logging
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -78,11 +82,45 @@ def parse_args() -> argparse.Namespace:
         help="Disable LLM narrative (equivalent to --provider none)",
     )
 
+    # Logging options
+    log_group = parser.add_argument_group("Logging")
+    log_group.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Enable DEBUG logging for all topics",
+    )
+    log_group.add_argument(
+        "--log-file",
+        help="Log file path (default: debug/nhc.log)",
+    )
+    log_group.add_argument(
+        "--debug-topics",
+        help="Comma-separated debug topics (e.g. 'combat,ai')",
+    )
+    log_group.add_argument(
+        "--list-topics",
+        action="store_true",
+        help="List available debug topics and exit",
+    )
+
     return parser.parse_args()
 
 
 async def main() -> int:
     args = parse_args()
+
+    # --list-topics: print and exit
+    if args.list_topics:
+        print(list_topics())
+        return 0
+
+    # Setup logging (always writes to file)
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    log_path = setup_logging(
+        level=log_level,
+        debug_topics=args.debug_topics,
+        log_file=args.log_file,
+    )
 
     # Load config: defaults → ~/.nhcrc → CLI args
     config = ConfigManager()
@@ -117,6 +155,8 @@ async def main() -> int:
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)
 
+    logger.info("Starting game (seed=%s, log=%s)", args.seed, log_path)
+
     # Create and run game
     game = Game(backend=backend, seed=args.seed)
     try:
@@ -130,7 +170,11 @@ async def main() -> int:
                 )
             await game.initialize(level_path=level_path)
         await game.run()
+    except Exception:
+        logger.critical("Unhandled exception in game loop", exc_info=True)
+        raise
     finally:
+        logger.info("Game shutting down (turn=%d)", game.turn)
         await game.shutdown()
 
     return 0

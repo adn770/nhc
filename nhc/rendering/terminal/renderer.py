@@ -23,7 +23,6 @@ from nhc.i18n import t as tr
 
 from nhc.core.ecs import World
 from nhc.dungeon.model import Level, Terrain
-from nhc.dungeon.model import Terrain
 from nhc.rendering.terminal.glyphs import (
     CORRIDOR_GLYPH,
     FEATURE_GLYPHS,

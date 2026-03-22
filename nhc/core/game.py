@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from nhc.ai.behavior import decide_action
+
+logger = logging.getLogger(__name__)
 from nhc.core.actions import (
     BumpAction,
     DescendStairsAction,
@@ -83,6 +86,7 @@ class Game:
         if self.seed is not None:
             from nhc.utils.rng import set_seed
             set_seed(self.seed)
+            logger.info("RNG seed set to %d", self.seed)
 
         # Discover all entity types
         EntityRegistry.discover_all()
@@ -96,6 +100,11 @@ class Game:
             gen = ClassicGenerator()
             self.level = gen.generate(params)
             populate_level(self.level)
+            logger.info(
+                "Generated level depth=%d (%dx%d, %d rooms)",
+                depth, self.level.width, self.level.height,
+                len(self.level.rooms),
+            )
 
             # Player starts at stairs_up (first room center)
             if self.level.rooms:
@@ -106,6 +115,7 @@ class Game:
             # Load from YAML file
             self.level = load_level(level_path)
             px, py = get_player_start(level_path)
+            logger.info("Loaded level %r from %s", self.level.name, level_path)
 
         # Create player entity
         self.player_id = self.world.create_entity({
@@ -174,8 +184,11 @@ class Game:
                 self.world.create_entity(components)
 
             except KeyError:
-                # Unknown entity type, skip
-                pass
+                logger.warning(
+                    "Unknown entity %s/%s at (%d,%d), skipping",
+                    placement.entity_type, placement.entity_id,
+                    placement.x, placement.y,
+                )
 
     def _update_fov(self) -> None:
         """Recompute field of view centered on player."""
@@ -222,6 +235,7 @@ class Game:
     async def run(self) -> None:
         """Main game loop."""
         self.running = True
+        logger.info("Game loop started")
 
         while self.running:
             # Render
@@ -231,6 +245,7 @@ class Game:
 
             # Get player input
             intent, data = await self.renderer.get_input()
+            logger.debug("Input: intent=%s data=%s", intent, data)
 
             # Convert intent to action
             action = self._intent_to_action(intent, data)
@@ -251,6 +266,7 @@ class Game:
                 action = WaitAction(actor=self.player_id)
 
             # Resolve player action
+            logger.debug("Turn %d: resolving %s", self.turn, type(action).__name__)
             events = await self._resolve(action)
 
             # Check win
@@ -310,9 +326,18 @@ class Game:
     async def _resolve(self, action: "Action") -> list:
         """Validate and execute an action, emitting events."""
         if not await action.validate(self.world, self.level):
+            logger.debug("Action %s failed validation", type(action).__name__)
             return []
 
-        events = await action.execute(self.world, self.level)
+        try:
+            events = await action.execute(self.world, self.level)
+        except Exception:
+            logger.error(
+                "Exception executing %s (actor=%d)",
+                type(action).__name__, action.actor,
+                exc_info=True,
+            )
+            return []
         for event in events:
             await self.event_bus.emit(event)
         return events
@@ -416,9 +441,11 @@ class Game:
                 self.world, self.level, self.player_id,
                 self.turn, self.renderer.messages,
             )
+            logger.info("Game saved at turn %d", self.turn)
             self.renderer.add_message(t("game.game_saved"))
-        except Exception as e:
-            self.renderer.add_message(t("game.save_failed", error=e))
+        except Exception:
+            logger.error("Failed to save game", exc_info=True)
+            self.renderer.add_message(t("game.save_failed", error="see log"))
 
     def _load_game(self) -> None:
         """Load game state from save file."""
@@ -435,9 +462,11 @@ class Game:
             self.renderer.messages = messages
             self._seen_creatures.clear()
             self._update_fov()
+            logger.info("Game loaded at turn %d", self.turn)
             self.renderer.add_message(t("game.game_loaded"))
-        except Exception as e:
-            self.renderer.add_message(t("game.load_failed", error=e))
+        except Exception:
+            logger.error("Failed to load game", exc_info=True)
+            self.renderer.add_message(t("game.load_failed", error="see log"))
 
     def _tick_poison(self) -> None:
         """Apply ongoing poison damage and decrement counters."""
@@ -503,6 +532,7 @@ class Game:
         from nhc.dungeon.populator import populate_level
 
         new_depth = event.depth
+        logger.info("Descending to depth %d", new_depth)
 
         # Remove all non-player entities (creatures, items on map)
         player_inv = self.world.get_component(self.player_id, "Inventory")

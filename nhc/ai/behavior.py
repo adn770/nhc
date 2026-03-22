@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 from nhc.ai.pathfinding import astar
 from nhc.entities.components import (
@@ -119,6 +122,7 @@ def decide_action(
 
     # Adjacent: attack
     if adjacent(pos.x, pos.y, player_pos.x, player_pos.y):
+        logger.debug("AI entity=%d attacks player (adjacent)", entity_id)
         return MeleeAttackAction(actor=entity_id, target=player_id)
 
     # Within chase range: pathfind toward player

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import abc
+import logging
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 from nhc.core.events import (
     CreatureAttacked,
@@ -200,6 +203,10 @@ class MeleeAttackAction(Action):
                     weapon_damage = wpn.damage
 
         hit, damage = resolve_melee_attack(a_stats, t_stats, weapon_damage)
+        logger.debug(
+            "Melee: %s→%s wpn=%s hit=%s dmg=%d",
+            attacker_name, target_name, weapon_damage, hit, damage,
+        )
 
         # RequiresMagicWeapon: non-enchanted weapons deal 0 damage
         if hit and world.has_component(self.target, "RequiresMagicWeapon"):
@@ -357,6 +364,10 @@ class MeleeAttackAction(Action):
                         ))
 
             if is_dead(t_health):
+                logger.info(
+                    "%s killed %s (actor=%d, target=%d)",
+                    attacker_name, target_name, self.actor, self.target,
+                )
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
                 ))
