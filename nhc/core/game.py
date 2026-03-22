@@ -118,19 +118,30 @@ class Game:
             px, py = get_player_start(level_path)
             logger.info("Loaded level %r from %s", self.level.name, level_path)
 
-        # Create player entity
+        # Generate random character
+        from nhc.rules.chargen import generate_character
+        char = generate_character(seed=self.seed)
+        inv_slots = 10 + char.constitution  # CON defense = bonus + 10
+
         self.player_id = self.world.create_entity({
             "Position": Position(x=px, y=py, level_id=self.level.id),
             "Renderable": Renderable(glyph="@", color="bright_yellow",
                                      render_order=10),
-            "Stats": Stats(strength=2, dexterity=2, constitution=2,
-                           intelligence=1, wisdom=1, charisma=0),
-            "Health": Health(current=12, maximum=12),
-            "Inventory": Inventory(max_slots=12),
-            "Player": Player(),
-            "Description": Description(name=t("game.player_name")),
+            "Stats": Stats(
+                strength=char.strength,
+                dexterity=char.dexterity,
+                constitution=char.constitution,
+                intelligence=char.intelligence,
+                wisdom=char.wisdom,
+                charisma=char.charisma,
+            ),
+            "Health": Health(current=char.hp, maximum=char.hp),
+            "Inventory": Inventory(max_slots=inv_slots),
+            "Player": Player(gold=char.gold),
+            "Description": Description(name=char.name),
             "Equipment": Equipment(),
         })
+        self._character = char
 
         # Spawn level entities
         self._spawn_level_entities()
@@ -147,8 +158,16 @@ class Game:
         # Initialize renderer
         self.renderer.initialize()
 
-        # Welcome message
+        # Welcome message with character intro
         self.renderer.add_message(t("game.welcome", name=self.level.name))
+        self.renderer.add_message(t(
+            "game.char_intro",
+            name=char.name,
+            background=t(f"traits.{char.background}"),
+            virtue=t(f"traits.{char.virtue}"),
+            vice=t(f"traits.{char.vice}"),
+            alignment=t(f"traits.{char.alignment}"),
+        ))
         if self.level.metadata.ambient:
             self.renderer.add_message(self.level.metadata.ambient)
 
