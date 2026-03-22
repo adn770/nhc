@@ -183,12 +183,28 @@ class TerminalRenderer:
             # Read a single key
             val = await loop.run_in_executor(None, self._blocking_read)
 
-            # Special keys bypass text input
-            intent, data = map_key_to_intent(val)
-            if intent in ("move", "descend", "wait", "scroll_up",
-                          "scroll_down", "save", "load", "quit",
-                          "help", "toggle_mode"):
-                return (intent, data)
+            # In typed mode only sequence keys (arrows, PgUp, etc.)
+            # and a small whitelist bypass the text input.  All
+            # printable characters go into the text buffer.
+            if val.startswith("KEY_"):
+                intent, data = map_key_to_intent(val)
+                if intent == "move":
+                    return (intent, data)
+                # KEY_UP/KEY_DOWN go to history when inside text input
+                # (handled below), not to movement
+            elif val == "\t":
+                return ("toggle_mode", None)
+            elif val == "?":
+                # Only bypass when the input line is empty (otherwise
+                # the user is typing a question)
+                if not inp.text:
+                    return ("help", None)
+
+            # Scroll shortcuts work even in typed mode
+            if val == "[":
+                return ("scroll_up", None)
+            if val == "]":
+                return ("scroll_down", None)
 
             # Text editing keys
             if val == "KEY_ENTER" or val == "\n" or val == "\r":
