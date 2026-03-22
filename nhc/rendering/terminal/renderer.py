@@ -309,6 +309,17 @@ class TerminalRenderer:
                     continue
 
                 # Tile feature (door, stairs, trap)
+                # Secret doors render as walls until discovered
+                if tile.feature == "door_secret":
+                    _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
+                    glyph = wall_glyph(False, False, True, True)  # horizontal wall segment
+                    if tile.visible:
+                        cfn = getattr(t, color, None) or t.white
+                    else:
+                        cfn = dim_color_fn(t, dim_val)
+                    row_out += cfn(glyph)
+                    continue
+
                 if tile.feature and tile.feature in FEATURE_GLYPHS:
                     if tile.feature == "trap":
                         pass  # Hidden traps fall through to terrain

@@ -51,7 +51,7 @@ TERRAIN_MAP: dict[str, Terrain] = {
 
 # Legend values that are features on a floor tile (not terrain themselves)
 FEATURE_TYPES: set[str] = {
-    "door_closed", "door_open", "door_locked",
+    "door_closed", "door_open", "door_locked", "door_secret",
     "stairs_up", "stairs_down",
     "trap",
 }

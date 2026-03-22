@@ -30,6 +30,7 @@ narrative_hooks:
 #   '<' = stairs up (entrance)
 #   '>' = stairs down (exit)
 #   '~' = water
+#   '=' = secret door (hidden, discoverable with search)
 #   ' ' = void (not walkable)
 map: |
   ┌──────┐            ┌────────┬─────────┐
@@ -39,7 +40,7 @@ map: |
   │......│            │........│.....>...│
   │......│            │........│.........│
   └──────┘            └───+────┤.........│
-                          #    └────+────┘
+                          #    └────=────┘
                       ┌───+───┐     #
                       │.......│ ┌───+────┐
                       │.......│ │........│
@@ -63,6 +64,7 @@ legend:
   '#': corridor
   '.': floor
   '+': door_closed
+  '=': door_secret
   '<': stairs_up
   '>': stairs_down
   '~': water

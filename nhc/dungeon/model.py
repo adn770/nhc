@@ -52,10 +52,14 @@ class Tile:
 
     @property
     def walkable(self) -> bool:
+        if self.feature == "door_secret":
+            return False
         return self.terrain in (Terrain.FLOOR, Terrain.WATER)
 
     @property
     def blocks_sight(self) -> bool:
+        if self.feature == "door_secret":
+            return True
         return self.terrain == Terrain.WALL
 
 
