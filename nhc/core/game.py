@@ -329,10 +329,13 @@ class Game:
             # Advance turn
             self.turn += 1
 
-            # Process creature turns
+            # Process creature turns (only visible creatures act)
             creature_actions = []
             for eid, ai, cpos in self.world.query("AI", "Position"):
                 if cpos is None:
+                    continue
+                tile = self.level.tile_at(cpos.x, cpos.y)
+                if not tile or not tile.visible:
                     continue
                 ai_action = decide_action(
                     eid, self.world, self.level, self.player_id,
@@ -400,7 +403,11 @@ class Game:
                 exc_info=True,
             )
             return []
+        # Tag MessageEvents with the acting entity so visibility
+        # filtering can suppress messages from off-screen creatures
         for event in events:
+            if isinstance(event, MessageEvent) and event.actor is None:
+                event.actor = action.actor
             await self.event_bus.emit(event)
         return events
 
@@ -789,7 +796,17 @@ class Game:
             self.renderer.add_message(msg)
 
     def _on_message(self, event: MessageEvent) -> None:
-        """Handle message events by adding to renderer log."""
+        """Handle message events by adding to renderer log.
+
+        Messages from off-screen actors are silently dropped so the
+        player doesn't learn about things they can't see.
+        """
+        if event.actor is not None and event.actor != self.player_id:
+            pos = self.world.get_component(event.actor, "Position")
+            if pos and self.level:
+                tile = self.level.tile_at(pos.x, pos.y)
+                if not tile or not tile.visible:
+                    return
         self.renderer.add_message(event.text)
 
     def _on_game_won(self, event: GameWon) -> None:

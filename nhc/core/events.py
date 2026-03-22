@@ -92,6 +92,7 @@ class GameWon(Event):
 class MessageEvent(Event):
     text: str = ""
     style: str = "normal"
+    actor: int | None = None  # entity that caused the message (for visibility filtering)
 
 
 # --- Typed gameplay events ---
