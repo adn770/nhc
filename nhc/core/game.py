@@ -582,7 +582,6 @@ class Game:
         if self.mode == "classic":
             self.mode = "typed"
             self.renderer.game_mode = "typed"
-            self.renderer.add_message(t("ui.mode_typed"))
             # Initialize GM if backend available and not already set up
             if self.backend and not self._gm:
                 from nhc.narrative.context import ContextBuilder
@@ -592,7 +591,6 @@ class Game:
         else:
             self.mode = "classic"
             self.renderer.game_mode = "classic"
-            self.renderer.add_message(t("ui.mode_classic"))
         logger.info("Switched to %s mode", self.mode)
 
     def _find_pickup_action(self) -> "Action | None":
