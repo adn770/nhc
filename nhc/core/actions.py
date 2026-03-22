@@ -418,7 +418,10 @@ class MeleeAttackAction(Action):
                         "Renderable": Renderable(
                             glyph="%", color="bright_red", render_order=0,
                         ),
-                        "Description": Description(name=corpse_name),
+                        "Description": Description(
+                            name=corpse_name,
+                            short=corpse_name,
+                        ),
                     })
 
                 world.destroy_entity(self.target)
@@ -972,7 +975,7 @@ def _announce_ground_items(
     events: list[Event] = []
     if len(items) == 1:
         desc = world.get_component(items[0], "Description")
-        name = desc.short if desc else "something"
+        name = (desc.short or desc.name) if desc else "something"
         events.append(MessageEvent(
             text=t("explore.see_item", item=name),
         ))
