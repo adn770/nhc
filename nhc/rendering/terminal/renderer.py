@@ -34,27 +34,43 @@ from nhc.rendering.terminal.glyphs import (
     wall_glyph,
 )
 from nhc.rendering.terminal.input import map_key_to_intent
+from nhc.rendering.terminal.input_line import TextInput, render_input_line
+from nhc.rendering.terminal.narrative_log import (
+    NarrativeLog,
+    render_narrative_log,
+)
 from nhc.rendering.terminal.panels import render_messages, render_status
 
 # Zone sizes (separators included)
 STATUS_HEIGHT = 4   # separator + 3 lines
-MSG_HEIGHT = 4      # 4 visible message lines
+MSG_HEIGHT = 4      # 4 visible message lines (classic mode)
+NARRATIVE_HEIGHT = 8  # narrative log lines (typed mode)
+INPUT_HEIGHT = 2    # input area (typed mode)
 MSG_SEP = 1         # separator above messages
-CHROME_HEIGHT = STATUS_HEIGHT + MSG_SEP + MSG_HEIGHT
+CHROME_HEIGHT_CLASSIC = STATUS_HEIGHT + MSG_SEP + MSG_HEIGHT
+CHROME_HEIGHT_TYPED = STATUS_HEIGHT + MSG_SEP + NARRATIVE_HEIGHT + INPUT_HEIGHT
+
+# Keep old name for backwards compat in tests
+CHROME_HEIGHT = CHROME_HEIGHT_CLASSIC
 
 
 class TerminalRenderer:
     """ASCII terminal renderer using blessed."""
 
-    def __init__(self, color_mode: str = "256") -> None:
+    def __init__(self, color_mode: str = "256",
+                 game_mode: str = "classic") -> None:
         # force_styling=True ensures 256/truecolor escapes even when
         # blessed cannot auto-detect (e.g. inside tmux/screen).
         force = color_mode == "256"
         self.term = Terminal(force_styling=force)
         self.color_mode = color_mode
+        self.game_mode = game_mode
         _glyphs.set_color_mode(color_mode)
         self._messages: list[str] = []
         self._msg_scroll: int = 0  # 0 = showing latest
+        # Typed mode widgets
+        self.narrative_log = NarrativeLog()
+        self._text_input = TextInput()
 
     def initialize(self) -> None:
         """Enter fullscreen mode."""
@@ -90,15 +106,15 @@ class TerminalRenderer:
         player_id: int,
         turn: int,
     ) -> None:
-        """Render the full game screen (3 zones)."""
+        """Render the full game screen."""
         t = self.term
         pos = world.get_component(player_id, "Position")
         if not pos:
             return
 
-        map_h = t.height - CHROME_HEIGHT
-        if map_h < 3:
-            map_h = 3
+        chrome = (CHROME_HEIGHT_TYPED if self.game_mode == "typed"
+                  else CHROME_HEIGHT_CLASSIC)
+        map_h = max(3, t.height - chrome)
 
         output = t.home + t.clear
 
@@ -114,14 +130,85 @@ class TerminalRenderer:
         status_y = map_h
         output += render_status(t, status_y, t.width, stats, items, max_slots)
 
-        # ── Zone 3: Messages ──
-        msg_y = status_y + STATUS_HEIGHT
-        output += render_messages(
-            t, msg_y, t.width, MSG_HEIGHT,
-            self._messages, self._msg_scroll,
-        )
+        if self.game_mode == "typed":
+            # ── Zone 3: Narrative log ──
+            narr_y = status_y + STATUS_HEIGHT
+            output += render_narrative_log(
+                t, narr_y, t.width, NARRATIVE_HEIGHT,
+                self.narrative_log.entries,
+                self.narrative_log.scroll_offset,
+            )
+            # ── Zone 4: Input line ──
+            input_y = narr_y + NARRATIVE_HEIGHT
+            output += render_input_line(
+                t, input_y, t.width,
+                self._text_input.text, self._text_input.cursor,
+            )
+        else:
+            # ── Zone 3: Classic messages ──
+            msg_y = status_y + STATUS_HEIGHT
+            output += render_messages(
+                t, msg_y, t.width, MSG_HEIGHT,
+                self._messages, self._msg_scroll,
+            )
 
         print(output, end="", flush=True)
+
+    async def get_typed_input(
+        self,
+        world: World,
+        level: Level,
+        player_id: int,
+        turn: int,
+    ) -> str | tuple[str, Any]:
+        """Run the text input widget until Enter or a movement key.
+
+        Returns either a string (typed text) or a (intent, data) tuple
+        if the user pressed a movement/action key.
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        inp = self._text_input
+
+        while True:
+            # Render the current screen (updates input cursor)
+            self.render(world, level, player_id, turn)
+
+            # Read a single key
+            val = await loop.run_in_executor(None, self._blocking_read)
+
+            # Movement keys bypass text input
+            intent, data = map_key_to_intent(val)
+            if intent in ("move", "descend", "wait", "scroll_up",
+                          "scroll_down", "save", "load", "quit"):
+                return (intent, data)
+
+            # Text editing keys
+            if val == "KEY_ENTER" or val == "\n" or val == "\r":
+                text = inp.submit()
+                if text:
+                    return text
+            elif val == "KEY_ESCAPE" or val == "\x1b":
+                inp.clear()
+            elif val == "KEY_BACKSPACE" or val == "\x7f":
+                inp.backspace()
+            elif val == "KEY_DELETE":
+                inp.delete()
+            elif val == "KEY_LEFT":
+                inp.move_left()
+            elif val == "KEY_RIGHT":
+                inp.move_right()
+            elif val == "KEY_HOME":
+                inp.home()
+            elif val == "KEY_END":
+                inp.end()
+            elif val == "KEY_UP":
+                inp.history_up()
+            elif val == "KEY_DOWN":
+                inp.history_down()
+            elif len(val) == 1 and val.isprintable():
+                inp.insert(val)
 
     def _render_map(
         self,

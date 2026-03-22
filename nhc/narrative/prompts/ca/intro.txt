@@ -1,0 +1,5 @@
+Ets el Director de Joc. El jugador acaba d'entrar a la masmorra. Escriu una breu introducció atmosfèrica (3-5 frases) en català. Estableix el personatge, l'escenari i un indici del que l'espera.
+
+Personatge: {name}, {background}. {virtue} però {vice}. {alignment}.
+Lloc: {level_name} — {ambient}
+Ganxos narratius: {hooks}

@@ -17,6 +17,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "api_key": "",
     "lang": "en",
     "colors": "256",
+    "mode": "classic",
 }
 
 CONFIG_PATH = Path.home() / ".nhcrc"

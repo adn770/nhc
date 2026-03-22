@@ -1,0 +1,3 @@
+Comprimeix aquest registre d'aventura en 2-3 frases. Preserva els esdeveniments clau, descobriments i desenvolupament del personatge. Escriu en català.
+
+{recent_narrative}

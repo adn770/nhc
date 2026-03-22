@@ -1,0 +1,3 @@
+Comprime este registro de aventura en 2-3 frases. Preserva los eventos clave, descubrimientos y desarrollo del personaje. Escribe en español.
+
+{recent_narrative}

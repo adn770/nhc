@@ -829,6 +829,53 @@ class LookAction(Action):
         return events
 
 
+class CustomAction(Action):
+    """Freeform TTRPG action resolved as an ability check."""
+
+    def __init__(self, actor: int, description: str = "",
+                 ability: str = "wisdom", dc: int = 12) -> None:
+        super().__init__(actor)
+        self.description = description
+        self.ability = ability
+        self.dc = dc
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        from nhc.core.events import CustomActionEvent
+
+        stats = world.get_component(self.actor, "Stats")
+        bonus = getattr(stats, self.ability, 0) if stats else 0
+        roll_val = d20()
+        total = roll_val + bonus
+        success = total >= self.dc
+
+        event = CustomActionEvent(
+            description=self.description,
+            ability=self.ability,
+            roll=roll_val,
+            bonus=bonus,
+            dc=self.dc,
+            success=success,
+        )
+        return [event]
+
+
+class ImpossibleAction(Action):
+    """The LLM determined the player's intent is not possible."""
+
+    def __init__(self, actor: int, reason: str = "") -> None:
+        super().__init__(actor)
+        self.reason = reason
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        return [MessageEvent(text=self.reason)]
+
+
 class BumpAction(Action):
     """Smart directional action: attack, open door, or move."""
 

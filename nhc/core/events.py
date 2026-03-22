@@ -94,6 +94,19 @@ class MessageEvent(Event):
     style: str = "normal"
 
 
+# --- Typed gameplay events ---
+
+@dataclass
+class CustomActionEvent(Event):
+    """Result of a TTRPG-style freeform action."""
+    description: str = ""
+    ability: str = ""
+    roll: int = 0
+    bonus: int = 0
+    dc: int = 12
+    success: bool = False
+
+
 # Handler type: sync or async callable
 EventHandler = Callable[..., None] | Callable[..., Awaitable[None]]
 

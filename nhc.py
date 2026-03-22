@@ -83,6 +83,12 @@ def parse_args() -> argparse.Namespace:
         help="Color mode: 256 (default, truecolor) or 16 (classic)",
     )
     game_group.add_argument(
+        "--mode",
+        choices=["typed", "classic"],
+        default=None,
+        help="Gameplay mode: typed (LLM GM) or classic (roguelike keys)",
+    )
+    game_group.add_argument(
         "--no-narrative",
         action="store_true",
         help="Disable LLM narrative (equivalent to --provider none)",
@@ -150,6 +156,8 @@ async def main() -> int:
         cli_overrides["provider"] = "none"
     if args.colors:
         cli_overrides["colors"] = args.colors
+    if args.mode:
+        cli_overrides["mode"] = args.mode
 
     merged = config.merge(cli_overrides)
 
@@ -160,8 +168,13 @@ async def main() -> int:
         lang = args.lang
     i18n_init(lang)
 
-    # Color mode (CLI --colors overrides config)
+    # Color / gameplay mode
     color_mode = merged.get("colors", "256")
+    game_mode = merged.get("mode", "classic")
+
+    # Auto-detect LLM provider for typed mode
+    if game_mode == "typed" and merged.get("provider", "none") == "none":
+        merged["provider"] = "auto"
 
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)
@@ -170,7 +183,8 @@ async def main() -> int:
                 args.seed, color_mode, log_path)
 
     # Create and run game
-    game = Game(backend=backend, seed=args.seed, color_mode=color_mode)
+    game = Game(backend=backend, seed=args.seed, color_mode=color_mode,
+                game_mode=game_mode)
     try:
         if args.generate:
             await game.initialize(generate=True)

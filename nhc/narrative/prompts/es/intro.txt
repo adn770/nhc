@@ -1,0 +1,5 @@
+Eres el Director de Juego. El jugador acaba de entrar en la mazmorra. Escribe una breve introducción atmosférica (3-5 frases) en español. Establece el personaje, el escenario y una pista de lo que le espera.
+
+Personaje: {name}, {background}. {virtue} pero {vice}. {alignment}.
+Lugar: {level_name} — {ambient}
+Ganchos narrativos: {hooks}

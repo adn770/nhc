@@ -1,0 +1,3 @@
+Narra breument les accions de les criatures aquest torn (1-2 frases). Mantén la tensió i l'atmosfera. Escriu en català.
+
+{creature_actions}

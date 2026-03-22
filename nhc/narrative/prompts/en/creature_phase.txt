@@ -1,0 +1,3 @@
+Briefly narrate the creatures' actions this turn (1-2 sentences). Keep it tense and atmospheric. Write in English.
+
+{creature_actions}

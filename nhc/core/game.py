@@ -62,20 +62,24 @@ class Game:
         backend: "LLMBackend | None" = None,
         seed: int | None = None,
         color_mode: str = "256",
+        game_mode: str = "classic",
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
         self.backend = backend
         self.seed = seed
+        self.mode = game_mode
         self.running = False
         self.game_over = False
         self.won = False
         self.turn = 0
         self.player_id: int = -1
         self.level: Level | None = None
-        self.renderer = TerminalRenderer(color_mode=color_mode)
+        self.renderer = TerminalRenderer(color_mode=color_mode,
+                                         game_mode=game_mode)
         self._seen_creatures: set[int] = set()
         self.killed_by: str = ""
+        self._gm = None  # GameMaster, set in initialize() for typed mode
 
     async def initialize(
         self,
@@ -161,6 +165,13 @@ class Game:
         # Initialize renderer
         self.renderer.initialize()
 
+        # Initialize GM for typed mode
+        if self.mode == "typed" and self.backend:
+            from nhc.narrative.context import ContextBuilder
+            from nhc.narrative.gm import GameMaster
+            self._ctx_builder = ContextBuilder()
+            self._gm = GameMaster(self.backend, self._ctx_builder)
+
         # Welcome message with character intro
         self.renderer.add_message(t("game.welcome", name=self.level.name))
         self.renderer.add_message(t(
@@ -173,6 +184,20 @@ class Game:
         ))
         if self.level.metadata.ambient:
             self.renderer.add_message(self.level.metadata.ambient)
+
+        # In typed mode, generate an LLM intro narration
+        if self._gm:
+            intro = await self._gm.intro(
+                char_name=char.name,
+                char_background=t(f"traits.{char.background}"),
+                char_virtue=t(f"traits.{char.virtue}"),
+                char_vice=t(f"traits.{char.vice}"),
+                char_alignment=t(f"traits.{char.alignment}"),
+                level_name=self.level.name,
+                ambient=self.level.metadata.ambient,
+                hooks=", ".join(self.level.metadata.narrative_hooks),
+            )
+            self.renderer.narrative_log.add_narrative(intro)
 
     def _spawn_level_entities(self) -> None:
         """Spawn all entities defined in the level file."""
@@ -258,7 +283,7 @@ class Game:
     async def run(self) -> None:
         """Main game loop."""
         self.running = True
-        logger.info("Game loop started")
+        logger.info("Game loop started (mode=%s)", self.mode)
 
         while self.running:
             # Render
@@ -266,14 +291,15 @@ class Game:
                 self.world, self.level, self.player_id, self.turn,
             )
 
-            # Get player input
-            intent, data = await self.renderer.get_input()
-            logger.debug("Input: intent=%s data=%s", intent, data)
-
-            # Convert intent to action
-            action = self._intent_to_action(intent, data)
-            if action is None:
+            if self.mode == "typed":
+                actions = await self._get_typed_actions()
+            else:
+                actions = await self._get_classic_actions()
+            if not actions:
                 continue
+
+            # Take only the first action for status-effect override
+            action = actions[0]
 
             # Status effects override player action
             player_status = self.world.get_component(
@@ -288,9 +314,12 @@ class Game:
                 self.renderer.add_message(t("combat.sleeping_turn"))
                 action = WaitAction(actor=self.player_id)
 
-            # Resolve player action
-            logger.debug("Turn %d: resolving %s", self.turn, type(action).__name__)
-            events = await self._resolve(action)
+            # Resolve player action(s)
+            events = []
+            for act in actions:
+                logger.debug("Turn %d: resolving %s",
+                             self.turn, type(act).__name__)
+                events += await self._resolve(act)
 
             # Check win
             if self.won:
@@ -364,6 +393,112 @@ class Game:
         for event in events:
             await self.event_bus.emit(event)
         return events
+
+    async def _get_classic_actions(self) -> list:
+        """Classic mode: single keypress → single action."""
+        intent, data = await self.renderer.get_input()
+        logger.debug("Input: intent=%s data=%s", intent, data)
+        action = self._intent_to_action(intent, data)
+        return [action] if action else []
+
+    async def _get_typed_actions(self) -> list:
+        """Typed mode: text input → GM interpret → action list."""
+        from nhc.narrative.parser import action_plan_to_actions
+
+        result = await self.renderer.get_typed_input(
+            self.world, self.level, self.player_id, self.turn,
+        )
+
+        # Movement keys bypass the GM pipeline
+        if isinstance(result, tuple):
+            intent, data = result
+            action = self._intent_to_action(intent, data)
+            return [action] if action else []
+
+        # Text input → GM pipeline
+        typed_text = result
+        if not typed_text:
+            return []
+
+        self.renderer.narrative_log.add_mechanical(f"> {typed_text}")
+
+        if self._gm:
+            # Phase 1: Interpret
+            game_state = self._ctx_builder.build(
+                self.world, self.level, self.player_id, self.turn,
+            )
+            plan = await self._gm.interpret(typed_text, game_state)
+
+            # Phase 2: Convert to Action objects
+            actions = action_plan_to_actions(
+                plan, self.player_id, self.world, self.level,
+            )
+
+            # Resolve actions and collect outcomes for narration
+            all_events = []
+            for act in actions:
+                evts = await self._resolve(act)
+                all_events += evts
+
+            # Phase 3: Narrate
+            outcomes = self._events_to_outcomes(all_events)
+            char = self._character
+            narrative = await self._gm.narrate(
+                intent=typed_text,
+                outcomes=outcomes,
+                char_name=char.name,
+                char_background=t(f"traits.{char.background}"),
+                char_virtue=t(f"traits.{char.virtue}"),
+                char_vice=t(f"traits.{char.vice}"),
+                ambient=self.level.metadata.ambient,
+            )
+            self.renderer.narrative_log.add_narrative(narrative)
+
+            # Actions already resolved, return empty to skip double-resolve
+            return [WaitAction(self.player_id)]
+        else:
+            # No LLM — just show the text as a message
+            self.renderer.add_message(typed_text)
+            return [WaitAction(self.player_id)]
+
+    def _events_to_outcomes(self, events: list) -> list[dict]:
+        """Convert ECS events to outcome dicts for the narrator."""
+        from nhc.core.events import (
+            CreatureAttacked, CreatureDied, CustomActionEvent,
+            ItemPickedUp, ItemUsed, MessageEvent,
+        )
+        outcomes = []
+        for ev in events:
+            if isinstance(ev, CreatureAttacked) and ev.hit:
+                target_desc = self.world.get_component(ev.target, "Description")
+                name = target_desc.name if target_desc else "creature"
+                outcomes.append({
+                    "action": "attack", "target": name,
+                    "damage": ev.damage, "hit": True,
+                })
+            elif isinstance(ev, CreatureDied):
+                desc = self.world.get_component(ev.entity, "Description")
+                name = desc.name if desc else "creature"
+                outcomes.append({"action": "kill", "target": name})
+            elif isinstance(ev, ItemPickedUp):
+                desc = self.world.get_component(ev.item, "Description")
+                name = desc.name if desc else "item"
+                outcomes.append({"action": "pickup", "result": f"Picked up {name}"})
+            elif isinstance(ev, ItemUsed):
+                outcomes.append({"action": "use_item", "effect": ev.effect})
+            elif isinstance(ev, CustomActionEvent):
+                outcomes.append({
+                    "action": "custom",
+                    "description": ev.description,
+                    "ability": ev.ability,
+                    "roll": ev.roll,
+                    "bonus": ev.bonus,
+                    "dc": ev.dc,
+                    "success": ev.success,
+                })
+            elif isinstance(ev, MessageEvent):
+                outcomes.append({"action": "message", "text": ev.text})
+        return outcomes
 
     def _intent_to_action(
         self, intent: str, data: tuple[int, int] | None,

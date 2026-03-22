@@ -1,0 +1,5 @@
+You are the Game Master. The player has just entered the dungeon. Write a brief atmospheric introduction (3-5 sentences) in English. Establish the character, the setting, and a hint of what lies ahead.
+
+Character: {name}, {background}. {virtue} yet {vice}. {alignment}.
+Location: {level_name} — {ambient}
+Narrative hooks: {hooks}

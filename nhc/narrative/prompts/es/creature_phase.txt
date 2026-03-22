@@ -1,0 +1,3 @@
+Narra brevemente las acciones de las criaturas en este turno (1-2 frases). Mantén la tensión y la atmósfera. Escribe en español.
+
+{creature_actions}
