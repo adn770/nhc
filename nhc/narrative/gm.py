@@ -63,6 +63,38 @@ class GameMaster:
         logger.info("GM interpret response: %s", response[:500])
         return parse_action_plan(response)
 
+    async def follow_up(
+        self,
+        intent: str,
+        outcomes: list[dict[str, Any]],
+        game_state: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Ask the GM what happens next after custom action results.
+
+        Sends the ability check outcomes back to the LLM so it can
+        decide follow-up mechanical actions (e.g. move past the trap
+        on success, or trigger the trap on failure).
+        """
+        system = load_prompt("follow_up")
+        user_msg = json.dumps({
+            "original_intent": intent,
+            "check_results": outcomes,
+            "game_state": game_state,
+        }, ensure_ascii=False)
+
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_msg},
+        ]
+
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, self.backend.generate, messages,
+        )
+
+        logger.info("GM follow_up response: %s", response[:500])
+        return parse_action_plan(response)
+
     async def narrate(
         self,
         intent: str,

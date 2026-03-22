@@ -460,18 +460,37 @@ class Game:
             )
             plan = await self._gm.interpret(typed_text, game_state)
 
-            # Phase 2: Convert to Action objects
+            # Phase 2: Convert to Action objects and resolve
             actions = action_plan_to_actions(
                 plan, self.player_id, self.world, self.level,
             )
-
-            # Resolve actions and collect outcomes for narration
             all_events = []
             for act in actions:
                 evts = await self._resolve(act)
                 all_events += evts
 
-            # Phase 3: Narrate
+            # Phase 2b: Follow-up — if custom checks were resolved,
+            # ask the GM what mechanical consequences follow
+            from nhc.core.events import CustomActionEvent
+            custom_outcomes = [
+                e for e in all_events if isinstance(e, CustomActionEvent)
+            ]
+            if custom_outcomes:
+                check_results = self._events_to_outcomes(all_events)
+                updated_state = self._ctx_builder.build(
+                    self.world, self.level, self.player_id, self.turn,
+                )
+                follow_plan = await self._gm.follow_up(
+                    typed_text, check_results, updated_state,
+                )
+                follow_actions = action_plan_to_actions(
+                    follow_plan, self.player_id, self.world, self.level,
+                )
+                for act in follow_actions:
+                    evts = await self._resolve(act)
+                    all_events += evts
+
+            # Phase 3: Narrate all outcomes together
             outcomes = self._events_to_outcomes(all_events)
             char = self._character
             narrative = await self._gm.narrate(
