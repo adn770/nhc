@@ -74,6 +74,7 @@ feature:
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Has recogido {item}."
+  gold_picked_up: "+{amount} oro."
   equipped: "Has equipado {item}."
   full_inventory: "¡El inventario está lleno!"
   nothing_to_pickup: "No hay nada que recoger aquí."

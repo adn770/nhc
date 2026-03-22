@@ -75,6 +75,7 @@ class Player:
     xp: int = 0
     level: int = 1
     xp_to_next: int = 20
+    gold: int = 0
 
 
 @dataclass

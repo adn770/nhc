@@ -450,7 +450,9 @@ class PickupItemAction(Action):
         inv = world.get_component(self.actor, "Inventory")
         if not inv:
             return False
-        if len(inv.slots) >= inv.max_slots:
+        # Gold never needs an inventory slot
+        is_gold = world.has_component(self.item, "Gold")
+        if not is_gold and len(inv.slots) >= inv.max_slots:
             self.full = True
             return False
         item_pos = world.get_component(self.item, "Position")
@@ -461,8 +463,12 @@ class PickupItemAction(Action):
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         events: list[Event] = []
-        inv = world.get_component(self.actor, "Inventory")
 
+        # Gold goes straight into the Player.gold purse
+        if world.has_component(self.item, "Gold"):
+            return self._pickup_gold(world, events)
+
+        inv = world.get_component(self.actor, "Inventory")
         inv.slots.append(self.item)
         # Remove position so it's no longer on the map
         world.add_component(self.item, "Position", None)
@@ -482,6 +488,31 @@ class PickupItemAction(Action):
                 text=t("item.equipped", item=item_name),
             ))
 
+        return events
+
+    def _pickup_gold(
+        self, world: "World", events: list[Event],
+    ) -> list[Event]:
+        """Absorb gold into the player's purse and destroy the entity."""
+        import re
+
+        desc = world.get_component(self.item, "Description")
+        name = desc.name if desc else "Gold"
+
+        # Extract numeric quantity from name (e.g. "12 Gold" → 12)
+        match = re.match(r"(\d+)", name)
+        amount = int(match.group(1)) if match else 1
+
+        player = world.get_component(self.actor, "Player")
+        if player:
+            player.gold += amount
+
+        events.append(ItemPickedUp(entity=self.actor, item=self.item))
+        events.append(MessageEvent(
+            text=t("item.gold_picked_up", amount=amount),
+        ))
+
+        world.destroy_entity(self.item)
         return events
 
 

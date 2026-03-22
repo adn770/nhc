@@ -241,6 +241,7 @@ class TerminalRenderer:
             "plevel": player.level if player else 1,
             "xp": player.xp if player else 0,
             "xp_next": player.xp_to_next if player else 20,
+            "gold": player.gold if player else 0,
             "str": stats.strength if stats else 0,
             "dex": stats.dexterity if stats else 0,
             "con": stats.constitution if stats else 0,

@@ -66,11 +66,14 @@ def render_status(
     xp = stats.get("xp", 0)
     xp_next = stats.get("xp_next", 20)
 
+    gold = stats.get("gold", 0)
+
     line1 = (
         f" 📍 {term.bold(level_name)}"
         f"{SEP}⬇ {tr('ui.depth')} {depth}"
         f"{SEP}⏳ {tr('ui.turn')} {turn}"
         f"{SEP}Lv {plevel} ({xp}/{xp_next} XP)"
+        f"{SEP}💰 {term.bright_yellow(str(gold))}"
         f"{SEP}❤️  {bar} {hp_color(str(hp))}/{hp_max}"
     )
     output += term.move_xy(0, y + 1) + _pad(line1, width)
