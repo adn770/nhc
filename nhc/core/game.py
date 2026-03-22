@@ -437,6 +437,15 @@ class Game:
         if not typed_text:
             return []
 
+        # Single-letter shortcuts: interpret as classic key commands
+        # (e.g. "q" → quit, "g" → pickup, "s" → search, "i" → inventory)
+        if len(typed_text) == 1:
+            from nhc.rendering.terminal.input import map_key_to_intent
+            intent, data = map_key_to_intent(typed_text)
+            if intent != "unknown":
+                action = self._intent_to_action(intent, data)
+                return [action] if action else []
+
         # Text commands: help/ajuda/ayuda
         if typed_text.lower() in ("help", "ajuda", "ayuda", "?"):
             self.renderer.show_help()
