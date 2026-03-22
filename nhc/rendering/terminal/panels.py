@@ -81,12 +81,12 @@ def render_status(
     armor_def = 10 + s.get("dex", 0)
 
     line2 = (
-        f" STR:{s.get('str', 0):+d}"
-        f" DEX:{s.get('dex', 0):+d}"
-        f" CON:{s.get('con', 0):+d}"
-        f" INT:{s.get('int', 0):+d}"
-        f" WIS:{s.get('wis', 0):+d}"
-        f" CHA:{s.get('cha', 0):+d}"
+        f" {tr('stats.str')}:{s.get('str', 0):+d}"
+        f" {tr('stats.dex')}:{s.get('dex', 0):+d}"
+        f" {tr('stats.con')}:{s.get('con', 0):+d}"
+        f" {tr('stats.int')}:{s.get('int', 0):+d}"
+        f" {tr('stats.wis')}:{s.get('wis', 0):+d}"
+        f" {tr('stats.cha')}:{s.get('cha', 0):+d}"
         f"{SEP}⚔️  {weapon}"
         f"{SEP}🛡️  AC {armor_def}"
     )

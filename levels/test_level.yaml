@@ -1,16 +1,26 @@
 id: test_level
-name: "The Sunken Cellar"
+name:
+  en: "The Sunken Cellar"
+  ca: "El Celler Enfonsat"
+  es: "La Bodega Hundida"
 depth: 1
 width: 40
 height: 15
 theme: crypt
 difficulty: 1
-ambient: "Damp air clings to the stone. Something drips in the darkness."
+ambient:
+  en: "Damp air clings to the stone. Something drips in the darkness."
+  ca: "L'aire humit s'enganxa a la pedra. Alguna cosa degota en la foscor."
+  es: "El aire húmedo se pega a la piedra. Algo gotea en la oscuridad."
 faction: undead
 
 narrative_hooks:
-  - "Claw marks on the walls suggest something escaped from below."
-  - "A faded sigil on the floor hums faintly when you step near it."
+  - en: "Claw marks on the walls suggest something escaped from below."
+    ca: "Marques d'urpes a les parets suggereixen que alguna cosa va escapar de sota."
+    es: "Marcas de garras en las paredes sugieren que algo escapó de abajo."
+  - en: "A faded sigil on the floor hums faintly when you step near it."
+    ca: "Un sígil esvaït al terra brunzeix suaument quan t'hi acostes."
+    es: "Un sigilo desvaído en el suelo zumba débilmente cuando te acercas."
 
 # Legend:
 #   Box-drawing chars (─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼) = wall
@@ -65,9 +75,16 @@ rooms:
     width: 6
     height: 5
     tags: [entry, safe]
-    description: >
-      A small antechamber with crumbling mortar.
-      Broken crates line the walls.
+    description:
+      en: >
+        A small antechamber with crumbling mortar.
+        Broken crates line the walls.
+      ca: >
+        Una petita antecambra amb morter que s'esmicola.
+        Caixes trencades s'alineen contra les parets.
+      es: >
+        Una pequeña antecámara con mortero desmoronándose.
+        Cajas rotas se alinean contra las paredes.
     connections: [corridor_main]
 
   - id: guard_room
@@ -76,9 +93,16 @@ rooms:
     width: 8
     height: 5
     tags: [combat]
-    description: >
-      An old guard post. A broken weapon rack
-      stands against the north wall.
+    description:
+      en: >
+        An old guard post. A broken weapon rack
+        stands against the north wall.
+      ca: >
+        Un antic cos de guàrdia. Un portaarmes trencat
+        reposa contra la paret nord.
+      es: >
+        Un antiguo puesto de guardia. Un estante de armas roto
+        reposa contra la pared norte.
     connections: [corridor_main, exit_chamber, corridor_cistern]
 
   - id: exit_chamber
@@ -87,9 +111,16 @@ rooms:
     width: 9
     height: 6
     tags: [exit, treasure]
-    description: >
-      A large chamber with a vaulted ceiling.
-      Stairs descend into deeper darkness.
+    description:
+      en: >
+        A large chamber with a vaulted ceiling.
+        Stairs descend into deeper darkness.
+      ca: >
+        Una gran cambra amb sostre de volta.
+        Les escales descendeixen cap a una foscor més profunda.
+      es: >
+        Una gran cámara con techo abovedado.
+        Las escaleras descienden hacia una oscuridad más profunda.
     connections: [guard_room, corridor_armory]
 
   - id: cistern
@@ -98,9 +129,16 @@ rooms:
     width: 7
     height: 5
     tags: [water, puzzle]
-    description: >
-      A flooded cistern. Dark water fills the
-      center of the room. Something glints below.
+    description:
+      en: >
+        A flooded cistern. Dark water fills the
+        center of the room. Something glints below.
+      ca: >
+        Una cisterna inundada. Aigua fosca omple el
+        centre de la sala. Alguna cosa brilla a sota.
+      es: >
+        Una cisterna inundada. Agua oscura llena el
+        centro de la sala. Algo brilla debajo.
     connections: [corridor_cistern, corridor_cistern_armory]
 
   - id: armory
@@ -109,9 +147,16 @@ rooms:
     width: 8
     height: 4
     tags: [treasure, hidden]
-    description: >
-      A forgotten armory. Rusted weapons hang
-      from pegs, but one gleams differently.
+    description:
+      en: >
+        A forgotten armory. Rusted weapons hang
+        from pegs, but one gleams differently.
+      ca: >
+        Una armeria oblidada. Armes rovellades pengen
+        de ganxos, però una brilla de manera diferent.
+      es: >
+        Una armería olvidada. Armas oxidadas cuelgan
+        de clavijas, pero una brilla de manera diferente.
     connections: [corridor_armory, corridor_cistern_armory]
 
 corridors:

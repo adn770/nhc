@@ -8,6 +8,8 @@ from typing import Any
 
 import yaml
 
+from nhc.i18n import current_lang
+
 logger = logging.getLogger(__name__)
 
 from nhc.dungeon.model import (
@@ -55,6 +57,21 @@ FEATURE_TYPES: set[str] = {
 }
 
 
+def _localize(value: Any, fallback: str = "") -> str:
+    """Resolve a multilingual YAML value to a string.
+
+    Accepts either a plain string (returned as-is) or a dict keyed by
+    language code (e.g. ``{"en": "Hello", "ca": "Hola"}``).  The
+    current game language is tried first, then English, then *fallback*.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        lang = current_lang()
+        return value.get(lang) or value.get("en") or fallback
+    return fallback
+
+
 def _parse_tile(char: str, legend: dict[str, str]) -> Tile:
     """Convert a single ASCII character to a Tile using the legend."""
     meaning = legend.get(char, "void")
@@ -95,7 +112,7 @@ def _parse_rooms(raw_rooms: list[dict[str, Any]]) -> list[Room]:
             rect=Rect(x=r["x"], y=r["y"],
                        width=r["width"], height=r["height"]),
             tags=r.get("tags", []),
-            description=r.get("description", "").strip(),
+            description=_localize(r.get("description", "")).strip(),
             connections=r.get("connections", []),
         )
         rooms.append(room)
@@ -179,17 +196,20 @@ def load_level(path: str | Path) -> Level:
     corridors = _parse_corridors(data.get("corridors", []))
     entities = _parse_entities(data.get("entities", []))
 
+    raw_hooks = data.get("narrative_hooks", [])
+    hooks = [_localize(h) for h in raw_hooks]
+
     metadata = LevelMetadata(
         theme=data.get("theme", "dungeon"),
         difficulty=data.get("difficulty", 1),
-        narrative_hooks=data.get("narrative_hooks", []),
+        narrative_hooks=hooks,
         faction=data.get("faction"),
-        ambient=data.get("ambient", ""),
+        ambient=_localize(data.get("ambient", "")),
     )
 
     level = Level(
         id=data["id"],
-        name=data["name"],
+        name=_localize(data.get("name", data["id"])),
         depth=data["depth"],
         width=width,
         height=height,

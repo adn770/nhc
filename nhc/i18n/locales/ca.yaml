@@ -194,6 +194,21 @@ levelup:
   with_ability: "Nivell {level}! +{hp} PV, +1 {ability}."
   no_ability: "Nivell {level}! +{hp} PV."
 
+# ── Habilitats ───────────────────────────────────────────────────────
+stats:
+  strength: "Força"
+  dexterity: "Destresa"
+  constitution: "Constitució"
+  intelligence: "Intel·ligència"
+  wisdom: "Saviesa"
+  charisma: "Carisma"
+  str: "FOR"
+  dex: "DES"
+  con: "CON"
+  int: "INT"
+  wis: "SAV"
+  cha: "CAR"
+
 # ── UI labels ─────────────────────────────────────────────────────────
 ui:
   depth: "Profunditat"

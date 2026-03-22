@@ -66,9 +66,10 @@ def check_level_up(world: "World", player_id: int) -> list[str]:
             ability = _pick_lowest_ability(stats)
             old_val = getattr(stats, ability)
             setattr(stats, ability, old_val + 1)
+            ability_name = t(f"stats.{ability}")
             messages.append(
                 t("levelup.with_ability", level=player.level,
-                  hp=hp_gain, ability=ability.upper()),
+                  hp=hp_gain, ability=ability_name),
             )
         else:
             messages.append(

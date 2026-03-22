@@ -4,12 +4,16 @@ from pathlib import Path
 
 from nhc.dungeon.loader import get_player_start, load_level
 from nhc.dungeon.model import Terrain
+from nhc.i18n import init as i18n_init
 
 
 LEVEL_PATH = Path(__file__).parent.parent.parent / "levels" / "test_level.yaml"
 
 
 class TestLoadLevel:
+    def setup_method(self):
+        i18n_init("en")
+
     def test_loads_basic_metadata(self):
         level = load_level(LEVEL_PATH)
         assert level.id == "test_level"
@@ -222,3 +226,44 @@ class TestLevelConsistency:
             assert level.in_bounds(r.x2 - 1, r.y2 - 1), (
                 f"Room {room.id} bottom-right out of bounds"
             )
+
+
+class TestMultilingualLevel:
+    """Level text fields resolve to the active language."""
+
+    def test_english_name(self):
+        i18n_init("en")
+        level = load_level(LEVEL_PATH)
+        assert level.name == "The Sunken Cellar"
+
+    def test_catalan_name(self):
+        i18n_init("ca")
+        level = load_level(LEVEL_PATH)
+        assert level.name == "El Celler Enfonsat"
+
+    def test_spanish_name(self):
+        i18n_init("es")
+        level = load_level(LEVEL_PATH)
+        assert level.name == "La Bodega Hundida"
+
+    def test_catalan_ambient(self):
+        i18n_init("ca")
+        level = load_level(LEVEL_PATH)
+        assert "humit" in level.metadata.ambient
+
+    def test_catalan_narrative_hooks(self):
+        i18n_init("ca")
+        level = load_level(LEVEL_PATH)
+        assert "urpes" in level.metadata.narrative_hooks[0]
+
+    def test_catalan_room_description(self):
+        i18n_init("ca")
+        level = load_level(LEVEL_PATH)
+        entry = next(r for r in level.rooms if r.id == "entry")
+        assert "antecambra" in entry.description
+
+    def test_fallback_to_english(self):
+        """Unknown language falls back to English."""
+        i18n_init("en")
+        level = load_level(LEVEL_PATH)
+        assert level.name == "The Sunken Cellar"
