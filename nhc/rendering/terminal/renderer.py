@@ -27,10 +27,10 @@ logger = logging.getLogger(__name__)
 
 from nhc.core.ecs import World
 from nhc.dungeon.model import Level, Terrain
+from nhc.rendering.terminal import glyphs as _glyphs
 from nhc.rendering.terminal.glyphs import (
-    CORRIDOR_GLYPH,
     FEATURE_GLYPHS,
-    TERRAIN_GLYPHS,
+    dim_color_fn,
     wall_glyph,
 )
 from nhc.rendering.terminal.input import map_key_to_intent
@@ -46,8 +46,13 @@ CHROME_HEIGHT = STATUS_HEIGHT + MSG_SEP + MSG_HEIGHT
 class TerminalRenderer:
     """ASCII terminal renderer using blessed."""
 
-    def __init__(self) -> None:
-        self.term = Terminal()
+    def __init__(self, color_mode: str = "256") -> None:
+        # force_styling=True ensures 256/truecolor escapes even when
+        # blessed cannot auto-detect (e.g. inside tmux/screen).
+        force = color_mode == "256"
+        self.term = Terminal(force_styling=force)
+        self.color_mode = color_mode
+        _glyphs.set_color_mode(color_mode)
         self._messages: list[str] = []
         self._msg_scroll: int = 0  # 0 = showing latest
 
@@ -175,15 +180,17 @@ class TerminalRenderer:
                     else:
                         glyph, color = FEATURE_GLYPHS[tile.feature]
                         if tile.visible:
-                            color_fn = getattr(t, color, None) or t.white
+                            cfn = getattr(t, color, None) or t.white
                         else:
-                            color_fn = t.bright_black
-                        row_out += color_fn(glyph)
+                            cfn = dim_color_fn(t, _glyphs.FEATURE_DIM_RGB
+                                               if self.color_mode == "256"
+                                               else "bright_black")
+                        row_out += cfn(glyph)
                         continue
 
                 # Corridor tiles render as #
                 if tile.is_corridor:
-                    glyph, color, dim_color = CORRIDOR_GLYPH
+                    glyph, color, dim_val = _glyphs.CORRIDOR_GLYPH
                 elif tile.terrain == Terrain.WALL:
                     nb_n = level.tile_at(mx, my - 1)
                     nb_s = level.tile_at(mx, my + 1)
@@ -193,17 +200,17 @@ class TerminalRenderer:
                     cs = nb_s is not None and nb_s.terrain == Terrain.WALL
                     ce = nb_e is not None and nb_e.terrain == Terrain.WALL
                     cw = nb_w is not None and nb_w.terrain == Terrain.WALL
-                    _, color, dim_color = TERRAIN_GLYPHS[Terrain.WALL]
+                    _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
                     glyph = wall_glyph(cn, cs, ce, cw)
                 else:
-                    glyph, color, dim_color = TERRAIN_GLYPHS.get(
+                    glyph, color, dim_val = _glyphs.TERRAIN_GLYPHS.get(
                         tile.terrain, ("?", "white", "bright_black"),
                     )
                 if tile.visible:
-                    color_fn = getattr(t, color, None) or t.white
+                    cfn = getattr(t, color, None) or t.white
                 else:
-                    color_fn = getattr(t, dim_color, None) or t.bright_black
-                row_out += color_fn(glyph)
+                    cfn = dim_color_fn(t, dim_val)
+                row_out += cfn(glyph)
 
             output += t.move_xy(screen_x, screen_y + sy) + row_out
 

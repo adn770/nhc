@@ -77,6 +77,12 @@ def parse_args() -> argparse.Namespace:
         help="Game language (default: en, or from ~/.nhcrc)",
     )
     game_group.add_argument(
+        "--colors",
+        choices=["256", "16"],
+        default=None,
+        help="Color mode: 256 (default, truecolor) or 16 (classic)",
+    )
+    game_group.add_argument(
         "--no-narrative",
         action="store_true",
         help="Disable LLM narrative (equivalent to --provider none)",
@@ -142,6 +148,8 @@ async def main() -> int:
         cli_overrides["api_key"] = args.api_key
     if args.no_narrative:
         cli_overrides["provider"] = "none"
+    if args.colors:
+        cli_overrides["colors"] = args.colors
 
     merged = config.merge(cli_overrides)
 
@@ -152,13 +160,17 @@ async def main() -> int:
         lang = args.lang
     i18n_init(lang)
 
+    # Color mode (CLI --colors overrides config)
+    color_mode = merged.get("colors", "256")
+
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)
 
-    logger.info("Starting game (seed=%s, log=%s)", args.seed, log_path)
+    logger.info("Starting game (seed=%s, colors=%s, log=%s)",
+                args.seed, color_mode, log_path)
 
     # Create and run game
-    game = Game(backend=backend, seed=args.seed)
+    game = Game(backend=backend, seed=args.seed, color_mode=color_mode)
     try:
         if args.generate:
             await game.initialize(generate=True)

@@ -61,6 +61,7 @@ class Game:
         self,
         backend: "LLMBackend | None" = None,
         seed: int | None = None,
+        color_mode: str = "256",
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
@@ -72,7 +73,7 @@ class Game:
         self.turn = 0
         self.player_id: int = -1
         self.level: Level | None = None
-        self.renderer = TerminalRenderer()
+        self.renderer = TerminalRenderer(color_mode=color_mode)
         self._seen_creatures: set[int] = set()
         self.killed_by: str = ""
 
