@@ -1,26 +1,44 @@
 """Game state summarizer for LLM context window.
 
 Produces a structured dict of the current game state suitable for
-inclusion in LLM prompts.  Entity names, room descriptions, and
-other player-facing text come from the i18n-aware Description
-components so they match the active language.
+inclusion in LLM prompts.  Only information the player character can
+perceive is included — no secret doors, hidden traps, or rooms the
+player hasn't entered.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from nhc.dungeon.model import Terrain
+
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
 
+# Feature names for context (only visible/known ones)
+_FEATURE_NAMES = {
+    "door_closed": "closed door",
+    "door_open": "open door",
+    "door_locked": "locked door",
+    "stairs_up": "stairs leading up",
+    "stairs_down": "stairs leading down",
+}
+
 
 class ContextBuilder:
-    """Builds a structured game-state snapshot for the GM pipeline."""
+    """Builds a structured game-state snapshot for the GM pipeline.
+
+    Only includes information the player character can actually
+    perceive: visible tiles, explored rooms they've visited, and
+    entities on visible tiles.  Secret doors and hidden traps are
+    excluded.
+    """
 
     def __init__(self) -> None:
         self.recent_events: list[str] = []
         self._max_events = 20
+        self._visited_rooms: set[str] = set()
 
     def add_event(self, summary: str) -> None:
         """Record a concise event summary string."""
@@ -69,16 +87,21 @@ class ContextBuilder:
                 items.append(desc.name if desc else "???")
         player_data["inventory"] = items
 
-        # Current room
-        room_data = self._find_room(level, pos)
+        # Current location (room or corridor) + surroundings
+        location = self._describe_location(level, pos)
+        self._visited_rooms.add(location.get("id", ""))
 
-        # Visible entities (excluding player)
+        # Visible features (doors, stairs, water — NOT secret doors/hidden traps)
+        visible_features = self._visible_features(level, pos)
+
+        # Visible entities (excluding player, excluding hidden traps)
         visible = self._visible_entities(world, level, player_id)
 
         return {
             "turn": turn,
             "player": player_data,
-            "current_room": room_data,
+            "location": location,
+            "surroundings": visible_features,
             "visible_entities": visible,
             "recent_events": self.recent_events[-10:],
             "level": {
@@ -87,7 +110,6 @@ class ContextBuilder:
                 "theme": level.metadata.theme,
                 "ambient": level.metadata.ambient,
             },
-            "narrative_hooks": level.metadata.narrative_hooks,
         }
 
     def _conditions(self, status) -> list[str]:
@@ -105,26 +127,117 @@ class ContextBuilder:
             conditions.append(f"mirror_images:{status.mirror_images}")
         return conditions
 
-    def _find_room(self, level: "Level", pos) -> dict[str, Any]:
-        """Find which room the player is in."""
+    def _describe_location(
+        self, level: "Level", pos,
+    ) -> dict[str, Any]:
+        """Describe the player's current location."""
         if not pos:
-            return {"id": "unknown", "description": "", "tags": []}
+            return {"id": "unknown", "type": "unknown", "description": ""}
+
+        # Check if in a room
         for room in level.rooms:
             r = room.rect
             if (r.x <= pos.x < r.x + r.width
                     and r.y <= pos.y < r.y + r.height):
                 return {
                     "id": room.id,
+                    "type": "room",
                     "description": room.description,
-                    "tags": room.tags,
+                    "tags": [t for t in room.tags
+                             if t not in ("hidden", "secret")],
                 }
-        return {"id": "corridor", "description": "A dungeon corridor.",
-                "tags": []}
+
+        # In a corridor
+        tile = level.tile_at(pos.x, pos.y)
+        if tile and tile.is_corridor:
+            return {
+                "id": "corridor",
+                "type": "corridor",
+                "description": "A narrow dungeon corridor.",
+            }
+
+        return {
+            "id": "open_area",
+            "type": "area",
+            "description": "An open area.",
+        }
+
+    def _visible_features(
+        self, level: "Level", pos,
+    ) -> list[dict[str, str]]:
+        """List visible features in a 5-tile radius (doors, stairs, water).
+
+        Excludes secret doors and hidden traps — only things the player
+        can actually see.
+        """
+        if not pos:
+            return []
+
+        features: list[dict[str, str]] = []
+        seen: set[str] = set()
+        radius = 5
+
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                tx, ty = pos.x + dx, pos.y + dy
+                tile = level.tile_at(tx, ty)
+                if not tile or not tile.visible:
+                    continue
+
+                # Tile features (doors, stairs)
+                if tile.feature and tile.feature in _FEATURE_NAMES:
+                    key = f"{tile.feature}@{tx},{ty}"
+                    if key not in seen:
+                        seen.add(key)
+                        direction = self._relative_direction(
+                            pos.x, pos.y, tx, ty,
+                        )
+                        features.append({
+                            "feature": _FEATURE_NAMES[tile.feature],
+                            "direction": direction,
+                        })
+
+                # Water/lava terrain
+                if tile.terrain == Terrain.WATER:
+                    key = f"water@{tx},{ty}"
+                    if key not in seen:
+                        seen.add(key)
+                        direction = self._relative_direction(
+                            pos.x, pos.y, tx, ty,
+                        )
+                        features.append({
+                            "feature": "water",
+                            "direction": direction,
+                        })
+
+        return features
+
+    def _relative_direction(
+        self, px: int, py: int, tx: int, ty: int,
+    ) -> str:
+        """Describe direction from player to target."""
+        dx = tx - px
+        dy = ty - py
+        if dx == 0 and dy == 0:
+            return "here"
+        parts = []
+        if dy < 0:
+            parts.append("north")
+        elif dy > 0:
+            parts.append("south")
+        if dx > 0:
+            parts.append("east")
+        elif dx < 0:
+            parts.append("west")
+        return " ".join(parts) if parts else "here"
 
     def _visible_entities(
         self, world: "World", level: "Level", player_id: int,
     ) -> list[dict[str, Any]]:
-        """List visible non-player entities."""
+        """List visible non-player entities.
+
+        Hidden traps are excluded — only things the player can see.
+        """
         entities = []
         for eid, desc, epos in world.query("Description", "Position"):
             if eid == player_id or epos is None:
@@ -133,16 +246,25 @@ class ContextBuilder:
             if not tile or not tile.visible:
                 continue
 
+            # Skip hidden traps
+            trap = world.get_component(eid, "Trap")
+            if trap and trap.hidden:
+                continue
+
             entity_type = "item"
             if world.has_component(eid, "AI"):
                 entity_type = "creature"
-            elif world.has_component(eid, "Trap"):
-                entity_type = "feature"
+            elif trap:
+                entity_type = "trap"
 
             entities.append({
                 "id": eid,
                 "type": entity_type,
                 "name": desc.name,
-                "pos": [epos.x, epos.y],
+                "direction": self._relative_direction(
+                    world.get_component(player_id, "Position").x,
+                    world.get_component(player_id, "Position").y,
+                    epos.x, epos.y,
+                ),
             })
         return entities
