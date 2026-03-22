@@ -1,0 +1,15 @@
+# NHC — core dependencies
+blessed
+pyyaml
+
+# Testing
+pytest
+pytest-asyncio
+
+# LLM providers (optional — install what you need)
+# macOS Apple Silicon:
+mlx-lm
+# Ollama:
+ollama
+# Anthropic:
+anthropic
