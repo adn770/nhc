@@ -1,0 +1,24 @@
+"""Llangardanic (Lizardman) — scaled aquatic warrior. (BEB: Llangardanic)"""
+
+from nhc.entities.components import (
+    AI, Description, Health, LootTable, Renderable, Stats, Weapon,
+)
+from nhc.entities.registry import EntityRegistry
+from nhc.i18n import t
+
+
+@EntityRegistry.register_creature("llangardanic")
+def create_llangardanic() -> dict:
+    return {
+        "Stats": Stats(strength=2, dexterity=4, constitution=2),
+        "Health": Health(current=10, maximum=10),
+        "Renderable": Renderable(glyph="L", color="green", render_order=2),
+        "AI": AI(behavior="aggressive_melee", morale=12, faction="humanoid"),
+        "Weapon": Weapon(damage="1d6"),
+        "LootTable": LootTable(entries=[("gold", 0.5, "1d8"), ("short_sword", 0.15)]),
+        "Description": Description(
+            name=t("creature.llangardanic.name"),
+            short=t("creature.llangardanic.short"),
+            long=t("creature.llangardanic.long"),
+        ),
+    }

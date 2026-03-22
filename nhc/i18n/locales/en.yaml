@@ -164,6 +164,96 @@ creature:
     long: >-
       A massive eight-legged lizard with glowing eyes.
       Do not meet its gaze or face petrification.
+  kobold:
+    name: "Kobold"
+    short: "a scrappy kobold"
+    long: >-
+      A tiny, dog-snouted humanoid dressed in scraps of leather.
+      It chatters shrilly and lunges with a rusty blade.
+  hobgoblin:
+    name: "Hobgoblin"
+    short: "a hobgoblin soldier"
+    long: >-
+      A large, red-skinned goblinoid with military bearing.
+      It moves in disciplined formation and fights without mercy.
+  osgo:
+    name: "Bugbear"
+    short: "a looming bugbear"
+    long: >-
+      A shaggy, bear-like goblinoid that moves with unnerving silence.
+      Its claws are stained dark with old blood.
+  ogre:
+    name: "Ogre"
+    short: "a towering ogre"
+    long: >-
+      A massive, dim-witted giant that smashes everything in its path.
+      It carries a tree trunk as a club.
+  bandoler:
+    name: "Bandit"
+    short: "a hooded bandit"
+    long: >-
+      A human outlaw with a scarred face and hungry eyes.
+      They step out of the shadows with blade drawn.
+  uarg:
+    name: "Warg"
+    short: "a great warg"
+    long: >-
+      An enormous wolf with black fur and cruel, intelligent eyes.
+      It hunts alongside orcs and speaks in guttural growls.
+  llop:
+    name: "Wolf"
+    short: "a grey wolf"
+    long: >-
+      A lean grey wolf that circles warily before lunging.
+      In packs they are truly deadly.
+  llop_terrible:
+    name: "Dire Wolf"
+    short: "a dire wolf"
+    long: >-
+      A wolf the size of a horse, with jaws that could crush stone.
+      Its red eyes fix on you with predatory certainty.
+  ratpenat_gegant:
+    name: "Giant Bat"
+    short: "a giant bat"
+    long: >-
+      A bat with a wingspan wider than a man is tall.
+      It swoops from the darkness with a shriek.
+  os_negre:
+    name: "Black Bear"
+    short: "a black bear"
+    long: >-
+      A compact but powerful bear, usually wary of humans.
+      When cornered it fights with savage ferocity.
+  os_bru:
+    name: "Brown Bear"
+    short: "a brown bear"
+    long: >-
+      A massive brown bear standing nearly eight feet tall.
+      Its roar shakes the walls of the dungeon.
+  granyotic:
+    name: "Frogman"
+    short: "a frogman warrior"
+    long: >-
+      A humanoid with mottled green skin, bulging eyes, and
+      powerful legs that can carry it over obstacles in a single leap.
+  llangardanic:
+    name: "Lizardman"
+    short: "a lizardman"
+    long: >-
+      A bipedal lizard in crude armor, scaled and cold-blooded.
+      Its unblinking eyes track your every move.
+  escarabat_foc:
+    name: "Giant Fire Beetle"
+    short: "a fire beetle"
+    long: >-
+      A beetle the size of a dog, with glowing orange glands on its
+      thorax and abdomen that cast eerie crimson light.
+  gentmalgama:
+    name: "Chimera-Ling"
+    short: "a chimera-ling"
+    long: >-
+      A patchwork creature assembled from mismatched animal parts.
+      Two heads argue over which direction to attack from.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

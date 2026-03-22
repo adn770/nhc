@@ -7,10 +7,27 @@ from nhc.utils.rng import get_rng
 
 # Creature pools by difficulty tier
 CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
-    1: [("rat", 0.3), ("goblin", 0.4), ("skeleton", 0.2), ("giant_bee", 0.1)],
-    2: [("goblin", 0.2), ("skeleton", 0.3), ("zombie", 0.2), ("gnoll", 0.3)],
-    3: [("orc", 0.2), ("zombie", 0.2), ("gnoll", 0.2),
-        ("wight", 0.2), ("spectre", 0.1), ("basilisk", 0.1)],
+    1: [
+        ("rat", 0.2), ("goblin", 0.25), ("skeleton", 0.15),
+        ("kobold", 0.15), ("giant_bee", 0.1), ("escarabat_foc", 0.1),
+        ("ratpenat_gegant", 0.05),
+    ],
+    2: [
+        ("goblin", 0.1), ("skeleton", 0.15), ("zombie", 0.1),
+        ("gnoll", 0.15), ("hobgoblin", 0.1), ("bandoler", 0.1),
+        ("llop", 0.1), ("granyotic", 0.1), ("gentmalgama", 0.1),
+    ],
+    3: [
+        ("orc", 0.1), ("zombie", 0.1), ("gnoll", 0.1),
+        ("osgo", 0.1), ("llangardanic", 0.1), ("llop_terrible", 0.1),
+        ("wight", 0.1), ("spectre", 0.05), ("basilisk", 0.05),
+        ("os_negre", 0.1), ("uarg", 0.1),
+    ],
+    4: [
+        ("ogre", 0.15), ("os_bru", 0.15), ("uarg", 0.15),
+        ("wight", 0.15), ("spectre", 0.1), ("basilisk", 0.15),
+        ("llop_terrible", 0.15),
+    ],
 }
 
 # Item pools by difficulty tier
@@ -43,7 +60,7 @@ def populate_level(
     or in the first room (player spawn).
     """
     rng = get_rng()
-    difficulty = min(level.depth, max(CREATURE_POOLS.keys()))
+    difficulty = min(max(1, level.depth), max(CREATURE_POOLS.keys()))
 
     # Gather valid rooms (skip first room — player spawn)
     placeable_rooms = level.rooms[1:] if len(level.rooms) > 1 else []

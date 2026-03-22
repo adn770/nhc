@@ -166,6 +166,96 @@ creature:
     long: >-
       Un llangardaix de vuit potes amb ulls brillants.
       No li miris als ulls o et petrificarà.
+  kobold:
+    name: "Kobold"
+    short: "un kobold espavilat"
+    long: >-
+      Un humanoide minúscul amb morro de gos vestit amb restes de cuir.
+      Xiscla i s'atansa amb una fulla rovellada.
+  hobgoblin:
+    name: "Hobgoblin"
+    short: "un soldat hobgoblin"
+    long: >-
+      Un goblinoide gran de pell vermella amb posat militar.
+      Es mou en formació disciplinada i combat sense pietat.
+  osgo:
+    name: "Osgo"
+    short: "un osgo amenaçant"
+    long: >-
+      Un goblinoide pelut semblant a un os que es mou amb silenci inquietant.
+      Les seves urpes estan tenyides de sang vella.
+  ogre:
+    name: "Ogre"
+    short: "un ogre colossal"
+    long: >-
+      Un gegant enorme i ximple que destrossa tot al seu pas.
+      Porta un tronc d'arbre com a maça.
+  bandoler:
+    name: "Bandoler"
+    short: "un bandoler encaputxat"
+    long: >-
+      Un proscrip humà amb la cara marcada i ulls famèlics.
+      Surt de les ombres amb la fulla desembeinada.
+  uarg:
+    name: "Uarg"
+    short: "un gran uarg"
+    long: >-
+      Un llop enorme de pelatge negre i ulls intel·ligents i cruels.
+      Caça acompanyat d'orcs i gruny amb veu gutural.
+  llop:
+    name: "Llop"
+    short: "un llop gris"
+    long: >-
+      Un llop gris i esmaperdut que rodeja cautelosament abans de llançar-se.
+      En manada, són veritablement mortals.
+  llop_terrible:
+    name: "Llop Terrible"
+    short: "un llop terrible"
+    long: >-
+      Un llop de la mida d'un cavall, amb mandíbules que podrien trencar pedra.
+      Els seus ulls vermells et fixen amb certesa depredadora.
+  ratpenat_gegant:
+    name: "Ratpenat Gegant"
+    short: "un ratpenat gegant"
+    long: >-
+      Un ratpenat amb una envergadura d'ales més ampla que un home alt.
+      S'abat des de la foscor amb un xiscle.
+  os_negre:
+    name: "Os Negre"
+    short: "un os negre"
+    long: >-
+      Un os compacte però poderós, generalment desconfiat dels humans.
+      Acorralat, combat amb ferocitat salvatge.
+  os_bru:
+    name: "Os Bru"
+    short: "un os bru"
+    long: >-
+      Un os marró enorme de gairebé dos metres i mig d'alçada.
+      El seu rugit fa tremolar les parets de la masmorra.
+  granyotic:
+    name: "Granyotic"
+    short: "un guerrer granyotic"
+    long: >-
+      Un humanoide amb pell verdosa maculada, ulls abombats i
+      cames poderoses que el porten per sobre dels obstacles d'un salt.
+  llangardanic:
+    name: "Llangardànic"
+    short: "un llangardànic"
+    long: >-
+      Un llangardaix bípede amb armadura tosca, escatós i de sang freda.
+      Els seus ulls sense parpelles segueixen cada moviment teu.
+  escarabat_foc:
+    name: "Escarabat de Foc Gegant"
+    short: "un escarabat de foc"
+    long: >-
+      Un escarabat de la mida d'un gos, amb glàndules taronges brillants al
+      tòrax i abdomen que emeten una llum carmesí inquietant.
+  gentmalgama:
+    name: "Gentmalgama"
+    short: "un gentmalgama"
+    long: >-
+      Una criatura apedaçada assemblada amb parts animals desiguals.
+      Dues caps discuteixen des de quin costat atacar.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

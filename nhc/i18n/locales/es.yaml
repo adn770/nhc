@@ -166,6 +166,96 @@ creature:
     long: >-
       Un lagarto de ocho patas con ojos brillantes.
       No le mires a los ojos o te petrificará.
+  kobold:
+    name: "Kobold"
+    short: "un kobold peleón"
+    long: >-
+      Un humanoide diminuto con hocico de perro vestido con retazos de cuero.
+      Chilla y se lanza con una hoja oxidada.
+  hobgoblin:
+    name: "Hobgoblin"
+    short: "un soldado hobgoblin"
+    long: >-
+      Un goblinoide grande de piel rojiza con porte militar.
+      Se mueve en formación disciplinada y combate sin piedad.
+  osgo:
+    name: "Bugbear"
+    short: "un imponente bugbear"
+    long: >-
+      Un goblinoide peludo parecido a un oso que se mueve con inquietante
+      silencio. Sus garras están teñidas de sangre vieja.
+  ogre:
+    name: "Ogro"
+    short: "un ogro colosal"
+    long: >-
+      Un gigante enorme y torpe que aplasta todo a su paso.
+      Porta un tronco de árbol como maza.
+  bandoler:
+    name: "Bandido"
+    short: "un bandido encapuchado"
+    long: >-
+      Un proscrito humano con cara marcada y ojos hambrientos.
+      Sale de las sombras con la hoja desenvainada.
+  uarg:
+    name: "Warg"
+    short: "un gran warg"
+    long: >-
+      Un enorme lobo de pelaje negro y ojos inteligentes y crueles.
+      Caza junto a orcos y gruñe con voz gutural.
+  llop:
+    name: "Lobo"
+    short: "un lobo gris"
+    long: >-
+      Un lobo gris y ágil que rodea cautelosamente antes de lanzarse.
+      En manada son verdaderamente letales.
+  llop_terrible:
+    name: "Lobo Terrible"
+    short: "un lobo terrible"
+    long: >-
+      Un lobo del tamaño de un caballo, con mandíbulas capaces de
+      triturar piedra. Sus ojos rojos te fijan con certeza depredadora.
+  ratpenat_gegant:
+    name: "Murciélago Gigante"
+    short: "un murciélago gigante"
+    long: >-
+      Un murciélago con una envergadura de alas más ancha que un hombre alto.
+      Se abalanza desde la oscuridad con un chillido.
+  os_negre:
+    name: "Oso Negro"
+    short: "un oso negro"
+    long: >-
+      Un oso compacto pero poderoso, generalmente desconfiado con los humanos.
+      Acorralado, combate con salvaje ferocidad.
+  os_bru:
+    name: "Oso Pardo"
+    short: "un oso pardo"
+    long: >-
+      Un enorme oso pardo de casi dos metros y medio de altura.
+      Su rugido hace temblar las paredes de la mazmorra.
+  granyotic:
+    name: "Hombre Rana"
+    short: "un guerrero hombre rana"
+    long: >-
+      Un humanoide con piel verde moteada, ojos saltones y
+      piernas poderosas que lo llevan sobre obstáculos de un salto.
+  llangardanic:
+    name: "Hombre Lagarto"
+    short: "un hombre lagarto"
+    long: >-
+      Un lagarto bípedo con armadura tosca, escamoso y de sangre fría.
+      Sus ojos sin párpados siguen cada uno de tus movimientos.
+  escarabat_foc:
+    name: "Escarabajo de Fuego Gigante"
+    short: "un escarabajo de fuego"
+    long: >-
+      Un escarabajo del tamaño de un perro, con glándulas naranjas brillantes
+      en el tórax y abdomen que emiten una siniestra luz carmesí.
+  gentmalgama:
+    name: "Quimérico"
+    short: "un quimérico"
+    long: >-
+      Una criatura ensamblada con partes animales dispares.
+      Dos cabezas discuten desde qué lado atacar.
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

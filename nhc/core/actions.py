@@ -171,13 +171,17 @@ class MeleeAttackAction(Action):
                 text=t("combat.petrify_saved", target=attacker_name),
             ))
 
-        # Get weapon damage
-        weapon_damage = "1d4"  # Unarmed
-        equip = world.get_component(self.actor, "Equipment")
-        if equip and equip.weapon is not None:
-            wpn = world.get_component(equip.weapon, "Weapon")
-            if wpn:
-                weapon_damage = wpn.damage
+        # Get weapon damage: inline Weapon (creatures) > equipped Weapon (player)
+        weapon_damage = "1d4"  # Unarmed fallback
+        inline_wpn = world.get_component(self.actor, "Weapon")
+        if inline_wpn:
+            weapon_damage = inline_wpn.damage
+        else:
+            equip = world.get_component(self.actor, "Equipment")
+            if equip and equip.weapon is not None:
+                wpn = world.get_component(equip.weapon, "Weapon")
+                if wpn:
+                    weapon_damage = wpn.damage
 
         hit, damage = resolve_melee_attack(a_stats, t_stats, weapon_damage)
 
