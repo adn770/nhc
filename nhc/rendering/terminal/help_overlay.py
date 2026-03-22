@@ -102,23 +102,31 @@ def _draw(
 
 
 def _render_md_line(term: "Terminal", line: str, width: int) -> str:
-    """Simple markdown rendering for a single line."""
+    """Simple markdown rendering for a single line.
+
+    Padding is applied to the plain text *before* wrapping in ANSI
+    color codes so that escape sequences don't shift the right border.
+    """
     stripped = line.rstrip()
 
-    # Headings
+    # Headings — pad first, color second
     if stripped.startswith("# "):
         text = stripped[2:].strip()
-        return term.bold(term.bright_white(text.center(width)))[:width + 20]
+        padded = text.center(width)[:width]
+        return term.bold(term.bright_white(padded))
     if stripped.startswith("## "):
         text = stripped[3:].strip()
-        return term.bold(term.bright_cyan(text))[:width + 20].ljust(width + 20)[:width + 20]
+        padded = text[:width].ljust(width)
+        return term.bold(term.bright_cyan(padded))
     if stripped.startswith("### "):
         text = stripped[4:].strip()
-        return term.bold(text)[:width + 20].ljust(width + 20)[:width + 20]
+        padded = text[:width].ljust(width)
+        return term.bold(padded)
 
-    # Indented lines (code/shortcuts) — keep as-is
+    # Indented lines (code/shortcuts)
     if stripped.startswith("  "):
-        return term.white(stripped[:width].ljust(width))
+        padded = stripped[:width].ljust(width)
+        return term.white(padded)
 
     # Empty line
     if not stripped:
