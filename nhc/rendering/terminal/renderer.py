@@ -186,12 +186,13 @@ class TerminalRenderer:
             # In typed mode only sequence keys (arrows, PgUp, etc.)
             # and a small whitelist bypass the text input.  All
             # printable characters go into the text buffer.
+            # When text is being edited, arrow keys control the cursor
+            # and history instead of moving the character.
             if val.startswith("KEY_"):
-                intent, data = map_key_to_intent(val)
-                if intent == "move":
-                    return (intent, data)
-                # KEY_UP/KEY_DOWN go to history when inside text input
-                # (handled below), not to movement
+                if not inp.text:
+                    intent, data = map_key_to_intent(val)
+                    if intent == "move":
+                        return (intent, data)
             elif val == "\t":
                 return ("toggle_mode", None)
             elif val == "?":
