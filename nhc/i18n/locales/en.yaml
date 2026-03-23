@@ -93,6 +93,44 @@ scroll_appearance:
   ashpd_lansen: "scroll labeled ASHPD LANSEN"
   ashpd_lansen_short: "a scroll labeled ASHPD LANSEN"
 
+# ── Ring appearances (unidentified) ──────────────────────────────────
+ring_appearance:
+  diamond: "diamond ring"
+  diamond_short: "a diamond ring"
+  ruby: "ruby ring"
+  ruby_short: "a ruby ring"
+  emerald: "emerald ring"
+  emerald_short: "an emerald ring"
+  sapphire: "sapphire ring"
+  sapphire_short: "a sapphire ring"
+  opal: "opal ring"
+  opal_short: "an opal ring"
+  amethyst: "amethyst ring"
+  amethyst_short: "an amethyst ring"
+  topaz: "topaz ring"
+  topaz_short: "a topaz ring"
+  onyx: "onyx ring"
+  onyx_short: "an onyx ring"
+
+# ── Wand appearances (unidentified) ─────────────────────────────────
+wand_appearance:
+  holly: "holly wand"
+  holly_short: "a holly wand"
+  yew: "yew wand"
+  yew_short: "a yew wand"
+  ebony: "ebony wand"
+  ebony_short: "an ebony wand"
+  cherry: "cherry wand"
+  cherry_short: "a cherry wand"
+  teak: "teak wand"
+  teak_short: "a teak wand"
+  rowan: "rowan wand"
+  rowan_short: "a rowan wand"
+  willow: "willow wand"
+  willow_short: "a willow wand"
+  oak: "oak wand"
+  oak_short: "an oak wand"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   hit: "{attacker} hits {target} for {damage} damage."
@@ -376,6 +414,8 @@ ui:
   quaff_which: "Quaff which potion?"
   equip_which: "Equip which item?"
   drop_which: "Drop which item?"
+  zap_which: "Zap which wand?"
+  wand_fizzle: "The wand fizzles — no charges left."
   throw_which: "Throw which item?"
   throw_target: "Throw at whom?"
   throw_at: "You throw {item} at {target}!"
@@ -1309,6 +1349,70 @@ items:
     name: "Lamp Oil"
     short: "a flask of lamp oil"
     long: "A flask of oil for lanterns. Burns for eight hours."
+  ring_mending:
+    name: "Ring of Mending"
+    short: "a ring of mending"
+    long: "A warm ring that pulses gently. Regenerates 1 HP every 5 turns while worn."
+  ring_haste:
+    name: "Ring of Haste"
+    short: "a ring of haste"
+    long: "Time seems to blur around this ring. Grants an extra action each turn."
+  ring_detection:
+    name: "Ring of Detection"
+    short: "a ring of detection"
+    long: "Tingles near hidden things. Automatically reveals traps and secret doors."
+  ring_elements:
+    name: "Ring of Elements"
+    short: "a ring of elements"
+    long: "Shimmers with inner fire and frost. Halves fire and cold damage."
+  ring_accuracy:
+    name: "Ring of Accuracy"
+    short: "a ring of accuracy"
+    long: "Steadies the hand. Grants +2 to melee attack rolls."
+  ring_evasion:
+    name: "Ring of Evasion"
+    short: "a ring of evasion"
+    long: "Light as a feather on the finger. Grants +2 to armor defense."
+  ring_shadows:
+    name: "Ring of Shadows"
+    short: "a ring of shadows"
+    long: "Darkness clings to the wearer. Creatures detect you at half range."
+  ring_protection:
+    name: "Ring of Protection"
+    short: "a ring of protection"
+    long: "A faint ward surrounds the wearer. Grants +1 to armor defense."
+  wand_firebolt:
+    name: "Wand of Firebolt"
+    short: "a wand of firebolt"
+    long: "Unleashes a bolt of fire at a target. 2d6 fire damage."
+  wand_lightning:
+    name: "Wand of Lightning"
+    short: "a wand of lightning"
+    long: "Arcs of electricity leap toward the target. 3d4 damage."
+  wand_teleport:
+    name: "Wand of Teleportation"
+    short: "a wand of teleportation"
+    long: "Blinks the target to a random location on the level."
+  wand_poison:
+    name: "Wand of Poison"
+    short: "a wand of poison"
+    long: "Injects magical venom. 2 damage per turn for 5 turns."
+  wand_slowness:
+    name: "Wand of Slowness"
+    short: "a wand of slowness"
+    long: "Time crawls around the target. Halves speed for 8 turns."
+  wand_disintegrate:
+    name: "Wand of Disintegration"
+    short: "a wand of disintegration"
+    long: "A piercing beam of annihilation. 3d6 damage in a line."
+  wand_magic_missile:
+    name: "Wand of Magic Missile"
+    short: "a wand of magic missile"
+    long: "A bolt of pure force that never misses. 1d6+1 damage."
+  wand_amok:
+    name: "Wand of Amok"
+    short: "a wand of amok"
+    long: "Drives the target into a frenzy. Confused for 6 turns."
   scroll_lightning:
     name: "Scroll of Lightning"
     short: "a crackling scroll"

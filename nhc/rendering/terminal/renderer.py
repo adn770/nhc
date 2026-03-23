@@ -442,7 +442,8 @@ class TerminalRenderer:
         armor_def = 10 + dex_bonus
         equipped_ids: set[int] = set()
         if equip:
-            for attr in ("weapon", "armor", "shield", "helmet"):
+            for attr in ("weapon", "armor", "shield", "helmet",
+                        "ring_left", "ring_right"):
                 eid = getattr(equip, attr)
                 if eid is not None:
                     equipped_ids.add(eid)
@@ -460,6 +461,15 @@ class TerminalRenderer:
                 a = world.get_component(equip.helmet, "Armor")
                 if a:
                     armor_def += a.defense
+            # Ring bonuses to AC
+            for ring_slot in ("ring_left", "ring_right"):
+                ring_eid = getattr(equip, ring_slot)
+                if ring_eid is not None:
+                    ring = world.get_component(ring_eid, "Ring")
+                    if ring and ring.effect == "evasion":
+                        armor_def += 2
+                    elif ring and ring.effect == "protection":
+                        armor_def += 1
 
         player = world.get_component(player_id, "Player")
         pdesc = world.get_component(player_id, "Description")

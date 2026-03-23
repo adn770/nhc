@@ -114,12 +114,29 @@ class Armor:
 
 
 @dataclass
+class Ring:
+    """Passive magical ring — effect active while equipped."""
+    effect: str = ""  # "mending", "haste", "detection", etc.
+
+
+@dataclass
+class Wand:
+    """Rechargeable magical device with charges."""
+    effect: str = ""
+    charges: int = 0
+    max_charges: int = 0
+    recharge_timer: int = 20  # turns until next charge gained
+
+
+@dataclass
 class Equipment:
     """Currently equipped items."""
-    weapon: int | None = None   # EntityId of equipped weapon
-    armor: int | None = None    # EntityId of body armor (gambeson, chain, etc.)
-    shield: int | None = None   # EntityId of shield
-    helmet: int | None = None   # EntityId of helmet
+    weapon: int | None = None
+    armor: int | None = None
+    shield: int | None = None
+    helmet: int | None = None
+    ring_left: int | None = None
+    ring_right: int | None = None
 
 
 @dataclass

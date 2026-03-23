@@ -94,8 +94,45 @@ SCROLL_APPEARANCES = [
     ("ashpd_lansen", "bright_red"),
 ]
 
+# ── Ring IDs and appearances ─────────────────────────────────────────
+
+RING_IDS = [
+    "ring_mending", "ring_haste", "ring_detection", "ring_elements",
+    "ring_accuracy", "ring_evasion", "ring_shadows", "ring_protection",
+]
+
+RING_APPEARANCES = [
+    ("diamond", "bright_white"),
+    ("ruby", "bright_red"),
+    ("emerald", "bright_green"),
+    ("sapphire", "bright_blue"),
+    ("opal", "bright_cyan"),
+    ("amethyst", "magenta"),
+    ("topaz", "bright_yellow"),
+    ("onyx", "bright_black"),
+]
+
+# ── Wand IDs and appearances ────────────────────────────────────────
+
+WAND_IDS = [
+    "wand_firebolt", "wand_lightning", "wand_teleport", "wand_poison",
+    "wand_slowness", "wand_disintegrate", "wand_magic_missile",
+    "wand_amok",
+]
+
+WAND_APPEARANCES = [
+    ("holly", "green"),
+    ("yew", "yellow"),
+    ("ebony", "bright_black"),
+    ("cherry", "bright_red"),
+    ("teak", "yellow"),
+    ("rowan", "bright_green"),
+    ("willow", "bright_cyan"),
+    ("oak", "bright_yellow"),
+]
+
 # All identifiable item IDs
-ALL_IDS = POTION_IDS + SCROLL_IDS
+ALL_IDS = POTION_IDS + SCROLL_IDS + RING_IDS + WAND_IDS
 
 
 class ItemKnowledge:
@@ -106,18 +143,19 @@ class ItemKnowledge:
 
         r = rng or random.Random()
 
-        # Shuffle and assign potion appearances
-        potions = list(POTION_APPEARANCES)
-        r.shuffle(potions)
         self._appearance: dict[str, tuple[str, str]] = {}
-        for i, pid in enumerate(POTION_IDS):
-            self._appearance[pid] = potions[i % len(potions)]
 
-        # Shuffle and assign scroll appearances
-        scrolls = list(SCROLL_APPEARANCES)
-        r.shuffle(scrolls)
-        for i, sid in enumerate(SCROLL_IDS):
-            self._appearance[sid] = scrolls[i % len(scrolls)]
+        # Shuffle and assign each category
+        for ids, appearances in [
+            (POTION_IDS, POTION_APPEARANCES),
+            (SCROLL_IDS, SCROLL_APPEARANCES),
+            (RING_IDS, RING_APPEARANCES),
+            (WAND_IDS, WAND_APPEARANCES),
+        ]:
+            pool = list(appearances)
+            r.shuffle(pool)
+            for i, item_id in enumerate(ids):
+                self._appearance[item_id] = pool[i % len(pool)]
 
     def is_identified(self, item_id: str) -> bool:
         return item_id in self.identified
@@ -135,18 +173,26 @@ class ItemKnowledge:
         if item_id in self.identified:
             return t(f"items.{item_id}.name")
         key_suffix, _ = self.appearance(item_id)
-        if item_id in POTION_IDS:
-            return t(f"potion_appearance.{key_suffix}")
-        return t(f"scroll_appearance.{key_suffix}")
+        prefix = self._appearance_prefix(item_id)
+        return t(f"{prefix}.{key_suffix}")
 
     def display_short(self, item_id: str) -> str:
         if item_id in self.identified:
             return t(f"items.{item_id}.short")
         key_suffix, _ = self.appearance(item_id)
-        if item_id in POTION_IDS:
-            return t(f"potion_appearance.{key_suffix}_short")
-        return t(f"scroll_appearance.{key_suffix}_short")
+        prefix = self._appearance_prefix(item_id)
+        return t(f"{prefix}.{key_suffix}_short")
 
     def glyph_color(self, item_id: str) -> str:
         _, color = self.appearance(item_id)
         return color
+
+    @staticmethod
+    def _appearance_prefix(item_id: str) -> str:
+        if item_id.startswith("ring_"):
+            return "ring_appearance"
+        if item_id.startswith("wand_"):
+            return "wand_appearance"
+        if item_id.startswith("scroll_"):
+            return "scroll_appearance"
+        return "potion_appearance"

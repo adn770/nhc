@@ -477,6 +477,8 @@ class Game:
             self._tick_poison()
             self._tick_regeneration()
             self._tick_mummy_rot()
+            self._tick_rings()
+            self._tick_wand_recharge()
 
             # God mode: restore HP to max each turn
             health = self.world.get_component(self.player_id, "Health")
@@ -705,6 +707,9 @@ class Game:
         if intent == "throw":
             return self._find_throw_action()
 
+        if intent == "zap":
+            return self._find_zap_action()
+
         if intent == "equip":
             return self._find_equip_action()
 
@@ -847,6 +852,50 @@ class Game:
             actor=self.player_id, item=item_id, target=target_id,
         )
 
+    def _find_zap_action(self) -> "Action | None":
+        """Pick a wand, then a visible target to zap."""
+        from nhc.core.actions import ZapAction
+
+        # Show wands with charges
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if not inv:
+            return None
+
+        items: list[tuple[int, str]] = []
+        for item_id in inv.slots:
+            wand = self.world.get_component(item_id, "Wand")
+            if not wand:
+                continue
+            desc = self.world.get_component(item_id, "Description")
+            name = desc.name if desc else "???"
+            name += f" ({wand.charges}/{wand.max_charges})"
+            items.append((item_id, name))
+
+        if not items:
+            return None
+
+        selected = self.renderer._draw_inventory_box(
+            t("ui.zap_which"), items,
+        )
+        if selected is None:
+            return None
+
+        wand = self.world.get_component(selected, "Wand")
+        if not wand or wand.charges <= 0:
+            self.renderer.add_message(t("item.wand_fizzle"))
+            return None
+
+        target_id = self.renderer.show_target_menu(
+            self.world, self.level, self.player_id,
+            title=t("ui.throw_target"),
+        )
+        if target_id is None:
+            return None
+
+        return ZapAction(
+            actor=self.player_id, item=selected, target=target_id,
+        )
+
     def _find_equip_action(self) -> "Action | None":
         """Show equippable items and equip/unequip one."""
         from nhc.core.actions import EquipAction, UnequipAction
@@ -857,7 +906,8 @@ class Game:
         equip = self.world.get_component(self.player_id, "Equipment")
         equipped_ids = set()
         if equip:
-            for attr in ("weapon", "armor", "shield", "helmet"):
+            for attr in ("weapon", "armor", "shield", "helmet",
+                          "ring_left", "ring_right"):
                 eid = getattr(equip, attr)
                 if eid is not None:
                     equipped_ids.add(eid)
@@ -865,7 +915,8 @@ class Game:
         items: list[tuple[int, str]] = []
         for item_id in inv.slots:
             if not (self.world.has_component(item_id, "Weapon")
-                    or self.world.has_component(item_id, "Armor")):
+                    or self.world.has_component(item_id, "Armor")
+                    or self.world.has_component(item_id, "Ring")):
                 continue
             desc = self.world.get_component(item_id, "Description")
             name = desc.name if desc else "???"
@@ -996,6 +1047,58 @@ class Game:
                           target=self._creature_name(eid)),
                     )
                 cursed.ticks_until_drain = 2
+
+    def _tick_rings(self) -> None:
+        """Apply passive ring effects each turn."""
+        equip = self.world.get_component(self.player_id, "Equipment")
+        if not equip:
+            return
+        for slot in ("ring_left", "ring_right"):
+            eid = getattr(equip, slot)
+            if eid is None:
+                continue
+            ring = self.world.get_component(eid, "Ring")
+            if not ring:
+                continue
+
+            if ring.effect == "mending" and self.turn % 5 == 0:
+                health = self.world.get_component(
+                    self.player_id, "Health",
+                )
+                if health and health.current < health.maximum:
+                    health.current = min(
+                        health.current + 1, health.maximum,
+                    )
+
+            if ring.effect == "detection":
+                # Auto-reveal traps and secret doors in FOV
+                for y in range(self.level.height):
+                    for x in range(self.level.width):
+                        tile = self.level.tile_at(x, y)
+                        if not tile or not tile.visible:
+                            continue
+                        if tile.feature == "door_secret":
+                            tile.feature = "door_closed"
+                        for eid2, trap, tpos in self.world.query(
+                            "Trap", "Position",
+                        ):
+                            if (tpos and tpos.x == x and tpos.y == y
+                                    and trap.hidden):
+                                trap.hidden = False
+
+    def _tick_wand_recharge(self) -> None:
+        """Recharge wands in inventory over time."""
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if not inv:
+            return
+        for item_id in inv.slots:
+            wand = self.world.get_component(item_id, "Wand")
+            if not wand or wand.charges >= wand.max_charges:
+                continue
+            wand.recharge_timer -= 1
+            if wand.recharge_timer <= 0:
+                wand.charges += 1
+                wand.recharge_timer = 20
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a dungeon level (ascending or descending)."""

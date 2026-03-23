@@ -93,6 +93,44 @@ scroll_appearance:
   ashpd_lansen: "pergamí etiquetat ASHPD LANSEN"
   ashpd_lansen_short: "un pergamí etiquetat ASHPD LANSEN"
 
+# ── Aparences d'anells (no identificats) ─────────────────────────────
+ring_appearance:
+  diamond: "anell de diamant"
+  diamond_short: "un anell de diamant"
+  ruby: "anell de robí"
+  ruby_short: "un anell de robí"
+  emerald: "anell de maragda"
+  emerald_short: "un anell de maragda"
+  sapphire: "anell de safir"
+  sapphire_short: "un anell de safir"
+  opal: "anell d'òpal"
+  opal_short: "un anell d'òpal"
+  amethyst: "anell d'ametista"
+  amethyst_short: "un anell d'ametista"
+  topaz: "anell de topazi"
+  topaz_short: "un anell de topazi"
+  onyx: "anell d'ònix"
+  onyx_short: "un anell d'ònix"
+
+# ── Aparences de varetes (no identificades) ──────────────────────────
+wand_appearance:
+  holly: "vareta de grèvol"
+  holly_short: "una vareta de grèvol"
+  yew: "vareta de teix"
+  yew_short: "una vareta de teix"
+  ebony: "vareta d'eben"
+  ebony_short: "una vareta d'eben"
+  cherry: "vareta de cirerer"
+  cherry_short: "una vareta de cirerer"
+  teak: "vareta de teca"
+  teak_short: "una vareta de teca"
+  rowan: "vareta de serbal"
+  rowan_short: "una vareta de serbal"
+  willow: "vareta de salze"
+  willow_short: "una vareta de salze"
+  oak: "vareta de roure"
+  oak_short: "una vareta de roure"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   # 3rd person (creature vs creature, or default fallback)
@@ -394,6 +432,8 @@ ui:
   quaff_which: "Quina poció vols beure?"
   equip_which: "Quin objecte vols equipar?"
   drop_which: "Quin objecte vols deixar?"
+  zap_which: "Quina vareta vols usar?"
+  wand_fizzle: "La vareta xiscla — no queden càrregues."
   throw_which: "Quin objecte vols llançar?"
   throw_target: "A qui el llances?"
   throw_at: "Llances {item} contra {target}!"
@@ -1515,6 +1555,86 @@ items:
     gender: "m"
     short: "un flascó d'oli de llum"
     long: "Un flascó d'oli per a llanternes. Crema durant vuit hores."
+  ring_mending:
+    name: "Anell de Guarició"
+    gender: "m"
+    short: "un anell de guarició"
+    long: "Un anell càlid que polsa suaument. Regenera 1 PV cada 5 torns."
+  ring_haste:
+    name: "Anell de Celeritat"
+    gender: "m"
+    short: "un anell de celeritat"
+    long: "El temps es difumina al voltant d'aquest anell. Atorga una acció extra."
+  ring_detection:
+    name: "Anell de Detecció"
+    gender: "m"
+    short: "un anell de detecció"
+    long: "Formigueja prop de coses ocultes. Revela trampes i portes secretes."
+  ring_elements:
+    name: "Anell dels Elements"
+    gender: "m"
+    short: "un anell dels elements"
+    long: "Centellea amb foc i gel interior. Redueix a la meitat el dany de foc i fred."
+  ring_accuracy:
+    name: "Anell de Precisió"
+    gender: "m"
+    short: "un anell de precisió"
+    long: "Estabilitza la mà. Atorga +2 a les tirades d'atac cos a cos."
+  ring_evasion:
+    name: "Anell d'Evasió"
+    gender: "m"
+    short: "un anell d'evasió"
+    long: "Lleuger com una ploma al dit. Atorga +2 a la defensa d'armadura."
+  ring_shadows:
+    name: "Anell de les Ombres"
+    gender: "m"
+    short: "un anell de les ombres"
+    long: "La foscor s'enganxa al portador. Les criatures et detecten a la meitat de distància."
+  ring_protection:
+    name: "Anell de Protecció"
+    gender: "m"
+    short: "un anell de protecció"
+    long: "Una protecció feble envolta el portador. Atorga +1 a la defensa d'armadura."
+  wand_firebolt:
+    name: "Vareta de Bola de Foc"
+    gender: "f"
+    short: "una vareta de bola de foc"
+    long: "Desferma un raig de foc contra un objectiu. 2d6 de dany de foc."
+  wand_lightning:
+    name: "Vareta de Llamp"
+    gender: "f"
+    short: "una vareta de llamp"
+    long: "Arcs d'electricitat salten cap a l'objectiu. 3d4 de dany."
+  wand_teleport:
+    name: "Vareta de Teletransport"
+    gender: "f"
+    short: "una vareta de teletransport"
+    long: "Teletransporta l'objectiu a un lloc aleatori del nivell."
+  wand_poison:
+    name: "Vareta de Verí"
+    gender: "f"
+    short: "una vareta de verí"
+    long: "Injecta verí màgic. 2 de dany per torn durant 5 torns."
+  wand_slowness:
+    name: "Vareta de Lentitud"
+    gender: "f"
+    short: "una vareta de lentitud"
+    long: "El temps s'arrossega al voltant de l'objectiu. Redueix la velocitat 8 torns."
+  wand_disintegrate:
+    name: "Vareta de Desintegració"
+    gender: "f"
+    short: "una vareta de desintegració"
+    long: "Un raig perforant d'aniquilació. 3d6 de dany en línia."
+  wand_magic_missile:
+    name: "Vareta de Projectil Màgic"
+    gender: "f"
+    short: "una vareta de projectil màgic"
+    long: "Un dard de força pura que mai falla. 1d6+1 de dany."
+  wand_amok:
+    name: "Vareta d'Amok"
+    gender: "f"
+    short: "una vareta d'amok"
+    long: "Porta l'objectiu a un frenesí. Confós durant 6 torns."
   scroll_lightning:
     name: "Pergamí de Llamp"
     gender: "m"

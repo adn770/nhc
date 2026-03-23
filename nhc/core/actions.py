@@ -526,7 +526,8 @@ class EquipAction(Action):
         if not inv or self.item not in inv.slots:
             return False
         return (world.has_component(self.item, "Weapon")
-                or world.has_component(self.item, "Armor"))
+                or world.has_component(self.item, "Armor")
+                or world.has_component(self.item, "Ring"))
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         events: list[Event] = []
@@ -557,6 +558,21 @@ class EquipAction(Action):
                 ))
             setattr(equip, attr, self.item)
 
+        ring = world.get_component(self.item, "Ring")
+        if ring:
+            # Fill left slot first, then right
+            if equip.ring_left is None:
+                equip.ring_left = self.item
+            elif equip.ring_right is None:
+                equip.ring_right = self.item
+            else:
+                # Both full — swap left
+                old_name = _entity_name(world, equip.ring_left)
+                events.append(MessageEvent(
+                    text=t("item.unequipped", item=old_name),
+                ))
+                equip.ring_left = self.item
+
         events.append(MessageEvent(
             text=t("item.equipped", item=item_name),
         ))
@@ -575,12 +591,14 @@ class UnequipAction(Action):
         if not equip:
             return False
         return self.item in (equip.weapon, equip.armor,
-                             equip.shield, equip.helmet)
+                             equip.shield, equip.helmet,
+                             equip.ring_left, equip.ring_right)
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         equip = world.get_component(self.actor, "Equipment")
         item_name = _entity_name(world, self.item)
-        for attr in ("weapon", "armor", "shield", "helmet"):
+        for attr in ("weapon", "armor", "shield", "helmet",
+                      "ring_left", "ring_right"):
             if getattr(equip, attr) == self.item:
                 setattr(equip, attr, None)
         return [MessageEvent(text=t("item.unequipped", item=item_name))]
@@ -713,6 +731,141 @@ class ThrowAction(Action):
         if self.item in inv.slots:
             inv.slots.remove(self.item)
         world.destroy_entity(self.item)
+
+        return events
+
+
+class ZapAction(Action):
+    """Zap a wand at a target creature, using one charge."""
+
+    def __init__(self, actor: int, item: int, target: int) -> None:
+        super().__init__(actor)
+        self.item = item
+        self.target = target
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        inv = world.get_component(self.actor, "Inventory")
+        if not inv or self.item not in inv.slots:
+            return False
+        wand = world.get_component(self.item, "Wand")
+        if not wand or wand.charges <= 0:
+            return False
+        tpos = world.get_component(self.target, "Position")
+        if not tpos:
+            return False
+        tile = level.tile_at(tpos.x, tpos.y)
+        return tile is not None and tile.visible
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        wand = world.get_component(self.item, "Wand")
+        target_name = _entity_name(world, self.target)
+        health = world.get_component(self.target, "Health")
+
+        wand.charges -= 1
+
+        effect = wand.effect
+
+        if effect == "firebolt" and health:
+            damage = roll_dice("2d6")
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.fireball_hits", target=target_name,
+                       damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                ))
+
+        elif effect == "lightning" and health:
+            damage = roll_dice("3d4")
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.lightning_strike", item="wand",
+                       target=target_name, damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                ))
+
+        elif effect == "magic_missile" and health:
+            damage = roll_dice("1d6+1")
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.missile_hits", target=target_name,
+                       damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                ))
+
+        elif effect == "disintegrate" and health:
+            damage = roll_dice("3d6")
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.fireball_hits", target=target_name,
+                       damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                ))
+
+        elif effect == "teleport":
+            # Move target to a random floor tile
+            import random as _rand
+            floors = []
+            for ty in range(level.height):
+                for tx in range(level.width):
+                    tile = level.tile_at(tx, ty)
+                    if (tile and tile.terrain.name == "FLOOR"
+                            and not tile.feature and not tile.is_corridor):
+                        floors.append((tx, ty))
+            if floors:
+                nx, ny = _rand.choice(floors)
+                tpos = world.get_component(self.target, "Position")
+                if tpos:
+                    tpos.x = nx
+                    tpos.y = ny
+            events.append(MessageEvent(
+                text=t("item.nothing_happens"),
+            ))
+
+        elif effect == "poison":
+            world.add_component(self.target, "Poison",
+                                Poison(damage_per_turn=2, turns_remaining=5))
+            events.append(MessageEvent(
+                text=t("combat.poisoned", target=target_name),
+            ))
+
+        elif effect == "slowness":
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(self.target, "StatusEffect",
+                                    StatusEffect(webbed=8))
+            else:
+                status.webbed = 8
+            events.append(MessageEvent(
+                text=t("item.web_caught", target=target_name),
+            ))
+
+        elif effect == "amok":
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(self.target, "StatusEffect",
+                                    StatusEffect(confused=6))
+            else:
+                status.confused = 6
+            events.append(MessageEvent(
+                text=t("item.phantasmal_affects", target=target_name),
+            ))
+
+        events.append(ItemUsed(
+            entity=self.actor, item=self.item, effect=f"wand_{effect}",
+        ))
 
         return events
 

@@ -93,6 +93,42 @@ scroll_appearance:
   ashpd_lansen: "pergamino etiquetado ASHPD LANSEN"
   ashpd_lansen_short: "un pergamino etiquetado ASHPD LANSEN"
 
+ring_appearance:
+  diamond: "anillo de diamante"
+  diamond_short: "un anillo de diamante"
+  ruby: "anillo de rubí"
+  ruby_short: "un anillo de rubí"
+  emerald: "anillo de esmeralda"
+  emerald_short: "un anillo de esmeralda"
+  sapphire: "anillo de zafiro"
+  sapphire_short: "un anillo de zafiro"
+  opal: "anillo de ópalo"
+  opal_short: "un anillo de ópalo"
+  amethyst: "anillo de amatista"
+  amethyst_short: "un anillo de amatista"
+  topaz: "anillo de topacio"
+  topaz_short: "un anillo de topacio"
+  onyx: "anillo de ónice"
+  onyx_short: "un anillo de ónice"
+
+wand_appearance:
+  holly: "varita de acebo"
+  holly_short: "una varita de acebo"
+  yew: "varita de tejo"
+  yew_short: "una varita de tejo"
+  ebony: "varita de ébano"
+  ebony_short: "una varita de ébano"
+  cherry: "varita de cerezo"
+  cherry_short: "una varita de cerezo"
+  teak: "varita de teca"
+  teak_short: "una varita de teca"
+  rowan: "varita de serbal"
+  rowan_short: "una varita de serbal"
+  willow: "varita de sauce"
+  willow_short: "una varita de sauce"
+  oak: "varita de roble"
+  oak_short: "una varita de roble"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   hit: "{attacker} golpea a {target} por {damage} de daño."
@@ -378,6 +414,8 @@ ui:
   quaff_which: "¿Qué poción quieres beber?"
   equip_which: "¿Qué objeto quieres equipar?"
   drop_which: "¿Qué objeto quieres soltar?"
+  zap_which: "¿Qué varita quieres usar?"
+  wand_fizzle: "La varita chisporrotea — no quedan cargas."
   throw_which: "¿Qué objeto quieres lanzar?"
   throw_target: "¿A quién se lo lanzas?"
   throw_at: "¡Lanzas {item} contra {target}!"
@@ -1322,6 +1360,70 @@ items:
     name: "Aceite de Lámpara"
     short: "un frasco de aceite"
     long: "Un frasco de aceite para linternas. Arde durante ocho horas."
+  ring_mending:
+    name: "Anillo de Curación"
+    short: "un anillo de curación"
+    long: "Un anillo cálido que pulsa suavemente. Regenera 1 PV cada 5 turnos."
+  ring_haste:
+    name: "Anillo de Celeridad"
+    short: "un anillo de celeridad"
+    long: "El tiempo se difumina alrededor de este anillo. Otorga una acción extra."
+  ring_detection:
+    name: "Anillo de Detección"
+    short: "un anillo de detección"
+    long: "Hormiguea cerca de cosas ocultas. Revela trampas y puertas secretas."
+  ring_elements:
+    name: "Anillo de los Elementos"
+    short: "un anillo de los elementos"
+    long: "Centellea con fuego y hielo interior. Reduce a la mitad el daño de fuego y frío."
+  ring_accuracy:
+    name: "Anillo de Precisión"
+    short: "un anillo de precisión"
+    long: "Estabiliza la mano. Otorga +2 a las tiradas de ataque cuerpo a cuerpo."
+  ring_evasion:
+    name: "Anillo de Evasión"
+    short: "un anillo de evasión"
+    long: "Ligero como una pluma en el dedo. Otorga +2 a la defensa de armadura."
+  ring_shadows:
+    name: "Anillo de las Sombras"
+    short: "un anillo de las sombras"
+    long: "La oscuridad se adhiere al portador. Las criaturas te detectan a mitad de distancia."
+  ring_protection:
+    name: "Anillo de Protección"
+    short: "un anillo de protección"
+    long: "Una protección tenue rodea al portador. Otorga +1 a la defensa de armadura."
+  wand_firebolt:
+    name: "Varita de Bola de Fuego"
+    short: "una varita de bola de fuego"
+    long: "Desata un rayo de fuego contra un objetivo. 2d6 de daño de fuego."
+  wand_lightning:
+    name: "Varita de Rayo"
+    short: "una varita de rayo"
+    long: "Arcos de electricidad saltan hacia el objetivo. 3d4 de daño."
+  wand_teleport:
+    name: "Varita de Teletransporte"
+    short: "una varita de teletransporte"
+    long: "Teletransporta al objetivo a un lugar aleatorio del nivel."
+  wand_poison:
+    name: "Varita de Veneno"
+    short: "una varita de veneno"
+    long: "Inyecta veneno mágico. 2 de daño por turno durante 5 turnos."
+  wand_slowness:
+    name: "Varita de Lentitud"
+    short: "una varita de lentitud"
+    long: "El tiempo se arrastra alrededor del objetivo. Reduce la velocidad 8 turnos."
+  wand_disintegrate:
+    name: "Varita de Desintegración"
+    short: "una varita de desintegración"
+    long: "Un rayo perforante de aniquilación. 3d6 de daño en línea."
+  wand_magic_missile:
+    name: "Varita de Proyectil Mágico"
+    short: "una varita de proyectil mágico"
+    long: "Un dardo de fuerza pura que nunca falla. 1d6+1 de daño."
+  wand_amok:
+    name: "Varita de Amok"
+    short: "una varita de amok"
+    long: "Lleva al objetivo a un frenesí. Confundido durante 6 turnos."
   scroll_lightning:
     name: "Pergamino de Rayo"
     short: "un pergamino crepitante"
