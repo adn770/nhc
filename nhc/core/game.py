@@ -93,6 +93,14 @@ class Game:
         depth: int = 1,
     ) -> None:
         """Set up initial game state from a level file or generator."""
+        # Check for autosave recovery
+        from nhc.core.autosave import auto_restore, has_autosave
+        if has_autosave():
+            logger.info("Autosave found, attempting recovery")
+            if auto_restore(self):
+                logger.info("Game restored from autosave")
+                return
+
         from nhc.utils.rng import get_seed, set_seed
         if self.seed is not None:
             set_seed(self.seed)
@@ -430,6 +438,8 @@ class Game:
 
             # Check win
             if self.won:
+                from nhc.core.autosave import delete_autosave
+                delete_autosave()
                 self.renderer.show_end_screen(won=True, turn=self.turn)
                 break
 
@@ -493,11 +503,17 @@ class Game:
                 self.renderer.render(
                     self.world, self.level, self.player_id, self.turn,
                 )
+                from nhc.core.autosave import delete_autosave
+                delete_autosave()
                 self.renderer.show_end_screen(won=False, turn=self.turn)
                 break
 
             # Recompute FOV
             self._update_fov()
+
+            # Autosave every turn
+            from nhc.core.autosave import autosave as _autosave
+            _autosave(self)
 
     async def _resolve(self, action: "Action") -> list:
         """Validate and execute an action, emitting events."""
@@ -1086,23 +1102,25 @@ class Game:
                 entity_data[eid] = comps
 
         self._floor_cache[depth] = (self.level, entity_data)
-
-        # Keep only last 3 floors to limit memory
-        if len(self._floor_cache) > 3:
-            oldest = min(self._floor_cache.keys())
-            del self._floor_cache[oldest]
-
         logger.info("Saved floor depth %d (%d entities cached)",
                      depth, len(entity_data))
 
     def _restore_floor(self, depth: int) -> None:
-        """Restore a cached floor's level and entities."""
+        """Restore a cached floor's level and entities.
+
+        Preserves original entity IDs so cross-references (inventory
+        slots, equipment pointers) remain valid.
+        """
         level, entity_data = self._floor_cache[depth]
         self.level = level
 
-        # Re-create entities in the world
         for eid, comps in entity_data.items():
-            self.world.create_entity(comps)
+            self.world._entities.add(eid)
+            for comp_type, comp in comps.items():
+                self.world.add_component(eid, comp_type, comp)
+            # Keep _next_id above all restored IDs
+            if eid >= self.world._next_id:
+                self.world._next_id = eid + 1
 
     def _on_creature_died(self, event: CreatureDied) -> None:
         """Award XP when the player kills a creature."""
