@@ -1059,6 +1059,50 @@ items:
     name: "Rations"
     short: "travel rations"
     long: "Dried meat, hard bread, and nuts. Enough for one day."
+  staff:
+    name: "Quarterstaff"
+    short: "a wooden quarterstaff"
+    long: "A sturdy six-foot wooden staff. Simple but versatile. 1d4 damage."
+  long_sword:
+    name: "Long Sword"
+    short: "a long two-handed sword"
+    long: "A massive blade requiring both hands. Devastating strikes. 1d10 damage."
+  hand_axe:
+    name: "Hand Axe"
+    short: "a hand axe"
+    long: "A small axe balanced for throwing or melee. 1d6 damage."
+  javelin:
+    name: "Javelin"
+    short: "a throwing javelin"
+    long: "A light spear designed for throwing at range. 1d4 damage."
+  silver_dagger:
+    name: "Silver Dagger"
+    short: "a silver dagger"
+    long: "A dagger forged from pure silver. Harms creatures immune to normal weapons."
+  leather_armor:
+    name: "Leather Armor"
+    short: "a leather jerkin"
+    long: "Hardened leather shaped into a protective vest. Light and quiet. Defense 11."
+  garlic:
+    name: "Garlic"
+    short: "a braid of garlic"
+    long: "Three heads of pungent garlic. Undead creatures recoil from its scent."
+  wolfsbane:
+    name: "Wolfsbane"
+    short: "a sprig of wolfsbane"
+    long: "A purple flowering herb also called aconite. Repels lycanthropes."
+  holy_symbol:
+    name: "Holy Symbol"
+    short: "a silver holy symbol"
+    long: "A sacred emblem on a silver chain. Required for turning undead."
+  oil_flask:
+    name: "Oil Flask"
+    short: "a flask of oil"
+    long: "A clay flask of flammable oil. Throw it to create a burst of flame. 1d8 damage."
+  healing_bandage:
+    name: "Healing Bandage"
+    short: "a linen bandage"
+    long: "Clean linen strips treated with healing herbs. Restores 1d2 HP."
   crossbow:
     name: "Crossbow"
     short: "a heavy crossbow"

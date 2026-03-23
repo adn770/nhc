@@ -1203,6 +1203,61 @@ items:
     gender: "f"
     short: "racions de viatge"
     long: "Carn seca, pa dur i fruits secs. Per a un dia."
+  staff:
+    name: "Bastó"
+    gender: "m"
+    short: "un bastó de fusta"
+    long: "Un bastó de fusta robust de dos metres. Simple però versàtil. 1d4 de dany."
+  long_sword:
+    name: "Espasa a Dues Mans"
+    gender: "f"
+    short: "una espasa a dues mans"
+    long: "Una fulla massiva que requereix les dues mans. Cops devastadors. 1d10 de dany."
+  hand_axe:
+    name: "Destral de Mà"
+    gender: "f"
+    short: "una destral de mà"
+    long: "Una destral petita equilibrada per llançar o cos a cos. 1d6 de dany."
+  javelin:
+    name: "Javelina"
+    gender: "f"
+    short: "una javelina"
+    long: "Una llança lleugera dissenyada per llançar a distància. 1d4 de dany."
+  silver_dagger:
+    name: "Daga de Plata"
+    gender: "f"
+    short: "una daga de plata"
+    long: "Una daga forjada en plata pura. Fa mal a criatures immunes a armes normals."
+  leather_armor:
+    name: "Armadura de Cuir"
+    gender: "f"
+    short: "una armadura de cuir"
+    long: "Cuir endurit en forma de gipó protector. Lleugera i silenciosa. Defensa 11."
+  garlic:
+    name: "All"
+    gender: "m"
+    short: "una trena d'alls"
+    long: "Tres cabeçes d'all pudent. Les criatures no mortes reculen davant la seva olor."
+  wolfsbane:
+    name: "Matallops"
+    gender: "m"
+    short: "un brot de matallops"
+    long: "Una herba de flor porpra també anomenada acònit. Repèl els licàntrops."
+  holy_symbol:
+    name: "Símbol Sagrat"
+    gender: "m"
+    short: "un símbol sagrat de plata"
+    long: "Un emblema sagrat en una cadena de plata. Necessari per tornar no morts."
+  oil_flask:
+    name: "Flascó d'Oli"
+    gender: "m"
+    short: "un flascó d'oli"
+    long: "Un flascó de fang amb oli inflamable. Llança'l per crear una explosió de foc. 1d8 de dany."
+  healing_bandage:
+    name: "Bena Curativa"
+    gender: "f"
+    short: "una bena de lli"
+    long: "Tires de lli netes tractades amb herbes curatives. Restaura 1d2 PV."
   crossbow:
     name: "Ballesta"
     gender: "f"

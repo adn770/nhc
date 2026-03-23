@@ -1072,6 +1072,50 @@ items:
     name: "Raciones"
     short: "raciones de viaje"
     long: "Carne seca, pan duro y frutos secos. Para un día."
+  staff:
+    name: "Bastón"
+    short: "un bastón de madera"
+    long: "Un bastón de madera robusto de dos metros. Simple pero versátil. 1d4 de daño."
+  long_sword:
+    name: "Espada a Dos Manos"
+    short: "una espada a dos manos"
+    long: "Una hoja masiva que requiere ambas manos. Golpes devastadores. 1d10 de daño."
+  hand_axe:
+    name: "Hacha de Mano"
+    short: "un hacha de mano"
+    long: "Un hacha pequeña equilibrada para lanzar o cuerpo a cuerpo. 1d6 de daño."
+  javelin:
+    name: "Jabalina"
+    short: "una jabalina"
+    long: "Una lanza ligera diseñada para lanzar a distancia. 1d4 de daño."
+  silver_dagger:
+    name: "Daga de Plata"
+    short: "una daga de plata"
+    long: "Una daga forjada en plata pura. Daña a criaturas inmunes a armas normales."
+  leather_armor:
+    name: "Armadura de Cuero"
+    short: "un jubón de cuero"
+    long: "Cuero endurecido en forma de chaleco protector. Ligera y silenciosa. Defensa 11."
+  garlic:
+    name: "Ajo"
+    short: "una trenza de ajos"
+    long: "Tres cabezas de ajo maloliente. Las criaturas no muertas retroceden ante su olor."
+  wolfsbane:
+    name: "Acónito"
+    short: "una ramita de acónito"
+    long: "Una hierba de flor púrpura. Repele a los licántropos."
+  holy_symbol:
+    name: "Símbolo Sagrado"
+    short: "un símbolo sagrado de plata"
+    long: "Un emblema sagrado en una cadena de plata. Necesario para repeler no muertos."
+  oil_flask:
+    name: "Frasco de Aceite"
+    short: "un frasco de aceite"
+    long: "Un frasco de barro con aceite inflamable. Lánzalo para crear una explosión de fuego. 1d8 de daño."
+  healing_bandage:
+    name: "Venda Curativa"
+    short: "una venda de lino"
+    long: "Tiras de lino limpias tratadas con hierbas curativas. Restaura 1d2 PV."
   crossbow:
     name: "Ballesta"
     short: "una ballesta pesada"
