@@ -81,7 +81,7 @@ class Game:
         self.renderer = TerminalRenderer(color_mode=color_mode,
                                          game_mode=game_mode)
         self._seen_creatures: set[int] = set()
-        self._potions = None  # PotionKnowledge, set in initialize()
+        self._knowledge = None  # ItemKnowledge, set in initialize()
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
@@ -103,9 +103,9 @@ class Game:
         EntityRegistry.discover_all()
 
         # Initialize potion randomization
-        from nhc.rules.potions import PotionKnowledge
+        from nhc.rules.identification import ItemKnowledge
         from nhc.utils.rng import get_rng as _get_rng
-        self._potions = PotionKnowledge(rng=_get_rng())
+        self._knowledge = ItemKnowledge(rng=_get_rng())
 
         if generate:
             from nhc.dungeon.generator import GenerationParams
@@ -262,48 +262,47 @@ class Game:
     def _disguise_potion(
         self, components: dict, item_id: str,
     ) -> None:
-        """Override a potion's description and color if unidentified."""
-        if not self._potions:
+        """Override a potion/scroll description and color if unidentified."""
+        if not self._knowledge:
             return
-        from nhc.rules.potions import POTION_IDS
-        if item_id not in POTION_IDS:
+        if not self._knowledge.is_identifiable(item_id):
             return
-        if self._potions.is_identified(item_id):
+        if self._knowledge.is_identified(item_id):
             return
         # Store the real item_id so we can identify later
         components["_potion_id"] = item_id
         desc = components.get("Description")
         if desc:
-            desc.name = self._potions.display_name(item_id)
-            desc.short = self._potions.display_short(item_id)
+            desc.name = self._knowledge.display_name(item_id)
+            desc.short = self._knowledge.display_short(item_id)
         rend = components.get("Renderable")
         if rend:
-            rend.color = self._potions.glyph_color(item_id)
+            rend.color = self._knowledge.glyph_color(item_id)
 
     def _identify_potion(self, item_eid: int) -> None:
-        """Identify a potion after quaffing and update all of that type."""
-        if not self._potions:
+        """Identify a potion/scroll after use and update all of that type."""
+        if not self._knowledge:
             return
-        potion_id = self.world.get_component(item_eid, "_potion_id")
-        if not potion_id:
+        real_id = self.world.get_component(item_eid, "_potion_id")
+        if not real_id:
             return
-        if self._potions.is_identified(potion_id):
+        if self._knowledge.is_identified(real_id):
             return
 
-        self._potions.identify(potion_id)
-        real_name = t(f"items.{potion_id}.name")
+        self._knowledge.identify(real_id)
+        real_name = t(f"items.{real_id}.name")
         self.renderer.add_message(
             t("potion_appearance.identified", name=real_name),
         )
 
-        # Update all existing potions of this type in the world
+        # Update all existing items of this type in the world
         for eid, pid_comp in self.world._entities.items():
             pid = pid_comp.get("_potion_id")
-            if pid == potion_id:
+            if pid == real_id:
                 desc = self.world.get_component(eid, "Description")
                 if desc:
-                    desc.name = self._potions.display_name(potion_id)
-                    desc.short = self._potions.display_short(potion_id)
+                    desc.name = self._knowledge.display_name(real_id)
+                    desc.short = self._knowledge.display_short(real_id)
 
     def _update_fov(self) -> None:
         """Recompute field of view centered on player."""
