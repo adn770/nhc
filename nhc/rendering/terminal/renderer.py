@@ -162,12 +162,13 @@ class TerminalRenderer:
 
         # ── Zone 2: Status ──
         stats = self._gather_stats(world, player_id, turn, level)
-        items, max_slots = self._gather_inventory(
+        items, max_slots, total_used = self._gather_inventory(
             world, player_id,
             equipped_ids=stats.get("_equipped_ids"),
         )
         status_y = map_h
-        output += render_status(t, status_y, t.width, stats, items, max_slots)
+        output += render_status(t, status_y, t.width, stats, items,
+                                max_slots, total_used)
 
         # ── Zone 3: Log + input (identical layout in both modes) ──
         log_y = status_y + STATUS_HEIGHT
@@ -492,21 +493,38 @@ class TerminalRenderer:
     def _gather_inventory(
         self, world: World, player_id: int,
         equipped_ids: set[int] | None = None,
-    ) -> tuple[list[str], int]:
-        """Collect inventory item names, excluding equipped items."""
+    ) -> tuple[list[str], int, int]:
+        """Collect inventory item names, excluding equipped items.
+
+        Returns (backpack_names, max_slots, total_slots_used).
+        Total slots includes equipped items — per Knave rules all
+        gear uses inventory slots whether equipped or not.
+        """
         inv = world.get_component(player_id, "Inventory")
         if not inv:
-            return [], 11
+            return [], 11, 0
 
         equipped = equipped_ids or set()
         names = []
-        for item_id in inv.slots:
-            if item_id in equipped:
-                continue
-            desc = world.get_component(item_id, "Description")
-            names.append(desc.name if desc else "???")
+        total_used = 0
 
-        return names, inv.max_slots
+        for item_id in inv.slots:
+            # Count slot cost for ALL items
+            slot_cost = 1
+            wpn = world.get_component(item_id, "Weapon")
+            if wpn:
+                slot_cost = wpn.slots
+            arm = world.get_component(item_id, "Armor")
+            if arm:
+                slot_cost = arm.slots
+            total_used += slot_cost
+
+            # Only show non-equipped in backpack list
+            if item_id not in equipped:
+                desc = world.get_component(item_id, "Description")
+                names.append(desc.name if desc else "???")
+
+        return names, inv.max_slots, total_used
 
     async def get_input(self) -> tuple[str, Any]:
         """Wait for keypress and return (intent, data)."""

@@ -455,9 +455,13 @@ class PickupItemAction(Action):
             return False
         # Gold never needs an inventory slot
         is_gold = world.has_component(self.item, "Gold")
-        if not is_gold and len(inv.slots) >= inv.max_slots:
-            self.full = True
-            return False
+        if not is_gold:
+            # Sum actual slot costs (weapons/armor use multiple)
+            used = _count_slots_used(world, inv)
+            item_cost = _item_slot_cost(world, self.item)
+            if used + item_cost > inv.max_slots:
+                self.full = True
+                return False
         item_pos = world.get_component(self.item, "Position")
         actor_pos = world.get_component(self.actor, "Position")
         if not item_pos or not actor_pos:
@@ -1273,6 +1277,25 @@ class BumpAction(Action):
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
+
+
+def _item_slot_cost(world: "World", eid: int) -> int:
+    """Return the number of inventory slots an item uses."""
+    wpn = world.get_component(eid, "Weapon")
+    if wpn:
+        return wpn.slots
+    arm = world.get_component(eid, "Armor")
+    if arm:
+        return arm.slots
+    return 1
+
+
+def _count_slots_used(world: "World", inv) -> int:
+    """Sum slot costs of all items in an inventory."""
+    total = 0
+    for item_id in inv.slots:
+        total += _item_slot_cost(world, item_id)
+    return total
 
 
 def _entity_name(world: "World", eid: int) -> str:

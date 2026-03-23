@@ -33,6 +33,7 @@ def render_status(
     stats: dict,
     items: list[str],
     max_slots: int,
+    total_slots_used: int = 0,
 ) -> str:
     """Render the 3-line status zone (Zone 2).
 
@@ -114,16 +115,14 @@ def render_status(
     output += term.move_xy(0, y + 2) + _pad(line2, width)
 
     # ── Line 3: Inventory ──
-    count = len(items)
-    if count == 0:
+    # total_slots_used includes equipped items (Knave: all gear uses slots)
+    used = total_slots_used if total_slots_used else len(items)
+    if not items:
         inv_detail = term.bright_black(tr("ui.empty"))
     else:
-        parts = []
-        for name in items:
-            parts.append(name)
-        inv_detail = term.white(" · ".join(parts))
+        inv_detail = term.white(" · ".join(items))
 
-    line3 = f" 🎒 {count}/{max_slots}  {inv_detail}"
+    line3 = f" 🎒 {used}/{max_slots}  {inv_detail}"
     output += term.move_xy(0, y + 3) + _pad(line3, width)
 
     return output
