@@ -416,6 +416,9 @@ ui:
   drop_which: "¿Qué objeto quieres soltar?"
   zap_which: "¿Qué varita quieres usar?"
   wand_fizzle: "La varita chisporrotea — no quedan cargas."
+  identify_which: "¿Qué objeto quieres identificar?"
+  identify_cast: "El pergamino brilla y el conocimiento inunda tu mente..."
+  identify_nothing: "No tienes nada sin identificar."
   throw_which: "¿Qué objeto quieres lanzar?"
   throw_target: "¿A quién se lo lanzas?"
   throw_at: "¡Lanzas {item} contra {target}!"
@@ -1424,6 +1427,10 @@ items:
     name: "Varita de Amok"
     short: "una varita de amok"
     long: "Lleva al objetivo a un frenesí. Confundido durante 6 turnos."
+  scroll_identify:
+    name: "Pergamino de Identificación"
+    short: "un pergamino brillante"
+    long: "Leer este pergamino revela la verdadera naturaleza de un objeto del inventario."
   scroll_lightning:
     name: "Pergamino de Rayo"
     short: "un pergamino crepitante"

@@ -434,6 +434,9 @@ ui:
   drop_which: "Quin objecte vols deixar?"
   zap_which: "Quina vareta vols usar?"
   wand_fizzle: "La vareta xiscla — no queden càrregues."
+  identify_which: "Quin objecte vols identificar?"
+  identify_cast: "El pergamí brilla i el coneixement inunda la teva ment..."
+  identify_nothing: "No tens res sense identificar."
   throw_which: "Quin objecte vols llançar?"
   throw_target: "A qui el llances?"
   throw_at: "Llances {item} contra {target}!"
@@ -1635,6 +1638,11 @@ items:
     gender: "f"
     short: "una vareta d'amok"
     long: "Porta l'objectiu a un frenesí. Confós durant 6 torns."
+  scroll_identify:
+    name: "Pergamí d'Identificació"
+    gender: "m"
+    short: "un pergamí brillant"
+    long: "Llegir aquest pergamí revela la veritable natura d'un objecte de l'inventari."
   scroll_lightning:
     name: "Pergamí de Llamp"
     gender: "m"

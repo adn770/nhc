@@ -1255,8 +1255,45 @@ class Game:
         self.renderer.add_message(event.text)
 
     def _on_item_used(self, event: ItemUsed) -> None:
-        """Identify potions when quaffed."""
+        """Identify items when used. Handle identify scroll specially."""
         self._identify_potion(event.item)
+
+        if event.effect == "identify":
+            self._use_identify_scroll()
+
+    def _use_identify_scroll(self) -> None:
+        """Let the player pick an unidentified item to reveal."""
+        if not self._knowledge:
+            return
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if not inv:
+            return
+
+        # Gather unidentified items
+        items: list[tuple[int, str]] = []
+        for item_id in inv.slots:
+            real_id = self.world.get_component(item_id, "_potion_id")
+            if not real_id:
+                continue
+            if self._knowledge.is_identified(real_id):
+                continue
+            desc = self.world.get_component(item_id, "Description")
+            name = desc.name if desc else "???"
+            items.append((item_id, name))
+
+        if not items:
+            self.renderer.add_message(t("item.identify_nothing"))
+            return
+
+        selected = self.renderer._draw_inventory_box(
+            t("ui.identify_which"), items,
+        )
+        if selected is None:
+            return
+
+        real_id = self.world.get_component(selected, "_potion_id")
+        if real_id:
+            self._identify_potion(selected)
 
     def _on_game_won(self, event: GameWon) -> None:
         """Handle game won event."""

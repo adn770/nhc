@@ -1153,6 +1153,16 @@ class UseItemAction(Action):
                 world, level, self.actor, self.item, consumable, item_name,
             )
 
+        elif consumable.effect == "identify":
+            # Identify is handled specially in the game loop
+            # (needs UI interaction to pick which item)
+            events.append(ItemUsed(
+                entity=self.actor, item=self.item, effect="identify",
+            ))
+            events.append(MessageEvent(
+                text=t("item.identify_cast"),
+            ))
+
         else:
             events.append(MessageEvent(
                 text=t("item.nothing_happens"),

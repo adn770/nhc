@@ -416,6 +416,9 @@ ui:
   drop_which: "Drop which item?"
   zap_which: "Zap which wand?"
   wand_fizzle: "The wand fizzles — no charges left."
+  identify_which: "Identify which item?"
+  identify_cast: "The scroll glows and knowledge floods your mind..."
+  identify_nothing: "You have nothing unidentified."
   throw_which: "Throw which item?"
   throw_target: "Throw at whom?"
   throw_at: "You throw {item} at {target}!"
@@ -1413,6 +1416,10 @@ items:
     name: "Wand of Amok"
     short: "a wand of amok"
     long: "Drives the target into a frenzy. Confused for 6 turns."
+  scroll_identify:
+    name: "Scroll of Identify"
+    short: "a glowing scroll"
+    long: "Reading this scroll reveals the true nature of one item in your inventory."
   scroll_lightning:
     name: "Scroll of Lightning"
     short: "a crackling scroll"

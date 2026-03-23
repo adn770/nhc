@@ -76,7 +76,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("scroll_sleep", 0.05), ("scroll_cure_wounds", 0.05),
         ("scroll_web", 0.04), ("scroll_bless", 0.04),
         ("scroll_mirror_image", 0.03), ("potion_mind_vision", 0.03),
-        ("lantern", 0.03),
+        ("lantern", 0.03), ("scroll_identify", 0.03),
     ],
     3: [
         ("healing_potion", 0.12), ("sword", 0.08), ("shield", 0.08),
