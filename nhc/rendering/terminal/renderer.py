@@ -291,7 +291,10 @@ class TerminalRenderer:
             if nb.terrain == Terrain.WALL:
                 return True
             # Doors sit in wall-like positions
-            return nb.blocks_sight
+            if nb.feature in ("door_closed", "door_locked",
+                              "door_secret"):
+                return True
+            return False
 
         cn = _is_wall(x, y - 1)
         cs = _is_wall(x, y + 1)
