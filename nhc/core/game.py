@@ -166,6 +166,23 @@ class Game:
         })
         self._character = char
 
+        # Give starting equipment
+        inv = self.world.get_component(self.player_id, "Inventory")
+        equip = self.world.get_component(self.player_id, "Equipment")
+        for item_id in char.starting_items:
+            try:
+                item_comps = EntityRegistry.get_item(item_id)
+                self._disguise_potion(item_comps, item_id)
+                eid = self.world.create_entity(item_comps)
+                if inv and len(inv.slots) < inv.max_slots:
+                    inv.slots.append(eid)
+                    # Auto-equip the first weapon
+                    if (equip and equip.weapon is None
+                            and self.world.has_component(eid, "Weapon")):
+                        equip.weapon = eid
+            except KeyError:
+                logger.warning("Unknown starting item: %s", item_id)
+
         # Spawn level entities
         self._spawn_level_entities()
 

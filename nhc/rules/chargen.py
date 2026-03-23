@@ -7,7 +7,7 @@ misfortune, alignment), a random name, and starting gold.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, field
 
 from nhc.utils.rng import get_rng, roll_dice
 
@@ -141,6 +141,8 @@ class CharacterSheet:
     background: str = ""
     misfortune: str = ""
     alignment: str = ""
+    # Starting equipment (item registry IDs)
+    starting_items: list[str] = field(default_factory=list)
 
 
 def _roll_ability(rng) -> int:
@@ -161,6 +163,75 @@ def _roll_alignment(rng) -> str:
         if roll <= threshold:
             return align
     return "neutral"
+
+
+# ── Starting equipment tables (Knave rules) ─────────────────────────
+
+# Armor: roll 1d20
+# 1-3: none, 4-14: gambeson (not implemented → healing_potion),
+# 15-19: brigantine (shield), 20: chain mail (shield)
+# Simplified to items we have in the registry
+ARMOR_TABLE = [
+    (3, None),          # 1-3: no armor
+    (14, "shield"),     # 4-14: light armor → shield
+    (19, "shield"),     # 15-19: medium armor → shield
+    (20, "shield"),     # 20: heavy armor → shield
+]
+
+# Helm/Shield: roll 1d20
+# 1-13: none, 14-16: helm, 17-19: shield, 20: both
+# We only have shield; helm is flavor
+HELM_SHIELD_TABLE = [
+    (13, None),         # 1-13: nothing
+    (16, None),         # 14-16: helm (not in registry yet)
+    (19, "shield"),     # 17-19: shield
+    (20, "shield"),     # 20: helm + shield
+]
+
+# Weapon: player gets one weapon (random)
+WEAPON_TABLE = ["dagger", "short_sword", "sword"]
+
+# Starting consumables: always 1 healing potion + 1 random scroll
+STARTING_SCROLLS = [
+    "scroll_light", "scroll_cure_wounds", "scroll_bless",
+    "scroll_detect_magic", "scroll_find_traps", "scroll_sleep",
+    "scroll_remove_fear", "scroll_shield",
+]
+
+
+def _roll_table(table: list[tuple[int, int | None]], rng) -> str | None:
+    """Roll 1d20 against a threshold table."""
+    roll = rng.randint(1, 20)
+    for threshold, item in table:
+        if roll <= threshold:
+            return item
+    return None
+
+
+def _roll_starting_equipment(rng) -> list[str]:
+    """Roll starting equipment per Knave rules."""
+    items: list[str] = []
+
+    # One weapon (random from tier 1)
+    items.append(rng.choice(WEAPON_TABLE))
+
+    # Armor roll
+    armor = _roll_table(ARMOR_TABLE, rng)
+    if armor:
+        items.append(armor)
+
+    # Helm/shield roll
+    helm_shield = _roll_table(HELM_SHIELD_TABLE, rng)
+    if helm_shield and helm_shield not in items:
+        items.append(helm_shield)
+
+    # Always: 1 healing potion
+    items.append("healing_potion")
+
+    # 1 random starting scroll
+    items.append(rng.choice(STARTING_SCROLLS))
+
+    return items
 
 
 def generate_character(seed: int | None = None) -> CharacterSheet:
@@ -198,6 +269,9 @@ def generate_character(seed: int | None = None) -> CharacterSheet:
     surname = _pick(SURNAMES, rng)
     name = f"{first} {surname}"
 
+    # Starting equipment
+    starting_items = _roll_starting_equipment(rng)
+
     return CharacterSheet(
         name=name,
         strength=strength,
@@ -219,4 +293,5 @@ def generate_character(seed: int | None = None) -> CharacterSheet:
         background=_pick(BACKGROUND, rng),
         misfortune=_pick(MISFORTUNE, rng),
         alignment=_roll_alignment(rng),
+        starting_items=starting_items,
     )
