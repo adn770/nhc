@@ -559,6 +559,44 @@ class UseItemAction(Action):
                            amount=actual),
                 ))
 
+        elif consumable.effect == "strength":
+            stats = world.get_component(self.actor, "Stats")
+            if stats:
+                stats.strength += 1
+                events.append(ItemUsed(
+                    entity=self.actor, item=self.item, effect="strength",
+                ))
+                events.append(MessageEvent(
+                    text=t("item.strength_up"),
+                ))
+
+        elif consumable.effect == "frost":
+            # Freeze visible creatures (paralyzed for N turns)
+            events.append(MessageEvent(text=t("item.frost_cast")))
+            try:
+                duration = int(consumable.dice)
+            except ValueError:
+                duration = roll_dice(consumable.dice)
+            for eid, _, cpos in world.query("AI", "Position"):
+                if cpos is None:
+                    continue
+                tile = level.tile_at(cpos.x, cpos.y)
+                if not tile or not tile.visible:
+                    continue
+                status = world.get_component(eid, "StatusEffect")
+                if status is None:
+                    world.add_component(eid, "StatusEffect",
+                                        StatusEffect(paralyzed=duration))
+                else:
+                    status.paralyzed = duration
+                name = _entity_name(world, eid)
+                events.append(MessageEvent(
+                    text=t("item.frost_affects", target=name),
+                ))
+            events.append(ItemUsed(
+                entity=self.actor, item=self.item, effect="frost",
+            ))
+
         elif consumable.effect == "damage_nearest":
             events += _use_damage_nearest(
                 world, level, self.actor, self.item, consumable, item_name,

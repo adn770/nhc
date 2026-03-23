@@ -126,6 +126,9 @@ item:
   haste_active: "Et mous a cegadora velocitat!"
   protect_cast: "Un escudo de poder sagrat t'envolta."
   protect_active: "Les criatures malvades lluiten per fer-te mal!"
+  strength_up: "Una força renovada sorgeix pel teu cos! +1 FOR."
+  frost_cast: "Una ona de fred glacial erupciona del vial!"
+  frost_affects: "{target} queda congelat!"
   mirror_cast: "Còpies parpellejants teves apareixen!"
   mirror_images: "{count} imatges en mirall t'envolten."
   detect_magic_cast: "La visió arcana inunda els teus ulls!"
@@ -291,8 +294,9 @@ ui:
   empty: "buit"
   scroll_hint: "desplaçar"
   esc_cancel: "  ESC per cancel·lar"
-  inventory_title: "Inventari (ESC per tancar)"
+  inventory_title: "Inventari"
   use_which: "Quin objecte vols usar?"
+  quaff_which: "Quina poció vols beure?"
   victory_title: "VICTÒRIA!"
   victory_desc: "Has descendit més endins de la masmorra."
   death_title: "HAS MORT"
@@ -886,6 +890,62 @@ items:
     long: >-
       Un petit vial de vidre ple d'un líquid vermell brillant.
       Fa una lleugera olor de ferro i herbes.
+  potion_strength:
+    name: "Poció de Força"
+    gender: "f"
+    short: "una poció vermella intensa"
+    long: >-
+      Un líquid vermell espès que palpita amb poder interior.
+      Augmenta permanentment la teva força.
+  potion_frost:
+    name: "Poció de Gel"
+    gender: "f"
+    short: "una poció blau gel"
+    long: >-
+      Cristalls gelats giren dins del vial. En consumir-la,
+      envia una ona de fred glacial cap enfora.
+  potion_invisibility:
+    name: "Poció d'Invisibilitat"
+    gender: "f"
+    short: "una poció transparent"
+    long: >-
+      Gairebé impossible de veure — el líquid és perfectament clar.
+      Beure-la et torna invisible durant un temps.
+  potion_levitation:
+    name: "Poció de Levitació"
+    gender: "f"
+    short: "una poció blanca lleugera"
+    long: >-
+      Bombolles sense pes floten dins del vial. Beure-la et
+      permet flotar sobre el terra, evitant trampes.
+  potion_liquid_flame:
+    name: "Poció de Flama Líquida"
+    gender: "f"
+    short: "una poció taronja volàtil"
+    long: >-
+      Calenta al tacte. El líquid es remou amb foc contingut.
+      Beure-la desferma flames sobre tots els que són a prop.
+  potion_mind_vision:
+    name: "Poció de Visió Mental"
+    gender: "f"
+    short: "una poció porpra arremolinada"
+    long: >-
+      Vapors porpres ballen dins del vial. Beure-la afina els
+      teus sentits per detectar criatures vives a través de les parets.
+  potion_paralytic_gas:
+    name: "Poció de Gas Paralitzant"
+    gender: "f"
+    short: "una poció groga"
+    long: >-
+      Fums grocs espessos premen contra el tap. Beure-la allibera
+      un gas adormir que paralitza els enemics propers.
+  potion_purification:
+    name: "Poció de Purificació"
+    gender: "f"
+    short: "una poció verd brillant"
+    long: >-
+      Brilla amb claredat interior. Beure-la neteja tot el verí
+      i els efectes nocius del teu cos.
   gold:
     name: "Or"
     gender: "m"

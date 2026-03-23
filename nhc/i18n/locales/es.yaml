@@ -110,6 +110,9 @@ item:
   haste_active: "¡Te mueves a velocidad cegadora!"
   protect_cast: "Un escudo de poder sagrado se asienta sobre ti."
   protect_active: "¡Las criaturas malignas tienen dificultades para hacerte daño!"
+  strength_up: "¡Una fuerza renovada surge por tu cuerpo! +1 FUE."
+  frost_cast: "¡Una ola de frío glacial erupciona del frasco!"
+  frost_affects: "¡{target} queda congelado!"
   mirror_cast: "¡Copias parpadeantes tuyas aparecen!"
   mirror_images: "{count} imágenes especulares te rodean."
   detect_magic_cast: "¡La visión arcana inunda tus ojos!"
@@ -275,8 +278,9 @@ ui:
   empty: "vacío"
   scroll_hint: "desplazar"
   esc_cancel: "  ESC para cancelar"
-  inventory_title: "Inventario (ESC para cerrar)"
+  inventory_title: "Inventario"
   use_which: "¿Qué objeto quieres usar?"
+  quaff_which: "¿Qué poción quieres beber?"
   victory_title: "¡VICTORIA!"
   victory_desc: "Has descendido más profundo en la mazmorra."
   death_title: "HAS MUERTO"
@@ -794,6 +798,54 @@ items:
     long: >-
       Un pequeño frasco de cristal lleno de un líquido rojo brillante.
       Huele ligeramente a hierro y hierbas.
+  potion_strength:
+    name: "Poción de Fuerza"
+    short: "una poción roja intensa"
+    long: >-
+      Un líquido rojo espeso que pulsa con poder interior.
+      Aumenta permanentemente tu fuerza.
+  potion_frost:
+    name: "Poción de Escarcha"
+    short: "una poción azul hielo"
+    long: >-
+      Cristales helados giran dentro del frasco. Al consumirla,
+      envía una ola de frío glacial hacia fuera.
+  potion_invisibility:
+    name: "Poción de Invisibilidad"
+    short: "una poción transparente"
+    long: >-
+      Casi imposible de ver — el líquido es perfectamente claro.
+      Beberla te vuelve invisible por un tiempo.
+  potion_levitation:
+    name: "Poción de Levitación"
+    short: "una poción blanca ligera"
+    long: >-
+      Burbujas ingrávidas flotan dentro del frasco. Beberla te
+      permite flotar sobre el suelo, evitando trampas.
+  potion_liquid_flame:
+    name: "Poción de Llama Líquida"
+    short: "una poción naranja volátil"
+    long: >-
+      Caliente al tacto. El líquido se agita con fuego contenido.
+      Beberla desata llamas sobre todos los cercanos.
+  potion_mind_vision:
+    name: "Poción de Visión Mental"
+    short: "una poción púrpura arremolinada"
+    long: >-
+      Vapores púrpuras danzan dentro del frasco. Beberla afina tus
+      sentidos para detectar criaturas vivas a través de las paredes.
+  potion_paralytic_gas:
+    name: "Poción de Gas Paralizante"
+    short: "una poción amarilla"
+    long: >-
+      Espesos humos amarillos presionan contra el tapón. Beberla
+      libera un gas adormecedor que paraliza enemigos cercanos.
+  potion_purification:
+    name: "Poción de Purificación"
+    short: "una poción verde brillante"
+    long: >-
+      Brilla con claridad interior. Beberla limpia todo veneno
+      y efectos nocivos de tu cuerpo.
   gold:
     name: "Oro"
     short: "un montón de monedas de oro"

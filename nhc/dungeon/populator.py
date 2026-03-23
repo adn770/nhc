@@ -57,16 +57,21 @@ ENCOUNTER_GROUPS: list[tuple[str, int, int]] = [
 
 ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [
-        ("healing_potion", 0.35), ("dagger", 0.25), ("short_sword", 0.15),
+        ("healing_potion", 0.25), ("potion_purification", 0.05),
+        ("dagger", 0.20), ("short_sword", 0.15),
         ("scroll_sleep", 0.1), ("scroll_cure_wounds", 0.1),
-        ("scroll_bless", 0.05),
+        ("scroll_bless", 0.05), ("potion_frost", 0.05),
+        ("potion_mind_vision", 0.05),
     ],
     2: [
-        ("healing_potion", 0.2), ("short_sword", 0.15), ("sword", 0.1),
-        ("scroll_lightning", 0.1), ("scroll_magic_missile", 0.1),
-        ("scroll_sleep", 0.08), ("scroll_cure_wounds", 0.08),
-        ("scroll_web", 0.07), ("scroll_bless", 0.07),
-        ("scroll_mirror_image", 0.05),
+        ("healing_potion", 0.15), ("potion_frost", 0.05),
+        ("potion_strength", 0.03), ("potion_invisibility", 0.04),
+        ("short_sword", 0.12), ("sword", 0.08),
+        ("scroll_lightning", 0.08), ("scroll_magic_missile", 0.08),
+        ("scroll_sleep", 0.07), ("scroll_cure_wounds", 0.07),
+        ("scroll_web", 0.06), ("scroll_bless", 0.06),
+        ("scroll_mirror_image", 0.04), ("potion_mind_vision", 0.04),
+        ("potion_purification", 0.03),
     ],
     3: [
         ("healing_potion", 0.15), ("sword", 0.1), ("shield", 0.1),

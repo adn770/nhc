@@ -27,6 +27,7 @@ Press TAB to switch between modes at any time during gameplay.
   g or ,         Pick up item at your feet
   i              Open inventory
   a              Use an item (shows inventory menu)
+  q              Quaff a potion (shows potions only)
   >              Descend stairs
   x              Look around (inspect tile)
   s              Search for hidden traps and secret doors
@@ -37,7 +38,7 @@ Press TAB to switch between modes at any time during gameplay.
   TAB            Switch between classic and typed mode
   S              Save game
   L              Load game
-  q              Quit
+  Q              Quit
 
 ## Keyboard Shortcuts — Typed Mode
 
@@ -56,7 +57,7 @@ Press TAB to switch between modes at any time during gameplay.
   ?              Show this help screen
   [ ]            Scroll narrative log
   S              Save game
-  q              Quit
+  Q              Quit
 
 ## Typed Mode Examples
 

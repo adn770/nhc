@@ -30,6 +30,7 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     ",": ("pickup", None),
     "i": ("inventory", None),
     "a": ("use_item", None),
+    "q": ("quaff", None),
     ">": ("descend", None),
     "x": ("look", None),
     ".": ("wait", None),
@@ -48,7 +49,6 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     "\t": ("toggle_mode", None),
     "KEY_TAB": ("toggle_mode", None),
     # Quit
-    "q": ("quit", None),
     "Q": ("quit", None),
 }
 

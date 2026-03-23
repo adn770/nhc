@@ -585,6 +585,9 @@ class Game:
         if intent == "use_item":
             return self._find_use_action()
 
+        if intent == "quaff":
+            return self._find_quaff_action()
+
         if intent == "inventory":
             self._show_inventory()
             return None
@@ -675,7 +678,18 @@ class Game:
     def _find_use_action(self) -> "Action | None":
         """Show inventory menu and return a use action."""
         item_id = self.renderer.show_inventory_menu(
-            self.world, self.player_id, "Use which item?",
+            self.world, self.player_id,
+        )
+        if item_id is None:
+            return None
+        return UseItemAction(actor=self.player_id, item=item_id)
+
+    def _find_quaff_action(self) -> "Action | None":
+        """Show potions only and quaff one."""
+        item_id = self.renderer.show_filtered_inventory(
+            self.world, self.player_id,
+            title=t("ui.quaff_which"),
+            filter_component="Consumable",
         )
         if item_id is None:
             return None
@@ -684,7 +698,8 @@ class Game:
     def _show_inventory(self) -> None:
         """Show inventory without action (just display)."""
         self.renderer.show_inventory_menu(
-            self.world, self.player_id, "Inventory (ESC to close)",
+            self.world, self.player_id,
+            prompt=t("ui.inventory_title"),
         )
 
     def _save_game(self) -> None:

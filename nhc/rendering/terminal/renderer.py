@@ -475,10 +475,9 @@ class TerminalRenderer:
             return str(val)
 
     def show_inventory_menu(
-        self, world: World, player_id: int, prompt: str = "Use which item?",
+        self, world: World, player_id: int, prompt: str = "",
     ) -> int | None:
-        """Show inventory selection menu. Returns item EntityId or None."""
-        t = self.term
+        """Show full inventory selection menu."""
         inv = world.get_component(player_id, "Inventory")
         if not inv or not inv.slots:
             return None
@@ -486,10 +485,41 @@ class TerminalRenderer:
         items: list[tuple[int, str]] = []
         for item_id in inv.slots:
             desc = world.get_component(item_id, "Description")
+            items.append((item_id, desc.name if desc else "???"))
+
+        title = prompt or tr("ui.use_which")
+        return self._draw_inventory_box(title, items)
+
+    def show_filtered_inventory(
+        self, world: World, player_id: int,
+        title: str,
+        filter_component: str | None = None,
+    ) -> int | None:
+        """Show inventory filtered by component. Returns item EntityId."""
+        inv = world.get_component(player_id, "Inventory")
+        if not inv or not inv.slots:
+            return None
+
+        items: list[tuple[int, str]] = []
+        for item_id in inv.slots:
+            if filter_component and not world.has_component(
+                item_id, filter_component,
+            ):
+                continue
+            desc = world.get_component(item_id, "Description")
             name = desc.name if desc else "???"
             items.append((item_id, name))
 
-        # Sky blue border color (same as help overlay)
+        if not items:
+            return None
+
+        return self._draw_inventory_box(title, items)
+
+    def _draw_inventory_box(
+        self, title: str, items: list[tuple[int, str]],
+    ) -> int | None:
+        """Draw an inventory selection box. Returns selected EntityId."""
+        t = self.term
         border = t.color_rgb(80, 140, 210)
 
         menu_x = 5
@@ -500,13 +530,13 @@ class TerminalRenderer:
         output = ""
 
         # Top border with centered title
-        title = f" {tr('ui.use_which')} "
-        title_len = len(title)
+        title_text = f" {title} "
+        title_len = len(title_text)
         left_fill = max(1, (inner - title_len) // 2)
         right_fill = max(0, inner - left_fill - title_len)
         output += t.move_xy(menu_x, menu_y)
         output += border(
-            "╭" + "─" * left_fill + title + "─" * right_fill + "╮"
+            "╭" + "─" * left_fill + title_text + "─" * right_fill + "╮"
         )
 
         # Item lines

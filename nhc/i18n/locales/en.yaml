@@ -108,6 +108,9 @@ item:
   haste_active: "You move with blinding speed!"
   protect_cast: "A ward of holy power settles over you."
   protect_active: "Evil creatures struggle to harm you!"
+  strength_up: "Newfound strength surges through your body! +1 STR."
+  frost_cast: "A wave of freezing cold erupts from the vial!"
+  frost_affects: "{target} is frozen solid!"
   mirror_cast: "Flickering copies of you appear!"
   mirror_images: "{count} mirror images surround you."
   detect_magic_cast: "Arcane sight floods your vision!"
@@ -273,8 +276,9 @@ ui:
   empty: "empty"
   scroll_hint: "scroll"
   esc_cancel: "  ESC to cancel"
-  inventory_title: "Inventory (ESC to close)"
+  inventory_title: "Inventory"
   use_which: "Use which item?"
+  quaff_which: "Quaff which potion?"
   victory_title: "VICTORY!"
   victory_desc: "You have descended deeper into the dungeon."
   death_title: "YOU DIED"
@@ -781,6 +785,54 @@ items:
     long: >-
       A small glass vial filled with a glowing red liquid.
       It smells faintly of iron and herbs.
+  potion_strength:
+    name: "Potion of Strength"
+    short: "a fiery red potion"
+    long: >-
+      A thick red liquid that surges with inner power.
+      Permanently increases your strength.
+  potion_frost:
+    name: "Potion of Frost"
+    short: "an ice-blue potion"
+    long: >-
+      Frozen crystals swirl inside this vial. When consumed,
+      it sends a wave of freezing cold outward.
+  potion_invisibility:
+    name: "Potion of Invisibility"
+    short: "a transparent potion"
+    long: >-
+      Nearly impossible to see — the liquid is perfectly clear.
+      Drinking it renders you invisible for a time.
+  potion_levitation:
+    name: "Potion of Levitation"
+    short: "a light white potion"
+    long: >-
+      Weightless bubbles float within this vial. Drinking it
+      lets you drift above the ground, avoiding traps.
+  potion_liquid_flame:
+    name: "Potion of Liquid Flame"
+    short: "a volatile orange potion"
+    long: >-
+      Warm to the touch. The liquid roils with contained fire.
+      Drinking it unleashes flames on all nearby.
+  potion_mind_vision:
+    name: "Potion of Mind Vision"
+    short: "a swirling purple potion"
+    long: >-
+      Purple wisps dance within the vial. Drinking it attunes
+      your senses to detect living creatures through walls.
+  potion_paralytic_gas:
+    name: "Potion of Paralytic Gas"
+    short: "a yellow potion"
+    long: >-
+      Thick yellow fumes press against the stopper. Drinking it
+      releases a numbing gas that paralyzes nearby foes.
+  potion_purification:
+    name: "Potion of Purification"
+    short: "a bright green potion"
+    long: >-
+      Glowing with inner clarity. Drinking it cleanses all
+      poison and harmful effects from your body.
   gold:
     name: "Gold"
     short: "a pile of gold coins"
