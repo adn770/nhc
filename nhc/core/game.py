@@ -90,10 +90,12 @@ class Game:
         depth: int = 1,
     ) -> None:
         """Set up initial game state from a level file or generator."""
+        from nhc.utils.rng import get_seed, set_seed
         if self.seed is not None:
-            from nhc.utils.rng import set_seed
             set_seed(self.seed)
-            logger.info("RNG seed set to %d", self.seed)
+        effective_seed = get_seed()
+        logger.info("RNG seed: %d (use --seed %d to reproduce)",
+                     effective_seed, effective_seed)
 
         # Discover all entity types
         EntityRegistry.discover_all()

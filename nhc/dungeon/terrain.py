@@ -6,7 +6,10 @@ Adapted from Pixel Dungeon's Patch.java algorithm.
 
 from __future__ import annotations
 
+import logging
 import random
+
+logger = logging.getLogger(__name__)
 
 from nhc.dungeon.model import Level, Terrain
 
@@ -58,6 +61,15 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
                     and not tile.is_corridor
                     and water[y][x]):
                 tile.terrain = Terrain.WATER
+
+    water_count = sum(
+        1 for row in level.tiles for t in row
+        if t.terrain == Terrain.WATER
+    )
+    logger.info(
+        "Terrain: theme=%s feeling=%s water_seed=%.2f iters=%d → %d water tiles",
+        theme, feeling, water_seed, water_iters, water_count,
+    )
 
 
 def _cellular_automata(

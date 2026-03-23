@@ -7,7 +7,10 @@ trap_room) and paints its interior with appropriate contents.
 
 from __future__ import annotations
 
+import logging
 import random
+
+logger = logging.getLogger(__name__)
 from typing import TYPE_CHECKING
 
 from nhc.dungeon.model import EntityPlacement, Level, Rect, Terrain, Tile
@@ -81,6 +84,13 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
             room.tags.remove("corridor")
             room.tags.append("standard")
             standard_count += 1
+
+    from collections import Counter
+    tag_counts = Counter(
+        t for r in level.rooms for t in r.tags
+        if t not in ("entry", "exit")
+    )
+    logger.info("Room types assigned: %s", dict(tag_counts))
 
 
 def _paint_room(

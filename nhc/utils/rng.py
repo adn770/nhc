@@ -49,11 +49,23 @@ def d20(rng: random.Random | None = None) -> int:
 
 
 _default_rng = random.Random()
+_current_seed: int | None = None
 
 
 def set_seed(seed: int) -> None:
     """Set the global RNG seed for reproducibility."""
+    global _current_seed
+    _current_seed = seed
     _default_rng.seed(seed)
+
+
+def get_seed() -> int:
+    """Return the current seed. Auto-generates one if not set."""
+    global _current_seed
+    if _current_seed is None:
+        _current_seed = random.randint(0, 2**31 - 1)
+        _default_rng.seed(_current_seed)
+    return _current_seed
 
 
 def get_rng() -> random.Random:

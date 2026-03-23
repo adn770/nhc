@@ -6,11 +6,14 @@ leaf, then connects them via corridors with main path + extra loops.
 
 from __future__ import annotations
 
+import logging
 import random
 from collections import deque
 from dataclasses import dataclass
 
 from nhc.dungeon.generator import DungeonGenerator, GenerationParams
+
+logger = logging.getLogger(__name__)
 from nhc.dungeon.model import (
     Corridor,
     Level,
@@ -148,6 +151,10 @@ class BSPGenerator(DungeonGenerator):
 
     def generate(self, params: GenerationParams) -> Level:
         rng = get_rng()
+        logger.info(
+            "BSP generate: %dx%d depth=%d theme=%s",
+            params.width, params.height, params.depth, params.theme,
+        )
         level = Level.create_empty(
             id=f"depth_{params.depth}",
             name=f"Dungeon Level {params.depth}",
@@ -162,11 +169,17 @@ class BSPGenerator(DungeonGenerator):
         # ── 1. BSP subdivision ──
         root = _Node(Rect(1, 1, params.width - 2, params.height - 2))
         _split(root, rng)
-        for leaf in root.leaves():
+        leaves = root.leaves()
+        for leaf in leaves:
             _place_room(leaf, rng)
 
-        rects = [lf.room for lf in root.leaves() if lf.room]
+        rects = [lf.room for lf in leaves if lf.room]
+        logger.info(
+            "BSP split: %d leaves, %d rooms placed",
+            len(leaves), len(rects),
+        )
         if len(rects) < 3:
+            logger.warning("BSP produced <3 rooms, falling back to classic")
             from nhc.dungeon.classic import ClassicGenerator
             return ClassicGenerator().generate(params)
 
@@ -175,6 +188,10 @@ class BSPGenerator(DungeonGenerator):
             self._carve_room(level, rect)
         for i, rect in enumerate(rects):
             level.rooms.append(Room(id=f"room_{i + 1}", rect=rect))
+            logger.debug(
+                "Room %d: (%d,%d) %dx%d",
+                i + 1, rect.x, rect.y, rect.width, rect.height,
+            )
 
         # ── 2. Connectivity ──
         neighbors = _find_neighbors(rects)
@@ -182,28 +199,42 @@ class BSPGenerator(DungeonGenerator):
         for i, j in neighbors:
             adj[i].add(j)
             adj[j].add(i)
+        logger.info("Neighbor pairs found: %d", len(neighbors))
 
         # Pick entrance/exit (maximize distance)
         entrance = 0
         dists = _bfs_dist(adj, entrance)
         exit_idx = max(dists, key=dists.get) if dists else len(rects) - 1
+        logger.info(
+            "Entrance: room_%d (%d,%d)  Exit: room_%d (%d,%d)  "
+            "path distance: %d",
+            entrance + 1, *rects[entrance].center,
+            exit_idx + 1, *rects[exit_idx].center,
+            dists.get(exit_idx, -1),
+        )
 
         # Main path
         connected: set[tuple[int, int]] = set()
         main_path = _bfs(adj, entrance, exit_idx)
         if main_path:
+            logger.info("Main path: %d rooms", len(main_path))
             for k in range(len(main_path) - 1):
                 a, b = main_path[k], main_path[k + 1]
                 pair = (min(a, b), max(a, b))
                 connected.add(pair)
                 self._connect(level, rects[a], rects[b], rng)
+        else:
+            logger.warning("No main path found between entrance and exit")
 
         # Extra loops
+        extra = 0
         for i, j in neighbors:
             pair = (min(i, j), max(i, j))
             if pair not in connected and rng.random() < params.connectivity * 0.5:
                 connected.add(pair)
                 self._connect(level, rects[i], rects[j], rng)
+                extra += 1
+        logger.info("Extra loop corridors: %d", extra)
 
         # Ensure full reachability — connect isolated rooms to the
         # nearest already-reachable room by center distance
@@ -228,6 +259,10 @@ class BSPGenerator(DungeonGenerator):
                     adj[idx].add(best_other)
                     adj[best_other].add(idx)
                     self._connect(level, rects[idx], rects[best_other], rng)
+                    logger.info(
+                        "Connected isolated room_%d to room_%d (dist=%d)",
+                        idx + 1, best_other + 1, best_dist,
+                    )
                     changed = True
                     break  # Restart — new room is now reachable
 
@@ -275,6 +310,19 @@ class BSPGenerator(DungeonGenerator):
 
         # ── 5. Doors ──
         self._place_doors(level, rng, params.secret_doors)
+
+        doors = sum(1 for row in level.tiles for t in row
+                    if t.feature and "door" in t.feature)
+        secrets = sum(1 for row in level.tiles for t in row
+                      if t.feature == "door_secret")
+        corridors_total = sum(1 for row in level.tiles for t in row
+                              if t.is_corridor)
+        logger.info(
+            "Generation complete: %d rooms, %d corridors, %d doors "
+            "(%d secret), %d corridor tiles",
+            len(level.rooms), len(connected), doors, secrets,
+            corridors_total,
+        )
 
         return level
 
