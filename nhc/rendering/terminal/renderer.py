@@ -162,7 +162,10 @@ class TerminalRenderer:
 
         # ── Zone 2: Status ──
         stats = self._gather_stats(world, player_id, turn, level)
-        items, max_slots = self._gather_inventory(world, player_id)
+        items, max_slots = self._gather_inventory(
+            world, player_id,
+            equipped_ids=stats.get("_equipped_ids"),
+        )
         status_y = map_h
         output += render_status(t, status_y, t.width, stats, items, max_slots)
 
@@ -424,11 +427,38 @@ class TerminalRenderer:
         stats = world.get_component(player_id, "Stats")
         equip = world.get_component(player_id, "Equipment")
 
-        weapon_name = "unarmed"
-        if equip and equip.weapon is not None:
-            desc = world.get_component(equip.weapon, "Description")
-            if desc:
-                weapon_name = desc.name
+        def _equip_name(eid: int | None) -> str:
+            if eid is None:
+                return ""
+            d = world.get_component(eid, "Description")
+            return d.name if d else "???"
+
+        weapon_name = tr("combat.unarmed") if not equip or equip.weapon is None \
+            else _equip_name(equip.weapon)
+
+        # Compute AC: base 10 + DEX + armor defense + shield + helmet
+        dex_bonus = stats.dexterity if stats else 0
+        armor_def = 10 + dex_bonus
+        equipped_ids: set[int] = set()
+        if equip:
+            for attr in ("weapon", "armor", "shield", "helmet"):
+                eid = getattr(equip, attr)
+                if eid is not None:
+                    equipped_ids.add(eid)
+            # Body armor replaces base 10
+            if equip.armor is not None:
+                a = world.get_component(equip.armor, "Armor")
+                if a:
+                    armor_def = a.defense + dex_bonus
+            # Shield and helmet add +1 each
+            if equip.shield is not None:
+                a = world.get_component(equip.shield, "Armor")
+                if a:
+                    armor_def += a.defense
+            if equip.helmet is not None:
+                a = world.get_component(equip.helmet, "Armor")
+                if a:
+                    armor_def += a.defense
 
         player = world.get_component(player_id, "Player")
         pdesc = world.get_component(player_id, "Description")
@@ -452,23 +482,29 @@ class TerminalRenderer:
             "wis": stats.wisdom if stats else 0,
             "cha": stats.charisma if stats else 0,
             "weapon": weapon_name,
+            "armor_def": armor_def,
+            "armor_name": _equip_name(equip.armor) if equip else "",
+            "shield_name": _equip_name(equip.shield) if equip else "",
+            "helmet_name": _equip_name(equip.helmet) if equip else "",
+            "_equipped_ids": equipped_ids,
         }
 
     def _gather_inventory(
         self, world: World, player_id: int,
+        equipped_ids: set[int] | None = None,
     ) -> tuple[list[str], int]:
-        """Collect inventory item names."""
+        """Collect inventory item names, excluding equipped items."""
         inv = world.get_component(player_id, "Inventory")
         if not inv:
             return [], 11
 
+        equipped = equipped_ids or set()
         names = []
         for item_id in inv.slots:
+            if item_id in equipped:
+                continue
             desc = world.get_component(item_id, "Description")
-            if desc:
-                names.append(desc.name)
-            else:
-                names.append("???")
+            names.append(desc.name if desc else "???")
 
         return names, inv.max_slots
 

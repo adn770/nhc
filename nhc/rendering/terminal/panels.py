@@ -78,15 +78,28 @@ def render_status(
     )
     output += term.move_xy(0, y + 1) + _pad(line1, width)
 
-    # ── Line 2: Name, Background, Abilities, Weapon, AC ──
+    # ── Line 2: Name, Stats, Equipment ──
     s = stats
     weapon = s.get("weapon", "unarmed")
-    armor_def = 10 + s.get("dex", 0)
+    armor_def = s.get("armor_def", 10 + s.get("dex", 0))
     char_name = s.get("char_name", "")
     char_bg = s.get("char_background", "")
     identity = f" {term.bold(char_name)}"
     if char_bg:
         identity += f" ({char_bg})"
+
+    # Build equipment summary for after stats
+    equip_parts = [f"⚔️  {weapon}"]
+    armor_name = s.get("armor_name", "")
+    shield_name = s.get("shield_name", "")
+    helmet_name = s.get("helmet_name", "")
+    if armor_name:
+        equip_parts.append(armor_name)
+    if shield_name:
+        equip_parts.append(shield_name)
+    if helmet_name:
+        equip_parts.append(helmet_name)
+    equip_parts.append(f"AC {armor_def}")
 
     line2 = (
         f"{identity}"
@@ -96,8 +109,7 @@ def render_status(
         f" {tr('stats.int')}:{s.get('int', 0):+d}"
         f" {tr('stats.wis')}:{s.get('wis', 0):+d}"
         f" {tr('stats.cha')}:{s.get('cha', 0):+d}"
-        f"{SEP}⚔️  {weapon}"
-        f"{SEP}🛡️  AC {armor_def}"
+        f"{SEP}" + SEP.join(equip_parts)
     )
     output += term.move_xy(0, y + 2) + _pad(line2, width)
 

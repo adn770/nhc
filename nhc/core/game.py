@@ -177,10 +177,19 @@ class Game:
                 eid = self.world.create_entity(item_comps)
                 if inv and len(inv.slots) < inv.max_slots:
                     inv.slots.append(eid)
-                    # Auto-equip the first weapon
-                    if (equip and equip.weapon is None
-                            and self.world.has_component(eid, "Weapon")):
-                        equip.weapon = eid
+                    # Auto-equip starting gear
+                    if equip:
+                        if (equip.weapon is None
+                                and self.world.has_component(eid, "Weapon")):
+                            equip.weapon = eid
+                        armor_comp = self.world.get_component(eid, "Armor")
+                        if armor_comp:
+                            slot_map = {"body": "armor",
+                                        "shield": "shield",
+                                        "helmet": "helmet"}
+                            attr = slot_map.get(armor_comp.slot, "armor")
+                            if getattr(equip, attr) is None:
+                                setattr(equip, attr, eid)
             except KeyError:
                 logger.warning("Unknown starting item: %s", item_id)
 
@@ -809,26 +818,30 @@ class Game:
         )
 
     def _find_equip_action(self) -> "Action | None":
-        """Show equippable items (weapons/shields) and equip one."""
-        from nhc.core.actions import EquipAction
-        # Show items that have Weapon or Shield component
+        """Show equippable items and equip/unequip one."""
+        from nhc.core.actions import EquipAction, UnequipAction
         inv = self.world.get_component(self.player_id, "Inventory")
         if not inv or not inv.slots:
             return None
 
+        equip = self.world.get_component(self.player_id, "Equipment")
+        equipped_ids = set()
+        if equip:
+            for attr in ("weapon", "armor", "shield", "helmet"):
+                eid = getattr(equip, attr)
+                if eid is not None:
+                    equipped_ids.add(eid)
+
         items: list[tuple[int, str]] = []
         for item_id in inv.slots:
-            if (self.world.has_component(item_id, "Weapon")
-                    or self.world.has_component(item_id, "Shield")):
-                desc = self.world.get_component(item_id, "Description")
-                name = desc.name if desc else "???"
-                # Mark currently equipped
-                equip = self.world.get_component(
-                    self.player_id, "Equipment",
-                )
-                if equip and equip.weapon == item_id:
-                    name += " *"
-                items.append((item_id, name))
+            if not (self.world.has_component(item_id, "Weapon")
+                    or self.world.has_component(item_id, "Armor")):
+                continue
+            desc = self.world.get_component(item_id, "Description")
+            name = desc.name if desc else "???"
+            if item_id in equipped_ids:
+                name += " [E]"
+            items.append((item_id, name))
 
         if not items:
             return None
@@ -838,6 +851,10 @@ class Game:
         )
         if selected is None:
             return None
+
+        # Toggle: if already equipped, unequip; otherwise equip
+        if selected in equipped_ids:
+            return UnequipAction(actor=self.player_id, item=selected)
         return EquipAction(actor=self.player_id, item=selected)
 
     def _find_drop_action(self) -> "Action | None":

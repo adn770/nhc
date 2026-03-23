@@ -511,7 +511,7 @@ class PickupItemAction(Action):
 
 
 class EquipAction(Action):
-    """Equip a weapon or shield from inventory."""
+    """Equip a weapon or armor piece from inventory."""
 
     def __init__(self, actor: int, item: int) -> None:
         super().__init__(actor)
@@ -521,9 +521,8 @@ class EquipAction(Action):
         inv = world.get_component(self.actor, "Inventory")
         if not inv or self.item not in inv.slots:
             return False
-        # Must be a weapon or shield
         return (world.has_component(self.item, "Weapon")
-                or world.has_component(self.item, "Shield"))
+                or world.has_component(self.item, "Armor"))
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         events: list[Event] = []
@@ -533,7 +532,6 @@ class EquipAction(Action):
 
         item_name = _entity_name(world, self.item)
 
-        # Unequip current weapon if equipping a weapon
         if world.has_component(self.item, "Weapon"):
             if equip.weapon is not None and equip.weapon != self.item:
                 old_name = _entity_name(world, equip.weapon)
@@ -542,10 +540,46 @@ class EquipAction(Action):
                 ))
             equip.weapon = self.item
 
+        armor = world.get_component(self.item, "Armor")
+        if armor:
+            slot_map = {"body": "armor", "shield": "shield",
+                        "helmet": "helmet"}
+            attr = slot_map.get(armor.slot, "armor")
+            current = getattr(equip, attr, None)
+            if current is not None and current != self.item:
+                old_name = _entity_name(world, current)
+                events.append(MessageEvent(
+                    text=t("item.unequipped", item=old_name),
+                ))
+            setattr(equip, attr, self.item)
+
         events.append(MessageEvent(
             text=t("item.equipped", item=item_name),
         ))
         return events
+
+
+class UnequipAction(Action):
+    """Unequip a currently equipped item."""
+
+    def __init__(self, actor: int, item: int) -> None:
+        super().__init__(actor)
+        self.item = item
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        equip = world.get_component(self.actor, "Equipment")
+        if not equip:
+            return False
+        return self.item in (equip.weapon, equip.armor,
+                             equip.shield, equip.helmet)
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        equip = world.get_component(self.actor, "Equipment")
+        item_name = _entity_name(world, self.item)
+        for attr in ("weapon", "armor", "shield", "helmet"):
+            if getattr(equip, attr) == self.item:
+                setattr(equip, attr, None)
+        return [MessageEvent(text=t("item.unequipped", item=item_name))]
 
 
 class ThrowAction(Action):
@@ -697,10 +731,12 @@ class DropAction(Action):
 
         item_name = _entity_name(world, self.item)
 
-        # Unequip if currently equipped
+        # Unequip if currently equipped (any slot)
         equip = world.get_component(self.actor, "Equipment")
-        if equip and equip.weapon == self.item:
-            equip.weapon = None
+        if equip:
+            for attr in ("weapon", "armor", "shield", "helmet"):
+                if getattr(equip, attr) == self.item:
+                    setattr(equip, attr, None)
 
         # Remove from inventory
         if self.item in inv.slots:

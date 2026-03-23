@@ -106,9 +106,20 @@ class Trap:
 
 
 @dataclass
+class Armor:
+    """Armor piece with slot and defense value."""
+    slot: str = "body"  # "body", "shield", "helmet"
+    defense: int = 0    # AC bonus or base defense
+    slots: int = 1      # inventory slots consumed
+
+
+@dataclass
 class Equipment:
     """Currently equipped items."""
-    weapon: int | None = None  # EntityId of equipped weapon
+    weapon: int | None = None   # EntityId of equipped weapon
+    armor: int | None = None    # EntityId of body armor (gambeson, chain, etc.)
+    shield: int | None = None   # EntityId of shield
+    helmet: int | None = None   # EntityId of helmet
 
 
 @dataclass

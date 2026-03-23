@@ -1,6 +1,6 @@
 """Item — chain mail."""
 
-from nhc.entities.components import Renderable
+from nhc.entities.components import Armor, Renderable
 from nhc.entities.registry import EntityRegistry, item_desc
 
 
@@ -9,5 +9,5 @@ def create_chain_mail() -> dict:
     return {
         "Renderable": Renderable(glyph="[", color="bright_white", render_order=1),
         "Description": item_desc("chain_mail"),
-        "Shield": True,
+        "Armor": Armor(slot="body", defense=14, slots=3),
     }

@@ -1,6 +1,6 @@
 """Item — helmet."""
 
-from nhc.entities.components import Renderable
+from nhc.entities.components import Armor, Renderable
 from nhc.entities.registry import EntityRegistry, item_desc
 
 
@@ -9,5 +9,5 @@ def create_helmet() -> dict:
     return {
         "Renderable": Renderable(glyph="[", color="cyan", render_order=1),
         "Description": item_desc("helmet"),
-        "Shield": True,
+        "Armor": Armor(slot="helmet", defense=1, slots=1),
     }
