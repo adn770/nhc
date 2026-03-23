@@ -646,6 +646,12 @@ class Game:
         if intent == "quaff":
             return self._find_quaff_action()
 
+        if intent == "equip":
+            return self._find_equip_action()
+
+        if intent == "drop":
+            return self._find_drop_action()
+
         if intent == "inventory":
             self._show_inventory()
             return None
@@ -752,6 +758,49 @@ class Game:
         if item_id is None:
             return None
         return UseItemAction(actor=self.player_id, item=item_id)
+
+    def _find_equip_action(self) -> "Action | None":
+        """Show equippable items (weapons/shields) and equip one."""
+        from nhc.core.actions import EquipAction
+        # Show items that have Weapon or Shield component
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if not inv or not inv.slots:
+            return None
+
+        items: list[tuple[int, str]] = []
+        for item_id in inv.slots:
+            if (self.world.has_component(item_id, "Weapon")
+                    or self.world.has_component(item_id, "Shield")):
+                desc = self.world.get_component(item_id, "Description")
+                name = desc.name if desc else "???"
+                # Mark currently equipped
+                equip = self.world.get_component(
+                    self.player_id, "Equipment",
+                )
+                if equip and equip.weapon == item_id:
+                    name += " *"
+                items.append((item_id, name))
+
+        if not items:
+            return None
+
+        selected = self.renderer._draw_inventory_box(
+            t("ui.equip_which"), items,
+        )
+        if selected is None:
+            return None
+        return EquipAction(actor=self.player_id, item=selected)
+
+    def _find_drop_action(self) -> "Action | None":
+        """Show full inventory and drop selected item."""
+        from nhc.core.actions import DropAction
+        item_id = self.renderer.show_inventory_menu(
+            self.world, self.player_id,
+            prompt=t("ui.drop_which"),
+        )
+        if item_id is None:
+            return None
+        return DropAction(actor=self.player_id, item=item_id)
 
     def _show_inventory(self) -> None:
         """Show inventory without action (just display)."""

@@ -342,7 +342,8 @@ class TestPickupItemAction:
         assert len(pickup_events) == 1
 
     @pytest.mark.asyncio
-    async def test_pickup_auto_equips_weapon(self):
+    async def test_pickup_does_not_auto_equip(self):
+        """Weapons must be manually equipped with 'e' key."""
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=5, y=5)
@@ -356,7 +357,7 @@ class TestPickupItemAction:
         await action.execute(world, level)
 
         equip = world.get_component(pid, "Equipment")
-        assert equip.weapon == item_id
+        assert equip.weapon is None
 
     @pytest.mark.asyncio
     async def test_pickup_full_inventory_invalid(self):

@@ -482,16 +482,84 @@ class PickupItemAction(Action):
             text=t("item.picked_up", item=item_name),
         ))
 
-        # Auto-equip weapon if nothing equipped
-        wpn = world.get_component(self.item, "Weapon")
+        return events
+
+class EquipAction(Action):
+    """Equip a weapon or shield from inventory."""
+
+    def __init__(self, actor: int, item: int) -> None:
+        super().__init__(actor)
+        self.item = item
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        inv = world.get_component(self.actor, "Inventory")
+        if not inv or self.item not in inv.slots:
+            return False
+        # Must be a weapon or shield
+        return (world.has_component(self.item, "Weapon")
+                or world.has_component(self.item, "Shield"))
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
         equip = world.get_component(self.actor, "Equipment")
-        if wpn and equip and equip.weapon is None:
+        if not equip:
+            return events
+
+        item_name = _entity_name(world, self.item)
+
+        # Unequip current weapon if equipping a weapon
+        if world.has_component(self.item, "Weapon"):
+            if equip.weapon is not None and equip.weapon != self.item:
+                old_name = _entity_name(world, equip.weapon)
+                events.append(MessageEvent(
+                    text=t("item.unequipped", item=old_name),
+                ))
             equip.weapon = self.item
-            events.append(MessageEvent(
-                text=t("item.equipped", item=item_name),
+
+        events.append(MessageEvent(
+            text=t("item.equipped", item=item_name),
+        ))
+        return events
+
+
+class DropAction(Action):
+    """Drop an item from inventory onto the floor."""
+
+    def __init__(self, actor: int, item: int) -> None:
+        super().__init__(actor)
+        self.item = item
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        inv = world.get_component(self.actor, "Inventory")
+        return inv is not None and self.item in inv.slots
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        inv = world.get_component(self.actor, "Inventory")
+        pos = world.get_component(self.actor, "Position")
+
+        item_name = _entity_name(world, self.item)
+
+        # Unequip if currently equipped
+        equip = world.get_component(self.actor, "Equipment")
+        if equip and equip.weapon == self.item:
+            equip.weapon = None
+
+        # Remove from inventory
+        if self.item in inv.slots:
+            inv.slots.remove(self.item)
+
+        # Place on the map at player's position
+        if pos:
+            world.add_component(self.item, "Position", Position(
+                x=pos.x, y=pos.y, level_id=pos.level_id,
             ))
 
+        events.append(MessageEvent(
+            text=t("item.dropped", item=item_name),
+        ))
         return events
+
 
     def _pickup_gold(
         self, world: "World", events: list[Event],
