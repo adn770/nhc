@@ -2,6 +2,28 @@
 # Les claus utilitzen notació amb punts: secció.subsecció.clau
 # Utilitzar {nom} per a marcadors d'interpolació
 
+# ── Aparences de pocions (no identificades) ─────────────────────────
+potion_appearance:
+  bubbly_red: "poció vermella bombollant"
+  bubbly_red_short: "una poció vermella bombollant"
+  murky_green: "poció verda tèrbola"
+  murky_green_short: "una poció verda tèrbola"
+  shimmering_blue: "poció blava centellejant"
+  shimmering_blue_short: "una poció blava centellejant"
+  thick_yellow: "poció groga espessa"
+  thick_yellow_short: "una poció groga espessa"
+  fizzy_violet: "poció violeta efervescent"
+  fizzy_violet_short: "una poció violeta efervescent"
+  dark_brown: "poció marró fosca"
+  dark_brown_short: "una poció marró fosca"
+  glowing_white: "poció blanca lluminosa"
+  glowing_white_short: "una poció blanca lluminosa"
+  oily_black: "poció negra oliosa"
+  oily_black_short: "una poció negra oliosa"
+  sparkling_cyan: "poció cian brillant"
+  sparkling_cyan_short: "una poció cian brillant"
+  identified: "Identifiques que és {name}!"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   # 3rd person (creature vs creature, or default fallback)

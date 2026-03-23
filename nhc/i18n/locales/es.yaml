@@ -2,6 +2,28 @@
 # Las claves usan notación con puntos: sección.subsección.clave
 # Usar {nombre} para marcadores de interpolación
 
+# ── Apariencias de pociones (sin identificar) ───────────────────────
+potion_appearance:
+  bubbly_red: "poción roja burbujeante"
+  bubbly_red_short: "una poción roja burbujeante"
+  murky_green: "poción verde turbia"
+  murky_green_short: "una poción verde turbia"
+  shimmering_blue: "poción azul centelleante"
+  shimmering_blue_short: "una poción azul centelleante"
+  thick_yellow: "poción amarilla espesa"
+  thick_yellow_short: "una poción amarilla espesa"
+  fizzy_violet: "poción violeta efervescente"
+  fizzy_violet_short: "una poción violeta efervescente"
+  dark_brown: "poción marrón oscura"
+  dark_brown_short: "una poción marrón oscura"
+  glowing_white: "poción blanca luminosa"
+  glowing_white_short: "una poción blanca luminosa"
+  oily_black: "poción negra aceitosa"
+  oily_black_short: "una poción negra aceitosa"
+  sparkling_cyan: "poción cian brillante"
+  sparkling_cyan_short: "una poción cian brillante"
+  identified: "¡Identificas que es {name}!"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   hit: "{attacker} golpea a {target} por {damage} de daño."

@@ -2,6 +2,28 @@
 # Keys use dotted notation: section.subsection.key
 # Use {name} for interpolation placeholders
 
+# ── Potion appearances (unidentified) ────────────────────────────────
+potion_appearance:
+  bubbly_red: "bubbly red potion"
+  bubbly_red_short: "a bubbly red potion"
+  murky_green: "murky green potion"
+  murky_green_short: "a murky green potion"
+  shimmering_blue: "shimmering blue potion"
+  shimmering_blue_short: "a shimmering blue potion"
+  thick_yellow: "thick yellow potion"
+  thick_yellow_short: "a thick yellow potion"
+  fizzy_violet: "fizzy violet potion"
+  fizzy_violet_short: "a fizzy violet potion"
+  dark_brown: "dark brown potion"
+  dark_brown_short: "a dark brown potion"
+  glowing_white: "glowing white potion"
+  glowing_white_short: "a glowing white potion"
+  oily_black: "oily black potion"
+  oily_black_short: "an oily black potion"
+  sparkling_cyan: "sparkling cyan potion"
+  sparkling_cyan_short: "a sparkling cyan potion"
+  identified: "You identify it as {name}!"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   hit: "{attacker} hits {target} for {damage} damage."

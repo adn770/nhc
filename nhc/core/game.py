@@ -22,6 +22,7 @@ from nhc.core.events import (
     CreatureDied,
     EventBus,
     GameWon,
+    ItemUsed,
     LevelEntered,
     MessageEvent,
     PlayerDied,
@@ -80,6 +81,7 @@ class Game:
         self.renderer = TerminalRenderer(color_mode=color_mode,
                                          game_mode=game_mode)
         self._seen_creatures: set[int] = set()
+        self._potions = None  # PotionKnowledge, set in initialize()
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
@@ -99,6 +101,11 @@ class Game:
 
         # Discover all entity types
         EntityRegistry.discover_all()
+
+        # Initialize potion randomization
+        from nhc.rules.potions import PotionKnowledge
+        from nhc.utils.rng import get_rng as _get_rng
+        self._potions = PotionKnowledge(rng=_get_rng())
 
         if generate:
             from nhc.dungeon.generator import GenerationParams
@@ -167,6 +174,7 @@ class Game:
         self.event_bus.subscribe(GameWon, self._on_game_won)
         self.event_bus.subscribe(CreatureDied, self._on_creature_died)
         self.event_bus.subscribe(LevelEntered, self._on_level_entered)
+        self.event_bus.subscribe(ItemUsed, self._on_item_used)
 
         # Compute initial FOV
         self._update_fov()
@@ -219,6 +227,10 @@ class Game:
                     components["BlocksMovement"] = BlocksMovement()
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
+                    # Apply potion disguise if unidentified
+                    self._disguise_potion(
+                        components, placement.entity_id,
+                    )
                 elif placement.entity_type == "feature":
                     components = EntityRegistry.get_feature(
                         placement.entity_id,
@@ -246,6 +258,52 @@ class Game:
                     placement.entity_type, placement.entity_id,
                     placement.x, placement.y,
                 )
+
+    def _disguise_potion(
+        self, components: dict, item_id: str,
+    ) -> None:
+        """Override a potion's description and color if unidentified."""
+        if not self._potions:
+            return
+        from nhc.rules.potions import POTION_IDS
+        if item_id not in POTION_IDS:
+            return
+        if self._potions.is_identified(item_id):
+            return
+        # Store the real item_id so we can identify later
+        components["_potion_id"] = item_id
+        desc = components.get("Description")
+        if desc:
+            desc.name = self._potions.display_name(item_id)
+            desc.short = self._potions.display_short(item_id)
+        rend = components.get("Renderable")
+        if rend:
+            rend.color = self._potions.glyph_color(item_id)
+
+    def _identify_potion(self, item_eid: int) -> None:
+        """Identify a potion after quaffing and update all of that type."""
+        if not self._potions:
+            return
+        potion_id = self.world.get_component(item_eid, "_potion_id")
+        if not potion_id:
+            return
+        if self._potions.is_identified(potion_id):
+            return
+
+        self._potions.identify(potion_id)
+        real_name = t(f"items.{potion_id}.name")
+        self.renderer.add_message(
+            t("potion_appearance.identified", name=real_name),
+        )
+
+        # Update all existing potions of this type in the world
+        for eid, pid_comp in self.world._entities.items():
+            pid = pid_comp.get("_potion_id")
+            if pid == potion_id:
+                desc = self.world.get_component(eid, "Description")
+                if desc:
+                    desc.name = self._potions.display_name(potion_id)
+                    desc.short = self._potions.display_short(potion_id)
 
     def _update_fov(self) -> None:
         """Recompute field of view centered on player."""
@@ -872,6 +930,10 @@ class Game:
                 if not tile or not tile.visible:
                     return
         self.renderer.add_message(event.text)
+
+    def _on_item_used(self, event: ItemUsed) -> None:
+        """Identify potions when quaffed."""
+        self._identify_potion(event.item)
 
     def _on_game_won(self, event: GameWon) -> None:
         """Handle game won event."""
