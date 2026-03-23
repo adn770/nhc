@@ -285,7 +285,7 @@ class TerminalRenderer:
         wall-to-wall connection on the perpendicular axis (prevents
         ─ rendering between two doors on a vertical wall segment).
         """
-        _DOOR_FEATS = {"door_closed", "door_locked", "door_secret"}
+        _DOOR_FEATS = {"door_closed", "door_open", "door_locked", "door_secret"}
 
         def _is_wall_only(nx: int, ny: int) -> bool:
             nb = level.tile_at(nx, ny)

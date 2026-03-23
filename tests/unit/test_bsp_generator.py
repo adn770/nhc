@@ -145,7 +145,7 @@ class TestWallRendering:
         assign_room_types(level, rng)
         apply_terrain(level, rng)
 
-        door_feats = {"door_closed", "door_open", "door_secret"}
+        door_feats = {"door_closed", "door_open", "door_locked", "door_secret"}
         for y in range(level.height):
             for x in range(level.width):
                 t = level.tiles[y][x]
