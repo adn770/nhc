@@ -358,7 +358,8 @@ class TerminalRenderer:
                 # Secret doors render as walls until discovered
                 if tile.feature == "door_secret":
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
-                    glyph = wall_glyph(False, False, True, True)  # horizontal wall segment
+                    # Match wall orientation from neighbors
+                    glyph = self._wall_char_at(level, mx, my)
                     if tile.visible:
                         cfn = getattr(t, color, None) or t.white
                     else:
