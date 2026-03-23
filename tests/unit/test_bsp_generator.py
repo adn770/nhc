@@ -64,16 +64,17 @@ class TestBSPGenerator:
                     doors += 1
         assert doors >= 1
 
-    def test_border_walls(self):
+    def test_border_no_floor(self):
+        """No floor tiles on the map border."""
         set_seed(42)
         gen = BSPGenerator()
         level = gen.generate(GenerationParams(width=60, height=40))
         for x in range(level.width):
-            assert level.tiles[0][x].terrain == Terrain.WALL
-            assert level.tiles[level.height - 1][x].terrain == Terrain.WALL
+            assert level.tiles[0][x].terrain != Terrain.FLOOR
+            assert level.tiles[level.height - 1][x].terrain != Terrain.FLOOR
         for y in range(level.height):
-            assert level.tiles[y][0].terrain == Terrain.WALL
-            assert level.tiles[y][level.width - 1].terrain == Terrain.WALL
+            assert level.tiles[y][0].terrain != Terrain.FLOOR
+            assert level.tiles[y][level.width - 1].terrain != Terrain.FLOOR
 
     def test_deterministic(self):
         set_seed(123)

@@ -276,6 +276,30 @@ class TerminalRenderer:
             elif len(val) == 1 and val.isprintable():
                 inp.insert(val)
 
+    @staticmethod
+    def _wall_char_at(level: Level, x: int, y: int) -> str:
+        """Pick the correct box-drawing character for a wall tile.
+
+        Connects in a direction if the neighbor is also a WALL tile
+        or a door (blocks_sight).  VOID tiles don't connect, which
+        produces clean room borders.
+        """
+        def _is_wall(nx: int, ny: int) -> bool:
+            nb = level.tile_at(nx, ny)
+            if nb is None:
+                return False
+            if nb.terrain == Terrain.WALL:
+                return True
+            # Doors sit in wall-like positions
+            return nb.blocks_sight
+
+        cn = _is_wall(x, y - 1)
+        cs = _is_wall(x, y + 1)
+        ce = _is_wall(x + 1, y)
+        cw = _is_wall(x - 1, y)
+
+        return wall_glyph(cn, cs, ce, cw)
+
     def _render_map(
         self,
         world: World,
@@ -360,23 +384,8 @@ class TerminalRenderer:
                 if tile.is_corridor:
                     glyph, color, dim_val = _glyphs.CORRIDOR_GLYPH
                 elif tile.terrain == Terrain.WALL:
-                    nb_n = level.tile_at(mx, my - 1)
-                    nb_s = level.tile_at(mx, my + 1)
-                    nb_e = level.tile_at(mx + 1, my)
-                    nb_w = level.tile_at(mx - 1, my)
-                    # Doors sit in wall-like positions — treat them
-                    # as walls for box-drawing connectivity so the
-                    # wall pattern stays continuous around doors.
-                    cn = nb_n is not None and (
-                        nb_n.terrain == Terrain.WALL or nb_n.blocks_sight)
-                    cs = nb_s is not None and (
-                        nb_s.terrain == Terrain.WALL or nb_s.blocks_sight)
-                    ce = nb_e is not None and (
-                        nb_e.terrain == Terrain.WALL or nb_e.blocks_sight)
-                    cw = nb_w is not None and (
-                        nb_w.terrain == Terrain.WALL or nb_w.blocks_sight)
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
-                    glyph = wall_glyph(cn, cs, ce, cw)
+                    glyph = self._wall_char_at(level, mx, my)
                 else:
                     glyph, color, dim_val = _glyphs.TERRAIN_GLYPHS.get(
                         tile.terrain, ("?", "white", "bright_black"),

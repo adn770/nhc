@@ -233,12 +233,40 @@ class BSPGenerator(DungeonGenerator):
         level.rooms[entrance].tags.append("entry")
         level.rooms[exit_idx].tags.append("exit")
 
-        # ── 4. Doors ──
+        # ── 4. Build walls around all floor/corridor tiles ──
+        self._build_walls(level)
+
+        # ── 5. Doors ──
         self._place_doors(level, rng, params.secret_doors)
 
         return level
 
     # ── Carving helpers ─────────────────────────────────────────────
+
+    def _build_walls(self, level: Level) -> None:
+        """Place WALL tiles around every FLOOR/WATER tile.
+
+        Turns VOID tiles adjacent to any walkable tile into WALL,
+        creating clean room boundaries with proper box-drawing.
+        """
+        to_wall: list[tuple[int, int]] = []
+        for y in range(level.height):
+            for x in range(level.width):
+                if level.tiles[y][x].terrain in (
+                    Terrain.FLOOR, Terrain.WATER,
+                ):
+                    # Check all 8 neighbors
+                    for dy in range(-1, 2):
+                        for dx in range(-1, 2):
+                            if dx == 0 and dy == 0:
+                                continue
+                            nx, ny = x + dx, y + dy
+                            if (level.in_bounds(nx, ny)
+                                    and level.tiles[ny][nx].terrain
+                                    == Terrain.VOID):
+                                to_wall.append((nx, ny))
+        for wx, wy in to_wall:
+            level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
 
     def _carve_room(self, level: Level, rect: Rect) -> None:
         for y in range(rect.y, rect.y2):

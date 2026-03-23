@@ -67,12 +67,13 @@ class TestClassicGenerator:
         params = GenerationParams(width=40, height=30)
         level = gen.generate(params)
 
+        # Borders are void (rooms don't touch map edge)
         for x in range(level.width):
-            assert level.tiles[0][x].terrain == Terrain.WALL
-            assert level.tiles[level.height - 1][x].terrain == Terrain.WALL
+            assert level.tiles[0][x].terrain != Terrain.FLOOR
+            assert level.tiles[level.height - 1][x].terrain != Terrain.FLOOR
         for y in range(level.height):
-            assert level.tiles[y][0].terrain == Terrain.WALL
-            assert level.tiles[y][level.width - 1].terrain == Terrain.WALL
+            assert level.tiles[y][0].terrain != Terrain.FLOOR
+            assert level.tiles[y][level.width - 1].terrain != Terrain.FLOOR
 
     def test_deterministic_with_seed(self):
         """Same seed produces identical layouts."""

@@ -90,11 +90,32 @@ class ClassicGenerator(DungeonGenerator):
             ex, ey = rooms[-1].center
             level.tiles[ey][ex].feature = "stairs_down"
 
+        # Build walls around carved areas
+        self._build_walls(level)
+
         # Place doors at corridor-room junctions
         if params.corridor_style != "open":
             self._place_doors(level)
 
         return level
+
+    def _build_walls(self, level: Level) -> None:
+        """Place WALL tiles around every floor/water tile."""
+        to_wall: list[tuple[int, int]] = []
+        for y in range(level.height):
+            for x in range(level.width):
+                if level.tiles[y][x].terrain in (Terrain.FLOOR, Terrain.WATER):
+                    for dy in range(-1, 2):
+                        for dx in range(-1, 2):
+                            if dx == 0 and dy == 0:
+                                continue
+                            nx, ny = x + dx, y + dy
+                            if (level.in_bounds(nx, ny)
+                                    and level.tiles[ny][nx].terrain
+                                    == Terrain.VOID):
+                                to_wall.append((nx, ny))
+        for wx, wy in to_wall:
+            level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
 
     def _carve_room(self, level: Level, rect: Rect) -> None:
         """Carve a rectangular room into the level."""

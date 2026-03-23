@@ -118,9 +118,9 @@ class Level:
     @classmethod
     def create_empty(cls, id: str, name: str, depth: int,
                      width: int, height: int) -> Level:
-        """Create a level filled with walls."""
+        """Create a level filled with void."""
         tiles = [
-            [Tile(terrain=Terrain.WALL) for _ in range(width)]
+            [Tile(terrain=Terrain.VOID) for _ in range(width)]
             for _ in range(height)
         ]
         return cls(
