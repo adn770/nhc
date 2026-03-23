@@ -63,12 +63,14 @@ class Game:
         seed: int | None = None,
         color_mode: str = "256",
         game_mode: str = "classic",
+        god_mode: bool = False,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
         self.backend = backend
         self.seed = seed
         self.mode = game_mode
+        self.god_mode = god_mode
         self.running = False
         self.game_over = False
         self.won = False
@@ -366,8 +368,12 @@ class Game:
             self._tick_regeneration()
             self._tick_mummy_rot()
 
-            # Check player death (None means entity was destroyed)
+            # God mode: restore HP to max each turn
             health = self.world.get_component(self.player_id, "Health")
+            if self.god_mode and health:
+                health.current = health.maximum
+
+            # Check player death (None means entity was destroyed)
             if not health or health.current <= 0:
                 self.game_over = True
                 # Find killer from events

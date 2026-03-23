@@ -89,6 +89,11 @@ def parse_args() -> argparse.Namespace:
         help="Gameplay mode: typed (LLM GM) or classic (roguelike keys)",
     )
     game_group.add_argument(
+        "--god",
+        action="store_true",
+        help="God mode: invulnerable, for exploration/testing",
+    )
+    game_group.add_argument(
         "--no-narrative",
         action="store_true",
         help="Disable LLM narrative (equivalent to --provider none)",
@@ -183,8 +188,9 @@ async def main() -> int:
                 args.seed, color_mode, log_path)
 
     # Create and run game
+    god_mode = args.god or merged.get("god", False)
     game = Game(backend=backend, seed=args.seed, color_mode=color_mode,
-                game_mode=game_mode)
+                game_mode=game_mode, god_mode=god_mode)
     try:
         if args.generate:
             await game.initialize(generate=True)
