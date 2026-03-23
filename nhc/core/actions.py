@@ -1003,6 +1003,32 @@ class DescendStairsAction(Action):
         ]
 
 
+class AscendStairsAction(Action):
+    """Ascend to the previous dungeon level."""
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        tile = level.tile_at(pos.x, pos.y)
+        return tile is not None and tile.feature == "stairs_up"
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        from nhc.core.events import LevelEntered
+        if level.depth <= 1:
+            return [MessageEvent(
+                text=t("explore.surface_blocked"),
+            )]
+        return [
+            LevelEntered(
+                entity=self.actor,
+                level_id=level.id,
+                depth=level.depth - 1,
+            ),
+            MessageEvent(text=t("explore.ascend")),
+        ]
+
+
 class LookAction(Action):
     """Examine the current tile and surroundings."""
 

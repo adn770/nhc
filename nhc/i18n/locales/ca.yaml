@@ -166,6 +166,8 @@ explore:
   search_found_door: "Trobes una porta oculta!"
   search_nothing: "Escorcolles amb atenció però no trobes res d'amagat."
   descend: "Descendeixes més endins de la masmorra..."
+  ascend: "Puges les escales cap amunt..."
+  surface_blocked: "L'entrada està segellada. No es pot tornar enrere."
 
 # ── Health status descriptions ────────────────────────────────────────
 health_status:

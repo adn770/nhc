@@ -150,6 +150,8 @@ explore:
   search_found_door: "You find a hidden door!"
   search_nothing: "You search carefully but find nothing hidden."
   descend: "You descend deeper into the dungeon..."
+  ascend: "You climb the stairs back up..."
+  surface_blocked: "The entrance is sealed. There is no going back."
 
 # ── Health status descriptions ────────────────────────────────────────
 health_status:

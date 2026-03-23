@@ -82,6 +82,7 @@ class Game:
                                          game_mode=game_mode)
         self._seen_creatures: set[int] = set()
         self._knowledge = None  # ItemKnowledge, set in initialize()
+        self._floor_cache: dict[int, tuple] = {}  # depth → (level, entity_data)
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
@@ -685,6 +686,10 @@ class Game:
         if intent == "descend":
             return DescendStairsAction(actor=self.player_id)
 
+        if intent == "ascend":
+            from nhc.core.actions import AscendStairsAction
+            return AscendStairsAction(actor=self.player_id)
+
         if intent == "scroll_up":
             self.renderer.scroll_messages(1)
             return None
@@ -946,7 +951,7 @@ class Game:
                 cursed.ticks_until_drain = 2
 
     def _on_level_entered(self, event: LevelEntered) -> None:
-        """Transition to a new dungeon level."""
+        """Transition to a dungeon level (ascending or descending)."""
         from nhc.dungeon.generator import GenerationParams
         from nhc.dungeon.generators.bsp import BSPGenerator
         from nhc.dungeon.populator import populate_level
@@ -954,46 +959,114 @@ class Game:
         from nhc.dungeon.terrain import apply_terrain
 
         new_depth = event.depth
-        logger.info("Descending to depth %d", new_depth)
+        old_depth = self.level.depth
+        ascending = new_depth < old_depth
+        logger.info("%s to depth %d",
+                     "Ascending" if ascending else "Descending", new_depth)
 
-        # Remove all non-player entities (creatures, items on map)
+        # Save current floor state (level + non-player entities)
+        self._save_floor()
+
+        # Remove all non-player entities from the world
+        player_inv = self.world.get_component(self.player_id, "Inventory")
+        keep_ids = {self.player_id}
+        if player_inv:
+            keep_ids.update(player_inv.slots)
+        for eid in list(self.world._entities):
+            if eid not in keep_ids:
+                self.world.destroy_entity(eid)
+
+        # Restore cached floor or generate new one
+        if new_depth in self._floor_cache:
+            self._restore_floor(new_depth)
+            logger.info("Restored cached floor at depth %d", new_depth)
+        else:
+            params = GenerationParams(depth=new_depth)
+            gen = BSPGenerator()
+            self.level = gen.generate(params)
+            rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
+            assign_room_types(self.level, rng)
+            apply_terrain(self.level, rng)
+            populate_level(self.level)
+            self._spawn_level_entities()
+
+        # Place player at the appropriate stairs
+        if ascending:
+            # Came from below → place at stairs_down
+            stair_feature = "stairs_down"
+        else:
+            # Came from above → place at stairs_up
+            stair_feature = "stairs_up"
+
+        placed = False
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile and tile.feature == stair_feature:
+                    pos = self.world.get_component(
+                        self.player_id, "Position",
+                    )
+                    if pos:
+                        pos.x = x
+                        pos.y = y
+                        pos.level_id = self.level.id
+                    placed = True
+                    break
+            if placed:
+                break
+
+        if not placed:
+            # Fallback: entry room center
+            entry = next(
+                (r for r in self.level.rooms if "entry" in r.tags),
+                self.level.rooms[0] if self.level.rooms else None,
+            )
+            if entry:
+                px, py = entry.rect.center
+                pos = self.world.get_component(
+                    self.player_id, "Position",
+                )
+                if pos:
+                    pos.x = px
+                    pos.y = py
+                    pos.level_id = self.level.id
+
+        self._seen_creatures.clear()
+        self._update_fov()
+
+    def _save_floor(self) -> None:
+        """Save the current floor's level and entities to cache."""
+        from nhc.core.save import _serialize_entities, _serialize_level
+        depth = self.level.depth
         player_inv = self.world.get_component(self.player_id, "Inventory")
         keep_ids = {self.player_id}
         if player_inv:
             keep_ids.update(player_inv.slots)
 
-        all_eids = list(self.world._entities)
-        for eid in all_eids:
+        # Serialize non-player entities
+        entity_data = {}
+        for eid, comps in self.world._entities.items():
             if eid not in keep_ids:
-                self.world.destroy_entity(eid)
+                entity_data[eid] = dict(comps)
 
-        # Generate new level
-        params = GenerationParams(depth=new_depth)
-        gen = BSPGenerator()
-        self.level = gen.generate(params)
-        rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
-        assign_room_types(self.level, rng)
-        apply_terrain(self.level, rng)
-        populate_level(self.level)
+        self._floor_cache[depth] = (self.level, entity_data)
 
-        # Spawn level entities
-        self._spawn_level_entities()
+        # Keep only last 3 floors to limit memory
+        if len(self._floor_cache) > 3:
+            oldest = min(self._floor_cache.keys())
+            del self._floor_cache[oldest]
 
-        # Move player to stairs_up in new level
-        entry = next(
-            (r for r in self.level.rooms if "entry" in r.tags),
-            self.level.rooms[0] if self.level.rooms else None,
-        )
-        if entry:
-            px, py = entry.rect.center
-            pos = self.world.get_component(self.player_id, "Position")
-            if pos:
-                pos.x = px
-                pos.y = py
-                pos.level_id = self.level.id
+        logger.info("Saved floor depth %d (%d entities cached)",
+                     depth, len(entity_data))
 
-        self._seen_creatures.clear()
-        self._update_fov()
+    def _restore_floor(self, depth: int) -> None:
+        """Restore a cached floor's level and entities."""
+        level, entity_data = self._floor_cache[depth]
+        self.level = level
+
+        # Re-create entities in the world
+        for eid, comps in entity_data.items():
+            self.world.create_entity(comps)
 
     def _on_creature_died(self, event: CreatureDied) -> None:
         """Award XP when the player kills a creature."""

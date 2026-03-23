@@ -150,6 +150,8 @@ explore:
   search_found_door: "¡Encuentras una puerta oculta!"
   search_nothing: "Registras con atención pero no encuentras nada oculto."
   descend: "Desciendes más profundo en la mazmorra..."
+  ascend: "Subes las escaleras de vuelta..."
+  surface_blocked: "La entrada está sellada. No hay vuelta atrás."
 
 # ── Health status descriptions ────────────────────────────────────────
 health_status:
