@@ -246,8 +246,32 @@ class BSPGenerator(DungeonGenerator):
         level.rooms[entrance].tags.append("entry")
         level.rooms[exit_idx].tags.append("exit")
 
-        # ── 4. Build walls around all floor/corridor tiles ──
+        # ── 4. Build walls around room tiles ──
         self._build_walls(level)
+
+        # ── 4b. Patch corridor-room junctions ──
+        # Where corridors enter rooms, fill VOID tiles adjacent to
+        # both a corridor tile and a wall tile.  This closes gaps
+        # where corridors punch through room walls.
+        patches: set[tuple[int, int]] = set()
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if not (tile.terrain == Terrain.FLOOR and tile.is_corridor):
+                    continue
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    nb = level.tile_at(nx, ny)
+                    if not nb or nb.terrain != Terrain.VOID:
+                        continue
+                    # Check if this VOID tile is adjacent to a WALL
+                    for dx2, dy2 in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nb2 = level.tile_at(nx + dx2, ny + dy2)
+                        if nb2 and nb2.terrain == Terrain.WALL:
+                            patches.add((nx, ny))
+                            break
+        for px, py in patches:
+            level.tiles[py][px] = Tile(terrain=Terrain.WALL)
 
         # ── 5. Doors ──
         self._place_doors(level, rng, params.secret_doors)
