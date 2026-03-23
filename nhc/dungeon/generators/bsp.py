@@ -22,10 +22,10 @@ from nhc.dungeon.model import (
 )
 from nhc.utils.rng import get_rng
 
-MIN_LEAF = 8
+MIN_LEAF = 9
 MAX_ROOM = 10
 MIN_ROOM = 4
-PADDING = 1
+PADDING = 2  # ≥2 ensures void gap between adjacent rooms' walls
 
 
 # ── BSP tree ────────────────────────────────────────────────────────
