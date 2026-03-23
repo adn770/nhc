@@ -355,36 +355,52 @@ class BSPGenerator(DungeonGenerator):
                     return True
             return False
 
-        # Collect candidate wall tiles on the facing side (not corners)
-        # Skip tiles adjacent to existing doors to prevent double doors
+        def _is_corner(wx: int, wy: int) -> bool:
+            """True if this wall position is at a room corner."""
+            corners = {
+                (rect.x - 1, rect.y - 1), (rect.x2, rect.y - 1),
+                (rect.x - 1, rect.y2), (rect.x2, rect.y2),
+            }
+            return (wx, wy) in corners
+
+        # Collect candidate wall tiles on the facing side
+        # Skip corners and tiles adjacent to existing doors
         cands: list[tuple[int, int, int]] = []
         if abs(dx) >= abs(dy):
-            # East or west wall
+            # East or west wall (skip first/last = corners)
             wx = rect.x2 if dx > 0 else rect.x - 1
             for wy in range(rect.y, rect.y2):
+                if _is_corner(wx, wy):
+                    continue
                 t = level.tile_at(wx, wy)
                 if (t and t.terrain == Terrain.WALL
                         and not _has_adjacent_door(wx, wy)):
                     cands.append((wx, wy, abs(wy - ty)))
         else:
-            # North or south wall
+            # North or south wall (skip first/last = corners)
             wy = rect.y2 if dy > 0 else rect.y - 1
             for wx in range(rect.x, rect.x2):
+                if _is_corner(wx, wy):
+                    continue
                 t = level.tile_at(wx, wy)
                 if (t and t.terrain == Terrain.WALL
                         and not _has_adjacent_door(wx, wy)):
                     cands.append((wx, wy, abs(wx - tx)))
 
-        # Fallback: any wall around the room (skip adjacent-to-door)
+        # Fallback: any non-corner wall around the room
         if not cands:
             for side_x in (rect.x - 1, rect.x2):
                 for wy in range(rect.y, rect.y2):
+                    if _is_corner(side_x, wy):
+                        continue
                     t = level.tile_at(side_x, wy)
                     if (t and t.terrain == Terrain.WALL
                             and not _has_adjacent_door(side_x, wy)):
                         cands.append((side_x, wy, 0))
             for side_y in (rect.y - 1, rect.y2):
                 for wx in range(rect.x, rect.x2):
+                    if _is_corner(wx, side_y):
+                        continue
                     t = level.tile_at(wx, side_y)
                     if (t and t.terrain == Terrain.WALL
                             and not _has_adjacent_door(wx, side_y)):
