@@ -646,6 +646,9 @@ class Game:
         if intent == "quaff":
             return self._find_quaff_action()
 
+        if intent == "throw":
+            return self._find_throw_action()
+
         if intent == "equip":
             return self._find_equip_action()
 
@@ -758,6 +761,31 @@ class Game:
         if item_id is None:
             return None
         return UseItemAction(actor=self.player_id, item=item_id)
+
+    def _find_throw_action(self) -> "Action | None":
+        """Pick a potion, then a visible target to throw it at."""
+        from nhc.core.actions import ThrowAction
+
+        # Step 1: pick a throwable item (consumables)
+        item_id = self.renderer.show_filtered_inventory(
+            self.world, self.player_id,
+            title=t("ui.throw_which"),
+            filter_component="Consumable",
+        )
+        if item_id is None:
+            return None
+
+        # Step 2: pick a visible target
+        target_id = self.renderer.show_target_menu(
+            self.world, self.level, self.player_id,
+            title=t("ui.throw_target"),
+        )
+        if target_id is None:
+            return None
+
+        return ThrowAction(
+            actor=self.player_id, item=item_id, target=target_id,
+        )
 
     def _find_equip_action(self) -> "Action | None":
         """Show equippable items (weapons/shields) and equip one."""

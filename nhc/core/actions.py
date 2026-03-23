@@ -522,6 +522,137 @@ class EquipAction(Action):
         return events
 
 
+class ThrowAction(Action):
+    """Throw a potion at a target creature, applying its effect."""
+
+    def __init__(self, actor: int, item: int, target: int) -> None:
+        super().__init__(actor)
+        self.item = item
+        self.target = target
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        inv = world.get_component(self.actor, "Inventory")
+        if not inv or self.item not in inv.slots:
+            return False
+        consumable = world.get_component(self.item, "Consumable")
+        if not consumable:
+            return False
+        # Target must exist and be visible
+        tpos = world.get_component(self.target, "Position")
+        if not tpos:
+            return False
+        tile = level.tile_at(tpos.x, tpos.y)
+        return tile is not None and tile.visible
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        inv = world.get_component(self.actor, "Inventory")
+        consumable = world.get_component(self.item, "Consumable")
+        item_name = _entity_name(world, self.item)
+        target_name = _entity_name(world, self.target)
+
+        events.append(MessageEvent(
+            text=t("item.throw_at", item=item_name, target=target_name),
+        ))
+
+        # Apply the effect to the target
+        effect = consumable.effect
+        health = world.get_component(self.target, "Health")
+
+        if effect == "heal" and health:
+            amount = roll_dice(consumable.dice)
+            from nhc.rules.combat import heal as do_heal
+            do_heal(health, amount)
+
+        elif effect in ("frost", "hold_person"):
+            try:
+                duration = int(consumable.dice)
+            except ValueError:
+                duration = roll_dice(consumable.dice)
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(
+                    self.target, "StatusEffect",
+                    StatusEffect(paralyzed=duration),
+                )
+            else:
+                status.paralyzed = duration
+            events.append(MessageEvent(
+                text=t("item.frost_affects", target=target_name),
+            ))
+
+        elif effect == "fireball" and health:
+            damage = roll_dice(consumable.dice)
+            from nhc.rules.combat import apply_damage
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.fireball_hits", target=target_name,
+                       damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                ))
+
+        elif effect == "sleep":
+            total_hd = roll_dice(consumable.dice)
+            if not world.has_component(self.target, "Undead"):
+                status = world.get_component(self.target, "StatusEffect")
+                if status is None:
+                    world.add_component(
+                        self.target, "StatusEffect",
+                        StatusEffect(sleeping=9),
+                    )
+                else:
+                    status.sleeping = 9
+                events.append(MessageEvent(
+                    text=t("item.sleep_affects", target=target_name),
+                ))
+
+        elif effect == "invisibility":
+            # Makes the TARGET invisible (confusing but fun)
+            try:
+                duration = int(consumable.dice)
+            except ValueError:
+                duration = roll_dice(consumable.dice)
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(
+                    self.target, "StatusEffect",
+                    StatusEffect(invisible=duration),
+                )
+            else:
+                status.invisible = duration
+
+        elif effect == "damage_nearest" and health:
+            damage = roll_dice(consumable.dice)
+            from nhc.rules.combat import apply_damage
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.lightning_strike", item=item_name,
+                       target=target_name, damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                ))
+
+        else:
+            # Generic: just report the throw
+            pass
+
+        events.append(ItemUsed(
+            entity=self.actor, item=self.item, effect=effect,
+        ))
+
+        # Remove from inventory and destroy potion
+        if self.item in inv.slots:
+            inv.slots.remove(self.item)
+        world.destroy_entity(self.item)
+
+        return events
+
+
 class DropAction(Action):
     """Drop an item from inventory onto the floor."""
 

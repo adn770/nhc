@@ -573,6 +573,31 @@ class TerminalRenderer:
             return items[idx][0]
         return None
 
+    def show_target_menu(
+        self, world: World, level: Level, player_id: int,
+        title: str,
+    ) -> int | None:
+        """Show a list of visible creatures to target. Returns entity ID."""
+        pos = world.get_component(player_id, "Position")
+        if not pos:
+            return None
+
+        targets: list[tuple[int, str]] = []
+        for eid, ai, cpos in world.query("AI", "Position"):
+            if cpos is None:
+                continue
+            tile = level.tile_at(cpos.x, cpos.y)
+            if not tile or not tile.visible:
+                continue
+            desc = world.get_component(eid, "Description")
+            name = desc.name if desc else "???"
+            targets.append((eid, name))
+
+        if not targets:
+            return None
+
+        return self._draw_inventory_box(title, targets)
+
     def show_end_screen(self, won: bool, turn: int) -> None:
         """Show game over / victory screen."""
         t = self.term

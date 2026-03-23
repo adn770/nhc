@@ -33,6 +33,7 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     "q": ("quaff", None),
     "e": ("equip", None),
     "d": ("drop", None),
+    "t": ("throw", None),
     ">": ("descend", None),
     "x": ("look", None),
     ".": ("wait", None),
