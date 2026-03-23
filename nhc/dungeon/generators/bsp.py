@@ -244,45 +244,33 @@ class BSPGenerator(DungeonGenerator):
     # ── Carving helpers ─────────────────────────────────────────────
 
     def _build_walls(self, level: Level) -> None:
-        """Place a single layer of WALL tiles around floor/water.
+        """Place WALL tiles around room floors only (not corridors).
 
-        Only VOID tiles that are cardinally adjacent (not just
-        diagonally) to a FLOOR or WATER tile become walls.  This
-        produces a clean 1-tile-thick border so rooms separated
-        by a gap don't merge their walls.
+        Corridors have VOID on their sides — they're narrow passages
+        through darkness, not walled tunnels.  Only non-corridor
+        FLOOR and WATER tiles get surrounding walls (8-neighbor).
         """
         walkable = {Terrain.FLOOR, Terrain.WATER}
         to_wall: set[tuple[int, int]] = set()
+
         for y in range(level.height):
             for x in range(level.width):
-                if level.tiles[y][x].terrain not in walkable:
+                tile = level.tiles[y][x]
+                # Only build walls around room tiles, not corridors
+                if tile.terrain not in walkable or tile.is_corridor:
                     continue
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1),
-                               (-1, -1), (1, -1), (-1, 1), (1, 1)]:
-                    nx, ny = x + dx, y + dy
-                    if (level.in_bounds(nx, ny)
-                            and level.tiles[ny][nx].terrain == Terrain.VOID):
-                        to_wall.add((nx, ny))
+                for dy in range(-1, 2):
+                    for dx in range(-1, 2):
+                        if dx == 0 and dy == 0:
+                            continue
+                        nx, ny = x + dx, y + dy
+                        if (level.in_bounds(nx, ny)
+                                and level.tiles[ny][nx].terrain
+                                == Terrain.VOID):
+                            to_wall.add((nx, ny))
 
-        # Place walls
         for wx, wy in to_wall:
             level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
-
-        # Remove wall tiles that don't directly touch floor (cardinal).
-        # This strips the extra wall layer that forms when two rooms'
-        # wall zones overlap, preventing ├┬┬┬┤ artifacts.
-        to_void: list[tuple[int, int]] = []
-        for wx, wy in to_wall:
-            touches_floor = False
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nb = level.tile_at(wx + dx, wy + dy)
-                if nb and nb.terrain in walkable:
-                    touches_floor = True
-                    break
-            if not touches_floor:
-                to_void.append((wx, wy))
-        for vx, vy in to_void:
-            level.tiles[vy][vx] = Tile(terrain=Terrain.VOID)
 
     def _carve_room(self, level: Level, rect: Rect) -> None:
         for y in range(rect.y, rect.y2):

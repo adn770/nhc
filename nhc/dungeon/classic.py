@@ -100,29 +100,25 @@ class ClassicGenerator(DungeonGenerator):
         return level
 
     def _build_walls(self, level: Level) -> None:
-        """Place a single layer of WALL tiles around floor/water."""
+        """Place WALL tiles around room floors only (not corridors)."""
         walkable = {Terrain.FLOOR, Terrain.WATER}
         to_wall: set[tuple[int, int]] = set()
         for y in range(level.height):
             for x in range(level.width):
-                if level.tiles[y][x].terrain not in walkable:
+                tile = level.tiles[y][x]
+                if tile.terrain not in walkable or tile.is_corridor:
                     continue
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1),
-                               (-1, -1), (1, -1), (-1, 1), (1, 1)]:
-                    nx, ny = x + dx, y + dy
-                    if (level.in_bounds(nx, ny)
-                            and level.tiles[ny][nx].terrain == Terrain.VOID):
-                        to_wall.add((nx, ny))
+                for dy in range(-1, 2):
+                    for dx in range(-1, 2):
+                        if dx == 0 and dy == 0:
+                            continue
+                        nx, ny = x + dx, y + dy
+                        if (level.in_bounds(nx, ny)
+                                and level.tiles[ny][nx].terrain
+                                == Terrain.VOID):
+                            to_wall.add((nx, ny))
         for wx, wy in to_wall:
             level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
-        # Strip walls that don't touch floor (prevent double-layer)
-        for wx, wy in list(to_wall):
-            if not any(
-                level.tile_at(wx + dx, wy + dy)
-                and level.tile_at(wx + dx, wy + dy).terrain in walkable
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
-            ):
-                level.tiles[wy][wx] = Tile(terrain=Terrain.VOID)
 
     def _carve_room(self, level: Level, rect: Rect) -> None:
         """Carve a rectangular room into the level."""
