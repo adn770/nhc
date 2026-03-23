@@ -1067,18 +1067,23 @@ class Game:
 
     def _save_floor(self) -> None:
         """Save the current floor's level and entities to cache."""
-        from nhc.core.save import _serialize_entities, _serialize_level
         depth = self.level.depth
         player_inv = self.world.get_component(self.player_id, "Inventory")
         keep_ids = {self.player_id}
         if player_inv:
             keep_ids.update(player_inv.slots)
 
-        # Serialize non-player entities
-        entity_data = {}
-        for eid, comps in self.world._entities.items():
-            if eid not in keep_ids:
-                entity_data[eid] = dict(comps)
+        # Gather components per non-player entity
+        entity_data: dict[int, dict[str, object]] = {}
+        for eid in self.world._entities:
+            if eid in keep_ids:
+                continue
+            comps: dict[str, object] = {}
+            for comp_type, store in self.world._components.items():
+                if eid in store:
+                    comps[comp_type] = store[eid]
+            if comps:
+                entity_data[eid] = comps
 
         self._floor_cache[depth] = (self.level, entity_data)
 
