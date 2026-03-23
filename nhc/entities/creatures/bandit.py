@@ -6,8 +6,8 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry, creature_desc
 
 
-@EntityRegistry.register_creature("bandoler")
-def create_bandoler() -> dict:
+@EntityRegistry.register_creature("bandit")
+def create_bandit() -> dict:
     return {
         "Stats": Stats(strength=0, dexterity=3, constitution=0),
         "Health": Health(current=4, maximum=4),
@@ -17,5 +17,5 @@ def create_bandoler() -> dict:
         "LootTable": LootTable(entries=[("gold", 0.9, "2d6"),
                                         ("dagger", 0.3),
                                         ("short_sword", 0.1)]),
-        "Description": creature_desc("bandoler"),
+        "Description": creature_desc("bandit"),
     }

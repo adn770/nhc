@@ -359,7 +359,7 @@ creature:
     long: >-
       Un goblinoide grande de piel rojiza con porte militar.
       Se mueve en formación disciplinada y combate sin piedad.
-  osgo:
+  bugbear:
     name: "Bugbear"
     short: "un imponente bugbear"
     long: >-
@@ -371,97 +371,97 @@ creature:
     long: >-
       Un gigante enorme y torpe que aplasta todo a su paso.
       Porta un tronco de árbol como maza.
-  bandoler:
+  bandit:
     name: "Bandido"
     short: "un bandido encapuchado"
     long: >-
       Un proscrito humano con cara marcada y ojos hambrientos.
       Sale de las sombras con la hoja desenvainada.
-  uarg:
+  warg:
     name: "Warg"
     short: "un gran warg"
     long: >-
       Un enorme lobo de pelaje negro y ojos inteligentes y crueles.
       Caza junto a orcos y gruñe con voz gutural.
-  llop:
+  wolf:
     name: "Lobo"
     short: "un lobo gris"
     long: >-
       Un lobo gris y ágil que rodea cautelosamente antes de lanzarse.
       En manada son verdaderamente letales.
-  llop_terrible:
+  dire_wolf:
     name: "Lobo Terrible"
     short: "un lobo terrible"
     long: >-
       Un lobo del tamaño de un caballo, con mandíbulas capaces de
       triturar piedra. Sus ojos rojos te fijan con certeza depredadora.
-  ratpenat_gegant:
+  giant_bat:
     name: "Murciélago Gigante"
     short: "un murciélago gigante"
     long: >-
       Un murciélago con una envergadura de alas más ancha que un hombre alto.
       Se abalanza desde la oscuridad con un chillido.
-  os_negre:
+  black_bear:
     name: "Oso Negro"
     short: "un oso negro"
     long: >-
       Un oso compacto pero poderoso, generalmente desconfiado con los humanos.
       Acorralado, combate con salvaje ferocidad.
-  os_bru:
+  brown_bear:
     name: "Oso Pardo"
     short: "un oso pardo"
     long: >-
       Un enorme oso pardo de casi dos metros y medio de altura.
       Su rugido hace temblar las paredes de la mazmorra.
-  granyotic:
+  frogman:
     name: "Hombre Rana"
     short: "un guerrero hombre rana"
     long: >-
       Un humanoide con piel verde moteada, ojos saltones y
       piernas poderosas que lo llevan sobre obstáculos de un salto.
-  llangardanic:
+  lizardman:
     name: "Hombre Lagarto"
     short: "un hombre lagarto"
     long: >-
       Un lagarto bípedo con armadura tosca, escamoso y de sangre fría.
       Sus ojos sin párpados siguen cada uno de tus movimientos.
-  escarabat_foc:
+  fire_beetle:
     name: "Escarabajo de Fuego Gigante"
     short: "un escarabajo de fuego"
     long: >-
       Un escarabajo del tamaño de un perro, con glándulas naranjas brillantes
       en el tórax y abdomen que emiten una siniestra luz carmesí.
-  gentmalgama:
+  amalgamkin:
     name: "Quimérico"
     short: "un quimérico"
     long: >-
       Una criatura ensamblada con partes animales dispares.
       Dos cabezas discuten desde qué lado atacar.
-  gul:
+  ghoul:
     name: "Gul"
     short: "un fétido gul"
     long: >-
       Un horror no muerto que apesta a tumba. Sus garras
       drenan la chispa vital de los vivos.
-  escorpi_gegant:
+  giant_scorpion:
     name: "Escorpión Gigante"
     short: "un escorpión gigante"
     long: >-
       Un arácnido del tamaño de un caballo con enormes pinzas y
       una cola con aguijón chorreando potente veneno.
-  centpeus_gegant:
+  giant_centipede:
     name: "Ciempiés Gigante"
     short: "un ciempiés gigante"
     long: >-
       Un horror segmentado de sesenta centímetros con cientos de
       patas y mandíbulas venenosas. Su mordisco es sorprendentemente peligroso.
-  tarantula_gegant:
+  giant_tarantula:
     name: "Tarántula Gigante"
     short: "una tarántula gigante"
     long: >-
       Una araña peluda lo suficientemente grande para atacar a un hombre.
       Sus colmillos inyectan un veneno lento y agónico.
-  home_serp:
+  snakeman:
     name: "Hombre Serpiente"
     short: "un escamoso hombre serpiente"
     long: >-
@@ -473,50 +473,50 @@ creature:
     long: >-
       Un horror con alas de mosquito y trompa de aguja.
       Una vez perfora la carne, drena la sangre a velocidad aterradora.
-  sangonera_gegant:
+  giant_leech:
     name: "Sanguijuela Gigante"
     short: "una sanguijuela gigante"
     long: >-
       Un gusano gordo y gomoso de casi un metro de largo. Se aferra
       a su presa y le drena la sangre hasta saciarse o morir.
-  cocatriu:
+  cockatrice:
     name: "Cocatriz"
     short: "una cocatriz"
     long: >-
       Un dragón de dos patas con cabeza de gallo y cola de serpiente.
       Su toque convierte la carne en piedra fría y gris.
-  ocell_mal_averany:
+  ill_omen_bird:
     name: "Pájaro de Mal Agüero"
     short: "un pájaro de mal agüero"
     long: >-
       Un cuervo gigante de plumas negras como la noche y ojos pálidos
       que brillan con malicia sobrenatural. Su grito hiela la sangre.
-  cuc_tentacles:
+  tentacle_worm:
     name: "Gusano de Tentáculos"
     short: "un gusano de tentáculos"
     long: >-
       Un gusano pálido y gordo rodeado de tentáculos que agarran.
       Segrega un veneno adormecedor que deja a las presas indefensas.
-  llop_hivern:
+  winter_wolf:
     name: "Lobo de Invierno"
     short: "un lobo de invierno"
     long: >-
       Un gran lobo blanco del norte helado. Exhala hielo ártico
       que cubre a los enemigos mientras los muerde salvajemente.
-  desencantador:
+  disenchanter:
     name: "Desencantador"
     short: "un desencantador"
     long: >-
       Un depredador pálido con forma de babosa que se alimenta
       de energía mágica. Su toque deshace encantamientos y deja
       los pergaminos hechos polvo.
-  cridaner:
+  shrieker:
     name: "Chillador"
     short: "un chillador"
     long: >-
       Un hongo de sombrero violeta que emite un chillido ensordecedor
       cuando es perturbado, alertando a todas las criaturas del área.
-  serp_gegant:
+  giant_snake:
     name: "Serpiente Gigante"
     short: "una serpiente gigante"
     long: >-

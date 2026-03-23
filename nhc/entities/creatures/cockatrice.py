@@ -12,11 +12,11 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry, creature_desc
 
 
-@EntityRegistry.register_creature("cocatriu")
-def create_cocatriu() -> dict:
+@EntityRegistry.register_creature("cockatrice")
+def create_cockatrice() -> dict:
     return {
         "Renderable": Renderable(glyph="c", color="yellow", render_order=2),
-        "Description": creature_desc("cocatriu"),
+        "Description": creature_desc("cockatrice"),
         "Stats": Stats(strength=1, dexterity=3),
         "Health": Health(current=17, maximum=17),
         "Weapon": Weapon(damage="1d6"),

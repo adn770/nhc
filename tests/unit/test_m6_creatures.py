@@ -33,10 +33,10 @@ def _make_level():
 
 
 M6_CREATURE_IDS = [
-    "kobold", "hobgoblin", "osgo", "ogre", "bandoler",
-    "uarg", "llop", "llop_terrible", "ratpenat_gegant",
-    "os_negre", "os_bru", "granyotic", "llangardanic",
-    "escarabat_foc", "gentmalgama",
+    "kobold", "hobgoblin", "bugbear", "ogre", "bandit",
+    "warg", "wolf", "dire_wolf", "giant_bat",
+    "black_bear", "brown_bear", "frogman", "lizardman",
+    "fire_beetle", "amalgamkin",
 ]
 
 
@@ -67,7 +67,7 @@ class TestM6CreatureRegistry:
         assert c["Weapon"].damage == "1d10"
 
     def test_uarg_has_weapon(self):
-        c = EntityRegistry.get_creature("uarg")
+        c = EntityRegistry.get_creature("warg")
         assert "Weapon" in c
         assert c["Weapon"].damage == "3d6"
 
@@ -76,7 +76,7 @@ class TestM6CreatureRegistry:
         assert c["Stats"].strength < 0
 
     def test_escarabat_foc_uses_guard_behavior(self):
-        c = EntityRegistry.get_creature("escarabat_foc")
+        c = EntityRegistry.get_creature("fire_beetle")
         assert c["AI"].behavior == "guard"
 
 
@@ -168,7 +168,7 @@ class TestPopulatorTier4:
         from nhc.dungeon.populator import CREATURE_POOLS
         assert 4 in CREATURE_POOLS
         ids = [cid for cid, _ in CREATURE_POOLS[4]]
-        assert "ogre" in ids or "os_bru" in ids
+        assert "ogre" in ids or "brown_bear" in ids
 
     def test_depth_1_includes_kobold(self):
         from nhc.dungeon.populator import CREATURE_POOLS

@@ -357,7 +357,7 @@ creature:
     long: >-
       A large, red-skinned goblinoid with military bearing.
       It moves in disciplined formation and fights without mercy.
-  osgo:
+  bugbear:
     name: "Bugbear"
     short: "a looming bugbear"
     long: >-
@@ -369,97 +369,97 @@ creature:
     long: >-
       A massive, dim-witted giant that smashes everything in its path.
       It carries a tree trunk as a club.
-  bandoler:
+  bandit:
     name: "Bandit"
     short: "a hooded bandit"
     long: >-
       A human outlaw with a scarred face and hungry eyes.
       They step out of the shadows with blade drawn.
-  uarg:
+  warg:
     name: "Warg"
     short: "a great warg"
     long: >-
       An enormous wolf with black fur and cruel, intelligent eyes.
       It hunts alongside orcs and speaks in guttural growls.
-  llop:
+  wolf:
     name: "Wolf"
     short: "a grey wolf"
     long: >-
       A lean grey wolf that circles warily before lunging.
       In packs they are truly deadly.
-  llop_terrible:
+  dire_wolf:
     name: "Dire Wolf"
     short: "a dire wolf"
     long: >-
       A wolf the size of a horse, with jaws that could crush stone.
       Its red eyes fix on you with predatory certainty.
-  ratpenat_gegant:
+  giant_bat:
     name: "Giant Bat"
     short: "a giant bat"
     long: >-
       A bat with a wingspan wider than a man is tall.
       It swoops from the darkness with a shriek.
-  os_negre:
+  black_bear:
     name: "Black Bear"
     short: "a black bear"
     long: >-
       A compact but powerful bear, usually wary of humans.
       When cornered it fights with savage ferocity.
-  os_bru:
+  brown_bear:
     name: "Brown Bear"
     short: "a brown bear"
     long: >-
       A massive brown bear standing nearly eight feet tall.
       Its roar shakes the walls of the dungeon.
-  granyotic:
+  frogman:
     name: "Frogman"
     short: "a frogman warrior"
     long: >-
       A humanoid with mottled green skin, bulging eyes, and
       powerful legs that can carry it over obstacles in a single leap.
-  llangardanic:
+  lizardman:
     name: "Lizardman"
     short: "a lizardman"
     long: >-
       A bipedal lizard in crude armor, scaled and cold-blooded.
       Its unblinking eyes track your every move.
-  escarabat_foc:
+  fire_beetle:
     name: "Giant Fire Beetle"
     short: "a fire beetle"
     long: >-
       A beetle the size of a dog, with glowing orange glands on its
       thorax and abdomen that cast eerie crimson light.
-  gentmalgama:
+  amalgamkin:
     name: "Chimera-Ling"
     short: "a chimera-ling"
     long: >-
       A patchwork creature assembled from mismatched animal parts.
       Two heads argue over which direction to attack from.
-  gul:
+  ghoul:
     name: "Ghoul"
     short: "a foul ghoul"
     long: >-
       An undead horror that reeks of the grave. Its clawed touch
       drains the vital spark of the living.
-  escorpi_gegant:
+  giant_scorpion:
     name: "Giant Scorpion"
     short: "a giant scorpion"
     long: >-
       An arachnid the size of a horse with massive pincers and a
       barbed tail dripping with potent venom.
-  centpeus_gegant:
+  giant_centipede:
     name: "Giant Centipede"
     short: "a giant centipede"
     long: >-
       A segmented horror two feet long with hundreds of legs and
       tiny venomous mandibles. Its bite is surprisingly dangerous.
-  tarantula_gegant:
+  giant_tarantula:
     name: "Giant Tarantula"
     short: "a giant tarantula"
     long: >-
       A hairy spider large enough to tackle a man. Its fangs
       deliver a slow, agonizing venom.
-  home_serp:
+  snakeman:
     name: "Snakeman"
     short: "a serpentine snakeman"
     long: >-
@@ -471,49 +471,49 @@ creature:
     long: >-
       A mosquito-winged horror with a needle proboscis.
       Once it pierces flesh it drains blood with terrifying speed.
-  sangonera_gegant:
+  giant_leech:
     name: "Giant Leech"
     short: "a giant leech"
     long: >-
       A bloated, rubbery worm nearly three feet long. It attaches
       itself to prey and drains blood until sated or slain.
-  cocatriu:
+  cockatrice:
     name: "Cockatrice"
     short: "a cockatrice"
     long: >-
       A two-legged dragon with a rooster's head and a serpentine
       tail. Its touch turns flesh to cold grey stone.
-  ocell_mal_averany:
+  ill_omen_bird:
     name: "Bird of Ill Omen"
     short: "a bird of ill omen"
     long: >-
       A giant raven with midnight-black feathers and pale eyes
       that gleam with unnatural malice. Its cry chills the blood.
-  cuc_tentacles:
+  tentacle_worm:
     name: "Tentacle Worm"
     short: "a tentacle worm"
     long: >-
       A fat pale worm ringed with grasping tentacles. It secretes
       a numbing venom that leaves prey helpless.
-  llop_hivern:
+  winter_wolf:
     name: "Winter Wolf"
     short: "a winter wolf"
     long: >-
       A great white wolf from the frozen north. It exhales arctic
       frost that coats enemies in ice alongside its savage bite.
-  desencantador:
+  disenchanter:
     name: "Disenchanter"
     short: "a disenchanter"
     long: >-
       A pale, slug-like predator that feeds on magical energy.
       Its touch unravels enchantments and leaves scrolls as dust.
-  cridaner:
+  shrieker:
     name: "Shrieker"
     short: "a shrieker"
     long: >-
       A violet-capped mushroom that emits a deafening shriek when
       disturbed, alerting every creature in earshot.
-  serp_gegant:
+  giant_snake:
     name: "Giant Snake"
     short: "a giant snake"
     long: >-

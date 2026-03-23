@@ -64,10 +64,10 @@ def _make_creature(world, x=6, y=5, hp=10, **extra):
 # ── Registry: all M7 creatures load without error ────────────────────
 
 M7_CREATURE_IDS = [
-    "gul", "escorpi_gegant", "centpeus_gegant", "tarantula_gegant",
-    "home_serp", "stirge", "sangonera_gegant", "cocatriu",
-    "ocell_mal_averany", "cuc_tentacles", "llop_hivern",
-    "desencantador", "cridaner", "serp_gegant",
+    "ghoul", "giant_scorpion", "giant_centipede", "giant_tarantula",
+    "snakeman", "stirge", "giant_leech", "cockatrice",
+    "ill_omen_bird", "tentacle_worm", "winter_wolf",
+    "disenchanter", "shrieker", "giant_snake",
 ]
 
 
@@ -83,12 +83,12 @@ class TestM7CreatureRegistry:
         assert "AI" in comps
 
     def test_gul_is_undead_with_drain(self):
-        comps = EntityRegistry.get_creature("gul")
+        comps = EntityRegistry.get_creature("ghoul")
         assert "Undead" in comps
         assert "DrainTouch" in comps
 
     def test_escorpi_gegant_has_venom(self):
-        comps = EntityRegistry.get_creature("escorpi_gegant")
+        comps = EntityRegistry.get_creature("giant_scorpion")
         assert "VenomousStrike" in comps
 
     def test_stirge_has_blood_drain(self):
@@ -96,19 +96,19 @@ class TestM7CreatureRegistry:
         assert "BloodDrain" in comps
 
     def test_cocatriu_has_petrifying_touch(self):
-        comps = EntityRegistry.get_creature("cocatriu")
+        comps = EntityRegistry.get_creature("cockatrice")
         assert "PetrifyingTouch" in comps
 
     def test_llop_hivern_has_frost_breath(self):
-        comps = EntityRegistry.get_creature("llop_hivern")
+        comps = EntityRegistry.get_creature("winter_wolf")
         assert "FrostBreath" in comps
 
     def test_desencantador_has_disenchant_touch(self):
-        comps = EntityRegistry.get_creature("desencantador")
+        comps = EntityRegistry.get_creature("disenchanter")
         assert "DisenchantTouch" in comps
 
     def test_cridaner_behavior_is_shrieker(self):
-        comps = EntityRegistry.get_creature("cridaner")
+        comps = EntityRegistry.get_creature("shrieker")
         assert comps["AI"].behavior == "shrieker"
 
 

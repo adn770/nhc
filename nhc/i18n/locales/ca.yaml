@@ -387,7 +387,7 @@ creature:
     long: >-
       Un goblinoide gran de pell vermella amb posat militar.
       Es mou en formació disciplinada i combat sense pietat.
-  osgo:
+  bugbear:
     name: "osgo"
     gender: "m"
     short: "un osgo amenaçant"
@@ -401,112 +401,112 @@ creature:
     long: >-
       Un gegant enorme i ximple que destrossa tot al seu pas.
       Porta un tronc d'arbre com a maça.
-  bandoler:
+  bandit:
     name: "bandoler"
     gender: "m"
     short: "un bandoler encaputxat"
     long: >-
       Un proscrip humà amb la cara marcada i ulls famèlics.
       Surt de les ombres amb la fulla desembeinada.
-  uarg:
+  warg:
     name: "uarg"
     gender: "m"
     short: "un gran uarg"
     long: >-
       Un llop enorme de pelatge negre i ulls intel·ligents i cruels.
       Caça acompanyat d'orcs i gruny amb veu gutural.
-  llop:
+  wolf:
     name: "llop"
     gender: "m"
     short: "un llop gris"
     long: >-
       Un llop gris i esmaperdut que rodeja cautelosament abans de llançar-se.
       En manada, són veritablement mortals.
-  llop_terrible:
+  dire_wolf:
     name: "llop terrible"
     gender: "m"
     short: "un llop terrible"
     long: >-
       Un llop de la mida d'un cavall, amb mandíbules que podrien trencar pedra.
       Els seus ulls vermells et fixen amb certesa depredadora.
-  ratpenat_gegant:
+  giant_bat:
     name: "ratpenat gegant"
     gender: "m"
     short: "un ratpenat gegant"
     long: >-
       Un ratpenat amb una envergadura d'ales més ampla que un home alt.
       S'abat des de la foscor amb un xiscle.
-  os_negre:
+  black_bear:
     name: "os negre"
     gender: "m"
     short: "un os negre"
     long: >-
       Un os compacte però poderós, generalment desconfiat dels humans.
       Acorralat, combat amb ferocitat salvatge.
-  os_bru:
+  brown_bear:
     name: "os bru"
     gender: "m"
     short: "un os bru"
     long: >-
       Un os marró enorme de gairebé dos metres i mig d'alçada.
       El seu rugit fa tremolar les parets de la masmorra.
-  granyotic:
+  frogman:
     name: "granyotic"
     gender: "m"
     short: "un guerrer granyotic"
     long: >-
       Un humanoide amb pell verdosa maculada, ulls abombats i
       cames poderoses que el porten per sobre dels obstacles d'un salt.
-  llangardanic:
+  lizardman:
     name: "llangardànic"
     gender: "m"
     short: "un llangardànic"
     long: >-
       Un llangardaix bípede amb armadura tosca, escatós i de sang freda.
       Els seus ulls sense parpelles segueixen cada moviment teu.
-  escarabat_foc:
+  fire_beetle:
     name: "escarabat de foc gegant"
     gender: "m"
     short: "un escarabat de foc"
     long: >-
       Un escarabat de la mida d'un gos, amb glàndules taronges brillants al
       tòrax i abdomen que emeten una llum carmesí inquietant.
-  gentmalgama:
+  amalgamkin:
     name: "gentmalgama"
     gender: "m"
     short: "un gentmalgama"
     long: >-
       Una criatura apedaçada assemblada amb parts animals desiguals.
       Dues caps discuteixen des de quin costat atacar.
-  gul:
+  ghoul:
     name: "gul"
     gender: "m"
     short: "un fètid gul"
     long: >-
       Un horror no mort que pesta a tomba. Les seves urpes
       drenen l'espurna vital dels vivents.
-  escorpi_gegant:
+  giant_scorpion:
     name: "escorpí gegant"
     gender: "m"
     short: "un escorpí gegant"
     long: >-
       Un arácnid de la mida d'un cavall amb pinces massives
       i una cua amb agulló que degota verí potent.
-  centpeus_gegant:
+  giant_centipede:
     name: "centpeus gegant"
     gender: "m"
     short: "un centpeus gegant"
     long: >-
       Un horror segmentat de seixanta centímetres amb centenars de
       potes i mandíbules verinoses. La seva mossegada és sorprenentment perillosa.
-  tarantula_gegant:
+  giant_tarantula:
     name: "taràntula gegant"
     gender: "f"
     short: "una taràntula gegant"
     long: >-
       Una aranya peluda prou gran per atacar un home.
       Els seus ullals injecten un verí lent i agònic.
-  home_serp:
+  snakeman:
     name: "home serp"
     gender: "m"
     short: "un home serp escatós"
@@ -520,42 +520,42 @@ creature:
     long: >-
       Un horror amb ales de mosquit i trompa d'agulla.
       Un cop perfora la carn, drena la sang a velocitat aterridora.
-  sangonera_gegant:
+  giant_leech:
     name: "sangonera gegant"
     gender: "f"
     short: "una sangonera gegant"
     long: >-
       Un cuc gras i gomós de quasi un metre de llarg. S'agafa
       a la presa i li drena la sang fins a saciar-se o ser abatuda.
-  cocatriu:
+  cockatrice:
     name: "cocatriu"
     gender: "f"
     short: "una cocatriu"
     long: >-
       Un drac de dues potes amb cap de gall i cua de serp.
       El seu tacte converteix la carn en pedra freda i grisa.
-  ocell_mal_averany:
+  ill_omen_bird:
     name: "ocell mal averany"
     gender: "m"
     short: "un ocell mal averany"
     long: >-
       Un corb gegant de plomes negres com la nit i ulls pàl·lids
       que brillen amb malícia sobrenatural. El seu crit glaça la sang.
-  cuc_tentacles:
+  tentacle_worm:
     name: "cuc de tentacles"
     gender: "m"
     short: "un cuc de tentacles"
     long: >-
       Un cuc pal·lid i gras envoltat de tentacles que s'agafen.
       Secreta un verí adormir que deixa les preses indefenses.
-  llop_hivern:
+  winter_wolf:
     name: "llop d'hivern"
     gender: "m"
     short: "un llop d'hivern"
     long: >-
       Un gran llop blanc del nord glaçat. Exhala glaç àrtic
       que cobreix els enemics de gel alhora que els mossega salvagement.
-  desencantador:
+  disenchanter:
     name: "desencantador"
     gender: "m"
     short: "un desencantador"
@@ -563,14 +563,14 @@ creature:
       Un depredador pal·lid i en forma de llimac que s'alimenta
       d'energia màgica. El seu tacte desfà encanteris i deixa els
       pergamins fets pols.
-  cridaner:
+  shrieker:
     name: "cridaner"
     gender: "m"
     short: "un cridaner"
     long: >-
       Un bolet de tapadora violeta que emet un crit ensordidor quan
       és pertorbat, alertant totes les criatures que senten el so.
-  serp_gegant:
+  giant_snake:
     name: "serp gegant"
     gender: "f"
     short: "una serp gegant"

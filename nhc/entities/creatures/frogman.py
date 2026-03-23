@@ -6,8 +6,8 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry, creature_desc
 
 
-@EntityRegistry.register_creature("granyotic")
-def create_granyotic() -> dict:
+@EntityRegistry.register_creature("frogman")
+def create_frogman() -> dict:
     return {
         "Stats": Stats(strength=1, dexterity=4, constitution=1),
         "Health": Health(current=4, maximum=4),
@@ -15,5 +15,5 @@ def create_granyotic() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=7, faction="humanoid"),
         "Weapon": Weapon(damage="1d6"),
         "LootTable": LootTable(entries=[("gold", 0.4, "1d6")]),
-        "Description": creature_desc("granyotic"),
+        "Description": creature_desc("frogman"),
     }

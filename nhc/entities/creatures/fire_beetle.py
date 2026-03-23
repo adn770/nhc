@@ -6,8 +6,8 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry, creature_desc
 
 
-@EntityRegistry.register_creature("escarabat_foc")
-def create_escarabat_foc() -> dict:
+@EntityRegistry.register_creature("fire_beetle")
+def create_fire_beetle() -> dict:
     return {
         "Stats": Stats(strength=2, dexterity=5, constitution=1),
         "Health": Health(current=6, maximum=6),
@@ -16,5 +16,5 @@ def create_escarabat_foc() -> dict:
         # Defends with powerful mandibles (2d4)
         "Weapon": Weapon(damage="2d4"),
         "LootTable": LootTable(entries=[]),
-        "Description": creature_desc("escarabat_foc"),
+        "Description": creature_desc("fire_beetle"),
     }

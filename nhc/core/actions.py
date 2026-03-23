@@ -1867,7 +1867,7 @@ def _use_charm_snakes(
     except ValueError:
         duration = roll_dice(consumable.dice)
 
-    serpent_ids = {"serp_gegant", "home_serp"}
+    serpent_ids = {"giant_snake", "snakeman"}
     affected = 0
     for eid, _, cpos in world.query("AI", "Position"):
         if cpos is None:

@@ -6,8 +6,8 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry, creature_desc
 
 
-@EntityRegistry.register_creature("llop")
-def create_llop() -> dict:
+@EntityRegistry.register_creature("wolf")
+def create_wolf() -> dict:
     return {
         "Stats": Stats(strength=2, dexterity=2, constitution=1),
         "Health": Health(current=11, maximum=11),
@@ -15,5 +15,5 @@ def create_llop() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=6, faction="beast"),
         "Weapon": Weapon(damage="1d6"),
         "LootTable": LootTable(entries=[]),
-        "Description": creature_desc("llop"),
+        "Description": creature_desc("wolf"),
     }

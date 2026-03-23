@@ -156,7 +156,7 @@ def _paint_library(level: Level, rect: Rect, rng: random.Random) -> None:
 
 def _paint_crypt(level: Level, rect: Rect, rng: random.Random) -> None:
     """Undead guardians + loot."""
-    undead = ["skeleton", "zombie", "gul", "wight"]
+    undead = ["skeleton", "zombie", "ghoul", "wight"]
     for _ in range(rng.randint(1, 2)):
         x, y = _random_floor(rect, rng)
         level.entities.append(EntityPlacement(

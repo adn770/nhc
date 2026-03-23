@@ -6,8 +6,8 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry, creature_desc
 
 
-@EntityRegistry.register_creature("os_bru")
-def create_os_bru() -> dict:
+@EntityRegistry.register_creature("brown_bear")
+def create_brown_bear() -> dict:
     return {
         # Multi-attack (2×claw 1d4 + bite 1d8); simplified to bite + STR bonus
         "Stats": Stats(strength=4, dexterity=3, constitution=3),
@@ -16,5 +16,5 @@ def create_os_bru() -> dict:
         "AI": AI(behavior="aggressive_melee", morale=8, faction="beast"),
         "Weapon": Weapon(damage="1d8"),
         "LootTable": LootTable(entries=[]),
-        "Description": creature_desc("os_bru"),
+        "Description": creature_desc("brown_bear"),
     }
