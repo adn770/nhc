@@ -489,35 +489,44 @@ class TerminalRenderer:
             name = desc.name if desc else "???"
             items.append((item_id, name))
 
-        # Draw menu overlay with box
-        # Pad plain text BEFORE applying ANSI colors to avoid
-        # escape codes throwing off the right border alignment.
+        # Sky blue border color (same as help overlay)
+        border = t.color_rgb(80, 140, 210)
+
         menu_x = 5
         menu_y = 3
         menu_w = 40
-        inner = menu_w - 2  # space between │ and │
+        inner = menu_w - 2
+
         output = ""
-        output += t.move_xy(menu_x, menu_y) + "╭" + "─" * inner + "╮"
 
-        title = f" 🎒 {prompt}"
-        output += t.move_xy(menu_x, menu_y + 1)
-        output += "│" + t.bold(title[:inner].ljust(inner)) + "│"
+        # Top border with title embedded
+        title = f" {prompt} "
+        title_len = len(title)
+        left_fill = 1
+        right_fill = max(0, inner - left_fill - title_len)
+        output += t.move_xy(menu_x, menu_y)
+        output += border("╭─" + title + "─" * right_fill + "╮")
 
-        output += t.move_xy(menu_x, menu_y + 2) + "├" + "─" * inner + "┤"
+        # Item lines
         for i, (_, name) in enumerate(items):
             letter = chr(ord("a") + i)
             entry = f"  {letter}) {name}"
-            output += t.move_xy(menu_x, menu_y + 3 + i)
-            output += "│" + entry[:inner].ljust(inner) + "│"
+            padded = entry[:inner].ljust(inner)
+            output += t.move_xy(menu_x, menu_y + 1 + i)
+            output += border("│") + padded + border("│")
 
-        bot = menu_y + 3 + len(items)
-        output += t.move_xy(menu_x, bot) + "├" + "─" * inner + "┤"
+        # Bottom border with ESC hint embedded
+        esc_text = " ESC " + tr("ui.esc_cancel").strip() + " "
+        esc_len = len(esc_text)
+        left_fill = (inner - esc_len) // 2
+        right_fill = max(0, inner - left_fill - esc_len)
+        bot = menu_y + 1 + len(items)
+        output += t.move_xy(menu_x, bot)
+        output += border(
+            "╰" + "─" * left_fill + esc_text
+            + "─" * right_fill + "╯"
+        )
 
-        esc_text = tr("ui.esc_cancel")
-        output += t.move_xy(menu_x, bot + 1)
-        output += "│" + t.bright_black(esc_text[:inner].ljust(inner)) + "│"
-
-        output += t.move_xy(menu_x, bot + 2) + "╰" + "─" * inner + "╯"
         print(output, end="", flush=True)
 
         with t.cbreak():
