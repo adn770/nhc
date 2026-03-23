@@ -107,6 +107,10 @@ class Game:
         from nhc.rules.identification import ItemKnowledge
         from nhc.utils.rng import get_rng as _get_rng
         self._knowledge = ItemKnowledge(rng=_get_rng())
+        if self.god_mode:
+            from nhc.rules.identification import ALL_IDS
+            for item_id in ALL_IDS:
+                self._knowledge.identify(item_id)
 
         if generate:
             from nhc.dungeon.generator import GenerationParams
