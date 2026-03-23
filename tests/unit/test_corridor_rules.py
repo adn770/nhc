@@ -25,10 +25,15 @@ def _generate(seed: int = 42):
     return level
 
 
-class TestCorridorSidesAreVoid:
-    """Rule 1: corridor tiles must NOT have WALL on their sides."""
+class TestCorridorNoWalledTunnels:
+    """Rule 1: corridors must not be enclosed in walls (│#│ pattern).
 
-    def test_no_wall_adjacent_to_corridor(self):
+    A corridor may be adjacent to a room wall (passing by), but must
+    not have walls on BOTH sides perpendicular to its direction
+    (that would make it a walled tunnel leaking information).
+    """
+
+    def test_no_walled_corridor_tunnel(self):
         for seed in (42, 7, 123, 999):
             level = _generate(seed)
             for y in range(level.height):
@@ -37,14 +42,19 @@ class TestCorridorSidesAreVoid:
                     if not (tile.terrain == Terrain.FLOOR
                             and tile.is_corridor):
                         continue
-                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        nb = level.tile_at(x + dx, y + dy)
-                        if nb is None:
-                            continue
-                        assert nb.terrain != Terrain.WALL, (
-                            f"seed={seed}: corridor ({x},{y}) has WALL "
-                            f"neighbor at ({x+dx},{y+dy})"
-                        )
+                    # Check both perpendicular pairs
+                    n = level.tile_at(x, y - 1)
+                    s = level.tile_at(x, y + 1)
+                    e = level.tile_at(x + 1, y)
+                    w = level.tile_at(x - 1, y)
+                    walled_ns = (n and n.terrain == Terrain.WALL
+                                 and s and s.terrain == Terrain.WALL)
+                    walled_ew = (e and e.terrain == Terrain.WALL
+                                 and w and w.terrain == Terrain.WALL)
+                    assert not walled_ns and not walled_ew, (
+                        f"seed={seed}: corridor ({x},{y}) is walled "
+                        f"tunnel (ns={walled_ns} ew={walled_ew})"
+                    )
 
 
 class TestCorridorRoomDoors:
