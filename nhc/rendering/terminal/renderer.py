@@ -499,13 +499,15 @@ class TerminalRenderer:
 
         output = ""
 
-        # Top border with title embedded
-        title = f" {prompt} "
+        # Top border with centered title
+        title = f" {tr('ui.use_which')} "
         title_len = len(title)
-        left_fill = 1
+        left_fill = max(1, (inner - title_len) // 2)
         right_fill = max(0, inner - left_fill - title_len)
         output += t.move_xy(menu_x, menu_y)
-        output += border("╭─" + title + "─" * right_fill + "╮")
+        output += border(
+            "╭" + "─" * left_fill + title + "─" * right_fill + "╮"
+        )
 
         # Item lines
         for i, (_, name) in enumerate(items):
@@ -515,8 +517,8 @@ class TerminalRenderer:
             output += t.move_xy(menu_x, menu_y + 1 + i)
             output += border("│") + padded + border("│")
 
-        # Bottom border with ESC hint embedded
-        esc_text = " ESC " + tr("ui.esc_cancel").strip() + " "
+        # Bottom border with centered ESC hint
+        esc_text = " " + tr("ui.esc_cancel").strip() + " "
         esc_len = len(esc_text)
         left_fill = (inner - esc_len) // 2
         right_fill = max(0, inner - left_fill - esc_len)
