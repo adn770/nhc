@@ -97,13 +97,18 @@ class Game:
         EntityRegistry.discover_all()
 
         if generate:
-            from nhc.dungeon.classic import ClassicGenerator
             from nhc.dungeon.generator import GenerationParams
+            from nhc.dungeon.generators.bsp import BSPGenerator
             from nhc.dungeon.populator import populate_level
+            from nhc.dungeon.room_types import assign_room_types
+            from nhc.dungeon.terrain import apply_terrain
 
             params = GenerationParams(depth=depth)
-            gen = ClassicGenerator()
+            gen = BSPGenerator()
             self.level = gen.generate(params)
+            rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
+            assign_room_types(self.level, rng)
+            apply_terrain(self.level, rng)
             populate_level(self.level)
             logger.info(
                 "Generated level depth=%d (%dx%d, %d rooms)",
@@ -768,9 +773,11 @@ class Game:
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a new dungeon level."""
-        from nhc.dungeon.classic import ClassicGenerator
         from nhc.dungeon.generator import GenerationParams
+        from nhc.dungeon.generators.bsp import BSPGenerator
         from nhc.dungeon.populator import populate_level
+        from nhc.dungeon.room_types import assign_room_types
+        from nhc.dungeon.terrain import apply_terrain
 
         new_depth = event.depth
         logger.info("Descending to depth %d", new_depth)
@@ -788,21 +795,23 @@ class Game:
 
         # Generate new level
         params = GenerationParams(depth=new_depth)
-        gen = ClassicGenerator()
+        gen = BSPGenerator()
         self.level = gen.generate(params)
-        populate_level(
-            self.level,
-            creature_count=3 + new_depth,
-            item_count=2 + new_depth // 2,
-            trap_count=1 + new_depth // 3,
-        )
+        rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
+        assign_room_types(self.level, rng)
+        apply_terrain(self.level, rng)
+        populate_level(self.level)
 
         # Spawn level entities
         self._spawn_level_entities()
 
         # Move player to stairs_up in new level
-        if self.level.rooms:
-            px, py = self.level.rooms[0].rect.center
+        entry = next(
+            (r for r in self.level.rooms if "entry" in r.tags),
+            self.level.rooms[0] if self.level.rooms else None,
+        )
+        if entry:
+            px, py = entry.rect.center
             pos = self.world.get_component(self.player_id, "Position")
             if pos:
                 pos.x = px

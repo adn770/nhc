@@ -1,24 +1,28 @@
-"""Place creatures, items, traps, and features in generated levels."""
+"""Place creatures, items, traps, and features in generated levels.
+
+Uses difficulty-tiered pools and encounter groups for more varied
+and tactically interesting dungeon populations.
+"""
 
 from __future__ import annotations
 
 from nhc.dungeon.model import EntityPlacement, Level, Terrain
 from nhc.utils.rng import get_rng
 
-# Creature pools by difficulty tier
+# ── Creature pools by difficulty tier ────────────────────────────────
+
 CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [
-        ("giant_rat", 0.15), ("goblin", 0.2), ("skeleton", 0.1),
-        ("kobold", 0.1), ("giant_bee", 0.08), ("escarabat_foc", 0.08),
-        ("ratpenat_gegant", 0.05), ("centpeus_gegant", 0.1),
-        ("stirge", 0.07), ("cridaner", 0.07),
+        ("giant_rat", 0.15), ("rat", 0.10), ("goblin", 0.20),
+        ("skeleton", 0.10), ("kobold", 0.10), ("giant_bee", 0.08),
+        ("bat", 0.08), ("centpeus_gegant", 0.10), ("stirge", 0.09),
     ],
     2: [
-        ("goblin", 0.08), ("skeleton", 0.1), ("zombie", 0.08),
-        ("gnoll", 0.1), ("hobgoblin", 0.08), ("bandoler", 0.08),
+        ("goblin", 0.08), ("skeleton", 0.10), ("zombie", 0.08),
+        ("gnoll", 0.10), ("hobgoblin", 0.08), ("bandoler", 0.08),
         ("llop", 0.08), ("granyotic", 0.07), ("gentmalgama", 0.07),
-        ("gul", 0.07), ("tarantula_gegant", 0.07), ("sangonera_gegant", 0.05),
-        ("home_serp", 0.07),
+        ("gul", 0.07), ("tarantula_gegant", 0.07),
+        ("sangonera_gegant", 0.05), ("home_serp", 0.07),
     ],
     3: [
         ("orc", 0.07), ("zombie", 0.07), ("gnoll", 0.07),
@@ -34,14 +38,23 @@ CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
         ("wight", 0.06), ("spectre", 0.06), ("basilisk", 0.06),
         ("llop_terrible", 0.06), ("ocell_mal_averany", 0.06),
         ("serp_gegant", 0.06), ("desencantador", 0.06),
-        ("llop_hivern", 0.06),
-        ("troll", 0.06), ("mummy", 0.06), ("gargoyle", 0.06),
-        ("wyvern", 0.06),
+        ("llop_hivern", 0.06), ("troll", 0.06), ("mummy", 0.06),
+        ("gargoyle", 0.06), ("wyvern", 0.06),
         ("banshee", 0.05), ("harpy", 0.05),
     ],
 }
 
-# Item pools by difficulty tier
+# ── Encounter group templates ────────────────────────────────────────
+
+ENCOUNTER_GROUPS: list[tuple[str, int, int]] = [
+    # (pattern, min_size, max_size)
+    ("solo", 1, 1),
+    ("pair", 2, 2),
+    ("pack", 3, 4),
+]
+
+# ── Item pools by difficulty tier ────────────────────────────────────
+
 ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [
         ("healing_potion", 0.35), ("dagger", 0.25), ("short_sword", 0.15),
@@ -71,7 +84,8 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     ],
 }
 
-# Feature pools
+# ── Feature/trap pools ───────────────────────────────────────────────
+
 FEATURE_POOLS: list[tuple[str, float]] = [
     ("trap_pit", 1.0),
 ]
@@ -79,86 +93,131 @@ FEATURE_POOLS: list[tuple[str, float]] = [
 
 def populate_level(
     level: Level,
-    creature_count: int = 3,
-    item_count: int = 2,
-    trap_count: int = 1,
+    creature_count: int | None = None,
+    item_count: int | None = None,
+    trap_count: int | None = None,
 ) -> None:
     """Place entities in a generated level's rooms.
 
-    Modifies level.entities in place. Avoids placing on stairs
-    or in the first room (player spawn).
+    Counts scale with depth if not explicitly provided.
+    Modifies level.entities in place.
     """
     rng = get_rng()
     difficulty = min(max(1, level.depth), max(CREATURE_POOLS.keys()))
 
-    # Gather valid rooms (skip first room — player spawn)
-    placeable_rooms = level.rooms[1:] if len(level.rooms) > 1 else []
-    if not placeable_rooms:
+    # Scale counts with depth
+    if creature_count is None:
+        creature_count = 2 + level.depth + rng.randint(0, 2)
+    if item_count is None:
+        item_count = 3 + rng.randint(0, level.depth)
+    if trap_count is None:
+        trap_count = max(0, level.depth - 1) + rng.randint(0, 1)
+
+    # Gather valid rooms (skip entry room — player spawn)
+    placeable = [r for r in level.rooms
+                 if "entry" not in r.tags
+                 and r.rect.width >= 3 and r.rect.height >= 3]
+    # Also skip rooms already populated by room_types painters
+    special_tags = {"treasury", "armory", "library", "crypt",
+                    "trap_room", "shrine", "garden"}
+    combat_rooms = [r for r in placeable
+                    if not any(t in special_tags for t in r.tags)]
+
+    if not combat_rooms:
+        combat_rooms = placeable
+    if not combat_rooms:
         return
 
-    def _random_floor_in_room(room_idx: int) -> tuple[int, int] | None:
-        """Pick a random walkable tile in a room, avoiding features."""
-        room = placeable_rooms[room_idx]
+    occupied: set[tuple[int, int]] = set()
+
+    def _pick_floor(room) -> tuple[int, int] | None:
         rect = room.rect
         candidates = []
         for y in range(rect.y, rect.y2):
             for x in range(rect.x, rect.x2):
                 tile = level.tile_at(x, y)
-                if tile and tile.terrain == Terrain.FLOOR and not tile.feature:
+                if (tile and tile.terrain == Terrain.FLOOR
+                        and not tile.feature
+                        and (x, y) not in occupied):
                     candidates.append((x, y))
         if not candidates:
             return None
-        return rng.choice(candidates)
+        pos = rng.choice(candidates)
+        occupied.add(pos)
+        return pos
 
-    occupied: set[tuple[int, int]] = set()
-
-    def _place_unique(room_idx: int) -> tuple[int, int] | None:
-        pos = _random_floor_in_room(room_idx)
-        if pos and pos not in occupied:
-            occupied.add(pos)
-            return pos
-        return None
-
-    # Place creatures
+    # ── Place creature encounters ──
     c_pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
     c_ids, c_weights = zip(*c_pool) if c_pool else ([], [])
-    for _ in range(creature_count):
-        room_idx = rng.randint(0, len(placeable_rooms) - 1)
-        pos = _place_unique(room_idx)
-        if not pos:
-            continue
-        creature_id = rng.choices(list(c_ids), weights=list(c_weights), k=1)[0]
-        level.entities.append(EntityPlacement(
-            entity_type="creature",
-            entity_id=creature_id,
-            x=pos[0], y=pos[1],
-        ))
+    remaining = creature_count
 
-    # Place items
+    while remaining > 0 and combat_rooms:
+        room = rng.choice(combat_rooms)
+
+        # Pick encounter size
+        group = rng.choice(ENCOUNTER_GROUPS)
+        _, gmin, gmax = group
+        size = min(rng.randint(gmin, gmax), remaining)
+
+        # Pick creature type for the group
+        creature_id = rng.choices(list(c_ids), weights=list(c_weights), k=1)[0]
+
+        for _ in range(size):
+            pos = _pick_floor(room)
+            if not pos:
+                break
+            level.entities.append(EntityPlacement(
+                entity_type="creature", entity_id=creature_id,
+                x=pos[0], y=pos[1],
+            ))
+            remaining -= 1
+
+    # ── Place items ──
     i_pool = ITEM_POOLS.get(difficulty, ITEM_POOLS[1])
     i_ids, i_weights = zip(*i_pool) if i_pool else ([], [])
+    all_rooms = [r for r in placeable
+                 if not any(t in {"treasury", "armory", "library"}
+                            for t in r.tags)]
+    if not all_rooms:
+        all_rooms = placeable
+
     for _ in range(item_count):
-        room_idx = rng.randint(0, len(placeable_rooms) - 1)
-        pos = _place_unique(room_idx)
+        if not all_rooms:
+            break
+        room = rng.choice(all_rooms)
+        pos = _pick_floor(room)
         if not pos:
             continue
         item_id = rng.choices(list(i_ids), weights=list(i_weights), k=1)[0]
         level.entities.append(EntityPlacement(
-            entity_type="item",
-            entity_id=item_id,
+            entity_type="item", entity_id=item_id,
             x=pos[0], y=pos[1],
         ))
 
-    # Place traps
+    # ── Place gold ──
+    gold_count = rng.randint(2, 3 + level.depth)
+    for _ in range(gold_count):
+        if not placeable:
+            break
+        room = rng.choice(placeable)
+        pos = _pick_floor(room)
+        if pos:
+            level.entities.append(EntityPlacement(
+                entity_type="item", entity_id="gold",
+                x=pos[0], y=pos[1],
+            ))
+
+    # ── Place traps ──
     for _ in range(trap_count):
-        room_idx = rng.randint(0, len(placeable_rooms) - 1)
-        pos = _place_unique(room_idx)
+        if not combat_rooms:
+            break
+        room = rng.choice(combat_rooms)
+        pos = _pick_floor(room)
         if not pos:
             continue
         feat_id, _ = rng.choice(FEATURE_POOLS)
         level.entities.append(EntityPlacement(
-            entity_type="feature",
-            entity_id=feat_id,
+            entity_type="feature", entity_id=feat_id,
             x=pos[0], y=pos[1],
             extra={"hidden": True},
         ))
