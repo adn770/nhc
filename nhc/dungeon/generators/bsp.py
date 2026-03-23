@@ -274,6 +274,68 @@ class BSPGenerator(DungeonGenerator):
                 connects=[level.rooms[a].id, level.rooms[b].id],
             ))
 
+        # ── Step 3b: Prune dead-end corridor stubs ──
+        # L-shaped corridors can leave dead stubs at bend points.
+        # Iteratively remove corridor tiles with ≤1 floor neighbor
+        # until no more dead ends remain.
+        pruned = True
+        while pruned:
+            pruned = False
+            for y in range(level.height):
+                for x in range(level.width):
+                    tile = level.tiles[y][x]
+                    if not (tile.terrain == Terrain.FLOOR
+                            and tile.is_corridor
+                            and not tile.feature):
+                        continue
+                    floor_neighbors = 0
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb and nb.terrain == Terrain.FLOOR:
+                            floor_neighbors += 1
+                    if floor_neighbors <= 1:
+                        level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+                        pruned = True
+
+        # ── Step 3b: Handle dead-end corridor stubs ──
+        # L-shaped corridors can leave dead stubs at bend points.
+        # For each dead end: 30% add secret door if wall adjacent,
+        # 30% keep as atmospheric dead end, 40% prune.
+        changed = True
+        while changed:
+            changed = False
+            for y in range(level.height):
+                for x in range(level.width):
+                    tile = level.tiles[y][x]
+                    if not (tile.terrain == Terrain.FLOOR
+                            and tile.is_corridor
+                            and not tile.feature):
+                        continue
+                    floor_neighbors = 0
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb and nb.terrain == Terrain.FLOOR:
+                            floor_neighbors += 1
+                    if floor_neighbors > 1:
+                        continue
+                    # Dead end found
+                    roll = rng.random()
+                    if roll < 0.3:
+                        # Try to place a secret door on adjacent wall
+                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                            nb = level.tile_at(x + dx, y + dy)
+                            if nb and nb.terrain == Terrain.WALL:
+                                nb.terrain = Terrain.FLOOR
+                                nb.feature = "door_secret"
+                                break
+                        # Keep the corridor tile
+                    elif roll < 0.6:
+                        pass  # Keep as dead end
+                    else:
+                        # Prune
+                        level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+                        changed = True
+
         # ── Step 4: Stairs ──
         sx, sy = rects[entrance].center
         level.tiles[sy][sx].feature = "stairs_up"
