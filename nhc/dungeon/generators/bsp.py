@@ -275,11 +275,23 @@ class BSPGenerator(DungeonGenerator):
     def _place_doors(
         self, level: Level, rng: random.Random, secret_chance: float,
     ) -> None:
+        """Place doors at corridor-room transitions.
+
+        Only corridor tiles are candidates (not room interiors).
+        Doors are never placed adjacent to another door to prevent
+        chains of doors in narrow passages.
+        """
+        door_positions: set[tuple[int, int]] = set()
+
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
                 tile = level.tiles[y][x]
                 if tile.terrain != Terrain.FLOOR or tile.feature:
                     continue
+                # Only place doors on corridor tiles
+                if not tile.is_corridor:
+                    continue
+
                 h_walls = (
                     level.tiles[y - 1][x].terrain == Terrain.WALL
                     and level.tiles[y + 1][x].terrain == Terrain.WALL
@@ -290,14 +302,26 @@ class BSPGenerator(DungeonGenerator):
                 )
                 if not (h_walls or v_walls):
                     continue
+
                 adj_floor = sum(
                     1 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
                     if (level.in_bounds(x + dx, y + dy)
                         and level.tiles[y + dy][x + dx].terrain
                         == Terrain.FLOOR)
                 )
-                if adj_floor == 2:
-                    if rng.random() < secret_chance:
-                        tile.feature = "door_secret"
-                    else:
-                        tile.feature = "door_closed"
+                if adj_floor != 2:
+                    continue
+
+                # Skip if adjacent to an existing door (prevent chains)
+                has_adj_door = any(
+                    (x + dx, y + dy) in door_positions
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                )
+                if has_adj_door:
+                    continue
+
+                if rng.random() < secret_chance:
+                    tile.feature = "door_secret"
+                else:
+                    tile.feature = "door_closed"
+                door_positions.add((x, y))

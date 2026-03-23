@@ -364,10 +364,17 @@ class TerminalRenderer:
                     nb_s = level.tile_at(mx, my + 1)
                     nb_e = level.tile_at(mx + 1, my)
                     nb_w = level.tile_at(mx - 1, my)
-                    cn = nb_n is not None and nb_n.terrain == Terrain.WALL
-                    cs = nb_s is not None and nb_s.terrain == Terrain.WALL
-                    ce = nb_e is not None and nb_e.terrain == Terrain.WALL
-                    cw = nb_w is not None and nb_w.terrain == Terrain.WALL
+                    # Doors sit in wall-like positions — treat them
+                    # as walls for box-drawing connectivity so the
+                    # wall pattern stays continuous around doors.
+                    cn = nb_n is not None and (
+                        nb_n.terrain == Terrain.WALL or nb_n.blocks_sight)
+                    cs = nb_s is not None and (
+                        nb_s.terrain == Terrain.WALL or nb_s.blocks_sight)
+                    ce = nb_e is not None and (
+                        nb_e.terrain == Terrain.WALL or nb_e.blocks_sight)
+                    cw = nb_w is not None and (
+                        nb_w.terrain == Terrain.WALL or nb_w.blocks_sight)
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
                     glyph = wall_glyph(cn, cs, ce, cw)
                 else:
