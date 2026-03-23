@@ -424,7 +424,10 @@ class MeleeAttackAction(Action):
                         ),
                     })
 
-                world.destroy_entity(self.target)
+                # Don't destroy the player entity — let the game loop
+                # handle player death (supports god mode HP restore).
+                if not world.has_component(self.target, "Player"):
+                    world.destroy_entity(self.target)
         else:
             events.append(CreatureAttacked(
                 attacker=self.actor, target=self.target,
