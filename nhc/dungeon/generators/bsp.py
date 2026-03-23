@@ -97,19 +97,19 @@ def _place_room(leaf: _Node, rng: random.Random) -> None:
 
 # ── Connectivity ────────────────────────────────────────────────────
 
-def _find_neighbors(rects: list[Rect], gap: int = 5) -> list[tuple[int, int]]:
-    """Find room pairs close enough to connect."""
+def _center_dist(a: Rect, b: Rect) -> int:
+    """Manhattan distance between room centers."""
+    ax, ay = a.center
+    bx, by = b.center
+    return abs(ax - bx) + abs(ay - by)
+
+
+def _find_neighbors(rects: list[Rect], max_dist: int = 25) -> list[tuple[int, int]]:
+    """Find room pairs close enough to connect (by center distance)."""
     pairs: list[tuple[int, int]] = []
     for i in range(len(rects)):
         for j in range(i + 1, len(rects)):
-            a, b = rects[i], rects[j]
-            h_overlap = min(a.x2, b.x2) - max(a.x, b.x)
-            v_overlap = min(a.y2, b.y2) - max(a.y, b.y)
-            h_gap = max(a.x, b.x) - min(a.x2, b.x2)
-            v_gap = max(a.y, b.y) - min(a.y2, b.y2)
-            if h_overlap >= 2 and 0 <= v_gap <= gap:
-                pairs.append((i, j))
-            elif v_overlap >= 2 and 0 <= h_gap <= gap:
+            if _center_dist(rects[i], rects[j]) <= max_dist:
                 pairs.append((i, j))
     return pairs
 
@@ -205,18 +205,31 @@ class BSPGenerator(DungeonGenerator):
                 connected.add(pair)
                 self._connect(level, rects[i], rects[j], rng)
 
-        # Ensure full reachability
-        for idx in range(len(rects)):
-            if _bfs(adj, entrance, idx) is None:
-                # Connect to any neighbor
-                for ni, nj in neighbors:
-                    other = nj if ni == idx else (ni if nj == idx else None)
-                    if other is not None:
-                        pair = (min(idx, other), max(idx, other))
-                        if pair not in connected:
-                            connected.add(pair)
-                            self._connect(level, rects[idx], rects[other], rng)
-                            break
+        # Ensure full reachability — connect isolated rooms to the
+        # nearest already-reachable room by center distance
+        changed = True
+        while changed:
+            changed = False
+            reachable = _bfs_dist(adj, entrance)
+            for idx in range(len(rects)):
+                if idx in reachable:
+                    continue
+                # Find nearest reachable room
+                best_other = None
+                best_dist = 9999
+                for other in reachable:
+                    d = _center_dist(rects[idx], rects[other])
+                    if d < best_dist:
+                        best_dist = d
+                        best_other = other
+                if best_other is not None:
+                    pair = (min(idx, best_other), max(idx, best_other))
+                    connected.add(pair)
+                    adj[idx].add(best_other)
+                    adj[best_other].add(idx)
+                    self._connect(level, rects[idx], rects[best_other], rng)
+                    changed = True
+                    break  # Restart — new room is now reachable
 
         # Corridor metadata
         for ci, (a, b) in enumerate(connected):
