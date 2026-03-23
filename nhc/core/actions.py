@@ -484,6 +484,32 @@ class PickupItemAction(Action):
 
         return events
 
+    def _pickup_gold(
+        self, world: "World", events: list[Event],
+    ) -> list[Event]:
+        """Absorb gold into the player's purse and destroy the entity."""
+        import re
+
+        desc = world.get_component(self.item, "Description")
+        name = desc.name if desc else "Gold"
+
+        # Extract numeric quantity from name (e.g. "12 Gold" → 12)
+        match = re.match(r"(\d+)", name)
+        amount = int(match.group(1)) if match else 1
+
+        player = world.get_component(self.actor, "Player")
+        if player:
+            player.gold += amount
+
+        events.append(ItemPickedUp(entity=self.actor, item=self.item))
+        events.append(MessageEvent(
+            text=t("item.gold_picked_up", amount=amount),
+        ))
+
+        world.destroy_entity(self.item)
+        return events
+
+
 class EquipAction(Action):
     """Equip a weapon or shield from inventory."""
 
@@ -689,32 +715,6 @@ class DropAction(Action):
         events.append(MessageEvent(
             text=t("item.dropped", item=item_name),
         ))
-        return events
-
-
-    def _pickup_gold(
-        self, world: "World", events: list[Event],
-    ) -> list[Event]:
-        """Absorb gold into the player's purse and destroy the entity."""
-        import re
-
-        desc = world.get_component(self.item, "Description")
-        name = desc.name if desc else "Gold"
-
-        # Extract numeric quantity from name (e.g. "12 Gold" → 12)
-        match = re.match(r"(\d+)", name)
-        amount = int(match.group(1)) if match else 1
-
-        player = world.get_component(self.actor, "Player")
-        if player:
-            player.gold += amount
-
-        events.append(ItemPickedUp(entity=self.actor, item=self.item))
-        events.append(MessageEvent(
-            text=t("item.gold_picked_up", amount=amount),
-        ))
-
-        world.destroy_entity(self.item)
         return events
 
 
