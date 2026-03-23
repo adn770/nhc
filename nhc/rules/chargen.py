@@ -186,11 +186,29 @@ HELM_SHIELD_TABLE = [
 # Weapon: player gets one weapon (d6 tier)
 WEAPON_TABLE = ["dagger", "club", "short_sword", "sword", "spear", "axe", "mace"]
 
-# Loot table (roll 2x from this)
+# Loot table (roll 2x from this — matches Knave "Saqueig" table)
 LOOT_TABLE = [
-    "rope", "candles", "chain", "crowbar", "tinderbox",
-    "grappling_hook", "hammer", "lantern", "lockpicks",
-    "mirror", "pole", "sack", "tent", "torch", "rations",
+    "rope", "pulley", "candles", "chain", "chalk",
+    "crowbar", "tinderbox", "grappling_hook", "hammer", "waterskin",
+    "lantern", "lamp_oil", "padlock", "manacles", "mirror",
+    "pole", "sack", "tent", "iron_stakes", "torch",
+]
+
+# General equipment 1 table (roll 1x)
+GENERAL_EQUIPMENT_1 = [
+    "air_bladder", "bear_trap", "shovel", "bellows", "grease",
+    "saw", "bucket", "glass_marbles", "chisel", "drill",
+    "fishing_rod", "glue", "pick", "hourglass",
+    "net", "iron_tongs", "lockpicks", "metal_file", "nails",
+]
+
+# General equipment 2 table (roll 1x)
+GENERAL_EQUIPMENT_2 = [
+    "incense", "sponge", "lens", "perfume", "horn",
+    "vial", "soap", "spyglass", "tar_pot", "twine",
+    "fake_jewels", "blank_book", "loaded_dice",
+    "pots_and_pans", "face_paint", "whistle", "instrument",
+    "quill_and_ink", "bell",
 ]
 
 # Starting consumables: always rations + 1 healing potion + 1 random scroll
@@ -239,9 +257,15 @@ def _roll_starting_equipment(rng) -> list[str]:
     elif helm_shield:
         items.append(helm_shield)
 
-    # 2 rolls on loot table
+    # 2 rolls on loot table (Knave: "Tira dos cops sobre Saqueig")
     loot_picks = rng.sample(LOOT_TABLE, min(2, len(LOOT_TABLE)))
     items.extend(loot_picks)
+
+    # 1 roll on general equipment 1
+    items.append(rng.choice(GENERAL_EQUIPMENT_1))
+
+    # 1 roll on general equipment 2
+    items.append(rng.choice(GENERAL_EQUIPMENT_2))
 
     # Always: rations + healing potion + random scroll
     items.append("rations")

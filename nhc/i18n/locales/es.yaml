@@ -1072,6 +1072,210 @@ items:
     name: "Raciones"
     short: "raciones de viaje"
     long: "Carne seca, pan duro y frutos secos. Para un día."
+  crossbow:
+    name: "Ballesta"
+    short: "una ballesta pesada"
+    long: "Un arco mecánico que dispara virotes con fuerza mortal. Dos manos. 1d8 de daño."
+  arrows:
+    name: "Flechas"
+    short: "un carcaj de flechas"
+    long: "Veinte flechas con plumas para arcos y ballestas."
+  holy_water:
+    name: "Agua Bendita"
+    short: "un frasco de agua bendita"
+    long: "Agua bendecida en un frasco de cristal. Quema a los no muertos."
+  spyglass:
+    name: "Catalejo"
+    short: "un catalejo de latón"
+    long: "Un telescopio plegable de latón para ver cosas distantes."
+  vial:
+    name: "Frasco"
+    short: "un frasco de cristal vacío"
+    long: "Un pequeño recipiente de cristal para contener líquidos."
+  glass_marbles:
+    name: "Canicas de Cristal"
+    short: "una bolsa de canicas"
+    long: "Una bolsa de canicas de cristal lisas. Espárcelas para hacer tropezar."
+  air_bladder:
+    name: "Vejiga de Aire"
+    short: "una vejiga de aire inflada"
+    long: "Una vejiga animal inflada con aire. Útil para flotar."
+  waterskin:
+    name: "Odre"
+    short: "un odre de cuero"
+    long: "Una bolsa de cuero para llevar agua. Contiene para un día."
+  crampons:
+    name: "Crampones"
+    short: "unos crampones de hierro"
+    long: "Puntas de hierro que se atan a las botas para escalar hielo y roca."
+  padlock:
+    name: "Candado"
+    short: "un candado de hierro"
+    long: "Un candado de hierro robusto con llave."
+  bell:
+    name: "Campanilla"
+    short: "una campanilla de latón"
+    long: "Una campanilla que suena al mínimo contacto. Buena para alarmas."
+  fishing_rod:
+    name: "Caña de Pescar"
+    short: "una caña de pescar"
+    long: "Una caña sencilla con hilo y anzuelos para pescar."
+  chisel:
+    name: "Cincel"
+    short: "un cincel de acero"
+    long: "Una herramienta de corte para tallar piedra y picar mortero."
+  nails:
+    name: "Clavos"
+    short: "un puñado de clavos de hierro"
+    long: "Doce clavos de hierro. Para asegurar tablas o púas improvisadas."
+  glue:
+    name: "Cola"
+    short: "un tarro de cola"
+    long: "Un tarro pequeño de adhesivo fuerte. Fragua en minutos."
+  twine:
+    name: "Cordel"
+    short: "un ovillo de cordel"
+    long: "Cien metros de hilo fino pero resistente."
+  horn:
+    name: "Cuerno"
+    short: "un cuerno de señal"
+    long: "Un cuerno curvado que produce una nota profunda y lejana."
+  incense:
+    name: "Incienso"
+    short: "un paquete de incienso"
+    long: "Varillas aromáticas que producen humo fragante al arder."
+  rope_ladder:
+    name: "Escala de Cuerda"
+    short: "una escala de cuerda"
+    long: "Una escalera de tres metros de cuerda y peldaños de madera."
+  sponge:
+    name: "Esponja"
+    short: "una esponja grande"
+    long: "Una esponja natural de mar para absorber líquidos."
+  iron_stakes:
+    name: "Estacas de Hierro"
+    short: "estacas de hierro"
+    long: "Cinco estacas de hierro para anclar cuerdas o bloquear puertas."
+  wooden_stakes:
+    name: "Estacas de Madera"
+    short: "estacas de madera"
+    long: "Cinco estacas de madera afiladas. Efectivas contra vampiros."
+  bucket:
+    name: "Cubo"
+    short: "un cubo de madera"
+    long: "Un cubo robusto de madera para llevar agua."
+  grease:
+    name: "Grasa"
+    short: "un tarro de grasa"
+    long: "Grasa negra para lubricar mecanismos o hacer superficies resbaladizas."
+  chalk:
+    name: "Tiza"
+    short: "un manojo de tiza"
+    long: "Diez piezas de tiza blanca para marcar paredes y superficies."
+  instrument:
+    name: "Instrumento Musical"
+    short: "un instrumento musical"
+    long: "Un instrumento portátil — quizá una flauta, laúd o tambor."
+  loaded_dice:
+    name: "Dados Trucados"
+    short: "un juego de dados trucados"
+    long: "Dados con peso que siempre caen a tu favor. Si nadie los revisa."
+  fake_jewels:
+    name: "Joyas Falsas"
+    short: "una bolsa de joyas falsas"
+    long: "Piedras de cristal cortadas como gemas. Convincentes para el ojo inexperto."
+  lens:
+    name: "Lente"
+    short: "una lente de aumento"
+    long: "Una lente de cristal pulido para examinar detalles o concentrar luz."
+  blank_book:
+    name: "Libro en Blanco"
+    short: "un libro en blanco"
+    long: "Un libro encuadernado en cuero con páginas vacías."
+  metal_file:
+    name: "Lima de Metal"
+    short: "una lima de metal"
+    long: "Una lima de acero gruesa para cortar barras y cadenas de hierro."
+  manacles:
+    name: "Grilletes"
+    short: "unos grilletes de hierro"
+    long: "Grilletes pesados de hierro para retener prisioneros."
+  bellows:
+    name: "Fuelle"
+    short: "un fuelle"
+    long: "Fuelle de cuero para avivar llamas o soplar polvo."
+  pots_and_pans:
+    name: "Ollas y Sartenes"
+    short: "un juego de ollas y sartenes"
+    long: "Utensilios de cocina. Hacen ruido si se tocan."
+  shovel:
+    name: "Pala"
+    short: "una pala corta"
+    long: "Una pala plegable para cavar hoyos y trincheras."
+  perfume:
+    name: "Perfume"
+    short: "un frasco de perfume"
+    long: "Un pequeño frasco de cristal de perfume fuerte. Enmascara el olor."
+  pick:
+    name: "Pico"
+    short: "un pico de minero"
+    long: "Una herramienta pesada puntiaguda para romper roca y cavar."
+  iron_tongs:
+    name: "Tenazas de Hierro"
+    short: "unas tenazas de hierro"
+    long: "Tenazas de mango largo para agarrar objetos calientes o peligrosos."
+  face_paint:
+    name: "Pintura Facial"
+    short: "un bote de pintura facial"
+    long: "Pasta de colores para disfraces, pinturas de guerra o camuflaje."
+  quill_and_ink:
+    name: "Pluma y Tinta"
+    short: "una pluma y un tintero"
+    long: "Una pluma de ganso y un pequeño tintero de tinta negra."
+  pulley:
+    name: "Polea"
+    short: "una polea de cuerda"
+    long: "Una pequeña polea de madera para levantar cargas pesadas con cuerda."
+  tar_pot:
+    name: "Bote de Alquitrán"
+    short: "un bote de alquitrán"
+    long: "Un bote sellado de alquitrán espeso y negro. Arde ferozmente."
+  hourglass:
+    name: "Reloj de Arena"
+    short: "un reloj de arena"
+    long: "Un reloj de arena con marco de latón que mide una hora."
+  soap:
+    name: "Jabón"
+    short: "una pastilla de jabón"
+    long: "Una pastilla de jabón de lejía áspero. Limpia cualquier cosa."
+  sleeping_bag:
+    name: "Saco de Dormir"
+    short: "un petate"
+    long: "Una manta enrollada y tela de suelo para dormir al aire libre."
+  saw:
+    name: "Sierra"
+    short: "una sierra de mano"
+    long: "Una sierra de hoja corta para cortar madera y hueso."
+  bear_trap:
+    name: "Trampa de Oso"
+    short: "una trampa de oso"
+    long: "Una trampa de hierro con mandíbulas de resorte. Mortal."
+  drill:
+    name: "Taladro"
+    short: "un taladro de mano"
+    long: "Una herramienta de punta espiral para perforar madera y piedra fina."
+  net:
+    name: "Red"
+    short: "una red de lanzar"
+    long: "Una red con pesos para enredar criaturas."
+  whistle:
+    name: "Silbato"
+    short: "un silbato de hojalata"
+    long: "Un silbato estridente para hacer señales o distraer."
+  lamp_oil:
+    name: "Aceite de Lámpara"
+    short: "un frasco de aceite"
+    long: "Un frasco de aceite para linternas. Arde durante ocho horas."
   scroll_lightning:
     name: "Pergamino de Rayo"
     short: "un pergamino crepitante"

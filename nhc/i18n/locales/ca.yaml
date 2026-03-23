@@ -1203,6 +1203,261 @@ items:
     gender: "f"
     short: "racions de viatge"
     long: "Carn seca, pa dur i fruits secs. Per a un dia."
+  crossbow:
+    name: "Ballesta"
+    gender: "f"
+    short: "una ballesta pesada"
+    long: "Un arc mecànic que dispara virots amb força mortal. Dues mans. 1d8 de dany."
+  arrows:
+    name: "Fletxes"
+    gender: "f"
+    short: "un buirac de fletxes"
+    long: "Vint fletxes amb plomes per a arcs i ballestes."
+  holy_water:
+    name: "Aigua Beneïda"
+    gender: "f"
+    short: "un vial d'aigua beneïda"
+    long: "Aigua beneïda en un vial de vidre. Crema els no morts al contacte."
+  spyglass:
+    name: "Allargavistes"
+    gender: "m"
+    short: "uns allargavistes de llautó"
+    long: "Un telescopi plegable de llautó per veure coses llunyanes."
+  vial:
+    name: "Ampolla"
+    gender: "f"
+    short: "una ampolla de vidre buida"
+    long: "Un petit recipient de vidre per contenir líquids."
+  glass_marbles:
+    name: "Bales de Vidre"
+    gender: "f"
+    short: "una bossa de bales de vidre"
+    long: "Una bossa de bales de vidre llises. Escampa-les per fer ensopegar."
+  air_bladder:
+    name: "Baló d'Aire"
+    gender: "m"
+    short: "un baló d'aire inflat"
+    long: "Una bufeta d'animal inflada amb aire. Útil per flotar."
+  waterskin:
+    name: "Bóta"
+    gender: "f"
+    short: "una bóta de cuir"
+    long: "Una bossa de cuir per portar aigua. Conté per a un dia."
+  crampons:
+    name: "Grampons"
+    gender: "m"
+    short: "uns grampons de ferro"
+    long: "Puntes de ferro que es lliguen a les botes per escalar gel i roca."
+  padlock:
+    name: "Cadenat"
+    gender: "m"
+    short: "un cadenat de ferro"
+    long: "Un cadenat de ferro robust amb clau. Per assegurar portes i cofres."
+  bell:
+    name: "Campaneta"
+    gender: "f"
+    short: "una campaneta de llautó"
+    long: "Una campaneta que sona al mínim contacte. Bona per alarmes."
+  fishing_rod:
+    name: "Canya de Pescar"
+    gender: "f"
+    short: "una canya de pescar"
+    long: "Una canya senzilla amb fil i hams per pescar."
+  chisel:
+    name: "Cisell"
+    gender: "m"
+    short: "un cisell d'acer"
+    long: "Una eina de tall per esculpir pedra i picar morter."
+  nails:
+    name: "Claus"
+    gender: "m"
+    short: "un grapat de claus de ferro"
+    long: "Dotze claus de ferro. Per clavar posts o com a punxes improvisades."
+  glue:
+    name: "Cola"
+    gender: "f"
+    short: "un pot de cola"
+    long: "Un pot petit de cola forta. S'endureix en minuts."
+  twine:
+    name: "Cordill"
+    gender: "m"
+    short: "un cabdell de cordill"
+    long: "Cent metres de cordill prim però resistent."
+  horn:
+    name: "Corn"
+    gender: "m"
+    short: "un corn de senyal"
+    long: "Un corn corbat que produeix una nota profunda i lluny."
+  incense:
+    name: "Encens"
+    gender: "m"
+    short: "un paquet d'encens"
+    long: "Bastonets aromàtics que produeixen fum fragant en cremar."
+  rope_ladder:
+    name: "Escala de Corda"
+    gender: "f"
+    short: "una escala de corda"
+    long: "Una escala de tres metres de corda i graons de fusta."
+  sponge:
+    name: "Esponja"
+    gender: "f"
+    short: "una esponja gran"
+    long: "Una esponja natural de mar per absorbir líquids."
+  iron_stakes:
+    name: "Estaques de Ferro"
+    gender: "f"
+    short: "estaques de ferro"
+    long: "Cinc estaques de ferro per ancorar cordes o bloquejar portes."
+  wooden_stakes:
+    name: "Estaques de Fusta"
+    gender: "f"
+    short: "estaques de fusta"
+    long: "Cinc estaques de fusta esmolades. Efectives contra vampirs."
+  bucket:
+    name: "Galleda"
+    gender: "f"
+    short: "una galleda de fusta"
+    long: "Una galleda robusta de fusta per portar aigua."
+  grease:
+    name: "Greix"
+    gender: "m"
+    short: "un pot de greix"
+    long: "Greix negre per lubricar mecanismes o fer superfícies relliscoses."
+  chalk:
+    name: "Guix"
+    gender: "m"
+    short: "un feix de guix"
+    long: "Deu peces de guix blanc per marcar parets i superfícies."
+  instrument:
+    name: "Instrument Musical"
+    gender: "m"
+    short: "un instrument musical"
+    long: "Un instrument portàtil — potser una flauta, llaüt o tambor."
+  loaded_dice:
+    name: "Daus Carregats"
+    gender: "m"
+    short: "un joc de daus carregats"
+    long: "Daus amb pes que sempre cauen al teu favor. Si ningú ho comprova."
+  fake_jewels:
+    name: "Joies Falses"
+    gender: "f"
+    short: "una bossa de joies falses"
+    long: "Pedres de vidre tallades com gemmes. Convincents per a l'ull no entrenat."
+  lens:
+    name: "Lent"
+    gender: "f"
+    short: "una lent d'augment"
+    long: "Una lent de vidre polit per examinar detalls o concentrar llum."
+  blank_book:
+    name: "Llibre en Blanc"
+    gender: "m"
+    short: "un llibre en blanc"
+    long: "Un llibre relligat en cuir amb pàgines buides."
+  metal_file:
+    name: "Llima de Metall"
+    gender: "f"
+    short: "una llima de metall"
+    long: "Una llima d'acer gruixuda per tallar barres i cadenes de ferro."
+  manacles:
+    name: "Manilles"
+    gender: "f"
+    short: "unes manilles de ferro"
+    long: "Grillons pesats de ferro per retenir presoners."
+  bellows:
+    name: "Manxa"
+    gender: "f"
+    short: "unes manxes"
+    long: "Manxes de cuir per avivar flames o bufar pols."
+  pots_and_pans:
+    name: "Olles i Paelles"
+    gender: "f"
+    short: "un joc d'olles i paelles"
+    long: "Estris de cuina. Fan soroll si es toquen."
+  shovel:
+    name: "Pala"
+    gender: "f"
+    short: "una pala curta"
+    long: "Una pala plegable per cavar forats i trinxeres."
+  perfume:
+    name: "Perfum"
+    gender: "m"
+    short: "una ampolla de perfum"
+    long: "Una petita ampolla de cristall de perfum fort. Emmascara l'olor."
+  pick:
+    name: "Pic"
+    gender: "m"
+    short: "un pic de miner"
+    long: "Una eina pesada punxeguda per trencar roca i cavar."
+  iron_tongs:
+    name: "Pinces de Ferro"
+    gender: "f"
+    short: "unes pinces de ferro"
+    long: "Pinces de mànec llarg per agafar objectes calents o perillosos."
+  face_paint:
+    name: "Pintura Facial"
+    gender: "f"
+    short: "un pot de pintura facial"
+    long: "Pasta de colors per a disfresses, pintures de guerra o camuflatge."
+  quill_and_ink:
+    name: "Ploma i Tinta"
+    gender: "f"
+    short: "una ploma i un pot de tinta"
+    long: "Una ploma d'oca i un pot petit de tinta negra."
+  pulley:
+    name: "Corriola"
+    gender: "f"
+    short: "una corriola de corda"
+    long: "Una petita corriola de fusta per alçar càrregues pesades amb corda."
+  tar_pot:
+    name: "Pot de Quitrà"
+    gender: "m"
+    short: "un pot de quitrà"
+    long: "Un pot segellat de quitrà espès i negre. Crema ferotgement si s'encén."
+  hourglass:
+    name: "Rellotge de Sorra"
+    gender: "m"
+    short: "un rellotge de sorra"
+    long: "Un rellotge de sorra amb marc de llautó que mesura una hora."
+  soap:
+    name: "Sabó"
+    gender: "m"
+    short: "una pastilla de sabó"
+    long: "Una pastilla de sabó de lleixiu aspre. Neteja qualsevol cosa."
+  sleeping_bag:
+    name: "Sac de Dormir"
+    gender: "m"
+    short: "un sac de dormir"
+    long: "Una manta enrotllada i tela de terra per dormir a l'aire lliure."
+  saw:
+    name: "Serra"
+    gender: "f"
+    short: "una serra de mà"
+    long: "Una serra de fulla curta per tallar fusta i os."
+  bear_trap:
+    name: "Trampa d'Os"
+    gender: "f"
+    short: "una trampa d'os"
+    long: "Una trampa de ferro amb mandíbules de molla. Mortal."
+  drill:
+    name: "Trepant"
+    gender: "m"
+    short: "un trepant de mà"
+    long: "Una eina de punta espiral per foradar fusta i pedra fina."
+  net:
+    name: "Xarxa"
+    gender: "f"
+    short: "una xarxa de llançar"
+    long: "Una xarxa amb pesos per embolicar criatures."
+  whistle:
+    name: "Xiulet"
+    gender: "m"
+    short: "un xiulet de llautó"
+    long: "Un xiulet estrident per fer senyals o distreure."
+  lamp_oil:
+    name: "Oli de Llum"
+    gender: "m"
+    short: "un flascó d'oli de llum"
+    long: "Un flascó d'oli per a llanternes. Crema durant vuit hores."
   scroll_lightning:
     name: "Pergamí de Llamp"
     gender: "m"

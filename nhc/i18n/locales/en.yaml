@@ -1059,6 +1059,210 @@ items:
     name: "Rations"
     short: "travel rations"
     long: "Dried meat, hard bread, and nuts. Enough for one day."
+  crossbow:
+    name: "Crossbow"
+    short: "a heavy crossbow"
+    long: "A mechanical bow that fires bolts with deadly force. Two-handed. 1d8 damage."
+  arrows:
+    name: "Arrows"
+    short: "a quiver of arrows"
+    long: "Twenty feathered arrows for use with bows and crossbows."
+  holy_water:
+    name: "Holy Water"
+    short: "a vial of holy water"
+    long: "Blessed water in a glass vial. Burns undead on contact."
+  spyglass:
+    name: "Spyglass"
+    short: "a brass spyglass"
+    long: "A collapsible brass telescope for seeing distant things clearly."
+  vial:
+    name: "Vial"
+    short: "an empty glass vial"
+    long: "A small glass container for holding liquids."
+  glass_marbles:
+    name: "Glass Marbles"
+    short: "a bag of glass marbles"
+    long: "A pouch of smooth glass marbles. Scatter them to trip pursuers."
+  air_bladder:
+    name: "Air Bladder"
+    short: "an inflated bladder"
+    long: "An animal bladder inflated with air. Useful for floating."
+  waterskin:
+    name: "Waterskin"
+    short: "a leather waterskin"
+    long: "A leather bag for carrying water. Holds enough for one day."
+  crampons:
+    name: "Crampons"
+    short: "a pair of crampons"
+    long: "Iron spikes that strap to boots for climbing ice and rock."
+  padlock:
+    name: "Padlock"
+    short: "an iron padlock"
+    long: "A sturdy iron padlock with a key. For securing doors and chests."
+  bell:
+    name: "Bell"
+    short: "a small brass bell"
+    long: "A tiny bell that rings at the slightest touch. Good for alarms."
+  fishing_rod:
+    name: "Fishing Rod"
+    short: "a fishing rod"
+    long: "A simple rod with line and hooks for catching fish."
+  chisel:
+    name: "Chisel"
+    short: "a steel chisel"
+    long: "A sharp-edged tool for carving stone and chipping mortar."
+  nails:
+    name: "Nails"
+    short: "a handful of iron nails"
+    long: "Twelve iron nails. For securing boards or improvised caltrops."
+  glue:
+    name: "Glue"
+    short: "a pot of glue"
+    long: "A small pot of strong adhesive. Sets in minutes."
+  twine:
+    name: "Twine"
+    short: "a ball of twine"
+    long: "Three hundred feet of thin but strong string."
+  horn:
+    name: "Horn"
+    short: "a signal horn"
+    long: "A curved horn that produces a deep, carrying note."
+  incense:
+    name: "Incense"
+    short: "a packet of incense"
+    long: "Aromatic sticks that produce fragrant smoke when lit."
+  rope_ladder:
+    name: "Rope Ladder"
+    short: "a rope ladder"
+    long: "A ten-foot ladder of rope and wooden rungs. Rolls up small."
+  sponge:
+    name: "Sponge"
+    short: "a large sponge"
+    long: "A natural sea sponge for absorbing liquids."
+  iron_stakes:
+    name: "Iron Stakes"
+    short: "iron stakes"
+    long: "Five iron stakes for anchoring ropes or blocking doors."
+  wooden_stakes:
+    name: "Wooden Stakes"
+    short: "wooden stakes"
+    long: "Five sharpened wooden stakes. Effective against vampires."
+  bucket:
+    name: "Bucket"
+    short: "a wooden bucket"
+    long: "A sturdy wooden bucket for carrying water or other liquids."
+  grease:
+    name: "Grease"
+    short: "a jar of grease"
+    long: "Black grease for lubricating mechanisms or making surfaces slippery."
+  chalk:
+    name: "Chalk"
+    short: "a bundle of chalk"
+    long: "Ten pieces of white chalk for marking walls and surfaces."
+  instrument:
+    name: "Musical Instrument"
+    short: "a musical instrument"
+    long: "A portable instrument — perhaps a flute, lute, or drum."
+  loaded_dice:
+    name: "Loaded Dice"
+    short: "a set of loaded dice"
+    long: "Weighted dice that always roll in your favor. If no one checks."
+  fake_jewels:
+    name: "Fake Jewels"
+    short: "a pouch of fake jewels"
+    long: "Glass stones cut to look like gems. Convincing to the untrained eye."
+  lens:
+    name: "Lens"
+    short: "a magnifying lens"
+    long: "A polished glass lens for examining small details or focusing light."
+  blank_book:
+    name: "Blank Book"
+    short: "a blank book"
+    long: "A leather-bound book with empty pages. For notes or sketches."
+  metal_file:
+    name: "Metal File"
+    short: "a metal file"
+    long: "A coarse steel file for cutting through iron bars and chains."
+  manacles:
+    name: "Manacles"
+    short: "a pair of iron manacles"
+    long: "Heavy iron shackles for restraining prisoners."
+  bellows:
+    name: "Bellows"
+    short: "a pair of bellows"
+    long: "Leather bellows for fanning flames or blowing dust."
+  pots_and_pans:
+    name: "Pots and Pans"
+    short: "a set of pots and pans"
+    long: "Cooking equipment. Makes noise if disturbed."
+  shovel:
+    name: "Shovel"
+    short: "a short shovel"
+    long: "A folding shovel for digging holes and trenches."
+  perfume:
+    name: "Perfume"
+    short: "a bottle of perfume"
+    long: "A small crystal bottle of strong perfume. Masks scent."
+  pick:
+    name: "Pick"
+    short: "a mining pick"
+    long: "A heavy pointed tool for breaking rock and digging."
+  iron_tongs:
+    name: "Iron Tongs"
+    short: "a pair of iron tongs"
+    long: "Long-handled tongs for gripping hot or dangerous objects."
+  face_paint:
+    name: "Face Paint"
+    short: "a tin of face paint"
+    long: "Colored paste for disguises, war paint, or camouflage."
+  quill_and_ink:
+    name: "Quill and Ink"
+    short: "a quill and ink pot"
+    long: "A goose feather quill and a small pot of black ink."
+  pulley:
+    name: "Pulley"
+    short: "a rope pulley"
+    long: "A small wooden pulley for lifting heavy loads with rope."
+  tar_pot:
+    name: "Tar Pot"
+    short: "a pot of tar"
+    long: "A sealed pot of thick black tar. Burns fiercely when lit."
+  hourglass:
+    name: "Hourglass"
+    short: "a small hourglass"
+    long: "A brass-framed hourglass that measures one hour precisely."
+  soap:
+    name: "Soap"
+    short: "a bar of soap"
+    long: "A cake of harsh lye soap. Cleans anything, eventually."
+  sleeping_bag:
+    name: "Sleeping Bag"
+    short: "a bedroll"
+    long: "A rolled blanket and ground cloth for sleeping outdoors."
+  saw:
+    name: "Saw"
+    short: "a hand saw"
+    long: "A short-bladed saw for cutting wood and bone."
+  bear_trap:
+    name: "Bear Trap"
+    short: "a bear trap"
+    long: "A spring-loaded iron jaw trap. Deadly to anything that steps on it."
+  drill:
+    name: "Drill"
+    short: "a hand drill"
+    long: "A spiral-pointed tool for boring holes in wood and thin stone."
+  net:
+    name: "Net"
+    short: "a throwing net"
+    long: "A weighted net for entangling creatures."
+  whistle:
+    name: "Whistle"
+    short: "a tin whistle"
+    long: "A shrill whistle for signaling or distracting."
+  lamp_oil:
+    name: "Lamp Oil"
+    short: "a flask of lamp oil"
+    long: "A flask of oil for lanterns. Burns for eight hours."
   scroll_lightning:
     name: "Scroll of Lightning"
     short: "a crackling scroll"
