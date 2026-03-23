@@ -284,32 +284,97 @@ class BSPGenerator(DungeonGenerator):
         # ── 4. Build walls around room tiles ──
         self._build_walls(level)
 
-        # ── 4b. Patch corridor-room junctions ──
-        # Where corridors enter rooms, fill VOID tiles adjacent to
-        # both a corridor tile and a wall tile.  This closes gaps
-        # where corridors punch through room walls.
-        patches: set[tuple[int, int]] = set()
+        # ── 4b. Process walls and corridors adjacent to rooms ──
+        # 1) Scan: classify every wall touching a corridor
+        # 2) Apply: doors at junctions, void elsewhere
+        # All changes collected before applying to avoid mutation bugs.
+
+        to_door: list[tuple[int, int]] = []
+        to_void: list[tuple[int, int]] = []
+
         for y in range(level.height):
             for x in range(level.width):
                 tile = level.tiles[y][x]
-                if not (tile.terrain == Terrain.FLOOR and tile.is_corridor):
+                if tile.terrain != Terrain.WALL:
+                    continue
+                has_corridor = False
+                has_room = False
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = level.tile_at(x + dx, y + dy)
+                    if not nb or nb.terrain != Terrain.FLOOR:
+                        continue
+                    if nb.is_corridor:
+                        has_corridor = True
+                    else:
+                        has_room = True
+                if has_corridor and has_room:
+                    to_door.append((x, y))
+                elif has_corridor:
+                    to_void.append((x, y))
+
+        # Also find corridor tiles directly adjacent to room floor
+        # (no wall between them)
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if not (tile.terrain == Terrain.FLOOR
+                        and tile.is_corridor):
                     continue
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nx, ny = x + dx, y + dy
-                    nb = level.tile_at(nx, ny)
-                    if not nb or nb.terrain != Terrain.VOID:
-                        continue
-                    # Check if this VOID tile is adjacent to a WALL
-                    for dx2, dy2 in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        nb2 = level.tile_at(nx + dx2, ny + dy2)
-                        if nb2 and nb2.terrain == Terrain.WALL:
-                            patches.add((nx, ny))
-                            break
-        for px, py in patches:
-            level.tiles[py][px] = Tile(terrain=Terrain.WALL)
+                    nb = level.tile_at(x + dx, y + dy)
+                    if (nb and nb.terrain == Terrain.FLOOR
+                            and not nb.is_corridor):
+                        to_door.append((x, y))
+                        break
 
-        # ── 5. Doors ──
-        self._place_doors(level, rng, params.secret_doors)
+        # Apply doors first (deduplicate, skip adjacent)
+        door_positions: set[tuple[int, int]] = set()
+        for dx, dy in to_door:
+            self._set_door(level, dx, dy, rng,
+                           params.secret_doors, door_positions)
+
+        # ── 4c. Final enforcement pass ──
+        # Any corridor tile directly adjacent to room floor without a
+        # door between them gets converted to a door.
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if not (tile.terrain == Terrain.FLOOR
+                        and tile.is_corridor and not tile.feature):
+                    continue
+                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = level.tile_at(x + ddx, y + ddy)
+                    if (nb and nb.terrain == Terrain.FLOOR
+                            and not nb.is_corridor and not nb.feature):
+                        self._set_door(level, x, y, rng,
+                                       params.secret_doors, door_positions)
+                        break
+
+        # Final cleanup: any WALL touching a corridor must become VOID
+        # (re-scan after door placement changed the topology)
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if tile.terrain != Terrain.WALL:
+                    continue
+                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = level.tile_at(x + ddx, y + ddy)
+                    if (nb and nb.terrain == Terrain.FLOOR
+                            and nb.is_corridor):
+                        # Wall touches corridor without room on other
+                        # side → void
+                        has_room = any(
+                            level.tile_at(x + dx2, y + dy2)
+                            and level.tile_at(x + dx2, y + dy2).terrain
+                            == Terrain.FLOOR
+                            and not level.tile_at(x + dx2, y + dy2).is_corridor
+                            and not level.tile_at(x + dx2, y + dy2).feature
+                            for dx2, dy2 in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                            if (dx2, dy2) != (ddx, ddy)
+                        )
+                        if not has_room:
+                            level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+                        break
 
         doors = sum(1 for row in level.tiles for t in row
                     if t.feature and "door" in t.feature)
@@ -363,94 +428,164 @@ class BSPGenerator(DungeonGenerator):
                 if level.in_bounds(x, y):
                     level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
 
+    def _find_entry_point(
+        self, level: Level, rect: Rect, target_x: int, target_y: int,
+    ) -> tuple[int, int]:
+        """Find the best wall-entry point on a room facing the target.
+
+        Returns a position on the room's border (not a corner) closest
+        to the target direction.
+        """
+        cx, cy = rect.center
+        dx = target_x - cx
+        dy = target_y - cy
+
+        candidates: list[tuple[int, int, int]] = []  # (x, y, dist)
+
+        if abs(dx) >= abs(dy):
+            # Primarily horizontal — pick from east or west wall
+            wall_x = rect.x2 - 1 if dx > 0 else rect.x
+            for wy in range(rect.y + 1, rect.y2 - 1):
+                d = abs(wy - target_y)
+                candidates.append((wall_x, wy, d))
+        else:
+            # Primarily vertical — pick from north or south wall
+            wall_y = rect.y2 - 1 if dy > 0 else rect.y
+            for wx in range(rect.x + 1, rect.x2 - 1):
+                d = abs(wx - target_x)
+                candidates.append((wx, wall_y, d))
+
+        if not candidates:
+            # Fallback: any non-corner border tile
+            for wy in range(rect.y + 1, rect.y2 - 1):
+                candidates.append((rect.x, wy, 0))
+                candidates.append((rect.x2 - 1, wy, 0))
+            for wx in range(rect.x + 1, rect.x2 - 1):
+                candidates.append((wx, rect.y, 0))
+                candidates.append((wx, rect.y2 - 1, 0))
+
+        if not candidates:
+            return cx, cy
+
+        candidates.sort(key=lambda c: c[2])
+        return candidates[0][0], candidates[0][1]
+
     def _connect(
         self, level: Level, a: Rect, b: Rect, rng: random.Random,
     ) -> None:
-        ax, ay = a.center
-        bx, by = b.center
-        if rng.random() < 0.5:
-            self._h(level, ax, bx, ay)
-            self._v(level, ay, by, bx)
-        else:
-            self._v(level, ay, by, ax)
-            self._h(level, ax, bx, by)
+        """Connect two rooms with an L-shaped corridor.
 
-    def _h(self, level: Level, x1: int, x2: int, y: int) -> None:
+        Entry points are on room borders (not corners). The corridor
+        is carved one tile OUTSIDE each room wall, through void.
+        """
+        bx, by = b.center
+        ax, ay = a.center
+
+        # Find entry points on each room's wall
+        ex_a_x, ex_a_y = self._find_entry_point(level, a, bx, by)
+        ex_b_x, ex_b_y = self._find_entry_point(level, b, ax, ay)
+
+        # Step one tile outside each room wall to start the corridor
+        def _step_outside(room: Rect, wx: int, wy: int) -> tuple[int, int]:
+            if wx == room.x:
+                return wx - 1, wy
+            if wx == room.x2 - 1:
+                return wx + 1, wy
+            if wy == room.y:
+                return wx, wy - 1
+            if wy == room.y2 - 1:
+                return wx, wy + 1
+            return wx, wy
+
+        start_x, start_y = _step_outside(a, ex_a_x, ex_a_y)
+        end_x, end_y = _step_outside(b, ex_b_x, ex_b_y)
+
+        # Carve L-shaped corridor between start and end
+        if rng.random() < 0.5:
+            self._carve_h(level, start_x, end_x, start_y)
+            self._carve_v(level, start_y, end_y, end_x)
+        else:
+            self._carve_v(level, start_y, end_y, start_x)
+            self._carve_h(level, start_x, end_x, end_y)
+
+    def _carve_h(self, level: Level, x1: int, x2: int, y: int) -> None:
         for x in range(min(x1, x2), max(x1, x2) + 1):
             if level.in_bounds(x, y):
-                if level.tiles[y][x].terrain != Terrain.FLOOR:
+                t = level.tiles[y][x]
+                if t.terrain != Terrain.FLOOR:
                     level.tiles[y][x] = Tile(terrain=Terrain.FLOOR,
                                               is_corridor=True)
 
-    def _v(self, level: Level, y1: int, y2: int, x: int) -> None:
+    def _carve_v(self, level: Level, y1: int, y2: int, x: int) -> None:
         for y in range(min(y1, y2), max(y1, y2) + 1):
             if level.in_bounds(x, y):
-                if level.tiles[y][x].terrain != Terrain.FLOOR:
+                t = level.tiles[y][x]
+                if t.terrain != Terrain.FLOOR:
                     level.tiles[y][x] = Tile(terrain=Terrain.FLOOR,
                                               is_corridor=True)
 
-    def _place_doors(
+    def _set_door(
+        self, level: Level, x: int, y: int,
+        rng: random.Random, secret_chance: float,
+        door_positions: set[tuple[int, int]],
+    ) -> None:
+        """Convert a tile to a door, or just open it if a door is nearby."""
+        if (x, y) in door_positions:
+            return
+        too_close = any(
+            (x + ddx, y + ddy) in door_positions
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        )
+        if too_close:
+            # Door nearby — just make passable (no double door)
+            if level.tiles[y][x].terrain == Terrain.WALL:
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        else:
+            feat = ("door_secret" if rng.random() < secret_chance
+                    else "door_closed")
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR, feature=feat)
+            door_positions.add((x, y))
+
+    def _place_junction_doors(
         self, level: Level, rng: random.Random, secret_chance: float,
     ) -> None:
-        """Place doors at corridor-room transitions.
+        """Place a door wherever a corridor tile is adjacent to a room wall.
 
-        Only corridor tiles are candidates (not room interiors).
-        Doors are never placed adjacent to another door to prevent
-        chains of doors in narrow passages.
+        The wall tile between the corridor and the room floor becomes
+        a door (closed or secret).
         """
         door_positions: set[tuple[int, int]] = set()
 
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
                 tile = level.tiles[y][x]
-                if tile.terrain != Terrain.FLOOR or tile.feature:
+                if tile.terrain != Terrain.WALL:
                     continue
-                # Only place doors on corridor tiles
-                if not tile.is_corridor:
-                    continue
-
-                h_walls = (
-                    level.tiles[y - 1][x].terrain == Terrain.WALL
-                    and level.tiles[y + 1][x].terrain == Terrain.WALL
-                )
-                v_walls = (
-                    level.tiles[y][x - 1].terrain == Terrain.WALL
-                    and level.tiles[y][x + 1].terrain == Terrain.WALL
-                )
-                if not (h_walls or v_walls):
-                    continue
-
-                adj_floor = sum(
-                    1 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
-                    if (level.in_bounds(x + dx, y + dy)
-                        and level.tiles[y + dy][x + dx].terrain
-                        == Terrain.FLOOR)
-                )
-                if adj_floor != 2:
-                    continue
-
-                # Skip if within 2 tiles of an existing door
-                too_close = any(
-                    (x + dx, y + dy) in door_positions
-                    for dx in range(-2, 3) for dy in range(-2, 3)
-                    if (dx, dy) != (0, 0)
-                )
-                if too_close:
-                    continue
-
-                # Must have a room floor (non-corridor) on one side
-                has_room_neighbor = False
+                # Is this wall between a corridor and a room floor?
+                has_corridor = False
+                has_room = False
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nb = level.tile_at(x + dx, y + dy)
-                    if (nb and nb.terrain == Terrain.FLOOR
-                            and not nb.is_corridor and not nb.feature):
-                        has_room_neighbor = True
-                        break
-                if not has_room_neighbor:
-                    continue
+                    if nb and nb.terrain == Terrain.FLOOR:
+                        if nb.is_corridor:
+                            has_corridor = True
+                        else:
+                            has_room = True
+                if has_corridor and has_room:
+                    # Skip if too close to another door
+                    too_close = any(
+                        (x + dx, y + dy) in door_positions
+                        for dx in range(-2, 3) for dy in range(-2, 3)
+                        if (dx, dy) != (0, 0)
+                    )
+                    if too_close:
+                        continue
 
-                if rng.random() < secret_chance:
-                    tile.feature = "door_secret"
-                else:
-                    tile.feature = "door_closed"
-                door_positions.add((x, y))
+                    # Convert wall to door
+                    if rng.random() < secret_chance:
+                        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR,
+                                                  feature="door_secret")
+                    else:
+                        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR,
+                                                  feature="door_closed")
+                    door_positions.add((x, y))
