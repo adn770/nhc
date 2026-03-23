@@ -131,6 +131,57 @@ class TestTerrain:
         assert water_count > 0
 
 
+class TestWallRendering:
+    """Walls between doors must match room border orientation."""
+
+    def test_no_wrong_wall_between_doors_seed_1748291(self):
+        """Regression: seed 1748291 produced ─ between vertical doors."""
+        from nhc.rendering.terminal.renderer import TerminalRenderer
+
+        set_seed(1748291)
+        gen = BSPGenerator()
+        level = gen.generate(GenerationParams(width=80, height=50, depth=1))
+        rng = get_rng()
+        assign_room_types(level, rng)
+        apply_terrain(level, rng)
+
+        door_feats = {"door_closed", "door_open", "door_secret"}
+        for y in range(level.height):
+            for x in range(level.width):
+                t = level.tiles[y][x]
+                if t.terrain != Terrain.WALL:
+                    continue
+                n = level.tile_at(x, y - 1)
+                s = level.tile_at(x, y + 1)
+                e = level.tile_at(x + 1, y)
+                w = level.tile_at(x - 1, y)
+
+                doors_ns = (
+                    (n and n.feature in door_feats)
+                    and (s and s.feature in door_feats)
+                )
+                doors_ew = (
+                    (e and e.feature in door_feats)
+                    and (w and w.feature in door_feats)
+                )
+                if not (doors_ns or doors_ew):
+                    continue
+
+                ch = TerminalRenderer._wall_char_at(level, x, y)
+                if doors_ns:
+                    # Vertical doors → wall must be vertical
+                    assert ch in ("│", "┤", "├", "┼"), (
+                        f"({x},{y}): wall '{ch}' between N/S doors "
+                        f"should be vertical"
+                    )
+                if doors_ew:
+                    # Horizontal doors → wall must be horizontal
+                    assert ch in ("─", "┬", "┴", "┼"), (
+                        f"({x},{y}): wall '{ch}' between E/W doors "
+                        f"should be horizontal"
+                    )
+
+
 class TestFullPipeline:
     def test_generate_populate(self):
         """Full pipeline: BSP → room types → terrain → populate."""

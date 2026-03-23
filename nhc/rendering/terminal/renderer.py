@@ -280,26 +280,38 @@ class TerminalRenderer:
     def _wall_char_at(level: Level, x: int, y: int) -> str:
         """Pick the correct box-drawing character for a wall tile.
 
-        Connects in a direction if the neighbor is also a WALL tile
-        or a door (blocks_sight).  VOID tiles don't connect, which
-        produces clean room borders.
+        Primary connections: WALL neighbors.
+        Secondary: doors count as connections only if there's no
+        wall-to-wall connection on the perpendicular axis (prevents
+        ─ rendering between two doors on a vertical wall segment).
         """
-        def _is_wall(nx: int, ny: int) -> bool:
-            nb = level.tile_at(nx, ny)
-            if nb is None:
-                return False
-            if nb.terrain == Terrain.WALL:
-                return True
-            # Doors sit in wall-like positions
-            if nb.feature in ("door_closed", "door_locked",
-                              "door_secret"):
-                return True
-            return False
+        _DOOR_FEATS = {"door_closed", "door_locked", "door_secret"}
 
-        cn = _is_wall(x, y - 1)
-        cs = _is_wall(x, y + 1)
-        ce = _is_wall(x + 1, y)
-        cw = _is_wall(x - 1, y)
+        def _is_wall_only(nx: int, ny: int) -> bool:
+            nb = level.tile_at(nx, ny)
+            return nb is not None and nb.terrain == Terrain.WALL
+
+        def _is_door(nx: int, ny: int) -> bool:
+            nb = level.tile_at(nx, ny)
+            return nb is not None and nb.feature in _DOOR_FEATS
+
+        # First check pure wall connections
+        wn = _is_wall_only(x, y - 1)
+        ws = _is_wall_only(x, y + 1)
+        we = _is_wall_only(x + 1, y)
+        ww = _is_wall_only(x - 1, y)
+
+        # Doors count as connections only if the perpendicular axis
+        # has no wall connections (prevents wrong orientation)
+        dn = _is_door(x, y - 1)
+        ds = _is_door(x, y + 1)
+        de = _is_door(x + 1, y)
+        dw = _is_door(x - 1, y)
+
+        cn = wn or (dn and not (we or ww))
+        cs = ws or (ds and not (we or ww))
+        ce = we or (de and not (wn or ws))
+        cw = ww or (dw and not (wn or ws))
 
         return wall_glyph(cn, cs, ce, cw)
 
