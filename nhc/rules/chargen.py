@@ -168,30 +168,32 @@ def _roll_alignment(rng) -> str:
 # ── Starting equipment tables (Knave rules) ─────────────────────────
 
 # Armor: roll 1d20
-# 1-3: none, 4-14: gambeson (not implemented → healing_potion),
-# 15-19: brigantine (shield), 20: chain mail (shield)
-# Simplified to items we have in the registry
 ARMOR_TABLE = [
-    (3, None),          # 1-3: no armor
-    (14, "shield"),     # 4-14: light armor → shield
-    (19, "shield"),     # 15-19: medium armor → shield
-    (20, "shield"),     # 20: heavy armor → shield
+    (3, None),              # 1-3: no armor
+    (14, "gambeson"),       # 4-14: gambeson (defense 12)
+    (19, "brigantine"),     # 15-19: brigantine (defense 13)
+    (20, "chain_mail"),     # 20: chain mail (defense 14)
 ]
 
 # Helm/Shield: roll 1d20
-# 1-13: none, 14-16: helm, 17-19: shield, 20: both
-# We only have shield; helm is flavor
 HELM_SHIELD_TABLE = [
-    (13, None),         # 1-13: nothing
-    (16, None),         # 14-16: helm (not in registry yet)
-    (19, "shield"),     # 17-19: shield
-    (20, "shield"),     # 20: helm + shield
+    (13, None),             # 1-13: nothing
+    (16, "helmet"),         # 14-16: helmet (+1 defense)
+    (19, "shield"),         # 17-19: shield (+1 defense)
+    (20, "helmet+shield"),  # 20: both
 ]
 
-# Weapon: player gets one weapon (random)
-WEAPON_TABLE = ["dagger", "short_sword", "sword"]
+# Weapon: player gets one weapon (d6 tier)
+WEAPON_TABLE = ["dagger", "club", "short_sword", "sword", "spear", "axe", "mace"]
 
-# Starting consumables: always 1 healing potion + 1 random scroll
+# Loot table (roll 2x from this)
+LOOT_TABLE = [
+    "rope", "candles", "chain", "crowbar", "tinderbox",
+    "grappling_hook", "hammer", "lantern", "lockpicks",
+    "mirror", "pole", "sack", "tent", "torch", "rations",
+]
+
+# Starting consumables: always rations + 1 healing potion + 1 random scroll
 STARTING_SCROLLS = [
     "scroll_light", "scroll_cure_wounds", "scroll_bless",
     "scroll_detect_magic", "scroll_find_traps", "scroll_sleep",
@@ -209,10 +211,19 @@ def _roll_table(table: list[tuple[int, int | None]], rng) -> str | None:
 
 
 def _roll_starting_equipment(rng) -> list[str]:
-    """Roll starting equipment per Knave rules."""
+    """Roll starting equipment per Knave rules.
+
+    - 1 weapon (random)
+    - Armor roll (1d20)
+    - Helm/shield roll (1d20)
+    - 2 rolls on loot table
+    - 2 days rations
+    - 1 healing potion
+    - 1 random starting scroll
+    """
     items: list[str] = []
 
-    # One weapon (random from tier 1)
+    # One weapon
     items.append(rng.choice(WEAPON_TABLE))
 
     # Armor roll
@@ -222,13 +233,19 @@ def _roll_starting_equipment(rng) -> list[str]:
 
     # Helm/shield roll
     helm_shield = _roll_table(HELM_SHIELD_TABLE, rng)
-    if helm_shield and helm_shield not in items:
+    if helm_shield == "helmet+shield":
+        items.append("helmet")
+        items.append("shield")
+    elif helm_shield:
         items.append(helm_shield)
 
-    # Always: 1 healing potion
-    items.append("healing_potion")
+    # 2 rolls on loot table
+    loot_picks = rng.sample(LOOT_TABLE, min(2, len(LOOT_TABLE)))
+    items.extend(loot_picks)
 
-    # 1 random starting scroll
+    # Always: rations + healing potion + random scroll
+    items.append("rations")
+    items.append("healing_potion")
     items.append(rng.choice(STARTING_SCROLLS))
 
     return items

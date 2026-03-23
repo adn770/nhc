@@ -1058,6 +1058,151 @@ items:
     long: >-
       Un escut rodó de fusta reforçat amb bandes de ferro.
       Atorga +1 defensa d'armadura.
+  helmet:
+    name: "Casc"
+    gender: "m"
+    short: "un casc de ferro"
+    long: "Un casc de ferro robust que protegeix el cap. +1 defensa."
+  gambeson:
+    name: "Gambesón"
+    gender: "m"
+    short: "un gambesón encoixinat"
+    long: "Armadura de tela gruixuda encoixinada. Lleugera i silenciosa. Defensa 12."
+  brigantine:
+    name: "Brigantina"
+    gender: "f"
+    short: "una brigantina"
+    long: "Petites plaques d'acer reblades dins d'un armilla de cuir. Defensa 13."
+  chain_mail:
+    name: "Cota de Malla"
+    gender: "f"
+    short: "una cota de malla"
+    long: "Anelles de ferro entrellaçades en una camisa completa. Defensa 14."
+  plate_cuirass:
+    name: "Cuirassa"
+    gender: "f"
+    short: "una cuirassa d'acer"
+    long: "Un peto d'acer temperat. Pesant però formidable. Defensa 15."
+  full_plate:
+    name: "Armadura Completa"
+    gender: "f"
+    short: "una armadura completa"
+    long: "Armadura de plaques que cobreix tot el cos. Defensa 16."
+  club:
+    name: "Porra"
+    gender: "f"
+    short: "una porra pesada"
+    long: "Una porra de fusta gruixuda, tosca però efectiva. 1d4 de dany."
+  spear:
+    name: "Llança"
+    gender: "f"
+    short: "una llança esmolada"
+    long: "Una asta de fusta amb punta d'acer. 1d8 de dany."
+  mace:
+    name: "Maça"
+    gender: "f"
+    short: "una maça amb ales"
+    long: "Un cap de ferro pesat sobre un mànec de fusta. 1d8 de dany."
+  axe:
+    name: "Destral"
+    gender: "f"
+    short: "una destral de batalla"
+    long: "Una destral de fulla ampla feta per a la guerra. 1d8 de dany."
+  halberd:
+    name: "Alabarda"
+    gender: "f"
+    short: "una alabarda llarga"
+    long: "Una fulla de destral sobre un pal de dos metres. Dues mans. 1d10 de dany."
+  war_hammer:
+    name: "Martell de Guerra"
+    gender: "m"
+    short: "un martell de guerra"
+    long: "Un martell pesat dissenyat per abollar armadures. Dues mans. 1d10 de dany."
+  sling:
+    name: "Fona"
+    gender: "f"
+    short: "una fona de cuir"
+    long: "Una tira de cuir senzilla per llançar pedres. 1d4 de dany."
+  bow:
+    name: "Arc"
+    gender: "m"
+    short: "un arc curt"
+    long: "Un arc compacte de fusta de teix. Dues mans. 1d6 de dany."
+  rope:
+    name: "Corda"
+    gender: "f"
+    short: "un rotlle de corda"
+    long: "Quinze metres de corda de cànem resistent. Útil per escalar."
+  torch:
+    name: "Torxa"
+    gender: "f"
+    short: "una torxa de pega"
+    long: "Una torxa de fusta banyada en pega. Crema durant una hora."
+  lantern:
+    name: "Llanterna"
+    gender: "f"
+    short: "una llanterna d'oli"
+    long: "Una llanterna de llauna amb vidres. Crema oli per llum estable."
+  crowbar:
+    name: "Palanca"
+    gender: "f"
+    short: "una palanca de ferro"
+    long: "Una barra de ferro pesada per forçar portes i tapes."
+  hammer:
+    name: "Martell"
+    gender: "m"
+    short: "un martell"
+    long: "Un martell comú per clavar estaques i claus."
+  lockpicks:
+    name: "Rossinyols"
+    gender: "m"
+    short: "un joc de rossinyols"
+    long: "Ganzues de metall fi per obrir panys sense clau."
+  mirror:
+    name: "Mirall"
+    gender: "m"
+    short: "un petit mirall de plata"
+    long: "Un mirall de plata polit de la mida d'un palmell."
+  pole:
+    name: "Pal"
+    gender: "m"
+    short: "un pal de tres metres"
+    long: "Un pal de fusta de tres metres. Per tocar trampes des de lluny."
+  sack:
+    name: "Sac"
+    gender: "m"
+    short: "un sac de tela"
+    long: "Un sac gran de tela per transportar botí."
+  candles:
+    name: "Espelmes"
+    gender: "f"
+    short: "un feix d'espelmes"
+    long: "Cinc espelmes de sèu. Cada una crema unes quatre hores."
+  chain:
+    name: "Cadena"
+    gender: "f"
+    short: "una cadena de ferro"
+    long: "Tres metres de cadena de ferro pesada."
+  grappling_hook:
+    name: "Ganxo d'Escalada"
+    gender: "m"
+    short: "un ganxo d'escalada"
+    long: "Un ganxo de ferro de tres puntes per escalar amb corda."
+  tent:
+    name: "Tenda"
+    gender: "f"
+    short: "una tenda de lona"
+    long: "Una tenda petita per a una persona."
+  tinderbox:
+    name: "Caixa d'Esca"
+    gender: "f"
+    short: "una caixa d'esca"
+    long: "Pedra foguera, acer i esca seca per encendre foc."
+  rations:
+    name: "Racions"
+    gender: "f"
+    short: "racions de viatge"
+    long: "Carn seca, pa dur i fruits secs. Per a un dia."
   scroll_lightning:
     name: "Pergamí de Llamp"
     gender: "m"

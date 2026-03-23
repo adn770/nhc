@@ -943,6 +943,122 @@ items:
     long: >-
       A round wooden shield reinforced with iron bands.
       Grants +1 armor defense.
+  helmet:
+    name: "Helmet"
+    short: "an iron helmet"
+    long: "A sturdy iron helmet that protects the head. +1 armor defense."
+  gambeson:
+    name: "Gambeson"
+    short: "a quilted gambeson"
+    long: "Thick padded cloth armor. Light and quiet. Defense 12."
+  brigantine:
+    name: "Brigantine"
+    short: "a brigantine vest"
+    long: "Small steel plates riveted inside a leather vest. Defense 13."
+  chain_mail:
+    name: "Chain Mail"
+    short: "a chain mail hauberk"
+    long: "Interlocking iron rings woven into a full shirt. Defense 14."
+  plate_cuirass:
+    name: "Plate Cuirass"
+    short: "a steel cuirass"
+    long: "A breastplate of tempered steel. Heavy but formidable. Defense 15."
+  full_plate:
+    name: "Full Plate"
+    short: "a suit of full plate"
+    long: "Complete plate armor covering the entire body. Defense 16."
+  club:
+    name: "Club"
+    short: "a heavy club"
+    long: "A thick wooden club, crude but effective. 1d4 damage."
+  spear:
+    name: "Spear"
+    short: "a sharp spear"
+    long: "A wooden shaft tipped with a steel point. 1d8 damage."
+  mace:
+    name: "Mace"
+    short: "a flanged mace"
+    long: "A heavy iron head on a wooden haft. Crushes armor. 1d8 damage."
+  axe:
+    name: "Axe"
+    short: "a battle axe"
+    long: "A broad-bladed axe built for war, not timber. 1d8 damage."
+  halberd:
+    name: "Halberd"
+    short: "a long halberd"
+    long: "An axe blade mounted on a six-foot pole. Two-handed. 1d10 damage."
+  war_hammer:
+    name: "War Hammer"
+    short: "a war hammer"
+    long: "A heavy hammer designed to dent plate armor. Two-handed. 1d10 damage."
+  sling:
+    name: "Sling"
+    short: "a leather sling"
+    long: "A simple strip of leather for hurling stones. 1d4 damage."
+  bow:
+    name: "Bow"
+    short: "a shortbow"
+    long: "A compact bow of yew wood. Two-handed. 1d6 damage."
+  rope:
+    name: "Rope"
+    short: "a coil of rope"
+    long: "Fifty feet of sturdy hemp rope. Useful for climbing and binding."
+  torch:
+    name: "Torch"
+    short: "a pitch torch"
+    long: "A wooden torch dipped in pitch. Burns for about one hour."
+  lantern:
+    name: "Lantern"
+    short: "an oil lantern"
+    long: "A tin lantern with glass panes. Burns oil for steady light."
+  crowbar:
+    name: "Crowbar"
+    short: "an iron crowbar"
+    long: "A heavy iron bar for prying open doors, lids, and grates."
+  hammer:
+    name: "Hammer"
+    short: "a claw hammer"
+    long: "A common hammer for driving stakes and nails."
+  lockpicks:
+    name: "Lockpicks"
+    short: "a set of lockpicks"
+    long: "Thin metal picks for opening locks without a key."
+  mirror:
+    name: "Mirror"
+    short: "a small silver mirror"
+    long: "A palm-sized polished silver mirror. Useful for peeking around corners."
+  pole:
+    name: "Pole"
+    short: "a ten-foot pole"
+    long: "A wooden pole ten feet long. Pokes traps from a safe distance."
+  sack:
+    name: "Sack"
+    short: "a cloth sack"
+    long: "A large cloth sack for carrying loot."
+  candles:
+    name: "Candles"
+    short: "a bundle of candles"
+    long: "Five tallow candles. Each burns for about four hours."
+  chain:
+    name: "Chain"
+    short: "an iron chain"
+    long: "Ten feet of heavy iron chain. Strong enough to bind a prisoner."
+  grappling_hook:
+    name: "Grappling Hook"
+    short: "a grappling hook"
+    long: "A three-pronged iron hook for climbing when attached to rope."
+  tent:
+    name: "Tent"
+    short: "a canvas tent"
+    long: "A small tent for one person. Provides shelter from the elements."
+  tinderbox:
+    name: "Tinderbox"
+    short: "a tinderbox"
+    long: "Flint, steel, and dry tinder for starting fires."
+  rations:
+    name: "Rations"
+    short: "travel rations"
+    long: "Dried meat, hard bread, and nuts. Enough for one day."
   scroll_lightning:
     name: "Scroll of Lightning"
     short: "a crackling scroll"

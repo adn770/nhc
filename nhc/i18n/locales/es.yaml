@@ -956,6 +956,122 @@ items:
     long: >-
       Un escudo redondo de madera reforzado con bandas de hierro.
       Otorga +1 defensa de armadura.
+  helmet:
+    name: "Casco"
+    short: "un casco de hierro"
+    long: "Un casco de hierro robusto que protege la cabeza. +1 defensa."
+  gambeson:
+    name: "Gambesón"
+    short: "un gambesón acolchado"
+    long: "Armadura de tela gruesa acolchada. Ligera y silenciosa. Defensa 12."
+  brigantine:
+    name: "Brigantina"
+    short: "una brigantina"
+    long: "Pequeñas placas de acero remachadas dentro de un chaleco de cuero. Defensa 13."
+  chain_mail:
+    name: "Cota de Malla"
+    short: "una cota de malla"
+    long: "Anillos de hierro entrelazados en una camisa completa. Defensa 14."
+  plate_cuirass:
+    name: "Coraza"
+    short: "una coraza de acero"
+    long: "Un peto de acero templado. Pesado pero formidable. Defensa 15."
+  full_plate:
+    name: "Armadura Completa"
+    short: "una armadura completa"
+    long: "Armadura de placas que cubre todo el cuerpo. Defensa 16."
+  club:
+    name: "Porra"
+    short: "una porra pesada"
+    long: "Una porra de madera gruesa, tosca pero efectiva. 1d4 de daño."
+  spear:
+    name: "Lanza"
+    short: "una lanza afilada"
+    long: "Un asta de madera con punta de acero. 1d8 de daño."
+  mace:
+    name: "Maza"
+    short: "una maza con aletas"
+    long: "Una cabeza de hierro pesada sobre un mango de madera. 1d8 de daño."
+  axe:
+    name: "Hacha"
+    short: "un hacha de batalla"
+    long: "Un hacha de hoja ancha hecha para la guerra. 1d8 de daño."
+  halberd:
+    name: "Alabarda"
+    short: "una alabarda larga"
+    long: "Una hoja de hacha montada en un palo de dos metros. Dos manos. 1d10 de daño."
+  war_hammer:
+    name: "Martillo de Guerra"
+    short: "un martillo de guerra"
+    long: "Un martillo pesado diseñado para abollar armaduras. Dos manos. 1d10 de daño."
+  sling:
+    name: "Honda"
+    short: "una honda de cuero"
+    long: "Una tira de cuero simple para lanzar piedras. 1d4 de daño."
+  bow:
+    name: "Arco"
+    short: "un arco corto"
+    long: "Un arco compacto de madera de tejo. Dos manos. 1d6 de daño."
+  rope:
+    name: "Cuerda"
+    short: "un rollo de cuerda"
+    long: "Quince metros de cuerda de cáñamo resistente."
+  torch:
+    name: "Antorcha"
+    short: "una antorcha de brea"
+    long: "Una antorcha de madera bañada en brea. Arde durante una hora."
+  lantern:
+    name: "Linterna"
+    short: "una linterna de aceite"
+    long: "Una linterna de hojalata con cristales. Quema aceite para luz estable."
+  crowbar:
+    name: "Palanca"
+    short: "una palanca de hierro"
+    long: "Una barra de hierro pesada para forzar puertas y tapas."
+  hammer:
+    name: "Martillo"
+    short: "un martillo"
+    long: "Un martillo común para clavar estacas y clavos."
+  lockpicks:
+    name: "Ganzúas"
+    short: "un juego de ganzúas"
+    long: "Finas herramientas de metal para abrir cerraduras sin llave."
+  mirror:
+    name: "Espejo"
+    short: "un pequeño espejo de plata"
+    long: "Un espejo de plata pulida del tamaño de una palma."
+  pole:
+    name: "Palo"
+    short: "un palo de tres metros"
+    long: "Un palo de madera de tres metros. Para tocar trampas desde lejos."
+  sack:
+    name: "Saco"
+    short: "un saco de tela"
+    long: "Un saco grande de tela para transportar botín."
+  candles:
+    name: "Velas"
+    short: "un manojo de velas"
+    long: "Cinco velas de sebo. Cada una arde unas cuatro horas."
+  chain:
+    name: "Cadena"
+    short: "una cadena de hierro"
+    long: "Tres metros de cadena de hierro pesada."
+  grappling_hook:
+    name: "Gancho de Escalada"
+    short: "un gancho de escalada"
+    long: "Un gancho de hierro de tres puntas para escalar con cuerda."
+  tent:
+    name: "Tienda"
+    short: "una tienda de lona"
+    long: "Una tienda pequeña para una persona."
+  tinderbox:
+    name: "Yesquero"
+    short: "un yesquero"
+    long: "Pedernal, acero y yesca seca para encender fuego."
+  rations:
+    name: "Raciones"
+    short: "raciones de viaje"
+    long: "Carne seca, pan duro y frutos secos. Para un día."
   scroll_lightning:
     name: "Pergamino de Rayo"
     short: "un pergamino crepitante"
