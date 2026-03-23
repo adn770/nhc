@@ -167,7 +167,8 @@ class Game:
         })
         self._character = char
 
-        # Give starting equipment
+        # Give starting equipment (respecting slot costs)
+        from nhc.core.actions import _count_slots_used, _item_slot_cost
         inv = self.world.get_component(self.player_id, "Inventory")
         equip = self.world.get_component(self.player_id, "Equipment")
         for item_id in char.starting_items:
@@ -175,7 +176,16 @@ class Game:
                 item_comps = EntityRegistry.get_item(item_id)
                 self._disguise_potion(item_comps, item_id)
                 eid = self.world.create_entity(item_comps)
-                if inv and len(inv.slots) < inv.max_slots:
+                if inv:
+                    cost = _item_slot_cost(self.world, eid)
+                    used = _count_slots_used(self.world, inv)
+                    if used + cost > inv.max_slots:
+                        # Doesn't fit — drop on the ground
+                        self.world.destroy_entity(eid)
+                        logger.info(
+                            "Starting item %s skipped (slots full)", item_id,
+                        )
+                        continue
                     inv.slots.append(eid)
                     # Auto-equip starting gear
                     if equip:
