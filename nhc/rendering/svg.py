@@ -543,7 +543,7 @@ def _render_hatching_dmap(
                     f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
                     f'rx="{rx:.1f}" ry="{ry:.1f}" '
                     f'transform="rotate({angle:.0f},{sx:.1f},{sy:.1f})" '
-                    f'fill="{HATCH_UNDERLAY}" stroke="#333333" '
+                    f'fill="{HATCH_UNDERLAY}" stroke="#666666" '
                     f'stroke-width="{sw:.1f}"/>')
 
             # Perlin-displaced cluster anchor
