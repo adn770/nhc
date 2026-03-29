@@ -897,7 +897,7 @@ class Game:
         if not items:
             return None
 
-        selected = self.renderer._draw_selection_menu(
+        selected = self.renderer.show_selection_menu(
             t("ui.zap_which"), items,
         )
         if selected is None:
@@ -950,7 +950,7 @@ class Game:
         if not items:
             return None
 
-        selected = self.renderer._draw_selection_menu(
+        selected = self.renderer.show_selection_menu(
             t("ui.equip_which"), items,
         )
         if selected is None:
@@ -1016,7 +1016,7 @@ class Game:
             if tools:
                 # Add bare hands option
                 tools.append((-1, t("explore.bare_hands")))
-                selected = self.renderer._draw_selection_menu(
+                selected = self.renderer.show_selection_menu(
                     t("explore.force_with"), tools,
                 )
                 if selected is None:
@@ -1388,7 +1388,7 @@ class Game:
             self.renderer.add_message(t("item.identify_nothing"))
             return
 
-        selected = self.renderer._draw_selection_menu(
+        selected = self.renderer.show_selection_menu(
             t("ui.identify_which"), items,
         )
         if selected is None:

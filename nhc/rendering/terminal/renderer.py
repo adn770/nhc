@@ -58,7 +58,10 @@ CHROME_HEIGHT_TYPED = CHROME_HEIGHT
 MSG_HEIGHT = LOG_HEIGHT
 
 
-class TerminalRenderer:
+from nhc.rendering.client import GameClient
+
+
+class TerminalRenderer(GameClient):
     """ASCII terminal renderer using blessed."""
 
     def __init__(self, color_mode: str = "256",
@@ -772,7 +775,7 @@ class TerminalRenderer:
         if not items:
             return None
         title = tr("ui.pickup_which")
-        return self._draw_selection_menu(title, items)
+        return self.show_selection_menu(title, items)
 
     def show_inventory_menu(
         self, world: World, player_id: int, prompt: str = "",
@@ -788,7 +791,7 @@ class TerminalRenderer:
             items.append((item_id, desc.name if desc else "???"))
 
         title = prompt or tr("ui.use_which")
-        return self._draw_selection_menu(title, items)
+        return self.show_selection_menu(title, items)
 
     def show_filtered_inventory(
         self, world: World, player_id: int,
@@ -813,9 +816,9 @@ class TerminalRenderer:
         if not items:
             return None
 
-        return self._draw_selection_menu(title, items)
+        return self.show_selection_menu(title, items)
 
-    def _draw_selection_menu(
+    def show_selection_menu(
         self, title: str, items: list[tuple[int, str]],
     ) -> int | None:
         """Draw a selection box. Returns selected EntityId."""
@@ -903,7 +906,7 @@ class TerminalRenderer:
         if not targets:
             return None
 
-        return self._draw_selection_menu(title, targets)
+        return self.show_selection_menu(title, targets)
 
     def show_end_screen(
         self, won: bool, turn: int, killed_by: str = "",
