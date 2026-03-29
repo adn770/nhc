@@ -45,7 +45,7 @@ from nhc.entities.components import (
     StatusEffect,
 )
 from nhc.entities.registry import EntityRegistry
-from nhc.rendering.terminal.renderer import TerminalRenderer
+from nhc.rendering.client import GameClient
 from nhc.utils.fov import compute_fov
 
 if TYPE_CHECKING:
@@ -60,13 +60,12 @@ class Game:
 
     def __init__(
         self,
+        client: GameClient,
         backend: "LLMBackend | None" = None,
         seed: int | None = None,
-        color_mode: str = "256",
         game_mode: str = "classic",
         god_mode: bool = False,
         reset: bool = False,
-        theme: str | None = None,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
@@ -81,9 +80,7 @@ class Game:
         self.turn = 0
         self.player_id: int = -1
         self.level: Level | None = None
-        self.renderer = TerminalRenderer(color_mode=color_mode,
-                                         game_mode=game_mode,
-                                         theme=theme)
+        self.renderer = client
         self._seen_creatures: set[int] = set()
         self._knowledge = None  # ItemKnowledge, set in initialize()
         self._floor_cache: dict[int, tuple] = {}  # depth → (level, entity_data)

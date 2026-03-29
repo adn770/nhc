@@ -195,11 +195,17 @@ async def main() -> int:
     logger.info("Starting game (seed=%s, colors=%s, log=%s)",
                 args.seed, color_mode, log_path)
 
+    # Create terminal renderer
+    from nhc.rendering.terminal.renderer import TerminalRenderer
+    theme = args.theme or merged.get("theme", None)
+    client = TerminalRenderer(
+        color_mode=color_mode, game_mode=game_mode, theme=theme,
+    )
+
     # Create and run game
     god_mode = args.god or merged.get("god", False)
-    theme = args.theme or merged.get("theme", None)
-    game = Game(backend=backend, seed=args.seed, color_mode=color_mode,
-                game_mode=game_mode, god_mode=god_mode, theme=theme,
+    game = Game(client=client, backend=backend, seed=args.seed,
+                game_mode=game_mode, god_mode=god_mode,
                 reset=args.reset)
     try:
         if args.generate:
