@@ -9,7 +9,7 @@ from typing import Any
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
-    "provider": "none",
+    "provider": "auto",
     "model": "",
     "url": "http://localhost:11434",
     "temp": 0.1,

@@ -134,8 +134,8 @@ class AnthropicBackend(LLMBackend):
                 yield text
 
 
-_DEFAULT_MLX_MODEL = "mlx-community/gemma-3-27b-it-4bit"
-_DEFAULT_OLLAMA_MODEL = "gemma3:27b"
+_DEFAULT_MLX_MODEL = "mlx-community/gemma-3-12b-it-qat-4bit"
+_DEFAULT_OLLAMA_MODEL = "gemma3:12b"
 _MLX_CACHE_DIR = "~/.cache/nhc/models"
 
 

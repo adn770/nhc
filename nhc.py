@@ -28,8 +28,9 @@ def parse_args() -> argparse.Namespace:
     llm_group = parser.add_argument_group("LLM backend")
     llm_group.add_argument(
         "-p", "--provider",
-        choices=["ollama", "mlx", "anthropic", "none"],
-        help="LLM provider (default: from config or 'none')",
+        choices=["auto", "ollama", "mlx", "anthropic", "none"],
+        help="LLM provider: auto (MLX on Apple Silicon, else ollama), "
+             "ollama, mlx, anthropic, or none (default: auto in typed mode)",
     )
     llm_group.add_argument(
         "-m", "--model",
@@ -83,6 +84,12 @@ def parse_args() -> argparse.Namespace:
         help="Color mode: 256 (default, truecolor) or 16 (classic)",
     )
     game_group.add_argument(
+        "--theme",
+        choices=["basic", "modern", "experimental"],
+        default=None,
+        help="Rendering theme (default: modern)",
+    )
+    game_group.add_argument(
         "--mode",
         choices=["typed", "classic"],
         default=None,
@@ -97,6 +104,11 @@ def parse_args() -> argparse.Namespace:
         "--no-narrative",
         action="store_true",
         help="Disable LLM narrative (equivalent to --provider none)",
+    )
+    game_group.add_argument(
+        "--reset",
+        action="store_true",
+        help="Start a new game, ignoring any autosave",
     )
 
     # Logging options
@@ -177,10 +189,6 @@ async def main() -> int:
     color_mode = merged.get("colors", "256")
     game_mode = merged.get("mode", "classic")
 
-    # Auto-detect LLM provider for typed mode
-    if game_mode == "typed" and merged.get("provider", "none") == "none":
-        merged["provider"] = "auto"
-
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)
 
@@ -189,8 +197,10 @@ async def main() -> int:
 
     # Create and run game
     god_mode = args.god or merged.get("god", False)
+    theme = args.theme or merged.get("theme", None)
     game = Game(backend=backend, seed=args.seed, color_mode=color_mode,
-                game_mode=game_mode, god_mode=god_mode)
+                game_mode=game_mode, god_mode=god_mode, theme=theme,
+                reset=args.reset)
     try:
         if args.generate:
             await game.initialize(generate=True)
