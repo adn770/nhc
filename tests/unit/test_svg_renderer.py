@@ -47,7 +47,7 @@ class TestSVGOutput:
     def test_contains_floor_grid(self):
         level = _make_level()
         svg = render_floor_svg(level)
-        assert 'opacity="0.15"' in svg  # hand-drawn grid
+        assert 'opacity="0.5"' in svg  # hand-drawn grid
 
     def test_contains_walls(self):
         level = _make_level()

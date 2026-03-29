@@ -181,7 +181,7 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
         svg.append(
             f'<path d="{" ".join(segments)}" fill="none" '
             f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-            f'opacity="0.15" stroke-linecap="round"/>'
+            f'opacity="0.5" stroke-linecap="round"/>'
         )
 
 
@@ -203,18 +203,23 @@ def _render_floor_detail(
                 continue
             px, py = x * CELL, y * CELL
 
-            # ~8% chance of a crack on this tile
+            # ~8% chance of a crack starting from a tile corner
             if rng.random() < 0.08:
-                # Crack: 2-3 segment jagged line
-                cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
-                cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
+                # Pick a random corner of this tile
+                corners = [
+                    (px, py),                  # top-left
+                    (px + CELL, py),           # top-right
+                    (px, py + CELL),           # bottom-left
+                    (px + CELL, py + CELL),    # bottom-right
+                ]
+                cx, cy = corners[rng.randint(0, 3)]
                 pts = [f'M{cx:.1f},{cy:.1f}']
-                for _ in range(rng.randint(2, 3)):
+                # 2-4 jagged segments radiating inward
+                for _ in range(rng.randint(2, 4)):
                     cx += rng.uniform(-CELL * 0.3, CELL * 0.3)
                     cy += rng.uniform(-CELL * 0.3, CELL * 0.3)
-                    # Clamp within tile
-                    cx = max(px + 2, min(px + CELL - 2, cx))
-                    cy = max(py + 2, min(py + CELL - 2, cy))
+                    cx = max(px + 1, min(px + CELL - 1, cx))
+                    cy = max(py + 1, min(py + CELL - 1, cy))
                     pts.append(f'L{cx:.1f},{cy:.1f}')
                 cracks.append(" ".join(pts))
 
@@ -233,13 +238,13 @@ def _render_floor_detail(
 
     if cracks:
         svg.append(
-            f'<g opacity="0.12">'
+            f'<g opacity="0.25">'
             f'<path d="{" ".join(cracks)}" fill="none" '
             f'stroke="{INK}" stroke-width="0.5" '
             f'stroke-linecap="round"/>'
             f'</g>')
     if stones:
-        svg.append(f'<g opacity="0.18">{"".join(stones)}</g>')
+        svg.append(f'<g opacity="0.5">{"".join(stones)}</g>')
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
