@@ -184,14 +184,17 @@ def _door_opens_vertically(level: "Level", x: int, y: int) -> bool:
 
 
 def _render_doors(svg: list[str], level: "Level") -> None:
-    """Draw doors as small rectangles on top of the room wall.
+    """Draw doors as thin rectangles spanning the wall.
 
-    A thin-stroked, white-filled rectangle is drawn centered on the
-    wall edge where the corridor meets the room. The white fill
-    covers the wall underneath, and the thin outline gives the door
-    frame look. Open doors are just the gap (no rectangle).
+    The door tile replaces a wall tile — floor is on both sides.
+    The rectangle straddles the wall edge: ~80% cell width across
+    the wall direction (leaving small wall stubs at corners), ~30%
+    cell depth along the passage direction. White fill erases the
+    wall, thin stroke draws the door frame.
     """
     door_stroke = WALL_WIDTH * 0.5  # thinner than walls
+    wall_span = 0.80   # fraction of cell across the wall
+    pass_depth = 0.30   # fraction of cell along the passage
 
     for y in range(level.height):
         for x in range(level.width):
@@ -205,24 +208,28 @@ def _render_doors(svg: list[str], level: "Level") -> None:
             px, py = x * CELL, y * CELL
             vertical = _door_opens_vertically(level, x, y)
 
-            # Size of the door rectangle
             if vertical:
-                # Passage left-right, wall runs top-bottom
-                dw = CELL * 0.35
-                dh = CELL * 0.7
+                # Passage is left-right, wall runs top-bottom.
+                # Rectangle is tall (spans wall) and narrow (passage).
+                dw = CELL * pass_depth
+                dh = CELL * wall_span
             else:
-                # Passage top-bottom, wall runs left-right
-                dw = CELL * 0.7
-                dh = CELL * 0.35
+                # Passage is top-bottom, wall runs left-right.
+                # Rectangle is wide (spans wall) and short (passage).
+                dw = CELL * wall_span
+                dh = CELL * pass_depth
 
             # Center the rectangle on the door tile
             dx = px + (CELL - dw) / 2
             dy = py + (CELL - dh) / 2
 
             # White fill to erase the wall underneath
+            # Slightly oversized to cover wall stroke
+            pad = WALL_WIDTH
             svg.append(
-                f'<rect x="{dx:.1f}" y="{dy:.1f}" '
-                f'width="{dw:.1f}" height="{dh:.1f}" '
+                f'<rect x="{dx - pad:.1f}" y="{dy - pad:.1f}" '
+                f'width="{dw + pad * 2:.1f}" '
+                f'height="{dh + pad * 2:.1f}" '
                 f'fill="{BG}"/>')
 
             # Draw the door outline (not for open doors)
