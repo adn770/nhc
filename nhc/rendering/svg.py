@@ -35,7 +35,6 @@ HATCH_UNDERLAY = "#D0D0D0"
 
 BG = "#FFFFFF"
 INK = "#000000"
-GRID_COLOR = "#CCCCCC"
 
 
 def render_floor_svg(level: "Level", seed: int = 0) -> str:
@@ -120,26 +119,49 @@ def _render_floors(svg: list[str], level: "Level") -> None:
 
 
 def _render_floor_grid(svg: list[str], level: "Level") -> None:
-    """Draw a soft thin grid on all floor tiles (rooms and corridors)."""
+    """Draw a hand-drawn style grid on all floor tiles.
+
+    Uses Perlin noise to slightly wobble line endpoints and vary
+    stroke width, giving an organic hand-drawn look.
+    """
     segments: list[str] = []
+    wobble = CELL * 0.04  # max displacement in pixels
+
     for y in range(level.height):
         for x in range(level.width):
             if not (_is_floor(level, x, y) or _is_door(level, x, y)):
                 continue
             px, py = x * CELL, y * CELL
+
             # Right edge: draw if neighbor is also floor/door
             if _is_floor(level, x + 1, y) or _is_door(level, x + 1, y):
-                segments.append(
-                    f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
+                x1 = px + CELL + _noise.pnoise2(
+                    x * 0.7, y * 0.7, base=20) * wobble
+                y1 = py + _noise.pnoise2(
+                    x * 0.7, y * 0.3, base=21) * wobble
+                x2 = px + CELL + _noise.pnoise2(
+                    x * 0.7, (y + 1) * 0.7, base=22) * wobble
+                y2 = py + CELL + _noise.pnoise2(
+                    x * 0.7, (y + 1) * 0.3, base=23) * wobble
+                segments.append(f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
+
             # Bottom edge: draw if neighbor is also floor/door
             if _is_floor(level, x, y + 1) or _is_door(level, x, y + 1):
-                segments.append(
-                    f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
+                x1 = px + _noise.pnoise2(
+                    x * 0.3, y * 0.7, base=24) * wobble
+                y1 = py + CELL + _noise.pnoise2(
+                    x * 0.3, y * 0.7, base=25) * wobble
+                x2 = px + CELL + _noise.pnoise2(
+                    (x + 1) * 0.3, y * 0.7, base=26) * wobble
+                y2 = py + CELL + _noise.pnoise2(
+                    (x + 1) * 0.3, y * 0.7, base=27) * wobble
+                segments.append(f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
 
     if segments:
         svg.append(
             f'<path d="{" ".join(segments)}" fill="none" '
-            f'stroke="{GRID_COLOR}" stroke-width="{GRID_WIDTH}"/>'
+            f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
+            f'opacity="0.15" stroke-linecap="round"/>'
         )
 
 
