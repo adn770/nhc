@@ -41,6 +41,8 @@ Empujar un cofre lo abre y suelta su contenido.
 ### Exploración
   x              Mirar a distancia (mover cursor para examinar)
   s              Buscar trampas ocultas y puertas secretas
+  p              Forzar una cerradura (requiere ganzúas, salvación DES)
+  f              Forzar una puerta (salvación FUE, herramientas ayudan)
   >              Descender escaleras
   <              Ascender escaleras
 

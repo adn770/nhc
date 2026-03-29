@@ -41,6 +41,8 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
 ### Exploració
   x              Mirar a distància (mou el cursor per examinar)
   s              Cercar trampes ocultes i portes secretes
+  p              Forçar un pany (requereix eines, salvació DES)
+  f              Forçar una porta (salvació FOR, eines ajuden)
   >              Descendir escales
   <              Ascendir escales
 
