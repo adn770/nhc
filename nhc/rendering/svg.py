@@ -127,9 +127,10 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
     Uses Perlin noise to slightly wobble line endpoints and vary
     stroke width, giving an organic hand-drawn look.
     """
-    rng = random.Random(41)  # fixed seed for grid consistency
+    rng = random.Random(41)
     segments: list[str] = []
-    wobble = CELL * 0.04
+    wobble = CELL * 0.05  # snake amplitude
+    n_sub = 5  # subdivisions per grid line for the snake effect
 
     for y in range(level.height):
         for x in range(level.width):
@@ -137,33 +138,44 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
                 continue
             px, py = x * CELL, y * CELL
 
-            # Right edge
+            # Right edge (vertical line)
             if _is_floor(level, x + 1, y) or _is_door(level, x + 1, y):
-                if rng.random() > 0.12:  # ~12% discontinuity
-                    x1 = px + CELL + _noise.pnoise2(
-                        x * 0.7, y * 0.7, base=20) * wobble
-                    y1 = py + _noise.pnoise2(
-                        x * 0.7, y * 0.3, base=21) * wobble
-                    x2 = px + CELL + _noise.pnoise2(
-                        x * 0.7, (y + 1) * 0.7, base=22) * wobble
-                    y2 = py + CELL + _noise.pnoise2(
-                        x * 0.7, (y + 1) * 0.3, base=23) * wobble
-                    segments.append(
-                        f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
+                bx = px + CELL
+                pts = []
+                for i in range(n_sub + 1):
+                    t = i / n_sub
+                    ly = py + t * CELL
+                    lx = bx + _noise.pnoise2(
+                        x * 0.7 + t * 0.5, y * 0.7, base=20) * wobble
+                    pts.append((lx, ly))
+                # Small gap near the middle for discontinuity
+                gap_pos = rng.randint(1, n_sub - 1)
+                seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
+                for i in range(1, len(pts)):
+                    if i == gap_pos and rng.random() < 0.25:
+                        seg += f' M{pts[i][0]:.1f},{pts[i][1]:.1f}'
+                    else:
+                        seg += f' L{pts[i][0]:.1f},{pts[i][1]:.1f}'
+                segments.append(seg)
 
-            # Bottom edge
+            # Bottom edge (horizontal line)
             if _is_floor(level, x, y + 1) or _is_door(level, x, y + 1):
-                if rng.random() > 0.12:
-                    x1 = px + _noise.pnoise2(
-                        x * 0.3, y * 0.7, base=24) * wobble
-                    y1 = py + CELL + _noise.pnoise2(
-                        x * 0.3, y * 0.7, base=25) * wobble
-                    x2 = px + CELL + _noise.pnoise2(
-                        (x + 1) * 0.3, y * 0.7, base=26) * wobble
-                    y2 = py + CELL + _noise.pnoise2(
-                        (x + 1) * 0.3, y * 0.7, base=27) * wobble
-                    segments.append(
-                        f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
+                by = py + CELL
+                pts = []
+                for i in range(n_sub + 1):
+                    t = i / n_sub
+                    lx = px + t * CELL
+                    ly = by + _noise.pnoise2(
+                        x * 0.3 + t * 0.5, y * 0.7, base=24) * wobble
+                    pts.append((lx, ly))
+                gap_pos = rng.randint(1, n_sub - 1)
+                seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
+                for i in range(1, len(pts)):
+                    if i == gap_pos and rng.random() < 0.25:
+                        seg += f' M{pts[i][0]:.1f},{pts[i][1]:.1f}'
+                    else:
+                        seg += f' L{pts[i][0]:.1f},{pts[i][1]:.1f}'
+                segments.append(seg)
 
     if segments:
         svg.append(
