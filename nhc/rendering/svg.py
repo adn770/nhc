@@ -181,7 +181,7 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
         svg.append(
             f'<path d="{" ".join(segments)}" fill="none" '
             f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-            f'opacity="0.5" stroke-linecap="round"/>'
+            f'opacity="0.7" stroke-linecap="round"/>'
         )
 
 
@@ -238,13 +238,13 @@ def _render_floor_detail(
 
     if cracks:
         svg.append(
-            f'<g opacity="0.25">'
+            f'<g opacity="0.5">'
             f'<path d="{" ".join(cracks)}" fill="none" '
             f'stroke="{INK}" stroke-width="0.5" '
             f'stroke-linecap="round"/>'
             f'</g>')
     if stones:
-        svg.append(f'<g opacity="0.5">{"".join(stones)}</g>')
+        svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
