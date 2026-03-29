@@ -622,7 +622,7 @@ def _render_hatching_dmap(
     if hatch_lines:
         svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
     if hatch_stones:
-        svg.append(f'<g>{"".join(hatch_stones)}</g>')
+        svg.append(f'<g opacity="0.4">{"".join(hatch_stones)}</g>')
 
 
 def _build_dungeon_polygon(level: "Level") -> Polygon:
