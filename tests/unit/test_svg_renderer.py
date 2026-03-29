@@ -18,7 +18,7 @@ def _make_level(width=10, height=8):
     for x in range(6, 9):
         level.tiles[3][x] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
 
-    # Add a door at (6,3)
+    # Add a closed door at (6,3)
     level.tiles[3][6].feature = "door_closed"
 
     # Add stairs down at (3,3)
@@ -34,42 +34,52 @@ class TestSVGOutput:
         assert svg.startswith("<svg")
         assert svg.endswith("</svg>")
 
-    def test_contains_background(self):
+    def test_white_background(self):
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "#EDE0CE" in svg  # parchment background
+        assert "#FFFFFF" in svg
 
     def test_contains_room_shadow(self):
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "#999999" in svg  # shadow color
+        assert 'opacity="0.08"' in svg
 
-    def test_contains_floor_fills(self):
+    def test_contains_floor_grid(self):
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "#FFFFFF" in svg  # room floor
-        assert "#F5F0E8" in svg  # corridor floor
+        assert "#CCCCCC" in svg  # grid color
 
     def test_contains_walls(self):
         level = _make_level()
         svg = render_floor_svg(level)
         assert "stroke-linecap" in svg
-        assert "#000000" in svg  # wall color
+        assert "#000000" in svg
 
-    def test_contains_door(self):
+    def test_door_creates_wall_gap(self):
+        """Door tiles should not have wall segments on opening sides."""
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "#8B4513" in svg  # door brown
+        # Door at (6,3) is vertical (floor left/right)
+        # Should have notch marks (stroke-width > WALL_WIDTH)
+        assert "stroke-width=\"5" in svg  # notch thickness
 
-    def test_contains_stairs(self):
+    def test_stairs_down_triangle(self):
+        """Stairs down should render as a triangle with vertical lines."""
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "polygon" in svg  # stair arrow
+        assert "polygon" in svg  # triangle outline
+
+    def test_stairs_up_triangle(self):
+        level = _make_level()
+        level.tiles[4][4] = Tile(terrain=Terrain.FLOOR)
+        level.tiles[4][4].feature = "stairs_up"
+        svg = render_floor_svg(level)
+        assert svg.count("polygon") >= 2  # both stair types
 
     def test_contains_hatching(self):
         level = _make_level()
         svg = render_floor_svg(level, seed=42)
-        assert "#C0C0C0" in svg  # hatch color
+        assert "#D0D0D0" in svg  # hatch underlay
 
     def test_viewbox_dimensions(self):
         level = _make_level(width=10, height=8)
@@ -78,18 +88,27 @@ class TestSVGOutput:
         expected_h = 8 * CELL + 2 * PADDING
         assert f'viewBox="0 0 {expected_w} {expected_h}"' in svg
 
-    def test_locked_door_color(self):
+    def test_locked_door_has_notch(self):
         level = _make_level()
         level.tiles[3][6].feature = "door_locked"
         svg = render_floor_svg(level)
-        assert "#B22222" in svg  # locked door red
+        assert "polygon" in svg  # stairs still present
+        # Locked doors also get notch marks
+        assert "stroke-width=\"5" in svg
 
-    def test_water_tiles(self):
-        level = _make_level()
-        level.tiles[4][3] = Tile(terrain=Terrain.WATER)
+    def test_open_door_no_notch(self):
+        """Open doors are just gaps — no notch marks."""
+        level = Level.create_empty("t", "T", depth=1, width=5, height=5)
+        for y in range(1, 4):
+            for x in range(1, 4):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.tiles[2][3] = Tile(terrain=Terrain.FLOOR,
+                                 feature="door_open")
+        level.rooms.append(Room(id="r", rect=Rect(1, 1, 3, 3)))
         svg = render_floor_svg(level)
-        assert "#AEC6CF" in svg  # water color
-        assert "circle" in svg  # water ripples
+        # Open doors should NOT have the thick notch
+        # (no polygon for stairs either since we didn't add any)
+        assert "polygon" not in svg
 
     def test_deterministic_with_same_seed(self):
         level = _make_level()

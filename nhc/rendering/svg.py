@@ -1,11 +1,12 @@
 """SVG floor renderer — Dyson Logos style.
 
 Generates a static SVG image of a dungeon floor from nhc's Level model.
-The SVG contains rooms, corridors, walls, doors, stairs, and decorative
-hatching. No entities (player, creatures, items) — those are overlaid
-by the browser client using the tileset.
+Black and white only. The SVG contains rooms, corridors, walls, doors
+(as gaps in walls), stairs (triangular parallel lines), and procedural
+cross-hatching from dmap. No entities — those are overlaid by the
+browser client using the tileset.
 
-Inspired by dmap's SVG renderer (ppdf/dmap_lib/rendering/).
+Hatching algorithm ported from ppdf/dmap_lib/rendering/hatching.py.
 """
 
 from __future__ import annotations
@@ -14,40 +15,31 @@ import math
 import random
 from typing import TYPE_CHECKING
 
+import noise as _noise
+from shapely.geometry import LineString, Point, Polygon
+
 if TYPE_CHECKING:
-    from nhc.dungeon.model import Level, Tile
+    from nhc.dungeon.model import Level
 
 # ── Constants ────────────────────────────────────────────────────
 
 CELL = 32          # pixels per grid cell
-PADDING = 16       # padding around the map
-WALL_WIDTH = 3.0   # wall stroke width
-DOOR_WIDTH = 2.0   # door stroke width
+PADDING = 32       # padding around the map (room for hatching)
+WALL_WIDTH = 4.0   # wall stroke width (bold Dyson style)
+WALL_THIN = 2.0    # thinner wall for corridors
+GRID_WIDTH = 0.3   # soft floor grid line width
+DOOR_GAP = 0.7     # fraction of cell for door opening
+HATCH_UNDERLAY = "#D0D0D0"
 
-# ── Colors (Dyson Logos palette) ─────────────────────────────────
+# ── Colors (black & white) ──────────────────────────────────────
 
-BG_COLOR = "#EDE0CE"       # aged parchment
-FLOOR_COLOR = "#FFFFFF"    # room interior
-WALL_COLOR = "#000000"     # wall strokes
-SHADOW_COLOR = "#999999"   # room shadow
-CORRIDOR_COLOR = "#F5F0E8" # slightly off-white corridors
-DOOR_COLOR = "#8B4513"     # brown doors
-DOOR_LOCKED_COLOR = "#B22222"  # red locked doors
-STAIRS_COLOR = "#555555"   # stair markers
-WATER_COLOR = "#AEC6CF"    # water tiles
-HATCH_COLOR = "#C0C0C0"    # exterior hatching
+BG = "#FFFFFF"
+INK = "#000000"
+GRID_COLOR = "#CCCCCC"
 
 
 def render_floor_svg(level: "Level", seed: int = 0) -> str:
-    """Generate a Dyson-style SVG for a dungeon floor.
-
-    Args:
-        level: The nhc Level to render.
-        seed: RNG seed for hatching variation.
-
-    Returns:
-        Complete SVG string.
-    """
+    """Generate a Dyson-style SVG for a dungeon floor."""
     w = level.width * CELL + 2 * PADDING
     h = level.height * CELL + 2 * PADDING
 
@@ -57,271 +49,480 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
         f'viewBox="0 0 {w} {h}" '
         f'xmlns="http://www.w3.org/2000/svg">'
     )
-    # Background
-    svg.append(f'<rect width="100%" height="100%" fill="{BG_COLOR}"/>')
-
-    # Content group with padding offset
+    svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
-    # Layer 1: Room shadows
+    # Layer 1: Room shadows (subtle)
     _render_room_shadows(svg, level)
 
-    # Layer 2: Floor fills (rooms + corridors)
+    # Layer 2: Floor fills
     _render_floors(svg, level)
 
-    # Layer 3: Water/terrain
-    _render_terrain(svg, level)
+    # Layer 3: Soft floor grid
+    _render_floor_grid(svg, level)
 
-    # Layer 4: Walls
-    _render_walls(svg, level)
+    # Layer 4: Walls (with door gaps)
+    door_set = _collect_doors(level)
+    _render_walls(svg, level, door_set)
 
-    # Layer 5: Doors
+    # Layer 5: Door notches (small marks at wall openings)
     _render_doors(svg, level)
 
-    # Layer 6: Stairs
+    # Layer 6: Stairs (triangular parallel lines)
     _render_stairs(svg, level)
 
-    # Layer 7: Hatching around perimeter
-    _render_hatching(svg, level, seed)
+    # Layer 7: dmap-style hatching
+    _render_hatching_dmap(svg, level, seed)
 
     svg.append("</g>")
     svg.append("</svg>")
     return "\n".join(svg)
 
 
+# ── Helpers ──────────────────────────────────────────────────────
+
+def _is_floor(level: "Level", x: int, y: int) -> bool:
+    from nhc.dungeon.model import Terrain
+    if not level.in_bounds(x, y):
+        return False
+    t = level.tiles[y][x]
+    return t.terrain in (Terrain.FLOOR, Terrain.WATER)
+
+
+def _is_door(level: "Level", x: int, y: int) -> bool:
+    if not level.in_bounds(x, y):
+        return False
+    f = level.tiles[y][x].feature
+    return f in ("door_closed", "door_open", "door_secret", "door_locked")
+
+
+def _collect_doors(level: "Level") -> set[tuple[int, int]]:
+    doors = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            if _is_door(level, x, y):
+                doors.add((x, y))
+    return doors
+
+
 # ── Layer renderers ──────────────────────────────────────────────
 
 def _render_room_shadows(svg: list[str], level: "Level") -> None:
-    """Render offset shadow rectangles for each room."""
+    """Subtle offset shadow for rooms."""
     for room in level.rooms:
         r = room.rect
-        x = r.x * CELL + 2
-        y = r.y * CELL + 2
         svg.append(
-            f'<rect x="{x}" y="{y}" '
+            f'<rect x="{r.x * CELL + 3}" y="{r.y * CELL + 3}" '
             f'width="{r.width * CELL}" height="{r.height * CELL}" '
-            f'fill="{SHADOW_COLOR}" opacity="0.3"/>'
+            f'fill="{INK}" opacity="0.08"/>'
         )
 
 
 def _render_floors(svg: list[str], level: "Level") -> None:
-    """Render floor tiles as small rectangles."""
-    from nhc.dungeon.model import Terrain
+    """Fill floor tiles with white."""
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain == Terrain.FLOOR:
-                color = CORRIDOR_COLOR if tile.is_corridor else FLOOR_COLOR
+            if _is_floor(level, x, y) or _is_door(level, x, y):
                 svg.append(
                     f'<rect x="{x * CELL}" y="{y * CELL}" '
-                    f'width="{CELL}" height="{CELL}" fill="{color}"/>'
+                    f'width="{CELL}" height="{CELL}" fill="{BG}"/>'
                 )
 
 
-def _render_terrain(svg: list[str], level: "Level") -> None:
-    """Render water and other terrain features."""
-    from nhc.dungeon.model import Terrain
+def _render_floor_grid(svg: list[str], level: "Level") -> None:
+    """Draw a soft thin grid on room floors (not corridors)."""
+    segments: list[str] = []
     for y in range(level.height):
         for x in range(level.width):
+            if not _is_floor(level, x, y):
+                continue
             tile = level.tiles[y][x]
-            if tile.terrain == Terrain.WATER:
-                cx = x * CELL + CELL // 2
-                cy = y * CELL + CELL // 2
-                svg.append(
-                    f'<rect x="{x * CELL}" y="{y * CELL}" '
-                    f'width="{CELL}" height="{CELL}" '
-                    f'fill="{WATER_COLOR}" opacity="0.6"/>'
-                )
-                # Ripple circles
-                for r in (5, 9):
-                    svg.append(
-                        f'<circle cx="{cx}" cy="{cy}" r="{r}" '
-                        f'fill="none" stroke="{WATER_COLOR}" '
-                        f'stroke-width="0.5" opacity="0.4"/>'
-                    )
+            if tile.is_corridor:
+                continue
+            px, py = x * CELL, y * CELL
+            # Right edge (avoid double-draw)
+            if _is_floor(level, x + 1, y):
+                nr = level.tiles[y][x + 1]
+                if not nr.is_corridor:
+                    segments.append(
+                        f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
+            # Bottom edge
+            if _is_floor(level, x, y + 1):
+                nb = level.tiles[y + 1][x]
+                if not nb.is_corridor:
+                    segments.append(
+                        f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
+
+    if segments:
+        svg.append(
+            f'<path d="{" ".join(segments)}" fill="none" '
+            f'stroke="{GRID_COLOR}" stroke-width="{GRID_WIDTH}"/>'
+        )
 
 
-def _render_walls(svg: list[str], level: "Level") -> None:
-    """Render wall edges between floor and non-floor tiles.
-
-    Draws line segments along tile boundaries where a floor tile
-    meets a wall/void tile, producing clean wall outlines.
-    """
-    from nhc.dungeon.model import Terrain
-
-    def _is_floor(x: int, y: int) -> bool:
-        if not level.in_bounds(x, y):
-            return False
-        t = level.tiles[y][x]
-        return t.terrain in (Terrain.FLOOR, Terrain.WATER)
-
+def _render_walls(
+    svg: list[str], level: "Level",
+    door_set: set[tuple[int, int]],
+) -> None:
+    """Render wall edges, skipping edges adjacent to door tiles."""
     segments: list[str] = []
 
     for y in range(level.height):
         for x in range(level.width):
-            if not _is_floor(x, y):
+            if not (_is_floor(level, x, y) or (x, y) in door_set):
                 continue
             px, py = x * CELL, y * CELL
+
+            # For door tiles, don't draw wall edges on the sides
+            # that connect to floor (that's the opening)
+            is_this_door = (x, y) in door_set
+
             # Top edge
-            if not _is_floor(x, y - 1):
-                segments.append(
-                    f'M{px},{py} L{px + CELL},{py}'
-                )
+            if not _is_floor(level, x, y - 1) and (x, y - 1) not in door_set:
+                if not is_this_door or not _door_opens_vertically(level, x, y):
+                    segments.append(f'M{px},{py} L{px + CELL},{py}')
             # Bottom edge
-            if not _is_floor(x, y + 1):
-                segments.append(
-                    f'M{px},{py + CELL} L{px + CELL},{py + CELL}'
-                )
+            if not _is_floor(level, x, y + 1) and (x, y + 1) not in door_set:
+                if not is_this_door or not _door_opens_vertically(level, x, y):
+                    segments.append(
+                        f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
             # Left edge
-            if not _is_floor(x - 1, y):
-                segments.append(
-                    f'M{px},{py} L{px},{py + CELL}'
-                )
+            if not _is_floor(level, x - 1, y) and (x - 1, y) not in door_set:
+                if not is_this_door or _door_opens_vertically(level, x, y):
+                    segments.append(f'M{px},{py} L{px},{py + CELL}')
             # Right edge
-            if not _is_floor(x + 1, y):
-                segments.append(
-                    f'M{px + CELL},{py} L{px + CELL},{py + CELL}'
-                )
+            if not _is_floor(level, x + 1, y) and (x + 1, y) not in door_set:
+                if not is_this_door or _door_opens_vertically(level, x, y):
+                    segments.append(
+                        f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
 
     if segments:
-        path_data = " ".join(segments)
         svg.append(
-            f'<path d="{path_data}" fill="none" '
-            f'stroke="{WALL_COLOR}" stroke-width="{WALL_WIDTH}" '
-            f'stroke-linecap="round"/>'
+            f'<path d="{" ".join(segments)}" fill="none" '
+            f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
         )
 
 
+def _door_opens_vertically(level: "Level", x: int, y: int) -> bool:
+    """True if the door connects left-right (passage is vertical)."""
+    return _is_floor(level, x - 1, y) or _is_floor(level, x + 1, y)
+
+
 def _render_doors(svg: list[str], level: "Level") -> None:
-    """Render doors as colored rectangles."""
+    """Draw small notch marks at door positions in the wall gap."""
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
             if not tile.feature:
                 continue
-            if tile.feature in ("door_closed", "door_open",
-                                "door_secret", "door_locked"):
-                px, py = x * CELL, y * CELL
-                color = DOOR_LOCKED_COLOR if tile.feature == "door_locked" \
-                    else DOOR_COLOR
-                # Determine orientation: horizontal or vertical
-                # A door is vertical if floor is to the left/right
-                from nhc.dungeon.model import Terrain
-                left_floor = (level.in_bounds(x - 1, y) and
-                              level.tiles[y][x - 1].terrain == Terrain.FLOOR)
-                right_floor = (level.in_bounds(x + 1, y) and
-                               level.tiles[y][x + 1].terrain == Terrain.FLOOR)
-                if left_floor or right_floor:
-                    # Vertical door
-                    dw, dh = CELL * 0.3, CELL * 0.8
-                    dx = px + (CELL - dw) / 2
-                    dy = py + (CELL - dh) / 2
-                else:
-                    # Horizontal door
-                    dw, dh = CELL * 0.8, CELL * 0.3
-                    dx = px + (CELL - dw) / 2
-                    dy = py + (CELL - dh) / 2
+            if tile.feature not in ("door_closed", "door_open",
+                                    "door_secret", "door_locked"):
+                continue
+
+            px, py = x * CELL, y * CELL
+            vertical = _door_opens_vertically(level, x, y)
+            notch_len = CELL * 0.25
+
+            if tile.feature == "door_open":
+                continue  # Open doors are just gaps, no mark
+
+            # Draw short perpendicular notch lines at both ends
+            if vertical:
+                # Door passage is vertical — notches on left and right walls
                 svg.append(
-                    f'<rect x="{dx:.1f}" y="{dy:.1f}" '
-                    f'width="{dw:.1f}" height="{dh:.1f}" '
-                    f'fill="{color}" stroke="{WALL_COLOR}" '
-                    f'stroke-width="{DOOR_WIDTH}" rx="2"/>'
-                )
+                    f'<line x1="{px}" y1="{py + CELL / 2 - notch_len}" '
+                    f'x2="{px}" y2="{py + CELL / 2 + notch_len}" '
+                    f'stroke="{INK}" stroke-width="{WALL_WIDTH + 1}"/>')
+                svg.append(
+                    f'<line x1="{px + CELL}" '
+                    f'y1="{py + CELL / 2 - notch_len}" '
+                    f'x2="{px + CELL}" '
+                    f'y2="{py + CELL / 2 + notch_len}" '
+                    f'stroke="{INK}" stroke-width="{WALL_WIDTH + 1}"/>')
+            else:
+                # Door passage is horizontal — notches on top and bottom
+                svg.append(
+                    f'<line x1="{px + CELL / 2 - notch_len}" y1="{py}" '
+                    f'x2="{px + CELL / 2 + notch_len}" y2="{py}" '
+                    f'stroke="{INK}" stroke-width="{WALL_WIDTH + 1}"/>')
+                svg.append(
+                    f'<line x1="{px + CELL / 2 - notch_len}" '
+                    f'y1="{py + CELL}" '
+                    f'x2="{px + CELL / 2 + notch_len}" '
+                    f'y2="{py + CELL}" '
+                    f'stroke="{INK}" stroke-width="{WALL_WIDTH + 1}"/>')
 
 
 def _render_stairs(svg: list[str], level: "Level") -> None:
-    """Render stair markers."""
+    """Render stairs as triangular shapes with parallel vertical lines.
+
+    stairs_down (>) : triangle pointing right, vertical lines inside
+    stairs_up   (<) : triangle pointing left, vertical lines inside
+    Mimics the terminal < and > characters.
+    """
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            if tile.feature in ("stairs_down", "stairs_up"):
-                px, py = x * CELL, y * CELL
-                cx, cy = px + CELL // 2, py + CELL // 2
-                # Draw stair lines
-                going_down = tile.feature == "stairs_down"
-                for i in range(3):
-                    offset = (i - 1) * 6
-                    y1 = cy + offset - 3
-                    y2 = cy + offset + 3
-                    x1 = cx - 8
-                    x2 = cx + 8
-                    if going_down:
-                        svg.append(
-                            f'<line x1="{x1}" y1="{y1}" '
-                            f'x2="{x2}" y2="{y1}" '
-                            f'stroke="{STAIRS_COLOR}" '
-                            f'stroke-width="1.5"/>'
-                        )
-                    else:
-                        svg.append(
-                            f'<line x1="{x1}" y1="{y2}" '
-                            f'x2="{x2}" y2="{y2}" '
-                            f'stroke="{STAIRS_COLOR}" '
-                            f'stroke-width="1.5"/>'
-                        )
-                # Arrow indicator
-                if going_down:
+            if tile.feature not in ("stairs_down", "stairs_up"):
+                continue
+
+            px, py = x * CELL, y * CELL
+            margin = CELL * 0.15
+            down = tile.feature == "stairs_down"
+
+            if down:
+                # Triangle pointing right: >
+                # Tip on the right, base on the left
+                tip_x = px + CELL - margin
+                base_x = px + margin
+                top_y = py + margin
+                bot_y = py + CELL - margin
+                mid_y = py + CELL / 2
+                svg.append(
+                    f'<polygon points='
+                    f'"{base_x:.1f},{top_y:.1f} '
+                    f'{tip_x:.1f},{mid_y:.1f} '
+                    f'{base_x:.1f},{bot_y:.1f}" '
+                    f'fill="none" stroke="{INK}" '
+                    f'stroke-width="1.5" stroke-linejoin="round"/>')
+                # Parallel vertical lines inside the triangle
+                tri_width = tip_x - base_x
+                n_lines = 4
+                for i in range(1, n_lines + 1):
+                    lx = base_x + tri_width * i / (n_lines + 1)
+                    # Find triangle height at this x
+                    frac = (lx - base_x) / tri_width
+                    half_h = (bot_y - top_y) / 2 * (1 - frac)
                     svg.append(
-                        f'<polygon points="{cx},{cy + 10} '
-                        f'{cx - 4},{cy + 5} {cx + 4},{cy + 5}" '
-                        f'fill="{STAIRS_COLOR}"/>'
-                    )
-                else:
+                        f'<line x1="{lx:.1f}" '
+                        f'y1="{mid_y - half_h:.1f}" '
+                        f'x2="{lx:.1f}" '
+                        f'y2="{mid_y + half_h:.1f}" '
+                        f'stroke="{INK}" stroke-width="1"/>')
+            else:
+                # Triangle pointing left: <
+                tip_x = px + margin
+                base_x = px + CELL - margin
+                top_y = py + margin
+                bot_y = py + CELL - margin
+                mid_y = py + CELL / 2
+                svg.append(
+                    f'<polygon points='
+                    f'"{base_x:.1f},{top_y:.1f} '
+                    f'{tip_x:.1f},{mid_y:.1f} '
+                    f'{base_x:.1f},{bot_y:.1f}" '
+                    f'fill="none" stroke="{INK}" '
+                    f'stroke-width="1.5" stroke-linejoin="round"/>')
+                tri_width = base_x - tip_x
+                n_lines = 4
+                for i in range(1, n_lines + 1):
+                    lx = base_x - tri_width * i / (n_lines + 1)
+                    frac = (base_x - lx) / tri_width
+                    half_h = (bot_y - top_y) / 2 * (1 - frac)
                     svg.append(
-                        f'<polygon points="{cx},{cy - 10} '
-                        f'{cx - 4},{cy - 5} {cx + 4},{cy - 5}" '
-                        f'fill="{STAIRS_COLOR}"/>'
-                    )
+                        f'<line x1="{lx:.1f}" '
+                        f'y1="{mid_y - half_h:.1f}" '
+                        f'x2="{lx:.1f}" '
+                        f'y2="{mid_y + half_h:.1f}" '
+                        f'stroke="{INK}" stroke-width="1"/>')
 
 
-def _render_hatching(
+# ── dmap-style hatching ──────────────────────────────────────────
+
+def _render_hatching_dmap(
     svg: list[str], level: "Level", seed: int,
 ) -> None:
-    """Render cross-hatching around the dungeon perimeter.
+    """Procedural cross-hatching ported from dmap's HatchingRenderer.
 
-    Draws short random lines in void tiles adjacent to floor tiles,
-    giving the Dyson Logos hand-drawn border effect.
+    Uses Shapely for geometry clipping, Perlin noise for organic
+    displacement, and tile-based section partitioning.
     """
-    from nhc.dungeon.model import Terrain
-    rng = random.Random(seed)
+    random.seed(seed)
+    dungeon_poly = _build_dungeon_polygon(level)
+    if dungeon_poly.is_empty:
+        return
 
-    perimeter: set[tuple[int, int]] = set()
+    hatch_distance_limit = 2.0 * CELL
+    min_stroke = 1.0
+    max_stroke = 1.8
+
+    tile_fills: list[str] = []
+    hatch_lines: list[str] = []
+
+    for gy in range(-1, level.height + 1):
+        for gx in range(-1, level.width + 1):
+            center = Point((gx + 0.5) * CELL, (gy + 0.5) * CELL)
+            if dungeon_poly.contains(center):
+                continue
+            dist = dungeon_poly.boundary.distance(center)
+            if dist > hatch_distance_limit:
+                continue
+
+            # Grey underlay tile
+            tile_fills.append(
+                f'<rect x="{gx * CELL}" y="{gy * CELL}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{HATCH_UNDERLAY}"/>')
+
+            # Perlin-displaced cluster anchor
+            nr = CELL * 0.1
+            dx = _noise.pnoise2(gx * 0.5, gy * 0.5, base=1) * nr
+            dy = _noise.pnoise2(gx * 0.5, gy * 0.5, base=2) * nr
+            anchor = ((gx + 0.5) * CELL + dx, (gy + 0.5) * CELL + dy)
+
+            corners = [
+                (gx * CELL, gy * CELL),
+                ((gx + 1) * CELL, gy * CELL),
+                ((gx + 1) * CELL, (gy + 1) * CELL),
+                (gx * CELL, (gy + 1) * CELL),
+            ]
+
+            # Pick 3 random perimeter points to partition tile
+            pts = _pick_section_points(corners, anchor, CELL)
+            sections = _build_sections(anchor, pts, corners)
+
+            for i, section in enumerate(sections):
+                if section.is_empty or section.area < 1:
+                    continue
+                if i == 0:
+                    angle = math.atan2(
+                        pts[1][1] - pts[0][1],
+                        pts[1][0] - pts[0][0])
+                else:
+                    angle = random.uniform(0, math.pi)
+
+                bounds = section.bounds
+                diag = math.hypot(
+                    bounds[2] - bounds[0], bounds[3] - bounds[1])
+                spacing = CELL * 0.20
+                n_lines = max(3, int(diag / spacing))
+
+                for j in range(n_lines):
+                    offset = (j - (n_lines - 1) / 2) * spacing
+                    cx = section.centroid.x
+                    cy = section.centroid.y
+                    perp_x = math.cos(angle + math.pi / 2) * offset
+                    perp_y = math.sin(angle + math.pi / 2) * offset
+                    line = LineString([
+                        (cx + perp_x - math.cos(angle) * diag,
+                         cy + perp_y - math.sin(angle) * diag),
+                        (cx + perp_x + math.cos(angle) * diag,
+                         cy + perp_y + math.sin(angle) * diag),
+                    ])
+                    clipped = section.intersection(line)
+                    if clipped.is_empty or not isinstance(clipped, LineString):
+                        continue
+                    p1, p2 = list(clipped.coords)
+                    # Perlin wobble
+                    wb = CELL * 0.03
+                    p1 = (
+                        p1[0] + _noise.pnoise2(
+                            p1[0] * 0.1, p1[1] * 0.1, base=10) * wb,
+                        p1[1] + _noise.pnoise2(
+                            p1[0] * 0.1, p1[1] * 0.1, base=11) * wb,
+                    )
+                    p2 = (
+                        p2[0] + _noise.pnoise2(
+                            p2[0] * 0.1, p2[1] * 0.1, base=12) * wb,
+                        p2[1] + _noise.pnoise2(
+                            p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
+                    )
+                    sw = random.uniform(min_stroke, max_stroke)
+                    hatch_lines.append(
+                        f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" '
+                        f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
+                        f'stroke="{INK}" stroke-width="{sw:.2f}" '
+                        f'stroke-linecap="round"/>')
+
+    # Render underlay first, then hatch lines on top
+    if tile_fills:
+        svg.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
+    if hatch_lines:
+        svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
+
+
+def _build_dungeon_polygon(level: "Level") -> Polygon:
+    """Build a Shapely polygon covering all floor/door tiles."""
+    from shapely.ops import unary_union
+    polys = []
     for y in range(level.height):
         for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain not in (Terrain.WALL, Terrain.VOID):
-                continue
-            # Check if adjacent to floor
-            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-                nx, ny = x + dx, y + dy
-                if level.in_bounds(nx, ny):
-                    neighbor = level.tiles[ny][nx]
-                    if neighbor.terrain in (Terrain.FLOOR, Terrain.WATER):
-                        perimeter.add((x, y))
-                        break
+            if _is_floor(level, x, y) or _is_door(level, x, y):
+                polys.append(Polygon([
+                    (x * CELL, y * CELL),
+                    ((x + 1) * CELL, y * CELL),
+                    ((x + 1) * CELL, (y + 1) * CELL),
+                    (x * CELL, (y + 1) * CELL),
+                ]))
+    if not polys:
+        return Polygon()
+    return unary_union(polys)
 
-    lines: list[str] = []
-    for px, py in perimeter:
-        cx = px * CELL + CELL // 2
-        cy = py * CELL + CELL // 2
-        n_lines = rng.randint(2, 5)
-        for _ in range(n_lines):
-            angle = rng.uniform(0, math.pi)
-            length = rng.uniform(4, CELL * 0.6)
-            dx = math.cos(angle) * length / 2
-            dy = math.sin(angle) * length / 2
-            ox = rng.uniform(-4, 4)
-            oy = rng.uniform(-4, 4)
-            x1 = cx + ox - dx
-            y1 = cy + oy - dy
-            x2 = cx + ox + dx
-            y2 = cy + oy + dy
-            lines.append(f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
 
-    if lines:
-        path_data = " ".join(lines)
-        svg.append(
-            f'<path d="{path_data}" fill="none" '
-            f'stroke="{HATCH_COLOR}" stroke-width="1" '
-            f'stroke-linecap="round" opacity="0.6"/>'
-        )
+def _pick_section_points(
+    corners: list[tuple[float, float]],
+    anchor: tuple[float, float],
+    grid_size: float,
+) -> list[tuple[float, float]]:
+    """Pick 3 random perimeter points and sort by angle from anchor."""
+
+    def _random_perimeter_point(edge: int) -> tuple[float, float]:
+        t = random.uniform(0, grid_size)
+        if edge == 0:
+            return (corners[0][0] + t, corners[0][1])
+        if edge == 1:
+            return (corners[1][0], corners[1][1] + t)
+        if edge == 2:
+            return (corners[2][0] - t, corners[2][1])
+        return (corners[3][0], corners[3][1] - t)
+
+    edges = [random.randint(0, 3) for _ in range(3)]
+    pts = [_random_perimeter_point(e) for e in edges]
+    pts.sort(key=lambda p: math.atan2(
+        p[1] - anchor[1], p[0] - anchor[0]))
+    return pts
+
+
+def _get_edge_index(
+    p: tuple[float, float],
+    corners: list[tuple[float, float]],
+    grid_size: float,
+) -> int:
+    gx_px = corners[0][0]
+    gy_px = corners[0][1]
+    if abs(p[1] - gy_px) < 1e-3:
+        return 0
+    if abs(p[0] - (gx_px + grid_size)) < 1e-3:
+        return 1
+    if abs(p[1] - (gy_px + grid_size)) < 1e-3:
+        return 2
+    return 3
+
+
+def _build_sections(
+    anchor: tuple[float, float],
+    pts: list[tuple[float, float]],
+    corners: list[tuple[float, float]],
+) -> list[Polygon]:
+    """Partition a tile into 3 sections from anchor through 3 perimeter points."""
+    gs = corners[1][0] - corners[0][0]  # grid_size
+    sections = []
+    for i in range(3):
+        p1 = pts[i]
+        p2 = pts[(i + 1) % 3]
+        verts = [anchor, p1]
+        idx1 = _get_edge_index(p1, corners, gs)
+        idx2 = _get_edge_index(p2, corners, gs)
+        j = idx1
+        while j != idx2:
+            verts.append(corners[(j + 1) % 4])
+            j = (j + 1) % 4
+        verts.append(p2)
+        try:
+            poly = Polygon(verts)
+            if poly.is_valid and poly.area > 0:
+                sections.append(poly)
+        except Exception:
+            pass
+    return sections

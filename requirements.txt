@@ -5,6 +5,8 @@ pyyaml
 # Web server (optional — for nhc_web.py)
 flask
 flask-sock
+shapely
+noise
 
 # Testing
 pytest
