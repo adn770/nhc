@@ -105,7 +105,7 @@ def render_status(
         equip_parts.append(shield_name)
     if helmet_name:
         equip_parts.append(helmet_name)
-    equip_parts.append(f"AC {armor_def}")
+    equip_parts.append(f"{tr('ui.ac')} {armor_def}")
 
     line2 = (
         f"{identity}"

@@ -121,6 +121,15 @@ class TestGlobalInterface:
         result = t("combat.corpse", name="Goblin")
         assert result == "Goblin corpse"
 
+    def test_armor_class_label_translated(self):
+        """AC label should be CA in Catalan and Spanish."""
+        init("en")
+        assert t("ui.ac") == "AC"
+        init("ca")
+        assert t("ui.ac") == "CA"
+        init("es")
+        assert t("ui.ac") == "CA"
+
     def test_all_locales_have_combat_keys(self):
         """All locales must have the core combat message keys."""
         keys = [

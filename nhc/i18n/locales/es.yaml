@@ -443,6 +443,7 @@ traits:
 
 # ── UI labels ─────────────────────────────────────────────────────────
 ui:
+  ac: "CA"
   depth: "Profundidad"
   turn: "Turno"
   empty: "vacío"

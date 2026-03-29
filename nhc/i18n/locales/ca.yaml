@@ -461,6 +461,7 @@ traits:
 
 # ── UI labels ─────────────────────────────────────────────────────────
 ui:
+  ac: "CA"
   depth: "Profunditat"
   turn: "Torn"
   empty: "buit"
