@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 from flask_sock import Sock
 
 from nhc.web.config import WebConfig
@@ -14,7 +14,11 @@ from nhc.web.sessions import SessionManager
 def create_app(config: WebConfig | None = None) -> Flask:
     """Create and configure the Flask application."""
     config = config or WebConfig()
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        static_folder="static",
+        template_folder="templates",
+    )
     app.config["NHC_CONFIG"] = config
 
     sessions = SessionManager(config)
@@ -25,6 +29,10 @@ def create_app(config: WebConfig | None = None) -> Flask:
     # Register WebSocket routes
     from nhc.web.ws import register_ws
     register_ws(app, sock)
+
+    @app.route("/")
+    def index():
+        return render_template("index.html")
 
     @app.route("/api/game/new", methods=["POST"])
     def game_new():

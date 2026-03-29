@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NHC — Nethack-like Crawler</title>
+  <link rel="stylesheet" href="/static/css/nhc.css">
+</head>
+<body>
+  <!-- Login / Game creation screen -->
+  <div id="login-screen">
+    <h1>NHC</h1>
+    <p>Nethack-like Crawler</p>
+    <div class="login-form">
+      <label for="lang-select">Language:</label>
+      <select id="lang-select">
+        <option value="ca" selected>Català</option>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+      </select>
+      <label for="tileset-select">Tileset:</label>
+      <select id="tileset-select">
+        <option value="classic" selected>Classic</option>
+      </select>
+      <button id="new-game-btn">New Game</button>
+    </div>
+    <div id="session-list"></div>
+  </div>
+
+  <!-- Game screen (hidden until game starts) -->
+  <div id="game-screen" class="hidden">
+    <!-- Zone 1: Map -->
+    <div id="map-zone">
+      <div id="map-container">
+        <div id="floor-svg"></div>
+        <canvas id="entity-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Zone 2: Status bar -->
+    <div id="status-zone">
+      <div id="status-line1"></div>
+      <div id="status-line2"></div>
+    </div>
+
+    <!-- Zone 3: History / Narrative log -->
+    <div id="history-zone">
+      <div id="history-log"></div>
+    </div>
+
+    <!-- Zone 4: Input -->
+    <div id="input-zone">
+      <span class="prompt">&gt;</span>
+      <input type="text" id="game-input" placeholder="Type a command..."
+             autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+
+  <script src="/static/js/ws.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/ui.js"></script>
+  <script src="/static/js/input.js"></script>
+  <script src="/static/js/nhc.js"></script>
+</body>
+</html>
