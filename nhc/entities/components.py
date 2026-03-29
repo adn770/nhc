@@ -74,7 +74,7 @@ class Player:
     """Tag component identifying the player entity."""
     xp: int = 0
     level: int = 1
-    xp_to_next: int = 20
+    xp_to_next: int = 1000
     gold: int = 0
 
 
@@ -88,6 +88,7 @@ class Weapon:
     damage: str = "1d6"
     type: str = "melee"
     slots: int = 1
+    magic_bonus: int = 0  # +N to attack and damage rolls
 
 
 @dataclass
@@ -103,6 +104,9 @@ class Trap:
     dc: int = 12
     hidden: bool = True
     triggered: bool = False
+    effect: str = ""  # "", "poison", "paralysis", "alarm", "teleport",
+                      # "summoning", "gripping", "fire", "arrow",
+                      # "darts", "falling_stone", "spores"
 
 
 @dataclass
@@ -111,6 +115,7 @@ class Armor:
     slot: str = "body"  # "body", "shield", "helmet"
     defense: int = 0    # AC bonus or base defense
     slots: int = 1      # inventory slots consumed
+    magic_bonus: int = 0  # +N to AC
 
 
 @dataclass

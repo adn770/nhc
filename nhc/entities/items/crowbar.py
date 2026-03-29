@@ -9,4 +9,5 @@ def create_crowbar() -> dict:
     return {
         "Renderable": Renderable(glyph="(", color="cyan", render_order=1),
         "Description": item_desc("crowbar"),
+        "ForceTool": True,
     }

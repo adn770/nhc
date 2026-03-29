@@ -9,4 +9,5 @@ def create_lockpicks() -> dict:
     return {
         "Renderable": Renderable(glyph="(", color="grey", render_order=1),
         "Description": item_desc("lockpicks"),
+        "Lockpicks": True,
     }

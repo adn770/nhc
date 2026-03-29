@@ -107,6 +107,13 @@ class MoveAction(Action):
         nx, ny = pos.x + self.dx, pos.y + self.dy
         tile = level.tile_at(nx, ny)
 
+        # Locked doors block movement
+        if tile.feature == "door_locked":
+            events.append(MessageEvent(
+                text=_msg("explore.door_locked", world, actor=self.actor),
+            ))
+            return events
+
         # Auto-open closed doors
         if tile.feature == "door_closed":
             tile.feature = "door_open"
@@ -116,9 +123,15 @@ class MoveAction(Action):
             ))
             return events
 
-        # Check for blocking creatures at target
+        # Auto-open chests when bumping into them
         for eid, _, bpos in world.query("BlocksMovement", "Position"):
             if bpos.x == nx and bpos.y == ny and eid != self.actor:
+                if world.has_component(eid, "Chest"):
+                    chest_action = OpenChestAction(
+                        actor=self.actor, chest=eid,
+                    )
+                    if await chest_action.validate(world, level):
+                        return await chest_action.execute(world, level)
                 return []
 
         # Move
@@ -194,17 +207,27 @@ class MeleeAttackAction(Action):
 
         # Get weapon damage: inline Weapon (creatures) > equipped Weapon (player)
         weapon_damage = "1d4"  # Unarmed fallback
+        weapon_magic = 0
         inline_wpn = world.get_component(self.actor, "Weapon")
         if inline_wpn:
             weapon_damage = inline_wpn.damage
+            weapon_magic = inline_wpn.magic_bonus
         else:
             equip = world.get_component(self.actor, "Equipment")
             if equip and equip.weapon is not None:
                 wpn = world.get_component(equip.weapon, "Weapon")
                 if wpn:
                     weapon_damage = wpn.damage
+                    weapon_magic = wpn.magic_bonus
 
-        hit, damage = resolve_melee_attack(a_stats, t_stats, weapon_damage)
+        # Target armor magic bonus
+        armor_magic = _get_armor_magic(world, self.target)
+
+        hit, damage = resolve_melee_attack(
+            a_stats, t_stats, weapon_damage,
+            attack_bonus=weapon_magic, damage_bonus=weapon_magic,
+            armor_bonus=armor_magic,
+        )
         logger.debug(
             "Melee: %s→%s wpn=%s hit=%s dmg=%d",
             attacker_name, target_name, weapon_damage, hit, damage,
@@ -376,57 +399,61 @@ class MeleeAttackAction(Action):
                         ))
 
             if is_dead(t_health):
-                logger.info(
-                    "%s killed %s (actor=%d, target=%d)",
-                    attacker_name, target_name, self.actor, self.target,
-                )
-                events.append(CreatureDied(
-                    entity=self.target, killer=self.actor,
-                ))
-                events.append(MessageEvent(
-                    text=_msg("combat.slain", world,
-                              actor=self.actor, target=self.target),
-                ))
+                # Player death is handled by the game loop (god mode
+                # restores HP there).  Skip corpse/loot/destroy for
+                # the player entirely.
+                is_player = world.has_component(self.target, "Player")
 
-                # Drop loot before destroying
-                tpos = world.get_component(self.target, "Position")
-                loot = world.get_component(self.target, "LootTable")
-                if loot and tpos:
-                    dropped = generate_loot(
-                        world, loot, tpos.x, tpos.y, tpos.level_id,
+                if not is_player:
+                    logger.info(
+                        "%s killed %s (actor=%d, target=%d)",
+                        attacker_name, target_name, self.actor, self.target,
                     )
-                    if dropped:
-                        names = []
-                        for did in dropped:
-                            d = world.get_component(did, "Description")
-                            if d:
-                                names.append(d.name)
-                        if names:
-                            events.append(MessageEvent(
-                                text=_msg("combat.drops", world,
-                                          target=self.target,
-                                          items=", ".join(names)),
-                            ))
+                    events.append(CreatureDied(
+                        entity=self.target, killer=self.actor,
+                        max_hp=t_health.maximum,
+                    ))
+                    events.append(MessageEvent(
+                        text=_msg("combat.slain", world,
+                                  actor=self.actor, target=self.target),
+                    ))
 
-                # Leave a corpse marker, then destroy
-                if tpos:
-                    corpse_name = t("combat.corpse", name=target_name)
-                    world.create_entity({
-                        "Position": Position(
-                            x=tpos.x, y=tpos.y, level_id=tpos.level_id,
-                        ),
-                        "Renderable": Renderable(
-                            glyph="%", color="bright_red", render_order=0,
-                        ),
-                        "Description": Description(
-                            name=corpse_name,
-                            short=corpse_name,
-                        ),
-                    })
+                    # Drop loot before destroying
+                    tpos = world.get_component(self.target, "Position")
+                    loot = world.get_component(self.target, "LootTable")
+                    if loot and tpos:
+                        dropped = generate_loot(
+                            world, loot, tpos.x, tpos.y, tpos.level_id,
+                        )
+                        if dropped:
+                            names = []
+                            for did in dropped:
+                                d = world.get_component(did, "Description")
+                                if d:
+                                    names.append(d.name)
+                            if names:
+                                events.append(MessageEvent(
+                                    text=_msg("combat.drops", world,
+                                              target=self.target,
+                                              items=", ".join(names)),
+                                ))
 
-                # Don't destroy the player entity — let the game loop
-                # handle player death (supports god mode HP restore).
-                if not world.has_component(self.target, "Player"):
+                    # Leave a corpse marker, then destroy
+                    if tpos:
+                        corpse_name = t("combat.corpse", name=target_name)
+                        world.create_entity({
+                            "Position": Position(
+                                x=tpos.x, y=tpos.y, level_id=tpos.level_id,
+                            ),
+                            "Renderable": Renderable(
+                                glyph="%", color="bright_red", render_order=0,
+                            ),
+                            "Description": Description(
+                                name=corpse_name,
+                                short=corpse_name,
+                            ),
+                        })
+
                     world.destroy_entity(self.target)
         else:
             events.append(CreatureAttacked(
@@ -674,6 +701,7 @@ class ThrowAction(Action):
             if health.current <= 0:
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
                 ))
 
         elif effect == "sleep":
@@ -717,14 +745,17 @@ class ThrowAction(Action):
             if health.current <= 0:
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
                 ))
 
         else:
             # Generic: just report the throw
             pass
 
+        real_id = world.get_component(self.item, "_potion_id") or ""
         events.append(ItemUsed(
             entity=self.actor, item=self.item, effect=effect,
+            item_id=real_id,
         ))
 
         # Remove from inventory and destroy potion
@@ -776,6 +807,7 @@ class ZapAction(Action):
             if health.current <= 0:
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
                 ))
 
         elif effect == "lightning" and health:
@@ -788,6 +820,7 @@ class ZapAction(Action):
             if health.current <= 0:
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
                 ))
 
         elif effect == "magic_missile" and health:
@@ -800,6 +833,7 @@ class ZapAction(Action):
             if health.current <= 0:
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
                 ))
 
         elif effect == "disintegrate" and health:
@@ -812,6 +846,7 @@ class ZapAction(Action):
             if health.current <= 0:
                 events.append(CreatureDied(
                     entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
                 ))
 
         elif effect == "teleport":
@@ -863,8 +898,10 @@ class ZapAction(Action):
                 text=t("item.phantasmal_affects", target=target_name),
             ))
 
+        real_id = world.get_component(self.item, "_potion_id") or ""
         events.append(ItemUsed(
             entity=self.actor, item=self.item, effect=f"wand_{effect}",
+            item_id=real_id,
         ))
 
         return events
@@ -1172,6 +1209,12 @@ class UseItemAction(Action):
         if not consumed:
             return events
 
+        # Stamp real item ID on ItemUsed events for identification
+        real_id = world.get_component(self.item, "_potion_id") or ""
+        for ev in events:
+            if isinstance(ev, ItemUsed) and not ev.item_id:
+                ev.item_id = real_id
+
         # Remove item from inventory and world
         if self.item in inv.slots:
             inv.slots.remove(self.item)
@@ -1230,6 +1273,223 @@ class AscendStairsAction(Action):
             ),
             MessageEvent(text=t("explore.ascend")),
         ]
+
+
+class OpenChestAction(Action):
+    """Open an adjacent chest, dropping its loot on the ground."""
+
+    def __init__(self, actor: int, chest: int) -> None:
+        super().__init__(actor)
+        self.chest = chest
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        if not world.has_component(self.chest, "Chest"):
+            return False
+        apos = world.get_component(self.actor, "Position")
+        cpos = world.get_component(self.chest, "Position")
+        if not apos or not cpos:
+            return False
+        return adjacent(apos.x, apos.y, cpos.x, cpos.y)
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        cpos = world.get_component(self.chest, "Position")
+        loot = world.get_component(self.chest, "LootTable")
+
+        # Drop loot
+        dropped_names: list[str] = []
+        if loot and cpos:
+            dropped = generate_loot(
+                world, loot, cpos.x, cpos.y, cpos.level_id,
+            )
+            for did in dropped:
+                d = world.get_component(did, "Description")
+                if d:
+                    dropped_names.append(d.short or d.name)
+
+        # Mark as opened: remove Chest tag, BlocksMovement, change glyph
+        world.remove_component(self.chest, "Chest")
+        world.remove_component(self.chest, "BlocksMovement")
+        world.remove_component(self.chest, "LootTable")
+        r = world.get_component(self.chest, "Renderable")
+        if r:
+            r.glyph = "_"
+            r.color = "yellow"
+
+        if dropped_names:
+            events.append(MessageEvent(
+                text=t("explore.chest_loot",
+                       items=", ".join(dropped_names)),
+            ))
+        else:
+            events.append(MessageEvent(
+                text=t("explore.chest_empty"),
+            ))
+
+        return events
+
+
+class PickLockAction(Action):
+    """Pick a lock on an adjacent door using lockpicks.
+
+    DEX save DC 14.  On failure, 30% chance lockpicks break.
+    """
+
+    LOCK_DC = 14
+
+    def __init__(self, actor: int, dx: int, dy: int) -> None:
+        super().__init__(actor)
+        self.dx = dx
+        self.dy = dy
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        tile = level.tile_at(pos.x + self.dx, pos.y + self.dy)
+        if not tile or tile.feature != "door_locked":
+            return False
+        # Requires lockpicks in inventory
+        inv = world.get_component(self.actor, "Inventory")
+        if not inv:
+            return False
+        return any(
+            world.has_component(eid, "Lockpicks") for eid in inv.slots
+        )
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        tx, ty = pos.x + self.dx, pos.y + self.dy
+        tile = level.tile_at(tx, ty)
+
+        stats = world.get_component(self.actor, "Stats")
+        dex_bonus = stats.dexterity if stats else 0
+        roll = d20()
+
+        if roll + dex_bonus >= self.LOCK_DC:
+            tile.feature = "door_closed"
+            events.append(MessageEvent(
+                text=_msg("explore.pick_lock_success", world,
+                          actor=self.actor),
+            ))
+        else:
+            events.append(MessageEvent(
+                text=_msg("explore.pick_lock_fail", world,
+                          actor=self.actor),
+            ))
+            # 30% chance lockpicks break
+            from nhc.utils.rng import get_rng
+            if get_rng().random() < 0.3:
+                inv = world.get_component(self.actor, "Inventory")
+                for eid in list(inv.slots):
+                    if world.has_component(eid, "Lockpicks"):
+                        inv.slots.remove(eid)
+                        world.destroy_entity(eid)
+                        events.append(MessageEvent(
+                            text=t("explore.lockpicks_break"),
+                        ))
+                        break
+
+        return events
+
+
+class ForceDoorAction(Action):
+    """Force open a locked door with brute strength.
+
+    Base STR save DC 15.  On failure, take 1d4 damage.
+    Using a tool lowers the effective DC:
+      - Crowbar (ForceTool): -5 DC, 10% break chance
+      - Melee weapon: -3 DC, 20% break chance
+    """
+
+    FORCE_DC = 15
+    CROWBAR_BONUS = 5
+    WEAPON_BONUS = 3
+    CROWBAR_BREAK = 0.10
+    WEAPON_BREAK = 0.20
+
+    def __init__(
+        self, actor: int, dx: int, dy: int,
+        tool: int | None = None,
+    ) -> None:
+        super().__init__(actor)
+        self.dx = dx
+        self.dy = dy
+        self.tool = tool  # entity ID of tool/weapon, or None
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        tile = level.tile_at(pos.x + self.dx, pos.y + self.dy)
+        return tile is not None and tile.feature == "door_locked"
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        tx, ty = pos.x + self.dx, pos.y + self.dy
+        tile = level.tile_at(tx, ty)
+
+        stats = world.get_component(self.actor, "Stats")
+        str_bonus = stats.strength if stats else 0
+        roll = d20()
+
+        # Tool bonus
+        dc = self.FORCE_DC
+        is_crowbar = False
+        tool_name = ""
+        if self.tool is not None:
+            tool_desc = world.get_component(self.tool, "Description")
+            tool_name = tool_desc.name if tool_desc else "tool"
+            if world.has_component(self.tool, "ForceTool"):
+                dc -= self.CROWBAR_BONUS
+                is_crowbar = True
+            elif world.has_component(self.tool, "Weapon"):
+                dc -= self.WEAPON_BONUS
+
+        if roll + str_bonus >= dc:
+            tile.feature = "door_open"
+            events.append(DoorOpened(entity=self.actor, x=tx, y=ty))
+            if self.tool is not None:
+                events.append(MessageEvent(
+                    text=_msg("explore.force_door_tool_success", world,
+                              actor=self.actor, tool=tool_name),
+                ))
+            else:
+                events.append(MessageEvent(
+                    text=_msg("explore.force_door_success", world,
+                              actor=self.actor),
+                ))
+        else:
+            damage = roll_dice("1d4")
+            health = world.get_component(self.actor, "Health")
+            if health:
+                actual = apply_damage(health, damage)
+                events.append(MessageEvent(
+                    text=_msg("explore.force_door_fail", world,
+                              actor=self.actor, damage=actual),
+                ))
+
+        # Tool breakage check (on both success and failure)
+        if self.tool is not None:
+            from nhc.utils.rng import get_rng
+            break_chance = (self.CROWBAR_BREAK if is_crowbar
+                            else self.WEAPON_BREAK)
+            if get_rng().random() < break_chance:
+                inv = world.get_component(self.actor, "Inventory")
+                if inv and self.tool in inv.slots:
+                    inv.slots.remove(self.tool)
+                # Unequip if equipped
+                equip = world.get_component(self.actor, "Equipment")
+                if equip and equip.weapon == self.tool:
+                    equip.weapon = None
+                world.destroy_entity(self.tool)
+                events.append(MessageEvent(
+                    text=t("explore.tool_break", tool=tool_name),
+                ))
+
+        return events
 
 
 class LookAction(Action):
@@ -1419,9 +1679,13 @@ class BumpAction(Action):
             return None
         nx, ny = pos.x + self.dx, pos.y + self.dy
 
-        # Check for creature at target: attack
+        # Check for blocking entities at target
         for eid, _, bpos in world.query("BlocksMovement", "Position"):
             if bpos.x == nx and bpos.y == ny and eid != self.actor:
+                # Chests: open instead of attack
+                if world.has_component(eid, "Chest"):
+                    return OpenChestAction(actor=self.actor, chest=eid)
+                # Creatures: attack
                 return MeleeAttackAction(actor=self.actor, target=eid)
 
         # Otherwise: move (handles doors internally)
@@ -1458,6 +1722,21 @@ def _count_slots_used(world: "World", inv) -> int:
     total = 0
     for item_id in inv.slots:
         total += _item_slot_cost(world, item_id)
+    return total
+
+
+def _get_armor_magic(world: "World", entity_id: int) -> int:
+    """Sum magic_bonus from all equipped armor pieces on an entity."""
+    equip = world.get_component(entity_id, "Equipment")
+    if not equip:
+        return 0
+    total = 0
+    for slot in ("armor", "shield", "helmet"):
+        eid = getattr(equip, slot)
+        if eid is not None:
+            armor = world.get_component(eid, "Armor")
+            if armor:
+                total += armor.magic_bonus
     return total
 
 
@@ -1628,12 +1907,16 @@ def _check_traps(
         if trap.triggered:
             continue
 
+        # Levitating creatures float over traps
+        status = world.get_component(entity_id, "StatusEffect")
+        if status and (status.levitating > 0 or status.flying > 0):
+            continue
+
         # DEX save vs trap DC
         stats = world.get_component(entity_id, "Stats")
         dex_bonus = stats.dexterity if stats else 0
         save_roll = d20()
 
-        entity_name = _entity_name(world, entity_id)
         trap_desc = world.get_component(eid, "Description")
         trap_name = trap_desc.name if trap_desc else "a trap"
 
@@ -1643,21 +1926,194 @@ def _check_traps(
                           actor=entity_id, trap=trap_name),
             ))
         else:
-            damage = roll_dice(trap.damage)
-            health = world.get_component(entity_id, "Health")
-            if health:
-                actual = apply_damage(health, damage)
-                events.append(TrapTriggered(
-                    entity=entity_id, damage=actual, trap_name=trap_name,
-                ))
-                events.append(MessageEvent(
-                    text=_msg("trap.triggered", world,
-                              actor=entity_id, trap=trap_name,
-                              damage=actual),
-                ))
+            events += _apply_trap_effect(
+                world, level, entity_id, trap, trap_name,
+            )
 
         trap.triggered = True
         trap.hidden = False
+
+    return events
+
+
+def _apply_trap_effect(
+    world: "World", level: "Level", entity_id: int,
+    trap: "Trap", trap_name: str,
+) -> list[Event]:
+    """Apply the specific effect of a triggered trap."""
+    events: list[Event] = []
+    health = world.get_component(entity_id, "Health")
+    effect = trap.effect
+
+    # ── Damage traps (pit, fire, gripping) ──
+    if trap.damage and trap.damage != "0":
+        damage = roll_dice(trap.damage)
+        if health:
+            actual = apply_damage(health, damage)
+            events.append(TrapTriggered(
+                entity=entity_id, damage=actual, trap_name=trap_name,
+            ))
+            events.append(MessageEvent(
+                text=_msg("trap.triggered", world,
+                          actor=entity_id, trap=trap_name,
+                          damage=actual),
+            ))
+
+    # ── Poison: apply Poison component ──
+    if effect == "poison":
+        if not world.has_component(entity_id, "Poison"):
+            world.add_component(
+                entity_id, "Poison",
+                Poison(damage_per_turn=1, turns_remaining=5),
+            )
+        events.append(MessageEvent(
+            text=_msg("trap.poison", world, actor=entity_id),
+        ))
+
+    # ── Paralysis: freeze in place ──
+    elif effect == "paralysis":
+        status = world.get_component(entity_id, "StatusEffect")
+        if status is None:
+            status = StatusEffect()
+            world.add_component(entity_id, "StatusEffect", status)
+        status.paralyzed = max(status.paralyzed, 3)
+        events.append(MessageEvent(
+            text=_msg("trap.paralysis", world, actor=entity_id),
+        ))
+
+    # ── Gripping: damage + web ──
+    elif effect == "gripping":
+        status = world.get_component(entity_id, "StatusEffect")
+        if status is None:
+            status = StatusEffect()
+            world.add_component(entity_id, "StatusEffect", status)
+        status.webbed = max(status.webbed, 3)
+        events.append(MessageEvent(
+            text=_msg("trap.gripping", world, actor=entity_id),
+        ))
+
+    # ── Fire: damage already applied, add message ──
+    elif effect == "fire":
+        events.append(MessageEvent(
+            text=_msg("trap.fire", world, actor=entity_id),
+        ))
+
+    # ── Alarm: alert all creatures on the level ──
+    elif effect == "alarm":
+        pos = world.get_component(entity_id, "Position")
+        if pos:
+            for mid, ai, mpos in world.query("AI", "Position"):
+                if mpos and mid != entity_id:
+                    ai.behavior = "aggressive_melee"
+        events.append(MessageEvent(
+            text=_msg("trap.alarm", world, actor=entity_id),
+        ))
+
+    # ── Teleport: warp to a random floor tile ──
+    elif effect == "teleport":
+        from nhc.dungeon.model import Terrain
+        from nhc.utils.rng import get_rng
+        rng = get_rng()
+        pos = world.get_component(entity_id, "Position")
+        if pos:
+            floors = []
+            for ty in range(level.height):
+                for tx in range(level.width):
+                    tile = level.tile_at(tx, ty)
+                    if (tile and tile.terrain == Terrain.FLOOR
+                            and not tile.feature):
+                        floors.append((tx, ty))
+            if floors:
+                nx, ny = rng.choice(floors)
+                pos.x = nx
+                pos.y = ny
+        events.append(MessageEvent(
+            text=_msg("trap.teleport", world, actor=entity_id),
+        ))
+
+    # ── Summoning: spawn 1-2 hostile creatures nearby ──
+    elif effect == "summoning":
+        from nhc.dungeon.model import Terrain
+        from nhc.dungeon.populator import CREATURE_POOLS
+        from nhc.entities.components import BlocksMovement as BM
+        from nhc.entities.registry import EntityRegistry
+        from nhc.utils.rng import get_rng
+        rng = get_rng()
+        difficulty = min(max(1, level.depth), max(CREATURE_POOLS.keys()))
+        pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
+        c_ids, c_weights = zip(*pool) if pool else ([], [])
+
+        pos = world.get_component(entity_id, "Position")
+        count = rng.randint(1, 2)
+        summoned = 0
+        if pos and c_ids:
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    if dx == 0 and dy == 0:
+                        continue
+                    if summoned >= count:
+                        break
+                    sx, sy = pos.x + dx, pos.y + dy
+                    tile = level.tile_at(sx, sy)
+                    if not tile or tile.terrain != Terrain.FLOOR:
+                        continue
+                    # Check no blocking entity there
+                    blocked = False
+                    for _, _, bp in world.query("BlocksMovement", "Position"):
+                        if bp and bp.x == sx and bp.y == sy:
+                            blocked = True
+                            break
+                    if blocked:
+                        continue
+                    cid = rng.choices(list(c_ids), weights=list(c_weights), k=1)[0]
+                    comps = EntityRegistry.get_creature(cid)
+                    comps["BlocksMovement"] = BM()
+                    comps["Position"] = Position(
+                        x=sx, y=sy, level_id=pos.level_id,
+                    )
+                    world.create_entity(comps)
+                    summoned += 1
+                if summoned >= count:
+                    break
+        events.append(MessageEvent(
+            text=_msg("trap.summoning", world, actor=entity_id),
+        ))
+
+    # ── Arrow: damage + flavor message ──
+    elif effect == "arrow":
+        events.append(MessageEvent(
+            text=_msg("trap.arrow", world, actor=entity_id),
+        ))
+
+    # ── Darts: damage (3d4) + flavor message ──
+    elif effect == "darts":
+        events.append(MessageEvent(
+            text=_msg("trap.darts", world, actor=entity_id),
+        ))
+
+    # ── Falling stone: damage + stun (paralyzed 1 turn) ──
+    elif effect == "falling_stone":
+        status = world.get_component(entity_id, "StatusEffect")
+        if status is None:
+            status = StatusEffect()
+            world.add_component(entity_id, "StatusEffect", status)
+        status.paralyzed = max(status.paralyzed, 1)
+        events.append(MessageEvent(
+            text=_msg("trap.falling_stone", world, actor=entity_id),
+        ))
+
+    # ── Hallucinogenic spores: confusion ──
+    elif effect == "spores":
+        status = world.get_component(entity_id, "StatusEffect")
+        if status is None:
+            status = StatusEffect()
+            world.add_component(entity_id, "StatusEffect", status)
+        status.confused = max(status.confused, 5)
+        events.append(MessageEvent(
+            text=_msg("trap.spores", world, actor=entity_id),
+        ))
+
+    # ── Default: damage-only trap (pit) — already handled above ──
 
     return events
 
@@ -1760,7 +2216,10 @@ def _use_magic_missile(
             text=t("item.missile_hits", target=target_name, damage=actual),
         ))
         if is_dead(target_health):
-            events.append(CreatureDied(entity=best_eid, killer=actor))
+            events.append(CreatureDied(
+                entity=best_eid, killer=actor,
+                max_hp=target_health.maximum,
+            ))
             events.append(MessageEvent(
                 text=_msg("combat.slain", world,
                           actor=actor, target=best_eid),
@@ -1846,7 +2305,7 @@ def _use_fireball(
         return events
 
     base_damage = roll_dice(consumable.dice)
-    dead_eids = []
+    dead_eids: list[tuple[int, int]] = []  # (eid, max_hp)
 
     for eid in targets:
         health = world.get_component(eid, "Health")
@@ -1861,12 +2320,14 @@ def _use_fireball(
             text=t("item.fireball_hits", target=name, damage=actual),
         ))
         if is_dead(health):
-            dead_eids.append(eid)
+            dead_eids.append((eid, health.maximum))
 
     events.append(ItemUsed(entity=actor, item=item, effect="fireball"))
 
-    for eid in dead_eids:
-        events.append(CreatureDied(entity=eid, killer=actor))
+    for eid, max_hp in dead_eids:
+        events.append(CreatureDied(
+            entity=eid, killer=actor, max_hp=max_hp,
+        ))
         events.append(MessageEvent(
             text=_msg("combat.slain", world, actor=actor, target=eid),
         ))
@@ -1923,7 +2384,10 @@ def _use_damage_nearest(
         ))
 
         if is_dead(target_health):
-            events.append(CreatureDied(entity=best_eid, killer=actor))
+            events.append(CreatureDied(
+                entity=best_eid, killer=actor,
+                max_hp=target_health.maximum,
+            ))
             events.append(MessageEvent(
                 text=_msg("combat.destroyed", world,
                           actor=actor, target=best_eid),
@@ -2432,6 +2896,7 @@ class BansheeWailAction(Action):
                     ))
                     events.append(CreatureDied(
                         entity=self.player_id, killer=self.actor,
+                        max_hp=p_health.maximum,
                     ))
                 else:
                     events.append(MessageEvent(

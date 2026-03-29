@@ -74,3 +74,50 @@ class TestGodModeHP:
         # God mode restore (what game loop does)
         health.current = health.maximum
         assert health.current == 10  # Fully restored
+
+    @pytest.mark.asyncio
+    async def test_player_death_no_corpse(self):
+        """Player reaching 0 HP should not leave a corpse on the map."""
+        i18n_init("en")
+        from nhc.utils.rng import set_seed
+        set_seed(1)
+        w = World()
+        tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(10)]
+                 for _ in range(10)]
+        for row in tiles:
+            for t in row:
+                t.visible = True
+        level = Level(id="t", name="T", depth=1, width=10, height=10,
+                      tiles=tiles, rooms=[], corridors=[], entities=[])
+        pid = w.create_entity({
+            "Position": Position(x=5, y=5),
+            "Stats": Stats(strength=1, dexterity=1),
+            "Health": Health(current=1, maximum=1),
+            "Inventory": Inventory(max_slots=12),
+            "Player": Player(),
+            "Equipment": Equipment(),
+            "Description": Description(name="Hero"),
+        })
+        mob = w.create_entity({
+            "Position": Position(x=6, y=5),
+            "AI": AI(behavior="aggressive_melee"),
+            "Health": Health(current=20, maximum=20),
+            "Stats": Stats(strength=10),
+            "Weapon": Weapon(damage="10d8"),
+            "Description": Description(name="Dragon"),
+        })
+        # Monster attacks player with massive damage
+        action = MeleeAttackAction(mob, pid)
+        if await action.validate(w, level):
+            await action.execute(w, level)
+
+        # Player should still exist (not destroyed)
+        assert w.has_component(pid, "Player")
+
+        # No corpse entity should have been created
+        corpses = []
+        for eid in list(w._entities):
+            r = w.get_component(eid, "Renderable")
+            if r and r.glyph == "%":
+                corpses.append(eid)
+        assert len(corpses) == 0, "Player death should not create a corpse"

@@ -16,13 +16,20 @@ def resolve_melee_attack(
     target_stats: Stats,
     weapon_damage: str = "1d6",
     rng: random.Random | None = None,
+    attack_bonus: int = 0,
+    damage_bonus: int = 0,
+    armor_bonus: int = 0,
 ) -> tuple[bool, int]:
     """Resolve a melee attack.
 
     Knave rules:
-        Attack roll: d20 + STR bonus >= target armor defense (10 + DEX bonus)
-        Damage: weapon die + STR bonus
+        Attack roll: d20 + STR bonus + attack_bonus >= target AC
+        Target AC: 10 + DEX bonus + armor_bonus
+        Damage: weapon die + STR bonus + damage_bonus
         Natural 20: maximum damage
+
+    attack_bonus/damage_bonus come from magic weapons (+N).
+    armor_bonus comes from magic armor on the target.
 
     Returns:
         (hit: bool, damage: int). Damage is 0 on miss.
@@ -31,7 +38,8 @@ def resolve_melee_attack(
 
     # Natural 20 always hits with max damage
     if roll == 20:
-        damage = roll_dice_max(weapon_damage) + attacker_stats.strength
+        damage = (roll_dice_max(weapon_damage)
+                  + attacker_stats.strength + damage_bonus)
         logger.debug("Nat 20! max dmg=%d", max(1, damage))
         return True, max(1, damage)
 
@@ -40,21 +48,23 @@ def resolve_melee_attack(
         logger.debug("Nat 1 — auto miss")
         return False, 0
 
-    attack_total = roll + attacker_stats.strength
-    armor_defense = 10 + target_stats.dexterity
+    attack_total = roll + attacker_stats.strength + attack_bonus
+    armor_defense = 10 + target_stats.dexterity + armor_bonus
 
     if attack_total >= armor_defense:
-        damage = roll_dice(weapon_damage, rng) + attacker_stats.strength
+        damage = (roll_dice(weapon_damage, rng)
+                  + attacker_stats.strength + damage_bonus)
         logger.debug(
-            "Hit: roll=%d+STR%d=%d vs AC%d, dmg=%d",
-            roll, attacker_stats.strength, attack_total,
-            armor_defense, max(1, damage),
+            "Hit: roll=%d+STR%d+mag%d=%d vs AC%d, dmg=%d",
+            roll, attacker_stats.strength, attack_bonus,
+            attack_total, armor_defense, max(1, damage),
         )
         return True, max(1, damage)
 
     logger.debug(
-        "Miss: roll=%d+STR%d=%d vs AC%d",
-        roll, attacker_stats.strength, attack_total, armor_defense,
+        "Miss: roll=%d+STR%d+mag%d=%d vs AC%d",
+        roll, attacker_stats.strength, attack_bonus,
+        attack_total, armor_defense,
     )
     return False, 0
 

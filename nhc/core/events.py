@@ -29,6 +29,7 @@ class CreatureDied(Event):
     entity: int = 0
     killer: int | None = None
     cause: str = ""
+    max_hp: int = 0  # snapshot before entity is destroyed
 
 
 # --- Interaction events ---
@@ -67,6 +68,7 @@ class ItemUsed(Event):
     entity: int = 0
     item: int = 0
     effect: str = ""
+    item_id: str = ""  # real item ID (e.g. "healing_potion") for identification
 
 
 @dataclass
