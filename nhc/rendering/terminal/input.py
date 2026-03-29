@@ -35,9 +35,11 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     "d": ("drop", None),
     "t": ("throw", None),
     "z": ("zap", None),
+    "p": ("pick_lock", None),
+    "f": ("force_door", None),
     ">": ("descend", None),
     "<": ("ascend", None),
-    "x": ("look", None),
+    "x": ("farlook", None),
     ".": ("wait", None),
     "5": ("wait", None),
     # Message scroll
@@ -53,6 +55,8 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     # Mode toggle
     "\t": ("toggle_mode", None),
     "KEY_TAB": ("toggle_mode", None),
+    # God mode: reveal full map
+    "M": ("reveal_map", None),
     # Quit
     "Q": ("quit", None),
 }

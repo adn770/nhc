@@ -1,11 +1,8 @@
 """Entity to ASCII glyph and color mapping.
 
-Two color modes are supported:
-
-- **16** — classic 16-color terminals (xterm / linux console).
-- **256** — 256-color / truecolor terminals (iTerm2, kitty, etc.).
-  Explored-but-not-visible walls and corridors use a very dark grey
-  so they remain subtly visible without competing with the FOV area.
+All glyph/color definitions are delegated to the active theme
+(see themes.py).  This module re-exports the same API that the
+rest of the codebase expects so existing imports keep working.
 """
 
 from __future__ import annotations
@@ -13,72 +10,74 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.dungeon.model import Terrain
+from nhc.rendering.terminal.themes import get_theme, set_theme
 
 if TYPE_CHECKING:
     from blessed import Terminal
 
-# ── 16-color palette (classic) ──────────────────────────────────────
 
-# Terrain → (glyph, color_name, dim_color_name)
-TERRAIN_GLYPHS_16: dict[Terrain, tuple[str, str, str]] = {
-    Terrain.VOID:  (" ", "black", "black"),
-    Terrain.WALL:  ("─", "white", "bright_black"),
-    Terrain.FLOOR: (".", "bright_black", "bright_black"),
-    Terrain.WATER: ("~", "bright_blue", "blue"),
-    Terrain.LAVA:  ("~", "bright_red", "red"),
-    Terrain.CHASM: (" ", "black", "black"),
-}
+# ── Active palette accessors ──────────────────────────────────────────
+# These are properties that read from the active theme every time,
+# so switching theme at runtime immediately takes effect.
 
-CORRIDOR_GLYPH_16: tuple[str, str, str] = ("#", "bright_black", "bright_black")
+def _get_terrain_glyphs():
+    return get_theme().terrain
 
-# ── 256-color palette ───────────────────────────────────────────────
-# dim colors are RGB tuples resolved at render time via term.color_rgb()
+def _get_corridor_glyph():
+    return get_theme().corridor
 
-# Very dark grey for explored-but-not-visible structural tiles
-_DIM_WALL = (45, 45, 50)       # blue-ish dark grey for walls
-_DIM_CORRIDOR = (40, 40, 40)   # neutral dark grey for corridors
-_DIM_FLOOR = (25, 25, 25)      # nearly invisible for floor dots
+def _get_feature_glyphs():
+    return get_theme().features
 
-# Terrain → (glyph, color_name, dim_rgb)
-TERRAIN_GLYPHS_256: dict[Terrain, tuple[str, str, tuple[int, int, int]]] = {
-    Terrain.VOID:  (" ", "black", (0, 0, 0)),
-    Terrain.WALL:  ("─", "white", _DIM_WALL),
-    Terrain.FLOOR: (".", "bright_black", _DIM_FLOOR),
-    Terrain.WATER: ("~", "bright_blue", (20, 30, 80)),
-    Terrain.LAVA:  ("~", "bright_red", (80, 20, 20)),
-    Terrain.CHASM: (" ", "black", (0, 0, 0)),
-}
+def _get_feature_dim():
+    return get_theme().feature_dim
 
-CORRIDOR_GLYPH_256: tuple[str, str, tuple[int, int, int]] = (
-    "#", "bright_black", _DIM_CORRIDOR,
-)
 
-# Feature dim color in 256 mode
-FEATURE_DIM_RGB = (50, 50, 55)
+# For backward compat: module-level names that renderers import.
+# These are now thin wrappers.
+class _TerrainProxy(dict):
+    """Dict-like object that always reads from the active theme."""
+    def __getitem__(self, key):
+        return get_theme().terrain[key]
+    def get(self, key, default=None):
+        return get_theme().terrain.get(key, default)
+    def __contains__(self, key):
+        return key in get_theme().terrain
 
-# ── Active palette (set by set_color_mode) ──────────────────────────
 
+TERRAIN_GLYPHS = _TerrainProxy()
+FEATURE_GLYPHS = type("_FeatureProxy", (), {
+    "__getitem__": lambda self, k: get_theme().features[k],
+    "get": lambda self, k, d=None: get_theme().features.get(k, d),
+    "__contains__": lambda self, k: k in get_theme().features,
+})()
+
+# Module-level color_mode for backward compat
 color_mode: str = "256"
 
-# These are the tables the renderer imports.  They start as aliases for
-# the 16-color tables and are swapped by set_color_mode().
-TERRAIN_GLYPHS = dict(TERRAIN_GLYPHS_16)
-CORRIDOR_GLYPH = CORRIDOR_GLYPH_16
+# Feature dim RGB (for 256-mode explored-but-not-visible features)
+FEATURE_DIM_RGB = (50, 50, 55)
 
 
 def set_color_mode(mode: str) -> None:
-    """Switch the active palette.  Call before the first render."""
-    global color_mode, TERRAIN_GLYPHS, CORRIDOR_GLYPH  # noqa: PLW0603
+    """Switch the active palette.  Call before the first render.
+
+    For backward compatibility: translates old color_mode strings
+    to theme names.  "256" → "modern", "16" → "basic".
+    """
+    global color_mode, FEATURE_DIM_RGB
     color_mode = mode
-    if mode == "256":
-        TERRAIN_GLYPHS.update(TERRAIN_GLYPHS_256)       # type: ignore[arg-type]
-        CORRIDOR_GLYPH = CORRIDOR_GLYPH_256              # type: ignore[assignment]
-    else:
-        TERRAIN_GLYPHS.update(TERRAIN_GLYPHS_16)
-        CORRIDOR_GLYPH = CORRIDOR_GLYPH_16
+    theme = get_theme()
+    # Only auto-switch if the caller is using the old API
+    # (not if a theme was explicitly set)
+    if mode == "256" and theme.name == "basic":
+        set_theme("modern")
+    elif mode == "16" and theme.name != "basic":
+        set_theme("basic")
+    FEATURE_DIM_RGB = get_theme().feature_dim
 
 
-def dim_color_fn(term: "Terminal", dim_value: str | tuple[int, int, int]):
+def dim_color_fn(term: "Terminal", dim_value):
     """Return a callable that applies the dim color to text.
 
     *dim_value* is either a named color string (16-mode) or an
@@ -89,42 +88,26 @@ def dim_color_fn(term: "Terminal", dim_value: str | tuple[int, int, int]):
         return term.color_rgb(r, g, b)
     return getattr(term, dim_value, None) or term.bright_black
 
-# Feature → (glyph, color_name)
-FEATURE_GLYPHS: dict[str, tuple[str, str]] = {
-    "door_closed": ("+", "yellow"),
-    "door_open":   ("'", "yellow"),
-    "door_locked": ("+", "bright_red"),
-    "stairs_up":   ("<", "bright_white"),
-    "stairs_down": (">", "bright_white"),
-    "trap":        ("^", "bright_yellow"),
-}
 
-# Box-drawing wall glyph lookup: (connects_n, connects_s, connects_e, connects_w)
-_WALL_GLYPHS: dict[tuple[bool, bool, bool, bool], str] = {
-    (True,  True,  True,  True ): "┼",
-    (True,  True,  True,  False): "├",
-    (True,  True,  False, True ): "┤",
-    (True,  False, True,  True ): "┴",
-    (False, True,  True,  True ): "┬",
-    (True,  True,  False, False): "│",
-    (False, False, True,  True ): "─",
-    (True,  False, True,  False): "└",
-    (True,  False, False, True ): "┘",
-    (False, True,  True,  False): "┌",
-    (False, True,  False, True ): "┐",
-    # Single-arm: extend in the one connecting direction
-    (True,  False, False, False): "│",
-    (False, True,  False, False): "│",
-    (False, False, True,  False): "─",
-    (False, False, False, True ): "─",
-    (False, False, False, False): "─",
-}
+@property
+def _corridor_glyph_prop():
+    return get_theme().corridor
+
+# Backward compat: CORRIDOR_GLYPH is accessed as a module-level tuple.
+# We use a class trick to make it dynamic.
+class _CorridorProxy:
+    def __iter__(self):
+        return iter(get_theme().corridor)
+    def __getitem__(self, i):
+        return get_theme().corridor[i]
+    def __len__(self):
+        return len(get_theme().corridor)
+
+CORRIDOR_GLYPH = _CorridorProxy()
 
 
 def wall_glyph(n: bool, s: bool, e: bool, w: bool) -> str:
-    """Return the box-drawing character for a wall tile given neighbour connections.
-
-    Each flag is True when that cardinal neighbour is also a wall (or
-    out-of-bounds), meaning the wall continues in that direction.
-    """
-    return _WALL_GLYPHS.get((n, s, e, w), "─")
+    """Return the wall character for given neighbour connections."""
+    walls = get_theme().walls
+    return walls.get((n, s, e, w), get_theme().terrain.get(
+        Terrain.WALL, ("-", "white", "bright_black"))[0])

@@ -77,9 +77,13 @@ def _draw(
 
     output = ""
 
+    from nhc.rendering.terminal.themes import get_theme
+    theme = get_theme()
+
     # Top border
     output += term.move_xy(box_x, box_y)
-    output += _border(term, "╭" + "─" * (box_w - 2) + "╮")
+    output += _border(term,
+        theme.box_tl + theme.box_h * (box_w - 2) + theme.box_tr)
 
     # Content lines
     visible = lines[scroll:scroll + view_h]
@@ -90,7 +94,9 @@ def _draw(
         else:
             rendered = " " * inner_w
         output += term.move_xy(box_x, y)
-        output += _border(term, "│") + " " + rendered + " " + _border(term, "│")
+        output += (_border(term, theme.box_v)
+                   + " " + rendered + " "
+                   + _border(term, theme.box_v))
 
     # Scroll indicator
     total = len(lines)
@@ -100,20 +106,23 @@ def _draw(
     else:
         indicator = ""
 
-    # Bottom border: ╰──── footer ────╯ (centered)
+    # Bottom border
     footer_text = "ESC/q: close  ↑↓: scroll  PgUp/PgDn: page" + indicator
-    max_text = box_w - 4  # ╰ + left_fill + text + right_fill + ╯
+    max_text = box_w - 4
     footer_text = footer_text[:max_text]
     fill_total = max(0, max_text - len(footer_text))
     left_fill = fill_total // 2
     right_fill = fill_total - left_fill
     footer_colored = _border(term,
-        "─" * left_fill + " " + footer_text + " " + "─" * right_fill
+        theme.box_h * left_fill + " " + footer_text
+        + " " + theme.box_h * right_fill
     )
 
     bot_y = box_y + 1 + view_h
     output += term.move_xy(box_x, bot_y)
-    output += _border(term, "╰") + footer_colored + _border(term, "╯")
+    output += (_border(term, theme.box_bl)
+               + footer_colored
+               + _border(term, theme.box_br))
 
     # Empty lines below the box (clear any leftover from previous draw)
     for dy in range(1, 3):

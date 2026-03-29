@@ -21,9 +21,14 @@ if TYPE_CHECKING:
     from blessed import Terminal
 
 
-# ── Box-drawing characters ──────────────────────────────────────────
-H_LINE = "─"
-SEP = " │ "
+# ── Box-drawing characters (dynamic from theme) ─────────────────────
+def _h_line():
+    from nhc.rendering.terminal.themes import get_theme
+    return get_theme().h_line
+
+def _sep():
+    from nhc.rendering.terminal.themes import get_theme
+    return get_theme().v_sep
 
 
 def render_status(
@@ -42,7 +47,7 @@ def render_status(
     output = ""
 
     # ── Separator above status ──
-    output += term.move_xy(0, y) + term.bright_black(H_LINE * width)
+    output += term.move_xy(0, y) + term.bright_black(_h_line() * width)
 
     # ── Line 1: Location, Depth, Turn, HP ──
     level_name = stats.get("level_name", "???")
@@ -71,11 +76,11 @@ def render_status(
 
     line1 = (
         f" 📍 {term.bold(level_name)}"
-        f"{SEP}⬇ {tr('ui.depth')} {depth}"
-        f"{SEP}⏳ {tr('ui.turn')} {turn}"
-        f"{SEP}Lv {plevel} ({xp}/{xp_next} XP)"
-        f"{SEP}💰 {term.bright_yellow(str(gold))}"
-        f"{SEP}❤️  {bar} {hp_color(str(hp))}/{hp_max}"
+        f"{_sep()}⬇ {tr('ui.depth')} {depth}"
+        f"{_sep()}⏳ {tr('ui.turn')} {turn}"
+        f"{_sep()}Lv {plevel} ({xp}/{xp_next} XP)"
+        f"{_sep()}💰 {term.bright_yellow(str(gold))}"
+        f"{_sep()}❤️  {bar} {hp_color(str(hp))}/{hp_max}"
     )
     output += term.move_xy(0, y + 1) + _pad(line1, width)
 
@@ -104,13 +109,13 @@ def render_status(
 
     line2 = (
         f"{identity}"
-        f"{SEP}{tr('stats.str')}:{s.get('str', 0):+d}"
+        f"{_sep()}{tr('stats.str')}:{s.get('str', 0):+d}"
         f" {tr('stats.dex')}:{s.get('dex', 0):+d}"
         f" {tr('stats.con')}:{s.get('con', 0):+d}"
         f" {tr('stats.int')}:{s.get('int', 0):+d}"
         f" {tr('stats.wis')}:{s.get('wis', 0):+d}"
         f" {tr('stats.cha')}:{s.get('cha', 0):+d}"
-        f"{SEP}" + SEP.join(equip_parts)
+        f"{_sep()}" + _sep().join(equip_parts)
     )
     output += term.move_xy(0, y + 2) + _pad(line2, width)
 
@@ -148,7 +153,7 @@ def render_messages(
     total = len(messages)
     if scroll_offset > 0:
         scroll_hint = f" ↑↓ {tr('ui.scroll_hint')} ({total - scroll_offset}-{total})"
-    sep_line = H_LINE * (width - len(scroll_hint)) + scroll_hint
+    sep_line = _h_line() * (width - len(scroll_hint)) + scroll_hint
     output += term.move_xy(0, y) + term.bright_black(sep_line)
 
     # Slice the visible window

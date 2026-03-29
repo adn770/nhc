@@ -40,7 +40,7 @@ from nhc.rendering.terminal.narrative_log import (
     NarrativeLog,
     render_narrative_log,
 )
-from nhc.rendering.terminal.panels import H_LINE, render_messages, render_status
+from nhc.rendering.terminal.panels import render_messages, render_status
 
 # Zone sizes (separators included)
 STATUS_HEIGHT = 4   # separator + 3 lines
@@ -62,14 +62,20 @@ class TerminalRenderer:
     """ASCII terminal renderer using blessed."""
 
     def __init__(self, color_mode: str = "256",
-                 game_mode: str = "classic") -> None:
+                 game_mode: str = "classic",
+                 theme: str | None = None) -> None:
+        from nhc.rendering.terminal.themes import get_theme, set_theme
+        # Set theme first (determines color depth)
+        if theme:
+            set_theme(theme)
+        active = get_theme()
+        self.color_mode = active.color_depth
         # force_styling=True ensures 256/truecolor escapes even when
         # blessed cannot auto-detect (e.g. inside tmux/screen).
-        force = color_mode == "256"
+        force = self.color_mode == "256"
         self.term = Terminal(force_styling=force)
-        self.color_mode = color_mode
         self.game_mode = game_mode
-        _glyphs.set_color_mode(color_mode)
+        _glyphs.set_color_mode(self.color_mode)
         self._messages: list[str] = []
         self._msg_scroll: int = 0  # 0 = showing latest
         # Typed mode widgets
@@ -175,7 +181,9 @@ class TerminalRenderer:
         msg_lines = LOG_HEIGHT - INPUT_HEIGHT  # lines for messages
 
         # Separator
-        output += t.move_xy(0, log_y) + t.bright_black(H_LINE * t.width)
+        from nhc.rendering.terminal.themes import get_theme
+        output += t.move_xy(0, log_y) + t.bright_black(
+            get_theme().h_line * t.width)
 
         # Message lines (from unified message list)
         total = len(self._messages)
@@ -328,6 +336,8 @@ class TerminalRenderer:
         view_w: int, view_h: int,
     ) -> str:
         """Render the dungeon map centered on camera position."""
+        from nhc.rendering.terminal.themes import get_theme
+        _active_theme = get_theme()
         t = self.term
         output = ""
 
@@ -369,8 +379,15 @@ class TerminalRenderer:
                 entity = entity_at.get((mx, my))
                 if entity and tile.visible:
                     glyph, color, _ = entity
+                    # Theme player glyph override
+                    if (mx == cam_x and my == cam_y
+                            and _active_theme.player_glyph):
+                        glyph = _active_theme.player_glyph
                     color_fn = getattr(t, color, None) or t.white
-                    row_out += color_fn(glyph)
+                    cell = color_fn(glyph)
+                    if mx == cam_x and my == cam_y:
+                        cell = t.bold(cell)
+                    row_out += cell
                     continue
 
                 # Tile feature (door, stairs, trap)
@@ -394,9 +411,7 @@ class TerminalRenderer:
                         if tile.visible:
                             cfn = getattr(t, color, None) or t.white
                         else:
-                            cfn = dim_color_fn(t, _glyphs.FEATURE_DIM_RGB
-                                               if self.color_mode == "256"
-                                               else "bright_black")
+                            cfn = dim_color_fn(t, _active_theme.feature_dim)
                         row_out += cfn(glyph)
                         continue
 
@@ -451,16 +466,16 @@ class TerminalRenderer:
             if equip.armor is not None:
                 a = world.get_component(equip.armor, "Armor")
                 if a:
-                    armor_def = a.defense + dex_bonus
-            # Shield and helmet add +1 each
+                    armor_def = a.defense + a.magic_bonus + dex_bonus
+            # Shield and helmet add defense + magic bonus
             if equip.shield is not None:
                 a = world.get_component(equip.shield, "Armor")
                 if a:
-                    armor_def += a.defense
+                    armor_def += a.defense + a.magic_bonus
             if equip.helmet is not None:
                 a = world.get_component(equip.helmet, "Armor")
                 if a:
-                    armor_def += a.defense
+                    armor_def += a.defense + a.magic_bonus
             # Ring bonuses to AC
             for ring_slot in ("ring_left", "ring_right"):
                 ring_eid = getattr(equip, ring_slot)
@@ -484,7 +499,7 @@ class TerminalRenderer:
             "level_name": level.name,
             "plevel": player.level if player else 1,
             "xp": player.xp if player else 0,
-            "xp_next": player.xp_to_next if player else 20,
+            "xp_next": player.xp_to_next if player else 1000,
             "gold": player.gold if player else 0,
             "str": stats.strength if stats else 0,
             "dex": stats.dexterity if stats else 0,
@@ -550,6 +565,215 @@ class TerminalRenderer:
                 return val.name
             return str(val)
 
+    def farlook_mode(
+        self, world: World, level: Level, player_id: int, turn: int,
+        start_x: int, start_y: int,
+    ) -> None:
+        """Interactive cursor to examine visible tiles.
+
+        Arrow keys move the cursor, ESC/Enter/x exits.
+        Displays information about creatures, items, and features
+        at the cursor position.
+        """
+        t = self.term
+        cx, cy = start_x, start_y
+        pos = world.get_component(player_id, "Position")
+        if not pos:
+            return
+
+        map_h = max(3, t.height - CHROME_HEIGHT)
+        half_w = t.width // 2
+        half_h = map_h // 2
+
+        while True:
+            # Render normal screen first
+            self.render(world, level, player_id, turn)
+
+            # Draw cursor on map
+            scr_x = (cx - pos.x) + half_w
+            scr_y = (cy - pos.y) + half_h
+            if 0 <= scr_x < t.width and 0 <= scr_y < map_h:
+                print(
+                    t.move_xy(scr_x, scr_y) + t.reverse(" "),
+                    end="", flush=True,
+                )
+
+            # Build description for cursor tile
+            tile = level.tile_at(cx, cy)
+            desc_parts: list[str] = []
+
+            if tile and tile.visible:
+                # Creatures
+                for eid, _, cpos in world.query("AI", "Position"):
+                    if cpos and cpos.x == cx and cpos.y == cy:
+                        d = world.get_component(eid, "Description")
+                        h = world.get_component(eid, "Health")
+                        if d:
+                            hp_str = ""
+                            if h:
+                                pct = h.current / h.maximum
+                                if pct >= 1.0:
+                                    hp_str = tr("health_status.uninjured")
+                                elif pct > 0.5:
+                                    hp_str = tr(
+                                        "health_status.lightly_wounded")
+                                elif pct > 0.25:
+                                    hp_str = tr(
+                                        "health_status.badly_wounded")
+                                else:
+                                    hp_str = tr("health_status.near_death")
+                            desc_parts.append(
+                                (d.short or d.name) + hp_str)
+
+                # Chests
+                for eid in list(world._entities):
+                    epos = world.get_component(eid, "Position")
+                    if (epos and epos.x == cx and epos.y == cy
+                            and world.has_component(eid, "Chest")):
+                        d = world.get_component(eid, "Description")
+                        if d:
+                            desc_parts.append(d.short or d.name)
+
+                # Items on floor
+                for eid, _, ipos in world.query("Description", "Position"):
+                    if ipos and ipos.x == cx and ipos.y == cy:
+                        if (not world.has_component(eid, "AI")
+                                and not world.has_component(eid, "BlocksMovement")
+                                and not world.has_component(eid, "Trap")
+                                and eid != player_id):
+                            d = world.get_component(eid, "Description")
+                            if d:
+                                desc_parts.append(d.short or d.name)
+
+                # Tile feature
+                if tile.feature and tile.feature != "door_secret":
+                    fname = tr(f"feature.{tile.feature}")
+                    if fname.startswith("feature."):
+                        fname = tile.feature.replace("_", " ")
+                    desc_parts.append(fname)
+
+                # Terrain
+                if not desc_parts:
+                    terrain_name = tile.terrain.name.lower()
+                    if tile.is_corridor:
+                        terrain_name = "corridor"
+                    desc_parts.append(terrain_name)
+
+            # Display description on the input line
+            info = f" ({cx},{cy}) {', '.join(desc_parts)}"
+            input_y = map_h + STATUS_HEIGHT + LOG_HEIGHT
+            print(
+                t.move_xy(0, input_y)
+                + t.bold(info[:t.width].ljust(t.width)),
+                end="", flush=True,
+            )
+
+            # Read key
+            with t.cbreak():
+                val = t.inkey(timeout=None)
+                key = val.name if val.is_sequence else str(val)
+
+            if key in ("KEY_ESCAPE", "\x1b", "\n", "\r", "KEY_ENTER",
+                        "x", "q"):
+                break
+
+            # Compute proposed new position
+            nx, ny = cx, cy
+            if key in ("KEY_UP", "k"):
+                ny -= 1
+            elif key in ("KEY_DOWN", "j"):
+                ny += 1
+            elif key in ("KEY_LEFT", "h"):
+                nx -= 1
+            elif key in ("KEY_RIGHT", "l"):
+                nx += 1
+            elif key == "y":
+                nx -= 1; ny -= 1
+            elif key == "u":
+                nx += 1; ny -= 1
+            elif key == "b":
+                nx -= 1; ny += 1
+            elif key == "n":
+                nx += 1; ny += 1
+
+            # Only move cursor to visible tiles
+            new_tile = level.tile_at(nx, ny)
+            if new_tile and new_tile.visible:
+                cx, cy = nx, ny
+
+    def fullmap_mode(
+        self, world: World, level: Level, player_id: int, turn: int,
+    ) -> None:
+        """God mode: display the entire map with scrollable camera.
+
+        Arrow keys pan the view, ESC/M exits.
+        """
+        t = self.term
+        pos = world.get_component(player_id, "Position")
+        if not pos:
+            return
+
+        map_h = max(3, t.height - CHROME_HEIGHT)
+        cam_x, cam_y = pos.x, pos.y
+
+        while True:
+            output = t.home + t.clear
+            output += self._render_map(
+                world, level, cam_x, cam_y,
+                0, 0, t.width, map_h,
+            )
+
+            # Info line at bottom
+            info = (f" GOD MAP ({cam_x},{cam_y})"
+                    f"  arrows/hjkl: pan  M/ESC: exit")
+            input_y = map_h
+            output += t.move_xy(0, input_y) + t.bold(
+                info[:t.width].ljust(t.width))
+
+            print(output, end="", flush=True)
+
+            with t.cbreak():
+                val = t.inkey(timeout=None)
+                key = val.name if val.is_sequence else str(val)
+
+            if key in ("KEY_ESCAPE", "\x1b", "M", "m", "q"):
+                break
+
+            # Pan camera
+            step = 5
+            if key in ("KEY_UP", "k"):
+                cam_y = max(0, cam_y - step)
+            elif key in ("KEY_DOWN", "j"):
+                cam_y = min(level.height - 1, cam_y + step)
+            elif key in ("KEY_LEFT", "h"):
+                cam_x = max(0, cam_x - step)
+            elif key in ("KEY_RIGHT", "l"):
+                cam_x = min(level.width - 1, cam_x + step)
+            elif key == "y":
+                cam_x = max(0, cam_x - step)
+                cam_y = max(0, cam_y - step)
+            elif key == "u":
+                cam_x = min(level.width - 1, cam_x + step)
+                cam_y = max(0, cam_y - step)
+            elif key == "b":
+                cam_x = max(0, cam_x - step)
+                cam_y = min(level.height - 1, cam_y + step)
+            elif key == "n":
+                cam_x = min(level.width - 1, cam_x + step)
+                cam_y = min(level.height - 1, cam_y + step)
+            elif key == "c":
+                # Center on player
+                cam_x, cam_y = pos.x, pos.y
+
+    def show_ground_menu(
+        self, items: list[tuple[int, str]],
+    ) -> int | None:
+        """Show a selection menu for items on the ground."""
+        if not items:
+            return None
+        title = tr("ui.pickup_which")
+        return self._draw_selection_menu(title, items)
+
     def show_inventory_menu(
         self, world: World, player_id: int, prompt: str = "",
     ) -> int | None:
@@ -564,7 +788,7 @@ class TerminalRenderer:
             items.append((item_id, desc.name if desc else "???"))
 
         title = prompt or tr("ui.use_which")
-        return self._draw_inventory_box(title, items)
+        return self._draw_selection_menu(title, items)
 
     def show_filtered_inventory(
         self, world: World, player_id: int,
@@ -589,14 +813,17 @@ class TerminalRenderer:
         if not items:
             return None
 
-        return self._draw_inventory_box(title, items)
+        return self._draw_selection_menu(title, items)
 
-    def _draw_inventory_box(
+    def _draw_selection_menu(
         self, title: str, items: list[tuple[int, str]],
     ) -> int | None:
-        """Draw an inventory selection box. Returns selected EntityId."""
+        """Draw a selection box. Returns selected EntityId."""
+        from nhc.rendering.terminal.themes import get_theme
+        theme = get_theme()
         t = self.term
-        border = t.color_rgb(80, 140, 210)
+        border = t.color_rgb(80, 140, 210) if theme.color_depth == "256" \
+            else t.bright_cyan
 
         menu_x = 5
         menu_y = 3
@@ -612,7 +839,8 @@ class TerminalRenderer:
         right_fill = max(0, inner - left_fill - title_len)
         output += t.move_xy(menu_x, menu_y)
         output += border(
-            "╭" + "─" * left_fill + title_text + "─" * right_fill + "╮"
+            theme.box_tl + theme.box_h * left_fill
+            + title_text + theme.box_h * right_fill + theme.box_tr
         )
 
         # Item lines
@@ -621,7 +849,7 @@ class TerminalRenderer:
             entry = f"  {letter}) {name}"
             padded = entry[:inner].ljust(inner)
             output += t.move_xy(menu_x, menu_y + 1 + i)
-            output += border("│") + padded + border("│")
+            output += border(theme.box_v) + padded + border(theme.box_v)
 
         # Bottom border with centered ESC hint
         esc_text = " " + tr("ui.esc_cancel").strip() + " "
@@ -631,8 +859,8 @@ class TerminalRenderer:
         bot = menu_y + 1 + len(items)
         output += t.move_xy(menu_x, bot)
         output += border(
-            "╰" + "─" * left_fill + esc_text
-            + "─" * right_fill + "╯"
+            theme.box_bl + theme.box_h * left_fill + esc_text
+            + theme.box_h * right_fill + theme.box_br
         )
 
         print(output, end="", flush=True)
@@ -642,6 +870,9 @@ class TerminalRenderer:
             key = str(val)
 
         if key == "\x1b" or val.name == "KEY_ESCAPE":
+            return None
+
+        if len(key) != 1:
             return None
 
         idx = ord(key) - ord("a")
@@ -672,9 +903,11 @@ class TerminalRenderer:
         if not targets:
             return None
 
-        return self._draw_inventory_box(title, targets)
+        return self._draw_selection_menu(title, targets)
 
-    def show_end_screen(self, won: bool, turn: int) -> None:
+    def show_end_screen(
+        self, won: bool, turn: int, killed_by: str = "",
+    ) -> None:
         """Show game over / victory screen."""
         t = self.term
         cx = t.width // 2
@@ -688,7 +921,10 @@ class TerminalRenderer:
             color = t.bright_green
         else:
             title = f"💀 {tr('ui.death_title')} 💀"
-            msg = tr("ui.death_desc")
+            if killed_by:
+                msg = tr("ui.death_cause", cause=killed_by)
+            else:
+                msg = tr("ui.death_desc")
             color = t.bright_red
 
         output += t.move_xy(cx - 8, cy - 1) + color(t.bold(title))

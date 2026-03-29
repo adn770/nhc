@@ -65,6 +65,8 @@ class Game:
         color_mode: str = "256",
         game_mode: str = "classic",
         god_mode: bool = False,
+        reset: bool = False,
+        theme: str | None = None,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
@@ -72,6 +74,7 @@ class Game:
         self.seed = seed
         self.mode = game_mode
         self.god_mode = god_mode
+        self.reset = reset
         self.running = False
         self.game_over = False
         self.won = False
@@ -79,7 +82,8 @@ class Game:
         self.player_id: int = -1
         self.level: Level | None = None
         self.renderer = TerminalRenderer(color_mode=color_mode,
-                                         game_mode=game_mode)
+                                         game_mode=game_mode,
+                                         theme=theme)
         self._seen_creatures: set[int] = set()
         self._knowledge = None  # ItemKnowledge, set in initialize()
         self._floor_cache: dict[int, tuple] = {}  # depth → (level, entity_data)
@@ -94,8 +98,11 @@ class Game:
     ) -> None:
         """Set up initial game state from a level file or generator."""
         # Check for autosave recovery
-        from nhc.core.autosave import auto_restore, has_autosave
-        if has_autosave():
+        from nhc.core.autosave import auto_restore, delete_autosave, has_autosave
+        if self.reset and has_autosave():
+            delete_autosave()
+            logger.info("Autosave deleted (--reset)")
+        elif has_autosave():
             logger.info("Autosave found, attempting recovery")
             if auto_restore(self):
                 logger.info("Game restored from autosave")
@@ -158,7 +165,7 @@ class Game:
 
         self.player_id = self.world.create_entity({
             "Position": Position(x=px, y=py, level_id=self.level.id),
-            "Renderable": Renderable(glyph="@", color="bright_yellow",
+            "Renderable": Renderable(glyph="@", color="bright_white",
                                      render_order=10),
             "Stats": Stats(
                 strength=char.strength,
@@ -328,11 +335,13 @@ class Game:
         if rend:
             rend.color = self._knowledge.glyph_color(item_id)
 
-    def _identify_potion(self, item_eid: int) -> None:
+    def _identify_potion(self, real_id: str = "", item_eid: int = -1) -> None:
         """Identify a potion/scroll after use and update all of that type."""
         if not self._knowledge:
             return
-        real_id = self.world.get_component(item_eid, "_potion_id")
+        # Resolve real_id from entity if not provided directly
+        if not real_id and item_eid >= 0:
+            real_id = self.world.get_component(item_eid, "_potion_id") or ""
         if not real_id:
             return
         if self._knowledge.is_identified(real_id):
@@ -345,8 +354,8 @@ class Game:
         )
 
         # Update all existing items of this type in the world
-        for eid, pid_comp in self.world._entities.items():
-            pid = pid_comp.get("_potion_id")
+        potion_store = self.world._components.get("_potion_id", {})
+        for eid, pid in potion_store.items():
             if pid == real_id:
                 desc = self.world.get_component(eid, "Description")
                 if desc:
@@ -488,16 +497,7 @@ class Game:
             # Check player death (None means entity was destroyed)
             if not health or health.current <= 0:
                 self.game_over = True
-                # Find killer from events
-                from nhc.core.events import CreatureAttacked
-                for ev in events:
-                    if (isinstance(ev, CreatureAttacked)
-                            and ev.target == self.player_id and ev.hit):
-                        desc = self.world.get_component(
-                            ev.attacker, "Description",
-                        )
-                        if desc:
-                            self.killed_by = desc.name
+                self._detect_death_cause(events)
                 death_msg = t("game.died")
                 if self.killed_by:
                     death_msg = t("game.slain_by", killer=self.killed_by)
@@ -507,7 +507,10 @@ class Game:
                 )
                 from nhc.core.autosave import delete_autosave
                 delete_autosave()
-                self.renderer.show_end_screen(won=False, turn=self.turn)
+                self.renderer.show_end_screen(
+                    won=False, turn=self.turn,
+                    killed_by=self.killed_by,
+                )
                 break
 
             # Recompute FOV
@@ -723,6 +726,16 @@ class Game:
         if intent == "look":
             return LookAction(actor=self.player_id)
 
+        if intent == "farlook":
+            self._farlook_mode()
+            return None
+
+        if intent == "pick_lock":
+            return self._find_lock_action("pick")
+
+        if intent == "force_door":
+            return self._find_lock_action("force")
+
         if intent == "search":
             from nhc.core.actions import SearchAction
             return SearchAction(actor=self.player_id)
@@ -740,6 +753,11 @@ class Game:
 
         if intent == "scroll_down":
             self.renderer.scroll_messages(-1)
+            return None
+
+        if intent == "reveal_map":
+            if self.god_mode:
+                self._reveal_full_map()
             return None
 
         if intent == "save":
@@ -781,31 +799,44 @@ class Game:
         logger.info("Switched to %s mode", self.mode)
 
     def _find_pickup_action(self) -> "Action | None":
-        """Find an item at the player's position to pick up."""
+        """Find an item at the player's position to pick up.
+
+        If multiple items are on the ground, show a selection menu.
+        """
         pos = self.world.get_component(self.player_id, "Position")
         if not pos:
             return None
 
+        # Gather all pickable items at player's feet
+        ground_items: list[tuple[int, str]] = []
         for eid, _, ipos in self.world.query("Description", "Position"):
             if ipos is None:
                 continue
             if ipos.x == pos.x and ipos.y == pos.y and eid != self.player_id:
-                # Check it's an item (has no AI/BlocksMovement)
                 if (not self.world.has_component(eid, "AI")
                         and not self.world.has_component(eid, "BlocksMovement")
                         and not self.world.has_component(eid, "Trap")):
-                    return PickupItemAction(
-                        actor=self.player_id, item=eid,
-                    )
+                    desc = self.world.get_component(eid, "Description")
+                    name = desc.short or desc.name if desc else "???"
+                    ground_items.append((eid, name))
 
-        # Check if inventory is full
-        inv = self.world.get_component(self.player_id, "Inventory")
-        if inv and len(inv.slots) >= inv.max_slots:
-            self.renderer.add_message(t("item.full_inventory"))
+        if not ground_items:
+            self.renderer.add_message(t("item.nothing_to_pickup"))
             return None
 
-        self.renderer.add_message(t("item.nothing_to_pickup"))
-        return None
+        # Single item: pick up directly
+        if len(ground_items) == 1:
+            return PickupItemAction(
+                actor=self.player_id, item=ground_items[0][0],
+            )
+
+        # Multiple items: show selection menu
+        selected = self.renderer.show_ground_menu(ground_items)
+        if selected is None:
+            return None
+        return PickupItemAction(
+            actor=self.player_id, item=selected,
+        )
 
     def _find_use_action(self) -> "Action | None":
         """Show inventory menu and return a use action."""
@@ -874,7 +905,7 @@ class Game:
         if not items:
             return None
 
-        selected = self.renderer._draw_inventory_box(
+        selected = self.renderer._draw_selection_menu(
             t("ui.zap_which"), items,
         )
         if selected is None:
@@ -927,7 +958,7 @@ class Game:
         if not items:
             return None
 
-        selected = self.renderer._draw_inventory_box(
+        selected = self.renderer._draw_selection_menu(
             t("ui.equip_which"), items,
         )
         if selected is None:
@@ -948,6 +979,99 @@ class Game:
         if item_id is None:
             return None
         return DropAction(actor=self.player_id, item=item_id)
+
+    def _find_lock_action(self, mode: str) -> "Action | None":
+        """Find an adjacent locked door and return pick/force action."""
+        from nhc.core.actions import ForceDoorAction, PickLockAction
+        pos = self.world.get_component(self.player_id, "Position")
+        if not pos or not self.level:
+            return None
+
+        # Check all 4 cardinal directions for a locked door
+        door_dir = None
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            tile = self.level.tile_at(pos.x + dx, pos.y + dy)
+            if tile and tile.feature == "door_locked":
+                door_dir = (dx, dy)
+                break
+
+        if not door_dir:
+            self.renderer.add_message(t("explore.no_locked_door"))
+            return None
+
+        if mode == "pick":
+            return PickLockAction(
+                actor=self.player_id, dx=door_dir[0], dy=door_dir[1],
+            )
+
+        # Force mode: check inventory for tools/weapons that help
+        inv = self.world.get_component(self.player_id, "Inventory")
+        tool_id = None
+        if inv:
+            tools: list[tuple[int, str]] = []
+            for eid in inv.slots:
+                if self.world.has_component(eid, "ForceTool"):
+                    desc = self.world.get_component(eid, "Description")
+                    name = desc.name if desc else "???"
+                    tools.append((eid, name))
+                elif self.world.has_component(eid, "Weapon"):
+                    weapon = self.world.get_component(eid, "Weapon")
+                    if weapon.type == "melee":
+                        desc = self.world.get_component(eid, "Description")
+                        name = desc.name if desc else "???"
+                        tools.append((eid, name))
+
+            if tools:
+                # Add bare hands option
+                tools.append((-1, t("explore.bare_hands")))
+                selected = self.renderer._draw_selection_menu(
+                    t("explore.force_with"), tools,
+                )
+                if selected is None:
+                    return None
+                if selected != -1:
+                    tool_id = selected
+
+        return ForceDoorAction(
+            actor=self.player_id, dx=door_dir[0], dy=door_dir[1],
+            tool=tool_id,
+        )
+
+    def _reveal_full_map(self) -> None:
+        """God mode: reveal entire map and display it scrollably."""
+        if not self.level:
+            return
+        # Mark all tiles as explored and visible
+        old_vis: list[tuple[int, int, bool]] = []
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile:
+                    old_vis.append((x, y, tile.visible))
+                    tile.explored = True
+                    tile.visible = True
+
+        # Render the full map with a scrollable camera
+        self.renderer.fullmap_mode(
+            self.world, self.level, self.player_id, self.turn,
+        )
+
+        # Restore original visibility
+        for x, y, was_visible in old_vis:
+            tile = self.level.tile_at(x, y)
+            if tile:
+                tile.visible = was_visible
+
+    def _farlook_mode(self) -> None:
+        """Interactive cursor to examine tiles at distance."""
+        pos = self.world.get_component(self.player_id, "Position")
+        if not pos or not self.level:
+            return
+
+        self.renderer.farlook_mode(
+            self.world, self.level, self.player_id, self.turn,
+            pos.x, pos.y,
+        )
 
     def _show_inventory(self) -> None:
         """Show inventory without action (just display)."""
@@ -1005,13 +1129,35 @@ class Game:
                 t("combat.poison_tick", target=name, damage=actual),
             )
             if is_dead(health):
-                self.world.destroy_entity(eid)
+                if eid == self.player_id:
+                    self.killed_by = "poison"
+                else:
+                    self.world.destroy_entity(eid)
             else:
                 poison.turns_remaining -= 1
                 if poison.turns_remaining <= 0:
                     expired.append(eid)
         for eid in expired:
             self.world.remove_component(eid, "Poison")
+
+    def _detect_death_cause(self, events: list) -> None:
+        """Determine what killed the player from turn events."""
+        from nhc.core.events import CreatureAttacked, TrapTriggered
+        # Melee attacks take priority
+        for ev in events:
+            if (isinstance(ev, CreatureAttacked)
+                    and ev.target == self.player_id and ev.hit):
+                desc = self.world.get_component(ev.attacker, "Description")
+                if desc:
+                    self.killed_by = desc.name
+        if self.killed_by:
+            return
+        # Check trap damage
+        for ev in events:
+            if (isinstance(ev, TrapTriggered)
+                    and ev.entity == self.player_id and ev.damage > 0):
+                self.killed_by = ev.trap_name
+                return
 
     def _creature_name(self, eid: int) -> str:
         desc = self.world.get_component(eid, "Description")
@@ -1230,9 +1376,9 @@ class Game:
         if event.killer != self.player_id:
             return
 
-        from nhc.rules.advancement import award_xp, check_level_up
+        from nhc.rules.advancement import award_xp_direct, check_level_up
 
-        xp = award_xp(self.world, self.player_id, event.entity)
+        xp = award_xp_direct(self.world, self.player_id, event.max_hp)
         if xp > 0:
             self.renderer.add_message(t("game.xp_gained", xp=xp))
 
@@ -1256,7 +1402,7 @@ class Game:
 
     def _on_item_used(self, event: ItemUsed) -> None:
         """Identify items when used. Handle identify scroll specially."""
-        self._identify_potion(event.item)
+        self._identify_potion(real_id=event.item_id, item_eid=event.item)
 
         if event.effect == "identify":
             self._use_identify_scroll()
@@ -1285,7 +1431,7 @@ class Game:
             self.renderer.add_message(t("item.identify_nothing"))
             return
 
-        selected = self.renderer._draw_inventory_box(
+        selected = self.renderer._draw_selection_menu(
             t("ui.identify_which"), items,
         )
         if selected is None:
@@ -1293,7 +1439,7 @@ class Game:
 
         real_id = self.world.get_component(selected, "_potion_id")
         if real_id:
-            self._identify_potion(selected)
+            self._identify_potion(real_id=real_id)
 
     def _on_game_won(self, event: GameWon) -> None:
         """Handle game won event."""
