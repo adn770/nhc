@@ -503,6 +503,7 @@ def _render_hatching_dmap(
 
     tile_fills: list[str] = []
     hatch_lines: list[str] = []
+    hatch_stones: list[str] = []
 
     for gy in range(-1, level.height + 1):
         for gx in range(-1, level.width + 1):
@@ -528,6 +529,22 @@ def _render_hatching_dmap(
                 f'<rect x="{gx * CELL}" y="{gy * CELL}" '
                 f'width="{CELL}" height="{CELL}" '
                 f'fill="{HATCH_UNDERLAY}"/>')
+
+            # Scatter 0-2 stones of varying sizes in this tile
+            n_stones = random.choices([0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
+            for _ in range(n_stones):
+                sx = (gx + random.uniform(0.15, 0.85)) * CELL
+                sy = (gy + random.uniform(0.15, 0.85)) * CELL
+                rx = random.uniform(1.5, CELL * 0.2)
+                ry = random.uniform(1.5, CELL * 0.15)
+                angle = random.uniform(0, 180)
+                sw = random.uniform(0.4, 1.0)
+                hatch_stones.append(
+                    f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                    f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                    f'transform="rotate({angle:.0f},{sx:.1f},{sy:.1f})" '
+                    f'fill="none" stroke="{INK}" '
+                    f'stroke-width="{sw:.1f}"/>')
 
             # Perlin-displaced cluster anchor
             nr = CELL * 0.1
@@ -604,6 +621,8 @@ def _render_hatching_dmap(
         svg.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
     if hatch_lines:
         svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
+    if hatch_stones:
+        svg.append(f'<g opacity="0.6">{"".join(hatch_stones)}</g>')
 
 
 def _build_dungeon_polygon(level: "Level") -> Polygon:
