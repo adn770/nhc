@@ -100,7 +100,7 @@ class TestGlobalInterface:
         assert "Obres" in result
         # Trap variants
         result = t("trap.you_triggered", trap="Trampa", damage=4)
-        assert "Caus" in result
+        assert "Actives" in result
 
     def test_player_variants_english(self):
         """Player-perspective variants produce natural English."""

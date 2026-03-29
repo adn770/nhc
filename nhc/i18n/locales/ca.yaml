@@ -202,7 +202,26 @@ explore:
   spot_creature: "Divises {creature}!"
   search_found_trap: "Descobreixes {trap}!"
   search_found_door: "Trobes una porta oculta!"
+  door_locked: "La porta és tancada amb clau."
+  you_door_locked: "La porta és tancada amb clau."
+  pick_lock_success: "{entity} força el pany!"
+  you_pick_lock_success: "Forces el pany!"
+  pick_lock_fail: "{entity} no aconsegueix forçar el pany."
+  you_pick_lock_fail: "No aconsegueixes forçar el pany."
+  lockpicks_break: "Les teves ganzues es trenquen!"
+  force_door_success: "{entity} rebenta la porta!"
+  you_force_door_success: "Rebentes la porta!"
+  force_door_tool_success: "{entity} força la porta amb {tool}!"
+  you_force_door_tool_success: "Forces la porta amb {tool}!"
+  force_door_fail: "{entity} colpeja la porta! {damage} de dany!"
+  you_force_door_fail: "Colpeges la porta! {damage} de dany!"
+  tool_break: "{tool} es trenca!"
+  force_with: "Forçar porta amb?"
+  bare_hands: "Mans nues"
+  no_locked_door: "No hi ha cap porta tancada a prop."
   search_nothing: "Escorcolles amb atenció però no trobes res d'amagat."
+  chest_loot: "Obres el cofre i trobes: {items}."
+  chest_empty: "Obres el cofre, però és buit."
   descend: "Descendeixes més endins de la masmorra..."
   ascend: "Puges les escales cap amunt..."
   surface_blocked: "L'entrada està segellada. No es pot tornar enrere."
@@ -313,8 +332,28 @@ item:
 trap:
   avoided: "{entity} detecta una {trap} i l'evita!"
   you_avoided: "Detectes una {trap} i l'evites!"
-  triggered: "{entity} cau en una {trap}! {damage} de dany!"
-  you_triggered: "Caus en una {trap}! {damage} de dany!"
+  triggered: "{entity} activa una {trap}! {damage} de dany!"
+  you_triggered: "Actives una {trap}! {damage} de dany!"
+  poison: "{entity} rep dards enverinats!"
+  you_poison: "Dards enverinats et punxen!"
+  paralysis: "{entity} queda envoltat per un gas paralitzant!"
+  you_paralysis: "Un gas paralitzant t'envolta! No et pots moure!"
+  gripping: "{entity} queda atrapat en mandíbules de ferro!"
+  you_gripping: "Mandíbules de ferro et tanquen les cames! No et pots moure!"
+  fire: "{entity} és cremat per les flames!"
+  you_fire: "Les flames esclaten sota teu!"
+  alarm: "Un xiscle penetrant ressona per la masmorra!"
+  teleport: "{entity} desapareix en un esclat de llum!"
+  you_teleport: "El món gira — ets en un altre lloc!"
+  summoning: "Criatures es materialitzen del no-res!"
+  arrow: "{entity} rep l'impacte d'un virató!"
+  you_arrow: "Un virató surt disparat de la paret!"
+  darts: "{entity} rep una pluja de dards!"
+  you_darts: "Tres dards surten disparats de la paret!"
+  falling_stone: "Una pedra pesada cau sobre {entity}!"
+  you_falling_stone: "Una pedra pesada cau del sostre!"
+  spores: "{entity} inhala un núvol d'espores al·lucinògenes!"
+  you_spores: "Un núvol d'espores esclata — tot sembla estrany!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -332,7 +371,7 @@ game:
 
 # ── Level up ──────────────────────────────────────────────────────────
 levelup:
-  with_ability: "Nivell {level}! +{hp} PV, +1 {ability}."
+  with_abilities: "Nivell {level}! +{hp} PV, +1 {abilities}."
   no_ability: "Nivell {level}! +{hp} PV."
 
 # ── Habilitats ───────────────────────────────────────────────────────
@@ -427,7 +466,10 @@ ui:
   empty: "buit"
   scroll_hint: "desplaçar"
   esc_cancel: "  ESC per cancel·lar"
+  farlook_explored: "zona explorada"
+  farlook_unknown: "desconegut"
   inventory_title: "Inventari"
+  pickup_which: "Quin objecte vols agafar?"
   use_which: "Quin objecte vols usar?"
   quaff_which: "Quina poció vols beure?"
   equip_which: "Quin objecte vols equipar?"
@@ -444,6 +486,7 @@ ui:
   victory_desc: "Has descendit més endins de la masmorra."
   death_title: "HAS MORT"
   death_desc: "La teva aventura acaba aquí."
+  death_cause: "Mort per {cause}."
   end_footer: "Has sobreviscut {turn} torns. Prem qualsevol tecla per sortir."
   mode_typed: "Canviat a mode escrit. Escriu les teves accions."
   mode_classic: "Canviat a mode clàssic. Usa les tecles."
@@ -754,8 +797,8 @@ creature:
       L'esperit d'una dona injuriada en vida, planant amb robes
       fúnebres esqueixades. El seu crit pot aturar un cor en fred.
   mimic:
-    name: "mímesi"
-    gender: "f"
+    name: "mímic"
+    gender: "m"
     short: "un cofre del tresor"
     long: >-
       El que prenies per un cofre del tresor s'atança amb una boca
@@ -1089,6 +1132,128 @@ items:
     long: >-
       Brilla amb claredat interior. Beure-la neteja tot el verí
       i els efectes nocius del teu cos.
+  # ── Armes màgiques ──
+  dagger_plus_1:
+    name: "Daga +1"
+    gender: "f"
+    short: "una daga brillant"
+    long: "Una daga afilada que deixa espurnes tènues. +1 a l'atac i al dany."
+  short_sword_plus_1:
+    name: "Espasa Curta +1"
+    gender: "f"
+    short: "una espasa curta brillant"
+    long: "Una fulla àgil gravada amb runes lluminoses. +1 a l'atac i al dany."
+  sword_plus_1:
+    name: "Espasa +1"
+    gender: "f"
+    short: "una espasa brillant"
+    long: "Una fulla fina que vibra amb energia arcana. +1 a l'atac i al dany."
+  long_sword_plus_1:
+    name: "Espasa Llarga +1"
+    gender: "f"
+    short: "una espasa llarga brillant"
+    long: "Una gran fulla envoltada de llum pàl·lida. +1 a l'atac i al dany."
+  club_plus_1:
+    name: "Garrot +1"
+    gender: "m"
+    short: "un garrot brillant"
+    long: "Un garrot pesat que palpita amb energia tènue. +1 a l'atac i al dany."
+  axe_plus_1:
+    name: "Destral +1"
+    gender: "f"
+    short: "una destral brillant"
+    long: "Una destral gravada amb runes que brillen tènuement. +1 a l'atac i al dany."
+  hand_axe_plus_1:
+    name: "Destraleta +1"
+    gender: "f"
+    short: "una destraleta brillant"
+    long: "Una destraleta que vibra en balancejar-la. +1 a l'atac i al dany."
+  mace_plus_1:
+    name: "Maça +1"
+    gender: "f"
+    short: "una maça brillant"
+    long: "Una maça pesada envoltada de llum pàl·lida. +1 a l'atac i al dany."
+  spear_plus_1:
+    name: "Llança +1"
+    gender: "f"
+    short: "una llança brillant"
+    long: "Una llança amb punta que brilla amb gel arcà. +1 a l'atac i al dany."
+  staff_plus_1:
+    name: "Bastó +1"
+    gender: "m"
+    short: "un bastó brillant"
+    long: "Un bastó de fusta lligat amb runes lluminoses. +1 a l'atac i al dany."
+  halberd_plus_1:
+    name: "Alabarda +1"
+    gender: "f"
+    short: "una alabarda brillant"
+    long: "Una arma d'asta que vibra amb força destructiva. +1 a l'atac i al dany."
+  war_hammer_plus_1:
+    name: "Martell de Guerra +1"
+    gender: "m"
+    short: "un martell de guerra brillant"
+    long: "Un martell massiu que crepita amb energia latent. +1 a l'atac i al dany."
+  bow_plus_1:
+    name: "Arc +1"
+    gender: "m"
+    short: "un arc brillant"
+    long: "Un arc les fletxes del qual volen amb precisió sobrenatural. +1 a l'atac i al dany."
+  crossbow_plus_1:
+    name: "Ballesta +1"
+    gender: "f"
+    short: "una ballesta brillant"
+    long: "Una ballesta amb viratons gravats amb runes. +1 a l'atac i al dany."
+  sling_plus_1:
+    name: "Fona +1"
+    gender: "f"
+    short: "una fona brillant"
+    long: "Una fona teixida amb corda encantada. +1 a l'atac i al dany."
+  # ── Armadura màgica ──
+  gambeson_plus_1:
+    name: "Gambeson +1"
+    gender: "m"
+    short: "un gambeson encantat"
+    long: "Armadura encoixinada teixida amb proteccions màgiques. +1 CA."
+  leather_armor_plus_1:
+    name: "Armadura de Cuir +1"
+    gender: "f"
+    short: "una armadura de cuir encantada"
+    long: "Cuir flexible endurit amb tractament arcà. +1 CA."
+  brigantine_plus_1:
+    name: "Brigantina +1"
+    gender: "f"
+    short: "una brigantina encantada"
+    long: "Armadura de brigantina reforçada amb sigils protectors. +1 CA."
+  chain_mail_plus_1:
+    name: "Cota de Malla +1"
+    gender: "f"
+    short: "una cota de malla encantada"
+    long: "Anelles que brillen amb màgia protectora. +1 CA."
+  plate_cuirass_plus_1:
+    name: "Cuirassa +1"
+    gender: "f"
+    short: "una cuirassa encantada"
+    long: "Placa pesada inscrita amb proteccions antigues. +1 CA."
+  full_plate_plus_1:
+    name: "Armadura Completa +1"
+    gender: "f"
+    short: "una armadura completa encantada"
+    long: "Magnífica armadura de plaques que irradia protecció arcana. +1 CA."
+  shield_plus_1:
+    name: "Escut +1"
+    gender: "m"
+    short: "un escut encantat"
+    long: "Un escut que desvia cops amb precisió sobrenatural. +1 CA."
+  helmet_plus_1:
+    name: "Casc +1"
+    gender: "m"
+    short: "un casc encantat"
+    long: "Un casc que brilla amb encantament protector. +1 CA."
+  chest:
+    name: "Cofre"
+    gender: "m"
+    short: "un cofre"
+    long: "Un cofre de fusta robust, reforçat amb ferro."
   gold:
     name: "Or"
     gender: "m"
@@ -1880,6 +2045,48 @@ features:
   trap_pit:
     name: "Trampa de Fossa"
     short: "una fossa oculta"
-    long: >-
-      Les lloses aquí semblen subtilment diferents — més clares,
-      com si haguessin estat col·locades més recentment.
+    long: "Les lloses aquí semblen subtilment diferents — més clares, com si haguessin estat col·locades més recentment."
+  trap_fire:
+    name: "Trampa de Foc"
+    short: "una trampa de foc"
+    long: "Marques de cremada a la pedra delaten sortidors de flama ocults."
+  trap_poison:
+    name: "Trampa de Verí"
+    short: "una trampa de verí"
+    long: "Forats diminuts a la paret amaguen dards prims com agulles, untats amb verí."
+  trap_paralysis:
+    name: "Trampa de Paràlisi"
+    short: "una trampa de paràlisi"
+    long: "Una olor química tènue persisteix — una trampa de gas que congela els músculs."
+  trap_alarm:
+    name: "Trampa d'Alarma"
+    short: "una trampa d'alarma"
+    long: "Un fil prim connecta amb un mecanisme xisclador a la paret."
+  trap_teleport:
+    name: "Trampa de Teleportació"
+    short: "una trampa de teleportació"
+    long: "Runes arcanes brillen tènuement al terra, formant un cercle de teleportació."
+  trap_summoning:
+    name: "Trampa d'Invocació"
+    short: "una trampa d'invocació"
+    long: "Un pentagram és gravat a la pedra, preparat per conjurar criatures."
+  trap_gripping:
+    name: "Trampa de Mandíbules"
+    short: "una trampa de mandíbules"
+    long: "Mandíbules de ferro jauen ocultes sota una fina capa de pols i pedra."
+  trap_arrow:
+    name: "Trampa de Fletxa"
+    short: "una trampa de fletxa"
+    long: "Una escletxa diminuta a la paret amaga un mecanisme de ballesta carregada."
+  trap_darts:
+    name: "Trampa de Dards"
+    short: "una trampa de dards"
+    long: "Tres forats de sarbatana estan astutament dissimulats a la pedra."
+  trap_falling_stone:
+    name: "Trampa de Pedra"
+    short: "una trampa de pedra"
+    long: "Una esquerda al sostre marca on una pedra pesada contrapesada espera per caure."
+  trap_spores:
+    name: "Trampa d'Espores"
+    short: "una trampa d'espores"
+    long: "Beines fúngiques seques nien entre les lloses, a punt d'esclatar."

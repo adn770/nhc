@@ -186,7 +186,26 @@ explore:
   spot_creature: "You spot {creature}!"
   search_found_trap: "You discover {trap}!"
   search_found_door: "You find a hidden door!"
+  door_locked: "The door is locked."
+  you_door_locked: "The door is locked."
+  pick_lock_success: "{entity} picks the lock!"
+  you_pick_lock_success: "You pick the lock!"
+  pick_lock_fail: "{entity} fails to pick the lock."
+  you_pick_lock_fail: "You fail to pick the lock."
+  lockpicks_break: "Your lockpicks snap!"
+  force_door_success: "{entity} forces the door open!"
+  you_force_door_success: "You smash the door open!"
+  force_door_tool_success: "{entity} forces the door open with {tool}!"
+  you_force_door_tool_success: "You pry the door open with {tool}!"
+  force_door_fail: "{entity} slams against the door! {damage} damage!"
+  you_force_door_fail: "You slam against the door! {damage} damage!"
+  tool_break: "The {tool} breaks!"
+  force_with: "Force door with?"
+  bare_hands: "Bare hands"
+  no_locked_door: "There is no locked door nearby."
   search_nothing: "You search carefully but find nothing hidden."
+  chest_loot: "You open the chest and find: {items}."
+  chest_empty: "You open the chest, but it's empty."
   descend: "You descend deeper into the dungeon..."
   ascend: "You climb the stairs back up..."
   surface_blocked: "The entrance is sealed. There is no going back."
@@ -295,8 +314,28 @@ item:
 trap:
   avoided: "{entity} notices {trap} and avoids it!"
   you_avoided: "You notice {trap} and avoid it!"
-  triggered: "{entity} falls into {trap}! {damage} damage!"
-  you_triggered: "You fall into {trap}! {damage} damage!"
+  triggered: "{entity} triggers {trap}! {damage} damage!"
+  you_triggered: "You trigger {trap}! {damage} damage!"
+  poison: "{entity} is hit by poison darts!"
+  you_poison: "Poison darts sting you!"
+  paralysis: "{entity} is engulfed in paralyzing gas!"
+  you_paralysis: "Paralyzing gas engulfs you! You can't move!"
+  gripping: "{entity} is caught in iron jaws!"
+  you_gripping: "Iron jaws clamp your legs! You can't move!"
+  fire: "{entity} is scorched by flames!"
+  you_fire: "Flames erupt beneath you!"
+  alarm: "A piercing shriek echoes through the dungeon!"
+  teleport: "{entity} vanishes in a flash of light!"
+  you_teleport: "The world spins — you are somewhere else!"
+  summoning: "Creatures materialize from thin air!"
+  arrow: "{entity} is struck by a crossbow bolt!"
+  you_arrow: "A crossbow bolt shoots from the wall!"
+  darts: "{entity} is peppered by darts!"
+  you_darts: "Three darts shoot from the wall!"
+  falling_stone: "A heavy stone crashes down on {entity}!"
+  you_falling_stone: "A heavy stone crashes down from the ceiling!"
+  spores: "{entity} inhales a cloud of hallucinogenic spores!"
+  you_spores: "A cloud of spores bursts — everything looks strange!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -314,7 +353,7 @@ game:
 
 # ── Level up ──────────────────────────────────────────────────────────
 levelup:
-  with_ability: "Level {level}! +{hp} HP, +1 {ability}."
+  with_abilities: "Level {level}! +{hp} HP, +1 {abilities}."
   no_ability: "Level {level}! +{hp} HP."
 
 # ── Ability stats ────────────────────────────────────────────────────
@@ -409,7 +448,10 @@ ui:
   empty: "empty"
   scroll_hint: "scroll"
   esc_cancel: "  ESC to cancel"
+  farlook_explored: "explored area"
+  farlook_unknown: "unknown"
   inventory_title: "Inventory"
+  pickup_which: "Pick up which item?"
   use_which: "Use which item?"
   quaff_which: "Quaff which potion?"
   equip_which: "Equip which item?"
@@ -426,6 +468,7 @@ ui:
   victory_desc: "You have descended deeper into the dungeon."
   death_title: "YOU DIED"
   death_desc: "Your adventure ends here."
+  death_cause: "Killed by {cause}."
   end_footer: "Survived {turn} turns. Press any key to exit."
   mode_typed: "Switched to typed mode. Type your actions."
   mode_classic: "Switched to classic mode. Use keys."
@@ -976,6 +1019,104 @@ items:
     long: >-
       Glowing with inner clarity. Drinking it cleanses all
       poison and harmful effects from your body.
+  # ── Magic weapons ──
+  dagger_plus_1:
+    name: "Dagger +1"
+    short: "a glowing dagger"
+    long: "A keen dagger that trails faint sparks. +1 to attack and damage."
+  short_sword_plus_1:
+    name: "Short Sword +1"
+    short: "a glowing short sword"
+    long: "A nimble blade etched with glowing runes. +1 to attack and damage."
+  sword_plus_1:
+    name: "Sword +1"
+    short: "a glowing sword"
+    long: "A fine blade that hums with arcane energy. +1 to attack and damage."
+  long_sword_plus_1:
+    name: "Long Sword +1"
+    short: "a glowing long sword"
+    long: "A great blade wreathed in pale light. +1 to attack and damage."
+  club_plus_1:
+    name: "Club +1"
+    short: "a glowing club"
+    long: "A heavy club that pulses with faint energy. +1 to attack and damage."
+  axe_plus_1:
+    name: "Axe +1"
+    short: "a glowing axe"
+    long: "An axe etched with runes that gleam faintly. +1 to attack and damage."
+  hand_axe_plus_1:
+    name: "Hand Axe +1"
+    short: "a glowing hand axe"
+    long: "A small axe that hums when swung. +1 to attack and damage."
+  mace_plus_1:
+    name: "Mace +1"
+    short: "a glowing mace"
+    long: "A heavy mace wreathed in pale light. +1 to attack and damage."
+  spear_plus_1:
+    name: "Spear +1"
+    short: "a glowing spear"
+    long: "A spear whose tip gleams with arcane frost. +1 to attack and damage."
+  staff_plus_1:
+    name: "Staff +1"
+    short: "a glowing staff"
+    long: "A wooden staff bound with luminous runes. +1 to attack and damage."
+  halberd_plus_1:
+    name: "Halberd +1"
+    short: "a glowing halberd"
+    long: "A polearm that hums with destructive force. +1 to attack and damage."
+  war_hammer_plus_1:
+    name: "War Hammer +1"
+    short: "a glowing war hammer"
+    long: "A massive hammer crackling with latent energy. +1 to attack and damage."
+  bow_plus_1:
+    name: "Bow +1"
+    short: "a glowing bow"
+    long: "A bow whose arrows fly with unnatural accuracy. +1 to attack and damage."
+  crossbow_plus_1:
+    name: "Crossbow +1"
+    short: "a glowing crossbow"
+    long: "A crossbow with rune-etched bolts. +1 to attack and damage."
+  sling_plus_1:
+    name: "Sling +1"
+    short: "a glowing sling"
+    long: "A sling woven with enchanted cord. +1 to attack and damage."
+  # ── Magic armor ──
+  gambeson_plus_1:
+    name: "Gambeson +1"
+    short: "an enchanted gambeson"
+    long: "Quilted armor woven with protective wards. +1 AC."
+  leather_armor_plus_1:
+    name: "Leather Armor +1"
+    short: "enchanted leather armor"
+    long: "Supple leather hardened with arcane treatment. +1 AC."
+  brigantine_plus_1:
+    name: "Brigantine +1"
+    short: "an enchanted brigantine"
+    long: "Brigantine armor reinforced with warding sigils. +1 AC."
+  chain_mail_plus_1:
+    name: "Chain Mail +1"
+    short: "enchanted chain mail"
+    long: "Chain links that shimmer with protective magic. +1 AC."
+  plate_cuirass_plus_1:
+    name: "Plate Cuirass +1"
+    short: "an enchanted plate cuirass"
+    long: "Heavy plate inscribed with ancient wards. +1 AC."
+  full_plate_plus_1:
+    name: "Full Plate +1"
+    short: "enchanted full plate"
+    long: "Magnificent plate armor radiating arcane protection. +1 AC."
+  shield_plus_1:
+    name: "Shield +1"
+    short: "an enchanted shield"
+    long: "A shield that deflects blows with unnatural precision. +1 AC."
+  helmet_plus_1:
+    name: "Helmet +1"
+    short: "an enchanted helmet"
+    long: "A helmet that gleams with protective enchantment. +1 AC."
+  chest:
+    name: "Chest"
+    short: "a chest"
+    long: "A sturdy wooden chest, banded with iron."
   gold:
     name: "Gold"
     short: "a pile of gold coins"
@@ -1624,6 +1765,48 @@ features:
   trap_pit:
     name: "Pit Trap"
     short: "a concealed pit"
-    long: >-
-      The flagstones here look subtly different — lighter,
-      as if placed more recently.
+    long: "The flagstones here look subtly different — lighter, as if placed more recently."
+  trap_fire:
+    name: "Fire Trap"
+    short: "a fire trap"
+    long: "Scorch marks on the stone hint at hidden jets of flame."
+  trap_poison:
+    name: "Poison Trap"
+    short: "a poison trap"
+    long: "Tiny holes in the wall conceal needle-thin darts tipped with venom."
+  trap_paralysis:
+    name: "Paralysis Trap"
+    short: "a paralysis trap"
+    long: "A faint chemical smell lingers — a gas trap rigged to freeze muscles."
+  trap_alarm:
+    name: "Alarm Trap"
+    short: "an alarm trap"
+    long: "A thin tripwire connects to a shrieking mechanism in the wall."
+  trap_teleport:
+    name: "Teleport Trap"
+    short: "a teleport trap"
+    long: "Arcane runes shimmer faintly on the floor, forming a teleportation circle."
+  trap_summoning:
+    name: "Summoning Trap"
+    short: "a summoning trap"
+    long: "A pentagram is etched into the stone, ready to conjure creatures."
+  trap_gripping:
+    name: "Gripping Trap"
+    short: "a gripping trap"
+    long: "Iron jaws lie hidden beneath a thin layer of dust and stone."
+  trap_arrow:
+    name: "Arrow Trap"
+    short: "an arrow trap"
+    long: "A tiny slit in the wall hides a loaded crossbow mechanism."
+  trap_darts:
+    name: "Darts Trap"
+    short: "a darts trap"
+    long: "Three sets of blowpipe holes are cunningly concealed in the stonework."
+  trap_falling_stone:
+    name: "Falling Stone Trap"
+    short: "a falling stone trap"
+    long: "A crack in the ceiling marks where a heavy counterweighted stone waits to drop."
+  trap_spores:
+    name: "Spore Trap"
+    short: "a spore trap"
+    long: "Dried fungal pods are nestled between the flagstones, ready to burst."

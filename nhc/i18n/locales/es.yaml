@@ -184,7 +184,26 @@ explore:
   spot_creature: "¡Divisas {creature}!"
   search_found_trap: "¡Descubres {trap}!"
   search_found_door: "¡Encuentras una puerta oculta!"
+  door_locked: "La puerta está cerrada con llave."
+  you_door_locked: "La puerta está cerrada con llave."
+  pick_lock_success: "¡{entity} fuerza la cerradura!"
+  you_pick_lock_success: "¡Fuerzas la cerradura!"
+  pick_lock_fail: "{entity} no consigue forzar la cerradura."
+  you_pick_lock_fail: "No consigues forzar la cerradura."
+  lockpicks_break: "¡Tus ganzúas se rompen!"
+  force_door_success: "¡{entity} derriba la puerta!"
+  you_force_door_success: "¡Derribas la puerta!"
+  force_door_tool_success: "¡{entity} fuerza la puerta con {tool}!"
+  you_force_door_tool_success: "¡Fuerzas la puerta con {tool}!"
+  force_door_fail: "¡{entity} golpea la puerta! ¡{damage} de daño!"
+  you_force_door_fail: "¡Golpeas la puerta! ¡{damage} de daño!"
+  tool_break: "¡{tool} se rompe!"
+  force_with: "¿Forzar puerta con?"
+  bare_hands: "Manos desnudas"
+  no_locked_door: "No hay ninguna puerta cerrada cerca."
   search_nothing: "Registras con atención pero no encuentras nada oculto."
+  chest_loot: "Abres el cofre y encuentras: {items}."
+  chest_empty: "Abres el cofre, pero está vacío."
   descend: "Desciendes más profundo en la mazmorra..."
   ascend: "Subes las escaleras de vuelta..."
   surface_blocked: "La entrada está sellada. No hay vuelta atrás."
@@ -295,8 +314,28 @@ item:
 trap:
   avoided: "¡{entity} detecta {trap} y la evita!"
   you_avoided: "¡Detectas {trap} y la evitas!"
-  triggered: "¡{entity} cae en {trap}! ¡{damage} de daño!"
-  you_triggered: "¡Caes en {trap}! ¡{damage} de daño!"
+  triggered: "¡{entity} activa {trap}! ¡{damage} de daño!"
+  you_triggered: "¡Activas {trap}! ¡{damage} de daño!"
+  poison: "¡{entity} recibe dardos envenenados!"
+  you_poison: "¡Dardos envenenados te pinchan!"
+  paralysis: "¡{entity} queda envuelto en gas paralizante!"
+  you_paralysis: "¡Gas paralizante te envuelve! ¡No puedes moverte!"
+  gripping: "¡{entity} queda atrapado en mandíbulas de hierro!"
+  you_gripping: "¡Mandíbulas de hierro aprisionan tus piernas!"
+  fire: "¡{entity} es abrasado por las llamas!"
+  you_fire: "¡Las llamas estallan bajo tus pies!"
+  alarm: "¡Un alarido penetrante resuena por la mazmorra!"
+  teleport: "¡{entity} desaparece en un destello de luz!"
+  you_teleport: "¡El mundo gira — estás en otro lugar!"
+  summoning: "¡Criaturas se materializan de la nada!"
+  arrow: "¡{entity} recibe el impacto de un virote!"
+  you_arrow: "¡Un virote sale disparado de la pared!"
+  darts: "¡{entity} recibe una lluvia de dardos!"
+  you_darts: "¡Tres dardos salen disparados de la pared!"
+  falling_stone: "¡Una piedra pesada cae sobre {entity}!"
+  you_falling_stone: "¡Una piedra pesada cae del techo!"
+  spores: "¡{entity} inhala una nube de esporas alucinógenas!"
+  you_spores: "¡Una nube de esporas estalla — todo parece extraño!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -314,7 +353,7 @@ game:
 
 # ── Level up ──────────────────────────────────────────────────────────
 levelup:
-  with_ability: "¡Nivel {level}! +{hp} PV, +1 {ability}."
+  with_abilities: "¡Nivel {level}! +{hp} PV, +1 {abilities}."
   no_ability: "¡Nivel {level}! +{hp} PV."
 
 # ── Habilidades ──────────────────────────────────────────────────────
@@ -409,7 +448,10 @@ ui:
   empty: "vacío"
   scroll_hint: "desplazar"
   esc_cancel: "  ESC para cancelar"
+  farlook_explored: "zona explorada"
+  farlook_unknown: "desconocido"
   inventory_title: "Inventario"
+  pickup_which: "¿Qué objeto quieres recoger?"
   use_which: "¿Qué objeto quieres usar?"
   quaff_which: "¿Qué poción quieres beber?"
   equip_which: "¿Qué objeto quieres equipar?"
@@ -426,6 +468,7 @@ ui:
   victory_desc: "Has descendido más profundo en la mazmorra."
   death_title: "HAS MUERTO"
   death_desc: "Tu aventura termina aquí."
+  death_cause: "Muerto por {cause}."
   end_footer: "Sobreviviste {turn} turnos. Pulsa cualquier tecla para salir."
   mode_typed: "Cambiado a modo escrito. Escribe tus acciones."
   mode_classic: "Cambiado a modo clásico. Usa las teclas."
@@ -987,6 +1030,104 @@ items:
     long: >-
       Brilla con claridad interior. Beberla limpia todo veneno
       y efectos nocivos de tu cuerpo.
+  # ── Armas mágicas ──
+  dagger_plus_1:
+    name: "Daga +1"
+    short: "una daga brillante"
+    long: "Una daga afilada que deja chispas tenues. +1 al ataque y al daño."
+  short_sword_plus_1:
+    name: "Espada Corta +1"
+    short: "una espada corta brillante"
+    long: "Una hoja ágil grabada con runas luminosas. +1 al ataque y al daño."
+  sword_plus_1:
+    name: "Espada +1"
+    short: "una espada brillante"
+    long: "Una hoja fina que vibra con energía arcana. +1 al ataque y al daño."
+  long_sword_plus_1:
+    name: "Espada Larga +1"
+    short: "una espada larga brillante"
+    long: "Una gran hoja envuelta en luz pálida. +1 al ataque y al daño."
+  club_plus_1:
+    name: "Garrote +1"
+    short: "un garrote brillante"
+    long: "Un garrote pesado que pulsa con energía tenue. +1 al ataque y al daño."
+  axe_plus_1:
+    name: "Hacha +1"
+    short: "un hacha brillante"
+    long: "Un hacha grabada con runas que brillan tenuemente. +1 al ataque y al daño."
+  hand_axe_plus_1:
+    name: "Hachuela +1"
+    short: "una hachuela brillante"
+    long: "Una hachuela que vibra al balancearla. +1 al ataque y al daño."
+  mace_plus_1:
+    name: "Maza +1"
+    short: "una maza brillante"
+    long: "Una maza pesada envuelta en luz pálida. +1 al ataque y al daño."
+  spear_plus_1:
+    name: "Lanza +1"
+    short: "una lanza brillante"
+    long: "Una lanza cuya punta brilla con hielo arcano. +1 al ataque y al daño."
+  staff_plus_1:
+    name: "Bastón +1"
+    short: "un bastón brillante"
+    long: "Un bastón de madera atado con runas luminosas. +1 al ataque y al daño."
+  halberd_plus_1:
+    name: "Alabarda +1"
+    short: "una alabarda brillante"
+    long: "Un arma de asta que vibra con fuerza destructiva. +1 al ataque y al daño."
+  war_hammer_plus_1:
+    name: "Martillo de Guerra +1"
+    short: "un martillo de guerra brillante"
+    long: "Un martillo masivo que crepita con energía latente. +1 al ataque y al daño."
+  bow_plus_1:
+    name: "Arco +1"
+    short: "un arco brillante"
+    long: "Un arco cuyas flechas vuelan con precisión sobrenatural. +1 al ataque y al daño."
+  crossbow_plus_1:
+    name: "Ballesta +1"
+    short: "una ballesta brillante"
+    long: "Una ballesta con virotes grabados con runas. +1 al ataque y al daño."
+  sling_plus_1:
+    name: "Honda +1"
+    short: "una honda brillante"
+    long: "Una honda tejida con cuerda encantada. +1 al ataque y al daño."
+  # ── Armadura mágica ──
+  gambeson_plus_1:
+    name: "Gambeson +1"
+    short: "un gambeson encantado"
+    long: "Armadura acolchada tejida con protecciones mágicas. +1 CA."
+  leather_armor_plus_1:
+    name: "Armadura de Cuero +1"
+    short: "una armadura de cuero encantada"
+    long: "Cuero flexible endurecido con tratamiento arcano. +1 CA."
+  brigantine_plus_1:
+    name: "Brigantina +1"
+    short: "una brigantina encantada"
+    long: "Armadura de brigantina reforzada con sigilos protectores. +1 CA."
+  chain_mail_plus_1:
+    name: "Cota de Malla +1"
+    short: "una cota de malla encantada"
+    long: "Eslabones que brillan con magia protectora. +1 CA."
+  plate_cuirass_plus_1:
+    name: "Coraza +1"
+    short: "una coraza encantada"
+    long: "Placa pesada inscrita con protecciones antiguas. +1 CA."
+  full_plate_plus_1:
+    name: "Armadura Completa +1"
+    short: "una armadura completa encantada"
+    long: "Magnífica armadura de placas que irradia protección arcana. +1 CA."
+  shield_plus_1:
+    name: "Escudo +1"
+    short: "un escudo encantado"
+    long: "Un escudo que desvía golpes con precisión sobrenatural. +1 CA."
+  helmet_plus_1:
+    name: "Casco +1"
+    short: "un casco encantado"
+    long: "Un casco que brilla con encantamiento protector. +1 CA."
+  chest:
+    name: "Cofre"
+    short: "un cofre"
+    long: "Un cofre de madera robusto, reforzado con hierro."
   gold:
     name: "Oro"
     short: "un montón de monedas de oro"
@@ -1635,6 +1776,48 @@ features:
   trap_pit:
     name: "Trampa de Foso"
     short: "un foso oculto"
-    long: >-
-      Las losas aquí parecen sutilmente diferentes — más claras,
-      como si hubieran sido colocadas más recientemente.
+    long: "Las losas aquí parecen sutilmente diferentes — más claras, como si hubieran sido colocadas más recientemente."
+  trap_fire:
+    name: "Trampa de Fuego"
+    short: "una trampa de fuego"
+    long: "Marcas de quemaduras en la piedra delatan chorros de llama ocultos."
+  trap_poison:
+    name: "Trampa de Veneno"
+    short: "una trampa de veneno"
+    long: "Agujeros diminutos en la pared ocultan dardos finos como agujas, untados con veneno."
+  trap_paralysis:
+    name: "Trampa de Parálisis"
+    short: "una trampa de parálisis"
+    long: "Un tenue olor químico persiste — una trampa de gas que congela los músculos."
+  trap_alarm:
+    name: "Trampa de Alarma"
+    short: "una trampa de alarma"
+    long: "Un hilo fino conecta con un mecanismo chillón en la pared."
+  trap_teleport:
+    name: "Trampa de Teletransporte"
+    short: "una trampa de teletransporte"
+    long: "Runas arcanas brillan tenuemente en el suelo, formando un círculo de teletransporte."
+  trap_summoning:
+    name: "Trampa de Invocación"
+    short: "una trampa de invocación"
+    long: "Un pentagrama está grabado en la piedra, listo para conjurar criaturas."
+  trap_gripping:
+    name: "Trampa de Mandíbulas"
+    short: "una trampa de mandíbulas"
+    long: "Mandíbulas de hierro yacen ocultas bajo una fina capa de polvo y piedra."
+  trap_arrow:
+    name: "Trampa de Flecha"
+    short: "una trampa de flecha"
+    long: "Una ranura diminuta en la pared oculta un mecanismo de ballesta cargada."
+  trap_darts:
+    name: "Trampa de Dardos"
+    short: "una trampa de dardos"
+    long: "Tres agujeros de cerbatana están astutamente disimulados en la piedra."
+  trap_falling_stone:
+    name: "Trampa de Piedra"
+    short: "una trampa de piedra"
+    long: "Una grieta en el techo marca donde una piedra pesada contrapesada espera para caer."
+  trap_spores:
+    name: "Trampa de Esporas"
+    short: "una trampa de esporas"
+    long: "Vainas fúngicas secas anidan entre las losas, listas para estallar."
