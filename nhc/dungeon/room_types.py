@@ -119,12 +119,19 @@ def _random_floor(rect: Rect, rng: random.Random) -> tuple[int, int]:
 
 
 def _paint_treasury(level: Level, rect: Rect, rng: random.Random) -> None:
-    """Gold heaps + possible mimic."""
+    """Gold heaps, chests, + possible mimic."""
     for _ in range(rng.randint(2, 4)):
         x, y = _random_floor(rect, rng)
         level.entities.append(EntityPlacement(
             entity_type="item", entity_id="gold",
             x=x, y=y, extra={"dice": "4d6"},
+        ))
+    # Place 1-2 chests in treasury rooms
+    for _ in range(rng.randint(1, 2)):
+        x, y = _random_floor(rect, rng)
+        level.entities.append(EntityPlacement(
+            entity_type="feature", entity_id="chest",
+            x=x, y=y,
         ))
     if rng.random() < 0.2:
         x, y = _random_floor(rect, rng)

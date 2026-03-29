@@ -87,26 +87,45 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("wand_magic_missile", 0.03), ("wand_firebolt", 0.02),
         ("ring_protection", 0.02), ("ring_mending", 0.02),
         ("wand_poison", 0.02), ("potion_strength", 0.04),
+        ("sword_plus_1", 0.02), ("dagger_plus_1", 0.02),
+        ("shield_plus_1", 0.02), ("gambeson_plus_1", 0.02),
     ],
     4: [
-        ("healing_potion", 0.08), ("sword", 0.06), ("shield", 0.06),
-        ("scroll_fireball", 0.08), ("scroll_hold_person", 0.08),
-        ("scroll_haste", 0.08), ("scroll_invisibility", 0.08),
-        ("scroll_mirror_image", 0.07), ("scroll_charm_person", 0.07),
-        ("scroll_protection_evil", 0.10),
+        ("healing_potion", 0.06), ("sword", 0.03), ("shield", 0.03),
+        ("scroll_fireball", 0.07), ("scroll_hold_person", 0.07),
+        ("scroll_haste", 0.07), ("scroll_invisibility", 0.07),
+        ("scroll_mirror_image", 0.06), ("scroll_charm_person", 0.06),
+        ("scroll_protection_evil", 0.08),
         ("wand_firebolt", 0.03), ("wand_lightning", 0.03),
         ("wand_disintegrate", 0.02), ("wand_teleport", 0.02),
         ("ring_haste", 0.02), ("ring_evasion", 0.02),
         ("ring_elements", 0.02), ("ring_accuracy", 0.02),
         ("ring_shadows", 0.02), ("ring_detection", 0.02),
         ("wand_amok", 0.02),
+        ("sword_plus_1", 0.03), ("axe_plus_1", 0.02),
+        ("mace_plus_1", 0.02), ("long_sword_plus_1", 0.01),
+        ("spear_plus_1", 0.02), ("war_hammer_plus_1", 0.01),
+        ("bow_plus_1", 0.01), ("crossbow_plus_1", 0.01),
+        ("brigantine_plus_1", 0.02), ("chain_mail_plus_1", 0.01),
+        ("shield_plus_1", 0.02), ("helmet_plus_1", 0.02),
     ],
 }
 
 # ── Feature/trap pools ───────────────────────────────────────────────
 
 FEATURE_POOLS: list[tuple[str, float]] = [
-    ("trap_pit", 1.0),
+    ("trap_pit", 0.12),
+    ("trap_fire", 0.10),
+    ("trap_poison", 0.10),
+    ("trap_paralysis", 0.08),
+    ("trap_alarm", 0.07),
+    ("trap_teleport", 0.07),
+    ("trap_summoning", 0.06),
+    ("trap_gripping", 0.08),
+    ("trap_arrow", 0.10),
+    ("trap_darts", 0.08),
+    ("trap_falling_stone", 0.07),
+    ("trap_spores", 0.07),
 ]
 
 
@@ -223,6 +242,19 @@ def populate_level(
         if pos:
             level.entities.append(EntityPlacement(
                 entity_type="item", entity_id="gold",
+                x=pos[0], y=pos[1],
+            ))
+
+    # ── Place chests ──
+    chest_count = rng.randint(0, 1 + level.depth // 2)
+    for _ in range(chest_count):
+        if not placeable:
+            break
+        room = rng.choice(placeable)
+        pos = _pick_floor(room)
+        if pos:
+            level.entities.append(EntityPlacement(
+                entity_type="feature", entity_id="chest",
                 x=pos[0], y=pos[1],
             ))
 

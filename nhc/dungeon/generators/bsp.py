@@ -278,6 +278,17 @@ class BSPGenerator(DungeonGenerator):
         # L-shaped corridors can leave dead stubs at bend points.
         # Iteratively remove corridor tiles with ≤1 floor neighbor
         # until no more dead ends remain.
+        def _adjacent_to_door(ax: int, ay: int) -> bool:
+            """True if any cardinal neighbor is a door."""
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nb = level.tile_at(ax + ddx, ay + ddy)
+                if nb and nb.feature in (
+                    "door_closed", "door_open", "door_secret",
+                    "door_locked",
+                ):
+                    return True
+            return False
+
         pruned = True
         while pruned:
             pruned = False
@@ -287,6 +298,9 @@ class BSPGenerator(DungeonGenerator):
                     if not (tile.terrain == Terrain.FLOOR
                             and tile.is_corridor
                             and not tile.feature):
+                        continue
+                    # Never prune corridor tiles next to doors
+                    if _adjacent_to_door(x, y):
                         continue
                     floor_neighbors = 0
                     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -310,6 +324,9 @@ class BSPGenerator(DungeonGenerator):
                     if not (tile.terrain == Terrain.FLOOR
                             and tile.is_corridor
                             and not tile.feature):
+                        continue
+                    # Never prune corridor tiles next to doors
+                    if _adjacent_to_door(x, y):
                         continue
                     floor_neighbors = 0
                     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
@@ -335,6 +352,113 @@ class BSPGenerator(DungeonGenerator):
                         # Prune
                         level.tiles[y][x] = Tile(terrain=Terrain.VOID)
                         changed = True
+
+        # ── Step 3c: Remove orphaned doors ──
+        # After pruning, some doors may have no corridor/floor on the
+        # non-room side.  Revert those back to plain walls.
+        door_features = {
+            "door_closed", "door_open", "door_secret", "door_locked",
+        }
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if tile.feature not in door_features:
+                    continue
+                # Find which room this door belongs to (adjacent floor
+                # that is NOT a corridor)
+                has_room_side = False
+                has_corridor_side = False
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = level.tile_at(x + dx, y + dy)
+                    if not nb:
+                        continue
+                    if nb.terrain == Terrain.FLOOR and not nb.is_corridor:
+                        has_room_side = True
+                    if nb.terrain == Terrain.FLOOR and nb.is_corridor:
+                        has_corridor_side = True
+                if has_room_side and not has_corridor_side:
+                    # Door leads nowhere — revert to wall
+                    level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+                    logger.debug(
+                        "Removed orphaned door at (%d, %d)", x, y,
+                    )
+
+        all_door_feats = {
+            "door_closed", "door_open", "door_secret", "door_locked",
+        }
+
+        # ── Step 3d: Verify connectivity via flood fill ──
+        # After all pruning and cleanup, verify every room is reachable
+        # from the entrance via walkable tiles.  If not, re-carve.
+        def _flood_reachable(sx: int, sy: int) -> set[tuple[int, int]]:
+            """Flood-fill from (sx,sy) across FLOOR tiles."""
+            visited: set[tuple[int, int]] = set()
+            stack = [(sx, sy)]
+            while stack:
+                fx, fy = stack.pop()
+                if (fx, fy) in visited:
+                    continue
+                ft = level.tile_at(fx, fy)
+                if not ft or ft.terrain != Terrain.FLOOR:
+                    continue
+                visited.add((fx, fy))
+                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    stack.append((fx + ddx, fy + ddy))
+            return visited
+
+        ecx, ecy = rects[entrance].center
+        reconnected = 0
+        for _attempt in range(len(rects)):
+            reachable = _flood_reachable(ecx, ecy)
+            found_disconnect = False
+            for ri, rect in enumerate(rects):
+                rcx, rcy = rect.center
+                if (rcx, rcy) in reachable:
+                    continue
+                found_disconnect = True
+                # Room is disconnected — find closest reachable room
+                best_other = None
+                best_dist = 9999
+                for oi, orect in enumerate(rects):
+                    ocx, ocy = orect.center
+                    if (ocx, ocy) not in reachable:
+                        continue
+                    d = abs(rcx - ocx) + abs(rcy - ocy)
+                    if d < best_dist:
+                        best_dist = d
+                        best_other = oi
+                if best_other is not None:
+                    # Use force=True on _carve_line to punch through
+                    # any walls in the path
+                    self._carve_corridor_force(
+                        level, rect, rects[best_other], rng,
+                    )
+                    reconnected += 1
+                    logger.info(
+                        "Reconnected room_%d to room_%d (flood-fill)",
+                        ri + 1, best_other + 1,
+                    )
+                break  # Re-check from scratch after each reconnection
+            if not found_disconnect:
+                break
+
+        if reconnected:
+            logger.info("Post-prune reconnection: %d corridors added",
+                        reconnected)
+
+        # ── Step 3e: Final door harmonization ──
+        # Reconnection (3d) may have added new doors adjacent to
+        # existing ones.  One final pass to unify types.
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if tile.feature not in all_door_feats:
+                    continue
+                for ddx, ddy in [(1, 0), (0, 1)]:
+                    nb = level.tile_at(x + ddx, y + ddy)
+                    if nb and nb.feature in all_door_feats:
+                        if nb.feature != tile.feature:
+                            nb.feature = tile.feature
 
         # ── Step 4: Stairs ──
         sx, sy = rects[entrance].center
@@ -408,12 +532,14 @@ class BSPGenerator(DungeonGenerator):
         cx, cy = rect.center
         dx, dy = tx - cx, ty - cy
 
+        _DOOR_FEATURES = {
+            "door_closed", "door_open", "door_secret", "door_locked",
+        }
+
         def _has_adjacent_door(wx: int, wy: int) -> bool:
             for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nb = level.tile_at(wx + ddx, wy + ddy)
-                if nb and nb.feature in (
-                    "door_closed", "door_open", "door_secret",
-                ):
+                if nb and nb.feature in _DOOR_FEATURES:
                     return True
             return False
 
@@ -494,13 +620,34 @@ class BSPGenerator(DungeonGenerator):
         wb_x, wb_y = self._wall_entry(level, b, ax, ay)
 
         # Convert wall entries to doors
-        secret = rng.random() < 0.1
+        # 10% secret, 5-15% locked (scales with depth), rest normal
+        roll = rng.random()
+        depth = getattr(level, "depth", 1)
+        lock_chance = 0.05 + depth * 0.02  # 7% at depth 1, 15% at depth 5
+        if roll < 0.1:
+            feat = "door_secret"
+        elif roll < 0.1 + lock_chance:
+            feat = "door_locked"
+        else:
+            feat = "door_closed"
+
+        door_feats = {
+            "door_closed", "door_open", "door_secret", "door_locked",
+        }
         for wx, wy in [(wa_x, wa_y), (wb_x, wb_y)]:
             t = level.tile_at(wx, wy)
             if t and t.terrain == Terrain.WALL:
-                feat = "door_secret" if secret else "door_closed"
+                # If there's an adjacent door, match its type so
+                # double-door pairs are always consistent
+                adj_feat = None
+                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = level.tile_at(wx + ddx, wy + ddy)
+                    if nb and nb.feature in door_feats:
+                        adj_feat = nb.feature
+                        break
                 level.tiles[wy][wx] = Tile(
-                    terrain=Terrain.FLOOR, feature=feat,
+                    terrain=Terrain.FLOOR,
+                    feature=adj_feat if adj_feat else feat,
                 )
 
         # Step one tile outside each door into VOID
@@ -520,29 +667,81 @@ class BSPGenerator(DungeonGenerator):
 
         # Carve L-shaped corridor through VOID only
         if rng.random() < 0.5:
-            self._carve_line(level, sx, sy, ex, sy)   # horizontal
-            self._carve_line(level, ex, sy, ex, ey)   # vertical
+            self._carve_line(level, sx, sy, ex, sy)
+            self._carve_line(level, ex, sy, ex, ey)
         else:
-            self._carve_line(level, sx, sy, sx, ey)   # vertical
-            self._carve_line(level, sx, ey, ex, ey)   # horizontal
+            self._carve_line(level, sx, sy, sx, ey)
+            self._carve_line(level, sx, ey, ex, ey)
+
+    def _carve_corridor_force(
+        self, level: Level, a: Rect, b: Rect, rng: random.Random,
+    ) -> None:
+        """Connect two rooms, punching through walls if needed.
+
+        Same as _carve_corridor but uses force=True on _carve_line
+        to guarantee the corridor actually connects even if walls
+        from other rooms are in the path.
+        """
+        bx, by = b.center
+        ax, ay = a.center
+
+        wa_x, wa_y = self._wall_entry(level, a, bx, by)
+        wb_x, wb_y = self._wall_entry(level, b, ax, ay)
+
+        for wx, wy in [(wa_x, wa_y), (wb_x, wb_y)]:
+            t = level.tile_at(wx, wy)
+            if t and t.terrain == Terrain.WALL:
+                level.tiles[wy][wx] = Tile(
+                    terrain=Terrain.FLOOR, feature="door_closed",
+                )
+
+        def _outward(room: Rect, wx: int, wy: int) -> tuple[int, int]:
+            if wx < room.x:
+                return wx - 1, wy
+            if wx >= room.x2:
+                return wx + 1, wy
+            if wy < room.y:
+                return wx, wy - 1
+            if wy >= room.y2:
+                return wx, wy + 1
+            return wx, wy
+
+        sx, sy = _outward(a, wa_x, wa_y)
+        ex, ey = _outward(b, wb_x, wb_y)
+
+        if rng.random() < 0.5:
+            self._carve_line(level, sx, sy, ex, sy, force=True)
+            self._carve_line(level, ex, sy, ex, ey, force=True)
+        else:
+            self._carve_line(level, sx, sy, sx, ey, force=True)
+            self._carve_line(level, sx, ey, ex, ey, force=True)
 
     def _carve_line(
         self, level: Level, x1: int, y1: int, x2: int, y2: int,
+        force: bool = False,
     ) -> None:
-        """Carve a straight corridor line.  Only replaces VOID tiles."""
+        """Carve a straight corridor line.
+
+        Normally only replaces VOID tiles.  When *force* is True,
+        also carves through WALL tiles (placing a door at each
+        wall crossing) to guarantee connectivity.
+        """
+        def _carve_tile(cx: int, cy: int) -> None:
+            if not level.in_bounds(cx, cy):
+                return
+            t = level.tiles[cy][cx]
+            if t.terrain == Terrain.VOID:
+                level.tiles[cy][cx] = Tile(
+                    terrain=Terrain.FLOOR, is_corridor=True,
+                )
+            elif force and t.terrain == Terrain.WALL:
+                level.tiles[cy][cx] = Tile(
+                    terrain=Terrain.FLOOR, feature="door_closed",
+                )
+
         if y1 == y2:
             for x in range(min(x1, x2), max(x1, x2) + 1):
-                if level.in_bounds(x, y1):
-                    t = level.tiles[y1][x]
-                    if t.terrain == Terrain.VOID:
-                        level.tiles[y1][x] = Tile(
-                            terrain=Terrain.FLOOR, is_corridor=True,
-                        )
+                _carve_tile(x, y1)
         else:
             for y in range(min(y1, y2), max(y1, y2) + 1):
-                if level.in_bounds(x1, y):
-                    t = level.tiles[y][x1]
-                    if t.terrain == Terrain.VOID:
-                        level.tiles[y][x1] = Tile(
-                            terrain=Terrain.FLOOR, is_corridor=True,
-                        )
+                _carve_tile(x1, y)

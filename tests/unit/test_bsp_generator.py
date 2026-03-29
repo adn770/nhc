@@ -94,6 +94,85 @@ class TestBSPGenerator:
                 or a.rooms[0].rect != b.rooms[0].rect)
 
 
+    def test_no_orphaned_doors(self):
+        """Every door must have a corridor or room floor on both sides."""
+        door_feats = {"door_closed", "door_open", "door_secret"}
+        for seed in [42, 99, 123, 256, 1748291]:
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(GenerationParams(width=80, height=50))
+            for y in range(level.height):
+                for x in range(level.width):
+                    tile = level.tiles[y][x]
+                    if tile.feature not in door_feats:
+                        continue
+                    # Door must have floor on at least 2 cardinal sides
+                    floor_sides = 0
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb and nb.terrain == Terrain.FLOOR:
+                            floor_sides += 1
+                    assert floor_sides >= 2, (
+                        f"Orphaned door at ({x},{y}) seed={seed}: "
+                        f"only {floor_sides} floor neighbor(s)"
+                    )
+
+
+    def test_adjacent_doors_same_type(self):
+        """Adjacent doors must always be the same type."""
+        door_feats = {"door_closed", "door_open", "door_secret",
+                      "door_locked"}
+        for seed in range(200):
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(GenerationParams(width=120, height=40))
+            for y in range(level.height):
+                for x in range(level.width):
+                    tile = level.tiles[y][x]
+                    if tile.feature not in door_feats:
+                        continue
+                    for dx, dy in [(1, 0), (0, 1)]:
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb and nb.feature in door_feats:
+                            assert tile.feature == nb.feature, (
+                                f"Mismatched doors at ({x},{y})="
+                                f"{tile.feature} and ({x+dx},{y+dy})="
+                                f"{nb.feature} seed={seed}"
+                            )
+
+    def test_all_rooms_reachable(self):
+        """Every room must be reachable from the entry room via floor tiles."""
+        def flood(level, sx, sy):
+            visited = set()
+            stack = [(sx, sy)]
+            while stack:
+                fx, fy = stack.pop()
+                if (fx, fy) in visited:
+                    continue
+                t = level.tile_at(fx, fy)
+                if not t or t.terrain != Terrain.FLOOR:
+                    continue
+                visited.add((fx, fy))
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    stack.append((fx + dx, fy + dy))
+            return visited
+
+        for seed in range(500):
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(GenerationParams(width=80, height=50))
+            entry = [r for r in level.rooms if "entry" in r.tags]
+            assert entry, f"No entry room seed={seed}"
+            ex, ey = entry[0].rect.center
+            reachable = flood(level, ex, ey)
+            for room in level.rooms:
+                rx, ry = room.rect.center
+                assert (rx, ry) in reachable, (
+                    f"Room {room.id} at ({rx},{ry}) unreachable "
+                    f"from entry at ({ex},{ey}) seed={seed}"
+                )
+
+
 class TestRoomTypes:
     def test_assigns_types(self):
         set_seed(42)

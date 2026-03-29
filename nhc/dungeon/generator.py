@@ -18,8 +18,8 @@ class Range:
 @dataclass
 class GenerationParams:
     """Parameters controlling procedural level generation."""
-    width: int = 80
-    height: int = 50
+    width: int = 120
+    height: int = 40
     depth: int = 1
     room_count: Range = field(default_factory=lambda: Range(5, 15))
     room_size: Range = field(default_factory=lambda: Range(4, 12))
