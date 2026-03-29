@@ -1,5 +1,9 @@
 /**
  * Map rendering: floor SVG + entity overlay canvas.
+ *
+ * Supports two tileset types:
+ * - "text": Renders glyphs as colored text (classic terminal look)
+ * - "image": Renders sprites from a PNG sprite sheet
  */
 const GameMap = {
   canvas: null,
@@ -29,18 +33,22 @@ const GameMap = {
   },
 
   loadTileset(name) {
-    return fetch(`/api/tileset/${name}/manifest.json`)
+    return fetch(`/static/tilesets/${name}/manifest.json`)
       .then(r => r.json())
       .then(manifest => {
         this.tileset = manifest;
-        this.tilesetImg = new Image();
-        this.tilesetImg.src = `/api/tileset/${name}/${manifest.image}`;
-        return new Promise(resolve => {
-          this.tilesetImg.onload = resolve;
-        });
+        if (manifest.type === "image" && manifest.image) {
+          this.tilesetImg = new Image();
+          this.tilesetImg.src =
+            `/static/tilesets/${name}/${manifest.image}`;
+          return new Promise(resolve => {
+            this.tilesetImg.onload = resolve;
+          });
+        }
+        // Text-type tileset — no image to load
+        this.tilesetImg = null;
       })
       .catch(() => {
-        // Tileset not available yet — use text fallback
         this.tileset = null;
         this.tilesetImg = null;
       });
@@ -56,6 +64,17 @@ const GameMap = {
     this.draw();
   },
 
+  /**
+   * Resolve a color name to a CSS hex color.
+   * Uses the tileset color map if available, otherwise returns as-is.
+   */
+  _resolveColor(colorName) {
+    if (this.tileset && this.tileset.colors) {
+      return this.tileset.colors[colorName] || colorName;
+    }
+    return colorName || "#FFFFFF";
+  },
+
   draw() {
     const ctx = this.ctx;
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -64,9 +83,11 @@ const GameMap = {
       const px = ent.x * this.cellSize + this.padding;
       const py = ent.y * this.cellSize + this.padding;
 
-      if (this.tileset && this.tilesetImg) {
+      // Image-type tileset: draw from sprite sheet
+      if (this.tileset && this.tileset.type === "image"
+          && this.tilesetImg) {
         const sprite = this.tileset.sprites[ent.glyph];
-        if (sprite) {
+        if (sprite && sprite.x !== undefined) {
           ctx.drawImage(
             this.tilesetImg,
             sprite.x, sprite.y,
@@ -78,11 +99,25 @@ const GameMap = {
         }
       }
 
-      // Fallback: draw glyph as text
-      ctx.font = `bold ${this.cellSize - 4}px monospace`;
+      // Text-type tileset or fallback: draw glyph as text
+      const font = (this.tileset && this.tileset.font)
+        || `bold ${this.cellSize - 4}px monospace`;
+      ctx.font = font;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillStyle = ent.color || "#FFFFFF";
+
+      // Resolve color from tileset sprite definition or entity color
+      let color = ent.color || "#FFFFFF";
+      if (this.tileset && this.tileset.sprites) {
+        const sprite = this.tileset.sprites[ent.glyph];
+        if (sprite && sprite.color) {
+          color = this._resolveColor(sprite.color);
+        } else {
+          color = this._resolveColor(color);
+        }
+      }
+
+      ctx.fillStyle = color;
       ctx.fillText(
         ent.glyph,
         px + this.cellSize / 2,

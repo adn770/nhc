@@ -34,6 +34,7 @@ class WebClient(GameClient):
         self.game_mode = game_mode
         self.lang = lang
         self.messages: list[str] = []
+        self.floor_svg: str = ""
         self._ws = None
         self._input_queue: queue.Queue = queue.Queue()
         self._menu_response: queue.Queue = queue.Queue()
@@ -103,7 +104,9 @@ class WebClient(GameClient):
     # ── Lifecycle ────────────────────────────────────────────────
 
     def initialize(self) -> None:
-        """Nothing to do — WS is already connected."""
+        """Send the floor SVG to the client on game start."""
+        if self.floor_svg:
+            self._send({"type": "floor", "svg": self.floor_svg})
 
     def shutdown(self) -> None:
         """Notify client that the session is ending."""

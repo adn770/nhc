@@ -74,6 +74,13 @@ def create_app(config: WebConfig | None = None) -> Flask:
         finally:
             loop.close()
 
+        # Generate floor SVG and store on the client
+        from nhc.rendering.svg import render_floor_svg
+        if game.level:
+            client.floor_svg = render_floor_svg(
+                game.level, seed=game.seed or 0,
+            )
+
         return jsonify({
             "session_id": session.session_id,
             "lang": session.lang,
