@@ -543,7 +543,7 @@ def _render_hatching_dmap(
                     f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
                     f'rx="{rx:.1f}" ry="{ry:.1f}" '
                     f'transform="rotate({angle:.0f},{sx:.1f},{sy:.1f})" '
-                    f'fill="{HATCH_UNDERLAY}" stroke="{INK}" '
+                    f'fill="{HATCH_UNDERLAY}" stroke="#CCCCCC" '
                     f'stroke-width="{sw:.1f}"/>')
 
             # Perlin-displaced cluster anchor
@@ -622,7 +622,7 @@ def _render_hatching_dmap(
     if hatch_lines:
         svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
     if hatch_stones:
-        svg.append(f'<g opacity="0.4">{"".join(hatch_stones)}</g>')
+        svg.append(f'<g>{"".join(hatch_stones)}</g>')
 
 
 def _build_dungeon_polygon(level: "Level") -> Polygon:
