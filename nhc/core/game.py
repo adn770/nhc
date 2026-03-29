@@ -55,6 +55,53 @@ if TYPE_CHECKING:
 FOV_RADIUS = 8
 
 
+def _resolve_click(
+    world: World, level: "Level", player_id: int,
+    target_x: int, target_y: int,
+) -> "Action | None":
+    """Translate a map click into a game action.
+
+    - Click on self → wait
+    - Click adjacent tile → bump (move/attack/open door)
+    - Click distant visible floor → single step toward target
+    - Click wall/void/out-of-bounds → None
+    """
+    pos = world.get_component(player_id, "Position")
+    if not pos:
+        return None
+
+    # Out of bounds
+    if not level.in_bounds(target_x, target_y):
+        return None
+
+    tile = level.tile_at(target_x, target_y)
+    if not tile:
+        return None
+
+    dx = target_x - pos.x
+    dy = target_y - pos.y
+
+    # Click on self
+    if dx == 0 and dy == 0:
+        return WaitAction(actor=player_id)
+
+    # Normalize to single step direction
+    step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
+    step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
+
+    # Adjacent click (including diagonal)
+    if abs(dx) <= 1 and abs(dy) <= 1:
+        return BumpAction(actor=player_id, dx=dx, dy=dy)
+
+    # Distant click — check target is walkable floor
+    from nhc.dungeon.model import Terrain
+    if tile.terrain not in (Terrain.FLOOR, Terrain.WATER):
+        return None
+
+    # Step one tile toward the target
+    return BumpAction(actor=player_id, dx=step_x, dy=step_y)
+
+
 class Game:
     """Main game controller. Owns the world, event bus, and loop."""
 
@@ -764,6 +811,12 @@ class Game:
         if intent == "toggle_mode":
             self._toggle_mode()
             return None
+
+        if intent == "click" and data:
+            return _resolve_click(
+                self.world, self.level, self.player_id,
+                data.get("x", 0), data.get("y", 0),
+            )
 
         if intent == "quit":
             self.running = False
