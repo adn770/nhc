@@ -184,15 +184,14 @@ def _door_opens_vertically(level: "Level", x: int, y: int) -> bool:
 
 
 def _render_doors(svg: list[str], level: "Level") -> None:
-    """Draw doors as openings in the room wall.
+    """Draw doors as small rectangles on top of the room wall.
 
-    For each door tile that sits on a wall between a corridor and
-    a room: punch a white gap over the wall, then draw short notch
-    marks on the wall ends to indicate the door frame.
-    Open doors just get the gap (no notches).
+    A thin-stroked, white-filled rectangle is drawn centered on the
+    wall edge where the corridor meets the room. The white fill
+    covers the wall underneath, and the thin outline gives the door
+    frame look. Open doors are just the gap (no rectangle).
     """
-    gap = DOOR_GAP  # fraction of cell for the opening
-    notch = CELL * 0.20  # length of notch mark
+    door_stroke = WALL_WIDTH * 0.5  # thinner than walls
 
     for y in range(level.height):
         for x in range(level.width):
@@ -205,78 +204,34 @@ def _render_doors(svg: list[str], level: "Level") -> None:
 
             px, py = x * CELL, y * CELL
             vertical = _door_opens_vertically(level, x, y)
-            half_gap = CELL * gap / 2
-            cx, cy = px + CELL / 2, py + CELL / 2
-            wall_extra = WALL_WIDTH + 2  # ensure we cover the wall
 
+            # Size of the door rectangle
             if vertical:
-                # Passage is left-right. Wall runs top-bottom through
-                # this tile. Punch a gap in the vertical wall segments
-                # on the left and right sides of this tile.
-
-                # White rectangle to erase the wall on both sides
-                # Left wall gap
-                if not _is_floor(level, x, y - 1):
-                    svg.append(
-                        f'<rect x="{px - wall_extra / 2}" '
-                        f'y="{cy - half_gap}" '
-                        f'width="{wall_extra}" '
-                        f'height="{half_gap * 2}" fill="{BG}"/>')
-                if not _is_floor(level, x, y + 1):
-                    svg.append(
-                        f'<rect x="{px + CELL - wall_extra / 2}" '
-                        f'y="{cy - half_gap}" '
-                        f'width="{wall_extra}" '
-                        f'height="{half_gap * 2}" fill="{BG}"/>')
-
-                # Notch marks (short thick lines at gap ends)
-                if tile.feature != "door_open":
-                    for wx in (px, px + CELL):
-                        # Top notch
-                        svg.append(
-                            f'<line x1="{wx}" y1="{cy - half_gap}" '
-                            f'x2="{wx}" '
-                            f'y2="{cy - half_gap - notch}" '
-                            f'stroke="{INK}" '
-                            f'stroke-width="{WALL_WIDTH + 1}" '
-                            f'stroke-linecap="round"/>')
-                        # Bottom notch
-                        svg.append(
-                            f'<line x1="{wx}" y1="{cy + half_gap}" '
-                            f'x2="{wx}" '
-                            f'y2="{cy + half_gap + notch}" '
-                            f'stroke="{INK}" '
-                            f'stroke-width="{WALL_WIDTH + 1}" '
-                            f'stroke-linecap="round"/>')
+                # Passage left-right, wall runs top-bottom
+                dw = CELL * 0.35
+                dh = CELL * 0.7
             else:
-                # Passage is top-bottom. Wall runs left-right.
-                if not _is_floor(level, x - 1, y):
-                    svg.append(
-                        f'<rect x="{cx - half_gap}" '
-                        f'y="{py - wall_extra / 2}" '
-                        f'width="{half_gap * 2}" '
-                        f'height="{wall_extra}" fill="{BG}"/>')
-                if not _is_floor(level, x + 1, y):
-                    svg.append(
-                        f'<rect x="{cx - half_gap}" '
-                        f'y="{py + CELL - wall_extra / 2}" '
-                        f'width="{half_gap * 2}" '
-                        f'height="{wall_extra}" fill="{BG}"/>')
+                # Passage top-bottom, wall runs left-right
+                dw = CELL * 0.7
+                dh = CELL * 0.35
 
-                if tile.feature != "door_open":
-                    for wy in (py, py + CELL):
-                        svg.append(
-                            f'<line x1="{cx - half_gap}" y1="{wy}" '
-                            f'x2="{cx - half_gap - notch}" y2="{wy}" '
-                            f'stroke="{INK}" '
-                            f'stroke-width="{WALL_WIDTH + 1}" '
-                            f'stroke-linecap="round"/>')
-                        svg.append(
-                            f'<line x1="{cx + half_gap}" y1="{wy}" '
-                            f'x2="{cx + half_gap + notch}" y2="{wy}" '
-                            f'stroke="{INK}" '
-                            f'stroke-width="{WALL_WIDTH + 1}" '
-                            f'stroke-linecap="round"/>')
+            # Center the rectangle on the door tile
+            dx = px + (CELL - dw) / 2
+            dy = py + (CELL - dh) / 2
+
+            # White fill to erase the wall underneath
+            svg.append(
+                f'<rect x="{dx:.1f}" y="{dy:.1f}" '
+                f'width="{dw:.1f}" height="{dh:.1f}" '
+                f'fill="{BG}"/>')
+
+            # Draw the door outline (not for open doors)
+            if tile.feature != "door_open":
+                svg.append(
+                    f'<rect x="{dx:.1f}" y="{dy:.1f}" '
+                    f'width="{dw:.1f}" height="{dh:.1f}" '
+                    f'fill="none" stroke="{INK}" '
+                    f'stroke-width="{door_stroke:.1f}"/>')
 
 
 def _render_stairs(svg: list[str], level: "Level") -> None:

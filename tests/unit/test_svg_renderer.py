@@ -55,13 +55,12 @@ class TestSVGOutput:
         assert "stroke-linecap" in svg
         assert "#000000" in svg
 
-    def test_door_creates_wall_gap(self):
-        """Door tiles should not have wall segments on opening sides."""
+    def test_door_draws_thin_rectangle(self):
+        """Closed doors should be thin-stroked rectangles on the wall."""
         level = _make_level()
         svg = render_floor_svg(level)
-        # Door at (6,3) is vertical (floor left/right)
-        # Should have notch marks (stroke-width > WALL_WIDTH)
-        assert "stroke-width=\"5" in svg  # notch thickness
+        # Door rectangle has thinner stroke than walls (wall=4, door=2)
+        assert 'stroke-width="2.0"' in svg
 
     def test_stairs_down_triangle(self):
         """Stairs down should render as a triangle with vertical lines."""
@@ -88,13 +87,12 @@ class TestSVGOutput:
         expected_h = 8 * CELL + 2 * PADDING
         assert f'viewBox="0 0 {expected_w} {expected_h}"' in svg
 
-    def test_locked_door_has_notch(self):
+    def test_locked_door_has_rectangle(self):
+        """Locked doors also get the thin-stroked rectangle."""
         level = _make_level()
         level.tiles[3][6].feature = "door_locked"
         svg = render_floor_svg(level)
-        assert "polygon" in svg  # stairs still present
-        # Locked doors also get notch marks
-        assert "stroke-width=\"5" in svg
+        assert 'stroke-width="2.0"' in svg
 
     def test_open_door_no_notch(self):
         """Open doors are just gaps — no notch marks."""
