@@ -203,25 +203,31 @@ def _render_floor_detail(
                 continue
             px, py = x * CELL, y * CELL
 
-            # ~8% chance of a crack starting from a tile corner
+            # ~8% chance of a crack triangle at a tile corner
             if rng.random() < 0.08:
-                # Pick a random corner of this tile
-                corners = [
-                    (px, py),                  # top-left
-                    (px + CELL, py),           # top-right
-                    (px, py + CELL),           # bottom-left
-                    (px + CELL, py + CELL),    # bottom-right
-                ]
-                cx, cy = corners[rng.randint(0, 3)]
-                pts = [f'M{cx:.1f},{cy:.1f}']
-                # 2-4 jagged segments radiating inward
-                for _ in range(rng.randint(2, 4)):
-                    cx += rng.uniform(-CELL * 0.3, CELL * 0.3)
-                    cy += rng.uniform(-CELL * 0.3, CELL * 0.3)
-                    cx = max(px + 1, min(px + CELL - 1, cx))
-                    cy = max(py + 1, min(py + CELL - 1, cy))
-                    pts.append(f'L{cx:.1f},{cy:.1f}')
-                cracks.append(" ".join(pts))
+                # Pick a random corner and draw a small triangle
+                # connecting two orthogonal grid lines
+                corner = rng.randint(0, 3)
+                # Triangle size along each grid line
+                s1 = rng.uniform(CELL * 0.15, CELL * 0.4)
+                s2 = rng.uniform(CELL * 0.15, CELL * 0.4)
+                if corner == 0:    # top-left
+                    tri = (f'{px},{py} '
+                           f'{px + s1},{py} '
+                           f'{px},{py + s2}')
+                elif corner == 1:  # top-right
+                    tri = (f'{px + CELL},{py} '
+                           f'{px + CELL - s1},{py} '
+                           f'{px + CELL},{py + s2}')
+                elif corner == 2:  # bottom-left
+                    tri = (f'{px},{py + CELL} '
+                           f'{px + s1},{py + CELL} '
+                           f'{px},{py + CELL - s2}')
+                else:              # bottom-right
+                    tri = (f'{px + CELL},{py + CELL} '
+                           f'{px + CELL - s1},{py + CELL} '
+                           f'{px + CELL},{py + CELL - s2}')
+                cracks.append(tri)
 
             # ~6% chance of a stone
             if rng.random() < 0.06:
@@ -237,12 +243,13 @@ def _render_floor_detail(
                     f'fill="none" stroke="{INK}" stroke-width="0.4"/>')
 
     if cracks:
-        svg.append(
-            f'<g opacity="0.5">'
-            f'<path d="{" ".join(cracks)}" fill="none" '
+        polys = "".join(
+            f'<polygon points="{tri}" fill="none" '
             f'stroke="{INK}" stroke-width="0.5" '
-            f'stroke-linecap="round"/>'
-            f'</g>')
+            f'stroke-linejoin="round"/>'
+            for tri in cracks
+        )
+        svg.append(f'<g opacity="0.5">{polys}</g>')
     if stones:
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
 
