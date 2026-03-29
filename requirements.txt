@@ -2,6 +2,9 @@
 blessed
 pyyaml
 
+# Web server (optional — for nhc_web.py)
+flask
+
 # Testing
 pytest
 pytest-asyncio
