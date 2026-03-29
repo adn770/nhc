@@ -60,6 +60,9 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 3: Soft floor grid (rooms + corridors)
     _render_floor_grid(svg, level)
 
+    # Layer 3b: Floor detail — cracks and stones
+    _render_floor_detail(svg, level, seed)
+
     # Layer 4: Walls (solid, no gaps)
     _render_walls(svg, level)
 
@@ -124,8 +127,9 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
     Uses Perlin noise to slightly wobble line endpoints and vary
     stroke width, giving an organic hand-drawn look.
     """
+    rng = random.Random(41)  # fixed seed for grid consistency
     segments: list[str] = []
-    wobble = CELL * 0.04  # max displacement in pixels
+    wobble = CELL * 0.04
 
     for y in range(level.height):
         for x in range(level.width):
@@ -133,29 +137,33 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
                 continue
             px, py = x * CELL, y * CELL
 
-            # Right edge: draw if neighbor is also floor/door
+            # Right edge
             if _is_floor(level, x + 1, y) or _is_door(level, x + 1, y):
-                x1 = px + CELL + _noise.pnoise2(
-                    x * 0.7, y * 0.7, base=20) * wobble
-                y1 = py + _noise.pnoise2(
-                    x * 0.7, y * 0.3, base=21) * wobble
-                x2 = px + CELL + _noise.pnoise2(
-                    x * 0.7, (y + 1) * 0.7, base=22) * wobble
-                y2 = py + CELL + _noise.pnoise2(
-                    x * 0.7, (y + 1) * 0.3, base=23) * wobble
-                segments.append(f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
+                if rng.random() > 0.12:  # ~12% discontinuity
+                    x1 = px + CELL + _noise.pnoise2(
+                        x * 0.7, y * 0.7, base=20) * wobble
+                    y1 = py + _noise.pnoise2(
+                        x * 0.7, y * 0.3, base=21) * wobble
+                    x2 = px + CELL + _noise.pnoise2(
+                        x * 0.7, (y + 1) * 0.7, base=22) * wobble
+                    y2 = py + CELL + _noise.pnoise2(
+                        x * 0.7, (y + 1) * 0.3, base=23) * wobble
+                    segments.append(
+                        f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
 
-            # Bottom edge: draw if neighbor is also floor/door
+            # Bottom edge
             if _is_floor(level, x, y + 1) or _is_door(level, x, y + 1):
-                x1 = px + _noise.pnoise2(
-                    x * 0.3, y * 0.7, base=24) * wobble
-                y1 = py + CELL + _noise.pnoise2(
-                    x * 0.3, y * 0.7, base=25) * wobble
-                x2 = px + CELL + _noise.pnoise2(
-                    (x + 1) * 0.3, y * 0.7, base=26) * wobble
-                y2 = py + CELL + _noise.pnoise2(
-                    (x + 1) * 0.3, y * 0.7, base=27) * wobble
-                segments.append(f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
+                if rng.random() > 0.12:
+                    x1 = px + _noise.pnoise2(
+                        x * 0.3, y * 0.7, base=24) * wobble
+                    y1 = py + CELL + _noise.pnoise2(
+                        x * 0.3, y * 0.7, base=25) * wobble
+                    x2 = px + CELL + _noise.pnoise2(
+                        (x + 1) * 0.3, y * 0.7, base=26) * wobble
+                    y2 = py + CELL + _noise.pnoise2(
+                        (x + 1) * 0.3, y * 0.7, base=27) * wobble
+                    segments.append(
+                        f'M{x1:.1f},{y1:.1f} L{x2:.1f},{y2:.1f}')
 
     if segments:
         svg.append(
@@ -163,6 +171,63 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
             f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
             f'opacity="0.15" stroke-linecap="round"/>'
         )
+
+
+def _render_floor_detail(
+    svg: list[str], level: "Level", seed: int,
+) -> None:
+    """Scatter cracks and small stones on floor tiles.
+
+    Cracks are thin jagged lines. Stones are small rounded empty
+    ellipses. Both use low opacity for a subtle worn-stone effect.
+    """
+    rng = random.Random(seed + 99)
+    cracks: list[str] = []
+    stones: list[str] = []
+
+    for y in range(level.height):
+        for x in range(level.width):
+            if not _is_floor(level, x, y):
+                continue
+            px, py = x * CELL, y * CELL
+
+            # ~8% chance of a crack on this tile
+            if rng.random() < 0.08:
+                # Crack: 2-3 segment jagged line
+                cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
+                cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
+                pts = [f'M{cx:.1f},{cy:.1f}']
+                for _ in range(rng.randint(2, 3)):
+                    cx += rng.uniform(-CELL * 0.3, CELL * 0.3)
+                    cy += rng.uniform(-CELL * 0.3, CELL * 0.3)
+                    # Clamp within tile
+                    cx = max(px + 2, min(px + CELL - 2, cx))
+                    cy = max(py + 2, min(py + CELL - 2, cy))
+                    pts.append(f'L{cx:.1f},{cy:.1f}')
+                cracks.append(" ".join(pts))
+
+            # ~6% chance of a stone
+            if rng.random() < 0.06:
+                sx = px + rng.uniform(CELL * 0.25, CELL * 0.75)
+                sy = py + rng.uniform(CELL * 0.25, CELL * 0.75)
+                rx = rng.uniform(2, CELL * 0.15)
+                ry = rng.uniform(2, CELL * 0.12)
+                angle = rng.uniform(0, 180)
+                stones.append(
+                    f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                    f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                    f'transform="rotate({angle:.0f},{sx:.1f},{sy:.1f})" '
+                    f'fill="none" stroke="{INK}" stroke-width="0.4"/>')
+
+    if cracks:
+        svg.append(
+            f'<g opacity="0.12">'
+            f'<path d="{" ".join(cracks)}" fill="none" '
+            f'stroke="{INK}" stroke-width="0.5" '
+            f'stroke-linecap="round"/>'
+            f'</g>')
+    if stones:
+        svg.append(f'<g opacity="0.18">{"".join(stones)}</g>')
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
@@ -408,7 +473,7 @@ def _render_hatching_dmap(
     if dungeon_poly.is_empty:
         return
 
-    hatch_distance_limit = 2.0 * CELL
+    base_distance_limit = 2.0 * CELL
     min_stroke = 1.0
     max_stroke = 1.8
 
@@ -421,7 +486,17 @@ def _render_hatching_dmap(
             if dungeon_poly.contains(center):
                 continue
             dist = dungeon_poly.boundary.distance(center)
-            if dist > hatch_distance_limit:
+
+            # Irregular contour: vary distance limit per tile with
+            # Perlin noise so the hatching edge flows organically
+            noise_var = _noise.pnoise2(
+                gx * 0.3, gy * 0.3, base=50) * CELL * 0.8
+            tile_limit = base_distance_limit + noise_var
+            if dist > tile_limit:
+                continue
+
+            # Random discontinuities: skip ~10% of edge tiles
+            if dist > base_distance_limit * 0.5 and random.random() < 0.10:
                 continue
 
             # Grey underlay tile
