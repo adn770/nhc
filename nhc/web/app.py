@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from flask import Flask, jsonify, request
+from flask_sock import Sock
 
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager
@@ -17,6 +20,12 @@ def create_app(config: WebConfig | None = None) -> Flask:
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
 
+    sock = Sock(app)
+
+    # Register WebSocket routes
+    from nhc.web.ws import register_ws
+    register_ws(app, sock)
+
     @app.route("/api/game/new", methods=["POST"])
     def game_new():
         data = request.get_json(silent=True) or {}
@@ -26,6 +35,37 @@ def create_app(config: WebConfig | None = None) -> Flask:
             session = sessions.create(lang=lang, tileset=tileset)
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 429
+
+        # Initialize i18n and create the game instance
+        from nhc.i18n import init as i18n_init
+        i18n_init(session.lang)
+
+        from nhc.core.game import Game
+        from nhc.llm import create_backend
+        from nhc.rendering.web_client import WebClient
+
+        client = WebClient(game_mode="classic", lang=session.lang)
+        backend = create_backend({
+            "provider": "ollama",
+            "model": config.ollama_model,
+            "url": config.ollama_url,
+            "temp": 0.1,
+            "ctx": 16384,
+        })
+        game = Game(
+            client=client,
+            backend=backend,
+            game_mode="classic",
+        )
+        session.game = game
+
+        # Initialize the game world (generate dungeon)
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(game.initialize(generate=True))
+        finally:
+            loop.close()
+
         return jsonify({
             "session_id": session.session_id,
             "lang": session.lang,

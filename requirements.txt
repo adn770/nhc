@@ -4,6 +4,7 @@ pyyaml
 
 # Web server (optional — for nhc_web.py)
 flask
+flask-sock
 
 # Testing
 pytest
