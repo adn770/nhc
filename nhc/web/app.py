@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import asyncio
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, make_response, render_template, request
 from flask_sock import Sock
 
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager
 
 
-def create_app(config: WebConfig | None = None) -> Flask:
+def create_app(
+    config: WebConfig | None = None,
+    auth_token: str | None = None,
+) -> Flask:
     """Create and configure the Flask application."""
     config = config or WebConfig()
     app = Flask(
@@ -24,6 +27,13 @@ def create_app(config: WebConfig | None = None) -> Flask:
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
 
+    # Auth setup
+    valid_hashes: set[str] = set()
+    if auth_token:
+        from nhc.web.auth import hash_token
+        valid_hashes.add(hash_token(auth_token))
+    app.config["AUTH_HASHES"] = valid_hashes
+
     sock = Sock(app)
 
     # Register WebSocket routes
@@ -32,9 +42,27 @@ def create_app(config: WebConfig | None = None) -> Flask:
 
     @app.route("/")
     def index():
+        # If auth required, validate token from query param and set cookie
+        if config.auth_required and valid_hashes:
+            from nhc.web.auth import hash_token, _extract_token
+            token = _extract_token()
+            if not token or hash_token(token) not in valid_hashes:
+                return "Authentication required. Add ?token=YOUR_TOKEN", 401
+            resp = make_response(render_template("index.html"))
+            resp.set_cookie("nhc_token", token, httponly=True,
+                            samesite="Strict")
+            return resp
         return render_template("index.html")
 
+    # Apply auth to API routes if enabled
+    def _maybe_auth(f):
+        if config.auth_required and valid_hashes:
+            from nhc.web.auth import require_auth
+            return require_auth(valid_hashes)(f)
+        return f
+
     @app.route("/api/game/new", methods=["POST"])
+    @_maybe_auth
     def game_new():
         data = request.get_json(silent=True) or {}
         lang = data.get("lang", "")
@@ -88,10 +116,12 @@ def create_app(config: WebConfig | None = None) -> Flask:
         }), 201
 
     @app.route("/api/game/list", methods=["GET"])
+    @_maybe_auth
     def game_list():
         return jsonify(sessions.list_sessions())
 
     @app.route("/api/game/<session_id>", methods=["DELETE"])
+    @_maybe_auth
     def game_delete(session_id: str):
         if sessions.destroy(session_id):
             return jsonify({"status": "ok"})

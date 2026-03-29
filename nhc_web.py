@@ -2,6 +2,11 @@
 """NHC Web Server — entry point.
 
 Serves the nhc web frontend with multiple concurrent game sessions.
+
+Usage:
+  python nhc_web.py                          # Local dev, no auth
+  python nhc_web.py --auth                   # Generate token and require auth
+  python nhc_web.py --host 0.0.0.0 --auth    # Exposed on network with auth
 """
 
 import argparse
@@ -34,20 +39,44 @@ def parse_args() -> argparse.Namespace:
         "--ollama-model", default="gemma3:12b",
         help="Default ollama model (default: gemma3:12b)",
     )
+    parser.add_argument(
+        "--auth", action="store_true",
+        help="Enable token authentication (generates and prints a token)",
+    )
+    parser.add_argument(
+        "--token",
+        help="Use a specific auth token instead of generating one",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+
+    auth_token = None
+    if args.auth or args.token:
+        if args.token:
+            auth_token = args.token
+        else:
+            from nhc.web.auth import generate_token
+            auth_token = generate_token()
+
     config = WebConfig(
         host=args.host,
         port=args.port,
         max_sessions=args.max_sessions,
         ollama_url=args.ollama_url,
         ollama_model=args.ollama_model,
+        auth_required=auth_token is not None,
     )
-    app = create_app(config)
-    print(f"NHC web server starting on http://{config.host}:{config.port}")
+    app = create_app(config, auth_token=auth_token)
+
+    url = f"http://{config.host}:{config.port}"
+    print(f"NHC web server starting on {url}")
+    if auth_token:
+        print(f"Auth token: {auth_token}")
+        print(f"Access URL: {url}?token={auth_token}")
+
     try:
         from waitress import serve
         serve(app, host=config.host, port=config.port)
