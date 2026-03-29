@@ -50,8 +50,6 @@ Bumping into a chest opens it and drops its loot.
   [ ]            Scroll message log up/down
   ?              Show this help screen
   TAB            Switch between classic and typed mode
-  S              Save game
-  L              Load game
   Q              Quit
 
 ## Keyboard Shortcuts — Typed Mode
@@ -70,7 +68,6 @@ Bumping into a chest opens it and drops its loot.
   TAB            Switch back to classic mode
   ?              Show this help screen
   [ ]            Scroll narrative log
-  S              Save game
   Q              Quit
 
 ## Typed Mode Examples

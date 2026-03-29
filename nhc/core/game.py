@@ -760,14 +760,6 @@ class Game:
                 self._reveal_full_map()
             return None
 
-        if intent == "save":
-            self._save_game()
-            return None
-
-        if intent == "load":
-            self._load_game()
-            return None
-
         if intent == "help":
             self.renderer.show_help()
             return None
@@ -1079,41 +1071,6 @@ class Game:
             self.world, self.player_id,
             prompt=t("ui.inventory_title"),
         )
-
-    def _save_game(self) -> None:
-        """Save current game state."""
-        from nhc.core.save import save_game
-        try:
-            path = save_game(
-                self.world, self.level, self.player_id,
-                self.turn, self.renderer.messages,
-            )
-            logger.info("Game saved at turn %d", self.turn)
-            self.renderer.add_message(t("game.game_saved"))
-        except Exception:
-            logger.error("Failed to save game", exc_info=True)
-            self.renderer.add_message(t("game.save_failed", error="see log"))
-
-    def _load_game(self) -> None:
-        """Load game state from save file."""
-        from nhc.core.save import has_save, load_game
-        if not has_save():
-            self.renderer.add_message(t("game.no_save"))
-            return
-        try:
-            world, level, player_id, turn, messages = load_game()
-            self.world = world
-            self.level = level
-            self.player_id = player_id
-            self.turn = turn
-            self.renderer.messages = messages
-            self._seen_creatures.clear()
-            self._update_fov()
-            logger.info("Game loaded at turn %d", self.turn)
-            self.renderer.add_message(t("game.game_loaded"))
-        except Exception:
-            logger.error("Failed to load game", exc_info=True)
-            self.renderer.add_message(t("game.load_failed", error="see log"))
 
     def _tick_poison(self) -> None:
         """Apply ongoing poison damage and decrement counters."""

@@ -50,8 +50,6 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
   [ ]            Desplaçar registre de missatges
   ?              Mostrar aquesta pantalla d'ajuda
   TAB            Canviar entre mode clàssic i escrit
-  S              Desar partida
-  L              Carregar partida
   Q              Sortir
 
 ## Dreceres de Teclat — Mode Escrit
@@ -70,7 +68,6 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
   TAB            Tornar al mode clàssic
   ?              Mostrar aquesta pantalla d'ajuda
   [ ]            Desplaçar registre narratiu
-  S              Desar partida
   Q              Sortir
 
 ## Exemples en Mode Escrit

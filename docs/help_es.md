@@ -50,8 +50,6 @@ Empujar un cofre lo abre y suelta su contenido.
   [ ]            Desplazar registro de mensajes
   ?              Mostrar esta pantalla de ayuda
   TAB            Cambiar entre modo clásico y escrito
-  S              Guardar partida
-  L              Cargar partida
   Q              Salir
 
 ## Atajos de Teclado — Modo Escrito
@@ -70,7 +68,6 @@ Empujar un cofre lo abre y suelta su contenido.
   TAB            Volver al modo clásico
   ?              Mostrar esta pantalla de ayuda
   [ ]            Desplazar registro narrativo
-  S              Guardar partida
   Q              Salir
 
 ## Ejemplos en Modo Escrito
