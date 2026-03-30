@@ -243,12 +243,30 @@ const GameMap = {
     const connLen = cs * 0.1;    // wall connection stub
 
     for (const door of this.doors) {
-      if (door.state === "door_secret") continue;
-
       const px = door.x * cs + pad;
       const py = door.y * cs + pad;
       const cx = px + cs / 2;
       const cy = py + cs / 2;
+
+      // Secret doors: draw a wall segment on the door edge
+      if (door.state === "door_secret") {
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = wallW;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        if (door.edge === "left") {
+          ctx.moveTo(px, py); ctx.lineTo(px, py + cs);
+        } else if (door.edge === "right") {
+          ctx.moveTo(px + cs, py); ctx.lineTo(px + cs, py + cs);
+        } else if (door.edge === "top") {
+          ctx.moveTo(px, py); ctx.lineTo(px + cs, py);
+        } else {
+          ctx.moveTo(px, py + cs); ctx.lineTo(px + cs, py + cs);
+        }
+        ctx.stroke();
+        continue;
+      }
+
       const fill = door.state === "door_open" ? "#FFFFFF" : "#888888";
 
       // Position door on the correct wall edge
