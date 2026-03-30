@@ -23,7 +23,7 @@
     "bright_magenta": "#FF44FF"
   },
   "sprites": {
-    "@": { "color": "bright_white" },
+    "@": { "color": "bright_cyan" },
     "g": { "color": "green" },
     "s": { "color": "white" },
     "o": { "color": "bright_red" },

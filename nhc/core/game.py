@@ -209,7 +209,7 @@ class Game:
 
         self.player_id = self.world.create_entity({
             "Position": Position(x=px, y=py, level_id=self.level.id),
-            "Renderable": Renderable(glyph="@", color="bright_white",
+            "Renderable": Renderable(glyph="@", color="bright_cyan",
                                      render_order=10),
             "Stats": Stats(
                 strength=char.strength,

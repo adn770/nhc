@@ -111,11 +111,20 @@ body {
   display: block;
 }
 
+#fog-canvas,
 #entity-canvas {
   position: absolute;
   top: 0;
   left: 0;
   pointer-events: none;
+}
+
+#fog-canvas {
+  z-index: 1;
+}
+
+#entity-canvas {
+  z-index: 2;
 }
 
 /* Zone 2: Status bar */
