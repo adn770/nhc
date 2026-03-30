@@ -5,6 +5,8 @@
  * 1. Floor SVG (static dungeon geometry)
  * 2. Fog canvas (dark overlay on non-visible tiles)
  * 3. Entity canvas (player, creatures, items on top)
+ *
+ * The map viewport auto-scrolls to keep the player centered.
  */
 const GameMap = {
   canvas: null,
@@ -20,6 +22,8 @@ const GameMap = {
   tilesetImg: null,
   mapW: 0,
   mapH: 0,
+  playerX: 0,
+  playerY: 0,
 
   init() {
     this.canvas = document.getElementById("entity-canvas");
@@ -33,7 +37,6 @@ const GameMap = {
       this.fogCanvas.style.cssText =
         "position:absolute;top:0;left:0;pointer-events:none;";
       const container = document.getElementById("map-container");
-      // Insert fog between SVG and entity canvas
       container.insertBefore(this.fogCanvas, this.canvas);
     }
     this.fogCtx = this.fogCanvas.getContext("2d");
@@ -81,12 +84,18 @@ const GameMap = {
 
   updateEntities(entities) {
     this.entities = entities;
+    // Track player position for auto-scroll
+    const player = entities.find(e => e.glyph === "@");
+    if (player) {
+      this.playerX = player.x;
+      this.playerY = player.y;
+    }
     this.draw();
+    this.scrollToPlayer();
   },
 
   updateFOV(fovList) {
     this.fov = new Set(fovList.map(([x, y]) => `${x},${y}`));
-    // Track explored tiles (union of all FOV seen so far)
     for (const key of this.fov) {
       this.explored.add(key);
     }
@@ -95,8 +104,27 @@ const GameMap = {
   },
 
   /**
-   * Resolve a color name to a CSS hex color.
+   * Scroll the map viewport to center on the player.
    */
+  scrollToPlayer() {
+    const zone = document.getElementById("map-zone");
+    if (!zone) return;
+
+    const px = this.playerX * this.cellSize + this.padding
+               + this.cellSize / 2;
+    const py = this.playerY * this.cellSize + this.padding
+               + this.cellSize / 2;
+
+    const targetLeft = px - zone.clientWidth / 2;
+    const targetTop = py - zone.clientHeight / 2;
+
+    zone.scrollTo({
+      left: Math.max(0, targetLeft),
+      top: Math.max(0, targetTop),
+      behavior: "smooth",
+    });
+  },
+
   _resolveColor(colorName) {
     if (this.tileset && this.tileset.colors) {
       return this.tileset.colors[colorName] || colorName;
@@ -104,10 +132,6 @@ const GameMap = {
     return colorName || "#FFFFFF";
   },
 
-  /**
-   * Draw fog-of-war: dark overlay on non-visible tiles,
-   * dim overlay on explored-but-not-visible tiles.
-   */
   drawFog() {
     const ctx = this.fogCtx;
     if (!this.mapW || !this.mapH) return;
@@ -141,7 +165,6 @@ const GameMap = {
   draw() {
     const ctx = this.ctx;
     if (!this.canvas.width || !this.canvas.height) {
-      console.warn("draw() skipped: canvas has zero size");
       return;
     }
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
@@ -192,9 +215,6 @@ const GameMap = {
     }
   },
 
-  /**
-   * Convert canvas pixel coordinates to grid coordinates.
-   */
   pixelToGrid(canvasX, canvasY) {
     const gx = Math.floor((canvasX - this.padding) / this.cellSize);
     const gy = Math.floor((canvasY - this.padding) / this.cellSize);
