@@ -29,18 +29,10 @@ const GameMap = {
   init() {
     this.canvas = document.getElementById("entity-canvas");
     this.ctx = this.canvas.getContext("2d");
-
-    // Create fog canvas dynamically
     this.fogCanvas = document.getElementById("fog-canvas");
-    if (!this.fogCanvas) {
-      this.fogCanvas = document.createElement("canvas");
-      this.fogCanvas.id = "fog-canvas";
-      this.fogCanvas.style.cssText =
-        "position:absolute;top:0;left:0;pointer-events:none;";
-      const container = document.getElementById("map-container");
-      container.insertBefore(this.fogCanvas, this.canvas);
-    }
     this.fogCtx = this.fogCanvas.getContext("2d");
+    console.log("GameMap.init(): canvas=", this.canvas,
+                "fog=", this.fogCanvas);
   },
 
   setFloorSVG(svgString) {
@@ -52,11 +44,15 @@ const GameMap = {
       const h = parseInt(svg.getAttribute("height"));
       this.canvas.width = w;
       this.canvas.height = h;
-      this.fogCanvas.width = w;
-      this.fogCanvas.height = h;
+      if (this.fogCanvas) {
+        this.fogCanvas.width = w;
+        this.fogCanvas.height = h;
+      }
       this.mapW = w;
       this.mapH = h;
-      console.log("Floor SVG set:", w, "x", h);
+      console.log("Floor SVG set:", w, "x", h,
+                   "canvas:", this.canvas.width, this.canvas.height,
+                   "fog:", this.fogCanvas?.width, this.fogCanvas?.height);
     } else {
       console.warn("No <svg> found in floor SVG string");
     }
@@ -136,7 +132,13 @@ const GameMap = {
 
   drawFog() {
     const ctx = this.fogCtx;
-    if (!this.mapW || !this.mapH) return;
+    if (!ctx || !this.mapW || !this.mapH) {
+      console.warn("drawFog skipped: ctx=", !!ctx,
+                    "mapW=", this.mapW, "mapH=", this.mapH);
+      return;
+    }
+    console.log("drawFog:", this.fov.size, "visible,",
+                this.explored.size, "explored");
 
     ctx.clearRect(0, 0, this.mapW, this.mapH);
 
@@ -167,12 +169,15 @@ const GameMap = {
   draw() {
     const ctx = this.ctx;
     if (!this.canvas.width || !this.canvas.height) {
+      console.warn("draw skipped: zero canvas size");
       return;
     }
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Draw doors first (behind entities)
     this._drawDoors(ctx);
+    console.log("draw:", this.entities.length, "entities,",
+                this.doors.length, "doors");
 
     for (const ent of this.entities) {
       const px = ent.x * this.cellSize + this.padding;
