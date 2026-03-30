@@ -34,6 +34,8 @@ HATCH_UNDERLAY = "#D0D0D0"
 
 BG = "#F5EDE0"
 INK = "#000000"
+FLOOR_STONE_FILL = "#E8D5B8"  # soft brown for room floor stones
+FLOOR_STONE_STROKE = "#666666"
 
 
 def render_floor_svg(level: "Level", seed: int = 0) -> str:
@@ -193,6 +195,7 @@ def _render_floor_detail(
     rng = random.Random(seed + 99)
     cracks: list[str] = []
     stones: list[str] = []
+    scratches: list[str] = []
 
     for y in range(level.height):
         for x in range(level.width):
@@ -200,12 +203,11 @@ def _render_floor_detail(
                 continue
             px, py = x * CELL, y * CELL
 
-            # ~8% chance of a crack triangle at a tile corner
-            if rng.random() < 0.08:
-                # Pick a random corner and draw a small triangle
-                # connecting two orthogonal grid lines
+            # Crack or Y-scratch (mutually exclusive per tile)
+            roll = rng.random()
+            if roll < 0.08:
+                # Crack triangle at a tile corner
                 corner = rng.randint(0, 3)
-                # Triangle size along each grid line
                 s1 = rng.uniform(CELL * 0.15, CELL * 0.4)
                 s2 = rng.uniform(CELL * 0.15, CELL * 0.4)
                 if corner == 0:    # top-left
@@ -225,19 +227,35 @@ def _render_floor_detail(
                            f'{px + CELL - s1},{py + CELL} '
                            f'{px + CELL},{py + CELL - s2}')
                 cracks.append(tri)
+            elif roll < 0.13:
+                # Y-shaped scratch with all 3 ends on tile edges
+                scratches.append(
+                    _y_scratch(rng, px, py, x, y, seed))
 
-            # ~6% chance of a stone
+            # ~6% chance of a single stone
             if rng.random() < 0.06:
-                sx = px + rng.uniform(CELL * 0.25, CELL * 0.75)
-                sy = py + rng.uniform(CELL * 0.25, CELL * 0.75)
-                rx = rng.uniform(2, CELL * 0.15)
-                ry = rng.uniform(2, CELL * 0.12)
-                angle = rng.uniform(0, 180)
-                stones.append(
-                    f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
-                    f'rx="{rx:.1f}" ry="{ry:.1f}" '
-                    f'transform="rotate({angle:.0f},{sx:.1f},{sy:.1f})" '
-                    f'fill="none" stroke="{INK}" stroke-width="0.4"/>')
+                stones.append(_floor_stone(rng, px, py))
+
+            # ~3% chance of a cluster of 3 stones
+            if rng.random() < 0.03:
+                cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
+                cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
+                for _ in range(3):
+                    sx = cx + rng.uniform(-CELL * 0.2, CELL * 0.2)
+                    sy = cy + rng.uniform(-CELL * 0.2, CELL * 0.2)
+                    scale = rng.uniform(0.5, 1.3)
+                    rx = rng.uniform(2, CELL * 0.15) * scale
+                    ry = rng.uniform(2, CELL * 0.12) * scale
+                    angle = rng.uniform(0, 180)
+                    sw = rng.uniform(1.2, 2.0)
+                    stones.append(
+                        f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                        f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                        f'transform="rotate({angle:.0f},'
+                        f'{sx:.1f},{sy:.1f})" '
+                        f'fill="{FLOOR_STONE_FILL}" '
+                        f'stroke="{FLOOR_STONE_STROKE}" '
+                        f'stroke-width="{sw:.1f}"/>')
 
     if cracks:
         polys = "".join(
@@ -247,8 +265,113 @@ def _render_floor_detail(
             for tri in cracks
         )
         svg.append(f'<g opacity="0.5">{polys}</g>')
+    if scratches:
+        svg.append(
+            f'<g class="y-scratch" opacity="0.45">'
+            f'{"".join(scratches)}</g>')
     if stones:
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
+
+
+def _wobble_line(
+    rng: random.Random, x0: float, y0: float,
+    x1: float, y1: float, seed: int, n_seg: int = 4,
+) -> str:
+    """Build a wobbly SVG path segment from (x0,y0) to (x1,y1).
+
+    Uses Perlin noise to displace intermediate points perpendicular
+    to the line direction, giving an organic hand-scratched look.
+    """
+    dx, dy = x1 - x0, y1 - y0
+    length = math.hypot(dx, dy)
+    if length < 0.1:
+        return f"M{x0:.1f},{y0:.1f} L{x1:.1f},{y1:.1f}"
+    # Unit perpendicular
+    nx, ny = -dy / length, dx / length
+    wobble = length * 0.12
+    parts = [f"M{x0:.1f},{y0:.1f}"]
+    for i in range(1, n_seg + 1):
+        t = i / n_seg
+        mx = x0 + dx * t
+        my = y0 + dy * t
+        if i < n_seg:  # don't wobble the endpoint
+            w = _noise.pnoise2(
+                mx * 0.15 + seed, my * 0.15, base=77) * wobble
+            w += rng.uniform(-wobble * 0.3, wobble * 0.3)
+            mx += nx * w
+            my += ny * w
+        parts.append(f"L{mx:.1f},{my:.1f}")
+    return " ".join(parts)
+
+
+def _edge_point(
+    rng: random.Random, edge: int, px: float, py: float,
+) -> tuple[float, float]:
+    """Random point on a tile edge. Edges: 0=top, 1=right, 2=bottom, 3=left."""
+    t = rng.uniform(0.15, 0.85)
+    if edge == 0:
+        return (px + t * CELL, py)
+    if edge == 1:
+        return (px + CELL, py + t * CELL)
+    if edge == 2:
+        return (px + t * CELL, py + CELL)
+    return (px, py + t * CELL)
+
+
+def _y_scratch(
+    rng: random.Random, px: float, py: float,
+    gx: int, gy: int, seed: int,
+) -> str:
+    """Y-shaped scratch with all 3 ends on tile edges.
+
+    Picks 3 points on different tile edges, a fork point inside the
+    tile, and draws 3 wobbly lines from the fork to each edge point.
+    """
+    # Pick 3 distinct edges
+    edges = rng.sample([0, 1, 2, 3], 3)
+    p0 = _edge_point(rng, edges[0], px, py)
+    p1 = _edge_point(rng, edges[1], px, py)
+    p2 = _edge_point(rng, edges[2], px, py)
+
+    # Fork point: weighted average biased toward tile center
+    # with some random jitter
+    cx = (p0[0] + p1[0] + p2[0]) / 3
+    cy = (p0[1] + p1[1] + p2[1]) / 3
+    # Pull toward tile center and add jitter
+    tc_x = px + CELL * 0.5
+    tc_y = py + CELL * 0.5
+    fx = cx * 0.4 + tc_x * 0.6 + rng.uniform(-CELL * 0.1, CELL * 0.1)
+    fy = cy * 0.4 + tc_y * 0.6 + rng.uniform(-CELL * 0.1, CELL * 0.1)
+
+    # Build 3 wobbly branches from fork to each edge point
+    ns = seed + gx * 7 + gy
+    b0 = _wobble_line(rng, fx, fy, p0[0], p0[1], ns, 4)
+    b1 = _wobble_line(rng, fx, fy, p1[0], p1[1], ns + 13, 4)
+    b2 = _wobble_line(rng, fx, fy, p2[0], p2[1], ns + 29, 4)
+
+    sw = rng.uniform(0.3, 0.7)
+    return (
+        f'<path d="{b0} {b1} {b2}" '
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{sw:.1f}" '
+        f'stroke-linecap="round"/>')
+
+
+def _floor_stone(rng: random.Random, px: float, py: float) -> str:
+    """Single floor stone ellipse — original small size, brown fill."""
+    sx = px + rng.uniform(CELL * 0.25, CELL * 0.75)
+    sy = py + rng.uniform(CELL * 0.25, CELL * 0.75)
+    rx = rng.uniform(2, CELL * 0.15)
+    ry = rng.uniform(2, CELL * 0.12)
+    angle = rng.uniform(0, 180)
+    sw = rng.uniform(1.2, 2.0)
+    return (
+        f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+        f'rx="{rx:.1f}" ry="{ry:.1f}" '
+        f'transform="rotate({angle:.0f},{sx:.1f},{sy:.1f})" '
+        f'fill="{FLOOR_STONE_FILL}" '
+        f'stroke="{FLOOR_STONE_STROKE}" '
+        f'stroke-width="{sw:.1f}"/>')
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
