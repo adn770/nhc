@@ -142,8 +142,8 @@ const GameMap = {
 
     ctx.clearRect(0, 0, this.mapW, this.mapH);
 
-    // Cover everything in dark fog
-    ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+    // Cover everything in fully opaque black — unexplored is hidden
+    ctx.fillStyle = "rgba(0, 0, 0, 1.0)";
     ctx.fillRect(0, 0, this.mapW, this.mapH);
 
     // Clear visible tiles (fully transparent)
@@ -154,14 +154,14 @@ const GameMap = {
       ctx.clearRect(px, py, this.cellSize, this.cellSize);
     }
 
-    // Explored but not visible: dim overlay
+    // Explored but not visible: clear then apply heavy dim
     for (const key of this.explored) {
       if (this.fov.has(key)) continue;
       const [x, y] = key.split(",").map(Number);
       const px = x * this.cellSize + this.padding;
       const py = y * this.cellSize + this.padding;
       ctx.clearRect(px, py, this.cellSize, this.cellSize);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
       ctx.fillRect(px, py, this.cellSize, this.cellSize);
     }
   },
