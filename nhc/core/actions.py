@@ -145,15 +145,16 @@ class MoveAction(Action):
         tile = level.tile_at(nx, ny)
         if not tile:
             return False
-        if tile.feature in ("door_closed", "door_locked"):
+        door_feats = ("door_closed", "door_locked", "door_secret")
+        if tile.feature in door_feats:
             if self.edge_doors:
                 return True  # edge mode: validate passes; execute decides
-            else:
-                return True  # center mode: bump opens in execute
+            elif tile.feature != "door_secret":
+                return True  # center mode: bump opens (not secret)
         # Edge doors: check if leaving current tile crosses a door edge
         if self.edge_doors:
             cur = level.tile_at(pos.x, pos.y)
-            if (cur and cur.feature in ("door_closed", "door_locked")
+            if (cur and cur.feature in door_feats
                     and _crossing_door_edge(self.dx, self.dy, cur,
                                             entering=False)):
                 return True
@@ -168,21 +169,30 @@ class MoveAction(Action):
         if self.edge_doors:
             # ── Edge door mode (web): directional crossing ──
             cur = level.tile_at(pos.x, pos.y)
+            door_feats = ("door_closed", "door_locked", "door_secret")
 
             door_tile = None
             door_x, door_y = nx, ny
             # Entering a door tile from the door-side direction
-            if tile.feature in ("door_closed", "door_locked"):
+            if tile.feature in door_feats:
                 if _crossing_door_edge(self.dx, self.dy, tile,
                                        entering=True):
                     door_tile = tile
             # Leaving a door tile through the door edge
             if (not door_tile and cur
-                    and cur.feature in ("door_closed", "door_locked")
+                    and cur.feature in door_feats
                     and _crossing_door_edge(self.dx, self.dy, cur,
                                             entering=False)):
                 door_tile = cur
                 door_x, door_y = pos.x, pos.y
+
+            # Secret door blocks crossing (feels like a wall)
+            if door_tile and door_tile.feature == "door_secret":
+                events.append(MessageEvent(
+                    text=_msg("explore.nothing_special", world,
+                              actor=self.actor),
+                ))
+                return events
 
             if door_tile and door_tile.feature == "door_locked":
                 events.append(MessageEvent(
@@ -202,7 +212,7 @@ class MoveAction(Action):
                 return events
 
             # Not crossing door edge: just move onto the tile
-            if tile.feature in ("door_closed", "door_locked"):
+            if tile.feature in door_feats:
                 pos.x = nx
                 pos.y = ny
                 return events

@@ -124,6 +124,45 @@ class TestDoorMovement:
         await action.execute(world, level)
         assert level.tiles[3][3].feature == "door_open"
 
+    async def test_walk_onto_secret_door_from_corridor(self):
+        """Edge mode: can walk onto secret door tile from corridor side."""
+        level = _make_corridor_door_room()
+        level.tiles[3][3].feature = "door_secret"
+        world = World()
+        pid = _make_player(world, 4, 3)
+
+        action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=True)
+        assert await action.validate(world, level)
+        await action.execute(world, level)
+        pos = world.get_component(pid, "Position")
+        assert pos.x == 3  # moved onto the tile
+        assert level.tiles[3][3].feature == "door_secret"  # still secret
+
+    async def test_secret_door_blocks_crossing(self):
+        """Edge mode: can't cross through secret door edge."""
+        level = _make_corridor_door_room()
+        level.tiles[3][3].feature = "door_secret"
+        world = World()
+        pid = _make_player(world, 3, 3)  # on the secret door tile
+
+        action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=True)
+        await action.execute(world, level)
+        # Blocked — feels like a wall
+        pos = world.get_component(pid, "Position")
+        assert pos.x == 3  # didn't move
+        assert level.tiles[3][3].feature == "door_secret"  # still secret
+
+    async def test_secret_door_terminal_mode_blocks(self):
+        """Center mode: secret doors are not walkable at all."""
+        level = _make_corridor_door_room()
+        level.tiles[3][3].feature = "door_secret"
+        world = World()
+        pid = _make_player(world, 4, 3)
+
+        action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=False)
+        valid = await action.validate(world, level)
+        assert not valid  # can't walk onto secret door in terminal
+
     async def test_terminal_mode_bump_opens_immediately(self):
         """Center mode (terminal): bumping door tile opens it."""
         level = _make_corridor_door_room()
