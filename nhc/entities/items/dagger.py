@@ -1,6 +1,6 @@
 """Dagger — light melee weapon."""
 
-from nhc.entities.components import Renderable, Weapon
+from nhc.entities.components import Throwable, Renderable, Weapon
 from nhc.entities.registry import EntityRegistry, item_desc
 
 
@@ -10,4 +10,5 @@ def create_dagger() -> dict:
         "Renderable": Renderable(glyph=")", color="white", render_order=1),
         "Description": item_desc("dagger"),
         "Weapon": Weapon(damage="1d4", type="melee", slots=1),
+        "Throwable": Throwable(),
     }

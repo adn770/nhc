@@ -932,11 +932,11 @@ class Game:
         """Pick a potion, then a visible target to throw it at."""
         from nhc.core.actions import ThrowAction
 
-        # Step 1: pick a throwable item (consumables)
+        # Step 1: pick a throwable item
         item_id = self.renderer.show_filtered_inventory(
             self.world, self.player_id,
             title=t("ui.throw_which"),
-            filter_component="Consumable",
+            filter_component="Throwable",
         )
         if item_id is None:
             return None

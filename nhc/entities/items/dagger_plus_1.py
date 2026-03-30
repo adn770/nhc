@@ -1,6 +1,6 @@
 """Magic Dagger +1 — enchanted dagger."""
 
-from nhc.entities.components import Enchanted, Renderable, Weapon
+from nhc.entities.components import Throwable, Enchanted, Renderable, Weapon
 from nhc.entities.registry import EntityRegistry, item_desc
 
 
@@ -11,4 +11,5 @@ def create_dagger_plus_1() -> dict:
         "Description": item_desc("dagger_plus_1"),
         "Weapon": Weapon(damage="1d4", type="melee", slots=1, magic_bonus=1),
         "Enchanted": Enchanted(),
+        "Throwable": Throwable(),
     }

@@ -1,6 +1,6 @@
 """Magic Shield +1 — enchanted shield."""
 
-from nhc.entities.components import Armor, Renderable
+from nhc.entities.components import Throwable, Armor, Renderable
 from nhc.entities.registry import EntityRegistry, item_desc
 
 
@@ -10,4 +10,5 @@ def create_shield_plus_1() -> dict:
         "Renderable": Renderable(glyph="[", color="bright_cyan", render_order=1),
         "Description": item_desc("shield_plus_1"),
         "Armor": Armor(slot="shield", defense=1, slots=1, magic_bonus=1),
+        "Throwable": Throwable(),
     }

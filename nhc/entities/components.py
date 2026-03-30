@@ -125,6 +125,12 @@ class Ring:
 
 
 @dataclass
+class Throwable:
+    """Tag: item can be thrown at a target."""
+    pass
+
+
+@dataclass
 class Wand:
     """Rechargeable magical device with charges."""
     effect: str = ""
