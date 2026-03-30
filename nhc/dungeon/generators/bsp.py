@@ -468,6 +468,9 @@ class BSPGenerator(DungeonGenerator):
         level.rooms[entrance].tags.append("entry")
         level.rooms[exit_idx].tags.append("exit")
 
+        # Compute door_side for all door tiles
+        self._compute_door_sides(level)
+
         doors = sum(1 for row in level.tiles for t in row
                     if t.feature and "door" in t.feature)
         secrets = sum(1 for row in level.tiles for t in row
@@ -482,6 +485,62 @@ class BSPGenerator(DungeonGenerator):
         )
 
         return level
+
+    @staticmethod
+    def _compute_door_sides(level: Level) -> None:
+        """Set door_side for every door tile.
+
+        The door_side is the tile edge where the room wall passes
+        through. Determined by finding which room rect the door is
+        adjacent to: the door sits on that room's outer wall, so
+        door_side points toward the room interior.
+
+        For example, a door at x=rect.x-1 is on the west wall of
+        the room, so door_side="east" (wall is on the east edge of
+        the door tile, facing the room).
+        """
+        door_feats = {
+            "door_closed", "door_open", "door_secret", "door_locked",
+        }
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if tile.feature not in door_feats:
+                    continue
+                # Find which room this door belongs to
+                for room in level.rooms:
+                    r = room.rect
+                    # Door on west wall (x == r.x - 1)
+                    if x == r.x - 1 and r.y <= y < r.y2:
+                        tile.door_side = "east"
+                        break
+                    # Door on east wall (x == r.x2)
+                    if x == r.x2 and r.y <= y < r.y2:
+                        tile.door_side = "west"
+                        break
+                    # Door on north wall (y == r.y - 1)
+                    if y == r.y - 1 and r.x <= x < r.x2:
+                        tile.door_side = "south"
+                        break
+                    # Door on south wall (y == r.y2)
+                    if y == r.y2 and r.x <= x < r.x2:
+                        tile.door_side = "north"
+                        break
+                else:
+                    # Fallback: not adjacent to any room rect.
+                    # Use neighbor analysis.
+                    for side, dx, dy in [
+                        ("north", 0, -1), ("south", 0, 1),
+                        ("east", 1, 0), ("west", -1, 0),
+                    ]:
+                        nx, ny = x + dx, y + dy
+                        if not level.in_bounds(nx, ny):
+                            continue
+                        nb = level.tiles[ny][nx]
+                        if (nb.terrain == Terrain.WALL
+                                or nb.terrain == Terrain.VOID):
+                            tile.door_side = side
+                            break
 
     # ── Carving helpers ─────────────────────────────────────────────
 

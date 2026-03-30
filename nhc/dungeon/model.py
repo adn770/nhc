@@ -49,6 +49,8 @@ class Tile:
     explored: bool = False
     visible: bool = False
     is_corridor: bool = False  # True for tunnel tiles (rendered as #)
+    door_side: str = ""  # "north","south","east","west" — which tile edge
+                         # the door sits on (set at generation time)
 
     @property
     def walkable(self) -> bool:
