@@ -251,14 +251,14 @@ def _render_floor_detail(
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
-    """Render wall edges between walkable and non-walkable tiles.
+    """Render walls as a continuous perimeter outline around rooms.
 
-    Wall lines are drawn through the center of wall tiles (half-cell
-    offset into the non-walkable side), so they have visual thickness
-    that extends into the wall rather than sitting exactly on the edge.
+    Lines sit on the boundary between floor and wall tiles, like
+    terminal box-drawing characters (┌─┐│└┘). The stroke width
+    extends outward into the wall tile, giving the walls visual
+    thickness on the non-floor side.
     """
     segments: list[str] = []
-    half = CELL // 2  # padding into the wall tile
 
     def _walkable(x: int, y: int) -> bool:
         return _is_floor(level, x, y) or _is_door(level, x, y)
@@ -268,26 +268,20 @@ def _render_walls(svg: list[str], level: "Level") -> None:
             if not _walkable(x, y):
                 continue
             px, py = x * CELL, y * CELL
-            # Top edge — line extends half cell into the wall above
+            # Top edge
             if not _walkable(x, y - 1):
-                wy = py - half
-                segments.append(
-                    f'M{px - half},{wy} L{px + CELL + half},{wy}')
+                segments.append(f'M{px},{py} L{px + CELL},{py}')
             # Bottom edge
             if not _walkable(x, y + 1):
-                wy = py + CELL + half
                 segments.append(
-                    f'M{px - half},{wy} L{px + CELL + half},{wy}')
+                    f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
             # Left edge
             if not _walkable(x - 1, y):
-                wx = px - half
-                segments.append(
-                    f'M{wx},{py - half} L{wx},{py + CELL + half}')
+                segments.append(f'M{px},{py} L{px},{py + CELL}')
             # Right edge
             if not _walkable(x + 1, y):
-                wx = px + CELL + half
                 segments.append(
-                    f'M{wx},{py - half} L{wx},{py + CELL + half}')
+                    f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
 
     if segments:
         svg.append(
@@ -386,6 +380,11 @@ def _render_hatching_dmap(
     if dungeon_poly.is_empty:
         return
 
+    # Buffer the polygon outward by half the wall width so hatching
+    # starts right outside the wall line, not overlapping it
+    wall_buffer = WALL_WIDTH
+    hatching_boundary = dungeon_poly.buffer(wall_buffer)
+
     base_distance_limit = 2.0 * CELL
     min_stroke = 1.0
     max_stroke = 1.8
@@ -397,9 +396,9 @@ def _render_hatching_dmap(
     for gy in range(-1, level.height + 1):
         for gx in range(-1, level.width + 1):
             center = Point((gx + 0.5) * CELL, (gy + 0.5) * CELL)
-            if dungeon_poly.contains(center):
+            if hatching_boundary.contains(center):
                 continue
-            dist = dungeon_poly.boundary.distance(center)
+            dist = hatching_boundary.boundary.distance(center)
 
             # Irregular contour: vary distance limit per tile with
             # Perlin noise so the hatching edge flows organically
