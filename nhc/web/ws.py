@@ -51,13 +51,16 @@ def register_ws(app, sock: Sock) -> None:
                 session.game.world, session.game.level,
                 session.game.player_id)
             fov = client._gather_fov(session.game.level)
+            doors = client._gather_doors(session.game.level)
             logger.info("Sending floor SVG (%d bytes) + initial state "
-                        "(%d entities, %d fov tiles)",
-                        len(client.floor_svg), len(entities), len(fov))
+                        "(%d entities, %d doors, %d fov tiles)",
+                        len(client.floor_svg), len(entities),
+                        len(doors), len(fov))
             ws.send(json.dumps({
                 "type": "floor",
                 "svg": client.floor_svg,
                 "entities": entities,
+                "doors": doors,
                 "fov": fov,
                 "turn": session.game.turn,
             }))

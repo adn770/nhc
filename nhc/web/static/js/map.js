@@ -16,6 +16,7 @@ const GameMap = {
   cellSize: 32,  // must match SVG CELL constant
   padding: 32,   // must match SVG PADDING constant
   entities: [],
+  doors: [],
   fov: new Set(),
   explored: new Set(),
   tileset: null,
@@ -82,8 +83,9 @@ const GameMap = {
       });
   },
 
-  updateEntities(entities) {
+  updateEntities(entities, doors) {
     this.entities = entities;
+    if (doors) this.doors = doors;
     // Track player position for auto-scroll
     const player = entities.find(e => e.glyph === "@");
     if (player) {
@@ -169,6 +171,9 @@ const GameMap = {
     }
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Draw doors first (behind entities)
+    this._drawDoors(ctx);
+
     for (const ent of this.entities) {
       const px = ent.x * this.cellSize + this.padding;
       const py = ent.y * this.cellSize + this.padding;
@@ -212,6 +217,87 @@ const GameMap = {
         px + this.cellSize / 2,
         py + this.cellSize / 2,
       );
+    }
+  },
+
+  /**
+   * Draw doors on the entity canvas.
+   *
+   * - door_secret (undiscovered): not drawn (invisible wall)
+   * - door_closed / door_locked: black-filled rectangle on the wall
+   *   line, 80% tile in wall direction, ~25% across passage, with
+   *   small wall connection lines on each side
+   * - door_open: same rectangle but white-filled
+   */
+  _drawDoors(ctx) {
+    const cs = this.cellSize;
+    const pad = this.padding;
+    const wallLen = cs * 0.8;    // 80% of tile along wall
+    const depth = cs * 0.25;     // 25% across passage
+    const connLen = cs * 0.1;    // small wall connection stub
+    const wallW = 4;             // match SVG WALL_WIDTH
+
+    for (const door of this.doors) {
+      // Secret doors are invisible (drawn as wall by SVG)
+      if (door.state === "door_secret") continue;
+
+      const px = door.x * cs + pad;
+      const py = door.y * cs + pad;
+      const cx = px + cs / 2;
+      const cy = py + cs / 2;
+      const fill = door.state === "door_open" ? "#FFFFFF" : "#000000";
+
+      if (door.vertical) {
+        // Wall runs top-bottom, passage left-right
+        // Rectangle: tall (wallLen) and narrow (depth)
+        const rx = cx - depth / 2;
+        const ry = cy - wallLen / 2;
+
+        // White background to clear any wall underneath
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(rx - 2, ry - 2, depth + 4, wallLen + 4);
+
+        // Door rectangle
+        ctx.fillStyle = fill;
+        ctx.fillRect(rx, ry, depth, wallLen);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rx, ry, depth, wallLen);
+
+        // Wall connection stubs (top and bottom)
+        ctx.lineWidth = wallW;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(cx, ry);
+        ctx.lineTo(cx, ry - connLen);
+        ctx.moveTo(cx, ry + wallLen);
+        ctx.lineTo(cx, ry + wallLen + connLen);
+        ctx.stroke();
+      } else {
+        // Wall runs left-right, passage top-bottom
+        // Rectangle: wide (wallLen) and short (depth)
+        const rx = cx - wallLen / 2;
+        const ry = cy - depth / 2;
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(rx - 2, ry - 2, wallLen + 4, depth + 4);
+
+        ctx.fillStyle = fill;
+        ctx.fillRect(rx, ry, wallLen, depth);
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rx, ry, wallLen, depth);
+
+        // Wall connection stubs (left and right)
+        ctx.lineWidth = wallW;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(rx, cy);
+        ctx.lineTo(rx - connLen, cy);
+        ctx.moveTo(rx + wallLen, cy);
+        ctx.lineTo(rx + wallLen + connLen, cy);
+        ctx.stroke();
+      }
     }
   },
 

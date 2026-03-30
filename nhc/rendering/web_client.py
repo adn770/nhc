@@ -24,6 +24,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _is_floor(level, x: int, y: int) -> bool:
+    from nhc.dungeon.model import Terrain
+    if not level.in_bounds(x, y):
+        return False
+    t = level.tiles[y][x]
+    return t.terrain in (Terrain.FLOOR, Terrain.WATER)
+
+
 class WebClient(GameClient):
     """GameClient that communicates over a WebSocket connection.
 
@@ -171,6 +179,31 @@ class WebClient(GameClient):
             ),
         }
 
+    def _gather_doors(
+        self, level: "Level",
+    ) -> list[dict]:
+        """Build door list for the client."""
+        doors = []
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tile_at(x, y)
+                if not tile or not tile.visible:
+                    continue
+                if tile.feature not in ("door_closed", "door_open",
+                                        "door_locked", "door_secret"):
+                    continue
+                # Determine orientation: vertical if floor left/right
+                vertical = (
+                    _is_floor(level, x - 1, y)
+                    or _is_floor(level, x + 1, y)
+                )
+                doors.append({
+                    "x": x, "y": y,
+                    "state": tile.feature,
+                    "vertical": vertical,
+                })
+        return doors
+
     def _gather_fov(self, level: "Level") -> list[list[int]]:
         """Build list of visible tile coordinates."""
         visible = []
@@ -213,11 +246,13 @@ class WebClient(GameClient):
     ) -> None:
         entities = self._gather_entities(world, level, player_id)
         fov = self._gather_fov(level)
+        doors = self._gather_doors(level)
         stats = self._gather_stats(world, player_id, turn, level)
         self._send({
             "type": "state",
             "entities": entities,
             "fov": fov,
+            "doors": doors,
             "turn": turn,
         })
         self._send({

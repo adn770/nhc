@@ -14,8 +14,9 @@ const NHC = {
     // Wire up WebSocket message handlers
     WS.on("state", (msg) => {
       console.log("state:", msg.entities.length, "entities,",
+                  (msg.doors || []).length, "doors,",
                   (msg.fov || []).length, "fov tiles");
-      GameMap.updateEntities(msg.entities);
+      GameMap.updateEntities(msg.entities, msg.doors);
       if (msg.fov) GameMap.updateFOV(msg.fov);
     });
 
@@ -36,11 +37,9 @@ const NHC = {
       console.log("floor SVG received:", msg.svg.length, "bytes");
       GameMap.setFloorSVG(msg.svg);
       if (msg.entities) {
-        console.log("floor includes entities:", msg.entities.length);
-        GameMap.updateEntities(msg.entities);
+        GameMap.updateEntities(msg.entities, msg.doors);
       }
       if (msg.fov) {
-        console.log("floor includes fov:", msg.fov.length, "tiles");
         GameMap.updateFOV(msg.fov);
       }
     });
