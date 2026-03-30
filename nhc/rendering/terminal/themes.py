@@ -32,6 +32,9 @@ class Theme:
     # Wall connectivity: (n, s, e, w) → glyph
     walls: dict = field(default_factory=dict)
 
+    # Rounded corner variants (╭╮╰╯) for wall corners
+    walls_rounded: dict = field(default_factory=dict)
+
     # Feature dim color (for explored-but-not-visible)
     feature_dim: str | tuple = "bright_black"
 
@@ -119,6 +122,24 @@ _WALLS_EXPERIMENTAL: dict[tuple[bool, bool, bool, bool], str] = {
     (False, False, False, False): "━",
 }
 
+# ── Rounded corner variants ──────────────────────────────────────────
+# Only the four L-shaped corner patterns get rounded glyphs.
+# All other keys fall through to the regular walls dict.
+
+_WALLS_ROUNDED_UNICODE: dict[tuple[bool, bool, bool, bool], str] = {
+    (False, True,  True,  False): "╭",  # ┌ → ╭
+    (False, True,  False, True ): "╮",  # ┐ → ╮
+    (True,  False, True,  False): "╰",  # └ → ╰
+    (True,  False, False, True ): "╯",  # ┘ → ╯
+}
+
+_WALLS_ROUNDED_EXPERIMENTAL: dict[tuple[bool, bool, bool, bool], str] = {
+    (False, True,  True,  False): "╭",
+    (False, True,  False, True ): "╮",
+    (True,  False, True,  False): "╰",
+    (True,  False, False, True ): "╯",
+}
+
 # ── Experimental feature glyphs (more graphical) ─────────────────────
 
 _FEATURES_EXPERIMENTAL: dict[str, tuple[str, str]] = {
@@ -181,6 +202,7 @@ THEME_MODERN = Theme(
     corridor=("#", "bright_black", _DIM_CORRIDOR_256),
     features=dict(_FEATURES_BASE),
     walls=_WALLS_UNICODE,
+    walls_rounded=_WALLS_ROUNDED_UNICODE,
     feature_dim=(50, 50, 55),
     h_line="─",
     v_sep=" │ ",
@@ -202,6 +224,7 @@ THEME_EXPERIMENTAL = Theme(
     corridor=("⣿", "bright_black", (35, 35, 35)),
     features=_FEATURES_EXPERIMENTAL,
     walls=_WALLS_EXPERIMENTAL,
+    walls_rounded=_WALLS_ROUNDED_EXPERIMENTAL,
     feature_dim=(50, 50, 55),
     h_line="─",
     v_sep=" │ ",

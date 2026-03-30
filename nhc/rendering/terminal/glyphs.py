@@ -106,8 +106,21 @@ class _CorridorProxy:
 CORRIDOR_GLYPH = _CorridorProxy()
 
 
-def wall_glyph(n: bool, s: bool, e: bool, w: bool) -> str:
-    """Return the wall character for given neighbour connections."""
-    walls = get_theme().walls
-    return walls.get((n, s, e, w), get_theme().terrain.get(
+def wall_glyph(
+    n: bool, s: bool, e: bool, w: bool,
+    rounded: bool = False,
+) -> str:
+    """Return the wall character for given neighbour connections.
+
+    When *rounded* is True and the theme provides a rounded variant
+    for this connection pattern (typically L-shaped corners), the
+    rounded glyph is returned instead (e.g. ╭ instead of ┌).
+    """
+    theme = get_theme()
+    key = (n, s, e, w)
+    if rounded and theme.walls_rounded:
+        glyph = theme.walls_rounded.get(key)
+        if glyph:
+            return glyph
+    return theme.walls.get(key, theme.terrain.get(
         Terrain.WALL, ("-", "white", "bright_black"))[0])

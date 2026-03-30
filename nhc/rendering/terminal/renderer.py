@@ -301,13 +301,18 @@ class TerminalRenderer(GameClient):
                 inp.insert(val)
 
     @staticmethod
-    def _wall_char_at(level: Level, x: int, y: int) -> str:
+    def _wall_char_at(
+        level: Level, x: int, y: int, rounded: bool = False,
+    ) -> str:
         """Pick the correct box-drawing character for a wall tile.
 
         Primary connections: WALL neighbors.
         Secondary: doors count as connections only if there's no
         wall-to-wall connection on the perpendicular axis (prevents
         ─ rendering between two doors on a vertical wall segment).
+
+        When *rounded* is True, L-shaped corners use rounded glyphs
+        (╭╮╰╯) if the active theme supports them.
         """
         _DOOR_FEATS = {"door_closed", "door_open", "door_locked", "door_secret"}
 
@@ -337,7 +342,7 @@ class TerminalRenderer(GameClient):
         ce = we or (de and not (wn or ws))
         cw = ww or (dw and not (wn or ws))
 
-        return wall_glyph(cn, cs, ce, cw)
+        return wall_glyph(cn, cs, ce, cw, rounded=rounded)
 
     def _render_map(
         self,
@@ -371,6 +376,21 @@ class TerminalRenderer(GameClient):
                 existing = entity_at.get(key)
                 if existing is None or rend.render_order > existing[2]:
                     entity_at[key] = (rend.glyph, rend.color, rend.render_order)
+
+        # Build set of wall positions adjacent to non-rect rooms
+        # that should use rounded corner glyphs
+        _rounded_walls: set[tuple[int, int]] = set()
+        if _active_theme.walls_rounded:
+            from nhc.dungeon.model import RectShape
+            for room in level.rooms:
+                if isinstance(room.shape, RectShape):
+                    continue
+                for fx, fy in room.floor_tiles():
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        nx, ny = fx + dx, fy + dy
+                        nb = level.tile_at(nx, ny)
+                        if nb and nb.terrain == Terrain.WALL:
+                            _rounded_walls.add((nx, ny))
 
         for sy in range(view_h):
             row_out = ""
@@ -407,7 +427,9 @@ class TerminalRenderer(GameClient):
                 if tile.feature == "door_secret":
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
                     # Match wall orientation from neighbors
-                    glyph = self._wall_char_at(level, mx, my)
+                    glyph = self._wall_char_at(
+                        level, mx, my, rounded=(mx, my) in _rounded_walls,
+                    )
                     if tile.visible:
                         cfn = getattr(t, color, None) or t.white
                     else:
@@ -432,7 +454,9 @@ class TerminalRenderer(GameClient):
                     glyph, color, dim_val = _glyphs.CORRIDOR_GLYPH
                 elif tile.terrain == Terrain.WALL:
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]
-                    glyph = self._wall_char_at(level, mx, my)
+                    glyph = self._wall_char_at(
+                        level, mx, my, rounded=(mx, my) in _rounded_walls,
+                    )
                 else:
                     glyph, color, dim_val = _glyphs.TERRAIN_GLYPHS.get(
                         tile.terrain, ("?", "white", "bright_black"),

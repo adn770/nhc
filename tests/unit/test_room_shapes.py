@@ -405,6 +405,98 @@ class TestCircleRoomGeneration:
         assert loaded_circles == original_circles
 
 
+class TestRoundedWallGlyphs:
+    """Tests for rounded corner wall glyph rendering."""
+
+    def test_wall_glyph_rounded_corners(self):
+        from nhc.rendering.terminal.themes import set_theme, get_theme
+        from nhc.rendering.terminal.glyphs import wall_glyph
+        set_theme("modern")
+        # ┌ (south+east) becomes ╭ when rounded
+        assert wall_glyph(False, True, True, False, rounded=False) == "┌"
+        assert wall_glyph(False, True, True, False, rounded=True) == "╭"
+        # ┐ (south+west) becomes ╮
+        assert wall_glyph(False, True, False, True, rounded=False) == "┐"
+        assert wall_glyph(False, True, False, True, rounded=True) == "╮"
+        # └ (north+east) becomes ╰
+        assert wall_glyph(True, False, True, False, rounded=False) == "└"
+        assert wall_glyph(True, False, True, False, rounded=True) == "╰"
+        # ┘ (north+west) becomes ╯
+        assert wall_glyph(True, False, False, True, rounded=False) == "┘"
+        assert wall_glyph(True, False, False, True, rounded=True) == "╯"
+
+    def test_wall_glyph_rounded_non_corner_unchanged(self):
+        from nhc.rendering.terminal.themes import set_theme
+        from nhc.rendering.terminal.glyphs import wall_glyph
+        set_theme("modern")
+        # Straight lines should not change with rounded=True
+        assert wall_glyph(False, False, True, True, rounded=True) == "─"
+        assert wall_glyph(True, True, False, False, rounded=True) == "│"
+        # T-junctions should not change
+        assert wall_glyph(True, True, True, True, rounded=True) == "┼"
+
+    def test_basic_theme_no_rounded(self):
+        from nhc.rendering.terminal.themes import set_theme
+        from nhc.rendering.terminal.glyphs import wall_glyph
+        set_theme("basic")
+        # Basic theme has no walls_rounded, so rounded=True still
+        # returns the standard ASCII glyph
+        assert wall_glyph(False, True, True, False, rounded=True) == "+"
+        set_theme("modern")  # reset
+
+    def test_wall_char_at_rounded_for_circle_room(self):
+        """_wall_char_at uses rounded corners for circle room walls."""
+        from nhc.rendering.terminal.renderer import TerminalRenderer
+        from nhc.rendering.terminal.themes import set_theme
+        from nhc.dungeon.model import (
+            CircleShape, Level, RectShape, Terrain, Tile,
+        )
+        set_theme("modern")
+
+        # Build a small level with a circle room
+        level = Level.create_empty("t", "t", 1, 15, 15)
+        rect = Rect(3, 3, 7, 7)
+        shape = CircleShape()
+        room = Room(id="r1", rect=rect, shape=shape)
+        level.rooms = [room]
+
+        # Carve floor
+        for x, y in shape.floor_tiles(rect):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        # Build walls (8-neighbor)
+        floor_set = shape.floor_tiles(rect)
+        for fx, fy in floor_set:
+            for dy in range(-1, 2):
+                for dx in range(-1, 2):
+                    nx, ny = fx + dx, fy + dy
+                    if (nx, ny) not in floor_set and level.in_bounds(nx, ny):
+                        if level.tiles[ny][nx].terrain == Terrain.VOID:
+                            level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+
+        # Find a corner wall tile (L-shaped connection)
+        # and verify it gets a rounded glyph
+        corner_found = False
+        for y in range(15):
+            for x in range(15):
+                if level.tiles[y][x].terrain != Terrain.WALL:
+                    continue
+                glyph_normal = TerminalRenderer._wall_char_at(
+                    level, x, y, rounded=False,
+                )
+                glyph_rounded = TerminalRenderer._wall_char_at(
+                    level, x, y, rounded=True,
+                )
+                if glyph_normal in ("┌", "┐", "└", "┘"):
+                    assert glyph_rounded in ("╭", "╮", "╰", "╯"), (
+                        f"Wall at ({x},{y}) with glyph {glyph_normal} "
+                        f"should be rounded but got {glyph_rounded}"
+                    )
+                    corner_found = True
+
+        assert corner_found, "No corner walls found in circle room"
+        set_theme("modern")  # reset
+
+
 class TestShapeSaveLoadBackcompat:
     """Backward compatibility for saves without shape field."""
 
