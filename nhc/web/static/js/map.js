@@ -29,6 +29,9 @@ const GameMap = {
       const h = parseInt(svg.getAttribute("height"));
       this.canvas.width = w;
       this.canvas.height = h;
+      console.log("Floor SVG set:", w, "x", h, "canvas sized");
+    } else {
+      console.warn("No <svg> found in floor SVG string");
     }
   },
 
@@ -77,7 +80,13 @@ const GameMap = {
 
   draw() {
     const ctx = this.ctx;
+    if (!this.canvas.width || !this.canvas.height) {
+      console.warn("draw() skipped: canvas has zero size");
+      return;
+    }
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    console.log("draw():", this.entities.length, "entities on",
+                this.canvas.width, "x", this.canvas.height, "canvas");
 
     for (const ent of this.entities) {
       const px = ent.x * this.cellSize + this.padding;

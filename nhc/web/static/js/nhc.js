@@ -1,15 +1,11 @@
 /**
  * NHC Web Frontend — main entry point.
- *
- * Orchestrates login, game creation, WebSocket connection,
- * and wires up all message handlers.
  */
 const NHC = {
   sessionId: null,
 
   init() {
     UI.init();
-    GameMap.init();
     Input.init();
 
     document.getElementById("new-game-btn")
@@ -17,11 +13,14 @@ const NHC = {
 
     // Wire up WebSocket message handlers
     WS.on("state", (msg) => {
+      console.log("state:", msg.entities.length, "entities,",
+                  (msg.fov || []).length, "fov tiles");
       GameMap.updateEntities(msg.entities);
       if (msg.fov) GameMap.updateFOV(msg.fov);
     });
 
     WS.on("message", (msg) => {
+      console.log("message:", msg.text);
       UI.addMessage(msg.text);
     });
 
@@ -34,12 +33,20 @@ const NHC = {
     });
 
     WS.on("floor", (msg) => {
+      console.log("floor SVG received:", msg.svg.length, "bytes");
       GameMap.setFloorSVG(msg.svg);
-      GameMap.updateEntities(msg.entities || []);
-      if (msg.fov) GameMap.updateFOV(msg.fov);
+      if (msg.entities) {
+        console.log("floor includes entities:", msg.entities.length);
+        GameMap.updateEntities(msg.entities);
+      }
+      if (msg.fov) {
+        console.log("floor includes fov:", msg.fov.length, "tiles");
+        GameMap.updateFOV(msg.fov);
+      }
     });
 
     WS.on("menu", async (msg) => {
+      console.log("menu:", msg.title, msg.options.length, "options");
       const choice = await UI.showMenu(msg.title, msg.options);
       WS.send({ type: "menu_select", choice });
     });
@@ -49,7 +56,7 @@ const NHC = {
     });
 
     WS.on("help", () => {
-      UI.addMessage("--- Help: press ? in terminal mode for full help ---");
+      UI.addMessage("--- Help: press ? for full help ---");
     });
 
     WS.on("shutdown", () => {
@@ -58,7 +65,6 @@ const NHC = {
 
     WS.on("farlook", () => {
       UI.addMessage("Farlook mode — click a tile to examine.");
-      // In web mode, clicking already sends coordinates
       WS.send({ type: "action", intent: "farlook_done" });
     });
   },
@@ -81,18 +87,22 @@ const NHC = {
 
     const data = await resp.json();
     this.sessionId = data.session_id;
+    console.log("Game created:", data.session_id);
 
     // Load tileset
     await GameMap.loadTileset(tileset);
 
-    // Switch to game screen
+    // Switch to game screen BEFORE connecting WS
+    // so the canvas can get proper dimensions
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("game-screen").classList.remove("hidden");
+
+    // Init map now that the DOM is visible
+    GameMap.init();
 
     // Connect WebSocket
     WS.connect(this.sessionId);
   },
 };
 
-// Start when DOM is ready
 document.addEventListener("DOMContentLoaded", () => NHC.init());

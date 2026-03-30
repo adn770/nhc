@@ -45,26 +45,27 @@ def register_ws(app, sock: Sock) -> None:
         logger.info("WS attached to game")
 
         # Send the floor SVG now that WS is connected
-        if client.floor_svg:
-            logger.info("Sending floor SVG: %d bytes",
-                        len(client.floor_svg))
-            ws.send(json.dumps({"type": "floor", "svg": client.floor_svg}))
-        else:
-            logger.warning("No floor SVG to send!")
-
-        # Send initial game state
-        if session.game.level:
+        # Send floor SVG + initial state in one message
+        if client.floor_svg and session.game.level:
             entities = client._gather_entities(
                 session.game.world, session.game.level)
             fov = client._gather_fov(session.game.level)
-            logger.info("Sending initial state: %d entities, %d fov tiles",
-                        len(entities), len(fov))
+            logger.info("Sending floor SVG (%d bytes) + initial state "
+                        "(%d entities, %d fov tiles)",
+                        len(client.floor_svg), len(entities), len(fov))
             ws.send(json.dumps({
-                "type": "state",
+                "type": "floor",
+                "svg": client.floor_svg,
                 "entities": entities,
                 "fov": fov,
                 "turn": session.game.turn,
             }))
+        elif client.floor_svg:
+            logger.info("Sending floor SVG: %d bytes (no level state)",
+                        len(client.floor_svg))
+            ws.send(json.dumps({"type": "floor", "svg": client.floor_svg}))
+        else:
+            logger.warning("No floor SVG to send!")
 
         # Sender thread: drains client output queue → WS
         stop_event = threading.Event()
