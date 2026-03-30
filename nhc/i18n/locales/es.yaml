@@ -22,6 +22,16 @@ potion_appearance:
   oily_black_short: "una poción negra aceitosa"
   sparkling_cyan: "poción cian brillante"
   sparkling_cyan_short: "una poción cian brillante"
+  cloudy_grey: "poción gris nublada"
+  cloudy_grey_short: "una poción gris nublada"
+  swirling_orange: "poción naranja arremolinada"
+  swirling_orange_short: "una poción naranja arremolinada"
+  milky_white: "poción blanca lechosa"
+  milky_white_short: "una poción blanca lechosa"
+  pungent_green: "poción verde acre"
+  pungent_green_short: "una poción verde acre"
+  pale_pink: "poción rosa pálida"
+  pale_pink_short: "una poción rosa pálida"
   identified: "¡Identificas que es {name}!"
 
 # ── Apariencias de pergaminos (sin identificar) ─────────────────────
@@ -92,6 +102,16 @@ scroll_appearance:
   gnik_sansen_short: "un pergamino etiquetado GNIK SANSEN"
   ashpd_lansen: "pergamino etiquetado ASHPD LANSEN"
   ashpd_lansen_short: "un pergamino etiquetado ASHPD LANSEN"
+  kwango_ull: "pergamino etiquetado KWANGO ULL"
+  kwango_ull_short: "un pergamino etiquetado KWANGO ULL"
+  venzar_plansen: "pergamino etiquetado VENZAR PLANSEN"
+  venzar_plansen_short: "un pergamino etiquetado VENZAR PLANSEN"
+  morke_dansen: "pergamino etiquetado MORKE DANSEN"
+  morke_dansen_short: "un pergamino etiquetado MORKE DANSEN"
+  ulgoth_sansen: "pergamino etiquetado ULGOTH SANSEN"
+  ulgoth_sansen_short: "un pergamino etiquetado ULGOTH SANSEN"
+  thakk_ansen: "pergamino etiquetado THAKK ANSEN"
+  thakk_ansen_short: "un pergamino etiquetado THAKK ANSEN"
 
 ring_appearance:
   diamond: "anillo de diamante"
@@ -128,6 +148,18 @@ wand_appearance:
   willow_short: "una varita de sauce"
   oak: "varita de roble"
   oak_short: "una varita de roble"
+  birch: "varita de abedul"
+  birch_short: "una varita de abedul"
+  maple: "varita de arce"
+  maple_short: "una varita de arce"
+  ash: "varita de fresno"
+  ash_short: "una varita de fresno"
+  cedar: "varita de cedro"
+  cedar_short: "una varita de cedro"
+  elm: "varita de olmo"
+  elm_short: "una varita de olmo"
+  pine: "varita de pino"
+  pine_short: "una varita de pino"
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
@@ -309,6 +341,44 @@ item:
   charm_snakes_cast: "Una melodía hipnótica llena el aire..."
   charm_snakes_affects: "{target} se balancea pacíficamente con la música."
   charm_snakes_none: "No hay serpientes cerca."
+  speed_cast: "¡La energía recorre tus extremidades!"
+  speed_active: "¡Te mueves con una velocidad increíble!"
+  speed_affects: "¡{target} empieza a moverse más rápido!"
+  confusion_cast: "El mundo gira a tu alrededor..."
+  confusion_active: "¡No puedes pensar con claridad!"
+  confusion_affects: "¡{target} se tambalea confuso!"
+  blindness_cast: "¡La oscuridad engulle tu visión!"
+  blindness_active: "¡Estás ciego!"
+  blindness_affects: "¡{target} queda ciego!"
+  acid_quaff: "¡El ácido te quema la garganta! {damage} de daño."
+  acid_cures: "¡El ácido disuelve la petrificación!"
+  acid_hits: "¡El ácido salpica a {target} por {damage} de daño!"
+  sickness_quaff: "¡Vomitas violentamente! {damage} de daño."
+  sickness_poison: "El veneno recorre tus venas..."
+  sickness_affects: "¡{target} queda empapado de inmundicia tóxica!"
+  enchant_weapon_cast: "¡El pergamino brilla y tu arma vibra con poder!"
+  enchant_weapon_success: "¡{item} ahora es +{bonus}!"
+  enchant_weapon_destroy: "¡{item} se vuelve incandescente y se deshace!"
+  enchant_weapon_no_weapon: "No empuñas ningún arma."
+  enchant_armor_cast: "¡Runas protectoras se hunden en tu armadura!"
+  enchant_armor_success: "¡{item} ahora es +{bonus}!"
+  enchant_armor_destroy: "¡{item} estalla en luz y se desintegra!"
+  enchant_armor_no_armor: "No llevas armadura."
+  charging_cast: "¡La energía crepita del pergamino hacia tu varita!"
+  charging_success: "{item} absorbe la carga."
+  charging_no_wand: "No tienes ninguna varita para cargar."
+  teleport_self: "¡El mundo cambia a tu alrededor!"
+  cold_hits: "¡Un rayo de frío golpea a {target} por {damage} de daño!"
+  death_ray: "¡Un rayo negro golpea a {target}!"
+  death_ray_kills: "¡{target} cae fulminado!"
+  death_ray_immune: "{target} no se ve afectado por el rayo de muerte."
+  cancel_affects: "¡Los efectos mágicos se desvanecen de {target}!"
+  cancel_no_effects: "{target} no tiene efectos mágicos."
+  dig_cast: "¡La roca se desmorona ante el poder de la varita!"
+  dig_no_wall: "No hay nada que excavar."
+  wand_lock_door: "¡La puerta se cierra con llave!"
+  wand_open_door: "¡La puerta se abre de par en par!"
+  wand_no_door: "No hay ninguna puerta en esa dirección."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -1031,6 +1101,36 @@ items:
     long: >-
       Brilla con claridad interior. Beberla limpia todo veneno
       y efectos nocivos de tu cuerpo.
+  potion_speed:
+    name: "Poción de Velocidad"
+    short: "una poción de azogue"
+    long: >-
+      El líquido se mueve inquieto de un lado a otro.
+      Beberla otorga una rapidez sobrenatural por un tiempo.
+  potion_confusion:
+    name: "Poción de Confusión"
+    short: "una poción iridiscente"
+    long: >-
+      Los colores de este frasco cambian de forma impredecible.
+      Beberla nubla la mente — mejor lanzarla a un enemigo.
+  potion_blindness:
+    name: "Poción de Ceguera"
+    short: "una poción tintada"
+    long: >-
+      Un frasco de oscuridad impenetrable. Beberla priva de la
+      vista — mucho más útil como arma arrojadiza.
+  potion_acid:
+    name: "Poción de Ácido"
+    short: "una poción siseante"
+    long: >-
+      El tapón sisea donde toca el cristal. Muy corrosiva
+      al lanzarla. Beberla quema, pero cura la petrificación.
+  potion_sickness:
+    name: "Poción de Enfermedad"
+    short: "una poción maloliente"
+    long: >-
+      Un hedor nauseabundo se filtra por el tapón. Este brebaje
+      vil daña y envenena a quien lo bebe o recibe su impacto.
   # ── Armas mágicas ──
   dagger_plus_1:
     name: "Daga +1"
@@ -1569,6 +1669,54 @@ items:
     name: "Varita de Amok"
     short: "una varita de amok"
     long: "Lleva al objetivo a un frenesí. Confundido durante 6 turnos."
+  scroll_enchant_weapon:
+    name: "Pergamino de encantar arma"
+    short: "un pergamino brillante"
+    long: >-
+      Runas de poder giran alrededor de una hoja grabada en
+      el pergamino. Leerlo mejora el arma empuñada.
+  scroll_enchant_armor:
+    name: "Pergamino de encantar armadura"
+    short: "un pergamino protegido"
+    long: >-
+      Sigilos protectores cubren cada centímetro de este pergamino.
+      Leerlo refuerza la armadura equipada.
+  scroll_charging:
+    name: "Pergamino de carga"
+    short: "un pergamino crepitante"
+    long: >-
+      La electricidad estática se aferra a este pergamino. Leerlo
+      restaura las cargas de una varita a tu elección.
+  scroll_teleportation:
+    name: "Pergamino de teletransporte"
+    short: "un pergamino centelleante"
+    long: >-
+      Las palabras parecen cambiar de posición mientras las lees.
+      Leerlo te transporta a un lugar aleatorio.
+  wand_opening:
+    name: "Varita de apertura"
+    short: "una varita de apertura"
+    long: "Desbloquea puertas y cofres con un gesto."
+  wand_locking:
+    name: "Varita de cierre"
+    short: "una varita de cierre"
+    long: "Sella puertas con fuerza mágica."
+  wand_cold:
+    name: "Varita de frío"
+    short: "una varita de frío"
+    long: "Dispara un rayo de frío glacial. 2d6 de daño de frío."
+  wand_death:
+    name: "Varita de la muerte"
+    short: "una varita de la muerte"
+    long: "Dispara un rayo de muerte instantánea. Los no-muertos son inmunes."
+  wand_cancellation:
+    name: "Varita de cancelación"
+    short: "una varita de cancelación"
+    long: "Elimina todos los efectos mágicos del objetivo."
+  wand_digging:
+    name: "Varita de excavación"
+    short: "una varita de excavación"
+    long: "Abre un pasaje a través de la roca sólida."
   scroll_identify:
     name: "Pergamino de Identificación"
     short: "un pergamino brillante"

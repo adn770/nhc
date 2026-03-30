@@ -22,6 +22,16 @@ potion_appearance:
   oily_black_short: "an oily black potion"
   sparkling_cyan: "sparkling cyan potion"
   sparkling_cyan_short: "a sparkling cyan potion"
+  cloudy_grey: "cloudy grey potion"
+  cloudy_grey_short: "a cloudy grey potion"
+  swirling_orange: "swirling orange potion"
+  swirling_orange_short: "a swirling orange potion"
+  milky_white: "milky white potion"
+  milky_white_short: "a milky white potion"
+  pungent_green: "pungent green potion"
+  pungent_green_short: "a pungent green potion"
+  pale_pink: "pale pink potion"
+  pale_pink_short: "a pale pink potion"
   identified: "You identify it as {name}!"
 
 # ── Scroll appearances (unidentified) ───────────────────────────────
@@ -92,6 +102,16 @@ scroll_appearance:
   gnik_sansen_short: "a scroll labeled GNIK SANSEN"
   ashpd_lansen: "scroll labeled ASHPD LANSEN"
   ashpd_lansen_short: "a scroll labeled ASHPD LANSEN"
+  kwango_ull: "scroll labeled KWANGO ULL"
+  kwango_ull_short: "a scroll labeled KWANGO ULL"
+  venzar_plansen: "scroll labeled VENZAR PLANSEN"
+  venzar_plansen_short: "a scroll labeled VENZAR PLANSEN"
+  morke_dansen: "scroll labeled MORKE DANSEN"
+  morke_dansen_short: "a scroll labeled MORKE DANSEN"
+  ulgoth_sansen: "scroll labeled ULGOTH SANSEN"
+  ulgoth_sansen_short: "a scroll labeled ULGOTH SANSEN"
+  thakk_ansen: "scroll labeled THAKK ANSEN"
+  thakk_ansen_short: "a scroll labeled THAKK ANSEN"
 
 # ── Ring appearances (unidentified) ──────────────────────────────────
 ring_appearance:
@@ -130,6 +150,18 @@ wand_appearance:
   willow_short: "a willow wand"
   oak: "oak wand"
   oak_short: "an oak wand"
+  birch: "birch wand"
+  birch_short: "a birch wand"
+  maple: "maple wand"
+  maple_short: "a maple wand"
+  ash: "ash wand"
+  ash_short: "an ash wand"
+  cedar: "cedar wand"
+  cedar_short: "a cedar wand"
+  elm: "elm wand"
+  elm_short: "an elm wand"
+  pine: "pine wand"
+  pine_short: "a pine wand"
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
@@ -309,6 +341,44 @@ item:
   charm_snakes_cast: "A hypnotic melody fills the air..."
   charm_snakes_affects: "{target} sways peacefully to the music."
   charm_snakes_none: "No serpents are nearby."
+  speed_cast: "Energy surges through your limbs!"
+  speed_active: "You move with incredible speed!"
+  speed_affects: "{target} begins moving faster!"
+  confusion_cast: "The world spins around you..."
+  confusion_active: "You can't think straight!"
+  confusion_affects: "{target} staggers about in confusion!"
+  blindness_cast: "Darkness engulfs your vision!"
+  blindness_active: "You are blind!"
+  blindness_affects: "{target} is blinded!"
+  acid_quaff: "The acid burns your throat! {damage} damage."
+  acid_cures: "The acid dissolves the petrification!"
+  acid_hits: "Acid splashes {target} for {damage} damage!"
+  sickness_quaff: "You retch violently! {damage} damage."
+  sickness_poison: "Poison courses through your veins..."
+  sickness_affects: "{target} is drenched in noxious filth!"
+  enchant_weapon_cast: "The scroll glows and your weapon hums with power!"
+  enchant_weapon_success: "{item} is now +{bonus}!"
+  enchant_weapon_destroy: "{item} glows white-hot and crumbles to dust!"
+  enchant_weapon_no_weapon: "You are not wielding a weapon."
+  enchant_armor_cast: "Protective runes sink into your armor!"
+  enchant_armor_success: "{item} is now +{bonus}!"
+  enchant_armor_destroy: "{item} flares with light and disintegrates!"
+  enchant_armor_no_armor: "You are not wearing armor."
+  charging_cast: "Energy crackles from the scroll into your wand!"
+  charging_success: "{item} absorbs the charge."
+  charging_no_wand: "You have no wands to charge."
+  teleport_self: "The world shifts around you!"
+  cold_hits: "A ray of frost strikes {target} for {damage} damage!"
+  death_ray: "A black ray strikes {target}!"
+  death_ray_kills: "{target} is struck dead!"
+  death_ray_immune: "{target} is unaffected by the death ray."
+  cancel_affects: "Magical effects are stripped from {target}!"
+  cancel_no_effects: "{target} has no magical effects."
+  dig_cast: "Rock crumbles before the wand's power!"
+  dig_no_wall: "There is nothing to dig through."
+  wand_lock_door: "The door locks shut!"
+  wand_open_door: "The door swings open!"
+  wand_no_door: "There is no door in that direction."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -1020,6 +1090,37 @@ items:
     long: >-
       Glowing with inner clarity. Drinking it cleanses all
       poison and harmful effects from your body.
+  potion_speed:
+    name: "Potion of Speed"
+    short: "a quicksilver potion"
+    long: >-
+      The liquid inside darts restlessly from side to side.
+      Drinking it grants supernatural swiftness for a time.
+  potion_confusion:
+    name: "Potion of Confusion"
+    short: "an iridescent potion"
+    long: >-
+      The colors in this vial shift unpredictably. Drinking it
+      muddles the mind — best thrown at an enemy instead.
+  potion_blindness:
+    name: "Potion of Blindness"
+    short: "an inky potion"
+    long: >-
+      A vial of impenetrable darkness. Drinking it robs you
+      of sight — far more useful as a thrown weapon.
+  potion_acid:
+    name: "Potion of Acid"
+    short: "a hissing potion"
+    long: >-
+      The stopper fizzes where it meets the glass. Highly
+      corrosive when thrown. Drinking it burns, but cures
+      petrification.
+  potion_sickness:
+    name: "Potion of Sickness"
+    short: "a foul-smelling potion"
+    long: >-
+      A nauseating stench seeps through the stopper. This vile
+      brew damages and poisons whoever drinks it or is hit by it.
   # ── Magic weapons ──
   dagger_plus_1:
     name: "Dagger +1"
@@ -1558,6 +1659,54 @@ items:
     name: "Wand of Amok"
     short: "a wand of amok"
     long: "Drives the target into a frenzy. Confused for 6 turns."
+  scroll_enchant_weapon:
+    name: "Scroll of Enchant Weapon"
+    short: "a glowing scroll"
+    long: >-
+      Runes of empowerment spiral around a blade etched into
+      the parchment. Reading it enhances your wielded weapon.
+  scroll_enchant_armor:
+    name: "Scroll of Enchant Armor"
+    short: "a warded scroll"
+    long: >-
+      Protective sigils cover every inch of this scroll.
+      Reading it strengthens your worn armor.
+  scroll_charging:
+    name: "Scroll of Charging"
+    short: "a crackling scroll"
+    long: >-
+      Static electricity clings to this parchment. Reading it
+      restores charges to a wand of your choosing.
+  scroll_teleportation:
+    name: "Scroll of Teleportation"
+    short: "a shimmering scroll"
+    long: >-
+      The words seem to shift position as you read them.
+      Reading it transports you to a random location.
+  wand_opening:
+    name: "Wand of Opening"
+    short: "a wand of opening"
+    long: "Unlocks doors and chests with a flick."
+  wand_locking:
+    name: "Wand of Locking"
+    short: "a wand of locking"
+    long: "Seals doors shut with magical force."
+  wand_cold:
+    name: "Wand of Cold"
+    short: "a wand of cold"
+    long: "Fires a ray of freezing cold. 2d6 cold damage."
+  wand_death:
+    name: "Wand of Death"
+    short: "a wand of death"
+    long: "Fires a ray of instant death. Undead are immune."
+  wand_cancellation:
+    name: "Wand of Cancellation"
+    short: "a wand of cancellation"
+    long: "Strips all magical effects from the target."
+  wand_digging:
+    name: "Wand of Digging"
+    short: "a wand of digging"
+    long: "Carves a passage through solid rock."
   scroll_identify:
     name: "Scroll of Identify"
     short: "a glowing scroll"

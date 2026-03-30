@@ -318,6 +318,85 @@ class TestMeleeAttackAction:
         action = MeleeAttackAction(actor=pid, target=cid)
         assert not await action.validate(world, level)
 
+    @pytest.mark.asyncio
+    async def test_attack_blocked_by_closed_door_west(self):
+        """Creature cannot attack through a closed door on the west edge."""
+        world = World()
+        level = _make_test_level()
+        # Player stands on door tile at (5,5), door is on the west edge
+        level.tiles[5][5].feature = "door_closed"
+        level.tiles[5][5].door_side = "west"
+        pid = _make_player(world, x=5, y=5)
+        # Creature is to the west at (4,5) — on the other side of the door
+        cid = _make_creature(world, x=4, y=5)
+
+        action = MeleeAttackAction(actor=pid, target=cid)
+        assert not await action.validate(world, level)
+
+        # Attack from creature side should also be blocked
+        action2 = MeleeAttackAction(actor=cid, target=pid)
+        assert not await action2.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_attack_blocked_by_closed_door_other_sides(self):
+        """Closed doors block attacks on all cardinal sides."""
+        for door_side, creature_dx, creature_dy in [
+            ("east", 1, 0),
+            ("north", 0, -1),
+            ("south", 0, 1),
+        ]:
+            world = World()
+            level = _make_test_level()
+            level.tiles[5][5].feature = "door_closed"
+            level.tiles[5][5].door_side = door_side
+            pid = _make_player(world, x=5, y=5)
+            cid = _make_creature(world, x=5 + creature_dx, y=5 + creature_dy)
+
+            action = MeleeAttackAction(actor=cid, target=pid)
+            assert not await action.validate(world, level), \
+                f"Attack should be blocked by closed door on {door_side}"
+
+    @pytest.mark.asyncio
+    async def test_attack_allowed_through_open_door(self):
+        """Open doors do not block melee attacks."""
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][5].feature = "door_open"
+        level.tiles[5][5].door_side = "west"
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=4, y=5)
+
+        action = MeleeAttackAction(actor=cid, target=pid)
+        assert await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_attack_allowed_same_side_of_closed_door(self):
+        """Entities on the same side of a closed door can still attack."""
+        world = World()
+        level = _make_test_level()
+        # Door on west edge — east side is the "room" side
+        level.tiles[5][5].feature = "door_closed"
+        level.tiles[5][5].door_side = "west"
+        pid = _make_player(world, x=5, y=5)
+        # Creature to the east — same side as player (not blocked)
+        cid = _make_creature(world, x=6, y=5)
+
+        action = MeleeAttackAction(actor=cid, target=pid)
+        assert await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_attack_blocked_by_locked_door(self):
+        """Locked doors also block melee attacks."""
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][5].feature = "door_locked"
+        level.tiles[5][5].door_side = "west"
+        pid = _make_player(world, x=5, y=5)
+        cid = _make_creature(world, x=4, y=5)
+
+        action = MeleeAttackAction(actor=cid, target=pid)
+        assert not await action.validate(world, level)
+
 
 class TestPickupItemAction:
     @pytest.mark.asyncio

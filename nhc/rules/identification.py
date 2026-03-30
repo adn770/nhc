@@ -23,6 +23,11 @@ POTION_IDS = [
     "potion_mind_vision",
     "potion_paralytic_gas",
     "potion_purification",
+    "potion_speed",
+    "potion_confusion",
+    "potion_blindness",
+    "potion_acid",
+    "potion_sickness",
 ]
 
 # (i18n_key_suffix, glyph_color)
@@ -36,6 +41,11 @@ POTION_APPEARANCES = [
     ("glowing_white", "bright_white"),
     ("oily_black", "bright_black"),
     ("sparkling_cyan", "bright_cyan"),
+    ("cloudy_grey", "white"),
+    ("swirling_orange", "bright_red"),
+    ("milky_white", "bright_white"),
+    ("pungent_green", "bright_green"),
+    ("pale_pink", "magenta"),
 ]
 
 # ── Scroll IDs and appearances ──────────────────────────────────────
@@ -55,6 +65,10 @@ SCROLL_IDS = [
     "scroll_silence", "scroll_sleep", "scroll_water_breathing",
     "scroll_web",
     "scroll_identify",
+    "scroll_enchant_weapon",
+    "scroll_enchant_armor",
+    "scroll_charging",
+    "scroll_teleportation",
 ]
 
 # Cryptic labels — shuffled and assigned to scroll types
@@ -93,6 +107,11 @@ SCROLL_APPEARANCES = [
     ("rok_ull", "bright_yellow"),
     ("gnik_sansen", "cyan"),
     ("ashpd_lansen", "bright_red"),
+    ("kwango_ull", "bright_magenta"),
+    ("venzar_plansen", "cyan"),
+    ("morke_dansen", "bright_green"),
+    ("ulgoth_sansen", "white"),
+    ("thakk_ansen", "bright_yellow"),
 ]
 
 # ── Ring IDs and appearances ─────────────────────────────────────────
@@ -119,6 +138,12 @@ WAND_IDS = [
     "wand_firebolt", "wand_lightning", "wand_teleport", "wand_poison",
     "wand_slowness", "wand_disintegrate", "wand_magic_missile",
     "wand_amok",
+    "wand_opening",
+    "wand_locking",
+    "wand_cold",
+    "wand_death",
+    "wand_cancellation",
+    "wand_digging",
 ]
 
 WAND_APPEARANCES = [
@@ -130,6 +155,12 @@ WAND_APPEARANCES = [
     ("rowan", "bright_green"),
     ("willow", "bright_cyan"),
     ("oak", "bright_yellow"),
+    ("birch", "bright_white"),
+    ("maple", "bright_red"),
+    ("ash", "white"),
+    ("cedar", "yellow"),
+    ("elm", "green"),
+    ("pine", "bright_green"),
 ]
 
 # All identifiable item IDs

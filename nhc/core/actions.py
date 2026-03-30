@@ -102,6 +102,31 @@ def _crossing_door_edge(
         return False
 
 
+_BLOCKING_DOOR_FEATURES = frozenset({"door_closed", "door_locked", "door_secret"})
+
+
+def _closed_door_blocks(
+    level: "Level", ax: int, ay: int, tx: int, ty: int,
+) -> bool:
+    """True if a closed/locked door blocks melee between two positions."""
+    dx = tx - ax
+    dy = ty - ay
+
+    # Check door on attacker's tile (leaving through its edge)
+    a_tile = level.tile_at(ax, ay)
+    if (a_tile and a_tile.feature in _BLOCKING_DOOR_FEATURES
+            and _crossing_door_edge(dx, dy, a_tile, entering=False)):
+        return True
+
+    # Check door on target's tile (entering through its edge)
+    t_tile = level.tile_at(tx, ty)
+    if (t_tile and t_tile.feature in _BLOCKING_DOOR_FEATURES
+            and _crossing_door_edge(dx, dy, t_tile, entering=True)):
+        return True
+
+    return False
+
+
 class Action(abc.ABC):
     """Base action. All player/creature actions inherit from this."""
 
@@ -272,7 +297,11 @@ class MeleeAttackAction(Action):
         tpos = world.get_component(self.target, "Position")
         if not apos or not tpos:
             return False
-        return adjacent(apos.x, apos.y, tpos.x, tpos.y)
+        if not adjacent(apos.x, apos.y, tpos.x, tpos.y):
+            return False
+        if _closed_door_blocks(level, apos.x, apos.y, tpos.x, tpos.y):
+            return False
+        return True
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         events: list[Event] = []
@@ -860,6 +889,80 @@ class ThrowAction(Action):
                     max_hp=health.maximum,
                 ))
 
+        elif effect == "confusion":
+            try:
+                duration = int(consumable.dice)
+            except ValueError:
+                duration = roll_dice(consumable.dice)
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(
+                    self.target, "StatusEffect",
+                    StatusEffect(confused=duration),
+                )
+            else:
+                status.confused = duration
+            events.append(MessageEvent(
+                text=t("item.confusion_affects", target=target_name),
+            ))
+
+        elif effect == "blindness":
+            try:
+                duration = int(consumable.dice)
+            except ValueError:
+                duration = roll_dice(consumable.dice)
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(
+                    self.target, "StatusEffect",
+                    StatusEffect(blinded=duration),
+                )
+            else:
+                status.blinded = duration
+            events.append(MessageEvent(
+                text=t("item.blindness_affects", target=target_name),
+            ))
+
+        elif effect == "acid" and health:
+            damage = roll_dice(consumable.dice)
+            from nhc.rules.combat import apply_damage
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.acid_hits", target=target_name,
+                       damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
+                ))
+
+        elif effect == "sickness":
+            world.add_component(
+                self.target, "Poison",
+                Poison(damage_per_turn=2, turns_remaining=5),
+            )
+            events.append(MessageEvent(
+                text=t("item.sickness_affects", target=target_name),
+            ))
+
+        elif effect == "speed":
+            try:
+                duration = int(consumable.dice)
+            except ValueError:
+                duration = roll_dice(consumable.dice)
+            status = world.get_component(self.target, "StatusEffect")
+            if status is None:
+                world.add_component(
+                    self.target, "StatusEffect",
+                    StatusEffect(hasted=duration),
+                )
+            else:
+                status.hasted = duration
+            events.append(MessageEvent(
+                text=t("item.speed_affects", target=target_name),
+            ))
+
         else:
             # Generic: just report the throw
             pass
@@ -1009,6 +1112,95 @@ class ZapAction(Action):
             events.append(MessageEvent(
                 text=t("item.phantasmal_affects", target=target_name),
             ))
+
+        elif effect == "cold" and health:
+            damage = roll_dice("2d6")
+            actual = apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("item.cold_hits", target=target_name,
+                       damage=actual),
+            ))
+            if health.current <= 0:
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
+                ))
+
+        elif effect == "death":
+            ai = world.get_component(self.target, "AI")
+            faction = ai.faction if ai else ""
+            immune = faction in ("undead", "demon")
+            if immune:
+                events.append(MessageEvent(
+                    text=t("item.death_ray_immune", target=target_name),
+                ))
+            elif health:
+                health.current = 0
+                events.append(MessageEvent(
+                    text=t("item.death_ray", target=target_name),
+                ))
+                events.append(CreatureDied(
+                    entity=self.target, killer=self.actor,
+                    max_hp=health.maximum,
+                ))
+
+        elif effect == "cancellation":
+            status = world.get_component(self.target, "StatusEffect")
+            if status:
+                world.remove_component(self.target, "StatusEffect")
+                events.append(MessageEvent(
+                    text=t("item.cancel_affects", target=target_name),
+                ))
+            else:
+                events.append(MessageEvent(
+                    text=t("item.cancel_no_effects",
+                           target=target_name),
+                ))
+
+        elif effect == "opening":
+            tpos = world.get_component(self.target, "Position")
+            if tpos:
+                tile = level.tile_at(tpos.x, tpos.y)
+                if tile and tile.feature in ("door_closed",
+                                             "door_locked"):
+                    tile.feature = "door_open"
+                    events.append(MessageEvent(
+                        text=t("item.wand_open_door"),
+                    ))
+                else:
+                    events.append(MessageEvent(
+                        text=t("item.wand_no_door"),
+                    ))
+
+        elif effect == "locking":
+            tpos = world.get_component(self.target, "Position")
+            if tpos:
+                tile = level.tile_at(tpos.x, tpos.y)
+                if tile and tile.feature in ("door_closed",
+                                             "door_open"):
+                    tile.feature = "door_locked"
+                    events.append(MessageEvent(
+                        text=t("item.wand_lock_door"),
+                    ))
+                else:
+                    events.append(MessageEvent(
+                        text=t("item.wand_no_door"),
+                    ))
+
+        elif effect == "digging":
+            from nhc.dungeon.model import Terrain
+            tpos = world.get_component(self.target, "Position")
+            if tpos:
+                tile = level.tile_at(tpos.x, tpos.y)
+                if tile and tile.terrain == Terrain.WALL:
+                    tile.terrain = Terrain.FLOOR
+                    events.append(MessageEvent(
+                        text=t("item.dig_cast"),
+                    ))
+                else:
+                    events.append(MessageEvent(
+                        text=t("item.dig_no_wall"),
+                    ))
 
         real_id = world.get_component(self.item, "_potion_id") or ""
         events.append(ItemUsed(
@@ -1311,6 +1503,54 @@ class UseItemAction(Action):
             events.append(MessageEvent(
                 text=t("item.identify_cast"),
             ))
+
+        elif consumable.effect == "speed":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "hasted",
+                t("item.speed_cast"), t("item.speed_active"),
+            )
+
+        elif consumable.effect == "confusion":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "confused",
+                t("item.confusion_cast"), t("item.confusion_active"),
+            )
+
+        elif consumable.effect == "blindness":
+            events += _use_self_buff(
+                world, self.actor, self.item, consumable, "blinded",
+                t("item.blindness_cast"), t("item.blindness_active"),
+            )
+
+        elif consumable.effect == "acid":
+            events += _use_acid(
+                world, self.actor, self.item, consumable,
+            )
+
+        elif consumable.effect == "sickness":
+            events += _use_sickness(
+                world, self.actor, self.item, consumable,
+            )
+
+        elif consumable.effect == "enchant_weapon":
+            events += _use_enchant_weapon(
+                world, self.actor, self.item, consumable,
+            )
+
+        elif consumable.effect == "enchant_armor":
+            events += _use_enchant_armor(
+                world, self.actor, self.item, consumable,
+            )
+
+        elif consumable.effect == "charging":
+            events += _use_charging(
+                world, self.actor, self.item, consumable,
+            )
+
+        elif consumable.effect == "teleport":
+            events += _use_teleport_self(
+                world, level, self.actor, self.item, consumable,
+            )
 
         else:
             events.append(MessageEvent(
@@ -2761,6 +3001,61 @@ def _use_remove_fear(
     return events
 
 
+def _use_acid(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+) -> list[Event]:
+    """Acid potion: self-damage + cure petrification/paralysis."""
+    events: list[Event] = []
+    damage = roll_dice(consumable.dice)
+    health = world.get_component(actor, "Health")
+    if health:
+        actual = apply_damage(health, damage)
+        events.append(MessageEvent(
+            text=t("item.acid_quaff", damage=actual),
+        ))
+
+    # Cure petrification / paralysis
+    status = world.get_component(actor, "StatusEffect")
+    if status and status.paralyzed > 0:
+        status.paralyzed = 0
+        events.append(MessageEvent(
+            text=t("item.acid_cures"),
+        ))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="acid"))
+    return events
+
+
+def _use_sickness(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+) -> list[Event]:
+    """Sickness potion: self-damage + poison."""
+    events: list[Event] = []
+    damage = roll_dice(consumable.dice)
+    health = world.get_component(actor, "Health")
+    if health:
+        actual = apply_damage(health, damage)
+        events.append(MessageEvent(
+            text=t("item.sickness_quaff", damage=actual),
+        ))
+
+    world.add_component(
+        actor, "Poison",
+        Poison(damage_per_turn=1, turns_remaining=5),
+    )
+    events.append(MessageEvent(
+        text=t("item.sickness_poison"),
+    ))
+    events.append(ItemUsed(entity=actor, item=item, effect="sickness"))
+    return events
+
+
 def _use_dispel_magic(
     world: "World",
     level: "Level",
@@ -2967,6 +3262,177 @@ def _use_charm_snakes(
         events.append(MessageEvent(text=t("item.charm_snakes_none")))
 
     events.append(ItemUsed(entity=actor, item=item, effect="charm_snakes"))
+    return events
+
+
+def _use_enchant_weapon(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+) -> list[Event]:
+    """Permanently +1 to wielded weapon, cap +3, risk above."""
+    events: list[Event] = []
+    equip = world.get_component(actor, "Equipment")
+    if not equip or equip.weapon is None:
+        events.append(MessageEvent(
+            text=t("item.enchant_weapon_no_weapon"),
+        ))
+        return events
+
+    wpn_id = equip.weapon
+    wpn = world.get_component(wpn_id, "Weapon")
+    wpn_name = _entity_name(world, wpn_id)
+    if not wpn:
+        events.append(MessageEvent(
+            text=t("item.enchant_weapon_no_weapon"),
+        ))
+        return events
+
+    if wpn.magic_bonus >= 3:
+        # Over-enchant: 50% chance of destruction
+        if d20() <= 10:
+            events.append(MessageEvent(
+                text=t("item.enchant_weapon_destroy", item=wpn_name),
+            ))
+            equip.weapon = None
+            inv = world.get_component(actor, "Inventory")
+            if inv and wpn_id in inv.slots:
+                inv.slots.remove(wpn_id)
+            world.destroy_entity(wpn_id)
+        else:
+            events.append(MessageEvent(
+                text=t("item.nothing_happens"),
+            ))
+    else:
+        wpn.magic_bonus += 1
+        events.append(MessageEvent(
+            text=t("item.enchant_weapon_success", item=wpn_name,
+                   bonus=wpn.magic_bonus),
+        ))
+
+    events.append(ItemUsed(entity=actor, item=item,
+                           effect="enchant_weapon"))
+    return events
+
+
+def _use_enchant_armor(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+) -> list[Event]:
+    """Permanently +1 to worn armor, cap +3, risk above."""
+    events: list[Event] = []
+    equip = world.get_component(actor, "Equipment")
+    if not equip or equip.armor is None:
+        events.append(MessageEvent(
+            text=t("item.enchant_armor_no_armor"),
+        ))
+        return events
+
+    arm_id = equip.armor
+    arm = world.get_component(arm_id, "Armor")
+    arm_name = _entity_name(world, arm_id)
+    if not arm:
+        events.append(MessageEvent(
+            text=t("item.enchant_armor_no_armor"),
+        ))
+        return events
+
+    if arm.magic_bonus >= 3:
+        if d20() <= 10:
+            events.append(MessageEvent(
+                text=t("item.enchant_armor_destroy", item=arm_name),
+            ))
+            equip.armor = None
+            inv = world.get_component(actor, "Inventory")
+            if inv and arm_id in inv.slots:
+                inv.slots.remove(arm_id)
+            world.destroy_entity(arm_id)
+        else:
+            events.append(MessageEvent(
+                text=t("item.nothing_happens"),
+            ))
+    else:
+        arm.magic_bonus += 1
+        events.append(MessageEvent(
+            text=t("item.enchant_armor_success", item=arm_name,
+                   bonus=arm.magic_bonus),
+        ))
+
+    events.append(ItemUsed(entity=actor, item=item,
+                           effect="enchant_armor"))
+    return events
+
+
+def _use_charging(
+    world: "World",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+) -> list[Event]:
+    """Restore charges to the first wand in inventory."""
+    events: list[Event] = []
+    inv = world.get_component(actor, "Inventory")
+    if not inv:
+        events.append(MessageEvent(text=t("item.charging_no_wand")))
+        return events
+
+    # Find first wand in inventory
+    wand_id = None
+    for slot_id in inv.slots:
+        if world.has_component(slot_id, "Wand"):
+            wand_id = slot_id
+            break
+
+    if wand_id is None:
+        events.append(MessageEvent(text=t("item.charging_no_wand")))
+        return events
+
+    wand = world.get_component(wand_id, "Wand")
+    restored = roll_dice(consumable.dice)
+    wand.charges = min(wand.charges + restored, wand.max_charges)
+    wand_name = _entity_name(world, wand_id)
+    events.append(MessageEvent(
+        text=t("item.charging_success", item=wand_name),
+    ))
+    events.append(ItemUsed(entity=actor, item=item, effect="charging"))
+    return events
+
+
+def _use_teleport_self(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+    consumable: "Consumable",
+) -> list[Event]:
+    """Teleport the actor to a random floor tile."""
+    import random as _rand
+    from nhc.dungeon.model import Terrain
+
+    events: list[Event] = []
+    pos = world.get_component(actor, "Position")
+    if not pos:
+        events.append(MessageEvent(text=t("item.nothing_happens")))
+        return events
+
+    floors = []
+    for ty in range(level.height):
+        for tx in range(level.width):
+            tile = level.tile_at(tx, ty)
+            if (tile and tile.terrain == Terrain.FLOOR
+                    and not tile.feature):
+                floors.append((tx, ty))
+
+    if floors:
+        nx, ny = _rand.choice(floors)
+        pos.x = nx
+        pos.y = ny
+
+    events.append(MessageEvent(text=t("item.teleport_self")))
+    events.append(ItemUsed(entity=actor, item=item, effect="teleport"))
     return events
 
 

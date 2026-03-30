@@ -22,6 +22,16 @@ potion_appearance:
   oily_black_short: "una poció negra oliosa"
   sparkling_cyan: "poció cian brillant"
   sparkling_cyan_short: "una poció cian brillant"
+  cloudy_grey: "poció grisa ennuvolada"
+  cloudy_grey_short: "una poció grisa ennuvolada"
+  swirling_orange: "poció taronja arremolinada"
+  swirling_orange_short: "una poció taronja arremolinada"
+  milky_white: "poció blanca lletosa"
+  milky_white_short: "una poció blanca lletosa"
+  pungent_green: "poció verda picant"
+  pungent_green_short: "una poció verda picant"
+  pale_pink: "poció rosa pàl·lida"
+  pale_pink_short: "una poció rosa pàl·lida"
   identified: "Identifiques que és {name}!"
 
 # ── Aparences de pergamins (no identificats) ────────────────────────
@@ -92,6 +102,16 @@ scroll_appearance:
   gnik_sansen_short: "un pergamí etiquetat GNIK SANSEN"
   ashpd_lansen: "pergamí etiquetat ASHPD LANSEN"
   ashpd_lansen_short: "un pergamí etiquetat ASHPD LANSEN"
+  kwango_ull: "pergamí etiquetat KWANGO ULL"
+  kwango_ull_short: "un pergamí etiquetat KWANGO ULL"
+  venzar_plansen: "pergamí etiquetat VENZAR PLANSEN"
+  venzar_plansen_short: "un pergamí etiquetat VENZAR PLANSEN"
+  morke_dansen: "pergamí etiquetat MORKE DANSEN"
+  morke_dansen_short: "un pergamí etiquetat MORKE DANSEN"
+  ulgoth_sansen: "pergamí etiquetat ULGOTH SANSEN"
+  ulgoth_sansen_short: "un pergamí etiquetat ULGOTH SANSEN"
+  thakk_ansen: "pergamí etiquetat THAKK ANSEN"
+  thakk_ansen_short: "un pergamí etiquetat THAKK ANSEN"
 
 # ── Aparences d'anells (no identificats) ─────────────────────────────
 ring_appearance:
@@ -130,6 +150,18 @@ wand_appearance:
   willow_short: "una vareta de salze"
   oak: "vareta de roure"
   oak_short: "una vareta de roure"
+  birch: "vareta de bedoll"
+  birch_short: "una vareta de bedoll"
+  maple: "vareta d'auró"
+  maple_short: "una vareta d'auró"
+  ash: "vareta de freixe"
+  ash_short: "una vareta de freixe"
+  cedar: "vareta de cedre"
+  cedar_short: "una vareta de cedre"
+  elm: "vareta d'om"
+  elm_short: "una vareta d'om"
+  pine: "vareta de pi"
+  pine_short: "una vareta de pi"
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
@@ -327,6 +359,44 @@ item:
   charm_snakes_cast: "Una melodia hipnòtica omple l'aire..."
   charm_snakes_affects: "{target} es balanceja pacíficament amb la música."
   charm_snakes_none: "No hi ha serps a prop."
+  speed_cast: "L'energia recorre les teves extremitats!"
+  speed_active: "Et mous amb una velocitat increïble!"
+  speed_affects: "{target} comença a moure's més ràpid!"
+  confusion_cast: "El món gira al teu voltant..."
+  confusion_active: "No pots pensar amb claredat!"
+  confusion_affects: "{target} trontolla confós!"
+  blindness_cast: "La foscor engoleix la teva visió!"
+  blindness_active: "Ets cec!"
+  blindness_affects: "{target} queda cec!"
+  acid_quaff: "L'àcid et crema la gola! {damage} de dany."
+  acid_cures: "L'àcid dissol la petrificació!"
+  acid_hits: "L'àcid esquitxa {target} per {damage} de dany!"
+  sickness_quaff: "Vomites violentament! {damage} de dany."
+  sickness_poison: "El verí recorre les teves venes..."
+  sickness_affects: "{target} queda xop de brutícia tòxica!"
+  enchant_weapon_cast: "El pergamí brilla i la teva arma vibra amb poder!"
+  enchant_weapon_success: "{item} ara és +{bonus}!"
+  enchant_weapon_destroy: "{item} es torna incandescent i es desfà en pols!"
+  enchant_weapon_no_weapon: "No empunyes cap arma."
+  enchant_armor_cast: "Runes protectores s'enfonsen en la teva armadura!"
+  enchant_armor_success: "{item} ara és +{bonus}!"
+  enchant_armor_destroy: "{item} esclata en llum i es desintegra!"
+  enchant_armor_no_armor: "No portes armadura."
+  charging_cast: "L'energia crepita del pergamí cap a la teva vareta!"
+  charging_success: "{item} absorbeix la càrrega."
+  charging_no_wand: "No tens cap vareta per carregar."
+  teleport_self: "El món canvia al teu voltant!"
+  cold_hits: "Un raig de fred colpeja {target} per {damage} de dany!"
+  death_ray: "Un raig negre colpeja {target}!"
+  death_ray_kills: "{target} cau fulminat!"
+  death_ray_immune: "{target} no es veu afectat pel raig de mort."
+  cancel_affects: "Els efectes màgics s'esvaeixen de {target}!"
+  cancel_no_effects: "{target} no té efectes màgics."
+  dig_cast: "La roca s'esberla davant el poder de la vareta!"
+  dig_no_wall: "No hi ha res a excavar."
+  wand_lock_door: "La porta es tanca amb clau!"
+  wand_open_door: "La porta s'obre de bat a bat!"
+  wand_no_door: "No hi ha cap porta en aquesta direcció."
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -1133,6 +1203,42 @@ items:
     long: >-
       Brilla amb claredat interior. Beure-la neteja tot el verí
       i els efectes nocius del teu cos.
+  potion_speed:
+    name: "Poció de Velocitat"
+    gender: "f"
+    short: "una poció d'argent viu"
+    long: >-
+      El líquid de dins es mou inquiet d'un costat a l'altre.
+      Beure-la atorga una rapidesa sobrenatural per un temps.
+  potion_confusion:
+    name: "Poció de Confusió"
+    gender: "f"
+    short: "una poció iridescent"
+    long: >-
+      Els colors d'aquest vial canvien de forma imprevisible.
+      Beure-la enterboleix la ment — millor llançar-la a un enemic.
+  potion_blindness:
+    name: "Poció de Ceguesa"
+    gender: "f"
+    short: "una poció tintada"
+    long: >-
+      Un vial de foscor impenetrable. Beure-la priva de la
+      vista — molt més útil com a arma llancívola.
+  potion_acid:
+    name: "Poció d'Àcid"
+    gender: "f"
+    short: "una poció sibilant"
+    long: >-
+      El tap xiuxiueja on toca el vidre. Molt corrosiva
+      quan es llança. Beure-la crema, però cura la
+      petrificació.
+  potion_sickness:
+    name: "Poció de Malaltia"
+    gender: "f"
+    short: "una poció de pudor"
+    long: >-
+      Una pudor nauseabunda traspassa el tap. Aquesta infusió
+      vil danya i enverina qui la beu o qui en rep l'impacte.
   # ── Armes màgiques ──
   dagger_plus_1:
     name: "Daga +1"
@@ -1804,6 +1910,64 @@ items:
     gender: "f"
     short: "una vareta d'amok"
     long: "Porta l'objectiu a un frenesí. Confós durant 6 torns."
+  scroll_enchant_weapon:
+    name: "Pergamí d'encantar arma"
+    short: "un pergamí brillant"
+    long: >-
+      Runes de poder espiralen al voltant d'una fulla gravada
+      al pergamí. Llegir-lo millora l'arma empunyada.
+    gender: "m"
+  scroll_enchant_armor:
+    name: "Pergamí d'encantar armadura"
+    short: "un pergamí protegit"
+    long: >-
+      Sigils protectors cobreixen cada centímetre d'aquest pergamí.
+      Llegir-lo reforça l'armadura equipada.
+    gender: "m"
+  scroll_charging:
+    name: "Pergamí de càrrega"
+    short: "un pergamí crepitant"
+    long: >-
+      L'electricitat estàtica s'aferra a aquest pergamí. Llegir-lo
+      restaura les càrregues d'una vareta a la teva elecció.
+    gender: "m"
+  scroll_teleportation:
+    name: "Pergamí de teletransport"
+    short: "un pergamí centellejant"
+    long: >-
+      Les paraules semblen canviar de posició mentre les llegeixes.
+      Llegir-lo et transporta a un lloc aleatori.
+    gender: "m"
+  wand_opening:
+    name: "Vareta d'obertura"
+    short: "una vareta d'obertura"
+    long: "Desbloqueja portes i cofres amb un gest."
+    gender: "f"
+  wand_locking:
+    name: "Vareta de tancament"
+    short: "una vareta de tancament"
+    long: "Segella portes amb força màgica."
+    gender: "f"
+  wand_cold:
+    name: "Vareta de fred"
+    short: "una vareta de fred"
+    long: "Dispara un raig de fred glacial. 2d6 de dany de fred."
+    gender: "f"
+  wand_death:
+    name: "Vareta de la mort"
+    short: "una vareta de la mort"
+    long: "Dispara un raig de mort instantània. Els no-morts són immunes."
+    gender: "f"
+  wand_cancellation:
+    name: "Vareta de cancel·lació"
+    short: "una vareta de cancel·lació"
+    long: "Elimina tots els efectes màgics del blanc."
+    gender: "f"
+  wand_digging:
+    name: "Vareta d'excavació"
+    short: "una vareta d'excavació"
+    long: "Obre un passatge a través de la roca sòlida."
+    gender: "f"
   scroll_identify:
     name: "Pergamí d'Identificació"
     gender: "m"

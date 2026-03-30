@@ -172,6 +172,7 @@ class StatusEffect:
     infravision: int = 0    # turns remaining (see in dark, extended FOV)
     water_breathing: int = 0  # turns remaining (survive water tiles)
     confused: int = 0       # turns remaining (random movement)
+    blinded: int = 0        # turns remaining (cannot see, reduced FOV)
 
 
 @dataclass
