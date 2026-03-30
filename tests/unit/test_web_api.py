@@ -64,3 +64,33 @@ class TestGameAPI:
         resp = client.get("/api/tilesets")
         assert resp.status_code == 200
         assert "classic" in resp.get_json()
+
+    def test_new_game_ignores_autosave(self, client, tmp_path, monkeypatch):
+        """New web game must not restore from a valid autosave."""
+        # Create a first game so a real autosave exists
+        save_path = tmp_path / "autosave.nhc"
+        monkeypatch.setattr(
+            "nhc.core.autosave.AUTOSAVE_PATH", save_path,
+        )
+        monkeypatch.setattr(
+            "nhc.core.autosave.AUTOSAVE_DIR", tmp_path,
+        )
+
+        resp1 = client.post("/api/game/new", json={})
+        assert resp1.status_code == 201
+        sid1 = resp1.get_json()["session_id"]
+
+        # Trigger an autosave by getting the game's session
+        sessions = client.application.config["SESSIONS"]
+        session = sessions.get(sid1)
+        from nhc.core.autosave import autosave
+        autosave(session.game)
+        assert save_path.exists()
+
+        # Start a second game — must NOT restore from autosave
+        resp2 = client.post("/api/game/new", json={})
+        assert resp2.status_code == 201
+        sid2 = resp2.get_json()["session_id"]
+        assert sid1 != sid2
+        # The autosave should be deleted (reset=True)
+        assert not save_path.exists()

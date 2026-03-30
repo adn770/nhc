@@ -112,6 +112,66 @@ class TestWebClientMenus:
         assert result is None
 
 
+class TestWebClientNarrativeLog:
+    """WebClient must expose narrative_log for typed mode."""
+
+    def test_has_narrative_log(self, client):
+        assert hasattr(client, "narrative_log")
+
+    def test_add_mechanical_does_not_raise(self, client):
+        client.narrative_log.add_mechanical("> attack goblin")
+
+    def test_add_mechanical_typed_mode(self):
+        wc = WebClient(game_mode="typed")
+        wc.narrative_log.add_mechanical("> look around")
+
+
+class TestWebClientModeToggle:
+    """toggle_mode action from browser is passed through to game."""
+
+    def test_get_input_returns_toggle_mode(self, client):
+        client._in_queue.put(json.dumps({
+            "type": "action",
+            "intent": "toggle_mode",
+            "data": None,
+        }))
+
+        import asyncio
+        loop = asyncio.new_event_loop()
+        try:
+            intent, data = loop.run_until_complete(client.get_input())
+        finally:
+            loop.close()
+
+        assert intent == "toggle_mode"
+        assert data is None
+
+    def test_get_typed_input_returns_toggle_mode(self):
+        wc = WebClient(game_mode="typed")
+        wc._in_queue.put(json.dumps({
+            "type": "action",
+            "intent": "toggle_mode",
+            "data": None,
+        }))
+
+        import asyncio
+
+        async def _run():
+            wc.render = lambda *a, **kw: None
+            return await wc.get_typed_input(
+                world=None, level=None, player_id=-1, turn=0,
+            )
+
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(_run())
+        finally:
+            loop.close()
+
+        assert isinstance(result, tuple)
+        assert result == ("toggle_mode", None)
+
+
 class TestWebClientShutdown:
     def test_shutdown_queues_message(self, client):
         client.shutdown()

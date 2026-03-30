@@ -40,6 +40,8 @@ const Input = {
     "?": { intent: "help", data: null },
     "[": { intent: "scroll_up", data: null },
     "]": { intent: "scroll_down", data: null },
+    "Q": { intent: "quit", data: null },
+    "M": { intent: "reveal_map", data: null },
   },
 
   init() {
@@ -57,12 +59,7 @@ const Input = {
       }
       if (e.key === "Tab") {
         e.preventDefault();
-        this.classicMode = !this.classicMode;
-        if (this.classicMode) {
-          this.inputEl.blur();
-        } else {
-          this.inputEl.focus();
-        }
+        this._switchToClassic();
       }
     });
 
@@ -86,8 +83,7 @@ const Input = {
       // Tab to switch to typed mode
       if (e.key === "Tab") {
         e.preventDefault();
-        this.classicMode = false;
-        this.inputEl.focus();
+        this._switchToTyped();
       }
     });
 
@@ -101,5 +97,28 @@ const Input = {
       const grid = GameMap.pixelToGrid(canvasX, canvasY);
       WS.send({ type: "click", x: grid.x, y: grid.y });
     });
+
+    this._updateModeIndicator();
+  },
+
+  _switchToClassic() {
+    this.classicMode = true;
+    this.inputEl.blur();
+    WS.send({ type: "action", intent: "toggle_mode", data: null });
+    this._updateModeIndicator();
+  },
+
+  _switchToTyped() {
+    this.classicMode = false;
+    this.inputEl.focus();
+    WS.send({ type: "action", intent: "toggle_mode", data: null });
+    this._updateModeIndicator();
+  },
+
+  _updateModeIndicator() {
+    const label = document.getElementById("mode-label");
+    if (label) {
+      label.textContent = this.classicMode ? "[classic]" : "[typed]";
+    }
   },
 };

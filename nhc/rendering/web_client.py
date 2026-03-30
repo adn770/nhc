@@ -32,6 +32,20 @@ def _is_floor(level, x: int, y: int) -> bool:
     return t.terrain in (Terrain.FLOOR, Terrain.WATER)
 
 
+class _WebNarrativeLog:
+    """Minimal narrative log for typed mode in the web client.
+
+    Mechanical messages (player input echo) are sent to the browser
+    as regular messages so they appear in the history log.
+    """
+
+    def __init__(self, client: "WebClient") -> None:
+        self._client = client
+
+    def add_mechanical(self, text: str) -> None:
+        self._client.add_message(text)
+
+
 class WebClient(GameClient):
     """GameClient that communicates over a WebSocket connection.
 
@@ -49,6 +63,7 @@ class WebClient(GameClient):
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
         self._out_queue: queue.Queue = queue.Queue()
+        self.narrative_log = _WebNarrativeLog(self)
 
     def set_ws(self, ws) -> None:
         """Attach the WebSocket (kept for reference only)."""

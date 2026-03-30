@@ -240,6 +240,12 @@ body {
   gap: 6px;
 }
 
+#input-zone .mode-label {
+  color: #888;
+  font-size: 12px;
+  user-select: none;
+}
+
 #input-zone .prompt {
   color: #e6c07b;
   font-weight: bold;

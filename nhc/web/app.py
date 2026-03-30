@@ -105,6 +105,7 @@ def create_app(
             client=client,
             backend=backend,
             game_mode="classic",
+            reset=True,
         )
         session.game = game
 
