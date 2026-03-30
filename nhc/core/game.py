@@ -420,7 +420,30 @@ class Game:
             for tile in row:
                 tile.visible = False
 
+        # Check if player is on a closed/secret door tile (edge mode).
+        # If so, block FOV in the door_side direction so the room
+        # beyond the door isn't revealed while standing on the tile.
+        blocked_tiles: set[tuple[int, int]] = set()
+        if self.renderer.edge_doors:
+            cur = self.level.tile_at(pos.x, pos.y)
+            if (cur and cur.feature in ("door_closed", "door_locked",
+                                        "door_secret")
+                    and cur.door_side):
+                # The first tile in the door_side direction acts as a
+                # virtual wall, blocking FOV from passing through.
+                side = cur.door_side
+                if side == "north":
+                    blocked_tiles.add((pos.x, pos.y - 1))
+                elif side == "south":
+                    blocked_tiles.add((pos.x, pos.y + 1))
+                elif side == "east":
+                    blocked_tiles.add((pos.x + 1, pos.y))
+                elif side == "west":
+                    blocked_tiles.add((pos.x - 1, pos.y))
+
         def is_blocking(x: int, y: int) -> bool:
+            if (x, y) in blocked_tiles:
+                return True
             tile = self.level.tile_at(x, y)
             if not tile:
                 return True
