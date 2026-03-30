@@ -323,18 +323,23 @@ class WebClient(GameClient):
     # ── Input ────────────────────────────────────────────────────
 
     async def get_input(self) -> tuple[str, Any]:
-        """Wait for player action from input queue."""
+        """Wait for player action from input queue.
+
+        Blocks until a real player action arrives. Timeouts and
+        empty messages are retried so they don't consume turns.
+        """
         import asyncio
         loop = asyncio.get_event_loop()
-        msg = await loop.run_in_executor(None, self._recv)
-        msg_type = msg.get("type", "")
-        if msg_type == "action":
-            return (msg.get("intent", "wait"), msg.get("data"))
-        if msg_type == "typed":
-            return ("typed", msg.get("text", ""))
-        if msg_type == "click":
-            return ("click", {"x": msg.get("x"), "y": msg.get("y")})
-        return ("wait", None)
+        while True:
+            msg = await loop.run_in_executor(None, self._recv)
+            msg_type = msg.get("type", "")
+            if msg_type == "action":
+                return (msg.get("intent", "wait"), msg.get("data"))
+            if msg_type == "typed":
+                return ("typed", msg.get("text", ""))
+            if msg_type == "click":
+                return ("click", {"x": msg.get("x"), "y": msg.get("y")})
+            # Empty/timeout/unknown: retry, don't return "wait"
 
     async def get_typed_input(
         self,
@@ -347,13 +352,14 @@ class WebClient(GameClient):
         self.render(world, level, player_id, turn)
         import asyncio
         loop = asyncio.get_event_loop()
-        msg = await loop.run_in_executor(None, self._recv)
-        msg_type = msg.get("type", "")
-        if msg_type == "typed":
-            return msg.get("text", "")
-        if msg_type == "action":
-            return (msg.get("intent", "wait"), msg.get("data"))
-        return ("wait", None)
+        while True:
+            msg = await loop.run_in_executor(None, self._recv)
+            msg_type = msg.get("type", "")
+            if msg_type == "typed":
+                return msg.get("text", "")
+            if msg_type == "action":
+                return (msg.get("intent", "wait"), msg.get("data"))
+            # Empty/timeout: retry
 
     # ── Menus ────────────────────────────────────────────────────
 
