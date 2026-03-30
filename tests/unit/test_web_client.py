@@ -74,8 +74,9 @@ class TestWebClientRender:
         state = next(m for m in msgs if m["type"] == "state")
         assert state["turn"] == 5
         stats = next(m for m in msgs if m["type"] == "stats")
-        assert "line1" in stats
-        assert "line2" in stats
+        assert "hp" in stats
+        assert "char_name" in stats
+        assert "items" in stats
 
 
 class TestWebClientEndScreen:

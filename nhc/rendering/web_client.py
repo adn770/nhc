@@ -158,26 +158,64 @@ class WebClient(GameClient):
 
         ac_label = tr("ui.ac")
 
+        # Gather inventory items (non-equipped)
+        inv = world.get_component(player_id, "Inventory")
+        equipped_ids = set()
+        armor_name = shield_name = helmet_name = ""
+        if equip:
+            for attr in ("weapon", "armor", "shield", "helmet",
+                         "ring_left", "ring_right"):
+                eid = getattr(equip, attr)
+                if eid is not None:
+                    equipped_ids.add(eid)
+            armor_name = _name(equip.armor) if equip.armor else ""
+            shield_name = _name(equip.shield) if equip.shield else ""
+            helmet_name = _name(equip.helmet) if equip.helmet else ""
+
+        items = []
+        total_used = 0
+        max_slots = inv.max_slots if inv else 10
+        if inv:
+            for item_id in inv.slots:
+                slot_cost = 1
+                wpn = world.get_component(item_id, "Weapon")
+                if wpn:
+                    slot_cost = wpn.slots
+                arm = world.get_component(item_id, "Armor")
+                if arm:
+                    slot_cost = arm.slots
+                total_used += slot_cost
+                if item_id not in equipped_ids:
+                    d = world.get_component(item_id, "Description")
+                    items.append(d.name if d else "???")
+
         return {
-            "line1": (
-                f"{pdesc.name if pdesc else '?'}"
-                f" | Depth {level.depth}"
-                f" | Turn {turn}"
-                f" | Lv {player.level if player else 1}"
-                f" | HP {health.current if health else 0}"
-                f"/{health.maximum if health else 0}"
-                f" | Gold {player.gold if player else 0}"
-            ),
-            "line2": (
-                f"STR:{stats.strength if stats else 0:+d}"
-                f" DEX:{dex:+d}"
-                f" CON:{stats.constitution if stats else 0:+d}"
-                f" INT:{stats.intelligence if stats else 0:+d}"
-                f" WIS:{stats.wisdom if stats else 0:+d}"
-                f" CHA:{stats.charisma if stats else 0:+d}"
-                f" | {weapon}"
-                f" | {ac_label} {ac}"
-            ),
+            "char_name": pdesc.name if pdesc else "?",
+            "char_bg": pdesc.short if pdesc else "",
+            "level_name": level.name,
+            "depth": level.depth,
+            "turn": turn,
+            "plevel": player.level if player else 1,
+            "xp": player.xp if player else 0,
+            "xp_next": player.xp_to_next if player else 1000,
+            "gold": player.gold if player else 0,
+            "hp": health.current if health else 0,
+            "hp_max": health.maximum if health else 0,
+            "str": stats.strength if stats else 0,
+            "dex": dex,
+            "con": stats.constitution if stats else 0,
+            "int": stats.intelligence if stats else 0,
+            "wis": stats.wisdom if stats else 0,
+            "cha": stats.charisma if stats else 0,
+            "weapon": weapon,
+            "armor_name": armor_name,
+            "shield_name": shield_name,
+            "helmet_name": helmet_name,
+            "ac_label": ac_label,
+            "ac": ac,
+            "items": items,
+            "slots_used": total_used,
+            "slots_max": max_slots,
         }
 
     def _gather_doors(

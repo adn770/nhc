@@ -6,6 +6,7 @@ const UI = {
     this.historyLog = document.getElementById("history-log");
     this.statusLine1 = document.getElementById("status-line1");
     this.statusLine2 = document.getElementById("status-line2");
+    this.statusLine3 = document.getElementById("status-line3");
   },
 
   addMessage(text, cssClass) {
@@ -22,9 +23,57 @@ const UI = {
     this.addMessage(text, "narrative");
   },
 
-  updateStatus(stats) {
-    if (stats.line1) this.statusLine1.textContent = stats.line1;
-    if (stats.line2) this.statusLine2.textContent = stats.line2;
+  updateStatus(s) {
+    if (!s.hp_max) return;
+
+    // ── Line 1: Location, depth, turn, level, gold, HP bar ──
+    const hp = s.hp || 0;
+    const hpMax = s.hp_max || 1;
+    const hpPct = hp / hpMax;
+    const barW = 12;
+    const filled = Math.max(0, Math.round(barW * hpPct));
+    const hpBar = "█".repeat(filled) + "░".repeat(barW - filled);
+    let hpColor = "#44FF44";  // green
+    if (hpPct <= 0.25) hpColor = "#FF4444";  // red
+    else if (hpPct <= 0.5) hpColor = "#FFFF44";  // yellow
+
+    const sep = " │ ";
+    this.statusLine1.innerHTML =
+      ` 📍 <b>${s.level_name || "?"}</b>` +
+      `${sep}⬇ ${s.depth}` +
+      `${sep}⏳ ${s.turn}` +
+      `${sep}Lv ${s.plevel} (${s.xp}/${s.xp_next} XP)` +
+      `${sep}💰 <span style="color:#FFFF44">${s.gold}</span>` +
+      `${sep}❤️  <span style="color:${hpColor}">${hpBar} ${hp}/${hpMax}</span>`;
+
+    // ── Line 2: Name, stats, equipment ──
+    const name = s.char_name || "?";
+    const bg = s.char_bg ? ` (${s.char_bg})` : "";
+    const equip = [
+      `⚔️  ${s.weapon}`,
+      s.armor_name, s.shield_name, s.helmet_name,
+      `${s.ac_label} ${s.ac}`,
+    ].filter(Boolean).join(sep);
+
+    this.statusLine2.innerHTML =
+      ` <b>${name}</b>${bg}` +
+      `${sep}STR:${this._signed(s.str)}` +
+      ` DEX:${this._signed(s.dex)}` +
+      ` CON:${this._signed(s.con)}` +
+      ` INT:${this._signed(s.int)}` +
+      ` WIS:${this._signed(s.wis)}` +
+      ` CHA:${this._signed(s.cha)}` +
+      `${sep}${equip}`;
+
+    // ── Line 3: Inventory ──
+    const items = (s.items || []).join(" · ") ||
+      '<span style="color:#808080">empty</span>';
+    this.statusLine3.innerHTML =
+      ` 🎒 ${s.slots_used}/${s.slots_max}  ${items}`;
+  },
+
+  _signed(n) {
+    return n >= 0 ? `+${n}` : `${n}`;
   },
 
   /**

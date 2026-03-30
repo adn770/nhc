@@ -144,6 +144,10 @@ body {
   color: #aaa;
 }
 
+#status-line3 {
+  color: #ccc;
+}
+
 /* Zone 3: History log */
 #history-zone {
   background: #1a1a2e;
