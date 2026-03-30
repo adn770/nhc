@@ -292,14 +292,15 @@ def _render_walls(svg: list[str], level: "Level") -> None:
 
 
 def _render_stairs(svg: list[str], level: "Level") -> None:
-    """Render stairs as an A-shaped symbol with open ends and 3 steps.
+    """Render stairs as a tilted ladder: two oblique rails + 3 steps.
 
-    stairs_down (>) : A-shape pointing right, open at base, 3 steps
-    stairs_up   (<) : A-shape pointing left, open at base, 3 steps
-    The two slanted legs converge toward a point but don't close,
-    with 3 horizontal step lines across.
+    stairs_down (>) : rails tilt upper-left → lower-right, 3 vertical
+                      step lines crossing them. Open at both ends.
+    stairs_up   (<) : mirror — rails tilt upper-right → lower-left.
     """
-    sw = 1.5  # stroke width
+    rail_sw = 1.5
+    step_sw = 1.0
+    gap = CELL * 0.22  # half-distance between the two rails
 
     for y in range(level.height):
         for x in range(level.width):
@@ -308,75 +309,46 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
                 continue
 
             px, py = x * CELL, y * CELL
-            m = CELL * 0.15  # margin
+            m = CELL * 0.12  # margin from tile edge
             down = tile.feature == "stairs_down"
 
+            # Rail endpoints: a diagonal line across the tile
             if down:
-                # A-shape pointing right: >
-                # Two legs from open base (left) converging right
-                tip_x = px + CELL - m
-                base_x = px + m
-                top_y = py + m
-                bot_y = py + CELL - m
-                mid_y = py + CELL / 2
-
-                # Top leg: base top-left → near tip
-                svg.append(
-                    f'<line x1="{base_x:.1f}" y1="{top_y:.1f}" '
-                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
-                    f'stroke="{INK}" stroke-width="{sw}" '
-                    f'stroke-linecap="round"/>')
-                # Bottom leg: base bottom-left → near tip
-                svg.append(
-                    f'<line x1="{base_x:.1f}" y1="{bot_y:.1f}" '
-                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
-                    f'stroke="{INK}" stroke-width="{sw}" '
-                    f'stroke-linecap="round"/>')
-
-                # 3 horizontal step lines across the legs
-                tri_w = tip_x - base_x
-                for i in range(1, 4):
-                    frac = i / 4
-                    lx = base_x + tri_w * frac
-                    half_h = (bot_y - top_y) / 2 * (1 - frac)
-                    svg.append(
-                        f'<line x1="{lx:.1f}" '
-                        f'y1="{mid_y - half_h:.1f}" '
-                        f'x2="{lx:.1f}" '
-                        f'y2="{mid_y + half_h:.1f}" '
-                        f'stroke="{INK}" stroke-width="1" '
-                        f'stroke-linecap="round"/>')
+                # Upper-left to lower-right
+                ax, ay = px + m, py + m          # start (upper-left)
+                bx, by = px + CELL - m, py + CELL - m  # end (lower-right)
             else:
-                # A-shape pointing left: <
-                tip_x = px + m
-                base_x = px + CELL - m
-                top_y = py + m
-                bot_y = py + CELL - m
-                mid_y = py + CELL / 2
+                # Upper-right to lower-left
+                ax, ay = px + CELL - m, py + m   # start (upper-right)
+                bx, by = px + m, py + CELL - m   # end (lower-left)
 
-                svg.append(
-                    f'<line x1="{base_x:.1f}" y1="{top_y:.1f}" '
-                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
-                    f'stroke="{INK}" stroke-width="{sw}" '
-                    f'stroke-linecap="round"/>')
-                svg.append(
-                    f'<line x1="{base_x:.1f}" y1="{bot_y:.1f}" '
-                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
-                    f'stroke="{INK}" stroke-width="{sw}" '
-                    f'stroke-linecap="round"/>')
+            # Direction vector and perpendicular
+            dx, dy = bx - ax, by - ay
+            length = math.hypot(dx, dy)
+            nx, ny = -dy / length * gap, dx / length * gap
 
-                tri_w = base_x - tip_x
-                for i in range(1, 4):
-                    frac = i / 4
-                    lx = base_x - tri_w * frac
-                    half_h = (bot_y - top_y) / 2 * (1 - frac)
-                    svg.append(
-                        f'<line x1="{lx:.1f}" '
-                        f'y1="{mid_y - half_h:.1f}" '
-                        f'x2="{lx:.1f}" '
-                        f'y2="{mid_y + half_h:.1f}" '
-                        f'stroke="{INK}" stroke-width="1" '
-                        f'stroke-linecap="round"/>')
+            # Two parallel oblique rails
+            svg.append(
+                f'<line x1="{ax + nx:.1f}" y1="{ay + ny:.1f}" '
+                f'x2="{bx + nx:.1f}" y2="{by + ny:.1f}" '
+                f'stroke="{INK}" stroke-width="{rail_sw}" '
+                f'stroke-linecap="round"/>')
+            svg.append(
+                f'<line x1="{ax - nx:.1f}" y1="{ay - ny:.1f}" '
+                f'x2="{bx - nx:.1f}" y2="{by - ny:.1f}" '
+                f'stroke="{INK}" stroke-width="{rail_sw}" '
+                f'stroke-linecap="round"/>')
+
+            # 3 vertical step lines crossing both rails
+            for i in range(1, 4):
+                t = i / 4
+                cx = ax + dx * t
+                cy = ay + dy * t
+                svg.append(
+                    f'<line x1="{cx + nx:.1f}" y1="{cy + ny:.1f}" '
+                    f'x2="{cx - nx:.1f}" y2="{cy - ny:.1f}" '
+                    f'stroke="{INK}" stroke-width="{step_sw}" '
+                    f'stroke-linecap="round"/>')
 
 
 # ── dmap-style hatching ──────────────────────────────────────────
