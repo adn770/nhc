@@ -78,6 +78,7 @@ const Input = {
       }
       if (e.key === "Tab") {
         e.preventDefault();
+        e.stopPropagation();
         this._switchToClassic();
       }
     });
@@ -94,6 +95,8 @@ const Input = {
         e.preventDefault();
         if (mapping.intent === "inventory") {
           UI.showInventoryPanel();
+        } else if (mapping.intent === "help") {
+          UI.showHelp();
         } else {
           WS.send({
             type: "action",
