@@ -2,6 +2,7 @@
 # NHC web server launcher — creates venv, installs deps, and runs the server.
 # Usage: ./server [args...]
 #   e.g. ./server --host 0.0.0.0 --port 5000 --auth
+#        ./server --restart        # kill running server and start fresh
 
 set -euo pipefail
 
@@ -9,6 +10,32 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/.venv"
 REQUIREMENTS="$SCRIPT_DIR/requirements.txt"
 ENTRY="$SCRIPT_DIR/nhc_web.py"
+PIDFILE="$SCRIPT_DIR/.server.pid"
+
+# ── Restart: kill existing server ──
+if [[ "${1:-}" == "--restart" ]]; then
+    shift
+    if [ -f "$PIDFILE" ]; then
+        OLD_PID=$(cat "$PIDFILE")
+        if kill -0 "$OLD_PID" 2>/dev/null; then
+            echo "Stopping server (PID $OLD_PID)..."
+            kill "$OLD_PID" 2>/dev/null || true
+            sleep 1
+            # Force kill if still running
+            kill -0 "$OLD_PID" 2>/dev/null && kill -9 "$OLD_PID" 2>/dev/null
+        fi
+        rm -f "$PIDFILE"
+    else
+        # Try to find by port
+        PID=$(lsof -ti:5000 2>/dev/null || true)
+        if [ -n "$PID" ]; then
+            echo "Stopping server on port 5000 (PID $PID)..."
+            kill "$PID" 2>/dev/null || true
+            sleep 1
+        fi
+    fi
+    echo "Restarting..."
+fi
 
 # Create venv if missing
 if [ ! -d "$VENV_DIR" ]; then
@@ -25,5 +52,7 @@ if [ ! -f "$MARKER" ] || [ "$REQUIREMENTS" -nt "$MARKER" ]; then
     touch "$MARKER"
 fi
 
-# Run the web server, forwarding all arguments
+# Record PID and run the web server
+echo $$ > "$PIDFILE"
+trap 'rm -f "$PIDFILE"' EXIT
 exec "$VENV_DIR/bin/python" "$ENTRY" "$@"
