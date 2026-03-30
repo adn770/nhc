@@ -62,14 +62,14 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 3b: Floor detail — cracks and stones
     _render_floor_detail(svg, level, seed)
 
-    # Layer 4: Walls (solid, no gaps)
+    # Layer 4: Hatching (behind walls)
+    _render_hatching_dmap(svg, level, seed)
+
+    # Layer 5: Walls (on top of hatching)
     _render_walls(svg, level)
 
-    # Layer 5: Stairs (triangular parallel lines)
+    # Layer 6: Stairs
     _render_stairs(svg, level)
-
-    # Layer 7: dmap-style hatching
-    _render_hatching_dmap(svg, level, seed)
 
     svg.append("</g>")
     svg.append("</svg>")
@@ -292,12 +292,15 @@ def _render_walls(svg: list[str], level: "Level") -> None:
 
 
 def _render_stairs(svg: list[str], level: "Level") -> None:
-    """Render stairs as triangular shapes with parallel vertical lines.
+    """Render stairs as an A-shaped symbol with open ends and 3 steps.
 
-    stairs_down (>) : triangle pointing right, vertical lines inside
-    stairs_up   (<) : triangle pointing left, vertical lines inside
-    Mimics the terminal < and > characters.
+    stairs_down (>) : A-shape pointing right, open at base, 3 steps
+    stairs_up   (<) : A-shape pointing left, open at base, 3 steps
+    The two slanted legs converge toward a point but don't close,
+    with 3 horizontal step lines across.
     """
+    sw = 1.5  # stroke width
+
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
@@ -305,64 +308,75 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
                 continue
 
             px, py = x * CELL, y * CELL
-            margin = CELL * 0.15
+            m = CELL * 0.15  # margin
             down = tile.feature == "stairs_down"
 
             if down:
-                # Triangle pointing right: >
-                # Tip on the right, base on the left
-                tip_x = px + CELL - margin
-                base_x = px + margin
-                top_y = py + margin
-                bot_y = py + CELL - margin
+                # A-shape pointing right: >
+                # Two legs from open base (left) converging right
+                tip_x = px + CELL - m
+                base_x = px + m
+                top_y = py + m
+                bot_y = py + CELL - m
                 mid_y = py + CELL / 2
+
+                # Top leg: base top-left → near tip
                 svg.append(
-                    f'<polygon points='
-                    f'"{base_x:.1f},{top_y:.1f} '
-                    f'{tip_x:.1f},{mid_y:.1f} '
-                    f'{base_x:.1f},{bot_y:.1f}" '
-                    f'fill="none" stroke="{INK}" '
-                    f'stroke-width="1.5" stroke-linejoin="round"/>')
-                # Parallel vertical lines inside the triangle
-                tri_width = tip_x - base_x
-                n_lines = 4
-                for i in range(1, n_lines + 1):
-                    lx = base_x + tri_width * i / (n_lines + 1)
-                    # Find triangle height at this x
-                    frac = (lx - base_x) / tri_width
+                    f'<line x1="{base_x:.1f}" y1="{top_y:.1f}" '
+                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
+                    f'stroke="{INK}" stroke-width="{sw}" '
+                    f'stroke-linecap="round"/>')
+                # Bottom leg: base bottom-left → near tip
+                svg.append(
+                    f'<line x1="{base_x:.1f}" y1="{bot_y:.1f}" '
+                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
+                    f'stroke="{INK}" stroke-width="{sw}" '
+                    f'stroke-linecap="round"/>')
+
+                # 3 horizontal step lines across the legs
+                tri_w = tip_x - base_x
+                for i in range(1, 4):
+                    frac = i / 4
+                    lx = base_x + tri_w * frac
                     half_h = (bot_y - top_y) / 2 * (1 - frac)
                     svg.append(
                         f'<line x1="{lx:.1f}" '
                         f'y1="{mid_y - half_h:.1f}" '
                         f'x2="{lx:.1f}" '
                         f'y2="{mid_y + half_h:.1f}" '
-                        f'stroke="{INK}" stroke-width="1"/>')
+                        f'stroke="{INK}" stroke-width="1" '
+                        f'stroke-linecap="round"/>')
             else:
-                # Triangle pointing left: <
-                tip_x = px + margin
-                base_x = px + CELL - margin
-                top_y = py + margin
-                bot_y = py + CELL - margin
+                # A-shape pointing left: <
+                tip_x = px + m
+                base_x = px + CELL - m
+                top_y = py + m
+                bot_y = py + CELL - m
                 mid_y = py + CELL / 2
+
                 svg.append(
-                    f'<polygon points='
-                    f'"{base_x:.1f},{top_y:.1f} '
-                    f'{tip_x:.1f},{mid_y:.1f} '
-                    f'{base_x:.1f},{bot_y:.1f}" '
-                    f'fill="none" stroke="{INK}" '
-                    f'stroke-width="1.5" stroke-linejoin="round"/>')
-                tri_width = base_x - tip_x
-                n_lines = 4
-                for i in range(1, n_lines + 1):
-                    lx = base_x - tri_width * i / (n_lines + 1)
-                    frac = (base_x - lx) / tri_width
+                    f'<line x1="{base_x:.1f}" y1="{top_y:.1f}" '
+                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
+                    f'stroke="{INK}" stroke-width="{sw}" '
+                    f'stroke-linecap="round"/>')
+                svg.append(
+                    f'<line x1="{base_x:.1f}" y1="{bot_y:.1f}" '
+                    f'x2="{tip_x:.1f}" y2="{mid_y:.1f}" '
+                    f'stroke="{INK}" stroke-width="{sw}" '
+                    f'stroke-linecap="round"/>')
+
+                tri_w = base_x - tip_x
+                for i in range(1, 4):
+                    frac = i / 4
+                    lx = base_x - tri_w * frac
                     half_h = (bot_y - top_y) / 2 * (1 - frac)
                     svg.append(
                         f'<line x1="{lx:.1f}" '
                         f'y1="{mid_y - half_h:.1f}" '
                         f'x2="{lx:.1f}" '
                         f'y2="{mid_y + half_h:.1f}" '
-                        f'stroke="{INK}" stroke-width="1"/>')
+                        f'stroke="{INK}" stroke-width="1" '
+                        f'stroke-linecap="round"/>')
 
 
 # ── dmap-style hatching ──────────────────────────────────────────

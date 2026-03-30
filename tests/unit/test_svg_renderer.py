@@ -62,18 +62,19 @@ class TestSVGOutput:
         # No door rectangles or door-specific stroke
         assert "door" not in svg.lower()
 
-    def test_stairs_down_triangle(self):
-        """Stairs down should render as a triangle with vertical lines."""
+    def test_stairs_down_a_shape(self):
+        """Stairs down should render as A-shape with step lines."""
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "polygon" in svg  # triangle outline
+        # Two leg lines + 3 step lines = at least 5 line elements
+        assert svg.count("stroke-linecap=\"round\"") > 5
 
-    def test_stairs_up_triangle(self):
+    def test_stairs_up_a_shape(self):
         level = _make_level()
         level.tiles[4][4] = Tile(terrain=Terrain.FLOOR)
         level.tiles[4][4].feature = "stairs_up"
         svg = render_floor_svg(level)
-        assert svg.count("polygon") >= 2  # both stair types
+        assert svg.count("stroke-linecap=\"round\"") > 10
 
     def test_contains_hatching(self):
         level = _make_level()
