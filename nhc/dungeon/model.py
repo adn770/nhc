@@ -162,18 +162,27 @@ class HybridShape(RoomShape):
         )
 
     def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        # Overlap the two halves by 1 tile at the seam so curved
+        # shapes (circle, hex) meet the other half without gaps.
+        # The union naturally merges overlapping tiles.
         if self.split == "vertical":
             mid = rect.x + rect.width // 2
-            left_rect = Rect(rect.x, rect.y, mid - rect.x, rect.height)
+            left_rect = Rect(
+                rect.x, rect.y, mid - rect.x + 1, rect.height,
+            )
             right_rect = Rect(mid, rect.y, rect.x2 - mid, rect.height)
         else:
             mid = rect.y + rect.height // 2
-            left_rect = Rect(rect.x, rect.y, rect.width, mid - rect.y)
+            left_rect = Rect(
+                rect.x, rect.y, rect.width, mid - rect.y + 1,
+            )
             right_rect = Rect(rect.x, mid, rect.width, rect.y2 - mid)
+        # Clip to bounding rect to prevent overflow
+        bounds = RectShape().floor_tiles(rect)
         return (
             self.left.floor_tiles(left_rect)
             | self.right.floor_tiles(right_rect)
-        )
+        ) & bounds
 
 
 # ── Shape registry ────────────────────────────────────────────────
