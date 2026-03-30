@@ -261,6 +261,34 @@ class TestWallRendering:
                     )
 
 
+    def test_no_missing_corner_glyphs(self):
+        """Room corners next to doors must still render as corners."""
+        from nhc.rendering.terminal.renderer import TerminalRenderer
+
+        for seed in range(20):
+            set_seed(seed)
+            level = BSPGenerator().generate(
+                GenerationParams(width=60, height=40),
+            )
+            for room in level.rooms:
+                r = room.rect
+                corners = [
+                    (r.x - 1, r.y - 1),
+                    (r.x2, r.y - 1),
+                    (r.x - 1, r.y2),
+                    (r.x2, r.y2),
+                ]
+                for cx, cy in corners:
+                    t = level.tile_at(cx, cy)
+                    if not t or t.terrain != Terrain.WALL:
+                        continue
+                    ch = TerminalRenderer._wall_char_at(level, cx, cy)
+                    assert ch not in ("─", "│"), (
+                        f"seed={seed} {room.id} corner ({cx},{cy}): "
+                        f"got straight '{ch}', expected a corner glyph"
+                    )
+
+
 class TestFullPipeline:
     def test_generate_populate(self):
         """Full pipeline: BSP → room types → terrain → populate."""

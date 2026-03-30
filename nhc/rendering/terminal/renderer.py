@@ -330,17 +330,21 @@ class TerminalRenderer(GameClient):
         we = _is_wall_only(x + 1, y)
         ww = _is_wall_only(x - 1, y)
 
-        # Doors count as connections only if the perpendicular axis
-        # has no wall connections (prevents wrong orientation)
+        # Doors count as connections only if there's no
+        # wall-to-wall connection on BOTH sides of the
+        # perpendicular axis. This prevents a horizontal bar
+        # between two doors on a vertical wall, while still
+        # allowing corner glyphs where one perpendicular
+        # neighbor is a wall and the other is void/floor.
         dn = _is_door(x, y - 1)
         ds = _is_door(x, y + 1)
         de = _is_door(x + 1, y)
         dw = _is_door(x - 1, y)
 
-        cn = wn or (dn and not (we or ww))
-        cs = ws or (ds and not (we or ww))
-        ce = we or (de and not (wn or ws))
-        cw = ww or (dw and not (wn or ws))
+        cn = wn or (dn and not (we and ww))
+        cs = ws or (ds and not (we and ww))
+        ce = we or (de and not (wn and ws))
+        cw = ww or (dw and not (wn and ws))
 
         return wall_glyph(cn, cs, ce, cw, rounded=rounded)
 
