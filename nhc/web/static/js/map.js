@@ -232,70 +232,72 @@ const GameMap = {
   _drawDoors(ctx) {
     const cs = this.cellSize;
     const pad = this.padding;
-    const wallLen = cs * 0.8;    // 80% of tile along wall
-    const depth = cs * 0.25;     // 25% across passage
-    const connLen = cs * 0.1;    // small wall connection stub
     const wallW = 4;             // match SVG WALL_WIDTH
+    const doorLen = cs * 0.8;    // 80% of tile along wall
+    const doorDepth = wallW * 2; // twice wall thickness
+    const connLen = cs * 0.1;    // wall connection stub
 
     for (const door of this.doors) {
-      // Secret doors are invisible (drawn as wall by SVG)
       if (door.state === "door_secret") continue;
 
       const px = door.x * cs + pad;
       const py = door.y * cs + pad;
-      const cx = px + cs / 2;
-      const cy = py + cs / 2;
-      const fill = door.state === "door_open" ? "#FFFFFF" : "#000000";
+      const fill = door.state === "door_open" ? "#FFFFFF" : "#888888";
+
+      // Position door on the correct wall edge
+      let wallX, wallY;  // the wall line coordinate
+      if (door.edge === "left")   { wallX = px;      wallY = cy; }
+      else if (door.edge === "right")  { wallX = px + cs; wallY = cy; }
+      else if (door.edge === "top")    { wallX = cx;      wallY = py; }
+      else /* bottom */                { wallX = cx;      wallY = py + cs; }
 
       if (door.vertical) {
-        // Wall runs top-bottom, passage left-right
-        // Rectangle: tall (wallLen) and narrow (depth)
-        const rx = cx - depth / 2;
-        const ry = cy - wallLen / 2;
+        // Wall runs top-bottom, door is a tall narrow rect on the edge
+        const dx = wallX - doorDepth / 2;
+        const dy = py + (cs - doorLen) / 2;
 
-        // White background to clear any wall underneath
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(rx - 2, ry - 2, depth + 4, wallLen + 4);
+        ctx.fillRect(dx - 2, dy - 2, doorDepth + 4, doorLen + 4);
 
-        // Door rectangle
         ctx.fillStyle = fill;
-        ctx.fillRect(rx, ry, depth, wallLen);
+        ctx.fillRect(dx, dy, doorDepth, doorLen);
         ctx.strokeStyle = "#000000";
         ctx.lineWidth = 1;
-        ctx.strokeRect(rx, ry, depth, wallLen);
+        ctx.strokeRect(dx, dy, doorDepth, doorLen);
 
-        // Wall connection stubs (top and bottom)
+        // Wall stubs above and below
+        ctx.strokeStyle = "#000000";
         ctx.lineWidth = wallW;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(cx, ry);
-        ctx.lineTo(cx, ry - connLen);
-        ctx.moveTo(cx, ry + wallLen);
-        ctx.lineTo(cx, ry + wallLen + connLen);
+        ctx.moveTo(wallX, dy);
+        ctx.lineTo(wallX, dy - connLen);
+        ctx.moveTo(wallX, dy + doorLen);
+        ctx.lineTo(wallX, dy + doorLen + connLen);
         ctx.stroke();
       } else {
-        // Wall runs left-right, passage top-bottom
-        // Rectangle: wide (wallLen) and short (depth)
-        const rx = cx - wallLen / 2;
-        const ry = cy - depth / 2;
+        // Wall runs left-right, door is a wide short rect on the edge
+        const dx = px + (cs - doorLen) / 2;
+        const dy = wallY - doorDepth / 2;
 
         ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(rx - 2, ry - 2, wallLen + 4, depth + 4);
+        ctx.fillRect(dx - 2, dy - 2, doorLen + 4, doorDepth + 4);
 
         ctx.fillStyle = fill;
-        ctx.fillRect(rx, ry, wallLen, depth);
+        ctx.fillRect(dx, dy, doorLen, doorDepth);
         ctx.strokeStyle = "#000000";
         ctx.lineWidth = 1;
-        ctx.strokeRect(rx, ry, wallLen, depth);
+        ctx.strokeRect(dx, dy, doorLen, doorDepth);
 
-        // Wall connection stubs (left and right)
+        // Wall stubs left and right
+        ctx.strokeStyle = "#000000";
         ctx.lineWidth = wallW;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(rx, cy);
-        ctx.lineTo(rx - connLen, cy);
-        ctx.moveTo(rx + wallLen, cy);
-        ctx.lineTo(rx + wallLen + connLen, cy);
+        ctx.moveTo(dx, wallY);
+        ctx.lineTo(dx - connLen, wallY);
+        ctx.moveTo(dx + doorLen, wallY);
+        ctx.lineTo(dx + doorLen + connLen, wallY);
         ctx.stroke();
       }
     }

@@ -192,15 +192,26 @@ class WebClient(GameClient):
                 if tile.feature not in ("door_closed", "door_open",
                                         "door_locked", "door_secret"):
                     continue
-                # Determine orientation: vertical if floor left/right
-                vertical = (
-                    _is_floor(level, x - 1, y)
-                    or _is_floor(level, x + 1, y)
-                )
+                # Find which edges have walls (non-floor neighbors)
+                # The door sits on the wall edge between floor tiles
+                floor_l = _is_floor(level, x - 1, y)
+                floor_r = _is_floor(level, x + 1, y)
+                floor_t = _is_floor(level, x, y - 1)
+                floor_b = _is_floor(level, x, y + 1)
+                # Vertical passage = floor left/right, wall top/bottom
+                vertical = floor_l or floor_r
+                # Which edge has the wall the door sits on:
+                # For vertical passage, wall is on left or right edge
+                # For horizontal passage, wall is on top or bottom edge
+                if vertical:
+                    edge = "left" if not floor_l else "right"
+                else:
+                    edge = "top" if not floor_t else "bottom"
                 doors.append({
                     "x": x, "y": y,
                     "state": tile.feature,
                     "vertical": vertical,
+                    "edge": edge,
                 })
         return doors
 
