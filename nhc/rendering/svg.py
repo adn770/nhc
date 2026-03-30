@@ -292,15 +292,17 @@ def _render_walls(svg: list[str], level: "Level") -> None:
 
 
 def _render_stairs(svg: list[str], level: "Level") -> None:
-    """Render stairs as a tilted ladder: two oblique rails + 3 steps.
+    """Render stairs as tapering wedges with parallel step lines.
 
-    stairs_down (>) : rails tilt upper-left → lower-right, 3 vertical
-                      step lines crossing them. Open at both ends.
-    stairs_up   (<) : mirror — rails tilt upper-right → lower-left.
+    Classic dungeon map convention: steps taper in the direction of
+    descent. Wide end = current level, narrow end = where stairs go.
+
+    stairs_down (>) : wide on left, narrows to right
+    stairs_up   (<) : wide on right, narrows to left
     """
     rail_sw = 1.5
     step_sw = 1.0
-    gap = CELL * 0.22  # half-distance between the two rails
+    n_steps = 5
 
     for y in range(level.height):
         for x in range(level.width):
@@ -309,46 +311,81 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
                 continue
 
             px, py = x * CELL, y * CELL
-            m = CELL * 0.12  # margin from tile edge
+            m = CELL * 0.1  # margin from tile edge
             down = tile.feature == "stairs_down"
+            cx = px + CELL / 2
+            cy = py + CELL / 2
 
-            # Rail endpoints: a diagonal line across the tile
+            # Wide end half-height and narrow end half-height
+            wide_h = CELL * 0.4
+            narrow_h = CELL * 0.1
+
             if down:
-                # Upper-left to lower-right
-                ax, ay = px + m, py + m          # start (upper-left)
-                bx, by = px + CELL - m, py + CELL - m  # end (lower-right)
-            else:
-                # Upper-right to lower-left
-                ax, ay = px + CELL - m, py + m   # start (upper-right)
-                bx, by = px + m, py + CELL - m   # end (lower-left)
-
-            # Direction vector and perpendicular
-            dx, dy = bx - ax, by - ay
-            length = math.hypot(dx, dy)
-            nx, ny = -dy / length * gap, dx / length * gap
-
-            # Two parallel oblique rails
-            svg.append(
-                f'<line x1="{ax + nx:.1f}" y1="{ay + ny:.1f}" '
-                f'x2="{bx + nx:.1f}" y2="{by + ny:.1f}" '
-                f'stroke="{INK}" stroke-width="{rail_sw}" '
-                f'stroke-linecap="round"/>')
-            svg.append(
-                f'<line x1="{ax - nx:.1f}" y1="{ay - ny:.1f}" '
-                f'x2="{bx - nx:.1f}" y2="{by - ny:.1f}" '
-                f'stroke="{INK}" stroke-width="{rail_sw}" '
-                f'stroke-linecap="round"/>')
-
-            # 3 vertical step lines crossing both rails
-            for i in range(1, 4):
-                t = i / 4
-                cx = ax + dx * t
-                cy = ay + dy * t
+                # Wide on left, narrow on right
+                left_x = px + m
+                right_x = px + CELL - m
+                # Top rail: top-left → top-right (tapering)
                 svg.append(
-                    f'<line x1="{cx + nx:.1f}" y1="{cy + ny:.1f}" '
-                    f'x2="{cx - nx:.1f}" y2="{cy - ny:.1f}" '
-                    f'stroke="{INK}" stroke-width="{step_sw}" '
+                    f'<line x1="{left_x:.1f}" '
+                    f'y1="{cy - wide_h:.1f}" '
+                    f'x2="{right_x:.1f}" '
+                    f'y2="{cy - narrow_h:.1f}" '
+                    f'stroke="{INK}" stroke-width="{rail_sw}" '
                     f'stroke-linecap="round"/>')
+                # Bottom rail
+                svg.append(
+                    f'<line x1="{left_x:.1f}" '
+                    f'y1="{cy + wide_h:.1f}" '
+                    f'x2="{right_x:.1f}" '
+                    f'y2="{cy + narrow_h:.1f}" '
+                    f'stroke="{INK}" stroke-width="{rail_sw}" '
+                    f'stroke-linecap="round"/>')
+                # Step lines (vertical, between the rails)
+                span = right_x - left_x
+                for i in range(n_steps + 1):
+                    t = i / n_steps
+                    sx = left_x + span * t
+                    half = wide_h + (narrow_h - wide_h) * t
+                    svg.append(
+                        f'<line x1="{sx:.1f}" '
+                        f'y1="{cy - half:.1f}" '
+                        f'x2="{sx:.1f}" '
+                        f'y2="{cy + half:.1f}" '
+                        f'stroke="{INK}" stroke-width="{step_sw}" '
+                        f'stroke-linecap="round"/>')
+            else:
+                # Wide on right, narrow on left
+                left_x = px + m
+                right_x = px + CELL - m
+                # Top rail
+                svg.append(
+                    f'<line x1="{left_x:.1f}" '
+                    f'y1="{cy - narrow_h:.1f}" '
+                    f'x2="{right_x:.1f}" '
+                    f'y2="{cy - wide_h:.1f}" '
+                    f'stroke="{INK}" stroke-width="{rail_sw}" '
+                    f'stroke-linecap="round"/>')
+                # Bottom rail
+                svg.append(
+                    f'<line x1="{left_x:.1f}" '
+                    f'y1="{cy + narrow_h:.1f}" '
+                    f'x2="{right_x:.1f}" '
+                    f'y2="{cy + wide_h:.1f}" '
+                    f'stroke="{INK}" stroke-width="{rail_sw}" '
+                    f'stroke-linecap="round"/>')
+                # Step lines
+                span = right_x - left_x
+                for i in range(n_steps + 1):
+                    t = i / n_steps
+                    sx = left_x + span * t
+                    half = narrow_h + (wide_h - narrow_h) * t
+                    svg.append(
+                        f'<line x1="{sx:.1f}" '
+                        f'y1="{cy - half:.1f}" '
+                        f'x2="{sx:.1f}" '
+                        f'y2="{cy + half:.1f}" '
+                        f'stroke="{INK}" stroke-width="{step_sw}" '
+                        f'stroke-linecap="round"/>')
 
 
 # ── dmap-style hatching ──────────────────────────────────────────
