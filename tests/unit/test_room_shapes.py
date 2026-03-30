@@ -1,7 +1,7 @@
 """Tests for room shape abstraction."""
 
 from nhc.dungeon.model import (
-    CircleShape, HexShape, OctagonShape,
+    CircleShape, HexShape, HybridShape, OctagonShape,
     Rect, Room, RoomShape, RectShape,
 )
 
@@ -274,6 +274,58 @@ class TestOctagonShape:
         perimeter = shape.perimeter_tiles(rect)
         assert len(perimeter) > 0
         assert perimeter <= floor
+
+
+class TestHybridShape:
+    def test_vertical_split_circle_rect(self):
+        """Left half circle, right half rect."""
+        rect = Rect(0, 0, 10, 7)
+        shape = HybridShape(CircleShape(), RectShape(), "vertical")
+        tiles = shape.floor_tiles(rect)
+        # Center of both halves should be floor
+        assert (2, 3) in tiles   # left half center
+        assert (7, 3) in tiles   # right half center
+        # All tiles within bounding rect
+        for x, y in tiles:
+            assert 0 <= x < 10 and 0 <= y < 7
+
+    def test_horizontal_split(self):
+        rect = Rect(0, 0, 7, 10)
+        shape = HybridShape(CircleShape(), RectShape(), "horizontal")
+        tiles = shape.floor_tiles(rect)
+        assert len(tiles) > 0
+        for x, y in tiles:
+            assert 0 <= x < 7 and 0 <= y < 10
+
+    def test_hybrid_subset_of_rect(self):
+        rect = Rect(2, 3, 10, 8)
+        shape = HybridShape(CircleShape(), RectShape(), "vertical")
+        assert shape.floor_tiles(rect) <= RectShape().floor_tiles(rect)
+
+    def test_hybrid_type_name(self):
+        shape = HybridShape(CircleShape(), RectShape(), "vertical")
+        assert shape.type_name == "hybrid_circle_rect_v"
+        shape2 = HybridShape(HexShape(), RectShape(), "horizontal")
+        assert shape2.type_name == "hybrid_hex_rect_h"
+
+    def test_hybrid_perimeter(self):
+        rect = Rect(0, 0, 10, 7)
+        shape = HybridShape(CircleShape(), RectShape(), "vertical")
+        floor = shape.floor_tiles(rect)
+        perimeter = shape.perimeter_tiles(rect)
+        assert len(perimeter) > 0
+        assert perimeter <= floor
+
+    def test_hybrid_save_load_roundtrip(self, tmp_path):
+        """Hybrid shapes survive save→load."""
+        from nhc.dungeon.model import shape_from_type
+        shape = HybridShape(CircleShape(), RectShape(), "vertical")
+        loaded = shape_from_type(shape.type_name)
+        assert isinstance(loaded, HybridShape)
+        assert loaded.type_name == shape.type_name
+        # Floor tiles should match
+        rect = Rect(0, 0, 10, 7)
+        assert loaded.floor_tiles(rect) == shape.floor_tiles(rect)
 
 
 class TestShapeRegistry:

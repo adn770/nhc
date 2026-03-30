@@ -18,6 +18,7 @@ from nhc.dungeon.model import (
     CircleShape,
     Corridor,
     HexShape,
+    HybridShape,
     Level,
     LevelMetadata,
     OctagonShape,
@@ -594,8 +595,15 @@ class BSPGenerator(DungeonGenerator):
         """Choose a room shape based on variety setting and rect size."""
         if variety <= 0 or rng.random() >= variety:
             return RectShape()
-        # Non-rect shapes need at least 5x5 to look reasonable
-        if min(rect.width, rect.height) >= 5:
+        min_dim = min(rect.width, rect.height)
+        # Hybrids need at least 7x5 (each half needs room)
+        if min_dim >= 5 and max(rect.width, rect.height) >= 7:
+            if rng.random() < 0.25:
+                left = rng.choice(BSPGenerator._NON_RECT_SHAPES)()
+                split = rng.choice(["vertical", "horizontal"])
+                return HybridShape(left, RectShape(), split)
+        # Non-rect shapes need at least 5x5
+        if min_dim >= 5:
             return rng.choice(BSPGenerator._NON_RECT_SHAPES)()
         return RectShape()
 

@@ -141,6 +141,43 @@ class OctagonShape(RoomShape):
         return tiles
 
 
+class HybridShape(RoomShape):
+    """Composite room — two sub-shapes joined along a split axis.
+
+    The bounding rect is split vertically or horizontally at the
+    midpoint. Each half uses a different sub-shape.
+    """
+
+    def __init__(
+        self,
+        left: RoomShape,
+        right: RoomShape,
+        split: str = "vertical",
+    ) -> None:
+        self.left = left
+        self.right = right
+        self.split = split  # "vertical" or "horizontal"
+        self.type_name = (
+            f"hybrid_{left.type_name}_{right.type_name}_{split[0]}"
+        )
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        if self.split == "vertical":
+            mid = rect.x + rect.width // 2
+            left_rect = Rect(rect.x, rect.y, mid - rect.x, rect.height)
+            right_rect = Rect(mid, rect.y, rect.x2 - mid, rect.height)
+        else:
+            mid = rect.y + rect.height // 2
+            left_rect = Rect(rect.x, rect.y, rect.width, mid - rect.y)
+            right_rect = Rect(rect.x, mid, rect.width, rect.y2 - mid)
+        return (
+            self.left.floor_tiles(left_rect)
+            | self.right.floor_tiles(right_rect)
+        )
+
+
+# ── Shape registry ────────────────────────────────────────────────
+
 _SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
     "rect": RectShape,
     "circle": CircleShape,
@@ -148,11 +185,36 @@ _SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
     "octagon": OctagonShape,
 }
 
+# Predefined hybrid combinations for serialization
+_HYBRID_PRESETS: dict[str, tuple[str, str, str]] = {
+    "hybrid_circle_rect_v": ("circle", "rect", "vertical"),
+    "hybrid_rect_circle_v": ("rect", "circle", "vertical"),
+    "hybrid_circle_rect_h": ("circle", "rect", "horizontal"),
+    "hybrid_rect_circle_h": ("rect", "circle", "horizontal"),
+    "hybrid_hex_rect_v": ("hex", "rect", "vertical"),
+    "hybrid_rect_hex_v": ("rect", "hex", "vertical"),
+    "hybrid_hex_rect_h": ("hex", "rect", "horizontal"),
+    "hybrid_rect_hex_h": ("rect", "hex", "horizontal"),
+}
+
 
 def shape_from_type(type_name: str | None) -> RoomShape:
     """Resolve a shape type string to a RoomShape instance."""
-    cls = _SHAPE_REGISTRY.get(type_name or "rect", RectShape)
-    return cls()
+    name = type_name or "rect"
+    # Check simple shapes first
+    cls = _SHAPE_REGISTRY.get(name)
+    if cls:
+        return cls()
+    # Check hybrid presets
+    preset = _HYBRID_PRESETS.get(name)
+    if preset:
+        left_name, right_name, split = preset
+        return HybridShape(
+            _SHAPE_REGISTRY[left_name](),
+            _SHAPE_REGISTRY[right_name](),
+            split,
+        )
+    return RectShape()
 
 
 @dataclass
