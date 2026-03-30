@@ -47,7 +47,7 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
         f'viewBox="0 0 {w} {h}" '
         f'xmlns="http://www.w3.org/2000/svg">'
     )
-    # Transparent background — floors are filled white individually
+    svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
     # Layer 1: Room shadows (subtle)
