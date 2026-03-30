@@ -52,6 +52,9 @@ def register_ws(app, sock: Sock) -> None:
                 session.game.player_id)
             fov = client._gather_fov(session.game.level)
             doors = client._gather_doors(session.game.level)
+            masked = client._gather_masked_doors(
+                session.game.level, session.game.player_id,
+                session.game.world)
             logger.info("Sending floor SVG (%d bytes) + initial state "
                         "(%d entities, %d doors, %d fov tiles)",
                         len(client.floor_svg), len(entities),
@@ -61,6 +64,7 @@ def register_ws(app, sock: Sock) -> None:
                 "svg": client.floor_svg,
                 "entities": entities,
                 "doors": doors,
+                "masked_doors": masked,
                 "fov": fov,
                 "turn": session.game.turn,
             }))

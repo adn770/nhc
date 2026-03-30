@@ -17,6 +17,7 @@ const GameMap = {
   padding: 32,   // must match SVG PADDING constant
   entities: [],
   doors: [],
+  maskedDoors: [],
   fov: new Set(),
   explored: new Set(),
   tileset: null,
@@ -79,9 +80,10 @@ const GameMap = {
       });
   },
 
-  updateEntities(entities, doors) {
+  updateEntities(entities, doors, maskedDoors) {
     this.entities = entities;
     if (doors) this.doors = doors;
+    if (maskedDoors) this.maskedDoors = maskedDoors;
     // Track player position for auto-scroll
     const player = entities.find(e => e.glyph === "@");
     if (player) {
@@ -152,6 +154,25 @@ const GameMap = {
       const px = x * this.cellSize + this.padding;
       const py = y * this.cellSize + this.padding;
       ctx.clearRect(px, py, this.cellSize, this.cellSize);
+    }
+
+    // Re-fog the room-facing half of closed door tiles
+    ctx.fillStyle = "rgba(0, 0, 0, 1.0)";
+    for (const md of this.maskedDoors) {
+      const px = md.x * this.cellSize + this.padding;
+      const py = md.y * this.cellSize + this.padding;
+      const cs = this.cellSize;
+      const half = cs / 2;
+      // mask_side = the side that should stay fogged (toward room)
+      if (md.mask_side === "south") {
+        ctx.fillRect(px, py + half, cs, half);
+      } else if (md.mask_side === "north") {
+        ctx.fillRect(px, py, cs, half);
+      } else if (md.mask_side === "east") {
+        ctx.fillRect(px + half, py, half, cs);
+      } else if (md.mask_side === "west") {
+        ctx.fillRect(px, py, half, cs);
+      }
     }
 
     // Explored but not visible: clear then apply heavy dim

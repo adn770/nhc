@@ -209,6 +209,38 @@ class WebClient(GameClient):
                 })
         return doors
 
+    def _gather_masked_doors(
+        self, level: "Level", player_id: int, world: "World",
+    ) -> list[dict]:
+        """Find visible closed doors where half the tile should stay fogged.
+
+        For each closed/locked door tile in the FOV, determine which
+        half should remain covered (the side away from the player)
+        so the fog doesn't reveal room structure beyond the door.
+        """
+        pos = world.get_component(player_id, "Position")
+        if not pos:
+            return []
+        closed_feats = ("door_closed", "door_locked", "door_secret")
+        masked = []
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tile_at(x, y)
+                if not tile or not tile.visible:
+                    continue
+                if tile.feature not in closed_feats:
+                    continue
+                side = tile.door_side
+                if not side:
+                    continue
+                # door_side points toward the room interior.
+                # Mask that half (hide the room side).
+                masked.append({
+                    "x": x, "y": y,
+                    "mask_side": side,  # "north","south","east","west"
+                })
+        return masked
+
     def _gather_fov(self, level: "Level") -> list[list[int]]:
         """Build list of visible tile coordinates."""
         visible = []
@@ -252,12 +284,14 @@ class WebClient(GameClient):
         entities = self._gather_entities(world, level, player_id)
         fov = self._gather_fov(level)
         doors = self._gather_doors(level)
+        masked = self._gather_masked_doors(level, player_id, world)
         stats = self._gather_stats(world, player_id, turn, level)
         self._send({
             "type": "state",
             "entities": entities,
             "fov": fov,
             "doors": doors,
+            "masked_doors": masked,
             "turn": turn,
         })
         self._send({

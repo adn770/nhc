@@ -34,10 +34,10 @@ class TestSVGOutput:
         assert svg.startswith("<svg")
         assert svg.endswith("</svg>")
 
-    def test_white_background(self):
+    def test_parchment_background(self):
         level = _make_level()
         svg = render_floor_svg(level)
-        assert "#FFFFFF" in svg
+        assert "#F5EDE0" in svg  # soft brown parchment
 
     def test_contains_room_shadow(self):
         level = _make_level()
