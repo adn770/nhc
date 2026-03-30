@@ -99,9 +99,53 @@ class CircleShape(RoomShape):
         }
 
 
+class HexShape(RoomShape):
+    """Hexagonal room — flat-topped hex inscribed in the bounding rect."""
+
+    type_name = "hex"
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        cy = rect.y + (rect.height - 1) / 2
+        half_h = (rect.height - 1) / 2
+        if half_h <= 0:
+            return set()
+        tiles: set[tuple[int, int]] = set()
+        for y in range(rect.y, rect.y2):
+            dy = abs(y - cy) / half_h
+            inset = round(rect.width * dy / 4)
+            for x in range(rect.x + inset, rect.x2 - inset):
+                tiles.add((x, y))
+        return tiles
+
+
+class OctagonShape(RoomShape):
+    """Octagonal room — rectangle with clipped 45-degree corners."""
+
+    type_name = "octagon"
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        clip = max(1, min(rect.width, rect.height) // 3)
+        tiles: set[tuple[int, int]] = set()
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                lx = x - rect.x
+                ly = y - rect.y
+                rx = rect.x2 - 1 - x
+                ry = rect.y2 - 1 - y
+                if (lx + ly < clip
+                        or rx + ly < clip
+                        or lx + ry < clip
+                        or rx + ry < clip):
+                    continue
+                tiles.add((x, y))
+        return tiles
+
+
 _SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
     "rect": RectShape,
     "circle": CircleShape,
+    "hex": HexShape,
+    "octagon": OctagonShape,
 }
 
 

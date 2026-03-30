@@ -17,8 +17,10 @@ logger = logging.getLogger(__name__)
 from nhc.dungeon.model import (
     CircleShape,
     Corridor,
+    HexShape,
     Level,
     LevelMetadata,
+    OctagonShape,
     Rect,
     RectShape,
     Room,
@@ -581,6 +583,10 @@ class BSPGenerator(DungeonGenerator):
         for wx, wy in to_wall:
             level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
 
+    _NON_RECT_SHAPES: list[type[RoomShape]] = [
+        CircleShape, HexShape, OctagonShape,
+    ]
+
     @staticmethod
     def _pick_shape(
         rect: Rect, variety: float, rng: random.Random,
@@ -588,9 +594,9 @@ class BSPGenerator(DungeonGenerator):
         """Choose a room shape based on variety setting and rect size."""
         if variety <= 0 or rng.random() >= variety:
             return RectShape()
-        # Circles need at least 5x5 to look reasonable
+        # Non-rect shapes need at least 5x5 to look reasonable
         if min(rect.width, rect.height) >= 5:
-            return CircleShape()
+            return rng.choice(BSPGenerator._NON_RECT_SHAPES)()
         return RectShape()
 
     def _carve_room(self, level: Level, rect: Rect,

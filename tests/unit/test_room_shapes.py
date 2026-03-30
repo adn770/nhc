@@ -1,6 +1,9 @@
 """Tests for room shape abstraction."""
 
-from nhc.dungeon.model import CircleShape, Rect, Room, RoomShape, RectShape
+from nhc.dungeon.model import (
+    CircleShape, HexShape, OctagonShape,
+    Rect, Room, RoomShape, RectShape,
+)
 
 
 class TestRectShape:
@@ -165,6 +168,114 @@ class TestCircleShape:
         assert (0, 0) not in tiles
 
 
+class TestHexShape:
+    def test_type_name(self):
+        assert HexShape.type_name == "hex"
+
+    def test_7x7_hex(self):
+        rect = Rect(0, 0, 7, 7)
+        tiles = HexShape().floor_tiles(rect)
+        # Center must be floor
+        assert (3, 3) in tiles
+        # Full width at center row
+        for x in range(0, 7):
+            assert (x, 3) in tiles
+        # Narrower at top/bottom
+        assert (0, 0) not in tiles
+        assert (6, 0) not in tiles
+
+    def test_hex_symmetry(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = HexShape().floor_tiles(rect)
+        cx, cy = 4, 4
+        for x, y in tiles:
+            # Vertical symmetry
+            assert (x, 2 * cy - y) in tiles, f"V-mirror of ({x},{y})"
+            # Horizontal symmetry
+            assert (2 * cx - x, y) in tiles, f"H-mirror of ({x},{y})"
+
+    def test_hex_fewer_tiles_than_rect(self):
+        rect = Rect(0, 0, 7, 7)
+        assert len(HexShape().floor_tiles(rect)) < len(
+            RectShape().floor_tiles(rect)
+        )
+
+    def test_hex_subset_of_rect(self):
+        rect = Rect(2, 3, 8, 6)
+        assert HexShape().floor_tiles(rect) <= RectShape().floor_tiles(rect)
+
+    def test_hex_perimeter(self):
+        rect = Rect(0, 0, 7, 7)
+        shape = HexShape()
+        floor = shape.floor_tiles(rect)
+        perimeter = shape.perimeter_tiles(rect)
+        assert len(perimeter) > 0
+        assert perimeter <= floor
+        assert len(floor - perimeter) > 0  # has interior
+
+
+class TestOctagonShape:
+    def test_type_name(self):
+        assert OctagonShape.type_name == "octagon"
+
+    def test_7x7_octagon(self):
+        rect = Rect(0, 0, 7, 7)
+        tiles = OctagonShape().floor_tiles(rect)
+        # Center must be floor
+        assert (3, 3) in tiles
+        # Corners should be clipped
+        assert (0, 0) not in tiles
+        assert (6, 0) not in tiles
+        assert (0, 6) not in tiles
+        assert (6, 6) not in tiles
+        # Mid-edges should be floor
+        assert (3, 0) in tiles  # top center
+        assert (0, 3) in tiles  # left center
+        assert (6, 3) in tiles  # right center
+        assert (3, 6) in tiles  # bottom center
+
+    def test_octagon_symmetry(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = OctagonShape().floor_tiles(rect)
+        cx, cy = 4, 4
+        for x, y in tiles:
+            assert (2 * cx - x, y) in tiles, f"H-mirror of ({x},{y})"
+            assert (x, 2 * cy - y) in tiles, f"V-mirror of ({x},{y})"
+
+    def test_octagon_fewer_tiles_than_rect(self):
+        rect = Rect(0, 0, 7, 7)
+        assert len(OctagonShape().floor_tiles(rect)) < len(
+            RectShape().floor_tiles(rect)
+        )
+
+    def test_octagon_more_tiles_than_circle(self):
+        """Octagon is closer to a rect than a circle."""
+        rect = Rect(0, 0, 9, 9)
+        oct_tiles = OctagonShape().floor_tiles(rect)
+        circle_tiles = CircleShape().floor_tiles(rect)
+        assert len(oct_tiles) > len(circle_tiles)
+
+    def test_octagon_subset_of_rect(self):
+        rect = Rect(1, 2, 8, 8)
+        assert OctagonShape().floor_tiles(rect) <= RectShape().floor_tiles(rect)
+
+    def test_octagon_5x5(self):
+        """Minimum viable octagon."""
+        rect = Rect(0, 0, 5, 5)
+        tiles = OctagonShape().floor_tiles(rect)
+        assert (2, 2) in tiles
+        assert (0, 0) not in tiles
+        assert len(tiles) > 0
+
+    def test_octagon_perimeter(self):
+        rect = Rect(0, 0, 7, 7)
+        shape = OctagonShape()
+        floor = shape.floor_tiles(rect)
+        perimeter = shape.perimeter_tiles(rect)
+        assert len(perimeter) > 0
+        assert perimeter <= floor
+
+
 class TestShapeRegistry:
     def test_resolve_rect(self):
         from nhc.dungeon.model import shape_from_type
@@ -175,6 +286,16 @@ class TestShapeRegistry:
         from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("circle")
         assert isinstance(shape, CircleShape)
+
+    def test_resolve_hex(self):
+        from nhc.dungeon.model import shape_from_type
+        shape = shape_from_type("hex")
+        assert isinstance(shape, HexShape)
+
+    def test_resolve_octagon(self):
+        from nhc.dungeon.model import shape_from_type
+        shape = shape_from_type("octagon")
+        assert isinstance(shape, OctagonShape)
 
     def test_resolve_unknown_defaults_to_rect(self):
         from nhc.dungeon.model import shape_from_type
@@ -283,13 +404,13 @@ class TestCircleRoomGeneration:
         assert level is not None
         assert len(level.rooms) >= 3
 
-    def test_has_circular_rooms(self):
+    def test_has_non_rect_rooms(self):
         level = self._generate_with_circles()
-        circle_rooms = [
+        non_rect = [
             r for r in level.rooms
-            if isinstance(r.shape, CircleShape)
+            if not isinstance(r.shape, RectShape)
         ]
-        assert len(circle_rooms) >= 1
+        assert len(non_rect) >= 1
 
     def test_all_rooms_reachable(self):
         """Every room center must be reachable via flood fill."""
@@ -394,15 +515,11 @@ class TestCircleRoomGeneration:
         save_game(world, level, pid, 1, [], save_path=path)
         _, loaded, _, _, _ = load_game(save_path=path)
 
-        original_circles = sum(
-            1 for r in level.rooms
-            if isinstance(r.shape, CircleShape)
-        )
-        loaded_circles = sum(
-            1 for r in loaded.rooms
-            if isinstance(r.shape, CircleShape)
-        )
-        assert loaded_circles == original_circles
+        for orig, load in zip(level.rooms, loaded.rooms):
+            assert orig.shape.type_name == load.shape.type_name, (
+                f"{orig.id}: shape {orig.shape.type_name} "
+                f"!= loaded {load.shape.type_name}"
+            )
 
 
 class TestRoundedWallGlyphs:
