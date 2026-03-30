@@ -32,7 +32,7 @@ HATCH_UNDERLAY = "#D0D0D0"
 
 # ── Colors (black & white) ──────────────────────────────────────
 
-BG = "#FFFFFF"
+BG = "#F5EDE0"
 INK = "#000000"
 
 
