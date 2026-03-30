@@ -48,14 +48,32 @@ class WebClient(GameClient):
     def _send(self, msg: dict) -> None:
         """Send a JSON message to the browser."""
         if self._ws:
-            self._ws.send(json.dumps(msg))
+            data = json.dumps(msg)
+            msg_type = msg.get("type", "?")
+            if msg_type == "floor":
+                logger.debug("WS SEND: type=floor, %d bytes", len(data))
+            elif msg_type == "state":
+                n_ent = len(msg.get("entities", []))
+                logger.debug("WS SEND: type=state, %d entities, turn=%s",
+                             n_ent, msg.get("turn"))
+            else:
+                logger.debug("WS SEND: type=%s", msg_type)
+            self._ws.send(data)
+        else:
+            logger.warning("WS SEND failed: no websocket attached (type=%s)",
+                           msg.get("type", "?"))
 
     def _recv(self) -> dict:
         """Receive a JSON message from the browser (blocking)."""
         if self._ws:
             raw = self._ws.receive()
             if raw:
-                return json.loads(raw)
+                msg = json.loads(raw)
+                logger.debug("WS RECV: %s", msg.get("type", raw[:80]))
+                return msg
+            logger.debug("WS RECV: empty/None")
+        else:
+            logger.warning("WS RECV: no websocket attached")
         return {}
 
     def _gather_entities(
@@ -104,9 +122,12 @@ class WebClient(GameClient):
     # ── Lifecycle ────────────────────────────────────────────────
 
     def initialize(self) -> None:
-        """Send the floor SVG to the client on game start."""
-        if self.floor_svg:
-            self._send({"type": "floor", "svg": self.floor_svg})
+        """Called during Game.initialize() — WS not connected yet.
+
+        Floor SVG is sent later from ws.py when the WS connects.
+        """
+        logger.debug("WebClient.initialize() — floor_svg=%d bytes",
+                      len(self.floor_svg) if self.floor_svg else 0)
 
     def shutdown(self) -> None:
         """Notify client that the session is ending."""

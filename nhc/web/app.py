@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from flask import Flask, jsonify, make_response, render_template, request
 from flask_sock import Sock
 
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(
@@ -23,6 +26,12 @@ def create_app(
         template_folder="templates",
     )
     app.config["NHC_CONFIG"] = config
+
+    # Enable debug logging
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    )
 
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
@@ -42,7 +51,6 @@ def create_app(
 
     @app.route("/")
     def index():
-        # If auth required, validate token from query param and set cookie
         if config.auth_required and valid_hashes:
             from nhc.web.auth import hash_token, _extract_token
             token = _extract_token()
@@ -67,9 +75,11 @@ def create_app(
         data = request.get_json(silent=True) or {}
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
+        logger.info("Creating new game: lang=%s tileset=%s", lang, tileset)
         try:
             session = sessions.create(lang=lang, tileset=tileset)
         except ValueError as exc:
+            logger.warning("Session limit: %s", exc)
             return jsonify({"error": str(exc)}), 429
 
         # Initialize i18n and create the game instance
@@ -88,6 +98,9 @@ def create_app(
             "temp": 0.1,
             "ctx": 16384,
         })
+        logger.debug("LLM backend: %s", type(backend).__name__
+                      if backend else "None")
+
         game = Game(
             client=client,
             backend=backend,
@@ -96,19 +109,35 @@ def create_app(
         session.game = game
 
         # Initialize the game world (generate dungeon)
+        logger.info("Generating dungeon for session %s...",
+                     session.session_id)
         loop = asyncio.new_event_loop()
         try:
             loop.run_until_complete(game.initialize(generate=True))
+        except Exception:
+            logger.exception("Failed to initialize game")
+            sessions.destroy(session.session_id)
+            return jsonify({"error": "game initialization failed"}), 500
         finally:
             loop.close()
+
+        logger.info("Dungeon generated: %dx%d, %d rooms",
+                     game.level.width, game.level.height,
+                     len(game.level.rooms))
 
         # Generate floor SVG and store on the client
         from nhc.rendering.svg import render_floor_svg
         if game.level:
+            logger.info("Rendering floor SVG...")
             client.floor_svg = render_floor_svg(
                 game.level, seed=game.seed or 0,
             )
+            logger.info("Floor SVG: %d bytes", len(client.floor_svg))
+        else:
+            logger.warning("No level — floor SVG not generated")
 
+        logger.info("Session %s ready, waiting for WS connection",
+                     session.session_id)
         return jsonify({
             "session_id": session.session_id,
             "lang": session.lang,
