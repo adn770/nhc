@@ -81,6 +81,13 @@ def register_ws(app, sock: Sock) -> None:
                     ws.send(data)
                 except Exception:
                     pass  # queue.Empty or WS error
+            # Drain remaining messages (e.g. game_over)
+            while not client._out_queue.empty():
+                try:
+                    data = client._out_queue.get_nowait()
+                    ws.send(data)
+                except Exception:
+                    break
 
         sender_thread = threading.Thread(target=_sender, daemon=True)
         sender_thread.start()

@@ -131,15 +131,27 @@ const UI = {
     overlay.id = "menu-overlay";
     const box = document.createElement("div");
     box.className = "menu-box";
-    box.innerHTML = `<h3>${msg.won ? "VICTORY!" : "YOU DIED"}</h3>
-      <p>${msg.killed_by ? "Killed by " + msg.killed_by : ""}</p>
+    const title = msg.won ? "⚔️ VICTORY! ⚔️" : "💀 YOU DIED 💀";
+    const cause = msg.killed_by
+      ? `<p>Killed by ${msg.killed_by}.</p>` : "";
+    box.innerHTML = `<h3>${title}</h3>
+      ${cause}
       <p>Survived ${msg.turn} turns.</p>
-      <div class="option" onclick="location.reload()">
-        Press any key or click to restart
-      </div>`;
+      <br>
+      <div class="option">Press any key or click to continue</div>`;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
-    document.addEventListener("keydown", () => location.reload(),
-                              { once: true });
+
+    const dismiss = () => {
+      // Send ack so server can clean up
+      WS.send({ type: "game_over_ack" });
+      // Return to welcome screen
+      document.getElementById("game-screen").classList.add("hidden");
+      document.getElementById("login-screen").classList.remove("hidden");
+      overlay.remove();
+    };
+
+    box.addEventListener("click", dismiss, { once: true });
+    document.addEventListener("keydown", dismiss, { once: true });
   },
 };

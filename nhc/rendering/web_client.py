@@ -319,6 +319,11 @@ class WebClient(GameClient):
             "turn": turn,
             "killed_by": killed_by,
         })
+        # Wait for client acknowledgment before game loop exits
+        if self._ws:
+            import time
+            time.sleep(0.5)  # give sender thread time to flush
+            self._recv()  # wait for client ack
 
     # ── Input ────────────────────────────────────────────────────
 
