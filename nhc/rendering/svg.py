@@ -79,10 +79,13 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
 # ── Helpers ──────────────────────────────────────────────────────
 
 def _is_floor(level: "Level", x: int, y: int) -> bool:
+    """True for floor tiles (excluding secret doors, which look like walls)."""
     from nhc.dungeon.model import Terrain
     if not level.in_bounds(x, y):
         return False
     t = level.tiles[y][x]
+    if t.feature == "door_secret":
+        return False
     return t.terrain in (Terrain.FLOOR, Terrain.WATER)
 
 
