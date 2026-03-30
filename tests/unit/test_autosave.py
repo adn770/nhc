@@ -30,7 +30,7 @@ class FakeRenderer:
     """Minimal renderer stub for testing."""
 
     def __init__(self):
-        self._messages = []
+        self.messages = []
         self.game_mode = "classic"
         self.narrative_log = type("NL", (), {"add_mechanical": lambda s, t: None})()
 
@@ -136,7 +136,7 @@ def _make_game():
     game._knowledge.identify("healing_potion")
 
     # Messages
-    game.renderer._messages = ["Hello", "World"]
+    game.renderer.messages = ["Hello", "World"]
     game._seen_creatures = {10, 20}
 
     return game
@@ -238,7 +238,7 @@ class TestRoundTrip:
 
         game2 = FakeGame()
         _restore_payload(game2, payload)
-        assert game2.renderer._messages == ["Hello", "World"]
+        assert game2.renderer.messages == ["Hello", "World"]
 
     def test_restore_preserves_seen_creatures(self):
         game = _make_game()

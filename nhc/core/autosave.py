@@ -114,7 +114,7 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         "character": game._character,
 
         # Messages
-        "messages": list(game.renderer._messages),
+        "messages": list(game.renderer.messages),
 
         # Seen creatures
         "seen_creatures": set(game._seen_creatures),
@@ -157,7 +157,7 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     game._character = payload.get("character")
 
     # Messages
-    game.renderer._messages = payload.get("messages", [])
+    game.renderer.messages = payload.get("messages", [])
 
     # Seen creatures
     game._seen_creatures = payload.get("seen_creatures", set())

@@ -81,6 +81,14 @@ class TerminalRenderer(GameClient):
         _glyphs.set_color_mode(self.color_mode)
         self._messages: list[str] = []
         self._msg_scroll: int = 0  # 0 = showing latest
+
+    @property
+    def messages(self) -> list[str]:
+        return self._messages
+
+    @messages.setter
+    def messages(self, value: list[str]) -> None:
+        self._messages = value
         # Typed mode widgets
         self.narrative_log = NarrativeLog()
         self._text_input = TextInput()
