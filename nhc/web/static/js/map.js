@@ -247,11 +247,13 @@ const GameMap = {
 
       const px = door.x * cs + pad;
       const py = door.y * cs + pad;
+      const cx = px + cs / 2;
+      const cy = py + cs / 2;
       const fill = door.state === "door_open" ? "#FFFFFF" : "#888888";
 
       // Position door on the correct wall edge
-      let wallX, wallY;  // the wall line coordinate
-      if (door.edge === "left")   { wallX = px;      wallY = cy; }
+      let wallX, wallY;
+      if (door.edge === "left")        { wallX = px;      wallY = cy; }
       else if (door.edge === "right")  { wallX = px + cs; wallY = cy; }
       else if (door.edge === "top")    { wallX = cx;      wallY = py; }
       else /* bottom */                { wallX = cx;      wallY = py + cs; }
