@@ -16,7 +16,7 @@ const NHC = {
       console.log("state:", msg.entities.length, "entities,",
                   (msg.doors || []).length, "doors,",
                   (msg.fov || []).length, "fov tiles");
-      GameMap.updateEntities(msg.entities, msg.doors, msg.masked_doors);
+      GameMap.updateEntities(msg.entities, msg.doors);
       if (msg.fov) GameMap.updateFOV(msg.fov);
     });
 
@@ -37,7 +37,7 @@ const NHC = {
       console.log("floor SVG received:", msg.svg.length, "bytes");
       GameMap.setFloorSVG(msg.svg);
       if (msg.entities) {
-        GameMap.updateEntities(msg.entities, msg.doors, msg.masked_doors);
+        GameMap.updateEntities(msg.entities, msg.doors);
       }
       if (msg.fov) {
         GameMap.updateFOV(msg.fov);
