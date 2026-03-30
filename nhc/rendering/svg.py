@@ -3,10 +3,10 @@
 Generates a static SVG image of a dungeon floor from nhc's Level model.
 Black and white only. The SVG contains rooms, corridors, walls, doors
 (as gaps in walls), stairs (triangular parallel lines), and procedural
-cross-hatching from dmap. No entities — those are overlaid by the
+cross-hatching. No entities — those are overlaid by the
 browser client using the tileset.
 
-Hatching algorithm ported from ppdf/dmap_lib/rendering/hatching.py.
+Hatching uses Shapely geometry and Perlin noise for organic effects.
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     _render_floor_detail(svg, level, seed)
 
     # Layer 4: Hatching (behind walls)
-    _render_hatching_dmap(svg, level, seed)
+    _render_hatching(svg, level, seed)
 
     # Layer 5: Walls (on top of hatching)
     _render_walls(svg, level)
@@ -388,12 +388,12 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
                         f'stroke-linecap="round"/>')
 
 
-# ── dmap-style hatching ──────────────────────────────────────────
+# ── Hatching ─────────────────────────────────────────────────────
 
-def _render_hatching_dmap(
+def _render_hatching(
     svg: list[str], level: "Level", seed: int,
 ) -> None:
-    """Procedural cross-hatching ported from dmap's HatchingRenderer.
+    """Procedural cross-hatching around the dungeon perimeter.
 
     Uses Shapely for geometry clipping, Perlin noise for organic
     displacement, and tile-based section partitioning.
