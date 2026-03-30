@@ -167,6 +167,33 @@ body {
   border-bottom: 1px solid #333;
   font-size: 13px;
   line-height: 1.6;
+  display: flex;
+  align-items: center;
+}
+
+#status-lines {
+  flex: 1;
+  min-width: 0;
+}
+
+#help-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #555;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+#help-btn:hover {
+  color: #e6c07b;
+  border-color: #e6c07b;
 }
 
 #status-line1 {
@@ -274,4 +301,17 @@ body {
 .menu-box .option .key {
   color: #e6c07b;
   margin-right: 8px;
+}
+
+.help-box {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.help-box pre {
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: #ccc;
 }

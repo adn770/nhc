@@ -160,4 +160,16 @@ def create_app(
     def tilesets():
         return jsonify(["classic"])
 
+    @app.route("/api/help/<lang>", methods=["GET"])
+    def help_text(lang: str):
+        """Serve the help document for the given language."""
+        from pathlib import Path
+        docs = Path(__file__).parent.parent.parent / "docs"
+        path = docs / f"help_{lang}.md"
+        if not path.exists():
+            path = docs / "help_en.md"
+        if not path.exists():
+            return "Help not available.", 404
+        return path.read_text(), 200, {"Content-Type": "text/plain"}
+
     return app

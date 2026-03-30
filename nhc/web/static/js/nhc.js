@@ -11,6 +11,9 @@ const NHC = {
     document.getElementById("new-game-btn")
       .addEventListener("click", () => this.newGame());
 
+    document.getElementById("help-btn")
+      ?.addEventListener("click", () => UI.showHelp());
+
     // Wire up WebSocket message handlers
     WS.on("state", (msg) => {
       console.log("state:", msg.entities.length, "entities,",

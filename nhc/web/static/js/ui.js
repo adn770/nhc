@@ -126,6 +126,41 @@ const UI = {
     });
   },
 
+  showHelp() {
+    const overlay = document.createElement("div");
+    overlay.id = "menu-overlay";
+    const box = document.createElement("div");
+    box.className = "menu-box help-box";
+    box.innerHTML = `<h3>Help</h3><pre id="help-content">Loading...</pre>
+      <div class="option" style="margin-top:12px;text-align:center">
+        Press ESC or click to close
+      </div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    // Fetch help from the server
+    const lang = document.getElementById("lang-select")?.value || "en";
+    fetch(`/api/help/${lang}`)
+      .then(r => r.text())
+      .then(text => {
+        document.getElementById("help-content").textContent = text;
+      })
+      .catch(() => {
+        document.getElementById("help-content").textContent =
+          "Help not available.";
+      });
+
+    const dismiss = () => {
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape" || e.key === "?") dismiss();
+    };
+    overlay.addEventListener("click", dismiss);
+    document.addEventListener("keydown", onKey);
+  },
+
   showGameOver(msg) {
     const overlay = document.createElement("div");
     overlay.id = "menu-overlay";
