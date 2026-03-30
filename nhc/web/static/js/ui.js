@@ -65,11 +65,134 @@ const UI = {
       ` CHA:${this._signed(s.cha)}` +
       `${sep}${equip}`;
 
-    // ── Line 3: Inventory ──
-    const items = (s.items || []).join(" · ") ||
-      '<span style="color:#808080">empty</span>';
-    this.statusLine3.innerHTML =
-      ` 🎒 ${s.slots_used}/${s.slots_max}  ${items}`;
+    // ── Line 3: Inventory (interactive) ──
+    const rawItems = s.items || [];
+    this.currentItems = rawItems;
+    this.statusLine3.textContent = "";
+
+    const prefix = document.createElement("span");
+    prefix.textContent = ` 🎒 ${s.slots_used}/${s.slots_max}  `;
+    this.statusLine3.appendChild(prefix);
+
+    if (rawItems.length === 0) {
+      const empty = document.createElement("span");
+      empty.style.color = "#808080";
+      empty.textContent = "empty";
+      this.statusLine3.appendChild(empty);
+    } else {
+      rawItems.forEach((it, idx) => {
+        if (idx > 0) {
+          const sep = document.createTextNode(" · ");
+          this.statusLine3.appendChild(sep);
+        }
+        const isObj = typeof it === "object";
+        const span = document.createElement("span");
+        span.className = "inv-item";
+        span.textContent = isObj ? it.name : it;
+        if (isObj) {
+          span.dataset.itemId = it.id;
+          span.dataset.types = JSON.stringify(it.types);
+          span.dataset.equipped = it.equipped;
+          span.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this._itemPrimaryAction(it);
+          });
+          span.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this._showItemContextMenu(e.clientX, e.clientY, it);
+          });
+        }
+        this.statusLine3.appendChild(span);
+      });
+    }
+  },
+
+  _itemPrimaryAction(item) {
+    const types = item.types || [];
+    let action;
+    if (types.includes("consumable")) action = "quaff";
+    else if (types.includes("wand")) action = "zap";
+    else if (types.includes("weapon") || types.includes("armor") ||
+             types.includes("shield") || types.includes("helmet") ||
+             types.includes("ring")) {
+      action = item.equipped ? "unequip" : "equip";
+    } else {
+      action = "use";
+    }
+    WS.send({ type: "item_action", action, item_id: item.id });
+  },
+
+  _itemContextActions(item) {
+    const types = item.types || [];
+    const actions = [];
+    if (types.includes("consumable")) {
+      actions.push({ action: "use", label: "Use" });
+      actions.push({ action: "quaff", label: "Quaff" });
+    }
+    if (types.includes("wand")) {
+      actions.push({ action: "zap", label: "Zap" });
+    }
+    if (types.includes("weapon") || types.includes("armor") ||
+        types.includes("shield") || types.includes("helmet") ||
+        types.includes("ring")) {
+      actions.push({
+        action: item.equipped ? "unequip" : "equip",
+        label: item.equipped ? "Unequip" : "Equip",
+      });
+    }
+    if (types.includes("throwable")) {
+      actions.push({ action: "throw", label: "Throw" });
+    }
+    actions.push({ action: "drop", label: "Drop" });
+    return actions;
+  },
+
+  _showItemContextMenu(x, y, item) {
+    this._dismissContextMenu();
+    const actions = this._itemContextActions(item);
+    const menu = document.createElement("div");
+    menu.id = "context-menu";
+    menu.style.left = x + "px";
+    menu.style.top = y + "px";
+
+    actions.forEach(({ action, label }) => {
+      const div = document.createElement("div");
+      div.className = "ctx-option";
+      div.textContent = label;
+      div.addEventListener("click", (e) => {
+        e.stopPropagation();
+        WS.send({ type: "item_action", action, item_id: item.id });
+        this._dismissContextMenu();
+      });
+      menu.appendChild(div);
+    });
+
+    document.body.appendChild(menu);
+    // Dismiss on outside click or ESC
+    const dismiss = (e) => {
+      if (!menu.contains(e.target)) {
+        this._dismissContextMenu();
+        document.removeEventListener("click", dismiss);
+        document.removeEventListener("keydown", onKey);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        this._dismissContextMenu();
+        document.removeEventListener("click", dismiss);
+        document.removeEventListener("keydown", onKey);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener("click", dismiss);
+      document.addEventListener("keydown", onKey);
+    }, 0);
+  },
+
+  _dismissContextMenu() {
+    const existing = document.getElementById("context-menu");
+    if (existing) existing.remove();
   },
 
   _signed(n) {
@@ -124,6 +247,117 @@ const UI = {
       };
       document.addEventListener("keydown", onKey);
     });
+  },
+
+  _typeIcon(types) {
+    if (types.includes("weapon")) return "⚔️";
+    if (types.includes("armor")) return "🛡️";
+    if (types.includes("shield")) return "🛡️";
+    if (types.includes("helmet")) return "🪖";
+    if (types.includes("ring")) return "💍";
+    if (types.includes("wand")) return "✨";
+    if (types.includes("consumable")) return "🧪";
+    return "📦";
+  },
+
+  showInventoryPanel() {
+    const items = this.currentItems || [];
+    const equipped = items.filter(
+      it => typeof it === "object" && it.equipped
+    );
+    const backpack = items.filter(
+      it => typeof it === "object" && !it.equipped
+    );
+
+    const overlay = document.createElement("div");
+    overlay.id = "menu-overlay";
+
+    const box = document.createElement("div");
+    box.className = "menu-box inv-panel";
+
+    const h3 = document.createElement("h3");
+    h3.textContent = "Inventory";
+    box.appendChild(h3);
+
+    // Equipment section
+    if (equipped.length > 0) {
+      const eqHead = document.createElement("div");
+      eqHead.className = "inv-section-header";
+      eqHead.textContent = "Equipment:";
+      box.appendChild(eqHead);
+
+      equipped.forEach(it => {
+        const row = this._createInvRow(it, overlay);
+        box.appendChild(row);
+      });
+    }
+
+    // Backpack section
+    const bpHead = document.createElement("div");
+    bpHead.className = "inv-section-header";
+    bpHead.textContent = `Backpack (${backpack.length} items):`;
+    box.appendChild(bpHead);
+
+    if (backpack.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "inv-row";
+      empty.style.color = "#808080";
+      empty.textContent = "  (empty)";
+      box.appendChild(empty);
+    } else {
+      backpack.forEach(it => {
+        const row = this._createInvRow(it, overlay);
+        box.appendChild(row);
+      });
+    }
+
+    // Close button
+    const closeBtn = document.createElement("div");
+    closeBtn.className = "option";
+    closeBtn.style.textAlign = "center";
+    closeBtn.style.marginTop = "12px";
+    closeBtn.textContent = "[Close]";
+    closeBtn.addEventListener("click", () => overlay.remove());
+    box.appendChild(closeBtn);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    const onKey = (e) => {
+      if (e.key === "Escape" || e.key === "i") {
+        overlay.remove();
+        document.removeEventListener("keydown", onKey);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+  },
+
+  _createInvRow(item, overlay) {
+    const row = document.createElement("div");
+    row.className = "inv-row";
+    const icon = this._typeIcon(item.types || []);
+    let label = `${icon} ${item.name}`;
+    if (item.charges) {
+      label += ` (${item.charges[0]}/${item.charges[1]})`;
+    }
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "inv-item-name";
+    nameSpan.textContent = label;
+    row.appendChild(nameSpan);
+
+    // Left-click: primary action
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this._itemPrimaryAction(item);
+      overlay.remove();
+    });
+    // Right-click: context menu
+    row.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._showItemContextMenu(e.clientX, e.clientY, item);
+    });
+    return row;
   },
 
   showHelp() {

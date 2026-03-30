@@ -33,6 +33,7 @@ const GameMap = {
     this.fogCtx = this.fogCanvas.getContext("2d");
     console.log("GameMap.init(): canvas=", this.canvas,
                 "fog=", this.fogCanvas);
+    this.initTooltip();
   },
 
   setFloorSVG(svgString) {
@@ -332,5 +333,46 @@ const GameMap = {
     const gx = Math.floor((canvasX - this.padding) / this.cellSize);
     const gy = Math.floor((canvasY - this.padding) / this.cellSize);
     return { x: gx, y: gy };
+  },
+
+  initTooltip() {
+    const zone = document.getElementById("map-zone");
+    if (!zone) return;
+    this._tooltip = document.createElement("div");
+    this._tooltip.id = "map-tooltip";
+    this._tooltip.className = "hidden";
+    document.body.appendChild(this._tooltip);
+    this._tooltipEntity = null;
+
+    zone.addEventListener("mousemove", (e) => {
+      const container = document.getElementById("map-container");
+      const rect = container.getBoundingClientRect();
+      const canvasX = e.clientX - rect.left + zone.scrollLeft;
+      const canvasY = e.clientY - rect.top + zone.scrollTop;
+      const grid = this.pixelToGrid(canvasX, canvasY);
+
+      const ent = this.entities.find(
+        en => en.x === grid.x && en.y === grid.y && en.glyph !== "@"
+      );
+      if (ent && ent.name) {
+        let text = ent.name;
+        if (ent.hp !== undefined && ent.max_hp !== undefined) {
+          text += ` (${ent.hp}/${ent.max_hp} HP)`;
+        }
+        this._tooltip.textContent = text;
+        this._tooltip.style.left = (e.clientX + 12) + "px";
+        this._tooltip.style.top = (e.clientY - 8) + "px";
+        this._tooltip.classList.remove("hidden");
+        this._tooltipEntity = ent.id;
+      } else {
+        this._tooltip.classList.add("hidden");
+        this._tooltipEntity = null;
+      }
+    });
+
+    zone.addEventListener("mouseleave", () => {
+      this._tooltip.classList.add("hidden");
+      this._tooltipEntity = null;
+    });
   },
 };

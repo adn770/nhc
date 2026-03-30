@@ -766,6 +766,9 @@ class Game:
             return BumpAction(actor=self.player_id, dx=dx, dy=dy,
                               edge_doors=self.renderer.edge_doors)
 
+        if intent == "item_action" and data:
+            return self._resolve_item_action(data)
+
         if intent == "wait":
             return WaitAction(actor=self.player_id)
 
@@ -1106,6 +1109,57 @@ class Game:
             actor=self.player_id, dx=door_dir[0], dy=door_dir[1],
             tool=tool_id,
         )
+
+    def _resolve_item_action(self, data: dict) -> "Action | None":
+        """Convert a direct item_action message to an Action.
+
+        Bypasses the menu flow — the client already selected the item.
+        For throw/zap, a target menu is still shown.
+        """
+        from nhc.core.actions import (
+            DropAction, EquipAction, ThrowAction, UnequipAction,
+            UseItemAction, ZapAction,
+        )
+        action = data.get("action")
+        item_id = data.get("item_id")
+        if item_id is None:
+            return None
+
+        if action in ("quaff", "use"):
+            return UseItemAction(actor=self.player_id, item=item_id)
+
+        if action == "equip":
+            return EquipAction(actor=self.player_id, item=item_id)
+
+        if action == "unequip":
+            return UnequipAction(actor=self.player_id, item=item_id)
+
+        if action == "drop":
+            return DropAction(actor=self.player_id, item=item_id)
+
+        if action == "throw":
+            target_id = self.renderer.show_target_menu(
+                self.world, self.level, self.player_id,
+                title=t("ui.throw_target"),
+            )
+            if target_id is None:
+                return None
+            return ThrowAction(
+                actor=self.player_id, item=item_id, target=target_id,
+            )
+
+        if action == "zap":
+            target_id = self.renderer.show_target_menu(
+                self.world, self.level, self.player_id,
+                title=t("ui.throw_target"),
+            )
+            if target_id is None:
+                return None
+            return ZapAction(
+                actor=self.player_id, item=item_id, target=target_id,
+            )
+
+        return None
 
     def _reveal_full_map(self) -> None:
         """God mode: reveal entire map and display it scrollably."""

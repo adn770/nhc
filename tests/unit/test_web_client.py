@@ -1,6 +1,7 @@
 """Tests for the WebSocket-based GameClient."""
 
 import json
+from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 
 import pytest
@@ -180,3 +181,314 @@ class TestWebClientShutdown:
 
     def test_initialize_is_noop(self, client):
         client.initialize()  # should not raise
+
+
+# ── Component stubs for _gather_stats tests ─────────────────────
+
+@dataclass
+class _Health:
+    current: int = 10
+    maximum: int = 10
+
+
+@dataclass
+class _Stats:
+    strength: int = 1
+    dexterity: int = 1
+    constitution: int = 1
+    intelligence: int = 1
+    wisdom: int = 1
+    charisma: int = 1
+
+
+@dataclass
+class _Equipment:
+    weapon: int | None = None
+    armor: int | None = None
+    shield: int | None = None
+    helmet: int | None = None
+    ring_left: int | None = None
+    ring_right: int | None = None
+
+
+@dataclass
+class _Player:
+    level: int = 1
+    xp: int = 0
+    xp_to_next: int = 1000
+    gold: int = 0
+
+
+@dataclass
+class _Desc:
+    name: str = "?"
+    short: str = ""
+
+
+@dataclass
+class _Inventory:
+    slots: list = field(default_factory=list)
+    max_slots: int = 12
+
+
+@dataclass
+class _Weapon:
+    damage: str = "1d6"
+    type: str = "melee"
+    slots: int = 1
+    magic_bonus: int = 0
+
+
+@dataclass
+class _Armor:
+    slot: str = "body"
+    defense: int = 10
+    slots: int = 1
+    magic_bonus: int = 0
+
+
+@dataclass
+class _Consumable:
+    effect: str = "healing"
+    dice: str = "1d6"
+    slots: int = 1
+
+
+@dataclass
+class _Wand:
+    effect: str = "fire"
+    charges: int = 3
+    max_charges: int = 10
+    recharge_timer: int = 20
+
+
+@dataclass
+class _Ring:
+    effect: str = "mending"
+
+
+@dataclass
+class _Throwable:
+    pass
+
+
+def _mock_world(components_by_eid):
+    """Build a mock World keyed by (eid, component_name)."""
+    world = MagicMock()
+
+    def get_component(eid, name):
+        return components_by_eid.get(eid, {}).get(name)
+
+    def has_component(eid, name):
+        return name in components_by_eid.get(eid, {})
+
+    world.get_component = MagicMock(side_effect=get_component)
+    world.has_component = MagicMock(side_effect=has_component)
+    return world
+
+
+def _mock_level():
+    level = MagicMock()
+    level.name = "Test"
+    level.depth = 1
+    return level
+
+
+def _player_comps(**overrides):
+    """Base player component dict."""
+    comps = {
+        "Health": _Health(),
+        "Stats": _Stats(),
+        "Equipment": _Equipment(),
+        "Player": _Player(),
+        "Description": _Desc(name="Hero", short="warrior"),
+        "Inventory": _Inventory(),
+    }
+    comps.update(overrides)
+    return comps
+
+
+class TestGatherStatsItemMetadata:
+    """_gather_stats returns structured item data with type info."""
+
+    def test_items_are_dicts(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Healing Potion"),
+                 "Consumable": _Consumable()},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+
+        assert len(stats["items"]) == 1
+        item = stats["items"][0]
+        assert item["id"] == 10
+        assert item["name"] == "Healing Potion"
+        assert "consumable" in item["types"]
+        assert item["equipped"] is False
+        assert item["charges"] is None
+
+    def test_weapon_type(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Sword"),
+                 "Weapon": _Weapon()},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        assert "weapon" in stats["items"][0]["types"]
+
+    def test_armor_slot_types(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10, 11, 12]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Chain Mail"),
+                 "Armor": _Armor(slot="body")},
+            11: {"Description": _Desc(name="Shield"),
+                 "Armor": _Armor(slot="shield")},
+            12: {"Description": _Desc(name="Helmet"),
+                 "Armor": _Armor(slot="helmet")},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+
+        by_name = {i["name"]: i for i in stats["items"]}
+        assert "armor" in by_name["Chain Mail"]["types"]
+        assert "shield" in by_name["Shield"]["types"]
+        assert "helmet" in by_name["Helmet"]["types"]
+
+    def test_wand_type_and_charges(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Wand of Fire"),
+                 "Wand": _Wand(charges=3, max_charges=10)},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+
+        item = stats["items"][0]
+        assert "wand" in item["types"]
+        assert item["charges"] == [3, 10]
+
+    def test_ring_type(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Ring of Mending"),
+                 "Ring": _Ring()},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        assert "ring" in stats["items"][0]["types"]
+
+    def test_throwable_flag(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Dagger"),
+                 "Weapon": _Weapon(), "Throwable": _Throwable()},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+
+        types = stats["items"][0]["types"]
+        assert "weapon" in types
+        assert "throwable" in types
+
+    def test_equipped_items_marked(self):
+        pc = _player_comps()
+        pc["Equipment"].weapon = 10
+        pc["Inventory"].slots = [10, 11]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Sword"),
+                 "Weapon": _Weapon()},
+            11: {"Description": _Desc(name="Potion"),
+                 "Consumable": _Consumable()},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+
+        by_name = {i["name"]: i for i in stats["items"]}
+        assert by_name["Sword"]["equipped"] is True
+        assert by_name["Potion"]["equipped"] is False
+
+    def test_multiple_types(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [10]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Potion"),
+                 "Consumable": _Consumable(),
+                 "Throwable": _Throwable()},
+        })
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+
+        types = stats["items"][0]["types"]
+        assert "consumable" in types
+        assert "throwable" in types
+
+    def test_empty_inventory(self):
+        world = _mock_world({1: _player_comps()})
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        assert stats["items"] == []
+
+
+class TestItemActionDispatch:
+    """get_input handles item_action messages from the client."""
+
+    def test_item_action_returns_intent_and_data(self):
+        wc = WebClient(lang="en")
+        wc._in_queue.put(json.dumps({
+            "type": "item_action",
+            "action": "quaff",
+            "item_id": 42,
+        }))
+        import asyncio
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(wc.get_input())
+        finally:
+            loop.close()
+        assert result == ("item_action", {"action": "quaff", "item_id": 42})
+
+    def test_item_action_equip(self):
+        wc = WebClient(lang="en")
+        wc._in_queue.put(json.dumps({
+            "type": "item_action",
+            "action": "equip",
+            "item_id": 10,
+        }))
+        import asyncio
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(wc.get_input())
+        finally:
+            loop.close()
+        assert result == ("item_action", {"action": "equip", "item_id": 10})
+
+    def test_item_action_drop(self):
+        wc = WebClient(lang="en")
+        wc._in_queue.put(json.dumps({
+            "type": "item_action",
+            "action": "drop",
+            "item_id": 5,
+        }))
+        import asyncio
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(wc.get_input())
+        finally:
+            loop.close()
+        assert result == ("item_action", {"action": "drop", "item_id": 5})

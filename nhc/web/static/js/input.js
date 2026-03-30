@@ -44,8 +44,27 @@ const Input = {
     "M": { intent: "reveal_map", data: null },
   },
 
+  TOOLBAR_ACTIONS: [
+    { icon: "👆", intent: "pickup",     label: "Pickup (g)" },
+    { icon: "🎒", intent: "inventory",  label: "Inventory (i)" },
+    { icon: "🧪", intent: "quaff",      label: "Quaff (q)" },
+    { icon: "📜", intent: "use_item",   label: "Use Item (a)" },
+    { icon: "⚔️", intent: "equip",      label: "Equip (e)" },
+    { icon: "🗑️", intent: "drop",       label: "Drop (d)" },
+    { icon: "🏹", intent: "throw",      label: "Throw (t)" },
+    { icon: "✨", intent: "zap",        label: "Zap (z)" },
+    { icon: "🔍", intent: "search",     label: "Search (s)" },
+    { icon: "⏳", intent: "wait",       label: "Wait (.)" },
+    { icon: "🔓", intent: "pick_lock",  label: "Pick Lock (p)" },
+    { icon: "💪", intent: "force_door", label: "Force Door (f)" },
+    { icon: "👁️", intent: "farlook",    label: "Farlook (x)" },
+    { icon: "⬇️", intent: "descend",    label: "Descend (>)" },
+    { icon: "⬆️", intent: "ascend",     label: "Ascend (<)" },
+  ],
+
   init() {
     this.inputEl = document.getElementById("game-input");
+    this._initToolbar();
 
     // Text input: Enter submits
     this.inputEl.addEventListener("keydown", (e) => {
@@ -73,11 +92,15 @@ const Input = {
       const mapping = this.KEY_MAP[e.key];
       if (mapping) {
         e.preventDefault();
-        WS.send({
-          type: "action",
-          intent: mapping.intent,
-          data: mapping.data,
-        });
+        if (mapping.intent === "inventory") {
+          UI.showInventoryPanel();
+        } else {
+          WS.send({
+            type: "action",
+            intent: mapping.intent,
+            data: mapping.data,
+          });
+        }
       }
 
       // Tab to switch to typed mode
@@ -99,6 +122,25 @@ const Input = {
     });
 
     this._updateModeIndicator();
+  },
+
+  _initToolbar() {
+    const zone = document.getElementById("toolbar-zone");
+    if (!zone) return;
+    this.TOOLBAR_ACTIONS.forEach(({ icon, intent, label }) => {
+      const btn = document.createElement("button");
+      btn.textContent = icon;
+      btn.title = label;
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (intent === "inventory") {
+          UI.showInventoryPanel();
+        } else {
+          WS.send({ type: "action", intent, data: null });
+        }
+      });
+      zone.appendChild(btn);
+    });
   },
 
   _switchToClassic() {

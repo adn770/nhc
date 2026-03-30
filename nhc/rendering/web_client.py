@@ -200,9 +200,40 @@ class WebClient(GameClient):
                 if arm:
                     slot_cost = arm.slots
                 total_used += slot_cost
-                if item_id not in equipped_ids:
-                    d = world.get_component(item_id, "Description")
-                    items.append(d.name if d else "???")
+
+                d = world.get_component(item_id, "Description")
+                # Build type flags
+                types = []
+                if wpn:
+                    types.append("weapon")
+                if arm:
+                    slot_type = arm.slot  # "body", "shield", "helmet"
+                    types.append(
+                        "armor" if slot_type == "body" else slot_type
+                    )
+                cons = world.get_component(item_id, "Consumable")
+                if cons:
+                    types.append("consumable")
+                wnd = world.get_component(item_id, "Wand")
+                if wnd:
+                    types.append("wand")
+                ring = world.get_component(item_id, "Ring")
+                if ring:
+                    types.append("ring")
+                if world.has_component(item_id, "Throwable"):
+                    types.append("throwable")
+
+                charges = None
+                if wnd:
+                    charges = [wnd.charges, wnd.max_charges]
+
+                items.append({
+                    "id": item_id,
+                    "name": d.name if d else "???",
+                    "equipped": item_id in equipped_ids,
+                    "types": types,
+                    "charges": charges,
+                })
 
         return {
             "char_name": pdesc.name if pdesc else "?",
@@ -359,6 +390,11 @@ class WebClient(GameClient):
                 return ("typed", msg.get("text", ""))
             if msg_type == "click":
                 return ("click", {"x": msg.get("x"), "y": msg.get("y")})
+            if msg_type == "item_action":
+                return ("item_action", {
+                    "action": msg.get("action"),
+                    "item_id": msg.get("item_id"),
+                })
             # Empty/timeout/unknown: retry, don't return "wait"
 
     async def get_typed_input(
