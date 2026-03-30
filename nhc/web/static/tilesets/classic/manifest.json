@@ -20,10 +20,11 @@
     "cyan": "#00CCCC",
     "bright_cyan": "#44FFFF",
     "magenta": "#CC00CC",
-    "bright_magenta": "#FF44FF"
+    "bright_magenta": "#FF44FF",
+    "dark_grey": "#444444"
   },
   "sprites": {
-    "@": { "color": "bright_cyan" },
+    "@": { "color": "dark_grey" },
     "g": { "color": "green" },
     "s": { "color": "white" },
     "o": { "color": "bright_red" },

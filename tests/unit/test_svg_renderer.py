@@ -55,12 +55,12 @@ class TestSVGOutput:
         assert "stroke-linecap" in svg
         assert "#000000" in svg
 
-    def test_door_draws_thin_rectangle(self):
-        """Closed doors should be thin-stroked rectangles on the wall."""
+    def test_door_tiles_treated_as_floor(self):
+        """Door tiles are walkable floor — no door-specific SVG."""
         level = _make_level()
         svg = render_floor_svg(level)
-        # Door rectangle has thinner stroke than walls (wall=4, door=2)
-        assert 'stroke-width="2.0"' in svg
+        # No door rectangles or door-specific stroke
+        assert "door" not in svg.lower()
 
     def test_stairs_down_triangle(self):
         """Stairs down should render as a triangle with vertical lines."""
@@ -87,15 +87,15 @@ class TestSVGOutput:
         expected_h = 8 * CELL + 2 * PADDING
         assert f'viewBox="0 0 {expected_w} {expected_h}"' in svg
 
-    def test_locked_door_has_rectangle(self):
-        """Locked doors also get the thin-stroked rectangle."""
+    def test_locked_door_treated_as_floor(self):
+        """Locked doors are also just floor in SVG."""
         level = _make_level()
         level.tiles[3][6].feature = "door_locked"
         svg = render_floor_svg(level)
-        assert 'stroke-width="2.0"' in svg
+        assert "door" not in svg.lower()
 
-    def test_open_door_no_notch(self):
-        """Open doors are just gaps — no notch marks."""
+    def test_open_door_not_rendered(self):
+        """Open doors have no SVG rendering."""
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
         for y in range(1, 4):
             for x in range(1, 4):
@@ -104,8 +104,7 @@ class TestSVGOutput:
                                  feature="door_open")
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 3, 3)))
         svg = render_floor_svg(level)
-        # Open doors should NOT have the thick notch
-        # (no polygon for stairs either since we didn't add any)
+        # No polygon (no stairs), no door rectangle
         assert "polygon" not in svg
 
     def test_deterministic_with_same_seed(self):

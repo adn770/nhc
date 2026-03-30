@@ -28,7 +28,6 @@ PADDING = 32       # padding around the map (room for hatching)
 WALL_WIDTH = 4.0   # wall stroke width (bold Dyson style)
 WALL_THIN = 2.0    # thinner wall for corridors
 GRID_WIDTH = 0.3   # soft floor grid line width
-DOOR_GAP = 0.7     # fraction of cell for door opening
 HATCH_UNDERLAY = "#D0D0D0"
 
 # ── Colors (black & white) ──────────────────────────────────────
@@ -66,10 +65,7 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 4: Walls (solid, no gaps)
     _render_walls(svg, level)
 
-    # Layer 5: Doors (punch white gap in wall, draw notch marks)
-    _render_doors(svg, level)
-
-    # Layer 6: Stairs (triangular parallel lines)
+    # Layer 5: Stairs (triangular parallel lines)
     _render_stairs(svg, level)
 
     # Layer 7: dmap-style hatching
@@ -257,10 +253,12 @@ def _render_floor_detail(
 def _render_walls(svg: list[str], level: "Level") -> None:
     """Render wall edges between walkable and non-walkable tiles.
 
-    Draws walls everywhere including through door tiles. Door openings
-    are punched afterwards by _render_doors.
+    Wall lines are drawn through the center of wall tiles (half-cell
+    offset into the non-walkable side), so they have visual thickness
+    that extends into the wall rather than sitting exactly on the edge.
     """
     segments: list[str] = []
+    half = CELL // 2  # padding into the wall tile
 
     def _walkable(x: int, y: int) -> bool:
         return _is_floor(level, x, y) or _is_door(level, x, y)
@@ -270,16 +268,26 @@ def _render_walls(svg: list[str], level: "Level") -> None:
             if not _walkable(x, y):
                 continue
             px, py = x * CELL, y * CELL
+            # Top edge — line extends half cell into the wall above
             if not _walkable(x, y - 1):
-                segments.append(f'M{px},{py} L{px + CELL},{py}')
+                wy = py - half
+                segments.append(
+                    f'M{px - half},{wy} L{px + CELL + half},{wy}')
+            # Bottom edge
             if not _walkable(x, y + 1):
+                wy = py + CELL + half
                 segments.append(
-                    f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
+                    f'M{px - half},{wy} L{px + CELL + half},{wy}')
+            # Left edge
             if not _walkable(x - 1, y):
-                segments.append(f'M{px},{py} L{px},{py + CELL}')
-            if not _walkable(x + 1, y):
+                wx = px - half
                 segments.append(
-                    f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
+                    f'M{wx},{py - half} L{wx},{py + CELL + half}')
+            # Right edge
+            if not _walkable(x + 1, y):
+                wx = px + CELL + half
+                segments.append(
+                    f'M{wx},{py - half} L{wx},{py + CELL + half}')
 
     if segments:
         svg.append(
@@ -287,125 +295,6 @@ def _render_walls(svg: list[str], level: "Level") -> None:
             f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
             f'stroke-linecap="round" stroke-linejoin="round"/>'
         )
-
-
-def _door_opens_vertically(level: "Level", x: int, y: int) -> bool:
-    """True if the door connects left-right (passage is vertical)."""
-    return _is_floor(level, x - 1, y) or _is_floor(level, x + 1, y)
-
-
-def _render_doors(svg: list[str], level: "Level") -> None:
-    """Draw doors as thin rectangles spanning the wall.
-
-    The door tile replaces a wall tile — floor is on both sides.
-    The rectangle straddles the wall edge: ~80% cell width across
-    the wall direction (leaving small wall stubs at corners), ~30%
-    cell depth along the passage direction. White fill erases the
-    wall, thin stroke draws the door frame.
-    """
-    door_stroke = WALL_WIDTH * 0.5  # thinner than walls
-    wall_span = 0.80   # fraction of cell across the wall
-    pass_depth = 0.30   # fraction of cell along the passage
-
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if not tile.feature:
-                continue
-            if tile.feature not in ("door_closed", "door_open",
-                                    "door_secret", "door_locked"):
-                continue
-
-            px, py = x * CELL, y * CELL
-            vertical = _door_opens_vertically(level, x, y)
-
-            if vertical:
-                # Passage is left-right, wall runs top-bottom.
-                # Rectangle is tall (spans wall) and narrow (passage).
-                dw = CELL * pass_depth
-                dh = CELL * wall_span
-            else:
-                # Passage is top-bottom, wall runs left-right.
-                # Rectangle is wide (spans wall) and short (passage).
-                dw = CELL * wall_span
-                dh = CELL * pass_depth
-
-            # Center the rectangle on the door tile
-            dx = px + (CELL - dw) / 2
-            dy = py + (CELL - dh) / 2
-
-            # White fill to erase the wall underneath
-            # Slightly oversized to cover wall stroke
-            pad = WALL_WIDTH
-            svg.append(
-                f'<rect x="{dx - pad:.1f}" y="{dy - pad:.1f}" '
-                f'width="{dw + pad * 2:.1f}" '
-                f'height="{dh + pad * 2:.1f}" '
-                f'fill="{BG}"/>')
-
-            # Draw the door outline and diagonal corner connections
-            if tile.feature != "door_open":
-                svg.append(
-                    f'<rect x="{dx:.1f}" y="{dy:.1f}" '
-                    f'width="{dw:.1f}" height="{dh:.1f}" '
-                    f'fill="none" stroke="{INK}" '
-                    f'stroke-width="{door_stroke:.1f}"/>')
-
-                # Diagonal lines connecting door corners to wall ends
-                if vertical:
-                    # Wall runs top-bottom. Door corners connect to
-                    # the wall stubs above and below the rectangle.
-                    # Top-left corner → wall stub top-left
-                    svg.append(
-                        f'<line x1="{dx:.1f}" y1="{dy:.1f}" '
-                        f'x2="{px:.1f}" y2="{py:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                    # Top-right corner → wall stub top-right
-                    svg.append(
-                        f'<line x1="{dx + dw:.1f}" y1="{dy:.1f}" '
-                        f'x2="{px + CELL:.1f}" y2="{py:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                    # Bottom-left corner → wall stub bottom-left
-                    svg.append(
-                        f'<line x1="{dx:.1f}" y1="{dy + dh:.1f}" '
-                        f'x2="{px:.1f}" y2="{py + CELL:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                    # Bottom-right corner → wall stub bottom-right
-                    svg.append(
-                        f'<line x1="{dx + dw:.1f}" y1="{dy + dh:.1f}" '
-                        f'x2="{px + CELL:.1f}" y2="{py + CELL:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                else:
-                    # Wall runs left-right. Door corners connect to
-                    # wall stubs left and right of the rectangle.
-                    # Top-left → wall stub left-top
-                    svg.append(
-                        f'<line x1="{dx:.1f}" y1="{dy:.1f}" '
-                        f'x2="{px:.1f}" y2="{py:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                    # Top-right → wall stub right-top
-                    svg.append(
-                        f'<line x1="{dx + dw:.1f}" y1="{dy:.1f}" '
-                        f'x2="{px + CELL:.1f}" y2="{py:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                    # Bottom-left → wall stub left-bottom
-                    svg.append(
-                        f'<line x1="{dx:.1f}" y1="{dy + dh:.1f}" '
-                        f'x2="{px:.1f}" y2="{py + CELL:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
-                    # Bottom-right → wall stub right-bottom
-                    svg.append(
-                        f'<line x1="{dx + dw:.1f}" y1="{dy + dh:.1f}" '
-                        f'x2="{px + CELL:.1f}" y2="{py + CELL:.1f}" '
-                        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                        f'stroke-linecap="round"/>')
 
 
 def _render_stairs(svg: list[str], level: "Level") -> None:
