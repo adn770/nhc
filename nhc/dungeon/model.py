@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -41,6 +42,75 @@ class Rect:
                 and self.y < other.y2 and self.y2 > other.y)
 
 
+# ── Room shapes ────────────────────────────────────────────────────
+
+
+class RoomShape(ABC):
+    """Strategy that defines which tiles within a bounding rect are floor."""
+
+    type_name: str = ""
+
+    @abstractmethod
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        """Return the set of (x, y) positions that are floor."""
+
+    def perimeter_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        """Floor tiles adjacent to at least one non-floor tile."""
+        floor = self.floor_tiles(rect)
+        return {
+            (x, y) for x, y in floor
+            if any(
+                (x + dx, y + dy) not in floor
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+            )
+        }
+
+
+class RectShape(RoomShape):
+    """Rectangular room — all tiles in the bounding rect are floor."""
+
+    type_name = "rect"
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        return {
+            (x, y)
+            for y in range(rect.y, rect.y2)
+            for x in range(rect.x, rect.x2)
+        }
+
+
+class CircleShape(RoomShape):
+    """Circular room — filled ellipse inscribed in the bounding rect."""
+
+    type_name = "circle"
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        cx = rect.x + (rect.width - 1) / 2
+        cy = rect.y + (rect.height - 1) / 2
+        rx = (rect.width - 1) / 2
+        ry = (rect.height - 1) / 2
+        if rx <= 0 or ry <= 0:
+            return set()
+        return {
+            (x, y)
+            for y in range(rect.y, rect.y2)
+            for x in range(rect.x, rect.x2)
+            if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0
+        }
+
+
+_SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
+    "rect": RectShape,
+    "circle": CircleShape,
+}
+
+
+def shape_from_type(type_name: str | None) -> RoomShape:
+    """Resolve a shape type string to a RoomShape instance."""
+    cls = _SHAPE_REGISTRY.get(type_name or "rect", RectShape)
+    return cls()
+
+
 @dataclass
 class Tile:
     """Single map cell."""
@@ -70,9 +140,14 @@ class Room:
     """Room metadata (for AI/narrative, overlays the tile grid)."""
     id: str
     rect: Rect
+    shape: RoomShape = field(default_factory=RectShape)
     tags: list[str] = field(default_factory=list)
     description: str = ""
     connections: list[str] = field(default_factory=list)
+
+    def floor_tiles(self) -> set[tuple[int, int]]:
+        """Return the set of (x, y) tiles belonging to this room."""
+        return self.shape.floor_tiles(self.rect)
 
 
 @dataclass

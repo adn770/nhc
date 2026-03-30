@@ -15,6 +15,7 @@ from nhc.dungeon.model import (
     Room,
     Terrain,
     Tile,
+    shape_from_type,
 )
 from nhc.entities import components as comp_module
 
@@ -164,13 +165,16 @@ def _serialize_level(level: Level) -> dict[str, Any]:
 
     rooms_data = []
     for room in level.rooms:
-        rooms_data.append({
+        rd: dict[str, Any] = {
             "id": room.id,
             "rect": asdict(room.rect),
             "tags": room.tags,
             "description": room.description,
             "connections": room.connections,
-        })
+        }
+        if room.shape.type_name != "rect":
+            rd["shape"] = room.shape.type_name
+        rooms_data.append(rd)
 
     corridors_data = []
     for corridor in level.corridors:
@@ -212,6 +216,7 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
         rooms.append(Room(
             id=rd["id"],
             rect=Rect(**rd["rect"]),
+            shape=shape_from_type(rd.get("shape")),
             tags=rd.get("tags", []),
             description=rd.get("description", ""),
             connections=rd.get("connections", []),

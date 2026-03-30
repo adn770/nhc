@@ -32,6 +32,7 @@ class GenerationParams:
     secret_doors: float = 0.1
     water_features: bool = False
     multiple_stairs: bool = False
+    shape_variety: float = 0.0  # 0.0 = all rect, 1.0 = all non-rect
 
 
 class DungeonGenerator(abc.ABC):

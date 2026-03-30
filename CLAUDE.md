@@ -2,25 +2,34 @@
 
 ## Project Overview
 
-A roguelike dungeon crawler with Knave rules, multilingual support
-(en/ca/es), LLM-driven typed gameplay mode, BSP dungeon generation,
-and a complete BEB/Knave equipment catalog.
+A roguelike dungeon crawler built on Knave rules with an
+Entity-Component-System architecture, BSP dungeon generation,
+LLM-driven typed gameplay mode, multilingual support (en/ca/es),
+and a web frontend for multi-session play.
 
 ## Quick Reference
 
 ```bash
-# Run the game
+# Terminal game
 ./play --lang ca -G              # Generate dungeon, Catalan
 ./play --lang ca --god -G        # God mode (invulnerable)
 ./play --mode typed --lang ca -G # Typed mode with LLM GM
 ./play --seed 12345 -G           # Reproducible seed
+./play --help                    # All options
 
-# Run tests (ALWAYS before committing)
+# Web server
+./server                         # Local dev, no auth
+./server --auth                  # Generate token, require auth
+./server --host 0.0.0.0 --auth  # Expose on network
+
+# Tests (ALWAYS before committing)
 .venv/bin/pytest
-.venv/bin/pytest tests/unit/test_specific.py -v  # Single file
-.venv/bin/pytest -k "test_name"                  # Pattern match
+.venv/bin/pytest tests/unit/test_specific.py -v
+.venv/bin/pytest -k "test_name"
+.venv/bin/pytest -m core         # By marker: core, dungeon,
+                                 # entities, rules, narrative
 
-# Check item/creature counts
+# Entity counts
 .venv/bin/python -c "
 from nhc.entities.registry import EntityRegistry
 EntityRegistry.discover_all()
@@ -29,116 +38,155 @@ print(f'Creatures: {len(EntityRegistry.list_creatures())}')
 "
 ```
 
-## Development Discipline
-
-### Test-Driven Development (TDD)
-
-**This project follows strict TDD.** For every change:
-
-1. **Write tests FIRST** — before implementing the feature or fix.
-2. **Run tests** — confirm the new tests fail (red).
-3. **Implement** — write the minimum code to pass.
-4. **Run tests** — confirm all pass (green), including existing tests.
-5. **Commit** — only commit when ALL tests pass.
-
-### When to Write Tests
-
-- **New features**: test the public API, edge cases, and error paths.
-- **Bug fixes**: write a regression test that reproduces the bug FIRST,
-  then fix the code.
-- **Refactors**: ensure existing tests still pass; add tests for any
-  new code paths.
-- **New entities** (creatures, items): verify they register correctly
-  and have i18n entries.
-- **Dungeon generation**: test layout properties (connectivity,
-  room spacing, corridor rules, wall rendering).
-- **Actions**: test validate + execute with mock World/Level.
-- **UI changes**: verify rendering doesn't crash (no ANSI alignment
-  issues — pad text BEFORE applying color codes).
-
-### Test Coverage Gaps (priority areas for new tests)
-
-- Ring passive effects (mending HP regen, detection auto-reveal)
-- Wand charge/recharge mechanics
-- Equip/unequip all slot types (weapon, armor, shield, helmet, rings)
-- Drop action (item returns to map)
-- Throw action (potion effect on target)
-- Zap action (wand charges decrement, effects apply)
-- Potion/scroll/ring/wand identification (disguise on spawn,
-  reveal on use, all-of-type update)
-- Floor transitions (descend, ascend, floor cache preservation)
-- Starting equipment (Knave rules, slot cost limits)
-- Typed mode: GM pipeline, fallback parser
-- God mode (HP restore, auto-identify)
-
 ## Architecture
 
 ```
 nhc/
-├── nhc.py                  # CLI entry point
+├── nhc.py                     # Terminal CLI entry point
+├── nhc_web.py                 # Web server entry point
+├── play / server              # Bash launchers (auto-venv)
 ├── nhc/
+│   ├── config.py              # 3-tier config (defaults→~/.nhcrc→CLI)
+│   ├── llm.py                 # LLM backends (Ollama, MLX, Anthropic)
+│   ├── log_utils.py           # Debug logging with topic filters
 │   ├── core/
-│   │   ├── game.py         # Game loop, state, floor management
-│   │   ├── ecs.py          # Entity-Component-System
-│   │   ├── events.py       # Event bus (pub/sub)
-│   │   ├── actions.py      # All player/creature actions
-│   │   ├── save.py         # JSON save/load (manual)
-│   │   └── autosave.py     # Binary autosave (pickle+zlib)
+│   │   ├── ecs.py             # Entity-Component-System store
+│   │   ├── game.py            # Async game loop, floor management
+│   │   ├── events.py          # Event bus (pub/sub)
+│   │   ├── actions.py         # All player/creature actions
+│   │   ├── save.py            # JSON manual save/load
+│   │   └── autosave.py        # Binary autosave (pickle+zlib)
 │   ├── entities/
-│   │   ├── components.py   # All ECS components (dataclasses)
-│   │   ├── registry.py     # Auto-discovery entity registry
-│   │   ├── creatures/      # 78 creature factories
-│   │   ├── items/          # 155 item factories
-│   │   └── features/       # Trap factories
+│   │   ├── components.py      # ECS components (dataclasses)
+│   │   ├── registry.py        # Auto-discovery entity registry
+│   │   ├── creatures/         # 78 creature factories
+│   │   ├── items/             # 193 item factories
+│   │   └── features/          # 13 trap factories
 │   ├── dungeon/
 │   │   ├── generators/bsp.py  # BSP dungeon generator
-│   │   ├── room_types.py   # Room specialization + painters
-│   │   ├── terrain.py      # Cellular automata water/grass
-│   │   ├── populator.py    # Entity placement (encounter groups)
-│   │   ├── loader.py       # YAML level loader (multilingual)
-│   │   └── model.py        # Level, Tile, Room data structures
-│   ├── rendering/terminal/
-│   │   ├── renderer.py     # 4-zone terminal renderer
-│   │   ├── panels.py       # Status bar + message log
-│   │   ├── glyphs.py       # Tile/color mappings (16/256 color)
-│   │   ├── input.py        # Key → intent mapping
-│   │   ├── input_line.py   # Text input widget (typed mode)
-│   │   ├── narrative_log.py # Narrative log (typed mode)
-│   │   └── help_overlay.py # Scrollable help popup
+│   │   ├── room_types.py      # Room specialization + painters
+│   │   ├── terrain.py         # Cellular automata water/grass
+│   │   ├── populator.py       # Entity placement (encounter groups)
+│   │   ├── loader.py          # YAML level loader (multilingual)
+│   │   └── model.py           # Level, Tile, Room data structures
+│   ├── rendering/
+│   │   ├── base.py            # Abstract renderer protocol
+│   │   ├── client.py          # Client abstraction
+│   │   ├── svg.py             # Static SVG export
+│   │   ├── web_client.py      # WebSocket JSON renderer
+│   │   └── terminal/
+│   │       ├── renderer.py    # 4-zone terminal TUI (blessed)
+│   │       ├── panels.py      # Status bar + message log
+│   │       ├── glyphs.py      # Tile/color mappings (16/256)
+│   │       ├── themes.py      # Color theme definitions
+│   │       ├── input.py       # Key → intent mapping
+│   │       ├── input_line.py  # Text input widget (typed mode)
+│   │       ├── narrative_log.py # Narrative log (typed mode)
+│   │       └── help_overlay.py  # Scrollable help popup
 │   ├── narrative/
-│   │   ├── gm.py           # LLM Game Master pipeline
-│   │   ├── context.py      # Game state → LLM context
-│   │   ├── parser.py       # JSON action plan parser
-│   │   ├── prompts.py      # Multilingual prompt loader
-│   │   ├── prompts/{lang}/ # 6 prompt files × 3 languages
-│   │   ├── story.py        # Story compression
-│   │   └── fallback_parser.py # Keyword parser (no LLM)
+│   │   ├── gm.py              # LLM Game Master pipeline
+│   │   ├── context.py         # Game state → LLM context
+│   │   ├── parser.py          # JSON action plan parser
+│   │   ├── fallback_parser.py # Keyword parser (no LLM)
+│   │   ├── narrator.py        # Outcome narration
+│   │   ├── dialogue.py        # NPC dialogue system
+│   │   ├── quests.py          # Quest tracking
+│   │   ├── story.py           # Story compression
+│   │   ├── mcp_server.py      # MCP tool server
+│   │   ├── prompts.py         # Multilingual prompt loader
+│   │   └── prompts/{en,ca,es}/ # Prompt templates per language
 │   ├── rules/
-│   │   ├── combat.py       # Attack rolls, damage, healing
-│   │   ├── chargen.py      # Knave character generator
-│   │   ├── identification.py # Potion/scroll/ring/wand ID system
-│   │   ├── advancement.py  # XP and leveling
-│   │   └── loot.py         # Loot table resolution
+│   │   ├── combat.py          # Attack rolls, damage, healing
+│   │   ├── chargen.py         # Knave character generation
+│   │   ├── identification.py  # Potion/scroll/ring/wand ID
+│   │   ├── advancement.py     # XP and leveling
+│   │   ├── loot.py            # Loot table resolution
+│   │   ├── conditions.py      # Status effects
+│   │   ├── abilities.py       # Special abilities
+│   │   └── magic.py           # Magic system rules
 │   ├── ai/
-│   │   └── behavior.py     # Creature AI (chase, attack, abilities)
+│   │   └── behavior.py        # Creature AI (chase, attack, flee)
+│   ├── web/
+│   │   ├── app.py             # Flask application factory
+│   │   ├── ws.py              # WebSocket handler
+│   │   ├── auth.py            # Token-based authentication
+│   │   ├── sessions.py        # Multi-session manager (max 8)
+│   │   └── config.py          # Web-specific configuration
 │   ├── i18n/
-│   │   ├── locales/{en,ca,es}.yaml  # Full translations
-│   │   └── manager.py      # Translation lookup with fallback
-│   ├── llm.py              # LLM backends (MLX, Ollama, Anthropic)
+│   │   ├── manager.py         # Translation lookup + fallback
+│   │   └── locales/{en,ca,es}.yaml  # ~2000 lines each
 │   └── utils/
-│       ├── rng.py          # Seeded RNG + dice roller
-│       ├── fov.py          # Shadowcasting FOV
-│       └── spatial.py      # Distance/adjacency helpers
-├── levels/
-│   └── test_level.yaml     # Hand-crafted test dungeon
-├── design/                 # Design documents
-├── docs/                   # Help files, BEB/Knave rules
-└── tests/unit/             # 29 test files, 433+ tests
+│       ├── rng.py             # Seeded RNG + dice roller
+│       ├── fov.py             # Shadowcasting FOV
+│       └── spatial.py         # Distance/adjacency helpers
+├── levels/                    # Hand-crafted YAML dungeons
+├── design/                    # Design documents
+├── docs/                      # Help files, Knave rules, BEB bestiary
+└── tests/unit/                # 53 test files, 780 tests
 ```
+
+## Implemented Systems
+
+### Core Engine
+- **ECS**: Dataclass components, World store, entity queries
+- **Async game loop**: Turn-based with event pub/sub
+- **Save/load**: JSON manual + binary autosave (pickle+zlib)
+- **Config**: 3-tier hierarchy (defaults → `~/.nhcrc` → CLI args)
+
+### Content
+- **78 creatures** — full BEB bestiary with AI behaviors, factions,
+  morale, loot tables
+- **193 items** — 38 scrolls, 14 potions, 14 wands, 8 rings,
+  119 equipment (weapons, armor, shields, helmets, tools, treasure)
+- **13 trap types** — pit, fire, poison, paralysis, teleport, alarm,
+  arrow, darts, falling stone, spores, gripping, summoning, percussion
+- **Identification system** — potions (colors), scrolls (cryptic labels),
+  rings (gems), wands (woods) shuffled per seed, revealed on use
+
+### Dungeon Generation
+- **BSP generator** with configurable room sizes and spacing
+- **Room specialization** — treasure, guard, shrine rooms with painters
+- **Cellular automata** terrain (water, grass)
+- **Corridors** — main path + extra loops, box-drawing walls
+- **YAML loader** for hand-authored levels
+
+### Combat & Rules
+- **Knave ruleset** — d20 attack vs armor defense, dice pool damage
+- **Character generation** with starting equipment (slot cost limits)
+- **XP advancement** with level-up
+- **Status effects** — paralysis, poison, confusion, stun, regeneration
+- **Morale system** — creatures flee at low HP
+
+### Rendering
+- **Terminal TUI** (blessed) — 4-zone layout, shadowcasting FOV,
+  16/256 color, box-drawing walls
+- **Web client** — HTML5 Canvas + WebSocket, point-and-click,
+  inventory panel, action toolbar
+- **SVG export** — static map rendering
+
+### Narrative & LLM
+- **Game Master pipeline** — player types intent → LLM interprets →
+  actions execute → LLM narrates outcome
+- **LLM backends** — Ollama, MLX (Apple Silicon), Anthropic, None
+- **Fallback parser** — keyword-based when LLM unavailable
+- **Story compression** — summarizes history for context window
+- **Multilingual prompts** — 3 languages × prompt templates
+- **MCP server** — tool integration for narrative
+
+### Web Server
+- **Flask + WebSocket** — multi-session (up to 8 concurrent)
+- **Token auth** — optional SHA256-hashed token
+- **Session manager** — independent game instances
+
+### Internationalization
+- **3 languages** — English, Catalan, Spanish (~2000 lines each)
+- **Dotted key lookup** — `t("creature.goblin.name")`
+- **Fallback chain** — current lang → English → key itself
+- **Gender support** — grammatical gender for Catalan/Spanish
 
 ## Key Patterns
 
-### Entity Creation (creature/item factory)
+### Entity Creation (factory + auto-registration)
 
 ```python
 # nhc/entities/creatures/goblin.py
@@ -150,8 +198,10 @@ def create_goblin() -> dict:
     return {
         "Stats": Stats(strength=1, dexterity=2),
         "Health": Health(current=4, maximum=4),
-        "Renderable": Renderable(glyph="g", color="green", render_order=2),
-        "AI": AI(behavior="aggressive_melee", morale=7, faction="goblinoid"),
+        "Renderable": Renderable(glyph="g", color="green",
+                                 render_order=2),
+        "AI": AI(behavior="aggressive_melee", morale=7,
+                 faction="goblinoid"),
         "Description": creature_desc("goblin"),
     }
 ```
@@ -168,7 +218,7 @@ creature:
       A wiry, green-skinned creature...
 ```
 
-Catalan entries include `gender: "m"` or `gender: "f"`.
+Catalan/Spanish entries include `gender: "m"` or `gender: "f"`.
 
 ### ANSI Color Safety
 
@@ -192,19 +242,35 @@ Walls use box-drawing (`┌─┐│└┘├┤┬┴┼`). Key rules:
 
 ### Identification System
 
-Potions (colors), scrolls (cryptic labels), rings (gems), wands (woods)
-are shuffled per game seed. Items show appearance until identified by
-use. `_potion_id` component tracks real identity.
+Potions (colors), scrolls (cryptic labels), rings (gems),
+wands (woods) are shuffled per game seed. Items show appearance
+until identified by use. `_potion_id` component tracks real
+identity.
 
 ## Coding Standards
 
-- **Entity IDs in English** — no Catalan/Spanish in code identifiers
-- **All code in English** — comments, variable names, docstrings
-- **Translations in locale files** — never hardcode user-facing strings
+- **Entity IDs in English** — no Catalan/Spanish in code
+- **All code in English** — comments, variables, docstrings
+- **Translations in locale files** — never hardcode user-facing
+  strings
 - **No trailing whitespace** — clean source files
 - **Type hints** — Python 3.10+ style
-- **pytest** as test framework, `pytest-asyncio` for async tests
-- **Conventional commits** — `feat:`, `fix:`, `refactor:`, `test:`, `docs:`
+- **pytest** as test framework, `pytest-asyncio` for async
+
+### Commit Style (GStreamer Convention)
+
+```
+topic: short summary (max 70 chars total)
+
+Description of the changes, wrapped at 80 characters. Explain
+what changed and why.
+```
+
+## Test Coverage Gaps (priority areas)
+
+- Ring passive effects (mending HP regen, detection auto-reveal)
+- Ascend stairs action and floor state cleanup on transitions
+- GM pipeline integration tests (context building + action plan)
 
 ## Keyboard Shortcuts
 
@@ -222,7 +288,9 @@ use. `_potion_id` component tracks real identity.
 
 ## Current Stats
 
-- **155 items** (34 scrolls, 9 potions, 8 rings, 8 wands, 96 equipment)
+- **193 items** (38 scrolls, 14 potions, 14 wands, 8 rings,
+  119 equipment)
 - **78 creatures** (complete BEB bestiary)
-- **433+ tests** across 29 test files
+- **780 tests** across 53 test files
 - **3 languages** (English, Catalan, Spanish)
+- **13 trap types**

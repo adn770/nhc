@@ -15,11 +15,14 @@ from nhc.dungeon.generator import DungeonGenerator, GenerationParams
 
 logger = logging.getLogger(__name__)
 from nhc.dungeon.model import (
+    CircleShape,
     Corridor,
     Level,
     LevelMetadata,
     Rect,
+    RectShape,
     Room,
+    RoomShape,
     Terrain,
     Tile,
 )
@@ -184,10 +187,16 @@ class BSPGenerator(DungeonGenerator):
             return ClassicGenerator().generate(params)
 
         # ── Step 1: Carve rooms ──
-        for rect in rects:
-            self._carve_room(level, rect)
-        for i, rect in enumerate(rects):
-            level.rooms.append(Room(id=f"room_{i + 1}", rect=rect))
+        shapes = [
+            self._pick_shape(rect, params.shape_variety, rng)
+            for rect in rects
+        ]
+        for rect, shape in zip(rects, shapes):
+            self._carve_room(level, rect, shape)
+        for i, (rect, shape) in enumerate(zip(rects, shapes)):
+            level.rooms.append(
+                Room(id=f"room_{i + 1}", rect=rect, shape=shape),
+            )
             logger.debug(
                 "Room %d: (%d,%d) %dx%d",
                 i + 1, rect.x, rect.y, rect.width, rect.height,
@@ -224,7 +233,9 @@ class BSPGenerator(DungeonGenerator):
                 a, b = main_path[k], main_path[k + 1]
                 pair = (min(a, b), max(a, b))
                 connected.add(pair)
-                self._carve_corridor(level, rects[a], rects[b], rng)
+                self._carve_corridor(
+                    level, level.rooms[a], level.rooms[b], rng,
+                )
         else:
             logger.warning("No main path found between entrance and exit")
 
@@ -234,7 +245,9 @@ class BSPGenerator(DungeonGenerator):
             pair = (min(i, j), max(i, j))
             if pair not in connected and rng.random() < params.connectivity * 0.5:
                 connected.add(pair)
-                self._carve_corridor(level, rects[i], rects[j], rng)
+                self._carve_corridor(
+                    level, level.rooms[i], level.rooms[j], rng,
+                )
                 extra += 1
         logger.info("Extra loop corridors: %d", extra)
 
@@ -259,7 +272,8 @@ class BSPGenerator(DungeonGenerator):
                     adj[idx].add(best_other)
                     adj[best_other].add(idx)
                     self._carve_corridor(
-                        level, rects[idx], rects[best_other], rng,
+                        level, level.rooms[idx], level.rooms[best_other],
+                        rng,
                     )
                     logger.info(
                         "Connected isolated room_%d to room_%d (dist=%d)",
@@ -431,7 +445,8 @@ class BSPGenerator(DungeonGenerator):
                     # Use force=True on _carve_line to punch through
                     # any walls in the path
                     self._carve_corridor_force(
-                        level, rect, rects[best_other], rng,
+                        level, level.rooms[ri], level.rooms[best_other],
+                        rng,
                     )
                     reconnected += 1
                     logger.info(
@@ -490,55 +505,48 @@ class BSPGenerator(DungeonGenerator):
     def _compute_door_sides(level: Level) -> None:
         """Set door_side for every door tile.
 
-        The door_side is the tile edge where the room wall passes
-        through. Determined by finding which room rect the door is
-        adjacent to: the door sits on that room's outer wall, so
-        door_side points toward the room interior.
-
-        For example, a door at x=rect.x-1 is on the west wall of
-        the room, so door_side="east" (wall is on the east edge of
-        the door tile, facing the room).
+        For each door, find the adjacent room floor tile to determine
+        which direction the door faces (toward the room interior).
+        Works for any room shape, not just rectangles.
         """
         door_feats = {
             "door_closed", "door_open", "door_secret", "door_locked",
         }
+        # Build floor→room lookup for all rooms
+        floor_to_room: dict[tuple[int, int], Room] = {}
+        for room in level.rooms:
+            for pos in room.floor_tiles():
+                floor_to_room[pos] = room
+
+        # Map: if room floor is in direction (dx,dy) from door,
+        # door_side is the opposite direction name
+        _OPPOSITE = {
+            (0, -1): "north",   # floor is north → door faces north
+            (0, 1): "south",
+            (1, 0): "east",
+            (-1, 0): "west",
+        }
+
         for y in range(level.height):
             for x in range(level.width):
                 tile = level.tiles[y][x]
                 if tile.feature not in door_feats:
                     continue
-                # Find which room this door belongs to
-                for room in level.rooms:
-                    r = room.rect
-                    # Door on west wall (x == r.x - 1)
-                    if x == r.x - 1 and r.y <= y < r.y2:
-                        tile.door_side = "east"
-                        break
-                    # Door on east wall (x == r.x2)
-                    if x == r.x2 and r.y <= y < r.y2:
-                        tile.door_side = "west"
-                        break
-                    # Door on north wall (y == r.y - 1)
-                    if y == r.y - 1 and r.x <= x < r.x2:
-                        tile.door_side = "south"
-                        break
-                    # Door on south wall (y == r.y2)
-                    if y == r.y2 and r.x <= x < r.x2:
-                        tile.door_side = "north"
+                # Find adjacent room floor tile
+                for (dx, dy), side in _OPPOSITE.items():
+                    if (x + dx, y + dy) in floor_to_room:
+                        tile.door_side = side
                         break
                 else:
-                    # Fallback: not adjacent to any room rect.
-                    # Use neighbor analysis.
+                    # Fallback: find adjacent wall/void
                     for side, dx, dy in [
                         ("north", 0, -1), ("south", 0, 1),
                         ("east", 1, 0), ("west", -1, 0),
                     ]:
-                        nx, ny = x + dx, y + dy
-                        if not level.in_bounds(nx, ny):
-                            continue
-                        nb = level.tiles[ny][nx]
-                        if (nb.terrain == Terrain.WALL
-                                or nb.terrain == Terrain.VOID):
+                        nb = level.tile_at(x + dx, y + dy)
+                        if nb and nb.terrain in (
+                            Terrain.WALL, Terrain.VOID,
+                        ):
                             tile.door_side = side
                             break
 
@@ -573,23 +581,38 @@ class BSPGenerator(DungeonGenerator):
         for wx, wy in to_wall:
             level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
 
-    def _carve_room(self, level: Level, rect: Rect) -> None:
-        for y in range(rect.y, rect.y2):
-            for x in range(rect.x, rect.x2):
-                if level.in_bounds(x, y):
-                    level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    @staticmethod
+    def _pick_shape(
+        rect: Rect, variety: float, rng: random.Random,
+    ) -> RoomShape:
+        """Choose a room shape based on variety setting and rect size."""
+        if variety <= 0 or rng.random() >= variety:
+            return RectShape()
+        # Circles need at least 5x5 to look reasonable
+        if min(rect.width, rect.height) >= 5:
+            return CircleShape()
+        return RectShape()
+
+    def _carve_room(self, level: Level, rect: Rect,
+                    shape: RoomShape | None = None) -> None:
+        tiles = (shape or RectShape()).floor_tiles(rect)
+        for x, y in tiles:
+            if level.in_bounds(x, y):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
 
     def _wall_entry(
-        self, level: Level, rect: Rect, tx: int, ty: int,
+        self, level: Level, room: Room, tx: int, ty: int,
     ) -> tuple[int, int]:
-        """Find a non-corner wall tile on *rect* facing (tx, ty).
+        """Find a wall tile adjacent to *room* facing (tx, ty).
 
-        Scans the wall tiles (built by _build_walls) one tile outside
-        the room rect on the side closest to the target.  Returns the
-        wall position.
+        Scans all WALL tiles adjacent to the room's floor tiles,
+        filters out corners and tiles next to existing doors, then
+        picks the best candidate on the facing side.
+        Works for any room shape.
         """
-        cx, cy = rect.center
+        cx, cy = room.rect.center
         dx, dy = tx - cx, ty - cy
+        floor = room.floor_tiles()
 
         _DOOR_FEATURES = {
             "door_closed", "door_open", "door_secret", "door_locked",
@@ -602,67 +625,84 @@ class BSPGenerator(DungeonGenerator):
                     return True
             return False
 
-        def _near_corner(wx: int, wy: int) -> bool:
-            """True if this wall position is at or adjacent to a corner."""
-            corners = [
-                (rect.x - 1, rect.y - 1), (rect.x2, rect.y - 1),
-                (rect.x - 1, rect.y2), (rect.x2, rect.y2),
-            ]
-            for cx, cy in corners:
-                if abs(wx - cx) + abs(wy - cy) <= 1:
-                    return True
-            return False
+        def _is_convex_corner(wx: int, wy: int) -> bool:
+            """True if this wall is at a convex corner of the room.
 
-        # Collect candidate wall tiles on the facing side
-        # Skip corners and tiles adjacent to existing doors
-        cands: list[tuple[int, int, int]] = []
-        if abs(dx) >= abs(dy):
-            # East or west wall (skip first/last = corners)
-            wx = rect.x2 if dx > 0 else rect.x - 1
-            for wy in range(rect.y, rect.y2):
-                if _near_corner(wx, wy):
-                    continue
-                t = level.tile_at(wx, wy)
-                if (t and t.terrain == Terrain.WALL
-                        and not _has_adjacent_door(wx, wy)):
-                    cands.append((wx, wy, abs(wy - ty)))
-        else:
-            # North or south wall (skip first/last = corners)
-            wy = rect.y2 if dy > 0 else rect.y - 1
-            for wx in range(rect.x, rect.x2):
-                if _near_corner(wx, wy):
-                    continue
-                t = level.tile_at(wx, wy)
-                if (t and t.terrain == Terrain.WALL
-                        and not _has_adjacent_door(wx, wy)):
-                    cands.append((wx, wy, abs(wx - tx)))
+            A convex corner has floor neighbors in exactly two
+            perpendicular cardinal directions and no floor on the
+            diagonal between them. Doors placed here break corridor
+            carving. Tiles with 0 floor neighbors are also excluded
+            (isolated wall, shouldn't be a door entry).
+            """
+            adj_floor = sum(
+                1 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                if (wx + ddx, wy + ddy) in floor
+            )
+            return adj_floor == 0
 
-        # Fallback: any non-corner wall around the room
-        if not cands:
-            for side_x in (rect.x - 1, rect.x2):
-                for wy in range(rect.y, rect.y2):
-                    if _near_corner(side_x, wy):
-                        continue
-                    t = level.tile_at(side_x, wy)
-                    if (t and t.terrain == Terrain.WALL
-                            and not _has_adjacent_door(side_x, wy)):
-                        cands.append((side_x, wy, 0))
-            for side_y in (rect.y - 1, rect.y2):
-                for wx in range(rect.x, rect.x2):
-                    if _near_corner(wx, side_y):
-                        continue
-                    t = level.tile_at(wx, side_y)
-                    if (t and t.terrain == Terrain.WALL
-                            and not _has_adjacent_door(wx, side_y)):
-                        cands.append((wx, side_y, 0))
+        # Collect all WALL tiles adjacent to room floor
+        perimeter_walls: list[tuple[int, int]] = []
+        seen: set[tuple[int, int]] = set()
+        for fx, fy in floor:
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = fx + ddx, fy + ddy
+                if (nx, ny) in seen or (nx, ny) in floor:
+                    continue
+                seen.add((nx, ny))
+                t = level.tile_at(nx, ny)
+                if t and t.terrain == Terrain.WALL:
+                    perimeter_walls.append((nx, ny))
+
+        # Prefer walls on the facing side (same direction as target)
+        # Score: distance to target, with a penalty for wrong-side
+        cands: list[tuple[int, int, float]] = []
+        for wx, wy in perimeter_walls:
+            if _is_convex_corner(wx, wy):
+                continue
+            if _has_adjacent_door(wx, wy):
+                continue
+            # Direction from room center to this wall
+            wdx, wdy = wx - cx, wy - cy
+            # Facing bonus: dot product with target direction
+            facing = (wdx * dx + wdy * dy)
+            dist = abs(wx - tx) + abs(wy - ty)
+            # Prefer walls that face the target (high facing score)
+            # Break ties by proximity to target
+            score = -facing * 1000 + dist
+            cands.append((wx, wy, score))
 
         if not cands:
             return cx, cy
         cands.sort(key=lambda c: c[2])
         return cands[0][0], cands[0][1]
 
+    @staticmethod
+    def _outward(room: Room, wx: int, wy: int) -> tuple[int, int]:
+        """Step one tile away from *room* starting from wall (wx, wy).
+
+        Finds which cardinal direction leads away from the room's
+        floor tiles and returns the first VOID-side position.
+        Works for any room shape.
+        """
+        floor = room.floor_tiles()
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            if (wx + dx, wy + dy) in floor:
+                # Floor is in this direction; outward is opposite
+                return wx - dx, wy - dy
+        # Fallback: use bounding rect logic
+        r = room.rect
+        if wx < r.x:
+            return wx - 1, wy
+        if wx >= r.x2:
+            return wx + 1, wy
+        if wy < r.y:
+            return wx, wy - 1
+        if wy >= r.y2:
+            return wx, wy + 1
+        return wx, wy
+
     def _carve_corridor(
-        self, level: Level, a: Rect, b: Rect, rng: random.Random,
+        self, level: Level, a: Room, b: Room, rng: random.Random,
     ) -> None:
         """Connect two rooms by carving through VOID only.
 
@@ -671,8 +711,8 @@ class BSPGenerator(DungeonGenerator):
         3. Step one tile outside into VOID.
         4. Carve an L-shaped path through VOID between those points.
         """
-        bx, by = b.center
-        ax, ay = a.center
+        bx, by = b.rect.center
+        ax, ay = a.rect.center
 
         # Wall entries
         wa_x, wa_y = self._wall_entry(level, a, bx, by)
@@ -696,8 +736,6 @@ class BSPGenerator(DungeonGenerator):
         for wx, wy in [(wa_x, wa_y), (wb_x, wb_y)]:
             t = level.tile_at(wx, wy)
             if t and t.terrain == Terrain.WALL:
-                # If there's an adjacent door, match its type so
-                # double-door pairs are always consistent
                 adj_feat = None
                 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nb = level.tile_at(wx + ddx, wy + ddy)
@@ -709,20 +747,8 @@ class BSPGenerator(DungeonGenerator):
                     feature=adj_feat if adj_feat else feat,
                 )
 
-        # Step one tile outside each door into VOID
-        def _outward(room: Rect, wx: int, wy: int) -> tuple[int, int]:
-            if wx < room.x:
-                return wx - 1, wy
-            if wx >= room.x2:
-                return wx + 1, wy
-            if wy < room.y:
-                return wx, wy - 1
-            if wy >= room.y2:
-                return wx, wy + 1
-            return wx, wy  # shouldn't happen
-
-        sx, sy = _outward(a, wa_x, wa_y)
-        ex, ey = _outward(b, wb_x, wb_y)
+        sx, sy = self._outward(a, wa_x, wa_y)
+        ex, ey = self._outward(b, wb_x, wb_y)
 
         # Carve L-shaped corridor through VOID only
         if rng.random() < 0.5:
@@ -733,7 +759,7 @@ class BSPGenerator(DungeonGenerator):
             self._carve_line(level, sx, ey, ex, ey)
 
     def _carve_corridor_force(
-        self, level: Level, a: Rect, b: Rect, rng: random.Random,
+        self, level: Level, a: Room, b: Room, rng: random.Random,
     ) -> None:
         """Connect two rooms, punching through walls if needed.
 
@@ -741,8 +767,8 @@ class BSPGenerator(DungeonGenerator):
         to guarantee the corridor actually connects even if walls
         from other rooms are in the path.
         """
-        bx, by = b.center
-        ax, ay = a.center
+        bx, by = b.rect.center
+        ax, ay = a.rect.center
 
         wa_x, wa_y = self._wall_entry(level, a, bx, by)
         wb_x, wb_y = self._wall_entry(level, b, ax, ay)
@@ -754,19 +780,8 @@ class BSPGenerator(DungeonGenerator):
                     terrain=Terrain.FLOOR, feature="door_closed",
                 )
 
-        def _outward(room: Rect, wx: int, wy: int) -> tuple[int, int]:
-            if wx < room.x:
-                return wx - 1, wy
-            if wx >= room.x2:
-                return wx + 1, wy
-            if wy < room.y:
-                return wx, wy - 1
-            if wy >= room.y2:
-                return wx, wy + 1
-            return wx, wy
-
-        sx, sy = _outward(a, wa_x, wa_y)
-        ex, ey = _outward(b, wb_x, wb_y)
+        sx, sy = self._outward(a, wa_x, wa_y)
+        ex, ey = self._outward(b, wb_x, wb_y)
 
         if rng.random() < 0.5:
             self._carve_line(level, sx, sy, ex, sy, force=True)
