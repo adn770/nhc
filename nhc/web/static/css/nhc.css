@@ -115,8 +115,12 @@ body {
 #game-screen {
   display: grid;
   grid-template-rows: 1fr auto auto auto;
-  height: 100vh;
-  width: 100vw;
+  height: calc(100vh - 24px);
+  width: calc(100vw - 24px);
+  margin: 12px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 /* Zone 1: Map */
