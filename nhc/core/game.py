@@ -58,6 +58,7 @@ FOV_RADIUS = 8
 def _resolve_click(
     world: World, level: "Level", player_id: int,
     target_x: int, target_y: int,
+    edge_doors: bool = False,
 ) -> "Action | None":
     """Translate a map click into a game action.
 
@@ -91,7 +92,8 @@ def _resolve_click(
 
     # Adjacent click (including diagonal)
     if abs(dx) <= 1 and abs(dy) <= 1:
-        return BumpAction(actor=player_id, dx=dx, dy=dy)
+        return BumpAction(actor=player_id, dx=dx, dy=dy,
+                          edge_doors=edge_doors)
 
     # Distant click — check target is walkable floor
     from nhc.dungeon.model import Terrain
@@ -99,7 +101,8 @@ def _resolve_click(
         return None
 
     # Step one tile toward the target
-    return BumpAction(actor=player_id, dx=step_x, dy=step_y)
+    return BumpAction(actor=player_id, dx=step_x, dy=step_y,
+                      edge_doors=edge_doors)
 
 
 class Game:
@@ -737,7 +740,8 @@ class Game:
         """Convert a player input intent to a game action."""
         if intent == "move" and data:
             dx, dy = data
-            return BumpAction(actor=self.player_id, dx=dx, dy=dy)
+            return BumpAction(actor=self.player_id, dx=dx, dy=dy,
+                              edge_doors=self.renderer.edge_doors)
 
         if intent == "wait":
             return WaitAction(actor=self.player_id)
@@ -816,6 +820,7 @@ class Game:
             return _resolve_click(
                 self.world, self.level, self.player_id,
                 data.get("x", 0), data.get("y", 0),
+                edge_doors=self.renderer.edge_doors,
             )
 
         if intent == "quit":

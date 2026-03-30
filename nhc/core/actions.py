@@ -130,10 +130,12 @@ class WaitAction(Action):
 class MoveAction(Action):
     """Move in a direction."""
 
-    def __init__(self, actor: int, dx: int, dy: int) -> None:
+    def __init__(self, actor: int, dx: int, dy: int,
+                 edge_doors: bool = False) -> None:
         super().__init__(actor)
         self.dx = dx
         self.dy = dy
+        self.edge_doors = edge_doors
 
     async def validate(self, world: "World", level: "Level") -> bool:
         pos = world.get_component(self.actor, "Position")
@@ -143,15 +145,18 @@ class MoveAction(Action):
         tile = level.tile_at(nx, ny)
         if not tile:
             return False
-        # Can walk onto a closed door tile from the non-door side
         if tile.feature in ("door_closed", "door_locked"):
-            return True  # validate always passes; execute decides
-        # Check if leaving current tile crosses a door edge
-        cur = level.tile_at(pos.x, pos.y)
-        if (cur and cur.feature in ("door_closed", "door_locked")
-                and _crossing_door_edge(self.dx, self.dy, cur,
-                                        entering=False)):
-            return True
+            if self.edge_doors:
+                return True  # edge mode: validate passes; execute decides
+            else:
+                return True  # center mode: bump opens in execute
+        # Edge doors: check if leaving current tile crosses a door edge
+        if self.edge_doors:
+            cur = level.tile_at(pos.x, pos.y)
+            if (cur and cur.feature in ("door_closed", "door_locked")
+                    and _crossing_door_edge(self.dx, self.dy, cur,
+                                            entering=False)):
+                return True
         return tile.walkable
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
@@ -159,44 +164,66 @@ class MoveAction(Action):
         pos = world.get_component(self.actor, "Position")
         nx, ny = pos.x + self.dx, pos.y + self.dy
         tile = level.tile_at(nx, ny)
-        cur = level.tile_at(pos.x, pos.y)
 
-        # Check if we're crossing a door edge (entering or leaving)
-        door_tile = None
-        door_x, door_y = nx, ny
-        if tile.feature in ("door_closed", "door_locked"):
-            if _crossing_door_edge(self.dx, self.dy, tile,
-                                   entering=True):
-                door_tile = tile
-        if (not door_tile and cur
-                and cur.feature in ("door_closed", "door_locked")
-                and _crossing_door_edge(self.dx, self.dy, cur,
-                                        entering=False)):
-            door_tile = cur
-            door_x, door_y = pos.x, pos.y
+        if self.edge_doors:
+            # ── Edge door mode (web): directional crossing ──
+            cur = level.tile_at(pos.x, pos.y)
 
-        # Locked door blocks crossing
-        if door_tile and door_tile.feature == "door_locked":
-            events.append(MessageEvent(
-                text=_msg("explore.door_locked", world, actor=self.actor),
-            ))
-            return events
+            door_tile = None
+            door_x, door_y = nx, ny
+            # Entering a door tile from the door-side direction
+            if tile.feature in ("door_closed", "door_locked"):
+                if _crossing_door_edge(self.dx, self.dy, tile,
+                                       entering=True):
+                    door_tile = tile
+            # Leaving a door tile through the door edge
+            if (not door_tile and cur
+                    and cur.feature in ("door_closed", "door_locked")
+                    and _crossing_door_edge(self.dx, self.dy, cur,
+                                            entering=False)):
+                door_tile = cur
+                door_x, door_y = pos.x, pos.y
 
-        # Closed door: open it when crossing the door edge
-        if door_tile and door_tile.feature == "door_closed":
-            door_tile.feature = "door_open"
-            events.append(DoorOpened(
-                entity=self.actor, x=door_x, y=door_y))
-            events.append(MessageEvent(
-                text=_msg("explore.open_door", world, actor=self.actor),
-            ))
-            return events
+            if door_tile and door_tile.feature == "door_locked":
+                events.append(MessageEvent(
+                    text=_msg("explore.door_locked", world,
+                              actor=self.actor),
+                ))
+                return events
 
-        # Walking onto a door tile from the non-door side: just move
-        if tile.feature in ("door_closed", "door_locked"):
-            pos.x = nx
-            pos.y = ny
-            return events
+            if door_tile and door_tile.feature == "door_closed":
+                door_tile.feature = "door_open"
+                events.append(DoorOpened(
+                    entity=self.actor, x=door_x, y=door_y))
+                events.append(MessageEvent(
+                    text=_msg("explore.open_door", world,
+                              actor=self.actor),
+                ))
+                return events
+
+            # Not crossing door edge: just move onto the tile
+            if tile.feature in ("door_closed", "door_locked"):
+                pos.x = nx
+                pos.y = ny
+                return events
+        else:
+            # ── Center door mode (terminal): bump to open ──
+            if tile.feature == "door_locked":
+                events.append(MessageEvent(
+                    text=_msg("explore.door_locked", world,
+                              actor=self.actor),
+                ))
+                return events
+
+            if tile.feature == "door_closed":
+                tile.feature = "door_open"
+                events.append(DoorOpened(
+                    entity=self.actor, x=nx, y=ny))
+                events.append(MessageEvent(
+                    text=_msg("explore.open_door", world,
+                              actor=self.actor),
+                ))
+                return events
 
         # Auto-open chests when bumping into them
         for eid, _, bpos in world.query("BlocksMovement", "Position"):
@@ -1742,10 +1769,12 @@ class ImpossibleAction(Action):
 class BumpAction(Action):
     """Smart directional action: attack, open door, or move."""
 
-    def __init__(self, actor: int, dx: int, dy: int) -> None:
+    def __init__(self, actor: int, dx: int, dy: int,
+                 edge_doors: bool = False) -> None:
         super().__init__(actor)
         self.dx = dx
         self.dy = dy
+        self.edge_doors = edge_doors
 
     def resolve(self, world: "World", level: "Level") -> Action | None:
         """Convert bump into a concrete action."""
@@ -1764,7 +1793,8 @@ class BumpAction(Action):
                 return MeleeAttackAction(actor=self.actor, target=eid)
 
         # Otherwise: move (handles doors internally)
-        return MoveAction(actor=self.actor, dx=self.dx, dy=self.dy)
+        return MoveAction(actor=self.actor, dx=self.dx, dy=self.dy,
+                          edge_doors=self.edge_doors)
 
     async def validate(self, world: "World", level: "Level") -> bool:
         return True

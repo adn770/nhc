@@ -42,6 +42,7 @@ class WebClient(GameClient):
         self, game_mode: str = "classic", lang: str = "ca",
     ) -> None:
         self.game_mode = game_mode
+        self.edge_doors = True  # web: doors on tile edges
         self.lang = lang
         self.messages: list[str] = []
         self.floor_svg: str = ""

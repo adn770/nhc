@@ -20,6 +20,7 @@ class GameClient(abc.ABC):
 
     game_mode: str
     messages: list[str]
+    edge_doors: bool  # True = doors on tile edges (web), False = center (terminal)
 
     # ── Lifecycle ────────────────────────────────────────────────
 

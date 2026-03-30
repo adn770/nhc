@@ -78,6 +78,7 @@ class TerminalRenderer(GameClient):
         force = self.color_mode == "256"
         self.term = Terminal(force_styling=force)
         self.game_mode = game_mode
+        self.edge_doors = False  # terminal: doors at tile center
         _glyphs.set_color_mode(self.color_mode)
         self._messages: list[str] = []
         self._msg_scroll: int = 0  # 0 = showing latest

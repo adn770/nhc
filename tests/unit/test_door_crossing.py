@@ -89,46 +89,51 @@ class TestDoorMovement:
     """Test that players can walk onto door tiles from corridor side."""
 
     async def test_walk_onto_door_from_corridor_side(self):
-        """Moving from corridor onto door tile (non-door edge) = move."""
+        """Edge mode: moving from corridor onto door (non-door edge) = move."""
         level = _make_corridor_door_room()
         world = World()
-        pid = _make_player(world, 4, 3)  # corridor
+        pid = _make_player(world, 4, 3)
 
-        # Move west onto door tile (door is on west edge, we enter
-        # from east — not crossing the door edge)
-        action = MoveAction(actor=pid, dx=-1, dy=0)
+        action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=True)
         assert await action.validate(world, level)
         await action.execute(world, level)
         pos = world.get_component(pid, "Position")
-        # Player moved onto door tile
         assert pos.x == 3
         assert pos.y == 3
-        # Door still closed
         assert level.tiles[3][3].feature == "door_closed"
 
     async def test_crossing_door_from_door_tile(self):
-        """Moving from door tile toward room (crossing door edge) = opens."""
+        """Edge mode: leaving door tile toward room = opens."""
         level = _make_corridor_door_room()
         world = World()
-        pid = _make_player(world, 3, 3)  # on door tile
+        pid = _make_player(world, 3, 3)
 
-        # Move west (crossing the west door edge)
-        action = MoveAction(actor=pid, dx=-1, dy=0)
+        action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=True)
         await action.execute(world, level)
-        # Door opened
         assert level.tiles[3][3].feature == "door_open"
-        # Player didn't move (door open consumes the action)
         pos = world.get_component(pid, "Position")
-        assert pos.x == 3
+        assert pos.x == 3  # didn't move, door open consumed action
 
     async def test_walk_onto_door_from_room_side_triggers(self):
-        """Moving from room onto door tile (crossing door edge) = opens."""
+        """Edge mode: entering door tile from room side = opens."""
         level = _make_corridor_door_room()
         world = World()
-        pid = _make_player(world, 2, 3)  # room side
+        pid = _make_player(world, 2, 3)
 
-        # Move east onto door tile (crossing west door edge from outside)
-        action = MoveAction(actor=pid, dx=1, dy=0)
+        action = MoveAction(actor=pid, dx=1, dy=0, edge_doors=True)
         await action.execute(world, level)
-        # Door opened
         assert level.tiles[3][3].feature == "door_open"
+
+    async def test_terminal_mode_bump_opens_immediately(self):
+        """Center mode (terminal): bumping door tile opens it."""
+        level = _make_corridor_door_room()
+        world = World()
+        pid = _make_player(world, 4, 3)
+
+        action = MoveAction(actor=pid, dx=-1, dy=0, edge_doors=False)
+        await action.execute(world, level)
+        # Terminal: bump opens immediately
+        assert level.tiles[3][3].feature == "door_open"
+        # Player stays at corridor (door open consumed action)
+        pos = world.get_component(pid, "Position")
+        assert pos.x == 4
