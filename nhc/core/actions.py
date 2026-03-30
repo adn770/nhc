@@ -53,7 +53,53 @@ from nhc.utils.spatial import adjacent
 
 if TYPE_CHECKING:
     from nhc.core.ecs import EntityId, World
-    from nhc.dungeon.model import Level
+    from nhc.dungeon.model import Level, Tile
+
+
+def _crossing_door_edge(
+    dx: int, dy: int, door_tile: "Tile", entering: bool = True,
+) -> bool:
+    """True if movement crosses the door's wall edge.
+
+    door_side is the edge of the tile where the door sits.
+    When entering the tile, movement crosses the edge only if it
+    comes from the door_side direction. When leaving, it crosses
+    if moving toward the door_side.
+
+    - door_side="west": crossed when entering from west (dx=+1)
+      or leaving toward west (dx=-1)
+    - door_side="east": crossed when entering from east (dx=-1)
+      or leaving toward east (dx=+1)
+    - door_side="north": crossed when entering from north (dy=+1)
+      or leaving toward north (dy=-1)
+    - door_side="south": crossed when entering from south (dy=-1)
+      or leaving toward south (dy=+1)
+    """
+    side = door_tile.door_side
+    if not side:
+        return True  # no side info, treat as always blocking
+    if entering:
+        # Entering from the door_side direction
+        if side == "west" and dx > 0:
+            return True
+        if side == "east" and dx < 0:
+            return True
+        if side == "north" and dy > 0:
+            return True
+        if side == "south" and dy < 0:
+            return True
+        return False
+    else:
+        # Leaving toward the door_side direction
+        if side == "west" and dx < 0:
+            return True
+        if side == "east" and dx > 0:
+            return True
+        if side == "north" and dy < 0:
+            return True
+        if side == "south" and dy > 0:
+            return True
+        return False
 
 
 class Action(abc.ABC):
@@ -97,7 +143,14 @@ class MoveAction(Action):
         tile = level.tile_at(nx, ny)
         if not tile:
             return False
-        if tile.feature == "door_closed":
+        # Can walk onto a closed door tile from the non-door side
+        if tile.feature in ("door_closed", "door_locked"):
+            return True  # validate always passes; execute decides
+        # Check if leaving current tile crosses a door edge
+        cur = level.tile_at(pos.x, pos.y)
+        if (cur and cur.feature in ("door_closed", "door_locked")
+                and _crossing_door_edge(self.dx, self.dy, cur,
+                                        entering=False)):
             return True
         return tile.walkable
 
@@ -106,21 +159,43 @@ class MoveAction(Action):
         pos = world.get_component(self.actor, "Position")
         nx, ny = pos.x + self.dx, pos.y + self.dy
         tile = level.tile_at(nx, ny)
+        cur = level.tile_at(pos.x, pos.y)
 
-        # Locked doors block movement
-        if tile.feature == "door_locked":
+        # Check if we're crossing a door edge (entering or leaving)
+        door_tile = None
+        door_x, door_y = nx, ny
+        if tile.feature in ("door_closed", "door_locked"):
+            if _crossing_door_edge(self.dx, self.dy, tile,
+                                   entering=True):
+                door_tile = tile
+        if (not door_tile and cur
+                and cur.feature in ("door_closed", "door_locked")
+                and _crossing_door_edge(self.dx, self.dy, cur,
+                                        entering=False)):
+            door_tile = cur
+            door_x, door_y = pos.x, pos.y
+
+        # Locked door blocks crossing
+        if door_tile and door_tile.feature == "door_locked":
             events.append(MessageEvent(
                 text=_msg("explore.door_locked", world, actor=self.actor),
             ))
             return events
 
-        # Auto-open closed doors
-        if tile.feature == "door_closed":
-            tile.feature = "door_open"
-            events.append(DoorOpened(entity=self.actor, x=nx, y=ny))
+        # Closed door: open it when crossing the door edge
+        if door_tile and door_tile.feature == "door_closed":
+            door_tile.feature = "door_open"
+            events.append(DoorOpened(
+                entity=self.actor, x=door_x, y=door_y))
             events.append(MessageEvent(
                 text=_msg("explore.open_door", world, actor=self.actor),
             ))
+            return events
+
+        # Walking onto a door tile from the non-door side: just move
+        if tile.feature in ("door_closed", "door_locked"):
+            pos.x = nx
+            pos.y = ny
             return events
 
         # Auto-open chests when bumping into them
