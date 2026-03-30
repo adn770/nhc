@@ -57,18 +57,25 @@ class TestWebClientMessages:
 
 
 class TestWebClientRender:
-    def test_render_queues_state(self, client):
+    def test_render_queues_state_and_stats(self, client):
         world = MagicMock()
         world._entities = []
+        world.get_component = MagicMock(return_value=None)
         level = MagicMock()
         level.height = 0
         level.width = 0
+        level.depth = 1
+        level.name = "Test"
         client.render(world, level, player_id=1, turn=5)
-        sent = _last_sent(client)
-        assert sent["type"] == "state"
-        assert sent["turn"] == 5
-        assert "entities" in sent
-        assert "fov" in sent
+        msgs = _drain_queue(client)
+        types = [m["type"] for m in msgs]
+        assert "state" in types
+        assert "stats" in types
+        state = next(m for m in msgs if m["type"] == "state")
+        assert state["turn"] == 5
+        stats = next(m for m in msgs if m["type"] == "stats")
+        assert "line1" in stats
+        assert "line2" in stats
 
 
 class TestWebClientEndScreen:

@@ -77,20 +77,23 @@ class WebClient(GameClient):
 
     def _gather_entities(
         self, world: "World", level: "Level",
+        player_id: int = -1,
     ) -> list[dict]:
-        """Build entity list for the client."""
-        from nhc.entities.components import (
-            Health, Position, Renderable,
-        )
+        """Build entity list for the client.
+
+        Always includes the player regardless of visibility checks.
+        """
         entities = []
         for eid in list(world._entities):
             pos = world.get_component(eid, "Position")
             rend = world.get_component(eid, "Renderable")
             if not pos or not rend:
                 continue
-            tile = level.tile_at(pos.x, pos.y)
-            if not tile or not tile.visible:
-                continue
+            # Always include player; others need visible tile
+            if eid != player_id:
+                tile = level.tile_at(pos.x, pos.y)
+                if not tile or not tile.visible:
+                    continue
             entry = {
                 "id": eid,
                 "x": pos.x,
@@ -107,6 +110,66 @@ class WebClient(GameClient):
                 entry["name"] = desc.name
             entities.append(entry)
         return entities
+
+    def _gather_stats(
+        self, world: "World", player_id: int, turn: int,
+        level: "Level",
+    ) -> dict:
+        """Collect player stats for the status bar."""
+        from nhc.i18n import t as tr
+        health = world.get_component(player_id, "Health")
+        stats = world.get_component(player_id, "Stats")
+        equip = world.get_component(player_id, "Equipment")
+        player = world.get_component(player_id, "Player")
+        pdesc = world.get_component(player_id, "Description")
+
+        def _name(eid):
+            if eid is None:
+                return ""
+            d = world.get_component(eid, "Description")
+            return d.name if d else "???"
+
+        weapon = tr("combat.unarmed")
+        if equip and equip.weapon is not None:
+            weapon = _name(equip.weapon)
+
+        dex = stats.dexterity if stats else 0
+        ac = 10 + dex
+        if equip:
+            if equip.armor is not None:
+                a = world.get_component(equip.armor, "Armor")
+                if a:
+                    ac = a.defense + a.magic_bonus + dex
+            for slot in ("shield", "helmet"):
+                eid = getattr(equip, slot)
+                if eid is not None:
+                    a = world.get_component(eid, "Armor")
+                    if a:
+                        ac += a.defense + a.magic_bonus
+
+        ac_label = tr("ui.ac")
+
+        return {
+            "line1": (
+                f"{pdesc.name if pdesc else '?'}"
+                f" | Depth {level.depth}"
+                f" | Turn {turn}"
+                f" | Lv {player.level if player else 1}"
+                f" | HP {health.current if health else 0}"
+                f"/{health.maximum if health else 0}"
+                f" | Gold {player.gold if player else 0}"
+            ),
+            "line2": (
+                f"STR:{stats.strength if stats else 0:+d}"
+                f" DEX:{dex:+d}"
+                f" CON:{stats.constitution if stats else 0:+d}"
+                f" INT:{stats.intelligence if stats else 0:+d}"
+                f" WIS:{stats.wisdom if stats else 0:+d}"
+                f" CHA:{stats.charisma if stats else 0:+d}"
+                f" | {weapon}"
+                f" | {ac_label} {ac}"
+            ),
+        }
 
     def _gather_fov(self, level: "Level") -> list[list[int]]:
         """Build list of visible tile coordinates."""
@@ -148,13 +211,18 @@ class WebClient(GameClient):
         player_id: int,
         turn: int,
     ) -> None:
-        entities = self._gather_entities(world, level)
+        entities = self._gather_entities(world, level, player_id)
         fov = self._gather_fov(level)
+        stats = self._gather_stats(world, player_id, turn, level)
         self._send({
             "type": "state",
             "entities": entities,
             "fov": fov,
             "turn": turn,
+        })
+        self._send({
+            "type": "stats",
+            **stats,
         })
 
     def scroll_messages(self, direction: int) -> None:

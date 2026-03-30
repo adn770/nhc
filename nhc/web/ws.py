@@ -48,7 +48,8 @@ def register_ws(app, sock: Sock) -> None:
         # Send floor SVG + initial state in one message
         if client.floor_svg and session.game.level:
             entities = client._gather_entities(
-                session.game.world, session.game.level)
+                session.game.world, session.game.level,
+                session.game.player_id)
             fov = client._gather_fov(session.game.level)
             logger.info("Sending floor SVG (%d bytes) + initial state "
                         "(%d entities, %d fov tiles)",
