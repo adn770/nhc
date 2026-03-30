@@ -2,6 +2,10 @@
 
 Translates game events into JSON messages sent over WebSocket, and
 receives player actions from the browser client.
+
+Communication happens through queues:
+- _out_queue: game thread puts JSON strings, sender thread sends via WS
+- _in_queue: WS handler thread puts raw JSON strings, game thread reads
 """
 
 from __future__ import annotations
@@ -9,7 +13,6 @@ from __future__ import annotations
 import json
 import logging
 import queue
-import threading
 from typing import TYPE_CHECKING, Any
 
 from nhc.rendering.client import GameClient
@@ -24,8 +27,7 @@ logger = logging.getLogger(__name__)
 class WebClient(GameClient):
     """GameClient that communicates over a WebSocket connection.
 
-    The WebSocket object is set after construction via set_ws(),
-    since the Game is created before the WS handshake completes.
+    The WebSocket is managed by ws.py — this class only uses queues.
     """
 
     def __init__(
@@ -36,45 +38,42 @@ class WebClient(GameClient):
         self.messages: list[str] = []
         self.floor_svg: str = ""
         self._ws = None
-        self._input_queue: queue.Queue = queue.Queue()
-        self._menu_response: queue.Queue = queue.Queue()
+        self._in_queue: queue.Queue = queue.Queue()
+        self._out_queue: queue.Queue = queue.Queue()
 
     def set_ws(self, ws) -> None:
-        """Attach the WebSocket after handshake."""
+        """Attach the WebSocket (kept for reference only)."""
         self._ws = ws
 
     # ── Helpers ──────────────────────────────────────────────────
 
     def _send(self, msg: dict) -> None:
-        """Send a JSON message to the browser."""
-        if self._ws:
-            data = json.dumps(msg)
-            msg_type = msg.get("type", "?")
-            if msg_type == "floor":
-                logger.debug("WS SEND: type=floor, %d bytes", len(data))
-            elif msg_type == "state":
-                n_ent = len(msg.get("entities", []))
-                logger.debug("WS SEND: type=state, %d entities, turn=%s",
-                             n_ent, msg.get("turn"))
-            else:
-                logger.debug("WS SEND: type=%s", msg_type)
-            self._ws.send(data)
+        """Queue a JSON message for the sender thread."""
+        data = json.dumps(msg)
+        msg_type = msg.get("type", "?")
+        if msg_type == "floor":
+            logger.debug("QUEUE SEND: type=floor, %d bytes", len(data))
+        elif msg_type == "state":
+            n_ent = len(msg.get("entities", []))
+            logger.debug("QUEUE SEND: type=state, %d entities, turn=%s",
+                         n_ent, msg.get("turn"))
         else:
-            logger.warning("WS SEND failed: no websocket attached (type=%s)",
-                           msg.get("type", "?"))
+            logger.debug("QUEUE SEND: type=%s", msg_type)
+        self._out_queue.put(data)
 
     def _recv(self) -> dict:
-        """Receive a JSON message from the browser (blocking)."""
-        if self._ws:
-            raw = self._ws.receive()
-            if raw:
-                msg = json.loads(raw)
-                logger.debug("WS RECV: %s", msg.get("type", raw[:80]))
-                return msg
-            logger.debug("WS RECV: empty/None")
-        else:
-            logger.warning("WS RECV: no websocket attached")
-        return {}
+        """Read from the input queue (blocking)."""
+        try:
+            raw = self._in_queue.get(timeout=30)
+            msg = json.loads(raw)
+            logger.debug("QUEUE RECV: %s", msg.get("type", "?"))
+            return msg
+        except queue.Empty:
+            logger.debug("QUEUE RECV: timeout")
+            return {}
+        except Exception:
+            logger.exception("QUEUE RECV: error")
+            return {}
 
     def _gather_entities(
         self, world: "World", level: "Level",
@@ -177,7 +176,7 @@ class WebClient(GameClient):
     # ── Input ────────────────────────────────────────────────────
 
     async def get_input(self) -> tuple[str, Any]:
-        """Wait for player action from WebSocket."""
+        """Wait for player action from input queue."""
         import asyncio
         loop = asyncio.get_event_loop()
         msg = await loop.run_in_executor(None, self._recv)
@@ -304,14 +303,12 @@ class WebClient(GameClient):
             "start_x": start_x,
             "start_y": start_y,
         })
-        # Wait for client to exit farlook
         self._recv()
 
     def fullmap_mode(
         self, world: "World", level: "Level", player_id: int,
         turn: int,
     ) -> None:
-        # Send full map data (all tiles, not just visible)
         tiles = []
         for y in range(level.height):
             for x in range(level.width):

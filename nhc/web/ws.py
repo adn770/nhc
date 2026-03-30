@@ -1,13 +1,15 @@
 """WebSocket handler for game sessions.
 
-Each WebSocket connection is tied to a game session. The handler
-runs the game loop in a background thread while the WS connection
-relays messages between the Game (via WebClient) and the browser.
+Each WebSocket connection is tied to a game session. The WS handler
+thread owns the socket — it reads incoming messages into the client's
+input queue, and a sender thread drains the output queue to the socket.
+The game loop runs in its own thread, communicating via queues.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import threading
 
@@ -40,13 +42,13 @@ def register_ws(app, sock: Sock) -> None:
 
         client = session.game.renderer
         client.set_ws(ws)
-        logger.info("WS attached to game, sending floor SVG...")
+        logger.info("WS attached to game")
 
         # Send the floor SVG now that WS is connected
         if client.floor_svg:
             logger.info("Sending floor SVG: %d bytes",
                         len(client.floor_svg))
-            client._send({"type": "floor", "svg": client.floor_svg})
+            ws.send(json.dumps({"type": "floor", "svg": client.floor_svg}))
         else:
             logger.warning("No floor SVG to send!")
 
@@ -57,14 +59,28 @@ def register_ws(app, sock: Sock) -> None:
             fov = client._gather_fov(session.game.level)
             logger.info("Sending initial state: %d entities, %d fov tiles",
                         len(entities), len(fov))
-            client._send({
+            ws.send(json.dumps({
                 "type": "state",
                 "entities": entities,
                 "fov": fov,
                 "turn": session.game.turn,
-            })
+            }))
 
-        # Run the game loop in a thread so the WS stays responsive
+        # Sender thread: drains client output queue → WS
+        stop_event = threading.Event()
+
+        def _sender():
+            while not stop_event.is_set():
+                try:
+                    data = client._out_queue.get(timeout=0.1)
+                    ws.send(data)
+                except Exception:
+                    pass  # queue.Empty or WS error
+
+        sender_thread = threading.Thread(target=_sender, daemon=True)
+        sender_thread.start()
+
+        # Game loop thread
         def _run_game():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -79,16 +95,27 @@ def register_ws(app, sock: Sock) -> None:
                                  session_id)
             finally:
                 loop.close()
+                stop_event.set()
 
-        game_thread = threading.Thread(
-            target=_run_game, daemon=True,
-        )
+        game_thread = threading.Thread(target=_run_game, daemon=True)
         game_thread.start()
 
-        # Keep the WS connection alive while the game runs.
-        # flask-sock closes the WS when this function returns.
-        game_thread.join()
+        # This thread (WS handler) reads incoming messages → input queue
+        try:
+            while not stop_event.is_set():
+                try:
+                    raw = ws.receive(timeout=1)
+                    if raw:
+                        logger.debug("WS RECV: %s", raw[:120])
+                        client._in_queue.put(raw)
+                except Exception:
+                    break
+        except Exception:
+            logger.debug("WS receive loop ended")
 
+        # Cleanup
+        stop_event.set()
+        game_thread.join(timeout=5)
+        sender_thread.join(timeout=2)
         logger.info("WS disconnected: session=%s", session_id)
-        # Clean up
         sessions.destroy(session_id)

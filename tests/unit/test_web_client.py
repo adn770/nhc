@@ -12,10 +12,21 @@ from nhc.rendering.web_client import WebClient
 @pytest.fixture
 def client():
     wc = WebClient(game_mode="classic", lang="ca")
-    ws = MagicMock()
-    ws.send = MagicMock()
-    wc.set_ws(ws)
     return wc
+
+
+def _drain_queue(wc):
+    """Get all messages from the output queue as parsed dicts."""
+    msgs = []
+    while not wc._out_queue.empty():
+        msgs.append(json.loads(wc._out_queue.get_nowait()))
+    return msgs
+
+
+def _last_sent(wc):
+    """Get the last message from the output queue."""
+    msgs = _drain_queue(wc)
+    return msgs[-1] if msgs else None
 
 
 class TestWebClientInterface:
@@ -29,9 +40,9 @@ class TestWebClientInterface:
 
 
 class TestWebClientMessages:
-    def test_add_message_sends_json(self, client):
+    def test_add_message_queues_json(self, client):
         client.add_message("Hello dungeon")
-        sent = json.loads(client._ws.send.call_args[0][0])
+        sent = _last_sent(client)
         assert sent["type"] == "message"
         assert sent["text"] == "Hello dungeon"
 
@@ -46,14 +57,14 @@ class TestWebClientMessages:
 
 
 class TestWebClientRender:
-    def test_render_sends_state(self, client):
+    def test_render_queues_state(self, client):
         world = MagicMock()
         world._entities = []
         level = MagicMock()
         level.height = 0
         level.width = 0
         client.render(world, level, player_id=1, turn=5)
-        sent = json.loads(client._ws.send.call_args[0][0])
+        sent = _last_sent(client)
         assert sent["type"] == "state"
         assert sent["turn"] == 5
         assert "entities" in sent
@@ -61,45 +72,42 @@ class TestWebClientRender:
 
 
 class TestWebClientEndScreen:
-    def test_game_over_sends_json(self, client):
+    def test_game_over_queues_json(self, client):
         client.show_end_screen(won=False, turn=42, killed_by="goblin")
-        sent = json.loads(client._ws.send.call_args[0][0])
+        sent = _last_sent(client)
         assert sent["type"] == "game_over"
         assert sent["won"] is False
         assert sent["turn"] == 42
         assert sent["killed_by"] == "goblin"
 
-    def test_victory_sends_json(self, client):
+    def test_victory_queues_json(self, client):
         client.show_end_screen(won=True, turn=99)
-        sent = json.loads(client._ws.send.call_args[0][0])
+        sent = _last_sent(client)
         assert sent["won"] is True
 
 
 class TestWebClientMenus:
-    def test_selection_menu_sends_options(self, client):
-        client._ws.receive = MagicMock(
-            return_value='{"type":"menu_select","choice":42}',
-        )
+    def test_selection_menu_queues_options(self, client):
+        # Put a response in the input queue before calling
+        client._in_queue.put('{"type":"menu_select","choice":42}')
         items = [(42, "Sword"), (43, "Shield")]
         result = client.show_selection_menu("Pick one", items)
-        sent = json.loads(client._ws.send.call_args[0][0])
+        sent = _last_sent(client)
         assert sent["type"] == "menu"
         assert sent["title"] == "Pick one"
         assert len(sent["options"]) == 2
         assert result == 42
 
     def test_selection_menu_cancel(self, client):
-        client._ws.receive = MagicMock(
-            return_value='{"type":"cancel"}',
-        )
+        client._in_queue.put('{"type":"cancel"}')
         result = client.show_selection_menu("Pick", [(1, "a")])
         assert result is None
 
 
 class TestWebClientShutdown:
-    def test_shutdown_sends_message(self, client):
+    def test_shutdown_queues_message(self, client):
         client.shutdown()
-        sent = json.loads(client._ws.send.call_args[0][0])
+        sent = _last_sent(client)
         assert sent["type"] == "shutdown"
 
     def test_initialize_is_noop(self, client):
