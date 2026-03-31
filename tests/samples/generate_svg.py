@@ -23,6 +23,7 @@ from nhc.dungeon.model import HybridShape, Terrain
 from nhc.rendering.svg import (
     CELL, PADDING, render_floor_svg,
     _room_svg_outline, _find_doorless_openings, _outline_with_gaps,
+    _room_shapely_polygon,
 )
 from nhc.utils.rng import set_seed
 
@@ -459,6 +460,83 @@ def _build_level_json(level, seed: int, variety: float) -> dict:
     }
 
 
+POLY_COLORS = [
+    "#E53935", "#1E88E5", "#43A047", "#FB8C00",
+    "#8E24AA", "#00ACC1", "#D81B60", "#6D4C41",
+]
+
+
+def _inject_polygon_overlays(svg_text: str, level) -> str:
+    """Draw each room's Shapely polygon as a scaled-down outline
+    centered on the room, so the clip shape is visible."""
+    ns = "http://www.w3.org/2000/svg"
+    ET.register_namespace("", ns)
+    root = ET.fromstring(svg_text)
+
+    grp = ET.SubElement(root, f"{{{ns}}}g")
+    grp.set("id", "polygon-overlays")
+
+    for i, room in enumerate(level.rooms):
+        poly = _room_shapely_polygon(room)
+        if poly is None or poly.is_empty:
+            continue
+
+        color = POLY_COLORS[i % len(POLY_COLORS)]
+        r = room.rect
+        # Room center in pixel coords (with PADDING offset)
+        cx = PADDING + (r.x + r.width / 2) * CELL
+        cy = PADDING + (r.y + r.height / 2) * CELL
+
+        # Polygon center and extents
+        bounds = poly.bounds  # (minx, miny, maxx, maxy)
+        px = (bounds[0] + bounds[2]) / 2
+        py = (bounds[1] + bounds[3]) / 2
+        pw = bounds[2] - bounds[0]
+        ph = bounds[3] - bounds[1]
+
+        # Scale to fit in ~40% of room pixel size
+        target = min(r.width * CELL, r.height * CELL) * 0.4
+        scale = target / max(pw, ph) if max(pw, ph) > 0 else 1
+
+        # Build path from polygon exterior
+        geoms = (poly.geoms if hasattr(poly, 'geoms')
+                 else [poly])
+        d = ""
+        for geom in geoms:
+            coords = list(geom.exterior.coords)
+            # Transform: center on room, scale down
+            pts = []
+            for gx, gy in coords:
+                sx = cx + (gx - px) * scale
+                sy = cy + (gy - py) * scale
+                pts.append((sx, sy))
+            d += f"M{pts[0][0]:.1f},{pts[0][1]:.1f} "
+            d += " ".join(
+                f"L{x:.1f},{y:.1f}" for x, y in pts[1:])
+            d += " Z "
+
+        path = ET.SubElement(grp, f"{{{ns}}}path")
+        path.set("d", d)
+        path.set("fill", color)
+        path.set("fill-opacity", "0.15")
+        path.set("stroke", color)
+        path.set("stroke-width", "1.5")
+        path.set("stroke-opacity", "0.8")
+
+        # Small label
+        lbl = ET.SubElement(grp, f"{{{ns}}}text")
+        lbl.set("x", f"{cx:.1f}")
+        lbl.set("y", f"{cy + target / 2 + 10:.1f}")
+        lbl.set("text-anchor", "middle")
+        lbl.set("font-family", LABEL_FONT)
+        lbl.set("font-size", "7")
+        lbl.set("fill", color)
+        lbl.text = f"P{i}"
+
+    return ET.tostring(root, encoding="unicode",
+                       xml_declaration=True)
+
+
 def generate(outdir: Path, seeds: list[int]) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     gen = BSPGenerator()
@@ -470,6 +548,7 @@ def generate(outdir: Path, seeds: list[int]) -> None:
             level = gen.generate(params)
             svg = render_floor_svg(level, seed=seed)
             svg = _inject_tile_coords(svg, level)
+            svg = _inject_polygon_overlays(svg, level)
             svg = _inject_room_labels(svg, level)
             svg = _inject_door_labels(svg, level)
             svg = _inject_corridor_labels(svg, level)

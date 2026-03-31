@@ -1369,71 +1369,116 @@ def _dungeon_interior_clip(svg: list[str], dungeon_poly, clip_id: str):
 def _render_floor_grid(
     svg: list[str], level: "Level", dungeon_poly=None,
 ) -> None:
-    """Draw a hand-drawn style grid on all tiles, clipped to the
-    dungeon interior polygon."""
+    """Draw a hand-drawn style grid.
+
+    Room tiles: generated for all tiles, clipped to dungeon polygon.
+    Corridor/door tiles: generated directly, no clipping needed.
+    """
     rng = random.Random(41)
-    segments: list[str] = []
+    room_segments: list[str] = []
+    corridor_segments: list[str] = []
 
     for y in range(level.height):
         for x in range(level.width):
+            tile = level.tiles[y][x]
+            is_cor = (tile.is_corridor
+                      or _is_door(level, x, y))
             px, py = x * CELL, y * CELL
 
             # Right edge
             if x + 1 < level.width:
-                segments.append(_wobbly_grid_seg(
+                seg = _wobbly_grid_seg(
                     rng, px + CELL, py, px + CELL, py + CELL,
                     x * 0.7, y * 0.7, base=20,
-                ))
+                )
+                if is_cor:
+                    corridor_segments.append(seg)
+                else:
+                    room_segments.append(seg)
 
             # Bottom edge
             if y + 1 < level.height:
-                segments.append(_wobbly_grid_seg(
+                seg = _wobbly_grid_seg(
                     rng, px, py + CELL, px + CELL, py + CELL,
                     x * 0.3, y * 0.7, base=24,
-                ))
+                )
+                if is_cor:
+                    corridor_segments.append(seg)
+                else:
+                    room_segments.append(seg)
 
-    if segments:
+    _GRID_STYLE = (
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{GRID_WIDTH}" '
+        f'opacity="0.7" stroke-linecap="round"'
+    )
+
+    # Room grid — clipped to dungeon polygon
+    if room_segments:
         if dungeon_poly is not None and not dungeon_poly.is_empty:
             _dungeon_interior_clip(svg, dungeon_poly, "grid-clip")
             svg.append(
-                f'<path d="{" ".join(segments)}" fill="none" '
-                f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-                f'opacity="0.7" stroke-linecap="round" '
-                f'clip-path="url(#grid-clip)"/>'
+                f'<path d="{" ".join(room_segments)}" '
+                f'{_GRID_STYLE} clip-path="url(#grid-clip)"/>'
             )
         else:
             svg.append(
-                f'<path d="{" ".join(segments)}" fill="none" '
-                f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-                f'opacity="0.7" stroke-linecap="round"/>'
+                f'<path d="{" ".join(room_segments)}" '
+                f'{_GRID_STYLE}/>'
             )
+
+    # Corridor grid — no clipping
+    if corridor_segments:
+        svg.append(
+            f'<path d="{" ".join(corridor_segments)}" '
+            f'{_GRID_STYLE}/>'
+        )
 
 
 def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
     dungeon_poly=None,
 ) -> None:
-    """Scatter cracks, stones, and scratches on all tiles inside
-    the dungeon, clipped to the dungeon interior polygon."""
+    """Scatter cracks, stones, and scratches on floor tiles.
+
+    Room tiles: generated for all tiles, clipped to dungeon polygon.
+    Corridor/door tiles: generated directly, no clipping needed.
+    """
     rng = random.Random(seed + 99)
-    cracks: list[str] = []
-    stones: list[str] = []
-    scratches: list[str] = []
+    room_cracks: list[str] = []
+    room_stones: list[str] = []
+    room_scratches: list[str] = []
+    cor_cracks: list[str] = []
+    cor_stones: list[str] = []
+    cor_scratches: list[str] = []
 
     for y in range(level.height):
         for x in range(level.width):
-            _tile_detail(rng, x, y, seed, cracks, stones, scratches)
+            tile = level.tiles[y][x]
+            is_cor = (tile.is_corridor
+                      or _is_door(level, x, y))
+            if is_cor:
+                _tile_detail(rng, x, y, seed,
+                             cor_cracks, cor_stones, cor_scratches)
+            else:
+                _tile_detail(rng, x, y, seed,
+                             room_cracks, room_stones, room_scratches)
 
-    if not (cracks or stones or scratches):
-        return
+    # Room detail — clipped to dungeon polygon
+    if room_cracks or room_stones or room_scratches:
+        if dungeon_poly is not None and not dungeon_poly.is_empty:
+            _dungeon_interior_clip(svg, dungeon_poly, "detail-clip")
+            svg.append('<g clip-path="url(#detail-clip)">')
+            _emit_detail(svg, room_cracks, room_stones,
+                         room_scratches)
+            svg.append('</g>')
+        else:
+            _emit_detail(svg, room_cracks, room_stones,
+                         room_scratches)
 
-    if dungeon_poly is not None and not dungeon_poly.is_empty:
-        _dungeon_interior_clip(svg, dungeon_poly, "detail-clip")
-        svg.append('<g clip-path="url(#detail-clip)">')
-        _emit_detail(svg, cracks, stones, scratches)
-        svg.append('</g>')
-    else:
-        _emit_detail(svg, cracks, stones, scratches)
+    # Corridor detail — no clipping
+    if cor_cracks or cor_stones or cor_scratches:
+        _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
 
 
 def _wobble_line(
@@ -2107,35 +2152,21 @@ def _approximate_arc(
 
 
 def _build_dungeon_polygon(level: "Level") -> Polygon:
-    """Build a Shapely polygon covering the dungeon interior.
+    """Build a Shapely polygon covering room interiors only.
 
     Uses _room_shapely_polygon for every room (rect, circle,
     octagon, cross, hybrid) so the clip boundary follows the
-    wall path.  Corridor and door tiles are added as tile rects.
+    wall path.  Corridors are excluded — they are handled
+    separately by grid/detail rendering.
     """
     from shapely.ops import unary_union
     polys = []
 
-    # Room polygons (wall-path outlines for all room types)
-    room_tiles: set[tuple[int, int]] = set()
     for room in level.rooms:
         room_poly = _room_shapely_polygon(room)
         if room_poly and not room_poly.is_empty:
             polys.append(room_poly)
-            room_tiles |= room.floor_tiles()
 
-    # Corridor and door tiles not covered by room polygons
-    for y in range(level.height):
-        for x in range(level.width):
-            if (x, y) in room_tiles:
-                continue
-            if _is_floor(level, x, y) or _is_door(level, x, y):
-                polys.append(Polygon([
-                    (x * CELL, y * CELL),
-                    ((x + 1) * CELL, y * CELL),
-                    ((x + 1) * CELL, (y + 1) * CELL),
-                    (x * CELL, (y + 1) * CELL),
-                ]))
     if not polys:
         return Polygon()
     return unary_union(polys)
