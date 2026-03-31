@@ -129,6 +129,90 @@ FEATURE_POOLS: list[tuple[str, float]] = [
 ]
 
 
+def _find_single_tile_corridors(level: Level) -> list[tuple[int, int]]:
+    """Find corridor tiles that form segments of exactly one tile."""
+    corridor_tiles: set[tuple[int, int]] = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            t = level.tiles[y][x]
+            if t.terrain == Terrain.FLOOR and t.is_corridor:
+                corridor_tiles.add((x, y))
+
+    # Flood-fill into connected segments
+    visited: set[tuple[int, int]] = set()
+    singles: list[tuple[int, int]] = []
+    for start in sorted(corridor_tiles):
+        if start in visited:
+            continue
+        segment: list[tuple[int, int]] = []
+        queue = [start]
+        while queue:
+            pos = queue.pop()
+            if pos in visited:
+                continue
+            visited.add(pos)
+            segment.append(pos)
+            x, y = pos
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nb = (x + dx, y + dy)
+                if nb in corridor_tiles and nb not in visited:
+                    queue.append(nb)
+        if len(segment) == 1:
+            singles.append(segment[0])
+    return singles
+
+
+def _populate_single_tile_corridors(
+    level: Level,
+    difficulty: int,
+    occupied: set[tuple[int, int]],
+    rng,
+) -> None:
+    """Place a creature or item on single-tile corridor segments.
+
+    Distribution: 50% nothing, 30% creature, 20% item.
+    """
+    singles = _find_single_tile_corridors(level)
+    if not singles:
+        return
+
+    c_pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
+    c_ids, c_weights = zip(*c_pool) if c_pool else ([], [])
+    i_pool = ITEM_POOLS.get(difficulty, ITEM_POOLS[1])
+    i_ids, i_weights = zip(*i_pool) if i_pool else ([], [])
+
+    for x, y in singles:
+        if (x, y) in occupied:
+            continue
+        tile = level.tile_at(x, y)
+        if tile and tile.feature:
+            continue
+
+        roll = rng.random()
+        if roll < 0.50:
+            continue  # nothing
+        elif roll < 0.80:
+            # creature (30%)
+            if c_ids:
+                cid = rng.choices(
+                    list(c_ids), weights=list(c_weights), k=1)[0]
+                level.entities.append(EntityPlacement(
+                    entity_type="creature", entity_id=cid,
+                    x=x, y=y,
+                ))
+                occupied.add((x, y))
+        else:
+            # item (20%)
+            if i_ids:
+                iid = rng.choices(
+                    list(i_ids), weights=list(i_weights), k=1)[0]
+                level.entities.append(EntityPlacement(
+                    entity_type="item", entity_id=iid,
+                    x=x, y=y,
+                ))
+                occupied.add((x, y))
+
+
 def populate_level(
     level: Level,
     creature_count: int | None = None,
@@ -272,3 +356,7 @@ def populate_level(
             x=pos[0], y=pos[1],
             extra={"hidden": True},
         ))
+
+    # ── Place entities on single-tile corridor segments ──
+    # 50% nothing, 30% creature, 20% item
+    _populate_single_tile_corridors(level, difficulty, occupied, rng)

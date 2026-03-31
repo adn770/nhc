@@ -4,7 +4,7 @@ import pytest
 
 from nhc.dungeon.classic import ClassicGenerator
 from nhc.dungeon.generator import GenerationParams, Range
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.model import Level, Room, Rect, Terrain, Tile
 from nhc.dungeon.populator import populate_level
 from nhc.utils.rng import set_seed
 
@@ -145,3 +145,63 @@ class TestPopulator:
                 assert not in_spawn, (
                     f"{entity.entity_id} placed in spawn room"
                 )
+
+    def test_single_tile_corridors_get_entities(self):
+        """Single-tile corridor segments should randomly get a
+        creature or item placed on them."""
+        # Build a level with two rooms connected by a single-tile
+        # corridor at (5,3)
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=12, height=7)
+        # Room A: (1,1)-(4,5)
+        for y in range(1, 5):
+            for x in range(1, 4):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.rooms.append(Room(id="r1", rect=Rect(1, 1, 3, 4)))
+        # Room B: (7,1)-(10,5)
+        for y in range(1, 5):
+            for x in range(7, 10):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        level.rooms.append(Room(id="r2", rect=Rect(7, 1, 3, 4)))
+        # Door at (4,3) and (6,3)
+        level.tiles[3][4] = Tile(terrain=Terrain.FLOOR,
+                                 feature="door_closed")
+        level.tiles[3][6] = Tile(terrain=Terrain.FLOOR,
+                                 feature="door_closed")
+        # Single-tile corridor at (5,3)
+        level.tiles[3][5] = Tile(terrain=Terrain.FLOOR,
+                                 is_corridor=True)
+
+        # Run populate many times and collect placements at (5,3)
+        creature_count = 0
+        item_count = 0
+        nothing_count = 0
+        trials = 500
+        for seed in range(trials):
+            level.entities.clear()
+            set_seed(seed)
+            populate_level(level, creature_count=0, item_count=0,
+                           trap_count=0)
+            placed = [e for e in level.entities
+                      if e.x == 5 and e.y == 3]
+            if not placed:
+                nothing_count += 1
+            else:
+                for e in placed:
+                    if e.entity_type == "creature":
+                        creature_count += 1
+                    elif e.entity_type == "item":
+                        item_count += 1
+
+        total_placed = creature_count + item_count
+        assert total_placed > 0, (
+            "No entities placed on single-tile corridor across "
+            f"{trials} seeds")
+        # Check rough distribution: 50% nothing, 30% creature,
+        # 20% item (allow generous tolerance)
+        assert nothing_count > trials * 0.3, (
+            f"Too few empty rolls: {nothing_count}/{trials}")
+        assert creature_count > trials * 0.1, (
+            f"Too few creatures: {creature_count}/{trials}")
+        assert item_count > trials * 0.05, (
+            f"Too few items: {item_count}/{trials}")
