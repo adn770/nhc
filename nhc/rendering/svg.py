@@ -52,49 +52,25 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
-    # Precompute tiles owned by smooth-outlined rooms so they
-    # can be excluded from the tile-based grid/detail passes and
-    # drawn separately with clipped smooth outlines.
-    smooth_tiles: set[tuple[int, int]] = set()
-    for room in level.rooms:
-        if _room_svg_outline(room):
-            smooth_tiles |= room.floor_tiles()
-
-    # Layer 1: Room shadows (subtle)
+    # Layer 1: Room shadows
     _render_room_shadows(svg, level)
 
-    # Layer 2: Floor fills
+    # Layer 2: Floor fills (all tiles, terrain-aware)
     _render_floors(svg, level)
 
-    # Layer 3: Soft floor grid (rooms + corridors, excluding smooth)
-    _render_floor_grid(svg, level, smooth_tiles)
-
-    # Layer 3b: Floor detail — cracks and stones (excluding smooth)
-    _render_floor_detail(svg, level, seed, smooth_tiles)
-
-    # Layer 4: Hatching (behind walls)
+    # Layer 3: Hatching (clipped to exterior of dungeon polygon)
     _render_hatching(svg, level, seed)
 
-    # Layer 4b: Fill smooth-shaped rooms over hatching
-    _render_smooth_floor_fills(svg, level)
+    # Layer 4: Floor grid (all tiles uniformly)
+    _render_floor_grid(svg, level)
 
-    # Layer 4c: Floor grid + detail inside smooth-shaped rooms
-    _render_smooth_floor_grid(svg, level, seed)
+    # Layer 5: Floor detail — cracks, stones, scratches (all tiles)
+    _render_floor_detail(svg, level, seed)
 
-    # Layer 4d: Re-draw grid lines at corridor↔smooth boundaries
-    # (the smooth fill in 4b covers grid lines from layer 3 that
-    # sit on the polygon edge or on corridor opening BG rects)
-    filled_tiles = set(smooth_tiles)
-    for room in level.rooms:
-        if _room_svg_outline(room):
-            for _, _, cx, cy in _find_doorless_openings(room, level):
-                filled_tiles.add((cx, cy))
-    _render_boundary_grid(svg, level, filled_tiles)
-
-    # Layer 5: Walls (on top of hatching)
+    # Layer 6: Walls (smooth outlines + tile-edge)
     _render_walls(svg, level)
 
-    # Layer 6: Stairs
+    # Layer 7: Stairs
     _render_stairs(svg, level)
 
     svg.append("</g>")
@@ -1377,93 +1353,31 @@ def _emit_detail(
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
 
 
-def _render_boundary_grid(
-    svg: list[str], level: "Level",
-    filled_tiles: set[tuple[int, int]],
-) -> None:
-    """Re-draw grid lines covered by smooth fills.
-
-    The smooth floor fill (layer 4b) covers grid lines that sit
-    on the polygon edge or on corridor opening BG rects.  This
-    pass redraws grid edges where at least one side was filled
-    over, excluding edges entirely inside smooth rooms (both
-    sides in smooth interiors get their grid from the clipped
-    smooth grid pass instead).
-    """
-    rng = random.Random(41)
-    segments: list[str] = []
-
-    for y in range(level.height):
-        for x in range(level.width):
-            if not (_is_floor(level, x, y) or _is_door(level, x, y)):
-                continue
-            a_filled = (x, y) in filled_tiles
-            px, py_ = x * CELL, y * CELL
-
-            # Right edge
-            nx_floor = (_is_floor(level, x + 1, y)
-                        or _is_door(level, x + 1, y))
-            if nx_floor:
-                b_filled = (x + 1, y) in filled_tiles
-                if a_filled or b_filled:
-                    segments.append(_wobbly_grid_seg(
-                        rng, px + CELL, py_, px + CELL, py_ + CELL,
-                        x * 0.7, y * 0.7, base=20,
-                    ))
-
-            # Bottom edge
-            ny_floor = (_is_floor(level, x, y + 1)
-                        or _is_door(level, x, y + 1))
-            if ny_floor:
-                b_filled = (x, y + 1) in filled_tiles
-                if a_filled or b_filled:
-                    segments.append(_wobbly_grid_seg(
-                        rng, px, py_ + CELL, px + CELL, py_ + CELL,
-                        x * 0.3, y * 0.7, base=24,
-                    ))
-
-    if segments:
-        svg.append(
-            f'<path d="{" ".join(segments)}" fill="none" '
-            f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-            f'opacity="0.7" stroke-linecap="round"/>'
-        )
-
 
 def _render_floor_grid(
     svg: list[str], level: "Level",
-    skip: set[tuple[int, int]] | None = None,
 ) -> None:
-    """Draw a hand-drawn style grid on floor tiles.
-
-    Tiles in *skip* are excluded (they get their grid from the
-    smooth-shape renderer instead).
-    """
+    """Draw a hand-drawn style grid on all floor tiles."""
     rng = random.Random(41)
     segments: list[str] = []
-    _skip = skip or set()
 
     for y in range(level.height):
         for x in range(level.width):
-            if (x, y) in _skip:
-                continue
             if not (_is_floor(level, x, y) or _is_door(level, x, y)):
                 continue
             px, py = x * CELL, y * CELL
             nx_floor = _is_floor(level, x + 1, y) or _is_door(level, x + 1, y)
             ny_floor = _is_floor(level, x, y + 1) or _is_door(level, x, y + 1)
 
-            # Right edge — skip if BOTH tiles are in smooth rooms
-            if nx_floor and not ((x, y) in _skip
-                                 and (x + 1, y) in _skip):
+            # Right edge
+            if nx_floor:
                 segments.append(_wobbly_grid_seg(
                     rng, px + CELL, py, px + CELL, py + CELL,
                     x * 0.7, y * 0.7, base=20,
                 ))
 
             # Bottom edge
-            if ny_floor and not ((x, y) in _skip
-                                 and (x, y + 1) in _skip):
+            if ny_floor:
                 segments.append(_wobbly_grid_seg(
                     rng, px, py + CELL, px + CELL, py + CELL,
                     x * 0.3, y * 0.7, base=24,
@@ -1479,15 +1393,9 @@ def _render_floor_grid(
 
 def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
-    skip: set[tuple[int, int]] | None = None,
 ) -> None:
-    """Scatter cracks and small stones on floor tiles.
-
-    Tiles in *skip* are excluded (they get their detail from the
-    smooth-shape renderer instead).
-    """
+    """Scatter cracks, stones, and scratches on all floor tiles."""
     rng = random.Random(seed + 99)
-    _skip = skip or set()
     cracks: list[str] = []
     stones: list[str] = []
     scratches: list[str] = []
@@ -1495,10 +1403,6 @@ def _render_floor_detail(
     for y in range(level.height):
         for x in range(level.width):
             if not _is_floor(level, x, y):
-                continue
-            if (x, y) in _skip:
-                # Consume RNG to keep deterministic sequence
-                _tile_detail(rng, x, y, seed, [], [], [])
                 continue
             _tile_detail(rng, x, y, seed, cracks, stones, scratches)
 
@@ -1605,129 +1509,6 @@ def _floor_stone(rng: random.Random, px: float, py: float) -> str:
         f'stroke="{FLOOR_STONE_STROKE}" '
         f'stroke-width="{sw:.1f}"/>')
 
-
-def _render_smooth_floor_fills(svg: list[str], level: "Level") -> None:
-    """Fill smooth-shaped rooms with BG color over the hatching layer.
-
-    The hatching pass covers the full map area; this paints over it
-    inside non-rect rooms so the floor is clean before walls are drawn.
-    Also clears hatching on corridor tiles at doorless openings.
-    """
-    fills: list[str] = []
-    for room in level.rooms:
-        outline = _room_svg_outline(room)
-        if not outline:
-            continue
-        # Replace the closing /> with fill attribute
-        el = outline.replace(
-            '/>',
-            f' fill="{BG}" stroke="none"/>')
-        fills.append(el)
-        # Clear hatching on corridor tiles at doorless openings
-        for opening in _find_doorless_openings(room, level):
-            _, _, cx, cy = opening
-            fills.append(
-                f'<rect x="{cx * CELL}" y="{cy * CELL}" '
-                f'width="{CELL}" height="{CELL}" '
-                f'fill="{BG}" stroke="none"/>'
-            )
-    if fills:
-        svg.append(f'<g>{"".join(fills)}</g>')
-
-
-def _render_smooth_floor_grid(
-    svg: list[str], level: "Level", seed: int = 0,
-) -> None:
-    """Draw floor grid and detail inside smooth-shaped rooms.
-
-    Uses SVG clip paths to extend the wobbly grid and floor detail
-    (cracks, stones, scratches) to the smooth shape boundary.
-    Reuses the same helpers as the tile-based renderer.
-    """
-    rooms_with_outlines: list[tuple] = []
-    for room in level.rooms:
-        outline = _room_svg_outline(room)
-        if outline:
-            rooms_with_outlines.append((room, outline))
-
-    if not rooms_with_outlines:
-        return
-
-    grid_rng = random.Random(41)
-    detail_rng = random.Random(seed + 99)
-
-    for idx, (room, outline) in enumerate(rooms_with_outlines):
-        r = room.rect
-        clip_id = f"smooth-clip-{idx}"
-
-        clip_el = outline.replace('/>', ' fill="white"/>')
-        svg.append(
-            f'<defs><clipPath id="{clip_id}">'
-            f'{clip_el}</clipPath></defs>')
-
-        # Per-tile-edge grid segments spanning the bounding rect,
-        # clipped to the shape. Same short segments as the tile-based
-        # grid so wobble and gaps look identical.
-        segments: list[str] = []
-        for y in range(r.y, r.y2):
-            for x in range(r.x, r.x2):
-                px, py = x * CELL, y * CELL
-                # Right edge (vertical)
-                if x + 1 < r.x2:
-                    segments.append(_wobbly_grid_seg(
-                        grid_rng,
-                        px + CELL, py, px + CELL, py + CELL,
-                        x * 0.7, y * 0.7, base=20,
-                    ))
-                # Bottom edge (horizontal)
-                if y + 1 < r.y2:
-                    segments.append(_wobbly_grid_seg(
-                        grid_rng,
-                        px, py + CELL, px + CELL, py + CELL,
-                        x * 0.3, y * 0.7, base=24,
-                    ))
-
-        if segments:
-            svg.append(
-                f'<path d="{" ".join(segments)}" fill="none" '
-                f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-                f'opacity="0.7" stroke-linecap="round" '
-                f'clip-path="url(#{clip_id})"/>')
-
-        # Floor detail (cracks, stones, scratches) clipped
-        cracks: list[str] = []
-        stones: list[str] = []
-        scratches: list[str] = []
-        for y in range(r.y, r.y2):
-            for x in range(r.x, r.x2):
-                _tile_detail(
-                    detail_rng, x, y, seed,
-                    cracks, stones, scratches,
-                )
-
-        # Wrap detail in a clipped group
-        detail_els: list[str] = []
-        if cracks:
-            crack_lines = "".join(
-                f'<line x1="{c.split()[0].split(",")[0]}" '
-                f'y1="{c.split()[0].split(",")[1]}" '
-                f'x2="{c.split()[1].split(",")[0]}" '
-                f'y2="{c.split()[1].split(",")[1]}" '
-                f'stroke="{INK}" stroke-width="0.5" '
-                f'stroke-linecap="round"/>'
-                for c in cracks
-            )
-            detail_els.append(f'<g opacity="0.5">{crack_lines}</g>')
-        if scratches:
-            detail_els.append(
-                f'<g opacity="0.45">{"".join(scratches)}</g>')
-        if stones:
-            detail_els.append(
-                f'<g opacity="0.8">{"".join(stones)}</g>')
-        if detail_els:
-            svg.append(
-                f'<g clip-path="url(#{clip_id})">'
-                f'{"".join(detail_els)}</g>')
 
 
 
@@ -2073,13 +1854,41 @@ def _render_hatching(
                         f'stroke="{INK}" stroke-width="{sw:.2f}" '
                         f'stroke-linecap="round"/>')
 
-    # Render underlay first, then hatch lines on top
+    if not (tile_fills or hatch_lines or hatch_stones):
+        return
+
+    # Clip hatching to the exterior of the dungeon polygon so it
+    # never bleeds into room interiors (even near curved outlines).
+    # Uses evenodd fill rule: a large bounding rect combined with
+    # the dungeon polygon creates an inverted clip region.
+    map_w = level.width * CELL
+    map_h = level.height * CELL
+    margin = CELL * 2
+    clip_d = (
+        f'M{-margin},{-margin} '
+        f'H{map_w + margin} V{map_h + margin} '
+        f'H{-margin} Z '
+    )
+    # Convert dungeon polygon exterior to SVG path
+    if not dungeon_poly.is_empty:
+        coords = list(dungeon_poly.exterior.coords)
+        clip_d += f'M{coords[0][0]:.0f},{coords[0][1]:.0f} '
+        clip_d += ' '.join(
+            f'L{x:.0f},{y:.0f}' for x, y in coords[1:])
+        clip_d += ' Z'
+    svg.append(
+        f'<defs><clipPath id="hatch-clip">'
+        f'<path d="{clip_d}" clip-rule="evenodd"/>'
+        f'</clipPath></defs>')
+
+    svg.append('<g clip-path="url(#hatch-clip)">')
     if tile_fills:
         svg.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
     if hatch_lines:
         svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
     if hatch_stones:
         svg.append(f'<g>{"".join(hatch_stones)}</g>')
+    svg.append('</g>')
 
 
 def _build_dungeon_polygon(level: "Level") -> Polygon:

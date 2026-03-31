@@ -482,28 +482,33 @@ class TestCorridorOpeningFills:
 class TestGridInSmoothRooms:
     """Grid lines and floor detail must appear inside smooth rooms."""
 
-    def test_grid_inside_circle_room(self):
-        """Circle rooms have grid lines (drawn via clip path)."""
-        level, _ = _make_shaped_level(CircleShape())
+    def _assert_grid_segments(self, shape):
+        level, _ = _make_shaped_level(shape)
         svg = render_floor_svg(level, seed=42)
-        # Smooth rooms use clip paths for grid — verify clipPath exists
-        assert "clipPath" in svg
+        grid_segs = re.findall(
+            rf'<path[^>]+d="([^"]+)"[^>]*'
+            rf'stroke-width="{GRID_WIDTH}"', svg)
+        all_d = " ".join(grid_segs)
+        assert all_d.count("M") >= 5, (
+            f"Expected grid segments for {shape.type_name}"
+        )
+
+    def test_grid_inside_circle_room(self):
+        self._assert_grid_segments(CircleShape())
 
     def test_grid_inside_cross_room(self):
-        level, _ = _make_shaped_level(CrossShape())
-        svg = render_floor_svg(level, seed=42)
-        assert "clipPath" in svg
+        self._assert_grid_segments(CrossShape())
 
     def test_grid_inside_octagon_room(self):
-        level, _ = _make_shaped_level(OctagonShape())
-        svg = render_floor_svg(level, seed=42)
-        assert "clipPath" in svg
+        self._assert_grid_segments(OctagonShape())
 
-    def test_no_clip_path_for_rect_room(self):
-        """Rect rooms use tile-based grid, no clip paths needed."""
+    def test_no_per_room_clip_path_for_rect_room(self):
+        """Rect rooms don't need per-room clip paths for grid."""
         level, _ = _make_shaped_level(RectShape())
         svg = render_floor_svg(level, seed=42)
-        assert "clipPath" not in svg
+        # The hatching clip path (hatch-clip) may exist, but there
+        # should be no per-room smooth-clip paths
+        assert "smooth-clip" not in svg
 
 
 class TestGridStructure:
