@@ -82,16 +82,22 @@ class RectShape(RoomShape):
 class CircleShape(RoomShape):
     """Circular room — true circle centered in the bounding rect.
 
-    Uses min(width, height) as the diameter so the result is always
-    a circle, never an ellipse.  The circle is centered in the rect;
-    tiles outside the circle but inside the rect remain void.
+    Uses min(width, height) as the diameter, forced to an odd number
+    so there is always a single center tile and clean cardinal points.
+    The circle is centered in the rect; tiles outside remain void.
     """
 
     type_name = "circle"
 
+    @staticmethod
+    def _diameter(rect: Rect) -> int:
+        """Effective diameter (always odd)."""
+        d = min(rect.width, rect.height)
+        return d if d % 2 == 1 else d - 1
+
     def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
-        diameter = min(rect.width, rect.height)
-        r = (diameter - 1) / 2
+        d = self._diameter(rect)
+        r = (d - 1) / 2
         if r <= 0:
             return set()
         cx = rect.x + (rect.width - 1) / 2
@@ -102,6 +108,23 @@ class CircleShape(RoomShape):
             for x in range(rect.x, rect.x2)
             if (x - cx) ** 2 + (y - cy) ** 2 <= r ** 2
         }
+
+    def cardinal_walls(self, rect: Rect) -> list[tuple[int, int]]:
+        """Return the 4 cardinal wall positions (N, S, E, W).
+
+        These are the wall tiles directly outside the circle at
+        the north, south, east, and west extremes.
+        """
+        d = self._diameter(rect)
+        r = (d - 1) // 2
+        cx = rect.x + (rect.width - 1) // 2
+        cy = rect.y + (rect.height - 1) // 2
+        return [
+            (cx, cy - r - 1),  # north
+            (cx, cy + r + 1),  # south
+            (cx - r - 1, cy),  # west
+            (cx + r + 1, cy),  # east
+        ]
 
 
 class HexShape(RoomShape):

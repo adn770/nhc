@@ -599,7 +599,9 @@ class BSPGenerator(DungeonGenerator):
             return RectShape()
 
         # Hybrids: half-circle + rect. Split along the longer axis
-        # so the circle half is near-square (good semicircle).
+        # so the circle half is near-square.  The half that receives
+        # the circle must have an odd dimension for clean cardinal
+        # points (CircleShape enforces odd diameter internally).
         if max_dim >= 7 and rng.random() < 0.20:
             if rect.width >= rect.height:
                 split = "vertical"
@@ -611,8 +613,10 @@ class BSPGenerator(DungeonGenerator):
         candidates: list[type[RoomShape]] = [
             HexShape, OctagonShape, CrossShape,
         ]
-        # Circles only for near-square rooms (aspect ratio <= 1.3)
-        if max_dim / min_dim <= 1.3:
+        # Circles only for near-square rooms where both dimensions
+        # are odd (ensures integer center and clean cardinal points)
+        if (max_dim / min_dim <= 1.3
+                and rect.width % 2 == 1 and rect.height % 2 == 1):
             candidates.append(CircleShape)
 
         return rng.choice(candidates)()
@@ -629,14 +633,12 @@ class BSPGenerator(DungeonGenerator):
     ) -> tuple[int, int]:
         """Find a wall tile adjacent to *room* facing (tx, ty).
 
-        Scans all WALL tiles adjacent to the room's floor tiles,
-        filters out corners and tiles next to existing doors, then
-        picks the best candidate on the facing side.
-        Works for any room shape.
+        For circular rooms (and the arc side of hybrids), only the
+        4 cardinal wall positions are allowed.  For all other shapes,
+        scans perimeter walls and picks the best facing candidate.
         """
         cx, cy = room.rect.center
         dx, dy = tx - cx, ty - cy
-        floor = room.floor_tiles()
 
         _DOOR_FEATURES = {
             "door_closed", "door_open", "door_secret", "door_locked",
@@ -649,15 +651,29 @@ class BSPGenerator(DungeonGenerator):
                     return True
             return False
 
-        def _is_convex_corner(wx: int, wy: int) -> bool:
-            """True if this wall is at a convex corner of the room.
+        # Cardinal-only restriction for circles and hybrid arcs
+        cardinal_only = self._cardinal_wall_positions(room)
+        if cardinal_only is not None:
+            cands: list[tuple[int, int, float]] = []
+            for wx, wy in cardinal_only:
+                t = level.tile_at(wx, wy)
+                if not t or t.terrain != Terrain.WALL:
+                    continue
+                if _has_adjacent_door(wx, wy):
+                    continue
+                wdx, wdy = wx - cx, wy - cy
+                facing = wdx * dx + wdy * dy
+                dist = abs(wx - tx) + abs(wy - ty)
+                score = -facing * 1000 + dist
+                cands.append((wx, wy, score))
+            if cands:
+                cands.sort(key=lambda c: c[2])
+                return cands[0][0], cands[0][1]
+            # Fall through to general scan if all cardinals taken
 
-            A convex corner has floor neighbors in exactly two
-            perpendicular cardinal directions and no floor on the
-            diagonal between them. Doors placed here break corridor
-            carving. Tiles with 0 floor neighbors are also excluded
-            (isolated wall, shouldn't be a door entry).
-            """
+        floor = room.floor_tiles()
+
+        def _is_convex_corner(wx: int, wy: int) -> bool:
             adj_floor = sum(
                 1 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
                 if (wx + ddx, wy + ddy) in floor
@@ -677,21 +693,15 @@ class BSPGenerator(DungeonGenerator):
                 if t and t.terrain == Terrain.WALL:
                     perimeter_walls.append((nx, ny))
 
-        # Prefer walls on the facing side (same direction as target)
-        # Score: distance to target, with a penalty for wrong-side
-        cands: list[tuple[int, int, float]] = []
+        cands = []
         for wx, wy in perimeter_walls:
             if _is_convex_corner(wx, wy):
                 continue
             if _has_adjacent_door(wx, wy):
                 continue
-            # Direction from room center to this wall
             wdx, wdy = wx - cx, wy - cy
-            # Facing bonus: dot product with target direction
             facing = (wdx * dx + wdy * dy)
             dist = abs(wx - tx) + abs(wy - ty)
-            # Prefer walls that face the target (high facing score)
-            # Break ties by proximity to target
             score = -facing * 1000 + dist
             cands.append((wx, wy, score))
 
@@ -699,6 +709,45 @@ class BSPGenerator(DungeonGenerator):
             return cx, cy
         cands.sort(key=lambda c: c[2])
         return cands[0][0], cands[0][1]
+
+    @staticmethod
+    def _cardinal_wall_positions(
+        room: Room,
+    ) -> list[tuple[int, int]] | None:
+        """Return cardinal wall positions for circle/hybrid rooms.
+
+        Returns None for non-circle rooms (no restriction).
+        For pure circles: 4 cardinal positions.
+        For hybrids with circle half: cardinal positions on the
+        arc side only (the rect side uses general wall entry).
+        """
+        shape = room.shape
+        if isinstance(shape, CircleShape):
+            return shape.cardinal_walls(room.rect)
+
+        if isinstance(shape, HybridShape) and isinstance(
+            shape.left, CircleShape,
+        ):
+            # The circle is the left/top sub-shape. Its cardinal
+            # points are computed from the half-rect it occupies.
+            r = room.rect
+            if shape.split == "vertical":
+                mid = r.x + r.width // 2
+                half = Rect(r.x, r.y, mid - r.x + 1, r.height)
+            else:
+                mid = r.y + r.height // 2
+                half = Rect(r.x, r.y, r.width, mid - r.y + 1)
+            cards = shape.left.cardinal_walls(half)
+            # Filter: only keep cardinals on the arc (outer) side,
+            # not the seam side which connects to the rect half
+            if shape.split == "vertical":
+                # Keep N, S, W (not E which faces the rect)
+                return [(x, y) for x, y in cards if x <= mid]
+            else:
+                # Keep W, E, N (not S which faces the rect)
+                return [(x, y) for x, y in cards if y <= mid]
+
+        return None
 
     @staticmethod
     def _outward(room: Room, wx: int, wy: int) -> tuple[int, int]:

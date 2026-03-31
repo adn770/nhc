@@ -134,7 +134,8 @@ def _room_svg_outline(room: "Room") -> str | None:
     if isinstance(shape, CircleShape):
         cx = px + pw / 2
         cy = py + ph / 2
-        radius = min(pw, ph) / 2
+        d = shape._diameter(r)
+        radius = d * CELL / 2
         return (
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" '
             f'r="{radius:.1f}"/>'
@@ -280,7 +281,7 @@ def _half_outline(
     - "bottom": traces right→bottom→left (clockwise across bottom)
     """
     from nhc.dungeon.model import (
-        CircleShape, HexShape, OctagonShape, RectShape,
+        CircleShape, HexShape, OctagonShape, Rect, RectShape,
     )
 
     if isinstance(sub_shape, RectShape):
@@ -316,11 +317,10 @@ def _half_outline(
     if isinstance(sub_shape, CircleShape):
         cx = px + pw / 2
         cy = py + ph / 2
-        # Must match CircleShape.floor_tiles: radius = min(w,h)/2
-        # where w,h are in tiles. Convert to pixels.
         tw = int(round(pw / CELL))
         th = int(round(ph / CELL))
-        r = min(tw, th) * CELL / 2
+        d = sub_shape._diameter(Rect(0, 0, tw, th))
+        r = d * CELL / 2
         # SVG arc: A rx ry x-rotation large-arc sweep x y
         if side == "left":
             # Arc from (cx, cy-r) clockwise down to (cx, cy+r)
