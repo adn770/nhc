@@ -81,6 +81,16 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 4c: Floor grid + detail inside smooth-shaped rooms
     _render_smooth_floor_grid(svg, level, seed)
 
+    # Layer 4d: Re-draw grid lines at corridor↔smooth boundaries
+    # (the smooth fill in 4b covers grid lines from layer 3 that
+    # sit on the polygon edge or on corridor opening BG rects)
+    filled_tiles = set(smooth_tiles)
+    for room in level.rooms:
+        if _room_svg_outline(room):
+            for _, _, cx, cy in _find_doorless_openings(room, level):
+                filled_tiles.add((cx, cy))
+    _render_boundary_grid(svg, level, filled_tiles)
+
     # Layer 5: Walls (on top of hatching)
     _render_walls(svg, level)
 
@@ -1367,6 +1377,59 @@ def _emit_detail(
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
 
 
+def _render_boundary_grid(
+    svg: list[str], level: "Level",
+    filled_tiles: set[tuple[int, int]],
+) -> None:
+    """Re-draw grid lines covered by smooth fills.
+
+    The smooth floor fill (layer 4b) covers grid lines that sit
+    on the polygon edge or on corridor opening BG rects.  This
+    pass redraws grid edges where at least one side was filled
+    over, excluding edges entirely inside smooth rooms (both
+    sides in smooth interiors get their grid from the clipped
+    smooth grid pass instead).
+    """
+    rng = random.Random(41)
+    segments: list[str] = []
+
+    for y in range(level.height):
+        for x in range(level.width):
+            if not (_is_floor(level, x, y) or _is_door(level, x, y)):
+                continue
+            a_filled = (x, y) in filled_tiles
+            px, py_ = x * CELL, y * CELL
+
+            # Right edge
+            nx_floor = (_is_floor(level, x + 1, y)
+                        or _is_door(level, x + 1, y))
+            if nx_floor:
+                b_filled = (x + 1, y) in filled_tiles
+                if a_filled or b_filled:
+                    segments.append(_wobbly_grid_seg(
+                        rng, px + CELL, py_, px + CELL, py_ + CELL,
+                        x * 0.7, y * 0.7, base=20,
+                    ))
+
+            # Bottom edge
+            ny_floor = (_is_floor(level, x, y + 1)
+                        or _is_door(level, x, y + 1))
+            if ny_floor:
+                b_filled = (x, y + 1) in filled_tiles
+                if a_filled or b_filled:
+                    segments.append(_wobbly_grid_seg(
+                        rng, px, py_ + CELL, px + CELL, py_ + CELL,
+                        x * 0.3, y * 0.7, base=24,
+                    ))
+
+    if segments:
+        svg.append(
+            f'<path d="{" ".join(segments)}" fill="none" '
+            f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
+            f'opacity="0.7" stroke-linecap="round"/>'
+        )
+
+
 def _render_floor_grid(
     svg: list[str], level: "Level",
     skip: set[tuple[int, int]] | None = None,
@@ -1390,15 +1453,17 @@ def _render_floor_grid(
             nx_floor = _is_floor(level, x + 1, y) or _is_door(level, x + 1, y)
             ny_floor = _is_floor(level, x, y + 1) or _is_door(level, x, y + 1)
 
-            # Right edge — skip if neighbor is also in a smooth room
-            if nx_floor and (x + 1, y) not in _skip:
+            # Right edge — skip if BOTH tiles are in smooth rooms
+            if nx_floor and not ((x, y) in _skip
+                                 and (x + 1, y) in _skip):
                 segments.append(_wobbly_grid_seg(
                     rng, px + CELL, py, px + CELL, py + CELL,
                     x * 0.7, y * 0.7, base=20,
                 ))
 
             # Bottom edge
-            if ny_floor and (x, y + 1) not in _skip:
+            if ny_floor and not ((x, y) in _skip
+                                 and (x, y + 1) in _skip):
                 segments.append(_wobbly_grid_seg(
                     rng, px, py + CELL, px + CELL, py + CELL,
                     x * 0.3, y * 0.7, base=24,

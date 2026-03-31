@@ -303,6 +303,34 @@ def _inject_corridor_labels(svg_text: str, level) -> str:
     return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
 
+def _inject_tile_coords(svg_text: str, level) -> str:
+    """Label each floor tile with its x,y coordinates."""
+    ns = "http://www.w3.org/2000/svg"
+    ET.register_namespace("", ns)
+    root = ET.fromstring(svg_text)
+
+    grp = ET.SubElement(root, f"{{{ns}}}g")
+    grp.set("id", "tile-coords")
+    grp.set("opacity", "0.45")
+
+    for y, row in enumerate(level.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain != Terrain.FLOOR:
+                continue
+            px = PADDING + x * CELL + 2
+            py_ = PADDING + y * CELL + 7
+
+            txt = ET.SubElement(grp, f"{{{ns}}}text")
+            txt.set("x", f"{px:.0f}")
+            txt.set("y", f"{py_:.0f}")
+            txt.set("font-family", LABEL_FONT)
+            txt.set("font-size", "6")
+            txt.set("fill", "#333")
+            txt.text = f"{x},{y}"
+
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
 def _build_level_json(level, seed: int, variety: float) -> dict:
     """Build a detailed JSON structure for the level."""
     door_feats = {
@@ -441,6 +469,7 @@ def generate(outdir: Path, seeds: list[int]) -> None:
             params = GenerationParams(seed=seed, shape_variety=variety)
             level = gen.generate(params)
             svg = render_floor_svg(level, seed=seed)
+            svg = _inject_tile_coords(svg, level)
             svg = _inject_room_labels(svg, level)
             svg = _inject_door_labels(svg, level)
             svg = _inject_corridor_labels(svg, level)
