@@ -70,8 +70,8 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 4b: Fill smooth-shaped rooms over hatching
     _render_smooth_floor_fills(svg, level)
 
-    # Layer 4c: Floor grid inside smooth-shaped rooms
-    _render_smooth_floor_grid(svg, level)
+    # Layer 4c: Floor grid + detail inside smooth-shaped rooms
+    _render_smooth_floor_grid(svg, level, seed)
 
     # Layer 5: Walls (on top of hatching)
     _render_walls(svg, level)
@@ -248,143 +248,106 @@ def _render_floors(svg: list[str], level: "Level") -> None:
                 )
 
 
-def _render_floor_grid(svg: list[str], level: "Level") -> None:
-    """Draw a hand-drawn style grid on all floor tiles.
-
-    Uses Perlin noise to slightly wobble line endpoints and vary
-    stroke width, giving an organic hand-drawn look.
-    """
-    rng = random.Random(41)
-    segments: list[str] = []
-    wobble = CELL * 0.05  # snake amplitude
-    n_sub = 5  # subdivisions per grid line for the snake effect
-
-    for y in range(level.height):
-        for x in range(level.width):
-            if not (_is_floor(level, x, y) or _is_door(level, x, y)):
-                continue
-            px, py = x * CELL, y * CELL
-
-            # Right edge (vertical line)
-            if _is_floor(level, x + 1, y) or _is_door(level, x + 1, y):
-                bx = px + CELL
-                pts = []
-                for i in range(n_sub + 1):
-                    t = i / n_sub
-                    ly = py + t * CELL
-                    lx = bx + _noise.pnoise2(
-                        x * 0.7 + t * 0.5, y * 0.7, base=20) * wobble
-                    pts.append((lx, ly))
-                # Small gap near the middle for discontinuity
-                gap_pos = rng.randint(1, n_sub - 1)
-                seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
-                for i in range(1, len(pts)):
-                    if i == gap_pos and rng.random() < 0.25:
-                        seg += f' M{pts[i][0]:.1f},{pts[i][1]:.1f}'
-                    else:
-                        seg += f' L{pts[i][0]:.1f},{pts[i][1]:.1f}'
-                segments.append(seg)
-
-            # Bottom edge (horizontal line)
-            if _is_floor(level, x, y + 1) or _is_door(level, x, y + 1):
-                by = py + CELL
-                pts = []
-                for i in range(n_sub + 1):
-                    t = i / n_sub
-                    lx = px + t * CELL
-                    ly = by + _noise.pnoise2(
-                        x * 0.3 + t * 0.5, y * 0.7, base=24) * wobble
-                    pts.append((lx, ly))
-                gap_pos = rng.randint(1, n_sub - 1)
-                seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
-                for i in range(1, len(pts)):
-                    if i == gap_pos and rng.random() < 0.25:
-                        seg += f' M{pts[i][0]:.1f},{pts[i][1]:.1f}'
-                    else:
-                        seg += f' L{pts[i][0]:.1f},{pts[i][1]:.1f}'
-                segments.append(seg)
-
-    if segments:
-        svg.append(
-            f'<path d="{" ".join(segments)}" fill="none" '
-            f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-            f'opacity="0.7" stroke-linecap="round"/>'
-        )
+def _wobbly_grid_seg(
+    rng: random.Random, x0: float, y0: float,
+    x1: float, y1: float, noise_x: float, noise_y: float,
+    base: int,
+) -> str:
+    """Build one wobbly grid segment with optional gap."""
+    wobble = CELL * 0.05
+    n_sub = 5
+    dx, dy = x1 - x0, y1 - y0
+    pts = []
+    for i in range(n_sub + 1):
+        t = i / n_sub
+        lx = x0 + dx * t + _noise.pnoise2(
+            noise_x + t * 0.5, noise_y, base=base) * wobble
+        ly = y0 + dy * t + _noise.pnoise2(
+            noise_x + t * 0.5, noise_y, base=base + 4) * wobble
+        # Keep wobble perpendicular only: for vertical lines wobble
+        # x, for horizontal wobble y
+        if abs(dx) > abs(dy):
+            # Mostly horizontal — wobble y only
+            lx = x0 + dx * t
+            ly = y0 + dy * t + _noise.pnoise2(
+                noise_x + t * 0.5, noise_y, base=base) * wobble
+        else:
+            # Mostly vertical — wobble x only
+            lx = x0 + dx * t + _noise.pnoise2(
+                noise_x + t * 0.5, noise_y, base=base) * wobble
+            ly = y0 + dy * t
+        pts.append((lx, ly))
+    gap_pos = rng.randint(1, n_sub - 1)
+    seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
+    for i in range(1, len(pts)):
+        if i == gap_pos and rng.random() < 0.25:
+            seg += f' M{pts[i][0]:.1f},{pts[i][1]:.1f}'
+        else:
+            seg += f' L{pts[i][0]:.1f},{pts[i][1]:.1f}'
+    return seg
 
 
-def _render_floor_detail(
-    svg: list[str], level: "Level", seed: int,
+def _tile_detail(
+    rng: random.Random, x: int, y: int, seed: int,
+    cracks: list[str], stones: list[str], scratches: list[str],
 ) -> None:
-    """Scatter cracks and small stones on floor tiles.
+    """Generate floor detail (cracks, stones, scratches) for one tile."""
+    px, py = x * CELL, y * CELL
 
-    Cracks are thin jagged lines. Stones are small rounded empty
-    ellipses. Both use low opacity for a subtle worn-stone effect.
-    """
-    rng = random.Random(seed + 99)
-    cracks: list[str] = []
-    stones: list[str] = []
-    scratches: list[str] = []
+    roll = rng.random()
+    if roll < 0.08:
+        corner = rng.randint(0, 3)
+        s1 = rng.uniform(CELL * 0.15, CELL * 0.4)
+        s2 = rng.uniform(CELL * 0.15, CELL * 0.4)
+        if corner == 0:
+            tri = (f'{px},{py} '
+                   f'{px + s1},{py} '
+                   f'{px},{py + s2}')
+        elif corner == 1:
+            tri = (f'{px + CELL},{py} '
+                   f'{px + CELL - s1},{py} '
+                   f'{px + CELL},{py + s2}')
+        elif corner == 2:
+            tri = (f'{px},{py + CELL} '
+                   f'{px + s1},{py + CELL} '
+                   f'{px},{py + CELL - s2}')
+        else:
+            tri = (f'{px + CELL},{py + CELL} '
+                   f'{px + CELL - s1},{py + CELL} '
+                   f'{px + CELL},{py + CELL - s2}')
+        cracks.append(tri)
+    elif roll < 0.13:
+        scratches.append(_y_scratch(rng, px, py, x, y, seed))
 
-    for y in range(level.height):
-        for x in range(level.width):
-            if not _is_floor(level, x, y):
-                continue
-            px, py = x * CELL, y * CELL
+    if rng.random() < 0.06:
+        stones.append(_floor_stone(rng, px, py))
 
-            # Crack or Y-scratch (mutually exclusive per tile)
-            roll = rng.random()
-            if roll < 0.08:
-                # Crack triangle at a tile corner
-                corner = rng.randint(0, 3)
-                s1 = rng.uniform(CELL * 0.15, CELL * 0.4)
-                s2 = rng.uniform(CELL * 0.15, CELL * 0.4)
-                if corner == 0:    # top-left
-                    tri = (f'{px},{py} '
-                           f'{px + s1},{py} '
-                           f'{px},{py + s2}')
-                elif corner == 1:  # top-right
-                    tri = (f'{px + CELL},{py} '
-                           f'{px + CELL - s1},{py} '
-                           f'{px + CELL},{py + s2}')
-                elif corner == 2:  # bottom-left
-                    tri = (f'{px},{py + CELL} '
-                           f'{px + s1},{py + CELL} '
-                           f'{px},{py + CELL - s2}')
-                else:              # bottom-right
-                    tri = (f'{px + CELL},{py + CELL} '
-                           f'{px + CELL - s1},{py + CELL} '
-                           f'{px + CELL},{py + CELL - s2}')
-                cracks.append(tri)
-            elif roll < 0.13:
-                # Y-shaped scratch with all 3 ends on tile edges
-                scratches.append(
-                    _y_scratch(rng, px, py, x, y, seed))
+    if rng.random() < 0.03:
+        cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
+        cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
+        for _ in range(3):
+            sx = cx + rng.uniform(-CELL * 0.2, CELL * 0.2)
+            sy = cy + rng.uniform(-CELL * 0.2, CELL * 0.2)
+            scale = rng.uniform(0.5, 1.3)
+            rx = rng.uniform(2, CELL * 0.15) * scale
+            ry = rng.uniform(2, CELL * 0.12) * scale
+            angle = rng.uniform(0, 180)
+            sw = rng.uniform(1.2, 2.0)
+            stones.append(
+                f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                f'transform="rotate({angle:.0f},'
+                f'{sx:.1f},{sy:.1f})" '
+                f'fill="{FLOOR_STONE_FILL}" '
+                f'stroke="{FLOOR_STONE_STROKE}" '
+                f'stroke-width="{sw:.1f}"/>')
 
-            # ~6% chance of a single stone
-            if rng.random() < 0.06:
-                stones.append(_floor_stone(rng, px, py))
 
-            # ~3% chance of a cluster of 3 stones
-            if rng.random() < 0.03:
-                cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
-                cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
-                for _ in range(3):
-                    sx = cx + rng.uniform(-CELL * 0.2, CELL * 0.2)
-                    sy = cy + rng.uniform(-CELL * 0.2, CELL * 0.2)
-                    scale = rng.uniform(0.5, 1.3)
-                    rx = rng.uniform(2, CELL * 0.15) * scale
-                    ry = rng.uniform(2, CELL * 0.12) * scale
-                    angle = rng.uniform(0, 180)
-                    sw = rng.uniform(1.2, 2.0)
-                    stones.append(
-                        f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
-                        f'rx="{rx:.1f}" ry="{ry:.1f}" '
-                        f'transform="rotate({angle:.0f},'
-                        f'{sx:.1f},{sy:.1f})" '
-                        f'fill="{FLOOR_STONE_FILL}" '
-                        f'stroke="{FLOOR_STONE_STROKE}" '
-                        f'stroke-width="{sw:.1f}"/>')
-
+def _emit_detail(
+    svg: list[str],
+    cracks: list[str], stones: list[str], scratches: list[str],
+) -> None:
+    """Append accumulated floor detail elements to the SVG."""
     if cracks:
         polys = "".join(
             f'<polygon points="{tri}" fill="none" '
@@ -399,6 +362,57 @@ def _render_floor_detail(
             f'{"".join(scratches)}</g>')
     if stones:
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
+
+
+def _render_floor_grid(svg: list[str], level: "Level") -> None:
+    """Draw a hand-drawn style grid on all floor tiles."""
+    rng = random.Random(41)
+    segments: list[str] = []
+
+    for y in range(level.height):
+        for x in range(level.width):
+            if not (_is_floor(level, x, y) or _is_door(level, x, y)):
+                continue
+            px, py = x * CELL, y * CELL
+
+            # Right edge (vertical line)
+            if _is_floor(level, x + 1, y) or _is_door(level, x + 1, y):
+                segments.append(_wobbly_grid_seg(
+                    rng, px + CELL, py, px + CELL, py + CELL,
+                    x * 0.7, y * 0.7, base=20,
+                ))
+
+            # Bottom edge (horizontal line)
+            if _is_floor(level, x, y + 1) or _is_door(level, x, y + 1):
+                segments.append(_wobbly_grid_seg(
+                    rng, px, py + CELL, px + CELL, py + CELL,
+                    x * 0.3, y * 0.7, base=24,
+                ))
+
+    if segments:
+        svg.append(
+            f'<path d="{" ".join(segments)}" fill="none" '
+            f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
+            f'opacity="0.7" stroke-linecap="round"/>'
+        )
+
+
+def _render_floor_detail(
+    svg: list[str], level: "Level", seed: int,
+) -> None:
+    """Scatter cracks and small stones on floor tiles."""
+    rng = random.Random(seed + 99)
+    cracks: list[str] = []
+    stones: list[str] = []
+    scratches: list[str] = []
+
+    for y in range(level.height):
+        for x in range(level.width):
+            if not _is_floor(level, x, y):
+                continue
+            _tile_detail(rng, x, y, seed, cracks, stones, scratches)
+
+    _emit_detail(svg, cracks, stones, scratches)
 
 
 def _wobble_line(
@@ -522,11 +536,14 @@ def _render_smooth_floor_fills(svg: list[str], level: "Level") -> None:
         svg.append(f'<g>{"".join(fills)}</g>')
 
 
-def _render_smooth_floor_grid(svg: list[str], level: "Level") -> None:
-    """Draw floor grid lines inside smooth-shaped rooms.
+def _render_smooth_floor_grid(
+    svg: list[str], level: "Level", seed: int = 0,
+) -> None:
+    """Draw floor grid and detail inside smooth-shaped rooms.
 
-    Uses SVG clip paths to extend the regular tile grid up to the
-    smooth shape boundary instead of stopping at tile edges.
+    Uses SVG clip paths to extend the wobbly grid and floor detail
+    (cracks, stones, scratches) to the smooth shape boundary.
+    Reuses the same helpers as the tile-based renderer.
     """
     rooms_with_outlines: list[tuple] = []
     for room in level.rooms:
@@ -537,52 +554,34 @@ def _render_smooth_floor_grid(svg: list[str], level: "Level") -> None:
     if not rooms_with_outlines:
         return
 
-    rng = random.Random(41)
-    wobble = CELL * 0.05
-    n_sub = 5
+    grid_rng = random.Random(41)
+    detail_rng = random.Random(seed + 99)
 
     for idx, (room, outline) in enumerate(rooms_with_outlines):
         r = room.rect
-        clip_id = f"smooth-grid-clip-{idx}"
+        clip_id = f"smooth-clip-{idx}"
 
-        # Define clip path from the shape outline
         clip_el = outline.replace('/>', ' fill="white"/>')
         svg.append(
             f'<defs><clipPath id="{clip_id}">'
             f'{clip_el}</clipPath></defs>')
 
-        # Draw grid lines clipped to the shape, covering the
-        # full bounding rect area (lines extend to shape edge)
+        # Grid lines spanning the full bounding rect, clipped
         segments: list[str] = []
         for y in range(r.y, r.y2 + 1):
-            # Horizontal line at each row boundary
-            py = y * CELL
-            pts = []
-            for i in range(n_sub + 1):
-                t = i / n_sub
-                lx = r.x * CELL + t * r.width * CELL
-                ly = py + _noise.pnoise2(
-                    r.x * 0.3 + t * 0.5, y * 0.7, base=24) * wobble
-                pts.append((lx, ly))
-            seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
-            for p in pts[1:]:
-                seg += f' L{p[0]:.1f},{p[1]:.1f}'
-            segments.append(seg)
-
+            segments.append(_wobbly_grid_seg(
+                grid_rng,
+                r.x * CELL, y * CELL,
+                r.x2 * CELL, y * CELL,
+                r.x * 0.3, y * 0.7, base=24,
+            ))
         for x in range(r.x, r.x2 + 1):
-            # Vertical line at each column boundary
-            px = x * CELL
-            pts = []
-            for i in range(n_sub + 1):
-                t = i / n_sub
-                ly = r.y * CELL + t * r.height * CELL
-                lx = px + _noise.pnoise2(
-                    x * 0.7 + t * 0.5, r.y * 0.7, base=20) * wobble
-                pts.append((lx, ly))
-            seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
-            for p in pts[1:]:
-                seg += f' L{p[0]:.1f},{p[1]:.1f}'
-            segments.append(seg)
+            segments.append(_wobbly_grid_seg(
+                grid_rng,
+                x * CELL, r.y * CELL,
+                x * CELL, r.y2 * CELL,
+                x * 0.7, r.y * 0.7, base=20,
+            ))
 
         if segments:
             svg.append(
@@ -590,6 +589,38 @@ def _render_smooth_floor_grid(svg: list[str], level: "Level") -> None:
                 f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
                 f'opacity="0.7" stroke-linecap="round" '
                 f'clip-path="url(#{clip_id})"/>')
+
+        # Floor detail (cracks, stones, scratches) clipped
+        cracks: list[str] = []
+        stones: list[str] = []
+        scratches: list[str] = []
+        for y in range(r.y, r.y2):
+            for x in range(r.x, r.x2):
+                _tile_detail(
+                    detail_rng, x, y, seed,
+                    cracks, stones, scratches,
+                )
+
+        # Wrap detail in a clipped group
+        detail_els: list[str] = []
+        if cracks:
+            polys = "".join(
+                f'<polygon points="{tri}" fill="none" '
+                f'stroke="{INK}" stroke-width="0.5" '
+                f'stroke-linejoin="round"/>'
+                for tri in cracks
+            )
+            detail_els.append(f'<g opacity="0.5">{polys}</g>')
+        if scratches:
+            detail_els.append(
+                f'<g opacity="0.45">{"".join(scratches)}</g>')
+        if stones:
+            detail_els.append(
+                f'<g opacity="0.8">{"".join(stones)}</g>')
+        if detail_els:
+            svg.append(
+                f'<g clip-path="url(#{clip_id})">'
+                f'{"".join(detail_els)}</g>')
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
