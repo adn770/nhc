@@ -67,6 +67,12 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 4: Hatching (behind walls)
     _render_hatching(svg, level, seed)
 
+    # Layer 4b: Fill smooth-shaped rooms over hatching
+    _render_smooth_floor_fills(svg, level)
+
+    # Layer 4c: Floor grid inside smooth-shaped rooms
+    _render_smooth_floor_grid(svg, level)
+
     # Layer 5: Walls (on top of hatching)
     _render_walls(svg, level)
 
@@ -494,6 +500,96 @@ def _floor_stone(rng: random.Random, px: float, py: float) -> str:
         f'fill="{FLOOR_STONE_FILL}" '
         f'stroke="{FLOOR_STONE_STROKE}" '
         f'stroke-width="{sw:.1f}"/>')
+
+
+def _render_smooth_floor_fills(svg: list[str], level: "Level") -> None:
+    """Fill smooth-shaped rooms with BG color over the hatching layer.
+
+    The hatching pass covers the full map area; this paints over it
+    inside non-rect rooms so the floor is clean before walls are drawn.
+    """
+    fills: list[str] = []
+    for room in level.rooms:
+        outline = _room_svg_outline(room)
+        if not outline:
+            continue
+        # Replace the closing /> with fill attribute
+        el = outline.replace(
+            '/>',
+            f' fill="{BG}" stroke="none"/>')
+        fills.append(el)
+    if fills:
+        svg.append(f'<g>{"".join(fills)}</g>')
+
+
+def _render_smooth_floor_grid(svg: list[str], level: "Level") -> None:
+    """Draw floor grid lines inside smooth-shaped rooms.
+
+    Uses SVG clip paths to extend the regular tile grid up to the
+    smooth shape boundary instead of stopping at tile edges.
+    """
+    rooms_with_outlines: list[tuple] = []
+    for room in level.rooms:
+        outline = _room_svg_outline(room)
+        if outline:
+            rooms_with_outlines.append((room, outline))
+
+    if not rooms_with_outlines:
+        return
+
+    rng = random.Random(41)
+    wobble = CELL * 0.05
+    n_sub = 5
+
+    for idx, (room, outline) in enumerate(rooms_with_outlines):
+        r = room.rect
+        clip_id = f"smooth-grid-clip-{idx}"
+
+        # Define clip path from the shape outline
+        clip_el = outline.replace('/>', ' fill="white"/>')
+        svg.append(
+            f'<defs><clipPath id="{clip_id}">'
+            f'{clip_el}</clipPath></defs>')
+
+        # Draw grid lines clipped to the shape, covering the
+        # full bounding rect area (lines extend to shape edge)
+        segments: list[str] = []
+        for y in range(r.y, r.y2 + 1):
+            # Horizontal line at each row boundary
+            py = y * CELL
+            pts = []
+            for i in range(n_sub + 1):
+                t = i / n_sub
+                lx = r.x * CELL + t * r.width * CELL
+                ly = py + _noise.pnoise2(
+                    r.x * 0.3 + t * 0.5, y * 0.7, base=24) * wobble
+                pts.append((lx, ly))
+            seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
+            for p in pts[1:]:
+                seg += f' L{p[0]:.1f},{p[1]:.1f}'
+            segments.append(seg)
+
+        for x in range(r.x, r.x2 + 1):
+            # Vertical line at each column boundary
+            px = x * CELL
+            pts = []
+            for i in range(n_sub + 1):
+                t = i / n_sub
+                ly = r.y * CELL + t * r.height * CELL
+                lx = px + _noise.pnoise2(
+                    x * 0.7 + t * 0.5, r.y * 0.7, base=20) * wobble
+                pts.append((lx, ly))
+            seg = f'M{pts[0][0]:.1f},{pts[0][1]:.1f}'
+            for p in pts[1:]:
+                seg += f' L{p[0]:.1f},{p[1]:.1f}'
+            segments.append(seg)
+
+        if segments:
+            svg.append(
+                f'<path d="{" ".join(segments)}" fill="none" '
+                f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
+                f'opacity="0.7" stroke-linecap="round" '
+                f'clip-path="url(#{clip_id})"/>')
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
