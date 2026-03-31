@@ -93,7 +93,7 @@ class CircleShape(RoomShape):
     def _diameter(rect: Rect) -> int:
         """Effective diameter (always odd)."""
         d = min(rect.width, rect.height)
-        return d if d % 2 == 1 else d - 1
+        return d if d % 2 == 1 else d + 1
 
     def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
         d = self._diameter(rect)
@@ -126,24 +126,6 @@ class CircleShape(RoomShape):
             (cx + r + 1, cy),  # east
         ]
 
-
-class HexShape(RoomShape):
-    """Hexagonal room — flat-topped hex inscribed in the bounding rect."""
-
-    type_name = "hex"
-
-    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
-        cy = rect.y + (rect.height - 1) / 2
-        half_h = (rect.height - 1) / 2
-        if half_h <= 0:
-            return set()
-        tiles: set[tuple[int, int]] = set()
-        for y in range(rect.y, rect.y2):
-            dy = abs(y - cy) / half_h
-            inset = round(rect.width * dy / 4)
-            for x in range(rect.x + inset, rect.x2 - inset):
-                tiles.add((x, y))
-        return tiles
 
 
 class OctagonShape(RoomShape):
@@ -251,7 +233,6 @@ class HybridShape(RoomShape):
 _SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
     "rect": RectShape,
     "circle": CircleShape,
-    "hex": HexShape,
     "octagon": OctagonShape,
     "cross": CrossShape,
 }

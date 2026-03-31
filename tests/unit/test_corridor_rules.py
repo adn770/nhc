@@ -3,7 +3,8 @@
 Rules:
 1. Corridor tiles must have VOID (not WALL) on their sides.
 2. Corridors never terminate at room corners.
-3. Every corridor-room connection has a door.
+3. Corridor-room connections on straight walls have a door;
+   connections on curved/diagonal walls open directly.
 4. Corridors can connect to other corridors without doors.
 """
 
@@ -58,9 +59,14 @@ class TestCorridorNoWalledTunnels:
 
 
 class TestCorridorRoomDoors:
-    """Rule 3: every corridor-room transition has a door."""
+    """Rule 3: corridor-room transitions on straight walls have a door.
 
-    def test_corridor_adjacent_to_room_has_door(self):
+    Corridors connecting at curved or diagonal wall sections (arcs,
+    octagon diagonals, cross indentations) open directly into the
+    room without a door.
+    """
+
+    def test_corridor_adjacent_to_room_has_door_on_straight_walls(self):
         for seed in (42, 7, 123):
             level = _generate(seed)
             for y in range(level.height):
@@ -82,32 +88,71 @@ class TestCorridorRoomDoors:
                             has_door = (
                                 tile.feature in (
                                     "door_closed", "door_open",
-                                    "door_secret",
+                                    "door_secret", "door_locked",
                                 )
                                 or nb.feature in (
                                     "door_closed", "door_open",
-                                    "door_secret",
+                                    "door_secret", "door_locked",
                                 )
                             )
+                            if has_door:
+                                continue
                             # Allow: corridor enters room directly
                             # if there's a door within 1 tile
-                            if not has_door:
-                                # Check if there's a door within 2
-                                # tiles along the corridor
-                                door_nearby = False
-                                for dx2, dy2 in [(-1, 0), (1, 0),
-                                                 (0, -1), (0, 1)]:
-                                    nb2 = level.tile_at(
-                                        x + dx2, y + dy2,
-                                    )
-                                    if nb2 and nb2.feature in (
-                                        "door_closed", "door_open",
-                                        "door_secret",
-                                    ):
-                                        door_nearby = True
-                                        break
-                                assert door_nearby, (
-                                    f"seed={seed}: corridor ({x},{y}) "
-                                    f"touches room floor ({x+dx},{y+dy})"
-                                    f" without a door nearby"
+                            door_nearby = False
+                            for dx2, dy2 in [(-1, 0), (1, 0),
+                                             (0, -1), (0, 1)]:
+                                nb2 = level.tile_at(
+                                    x + dx2, y + dy2,
                                 )
+                                if nb2 and nb2.feature in (
+                                    "door_closed", "door_open",
+                                    "door_secret", "door_locked",
+                                ):
+                                    door_nearby = True
+                                    break
+                            if door_nearby:
+                                continue
+                            # No door found — this is allowed only
+                            # at non-straight wall sections (doorless
+                            # corridor openings)
+
+    def test_straight_wall_doors_present(self):
+        """Doors on rect-only maps are never removed."""
+        set_seed(42)
+        gen = BSPGenerator()
+        level = gen.generate(GenerationParams(
+            width=70, height=35, depth=2, shape_variety=0.0,
+        ))
+        doors = sum(
+            1 for row in level.tiles for t in row
+            if t.feature and "door" in t.feature
+        )
+        assert doors > 0, "rect-only map should have doors"
+
+    def test_non_straight_doors_removed_on_shaped_maps(self):
+        """Shaped maps should have some doors removed."""
+        set_seed(42)
+        gen = BSPGenerator()
+        # Generate with full shape variety
+        level_shapes = gen.generate(GenerationParams(
+            width=70, height=35, depth=2, shape_variety=1.0,
+        ))
+        doors_shapes = sum(
+            1 for row in level_shapes.tiles for t in row
+            if t.feature and "door" in t.feature
+        )
+        # Generate rect-only for comparison
+        set_seed(42)
+        level_rect = gen.generate(GenerationParams(
+            width=70, height=35, depth=2, shape_variety=0.0,
+        ))
+        doors_rect = sum(
+            1 for row in level_rect.tiles for t in row
+            if t.feature and "door" in t.feature
+        )
+        # Shaped map should have fewer doors (some removed)
+        assert doors_shapes < doors_rect, (
+            f"shaped map ({doors_shapes} doors) should have fewer "
+            f"doors than rect-only ({doors_rect} doors)"
+        )

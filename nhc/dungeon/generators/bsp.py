@@ -18,7 +18,6 @@ from nhc.dungeon.model import (
     CircleShape,
     Corridor,
     CrossShape,
-    HexShape,
     HybridShape,
     Level,
     LevelMetadata,
@@ -490,6 +489,9 @@ class BSPGenerator(DungeonGenerator):
         # Compute door_side for all door tiles
         self._compute_door_sides(level)
 
+        # Remove doors on non-straight wall sections (arcs, diagonals)
+        self._remove_non_straight_doors(level)
+
         doors = sum(1 for row in level.tiles for t in row
                     if t.feature and "door" in t.feature)
         secrets = sum(1 for row in level.tiles for t in row
@@ -554,6 +556,106 @@ class BSPGenerator(DungeonGenerator):
                             tile.door_side = side
                             break
 
+    @staticmethod
+    def _remove_non_straight_doors(level: Level) -> None:
+        """Remove doors on curved or diagonal wall sections.
+
+        A door sits on a straight wall when the adjacent room floor
+        tile has floor neighbors on both sides along the wall
+        direction (indicating a straight run of floor, not a corner
+        or curve).  Doors that fail this check — arcs, octagon
+        diagonals, cross indentations — are converted to plain
+        corridor floor tiles so the corridor opens directly into
+        the room.
+        """
+        door_feats = {
+            "door_closed", "door_open", "door_secret", "door_locked",
+        }
+        # Direction toward room floor for each door_side
+        _ROOM_DIR = {
+            "north": (0, -1),
+            "south": (0, 1),
+            "east":  (1, 0),
+            "west":  (-1, 0),
+        }
+        # Wall-parallel offsets to check along the floor run
+        _WALL_PARALLEL = {
+            "north": [(-1, 0), (1, 0)],
+            "south": [(-1, 0), (1, 0)],
+            "east":  [(0, -1), (0, 1)],
+            "west":  [(0, -1), (0, 1)],
+        }
+
+        # Map floor positions to their room for non-rect rooms.
+        floor_to_room: dict[tuple[int, int], Room] = {}
+        for room in level.rooms:
+            if isinstance(room.shape, RectShape):
+                continue
+            for pos in room.floor_tiles():
+                floor_to_room[pos] = room
+
+        removed = 0
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if tile.feature not in door_feats:
+                    continue
+                if not tile.door_side:
+                    continue
+                # Find the room floor tile adjacent to this door
+                rdx, rdy = _ROOM_DIR[tile.door_side]
+                floor_pos = (x + rdx, y + rdy)
+                room = floor_to_room.get(floor_pos)
+                if room is None:
+                    continue  # rect room — keep door
+
+                # A door on the bounding rect's edge is straight
+                # when the floor reaches that edge at the door's
+                # row/column.  This keeps doors on flat sides of
+                # octagons, rect halves of hybrids, and cross arms
+                # while removing them at curves and diagonals.
+                r = room.rect
+                fx, fy = floor_pos
+                floor_tiles = room.floor_tiles()
+                straight = True
+                # A door is on a straight wall when the room
+                # outline runs parallel to the rect boundary at
+                # the door position.  This holds when the floor
+                # reaches the rect edge AND enough floor tiles
+                # span the wall direction (≥3 tiles in a row
+                # along the rect edge) — indicating a flat side,
+                # not a narrow tip or diagonal.
+                if tile.door_side in ("east", "west"):
+                    edge_x = r.x if tile.door_side == "east" \
+                        else r.x2 - 1
+                    if fx != edge_x:
+                        straight = False
+                    else:
+                        # Count floor tiles along Y at this column
+                        span = sum(
+                            1 for yy in range(r.y, r.y2)
+                            if (edge_x, yy) in floor_tiles
+                        )
+                        straight = span >= 3
+                else:
+                    edge_y = r.y if tile.door_side == "south" \
+                        else r.y2 - 1
+                    if fy != edge_y:
+                        straight = False
+                    else:
+                        span = sum(
+                            1 for xx in range(r.x, r.x2)
+                            if (xx, edge_y) in floor_tiles
+                        )
+                        straight = span >= 3
+                if not straight:
+                    tile.feature = None
+                    tile.is_corridor = True
+                    tile.door_side = ""
+                    removed += 1
+        if removed:
+            logger.info("Removed %d doors on non-straight walls", removed)
+
     # ── Carving helpers ─────────────────────────────────────────────
 
     def _build_walls(self, level: Level) -> None:
@@ -611,7 +713,7 @@ class BSPGenerator(DungeonGenerator):
 
         # Collect eligible shapes for this room size
         candidates: list[type[RoomShape]] = [
-            HexShape, OctagonShape, CrossShape,
+            OctagonShape, CrossShape,
         ]
         # Circles only for near-square rooms where both dimensions
         # are odd (ensures integer center and clean cardinal points)

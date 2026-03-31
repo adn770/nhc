@@ -1,7 +1,7 @@
 """Tests for room shape abstraction."""
 
 from nhc.dungeon.model import (
-    CircleShape, CrossShape, HexShape, HybridShape, OctagonShape,
+    CircleShape, CrossShape, HybridShape, OctagonShape,
     Rect, Room, RoomShape, RectShape,
 )
 
@@ -171,51 +171,6 @@ class TestCircleShape:
         assert (0, 0) not in tiles
 
 
-class TestHexShape:
-    def test_type_name(self):
-        assert HexShape.type_name == "hex"
-
-    def test_7x7_hex(self):
-        rect = Rect(0, 0, 7, 7)
-        tiles = HexShape().floor_tiles(rect)
-        # Center must be floor
-        assert (3, 3) in tiles
-        # Full width at center row
-        for x in range(0, 7):
-            assert (x, 3) in tiles
-        # Narrower at top/bottom
-        assert (0, 0) not in tiles
-        assert (6, 0) not in tiles
-
-    def test_hex_symmetry(self):
-        rect = Rect(0, 0, 9, 9)
-        tiles = HexShape().floor_tiles(rect)
-        cx, cy = 4, 4
-        for x, y in tiles:
-            # Vertical symmetry
-            assert (x, 2 * cy - y) in tiles, f"V-mirror of ({x},{y})"
-            # Horizontal symmetry
-            assert (2 * cx - x, y) in tiles, f"H-mirror of ({x},{y})"
-
-    def test_hex_fewer_tiles_than_rect(self):
-        rect = Rect(0, 0, 7, 7)
-        assert len(HexShape().floor_tiles(rect)) < len(
-            RectShape().floor_tiles(rect)
-        )
-
-    def test_hex_subset_of_rect(self):
-        rect = Rect(2, 3, 8, 6)
-        assert HexShape().floor_tiles(rect) <= RectShape().floor_tiles(rect)
-
-    def test_hex_perimeter(self):
-        rect = Rect(0, 0, 7, 7)
-        shape = HexShape()
-        floor = shape.floor_tiles(rect)
-        perimeter = shape.perimeter_tiles(rect)
-        assert len(perimeter) > 0
-        assert perimeter <= floor
-        assert len(floor - perimeter) > 0  # has interior
-
 
 class TestOctagonShape:
     def test_type_name(self):
@@ -365,8 +320,8 @@ class TestHybridShape:
     def test_hybrid_type_name(self):
         shape = HybridShape(CircleShape(), RectShape(), "vertical")
         assert shape.type_name == "hybrid_circle_rect_v"
-        shape2 = HybridShape(HexShape(), RectShape(), "horizontal")
-        assert shape2.type_name == "hybrid_hex_rect_h"
+        shape2 = HybridShape(OctagonShape(), RectShape(), "horizontal")
+        assert shape2.type_name == "hybrid_octagon_rect_h"
 
     def test_hybrid_perimeter(self):
         rect = Rect(0, 0, 10, 7)
@@ -398,11 +353,6 @@ class TestShapeRegistry:
         from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("circle")
         assert isinstance(shape, CircleShape)
-
-    def test_resolve_hex(self):
-        from nhc.dungeon.model import shape_from_type
-        shape = shape_from_type("hex")
-        assert isinstance(shape, HexShape)
 
     def test_resolve_octagon(self):
         from nhc.dungeon.model import shape_from_type

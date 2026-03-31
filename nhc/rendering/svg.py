@@ -110,6 +110,697 @@ def _is_door(level: "Level", x: int, y: int) -> bool:
     return f in ("door_closed", "door_open", "door_locked")
 
 
+def _find_doorless_openings(
+    room, level: "Level",
+) -> list[tuple[int, int, int, int]]:
+    """Find edges where corridors enter a room without a door.
+
+    Returns list of (room_x, room_y, corridor_x, corridor_y).
+    """
+    from nhc.dungeon.model import Terrain
+    _DOOR_FEATS = {
+        "door_closed", "door_open", "door_secret", "door_locked",
+    }
+    floor = room.floor_tiles()
+    openings = []
+    for fx, fy in floor:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nx, ny = fx + dx, fy + dy
+            if (nx, ny) in floor:
+                continue
+            nb = level.tile_at(nx, ny)
+            if (nb and nb.is_corridor
+                    and nb.terrain == Terrain.FLOOR
+                    and nb.feature not in _DOOR_FEATS):
+                openings.append((fx, fy, nx, ny))
+    return openings
+
+
+def _outline_with_gaps(
+    room, outline_el: str,
+    openings: list[tuple[int, int, int, int]],
+) -> tuple[str, list[str]]:
+    """Modify a smooth outline to have gaps at corridor openings.
+
+    Returns (gapped_svg_element, wall_extension_segments).
+
+    For each opening, finds where the corridor walls intersect the
+    room's geometric outline, gaps the outline there, and adds
+    line segments extending the corridor walls to the intersection
+    points.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, CrossShape, HybridShape, OctagonShape,
+    )
+    shape = room.shape
+    r = room.rect
+
+    # Compute gap cut points on the outline for each opening.
+    gaps = []  # list of (point_a, point_b) on the outline
+    extensions = []  # SVG path segments for corridor wall extensions
+
+    for fx, fy, cx, cy in openings:
+        dx, dy = cx - fx, cy - fy
+        if dy != 0:  # N/S corridor → vertical walls
+            wall_a = (fx * CELL, fy * CELL if dy == -1
+                      else (fy + 1) * CELL)
+            wall_b = ((fx + 1) * CELL, wall_a[1])
+        else:  # E/W corridor → horizontal walls
+            wall_a = (fx * CELL if dx == -1
+                      else (fx + 1) * CELL, fy * CELL)
+            wall_b = (wall_a[0], (fy + 1) * CELL)
+
+        hit_a = _intersect_outline(shape, r, wall_a, dx, dy)
+        hit_b = _intersect_outline(shape, r, wall_b, dx, dy)
+        if hit_a and hit_b:
+            gaps.append((hit_a, hit_b))
+            # Extend corridor walls from arc intersection to
+            # the far end of the corridor tile (away from room)
+            if dy != 0:
+                far_y = cy * CELL if dy == -1 else (cy + 1) * CELL
+                extensions.append(
+                    f'M{hit_a[0]:.1f},{hit_a[1]:.1f} '
+                    f'L{wall_a[0]:.1f},{far_y:.1f}'
+                )
+                extensions.append(
+                    f'M{hit_b[0]:.1f},{hit_b[1]:.1f} '
+                    f'L{wall_b[0]:.1f},{far_y:.1f}'
+                )
+            else:
+                far_x = cx * CELL if dx == -1 else (cx + 1) * CELL
+                extensions.append(
+                    f'M{hit_a[0]:.1f},{hit_a[1]:.1f} '
+                    f'L{far_x:.1f},{wall_a[1]:.1f}'
+                )
+                extensions.append(
+                    f'M{hit_b[0]:.1f},{hit_b[1]:.1f} '
+                    f'L{far_x:.1f},{wall_b[1]:.1f}'
+                )
+
+    if not gaps:
+        return outline_el, extensions
+
+    # Build gapped outline based on shape type
+    if isinstance(shape, CircleShape):
+        gapped = _circle_with_gaps(shape, r, gaps)
+    elif isinstance(shape, (OctagonShape, CrossShape)):
+        gapped = _polygon_with_gaps(shape, r, gaps)
+    elif isinstance(shape, HybridShape):
+        gapped = _hybrid_with_gaps(room, gaps)
+    else:
+        return outline_el, extensions
+
+    return gapped if gapped else outline_el, extensions
+
+
+def _intersect_outline(
+    shape, rect, wall_point: tuple[float, float],
+    dx: int, dy: int,
+) -> tuple[float, float] | None:
+    """Find where a corridor wall line hits the room outline.
+
+    *wall_point* is one end of a corridor wall on the tile edge.
+    *(dx, dy)* is the direction from room to corridor.
+    The wall extends inward (opposite to dx, dy) until it hits
+    the outline.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, CrossShape, HybridShape, OctagonShape,
+    )
+    r = rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+    wx, wy = wall_point
+
+    if isinstance(shape, CircleShape):
+        d = shape._diameter(r)
+        radius = d * CELL / 2
+        ccx = px + pw / 2
+        ccy = py + ph / 2
+        return _intersect_circle(ccx, ccy, radius, wx, wy, dx, dy)
+
+    if isinstance(shape, HybridShape):
+        return _intersect_hybrid(shape, r, wx, wy, dx, dy)
+
+    if isinstance(shape, (OctagonShape, CrossShape)):
+        verts = _polygon_vertices(shape, r)
+        return _intersect_polygon_edges(verts, wx, wy, dx, dy)
+
+    return None
+
+
+def _intersect_circle(
+    ccx: float, ccy: float, radius: float,
+    wx: float, wy: float, dx: int, dy: int,
+) -> tuple[float, float] | None:
+    """Intersect a corridor wall line with the circle.
+
+    For N/S corridors (dx=0): walls are vertical at x=wx,
+    intersect x=wx with circle.
+    For E/W corridors (dy=0): walls are horizontal at y=wy,
+    intersect y=wy with circle.
+    """
+    if dy != 0:
+        # N/S corridor → vertical wall at x=wx
+        rel = wx - ccx
+        if abs(rel) >= radius:
+            return None
+        offset = math.sqrt(radius * radius - rel * rel)
+        if dy < 0:
+            return (wx, ccy - offset)
+        else:
+            return (wx, ccy + offset)
+    else:
+        # E/W corridor → horizontal wall at y=wy
+        rel = wy - ccy
+        if abs(rel) >= radius:
+            return None
+        offset = math.sqrt(radius * radius - rel * rel)
+        if dx < 0:
+            return (ccx - offset, wy)
+        else:
+            return (ccx + offset, wy)
+
+
+def _intersect_hybrid(
+    shape, rect, wx: float, wy: float,
+    dx: int, dy: int,
+) -> tuple[float, float] | None:
+    """Intersect a corridor wall with a hybrid room outline."""
+    from nhc.dungeon.model import CircleShape, OctagonShape, RectShape
+    r = rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if shape.split == "horizontal":
+        mid = py + (r.height // 2) * CELL
+        # Determine which sub-shape the wall hits based on wy
+        if wy <= mid:
+            sub = shape.left
+            sub_py, sub_ph = py, mid - py
+        else:
+            sub = shape.right
+            sub_py, sub_ph = mid, py + ph - mid
+    else:
+        mid = px + (r.width // 2) * CELL
+        if wx <= mid:
+            sub = shape.left
+            sub_px, sub_pw = px, mid - px
+        else:
+            sub = shape.right
+            sub_px, sub_pw = mid, px + pw - mid
+
+    if isinstance(sub, CircleShape):
+        if shape.split == "horizontal":
+            from nhc.dungeon.model import Rect
+            tw = r.width
+            th = int(sub_ph / CELL)
+            d = sub._diameter(Rect(0, 0, tw, th))
+            radius = d * CELL / 2
+            ccx = px + pw / 2
+            ccy = sub_py + sub_ph / 2
+        else:
+            from nhc.dungeon.model import Rect
+            tw = int(sub_pw / CELL)
+            th = r.height
+            d = sub._diameter(Rect(0, 0, tw, th))
+            radius = d * CELL / 2
+            ccx = sub_px + sub_pw / 2
+            ccy = py + ph / 2
+        return _intersect_circle(ccx, ccy, radius, wx, wy, dx, dy)
+
+    if isinstance(sub, (OctagonShape,)):
+        # Build sub-shape polygon and intersect
+        from nhc.dungeon.model import Rect
+        if shape.split == "horizontal":
+            sub_rect = Rect(r.x, int(sub_py / CELL), r.width,
+                            int(sub_ph / CELL))
+        else:
+            sub_rect = Rect(int(sub_px / CELL), r.y,
+                            int(sub_pw / CELL), r.height)
+        verts = _polygon_vertices(sub, sub_rect)
+        return _intersect_polygon_edges(verts, wx, wy, dx, dy)
+
+    # RectShape — wall is on the bounding rect edge, intersection
+    # is just the wall point itself (no extension needed)
+    return (wx, wy)
+
+
+def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
+    """Get pixel-space vertices for an octagon or cross shape."""
+    from nhc.dungeon.model import CrossShape, OctagonShape
+    r = rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if isinstance(shape, OctagonShape):
+        clip = max(1, min(r.width, r.height) // 3) * CELL
+        return [
+            (px + clip, py),
+            (px + pw - clip, py),
+            (px + pw, py + clip),
+            (px + pw, py + ph - clip),
+            (px + pw - clip, py + ph),
+            (px + clip, py + ph),
+            (px, py + ph - clip),
+            (px, py + clip),
+        ]
+    if isinstance(shape, CrossShape):
+        bw = max(2, r.width // 3) * CELL
+        bh = max(2, r.height // 3) * CELL
+        cx = px + pw / 2
+        cy = py + ph / 2
+        hbw, hbh = bw / 2, bh / 2
+        return [
+            (cx - hbw, py),
+            (cx + hbw, py),
+            (cx + hbw, cy - hbh),
+            (px + pw, cy - hbh),
+            (px + pw, cy + hbh),
+            (cx + hbw, cy + hbh),
+            (cx + hbw, py + ph),
+            (cx - hbw, py + ph),
+            (cx - hbw, cy + hbh),
+            (px, cy + hbh),
+            (px, cy - hbh),
+            (cx - hbw, cy - hbh),
+        ]
+    return []
+
+
+def _intersect_polygon_edges(
+    verts: list[tuple[float, float]],
+    wx: float, wy: float, dx: int, dy: int,
+) -> tuple[float, float] | None:
+    """Find where a corridor wall hits the polygon outline.
+
+    Shoots a ray from (wx, wy) inward (opposite to (dx, dy))
+    and returns the nearest polygon edge intersection.
+    """
+    # Ray direction: inward = opposite of corridor direction
+    rdx, rdy = -dx, -dy
+    best = None
+    best_t = float('inf')
+
+    n = len(verts)
+    for i in range(n):
+        ax, ay = verts[i]
+        bx, by = verts[(i + 1) % n]
+        # Edge vector
+        ex, ey = bx - ax, by - ay
+
+        denom = rdx * ey - rdy * ex
+        if abs(denom) < 1e-9:
+            continue
+        t = ((ax - wx) * ey - (ay - wy) * ex) / denom
+        u = ((ax - wx) * rdy - (ay - wy) * rdx) / denom
+        if t >= 0 and 0 <= u <= 1 and t < best_t:
+            best_t = t
+            best = (wx + rdx * t, wy + rdy * t)
+
+    return best
+
+
+# ── Gapped outline builders ──────────────────────────────────────
+
+
+def _circle_with_gaps(
+    shape, rect, gaps: list[tuple],
+) -> str | None:
+    """Build an SVG path for a circle with gaps at openings."""
+    r = rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+    d = shape._diameter(r)
+    radius = d * CELL / 2
+    ccx = px + pw / 2
+    ccy = py + ph / 2
+
+    # Convert gap points to angles
+    gap_angles = []
+    for (ax, ay), (bx, by) in gaps:
+        a1 = math.atan2(ay - ccy, ax - ccx)
+        a2 = math.atan2(by - ccy, bx - ccx)
+        # Ensure a1 < a2 going clockwise (SVG convention)
+        if a1 > a2:
+            a1, a2 = a2, a1
+        gap_angles.append((a1, a2))
+
+    # Sort by start angle
+    gap_angles.sort()
+
+    # Build arc segments between gaps
+    # Walk from 0 to 2π, skipping gap intervals
+    arcs = []
+    # Collect all boundary angles
+    boundaries = []
+    for a1, a2 in gap_angles:
+        boundaries.append(('end', a1))
+        boundaries.append(('start', a2))
+
+    if not boundaries:
+        return None
+
+    # Start from the end of the first gap, go around to the
+    # start of the first gap
+    parts = []
+    # Normalize: walk clockwise from first gap end
+    sorted_events = []
+    for a1, a2 in gap_angles:
+        sorted_events.append((a1, 'gap_start'))
+        sorted_events.append((a2, 'gap_end'))
+    sorted_events.sort()
+
+    # Build segments: from each gap_end to next gap_start
+    segments = []
+    for i, (angle, event) in enumerate(sorted_events):
+        if event == 'gap_end':
+            # Find next gap_start
+            next_idx = (i + 1) % len(sorted_events)
+            next_angle, next_event = sorted_events[next_idx]
+            if next_event == 'gap_start':
+                segments.append((angle, next_angle))
+            else:
+                # Next is another gap_end, skip to its gap_start
+                pass
+
+    if not segments:
+        # Single gap: draw from gap end all the way around to gap start
+        a1, a2 = gap_angles[0]
+        segments = [(a2, a1 + 2 * math.pi)]
+
+    path_parts = []
+    for start_a, end_a in segments:
+        # Start point
+        sx = ccx + radius * math.cos(start_a)
+        sy = ccy + radius * math.sin(start_a)
+        # End point
+        ex = ccx + radius * math.cos(end_a)
+        ey = ccy + radius * math.sin(end_a)
+        # Arc sweep
+        sweep_angle = end_a - start_a
+        if sweep_angle < 0:
+            sweep_angle += 2 * math.pi
+        large = 1 if sweep_angle > math.pi else 0
+        path_parts.append(
+            f'M{sx:.1f},{sy:.1f} '
+            f'A{radius:.1f},{radius:.1f} 0 {large},1 '
+            f'{ex:.1f},{ey:.1f}'
+        )
+
+    return f'<path d="{" ".join(path_parts)}"/>'
+
+
+def _polygon_with_gaps(
+    shape, rect, gaps: list[tuple],
+) -> str | None:
+    """Build an SVG path for a polygon with gaps at openings."""
+    verts = _polygon_vertices(shape, rect)
+    if not verts:
+        return None
+
+    # For each polygon edge, check if any gap intersects it.
+    # Build the path, breaking where gaps occur.
+    n = len(verts)
+    path_parts = []
+    current_path: list[str] = []
+
+    for i in range(n):
+        ax, ay = verts[i]
+        bx, by = verts[(i + 1) % n]
+
+        # Check if any gap point falls on this edge
+        edge_cuts = []
+        for (g1x, g1y), (g2x, g2y) in gaps:
+            for gx, gy in [(g1x, g1y), (g2x, g2y)]:
+                t = _point_on_segment(ax, ay, bx, by, gx, gy)
+                if t is not None:
+                    edge_cuts.append((t, gx, gy))
+
+        edge_cuts.sort()
+
+        if not edge_cuts:
+            # No gap on this edge, add normally
+            if not current_path:
+                current_path.append(f'M{ax:.1f},{ay:.1f}')
+            current_path.append(f'L{bx:.1f},{by:.1f}')
+        else:
+            # Walk edge, inserting gaps
+            prev_t = 0.0
+            prev_x, prev_y = ax, ay
+            # Pair up cuts: they come in pairs (enter gap, leave gap)
+            # Each gap has two points on the polygon
+            for t, gx, gy in edge_cuts:
+                # Draw to the gap point
+                if not current_path:
+                    current_path.append(f'M{prev_x:.1f},{prev_y:.1f}')
+                current_path.append(f'L{gx:.1f},{gy:.1f}')
+                # End this segment (gap starts)
+                path_parts.append(" ".join(current_path))
+                current_path = []
+                prev_x, prev_y = gx, gy
+            # Continue to edge end
+            if not current_path:
+                current_path.append(
+                    f'M{prev_x:.1f},{prev_y:.1f}')
+            current_path.append(f'L{bx:.1f},{by:.1f}')
+
+    if current_path:
+        path_parts.append(" ".join(current_path))
+
+    # Try to merge first and last segments if they connect
+    if (len(path_parts) > 1
+            and not any(g for g in gaps
+                        if _gap_on_edge(
+                            verts[-1], verts[0], g))):
+        # First vertex connects to last — merge
+        last = path_parts[-1]
+        first = path_parts[0]
+        # Replace M in first with continuation from last
+        if first.startswith('M'):
+            merged = last + " " + first[first.index('L'):]
+            path_parts = path_parts[1:-1]
+            path_parts.insert(0, merged)
+
+    return f'<path d="{" ".join(path_parts)}"/>'
+
+
+def _hybrid_with_gaps(
+    room, gaps: list[tuple],
+) -> str | None:
+    """Build an SVG path for a hybrid room with gaps in arcs.
+
+    Reuses the original outline structure — side walls and rect
+    edges stay intact, only the arc segment gets split at gap
+    points.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, HybridShape, OctagonShape, Rect, RectShape,
+    )
+    shape = room.shape
+    r = room.rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if shape.split == "horizontal":
+        mid = py + (r.height // 2) * CELL
+    else:
+        mid = px + (r.width // 2) * CELL
+
+    # Compute circle sub-shape geometry
+    circle_sub = None
+    circle_side = None
+    for side_name, sub in [("left", shape.left), ("right", shape.right)]:
+        if isinstance(sub, CircleShape):
+            circle_sub = sub
+            circle_side = side_name
+            break
+
+    if not circle_sub:
+        return None  # no circle sub-shape to gap
+
+    if shape.split == "horizontal":
+        if circle_side == "left":
+            sub_py, sub_ph = py, mid - py
+        else:
+            sub_py, sub_ph = mid, py + ph - mid
+        tw, th = r.width, int(sub_ph / CELL)
+        d = circle_sub._diameter(Rect(0, 0, tw, th))
+        sub_r = d * CELL / 2
+        ccx = px + pw / 2
+        ccy = sub_py + sub_ph / 2
+    else:
+        if circle_side == "left":
+            sub_px, sub_pw = px, mid - px
+        else:
+            sub_px, sub_pw = mid, px + pw - mid
+        tw, th = int(sub_pw / CELL), r.height
+        d = circle_sub._diameter(Rect(0, 0, tw, th))
+        sub_r = d * CELL / 2
+        ccx = sub_px + sub_pw / 2
+        ccy = py + ph / 2
+
+    # Convert gap points to angles on the circle
+    gap_angles = []
+    for (ax, ay), (bx, by) in gaps:
+        a1 = math.atan2(ay - ccy, ax - ccx)
+        a2 = math.atan2(by - ccy, bx - ccx)
+        if a1 > a2:
+            a1, a2 = a2, a1
+        gap_angles.append((a1, a2))
+    gap_angles.sort()
+
+    # Determine the arc range for this semicircle.
+    # The outline traces clockwise around the room.
+    # For horizontal split:
+    #   circle on top (left):  arc from left (π) → right (0), CW
+    #   circle on bottom (right): arc from right (0) → left (π), CW
+    # For vertical split:
+    #   circle on left:  arc from top (-π/2) → bottom (π/2), CCW
+    #   circle on right: arc from bottom (π/2) → top (-π/2), CCW
+    if shape.split == "horizontal":
+        if circle_side == "left":
+            arc_start_a = math.pi
+            arc_end_a = 0.0
+            sweep_flag = 1
+        else:
+            arc_start_a = 0.0
+            arc_end_a = math.pi
+            sweep_flag = 1
+    else:
+        if circle_side == "left":
+            arc_start_a = -math.pi / 2
+            arc_end_a = math.pi / 2
+            sweep_flag = 0
+        else:
+            arc_start_a = math.pi / 2
+            arc_end_a = -math.pi / 2
+            sweep_flag = 0
+
+    arc_start_pt = (ccx + sub_r * math.cos(arc_start_a),
+                    ccy + sub_r * math.sin(arc_start_a))
+    arc_end_pt = (ccx + sub_r * math.cos(arc_end_a),
+                  ccy + sub_r * math.sin(arc_end_a))
+
+    # Build the arc portion with gaps
+    def _arc_cmd(from_a: float, to_a: float) -> str:
+        sx = ccx + sub_r * math.cos(from_a)
+        sy = ccy + sub_r * math.sin(from_a)
+        ex = ccx + sub_r * math.cos(to_a)
+        ey = ccy + sub_r * math.sin(to_a)
+        # Compute sweep angle (always going clockwise for sf=1)
+        sweep = to_a - from_a
+        if sweep_flag == 1:
+            if sweep < 0:
+                sweep += 2 * math.pi
+        else:
+            sweep = from_a - to_a
+            if sweep < 0:
+                sweep += 2 * math.pi
+        large = 1 if sweep > math.pi else 0
+        return (f'A{sub_r:.1f},{sub_r:.1f} 0 {large},'
+                f'{sweep_flag} {ex:.1f},{ey:.1f}')
+
+    # Build the complete outline path.  The hybrid outline
+    # structure (horizontal split, circle on top) is:
+    #   M left-mid → L left-arc-start → ARC → L right-mid
+    #   → L right-bottom → L left-bottom → L left-mid Z
+    # We keep the line segments and split only the arc.
+
+    _ARC_TOL = 0.02  # ~1 degree tolerance for skip
+
+    def _append_gapped_arc(parts: list[str], after_arc: str):
+        """Append arc segments with gaps, then *after_arc* line."""
+        cur_a = arc_start_a
+        for g1, g2 in gap_angles:
+            # Arc from current pos to gap start
+            if abs(g1 - cur_a) > _ARC_TOL:
+                parts[-1] += f' {_arc_cmd(cur_a, g1)}'
+            # Start new sub-path after gap
+            if abs(g2 - arc_end_a) > _ARC_TOL:
+                gx2 = ccx + sub_r * math.cos(g2)
+                gy2 = ccy + sub_r * math.sin(g2)
+                parts.append(f'M{gx2:.1f},{gy2:.1f}')
+            cur_a = g2
+        # Final arc from last gap end to arc end
+        if abs(cur_a - arc_end_a) > _ARC_TOL:
+            parts[-1] += f' {_arc_cmd(cur_a, arc_end_a)}'
+        parts[-1] += after_arc
+
+    parts = []
+
+    if shape.split == "horizontal":
+        if circle_side == "left":  # circle on top
+            parts.append(
+                f'M{px:.1f},{mid:.1f} '
+                f'L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
+            _append_gapped_arc(parts,
+                f' L{px + pw:.1f},{mid:.1f}'
+                f' L{px + pw:.1f},{py + ph:.1f}'
+                f' L{px:.1f},{py + ph:.1f}'
+                f' L{px:.1f},{mid:.1f}')
+        else:  # circle on bottom
+            parts.append(
+                f'M{px + pw:.1f},{mid:.1f} '
+                f'L{px + pw:.1f},{py:.1f} '
+                f'L{px:.1f},{py:.1f} '
+                f'L{px:.1f},{mid:.1f}'
+                f' L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
+            _append_gapped_arc(parts,
+                f' L{px + pw:.1f},{mid:.1f}')
+    else:
+        if circle_side == "left":  # circle on left
+            parts.append(
+                f'M{mid:.1f},{py:.1f} '
+                f'L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
+            _append_gapped_arc(parts,
+                f' L{mid:.1f},{py + ph:.1f}'
+                f' L{px + pw:.1f},{py + ph:.1f}'
+                f' L{px + pw:.1f},{py:.1f}'
+                f' L{mid:.1f},{py:.1f}')
+        else:  # circle on right
+            parts.append(
+                f'M{mid:.1f},{py + ph:.1f} '
+                f'L{px:.1f},{py + ph:.1f} '
+                f'L{px:.1f},{py:.1f} '
+                f'L{mid:.1f},{py:.1f}'
+                f' L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
+            _append_gapped_arc(parts,
+                f' L{mid:.1f},{py + ph:.1f}')
+
+    return f'<path d="{" ".join(parts)}"/>'
+
+
+def _point_on_segment(
+    ax: float, ay: float, bx: float, by: float,
+    px: float, py: float, tol: float = 1.0,
+) -> float | None:
+    """If point (px, py) is within *tol* of segment A→B, return t."""
+    dx, dy = bx - ax, by - ay
+    length_sq = dx * dx + dy * dy
+    if length_sq < 1e-9:
+        return None
+    t = ((px - ax) * dx + (py - ay) * dy) / length_sq
+    if t < -0.01 or t > 1.01:
+        return None
+    closest_x = ax + t * dx
+    closest_y = ay + t * dy
+    dist = math.sqrt((px - closest_x) ** 2 + (py - closest_y) ** 2)
+    if dist <= tol:
+        return max(0.0, min(1.0, t))
+    return None
+
+
+def _gap_on_edge(
+    v1: tuple[float, float], v2: tuple[float, float],
+    gap: tuple,
+) -> bool:
+    """Check if either gap point lies on the edge v1→v2."""
+    (g1x, g1y), (g2x, g2y) = gap
+    return (_point_on_segment(*v1, *v2, g1x, g1y) is not None
+            or _point_on_segment(*v1, *v2, g2x, g2y) is not None)
+
+
 # ── Smooth shape outlines ────────────────────────────────────────
 
 
@@ -121,7 +812,7 @@ def _room_svg_outline(room: "Room") -> str | None:
     pixel space (tile * CELL).
     """
     from nhc.dungeon.model import (
-        CircleShape, CrossShape, HexShape, HybridShape,
+        CircleShape, CrossShape, HybridShape,
         OctagonShape, RectShape,
     )
     r = room.rect
@@ -140,24 +831,6 @@ def _room_svg_outline(room: "Room") -> str | None:
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" '
             f'r="{radius:.1f}"/>'
         )
-
-    if isinstance(shape, HexShape):
-        # Flat-topped hexagon: 6 vertices
-        cx = px + pw / 2
-        cy = py + ph / 2
-        hw = pw / 2     # half width
-        hh = ph / 2     # half height
-        inset = pw / 4   # horizontal inset at top/bottom
-        pts = [
-            (px + inset, py),           # top-left
-            (px + pw - inset, py),      # top-right
-            (px + pw, cy),              # right
-            (px + pw - inset, py + ph), # bottom-right
-            (px + inset, py + ph),      # bottom-left
-            (px, cy),                   # left
-        ]
-        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-        return f'<polygon points="{points}"/>'
 
     if isinstance(shape, OctagonShape):
         clip = max(1, min(r.width, r.height) // 3) * CELL
@@ -218,7 +891,7 @@ def _hybrid_svg_outline(room: "Room") -> str | None:
     one side and straight lines on the rect side.
     """
     from nhc.dungeon.model import (
-        CircleShape, HexShape, HybridShape, OctagonShape, RectShape,
+        CircleShape, HybridShape, OctagonShape, RectShape,
     )
     shape = room.shape
     if not isinstance(shape, HybridShape):
@@ -281,7 +954,7 @@ def _half_outline(
     - "bottom": traces right→bottom→left (clockwise across bottom)
     """
     from nhc.dungeon.model import (
-        CircleShape, HexShape, OctagonShape, Rect, RectShape,
+        CircleShape, OctagonShape, Rect, RectShape,
     )
 
     if isinstance(sub_shape, RectShape):
@@ -340,51 +1013,15 @@ def _half_outline(
         if side == "top":
             return (
                 f'L{cx - r:.1f},{cy:.1f} '
-                f'A{r:.1f},{r:.1f} 0 0,0 '
+                f'A{r:.1f},{r:.1f} 0 0,1 '
                 f'{cx + r:.1f},{cy:.1f} '
                 f'L{px + pw:.1f},{py + ph:.1f}'
             )
         if side == "bottom":
             return (
                 f'L{cx + r:.1f},{cy:.1f} '
-                f'A{r:.1f},{r:.1f} 0 0,0 '
+                f'A{r:.1f},{r:.1f} 0 0,1 '
                 f'{cx - r:.1f},{cy:.1f} '
-                f'L{px:.1f},{py:.1f}'
-            )
-
-    if isinstance(sub_shape, HexShape):
-        inset = pw / 4
-        cy = py + ph / 2
-        if side == "left":
-            return (
-                f'L{px + inset:.1f},{py:.1f} '
-                f'L{px:.1f},{cy:.1f} '
-                f'L{px + inset:.1f},{py + ph:.1f} '
-                f'L{px + pw:.1f},{py + ph:.1f}'
-            )
-        if side == "right":
-            return (
-                f'L{px + pw - inset:.1f},{py + ph:.1f} '
-                f'L{px + pw:.1f},{cy:.1f} '
-                f'L{px + pw - inset:.1f},{py:.1f} '
-                f'L{px:.1f},{py:.1f}'
-            )
-        if side == "top":
-            cx = px + pw / 2
-            inset_v = ph / 4
-            return (
-                f'L{px:.1f},{py + inset_v:.1f} '
-                f'L{cx:.1f},{py:.1f} '
-                f'L{px + pw:.1f},{py + inset_v:.1f} '
-                f'L{px + pw:.1f},{py + ph:.1f}'
-            )
-        if side == "bottom":
-            cx = px + pw / 2
-            inset_v = ph / 4
-            return (
-                f'L{px + pw:.1f},{py + ph - inset_v:.1f} '
-                f'L{cx:.1f},{py + ph:.1f} '
-                f'L{px:.1f},{py + ph - inset_v:.1f} '
                 f'L{px:.1f},{py:.1f}'
             )
 
@@ -767,6 +1404,7 @@ def _render_smooth_floor_fills(svg: list[str], level: "Level") -> None:
 
     The hatching pass covers the full map area; this paints over it
     inside non-rect rooms so the floor is clean before walls are drawn.
+    Also clears hatching on corridor tiles at doorless openings.
     """
     fills: list[str] = []
     for room in level.rooms:
@@ -778,6 +1416,14 @@ def _render_smooth_floor_fills(svg: list[str], level: "Level") -> None:
             '/>',
             f' fill="{BG}" stroke="none"/>')
         fills.append(el)
+        # Clear hatching on corridor tiles at doorless openings
+        for opening in _find_doorless_openings(room, level):
+            _, _, cx, cy = opening
+            fills.append(
+                f'<rect x="{cx * CELL}" y="{cy * CELL}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{BG}" stroke="none"/>'
+            )
     if fills:
         svg.append(f'<g>{"".join(fills)}</g>')
 
@@ -877,37 +1523,57 @@ def _render_smooth_floor_grid(
                 f'{"".join(detail_els)}</g>')
 
 
+
 def _render_walls(svg: list[str], level: "Level") -> None:
     """Render walls around rooms and corridors.
 
-    Rooms with smooth geometric shapes (circle, hex, octagon) get
-    proper SVG outlines (ellipse, polygon).  All other walls use
-    tile-edge segments like terminal box-drawing.
+    Rooms with smooth geometric shapes (circle, octagon) get
+    proper SVG outlines (ellipse, polygon) with gaps where
+    doorless corridors enter.  All other walls use tile-edge
+    segments like terminal box-drawing.
     """
-    from nhc.dungeon.model import RectShape
-
     # Collect floor tiles belonging to smooth-outlined rooms so
     # we can skip their tile-edge walls
     smooth_tiles: set[tuple[int, int]] = set()
     smooth_outlines: list[str] = []
+    wall_extensions: list[str] = []
     for room in level.rooms:
         outline = _room_svg_outline(room)
-        if outline:
+        if not outline:
+            continue
+        openings = _find_doorless_openings(room, level)
+        if openings:
+            gapped, extensions = _outline_with_gaps(
+                room, outline, openings,
+            )
+            smooth_outlines.append(gapped)
+            wall_extensions.extend(extensions)
+            # Add corridor tiles at openings to smooth_tiles so
+            # the tile-edge renderer skips their walls (handled
+            # by the wall extensions instead)
+            for _, _, cx, cy in openings:
+                smooth_tiles.add((cx, cy))
+        else:
             smooth_outlines.append(outline)
-            smooth_tiles |= room.floor_tiles()
+        smooth_tiles |= room.floor_tiles()
 
-    # Draw smooth room outlines
+    # Draw smooth room outlines (with gaps where corridors enter)
+    _WALL_STYLE = (
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{WALL_WIDTH}" '
+        f'stroke-linecap="round" stroke-linejoin="round"'
+    )
     if smooth_outlines:
         styled = []
         for el in smooth_outlines:
-            # Add fill="none" stroke attributes to each element
-            el = el.replace('/>',
-                f' fill="none" stroke="{INK}" '
-                f'stroke-width="{WALL_WIDTH}" '
-                f'stroke-linecap="round" '
-                f'stroke-linejoin="round"/>')
+            el = el.replace('/>', f' {_WALL_STYLE}/>')
             styled.append(el)
         svg.append(f'<g>{"".join(styled)}</g>')
+    if wall_extensions:
+        svg.append(
+            f'<path d="{" ".join(wall_extensions)}" '
+            f'{_WALL_STYLE}/>'
+        )
 
     # Tile-edge walls for corridors, doors, and rect rooms
     segments: list[str] = []
