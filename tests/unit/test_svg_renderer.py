@@ -244,3 +244,140 @@ class TestSVGOutput:
             # With ~784 tiles and low chances, both should appear
             # but never on the same tile — total can't exceed 784
             assert crack_count + scratch_count <= 784
+
+
+class TestRoomShapelyPolygon:
+    """_room_shapely_polygon must return a polygon for every room type,
+    covering the full wall-path area (bounding rect for rect rooms,
+    geometric outline for shaped rooms)."""
+
+    def test_rect_room_returns_polygon(self):
+        """Rect rooms must produce a polygon, not None."""
+        from nhc.rendering.svg import _room_shapely_polygon
+        from nhc.dungeon.model import RectShape
+        room = Room(id="r1", rect=Rect(3, 7, 8, 6),
+                    shape=RectShape())
+        poly = _room_shapely_polygon(room)
+        assert poly is not None, (
+            "_room_shapely_polygon returned None for RectShape")
+        assert not poly.is_empty
+
+    def test_rect_polygon_covers_bounding_rect(self):
+        """Rect room polygon must cover the full bounding rect in
+        pixel coords so the clip path sits at the wall stroke."""
+        from nhc.rendering.svg import _room_shapely_polygon
+        from nhc.dungeon.model import RectShape
+        r = Rect(3, 7, 8, 6)
+        room = Room(id="r1", rect=r, shape=RectShape())
+        poly = _room_shapely_polygon(room)
+        assert poly is not None
+
+        # The polygon must contain the full pixel-space bounding rect
+        px, py = r.x * CELL, r.y * CELL
+        pw, ph = r.width * CELL, r.height * CELL
+        from shapely.geometry import box
+        expected = box(px, py, px + pw, py + ph)
+        assert poly.contains(expected) or poly.equals(expected), (
+            f"Rect room polygon does not cover bounding rect: "
+            f"poly bounds={poly.bounds}, expected=({px},{py},"
+            f"{px+pw},{py+ph})")
+
+    def test_rect_polygon_wall_tile_inside(self):
+        """A WALL tile at (3,10) adjacent to FLOOR at (4,10) must
+        be inside the polygon — reproduces the grid clipping bug."""
+        from nhc.rendering.svg import _room_shapely_polygon
+        from nhc.dungeon.model import RectShape
+        from shapely.geometry import Point
+        room = Room(id="r1", rect=Rect(3, 7, 8, 6),
+                    shape=RectShape())
+        poly = _room_shapely_polygon(room)
+        assert poly is not None
+
+        # Center of tile (3,10) in pixel coords
+        tile_center = Point(3 * CELL + CELL / 2,
+                            10 * CELL + CELL / 2)
+        assert poly.contains(tile_center), (
+            f"WALL tile (3,10) center not inside polygon — "
+            f"grid/detail would be clipped")
+
+
+class TestGridAndDetailOnWallTiles:
+    """Grid and detail rendering must process all tiles (including
+    WALL), relying on the dungeon polygon clip to hide exterior."""
+
+    def _make_walled_level(self):
+        """Level with WALL tiles surrounding FLOOR tiles,
+        mimicking room #0 from seed99_shapes at tile (3,10)."""
+        from nhc.dungeon.model import RectShape
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=12, height=15)
+        r = Rect(3, 7, 8, 6)
+        room = Room(id="r1", rect=r, shape=RectShape())
+        level.rooms.append(room)
+        # Fill bounding rect: WALL border, FLOOR interior
+        for y in range(r.y, r.y2):
+            for x in range(r.x, r.x2):
+                on_edge = (x == r.x or x == r.x2 - 1
+                           or y == r.y or y == r.y2 - 1)
+                level.tiles[y][x] = Tile(
+                    terrain=Terrain.WALL if on_edge
+                    else Terrain.FLOOR)
+        return level
+
+    def test_grid_processes_all_tiles(self):
+        """Grid must generate segments for every tile in the level,
+        not filter by _is_floor/_is_door.  Verify by counting: a
+        full room should produce edges for WALL tiles too."""
+        import re
+        from nhc.rendering.svg import _render_floor_grid
+        level = self._make_walled_level()
+        svg_parts: list[str] = []
+        _render_floor_grid(svg_parts, level)
+        joined = "".join(svg_parts)
+        # Count M (move-to) = one per grid segment
+        seg_count = joined.count("M")
+        r = level.rooms[0].rect
+        # All tiles in bounding rect: 8x6=48 tiles.
+        # Each interior tile contributes right+bottom edges.
+        # With all-tile processing, minimum edges =
+        #   right edges: (w-1)*h = 7*6 = 42
+        #   bottom edges: w*(h-1) = 8*5 = 40  -> total 82
+        # within the room rect alone.
+        # With floor-only filtering, WALL border tiles (20 tiles)
+        # contribute far fewer edges.
+        min_expected = (r.width - 1) * r.height + r.width * (r.height - 1)
+        assert seg_count >= min_expected, (
+            f"Grid produced {seg_count} segments, expected >= "
+            f"{min_expected} (all tiles in room rect processed)")
+
+    def test_detail_processes_wall_tiles(self):
+        """_render_floor_detail must call _tile_detail for WALL tile
+        coordinates, not skip them with _is_floor filtering."""
+        from unittest.mock import patch
+        from nhc.rendering.svg import _render_floor_detail
+        level = self._make_walled_level()
+        called_coords: list[tuple[int, int]] = []
+        original = __import__(
+            'nhc.rendering.svg', fromlist=['_tile_detail']
+        )._tile_detail
+
+        def tracking_tile_detail(rng, x, y, seed, *args):
+            called_coords.append((x, y))
+            return original(rng, x, y, seed, *args)
+
+        with patch('nhc.rendering.svg._tile_detail',
+                   side_effect=tracking_tile_detail):
+            _render_floor_detail([], level, 42)
+
+        r = level.rooms[0].rect
+        wall_coords = {
+            (x, y)
+            for y in range(r.y, r.y2)
+            for x in range(r.x, r.x2)
+            if level.tiles[y][x].terrain == Terrain.WALL
+        }
+        called_set = set(called_coords)
+        missing = wall_coords - called_set
+        assert not missing, (
+            f"_tile_detail was never called for WALL tiles: "
+            f"{sorted(missing)[:5]}...")

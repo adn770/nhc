@@ -53,21 +53,23 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
+    # Build dungeon polygon once — used for hatching and grid clips
+    dungeon_poly = _build_dungeon_polygon(level)
+
     # Layer 1: Room shadows
     _render_room_shadows(svg, level)
 
     # Layer 2: Hatching (clipped to exterior of dungeon polygon)
-    _render_hatching(svg, level, seed)
+    _render_hatching(svg, level, seed, dungeon_poly)
 
-    # Layer 3: Walls + floor fills (walls stroke the boundary,
-    # fills cover the interior — one pass per room/corridor)
+    # Layer 3: Walls + floor fills
     _render_walls_and_floors(svg, level)
 
-    # Layer 4: Floor grid (all tiles uniformly)
-    _render_floor_grid(svg, level)
+    # Layer 4: Floor grid (clipped to interior of dungeon polygon)
+    _render_floor_grid(svg, level, dungeon_poly)
 
-    # Layer 5: Floor detail — cracks, stones, scratches (all tiles)
-    _render_floor_detail(svg, level, seed)
+    # Layer 5: Floor detail (clipped to interior of dungeon polygon)
+    _render_floor_detail(svg, level, seed, dungeon_poly)
 
     # Layer 7: Stairs
     _render_stairs(svg, level)
@@ -1344,47 +1346,75 @@ def _emit_detail(
 
 
 
+def _dungeon_interior_clip(svg: list[str], dungeon_poly, clip_id: str):
+    """Emit an SVG clipPath for the dungeon interior polygon."""
+    if dungeon_poly is None or dungeon_poly.is_empty:
+        return
+    geoms = (dungeon_poly.geoms
+             if hasattr(dungeon_poly, 'geoms')
+             else [dungeon_poly])
+    clip_d = ""
+    for geom in geoms:
+        coords = list(geom.exterior.coords)
+        clip_d += f'M{coords[0][0]:.0f},{coords[0][1]:.0f} '
+        clip_d += ' '.join(
+            f'L{x:.0f},{y:.0f}' for x, y in coords[1:])
+        clip_d += ' Z '
+    svg.append(
+        f'<defs><clipPath id="{clip_id}">'
+        f'<path d="{clip_d}"/>'
+        f'</clipPath></defs>')
+
+
 def _render_floor_grid(
-    svg: list[str], level: "Level",
+    svg: list[str], level: "Level", dungeon_poly=None,
 ) -> None:
-    """Draw a hand-drawn style grid on all floor tiles."""
+    """Draw a hand-drawn style grid on all tiles, clipped to the
+    dungeon interior polygon."""
     rng = random.Random(41)
     segments: list[str] = []
 
     for y in range(level.height):
         for x in range(level.width):
-            if not (_is_floor(level, x, y) or _is_door(level, x, y)):
-                continue
             px, py = x * CELL, y * CELL
-            nx_floor = _is_floor(level, x + 1, y) or _is_door(level, x + 1, y)
-            ny_floor = _is_floor(level, x, y + 1) or _is_door(level, x, y + 1)
 
             # Right edge
-            if nx_floor:
+            if x + 1 < level.width:
                 segments.append(_wobbly_grid_seg(
                     rng, px + CELL, py, px + CELL, py + CELL,
                     x * 0.7, y * 0.7, base=20,
                 ))
 
             # Bottom edge
-            if ny_floor:
+            if y + 1 < level.height:
                 segments.append(_wobbly_grid_seg(
                     rng, px, py + CELL, px + CELL, py + CELL,
                     x * 0.3, y * 0.7, base=24,
                 ))
 
     if segments:
-        svg.append(
-            f'<path d="{" ".join(segments)}" fill="none" '
-            f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
-            f'opacity="0.7" stroke-linecap="round"/>'
-        )
+        if dungeon_poly is not None and not dungeon_poly.is_empty:
+            _dungeon_interior_clip(svg, dungeon_poly, "grid-clip")
+            svg.append(
+                f'<path d="{" ".join(segments)}" fill="none" '
+                f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
+                f'opacity="0.7" stroke-linecap="round" '
+                f'clip-path="url(#grid-clip)"/>'
+            )
+        else:
+            svg.append(
+                f'<path d="{" ".join(segments)}" fill="none" '
+                f'stroke="{INK}" stroke-width="{GRID_WIDTH}" '
+                f'opacity="0.7" stroke-linecap="round"/>'
+            )
 
 
 def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
+    dungeon_poly=None,
 ) -> None:
-    """Scatter cracks, stones, and scratches on all floor tiles."""
+    """Scatter cracks, stones, and scratches on all tiles inside
+    the dungeon, clipped to the dungeon interior polygon."""
     rng = random.Random(seed + 99)
     cracks: list[str] = []
     stones: list[str] = []
@@ -1392,11 +1422,18 @@ def _render_floor_detail(
 
     for y in range(level.height):
         for x in range(level.width):
-            if not _is_floor(level, x, y):
-                continue
             _tile_detail(rng, x, y, seed, cracks, stones, scratches)
 
-    _emit_detail(svg, cracks, stones, scratches)
+    if not (cracks or stones or scratches):
+        return
+
+    if dungeon_poly is not None and not dungeon_poly.is_empty:
+        _dungeon_interior_clip(svg, dungeon_poly, "detail-clip")
+        svg.append('<g clip-path="url(#detail-clip)">')
+        _emit_detail(svg, cracks, stones, scratches)
+        svg.append('</g>')
+    else:
+        _emit_detail(svg, cracks, stones, scratches)
 
 
 def _wobble_line(
@@ -1725,6 +1762,7 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
 
 def _render_hatching(
     svg: list[str], level: "Level", seed: int,
+    dungeon_poly=None,
 ) -> None:
     """Procedural cross-hatching around the dungeon perimeter.
 
@@ -1732,14 +1770,15 @@ def _render_hatching(
     displacement, and tile-based section partitioning.
     """
     random.seed(seed)
-    dungeon_poly = _build_dungeon_polygon(level)
+    if dungeon_poly is None:
+        dungeon_poly = _build_dungeon_polygon(level)
     if dungeon_poly.is_empty:
         return
 
-    # Buffer the polygon outward by half the wall width so hatching
-    # starts right outside the wall line, not overlapping it
-    wall_buffer = WALL_WIDTH
-    hatching_boundary = dungeon_poly.buffer(wall_buffer)
+    # No buffer — hatching renders right up to the dungeon edge.
+    # Walls and floor fills (rendered after hatching) cover the
+    # interior, so overlap is handled by the layer order.
+    hatching_boundary = dungeon_poly
 
     base_distance_limit = 2.0 * CELL
     min_stroke = 1.0
@@ -1926,6 +1965,12 @@ def _room_shapely_polygon(room) -> Polygon | None:
             for i in range(n)
         ])
 
+    if isinstance(shape, RectShape):
+        return Polygon([
+            (px, py), (px + pw, py),
+            (px + pw, py + ph), (px, py + ph),
+        ])
+
     if isinstance(shape, (OctagonShape, CrossShape)):
         verts = _polygon_vertices(shape, r)
         if verts:
@@ -2062,26 +2107,27 @@ def _approximate_arc(
 
 
 def _build_dungeon_polygon(level: "Level") -> Polygon:
-    """Build a Shapely polygon covering all floor/door tiles.
+    """Build a Shapely polygon covering the dungeon interior.
 
-    Uses smooth geometric outlines for non-rect rooms so the
-    clip boundary follows curves instead of tile staircases.
+    Uses _room_shapely_polygon for every room (rect, circle,
+    octagon, cross, hybrid) so the clip boundary follows the
+    wall path.  Corridor and door tiles are added as tile rects.
     """
     from shapely.ops import unary_union
     polys = []
 
-    # Collect tiles belonging to smooth-outlined rooms
-    smooth_tiles: set[tuple[int, int]] = set()
+    # Room polygons (wall-path outlines for all room types)
+    room_tiles: set[tuple[int, int]] = set()
     for room in level.rooms:
         room_poly = _room_shapely_polygon(room)
         if room_poly and not room_poly.is_empty:
             polys.append(room_poly)
-            smooth_tiles |= room.floor_tiles()
+            room_tiles |= room.floor_tiles()
 
-    # Add tile rects for all other floor/door tiles
+    # Corridor and door tiles not covered by room polygons
     for y in range(level.height):
         for x in range(level.width):
-            if (x, y) in smooth_tiles:
+            if (x, y) in room_tiles:
                 continue
             if _is_floor(level, x, y) or _is_door(level, x, y):
                 polys.append(Polygon([
