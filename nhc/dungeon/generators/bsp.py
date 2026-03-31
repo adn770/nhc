@@ -598,9 +598,13 @@ class BSPGenerator(DungeonGenerator):
         if min_dim < 5:
             return RectShape()
 
-        # Hybrids: half-circle + rect (need >= 7 on the split axis)
+        # Hybrids: half-circle + rect. Split along the longer axis
+        # so the circle half is near-square (good semicircle).
         if max_dim >= 7 and rng.random() < 0.20:
-            split = rng.choice(["vertical", "horizontal"])
+            if rect.width >= rect.height:
+                split = "vertical"
+            else:
+                split = "horizontal"
             return HybridShape(CircleShape(), RectShape(), split)
 
         # Collect eligible shapes for this room size

@@ -316,28 +316,37 @@ def _half_outline(
     if isinstance(sub_shape, CircleShape):
         cx = px + pw / 2
         cy = py + ph / 2
-        r = min(pw, ph) / 2
+        # Must match CircleShape.floor_tiles: radius = min(w,h)/2
+        # where w,h are in tiles. Convert to pixels.
+        tw = int(round(pw / CELL))
+        th = int(round(ph / CELL))
+        r = min(tw, th) * CELL / 2
         # SVG arc: A rx ry x-rotation large-arc sweep x y
         if side == "left":
+            # Arc from (cx, cy-r) clockwise down to (cx, cy+r)
             return (
+                f'L{cx:.1f},{cy - r:.1f} '
                 f'A{r:.1f},{r:.1f} 0 0,0 '
                 f'{cx:.1f},{cy + r:.1f} '
                 f'L{px + pw:.1f},{py + ph:.1f}'
             )
         if side == "right":
             return (
+                f'L{cx:.1f},{cy + r:.1f} '
                 f'A{r:.1f},{r:.1f} 0 0,0 '
                 f'{cx:.1f},{cy - r:.1f} '
                 f'L{px:.1f},{py:.1f}'
             )
         if side == "top":
             return (
+                f'L{cx - r:.1f},{cy:.1f} '
                 f'A{r:.1f},{r:.1f} 0 0,0 '
                 f'{cx + r:.1f},{cy:.1f} '
                 f'L{px + pw:.1f},{py + ph:.1f}'
             )
         if side == "bottom":
             return (
+                f'L{cx + r:.1f},{cy:.1f} '
                 f'A{r:.1f},{r:.1f} 0 0,0 '
                 f'{cx - r:.1f},{cy:.1f} '
                 f'L{px:.1f},{py:.1f}'
