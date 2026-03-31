@@ -13,7 +13,8 @@ from nhc.dungeon.model import (
     Rect, RectShape, Room, RoomShape, Terrain, Tile,
 )
 from nhc.rendering.svg import (
-    BG, CELL, GRID_WIDTH, PADDING, WALL_WIDTH, render_floor_svg,
+    BG, CELL, GRID_WIDTH, HATCH_UNDERLAY, PADDING, WALL_WIDTH,
+    render_floor_svg,
 )
 
 
@@ -476,7 +477,174 @@ class TestCorridorOpeningFills:
         assert bg_rect not in svg
 
 
-# ── 8. Grid details inside shaped rooms ──────────────────────────
+# ── 8. Hatching must not leak into rooms ──────────────────────────
+
+
+class TestHatchingClip:
+    """Hatching must be clipped to the dungeon exterior — no hatching
+    elements should appear at pixel positions inside any room outline.
+    """
+
+    def _get_hatching_rects(self, svg: str) -> list[tuple[float, float]]:
+        """Extract (x, y) positions of hatching underlay rects."""
+        # Hatching rects use HATCH_UNDERLAY fill inside opacity=0.3
+        pattern = (
+            rf'<rect x="([\d.-]+)" y="([\d.-]+)"[^>]*'
+            rf'fill="{re.escape(HATCH_UNDERLAY)}"'
+        )
+        return [(float(m[0]), float(m[1]))
+                for m in re.findall(pattern, svg)]
+
+    def _assert_no_hatching_inside_room(self, shape, **kw):
+        """Verify no hatching rect center is inside the room outline."""
+        from shapely.geometry import Point as ShapelyPoint
+        from nhc.rendering.svg import _room_svg_outline, _svg_path_to_polygon
+
+        level, room = _make_shaped_level(shape, **kw)
+        svg = render_floor_svg(level, seed=42)
+        outline = _room_svg_outline(room)
+        if not outline:
+            return  # rect rooms — hatching tested by tile membership
+
+        outline_poly = _svg_path_to_polygon(outline)
+        if not outline_poly or outline_poly.is_empty:
+            return
+
+        hatch_rects = self._get_hatching_rects(svg)
+        for hx, hy in hatch_rects:
+            center = ShapelyPoint(hx + CELL / 2, hy + CELL / 2)
+            assert not outline_poly.contains(center), (
+                f"Hatching rect at ({hx},{hy}) is inside "
+                f"{shape.type_name} room outline"
+            )
+
+    def test_no_hatching_inside_circle_room(self):
+        self._assert_no_hatching_inside_room(CircleShape())
+
+    def test_no_hatching_inside_octagon_room(self):
+        self._assert_no_hatching_inside_room(OctagonShape())
+
+    def test_no_hatching_inside_cross_room(self):
+        self._assert_no_hatching_inside_room(CrossShape())
+
+    def test_no_hatching_inside_hybrid_vertical(self):
+        self._assert_no_hatching_inside_room(
+            HybridShape(CircleShape(), RectShape(), "vertical"),
+            room_w=10, room_h=8)
+
+    def test_no_hatching_inside_hybrid_horizontal(self):
+        self._assert_no_hatching_inside_room(
+            HybridShape(CircleShape(), RectShape(), "horizontal"),
+            room_w=9, room_h=10)
+
+    def test_no_hatching_inside_hybrid_with_bsp_seed99(self):
+        """Regression: BSP seed 99 rooms 0 and 20 had hatching leaks
+        because _approximate_arc returned a degenerate single point
+        for semicircle arcs (start/end exactly a diameter apart)."""
+        from nhc.utils.rng import set_seed
+        from nhc.dungeon.generators.bsp import BSPGenerator
+        from nhc.dungeon.generator import GenerationParams
+        from shapely.geometry import Point as ShapelyPoint
+        from nhc.rendering.svg import (
+            _room_svg_outline, _svg_path_to_polygon,
+        )
+
+        set_seed(99)
+        gen = BSPGenerator()
+        level = gen.generate(GenerationParams(
+            seed=99, shape_variety=1.0,
+        ))
+        svg = render_floor_svg(level, seed=99)
+        hatch_rects = self._get_hatching_rects(svg)
+
+        for ri in [0, 20]:
+            room = level.rooms[ri]
+            outline = _room_svg_outline(room)
+            if not outline:
+                continue
+            outline_poly = _svg_path_to_polygon(outline)
+            if not outline_poly or outline_poly.is_empty:
+                continue
+            for hx, hy in hatch_rects:
+                center = ShapelyPoint(hx + CELL / 2, hy + CELL / 2)
+                assert not outline_poly.contains(center), (
+                    f"Hatching at ({hx},{hy}) leaks into room {ri} "
+                    f"({room.shape.type_name})"
+                )
+
+    def test_no_hatching_inside_hybrid_diagonal_transition(self):
+        """Hatching must not leak into the diagonal transition
+        area between the arc and rect halves of a hybrid room."""
+        from shapely.geometry import Point as ShapelyPoint
+        from nhc.rendering.svg import _room_svg_outline, _svg_path_to_polygon
+
+        shape = HybridShape(CircleShape(), RectShape(), "vertical")
+        level, room = _make_shaped_level(shape, room_w=10, room_h=8)
+        svg = render_floor_svg(level, seed=42)
+        outline = _room_svg_outline(room)
+        outline_poly = _svg_path_to_polygon(outline)
+
+        hatch_rects = self._get_hatching_rects(svg)
+        for hx, hy in hatch_rects:
+            center = ShapelyPoint(hx + CELL / 2, hy + CELL / 2)
+            assert not outline_poly.contains(center), (
+                f"Hatching leaks into diagonal transition at "
+                f"({hx},{hy})"
+            )
+
+
+# ── 9. Arc approximation ─────────────────────────────────────────
+
+
+class TestArcApproximation:
+    """_approximate_arc must produce correct points for all cases."""
+
+    def test_semicircle_arc_produces_many_points(self):
+        """A semicircle (start/end a full diameter apart) must NOT
+        degenerate to a single point."""
+        from nhc.rendering.svg import _approximate_arc
+        # Semicircle from (160,240) to (160,400), r=80, CCW
+        # This is the Room 0 hybrid arc
+        pts = _approximate_arc(160, 240, 80, 80, 0, 0, 160, 400)
+        assert len(pts) >= 10, (
+            f"Semicircle should produce many points, got {len(pts)}"
+        )
+
+    def test_semicircle_arc_bulges_outward(self):
+        """A CCW semicircle from top to bottom should bulge left."""
+        from nhc.rendering.svg import _approximate_arc
+        pts = _approximate_arc(160, 240, 80, 80, 0, 0, 160, 400)
+        # The leftmost point should be at approximately x=80
+        # (center at x=160, radius 80)
+        min_x = min(p[0] for p in pts)
+        assert min_x < 100, (
+            f"Semicircle should bulge left to ~x=80, got min_x={min_x}"
+        )
+
+    def test_quarter_arc_produces_points(self):
+        """A quarter circle produces intermediate points."""
+        from nhc.rendering.svg import _approximate_arc
+        # Quarter arc from (240,160) to (160,240), r=80, CW
+        pts = _approximate_arc(240, 160, 80, 80, 0, 1, 160, 240)
+        assert len(pts) >= 5
+
+    def test_small_arc_produces_points(self):
+        """A small arc still produces points."""
+        from nhc.rendering.svg import _approximate_arc
+        import math
+        # Small arc, endpoints close together
+        r = 80
+        cx, cy = 160, 320
+        a1, a2 = 1.0, 1.3  # ~17 degrees
+        sx = cx + r * math.cos(a1)
+        sy = cy + r * math.sin(a1)
+        ex = cx + r * math.cos(a2)
+        ey = cy + r * math.sin(a2)
+        pts = _approximate_arc(sx, sy, r, r, 0, 0, ex, ey)
+        assert len(pts) >= 2
+
+
+# ── 10. Grid details inside shaped rooms ─────────────────────────
 
 
 class TestGridInSmoothRooms:

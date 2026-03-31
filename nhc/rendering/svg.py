@@ -1869,13 +1869,17 @@ def _render_hatching(
         f'H{map_w + margin} V{map_h + margin} '
         f'H{-margin} Z '
     )
-    # Convert dungeon polygon exterior to SVG path
+    # Convert dungeon polygon exterior(s) to SVG path
     if not dungeon_poly.is_empty:
-        coords = list(dungeon_poly.exterior.coords)
-        clip_d += f'M{coords[0][0]:.0f},{coords[0][1]:.0f} '
-        clip_d += ' '.join(
-            f'L{x:.0f},{y:.0f}' for x, y in coords[1:])
-        clip_d += ' Z'
+        geoms = (dungeon_poly.geoms
+                 if hasattr(dungeon_poly, 'geoms')
+                 else [dungeon_poly])
+        for geom in geoms:
+            coords = list(geom.exterior.coords)
+            clip_d += f'M{coords[0][0]:.0f},{coords[0][1]:.0f} '
+            clip_d += ' '.join(
+                f'L{x:.0f},{y:.0f}' for x, y in coords[1:])
+            clip_d += ' Z '
     svg.append(
         f'<defs><clipPath id="hatch-clip">'
         f'<path d="{clip_d}" clip-rule="evenodd"/>'
@@ -1891,12 +1895,194 @@ def _render_hatching(
     svg.append('</g>')
 
 
+def _room_shapely_polygon(room) -> Polygon | None:
+    """Build a Shapely polygon from a room's smooth outline.
+
+    Approximates circles and arcs with 64-segment polylines.
+    Returns None for rect rooms (use tile rects instead).
+    """
+    from nhc.dungeon.model import (
+        CircleShape, CrossShape, HybridShape, OctagonShape,
+        RectShape,
+    )
+    shape = room.shape
+    r = room.rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if isinstance(shape, CircleShape):
+        d = shape._diameter(r)
+        radius = d * CELL / 2
+        cx = px + pw / 2
+        cy = py + ph / 2
+        n = 64
+        return Polygon([
+            (cx + radius * math.cos(2 * math.pi * i / n),
+             cy + radius * math.sin(2 * math.pi * i / n))
+            for i in range(n)
+        ])
+
+    if isinstance(shape, (OctagonShape, CrossShape)):
+        verts = _polygon_vertices(shape, r)
+        if verts:
+            return Polygon(verts)
+        return None
+
+    if isinstance(shape, HybridShape):
+        # Build the polygon from the actual SVG outline path,
+        # which includes the diagonal transitions between the
+        # arc and rect halves. Approximate the arc with points.
+        from nhc.dungeon.model import Rect
+        outline = _hybrid_svg_outline(room)
+        if not outline:
+            return None
+        return _svg_path_to_polygon(outline)
+
+    return None
+
+
+def _svg_path_to_polygon(svg_el: str) -> Polygon | None:
+    """Convert an SVG path/polygon element to a Shapely Polygon.
+
+    Handles M, L, A, and Z commands. Arcs are approximated with
+    line segments.
+    """
+    import re as _re
+
+    # Extract points from <polygon points="...">
+    poly_match = _re.search(r'<polygon points="([^"]+)"', svg_el)
+    if poly_match:
+        pts = []
+        for pt in poly_match.group(1).split():
+            x, y = pt.split(",")
+            pts.append((float(x), float(y)))
+        if len(pts) >= 3:
+            return Polygon(pts)
+        return None
+
+    # Extract d="..." from <path>
+    path_match = _re.search(r'd="([^"]+)"', svg_el)
+    if not path_match:
+        return None
+    d = path_match.group(1)
+
+    # Tokenize: split on command letters, keeping the letter
+    tokens = _re.findall(r'[MLAHVZ][^MLAHVZ]*', d.strip())
+    pts: list[tuple[float, float]] = []
+    cx, cy = 0.0, 0.0
+
+    for tok in tokens:
+        cmd = tok[0]
+        args = [float(v) for v in _re.findall(r'-?[\d.]+', tok)]
+        if cmd == 'M':
+            cx, cy = args[0], args[1]
+            pts.append((cx, cy))
+        elif cmd == 'L':
+            cx, cy = args[0], args[1]
+            pts.append((cx, cy))
+        elif cmd == 'H':
+            cx = args[0]
+            pts.append((cx, cy))
+        elif cmd == 'V':
+            cy = args[0]
+            pts.append((cx, cy))
+        elif cmd == 'A':
+            # A rx ry x-rot large-arc sweep ex ey
+            rx, ry = args[0], args[1]
+            large = int(args[3])
+            sweep = int(args[4])
+            ex, ey = args[5], args[6]
+            # Approximate arc with line segments
+            arc_pts = _approximate_arc(
+                cx, cy, rx, ry, large, sweep, ex, ey)
+            pts.extend(arc_pts)
+            cx, cy = ex, ey
+        elif cmd == 'Z':
+            pass  # close path
+
+    if len(pts) >= 3:
+        return Polygon(pts)
+    return None
+
+
+def _approximate_arc(
+    sx: float, sy: float,
+    rx: float, ry: float,
+    large: int, sweep: int,
+    ex: float, ey: float,
+    n_seg: int = 32,
+) -> list[tuple[float, float]]:
+    """Approximate an SVG arc with line segments.
+
+    Uses the SVG arc parameterization to find center, then
+    samples n_seg points along the arc.
+    """
+    # Midpoint
+    mx, my = (sx + ex) / 2, (sy + ey) / 2
+    dx, dy = (sx - ex) / 2, (sy - ey) / 2
+
+    # Compute center (simplified for rx==ry circular arcs)
+    r = rx
+    d_sq = dx * dx + dy * dy
+    if d_sq > r * r:
+        # Truly degenerate (endpoints further than diameter)
+        return [(ex, ey)]
+    if d_sq < 1e-9:
+        # Start == end
+        return [(ex, ey)]
+    sq = math.sqrt(max(0.0, (r * r - d_sq) / d_sq))
+    if large != sweep:
+        ccx = mx + sq * dy
+        ccy = my - sq * dx
+    else:
+        ccx = mx - sq * dy
+        ccy = my + sq * dx
+
+    # Start and end angles
+    a_start = math.atan2(sy - ccy, sx - ccx)
+    a_end = math.atan2(ey - ccy, ex - ccx)
+
+    # Determine sweep direction
+    if sweep == 1:
+        # Clockwise in SVG (angles increase in screen coords)
+        da = a_end - a_start
+        if da <= 0:
+            da += 2 * math.pi
+    else:
+        da = a_end - a_start
+        if da >= 0:
+            da -= 2 * math.pi
+
+    pts = []
+    for i in range(1, n_seg + 1):
+        t = i / n_seg
+        a = a_start + da * t
+        pts.append((ccx + r * math.cos(a), ccy + r * math.sin(a)))
+    return pts
+
+
 def _build_dungeon_polygon(level: "Level") -> Polygon:
-    """Build a Shapely polygon covering all floor/door tiles."""
+    """Build a Shapely polygon covering all floor/door tiles.
+
+    Uses smooth geometric outlines for non-rect rooms so the
+    clip boundary follows curves instead of tile staircases.
+    """
     from shapely.ops import unary_union
     polys = []
+
+    # Collect tiles belonging to smooth-outlined rooms
+    smooth_tiles: set[tuple[int, int]] = set()
+    for room in level.rooms:
+        room_poly = _room_shapely_polygon(room)
+        if room_poly and not room_poly.is_empty:
+            polys.append(room_poly)
+            smooth_tiles |= room.floor_tiles()
+
+    # Add tile rects for all other floor/door tiles
     for y in range(level.height):
         for x in range(level.width):
+            if (x, y) in smooth_tiles:
+                continue
             if _is_floor(level, x, y) or _is_door(level, x, y):
                 polys.append(Polygon([
                     (x * CELL, y * CELL),
