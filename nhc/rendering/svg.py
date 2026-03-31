@@ -602,73 +602,92 @@ def _circle_with_gaps(
 def _polygon_with_gaps(
     shape, rect, gaps: list[tuple],
 ) -> str | None:
-    """Build an SVG path for a polygon with gaps at openings."""
+    """Build an SVG path for a polygon with gaps at openings.
+
+    Each gap is a pair of points on the polygon outline.  The
+    outline draws TO the first point (break), skips the gap,
+    then resumes FROM the second point.
+    """
     verts = _polygon_vertices(shape, rect)
     if not verts:
         return None
 
-    # For each polygon edge, check if any gap intersects it.
-    # Build the path, breaking where gaps occur.
     n = len(verts)
+
+    # Build a list of (edge_index, t, point, role) where role is
+    # 'break' or 'resume'.  For each gap, the point encountered
+    # FIRST walking the polygon is the break, the second is resume.
+    events = []  # (edge_idx, t, px, py, role, gap_idx)
+    for gi, ((g1x, g1y), (g2x, g2y)) in enumerate(gaps):
+        hits = []
+        for gx, gy in [(g1x, g1y), (g2x, g2y)]:
+            for i in range(n):
+                ax, ay = verts[i]
+                bx, by = verts[(i + 1) % n]
+                t = _point_on_segment(ax, ay, bx, by, gx, gy)
+                if t is not None:
+                    hits.append((i, t, gx, gy))
+                    break  # each gap point matches one edge
+        if len(hits) == 2:
+            # Order by polygon walk: compare (edge_idx, t)
+            h0, h1 = hits
+            if (h0[0], h0[1]) > (h1[0], h1[1]):
+                h0, h1 = h1, h0
+            events.append((*h0, 'break', gi))
+            events.append((*h1, 'resume', gi))
+
+    events.sort(key=lambda e: (e[0], e[1]))
+
+    # Walk polygon edges, inserting breaks and resumes
     path_parts = []
     current_path: list[str] = []
+    in_gap = False
+    event_idx = 0
 
     for i in range(n):
         ax, ay = verts[i]
         bx, by = verts[(i + 1) % n]
 
-        # Check if any gap point falls on this edge
-        edge_cuts = []
-        for (g1x, g1y), (g2x, g2y) in gaps:
-            for gx, gy in [(g1x, g1y), (g2x, g2y)]:
-                t = _point_on_segment(ax, ay, bx, by, gx, gy)
-                if t is not None:
-                    edge_cuts.append((t, gx, gy))
+        # Collect events on this edge
+        edge_events = []
+        while (event_idx < len(events)
+               and events[event_idx][0] == i):
+            edge_events.append(events[event_idx])
+            event_idx += 1
 
-        edge_cuts.sort()
-
-        if not edge_cuts:
-            # No gap on this edge, add normally
-            if not current_path:
-                current_path.append(f'M{ax:.1f},{ay:.1f}')
-            current_path.append(f'L{bx:.1f},{by:.1f}')
-        else:
-            # Walk edge, inserting gaps
-            prev_t = 0.0
-            prev_x, prev_y = ax, ay
-            # Pair up cuts: they come in pairs (enter gap, leave gap)
-            # Each gap has two points on the polygon
-            for t, gx, gy in edge_cuts:
-                # Draw to the gap point
+        if not edge_events:
+            if not in_gap:
                 if not current_path:
-                    current_path.append(f'M{prev_x:.1f},{prev_y:.1f}')
-                current_path.append(f'L{gx:.1f},{gy:.1f}')
-                # End this segment (gap starts)
-                path_parts.append(" ".join(current_path))
-                current_path = []
-                prev_x, prev_y = gx, gy
-            # Continue to edge end
-            if not current_path:
-                current_path.append(
-                    f'M{prev_x:.1f},{prev_y:.1f}')
+                    current_path.append(f'M{ax:.1f},{ay:.1f}')
+                current_path.append(f'L{bx:.1f},{by:.1f}')
+            continue
+
+        for ei, t, gx, gy, role, gi in edge_events:
+            if role == 'break':
+                # Draw to break point, then end segment
+                if not in_gap:
+                    if not current_path:
+                        current_path.append(
+                            f'M{ax:.1f},{ay:.1f}')
+                    if abs(t) > 0.01:
+                        current_path.append(
+                            f'L{gx:.1f},{gy:.1f}')
+                    if current_path:
+                        path_parts.append(
+                            " ".join(current_path))
+                        current_path = []
+                in_gap = True
+            elif role == 'resume':
+                # Start new segment from resume point
+                in_gap = False
+                current_path = [f'M{gx:.1f},{gy:.1f}']
+
+        # After processing events, continue to edge end if not in gap
+        if not in_gap:
             current_path.append(f'L{bx:.1f},{by:.1f}')
 
     if current_path:
         path_parts.append(" ".join(current_path))
-
-    # Try to merge first and last segments if they connect
-    if (len(path_parts) > 1
-            and not any(g for g in gaps
-                        if _gap_on_edge(
-                            verts[-1], verts[0], g))):
-        # First vertex connects to last — merge
-        last = path_parts[-1]
-        first = path_parts[0]
-        # Replace M in first with continuation from last
-        if first.startswith('M'):
-            merged = last + " " + first[first.index('L'):]
-            path_parts = path_parts[1:-1]
-            path_parts.insert(0, merged)
 
     return f'<path d="{" ".join(path_parts)}"/>'
 
