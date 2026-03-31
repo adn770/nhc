@@ -225,6 +225,84 @@ def _inject_door_labels(svg_text: str, level) -> str:
     return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
 
+def _find_corridor_segments(level):
+    """Flood-fill corridor tiles into connected segments.
+
+    Returns list of segments, each a sorted list of (x, y) tiles.
+    """
+    corridor_tiles = set()
+    for y, row in enumerate(level.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain == Terrain.FLOOR and tile.is_corridor:
+                corridor_tiles.add((x, y))
+
+    segments = []
+    visited = set()
+    for start in sorted(corridor_tiles):
+        if start in visited:
+            continue
+        # Flood fill
+        seg = []
+        queue = [start]
+        while queue:
+            pos = queue.pop()
+            if pos in visited:
+                continue
+            visited.add(pos)
+            seg.append(pos)
+            x, y = pos
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nb = (x + dx, y + dy)
+                if nb in corridor_tiles and nb not in visited:
+                    queue.append(nb)
+        segments.append(sorted(seg))
+    return segments
+
+
+def _inject_corridor_labels(svg_text: str, level) -> str:
+    """Overlay corridor segment numbers at each segment's center."""
+    ns = "http://www.w3.org/2000/svg"
+    ET.register_namespace("", ns)
+    root = ET.fromstring(svg_text)
+
+    cor_group = ET.SubElement(root, f"{{{ns}}}g")
+    cor_group.set("id", "corridor-labels")
+
+    segments = _find_corridor_segments(level)
+
+    for i, seg in enumerate(segments):
+        # Place label at the middle tile of the segment
+        mid = seg[len(seg) // 2]
+        cx = PADDING + (mid[0] + 0.5) * CELL
+        cy = PADDING + (mid[1] + 0.5) * CELL
+
+        label = f"C{i}"
+
+        # Background pill
+        lbw, lbh = 28, 14
+        bg = ET.SubElement(cor_group, f"{{{ns}}}rect")
+        bg.set("x", f"{cx - lbw / 2:.1f}")
+        bg.set("y", f"{cy - lbh / 2:.1f}")
+        bg.set("width", f"{lbw}")
+        bg.set("height", f"{lbh}")
+        bg.set("rx", "3")
+        bg.set("fill", "rgba(220,240,220,0.85)")
+        bg.set("stroke", "#4a7a4a")
+        bg.set("stroke-width", "0.5")
+
+        txt = ET.SubElement(cor_group, f"{{{ns}}}text")
+        txt.set("x", f"{cx:.1f}")
+        txt.set("y", f"{cy + 4:.1f}")
+        txt.set("text-anchor", "middle")
+        txt.set("font-family", LABEL_FONT)
+        txt.set("font-size", "9")
+        txt.set("font-weight", "bold")
+        txt.set("fill", "#2e5a2e")
+        txt.text = label
+
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
 def _build_level_json(level, seed: int, variety: float) -> dict:
     """Build a detailed JSON structure for the level."""
     door_feats = {
@@ -330,6 +408,16 @@ def _build_level_json(level, seed: int, variety: float) -> dict:
             "tile_grid": tile_map,
         })
 
+    # Corridor segments
+    segments = _find_corridor_segments(level)
+    corridors_json = []
+    for i, seg in enumerate(segments):
+        corridors_json.append({
+            "index": i,
+            "tile_count": len(seg),
+            "tiles": [[x, y] for x, y in seg],
+        })
+
     return {
         "seed": seed,
         "shape_variety": variety,
@@ -337,7 +425,9 @@ def _build_level_json(level, seed: int, variety: float) -> dict:
         "height": level.height,
         "total_doors": len(doors),
         "total_rooms": len(level.rooms),
+        "total_corridors": len(segments),
         "rooms": rooms,
+        "corridors": corridors_json,
     }
 
 
@@ -353,6 +443,7 @@ def generate(outdir: Path, seeds: list[int]) -> None:
             svg = render_floor_svg(level, seed=seed)
             svg = _inject_room_labels(svg, level)
             svg = _inject_door_labels(svg, level)
+            svg = _inject_corridor_labels(svg, level)
 
             base = outdir / f"sample_seed{seed}_{label}"
             base.with_suffix(".svg").write_text(svg)

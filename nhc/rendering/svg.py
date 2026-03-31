@@ -282,6 +282,37 @@ def _intersect_circle(
             return (ccx + offset, wy)
 
 
+def _intersect_line_seg(
+    p1: tuple[float, float], p2: tuple[float, float],
+    wx: float, wy: float, dx: int, dy: int,
+) -> tuple[float, float] | None:
+    """Intersect a corridor wall line with a line segment p1→p2.
+
+    The corridor wall is a vertical line (x=wx) for N/S corridors
+    or horizontal line (y=wy) for E/W corridors.
+    """
+    ax, ay = p1
+    bx, by = p2
+    if dy != 0:
+        # Vertical line x=wx
+        if abs(bx - ax) < 1e-9:
+            return None  # parallel
+        t = (wx - ax) / (bx - ax)
+        if t < 0 or t > 1:
+            return None
+        iy = ay + t * (by - ay)
+        return (wx, iy)
+    else:
+        # Horizontal line y=wy
+        if abs(by - ay) < 1e-9:
+            return None
+        t = (wy - ay) / (by - ay)
+        if t < 0 or t > 1:
+            return None
+        ix = ax + t * (bx - ax)
+        return (ix, wy)
+
+
 def _intersect_hybrid(
     shape, rect, wx: float, wy: float,
     dx: int, dy: int,
@@ -327,7 +358,55 @@ def _intersect_hybrid(
             radius = d * CELL / 2
             ccx = sub_px + sub_pw / 2
             ccy = py + ph / 2
-        return _intersect_circle(ccx, ccy, radius, wx, wy, dx, dy)
+
+        arc_hit = _intersect_circle(ccx, ccy, radius, wx, wy, dx, dy)
+
+        # Also check the diagonal transition lines that connect
+        # the arc endpoints to the rect half.  The corridor wall
+        # might intersect the diagonal instead of the arc.
+        if shape.split == "horizontal":
+            mid_val = mid
+            if sub == shape.left:  # circle on top
+                arc_ep = (ccx + radius, ccy)  # right end
+                diag_end = (px + pw, mid_val)
+                arc_ep2 = (ccx - radius, ccy)  # left end
+                diag_end2 = (px, mid_val)
+            else:  # circle on bottom
+                arc_ep = (ccx - radius, ccy)
+                diag_end = (px, mid_val)
+                arc_ep2 = (ccx + radius, ccy)
+                diag_end2 = (px + pw, mid_val)
+        else:
+            mid_val = mid
+            if sub == shape.left:  # circle on left
+                arc_ep = (ccx, ccy + radius)  # bottom end
+                diag_end = (mid_val, py + ph)
+                arc_ep2 = (ccx, ccy - radius)  # top end
+                diag_end2 = (mid_val, py)
+            else:  # circle on right
+                arc_ep = (ccx, ccy - radius)
+                diag_end = (mid_val, py)
+                arc_ep2 = (ccx, ccy + radius)
+                diag_end2 = (mid_val, py + ph)
+
+        # Check both diagonals
+        diag_hit = _intersect_line_seg(
+            arc_ep, diag_end, wx, wy, dx, dy)
+        diag_hit2 = _intersect_line_seg(
+            arc_ep2, diag_end2, wx, wy, dx, dy)
+
+        # Return the hit closest to the corridor (furthest in
+        # the corridor direction from the room center)
+        candidates = [h for h in [arc_hit, diag_hit, diag_hit2]
+                       if h is not None]
+        if not candidates:
+            return None
+        if len(candidates) == 1:
+            return candidates[0]
+        # Pick the one furthest in the corridor direction
+        def _dist_toward_corridor(pt):
+            return pt[0] * dx + pt[1] * dy
+        return max(candidates, key=_dist_toward_corridor)
 
     if isinstance(sub, (OctagonShape,)):
         # Build sub-shape polygon and intersect
@@ -366,24 +445,33 @@ def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
             (px, py + clip),
         ]
     if isinstance(shape, CrossShape):
-        bw = max(2, r.width // 3) * CELL
-        bh = max(2, r.height // 3) * CELL
-        cx = px + pw / 2
-        cy = py + ph / 2
-        hbw, hbh = bw / 2, bh / 2
+        # Match the tile-based floor_tiles integer math exactly
+        cx_tile = r.x + r.width // 2
+        cy_tile = r.y + r.height // 2
+        bar_w = max(2, r.width // 3)
+        bar_h = max(2, r.height // 3)
+        h_left = cx_tile - bar_w // 2
+        h_right = h_left + bar_w
+        v_top = cy_tile - bar_h // 2
+        v_bottom = v_top + bar_h
+        # Convert to pixel coords
+        vl = h_left * CELL
+        vr = h_right * CELL
+        ht = v_top * CELL
+        hb = v_bottom * CELL
         return [
-            (cx - hbw, py),
-            (cx + hbw, py),
-            (cx + hbw, cy - hbh),
-            (px + pw, cy - hbh),
-            (px + pw, cy + hbh),
-            (cx + hbw, cy + hbh),
-            (cx + hbw, py + ph),
-            (cx - hbw, py + ph),
-            (cx - hbw, cy + hbh),
-            (px, cy + hbh),
-            (px, cy - hbh),
-            (cx - hbw, cy - hbh),
+            (vl, py),           # top-left of vertical bar
+            (vr, py),           # top-right of vertical bar
+            (vr, ht),           # inner corner: right arm top
+            (px + pw, ht),      # right arm top-right
+            (px + pw, hb),      # right arm bottom-right
+            (vr, hb),           # inner corner: right arm bottom
+            (vr, py + ph),      # bottom-right of vertical bar
+            (vl, py + ph),      # bottom-left of vertical bar
+            (vl, hb),           # inner corner: left arm bottom
+            (px, hb),           # left arm bottom-left
+            (px, ht),           # left arm top-left
+            (vl, ht),           # inner corner: left arm top
         ]
     return []
 
@@ -640,16 +728,6 @@ def _hybrid_with_gaps(
         ccx = sub_px + sub_pw / 2
         ccy = py + ph / 2
 
-    # Convert gap points to angles on the circle
-    gap_angles = []
-    for (ax, ay), (bx, by) in gaps:
-        a1 = math.atan2(ay - ccy, ax - ccx)
-        a2 = math.atan2(by - ccy, bx - ccx)
-        if a1 > a2:
-            a1, a2 = a2, a1
-        gap_angles.append((a1, a2))
-    gap_angles.sort()
-
     # Determine the arc range for this semicircle.
     # The outline traces clockwise around the room.
     # For horizontal split:
@@ -676,6 +754,45 @@ def _hybrid_with_gaps(
             arc_start_a = math.pi / 2
             arc_end_a = -math.pi / 2
             sweep_flag = 0
+
+    def _arc_dist(angle: float) -> float:
+        """Distance from arc_start to *angle* along the arc."""
+        if sweep_flag == 1:
+            d = angle - arc_start_a
+        else:
+            d = arc_start_a - angle
+        return d % (2 * math.pi)
+
+    # Classify each gap point: is it on the arc or on a line?
+    # Points on the arc get converted to angles. Points on
+    # transition diagonals are used as raw coordinates.
+    # gap_entries: list of (break_angle_or_None, break_pt,
+    #                        resume_angle_or_None, resume_pt)
+    gap_entries = []
+    for (ax, ay), (bx, by) in gaps:
+        a1 = math.atan2(ay - ccy, ax - ccx)
+        a2 = math.atan2(by - ccy, bx - ccx)
+        # Check if each point is on the arc (distance from center ≈ r)
+        d1 = math.sqrt((ax - ccx)**2 + (ay - ccy)**2)
+        d2 = math.sqrt((bx - ccx)**2 + (by - ccy)**2)
+        on_arc_1 = abs(d1 - sub_r) < 2.0
+        on_arc_2 = abs(d2 - sub_r) < 2.0
+        # Order by arc distance for on-arc points; for off-arc,
+        # the one on the arc comes first (it's the break point)
+        if on_arc_1 and on_arc_2:
+            if _arc_dist(a1) > _arc_dist(a2):
+                gap_entries.append((a2, (bx, by), a1, (ax, ay)))
+            else:
+                gap_entries.append((a1, (ax, ay), a2, (bx, by)))
+        elif on_arc_1:
+            # a1 is on arc (break), b is off-arc (resume)
+            gap_entries.append((a1, (ax, ay), None, (bx, by)))
+        elif on_arc_2:
+            gap_entries.append((a2, (bx, by), None, (ax, ay)))
+        else:
+            # Both off-arc — shouldn't happen, skip
+            continue
+    gap_entries.sort(key=lambda g: _arc_dist(g[0]))
 
     arc_start_pt = (ccx + sub_r * math.cos(arc_start_a),
                     ccy + sub_r * math.sin(arc_start_a))
@@ -712,18 +829,24 @@ def _hybrid_with_gaps(
     def _append_gapped_arc(parts: list[str], after_arc: str):
         """Append arc segments with gaps, then *after_arc* line."""
         cur_a = arc_start_a
-        for g1, g2 in gap_angles:
-            # Arc from current pos to gap start
-            if abs(g1 - cur_a) > _ARC_TOL:
-                parts[-1] += f' {_arc_cmd(cur_a, g1)}'
-            # Start new sub-path after gap
-            if abs(g2 - arc_end_a) > _ARC_TOL:
-                gx2 = ccx + sub_r * math.cos(g2)
-                gy2 = ccy + sub_r * math.sin(g2)
-                parts.append(f'M{gx2:.1f},{gy2:.1f}')
-            cur_a = g2
-        # Final arc from last gap end to arc end
-        if abs(cur_a - arc_end_a) > _ARC_TOL:
+        for break_a, break_pt, resume_a, resume_pt in gap_entries:
+            # Arc from current pos to break point
+            if _arc_dist(break_a) - _arc_dist(cur_a) > _ARC_TOL:
+                parts[-1] += f' {_arc_cmd(cur_a, break_a)}'
+            # Start new sub-path at resume point
+            rx, ry = resume_pt
+            if resume_a is not None:
+                at_end = abs(
+                    _arc_dist(resume_a) - _arc_dist(arc_end_a)
+                ) < _ARC_TOL
+            else:
+                at_end = False
+            if not at_end:
+                parts.append(f'M{rx:.1f},{ry:.1f}')
+            cur_a = resume_a if resume_a is not None else arc_end_a
+        # Final arc from last resume to arc end
+        remaining = _arc_dist(arc_end_a) - _arc_dist(cur_a)
+        if remaining > _ARC_TOL:
             parts[-1] += f' {_arc_cmd(cur_a, arc_end_a)}'
         parts[-1] += after_arc
 
