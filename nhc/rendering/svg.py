@@ -304,26 +304,23 @@ def _tile_detail(
 
     roll = rng.random()
     if roll < 0.08:
+        # Crack line from a tile corner into the tile interior.
+        # The tile grid edges complete the triangle visually.
         corner = rng.randint(0, 3)
         s1 = rng.uniform(CELL * 0.15, CELL * 0.4)
         s2 = rng.uniform(CELL * 0.15, CELL * 0.4)
-        if corner == 0:
-            tri = (f'{px},{py} '
-                   f'{px + s1},{py} '
-                   f'{px},{py + s2}')
-        elif corner == 1:
-            tri = (f'{px + CELL},{py} '
-                   f'{px + CELL - s1},{py} '
-                   f'{px + CELL},{py + s2}')
-        elif corner == 2:
-            tri = (f'{px},{py + CELL} '
-                   f'{px + s1},{py + CELL} '
-                   f'{px},{py + CELL - s2}')
-        else:
-            tri = (f'{px + CELL},{py + CELL} '
-                   f'{px + CELL - s1},{py + CELL} '
-                   f'{px + CELL},{py + CELL - s2}')
-        cracks.append(tri)
+        if corner == 0:      # top-left
+            cracks.append(f'{px + s1},{py} {px},{py + s2}')
+        elif corner == 1:    # top-right
+            cracks.append(
+                f'{px + CELL - s1},{py} {px + CELL},{py + s2}')
+        elif corner == 2:    # bottom-left
+            cracks.append(
+                f'{px + s1},{py + CELL} {px},{py + CELL - s2}')
+        else:                # bottom-right
+            cracks.append(
+                f'{px + CELL - s1},{py + CELL} '
+                f'{px + CELL},{py + CELL - s2}')
     elif roll < 0.13:
         scratches.append(_y_scratch(rng, px, py, x, y, seed))
 
@@ -357,13 +354,16 @@ def _emit_detail(
 ) -> None:
     """Append accumulated floor detail elements to the SVG."""
     if cracks:
-        polys = "".join(
-            f'<polygon points="{tri}" fill="none" '
+        lines = "".join(
+            f'<line x1="{c.split()[0].split(",")[0]}" '
+            f'y1="{c.split()[0].split(",")[1]}" '
+            f'x2="{c.split()[1].split(",")[0]}" '
+            f'y2="{c.split()[1].split(",")[1]}" '
             f'stroke="{INK}" stroke-width="0.5" '
-            f'stroke-linejoin="round"/>'
-            for tri in cracks
+            f'stroke-linecap="round"/>'
+            for c in cracks
         )
-        svg.append(f'<g opacity="0.5">{polys}</g>')
+        svg.append(f'<g opacity="0.5">{lines}</g>')
     if scratches:
         svg.append(
             f'<g class="y-scratch" opacity="0.45">'
@@ -596,22 +596,27 @@ def _render_smooth_floor_grid(
             f'<defs><clipPath id="{clip_id}">'
             f'{clip_el}</clipPath></defs>')
 
-        # Grid lines spanning the full bounding rect, clipped
+        # Per-tile-edge grid segments spanning the bounding rect,
+        # clipped to the shape. Same short segments as the tile-based
+        # grid so wobble and gaps look identical.
         segments: list[str] = []
-        for y in range(r.y, r.y2 + 1):
-            segments.append(_wobbly_grid_seg(
-                grid_rng,
-                r.x * CELL, y * CELL,
-                r.x2 * CELL, y * CELL,
-                r.x * 0.3, y * 0.7, base=24,
-            ))
-        for x in range(r.x, r.x2 + 1):
-            segments.append(_wobbly_grid_seg(
-                grid_rng,
-                x * CELL, r.y * CELL,
-                x * CELL, r.y2 * CELL,
-                x * 0.7, r.y * 0.7, base=20,
-            ))
+        for y in range(r.y, r.y2):
+            for x in range(r.x, r.x2):
+                px, py = x * CELL, y * CELL
+                # Right edge (vertical)
+                if x + 1 < r.x2:
+                    segments.append(_wobbly_grid_seg(
+                        grid_rng,
+                        px + CELL, py, px + CELL, py + CELL,
+                        x * 0.7, y * 0.7, base=20,
+                    ))
+                # Bottom edge (horizontal)
+                if y + 1 < r.y2:
+                    segments.append(_wobbly_grid_seg(
+                        grid_rng,
+                        px, py + CELL, px + CELL, py + CELL,
+                        x * 0.3, y * 0.7, base=24,
+                    ))
 
         if segments:
             svg.append(
@@ -634,13 +639,16 @@ def _render_smooth_floor_grid(
         # Wrap detail in a clipped group
         detail_els: list[str] = []
         if cracks:
-            polys = "".join(
-                f'<polygon points="{tri}" fill="none" '
+            crack_lines = "".join(
+                f'<line x1="{c.split()[0].split(",")[0]}" '
+                f'y1="{c.split()[0].split(",")[1]}" '
+                f'x2="{c.split()[1].split(",")[0]}" '
+                f'y2="{c.split()[1].split(",")[1]}" '
                 f'stroke="{INK}" stroke-width="0.5" '
-                f'stroke-linejoin="round"/>'
-                for tri in cracks
+                f'stroke-linecap="round"/>'
+                for c in cracks
             )
-            detail_els.append(f'<g opacity="0.5">{polys}</g>')
+            detail_els.append(f'<g opacity="0.5">{crack_lines}</g>')
         if scratches:
             detail_els.append(
                 f'<g opacity="0.45">{"".join(scratches)}</g>')
