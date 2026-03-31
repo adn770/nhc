@@ -174,17 +174,232 @@ def _room_svg_outline(room: "Room") -> str | None:
         return f'<polygon points="{points}"/>'
 
     if isinstance(shape, HybridShape):
-        # For hybrids, render the tile-edge outline (no smooth path)
-        return None
+        return _hybrid_svg_outline(room)
 
     # RectShape or unknown — use tile-edge walls
+    return None
+
+
+def _hybrid_svg_outline(room: "Room") -> str | None:
+    """Build an SVG path for a hybrid room.
+
+    Traces the outer contour combining the curved sub-shape on
+    one side and straight lines on the rect side.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, HexShape, HybridShape, OctagonShape, RectShape,
+    )
+    shape = room.shape
+    if not isinstance(shape, HybridShape):
+        return None
+
+    r = room.rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if shape.split == "vertical":
+        mid = px + (r.width // 2) * CELL
+        # Left sub-shape occupies [px, mid], right occupies [mid, px+pw]
+        left_path = _half_outline(
+            shape.left, px, py, mid - px, ph, side="left",
+        )
+        right_path = _half_outline(
+            shape.right, mid, py, px + pw - mid, ph, side="right",
+        )
+        if left_path and right_path:
+            # Combine: start top-left, trace left outer edge down,
+            # then right outer edge back up
+            return (
+                f'<path d="'
+                f'M{mid:.1f},{py:.1f} '  # top-mid
+                f'{left_path} '           # left side → bottom-mid
+                f'{right_path} '          # right side → top-mid
+                f'Z"/>'
+            )
+    else:
+        mid = py + (r.height // 2) * CELL
+        top_path = _half_outline(
+            shape.left, px, py, pw, mid - py, side="top",
+        )
+        bottom_path = _half_outline(
+            shape.right, px, mid, pw, py + ph - mid, side="bottom",
+        )
+        if top_path and bottom_path:
+            return (
+                f'<path d="'
+                f'M{px:.1f},{mid:.1f} '
+                f'{top_path} '
+                f'{bottom_path} '
+                f'Z"/>'
+            )
+
+    return None
+
+
+def _half_outline(
+    sub_shape: "RoomShape",
+    px: float, py: float, pw: float, ph: float,
+    side: str,
+) -> str | None:
+    """Return SVG path commands for one half of a hybrid outline.
+
+    *side* is which outer edge this half contributes:
+    - "left": traces top→left→bottom (clockwise down the left)
+    - "right": traces bottom→right→top (clockwise up the right)
+    - "top": traces left→top→right (clockwise across the top)
+    - "bottom": traces right→bottom→left (clockwise across bottom)
+    """
+    from nhc.dungeon.model import (
+        CircleShape, HexShape, OctagonShape, RectShape,
+    )
+
+    if isinstance(sub_shape, RectShape):
+        if side == "left":
+            # top-mid → top-left → bottom-left → bottom-mid
+            return (
+                f'L{px:.1f},{py:.1f} '
+                f'L{px:.1f},{py + ph:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "right":
+            # bottom-mid → bottom-right → top-right → top-mid
+            return (
+                f'L{px + pw:.1f},{py + ph:.1f} '
+                f'L{px + pw:.1f},{py:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+        if side == "top":
+            # left-mid → top-left → top-right → right-mid
+            return (
+                f'L{px:.1f},{py:.1f} '
+                f'L{px + pw:.1f},{py:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "bottom":
+            # right-mid → bottom-right → bottom-left → left-mid
+            return (
+                f'L{px + pw:.1f},{py + ph:.1f} '
+                f'L{px:.1f},{py + ph:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+
+    if isinstance(sub_shape, CircleShape):
+        cx = px + pw / 2
+        cy = py + ph / 2
+        rx = pw / 2
+        ry = ph / 2
+        # SVG arc: A rx ry x-rotation large-arc sweep x y
+        if side == "left":
+            # Arc from top-center down around the left to bottom-center
+            return (
+                f'A{rx:.1f},{ry:.1f} 0 0,0 '
+                f'{cx:.1f},{cy + ry:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "right":
+            # Arc from bottom-center up around the right to top-center
+            return (
+                f'A{rx:.1f},{ry:.1f} 0 0,0 '
+                f'{cx:.1f},{cy - ry:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+        if side == "top":
+            # Arc from left-center across the top to right-center
+            return (
+                f'A{rx:.1f},{ry:.1f} 0 0,0 '
+                f'{cx + rx:.1f},{cy:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "bottom":
+            # Arc from right-center across the bottom to left-center
+            return (
+                f'A{rx:.1f},{ry:.1f} 0 0,0 '
+                f'{cx - rx:.1f},{cy:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+
+    if isinstance(sub_shape, HexShape):
+        inset = pw / 4
+        cy = py + ph / 2
+        if side == "left":
+            return (
+                f'L{px + inset:.1f},{py:.1f} '
+                f'L{px:.1f},{cy:.1f} '
+                f'L{px + inset:.1f},{py + ph:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "right":
+            return (
+                f'L{px + pw - inset:.1f},{py + ph:.1f} '
+                f'L{px + pw:.1f},{cy:.1f} '
+                f'L{px + pw - inset:.1f},{py:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+        if side == "top":
+            cx = px + pw / 2
+            inset_v = ph / 4
+            return (
+                f'L{px:.1f},{py + inset_v:.1f} '
+                f'L{cx:.1f},{py:.1f} '
+                f'L{px + pw:.1f},{py + inset_v:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "bottom":
+            cx = px + pw / 2
+            inset_v = ph / 4
+            return (
+                f'L{px + pw:.1f},{py + ph - inset_v:.1f} '
+                f'L{cx:.1f},{py + ph:.1f} '
+                f'L{px:.1f},{py + ph - inset_v:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+
+    if isinstance(sub_shape, OctagonShape):
+        from nhc.dungeon.model import Rect
+        # Approximate clip from the tile-based algorithm
+        tw = int(pw / CELL)
+        th = int(ph / CELL)
+        clip = max(1, min(tw, th) // 3) * CELL
+        if side == "left":
+            return (
+                f'L{px + clip:.1f},{py:.1f} '
+                f'L{px:.1f},{py + clip:.1f} '
+                f'L{px:.1f},{py + ph - clip:.1f} '
+                f'L{px + clip:.1f},{py + ph:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "right":
+            return (
+                f'L{px + pw - clip:.1f},{py + ph:.1f} '
+                f'L{px + pw:.1f},{py + ph - clip:.1f} '
+                f'L{px + pw:.1f},{py + clip:.1f} '
+                f'L{px + pw - clip:.1f},{py:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+        if side == "top":
+            return (
+                f'L{px:.1f},{py + clip:.1f} '
+                f'L{px + clip:.1f},{py:.1f} '
+                f'L{px + pw - clip:.1f},{py:.1f} '
+                f'L{px + pw:.1f},{py + clip:.1f} '
+                f'L{px + pw:.1f},{py + ph:.1f}'
+            )
+        if side == "bottom":
+            return (
+                f'L{px + pw:.1f},{py + ph - clip:.1f} '
+                f'L{px + pw - clip:.1f},{py + ph:.1f} '
+                f'L{px + clip:.1f},{py + ph:.1f} '
+                f'L{px:.1f},{py + ph - clip:.1f} '
+                f'L{px:.1f},{py:.1f}'
+            )
+
     return None
 
 
 def _room_shadow_svg(room: "Room") -> str:
     """Return an SVG element for a room's shadow."""
     from nhc.dungeon.model import (
-        CircleShape, HexShape, OctagonShape,
+        CircleShape, HexShape, HybridShape, OctagonShape,
     )
     r = room.rect
     shape = room.shape
@@ -229,7 +444,16 @@ def _room_shadow_svg(room: "Room") -> str:
             f'fill="{INK}" opacity="0.08"/>'
         )
 
-    # Rect or hybrid — default rectangle shadow
+    if isinstance(shape, HybridShape):
+        outline = _hybrid_svg_outline(room)
+        if outline:
+            el = outline.replace(
+                '/>',
+                f' fill="{INK}" opacity="0.08"/>')
+            # Offset the shadow by (3,3)
+            return f'<g transform="translate(3,3)">{el}</g>'
+
+    # Rect — default rectangle shadow
     return (
         f'<rect x="{px}" y="{py}" '
         f'width="{pw}" height="{ph}" '
