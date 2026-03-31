@@ -474,3 +474,158 @@ class TestCorridorOpeningFills:
             f'fill="{BG}" stroke="none"'
         )
         assert bg_rect not in svg
+
+
+# ── 8. Grid details inside shaped rooms ──────────────────────────
+
+
+class TestGridInSmoothRooms:
+    """Grid lines and floor detail must appear inside smooth rooms."""
+
+    def test_grid_inside_circle_room(self):
+        """Circle rooms have grid lines (drawn via clip path)."""
+        level, _ = _make_shaped_level(CircleShape())
+        svg = render_floor_svg(level, seed=42)
+        # Smooth rooms use clip paths for grid — verify clipPath exists
+        assert "clipPath" in svg
+
+    def test_grid_inside_cross_room(self):
+        level, _ = _make_shaped_level(CrossShape())
+        svg = render_floor_svg(level, seed=42)
+        assert "clipPath" in svg
+
+    def test_grid_inside_octagon_room(self):
+        level, _ = _make_shaped_level(OctagonShape())
+        svg = render_floor_svg(level, seed=42)
+        assert "clipPath" in svg
+
+    def test_no_clip_path_for_rect_room(self):
+        """Rect rooms use tile-based grid, no clip paths needed."""
+        level, _ = _make_shaped_level(RectShape())
+        svg = render_floor_svg(level, seed=42)
+        assert "clipPath" not in svg
+
+
+class TestGridStructure:
+    """Grid lines appear between adjacent floor tiles,
+    not at room edges facing void/wall."""
+
+    def test_grid_between_adjacent_floor_tiles(self):
+        """Grid draws right/bottom edges between floor neighbors."""
+        level, room = _make_shaped_level(RectShape(), room_w=5, room_h=5)
+        svg = render_floor_svg(level, seed=42)
+        # Grid uses GRID_WIDTH stroke and 0.7 opacity
+        grid_segs = re.findall(
+            rf'<path[^>]+d="([^"]+)"[^>]*'
+            rf'stroke-width="{GRID_WIDTH}"', svg)
+        all_d = " ".join(grid_segs)
+        # Should have many M...L segments for the grid
+        m_count = all_d.count("M")
+        assert m_count >= 10, (
+            f"Expected many grid segments, got {m_count}"
+        )
+
+    def test_corridor_tiles_have_grid(self):
+        """Corridor tiles get grid lines too."""
+        level, _ = _make_shaped_level(
+            RectShape(), corridor_side="east")
+        svg = render_floor_svg(level, seed=42)
+        grid_segs = re.findall(
+            rf'<path[^>]+d="([^"]+)"[^>]*'
+            rf'stroke-width="{GRID_WIDTH}"', svg)
+        all_d = " ".join(grid_segs)
+        assert all_d.count("M") >= 10
+
+
+class TestFloorDetailIndependentOfShape:
+    """Cracks, stones, and scratches must appear on all floor tiles
+    regardless of room shape.  Floor decoration is a property of
+    the tile, not the room geometry."""
+
+    def _render_large_room(self, shape, seed=42):
+        level, room = _make_shaped_level(
+            shape, room_w=15, room_h=15)
+        svg = render_floor_svg(level, seed=seed)
+        return svg
+
+    def _assert_stones(self, shape):
+        from nhc.rendering.svg import FLOOR_STONE_FILL
+        for seed in range(30):
+            svg = self._render_large_room(shape, seed)
+            if FLOOR_STONE_FILL in svg:
+                return
+        assert False, (
+            f"No floor stones in {shape.type_name} room across 30 seeds"
+        )
+
+    def _assert_cracks(self, shape):
+        for seed in range(30):
+            svg = self._render_large_room(shape, seed)
+            if 'opacity="0.5"' in svg and "<line " in svg:
+                return
+        assert False, (
+            f"No cracks in {shape.type_name} room across 30 seeds"
+        )
+
+    def _assert_scratches(self, shape):
+        for seed in range(50):
+            svg = self._render_large_room(shape, seed)
+            if "y-scratch" in svg or 'opacity="0.45"' in svg:
+                return
+        assert False, (
+            f"No scratches in {shape.type_name} room across 50 seeds"
+        )
+
+    def test_stones_in_rect_room(self):
+        self._assert_stones(RectShape())
+
+    def test_stones_in_circle_room(self):
+        self._assert_stones(CircleShape())
+
+    def test_stones_in_cross_room(self):
+        self._assert_stones(CrossShape())
+
+    def test_stones_in_octagon_room(self):
+        self._assert_stones(OctagonShape())
+
+    def test_cracks_in_rect_room(self):
+        self._assert_cracks(RectShape())
+
+    def test_cracks_in_circle_room(self):
+        self._assert_cracks(CircleShape())
+
+    def test_cracks_in_cross_room(self):
+        self._assert_cracks(CrossShape())
+
+    def test_cracks_in_octagon_room(self):
+        self._assert_cracks(OctagonShape())
+
+    def test_scratches_in_rect_room(self):
+        self._assert_scratches(RectShape())
+
+    def test_scratches_in_circle_room(self):
+        self._assert_scratches(CircleShape())
+
+    def test_scratches_in_cross_room(self):
+        self._assert_scratches(CrossShape())
+
+    def test_scratches_in_octagon_room(self):
+        self._assert_scratches(OctagonShape())
+
+    def test_detail_on_corridor_opening_tile(self):
+        """Corridor opening tiles get floor rendering (not blank)."""
+        found = False
+        for seed in range(50):
+            level, room = _make_shaped_level(
+                CircleShape(), room_w=11, room_h=11,
+                corridor_side="east")
+            svg = render_floor_svg(level, seed=seed)
+            floor = room.floor_tiles()
+            cy = room.rect.y + room.rect.height // 2
+            ex = max(fx for fx, fy in floor if fy == cy) + 1
+            tile_px = ex * CELL
+            tile_py = cy * CELL
+            if f'x="{tile_px}" y="{tile_py}"' in svg:
+                found = True
+                break
+        assert found, "Corridor opening tile has no floor rendering"
