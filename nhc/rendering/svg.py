@@ -52,17 +52,25 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
+    # Precompute tiles owned by smooth-outlined rooms so they
+    # can be excluded from the tile-based grid/detail passes and
+    # drawn separately with clipped smooth outlines.
+    smooth_tiles: set[tuple[int, int]] = set()
+    for room in level.rooms:
+        if _room_svg_outline(room):
+            smooth_tiles |= room.floor_tiles()
+
     # Layer 1: Room shadows (subtle)
     _render_room_shadows(svg, level)
 
     # Layer 2: Floor fills
     _render_floors(svg, level)
 
-    # Layer 3: Soft floor grid (rooms + corridors)
-    _render_floor_grid(svg, level)
+    # Layer 3: Soft floor grid (rooms + corridors, excluding smooth)
+    _render_floor_grid(svg, level, smooth_tiles)
 
-    # Layer 3b: Floor detail — cracks and stones
-    _render_floor_detail(svg, level, seed)
+    # Layer 3b: Floor detail — cracks and stones (excluding smooth)
+    _render_floor_detail(svg, level, seed, smooth_tiles)
 
     # Layer 4: Hatching (behind walls)
     _render_hatching(svg, level, seed)
@@ -364,26 +372,38 @@ def _emit_detail(
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
 
 
-def _render_floor_grid(svg: list[str], level: "Level") -> None:
-    """Draw a hand-drawn style grid on all floor tiles."""
+def _render_floor_grid(
+    svg: list[str], level: "Level",
+    skip: set[tuple[int, int]] | None = None,
+) -> None:
+    """Draw a hand-drawn style grid on floor tiles.
+
+    Tiles in *skip* are excluded (they get their grid from the
+    smooth-shape renderer instead).
+    """
     rng = random.Random(41)
     segments: list[str] = []
+    _skip = skip or set()
 
     for y in range(level.height):
         for x in range(level.width):
+            if (x, y) in _skip:
+                continue
             if not (_is_floor(level, x, y) or _is_door(level, x, y)):
                 continue
             px, py = x * CELL, y * CELL
+            nx_floor = _is_floor(level, x + 1, y) or _is_door(level, x + 1, y)
+            ny_floor = _is_floor(level, x, y + 1) or _is_door(level, x, y + 1)
 
-            # Right edge (vertical line)
-            if _is_floor(level, x + 1, y) or _is_door(level, x + 1, y):
+            # Right edge — skip if neighbor is also in a smooth room
+            if nx_floor and (x + 1, y) not in _skip:
                 segments.append(_wobbly_grid_seg(
                     rng, px + CELL, py, px + CELL, py + CELL,
                     x * 0.7, y * 0.7, base=20,
                 ))
 
-            # Bottom edge (horizontal line)
-            if _is_floor(level, x, y + 1) or _is_door(level, x, y + 1):
+            # Bottom edge
+            if ny_floor and (x, y + 1) not in _skip:
                 segments.append(_wobbly_grid_seg(
                     rng, px, py + CELL, px + CELL, py + CELL,
                     x * 0.3, y * 0.7, base=24,
@@ -399,9 +419,15 @@ def _render_floor_grid(svg: list[str], level: "Level") -> None:
 
 def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
+    skip: set[tuple[int, int]] | None = None,
 ) -> None:
-    """Scatter cracks and small stones on floor tiles."""
+    """Scatter cracks and small stones on floor tiles.
+
+    Tiles in *skip* are excluded (they get their detail from the
+    smooth-shape renderer instead).
+    """
     rng = random.Random(seed + 99)
+    _skip = skip or set()
     cracks: list[str] = []
     stones: list[str] = []
     scratches: list[str] = []
@@ -409,6 +435,10 @@ def _render_floor_detail(
     for y in range(level.height):
         for x in range(level.width):
             if not _is_floor(level, x, y):
+                continue
+            if (x, y) in _skip:
+                # Consume RNG to keep deterministic sequence
+                _tile_detail(rng, x, y, seed, [], [], [])
                 continue
             _tile_detail(rng, x, y, seed, cracks, stones, scratches)
 
