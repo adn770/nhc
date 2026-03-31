@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 from nhc.dungeon.model import (
     CircleShape,
     Corridor,
+    CrossShape,
     HexShape,
     HybridShape,
     Level,
@@ -584,10 +585,6 @@ class BSPGenerator(DungeonGenerator):
         for wx, wy in to_wall:
             level.tiles[wy][wx] = Tile(terrain=Terrain.WALL)
 
-    _NON_RECT_SHAPES: list[type[RoomShape]] = [
-        CircleShape, HexShape, OctagonShape,
-    ]
-
     @staticmethod
     def _pick_shape(
         rect: Rect, variety: float, rng: random.Random,
@@ -596,16 +593,25 @@ class BSPGenerator(DungeonGenerator):
         if variety <= 0 or rng.random() >= variety:
             return RectShape()
         min_dim = min(rect.width, rect.height)
-        # Hybrids need at least 7x5 (each half needs room)
-        if min_dim >= 5 and max(rect.width, rect.height) >= 7:
-            if rng.random() < 0.25:
-                left = rng.choice(BSPGenerator._NON_RECT_SHAPES)()
-                split = rng.choice(["vertical", "horizontal"])
-                return HybridShape(left, RectShape(), split)
-        # Non-rect shapes need at least 5x5
-        if min_dim >= 5:
-            return rng.choice(BSPGenerator._NON_RECT_SHAPES)()
-        return RectShape()
+        max_dim = max(rect.width, rect.height)
+
+        if min_dim < 5:
+            return RectShape()
+
+        # Hybrids: half-circle + rect (need >= 7 on the split axis)
+        if max_dim >= 7 and rng.random() < 0.20:
+            split = rng.choice(["vertical", "horizontal"])
+            return HybridShape(CircleShape(), RectShape(), split)
+
+        # Collect eligible shapes for this room size
+        candidates: list[type[RoomShape]] = [
+            HexShape, OctagonShape, CrossShape,
+        ]
+        # Circles only for near-square rooms (aspect ratio <= 1.3)
+        if max_dim / min_dim <= 1.3:
+            candidates.append(CircleShape)
+
+        return rng.choice(candidates)()
 
     def _carve_room(self, level: Level, rect: Rect,
                     shape: RoomShape | None = None) -> None:

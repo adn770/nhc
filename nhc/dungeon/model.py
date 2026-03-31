@@ -80,22 +80,27 @@ class RectShape(RoomShape):
 
 
 class CircleShape(RoomShape):
-    """Circular room — filled ellipse inscribed in the bounding rect."""
+    """Circular room — true circle centered in the bounding rect.
+
+    Uses min(width, height) as the diameter so the result is always
+    a circle, never an ellipse.  The circle is centered in the rect;
+    tiles outside the circle but inside the rect remain void.
+    """
 
     type_name = "circle"
 
     def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        diameter = min(rect.width, rect.height)
+        r = (diameter - 1) / 2
+        if r <= 0:
+            return set()
         cx = rect.x + (rect.width - 1) / 2
         cy = rect.y + (rect.height - 1) / 2
-        rx = (rect.width - 1) / 2
-        ry = (rect.height - 1) / 2
-        if rx <= 0 or ry <= 0:
-            return set()
         return {
             (x, y)
             for y in range(rect.y, rect.y2)
             for x in range(rect.x, rect.x2)
-            if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r ** 2
         }
 
 
@@ -138,6 +143,39 @@ class OctagonShape(RoomShape):
                         or rx + ry < clip):
                     continue
                 tiles.add((x, y))
+        return tiles
+
+
+class CrossShape(RoomShape):
+    """Cross-shaped room — a + shape with both symmetry axes.
+
+    The cross has a horizontal bar and a vertical bar intersecting
+    at the center of the bounding rect.  Bar width is roughly 1/3
+    of the room dimension (at least 2 tiles).
+    """
+
+    type_name = "cross"
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        cx = rect.x + rect.width // 2
+        cy = rect.y + rect.height // 2
+        # Bar widths: ~1/3 of dimension, at least 2, at most dim-2
+        bar_w = max(2, rect.width // 3)
+        bar_h = max(2, rect.height // 3)
+        # Center the bars
+        h_left = cx - bar_w // 2
+        h_right = h_left + bar_w
+        v_top = cy - bar_h // 2
+        v_bottom = v_top + bar_h
+        tiles: set[tuple[int, int]] = set()
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                # In horizontal bar (full width, bar_h tall)
+                in_h_bar = v_top <= y < v_bottom
+                # In vertical bar (full height, bar_w wide)
+                in_v_bar = h_left <= x < h_right
+                if in_h_bar or in_v_bar:
+                    tiles.add((x, y))
         return tiles
 
 
@@ -192,6 +230,7 @@ _SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
     "circle": CircleShape,
     "hex": HexShape,
     "octagon": OctagonShape,
+    "cross": CrossShape,
 }
 
 # Predefined hybrid combinations for serialization
@@ -204,6 +243,10 @@ _HYBRID_PRESETS: dict[str, tuple[str, str, str]] = {
     "hybrid_rect_hex_v": ("rect", "hex", "vertical"),
     "hybrid_hex_rect_h": ("hex", "rect", "horizontal"),
     "hybrid_rect_hex_h": ("rect", "hex", "horizontal"),
+    "hybrid_octagon_rect_v": ("octagon", "rect", "vertical"),
+    "hybrid_rect_octagon_v": ("rect", "octagon", "vertical"),
+    "hybrid_octagon_rect_h": ("octagon", "rect", "horizontal"),
+    "hybrid_rect_octagon_h": ("rect", "octagon", "horizontal"),
 }
 
 

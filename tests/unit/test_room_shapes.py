@@ -1,7 +1,7 @@
 """Tests for room shape abstraction."""
 
 from nhc.dungeon.model import (
-    CircleShape, HexShape, HybridShape, OctagonShape,
+    CircleShape, CrossShape, HexShape, HybridShape, OctagonShape,
     Rect, Room, RoomShape, RectShape,
 )
 
@@ -135,16 +135,19 @@ class TestCircleShape:
         rect_tiles = RectShape().floor_tiles(rect)
         assert circle_tiles <= rect_tiles
 
-    def test_elliptical_non_square(self):
-        """Non-square rect produces an ellipse, not a circle."""
+    def test_non_square_rect_still_circular(self):
+        """Non-square rect produces a circle, not an ellipse."""
         rect = Rect(0, 0, 9, 5)
         tiles = CircleShape().floor_tiles(rect)
-        # Wider than tall — should have floor tiles at far x
-        assert (1, 2) in tiles  # near left edge at center y
-        assert (7, 2) in tiles  # near right edge at center y
-        # But not at extreme y corners
-        assert (0, 0) not in tiles
-        assert (8, 0) not in tiles
+        # Uses min(9,5)=5 as diameter, centered
+        # Center is at (4, 2), radius ~2
+        assert (4, 2) in tiles  # center
+        # Should NOT extend to far x edges (not an ellipse)
+        assert (0, 2) not in tiles
+        assert (8, 2) not in tiles
+        # Symmetric around center
+        for x, y in tiles:
+            assert (8 - x, y) in tiles, f"H-mirror of ({x},{y})"
 
     def test_tiny_rect_produces_empty(self):
         """1x1 and 2x2 rects produce empty or near-empty circles."""
@@ -276,6 +279,63 @@ class TestOctagonShape:
         assert perimeter <= floor
 
 
+class TestCrossShape:
+    def test_type_name(self):
+        assert CrossShape.type_name == "cross"
+
+    def test_7x7_cross(self):
+        rect = Rect(0, 0, 7, 7)
+        tiles = CrossShape().floor_tiles(rect)
+        # Center must be floor
+        assert (3, 3) in tiles
+        # All 4 corners should be void (not in the + shape)
+        assert (0, 0) not in tiles
+        assert (6, 0) not in tiles
+        assert (0, 6) not in tiles
+        assert (6, 6) not in tiles
+        # Arms extend to edges
+        assert (3, 0) in tiles   # top arm
+        assert (3, 6) in tiles   # bottom arm
+        assert (0, 3) in tiles   # left arm
+        assert (6, 3) in tiles   # right arm
+
+    def test_cross_symmetry(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = CrossShape().floor_tiles(rect)
+        cx, cy = 4, 4
+        for x, y in tiles:
+            assert (2 * cx - x, y) in tiles, f"H-mirror of ({x},{y})"
+            assert (x, 2 * cy - y) in tiles, f"V-mirror of ({x},{y})"
+
+    def test_cross_fewer_tiles_than_rect(self):
+        rect = Rect(0, 0, 7, 7)
+        assert len(CrossShape().floor_tiles(rect)) < len(
+            RectShape().floor_tiles(rect)
+        )
+
+    def test_cross_subset_of_rect(self):
+        rect = Rect(2, 3, 8, 6)
+        assert CrossShape().floor_tiles(rect) <= RectShape().floor_tiles(rect)
+
+    def test_cross_perimeter(self):
+        rect = Rect(0, 0, 7, 7)
+        shape = CrossShape()
+        floor = shape.floor_tiles(rect)
+        perimeter = shape.perimeter_tiles(rect)
+        assert len(perimeter) > 0
+        assert perimeter <= floor
+
+    def test_cross_has_four_arms(self):
+        """Cross should have tiles at all 4 edges of the rect."""
+        rect = Rect(0, 0, 9, 9)
+        tiles = CrossShape().floor_tiles(rect)
+        top = any(y == 0 for _, y in tiles)
+        bottom = any(y == 8 for _, y in tiles)
+        left = any(x == 0 for x, _ in tiles)
+        right = any(x == 8 for x, _ in tiles)
+        assert top and bottom and left and right
+
+
 class TestHybridShape:
     def test_vertical_split_circle_rect(self):
         """Left half circle, right half rect."""
@@ -348,6 +408,11 @@ class TestShapeRegistry:
         from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("octagon")
         assert isinstance(shape, OctagonShape)
+
+    def test_resolve_cross(self):
+        from nhc.dungeon.model import shape_from_type
+        shape = shape_from_type("cross")
+        assert isinstance(shape, CrossShape)
 
     def test_resolve_unknown_defaults_to_rect(self):
         from nhc.dungeon.model import shape_from_type

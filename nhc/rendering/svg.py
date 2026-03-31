@@ -121,7 +121,8 @@ def _room_svg_outline(room: "Room") -> str | None:
     pixel space (tile * CELL).
     """
     from nhc.dungeon.model import (
-        CircleShape, HexShape, HybridShape, OctagonShape, RectShape,
+        CircleShape, CrossShape, HexShape, HybridShape,
+        OctagonShape, RectShape,
     )
     r = room.rect
     shape = room.shape
@@ -133,11 +134,10 @@ def _room_svg_outline(room: "Room") -> str | None:
     if isinstance(shape, CircleShape):
         cx = px + pw / 2
         cy = py + ph / 2
-        rx = pw / 2
-        ry = ph / 2
+        radius = min(pw, ph) / 2
         return (
-            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
-            f'rx="{rx:.1f}" ry="{ry:.1f}"/>'
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" '
+            f'r="{radius:.1f}"/>'
         )
 
     if isinstance(shape, HexShape):
@@ -169,6 +169,36 @@ def _room_svg_outline(room: "Room") -> str | None:
             (px + clip, py + ph),        # bottom-left flat
             (px, py + ph - clip),        # left-bottom flat
             (px, py + clip),             # left-top flat
+        ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return f'<polygon points="{points}"/>'
+
+    if isinstance(shape, CrossShape):
+        bar_w = max(2, r.width // 3) * CELL
+        bar_h = max(2, r.height // 3) * CELL
+        # Center of cross
+        cx_tile = r.x + r.width // 2
+        cy_tile = r.y + r.height // 2
+        # Vertical bar left/right edges
+        vl = (cx_tile - max(2, r.width // 3) // 2) * CELL
+        vr = vl + bar_w
+        # Horizontal bar top/bottom edges
+        ht = (cy_tile - max(2, r.height // 3) // 2) * CELL
+        hb = ht + bar_h
+        # 12-point polygon tracing the + outline clockwise
+        pts = [
+            (vl, py),           # top-left of vertical bar
+            (vr, py),           # top-right of vertical bar
+            (vr, ht),           # inner corner: right arm top
+            (px + pw, ht),      # right arm top-right
+            (px + pw, hb),      # right arm bottom-right
+            (vr, hb),           # inner corner: right arm bottom
+            (vr, py + ph),      # bottom-right of vertical bar
+            (vl, py + ph),      # bottom-left of vertical bar
+            (vl, hb),           # inner corner: left arm bottom
+            (px, hb),           # left arm bottom-left
+            (px, ht),           # left arm top-left
+            (vl, ht),           # inner corner: left arm top
         ]
         points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         return f'<polygon points="{points}"/>'
@@ -286,35 +316,30 @@ def _half_outline(
     if isinstance(sub_shape, CircleShape):
         cx = px + pw / 2
         cy = py + ph / 2
-        rx = pw / 2
-        ry = ph / 2
+        r = min(pw, ph) / 2
         # SVG arc: A rx ry x-rotation large-arc sweep x y
         if side == "left":
-            # Arc from top-center down around the left to bottom-center
             return (
-                f'A{rx:.1f},{ry:.1f} 0 0,0 '
-                f'{cx:.1f},{cy + ry:.1f} '
+                f'A{r:.1f},{r:.1f} 0 0,0 '
+                f'{cx:.1f},{cy + r:.1f} '
                 f'L{px + pw:.1f},{py + ph:.1f}'
             )
         if side == "right":
-            # Arc from bottom-center up around the right to top-center
             return (
-                f'A{rx:.1f},{ry:.1f} 0 0,0 '
-                f'{cx:.1f},{cy - ry:.1f} '
+                f'A{r:.1f},{r:.1f} 0 0,0 '
+                f'{cx:.1f},{cy - r:.1f} '
                 f'L{px:.1f},{py:.1f}'
             )
         if side == "top":
-            # Arc from left-center across the top to right-center
             return (
-                f'A{rx:.1f},{ry:.1f} 0 0,0 '
-                f'{cx + rx:.1f},{cy:.1f} '
+                f'A{r:.1f},{r:.1f} 0 0,0 '
+                f'{cx + r:.1f},{cy:.1f} '
                 f'L{px + pw:.1f},{py + ph:.1f}'
             )
         if side == "bottom":
-            # Arc from right-center across the bottom to left-center
             return (
-                f'A{rx:.1f},{ry:.1f} 0 0,0 '
-                f'{cx - rx:.1f},{cy:.1f} '
+                f'A{r:.1f},{r:.1f} 0 0,0 '
+                f'{cx - r:.1f},{cy:.1f} '
                 f'L{px:.1f},{py:.1f}'
             )
 
@@ -397,63 +422,21 @@ def _half_outline(
 
 
 def _room_shadow_svg(room: "Room") -> str:
-    """Return an SVG element for a room's shadow."""
-    from nhc.dungeon.model import (
-        CircleShape, HexShape, HybridShape, OctagonShape,
-    )
-    r = room.rect
-    shape = room.shape
-    px, py = r.x * CELL + 3, r.y * CELL + 3
-    pw, ph = r.width * CELL, r.height * CELL
+    """Return an SVG element for a room's shadow.
 
-    if isinstance(shape, CircleShape):
-        cx = px + pw / 2
-        cy = py + ph / 2
-        return (
-            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
-            f'rx="{pw / 2:.1f}" ry="{ph / 2:.1f}" '
-            f'fill="{INK}" opacity="0.08"/>'
-        )
-
-    if isinstance(shape, HexShape):
-        inset = pw / 4
-        cx = px + pw / 2
-        cy = py + ph / 2
-        pts = [
-            (px + inset, py), (px + pw - inset, py),
-            (px + pw, cy), (px + pw - inset, py + ph),
-            (px + inset, py + ph), (px, cy),
-        ]
-        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-        return (
-            f'<polygon points="{points}" '
-            f'fill="{INK}" opacity="0.08"/>'
-        )
-
-    if isinstance(shape, OctagonShape):
-        clip = max(1, min(r.width, r.height) // 3) * CELL
-        pts = [
-            (px + clip, py), (px + pw - clip, py),
-            (px + pw, py + clip), (px + pw, py + ph - clip),
-            (px + pw - clip, py + ph), (px + clip, py + ph),
-            (px, py + ph - clip), (px, py + clip),
-        ]
-        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-        return (
-            f'<polygon points="{points}" '
-            f'fill="{INK}" opacity="0.08"/>'
-        )
-
-    if isinstance(shape, HybridShape):
-        outline = _hybrid_svg_outline(room)
-        if outline:
-            el = outline.replace(
-                '/>',
-                f' fill="{INK}" opacity="0.08"/>')
-            # Offset the shadow by (3,3)
-            return f'<g transform="translate(3,3)">{el}</g>'
+    Reuses _room_svg_outline for non-rect shapes, applying fill
+    and a (3,3) offset.  Rect rooms get a simple rect shadow.
+    """
+    outline = _room_svg_outline(room)
+    if outline:
+        el = outline.replace(
+            '/>', f' fill="{INK}" opacity="0.08"/>')
+        return f'<g transform="translate(3,3)">{el}</g>'
 
     # Rect — default rectangle shadow
+    r = room.rect
+    px, py = r.x * CELL + 3, r.y * CELL + 3
+    pw, ph = r.width * CELL, r.height * CELL
     return (
         f'<rect x="{px}" y="{py}" '
         f'width="{pw}" height="{ph}" '
