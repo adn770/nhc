@@ -629,3 +629,71 @@ class TestFloorDetailIndependentOfShape:
                 found = True
                 break
         assert found, "Corridor opening tile has no floor rendering"
+
+    def test_stones_on_corridor_tiles(self):
+        """Floor stones appear on corridor tiles."""
+        from nhc.rendering.svg import FLOOR_STONE_FILL
+        for seed in range(50):
+            # Long corridor to increase chances
+            level, room = _make_shaped_level(
+                RectShape(), room_w=5, room_h=5,
+                corridor_side="east")
+            # Extend corridor further
+            cy = room.rect.y + room.rect.height // 2
+            ex = room.rect.x2 + 1
+            for x in range(ex, ex + 10):
+                if level.in_bounds(x, cy):
+                    level.tiles[cy][x] = Tile(
+                        terrain=Terrain.FLOOR, is_corridor=True)
+            svg = render_floor_svg(level, seed=seed)
+            if FLOOR_STONE_FILL in svg:
+                return
+        assert False, "No floor stones on corridor tiles across 50 seeds"
+
+    def test_cracks_on_corridor_tiles(self):
+        """Cracks appear on corridor tiles."""
+        for seed in range(50):
+            level, room = _make_shaped_level(
+                RectShape(), room_w=5, room_h=5,
+                corridor_side="east")
+            cy = room.rect.y + room.rect.height // 2
+            ex = room.rect.x2 + 1
+            for x in range(ex, ex + 10):
+                if level.in_bounds(x, cy):
+                    level.tiles[cy][x] = Tile(
+                        terrain=Terrain.FLOOR, is_corridor=True)
+            svg = render_floor_svg(level, seed=seed)
+            if 'opacity="0.5"' in svg and "<line " in svg:
+                return
+        assert False, "No cracks on corridor tiles across 50 seeds"
+
+    def test_scratches_on_corridor_tiles(self):
+        """Scratches appear on corridor tiles."""
+        for seed in range(50):
+            level, room = _make_shaped_level(
+                RectShape(), room_w=5, room_h=5,
+                corridor_side="east")
+            cy = room.rect.y + room.rect.height // 2
+            ex = room.rect.x2 + 1
+            for x in range(ex, ex + 10):
+                if level.in_bounds(x, cy):
+                    level.tiles[cy][x] = Tile(
+                        terrain=Terrain.FLOOR, is_corridor=True)
+            svg = render_floor_svg(level, seed=seed)
+            if "y-scratch" in svg or 'opacity="0.45"' in svg:
+                return
+        assert False, "No scratches on corridor tiles across 50 seeds"
+
+    def test_stones_on_doorless_opening_tile(self):
+        """Floor stones appear on doorless opening tiles."""
+        from nhc.rendering.svg import FLOOR_STONE_FILL
+        for seed in range(50):
+            level, room = _make_shaped_level(
+                CircleShape(), room_w=11, room_h=11,
+                corridor_side="east")
+            svg = render_floor_svg(level, seed=seed)
+            if FLOOR_STONE_FILL in svg:
+                return
+        assert False, (
+            "No floor stones on doorless opening across 50 seeds"
+        )
