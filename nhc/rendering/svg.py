@@ -96,17 +96,139 @@ def _is_door(level: "Level", x: int, y: int) -> bool:
     return f in ("door_closed", "door_open", "door_locked")
 
 
+# ── Smooth shape outlines ────────────────────────────────────────
+
+
+def _room_svg_outline(room: "Room") -> str | None:
+    """Return an SVG path for a room's smooth geometric outline.
+
+    Returns None for shapes that should use the default tile-edge
+    walls (e.g. RectShape or unknown shapes).  Coordinates are in
+    pixel space (tile * CELL).
+    """
+    from nhc.dungeon.model import (
+        CircleShape, HexShape, HybridShape, OctagonShape, RectShape,
+    )
+    r = room.rect
+    shape = room.shape
+
+    # Pixel bounding box
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if isinstance(shape, CircleShape):
+        cx = px + pw / 2
+        cy = py + ph / 2
+        rx = pw / 2
+        ry = ph / 2
+        return (
+            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
+            f'rx="{rx:.1f}" ry="{ry:.1f}"/>'
+        )
+
+    if isinstance(shape, HexShape):
+        # Flat-topped hexagon: 6 vertices
+        cx = px + pw / 2
+        cy = py + ph / 2
+        hw = pw / 2     # half width
+        hh = ph / 2     # half height
+        inset = pw / 4   # horizontal inset at top/bottom
+        pts = [
+            (px + inset, py),           # top-left
+            (px + pw - inset, py),      # top-right
+            (px + pw, cy),              # right
+            (px + pw - inset, py + ph), # bottom-right
+            (px + inset, py + ph),      # bottom-left
+            (px, cy),                   # left
+        ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return f'<polygon points="{points}"/>'
+
+    if isinstance(shape, OctagonShape):
+        clip = max(1, min(r.width, r.height) // 3) * CELL
+        pts = [
+            (px + clip, py),             # top-left flat
+            (px + pw - clip, py),        # top-right flat
+            (px + pw, py + clip),        # right-top flat
+            (px + pw, py + ph - clip),   # right-bottom flat
+            (px + pw - clip, py + ph),   # bottom-right flat
+            (px + clip, py + ph),        # bottom-left flat
+            (px, py + ph - clip),        # left-bottom flat
+            (px, py + clip),             # left-top flat
+        ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return f'<polygon points="{points}"/>'
+
+    if isinstance(shape, HybridShape):
+        # For hybrids, render the tile-edge outline (no smooth path)
+        return None
+
+    # RectShape or unknown — use tile-edge walls
+    return None
+
+
+def _room_shadow_svg(room: "Room") -> str:
+    """Return an SVG element for a room's shadow."""
+    from nhc.dungeon.model import (
+        CircleShape, HexShape, OctagonShape,
+    )
+    r = room.rect
+    shape = room.shape
+    px, py = r.x * CELL + 3, r.y * CELL + 3
+    pw, ph = r.width * CELL, r.height * CELL
+
+    if isinstance(shape, CircleShape):
+        cx = px + pw / 2
+        cy = py + ph / 2
+        return (
+            f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
+            f'rx="{pw / 2:.1f}" ry="{ph / 2:.1f}" '
+            f'fill="{INK}" opacity="0.08"/>'
+        )
+
+    if isinstance(shape, HexShape):
+        inset = pw / 4
+        cx = px + pw / 2
+        cy = py + ph / 2
+        pts = [
+            (px + inset, py), (px + pw - inset, py),
+            (px + pw, cy), (px + pw - inset, py + ph),
+            (px + inset, py + ph), (px, cy),
+        ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return (
+            f'<polygon points="{points}" '
+            f'fill="{INK}" opacity="0.08"/>'
+        )
+
+    if isinstance(shape, OctagonShape):
+        clip = max(1, min(r.width, r.height) // 3) * CELL
+        pts = [
+            (px + clip, py), (px + pw - clip, py),
+            (px + pw, py + clip), (px + pw, py + ph - clip),
+            (px + pw - clip, py + ph), (px + clip, py + ph),
+            (px, py + ph - clip), (px, py + clip),
+        ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return (
+            f'<polygon points="{points}" '
+            f'fill="{INK}" opacity="0.08"/>'
+        )
+
+    # Rect or hybrid — default rectangle shadow
+    return (
+        f'<rect x="{px}" y="{py}" '
+        f'width="{pw}" height="{ph}" '
+        f'fill="{INK}" opacity="0.08"/>'
+    )
+
+
 # ── Layer renderers ──────────────────────────────────────────────
 
 def _render_room_shadows(svg: list[str], level: "Level") -> None:
-    """Subtle offset shadow for rooms."""
+    """Subtle offset shadow for rooms (shape-aware)."""
     for room in level.rooms:
-        r = room.rect
-        svg.append(
-            f'<rect x="{r.x * CELL + 3}" y="{r.y * CELL + 3}" '
-            f'width="{r.width * CELL}" height="{r.height * CELL}" '
-            f'fill="{INK}" opacity="0.08"/>'
-        )
+        svg.append(_room_shadow_svg(room))
 
 
 def _render_floors(svg: list[str], level: "Level") -> None:
@@ -375,13 +497,38 @@ def _floor_stone(rng: random.Random, px: float, py: float) -> str:
 
 
 def _render_walls(svg: list[str], level: "Level") -> None:
-    """Render walls as a continuous perimeter outline around rooms.
+    """Render walls around rooms and corridors.
 
-    Lines sit on the boundary between floor and wall tiles, like
-    terminal box-drawing characters (┌─┐│└┘). The stroke width
-    extends outward into the wall tile, giving the walls visual
-    thickness on the non-floor side.
+    Rooms with smooth geometric shapes (circle, hex, octagon) get
+    proper SVG outlines (ellipse, polygon).  All other walls use
+    tile-edge segments like terminal box-drawing.
     """
+    from nhc.dungeon.model import RectShape
+
+    # Collect floor tiles belonging to smooth-outlined rooms so
+    # we can skip their tile-edge walls
+    smooth_tiles: set[tuple[int, int]] = set()
+    smooth_outlines: list[str] = []
+    for room in level.rooms:
+        outline = _room_svg_outline(room)
+        if outline:
+            smooth_outlines.append(outline)
+            smooth_tiles |= room.floor_tiles()
+
+    # Draw smooth room outlines
+    if smooth_outlines:
+        styled = []
+        for el in smooth_outlines:
+            # Add fill="none" stroke attributes to each element
+            el = el.replace('/>',
+                f' fill="none" stroke="{INK}" '
+                f'stroke-width="{WALL_WIDTH}" '
+                f'stroke-linecap="round" '
+                f'stroke-linejoin="round"/>')
+            styled.append(el)
+        svg.append(f'<g>{"".join(styled)}</g>')
+
+    # Tile-edge walls for corridors, doors, and rect rooms
     segments: list[str] = []
 
     def _walkable(x: int, y: int) -> bool:
@@ -391,6 +538,27 @@ def _render_walls(svg: list[str], level: "Level") -> None:
         for x in range(level.width):
             if not _walkable(x, y):
                 continue
+            # Skip tiles that belong to a smooth-outlined room,
+            # UNLESS the neighbor is a corridor or door (we still
+            # need those connection edges)
+            if (x, y) in smooth_tiles:
+                # Only draw edges where this tile meets a corridor
+                # or another room — skip edges facing void/wall
+                # (those are covered by the smooth outline)
+                px, py = x * CELL, y * CELL
+                for nx, ny, seg in [
+                    (x, y - 1, f'M{px},{py} L{px + CELL},{py}'),
+                    (x, y + 1,
+                     f'M{px},{py + CELL} L{px + CELL},{py + CELL}'),
+                    (x - 1, y, f'M{px},{py} L{px},{py + CELL}'),
+                    (x + 1, y,
+                     f'M{px + CELL},{py} L{px + CELL},{py + CELL}'),
+                ]:
+                    nb = level.tile_at(nx, ny)
+                    if nb and nb.is_corridor and not _walkable(nx, ny):
+                        segments.append(seg)
+                continue
+
             px, py = x * CELL, y * CELL
             # Top edge
             if not _walkable(x, y - 1):
