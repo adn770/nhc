@@ -33,6 +33,7 @@ HATCH_UNDERLAY = "#D0D0D0"
 # ── Colors (black & white) ──────────────────────────────────────
 
 BG = "#F5EDE0"
+FLOOR_COLOR = "#FFFFFF"
 INK = "#000000"
 FLOOR_STONE_FILL = "#E8D5B8"  # soft brown for room floor stones
 FLOOR_STONE_STROKE = "#666666"
@@ -55,20 +56,18 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Layer 1: Room shadows
     _render_room_shadows(svg, level)
 
-    # Layer 2: Floor fills (all tiles, terrain-aware)
-    _render_floors(svg, level)
-
-    # Layer 3: Hatching (clipped to exterior of dungeon polygon)
+    # Layer 2: Hatching (clipped to exterior of dungeon polygon)
     _render_hatching(svg, level, seed)
+
+    # Layer 3: Walls + floor fills (walls stroke the boundary,
+    # fills cover the interior — one pass per room/corridor)
+    _render_walls_and_floors(svg, level)
 
     # Layer 4: Floor grid (all tiles uniformly)
     _render_floor_grid(svg, level)
 
     # Layer 5: Floor detail — cracks, stones, scratches (all tiles)
     _render_floor_detail(svg, level, seed)
-
-    # Layer 6: Walls (smooth outlines + tile-edge)
-    _render_walls(svg, level)
 
     # Layer 7: Stairs
     _render_stairs(svg, level)
@@ -1226,15 +1225,6 @@ def _render_room_shadows(svg: list[str], level: "Level") -> None:
         svg.append(_room_shadow_svg(room))
 
 
-def _render_floors(svg: list[str], level: "Level") -> None:
-    """Fill floor tiles with white."""
-    for y in range(level.height):
-        for x in range(level.width):
-            if _is_floor(level, x, y) or _is_door(level, x, y):
-                svg.append(
-                    f'<rect x="{x * CELL}" y="{y * CELL}" '
-                    f'width="{CELL}" height="{CELL}" fill="{BG}"/>'
-                )
 
 
 def _wobbly_grid_seg(
@@ -1512,58 +1502,84 @@ def _floor_stone(rng: random.Random, px: float, py: float) -> str:
 
 
 
-def _render_walls(svg: list[str], level: "Level") -> None:
-    """Render walls around rooms and corridors.
+def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
+    """Render walls and floor fills in one pass.
 
-    Rooms with smooth geometric shapes (circle, octagon) get
-    proper SVG outlines (ellipse, polygon) with gaps where
-    doorless corridors enter.  All other walls use tile-edge
-    segments like terminal box-drawing.
+    Smooth rooms: outline drawn with fill=BG + stroke=INK,
+    so the interior is filled and the wall is drawn together.
+    Rect rooms: a filled BG rect, then tile-edge wall segments.
+    Corridors: per-tile BG rects (no enclosing shape).
     """
-    # Collect floor tiles belonging to smooth-outlined rooms so
-    # we can skip their tile-edge walls
+    from nhc.dungeon.model import RectShape
+
+    _STROKE_STYLE = (
+        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
+        f'stroke-linecap="round" stroke-linejoin="round"'
+    )
+
+    # ── Pre-compute smooth room outlines and wall data ──
     smooth_tiles: set[tuple[int, int]] = set()
-    smooth_outlines: list[str] = []
+    smooth_fills: list[str] = []
+    smooth_walls: list[str] = []
     wall_extensions: list[str] = []
     for room in level.rooms:
         outline = _room_svg_outline(room)
         if not outline:
             continue
         openings = _find_doorless_openings(room, level)
+        fill_el = outline.replace(
+            '/>', f' fill="{FLOOR_COLOR}" stroke="none"/>')
+        smooth_fills.append(fill_el)
         if openings:
             gapped, extensions = _outline_with_gaps(
                 room, outline, openings,
             )
-            smooth_outlines.append(gapped)
             wall_extensions.extend(extensions)
-            # Add corridor tiles at openings to smooth_tiles so
-            # the tile-edge renderer skips their walls (handled
-            # by the wall extensions instead)
+            smooth_walls.append(gapped.replace(
+                '/>', f' fill="none" {_STROKE_STYLE}/>'))
             for _, _, cx, cy in openings:
                 smooth_tiles.add((cx, cy))
         else:
-            smooth_outlines.append(outline)
+            smooth_walls.append(outline.replace(
+                '/>', f' fill="none" {_STROKE_STYLE}/>'))
         smooth_tiles |= room.floor_tiles()
 
-    # Draw smooth room outlines (with gaps where corridors enter)
-    _WALL_STYLE = (
-        f'fill="none" stroke="{INK}" '
-        f'stroke-width="{WALL_WIDTH}" '
-        f'stroke-linecap="round" stroke-linejoin="round"'
-    )
-    if smooth_outlines:
-        styled = []
-        for el in smooth_outlines:
-            el = el.replace('/>', f' {_WALL_STYLE}/>')
-            styled.append(el)
-        svg.append(f'<g>{"".join(styled)}</g>')
+    # ── 1. Corridors + doors: per-tile floor rects ──
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain.name != "FLOOR":
+                continue
+            if tile.is_corridor or (tile.feature and "door" in
+                                    (tile.feature or "")):
+                svg.append(
+                    f'<rect x="{x * CELL}" y="{y * CELL}" '
+                    f'width="{CELL}" height="{CELL}" '
+                    f'fill="{FLOOR_COLOR}" stroke="none"/>'
+                )
+
+    # ── 2. Rect rooms: filled rect ──
+    for room in level.rooms:
+        if isinstance(room.shape, RectShape):
+            r = room.rect
+            svg.append(
+                f'<rect x="{r.x * CELL}" y="{r.y * CELL}" '
+                f'width="{r.width * CELL}" height="{r.height * CELL}" '
+                f'fill="{FLOOR_COLOR}" stroke="none"/>'
+            )
+
+    # ── 3. Smooth rooms: filled outline + wall stroke ──
+    for el in smooth_fills:
+        svg.append(el)
+    for el in smooth_walls:
+        svg.append(el)
     if wall_extensions:
         svg.append(
             f'<path d="{" ".join(wall_extensions)}" '
-            f'{_WALL_STYLE}/>'
+            f'fill="none" {_STROKE_STYLE}/>'
         )
 
-    # Tile-edge walls for corridors, doors, and rect rooms
+    # ── 4. Tile-edge wall segments (rect rooms + corridors) ──
     segments: list[str] = []
 
     def _walkable(x: int, y: int) -> bool:
@@ -1573,13 +1589,7 @@ def _render_walls(svg: list[str], level: "Level") -> None:
         for x in range(level.width):
             if not _walkable(x, y):
                 continue
-            # Skip tiles that belong to a smooth-outlined room,
-            # UNLESS the neighbor is a corridor or door (we still
-            # need those connection edges)
             if (x, y) in smooth_tiles:
-                # Only draw edges where this tile meets a corridor
-                # or another room — skip edges facing void/wall
-                # (those are covered by the smooth outline)
                 px, py = x * CELL, y * CELL
                 for nx, ny, seg in [
                     (x, y - 1, f'M{px},{py} L{px + CELL},{py}'),
@@ -1595,17 +1605,13 @@ def _render_walls(svg: list[str], level: "Level") -> None:
                 continue
 
             px, py = x * CELL, y * CELL
-            # Top edge
             if not _walkable(x, y - 1):
                 segments.append(f'M{px},{py} L{px + CELL},{py}')
-            # Bottom edge
             if not _walkable(x, y + 1):
                 segments.append(
                     f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
-            # Left edge
             if not _walkable(x - 1, y):
                 segments.append(f'M{px},{py} L{px},{py + CELL}')
-            # Right edge
             if not _walkable(x + 1, y):
                 segments.append(
                     f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
@@ -1857,10 +1863,9 @@ def _render_hatching(
     if not (tile_fills or hatch_lines or hatch_stones):
         return
 
-    # Clip hatching to the exterior of the dungeon polygon so it
-    # never bleeds into room interiors (even near curved outlines).
-    # Uses evenodd fill rule: a large bounding rect combined with
-    # the dungeon polygon creates an inverted clip region.
+    # Clip hatching to the exterior of the dungeon polygon.
+    # Walls cover the tile-staircase-to-curve transition at
+    # smooth room boundaries, so tile-based precision is fine.
     map_w = level.width * CELL
     map_h = level.height * CELL
     margin = CELL * 2
@@ -1869,7 +1874,6 @@ def _render_hatching(
         f'H{map_w + margin} V{map_h + margin} '
         f'H{-margin} Z '
     )
-    # Convert dungeon polygon exterior(s) to SVG path
     if not dungeon_poly.is_empty:
         geoms = (dungeon_poly.geoms
                  if hasattr(dungeon_poly, 'geoms')
@@ -1929,10 +1933,6 @@ def _room_shapely_polygon(room) -> Polygon | None:
         return None
 
     if isinstance(shape, HybridShape):
-        # Build the polygon from the actual SVG outline path,
-        # which includes the diagonal transitions between the
-        # arc and rect halves. Approximate the arc with points.
-        from nhc.dungeon.model import Rect
         outline = _hybrid_svg_outline(room)
         if not outline:
             return None

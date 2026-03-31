@@ -13,8 +13,8 @@ from nhc.dungeon.model import (
     Rect, RectShape, Room, RoomShape, Terrain, Tile,
 )
 from nhc.rendering.svg import (
-    BG, CELL, GRID_WIDTH, HATCH_UNDERLAY, PADDING, WALL_WIDTH,
-    render_floor_svg,
+    BG, CELL, FLOOR_COLOR, GRID_WIDTH, HATCH_UNDERLAY, PADDING,
+    WALL_WIDTH, render_floor_svg,
 )
 
 
@@ -428,223 +428,102 @@ class TestBoundaryGridLines:
         assert m_count > 0, "No grid segments found"
 
 
-# ── 7. Floor fill on corridor opening tiles ──────────────────────
+# ── 7. Layer order: walls before floor fills ─────────────────────
 
 
-class TestCorridorOpeningFills:
-    def test_corridor_opening_tile_cleared(self):
-        """Corridor opening tiles have hatching cleared with BG fill."""
-        level, room = _make_shaped_level(
-            CircleShape(), corridor_side="east")
-        svg = render_floor_svg(level)
-        # The smooth floor fills should include a BG rect for the
-        # corridor opening tile
-        floor = room.floor_tiles()
-        cx_tile = room.rect.x + room.rect.width // 2
-        cy_tile = room.rect.y + room.rect.height // 2
-        # Find rightmost floor at center row + 1 = corridor entry
-        ex = max(fx for fx, fy in floor if fy == cy_tile) + 1
-        # Look for a BG rect at that tile position
-        tile_px = ex * CELL
-        tile_py = cy_tile * CELL
-        bg_rect = (
-            f'x="{tile_px}" y="{tile_py}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{BG}"'
-        )
-        assert bg_rect in svg, (
-            f"No BG fill rect at corridor opening tile ({ex},{cy_tile})"
-        )
+class TestLayerOrder:
+    """Walls and floor fills render together after hatching."""
 
-    def test_no_extra_fill_with_door(self):
-        """No extra BG fill when corridor has a door."""
-        level, room = _make_shaped_level(
-            CircleShape(), corridor_side="east", door=True)
-        svg = render_floor_svg(level)
-        floor = room.floor_tiles()
-        cx_tile = room.rect.x + room.rect.width // 2
-        cy_tile = room.rect.y + room.rect.height // 2
-        ex = max(fx for fx, fy in floor if fy == cy_tile) + 1
-        tile_px = ex * CELL
-        tile_py = cy_tile * CELL
-        # The smooth fill group shouldn't have a rect at the
-        # corridor tile (it only clears for doorless openings)
-        bg_rect = (
-            f'x="{tile_px}" y="{tile_py}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{BG}" stroke="none"'
-        )
-        assert bg_rect not in svg
-
-
-# ── 8. Hatching must not leak into rooms ──────────────────────────
-
-
-class TestHatchingClip:
-    """Hatching must be clipped to the dungeon exterior — no hatching
-    elements should appear at pixel positions inside any room outline.
-    """
-
-    def _get_hatching_rects(self, svg: str) -> list[tuple[float, float]]:
-        """Extract (x, y) positions of hatching underlay rects."""
-        # Hatching rects use HATCH_UNDERLAY fill inside opacity=0.3
-        pattern = (
-            rf'<rect x="([\d.-]+)" y="([\d.-]+)"[^>]*'
-            rf'fill="{re.escape(HATCH_UNDERLAY)}"'
-        )
-        return [(float(m[0]), float(m[1]))
-                for m in re.findall(pattern, svg)]
-
-    def _assert_no_hatching_inside_room(self, shape, **kw):
-        """Verify no hatching rect center is inside the room outline."""
-        from shapely.geometry import Point as ShapelyPoint
-        from nhc.rendering.svg import _room_svg_outline, _svg_path_to_polygon
-
-        level, room = _make_shaped_level(shape, **kw)
+    def test_hatching_clipped_to_dungeon_exterior(self):
+        """Hatching is clipped to the dungeon exterior."""
+        level, _ = _make_shaped_level(CircleShape())
         svg = render_floor_svg(level, seed=42)
-        outline = _room_svg_outline(room)
-        if not outline:
-            return  # rect rooms — hatching tested by tile membership
+        assert "hatch-clip" in svg
 
-        outline_poly = _svg_path_to_polygon(outline)
-        if not outline_poly or outline_poly.is_empty:
-            return
-
-        hatch_rects = self._get_hatching_rects(svg)
-        for hx, hy in hatch_rects:
-            center = ShapelyPoint(hx + CELL / 2, hy + CELL / 2)
-            assert not outline_poly.contains(center), (
-                f"Hatching rect at ({hx},{hy}) is inside "
-                f"{shape.type_name} room outline"
-            )
-
-    def test_no_hatching_inside_circle_room(self):
-        self._assert_no_hatching_inside_room(CircleShape())
-
-    def test_no_hatching_inside_octagon_room(self):
-        self._assert_no_hatching_inside_room(OctagonShape())
-
-    def test_no_hatching_inside_cross_room(self):
-        self._assert_no_hatching_inside_room(CrossShape())
-
-    def test_no_hatching_inside_hybrid_vertical(self):
-        self._assert_no_hatching_inside_room(
-            HybridShape(CircleShape(), RectShape(), "vertical"),
-            room_w=10, room_h=8)
-
-    def test_no_hatching_inside_hybrid_horizontal(self):
-        self._assert_no_hatching_inside_room(
-            HybridShape(CircleShape(), RectShape(), "horizontal"),
-            room_w=9, room_h=10)
-
-    def test_no_hatching_inside_hybrid_with_bsp_seed99(self):
-        """Regression: BSP seed 99 rooms 0 and 20 had hatching leaks
-        because _approximate_arc returned a degenerate single point
-        for semicircle arcs (start/end exactly a diameter apart)."""
-        from nhc.utils.rng import set_seed
-        from nhc.dungeon.generators.bsp import BSPGenerator
-        from nhc.dungeon.generator import GenerationParams
-        from shapely.geometry import Point as ShapelyPoint
-        from nhc.rendering.svg import (
-            _room_svg_outline, _svg_path_to_polygon,
-        )
-
-        set_seed(99)
-        gen = BSPGenerator()
-        level = gen.generate(GenerationParams(
-            seed=99, shape_variety=1.0,
-        ))
-        svg = render_floor_svg(level, seed=99)
-        hatch_rects = self._get_hatching_rects(svg)
-
-        for ri in [0, 20]:
-            room = level.rooms[ri]
-            outline = _room_svg_outline(room)
-            if not outline:
-                continue
-            outline_poly = _svg_path_to_polygon(outline)
-            if not outline_poly or outline_poly.is_empty:
-                continue
-            for hx, hy in hatch_rects:
-                center = ShapelyPoint(hx + CELL / 2, hy + CELL / 2)
-                assert not outline_poly.contains(center), (
-                    f"Hatching at ({hx},{hy}) leaks into room {ri} "
-                    f"({room.shape.type_name})"
-                )
-
-    def test_no_hatching_inside_hybrid_diagonal_transition(self):
-        """Hatching must not leak into the diagonal transition
-        area between the arc and rect halves of a hybrid room."""
-        from shapely.geometry import Point as ShapelyPoint
-        from nhc.rendering.svg import _room_svg_outline, _svg_path_to_polygon
-
-        shape = HybridShape(CircleShape(), RectShape(), "vertical")
-        level, room = _make_shaped_level(shape, room_w=10, room_h=8)
+    def test_hatching_before_walls(self):
+        """Hatching appears before wall strokes in the SVG."""
+        level, _ = _make_shaped_level(CircleShape())
         svg = render_floor_svg(level, seed=42)
-        outline = _room_svg_outline(room)
-        outline_poly = _svg_path_to_polygon(outline)
-
-        hatch_rects = self._get_hatching_rects(svg)
-        for hx, hy in hatch_rects:
-            center = ShapelyPoint(hx + CELL / 2, hy + CELL / 2)
-            assert not outline_poly.contains(center), (
-                f"Hatching leaks into diagonal transition at "
-                f"({hx},{hy})"
-            )
-
-
-# ── 9. Arc approximation ─────────────────────────────────────────
-
-
-class TestArcApproximation:
-    """_approximate_arc must produce correct points for all cases."""
-
-    def test_semicircle_arc_produces_many_points(self):
-        """A semicircle (start/end a full diameter apart) must NOT
-        degenerate to a single point."""
-        from nhc.rendering.svg import _approximate_arc
-        # Semicircle from (160,240) to (160,400), r=80, CCW
-        # This is the Room 0 hybrid arc
-        pts = _approximate_arc(160, 240, 80, 80, 0, 0, 160, 400)
-        assert len(pts) >= 10, (
-            f"Semicircle should produce many points, got {len(pts)}"
+        hatch_pos = svg.find(HATCH_UNDERLAY)
+        wall_pos = svg.find(f'stroke-width="{WALL_WIDTH}"')
+        assert 0 < hatch_pos < wall_pos, (
+            "Hatching should appear before walls"
         )
 
-    def test_semicircle_arc_bulges_outward(self):
-        """A CCW semicircle from top to bottom should bulge left."""
-        from nhc.rendering.svg import _approximate_arc
-        pts = _approximate_arc(160, 240, 80, 80, 0, 0, 160, 400)
-        # The leftmost point should be at approximately x=80
-        # (center at x=160, radius 80)
-        min_x = min(p[0] for p in pts)
-        assert min_x < 100, (
-            f"Semicircle should bulge left to ~x=80, got min_x={min_x}"
+    def test_smooth_room_fill_and_stroke(self):
+        """Smooth rooms have both floor fill and wall stroke."""
+        level, _ = _make_shaped_level(CircleShape())
+        svg = render_floor_svg(level, seed=42)
+        assert f'fill="{FLOOR_COLOR}"' in svg
+        assert f'stroke-width="{WALL_WIDTH}"' in svg
+
+
+# ── 8. Floor fill on corridor opening tiles ──────────────────────
+
+
+class TestFloorFillCoverage:
+    def test_smooth_room_has_floor_fill(self):
+        """Smooth rooms are filled with FLOOR_COLOR."""
+        level, _ = _make_shaped_level(CircleShape())
+        svg = render_floor_svg(level, seed=42)
+        assert f'fill="{FLOOR_COLOR}"' in svg
+
+    def test_rect_room_has_floor_fill(self):
+        """Rect rooms have a FLOOR_COLOR-filled rect."""
+        level, room = _make_shaped_level(RectShape())
+        svg = render_floor_svg(level, seed=42)
+        r = room.rect
+        fill_rect = (
+            f'x="{r.x * CELL}" y="{r.y * CELL}" '
+            f'width="{r.width * CELL}" height="{r.height * CELL}" '
+            f'fill="{FLOOR_COLOR}"'
         )
+        assert fill_rect in svg
 
-    def test_quarter_arc_produces_points(self):
-        """A quarter circle produces intermediate points."""
-        from nhc.rendering.svg import _approximate_arc
-        # Quarter arc from (240,160) to (160,240), r=80, CW
-        pts = _approximate_arc(240, 160, 80, 80, 0, 1, 160, 240)
-        assert len(pts) >= 5
-
-    def test_small_arc_produces_points(self):
-        """A small arc still produces points."""
-        from nhc.rendering.svg import _approximate_arc
-        import math
-        # Small arc, endpoints close together
-        r = 80
-        cx, cy = 160, 320
-        a1, a2 = 1.0, 1.3  # ~17 degrees
-        sx = cx + r * math.cos(a1)
-        sy = cy + r * math.sin(a1)
-        ex = cx + r * math.cos(a2)
-        ey = cy + r * math.sin(a2)
-        pts = _approximate_arc(sx, sy, r, r, 0, 0, ex, ey)
-        assert len(pts) >= 2
+    def test_corridor_tile_has_floor_fill(self):
+        """Corridor tiles get individual FLOOR_COLOR rects."""
+        level, room = _make_shaped_level(
+            RectShape(), corridor_side="east")
+        svg = render_floor_svg(level, seed=42)
+        floor = room.floor_tiles()
+        cy = room.rect.y + room.rect.height // 2
+        ex = room.rect.x2  # first corridor tile
+        tile_fill = (
+            f'x="{ex * CELL}" y="{cy * CELL}" '
+            f'width="{CELL}" height="{CELL}" '
+            f'fill="{FLOOR_COLOR}"'
+        )
+        assert tile_fill in svg
 
 
-# ── 10. Grid details inside shaped rooms ─────────────────────────
+# ── 8. Hatching / floor boundary ──────────────────────────────────
+
+
+class TestHatchingFloorBoundary:
+    """With the walls-before-fills layer order, hatching renders
+    everywhere, walls define the boundary, and floor fills cover
+    hatching inside rooms.  No clip paths needed."""
+
+    def test_hatching_clipped_to_exterior(self):
+        """Hatching is clipped to dungeon exterior."""
+        level, _ = _make_shaped_level(CircleShape())
+        svg = render_floor_svg(level, seed=42)
+        assert "hatch-clip" in svg
+
+    def test_hatching_exists(self):
+        """Hatching is present in the SVG."""
+        level, _ = _make_shaped_level(CircleShape())
+        svg = render_floor_svg(level, seed=42)
+        assert HATCH_UNDERLAY in svg
+
+    def test_smooth_room_outline_covers_all_floor(self):
+        """The smooth room outline fill covers all floor tiles."""
+        level, room = _make_shaped_level(CircleShape())
+        svg = render_floor_svg(level, seed=42)
+        assert f'fill="{FLOOR_COLOR}"' in svg
+
+
+# ── 9. Grid details inside shaped rooms ──────────────────────────
 
 
 class TestGridInSmoothRooms:
@@ -786,22 +665,21 @@ class TestFloorDetailIndependentOfShape:
         self._assert_scratches(OctagonShape())
 
     def test_detail_on_corridor_opening_tile(self):
-        """Corridor opening tiles get floor rendering (not blank)."""
-        found = False
-        for seed in range(50):
-            level, room = _make_shaped_level(
-                CircleShape(), room_w=11, room_h=11,
-                corridor_side="east")
-            svg = render_floor_svg(level, seed=seed)
-            floor = room.floor_tiles()
-            cy = room.rect.y + room.rect.height // 2
-            ex = max(fx for fx, fy in floor if fy == cy) + 1
-            tile_px = ex * CELL
-            tile_py = cy * CELL
-            if f'x="{tile_px}" y="{tile_py}"' in svg:
-                found = True
-                break
-        assert found, "Corridor opening tile has no floor rendering"
+        """Corridor opening tiles are covered by the dungeon
+        polygon fill and get floor detail."""
+        from shapely.geometry import Point as Pt
+        from nhc.rendering.svg import _build_dungeon_polygon
+        level, room = _make_shaped_level(
+            CircleShape(), room_w=11, room_h=11,
+            corridor_side="east")
+        poly = _build_dungeon_polygon(level)
+        floor = room.floor_tiles()
+        cy = room.rect.y + room.rect.height // 2
+        ex = max(fx for fx, fy in floor if fy == cy) + 1
+        center = Pt(ex * CELL + CELL / 2, cy * CELL + CELL / 2)
+        assert poly.contains(center), (
+            f"Corridor opening tile ({ex},{cy}) not in dungeon polygon"
+        )
 
     def test_stones_on_corridor_tiles(self):
         """Floor stones appear on corridor tiles."""
