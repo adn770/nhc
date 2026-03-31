@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import math
 import random
-from typing import TYPE_CHECKING
-
 import noise as _noise
 from shapely.geometry import LineString, Point, Polygon
+from shapely.ops import unary_union
 
-if TYPE_CHECKING:
-    from nhc.dungeon.model import Level
+from nhc.dungeon.model import (
+    CircleShape, CrossShape, HybridShape, Level,
+    OctagonShape, Rect, RectShape, Terrain,
+)
 
 # ── Constants ────────────────────────────────────────────────────
 
@@ -56,11 +57,14 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     # Build dungeon polygon once — used for hatching and grid clips
     dungeon_poly = _build_dungeon_polygon(level)
 
-    # Layer 1: Room shadows
+    # Layer 1: Shadows (rooms + corridors)
     _render_room_shadows(svg, level)
+    _render_corridor_shadows(svg, level)
 
-    # Layer 2: Hatching (clipped to exterior of dungeon polygon)
+    # Layer 2: Hatching (rooms clipped to exterior of dungeon
+    # polygon, corridors hatched one tile on each side)
     _render_hatching(svg, level, seed, dungeon_poly)
+    _render_corridor_hatching(svg, level, seed)
 
     # Layer 3: Walls + floor fills
     _render_walls_and_floors(svg, level)
@@ -82,7 +86,7 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
 # ── Helpers ──────────────────────────────────────────────────────
 
 def _is_floor(level: "Level", x: int, y: int) -> bool:
-    from nhc.dungeon.model import Terrain
+
     if not level.in_bounds(x, y):
         return False
     t = level.tiles[y][x]
@@ -104,7 +108,7 @@ def _find_doorless_openings(
 
     Returns list of (room_x, room_y, corridor_x, corridor_y).
     """
-    from nhc.dungeon.model import Terrain
+
     _DOOR_FEATS = {
         "door_closed", "door_open", "door_secret", "door_locked",
     }
@@ -136,9 +140,7 @@ def _outline_with_gaps(
     line segments extending the corridor walls to the intersection
     points.
     """
-    from nhc.dungeon.model import (
-        CircleShape, CrossShape, HybridShape, OctagonShape,
-    )
+
     shape = room.shape
     r = room.rect
 
@@ -211,9 +213,7 @@ def _intersect_outline(
     The wall extends inward (opposite to dx, dy) until it hits
     the outline.
     """
-    from nhc.dungeon.model import (
-        CircleShape, CrossShape, HybridShape, OctagonShape,
-    )
+
     r = rect
     px, py = r.x * CELL, r.y * CELL
     pw, ph = r.width * CELL, r.height * CELL
@@ -305,7 +305,7 @@ def _intersect_hybrid(
     dx: int, dy: int,
 ) -> tuple[float, float] | None:
     """Intersect a corridor wall with a hybrid room outline."""
-    from nhc.dungeon.model import CircleShape, OctagonShape, RectShape
+
     r = rect
     px, py = r.x * CELL, r.y * CELL
     pw, ph = r.width * CELL, r.height * CELL
@@ -330,7 +330,7 @@ def _intersect_hybrid(
 
     if isinstance(sub, CircleShape):
         if shape.split == "horizontal":
-            from nhc.dungeon.model import Rect
+
             tw = r.width
             th = int(sub_ph / CELL)
             d = sub._diameter(Rect(0, 0, tw, th))
@@ -338,7 +338,7 @@ def _intersect_hybrid(
             ccx = px + pw / 2
             ccy = sub_py + sub_ph / 2
         else:
-            from nhc.dungeon.model import Rect
+
             tw = int(sub_pw / CELL)
             th = r.height
             d = sub._diameter(Rect(0, 0, tw, th))
@@ -397,7 +397,7 @@ def _intersect_hybrid(
 
     if isinstance(sub, (OctagonShape,)):
         # Build sub-shape polygon and intersect
-        from nhc.dungeon.model import Rect
+
         if shape.split == "horizontal":
             sub_rect = Rect(r.x, int(sub_py / CELL), r.width,
                             int(sub_ph / CELL))
@@ -414,7 +414,7 @@ def _intersect_hybrid(
 
 def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
     """Get pixel-space vertices for an octagon or cross shape."""
-    from nhc.dungeon.model import CrossShape, OctagonShape
+
     r = rect
     px, py = r.x * CELL, r.y * CELL
     pw, ph = r.width * CELL, r.height * CELL
@@ -688,9 +688,7 @@ def _hybrid_with_gaps(
     edges stay intact, only the arc segment gets split at gap
     points.
     """
-    from nhc.dungeon.model import (
-        CircleShape, HybridShape, OctagonShape, Rect, RectShape,
-    )
+
     shape = room.shape
     r = room.rect
     px, py = r.x * CELL, r.y * CELL
@@ -940,10 +938,7 @@ def _room_svg_outline(room: "Room") -> str | None:
     walls (e.g. RectShape or unknown shapes).  Coordinates are in
     pixel space (tile * CELL).
     """
-    from nhc.dungeon.model import (
-        CircleShape, CrossShape, HybridShape,
-        OctagonShape, RectShape,
-    )
+
     r = room.rect
     shape = room.shape
 
@@ -1019,9 +1014,7 @@ def _hybrid_svg_outline(room: "Room") -> str | None:
     Traces the outer contour combining the curved sub-shape on
     one side and straight lines on the rect side.
     """
-    from nhc.dungeon.model import (
-        CircleShape, HybridShape, OctagonShape, RectShape,
-    )
+
     shape = room.shape
     if not isinstance(shape, HybridShape):
         return None
@@ -1082,9 +1075,7 @@ def _half_outline(
     - "top": traces left→top→right (clockwise across the top)
     - "bottom": traces right→bottom→left (clockwise across bottom)
     """
-    from nhc.dungeon.model import (
-        CircleShape, OctagonShape, Rect, RectShape,
-    )
+
 
     if isinstance(sub_shape, RectShape):
         if side == "left":
@@ -1155,7 +1146,7 @@ def _half_outline(
             )
 
     if isinstance(sub_shape, OctagonShape):
-        from nhc.dungeon.model import Rect
+
         # Approximate clip from the tile-based algorithm
         tw = int(pw / CELL)
         th = int(ph / CELL)
@@ -1226,6 +1217,161 @@ def _render_room_shadows(svg: list[str], level: "Level") -> None:
     for room in level.rooms:
         svg.append(_room_shadow_svg(room))
 
+
+def _render_corridor_shadows(svg: list[str], level: "Level") -> None:
+    """Per-tile offset shadow for corridor and door tiles."""
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if not (tile.is_corridor or _is_door(level, x, y)):
+                continue
+            px, py = x * CELL + 3, y * CELL + 3
+            svg.append(
+                f'<rect x="{px}" y="{py}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{INK}" opacity="0.08"/>')
+
+
+def _render_corridor_hatching(
+    svg: list[str], level: "Level", seed: int,
+) -> None:
+    """Hatch VOID tiles adjacent to corridors (one tile each side).
+
+    Reuses the same visual style as room hatching — grey underlay,
+    stones, and section-partitioned hatch lines.
+    """
+
+    random.seed(seed + 7)
+
+    # Collect VOID tiles that border a corridor or door tile
+    hatch_tiles: set[tuple[int, int]] = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if not (tile.is_corridor or _is_door(level, x, y)):
+                continue
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = x + dx, y + dy
+                if not level.in_bounds(nx, ny):
+                    continue
+                nb = level.tiles[ny][nx]
+                if (nb.terrain == Terrain.VOID
+                        and not nb.is_corridor):
+                    hatch_tiles.add((nx, ny))
+
+    if not hatch_tiles:
+        return
+
+    min_stroke = 1.0
+    max_stroke = 1.8
+    tile_fills: list[str] = []
+    hatch_lines: list[str] = []
+    hatch_stones: list[str] = []
+
+    for gx, gy in sorted(hatch_tiles):
+        # Grey underlay tile
+        tile_fills.append(
+            f'<rect x="{gx * CELL}" y="{gy * CELL}" '
+            f'width="{CELL}" height="{CELL}" '
+            f'fill="{HATCH_UNDERLAY}"/>')
+
+        # Scatter 0-2 stones
+        n_stones = random.choices(
+            [0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
+        for _ in range(n_stones):
+            sx = (gx + random.uniform(0.15, 0.85)) * CELL
+            sy = (gy + random.uniform(0.15, 0.85)) * CELL
+            rx = random.uniform(2, CELL * 0.25)
+            ry = random.uniform(2, CELL * 0.2)
+            angle = random.uniform(0, 180)
+            sw = random.uniform(1.2, 2.0)
+            hatch_stones.append(
+                f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                f'transform="rotate({angle:.0f},'
+                f'{sx:.1f},{sy:.1f})" '
+                f'fill="{HATCH_UNDERLAY}" stroke="#666666" '
+                f'stroke-width="{sw:.1f}"/>')
+
+        # Perlin-displaced cluster anchor
+        nr = CELL * 0.1
+        adx = _noise.pnoise2(gx * 0.5, gy * 0.5, base=1) * nr
+        ady = _noise.pnoise2(gx * 0.5, gy * 0.5, base=2) * nr
+        anchor = ((gx + 0.5) * CELL + adx,
+                  (gy + 0.5) * CELL + ady)
+
+        corners = [
+            (gx * CELL, gy * CELL),
+            ((gx + 1) * CELL, gy * CELL),
+            ((gx + 1) * CELL, (gy + 1) * CELL),
+            (gx * CELL, (gy + 1) * CELL),
+        ]
+
+        pts = _pick_section_points(corners, anchor, CELL)
+        sections = _build_sections(anchor, pts, corners)
+
+        for i, section in enumerate(sections):
+            if section.is_empty or section.area < 1:
+                continue
+            if i == 0:
+                angle = math.atan2(
+                    pts[1][1] - pts[0][1],
+                    pts[1][0] - pts[0][0])
+            else:
+                angle = random.uniform(0, math.pi)
+
+            bounds = section.bounds
+            diag = math.hypot(
+                bounds[2] - bounds[0], bounds[3] - bounds[1])
+            spacing = CELL * 0.20
+            n_lines = max(3, int(diag / spacing))
+
+            for j in range(n_lines):
+                offset = (j - (n_lines - 1) / 2) * spacing
+                scx = section.centroid.x
+                scy = section.centroid.y
+                perp_x = math.cos(angle + math.pi / 2) * offset
+                perp_y = math.sin(angle + math.pi / 2) * offset
+                line = LineString([
+                    (scx + perp_x - math.cos(angle) * diag,
+                     scy + perp_y - math.sin(angle) * diag),
+                    (scx + perp_x + math.cos(angle) * diag,
+                     scy + perp_y + math.sin(angle) * diag),
+                ])
+                clipped = section.intersection(line)
+                if (clipped.is_empty
+                        or not isinstance(clipped, LineString)):
+                    continue
+                p1, p2 = list(clipped.coords)
+                wb = CELL * 0.03
+                p1 = (
+                    p1[0] + _noise.pnoise2(
+                        p1[0] * 0.1, p1[1] * 0.1, base=10) * wb,
+                    p1[1] + _noise.pnoise2(
+                        p1[0] * 0.1, p1[1] * 0.1, base=11) * wb,
+                )
+                p2 = (
+                    p2[0] + _noise.pnoise2(
+                        p2[0] * 0.1, p2[1] * 0.1, base=12) * wb,
+                    p2[1] + _noise.pnoise2(
+                        p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
+                )
+                lsw = random.uniform(min_stroke, max_stroke)
+                hatch_lines.append(
+                    f'<line x1="{p1[0]:.1f}" '
+                    f'y1="{p1[1]:.1f}" '
+                    f'x2="{p2[0]:.1f}" '
+                    f'y2="{p2[1]:.1f}" '
+                    f'stroke="{INK}" '
+                    f'stroke-width="{lsw:.2f}" '
+                    f'stroke-linecap="round"/>')
+
+    if tile_fills:
+        svg.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
+    if hatch_lines:
+        svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
+    if hatch_stones:
+        svg.append(f'<g>{"".join(hatch_stones)}</g>')
 
 
 
@@ -1592,7 +1738,7 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
     Rect rooms: a filled BG rect, then tile-edge wall segments.
     Corridors: per-tile BG rects (no enclosing shape).
     """
-    from nhc.dungeon.model import RectShape
+
 
     _STROKE_STYLE = (
         f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
@@ -1989,10 +2135,7 @@ def _room_shapely_polygon(room) -> Polygon | None:
     Approximates circles and arcs with 64-segment polylines.
     Returns None for rect rooms (use tile rects instead).
     """
-    from nhc.dungeon.model import (
-        CircleShape, CrossShape, HybridShape, OctagonShape,
-        RectShape,
-    )
+
     shape = room.shape
     r = room.rect
     px, py = r.x * CELL, r.y * CELL
@@ -2159,7 +2302,7 @@ def _build_dungeon_polygon(level: "Level") -> Polygon:
     wall path.  Corridors are excluded — they are handled
     separately by grid/detail rendering.
     """
-    from shapely.ops import unary_union
+
     polys = []
 
     for room in level.rooms:
