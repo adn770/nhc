@@ -146,14 +146,20 @@ class Game:
         """Set up initial game state from a level file or generator."""
         # Check for autosave recovery
         from nhc.core.autosave import auto_restore, delete_autosave, has_autosave
+        logger.info("Game.initialize: reset=%s, generate=%s", self.reset,
+                     generate)
         if self.reset and has_autosave():
             delete_autosave()
             logger.info("Autosave deleted (--reset)")
         elif has_autosave():
             logger.info("Autosave found, attempting recovery")
             if auto_restore(self):
-                logger.info("Game restored from autosave")
+                logger.info("Game RESTORED from autosave (turn=%d)",
+                            self.turn)
                 return
+            logger.warning("Autosave recovery failed, starting fresh")
+        else:
+            logger.info("No autosave found, starting fresh game")
 
         from nhc.utils.rng import get_seed, set_seed
         if self.seed is not None:
@@ -568,6 +574,8 @@ class Game:
             if not health or health.current <= 0:
                 self.game_over = True
                 self._detect_death_cause(events)
+                logger.info("Player died: killed_by=%s turn=%d",
+                            self.killed_by, self.turn)
                 death_msg = t("game.died")
                 if self.killed_by:
                     death_msg = t("game.slain_by", killer=self.killed_by)
@@ -576,11 +584,14 @@ class Game:
                     self.world, self.level, self.player_id, self.turn,
                 )
                 from nhc.core.autosave import delete_autosave
+                logger.info("Deleting autosave after death...")
                 delete_autosave()
+                logger.info("Showing end screen...")
                 self.renderer.show_end_screen(
                     won=False, turn=self.turn,
                     killed_by=self.killed_by,
                 )
+                logger.info("End screen dismissed, breaking game loop")
                 break
 
             # Recompute FOV

@@ -17,3 +17,4 @@ class WebConfig:
     ollama_model: str = "gemma3:12b"
     default_lang: str = "ca"
     default_tileset: str = "classic"
+    reset: bool = False

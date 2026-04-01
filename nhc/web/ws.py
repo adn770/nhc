@@ -100,14 +100,18 @@ def register_ws(app, sock: Sock) -> None:
                 logger.info("Game loop starting for session %s",
                             session_id)
                 loop.run_until_complete(session.game.run())
-                logger.info("Game loop ended for session %s",
-                            session_id)
+                logger.info("Game loop ended normally for session %s "
+                            "(game_over=%s, won=%s, turn=%d)",
+                            session_id, session.game.game_over,
+                            session.game.won, session.game.turn)
             except Exception:
                 logger.exception("Game loop error for session %s",
                                  session_id)
             finally:
                 loop.close()
                 stop_event.set()
+                logger.info("Game thread cleanup done for session %s",
+                            session_id)
 
         game_thread = threading.Thread(target=_run_game, daemon=True)
         game_thread.start()
@@ -127,7 +131,13 @@ def register_ws(app, sock: Sock) -> None:
 
         # Cleanup
         stop_event.set()
+        logger.info("WS cleanup: joining game thread for session %s",
+                     session_id)
         game_thread.join(timeout=5)
+        if game_thread.is_alive():
+            logger.warning("Game thread still alive after 5s for %s",
+                           session_id)
         sender_thread.join(timeout=2)
-        logger.info("WS disconnected: session=%s", session_id)
+        logger.info("WS disconnected: session=%s, destroying session",
+                     session_id)
         sessions.destroy(session_id)

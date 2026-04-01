@@ -26,16 +26,20 @@ AUTOSAVE_VERSION = 1
 
 def has_autosave() -> bool:
     """Check if an autosave file exists."""
-    return AUTOSAVE_PATH.exists()
+    exists = AUTOSAVE_PATH.exists()
+    logger.debug("has_autosave: %s (path=%s)", exists, AUTOSAVE_PATH)
+    return exists
 
 
 def delete_autosave() -> None:
     """Remove autosave file (on death or victory)."""
     try:
+        existed = AUTOSAVE_PATH.exists()
         AUTOSAVE_PATH.unlink(missing_ok=True)
-        logger.info("Autosave deleted")
+        logger.info("Autosave delete: existed=%s, path=%s", existed,
+                     AUTOSAVE_PATH)
     except OSError:
-        pass
+        logger.error("Autosave delete FAILED", exc_info=True)
 
 
 def autosave(game: "Game") -> None:

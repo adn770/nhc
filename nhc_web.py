@@ -47,6 +47,10 @@ def parse_args() -> argparse.Namespace:
         "--token",
         help="Use a specific auth token instead of generating one",
     )
+    parser.add_argument(
+        "--reset", action="store_true",
+        help="Start a new game, ignoring any autosave",
+    )
     return parser.parse_args()
 
 
@@ -68,6 +72,7 @@ def main() -> None:
         ollama_url=args.ollama_url,
         ollama_model=args.ollama_model,
         auth_required=auth_token is not None,
+        reset=args.reset,
     )
     app = create_app(config, auth_token=auth_token)
 

@@ -2,6 +2,7 @@
 # NHC web server launcher — creates venv, installs deps, and runs the server.
 # Usage: ./server [args...]
 #   e.g. ./server --host 0.0.0.0 --port 5000 --auth
+#        ./server --reset          # ignore autosave, start new game
 #        ./server --restart        # kill running server and start fresh
 
 set -euo pipefail

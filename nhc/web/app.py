@@ -27,11 +27,14 @@ def create_app(
     )
     app.config["NHC_CONFIG"] = config
 
-    # Enable debug logging
-    logging.basicConfig(
+    # Set up file + console logging via shared log_utils
+    from nhc.log_utils import setup_logging
+    log_path = setup_logging(
         level=logging.DEBUG,
-        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        debug_topics="all",
+        console_output=True,
     )
+    logger.info("Log file: %s", log_path)
 
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
@@ -75,7 +78,8 @@ def create_app(
         data = request.get_json(silent=True) or {}
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
-        logger.info("Creating new game: lang=%s tileset=%s", lang, tileset)
+        logger.info("Creating new game: lang=%s tileset=%s reset=%s",
+                     lang, tileset, config.reset)
         try:
             session = sessions.create(lang=lang, tileset=tileset)
         except ValueError as exc:
@@ -105,7 +109,7 @@ def create_app(
             client=client,
             backend=backend,
             game_mode="classic",
-            reset=True,
+            reset=config.reset,
         )
         session.game = game
 

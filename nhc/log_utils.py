@@ -62,6 +62,13 @@ TOPIC_MAP: dict[str, str] = {
     # Rendering
     "rendering.terminal.renderer": "render",
     "rendering.terminal.input": "input",
+    "rendering.web_client": "webclient",
+    # Web server
+    "web.app": "webapp",
+    "web.ws": "ws",
+    "web.sessions": "sessions",
+    # Autosave
+    "core.autosave": "autosave",
     # Narrative / LLM
     "narrative.narrator": "narrative",
     "llm": "llm",
@@ -97,6 +104,13 @@ TOPIC_CATEGORIES: dict[str, list[tuple[str, str]]] = {
         ("dungeon", "Level generation"),
         ("loader", "YAML level loading"),
         ("populate", "Entity population"),
+    ],
+    "Web": [
+        ("webapp", "Flask application and API routes"),
+        ("ws", "WebSocket handler and game threads"),
+        ("webclient", "Web client renderer"),
+        ("sessions", "Session manager"),
+        ("autosave", "Autosave/restore system"),
     ],
     "Other": [
         ("render", "Terminal rendering"),
