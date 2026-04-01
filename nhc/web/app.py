@@ -110,6 +110,7 @@ def create_app(
             backend=backend,
             game_mode="classic",
             reset=config.reset,
+            shape_variety=config.shape_variety,
         )
         session.game = game
 

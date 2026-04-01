@@ -110,6 +110,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Start a new game, ignoring any autosave",
     )
+    game_group.add_argument(
+        "--shape-variety",
+        type=float,
+        default=None,
+        help="Room shape variety 0.0-1.0 (default: 0.3, scales with depth)",
+    )
 
     # Logging options
     log_group = parser.add_argument_group("Logging")
@@ -175,6 +181,8 @@ async def main() -> int:
         cli_overrides["colors"] = args.colors
     if args.mode:
         cli_overrides["mode"] = args.mode
+    if args.shape_variety is not None:
+        cli_overrides["shape_variety"] = args.shape_variety
 
     merged = config.merge(cli_overrides)
 
@@ -204,9 +212,10 @@ async def main() -> int:
 
     # Create and run game
     god_mode = args.god or merged.get("god", False)
+    shape_variety = merged.get("shape_variety", 0.3)
     game = Game(client=client, backend=backend, seed=args.seed,
                 game_mode=game_mode, god_mode=god_mode,
-                reset=args.reset)
+                reset=args.reset, shape_variety=shape_variety)
     try:
         if args.generate:
             await game.initialize(generate=True)

@@ -54,6 +54,18 @@ if TYPE_CHECKING:
 
 FOV_RADIUS = 8
 
+DEFAULT_SHAPE_VARIETY = 0.3
+SHAPE_VARIETY_PER_DEPTH = 0.05
+MAX_SHAPE_VARIETY = 0.8
+
+
+def _shape_variety_for_depth(base: float, depth: int) -> float:
+    """Scale shape variety with dungeon depth, capped at MAX."""
+    if base == 0.0:
+        return 0.0
+    return min(base + (depth - 1) * SHAPE_VARIETY_PER_DEPTH,
+               MAX_SHAPE_VARIETY)
+
 
 def _resolve_click(
     world: World, level: "Level", player_id: int,
@@ -116,6 +128,7 @@ class Game:
         game_mode: str = "classic",
         god_mode: bool = False,
         reset: bool = False,
+        shape_variety: float = DEFAULT_SHAPE_VARIETY,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
@@ -124,6 +137,7 @@ class Game:
         self.mode = game_mode
         self.god_mode = god_mode
         self.reset = reset
+        self.shape_variety = shape_variety
         self.running = False
         self.game_over = False
         self.won = False
@@ -187,7 +201,8 @@ class Game:
             from nhc.dungeon.room_types import assign_room_types
             from nhc.dungeon.terrain import apply_terrain
 
-            params = GenerationParams(depth=depth)
+            sv = _shape_variety_for_depth(self.shape_variety, depth)
+            params = GenerationParams(depth=depth, shape_variety=sv)
             gen = BSPGenerator()
             self.level = gen.generate(params)
             rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
@@ -195,8 +210,9 @@ class Game:
             apply_terrain(self.level, rng)
             populate_level(self.level)
             logger.info(
-                "Generated level depth=%d (%dx%d, %d rooms)",
-                depth, self.level.width, self.level.height,
+                "Generated level depth=%d shape_variety=%.2f "
+                "(%dx%d, %d rooms)",
+                depth, sv, self.level.width, self.level.height,
                 len(self.level.rooms),
             )
 
@@ -1377,7 +1393,8 @@ class Game:
             self._restore_floor(new_depth)
             logger.info("Restored cached floor at depth %d", new_depth)
         else:
-            params = GenerationParams(depth=new_depth)
+            sv = _shape_variety_for_depth(self.shape_variety, new_depth)
+            params = GenerationParams(depth=new_depth, shape_variety=sv)
             gen = BSPGenerator()
             self.level = gen.generate(params)
             rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()

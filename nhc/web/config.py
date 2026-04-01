@@ -18,3 +18,4 @@ class WebConfig:
     default_lang: str = "ca"
     default_tileset: str = "classic"
     reset: bool = False
+    shape_variety: float = 0.3

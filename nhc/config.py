@@ -19,6 +19,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "colors": "256",
     "mode": "classic",
     "god": False,
+    "shape_variety": 0.3,
 }
 
 CONFIG_PATH = Path.home() / ".nhcrc"

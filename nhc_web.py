@@ -51,6 +51,10 @@ def parse_args() -> argparse.Namespace:
         "--reset", action="store_true",
         help="Start a new game, ignoring any autosave",
     )
+    parser.add_argument(
+        "--shape-variety", type=float, default=0.3,
+        help="Room shape variety 0.0-1.0 (default: 0.3, scales with depth)",
+    )
     return parser.parse_args()
 
 
@@ -73,6 +77,7 @@ def main() -> None:
         ollama_model=args.ollama_model,
         auth_required=auth_token is not None,
         reset=args.reset,
+        shape_variety=args.shape_variety,
     )
     app = create_app(config, auth_token=auth_token)
 
