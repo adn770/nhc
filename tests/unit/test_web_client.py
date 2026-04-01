@@ -445,6 +445,31 @@ class TestGatherStatsItemMetadata:
         assert stats["items"] == []
 
 
+class TestActionLabels:
+    """_gather_stats includes translated action labels for context menu."""
+
+    def test_action_labels_present(self):
+        world = _mock_world({1: _player_comps()})
+        wc = WebClient(lang="en")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        assert "action_labels" in stats
+        labels = stats["action_labels"]
+        for key in ("use", "quaff", "zap", "equip", "unequip",
+                     "drop", "throw"):
+            assert key in labels, f"missing label for '{key}'"
+
+    def test_action_labels_catalan(self):
+        from nhc.i18n import init as i18n_init
+        i18n_init("ca")
+        world = _mock_world({1: _player_comps()})
+        wc = WebClient(lang="ca")
+        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        labels = stats["action_labels"]
+        # Catalan labels should not be the English fallback keys
+        assert labels["drop"] != "ui.action_drop"
+        assert labels["use"] != "ui.action_use"
+
+
 class TestItemActionDispatch:
     """get_input handles item_action messages from the client."""
 

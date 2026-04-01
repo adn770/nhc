@@ -559,6 +559,13 @@ ui:
   death_desc: "La teva aventura acaba aquí."
   death_cause: "Mort per {cause}."
   end_footer: "Has sobreviscut {turn} torns. Prem qualsevol tecla per sortir."
+  action_use: "Usar"
+  action_quaff: "Beure"
+  action_zap: "Apuntar"
+  action_equip: "Equipar"
+  action_unequip: "Desequipar"
+  action_drop: "Deixar"
+  action_throw: "Llançar"
   mode_typed: "Canviat a mode escrit. Escriu les teves accions."
   mode_classic: "Canviat a mode clàssic. Usa les tecles."
 

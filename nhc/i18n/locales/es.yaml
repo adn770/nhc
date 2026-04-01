@@ -541,6 +541,13 @@ ui:
   death_desc: "Tu aventura termina aquí."
   death_cause: "Muerto por {cause}."
   end_footer: "Sobreviviste {turn} turnos. Pulsa cualquier tecla para salir."
+  action_use: "Usar"
+  action_quaff: "Beber"
+  action_zap: "Apuntar"
+  action_equip: "Equipar"
+  action_unequip: "Desequipar"
+  action_drop: "Soltar"
+  action_throw: "Lanzar"
   mode_typed: "Cambiado a modo escrito. Escribe tus acciones."
   mode_classic: "Cambiado a modo clásico. Usa las teclas."
 

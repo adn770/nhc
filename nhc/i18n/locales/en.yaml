@@ -541,6 +541,13 @@ ui:
   death_desc: "Your adventure ends here."
   death_cause: "Killed by {cause}."
   end_footer: "Survived {turn} turns. Press any key to exit."
+  action_use: "Use"
+  action_quaff: "Quaff"
+  action_zap: "Zap"
+  action_equip: "Equip"
+  action_unequip: "Unequip"
+  action_drop: "Drop"
+  action_throw: "Throw"
   mode_typed: "Switched to typed mode. Type your actions."
   mode_classic: "Switched to classic mode. Use keys."
 

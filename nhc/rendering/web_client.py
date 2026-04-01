@@ -262,6 +262,20 @@ class WebClient(GameClient):
             "items": items,
             "slots_used": total_used,
             "slots_max": max_slots,
+            "action_labels": self._action_labels(),
+        }
+
+    def _action_labels(self) -> dict[str, str]:
+        """Return translated context menu action labels."""
+        from nhc.i18n import t
+        return {
+            "use": t("ui.action_use"),
+            "quaff": t("ui.action_quaff"),
+            "zap": t("ui.action_zap"),
+            "equip": t("ui.action_equip"),
+            "unequip": t("ui.action_unequip"),
+            "drop": t("ui.action_drop"),
+            "throw": t("ui.action_throw"),
         }
 
     def _gather_doors(

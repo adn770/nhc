@@ -26,6 +26,11 @@ const UI = {
   updateStatus(s) {
     if (!s.hp_max) return;
 
+    // Store translated action labels for context menus
+    if (s.action_labels) {
+      this._actionLabels = s.action_labels;
+    }
+
     // ── Line 1: Location, depth, turn, level, gold, HP bar ──
     const hp = s.hp || 0;
     const hpMax = s.hp_max || 1;
@@ -125,26 +130,28 @@ const UI = {
 
   _itemContextActions(item) {
     const types = item.types || [];
+    const L = this._actionLabels || {};
     const actions = [];
     if (types.includes("consumable")) {
-      actions.push({ action: "use", label: "Use" });
-      actions.push({ action: "quaff", label: "Quaff" });
+      actions.push({ action: "use", label: L.use || "Use" });
+      actions.push({ action: "quaff", label: L.quaff || "Quaff" });
     }
     if (types.includes("wand")) {
-      actions.push({ action: "zap", label: "Zap" });
+      actions.push({ action: "zap", label: L.zap || "Zap" });
     }
     if (types.includes("weapon") || types.includes("armor") ||
         types.includes("shield") || types.includes("helmet") ||
         types.includes("ring")) {
+      const act = item.equipped ? "unequip" : "equip";
       actions.push({
-        action: item.equipped ? "unequip" : "equip",
-        label: item.equipped ? "Unequip" : "Equip",
+        action: act,
+        label: L[act] || (item.equipped ? "Unequip" : "Equip"),
       });
     }
     if (types.includes("throwable")) {
-      actions.push({ action: "throw", label: "Throw" });
+      actions.push({ action: "throw", label: L.throw || "Throw" });
     }
-    actions.push({ action: "drop", label: "Drop" });
+    actions.push({ action: "drop", label: L.drop || "Drop" });
     return actions;
   },
 
