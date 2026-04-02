@@ -319,6 +319,85 @@ class WebClient(GameClient):
                     visible.append([x, y])
         return visible
 
+    def _gather_debug_data(self, level: "Level") -> dict:
+        """Build debug overlay data for god mode panel."""
+        from nhc.dungeon.model import HybridShape, Terrain
+
+        # Rooms
+        rooms = []
+        for i, room in enumerate(level.rooms):
+            r = room.rect
+            shape = room.shape
+            name = type(shape).__name__.replace("Shape", "").lower()
+            if isinstance(shape, HybridShape):
+                left = type(shape.left).__name__.replace(
+                    "Shape", "").lower()
+                right = type(shape.right).__name__.replace(
+                    "Shape", "").lower()
+                axis = "v" if shape.split == "vertical" else "h"
+                name = f"hybrid({left}+{right},{axis})"
+            rooms.append({
+                "index": i, "x": r.x, "y": r.y,
+                "w": r.width, "h": r.height, "shape": name,
+            })
+
+        # Corridors — flood-fill connected corridor tiles
+        corridor_tiles: set[tuple[int, int]] = set()
+        for y, row in enumerate(level.tiles):
+            for x, tile in enumerate(row):
+                if tile.terrain == Terrain.FLOOR and tile.is_corridor:
+                    corridor_tiles.add((x, y))
+
+        corridors = []
+        visited: set[tuple[int, int]] = set()
+        for start in sorted(corridor_tiles):
+            if start in visited:
+                continue
+            seg: list[tuple[int, int]] = []
+            queue = [start]
+            while queue:
+                pos = queue.pop()
+                if pos in visited:
+                    continue
+                visited.add(pos)
+                seg.append(pos)
+                px, py = pos
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = (px + dx, py + dy)
+                    if nb in corridor_tiles and nb not in visited:
+                        queue.append(nb)
+            seg.sort()
+            mid = seg[len(seg) // 2]
+            corridors.append({
+                "index": len(corridors),
+                "cx": mid[0], "cy": mid[1],
+                "tile_count": len(seg),
+            })
+
+        # Doors — all door tiles with index and type
+        abbrev = {
+            "door_closed": "C", "door_open": "O",
+            "door_secret": "S", "door_locked": "L",
+        }
+        doors = []
+        for y, row in enumerate(level.tiles):
+            for x, tile in enumerate(row):
+                if tile.feature in abbrev:
+                    doors.append({
+                        "index": len(doors), "x": x, "y": y,
+                        "kind": abbrev[tile.feature],
+                        "side": tile.door_side,
+                    })
+
+        return {
+            "rooms": rooms,
+            "corridors": corridors,
+            "doors": doors,
+            "fov_radius": 8,
+            "map_width": level.width,
+            "map_height": level.height,
+        }
+
     # ── Lifecycle ────────────────────────────────────────────────
 
     def initialize(self) -> None:

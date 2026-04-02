@@ -82,6 +82,16 @@ def register_ws(app, sock: Sock) -> None:
         else:
             logger.warning("No floor SVG to send!")
 
+        # Send debug data for god mode overlay
+        if session.game.god_mode and session.game.level:
+            debug = client._gather_debug_data(session.game.level)
+            ws.send(json.dumps({"type": "debug_data", **debug}))
+            logger.info("Sent debug_data: %d rooms, %d corridors, "
+                        "%d doors",
+                        len(debug["rooms"]),
+                        len(debug["corridors"]),
+                        len(debug["doors"]))
+
         # Sender thread: drains client output queue → WS
         stop_event = threading.Event()
 

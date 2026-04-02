@@ -19,3 +19,4 @@ class WebConfig:
     default_tileset: str = "classic"
     reset: bool = False
     shape_variety: float = 0.3
+    god_mode: bool = False

@@ -58,6 +58,11 @@ const GameMap = {
         this.hatchCanvas.width = w;
         this.hatchCanvas.height = h;
       }
+      const debugCanvas = document.getElementById("debug-canvas");
+      if (debugCanvas) {
+        debugCanvas.width = w;
+        debugCanvas.height = h;
+      }
       this.mapW = w;
       this.mapH = h;
       console.log("Floor SVG set:", w, "x", h,

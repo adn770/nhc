@@ -165,6 +165,109 @@ body {
   z-index: 2;
 }
 
+#debug-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* God mode debug panel */
+#god-mode-btn {
+  margin-left: auto;
+  border-color: #e6c07b !important;
+  color: #e6c07b;
+}
+
+#debug-panel {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: #16213e;
+  border: 1px solid #e6c07b;
+  border-radius: 6px;
+  padding: 0;
+  z-index: 150;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.debug-tabs {
+  display: flex;
+  border-bottom: 1px solid #444;
+  background: #0f1529;
+}
+
+.debug-tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  color: #888;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.debug-tab:hover {
+  color: #ccc;
+}
+
+.debug-tab.active {
+  color: #e6c07b;
+  border-bottom-color: #e6c07b;
+}
+
+.debug-tab-content {
+  padding: 12px;
+  display: none;
+}
+
+.debug-tab-content.active {
+  display: block;
+}
+
+.debug-section-header {
+  color: #e6c07b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.debug-section-header:first-child {
+  margin-top: 0;
+}
+
+.debug-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  color: #ccc;
+}
+
+.debug-layer-row input[type="checkbox"] {
+  accent-color: #e6c07b;
+}
+
+.debug-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+  color: #aaa;
+  font-size: 11px;
+}
+
+.debug-info-row .value {
+  color: #ccc;
+}
+
 /* Toolbar */
 #toolbar-zone {
   background: #16213e;

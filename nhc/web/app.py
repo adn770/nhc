@@ -111,6 +111,7 @@ def create_app(
             game_mode="classic",
             reset=config.reset,
             shape_variety=config.shape_variety,
+            god_mode=config.god_mode,
         )
         session.game = game
 
@@ -151,6 +152,7 @@ def create_app(
             "session_id": session.session_id,
             "lang": session.lang,
             "tileset": session.tileset,
+            "god_mode": config.god_mode,
         }), 201
 
     @app.route("/api/game/<session_id>/hatch.svg", methods=["GET"])

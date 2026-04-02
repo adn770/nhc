@@ -21,6 +21,7 @@ const NHC = {
                   (msg.fov || []).length, "fov tiles");
       GameMap.updateEntities(msg.entities, msg.doors);
       if (msg.fov) GameMap.updateFOV(msg.fov);
+      if (DebugPanel.enabled) DebugPanel.updateFovInfo();
     });
 
     WS.on("message", (msg) => {
@@ -76,6 +77,12 @@ const NHC = {
       UI.addMessage("Farlook mode — click a tile to examine.");
       WS.send({ type: "action", intent: "farlook_done" });
     });
+
+    WS.on("debug_data", (msg) => {
+      if (DebugPanel.enabled) {
+        DebugPanel.setDebugData(msg);
+      }
+    });
   },
 
   async newGame() {
@@ -108,6 +115,12 @@ const NHC = {
 
     // Init map now that the DOM is visible
     GameMap.init();
+
+    // Init debug panel if god mode
+    if (data.god_mode) {
+      DebugPanel.enabled = true;
+      DebugPanel.init();
+    }
 
     // Connect WebSocket
     WS.connect(this.sessionId);

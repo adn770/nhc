@@ -55,6 +55,10 @@ def parse_args() -> argparse.Namespace:
         "--shape-variety", type=float, default=0.3,
         help="Room shape variety 0.0-1.0 (default: 0.3, scales with depth)",
     )
+    parser.add_argument(
+        "--god", action="store_true",
+        help="God mode: invulnerable, debug tools enabled",
+    )
     return parser.parse_args()
 
 
@@ -78,6 +82,7 @@ def main() -> None:
         auth_required=auth_token is not None,
         reset=args.reset,
         shape_variety=args.shape_variety,
+        god_mode=args.god,
     )
     app = create_app(config, auth_token=auth_token)
 
