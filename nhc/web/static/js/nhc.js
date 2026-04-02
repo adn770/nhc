@@ -158,6 +158,7 @@ const NHC = {
     // Reset client state
     GameMap.fov = new Set();
     GameMap.explored = new Set();
+    GameMap.hatchClear = new Set();
     GameMap.doorInfo = new Map();
     GameMap.allDoors = new Map();
     GameMap.entities = [];

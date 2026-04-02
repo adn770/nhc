@@ -526,3 +526,227 @@ class TestWallRunPlayerAdjacentToWall:
 
     def test_door_visible(self, fov):
         assert (6, 3) in fov
+
+
+# ── Scenario E: player inside room with two doors on south wall ─
+#
+# Matches the real bug scenario: player is inside the room
+# looking at two closed doors on the bottom wall. Wall tiles
+# between and beside the doors are visible (part of the room
+# wall). Corridor tiles behind the doors must NOT be visible.
+#
+#      0 1 2 3 4 5 6 7 8 9 10 11
+#  0   . . . . . . . . . .  .  .    VOID
+#  1   . . . # # # # # # #  .  .    room north wall
+#  2   . . . # . . . . . #  .  .    room interior
+#  3   . . . # . . @ . . #  .  .    room interior (player)
+#  4   . . . # . . . . . #  .  .    room interior
+#  5   . . . # D # D # # #  .  .    south wall + doors
+#  6   . . . . . . . . . .  .  .    corridor/VOID behind
+#  7   . . . . . . . . . .  .  .
+#
+# Doors at (4,5) and (6,5) with door_side="north" (room floor
+# is to the north at y=4).
+# Wall tiles (5,5), (7,5), (8,5) have visible floor above.
+# Corridor tiles (4,6), (6,6) must NOT be visible.
+
+def _build_room_with_two_south_doors() -> Level:
+    level = Level.create_empty("test", "Test", depth=1,
+                               width=12, height=8)
+
+    # Room walls
+    for x in range(3, 10):
+        level.tiles[1][x] = Tile(terrain=Terrain.WALL)
+        level.tiles[5][x] = Tile(terrain=Terrain.WALL)
+    for y in range(1, 6):
+        level.tiles[y][3] = Tile(terrain=Terrain.WALL)
+        level.tiles[y][9] = Tile(terrain=Terrain.WALL)
+
+    # Room interior: (4-8, 2-4)
+    for y in range(2, 5):
+        for x in range(4, 9):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+
+    # Doors at (4,5) and (6,5) — door_side="north" because
+    # room floor is north (y=4).  Corridor is south (y=6).
+    level.tiles[5][4] = Tile(
+        terrain=Terrain.FLOOR,
+        feature="door_closed",
+        door_side="north",
+    )
+    level.tiles[5][6] = Tile(
+        terrain=Terrain.FLOOR,
+        feature="door_closed",
+        door_side="north",
+    )
+
+    # Corridors behind doors
+    level.tiles[6][4] = Tile(terrain=Terrain.FLOOR,
+                             is_corridor=True)
+    level.tiles[6][6] = Tile(terrain=Terrain.FLOOR,
+                             is_corridor=True)
+
+    return level
+
+
+# ── Hatch-clear computation ─────────────────────────────────
+#
+# compute_hatch_clear returns the set of explored tiles that
+# should have their hatch removed on the client. Only FLOOR
+# and WATER tiles are included (WALL/VOID stay hatched to
+# prevent SVG bleed). Closed doors with an unexplored corridor
+# side are excluded so their expand doesn't leak.
+
+
+class TestHatchClearBasic:
+    """Only FLOOR/WATER explored tiles appear in hatch_clear."""
+
+    @pytest.fixture()
+    def level(self) -> Level:
+        level = _build_room_with_two_south_doors()
+        # Mark the room interior + walls as explored
+        for y in range(1, 6):
+            for x in range(3, 10):
+                tile = level.tile_at(x, y)
+                if tile:
+                    tile.explored = True
+        return level
+
+    def test_floor_tiles_included(self, level):
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        # Room floor tiles should be in hatch_clear
+        for x in range(4, 9):
+            for y in range(2, 5):
+                assert (x, y) in hc, (
+                    f"explored floor ({x},{y}) should be in "
+                    f"hatch_clear"
+                )
+
+    def test_wall_tiles_excluded(self, level):
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        # Wall tiles should NOT be in hatch_clear
+        for x in range(3, 10):
+            tile = level.tile_at(x, 1)
+            if tile and tile.terrain == Terrain.WALL:
+                assert (x, 1) not in hc, (
+                    f"wall ({x},1) should not be in hatch_clear"
+                )
+
+    def test_void_tiles_excluded(self, level):
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        # VOID tiles (even if somehow explored) excluded
+        level.tile_at(0, 0).explored = True
+        hc = compute_hatch_clear(level)
+        assert (0, 0) not in hc
+
+    def test_unexplored_tiles_excluded(self, level):
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        # Corridor behind door is unexplored
+        assert (4, 6) not in hc
+        assert (6, 6) not in hc
+
+
+class TestHatchClearDoorBlocking:
+    """Closed doors with unexplored corridor side are excluded."""
+
+    @pytest.fixture()
+    def level(self) -> Level:
+        level = _build_room_with_two_south_doors()
+        # Explore room interior + wall row + doors
+        for y in range(1, 6):
+            for x in range(3, 10):
+                tile = level.tile_at(x, y)
+                if tile:
+                    tile.explored = True
+        return level
+
+    def test_closed_door_corridor_unexplored(self, level):
+        """Door tile excluded when corridor side not explored."""
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        # (4,5) has door_side="north", corridor at (4,6)
+        # (4,6) is unexplored → door excluded
+        assert (4, 5) not in hc
+        assert (6, 5) not in hc
+
+    def test_closed_door_corridor_explored(self, level):
+        """Door tile included when corridor side is explored."""
+        from nhc.core.game import compute_hatch_clear
+        # Explore the corridor behind door (4,5)
+        level.tile_at(4, 6).explored = True
+        hc = compute_hatch_clear(level)
+        assert (4, 5) in hc
+        # Other door still blocked
+        assert (6, 5) not in hc
+
+    def test_open_door_always_included(self, level):
+        """Open doors are always in hatch_clear."""
+        from nhc.core.game import compute_hatch_clear
+        level.tile_at(4, 5).feature = "door_open"
+        hc = compute_hatch_clear(level)
+        assert (4, 5) in hc
+
+
+class TestPlayerInsideRoomTwoSouthDoors:
+    """Player inside room: corridor behind closed doors not visible.
+
+    This tests the real scenario where the player is inside a room
+    and can see the room wall with closed doors. Wall tiles between
+    the doors have visible floor neighbors (room floor above), so
+    they are correctly visible. But corridor tiles behind doors and
+    VOID tiles flanking corridors must NOT be visible.
+    """
+
+    @pytest.fixture()
+    def level(self) -> Level:
+        return _build_room_with_two_south_doors()
+
+    @pytest.fixture()
+    def fov(self, level) -> set[tuple[int, int]]:
+        return _fov_with_wall_run_hiding(level, 6, 3)
+
+    def test_player_visible(self, fov):
+        assert (6, 3) in fov
+
+    def test_room_floor_visible(self, fov):
+        for x in range(4, 9):
+            for y in range(2, 5):
+                assert (x, y) in fov, (
+                    f"room floor ({x},{y}) should be visible"
+                )
+
+    def test_door_tiles_visible(self, fov):
+        """Closed doors are visible (player sees the door)."""
+        assert (4, 5) in fov
+        assert (6, 5) in fov
+
+    def test_wall_between_doors_visible(self, fov):
+        """Wall at (5,5) between the two doors — has visible
+        floor neighbor (5,4) above — should be visible."""
+        assert (5, 5) in fov
+
+    def test_wall_beside_doors_visible(self, fov):
+        """Walls at (7,5), (8,5) beside doors — have visible
+        floor neighbors above — should be visible."""
+        assert (7, 5) in fov
+        assert (8, 5) in fov
+
+    def test_corridor_behind_door_not_visible(self, fov):
+        """Corridor tiles behind closed doors must NOT be visible.
+        The door blocks sight."""
+        assert (4, 6) not in fov, (
+            "corridor (4,6) visible through closed door"
+        )
+        assert (6, 6) not in fov, (
+            "corridor (6,6) visible through closed door"
+        )
+
+    def test_void_flanking_corridor_not_visible(self, fov):
+        """VOID tiles next to corridor must not be visible."""
+        assert (3, 6) not in fov
+        assert (5, 6) not in fov
+        assert (7, 6) not in fov

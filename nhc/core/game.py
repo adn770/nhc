@@ -218,6 +218,48 @@ def door_wall_run_hidden(
     return hidden
 
 
+_CORRIDOR_OFFSET = {
+    "north": (0, 1),    # wall north → corridor south
+    "south": (0, -1),   # wall south → corridor north
+    "east": (-1, 0),    # wall east → corridor west
+    "west": (1, 0),     # wall west → corridor east
+}
+
+
+def compute_hatch_clear(
+    level: "Level",
+) -> set[tuple[int, int]]:
+    """Return explored tiles whose hatch should be cleared.
+
+    Only FLOOR/WATER tiles are included — WALL and VOID tiles
+    stay hatched so the expand doesn't leak SVG corridor/room
+    structure into adjacent unexplored tiles.  Closed, locked,
+    or secret doors are excluded when the corridor side hasn't
+    been explored yet.
+    """
+    from nhc.dungeon.model import Terrain
+
+    _CLEARABLE = (Terrain.FLOOR, Terrain.WATER)
+    result: set[tuple[int, int]] = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tile_at(x, y)
+            if not tile or not tile.explored:
+                continue
+            if tile.terrain not in _CLEARABLE:
+                continue
+            if (tile.feature in _CLOSED_DOOR_FEATURES
+                    and tile.door_side):
+                offset = _CORRIDOR_OFFSET.get(tile.door_side)
+                if offset:
+                    cx, cy = x + offset[0], y + offset[1]
+                    nb = level.tile_at(cx, cy)
+                    if not nb or not nb.explored:
+                        continue
+            result.add((x, y))
+    return result
+
+
 class Game:
     """Main game controller. Owns the world, event bus, and loop."""
 

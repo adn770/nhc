@@ -53,6 +53,8 @@ def register_ws(app, sock: Sock) -> None:
                 session.game.player_id)
             fov = client._gather_fov(session.game.level)
             doors = client._gather_doors(session.game.level)
+            hatch_clear = client._gather_hatch_clear(
+                session.game.level)
             logger.info("Sending floor init: floor=%d bytes, "
                         "hatch=%d bytes (via HTTP), "
                         "%d entities, %d doors, %d fov tiles",
@@ -66,6 +68,7 @@ def register_ws(app, sock: Sock) -> None:
                 "entities": entities,
                 "doors": doors,
                 "fov": fov,
+                "hatch_clear": hatch_clear,
                 "turn": session.game.turn,
             }))
         elif client.floor_svg:

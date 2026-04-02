@@ -25,6 +25,7 @@ const GameMap = {
   allDoors: new Map(),  // "x,y" → {x, y, edge, state, vertical}
   fov: new Set(),
   explored: new Set(),
+  hatchClear: new Set(),
   doorInfo: new Map(),  // "x,y" → {edge, state}
   tileset: null,
   tilesetImg: null,
@@ -152,6 +153,25 @@ const GameMap = {
     for (const key of this.fov) {
       this.explored.add(key);
     }
+
+    // Hatch-clear: backend tells us exactly which tiles to
+    // reveal (FLOOR/WATER only, respecting door blocking).
+    if (msg.hatch_clear) {
+      this.hatchClear = new Set(
+        msg.hatch_clear.map(([x, y]) => `${x},${y}`));
+    } else {
+      if (msg.hatch_clear_del) {
+        for (const [x, y] of msg.hatch_clear_del) {
+          this.hatchClear.delete(`${x},${y}`);
+        }
+      }
+      if (msg.hatch_clear_add) {
+        for (const [x, y] of msg.hatch_clear_add) {
+          this.hatchClear.add(`${x},${y}`);
+        }
+      }
+    }
+
     this.drawHatch();
     this.drawFog();
     this.draw();
@@ -254,68 +274,11 @@ const GameMap = {
     const cs = this.cellSize;
     const expand = cs * 0.1;
 
-    // Build set of tiles blocked by closed/secret doors.
-    // A door blocks its own tile + the two wall-direction
-    // neighbors when the floor isn't visible from the open side.
-    // Open side = opposite of the door edge.
-    const blocked = new Set();
-
-    const openSide = {
-      right: { dx: -1, dy: 0 },  // open side is left
-      left:  { dx: 1,  dy: 0 },  // open side is right
-      top:   { dx: 0,  dy: 1 },  // open side is bottom
-      bottom:{ dx: 0,  dy: -1 }, // open side is top
-    };
-    const wallNeighbors = {
-      right: [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }],
-      left:  [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }],
-      top:   [{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }],
-      bottom:[{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }],
-    };
-
-    for (const [key, door] of this.doorInfo) {
-      if (door.state === "door_open") continue;
-      const [dx, dy] = key.split(",").map(Number);
-      const os = openSide[door.edge];
-      if (!os) continue;
-      const openKey = `${dx + os.dx},${dy + os.dy}`;
-      // If the open-side neighbor is explored, player has seen
-      // the floor — don't block
-      if (this.explored.has(openKey)) continue;
-      // Block the door tile
-      blocked.add(key);
-      // Walk the wall run, blocking tiles that have no visible
-      // non-door floor neighbor.  Skip (don't block) tiles
-      // adjacent to the player's visible floor, but keep
-      // walking — walls beyond may still need blocking.
-      const doorKey = key;
-      for (const wn of wallNeighbors[door.edge]) {
-        let nx = dx + wn.dx, ny = dy + wn.dy;
-        while (true) {
-          const wk = `${nx},${ny}`;
-          // Check if any visible cardinal neighbor (excluding
-          // the door tile) is a floor the player can see
-          let hasVisFloor = false;
-          for (const [ddx, ddy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-            const nk = `${nx + ddx},${ny + ddy}`;
-            if (nk === doorKey) continue;
-            if (this.fov.has(nk)) { hasVisFloor = true; break; }
-          }
-          if (!hasVisFloor) {
-            // Stop if room-side neighbor is explored
-            const roomKey = `${nx + os.dx},${ny + os.dy}`;
-            if (this.explored.has(roomKey)) break;
-            blocked.add(wk);
-          }
-          nx += wn.dx;
-          ny += wn.dy;
-          if (!this.explored.has(wk) && !this.fov.has(wk)) break;
-        }
-      }
-    }
-
-    for (const key of this.explored) {
-      if (blocked.has(key)) continue;
+    // The backend computes exactly which tiles to clear
+    // (FLOOR/WATER only, excluding blocked doors). WALL and
+    // VOID tiles stay hatched, preventing SVG corridor walls
+    // from bleeding through.
+    for (const key of this.hatchClear) {
       const [x, y] = key.split(",").map(Number);
       const px = x * cs + this.padding - expand;
       const py = y * cs + this.padding - expand;
