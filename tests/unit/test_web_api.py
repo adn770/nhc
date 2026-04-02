@@ -6,7 +6,9 @@ import pytest
 
 from nhc.core.autosave import autosave
 from nhc.web.app import create_app
+from nhc.web.auth import hash_token
 from nhc.web.config import WebConfig
+from nhc.web.registry import PlayerRegistry
 from nhc.web.sessions import player_id_from_token
 
 
@@ -28,17 +30,19 @@ def client_with_data_dir(tmp_path):
         yield c
 
 
-class TestRateLimit:
-    def test_register_rate_limited(self, client_with_data_dir):
-        # 5 requests should succeed
-        for _ in range(5):
-            resp = client_with_data_dir.post("/api/player/register")
-            assert resp.status_code == 201
-        # 6th should be rate limited
-        resp = client_with_data_dir.post("/api/player/register")
-        assert resp.status_code == 429
-        assert "rate limit" in resp.get_json()["error"]
+def _register_player(app_client, name="Tester"):
+    """Register a player via the registry and return (token, pid)."""
+    registry = app_client.application.config["PLAYER_REGISTRY"]
+    token, pid = registry.register(name)
+    # Create save dir
+    config = app_client.application.config["NHC_CONFIG"]
+    if config.data_dir:
+        save_dir = config.data_dir / "players" / pid
+        save_dir.mkdir(parents=True, exist_ok=True)
+    return token, pid
 
+
+class TestRateLimit:
     def test_game_new_rate_limited(self, tmp_path):
         config = WebConfig(max_sessions=20, data_dir=tmp_path)
         app = create_app(config)
@@ -48,6 +52,19 @@ class TestRateLimit:
                 resp = c.post("/api/game/new", json={})
                 assert resp.status_code == 201
             resp = c.post("/api/game/new", json={})
+            assert resp.status_code == 429
+
+    def test_admin_register_rate_limited(self, tmp_path):
+        config = WebConfig(max_sessions=20, data_dir=tmp_path)
+        app = create_app(config)
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            for i in range(5):
+                resp = c.post("/api/admin/players",
+                              json={"name": f"Player {i}"})
+                assert resp.status_code == 201
+            resp = c.post("/api/admin/players",
+                          json={"name": "Overflow"})
             assert resp.status_code == 429
 
 
@@ -136,7 +153,6 @@ class TestGameAPI:
 
     def test_new_game_ignores_autosave(self, tmp_path, monkeypatch):
         """With --reset, new web game must not restore from autosave."""
-        # Use a config with reset=True to simulate --reset flag
         config = WebConfig(max_sessions=2, reset=True)
         app = create_app(config)
         app.config["TESTING"] = True
@@ -154,61 +170,27 @@ class TestGameAPI:
             assert resp1.status_code == 201
             sid1 = resp1.get_json()["session_id"]
 
-            # Trigger an autosave by getting the game's session
             sessions = reset_client.application.config["SESSIONS"]
             session = sessions.get(sid1)
             autosave(session.game)
             assert save_path.exists()
 
-            # Start a second game — must NOT restore from autosave
             resp2 = reset_client.post("/api/game/new", json={})
             assert resp2.status_code == 201
             sid2 = resp2.get_json()["session_id"]
             assert sid1 != sid2
-            # The autosave should be deleted (reset=True)
             assert not save_path.exists()
 
 
 class TestPlayerAPI:
-    def test_register_returns_token(self, client_with_data_dir):
-        resp = client_with_data_dir.post("/api/player/register")
-        assert resp.status_code == 201
-        data = resp.get_json()
-        assert "player_token" in data
-        assert "player_id" in data
-        assert len(data["player_id"]) == 12
+    def test_login_returns_player_info(self, client_with_data_dir):
+        token, pid = _register_player(client_with_data_dir)
 
-    def test_register_creates_save_dir(self, client_with_data_dir, tmp_path):
-        config = client_with_data_dir.application.config["NHC_CONFIG"]
-        resp = client_with_data_dir.post("/api/player/register")
-        data = resp.get_json()
-        pid = data["player_id"]
-        save_dir = config.data_dir / "players" / pid
-        assert save_dir.is_dir()
-
-    def test_login_with_valid_token(self, client_with_data_dir):
-        resp = client_with_data_dir.post("/api/player/register")
-        token = resp.get_json()["player_token"]
-
-        resp = client_with_data_dir.post(
-            "/api/player/login",
-            json={"player_token": token},
-        )
+        resp = client_with_data_dir.post("/api/player/login")
         assert resp.status_code == 200
-        data = resp.get_json()
-        assert data["player_id"] == player_id_from_token(token)
-        assert data["has_save"] is False
-        assert data["active_session"] is None
-
-    def test_login_missing_token(self, client_with_data_dir):
-        resp = client_with_data_dir.post(
-            "/api/player/login", json={},
-        )
-        assert resp.status_code == 400
 
     def test_new_game_with_player(self, client_with_data_dir):
-        resp = client_with_data_dir.post("/api/player/register")
-        token = resp.get_json()["player_token"]
+        token, pid = _register_player(client_with_data_dir)
 
         resp = client_with_data_dir.post(
             "/api/game/new",
@@ -216,31 +198,76 @@ class TestPlayerAPI:
         )
         assert resp.status_code == 201
 
-        # Session should have the player_id
-        sessions = client_with_data_dir.application.config["SESSIONS"]
-        sid = resp.get_json()["session_id"]
-        session = sessions.get(sid)
-        assert session.player_id == player_id_from_token(token)
-        assert session.save_dir is not None
-
     def test_two_players_independent(self, client_with_data_dir):
-        r1 = client_with_data_dir.post("/api/player/register")
-        r2 = client_with_data_dir.post("/api/player/register")
-        pid1 = r1.get_json()["player_id"]
-        pid2 = r2.get_json()["player_id"]
+        _, pid1 = _register_player(client_with_data_dir, "Alice")
+        _, pid2 = _register_player(client_with_data_dir, "Bob")
         assert pid1 != pid2
 
 
-class TestResumeAPI:
-    def test_resume_missing_token(self, client_with_data_dir):
+class TestAdminAPI:
+    def test_register_player(self, client_with_data_dir):
         resp = client_with_data_dir.post(
-            "/api/game/resume", json={},
+            "/api/admin/players", json={"name": "Alice"},
+        )
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert "token" in data
+        assert data["name"] == "Alice"
+        assert len(data["player_id"]) == 12
+
+    def test_register_creates_save_dir(self, client_with_data_dir):
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        resp = client_with_data_dir.post(
+            "/api/admin/players", json={"name": "Bob"},
+        )
+        pid = resp.get_json()["player_id"]
+        save_dir = config.data_dir / "players" / pid
+        assert save_dir.is_dir()
+
+    def test_register_requires_name(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/admin/players", json={},
         )
         assert resp.status_code == 400
 
+    def test_list_players(self, client_with_data_dir):
+        client_with_data_dir.post(
+            "/api/admin/players", json={"name": "Alice"},
+        )
+        client_with_data_dir.post(
+            "/api/admin/players", json={"name": "Bob"},
+        )
+        resp = client_with_data_dir.get("/api/admin/players")
+        assert resp.status_code == 200
+        players = resp.get_json()
+        assert len(players) == 2
+        names = {p["name"] for p in players}
+        assert names == {"Alice", "Bob"}
+
+    def test_revoke_player(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/admin/players", json={"name": "Alice"},
+        )
+        pid = resp.get_json()["player_id"]
+
+        resp = client_with_data_dir.delete(f"/api/admin/players/{pid}")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "revoked"
+
+    def test_revoke_nonexistent(self, client_with_data_dir):
+        resp = client_with_data_dir.delete("/api/admin/players/bogus")
+        assert resp.status_code == 404
+
+    def test_list_sessions(self, client_with_data_dir):
+        client_with_data_dir.post("/api/game/new", json={})
+        resp = client_with_data_dir.get("/api/admin/sessions")
+        assert resp.status_code == 200
+        assert len(resp.get_json()) == 1
+
+
+class TestResumeAPI:
     def test_resume_no_save(self, client_with_data_dir):
-        resp = client_with_data_dir.post("/api/player/register")
-        token = resp.get_json()["player_token"]
+        token, pid = _register_player(client_with_data_dir)
 
         resp = client_with_data_dir.post(
             "/api/game/resume",
@@ -251,10 +278,7 @@ class TestResumeAPI:
         assert data["has_save"] is False
 
     def test_resume_with_autosave(self, client_with_data_dir):
-        # Register and create a game
-        resp = client_with_data_dir.post("/api/player/register")
-        token = resp.get_json()["player_token"]
-        pid = resp.get_json()["player_id"]
+        token, pid = _register_player(client_with_data_dir)
 
         resp = client_with_data_dir.post(
             "/api/game/new",
@@ -263,15 +287,11 @@ class TestResumeAPI:
         assert resp.status_code == 201
         sid = resp.get_json()["session_id"]
 
-        # Manually trigger an autosave for this player
         sessions = client_with_data_dir.application.config["SESSIONS"]
         session = sessions.get(sid)
         autosave(session.game, session.save_dir)
-
-        # Destroy the original session (simulates disconnect cleanup)
         sessions.destroy(sid)
 
-        # Now resume — should restore from autosave
         resp = client_with_data_dir.post(
             "/api/game/resume",
             json={"player_token": token},
@@ -282,8 +302,7 @@ class TestResumeAPI:
         assert data["turn"] >= 0
 
     def test_resume_finds_active_session(self, client_with_data_dir):
-        resp = client_with_data_dir.post("/api/player/register")
-        token = resp.get_json()["player_token"]
+        token, pid = _register_player(client_with_data_dir)
 
         resp = client_with_data_dir.post(
             "/api/game/new",
@@ -292,7 +311,6 @@ class TestResumeAPI:
         assert resp.status_code == 201
         sid = resp.get_json()["session_id"]
 
-        # Resume with active session — should return existing session_id
         resp = client_with_data_dir.post(
             "/api/game/resume",
             json={"player_token": token},

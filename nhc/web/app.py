@@ -6,8 +6,9 @@ import asyncio
 import collections
 import logging
 import time
+from pathlib import Path
 
-from flask import Flask, jsonify, make_response, render_template, request
+from flask import Flask, g, jsonify, make_response, render_template, request
 from flask_sock import Sock
 
 from nhc.web.config import WebConfig
@@ -39,7 +40,11 @@ def create_app(
     config: WebConfig | None = None,
     auth_token: str | None = None,
 ) -> Flask:
-    """Create and configure the Flask application."""
+    """Create and configure the Flask application.
+
+    *auth_token* is the **admin** token.  Player tokens are managed
+    via the :class:`~nhc.web.registry.PlayerRegistry`.
+    """
     config = config or WebConfig()
     app = Flask(
         __name__,
@@ -68,12 +73,37 @@ def create_app(
             return jsonify({"error": "rate limit exceeded"}), 429
         return None
 
-    # Auth setup
-    valid_hashes: set[str] = set()
+    # ── Auth setup ──────────────────────────────────────────
+
+    admin_hash: str = ""
     if auth_token:
         from nhc.web.auth import hash_token
-        valid_hashes.add(hash_token(auth_token))
-    app.config["AUTH_HASHES"] = valid_hashes
+        admin_hash = hash_token(auth_token)
+    # Legacy — kept for backward compat in tests that check it
+    app.config["AUTH_HASHES"] = {admin_hash} if admin_hash else set()
+
+    # Player registry (persistent)
+    from nhc.web.registry import PlayerRegistry
+    registry = None
+    if config.data_dir:
+        registry = PlayerRegistry(config.data_dir / "players.json")
+        registry.load()
+    app.config["PLAYER_REGISTRY"] = registry
+
+    # Auth decorator wrappers
+    def _player_auth(f):
+        """Apply player token auth when auth is enabled."""
+        if config.auth_required and registry:
+            from nhc.web.auth import require_player
+            return require_player(registry)(f)
+        return f
+
+    def _admin_auth(f):
+        """Apply admin token + LAN auth when auth is enabled."""
+        if config.auth_required and admin_hash:
+            from nhc.web.auth import require_admin
+            return require_admin(admin_hash)(f)
+        return f
 
     sock = Sock(app)
 
@@ -81,25 +111,7 @@ def create_app(
     from nhc.web.ws import register_ws
     register_ws(app, sock)
 
-    @app.route("/")
-    def index():
-        if config.auth_required and valid_hashes:
-            from nhc.web.auth import hash_token, _extract_token
-            token = _extract_token()
-            if not token or hash_token(token) not in valid_hashes:
-                return "Authentication required. Add ?token=YOUR_TOKEN", 401
-            resp = make_response(render_template("index.html"))
-            resp.set_cookie("nhc_token", token, httponly=True,
-                            samesite="Strict")
-            return resp
-        return render_template("index.html")
-
-    # Apply auth to API routes if enabled
-    def _maybe_auth(f):
-        if config.auth_required and valid_hashes:
-            from nhc.web.auth import require_auth
-            return require_auth(valid_hashes)(f)
-        return f
+    # ── Helpers ─────────────────────────────────────────────
 
     def _create_llm_backend():
         """Try to create LLM backend, return None on failure."""
@@ -116,39 +128,134 @@ def create_app(
             logger.debug("LLM backend unavailable, running without")
             return None
 
-    def _player_save_dir(pid: str) -> "Path | None":
+    def _player_save_dir(pid: str) -> Path | None:
         """Return the save directory for a player, or None."""
         if not config.data_dir:
             return None
-        from pathlib import Path
         return config.data_dir / "players" / pid
 
-    @app.route("/api/player/register", methods=["POST"])
-    @_maybe_auth
-    def player_register():
+    def _get_player_id() -> str:
+        """Get current player_id from auth context or request body."""
+        pid = getattr(g, "player_id", "") or ""
+        if not pid:
+            # Fallback: derive from token in request body (no-auth mode)
+            data = request.get_json(silent=True) or {}
+            token = data.get("player_token", "")
+            if token:
+                pid = player_id_from_token(token)
+        return pid
+
+    # ── Public routes ───────────────────────────────────────
+
+    @app.route("/")
+    def index():
+        if config.auth_required and registry:
+            from nhc.web.auth import _extract_token, hash_token
+            token = _extract_token()
+            if not token:
+                return ("Authentication required."
+                        " Use the link provided by your admin."), 401
+            h = hash_token(token)
+            if not registry.is_valid_token_hash(h):
+                return "Invalid or revoked token.", 403
+            resp = make_response(render_template("index.html"))
+            resp.set_cookie("nhc_token", token, httponly=True,
+                            samesite="Strict")
+            return resp
+        return render_template("index.html")
+
+    @app.route("/health", methods=["GET"])
+    def health():
+        return jsonify({
+            "status": "ok",
+            "sessions": sessions.active_count,
+        })
+
+    @app.route("/api/tilesets", methods=["GET"])
+    def tilesets():
+        return jsonify(["classic"])
+
+    @app.route("/api/help/<lang>", methods=["GET"])
+    def help_text(lang: str):
+        """Serve the help document for the given language."""
+        docs = Path(__file__).parent.parent.parent / "docs"
+        path = docs / f"help_{lang}.md"
+        if not path.exists():
+            path = docs / "help_en.md"
+        if not path.exists():
+            return "Help not available.", 404
+        return path.read_text(), 200, {"Content-Type": "text/plain"}
+
+    # ── Admin routes (LAN + admin token) ────────────────────
+
+    @app.route("/admin")
+    @_admin_auth
+    def admin_page():
+        from nhc.web.auth import _extract_token
+        token = _extract_token(cookie_name="nhc_admin_token")
+        resp = make_response(render_template("admin.html"))
+        if token:
+            resp.set_cookie("nhc_admin_token", token, httponly=True,
+                            samesite="Strict", path="/")
+        return resp
+
+    @app.route("/api/admin/players", methods=["GET"])
+    @_admin_auth
+    def admin_list_players():
+        if not registry:
+            return jsonify([])
+        players = registry.list_all()
+        for p in players:
+            session = sessions.get_by_player(p["player_id"])
+            p["online"] = session.connected if session else False
+            p["has_session"] = session is not None
+            from nhc.core.autosave import has_autosave
+            save_dir = _player_save_dir(p["player_id"])
+            p["has_save"] = has_autosave(save_dir) if save_dir else False
+        return jsonify(players)
+
+    @app.route("/api/admin/players", methods=["POST"])
+    @_admin_auth
+    def admin_register_player():
         blocked = _check_rate_limit()
         if blocked:
             return blocked
-        import secrets as _secrets
-        token = _secrets.token_urlsafe(32)
-        pid = player_id_from_token(token)
-        save_dir = _player_save_dir(pid)
+        if not registry:
+            return jsonify({"error": "no data_dir configured"}), 500
+        data = request.get_json(silent=True) or {}
+        name = data.get("name", "").strip()
+        if not name:
+            return jsonify({"error": "name required"}), 400
+        token, player_id = registry.register(name)
+        save_dir = _player_save_dir(player_id)
         if save_dir:
             save_dir.mkdir(parents=True, exist_ok=True)
-        logger.info("Player registered: %s", pid)
         return jsonify({
-            "player_token": token,
-            "player_id": pid,
+            "player_id": player_id,
+            "token": token,
+            "name": name,
         }), 201
 
+    @app.route("/api/admin/players/<player_id>", methods=["DELETE"])
+    @_admin_auth
+    def admin_revoke_player(player_id: str):
+        if not registry:
+            return jsonify({"error": "no registry"}), 500
+        if registry.revoke(player_id):
+            return jsonify({"status": "revoked"})
+        return jsonify({"error": "player not found"}), 404
+
+    @app.route("/api/admin/sessions", methods=["GET"])
+    @_admin_auth
+    def admin_list_sessions():
+        return jsonify(sessions.list_sessions())
+
+    # ── Player routes (player token) ────────────────────────
+
     @app.route("/api/player/login", methods=["POST"])
-    @_maybe_auth
+    @_player_auth
     def player_login():
-        data = request.get_json(silent=True) or {}
-        token = data.get("player_token", "")
-        if not token:
-            return jsonify({"error": "player_token required"}), 400
-        pid = player_id_from_token(token)
+        pid = _get_player_id()
         save_dir = _player_save_dir(pid)
         from nhc.core.autosave import has_autosave
         has_save = has_autosave(save_dir) if save_dir else has_autosave()
@@ -159,15 +266,22 @@ def create_app(
             "active_session": existing.session_id if existing else None,
         })
 
-    @app.route("/api/game/resume", methods=["POST"])
-    @_maybe_auth
-    def game_resume():
-        data = request.get_json(silent=True) or {}
-        token = data.get("player_token", "")
-        if not token:
-            return jsonify({"error": "player_token required"}), 400
+    @app.route("/api/game/has_save", methods=["GET"])
+    @_player_auth
+    def game_has_save():
+        pid = _get_player_id()
+        save_dir = _player_save_dir(pid)
+        from nhc.core.autosave import has_autosave
+        return jsonify({
+            "has_save": has_autosave(save_dir) if save_dir else has_autosave(),
+        })
 
-        pid = player_id_from_token(token)
+    @app.route("/api/game/resume", methods=["POST"])
+    @_player_auth
+    def game_resume():
+        pid = _get_player_id()
+        if not pid:
+            return jsonify({"error": "player identity required"}), 400
         save_dir = _player_save_dir(pid)
 
         # Check for an active (disconnected) session
@@ -187,6 +301,7 @@ def create_app(
             return jsonify({"has_save": False})
 
         # Create a new session and restore from autosave
+        data = request.get_json(silent=True) or {}
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
         try:
@@ -201,17 +316,10 @@ def create_app(
         i18n_init(session.lang)
 
         from nhc.core.game import Game
-        from nhc.utils.llm import create_backend
         from nhc.rendering.web_client import WebClient
 
         client = WebClient(game_mode="classic", lang=session.lang)
-        backend = create_backend({
-            "provider": "ollama",
-            "model": config.ollama_model,
-            "url": config.ollama_url,
-            "temp": 0.1,
-            "ctx": 16384,
-        })
+        backend = _create_llm_backend()
 
         game = Game(
             client=client,
@@ -248,19 +356,8 @@ def create_app(
             "turn": game.turn,
         }), 201
 
-    @app.route("/api/game/has_save", methods=["GET"])
-    @_maybe_auth
-    def game_has_save():
-        from nhc.core.autosave import has_autosave
-        token = request.args.get("player_token", "")
-        if token:
-            pid = player_id_from_token(token)
-            save_dir = _player_save_dir(pid)
-            return jsonify({"has_save": has_autosave(save_dir)})
-        return jsonify({"has_save": has_autosave()})
-
     @app.route("/api/game/new", methods=["POST"])
-    @_maybe_auth
+    @_player_auth
     def game_new():
         blocked = _check_rate_limit()
         if blocked:
@@ -269,14 +366,10 @@ def create_app(
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
         reset = data.get("reset", False) or config.reset
-        player_token = data.get("player_token", "")
-        pid = ""
-        save_dir = None
-        if player_token:
-            pid = player_id_from_token(player_token)
-            save_dir = _player_save_dir(pid)
-            if save_dir:
-                save_dir.mkdir(parents=True, exist_ok=True)
+        pid = _get_player_id()
+        save_dir = _player_save_dir(pid) if pid else None
+        if save_dir:
+            save_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Creating new game: lang=%s tileset=%s reset=%s "
                      "player=%s", lang, tileset, reset, pid or "anonymous")
         try:
@@ -352,7 +445,7 @@ def create_app(
         }), 201
 
     @app.route("/api/game/<session_id>/debug.json", methods=["GET"])
-    @_maybe_auth
+    @_player_auth
     def game_debug_data(session_id: str):
         session = sessions.get(session_id)
         if not session:
@@ -365,7 +458,7 @@ def create_app(
         return resp
 
     @app.route("/api/game/<session_id>/labels.json", methods=["GET"])
-    @_maybe_auth
+    @_player_auth
     def game_labels(session_id: str):
         session = sessions.get(session_id)
         if not session:
@@ -376,7 +469,7 @@ def create_app(
         return resp
 
     @app.route("/api/game/<session_id>/floor.svg", methods=["GET"])
-    @_maybe_auth
+    @_player_auth
     def game_floor_svg(session_id: str):
         session = sessions.get(session_id)
         if not session:
@@ -390,7 +483,7 @@ def create_app(
         return resp
 
     @app.route("/api/game/<session_id>/hatch.svg", methods=["GET"])
-    @_maybe_auth
+    @_player_auth
     def game_hatch_svg(session_id: str):
         session = sessions.get(session_id)
         if not session:
@@ -403,18 +496,17 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=86400"
         return resp
 
-    # ── Export routes (god mode only) ───────────────────────────
+    # ── Export routes (god mode only) ───────────────────────
 
     @app.route("/api/game/<session_id>/export/game_state",
                methods=["POST"])
-    @_maybe_auth
+    @_player_auth
     def export_game_state(session_id: str):
         session = sessions.get(session_id)
         if not session or not session.game.god_mode:
             return jsonify({"error": "not available"}), 404
         import json as _json
         from datetime import datetime
-        from pathlib import Path as _Path
         from nhc.core.save import _serialize_entities, _serialize_level
         game = session.game
         client = game.renderer
@@ -431,7 +523,7 @@ def create_app(
             "level": _serialize_level(game.level),
             "ecs": _serialize_entities(game.world),
         }
-        out = _Path("debug/exports")
+        out = Path("debug/exports")
         out.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"game_state_{ts}.json"
@@ -441,19 +533,16 @@ def create_app(
 
     @app.route("/api/game/<session_id>/export/layer_state",
                methods=["POST"])
-    @_maybe_auth
+    @_player_auth
     def export_layer_state(session_id: str):
         session = sessions.get(session_id)
         if not session or not session.game.god_mode:
             return jsonify({"error": "not available"}), 404
         import json as _json
         from datetime import datetime
-        from pathlib import Path as _Path
-        from nhc.dungeon.model import Terrain
         game = session.game
         client = game.renderer
         level = game.level
-        # Explored tiles
         explored = []
         for y in range(level.height):
             for x in range(level.width):
@@ -468,7 +557,7 @@ def create_app(
             "doors": client._gather_doors(level),
             "debug": client._gather_debug_data(level),
         }
-        out = _Path("debug/exports")
+        out = Path("debug/exports")
         out.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"layer_state_{ts}.json"
@@ -478,17 +567,16 @@ def create_app(
 
     @app.route("/api/game/<session_id>/export/map_svg",
                methods=["POST"])
-    @_maybe_auth
+    @_player_auth
     def export_map_svg(session_id: str):
         session = sessions.get(session_id)
         if not session or not session.game.god_mode:
             return jsonify({"error": "not available"}), 404
         from datetime import datetime
-        from pathlib import Path as _Path
         client = session.game.renderer
         if not client.floor_svg:
             return jsonify({"error": "no SVG"}), 404
-        out = _Path("debug/exports")
+        out = Path("debug/exports")
         out.mkdir(parents=True, exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = out / f"map_{ts}.svg"
@@ -497,39 +585,16 @@ def create_app(
         return jsonify({"path": str(path)})
 
     @app.route("/api/game/list", methods=["GET"])
-    @_maybe_auth
+    @_player_auth
     def game_list():
         return jsonify(sessions.list_sessions())
 
     @app.route("/api/game/<session_id>", methods=["DELETE"])
-    @_maybe_auth
+    @_player_auth
     def game_delete(session_id: str):
         if sessions.destroy(session_id):
             return jsonify({"status": "ok"})
         return jsonify({"error": "session not found"}), 404
-
-    @app.route("/api/tilesets", methods=["GET"])
-    def tilesets():
-        return jsonify(["classic"])
-
-    @app.route("/api/help/<lang>", methods=["GET"])
-    def help_text(lang: str):
-        """Serve the help document for the given language."""
-        from pathlib import Path
-        docs = Path(__file__).parent.parent.parent / "docs"
-        path = docs / f"help_{lang}.md"
-        if not path.exists():
-            path = docs / "help_en.md"
-        if not path.exists():
-            return "Help not available.", 404
-        return path.read_text(), 200, {"Content-Type": "text/plain"}
-
-    @app.route("/health", methods=["GET"])
-    def health():
-        return jsonify({
-            "status": "ok",
-            "sessions": sessions.active_count,
-        })
 
     return app
 
@@ -537,7 +602,6 @@ def create_app(
 def app_factory() -> Flask:
     """WSGI app factory for gunicorn. Reads config from env vars."""
     import os
-    from pathlib import Path
 
     data_dir_str = os.environ.get("NHC_DATA_DIR")
     data_dir = Path(data_dir_str) if data_dir_str else None
