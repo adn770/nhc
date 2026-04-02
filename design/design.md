@@ -1,1170 +1,581 @@
-# NHC — Nethack-like Crawler
+# NHC — Nethack-like Crawler: Design Document
 
-## Design Document
+## 1. Vision
 
-### 1. Vision
+NHC is a roguelike dungeon crawler built on the Knave TTRPG ruleset with an
+Entity-Component-System architecture. It combines traditional roguelike
+mechanics (permadeath, procedural generation, identification puzzles) with
+an optional LLM-driven typed gameplay mode where the player types natural
+language intents and a Game Master LLM interprets, resolves, and narrates
+outcomes.
 
-NHC is a roguelike dungeon crawler in the tradition of Nethack, implemented in
-Python with gameplay mechanics drawn from **Knave** (Ben Milton's OSR ruleset).
-The game combines classic procedural dungeon exploration with LLM-driven emergent
-narrative — the dungeon is not just a series of rooms but a living story shaped
-by player actions and AI narration.
+What makes it unique:
 
-### 2. Design Principles
+- **Dual input modes** -- classic keyboard roguelike *or* typed natural
+  language with an LLM Game Master, switchable mid-game with TAB.
+- **Dyson Logos style SVG rendering** -- procedural cross-hatching, room
+  shadows, and stone detail produce hand-drawn-looking dungeon maps.
+- **Full multilingual support** -- English, Catalan, and Spanish, including
+  native-authored LLM prompt templates per language.
+- **Web and terminal** -- the same game engine drives both a blessed-based
+  terminal TUI and an HTML5 Canvas + WebSocket web client.
 
-- **Modularity over monolith.** Every subsystem (rendering, rules, generation,
-  entities) is behind an abstract interface so implementations can be swapped.
-- **Registry/plugin pattern for content.** Creatures, items, spells, and room
-  features are self-registering modules — adding a new monster means adding one
-  file.
-- **Data-driven dungeons.** Dungeon levels are a serializable format (YAML/JSON)
-  that can be authored by hand, generated procedurally, or inspected by an LLM.
-- **Renderer-agnostic core.** The game engine knows nothing about ASCII or pixels.
-  Rendering is a pluggable backend; the first implementation is a terminal TUI.
-- **LLM as narrative co-pilot.** Game state is exposed through a structured
-  interface (and optionally MCP tools) so an LLM can weave story, dialogue,
-  and world reactions around the mechanical events.
+Current scope: ~25k lines Python, 1098 tests across 61 test files,
+78 creatures, 193 items, 13 trap types.
 
 ---
 
-### 3. Architecture Overview
+## 2. Architecture Overview
 
 ```
 nhc/
-├── nhc/                        # Main package
-│   ├── __init__.py
-│   ├── main.py                 # Entry point, session bootstrap
-│   │
-│   ├── core/                   # Engine core (renderer-agnostic)
-│   │   ├── __init__.py
-│   │   ├── game.py             # Game loop, turn sequencing
-│   │   ├── world.py            # World state: dungeon stack, clock, factions
-│   │   ├── ecs.py              # Entity-Component-System foundation
-│   │   ├── events.py           # Event bus (pub/sub for decoupled systems)
-│   │   ├── actions.py          # Action resolution pipeline
-│   │   └── save.py             # Serialization / save-load
-│   │
-│   ├── rules/                  # Knave mechanics
-│   │   ├── __init__.py
-│   │   ├── abilities.py        # STR, DEX, CON, INT, WIS, CHA (defense-based)
-│   │   ├── combat.py           # Attack rolls, damage, morale
-│   │   ├── magic.py            # Spell slots = inventory slots (Knave rule)
-│   │   ├── advancement.py      # XP, leveling, HP
-│   │   └── conditions.py       # Status effects, death & dying
-│   │
-│   ├── dungeon/                # Dungeon representation & generation
-│   │   ├── __init__.py
-│   │   ├── model.py            # Level, Room, Corridor, Tile, Door, Stairs
-│   │   ├── loader.py           # Load static levels from disk (YAML)
-│   │   ├── generator.py        # Procedural generation interface
-│   │   ├── generators/         # Pluggable generator implementations
-│   │   │   ├── __init__.py
-│   │   │   ├── bsp.py          # Binary Space Partition
-│   │   │   ├── cellular.py     # Cellular automata (caves)
-│   │   │   └── classic.py      # Room-and-corridor (donjon-style)
-│   │   ├── params.py           # Generation parameter schema
-│   │   └── populator.py        # Place creatures, items, traps, features
-│   │
-│   ├── entities/               # Registry-based entity catalogs
-│   │   ├── __init__.py
-│   │   ├── registry.py         # Auto-discovery registry
-│   │   ├── base.py             # Base entity, creature, item classes
-│   │   ├── creatures/          # One module per creature
-│   │   │   ├── __init__.py
-│   │   │   ├── goblin.py
-│   │   │   ├── skeleton.py
-│   │   │   ├── dragon.py
-│   │   │   └── ...
-│   │   ├── items/              # One module per item (or item family)
-│   │   │   ├── __init__.py
-│   │   │   ├── sword.py
-│   │   │   ├── healing_potion.py
-│   │   │   ├── spell_tome.py
-│   │   │   └── ...
-│   │   └── features/           # Traps, altars, fountains, etc.
-│   │       ├── __init__.py
-│   │       ├── trap_pit.py
-│   │       ├── fountain.py
-│   │       └── ...
-│   │
-│   ├── ai/                     # Creature AI / behavior
-│   │   ├── __init__.py
-│   │   ├── behavior.py         # Behavior tree / state machine interface
-│   │   ├── pathfinding.py      # A* on dungeon grid
-│   │   └── tactics.py          # Combat AI, morale checks
-│   │
-│   ├── rendering/              # Pluggable rendering backends
-│   │   ├── __init__.py
-│   │   ├── base.py             # Abstract renderer protocol
-│   │   ├── terminal/           # ASCII / TUI backend
-│   │   │   ├── __init__.py
-│   │   │   ├── renderer.py     # Curses/blessed renderer
-│   │   │   ├── glyphs.py       # Entity → ASCII glyph mapping
-│   │   │   ├── panels.py       # HUD, inventory, message log panels
-│   │   │   └── input.py        # Keyboard input handler
-│   │   └── graphical/          # Future: pygame / tcod backend
-│   │       └── __init__.py
-│   │
-│   ├── narrative/              # LLM-driven storytelling
-│   │   ├── __init__.py
-│   │   ├── narrator.py         # Narrative engine: event → story text
-│   │   ├── context.py          # Game state summarizer for LLM context
-│   │   ├── dialogue.py         # NPC dialogue generation
-│   │   ├── quests.py           # Emergent quest generation
-│   │   └── mcp_server.py       # MCP tool server for external LLM access
-│   │
-│   └── utils/                  # Shared utilities
-│       ├── __init__.py
-│       ├── rng.py              # Seeded RNG, dice roller (d20, 2d6, etc.)
-│       ├── fov.py              # Field of view / line of sight
-│       └── spatial.py          # Grid math, coordinates, rectangles
-│
-├── levels/                     # Static dungeon level files (YAML)
-│   ├── tutorial.yaml
-│   └── tomb_of_horrors.yaml
-│
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── samples/
-│
-├── debug/                      # Temporary dev artifacts
-│   └── .gitkeep
-│
-├── docs/
-│   └── knave_reference.md      # Knave rules quick-reference
-│
-├── pyproject.toml
-└── CLAUDE.md
++-- nhc.py                       # Terminal CLI entry point
++-- nhc_web.py                   # Web server entry point
++-- play / server                # Bash launchers (auto-venv)
++-- Dockerfile                   # Python 3.12-slim container
++-- docker-compose.yml           # nhc + Caddy + DuckDNS
++-- nhc/
+|   +-- config.py                # 3-tier config (defaults -> ~/.nhcrc -> CLI)
+|   +-- core/
+|   |   +-- ecs.py               # World store, entity CRUD, component queries
+|   |   +-- game.py              # Async game loop, floor management
+|   |   +-- events.py            # Event bus (pub/sub with async handlers)
+|   |   +-- game_input.py        # Input intent processing
+|   |   +-- game_ticks.py        # Per-turn system ticks
+|   |   +-- actions/             # Action modules (8 files)
+|   |   |   +-- _movement.py    # Move, bump, stairs
+|   |   |   +-- _combat.py      # Melee, ranged attacks
+|   |   |   +-- _items.py       # Pickup, drop, equip, use
+|   |   |   +-- _interaction.py # Search, look, doors
+|   |   |   +-- _ranged.py      # Throw, ranged targeting
+|   |   |   +-- _spells.py      # Scroll/wand activation
+|   |   |   +-- _traps.py       # Trap trigger/disarm
+|   |   |   +-- _helpers.py     # Shared action utilities
+|   |   +-- save.py              # JSON manual save/load
+|   |   +-- autosave.py          # Binary autosave (pickle+zlib)
+|   +-- entities/
+|   |   +-- components.py        # ECS components (dataclasses)
+|   |   +-- registry.py          # Auto-discovery entity registry
+|   |   +-- creatures/           # 78 creature factories
+|   |   +-- items/               # 193 item factories
+|   |   +-- features/            # 13 trap factories
+|   +-- dungeon/
+|   |   +-- generators/
+|   |   |   +-- bsp.py           # BSP dungeon generator
+|   |   |   +-- classic.py       # Original random placement generator
+|   |   |   +-- cellular.py      # Cave generator (stub, not implemented)
+|   |   +-- generator.py         # Generator dispatch
+|   |   +-- classic.py           # Legacy generator wrapper
+|   |   +-- model.py             # Level, Tile, Room, Shape data structures
+|   |   +-- params.py            # Generation parameter schema
+|   |   +-- room_types.py        # Room specialization + painters
+|   |   +-- terrain.py           # Cellular automata water/grass
+|   |   +-- populator.py         # Entity placement (encounter groups)
+|   |   +-- loader.py            # YAML level loader (multilingual)
+|   +-- rendering/
+|   |   +-- base.py              # Abstract renderer protocol
+|   |   +-- client.py            # Client abstraction
+|   |   +-- svg.py               # Dyson Logos style SVG export
+|   |   +-- web_client.py        # WebSocket JSON renderer
+|   |   +-- graphical/           # Placeholder (not implemented)
+|   |   +-- terminal/
+|   |       +-- renderer.py      # 4-zone terminal TUI (blessed)
+|   |       +-- panels.py        # Status bar + message log
+|   |       +-- glyphs.py        # Tile/color mappings (16/256)
+|   |       +-- themes.py        # Color theme definitions
+|   |       +-- input.py         # Key -> intent mapping
+|   |       +-- input_line.py    # Text input widget (typed mode)
+|   |       +-- narrative_log.py # Narrative log (typed mode)
+|   |       +-- help_overlay.py  # Scrollable help popup
+|   +-- narrative/
+|   |   +-- gm.py                # LLM Game Master pipeline
+|   |   +-- context.py           # Game state -> LLM context
+|   |   +-- parser.py            # JSON action plan parser
+|   |   +-- fallback_parser.py   # Keyword parser (no LLM)
+|   |   +-- narrator.py          # Outcome narration
+|   |   +-- dialogue.py          # NPC dialogue system
+|   |   +-- quests.py            # Quest tracking
+|   |   +-- story.py             # Story compression
+|   |   +-- mcp_server.py        # MCP tool server
+|   |   +-- prompts.py           # Multilingual prompt loader
+|   |   +-- prompts/{en,ca,es}/  # Prompt templates per language
+|   +-- rules/
+|   |   +-- combat.py            # Attack rolls, damage, healing
+|   |   +-- chargen.py           # Knave character generation
+|   |   +-- identification.py    # Potion/scroll/ring/wand ID
+|   |   +-- advancement.py       # XP and leveling
+|   |   +-- loot.py              # Loot table resolution
+|   |   +-- conditions.py        # Status effects
+|   |   +-- abilities.py         # Special abilities
+|   |   +-- magic.py             # Magic system rules
+|   +-- ai/
+|   |   +-- behavior.py          # Creature AI (chase, attack, flee)
+|   |   +-- pathfinding.py       # A* pathfinding (8-directional)
+|   |   +-- tactics.py           # Combat AI and morale checks
+|   +-- web/
+|   |   +-- app.py               # Flask application factory
+|   |   +-- ws.py                # WebSocket handler (flask-sock)
+|   |   +-- auth.py              # Two-tier auth (admin + player tokens)
+|   |   +-- registry.py          # Player registry (JSON-backed)
+|   |   +-- sessions.py          # Multi-session manager (max 8)
+|   |   +-- config.py            # Web-specific configuration
+|   |   +-- static/js/           # Client JS (map, input, ui, ws, debug)
+|   |   +-- templates/           # HTML (index.html, admin.html)
+|   +-- debug_tools/
+|   |   +-- mcp_server.py        # MCP debug server
+|   |   +-- tools/               # 5 tool modules (11 tools total)
+|   +-- i18n/
+|   |   +-- manager.py           # Translation lookup + fallback
+|   |   +-- locales/{en,ca,es}.yaml  # ~2000 lines each
+|   +-- utils/
+|       +-- llm.py               # LLM backends (Ollama, MLX, Anthropic)
+|       +-- rng.py               # Seeded RNG + dice roller
+|       +-- fov.py               # Shadowcasting FOV
+|       +-- log.py               # Debug logging with topic filters
+|       +-- spatial.py           # Distance/adjacency helpers
++-- levels/                      # Hand-crafted YAML dungeons
++-- design/                      # Design documents (this file)
++-- tests/unit/                  # 61 test files, 1098 tests
 ```
 
 ---
 
-### 4. Core Engine
+## 3. Core Engine
 
-#### 4.1 Entity-Component-System (ECS)
+### ECS (Entity-Component-System)
 
-The game uses a lightweight ECS to keep data and behavior orthogonal. This is
-critical for the plugin pattern — a new creature is just a new bundle of
-components, not a new class hierarchy.
+The `World` class in `core/ecs.py` is the central store. Entities are
+integer IDs; components are Python dataclasses keyed by type name string.
+The World provides:
 
-```python
-# Core component examples
-@dataclass
-class Position:
-    x: int
-    y: int
-    level_id: str
+- `create_entity(components)` / `destroy_entity(eid)` -- lifecycle
+- `add_component` / `get_component` / `remove_component` -- mutation
+- `query(*component_types)` -- iterate entities matching a component set
 
-@dataclass
-class Renderable:
-    glyph: str          # ASCII char: '@', 'g', 'D'
-    color: str          # Terminal color name or hex for graphical
-    render_order: int   # Layer priority
+There is no formal "system" abstraction. Game systems are functions that
+query the World directly, called from the game loop or event handlers.
 
-@dataclass
-class Stats:           # Knave ability scores (defense values)
-    strength: int       # Melee attack/damage bonus, carry capacity
-    dexterity: int      # Initiative, ranged, armor defense
-    constitution: int   # HP bonus, poison saves
-    intelligence: int   # Spell slots, lore
-    wisdom: int         # Perception, willpower saves
-    charisma: int       # Reaction rolls, morale, followers
+### Event Bus
 
-@dataclass
-class Health:
-    current: int
-    maximum: int
+`core/events.py` implements an async pub/sub event bus. Event types are
+dataclasses inheriting from `Event`. Current event types include:
+`CreatureAttacked`, `CreatureDied`, `ItemPickedUp`, `ItemUsed`,
+`PlayerDied`, `GameWon`, `LevelEntered`, `MessageEvent`,
+`CustomActionEvent`, and others.
 
-@dataclass
-class Inventory:
-    slots: list[EntityId]   # Knave: inventory slots = equipment capacity
-    max_slots: int          # CON-based in Knave
+Handlers are registered per event type and called asynchronously when
+events are emitted.
 
-@dataclass
-class AI:
-    behavior: str           # Behavior tree ID
-    morale: int             # Knave morale threshold
-    faction: str
-```
+### Action Pipeline
 
-Entity creation is declarative — a creature module exports a factory:
+Player and creature actions live in `core/actions/`, split across 8
+modules by domain: movement, combat, items, interaction, ranged, spells,
+traps, and shared helpers. Each action class encapsulates validation
+(can this action happen?) and execution (mutate the World + emit events).
 
-```python
-# nhc/entities/creatures/goblin.py
-from nhc.entities.registry import register_creature
+### Async Game Loop
 
-@register_creature("goblin")
-def create_goblin():
-    return {
-        "Stats": Stats(strength=1, dexterity=2, constitution=1,
-                       intelligence=0, wisdom=0, charisma=-1),
-        "Health": Health(current=4, maximum=4),
-        "Renderable": Renderable(glyph="g", color="green", render_order=2),
-        "AI": AI(behavior="aggressive_melee", morale=7, faction="goblinoid"),
-        "Loot": LootTable(entries=[("gold", 2, "2d6"), ("dagger", 0.3)]),
-        "Description": Description(
-            name="Goblin",
-            short="a snarling goblin",
-            long="A wiry, green-skinned creature with yellowed fangs "
-                 "and a rusty blade."
-        ),
-    }
-```
+`core/game.py` owns the game loop. Each turn:
 
-#### 4.2 Event Bus
+1. Collect player input (keyboard intent or typed natural language)
+2. Resolve the player action
+3. Tick creature AI (movement, combat, morale)
+4. Process status effects and conditions
+5. Run per-turn systems (game_ticks.py)
+6. Emit events and update rendering
 
-All game events flow through a central bus. This enables decoupled systems: the
-combat system emits `CreatureDied`, the narrative system listens and generates
-story text, the renderer listens and shows animations.
-
-```python
-class EventBus:
-    def subscribe(self, event_type: type,
-                  handler: Callable[..., Awaitable[None]]) -> None: ...
-    async def emit(self, event: Event) -> None:
-        """Dispatch to all subscribers. Fast handlers run inline,
-        slow handlers (LLM calls) are spawned as background tasks."""
-    def emit_fire_and_forget(self, event: Event) -> None:
-        """Queue event for background processing (narrative, logging)."""
-
-# Event hierarchy
-@dataclass
-class Event:
-    turn: int
-    timestamp: float
-
-class CreatureAttacked(Event):
-    attacker: EntityId
-    target: EntityId
-    roll: int
-    damage: int
-    hit: bool
-
-class CreatureDied(Event):
-    entity: EntityId
-    killer: EntityId | None
-    cause: str
-
-class ItemPickedUp(Event):
-    entity: EntityId
-    item: EntityId
-
-class DoorOpened(Event):
-    entity: EntityId
-    position: Position
-
-class LevelEntered(Event):
-    entity: EntityId
-    level_id: str
-    depth: int
-
-class SpellCast(Event):
-    caster: EntityId
-    spell: str
-    targets: list[EntityId]
-```
-
-The narrative module subscribes to all events and maintains a running story
-context that it feeds to the LLM.
-
-#### 4.3 Action Pipeline
-
-Player and creature actions go through a resolution pipeline that allows
-validation, modification by equipment/status effects, and event emission:
-
-```
-Input → Action → Validate → Modifiers → Execute → Events → Render
-```
-
-```python
-class Action(ABC):
-    actor: EntityId
-    async def validate(self, world: World) -> bool: ...
-    async def execute(self, world: World) -> list[Event]: ...
-
-class MeleeAttackAction(Action):
-    target: EntityId
-
-class MoveAction(Action):
-    direction: Direction
-
-class UseItemAction(Action):
-    item: EntityId
-    target: EntityId | None
-
-class CastSpellAction(Action):
-    spell_id: str
-    targets: list[EntityId]
-```
-
-#### 4.4 Game Loop
-
-Turn-based with energy/speed system for creatures that act at different rates.
-The loop is `async` — player input is awaited (non-blocking), and LLM narrative
-generation runs as background tasks that deliver text to the message log when
-ready.
-
-```python
-class GameLoop:
-    async def run(self):
-        while self.running:
-            # 1. Await player input (yields control to background tasks)
-            action = await self.input_handler.get_action()
-
-            # 2. Resolve player action
-            events = await self.resolve(action)
-
-            # 3. Advance world clock
-            self.world.tick()
-
-            # 4. Process creature turns (energy-based)
-            for creature in self.world.active_creatures():
-                if creature.energy >= TURN_COST:
-                    ai_action = self.ai.decide(creature, self.world)
-                    events += await self.resolve(ai_action)
-                    creature.energy -= TURN_COST
-
-            # 5. Process timed effects, hunger, torches, etc.
-            events += self.world.process_effects()
-
-            # 6. Feed events to narrative engine (background task)
-            self.narrative.enqueue_events(events)
-
-            # 7. Render (includes any narrative text that arrived)
-            self.renderer.render(self.world)
-
-    async def resolve(self, action: Action) -> list[Event]:
-        if not await action.validate(self.world):
-            return []
-        events = await action.execute(self.world)
-        for event in events:
-            await self.event_bus.emit(event)
-        return events
-```
-
-#### 4.5 Async Architecture
-
-The game uses `asyncio` as its concurrency backbone. This is not about
-parallelism (the game is single-threaded) — it's about **non-blocking I/O**
-so that slow operations (LLM calls, file I/O, future network play) never
-freeze the game.
-
-**What runs async:**
-
-| Component | Why async | Pattern |
-|-----------|-----------|---------|
-| Game loop | Orchestrator — awaits input, yields to background work | `async def run()` |
-| Player input | Terminal read blocks; async lets background tasks proceed | `await input_handler.get_action()` |
-| LLM API calls | Network I/O, 0.5–3s latency | `asyncio.create_task()` — fire and forget |
-| Narrative engine | Batches events, calls LLM in background | Background task with `asyncio.Queue` |
-| MCP server | stdio transport is inherently async | `async def handle_request()` |
-| Save/load | File I/O (minor, but keeps interface uniform) | `await aiofiles.open()` |
-| Event bus handlers | Some handlers are fast (pure logic), some slow (LLM) | Sync handlers called inline, async handlers spawned |
-
-**What stays synchronous:**
-
-| Component | Why sync |
-|-----------|----------|
-| Combat resolution | Pure computation, microseconds |
-| FOV calculation | CPU-bound, fast |
-| Dungeon generation | CPU-bound, runs once per level |
-| Creature AI decisions | Pure logic on local state |
-| ECS queries | In-memory data access |
-
-**Async pattern for narrative:**
-
-The key insight is that LLM narration is a *background enrichment*, not a
-blocking requirement. The game must remain responsive while the LLM thinks.
-
-```python
-class NarrativeEngine:
-    def __init__(self, llm_client: AsyncLLMClient):
-        self._queue: asyncio.Queue[list[Event]] = asyncio.Queue()
-        self._pending_text: list[str] = []  # Rendered next frame
-        self._task: asyncio.Task | None = None
-
-    def start(self):
-        """Start the background narrative processing loop."""
-        self._task = asyncio.create_task(self._process_loop())
-
-    async def _process_loop(self):
-        while True:
-            events = await self._queue.get()
-            priority = self._classify(events)
-            if priority == Priority.SKIP:
-                continue
-            context = self._build_context(events)
-            text = await self._llm_client.generate(context)
-            # Thread-safe append; renderer picks this up next frame
-            self._pending_text.append(text)
-
-    def enqueue_events(self, events: list[Event]):
-        self._queue.put_nowait(events)
-
-    def drain_text(self) -> list[str]:
-        """Called by renderer each frame to collect ready narrative."""
-        texts = self._pending_text[:]
-        self._pending_text.clear()
-        return texts
-```
-
-**Entry point:**
-
-```python
-# nhc/main.py
-import asyncio
-
-async def main():
-    game = Game(config)
-    await game.initialize()
-    await game.run()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-**Terminal input with asyncio:**
-
-Raw terminal input (curses/blessed) doesn't natively support `await`. The
-input handler uses `loop.add_reader()` on stdin or runs the blocking read
-in a thread executor:
-
-```python
-class AsyncTerminalInput:
-    async def get_action(self) -> Action:
-        loop = asyncio.get_event_loop()
-        key = await loop.run_in_executor(None, self._blocking_read)
-        return self._key_to_action(key)
-```
-
-This ensures background tasks (narrative generation, MCP requests) continue
-processing while the game waits for the player to press a key.
+The game manages multi-floor state: a floor cache preserves entity and
+tile state when the player transitions between floors via stairs.
 
 ---
 
-### 5. Knave Rules Implementation
+## 4. Knave Rules
 
-Knave's elegance makes it ideal for a roguelike — the rules are minimal but
-complete. Key mechanical mappings:
+NHC implements the Knave TTRPG ruleset with minor adaptations for
+real-time roguelike play.
 
-#### 5.1 Abilities
+### Abilities
 
-Knave uses **defense** values (ability + 10) for saves and **bonus** values
-(ability score itself) for modifiers. Characters start with abilities 1–6
-(rolled as 3d6, keep lowest).
+Six abilities (Strength, Dexterity, Constitution, Intelligence, Wisdom,
+Charisma) with bonus values. The bonus is the modifier; defense is
+bonus + 10. Character generation rolls 3d6-keep-lowest for each ability,
+producing bonus values 1-6.
 
-| Ability | Bonus applies to | Defense (bonus + 10) saves against |
-|---------|------------------|------------------------------------|
-| STR | Melee attacks, forced doors | Grappling, crushing |
-| DEX | Ranged attacks, initiative | Dodging, reflexes |
-| CON | Hit points per level | Poison, disease |
-| INT | Number of languages | Illusions, arcane effects |
-| WIS | Detecting traps/secrets | Charm, fear |
-| CHA | Reaction rolls, hirelings | Persuasion, leadership |
+### Combat
 
-#### 5.2 Combat
+- **Attack**: d20 + ability bonus vs target's armor defense
+- **Damage**: weapon dice pool (e.g. d6 for a sword)
+- **Healing**: potions restore fixed or rolled HP
+- **Critical hits**: natural 20 always hits
+- **Morale**: creatures check morale when HP drops below threshold;
+  failure causes fleeing behavior
 
-```
-Attack roll: d20 + ability bonus ≥ target's Armor Defense
-Damage: weapon die + STR bonus (melee) or DEX bonus (ranged)
-Critical: natural 20 → max damage
-```
+### Magic
 
-Armor is inventory-based: each armor piece takes 1 slot and gives +1 Armor
-Defense (base 10 unarmored). Maximum armor = shield + helmet + body = 15 defense.
+Scrolls and wands are the primary magic system. Scrolls are single-use;
+wands have limited charges that recharge over time. Spell effects are
+defined in `rules/magic.py`. Rings provide passive buffs while equipped.
+All magic items use the identification system (see section 6).
 
-#### 5.3 Magic (Inventory-as-Spellbook)
+### Inventory
 
-Knave's signature: **spells are items**. A spell tome takes one inventory slot.
-Casting a spell consumes it for the day (not permanently). This maps perfectly
-to a roguelike inventory system — finding a new spell tome is like finding a
-magic weapon.
+Inventory uses a slot system: each item has a slot cost, and the player
+has a maximum number of slots (Constitution-derived). Inventory slots
+double as spell slots -- carrying a scroll occupies the same resource
+as carrying equipment.
 
-#### 5.4 Inventory
+### Advancement
 
-Inventory slots = CON defense (typically 11–16). Items have a slot cost:
-
-| Item type | Slots |
-|-----------|-------|
-| Most items | 1 |
-| Heavy weapons (2H) | 2 |
-| Armor (body) | 2 |
-| 100 coins | 1 |
-| Bundled light items (arrows ×20) | 1 |
-
-#### 5.5 Advancement
-
-| Level | HP | Ability improvements |
-|-------|-----|---------------------|
-| 1 | d8 | Starting scores |
-| 2+ | +d8/level | Roll 3d6 per ability; if > current, +1 |
-| Max | 10 | Level 10 cap |
+XP is gained from defeating creatures. Level-up increases HP and allows
+improving one ability bonus by +1. XP thresholds follow a standard
+progression curve defined in `rules/advancement.py`.
 
 ---
 
-### 6. Dungeon Format
+## 5. Dungeon Generation
 
-Dungeon levels are represented as a structured format that serves three
-consumers: the game engine, static file storage, and LLM reasoning.
+The primary generator is BSP (Binary Space Partition) in
+`dungeon/generators/bsp.py`. See `design/dungeon_generator.md` for the
+full pipeline design.
 
-#### 6.1 Level Model
+### BSP Pipeline Summary
 
-```python
-@dataclass
-class Level:
-    id: str                          # Unique identifier
-    name: str                        # "The Goblin Warrens"
-    depth: int                       # Dungeon depth (difficulty scaling)
-    width: int
-    height: int
-    tiles: list[list[Tile]]          # 2D grid
-    rooms: list[Room]                # Room metadata (for AI/narrative)
-    corridors: list[Corridor]
-    entities: list[EntityPlacement]  # Creatures, items, features
-    metadata: LevelMetadata          # Theme, difficulty, narrative hooks
+1. **Layout** -- recursively subdivide the map into cells; carve a room
+   in each leaf cell. Five room shapes: rect, circle, octagon, cross,
+   hybrid. Shape variety is configurable (default 30% non-rectangular).
+2. **Connect** -- build corridors along the BSP tree (sibling pairs),
+   then add extra loop connections to prevent dead ends. Corridors use
+   L-shaped or straight paths.
+3. **Specialize** -- assign room types: standard, treasury, armory,
+   library, crypt, shrine, garden, trap_room. Room painters populate
+   each room with thematic content (items, creatures, traps, features).
+4. **Terrain** -- cellular automata pass adds water and grass patches.
+   Theme parameters control density per dungeon theme (crypt, cave,
+   sewer, castle, forest). Level feelings (flooded, overgrown, barren)
+   can override defaults.
+5. **Populate** -- place encounter groups, items, and traps based on
+   depth-scaled difficulty tiers.
+6. **Features** -- place stairs, doors (including locked and secret),
+   and wall fixtures.
 
-@dataclass
-class Tile:
-    terrain: Terrain                 # FLOOR, WALL, WATER, LAVA, etc.
-    feature: str | None              # door, stairs_up, stairs_down, trap
-    explored: bool
-    visible: bool
+The classic generator (`dungeon/classic.py`) remains available as an
+alternative. A cellular automata cave generator stub exists
+(`generators/cellular.py`) but is not yet implemented.
 
-@dataclass
-class Room:
-    id: str
-    rect: Rect                       # Bounding box
-    tags: list[str]                  # ["treasure", "boss", "shrine"]
-    description: str                 # For narrative: "a damp chamber..."
-    connections: list[str]           # Connected room/corridor IDs
-
-@dataclass
-class LevelMetadata:
-    theme: str                       # "crypt", "cave", "castle"
-    difficulty: int                  # 1-10
-    narrative_hooks: list[str]       # Story seeds for LLM
-    faction: str | None              # Dominant faction
-    ambient: str                     # "dripping water echoes..."
-```
-
-#### 6.2 YAML Serialization (Static Levels)
-
-```yaml
-id: tutorial_crypt
-name: "The Forgotten Crypt"
-depth: 1
-width: 40
-height: 25
-theme: crypt
-difficulty: 1
-ambient: "Cold air seeps from cracks in the ancient stone."
-
-narrative_hooks:
-  - "A faded inscription warns of a sealed evil below."
-  - "Scratch marks on the walls suggest something clawed its way out."
-
-rooms:
-  - id: entry
-    x: 2
-    y: 2
-    width: 8
-    height: 6
-    tags: [entry, safe]
-    description: "A crumbling antechamber with broken urns."
-    connections: [corridor_1]
-
-  - id: tomb
-    x: 20
-    y: 10
-    width: 10
-    height: 8
-    tags: [boss, treasure]
-    description: "A grand burial chamber. A stone sarcophagus dominates."
-    connections: [corridor_2]
-
-corridors:
-  - id: corridor_1
-    points: [[10, 5], [15, 5], [15, 12]]
-    connects: [entry, corridor_2]
-
-  - id: corridor_2
-    points: [[15, 12], [20, 12]]
-    connects: [corridor_1, tomb]
-
-# Tile overrides (sparse — generator fills defaults)
-tile_overrides:
-  - {x: 10, y: 5, feature: door_closed}
-  - {x: 20, y: 12, feature: door_locked}
-  - {x: 5, y: 4, feature: stairs_up}
-  - {x: 25, y: 14, feature: stairs_down}
-
-entities:
-  - type: creature
-    id: skeleton
-    position: {x: 22, y: 13}
-    patrol: [[22, 13], [27, 13], [27, 16]]
-
-  - type: creature
-    id: skeleton
-    position: {x: 24, y: 15}
-
-  - type: item
-    id: healing_potion
-    position: {x: 6, y: 5}
-
-  - type: feature
-    id: trap_pit
-    position: {x: 15, y: 8}
-    hidden: true
-    dc: 12
-```
-
-The tile grid itself can be stored as an ASCII map block for hand-authored levels:
-
-```yaml
-map: |
-  ########################################
-  #......##                              #
-  #......##                              #
-  #......+.........                      #
-  #......##       .                      #
-  #......##       .                      #
-  ########        .                      #
-                  .                      #
-              #####.######               #
-              #..........#               #
-              #..........+...............#
-              #..........#               #
-              #..........#               #
-              #..........#               #
-              ############               #
-  ########################################
-
-legend:
-  '#': wall
-  '.': floor
-  '+': door_closed
-  '<': stairs_up
-  '>': stairs_down
-  '~': water
-  '^': trap (hidden)
-  ' ': void (unused space)
-```
+Hand-authored YAML levels can be loaded via `dungeon/loader.py` for
+scripted floors or tutorials.
 
 ---
 
-### 7. Procedural Dungeon Generation
+## 6. Entity System
 
-#### 7.1 Generator Interface
+### Registry Pattern
 
-```python
-class DungeonGenerator(ABC):
-    @abstractmethod
-    def generate(self, params: GenerationParams) -> Level: ...
+`entities/registry.py` provides an auto-discovery registry. Entity
+factories are decorated with `@EntityRegistry.register_creature` or
+`@EntityRegistry.register_item` and return a dict of component name
+to component instance. The registry auto-discovers all factory modules
+on first access.
 
-@dataclass
-class GenerationParams:
-    width: int = 80
-    height: int = 50
-    depth: int = 1                    # Affects difficulty scaling
-    room_count: Range = Range(5, 15)
-    room_size: Range = Range(4, 12)
-    corridor_style: str = "straight"  # straight, bent, organic
-    density: float = 0.4              # Room coverage ratio
-    connectivity: float = 0.8         # Extra corridors (1.0 = fully connected)
-    theme: str = "dungeon"            # crypt, cave, castle, sewer
-    seed: int | None = None           # Reproducibility
-    # Feature toggles
-    dead_ends: bool = True
-    secret_doors: float = 0.1         # Probability per eligible wall
-    water_features: bool = False
-    multiple_stairs: bool = False
-```
+### Content Stats
 
-#### 7.2 Generator Implementations
+| Category   | Count | Details                                      |
+|------------|-------|----------------------------------------------|
+| Creatures  | 78    | Full BEB bestiary, AI behaviors, factions     |
+| Items      | 193   | 38 scrolls, 14 potions, 14 wands, 8 rings    |
+|            |       | 119 equipment (weapons, armor, tools, etc.)   |
+| Traps      | 13    | Pit, fire, poison, paralysis, teleport, etc.  |
 
-**Classic Room-and-Corridor** (`classic.py`):
-Donjon-style. Places rectangular rooms, connects them with L-shaped or
-straight corridors. Room placement uses rejection sampling with overlap
-checks. Produces clean, traditional dungeon layouts.
+### Identification System
 
-**BSP** (`bsp.py`):
-Recursively partitions the map into cells via binary splits, then carves a
-room inside each leaf cell. Guarantees non-overlapping rooms and produces a
-natural tree-structured connectivity graph. Good for structured levels (castles,
-fortresses).
+Unidentified items show a randomized appearance rather than their true
+name. Appearances are shuffled per game seed for consistency within
+a run:
 
-**Cellular Automata** (`cellular.py`):
-Starts with random noise, applies B5678/S45678-style rules to produce organic
-cave systems. Post-processes to ensure connectivity (flood fill → bridge
-isolated regions). Good for natural caves and caverns.
+- **Potions** -- colors (ruby, azure, emerald, etc.)
+- **Scrolls** -- cryptic labels (ZELGO MER, etc.)
+- **Rings** -- gem types (ruby ring, sapphire ring, etc.)
+- **Wands** -- wood types (oak wand, willow wand, etc.)
 
-All generators feed into the **populator** which places entities based on depth,
-theme, and room tags:
-
-```python
-class Populator:
-    def populate(self, level: Level, params: PopulationParams) -> Level:
-        """Place creatures, items, traps, and features."""
-        for room in level.rooms:
-            difficulty_budget = self.budget_for(room, level.depth)
-            creatures = self.creature_registry.select(
-                budget=difficulty_budget,
-                theme=level.metadata.theme,
-                tags=room.tags,
-            )
-            items = self.item_registry.select(
-                depth=level.depth,
-                room_tags=room.tags,
-            )
-            # Place within room bounds, respecting spacing rules
-            self.place_entities(room, creatures + items, level)
-        return level
-```
+Items are identified by use (quaffing a potion, reading a scroll,
+zapping a wand) or via identification scrolls. Once identified, all
+items of that type show their true name for the rest of the game.
+See `design/magic_items.md` for ring and wand mechanics.
 
 ---
 
-### 8. Entity Registry / Plugin Pattern
+## 7. Rendering
 
-The registry auto-discovers entity modules at startup by scanning the
-`creatures/`, `items/`, and `features/` directories.
+### Terminal TUI
 
-```python
-# nhc/entities/registry.py
-class EntityRegistry:
-    _creatures: dict[str, Callable] = {}
-    _items: dict[str, Callable] = {}
-    _features: dict[str, Callable] = {}
+The blessed-based terminal renderer (`rendering/terminal/renderer.py`)
+uses a 4-zone layout:
 
-    @classmethod
-    def register_creature(cls, entity_id: str):
-        def decorator(factory: Callable):
-            cls._creatures[entity_id] = factory
-            return factory
-        return decorator
+1. **Map** -- shadowcasting FOV, 16 or 256 color modes, box-drawing
+   walls (Unicode characters: corner, tee, cross junctions)
+2. **Status bar** -- HP, floor, turn count, level, gold
+3. **Message log** -- scrollable combat/event messages
+4. **Inventory sidebar** -- equipment and carried items
 
-    @classmethod
-    def register_item(cls, entity_id: str):
-        def decorator(factory: Callable):
-            cls._items[entity_id] = factory
-            return factory
-        return decorator
+In typed mode, zones 3-4 are replaced with a narrative log and text
+input widget.
 
-    @classmethod
-    def discover(cls, package_path: str):
-        """Auto-import all modules in the given package directory."""
-        for module_file in Path(package_path).glob("*.py"):
-            if module_file.name.startswith("_"):
-                continue
-            importlib.import_module(
-                f"nhc.entities.{package_path.name}.{module_file.stem}"
-            )
+### Web Client
 
-    @classmethod
-    def spawn_creature(cls, entity_id: str, world: World,
-                       position: Position) -> EntityId:
-        factory = cls._creatures[entity_id]
-        components = factory()
-        components["Position"] = position
-        return world.create_entity(components)
-```
+The web client (`rendering/web_client.py` + `web/static/js/`) renders
+the dungeon using a layered approach:
 
-**Adding a new creature** is a single-file operation:
+- **SVG base layer** -- Dyson Logos style dungeon map (cross-hatching,
+  room shadows, stone floor detail, generated by `rendering/svg.py`)
+- **4 Canvas layers** -- entities, FOV overlay, UI highlights, and
+  animation, composited over the SVG
+- **WebSocket** -- JSON protocol for game state updates, entity
+  positions, FOV changes, and player input
 
-```python
-# nhc/entities/creatures/mimic.py
-from nhc.entities.registry import EntityRegistry
+The SVG renderer produces black-and-white maps with procedural
+cross-hatching using Shapely geometry and Perlin noise. SVG output is
+cached and invalidated only on floor transitions.
 
-@EntityRegistry.register_creature("mimic")
-def create_mimic():
-    return {
-        "Stats": Stats(strength=4, dexterity=1, constitution=3,
-                       intelligence=1, wisdom=2, charisma=0),
-        "Health": Health(current=18, maximum=18),
-        "Renderable": Renderable(glyph="M", color="brown", render_order=2),
-        "AI": AI(behavior="ambush", morale=12, faction="dungeon"),
-        "Disguise": Disguise(appears_as="chest", reveal_on="interact"),
-        "Loot": LootTable(entries=[("gold", 1.0, "4d6"),
-                                   ("magic_item", 0.2)]),
-        "Description": Description(
-            name="Mimic",
-            short="what appears to be a treasure chest",
-            long="Its surface glistens with an unnatural sheen. "
-                 "The hinges don't quite look right."
-        ),
-    }
-```
+### Point-and-Click
 
-No other file needs modification — the registry discovers it automatically.
+The web client supports point-and-click interaction: clicking a tile
+sends a move/interact intent. An action toolbar and inventory panel
+provide mouse-driven access to all game actions.
 
 ---
 
-### 9. Rendering Architecture
+## 8. Narrative & LLM
 
-#### 9.1 Renderer Protocol
+### GM Pipeline
 
-```python
-class Renderer(Protocol):
-    def initialize(self) -> None: ...
-    def shutdown(self) -> None: ...
-    def render_world(self, world: World, camera: Camera) -> None: ...
-    def render_ui(self, ui_state: UIState) -> None: ...
-    def show_message(self, text: str, style: str = "normal") -> None: ...
-    def get_input(self) -> InputEvent: ...
-    def show_menu(self, title: str, options: list[str]) -> int: ...
-    def show_inventory(self, inventory: Inventory) -> Action | None: ...
-    def animate(self, animation: Animation) -> None: ...
+The typed gameplay mode routes player input through an LLM Game Master.
+See `design/typed_gameplay.md` for the full pipeline design.
 
-class InputEvent:
-    key: str
-    modifiers: set[str]
+Pipeline stages:
 
-class Camera:
-    center: Position
-    viewport_width: int
-    viewport_height: int
-```
+1. **Context build** (`narrative/context.py`) -- assembles game state
+   into a structured prompt: visible entities, player stats, inventory,
+   recent history, compressed story summary.
+2. **Interpret** (`narrative/gm.py`) -- the LLM receives the context +
+   player's typed intent and produces a JSON action plan (which game
+   actions to execute, with parameters).
+3. **Parse** (`narrative/parser.py`) -- validates and extracts actions
+   from the LLM JSON response. Falls back to keyword parsing
+   (`fallback_parser.py`) if the LLM is unavailable or returns invalid
+   output.
+4. **Execute** -- resolved actions are dispatched through the normal
+   action pipeline.
+5. **Narrate** (`narrative/narrator.py`) -- the LLM describes the
+   outcome with narrative flavor, grounded in the actual mechanical
+   results.
 
-#### 9.2 Terminal Renderer
+### LLM Backends
 
-The first renderer uses Python's `curses` (with `blessed` as a friendlier
-wrapper) to draw the dungeon as ASCII art:
+Three backends in `utils/llm.py`, sharing an abstract `LLMBackend`
+interface with streaming support:
 
-```
-╔══════════════════════════════════════════════════╗
-║  The Forgotten Crypt (Depth 1)     HP: 12/12    ║
-╠══════════════════════════════════════════════════╣
-║                                                  ║
-║  ########          ########                      ║
-║  #......#          #......#                      ║
-║  #..@...+##########+...g..#                      ║
-║  #......#          #....$.#                      ║
-║  #.<....#          #...D..#                      ║
-║  ########          ########                      ║
-║                                                  ║
-╠══════════════════════════════════════════════════╣
-║ STR:3 DEX:4 CON:3 INT:2 WIS:3 CHA:1  Lv:1      ║
-║ Armor:12  Slots: 7/13                            ║
-╠══════════════════════════════════════════════════╣
-║ > You enter a damp chamber. Water drips from     ║
-║   the ceiling onto cracked flagstones.           ║
-║ > A goblin snarls and raises its rusty blade!    ║
-╚══════════════════════════════════════════════════╝
-```
+- **Ollama** -- local models via the Ollama API
+- **MLX** -- Apple Silicon native inference via MLX
+- **Anthropic** -- Claude API for cloud inference
 
-Glyph assignments follow Nethack conventions:
+Backend selection is configurable via `~/.nhcrc` or CLI args. When no
+backend is available, the fallback keyword parser provides degraded
+but functional typed mode.
 
-| Glyph | Entity |
-|-------|--------|
-| `@` | Player |
-| `a-z` | Creatures (lowercase = weak) |
-| `A-Z` | Creatures (uppercase = strong) |
-| `$` | Gold |
-| `!` | Potion |
-| `?` | Scroll |
-| `/` | Wand |
-| `[` | Armor |
-| `)` | Weapon |
-| `+` | Door (closed) |
-| `.` | Floor |
-| `#` | Wall / corridor |
-| `<` `>` | Stairs up/down |
-| `^` | Trap (visible) |
-| `~` | Water |
+### Story Compression
 
-#### 9.3 Future Graphical Renderer
+`narrative/story.py` periodically summarizes accumulated narrative
+history to fit within the LLM context window, preserving key plot
+points and quest state.
 
-The `graphical/` package will implement the same `Renderer` protocol using
-pygame or tcod. The `Renderable` component carries both `glyph` (ASCII) and
-can be extended with `sprite: str` (asset path) without changing the core engine.
-The renderer selection is a startup configuration choice.
+### Prompts
+
+Prompt templates live in `narrative/prompts/{en,ca,es}/`. Each language
+has independently authored prompts (not machine-translated) tuned for
+that language's LLM performance characteristics.
 
 ---
 
-### 10. LLM Narrative Integration
+## 9. Web Server
 
-#### 10.1 Architecture
+### Flask + WebSocket
 
-The narrative system sits as an observer on the event bus. It does not affect
-game mechanics — it adds flavor, dialogue, and emergent story.
+`web/app.py` creates the Flask application with flask-sock for
+WebSocket support. Each WebSocket connection is tied to a game session;
+the WS handler thread owns the socket, reading input into a queue and
+draining output via a sender thread.
 
-```
-Game Events ──→ Narrative Engine ──→ Story Text ──→ Message Log
-                     │
-                     ├── Context Builder (summarizes game state)
-                     ├── LLM Client (Claude API / local model)
-                     └── Story State (continuity tracker)
-```
+### Authentication
 
-#### 10.2 Context Builder
+Two-tier token auth (`web/auth.py`):
 
-The context builder produces a structured summary of game state that fits
-within an LLM context window. It maintains a sliding window of recent events
-and a compressed summary of older history.
+- **Admin** -- master token + LAN-only restriction, for `/admin` routes
+  and the admin panel (`admin.html`)
+- **Player** -- per-player tokens validated against a persistent
+  `PlayerRegistry` (`web/registry.py`), backed by a JSON file with
+  thread-safe atomic writes
 
-```python
-class NarrativeContext:
-    def build(self, world: World, events: list[Event]) -> dict:
-        return {
-            "player": {
-                "name": world.player.name,
-                "level": world.player.level,
-                "health_pct": world.player.health_ratio,
-                "notable_items": self.notable_items(world.player),
-                "conditions": world.player.active_conditions,
-            },
-            "location": {
-                "level_name": world.current_level.name,
-                "room": self.describe_room(world.player_room),
-                "depth": world.current_level.depth,
-                "theme": world.current_level.metadata.theme,
-                "ambient": world.current_level.metadata.ambient,
-            },
-            "recent_events": [
-                self.summarize_event(e) for e in events[-20:]
-            ],
-            "story_so_far": self.story_state.compressed_summary,
-            "nearby_creatures": [
-                self.describe_creature(c) for c in world.visible_creatures
-            ],
-            "narrative_hooks": world.current_level.metadata.narrative_hooks,
-            "story_threads": self.story_state.active_threads,
-        }
-```
+Tokens can be provided via cookie (`nhc_token`), `Authorization` header,
+or query parameter (`?token=...`). Query params take precedence to allow
+fresh link clicks to override stale cookies.
 
-#### 10.3 Narrative Triggers
+### Session Manager
 
-Not every event needs LLM narration. The engine uses a priority/filter system:
+`web/sessions.py` manages up to 8 concurrent game sessions. Each session
+runs its own game loop in a separate thread. A reaper removes stale
+disconnected sessions.
 
-| Trigger | Priority | Example output |
-|---------|----------|----------------|
-| Enter new level | High | Atmospheric description |
-| Enter new room | Medium | Room description with details |
-| Kill notable creature | High | Dramatic combat conclusion |
-| Find rare item | Medium | Item lore / history |
-| Near death | High | Tension building |
-| NPC encounter | High | Dialogue generation |
-| Routine combat | Low | Brief flavor (or skip) |
-| Pick up mundane item | Skip | No narration |
+### Admin Panel
 
-High-priority events are sent to the LLM immediately (as a background
-`asyncio.Task`) and the resulting text is displayed as soon as it arrives —
-typically before the player's next input. Medium-priority events are batched.
-Low-priority events are narrated only if there's a lull in action.
-
-#### 10.4 Emergent Quests
-
-The LLM can generate quest hooks based on game state:
-
-```python
-class QuestGenerator:
-    def consider_quest(self, context: NarrativeContext) -> Quest | None:
-        """Periodically evaluate whether to introduce a quest hook."""
-        # Feed context to LLM with quest-generation prompt
-        # LLM returns structured quest data or null
-        ...
-
-@dataclass
-class Quest:
-    title: str
-    description: str
-    objective: QuestObjective      # kill, fetch, explore, escort
-    target: str                    # Entity or location ID
-    reward_hint: str               # Narrative reward description
-    status: QuestStatus
-```
-
-#### 10.5 MCP Server for External LLM Access
-
-An MCP server exposes game state as tools, allowing an external Claude instance
-(e.g., via Claude Code or Claude Desktop) to act as a narrative director:
-
-```python
-# Tool definitions for mcp_server.py
-
-@mcp_tool("get_game_state")
-def get_game_state() -> dict:
-    """Get current game state: player, level, creatures, items."""
-
-@mcp_tool("get_event_log")
-def get_event_log(last_n: int = 20) -> list[dict]:
-    """Get recent game events for narrative context."""
-
-@mcp_tool("get_level_map")
-def get_level_map(explored_only: bool = True) -> str:
-    """Get ASCII representation of current level."""
-
-@mcp_tool("get_player_inventory")
-def get_player_inventory() -> list[dict]:
-    """Get player's inventory with item descriptions."""
-
-@mcp_tool("get_creature_info")
-def get_creature_info(entity_id: str) -> dict:
-    """Get detailed info about a visible creature."""
-
-@mcp_tool("get_room_description")
-def get_room_description(room_id: str) -> dict:
-    """Get room metadata including tags and narrative hooks."""
-
-@mcp_tool("narrate")
-def narrate(text: str, style: str = "normal") -> None:
-    """Push narrative text to the game's message log."""
-
-@mcp_tool("create_quest")
-def create_quest(title: str, description: str,
-                 objective_type: str, target: str) -> str:
-    """Create an emergent quest for the player."""
-
-@mcp_tool("set_creature_dialogue")
-def set_creature_dialogue(entity_id: str,
-                          dialogue: list[str]) -> None:
-    """Set dialogue lines for an NPC encounter."""
-
-@mcp_tool("get_story_summary")
-def get_story_summary() -> str:
-    """Get compressed narrative summary of the adventure so far."""
-
-@mcp_tool("add_narrative_hook")
-def add_narrative_hook(hook: str, level_id: str | None = None) -> None:
-    """Plant a narrative hook for future story development."""
-```
-
-This enables a powerful workflow: the player plays in the terminal, while a
-Claude instance connected via MCP observes and enriches the experience in
-real-time.
+The admin HTML page provides session monitoring, player management
+(create, revoke tokens, regenerate links), and server controls.
 
 ---
 
-### 11. Game State Serialization
+## 10. Deployment
 
-The full game state must be serializable for save/load and LLM consumption:
+### Docker Stack
 
-```python
-@dataclass
-class GameState:
-    player: EntitySnapshot
-    world: WorldSnapshot
-    narrative: NarrativeSnapshot
-    turn: int
-    rng_state: bytes           # For deterministic replay
+The production deployment uses Docker Compose with three services:
 
-    def to_dict(self) -> dict: ...
+- **nhc** -- Python 3.12-slim container running gunicorn with gevent
+  worker, single worker process, exposed on port 8080
+- **caddy** -- reverse proxy with automatic TLS via Let's Encrypt
+- **duckdns** -- dynamic DNS updater for the public hostname
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "GameState": ...
+Data persists in a `/var/nhc` volume (autosaves, player registry).
+Environment variables configure auth tokens, max sessions, and DuckDNS
+credentials.
 
-    def save(self, path: Path) -> None:
-        """Save to YAML file."""
-
-    @classmethod
-    def load(cls, path: Path) -> "GameState":
-        """Load from YAML file."""
-```
-
-The save format is YAML (human-readable, LLM-parseable). Binary data (RNG state)
-is base64-encoded.
+Health checks poll `/health` every 30 seconds.
 
 ---
 
-### 12. Field of View & Exploration
+## 11. Internationalization
 
-FOV uses **recursive shadowcasting** (8-octant) for efficient, symmetric
-visibility calculation. This is the standard algorithm used by most modern
-roguelikes.
+### Three Languages
 
-```python
-class FOV:
-    @staticmethod
-    def compute(origin: Position, radius: int,
-                is_blocking: Callable[[int, int], bool]) -> set[Position]:
-        """Return set of visible positions from origin."""
-```
+English, Catalan, and Spanish locale files in `i18n/locales/`, each
+~2000 lines of YAML. Coverage includes creature names and descriptions,
+item names, UI strings, room descriptions, status messages, and combat
+narration.
 
-Tiles have two boolean flags:
-- `visible`: currently in FOV (updated each turn)
-- `explored`: ever been visible (persistent, used for map rendering)
+### Lookup and Fallback
 
-The renderer shows:
-- Visible tiles: full color with entities
-- Explored but not visible: dimmed, no entities
-- Unexplored: black
+`i18n/manager.py` resolves dotted keys
+(e.g. `t("creature.goblin.name")`) with a fallback chain: current
+language -> English -> the key itself. This ensures missing translations
+degrade gracefully.
 
----
+### Gender Support
 
-### 13. Dependencies
+Catalan and Spanish locale entries include a `gender` field (`"m"` or
+`"f"`) for grammatical gender agreement in generated text. The
+translation manager uses this when constructing phrases with articles
+or adjectives.
 
-```
-# Core
-pyyaml          # Dungeon level serialization
-blessed         # Terminal rendering (curses wrapper)
-aiofiles        # Async file I/O (save/load, level loading)
+### Prompt Localization
 
-# LLM integration
-anthropic       # Claude API client (async client included)
-mcp             # MCP server library (async stdio transport)
-
-# Development
-pytest          # Testing
-pytest-asyncio  # Async test support
-```
-
-Minimal dependency footprint. The game should run with just `pyyaml` and
-`blessed` if LLM features are disabled. `asyncio` is stdlib — no extra
-dependency for the core async architecture.
+LLM prompt templates are authored natively per language (not translated
+from English), stored in `narrative/prompts/{en,ca,es}/`.
 
 ---
 
-### 14. Implementation Phases
+## 12. Save System
 
-**Phase 1 — Walking Skeleton**
-- ECS foundation, game loop, turn processing
-- Terminal renderer with basic ASCII dungeon
-- Player movement, collision, FOV
-- One static hand-authored level
-- Basic message log
+### JSON Manual Save
 
-**Phase 2 — Knave Combat**
-- Ability scores, attack rolls, damage
-- Health, death
-- 3-5 creature types with basic AI (seek & attack)
-- Melee and ranged weapons
-- Armor system
+`core/save.py` serializes the full game state to JSON: World (all
+entities and components), level metadata, floor cache (previously
+visited floors), player state, identification mappings, and turn count.
+Triggered by the player pressing `S`; loaded with `L`.
 
-**Phase 3 — Dungeon Generation**
-- Classic room-and-corridor generator
-- Generation parameters
-- Stairs / multi-level dungeon
-- Populator (creature & item placement)
+### Binary Autosave
 
-**Phase 4 — Items & Inventory**
-- Inventory system (slot-based per Knave)
-- Potions, weapons, armor, gold
-- Item interaction: pick up, drop, equip, use
-- Loot tables
+`core/autosave.py` uses pickle + zlib compression for fast periodic
+saves. Autosave is throttled to avoid performance impact. On startup,
+the game detects existing autosaves and offers restore. Autosave files
+are deleted on clean quit or explicit save.
 
-**Phase 5 — Magic**
-- Spell tomes as inventory items
-- 10-15 spells (offensive, defensive, utility)
-- Spell casting and slot consumption
+### Multi-Floor Persistence
 
-**Phase 6 — LLM Narrative**
-- Event bus → narrative engine pipeline
-- Context builder
-- Room/level descriptions from LLM
-- NPC dialogue generation
-- MCP server for external LLM access
+When the player transitions between floors via stairs, the current
+floor state is serialized into the floor cache. Returning to a
+previously visited floor restores its exact state (entities, items,
+doors, terrain modifications).
 
-**Phase 7 — Advanced Generation & Content**
-- BSP and cellular automata generators
-- Themed level generation (crypt, cave, castle)
-- 20+ creature types, 30+ item types
-- Traps, features (fountains, altars, etc.)
-- Emergent quest system
+---
 
-**Phase 8 — Polish**
-- Save/load system
-- Character creation
-- Death screen / score
-- Key rebinding
-- Graphical renderer prototype (pygame/tcod)
+## 13. Debug Tools
+
+### MCP Debug Server
+
+`debug_tools/mcp_server.py` exposes 11 MCP tools for game state
+inspection, organized across 5 tool modules:
+
+- **game_state** -- full game snapshot (player, world, turn)
+- **dungeon** -- room info, door analysis, tile queries
+- **rendering** -- layer state, FOV analysis
+- **svg_query** -- SVG tile element inspection
+- **exports** -- list and read debug export files
+
+### God Mode
+
+Activated with `--god` flag. Provides invulnerability, full item
+identification, complete map reveal, and a debug panel overlay in
+the terminal TUI.
+
+---
+
+## 14. TODO & Future Enhancements
+
+### Dungeon Generation
+
+- **Cellular automata cave generator** -- stub exists in
+  `dungeon/generators/cellular.py`, not implemented. Would produce
+  organic cave layouts as an alternative to BSP rooms.
+- **Boss floors** -- every 5th depth with themed boss encounters.
+- **Depth theme progression** -- visual themes change as the player
+  descends: crypt -> cave -> prison -> castle -> abyss. Theme
+  parameters exist in `terrain.py` but are not wired to depth.
+- **Shop rooms** -- rooms with merchant NPCs for buying/selling.
+  Would require NPC interaction UI and economy balancing.
+- **Level feelings** -- flooded, overgrown, barren variants. Framework
+  exists in `terrain.py` with `FEELINGS` list and seed probability
+  overrides, but selection logic is minimal.
+- **Loot containers** -- chests, barrels, bookshelves as interactive
+  entities that can be opened/searched for items.
+
+### Narrative & NPCs
+
+- **NPC dialogue system** -- framework exists in `narrative/dialogue.py`
+  but content is sparse. Needs dialogue trees, merchant interactions,
+  quest givers.
+- **Emergent quest system** -- framework exists in `narrative/quests.py`
+  but is not wired into the game loop or LLM pipeline.
+- **GM pipeline integration tests** -- context building + action plan
+  parsing + narration end-to-end tests are missing.
+
+### Rendering & UI
+
+- **Graphical renderer** -- pygame/tcod-based renderer. Placeholder
+  directory exists at `rendering/graphical/` but no implementation.
+- **Character creation screen** -- currently uses random chargen with
+  no player choice. A screen for name entry, ability allocation, and
+  starting equipment selection.
+- **Death screen / score tracking** -- game over summary with stats,
+  cause of death, and persistent high score table.
+- **Key rebinding** -- all key mappings are hardcoded in
+  `rendering/terminal/input.py`. A configuration-driven binding
+  system would allow customization.
+
+### Mechanics
+
+- **Hunger/torch mechanics** -- classic roguelike resource management
+  systems. Neither is implemented.
+- **More trap variety** -- web, gas, and other trap types beyond the
+  current 13.
+- **Ring passive effect tests** -- mending HP regeneration and
+  detection auto-reveal are implemented but lack test coverage.
+- **Ascend stairs action tests** -- stair transitions and floor state
+  cleanup on ascent are untested.

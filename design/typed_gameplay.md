@@ -1,5 +1,10 @@
 # Typed Gameplay Mode — Design Document
 
+> **Status**: Implemented. All 5 phases complete. GM pipeline,
+> context builder, multilingual prompts (3 langs x 6 files),
+> fallback parser, story compression, input widget, and
+> narrative log are all functional.
+
 ## 1. Vision
 
 A hybrid gameplay mode where the player types natural language intents
@@ -525,47 +530,52 @@ snapshot_download(
 
 ## 11. Implementation Plan
 
-### Phase 1 — Infrastructure (no LLM yet)
+All phases are complete.
 
-1. Add `--mode {typed,classic}` CLI flag + config key.
-2. Implement Zone 4 text input widget with line editing and history.
-3. Refactor `TerminalRenderer` to support 4-zone layout.
-4. Add `NarrativeLog` (replaces message list) with narrative vs
-   mechanical message types.
+### Phase 1 — Infrastructure (done)
 
-### Phase 2 — GM Pipeline Core
+1. `--mode {typed,classic}` CLI flag + config key
+2. Zone 4 text input widget with line editing and history
+   (`nhc/rendering/terminal/input_line.py`)
+3. 4-zone terminal layout in renderer
+4. NarrativeLog with narrative vs mechanical message types
+   (`nhc/rendering/terminal/narrative_log.py`)
 
-5. Implement `GameMaster` class orchestrating interpret → resolve →
-   narrate.
-6. Implement `ContextBuilder` to produce structured game state JSON.
-7. Write prompt files for all 3 languages (en/ca/es × 5 prompts).
-8. Implement `load_prompt()` with language fallback.
-9. Implement interpret prompt + JSON parsing with validation.
-10. Implement narrate prompt with streaming output.
-11. Wire `GameMaster` into the game loop as alternative to keypress
-    input.
+### Phase 2 — GM Pipeline Core (done)
 
-### Phase 3 — Model Management
+5. GameMaster class in `nhc/narrative/gm.py`
+6. ContextBuilder in `nhc/narrative/context.py`
+7. Prompt files: 3 languages x 6 prompts (interpret, narrate,
+   compress, intro, creature_phase, follow_up)
+8. `load_prompt()` with language fallback in `nhc/narrative/prompts.py`
+9. Interpret prompt + JSON parsing in `nhc/narrative/parser.py`
+10. Narrate prompt with streaming output
+11. GameMaster wired into game loop
 
-12. Implement `auto_detect_provider()` platform logic.
-13. Implement MLX model auto-download with progress display.
-14. Add Ollama health check + model availability check.
-15. Update `create_backend()` with typed-mode defaults.
+### Phase 3 — Model Management (done)
 
-### Phase 4 — Custom Actions & Dialogue
+12. `auto_detect_provider()` platform logic in `nhc/llm.py`
+13. MLX model auto-download with progress display
+14. Ollama health check + model availability check
+15. `create_backend()` with typed-mode defaults
 
-16. Implement `CustomActionEvent` and ability check resolution.
-17. Implement NPC dialogue sub-mode.
-18. Implement story summary compression (using compress prompt).
-19. Add creature AI narration batching (using creature_phase prompt).
+### Phase 4 — Custom Actions & Dialogue (done)
 
-### Phase 5 — Polish
+16. CustomActionEvent and ability check resolution
+17. NPC dialogue system (`nhc/narrative/dialogue.py`)
+18. Story summary compression (`nhc/narrative/story.py`)
+19. Creature AI narration batching
 
-20. Input history persistence across sessions.
-21. Streaming narration (word-by-word display).
-22. Fallback keyword parser for `--provider none --mode typed`.
-23. Tests for GM pipeline, context builder, action parsing,
-    prompt loading across all languages.
+### Phase 5 — Polish (done)
+
+20. Input history persistence (~/.cache/nhc/input_history.json)
+21. Streaming narration (word-by-word display)
+22. Fallback keyword parser (`nhc/narrative/fallback_parser.py`)
+
+### Remaining test gaps
+
+- GM pipeline integration tests (context building + action plan)
+- Prompt loading tests across all 3 languages
 
 ---
 

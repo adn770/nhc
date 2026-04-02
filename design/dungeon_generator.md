@@ -1,385 +1,434 @@
-# Dungeon Generator Improvement Plan
+# BSP Dungeon Generator
 
-Inspired by Pixel Dungeon's generation system and adapted for NHC's
-Knave ruleset, TTRPG narrative, and multilingual architecture.
-
----
-
-## 1. Current State
-
-The `ClassicGenerator` produces valid but basic dungeons:
-- Random room placement with non-overlapping padding
-- Sequential L-shaped corridors (room N → room N+1)
-- Single up/down stairs in first/last rooms
-- Automatic doors at corridor-room junctions
-- Difficulty-tiered creature/item pools (4 tiers)
-
-**Missing**: BSP subdivision, extra loops, special rooms, water/lava
-generation, trap variety, encounter groups, boss rooms, difficulty
-scaling, secret doors, dead-end handling.
+Design document for NHC's procedural dungeon generation system.
+Covers the full pipeline from BSP subdivision through entity
+population.
 
 ---
 
-## 2. Target Architecture
+## 1. Generation Pipeline Overview
 
-```
-GenerationParams
-       │
-       ▼
-┌──────────────┐    ┌────────────────┐    ┌──────────────┐
-│  1. LAYOUT   │───▶│  2. CONNECT    │───▶│  3. SPECIALIZE│
-│  BSP rooms   │    │  Paths, loops  │    │  Room types   │
-└──────────────┘    └────────────────┘    └──────────────┘
-       │                                         │
-       ▼                                         ▼
-┌──────────────┐    ┌────────────────┐    ┌──────────────┐
-│  4. PAINT    │───▶│  5. TERRAIN    │───▶│  6. POPULATE  │
-│  Room interiors│   │  Water, grass  │    │  Creatures,   │
-│  Doors, traps │   │  Cellular auto │    │  items, loot  │
-└──────────────┘    └────────────────┘    └──────────────┘
-```
+Each dungeon level is produced by the following stages, executed
+in order:
+
+ 1. **BSP subdivision** -- recursive binary partitioning of the
+    map area, then room placement within each leaf.
+ 2. **Room carving** -- floor tiles laid down according to each
+    room's shape (rect, circle, octagon, cross, or hybrid).
+ 3. **Wall building** -- 8-neighbor WALL border around all room
+    floor tiles. Corridors get VOID sides, not walls.
+ 4. **Connectivity** -- main path via BFS from entrance to
+    farthest room, extra loop corridors, and a reachability
+    guarantee that reconnects any isolated rooms.
+ 5. **Corridor carving** -- L-shaped two-segment corridors
+    through VOID. Force-carve mode punches through walls when
+    reconnecting disconnected rooms.
+ 6. **Dead-end handling** -- iterative pruning of corridor stubs,
+    secret door placement on remaining dead ends, and orphaned
+    door removal.
+ 7. **Stairs placement** -- stairs_up in a random entry room,
+    stairs_down at distance, optional second stairs_down.
+ 8. **Door cleanup** -- door side computation (cardinal direction
+    toward adjacent room), door harmonization (adjacent doors
+    unified to same type), and removal of doors on non-straight
+    wall sections (arcs, diagonals).
+ 9. **Room type assignment + painting** -- special room types
+    assigned based on connectivity, then painted with thematic
+    entities (`room_types.py`).
+10. **Terrain generation** -- cellular automata water patches
+    applied to room floors (`terrain.py`).
+11. **Entity population** -- creatures, items, traps, gold, and
+    chests placed using difficulty-tiered pools and encounter
+    groups (`populator.py`).
+
+Steps 1-8 are handled by `BSPGenerator.generate()` in
+`nhc/dungeon/generators/bsp.py`. Steps 9-11 are called by the
+game loop after the generator returns.
 
 ---
 
-## 3. Phase 1 — BSP Room Layout
+## 2. BSP Algorithm
 
-Replace random placement with recursive Binary Space Partitioning,
-adapted from Pixel Dungeon's `split()` algorithm.
+The map area (excluding a 1-tile border) is recursively split
+into rectangular leaves via binary space partitioning.
+
+### Constants
+
+| Constant   | Value | Purpose                             |
+|------------|-------|-------------------------------------|
+| `MIN_LEAF` | 9     | Minimum leaf dimension              |
+| `MAX_ROOM` | 10    | Maximum room dimension              |
+| `MIN_ROOM` | 4     | Minimum room dimension              |
+| `PADDING`  | 2     | Margin between room edge and leaf   |
+
+### Splitting Rules
+
+- A leaf is split if at least one dimension is >= `MIN_LEAF * 2`.
+- **Axis selection**: split along the longer dimension when the
+  aspect ratio exceeds 1.25; random choice if nearly square.
+- **Split point**: random integer between `MIN_LEAF` and
+  `dimension - MIN_LEAF`, ensuring both children are large
+  enough.
+- Recursion continues until no leaf can be split further.
+
+### Room Placement
+
+Each leaf gets one room:
+- Width: random in `[MIN_ROOM, min(MAX_ROOM, leaf_w - 2*PADDING)]`
+- Height: random in `[MIN_ROOM, min(MAX_ROOM, leaf_h - 2*PADDING)]`
+- Position: random within the leaf, respecting `PADDING` margin
+  on all sides.
+
+The padding ensures a VOID gap between adjacent rooms' walls,
+preventing rooms from visually merging.
+
+If the BSP produces fewer than 3 rooms, the generator falls back
+to `ClassicGenerator` as a safety net.
+
+---
+
+## 3. Room Shapes
+
+Five shape types control which tiles become floor within a room's
+bounding rectangle.
+
+### RectShape
+
+All tiles in the bounding rectangle. The default shape.
+
+### CircleShape
+
+A true circle inscribed in the bounding rect.
+- Diameter = `min(width, height)`, forced to odd for clean
+  cardinal wall positions.
+- Only tiles within the circle radius become floor.
+- Four cardinal wall positions (N, S, E, W) are computed for
+  door placement.
+
+### OctagonShape
+
+A rectangle with 45-degree clipped corners.
+- Clip size = `max(1, min(width, height) // 3)`.
+- Each corner has a triangular region excluded from floor.
+
+### CrossShape
+
+Two overlapping bars (horizontal + vertical).
+- Bar width approximately 1/3 of each dimension, minimum 2 tiles.
+- Creates a plus-sign shaped room.
+
+### HybridShape
+
+Two sub-shapes joined at a vertical or horizontal split line.
+- One tile of overlap at the seam ensures connectivity.
+- 16 hybrid presets exist (e.g., circle+rect, octagon+rect).
+- In practice, the generator creates circle+rect hybrids: the
+  circle half occupies the shorter axis, the rect half the rest.
+
+### Shape Selection
+
+Controlled by the `shape_variety` parameter (0.0 to 1.0):
+- At `shape_variety = 0.0`, all rooms are rectangular.
+- Higher values increase the probability of non-rect shapes.
+- Rooms with `min(width, height) < 5` always get RectShape.
+- 20% chance of hybrid when `max_dim >= 7`.
+- Remaining candidates: OctagonShape, CrossShape, and
+  CircleShape (only for near-square rooms with odd dimensions).
+
+---
+
+## 4. Connectivity
+
+### Neighbor Detection
+
+Room pairs are considered potential neighbors when the Manhattan
+distance between their centers is <= 25.
+
+### Main Path
+
+1. BFS from the entrance room (index 0) computes distances to
+   all other rooms in the neighbor graph.
+2. The farthest room becomes the exit.
+3. BFS finds the shortest path from entrance to exit.
+4. All edges on this path are carved as corridors.
+
+### Extra Loops
+
+Each unused neighbor pair has a `50% * connectivity` chance of
+being connected (default connectivity = 0.8, so 40% per pair).
+This creates alternate routes and loops in the dungeon.
+
+### Reachability Guarantee (Graph Level)
+
+After carving the main path and extra loops:
+1. BFS from entrance identifies all reachable rooms.
+2. Any unreachable room is force-connected to the nearest
+   reachable room (by center Manhattan distance).
+3. The adjacency graph is updated and the check repeats until
+   all rooms are reachable.
+
+### Reachability Guarantee (Tile Level)
+
+After dead-end pruning, a second verification runs at the tile
+level:
+1. Flood-fill from the entrance room's center across FLOOR tiles.
+2. Any room whose center is not in the reachable set gets a
+   force-carved corridor to the nearest reachable room.
+3. Repeats until all rooms are tile-reachable.
+
+---
+
+## 5. Corridors
+
+### L-Shaped Carving
+
+Each corridor consists of two perpendicular line segments:
+1. Find a wall tile on each room facing the other room.
+2. Convert wall tiles to doors.
+3. Step one tile outward into VOID (the corridor start/end).
+4. Carve an L-shaped path: randomly choose horizontal-first or
+   vertical-first orientation.
+
+### Wall Entry Finding
+
+For each room, the generator scans the perimeter walls and
+selects the tile with the best facing score (dot product of
+wall direction and target direction), avoiding tiles adjacent
+to existing doors. Circular rooms restrict entry to 4 cardinal
+wall positions.
+
+### Normal vs Force Carving
+
+- **Normal**: only replaces VOID tiles with FLOOR (corridor).
+  Used for the main path and extra loops.
+- **Force**: also replaces WALL tiles with FLOOR + `door_closed`.
+  Used during tile-level reconnection to guarantee connectivity.
+
+---
+
+## 6. Door System
+
+### Door Types
+
+| Type          | Base Probability                     |
+|---------------|--------------------------------------|
+| `door_closed` | Remainder after secret and locked    |
+| `door_secret` | 10%                                  |
+| `door_locked` | 5% + depth * 2% (7% at D1, 15% D5)  |
+
+### Door Harmonization
+
+Adjacent doors (cardinal neighbors) are unified to the same type.
+This runs twice: once during initial corridor carving and once
+after tile-level reconnection.
+
+### Door Side Assignment
+
+Each door gets a `door_side` (north, south, east, west) based on
+the direction of the adjacent room floor tile. The renderer uses
+this to orient the door glyph correctly.
+
+### Non-Straight Door Removal
+
+Doors placed on curved wall sections (octagon diagonals, cross
+indentations, circle arcs) are converted to plain corridor floor.
+A door is considered "straight" only when the room outline runs
+parallel to the bounding rect boundary at the door position and
+at least 3 floor tiles span the wall direction -- indicating a
+flat side, not a corner or curve.
+
+---
+
+## 7. Dead-End Handling
+
+### Phase 1: Iterative Pruning
+
+Corridor tiles with <= 1 floor cardinal neighbor are removed
+(set to VOID), iterating until no more dead ends exist. Tiles
+adjacent to doors are never pruned.
+
+### Phase 2: Selective Treatment
+
+Remaining dead-end corridor tiles are handled individually:
+- **30%**: place a secret door on an adjacent wall tile.
+- **30%**: keep as atmospheric dead end.
+- **40%**: prune (set to VOID), then re-scan for new dead ends.
+
+### Orphaned Door Removal
+
+After all pruning, doors that have a room side but no corridor
+side are reverted to WALL. This cleans up doors whose corridors
+were pruned away.
+
+---
+
+## 8. Stairs
+
+- **Entry room**: chosen randomly from all rooms. Gets
+  `stairs_up` at its center.
+- **Exit room**: chosen from rooms at >= 50% of the maximum BFS
+  distance from the entry room. Gets `stairs_down` at center.
+- **Second stairs_down**: 15% chance, placed in another room
+  that also meets the distance threshold.
+
+Entry and exit rooms are tagged accordingly for room type
+assignment (both always become "standard").
+
+---
+
+## 9. Room Types
+
+Defined in `nhc/dungeon/room_types.py`.
+
+### Assignment Rules
+
+- Entry and exit rooms are always "standard".
+- Dead-end rooms (1 connection): 70% chance of special type
+  (decreasing by 15% per special already placed), max 3.
+- Any room: 15% chance of general special type, max 4 total.
+- Rooms with >= 2 connections or 60% random chance: "standard".
+- Remaining rooms: "corridor" (pass-through).
+- Minimum 3 standard rooms enforced (corridor rooms promoted).
+
+### Special Room Types
+
+| Type       | Category | Contents                           |
+|------------|----------|------------------------------------|
+| treasury   | special  | 2-4 gold, 1-2 chests, 20% mimic   |
+| armory     | special  | 2-3 weapons, 50% shield            |
+| library    | special  | 2-4 scrolls                        |
+| crypt      | special  | 1-2 undead, gold                   |
+| trap_room  | special  | 2-4 pit traps + 1 prize item       |
+| shrine     | general  | Water patch + healing potion        |
+| garden     | general  | Healing potion                     |
+
+Special types (treasury, armory, library, crypt, trap_room)
+prefer dead-end rooms. General types (shrine, garden) can go
+in any room.
+
+Each type has a `paint()` function that places `EntityPlacement`
+entries in the room's interior tiles.
+
+---
+
+## 10. Terrain
+
+Defined in `nhc/dungeon/terrain.py`. Uses cellular automata
+adapted from Pixel Dungeon's Patch algorithm.
 
 ### Algorithm
 
-```
-split(rect, depth):
-    if rect too small → create room (with margin)
-    if probability check (minSize² / area) → create room
-    else:
-        choose split axis (horizontal if wide, vertical if tall)
-        split at random point within inner 40-60%
-        recurse both halves
-```
+1. Seed a boolean grid with random values at `seed_probability`.
+2. Run N iterations of cellular automata:
+   - OFF cell turns ON if >= 5 cardinal+diagonal neighbors are ON.
+   - ON cell stays ON if >= 4 neighbors are ON.
+3. Apply the resulting mask: water tiles on matching floor tiles.
 
-### Parameters
+### Theme Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `min_room` | 5 | Minimum room dimension |
-| `max_room` | 11 | Maximum room dimension |
-| `padding` | 1 | Gap between rooms |
-| `map_width` | 60 | Level width |
-| `map_height` | 30 | Level height |
+| Theme   | Water Seed | Water Iters | Grass Seed | Grass Iters |
+|---------|------------|-------------|------------|-------------|
+| crypt   | 0.35       | 4           | 0.20       | 3           |
+| cave    | 0.45       | 6           | 0.35       | 3           |
+| sewer   | 0.50       | 5           | 0.40       | 4           |
+| castle  | 0.25       | 3           | 0.15       | 2           |
+| forest  | 0.30       | 4           | 0.55       | 5           |
+| dungeon | 0.35       | 4           | 0.25       | 3           |
 
-### Output
-- List of `Room` objects with `Rect` bounds
-- Minimum 6 rooms per level
+### Level Feelings
 
-### Files
-- Implement in `nhc/dungeon/generators/bsp.py` (currently stub)
-- Replaces `classic.py` random placement
+10% chance on depth > 1. Modifies terrain generation:
+- **flooded**: +15% water seed probability.
+- **barren**: no terrain features at all.
+- **overgrown**: (reserved, currently same as normal).
+- **normal**: default parameters.
 
----
+### Placement Rules
 
-## 4. Phase 2 — Room Connectivity
-
-Currently rooms connect linearly (1→2→3→...). Pixel Dungeon builds
-a **main path** plus **alternate paths** plus **random extra loops**.
-
-### Algorithm
-
-1. **Neighbor detection**: Two rooms are neighbors if their rects
-   share a wall ≥3 tiles long (including 1-tile gap).
-
-2. **Main path**: Shortest path from entrance to exit room using
-   graph distance (BFS). This guarantees the level is solvable.
-
-3. **Alternate path**: Second shortest path that diverges from main.
-   Increases exploration surface and provides tactical options.
-
-4. **Extra connections**: For `connectivity` fraction (default 0.6)
-   of remaining unconnected neighbor pairs, add a corridor. Creates
-   loops that make the dungeon feel less linear.
-
-5. **Corridor carving**: For each connection, carve a corridor:
-   - **Straight**: If rooms share an axis-aligned wall, single
-     straight segment.
-   - **L-shaped**: One horizontal + one vertical segment with
-     random bend point.
-   - **S-shaped** (organic): Two bends for longer distances.
-
-### Door Placement
-
-| Door type | Condition |
-|-----------|-----------|
-| Regular | Default at room-corridor junctions |
-| Locked | On rooms tagged `vault`, `armory` |
-| Hidden (secret) | `secret_doors` probability on dead-end rooms |
-| Barricade | Random on non-critical path connections |
-
-### Files
-- `nhc/dungeon/connectivity.py` — neighbor detection, path building
-- Updates to `nhc/dungeon/classic.py` or new `bsp.py`
+Water tiles are only placed on FLOOR tiles that are not
+corridors, stairs, doors, or traps.
 
 ---
 
-## 5. Phase 3 — Room Specialization
+## 11. Populator
 
-Assign purpose to rooms based on position and connection count,
-inspired by Pixel Dungeon's `assignRoomType()`.
+Defined in `nhc/dungeon/populator.py`. Places creatures, items,
+traps, gold, and chests in rooms.
 
-### Room Types
+### Difficulty Tiers
 
-| Type | Tags | Conditions | Contents |
-|------|------|-----------|----------|
-| **entrance** | `[entry, safe]` | First room, stairs up | Sign, starting items |
-| **exit** | `[exit]` | Last room, stairs down | Stairs down |
-| **standard** | `[combat]` | 2+ connections | Random creatures/items |
-| **corridor** | — | 1 connection, narrow | Empty passage |
-| **treasury** | `[treasure]` | Dead-end, locked door | Gold heaps, mimic chance |
-| **armory** | `[treasure]` | Dead-end, locked door | Weapons, armor, shield |
-| **library** | `[treasure]` | Dead-end | Scrolls (2-4) |
-| **shrine** | `[water, puzzle]` | Any | Healing pool or buff well |
-| **garden** | `[nature]` | Any | High grass, seeds, herbs |
-| **trap_room** | `[danger]` | Dead-end | Dense traps + prize |
-| **boss_lair** | `[boss, combat]` | Depth 5/10/15 | Boss creature, exit |
-| **pool** | `[water, danger]` | Any | Water-filled, creatures |
-| **crypt** | `[undead]` | Dead-end | Undead guardians, loot |
-| **shop** | `[safe, shop]` | Depth 3/7/12 | Merchant NPC |
+Tier = `clamp(depth, 1, 4)`. Each tier defines weighted pools
+of creature types (9-17 per tier) and item types (17-32 per tier).
 
-### Assignment Algorithm
+### Entity Count Scaling
 
-1. Entrance and exit assigned first.
-2. Dead-end rooms (1 connection) → 60% chance of special type.
-3. Special type chosen by weighted random from available pool,
-   influenced by depth and theme.
-4. Remaining rooms → 50% standard, 50% corridor.
-5. Minimum 3 standard rooms enforced.
-
-### Room Painters
-
-Each room type has a `paint()` function that fills interior tiles:
-
-```python
-# nhc/dungeon/painters/treasury.py
-def paint_treasury(level, room, rng):
-    """Fill treasury room with gold and optional mimic."""
-    fill_floor(level, room)
-    center = room.rect.center
-    place_entity(level, "gold", center, dice="4d6")
-    if rng.random() < 0.15:
-        place_entity(level, "mimic", center)
-```
-
-### Files
-- `nhc/dungeon/room_types.py` — type assignment logic
-- `nhc/dungeon/painters/` — one file per room type
-- `nhc/dungeon/painters/__init__.py` — painter registry
-
----
-
-## 6. Phase 4 — Terrain Generation (Cellular Automata)
-
-From Pixel Dungeon's `Patch.java` — use cellular automata to
-generate organic water and vegetation patches.
-
-### Algorithm
-
-```
-1. Seed grid: each cell ON with probability P
-2. Repeat N iterations:
-   - Cell ON if: (was OFF and ≥5 neighbors ON) or
-                 (was ON and ≥4 neighbors ON)
-3. Apply to level: ON cells become water/grass
-```
-
-### Parameters by Theme
-
-| Theme | Water seed | Water iters | Grass seed | Grass iters |
-|-------|-----------|------------|-----------|------------|
-| crypt | 0.35 | 4 | 0.20 | 3 |
-| cave | 0.45 | 6 | 0.35 | 3 |
-| sewer | 0.50 | 5 | 0.40 | 4 |
-| castle | 0.25 | 3 | 0.15 | 2 |
-| forest | 0.30 | 4 | 0.55 | 5 |
-
-### Constraints
-- Water only on floor tiles (not corridors, walls, stairs)
-- Water doesn't block main path (pathfind check after placement)
-- Grass is cosmetic (maybe concealment bonus later)
-
-### Level Feelings (10% chance per floor)
-
-| Feeling | Effect |
-|---------|--------|
-| FLOODED | +50% water seed |
-| OVERGROWN | +50% grass seed |
-| BARREN | No water or grass |
-| CHASM | Replace some floor with chasms |
-
-### Files
-- `nhc/dungeon/terrain.py` — cellular automata + feeling system
-- `nhc/dungeon/generators/cellular.py` — terrain-only generator
-
----
-
-## 7. Phase 5 — Enhanced Populator
-
-Upgrade creature/item placement from individual random spawns to
-designed encounters.
+| Entity    | Formula                                      |
+|-----------|----------------------------------------------|
+| Creatures | `2 + depth + randint(0, 2)`                  |
+| Items     | `3 + randint(0, depth)`                      |
+| Traps     | `max(0, depth - 1) + randint(0, 1)`         |
+| Gold      | `randint(2, 3 + depth)`                      |
+| Chests    | `randint(0, 1 + depth // 2)`                |
 
 ### Encounter Groups
 
-Instead of placing lone creatures, place **encounter groups**:
+Creatures are placed in encounter groups for tactical variety:
 
-| Group type | Size | Example |
-|-----------|------|---------|
-| Solo | 1 | Troll, Ogre |
-| Pair | 2 | 2 Skeletons |
-| Pack | 3-4 | Wolf pack, Goblin patrol |
-| Swarm | 5-8 | Rat swarm, Insect swarm |
-| Guard + minions | 1+2 | Hobgoblin + 2 Goblins |
-| Ambush | 2-3 | Mimics + hidden creatures |
+| Pattern | Size  |
+|---------|-------|
+| solo    | 1     |
+| pair    | 2     |
+| pack    | 3-4   |
 
-### Creature Placement Rules
-- **Standard rooms**: 0-2 encounters based on difficulty
-- **Boss lairs**: 1 boss + minions
-- **Crypt rooms**: Undead only
-- **Pool rooms**: Aquatic creatures
-- **Treasure rooms**: Guardian creature
-- **Corridors**: Patrol creatures (30% chance)
-- Factions: rooms inherit level faction, creatures match
+Each group uses a single creature type, selected by weighted
+random from the tier's pool. Groups are placed in non-special
+combat rooms, avoiding the entry room.
 
-### Trap Variety
+### Trap Placement
 
-| Trap | Damage/Effect | DC |
-|------|--------------|-----|
-| Pit | 1d6 fall | 12 |
-| Dart | 1d4 + poison | 13 |
-| Fire | 2d4 burn | 14 |
-| Alarm | Alert creatures in 20 tiles | 10 |
-| Teleport | Random relocation | 15 |
-| Web | Webbed 3 turns | 11 |
-| Gas | Poison cloud 2 turns | 13 |
+All traps are placed hidden. Trap type is selected uniformly
+from 12 trap types (pit, fire, poison, paralysis, alarm,
+teleport, summoning, gripping, arrow, darts, falling stone,
+spores).
 
-New trap entities needed in `nhc/entities/features/`.
+### Single-Tile Corridor Population
 
-### Loot Containers
-
-| Container | Contents | Interaction |
-|-----------|----------|-------------|
-| Chest | Random item | Open (no key) |
-| Locked chest | Better item | Requires key or lockpick |
-| Barrel | Potion or gold | Break open |
-| Bookshelf | Scroll | Search action |
-| Weapon rack | Weapon | Take |
-
-### Item Budget per Floor
-
-| Depth | Items | Potions | Scrolls | Gold piles | Traps |
-|-------|-------|---------|---------|------------|-------|
-| 1 | 3-4 | 1-2 | 1 | 2-3 | 0-1 |
-| 2-3 | 4-5 | 1-2 | 1-2 | 3-4 | 1-2 |
-| 4-5 | 5-6 | 2-3 | 2-3 | 3-5 | 2-3 |
-| 6+ | 6-8 | 2-3 | 2-3 | 4-6 | 3-5 |
-
-### Files
-- `nhc/dungeon/encounters.py` — encounter group definitions
-- `nhc/dungeon/populator.py` — enhanced placement logic
-- `nhc/entities/features/trap_*.py` — new trap types
+Corridor segments exactly 1 tile long get special treatment:
+- **50%**: nothing.
+- **30%**: one creature from the tier pool.
+- **20%**: one item from the tier pool.
 
 ---
 
-## 8. Phase 6 — Multi-Floor Progression
+## 12. Generation Parameters
 
-Currently descending generates a fresh level with no memory.
-Add floor persistence and progression.
+Defined in `GenerationParams` (`nhc/dungeon/generator.py`):
 
-### Depth Themes
+| Parameter       | Default | Description                       |
+|-----------------|---------|-----------------------------------|
+| `width`         | 120     | Map width in tiles                |
+| `height`        | 40      | Map height in tiles               |
+| `depth`         | 1       | Dungeon floor number              |
+| `connectivity`  | 0.8     | Extra corridor probability factor |
+| `theme`         | dungeon | Terrain theme (6 options)         |
+| `seed`          | None    | RNG seed for reproducibility      |
+| `shape_variety` | 0.0     | Non-rect room probability (0-1)  |
+| `secret_doors`  | 0.1     | Base secret door probability      |
+| `room_count`    | 5-15    | Target room count range           |
+| `room_size`     | 4-12    | Target room size range            |
 
-| Depth | Theme | Creature focus | Ambient |
-|-------|-------|---------------|---------|
-| 1-3 | Crypt | Undead, vermin | Damp stone, decay |
-| 4-6 | Cave | Beasts, oozes, fungi | Dripping water, echoes |
-| 7-9 | Prison | Humanoids, constructs | Iron, torchlight |
-| 10-12 | Castle | Elite humanoids, mages | Grandeur, dust |
-| 13-15 | Abyss | Demons, chaos | Heat, red glow |
-
-### Boss Floors (every 5th depth)
-- Depth 5: **Mummy Lord** (undead boss)
-- Depth 10: **Troll King** (regeneration, fire weakness)
-- Depth 15: Final boss (TBD based on BEB)
-
-### Floor Memory
-- When ascending, restore previous floor state
-- When descending to new floor, generate fresh
-- Store up to 3 floors in memory (LRU)
-
-### Files
-- `nhc/dungeon/progression.py` — theme/boss selection
-- `nhc/core/game.py` — floor stack management
+The `shape_variety` parameter typically scales with depth in the
+game loop, producing more complex room shapes on deeper floors.
 
 ---
 
-## 9. Implementation Order
+## Source Files
 
-### Sprint 1 — BSP Layout + Connectivity (foundation)
-1. Implement BSP room generation in `generators/bsp.py`
-2. Implement neighbor detection and graph pathfinding
-3. Build main path + extra connections
-4. L-shaped and straight corridor carving
-5. Door placement with type selection
-6. Tests for layout validity
-
-### Sprint 2 — Room Specialization + Painters
-7. Room type assignment algorithm
-8. Painters for: standard, treasury, armory, library, crypt
-9. Shrine and garden painters
-10. Trap room painter
-11. Shop room with merchant NPC
-12. Tests for room type distribution
-
-### Sprint 3 — Terrain + Traps
-13. Cellular automata for water/grass
-14. Level feelings system
-15. New trap types (dart, fire, alarm, web, gas, teleport)
-16. Trap entity factories + i18n
-17. Tests for terrain generation
-
-### Sprint 4 — Enhanced Populator
-18. Encounter group system
-19. Faction-based creature placement
-20. Loot container entities (chest, barrel, bookshelf)
-21. Item budget per floor
-22. Tests for encounter balance
-
-### Sprint 5 — Multi-Floor + Bosses
-23. Depth theme progression
-24. Boss floor generation
-25. Floor memory (ascending restores state)
-26. Boss creature factories
-27. Victory condition on final floor
-28. Tests for floor transitions
-
----
-
-## 10. Key Design Decisions
-
-**BSP vs random placement**: BSP guarantees better space utilization
-and more natural room distributions. Random placement wastes ~60% of
-the map.
-
-**Graph connectivity**: Building main + alternate paths ensures the
-level is always solvable while creating exploration incentive. Extra
-loops prevent the "long corridor back" problem.
-
-**Cellular automata**: Cheaply generates organic water/grass patterns
-that make levels feel alive. 5-6 iterations is the sweet spot.
-
-**Encounter groups**: Solo creatures feel artificial. Groups of 2-4
-with complementary abilities create tactical decisions.
-
-**Room specialization**: Dead-end rooms as special rooms is elegant
-— the player is rewarded for exploring off the main path with
-unique loot/content, but must deal with the dead-end risk.
-
-**Theme progression**: Changing creature types and room decorations
-every 3-5 floors keeps the game fresh. Pixel Dungeon changes every
-5 floors; we do every 3 for a shorter game.
+| File                              | Role                          |
+|-----------------------------------|-------------------------------|
+| `nhc/dungeon/generators/bsp.py`  | BSP subdivision + generation  |
+| `nhc/dungeon/generator.py`       | Abstract interface + params   |
+| `nhc/dungeon/model.py`           | Level, Room, Tile, shapes     |
+| `nhc/dungeon/room_types.py`      | Room type assignment + paint  |
+| `nhc/dungeon/terrain.py`         | Cellular automata terrain     |
+| `nhc/dungeon/populator.py`       | Entity population             |

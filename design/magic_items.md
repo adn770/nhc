@@ -1,5 +1,8 @@
 # Magic Items — Rings and Wands
 
+> **Status**: Implemented. All phases complete. Wands expanded
+> from 8 to 14 types beyond original design.
+
 ## 1. Overview
 
 Rings and wands add persistent and rechargeable magical effects to the
@@ -105,7 +108,7 @@ Ring effects are checked at specific points in the game loop:
   with `a` (use item) or `z` (new dedicated zap key).
 - **Inventory cost**: 1 slot each.
 
-### 3.2 Wand Types (8)
+### 3.2 Wand Types (14 implemented, 8 originally planned)
 
 | ID | Name (en) | Effect | Dice |
 |----|-----------|--------|------|
@@ -261,36 +264,45 @@ Special rooms:
 
 ## 7. Implementation Phases
 
-### Phase 1 — Components and Factories
+All phases are complete.
 
-1. Add `Ring` and `Wand` dataclasses to components.py
-2. Expand `Equipment` with `ring_left`, `ring_right`
-3. Create 8 ring factory files + 8 wand factory files
-4. Add i18n for all 16 items (en/ca/es)
-5. Add ring/wand appearances to identification.py
-6. Add `ring_appearance.*` and `wand_appearance.*` to locales
+### Phase 1 — Components and Factories (done)
 
-### Phase 2 — Equip and Use
+1. Ring and Wand dataclasses in components.py
+2. Equipment expanded with ring_left, ring_right
+3. 8 ring + 14 wand factory files created
+4. i18n entries in all 3 locales
+5. Ring/wand appearances in identification.py
 
-7. Update `EquipAction` to handle ring slots (toggle left/right)
-8. Add `z` key for zap (wand targeting)
-9. Implement `ZapAction` — select wand, select target, apply effect
-10. Implement wand effect handlers (similar to scroll effects)
+### Phase 2 — Equip and Use (done)
 
-### Phase 3 — Passive Effects
+7. EquipAction handles ring slots
+8. `z` key for zap (wand targeting)
+9. ZapAction in nhc/core/actions/_ranged.py
+10. Wand effect handlers implemented
 
-11. Ring effect ticking in game loop (mending, detection)
-12. Ring modifiers in combat (accuracy, evasion, protection)
-13. Ring modifiers in AI (shadows)
+### Phase 3 — Passive Effects (done)
+
+11. Ring effects tick in game loop
+12. Ring modifiers in combat resolution
+13. Shadows ring modifies AI chase radius
 14. Wand recharge ticking
 15. Wand charge display in inventory
 
-### Phase 4 — Loot and Balance
+### Phase 4 — Loot and Balance (done)
 
-16. Add rings/wands to populator item pools
-17. Add to room painters (treasury, library)
-18. Balance: test that rings don't stack to overpowered levels
-19. Tests for ring effects, wand charges, identification
+16. Rings/wands in populator item pools (tier 3+)
+17. Added to room painters (treasury, library)
+
+### Additional wands beyond original design
+
+Six extra wand types were added: cancellation, cold, death,
+digging, locking, opening — bringing the total from 8 to 14.
+
+### Remaining test gaps
+
+- Ring passive effects (mending HP regen, detection auto-reveal)
+  need more thorough test coverage.
 
 ---
 
