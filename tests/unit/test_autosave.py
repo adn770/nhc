@@ -6,7 +6,7 @@ import zlib
 import pytest
 
 from nhc.core.autosave import (
-    AUTOSAVE_PATH,
+    _DEFAULT_PATH,
     autosave,
     auto_restore,
     delete_autosave,
@@ -294,7 +294,7 @@ class TestMultiFloor:
 class TestFileOperations:
     def test_has_autosave_false_initially(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_PATH",
+            "nhc.core.autosave._DEFAULT_PATH",
             tmp_path / "nonexistent.nhc",
         )
         assert not has_autosave()
@@ -302,10 +302,10 @@ class TestFileOperations:
     def test_autosave_creates_file(self, tmp_path, monkeypatch):
         save_path = tmp_path / "autosave.nhc"
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_PATH", save_path,
+            "nhc.core.autosave._DEFAULT_PATH", save_path,
         )
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_DIR", tmp_path,
+            "nhc.core.autosave._DEFAULT_DIR", tmp_path,
         )
         game = _make_game()
         autosave(game)
@@ -315,10 +315,10 @@ class TestFileOperations:
     def test_autosave_restore_roundtrip(self, tmp_path, monkeypatch):
         save_path = tmp_path / "autosave.nhc"
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_PATH", save_path,
+            "nhc.core.autosave._DEFAULT_PATH", save_path,
         )
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_DIR", tmp_path,
+            "nhc.core.autosave._DEFAULT_DIR", tmp_path,
         )
 
         game = _make_game()
@@ -332,7 +332,7 @@ class TestFileOperations:
         save_path = tmp_path / "autosave.nhc"
         save_path.write_bytes(b"test")
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_PATH", save_path,
+            "nhc.core.autosave._DEFAULT_PATH", save_path,
         )
         delete_autosave()
         assert not save_path.exists()
@@ -341,9 +341,75 @@ class TestFileOperations:
         save_path = tmp_path / "autosave.nhc"
         save_path.write_bytes(b"corrupt data")
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_PATH", save_path,
+            "nhc.core.autosave._DEFAULT_PATH", save_path,
         )
         game = FakeGame()
         assert not auto_restore(game)
         # Corrupt file should be deleted
         assert not save_path.exists()
+
+
+class TestCustomSaveDir:
+    """Test autosave with explicit save_dir (per-player persistence)."""
+
+    def test_has_autosave_with_save_dir(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        assert not has_autosave(save_dir)
+
+        save_dir.mkdir()
+        (save_dir / "autosave.nhc").write_bytes(b"data")
+        assert has_autosave(save_dir)
+
+    def test_autosave_creates_file_in_save_dir(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        autosave(game, save_dir)
+
+        expected = save_dir / "autosave.nhc"
+        assert expected.exists()
+        assert expected.stat().st_size > 0
+
+    def test_autosave_creates_save_dir(self, tmp_path):
+        save_dir = tmp_path / "nested" / "player_abc"
+        assert not save_dir.exists()
+
+        game = _make_game()
+        autosave(game, save_dir)
+        assert save_dir.exists()
+
+    def test_restore_from_save_dir(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        autosave(game, save_dir)
+
+        game2 = FakeGame()
+        assert auto_restore(game2, save_dir)
+        assert game2.turn == 42
+
+    def test_delete_from_save_dir(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        save_dir.mkdir(parents=True)
+        (save_dir / "autosave.nhc").write_bytes(b"data")
+
+        delete_autosave(save_dir)
+        assert not (save_dir / "autosave.nhc").exists()
+
+    def test_two_players_independent_saves(self, tmp_path):
+        dir_a = tmp_path / "player_a"
+        dir_b = tmp_path / "player_b"
+
+        game_a = _make_game()
+        game_a.turn = 10
+        autosave(game_a, dir_a)
+
+        game_b = _make_game()
+        game_b.turn = 99
+        autosave(game_b, dir_b)
+
+        restored_a = FakeGame()
+        assert auto_restore(restored_a, dir_a)
+        assert restored_a.turn == 10
+
+        restored_b = FakeGame()
+        assert auto_restore(restored_b, dir_b)
+        assert restored_b.turn == 99

@@ -88,8 +88,8 @@ def test_game_new_default_no_reset():
 def test_fresh_game_after_death(tmp_path, monkeypatch):
     """No autosave (deleted on death) creates a fresh game without --reset."""
     save_path = tmp_path / "autosave.nhc"
-    monkeypatch.setattr("nhc.core.autosave.AUTOSAVE_PATH", save_path)
-    monkeypatch.setattr("nhc.core.autosave.AUTOSAVE_DIR", tmp_path)
+    monkeypatch.setattr("nhc.core.autosave._DEFAULT_PATH", save_path)
+    monkeypatch.setattr("nhc.core.autosave._DEFAULT_DIR", tmp_path)
 
     # No autosave file on disk — simulates post-death state
     assert not save_path.exists()

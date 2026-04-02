@@ -317,6 +317,7 @@ class Game:
         god_mode: bool = False,
         reset: bool = False,
         shape_variety: float = DEFAULT_SHAPE_VARIETY,
+        save_dir: Path | None = None,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
@@ -326,6 +327,7 @@ class Game:
         self.god_mode = god_mode
         self.reset = reset
         self.shape_variety = shape_variety
+        self.save_dir = save_dir
         self.running = False
         self.game_over = False
         self.won = False
@@ -349,12 +351,12 @@ class Game:
         # Check for autosave recovery
         logger.info("Game.initialize: reset=%s, generate=%s", self.reset,
                      generate)
-        if self.reset and has_autosave():
-            delete_autosave()
+        if self.reset and has_autosave(self.save_dir):
+            delete_autosave(self.save_dir)
             logger.info("Autosave deleted (--reset)")
-        elif has_autosave():
+        elif has_autosave(self.save_dir):
             logger.info("Autosave found, attempting recovery")
-            if auto_restore(self):
+            if auto_restore(self, self.save_dir):
                 logger.info("Game RESTORED from autosave (turn=%d)",
                             self.turn)
                 return
@@ -719,7 +721,7 @@ class Game:
 
             # Check win
             if self.won:
-                delete_autosave()
+                delete_autosave(self.save_dir)
                 self.renderer.show_end_screen(won=True, turn=self.turn)
                 break
 
@@ -779,7 +781,7 @@ class Game:
                     self.world, self.level, self.player_id, self.turn,
                 )
                 logger.info("Deleting autosave after death...")
-                delete_autosave()
+                delete_autosave(self.save_dir)
                 logger.info("Showing end screen...")
                 self.renderer.show_end_screen(
                     won=False, turn=self.turn,
@@ -792,7 +794,7 @@ class Game:
             self._update_fov()
 
             # Autosave every turn
-            _autosave(self)
+            _autosave(self, self.save_dir)
 
     async def _resolve(self, action: "Action") -> list:
         """Validate and execute an action, emitting events."""

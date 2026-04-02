@@ -75,10 +75,10 @@ class TestGameAPI:
 
         save_path = tmp_path / "autosave.nhc"
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_PATH", save_path,
+            "nhc.core.autosave._DEFAULT_PATH", save_path,
         )
         monkeypatch.setattr(
-            "nhc.core.autosave.AUTOSAVE_DIR", tmp_path,
+            "nhc.core.autosave._DEFAULT_DIR", tmp_path,
         )
 
         with app.test_client() as reset_client:

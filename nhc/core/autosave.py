@@ -25,57 +25,67 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AUTOSAVE_DIR = Path.home() / ".nhc" / "saves"
-AUTOSAVE_PATH = AUTOSAVE_DIR / "autosave.nhc"
+_DEFAULT_DIR = Path.home() / ".nhc" / "saves"
+_DEFAULT_PATH = _DEFAULT_DIR / "autosave.nhc"
 AUTOSAVE_VERSION = 1
 
 
-def has_autosave() -> bool:
+def _resolve(save_dir: Path | None) -> tuple[Path, Path]:
+    """Return (directory, file) for the autosave location."""
+    if save_dir is not None:
+        return save_dir, save_dir / "autosave.nhc"
+    return _DEFAULT_DIR, _DEFAULT_PATH
+
+
+def has_autosave(save_dir: Path | None = None) -> bool:
     """Check if an autosave file exists."""
-    exists = AUTOSAVE_PATH.exists()
-    logger.debug("has_autosave: %s (path=%s)", exists, AUTOSAVE_PATH)
+    _, path = _resolve(save_dir)
+    exists = path.exists()
+    logger.debug("has_autosave: %s (path=%s)", exists, path)
     return exists
 
 
-def delete_autosave() -> None:
+def delete_autosave(save_dir: Path | None = None) -> None:
     """Remove autosave file (on death or victory)."""
+    _, path = _resolve(save_dir)
     try:
-        existed = AUTOSAVE_PATH.exists()
-        AUTOSAVE_PATH.unlink(missing_ok=True)
-        logger.info("Autosave delete: existed=%s, path=%s", existed,
-                     AUTOSAVE_PATH)
+        existed = path.exists()
+        path.unlink(missing_ok=True)
+        logger.info("Autosave delete: existed=%s, path=%s", existed, path)
     except OSError:
         logger.error("Autosave delete FAILED", exc_info=True)
 
 
-def autosave(game: "Game") -> None:
+def autosave(game: "Game", save_dir: Path | None = None) -> None:
     """Save complete game state to disk (fast binary format)."""
+    save_dir_resolved, save_path = _resolve(save_dir)
     try:
         payload = _build_payload(game)
         data = zlib.compress(pickle.dumps(payload, protocol=5), level=1)
 
-        AUTOSAVE_DIR.mkdir(parents=True, exist_ok=True)
-        tmp_path = AUTOSAVE_PATH.with_suffix(".tmp")
+        save_dir_resolved.mkdir(parents=True, exist_ok=True)
+        tmp_path = save_path.with_suffix(".tmp")
         tmp_path.write_bytes(data)
-        os.replace(str(tmp_path), str(AUTOSAVE_PATH))
+        os.replace(str(tmp_path), str(save_path))
 
         logger.debug("Autosave: %d bytes, turn %d", len(data), game.turn)
     except Exception:
         logger.error("Autosave failed", exc_info=True)
 
 
-def auto_restore(game: "Game") -> bool:
+def auto_restore(game: "Game", save_dir: Path | None = None) -> bool:
     """Restore game state from autosave. Returns True if successful."""
-    if not has_autosave():
+    if not has_autosave(save_dir):
         return False
 
+    _, save_path = _resolve(save_dir)
     try:
-        data = AUTOSAVE_PATH.read_bytes()
+        data = save_path.read_bytes()
         payload = pickle.loads(zlib.decompress(data))
 
         if payload.get("version") != AUTOSAVE_VERSION:
             logger.warning("Autosave version mismatch, deleting")
-            delete_autosave()
+            delete_autosave(save_dir)
             return False
 
         _restore_payload(game, payload)
@@ -85,7 +95,7 @@ def auto_restore(game: "Game") -> bool:
 
     except Exception:
         logger.error("Autosave restore failed, deleting", exc_info=True)
-        delete_autosave()
+        delete_autosave(save_dir)
         return False
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -20,3 +21,4 @@ class WebConfig:
     reset: bool = False
     shape_variety: float = 0.3
     god_mode: bool = False
+    data_dir: Path | None = None

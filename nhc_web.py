@@ -10,6 +10,8 @@ Usage:
 """
 
 import argparse
+import os
+from pathlib import Path
 
 from nhc.web.app import create_app
 from nhc.web.config import WebConfig
@@ -59,6 +61,10 @@ def parse_args() -> argparse.Namespace:
         "--god", action="store_true",
         help="God mode: invulnerable, debug tools enabled",
     )
+    parser.add_argument(
+        "--data-dir",
+        help="Persistent data directory (env: NHC_DATA_DIR)",
+    )
     return parser.parse_args()
 
 
@@ -73,6 +79,9 @@ def main() -> None:
             from nhc.web.auth import generate_token
             auth_token = generate_token()
 
+    data_dir_str = args.data_dir or os.environ.get("NHC_DATA_DIR")
+    data_dir = Path(data_dir_str) if data_dir_str else None
+
     config = WebConfig(
         host=args.host,
         port=args.port,
@@ -83,6 +92,7 @@ def main() -> None:
         reset=args.reset,
         shape_variety=args.shape_variety,
         god_mode=args.god,
+        data_dir=data_dir,
     )
     app = create_app(config, auth_token=auth_token)
 
