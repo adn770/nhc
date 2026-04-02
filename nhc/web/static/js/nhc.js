@@ -159,6 +159,7 @@ const NHC = {
     GameMap.fov = new Set();
     GameMap.explored = new Set();
     GameMap.doorInfo = new Map();
+    GameMap.allDoors = new Map();
     GameMap.entities = [];
     GameMap.doors = [];
     DebugPanel.visible = false;

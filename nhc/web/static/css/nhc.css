@@ -144,6 +144,7 @@ body {
   display: block;
 }
 
+#door-canvas,
 #hatch-canvas,
 #fog-canvas,
 #entity-canvas {
@@ -153,7 +154,7 @@ body {
   pointer-events: none;
 }
 
-#entity-canvas {
+#door-canvas {
   z-index: 0;
 }
 
@@ -165,12 +166,16 @@ body {
   z-index: 2;
 }
 
+#entity-canvas {
+  z-index: 3;
+}
+
 #debug-canvas {
   position: absolute;
   top: 0;
   left: 0;
   pointer-events: none;
-  z-index: 3;
+  z-index: 4;
 }
 
 /* God mode debug panel */

@@ -11,15 +11,18 @@
  */
 const GameMap = {
   canvas: null,
+  doorCanvas: null,
   fogCanvas: null,
   hatchCanvas: null,
   ctx: null,
+  doorCtx: null,
   fogCtx: null,
   hatchCtx: null,
   cellSize: 32,  // must match SVG CELL constant
   padding: 32,   // must match SVG PADDING constant
   entities: [],
   doors: [],
+  allDoors: new Map(),  // "x,y" → {x, y, edge, state, vertical}
   fov: new Set(),
   explored: new Set(),
   doorInfo: new Map(),  // "x,y" → {edge, state}
@@ -35,6 +38,8 @@ const GameMap = {
   init() {
     this.canvas = document.getElementById("entity-canvas");
     this.ctx = this.canvas.getContext("2d");
+    this.doorCanvas = document.getElementById("door-canvas");
+    this.doorCtx = this.doorCanvas.getContext("2d");
     this.fogCanvas = document.getElementById("fog-canvas");
     this.fogCtx = this.fogCanvas.getContext("2d");
     this.hatchCanvas = document.getElementById("hatch-canvas");
@@ -53,6 +58,10 @@ const GameMap = {
       const h = parseInt(svg.getAttribute("height"));
       this.canvas.width = w;
       this.canvas.height = h;
+      if (this.doorCanvas) {
+        this.doorCanvas.width = w;
+        this.doorCanvas.height = h;
+      }
       if (this.fogCanvas) {
         this.fogCanvas.width = w;
         this.fogCanvas.height = h;
@@ -102,9 +111,11 @@ const GameMap = {
     if (doors) {
       this.doors = doors;
       for (const d of doors) {
-        this.doorInfo.set(`${d.x},${d.y}`,
-                         { edge: d.edge, state: d.state });
+        const key = `${d.x},${d.y}`;
+        this.doorInfo.set(key, { edge: d.edge, state: d.state });
+        this.allDoors.set(key, { ...d });
       }
+      this.drawDoors();
     }
     // Track player position for auto-scroll
     const player = entities.find(e => e.glyph === "@");
@@ -348,7 +359,18 @@ const GameMap = {
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
       ctx.fillRect(px, py, cs, cs);
     }
+  },
 
+  /**
+   * Draw all accumulated doors on the door canvas.
+   * Doors persist in the dimmed view when out of sight.
+   */
+  drawDoors() {
+    const ctx = this.doorCtx;
+    if (!ctx || !this.doorCanvas.width) return;
+    ctx.clearRect(0, 0, this.doorCanvas.width,
+                  this.doorCanvas.height);
+    this._drawDoors(ctx, this.allDoors.values());
   },
 
   draw() {
@@ -358,11 +380,7 @@ const GameMap = {
       return;
     }
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    // Draw doors first (behind entities)
-    this._drawDoors(ctx);
-    console.log("draw:", this.entities.length, "entities,",
-                this.doors.length, "doors");
+    console.log("draw:", this.entities.length, "entities");
 
     for (const ent of this.entities) {
       const px = ent.x * this.cellSize + this.padding;
@@ -421,7 +439,7 @@ const GameMap = {
    *   small wall connection lines on each side
    * - door_open: same rectangle but white-filled
    */
-  _drawDoors(ctx) {
+  _drawDoors(ctx, doorIter) {
     const cs = this.cellSize;
     const pad = this.padding;
     const wallW = 4;             // match SVG WALL_WIDTH
@@ -429,7 +447,7 @@ const GameMap = {
     const doorDepth = wallW * 2; // twice wall thickness
     const connLen = cs * 0.1;    // wall connection stub
 
-    for (const door of this.doors) {
+    for (const door of doorIter) {
       const px = door.x * cs + pad;
       const py = door.y * cs + pad;
       const cx = px + cs / 2;
