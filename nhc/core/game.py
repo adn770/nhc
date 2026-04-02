@@ -8,29 +8,45 @@ from typing import TYPE_CHECKING
 
 from nhc.ai.behavior import decide_action
 from nhc.core import game_input, game_ticks
-
-logger = logging.getLogger(__name__)
 from nhc.core.actions import (
+    AscendStairsAction,
     BumpAction,
     DescendStairsAction,
     LookAction,
     PickupItemAction,
+    SearchAction,
     UseItemAction,
     WaitAction,
+    _count_slots_used,
+    _item_slot_cost,
+)
+from nhc.core.autosave import (
+    auto_restore,
+    autosave as _autosave,
+    delete_autosave,
+    has_autosave,
 )
 from nhc.core.ecs import World
 from nhc.core.events import (
+    CreatureAttacked,
     CreatureDied,
+    CustomActionEvent,
     EventBus,
     GameWon,
+    ItemPickedUp,
     ItemUsed,
     LevelEntered,
     MessageEvent,
     PlayerDied,
+    TrapTriggered,
 )
+from nhc.dungeon.generator import GenerationParams
+from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.loader import get_player_start, load_level
-from nhc.i18n import t
-from nhc.dungeon.model import Level
+from nhc.dungeon.model import Level, RectShape, Terrain
+from nhc.dungeon.populator import populate_level
+from nhc.dungeon.room_types import assign_room_types
+from nhc.dungeon.terrain import apply_terrain
 from nhc.entities.components import (
     BlocksMovement,
     Cursed,
@@ -46,8 +62,20 @@ from nhc.entities.components import (
     StatusEffect,
 )
 from nhc.entities.registry import EntityRegistry
+from nhc.i18n import t
+from nhc.narrative.context import ContextBuilder
+from nhc.narrative.fallback_parser import parse_intent_keywords
+from nhc.narrative.gm import GameMaster
+from nhc.narrative.parser import action_plan_to_actions
 from nhc.rendering.client import GameClient
+from nhc.rendering.terminal.input import map_key_to_intent
+from nhc.rules.advancement import award_xp_direct, check_level_up
+from nhc.rules.chargen import generate_character
+from nhc.rules.identification import ALL_IDS, ItemKnowledge
 from nhc.utils.fov import compute_fov
+from nhc.utils.rng import get_rng, get_seed, set_seed
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from nhc.core.actions import Action
@@ -109,7 +137,6 @@ def _resolve_click(
                           edge_doors=edge_doors)
 
     # Distant click — check target is walkable floor
-    from nhc.dungeon.model import Terrain
     if tile.terrain not in (Terrain.FLOOR, Terrain.WATER):
         return None
 
@@ -153,7 +180,6 @@ def _has_visible_floor_neighbor(
     The door tile that triggered the walk is excluded so it
     doesn't prevent hiding its own flanking walls.
     """
-    from nhc.dungeon.model import Terrain
     _FLOOR_TERRAIN = (Terrain.FLOOR, Terrain.WATER)
     for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
         if (nx, ny) == exclude:
@@ -178,8 +204,6 @@ def door_wall_run_hidden(
     (excluding the door itself).  This ensures walls next to
     the player's corridor remain visible.
     """
-    from nhc.dungeon.model import Terrain
-
     hidden: set[tuple[int, int]] = set()
     for vx, vy in visible:
         tile = level.tile_at(vx, vy)
@@ -242,8 +266,6 @@ def compute_hatch_clear(
     the SVG draws room outlines as polygons that extend into
     those corner tiles.
     """
-    from nhc.dungeon.model import RectShape, Terrain
-
     _CLEARABLE = (Terrain.FLOOR, Terrain.WATER)
 
     # Pre-compute WALL/VOID tiles in and around non-rect room
@@ -325,7 +347,6 @@ class Game:
     ) -> None:
         """Set up initial game state from a level file or generator."""
         # Check for autosave recovery
-        from nhc.core.autosave import auto_restore, delete_autosave, has_autosave
         logger.info("Game.initialize: reset=%s, generate=%s", self.reset,
                      generate)
         if self.reset and has_autosave():
@@ -341,7 +362,6 @@ class Game:
         else:
             logger.info("No autosave found, starting fresh game")
 
-        from nhc.utils.rng import get_seed, set_seed
         if self.seed is not None:
             set_seed(self.seed)
         effective_seed = get_seed()
@@ -352,21 +372,12 @@ class Game:
         EntityRegistry.discover_all()
 
         # Initialize potion randomization
-        from nhc.rules.identification import ItemKnowledge
-        from nhc.utils.rng import get_rng as _get_rng
-        self._knowledge = ItemKnowledge(rng=_get_rng())
+        self._knowledge = ItemKnowledge(rng=get_rng())
         if self.god_mode:
-            from nhc.rules.identification import ALL_IDS
             for item_id in ALL_IDS:
                 self._knowledge.identify(item_id)
 
         if generate:
-            from nhc.dungeon.generator import GenerationParams
-            from nhc.dungeon.generators.bsp import BSPGenerator
-            from nhc.dungeon.populator import populate_level
-            from nhc.dungeon.room_types import assign_room_types
-            from nhc.dungeon.terrain import apply_terrain
-
             sv = _shape_variety_for_depth(self.shape_variety, depth)
             params = GenerationParams(depth=depth, shape_variety=sv)
             gen = BSPGenerator()
@@ -401,7 +412,6 @@ class Game:
             logger.info("Loaded level %r from %s", self.level.name, level_path)
 
         # Generate random character
-        from nhc.rules.chargen import generate_character
         char = generate_character(seed=self.seed)
         inv_slots = 10 + char.constitution  # CON defense = bonus + 10
 
@@ -429,7 +439,6 @@ class Game:
         self._character = char
 
         # Give starting equipment (respecting slot costs)
-        from nhc.core.actions import _count_slots_used, _item_slot_cost
         inv = self.world.get_component(self.player_id, "Inventory")
         equip = self.world.get_component(self.player_id, "Equipment")
         for item_id in char.starting_items:
@@ -482,8 +491,6 @@ class Game:
 
         # Initialize GM for typed mode
         if self.mode == "typed" and self.backend:
-            from nhc.narrative.context import ContextBuilder
-            from nhc.narrative.gm import GameMaster
             self._ctx_builder = ContextBuilder()
             self._gm = GameMaster(self.backend, self._ctx_builder)
 
@@ -712,7 +719,6 @@ class Game:
 
             # Check win
             if self.won:
-                from nhc.core.autosave import delete_autosave
                 delete_autosave()
                 self.renderer.show_end_screen(won=True, turn=self.turn)
                 break
@@ -772,7 +778,6 @@ class Game:
                 self.renderer.render(
                     self.world, self.level, self.player_id, self.turn,
                 )
-                from nhc.core.autosave import delete_autosave
                 logger.info("Deleting autosave after death...")
                 delete_autosave()
                 logger.info("Showing end screen...")
@@ -787,7 +792,6 @@ class Game:
             self._update_fov()
 
             # Autosave every turn
-            from nhc.core.autosave import autosave as _autosave
             _autosave(self)
 
     async def _resolve(self, action: "Action") -> list:
@@ -822,8 +826,6 @@ class Game:
 
     async def _get_typed_actions(self) -> list:
         """Typed mode: text input → GM interpret → action list."""
-        from nhc.narrative.parser import action_plan_to_actions
-
         result = await self.renderer.get_typed_input(
             self.world, self.level, self.player_id, self.turn,
         )
@@ -842,7 +844,6 @@ class Game:
         # Single-letter shortcuts: interpret as classic key commands
         # (e.g. "q" → quit, "g" → pickup, "s" → search, "i" → inventory)
         if len(typed_text) == 1:
-            from nhc.rendering.terminal.input import map_key_to_intent
             intent, data = map_key_to_intent(typed_text)
             if intent != "unknown":
                 action = self._intent_to_action(intent, data)
@@ -873,7 +874,6 @@ class Game:
 
             # Phase 2b: Follow-up — if custom checks were resolved,
             # ask the GM what mechanical consequences follow
-            from nhc.core.events import CustomActionEvent
             custom_outcomes = [
                 e for e in all_events if isinstance(e, CustomActionEvent)
             ]
@@ -910,7 +910,6 @@ class Game:
             return [WaitAction(self.player_id)]
         else:
             # No LLM — use keyword fallback parser
-            from nhc.narrative.fallback_parser import parse_intent_keywords
             plan = parse_intent_keywords(
                 typed_text, self.world, self.level, self.player_id,
             )
@@ -920,10 +919,6 @@ class Game:
 
     def _events_to_outcomes(self, events: list) -> list[dict]:
         """Convert ECS events to outcome dicts for the narrator."""
-        from nhc.core.events import (
-            CreatureAttacked, CreatureDied, CustomActionEvent,
-            ItemPickedUp, ItemUsed, MessageEvent,
-        )
         outcomes = []
         for ev in events:
             if isinstance(ev, CreatureAttacked) and ev.hit:
@@ -1011,14 +1006,12 @@ class Game:
             return game_input.find_lock_action(self, "force")
 
         if intent == "search":
-            from nhc.core.actions import SearchAction
             return SearchAction(actor=self.player_id)
 
         if intent == "descend":
             return DescendStairsAction(actor=self.player_id)
 
         if intent == "ascend":
-            from nhc.core.actions import AscendStairsAction
             return AscendStairsAction(actor=self.player_id)
 
         if intent == "scroll_up":
@@ -1063,8 +1056,6 @@ class Game:
             self.renderer.game_mode = "typed"
             # Initialize GM if backend available and not already set up
             if self.backend and not self._gm:
-                from nhc.narrative.context import ContextBuilder
-                from nhc.narrative.gm import GameMaster
                 self._ctx_builder = ContextBuilder()
                 self._gm = GameMaster(self.backend, self._ctx_builder)
         else:
@@ -1120,7 +1111,6 @@ class Game:
 
     def _detect_death_cause(self, events: list) -> None:
         """Determine what killed the player from turn events."""
-        from nhc.core.events import CreatureAttacked, TrapTriggered
         # Melee attacks take priority
         for ev in events:
             if (isinstance(ev, CreatureAttacked)
@@ -1151,12 +1141,6 @@ class Game:
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a dungeon level (ascending or descending)."""
-        from nhc.dungeon.generator import GenerationParams
-        from nhc.dungeon.generators.bsp import BSPGenerator
-        from nhc.dungeon.populator import populate_level
-        from nhc.dungeon.room_types import assign_room_types
-        from nhc.dungeon.terrain import apply_terrain
-
         new_depth = event.depth
         old_depth = self.level.depth
         ascending = new_depth < old_depth
@@ -1286,8 +1270,6 @@ class Game:
         """Award XP when the player kills a creature."""
         if event.killer != self.player_id:
             return
-
-        from nhc.rules.advancement import award_xp_direct, check_level_up
 
         xp = award_xp_direct(self.world, self.player_id, event.max_hp)
         if xp > 0:
