@@ -159,7 +159,7 @@ def create_app(
             if not registry.is_valid_token_hash(h):
                 return "Invalid or revoked token.", 403
             resp = make_response(render_template("index.html"))
-            resp.set_cookie("nhc_token", token, httponly=True,
+            resp.set_cookie("nhc_token", token,
                             samesite="Strict")
             return resp
         return render_template("index.html")

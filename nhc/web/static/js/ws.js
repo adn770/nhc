@@ -9,7 +9,10 @@ const WS = {
   connect(sessionId) {
     this.sessionId = sessionId;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${location.host}/ws/game/${sessionId}`;
+    const token = document.cookie.match(/nhc_token=([^;]+)/)?.[1]
+      || new URLSearchParams(location.search).get("token") || "";
+    let url = `${proto}//${location.host}/ws/game/${sessionId}`;
+    if (token) url += `?token=${encodeURIComponent(token)}`;
     this.socket = new WebSocket(url);
 
     this.socket.onopen = () => {
