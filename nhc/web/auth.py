@@ -36,14 +36,25 @@ def hash_token(token: str) -> str:
 
 
 def _extract_token(cookie_name: str = "nhc_token") -> str | None:
-    """Extract token from request (cookie, header, or query param)."""
+    """Extract token from request.
+
+    Priority: query param > cookie > Authorization header.
+    Query param takes precedence so that a fresh link overrides
+    any stale cookie from a previous session.
+    """
+    # Query parameter (highest priority — fresh link click)
+    token = request.args.get("token")
+    if token:
+        return token
+    # Cookie
     token = request.cookies.get(cookie_name)
     if token:
         return token
+    # Authorization header
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         return auth[7:]
-    return request.args.get("token")
+    return None
 
 
 def _is_lan(ip: str | None) -> bool:

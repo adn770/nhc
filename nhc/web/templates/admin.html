@@ -214,7 +214,21 @@ async function revokePlayer(pid) {
 
 function copyLink() {
   const a = document.getElementById("new-link");
-  navigator.clipboard.writeText(a.href).then(() => toast("Copied!"));
+  const text = a.href;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => toast("Copied!"));
+  } else {
+    // Fallback for HTTP (non-secure context)
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    toast("Copied!");
+  }
 }
 
 function esc(s) {
