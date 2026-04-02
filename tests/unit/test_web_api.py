@@ -28,6 +28,29 @@ def client_with_data_dir(tmp_path):
         yield c
 
 
+class TestRateLimit:
+    def test_register_rate_limited(self, client_with_data_dir):
+        # 5 requests should succeed
+        for _ in range(5):
+            resp = client_with_data_dir.post("/api/player/register")
+            assert resp.status_code == 201
+        # 6th should be rate limited
+        resp = client_with_data_dir.post("/api/player/register")
+        assert resp.status_code == 429
+        assert "rate limit" in resp.get_json()["error"]
+
+    def test_game_new_rate_limited(self, tmp_path):
+        config = WebConfig(max_sessions=20, data_dir=tmp_path)
+        app = create_app(config)
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            for _ in range(5):
+                resp = c.post("/api/game/new", json={})
+                assert resp.status_code == 201
+            resp = c.post("/api/game/new", json={})
+            assert resp.status_code == 429
+
+
 class TestAppFactory:
     def test_app_factory_creates_app(self, tmp_path, monkeypatch):
         from nhc.web.app import app_factory

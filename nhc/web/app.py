@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import collections
 import logging
+import time
 
 from flask import Flask, jsonify, make_response, render_template, request
 from flask_sock import Sock
@@ -12,6 +14,25 @@ from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager, player_id_from_token
 
 logger = logging.getLogger(__name__)
+
+
+class _RateLimiter:
+    """Simple in-memory rate limiter per IP address."""
+
+    def __init__(self, max_requests: int = 5, window: int = 60) -> None:
+        self._max = max_requests
+        self._window = window
+        self._hits: dict[str, collections.deque] = {}
+
+    def is_allowed(self, ip: str) -> bool:
+        now = time.monotonic()
+        hits = self._hits.setdefault(ip, collections.deque())
+        while hits and hits[0] < now - self._window:
+            hits.popleft()
+        if len(hits) >= self._max:
+            return False
+        hits.append(now)
+        return True
 
 
 def create_app(
@@ -38,6 +59,14 @@ def create_app(
 
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
+
+    _limiter = _RateLimiter(max_requests=5, window=60)
+
+    def _check_rate_limit():
+        ip = request.remote_addr or "unknown"
+        if not _limiter.is_allowed(ip):
+            return jsonify({"error": "rate limit exceeded"}), 429
+        return None
 
     # Auth setup
     valid_hashes: set[str] = set()
@@ -82,6 +111,9 @@ def create_app(
     @app.route("/api/player/register", methods=["POST"])
     @_maybe_auth
     def player_register():
+        blocked = _check_rate_limit()
+        if blocked:
+            return blocked
         import secrets as _secrets
         token = _secrets.token_urlsafe(32)
         pid = player_id_from_token(token)
@@ -215,6 +247,9 @@ def create_app(
     @app.route("/api/game/new", methods=["POST"])
     @_maybe_auth
     def game_new():
+        blocked = _check_rate_limit()
+        if blocked:
+            return blocked
         data = request.get_json(silent=True) or {}
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
