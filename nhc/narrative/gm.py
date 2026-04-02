@@ -19,7 +19,7 @@ from nhc.narrative.prompts import load_prompt
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
-    from nhc.llm import LLMBackend
+    from nhc.utils.llm import LLMBackend
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from nhc.narrative.prompts import load_prompt
 
 if TYPE_CHECKING:
-    from nhc.llm import LLMBackend
+    from nhc.utils.llm import LLMBackend
 
 logger = logging.getLogger(__name__)
 

@@ -50,7 +50,7 @@ from nhc.utils.fov import compute_fov
 
 if TYPE_CHECKING:
     from nhc.core.actions import Action
-    from nhc.llm import LLMBackend
+    from nhc.utils.llm import LLMBackend
 
 FOV_RADIUS = 8
 

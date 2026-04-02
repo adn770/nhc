@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from nhc.llm import (
+from nhc.utils.llm import (
     _DEFAULT_MLX_MODEL,
     _DEFAULT_OLLAMA_MODEL,
     auto_detect_provider,
@@ -67,9 +67,9 @@ class TestCreateBackend:
 
     def test_provider_auto_is_accepted(self):
         """auto provider should resolve without raising."""
-        with patch("nhc.llm.auto_detect_provider",
+        with patch("nhc.utils.llm.auto_detect_provider",
                    return_value=("ollama", "gemma3:12b")):
-            with patch("nhc.llm.OllamaBackend") as mock_cls:
+            with patch("nhc.utils.llm.OllamaBackend") as mock_cls:
                 mock_cls.return_value = object()
                 backend = create_backend({"provider": "auto"})
         assert backend is not None
