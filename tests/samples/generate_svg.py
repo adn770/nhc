@@ -3,11 +3,14 @@
 
 Usage:
     python -m tests.samples.generate_svg [--outdir DIR] [--seeds S1,S2,...]
+    python -m tests.samples.generate_svg --seeds 32244540 --shape-variety 0.3
 
 Outputs SVGs at three shape_variety levels (0.0, 0.5, 1.0) for each
-seed.  Each room is overlaid with its index number and generation
-details (shape, bounding rect dimensions) for easy reference when
-discussing rendering glitches.  Files land in debug/ by default.
+seed.  When --shape-variety is given, only that exact level is
+generated (filename uses the numeric value).  Each room is overlaid
+with its index number and generation details (shape, bounding rect
+dimensions) for easy reference when discussing rendering glitches.
+Files land in debug/ by default.
 """
 
 from __future__ import annotations
@@ -537,12 +540,15 @@ def _inject_polygon_overlays(svg_text: str, level) -> str:
                        xml_declaration=True)
 
 
-def generate(outdir: Path, seeds: list[int]) -> None:
+def generate(outdir: Path, seeds: list[int],
+             varieties: list[tuple[str, float]] | None = None,
+             ) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     gen = BSPGenerator()
+    varieties = varieties or VARIETIES
 
     for seed in seeds:
-        for label, variety in VARIETIES:
+        for label, variety in varieties:
             set_seed(seed)
             params = GenerationParams(seed=seed, shape_variety=variety)
             level = gen.generate(params)
@@ -578,13 +584,22 @@ def main(argv: list[str] | None = None) -> None:
         "--seeds", type=str, default=None,
         help="comma-separated seeds (default: 7,42,99)",
     )
+    parser.add_argument(
+        "--shape-variety", type=float, default=None,
+        help="exact shape_variety value (omit for 0.0/0.5/1.0 sweep)",
+    )
     args = parser.parse_args(argv)
 
     seeds = (
         [int(s) for s in args.seeds.split(",")]
         if args.seeds else DEFAULT_SEEDS
     )
-    generate(args.outdir, seeds)
+    varieties = None
+    if args.shape_variety is not None:
+        sv = args.shape_variety
+        label = f"sv{sv:.2f}".replace(".", "_")
+        varieties = [(label, sv)]
+    generate(args.outdir, seeds, varieties)
 
 
 if __name__ == "__main__":

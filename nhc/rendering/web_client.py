@@ -60,6 +60,7 @@ class WebClient(GameClient):
         self.lang = lang
         self.messages: list[str] = []
         self.floor_svg: str = ""
+        self.hatch_svg: str = ""
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
         self._out_queue: queue.Queue = queue.Queue()

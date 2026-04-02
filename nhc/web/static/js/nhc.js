@@ -37,8 +37,15 @@ const NHC = {
     });
 
     WS.on("floor", (msg) => {
+      console.log("floor msg keys:", Object.keys(msg));
       console.log("floor SVG received:", msg.svg.length, "bytes");
+      console.log("hatch_url:", msg.hatch_url || "MISSING");
       GameMap.setFloorSVG(msg.svg);
+      if (msg.hatch_url) {
+        GameMap.loadHatchSVG(msg.hatch_url);
+      } else {
+        console.warn("No hatch_url in floor message!");
+      }
       if (msg.entities) {
         GameMap.updateEntities(msg.entities, msg.doors);
       }

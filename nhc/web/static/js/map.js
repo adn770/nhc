@@ -1,18 +1,21 @@
 /**
- * Map rendering: floor SVG + entity overlay canvas + fog-of-war canvas.
+ * Map rendering: floor SVG + hatch mask + fog-of-war + entity overlay.
  *
- * Three layers stacked:
+ * Four layers stacked:
  * 1. Floor SVG (static dungeon geometry)
- * 2. Fog canvas (dark overlay on non-visible tiles)
- * 3. Entity canvas (player, creatures, items on top)
+ * 2. Hatch canvas (masks unexplored tiles to hide SVG bleed)
+ * 3. Fog canvas (dark overlay on non-visible tiles)
+ * 4. Entity canvas (player, creatures, items on top)
  *
  * The map viewport auto-scrolls to keep the player centered.
  */
 const GameMap = {
   canvas: null,
   fogCanvas: null,
+  hatchCanvas: null,
   ctx: null,
   fogCtx: null,
+  hatchCtx: null,
   cellSize: 32,  // must match SVG CELL constant
   padding: 32,   // must match SVG PADDING constant
   entities: [],
@@ -31,8 +34,10 @@ const GameMap = {
     this.ctx = this.canvas.getContext("2d");
     this.fogCanvas = document.getElementById("fog-canvas");
     this.fogCtx = this.fogCanvas.getContext("2d");
+    this.hatchCanvas = document.getElementById("hatch-canvas");
+    this.hatchCtx = this.hatchCanvas.getContext("2d");
     console.log("GameMap.init(): canvas=", this.canvas,
-                "fog=", this.fogCanvas);
+                "fog=", this.fogCanvas, "hatch=", this.hatchCanvas);
     this.initTooltip();
   },
 
@@ -48,6 +53,10 @@ const GameMap = {
       if (this.fogCanvas) {
         this.fogCanvas.width = w;
         this.fogCanvas.height = h;
+      }
+      if (this.hatchCanvas) {
+        this.hatchCanvas.width = w;
+        this.hatchCanvas.height = h;
       }
       this.mapW = w;
       this.mapH = h;
@@ -98,6 +107,7 @@ const GameMap = {
     for (const key of this.fov) {
       this.explored.add(key);
     }
+    this.drawHatch();
     this.drawFog();
     this.draw();
   },
@@ -129,6 +139,67 @@ const GameMap = {
       return this.tileset.colors[colorName] || colorName;
     }
     return colorName || "#FFFFFF";
+  },
+
+  /**
+   * Load a small hatching SVG patch, create a repeating pattern,
+   * and fill the full hatch canvas with it.
+   */
+  loadHatchSVG(url) {
+    console.log("loadHatchSVG:", url, "ctx=", !!this.hatchCtx);
+    if (!this.hatchCtx || !url) {
+      console.warn("loadHatchSVG SKIPPED: no ctx or url");
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      console.log("Hatch patch loaded:", img.width, "x", img.height);
+      // Render SVG patch to an offscreen canvas
+      const patch = document.createElement("canvas");
+      patch.width = img.width;
+      patch.height = img.height;
+      const pctx = patch.getContext("2d");
+      pctx.drawImage(img, 0, 0);
+      // Create repeating pattern and fill the hatch canvas
+      const pattern = this.hatchCtx.createPattern(patch, "repeat");
+      this.hatchCtx.fillStyle = pattern;
+      this.hatchCtx.fillRect(
+        0, 0, this.hatchCanvas.width, this.hatchCanvas.height);
+      // Verify something was drawn
+      const sample = this.hatchCtx.getImageData(
+        this.padding + 16, this.padding + 16, 1, 1).data;
+      console.log("Hatch sample pixel:",
+                  `rgba(${sample[0]},${sample[1]},${sample[2]},${sample[3]})`);
+      // Re-clear already explored tiles
+      this.drawHatch();
+      console.log("Hatch stamped, cleared", this.explored.size,
+                  "explored tiles");
+    };
+    img.onerror = (e) => {
+      console.error("Hatch patch FAILED to load:", e);
+    };
+    img.src = url;
+  },
+
+  /**
+   * Clear explored tiles from the hatch canvas.
+   * Called whenever FOV updates to reveal new tiles.
+   */
+  drawHatch() {
+    const ctx = this.hatchCtx;
+    if (!ctx) return;
+    const expand = this.cellSize * 0.1;
+    console.log("drawHatch:", this.explored.size, "explored tiles,",
+                "canvas:", this.hatchCanvas.width, "x",
+                this.hatchCanvas.height);
+    for (const key of this.explored) {
+      const [x, y] = key.split(",").map(Number);
+      const px = x * this.cellSize + this.padding - expand;
+      const py = y * this.cellSize + this.padding - expand;
+      ctx.clearRect(px, py,
+                    this.cellSize + 2 * expand,
+                    this.cellSize + 2 * expand);
+    }
   },
 
   drawFog() {

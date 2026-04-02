@@ -131,14 +131,17 @@ def create_app(
                      game.level.width, game.level.height,
                      len(game.level.rooms))
 
-        # Generate floor SVG and store on the client
-        from nhc.rendering.svg import render_floor_svg
+        # Generate floor SVG and hatch SVG, store on the client
+        from nhc.rendering.svg import render_floor_svg, render_hatch_svg
         if game.level:
             logger.info("Rendering floor SVG...")
+            seed = game.seed or 0
             client.floor_svg = render_floor_svg(
-                game.level, seed=game.seed or 0,
+                game.level, seed=seed,
             )
-            logger.info("Floor SVG: %d bytes", len(client.floor_svg))
+            client.hatch_svg = render_hatch_svg(seed=seed)
+            logger.info("Floor SVG: %d bytes, Hatch SVG: %d bytes",
+                         len(client.floor_svg), len(client.hatch_svg))
         else:
             logger.warning("No level — floor SVG not generated")
 
@@ -149,6 +152,20 @@ def create_app(
             "lang": session.lang,
             "tileset": session.tileset,
         }), 201
+
+    @app.route("/api/game/<session_id>/hatch.svg", methods=["GET"])
+    @_maybe_auth
+    def game_hatch_svg(session_id: str):
+        session = sessions.get(session_id)
+        if not session:
+            return "session not found", 404
+        client = session.game.renderer
+        if not client.hatch_svg:
+            return "hatch not generated", 404
+        resp = make_response(client.hatch_svg)
+        resp.headers["Content-Type"] = "image/svg+xml"
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
 
     @app.route("/api/game/list", methods=["GET"])
     @_maybe_auth

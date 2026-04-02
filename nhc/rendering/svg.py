@@ -83,6 +83,143 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
     return "\n".join(svg)
 
 
+HATCH_PATCH_SIZE = 8  # tiles per side of the repeating hatch patch
+
+
+def render_hatch_svg(seed: int = 0) -> str:
+    """Generate a small tileable hatching SVG patch.
+
+    Produces an 8x8 tile patch of Dyson-style cross-hatching that
+    the web client stamps across the full hatch canvas using
+    createPattern.  Typically under 100 KB.
+    """
+    size = HATCH_PATCH_SIZE
+    w = size * CELL
+    h = size * CELL
+
+    svg: list[str] = []
+    svg.append(
+        f'<svg width="{w}" height="{h}" '
+        f'viewBox="0 0 {w} {h}" '
+        f'xmlns="http://www.w3.org/2000/svg">'
+    )
+    svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
+
+    random.seed(seed + 77)
+
+    min_stroke = 1.0
+    max_stroke = 1.8
+    tile_fills: list[str] = []
+    hatch_lines: list[str] = []
+    hatch_stones: list[str] = []
+
+    for gy in range(size):
+        for gx in range(size):
+            tile_fills.append(
+                f'<rect x="{gx * CELL}" y="{gy * CELL}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{HATCH_UNDERLAY}"/>')
+
+            n_stones = random.choices(
+                [0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
+            for _ in range(n_stones):
+                sx = (gx + random.uniform(0.15, 0.85)) * CELL
+                sy = (gy + random.uniform(0.15, 0.85)) * CELL
+                rx = random.uniform(2, CELL * 0.25)
+                ry = random.uniform(2, CELL * 0.2)
+                angle = random.uniform(0, 180)
+                sw = random.uniform(1.2, 2.0)
+                hatch_stones.append(
+                    f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                    f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                    f'transform="rotate({angle:.0f},'
+                    f'{sx:.1f},{sy:.1f})" '
+                    f'fill="{HATCH_UNDERLAY}" stroke="#666666" '
+                    f'stroke-width="{sw:.1f}"/>')
+
+            nr = CELL * 0.1
+            adx = _noise.pnoise2(gx * 0.5, gy * 0.5, base=1) * nr
+            ady = _noise.pnoise2(gx * 0.5, gy * 0.5, base=2) * nr
+            anchor = ((gx + 0.5) * CELL + adx,
+                      (gy + 0.5) * CELL + ady)
+
+            corners = [
+                (gx * CELL, gy * CELL),
+                ((gx + 1) * CELL, gy * CELL),
+                ((gx + 1) * CELL, (gy + 1) * CELL),
+                (gx * CELL, (gy + 1) * CELL),
+            ]
+
+            pts = _pick_section_points(corners, anchor, CELL)
+            sections = _build_sections(anchor, pts, corners)
+
+            for i, section in enumerate(sections):
+                if section.is_empty or section.area < 1:
+                    continue
+                if i == 0:
+                    a = math.atan2(
+                        pts[1][1] - pts[0][1],
+                        pts[1][0] - pts[0][0])
+                else:
+                    a = random.uniform(0, math.pi)
+
+                bounds = section.bounds
+                diag = math.hypot(
+                    bounds[2] - bounds[0], bounds[3] - bounds[1])
+                spacing = CELL * 0.20
+                n_lines = max(3, int(diag / spacing))
+
+                for j in range(n_lines):
+                    offset = (j - (n_lines - 1) / 2) * spacing
+                    scx = section.centroid.x
+                    scy = section.centroid.y
+                    perp_x = math.cos(a + math.pi / 2) * offset
+                    perp_y = math.sin(a + math.pi / 2) * offset
+                    line = LineString([
+                        (scx + perp_x - math.cos(a) * diag,
+                         scy + perp_y - math.sin(a) * diag),
+                        (scx + perp_x + math.cos(a) * diag,
+                         scy + perp_y + math.sin(a) * diag),
+                    ])
+                    clipped = section.intersection(line)
+                    if (clipped.is_empty
+                            or not isinstance(clipped, LineString)):
+                        continue
+                    p1, p2 = list(clipped.coords)
+                    wb = CELL * 0.03
+                    p1 = (
+                        p1[0] + _noise.pnoise2(
+                            p1[0] * 0.1, p1[1] * 0.1, base=10) * wb,
+                        p1[1] + _noise.pnoise2(
+                            p1[0] * 0.1, p1[1] * 0.1, base=11) * wb,
+                    )
+                    p2 = (
+                        p2[0] + _noise.pnoise2(
+                            p2[0] * 0.1, p2[1] * 0.1, base=12) * wb,
+                        p2[1] + _noise.pnoise2(
+                            p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
+                    )
+                    lsw = random.uniform(min_stroke, max_stroke)
+                    hatch_lines.append(
+                        f'<line x1="{p1[0]:.1f}" '
+                        f'y1="{p1[1]:.1f}" '
+                        f'x2="{p2[0]:.1f}" '
+                        f'y2="{p2[1]:.1f}" '
+                        f'stroke="{INK}" '
+                        f'stroke-width="{lsw:.2f}" '
+                        f'stroke-linecap="round"/>')
+
+    if tile_fills:
+        svg.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
+    if hatch_lines:
+        svg.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
+    if hatch_stones:
+        svg.append(f'<g>{"".join(hatch_stones)}</g>')
+
+    svg.append("</svg>")
+    return "\n".join(svg)
+
+
 # ── Helpers ──────────────────────────────────────────────────────
 
 def _is_floor(level: "Level", x: int, y: int) -> bool:

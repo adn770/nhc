@@ -52,13 +52,18 @@ def register_ws(app, sock: Sock) -> None:
                 session.game.player_id)
             fov = client._gather_fov(session.game.level)
             doors = client._gather_doors(session.game.level)
-            logger.info("Sending floor SVG (%d bytes) + initial state "
+            logger.info("Sending floor SVG (%d bytes) + hatch SVG "
+                        "(%d bytes) + initial state "
                         "(%d entities, %d doors, %d fov tiles)",
-                        len(client.floor_svg), len(entities),
-                        len(doors), len(fov))
+                        len(client.floor_svg),
+                        len(client.hatch_svg) if client.hatch_svg else 0,
+                        len(entities), len(doors), len(fov))
+            hatch_url = (f"/api/game/{session.session_id}"
+                         "/hatch.svg")
             ws.send(json.dumps({
                 "type": "floor",
                 "svg": client.floor_svg,
+                "hatch_url": hatch_url,
                 "entities": entities,
                 "doors": doors,
                 "fov": fov,
@@ -67,7 +72,13 @@ def register_ws(app, sock: Sock) -> None:
         elif client.floor_svg:
             logger.info("Sending floor SVG: %d bytes (no level state)",
                         len(client.floor_svg))
-            ws.send(json.dumps({"type": "floor", "svg": client.floor_svg}))
+            hatch_url = (f"/api/game/{session.session_id}"
+                         "/hatch.svg")
+            ws.send(json.dumps({
+                "type": "floor",
+                "svg": client.floor_svg,
+                "hatch_url": hatch_url,
+            }))
         else:
             logger.warning("No floor SVG to send!")
 
