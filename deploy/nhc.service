@@ -1,0 +1,31 @@
+[Unit]
+Description=NHC — Nethack-like Crawler web server
+After=docker.service network-online.target
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+# Secrets and tunables live in the override file:
+#   /etc/systemd/system/nhc.service.d/override.conf
+# Required:  NHC_AUTH_TOKEN
+# Optional:  NHC_MAX_SESSIONS (default 8)
+Environment=NHC_DATA_DIR=/var/nhc
+Environment=NHC_MAX_SESSIONS=8
+
+ExecStartPre=-/usr/bin/docker rm -f nhc
+ExecStart=/usr/bin/docker run --name nhc \
+    --publish 8080:8080 \
+    --volume /var/nhc:/var/nhc \
+    --env NHC_DATA_DIR=${NHC_DATA_DIR} \
+    --env NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN} \
+    --env NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS} \
+    nhc-web
+ExecStop=/usr/bin/docker stop -t 15 nhc
+ExecStopPost=-/usr/bin/docker rm -f nhc
+
+[Install]
+WantedBy=multi-user.target
