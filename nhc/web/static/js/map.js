@@ -282,10 +282,35 @@ const GameMap = {
       // If the open-side neighbor is explored, player has seen
       // the floor — don't block
       if (this.explored.has(openKey)) continue;
-      // Block the door tile and wall-direction neighbors
+      // Block the door tile
       blocked.add(key);
+      // Walk the wall run, blocking tiles that have no visible
+      // non-door floor neighbor.  Skip (don't block) tiles
+      // adjacent to the player's visible floor, but keep
+      // walking — walls beyond may still need blocking.
+      const doorKey = key;
       for (const wn of wallNeighbors[door.edge]) {
-        blocked.add(`${dx + wn.dx},${dy + wn.dy}`);
+        let nx = dx + wn.dx, ny = dy + wn.dy;
+        while (true) {
+          const wk = `${nx},${ny}`;
+          // Check if any visible cardinal neighbor (excluding
+          // the door tile) is a floor the player can see
+          let hasVisFloor = false;
+          for (const [ddx, ddy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+            const nk = `${nx + ddx},${ny + ddy}`;
+            if (nk === doorKey) continue;
+            if (this.fov.has(nk)) { hasVisFloor = true; break; }
+          }
+          if (!hasVisFloor) {
+            // Stop if room-side neighbor is explored
+            const roomKey = `${nx + os.dx},${ny + os.dy}`;
+            if (this.explored.has(roomKey)) break;
+            blocked.add(wk);
+          }
+          nx += wn.dx;
+          ny += wn.dy;
+          if (!this.explored.has(wk) && !this.fov.has(wk)) break;
+        }
       }
     }
 
@@ -300,56 +325,66 @@ const GameMap = {
 
   drawFog() {
     const ctx = this.fogCtx;
-    if (!ctx || !this.mapW || !this.mapH) {
-      console.warn("drawFog skipped: ctx=", !!ctx,
-                    "mapW=", this.mapW, "mapH=", this.mapH);
-      return;
-    }
-    console.log("drawFog:", this.fov.size, "visible,",
-                this.explored.size, "explored");
+    if (!ctx || !this.mapW || !this.mapH) return;
 
     ctx.clearRect(0, 0, this.mapW, this.mapH);
 
-    // Cover everything in fully opaque black — unexplored is hidden
+    // Cover everything in fully opaque black
     ctx.fillStyle = "rgba(0, 0, 0, 1.0)";
     ctx.fillRect(0, 0, this.mapW, this.mapH);
 
-    // Clear visible tiles, then re-fog 8px on perimeter edges
-    // to simulate a fractional FOV radius reduction
     const cs = this.cellSize;
-    const rim = 8;
+    const half = cs / 2;
 
+    // Player pixel center
+    const cx = this.playerX * cs + this.padding + half;
+    const cy = this.playerY * cs + this.padding + half;
+
+    // Compute the max distance from player to any FOV tile edge
+    // to size the radii dynamically to the actual FOV extent.
+    let maxDist = 0;
     for (const key of this.fov) {
       const [x, y] = key.split(",").map(Number);
-      const px = x * cs + this.padding;
-      const py = y * cs + this.padding;
-      ctx.clearRect(px, py, cs, cs);
+      const tx = x * cs + this.padding + half;
+      const ty = y * cs + this.padding + half;
+      const d = Math.hypot(tx - cx, ty - cy);
+      if (d > maxDist) maxDist = d;
     }
 
-    // Dim the outer rim of perimeter tiles.
-    // Top/bottom strips go full width; left/right fill the gap
-    // between them to avoid overlapping corners.
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    for (const key of this.fov) {
-      const [x, y] = key.split(",").map(Number);
-      const hasN = this.fov.has(`${x},${y - 1}`);
-      const hasS = this.fov.has(`${x},${y + 1}`);
-      const hasW = this.fov.has(`${x - 1},${y}`);
-      const hasE = this.fov.has(`${x + 1},${y}`);
-      if (hasN && hasS && hasW && hasE) continue;
-      const px = x * cs + this.padding;
-      const py = y * cs + this.padding;
-      const topH = hasN ? 0 : rim;
-      const botH = hasS ? 0 : rim;
-      if (!hasN) ctx.fillRect(px, py, cs, rim);
-      if (!hasS) ctx.fillRect(px, py + cs - rim, cs, rim);
-      if (!hasW) ctx.fillRect(px, py + topH, rim, cs - topH - botH);
-      if (!hasE) ctx.fillRect(px + cs - rim, py + topH,
-                              rim, cs - topH - botH);
+    // Two torch zones: bright inner, dim outer
+    const innerR = maxDist * 0.3 + half;
+    const outerR = maxDist * 0.5 + cs;
+
+    if (this.fov.size > 0) {
+      // Radial gradient: transparent center → dim → opaque edge
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
+      grad.addColorStop(0, "rgba(0, 0, 0, 0)");
+      grad.addColorStop(innerR / outerR, "rgba(0, 0, 0, 0)");
+      grad.addColorStop(Math.min((innerR + half) / outerR, 0.95),
+                        "rgba(0, 0, 0, 0.4)");
+      grad.addColorStop(1, "rgba(0, 0, 0, 1.0)");
+
+      // Punch a gradient circle into the black fog
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+      ctx.fillStyle = "white";
+      ctx.fill();
+      ctx.restore();
+
+      // Paint the gradient on top
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+
     }
 
-    // Explored but not visible: clear then apply heavy dim,
-    // with same rim on contour
+    // Explored but not visible: dimmed
     for (const key of this.explored) {
       if (this.fov.has(key)) continue;
       const [x, y] = key.split(",").map(Number);

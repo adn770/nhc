@@ -192,105 +192,18 @@ class TestEdgeDoorEastBlocking:
         )
 
 
-# ── Wall-run hiding: player NEAR a closed door ──────────────
-
-
-def _build_wall_run_west_door() -> Level:
-    """Player in corridor, locked door on room's west wall.
-
-    Matches the real bug: player at (35,6), locked door at (36,6)
-    with door_side="west", wall tiles (36,5) and (36,7) visible.
-
-         0123456
-      0  #######
-      1  ##.####    corridor: (2,1)
-      2  #..D..#    corridor:(1-2,2) door:(3,2) side="west" room:(4-5,2)
-      3  ##.####    corridor: (2,3)
-      4  #######
-
-    Player at (2,2). Door at (3,2) is vertical (west edge).
-    Wall tiles (3,1) and (3,3) form the room wall above/below
-    the door. These should NOT be visible — they reveal the
-    room's wall structure.
-    """
-    level = Level.create_empty("test", "Test", depth=1,
-                               width=7, height=5)
-    for y in range(5):
-        for x in range(7):
-            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
-
-    # Corridor: (1,2), (2,1), (2,2), (2,3)
-    level.tiles[2][1] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[1][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[2][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[3][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-
-    # Locked door at (3,2) — west edge (room is to the east)
-    level.tiles[2][3] = Tile(
-        terrain=Terrain.FLOOR,
-        feature="door_locked",
-        door_side="west",
-    )
-
-    # Room: cols 4-5, rows 1-3
-    for y in range(1, 4):
-        for x in range(4, 6):
-            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-
-    # Wall tiles above/below door: (3,1) and (3,3) are WALL
-    # (already WALL from the fill — just confirming)
-    assert level.tiles[1][3].terrain == Terrain.WALL
-    assert level.tiles[3][3].terrain == Terrain.WALL
-
-    return level
-
-
-def _build_wall_run_north_door() -> Level:
-    """Player below a horizontal locked door on the room's south wall.
-
-         01234
-      0  #####
-      1  #...#    room: (1-3, 1)
-      2  #DDD#    wall row; door at (2,2) side="north"
-      3  ##.##    corridor: (2,3)
-      4  #####
-
-    Actually for proper testing:
-
-         01234
-      0  #####
-      1  #...#    room: (1-3, 1)
-      2  ##D##    wall row with door at (2,2) side="south"
-      3  ##.##    corridor: (2,3)
-      4  ##.##    corridor: (2,4) ← player
-      5  #####
-    """
-    level = Level.create_empty("test", "Test", depth=1,
-                               width=5, height=6)
-    for y in range(6):
-        for x in range(5):
-            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
-
-    # Room: cols 1-3, row 1
-    for x in range(1, 4):
-        level.tiles[1][x] = Tile(terrain=Terrain.FLOOR)
-
-    # Door at (2,2) — south edge (room is to the north)
-    level.tiles[2][2] = Tile(
-        terrain=Terrain.FLOOR,
-        feature="door_locked",
-        door_side="south",
-    )
-
-    # Corridor: (2,3), (2,4)
-    level.tiles[3][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[4][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-
-    # Wall tiles flanking door: (1,2) and (3,2) are WALL
-    assert level.tiles[2][1].terrain == Terrain.WALL
-    assert level.tiles[2][3].terrain == Terrain.WALL
-
-    return level
+# ── Wall-run hiding: room walls near closed doors ────────────
+#
+# Rules:
+#   1. A wall tile in a door's wall run should be HIDDEN if it
+#      has no visible FLOOR neighbor (excluding the door tile).
+#      This prevents room structure leaking to the player.
+#   2. A wall tile that IS adjacent to a visible FLOOR tile
+#      (e.g. the player's own corridor) should remain VISIBLE —
+#      it is part of the player's known surroundings.
+#   3. The entire contiguous wall run is walked, not just ±1.
+#   4. Once a wall tile with a visible FLOOR neighbor is found,
+#      the walk stops in that direction (the rest is corridor).
 
 
 def _fov_with_wall_run_hiding(
@@ -302,7 +215,6 @@ def _fov_with_wall_run_hiding(
         edge_door_blocked_tiles,
     )
 
-    # Step 1: edge-door blocking (player on a door tile)
     cur = level.tile_at(px, py)
     blocked: set[tuple[int, int]] = set()
     if (cur and cur.feature in ("door_closed", "door_locked",
@@ -321,74 +233,296 @@ def _fov_with_wall_run_hiding(
     visible = compute_fov(px, py, FOV_RADIUS, is_blocking)
     visible -= blocked
 
-    # Step 2: hide wall tiles flanking visible closed doors
     hidden = door_wall_run_hidden(level, visible)
     visible -= hidden
 
     return visible
 
 
-class TestWallRunHidingWestDoor:
-    """Player near a west-facing locked door: room wall tiles hidden."""
+# ── Scenario A: isolated room wall (no corridor alongside) ──
+#
+# The wall tiles flanking the door have NO visible floor
+# neighbor, so they must be hidden.
+#
+#      0 1 2 3 4 5 6 7 8
+#  0   . . . . . . . . .    VOID
+#  1   . . . # # # # . .    room north wall
+#  2   . . . # . . # . .    room interior
+#  3   . . . # . . # . .    room interior
+#  4   . . . # D . # . .    door at (4,4) side="west"
+#  5   . . . # . . # . .    room interior
+#  6   . . . # # # # . .    room south wall
+#  7   . . . . . . . . .    VOID
+#  8   . . # . . . . . .    corridor
+#  9   . . # # # # . . .    corridor wall
+#
+# Player at (3,4), one tile west of the door.
+# Wall tiles (4,3) and (4,5) have no visible floor neighbor
+# (room interior not visible, VOID on the corridor side).
+
+
+def _build_isolated_room_west_door() -> Level:
+    level = Level.create_empty("test", "Test", depth=1,
+                               width=9, height=10)
+    # Everything starts as VOID (from create_empty)
+
+    # Room walls (x=3 and x=6, y=1-6; y=1 and y=6, x=3-6)
+    for y in range(1, 7):
+        level.tiles[y][3] = Tile(terrain=Terrain.WALL)
+        level.tiles[y][6] = Tile(terrain=Terrain.WALL)
+    for x in range(3, 7):
+        level.tiles[1][x] = Tile(terrain=Terrain.WALL)
+        level.tiles[6][x] = Tile(terrain=Terrain.WALL)
+
+    # Room interior
+    for y in range(2, 6):
+        for x in range(4, 6):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+
+    # Door at (4,4) — west edge
+    # The wall column is at x=3; the door replaces (3,4) but
+    # in edge-door mode the door is on the FLOOR side.
+    # Actually: the door tile is at (4,4) with door_side="west"
+    # meaning the wall edge is on the west side of tile (4,4).
+    # Wait, looking at real data: door at (36,6) side="west"
+    # means the door is at x=36, the wall column is also x=36.
+    # Let me place the door correctly.
+    #
+    # Door replaces the wall tile at x=3, y=4:
+    level.tiles[4][3] = Tile(
+        terrain=Terrain.FLOOR,
+        feature="door_closed",
+        door_side="west",
+    )
+
+    # Corridor: (2,4) and (1,4) — the player approaches from west
+    level.tiles[4][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[4][1] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+
+    return level
+
+
+class TestWallRunIsolatedRoom:
+    """Room wall with no corridor alongside: walls must be hidden."""
 
     @pytest.fixture()
-    def setup(self):
-        level = _build_wall_run_west_door()
-        fov = _fov_with_wall_run_hiding(level, 2, 2)
-        return level, fov
+    def fov(self) -> set[tuple[int, int]]:
+        level = _build_isolated_room_west_door()
+        return _fov_with_wall_run_hiding(level, 2, 4)
 
-    def test_player_tile_visible(self, setup):
-        _, fov = setup
+    def test_player_visible(self, fov):
+        assert (2, 4) in fov
+
+    def test_door_visible(self, fov):
+        assert (3, 4) in fov
+
+    def test_wall_above_door_hidden(self, fov):
+        assert (3, 3) not in fov, (
+            "wall (3,3) above door leaks room structure"
+        )
+
+    def test_wall_below_door_hidden(self, fov):
+        assert (3, 5) not in fov, (
+            "wall (3,5) below door leaks room structure"
+        )
+
+    def test_far_wall_hidden(self, fov):
+        assert (3, 2) not in fov, (
+            "wall (3,2) far above door leaks room structure"
+        )
+
+    def test_room_interior_not_visible(self, fov):
+        assert (4, 4) not in fov, (
+            "room interior visible through closed door"
+        )
+
+
+# ── Scenario B: corridor runs along the room wall ───────────
+#
+# The corridor is adjacent to the wall tiles. The player can
+# see the wall as part of their corridor, so those walls
+# should remain visible.
+#
+#      0 1 2 3 4 5 6
+#  0   # # # # # # #
+#  1   # # . # # # #    corridor: (2,1)
+#  2   # . . D . . #    corridor: (1-2,2), door: (3,2), room: (4-5,2)
+#  3   # # . # # # #    corridor: (2,3)
+#  4   # # # # # # #
+#
+# Player at (2,2). Wall tiles (3,1) and (3,3) ARE adjacent to
+# visible corridor floor tiles (2,1) and (2,3), so the player
+# sees them as corridor walls → they should be VISIBLE.
+
+
+def _build_corridor_along_room_wall() -> Level:
+    level = Level.create_empty("test", "Test", depth=1,
+                               width=7, height=5)
+    for y in range(5):
+        for x in range(7):
+            level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+
+    # Corridor
+    level.tiles[2][1] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[1][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[2][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[3][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+
+    # Door
+    level.tiles[2][3] = Tile(
+        terrain=Terrain.FLOOR,
+        feature="door_locked",
+        door_side="west",
+    )
+
+    # Room
+    for y in range(1, 4):
+        for x in range(4, 6):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+
+    return level
+
+
+class TestWallRunCorridorAlongside:
+    """Corridor adjacent to room wall: walls visible to player stay."""
+
+    @pytest.fixture()
+    def fov(self) -> set[tuple[int, int]]:
+        level = _build_corridor_along_room_wall()
+        return _fov_with_wall_run_hiding(level, 2, 2)
+
+    def test_player_visible(self, fov):
         assert (2, 2) in fov
 
-    def test_door_tile_visible(self, setup):
-        _, fov = setup
-        assert (3, 2) in fov, "door itself should be visible"
+    def test_door_visible(self, fov):
+        assert (3, 2) in fov
 
-    def test_wall_above_door_hidden(self, setup):
-        _, fov = setup
-        assert (3, 1) not in fov, (
-            "wall tile (3,1) above locked door reveals room structure"
-        )
+    def test_wall_above_door_visible(self, fov):
+        """(3,1) is adjacent to visible corridor (2,1) → visible."""
+        assert (3, 1) in fov
 
-    def test_wall_below_door_hidden(self, setup):
-        _, fov = setup
-        assert (3, 3) not in fov, (
-            "wall tile (3,3) below locked door reveals room structure"
-        )
+    def test_wall_below_door_visible(self, fov):
+        """(3,3) is adjacent to visible corridor (2,3) → visible."""
+        assert (3, 3) in fov
 
-    def test_corridor_walls_still_visible(self, setup):
-        level, fov = setup
-        # Corridor walls at (1,1), (1,3) etc. should still be visible
-        # (they're not adjacent to the door in the wall-run direction)
-        assert (2, 0) in fov or level.tile_at(2, 0).terrain == Terrain.WALL
+    def test_corridor_above_visible(self, fov):
+        assert (2, 1) in fov
+
+    def test_corridor_below_visible(self, fov):
+        assert (2, 3) in fov
+
+    def test_room_not_visible(self, fov):
+        assert (4, 2) not in fov
 
 
-class TestWallRunHidingNorthDoor:
-    """Player below a south-facing locked door: room wall tiles hidden."""
+# ── Scenario C: player next to wall, door further along ─────
+#
+# The wall row extends far from the door. Walls near the
+# player (with visible floor neighbor) stay visible; walls
+# far from the player (no visible floor neighbor) are hidden.
+#
+#      0 1 2 3 4 5 6 7 8 9
+#  0   # # # # # # # # # #
+#  1   . . . . . . # . . #    room: (7-8, 1-5)
+#  2   . . . . . . # . . #
+#  3   . . . . . . D . . #    door: (6,3) side="west"
+#  4   . . . . . . # . . #
+#  5   . . . . . . # . . #
+#  6   # # # # # # # # # #
+#  7   . . . # . . . . . .    corridor
+#  8   . . . # # # . . . .
+#
+# Player at (5,3). Wall column x=6: tiles (6,1) and (6,2) have
+# no visible floor neighbor → hidden. Tiles (6,4) and (6,5)
+# also have no visible floor neighbor → hidden.
+# But (6,3) IS the door → visible.
+# If the player were at (5,2) instead, (6,2) would be adjacent
+# to visible (5,2) → visible; but (6,1) still hidden.
+
+
+def _build_long_wall_run() -> Level:
+    level = Level.create_empty("test", "Test", depth=1,
+                               width=10, height=9)
+
+    # Outer walls
+    for x in range(10):
+        level.tiles[0][x] = Tile(terrain=Terrain.WALL)
+        level.tiles[6][x] = Tile(terrain=Terrain.WALL)
+
+    # Room wall column at x=6, y=1-5
+    for y in range(1, 6):
+        level.tiles[y][6] = Tile(terrain=Terrain.WALL)
+    # East wall at x=9, y=1-5
+    for y in range(1, 6):
+        level.tiles[y][9] = Tile(terrain=Terrain.WALL)
+
+    # Room interior: (7-8, 1-5)
+    for y in range(1, 6):
+        for x in range(7, 9):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+
+    # Door at (6,3) — west edge
+    level.tiles[3][6] = Tile(
+        terrain=Terrain.FLOOR,
+        feature="door_closed",
+        door_side="west",
+    )
+
+    # Corridor west of door: (5,3), (4,3), (3,3)
+    for x in range(3, 6):
+        level.tiles[3][x] = Tile(terrain=Terrain.FLOOR,
+                                 is_corridor=True)
+
+    return level
+
+
+class TestWallRunLongWall:
+    """Long wall column: only walls near visible floor stay visible."""
 
     @pytest.fixture()
-    def setup(self):
-        level = _build_wall_run_north_door()
-        fov = _fov_with_wall_run_hiding(level, 2, 4)
-        return level, fov
+    def fov(self) -> set[tuple[int, int]]:
+        level = _build_long_wall_run()
+        return _fov_with_wall_run_hiding(level, 5, 3)
 
-    def test_door_tile_visible(self, setup):
-        _, fov = setup
-        assert (2, 2) in fov, "door itself should be visible"
+    def test_door_visible(self, fov):
+        assert (6, 3) in fov
 
-    def test_wall_left_of_door_hidden(self, setup):
-        _, fov = setup
-        assert (1, 2) not in fov, (
-            "wall tile (1,2) left of locked door reveals room structure"
-        )
+    def test_wall_far_above_hidden(self, fov):
+        assert (6, 1) not in fov, "far wall leaks room structure"
 
-    def test_wall_right_of_door_hidden(self, setup):
-        _, fov = setup
-        assert (3, 2) not in fov, (
-            "wall tile (3,2) right of locked door reveals room structure"
-        )
+    def test_wall_above_hidden(self, fov):
+        assert (6, 2) not in fov, "wall above door leaks room"
 
-    def test_corridor_tile_visible(self, setup):
-        _, fov = setup
-        assert (2, 3) in fov, "corridor should be visible"
+    def test_wall_below_hidden(self, fov):
+        assert (6, 4) not in fov, "wall below door leaks room"
+
+    def test_wall_far_below_hidden(self, fov):
+        assert (6, 5) not in fov, "far wall leaks room structure"
+
+    def test_corridor_visible(self, fov):
+        assert (5, 3) in fov
+        assert (4, 3) in fov
+
+
+class TestWallRunPlayerAdjacentToWall:
+    """Player next to a wall tile in the run — that wall visible."""
+
+    @pytest.fixture()
+    def fov(self) -> set[tuple[int, int]]:
+        level = _build_long_wall_run()
+        # Player at (5,2): one tile north of corridor center,
+        # adjacent to wall (6,2)
+        level.tiles[2][5] = Tile(terrain=Terrain.FLOOR,
+                                 is_corridor=True)
+        return _fov_with_wall_run_hiding(level, 5, 2)
+
+    def test_adjacent_wall_visible(self, fov):
+        """(6,2) is adjacent to player at (5,2) → visible."""
+        assert (6, 2) in fov
+
+    def test_far_wall_still_hidden(self, fov):
+        """(6,1) has no visible floor neighbor → hidden."""
+        assert (6, 1) not in fov
+
+    def test_door_visible(self, fov):
+        assert (6, 3) in fov

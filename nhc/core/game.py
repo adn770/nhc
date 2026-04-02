@@ -144,18 +144,39 @@ _CLOSED_DOOR_FEATURES = frozenset({
 })
 
 
+def _has_visible_floor_neighbor(
+    x: int, y: int, visible: set[tuple[int, int]],
+    level: "Level", exclude: tuple[int, int] | None = None,
+) -> bool:
+    """True if any visible cardinal neighbor is a non-WALL tile.
+
+    The door tile that triggered the walk is excluded so it
+    doesn't prevent hiding its own flanking walls.
+    """
+    from nhc.dungeon.model import Terrain
+    _FLOOR_TERRAIN = (Terrain.FLOOR, Terrain.WATER)
+    for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+        if (nx, ny) == exclude:
+            continue
+        if (nx, ny) not in visible:
+            continue
+        t = level.tile_at(nx, ny)
+        if t and t.terrain in _FLOOR_TERRAIN:
+            return True
+    return False
+
+
 def door_wall_run_hidden(
     level: "Level", visible: set[tuple[int, int]],
 ) -> set[tuple[int, int]]:
-    """Return wall tiles flanking visible closed doors to hide.
+    """Return wall tiles along the wall run of visible closed doors.
 
-    When a closed/locked/secret edge-door is visible, the wall
-    tiles adjacent to it along the wall run reveal the room's
-    structure. For a vertical door (east/west edge) the wall
-    runs along y, so hide (x, y-1) and (x, y+1) if they are
-    WALL. For a horizontal door (north/south edge) the wall
-    runs along x, so hide (x-1, y) and (x+1, y) if they are
-    WALL.
+    When a closed/locked/secret edge-door is visible, the
+    contiguous wall tiles along the wall run reveal the room's
+    structure.  Walk in both directions from the door, hiding
+    each wall tile only if it has no visible non-wall neighbor
+    (excluding the door itself).  This ensures walls next to
+    the player's corridor remain visible.
     """
     from nhc.dungeon.model import Terrain
 
@@ -167,18 +188,33 @@ def door_wall_run_hidden(
         side = tile.door_side
         if not side:
             continue
+        door_pos = (vx, vy)
         # Vertical door (east/west): wall runs along y
         if side in ("east", "west"):
-            for dy in (-1, 1):
-                adj = level.tile_at(vx, vy + dy)
-                if adj and adj.terrain == Terrain.WALL:
-                    hidden.add((vx, vy + dy))
+            for direction in (-1, 1):
+                ny = vy + direction
+                while True:
+                    adj = level.tile_at(vx, ny)
+                    if not adj or adj.terrain != Terrain.WALL:
+                        break
+                    if not _has_visible_floor_neighbor(
+                        vx, ny, visible, level, door_pos,
+                    ):
+                        hidden.add((vx, ny))
+                    ny += direction
         # Horizontal door (north/south): wall runs along x
         else:
-            for dx in (-1, 1):
-                adj = level.tile_at(vx + dx, vy)
-                if adj and adj.terrain == Terrain.WALL:
-                    hidden.add((vx + dx, vy))
+            for direction in (-1, 1):
+                nx = vx + direction
+                while True:
+                    adj = level.tile_at(nx, vy)
+                    if not adj or adj.terrain != Terrain.WALL:
+                        break
+                    if not _has_visible_floor_neighbor(
+                        nx, vy, visible, level, door_pos,
+                    ):
+                        hidden.add((nx, vy))
+                    nx += direction
     return hidden
 
 
