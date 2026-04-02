@@ -231,10 +231,20 @@ class GameFormatter(logging.Formatter):
 
 
 def _default_log_path() -> str:
-    """Return default log file path: debug/nhc.log"""
+    """Return default log file path: debug/nhc.log or fallback."""
     # Three dirname calls: nhc/utils/log.py → nhc/utils → nhc → project root
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    return os.path.join(project_root, "debug", "nhc.log")
+    debug_dir = os.path.join(project_root, "debug")
+    try:
+        os.makedirs(debug_dir, exist_ok=True)
+        return os.path.join(debug_dir, "nhc.log")
+    except OSError:
+        pass
+    # Fallback: NHC_DATA_DIR or /tmp
+    data_dir = os.environ.get("NHC_DATA_DIR")
+    if data_dir:
+        return os.path.join(data_dir, "nhc.log")
+    return os.path.join("/tmp", "nhc.log")
 
 
 def setup_logging(

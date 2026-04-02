@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl gcc libc6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash -u 1000 nhc
@@ -13,11 +13,13 @@ RUN pip install --no-cache-dir \
     flask flask-sock shapely noise gunicorn gevent pyyaml
 
 COPY . .
-RUN pip install --no-cache-dir -e .
+
+RUN apt-get purge -y --auto-remove gcc libc6-dev
 
 USER nhc
 
 ENV NHC_DATA_DIR=/var/nhc
+ENV PYTHONPATH=/app
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

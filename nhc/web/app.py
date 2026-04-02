@@ -101,6 +101,21 @@ def create_app(
             return require_auth(valid_hashes)(f)
         return f
 
+    def _create_llm_backend():
+        """Try to create LLM backend, return None on failure."""
+        try:
+            from nhc.utils.llm import create_backend
+            return create_backend({
+                "provider": "ollama",
+                "model": config.ollama_model,
+                "url": config.ollama_url,
+                "temp": 0.1,
+                "ctx": 16384,
+            })
+        except Exception:
+            logger.debug("LLM backend unavailable, running without")
+            return None
+
     def _player_save_dir(pid: str) -> "Path | None":
         """Return the save directory for a player, or None."""
         if not config.data_dir:
@@ -278,17 +293,10 @@ def create_app(
         i18n_init(session.lang)
 
         from nhc.core.game import Game
-        from nhc.utils.llm import create_backend
         from nhc.rendering.web_client import WebClient
 
         client = WebClient(game_mode="classic", lang=session.lang)
-        backend = create_backend({
-            "provider": "ollama",
-            "model": config.ollama_model,
-            "url": config.ollama_url,
-            "temp": 0.1,
-            "ctx": 16384,
-        })
+        backend = _create_llm_backend()
         logger.debug("LLM backend: %s", type(backend).__name__
                       if backend else "None")
 
