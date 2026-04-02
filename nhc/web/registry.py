@@ -1,0 +1,116 @@
+"""Persistent player registry backed by a JSON file.
+
+Stores player accounts (name, token hash, revocation status) at
+``{data_dir}/players.json``.  Thread-safe for in-process access
+via a lock; atomic writes via tmp + os.replace prevent corruption.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import threading
+import time
+from pathlib import Path
+
+from nhc.web.auth import generate_token, hash_token
+from nhc.web.sessions import player_id_from_token
+
+logger = logging.getLogger(__name__)
+
+
+class PlayerRegistry:
+    """Manage registered players on disk."""
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        self._players: list[dict] = []
+        self._lock = threading.Lock()
+
+    # ── Persistence ─────────────────────────────────────────
+
+    def load(self) -> None:
+        """Read player data from disk (no-op if file missing)."""
+        if not self._path.exists():
+            self._players = []
+            return
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8"))
+            self._players = data.get("players", [])
+            logger.info("Loaded %d players from %s",
+                        len(self._players), self._path)
+        except Exception:
+            logger.error("Failed to load player registry", exc_info=True)
+            self._players = []
+
+    def _save(self) -> None:
+        """Atomic write: tmp file + os.replace."""
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self._path.with_suffix(".tmp")
+        payload = json.dumps(
+            {"players": self._players}, indent=2, ensure_ascii=False,
+        )
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(str(tmp), str(self._path))
+
+    # ── Mutations ───────────────────────────────────────────
+
+    def register(self, name: str) -> tuple[str, str]:
+        """Register a new player.
+
+        Returns (token, player_id).  The token is shown once to the
+        admin; only its hash is stored.
+        """
+        token = generate_token()
+        pid = player_id_from_token(token)
+        entry = {
+            "player_id": pid,
+            "name": name,
+            "token_hash": hash_token(token),
+            "created_at": time.time(),
+            "revoked": False,
+        }
+        with self._lock:
+            self._players.append(entry)
+            self._save()
+        logger.info("Registered player %s (%s)", name, pid)
+        return token, pid
+
+    def revoke(self, player_id: str) -> bool:
+        """Revoke a player's access.  Returns True if found."""
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] == player_id:
+                    p["revoked"] = True
+                    self._save()
+                    logger.info("Revoked player %s", player_id)
+                    return True
+        return False
+
+    # ── Queries ─────────────────────────────────────────────
+
+    def get(self, player_id: str) -> dict | None:
+        """Look up a player by ID."""
+        for p in self._players:
+            if p["player_id"] == player_id:
+                return dict(p)
+        return None
+
+    def is_valid_token_hash(self, h: str) -> bool:
+        """True if the hash belongs to a non-revoked player."""
+        for p in self._players:
+            if p["token_hash"] == h:
+                return not p["revoked"]
+        return False
+
+    def player_id_for_hash(self, h: str) -> str:
+        """Return the player_id for a token hash, or empty string."""
+        for p in self._players:
+            if p["token_hash"] == h:
+                return p["player_id"]
+        return ""
+
+    def list_all(self) -> list[dict]:
+        """Return a copy of all player records."""
+        return [dict(p) for p in self._players]
