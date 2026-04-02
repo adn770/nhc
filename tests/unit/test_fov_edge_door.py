@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.model import Level, Rect, Terrain, Tile
 from nhc.utils.fov import compute_fov
 
 WIDTH, HEIGHT = 7, 7
@@ -689,6 +689,99 @@ class TestHatchClearDoorBlocking:
         level.tile_at(4, 5).feature = "door_open"
         hc = compute_hatch_clear(level)
         assert (4, 5) in hc
+
+
+# ── Hatch-clear for non-rect room shapes ───────────────────
+#
+# Octagonal, circular, and cross rooms have diagonal or curved
+# walls drawn as SVG polygons. The corner tiles where diagonals
+# sit are WALL terrain. compute_hatch_clear must include these
+# so the hatch doesn't cover the visible diagonal walls.
+#
+#      0 1 2 3 4 5 6 7 8
+#  0   . . . . . . . . .    VOID
+#  1   . . . # # # . . .    top wall (clipped corners)
+#  2   . . # . . . # . .    octagon interior
+#  3   . . # . @ . # . .    octagon interior (player)
+#  4   . . # . . . # . .    octagon interior
+#  5   . . . # # # . . .    bottom wall (clipped corners)
+#  6   . . . . . . . . .    VOID
+#
+# Room rect (2,1, 5,5). OctagonShape clips corners:
+# (2,1), (6,1), (2,5), (6,5) are WALL (clipped corners).
+# These tiles have the octagonal outline drawn on them and
+# should be in hatch_clear when explored.
+
+
+def _build_octagonal_room() -> Level:
+    from nhc.dungeon.model import OctagonShape, Room
+
+    level = Level.create_empty("test", "Test", depth=1,
+                               width=9, height=7)
+    r = Rect(2, 1, 5, 5)
+    shape = OctagonShape()
+    room = Room(id="room_0", rect=r, shape=shape)
+    level.rooms.append(room)
+
+    floor = shape.floor_tiles(r)
+    for y in range(r.y, r.y2):
+        for x in range(r.x, r.x2):
+            if (x, y) in floor:
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            else:
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+
+    return level
+
+
+class TestHatchClearOctagonCorners:
+    """Octagon corner WALL tiles included in hatch_clear."""
+
+    @pytest.fixture()
+    def level(self) -> Level:
+        level = _build_octagonal_room()
+        r = level.rooms[0].rect
+        for y in range(r.y, r.y2):
+            for x in range(r.x, r.x2):
+                tile = level.tile_at(x, y)
+                if tile:
+                    tile.explored = True
+        return level
+
+    def test_floor_tiles_included(self, level):
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        assert (4, 3) in hc  # center floor
+
+    def test_corner_wall_tiles_included(self, level):
+        """WALL tiles at octagon corners should be in hatch_clear
+        so the diagonal walls are not covered by hatching."""
+        from nhc.core.game import compute_hatch_clear
+        hc = compute_hatch_clear(level)
+        r = level.rooms[0].rect
+        floor = level.rooms[0].floor_tiles()
+        # Find WALL tiles inside the room bounding rect
+        corner_walls = [
+            (x, y)
+            for y in range(r.y, r.y2)
+            for x in range(r.x, r.x2)
+            if (x, y) not in floor
+        ]
+        assert len(corner_walls) > 0, "no corner walls found"
+        for pos in corner_walls:
+            assert pos in hc, (
+                f"octagon corner wall {pos} should be in "
+                f"hatch_clear"
+            )
+
+    def test_wall_outside_room_excluded(self, level):
+        """WALL tiles outside any room rect stay excluded."""
+        from nhc.core.game import compute_hatch_clear
+        # Mark a wall tile outside the room as explored
+        level.tiles[0][0] = Tile(terrain=Terrain.WALL)
+        level.tile_at(0, 0).explored = True
+        hc = compute_hatch_clear(level)
+        assert (0, 0) not in hc
 
 
 class TestPlayerInsideRoomTwoSouthDoors:

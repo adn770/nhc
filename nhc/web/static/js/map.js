@@ -313,19 +313,24 @@ const GameMap = {
       const d = Math.hypot(tx - cx, ty - cy);
       if (d > maxDist) maxDist = d;
     }
+    maxDist += cs;
 
-    // Two torch zones: bright inner, dim outer
-    const innerR = maxDist * 0.3 + half;
-    const outerR = maxDist * 0.5 + cs;
+    // Two torch zones: bright inner, dim outer.
+    // The gradient is one tile shorter than the FOV for a tight
+    // torch feel. FOV tiles beyond the gradient get the memory
+    // dim level so they never go fully black.
+    const dimAlpha = 0.7;  // must match explored-not-visible below
+    const innerR = maxDist * 0.2 + half;
+    const outerR = maxDist + cs;
 
     if (this.fov.size > 0) {
-      // Radial gradient: transparent center → dim → opaque edge
+      // Radial gradient: transparent center → dim edge (memory level)
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerR);
       grad.addColorStop(0, "rgba(0, 0, 0, 0)");
       grad.addColorStop(innerR / outerR, "rgba(0, 0, 0, 0)");
       grad.addColorStop(Math.min((innerR + half) / outerR, 0.95),
-                        "rgba(0, 0, 0, 0.4)");
-      grad.addColorStop(1, "rgba(0, 0, 0, 1.0)");
+                        "rgba(0, 0, 0, 0.3)");
+      grad.addColorStop(1, `rgba(0, 0, 0, ${dimAlpha})`);
 
       // Punch a gradient circle into the black fog
       ctx.save();
@@ -345,6 +350,21 @@ const GameMap = {
       ctx.fill();
       ctx.restore();
 
+      // FOV tiles beyond the gradient: dim instead of black
+      const outerR2 = outerR * outerR;
+      for (const key of this.fov) {
+        const [x, y] = key.split(",").map(Number);
+        const tx = x * cs + this.padding + half;
+        const ty = y * cs + this.padding + half;
+        const d2 = (tx - cx) * (tx - cx) + (ty - cy) * (ty - cy);
+        if (d2 > outerR2) {
+          const px = x * cs + this.padding;
+          const py = y * cs + this.padding;
+          ctx.clearRect(px, py, cs, cs);
+          ctx.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
+          ctx.fillRect(px, py, cs, cs);
+        }
+      }
     }
 
     // Explored but not visible: dimmed
@@ -354,7 +374,7 @@ const GameMap = {
       const px = x * cs + this.padding;
       const py = y * cs + this.padding;
       ctx.clearRect(px, py, cs, cs);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
       ctx.fillRect(px, py, cs, cs);
     }
   },

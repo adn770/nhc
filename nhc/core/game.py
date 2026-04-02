@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     from nhc.core.actions import Action
     from nhc.utils.llm import LLMBackend
 
-FOV_RADIUS = 8
+FOV_RADIUS = 5
 
 DEFAULT_SHAPE_VARIETY = 0.3
 SHAPE_VARIETY_PER_DEPTH = 0.05
@@ -236,10 +236,29 @@ def compute_hatch_clear(
     structure into adjacent unexplored tiles.  Closed, locked,
     or secret doors are excluded when the corridor side hasn't
     been explored yet.
+
+    Exception: WALL tiles inside non-rectangular room bounding
+    rects (octagon, circle, cross, hybrid) are included because
+    the SVG draws room outlines as polygons that extend into
+    those corner tiles.
     """
-    from nhc.dungeon.model import Terrain
+    from nhc.dungeon.model import RectShape, Terrain
 
     _CLEARABLE = (Terrain.FLOOR, Terrain.WATER)
+
+    # Pre-compute WALL tiles inside non-rect room bounding rects.
+    # These tiles have room outline content in the SVG.
+    smooth_room_walls: set[tuple[int, int]] = set()
+    for room in level.rooms:
+        if isinstance(room.shape, RectShape):
+            continue
+        r = room.rect
+        floor = room.floor_tiles()
+        for y in range(r.y, r.y2):
+            for x in range(r.x, r.x2):
+                if (x, y) not in floor:
+                    smooth_room_walls.add((x, y))
+
     result: set[tuple[int, int]] = set()
     for y in range(level.height):
         for x in range(level.width):
@@ -247,6 +266,8 @@ def compute_hatch_clear(
             if not tile or not tile.explored:
                 continue
             if tile.terrain not in _CLEARABLE:
+                if (x, y) in smooth_room_walls:
+                    result.add((x, y))
                 continue
             if (tile.feature in _CLOSED_DOOR_FEATURES
                     and tile.door_side):
