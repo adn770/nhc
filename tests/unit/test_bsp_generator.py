@@ -94,6 +94,80 @@ class TestBSPGenerator:
                 or a.rooms[0].rect != b.rooms[0].rect)
 
 
+    def test_stairs_in_different_rooms(self):
+        """Stairs up and down must be in different rooms."""
+        for seed in [42, 99, 123, 256, 500]:
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(GenerationParams(
+                width=80, height=50))
+            up_pos = down_pos = None
+            for y in range(level.height):
+                for x in range(level.width):
+                    f = level.tiles[y][x].feature
+                    if f == "stairs_up":
+                        up_pos = (x, y)
+                    elif f == "stairs_down" and down_pos is None:
+                        down_pos = (x, y)
+            assert up_pos is not None, f"no stairs_up seed={seed}"
+            assert down_pos is not None, (
+                f"no stairs_down seed={seed}")
+            assert up_pos != down_pos, (
+                f"stairs overlap at {up_pos} seed={seed}")
+            # Must be in different rooms
+            up_room = down_room = None
+            for room in level.rooms:
+                ft = room.floor_tiles()
+                if up_pos in ft:
+                    up_room = room.id
+                if down_pos in ft:
+                    down_room = room.id
+            assert up_room != down_room, (
+                f"stairs in same room seed={seed}")
+
+    def test_stairs_not_always_room_zero(self):
+        """Over many seeds, stairs should land in varied rooms."""
+        up_rooms = set()
+        down_rooms = set()
+        for seed in range(50):
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(GenerationParams(
+                width=80, height=50))
+            for room in level.rooms:
+                ft = room.floor_tiles()
+                for y in range(level.height):
+                    for x in range(level.width):
+                        if level.tiles[y][x].feature == "stairs_up":
+                            if (x, y) in ft:
+                                up_rooms.add(room.id)
+                        elif (level.tiles[y][x].feature
+                              == "stairs_down"):
+                            if (x, y) in ft:
+                                down_rooms.add(room.id)
+        assert len(up_rooms) > 1, (
+            "stairs_up always in same room across seeds")
+        assert len(down_rooms) > 1, (
+            "stairs_down always in same room across seeds")
+
+    def test_sometimes_two_stairs_down(self):
+        """Over many seeds, at least one level has two stairs down."""
+        found_double = False
+        for seed in range(100):
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(GenerationParams(
+                width=80, height=50))
+            count = sum(
+                1 for row in level.tiles for t in row
+                if t.feature == "stairs_down"
+            )
+            if count >= 2:
+                found_double = True
+                break
+        assert found_double, (
+            "no double stairs_down found in 100 seeds")
+
     def test_no_orphaned_doors(self):
         """Every door must have a corridor or room floor on both sides."""
         door_feats = {"door_closed", "door_open", "door_secret"}
