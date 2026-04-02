@@ -380,11 +380,18 @@ class Game:
                 len(self.level.rooms),
             )
 
-            # Player starts at stairs_up (first room center)
-            if self.level.rooms:
-                px, py = self.level.rooms[0].rect.center
-            else:
-                px, py = 1, 1
+            # Player starts at stairs_up
+            px, py = 1, 1
+            for y in range(self.level.height):
+                for x in range(self.level.width):
+                    if (self.level.tile_at(x, y)
+                            and self.level.tile_at(x, y).feature
+                            == "stairs_up"):
+                        px, py = x, y
+                        break
+                else:
+                    continue
+                break
         else:
             # Load from YAML file
             self.level = load_level(level_path)
