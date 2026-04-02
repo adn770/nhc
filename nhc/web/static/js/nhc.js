@@ -74,6 +74,7 @@ const NHC = {
       if (msg.fov) {
         GameMap.updateFOV(msg);
       }
+      NHC.hideLoading();
     });
 
     WS.on("menu", async (msg) => {
@@ -109,9 +110,20 @@ const NHC = {
     });
   },
 
+  showLoading(text = "Generating dungeon...") {
+    document.getElementById("loading-text").textContent = text;
+    document.getElementById("loading-overlay").classList.remove("hidden");
+  },
+
+  hideLoading() {
+    document.getElementById("loading-overlay").classList.add("hidden");
+  },
+
   async newGame(reset = false) {
     const lang = document.getElementById("lang-select").value;
     const tileset = document.getElementById("tileset-select").value;
+
+    this.showLoading(reset ? "Generating dungeon..." : "Loading game...");
 
     const resp = await fetch("/api/game/new", {
       method: "POST",
@@ -120,6 +132,7 @@ const NHC = {
     });
 
     if (!resp.ok) {
+      this.hideLoading();
       const err = await resp.json();
       alert(err.error || "Failed to create game");
       return;
