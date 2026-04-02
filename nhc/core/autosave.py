@@ -14,6 +14,12 @@ import zlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from nhc.core.events import (
+    CreatureDied, GameWon, ItemUsed, LevelEntered, MessageEvent,
+)
+from nhc.entities.registry import EntityRegistry
+from nhc.rules.identification import ItemKnowledge
+
 if TYPE_CHECKING:
     from nhc.core.game import Game
 
@@ -127,9 +133,6 @@ def _build_payload(game: "Game") -> dict[str, Any]:
 
 def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     """Rebuild game state from a saved payload."""
-    from nhc.entities.registry import EntityRegistry
-    from nhc.rules.identification import ItemKnowledge
-
     EntityRegistry.discover_all()
 
     # Core state
@@ -167,9 +170,6 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     game._seen_creatures = payload.get("seen_creatures", set())
 
     # Resubscribe event handlers (they're method refs, not persisted)
-    from nhc.core.events import (
-        CreatureDied, GameWon, ItemUsed, LevelEntered, MessageEvent,
-    )
     game.event_bus.subscribe(MessageEvent, game._on_message)
     game.event_bus.subscribe(GameWon, game._on_game_won)
     game.event_bus.subscribe(CreatureDied, game._on_creature_died)

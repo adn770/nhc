@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING
 from nhc.core.actions import (
     DropAction,
     EquipAction,
+    ForceDoorAction,
+    PickLockAction,
     PickupItemAction,
     ThrowAction,
     UnequipAction,
@@ -209,7 +211,6 @@ def find_drop_action(game: Game) -> Action | None:
 
 def find_lock_action(game: Game, mode: str) -> Action | None:
     """Find an adjacent locked door and return pick/force action."""
-    from nhc.core.actions import ForceDoorAction, PickLockAction
     pos = game.world.get_component(game.player_id, "Position")
     if not pos or not game.level:
         return None

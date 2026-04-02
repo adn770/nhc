@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.i18n import t
+from nhc.rules.combat import apply_damage, heal, is_dead
 
 if TYPE_CHECKING:
     from nhc.core.game import Game
@@ -22,7 +23,6 @@ def _creature_name(game: Game, eid: int) -> str:
 
 def tick_poison(game: Game) -> None:
     """Apply ongoing poison damage and decrement counters."""
-    from nhc.rules.combat import apply_damage, is_dead
     expired = []
     for eid, poison, health in game.world.query("Poison", "Health"):
         if health is None:
@@ -48,7 +48,6 @@ def tick_poison(game: Game) -> None:
 
 def tick_regeneration(game: Game) -> None:
     """Troll-like regeneration: heal hp_per_turn if not fire-damaged."""
-    from nhc.rules.combat import heal
     for eid, regen, health in game.world.query("Regeneration", "Health"):
         if health is None:
             continue

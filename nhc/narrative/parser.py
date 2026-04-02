@@ -11,6 +11,19 @@ import logging
 import re
 from typing import TYPE_CHECKING, Any
 
+from nhc.core.actions import (
+    BumpAction,
+    CustomAction,
+    DescendStairsAction,
+    ImpossibleAction,
+    LookAction,
+    MeleeAttackAction,
+    PickupItemAction,
+    SearchAction,
+    UseItemAction,
+    WaitAction,
+)
+
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
@@ -99,18 +112,6 @@ def action_plan_to_actions(
     level: "Level",
 ) -> list:
     """Convert parsed action dicts to Action objects."""
-    from nhc.core.actions import (
-        BumpAction,
-        CustomAction,
-        DescendStairsAction,
-        ImpossibleAction,
-        LookAction,
-        MeleeAttackAction,
-        PickupItemAction,
-        UseItemAction,
-        WaitAction,
-    )
-
     actions = []
     pos = world.get_component(actor, "Position")
 
@@ -145,7 +146,6 @@ def action_plan_to_actions(
             actions.append(LookAction(actor))
 
         elif action_type == "search":
-            from nhc.core.actions import SearchAction
             actions.append(SearchAction(actor))
 
         elif action_type == "wait":
