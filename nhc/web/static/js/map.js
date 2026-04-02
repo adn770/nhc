@@ -263,24 +263,52 @@ const GameMap = {
     ctx.fillStyle = "rgba(0, 0, 0, 1.0)";
     ctx.fillRect(0, 0, this.mapW, this.mapH);
 
-    // Clear visible tiles (fully transparent)
+    // Clear visible tiles, then re-fog 8px on perimeter edges
+    // to simulate a fractional FOV radius reduction
+    const cs = this.cellSize;
+    const rim = 8;
+
     for (const key of this.fov) {
       const [x, y] = key.split(",").map(Number);
-      const px = x * this.cellSize + this.padding;
-      const py = y * this.cellSize + this.padding;
-      ctx.clearRect(px, py, this.cellSize, this.cellSize);
+      const px = x * cs + this.padding;
+      const py = y * cs + this.padding;
+      ctx.clearRect(px, py, cs, cs);
     }
 
-    // Explored but not visible: clear then apply heavy dim
+    // Dim the outer rim of perimeter tiles.
+    // Top/bottom strips go full width; left/right fill the gap
+    // between them to avoid overlapping corners.
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    for (const key of this.fov) {
+      const [x, y] = key.split(",").map(Number);
+      const hasN = this.fov.has(`${x},${y - 1}`);
+      const hasS = this.fov.has(`${x},${y + 1}`);
+      const hasW = this.fov.has(`${x - 1},${y}`);
+      const hasE = this.fov.has(`${x + 1},${y}`);
+      if (hasN && hasS && hasW && hasE) continue;
+      const px = x * cs + this.padding;
+      const py = y * cs + this.padding;
+      const topH = hasN ? 0 : rim;
+      const botH = hasS ? 0 : rim;
+      if (!hasN) ctx.fillRect(px, py, cs, rim);
+      if (!hasS) ctx.fillRect(px, py + cs - rim, cs, rim);
+      if (!hasW) ctx.fillRect(px, py + topH, rim, cs - topH - botH);
+      if (!hasE) ctx.fillRect(px + cs - rim, py + topH,
+                              rim, cs - topH - botH);
+    }
+
+    // Explored but not visible: clear then apply heavy dim,
+    // with same rim on contour
     for (const key of this.explored) {
       if (this.fov.has(key)) continue;
       const [x, y] = key.split(",").map(Number);
-      const px = x * this.cellSize + this.padding;
-      const py = y * this.cellSize + this.padding;
-      ctx.clearRect(px, py, this.cellSize, this.cellSize);
+      const px = x * cs + this.padding;
+      const py = y * cs + this.padding;
+      ctx.clearRect(px, py, cs, cs);
       ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-      ctx.fillRect(px, py, this.cellSize, this.cellSize);
+      ctx.fillRect(px, py, cs, cs);
     }
+
   },
 
   draw() {
