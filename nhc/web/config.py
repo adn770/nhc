@@ -22,3 +22,4 @@ class WebConfig:
     shape_variety: float = 0.3
     god_mode: bool = False
     data_dir: Path | None = None
+    hatch_distance: float = 2.0

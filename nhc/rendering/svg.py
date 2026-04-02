@@ -41,8 +41,16 @@ FLOOR_STONE_FILL = "#E8D5B8"  # soft brown for room floor stones
 FLOOR_STONE_STROKE = "#666666"
 
 
-def render_floor_svg(level: "Level", seed: int = 0) -> str:
-    """Generate a Dyson-style SVG for a dungeon floor."""
+def render_floor_svg(
+    level: "Level", seed: int = 0, hatch_distance: float = 2.0,
+) -> str:
+    """Generate a Dyson-style SVG for a dungeon floor.
+
+    *hatch_distance* controls how far (in tiles) the cross-hatching
+    extends from the dungeon perimeter.  Default 2.0 gives the full
+    Dyson look; lower values (e.g. 1.0) reduce SVG complexity and
+    rendering time significantly.
+    """
     w = level.width * CELL + 2 * PADDING
     h = level.height * CELL + 2 * PADDING
 
@@ -64,7 +72,8 @@ def render_floor_svg(level: "Level", seed: int = 0) -> str:
 
     # Layer 2: Hatching (rooms clipped to exterior of dungeon
     # polygon, corridors hatched one tile on each side)
-    _render_hatching(svg, level, seed, dungeon_poly)
+    _render_hatching(svg, level, seed, dungeon_poly,
+                     hatch_distance=hatch_distance)
     _render_corridor_hatching(svg, level, seed)
 
     # Layer 3: Walls + floor fills
@@ -2091,12 +2100,15 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
 
 def _render_hatching(
     svg: list[str], level: "Level", seed: int,
-    dungeon_poly=None,
+    dungeon_poly=None, hatch_distance: float = 2.0,
 ) -> None:
     """Procedural cross-hatching around the dungeon perimeter.
 
     Uses Shapely for geometry clipping, Perlin noise for organic
     displacement, and tile-based section partitioning.
+
+    *hatch_distance* is the max distance in tiles from the dungeon
+    edge that hatching extends.
     """
     random.seed(seed)
     if dungeon_poly is None:
@@ -2109,7 +2121,7 @@ def _render_hatching(
     # interior, so overlap is handled by the layer order.
     hatching_boundary = dungeon_poly
 
-    base_distance_limit = 2.0 * CELL
+    base_distance_limit = hatch_distance * CELL
     min_stroke = 1.0
     max_stroke = 1.8
 

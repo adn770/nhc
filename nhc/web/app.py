@@ -361,7 +361,10 @@ def create_app(
         elif game.level:
             from nhc.rendering.svg import render_floor_svg, render_hatch_svg
             seed = game.seed or 0
-            client.floor_svg = render_floor_svg(game.level, seed=seed)
+            client.floor_svg = render_floor_svg(
+                game.level, seed=seed,
+                hatch_distance=config.hatch_distance,
+            )
             client.hatch_svg = render_hatch_svg(seed=seed)
             save_svg_cache(client.floor_svg, client.hatch_svg, save_dir)
 
@@ -452,6 +455,7 @@ def create_app(
             seed = game.seed or 0
             client.floor_svg = render_floor_svg(
                 game.level, seed=seed,
+                hatch_distance=config.hatch_distance,
             )
             client.hatch_svg = render_hatch_svg(seed=seed)
             logger.info("Floor SVG: %d bytes, Hatch SVG: %d bytes",
@@ -640,6 +644,7 @@ def app_factory() -> Flask:
         data_dir=data_dir,
         auth_required=bool(os.environ.get("NHC_AUTH_TOKEN")),
         god_mode=False,
+        hatch_distance=float(os.environ.get("NHC_HATCH_DISTANCE", "1.0")),
     )
     auth_token = os.environ.get("NHC_AUTH_TOKEN")
     return create_app(config, auth_token=auth_token)
