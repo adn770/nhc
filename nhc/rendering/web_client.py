@@ -267,7 +267,7 @@ class WebClient(GameClient):
         }
 
     def _action_labels(self) -> dict[str, str]:
-        """Return translated context menu action labels."""
+        """Return translated context menu and toolbar labels."""
         from nhc.i18n import t
         return {
             "use": t("ui.action_use"),
@@ -277,6 +277,25 @@ class WebClient(GameClient):
             "unequip": t("ui.action_unequip"),
             "drop": t("ui.action_drop"),
             "throw": t("ui.action_throw"),
+            "toolbar_pickup": t("ui.toolbar_pickup"),
+            "toolbar_inventory": t("ui.toolbar_inventory"),
+            "toolbar_quaff": t("ui.toolbar_quaff"),
+            "toolbar_use_item": t("ui.toolbar_use_item"),
+            "toolbar_equip": t("ui.toolbar_equip"),
+            "toolbar_drop": t("ui.toolbar_drop"),
+            "toolbar_throw": t("ui.toolbar_throw"),
+            "toolbar_zap": t("ui.toolbar_zap"),
+            "toolbar_search": t("ui.toolbar_search"),
+            "toolbar_wait": t("ui.toolbar_wait"),
+            "toolbar_pick_lock": t("ui.toolbar_pick_lock"),
+            "toolbar_force_door": t("ui.toolbar_force_door"),
+            "toolbar_farlook": t("ui.toolbar_farlook"),
+            "toolbar_descend": t("ui.toolbar_descend"),
+            "toolbar_ascend": t("ui.toolbar_ascend"),
+            "toolbar_zoom_in": t("ui.toolbar_zoom_in"),
+            "toolbar_zoom_out": t("ui.toolbar_zoom_out"),
+            "toolbar_restart": t("ui.toolbar_restart"),
+            "toolbar_debug": t("ui.toolbar_debug"),
         }
 
     def _gather_doors(

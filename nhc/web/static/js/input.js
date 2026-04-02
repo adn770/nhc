@@ -45,21 +45,21 @@ const Input = {
   },
 
   TOOLBAR_ACTIONS: [
-    { icon: "👆", intent: "pickup",     label: "Pickup (g)" },
-    { icon: "🎒", intent: "inventory",  label: "Inventory (i)" },
-    { icon: "🧪", intent: "quaff",      label: "Quaff (q)" },
-    { icon: "📜", intent: "use_item",   label: "Use Item (a)" },
-    { icon: "⚔️", intent: "equip",      label: "Equip (e)" },
-    { icon: "🗑️", intent: "drop",       label: "Drop (d)" },
-    { icon: "🏹", intent: "throw",      label: "Throw (t)" },
-    { icon: "✨", intent: "zap",        label: "Zap (z)" },
-    { icon: "🔍", intent: "search",     label: "Search (s)" },
-    { icon: "⏳", intent: "wait",       label: "Wait (.)" },
-    { icon: "🔓", intent: "pick_lock",  label: "Pick Lock (p)" },
-    { icon: "💪", intent: "force_door", label: "Force Door (f)" },
-    { icon: "👁️", intent: "farlook",    label: "Farlook (x)" },
-    { icon: "⬇️", intent: "descend",    label: "Descend (>)" },
-    { icon: "⬆️", intent: "ascend",     label: "Ascend (<)" },
+    { icon: "👆", intent: "pickup",     labelKey: "toolbar_pickup" },
+    { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
+    { icon: "🧪", intent: "quaff",      labelKey: "toolbar_quaff" },
+    { icon: "📜", intent: "use_item",   labelKey: "toolbar_use_item" },
+    { icon: "⚔️", intent: "equip",      labelKey: "toolbar_equip" },
+    { icon: "🗑️", intent: "drop",       labelKey: "toolbar_drop" },
+    { icon: "🏹", intent: "throw",      labelKey: "toolbar_throw" },
+    { icon: "✨", intent: "zap",        labelKey: "toolbar_zap" },
+    { icon: "🔍", intent: "search",     labelKey: "toolbar_search" },
+    { icon: "⏳", intent: "wait",       labelKey: "toolbar_wait" },
+    { icon: "🔓", intent: "pick_lock",  labelKey: "toolbar_pick_lock" },
+    { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
+    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
+    { icon: "⬇️", intent: "descend",    labelKey: "toolbar_descend" },
+    { icon: "⬆️", intent: "ascend",     labelKey: "toolbar_ascend" },
   ],
 
   init() {
@@ -130,10 +130,13 @@ const Input = {
   _initToolbar() {
     const zone = document.getElementById("toolbar-zone");
     if (!zone) return;
-    this.TOOLBAR_ACTIONS.forEach(({ icon, intent, label }) => {
+    zone.innerHTML = "";
+    this._toolbarButtons = [];
+    this.TOOLBAR_ACTIONS.forEach(({ icon, intent, labelKey }) => {
       const btn = document.createElement("button");
       btn.textContent = icon;
-      btn.title = label;
+      btn.dataset.labelKey = labelKey;
+      btn.title = labelKey;  // fallback until translations arrive
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (intent === "inventory") {
@@ -143,18 +146,59 @@ const Input = {
         }
       });
       zone.appendChild(btn);
+      this._toolbarButtons.push(btn);
     });
+
+    // Zoom buttons
+    const zoomOut = document.createElement("button");
+    zoomOut.id = "zoom-out-btn";
+    zoomOut.textContent = "\u{1F50D}\u2212";
+    zoomOut.dataset.labelKey = "toolbar_zoom_out";
+    zoomOut.title = "Zoom Out";
+    zoomOut.addEventListener("click", (e) => {
+      e.stopPropagation();
+      GameMap.zoom(-1);
+    });
+    zone.appendChild(zoomOut);
+    this._toolbarButtons.push(zoomOut);
+
+    const zoomIn = document.createElement("button");
+    zoomIn.id = "zoom-in-btn";
+    zoomIn.textContent = "\u{1F50D}+";
+    zoomIn.dataset.labelKey = "toolbar_zoom_in";
+    zoomIn.title = "Zoom In";
+    zoomIn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      GameMap.zoom(1);
+    });
+    zone.appendChild(zoomIn);
+    this._toolbarButtons.push(zoomIn);
 
     // Restart button — pushed to the right
     const restart = document.createElement("button");
     restart.id = "restart-btn";
     restart.textContent = "\u{1F504}";
+    restart.dataset.labelKey = "toolbar_restart";
     restart.title = "Restart Game";
     restart.addEventListener("click", (e) => {
       e.stopPropagation();
       NHC.restartGame();
     });
     zone.appendChild(restart);
+    this._toolbarButtons.push(restart);
+  },
+
+  /**
+   * Update toolbar tooltips with translated labels from server.
+   */
+  updateToolbarLabels(labels) {
+    if (!this._toolbarButtons) return;
+    for (const btn of this._toolbarButtons) {
+      const key = btn.dataset.labelKey;
+      if (key && labels[key]) {
+        btn.title = labels[key];
+      }
+    }
   },
 
   _switchToClassic() {

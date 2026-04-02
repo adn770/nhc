@@ -29,6 +29,8 @@ const GameMap = {
   mapH: 0,
   playerX: 0,
   playerY: 0,
+  _zoomLevel: 2,  // index into _zoomSteps, default 1.0x
+  _zoomSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
 
   init() {
     this.canvas = document.getElementById("entity-canvas");
@@ -144,6 +146,24 @@ const GameMap = {
       top: Math.max(0, targetTop),
       behavior: "smooth",
     });
+  },
+
+  /**
+   * Zoom the map by stepping through predefined scale levels.
+   * @param {number} dir — +1 to zoom in, -1 to zoom out
+   */
+  zoom(dir) {
+    const newLevel = Math.max(0, Math.min(
+      this._zoomSteps.length - 1, this._zoomLevel + dir));
+    if (newLevel === this._zoomLevel) return;
+    this._zoomLevel = newLevel;
+    const scale = this._zoomSteps[newLevel];
+    const container = document.getElementById("map-container");
+    if (container) {
+      container.style.transformOrigin = "0 0";
+      container.style.transform = `scale(${scale})`;
+    }
+    this.scrollToPlayer();
   },
 
   _resolveColor(colorName) {
@@ -414,7 +434,7 @@ const GameMap = {
         continue;
       }
 
-      const fill = door.state === "door_open" ? "#FFFFFF" : "#888888";
+      const fill = door.state === "door_open" ? "#FFFFFF" : "#5C3A1E";
 
       // Position door on the correct wall edge
       let wallX, wallY;

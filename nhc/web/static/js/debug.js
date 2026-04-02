@@ -57,6 +57,7 @@ const DebugPanel = {
   _createGearButton() {
     const zone = document.getElementById("toolbar-zone");
     if (!zone) return;
+    if (document.getElementById("god-mode-btn")) return;
     const btn = document.createElement("button");
     btn.id = "god-mode-btn";
     btn.textContent = "\u2699";

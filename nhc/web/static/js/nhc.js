@@ -35,6 +35,9 @@ const NHC = {
 
     WS.on("stats", (msg) => {
       UI.updateStatus(msg);
+      if (msg.action_labels) {
+        Input.updateToolbarLabels(msg.action_labels);
+      }
     });
 
     WS.on("floor", (msg) => {
@@ -126,10 +129,13 @@ const NHC = {
     WS.connect(this.sessionId);
   },
 
-  restartGame() {
-    if (!confirm("Restart game? Current progress will be lost.")) {
-      return;
-    }
+  async restartGame() {
+    const choice = await UI.showMenu(
+      "Restart game? Current progress will be lost.", [
+        { id: "yes", name: "Yes, restart" },
+        { id: "no",  name: "Cancel" },
+      ]);
+    if (choice !== "yes") return;
     // Close current WS, delete session, start fresh
     if (WS.socket) WS.socket.close();
     if (this.sessionId) {

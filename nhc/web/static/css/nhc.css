@@ -174,8 +174,13 @@ body {
 }
 
 /* God mode debug panel */
-#restart-btn {
+#zoom-out-btn {
   margin-left: auto;
+}
+
+#zoom-out-btn,
+#zoom-in-btn {
+  font-size: 11px;
 }
 
 #god-mode-btn {
