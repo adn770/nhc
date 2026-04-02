@@ -236,6 +236,17 @@ def create_app(
             "name": name,
         }), 201
 
+    @app.route("/api/admin/players/<player_id>/regenerate",
+               methods=["POST"])
+    @_admin_auth
+    def admin_regenerate_token(player_id: str):
+        if not registry:
+            return jsonify({"error": "no registry"}), 500
+        token = registry.regenerate_token(player_id)
+        if token:
+            return jsonify({"player_id": player_id, "token": token})
+        return jsonify({"error": "player not found or revoked"}), 404
+
     @app.route("/api/admin/players/<player_id>", methods=["DELETE"])
     @_admin_auth
     def admin_revoke_player(player_id: str):

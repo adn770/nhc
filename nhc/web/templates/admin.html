@@ -137,7 +137,8 @@ async function loadPlayers() {
     }
     const actions = p.revoked
       ? '<span style="color:#888">revoked</span>'
-      : `<button class="danger" onclick="revokePlayer('${p.player_id}')">Revoke</button>`;
+      : `<button onclick="getLink('${p.player_id}')">Get Link</button> `
+        + `<button class="danger" onclick="revokePlayer('${p.player_id}')">Revoke</button>`;
     tr.innerHTML = `
       <td>${esc(p.name)}</td>
       <td><code>${p.player_id}</code></td>
@@ -199,6 +200,26 @@ async function registerPlayer() {
   document.getElementById("player-name").value = "";
   toast(`Registered ${data.name}`);
   loadPlayers();
+}
+
+async function getLink(pid) {
+  const resp = await fetch(`/api/admin/players/${pid}/regenerate`, {
+    method: "POST",
+  });
+  if (!resp.ok) {
+    const err = await resp.json();
+    toast(err.error || "Failed to generate link");
+    return;
+  }
+  const data = await resp.json();
+  lastToken = data.token;
+  const link = `${BASE}/?token=${data.token}`;
+  const box = document.getElementById("new-link-box");
+  const a = document.getElementById("new-link");
+  a.href = link;
+  a.textContent = link;
+  box.style.display = "block";
+  toast("New link generated (old link invalidated)");
 }
 
 async function revokePlayer(pid) {

@@ -258,6 +258,39 @@ class TestAdminAPI:
         resp = client_with_data_dir.delete("/api/admin/players/bogus")
         assert resp.status_code == 404
 
+    def test_regenerate_token(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/admin/players", json={"name": "Alice"},
+        )
+        pid = resp.get_json()["player_id"]
+        old_token = resp.get_json()["token"]
+
+        resp = client_with_data_dir.post(
+            f"/api/admin/players/{pid}/regenerate",
+        )
+        assert resp.status_code == 200
+        new_token = resp.get_json()["token"]
+        assert new_token != old_token
+
+        # Old token should no longer be valid
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        from nhc.web.auth import hash_token
+        assert not registry.is_valid_token_hash(hash_token(old_token))
+        assert registry.is_valid_token_hash(hash_token(new_token))
+
+    def test_regenerate_revoked_fails(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/admin/players", json={"name": "Bob"},
+        )
+        pid = resp.get_json()["player_id"]
+        client_with_data_dir.delete(f"/api/admin/players/{pid}")
+
+        resp = client_with_data_dir.post(
+            f"/api/admin/players/{pid}/regenerate",
+        )
+        assert resp.status_code == 404
+
     def test_list_sessions(self, client_with_data_dir):
         client_with_data_dir.post("/api/game/new", json={})
         resp = client_with_data_dir.get("/api/admin/sessions")

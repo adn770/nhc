@@ -77,6 +77,23 @@ class PlayerRegistry:
         logger.info("Registered player %s (%s)", name, pid)
         return token, pid
 
+    def regenerate_token(self, player_id: str) -> str | None:
+        """Generate a new token for an existing player.
+
+        Returns the new token, or None if the player was not found.
+        The old token is invalidated (hash replaced).
+        """
+        token = generate_token()
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] == player_id and not p["revoked"]:
+                    p["token_hash"] = hash_token(token)
+                    self._save()
+                    logger.info("Regenerated token for player %s",
+                                player_id)
+                    return token
+        return None
+
     def revoke(self, player_id: str) -> bool:
         """Revoke a player's access.  Returns True if found."""
         with self._lock:
