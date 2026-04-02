@@ -246,16 +246,18 @@ def compute_hatch_clear(
 
     _CLEARABLE = (Terrain.FLOOR, Terrain.WATER)
 
-    # Pre-compute WALL tiles inside non-rect room bounding rects.
-    # These tiles have room outline content in the SVG.
+    # Pre-compute WALL/VOID tiles in and around non-rect room
+    # bounding rects. The SVG room outline (circle arcs, octagon
+    # diagonals) can extend up to 1 tile beyond the bounding rect,
+    # so we expand by 1 tile on each side.
     smooth_room_walls: set[tuple[int, int]] = set()
     for room in level.rooms:
         if isinstance(room.shape, RectShape):
             continue
         r = room.rect
         floor = room.floor_tiles()
-        for y in range(r.y, r.y2):
-            for x in range(r.x, r.x2):
+        for y in range(r.y - 1, r.y2 + 1):
+            for x in range(r.x - 1, r.x2 + 1):
                 if (x, y) not in floor:
                     smooth_room_walls.add((x, y))
 

@@ -774,10 +774,36 @@ class TestHatchClearOctagonCorners:
                 f"hatch_clear"
             )
 
-    def test_wall_outside_room_excluded(self, level):
-        """WALL tiles outside any room rect stay excluded."""
+    def test_border_wall_tiles_included(self, level):
+        """WALL tiles 1 tile outside the room rect should be
+        included — the SVG outline can extend beyond the rect."""
         from nhc.core.game import compute_hatch_clear
-        # Mark a wall tile outside the room as explored
+        r = level.rooms[0].rect
+        # Mark border tiles as explored
+        for x in range(r.x - 1, r.x2 + 1):
+            for y in [r.y - 1, r.y2]:
+                tile = level.tile_at(x, y)
+                if tile:
+                    tile.explored = True
+        hc = compute_hatch_clear(level)
+        # At least some border WALL tiles should be included
+        border_walls = [
+            (x, y)
+            for x in range(r.x - 1, r.x2 + 1)
+            for y in [r.y - 1, r.y2]
+            if level.tile_at(x, y)
+            and level.tile_at(x, y).terrain == Terrain.WALL
+            and level.tile_at(x, y).explored
+        ]
+        for pos in border_walls:
+            assert pos in hc, (
+                f"border wall {pos} should be in hatch_clear"
+            )
+
+    def test_wall_far_from_room_excluded(self, level):
+        """WALL tiles far from any room rect stay excluded."""
+        from nhc.core.game import compute_hatch_clear
+        # Mark a wall tile far from the room as explored
         level.tiles[0][0] = Tile(terrain=Terrain.WALL)
         level.tile_at(0, 0).explored = True
         hc = compute_hatch_clear(level)
