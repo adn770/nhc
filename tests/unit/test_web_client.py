@@ -515,3 +515,27 @@ class TestItemActionDispatch:
         finally:
             loop.close()
         assert result == ("item_action", {"action": "drop", "item_id": 5})
+
+
+class TestDisconnectHandling:
+    """get_input returns disconnect signal on disconnect sentinel."""
+
+    def test_disconnect_sentinel_dict(self):
+        wc = WebClient(lang="en")
+        wc._in_queue.put({"type": "disconnect"})
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(wc.get_input())
+        finally:
+            loop.close()
+        assert result == ("disconnect", None)
+
+    def test_disconnect_sentinel_json_string(self):
+        wc = WebClient(lang="en")
+        wc._in_queue.put(json.dumps({"type": "disconnect"}))
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(wc.get_input())
+        finally:
+            loop.close()
+        assert result == ("disconnect", None)

@@ -103,6 +103,8 @@ class WebClient(GameClient):
         """Read from the input queue (blocking)."""
         try:
             raw = self._in_queue.get(timeout=30)
+            if isinstance(raw, dict):
+                return raw
             msg = json.loads(raw)
             logger.debug("QUEUE RECV: %s", msg.get("type", "?"))
             return msg
@@ -591,11 +593,14 @@ class WebClient(GameClient):
 
         Blocks until a real player action arrives. Timeouts and
         empty messages are retried so they don't consume turns.
+        Returns ("disconnect", None) when the WebSocket disconnects.
         """
         loop = asyncio.get_event_loop()
         while True:
             msg = await loop.run_in_executor(None, self._recv)
             msg_type = msg.get("type", "")
+            if msg_type == "disconnect":
+                return ("disconnect", None)
             if msg_type == "action":
                 return (msg.get("intent", "wait"), msg.get("data"))
             if msg_type == "typed":

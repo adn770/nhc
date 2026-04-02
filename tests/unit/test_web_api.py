@@ -171,3 +171,75 @@ class TestPlayerAPI:
         pid1 = r1.get_json()["player_id"]
         pid2 = r2.get_json()["player_id"]
         assert pid1 != pid2
+
+
+class TestResumeAPI:
+    def test_resume_missing_token(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/game/resume", json={},
+        )
+        assert resp.status_code == 400
+
+    def test_resume_no_save(self, client_with_data_dir):
+        resp = client_with_data_dir.post("/api/player/register")
+        token = resp.get_json()["player_token"]
+
+        resp = client_with_data_dir.post(
+            "/api/game/resume",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["has_save"] is False
+
+    def test_resume_with_autosave(self, client_with_data_dir):
+        # Register and create a game
+        resp = client_with_data_dir.post("/api/player/register")
+        token = resp.get_json()["player_token"]
+        pid = resp.get_json()["player_id"]
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+
+        # Manually trigger an autosave for this player
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        autosave(session.game, session.save_dir)
+
+        # Destroy the original session (simulates disconnect cleanup)
+        sessions.destroy(sid)
+
+        # Now resume — should restore from autosave
+        resp = client_with_data_dir.post(
+            "/api/game/resume",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data["resumed"] is True
+        assert data["turn"] >= 0
+
+    def test_resume_finds_active_session(self, client_with_data_dir):
+        resp = client_with_data_dir.post("/api/player/register")
+        token = resp.get_json()["player_token"]
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+
+        # Resume with active session — should return existing session_id
+        resp = client_with_data_dir.post(
+            "/api/game/resume",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["session_id"] == sid
+        assert data["resumed"] is True

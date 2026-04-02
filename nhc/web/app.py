@@ -112,6 +112,95 @@ def create_app(
             "active_session": existing.session_id if existing else None,
         })
 
+    @app.route("/api/game/resume", methods=["POST"])
+    @_maybe_auth
+    def game_resume():
+        data = request.get_json(silent=True) or {}
+        token = data.get("player_token", "")
+        if not token:
+            return jsonify({"error": "player_token required"}), 400
+
+        pid = player_id_from_token(token)
+        save_dir = _player_save_dir(pid)
+
+        # Check for an active (disconnected) session
+        existing = sessions.get_by_player(pid)
+        if existing and existing.game and existing.game.level:
+            logger.info("Resume: found active session %s for player %s",
+                        existing.session_id, pid)
+            return jsonify({
+                "session_id": existing.session_id,
+                "resumed": True,
+                "turn": existing.game.turn,
+            })
+
+        # No active session — check for autosave on disk
+        from nhc.core.autosave import has_autosave
+        if not has_autosave(save_dir):
+            return jsonify({"has_save": False})
+
+        # Create a new session and restore from autosave
+        lang = data.get("lang", "")
+        tileset = data.get("tileset", "")
+        try:
+            session = sessions.create(
+                lang=lang, tileset=tileset,
+                player_id=pid, save_dir=save_dir,
+            )
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 429
+
+        from nhc.i18n import init as i18n_init
+        i18n_init(session.lang)
+
+        from nhc.core.game import Game
+        from nhc.utils.llm import create_backend
+        from nhc.rendering.web_client import WebClient
+
+        client = WebClient(game_mode="classic", lang=session.lang)
+        backend = create_backend({
+            "provider": "ollama",
+            "model": config.ollama_model,
+            "url": config.ollama_url,
+            "temp": 0.1,
+            "ctx": 16384,
+        })
+
+        game = Game(
+            client=client,
+            backend=backend,
+            game_mode="classic",
+            shape_variety=config.shape_variety,
+            god_mode=config.god_mode,
+            save_dir=save_dir,
+        )
+        session.game = game
+
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(game.initialize(generate=True))
+        except Exception:
+            logger.exception("Failed to restore game for player %s", pid)
+            sessions.destroy(session.session_id)
+            return jsonify({"error": "game restore failed"}), 500
+        finally:
+            loop.close()
+
+        # Re-render floor SVG for restored level
+        from nhc.rendering.svg import render_floor_svg, render_hatch_svg
+        if game.level:
+            seed = game.seed or 0
+            client.floor_svg = render_floor_svg(game.level, seed=seed)
+            client.hatch_svg = render_hatch_svg(seed=seed)
+
+        logger.info("Resume: restored session %s for player %s (turn=%d)",
+                     session.session_id, pid, game.turn)
+        return jsonify({
+            "session_id": session.session_id,
+            "resumed": True,
+            "turn": game.turn,
+        }), 201
+
     @app.route("/api/game/has_save", methods=["GET"])
     @_maybe_auth
     def game_has_save():

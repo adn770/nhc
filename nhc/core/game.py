@@ -693,6 +693,11 @@ class Game:
                 actions = await self._get_typed_actions()
             else:
                 actions = await self._get_classic_actions()
+            if actions and actions[0] == "disconnect":
+                logger.info("Player disconnected, suspending game")
+                _autosave(self, self.save_dir)
+                self.running = False
+                break
             if not actions:
                 continue
 
@@ -822,6 +827,8 @@ class Game:
     async def _get_classic_actions(self) -> list:
         """Classic mode: single keypress → single action."""
         intent, data = await self.renderer.get_input()
+        if intent == "disconnect":
+            return ["disconnect"]
         logger.debug("Input: intent=%s data=%s", intent, data)
         action = self._intent_to_action(intent, data)
         return [action] if action else []
@@ -835,6 +842,8 @@ class Game:
         # Movement keys bypass the GM pipeline
         if isinstance(result, tuple):
             intent, data = result
+            if intent == "disconnect":
+                return ["disconnect"]
             action = self._intent_to_action(intent, data)
             return [action] if action else []
 
