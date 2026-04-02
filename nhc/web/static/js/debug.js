@@ -31,6 +31,7 @@ const DebugPanel = {
   // Tab definitions — extensible
   _tabs: [
     { name: "Layers", buildFn: "_buildLayersTab" },
+    { name: "Export", buildFn: "_buildExportTab" },
   ],
 
   init() {
@@ -389,5 +390,83 @@ const DebugPanel = {
       ctx.fillText(`${x},${y}`, px, py);
     }
     ctx.restore();
+  },
+
+  // ── Export tab ───────────────────────────────────────────────
+
+  _buildExportTab() {
+    const frag = document.createDocumentFragment();
+    const header = this._sectionHeader("Export Data");
+    frag.appendChild(header);
+
+    const exports = [
+      { label: "Game State", endpoint: "export/game_state" },
+      { label: "Layer State", endpoint: "export/layer_state" },
+      { label: "Map SVG", endpoint: "export/map_svg" },
+    ];
+
+    exports.forEach(({ label, endpoint }) => {
+      frag.appendChild(this._exportButton(label, endpoint));
+    });
+
+    // Export All button
+    const allBtn = document.createElement("button");
+    allBtn.className = "debug-export-btn";
+    allBtn.textContent = "Export All";
+    allBtn.style.marginTop = "8px";
+    allBtn.style.borderColor = "#e6c07b";
+    allBtn.style.color = "#e6c07b";
+    allBtn.addEventListener("click", async () => {
+      allBtn.disabled = true;
+      allBtn.textContent = "Exporting...";
+      const sid = NHC.sessionId;
+      const paths = [];
+      for (const { endpoint } of exports) {
+        try {
+          const r = await fetch(
+            `/api/game/${sid}/${endpoint}`, { method: "POST" });
+          const d = await r.json();
+          if (d.path) paths.push(d.path);
+        } catch (e) {
+          console.warn("Export failed:", endpoint, e);
+        }
+      }
+      allBtn.disabled = false;
+      allBtn.textContent = `Exported ${paths.length} files`;
+      setTimeout(() => { allBtn.textContent = "Export All"; }, 3000);
+    });
+    frag.appendChild(allBtn);
+
+    return frag;
+  },
+
+  _exportButton(label, endpoint) {
+    const row = document.createElement("div");
+    row.style.marginBottom = "4px";
+    const btn = document.createElement("button");
+    btn.className = "debug-export-btn";
+    btn.textContent = label;
+    const status = document.createElement("span");
+    status.style.color = "#888";
+    status.style.fontSize = "10px";
+    status.style.marginLeft = "8px";
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      status.textContent = "...";
+      try {
+        const r = await fetch(
+          `/api/game/${NHC.sessionId}/${endpoint}`,
+          { method: "POST" });
+        const d = await r.json();
+        status.textContent = d.path || "done";
+      } catch (e) {
+        status.textContent = "failed";
+      }
+      btn.disabled = false;
+      setTimeout(() => { status.textContent = ""; }, 5000);
+    });
+    row.appendChild(btn);
+    row.appendChild(status);
+    return row;
   },
 };

@@ -22,6 +22,9 @@ dev = [
     "pytest",
     "pytest-asyncio",
 ]
+debug = [
+    "mcp",
+]
 
 [project.scripts]
 nhc = "nhc.main:entry"

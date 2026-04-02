@@ -207,6 +207,99 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=86400"
         return resp
 
+    # ── Export routes (god mode only) ───────────────────────────
+
+    @app.route("/api/game/<session_id>/export/game_state",
+               methods=["POST"])
+    @_maybe_auth
+    def export_game_state(session_id: str):
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        import json as _json
+        from datetime import datetime
+        from pathlib import Path as _Path
+        from nhc.core.save import _serialize_entities, _serialize_level
+        game = session.game
+        client = game.renderer
+        static, dynamic = client._gather_stats(
+            game.world, game.player_id, game.turn, game.level)
+        data = {
+            "timestamp": datetime.now().isoformat(),
+            "turn": game.turn,
+            "player_id": game.player_id,
+            "seed": game.seed,
+            "stats": {**static, **dynamic},
+            "entities": client._gather_entities(
+                game.world, game.level, game.player_id),
+            "level": _serialize_level(game.level),
+            "ecs": _serialize_entities(game.world),
+        }
+        out = _Path("debug/exports")
+        out.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = out / f"game_state_{ts}.json"
+        path.write_text(_json.dumps(data, indent=2))
+        logger.info("Exported game state: %s", path)
+        return jsonify({"path": str(path)})
+
+    @app.route("/api/game/<session_id>/export/layer_state",
+               methods=["POST"])
+    @_maybe_auth
+    def export_layer_state(session_id: str):
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        import json as _json
+        from datetime import datetime
+        from pathlib import Path as _Path
+        from nhc.dungeon.model import Terrain
+        game = session.game
+        client = game.renderer
+        level = game.level
+        # Explored tiles
+        explored = []
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tile_at(x, y)
+                if tile and tile.explored:
+                    explored.append([x, y])
+        data = {
+            "timestamp": datetime.now().isoformat(),
+            "turn": game.turn,
+            "fov": client._gather_fov(level),
+            "explored": explored,
+            "doors": client._gather_doors(level),
+            "debug": client._gather_debug_data(level),
+        }
+        out = _Path("debug/exports")
+        out.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = out / f"layer_state_{ts}.json"
+        path.write_text(_json.dumps(data, indent=2))
+        logger.info("Exported layer state: %s", path)
+        return jsonify({"path": str(path)})
+
+    @app.route("/api/game/<session_id>/export/map_svg",
+               methods=["POST"])
+    @_maybe_auth
+    def export_map_svg(session_id: str):
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        from datetime import datetime
+        from pathlib import Path as _Path
+        client = session.game.renderer
+        if not client.floor_svg:
+            return jsonify({"error": "no SVG"}), 404
+        out = _Path("debug/exports")
+        out.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = out / f"map_{ts}.svg"
+        path.write_text(client.floor_svg)
+        logger.info("Exported map SVG: %s", path)
+        return jsonify({"path": str(path)})
+
     @app.route("/api/game/list", methods=["GET"])
     @_maybe_auth
     def game_list():

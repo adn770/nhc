@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "nhc-debug": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "nhc.debug_tools.mcp_server"],
+      "cwd": "/Users/jtorra/src/nhc"
+    }
+  }
+}

@@ -281,6 +281,31 @@ body {
   color: #ccc;
 }
 
+.debug-export-btn {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.debug-export-btn:hover {
+  background: #2a2a4e;
+  border-color: #e6c07b;
+  color: #fff;
+}
+
+.debug-export-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Toolbar */
 #toolbar-zone {
   background: #16213e;

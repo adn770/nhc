@@ -1,0 +1,30 @@
+"""Tool registry for nhc debug MCP server."""
+
+from nhc.debug_tools.tools.exports import ListExportsTool, ReadExportTool
+from nhc.debug_tools.tools.game_state import (
+    GetEntityListTool,
+    GetGameSnapshotTool,
+    GetTileInfoTool,
+)
+from nhc.debug_tools.tools.dungeon import (
+    GetDoorAnalysisTool,
+    GetRoomInfoTool,
+    SearchTilesTool,
+)
+from nhc.debug_tools.tools.rendering import (
+    GetFOVAnalysisTool,
+    GetLayerStateTool,
+)
+
+ALL_TOOL_CLASSES = [
+    ListExportsTool,
+    ReadExportTool,
+    GetGameSnapshotTool,
+    GetEntityListTool,
+    GetTileInfoTool,
+    GetRoomInfoTool,
+    GetDoorAnalysisTool,
+    SearchTilesTool,
+    GetFOVAnalysisTool,
+    GetLayerStateTool,
+]
