@@ -22,7 +22,7 @@ from nhc.entities.components import (
     Throwable,
 )
 from nhc.entities.registry import EntityRegistry
-from nhc.i18n import init as i18n_init
+from nhc.i18n import init as i18n_init, t
 from nhc.rules.identification import POTION_APPEARANCES, POTION_IDS
 from nhc.utils.rng import set_seed
 
@@ -363,7 +363,6 @@ class TestNewPotionI18n:
             break  # only need to verify en loads without error
 
     def test_en_names_exist(self):
-        from nhc.i18n import t
         i18n_init("en")
         for pid in ["potion_speed", "potion_confusion",
                      "potion_blindness", "potion_acid",

@@ -9,7 +9,10 @@ from nhc.entities.components import (
     AI, Health, Inventory, Player, Poison, Position,
     Renderable, Stats, StatusEffect, Trap,
 )
+from nhc.dungeon.populator import FEATURE_POOLS
+from nhc.entities.registry import EntityRegistry
 from nhc.i18n import init as i18n_init
+from nhc.rendering.web_client import WebClient
 from nhc.utils.rng import set_seed
 
 
@@ -51,7 +54,6 @@ def _make_world_with_trap(
 class TestTrapFactories:
     def test_all_trap_factories_exist(self):
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
         for trap_id in [
             "trap_pit", "trap_fire", "trap_poison", "trap_paralysis",
@@ -155,7 +157,6 @@ class TestTeleportTrap:
 class TestSummoningTrap:
     def test_spawns_creatures(self):
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
 
         world, pid, _, level = _make_world_with_trap(
@@ -268,7 +269,6 @@ class TestHiddenTrapRendering:
         return world, pid, tid, level
 
     def test_web_client_excludes_hidden_traps(self):
-        from nhc.rendering.web_client import WebClient
         world, pid, tid, level = self._make_world_with_renderable_trap(
             hidden=True,
         )
@@ -278,7 +278,6 @@ class TestHiddenTrapRendering:
         assert tid not in eids, "hidden trap should not be in entity list"
 
     def test_web_client_includes_revealed_traps(self):
-        from nhc.rendering.web_client import WebClient
         world, pid, tid, level = self._make_world_with_renderable_trap(
             hidden=False,
         )
@@ -288,7 +287,6 @@ class TestHiddenTrapRendering:
         assert tid in eids, "revealed trap should be in entity list"
 
     def test_web_client_includes_triggered_traps(self):
-        from nhc.rendering.web_client import WebClient
         world, pid, tid, level = self._make_world_with_renderable_trap(
             hidden=True,
         )
@@ -304,7 +302,6 @@ class TestHiddenTrapRendering:
 
 class TestTrapSpawnPool:
     def test_pool_has_variety(self):
-        from nhc.dungeon.populator import FEATURE_POOLS
         assert len(FEATURE_POOLS) >= 8
         ids = [p[0] for p in FEATURE_POOLS]
         assert "trap_pit" in ids

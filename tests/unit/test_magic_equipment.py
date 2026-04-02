@@ -9,7 +9,9 @@ from nhc.entities.components import (
     AI, Armor, BlocksMovement, Description, Enchanted, Equipment,
     Health, Inventory, Player, Position, Renderable, Stats, Weapon,
 )
+from nhc.entities.registry import EntityRegistry
 from nhc.i18n import init as i18n_init
+from nhc.rendering.terminal.renderer import TerminalRenderer
 from nhc.rules.combat import resolve_melee_attack
 from nhc.utils.rng import set_seed
 
@@ -62,7 +64,6 @@ class TestMagicWeaponBonus:
     def test_magic_weapon_is_enchanted(self):
         """A +1 weapon should count as enchanted."""
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
         comps = EntityRegistry.get_item("sword_plus_1")
         assert comps["Weapon"].magic_bonus == 1
@@ -137,7 +138,6 @@ class TestMagicArmorBonus:
         equip.armor = armor
 
         # Gather AC
-        from nhc.rendering.terminal.renderer import TerminalRenderer
         r = TerminalRenderer(color_mode="16")
         level = _make_level()
         stats = r._gather_stats(world, pid, 0, level)
@@ -164,7 +164,6 @@ class TestMagicArmorBonus:
         equip = world.get_component(pid, "Equipment")
         equip.shield = shield
 
-        from nhc.rendering.terminal.renderer import TerminalRenderer
         r = TerminalRenderer(color_mode="16")
         level = _make_level()
         stats = r._gather_stats(world, pid, 0, level)
@@ -175,7 +174,6 @@ class TestMagicArmorBonus:
 class TestMagicItemFactories:
     def test_all_magic_weapons_registered(self):
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
         weapons = [
             "dagger_plus_1", "short_sword_plus_1", "sword_plus_1",
@@ -192,7 +190,6 @@ class TestMagicItemFactories:
 
     def test_all_magic_armor_registered(self):
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
         armor = [
             "gambeson_plus_1", "leather_armor_plus_1",

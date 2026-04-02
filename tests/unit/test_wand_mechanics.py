@@ -8,7 +8,9 @@ from nhc.entities.components import (
     AI, Description, Equipment, Health, Inventory, Player,
     Position, Stats, StatusEffect, Wand,
 )
+from nhc.entities.registry import EntityRegistry
 from nhc.i18n import init as i18n_init
+from nhc.utils.rng import set_seed
 
 
 def _setup():
@@ -118,9 +120,7 @@ class TestZapAction:
 class TestWandRecharge:
     def test_wand_initial_charges(self):
         """Wand factories produce 2d10 charges (2-20 range)."""
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
-        from nhc.utils.rng import set_seed
         set_seed(42)
         comps = EntityRegistry.get_item("wand_firebolt")
         wand = comps["Wand"]

@@ -1,8 +1,9 @@
 """Tests for web authentication."""
 
 import pytest
+from flask import Flask, jsonify
 
-from nhc.web.auth import generate_token, hash_token
+from nhc.web.auth import generate_token, hash_token, require_auth
 
 
 class TestTokens:
@@ -32,9 +33,6 @@ class TestAuthMiddleware:
 
     @pytest.fixture
     def app_with_auth(self):
-        from flask import Flask, jsonify
-        from nhc.web.auth import require_auth
-
         token = "secret_test_token"
         valid = {hash_token(token)}
 

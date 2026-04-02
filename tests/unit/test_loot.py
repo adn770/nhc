@@ -9,6 +9,7 @@ from nhc.entities.components import (
     Position,
     Renderable,
 )
+from nhc.entities.registry import EntityRegistry
 from nhc.rules.loot import generate_loot
 from nhc.utils.rng import set_seed
 
@@ -19,7 +20,6 @@ class TestGenerateLoot:
         set_seed(42)
         world = World()
         # Register a fake item via direct entity
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry._items["test_item"] = lambda: {
             "Renderable": Renderable(glyph="!", color="white"),
             "Description": Description(name="Test Item"),
@@ -41,7 +41,6 @@ class TestGenerateLoot:
         """Entry with probability 0 never drops."""
         set_seed(42)
         world = World()
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry._items["no_drop"] = lambda: {
             "Renderable": Renderable(glyph="!"),
             "Description": Description(name="No Drop"),
@@ -65,7 +64,6 @@ class TestGenerateLoot:
         """Entries with dice notation produce quantity-modified names."""
         set_seed(42)
         world = World()
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry._items["gold_test"] = lambda: {
             "Renderable": Renderable(glyph="$"),
             "Description": Description(name="Gold"),
@@ -87,7 +85,6 @@ class TestGenerateLoot:
         """Multiple guaranteed entries all spawn."""
         set_seed(42)
         world = World()
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry._items["item_a"] = lambda: {
             "Renderable": Renderable(glyph="a"),
             "Description": Description(name="Item A"),

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 import tempfile
 
 from nhc.utils.log import (
@@ -107,7 +108,6 @@ class TestGameFormatter:
         try:
             raise ValueError("test error")
         except ValueError:
-            import sys
             ei = sys.exc_info()
             output = fmt.formatException(ei)
             assert "ValueError" in output

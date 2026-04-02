@@ -9,6 +9,7 @@ from nhc.entities.components import (
 )
 from nhc.i18n import init as i18n_init
 from nhc.rules.identification import ItemKnowledge, ALL_IDS
+from nhc.utils.rng import set_seed
 import random
 
 
@@ -79,7 +80,6 @@ class TestGodModeHP:
     async def test_player_death_no_corpse(self):
         """Player reaching 0 HP should not leave a corpse on the map."""
         i18n_init("en")
-        from nhc.utils.rng import set_seed
         set_seed(1)
         w = World()
         tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(10)]

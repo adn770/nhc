@@ -2,6 +2,7 @@
 
 import pytest
 
+from nhc.ai.behavior import decide_action
 from nhc.core.actions import MeleeAttackAction, UseItemAction
 from nhc.core.ecs import World
 from nhc.core.events import CreatureDied, MessageEvent
@@ -535,8 +536,6 @@ class TestScrollFireball:
 
 class TestStatusEffectAI:
     def test_paralyzed_creature_skips_turn(self):
-        from nhc.ai.behavior import decide_action
-
         world = World()
         level = _make_level()
 
@@ -558,8 +557,6 @@ class TestStatusEffectAI:
         assert status.paralyzed == 2
 
     def test_sleeping_creature_skips_turn(self):
-        from nhc.ai.behavior import decide_action
-
         world = World()
         level = _make_level()
 
@@ -580,8 +577,6 @@ class TestStatusEffectAI:
         assert status.sleeping == 4
 
     def test_status_expires_and_creature_acts(self):
-        from nhc.ai.behavior import decide_action
-
         world = World()
         level = _make_level()
 
@@ -597,7 +592,6 @@ class TestStatusEffectAI:
 
         # paralyzed=0 → creature should act normally (attack adjacent player)
         action = decide_action(cid, world, level, pid)
-        from nhc.core.actions import MeleeAttackAction
         assert isinstance(action, MeleeAttackAction)
 
 
@@ -633,18 +627,14 @@ class TestSleepingAutoHit:
 
 class TestECSRemoveComponent:
     def test_remove_component_eliminates_it(self):
-        from nhc.core.ecs import World as W
-
-        w = W()
+        w = World()
         eid = w.create_entity({"Poison": Poison()})
         assert w.has_component(eid, "Poison")
         w.remove_component(eid, "Poison")
         assert not w.has_component(eid, "Poison")
 
     def test_remove_nonexistent_component_noop(self):
-        from nhc.core.ecs import World as W
-
-        w = W()
+        w = World()
         eid = w.create_entity({})
         # Should not raise
         w.remove_component(eid, "Poison")

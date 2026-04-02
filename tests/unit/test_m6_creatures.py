@@ -19,6 +19,7 @@ from nhc.entities.components import (
     Stats,
     Weapon,
 )
+from nhc.dungeon.populator import CREATURE_POOLS
 from nhc.entities.registry import EntityRegistry
 from nhc.utils.rng import set_seed
 
@@ -165,23 +166,19 @@ class TestInlineWeapon:
 
 class TestPopulatorTier4:
     def test_depth_4_uses_tier4_pool(self):
-        from nhc.dungeon.populator import CREATURE_POOLS
         assert 4 in CREATURE_POOLS
         ids = [cid for cid, _ in CREATURE_POOLS[4]]
         assert "ogre" in ids or "brown_bear" in ids
 
     def test_depth_1_includes_kobold(self):
-        from nhc.dungeon.populator import CREATURE_POOLS
         ids = [cid for cid, _ in CREATURE_POOLS[1]]
         assert "kobold" in ids
 
     def test_depth_2_includes_hobgoblin(self):
-        from nhc.dungeon.populator import CREATURE_POOLS
         ids = [cid for cid, _ in CREATURE_POOLS[2]]
         assert "hobgoblin" in ids
 
     def test_weights_sum_to_1_in_each_tier(self):
-        from nhc.dungeon.populator import CREATURE_POOLS
         for tier, pool in CREATURE_POOLS.items():
             total = sum(w for _, w in pool)
             assert abs(total - 1.0) < 1e-6, f"Tier {tier} weights sum to {total}"

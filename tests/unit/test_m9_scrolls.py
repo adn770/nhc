@@ -21,7 +21,7 @@ from nhc.entities.components import (
     StatusEffect,
 )
 from nhc.entities.registry import EntityRegistry
-from nhc.utils.rng import set_seed
+from nhc.utils.rng import set_seed, set_seed as _ss
 
 
 def _make_level():
@@ -419,8 +419,6 @@ class TestBlessedCombat:
         s.strength = 10
         target_id = _make_creature(world, x=6, y=5, hp=100)
         world.add_component(player_id, "StatusEffect", StatusEffect(blessed=5))
-
-        from nhc.utils.rng import set_seed as _ss
 
         # Run many attacks and check average damage is higher
         total_blessed = 0

@@ -1,10 +1,15 @@
 """Tests for rendering theme system."""
 
+from nhc.dungeon.model import Terrain
+from nhc.rendering.terminal.glyphs import (
+    CORRIDOR_GLYPH,
+    TERRAIN_GLYPHS,
+    wall_glyph,
+)
 from nhc.rendering.terminal.themes import (
     THEMES, THEME_BASIC, THEME_EXPERIMENTAL, THEME_MODERN,
     get_theme, set_theme,
 )
-from nhc.dungeon.model import Terrain
 
 
 class TestThemeRegistry:
@@ -112,7 +117,6 @@ class TestExperimentalTheme:
 
 class TestGlyphsCompat:
     def test_wall_glyph_uses_theme(self):
-        from nhc.rendering.terminal.glyphs import wall_glyph
         set_theme("basic")
         assert wall_glyph(True, True, False, False) == "|"
         set_theme("modern")
@@ -122,7 +126,6 @@ class TestGlyphsCompat:
         set_theme("modern")  # reset
 
     def test_terrain_glyphs_proxy(self):
-        from nhc.rendering.terminal.glyphs import TERRAIN_GLYPHS
         set_theme("basic")
         glyph, _, _ = TERRAIN_GLYPHS[Terrain.WALL]
         assert glyph == "-"
@@ -132,7 +135,6 @@ class TestGlyphsCompat:
         set_theme("modern")  # reset
 
     def test_corridor_glyph_proxy(self):
-        from nhc.rendering.terminal.glyphs import CORRIDOR_GLYPH
         set_theme("modern")
         assert CORRIDOR_GLYPH[0] == "#"
         set_theme("experimental")

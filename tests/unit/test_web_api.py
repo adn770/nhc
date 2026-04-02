@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from nhc.core.autosave import autosave
 from nhc.web.app import create_app
 from nhc.web.config import WebConfig
 
@@ -88,7 +89,6 @@ class TestGameAPI:
             # Trigger an autosave by getting the game's session
             sessions = reset_client.application.config["SESSIONS"]
             session = sessions.get(sid1)
-            from nhc.core.autosave import autosave
             autosave(session.game)
             assert save_path.exists()
 

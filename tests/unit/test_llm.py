@@ -1,6 +1,7 @@
 """Tests for LLM backend abstraction and provider selection."""
 
 import platform
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -38,7 +39,6 @@ class TestAutoDetectProvider:
     @patch("platform.system", return_value="Darwin")
     @patch("platform.machine", return_value="arm64")
     def test_auto_detect_falls_back_to_ollama_without_mlx(self, _m, _s):
-        import sys
         # Temporarily remove mlx_lm from modules so the import fails
         saved = sys.modules.pop("mlx_lm", None)
         try:

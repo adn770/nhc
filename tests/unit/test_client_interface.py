@@ -2,6 +2,8 @@
 
 import inspect
 
+import pytest
+
 from nhc.rendering.client import GameClient
 from nhc.rendering.terminal.renderer import TerminalRenderer
 
@@ -11,7 +13,6 @@ class TestGameClientInterface:
 
     def test_game_client_is_abstract(self):
         """GameClient cannot be instantiated directly."""
-        import pytest
         with pytest.raises(TypeError):
             GameClient()
 

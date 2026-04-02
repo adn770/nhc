@@ -28,6 +28,7 @@ from nhc.entities.components import (
     Weapon,
 )
 from nhc.entities.registry import EntityRegistry
+from nhc.rules.combat import heal
 from nhc.utils.rng import set_seed
 
 
@@ -122,7 +123,6 @@ class TestM8CreatureRegistry:
 class TestRegeneration:
     def test_regen_increases_hp(self):
         """Health of entity with Regeneration increases when not fire-damaged."""
-        from nhc.rules.combat import heal
         health = Health(current=10, maximum=20)
         regen = Regeneration(hp_per_turn=3, fire_damaged=False)
         before = health.current
@@ -131,7 +131,6 @@ class TestRegeneration:
         assert health.current == 13
 
     def test_regen_skips_when_fire_damaged(self):
-        from nhc.rules.combat import heal
         health = Health(current=10, maximum=20)
         regen = Regeneration(hp_per_turn=3, fire_damaged=True)
         before = health.current
@@ -143,7 +142,6 @@ class TestRegeneration:
         assert regen.fire_damaged is False  # flag reset
 
     def test_regen_does_not_exceed_max(self):
-        from nhc.rules.combat import heal
         health = Health(current=19, maximum=20)
         regen = Regeneration(hp_per_turn=3, fire_damaged=False)
         heal(health, regen.hp_per_turn)

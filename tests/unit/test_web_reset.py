@@ -1,7 +1,10 @@
 """Tests for --reset flag in nhc_web and WebConfig."""
 
+import sys
 from unittest.mock import patch
 
+from nhc_web import parse_args
+from nhc.web.app import create_app
 from nhc.web.config import WebConfig
 
 
@@ -19,26 +22,20 @@ def test_webconfig_reset_true():
 
 def test_parse_args_reset_absent(monkeypatch):
     """--reset absent means args.reset is False."""
-    import sys
     monkeypatch.setattr(sys, "argv", ["nhc_web.py"])
-    from nhc_web import parse_args
     args = parse_args()
     assert args.reset is False
 
 
 def test_parse_args_reset_present(monkeypatch):
     """--reset flag sets args.reset to True."""
-    import sys
     monkeypatch.setattr(sys, "argv", ["nhc_web.py", "--reset"])
-    from nhc_web import parse_args
     args = parse_args()
     assert args.reset is True
 
 
 def test_game_new_passes_reset_flag():
     """POST /api/game/new should pass config.reset to Game()."""
-    from nhc.web.app import create_app
-
     captured = {}
 
     class FakeGame:
@@ -65,8 +62,6 @@ def test_game_new_passes_reset_flag():
 
 def test_game_new_default_no_reset():
     """Without --reset, Game should get reset=False."""
-    from nhc.web.app import create_app
-
     captured = {}
 
     class FakeGame:
@@ -92,8 +87,6 @@ def test_game_new_default_no_reset():
 
 def test_fresh_game_after_death(tmp_path, monkeypatch):
     """No autosave (deleted on death) creates a fresh game without --reset."""
-    from nhc.web.app import create_app
-
     save_path = tmp_path / "autosave.nhc"
     monkeypatch.setattr("nhc.core.autosave.AUTOSAVE_PATH", save_path)
     monkeypatch.setattr("nhc.core.autosave.AUTOSAVE_DIR", tmp_path)

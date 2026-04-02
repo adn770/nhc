@@ -10,6 +10,8 @@ from nhc.entities.components import (
     Description, Equipment, Health, Inventory, Player,
     Position, Renderable, Stats, Weapon,
 )
+from nhc.dungeon.generator import GenerationParams
+from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.i18n import init as i18n_init
 from nhc.utils.rng import set_seed
 
@@ -251,9 +253,6 @@ class TestForceDoorWithTool:
 class TestLockedDoorGeneration:
     def test_bsp_generates_locked_doors(self):
         """Some seeds should produce locked doors."""
-        from nhc.dungeon.generator import GenerationParams
-        from nhc.dungeon.generators.bsp import BSPGenerator
-
         found = False
         for seed in range(100):
             set_seed(seed)
