@@ -1,9 +1,24 @@
 """Tests for room shape abstraction."""
 
+import json
+
+import pytest
+
+from nhc.core.ecs import World
+from nhc.core.save import load_game, save_game
+from nhc.dungeon.generator import GenerationParams
+from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import (
-    CircleShape, CrossShape, HybridShape, OctagonShape,
-    Rect, Room, RoomShape, RectShape,
+    CircleShape, CrossShape, HybridShape, Level, OctagonShape,
+    Rect, Room, RoomShape, RectShape, Terrain, Tile, shape_from_type,
 )
+from nhc.entities.components import (
+    Health, Player, Position, Renderable, Stats,
+)
+from nhc.rendering.terminal.glyphs import wall_glyph
+from nhc.rendering.terminal.renderer import TerminalRenderer
+from nhc.rendering.terminal.themes import get_theme, set_theme
+from nhc.utils.rng import set_seed
 
 
 class TestRectShape:
@@ -72,7 +87,6 @@ class TestRoomShapeInterface:
 
     def test_shape_is_abstract(self):
         """RoomShape cannot be instantiated directly."""
-        import pytest
         with pytest.raises(TypeError):
             RoomShape()
 
@@ -333,7 +347,6 @@ class TestHybridShape:
 
     def test_hybrid_save_load_roundtrip(self, tmp_path):
         """Hybrid shapes survive save→load."""
-        from nhc.dungeon.model import shape_from_type
         shape = HybridShape(CircleShape(), RectShape(), "vertical")
         loaded = shape_from_type(shape.type_name)
         assert isinstance(loaded, HybridShape)
@@ -345,32 +358,26 @@ class TestHybridShape:
 
 class TestShapeRegistry:
     def test_resolve_rect(self):
-        from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("rect")
         assert isinstance(shape, RectShape)
 
     def test_resolve_circle(self):
-        from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("circle")
         assert isinstance(shape, CircleShape)
 
     def test_resolve_octagon(self):
-        from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("octagon")
         assert isinstance(shape, OctagonShape)
 
     def test_resolve_cross(self):
-        from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("cross")
         assert isinstance(shape, CrossShape)
 
     def test_resolve_unknown_defaults_to_rect(self):
-        from nhc.dungeon.model import shape_from_type
         shape = shape_from_type("unknown_future_shape")
         assert isinstance(shape, RectShape)
 
     def test_resolve_none_defaults_to_rect(self):
-        from nhc.dungeon.model import shape_from_type
         shape = shape_from_type(None)
         assert isinstance(shape, RectShape)
 
@@ -378,13 +385,6 @@ class TestShapeRegistry:
 class TestShapeSaveLoad:
     def test_room_shape_survives_save_load(self, tmp_path):
         """Shape type is preserved through JSON save/load."""
-        from nhc.core.ecs import World
-        from nhc.core.save import save_game, load_game
-        from nhc.dungeon.model import Level, Terrain, Tile
-        from nhc.entities.components import (
-            Health, Player, Position, Renderable, Stats,
-        )
-
         tiles = [
             [Tile(terrain=Terrain.FLOOR) for _ in range(10)]
             for _ in range(10)
@@ -415,13 +415,6 @@ class TestShapeSaveLoad:
 
     def test_circle_shape_survives_save_load(self, tmp_path):
         """Circle shape type is preserved through JSON save/load."""
-        from nhc.core.ecs import World
-        from nhc.core.save import save_game, load_game
-        from nhc.dungeon.model import Level, Terrain, Tile
-        from nhc.entities.components import (
-            Health, Player, Position, Renderable, Stats,
-        )
-
         tiles = [
             [Tile(terrain=Terrain.FLOOR) for _ in range(10)]
             for _ in range(10)
@@ -456,9 +449,6 @@ class TestCircleRoomGeneration:
     """Integration tests: generate dungeons with circular rooms."""
 
     def _generate_with_circles(self, seed=42):
-        from nhc.dungeon.generator import GenerationParams
-        from nhc.dungeon.generators.bsp import BSPGenerator
-        from nhc.utils.rng import set_seed
         set_seed(seed)
         gen = BSPGenerator()
         params = GenerationParams(
@@ -481,7 +471,6 @@ class TestCircleRoomGeneration:
 
     def test_all_rooms_reachable(self):
         """Every room center must be reachable via flood fill."""
-        from nhc.dungeon.model import Terrain
         level = self._generate_with_circles()
         # Find stairs_up as starting point
         start = None
@@ -533,7 +522,6 @@ class TestCircleRoomGeneration:
 
     def test_walls_surround_circle_rooms(self):
         """Circle rooms must have WALL tiles around their perimeter."""
-        from nhc.dungeon.model import Terrain
         level = self._generate_with_circles()
         for room in level.rooms:
             if not isinstance(room.shape, CircleShape):
@@ -562,11 +550,6 @@ class TestCircleRoomGeneration:
 
     def test_circle_save_load_roundtrip(self, tmp_path):
         """Circles survive save→load with correct shape type."""
-        from nhc.core.ecs import World
-        from nhc.core.save import save_game, load_game
-        from nhc.entities.components import (
-            Health, Player, Position, Renderable, Stats,
-        )
         level = self._generate_with_circles()
         world = World()
         cx, cy = level.rooms[0].rect.center
@@ -593,8 +576,6 @@ class TestRoundedWallGlyphs:
     """Tests for rounded corner wall glyph rendering."""
 
     def test_wall_glyph_rounded_corners(self):
-        from nhc.rendering.terminal.themes import set_theme, get_theme
-        from nhc.rendering.terminal.glyphs import wall_glyph
         set_theme("modern")
         # ┌ (south+east) becomes ╭ when rounded
         assert wall_glyph(False, True, True, False, rounded=False) == "┌"
@@ -610,8 +591,6 @@ class TestRoundedWallGlyphs:
         assert wall_glyph(True, False, False, True, rounded=True) == "╯"
 
     def test_wall_glyph_rounded_non_corner_unchanged(self):
-        from nhc.rendering.terminal.themes import set_theme
-        from nhc.rendering.terminal.glyphs import wall_glyph
         set_theme("modern")
         # Straight lines should not change with rounded=True
         assert wall_glyph(False, False, True, True, rounded=True) == "─"
@@ -620,8 +599,6 @@ class TestRoundedWallGlyphs:
         assert wall_glyph(True, True, True, True, rounded=True) == "┼"
 
     def test_basic_theme_no_rounded(self):
-        from nhc.rendering.terminal.themes import set_theme
-        from nhc.rendering.terminal.glyphs import wall_glyph
         set_theme("basic")
         # Basic theme has no walls_rounded, so rounded=True still
         # returns the standard ASCII glyph
@@ -630,11 +607,6 @@ class TestRoundedWallGlyphs:
 
     def test_wall_char_at_rounded_for_circle_room(self):
         """_wall_char_at uses rounded corners for circle room walls."""
-        from nhc.rendering.terminal.renderer import TerminalRenderer
-        from nhc.rendering.terminal.themes import set_theme
-        from nhc.dungeon.model import (
-            CircleShape, Level, RectShape, Terrain, Tile,
-        )
         set_theme("modern")
 
         # Build a small level with a circle room
@@ -686,8 +658,6 @@ class TestShapeSaveLoadBackcompat:
 
     def test_old_save_without_shape_loads_rect(self, tmp_path):
         """Saves from before the shape field default to RectShape."""
-        import json
-
         data = {
             "version": 1, "turn": 1, "player_id": 1, "next_id": 2,
             "entities": {
@@ -718,7 +688,6 @@ class TestShapeSaveLoadBackcompat:
         path = tmp_path / "old_save.json"
         path.write_text(json.dumps(data))
 
-        from nhc.core.save import load_game
         _, loaded_level, _, _, _ = load_game(save_path=path)
 
         room = loaded_level.rooms[0]

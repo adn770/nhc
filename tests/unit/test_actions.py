@@ -11,10 +11,12 @@ from nhc.core.actions import (
     PickupItemAction,
     UseItemAction,
     WaitAction,
+    _msg,
 )
 from nhc.core.ecs import World
-from nhc.core.events import CreatureAttacked, CreatureDied, ItemPickedUp, MessageEvent
-from nhc.utils.rng import set_seed
+from nhc.core.events import (
+    CreatureAttacked, CreatureDied, ItemPickedUp, LevelEntered, MessageEvent,
+)
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
     AI,
@@ -31,6 +33,9 @@ from nhc.entities.components import (
     Stats,
     Weapon,
 )
+from nhc.entities.registry import EntityRegistry
+from nhc.i18n import init, t
+from nhc.utils.rng import set_seed
 
 
 def _make_test_level(width=10, height=10):
@@ -136,8 +141,6 @@ class TestPlayerAwareMessages:
     """Test _msg() selects player-perspective message variants."""
 
     def test_player_attacks_uses_you_variant(self):
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("en")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -147,8 +150,6 @@ class TestPlayerAwareMessages:
         assert result == "You hit Goblin for 5 damage."
 
     def test_creature_attacks_player_uses_you_variant(self):
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("en")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -158,8 +159,6 @@ class TestPlayerAwareMessages:
         assert result == "Goblin hits you for 3 damage."
 
     def test_creature_vs_creature_uses_default(self):
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("en")
         world = World()
         c1 = _make_creature(world, x=5, y=5)
@@ -169,8 +168,6 @@ class TestPlayerAwareMessages:
         assert result == "Goblin hits Goblin for 2 damage."
 
     def test_catalan_player_attacks(self):
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("ca")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -181,8 +178,6 @@ class TestPlayerAwareMessages:
         assert "goblin" in result.lower()
 
     def test_catalan_creature_attacks_player(self):
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("ca")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -194,8 +189,6 @@ class TestPlayerAwareMessages:
 
     def test_catalan_article_masculine_consonant(self):
         """Masculine noun starting with consonant gets 'el'."""
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("ca")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -212,8 +205,6 @@ class TestPlayerAwareMessages:
 
     def test_catalan_article_masculine_vowel(self):
         """Masculine noun starting with vowel gets l' elision."""
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("ca")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -230,8 +221,6 @@ class TestPlayerAwareMessages:
 
     def test_catalan_article_feminine(self):
         """Feminine noun starting with consonant gets 'la'."""
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("ca")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -247,8 +236,6 @@ class TestPlayerAwareMessages:
         assert result.startswith("La rata gegant")
 
     def test_fallback_when_variant_missing(self):
-        from nhc.core.actions import _msg
-        from nhc.i18n import init
         init("en")
         world = World()
         pid = _make_player(world, x=5, y=5)
@@ -260,7 +247,6 @@ class TestPlayerAwareMessages:
         assert "Shrieker" in result
 
     def test_corpse_translation(self):
-        from nhc.i18n import init, t
         init("ca")
         result = t("combat.corpse", name="Goblin")
         assert result == "cadàver de Goblin"
@@ -494,7 +480,6 @@ class TestDescendStairs:
         assert await action.validate(world, level)
         events = await action.execute(world, level)
 
-        from nhc.core.events import LevelEntered
         level_events = [e for e in events if isinstance(e, LevelEntered)]
         assert len(level_events) == 1
         assert level_events[0].depth == level.depth + 1
@@ -672,7 +657,6 @@ class TestCorpseAndLoot:
     async def test_killing_with_loot_drops_items(self):
         world = World()
         level = _make_test_level()
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry._items["test_loot"] = lambda: {
             "Renderable": Renderable(glyph="!"),
             "Description": Description(name="Loot Item"),
@@ -695,7 +679,6 @@ class TestCorpseAndLoot:
             "LootTable": LootTable(entries=[("test_loot", 1.0)]),
         })
 
-        from nhc.utils.rng import set_seed
         set_seed(42)
 
         action = MeleeAttackAction(actor=pid, target=cid)

@@ -1,7 +1,16 @@
 """Tests for the SVG floor renderer."""
 
-from nhc.dungeon.model import Level, Room, Rect, Terrain, Tile
-from nhc.rendering.svg import render_floor_svg, CELL, PADDING
+import re
+from unittest.mock import patch
+
+from shapely.geometry import Point, box
+
+from nhc.dungeon.model import Level, Rect, RectShape, Room, Terrain, Tile
+from nhc.rendering.svg import (
+    CELL, FLOOR_STONE_FILL, PADDING,
+    _render_floor_detail, _render_floor_grid, _room_shapely_polygon,
+    render_floor_svg,
+)
 
 
 def _make_level(width=10, height=8):
@@ -129,7 +138,6 @@ class TestSVGOutput:
                 level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
         level.rooms.append(Room(id="r", rect=Rect(1, 1, 18, 18)))
         # Try several seeds until we get a stone
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         for seed in range(50):
             svg = render_floor_svg(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
@@ -153,7 +161,6 @@ class TestSVGOutput:
 
     def test_floor_stone_clusters(self):
         """Some tiles have clusters of 3 stones close together."""
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         level = Level.create_empty("t", "T", depth=1,
                                    width=30, height=30)
         for y in range(1, 29):
@@ -178,8 +185,6 @@ class TestSVGOutput:
     def test_floor_stones_use_original_small_sizes(self):
         """Floor stones use the original smaller sizes, not hatching
         sizes."""
-        import re
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         level = Level.create_empty("t", "T", depth=1,
                                    width=20, height=20)
         for y in range(1, 19):
@@ -222,8 +227,6 @@ class TestSVGOutput:
 
     def test_cracks_and_scratches_mutually_exclusive(self):
         """A tile never has both a crack and a Y-scratch."""
-        import re
-        from nhc.rendering.svg import _render_floor_detail
         level = Level.create_empty("t", "T", depth=1,
                                    width=30, height=30)
         for y in range(1, 29):
@@ -253,8 +256,6 @@ class TestRoomShapelyPolygon:
 
     def test_rect_room_returns_polygon(self):
         """Rect rooms must produce a polygon, not None."""
-        from nhc.rendering.svg import _room_shapely_polygon
-        from nhc.dungeon.model import RectShape
         room = Room(id="r1", rect=Rect(3, 7, 8, 6),
                     shape=RectShape())
         poly = _room_shapely_polygon(room)
@@ -265,8 +266,6 @@ class TestRoomShapelyPolygon:
     def test_rect_polygon_covers_bounding_rect(self):
         """Rect room polygon must cover the full bounding rect in
         pixel coords so the clip path sits at the wall stroke."""
-        from nhc.rendering.svg import _room_shapely_polygon
-        from nhc.dungeon.model import RectShape
         r = Rect(3, 7, 8, 6)
         room = Room(id="r1", rect=r, shape=RectShape())
         poly = _room_shapely_polygon(room)
@@ -275,7 +274,6 @@ class TestRoomShapelyPolygon:
         # The polygon must contain the full pixel-space bounding rect
         px, py = r.x * CELL, r.y * CELL
         pw, ph = r.width * CELL, r.height * CELL
-        from shapely.geometry import box
         expected = box(px, py, px + pw, py + ph)
         assert poly.contains(expected) or poly.equals(expected), (
             f"Rect room polygon does not cover bounding rect: "
@@ -285,9 +283,6 @@ class TestRoomShapelyPolygon:
     def test_rect_polygon_wall_tile_inside(self):
         """A WALL tile at (3,10) adjacent to FLOOR at (4,10) must
         be inside the polygon — reproduces the grid clipping bug."""
-        from nhc.rendering.svg import _room_shapely_polygon
-        from nhc.dungeon.model import RectShape
-        from shapely.geometry import Point
         room = Room(id="r1", rect=Rect(3, 7, 8, 6),
                     shape=RectShape())
         poly = _room_shapely_polygon(room)
@@ -308,7 +303,6 @@ class TestGridAndDetailOnWallTiles:
     def _make_walled_level(self):
         """Level with WALL tiles surrounding FLOOR tiles,
         mimicking room #0 from seed99_shapes at tile (3,10)."""
-        from nhc.dungeon.model import RectShape
         level = Level.create_empty("t", "T", depth=1,
                                    width=12, height=15)
         r = Rect(3, 7, 8, 6)
@@ -328,8 +322,6 @@ class TestGridAndDetailOnWallTiles:
         """Grid must generate segments for every tile in the level,
         not filter by _is_floor/_is_door.  Verify by counting: a
         full room should produce edges for WALL tiles too."""
-        import re
-        from nhc.rendering.svg import _render_floor_grid
         level = self._make_walled_level()
         svg_parts: list[str] = []
         _render_floor_grid(svg_parts, level)
@@ -353,8 +345,6 @@ class TestGridAndDetailOnWallTiles:
     def test_detail_processes_wall_tiles(self):
         """_render_floor_detail must call _tile_detail for WALL tile
         coordinates, not skip them with _is_floor filtering."""
-        from unittest.mock import patch
-        from nhc.rendering.svg import _render_floor_detail
         level = self._make_walled_level()
         called_coords: list[tuple[int, int]] = []
         original = __import__(

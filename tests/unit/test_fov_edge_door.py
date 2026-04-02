@@ -21,7 +21,10 @@ from __future__ import annotations
 
 import pytest
 
-from nhc.dungeon.model import Level, Rect, Terrain, Tile
+from nhc.core.game import (
+    compute_hatch_clear, door_wall_run_hidden, edge_door_blocked_tiles,
+)
+from nhc.dungeon.model import Level, OctagonShape, Rect, Room, Terrain, Tile
 from nhc.utils.fov import compute_fov
 
 WIDTH, HEIGHT = 7, 7
@@ -70,8 +73,6 @@ def _fov_with_edge_blocking(
     level: Level, px: int, py: int,
 ) -> set[tuple[int, int]]:
     """Compute FOV replicating Game._update_fov edge-door logic."""
-    from nhc.core.game import edge_door_blocked_tiles
-
     cur = level.tile_at(px, py)
     blocked: set[tuple[int, int]] = set()
     if (cur and cur.feature in ("door_closed", "door_locked",
@@ -210,11 +211,6 @@ def _fov_with_wall_run_hiding(
     level: Level, px: int, py: int,
 ) -> set[tuple[int, int]]:
     """Compute FOV with both edge-door blocking and wall-run hiding."""
-    from nhc.core.game import (
-        door_wall_run_hidden,
-        edge_door_blocked_tiles,
-    )
-
     cur = level.tile_at(px, py)
     blocked: set[tuple[int, int]] = set()
     if (cur and cur.feature in ("door_closed", "door_locked",
@@ -613,7 +609,6 @@ class TestHatchClearBasic:
         return level
 
     def test_floor_tiles_included(self, level):
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         # Room floor tiles should be in hatch_clear
         for x in range(4, 9):
@@ -624,7 +619,6 @@ class TestHatchClearBasic:
                 )
 
     def test_wall_tiles_excluded(self, level):
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         # Wall tiles should NOT be in hatch_clear
         for x in range(3, 10):
@@ -635,7 +629,6 @@ class TestHatchClearBasic:
                 )
 
     def test_void_tiles_excluded(self, level):
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         # VOID tiles (even if somehow explored) excluded
         level.tile_at(0, 0).explored = True
@@ -643,7 +636,6 @@ class TestHatchClearBasic:
         assert (0, 0) not in hc
 
     def test_unexplored_tiles_excluded(self, level):
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         # Corridor behind door is unexplored
         assert (4, 6) not in hc
@@ -666,7 +658,6 @@ class TestHatchClearDoorBlocking:
 
     def test_closed_door_corridor_unexplored(self, level):
         """Door tile excluded when corridor side not explored."""
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         # (4,5) has door_side="north", corridor at (4,6)
         # (4,6) is unexplored → door excluded
@@ -675,7 +666,6 @@ class TestHatchClearDoorBlocking:
 
     def test_closed_door_corridor_explored(self, level):
         """Door tile included when corridor side is explored."""
-        from nhc.core.game import compute_hatch_clear
         # Explore the corridor behind door (4,5)
         level.tile_at(4, 6).explored = True
         hc = compute_hatch_clear(level)
@@ -685,7 +675,6 @@ class TestHatchClearDoorBlocking:
 
     def test_open_door_always_included(self, level):
         """Open doors are always in hatch_clear."""
-        from nhc.core.game import compute_hatch_clear
         level.tile_at(4, 5).feature = "door_open"
         hc = compute_hatch_clear(level)
         assert (4, 5) in hc
@@ -714,8 +703,6 @@ class TestHatchClearDoorBlocking:
 
 
 def _build_octagonal_room() -> Level:
-    from nhc.dungeon.model import OctagonShape, Room
-
     level = Level.create_empty("test", "Test", depth=1,
                                width=9, height=7)
     r = Rect(2, 1, 5, 5)
@@ -749,14 +736,12 @@ class TestHatchClearOctagonCorners:
         return level
 
     def test_floor_tiles_included(self, level):
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         assert (4, 3) in hc  # center floor
 
     def test_corner_wall_tiles_included(self, level):
         """WALL tiles at octagon corners should be in hatch_clear
         so the diagonal walls are not covered by hatching."""
-        from nhc.core.game import compute_hatch_clear
         hc = compute_hatch_clear(level)
         r = level.rooms[0].rect
         floor = level.rooms[0].floor_tiles()
@@ -777,7 +762,6 @@ class TestHatchClearOctagonCorners:
     def test_border_wall_tiles_included(self, level):
         """WALL tiles 1 tile outside the room rect should be
         included — the SVG outline can extend beyond the rect."""
-        from nhc.core.game import compute_hatch_clear
         r = level.rooms[0].rect
         # Mark border tiles as explored
         for x in range(r.x - 1, r.x2 + 1):
@@ -802,7 +786,6 @@ class TestHatchClearOctagonCorners:
 
     def test_wall_far_from_room_excluded(self, level):
         """WALL tiles far from any room rect stay excluded."""
-        from nhc.core.game import compute_hatch_clear
         # Mark a wall tile far from the room as explored
         level.tiles[0][0] = Tile(terrain=Terrain.WALL)
         level.tile_at(0, 0).explored = True

@@ -2,15 +2,21 @@
 
 import pytest
 
+from nhc.core.actions import BumpAction, OpenChestAction
 from nhc.core.ecs import World
-from nhc.core.actions import OpenChestAction
+from nhc.core.events import CreatureAttacked, MessageEvent
+from nhc.dungeon.generator import GenerationParams
+from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.populator import populate_level
+from nhc.dungeon.room_types import assign_room_types
 from nhc.entities.components import (
-    BlocksMovement, Description, Equipment, Health, Inventory,
-    LootTable, Player, Position, Renderable, Stats,
+    AI, BlocksMovement, Description, Equipment, Health, Inventory,
+    LootTable, Player, Position, Renderable, Stats, Weapon,
 )
+from nhc.entities.registry import EntityRegistry
 from nhc.i18n import init as i18n_init
-from nhc.utils.rng import set_seed
+from nhc.utils.rng import get_rng, set_seed
 
 
 def _make_level() -> Level:
@@ -61,7 +67,6 @@ def _make_world_with_chest(
 class TestChestFactory:
     def test_chest_has_required_components(self):
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
         components = EntityRegistry.get_feature("chest")
         assert "Renderable" in components
@@ -72,7 +77,6 @@ class TestChestFactory:
 
     def test_chest_blocks_movement(self):
         i18n_init("en")
-        from nhc.entities.registry import EntityRegistry
         EntityRegistry.discover_all()
         components = EntityRegistry.get_feature("chest")
         assert "BlocksMovement" in components
@@ -149,7 +153,6 @@ class TestOpenChest:
 
     @pytest.mark.asyncio
     async def test_generates_message(self):
-        from nhc.core.events import MessageEvent
         world, pid, cid, level = _make_world_with_chest()
         action = OpenChestAction(actor=pid, chest=cid)
         await action.validate(world, level)
@@ -173,7 +176,6 @@ class TestBumpToOpenChest:
     @pytest.mark.asyncio
     async def test_bump_opens_chest(self):
         """Walking into a chest should open it, not attack it."""
-        from nhc.core.actions import BumpAction
         world, pid, cid, level = _make_world_with_chest()
         # Player at (5,5), chest at (6,5) — bump right
         action = BumpAction(actor=pid, dx=1, dy=0)
@@ -188,8 +190,6 @@ class TestBumpToOpenChest:
     @pytest.mark.asyncio
     async def test_bump_still_attacks_creatures(self):
         """Bumping a creature should attack, not try to open it."""
-        from nhc.core.actions import BumpAction
-        from nhc.core.events import CreatureAttacked
         i18n_init("en")
         set_seed(42)
         world = World()
@@ -204,7 +204,6 @@ class TestBumpToOpenChest:
             "Equipment": Equipment(),
             "Description": Description(name="Hero"),
         })
-        from nhc.entities.components import AI, Weapon
         mob = world.create_entity({
             "Position": Position(x=6, y=5),
             "Health": Health(current=4, maximum=4),
@@ -226,17 +225,11 @@ class TestBumpToOpenChest:
 class TestChestSpawning:
     def test_populator_places_chests(self):
         """Dungeons should occasionally contain chests."""
-        from nhc.dungeon.generator import GenerationParams
-        from nhc.dungeon.generators.bsp import BSPGenerator
-        from nhc.dungeon.populator import populate_level
-        from nhc.dungeon.room_types import assign_room_types
-
         found_chest = False
         for seed in range(50):
             set_seed(seed)
             gen = BSPGenerator()
             level = gen.generate(GenerationParams(width=80, height=50, depth=2))
-            from nhc.utils.rng import get_rng
             assign_room_types(level, get_rng())
             populate_level(level)
             for e in level.entities:
