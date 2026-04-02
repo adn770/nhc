@@ -144,6 +144,17 @@ const Input = {
       });
       zone.appendChild(btn);
     });
+
+    // Restart button — pushed to the right
+    const restart = document.createElement("button");
+    restart.id = "restart-btn";
+    restart.textContent = "\u{1F504}";
+    restart.title = "Restart Game";
+    restart.addEventListener("click", (e) => {
+      e.stopPropagation();
+      NHC.restartGame();
+    });
+    zone.appendChild(restart);
   },
 
   _switchToClassic() {

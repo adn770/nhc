@@ -125,6 +125,30 @@ const NHC = {
     // Connect WebSocket
     WS.connect(this.sessionId);
   },
+
+  restartGame() {
+    if (!confirm("Restart game? Current progress will be lost.")) {
+      return;
+    }
+    // Close current WS, delete session, start fresh
+    if (WS.socket) WS.socket.close();
+    if (this.sessionId) {
+      fetch(`/api/game/${this.sessionId}`, { method: "DELETE" })
+        .catch(() => {});
+    }
+    // Reset client state
+    GameMap.fov = new Set();
+    GameMap.explored = new Set();
+    GameMap.doorInfo = new Map();
+    GameMap.entities = [];
+    GameMap.doors = [];
+    DebugPanel.visible = false;
+    const panel = document.getElementById("debug-panel");
+    if (panel) panel.remove();
+    // Go back to login screen
+    document.getElementById("game-screen").classList.add("hidden");
+    document.getElementById("login-screen").classList.remove("hidden");
+  },
 };
 
 document.addEventListener("DOMContentLoaded", () => NHC.init());

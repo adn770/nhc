@@ -174,8 +174,11 @@ body {
 }
 
 /* God mode debug panel */
-#god-mode-btn {
+#restart-btn {
   margin-left: auto;
+}
+
+#god-mode-btn {
   border-color: #e6c07b !important;
   color: #e6c07b;
 }
