@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from nhc.ai.behavior import decide_action
+from nhc.core import game_input, game_ticks
 
 logger = logging.getLogger(__name__)
 from nhc.core.actions import (
@@ -810,31 +811,31 @@ class Game:
                               edge_doors=self.renderer.edge_doors)
 
         if intent == "item_action" and data:
-            return self._resolve_item_action(data)
+            return game_input.resolve_item_action(self, data)
 
         if intent == "wait":
             return WaitAction(actor=self.player_id)
 
         if intent == "pickup":
-            return self._find_pickup_action()
+            return game_input.find_pickup_action(self)
 
         if intent == "use_item":
-            return self._find_use_action()
+            return game_input.find_use_action(self)
 
         if intent == "quaff":
-            return self._find_quaff_action()
+            return game_input.find_quaff_action(self)
 
         if intent == "throw":
-            return self._find_throw_action()
+            return game_input.find_throw_action(self)
 
         if intent == "zap":
-            return self._find_zap_action()
+            return game_input.find_zap_action(self)
 
         if intent == "equip":
-            return self._find_equip_action()
+            return game_input.find_equip_action(self)
 
         if intent == "drop":
-            return self._find_drop_action()
+            return game_input.find_drop_action(self)
 
         if intent == "inventory":
             self._show_inventory()
@@ -848,10 +849,10 @@ class Game:
             return None
 
         if intent == "pick_lock":
-            return self._find_lock_action("pick")
+            return game_input.find_lock_action(self, "pick")
 
         if intent == "force_door":
-            return self._find_lock_action("force")
+            return game_input.find_lock_action(self, "force")
 
         if intent == "search":
             from nhc.core.actions import SearchAction
@@ -914,296 +915,6 @@ class Game:
             self.renderer.game_mode = "classic"
         logger.info("Switched to %s mode", self.mode)
 
-    def _find_pickup_action(self) -> "Action | None":
-        """Find an item at the player's position to pick up.
-
-        If multiple items are on the ground, show a selection menu.
-        """
-        pos = self.world.get_component(self.player_id, "Position")
-        if not pos:
-            return None
-
-        # Gather all pickable items at player's feet
-        ground_items: list[tuple[int, str]] = []
-        for eid, _, ipos in self.world.query("Description", "Position"):
-            if ipos is None:
-                continue
-            if ipos.x == pos.x and ipos.y == pos.y and eid != self.player_id:
-                if (not self.world.has_component(eid, "AI")
-                        and not self.world.has_component(eid, "BlocksMovement")
-                        and not self.world.has_component(eid, "Trap")):
-                    desc = self.world.get_component(eid, "Description")
-                    name = desc.short or desc.name if desc else "???"
-                    ground_items.append((eid, name))
-
-        if not ground_items:
-            self.renderer.add_message(t("item.nothing_to_pickup"))
-            return None
-
-        # Single item: pick up directly
-        if len(ground_items) == 1:
-            return PickupItemAction(
-                actor=self.player_id, item=ground_items[0][0],
-            )
-
-        # Multiple items: show selection menu
-        selected = self.renderer.show_ground_menu(ground_items)
-        if selected is None:
-            return None
-        return PickupItemAction(
-            actor=self.player_id, item=selected,
-        )
-
-    def _find_use_action(self) -> "Action | None":
-        """Show inventory menu and return a use action."""
-        item_id = self.renderer.show_inventory_menu(
-            self.world, self.player_id,
-        )
-        if item_id is None:
-            return None
-        return UseItemAction(actor=self.player_id, item=item_id)
-
-    def _find_quaff_action(self) -> "Action | None":
-        """Show potions only and quaff one."""
-        item_id = self.renderer.show_filtered_inventory(
-            self.world, self.player_id,
-            title=t("ui.quaff_which"),
-            filter_component="Consumable",
-        )
-        if item_id is None:
-            return None
-        return UseItemAction(actor=self.player_id, item=item_id)
-
-    def _find_throw_action(self) -> "Action | None":
-        """Pick a potion, then a visible target to throw it at."""
-        from nhc.core.actions import ThrowAction
-
-        # Step 1: pick a throwable item
-        item_id = self.renderer.show_filtered_inventory(
-            self.world, self.player_id,
-            title=t("ui.throw_which"),
-            filter_component="Throwable",
-        )
-        if item_id is None:
-            return None
-
-        # Step 2: pick a visible target
-        target_id = self.renderer.show_target_menu(
-            self.world, self.level, self.player_id,
-            title=t("ui.throw_target"),
-        )
-        if target_id is None:
-            return None
-
-        return ThrowAction(
-            actor=self.player_id, item=item_id, target=target_id,
-        )
-
-    def _find_zap_action(self) -> "Action | None":
-        """Pick a wand, then a visible target to zap."""
-        from nhc.core.actions import ZapAction
-
-        # Show wands with charges
-        inv = self.world.get_component(self.player_id, "Inventory")
-        if not inv:
-            return None
-
-        items: list[tuple[int, str]] = []
-        for item_id in inv.slots:
-            wand = self.world.get_component(item_id, "Wand")
-            if not wand:
-                continue
-            desc = self.world.get_component(item_id, "Description")
-            name = desc.name if desc else "???"
-            name += f" ({wand.charges}/{wand.max_charges})"
-            items.append((item_id, name))
-
-        if not items:
-            return None
-
-        selected = self.renderer.show_selection_menu(
-            t("ui.zap_which"), items,
-        )
-        if selected is None:
-            return None
-
-        wand = self.world.get_component(selected, "Wand")
-        if not wand or wand.charges <= 0:
-            self.renderer.add_message(t("item.wand_fizzle"))
-            return None
-
-        target_id = self.renderer.show_target_menu(
-            self.world, self.level, self.player_id,
-            title=t("ui.throw_target"),
-        )
-        if target_id is None:
-            return None
-
-        return ZapAction(
-            actor=self.player_id, item=selected, target=target_id,
-        )
-
-    def _find_equip_action(self) -> "Action | None":
-        """Show equippable items and equip/unequip one."""
-        from nhc.core.actions import EquipAction, UnequipAction
-        inv = self.world.get_component(self.player_id, "Inventory")
-        if not inv or not inv.slots:
-            return None
-
-        equip = self.world.get_component(self.player_id, "Equipment")
-        equipped_ids = set()
-        if equip:
-            for attr in ("weapon", "armor", "shield", "helmet",
-                          "ring_left", "ring_right"):
-                eid = getattr(equip, attr)
-                if eid is not None:
-                    equipped_ids.add(eid)
-
-        items: list[tuple[int, str]] = []
-        for item_id in inv.slots:
-            if not (self.world.has_component(item_id, "Weapon")
-                    or self.world.has_component(item_id, "Armor")
-                    or self.world.has_component(item_id, "Ring")):
-                continue
-            desc = self.world.get_component(item_id, "Description")
-            name = desc.name if desc else "???"
-            if item_id in equipped_ids:
-                name += " [E]"
-            items.append((item_id, name))
-
-        if not items:
-            return None
-
-        selected = self.renderer.show_selection_menu(
-            t("ui.equip_which"), items,
-        )
-        if selected is None:
-            return None
-
-        # Toggle: if already equipped, unequip; otherwise equip
-        if selected in equipped_ids:
-            return UnequipAction(actor=self.player_id, item=selected)
-        return EquipAction(actor=self.player_id, item=selected)
-
-    def _find_drop_action(self) -> "Action | None":
-        """Show full inventory and drop selected item."""
-        from nhc.core.actions import DropAction
-        item_id = self.renderer.show_inventory_menu(
-            self.world, self.player_id,
-            prompt=t("ui.drop_which"),
-        )
-        if item_id is None:
-            return None
-        return DropAction(actor=self.player_id, item=item_id)
-
-    def _find_lock_action(self, mode: str) -> "Action | None":
-        """Find an adjacent locked door and return pick/force action."""
-        from nhc.core.actions import ForceDoorAction, PickLockAction
-        pos = self.world.get_component(self.player_id, "Position")
-        if not pos or not self.level:
-            return None
-
-        # Check all 4 cardinal directions for a locked door
-        door_dir = None
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            tile = self.level.tile_at(pos.x + dx, pos.y + dy)
-            if tile and tile.feature == "door_locked":
-                door_dir = (dx, dy)
-                break
-
-        if not door_dir:
-            self.renderer.add_message(t("explore.no_locked_door"))
-            return None
-
-        if mode == "pick":
-            return PickLockAction(
-                actor=self.player_id, dx=door_dir[0], dy=door_dir[1],
-            )
-
-        # Force mode: check inventory for tools/weapons that help
-        inv = self.world.get_component(self.player_id, "Inventory")
-        tool_id = None
-        if inv:
-            tools: list[tuple[int, str]] = []
-            for eid in inv.slots:
-                if self.world.has_component(eid, "ForceTool"):
-                    desc = self.world.get_component(eid, "Description")
-                    name = desc.name if desc else "???"
-                    tools.append((eid, name))
-                elif self.world.has_component(eid, "Weapon"):
-                    weapon = self.world.get_component(eid, "Weapon")
-                    if weapon.type == "melee":
-                        desc = self.world.get_component(eid, "Description")
-                        name = desc.name if desc else "???"
-                        tools.append((eid, name))
-
-            if tools:
-                # Add bare hands option
-                tools.append((-1, t("explore.bare_hands")))
-                selected = self.renderer.show_selection_menu(
-                    t("explore.force_with"), tools,
-                )
-                if selected is None:
-                    return None
-                if selected != -1:
-                    tool_id = selected
-
-        return ForceDoorAction(
-            actor=self.player_id, dx=door_dir[0], dy=door_dir[1],
-            tool=tool_id,
-        )
-
-    def _resolve_item_action(self, data: dict) -> "Action | None":
-        """Convert a direct item_action message to an Action.
-
-        Bypasses the menu flow — the client already selected the item.
-        For throw/zap, a target menu is still shown.
-        """
-        from nhc.core.actions import (
-            DropAction, EquipAction, ThrowAction, UnequipAction,
-            UseItemAction, ZapAction,
-        )
-        action = data.get("action")
-        item_id = data.get("item_id")
-        if item_id is None:
-            return None
-
-        if action in ("quaff", "use"):
-            return UseItemAction(actor=self.player_id, item=item_id)
-
-        if action == "equip":
-            return EquipAction(actor=self.player_id, item=item_id)
-
-        if action == "unequip":
-            return UnequipAction(actor=self.player_id, item=item_id)
-
-        if action == "drop":
-            return DropAction(actor=self.player_id, item=item_id)
-
-        if action == "throw":
-            target_id = self.renderer.show_target_menu(
-                self.world, self.level, self.player_id,
-                title=t("ui.throw_target"),
-            )
-            if target_id is None:
-                return None
-            return ThrowAction(
-                actor=self.player_id, item=item_id, target=target_id,
-            )
-
-        if action == "zap":
-            target_id = self.renderer.show_target_menu(
-                self.world, self.level, self.player_id,
-                title=t("ui.throw_target"),
-            )
-            if target_id is None:
-                return None
-            return ZapAction(
-                actor=self.player_id, item=item_id, target=target_id,
-            )
-
-        return None
-
     def _reveal_full_map(self) -> None:
         """God mode: reveal entire map and display it scrollably."""
         if not self.level:
@@ -1248,29 +959,7 @@ class Game:
         )
 
     def _tick_poison(self) -> None:
-        """Apply ongoing poison damage and decrement counters."""
-        from nhc.rules.combat import apply_damage, is_dead
-        expired = []
-        for eid, poison, health in self.world.query("Poison", "Health"):
-            if health is None:
-                continue
-            actual = apply_damage(health, poison.damage_per_turn)
-            desc = self.world.get_component(eid, "Description")
-            name = desc.name if desc else "?"
-            self.renderer.add_message(
-                t("combat.poison_tick", target=name, damage=actual),
-            )
-            if is_dead(health):
-                if eid == self.player_id:
-                    self.killed_by = "poison"
-                else:
-                    self.world.destroy_entity(eid)
-            else:
-                poison.turns_remaining -= 1
-                if poison.turns_remaining <= 0:
-                    expired.append(eid)
-        for eid in expired:
-            self.world.remove_component(eid, "Poison")
+        game_ticks.tick_poison(self)
 
     def _detect_death_cause(self, events: list) -> None:
         """Determine what killed the player from turn events."""
@@ -1291,92 +980,17 @@ class Game:
                 self.killed_by = ev.trap_name
                 return
 
-    def _creature_name(self, eid: int) -> str:
-        desc = self.world.get_component(eid, "Description")
-        return desc.name if desc else "?"
-
     def _tick_regeneration(self) -> None:
-        """Troll-like regeneration: heal hp_per_turn if not fire-damaged."""
-        from nhc.rules.combat import heal
-        for eid, regen, health in self.world.query("Regeneration", "Health"):
-            if health is None:
-                continue
-            if regen.fire_damaged:
-                regen.fire_damaged = False  # reset flag; no heal this turn
-                continue
-            healed = heal(health, regen.hp_per_turn)
-            if healed > 0:
-                self.renderer.add_message(
-                    t("combat.regenerates", creature=self._creature_name(eid)),
-                )
+        game_ticks.tick_regeneration(self)
 
     def _tick_mummy_rot(self) -> None:
-        """Mummy rot curse: tick Cursed components and drain 1 max HP when due."""
-        for eid, cursed, health in self.world.query("Cursed", "Health"):
-            if health is None:
-                continue
-            cursed.ticks_until_drain -= 1
-            if cursed.ticks_until_drain <= 0:
-                if health.maximum > 1:
-                    health.maximum -= 1
-                    health.current = min(health.current, health.maximum)
-                    self.renderer.add_message(
-                        t("combat.rot_drain",
-                          target=self._creature_name(eid)),
-                    )
-                cursed.ticks_until_drain = 2
+        game_ticks.tick_mummy_rot(self)
 
     def _tick_rings(self) -> None:
-        """Apply passive ring effects each turn."""
-        equip = self.world.get_component(self.player_id, "Equipment")
-        if not equip:
-            return
-        for slot in ("ring_left", "ring_right"):
-            eid = getattr(equip, slot)
-            if eid is None:
-                continue
-            ring = self.world.get_component(eid, "Ring")
-            if not ring:
-                continue
-
-            if ring.effect == "mending" and self.turn % 5 == 0:
-                health = self.world.get_component(
-                    self.player_id, "Health",
-                )
-                if health and health.current < health.maximum:
-                    health.current = min(
-                        health.current + 1, health.maximum,
-                    )
-
-            if ring.effect == "detection":
-                # Auto-reveal traps and secret doors in FOV
-                for y in range(self.level.height):
-                    for x in range(self.level.width):
-                        tile = self.level.tile_at(x, y)
-                        if not tile or not tile.visible:
-                            continue
-                        if tile.feature == "door_secret":
-                            tile.feature = "door_closed"
-                        for eid2, trap, tpos in self.world.query(
-                            "Trap", "Position",
-                        ):
-                            if (tpos and tpos.x == x and tpos.y == y
-                                    and trap.hidden):
-                                trap.hidden = False
+        game_ticks.tick_rings(self)
 
     def _tick_wand_recharge(self) -> None:
-        """Recharge wands in inventory over time."""
-        inv = self.world.get_component(self.player_id, "Inventory")
-        if not inv:
-            return
-        for item_id in inv.slots:
-            wand = self.world.get_component(item_id, "Wand")
-            if not wand or wand.charges >= wand.max_charges:
-                continue
-            wand.recharge_timer -= 1
-            if wand.recharge_timer <= 0:
-                wand.charges += 1
-                wand.recharge_timer = 20
+        game_ticks.tick_wand_recharge(self)
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a dungeon level (ascending or descending)."""
