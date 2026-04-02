@@ -12,8 +12,8 @@ from pathlib import Path
 
 from nhc.config import ConfigManager
 from nhc.core.game import Game
-from nhc.llm import create_backend
-from nhc.log_utils import list_topics, setup_logging
+from nhc.utils.llm import create_backend
+from nhc.utils.log import list_topics, setup_logging
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,7 @@ import logging
 import os
 import tempfile
 
-from nhc.log_utils import (
+from nhc.utils.log import (
     GameFormatter,
     TopicFilter,
     derive_topic,

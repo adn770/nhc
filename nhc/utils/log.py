@@ -71,7 +71,7 @@ TOPIC_MAP: dict[str, str] = {
     "core.autosave": "autosave",
     # Narrative / LLM
     "narrative.narrator": "narrative",
-    "llm": "llm",
+    "utils.llm": "llm",
     # Config / i18n
     "config": "config",
     "i18n": "i18n",
@@ -232,7 +232,9 @@ class GameFormatter(logging.Formatter):
 
 def _default_log_path() -> str:
     """Return default log file path: debug/nhc.log"""
-    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "debug", "nhc.log")
+    # Three dirname calls: nhc/utils/log.py → nhc/utils → nhc → project root
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    return os.path.join(project_root, "debug", "nhc.log")
 
 
 def setup_logging(

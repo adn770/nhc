@@ -28,7 +28,7 @@ def create_app(
     app.config["NHC_CONFIG"] = config
 
     # Set up file + console logging via shared log_utils
-    from nhc.log_utils import setup_logging
+    from nhc.utils.log import setup_logging
     log_path = setup_logging(
         level=logging.DEBUG,
         debug_topics="all",
@@ -91,7 +91,7 @@ def create_app(
         i18n_init(session.lang)
 
         from nhc.core.game import Game
-        from nhc.llm import create_backend
+        from nhc.utils.llm import create_backend
         from nhc.rendering.web_client import WebClient
 
         client = WebClient(game_mode="classic", lang=session.lang)
