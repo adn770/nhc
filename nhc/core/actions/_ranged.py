@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
 from nhc.core.actions._helpers import _entity_name
 from nhc.core.events import CreatureDied, Event, ItemUsed, MessageEvent
+from nhc.dungeon.model import Terrain
 from nhc.entities.components import Poison, StatusEffect
 from nhc.i18n import t
-from nhc.rules.combat import apply_damage
+from nhc.rules.combat import apply_damage, heal as do_heal
 from nhc.utils.rng import roll_dice
 
 if TYPE_CHECKING:
@@ -56,7 +58,6 @@ class ThrowAction(Action):
 
         if effect == "heal" and health:
             amount = roll_dice(consumable.dice)
-            from nhc.rules.combat import heal as do_heal
             do_heal(health, amount)
 
         elif effect in ("frost", "hold_person"):
@@ -308,7 +309,6 @@ class ZapAction(Action):
 
         elif effect == "teleport":
             # Move target to a random floor tile
-            import random as _rand
             floors = []
             for ty in range(level.height):
                 for tx in range(level.width):
@@ -317,7 +317,7 @@ class ZapAction(Action):
                             and not tile.feature and not tile.is_corridor):
                         floors.append((tx, ty))
             if floors:
-                nx, ny = _rand.choice(floors)
+                nx, ny = random.choice(floors)
                 tpos = world.get_component(self.target, "Position")
                 if tpos:
                     tpos.x = nx
@@ -430,7 +430,6 @@ class ZapAction(Action):
                     ))
 
         elif effect == "digging":
-            from nhc.dungeon.model import Terrain
             tpos = world.get_component(self.target, "Position")
             if tpos:
                 tile = level.tile_at(tpos.x, tpos.y)

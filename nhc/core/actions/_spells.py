@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._helpers import _entity_name, _msg
 from nhc.core.events import CreatureDied, Event, ItemUsed, MessageEvent
+from nhc.dungeon.model import Terrain
 from nhc.entities.components import Poison, StatusEffect
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage, is_dead
-from nhc.utils.rng import d20, roll_dice
+from nhc.utils.rng import d20, get_rng, roll_dice
+from nhc.utils.spatial import chebyshev
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -84,7 +87,6 @@ def _use_magic_missile(
     item_name: str,
 ) -> list[Event]:
     """Auto-hit the nearest visible creature for 1d6+1."""
-    from nhc.utils.spatial import chebyshev
     events: list[Event] = []
 
     apos = world.get_component(actor, "Position")
@@ -166,7 +168,6 @@ def _use_hold_person(
         return events
 
     count = min(roll_dice("1d4"), len(humanoids))
-    from nhc.utils.rng import get_rng
     targets = get_rng().sample(humanoids, count)
 
     for eid in targets:
@@ -252,7 +253,6 @@ def _use_damage_nearest(
     item_name: str,
 ) -> list[Event]:
     """Damage the nearest visible creature."""
-    from nhc.utils.spatial import chebyshev
     events: list[Event] = []
 
     apos = world.get_component(actor, "Position")
@@ -353,7 +353,6 @@ def _use_charm_person(
     item_name: str,
 ) -> list[Event]:
     """Charm the nearest visible non-undead humanoid."""
-    from nhc.utils.spatial import chebyshev
     events: list[Event] = []
     events.append(MessageEvent(text=t("item.charm_cast")))
 
@@ -973,8 +972,6 @@ def _use_teleport_self(
     consumable: "Consumable",
 ) -> list[Event]:
     """Teleport the actor to a random floor tile."""
-    import random as _rand
-    from nhc.dungeon.model import Terrain
 
     events: list[Event] = []
     pos = world.get_component(actor, "Position")
@@ -991,7 +988,7 @@ def _use_teleport_self(
                 floors.append((tx, ty))
 
     if floors:
-        nx, ny = _rand.choice(floors)
+        nx, ny = random.choice(floors)
         pos.x = nx
         pos.y = ny
 

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 import noise as _noise
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
@@ -2317,10 +2318,8 @@ def _svg_path_to_polygon(svg_el: str) -> Polygon | None:
     Handles M, L, A, and Z commands. Arcs are approximated with
     line segments.
     """
-    import re as _re
-
     # Extract points from <polygon points="...">
-    poly_match = _re.search(r'<polygon points="([^"]+)"', svg_el)
+    poly_match = re.search(r'<polygon points="([^"]+)"', svg_el)
     if poly_match:
         pts = []
         for pt in poly_match.group(1).split():
@@ -2331,19 +2330,19 @@ def _svg_path_to_polygon(svg_el: str) -> Polygon | None:
         return None
 
     # Extract d="..." from <path>
-    path_match = _re.search(r'd="([^"]+)"', svg_el)
+    path_match = re.search(r'd="([^"]+)"', svg_el)
     if not path_match:
         return None
     d = path_match.group(1)
 
     # Tokenize: split on command letters, keeping the letter
-    tokens = _re.findall(r'[MLAHVZ][^MLAHVZ]*', d.strip())
+    tokens = re.findall(r'[MLAHVZ][^MLAHVZ]*', d.strip())
     pts: list[tuple[float, float]] = []
     cx, cy = 0.0, 0.0
 
     for tok in tokens:
         cmd = tok[0]
-        args = [float(v) for v in _re.findall(r'-?[\d.]+', tok)]
+        args = [float(v) for v in re.findall(r'-?[\d.]+', tok)]
         if cmd == 'M':
             cx, cy = args[0], args[1]
             pts.append((cx, cy))

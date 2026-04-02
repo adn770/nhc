@@ -7,6 +7,7 @@ misfortune, alignment), a random name, and starting gold.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field, field
 
 from nhc.utils.rng import get_rng, roll_dice
@@ -282,7 +283,6 @@ def generate_character(seed: int | None = None) -> CharacterSheet:
     dedicated RNG for reproducibility.
     """
     if seed is not None:
-        import random
         rng = random.Random(seed)
     else:
         rng = get_rng()

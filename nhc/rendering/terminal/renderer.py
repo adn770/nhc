@@ -236,8 +236,6 @@ class TerminalRenderer(GameClient):
         Returns either a string (typed text) or a (intent, data) tuple
         if the user pressed a movement/action key.
         """
-        import asyncio
-
         loop = asyncio.get_event_loop()
         inp = self._text_input
 

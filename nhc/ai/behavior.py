@@ -16,6 +16,7 @@ from nhc.entities.components import (
     Position,
     StatusEffect,
 )
+from nhc.utils.rng import d20
 from nhc.utils.spatial import adjacent, chebyshev
 
 if TYPE_CHECKING:
@@ -87,7 +88,6 @@ def decide_action(
     # FearAura: player must save STR or be webbed (paralyzed with fear)
     fear_aura = world.get_component(entity_id, "FearAura")
     if fear_aura and dist <= fear_aura.radius:
-        from nhc.utils.rng import d20
         p_stats = world.get_component(player_id, "Stats")
         if p_stats:
             player_status = world.get_component(player_id, "StatusEffect")
@@ -95,25 +95,22 @@ def decide_action(
             if (player_status is None or player_status.webbed == 0) and \
                d20() + p_stats.strength < fear_aura.save_dc:
                 if player_status is None:
-                    from nhc.entities.components import StatusEffect as _SE
                     world.add_component(player_id, "StatusEffect",
-                                        _SE(webbed=1))
+                                        StatusEffect(webbed=1))
                 else:
                     player_status.webbed = 1
 
     # CharmSong: force player toward creature each turn (skip player turn)
     charm_song = world.get_component(entity_id, "CharmSong")
     if charm_song and dist <= charm_song.radius:
-        from nhc.utils.rng import d20
         p_stats = world.get_component(player_id, "Stats")
         if p_stats:
             player_status = world.get_component(player_id, "StatusEffect")
             if (player_status is None or player_status.charmed == 0) and \
                d20() + p_stats.wisdom < charm_song.save_dc:
                 if player_status is None:
-                    from nhc.entities.components import StatusEffect as _SE
                     world.add_component(player_id, "StatusEffect",
-                                        _SE(charmed=2))
+                                        StatusEffect(charmed=2))
                 else:
                     player_status.charmed = 2
 

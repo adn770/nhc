@@ -13,6 +13,7 @@ from nhc.core.events import (
     Event,
     MessageEvent,
 )
+from nhc.utils.spatial import chebyshev
 from nhc.entities.components import (
     Cursed,
     Description,
@@ -377,8 +378,6 @@ class BansheeWailAction(Action):
         return True
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
-        from nhc.utils.spatial import chebyshev
-
         events: list[Event] = []
         attacker_name = _entity_name(world, self.actor)
         events.append(MessageEvent(

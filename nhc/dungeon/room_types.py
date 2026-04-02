@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import random
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 from typing import TYPE_CHECKING
@@ -85,7 +86,6 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
             room.tags.append("standard")
             standard_count += 1
 
-    from collections import Counter
     tag_counts = Counter(
         t for r in level.rooms for t in r.tags
         if t not in ("entry", "exit")

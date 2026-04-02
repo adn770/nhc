@@ -10,9 +10,11 @@ Communication happens through queues:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import queue
+import time
 from typing import TYPE_CHECKING, Any
 
 from nhc.rendering.client import GameClient
@@ -582,7 +584,6 @@ class WebClient(GameClient):
         })
         # Wait for client acknowledgment before game loop exits
         if self._ws:
-            import time
             time.sleep(0.5)  # give sender thread time to flush
             self._recv()  # wait for client ack
 
@@ -594,7 +595,6 @@ class WebClient(GameClient):
         Blocks until a real player action arrives. Timeouts and
         empty messages are retried so they don't consume turns.
         """
-        import asyncio
         loop = asyncio.get_event_loop()
         while True:
             msg = await loop.run_in_executor(None, self._recv)
@@ -621,7 +621,6 @@ class WebClient(GameClient):
     ) -> str | tuple[str, Any]:
         """Wait for typed input from the browser."""
         self.render(world, level, player_id, turn)
-        import asyncio
         loop = asyncio.get_event_loop()
         while True:
             msg = await loop.run_in_executor(None, self._recv)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
@@ -11,7 +12,7 @@ from nhc.core.actions._helpers import (
     _item_slot_cost,
 )
 from nhc.core.events import Event, ItemPickedUp, ItemUsed, MessageEvent
-from nhc.entities.components import Position
+from nhc.entities.components import Position, StatusEffect
 from nhc.i18n import t
 from nhc.rules.combat import heal
 from nhc.utils.rng import roll_dice
@@ -72,8 +73,6 @@ class PickupItemAction(Action):
         self, world: "World", events: list[Event],
     ) -> list[Event]:
         """Absorb gold into the player's purse and destroy the entity."""
-        import re
-
         desc = world.get_component(self.item, "Description")
         name = desc.name if desc else "Gold"
 
@@ -306,7 +305,6 @@ class UseItemAction(Action):
 
         elif consumable.effect == "frost":
             # Freeze visible creatures (paralyzed for N turns)
-            from nhc.entities.components import StatusEffect
             events.append(MessageEvent(text=t("item.frost_cast")))
             try:
                 duration = int(consumable.dice)

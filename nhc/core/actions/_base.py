@@ -5,7 +5,8 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING
 
-from nhc.core.events import Event, MessageEvent
+from nhc.core.events import CustomActionEvent, Event, MessageEvent
+from nhc.utils.rng import d20
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -136,9 +137,6 @@ class CustomAction(Action):
         return True
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
-        from nhc.core.events import CustomActionEvent
-        from nhc.utils.rng import d20
-
         stats = world.get_component(self.actor, "Stats")
         bonus = getattr(stats, self.ability, 0) if stats else 0
         roll_val = d20()

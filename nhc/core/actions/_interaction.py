@@ -10,7 +10,7 @@ from nhc.core.events import DoorOpened, Event, MessageEvent
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage
 from nhc.rules.loot import generate_loot
-from nhc.utils.rng import d20, roll_dice
+from nhc.utils.rng import d20, get_rng, roll_dice
 from nhc.utils.spatial import adjacent
 
 if TYPE_CHECKING:
@@ -122,7 +122,6 @@ class PickLockAction(Action):
                           actor=self.actor),
             ))
             # 30% chance lockpicks break
-            from nhc.utils.rng import get_rng
             if get_rng().random() < 0.3:
                 inv = world.get_component(self.actor, "Inventory")
                 for eid in list(inv.slots):
@@ -216,7 +215,6 @@ class ForceDoorAction(Action):
 
         # Tool breakage check (on both success and failure)
         if self.tool is not None:
-            from nhc.utils.rng import get_rng
             break_chance = (self.CROWBAR_BREAK if is_crowbar
                             else self.WEAPON_BREAK)
             if get_rng().random() < break_chance:
