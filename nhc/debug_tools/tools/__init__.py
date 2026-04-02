@@ -15,6 +15,9 @@ from nhc.debug_tools.tools.rendering import (
     GetFOVAnalysisTool,
     GetLayerStateTool,
 )
+from nhc.debug_tools.tools.svg_query import (
+    GetSVGTileElementsTool,
+)
 
 ALL_TOOL_CLASSES = [
     ListExportsTool,
@@ -27,4 +30,5 @@ ALL_TOOL_CLASSES = [
     SearchTilesTool,
     GetFOVAnalysisTool,
     GetLayerStateTool,
+    GetSVGTileElementsTool,
 ]
