@@ -122,6 +122,10 @@ class WebClient(GameClient):
             rend = world.get_component(eid, "Renderable")
             if not pos or not rend:
                 continue
+            # Hidden traps are invisible until detected
+            trap = world.get_component(eid, "Trap")
+            if trap and trap.hidden:
+                continue
             # Always include player; others need visible tile
             if eid != player_id:
                 tile = level.tile_at(pos.x, pos.y)

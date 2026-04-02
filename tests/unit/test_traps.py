@@ -7,7 +7,7 @@ from nhc.core.actions import _check_traps
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
     AI, Health, Inventory, Player, Poison, Position,
-    Stats, StatusEffect, Trap,
+    Renderable, Stats, StatusEffect, Trap,
 )
 from nhc.i18n import init as i18n_init
 from nhc.utils.rng import set_seed
@@ -235,6 +235,71 @@ class TestTrapAvoidance:
         _check_traps(world, level, pid, 5, 5)
         health = world.get_component(pid, "Health")
         assert health.current == 20
+
+
+class TestHiddenTrapRendering:
+    """Hidden traps must not appear in entity lists sent to clients."""
+
+    def _make_world_with_renderable_trap(
+        self, hidden: bool = True,
+    ) -> tuple:
+        """World with player + renderable trap on a visible tile."""
+        i18n_init("en")
+        set_seed(42)
+        world = World()
+        level = _make_level()
+
+        pid = world.create_entity({
+            "Position": Position(x=5, y=5),
+            "Player": Player(),
+            "Health": Health(current=20, maximum=20),
+            "Stats": Stats(strength=2, dexterity=0, constitution=2),
+            "Inventory": Inventory(max_slots=12),
+        })
+
+        tid = world.create_entity({
+            "Position": Position(x=3, y=3),
+            "Trap": Trap(damage="1d6", dc=12, hidden=hidden, effect=""),
+            "Renderable": Renderable(
+                glyph="^", color="red", render_order=1,
+            ),
+        })
+
+        return world, pid, tid, level
+
+    def test_web_client_excludes_hidden_traps(self):
+        from nhc.rendering.web_client import WebClient
+        world, pid, tid, level = self._make_world_with_renderable_trap(
+            hidden=True,
+        )
+        client = WebClient()
+        entities = client._gather_entities(world, level, pid)
+        eids = [e["id"] for e in entities]
+        assert tid not in eids, "hidden trap should not be in entity list"
+
+    def test_web_client_includes_revealed_traps(self):
+        from nhc.rendering.web_client import WebClient
+        world, pid, tid, level = self._make_world_with_renderable_trap(
+            hidden=False,
+        )
+        client = WebClient()
+        entities = client._gather_entities(world, level, pid)
+        eids = [e["id"] for e in entities]
+        assert tid in eids, "revealed trap should be in entity list"
+
+    def test_web_client_includes_triggered_traps(self):
+        from nhc.rendering.web_client import WebClient
+        world, pid, tid, level = self._make_world_with_renderable_trap(
+            hidden=True,
+        )
+        # Simulate triggering: hidden becomes False
+        trap = world.get_component(tid, "Trap")
+        trap.hidden = False
+        trap.triggered = True
+        client = WebClient()
+        entities = client._gather_entities(world, level, pid)
+        eids = [e["id"] for e in entities]
+        assert tid in eids, "triggered trap should be visible"
 
 
 class TestTrapSpawnPool:
