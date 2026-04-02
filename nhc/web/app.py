@@ -9,7 +9,7 @@ from flask import Flask, jsonify, make_response, render_template, request
 from flask_sock import Sock
 
 from nhc.web.config import WebConfig
-from nhc.web.sessions import SessionManager
+from nhc.web.sessions import SessionManager, player_id_from_token
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +72,55 @@ def create_app(
             return require_auth(valid_hashes)(f)
         return f
 
+    def _player_save_dir(pid: str) -> "Path | None":
+        """Return the save directory for a player, or None."""
+        if not config.data_dir:
+            return None
+        from pathlib import Path
+        return config.data_dir / "players" / pid
+
+    @app.route("/api/player/register", methods=["POST"])
+    @_maybe_auth
+    def player_register():
+        import secrets as _secrets
+        token = _secrets.token_urlsafe(32)
+        pid = player_id_from_token(token)
+        save_dir = _player_save_dir(pid)
+        if save_dir:
+            save_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Player registered: %s", pid)
+        return jsonify({
+            "player_token": token,
+            "player_id": pid,
+        }), 201
+
+    @app.route("/api/player/login", methods=["POST"])
+    @_maybe_auth
+    def player_login():
+        data = request.get_json(silent=True) or {}
+        token = data.get("player_token", "")
+        if not token:
+            return jsonify({"error": "player_token required"}), 400
+        pid = player_id_from_token(token)
+        save_dir = _player_save_dir(pid)
+        from nhc.core.autosave import has_autosave
+        has_save = has_autosave(save_dir) if save_dir else has_autosave()
+        existing = sessions.get_by_player(pid)
+        return jsonify({
+            "player_id": pid,
+            "has_save": has_save,
+            "active_session": existing.session_id if existing else None,
+        })
+
     @app.route("/api/game/has_save", methods=["GET"])
     @_maybe_auth
     def game_has_save():
         from nhc.core.autosave import has_autosave
+        token = request.args.get("player_token", "")
+        if token:
+            pid = player_id_from_token(token)
+            save_dir = _player_save_dir(pid)
+            return jsonify({"has_save": has_autosave(save_dir)})
         return jsonify({"has_save": has_autosave()})
 
     @app.route("/api/game/new", methods=["POST"])
@@ -85,10 +130,21 @@ def create_app(
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
         reset = data.get("reset", False) or config.reset
-        logger.info("Creating new game: lang=%s tileset=%s reset=%s",
-                     lang, tileset, reset)
+        player_token = data.get("player_token", "")
+        pid = ""
+        save_dir = None
+        if player_token:
+            pid = player_id_from_token(player_token)
+            save_dir = _player_save_dir(pid)
+            if save_dir:
+                save_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Creating new game: lang=%s tileset=%s reset=%s "
+                     "player=%s", lang, tileset, reset, pid or "anonymous")
         try:
-            session = sessions.create(lang=lang, tileset=tileset)
+            session = sessions.create(
+                lang=lang, tileset=tileset,
+                player_id=pid, save_dir=save_dir,
+            )
         except ValueError as exc:
             logger.warning("Session limit: %s", exc)
             return jsonify({"error": str(exc)}), 429
@@ -119,6 +175,7 @@ def create_app(
             reset=reset,
             shape_variety=config.shape_variety,
             god_mode=config.god_mode,
+            save_dir=session.save_dir,
         )
         session.game = game
 

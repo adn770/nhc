@@ -7,11 +7,21 @@ import pytest
 from nhc.core.autosave import autosave
 from nhc.web.app import create_app
 from nhc.web.config import WebConfig
+from nhc.web.sessions import player_id_from_token
 
 
 @pytest.fixture
 def client():
     config = WebConfig(max_sessions=2)
+    app = create_app(config)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        yield c
+
+
+@pytest.fixture
+def client_with_data_dir(tmp_path):
+    config = WebConfig(max_sessions=4, data_dir=tmp_path)
     app = create_app(config)
     app.config["TESTING"] = True
     with app.test_client() as c:
@@ -99,3 +109,65 @@ class TestGameAPI:
             assert sid1 != sid2
             # The autosave should be deleted (reset=True)
             assert not save_path.exists()
+
+
+class TestPlayerAPI:
+    def test_register_returns_token(self, client_with_data_dir):
+        resp = client_with_data_dir.post("/api/player/register")
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert "player_token" in data
+        assert "player_id" in data
+        assert len(data["player_id"]) == 12
+
+    def test_register_creates_save_dir(self, client_with_data_dir, tmp_path):
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        resp = client_with_data_dir.post("/api/player/register")
+        data = resp.get_json()
+        pid = data["player_id"]
+        save_dir = config.data_dir / "players" / pid
+        assert save_dir.is_dir()
+
+    def test_login_with_valid_token(self, client_with_data_dir):
+        resp = client_with_data_dir.post("/api/player/register")
+        token = resp.get_json()["player_token"]
+
+        resp = client_with_data_dir.post(
+            "/api/player/login",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["player_id"] == player_id_from_token(token)
+        assert data["has_save"] is False
+        assert data["active_session"] is None
+
+    def test_login_missing_token(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/player/login", json={},
+        )
+        assert resp.status_code == 400
+
+    def test_new_game_with_player(self, client_with_data_dir):
+        resp = client_with_data_dir.post("/api/player/register")
+        token = resp.get_json()["player_token"]
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+
+        # Session should have the player_id
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        sid = resp.get_json()["session_id"]
+        session = sessions.get(sid)
+        assert session.player_id == player_id_from_token(token)
+        assert session.save_dir is not None
+
+    def test_two_players_independent(self, client_with_data_dir):
+        r1 = client_with_data_dir.post("/api/player/register")
+        r2 = client_with_data_dir.post("/api/player/register")
+        pid1 = r1.get_json()["player_id"]
+        pid2 = r2.get_json()["player_id"]
+        assert pid1 != pid2
