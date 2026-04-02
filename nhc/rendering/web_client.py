@@ -65,14 +65,18 @@ class WebClient(GameClient):
         self._last_inv_hash: int = 0
         self._last_fov: set[tuple[int, int]] = set()
         self._last_hatch_clear: set[tuple[int, int]] = set()
+        self._base_url: str = ""
+        self._floor_version: int = 0
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
         self._out_queue: queue.Queue = queue.Queue()
         self.narrative_log = _WebNarrativeLog(self)
 
-    def set_ws(self, ws) -> None:
+    def set_ws(self, ws, base_url: str = "") -> None:
         """Attach the WebSocket (kept for reference only)."""
         self._ws = ws
+        if base_url:
+            self._base_url = base_url
 
     # ── Helpers ──────────────────────────────────────────────────
 
@@ -444,6 +448,42 @@ class WebClient(GameClient):
     def shutdown(self) -> None:
         """Notify client that the session is ending."""
         self._send({"type": "shutdown"})
+
+    def send_floor_change(
+        self, level: "Level", world: "World",
+        player_id: int, turn: int, seed: int = 0,
+    ) -> None:
+        """Regenerate floor SVG and send it to the client.
+
+        Called on floor transitions (descend/ascend stairs).
+        Resets FOV/hatch delta tracking so the next render sends
+        full state for the new level.
+        """
+        from nhc.rendering.svg import render_floor_svg
+
+        self.floor_svg = render_floor_svg(level, seed=seed)
+        self._floor_version += 1
+
+        # Reset delta tracking for the new floor
+        self._last_fov = set()
+        self._last_hatch_clear = set()
+
+        entities = self._gather_entities(world, level, player_id)
+        fov = self._gather_fov(level)
+        doors = self._gather_doors(level)
+        hatch_clear = self._gather_hatch_clear(level)
+
+        v = self._floor_version
+        self._send({
+            "type": "floor",
+            "floor_url": f"{self._base_url}/floor.svg?v={v}",
+            "hatch_url": f"{self._base_url}/hatch.svg",
+            "entities": entities,
+            "doors": doors,
+            "fov": fov,
+            "hatch_clear": hatch_clear,
+            "turn": turn,
+        })
 
     # ── Display ──────────────────────────────────────────────────
 

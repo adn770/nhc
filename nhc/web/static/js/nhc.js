@@ -51,6 +51,14 @@ const NHC = {
 
     WS.on("floor", async (msg) => {
       console.log("floor msg keys:", Object.keys(msg));
+      // Reset client state for the new floor
+      GameMap.fov = new Set();
+      GameMap.explored = new Set();
+      GameMap.hatchClear = new Set();
+      GameMap.doorInfo = new Map();
+      GameMap.allDoors = new Map();
+      GameMap.entities = [];
+      GameMap.doors = [];
       // Load floor SVG via HTTP
       if (msg.floor_url) {
         const svg = await fetch(msg.floor_url).then(r => r.text());

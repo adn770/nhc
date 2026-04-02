@@ -41,12 +41,10 @@ def register_ws(app, sock: Sock) -> None:
             return
 
         client = session.game.renderer
-        client.set_ws(ws)
-        logger.info("WS attached to game")
-
-        # Send floor init — URLs for static SVGs + initial state
         sid = session.session_id
         base_url = f"/api/game/{sid}"
+        client.set_ws(ws, base_url=base_url)
+        logger.info("WS attached to game")
         if client.floor_svg and session.game.level:
             entities = client._gather_entities(
                 session.game.world, session.game.level,

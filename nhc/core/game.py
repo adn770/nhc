@@ -1225,6 +1225,13 @@ class Game:
         self._seen_creatures.clear()
         self._update_fov()
 
+        # Notify the web client to load the new floor
+        if hasattr(self.renderer, 'send_floor_change'):
+            self.renderer.send_floor_change(
+                self.level, self.world, self.player_id,
+                self.turn, seed=self.seed or 0,
+            )
+
     def _save_floor(self) -> None:
         """Save the current floor's level and entities to cache."""
         depth = self.level.depth
