@@ -44,53 +44,47 @@ def register_ws(app, sock: Sock) -> None:
         client.set_ws(ws)
         logger.info("WS attached to game")
 
-        # Send the floor SVG now that WS is connected
-        # Send floor SVG + initial state in one message
+        # Send floor init — URLs for static SVGs + initial state
+        sid = session.session_id
+        base_url = f"/api/game/{sid}"
         if client.floor_svg and session.game.level:
             entities = client._gather_entities(
                 session.game.world, session.game.level,
                 session.game.player_id)
             fov = client._gather_fov(session.game.level)
             doors = client._gather_doors(session.game.level)
-            logger.info("Sending floor SVG (%d bytes) + hatch SVG "
-                        "(%d bytes) + initial state "
-                        "(%d entities, %d doors, %d fov tiles)",
+            logger.info("Sending floor init: floor=%d bytes, "
+                        "hatch=%d bytes (via HTTP), "
+                        "%d entities, %d doors, %d fov tiles",
                         len(client.floor_svg),
                         len(client.hatch_svg) if client.hatch_svg else 0,
                         len(entities), len(doors), len(fov))
-            hatch_url = (f"/api/game/{session.session_id}"
-                         "/hatch.svg")
             ws.send(json.dumps({
                 "type": "floor",
-                "svg": client.floor_svg,
-                "hatch_url": hatch_url,
+                "floor_url": f"{base_url}/floor.svg",
+                "hatch_url": f"{base_url}/hatch.svg",
                 "entities": entities,
                 "doors": doors,
                 "fov": fov,
                 "turn": session.game.turn,
             }))
         elif client.floor_svg:
-            logger.info("Sending floor SVG: %d bytes (no level state)",
-                        len(client.floor_svg))
-            hatch_url = (f"/api/game/{session.session_id}"
-                         "/hatch.svg")
+            logger.info("Sending floor init (no level state)")
             ws.send(json.dumps({
                 "type": "floor",
-                "svg": client.floor_svg,
-                "hatch_url": hatch_url,
+                "floor_url": f"{base_url}/floor.svg",
+                "hatch_url": f"{base_url}/hatch.svg",
             }))
         else:
             logger.warning("No floor SVG to send!")
 
-        # Send debug data for god mode overlay
+        # Notify client of debug data URL (god mode only)
         if session.game.god_mode and session.game.level:
-            debug = client._gather_debug_data(session.game.level)
-            ws.send(json.dumps({"type": "debug_data", **debug}))
-            logger.info("Sent debug_data: %d rooms, %d corridors, "
-                        "%d doors",
-                        len(debug["rooms"]),
-                        len(debug["corridors"]),
-                        len(debug["doors"]))
+            ws.send(json.dumps({
+                "type": "debug_url",
+                "url": f"{base_url}/debug.json",
+            }))
+            logger.info("Sent debug_url for god mode")
 
         # Sender thread: drains client output queue → WS
         stop_event = threading.Event()

@@ -155,6 +155,44 @@ def create_app(
             "god_mode": config.god_mode,
         }), 201
 
+    @app.route("/api/game/<session_id>/debug.json", methods=["GET"])
+    @_maybe_auth
+    def game_debug_data(session_id: str):
+        session = sessions.get(session_id)
+        if not session:
+            return jsonify({"error": "session not found"}), 404
+        if not session.game.god_mode or not session.game.level:
+            return jsonify({"error": "not available"}), 404
+        client = session.game.renderer
+        resp = jsonify(client._gather_debug_data(session.game.level))
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+
+    @app.route("/api/game/<session_id>/labels.json", methods=["GET"])
+    @_maybe_auth
+    def game_labels(session_id: str):
+        session = sessions.get(session_id)
+        if not session:
+            return jsonify({"error": "session not found"}), 404
+        client = session.game.renderer
+        resp = jsonify(client._action_labels())
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+
+    @app.route("/api/game/<session_id>/floor.svg", methods=["GET"])
+    @_maybe_auth
+    def game_floor_svg(session_id: str):
+        session = sessions.get(session_id)
+        if not session:
+            return "session not found", 404
+        client = session.game.renderer
+        if not client.floor_svg:
+            return "floor SVG not generated", 404
+        resp = make_response(client.floor_svg)
+        resp.headers["Content-Type"] = "image/svg+xml"
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+
     @app.route("/api/game/<session_id>/hatch.svg", methods=["GET"])
     @_maybe_auth
     def game_hatch_svg(session_id: str):

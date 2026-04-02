@@ -74,10 +74,12 @@ class TestWebClientRender:
         assert "stats" in types
         state = next(m for m in msgs if m["type"] == "state")
         assert state["turn"] == 5
+        # First render sends stats_init (static) + stats (dynamic)
+        assert "stats_init" in types
+        stats_init = next(m for m in msgs if m["type"] == "stats_init")
+        assert "char_name" in stats_init
         stats = next(m for m in msgs if m["type"] == "stats")
         assert "hp" in stats
-        assert "char_name" in stats
-        assert "items" in stats
 
 
 class TestWebClientEndScreen:
@@ -308,6 +310,12 @@ def _player_comps(**overrides):
     return comps
 
 
+def _merged_stats(wc, world, pid, turn, level):
+    """Call _gather_stats and merge static + dynamic dicts."""
+    static, dynamic = wc._gather_stats(world, pid, turn, level)
+    return {**static, **dynamic}
+
+
 class TestGatherStatsItemMetadata:
     """_gather_stats returns structured item data with type info."""
 
@@ -320,7 +328,7 @@ class TestGatherStatsItemMetadata:
                  "Consumable": _Consumable()},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
         assert len(stats["items"]) == 1
         item = stats["items"][0]
@@ -339,7 +347,7 @@ class TestGatherStatsItemMetadata:
                  "Weapon": _Weapon()},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
         assert "weapon" in stats["items"][0]["types"]
 
     def test_armor_slot_types(self):
@@ -355,7 +363,7 @@ class TestGatherStatsItemMetadata:
                  "Armor": _Armor(slot="helmet")},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
         by_name = {i["name"]: i for i in stats["items"]}
         assert "armor" in by_name["Chain Mail"]["types"]
@@ -371,7 +379,7 @@ class TestGatherStatsItemMetadata:
                  "Wand": _Wand(charges=3, max_charges=10)},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
         item = stats["items"][0]
         assert "wand" in item["types"]
@@ -386,7 +394,7 @@ class TestGatherStatsItemMetadata:
                  "Ring": _Ring()},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
         assert "ring" in stats["items"][0]["types"]
 
     def test_throwable_flag(self):
@@ -398,7 +406,7 @@ class TestGatherStatsItemMetadata:
                  "Weapon": _Weapon(), "Throwable": _Throwable()},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
         types = stats["items"][0]["types"]
         assert "weapon" in types
@@ -416,7 +424,7 @@ class TestGatherStatsItemMetadata:
                  "Consumable": _Consumable()},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
         by_name = {i["name"]: i for i in stats["items"]}
         assert by_name["Sword"]["equipped"] is True
@@ -432,7 +440,7 @@ class TestGatherStatsItemMetadata:
                  "Throwable": _Throwable()},
         })
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
         types = stats["items"][0]["types"]
         assert "consumable" in types
@@ -441,7 +449,7 @@ class TestGatherStatsItemMetadata:
     def test_empty_inventory(self):
         world = _mock_world({1: _player_comps()})
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
         assert stats["items"] == []
 
 
@@ -449,11 +457,8 @@ class TestActionLabels:
     """_gather_stats includes translated action labels for context menu."""
 
     def test_action_labels_present(self):
-        world = _mock_world({1: _player_comps()})
         wc = WebClient(lang="en")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
-        assert "action_labels" in stats
-        labels = stats["action_labels"]
+        labels = wc._action_labels()
         for key in ("use", "quaff", "zap", "equip", "unequip",
                      "drop", "throw"):
             assert key in labels, f"missing label for '{key}'"
@@ -461,10 +466,8 @@ class TestActionLabels:
     def test_action_labels_catalan(self):
         from nhc.i18n import init as i18n_init
         i18n_init("ca")
-        world = _mock_world({1: _player_comps()})
         wc = WebClient(lang="ca")
-        stats = wc._gather_stats(world, 1, 0, _mock_level())
-        labels = stats["action_labels"]
+        labels = wc._action_labels()
         # Catalan labels should not be the English fallback keys
         assert labels["drop"] != "ui.action_drop"
         assert labels["use"] != "ui.action_use"

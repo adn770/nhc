@@ -116,8 +116,28 @@ const GameMap = {
     this.scrollToPlayer();
   },
 
-  updateFOV(fovList) {
-    this.fov = new Set(fovList.map(([x, y]) => `${x},${y}`));
+  /**
+   * Update FOV from full list or delta (add/del).
+   * Full: msg.fov = [[x,y], ...]
+   * Delta: msg.fov_add = [...], msg.fov_del = [...]
+   */
+  updateFOV(msg) {
+    if (msg.fov) {
+      // Full FOV list
+      this.fov = new Set(msg.fov.map(([x, y]) => `${x},${y}`));
+    } else {
+      // Delta update
+      if (msg.fov_del) {
+        for (const [x, y] of msg.fov_del) {
+          this.fov.delete(`${x},${y}`);
+        }
+      }
+      if (msg.fov_add) {
+        for (const [x, y] of msg.fov_add) {
+          this.fov.add(`${x},${y}`);
+        }
+      }
+    }
     for (const key of this.fov) {
       this.explored.add(key);
     }

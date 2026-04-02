@@ -23,13 +23,18 @@ const UI = {
     this.addMessage(text, "narrative");
   },
 
-  updateStatus(s) {
-    if (!s.hp_max) return;
+  /**
+   * Store static stats (char_name, abilities, etc.) that only
+   * change on level-up or floor transitions.
+   */
+  setStaticStats(s) {
+    this._staticStats = s;
+  },
 
-    // Store translated action labels for context menus
-    if (s.action_labels) {
-      this._actionLabels = s.action_labels;
-    }
+  updateStatus(s) {
+    // Merge static + dynamic stats
+    s = Object.assign({}, this._staticStats || {}, s);
+    if (!s.hp_max) return;
 
     // ── Line 1: Location, depth, turn, level, gold, HP bar ──
     const hp = s.hp || 0;
@@ -71,8 +76,8 @@ const UI = {
       `${sep}${equip}`;
 
     // ── Line 3: Inventory (interactive) ──
-    const rawItems = s.items || [];
-    this.currentItems = rawItems;
+    if (s.items) this.currentItems = s.items;
+    const rawItems = this.currentItems || [];
     this.statusLine3.textContent = "";
 
     const prefix = document.createElement("span");

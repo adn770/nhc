@@ -61,6 +61,9 @@ class WebClient(GameClient):
         self.messages: list[str] = []
         self.floor_svg: str = ""
         self.hatch_svg: str = ""
+        self._last_static_stats: dict | None = None
+        self._last_inv_hash: int = 0
+        self._last_fov: set[tuple[int, int]] = set()
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
         self._out_queue: queue.Queue = queue.Queue()
@@ -236,17 +239,11 @@ class WebClient(GameClient):
                     "charges": charges,
                 })
 
-        return {
+        static = {
             "char_name": pdesc.name if pdesc else "?",
             "char_bg": pdesc.short if pdesc else "",
             "level_name": level.name,
             "depth": level.depth,
-            "turn": turn,
-            "plevel": player.level if player else 1,
-            "xp": player.xp if player else 0,
-            "xp_next": player.xp_to_next if player else 1000,
-            "gold": player.gold if player else 0,
-            "hp": health.current if health else 0,
             "hp_max": health.maximum if health else 0,
             "str": stats.strength if stats else 0,
             "dex": dex,
@@ -254,17 +251,25 @@ class WebClient(GameClient):
             "int": stats.intelligence if stats else 0,
             "wis": stats.wisdom if stats else 0,
             "cha": stats.charisma if stats else 0,
+            "xp_next": player.xp_to_next if player else 1000,
+            "slots_max": max_slots,
+            "ac_label": ac_label,
+        }
+        dynamic = {
+            "turn": turn,
+            "plevel": player.level if player else 1,
+            "xp": player.xp if player else 0,
+            "gold": player.gold if player else 0,
+            "hp": health.current if health else 0,
             "weapon": weapon,
             "armor_name": armor_name,
             "shield_name": shield_name,
             "helmet_name": helmet_name,
-            "ac_label": ac_label,
             "ac": ac,
             "items": items,
             "slots_used": total_used,
-            "slots_max": max_slots,
-            "action_labels": self._action_labels(),
         }
+        return static, dynamic
 
     def _action_labels(self) -> dict[str, str]:
         """Return translated context menu and toolbar labels."""
@@ -448,20 +453,44 @@ class WebClient(GameClient):
         turn: int,
     ) -> None:
         entities = self._gather_entities(world, level, player_id)
-        fov = self._gather_fov(level)
+        fov_list = self._gather_fov(level)
         doors = self._gather_doors(level)
-        stats = self._gather_stats(world, player_id, turn, level)
-        self._send({
+        static, dynamic = self._gather_stats(
+            world, player_id, turn, level)
+
+        # FOV delta encoding — send add/del instead of full list
+        current_fov = {(t[0], t[1]) for t in fov_list}
+        prev_fov = self._last_fov
+        fov_add = current_fov - prev_fov
+        fov_del = prev_fov - current_fov
+        self._last_fov = current_fov
+
+        state_msg: dict = {
             "type": "state",
             "entities": entities,
-            "fov": fov,
             "doors": doors,
             "turn": turn,
-        })
-        self._send({
-            "type": "stats",
-            **stats,
-        })
+        }
+        if (not prev_fov
+                or len(fov_add) + len(fov_del)
+                > len(current_fov) * 0.5):
+            # First send or large change — send full FOV
+            state_msg["fov"] = fov_list
+        else:
+            state_msg["fov_add"] = [[x, y] for x, y in fov_add]
+            state_msg["fov_del"] = [[x, y] for x, y in fov_del]
+        self._send(state_msg)
+        # Send static stats only when they change
+        if static != self._last_static_stats:
+            self._send({"type": "stats_init", **static})
+            self._last_static_stats = static
+        # Only include inventory when it changes
+        inv_hash = hash(str(dynamic.get("items", [])))
+        if inv_hash != self._last_inv_hash:
+            self._last_inv_hash = inv_hash
+        else:
+            dynamic.pop("items", None)
+        self._send({"type": "stats", **dynamic})
 
     def scroll_messages(self, direction: int) -> None:
         self._send({"type": "scroll", "direction": direction})

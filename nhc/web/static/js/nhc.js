@@ -20,7 +20,9 @@ const NHC = {
                   (msg.doors || []).length, "doors,",
                   (msg.fov || []).length, "fov tiles");
       GameMap.updateEntities(msg.entities, msg.doors);
-      if (msg.fov) GameMap.updateFOV(msg.fov);
+      if (msg.fov || msg.fov_add || msg.fov_del) {
+        GameMap.updateFOV(msg);
+      }
       if (DebugPanel.enabled) DebugPanel.updateFovInfo();
     });
 
@@ -33,28 +35,30 @@ const NHC = {
       UI.addNarrative(msg.chunk);
     });
 
-    WS.on("stats", (msg) => {
-      UI.updateStatus(msg);
-      if (msg.action_labels) {
-        Input.updateToolbarLabels(msg.action_labels);
-      }
+    WS.on("stats_init", (msg) => {
+      UI.setStaticStats(msg);
     });
 
-    WS.on("floor", (msg) => {
+    WS.on("stats", (msg) => {
+      UI.updateStatus(msg);
+    });
+
+    WS.on("floor", async (msg) => {
       console.log("floor msg keys:", Object.keys(msg));
-      console.log("floor SVG received:", msg.svg.length, "bytes");
-      console.log("hatch_url:", msg.hatch_url || "MISSING");
-      GameMap.setFloorSVG(msg.svg);
+      // Load floor SVG via HTTP
+      if (msg.floor_url) {
+        const svg = await fetch(msg.floor_url).then(r => r.text());
+        console.log("floor SVG loaded:", svg.length, "bytes");
+        GameMap.setFloorSVG(svg);
+      }
       if (msg.hatch_url) {
         GameMap.loadHatchSVG(msg.hatch_url);
-      } else {
-        console.warn("No hatch_url in floor message!");
       }
       if (msg.entities) {
         GameMap.updateEntities(msg.entities, msg.doors);
       }
       if (msg.fov) {
-        GameMap.updateFOV(msg.fov);
+        GameMap.updateFOV(msg);
       }
     });
 
@@ -81,9 +85,12 @@ const NHC = {
       WS.send({ type: "action", intent: "farlook_done" });
     });
 
-    WS.on("debug_data", (msg) => {
-      if (DebugPanel.enabled) {
-        DebugPanel.setDebugData(msg);
+    WS.on("debug_url", (msg) => {
+      if (DebugPanel.enabled && msg.url) {
+        fetch(msg.url)
+          .then(r => r.json())
+          .then(data => DebugPanel.setDebugData(data))
+          .catch(e => console.warn("Failed to load debug data:", e));
       }
     });
   },
@@ -118,6 +125,12 @@ const NHC = {
 
     // Init map now that the DOM is visible
     GameMap.init();
+
+    // Load translated toolbar labels via HTTP
+    fetch(`/api/game/${data.session_id}/labels.json`)
+      .then(r => r.json())
+      .then(labels => Input.updateToolbarLabels(labels))
+      .catch(e => console.warn("Failed to load labels:", e));
 
     // Init debug panel if god mode
     if (data.god_mode) {
