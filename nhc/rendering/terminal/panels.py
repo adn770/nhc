@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.i18n import t as tr
+from nhc.rendering.terminal.themes import get_theme
 
 if TYPE_CHECKING:
     from blessed import Terminal
@@ -23,11 +24,9 @@ if TYPE_CHECKING:
 
 # ── Box-drawing characters (dynamic from theme) ─────────────────────
 def _h_line():
-    from nhc.rendering.terminal.themes import get_theme
     return get_theme().h_line
 
 def _sep():
-    from nhc.rendering.terminal.themes import get_theme
     return get_theme().v_sep
 
 

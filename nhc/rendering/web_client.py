@@ -17,7 +17,11 @@ import queue
 import time
 from typing import TYPE_CHECKING, Any
 
+from nhc.core.game import compute_hatch_clear
+from nhc.dungeon.model import HybridShape, Terrain
+from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
+from nhc.rendering.svg import render_floor_svg
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -27,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 
 def _is_floor(level, x: int, y: int) -> bool:
-    from nhc.dungeon.model import Terrain
     if not level.in_bounds(x, y):
         return False
     t = level.tiles[y][x]
@@ -155,7 +158,6 @@ class WebClient(GameClient):
         level: "Level",
     ) -> dict:
         """Collect player stats for the status bar."""
-        from nhc.i18n import t as tr
         health = world.get_component(player_id, "Health")
         stats = world.get_component(player_id, "Stats")
         equip = world.get_component(player_id, "Equipment")
@@ -284,34 +286,33 @@ class WebClient(GameClient):
 
     def _action_labels(self) -> dict[str, str]:
         """Return translated context menu and toolbar labels."""
-        from nhc.i18n import t
         return {
-            "use": t("ui.action_use"),
-            "quaff": t("ui.action_quaff"),
-            "zap": t("ui.action_zap"),
-            "equip": t("ui.action_equip"),
-            "unequip": t("ui.action_unequip"),
-            "drop": t("ui.action_drop"),
-            "throw": t("ui.action_throw"),
-            "toolbar_pickup": t("ui.toolbar_pickup"),
-            "toolbar_inventory": t("ui.toolbar_inventory"),
-            "toolbar_quaff": t("ui.toolbar_quaff"),
-            "toolbar_use_item": t("ui.toolbar_use_item"),
-            "toolbar_equip": t("ui.toolbar_equip"),
-            "toolbar_drop": t("ui.toolbar_drop"),
-            "toolbar_throw": t("ui.toolbar_throw"),
-            "toolbar_zap": t("ui.toolbar_zap"),
-            "toolbar_search": t("ui.toolbar_search"),
-            "toolbar_wait": t("ui.toolbar_wait"),
-            "toolbar_pick_lock": t("ui.toolbar_pick_lock"),
-            "toolbar_force_door": t("ui.toolbar_force_door"),
-            "toolbar_farlook": t("ui.toolbar_farlook"),
-            "toolbar_descend": t("ui.toolbar_descend"),
-            "toolbar_ascend": t("ui.toolbar_ascend"),
-            "toolbar_zoom_in": t("ui.toolbar_zoom_in"),
-            "toolbar_zoom_out": t("ui.toolbar_zoom_out"),
-            "toolbar_restart": t("ui.toolbar_restart"),
-            "toolbar_debug": t("ui.toolbar_debug"),
+            "use": tr("ui.action_use"),
+            "quaff": tr("ui.action_quaff"),
+            "zap": tr("ui.action_zap"),
+            "equip": tr("ui.action_equip"),
+            "unequip": tr("ui.action_unequip"),
+            "drop": tr("ui.action_drop"),
+            "throw": tr("ui.action_throw"),
+            "toolbar_pickup": tr("ui.toolbar_pickup"),
+            "toolbar_inventory": tr("ui.toolbar_inventory"),
+            "toolbar_quaff": tr("ui.toolbar_quaff"),
+            "toolbar_use_item": tr("ui.toolbar_use_item"),
+            "toolbar_equip": tr("ui.toolbar_equip"),
+            "toolbar_drop": tr("ui.toolbar_drop"),
+            "toolbar_throw": tr("ui.toolbar_throw"),
+            "toolbar_zap": tr("ui.toolbar_zap"),
+            "toolbar_search": tr("ui.toolbar_search"),
+            "toolbar_wait": tr("ui.toolbar_wait"),
+            "toolbar_pick_lock": tr("ui.toolbar_pick_lock"),
+            "toolbar_force_door": tr("ui.toolbar_force_door"),
+            "toolbar_farlook": tr("ui.toolbar_farlook"),
+            "toolbar_descend": tr("ui.toolbar_descend"),
+            "toolbar_ascend": tr("ui.toolbar_ascend"),
+            "toolbar_zoom_in": tr("ui.toolbar_zoom_in"),
+            "toolbar_zoom_out": tr("ui.toolbar_zoom_out"),
+            "toolbar_restart": tr("ui.toolbar_restart"),
+            "toolbar_debug": tr("ui.toolbar_debug"),
         }
 
     def _gather_doors(
@@ -358,13 +359,11 @@ class WebClient(GameClient):
         self, level: "Level",
     ) -> list[list[int]]:
         """Build list of tiles whose hatch should be cleared."""
-        from nhc.core.game import compute_hatch_clear
         tiles = compute_hatch_clear(level)
         return [[x, y] for x, y in sorted(tiles)]
 
     def _gather_debug_data(self, level: "Level") -> dict:
         """Build debug overlay data for god mode panel."""
-        from nhc.dungeon.model import HybridShape, Terrain
 
         # Rooms
         rooms = []
@@ -465,8 +464,6 @@ class WebClient(GameClient):
         Resets FOV/hatch delta tracking so the next render sends
         full state for the new level.
         """
-        from nhc.rendering.svg import render_floor_svg
-
         self.floor_svg = render_floor_svg(level, seed=seed)
         self._floor_version += 1
 
@@ -651,7 +648,6 @@ class WebClient(GameClient):
     def show_inventory_menu(
         self, world: "World", player_id: int, prompt: str = "",
     ) -> int | None:
-        from nhc.i18n import t as tr
         inv = world.get_component(player_id, "Inventory")
         if not inv or not inv.slots:
             return None
@@ -687,7 +683,6 @@ class WebClient(GameClient):
     ) -> int | None:
         if not items:
             return None
-        from nhc.i18n import t as tr
         return self._request_menu(tr("ui.pickup_which"), items)
 
     def show_target_menu(

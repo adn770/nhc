@@ -26,7 +26,7 @@ from nhc.i18n import t as tr
 logger = logging.getLogger(__name__)
 
 from nhc.core.ecs import World
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, RectShape, Terrain
 from nhc.rendering.terminal import glyphs as _glyphs
 from nhc.rendering.terminal.glyphs import (
     FEATURE_GLYPHS,
@@ -41,6 +41,7 @@ from nhc.rendering.terminal.narrative_log import (
     render_narrative_log,
 )
 from nhc.rendering.terminal.panels import render_messages, render_status
+from nhc.rendering.terminal.themes import get_theme, set_theme
 
 # Zone sizes (separators included)
 STATUS_HEIGHT = 4   # separator + 3 lines
@@ -67,7 +68,6 @@ class TerminalRenderer(GameClient):
     def __init__(self, color_mode: str = "256",
                  game_mode: str = "classic",
                  theme: str | None = None) -> None:
-        from nhc.rendering.terminal.themes import get_theme, set_theme
         # Set theme first (determines color depth)
         if theme:
             set_theme(theme)
@@ -193,7 +193,6 @@ class TerminalRenderer(GameClient):
         msg_lines = LOG_HEIGHT - INPUT_HEIGHT  # lines for messages
 
         # Separator
-        from nhc.rendering.terminal.themes import get_theme
         output += t.move_xy(0, log_y) + t.bright_black(
             get_theme().h_line * t.width)
 
@@ -355,7 +354,6 @@ class TerminalRenderer(GameClient):
         view_w: int, view_h: int,
     ) -> str:
         """Render the dungeon map centered on camera position."""
-        from nhc.rendering.terminal.themes import get_theme
         _active_theme = get_theme()
         t = self.term
         output = ""
@@ -383,7 +381,6 @@ class TerminalRenderer(GameClient):
         # that should use rounded corner glyphs
         _rounded_walls: set[tuple[int, int]] = set()
         if _active_theme.walls_rounded:
-            from nhc.dungeon.model import RectShape
             for room in level.rooms:
                 if isinstance(room.shape, RectShape):
                     continue
@@ -857,7 +854,6 @@ class TerminalRenderer(GameClient):
         self, title: str, items: list[tuple[int, str]],
     ) -> int | None:
         """Draw a selection box. Returns selected EntityId."""
-        from nhc.rendering.terminal.themes import get_theme
         theme = get_theme()
         t = self.term
         border = t.color_rgb(80, 140, 210) if theme.color_depth == "256" \
