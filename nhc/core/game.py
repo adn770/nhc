@@ -139,6 +139,49 @@ def edge_door_blocked_tiles(
     return set()
 
 
+_CLOSED_DOOR_FEATURES = frozenset({
+    "door_closed", "door_locked", "door_secret",
+})
+
+
+def door_wall_run_hidden(
+    level: "Level", visible: set[tuple[int, int]],
+) -> set[tuple[int, int]]:
+    """Return wall tiles flanking visible closed doors to hide.
+
+    When a closed/locked/secret edge-door is visible, the wall
+    tiles adjacent to it along the wall run reveal the room's
+    structure. For a vertical door (east/west edge) the wall
+    runs along y, so hide (x, y-1) and (x, y+1) if they are
+    WALL. For a horizontal door (north/south edge) the wall
+    runs along x, so hide (x-1, y) and (x+1, y) if they are
+    WALL.
+    """
+    from nhc.dungeon.model import Terrain
+
+    hidden: set[tuple[int, int]] = set()
+    for vx, vy in visible:
+        tile = level.tile_at(vx, vy)
+        if not tile or tile.feature not in _CLOSED_DOOR_FEATURES:
+            continue
+        side = tile.door_side
+        if not side:
+            continue
+        # Vertical door (east/west): wall runs along y
+        if side in ("east", "west"):
+            for dy in (-1, 1):
+                adj = level.tile_at(vx, vy + dy)
+                if adj and adj.terrain == Terrain.WALL:
+                    hidden.add((vx, vy + dy))
+        # Horizontal door (north/south): wall runs along x
+        else:
+            for dx in (-1, 1):
+                adj = level.tile_at(vx + dx, vy)
+                if adj and adj.terrain == Terrain.WALL:
+                    hidden.add((vx + dx, vy))
+    return hidden
+
+
 class Game:
     """Main game controller. Owns the world, event bus, and loop."""
 
@@ -489,6 +532,11 @@ class Game:
         # Virtual wall tiles are room floor behind the door —
         # exclude them so the room isn't partially revealed.
         visible -= blocked_tiles
+
+        # Hide wall tiles flanking visible closed doors so the
+        # room's wall structure isn't revealed before entry.
+        if self.renderer.edge_doors:
+            visible -= door_wall_run_hidden(self.level, visible)
 
         for vx, vy in visible:
             tile = self.level.tile_at(vx, vy)
