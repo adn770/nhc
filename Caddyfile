@@ -1,0 +1,4 @@
+{$DUCKDNS_SUBDOMAIN}.duckdns.org {
+    reverse_proxy nhc:8080
+    encode gzip
+}

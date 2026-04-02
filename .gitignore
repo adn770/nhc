@@ -15,6 +15,7 @@ debug/*
 # Config
 .nhcrc
 .server.pid
+.env
 
 # IDE
 .vscode/

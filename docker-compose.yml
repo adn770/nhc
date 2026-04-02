@@ -1,0 +1,39 @@
+services:
+  nhc:
+    build: .
+    expose:
+      - "8080"
+    volumes:
+      - /var/nhc:/var/nhc
+    environment:
+      - NHC_DATA_DIR=/var/nhc
+      - NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN}
+      - NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS:-8}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DUCKDNS_SUBDOMAIN=${DUCKDNS_SUBDOMAIN}
+    depends_on:
+      - nhc
+    restart: unless-stopped
+
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    environment:
+      - SUBDOMAINS=${DUCKDNS_SUBDOMAIN}
+      - TOKEN=${DUCKDNS_TOKEN}
+      - TZ=${TZ:-Europe/Madrid}
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
