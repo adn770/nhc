@@ -28,6 +28,41 @@ def client_with_data_dir(tmp_path):
         yield c
 
 
+class TestAppFactory:
+    def test_app_factory_creates_app(self, tmp_path, monkeypatch):
+        from nhc.web.app import app_factory
+        monkeypatch.setenv("NHC_DATA_DIR", str(tmp_path))
+        monkeypatch.setenv("NHC_MAX_SESSIONS", "4")
+        app = app_factory()
+        assert app is not None
+        cfg = app.config["NHC_CONFIG"]
+        assert cfg.data_dir == tmp_path
+        assert cfg.max_sessions == 4
+        assert cfg.god_mode is False
+
+    def test_app_factory_with_auth(self, tmp_path, monkeypatch):
+        from nhc.web.app import app_factory
+        monkeypatch.setenv("NHC_DATA_DIR", str(tmp_path))
+        monkeypatch.setenv("NHC_AUTH_TOKEN", "secret123")
+        app = app_factory()
+        assert app.config["NHC_CONFIG"].auth_required is True
+        assert len(app.config["AUTH_HASHES"]) == 1
+
+
+class TestHealth:
+    def test_health_endpoint(self, client):
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["sessions"] == 0
+
+    def test_health_counts_sessions(self, client):
+        client.post("/api/game/new", json={})
+        resp = client.get("/health")
+        assert resp.get_json()["sessions"] == 1
+
+
 class TestGameAPI:
     def test_create_game(self, client):
         resp = client.post(

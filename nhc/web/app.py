@@ -481,4 +481,31 @@ def create_app(
             return "Help not available.", 404
         return path.read_text(), 200, {"Content-Type": "text/plain"}
 
+    @app.route("/health", methods=["GET"])
+    def health():
+        return jsonify({
+            "status": "ok",
+            "sessions": sessions.active_count,
+        })
+
     return app
+
+
+def app_factory() -> Flask:
+    """WSGI app factory for gunicorn. Reads config from env vars."""
+    import os
+    from pathlib import Path
+
+    data_dir_str = os.environ.get("NHC_DATA_DIR")
+    data_dir = Path(data_dir_str) if data_dir_str else None
+
+    config = WebConfig(
+        host="0.0.0.0",
+        port=int(os.environ.get("NHC_PORT", "8080")),
+        max_sessions=int(os.environ.get("NHC_MAX_SESSIONS", "8")),
+        data_dir=data_dir,
+        auth_required=bool(os.environ.get("NHC_AUTH_TOKEN")),
+        god_mode=False,
+    )
+    auth_token = os.environ.get("NHC_AUTH_TOKEN")
+    return create_app(config, auth_token=auth_token)

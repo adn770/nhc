@@ -102,12 +102,9 @@ def main() -> None:
         print(f"Auth token: {auth_token}")
         print(f"Access URL: {url}?token={auth_token}")
 
-    try:
-        from waitress import serve
-        serve(app, host=config.host, port=config.port)
-    except ImportError:
-        print("(waitress not installed, using Flask dev server)")
-        app.run(host=config.host, port=config.port, debug=True)
+    print("(dev mode — for production use: gunicorn --worker-class "
+          "gevent -w1 -b 0.0.0.0:8080 'nhc.web.app:app_factory()')")
+    app.run(host=config.host, port=config.port, debug=True)
 
 
 if __name__ == "__main__":
