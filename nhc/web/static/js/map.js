@@ -22,6 +22,7 @@ const GameMap = {
   doors: [],
   fov: new Set(),
   explored: new Set(),
+  doorInfo: new Map(),  // "x,y" → {edge, state}
   tileset: null,
   tilesetImg: null,
   mapW: 0,
@@ -96,7 +97,13 @@ const GameMap = {
 
   updateEntities(entities, doors) {
     this.entities = entities;
-    if (doors) this.doors = doors;
+    if (doors) {
+      this.doors = doors;
+      for (const d of doors) {
+        this.doorInfo.set(`${d.x},${d.y}`,
+                         { edge: d.edge, state: d.state });
+      }
+    }
     // Track player position for auto-scroll
     const player = entities.find(e => e.glyph === "@");
     if (player) {
@@ -193,17 +200,50 @@ const GameMap = {
   drawHatch() {
     const ctx = this.hatchCtx;
     if (!ctx) return;
-    const expand = this.cellSize * 0.1;
-    console.log("drawHatch:", this.explored.size, "explored tiles,",
-                "canvas:", this.hatchCanvas.width, "x",
-                this.hatchCanvas.height);
+    const cs = this.cellSize;
+    const expand = cs * 0.1;
+
+    // Build set of tiles blocked by closed/secret doors.
+    // A door blocks its own tile + the two wall-direction
+    // neighbors when the floor isn't visible from the open side.
+    // Open side = opposite of the door edge.
+    const blocked = new Set();
+
+    const openSide = {
+      right: { dx: -1, dy: 0 },  // open side is left
+      left:  { dx: 1,  dy: 0 },  // open side is right
+      top:   { dx: 0,  dy: 1 },  // open side is bottom
+      bottom:{ dx: 0,  dy: -1 }, // open side is top
+    };
+    const wallNeighbors = {
+      right: [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }],
+      left:  [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }],
+      top:   [{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }],
+      bottom:[{ dx: -1, dy: 0 }, { dx: 1, dy: 0 }],
+    };
+
+    for (const [key, door] of this.doorInfo) {
+      if (door.state === "door_open") continue;
+      const [dx, dy] = key.split(",").map(Number);
+      const os = openSide[door.edge];
+      if (!os) continue;
+      const openKey = `${dx + os.dx},${dy + os.dy}`;
+      // If the open-side neighbor is explored, player has seen
+      // the floor — don't block
+      if (this.explored.has(openKey)) continue;
+      // Block the door tile and wall-direction neighbors
+      blocked.add(key);
+      for (const wn of wallNeighbors[door.edge]) {
+        blocked.add(`${dx + wn.dx},${dy + wn.dy}`);
+      }
+    }
+
     for (const key of this.explored) {
+      if (blocked.has(key)) continue;
       const [x, y] = key.split(",").map(Number);
-      const px = x * this.cellSize + this.padding - expand;
-      const py = y * this.cellSize + this.padding - expand;
-      ctx.clearRect(px, py,
-                    this.cellSize + 2 * expand,
-                    this.cellSize + 2 * expand);
+      const px = x * cs + this.padding - expand;
+      const py = y * cs + this.padding - expand;
+      ctx.clearRect(px, py, cs + 2 * expand, cs + 2 * expand);
     }
   },
 
