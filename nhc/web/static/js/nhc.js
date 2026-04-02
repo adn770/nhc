@@ -9,10 +9,16 @@ const NHC = {
     Input.init();
 
     document.getElementById("new-game-btn")
-      .addEventListener("click", () => this.newGame());
+      .addEventListener("click", () => this.newGame(true));
+
+    document.getElementById("continue-btn")
+      .addEventListener("click", () => this.newGame(false));
 
     document.getElementById("help-btn")
       ?.addEventListener("click", () => UI.showHelp());
+
+    // Show "Continue" button if a save exists
+    this.checkSave();
 
     // Wire up WebSocket message handlers
     WS.on("state", (msg) => {
@@ -77,7 +83,7 @@ const NHC = {
     });
 
     WS.on("shutdown", () => {
-      UI.addMessage("Session ended.");
+      this.returnToWelcome();
     });
 
     WS.on("farlook", () => {
@@ -95,14 +101,14 @@ const NHC = {
     });
   },
 
-  async newGame() {
+  async newGame(reset = false) {
     const lang = document.getElementById("lang-select").value;
     const tileset = document.getElementById("tileset-select").value;
 
     const resp = await fetch("/api/game/new", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lang, tileset }),
+      body: JSON.stringify({ lang, tileset, reset }),
     });
 
     if (!resp.ok) {
@@ -142,19 +148,23 @@ const NHC = {
     WS.connect(this.sessionId);
   },
 
-  async restartGame() {
-    const choice = await UI.showMenu(
-      "Restart game? Current progress will be lost.", [
-        { id: "yes", name: "Yes, restart" },
-        { id: "no",  name: "Cancel" },
-      ]);
-    if (choice !== "yes") return;
-    // Close current WS, delete session, start fresh
-    if (WS.socket) WS.socket.close();
-    if (this.sessionId) {
-      fetch(`/api/game/${this.sessionId}`, { method: "DELETE" })
-        .catch(() => {});
+  async checkSave() {
+    try {
+      const resp = await fetch("/api/game/has_save");
+      const data = await resp.json();
+      const btn = document.getElementById("continue-btn");
+      if (data.has_save) {
+        btn.classList.remove("hidden");
+      } else {
+        btn.classList.add("hidden");
+      }
+    } catch {
+      // Server not ready or no auth — hide button
     }
+  },
+
+  returnToWelcome() {
+    if (WS.socket) WS.socket.close();
     // Reset client state
     GameMap.fov = new Set();
     GameMap.explored = new Set();
@@ -166,9 +176,26 @@ const NHC = {
     DebugPanel.visible = false;
     const panel = document.getElementById("debug-panel");
     if (panel) panel.remove();
-    // Go back to login screen
+    // Switch screens
     document.getElementById("game-screen").classList.add("hidden");
     document.getElementById("login-screen").classList.remove("hidden");
+    this.sessionId = null;
+    // Refresh continue button
+    this.checkSave();
+  },
+
+  async restartGame() {
+    const choice = await UI.showMenu(
+      "Restart game? Current progress will be lost.", [
+        { id: "yes", name: "Yes, restart" },
+        { id: "no",  name: "Cancel" },
+      ]);
+    if (choice !== "yes") return;
+    if (this.sessionId) {
+      fetch(`/api/game/${this.sessionId}`, { method: "DELETE" })
+        .catch(() => {});
+    }
+    this.returnToWelcome();
   },
 };
 

@@ -1041,6 +1041,7 @@ class Game:
             )
 
         if intent == "quit":
+            self.renderer.shutdown()
             self.running = False
             return None
 

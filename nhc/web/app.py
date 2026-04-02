@@ -72,14 +72,21 @@ def create_app(
             return require_auth(valid_hashes)(f)
         return f
 
+    @app.route("/api/game/has_save", methods=["GET"])
+    @_maybe_auth
+    def game_has_save():
+        from nhc.core.autosave import has_autosave
+        return jsonify({"has_save": has_autosave()})
+
     @app.route("/api/game/new", methods=["POST"])
     @_maybe_auth
     def game_new():
         data = request.get_json(silent=True) or {}
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
+        reset = data.get("reset", False) or config.reset
         logger.info("Creating new game: lang=%s tileset=%s reset=%s",
-                     lang, tileset, config.reset)
+                     lang, tileset, reset)
         try:
             session = sessions.create(lang=lang, tileset=tileset)
         except ValueError as exc:
@@ -109,7 +116,7 @@ def create_app(
             client=client,
             backend=backend,
             game_mode="classic",
-            reset=config.reset,
+            reset=reset,
             shape_variety=config.shape_variety,
             god_mode=config.god_mode,
         )
