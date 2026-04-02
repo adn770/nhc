@@ -117,6 +117,27 @@ def _resolve_click(
                       edge_doors=edge_doors)
 
 
+def edge_door_blocked_tiles(
+    x: int, y: int, door_side: str,
+) -> set[tuple[int, int]]:
+    """Return tiles to block FOV through a closed edge-door.
+
+    When the player stands on a closed door tile, a 3-tile-wide
+    virtual wall is placed in the door_side direction so that
+    diagonal shadowcasting rays cannot leak around a single
+    blocked tile into the room beyond.
+    """
+    if door_side == "north":
+        return {(x + d, y - 1) for d in (-1, 0, 1)}
+    if door_side == "south":
+        return {(x + d, y + 1) for d in (-1, 0, 1)}
+    if door_side == "east":
+        return {(x + 1, y + d) for d in (-1, 0, 1)}
+    if door_side == "west":
+        return {(x - 1, y + d) for d in (-1, 0, 1)}
+    return set()
+
+
 class Game:
     """Main game controller. Owns the world, event bus, and loop."""
 
@@ -451,17 +472,9 @@ class Game:
             if (cur and cur.feature in ("door_closed", "door_locked",
                                         "door_secret")
                     and cur.door_side):
-                # The first tile in the door_side direction acts as a
-                # virtual wall, blocking FOV from passing through.
-                side = cur.door_side
-                if side == "north":
-                    blocked_tiles.add((pos.x, pos.y - 1))
-                elif side == "south":
-                    blocked_tiles.add((pos.x, pos.y + 1))
-                elif side == "east":
-                    blocked_tiles.add((pos.x + 1, pos.y))
-                elif side == "west":
-                    blocked_tiles.add((pos.x - 1, pos.y))
+                blocked_tiles = edge_door_blocked_tiles(
+                    pos.x, pos.y, cur.door_side,
+                )
 
         def is_blocking(x: int, y: int) -> bool:
             if (x, y) in blocked_tiles:
@@ -472,6 +485,9 @@ class Game:
             return tile.blocks_sight
 
         visible = compute_fov(pos.x, pos.y, FOV_RADIUS, is_blocking)
+        # Virtual wall tiles are room floor behind the door —
+        # exclude them so the room isn't partially revealed.
+        visible -= blocked_tiles
 
         for vx, vy in visible:
             tile = self.level.tile_at(vx, vy)
