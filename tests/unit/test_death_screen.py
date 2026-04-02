@@ -1,16 +1,19 @@
 """Tests for cause-of-death tracking and death screen display."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from nhc.core.ecs import World
 from nhc.core.events import CreatureAttacked, TrapTriggered
+from nhc.core.game import Game
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
-    AI, Description, Equipment, Health, Inventory,
+    AI, Cursed, Description, Equipment, Health, Inventory,
     Player, Poison, Position, Stats, Weapon,
 )
 from nhc.i18n import init as i18n_init, t as tr
+from nhc.rendering.terminal.renderer import TerminalRenderer
 
 
 def _make_level(w=10, h=10):
@@ -45,7 +48,6 @@ class TestCauseOfDeathTracking:
 
     def test_killed_by_creature_melee(self):
         """killed_by should be set when player dies to a melee attack."""
-        from nhc.core.game import Game
         game = Game.__new__(Game)
         game.killed_by = ""
         game.player_id = 1
@@ -73,7 +75,6 @@ class TestCauseOfDeathTracking:
 
     def test_killed_by_trap(self):
         """killed_by should be set when player dies to a trap."""
-        from nhc.core.game import Game
         game = Game.__new__(Game)
         game.killed_by = ""
         game.player_id = 1
@@ -94,7 +95,6 @@ class TestCauseOfDeathTracking:
 
     def test_killed_by_poison(self):
         """killed_by should be set when player dies to poison."""
-        from nhc.core.game import Game
         game = Game.__new__(Game)
         game.killed_by = ""
         game.player_id = 1
@@ -116,7 +116,6 @@ class TestCauseOfDeathTracking:
 
     def test_poison_sets_killed_by(self):
         """_tick_poison should set killed_by='poison' when player dies."""
-        from nhc.core.game import Game
         game = Game.__new__(Game)
         game.killed_by = ""
 
@@ -137,8 +136,6 @@ class TestCauseOfDeathTracking:
     def test_mummy_rot_sets_killed_by(self):
         """_tick_mummy_rot should set killed_by='mummy rot' when max HP
         drops to where current HP is zero."""
-        from nhc.core.game import Game
-        from nhc.entities.components import Cursed
         game = Game.__new__(Game)
         game.killed_by = ""
 
@@ -161,7 +158,6 @@ class TestCauseOfDeathTracking:
 
     def test_melee_takes_priority_over_trap(self):
         """If both melee and trap events exist, melee killer is preferred."""
-        from nhc.core.game import Game
         game = Game.__new__(Game)
         game.killed_by = ""
 
@@ -196,8 +192,6 @@ class TestDeathScreen:
 
     def test_end_screen_shows_cause_of_death(self):
         """show_end_screen should display killed_by when provided."""
-        from nhc.rendering.terminal.renderer import TerminalRenderer
-
         renderer = TerminalRenderer.__new__(TerminalRenderer)
         mock_term = MagicMock()
         mock_term.width = 80
@@ -224,8 +218,6 @@ class TestDeathScreen:
 
     def test_end_screen_without_cause(self):
         """show_end_screen without killed_by should still work."""
-        from nhc.rendering.terminal.renderer import TerminalRenderer
-
         renderer = TerminalRenderer.__new__(TerminalRenderer)
         mock_term = MagicMock()
         mock_term.width = 80

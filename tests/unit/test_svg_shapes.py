@@ -8,13 +8,15 @@ rendering order or implementation details.
 
 import re
 
+from shapely.geometry import Point, Polygon
+
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, OctagonShape,
     Rect, RectShape, Room, RoomShape, Terrain, Tile,
 )
 from nhc.rendering.svg import (
-    BG, CELL, FLOOR_COLOR, GRID_WIDTH, HATCH_UNDERLAY, PADDING,
-    WALL_WIDTH, render_floor_svg,
+    BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
+    HATCH_UNDERLAY, PADDING, WALL_WIDTH, render_floor_svg,
 )
 
 
@@ -168,8 +170,6 @@ class TestCrossPolygonAlignment:
 
     def test_cross_polygon_covers_all_floor_tiles(self):
         """Every floor tile center must be inside the polygon."""
-        from shapely.geometry import Point, Polygon
-
         shape = CrossShape()
         level, room = _make_shaped_level(shape)
         svg = render_floor_svg(level)
@@ -189,8 +189,6 @@ class TestCrossPolygonAlignment:
 
     def test_cross_polygon_excludes_corner_tiles(self):
         """Corner tiles of the bounding rect are outside the cross."""
-        from shapely.geometry import Point, Polygon
-
         shape = CrossShape()
         level, room = _make_shaped_level(shape)
         svg = render_floor_svg(level)
@@ -601,7 +599,6 @@ class TestFloorDetailIndependentOfShape:
         return svg
 
     def _assert_stones(self, shape):
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         for seed in range(30):
             svg = self._render_large_room(shape, seed)
             if FLOOR_STONE_FILL in svg:
@@ -667,7 +664,6 @@ class TestFloorDetailIndependentOfShape:
     def test_detail_on_corridor_opening_tile(self):
         """Corridor opening tiles get floor detail via the
         unclipped corridor detail path (not the dungeon polygon)."""
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         level, room = _make_shaped_level(
             CircleShape(), room_w=11, room_h=11,
             corridor_side="east")
@@ -689,7 +685,6 @@ class TestFloorDetailIndependentOfShape:
 
     def test_stones_on_corridor_tiles(self):
         """Floor stones appear on corridor tiles."""
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         for seed in range(50):
             # Long corridor to increase chances
             level, room = _make_shaped_level(
@@ -743,7 +738,6 @@ class TestFloorDetailIndependentOfShape:
 
     def test_stones_on_doorless_opening_tile(self):
         """Floor stones appear on doorless opening tiles."""
-        from nhc.rendering.svg import FLOOR_STONE_FILL
         for seed in range(50):
             level, room = _make_shaped_level(
                 CircleShape(), room_w=11, room_h=11,

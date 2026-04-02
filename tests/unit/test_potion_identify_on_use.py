@@ -5,12 +5,14 @@ automatically identified — both in inventory and on the floor.
 """
 
 import random
+from unittest.mock import MagicMock
 
 import pytest
 
-from nhc.core.ecs import World
 from nhc.core.actions import UseItemAction
+from nhc.core.ecs import World
 from nhc.core.events import ItemUsed
+from nhc.core.game import Game
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
     Consumable, Description, Equipment, Health, Inventory,
@@ -102,9 +104,6 @@ class TestPotionIdentifyOnQuaff:
 
     async def test_identify_on_quaff_updates_knowledge(self):
         """After quaffing, the potion type should be marked as identified."""
-        from unittest.mock import MagicMock
-        from nhc.core.game import Game
-
         game = Game.__new__(Game)
         knowledge = ItemKnowledge(rng=random.Random(42))
         game._knowledge = knowledge
@@ -120,9 +119,6 @@ class TestPotionIdentifyOnQuaff:
 
     async def test_identify_updates_all_same_type_in_inventory(self):
         """All potions of same type in inventory should show real name."""
-        from unittest.mock import MagicMock
-        from nhc.core.game import Game
-
         game = Game.__new__(Game)
         knowledge = ItemKnowledge(rng=random.Random(42))
         game._knowledge = knowledge
@@ -155,9 +151,6 @@ class TestPotionIdentifyOnQuaff:
 
     async def test_identify_updates_potions_on_floor(self):
         """Potions on the floor (not in inventory) should also be updated."""
-        from unittest.mock import MagicMock
-        from nhc.core.game import Game
-
         game = Game.__new__(Game)
         knowledge = ItemKnowledge(rng=random.Random(42))
         game._knowledge = knowledge
@@ -186,9 +179,6 @@ class TestPotionIdentifyOnQuaff:
 
     async def test_identify_does_not_affect_other_types(self):
         """Identifying healing potions should not reveal strength potions."""
-        from unittest.mock import MagicMock
-        from nhc.core.game import Game
-
         game = Game.__new__(Game)
         knowledge = ItemKnowledge(rng=random.Random(42))
         game._knowledge = knowledge
@@ -219,9 +209,6 @@ class TestPotionIdentifyOnQuaff:
 
     async def test_already_identified_is_noop(self):
         """Identifying an already identified type should be a no-op."""
-        from unittest.mock import MagicMock
-        from nhc.core.game import Game
-
         game = Game.__new__(Game)
         knowledge = ItemKnowledge(rng=random.Random(42))
         game._knowledge = knowledge

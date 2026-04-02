@@ -4,6 +4,7 @@ import pytest
 
 from nhc.core.actions import BumpAction, PickupItemAction, WaitAction
 from nhc.core.ecs import World
+from nhc.core.game import _resolve_click
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.entities.components import (
     AI, Description, Health, Inventory, Player, Position, Renderable, Stats,
@@ -33,7 +34,6 @@ def _make_world_and_level():
 
 class TestResolveClick:
     def test_click_adjacent_produces_move(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         # Click one tile north of player
         action = _resolve_click(world, level, pid, 5, 4)
@@ -42,7 +42,6 @@ class TestResolveClick:
         assert action.dy == -1
 
     def test_click_diagonal_produces_move(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         action = _resolve_click(world, level, pid, 6, 4)
         assert isinstance(action, BumpAction)
@@ -50,13 +49,11 @@ class TestResolveClick:
         assert action.dy == -1
 
     def test_click_on_self_produces_wait(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         action = _resolve_click(world, level, pid, 5, 5)
         assert isinstance(action, WaitAction)
 
     def test_click_on_creature_produces_bump(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         # Place a goblin adjacent at (6,5)
         gob = world.create_entity()
@@ -69,7 +66,6 @@ class TestResolveClick:
         assert action.dy == 0
 
     def test_click_distant_floor_produces_move_toward(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         # Click far east — should produce a single step east
         action = _resolve_click(world, level, pid, 8, 5)
@@ -78,14 +74,12 @@ class TestResolveClick:
         assert action.dy == 0
 
     def test_click_on_wall_returns_none(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         # (1,1) is a wall/void tile
         action = _resolve_click(world, level, pid, 1, 1)
         assert action is None
 
     def test_click_out_of_bounds_returns_none(self):
-        from nhc.core.game import _resolve_click
         world, level, pid = _make_world_and_level()
         action = _resolve_click(world, level, pid, -1, -1)
         assert action is None

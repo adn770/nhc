@@ -1,11 +1,13 @@
 """Tests for the WebSocket-based GameClient."""
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 
 import pytest
 
+from nhc.i18n import init as i18n_init
 from nhc.rendering.client import GameClient
 from nhc.rendering.web_client import WebClient
 
@@ -139,7 +141,6 @@ class TestWebClientModeToggle:
             "data": None,
         }))
 
-        import asyncio
         loop = asyncio.new_event_loop()
         try:
             intent, data = loop.run_until_complete(client.get_input())
@@ -156,8 +157,6 @@ class TestWebClientModeToggle:
             "intent": "toggle_mode",
             "data": None,
         }))
-
-        import asyncio
 
         async def _run():
             wc.render = lambda *a, **kw: None
@@ -464,7 +463,6 @@ class TestActionLabels:
             assert key in labels, f"missing label for '{key}'"
 
     def test_action_labels_catalan(self):
-        from nhc.i18n import init as i18n_init
         i18n_init("ca")
         wc = WebClient(lang="ca")
         labels = wc._action_labels()
@@ -483,7 +481,6 @@ class TestItemActionDispatch:
             "action": "quaff",
             "item_id": 42,
         }))
-        import asyncio
         loop = asyncio.new_event_loop()
         try:
             result = loop.run_until_complete(wc.get_input())
@@ -498,7 +495,6 @@ class TestItemActionDispatch:
             "action": "equip",
             "item_id": 10,
         }))
-        import asyncio
         loop = asyncio.new_event_loop()
         try:
             result = loop.run_until_complete(wc.get_input())
@@ -513,7 +509,6 @@ class TestItemActionDispatch:
             "action": "drop",
             "item_id": 5,
         }))
-        import asyncio
         loop = asyncio.new_event_loop()
         try:
             result = loop.run_until_complete(wc.get_input())
