@@ -352,12 +352,18 @@ def create_app(
         finally:
             loop.close()
 
-        # Re-render floor SVG for restored level
-        from nhc.rendering.svg import render_floor_svg, render_hatch_svg
-        if game.level:
+        # Load cached SVG or re-render
+        from nhc.core.autosave import load_svg_cache, save_svg_cache
+        cached = load_svg_cache(save_dir)
+        if cached:
+            client.floor_svg, client.hatch_svg = cached
+            logger.info("Resume: loaded SVG from cache")
+        elif game.level:
+            from nhc.rendering.svg import render_floor_svg, render_hatch_svg
             seed = game.seed or 0
             client.floor_svg = render_floor_svg(game.level, seed=seed)
             client.hatch_svg = render_hatch_svg(seed=seed)
+            save_svg_cache(client.floor_svg, client.hatch_svg, save_dir)
 
         logger.info("Resume: restored session %s for player %s (turn=%d)",
                      session.session_id, pid, game.turn)
@@ -433,8 +439,15 @@ def create_app(
                      len(game.level.rooms))
 
         # Generate floor SVG and hatch SVG, store on the client
-        from nhc.rendering.svg import render_floor_svg, render_hatch_svg
-        if game.level:
+        # Try SVG cache first (restored game may already have it)
+        from nhc.core.autosave import load_svg_cache, save_svg_cache
+        cached = load_svg_cache(session.save_dir)
+        if cached:
+            client.floor_svg, client.hatch_svg = cached
+            logger.info("Loaded SVG from cache: floor=%d hatch=%d bytes",
+                        len(client.floor_svg), len(client.hatch_svg))
+        elif game.level:
+            from nhc.rendering.svg import render_floor_svg, render_hatch_svg
             logger.info("Rendering floor SVG...")
             seed = game.seed or 0
             client.floor_svg = render_floor_svg(
@@ -443,6 +456,9 @@ def create_app(
             client.hatch_svg = render_hatch_svg(seed=seed)
             logger.info("Floor SVG: %d bytes, Hatch SVG: %d bytes",
                          len(client.floor_svg), len(client.hatch_svg))
+            save_svg_cache(
+                client.floor_svg, client.hatch_svg, session.save_dir,
+            )
         else:
             logger.warning("No level — floor SVG not generated")
 

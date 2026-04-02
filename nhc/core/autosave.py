@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import os
 import pickle
+import threading
 import zlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -24,6 +25,8 @@ if TYPE_CHECKING:
     from nhc.core.game import Game
 
 logger = logging.getLogger(__name__)
+
+_save_lock = threading.Lock()
 
 _DEFAULT_DIR = Path.home() / ".nhc" / "saves"
 _DEFAULT_PATH = _DEFAULT_DIR / "autosave.nhc"
@@ -56,21 +59,39 @@ def delete_autosave(save_dir: Path | None = None) -> None:
         logger.error("Autosave delete FAILED", exc_info=True)
 
 
-def autosave(game: "Game", save_dir: Path | None = None) -> None:
-    """Save complete game state to disk (fast binary format)."""
+def autosave(
+    game: "Game", save_dir: Path | None = None, *, blocking: bool = True,
+) -> None:
+    """Save complete game state to disk (fast binary format).
+
+    Payload is snapshotted on the calling thread; pickle, compress,
+    and write run in a background thread when *blocking* is False.
+    """
     save_dir_resolved, save_path = _resolve(save_dir)
     try:
         payload = _build_payload(game)
-        data = zlib.compress(pickle.dumps(payload, protocol=5), level=1)
-
-        save_dir_resolved.mkdir(parents=True, exist_ok=True)
-        tmp_path = save_path.with_suffix(".tmp")
-        tmp_path.write_bytes(data)
-        os.replace(str(tmp_path), str(save_path))
-
-        logger.debug("Autosave: %d bytes, turn %d", len(data), game.turn)
+        turn = game.turn
     except Exception:
-        logger.error("Autosave failed", exc_info=True)
+        logger.error("Autosave payload build failed", exc_info=True)
+        return
+
+    def _write():
+        try:
+            with _save_lock:
+                data = zlib.compress(
+                    pickle.dumps(payload, protocol=5), level=1)
+                save_dir_resolved.mkdir(parents=True, exist_ok=True)
+                tmp_path = save_path.with_suffix(".tmp")
+                tmp_path.write_bytes(data)
+                os.replace(str(tmp_path), str(save_path))
+            logger.debug("Autosave: %d bytes, turn %d", len(data), turn)
+        except Exception:
+            logger.error("Autosave failed", exc_info=True)
+
+    if blocking:
+        _write()
+    else:
+        threading.Thread(target=_write, daemon=True).start()
 
 
 def auto_restore(game: "Game", save_dir: Path | None = None) -> bool:
@@ -192,3 +213,39 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     # Initialize renderer
     game.renderer.initialize()
     game.running = True
+
+
+# ── SVG cache ───────────────────────────────────────────────
+
+def save_svg_cache(
+    floor_svg: str, hatch_svg: str, save_dir: Path | None = None,
+) -> None:
+    """Cache floor and hatch SVG alongside the autosave."""
+    d, _ = _resolve(save_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    try:
+        (d / "floor.svg").write_text(floor_svg, encoding="utf-8")
+        (d / "hatch.svg").write_text(hatch_svg, encoding="utf-8")
+        logger.debug("SVG cache saved: floor=%d hatch=%d bytes",
+                     len(floor_svg), len(hatch_svg))
+    except Exception:
+        logger.error("SVG cache save failed", exc_info=True)
+
+
+def load_svg_cache(
+    save_dir: Path | None = None,
+) -> tuple[str, str] | None:
+    """Load cached floor and hatch SVG.  Returns (floor, hatch) or None."""
+    d, _ = _resolve(save_dir)
+    floor_path = d / "floor.svg"
+    hatch_path = d / "hatch.svg"
+    if floor_path.exists() and hatch_path.exists():
+        try:
+            floor = floor_path.read_text(encoding="utf-8")
+            hatch = hatch_path.read_text(encoding="utf-8")
+            logger.debug("SVG cache loaded: floor=%d hatch=%d bytes",
+                         len(floor), len(hatch))
+            return floor, hatch
+        except Exception:
+            logger.error("SVG cache load failed", exc_info=True)
+    return None

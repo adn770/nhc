@@ -695,7 +695,7 @@ class Game:
                 actions = await self._get_classic_actions()
             if actions and actions[0] == "disconnect":
                 logger.info("Player disconnected, suspending game")
-                _autosave(self, self.save_dir)
+                _autosave(self, self.save_dir, blocking=True)
                 self.running = False
                 break
             if not actions:
@@ -798,8 +798,9 @@ class Game:
             # Recompute FOV
             self._update_fov()
 
-            # Autosave every turn
-            _autosave(self, self.save_dir)
+            # Autosave periodically (every 10 turns, non-blocking)
+            if self.turn % 10 == 0:
+                _autosave(self, self.save_dir, blocking=False)
 
     async def _resolve(self, action: "Action") -> list:
         """Validate and execute an action, emitting events."""
