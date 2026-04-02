@@ -14,6 +14,7 @@ import logging
 import threading
 import time
 
+from flask import request
 from flask_sock import Sock
 
 from nhc.web.sessions import SessionManager
@@ -173,6 +174,17 @@ def register_ws(app, sock: Sock) -> None:
     def game_ws(ws, session_id: str):
         """Handle a WebSocket connection for a game session."""
         logger.info("WS connect: session=%s", session_id)
+
+        # Validate player token when auth is enabled
+        config = app.config.get("NHC_CONFIG")
+        registry = app.config.get("PLAYER_REGISTRY")
+        if config and config.auth_required and registry:
+            from nhc.web.auth import hash_token
+            token = request.args.get("token")
+            if not token or not registry.is_valid_token_hash(
+                    hash_token(token)):
+                ws.send('{"type":"error","text":"authentication required"}')
+                return
 
         sessions: SessionManager = app.config["SESSIONS"]
         session = sessions.get(session_id)
