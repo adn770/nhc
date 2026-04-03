@@ -112,6 +112,121 @@ def _hybrid_door_ok(
     return (dx, dy) in cardinals
 
 
+def _door_candidates(
+    level: Level, room: Room,
+) -> list[tuple[int, int, str]]:
+    """Return valid door positions as (x, y, side) tuples.
+
+    Analyzes the room's actual floor geometry to find wall tiles
+    that sit on straight wall segments with clear outward access.
+    Works for any room shape — rect, circle, octagon, cross, hybrid.
+
+    Each candidate is a wall tile adjacent to room floor where:
+    - Exactly one cardinal direction leads to room floor (inward)
+    - The opposite direction is VOID (outward, for corridor access)
+    - The floor tile inward has floor neighbors on both sides along
+      the wall direction (straight wall run, not a curve/corner)
+    - No adjacent door already exists
+    """
+    _DOOR_FEATURES = {
+        "door_closed", "door_open", "door_secret", "door_locked",
+    }
+    # side = direction from room interior toward the wall.
+    # If floor is at (wx+1, wy), the wall is west of the floor,
+    # so this is the room's west side → side = "west".
+    _SIDE_FOR_INWARD = {
+        (1, 0): "west",    # floor is east of wall → wall is on west side
+        (-1, 0): "east",   # floor is west of wall → wall is on east side
+        (0, 1): "north",   # floor is south of wall → wall is on north side
+        (0, -1): "south",  # floor is north of wall → wall is on south side
+    }
+    _PARALLEL = {
+        "north": [(-1, 0), (1, 0)],
+        "south": [(-1, 0), (1, 0)],
+        "east": [(0, -1), (0, 1)],
+        "west": [(0, -1), (0, 1)],
+    }
+
+    floor = room.floor_tiles()
+    candidates: list[tuple[int, int, str]] = []
+
+    # Find all WALL tiles cardinally adjacent to room floor
+    seen: set[tuple[int, int]] = set()
+    for fx, fy in floor:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            wx, wy = fx + dx, fy + dy
+            if (wx, wy) in seen or (wx, wy) in floor:
+                continue
+            seen.add((wx, wy))
+            t = level.tile_at(wx, wy)
+            if not t or t.terrain != Terrain.WALL:
+                continue
+
+            # Determine inward directions (which cardinal neighbors
+            # are floor). Valid candidates have exactly one inward
+            # axis to avoid corners.
+            inward_dirs = []
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                if (wx + ddx, wy + ddy) in floor:
+                    inward_dirs.append((ddx, ddy))
+
+            if len(inward_dirs) == 0:
+                continue  # convex corner, no adjacent floor
+            if len(inward_dirs) > 1:
+                # Check if they're on the same axis (e.g. floor on
+                # both sides = middle of room, not a wall). Or on
+                # perpendicular axes = concave corner.
+                axes = {(abs(d[0]), abs(d[1])) for d in inward_dirs}
+                if len(axes) > 1:
+                    continue  # perpendicular = corner, skip
+
+            # Use the first inward direction to determine side
+            idx, idy = inward_dirs[0]
+            side = _SIDE_FOR_INWARD[(idx, idy)]
+
+            # Outward direction is opposite of inward
+            ox, oy = wx - idx, wy - idy
+            ot = level.tile_at(ox, oy)
+            if ot and ot.terrain != Terrain.VOID:
+                continue  # outward blocked
+
+            # Straight wall check — the wall tile and its parallel
+            # neighbors must form a flat wall face: each must be
+            # WALL with VOID on the outward side. This excludes
+            # curved sections where the outward side is WALL (the
+            # wall ring curves away), and corners where a parallel
+            # neighbor is VOID.
+            parallel = _PARALLEL[side]
+            straight = True
+            for pdx, pdy in parallel:
+                pw_x, pw_y = wx + pdx, wy + pdy
+                pw_t = level.tile_at(pw_x, pw_y)
+                if not pw_t or pw_t.terrain != Terrain.WALL:
+                    straight = False
+                    break
+                po_x, po_y = pw_x - idx, pw_y - idy
+                po_t = level.tile_at(po_x, po_y)
+                if not po_t or po_t.terrain != Terrain.VOID:
+                    straight = False
+                    break
+            if not straight:
+                continue
+
+            # No adjacent door
+            has_adj_door = False
+            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nb = level.tile_at(wx + ddx, wy + ddy)
+                if nb and nb.feature in _DOOR_FEATURES:
+                    has_adj_door = True
+                    break
+            if has_adj_door:
+                continue
+
+            candidates.append((wx, wy, side))
+
+    return candidates
+
+
 # ── BSP tree ────────────────────────────────────────────────────────
 
 @dataclass
@@ -875,121 +990,26 @@ class BSPGenerator(DungeonGenerator):
     ) -> tuple[int, int]:
         """Find a wall tile adjacent to *room* facing (tx, ty).
 
-        For circular rooms (and the arc side of hybrids), only the
-        4 cardinal wall positions are allowed.  For all other shapes,
-        scans perimeter walls and picks the best facing candidate.
+        Uses _door_candidates() to get geometrically valid positions,
+        then scores them by facing direction and distance to target.
         """
         cx, cy = room.rect.center
         dx, dy = tx - cx, ty - cy
 
-        _DOOR_FEATURES = {
-            "door_closed", "door_open", "door_secret", "door_locked",
-        }
-
-        def _has_adjacent_door(wx: int, wy: int) -> bool:
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nb = level.tile_at(wx + ddx, wy + ddy)
-                if nb and nb.feature in _DOOR_FEATURES:
-                    return True
-            return False
-
-        # Cardinal-only restriction for circles and hybrid arcs
-        cardinal_only = self._cardinal_wall_positions(room)
-        if cardinal_only is not None:
-            cands: list[tuple[int, int, float]] = []
-            for wx, wy in cardinal_only:
-                t = level.tile_at(wx, wy)
-                if not t or t.terrain != Terrain.WALL:
-                    continue
-                if _has_adjacent_door(wx, wy):
-                    continue
-                wdx, wdy = wx - cx, wy - cy
-                facing = wdx * dx + wdy * dy
-                dist = abs(wx - tx) + abs(wy - ty)
-                score = -facing * 1000 + dist
-                cands.append((wx, wy, score))
-            if cands:
-                cands.sort(key=lambda c: c[2])
-                return cands[0][0], cands[0][1]
-            # Fall through to general scan if all cardinals taken
-
-        floor = room.floor_tiles()
-
-        def _is_convex_corner(wx: int, wy: int) -> bool:
-            adj_floor = sum(
-                1 for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
-                if (wx + ddx, wy + ddy) in floor
-            )
-            return adj_floor == 0
-
-        # Collect all WALL tiles adjacent to room floor
-        perimeter_walls: list[tuple[int, int]] = []
-        seen: set[tuple[int, int]] = set()
-        for fx, fy in floor:
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nx, ny = fx + ddx, fy + ddy
-                if (nx, ny) in seen or (nx, ny) in floor:
-                    continue
-                seen.add((nx, ny))
-                t = level.tile_at(nx, ny)
-                if t and t.terrain == Terrain.WALL:
-                    perimeter_walls.append((nx, ny))
-
-        cands = []
-        for wx, wy in perimeter_walls:
-            if _is_convex_corner(wx, wy):
-                continue
-            if _has_adjacent_door(wx, wy):
-                continue
-            wdx, wdy = wx - cx, wy - cy
-            facing = (wdx * dx + wdy * dy)
-            dist = abs(wx - tx) + abs(wy - ty)
-            score = -facing * 1000 + dist
-            cands.append((wx, wy, score))
-
+        cands = _door_candidates(level, room)
         if not cands:
             return cx, cy
-        cands.sort(key=lambda c: c[2])
-        return cands[0][0], cands[0][1]
 
-    @staticmethod
-    def _cardinal_wall_positions(
-        room: Room,
-    ) -> list[tuple[int, int]] | None:
-        """Return cardinal wall positions for circle/hybrid rooms.
+        scored: list[tuple[int, int, float]] = []
+        for wx, wy, side in cands:
+            wdx, wdy = wx - cx, wy - cy
+            facing = wdx * dx + wdy * dy
+            dist = abs(wx - tx) + abs(wy - ty)
+            score = -facing * 1000 + dist
+            scored.append((wx, wy, score))
 
-        Returns None for non-circle rooms (no restriction).
-        For pure circles: 4 cardinal positions.
-        For hybrids with circle half: cardinal positions on the
-        arc side only (the rect side uses general wall entry).
-        """
-        shape = room.shape
-        if isinstance(shape, CircleShape):
-            return shape.cardinal_walls(room.rect)
-
-        if isinstance(shape, HybridShape) and isinstance(
-            shape.left, CircleShape,
-        ):
-            # The circle is the left/top sub-shape. Its cardinal
-            # points are computed from the half-rect it occupies.
-            r = room.rect
-            if shape.split == "vertical":
-                mid = r.x + r.width // 2
-                half = Rect(r.x, r.y, mid - r.x + 1, r.height)
-            else:
-                mid = r.y + r.height // 2
-                half = Rect(r.x, r.y, r.width, mid - r.y + 1)
-            cards = shape.left.cardinal_walls(half)
-            # Filter: only keep cardinals on the arc (outer) side,
-            # not the seam side which connects to the rect half
-            if shape.split == "vertical":
-                # Keep N, S, W (not E which faces the rect)
-                return [(x, y) for x, y in cards if x <= mid]
-            else:
-                # Keep W, E, N (not S which faces the rect)
-                return [(x, y) for x, y in cards if y <= mid]
-
-        return None
+        scored.sort(key=lambda c: c[2])
+        return scored[0][0], scored[0][1]
 
     @staticmethod
     def _outward(room: Room, wx: int, wy: int) -> tuple[int, int]:

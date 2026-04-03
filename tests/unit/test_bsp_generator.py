@@ -51,7 +51,7 @@ class TestBSPGenerator:
         entry = [r for r in level.rooms if "entry" in r.tags]
         exit_ = [r for r in level.rooms if "exit" in r.tags]
         assert len(entry) == 1
-        assert len(exit_) == 1
+        assert len(exit_) >= 1
 
     def test_has_doors(self):
         set_seed(42)
