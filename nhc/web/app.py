@@ -919,6 +919,8 @@ def create_app(
                 "turn": game.turn,
                 "player_id": game.player_id,
                 "seed": game.seed,
+                "level_id": game.level.id if game.level else None,
+                "floor_svg_id": client.floor_svg_id,
                 "generation_params": gen_params,
                 "stats": {**static, **dynamic},
                 "entities": client._gather_entities(

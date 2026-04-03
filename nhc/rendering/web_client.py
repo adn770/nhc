@@ -464,6 +464,9 @@ class WebClient(GameClient):
                     })
 
         return {
+            "level_id": level.id,
+            "level_depth": level.depth,
+            "floor_svg_id": self.floor_svg_id,
             "rooms": rooms,
             "corridors": corridors,
             "doors": doors,
