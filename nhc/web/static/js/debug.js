@@ -495,9 +495,11 @@ const DebugPanel = {
         if (resp.ok) {
           statusEl.textContent = `Done — seed ${data.seed}, `
             + `${data.params.theme} d${data.params.depth}`;
-          // Update local seed display
-          seedInp.value = data.seed;
+          // Update params but clear seed so next regen is random
           this._mapGenParams = data.params;
+          this._mapGenParams.seed = null;
+          seedInp.value = "";
+          seedInp.placeholder = `last: ${data.seed}`;
         } else {
           statusEl.textContent = `Error: ${data.error || "failed"}`;
         }

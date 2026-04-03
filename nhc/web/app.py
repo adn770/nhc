@@ -757,48 +757,23 @@ def create_app(
         game._seen_creatures.clear()
         game._update_fov()
 
-        # Re-render SVG and push to client via WS
-        import uuid as _uuid
-        from nhc.rendering.svg import render_floor_svg
-        client.floor_svg = render_floor_svg(
-            game.level, seed=game.seed or 0,
+        # Push new floor to client (renders SVG, resets deltas,
+        # sends floor + debug_url messages via output queue)
+        client.send_floor_change(
+            game.level, game.world, game.player_id,
+            game.turn, seed=game.seed or 0,
             hatch_distance=config.hatch_distance,
         )
-        client.floor_svg_id = _uuid.uuid4().hex[:12]
         game._svg_cache[params.depth] = (
             client.floor_svg_id, client.floor_svg,
         )
-
-        # Reset delta tracking so full state is sent
-        client._last_fov = set()
-        client._last_hatch_clear = set()
-
-        # Push floor update via WS output queue if connected
-        if hasattr(client, '_ws') and client._ws:
-            import json as _json
-            base_url = f"/api/game/{session_id}"
-            entities = client._gather_entities(
-                game.world, game.level, game.player_id,
-            )
-            fov = client._gather_fov(game.level)
-            doors = client._gather_doors(game.level)
-            hatch_clear = client._gather_hatch_clear(game.level)
-            client._out_queue.put(_json.dumps({
-                "type": "floor",
-                "floor_url": (f"{base_url}"
-                              f"/floor/{client.floor_svg_id}.svg"),
-                "hatch_url": "/api/hatch.svg",
-                "entities": entities,
-                "doors": doors,
-                "fov": fov,
-                "hatch_clear": hatch_clear,
-                "turn": game.turn,
-            }))
-            # Send debug data URL
-            client._out_queue.put(_json.dumps({
-                "type": "debug_url",
-                "url": f"{base_url}/debug.json",
-            }))
+        # Send debug_url so overlays refresh
+        import json as _json
+        base_url = f"/api/game/{session_id}"
+        client._send({
+            "type": "debug_url",
+            "url": f"{base_url}/debug.json",
+        })
 
         logger.info(
             "Regenerated level: depth=%d theme=%s seed=%d "
