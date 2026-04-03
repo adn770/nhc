@@ -399,6 +399,7 @@ def create_app(
                 "session_id": existing.session_id,
                 "resumed": True,
                 "turn": existing.game.turn,
+                "god_mode": existing.game.god_mode,
             })
 
         # No active session — check for autosave on disk
@@ -487,6 +488,7 @@ def create_app(
             "session_id": session.session_id,
             "resumed": True,
             "turn": game.turn,
+            "god_mode": game.god_mode,
         }), 201
 
     @app.route("/api/game/new", methods=["POST"])
@@ -612,7 +614,7 @@ def create_app(
             "session_id": session.session_id,
             "lang": session.lang,
             "tileset": session.tileset,
-            "god_mode": config.god_mode,
+            "god_mode": game.god_mode,
         }), 201
 
     @app.route("/api/game/<session_id>/debug.json", methods=["GET"])
