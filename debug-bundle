@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+#
+# Download a debug bundle from a running NHC server and unpack
+# it into debug/ so the MCP tools can read the exports directly.
+#
+# Usage:
+#   ./debug-bundle <server_url> <player_token>
+#
+# Example:
+#   ./debug-bundle https://nhc.example.com abc123...
+#   ./debug-bundle http://localhost:8080 abc123...
+#
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+info()  { echo -e "${CYAN}[info]${NC}  $*"; }
+ok()    { echo -e "${GREEN}[ok]${NC}    $*"; }
+fail()  { echo -e "${RED}[fail]${NC}  $*"; exit 1; }
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: $0 <server_url> <player_token>"
+    echo "Example: $0 https://nhc.example.com abc123..."
+    exit 1
+fi
+
+SERVER="$1"
+TOKEN="$2"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEBUG_DIR="$SCRIPT_DIR/debug"
+
+# 1. Log in and get active session ID
+info "Logging in..."
+LOGIN=$(curl -sf -X POST "${SERVER}/api/player/login" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "Content-Type: application/json") \
+    || fail "Login failed (check URL and token)"
+
+SESSION=$(echo "$LOGIN" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+sid = data.get('active_session', '')
+if not sid:
+    print('', end='')
+else:
+    print(sid, end='')
+")
+
+if [[ -z "$SESSION" ]]; then
+    fail "No active session found. Start a game first."
+fi
+ok "Session: ${SESSION:0:12}..."
+
+# 2. Download the debug bundle
+info "Downloading debug bundle..."
+BUNDLE=$(mktemp /tmp/nhc-bundle-XXXXXX.tar.gz)
+HTTP_CODE=$(curl -sf -o "$BUNDLE" -w "%{http_code}" \
+    "${SERVER}/api/game/${SESSION}/export/bundle" \
+    -H "Authorization: Bearer ${TOKEN}") \
+    || fail "Download failed (HTTP ${HTTP_CODE:-?}). Is god mode enabled?"
+
+if [[ "$HTTP_CODE" != "200" ]]; then
+    rm -f "$BUNDLE"
+    fail "Server returned HTTP $HTTP_CODE. Is god mode enabled for this player?"
+fi
+ok "Downloaded $(du -h "$BUNDLE" | cut -f1) bundle"
+
+# 3. Clean old exports and unpack
+info "Unpacking into debug/..."
+rm -rf "$DEBUG_DIR/exports"
+mkdir -p "$DEBUG_DIR"
+tar xzf "$BUNDLE" -C "$DEBUG_DIR"
+rm -f "$BUNDLE"
+
+# 4. Summary
+EXPORT_COUNT=$(find "$DEBUG_DIR/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
+ok "Unpacked ${EXPORT_COUNT} export files into debug/exports/"
+ls -la "$DEBUG_DIR/exports/" 2>/dev/null || true
+echo ""
+info "MCP tools are ready. Use get_game_snapshot, get_room_info, etc."
