@@ -278,7 +278,6 @@ const GameMap = {
     const ctx = this.hatchCtx;
     if (!ctx) return;
     const cs = this.cellSize;
-    const expand = cs * 0.1;
 
     // The backend computes exactly which tiles to clear
     // (FLOOR/WATER only, excluding blocked doors). WALL and
@@ -286,9 +285,9 @@ const GameMap = {
     // from bleeding through.
     for (const key of this.hatchClear) {
       const [x, y] = key.split(",").map(Number);
-      const px = x * cs + this.padding - expand;
-      const py = y * cs + this.padding - expand;
-      ctx.clearRect(px, py, cs + 2 * expand, cs + 2 * expand);
+      const px = x * cs + this.padding;
+      const py = y * cs + this.padding;
+      ctx.clearRect(px, py, cs, cs);
     }
   },
 
