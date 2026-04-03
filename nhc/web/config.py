@@ -23,3 +23,4 @@ class WebConfig:
     god_mode: bool = False
     data_dir: Path | None = None
     hatch_distance: float = 2.0
+    external_url: str = ""

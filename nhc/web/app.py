@@ -65,6 +65,12 @@ def create_app(
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
 
+    # Pre-generate the hatch SVG once — it's seed-independent and
+    # shared across all games so we serve it as a static asset.
+    from nhc.rendering.svg import render_hatch_svg
+    _hatch_svg = render_hatch_svg(seed=0)
+    logger.info("Hatch SVG generated at startup: %d bytes", len(_hatch_svg))
+
     _limiter = _RateLimiter(max_requests=5, window=60)
 
     def _check_rate_limit():
@@ -198,7 +204,9 @@ def create_app(
     def admin_page():
         from nhc.web.auth import _extract_token
         token = _extract_token(cookie_name="nhc_admin_token")
-        resp = make_response(render_template("admin.html"))
+        resp = make_response(render_template(
+            "admin.html", external_url=config.external_url,
+        ))
         if token:
             resp.set_cookie("nhc_admin_token", token, httponly=True,
                             samesite="Strict", path="/")
@@ -357,21 +365,20 @@ def create_app(
         finally:
             loop.close()
 
-        # Load cached SVG or re-render
+        # Load cached floor SVG or re-render
         from nhc.core.autosave import load_svg_cache, save_svg_cache
         cached = load_svg_cache(save_dir)
         if cached:
-            client.floor_svg, client.hatch_svg = cached
-            logger.info("Resume: loaded SVG from cache")
+            client.floor_svg = cached[0]
+            logger.info("Resume: loaded floor SVG from cache")
         elif game.level:
-            from nhc.rendering.svg import render_floor_svg, render_hatch_svg
+            from nhc.rendering.svg import render_floor_svg
             seed = game.seed or 0
             client.floor_svg = render_floor_svg(
                 game.level, seed=seed,
                 hatch_distance=config.hatch_distance,
             )
-            client.hatch_svg = render_hatch_svg(seed=seed)
-            save_svg_cache(client.floor_svg, client.hatch_svg, save_dir)
+            save_svg_cache(client.floor_svg, _hatch_svg, save_dir)
 
         logger.info("Resume: restored session %s for player %s (turn=%d)",
                      session.session_id, pid, game.turn)
@@ -455,27 +462,25 @@ def create_app(
                      game.level.width, game.level.height,
                      len(game.level.rooms))
 
-        # Generate floor SVG and hatch SVG, store on the client
+        # Generate floor SVG; hatch is served globally.
         # Try SVG cache first (restored game may already have it)
         from nhc.core.autosave import load_svg_cache, save_svg_cache
         cached = load_svg_cache(session.save_dir)
         if cached:
-            client.floor_svg, client.hatch_svg = cached
-            logger.info("Loaded SVG from cache: floor=%d hatch=%d bytes",
-                        len(client.floor_svg), len(client.hatch_svg))
+            client.floor_svg = cached[0]
+            logger.info("Loaded floor SVG from cache: %d bytes",
+                        len(client.floor_svg))
         elif game.level:
-            from nhc.rendering.svg import render_floor_svg, render_hatch_svg
+            from nhc.rendering.svg import render_floor_svg
             logger.info("Rendering floor SVG...")
             seed = game.seed or 0
             client.floor_svg = render_floor_svg(
                 game.level, seed=seed,
                 hatch_distance=config.hatch_distance,
             )
-            client.hatch_svg = render_hatch_svg(seed=seed)
-            logger.info("Floor SVG: %d bytes, Hatch SVG: %d bytes",
-                         len(client.floor_svg), len(client.hatch_svg))
+            logger.info("Floor SVG: %d bytes", len(client.floor_svg))
             save_svg_cache(
-                client.floor_svg, client.hatch_svg, session.save_dir,
+                client.floor_svg, _hatch_svg, session.save_dir,
             )
         else:
             logger.warning("No level — floor SVG not generated")
@@ -527,18 +532,11 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=86400"
         return resp
 
-    @app.route("/api/game/<session_id>/hatch.svg", methods=["GET"])
-    @_player_auth
-    def game_hatch_svg(session_id: str):
-        session = sessions.get(session_id)
-        if not session:
-            return "session not found", 404
-        client = session.game.renderer
-        if not client.hatch_svg:
-            return "hatch not generated", 404
-        resp = make_response(client.hatch_svg)
+    @app.route("/api/hatch.svg", methods=["GET"])
+    def global_hatch_svg():
+        resp = make_response(_hatch_svg)
         resp.headers["Content-Type"] = "image/svg+xml"
-        resp.headers["Cache-Control"] = "public, max-age=86400"
+        resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
 
     # ── Export routes (god mode only) ───────────────────────
@@ -659,6 +657,7 @@ def app_factory() -> Flask:
         auth_required=bool(os.environ.get("NHC_AUTH_TOKEN")),
         god_mode=False,
         hatch_distance=float(os.environ.get("NHC_HATCH_DISTANCE", "1.0")),
+        external_url=os.environ.get("NHC_EXTERNAL_URL", ""),
     )
     auth_token = os.environ.get("NHC_AUTH_TOKEN")
     return create_app(config, auth_token=auth_token)

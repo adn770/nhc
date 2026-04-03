@@ -24,6 +24,7 @@ ExecStart=/usr/bin/docker run --name nhc \
     --env NHC_DATA_DIR=${NHC_DATA_DIR} \
     --env NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN} \
     --env NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS} \
+    --env NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL} \
     nhc-web
 ExecStop=/usr/bin/docker stop -t 15 nhc
 ExecStopPost=-/usr/bin/docker rm -f nhc

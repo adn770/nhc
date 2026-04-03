@@ -32,15 +32,13 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
         doors = client._gather_doors(game.level)
         hatch_clear = client._gather_hatch_clear(game.level)
         logger.info("Sending floor init: floor=%d bytes, "
-                    "hatch=%d bytes (via HTTP), "
                     "%d entities, %d doors, %d fov tiles",
                     len(client.floor_svg),
-                    len(client.hatch_svg) if client.hatch_svg else 0,
                     len(entities), len(doors), len(fov))
         ws.send(json.dumps({
             "type": "floor",
             "floor_url": f"{base_url}/floor.svg",
-            "hatch_url": f"{base_url}/hatch.svg",
+            "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,
             "fov": fov,

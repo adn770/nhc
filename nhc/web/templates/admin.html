@@ -104,7 +104,7 @@
   <div id="toast"></div>
 
 <script>
-const BASE = location.origin;
+const BASE = {{ external_url|tojson }} || location.origin;
 let lastToken = "";
 
 function toast(msg) {

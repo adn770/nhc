@@ -445,7 +445,7 @@ const GameMap = {
 
       const cx = px + this.cellSize / 2;
       const cy = py + this.cellSize / 2;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.lineJoin = "round";
       ctx.strokeStyle = "#000000";
       ctx.strokeText(ent.glyph, cx, cy);

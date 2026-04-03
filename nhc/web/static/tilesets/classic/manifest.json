@@ -21,7 +21,7 @@
     "bright_cyan": "#44FFFF",
     "magenta": "#CC00CC",
     "bright_magenta": "#FF44FF",
-    "dark_grey": "#444444"
+    "dark_grey": "#999999"
   },
   "sprites": {
     "@": { "color": "dark_grey" },

@@ -65,7 +65,6 @@ class WebClient(GameClient):
         self.lang = lang
         self.messages: list[str] = []
         self.floor_svg: str = ""
-        self.hatch_svg: str = ""
         self._last_static_stats: dict | None = None
         self._last_inv_hash: int = 0
         self._last_fov: set[tuple[int, int]] = set()
@@ -482,7 +481,7 @@ class WebClient(GameClient):
         self._send({
             "type": "floor",
             "floor_url": f"{self._base_url}/floor.svg?v={v}",
-            "hatch_url": f"{self._base_url}/hatch.svg",
+            "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,
             "fov": fov,

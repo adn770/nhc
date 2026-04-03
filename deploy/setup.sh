@@ -174,8 +174,10 @@ mkdir -p "${OVERRIDE_DIR}"
 
 # When Caddy handles TLS, bind Docker to localhost only
 NHC_BIND="0.0.0.0"
+NHC_EXTERNAL_URL=""
 if [[ -n "${DUCKDNS_SUBDOMAIN}" && -n "${DUCKDNS_TOKEN}" ]]; then
     NHC_BIND="127.0.0.1"
+    NHC_EXTERNAL_URL="https://${DUCKDNS_SUBDOMAIN}.duckdns.org"
 fi
 
 cat > "${OVERRIDE_FILE}" <<CONF
@@ -183,6 +185,7 @@ cat > "${OVERRIDE_FILE}" <<CONF
 Environment=NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN}
 Environment=NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS}
 Environment=NHC_BIND=${NHC_BIND}
+Environment=NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL}
 CONF
 
 chmod 600 "${OVERRIDE_FILE}"
