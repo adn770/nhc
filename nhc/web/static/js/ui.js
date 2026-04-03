@@ -35,6 +35,7 @@ const UI = {
     // Merge static + dynamic stats
     s = Object.assign({}, this._staticStats || {}, s);
     if (!s.hp_max) return;
+    this._currentStats = s;
 
     // ── Line 1: Location, depth, turn, level, gold, HP bar ──
     const hp = s.hp || 0;
@@ -62,6 +63,8 @@ const UI = {
     const equip = [
       `⚔️  ${s.weapon}`,
       s.armor_name, s.shield_name, s.helmet_name,
+      s.ring_left_name ? `💍 ${s.ring_left_name}` : "",
+      s.ring_right_name ? `💍 ${s.ring_right_name}` : "",
       `${s.ac_label} ${s.ac}`,
     ].filter(Boolean).join(sep);
 
@@ -77,6 +80,7 @@ const UI = {
 
     // ── Line 3: Inventory (interactive) ──
     if (s.items) this.currentItems = s.items;
+    if (s.equipped_items) this.equippedItems = s.equipped_items;
     const rawItems = this.currentItems || [];
     this.statusLine3.textContent = "";
 
@@ -273,12 +277,9 @@ const UI = {
   },
 
   showInventoryPanel() {
-    const items = this.currentItems || [];
-    const equipped = items.filter(
-      it => typeof it === "object" && it.equipped
-    );
-    const backpack = items.filter(
-      it => typeof it === "object" && !it.equipped
+    const equipped = this.equippedItems || [];
+    const backpack = (this.currentItems || []).filter(
+      it => typeof it === "object"
     );
 
     const overlay = document.createElement("div");

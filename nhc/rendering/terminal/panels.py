@@ -98,12 +98,18 @@ def render_status(
     armor_name = s.get("armor_name", "")
     shield_name = s.get("shield_name", "")
     helmet_name = s.get("helmet_name", "")
+    ring_left_name = s.get("ring_left_name", "")
+    ring_right_name = s.get("ring_right_name", "")
     if armor_name:
         equip_parts.append(armor_name)
     if shield_name:
         equip_parts.append(shield_name)
     if helmet_name:
         equip_parts.append(helmet_name)
+    if ring_left_name:
+        equip_parts.append(f"💍 {ring_left_name}")
+    if ring_right_name:
+        equip_parts.append(f"💍 {ring_right_name}")
     equip_parts.append(f"{tr('ui.ac')} {armor_def}")
 
     line2 = (

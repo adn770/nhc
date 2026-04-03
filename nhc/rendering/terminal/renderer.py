@@ -547,6 +547,8 @@ class TerminalRenderer(GameClient):
             "armor_name": _equip_name(equip.armor) if equip else "",
             "shield_name": _equip_name(equip.shield) if equip else "",
             "helmet_name": _equip_name(equip.helmet) if equip else "",
+            "ring_left_name": _equip_name(equip.ring_left) if equip else "",
+            "ring_right_name": _equip_name(equip.ring_right) if equip else "",
             "_equipped_ids": equipped_ids,
         }
 

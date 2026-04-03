@@ -195,6 +195,7 @@ class WebClient(GameClient):
         inv = world.get_component(player_id, "Inventory")
         equipped_ids = set()
         armor_name = shield_name = helmet_name = ""
+        ring_left_name = ring_right_name = ""
         if equip:
             for attr in ("weapon", "armor", "shield", "helmet",
                          "ring_left", "ring_right"):
@@ -204,6 +205,10 @@ class WebClient(GameClient):
             armor_name = _name(equip.armor) if equip.armor else ""
             shield_name = _name(equip.shield) if equip.shield else ""
             helmet_name = _name(equip.helmet) if equip.helmet else ""
+            ring_left_name = _name(equip.ring_left) \
+                if equip.ring_left else ""
+            ring_right_name = _name(equip.ring_right) \
+                if equip.ring_right else ""
 
         items = []
         total_used = 0
@@ -245,13 +250,36 @@ class WebClient(GameClient):
                 if wnd:
                     charges = [wnd.charges, wnd.max_charges]
 
-                items.append({
-                    "id": item_id,
-                    "name": d.name if d else "???",
-                    "equipped": item_id in equipped_ids,
-                    "types": types,
-                    "charges": charges,
-                })
+                if item_id not in equipped_ids:
+                    items.append({
+                        "id": item_id,
+                        "name": d.name if d else "???",
+                        "equipped": False,
+                        "types": types,
+                        "charges": charges,
+                    })
+
+        # Build equipped items list for inventory panel
+        equipped_items = []
+        if equip:
+            slot_type_map = {
+                "weapon": "weapon",
+                "armor": "armor",
+                "shield": "shield",
+                "helmet": "helmet",
+                "ring_left": "ring",
+                "ring_right": "ring",
+            }
+            for attr, typ in slot_type_map.items():
+                eid = getattr(equip, attr)
+                if eid is not None:
+                    d = world.get_component(eid, "Description")
+                    equipped_items.append({
+                        "id": eid,
+                        "name": d.name if d else "???",
+                        "equipped": True,
+                        "types": [typ],
+                    })
 
         static = {
             "char_name": pdesc.name if pdesc else "?",
@@ -279,8 +307,11 @@ class WebClient(GameClient):
             "armor_name": armor_name,
             "shield_name": shield_name,
             "helmet_name": helmet_name,
+            "ring_left_name": ring_left_name,
+            "ring_right_name": ring_right_name,
             "ac": ac,
             "items": items,
+            "equipped_items": equipped_items,
             "slots_used": total_used,
         }
         return static, dynamic

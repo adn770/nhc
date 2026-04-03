@@ -411,7 +411,8 @@ class TestGatherStatsItemMetadata:
         assert "weapon" in types
         assert "throwable" in types
 
-    def test_equipped_items_marked(self):
+    def test_equipped_items_excluded(self):
+        """Equipped items appear in line 2, not in items list."""
         pc = _player_comps()
         pc["Equipment"].weapon = 10
         pc["Inventory"].slots = [10, 11]
@@ -425,9 +426,9 @@ class TestGatherStatsItemMetadata:
         wc = WebClient(lang="en")
         stats = _merged_stats(wc, world, 1, 0, _mock_level())
 
-        by_name = {i["name"]: i for i in stats["items"]}
-        assert by_name["Sword"]["equipped"] is True
-        assert by_name["Potion"]["equipped"] is False
+        names = [i["name"] for i in stats["items"]]
+        assert "Sword" not in names
+        assert "Potion" in names
 
     def test_multiple_types(self):
         pc = _player_comps()
@@ -515,6 +516,141 @@ class TestItemActionDispatch:
         finally:
             loop.close()
         assert result == ("item_action", {"action": "drop", "item_id": 5})
+
+
+class TestEquippedRingsInStats:
+    """Equipped ring names should appear in stats for line 2."""
+
+    def test_ring_names_in_dynamic_stats(self):
+        pc = _player_comps()
+        pc["Equipment"].ring_left = 20
+        pc["Equipment"].ring_right = 21
+        pc["Inventory"].slots = [20, 21]
+        world = _mock_world({
+            1: pc,
+            20: {"Description": _Desc(name="Ring of Mending"),
+                 "Ring": _Ring(effect="mending")},
+            21: {"Description": _Desc(name="Ring of Evasion"),
+                 "Ring": _Ring(effect="evasion")},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        assert stats["ring_left_name"] == "Ring of Mending"
+        assert stats["ring_right_name"] == "Ring of Evasion"
+
+    def test_no_rings_empty_names(self):
+        world = _mock_world({1: _player_comps()})
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        assert stats["ring_left_name"] == ""
+        assert stats["ring_right_name"] == ""
+
+    def test_single_ring_equipped(self):
+        pc = _player_comps()
+        pc["Equipment"].ring_left = 20
+        pc["Inventory"].slots = [20]
+        world = _mock_world({
+            1: pc,
+            20: {"Description": _Desc(name="Ring of Protection"),
+                 "Ring": _Ring(effect="protection")},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        assert stats["ring_left_name"] == "Ring of Protection"
+        assert stats["ring_right_name"] == ""
+
+
+class TestEquippedItemsNotInInventoryLine:
+    """Equipped items should not appear in the items list (line 3)."""
+
+    def test_equipped_weapon_excluded_from_items(self):
+        pc = _player_comps()
+        pc["Equipment"].weapon = 10
+        pc["Inventory"].slots = [10, 11]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Sword"),
+                 "Weapon": _Weapon()},
+            11: {"Description": _Desc(name="Potion"),
+                 "Consumable": _Consumable()},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        names = [i["name"] for i in stats["items"]]
+        assert "Sword" not in names
+        assert "Potion" in names
+
+    def test_equipped_ring_excluded_from_items(self):
+        pc = _player_comps()
+        pc["Equipment"].ring_left = 20
+        pc["Inventory"].slots = [20, 11]
+        world = _mock_world({
+            1: pc,
+            20: {"Description": _Desc(name="Ring of Mending"),
+                 "Ring": _Ring()},
+            11: {"Description": _Desc(name="Potion"),
+                 "Consumable": _Consumable()},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        names = [i["name"] for i in stats["items"]]
+        assert "Ring of Mending" not in names
+        assert "Potion" in names
+
+    def test_equipped_armor_excluded_from_items(self):
+        pc = _player_comps()
+        pc["Equipment"].armor = 10
+        pc["Equipment"].shield = 11
+        pc["Equipment"].helmet = 12
+        pc["Inventory"].slots = [10, 11, 12, 13]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Chain Mail"),
+                 "Armor": _Armor(slot="body")},
+            11: {"Description": _Desc(name="Shield"),
+                 "Armor": _Armor(slot="shield")},
+            12: {"Description": _Desc(name="Helmet"),
+                 "Armor": _Armor(slot="helmet")},
+            13: {"Description": _Desc(name="Dagger"),
+                 "Weapon": _Weapon()},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        names = [i["name"] for i in stats["items"]]
+        assert "Chain Mail" not in names
+        assert "Shield" not in names
+        assert "Helmet" not in names
+        assert "Dagger" in names
+
+    def test_unequipped_ring_stays_in_items(self):
+        pc = _player_comps()
+        pc["Inventory"].slots = [20]
+        world = _mock_world({
+            1: pc,
+            20: {"Description": _Desc(name="Ring of Mending"),
+                 "Ring": _Ring()},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        names = [i["name"] for i in stats["items"]]
+        assert "Ring of Mending" in names
+
+    def test_slots_used_still_counts_equipped(self):
+        """Total slots must include equipped items (Knave rules)."""
+        pc = _player_comps()
+        pc["Equipment"].weapon = 10
+        pc["Inventory"].slots = [10, 11]
+        world = _mock_world({
+            1: pc,
+            10: {"Description": _Desc(name="Greatsword"),
+                 "Weapon": _Weapon(slots=2)},
+            11: {"Description": _Desc(name="Potion"),
+                 "Consumable": _Consumable()},
+        })
+        wc = WebClient(lang="en")
+        stats = _merged_stats(wc, world, 1, 0, _mock_level())
+        # 2 (greatsword) + 1 (potion) = 3
+        assert stats["slots_used"] == 3
 
 
 class TestDisconnectHandling:
