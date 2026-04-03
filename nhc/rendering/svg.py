@@ -93,7 +93,7 @@ def render_floor_svg(
     return "\n".join(svg)
 
 
-HATCH_PATCH_SIZE = 8  # tiles per side of the repeating hatch patch
+HATCH_PATCH_SIZE = 16  # tiles per side of the repeating hatch patch
 
 
 def render_hatch_svg(seed: int = 0) -> str:

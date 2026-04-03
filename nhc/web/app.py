@@ -766,6 +766,7 @@ def create_app(
 
         game = session.game
         client = game.renderer
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         def _add_text(tar, name, text):
             data = text.encode("utf-8")
@@ -775,7 +776,7 @@ def create_app(
 
         buf = io.BytesIO()
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-            # 1. Game state JSON
+            # 1. Game state JSON (MCP expects exports/game_state_*.json)
             from nhc.core.save import _serialize_entities, _serialize_level
             static, dynamic = client._gather_stats(
                 game.world, game.player_id, game.turn, game.level)
@@ -790,7 +791,7 @@ def create_app(
                 "level": _serialize_level(game.level),
                 "ecs": _serialize_entities(game.world),
             }
-            _add_text(tar, "game_state.json",
+            _add_text(tar, f"exports/game_state_{ts}.json",
                       _json.dumps(state, indent=2))
 
             # 2. Layer state JSON
@@ -807,12 +808,12 @@ def create_app(
                 "doors": client._gather_doors(level),
                 "debug": client._gather_debug_data(level),
             }
-            _add_text(tar, "layer_state.json",
+            _add_text(tar, f"exports/layer_state_{ts}.json",
                       _json.dumps(layer, indent=2))
 
             # 3. Floor SVGs (all cached depths)
             for depth, (svg_id, svg) in game._svg_cache.items():
-                _add_text(tar, f"map_depth{depth}.svg", svg)
+                _add_text(tar, f"exports/map_{ts}_d{depth}.svg", svg)
 
             # 4. Autosave
             if session.save_dir:

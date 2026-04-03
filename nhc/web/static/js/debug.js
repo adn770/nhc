@@ -60,6 +60,18 @@ const DebugPanel = {
     const zone = document.getElementById("toolbar-zone");
     if (!zone) return;
     if (document.getElementById("god-mode-btn")) return;
+
+    const dlBtn = document.createElement("button");
+    dlBtn.id = "debug-bundle-btn";
+    dlBtn.textContent = "\uD83D\uDCBE";
+    dlBtn.title = "Download Debug Bundle";
+    dlBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const sid = NHC.sessionId;
+      if (sid) window.location.href = `/api/game/${sid}/export/bundle`;
+    });
+    zone.appendChild(dlBtn);
+
     const btn = document.createElement("button");
     btn.id = "god-mode-btn";
     btn.textContent = "\u2699";
@@ -436,19 +448,6 @@ const DebugPanel = {
       setTimeout(() => { allBtn.textContent = "Export All"; }, 3000);
     });
     frag.appendChild(allBtn);
-
-    // Download Bundle button
-    const dlBtn = document.createElement("button");
-    dlBtn.className = "debug-export-btn";
-    dlBtn.textContent = "Download Bundle";
-    dlBtn.style.marginTop = "4px";
-    dlBtn.style.borderColor = "#98c379";
-    dlBtn.style.color = "#98c379";
-    dlBtn.addEventListener("click", () => {
-      const sid = NHC.sessionId;
-      window.location.href = `/api/game/${sid}/export/bundle`;
-    });
-    frag.appendChild(dlBtn);
 
     return frag;
   },
