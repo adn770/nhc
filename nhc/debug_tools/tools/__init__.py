@@ -1,5 +1,6 @@
 """Tool registry for nhc debug MCP server."""
 
+from nhc.debug_tools.tools.autosave import GetAutosaveInfoTool
 from nhc.debug_tools.tools.exports import ListExportsTool, ReadExportTool
 from nhc.debug_tools.tools.game_state import (
     GetEntityListTool,
@@ -21,6 +22,7 @@ from nhc.debug_tools.tools.svg_query import (
 )
 
 ALL_TOOL_CLASSES = [
+    GetAutosaveInfoTool,
     ListExportsTool,
     ReadExportTool,
     GetGameSnapshotTool,
