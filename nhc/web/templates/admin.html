@@ -101,6 +101,9 @@
     <tbody id="sessions-body"></tbody>
   </table>
 
+  <h2>Debug Tools</h2>
+  <button onclick="downloadBundle()">Download Debug Bundle</button>
+
   <div id="toast"></div>
 
 <script>
@@ -135,9 +138,13 @@ async function loadPlayers() {
     } else {
       badge = "offline"; status = "Offline";
     }
+    const godStyle = p.god_mode ? 'color:#e6c07b;border-color:#e6c07b' : '';
+    const godLabel = p.god_mode ? 'God: ON' : 'God: OFF';
+    const godBtn = `<button style="${godStyle}" onclick="toggleGodMode('${p.player_id}', ${!p.god_mode})">${godLabel}</button> `;
     const actions = p.revoked
       ? '<span style="color:#888">revoked</span>'
-      : `<button onclick="getLink('${p.player_id}')">Get Link</button> `
+      : godBtn
+        + `<button onclick="getLink('${p.player_id}')">Get Link</button> `
         + `<button class="danger" onclick="revokePlayer('${p.player_id}')">Revoke</button>`;
     tr.innerHTML = `
       <td>${esc(p.name)}</td>
@@ -231,6 +238,25 @@ async function revokePlayer(pid) {
     toast("Player revoked");
     loadPlayers();
   }
+}
+
+async function toggleGodMode(pid, enabled) {
+  const resp = await fetch(`/api/admin/players/${pid}/god_mode`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({enabled}),
+  });
+  if (resp.ok) {
+    toast(`God mode ${enabled ? "enabled" : "disabled"}`);
+    loadPlayers();
+  } else {
+    const err = await resp.json();
+    toast(err.error || "Failed to toggle god mode");
+  }
+}
+
+function downloadBundle() {
+  window.location.href = "/api/admin/debug-bundle";
 }
 
 function copyLink() {

@@ -8,7 +8,9 @@ import logging
 import time
 from pathlib import Path
 
-from flask import Flask, g, jsonify, make_response, render_template, request
+from flask import (
+    Flask, g, jsonify, make_response, render_template, request, send_file,
+)
 from flask_sock import Sock
 
 from nhc.web.config import WebConfig
@@ -60,6 +62,7 @@ def create_app(
         debug_topics="all",
         console_output=True,
     )
+    app.config["LOG_PATH"] = str(log_path)
     logger.info("Log file: %s", log_path)
 
     sessions = SessionManager(config)
@@ -269,10 +272,73 @@ def create_app(
             return jsonify({"status": "revoked"})
         return jsonify({"error": "player not found"}), 404
 
+    @app.route(
+        "/api/admin/players/<player_id>/god_mode", methods=["POST"],
+    )
+    @_admin_auth
+    def admin_toggle_god_mode(player_id: str):
+        if not registry:
+            return jsonify({"error": "no registry"}), 500
+        data = request.get_json(silent=True) or {}
+        enabled = bool(data.get("enabled", False))
+        if not registry.set_god_mode(player_id, enabled):
+            return jsonify({"error": "player not found"}), 404
+        # Live toggle on active session
+        session = sessions.get_by_player(player_id)
+        if session and session.game:
+            session.game.set_god_mode(enabled)
+        return jsonify({"status": "ok", "god_mode": enabled})
+
     @app.route("/api/admin/sessions", methods=["GET"])
     @_admin_auth
     def admin_list_sessions():
         return jsonify(sessions.list_sessions())
+
+    @app.route("/api/admin/debug-bundle", methods=["GET"])
+    @_admin_auth
+    def admin_debug_bundle():
+        import io
+        import tarfile
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            # 1. Game log
+            log_file = Path(app.config.get("LOG_PATH", ""))
+            if log_file.exists():
+                tar.add(str(log_file), arcname="nhc.log")
+
+            # 2. Debug exports
+            exports_dir = Path("debug/exports")
+            if exports_dir.exists():
+                for f in exports_dir.iterdir():
+                    if f.is_file():
+                        tar.add(str(f), arcname=f"exports/{f.name}")
+
+            # 3. Autosave files
+            data_dir = config.data_dir
+            if data_dir:
+                players_dir = data_dir / "players"
+                if players_dir.exists():
+                    for player_dir in players_dir.iterdir():
+                        if not player_dir.is_dir():
+                            continue
+                        autosave = player_dir / "autosave.bin"
+                        if autosave.exists():
+                            tar.add(
+                                str(autosave),
+                                arcname=(
+                                    f"autosaves/{player_dir.name}"
+                                    f"/autosave.bin"
+                                ),
+                            )
+
+        buf.seek(0)
+        return send_file(
+            buf,
+            mimetype="application/gzip",
+            as_attachment=True,
+            download_name="nhc-debug-bundle.tar.gz",
+        )
 
     # ── Player routes (player token) ────────────────────────
 
@@ -345,12 +411,17 @@ def create_app(
         client = WebClient(game_mode="classic", lang=session.lang)
         backend = _create_llm_backend()
 
+        player_god = config.god_mode
+        if registry and pid:
+            pdata = registry.get(pid)
+            if pdata:
+                player_god = pdata.get("god_mode", False)
         game = Game(
             client=client,
             backend=backend,
             game_mode="classic",
             shape_variety=config.shape_variety,
-            god_mode=config.god_mode,
+            god_mode=player_god,
             save_dir=save_dir,
         )
         session.game = game
@@ -448,13 +519,18 @@ def create_app(
         logger.debug("LLM backend: %s", type(backend).__name__
                       if backend else "None")
 
+        player_god = config.god_mode
+        if registry and pid:
+            pdata = registry.get(pid)
+            if pdata:
+                player_god = pdata.get("god_mode", False)
         game = Game(
             client=client,
             backend=backend,
             game_mode="classic",
             reset=reset,
             shape_variety=config.shape_variety,
-            god_mode=config.god_mode,
+            god_mode=player_god,
             save_dir=session.save_dir,
         )
         session.game = game

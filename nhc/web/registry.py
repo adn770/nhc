@@ -38,6 +38,8 @@ class PlayerRegistry:
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
             self._players = data.get("players", [])
+            for p in self._players:
+                p.setdefault("god_mode", False)
             logger.info("Loaded %d players from %s",
                         len(self._players), self._path)
         except Exception:
@@ -70,6 +72,7 @@ class PlayerRegistry:
             "token_hash": hash_token(token),
             "created_at": time.time(),
             "revoked": False,
+            "god_mode": False,
         }
         with self._lock:
             self._players.append(entry)
@@ -102,6 +105,19 @@ class PlayerRegistry:
                     p["revoked"] = True
                     self._save()
                     logger.info("Revoked player %s", player_id)
+                    return True
+        return False
+
+    def set_god_mode(self, player_id: str, enabled: bool) -> bool:
+        """Toggle god mode for a player.  Returns True if found."""
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] == player_id:
+                    p["god_mode"] = enabled
+                    self._save()
+                    logger.info("God mode %s for player %s",
+                                "enabled" if enabled else "disabled",
+                                player_id)
                     return True
         return False
 

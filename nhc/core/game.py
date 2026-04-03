@@ -349,6 +349,13 @@ class Game:
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
+    def set_god_mode(self, enabled: bool) -> None:
+        """Toggle god mode live.  Identifies all items when enabled."""
+        self.god_mode = enabled
+        if enabled and self._knowledge:
+            for item_id in ALL_IDS:
+                self._knowledge.identify(item_id)
+
     async def initialize(
         self,
         level_path: str | Path | None = None,
