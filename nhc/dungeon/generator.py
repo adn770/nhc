@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import random
 from dataclasses import dataclass, field
 
 from nhc.dungeon.model import Level
@@ -39,5 +40,8 @@ class DungeonGenerator(abc.ABC):
     """Abstract base for dungeon generators."""
 
     @abc.abstractmethod
-    def generate(self, params: GenerationParams) -> Level:
+    def generate(
+        self, params: GenerationParams,
+        rng: random.Random | None = None,
+    ) -> Level:
         """Generate a dungeon level from parameters."""

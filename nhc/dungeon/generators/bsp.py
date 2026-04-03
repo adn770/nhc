@@ -155,8 +155,11 @@ def _bfs_dist(adj: dict[int, set[int]], start: int) -> dict[int, int]:
 class BSPGenerator(DungeonGenerator):
     """Generate dungeons using BSP room subdivision."""
 
-    def generate(self, params: GenerationParams) -> Level:
-        rng = get_rng()
+    def generate(
+        self, params: GenerationParams,
+        rng: "random.Random | None" = None,
+    ) -> Level:
+        rng = rng or get_rng()
         logger.info(
             "BSP generate: %dx%d depth=%d theme=%s",
             params.width, params.height, params.depth, params.theme,

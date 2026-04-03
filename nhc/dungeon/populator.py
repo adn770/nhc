@@ -6,6 +6,8 @@ and tactically interesting dungeon populations.
 
 from __future__ import annotations
 
+import random
+
 from nhc.dungeon.model import EntityPlacement, Level, Terrain
 from nhc.utils.rng import get_rng
 
@@ -218,13 +220,14 @@ def populate_level(
     creature_count: int | None = None,
     item_count: int | None = None,
     trap_count: int | None = None,
+    rng: "random.Random | None" = None,
 ) -> None:
     """Place entities in a generated level's rooms.
 
     Counts scale with depth if not explicitly provided.
     Modifies level.entities in place.
     """
-    rng = get_rng()
+    rng = rng or get_rng()
     difficulty = min(max(1, level.depth), max(CREATURE_POOLS.keys()))
 
     # Scale counts with depth

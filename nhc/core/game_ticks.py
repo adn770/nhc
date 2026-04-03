@@ -117,6 +117,39 @@ def tick_rings(game: Game) -> None:
                             trap.hidden = False
 
 
+def tick_stairs_proximity(game: Game) -> None:
+    """Pre-generate next floor when player approaches downstairs.
+
+    Scans visible downstairs tiles within PREFETCH_DISTANCE of the
+    player and kicks off background generation for the next depth.
+    """
+    PREFETCH_DISTANCE = 7
+
+    # Skip if already prefetching or if next depth is cached
+    if game._prefetch_thread is not None:
+        return
+    next_depth = game.level.depth + 1
+    if next_depth in game._floor_cache:
+        return
+    if game._prefetch_depth == next_depth:
+        return  # already prefetched this depth
+
+    pos = game.world.get_component(game.player_id, "Position")
+    if not pos:
+        return
+
+    # Scan for downstairs within range
+    for y in range(game.level.height):
+        for x in range(game.level.width):
+            tile = game.level.tile_at(x, y)
+            if not tile or tile.feature != "stairs_down":
+                continue
+            dist = max(abs(x - pos.x), abs(y - pos.y))
+            if dist <= PREFETCH_DISTANCE:
+                game._start_prefetch(next_depth)
+                return
+
+
 def tick_wand_recharge(game: Game) -> None:
     """Recharge wands in inventory over time."""
     inv = game.world.get_component(game.player_id, "Inventory")

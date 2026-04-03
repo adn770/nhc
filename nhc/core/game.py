@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import random
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -339,6 +341,9 @@ class Game:
         self._knowledge = None  # ItemKnowledge, set in initialize()
         self._floor_cache: dict[int, tuple] = {}  # depth → (level, entity_data)
         self._svg_cache: dict[int, tuple[str, str]] = {}  # depth → (uuid, svg)
+        self._prefetch_depth: int | None = None   # depth being/been prefetched
+        self._prefetch_result: Level | None = None  # pre-generated level
+        self._prefetch_thread: threading.Thread | None = None
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
@@ -767,6 +772,7 @@ class Game:
             self._tick_mummy_rot()
             self._tick_rings()
             self._tick_wand_recharge()
+            self._tick_stairs_proximity()
 
             # God mode: restore HP to max each turn
             health = self.world.get_component(self.player_id, "Health")
@@ -1153,6 +1159,33 @@ class Game:
     def _tick_wand_recharge(self) -> None:
         game_ticks.tick_wand_recharge(self)
 
+    def _tick_stairs_proximity(self) -> None:
+        game_ticks.tick_stairs_proximity(self)
+
+    def _start_prefetch(self, depth: int) -> None:
+        """Spawn a background thread to pre-generate a floor."""
+        seed = (self.seed or 0) + depth * 997
+        sv = _shape_variety_for_depth(self.shape_variety, depth)
+
+        def _generate() -> None:
+            rng = random.Random(seed)
+            params = GenerationParams(depth=depth, shape_variety=sv)
+            gen = BSPGenerator()
+            level = gen.generate(params, rng=rng)
+            assign_room_types(level, rng)
+            apply_terrain(level, rng)
+            populate_level(level, rng=rng)
+            self._prefetch_result = level
+            self._prefetch_thread = None
+            logger.info("Prefetch complete for depth %d", depth)
+
+        self._prefetch_depth = depth
+        self._prefetch_thread = threading.Thread(
+            target=_generate, daemon=True,
+        )
+        self._prefetch_thread.start()
+        logger.info("Prefetch started for depth %d", depth)
+
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a dungeon level (ascending or descending)."""
         new_depth = event.depth
@@ -1173,11 +1206,28 @@ class Game:
             if eid not in keep_ids:
                 self.world.destroy_entity(eid)
 
-        # Restore cached floor or generate new one
+        # Restore cached floor, use prefetch, or generate new one
         if new_depth in self._floor_cache:
             self._restore_floor(new_depth)
             logger.info("Restored cached floor at depth %d", new_depth)
+        elif (self._prefetch_depth == new_depth
+              and self._prefetch_result is not None):
+            # Wait for prefetch thread if still running
+            if self._prefetch_thread is not None:
+                self._prefetch_thread.join()
+                self._prefetch_thread = None
+            self.level = self._prefetch_result
+            self._prefetch_result = None
+            self._prefetch_depth = None
+            self._spawn_level_entities()
+            logger.info("Used prefetched floor at depth %d", new_depth)
         else:
+            # Cancel any in-flight prefetch for a different depth
+            if self._prefetch_thread is not None:
+                self._prefetch_thread.join()
+                self._prefetch_thread = None
+            self._prefetch_result = None
+            self._prefetch_depth = None
             sv = _shape_variety_for_depth(self.shape_variety, new_depth)
             params = GenerationParams(depth=new_depth, shape_variety=sv)
             gen = BSPGenerator()
