@@ -437,6 +437,19 @@ const DebugPanel = {
     });
     frag.appendChild(allBtn);
 
+    // Download Bundle button
+    const dlBtn = document.createElement("button");
+    dlBtn.className = "debug-export-btn";
+    dlBtn.textContent = "Download Bundle";
+    dlBtn.style.marginTop = "4px";
+    dlBtn.style.borderColor = "#98c379";
+    dlBtn.style.color = "#98c379";
+    dlBtn.addEventListener("click", () => {
+      const sid = NHC.sessionId;
+      window.location.href = `/api/game/${sid}/export/bundle`;
+    });
+    frag.appendChild(dlBtn);
+
     return frag;
   },
 

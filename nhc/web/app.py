@@ -751,6 +751,89 @@ def create_app(
         logger.info("Exported map SVG: %s", path)
         return jsonify({"path": str(path)})
 
+    @app.route("/api/game/<session_id>/export/bundle", methods=["GET"])
+    @_player_auth
+    def export_debug_bundle(session_id: str):
+        """Build a tar.gz with all debug data for this session."""
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+
+        import io
+        import json as _json
+        import tarfile
+        from datetime import datetime
+
+        game = session.game
+        client = game.renderer
+
+        def _add_text(tar, name, text):
+            data = text.encode("utf-8")
+            info = tarfile.TarInfo(name=name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            # 1. Game state JSON
+            from nhc.core.save import _serialize_entities, _serialize_level
+            static, dynamic = client._gather_stats(
+                game.world, game.player_id, game.turn, game.level)
+            state = {
+                "timestamp": datetime.now().isoformat(),
+                "turn": game.turn,
+                "player_id": game.player_id,
+                "seed": game.seed,
+                "stats": {**static, **dynamic},
+                "entities": client._gather_entities(
+                    game.world, game.level, game.player_id),
+                "level": _serialize_level(game.level),
+                "ecs": _serialize_entities(game.world),
+            }
+            _add_text(tar, "game_state.json",
+                      _json.dumps(state, indent=2))
+
+            # 2. Layer state JSON
+            level = game.level
+            explored = [[x, y]
+                        for y in range(level.height)
+                        for x in range(level.width)
+                        if (t := level.tile_at(x, y)) and t.explored]
+            layer = {
+                "timestamp": datetime.now().isoformat(),
+                "turn": game.turn,
+                "fov": client._gather_fov(level),
+                "explored": explored,
+                "doors": client._gather_doors(level),
+                "debug": client._gather_debug_data(level),
+            }
+            _add_text(tar, "layer_state.json",
+                      _json.dumps(layer, indent=2))
+
+            # 3. Floor SVGs (all cached depths)
+            for depth, (svg_id, svg) in game._svg_cache.items():
+                _add_text(tar, f"map_depth{depth}.svg", svg)
+
+            # 4. Autosave
+            if session.save_dir:
+                autosave = session.save_dir / "autosave.bin"
+                if autosave.exists():
+                    tar.add(str(autosave), arcname="autosave.bin")
+
+            # 5. Game log
+            log_file = Path(app.config.get("LOG_PATH", ""))
+            if log_file.exists():
+                tar.add(str(log_file), arcname="nhc.log")
+
+        buf.seek(0)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return send_file(
+            buf,
+            mimetype="application/gzip",
+            as_attachment=True,
+            download_name=f"nhc-debug-{session_id[:12]}-{ts}.tar.gz",
+        )
+
     @app.route("/api/game/list", methods=["GET"])
     @_player_auth
     def game_list():
