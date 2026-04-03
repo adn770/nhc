@@ -152,7 +152,7 @@ const Input = {
     // Zoom buttons
     const zoomOut = document.createElement("button");
     zoomOut.id = "zoom-out-btn";
-    zoomOut.textContent = "\u{1F50D}\u2212";
+    zoomOut.textContent = "\u2212";
     zoomOut.dataset.labelKey = "toolbar_zoom_out";
     zoomOut.title = "Zoom Out";
     zoomOut.addEventListener("click", (e) => {
@@ -164,7 +164,7 @@ const Input = {
 
     const zoomIn = document.createElement("button");
     zoomIn.id = "zoom-in-btn";
-    zoomIn.textContent = "\u{1F50D}+";
+    zoomIn.textContent = "+";
     zoomIn.dataset.labelKey = "toolbar_zoom_in";
     zoomIn.title = "Zoom In";
     zoomIn.addEventListener("click", (e) => {
