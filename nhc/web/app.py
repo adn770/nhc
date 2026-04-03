@@ -158,7 +158,12 @@ def create_app(
             h = hash_token(token)
             if not registry.is_valid_token_hash(h):
                 return "Invalid or revoked token.", 403
-            resp = make_response(render_template("index.html"))
+            pid = registry.player_id_for_hash(h)
+            player = registry.get(pid)
+            player_name = player["name"] if player else ""
+            resp = make_response(render_template(
+                "index.html", player_name=player_name,
+            ))
             resp.set_cookie("nhc_token", token,
                             samesite="Strict")
             return resp
@@ -387,6 +392,15 @@ def create_app(
         tileset = data.get("tileset", "")
         reset = data.get("reset", False) or config.reset
         pid = _get_player_id()
+
+        # Destroy any stale suspended session for this player
+        if pid:
+            old = sessions.get_by_player(pid)
+            if old:
+                logger.info("Destroying stale session %s for player %s",
+                            old.session_id, pid)
+                sessions.destroy(old.session_id)
+
         save_dir = _player_save_dir(pid) if pid else None
         if save_dir:
             save_dir.mkdir(parents=True, exist_ok=True)

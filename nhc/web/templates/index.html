@@ -11,6 +11,9 @@
   <div id="login-screen">
     <h1>NHC</h1>
     <p>Nethack-like Crawler</p>
+    {% if player_name %}
+    <p id="welcome-msg">Welcome back, {{ player_name }}</p>
+    {% endif %}
     <div class="login-form">
       <label for="lang-select">Language:</label>
       <select id="lang-select">

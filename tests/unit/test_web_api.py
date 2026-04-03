@@ -352,3 +352,81 @@ class TestResumeAPI:
         data = resp.get_json()
         assert data["session_id"] == sid
         assert data["resumed"] is True
+
+
+class TestWelcomeMessage:
+    def test_index_shows_player_name(self, tmp_path):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+        )
+        app = create_app(config, auth_token="admin-secret")
+        app.config["TESTING"] = True
+        registry = app.config["PLAYER_REGISTRY"]
+        token, pid = registry.register("Alice")
+
+        with app.test_client() as c:
+            resp = c.get(f"/?token={token}")
+            assert resp.status_code == 200
+            assert b"Welcome back, Alice" in resp.data
+
+    def test_index_no_name_without_auth(self, client):
+        resp = client.get("/")
+        assert resp.status_code == 200
+        assert b"Welcome back" not in resp.data
+
+
+class TestNewGameCleansUp:
+    def test_new_game_destroys_stale_session(self, client_with_data_dir):
+        token, pid = _register_player(client_with_data_dir)
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        old_sid = resp.get_json()["session_id"]
+
+        # Mark session as suspended (simulates Q/quit)
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        old_session = sessions.get(old_sid)
+        old_session.connected = False
+
+        # Create new game — old session should be destroyed
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "reset": True},
+        )
+        assert resp.status_code == 201
+        new_sid = resp.get_json()["session_id"]
+        assert new_sid != old_sid
+        assert sessions.get(old_sid) is None
+
+    def test_new_game_reset_clears_stale_svg_cache(
+        self, client_with_data_dir,
+    ):
+        token, pid = _register_player(client_with_data_dir)
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+
+        # Simulate SVG cache + autosave from old game
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        save_dir = session.save_dir
+        autosave(session.game, save_dir)
+        (save_dir / "floor.svg").write_text("<svg>stale-floor</svg>")
+        (save_dir / "hatch.svg").write_text("<svg>stale-hatch</svg>")
+
+        # New game with reset should NOT load stale SVGs
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "reset": True},
+        )
+        assert resp.status_code == 201
+        # The new game re-generates SVGs; they must not be the stale ones
+        floor_svg = (save_dir / "floor.svg").read_text()
+        assert "stale-floor" not in floor_svg

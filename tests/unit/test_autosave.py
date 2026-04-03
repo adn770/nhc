@@ -394,6 +394,18 @@ class TestCustomSaveDir:
         delete_autosave(save_dir)
         assert not (save_dir / "autosave.nhc").exists()
 
+    def test_delete_also_removes_svg_cache(self, tmp_path):
+        save_dir = tmp_path / "player_svg"
+        save_dir.mkdir(parents=True)
+        (save_dir / "autosave.nhc").write_bytes(b"data")
+        (save_dir / "floor.svg").write_text("<svg>floor</svg>")
+        (save_dir / "hatch.svg").write_text("<svg>hatch</svg>")
+
+        delete_autosave(save_dir)
+        assert not (save_dir / "autosave.nhc").exists()
+        assert not (save_dir / "floor.svg").exists()
+        assert not (save_dir / "hatch.svg").exists()
+
     def test_two_players_independent_saves(self, tmp_path):
         dir_a = tmp_path / "player_a"
         dir_b = tmp_path / "player_b"

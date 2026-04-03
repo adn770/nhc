@@ -49,11 +49,14 @@ def has_autosave(save_dir: Path | None = None) -> bool:
 
 
 def delete_autosave(save_dir: Path | None = None) -> None:
-    """Remove autosave file (on death or victory)."""
-    _, path = _resolve(save_dir)
+    """Remove autosave file and cached SVGs (on death, victory, or reset)."""
+    save_dir_resolved, path = _resolve(save_dir)
     try:
         existed = path.exists()
         path.unlink(missing_ok=True)
+        # Also purge SVG cache so a fresh game doesn't load stale maps
+        for name in ("floor.svg", "hatch.svg"):
+            (save_dir_resolved / name).unlink(missing_ok=True)
         logger.info("Autosave delete: existed=%s, path=%s", existed, path)
     except OSError:
         logger.error("Autosave delete FAILED", exc_info=True)

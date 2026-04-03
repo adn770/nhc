@@ -39,6 +39,12 @@ body {
   margin-bottom: 24px;
 }
 
+#welcome-msg {
+  color: #e6c07b;
+  font-style: italic;
+  margin-bottom: 0;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
