@@ -224,12 +224,124 @@ class HybridShape(RoomShape):
                 rect.x, rect.y, rect.width, mid - rect.y,
             )
             right_rect = Rect(rect.x, mid, rect.width, rect.y2 - mid)
-        # Clip to bounding rect to prevent overflow
-        bounds = RectShape().floor_tiles(rect)
-        return (
+
+        base = (
             self.left.floor_tiles(left_rect)
             | self.right.floor_tiles(right_rect)
-        ) & bounds
+        )
+
+        # Include diagonal transition tiles between the circle arc
+        # endpoints and the rect corners at the seam.  The SVG draws
+        # these as straight lines so they appear walkable.
+        diag = self._diagonal_tiles(rect, left_rect, right_rect)
+
+        # Clip to bounding rect to prevent overflow
+        bounds = RectShape().floor_tiles(rect)
+        return (base | diag) & bounds
+
+    def _diagonal_tiles(
+        self, rect: Rect,
+        left_rect: Rect, right_rect: Rect,
+    ) -> set[tuple[int, int]]:
+        """Tiles inside the diagonal transition between arc and rect."""
+        # Find which sub-shape is the circle
+        circle_sub: RoomShape | None = None
+        circle_side = ""
+        for side, sub in [("left", self.left), ("right", self.right)]:
+            if isinstance(sub, CircleShape):
+                circle_sub = sub
+                circle_side = side
+                break
+        if circle_sub is None:
+            return set()
+
+        # Compute circle geometry (matching SVG calculations)
+        if self.split == "vertical":
+            sub_r = left_rect if circle_side == "left" else right_rect
+            tw, th = sub_r.width, rect.height
+            d = circle_sub._diameter(Rect(0, 0, tw, th))
+            radius = d / 2
+            ccx = sub_r.x + sub_r.width / 2
+            ccy = rect.y + rect.height / 2
+            # Arc endpoints (top and bottom of semicircle)
+            arc_top = (ccx, ccy - radius)
+            arc_bot = (ccx, ccy + radius)
+            mid = rect.x + rect.width // 2
+            if circle_side == "left":
+                # Diagonals: arc_top → (mid, rect.y)
+                #            arc_bot → (mid, rect.y2)
+                corner_top = (mid, rect.y)
+                corner_bot = (mid, rect.y2)
+            else:
+                # Diagonals: arc_top → (mid, rect.y)
+                #            arc_bot → (mid, rect.y2)
+                corner_top = (mid, rect.y)
+                corner_bot = (mid, rect.y2)
+        else:
+            sub_r = left_rect if circle_side == "left" else right_rect
+            tw, th = rect.width, sub_r.height
+            d = circle_sub._diameter(Rect(0, 0, tw, th))
+            radius = d / 2
+            ccx = rect.x + rect.width / 2
+            ccy = sub_r.y + sub_r.height / 2
+            # Arc endpoints (left and right of semicircle)
+            arc_left = (ccx - radius, ccy)
+            arc_right = (ccx + radius, ccy)
+            mid = rect.y + rect.height // 2
+            if circle_side == "left":
+                corner_left = (rect.x, mid)
+                corner_right = (rect.x2, mid)
+            else:
+                corner_left = (rect.x, mid)
+                corner_right = (rect.x2, mid)
+
+        # Rasterize: include tiles whose center is inside the two
+        # diagonal triangles (between arc endpoint and rect corner).
+        tiles: set[tuple[int, int]] = set()
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                tx, ty = x + 0.5, y + 0.5
+                if self.split == "vertical":
+                    at_x, at_y = arc_top
+                    ab_x, ab_y = arc_bot
+                    ct_x, ct_y = corner_top
+                    cb_x, cb_y = corner_bot
+                    # Upper line from arc_top to corner_top
+                    if ct_x != at_x:
+                        y_upper = at_y + (ct_y - at_y) * (tx - at_x) / (ct_x - at_x)
+                    else:
+                        continue
+                    # Lower line from arc_bot to corner_bot
+                    if cb_x != ab_x:
+                        y_lower = ab_y + (cb_y - ab_y) * (tx - ab_x) / (cb_x - ab_x)
+                    else:
+                        continue
+                    # Check tile is in the diagonal zone
+                    x_min = min(at_x, ct_x)
+                    x_max = max(at_x, ct_x)
+                    if x_min <= tx <= x_max and y_upper <= ty <= y_lower:
+                        tiles.add((x, y))
+                else:
+                    al_x, al_y = arc_left
+                    ar_x, ar_y = arc_right
+                    cl_x, cl_y = corner_left
+                    cr_x, cr_y = corner_right
+                    # Left line from arc_left to corner_left
+                    if cl_y != al_y:
+                        x_left = al_x + (cl_x - al_x) * (ty - al_y) / (cl_y - al_y)
+                    else:
+                        continue
+                    # Right line from arc_right to corner_right
+                    if cr_y != ar_y:
+                        x_right = ar_x + (cr_x - ar_x) * (ty - ar_y) / (cr_y - ar_y)
+                    else:
+                        continue
+                    y_min = min(al_y, cl_y)
+                    y_max = max(al_y, cl_y)
+                    if y_min <= ty <= y_max and x_left <= tx <= x_right:
+                        tiles.add((x, y))
+
+        return tiles
 
 
 # ── Shape registry ────────────────────────────────────────────────
