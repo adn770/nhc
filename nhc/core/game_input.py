@@ -215,9 +215,9 @@ def find_lock_action(game: Game, mode: str) -> Action | None:
     if not pos or not game.level:
         return None
 
-    # Check all 4 cardinal directions for a locked door
+    # Check own tile and 4 cardinal directions for a locked door
     door_dir = None
-    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+    for dx, dy in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]:
         tile = game.level.tile_at(pos.x + dx, pos.y + dy)
         if tile and tile.feature == "door_locked":
             door_dir = (dx, dy)

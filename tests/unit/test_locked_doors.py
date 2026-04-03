@@ -250,6 +250,101 @@ class TestForceDoorWithTool:
         assert broke, "Crowbar never broke in 200 attempts (10% chance each)"
 
 
+class TestPlayerOnDoorTile:
+    """Player standing on a locked door tile (web client edge placement)."""
+
+    def _make_world_on_door(
+        self, strength: int = 1, dex: int = 1,
+        with_lockpicks: bool = False,
+    ) -> tuple[World, int, Level]:
+        """Place the player directly on the locked door tile."""
+        i18n_init("en")
+        set_seed(42)
+        world = World()
+        level = _make_level_with_locked_door()
+
+        # Player at (6, 5) — same as the locked door
+        pid = world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Player": Player(),
+            "Health": Health(current=20, maximum=20),
+            "Stats": Stats(strength=strength, dexterity=dex, constitution=2),
+            "Inventory": Inventory(max_slots=12),
+            "Equipment": Equipment(),
+            "Description": Description(name="Hero"),
+        })
+
+        if with_lockpicks:
+            lp = world.create_entity({
+                "Description": Description(name="Lockpicks"),
+                "Renderable": Renderable(glyph="(", color="grey"),
+                "Lockpicks": True,
+            })
+            inv = world.get_component(pid, "Inventory")
+            inv.slots.append(lp)
+
+        return world, pid, level
+
+    @pytest.mark.asyncio
+    async def test_force_door_validates_on_own_tile(self):
+        """ForceDoorAction with dx=0,dy=0 should find the door."""
+        world, pid, level = self._make_world_on_door(strength=15)
+        action = ForceDoorAction(actor=pid, dx=0, dy=0)
+        assert await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_force_door_executes_on_own_tile(self):
+        """ForceDoorAction with dx=0,dy=0 should open the door."""
+        set_seed(42)
+        world, pid, level = self._make_world_on_door(strength=15)
+        action = ForceDoorAction(actor=pid, dx=0, dy=0)
+        await action.validate(world, level)
+        await action.execute(world, level)
+        tile = level.tile_at(6, 5)
+        assert tile.feature != "door_locked"
+
+    @pytest.mark.asyncio
+    async def test_pick_lock_validates_on_own_tile(self):
+        """PickLockAction with dx=0,dy=0 should find the door."""
+        world, pid, level = self._make_world_on_door(
+            dex=10, with_lockpicks=True,
+        )
+        action = PickLockAction(actor=pid, dx=0, dy=0)
+        assert await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_pick_lock_executes_on_own_tile(self):
+        """PickLockAction with dx=0,dy=0 should unlock the door."""
+        set_seed(42)
+        world, pid, level = self._make_world_on_door(
+            dex=10, with_lockpicks=True,
+        )
+        action = PickLockAction(actor=pid, dx=0, dy=0)
+        await action.validate(world, level)
+        await action.execute(world, level)
+        tile = level.tile_at(6, 5)
+        assert tile.feature != "door_locked"
+
+    @pytest.mark.asyncio
+    async def test_find_lock_action_detects_door_on_player_tile(self):
+        """find_lock_action should find a locked door under the player."""
+        from nhc.core.game_input import find_lock_action
+        from unittest.mock import MagicMock
+
+        world, pid, level = self._make_world_on_door(strength=15)
+
+        game = MagicMock()
+        game.player_id = pid
+        game.world = world
+        game.level = level
+
+        action = find_lock_action(game, "force")
+        assert action is not None, (
+            "find_lock_action should detect locked door on player tile"
+        )
+        assert isinstance(action, ForceDoorAction)
+
+
 class TestLockedDoorGeneration:
     def test_bsp_generates_locked_doors(self):
         """Some seeds should produce locked doors."""
