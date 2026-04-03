@@ -160,11 +160,11 @@ Configure in `.mcp.json` for Claude Code integration.
 |-----------------|---------------------------------------------|
 | `mcp_server.py` | FastMCP server with dynamic tool registration|
 | `base.py`       | Base tool class                             |
-| `tools/`        | 11 tool implementations                     |
+| `tools/`        | 13 tool implementations across 6 modules    |
 
 ## MCP Debug Tools
 
-The MCP server exposes 11 tools organized into five categories.
+The MCP server exposes 13 tools organized into six categories.
 
 ### Export Management (tools/exports.py)
 
@@ -195,6 +195,9 @@ room_index.
 Includes counts by type: C (closed), O (open), S (secret),
 L (locked).
 
+**get_tile_map** -- ASCII tile map of the entire level or a
+specific region, showing terrain, features, and entities.
+
 **search_tiles** -- Find tiles matching criteria: terrain type,
 feature type, or explored status.
 
@@ -211,6 +214,12 @@ explored area, door positions, room and corridor metadata.
 **get_svg_tile_elements** -- Returns SVG elements overlapping a
 given tile position: floor_fill, wall_segment, shadow, hatch_line,
 and other element types.
+
+### Autosave Diagnostics (tools/autosave.py)
+
+**get_autosave_info** -- Autosave state diagnostics: seed, turn,
+depth, player position, room analysis, entity counts, floor cache
+inspection, and character snapshot.
 
 ## Usage Examples
 
@@ -257,6 +266,8 @@ Then use the tools from Claude Code:
 
 - `get_game_snapshot` -- quick status check
 - `get_tile_info` -- inspect a specific tile
+- `get_tile_map` -- ASCII overview of the level layout
 - `get_door_analysis` -- audit door placement and states
 - `get_entity_list` -- find entities by glyph or room
 - `search_tiles` -- locate tiles by terrain or feature
+- `get_autosave_info` -- inspect autosave state and diagnostics

@@ -81,14 +81,14 @@ JavaScript modules in `nhc/web/static/js/`:
 
 | File | Lines | Responsibility |
 |------|-------|----------------|
-| `nhc.js` | 223 | Entry point, WS message routing, game lifecycle |
-| `map.js` | 600 | Canvas rendering, FOV/hatch updates, zoom, scroll |
-| `ui.js` | 438 | Status bar (3 lines), message history, modals, inventory |
+| `nhc.js` | 227 | Entry point, WS message routing, game lifecycle |
+| `map.js` | 605 | Canvas rendering, FOV/hatch updates, zoom, scroll |
+| `ui.js` | 461 | Status bar (3 lines), message history, modals, inventory |
 | `input.js` | 224 | Keyboard shortcuts (vi-like), toolbar (15 actions), clicks |
 | `ws.js` | 50 | WebSocket connection, message handler registry |
-| `debug.js` | 472 | God mode debug panel, layer toggles, exports, overlays |
+| `debug.js` | 484 | God mode debug panel, layer toggles, exports, overlays |
 
-**Stylesheet**: `nhc.css` (637 lines) defines the dark terminal
+**Stylesheet**: `css/nhc.css` (642 lines) defines the dark terminal
 theme with `#1a1a2e` background and `#e6c07b` accent color.
 
 ## 6. WebSocket Protocol

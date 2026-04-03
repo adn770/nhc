@@ -108,7 +108,7 @@ Ring effects are checked at specific points in the game loop:
   with `a` (use item) or `z` (new dedicated zap key).
 - **Inventory cost**: 1 slot each.
 
-### 3.2 Wand Types (14 implemented, 8 originally planned)
+### 3.2 Wand Types (14)
 
 | ID | Name (en) | Effect | Dice |
 |----|-----------|--------|------|
@@ -120,8 +120,14 @@ Ring effects are checked at specific points in the game loop:
 | `wand_disintegrate` | Wand of Disintegration | Piercing damage through line | 3d6 |
 | `wand_magic_missile` | Wand of Magic Missile | Force damage, never misses | 1d6+1 |
 | `wand_amok` | Wand of Amok | Confuse target for 6 turns | — |
+| `wand_cancellation` | Wand of Cancellation | Strip all magical effects | — |
+| `wand_cold` | Wand of Cold | Cold damage to target | 2d6 |
+| `wand_death` | Wand of Death | Instant kill (very rare, 1d2 charges) | — |
+| `wand_digging` | Wand of Digging | Destroy wall tiles in a line | — |
+| `wand_locking` | Wand of Locking | Lock a door | — |
+| `wand_opening` | Wand of Opening | Unlock a locked door | — |
 
-### 3.3 Wand Appearances (shuffled per game)
+### 3.3 Wand Appearances (14, shuffled per game)
 
 | Appearance | i18n key | Glyph color |
 |-----------|----------|-------------|
@@ -133,6 +139,12 @@ Ring effects are checked at specific points in the game loop:
 | Rowan | `rowan` | bright_green |
 | Willow | `willow` | bright_cyan |
 | Oak | `oak` | bright_yellow |
+| Birch | `birch` | bright_white |
+| Maple | `maple` | bright_red |
+| Ash | `ash` | white |
+| Cedar | `cedar` | yellow |
+| Elm | `elm` | green |
+| Pine | `pine` | bright_green |
 
 ### 3.4 Wand Component
 
@@ -270,7 +282,7 @@ All phases are complete.
 
 1. Ring and Wand dataclasses in components.py
 2. Equipment expanded with ring_left, ring_right
-3. 8 ring + 14 wand factory files created
+3. 8 ring + 14 wand factory files
 4. i18n entries in all 3 locales
 5. Ring/wand appearances in identification.py
 
@@ -294,11 +306,6 @@ All phases are complete.
 16. Rings/wands in populator item pools (tier 3+)
 17. Added to room painters (treasury, library)
 
-### Additional wands beyond original design
-
-Six extra wand types were added: cancellation, cold, death,
-digging, locking, opening — bringing the total from 8 to 14.
-
 ### Remaining test gaps
 
 - Ring passive effects (mending HP regen, detection auto-reveal)
@@ -312,7 +319,7 @@ digging, locking, opening — bringing the total from 8 to 14.
 |------|---------|
 | `nhc/entities/components.py` | Ring, Wand dataclasses; Equipment ring slots |
 | `nhc/entities/items/ring_*.py` | 8 ring factory files |
-| `nhc/entities/items/wand_*.py` | 8 wand factory files |
+| `nhc/entities/items/wand_*.py` | 14 wand factory files |
 | `nhc/rules/identification.py` | RING_IDS, WAND_IDS, appearances |
 | `nhc/core/actions.py` | ZapAction, ring equip handling |
 | `nhc/core/game.py` | Ring effect ticks, wand recharge |

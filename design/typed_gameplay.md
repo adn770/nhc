@@ -545,7 +545,7 @@ All phases are complete.
 
 5. GameMaster class in `nhc/narrative/gm.py`
 6. ContextBuilder in `nhc/narrative/context.py`
-7. Prompt files: 3 languages x 6 prompts (interpret, narrate,
+7. Prompt files: 3 languages x 6 prompts each (interpret, narrate,
    compress, intro, creature_phase, follow_up)
 8. `load_prompt()` with language fallback in `nhc/narrative/prompts.py`
 9. Interpret prompt + JSON parsing in `nhc/narrative/parser.py`
@@ -586,14 +586,14 @@ All phases are complete.
 | `nhc/narrative/gm.py` | GameMaster: orchestrates the GM pipeline |
 | `nhc/narrative/context.py` | ContextBuilder: game state → LLM context |
 | `nhc/narrative/prompts.py` | `load_prompt()` loader with lang fallback |
-| `nhc/narrative/prompts/en/*.txt` | English prompt files (5 files) |
-| `nhc/narrative/prompts/ca/*.txt` | Catalan prompt files (5 files) |
-| `nhc/narrative/prompts/es/*.txt` | Spanish prompt files (5 files) |
+| `nhc/narrative/prompts/en/*.txt` | English prompt files (6 files) |
+| `nhc/narrative/prompts/ca/*.txt` | Catalan prompt files (6 files) |
+| `nhc/narrative/prompts/es/*.txt` | Spanish prompt files (6 files) |
 | `nhc/narrative/parser.py` | JSON action plan parser + validator |
 | `nhc/narrative/story.py` | Story state: summary, threads, compression |
 | `nhc/rendering/terminal/input_line.py` | Text input widget |
 | `nhc/rendering/terminal/narrative_log.py` | Narrative log display |
-| `nhc/llm.py` | Extended with auto-detect + MLX cache logic |
+| `nhc/utils/llm.py` | Extended with auto-detect + MLX cache logic |
 | `nhc/core/game.py` | Typed-mode game loop branch |
 | `nhc/core/actions.py` | CustomAction for freeform ability checks |
 | `nhc/core/events.py` | CustomActionEvent dataclass |
@@ -616,19 +616,22 @@ nhc/narrative/prompts/
 │   ├── narrate.txt        # Outcomes → prose narrative
 │   ├── compress.txt       # Story summary compression
 │   ├── intro.txt          # Opening scene narration
-│   └── creature_phase.txt # Creature AI action narration
+│   ├── creature_phase.txt # Creature AI action narration
+│   └── follow_up.txt      # Follow-up context prompts
 ├── ca/
 │   ├── interpret.txt
 │   ├── narrate.txt
 │   ├── compress.txt
 │   ├── intro.txt
-│   └── creature_phase.txt
+│   ├── creature_phase.txt
+│   └── follow_up.txt
 └── es/
     ├── interpret.txt
     ├── narrate.txt
     ├── compress.txt
     ├── intro.txt
-    └── creature_phase.txt
+    ├── creature_phase.txt
+    └── follow_up.txt
 ```
 
 ### 13.2 Loading Mechanism

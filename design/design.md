@@ -20,7 +20,7 @@ What makes it unique:
 - **Web and terminal** -- the same game engine drives both a blessed-based
   terminal TUI and an HTML5 Canvas + WebSocket web client.
 
-Current scope: ~25k lines Python, 1098 tests across 61 test files,
+Current scope: ~26k lines Python, 1239 tests across 69 test files,
 78 creatures, 193 items, 13 trap types.
 
 ---
@@ -41,12 +41,13 @@ nhc/
 |   |   +-- game.py              # Async game loop, floor management
 |   |   +-- events.py            # Event bus (pub/sub with async handlers)
 |   |   +-- game_input.py        # Input intent processing
-|   |   +-- game_ticks.py        # Per-turn system ticks
-|   |   +-- actions/             # Action modules (8 files)
+|   |   +-- game_ticks.py        # Per-turn system ticks (doors, prefetch)
+|   |   +-- actions/             # Action modules (9 files)
+|   |   |   +-- _base.py        # Base action classes, door helpers
 |   |   |   +-- _movement.py    # Move, bump, stairs
 |   |   |   +-- _combat.py      # Melee, ranged attacks
 |   |   |   +-- _items.py       # Pickup, drop, equip, use
-|   |   |   +-- _interaction.py # Search, look, doors
+|   |   |   +-- _interaction.py # Search, look, doors, chests
 |   |   |   +-- _ranged.py      # Throw, ranged targeting
 |   |   |   +-- _spells.py      # Scroll/wand activation
 |   |   |   +-- _traps.py       # Trap trigger/disarm
@@ -63,12 +64,13 @@ nhc/
 |   |   +-- generators/
 |   |   |   +-- bsp.py           # BSP dungeon generator
 |   |   |   +-- classic.py       # Original random placement generator
-|   |   |   +-- cellular.py      # Cave generator (stub, not implemented)
+|   |   |   +-- cellular.py      # Cellular automata cave generator
 |   |   +-- generator.py         # Generator dispatch
 |   |   +-- classic.py           # Legacy generator wrapper
 |   |   +-- model.py             # Level, Tile, Room, Shape data structures
 |   |   +-- params.py            # Generation parameter schema
 |   |   +-- room_types.py        # Room specialization + painters
+|   |   +-- themes.py            # Depth-to-theme mapping
 |   |   +-- terrain.py           # Cellular automata water/grass
 |   |   +-- populator.py         # Entity placement (encounter groups)
 |   |   +-- loader.py            # YAML level loader (multilingual)
@@ -123,7 +125,7 @@ nhc/
 |   |   +-- templates/           # HTML (index.html, admin.html)
 |   +-- debug_tools/
 |   |   +-- mcp_server.py        # MCP debug server
-|   |   +-- tools/               # 5 tool modules (11 tools total)
+|   |   +-- tools/               # 6 tool modules (13 tools total)
 |   +-- i18n/
 |   |   +-- manager.py           # Translation lookup + fallback
 |   |   +-- locales/{en,ca,es}.yaml  # ~2000 lines each
@@ -135,7 +137,7 @@ nhc/
 |       +-- spatial.py           # Distance/adjacency helpers
 +-- levels/                      # Hand-crafted YAML dungeons
 +-- design/                      # Design documents (this file)
-+-- tests/unit/                  # 61 test files, 1098 tests
++-- tests/unit/                  # 69 test files, 1239 tests
 ```
 
 ---
@@ -158,20 +160,21 @@ query the World directly, called from the game loop or event handlers.
 ### Event Bus
 
 `core/events.py` implements an async pub/sub event bus. Event types are
-dataclasses inheriting from `Event`. Current event types include:
+dataclasses inheriting from `Event`. Current event types:
 `CreatureAttacked`, `CreatureDied`, `ItemPickedUp`, `ItemUsed`,
-`PlayerDied`, `GameWon`, `LevelEntered`, `MessageEvent`,
-`CustomActionEvent`, and others.
+`DoorOpened`, `LevelEntered`, `SpellCast`, `TrapTriggered`,
+`PlayerDied`, `GameWon`, `MessageEvent`, `CustomActionEvent`.
 
 Handlers are registered per event type and called asynchronously when
 events are emitted.
 
 ### Action Pipeline
 
-Player and creature actions live in `core/actions/`, split across 8
-modules by domain: movement, combat, items, interaction, ranged, spells,
-traps, and shared helpers. Each action class encapsulates validation
-(can this action happen?) and execution (mutate the World + emit events).
+Player and creature actions live in `core/actions/`, split across 9
+modules by domain: base classes, movement, combat, items, interaction
+(including chests), ranged, spells, traps, and shared helpers. Each
+action class encapsulates validation (can this action happen?) and
+execution (mutate the World + emit events).
 
 ### Async Game Loop
 
@@ -186,6 +189,11 @@ traps, and shared helpers. Each action class encapsulates validation
 
 The game manages multi-floor state: a floor cache preserves entity and
 tile state when the player transitions between floors via stairs.
+
+Per-turn systems in `game_ticks.py` include door auto-close (doors
+revert to closed after 20 turns if unoccupied) and stairs proximity
+prefetch (background generation of the next floor when the player is
+within 7 tiles of downstairs).
 
 ---
 
@@ -251,16 +259,19 @@ full pipeline design.
    each room with thematic content (items, creatures, traps, features).
 4. **Terrain** -- cellular automata pass adds water and grass patches.
    Theme parameters control density per dungeon theme (crypt, cave,
-   sewer, castle, forest). Level feelings (flooded, overgrown, barren)
-   can override defaults.
+   sewer, castle, forest). Theme is auto-selected by depth via
+   `themes.py` (dungeon→crypt→cave→castle→abyss). Level feelings
+   (flooded, overgrown, barren) can override defaults.
 5. **Populate** -- place encounter groups, items, and traps based on
    depth-scaled difficulty tiers.
 6. **Features** -- place stairs, doors (including locked and secret),
    and wall fixtures.
 
 The classic generator (`dungeon/classic.py`) remains available as an
-alternative. A cellular automata cave generator stub exists
-(`generators/cellular.py`) but is not yet implemented.
+alternative. A cellular automata cave generator
+(`generators/cellular.py`) produces organic cave layouts using random
+fill, automata smoothing, flood-fill region detection, and L-shaped
+corridor connections between caverns.
 
 Hand-authored YAML levels can be loaded via `dungeon/loader.py` for
 scripted floors or tutorials.
@@ -282,8 +293,8 @@ on first access.
 | Category   | Count | Details                                      |
 |------------|-------|----------------------------------------------|
 | Creatures  | 78    | Full BEB bestiary, AI behaviors, factions     |
-| Items      | 193   | 38 scrolls, 14 potions, 14 wands, 8 rings    |
-|            |       | 119 equipment (weapons, armor, tools, etc.)   |
+| Items      | 193   | 38 scrolls, 14 potions, 14 wands, 8 rings     |
+|            |       | 119 equipment (weapons, armor, tools, etc.)    |
 | Traps      | 13    | Pit, fire, poison, paralysis, teleport, etc.  |
 
 ### Identification System
@@ -335,6 +346,15 @@ the dungeon using a layered approach:
 The SVG renderer produces black-and-white maps with procedural
 cross-hatching using Shapely geometry and Perlin noise. SVG output is
 cached and invalidated only on floor transitions.
+
+### Web Status Bar
+
+The web client uses a 3-line status bar:
+
+1. **Line 1** -- location, depth, turn, level, gold, HP bar
+2. **Line 2** -- name, ability scores, equipped items (interactive:
+   click for primary action, right-click context menu), AC
+3. **Line 3** -- backpack inventory with slot count, interactive items
 
 ### Point-and-Click
 
@@ -510,14 +530,15 @@ doors, terrain modifications).
 
 ### MCP Debug Server
 
-`debug_tools/mcp_server.py` exposes 11 MCP tools for game state
-inspection, organized across 5 tool modules:
+`debug_tools/mcp_server.py` exposes 13 MCP tools for game state
+inspection, organized across 6 tool modules:
 
-- **game_state** -- full game snapshot (player, world, turn)
-- **dungeon** -- room info, door analysis, tile queries
+- **game_state** -- game snapshot, entity list, tile info
+- **dungeon** -- room info, door analysis, tile map, tile search
 - **rendering** -- layer state, FOV analysis
 - **svg_query** -- SVG tile element inspection
 - **exports** -- list and read debug export files
+- **autosave** -- autosave diagnostics (seed, turn, depth, entities)
 
 ### God Mode
 
@@ -531,28 +552,20 @@ the terminal TUI.
 
 ### Dungeon Generation
 
-- **Cellular automata cave generator** -- stub exists in
-  `dungeon/generators/cellular.py`, not implemented. Would produce
-  organic cave layouts as an alternative to BSP rooms.
 - **Boss floors** -- every 5th depth with themed boss encounters.
-- **Depth theme progression** -- visual themes change as the player
-  descends: crypt -> cave -> prison -> castle -> abyss. Theme
-  parameters exist in `terrain.py` but are not wired to depth.
 - **Shop rooms** -- rooms with merchant NPCs for buying/selling.
   Would require NPC interaction UI and economy balancing.
 - **Level feelings** -- flooded, overgrown, barren variants. Framework
   exists in `terrain.py` with `FEELINGS` list and seed probability
   overrides, but selection logic is minimal.
-- **Loot containers** -- chests, barrels, bookshelves as interactive
-  entities that can be opened/searched for items.
 
 ### Narrative & NPCs
 
-- **NPC dialogue system** -- framework exists in `narrative/dialogue.py`
-  but content is sparse. Needs dialogue trees, merchant interactions,
-  quest givers.
-- **Emergent quest system** -- framework exists in `narrative/quests.py`
-  but is not wired into the game loop or LLM pipeline.
+- **NPC dialogue expansion** -- `narrative/dialogue.py` is functional
+  but content is sparse. Needs more dialogue trees, merchant
+  interactions, quest givers.
+- **Quest system expansion** -- `narrative/quests.py` is functional
+  but could be deeper integrated into the game loop and LLM pipeline.
 - **GM pipeline integration tests** -- context building + action plan
   parsing + narration end-to-end tests are missing.
 
@@ -560,14 +573,11 @@ the terminal TUI.
 
 - **Graphical renderer** -- pygame/tcod-based renderer. Placeholder
   directory exists at `rendering/graphical/` but no implementation.
-- **Character creation screen** -- currently uses random chargen with
-  no player choice. A screen for name entry, ability allocation, and
-  starting equipment selection.
-- **Death screen / score tracking** -- game over summary with stats,
-  cause of death, and persistent high score table.
 - **Key rebinding** -- all key mappings are hardcoded in
   `rendering/terminal/input.py`. A configuration-driven binding
   system would allow customization.
+- **Persistent high score table** -- death screen shows cause of death
+  and stats, but scores are not persisted across runs.
 
 ### Mechanics
 

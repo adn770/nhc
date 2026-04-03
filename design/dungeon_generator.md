@@ -422,13 +422,54 @@ game loop, producing more complex room shapes on deeper floors.
 
 ---
 
+## 13. Cellular Automata Cave Generator
+
+Defined in `nhc/dungeon/generators/cellular.py`. Produces organic
+cave layouts as an alternative to BSP rooms (~400 lines).
+
+### Algorithm
+
+1. **Random fill** -- seed a boolean grid at configurable density.
+2. **Automata smoothing** -- 5 iterations of cellular automata
+   rules to form natural-looking cavern regions.
+3. **Region detection** -- flood-fill identifies connected floor
+   regions.
+4. **Corridor connections** -- L-shaped corridors link isolated
+   caverns to ensure full reachability.
+5. **Wall building** -- 8-neighbor WALL border around all floor.
+6. **Stairs placement** -- stairs_up and stairs_down placed at
+   maximum separation within the cave.
+7. **Door placement** -- doors at corridor-cavern junctions.
+
+---
+
+## 14. Depth Theme Progression
+
+Defined in `nhc/dungeon/themes.py`. Maps dungeon depth to a
+visual terrain theme:
+
+| Depth Range | Theme   |
+|-------------|---------|
+| 1-4         | dungeon |
+| 5-8         | crypt   |
+| 9-12        | cave    |
+| 13-16       | castle  |
+| 17+         | abyss   |
+
+The theme affects terrain generation parameters (water density,
+grass density, iteration counts) as defined in `terrain.py`.
+
+---
+
 ## Source Files
 
-| File                              | Role                          |
-|-----------------------------------|-------------------------------|
-| `nhc/dungeon/generators/bsp.py`  | BSP subdivision + generation  |
-| `nhc/dungeon/generator.py`       | Abstract interface + params   |
-| `nhc/dungeon/model.py`           | Level, Room, Tile, shapes     |
-| `nhc/dungeon/room_types.py`      | Room type assignment + paint  |
-| `nhc/dungeon/terrain.py`         | Cellular automata terrain     |
-| `nhc/dungeon/populator.py`       | Entity population             |
+| File                                  | Role                          |
+|---------------------------------------|-------------------------------|
+| `nhc/dungeon/generators/bsp.py`      | BSP subdivision + generation  |
+| `nhc/dungeon/generators/cellular.py` | Cellular automata caves       |
+| `nhc/dungeon/generator.py`           | Abstract interface + params   |
+| `nhc/dungeon/model.py`               | Level, Room, Tile, shapes     |
+| `nhc/dungeon/room_types.py`          | Room type assignment + paint  |
+| `nhc/dungeon/themes.py`              | Depth-to-theme mapping        |
+| `nhc/dungeon/terrain.py`             | Cellular automata terrain     |
+| `nhc/dungeon/populator.py`           | Entity population             |
