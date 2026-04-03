@@ -9,6 +9,7 @@ from nhc.debug_tools.tools.game_state import (
 from nhc.debug_tools.tools.dungeon import (
     GetDoorAnalysisTool,
     GetRoomInfoTool,
+    GetTileMapTool,
     SearchTilesTool,
 )
 from nhc.debug_tools.tools.rendering import (
@@ -27,6 +28,7 @@ ALL_TOOL_CLASSES = [
     GetTileInfoTool,
     GetRoomInfoTool,
     GetDoorAnalysisTool,
+    GetTileMapTool,
     SearchTilesTool,
     GetFOVAnalysisTool,
     GetLayerStateTool,

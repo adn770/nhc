@@ -83,6 +83,147 @@ class GetDoorAnalysisTool(BaseTool):
         }
 
 
+class GetTileMapTool(BaseTool):
+    name = "get_tile_map"
+    description = (
+        "Draw an ASCII tile map around a room or coordinate. "
+        "Shows terrain, doors, entities, and room bounding rect."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "room_index": {
+                "type": "integer",
+                "description": "Room index to center on (optional)",
+            },
+            "x": {
+                "type": "integer",
+                "description": "Center X (used if no room_index)",
+            },
+            "y": {
+                "type": "integer",
+                "description": "Center Y (used if no room_index)",
+            },
+            "padding": {
+                "type": "integer",
+                "description": "Tiles around the area (default 3)",
+            },
+        },
+    }
+
+    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+        game = self._read_json_export("game_state")
+        if "error" in game:
+            return game
+        layer = self._read_json_export("layer_state")
+
+        tiles = game.get("level", {}).get("tiles", [])
+        if not tiles:
+            return {"error": "No tile data"}
+        max_y = len(tiles)
+        max_x = len(tiles[0]) if tiles else 0
+        pad = kwargs.get("padding", 3)
+
+        room_idx = kwargs.get("room_index")
+        rooms = layer.get("debug", {}).get("rooms", [])
+
+        # Determine viewport
+        if room_idx is not None and 0 <= room_idx < len(rooms):
+            room = rooms[room_idx]
+            rx, ry = room["x"], room["y"]
+            rw, rh = room["w"], room["h"]
+            x0 = max(0, rx - pad)
+            y0 = max(0, ry - pad)
+            x1 = min(max_x, rx + rw + pad)
+            y1 = min(max_y, ry + rh + pad)
+        else:
+            cx = kwargs.get("x", max_x // 2)
+            cy = kwargs.get("y", max_y // 2)
+            x0 = max(0, cx - 10)
+            y0 = max(0, cy - 10)
+            x1 = min(max_x, cx + 11)
+            y1 = min(max_y, cy + 11)
+            rx, ry, rw, rh = -1, -1, 0, 0
+
+        # Build entity lookup
+        entity_map: dict[tuple[int, int], str] = {}
+        for e in game.get("entities", []):
+            ex, ey = e.get("x", -1), e.get("y", -1)
+            if x0 <= ex < x1 and y0 <= ey < y1:
+                entity_map[(ex, ey)] = e.get("glyph", "?")
+
+        # Build door lookup
+        door_map: dict[tuple[int, int], str] = {}
+        for d in layer.get("debug", {}).get("doors", []):
+            door_map[(d["x"], d["y"])] = d.get("kind", "D")
+
+        _DOOR_CHARS = {
+            "C": "+", "O": "'", "S": "S", "L": "L",
+        }
+        _TERRAIN_CHARS = {
+            "VOID": " ", "WALL": "#", "FLOOR": ".",
+            "WATER": "~",
+        }
+
+        # Draw the map
+        lines = []
+        # Column header
+        hdr = "     "
+        tens = "     "
+        for x in range(x0, x1):
+            hdr += str(x % 10)
+            tens += str((x // 10) % 10) if x % 10 == 0 else " "
+        lines.append(tens)
+        lines.append(hdr)
+
+        for y in range(y0, y1):
+            row = f"{y:4d} "
+            for x in range(x0, x1):
+                pos = (x, y)
+                # Room bounding rect corners
+                on_rect = (
+                    room_idx is not None
+                    and (x == rx - 1 or x == rx + rw)
+                    and (y == ry - 1 or y == ry + rh)
+                )
+                if pos in entity_map:
+                    row += entity_map[pos]
+                elif pos in door_map:
+                    row += _DOOR_CHARS.get(
+                        door_map[pos], "D")
+                elif y < max_y and x < max_x:
+                    tile = tiles[y][x]
+                    terrain = tile.get("terrain", "VOID")
+                    feat = tile.get("feature")
+                    if feat and "stair" in feat:
+                        row += "<" if "up" in feat else ">"
+                    elif feat and "door" in feat:
+                        row += "+"
+                    else:
+                        ch = _TERRAIN_CHARS.get(terrain, "?")
+                        if on_rect:
+                            ch = "*"
+                        row += ch
+                else:
+                    row += " "
+            lines.append(row)
+
+        legend = (
+            "Legend: . floor  # wall  + door  S secret  "
+            "L locked  ' open  @ player  < > stairs"
+        )
+        result: dict[str, Any] = {
+            "map": "\n".join(lines),
+            "legend": legend,
+            "viewport": {
+                "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+            },
+        }
+        if room_idx is not None and 0 <= room_idx < len(rooms):
+            result["room"] = rooms[room_idx]
+        return result
+
+
 class SearchTilesTool(BaseTool):
     name = "search_tiles"
     description = (
