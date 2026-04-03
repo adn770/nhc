@@ -92,9 +92,13 @@ class CircleShape(RoomShape):
 
     @staticmethod
     def _diameter(rect: Rect) -> int:
-        """Effective diameter (always odd)."""
+        """Effective diameter (always odd, fits inside rect).
+
+        Rounded down for even sizes so the circle stays within
+        the bounding rect with room for walls on all sides.
+        """
         d = min(rect.width, rect.height)
-        return d if d % 2 == 1 else d + 1
+        return d if d % 2 == 1 else d - 1
 
     def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
         d = self._diameter(rect)
@@ -103,14 +107,12 @@ class CircleShape(RoomShape):
             return set()
         cx = rect.x + (rect.width - 1) / 2
         cy = rect.y + (rect.height - 1) / 2
-        # Use (r + 0.5)² so edge tiles that the SVG circle covers
-        # are included as walkable floor.
-        r_eff = r + 0.5
+        r_sq = r * r
         return {
             (x, y)
             for y in range(rect.y, rect.y2)
             for x in range(rect.x, rect.x2)
-            if (x - cx) ** 2 + (y - cy) ** 2 <= r_eff ** 2
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r_sq
         }
 
     def cardinal_walls(self, rect: Rect) -> list[tuple[int, int]]:
