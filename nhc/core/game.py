@@ -371,7 +371,14 @@ class Game:
             logger.info("Autosave deleted (--reset)")
         elif has_autosave(self.save_dir):
             logger.info("Autosave found, attempting recovery")
+            requested_god = self.god_mode
             if auto_restore(self, self.save_dir):
+                # Re-apply the requested god_mode — the autosave may
+                # have been created before god mode was toggled.
+                if requested_god and not self.god_mode:
+                    self.set_god_mode(True)
+                elif not requested_god and self.god_mode:
+                    self.god_mode = False
                 logger.info("Game RESTORED from autosave (turn=%d)",
                             self.turn)
                 return
