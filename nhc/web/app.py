@@ -170,8 +170,10 @@ def create_app(
             pid = registry.player_id_for_hash(h)
             player = registry.get(pid)
             player_name = player["name"] if player else ""
+            player_god = player.get("god_mode", False) if player else False
             resp = make_response(render_template(
                 "index.html", player_name=player_name,
+                god_mode=player_god,
             ))
             resp.set_cookie("nhc_token", token,
                             samesite="Strict")
