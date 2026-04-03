@@ -338,6 +338,7 @@ class Game:
         self._seen_creatures: set[int] = set()
         self._knowledge = None  # ItemKnowledge, set in initialize()
         self._floor_cache: dict[int, tuple] = {}  # depth → (level, entity_data)
+        self._svg_cache: dict[int, tuple[str, str]] = {}  # depth → (uuid, svg)
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
@@ -1233,10 +1234,19 @@ class Game:
 
         # Notify the web client to load the new floor
         if hasattr(self.renderer, 'send_floor_change'):
+            cached = self._svg_cache.get(new_depth)
             self.renderer.send_floor_change(
                 self.level, self.world, self.player_id,
                 self.turn, seed=self.seed or 0,
+                floor_svg=cached[1] if cached else None,
+                floor_svg_id=cached[0] if cached else None,
             )
+            # Store the rendered SVG for future revisits
+            if not cached:
+                self._svg_cache[new_depth] = (
+                    self.renderer.floor_svg_id,
+                    self.renderer.floor_svg,
+                )
 
     def _save_floor(self) -> None:
         """Save the current floor's level and entities to cache."""

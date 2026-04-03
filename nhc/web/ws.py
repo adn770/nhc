@@ -37,7 +37,7 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
                     len(entities), len(doors), len(fov))
         ws.send(json.dumps({
             "type": "floor",
-            "floor_url": f"{base_url}/floor.svg",
+            "floor_url": f"{base_url}/floor/{client.floor_svg_id}.svg",
             "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,

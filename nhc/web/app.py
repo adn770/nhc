@@ -366,19 +366,33 @@ def create_app(
             loop.close()
 
         # Load cached floor SVG or re-render
+        import uuid as _uuid
         from nhc.core.autosave import load_svg_cache, save_svg_cache
-        cached = load_svg_cache(save_dir)
-        if cached:
-            client.floor_svg = cached[0]
-            logger.info("Resume: loaded floor SVG from cache")
-        elif game.level:
-            from nhc.rendering.svg import render_floor_svg
-            seed = game.seed or 0
-            client.floor_svg = render_floor_svg(
-                game.level, seed=seed,
-                hatch_distance=config.hatch_distance,
-            )
-            save_svg_cache(client.floor_svg, _hatch_svg, save_dir)
+        depth = game.level.depth if game.level else 1
+        svg_cached = game._svg_cache.get(depth)
+        if svg_cached:
+            client.floor_svg_id, client.floor_svg = svg_cached
+            logger.info("Resume: floor SVG from game cache: %s",
+                        client.floor_svg_id)
+        else:
+            cached = load_svg_cache(save_dir)
+            if cached:
+                client.floor_svg = cached[0]
+                client.floor_svg_id = _uuid.uuid4().hex[:12]
+                logger.info("Resume: floor SVG from disk cache")
+            elif game.level:
+                from nhc.rendering.svg import render_floor_svg
+                seed = game.seed or 0
+                client.floor_svg = render_floor_svg(
+                    game.level, seed=seed,
+                    hatch_distance=config.hatch_distance,
+                )
+                client.floor_svg_id = _uuid.uuid4().hex[:12]
+                save_svg_cache(client.floor_svg, _hatch_svg, save_dir)
+            if client.floor_svg and game.level:
+                game._svg_cache[depth] = (
+                    client.floor_svg_id, client.floor_svg,
+                )
 
         logger.info("Resume: restored session %s for player %s (turn=%d)",
                      session.session_id, pid, game.turn)
@@ -463,27 +477,42 @@ def create_app(
                      len(game.level.rooms))
 
         # Generate floor SVG; hatch is served globally.
-        # Try SVG cache first (restored game may already have it)
+        import uuid as _uuid
         from nhc.core.autosave import load_svg_cache, save_svg_cache
-        cached = load_svg_cache(session.save_dir)
-        if cached:
-            client.floor_svg = cached[0]
-            logger.info("Loaded floor SVG from cache: %d bytes",
-                        len(client.floor_svg))
-        elif game.level:
-            from nhc.rendering.svg import render_floor_svg
-            logger.info("Rendering floor SVG...")
-            seed = game.seed or 0
-            client.floor_svg = render_floor_svg(
-                game.level, seed=seed,
-                hatch_distance=config.hatch_distance,
-            )
-            logger.info("Floor SVG: %d bytes", len(client.floor_svg))
-            save_svg_cache(
-                client.floor_svg, _hatch_svg, session.save_dir,
-            )
+        depth = game.level.depth if game.level else 1
+        svg_cached = game._svg_cache.get(depth)
+        if svg_cached:
+            client.floor_svg_id, client.floor_svg = svg_cached
+            logger.info("Floor SVG from game cache: %s (%d bytes)",
+                        client.floor_svg_id, len(client.floor_svg))
         else:
-            logger.warning("No level — floor SVG not generated")
+            cached = load_svg_cache(session.save_dir)
+            if cached:
+                client.floor_svg = cached[0]
+                client.floor_svg_id = _uuid.uuid4().hex[:12]
+                logger.info("Floor SVG from disk cache: %d bytes",
+                            len(client.floor_svg))
+            elif game.level:
+                from nhc.rendering.svg import render_floor_svg
+                logger.info("Rendering floor SVG...")
+                seed = game.seed or 0
+                client.floor_svg = render_floor_svg(
+                    game.level, seed=seed,
+                    hatch_distance=config.hatch_distance,
+                )
+                client.floor_svg_id = _uuid.uuid4().hex[:12]
+                logger.info("Floor SVG: %s (%d bytes)",
+                            client.floor_svg_id, len(client.floor_svg))
+                save_svg_cache(
+                    client.floor_svg, _hatch_svg, session.save_dir,
+                )
+            else:
+                logger.warning("No level — floor SVG not generated")
+            # Store in game SVG cache for future transitions
+            if client.floor_svg and game.level:
+                game._svg_cache[depth] = (
+                    client.floor_svg_id, client.floor_svg,
+                )
 
         logger.info("Session %s ready, waiting for WS connection",
                      session.session_id)
@@ -518,9 +547,10 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=86400"
         return resp
 
-    @app.route("/api/game/<session_id>/floor.svg", methods=["GET"])
+    @app.route("/api/game/<session_id>/floor/<svg_id>.svg",
+               methods=["GET"])
     @_player_auth
-    def game_floor_svg(session_id: str):
+    def game_floor_svg(session_id: str, svg_id: str):
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
@@ -529,7 +559,7 @@ def create_app(
             return "floor SVG not generated", 404
         resp = make_response(client.floor_svg)
         resp.headers["Content-Type"] = "image/svg+xml"
-        resp.headers["Cache-Control"] = "public, max-age=86400"
+        resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
 
     @app.route("/api/hatch.svg", methods=["GET"])

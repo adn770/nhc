@@ -65,12 +65,12 @@ class WebClient(GameClient):
         self.lang = lang
         self.messages: list[str] = []
         self.floor_svg: str = ""
+        self.floor_svg_id: str = ""
         self._last_static_stats: dict | None = None
         self._last_inv_hash: int = 0
         self._last_fov: set[tuple[int, int]] = set()
         self._last_hatch_clear: set[tuple[int, int]] = set()
         self._base_url: str = ""
-        self._floor_version: int = 0
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
         self._out_queue: queue.Queue = queue.Queue()
@@ -458,15 +458,30 @@ class WebClient(GameClient):
     def send_floor_change(
         self, level: "Level", world: "World",
         player_id: int, turn: int, seed: int = 0,
+        floor_svg: str | None = None,
+        floor_svg_id: str | None = None,
+        hatch_distance: float = 2.0,
     ) -> None:
-        """Regenerate floor SVG and send it to the client.
+        """Send new floor SVG to the client.
 
         Called on floor transitions (descend/ascend stairs).
+        If *floor_svg* is provided, skips rendering (cache hit).
         Resets FOV/hatch delta tracking so the next render sends
         full state for the new level.
         """
-        self.floor_svg = render_floor_svg(level, seed=seed)
-        self._floor_version += 1
+        import uuid as _uuid
+        if floor_svg and floor_svg_id:
+            self.floor_svg = floor_svg
+            self.floor_svg_id = floor_svg_id
+            logger.info("Floor SVG cache hit: %s (%d bytes)",
+                        floor_svg_id, len(floor_svg))
+        else:
+            self.floor_svg = render_floor_svg(
+                level, seed=seed, hatch_distance=hatch_distance,
+            )
+            self.floor_svg_id = _uuid.uuid4().hex[:12]
+            logger.info("Floor SVG rendered: %s (%d bytes)",
+                        self.floor_svg_id, len(self.floor_svg))
 
         # Reset delta tracking for the new floor
         self._last_fov = set()
@@ -477,10 +492,10 @@ class WebClient(GameClient):
         doors = self._gather_doors(level)
         hatch_clear = self._gather_hatch_clear(level)
 
-        v = self._floor_version
         self._send({
             "type": "floor",
-            "floor_url": f"{self._base_url}/floor.svg?v={v}",
+            "floor_url": (f"{self._base_url}"
+                          f"/floor/{self.floor_svg_id}.svg"),
             "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,

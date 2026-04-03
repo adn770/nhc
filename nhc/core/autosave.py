@@ -148,6 +148,9 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         # Floor cache (all visited floors)
         "floor_cache": dict(game._floor_cache),
 
+        # SVG cache (floor SVGs keyed by depth)
+        "svg_cache": dict(game._svg_cache),
+
         # Identification state
         "knowledge_identified": set(game._knowledge.identified)
             if game._knowledge else set(),
@@ -187,6 +190,9 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
 
     # Floor cache
     game._floor_cache = payload.get("floor_cache", {})
+
+    # SVG cache
+    game._svg_cache = payload.get("svg_cache", {})
 
     # Identification
     knowledge = ItemKnowledge.__new__(ItemKnowledge)

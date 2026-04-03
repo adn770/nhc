@@ -54,6 +54,7 @@ class FakeGame:
         self.mode = "classic"
         self.renderer = FakeRenderer()
         self._floor_cache = {}
+        self._svg_cache = {}
         self._knowledge = None
         self._character = None
         self._seen_creatures = set()
@@ -289,6 +290,31 @@ class TestMultiFloor:
         cached_level, cached_entities = game2._floor_cache[2]
         assert cached_level.depth == 2
         assert 100 in cached_entities
+
+
+class TestSvgCache:
+    def test_svg_cache_preserved(self):
+        game = _make_game()
+        game._svg_cache[1] = ("abc123", "<svg>floor1</svg>")
+        game._svg_cache[2] = ("def456", "<svg>floor2</svg>")
+
+        payload = _build_payload(game)
+        assert 1 in payload["svg_cache"]
+        assert 2 in payload["svg_cache"]
+
+        game2 = FakeGame()
+        _restore_payload(game2, payload)
+        assert game2._svg_cache[1] == ("abc123", "<svg>floor1</svg>")
+        assert game2._svg_cache[2] == ("def456", "<svg>floor2</svg>")
+
+    def test_svg_cache_missing_in_old_saves(self):
+        game = _make_game()
+        payload = _build_payload(game)
+        del payload["svg_cache"]
+
+        game2 = FakeGame()
+        _restore_payload(game2, payload)
+        assert game2._svg_cache == {}
 
 
 class TestFileOperations:
