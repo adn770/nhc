@@ -57,6 +57,7 @@ const DebugPanel = {
                 data.rooms.length, "rooms,",
                 data.corridors.length, "corridors,",
                 data.doors.length, "doors");
+    this._drawDebugOverlays();
   },
 
   // ── Gear button ──────────────────────────────────────────────

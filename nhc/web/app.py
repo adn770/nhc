@@ -627,7 +627,7 @@ def create_app(
             return jsonify({"error": "not available"}), 404
         client = session.game.renderer
         resp = jsonify(client._gather_debug_data(session.game.level))
-        resp.headers["Cache-Control"] = "public, max-age=86400"
+        resp.headers["Cache-Control"] = "no-cache"
         return resp
 
     @app.route("/api/game/<session_id>/labels.json", methods=["GET"])
