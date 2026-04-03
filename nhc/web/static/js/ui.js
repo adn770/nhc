@@ -57,17 +57,9 @@ const UI = {
       `${sep}💰 <span style="color:#FFFF44">${s.gold}</span>` +
       `${sep}❤️  <span style="color:${hpColor}">${hpBar} ${hp}/${hpMax}</span>`;
 
-    // ── Line 2: Name, stats, equipment ──
+    // ── Line 2: Name, stats, equipment (interactive) ──
     const name = s.char_name || "?";
     const bg = s.char_bg ? ` (${s.char_bg})` : "";
-    const equip = [
-      `⚔️  ${s.weapon}`,
-      s.armor_name, s.shield_name, s.helmet_name,
-      s.ring_left_name ? `💍 ${s.ring_left_name}` : "",
-      s.ring_right_name ? `💍 ${s.ring_right_name}` : "",
-      `${s.ac_label} ${s.ac}`,
-    ].filter(Boolean).join(sep);
-
     this.statusLine2.innerHTML =
       ` <b>${name}</b>${bg}` +
       `${sep}STR:${this._signed(s.str)}` +
@@ -76,7 +68,37 @@ const UI = {
       ` INT:${this._signed(s.int)}` +
       ` WIS:${this._signed(s.wis)}` +
       ` CHA:${this._signed(s.cha)}` +
-      `${sep}${equip}`;
+      sep;
+
+    // Build interactive equipment spans from equipped_items
+    const eqItems = s.equipped_items || this.equippedItems || [];
+    const eqLabels = [];
+    eqItems.forEach(it => {
+      const icon = this._typeIcon(it.types || []);
+      eqLabels.push({ label: `${icon} ${it.name}`, item: it });
+    });
+    eqLabels.push({ label: `${s.ac_label} ${s.ac}`, item: null });
+
+    eqLabels.forEach((entry, idx) => {
+      if (idx > 0) {
+        this.statusLine2.appendChild(document.createTextNode(sep));
+      }
+      const span = document.createElement("span");
+      span.textContent = entry.label;
+      if (entry.item) {
+        span.className = "inv-item";
+        span.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this._itemPrimaryAction(entry.item);
+        });
+        span.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this._showItemContextMenu(e.clientX, e.clientY, entry.item);
+        });
+      }
+      this.statusLine2.appendChild(span);
+    });
 
     // ── Line 3: Inventory (interactive) ──
     if (s.items) this.currentItems = s.items;
