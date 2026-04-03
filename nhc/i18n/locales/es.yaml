@@ -233,6 +233,7 @@ explore:
   force_with: "¿Forzar puerta con?"
   bare_hands: "Manos desnudas"
   no_locked_door: "No hay ninguna puerta cerrada cerca."
+  door_closes: "Una puerta se cierra chirriando."
   search_nothing: "Registras con atención pero no encuentras nada oculto."
   chest_loot: "Abres el cofre y encuentras: {items}."
   chest_empty: "Abres el cofre, pero está vacío."

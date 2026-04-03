@@ -33,6 +33,7 @@ from nhc.core.events import (
     CreatureAttacked,
     CreatureDied,
     CustomActionEvent,
+    DoorOpened,
     EventBus,
     GameWon,
     ItemPickedUp,
@@ -759,6 +760,13 @@ class Game:
                 )
                 events += await self._resolve(haste_move)
 
+            # Track when doors were opened (for auto-close)
+            for ev in events:
+                if isinstance(ev, DoorOpened):
+                    tile = self.level.tile_at(ev.x, ev.y)
+                    if tile:
+                        tile.opened_at_turn = self.turn
+
             # Check win
             if self.won:
                 delete_autosave(self.save_dir)
@@ -800,6 +808,7 @@ class Game:
             self._tick_regeneration()
             self._tick_mummy_rot()
             self._tick_rings()
+            self._tick_doors()
             self._tick_wand_recharge()
             self._tick_stairs_proximity()
 
@@ -1184,6 +1193,9 @@ class Game:
 
     def _tick_rings(self) -> None:
         game_ticks.tick_rings(self)
+
+    def _tick_doors(self) -> None:
+        game_ticks.tick_doors(self)
 
     def _tick_wand_recharge(self) -> None:
         game_ticks.tick_wand_recharge(self)

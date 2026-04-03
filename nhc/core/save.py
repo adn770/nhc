@@ -160,6 +160,8 @@ def _serialize_level(level: Level) -> dict[str, Any]:
                 td["feature"] = tile.feature
             if tile.explored:
                 td["explored"] = True
+            if tile.opened_at_turn is not None:
+                td["opened_at_turn"] = tile.opened_at_turn
             row_data.append(td)
         tiles_data.append(row_data)
 
@@ -207,6 +209,7 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
                 terrain=Terrain[td["terrain"]],
                 feature=td.get("feature"),
                 explored=td.get("explored", False),
+                opened_at_turn=td.get("opened_at_turn"),
             )
             row.append(tile)
         tiles.append(row)

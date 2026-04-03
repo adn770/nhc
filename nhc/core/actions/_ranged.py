@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
 from nhc.core.actions._helpers import _entity_name
-from nhc.core.events import CreatureDied, Event, ItemUsed, MessageEvent
+from nhc.core.events import (
+    CreatureDied, DoorOpened, Event, ItemUsed, MessageEvent,
+)
 from nhc.dungeon.model import Terrain
 from nhc.entities.components import Poison, StatusEffect
 from nhc.i18n import t
@@ -406,6 +408,8 @@ class ZapAction(Action):
                 if tile and tile.feature in ("door_closed",
                                              "door_locked"):
                     tile.feature = "door_open"
+                    events.append(DoorOpened(
+                        entity=self.actor, x=tpos.x, y=tpos.y))
                     events.append(MessageEvent(
                         text=t("item.wand_open_door"),
                     ))

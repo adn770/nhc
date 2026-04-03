@@ -401,6 +401,7 @@ class Tile:
     is_corridor: bool = False  # True for tunnel tiles (rendered as #)
     door_side: str = ""  # "north","south","east","west" — which tile edge
                          # the door sits on (set at generation time)
+    opened_at_turn: int | None = None  # turn when door was opened
 
     @property
     def walkable(self) -> bool:

@@ -251,6 +251,7 @@ explore:
   force_with: "Forçar porta amb?"
   bare_hands: "Mans nues"
   no_locked_door: "No hi ha cap porta tancada a prop."
+  door_closes: "Una porta es tanca grinyolant."
   search_nothing: "Escorcolles amb atenció però no trobes res d'amagat."
   chest_loot: "Obres el cofre i trobes: {items}."
   chest_empty: "Obres el cofre, però és buit."

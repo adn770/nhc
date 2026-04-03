@@ -235,6 +235,7 @@ explore:
   force_with: "Force door with?"
   bare_hands: "Bare hands"
   no_locked_door: "There is no locked door nearby."
+  door_closes: "A door creaks shut."
   search_nothing: "You search carefully but find nothing hidden."
   chest_loot: "You open the chest and find: {items}."
   chest_empty: "You open the chest, but it's empty."
