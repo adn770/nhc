@@ -314,7 +314,21 @@ def create_app(
                     if f.is_file():
                         tar.add(str(f), arcname=f"exports/{f.name}")
 
-            # 3. Autosave files
+            # 3. Current floor SVGs from active sessions
+            for s in sessions.list_sessions():
+                sess = sessions.get(s["session_id"])
+                if not sess or not sess.game:
+                    continue
+                for depth, (svg_id, svg) in sess.game._svg_cache.items():
+                    pid = sess.player_id or "anon"
+                    info = tarfile.TarInfo(
+                        name=f"svg/{pid}_depth{depth}.svg",
+                    )
+                    svg_bytes = svg.encode("utf-8")
+                    info.size = len(svg_bytes)
+                    tar.addfile(info, io.BytesIO(svg_bytes))
+
+            # 4. Autosave files
             data_dir = config.data_dir
             if data_dir:
                 players_dir = data_dir / "players"
