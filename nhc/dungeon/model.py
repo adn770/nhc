@@ -15,6 +15,7 @@ class Terrain(Enum):
     WATER = auto()
     LAVA = auto()
     CHASM = auto()
+    GRASS = auto()
 
 
 @dataclass
@@ -288,7 +289,7 @@ class Tile:
     def walkable(self) -> bool:
         if self.feature == "door_secret":
             return False
-        return self.terrain in (Terrain.FLOOR, Terrain.WATER)
+        return self.terrain in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
 
     @property
     def blocks_sight(self) -> bool:
@@ -335,6 +336,7 @@ class LevelMetadata:
     """Level-wide narrative and theming data."""
     theme: str = "dungeon"
     difficulty: int = 1
+    feeling: str = "normal"
     narrative_hooks: list[str] = field(default_factory=list)
     faction: str | None = None
     ambient: str = ""

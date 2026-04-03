@@ -44,6 +44,8 @@ from nhc.core.events import (
 )
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
+from nhc.dungeon.generators.cellular import CellularGenerator
+from nhc.dungeon.themes import theme_for_depth
 from nhc.dungeon.loader import get_player_start, load_level
 from nhc.dungeon.model import Level, RectShape, Terrain
 from nhc.dungeon.populator import populate_level
@@ -387,17 +389,21 @@ class Game:
 
         if generate:
             sv = _shape_variety_for_depth(self.shape_variety, depth)
-            params = GenerationParams(depth=depth, shape_variety=sv)
-            gen = BSPGenerator()
+            theme = theme_for_depth(depth)
+            params = GenerationParams(
+                depth=depth, shape_variety=sv, theme=theme,
+            )
+            gen = (CellularGenerator() if theme == "cave"
+                   else BSPGenerator())
             self.level = gen.generate(params)
             rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
             assign_room_types(self.level, rng)
             apply_terrain(self.level, rng)
             populate_level(self.level)
             logger.info(
-                "Generated level depth=%d shape_variety=%.2f "
+                "Generated level depth=%d theme=%s "
                 "(%dx%d, %d rooms)",
-                depth, sv, self.level.width, self.level.height,
+                depth, theme, self.level.width, self.level.height,
                 len(self.level.rooms),
             )
 
@@ -1166,11 +1172,15 @@ class Game:
         """Spawn a background thread to pre-generate a floor."""
         seed = (self.seed or 0) + depth * 997
         sv = _shape_variety_for_depth(self.shape_variety, depth)
+        theme = theme_for_depth(depth)
 
         def _generate() -> None:
             rng = random.Random(seed)
-            params = GenerationParams(depth=depth, shape_variety=sv)
-            gen = BSPGenerator()
+            params = GenerationParams(
+                depth=depth, shape_variety=sv, theme=theme,
+            )
+            gen = (CellularGenerator() if theme == "cave"
+                   else BSPGenerator())
             level = gen.generate(params, rng=rng)
             assign_room_types(level, rng)
             apply_terrain(level, rng)
@@ -1229,8 +1239,12 @@ class Game:
             self._prefetch_result = None
             self._prefetch_depth = None
             sv = _shape_variety_for_depth(self.shape_variety, new_depth)
-            params = GenerationParams(depth=new_depth, shape_variety=sv)
-            gen = BSPGenerator()
+            theme = theme_for_depth(new_depth)
+            params = GenerationParams(
+                depth=new_depth, shape_variety=sv, theme=theme,
+            )
+            gen = (CellularGenerator() if theme == "cave"
+                   else BSPGenerator())
             self.level = gen.generate(params)
             rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
             assign_room_types(self.level, rng)

@@ -21,6 +21,7 @@ THEME_PARAMS: dict[str, tuple[float, int, float, int]] = {
     "castle":  (0.25, 3, 0.15, 2),
     "forest":  (0.30, 4, 0.55, 5),
     "dungeon": (0.35, 4, 0.25, 3),
+    "abyss":   (0.55, 6, 0.05, 2),
 }
 
 # Level feelings override seed probabilities
@@ -35,15 +36,21 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
     """
     theme = level.metadata.theme if level.metadata else "dungeon"
     params = THEME_PARAMS.get(theme, THEME_PARAMS["dungeon"])
-    water_seed, water_iters, _, _ = params
+    water_seed, water_iters, grass_seed, grass_iters = params
 
     # Roll for level feeling (10% chance on depth > 1)
     feeling = "normal"
     if level.depth > 1 and rng.random() < 0.10:
         feeling = rng.choice(FEELINGS)
 
+    # Store feeling on level metadata
+    if level.metadata:
+        level.metadata.feeling = feeling
+
     if feeling == "flooded":
         water_seed = min(1.0, water_seed + 0.15)
+    elif feeling == "overgrown":
+        grass_seed = min(1.0, grass_seed + 0.15)
     elif feeling == "barren":
         return  # No terrain features
 
@@ -52,7 +59,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
         level.width, level.height, water_seed, water_iters, rng,
     )
 
-    # Apply to level (only on bare floor tiles, skip corridors)
+    # Apply water (only on bare floor tiles, skip corridors)
     for y in range(1, level.height - 1):
         for x in range(1, level.width - 1):
             tile = level.tiles[y][x]
@@ -62,13 +69,32 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
                     and water[y][x]):
                 tile.terrain = Terrain.WATER
 
+    # Generate grass mask
+    if grass_seed > 0:
+        grass = _cellular_automata(
+            level.width, level.height, grass_seed, grass_iters, rng,
+        )
+        for y in range(1, level.height - 1):
+            for x in range(1, level.width - 1):
+                tile = level.tiles[y][x]
+                if (tile.terrain == Terrain.FLOOR
+                        and not tile.feature
+                        and not tile.is_corridor
+                        and grass[y][x]):
+                    tile.terrain = Terrain.GRASS
+
     water_count = sum(
         1 for row in level.tiles for t in row
         if t.terrain == Terrain.WATER
     )
+    grass_count = sum(
+        1 for row in level.tiles for t in row
+        if t.terrain == Terrain.GRASS
+    )
     logger.info(
-        "Terrain: theme=%s feeling=%s water_seed=%.2f iters=%d → %d water tiles",
-        theme, feeling, water_seed, water_iters, water_count,
+        "Terrain: theme=%s feeling=%s water=%.2f grass=%.2f"
+        " → %d water, %d grass tiles",
+        theme, feeling, water_seed, grass_seed, water_count, grass_count,
     )
 
 

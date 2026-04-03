@@ -237,7 +237,7 @@ def _is_floor(level: "Level", x: int, y: int) -> bool:
     if not level.in_bounds(x, y):
         return False
     t = level.tiles[y][x]
-    return t.terrain in (Terrain.FLOOR, Terrain.WATER)
+    return t.terrain in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
 
 
 def _is_door(level: "Level", x: int, y: int) -> bool:
