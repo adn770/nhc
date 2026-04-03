@@ -129,6 +129,41 @@ const DebugPanel = {
     }
   },
 
+  // ── Drag support ─────────────────────────────────────────────
+
+  _makeDraggable(panel, handle) {
+    let startX, startY, startLeft, startTop;
+
+    const onMouseMove = (e) => {
+      panel.style.left = (startLeft + e.clientX - startX) + "px";
+      panel.style.top = (startTop + e.clientY - startY) + "px";
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+
+    handle.addEventListener("mousedown", (e) => {
+      // Only drag from the tab bar background, not from tab buttons
+      if (e.target.tagName === "BUTTON") return;
+      e.preventDefault();
+      // Convert right-positioned panel to left-positioned on first drag
+      if (panel.style.right || !panel.style.left) {
+        const rect = panel.getBoundingClientRect();
+        panel.style.left = rect.left + "px";
+        panel.style.top = rect.top + "px";
+        panel.style.right = "auto";
+      }
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = parseInt(panel.style.left);
+      startTop = parseInt(panel.style.top);
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+  },
+
   // ── Panel construction ───────────────────────────────────────
 
   _buildPanel() {
@@ -165,6 +200,10 @@ const DebugPanel = {
 
     panel.appendChild(tabBar);
     panes.forEach((p) => panel.appendChild(p));
+
+    // Drag via tab bar
+    this._makeDraggable(panel, tabBar);
+
     return panel;
   },
 

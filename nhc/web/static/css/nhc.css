@@ -257,6 +257,7 @@ body {
   display: flex;
   border-bottom: 1px solid #444;
   background: #0f1529;
+  cursor: grab;
 }
 
 .debug-tab {
