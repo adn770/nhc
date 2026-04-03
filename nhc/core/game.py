@@ -346,7 +346,9 @@ class Game:
         self._svg_cache: dict[int, tuple[str, str]] = {}  # depth → (uuid, svg)
         self._prefetch_depth: int | None = None   # depth being/been prefetched
         self._prefetch_result: Level | None = None  # pre-generated level
+        self._prefetch_params: GenerationParams | None = None
         self._prefetch_thread: threading.Thread | None = None
+        self.generation_params: GenerationParams | None = None
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
 
@@ -407,7 +409,9 @@ class Game:
             theme = theme_for_depth(depth)
             params = GenerationParams(
                 depth=depth, shape_variety=sv, theme=theme,
+                seed=self.seed,
             )
+            self.generation_params = params
             gen = (CellularGenerator() if theme == "cave"
                    else BSPGenerator())
             self.level = gen.generate(params)
@@ -1216,6 +1220,7 @@ class Game:
             rng = random.Random(seed)
             params = GenerationParams(
                 depth=depth, shape_variety=sv, theme=theme,
+                seed=seed,
             )
             gen = (CellularGenerator() if theme == "cave"
                    else BSPGenerator())
@@ -1224,6 +1229,7 @@ class Game:
             apply_terrain(level, rng)
             populate_level(level, rng=rng)
             self._prefetch_result = level
+            self._prefetch_params = params
             self._prefetch_thread = None
             logger.info("Prefetch complete for depth %d", depth)
 
@@ -1265,7 +1271,9 @@ class Game:
                 self._prefetch_thread.join()
                 self._prefetch_thread = None
             self.level = self._prefetch_result
+            self.generation_params = self._prefetch_params
             self._prefetch_result = None
+            self._prefetch_params = None
             self._prefetch_depth = None
             self._spawn_level_entities()
             logger.info("Used prefetched floor at depth %d", new_depth)
@@ -1275,12 +1283,15 @@ class Game:
                 self._prefetch_thread.join()
                 self._prefetch_thread = None
             self._prefetch_result = None
+            self._prefetch_params = None
             self._prefetch_depth = None
             sv = _shape_variety_for_depth(self.shape_variety, new_depth)
             theme = theme_for_depth(new_depth)
             params = GenerationParams(
                 depth=new_depth, shape_variety=sv, theme=theme,
+                seed=self.seed,
             )
+            self.generation_params = params
             gen = (CellularGenerator() if theme == "cave"
                    else BSPGenerator())
             self.level = gen.generate(params)

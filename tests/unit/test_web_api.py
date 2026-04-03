@@ -453,7 +453,134 @@ class TestQuitSavesGame:
         assert (save_dir / "autosave.nhc").exists()
 
 
+class TestGenerationParamsAPI:
+    def _create_god_session(self, client_with_data_dir):
+        """Create a game session with god mode enabled."""
+        token, pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        session.game.set_god_mode(True)
+        return sid, session
+
+    def test_get_params_requires_god_mode(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={},
+        )
+        sid = resp.get_json()["session_id"]
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/generation_params",
+        )
+        assert resp.status_code == 404
+
+    def test_get_params_after_new_game(self, client_with_data_dir):
+        sid, session = self._create_god_session(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/generation_params",
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "depth" in data
+        assert "theme" in data
+        assert "seed" in data
+        assert data["depth"] == 1
+        assert data["theme"] == "dungeon"
+
+    def test_regenerate_requires_god_mode(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={},
+        )
+        sid = resp.get_json()["session_id"]
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/regenerate",
+            json={"depth": 5},
+        )
+        assert resp.status_code == 404
+
+    def test_regenerate_with_depth(self, client_with_data_dir):
+        sid, session = self._create_god_session(client_with_data_dir)
+        old_level_id = session.game.level.id
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/regenerate",
+            json={"depth": 5},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["params"]["depth"] == 5
+        assert data["params"]["theme"] == "crypt"
+        assert session.game.level.id != old_level_id
+        assert session.game.generation_params.depth == 5
+
+    def test_regenerate_with_seed_reproducible(self, client_with_data_dir):
+        sid, session = self._create_god_session(client_with_data_dir)
+        resp1 = client_with_data_dir.post(
+            f"/api/game/{sid}/regenerate",
+            json={"depth": 3, "seed": 777},
+        )
+        rooms1 = len(session.game.level.rooms)
+        resp2 = client_with_data_dir.post(
+            f"/api/game/{sid}/regenerate",
+            json={"depth": 3, "seed": 777},
+        )
+        rooms2 = len(session.game.level.rooms)
+        assert rooms1 == rooms2
+
+    def test_regenerate_updates_player_position(self, client_with_data_dir):
+        sid, session = self._create_god_session(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/regenerate",
+            json={"depth": 2},
+        )
+        assert resp.status_code == 200
+        game = session.game
+        pos = game.world.get_component(game.player_id, "Position")
+        tile = game.level.tile_at(pos.x, pos.y)
+        assert tile is not None
+        assert tile.feature == "stairs_up"
+
+
 class TestDebugBundleAutosave:
+    def test_bundle_includes_generation_params(self, client_with_data_dir):
+        """Debug bundle must include generation parameters."""
+        token, pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": token},
+        )
+        sid = resp.get_json()["session_id"]
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        session.game.set_god_mode(True)
+
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/export/bundle",
+        )
+        assert resp.status_code == 200
+
+        import io
+        import tarfile
+        buf = io.BytesIO(resp.data)
+        with tarfile.open(fileobj=buf, mode="r:gz") as tar:
+            names = tar.getnames()
+            # Separate params file
+            params_files = [n for n in names
+                            if "generation_params" in n]
+            assert len(params_files) == 1
+
+            # Also check it's in the game state JSON
+            state_files = [n for n in names
+                           if "game_state" in n]
+            assert len(state_files) == 1
+            state_data = json.loads(
+                tar.extractfile(state_files[0]).read(),
+            )
+            assert "generation_params" in state_data
+            assert state_data["generation_params"]["depth"] == 1
+
     def test_bundle_forces_autosave(self, client_with_data_dir):
         """Debug bundle must force a fresh autosave so the bundle
         always contains the current game state."""

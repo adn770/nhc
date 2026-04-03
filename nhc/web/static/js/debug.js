@@ -31,8 +31,13 @@ const DebugPanel = {
   // Tab definitions — extensible
   _tabs: [
     { name: "Layers", buildFn: "_buildLayersTab" },
+    { name: "Map Gen", buildFn: "_buildMapGenTab" },
     { name: "Export", buildFn: "_buildExportTab" },
   ],
+
+  // Map Gen state
+  _mapGenParams: null,
+  _themeAuto: true,
 
   init() {
     this.debugCanvas = document.getElementById("debug-canvas");
@@ -259,6 +264,281 @@ const DebugPanel = {
     row.appendChild(lbl);
     row.appendChild(val);
     return row;
+  },
+
+  // ── Map Gen helpers ──────────────────────────────────────
+
+  _themeForDepth(depth) {
+    if (depth <= 4) return "dungeon";
+    if (depth <= 8) return "crypt";
+    if (depth <= 12) return "cave";
+    if (depth <= 16) return "castle";
+    return "abyss";
+  },
+
+  _numberInput(label, value, opts, onChange) {
+    const row = document.createElement("div");
+    row.className = "debug-number-row";
+    const lbl = document.createElement("label");
+    lbl.textContent = label;
+    const inp = document.createElement("input");
+    inp.type = "number";
+    inp.value = value;
+    if (opts.min !== undefined) inp.min = opts.min;
+    if (opts.max !== undefined) inp.max = opts.max;
+    if (opts.step !== undefined) inp.step = opts.step;
+    inp.addEventListener("change", () => onChange(Number(inp.value)));
+    row.appendChild(lbl);
+    row.appendChild(inp);
+    return row;
+  },
+
+  _rangeInput(label, minVal, maxVal, opts, onChange) {
+    const row = document.createElement("div");
+    row.className = "debug-range-row";
+    const lbl = document.createElement("label");
+    lbl.textContent = label;
+    const wrap = document.createElement("span");
+    wrap.className = "range-inputs";
+    const minInp = document.createElement("input");
+    minInp.type = "number";
+    minInp.value = minVal;
+    if (opts.min !== undefined) minInp.min = opts.min;
+    if (opts.max !== undefined) minInp.max = opts.max;
+    const sep = document.createElement("span");
+    sep.className = "range-sep";
+    sep.textContent = "\u2013";
+    const maxInp = document.createElement("input");
+    maxInp.type = "number";
+    maxInp.value = maxVal;
+    if (opts.min !== undefined) maxInp.min = opts.min;
+    if (opts.max !== undefined) maxInp.max = opts.max;
+    const fire = () => onChange(Number(minInp.value),
+                                Number(maxInp.value));
+    minInp.addEventListener("change", fire);
+    maxInp.addEventListener("change", fire);
+    wrap.appendChild(minInp);
+    wrap.appendChild(sep);
+    wrap.appendChild(maxInp);
+    row.appendChild(lbl);
+    row.appendChild(wrap);
+    return row;
+  },
+
+  _selectRow(label, options, selected, onChange) {
+    const row = document.createElement("div");
+    row.className = "debug-select-row";
+    const lbl = document.createElement("label");
+    lbl.textContent = label;
+    const sel = document.createElement("select");
+    for (const opt of options) {
+      const o = document.createElement("option");
+      o.value = opt;
+      o.textContent = opt;
+      if (opt === selected) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener("change", () => onChange(sel.value));
+    row.appendChild(lbl);
+    row.appendChild(sel);
+    return { row, select: sel };
+  },
+
+  // ── Map Gen tab ─────────────────────────────────────────
+
+  _buildMapGenTab() {
+    const frag = document.createDocumentFragment();
+    const p = this._mapGenParams || {};
+
+    // Section: Dimensions
+    frag.appendChild(this._sectionHeader("Dimensions"));
+    frag.appendChild(this._numberInput(
+      "Width", p.width || 120, { min: 40, max: 200 },
+      (v) => { this._mapGenParams.width = v; }));
+    frag.appendChild(this._numberInput(
+      "Height", p.height || 40, { min: 20, max: 80 },
+      (v) => { this._mapGenParams.height = v; }));
+
+    // Section: Depth & Theme
+    frag.appendChild(this._sectionHeader("Depth & Theme"));
+
+    const depthRow = this._numberInput(
+      "Depth", p.depth || 1, { min: 1, max: 30 },
+      (v) => {
+        this._mapGenParams.depth = v;
+        if (this._themeAuto && themeCtrl) {
+          const auto = this._themeForDepth(v);
+          themeCtrl.select.value = auto;
+          this._mapGenParams.theme = auto;
+          if (autoHint) autoHint.textContent = "(auto)";
+        }
+      });
+    frag.appendChild(depthRow);
+
+    const themes = [
+      "dungeon", "crypt", "cave", "castle", "abyss",
+      "forest", "sewer",
+    ];
+    const themeCtrl = this._selectRow(
+      "Theme", themes, p.theme || "dungeon",
+      (v) => {
+        this._mapGenParams.theme = v;
+        this._themeAuto = false;
+        if (autoHint) autoHint.textContent = "(manual)";
+      });
+    const autoHint = document.createElement("span");
+    autoHint.className = "auto-hint";
+    autoHint.textContent = this._themeAuto ? "(auto)" : "(manual)";
+    themeCtrl.row.appendChild(autoHint);
+    frag.appendChild(themeCtrl.row);
+
+    // Section: Rooms
+    frag.appendChild(this._sectionHeader("Rooms"));
+    const rc = p.room_count || { min: 5, max: 15 };
+    frag.appendChild(this._rangeInput(
+      "Room Count", rc.min, rc.max, { min: 1, max: 30 },
+      (mn, mx) => {
+        this._mapGenParams.room_count = { min: mn, max: mx };
+      }));
+    const rs = p.room_size || { min: 4, max: 12 };
+    frag.appendChild(this._rangeInput(
+      "Room Size", rs.min, rs.max, { min: 2, max: 20 },
+      (mn, mx) => {
+        this._mapGenParams.room_size = { min: mn, max: mx };
+      }));
+    frag.appendChild(this._numberInput(
+      "Shape Variety", p.shape_variety || 0.0,
+      { min: 0, max: 1, step: 0.05 },
+      (v) => { this._mapGenParams.shape_variety = v; }));
+
+    // Section: Corridors
+    frag.appendChild(this._sectionHeader("Corridors"));
+    const styles = ["straight", "bent", "organic"];
+    const styleCtrl = this._selectRow(
+      "Style", styles, p.corridor_style || "straight",
+      (v) => { this._mapGenParams.corridor_style = v; });
+    frag.appendChild(styleCtrl.row);
+    frag.appendChild(this._numberInput(
+      "Density", p.density || 0.4, { min: 0, max: 1, step: 0.05 },
+      (v) => { this._mapGenParams.density = v; }));
+    frag.appendChild(this._numberInput(
+      "Connectivity", p.connectivity || 0.8,
+      { min: 0, max: 1, step: 0.05 },
+      (v) => { this._mapGenParams.connectivity = v; }));
+
+    // Section: Features
+    frag.appendChild(this._sectionHeader("Features"));
+    frag.appendChild(this._checkboxRow(
+      "Dead Ends", p.dead_ends !== false, (on) => {
+        this._mapGenParams.dead_ends = on;
+      }));
+    frag.appendChild(this._numberInput(
+      "Secret Doors", p.secret_doors || 0.1,
+      { min: 0, max: 0.5, step: 0.05 },
+      (v) => { this._mapGenParams.secret_doors = v; }));
+    frag.appendChild(this._checkboxRow(
+      "Water Features", p.water_features || false, (on) => {
+        this._mapGenParams.water_features = on;
+      }));
+    frag.appendChild(this._checkboxRow(
+      "Multiple Stairs", p.multiple_stairs || false, (on) => {
+        this._mapGenParams.multiple_stairs = on;
+      }));
+
+    // Section: Seed
+    frag.appendChild(this._sectionHeader("Seed"));
+    const seedRow = document.createElement("div");
+    seedRow.className = "debug-seed-row";
+    const seedLbl = document.createElement("label");
+    seedLbl.textContent = "Seed";
+    const seedInp = document.createElement("input");
+    seedInp.type = "text";
+    seedInp.value = p.seed != null ? p.seed : "";
+    seedInp.placeholder = "random";
+    seedInp.addEventListener("change", () => {
+      const v = seedInp.value.trim();
+      this._mapGenParams.seed = v ? Number(v) : null;
+    });
+    const randBtn = document.createElement("button");
+    randBtn.className = "seed-random-btn";
+    randBtn.textContent = "Rnd";
+    randBtn.title = "Use random seed";
+    randBtn.addEventListener("click", () => {
+      seedInp.value = "";
+      this._mapGenParams.seed = null;
+    });
+    seedRow.appendChild(seedLbl);
+    seedRow.appendChild(seedInp);
+    seedRow.appendChild(randBtn);
+    frag.appendChild(seedRow);
+
+    // Regenerate button
+    const regenBtn = document.createElement("button");
+    regenBtn.className = "debug-regen-btn";
+    regenBtn.textContent = "Regenerate Map";
+    const statusEl = document.createElement("div");
+    statusEl.className = "debug-regen-status";
+    regenBtn.addEventListener("click", async () => {
+      regenBtn.disabled = true;
+      regenBtn.textContent = "Regenerating...";
+      statusEl.textContent = "";
+      try {
+        const resp = await fetch(
+          `/api/game/${NHC.sessionId}/regenerate`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(this._mapGenParams),
+          },
+        );
+        const data = await resp.json();
+        if (resp.ok) {
+          statusEl.textContent = `Done — seed ${data.seed}, `
+            + `${data.params.theme} d${data.params.depth}`;
+          // Update local seed display
+          seedInp.value = data.seed;
+          this._mapGenParams = data.params;
+        } else {
+          statusEl.textContent = `Error: ${data.error || "failed"}`;
+        }
+      } catch (e) {
+        statusEl.textContent = `Error: ${e.message}`;
+      }
+      regenBtn.disabled = false;
+      regenBtn.textContent = "Regenerate Map";
+    });
+    frag.appendChild(regenBtn);
+    frag.appendChild(statusEl);
+
+    // Fetch current params to populate
+    if (!this._mapGenParams) {
+      this._fetchParams(seedInp, themeCtrl.select, autoHint);
+    }
+
+    return frag;
+  },
+
+  async _fetchParams(seedInp, themeSel, autoHint) {
+    try {
+      const resp = await fetch(
+        `/api/game/${NHC.sessionId}/generation_params`);
+      if (resp.ok) {
+        this._mapGenParams = await resp.json();
+        // Update seed input if available
+        if (seedInp && this._mapGenParams.seed != null) {
+          seedInp.value = this._mapGenParams.seed;
+        }
+        // Check if theme matches auto
+        const auto = this._themeForDepth(this._mapGenParams.depth);
+        this._themeAuto = (this._mapGenParams.theme === auto);
+        if (autoHint) {
+          autoHint.textContent = this._themeAuto
+            ? "(auto)" : "(manual)";
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch generation params:", e);
+    }
   },
 
   // ── FOV info live updates ────────────────────────────────────

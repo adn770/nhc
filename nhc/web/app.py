@@ -663,6 +663,157 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
 
+    # ── Generation params / regenerate (god mode only) ──────
+
+    @app.route("/api/game/<session_id>/generation_params",
+               methods=["GET"])
+    @_player_auth
+    def game_generation_params(session_id: str):
+        """Return current dungeon generation parameters."""
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        params = session.game.generation_params
+        if not params:
+            return jsonify({"error": "no params available"}), 404
+        return jsonify(params.to_dict())
+
+    @app.route("/api/game/<session_id>/regenerate", methods=["POST"])
+    @_player_auth
+    def game_regenerate(session_id: str):
+        """Regenerate the dungeon with custom parameters."""
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+
+        data = request.get_json(silent=True) or {}
+        from nhc.dungeon.generator import GenerationParams
+        from nhc.dungeon.generators.bsp import BSPGenerator
+        from nhc.dungeon.generators.cellular import CellularGenerator
+        from nhc.dungeon.populator import populate_level
+        from nhc.dungeon.room_types import assign_room_types
+        from nhc.dungeon.terrain import apply_terrain
+        from nhc.dungeon.themes import theme_for_depth
+        from nhc.utils.rng import get_rng, get_seed, set_seed
+
+        # Fill in theme from depth if not explicitly provided
+        if "theme" not in data and "depth" in data:
+            data["theme"] = theme_for_depth(data["depth"])
+
+        try:
+            params = GenerationParams.from_dict(data)
+        except (TypeError, ValueError) as exc:
+            return jsonify({"error": str(exc)}), 400
+
+        game = session.game
+        client = game.renderer
+
+        # Set seed
+        if params.seed is not None:
+            set_seed(params.seed)
+        else:
+            set_seed(None)
+        game.seed = get_seed()
+        params.seed = game.seed
+
+        # Remove non-player entities (keep player + inventory)
+        player_inv = game.world.get_component(
+            game.player_id, "Inventory",
+        )
+        keep_ids = {game.player_id}
+        if player_inv:
+            keep_ids.update(player_inv.slots)
+        for eid in list(game.world._entities):
+            if eid not in keep_ids:
+                game.world.destroy_entity(eid)
+
+        # Generate new level
+        gen = (CellularGenerator() if params.theme == "cave"
+               else BSPGenerator())
+        game.level = gen.generate(params)
+        game.generation_params = params
+        rng = get_rng()
+        assign_room_types(game.level, rng)
+        apply_terrain(game.level, rng)
+        populate_level(game.level)
+        game._spawn_level_entities()
+
+        # Place player at stairs_up
+        pos = game.world.get_component(game.player_id, "Position")
+        if pos:
+            for y in range(game.level.height):
+                for x in range(game.level.width):
+                    tile = game.level.tile_at(x, y)
+                    if tile and tile.feature == "stairs_up":
+                        pos.x = x
+                        pos.y = y
+                        pos.level_id = game.level.id
+                        break
+                else:
+                    continue
+                break
+
+        # Reset FOV tracking and update
+        game._seen_creatures.clear()
+        game._update_fov()
+
+        # Re-render SVG and push to client via WS
+        import uuid as _uuid
+        from nhc.rendering.svg import render_floor_svg
+        client.floor_svg = render_floor_svg(
+            game.level, seed=game.seed or 0,
+            hatch_distance=config.hatch_distance,
+        )
+        client.floor_svg_id = _uuid.uuid4().hex[:12]
+        game._svg_cache[params.depth] = (
+            client.floor_svg_id, client.floor_svg,
+        )
+
+        # Reset delta tracking so full state is sent
+        client._last_fov = set()
+        client._last_hatch_clear = set()
+
+        # Push floor update via WS output queue if connected
+        if hasattr(client, '_ws') and client._ws:
+            import json as _json
+            base_url = f"/api/game/{session_id}"
+            entities = client._gather_entities(
+                game.world, game.level, game.player_id,
+            )
+            fov = client._gather_fov(game.level)
+            doors = client._gather_doors(game.level)
+            hatch_clear = client._gather_hatch_clear(game.level)
+            client._out_queue.put(_json.dumps({
+                "type": "floor",
+                "floor_url": (f"{base_url}"
+                              f"/floor/{client.floor_svg_id}.svg"),
+                "hatch_url": "/api/hatch.svg",
+                "entities": entities,
+                "doors": doors,
+                "fov": fov,
+                "hatch_clear": hatch_clear,
+                "turn": game.turn,
+            }))
+            # Send debug data URL
+            client._out_queue.put(_json.dumps({
+                "type": "debug_url",
+                "url": f"{base_url}/debug.json",
+            }))
+
+        logger.info(
+            "Regenerated level: depth=%d theme=%s seed=%d "
+            "(%dx%d, %d rooms)",
+            params.depth, params.theme, game.seed,
+            game.level.width, game.level.height,
+            len(game.level.rooms),
+        )
+
+        return jsonify({
+            "status": "ok",
+            "seed": game.seed,
+            "params": params.to_dict(),
+        })
+
     # ── Export routes (god mode only) ───────────────────────
 
     @app.route("/api/game/<session_id>/export/game_state",
@@ -786,11 +937,14 @@ def create_app(
             from nhc.core.save import _serialize_entities, _serialize_level
             static, dynamic = client._gather_stats(
                 game.world, game.player_id, game.turn, game.level)
+            gen_params = (game.generation_params.to_dict()
+                          if game.generation_params else None)
             state = {
                 "timestamp": datetime.now().isoformat(),
                 "turn": game.turn,
                 "player_id": game.player_id,
                 "seed": game.seed,
+                "generation_params": gen_params,
                 "stats": {**static, **dynamic},
                 "entities": client._gather_entities(
                     game.world, game.level, game.player_id),
@@ -831,6 +985,14 @@ def create_app(
             log_file = Path(app.config.get("LOG_PATH", ""))
             if log_file.exists():
                 tar.add(str(log_file), arcname="nhc.log")
+
+            # 6. Generation params (standalone for easy access)
+            if gen_params:
+                _add_text(
+                    tar,
+                    f"exports/generation_params_{ts}.json",
+                    _json.dumps(gen_params, indent=2),
+                )
 
         buf.seek(0)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")

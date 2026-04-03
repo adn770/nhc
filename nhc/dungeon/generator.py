@@ -35,6 +35,40 @@ class GenerationParams:
     multiple_stairs: bool = False
     shape_variety: float = 0.0  # 0.0 = all rect, 1.0 = all non-rect
 
+    def to_dict(self) -> dict:
+        """Serialize to a JSON-friendly dictionary."""
+        return {
+            "width": self.width,
+            "height": self.height,
+            "depth": self.depth,
+            "room_count": {"min": self.room_count.min,
+                           "max": self.room_count.max},
+            "room_size": {"min": self.room_size.min,
+                          "max": self.room_size.max},
+            "corridor_style": self.corridor_style,
+            "density": self.density,
+            "connectivity": self.connectivity,
+            "theme": self.theme,
+            "seed": self.seed,
+            "dead_ends": self.dead_ends,
+            "secret_doors": self.secret_doors,
+            "water_features": self.water_features,
+            "multiple_stairs": self.multiple_stairs,
+            "shape_variety": self.shape_variety,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "GenerationParams":
+        """Deserialize from a dictionary, ignoring unknown keys."""
+        import dataclasses
+        valid_keys = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in d.items() if k in valid_keys}
+        if isinstance(filtered.get("room_count"), dict):
+            filtered["room_count"] = Range(**filtered["room_count"])
+        if isinstance(filtered.get("room_size"), dict):
+            filtered["room_size"] = Range(**filtered["room_size"])
+        return cls(**filtered)
+
 
 class DungeonGenerator(abc.ABC):
     """Abstract base for dungeon generators."""

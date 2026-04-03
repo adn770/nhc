@@ -350,6 +350,192 @@ body {
   cursor: default;
 }
 
+/* Map Gen tab */
+.debug-number-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: #ccc;
+}
+
+.debug-number-row label {
+  flex: 1;
+  font-size: 11px;
+}
+
+.debug-number-row input[type="number"] {
+  width: 60px;
+  background: #0f1529;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 4px;
+  text-align: right;
+}
+
+.debug-number-row input[type="number"]:focus {
+  border-color: #e6c07b;
+  outline: none;
+}
+
+.debug-range-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: #ccc;
+}
+
+.debug-range-row label {
+  flex: 1;
+  font-size: 11px;
+}
+
+.debug-range-row .range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.debug-range-row input[type="number"] {
+  width: 40px;
+  background: #0f1529;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 4px;
+  text-align: right;
+}
+
+.debug-range-row input[type="number"]:focus {
+  border-color: #e6c07b;
+  outline: none;
+}
+
+.debug-range-row .range-sep {
+  color: #666;
+  font-size: 10px;
+}
+
+.debug-select-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: #ccc;
+}
+
+.debug-select-row label {
+  flex: 1;
+  font-size: 11px;
+}
+
+.debug-select-row select {
+  background: #0f1529;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.debug-select-row select:focus {
+  border-color: #e6c07b;
+  outline: none;
+}
+
+.debug-select-row .auto-hint {
+  color: #888;
+  font-size: 9px;
+  margin-left: 4px;
+}
+
+.debug-seed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: #ccc;
+}
+
+.debug-seed-row label {
+  flex: 1;
+  font-size: 11px;
+}
+
+.debug-seed-row input[type="text"] {
+  width: 90px;
+  background: #0f1529;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 4px;
+  text-align: right;
+}
+
+.debug-seed-row input[type="text"]:focus {
+  border-color: #e6c07b;
+  outline: none;
+}
+
+.debug-seed-row .seed-random-btn {
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #888;
+  font-family: monospace;
+  font-size: 10px;
+  padding: 2px 6px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.debug-seed-row .seed-random-btn:hover {
+  border-color: #e6c07b;
+  color: #ccc;
+}
+
+.debug-regen-btn {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 2px solid #e6c07b;
+  border-radius: 4px;
+  color: #e6c07b;
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 8px 10px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+.debug-regen-btn:hover {
+  background: #2a2a4e;
+  color: #fff;
+}
+
+.debug-regen-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.debug-regen-status {
+  color: #888;
+  font-size: 10px;
+  text-align: center;
+  margin-top: 4px;
+  min-height: 14px;
+}
+
 /* Toolbar */
 #toolbar-zone {
   background: #16213e;
