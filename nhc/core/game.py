@@ -1055,6 +1055,7 @@ class Game:
             )
 
         if intent == "quit":
+            _autosave(self, self.save_dir, blocking=True)
             self.renderer.shutdown()
             self.running = False
             return None

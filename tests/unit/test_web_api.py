@@ -430,3 +430,24 @@ class TestNewGameCleansUp:
         # The new game re-generates SVGs; they must not be the stale ones
         floor_svg = (save_dir / "floor.svg").read_text()
         assert "stale-floor" not in floor_svg
+
+
+class TestQuitSavesGame:
+    def test_quit_intent_creates_autosave(self, client_with_data_dir):
+        token, pid = _register_player(client_with_data_dir)
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        save_dir = session.save_dir
+
+        # Quit intent should trigger autosave
+        session.game._intent_to_action("quit", None)
+
+        assert (save_dir / "autosave.nhc").exists()
