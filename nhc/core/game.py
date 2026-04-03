@@ -736,6 +736,15 @@ class Game:
                              self.turn, type(act).__name__)
                 events += await self._resolve(act)
 
+            # Haste: auto-repeat movement in the same direction
+            if (player_status and player_status.hasted > 0
+                    and isinstance(action, BumpAction)):
+                haste_move = BumpAction(
+                    actor=self.player_id,
+                    dx=action.dx, dy=action.dy,
+                )
+                events += await self._resolve(haste_move)
+
             # Check win
             if self.won:
                 delete_autosave(self.save_dir)

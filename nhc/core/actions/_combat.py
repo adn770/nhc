@@ -6,7 +6,9 @@ import logging
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action, _closed_door_blocks
-from nhc.core.actions._helpers import _entity_name, _get_armor_magic, _msg
+from nhc.core.actions._helpers import (
+    _entity_name, _get_armor_magic, _msg, has_ring_effect,
+)
 from nhc.core.events import (
     CreatureAttacked,
     CreatureDied,
@@ -115,9 +117,15 @@ class MeleeAttackAction(Action):
         # Target armor magic bonus
         armor_magic = _get_armor_magic(world, self.target)
 
+        # Ring of accuracy: +2 attack bonus
+        ring_attack = 0
+        if has_ring_effect(world, self.actor, "accuracy"):
+            ring_attack = 2
+
         hit, damage = resolve_melee_attack(
             a_stats, t_stats, weapon_damage,
-            attack_bonus=weapon_magic, damage_bonus=weapon_magic,
+            attack_bonus=weapon_magic + ring_attack,
+            damage_bonus=weapon_magic,
             armor_bonus=armor_magic,
         )
         logger.debug(
@@ -240,6 +248,8 @@ class MeleeAttackAction(Action):
             fb = world.get_component(self.actor, "FrostBreath")
             if fb:
                 cold = roll_dice(fb.dice)
+                if has_ring_effect(world, self.target, "elements"):
+                    cold = cold // 2
                 cold_actual = apply_damage(t_health, cold)
                 events.append(MessageEvent(
                     text=_msg("combat.frost_breath", world,

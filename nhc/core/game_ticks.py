@@ -100,6 +100,19 @@ def tick_rings(game: Game) -> None:
                     health.current + 1, health.maximum,
                 )
 
+        if ring.effect == "haste":
+            status = game.world.get_component(
+                game.player_id, "StatusEffect",
+            )
+            if status is None:
+                from nhc.entities.components import StatusEffect
+                status = StatusEffect(hasted=1)
+                game.world.add_component(
+                    game.player_id, "StatusEffect", status,
+                )
+            else:
+                status.hasted = 1
+
         if ring.effect == "detection":
             # Auto-reveal traps and secret doors in FOV
             for y in range(game.level.height):

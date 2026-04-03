@@ -204,7 +204,8 @@ class DropAction(Action):
         # Unequip if currently equipped (any slot)
         equip = world.get_component(self.actor, "Equipment")
         if equip:
-            for attr in ("weapon", "armor", "shield", "helmet"):
+            for attr in ("weapon", "armor", "shield", "helmet",
+                        "ring_left", "ring_right"):
                 if getattr(equip, attr) == self.item:
                     setattr(equip, attr, None)
 

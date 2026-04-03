@@ -30,6 +30,20 @@ def _count_slots_used(world: "World", inv) -> int:
     return total
 
 
+def has_ring_effect(world: "World", entity_id: int, effect: str) -> bool:
+    """Check if entity has a ring with the given effect equipped."""
+    equip = world.get_component(entity_id, "Equipment")
+    if not equip:
+        return False
+    for slot in ("ring_left", "ring_right"):
+        ring_id = getattr(equip, slot)
+        if ring_id is not None:
+            ring = world.get_component(ring_id, "Ring")
+            if ring and ring.effect == effect:
+                return True
+    return False
+
+
 def _get_armor_magic(world: "World", entity_id: int) -> int:
     """Sum magic_bonus from all equipped armor pieces on an entity."""
     equip = world.get_component(entity_id, "Equipment")

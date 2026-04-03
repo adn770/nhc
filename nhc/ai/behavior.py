@@ -16,6 +16,7 @@ from nhc.entities.components import (
     Position,
     StatusEffect,
 )
+from nhc.core.actions._helpers import has_ring_effect
 from nhc.utils.rng import d20
 from nhc.utils.spatial import adjacent, chebyshev
 
@@ -74,6 +75,10 @@ def decide_action(
     dist = chebyshev(pos.x, pos.y, player_pos.x, player_pos.y)
     chase_radius = CHASE_RADIUS.get(ai.behavior, 0)
 
+    # Ring of shadows: halve all detection ranges
+    if has_ring_effect(world, player_id, "shadows"):
+        chase_radius = chase_radius // 2
+
     # Shrieker: stationary; screams when player enters detection range
     if ai.behavior == "shrieker":
         if dist <= chase_radius:
@@ -81,13 +86,17 @@ def decide_action(
         return None
 
     # Banshee: wail when player is in range, then also attack if adjacent
+    shadows = has_ring_effect(world, player_id, "shadows")
     death_wail = world.get_component(entity_id, "DeathWail")
-    if death_wail and dist <= death_wail.radius:
-        return BansheeWailAction(actor=entity_id, player_id=player_id)
+    if death_wail:
+        wail_range = death_wail.radius // 2 if shadows else death_wail.radius
+        if dist <= wail_range:
+            return BansheeWailAction(actor=entity_id, player_id=player_id)
 
     # FearAura: player must save STR or be webbed (paralyzed with fear)
     fear_aura = world.get_component(entity_id, "FearAura")
-    if fear_aura and dist <= fear_aura.radius:
+    fear_range = fear_aura.radius // 2 if fear_aura and shadows else (fear_aura.radius if fear_aura else 0)
+    if fear_aura and dist <= fear_range:
         p_stats = world.get_component(player_id, "Stats")
         if p_stats:
             player_status = world.get_component(player_id, "StatusEffect")
@@ -102,7 +111,8 @@ def decide_action(
 
     # CharmSong: force player toward creature each turn (skip player turn)
     charm_song = world.get_component(entity_id, "CharmSong")
-    if charm_song and dist <= charm_song.radius:
+    charm_range = charm_song.radius // 2 if charm_song and shadows else (charm_song.radius if charm_song else 0)
+    if charm_song and dist <= charm_range:
         p_stats = world.get_component(player_id, "Stats")
         if p_stats:
             player_status = world.get_component(player_id, "StatusEffect")

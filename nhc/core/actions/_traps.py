@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from nhc.core.actions._helpers import _entity_name, _msg
+from nhc.core.actions._helpers import _entity_name, _msg, has_ring_effect
 from nhc.core.events import Event, MessageEvent, TrapTriggered
 from nhc.entities.components import Poison, Position, StatusEffect
 from nhc.rules.combat import apply_damage
@@ -72,6 +72,9 @@ def _apply_trap_effect(
     # -- Damage traps (pit, fire, gripping) --
     if trap.damage and trap.damage != "0":
         damage = roll_dice(trap.damage)
+        # Ring of elements: halve fire damage
+        if effect == "fire" and has_ring_effect(world, entity_id, "elements"):
+            damage = damage // 2
         if health:
             actual = apply_damage(health, damage)
             events.append(TrapTriggered(
