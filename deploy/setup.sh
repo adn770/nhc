@@ -30,6 +30,11 @@ OVERRIDE_FILE="${OVERRIDE_DIR}/override.conf"
 DATA_DIR="/var/nhc"
 DOCKER_IMAGE="nhc-web"
 
+DUCKDNS_SERVICE_FILE="/etc/systemd/system/duckdns-update.service"
+DUCKDNS_TIMER_FILE="/etc/systemd/system/duckdns-update.timer"
+DUCKDNS_OVERRIDE_DIR="/etc/systemd/system/duckdns-update.service.d"
+DUCKDNS_OVERRIDE_FILE="${DUCKDNS_OVERRIDE_DIR}/override.conf"
+
 # ── Pre-flight checks ──────────────────────────────────────
 if [[ $EUID -ne 0 ]]; then
     fail "This script must be run as root (sudo)."
@@ -163,26 +168,110 @@ if [[ "${setup_duckdns,,}" == "y" ]]; then
     fi
 fi
 
-# ── Write systemd override ──────────────────────────────────
+# ── Write NHC systemd override ──────────────────────────────
 info "Writing systemd override..."
 mkdir -p "${OVERRIDE_DIR}"
+
+# When Caddy handles TLS, bind Docker to localhost only
+NHC_BIND="0.0.0.0"
+if [[ -n "${DUCKDNS_SUBDOMAIN}" && -n "${DUCKDNS_TOKEN}" ]]; then
+    NHC_BIND="127.0.0.1"
+fi
+
 cat > "${OVERRIDE_FILE}" <<CONF
 [Service]
 Environment=NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN}
 Environment=NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS}
+Environment=NHC_BIND=${NHC_BIND}
 CONF
-
-if [[ -n "${DUCKDNS_SUBDOMAIN}" && -n "${DUCKDNS_TOKEN}" ]]; then
-    cat >> "${OVERRIDE_FILE}" <<CONF
-Environment=DUCKDNS_SUBDOMAIN=${DUCKDNS_SUBDOMAIN}
-Environment=DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
-CONF
-fi
 
 chmod 600 "${OVERRIDE_FILE}"
 ok "Override written: ${OVERRIDE_FILE} (mode 600)"
 
-# ── Enable and start ────────────────────────────────────────
+# ── Caddy + DuckDNS setup (when DuckDNS is configured) ─────
+if [[ -n "${DUCKDNS_SUBDOMAIN}" && -n "${DUCKDNS_TOKEN}" ]]; then
+    echo ""
+    echo -e "${CYAN}╔══════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║     Caddy + Let's Encrypt + DuckDNS      ║${NC}"
+    echo -e "${CYAN}╚══════════════════════════════════════════╝${NC}"
+    echo ""
+
+    # ── Install Caddy ──────────────────────────────────────
+    if ! command -v caddy &>/dev/null; then
+        info "Installing Caddy..."
+        if command -v pacman &>/dev/null; then
+            pacman -Sy --noconfirm caddy >/dev/null 2>&1
+        elif command -v apt-get &>/dev/null; then
+            apt-get install -y debian-keyring debian-archive-keyring \
+                apt-transport-https curl >/dev/null 2>&1
+            curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
+                | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+            curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
+                | tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+            apt-get update >/dev/null 2>&1
+            apt-get install -y caddy >/dev/null 2>&1
+        else
+            fail "Unsupported package manager. Install Caddy manually."
+        fi
+        ok "Caddy installed."
+    else
+        ok "Caddy already installed: $(caddy version)"
+    fi
+
+    # ── Generate Caddyfile ──────────────────────────────────
+    CADDY_DOMAIN="${DUCKDNS_SUBDOMAIN}.duckdns.org"
+    info "Writing Caddyfile for ${CADDY_DOMAIN}..."
+    cat > /etc/caddy/Caddyfile <<CADDYFILE
+${CADDY_DOMAIN} {
+    reverse_proxy localhost:8080
+    encode gzip
+}
+CADDYFILE
+    ok "Caddyfile written: /etc/caddy/Caddyfile"
+
+    # ── Install DuckDNS update timer ────────────────────────
+    info "Installing DuckDNS update timer..."
+    cp "${SCRIPT_DIR}/duckdns-update.service" "${DUCKDNS_SERVICE_FILE}"
+    cp "${SCRIPT_DIR}/duckdns-update.timer" "${DUCKDNS_TIMER_FILE}"
+
+    mkdir -p "${DUCKDNS_OVERRIDE_DIR}"
+    cat > "${DUCKDNS_OVERRIDE_FILE}" <<CONF
+[Service]
+Environment=DUCKDNS_SUBDOMAIN=${DUCKDNS_SUBDOMAIN}
+Environment=DUCKDNS_TOKEN=${DUCKDNS_TOKEN}
+CONF
+    chmod 600 "${DUCKDNS_OVERRIDE_FILE}"
+    ok "DuckDNS credentials written (mode 600)"
+
+    # ── Start services ──────────────────────────────────────
+    systemctl daemon-reload
+
+    # Run an initial DuckDNS update
+    info "Updating DuckDNS IP..."
+    if systemctl start duckdns-update.service; then
+        ok "DuckDNS IP updated."
+    else
+        warn "DuckDNS update failed — check token and subdomain."
+    fi
+
+    systemctl enable --now duckdns-update.timer
+    ok "DuckDNS timer enabled (every 5 min)."
+
+    # Validate Caddyfile before restarting
+    info "Validating Caddyfile..."
+    if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
+        ok "Caddyfile is valid."
+    else
+        warn "Caddyfile validation failed — check /etc/caddy/Caddyfile"
+        caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+    fi
+
+    systemctl enable caddy
+    systemctl restart caddy
+    ok "Caddy enabled and started."
+fi
+
+# ── Enable and start NHC ────────────────────────────────────
 info "Reloading systemd daemon..."
 systemctl daemon-reload
 
@@ -213,17 +302,22 @@ if $healthy; then
     echo ""
     echo -e "  Health:   ${HEALTH}"
     echo -e "  Token:    ${GREEN}${NHC_AUTH_TOKEN}${NC}"
-    echo -e "  LAN URL:  ${CYAN}http://$(hostname):8080/?token=${NHC_AUTH_TOKEN}${NC}"
     if [[ -n "${DUCKDNS_SUBDOMAIN}" ]]; then
-        echo -e "  WAN URL:  ${CYAN}https://${DUCKDNS_SUBDOMAIN}.duckdns.org/?token=${NHC_AUTH_TOKEN}${NC}"
+        echo -e "  URL:      ${CYAN}https://${DUCKDNS_SUBDOMAIN}.duckdns.org/?token=${NHC_AUTH_TOKEN}${NC}"
         echo ""
-        warn "WAN access requires ports 80/443 forwarded to this host"
-        warn "and Caddy reverse proxy running (not yet configured in systemd)."
+        warn "Ensure ports 80 and 443 are forwarded to this host."
+    else
+        echo -e "  LAN URL:  ${CYAN}http://$(hostname):8080/?token=${NHC_AUTH_TOKEN}${NC}"
     fi
     echo ""
     echo "  Useful commands:"
-    echo "    journalctl -u nhc -f          # follow logs"
-    echo "    systemctl status nhc          # service status"
+    echo "    journalctl -u nhc -f          # follow app logs"
+    echo "    systemctl status nhc          # app service status"
+    if [[ -n "${DUCKDNS_SUBDOMAIN}" ]]; then
+        echo "    journalctl -u caddy -f        # follow Caddy logs"
+        echo "    systemctl status caddy        # Caddy service status"
+        echo "    systemctl list-timers         # check DuckDNS timer"
+    fi
     echo "    sudo $(realpath "$0") --update  # rebuild + restart"
 else
     echo ""

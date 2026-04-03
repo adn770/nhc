@@ -1,0 +1,14 @@
+[Unit]
+Description=DuckDNS dynamic DNS update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Secrets live in the override file:
+#   /etc/systemd/system/duckdns-update.service.d/override.conf
+# Required:  DUCKDNS_SUBDOMAIN, DUCKDNS_TOKEN
+ExecStart=/bin/sh -c '\
+    /usr/bin/curl -sf \
+    "https://www.duckdns.org/update?domains=${DUCKDNS_SUBDOMAIN}&token=${DUCKDNS_TOKEN}&ip=" \
+    && echo ""'

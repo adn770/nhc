@@ -15,10 +15,11 @@ RestartSec=10
 # Optional:  NHC_MAX_SESSIONS (default 8)
 Environment=NHC_DATA_DIR=/var/nhc
 Environment=NHC_MAX_SESSIONS=8
+Environment=NHC_BIND=0.0.0.0
 
 ExecStartPre=-/usr/bin/docker rm -f nhc
 ExecStart=/usr/bin/docker run --name nhc \
-    --publish 8080:8080 \
+    --publish ${NHC_BIND}:8080:8080 \
     --volume /var/nhc:/var/nhc \
     --env NHC_DATA_DIR=${NHC_DATA_DIR} \
     --env NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN} \
