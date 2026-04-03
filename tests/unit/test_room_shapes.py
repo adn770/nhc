@@ -111,8 +111,8 @@ class TestCircleShape:
     def test_5x5_circle_tile_count(self):
         rect = Rect(0, 0, 5, 5)
         tiles = CircleShape().floor_tiles(rect)
-        # pi * r^2 = pi * 4 ≈ 12.6, discrete rasterization gives 13
-        assert len(tiles) == 13
+        # With generous radius (r+0.5) to match SVG rendering, 21 tiles
+        assert len(tiles) == 21
 
     def test_7x7_circle_symmetry(self):
         """Circle should be symmetric around its center."""
@@ -220,12 +220,12 @@ class TestOctagonShape:
             RectShape().floor_tiles(rect)
         )
 
-    def test_octagon_more_tiles_than_circle(self):
-        """Octagon is closer to a rect than a circle."""
+    def test_octagon_fewer_tiles_than_circle(self):
+        """Circle with generous radius has more tiles than octagon."""
         rect = Rect(0, 0, 9, 9)
         oct_tiles = OctagonShape().floor_tiles(rect)
         circle_tiles = CircleShape().floor_tiles(rect)
-        assert len(oct_tiles) > len(circle_tiles)
+        assert len(circle_tiles) > len(oct_tiles)
 
     def test_octagon_subset_of_rect(self):
         rect = Rect(1, 2, 8, 8)

@@ -103,11 +103,14 @@ class CircleShape(RoomShape):
             return set()
         cx = rect.x + (rect.width - 1) / 2
         cy = rect.y + (rect.height - 1) / 2
+        # Use (r + 0.5)² so edge tiles that the SVG circle covers
+        # are included as walkable floor.
+        r_eff = r + 0.5
         return {
             (x, y)
             for y in range(rect.y, rect.y2)
             for x in range(rect.x, rect.x2)
-            if (x - cx) ** 2 + (y - cy) ** 2 <= r ** 2
+            if (x - cx) ** 2 + (y - cy) ** 2 <= r_eff ** 2
         }
 
     def cardinal_walls(self, rect: Rect) -> list[tuple[int, int]]:
