@@ -113,116 +113,95 @@ def _hybrid_door_ok(
 
 
 def _door_candidates(
-    level: Level, room: Room,
+    room: Room,
 ) -> list[tuple[int, int, str]]:
-    """Return valid door positions as (x, y, side) tuples.
+    """Return valid door positions as (wall_x, wall_y, side) tuples.
 
-    Analyzes the room's actual floor geometry to find wall tiles
-    that sit on straight wall segments with clear outward access.
-    Works for any room shape — rect, circle, octagon, cross, hybrid.
+    Uses a purely geometric approach based on the room's floor shape:
 
-    Each candidate is a wall tile adjacent to room floor where:
-    - Exactly one cardinal direction leads to room floor (inward)
-    - The opposite direction is VOID (outward, for corridor access)
-    - The floor tile inward has floor neighbors on both sides along
-      the wall direction (straight wall run, not a curve/corner)
-    - No adjacent door already exists
+    1. Find perimeter floor tiles (floor with a non-floor cardinal
+       neighbor). For each, record which edges face outward.
+    2. Group co-linear perimeter edges into straight **wall runs**
+       (e.g., all tiles on the north edge at the same y, forming
+       a horizontal run).
+    3. For each run of length >= 3, every position in the run
+       (excluding the two endpoints) is a valid door candidate.
+       The door sits on the wall tile one step outward from the
+       perimeter floor tile.
+
+    This approach works for any room shape and naturally avoids
+    curved sections, diagonal transitions, and corners because
+    those produce runs shorter than 3.
     """
-    _DOOR_FEATURES = {
-        "door_closed", "door_open", "door_secret", "door_locked",
-    }
-    # side = direction from room interior toward the wall.
-    # If floor is at (wx+1, wy), the wall is west of the floor,
-    # so this is the room's west side → side = "west".
-    _SIDE_FOR_INWARD = {
-        (1, 0): "west",    # floor is east of wall → wall is on west side
-        (-1, 0): "east",   # floor is west of wall → wall is on east side
-        (0, 1): "north",   # floor is south of wall → wall is on north side
-        (0, -1): "south",  # floor is north of wall → wall is on south side
-    }
-    _PARALLEL = {
-        "north": [(-1, 0), (1, 0)],
-        "south": [(-1, 0), (1, 0)],
-        "east": [(0, -1), (0, 1)],
-        "west": [(0, -1), (0, 1)],
+    _OUTWARD = {
+        "north": (0, -1),
+        "south": (0, 1),
+        "east": (1, 0),
+        "west": (-1, 0),
     }
 
     floor = room.floor_tiles()
+
+    # Step 1: find perimeter edges.
+    # An edge is (floor_x, floor_y, side) where side indicates
+    # the direction of the non-floor neighbor.
+    edges: list[tuple[int, int, str]] = []
+    for fx, fy in floor:
+        for side, (dx, dy) in _OUTWARD.items():
+            if (fx + dx, fy + dy) not in floor:
+                edges.append((fx, fy, side))
+
+    # Step 2: group edges into co-linear wall runs.
+    # North/south edges group by (y, side) sorted by x.
+    # East/west edges group by (x, side) sorted by y.
+    from collections import defaultdict
+    h_runs: dict[tuple[int, str], list[int]] = defaultdict(list)
+    v_runs: dict[tuple[int, str], list[int]] = defaultdict(list)
+
+    for fx, fy, side in edges:
+        if side in ("north", "south"):
+            h_runs[(fy, side)].append(fx)
+        else:
+            v_runs[(fx, side)].append(fy)
+
+    # Step 3: split into contiguous runs, then emit candidates.
     candidates: list[tuple[int, int, str]] = []
 
-    # Find all WALL tiles cardinally adjacent to room floor
-    seen: set[tuple[int, int]] = set()
-    for fx, fy in floor:
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            wx, wy = fx + dx, fy + dy
-            if (wx, wy) in seen or (wx, wy) in floor:
+    def _contiguous_runs(vals: list[int]) -> list[list[int]]:
+        """Split sorted values into contiguous sub-runs."""
+        vals.sort()
+        runs: list[list[int]] = []
+        current: list[int] = [vals[0]]
+        for v in vals[1:]:
+            if v == current[-1] + 1:
+                current.append(v)
+            else:
+                runs.append(current)
+                current = [v]
+        runs.append(current)
+        return runs
+
+    min_run = 2
+
+    for (fy, side), x_vals in h_runs.items():
+        dx, dy = _OUTWARD[side]
+        for run in _contiguous_runs(x_vals):
+            if len(run) < min_run:
                 continue
-            seen.add((wx, wy))
-            t = level.tile_at(wx, wy)
-            if not t or t.terrain != Terrain.WALL:
+            # Exclude endpoints (they're at shape corners).
+            # For runs of exactly min_run, include both.
+            inner = run[1:-1] if len(run) > min_run else run
+            for fx in inner:
+                candidates.append((fx + dx, fy + dy, side))
+
+    for (fx, side), y_vals in v_runs.items():
+        dx, dy = _OUTWARD[side]
+        for run in _contiguous_runs(y_vals):
+            if len(run) < min_run:
                 continue
-
-            # Determine inward directions (which cardinal neighbors
-            # are floor). Valid candidates have exactly one inward
-            # axis to avoid corners.
-            inward_dirs = []
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                if (wx + ddx, wy + ddy) in floor:
-                    inward_dirs.append((ddx, ddy))
-
-            if len(inward_dirs) == 0:
-                continue  # convex corner, no adjacent floor
-            if len(inward_dirs) > 1:
-                # Check if they're on the same axis (e.g. floor on
-                # both sides = middle of room, not a wall). Or on
-                # perpendicular axes = concave corner.
-                axes = {(abs(d[0]), abs(d[1])) for d in inward_dirs}
-                if len(axes) > 1:
-                    continue  # perpendicular = corner, skip
-
-            # Use the first inward direction to determine side
-            idx, idy = inward_dirs[0]
-            side = _SIDE_FOR_INWARD[(idx, idy)]
-
-            # Outward direction is opposite of inward
-            ox, oy = wx - idx, wy - idy
-            ot = level.tile_at(ox, oy)
-            if ot and ot.terrain != Terrain.VOID:
-                continue  # outward blocked
-
-            # Straight wall check — the wall tile and its parallel
-            # neighbors must form a flat wall face: each must be
-            # WALL with VOID on the outward side. This excludes
-            # curved sections where the outward side is WALL (the
-            # wall ring curves away), and corners where a parallel
-            # neighbor is VOID.
-            parallel = _PARALLEL[side]
-            straight = True
-            for pdx, pdy in parallel:
-                pw_x, pw_y = wx + pdx, wy + pdy
-                pw_t = level.tile_at(pw_x, pw_y)
-                if not pw_t or pw_t.terrain != Terrain.WALL:
-                    straight = False
-                    break
-                po_x, po_y = pw_x - idx, pw_y - idy
-                po_t = level.tile_at(po_x, po_y)
-                if not po_t or po_t.terrain != Terrain.VOID:
-                    straight = False
-                    break
-            if not straight:
-                continue
-
-            # No adjacent door
-            has_adj_door = False
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nb = level.tile_at(wx + ddx, wy + ddy)
-                if nb and nb.feature in _DOOR_FEATURES:
-                    has_adj_door = True
-                    break
-            if has_adj_door:
-                continue
-
-            candidates.append((wx, wy, side))
+            inner = run[1:-1] if len(run) > min_run else run
+            for fy in inner:
+                candidates.append((fx + dx, fy + dy, side))
 
     return candidates
 
@@ -996,7 +975,7 @@ class BSPGenerator(DungeonGenerator):
         cx, cy = room.rect.center
         dx, dy = tx - cx, ty - cy
 
-        cands = _door_candidates(level, room)
+        cands = _door_candidates(room)
         if not cands:
             return cx, cy
 
