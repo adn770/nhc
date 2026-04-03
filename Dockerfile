@@ -1,20 +1,7 @@
-FROM python:3.12-slim
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl gcc libc6-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN useradd -m -s /bin/bash -u 1000 nhc
+FROM nhc-base:latest
 
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir \
-    flask flask-sock shapely noise gunicorn gevent pyyaml
-
 COPY . .
-
-RUN apt-get purge -y --auto-remove gcc libc6-dev
 
 USER nhc
 
