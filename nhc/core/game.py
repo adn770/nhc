@@ -388,9 +388,9 @@ class Game:
 
         if self.seed is not None:
             set_seed(self.seed)
-        effective_seed = get_seed()
+        self.seed = get_seed()
         logger.info("RNG seed: %d (use --seed %d to reproduce)",
-                     effective_seed, effective_seed)
+                     self.seed, self.seed)
 
         # Discover all entity types
         EntityRegistry.discover_all()

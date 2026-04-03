@@ -1,6 +1,7 @@
 """Tests for dice roller and RNG."""
 
 import random
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -56,3 +57,43 @@ class TestRollDiceMax:
 
     def test_1d8_minus_1(self):
         assert roll_dice_max("1d8-1") == 7
+
+
+class TestGameSeedPreservation:
+    """Game.seed must always hold the effective seed after init."""
+
+    @pytest.mark.asyncio
+    async def test_seed_preserved_when_explicit(self, tmp_path):
+        """When a seed is passed, Game.seed keeps that value."""
+        from nhc.core.game import Game
+        client = MagicMock()
+        game = Game(client, seed=12345, save_dir=tmp_path)
+        await game.initialize(generate=True)
+        assert game.seed == 12345
+
+    @pytest.mark.asyncio
+    async def test_seed_preserved_when_none(self, tmp_path):
+        """When no seed is passed, Game.seed stores the auto-generated
+        seed so it can be included in debug exports."""
+        from nhc.core.game import Game
+        client = MagicMock()
+        game = Game(client, seed=None, save_dir=tmp_path)
+        await game.initialize(generate=True)
+        assert game.seed is not None
+        assert isinstance(game.seed, int)
+
+    @pytest.mark.asyncio
+    async def test_seed_survives_autosave_roundtrip(self, tmp_path):
+        """Seed must be preserved through autosave/restore."""
+        from nhc.core.autosave import auto_restore, autosave
+        from nhc.core.game import Game
+        client = MagicMock()
+        game = Game(client, seed=99999, save_dir=tmp_path)
+        await game.initialize(generate=True)
+        assert game.seed == 99999
+
+        autosave(game, tmp_path, blocking=True)
+
+        game2 = Game(client, seed=None, save_dir=tmp_path)
+        assert auto_restore(game2, tmp_path)
+        assert game2.seed == 99999

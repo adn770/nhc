@@ -129,6 +129,7 @@ def _build_payload(game: "Game") -> dict[str, Any]:
 
     return {
         "version": AUTOSAVE_VERSION,
+        "seed": game.seed,
         "turn": game.turn,
         "player_id": game.player_id,
         "god_mode": game.god_mode,
@@ -173,6 +174,7 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     EntityRegistry.discover_all()
 
     # Core state
+    game.seed = payload.get("seed", game.seed)
     game.turn = payload["turn"]
     game.player_id = payload["player_id"]
     game.god_mode = payload.get("god_mode", False)

@@ -338,13 +338,13 @@ def create_app(
                     for player_dir in players_dir.iterdir():
                         if not player_dir.is_dir():
                             continue
-                        autosave = player_dir / "autosave.bin"
+                        autosave = player_dir / "autosave.nhc"
                         if autosave.exists():
                             tar.add(
                                 str(autosave),
                                 arcname=(
                                     f"autosaves/{player_dir.name}"
-                                    f"/autosave.bin"
+                                    f"/autosave.nhc"
                                 ),
                             )
 
@@ -768,6 +768,12 @@ def create_app(
         client = game.renderer
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+        # Force a fresh autosave so the bundle always contains
+        # the current game state.
+        if session.save_dir:
+            from nhc.core.autosave import autosave as _autosave
+            _autosave(game, session.save_dir, blocking=True)
+
         def _add_text(tar, name, text):
             data = text.encode("utf-8")
             info = tarfile.TarInfo(name=name)
@@ -817,9 +823,9 @@ def create_app(
 
             # 4. Autosave
             if session.save_dir:
-                autosave = session.save_dir / "autosave.bin"
+                autosave = session.save_dir / "autosave.nhc"
                 if autosave.exists():
-                    tar.add(str(autosave), arcname="autosave.bin")
+                    tar.add(str(autosave), arcname="autosave.nhc")
 
             # 5. Game log
             log_file = Path(app.config.get("LOG_PATH", ""))

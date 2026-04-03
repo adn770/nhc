@@ -451,3 +451,44 @@ class TestQuitSavesGame:
         session.game._intent_to_action("quit", None)
 
         assert (save_dir / "autosave.nhc").exists()
+
+
+class TestDebugBundleAutosave:
+    def test_bundle_forces_autosave(self, client_with_data_dir):
+        """Debug bundle must force a fresh autosave so the bundle
+        always contains the current game state."""
+        token, pid = _register_player(client_with_data_dir)
+
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        session.game.set_god_mode(True)
+        save_dir = session.save_dir
+        save_file = save_dir / "autosave.nhc"
+
+        # Remove any existing autosave
+        if save_file.exists():
+            save_file.unlink()
+        assert not save_file.exists()
+
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/export/bundle",
+        )
+        assert resp.status_code == 200
+
+        # Autosave must have been created
+        assert save_file.exists()
+
+        # Bundle must contain autosave.bin
+        import io
+        import tarfile
+        buf = io.BytesIO(resp.data)
+        with tarfile.open(fileobj=buf, mode="r:gz") as tar:
+            names = tar.getnames()
+            assert "autosave.nhc" in names

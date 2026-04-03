@@ -47,6 +47,7 @@ class FakeGame:
     def __init__(self):
         self.world = World()
         self.event_bus = EventBus()
+        self.seed = 42
         self.turn = 0
         self.player_id = -1
         self.level = None
