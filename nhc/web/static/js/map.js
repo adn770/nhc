@@ -124,8 +124,6 @@ const GameMap = {
       this.playerX = player.x;
       this.playerY = player.y;
     }
-    this.draw();
-    this.scrollToPlayer();
   },
 
   /**
@@ -171,10 +169,18 @@ const GameMap = {
         }
       }
     }
+  },
 
+  /**
+   * Redraw all visual layers and scroll to player in one pass.
+   * Called after both entities and FOV data have been updated
+   * so that fog, hatch, entities, and viewport stay in sync.
+   */
+  flush() {
     this.drawHatch();
     this.drawFog();
     this.draw();
+    this.scrollToPlayer();
   },
 
   /**
@@ -195,7 +201,7 @@ const GameMap = {
     zone.scrollTo({
       left: Math.max(0, targetLeft),
       top: Math.max(0, targetTop),
-      behavior: "smooth",
+      behavior: "auto",
     });
   },
 

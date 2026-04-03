@@ -29,6 +29,7 @@ const NHC = {
       if (msg.fov || msg.fov_add || msg.fov_del) {
         GameMap.updateFOV(msg);
       }
+      GameMap.flush();
       if (DebugPanel.enabled) DebugPanel.updateFovInfo();
     });
 
@@ -73,6 +74,9 @@ const NHC = {
       }
       if (msg.fov) {
         GameMap.updateFOV(msg);
+      }
+      if (msg.entities || msg.fov) {
+        GameMap.flush();
       }
       NHC.hideLoading();
     });
