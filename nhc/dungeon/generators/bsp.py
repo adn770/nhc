@@ -37,6 +37,81 @@ MIN_ROOM = 4
 PADDING = 2  # ≥2 ensures void gap between adjacent rooms' walls
 
 
+def _hybrid_door_ok(
+    room: Room, dx: int, dy: int, door_side: str,
+) -> bool:
+    """Return True if a door on a hybrid room is in a valid position.
+
+    Doors in the circle half's range on the bounding rect edge
+    must be at a cardinal wall position of the circle.  Doors on
+    the rect half are always valid (already checked for straightness
+    by the caller).
+    """
+    shape = room.shape
+    if not isinstance(shape, HybridShape):
+        return True
+    circle_sub = None
+    circle_side = ""
+    for side, sub in [("left", shape.left), ("right", shape.right)]:
+        if isinstance(sub, CircleShape):
+            circle_sub = sub
+            circle_side = side
+            break
+    if circle_sub is None:
+        return True
+
+    r = room.rect
+    if shape.split == "vertical":
+        mid = r.x + r.width // 2
+        if circle_side == "left":
+            c_rect = Rect(r.x, r.y, mid - r.x, r.height)
+        else:
+            c_rect = Rect(mid, r.y, r.x2 - mid, r.height)
+        # Door on N/S edge: in circle range if column is in c_rect
+        if dy == r.y - 1 or dy == r.y2:
+            in_circle = c_rect.x <= dx < c_rect.x2
+        # Door on E/W edge: in circle range if on circle's outer
+        elif dx == r.x - 1:
+            in_circle = c_rect.x == r.x
+        elif dx == r.x2:
+            in_circle = c_rect.x2 == r.x2
+        else:
+            in_circle = False
+    else:
+        mid = r.y + r.height // 2
+        if circle_side == "left":
+            c_rect = Rect(r.x, r.y, r.width, mid - r.y)
+        else:
+            c_rect = Rect(r.x, mid, r.width, r.y2 - mid)
+        # Door on E/W edge: in circle range if row is in c_rect
+        if dx == r.x - 1 or dx == r.x2:
+            in_circle = c_rect.y <= dy < c_rect.y2
+        # Door on N/S edge: in circle range if on circle's outer
+        elif dy == r.y - 1:
+            in_circle = c_rect.y == r.y
+        elif dy == r.y2:
+            in_circle = c_rect.y2 == r.y2
+        else:
+            in_circle = False
+
+    if not in_circle:
+        return True
+
+    # Must be at a cardinal wall position
+    if shape.split == "vertical":
+        half = Rect(
+            c_rect.x, c_rect.y,
+            c_rect.width + 1, c_rect.height,
+        )
+    else:
+        half = Rect(
+            c_rect.x, c_rect.y,
+            c_rect.width, c_rect.height + 1,
+        )
+    cardinals = circle_sub.cardinal_walls(half)
+    return (dx, dy) in cardinals
+
+
 # ── BSP tree ────────────────────────────────────────────────────────
 
 @dataclass
@@ -704,6 +779,15 @@ class BSPGenerator(DungeonGenerator):
                             if (xx, edge_y) in floor_tiles
                         )
                         straight = span >= 3
+                # For hybrid rooms, even a "straight" span can be
+                # invalid if the door sits in the circle half's
+                # range — diagonal transition tiles inflate the
+                # span but the wall is curved there.
+                if straight and isinstance(room.shape, HybridShape):
+                    straight = _hybrid_door_ok(
+                        room, x, y, tile.door_side,
+                    )
+
                 if not straight:
                     tile.feature = None
                     tile.is_corridor = True

@@ -108,6 +108,38 @@ class TestCircleRoomDoors:
 class TestHybridRoomDoors:
     """Doors on hybrid rooms must not be on diagonal walls."""
 
+    @staticmethod
+    def _hybrid_circle_rect_range(room: Room):
+        """Return (circle_sub, circle_rect, rect_rect, split)."""
+        shape = room.shape
+        r = room.rect
+        circle_sub = None
+        circle_side = ""
+        for side, sub in [("left", shape.left), ("right", shape.right)]:
+            if isinstance(sub, CircleShape):
+                circle_sub = sub
+                circle_side = side
+                break
+        if circle_sub is None:
+            return None, None, None, None
+        if shape.split == "vertical":
+            mid = r.x + r.width // 2
+            if circle_side == "left":
+                c_rect = Rect(r.x, r.y, mid - r.x, r.height)
+                r_rect = Rect(mid, r.y, r.x2 - mid, r.height)
+            else:
+                r_rect = Rect(r.x, r.y, mid - r.x, r.height)
+                c_rect = Rect(mid, r.y, r.x2 - mid, r.height)
+        else:
+            mid = r.y + r.height // 2
+            if circle_side == "left":
+                c_rect = Rect(r.x, r.y, r.width, mid - r.y)
+                r_rect = Rect(r.x, mid, r.width, r.y2 - mid)
+            else:
+                r_rect = Rect(r.x, r.y, r.width, mid - r.y)
+                c_rect = Rect(r.x, mid, r.width, r.y2 - mid)
+        return circle_sub, c_rect, r_rect, shape.split
+
     def test_hybrid_doors_not_on_diagonal(self):
         """Doors adjacent to a hybrid room must be on the straight
         rect side or at cardinal points of the arc side."""
@@ -146,6 +178,181 @@ class TestHybridRoomDoors:
         assert not violations, (
             f"{len(violations)} doors on diagonal hybrid walls: "
             f"{violations[:5]}"
+        )
+
+    def test_hybrid_doors_on_circle_half_edge_are_cardinal(self):
+        """Doors on the bounding rect edge at the circle half must
+        be at cardinal positions — not on the arc curve or diagonal
+        transition zone.
+
+        A door on the rect-edge at a circle-half row/column is
+        adjacent to curved or diagonal wall, not a straight wall.
+        Only the 4 cardinal wall positions of the circle are valid
+        there.
+        """
+        violations = []
+        for seed in range(100):
+            level = _generate(seed, shape_variety=0.8)
+            doors = _find_doors(level)
+            for dx, dy, feat in doors:
+                room = _room_for_door(level, dx, dy)
+                if room is None:
+                    continue
+                if not isinstance(room.shape, HybridShape):
+                    continue
+                info = self._hybrid_circle_rect_range(room)
+                circle_sub, c_rect, r_rect, split = info
+                if circle_sub is None:
+                    continue
+
+                r = room.rect
+                # Check if door is on the bounding rect edge
+                on_edge = (
+                    dx == r.x - 1 or dx == r.x2
+                    or dy == r.y - 1 or dy == r.y2
+                )
+                if not on_edge:
+                    continue
+
+                # Is the door in the circle half's range?
+                in_circle_range = False
+                if split == "vertical":
+                    # Circle occupies columns c_rect.x .. c_rect.x2
+                    # Door on N/S edge in circle columns
+                    if (dy == r.y - 1 or dy == r.y2):
+                        in_circle_range = (
+                            c_rect.x <= dx < c_rect.x2
+                        )
+                    # Door on E/W edge in circle rows — always
+                    # circle for vertical split if on circle side
+                    elif dx == r.x - 1 or dx == r.x2:
+                        # Check if door is on the circle's outer
+                        # edge (not the seam)
+                        if dx == r.x - 1:
+                            in_circle_range = (
+                                c_rect.x == r.x
+                            )
+                        else:
+                            in_circle_range = (
+                                c_rect.x2 == r.x2
+                            )
+                else:
+                    # Circle occupies rows c_rect.y .. c_rect.y2
+                    # Door on E/W edge in circle rows
+                    if (dx == r.x - 1 or dx == r.x2):
+                        in_circle_range = (
+                            c_rect.y <= dy < c_rect.y2
+                        )
+                    # Door on N/S edge in circle columns
+                    elif dy == r.y - 1 or dy == r.y2:
+                        if dy == r.y - 1:
+                            in_circle_range = (
+                                c_rect.y == r.y
+                            )
+                        else:
+                            in_circle_range = (
+                                c_rect.y2 == r.y2
+                            )
+
+                if not in_circle_range:
+                    continue
+
+                # Must be at a cardinal position
+                half_rect = Rect(
+                    c_rect.x, c_rect.y,
+                    c_rect.width + (1 if split == "vertical"
+                                    else 0),
+                    c_rect.height + (1 if split == "horizontal"
+                                     else 0),
+                )
+                cardinals = circle_sub.cardinal_walls(half_rect)
+                if (dx, dy) in cardinals:
+                    continue
+
+                violations.append((
+                    seed, dx, dy, room.id,
+                    f"circle_range={c_rect}",
+                ))
+
+        assert not violations, (
+            f"{len(violations)} doors on hybrid circle-half "
+            f"edges (not cardinal): {violations[:5]}"
+        )
+
+    def test_hybrid_door_floor_neighbor_has_straight_wall(self):
+        """Every door on a hybrid room must have its room-side floor
+        neighbor on a straight wall run (≥3 tiles along the wall
+        direction at the bounding rect edge).
+
+        This catches doors at diagonal transition tiles that pass
+        the simple bounding-rect-edge check but sit on a wall that
+        curves or narrows above/below them.
+        """
+        _ROOM_DIR = {
+            "north": (0, -1), "south": (0, 1),
+            "east": (1, 0), "west": (-1, 0),
+        }
+        violations = []
+        for seed in range(100):
+            level = _generate(seed, shape_variety=0.8)
+            for y in range(level.height):
+                for x in range(level.width):
+                    tile = level.tile_at(x, y)
+                    if not tile or not tile.feature:
+                        continue
+                    if "door" not in tile.feature:
+                        continue
+                    if not tile.door_side:
+                        continue
+                    room = _room_for_door(level, x, y)
+                    if room is None:
+                        continue
+                    if not isinstance(room.shape, HybridShape):
+                        continue
+                    # Find floor tile adjacent to door
+                    rdx, rdy = _ROOM_DIR[tile.door_side]
+                    fx, fy = x + rdx, y + rdy
+                    floor = room.floor_tiles()
+                    if (fx, fy) not in floor:
+                        continue
+                    # Check the floor tile is at the bounding
+                    # rect edge
+                    r = room.rect
+                    if tile.door_side in ("east", "west"):
+                        edge_x = (r.x if tile.door_side == "east"
+                                  else r.x2 - 1)
+                        if fx != edge_x:
+                            violations.append((
+                                seed, x, y, room.id,
+                                "floor not at edge",
+                            ))
+                            continue
+                        span = sum(
+                            1 for yy in range(r.y, r.y2)
+                            if (edge_x, yy) in floor
+                        )
+                    else:
+                        edge_y = (r.y if tile.door_side == "south"
+                                  else r.y2 - 1)
+                        if fy != edge_y:
+                            violations.append((
+                                seed, x, y, room.id,
+                                "floor not at edge",
+                            ))
+                            continue
+                        span = sum(
+                            1 for xx in range(r.x, r.x2)
+                            if (xx, edge_y) in floor
+                        )
+                    if span < 3:
+                        violations.append((
+                            seed, x, y, room.id,
+                            f"span={span}",
+                        ))
+
+        assert not violations, (
+            f"{len(violations)} hybrid doors on non-straight "
+            f"walls: {violations[:5]}"
         )
 
 
