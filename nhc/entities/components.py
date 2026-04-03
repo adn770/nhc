@@ -92,6 +92,12 @@ class Weapon:
 
 
 @dataclass
+class DiggingTool:
+    """Tool for excavating walls."""
+    bonus: int = 0  # added to STR check for digging
+
+
+@dataclass
 class Consumable:
     effect: str = ""
     dice: str = ""

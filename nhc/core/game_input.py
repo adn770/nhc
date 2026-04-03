@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.core.actions import (
+    DigAction,
     DropAction,
     EquipAction,
     ForceDoorAction,
@@ -20,6 +21,7 @@ from nhc.core.actions import (
     UseItemAction,
     ZapAction,
 )
+from nhc.dungeon.model import Terrain
 from nhc.i18n import t
 
 if TYPE_CHECKING:
@@ -264,6 +266,55 @@ def find_lock_action(game: Game, mode: str) -> Action | None:
         actor=game.player_id, dx=door_dir[0], dy=door_dir[1],
         tool=tool_id,
     )
+
+
+_DIRECTIONS = {
+    "North": (0, -1),
+    "South": (0, 1),
+    "West": (-1, 0),
+    "East": (1, 0),
+}
+
+
+def find_dig_action(game: Game) -> Action | None:
+    """Find an adjacent wall to dig through with the equipped tool."""
+    pos = game.world.get_component(game.player_id, "Position")
+    if not pos or not game.level:
+        return None
+
+    # Check the player has a DiggingTool equipped as weapon
+    equip = game.world.get_component(game.player_id, "Equipment")
+    if not equip or equip.weapon is None:
+        game.renderer.add_message(t("explore.dig_no_tool"))
+        return None
+    if not game.world.has_component(equip.weapon, "DiggingTool"):
+        game.renderer.add_message(t("explore.dig_no_tool"))
+        return None
+
+    # Scan cardinal directions for adjacent walls
+    walls: list[tuple[str, tuple[int, int]]] = []
+    for label, (dx, dy) in _DIRECTIONS.items():
+        tile = game.level.tile_at(pos.x + dx, pos.y + dy)
+        if tile and tile.terrain == Terrain.WALL:
+            walls.append((label, (dx, dy)))
+
+    if not walls:
+        game.renderer.add_message(t("explore.dig_no_wall"))
+        return None
+
+    if len(walls) == 1:
+        dx, dy = walls[0][1]
+        return DigAction(actor=game.player_id, dx=dx, dy=dy)
+
+    # Multiple walls: ask the player for a direction
+    options = [(i, label) for i, (label, _) in enumerate(walls)]
+    selected = game.renderer.show_selection_menu(
+        t("explore.dig_which"), options,
+    )
+    if selected is None:
+        return None
+    dx, dy = walls[selected][1]
+    return DigAction(actor=game.player_id, dx=dx, dy=dy)
 
 
 def resolve_item_action(game: Game, data: dict) -> Action | None:

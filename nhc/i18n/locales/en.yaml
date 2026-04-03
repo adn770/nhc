@@ -237,6 +237,11 @@ explore:
   no_locked_door: "There is no locked door nearby."
   door_closes: "A door creaks shut."
   search_nothing: "You search carefully but find nothing hidden."
+  dig_success: "You break through the wall!"
+  dig_fail: "You swing hard but the rock holds firm."
+  dig_no_wall: "There is no wall to dig."
+  dig_no_tool: "You need a digging tool equipped."
+  dig_which: "Dig which direction?"
   chest_loot: "You open the chest and find: {items}."
   chest_empty: "You open the chest, but it's empty."
   descend: "You descend deeper into the dungeon..."
@@ -561,6 +566,7 @@ ui:
   toolbar_wait: "Wait (.)"
   toolbar_pick_lock: "Pick Lock (p)"
   toolbar_force_door: "Force Door (f)"
+  toolbar_dig: "Dig (D)"
   toolbar_farlook: "Farlook (x)"
   toolbar_descend: "Descend (>)"
   toolbar_ascend: "Ascend (<)"
@@ -1565,7 +1571,15 @@ items:
   pick:
     name: "Pick"
     short: "a mining pick"
-    long: "A heavy pointed tool for breaking rock and digging."
+    long: "A heavy pointed tool for breaking rock and digging. 1d4 damage."
+  pickaxe:
+    name: "Pickaxe"
+    short: "a steel pickaxe"
+    long: "A two-handed excavation tool with a heavy pick head. 1d6 damage."
+  mattock:
+    name: "Mattock"
+    short: "a heavy mattock"
+    long: "A broad-bladed digging tool that doubles as a fearsome weapon. 1d8 damage."
   iron_tongs:
     name: "Iron Tongs"
     short: "a pair of iron tongs"

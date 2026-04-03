@@ -1,4 +1,4 @@
-"""Interaction actions: chests, locks, doors, look, search."""
+"""Interaction actions: chests, locks, doors, dig, look, search."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from nhc.core.actions._base import Action
 from nhc.core.actions._helpers import _entity_name, _items_at, _msg
 from nhc.core.events import DoorOpened, Event, MessageEvent
+from nhc.dungeon.model import Terrain
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage
 from nhc.rules.loot import generate_loot
@@ -229,6 +230,61 @@ class ForceDoorAction(Action):
                 events.append(MessageEvent(
                     text=t("explore.tool_break", tool=tool_name),
                 ))
+
+        return events
+
+
+class DigAction(Action):
+    """Dig through an adjacent wall tile.
+
+    Requires a DiggingTool equipped as weapon.
+    STR save DC 12, modified by tool bonus.
+    """
+
+    DIG_DC = 12
+
+    def __init__(self, actor: int, dx: int, dy: int) -> None:
+        super().__init__(actor)
+        self.dx = dx
+        self.dy = dy
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        tile = level.tile_at(pos.x + self.dx, pos.y + self.dy)
+        if not tile or tile.terrain != Terrain.WALL:
+            return False
+        # Require DiggingTool equipped as weapon
+        equip = world.get_component(self.actor, "Equipment")
+        if not equip or equip.weapon is None:
+            return False
+        return world.has_component(equip.weapon, "DiggingTool")
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        tx, ty = pos.x + self.dx, pos.y + self.dy
+        tile = level.tile_at(tx, ty)
+
+        stats = world.get_component(self.actor, "Stats")
+        str_bonus = stats.strength if stats else 0
+
+        equip = world.get_component(self.actor, "Equipment")
+        tool = world.get_component(equip.weapon, "DiggingTool")
+        tool_bonus = tool.bonus if tool else 0
+
+        roll = d20()
+        if roll + str_bonus + tool_bonus >= self.DIG_DC:
+            tile.terrain = Terrain.FLOOR
+            tile.feature = None
+            events.append(MessageEvent(
+                text=t("explore.dig_success"),
+            ))
+        else:
+            events.append(MessageEvent(
+                text=t("explore.dig_fail"),
+            ))
 
         return events
 

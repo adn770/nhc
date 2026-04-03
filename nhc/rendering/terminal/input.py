@@ -37,6 +37,7 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     "z": ("zap", None),
     "p": ("pick_lock", None),
     "f": ("force_door", None),
+    "D": ("dig", None),
     ">": ("descend", None),
     "<": ("ascend", None),
     "x": ("farlook", None),

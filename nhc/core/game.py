@@ -1065,6 +1065,9 @@ class Game:
         if intent == "search":
             return SearchAction(actor=self.player_id)
 
+        if intent == "dig":
+            return game_input.find_dig_action(self)
+
         if intent == "descend":
             return DescendStairsAction(actor=self.player_id)
 
