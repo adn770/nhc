@@ -203,6 +203,30 @@ def _door_candidates(
             for fy in inner:
                 candidates.append((fx + dx, fy + dy, side))
 
+    # For circles, ensure the 4 cardinal wall positions are always
+    # included.  Small circles produce only length-1 perimeter runs
+    # (every edge changes x), so the generic min_run filter drops
+    # them all.  Inject cardinals that aren't already present.
+    if isinstance(room.shape, CircleShape):
+        cand_set = {(x, y) for x, y, _ in candidates}
+        _SIDE_FOR_DIR = {
+            (0, -1): "north",
+            (0, 1): "south",
+            (-1, 0): "west",
+            (1, 0): "east",
+        }
+        for wx, wy in room.shape.cardinal_walls(room.rect):
+            if (wx, wy) not in cand_set:
+                cx, cy = room.rect.center
+                dx, dy = wx - cx, wy - cy
+                # Normalise to unit cardinal direction
+                if dx != 0:
+                    dx = dx // abs(dx)
+                if dy != 0:
+                    dy = dy // abs(dy)
+                side = _SIDE_FOR_DIR.get((dx, dy), "north")
+                candidates.append((wx, wy, side))
+
     return candidates
 
 

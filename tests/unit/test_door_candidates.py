@@ -88,6 +88,24 @@ class TestDoorCandidatesCircle:
         # Should have all 4 cardinal directions
         assert sides == {"north", "south", "east", "west"}
 
+    def test_small_circle_has_cardinal_candidates(self):
+        """A 5x5 circle has no straight runs >= 2, but should
+        still get candidates at the 4 cardinal wall positions."""
+        room = Room(id="r0", rect=Rect(41, 21, 5, 5),
+                    shape=CircleShape())
+        cands = _door_candidates(room)
+        sides = {side for _, _, side in cands}
+        assert sides == {"north", "south", "east", "west"}
+        # Each cardinal should have exactly 1 candidate
+        assert len(cands) == 4
+        # Candidates must be the cardinal wall positions
+        cand_positions = {(x, y) for x, y, _ in cands}
+        # center=(43,23), r=2: N=(43,20), S=(43,26),
+        # W=(40,23), E=(46,23)
+        assert cand_positions == {
+            (43, 20), (43, 26), (40, 23), (46, 23),
+        }
+
 
 class TestDoorCandidatesOctagon:
     def test_octagon_no_clipped_corner_candidates(self):
