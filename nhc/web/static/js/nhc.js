@@ -60,6 +60,9 @@ const NHC = {
       GameMap.allDoors = new Map();
       GameMap.entities = [];
       GameMap.doors = [];
+      // Store theme/feeling for future terrain canvas layer
+      if (msg.theme) GameMap.theme = msg.theme;
+      if (msg.feeling) GameMap.feeling = msg.feeling;
       // Load floor SVG via HTTP
       if (msg.floor_url) {
         const svg = await fetch(msg.floor_url).then(r => r.text());

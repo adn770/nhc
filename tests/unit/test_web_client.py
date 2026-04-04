@@ -675,3 +675,30 @@ class TestDisconnectHandling:
         finally:
             loop.close()
         assert result == ("disconnect", None)
+
+
+class TestWebClientFloorMessage:
+    """Floor message must include theme and feeling for future use."""
+
+    def _send_floor(self, theme="dungeon", feeling="normal"):
+        from nhc.dungeon.model import Level, LevelMetadata, Terrain, Tile
+        wc = WebClient(lang="en")
+        level = Level.create_empty("t", "T", depth=1, width=5, height=5)
+        level.metadata = LevelMetadata(theme=theme, feeling=feeling)
+        for y in range(1, 4):
+            for x in range(1, 4):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        world = MagicMock()
+        world._entities = []
+        world.get_component = MagicMock(return_value=None)
+        wc.send_floor_change(level, world, player_id=1, turn=1)
+        msgs = _drain_queue(wc)
+        return next(m for m in msgs if m["type"] == "floor")
+
+    def test_floor_message_includes_theme(self):
+        msg = self._send_floor(theme="cave")
+        assert msg["theme"] == "cave"
+
+    def test_floor_message_includes_feeling(self):
+        msg = self._send_floor(feeling="flooded")
+        assert msg["feeling"] == "flooded"

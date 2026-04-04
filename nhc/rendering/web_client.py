@@ -526,6 +526,7 @@ class WebClient(GameClient):
         doors = self._gather_doors(level)
         hatch_clear = self._gather_hatch_clear(level)
 
+        meta = level.metadata
         self._send({
             "type": "floor",
             "floor_url": (f"{self._base_url}"
@@ -536,6 +537,8 @@ class WebClient(GameClient):
             "fov": fov,
             "hatch_clear": hatch_clear,
             "turn": turn,
+            "theme": meta.theme if meta else "dungeon",
+            "feeling": meta.feeling if meta else "normal",
         })
 
     # ── Display ──────────────────────────────────────────────────
