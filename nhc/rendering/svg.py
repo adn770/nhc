@@ -1159,22 +1159,35 @@ def _room_svg_outline(room: "Room") -> str | None:
 
 
 def _cave_svg_outline(room: "Room") -> str | None:
-    """Build an organic SVG path for a cave room.
+    """Build an organic closed SVG path for a cave room (fill).
 
     Traces the contour of the cave's floor tiles and smooths it
-    using Catmull-Rom → cubic Bézier conversion, producing
-    natural-looking curved cave walls.
+    using Catmull-Rom → cubic Bézier conversion.  Always returns
+    a closed path — used for the floor fill.  Wall rendering uses
+    _cave_with_gaps instead so corridor openings become gaps.
     """
     tiles = room.floor_tiles()
     if not tiles:
         return None
 
-    # Build a Shapely polygon from the tile grid, then simplify
-    # and smooth the boundary into organic curves.
-    from shapely.geometry import MultiPoint
+    coords = _trace_cave_boundary_coords(tiles)
+    if not coords or len(coords) < 4:
+        return None
+
+    return _smooth_closed_path(coords)
+
+
+def _trace_cave_boundary_coords(
+    tiles: set[tuple[int, int]],
+) -> list[tuple[float, float]]:
+    """Trace the outer contour of a set of tiles as pixel corners.
+
+    Returns an ordered list of (x, y) corner points walking the
+    boundary clockwise.  Uses Shapely's unary_union to handle the
+    merge and extract the exterior ring.
+    """
     from shapely.ops import unary_union
 
-    # Each tile is a unit square in pixel space
     boxes = []
     for tx, ty in tiles:
         px, py = tx * CELL, ty * CELL
@@ -1184,33 +1197,30 @@ def _cave_svg_outline(room: "Room") -> str | None:
         ]))
     merged = unary_union(boxes)
     if merged.is_empty:
-        return None
+        return []
 
-    # Simplify to reduce jaggedness, then extract exterior coords
+    # Simplify to remove collinear tile-edge vertices
     simplified = merged.simplify(CELL * 0.35, preserve_topology=True)
-
-    # Pick the largest polygon if MultiPolygon
     if hasattr(simplified, 'geoms'):
         simplified = max(simplified.geoms, key=lambda g: g.area)
 
     coords = list(simplified.exterior.coords)
-    if len(coords) < 4:
-        return None
-
-    # Close the ring (drop duplicate last point)
-    if coords[-1] == coords[0]:
+    if coords and coords[-1] == coords[0]:
         coords = coords[:-1]
+    return coords
 
-    # Catmull-Rom → cubic Bézier: smooth the contour
+
+def _smooth_closed_path(
+    coords: list[tuple[float, float]],
+) -> str:
+    """Build an SVG path (closed, Catmull-Rom → cubic bezier)."""
     n = len(coords)
-    parts = []
-    parts.append(f'M{coords[0][0]:.1f},{coords[0][1]:.1f}')
+    parts = [f'M{coords[0][0]:.1f},{coords[0][1]:.1f}']
     for i in range(n):
         p0 = coords[(i - 1) % n]
         p1 = coords[i]
         p2 = coords[(i + 1) % n]
         p3 = coords[(i + 2) % n]
-        # Catmull-Rom to cubic bezier control points (alpha=0.5)
         c1x = p1[0] + (p2[0] - p0[0]) / 6
         c1y = p1[1] + (p2[1] - p0[1]) / 6
         c2x = p2[0] - (p3[0] - p1[0]) / 6
@@ -1222,6 +1232,193 @@ def _cave_svg_outline(room: "Room") -> str | None:
         )
     parts.append('Z')
     return f'<path d="{" ".join(parts)}"/>'
+
+
+def _smooth_open_path(
+    coords: list[tuple[float, float]],
+) -> str:
+    """Build an SVG path (open, Catmull-Rom → cubic bezier).
+
+    For open curves, endpoints use duplicated neighbors as the
+    virtual p0/p3 so the curve passes exactly through them.
+    """
+    n = len(coords)
+    if n < 2:
+        return ""
+    parts = [f'M{coords[0][0]:.1f},{coords[0][1]:.1f}']
+    for i in range(n - 1):
+        p0 = coords[i - 1] if i > 0 else coords[i]
+        p1 = coords[i]
+        p2 = coords[i + 1]
+        p3 = coords[i + 2] if i + 2 < n else coords[i + 1]
+        c1x = p1[0] + (p2[0] - p0[0]) / 6
+        c1y = p1[1] + (p2[1] - p0[1]) / 6
+        c2x = p2[0] - (p3[0] - p1[0]) / 6
+        c2y = p2[1] - (p3[1] - p1[1]) / 6
+        parts.append(
+            f'C{c1x:.1f},{c1y:.1f} '
+            f'{c2x:.1f},{c2y:.1f} '
+            f'{p2[0]:.1f},{p2[1]:.1f}'
+        )
+    return " ".join(parts)
+
+
+def _cave_with_gaps(
+    room: "Room", level: "Level",
+) -> str | None:
+    """Build a cave wall path with gaps at corridor openings.
+
+    Walks the tile-edge boundary of the cave as a polyline of
+    corner points.  Each boundary edge is either SOLID (neighbor
+    is wall/void → draw this edge) or GAP (neighbor is a corridor
+    floor tile → skip this edge).  Contiguous solid runs become
+    separate sub-paths, each smoothed with Catmull-Rom.
+    """
+    tiles = room.floor_tiles()
+    if not tiles:
+        return None
+
+    # Build the ordered boundary as a list of (corner, is_gap_ahead)
+    # pairs.  Each corner is a pixel-space point where two
+    # tile edges meet; is_gap_ahead indicates whether the edge
+    # from this corner to the next is a gap edge.
+    chain = _trace_cave_edges(tiles, level)
+    if not chain:
+        return None
+
+    # Split the chain into contiguous solid runs
+    n = len(chain)
+    # Find the first gap to start from (so we break cleanly)
+    start = 0
+    for i in range(n):
+        if chain[i][1]:  # edge ahead is gap
+            start = (i + 1) % n
+            break
+    else:
+        # No gaps at all — cave has no corridor openings.
+        # Fall back to closed outline.
+        coords = [c for c, _ in chain]
+        return _smooth_closed_path(coords)
+
+    runs: list[list[tuple[float, float]]] = []
+    current: list[tuple[float, float]] = []
+    for offset in range(n):
+        idx = (start + offset) % n
+        corner, gap_ahead = chain[idx]
+        current.append(corner)
+        if gap_ahead:
+            # End of a solid run (or a single-corner stub)
+            if len(current) >= 2:
+                runs.append(current)
+            current = []
+    if len(current) >= 2:
+        runs.append(current)
+
+    if not runs:
+        return None
+
+    path_parts = [_smooth_open_path(run) for run in runs if run]
+    path_parts = [p for p in path_parts if p]
+    if not path_parts:
+        return None
+    return f'<path d="{" ".join(path_parts)}"/>'
+
+
+def _trace_cave_edges(
+    tiles: set[tuple[int, int]],
+    level: "Level",
+) -> list[tuple[tuple[float, float], bool]]:
+    """Walk the cave's tile-edge boundary clockwise.
+
+    Returns a list of (corner_pixel, gap_ahead) tuples, one per
+    boundary corner.  gap_ahead is True if the edge from this
+    corner to the next is a gap (neighbor tile is a corridor).
+    """
+    # Collect all boundary edges as directed segments going
+    # clockwise around the cave interior.  For each tile, each
+    # side that faces a non-tile neighbor contributes one edge.
+    # Direction convention (clockwise around interior):
+    #   North side: →  (top of tile, left-to-right)
+    #   East side:  ↓  (right of tile, top-to-bottom)
+    #   South side: ←  (bottom of tile, right-to-left)
+    #   West side:  ↑  (left of tile, bottom-to-top)
+
+    walkable_terrains = (
+        Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
+    )
+
+    def _is_gap(nx: int, ny: int) -> bool:
+        """Neighbor is a corridor floor tile → gap edge."""
+        nb = level.tile_at(nx, ny) if level else None
+        if not nb:
+            return False
+        if nb.terrain not in walkable_terrains:
+            return False
+        # Any walkable non-cave tile is a corridor opening
+        return True
+
+    # Build directed edges: (start_corner, end_corner, is_gap)
+    raw_edges: list[tuple[
+        tuple[int, int], tuple[int, int], bool
+    ]] = []
+    for tx, ty in tiles:
+        # Corners in tile units
+        nw = (tx, ty)
+        ne = (tx + 1, ty)
+        se = (tx + 1, ty + 1)
+        sw = (tx, ty + 1)
+        # North side
+        if (tx, ty - 1) not in tiles:
+            raw_edges.append((nw, ne, _is_gap(tx, ty - 1)))
+        # East side
+        if (tx + 1, ty) not in tiles:
+            raw_edges.append((ne, se, _is_gap(tx + 1, ty)))
+        # South side
+        if (tx, ty + 1) not in tiles:
+            raw_edges.append((se, sw, _is_gap(tx, ty + 1)))
+        # West side
+        if (tx - 1, ty) not in tiles:
+            raw_edges.append((sw, nw, _is_gap(tx - 1, ty)))
+
+    if not raw_edges:
+        return []
+
+    # Chain edges by matching end → start
+    from_map: dict[tuple[int, int], list[int]] = {}
+    for i, (s, _, _) in enumerate(raw_edges):
+        from_map.setdefault(s, []).append(i)
+
+    # Pick the outermost starting edge: topmost-leftmost corner
+    start_idx = min(
+        range(len(raw_edges)),
+        key=lambda i: (raw_edges[i][0][1], raw_edges[i][0][0]),
+    )
+    used = [False] * len(raw_edges)
+    order: list[int] = []
+    current = start_idx
+    while not used[current]:
+        used[current] = True
+        order.append(current)
+        end_corner = raw_edges[current][1]
+        nxt_list = from_map.get(end_corner, [])
+        # Prefer unused edges; if multiple, pick any
+        next_idx = None
+        for ni in nxt_list:
+            if not used[ni]:
+                next_idx = ni
+                break
+        if next_idx is None:
+            break
+        current = next_idx
+
+    # Build the chain of (corner, gap_ahead) pairs
+    chain: list[tuple[tuple[float, float], bool]] = []
+    for i in order:
+        s, _, is_gap = raw_edges[i]
+        px = s[0] * CELL
+        py = s[1] * CELL
+        chain.append(((px, py), is_gap))
+    return chain
 
 
 def _hybrid_svg_outline(room: "Room") -> str | None:
@@ -2588,7 +2785,21 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
         fill_el = outline.replace(
             '/>', f' fill="{FLOOR_COLOR}" stroke="none"/>')
         smooth_fills.append(fill_el)
-        if openings:
+
+        # Cave rooms use a specialized gap-aware wall tracer that
+        # reads adjacency directly from the level, because their
+        # contour doesn't follow a clean geometric shape.
+        if isinstance(room.shape, CaveShape):
+            cave_wall = _cave_with_gaps(room, level)
+            if cave_wall:
+                smooth_walls.append(cave_wall.replace(
+                    '/>', f' fill="none" {_STROKE_STYLE}/>'))
+            else:
+                smooth_walls.append(outline.replace(
+                    '/>', f' fill="none" {_STROKE_STYLE}/>'))
+            for _, _, cx, cy in openings:
+                smooth_tiles.add((cx, cy))
+        elif openings:
             gapped, extensions = _outline_with_gaps(
                 room, outline, openings,
             )

@@ -37,10 +37,16 @@ def _generate_cave(seed: int = 42, depth: int = 9) -> Level:
     return gen.generate(params, rng=rng)
 
 
-def _make_cave_room_level() -> tuple[Level, Room]:
-    """Create a small level with one cave-shaped room."""
+def _make_cave_room_level(
+    with_corridor: bool = False,
+) -> tuple[Level, Room]:
+    """Create a small level with one cave-shaped room.
+
+    If *with_corridor* is True, add a 3-tile corridor entering
+    the cave from the west at y=6 (doorless opening).
+    """
     level = Level.create_empty(
-        "test", "Test Cave", depth=9, width=20, height=15,
+        "test", "Test Cave", depth=9, width=25, height=15,
     )
     # Carve an irregular cave shape
     tiles = set()
@@ -65,6 +71,25 @@ def _make_cave_room_level() -> tuple[Level, Room]:
     shape = CaveShape(tiles)
     room = Room(id="cave_1", rect=Rect(3, 3, 11, 7), shape=shape)
     level.rooms.append(room)
+
+    if with_corridor:
+        # Doorless corridor entering from the west at y=6.
+        # Room's leftmost floor at y=6 is (3, 6).
+        for cx in range(0, 3):
+            level.tiles[6][cx] = Tile(
+                terrain=Terrain.FLOOR, is_corridor=True,
+            )
+        # Walls above/below the corridor
+        for cx in range(0, 3):
+            for dy in (-1, 1):
+                if level.tiles[6 + dy][cx].terrain == Terrain.VOID:
+                    level.tiles[6 + dy][cx] = Tile(
+                        terrain=Terrain.WALL,
+                    )
+        # The tile at (3, 6) is cave floor, neighbor (2, 6) is
+        # corridor → this is a doorless opening. Also ensure the
+        # wall that was between them (none, since (3,6) is floor
+        # and (2,6) is now floor too) is cleared.
     return level, room
 
 
@@ -197,6 +222,62 @@ class TestCaveWallRendering:
         # The SVG should contain cubic bezier commands
         assert ' C' in svg, (
             "Cave room SVG should contain bezier curve commands"
+        )
+
+
+class TestCaveCorridorGaps:
+    """Caves with doorless corridor openings must have gaps in
+    the wall outline where corridors connect — otherwise the
+    smooth contour draws a wall right through the corridor mouth."""
+
+    def test_cave_with_corridor_has_open_wall_path(self):
+        """The cave wall path must NOT be closed (no Z) when a
+        corridor connects without a door."""
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        svg = render_floor_svg(level)
+        # Find wall-stroke paths that contain bezier curves (the
+        # cave outline).  The gapped wall path must not be closed.
+        wall_paths = re.findall(
+            r'<path d="(M[^"]*C[^"]*)"[^>]*stroke-width="4',
+            svg)
+        assert wall_paths, "No cave wall path found"
+        # At least one wall path must be an open curve (no Z)
+        assert any("Z" not in p for p in wall_paths), (
+            "Cave wall outline should have a gap at the corridor "
+            "opening (no Z close), got all-closed paths"
+        )
+
+    def test_cave_with_corridor_has_multiple_subpaths(self):
+        """A cave with a corridor opening produces at least one
+        wall segment.  The fill can be closed but the wall must
+        have an open section."""
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        svg = render_floor_svg(level)
+        # The cave has ONE corridor opening on the west side.
+        # The wall outline should be a single open curve around
+        # the rest of the cave.
+        wall_paths = re.findall(
+            r'<path d="(M[^"]*C[^"]*)"[^>]*stroke-width="4',
+            svg)
+        open_paths = [p for p in wall_paths if "Z" not in p]
+        assert open_paths, (
+            "Expected an open wall path for cave with corridor"
+        )
+
+    def test_cave_without_corridor_stays_closed(self):
+        """A cave with no corridor openings keeps a closed wall."""
+        level, _ = _make_cave_room_level(with_corridor=False)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        svg = render_floor_svg(level)
+        wall_paths = re.findall(
+            r'<path d="(M[^"]*C[^"]*)"[^>]*stroke-width="4',
+            svg)
+        assert wall_paths, "No cave wall path found"
+        # All wall paths for this cave should be closed
+        assert all("Z" in p for p in wall_paths), (
+            "Cave without corridor should have closed wall"
         )
 
 
