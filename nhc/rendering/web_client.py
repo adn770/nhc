@@ -387,15 +387,15 @@ class WebClient(GameClient):
             # Input
             "input_placeholder": tr("ui.input_placeholder"),
             # Status bar abbreviations
-            "lv": tr("ui.lv"),
-            "xp": tr("ui.xp"),
+            "lv": tr("stats.lv"),
+            "xp": tr("stats.xp"),
             # Ability score abbreviations
-            "stat_str": tr("ui.str"),
-            "stat_dex": tr("ui.dex"),
-            "stat_con": tr("ui.con"),
-            "stat_int": tr("ui.int"),
-            "stat_wis": tr("ui.wis"),
-            "stat_cha": tr("ui.cha"),
+            "stat_str": tr("stats.str"),
+            "stat_dex": tr("stats.dex"),
+            "stat_con": tr("stats.con"),
+            "stat_int": tr("stats.int"),
+            "stat_wis": tr("stats.wis"),
+            "stat_cha": tr("stats.cha"),
         }
 
     def _gather_doors(
