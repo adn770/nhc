@@ -104,10 +104,15 @@ def _run_ws_session(
     game_thread = None
     if start_game_loop:
         def _run_game():
-            # Initialize i18n for this thread — each game thread
-            # needs its own translation state.
+            # Initialize thread-local state — each game thread
+            # needs its own i18n and RNG so concurrent sessions
+            # don't interfere.
             from nhc.i18n import init as i18n_init
             i18n_init(session.lang)
+
+            from nhc.utils.rng import set_seed
+            if session.game and session.game.seed is not None:
+                set_seed(session.game.seed)
 
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)

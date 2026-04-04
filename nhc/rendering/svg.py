@@ -124,7 +124,7 @@ def render_hatch_svg(seed: int = 0) -> str:
     )
     svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
 
-    random.seed(seed + 77)
+    rng = random.Random(seed + 77)
 
     min_stroke = 1.0
     max_stroke = 1.8
@@ -139,15 +139,15 @@ def render_hatch_svg(seed: int = 0) -> str:
                 f'width="{CELL}" height="{CELL}" '
                 f'fill="{HATCH_UNDERLAY}"/>')
 
-            n_stones = random.choices(
+            n_stones = rng.choices(
                 [0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
             for _ in range(n_stones):
-                sx = (gx + random.uniform(0.15, 0.85)) * CELL
-                sy = (gy + random.uniform(0.15, 0.85)) * CELL
-                rx = random.uniform(2, CELL * 0.25)
-                ry = random.uniform(2, CELL * 0.2)
-                angle = random.uniform(0, 180)
-                sw = random.uniform(1.2, 2.0)
+                sx = (gx + rng.uniform(0.15, 0.85)) * CELL
+                sy = (gy + rng.uniform(0.15, 0.85)) * CELL
+                rx = rng.uniform(2, CELL * 0.25)
+                ry = rng.uniform(2, CELL * 0.2)
+                angle = rng.uniform(0, 180)
+                sw = rng.uniform(1.2, 2.0)
                 hatch_stones.append(
                     f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
                     f'rx="{rx:.1f}" ry="{ry:.1f}" '
@@ -169,7 +169,7 @@ def render_hatch_svg(seed: int = 0) -> str:
                 (gx * CELL, (gy + 1) * CELL),
             ]
 
-            pts = _pick_section_points(corners, anchor, CELL)
+            pts = _pick_section_points(corners, anchor, CELL, rng)
             sections = _build_sections(anchor, pts, corners)
 
             for i, section in enumerate(sections):
@@ -180,7 +180,7 @@ def render_hatch_svg(seed: int = 0) -> str:
                         pts[1][1] - pts[0][1],
                         pts[1][0] - pts[0][0])
                 else:
-                    a = random.uniform(0, math.pi)
+                    a = rng.uniform(0, math.pi)
 
                 bounds = section.bounds
                 diag = math.hypot(
@@ -218,7 +218,7 @@ def render_hatch_svg(seed: int = 0) -> str:
                         p2[1] + _noise.pnoise2(
                             p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
                     )
-                    lsw = random.uniform(min_stroke, max_stroke)
+                    lsw = rng.uniform(min_stroke, max_stroke)
                     hatch_lines.append(
                         f'<line x1="{p1[0]:.1f}" '
                         f'y1="{p1[1]:.1f}" '
@@ -1397,7 +1397,7 @@ def _render_corridor_hatching(
     stones, and section-partitioned hatch lines.
     """
 
-    random.seed(seed + 7)
+    rng = random.Random(seed + 7)
 
     # Collect VOID tiles that border a corridor or door tile
     hatch_tiles: set[tuple[int, int]] = set()
@@ -1432,15 +1432,15 @@ def _render_corridor_hatching(
             f'fill="{HATCH_UNDERLAY}"/>')
 
         # Scatter 0-2 stones
-        n_stones = random.choices(
+        n_stones = rng.choices(
             [0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
         for _ in range(n_stones):
-            sx = (gx + random.uniform(0.15, 0.85)) * CELL
-            sy = (gy + random.uniform(0.15, 0.85)) * CELL
-            rx = random.uniform(2, CELL * 0.25)
-            ry = random.uniform(2, CELL * 0.2)
-            angle = random.uniform(0, 180)
-            sw = random.uniform(1.2, 2.0)
+            sx = (gx + rng.uniform(0.15, 0.85)) * CELL
+            sy = (gy + rng.uniform(0.15, 0.85)) * CELL
+            rx = rng.uniform(2, CELL * 0.25)
+            ry = rng.uniform(2, CELL * 0.2)
+            angle = rng.uniform(0, 180)
+            sw = rng.uniform(1.2, 2.0)
             hatch_stones.append(
                 f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
                 f'rx="{rx:.1f}" ry="{ry:.1f}" '
@@ -1463,7 +1463,7 @@ def _render_corridor_hatching(
             (gx * CELL, (gy + 1) * CELL),
         ]
 
-        pts = _pick_section_points(corners, anchor, CELL)
+        pts = _pick_section_points(corners, anchor, CELL, rng)
         sections = _build_sections(anchor, pts, corners)
 
         for i, section in enumerate(sections):
@@ -1474,7 +1474,7 @@ def _render_corridor_hatching(
                     pts[1][1] - pts[0][1],
                     pts[1][0] - pts[0][0])
             else:
-                angle = random.uniform(0, math.pi)
+                angle = rng.uniform(0, math.pi)
 
             bounds = section.bounds
             diag = math.hypot(
@@ -1512,7 +1512,7 @@ def _render_corridor_hatching(
                     p2[1] + _noise.pnoise2(
                         p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
                 )
-                lsw = random.uniform(min_stroke, max_stroke)
+                lsw = rng.uniform(min_stroke, max_stroke)
                 hatch_lines.append(
                     f'<line x1="{p1[0]:.1f}" '
                     f'y1="{p1[1]:.1f}" '
@@ -2409,7 +2409,7 @@ def _render_hatching(
     *hatch_distance* is the max distance in tiles from the dungeon
     edge that hatching extends.
     """
-    random.seed(seed)
+    rng = random.Random(seed)
     if dungeon_poly is None:
         dungeon_poly = _build_dungeon_polygon(level)
     if dungeon_poly.is_empty:
@@ -2444,7 +2444,7 @@ def _render_hatching(
                 continue
 
             # Random discontinuities: skip ~10% of edge tiles
-            if dist > base_distance_limit * 0.5 and random.random() < 0.10:
+            if dist > base_distance_limit * 0.5 and rng.random() < 0.10:
                 continue
 
             # Grey underlay tile
@@ -2454,14 +2454,14 @@ def _render_hatching(
                 f'fill="{HATCH_UNDERLAY}"/>')
 
             # Scatter 0-2 stones of varying sizes in this tile
-            n_stones = random.choices([0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
+            n_stones = rng.choices([0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
             for _ in range(n_stones):
-                sx = (gx + random.uniform(0.15, 0.85)) * CELL
-                sy = (gy + random.uniform(0.15, 0.85)) * CELL
-                rx = random.uniform(2, CELL * 0.25)
-                ry = random.uniform(2, CELL * 0.2)
-                angle = random.uniform(0, 180)
-                sw = random.uniform(1.2, 2.0)
+                sx = (gx + rng.uniform(0.15, 0.85)) * CELL
+                sy = (gy + rng.uniform(0.15, 0.85)) * CELL
+                rx = rng.uniform(2, CELL * 0.25)
+                ry = rng.uniform(2, CELL * 0.2)
+                angle = rng.uniform(0, 180)
+                sw = rng.uniform(1.2, 2.0)
                 hatch_stones.append(
                     f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
                     f'rx="{rx:.1f}" ry="{ry:.1f}" '
@@ -2483,7 +2483,7 @@ def _render_hatching(
             ]
 
             # Pick 3 random perimeter points to partition tile
-            pts = _pick_section_points(corners, anchor, CELL)
+            pts = _pick_section_points(corners, anchor, CELL, rng)
             sections = _build_sections(anchor, pts, corners)
 
             for i, section in enumerate(sections):
@@ -2494,7 +2494,7 @@ def _render_hatching(
                         pts[1][1] - pts[0][1],
                         pts[1][0] - pts[0][0])
                 else:
-                    angle = random.uniform(0, math.pi)
+                    angle = rng.uniform(0, math.pi)
 
                 bounds = section.bounds
                 diag = math.hypot(
@@ -2532,7 +2532,7 @@ def _render_hatching(
                         p2[1] + _noise.pnoise2(
                             p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
                     )
-                    sw = random.uniform(min_stroke, max_stroke)
+                    sw = rng.uniform(min_stroke, max_stroke)
                     hatch_lines.append(
                         f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" '
                         f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
@@ -2766,11 +2766,13 @@ def _pick_section_points(
     corners: list[tuple[float, float]],
     anchor: tuple[float, float],
     grid_size: float,
+    rng: random.Random | None = None,
 ) -> list[tuple[float, float]]:
     """Pick 3 random perimeter points and sort by angle from anchor."""
+    rng = rng or random.Random()
 
     def _random_perimeter_point(edge: int) -> tuple[float, float]:
-        t = random.uniform(0, grid_size)
+        t = rng.uniform(0, grid_size)
         if edge == 0:
             return (corners[0][0] + t, corners[0][1])
         if edge == 1:
@@ -2779,7 +2781,7 @@ def _pick_section_points(
             return (corners[2][0] - t, corners[2][1])
         return (corners[3][0], corners[3][1] - t)
 
-    edges = [random.randint(0, 3) for _ in range(3)]
+    edges = [rng.randint(0, 3) for _ in range(3)]
     pts = [_random_perimeter_point(e) for e in edges]
     pts.sort(key=lambda p: math.atan2(
         p[1] - anchor[1], p[0] - anchor[0]))

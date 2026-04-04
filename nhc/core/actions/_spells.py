@@ -988,7 +988,7 @@ def _use_teleport_self(
                 floors.append((tx, ty))
 
     if floors:
-        nx, ny = random.choice(floors)
+        nx, ny = get_rng().choice(floors)
         pos.x = nx
         pos.y = ny
 

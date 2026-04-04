@@ -59,6 +59,30 @@ class TestRollDiceMax:
         assert roll_dice_max("1d8-1") == 7
 
 
+class TestThreadIsolation:
+    def test_concurrent_seeds_dont_interfere(self):
+        """Each thread gets its own RNG — seeds don't cross threads."""
+        import threading
+        from nhc.utils.rng import get_rng, set_seed
+
+        set_seed(100)
+        results = {}
+
+        def _other_thread():
+            set_seed(999)
+            results["other_rng"] = get_rng().randint(0, 10000)
+
+        thread = threading.Thread(target=_other_thread)
+        thread.start()
+        thread.join()
+
+        # Main thread RNG should be unaffected by the other thread
+        main_val = get_rng().randint(0, 10000)
+        set_seed(100)
+        expected = get_rng().randint(0, 10000)
+        assert main_val == expected
+
+
 class TestGameSeedPreservation:
     """Game.seed must always hold the effective seed after init."""
 

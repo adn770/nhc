@@ -14,7 +14,7 @@ from nhc.dungeon.model import Terrain
 from nhc.entities.components import Poison, StatusEffect
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage, heal as do_heal
-from nhc.utils.rng import roll_dice
+from nhc.utils.rng import get_rng, roll_dice
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -319,7 +319,7 @@ class ZapAction(Action):
                             and not tile.feature and not tile.is_corridor):
                         floors.append((tx, ty))
             if floors:
-                nx, ny = random.choice(floors)
+                nx, ny = get_rng().choice(floors)
                 tpos = world.get_component(self.target, "Position")
                 if tpos:
                     tpos.x = nx
