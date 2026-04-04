@@ -288,6 +288,10 @@ item:
   full_inventory: "L'inventari és ple!"
   nothing_to_pickup: "No hi ha res per agafar aquí."
   full_health: "Ja estàs a plena salut."
+  eat: "Menges {item}."
+  mushroom_heal: "El bolet té un efecte curatiu!"
+  mushroom_poison: "El bolet era verinós!"
+  mushroom_confuse: "El bolet et fa girar el cap!"
   quaff_heal: "Beus {item}. Curat {amount} PV."
   nothing_happens: "No passa res."
   no_target: "Cap objectiu a la vista!"
@@ -403,6 +407,13 @@ item:
   wand_lock_door: "La porta es tanca amb clau!"
   wand_open_door: "La porta s'obre de bat a bat!"
   wand_no_door: "No hi ha cap porta en aquesta direcció."
+
+# ── Fam ──────────────────────────────────────────────────────────────
+hunger:
+  getting_hungry: "Comences a tenir gana."
+  starving: "T'estàs morint de gana!"
+  no_longer_full: "Ja no et sents tan ple."
+  starving_damage: "L'estómac et fa retorçons de gana!"
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -625,6 +636,11 @@ ui:
   mode_typed_tag: "[escrit]"
   # Input
   input_placeholder: "Escriu una ordre..."
+  # Hunger states
+  hunger_satiated: "Saciat"
+  hunger_normal: "Normal"
+  hunger_hungry: "Gana"
+  hunger_starving: "Famèlic!"
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:
@@ -1584,6 +1600,41 @@ items:
     gender: "f"
     short: "racions de viatge"
     long: "Carn seca, pa dur i fruits secs. Per a un dia."
+  bread:
+    name: "Pa"
+    gender: "m"
+    short: "un pa rodó"
+    long: "Un pa rodó, una mica dur però encara nutritiu."
+  dried_meat:
+    name: "Carn Seca"
+    gender: "f"
+    short: "una tira de carn seca"
+    long: "Curada amb sal i dura, però saciant."
+  apple:
+    name: "Poma"
+    gender: "f"
+    short: "una poma fresca"
+    long: "Una poma vermella i cruixent. Un aperitiu lleuger."
+  mushroom:
+    name: "Bolet"
+    gender: "m"
+    short: "un bolet estrany"
+    long: "Un bolet de masmorra d'origen incert. Comestible, probablement."
+  cheese:
+    name: "Formatge"
+    gender: "m"
+    short: "un tros de formatge"
+    long: "Curat i ferm. Té un gust agradable de nous."
+  barrel:
+    name: "Bóta"
+    gender: "f"
+    short: "una bóta de fusta"
+    long: "Una bóta robusta. Alguna cosa remeneja a dins."
+  crate:
+    name: "Caixa"
+    gender: "f"
+    short: "una caixa de fusta"
+    long: "Una caixa clavada. Podria contenir provisions."
   staff:
     name: "Bastó"
     gender: "m"

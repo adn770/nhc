@@ -110,7 +110,7 @@ class TestPopulator:
         assert len(creatures) <= 3
         # items includes gold piles placed by the populator
         assert len(items) >= 1
-        assert len(features) <= 1
+        assert len(features) >= 1  # chests, barrels, crates, traps
         assert len(level.entities) > 0
 
     def test_entities_on_floor_tiles(self):

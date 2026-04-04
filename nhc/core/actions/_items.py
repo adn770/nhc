@@ -15,7 +15,7 @@ from nhc.core.events import Event, ItemPickedUp, ItemUsed, MessageEvent
 from nhc.entities.components import Position, StatusEffect
 from nhc.i18n import t
 from nhc.rules.combat import heal
-from nhc.utils.rng import roll_dice
+from nhc.utils.rng import get_rng, roll_dice
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -302,6 +302,56 @@ class UseItemAction(Action):
                 ))
                 events.append(MessageEvent(
                     text=t("item.strength_up"),
+                ))
+
+        elif consumable.effect == "satiate":
+            hunger = world.get_component(self.actor, "Hunger")
+            if hunger:
+                amount = int(consumable.dice)
+                hunger.current = min(hunger.maximum,
+                                     hunger.current + amount)
+            events.append(ItemUsed(
+                entity=self.actor, item=self.item, effect="satiate",
+            ))
+            events.append(MessageEvent(
+                text=t("item.eat", item=item_name),
+            ))
+
+        elif consumable.effect == "mushroom":
+            hunger = world.get_component(self.actor, "Hunger")
+            if hunger:
+                amount = int(consumable.dice)
+                hunger.current = min(hunger.maximum,
+                                     hunger.current + amount)
+            events.append(ItemUsed(
+                entity=self.actor, item=self.item, effect="mushroom",
+            ))
+            events.append(MessageEvent(
+                text=t("item.eat", item=item_name),
+            ))
+            roll = get_rng().random()
+            if roll < 0.50:
+                pass  # just food
+            elif roll < 0.70:
+                health = world.get_component(self.actor, "Health")
+                if health:
+                    actual = heal(health, roll_dice("1d4"))
+                    events.append(MessageEvent(
+                        text=t("item.mushroom_heal"),
+                    ))
+            elif roll < 0.85:
+                from nhc.entities.components import Poison
+                world.add_component(self.actor, "Poison",
+                    Poison(damage_per_turn=1, turns_remaining=2))
+                events.append(MessageEvent(
+                    text=t("item.mushroom_poison"),
+                ))
+            else:
+                status = world.get_component(self.actor, "StatusEffect")
+                if status:
+                    status.confused = 3
+                events.append(MessageEvent(
+                    text=t("item.mushroom_confuse"),
                 ))
 
         elif consumable.effect == "frost":

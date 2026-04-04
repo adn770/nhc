@@ -297,8 +297,11 @@ class WebClient(GameClient):
             "slots_max": max_slots,
             "ac_label": ac_label,
         }
+        hunger = world.get_component(player_id, "Hunger")
         dynamic = {
             "turn": turn,
+            "hunger": hunger.current if hunger else 900,
+            "hunger_max": hunger.maximum if hunger else 1200,
             "plevel": player.level if player else 1,
             "xp": player.xp if player else 0,
             "gold": player.gold if player else 0,
@@ -396,6 +399,11 @@ class WebClient(GameClient):
             "stat_int": tr("stats.int"),
             "stat_wis": tr("stats.wis"),
             "stat_cha": tr("stats.cha"),
+            # Hunger states
+            "hunger_satiated": tr("ui.hunger_satiated"),
+            "hunger_normal": tr("ui.hunger_normal"),
+            "hunger_hungry": tr("ui.hunger_hungry"),
+            "hunger_starving": tr("ui.hunger_starving"),
         }
 
     def _gather_doors(

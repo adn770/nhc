@@ -58,6 +58,7 @@ from nhc.entities.components import (
     Description,
     Equipment,
     Health,
+    Hunger,
     Inventory,
     Player,
     Position,
@@ -470,6 +471,7 @@ class Game:
                 short=t(f"traits.{char.background}"),
             ),
             "Equipment": Equipment(),
+            "Hunger": Hunger(),
         })
         self._character = char
 
@@ -816,6 +818,7 @@ class Game:
             self._tick_rings()
             self._tick_doors()
             self._tick_wand_recharge()
+            self._tick_hunger()
             self._tick_stairs_proximity()
 
             # God mode: restore HP to max each turn
@@ -1208,6 +1211,9 @@ class Game:
 
     def _tick_wand_recharge(self) -> None:
         game_ticks.tick_wand_recharge(self)
+
+    def _tick_hunger(self) -> None:
+        game_ticks.tick_hunger(self)
 
     def _tick_stairs_proximity(self) -> None:
         game_ticks.tick_stairs_proximity(self)

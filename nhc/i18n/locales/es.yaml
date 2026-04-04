@@ -270,6 +270,10 @@ item:
   full_inventory: "¡El inventario está lleno!"
   nothing_to_pickup: "No hay nada que recoger aquí."
   full_health: "Ya estás a plena salud."
+  eat: "Comes {item}."
+  mushroom_heal: "¡La seta tiene un efecto curativo!"
+  mushroom_poison: "¡La seta era venenosa!"
+  mushroom_confuse: "¡La seta te hace girar la cabeza!"
   quaff_heal: "Bebes {item}. Curado {amount} PV."
   nothing_happens: "No pasa nada."
   no_target: "¡Ningún objetivo a la vista!"
@@ -385,6 +389,13 @@ item:
   wand_lock_door: "¡La puerta se cierra con llave!"
   wand_open_door: "¡La puerta se abre de par en par!"
   wand_no_door: "No hay ninguna puerta en esa dirección."
+
+# ── Hambre ────────────────────────────────────────────────────────────
+hunger:
+  getting_hungry: "Empiezas a tener hambre."
+  starving: "¡Te mueres de hambre!"
+  no_longer_full: "Ya no te sientes tan lleno."
+  starving_damage: "¡Tu estómago se retuerce de hambre!"
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -607,6 +618,11 @@ ui:
   mode_typed_tag: "[escrito]"
   # Input
   input_placeholder: "Escribe un comando..."
+  # Hunger states
+  hunger_satiated: "Saciado"
+  hunger_normal: "Normal"
+  hunger_hungry: "Hambriento"
+  hunger_starving: "¡Famélico!"
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:
@@ -1421,6 +1437,34 @@ items:
     name: "Raciones"
     short: "raciones de viaje"
     long: "Carne seca, pan duro y frutos secos. Para un día."
+  bread:
+    name: "Pan"
+    short: "una hogaza de pan"
+    long: "Una hogaza redonda, algo dura pero aún nutritiva."
+  dried_meat:
+    name: "Carne Seca"
+    short: "una tira de carne seca"
+    long: "Curada con sal y dura, pero saciante."
+  apple:
+    name: "Manzana"
+    short: "una manzana fresca"
+    long: "Una manzana roja y crujiente. Un tentempié ligero."
+  mushroom:
+    name: "Seta"
+    short: "una seta extraña"
+    long: "Una seta de mazmorra de origen incierto. Comestible, probablemente."
+  cheese:
+    name: "Queso"
+    short: "una cuña de queso"
+    long: "Curado y firme. Tiene un agradable sabor a nuez."
+  barrel:
+    name: "Barril"
+    short: "un barril de madera"
+    long: "Un barril robusto. Algo chapotea dentro."
+  crate:
+    name: "Cajón"
+    short: "un cajón de madera"
+    long: "Un cajón clavado. Podría contener provisiones."
   staff:
     name: "Bastón"
     short: "un bastón de madera"

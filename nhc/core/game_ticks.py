@@ -12,6 +12,11 @@ from typing import TYPE_CHECKING
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage, heal, is_dead
 
+# Hunger state thresholds
+_SATIATED_THRESHOLD = 1000
+_HUNGRY_THRESHOLD = 300
+_STARVING_THRESHOLD = 100
+
 if TYPE_CHECKING:
     from nhc.core.game import Game
 
@@ -201,3 +206,59 @@ def tick_wand_recharge(game: Game) -> None:
         if wand.recharge_timer <= 0:
             wand.charges += 1
             wand.recharge_timer = 20
+
+
+def _hunger_state(current: int) -> str:
+    """Derive hunger state from current satiation."""
+    if current > _SATIATED_THRESHOLD:
+        return "satiated"
+    if current > _HUNGRY_THRESHOLD:
+        return "normal"
+    if current > _STARVING_THRESHOLD:
+        return "hungry"
+    return "starving"
+
+
+def tick_hunger(game: Game) -> None:
+    """Decrement player hunger each turn and apply effects."""
+    hunger = game.world.get_component(game.player_id, "Hunger")
+    if not hunger:
+        return
+
+    hunger.current = max(0, hunger.current - 1)
+    state = _hunger_state(hunger.current)
+
+    # State transition messages
+    prev = hunger.prev_state
+    if state != prev:
+        if prev in ("normal", "satiated") and state == "hungry":
+            game.renderer.add_message(t("hunger.getting_hungry"))
+        elif state == "starving":
+            game.renderer.add_message(t("hunger.starving"))
+        elif prev == "satiated" and state == "normal":
+            game.renderer.add_message(t("hunger.no_longer_full"))
+        hunger.prev_state = state
+
+    # Apply / remove stat penalties
+    if state == "hungry":
+        hunger.str_penalty = -1
+        hunger.dex_penalty = -1
+    elif state == "starving":
+        hunger.str_penalty = -2
+        hunger.dex_penalty = -2
+    else:
+        hunger.str_penalty = 0
+        hunger.dex_penalty = 0
+
+    # Satiated: minor HP regen every 20 turns
+    if state == "satiated" and game.turn % 20 == 0:
+        health = game.world.get_component(game.player_id, "Health")
+        if health and health.current < health.maximum:
+            heal(health, 1)
+
+    # Starving: HP damage every 5 turns
+    if state == "starving" and game.turn % 5 == 0:
+        health = game.world.get_component(game.player_id, "Health")
+        if health:
+            apply_damage(health, 1)
+            game.renderer.add_message(t("hunger.starving_damage"))

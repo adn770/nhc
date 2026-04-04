@@ -53,13 +53,32 @@ const UI = {
     else if (hpPct <= 0.5) hpColor = "#FFFF44";  // yellow
 
     const sep = " │ ";
+    // Hunger state
+    const hVal = s.hunger != null ? s.hunger : 900;
+    const HL = NHC.labels || {};
+    let hungerLabel, hungerColor;
+    if (hVal > 1000) {
+      hungerLabel = HL.hunger_satiated || "Satiated";
+      hungerColor = "#88FF88";
+    } else if (hVal > 300) {
+      hungerLabel = HL.hunger_normal || "Normal";
+      hungerColor = "#AAAAAA";
+    } else if (hVal > 100) {
+      hungerLabel = HL.hunger_hungry || "Hungry";
+      hungerColor = "#FFAA44";
+    } else {
+      hungerLabel = HL.hunger_starving || "Starving!";
+      hungerColor = "#FF4444";
+    }
+
     this.statusLine1.innerHTML =
       ` 📍 <b>${s.level_name || "?"}</b>` +
       `${sep}⬇ ${s.depth}` +
       `${sep}⏳ ${s.turn}` +
       `${sep}${(NHC.labels && NHC.labels.lv) || "Lv"} ${s.plevel} (${s.xp}/${s.xp_next} ${(NHC.labels && NHC.labels.xp) || "XP"})` +
       `${sep}💰 <span style="color:#FFFF44">${s.gold}</span>` +
-      `${sep}❤️  <span style="color:${hpColor}">${hpBar} ${hp}/${hpMax}</span>`;
+      `${sep}❤️  <span style="color:${hpColor}">${hpBar} ${hp}/${hpMax}</span>` +
+      `${sep}🍖 <span style="color:${hungerColor}">${hungerLabel}</span>`;
 
     // ── Line 2: Name, stats, equipment (interactive) ──
     const name = s.char_name || "?";

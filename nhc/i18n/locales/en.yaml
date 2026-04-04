@@ -272,6 +272,10 @@ item:
   full_inventory: "Inventory is full!"
   nothing_to_pickup: "Nothing to pick up here."
   full_health: "Already at full health."
+  eat: "You eat the {item}."
+  mushroom_heal: "The mushroom has a healing effect!"
+  mushroom_poison: "The mushroom was poisonous!"
+  mushroom_confuse: "The mushroom makes your head spin!"
   quaff_heal: "Quaff {item}. Healed {amount} HP."
   nothing_happens: "Nothing happens."
   no_target: "No target in sight!"
@@ -385,6 +389,13 @@ item:
   wand_lock_door: "The door locks shut!"
   wand_open_door: "The door swings open!"
   wand_no_door: "There is no door in that direction."
+
+# ── Hunger ────────────────────────────────────────────────────────────
+hunger:
+  getting_hungry: "You are getting hungry."
+  starving: "You are starving!"
+  no_longer_full: "You no longer feel full."
+  starving_damage: "Your stomach cramps with hunger!"
 
 # ── Traps ─────────────────────────────────────────────────────────────
 trap:
@@ -607,6 +618,11 @@ ui:
   mode_typed_tag: "[typed]"
   # Input
   input_placeholder: "Type a command..."
+  # Hunger states
+  hunger_satiated: "Satiated"
+  hunger_normal: "Normal"
+  hunger_hungry: "Hungry"
+  hunger_starving: "Starving!"
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:
@@ -1411,6 +1427,34 @@ items:
     name: "Rations"
     short: "travel rations"
     long: "Dried meat, hard bread, and nuts. Enough for one day."
+  bread:
+    name: "Bread"
+    short: "a loaf of bread"
+    long: "A round loaf, slightly stale but still nourishing."
+  dried_meat:
+    name: "Dried Meat"
+    short: "a strip of dried meat"
+    long: "Salt-cured and tough, but filling."
+  apple:
+    name: "Apple"
+    short: "a fresh apple"
+    long: "A crisp red apple. A light but refreshing snack."
+  mushroom:
+    name: "Mushroom"
+    short: "a strange mushroom"
+    long: "A dungeon mushroom of uncertain origin. Edible, probably."
+  cheese:
+    name: "Cheese"
+    short: "a wedge of cheese"
+    long: "Aged and firm. Has a pleasant nutty flavour."
+  barrel:
+    name: "Barrel"
+    short: "a wooden barrel"
+    long: "A sturdy barrel. Something sloshes inside."
+  crate:
+    name: "Crate"
+    short: "a wooden crate"
+    long: "A nailed-shut crate. Might contain supplies."
   staff:
     name: "Quarterstaff"
     short: "a wooden quarterstaff"

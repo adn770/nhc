@@ -62,7 +62,8 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("healing_potion", 0.15), ("potion_purification", 0.03),
         ("dagger", 0.10), ("club", 0.08), ("short_sword", 0.08),
         ("sling", 0.05), ("gambeson", 0.05), ("shield", 0.05),
-        ("torch", 0.05), ("rope", 0.04), ("rations", 0.04),
+        ("torch", 0.05), ("rope", 0.04), ("rations", 0.08),
+        ("bread", 0.06), ("apple", 0.05), ("cheese", 0.04),
         ("scroll_sleep", 0.06), ("scroll_cure_wounds", 0.06),
         ("scroll_bless", 0.04), ("potion_frost", 0.04),
         ("potion_mind_vision", 0.03), ("lockpicks", 0.03),
@@ -70,6 +71,8 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     ],
     2: [
         ("healing_potion", 0.10), ("potion_frost", 0.04),
+        ("rations", 0.06), ("dried_meat", 0.05),
+        ("bread", 0.04), ("mushroom", 0.04),
         ("potion_strength", 0.03), ("potion_invisibility", 0.03),
         ("short_sword", 0.07), ("sword", 0.06), ("spear", 0.05),
         ("mace", 0.05), ("axe", 0.04), ("bow", 0.04),
@@ -83,6 +86,8 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     ],
     3: [
         ("healing_potion", 0.12), ("sword", 0.08), ("shield", 0.08),
+        ("rations", 0.05), ("dried_meat", 0.04),
+        ("mushroom", 0.04), ("cheese", 0.03),
         ("scroll_lightning", 0.07), ("scroll_magic_missile", 0.07),
         ("scroll_hold_person", 0.08), ("scroll_fireball", 0.08),
         ("scroll_charm_person", 0.06), ("scroll_haste", 0.06),
@@ -96,6 +101,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     ],
     4: [
         ("healing_potion", 0.06), ("sword", 0.03), ("shield", 0.03),
+        ("rations", 0.04), ("dried_meat", 0.03), ("mushroom", 0.03),
         ("scroll_fireball", 0.07), ("scroll_hold_person", 0.07),
         ("scroll_haste", 0.07), ("scroll_invisibility", 0.07),
         ("scroll_mirror_image", 0.06), ("scroll_charm_person", 0.06),
@@ -371,6 +377,21 @@ def populate_level(
         if pos:
             level.entities.append(EntityPlacement(
                 entity_type="feature", entity_id="chest",
+                x=pos[0], y=pos[1],
+            ))
+
+    # ── Place barrels and crates ──
+    container_count = rng.randint(1, 2 + level.depth // 3)
+    container_types = ["barrel", "crate"]
+    for _ in range(container_count):
+        if not placeable:
+            break
+        room = rng.choice(placeable)
+        pos = _pick_floor(room)
+        if pos:
+            ctype = rng.choice(container_types)
+            level.entities.append(EntityPlacement(
+                entity_type="feature", entity_id=ctype,
                 x=pos[0], y=pos[1],
             ))
 

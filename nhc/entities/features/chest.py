@@ -14,6 +14,7 @@ def create_chest() -> dict:
         "LootTable": LootTable(entries=[
             ("healing_potion", 0.5),
             ("gold", 0.8, "3d6"),
+            ("rations", 0.4),
         ]),
         "BlocksMovement": BlocksMovement(),
         "Chest": True,

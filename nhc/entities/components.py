@@ -262,3 +262,20 @@ class Enchanted:
 class Cursed:
     """Tag: creature is under a mummy's rot curse."""
     ticks_until_drain: int = 2  # decrements each turn; drains 1 max HP at 0
+
+
+@dataclass
+class Hunger:
+    """Tracks player satiation.  Decrements by 1 each turn.
+
+    States (derived from current):
+      Satiated: current > 1000
+      Normal:   300 < current ≤ 1000
+      Hungry:   100 < current ≤ 300
+      Starving: current ≤ 100
+    """
+    current: int = 900
+    maximum: int = 1200
+    prev_state: str = "normal"
+    str_penalty: int = 0
+    dex_penalty: int = 0
