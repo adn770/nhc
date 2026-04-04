@@ -157,6 +157,80 @@ class TestCellularGenerator:
         assert rooms1 != rooms2 or tiles1 != tiles2
 
 
+class TestCellularCorridorShape:
+    """Corridors connecting cave regions should not contain long
+    unbroken straight runs — caves read as organic when corridors
+    are kinked or short."""
+
+    # A single corridor leg is bounded by cellular.MAX_STRAIGHT (4)
+    # and the post-process jog breaks runs longer than that, but
+    # when every candidate pivot's 3-cell detour is already blocked
+    # by neighbouring corridors or cave floor, a run can survive a
+    # bit longer.  We allow up to 10 tiles here; previous generator
+    # output was 30+ tiles, so this is still a 3×+ improvement.
+    MAX_STRAIGHT_RUN = 10
+
+    @staticmethod
+    def _longest_straight_run(level) -> int:
+        """Return the length of the longest contiguous axis-aligned
+        run of corridor tiles in either dimension."""
+        w, h = level.width, level.height
+        best = 0
+        # Horizontal runs
+        for y in range(h):
+            run = 0
+            for x in range(w):
+                if level.tiles[y][x].is_corridor:
+                    run += 1
+                    best = max(best, run)
+                else:
+                    run = 0
+        # Vertical runs
+        for x in range(w):
+            run = 0
+            for y in range(h):
+                if level.tiles[y][x].is_corridor:
+                    run += 1
+                    best = max(best, run)
+                else:
+                    run = 0
+        return best
+
+    def test_no_long_straight_runs_single_seed(self):
+        """On a representative seed, no corridor forms a straight
+        run longer than MAX_STRAIGHT_RUN tiles."""
+        level = _generate(seed=2057302072)
+        longest = self._longest_straight_run(level)
+        assert longest <= self.MAX_STRAIGHT_RUN, (
+            f"Longest straight corridor run = {longest} tiles, "
+            f"exceeds limit of {self.MAX_STRAIGHT_RUN}"
+        )
+
+    def test_no_long_straight_runs_many_seeds(self):
+        """Across many seeds, long straight corridor runs should
+        be rare.  Accept occasional outliers but fail if the
+        average longest run exceeds the limit."""
+        longest_runs = []
+        for seed in range(20):
+            level = _generate(seed=seed)
+            longest_runs.append(self._longest_straight_run(level))
+        avg = sum(longest_runs) / len(longest_runs)
+        assert avg <= self.MAX_STRAIGHT_RUN, (
+            f"Average longest straight run across 20 seeds = "
+            f"{avg:.1f}, exceeds limit of {self.MAX_STRAIGHT_RUN}"
+        )
+        # And at most 20% of seeds may exceed the limit by a lot
+        outliers = sum(
+            1 for r in longest_runs
+            if r > self.MAX_STRAIGHT_RUN + 2
+        )
+        assert outliers <= len(longest_runs) // 5, (
+            f"{outliers} seeds produced corridor runs > "
+            f"{self.MAX_STRAIGHT_RUN + 2} tiles; expected ≤ "
+            f"{len(longest_runs) // 5}"
+        )
+
+
 class TestCellularGeneratorIntegration:
     """Cave levels work with the downstream pipeline."""
 

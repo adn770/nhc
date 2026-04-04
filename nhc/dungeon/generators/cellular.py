@@ -111,6 +111,13 @@ class CellularGenerator(DungeonGenerator):
             room = self._region_to_room(region, i)
             level.rooms.append(room)
 
+        # Step 5.5: Break any overly-long straight corridor runs.
+        # Waypoint kinking bounds individual legs, but two separate
+        # _connect_regions calls can carve collinear segments that
+        # fuse into one long run; this pass jogs every such run by
+        # a single tile perpendicular to its direction.
+        self._break_long_corridors(level, rng)
+
         # Step 6: Build walls around floor tiles
         self._build_walls(level)
 
@@ -212,7 +219,14 @@ class CellularGenerator(DungeonGenerator):
         region_b: set[tuple[int, int]],
         rng: random.Random,
     ) -> None:
-        """Carve an L-shaped corridor between two regions."""
+        """Carve a winding corridor between two regions.
+
+        The path is split into short waypoint segments so no single
+        straight run is long enough to feel rectilinear in a cave.
+        For short connections (≤ ``MAX_STRAIGHT`` tiles total) a
+        plain L is still used; longer ones are kinked every
+        ``MAX_STRAIGHT`` tiles with a small perpendicular offset.
+        """
         # Find closest pair of tiles between regions
         best_dist = 99999
         best_a = best_b = (0, 0)
@@ -233,14 +247,7 @@ class CellularGenerator(DungeonGenerator):
 
         ax, ay = best_a
         bx, by = best_b
-
-        # Carve L-shaped corridor
-        if rng.random() < 0.5:
-            _carve_line(level, ax, ay, bx, ay)
-            _carve_line(level, bx, ay, bx, by)
-        else:
-            _carve_line(level, ax, ay, ax, by)
-            _carve_line(level, ax, by, bx, by)
+        _carve_winding_corridor(level, ax, ay, bx, by, rng)
 
     @staticmethod
     def _region_to_room(
@@ -257,6 +264,173 @@ class CellularGenerator(DungeonGenerator):
             rect=rect,
             shape=CaveShape(region),
         )
+
+    @staticmethod
+    def _break_long_corridors(
+        level: Level, rng: random.Random,
+    ) -> None:
+        """Break any straight corridor run longer than
+        :data:`MAX_STRAIGHT` tiles into two shorter runs.
+
+        For a horizontal run, we pick a pivot tile near the middle
+        (but not at either endpoint) and detour: carve three
+        corridor tiles one row off the main axis ``(mid-1, ny)``,
+        ``(mid, ny)``, ``(mid+1, ny)``, then remove the pivot
+        ``(mid, y)`` — converting it back to VOID — so the original
+        run splits into two halves connected via the 3-tile jog.
+        Connectivity is preserved because ``(mid-1, y)`` /
+        ``(mid+1, y)`` remain corridor tiles, each 4-adjacent to
+        their ``ny`` neighbours.  Symmetric for vertical runs.
+
+        The pass re-runs until no run exceeds the limit, with a
+        safety bound to avoid pathological inputs."""
+        w, h = level.width, level.height
+
+        def _is_corridor(x: int, y: int) -> bool:
+            if not level.in_bounds(x, y):
+                return False
+            return level.tiles[y][x].is_corridor
+
+        def _is_carvable(x: int, y: int) -> bool:
+            if not level.in_bounds(x, y):
+                return False
+            return level.tiles[y][x].terrain in (
+                Terrain.VOID, Terrain.WALL,
+            )
+
+        def _carve(x: int, y: int) -> None:
+            level.tiles[y][x] = Tile(
+                terrain=Terrain.FLOOR, is_corridor=True,
+            )
+
+        def _void(x: int, y: int) -> None:
+            level.tiles[y][x] = Tile(terrain=Terrain.VOID)
+
+        def _try_break_horizontal(
+            y: int, start: int, end: int,
+        ) -> bool:
+            # Try pivots near the middle outward, so the two halves
+            # are roughly balanced.  Skip endpoints and cells whose
+            # removal would strand an adjacent cave entrance.
+            mid = (start + end) // 2
+            order = []
+            for off in range(1, (end - start) // 2):
+                order.extend((mid - off, mid + off))
+            order.insert(0, mid)
+            candidates = [
+                c for c in order
+                if start < c < end
+            ]
+            for px in candidates:
+                for side in (1, -1):
+                    ny = y + side
+                    if not (0 < ny < h - 1):
+                        continue
+                    # All three detour cells must be carvable
+                    if not all(
+                        _is_carvable(px + d, ny)
+                        for d in (-1, 0, 1)
+                    ):
+                        continue
+                    # Removing the pivot must not isolate a
+                    # neighbouring cave cell: (px, y±1) should
+                    # either already be corridor/void, never a
+                    # cave floor that relied on the pivot.
+                    nb_up = level.tile_at(px, y - 1)
+                    nb_dn = level.tile_at(px, y + 1)
+                    risky = False
+                    for nb in (nb_up, nb_dn):
+                        if (nb and nb.terrain == Terrain.FLOOR
+                                and not nb.is_corridor):
+                            risky = True
+                            break
+                    if risky:
+                        continue
+                    # Perform the break
+                    for d in (-1, 0, 1):
+                        _carve(px + d, ny)
+                    _void(px, y)
+                    return True
+            return False
+
+        def _try_break_vertical(
+            x: int, start: int, end: int,
+        ) -> bool:
+            mid = (start + end) // 2
+            order = []
+            for off in range(1, (end - start) // 2):
+                order.extend((mid - off, mid + off))
+            order.insert(0, mid)
+            candidates = [
+                c for c in order
+                if start < c < end
+            ]
+            for py in candidates:
+                for side in (1, -1):
+                    nx = x + side
+                    if not (0 < nx < w - 1):
+                        continue
+                    if not all(
+                        _is_carvable(nx, py + d)
+                        for d in (-1, 0, 1)
+                    ):
+                        continue
+                    nb_l = level.tile_at(x - 1, py)
+                    nb_r = level.tile_at(x + 1, py)
+                    risky = False
+                    for nb in (nb_l, nb_r):
+                        if (nb and nb.terrain == Terrain.FLOOR
+                                and not nb.is_corridor):
+                            risky = True
+                            break
+                    if risky:
+                        continue
+                    for d in (-1, 0, 1):
+                        _carve(nx, py + d)
+                    _void(x, py)
+                    return True
+            return False
+
+        safety = 0
+        while safety < 12:
+            safety += 1
+            broke_any = False
+            # Horizontal runs
+            for y in range(h):
+                x = 0
+                while x < w:
+                    if not _is_corridor(x, y):
+                        x += 1
+                        continue
+                    start = x
+                    while x < w and _is_corridor(x, y):
+                        x += 1
+                    end = x - 1
+                    run_len = end - start + 1
+                    if run_len > MAX_STRAIGHT:
+                        if _try_break_horizontal(y, start, end):
+                            broke_any = True
+                            # Restart row scan from the break
+                            # point since the run changed.
+                            x = start
+            # Vertical runs
+            for x in range(w):
+                y = 0
+                while y < h:
+                    if not _is_corridor(x, y):
+                        y += 1
+                        continue
+                    start = y
+                    while y < h and _is_corridor(x, y):
+                        y += 1
+                    end = y - 1
+                    run_len = end - start + 1
+                    if run_len > MAX_STRAIGHT:
+                        if _try_break_vertical(x, start, end):
+                            broke_any = True
+                            y = start
+            if not broke_any:
+                break
 
     @staticmethod
     def _build_walls(level: Level) -> None:
@@ -353,6 +527,17 @@ class CellularGenerator(DungeonGenerator):
                         break
 
 
+MAX_STRAIGHT = 4
+"""Target maximum straight-run length in tiles for a single
+corridor leg.  Each leg of a connection is bounded by this, but
+runs across multiple connections can merge when two different
+connect-region calls carve collinear or adjacent segments through
+the same row/column — so the actual longest run in a generated
+level may still exceed MAX_STRAIGHT by a small amount.  The
+visual impact is far smaller than the previous 30+ tile straights,
+and the tests accept the occasional outlier."""
+
+
 def _carve_line(
     level: Level, x1: int, y1: int, x2: int, y2: int,
 ) -> None:
@@ -375,6 +560,87 @@ def _carve_line(
                 level.tiles[y][x1] = Tile(
                     terrain=Terrain.FLOOR, is_corridor=True,
                 )
+
+
+def _carve_l(
+    level: Level, x1: int, y1: int, x2: int, y2: int,
+    rng: random.Random,
+    horizontal_first: bool | None = None,
+) -> None:
+    """Carve an L-shaped corridor: one horizontal leg + one
+    vertical leg.  When *horizontal_first* is None the bend is
+    picked at random; otherwise callers can force the order to
+    avoid fusing with an adjacent segment."""
+    if horizontal_first is None:
+        horizontal_first = rng.random() < 0.5
+    if horizontal_first:
+        _carve_line(level, x1, y1, x2, y1)
+        _carve_line(level, x2, y1, x2, y2)
+    else:
+        _carve_line(level, x1, y1, x1, y2)
+        _carve_line(level, x1, y2, x2, y2)
+
+
+def _carve_winding_corridor(
+    level: Level, x1: int, y1: int, x2: int, y2: int,
+    rng: random.Random,
+) -> None:
+    """Carve a kinked corridor from (x1,y1) to (x2,y2).
+
+    Splits the path into legs no longer than ``MAX_STRAIGHT`` tiles
+    on the dominant axis.  Intermediate waypoints are offset
+    perpendicular to the main direction by a small random amount
+    so the corridor reads as a zigzag instead of a long ruler line.
+    Short connections (≤ MAX_STRAIGHT in both axes) fall through to
+    a plain L, which is already organic enough.
+    """
+    dx = x2 - x1
+    dy = y2 - y1
+    if abs(dx) <= MAX_STRAIGHT and abs(dy) <= MAX_STRAIGHT:
+        _carve_l(level, x1, y1, x2, y2, rng)
+        return
+
+    # Number of legs along the dominant axis
+    dominant = max(abs(dx), abs(dy))
+    n_legs = max(2, (dominant + MAX_STRAIGHT - 1) // MAX_STRAIGHT)
+
+    # Waypoints interpolate linearly from A to B with a random
+    # perpendicular jitter of up to MAX_STRAIGHT-1 tiles (smaller
+    # than a leg so subsequent legs never need to double back
+    # further than MAX_STRAIGHT tiles).
+    jitter_cap = max(1, MAX_STRAIGHT - 1)
+    waypoints: list[tuple[int, int]] = [(x1, y1)]
+    for i in range(1, n_legs):
+        t = i / n_legs
+        mx = int(round(x1 + dx * t))
+        my = int(round(y1 + dy * t))
+        # Perpendicular offset — mostly-horizontal paths jitter
+        # vertically, and vice versa.
+        if abs(dx) >= abs(dy):
+            my += rng.randint(-jitter_cap, jitter_cap)
+        else:
+            mx += rng.randint(-jitter_cap, jitter_cap)
+        # Clamp to interior bounds (leave a 1-tile margin for the
+        # wall step later).
+        mx = max(1, min(level.width - 2, mx))
+        my = max(1, min(level.height - 2, my))
+        waypoints.append((mx, my))
+    waypoints.append((x2, y2))
+
+    # Carve L-shaped segments between consecutive waypoints with
+    # a fixed bend order so adjacent legs can't fuse on the
+    # dominant axis.  When the path is mostly-horizontal we do
+    # "vertical first, horizontal second" for every leg: each leg
+    # ends going horizontally, and the next leg starts going
+    # vertically — so the horizontal runs are chopped into pieces
+    # of length ≤ MAX_STRAIGHT and the vertical runs are bounded
+    # by jitter_cap.  Symmetric for mostly-vertical paths.
+    horizontal_first = abs(dx) < abs(dy)
+    for (ax, ay), (bx, by) in zip(waypoints, waypoints[1:]):
+        _carve_l(
+            level, ax, ay, bx, by, rng,
+            horizontal_first=horizontal_first,
+        )
 
 
 def _bfs_farthest(
