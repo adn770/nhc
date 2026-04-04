@@ -441,6 +441,31 @@ class TestPickupItemAction:
         assert not await action.validate(world, level)
 
 
+    @pytest.mark.asyncio
+    async def test_pickup_removes_position_component(self):
+        """Picked-up items must have Position fully removed, not
+        set to None — otherwise tick_doors crashes iterating
+        entities with Position."""
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        item_id = world.create_entity({
+            "Position": Position(x=5, y=5),
+            "Description": Description(name="Potion"),
+        })
+
+        action = PickupItemAction(actor=pid, item=item_id)
+        await action.execute(world, level)
+
+        assert not world.has_component(item_id, "Position"), (
+            "Position component should be removed, not set to None"
+        )
+        # Verify the item doesn't appear in Position queries
+        positions = world.query("Position")
+        eids = [eid for eid, _ in positions]
+        assert item_id not in eids
+
+
 class TestBumpAction:
     @pytest.mark.asyncio
     async def test_bump_into_creature_attacks(self):

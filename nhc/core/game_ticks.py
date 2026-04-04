@@ -172,25 +172,42 @@ DOOR_CLOSE_TURNS = 20
 
 
 def tick_doors(game: Game) -> None:
-    """Auto-close doors that have been open for 20+ turns."""
-    level = game.level
-    occupied: set[tuple[int, int]] = set()
-    for _, pos in game.world.query("Position"):
-        occupied.add((pos.x, pos.y))
+    """Auto-close doors that have been open for 20+ turns.
 
+    Skips entirely when no doors are eligible, avoiding the cost
+    of building an occupied-position set every turn.
+    """
+    level = game.level
+
+    # Collect open doors that have been open long enough
+    candidates: list[tuple[int, int]] = []
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tile_at(x, y)
             if (tile
                     and tile.feature == "door_open"
                     and tile.opened_at_turn is not None
-                    and game.turn - tile.opened_at_turn >= DOOR_CLOSE_TURNS
-                    and (x, y) not in occupied):
-                tile.feature = "door_closed"
-                tile.opened_at_turn = None
-                if tile.visible:
-                    game.renderer.add_message(
-                        t("explore.door_closes"))
+                    and game.turn - tile.opened_at_turn
+                    >= DOOR_CLOSE_TURNS):
+                candidates.append((x, y))
+
+    if not candidates:
+        return
+
+    # Build occupied set only when needed
+    occupied: set[tuple[int, int]] = set()
+    for _, pos in game.world.query("Position"):
+        if pos is not None:
+            occupied.add((pos.x, pos.y))
+
+    for x, y in candidates:
+        if (x, y) not in occupied:
+            tile = level.tiles[y][x]
+            tile.feature = "door_closed"
+            tile.opened_at_turn = None
+            if tile.visible:
+                game.renderer.add_message(
+                    t("explore.door_closes"))
 
 
 def tick_wand_recharge(game: Game) -> None:

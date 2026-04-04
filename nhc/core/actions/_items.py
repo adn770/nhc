@@ -59,7 +59,7 @@ class PickupItemAction(Action):
         inv = world.get_component(self.actor, "Inventory")
         inv.slots.append(self.item)
         # Remove position so it's no longer on the map
-        world.add_component(self.item, "Position", None)
+        world.remove_component(self.item, "Position")
 
         item_name = _entity_name(world, self.item)
         events.append(ItemPickedUp(entity=self.actor, item=self.item))
