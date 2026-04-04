@@ -225,156 +225,155 @@ class TestCaveWallRendering:
         )
 
 
-class TestCaveTileCenterWalls:
-    """New cave wall algorithm: each boundary tile contributes one
-    jittered point near its center; opening edges insert fixed
-    anchor points (corners + midedge) so corridor walls connect."""
+class TestCaveRegionWalls:
+    """Unified cave region wall tracer.
 
-    def test_tile_center_jitter_within_disk(self):
-        """Each solid-run point must be within a disk of radius
-        CELL/4 of the boundary tile's center."""
-        from nhc.rendering.svg import (
-            _build_cave_wall_runs, CELL,
-        )
-        import random
-        level, room = _make_cave_room_level(with_corridor=False)
-        rng = random.Random(42)
-        runs = _build_cave_wall_runs(room, level, rng)
-        assert runs, "Expected at least one run"
-        tiles = room.floor_tiles()
-        # Every solid point must be within CELL/4 of some tile
-        # center
-        tile_centers = [
-            ((tx + 0.5) * CELL, (ty + 0.5) * CELL)
-            for tx, ty in tiles
-        ]
-        for run in runs:
-            for kind, (x, y) in run:
-                if kind != "solid":
-                    continue
-                import math
-                dists = [
-                    math.hypot(x - cx, y - cy)
-                    for cx, cy in tile_centers
-                ]
-                assert min(dists) <= CELL / 4 + 0.01, (
-                    f"Point ({x},{y}) too far from any tile center"
-                )
+    Rooms + connected corridors are merged into one polygon and
+    traced as a single continuous Dyson-style outline whose control
+    points sit on (or are pushed outward from) the tile-edge polygon
+    boundary — so walls always surround the floor tiles."""
 
-    def test_opening_anchors_at_exact_grid(self):
-        """Opening edge endpoints (corners + midedge) must be at
-        exact grid positions so corridor walls connect."""
-        from nhc.rendering.svg import (
-            _build_cave_wall_runs, CELL,
-        )
-        import random
+    def test_cave_region_includes_corridor_tiles(self):
+        """A cave room connected to a corridor must flood into a
+        single region containing all corridor tiles."""
+        from nhc.rendering.svg import _collect_cave_region
         level, room = _make_cave_room_level(with_corridor=True)
-        rng = random.Random(42)
-        runs = _build_cave_wall_runs(room, level, rng)
-        assert runs
-        # Collect all anchor points from opening/door edges
-        anchor_points = []
-        for run in runs:
-            for kind, p in run:
-                if kind in ("gap_corner", "gap_mid"):
-                    anchor_points.append(p)
-        assert anchor_points, (
-            "Expected anchor points at opening edges"
-        )
-        # Anchors should be at grid-aligned positions
-        # (corners on CELL boundaries, mid at CELL*0.5 offset)
-        for x, y in anchor_points:
-            # Corner: both x and y are multiples of CELL
-            # Midedge: exactly one is CELL*0.5 offset
-            on_grid_x = x % CELL < 0.01 or abs(x % CELL - CELL / 2) < 0.01
-            on_grid_y = y % CELL < 0.01 or abs(y % CELL - CELL / 2) < 0.01
-            assert on_grid_x and on_grid_y, (
-                f"Anchor ({x},{y}) not at grid position"
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        region = _collect_cave_region(level)
+        # All cave room tiles are in the region
+        for t in room.floor_tiles():
+            assert t in region
+        # All corridor tiles at y=6, x=0..2 are in the region
+        for cx in range(0, 3):
+            assert (cx, 6) in region, (
+                f"Corridor tile ({cx}, 6) missing from region"
             )
 
-    def test_runs_split_at_gaps(self):
-        """A cave with one corridor opening produces one open run
-        (ends at gap_corner, starts at the opposite gap_corner)."""
-        from nhc.rendering.svg import _build_cave_wall_runs
-        import random
-        level, room = _make_cave_room_level(with_corridor=True)
-        rng = random.Random(42)
-        runs = _build_cave_wall_runs(room, level, rng)
-        assert len(runs) == 1, (
-            f"One opening should produce one run, got {len(runs)}"
+    def test_cave_region_polygon_has_single_exterior(self):
+        """The unified polygon for one connected region exposes
+        exactly one exterior ring (plus zero or more holes)."""
+        from nhc.rendering.svg import (
+            _build_cave_polygon, _collect_cave_region,
         )
-        run = runs[0]
-        # First and last entries should be gap corner anchors
-        assert run[0][0] == "gap_corner"
-        assert run[-1][0] == "gap_corner"
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        region = _collect_cave_region(level)
+        poly = _build_cave_polygon(region)
+        assert poly is not None
+        # Must be a single Polygon (not MultiPolygon) for one
+        # connected region
+        from shapely.geometry import Polygon as ShPolygon
+        assert isinstance(poly, ShPolygon), (
+            f"Expected single Polygon, got {type(poly).__name__}"
+        )
+        # And it must be simple (no self-intersections)
+        assert poly.is_valid
 
-    def test_no_openings_returns_closed_loop(self):
-        """A cave with no openings produces one closed run."""
-        from nhc.rendering.svg import _build_cave_wall_runs
+    def test_jittered_ring_stays_outside_floor(self):
+        """After outward jittering, every control point must lie on
+        or outside the tile-edge polygon boundary — i.e. the floor
+        polygon stays strictly inside the wall ring."""
+        from nhc.rendering.svg import (
+            _build_cave_polygon, _collect_cave_region,
+            _densify_ring, _jitter_ring_outward,
+        )
+        from shapely.geometry import Polygon as ShPolygon
         import random
-        level, room = _make_cave_room_level(with_corridor=False)
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        region = _collect_cave_region(level)
+        floor_poly = _build_cave_polygon(region)
+        assert floor_poly is not None
+
+        # Take exterior, densify, jitter
+        ext = list(floor_poly.exterior.coords)
+        if ext and ext[0] == ext[-1]:
+            ext = ext[:-1]
+        dense = _densify_ring(ext, step=CELL * 0.6)
+        rng = random.Random(123)
+        jittered = _jitter_ring_outward(
+            dense, floor_poly, rng, is_hole=False,
+        )
+        assert len(jittered) == len(dense)
+        # Build a polygon from the jittered ring; it must CONTAIN
+        # the floor polygon (every floor tile sits inside).
+        wall_poly = ShPolygon(jittered)
+        assert wall_poly.is_valid, "Jittered ring self-intersects"
+        # Allow a tiny epsilon for float comparisons
+        assert wall_poly.buffer(0.5).contains(floor_poly), (
+            "Wall ring must fully enclose the floor polygon"
+        )
+
+    def test_cave_region_walls_single_path(self):
+        """_cave_region_walls returns one SVG <path> containing
+        one subpath per ring (exterior + holes)."""
+        from nhc.rendering.svg import _cave_region_walls
+        import random
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
         rng = random.Random(42)
-        runs = _build_cave_wall_runs(room, level, rng)
-        assert len(runs) == 1
-        # Closed run: no gap corners
-        run = runs[0]
-        assert all(k == "solid" for k, _ in run)
+        el = _cave_region_walls(level, rng)
+        assert el is not None
+        assert el.startswith('<path d="')
+        # Count M commands — one per subpath (ring)
+        match = re.search(r'd="([^"]+)"', el)
+        path_data = match.group(1)
+        m_count = path_data.count('M')
+        # One simply-connected region → exactly one exterior ring,
+        # no holes → one subpath.
+        assert m_count == 1, (
+            f"Expected 1 subpath for simply-connected region, "
+            f"got {m_count}"
+        )
+        # And it must be smoothed with cubic beziers
+        assert 'C' in path_data
 
+    def test_cave_region_walls_only_curves(self):
+        """The unified wall path must NOT contain straight L
+        segments — those would mean corridor tile-edge walls
+        leaked through the old per-tile wall loop."""
+        from nhc.rendering.svg import _cave_region_walls
+        import random
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        rng = random.Random(42)
+        el = _cave_region_walls(level, rng)
+        assert el is not None
+        match = re.search(r'd="([^"]+)"', el)
+        path_data = match.group(1)
+        assert ' L' not in path_data, (
+            "Cave wall path should only contain bezier curves, "
+            "no straight L segments"
+        )
 
-class TestCaveCorridorGaps:
-    """Caves with doorless corridor openings must have gaps in
-    the wall outline where corridors connect — otherwise the
-    smooth contour draws a wall right through the corridor mouth."""
-
-    def test_cave_with_corridor_has_open_wall_path(self):
-        """The cave wall path must NOT be closed (no Z) when a
-        corridor connects without a door."""
+    def test_full_render_has_no_straight_corridor_walls(self):
+        """In a full render of a cave level, the ink wall layer
+        must not contain straight line segments for cave-region
+        corridor tiles — they should be part of the organic path."""
         level, _ = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
         svg = render_floor_svg(level)
-        # Find wall-stroke paths that contain bezier curves (the
-        # cave outline).  The gapped wall path must not be closed.
-        wall_paths = re.findall(
-            r'<path d="(M[^"]*C[^"]*)"[^>]*stroke-width="4',
-            svg)
-        assert wall_paths, "No cave wall path found"
-        # At least one wall path must be an open curve (no Z)
-        assert any("Z" not in p for p in wall_paths), (
-            "Cave wall outline should have a gap at the corridor "
-            "opening (no Z close), got all-closed paths"
+        # The tile-edge wall segment loop draws straight lines with
+        # paths like 'M{x},{y} L{x2},{y2}'.  For cave-region tiles
+        # those must be absent.  Check: no tile-edge L segment at
+        # (2,6) [corridor tile] south edge.
+        # px = 2*32 = 64, py = 7*32 = 224 → 'M64,224 L96,224'
+        assert 'M64,224 L96,224' not in svg, (
+            "Corridor tile south edge leaked as straight line"
+        )
+        assert 'M64,192 L96,192' not in svg, (
+            "Corridor tile north edge leaked as straight line"
         )
 
-    def test_cave_with_corridor_has_multiple_subpaths(self):
-        """A cave with a corridor opening produces at least one
-        wall segment.  The fill can be closed but the wall must
-        have an open section."""
+    def test_cave_region_deterministic(self):
+        """Same seed → identical wall path."""
+        from nhc.rendering.svg import _cave_region_walls
+        import random
         level, _ = _make_cave_room_level(with_corridor=True)
         level.metadata = LevelMetadata(theme="cave", difficulty=9)
-        svg = render_floor_svg(level)
-        # The cave has ONE corridor opening on the west side.
-        # The wall outline should be a single open curve around
-        # the rest of the cave.
-        wall_paths = re.findall(
-            r'<path d="(M[^"]*C[^"]*)"[^>]*stroke-width="4',
-            svg)
-        open_paths = [p for p in wall_paths if "Z" not in p]
-        assert open_paths, (
-            "Expected an open wall path for cave with corridor"
-        )
-
-    def test_cave_without_corridor_stays_closed(self):
-        """A cave with no corridor openings keeps a closed wall."""
-        level, _ = _make_cave_room_level(with_corridor=False)
-        level.metadata = LevelMetadata(theme="cave", difficulty=9)
-        svg = render_floor_svg(level)
-        wall_paths = re.findall(
-            r'<path d="(M[^"]*C[^"]*)"[^>]*stroke-width="4',
-            svg)
-        assert wall_paths, "No cave wall path found"
-        # All wall paths for this cave should be closed
-        assert all("Z" in p for p in wall_paths), (
-            "Cave without corridor should have closed wall"
-        )
+        a = _cave_region_walls(level, random.Random(7))
+        b = _cave_region_walls(level, random.Random(7))
+        assert a == b
 
 
 # ── 3. Thematic floor details ──────────────────────────────────

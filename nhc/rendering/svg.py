@@ -16,6 +16,7 @@ import random
 import re
 import noise as _noise
 from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry.polygon import orient as _shapely_orient
 from shapely.ops import unary_union
 
 from nhc.dungeon.model import (
@@ -1263,314 +1264,275 @@ def _smooth_open_path(
     return " ".join(parts)
 
 
-def _cave_with_gaps(
-    room: "Room", level: "Level",
-    seed: int = 0,
-) -> str | None:
-    """Build a cave wall path with gaps at corridor openings.
+def _collect_cave_region(level: "Level") -> set[tuple[int, int]]:
+    """Collect all tiles belonging to the unified cave region.
 
-    Each boundary cave tile contributes a point near its center
-    (jittered within a disk of radius CELL/4) to create an
-    organic wobble.  Opening/door edges insert fixed anchor
-    points (edge corners + midedge) so the wall lines up exactly
-    with corridor walls at the openings.  Contiguous solid runs
-    become separate sub-paths, each smoothed with Catmull-Rom.
+    Seeds the flood-fill with every floor tile belonging to a
+    CaveShape room, then expands through adjacent walkable
+    corridor tiles.  A corridor is considered part of the cave
+    region if it is reachable from any cave room via a chain of
+    walkable (FLOOR/WATER/GRASS) tiles that includes at least
+    one corridor step — i.e. any corridor connected (directly or
+    transitively) to a cave room is pulled in.
     """
-    tiles = room.floor_tiles()
-    if not tiles:
-        return None
-
-    rng = random.Random(seed + hash(room.id) % (2**31))
-    runs = _build_cave_wall_runs(room, level, rng)
-    if not runs:
-        return None
-
-    # Render each run as a smoothed path (closed if single run
-    # with no gap anchors, else open).
-    path_parts: list[str] = []
-    for run in runs:
-        if not run:
-            continue
-        points = [p for _, p in run]
-        if len(points) < 2:
-            continue
-        # Closed if no gap corners in this run
-        closed = all(k == "solid" for k, _ in run)
-        if closed:
-            path_parts.append(
-                _smooth_closed_path(points).removeprefix(
-                    '<path d="').removesuffix('"/>'))
-        else:
-            path_parts.append(_smooth_open_path(points))
-
-    if not path_parts:
-        return None
-    return f'<path d="{" ".join(path_parts)}"/>'
-
-
-def _build_cave_wall_runs(
-    room: "Room", level: "Level", rng: random.Random,
-) -> list[list[tuple[str, tuple[float, float]]]]:
-    """Build the list of wall runs for a cave room.
-
-    Each run is a list of (kind, point) tuples where kind is:
-      - "solid"      — a jittered tile-center point
-      - "gap_corner" — fixed corner of an opening edge (run end)
-      - "gap_mid"    — fixed midedge anchor of an opening edge
-
-    A cave without openings returns ONE closed run with only
-    "solid" points.  A cave with N openings returns N open runs;
-    each run starts with a "gap_corner" (opening exit) and ends
-    with a "gap_corner" (next opening entry).
-    """
-    tiles = room.floor_tiles()
-    if not tiles:
-        return []
-
-    # Walk boundary edges clockwise, recording the owning tile
-    # for each edge and whether it is a gap.
     walkable = (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
 
-    def _is_gap(nx: int, ny: int) -> bool:
-        nb = level.tile_at(nx, ny) if level else None
-        if not nb:
-            return False
-        return nb.terrain in walkable
+    # Seed with cave room floor tiles
+    seed: set[tuple[int, int]] = set()
+    for room in level.rooms:
+        if isinstance(room.shape, CaveShape):
+            seed |= room.floor_tiles()
+    if not seed:
+        return set()
 
-    # Raw edges: (tile, start_corner, end_corner, is_gap)
-    raw: list[tuple[
-        tuple[int, int], tuple[int, int], tuple[int, int], bool
-    ]] = []
-    for tx, ty in tiles:
-        nw = (tx, ty)
-        ne = (tx + 1, ty)
-        se = (tx + 1, ty + 1)
-        sw = (tx, ty + 1)
-        if (tx, ty - 1) not in tiles:
-            raw.append(((tx, ty), nw, ne, _is_gap(tx, ty - 1)))
-        if (tx + 1, ty) not in tiles:
-            raw.append(((tx, ty), ne, se, _is_gap(tx + 1, ty)))
-        if (tx, ty + 1) not in tiles:
-            raw.append(((tx, ty), se, sw, _is_gap(tx, ty + 1)))
-        if (tx - 1, ty) not in tiles:
-            raw.append(((tx, ty), sw, nw, _is_gap(tx - 1, ty)))
-
-    if not raw:
-        return []
-
-    # Chain edges end → start
-    from_map: dict[tuple[int, int], list[int]] = {}
-    for i, (_, s, _, _) in enumerate(raw):
-        from_map.setdefault(s, []).append(i)
-
-    start_idx = min(
-        range(len(raw)),
-        key=lambda i: (raw[i][1][1], raw[i][1][0]),
-    )
-    used = [False] * len(raw)
-    order: list[int] = []
-    cur = start_idx
-    while not used[cur]:
-        used[cur] = True
-        order.append(cur)
-        end = raw[cur][2]
-        nxt = None
-        for ni in from_map.get(end, []):
-            if not used[ni]:
-                nxt = ni
-                break
-        if nxt is None:
-            break
-        cur = nxt
-
-    # Determine if there are any gap edges
-    has_gap = any(raw[i][3] for i in order)
-
-    # Pre-generate one jittered center per boundary tile so
-    # repeated edges of the same tile produce the same point.
-    tile_points: dict[tuple[int, int], tuple[float, float]] = {}
-
-    def _tile_center_jitter(
-        tile: tuple[int, int],
-    ) -> tuple[float, float]:
-        if tile in tile_points:
-            return tile_points[tile]
-        cx = (tile[0] + 0.5) * CELL
-        cy = (tile[1] + 0.5) * CELL
-        # Random point in a disk of radius CELL/4
-        # Use polar coordinates for uniform disk sampling
-        r = (CELL / 4) * math.sqrt(rng.random())
-        theta = rng.uniform(0, 2 * math.pi)
-        pt = (cx + r * math.cos(theta), cy + r * math.sin(theta))
-        tile_points[tile] = pt
-        return pt
-
-    def _edge_points(
-        s: tuple[int, int], e: tuple[int, int],
-    ) -> tuple[
-        tuple[float, float], tuple[float, float],
-        tuple[float, float],
-    ]:
-        sx, sy = s[0] * CELL, s[1] * CELL
-        ex, ey = e[0] * CELL, e[1] * CELL
-        mx, my = (sx + ex) / 2, (sy + ey) / 2
-        return ((sx, sy), (mx, my), (ex, ey))
-
-    # Walk the chain starting from the edge AFTER the first gap
-    # (so each run begins cleanly at a gap-exit corner).
-    n = len(order)
-    start_offset = 0
-    if has_gap:
-        for off in range(n):
-            if raw[order[off]][3]:  # is_gap
-                start_offset = (off + 1) % n
-                break
-
-    runs: list[list[tuple[str, tuple[float, float]]]] = []
-    current: list[tuple[str, tuple[float, float]]] = []
-
-    # Seed the first run with the exit corner of the initial
-    # gap (the edge at order[(start_offset - 1) % n]).
-    if has_gap:
-        first_gap_idx = order[(start_offset - 1) % n]
-        _, gs, ge, _ = raw[first_gap_idx]
-        _, _, exit_px = _edge_points(gs, ge)
-        current.append(("gap_corner", exit_px))
-
-    for off in range(n):
-        idx = order[(start_offset + off) % n]
-        tile, s, e, is_gap = raw[idx]
-        if is_gap:
-            s_px, mid_px, e_px = _edge_points(s, e)
-            # Wall arrives at the corner, passes through the
-            # midedge anchor, then ends.  The midedge forces
-            # the spline tangent to be perpendicular to the
-            # opening edge for a clean connection.
-            current.append(("gap_mid", mid_px))
-            current.append(("gap_corner", s_px))
-            if len(current) >= 2:
-                runs.append(current)
-            # Start new run at the far corner + mid anchor
-            current = [
-                ("gap_corner", e_px),
-                ("gap_mid", mid_px),
-            ]
-        else:
-            pt = _tile_center_jitter(tile)
-            if not current or current[-1][1] != pt:
-                current.append(("solid", pt))
-
-    if current:
-        if has_gap:
-            # The last run's endpoint should be the exit corner
-            # of the FIRST gap (which we seeded at the start).
-            # Merge the trailing partial run into the first.
-            if runs:
-                runs[0] = current + runs[0]
-            else:
-                runs.append(current)
-        else:
-            # No gaps at all — one closed run
-            runs.append(current)
-
-    return runs
+    # Flood through corridor tiles adjacent to the region
+    region: set[tuple[int, int]] = set(seed)
+    frontier: list[tuple[int, int]] = list(seed)
+    while frontier:
+        x, y = frontier.pop()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = x + dx, y + dy
+            if (nx, ny) in region:
+                continue
+            nb = level.tile_at(nx, ny)
+            if not nb or nb.terrain not in walkable:
+                continue
+            # Only expand into corridor tiles — we don't want to
+            # absorb adjacent non-cave rooms.
+            if not nb.is_corridor:
+                continue
+            region.add((nx, ny))
+            frontier.append((nx, ny))
+    return region
 
 
-def _trace_cave_edges(
+def _build_cave_polygon(
     tiles: set[tuple[int, int]],
-    level: "Level",
-) -> list[tuple[tuple[float, float], bool]]:
-    """Walk the cave's tile-edge boundary clockwise.
+):
+    """Union tile squares into a Shapely Polygon or MultiPolygon.
 
-    Returns a list of (corner_pixel, gap_ahead) tuples, one per
-    boundary corner.  gap_ahead is True if the edge from this
-    corner to the next is a gap (neighbor tile is a corridor).
+    Returns None for empty input.  Exteriors come out CCW and
+    holes CW (Shapely default), which the outward-normal jitter
+    relies on for direction.
     """
-    # Collect all boundary edges as directed segments going
-    # clockwise around the cave interior.  For each tile, each
-    # side that faces a non-tile neighbor contributes one edge.
-    # Direction convention (clockwise around interior):
-    #   North side: →  (top of tile, left-to-right)
-    #   East side:  ↓  (right of tile, top-to-bottom)
-    #   South side: ←  (bottom of tile, right-to-left)
-    #   West side:  ↑  (left of tile, bottom-to-top)
-
-    walkable_terrains = (
-        Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
-    )
-
-    def _is_gap(nx: int, ny: int) -> bool:
-        """Neighbor is a corridor floor tile → gap edge."""
-        nb = level.tile_at(nx, ny) if level else None
-        if not nb:
-            return False
-        if nb.terrain not in walkable_terrains:
-            return False
-        # Any walkable non-cave tile is a corridor opening
-        return True
-
-    # Build directed edges: (start_corner, end_corner, is_gap)
-    raw_edges: list[tuple[
-        tuple[int, int], tuple[int, int], bool
-    ]] = []
+    if not tiles:
+        return None
+    boxes = []
     for tx, ty in tiles:
-        # Corners in tile units
-        nw = (tx, ty)
-        ne = (tx + 1, ty)
-        se = (tx + 1, ty + 1)
-        sw = (tx, ty + 1)
-        # North side
-        if (tx, ty - 1) not in tiles:
-            raw_edges.append((nw, ne, _is_gap(tx, ty - 1)))
-        # East side
-        if (tx + 1, ty) not in tiles:
-            raw_edges.append((ne, se, _is_gap(tx + 1, ty)))
-        # South side
-        if (tx, ty + 1) not in tiles:
-            raw_edges.append((se, sw, _is_gap(tx, ty + 1)))
-        # West side
-        if (tx - 1, ty) not in tiles:
-            raw_edges.append((sw, nw, _is_gap(tx - 1, ty)))
+        px, py = tx * CELL, ty * CELL
+        boxes.append(Polygon([
+            (px, py), (px + CELL, py),
+            (px + CELL, py + CELL), (px, py + CELL),
+        ]))
+    merged = unary_union(boxes)
+    if merged.is_empty:
+        return None
+    return merged
 
-    if not raw_edges:
-        return []
 
-    # Chain edges by matching end → start
-    from_map: dict[tuple[int, int], list[int]] = {}
-    for i, (s, _, _) in enumerate(raw_edges):
-        from_map.setdefault(s, []).append(i)
+def _densify_ring(
+    coords: list[tuple[float, float]],
+    step: float,
+) -> list[tuple[float, float]]:
+    """Insert synthetic vertices along long edges.
 
-    # Pick the outermost starting edge: topmost-leftmost corner
-    start_idx = min(
-        range(len(raw_edges)),
-        key=lambda i: (raw_edges[i][0][1], raw_edges[i][0][0]),
-    )
-    used = [False] * len(raw_edges)
-    order: list[int] = []
-    current = start_idx
-    while not used[current]:
-        used[current] = True
-        order.append(current)
-        end_corner = raw_edges[current][1]
-        nxt_list = from_map.get(end_corner, [])
-        # Prefer unused edges; if multiple, pick any
-        next_idx = None
-        for ni in nxt_list:
-            if not used[ni]:
-                next_idx = ni
-                break
-        if next_idx is None:
-            break
-        current = next_idx
+    Walks *coords* (assumed non-repeating, ring closes implicitly)
+    and inserts intermediate points every ~*step* pixels on any
+    edge longer than *step*.  Preserves the original corners so
+    the tile-edge polygon's shape is not distorted before jitter.
+    """
+    if len(coords) < 2:
+        return list(coords)
+    n = len(coords)
+    out: list[tuple[float, float]] = []
+    for i in range(n):
+        a = coords[i]
+        b = coords[(i + 1) % n]
+        out.append(a)
+        dx = b[0] - a[0]
+        dy = b[1] - a[1]
+        dist = math.hypot(dx, dy)
+        if dist <= step:
+            continue
+        n_sub = int(dist // step)
+        for k in range(1, n_sub + 1):
+            t = k / (n_sub + 1)
+            out.append((a[0] + dx * t, a[1] + dy * t))
+    return out
 
-    # Build the chain of (corner, gap_ahead) pairs
-    chain: list[tuple[tuple[float, float], bool]] = []
-    for i in order:
-        s, _, is_gap = raw_edges[i]
-        px = s[0] * CELL
-        py = s[1] * CELL
-        chain.append(((px, py), is_gap))
-    return chain
+
+def _jitter_ring_outward(
+    coords: list[tuple[float, float]],
+    floor_poly,
+    rng: random.Random,
+    is_hole: bool = False,
+) -> list[tuple[float, float]]:
+    """Push each control point outward along its outward normal.
+
+    *coords* is a non-repeating ring (no duplicated closing point).
+    *floor_poly* is the Shapely polygon whose boundary *coords*
+    belongs to; it is used as a safety check to ensure each jittered
+    point ends up outside the polygon (so the floor is fully enclosed
+    by the wall ring).
+
+    Shapely exteriors are CCW and holes CW; "outward" (away from the
+    floor) is the *right-hand* perpendicular of the forward edge
+    direction for exteriors, and the *left-hand* perpendicular for
+    holes.  Jitter magnitude is uniform in [0.15, 0.45] * CELL.
+    """
+    n = len(coords)
+    if n < 3:
+        return list(coords)
+
+    from shapely.geometry import Point as ShPoint
+
+    out: list[tuple[float, float]] = []
+    for i in range(n):
+        prev_p = coords[(i - 1) % n]
+        cur_p = coords[i]
+        next_p = coords[(i + 1) % n]
+        # Average of incoming and outgoing edge directions
+        e1x, e1y = cur_p[0] - prev_p[0], cur_p[1] - prev_p[1]
+        e2x, e2y = next_p[0] - cur_p[0], next_p[1] - cur_p[1]
+        tx = e1x + e2x
+        ty = e1y + e2y
+        tlen = math.hypot(tx, ty)
+        if tlen < 1e-6:
+            out.append(cur_p)
+            continue
+        tx /= tlen
+        ty /= tlen
+        # The tangent has two perpendiculars; "outward" is the one
+        # that leaves the floor polygon.  Probe both and pick the
+        # one whose small test offset lands outside.  This is
+        # orientation-agnostic — works whether Shapely returned the
+        # ring CW or CCW, and whether this is an exterior or a hole.
+        cand_a = (ty, -tx)
+        cand_b = (-ty, tx)
+        probe = 0.5
+        a_outside = not floor_poly.contains(
+            ShPoint(cur_p[0] + cand_a[0] * probe,
+                    cur_p[1] + cand_a[1] * probe)
+        )
+        if a_outside:
+            nx, ny = cand_a
+        else:
+            nx, ny = cand_b
+        # Sub-tile outward jitter, deterministic via rng order.
+        # Magnitude chosen so the wobble amplitude reads at
+        # full-map zoom while staying within the one-tile hatching
+        # band that Dyson leaves around cave boundaries.  Clamp to
+        # half the local edge length so two adjacent jittered
+        # points cannot cross each other and the ring stays simple.
+        e1_len = math.hypot(e1x, e1y)
+        e2_len = math.hypot(e2x, e2y)
+        local_cap = max(1.0, min(e1_len, e2_len) * 0.45)
+        mag = min(CELL * rng.uniform(0.25, 0.65), local_cap)
+        px = cur_p[0] + nx * mag
+        py = cur_p[1] + ny * mag
+        # Safety: at deeply concave vertices the outward ray can
+        # still re-enter the polygon at distance.  Shrink until out.
+        attempts = 0
+        while floor_poly.contains(ShPoint(px, py)) and attempts < 4:
+            mag *= 0.5
+            px = cur_p[0] + nx * mag
+            py = cur_p[1] + ny * mag
+            attempts += 1
+        if attempts == 4 and floor_poly.contains(ShPoint(px, py)):
+            # Give up — fall back to the unjittered vertex (on the
+            # boundary, so the floor still stays enclosed).
+            px, py = cur_p
+        out.append((px, py))
+    return out
+
+
+def _ring_to_subpath(
+    coords: list[tuple[float, float]],
+) -> str:
+    """Smooth a closed ring into a Catmull-Rom cubic-Bézier subpath.
+
+    Returns just the path data string (M…C…Z), without the
+    <path> wrapper, so multiple rings can be concatenated into a
+    single <path> element.
+    """
+    if len(coords) < 3:
+        return ""
+    smoothed = _smooth_closed_path(coords)
+    # _smooth_closed_path wraps in <path d="…"/>; unwrap.
+    m = re.search(r'd="([^"]+)"', smoothed)
+    return m.group(1) if m else ""
+
+
+def _cave_region_walls(
+    level: "Level", rng: random.Random,
+) -> str | None:
+    """Build the unified cave region wall <path> element.
+
+    Collects every cave-region tile, unions into a Shapely geometry,
+    then for every ring (exterior + holes of every polygon) emits
+    one Catmull-Rom–smoothed subpath whose control points sit on
+    the tile-edge polygon boundary, densified, and pushed outward
+    along each vertex's outward normal.  Returns a single <path>
+    element that surrounds all cave floor tiles — rooms AND
+    corridors — with one continuous Dyson-style outline per ring.
+    """
+    tiles = _collect_cave_region(level)
+    if not tiles:
+        return None
+    geom = _build_cave_polygon(tiles)
+    if geom is None or geom.is_empty:
+        return None
+
+    # Normalize into a list of Polygons
+    polys: list = []
+    if hasattr(geom, 'geoms'):
+        polys = [g for g in geom.geoms if not g.is_empty]
+    else:
+        polys = [geom]
+    if not polys:
+        return None
+
+    # Simplify with Douglas-Peucker to collapse the tile-edge
+    # staircase into natural diagonals — otherwise the 90° stair
+    # corners dominate and the outward jitter can only wobble by a
+    # few pixels before crossing a neighbour.  Then densify at a
+    # sub-tile frequency so the jitter reads as Dyson's ~2 bumps
+    # per tile.  Containment safety in _jitter_ring_outward is
+    # always tested against the UNSIMPLIFIED polygon so no floor
+    # tile can end up outside the wall ring.
+    simplify_tol = CELL * 0.5
+    step = CELL * 0.7
+    subpaths: list[str] = []
+    for poly in polys:
+        simp = poly.simplify(simplify_tol, preserve_topology=True)
+        simp = _shapely_orient(simp, sign=1.0)
+        if simp.is_empty or not hasattr(simp, 'exterior'):
+            continue
+        # Exterior ring (CCW)
+        ext = list(simp.exterior.coords)
+        if ext and ext[0] == ext[-1]:
+            ext = ext[:-1]
+        ext_d = _densify_ring(ext, step)
+        ext_j = _jitter_ring_outward(ext_d, poly, rng, is_hole=False)
+        s = _ring_to_subpath(ext_j)
+        if s:
+            subpaths.append(s)
+        # Holes (CW)
+        for hole in simp.interiors:
+            h = list(hole.coords)
+            if h and h[0] == h[-1]:
+                h = h[:-1]
+            h_d = _densify_ring(h, step)
+            h_j = _jitter_ring_outward(
+                h_d, poly, rng, is_hole=True,
+            )
+            s = _ring_to_subpath(h_j)
+            if s:
+                subpaths.append(s)
+
+    if not subpaths:
+        return None
+    return f'<path d="{" ".join(subpaths)}"/>'
 
 
 def _hybrid_svg_outline(room: "Room") -> str | None:
@@ -2924,12 +2886,76 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
         f'stroke-linecap="round" stroke-linejoin="round"'
     )
 
+    # ── Unified cave region (rooms + connected corridors) ──
+    # All tiles in this set are rendered collectively via one
+    # organic Dyson-style outline and floor polygon; they skip the
+    # per-room cave branch, the per-tile corridor rect fill, AND
+    # the per-tile straight-wall-segment loop below.
+    cave_region: set[tuple[int, int]] = _collect_cave_region(level)
+    cave_region_rooms: set[int] = set()
+    if cave_region:
+        for idx, room in enumerate(level.rooms):
+            if isinstance(room.shape, CaveShape):
+                cave_region_rooms.add(idx)
+
+    cave_region_svg: list[str] = []
+    if cave_region:
+        # Seed the region RNG from the room ids so renders are
+        # deterministic for a given level layout.
+        seed = 0
+        for r in level.rooms:
+            if isinstance(r.shape, CaveShape):
+                seed ^= hash(r.id) & 0x7FFFFFFF
+        region_rng = random.Random(seed or 1)
+        # Floor fill from the unified polygon (one filled <path>
+        # covering all cave rooms + their corridors).
+        region_geom = _build_cave_polygon(cave_region)
+        if region_geom is not None and not region_geom.is_empty:
+            polys = (
+                list(region_geom.geoms)
+                if hasattr(region_geom, 'geoms')
+                else [region_geom]
+            )
+            fill_parts: list[str] = []
+            for poly in polys:
+                ext = list(poly.exterior.coords)
+                if ext and ext[0] == ext[-1]:
+                    ext = ext[:-1]
+                fill_parts.append(
+                    "M" + " L".join(
+                        f"{x:.1f},{y:.1f}" for x, y in ext
+                    ) + " Z"
+                )
+                for hole in poly.interiors:
+                    h = list(hole.coords)
+                    if h and h[0] == h[-1]:
+                        h = h[:-1]
+                    fill_parts.append(
+                        "M" + " L".join(
+                            f"{x:.1f},{y:.1f}" for x, y in h
+                        ) + " Z"
+                    )
+            cave_region_svg.append(
+                f'<path d="{" ".join(fill_parts)}" '
+                f'fill="{FLOOR_COLOR}" stroke="none" '
+                f'fill-rule="evenodd"/>'
+            )
+        # Wall stroke from the same region (organic outline).
+        wall_el = _cave_region_walls(level, region_rng)
+        if wall_el:
+            cave_region_svg.append(wall_el.replace(
+                '/>', f' fill="none" {_STROKE_STYLE}/>'))
+
     # ── Pre-compute smooth room outlines and wall data ──
     smooth_tiles: set[tuple[int, int]] = set()
     smooth_fills: list[str] = []
     smooth_walls: list[str] = []
     wall_extensions: list[str] = []
-    for room in level.rooms:
+    for idx, room in enumerate(level.rooms):
+        # Cave-region rooms are handled collectively above.
+        if idx in cave_region_rooms:
+            smooth_tiles |= room.floor_tiles()
+            continue
         outline = _room_svg_outline(room)
         if not outline:
             continue
@@ -2938,20 +2964,7 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
             '/>', f' fill="{FLOOR_COLOR}" stroke="none"/>')
         smooth_fills.append(fill_el)
 
-        # Cave rooms use a specialized gap-aware wall tracer that
-        # reads adjacency directly from the level, because their
-        # contour doesn't follow a clean geometric shape.
-        if isinstance(room.shape, CaveShape):
-            cave_wall = _cave_with_gaps(room, level)
-            if cave_wall:
-                smooth_walls.append(cave_wall.replace(
-                    '/>', f' fill="none" {_STROKE_STYLE}/>'))
-            else:
-                smooth_walls.append(outline.replace(
-                    '/>', f' fill="none" {_STROKE_STYLE}/>'))
-            for _, _, cx, cy in openings:
-                smooth_tiles.add((cx, cy))
-        elif openings:
+        if openings:
             gapped, extensions = _outline_with_gaps(
                 room, outline, openings,
             )
@@ -2965,9 +2978,15 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
                 '/>', f' fill="none" {_STROKE_STYLE}/>'))
         smooth_tiles |= room.floor_tiles()
 
+    # Cave region tiles must also skip the per-tile wall segment
+    # loop — their walls come from the organic outline above.
+    smooth_tiles |= cave_region
+
     # ── 1. Corridors + doors: per-tile floor rects ──
     for y in range(level.height):
         for x in range(level.width):
+            if (x, y) in cave_region:
+                continue
             tile = level.tiles[y][x]
             if tile.terrain not in (
                 Terrain.FLOOR, Terrain.WATER,
@@ -2994,6 +3013,9 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
 
     # ── 3. Smooth rooms: filled outline + wall stroke ──
     for el in smooth_fills:
+        svg.append(el)
+    # Cave region: unified floor fill + organic wall stroke.
+    for el in cave_region_svg:
         svg.append(el)
     for el in smooth_walls:
         svg.append(el)
