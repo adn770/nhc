@@ -180,6 +180,31 @@ class TestGlobalInterface:
                     )
 
 
+class TestThreadIsolation:
+    def test_concurrent_languages_dont_interfere(self):
+        """Each thread gets its own language — no cross-talk."""
+        import threading
+
+        init("en")
+        results = {}
+
+        def _use_catalan():
+            init("ca")
+            results["ca_lang"] = current_lang()
+            results["ca_died"] = t("game.died")
+
+        thread = threading.Thread(target=_use_catalan)
+        thread.start()
+        thread.join()
+
+        # Main thread should still be English
+        assert current_lang() == "en"
+        assert t("game.died") == "You have died!"
+        # The other thread used Catalan
+        assert results["ca_lang"] == "ca"
+        assert results["ca_died"] == "Has mort!"
+
+
 # Reset to English after all tests in this module
 @pytest.fixture(autouse=True, scope="module")
 def _reset_lang():

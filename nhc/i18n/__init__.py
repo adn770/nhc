@@ -15,21 +15,36 @@ Usage:
     t("creature.goblin.short")    # → "a snarling goblin"
 """
 
+import threading
+
 from nhc.i18n.manager import TranslationManager
 
-_manager = TranslationManager()
+_local = threading.local()
+
+
+def _get_manager() -> TranslationManager:
+    """Return the thread-local TranslationManager, creating if needed."""
+    mgr = getattr(_local, "manager", None)
+    if mgr is None:
+        mgr = TranslationManager()
+        _local.manager = mgr
+    return mgr
 
 
 def init(lang: str = "en") -> None:
-    """Initialize translations for the given language."""
-    _manager.load(lang)
+    """Initialize translations for the given language.
+
+    Each thread gets its own TranslationManager, so concurrent
+    game sessions with different languages don't interfere.
+    """
+    _get_manager().load(lang)
 
 
 def t(key: str, **kwargs: object) -> str:
     """Translate a key, optionally interpolating named arguments."""
-    return _manager.get(key, **kwargs)
+    return _get_manager().get(key, **kwargs)
 
 
 def current_lang() -> str:
     """Return the currently loaded language code."""
-    return _manager.lang
+    return _get_manager().lang
