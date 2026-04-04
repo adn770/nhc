@@ -10,6 +10,7 @@ from nhc.debug_tools.tools.game_state import (
 from nhc.debug_tools.tools.dungeon import (
     GetDoorAnalysisTool,
     GetRoomInfoTool,
+    GetRoomTilesTool,
     GetTileMapTool,
     SearchTilesTool,
 )
@@ -18,6 +19,7 @@ from nhc.debug_tools.tools.rendering import (
     GetLayerStateTool,
 )
 from nhc.debug_tools.tools.svg_query import (
+    GetSVGRoomWallsTool,
     GetSVGTileElementsTool,
 )
 
@@ -29,10 +31,12 @@ ALL_TOOL_CLASSES = [
     GetEntityListTool,
     GetTileInfoTool,
     GetRoomInfoTool,
+    GetRoomTilesTool,
     GetDoorAnalysisTool,
     GetTileMapTool,
     SearchTilesTool,
     GetFOVAnalysisTool,
     GetLayerStateTool,
     GetSVGTileElementsTool,
+    GetSVGRoomWallsTool,
 ]

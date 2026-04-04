@@ -224,6 +224,66 @@ class GetTileMapTool(BaseTool):
         return result
 
 
+class GetRoomTilesTool(BaseTool):
+    """Return the exact floor tile set for a room.
+
+    For cave-shape rooms, reads the explicit tile set from the
+    export.  For rectangular rooms, derives the tile set from the
+    rect bounds.  Useful for diagnosing wall rendering against
+    the authoritative tile list.
+    """
+
+    name = "get_room_tiles"
+    description = (
+        "Return the exact set of floor tiles belonging to a "
+        "room (including irregular cave shapes)."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "room_index": {
+                "type": "integer",
+                "description": "Room index from the rooms list",
+            },
+        },
+        "required": ["room_index"],
+    }
+
+    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+        idx = kwargs["room_index"]
+        game = self._read_json_export("game_state")
+        if "error" in game:
+            return game
+        rooms = game.get("level", {}).get("rooms", [])
+        if idx < 0 or idx >= len(rooms):
+            return {
+                "error": f"Room index {idx} out of range "
+                         f"(0-{len(rooms) - 1})",
+            }
+        room = rooms[idx]
+        shape = room.get("shape", "rect")
+        rect = room.get("rect", {})
+
+        if shape == "cave" and "tiles" in room:
+            tiles = [list(t) for t in room["tiles"]]
+        else:
+            rx, ry = rect.get("x", 0), rect.get("y", 0)
+            rw, rh = rect.get("width", 0), rect.get("height", 0)
+            tiles = [
+                [x, y]
+                for y in range(ry, ry + rh)
+                for x in range(rx, rx + rw)
+            ]
+
+        return {
+            "room_index": idx,
+            "shape": shape,
+            "rect": rect,
+            "tile_count": len(tiles),
+            "tiles": tiles,
+        }
+
+
 class SearchTilesTool(BaseTool):
     name = "search_tiles"
     description = (

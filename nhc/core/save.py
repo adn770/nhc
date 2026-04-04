@@ -160,6 +160,12 @@ def _serialize_level(level: Level) -> dict[str, Any]:
                 td["feature"] = tile.feature
             if tile.explored:
                 td["explored"] = True
+            if tile.visible:
+                td["visible"] = True
+            if tile.is_corridor:
+                td["is_corridor"] = True
+            if tile.door_side:
+                td["door_side"] = tile.door_side
             if tile.opened_at_turn is not None:
                 td["opened_at_turn"] = tile.opened_at_turn
             row_data.append(td)
@@ -176,6 +182,11 @@ def _serialize_level(level: Level) -> dict[str, Any]:
         }
         if room.shape.type_name != "rect":
             rd["shape"] = room.shape.type_name
+        # For cave shapes, export the exact tile set so
+        # diagnostics can know which tiles belong to the room.
+        if room.shape.type_name == "cave":
+            tiles_set = room.shape.floor_tiles(room.rect)
+            rd["tiles"] = sorted([list(t) for t in tiles_set])
         rooms_data.append(rd)
 
     corridors_data = []
@@ -209,6 +220,9 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
                 terrain=Terrain[td["terrain"]],
                 feature=td.get("feature"),
                 explored=td.get("explored", False),
+                visible=td.get("visible", False),
+                is_corridor=td.get("is_corridor", False),
+                door_side=td.get("door_side", ""),
                 opened_at_turn=td.get("opened_at_turn"),
             )
             row.append(tile)
@@ -216,10 +230,18 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
 
     rooms = []
     for rd in data.get("rooms", []):
+        # Handle cave shapes with explicit tile sets
+        shape_type = rd.get("shape")
+        if shape_type == "cave" and "tiles" in rd:
+            from nhc.dungeon.generators.cellular import CaveShape
+            cave_tiles = {tuple(t) for t in rd["tiles"]}
+            shape = CaveShape(cave_tiles)
+        else:
+            shape = shape_from_type(shape_type)
         rooms.append(Room(
             id=rd["id"],
             rect=Rect(**rd["rect"]),
-            shape=shape_from_type(rd.get("shape")),
+            shape=shape,
             tags=rd.get("tags", []),
             description=rd.get("description", ""),
             connections=rd.get("connections", []),

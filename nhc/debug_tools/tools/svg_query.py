@@ -45,23 +45,57 @@ def _parse_path_segments(
 ) -> list[tuple[float, float, float, float]]:
     """Parse SVG path 'd' into (x1, y1, x2, y2) line segments.
 
-    Only handles M/L commands (move/line) which is what the wall
-    renderer produces.
+    Handles M, L, H, V, Z and C commands.  Cubic bezier curves
+    are sampled with 8 line segments for tile overlap detection.
     """
-    segments = []
-    tokens = re.findall(r"[ML][^ML]*", d)
+    segments: list[tuple[float, float, float, float]] = []
+    tokens = re.findall(r"[MLHVCZ][^MLHVCZ]*", d)
     cx, cy = 0.0, 0.0
+    start_x, start_y = 0.0, 0.0  # for Z
     for token in tokens:
         cmd = token[0]
-        nums = re.findall(r"-?[\d.]+", token)
-        if len(nums) < 2:
-            continue
-        x, y = float(nums[0]), float(nums[1])
+        nums = [float(n) for n in re.findall(r"-?[\d.]+", token)]
         if cmd == "M":
-            cx, cy = x, y
+            if len(nums) >= 2:
+                cx, cy = nums[0], nums[1]
+                start_x, start_y = cx, cy
         elif cmd == "L":
-            segments.append((cx, cy, x, y))
-            cx, cy = x, y
+            if len(nums) >= 2:
+                x, y = nums[0], nums[1]
+                segments.append((cx, cy, x, y))
+                cx, cy = x, y
+        elif cmd == "H":
+            if nums:
+                segments.append((cx, cy, nums[0], cy))
+                cx = nums[0]
+        elif cmd == "V":
+            if nums:
+                segments.append((cx, cy, cx, nums[0]))
+                cy = nums[0]
+        elif cmd == "C":
+            # C c1x,c1y c2x,c2y ex,ey — possibly multiple triples
+            # Sample each cubic with 8 line segments
+            i = 0
+            while i + 5 < len(nums):
+                c1x, c1y = nums[i], nums[i + 1]
+                c2x, c2y = nums[i + 2], nums[i + 3]
+                ex, ey = nums[i + 4], nums[i + 5]
+                prev_x, prev_y = cx, cy
+                steps = 8
+                for s in range(1, steps + 1):
+                    t = s / steps
+                    u = 1 - t
+                    bx = (u**3 * cx + 3 * u**2 * t * c1x
+                          + 3 * u * t**2 * c2x + t**3 * ex)
+                    by = (u**3 * cy + 3 * u**2 * t * c1y
+                          + 3 * u * t**2 * c2y + t**3 * ey)
+                    segments.append((prev_x, prev_y, bx, by))
+                    prev_x, prev_y = bx, by
+                cx, cy = ex, ey
+                i += 6
+        elif cmd == "Z":
+            segments.append((cx, cy, start_x, start_y))
+            cx, cy = start_x, start_y
     return segments
 
 
@@ -363,4 +397,119 @@ class GetSVGTileElementsTool(BaseTool):
             "element_count": len(elements),
             "summary": summary,
             "elements": elements,
+        }
+
+
+class GetSVGRoomWallsTool(BaseTool):
+    """Return wall-stroke path elements that overlap a room.
+
+    Reads the game_state export to find the room's tile set,
+    then scans the SVG for stroked wall paths whose segments
+    fall within the room's bounding pixel area.  Reports each
+    path's raw d attribute, whether it is closed (has Z), and
+    how many segments fall inside the room.
+    """
+
+    name = "get_svg_room_walls"
+    description = (
+        "Return wall-stroke path elements from the SVG that "
+        "overlap a given room's bounding box.  Useful for "
+        "diagnosing missing cave wall segments."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "room_index": {
+                "type": "integer",
+                "description": "Room index from the rooms list",
+            },
+        },
+        "required": ["room_index"],
+    }
+
+    def _latest_svg(self) -> Path | None:
+        if not self.exports_dir.exists():
+            return None
+        matches = sorted(
+            self.exports_dir.glob("map_*.svg"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        return matches[0] if matches else None
+
+    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+        idx = kwargs["room_index"]
+        # Load the room's tile set from game_state
+        game_path = self._latest_export("game_state")
+        if not game_path or not game_path.exists():
+            return {"error": "No game_state export found"}
+        import json as _json
+        game = _json.loads(game_path.read_text())
+        rooms = game.get("level", {}).get("rooms", [])
+        if idx < 0 or idx >= len(rooms):
+            return {
+                "error": f"Room index {idx} out of range "
+                         f"(0-{len(rooms) - 1})",
+            }
+        room = rooms[idx]
+        shape = room.get("shape", "rect")
+        rect = room.get("rect", {})
+        rx, ry = rect.get("x", 0), rect.get("y", 0)
+        rw, rh = rect.get("width", 0), rect.get("height", 0)
+
+        # Build pixel bounding box (expand by 1 tile for margin)
+        px_min = (rx - 1) * CELL
+        py_min = (ry - 1) * CELL
+        px_max = (rx + rw + 1) * CELL
+        py_max = (ry + rh + 1) * CELL
+
+        svg_path = self._latest_svg()
+        if not svg_path:
+            return {"error": "No SVG export found"}
+
+        svg_text = svg_path.read_text()
+        # Find all wall-stroke paths (stroke-width >= 3)
+        path_re = re.compile(
+            r'<path\s+d="([^"]+)"[^>]*stroke-width="([\d.]+)"',
+            re.DOTALL,
+        )
+        walls = []
+        for m in path_re.finditer(svg_text):
+            d = m.group(1)
+            sw = float(m.group(2))
+            if sw < 3.0:
+                continue
+            segs = _parse_path_segments(d)
+            if not segs:
+                continue
+            # Count segments overlapping the room bounding box
+            overlapping = 0
+            for s in segs:
+                if _segment_overlaps_tile(
+                    *s, px_min, py_min,
+                    px_max - px_min, py_max - py_min,
+                ):
+                    overlapping += 1
+            if overlapping == 0:
+                continue
+            walls.append({
+                "d": d if len(d) < 500 else d[:500] + "...",
+                "d_full_length": len(d),
+                "stroke_width": sw,
+                "closed": "Z" in d,
+                "segment_count": len(segs),
+                "segments_in_room": overlapping,
+                "subpath_count": d.count("M"),
+            })
+
+        return {
+            "room_index": idx,
+            "shape": shape,
+            "rect": rect,
+            "bbox_px": {
+                "x": px_min, "y": py_min,
+                "w": px_max - px_min, "h": py_max - py_min,
+            },
+            "wall_count": len(walls),
+            "walls": walls,
         }
