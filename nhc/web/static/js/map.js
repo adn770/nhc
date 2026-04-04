@@ -190,10 +190,11 @@ const GameMap = {
     const zone = document.getElementById("map-zone");
     if (!zone) return;
 
-    const px = this.playerX * this.cellSize + this.padding
-               + this.cellSize / 2;
-    const py = this.playerY * this.cellSize + this.padding
-               + this.cellSize / 2;
+    const scale = this._zoomSteps[this._zoomLevel] || 1.0;
+    const px = (this.playerX * this.cellSize + this.padding
+               + this.cellSize / 2) * scale;
+    const py = (this.playerY * this.cellSize + this.padding
+               + this.cellSize / 2) * scale;
 
     const targetLeft = px - zone.clientWidth / 2;
     const targetTop = py - zone.clientHeight / 2;
