@@ -22,6 +22,7 @@ from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level,
     OctagonShape, Rect, RectShape, Room, Terrain,
 )
+from nhc.dungeon.generators.cellular import CaveShape
 from nhc.rendering.terrain_palette import (
     ROOM_TYPE_TINTS, get_palette,
 )
@@ -1160,8 +1161,77 @@ def _room_svg_outline(room: "Room") -> str | None:
     if isinstance(shape, HybridShape):
         return _hybrid_svg_outline(room)
 
+    if isinstance(shape, CaveShape):
+        return _cave_svg_outline(room)
+
     # RectShape or unknown — use tile-edge walls
     return None
+
+
+def _cave_svg_outline(room: "Room") -> str | None:
+    """Build an organic SVG path for a cave room.
+
+    Traces the contour of the cave's floor tiles and smooths it
+    using Catmull-Rom → cubic Bézier conversion, producing
+    natural-looking curved cave walls.
+    """
+    tiles = room.floor_tiles()
+    if not tiles:
+        return None
+
+    # Build a Shapely polygon from the tile grid, then simplify
+    # and smooth the boundary into organic curves.
+    from shapely.geometry import MultiPoint
+    from shapely.ops import unary_union
+
+    # Each tile is a unit square in pixel space
+    boxes = []
+    for tx, ty in tiles:
+        px, py = tx * CELL, ty * CELL
+        boxes.append(Polygon([
+            (px, py), (px + CELL, py),
+            (px + CELL, py + CELL), (px, py + CELL),
+        ]))
+    merged = unary_union(boxes)
+    if merged.is_empty:
+        return None
+
+    # Simplify to reduce jaggedness, then extract exterior coords
+    simplified = merged.simplify(CELL * 0.35, preserve_topology=True)
+
+    # Pick the largest polygon if MultiPolygon
+    if hasattr(simplified, 'geoms'):
+        simplified = max(simplified.geoms, key=lambda g: g.area)
+
+    coords = list(simplified.exterior.coords)
+    if len(coords) < 4:
+        return None
+
+    # Close the ring (drop duplicate last point)
+    if coords[-1] == coords[0]:
+        coords = coords[:-1]
+
+    # Catmull-Rom → cubic Bézier: smooth the contour
+    n = len(coords)
+    parts = []
+    parts.append(f'M{coords[0][0]:.1f},{coords[0][1]:.1f}')
+    for i in range(n):
+        p0 = coords[(i - 1) % n]
+        p1 = coords[i]
+        p2 = coords[(i + 1) % n]
+        p3 = coords[(i + 2) % n]
+        # Catmull-Rom to cubic bezier control points (alpha=0.5)
+        c1x = p1[0] + (p2[0] - p0[0]) / 6
+        c1y = p1[1] + (p2[1] - p0[1]) / 6
+        c2x = p2[0] - (p3[0] - p1[0]) / 6
+        c2y = p2[1] - (p3[1] - p1[1]) / 6
+        parts.append(
+            f'C{c1x:.1f},{c1y:.1f} '
+            f'{c2x:.1f},{c2y:.1f} '
+            f'{p2[0]:.1f},{p2[1]:.1f}'
+        )
+    parts.append('Z')
+    return f'<path d="{" ".join(parts)}"/>'
 
 
 def _hybrid_svg_outline(room: "Room") -> str | None:
@@ -1582,6 +1652,21 @@ _DETAIL_SCALE: dict[str, float] = {
     "abyss":   1.5,
 }
 
+# Per-theme probabilities for thematic detail types.
+# Each value is the probability of that detail appearing per tile.
+_THEMATIC_DETAIL_PROBS: dict[str, dict[str, float]] = {
+    "dungeon": {"web": 0.03, "bones": 0.02, "skull": 0.01},
+    "crypt":   {"web": 0.08, "bones": 0.10, "skull": 0.06},
+    "cave":    {"web": 0.12, "bones": 0.04, "skull": 0.02},
+    "sewer":   {"web": 0.06, "bones": 0.03, "skull": 0.01},
+    "castle":  {"web": 0.02, "bones": 0.01, "skull": 0.005},
+    "forest":  {"web": 0.04, "bones": 0.01, "skull": 0.005},
+    "abyss":   {"web": 0.05, "bones": 0.08, "skull": 0.10},
+}
+_THEMATIC_DEFAULT: dict[str, float] = {
+    "web": 0.03, "bones": 0.02, "skull": 0.01,
+}
+
 
 def _tile_detail(
     rng: random.Random, x: int, y: int, seed: int,
@@ -1660,6 +1745,67 @@ def _emit_detail(
     if stones:
         svg.append(f'<g opacity="0.8">{"".join(stones)}</g>')
 
+
+def _tile_thematic_detail(
+    rng: random.Random, x: int, y: int,
+    level: "Level",
+    probs: dict[str, float],
+    webs: list[str], bones: list[str], skulls: list[str],
+) -> None:
+    """Generate thematic details (webs, bones, skulls) for one tile.
+
+    Webs only appear in corners adjacent to walls.
+    Bones and skulls can appear on any floor tile.
+    Only processes actual floor tiles (not walls inside room rects).
+    """
+    tile = level.tiles[y][x]
+    if tile.terrain != Terrain.FLOOR:
+        return
+    px, py = x * CELL, y * CELL
+
+    # Webs — only in corners that touch walls on both sides
+    if rng.random() < probs.get("web", 0):
+        wall_corners = []
+        # Check each corner: needs wall on both adjacent sides
+        if not _is_floor(level, x, y - 1) and \
+                not _is_floor(level, x - 1, y):
+            wall_corners.append(0)  # top-left
+        if not _is_floor(level, x, y - 1) and \
+                not _is_floor(level, x + 1, y):
+            wall_corners.append(1)  # top-right
+        if not _is_floor(level, x, y + 1) and \
+                not _is_floor(level, x - 1, y):
+            wall_corners.append(2)  # bottom-left
+        if not _is_floor(level, x, y + 1) and \
+                not _is_floor(level, x + 1, y):
+            wall_corners.append(3)  # bottom-right
+        if wall_corners:
+            corner = rng.choice(wall_corners)
+            webs.append(_web_detail(rng, px, py, corner))
+
+    # Bone piles
+    if rng.random() < probs.get("bones", 0):
+        bones.append(_bone_detail(rng, px, py))
+
+    # Skulls
+    if rng.random() < probs.get("skull", 0):
+        skulls.append(_skull_detail(rng, px, py))
+
+
+def _emit_thematic_detail(
+    svg: list[str],
+    webs: list[str], bones: list[str], skulls: list[str],
+) -> None:
+    """Append thematic detail elements to the SVG."""
+    if webs:
+        svg.append(
+            f'<g class="detail-webs">{"".join(webs)}</g>')
+    if bones:
+        svg.append(
+            f'<g class="detail-bones">{"".join(bones)}</g>')
+    if skulls:
+        svg.append(
+            f'<g class="detail-skulls">{"".join(skulls)}</g>')
 
 
 def _dungeon_interior_clip(svg: list[str], dungeon_poly, clip_id: str):
@@ -1818,20 +1964,28 @@ def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
     dungeon_poly=None,
 ) -> None:
-    """Scatter cracks, stones, and scratches on floor tiles.
+    """Scatter cracks, stones, scratches, and thematic details.
 
     Room tiles: generated for all tiles, clipped to dungeon polygon.
     Corridor/door tiles: generated directly, no clipping needed.
+    Thematic details (webs, bones, skulls) added based on theme.
     """
     rng = random.Random(seed + 99)
     theme = level.metadata.theme if level.metadata else "dungeon"
     scale = _DETAIL_SCALE.get(theme, 1.0)
+    probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
     room_cracks: list[str] = []
     room_stones: list[str] = []
     room_scratches: list[str] = []
     cor_cracks: list[str] = []
     cor_stones: list[str] = []
     cor_scratches: list[str] = []
+    room_webs: list[str] = []
+    room_bones: list[str] = []
+    room_skulls: list[str] = []
+    cor_webs: list[str] = []
+    cor_bones: list[str] = []
+    cor_skulls: list[str] = []
 
     for y in range(level.height):
         for x in range(level.width):
@@ -1845,26 +1999,40 @@ def _render_floor_detail(
                 _tile_detail(rng, x, y, seed,
                              cor_cracks, cor_stones, cor_scratches,
                              detail_scale=scale)
+                _tile_thematic_detail(rng, x, y, level, probs,
+                                     cor_webs, cor_bones, cor_skulls)
             else:
                 _tile_detail(rng, x, y, seed,
                              room_cracks, room_stones, room_scratches,
                              detail_scale=scale)
+                _tile_thematic_detail(rng, x, y, level, probs,
+                                     room_webs, room_bones,
+                                     room_skulls)
 
     # Room detail — clipped to dungeon polygon
-    if room_cracks or room_stones or room_scratches:
+    has_room = (room_cracks or room_stones or room_scratches
+                or room_webs or room_bones or room_skulls)
+    if has_room:
         if dungeon_poly is not None and not dungeon_poly.is_empty:
             _dungeon_interior_clip(svg, dungeon_poly, "detail-clip")
             svg.append('<g clip-path="url(#detail-clip)">')
             _emit_detail(svg, room_cracks, room_stones,
                          room_scratches)
+            _emit_thematic_detail(svg, room_webs, room_bones,
+                                 room_skulls)
             svg.append('</g>')
         else:
             _emit_detail(svg, room_cracks, room_stones,
                          room_scratches)
+            _emit_thematic_detail(svg, room_webs, room_bones,
+                                 room_skulls)
 
     # Corridor detail — no clipping
-    if cor_cracks or cor_stones or cor_scratches:
+    has_cor = (cor_cracks or cor_stones or cor_scratches
+               or cor_webs or cor_bones or cor_skulls)
+    if has_cor:
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
+        _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
 
 
 # ── Terrain detail ─────────────────────────────────────────────
@@ -2189,6 +2357,170 @@ def _floor_stone(rng: random.Random, px: float, py: float) -> str:
         f'stroke-width="{sw:.1f}"/>')
 
 
+# ── Thematic detail generators ────────────────────────────────
+
+
+def _web_detail(
+    rng: random.Random, px: float, py: float,
+    corner: int,
+) -> str:
+    """Spider web radiating from a tile corner.
+
+    Draws 3-4 radial threads from the corner into the tile,
+    connected by 2 concentric arc-like cross-threads.
+    *corner*: 0=TL, 1=TR, 2=BL, 3=BR.
+    """
+    # Corner anchor point
+    cx = px if corner in (0, 2) else px + CELL
+    cy = py if corner in (0, 1) else py + CELL
+    # Direction signs (into the tile)
+    sx = 1 if corner in (0, 2) else -1
+    sy = 1 if corner in (0, 1) else -1
+
+    n_radials = rng.randint(3, 4)
+    radial_len = rng.uniform(CELL * 0.5, CELL * 0.85)
+    angles = sorted(
+        rng.uniform(0, math.pi / 2) for _ in range(n_radials)
+    )
+    parts: list[str] = []
+
+    # Radial endpoints at full length
+    endpoints: list[list[tuple[float, float]]] = []
+    for a in angles:
+        dx = sx * math.cos(a) * radial_len
+        dy = sy * math.sin(a) * radial_len
+        ex, ey = cx + dx, cy + dy
+        parts.append(
+            f'M{cx:.1f},{cy:.1f} L{ex:.1f},{ey:.1f}'
+        )
+        # Store intermediate points for cross-threads
+        ring_pts: list[tuple[float, float]] = []
+        for frac in (0.4, 0.7):
+            ring_pts.append((cx + dx * frac, cy + dy * frac))
+        endpoints.append(ring_pts)
+
+    # Cross-threads connecting radials at each ring
+    for ring_idx in range(2):
+        for i in range(len(endpoints) - 1):
+            p1 = endpoints[i][ring_idx]
+            p2 = endpoints[i + 1][ring_idx]
+            # Slight sag for organic feel
+            mx = (p1[0] + p2[0]) / 2 + rng.uniform(-1.5, 1.5)
+            my = (p1[1] + p2[1]) / 2 + rng.uniform(-1.5, 1.5)
+            parts.append(
+                f'M{p1[0]:.1f},{p1[1]:.1f} '
+                f'Q{mx:.1f},{my:.1f} '
+                f'{p2[0]:.1f},{p2[1]:.1f}'
+            )
+
+    sw = rng.uniform(0.3, 0.6)
+    return (
+        f'<path d="{" ".join(parts)}" fill="none" '
+        f'stroke="{INK}" stroke-width="{sw:.1f}" '
+        f'stroke-linecap="round" opacity="0.35"/>'
+    )
+
+
+def _bone_detail(rng: random.Random, px: float, py: float) -> str:
+    """Pile of 2-3 crossed bones with bulbous epiphyses.
+
+    Each bone is a line with small circles at both ends,
+    arranged in a small cluster within the tile.
+    """
+    cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
+    cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
+    n_bones = rng.randint(2, 3)
+    parts: list[str] = []
+
+    for _ in range(n_bones):
+        angle = rng.uniform(0, math.pi)
+        length = rng.uniform(CELL * 0.2, CELL * 0.35)
+        dx = math.cos(angle) * length / 2
+        dy = math.sin(angle) * length / 2
+        bx = cx + rng.uniform(-CELL * 0.08, CELL * 0.08)
+        by = cy + rng.uniform(-CELL * 0.08, CELL * 0.08)
+        x1, y1 = bx - dx, by - dy
+        x2, y2 = bx + dx, by + dy
+        # Bone shaft
+        parts.append(
+            f'<line x1="{x1:.1f}" y1="{y1:.1f}" '
+            f'x2="{x2:.1f}" y2="{y2:.1f}" '
+            f'stroke="{INK}" stroke-width="1.2" '
+            f'stroke-linecap="round"/>'
+        )
+        # Epiphyses (bulbous ends)
+        er = rng.uniform(1.2, 1.8)
+        for ex, ey in [(x1, y1), (x2, y2)]:
+            parts.append(
+                f'<ellipse cx="{ex:.1f}" cy="{ey:.1f}" '
+                f'rx="{er:.1f}" ry="{er:.1f}" fill="{INK}"/>'
+            )
+
+    return f'<g opacity="0.4">{"".join(parts)}</g>'
+
+
+def _skull_detail(rng: random.Random, px: float, py: float) -> str:
+    """Small hand-drawn skull: oval cranium, eye sockets, nasal cavity.
+
+    Fits within ~10-12px, positioned randomly inside the tile.
+    """
+    cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
+    cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
+    # Scale factor for slight size variation
+    s = rng.uniform(0.8, 1.2)
+    # Slight rotation for a tossed-on-ground look
+    rot = rng.uniform(-20, 20)
+
+    # Cranium: slightly taller than wide
+    cw = 4.5 * s   # half-width
+    ch = 5.5 * s   # half-height
+
+    parts: list[str] = []
+
+    # Cranium outline (oval)
+    parts.append(
+        f'<ellipse cx="0" cy="0" rx="{cw:.1f}" ry="{ch:.1f}" '
+        f'fill="none" stroke="{INK}" stroke-width="0.8"/>'
+    )
+
+    # Eye sockets — two dark ellipses
+    eye_y = -ch * 0.15
+    eye_sep = cw * 0.5
+    eye_rx = cw * 0.28
+    eye_ry = ch * 0.2
+    for ex in (-eye_sep, eye_sep):
+        parts.append(
+            f'<ellipse cx="{ex:.1f}" cy="{eye_y:.1f}" '
+            f'rx="{eye_rx:.1f}" ry="{eye_ry:.1f}" '
+            f'fill="{INK}"/>'
+        )
+
+    # Nasal cavity — small inverted triangle
+    nose_y = ch * 0.15
+    nose_w = cw * 0.22
+    nose_h = ch * 0.25
+    parts.append(
+        f'<path d="M0,{nose_y:.1f} '
+        f'L{-nose_w:.1f},{nose_y + nose_h:.1f} '
+        f'L{nose_w:.1f},{nose_y + nose_h:.1f} Z" '
+        f'fill="{INK}"/>'
+    )
+
+    # Jaw line — slight curve below cranium
+    jaw_y = ch * 0.7
+    jaw_w = cw * 0.65
+    parts.append(
+        f'<path d="M{-jaw_w:.1f},{jaw_y:.1f} '
+        f'Q0,{jaw_y + ch * 0.25:.1f} '
+        f'{jaw_w:.1f},{jaw_y:.1f}" '
+        f'fill="none" stroke="{INK}" stroke-width="0.6"/>'
+    )
+
+    inner = "".join(parts)
+    return (
+        f'<g transform="translate({cx:.1f},{cy:.1f}) '
+        f'rotate({rot:.0f})" opacity="0.45">{inner}</g>'
+    )
 
 
 def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
@@ -2638,6 +2970,12 @@ def _room_shapely_polygon(room) -> Polygon | None:
             return None
         return _svg_path_to_polygon(outline)
 
+    if isinstance(shape, CaveShape):
+        outline = _cave_svg_outline(room)
+        if not outline:
+            return None
+        return _svg_path_to_polygon(outline)
+
     return None
 
 
@@ -2665,7 +3003,7 @@ def _svg_path_to_polygon(svg_el: str) -> Polygon | None:
     d = path_match.group(1)
 
     # Tokenize: split on command letters, keeping the letter
-    tokens = re.findall(r'[MLAHVZ][^MLAHVZ]*', d.strip())
+    tokens = re.findall(r'[MLAHVCZ][^MLAHVCZ]*', d.strip())
     pts: list[tuple[float, float]] = []
     cx, cy = 0.0, 0.0
 
@@ -2694,6 +3032,21 @@ def _svg_path_to_polygon(svg_el: str) -> Polygon | None:
             arc_pts = _approximate_arc(
                 cx, cy, rx, ry, large, sweep, ex, ey)
             pts.extend(arc_pts)
+            cx, cy = ex, ey
+        elif cmd == 'C':
+            # C c1x,c1y c2x,c2y ex,ey — cubic bezier
+            # Approximate with 8 line segments
+            c1x, c1y = args[0], args[1]
+            c2x, c2y = args[2], args[3]
+            ex, ey = args[4], args[5]
+            for i in range(1, 9):
+                t = i / 8
+                u = 1 - t
+                bx = (u**3 * cx + 3 * u**2 * t * c1x
+                      + 3 * u * t**2 * c2x + t**3 * ex)
+                by = (u**3 * cy + 3 * u**2 * t * c1y
+                      + 3 * u * t**2 * c2y + t**3 * ey)
+                pts.append((bx, by))
             cx, cy = ex, ey
         elif cmd == 'Z':
             pass  # close path

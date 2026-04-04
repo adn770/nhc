@@ -118,7 +118,7 @@ class CellularGenerator(DungeonGenerator):
         self._place_stairs(level, rng)
 
         # Step 8: Place doors at corridor-cavern junctions
-        self._place_doors(level)
+        self._place_doors(level, rng)
 
         floors = sum(
             1 for row in level.tiles for t in row
@@ -332,8 +332,12 @@ class CellularGenerator(DungeonGenerator):
                         break
 
     @staticmethod
-    def _place_doors(level: Level) -> None:
-        """Place doors where corridors meet cavern floor."""
+    def _place_doors(level: Level, rng: random.Random) -> None:
+        """Place doors where corridors meet cavern floor.
+
+        Caves use open passages by default — no wooden doors in
+        natural rock.  ~10% of junctions get a secret door instead.
+        """
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
                 tile = level.tiles[y][x]
@@ -344,7 +348,8 @@ class CellularGenerator(DungeonGenerator):
                     if (nb.terrain == Terrain.FLOOR
                             and not nb.is_corridor
                             and not nb.feature):
-                        tile.feature = "door_closed"
+                        if rng.random() < 0.10:
+                            tile.feature = "door_secret"
                         break
 
 
