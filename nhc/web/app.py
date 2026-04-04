@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
 import collections
 import logging
+import os
 import time
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from flask import (
@@ -67,6 +70,26 @@ def create_app(
 
     sessions = SessionManager(config)
     app.config["SESSIONS"] = sessions
+
+    # Discover entity factories once at startup. Previously this ran
+    # on every game.initialize() call, putting import I/O on the hot
+    # path for concurrent sessions.
+    from nhc.entities.registry import EntityRegistry
+    EntityRegistry.discover_all()
+
+    # ProcessPoolExecutor for CPU-bound dungeon generation. Keeps the
+    # single gevent worker responsive while levels are generated in
+    # parallel across cores. Sized via NHC_GEN_WORKERS (default: cpu
+    # count). Workers are long-lived and reused across requests.
+    gen_workers = int(
+        os.environ.get("NHC_GEN_WORKERS", str(os.cpu_count() or 1))
+    )
+    gen_pool = ProcessPoolExecutor(max_workers=gen_workers)
+    app.config["GEN_POOL"] = gen_pool
+    logger.info("Generation pool: %d worker(s)", gen_workers)
+    # Shut the pool down on interpreter exit so tests and dev reloads
+    # don't leak worker processes.
+    atexit.register(gen_pool.shutdown, wait=False, cancel_futures=True)
 
     # Pre-generate the hatch SVG once — it's seed-independent and
     # shared across all games so we serve it as a static asset.
@@ -448,15 +471,14 @@ def create_app(
         )
         session.game = game
 
-        loop = asyncio.new_event_loop()
         try:
-            loop.run_until_complete(game.initialize(generate=True))
+            asyncio.run(
+                game.initialize(generate=True, executor=gen_pool)
+            )
         except Exception:
             logger.exception("Failed to restore game for player %s", pid)
             sessions.destroy(session.session_id)
             return jsonify({"error": "game restore failed"}), 500
-        finally:
-            loop.close()
 
         # Load cached floor SVG or re-render
         import uuid as _uuid
@@ -562,18 +584,19 @@ def create_app(
         )
         session.game = game
 
-        # Initialize the game world (generate dungeon)
+        # Initialize the game world (generate dungeon). CPU-bound
+        # generation is offloaded to the process pool so the server
+        # stays responsive and multiple cores serve concurrent players.
         logger.info("Generating dungeon for session %s...",
                      session.session_id)
-        loop = asyncio.new_event_loop()
         try:
-            loop.run_until_complete(game.initialize(generate=True))
+            asyncio.run(
+                game.initialize(generate=True, executor=gen_pool)
+            )
         except Exception:
             logger.exception("Failed to initialize game")
             sessions.destroy(session.session_id)
             return jsonify({"error": "game initialization failed"}), 500
-        finally:
-            loop.close()
 
         logger.info("Dungeon generated: %dx%d, %d rooms",
                      game.level.width, game.level.height,

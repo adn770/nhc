@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 import threading
@@ -44,14 +45,9 @@ from nhc.core.events import (
     TrapTriggered,
 )
 from nhc.dungeon.generator import GenerationParams, pick_map_size
-from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.generators.cellular import CellularGenerator
 from nhc.dungeon.themes import theme_for_depth
 from nhc.dungeon.loader import get_player_start, load_level
 from nhc.dungeon.model import Level, RectShape, Terrain
-from nhc.dungeon.populator import populate_level
-from nhc.dungeon.room_types import assign_room_types
-from nhc.dungeon.terrain import apply_terrain
 from nhc.entities.components import (
     BlocksMovement,
     Cursed,
@@ -84,6 +80,7 @@ from nhc.utils.rng import get_rng, get_seed, set_seed
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from concurrent.futures import Executor
     from nhc.core.actions import Action
     from nhc.utils.llm import LLMBackend
 
@@ -368,6 +365,7 @@ class Game:
         level_path: str | Path | None = None,
         generate: bool = False,
         depth: int = 1,
+        executor: "Executor | None" = None,
     ) -> None:
         """Set up initial game state from a level file or generator."""
         # Check for autosave recovery
@@ -418,13 +416,19 @@ class Game:
                 seed=self.seed,
             )
             self.generation_params = params
-            gen = (CellularGenerator() if theme == "cave"
-                   else BSPGenerator())
-            self.level = gen.generate(params)
-            rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
-            assign_room_types(self.level, rng)
-            apply_terrain(self.level, rng)
-            populate_level(self.level)
+            # Delegate to the pure pipeline. When an executor is
+            # provided (web server path), offload generation to a
+            # worker process so the main event loop stays responsive
+            # and multiple cores can serve concurrent players. When
+            # executor is None (CLI, tests), run inline.
+            from nhc.dungeon.pipeline import generate_level
+            if executor is not None:
+                loop = asyncio.get_running_loop()
+                self.level = await loop.run_in_executor(
+                    executor, generate_level, params
+                )
+            else:
+                self.level = generate_level(params)
             logger.info(
                 "Generated level depth=%d theme=%s "
                 "(%dx%d, %d rooms)",
