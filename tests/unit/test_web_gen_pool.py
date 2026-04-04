@@ -64,6 +64,23 @@ class TestGenPool:
             app.config["GEN_POOL"].shutdown(wait=True)
 
 
+class TestPoolStartMethod:
+    def test_pool_uses_spawn_context(self, tmp_path):
+        """The pool must use the 'spawn' multiprocessing start method.
+
+        Under gunicorn's gevent worker, os.fork is monkey-patched and
+        forked children inherit a broken gevent hub. Spawn creates
+        clean child interpreters that re-import the app modules.
+        """
+        app = create_app(WebConfig(data_dir=tmp_path, max_sessions=2))
+        try:
+            pool = app.config["GEN_POOL"]
+            # ProcessPoolExecutor stores the mp context at _mp_context
+            assert pool._mp_context.get_start_method() == "spawn"
+        finally:
+            app.config["GEN_POOL"].shutdown(wait=True)
+
+
 class TestEntityDiscoveryHoisted:
     def test_discover_all_called_once_in_create_app(self, tmp_path):
         """EntityRegistry.discover_all() must be called in create_app,

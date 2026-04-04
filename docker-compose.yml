@@ -9,6 +9,7 @@ services:
       - NHC_DATA_DIR=/var/nhc
       - NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN}
       - NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS:-8}
+      - NHC_GEN_WORKERS=${NHC_GEN_WORKERS:-4}
     restart: unless-stopped
 
   caddy:

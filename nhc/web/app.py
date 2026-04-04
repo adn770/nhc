@@ -6,6 +6,7 @@ import asyncio
 import atexit
 import collections
 import logging
+import multiprocessing
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -81,10 +82,20 @@ def create_app(
     # single gevent worker responsive while levels are generated in
     # parallel across cores. Sized via NHC_GEN_WORKERS (default: cpu
     # count). Workers are long-lived and reused across requests.
+    #
+    # Pinned to the 'spawn' start method. Under gunicorn --worker-class
+    # gevent the standard library is monkey-patched before create_app
+    # runs, which breaks fork(): forked children inherit a gevent hub
+    # tied to the parent's kernel resources and hang or crash on first
+    # use. Spawn re-execs a clean Python interpreter per worker and
+    # re-imports the dungeon modules once at startup.
     gen_workers = int(
         os.environ.get("NHC_GEN_WORKERS", str(os.cpu_count() or 1))
     )
-    gen_pool = ProcessPoolExecutor(max_workers=gen_workers)
+    mp_ctx = multiprocessing.get_context("spawn")
+    gen_pool = ProcessPoolExecutor(
+        max_workers=gen_workers, mp_context=mp_ctx
+    )
     app.config["GEN_POOL"] = gen_pool
     logger.info("Generation pool: %d worker(s)", gen_workers)
     # Shut the pool down on interpreter exit so tests and dev reloads
