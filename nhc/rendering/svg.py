@@ -1570,15 +1570,29 @@ def _wobbly_grid_seg(
     return seg
 
 
+# Per-theme multipliers for floor detail density.
+# Values > 1.0 increase cracks, stones, and scratches.
+_DETAIL_SCALE: dict[str, float] = {
+    "dungeon": 1.0,
+    "crypt":   2.0,
+    "cave":    1.2,
+    "sewer":   1.0,
+    "castle":  0.8,
+    "forest":  0.6,
+    "abyss":   1.5,
+}
+
+
 def _tile_detail(
     rng: random.Random, x: int, y: int, seed: int,
     cracks: list[str], stones: list[str], scratches: list[str],
+    detail_scale: float = 1.0,
 ) -> None:
     """Generate floor detail (cracks, stones, scratches) for one tile."""
     px, py = x * CELL, y * CELL
 
     roll = rng.random()
-    if roll < 0.08:
+    if roll < 0.08 * detail_scale:
         # Crack line from a tile corner into the tile interior.
         # The tile grid edges complete the triangle visually.
         corner = rng.randint(0, 3)
@@ -1596,13 +1610,13 @@ def _tile_detail(
             cracks.append(
                 f'{px + CELL - s1},{py + CELL} '
                 f'{px + CELL},{py + CELL - s2}')
-    elif roll < 0.13:
+    elif roll < 0.08 * detail_scale + 0.05 * detail_scale:
         scratches.append(_y_scratch(rng, px, py, x, y, seed))
 
-    if rng.random() < 0.06:
+    if rng.random() < 0.06 * detail_scale:
         stones.append(_floor_stone(rng, px, py))
 
-    if rng.random() < 0.03:
+    if rng.random() < 0.03 * detail_scale:
         cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
         cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
         for _ in range(3):
@@ -1810,6 +1824,8 @@ def _render_floor_detail(
     Corridor/door tiles: generated directly, no clipping needed.
     """
     rng = random.Random(seed + 99)
+    theme = level.metadata.theme if level.metadata else "dungeon"
+    scale = _DETAIL_SCALE.get(theme, 1.0)
     room_cracks: list[str] = []
     room_stones: list[str] = []
     room_scratches: list[str] = []
@@ -1827,10 +1843,12 @@ def _render_floor_detail(
                       or _is_door(level, x, y))
             if is_cor:
                 _tile_detail(rng, x, y, seed,
-                             cor_cracks, cor_stones, cor_scratches)
+                             cor_cracks, cor_stones, cor_scratches,
+                             detail_scale=scale)
             else:
                 _tile_detail(rng, x, y, seed,
-                             room_cracks, room_stones, room_scratches)
+                             room_cracks, room_stones, room_scratches,
+                             detail_scale=scale)
 
     # Room detail — clipped to dungeon polygon
     if room_cracks or room_stones or room_scratches:

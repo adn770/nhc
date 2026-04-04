@@ -81,6 +81,8 @@ const NHC = {
       }
       if (msg.entities || msg.fov) {
         GameMap.flush();
+        // Ensure scroll happens after browser has laid out the new SVG
+        requestAnimationFrame(() => GameMap.scrollToPlayer());
       }
       NHC.hideLoading();
     });

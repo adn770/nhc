@@ -351,9 +351,9 @@ class TestGridAndDetailOnWallTiles:
             'nhc.rendering.svg', fromlist=['_tile_detail']
         )._tile_detail
 
-        def tracking_tile_detail(rng, x, y, seed, *args):
+        def tracking_tile_detail(rng, x, y, seed, *args, **kwargs):
             called_coords.append((x, y))
-            return original(rng, x, y, seed, *args)
+            return original(rng, x, y, seed, *args, **kwargs)
 
         with patch('nhc.rendering.svg._tile_detail',
                    side_effect=tracking_tile_detail):
