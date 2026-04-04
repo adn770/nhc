@@ -382,6 +382,23 @@ class TestFullPipeline:
                      if e.entity_type == "creature"]
         assert len(creatures) >= 1
 
+    def test_small_map_has_minimum_creatures(self):
+        """Even small 40x40 maps must have at least 3 creatures."""
+        for seed in range(20):
+            set_seed(seed)
+            gen = BSPGenerator()
+            level = gen.generate(
+                GenerationParams(width=40, height=40, depth=1))
+            rng = get_rng()
+            assign_room_types(level, rng)
+            apply_terrain(level, rng)
+            populate_level(level)
+            creatures = [e for e in level.entities
+                         if e.entity_type == "creature"]
+            assert len(creatures) >= 3, (
+                f"seed={seed}: only {len(creatures)} creatures"
+            )
+
 
 class TestMapSizeSelection:
     def test_pick_returns_valid_size(self):

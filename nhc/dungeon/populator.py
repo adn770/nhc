@@ -253,6 +253,11 @@ def populate_level(
 
     if not combat_rooms:
         combat_rooms = placeable
+    # Last resort: include all rooms (even entry) so the
+    # level is never completely empty of creatures.
+    if not combat_rooms:
+        combat_rooms = [r for r in level.rooms
+                        if r.rect.width >= 3 and r.rect.height >= 3]
     if not combat_rooms:
         return
 
@@ -275,11 +280,14 @@ def populate_level(
         return pos
 
     # ── Place creature encounters ──
+    MIN_CREATURES = 3
     c_pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
     c_ids, c_weights = zip(*c_pool) if c_pool else ([], [])
     remaining = creature_count
+    max_attempts = creature_count * 3  # prevent infinite loop
 
-    while remaining > 0 and combat_rooms:
+    while remaining > 0 and combat_rooms and max_attempts > 0:
+        max_attempts -= 1
         room = rng.choice(combat_rooms)
 
         # Pick encounter size
@@ -299,6 +307,24 @@ def populate_level(
                 x=pos[0], y=pos[1],
             ))
             remaining -= 1
+
+    # Guarantee a minimum number of creatures even if the main
+    # loop ran out of attempts (small maps with few open tiles).
+    placed = sum(1 for e in level.entities
+                 if e.entity_type == "creature")
+    if placed < MIN_CREATURES and c_ids:
+        all_rooms = combat_rooms or placeable or level.rooms
+        for _ in range(MIN_CREATURES - placed):
+            room = rng.choice(all_rooms)
+            pos = _pick_floor(room)
+            if not pos:
+                continue
+            creature_id = rng.choices(
+                list(c_ids), weights=list(c_weights), k=1)[0]
+            level.entities.append(EntityPlacement(
+                entity_type="creature", entity_id=creature_id,
+                x=pos[0], y=pos[1],
+            ))
 
     # ── Place items ──
     i_pool = ITEM_POOLS.get(difficulty, ITEM_POOLS[1])
