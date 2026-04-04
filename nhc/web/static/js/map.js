@@ -741,7 +741,7 @@ const GameMap = {
     const cs = this.cellSize;
     const pad = this.padding;
     const wallW = 4;             // match SVG WALL_WIDTH
-    const doorLen = cs * 0.8;    // 80% of tile along wall
+    const doorLen = cs * 0.75;   // 75% of tile along wall
     const doorDepth = wallW * 2; // twice wall thickness
     const connLen = cs * 0.1;    // wall connection stub
 
