@@ -53,21 +53,22 @@ const UI = {
       ` 📍 <b>${s.level_name || "?"}</b>` +
       `${sep}⬇ ${s.depth}` +
       `${sep}⏳ ${s.turn}` +
-      `${sep}Lv ${s.plevel} (${s.xp}/${s.xp_next} XP)` +
+      `${sep}${(NHC.labels && NHC.labels.lv) || "Lv"} ${s.plevel} (${s.xp}/${s.xp_next} ${(NHC.labels && NHC.labels.xp) || "XP"})` +
       `${sep}💰 <span style="color:#FFFF44">${s.gold}</span>` +
       `${sep}❤️  <span style="color:${hpColor}">${hpBar} ${hp}/${hpMax}</span>`;
 
     // ── Line 2: Name, stats, equipment (interactive) ──
     const name = s.char_name || "?";
     const bg = s.char_bg ? ` (${s.char_bg})` : "";
+    const L = NHC.labels || {};
     this.statusLine2.innerHTML =
       ` <b>${name}</b>${bg}` +
-      `${sep}STR:${this._signed(s.str)}` +
-      ` DEX:${this._signed(s.dex)}` +
-      ` CON:${this._signed(s.con)}` +
-      ` INT:${this._signed(s.int)}` +
-      ` WIS:${this._signed(s.wis)}` +
-      ` CHA:${this._signed(s.cha)}` +
+      `${sep}${L.stat_str || "STR"}:${this._signed(s.str)}` +
+      ` ${L.stat_dex || "DEX"}:${this._signed(s.dex)}` +
+      ` ${L.stat_con || "CON"}:${this._signed(s.con)}` +
+      ` ${L.stat_int || "INT"}:${this._signed(s.int)}` +
+      ` ${L.stat_wis || "WIS"}:${this._signed(s.wis)}` +
+      ` ${L.stat_cha || "CHA"}:${this._signed(s.cha)}` +
       sep;
 
     // Build interactive equipment spans from equipped_items

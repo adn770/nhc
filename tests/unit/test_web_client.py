@@ -486,6 +486,9 @@ class TestUILabels:
             "restart_confirm", "restart_yes", "restart_cancel",
             "mode_classic_tag", "mode_typed_tag",
             "input_placeholder", "empty",
+            "stat_str", "stat_dex", "stat_con",
+            "stat_int", "stat_wis", "stat_cha",
+            "lv", "xp",
         ]
         for key in chrome_keys:
             assert key in labels, f"missing UI label '{key}'"

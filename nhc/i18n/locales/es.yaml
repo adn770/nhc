@@ -446,6 +446,8 @@ stats:
   int: "INT"
   wis: "SAB"
   cha: "CAR"
+  lv: "Nv"
+  xp: "PX"
 
 # ── Rasgos del personaje ─────────────────────────────────────────────
 traits:

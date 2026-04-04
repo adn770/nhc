@@ -464,6 +464,8 @@ stats:
   int: "INT"
   wis: "SAV"
   cha: "CAR"
+  lv: "Nv"
+  xp: "PX"
 
 # ── Trets del personatge ─────────────────────────────────────────────
 traits:

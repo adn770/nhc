@@ -446,6 +446,8 @@ stats:
   int: "INT"
   wis: "WIS"
   cha: "CHA"
+  lv: "Lv"
+  xp: "XP"
 
 # ── Character traits ─────────────────────────────────────────────────
 traits:

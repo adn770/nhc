@@ -386,6 +386,16 @@ class WebClient(GameClient):
             "mode_typed_tag": tr("ui.mode_typed_tag"),
             # Input
             "input_placeholder": tr("ui.input_placeholder"),
+            # Status bar abbreviations
+            "lv": tr("ui.lv"),
+            "xp": tr("ui.xp"),
+            # Ability score abbreviations
+            "stat_str": tr("ui.str"),
+            "stat_dex": tr("ui.dex"),
+            "stat_con": tr("ui.con"),
+            "stat_int": tr("ui.int"),
+            "stat_wis": tr("ui.wis"),
+            "stat_cha": tr("ui.cha"),
         }
 
     def _gather_doors(
