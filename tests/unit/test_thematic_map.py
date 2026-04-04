@@ -225,6 +225,102 @@ class TestCaveWallRendering:
         )
 
 
+class TestCaveTileCenterWalls:
+    """New cave wall algorithm: each boundary tile contributes one
+    jittered point near its center; opening edges insert fixed
+    anchor points (corners + midedge) so corridor walls connect."""
+
+    def test_tile_center_jitter_within_disk(self):
+        """Each solid-run point must be within a disk of radius
+        CELL/4 of the boundary tile's center."""
+        from nhc.rendering.svg import (
+            _build_cave_wall_runs, CELL,
+        )
+        import random
+        level, room = _make_cave_room_level(with_corridor=False)
+        rng = random.Random(42)
+        runs = _build_cave_wall_runs(room, level, rng)
+        assert runs, "Expected at least one run"
+        tiles = room.floor_tiles()
+        # Every solid point must be within CELL/4 of some tile
+        # center
+        tile_centers = [
+            ((tx + 0.5) * CELL, (ty + 0.5) * CELL)
+            for tx, ty in tiles
+        ]
+        for run in runs:
+            for kind, (x, y) in run:
+                if kind != "solid":
+                    continue
+                import math
+                dists = [
+                    math.hypot(x - cx, y - cy)
+                    for cx, cy in tile_centers
+                ]
+                assert min(dists) <= CELL / 4 + 0.01, (
+                    f"Point ({x},{y}) too far from any tile center"
+                )
+
+    def test_opening_anchors_at_exact_grid(self):
+        """Opening edge endpoints (corners + midedge) must be at
+        exact grid positions so corridor walls connect."""
+        from nhc.rendering.svg import (
+            _build_cave_wall_runs, CELL,
+        )
+        import random
+        level, room = _make_cave_room_level(with_corridor=True)
+        rng = random.Random(42)
+        runs = _build_cave_wall_runs(room, level, rng)
+        assert runs
+        # Collect all anchor points from opening/door edges
+        anchor_points = []
+        for run in runs:
+            for kind, p in run:
+                if kind in ("gap_corner", "gap_mid"):
+                    anchor_points.append(p)
+        assert anchor_points, (
+            "Expected anchor points at opening edges"
+        )
+        # Anchors should be at grid-aligned positions
+        # (corners on CELL boundaries, mid at CELL*0.5 offset)
+        for x, y in anchor_points:
+            # Corner: both x and y are multiples of CELL
+            # Midedge: exactly one is CELL*0.5 offset
+            on_grid_x = x % CELL < 0.01 or abs(x % CELL - CELL / 2) < 0.01
+            on_grid_y = y % CELL < 0.01 or abs(y % CELL - CELL / 2) < 0.01
+            assert on_grid_x and on_grid_y, (
+                f"Anchor ({x},{y}) not at grid position"
+            )
+
+    def test_runs_split_at_gaps(self):
+        """A cave with one corridor opening produces one open run
+        (ends at gap_corner, starts at the opposite gap_corner)."""
+        from nhc.rendering.svg import _build_cave_wall_runs
+        import random
+        level, room = _make_cave_room_level(with_corridor=True)
+        rng = random.Random(42)
+        runs = _build_cave_wall_runs(room, level, rng)
+        assert len(runs) == 1, (
+            f"One opening should produce one run, got {len(runs)}"
+        )
+        run = runs[0]
+        # First and last entries should be gap corner anchors
+        assert run[0][0] == "gap_corner"
+        assert run[-1][0] == "gap_corner"
+
+    def test_no_openings_returns_closed_loop(self):
+        """A cave with no openings produces one closed run."""
+        from nhc.rendering.svg import _build_cave_wall_runs
+        import random
+        level, room = _make_cave_room_level(with_corridor=False)
+        rng = random.Random(42)
+        runs = _build_cave_wall_runs(room, level, rng)
+        assert len(runs) == 1
+        # Closed run: no gap corners
+        run = runs[0]
+        assert all(k == "solid" for k, _ in run)
+
+
 class TestCaveCorridorGaps:
     """Caves with doorless corridor openings must have gaps in
     the wall outline where corridors connect — otherwise the

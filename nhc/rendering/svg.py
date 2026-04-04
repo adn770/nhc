@@ -1265,63 +1265,215 @@ def _smooth_open_path(
 
 def _cave_with_gaps(
     room: "Room", level: "Level",
+    seed: int = 0,
 ) -> str | None:
     """Build a cave wall path with gaps at corridor openings.
 
-    Walks the tile-edge boundary of the cave as a polyline of
-    corner points.  Each boundary edge is either SOLID (neighbor
-    is wall/void → draw this edge) or GAP (neighbor is a corridor
-    floor tile → skip this edge).  Contiguous solid runs become
-    separate sub-paths, each smoothed with Catmull-Rom.
+    Each boundary cave tile contributes a point near its center
+    (jittered within a disk of radius CELL/4) to create an
+    organic wobble.  Opening/door edges insert fixed anchor
+    points (edge corners + midedge) so the wall lines up exactly
+    with corridor walls at the openings.  Contiguous solid runs
+    become separate sub-paths, each smoothed with Catmull-Rom.
     """
     tiles = room.floor_tiles()
     if not tiles:
         return None
 
-    # Build the ordered boundary as a list of (corner, is_gap_ahead)
-    # pairs.  Each corner is a pixel-space point where two
-    # tile edges meet; is_gap_ahead indicates whether the edge
-    # from this corner to the next is a gap edge.
-    chain = _trace_cave_edges(tiles, level)
-    if not chain:
-        return None
-
-    # Split the chain into contiguous solid runs
-    n = len(chain)
-    # Find the first gap to start from (so we break cleanly)
-    start = 0
-    for i in range(n):
-        if chain[i][1]:  # edge ahead is gap
-            start = (i + 1) % n
-            break
-    else:
-        # No gaps at all — cave has no corridor openings.
-        # Fall back to closed outline.
-        coords = [c for c, _ in chain]
-        return _smooth_closed_path(coords)
-
-    runs: list[list[tuple[float, float]]] = []
-    current: list[tuple[float, float]] = []
-    for offset in range(n):
-        idx = (start + offset) % n
-        corner, gap_ahead = chain[idx]
-        current.append(corner)
-        if gap_ahead:
-            # End of a solid run (or a single-corner stub)
-            if len(current) >= 2:
-                runs.append(current)
-            current = []
-    if len(current) >= 2:
-        runs.append(current)
-
+    rng = random.Random(seed + hash(room.id) % (2**31))
+    runs = _build_cave_wall_runs(room, level, rng)
     if not runs:
         return None
 
-    path_parts = [_smooth_open_path(run) for run in runs if run]
-    path_parts = [p for p in path_parts if p]
+    # Render each run as a smoothed path (closed if single run
+    # with no gap anchors, else open).
+    path_parts: list[str] = []
+    for run in runs:
+        if not run:
+            continue
+        points = [p for _, p in run]
+        if len(points) < 2:
+            continue
+        # Closed if no gap corners in this run
+        closed = all(k == "solid" for k, _ in run)
+        if closed:
+            path_parts.append(
+                _smooth_closed_path(points).removeprefix(
+                    '<path d="').removesuffix('"/>'))
+        else:
+            path_parts.append(_smooth_open_path(points))
+
     if not path_parts:
         return None
     return f'<path d="{" ".join(path_parts)}"/>'
+
+
+def _build_cave_wall_runs(
+    room: "Room", level: "Level", rng: random.Random,
+) -> list[list[tuple[str, tuple[float, float]]]]:
+    """Build the list of wall runs for a cave room.
+
+    Each run is a list of (kind, point) tuples where kind is:
+      - "solid"      — a jittered tile-center point
+      - "gap_corner" — fixed corner of an opening edge (run end)
+      - "gap_mid"    — fixed midedge anchor of an opening edge
+
+    A cave without openings returns ONE closed run with only
+    "solid" points.  A cave with N openings returns N open runs;
+    each run starts with a "gap_corner" (opening exit) and ends
+    with a "gap_corner" (next opening entry).
+    """
+    tiles = room.floor_tiles()
+    if not tiles:
+        return []
+
+    # Walk boundary edges clockwise, recording the owning tile
+    # for each edge and whether it is a gap.
+    walkable = (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
+
+    def _is_gap(nx: int, ny: int) -> bool:
+        nb = level.tile_at(nx, ny) if level else None
+        if not nb:
+            return False
+        return nb.terrain in walkable
+
+    # Raw edges: (tile, start_corner, end_corner, is_gap)
+    raw: list[tuple[
+        tuple[int, int], tuple[int, int], tuple[int, int], bool
+    ]] = []
+    for tx, ty in tiles:
+        nw = (tx, ty)
+        ne = (tx + 1, ty)
+        se = (tx + 1, ty + 1)
+        sw = (tx, ty + 1)
+        if (tx, ty - 1) not in tiles:
+            raw.append(((tx, ty), nw, ne, _is_gap(tx, ty - 1)))
+        if (tx + 1, ty) not in tiles:
+            raw.append(((tx, ty), ne, se, _is_gap(tx + 1, ty)))
+        if (tx, ty + 1) not in tiles:
+            raw.append(((tx, ty), se, sw, _is_gap(tx, ty + 1)))
+        if (tx - 1, ty) not in tiles:
+            raw.append(((tx, ty), sw, nw, _is_gap(tx - 1, ty)))
+
+    if not raw:
+        return []
+
+    # Chain edges end → start
+    from_map: dict[tuple[int, int], list[int]] = {}
+    for i, (_, s, _, _) in enumerate(raw):
+        from_map.setdefault(s, []).append(i)
+
+    start_idx = min(
+        range(len(raw)),
+        key=lambda i: (raw[i][1][1], raw[i][1][0]),
+    )
+    used = [False] * len(raw)
+    order: list[int] = []
+    cur = start_idx
+    while not used[cur]:
+        used[cur] = True
+        order.append(cur)
+        end = raw[cur][2]
+        nxt = None
+        for ni in from_map.get(end, []):
+            if not used[ni]:
+                nxt = ni
+                break
+        if nxt is None:
+            break
+        cur = nxt
+
+    # Determine if there are any gap edges
+    has_gap = any(raw[i][3] for i in order)
+
+    # Pre-generate one jittered center per boundary tile so
+    # repeated edges of the same tile produce the same point.
+    tile_points: dict[tuple[int, int], tuple[float, float]] = {}
+
+    def _tile_center_jitter(
+        tile: tuple[int, int],
+    ) -> tuple[float, float]:
+        if tile in tile_points:
+            return tile_points[tile]
+        cx = (tile[0] + 0.5) * CELL
+        cy = (tile[1] + 0.5) * CELL
+        # Random point in a disk of radius CELL/4
+        # Use polar coordinates for uniform disk sampling
+        r = (CELL / 4) * math.sqrt(rng.random())
+        theta = rng.uniform(0, 2 * math.pi)
+        pt = (cx + r * math.cos(theta), cy + r * math.sin(theta))
+        tile_points[tile] = pt
+        return pt
+
+    def _edge_points(
+        s: tuple[int, int], e: tuple[int, int],
+    ) -> tuple[
+        tuple[float, float], tuple[float, float],
+        tuple[float, float],
+    ]:
+        sx, sy = s[0] * CELL, s[1] * CELL
+        ex, ey = e[0] * CELL, e[1] * CELL
+        mx, my = (sx + ex) / 2, (sy + ey) / 2
+        return ((sx, sy), (mx, my), (ex, ey))
+
+    # Walk the chain starting from the edge AFTER the first gap
+    # (so each run begins cleanly at a gap-exit corner).
+    n = len(order)
+    start_offset = 0
+    if has_gap:
+        for off in range(n):
+            if raw[order[off]][3]:  # is_gap
+                start_offset = (off + 1) % n
+                break
+
+    runs: list[list[tuple[str, tuple[float, float]]]] = []
+    current: list[tuple[str, tuple[float, float]]] = []
+
+    # Seed the first run with the exit corner of the initial
+    # gap (the edge at order[(start_offset - 1) % n]).
+    if has_gap:
+        first_gap_idx = order[(start_offset - 1) % n]
+        _, gs, ge, _ = raw[first_gap_idx]
+        _, _, exit_px = _edge_points(gs, ge)
+        current.append(("gap_corner", exit_px))
+
+    for off in range(n):
+        idx = order[(start_offset + off) % n]
+        tile, s, e, is_gap = raw[idx]
+        if is_gap:
+            s_px, mid_px, e_px = _edge_points(s, e)
+            # Wall arrives at the corner, passes through the
+            # midedge anchor, then ends.  The midedge forces
+            # the spline tangent to be perpendicular to the
+            # opening edge for a clean connection.
+            current.append(("gap_mid", mid_px))
+            current.append(("gap_corner", s_px))
+            if len(current) >= 2:
+                runs.append(current)
+            # Start new run at the far corner + mid anchor
+            current = [
+                ("gap_corner", e_px),
+                ("gap_mid", mid_px),
+            ]
+        else:
+            pt = _tile_center_jitter(tile)
+            if not current or current[-1][1] != pt:
+                current.append(("solid", pt))
+
+    if current:
+        if has_gap:
+            # The last run's endpoint should be the exit corner
+            # of the FIRST gap (which we seeded at the start).
+            # Merge the trailing partial run into the first.
+            if runs:
+                runs[0] = current + runs[0]
+            else:
+                runs.append(current)
+        else:
+            # No gaps at all — one closed run
+            runs.append(current)
+
+    return runs
 
 
 def _trace_cave_edges(
