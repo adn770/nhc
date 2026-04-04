@@ -59,6 +59,7 @@ class TestTrapFactories:
             "trap_pit", "trap_fire", "trap_poison", "trap_paralysis",
             "trap_alarm", "trap_teleport", "trap_summoning", "trap_gripping",
             "trap_arrow", "trap_darts", "trap_falling_stone", "trap_spores",
+            "trap_trapdoor",
         ]:
             comps = EntityRegistry.get_feature(trap_id)
             assert "Trap" in comps, f"{trap_id} missing Trap component"
@@ -300,6 +301,48 @@ class TestHiddenTrapRendering:
         assert tid in eids, "triggered trap should be visible"
 
 
+class TestTrapdoorTrap:
+    def test_deals_falling_damage(self):
+        world, pid, _, level = _make_world_with_trap(
+            effect="trapdoor", damage="2d6", dc=99,
+        )
+        _check_traps(world, level, pid, 5, 5)
+        health = world.get_component(pid, "Health")
+        assert health.current < 20
+
+    def test_emits_level_entered_event(self):
+        from nhc.core.events import LevelEntered
+        world, pid, _, level = _make_world_with_trap(
+            effect="trapdoor", damage="2d6", dc=99,
+        )
+        events = _check_traps(world, level, pid, 5, 5)
+        level_events = [e for e in events if isinstance(e, LevelEntered)]
+        assert len(level_events) == 1
+        le = level_events[0]
+        assert le.depth == level.depth + 1
+        assert le.fell is True
+
+    def test_emits_trapdoor_message(self):
+        from nhc.core.events import MessageEvent
+        world, pid, _, level = _make_world_with_trap(
+            effect="trapdoor", damage="2d6", dc=99,
+        )
+        events = _check_traps(world, level, pid, 5, 5)
+        messages = [e for e in events if isinstance(e, MessageEvent)]
+        texts = " ".join(m.text for m in messages)
+        # Should contain the trapdoor flavor message
+        assert "floor" in texts.lower() or "plummet" in texts.lower()
+
+    def test_factory_exists(self):
+        i18n_init("en")
+        EntityRegistry.discover_all()
+        comps = EntityRegistry.get_feature("trap_trapdoor")
+        assert "Trap" in comps
+        assert comps["Trap"].effect == "trapdoor"
+        assert comps["Trap"].damage == "2d6"
+        assert comps["Renderable"].glyph == "^"
+
+
 class TestTrapSpawnPool:
     def test_pool_has_variety(self):
         assert len(FEATURE_POOLS) >= 8
@@ -307,3 +350,4 @@ class TestTrapSpawnPool:
         assert "trap_pit" in ids
         assert "trap_fire" in ids
         assert "trap_summoning" in ids
+        assert "trap_trapdoor" in ids

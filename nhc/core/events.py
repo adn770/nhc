@@ -52,6 +52,7 @@ class LevelEntered(Event):
     entity: int = 0
     level_id: str = ""
     depth: int = 0
+    fell: bool = False  # True when caused by trapdoor (random placement)
 
 
 @dataclass

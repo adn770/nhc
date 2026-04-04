@@ -137,6 +137,7 @@ FEATURE_POOLS: list[tuple[str, float]] = [
     ("trap_darts", 0.08),
     ("trap_falling_stone", 0.07),
     ("trap_spores", 0.07),
+    ("trap_trapdoor", 0.05),
 ]
 
 

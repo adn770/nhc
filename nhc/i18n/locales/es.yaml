@@ -423,6 +423,8 @@ trap:
   you_falling_stone: "¡Una piedra pesada cae del techo!"
   spores: "¡{entity} inhala una nube de esporas alucinógenas!"
   you_spores: "¡Una nube de esporas estalla — todo parece extraño!"
+  trapdoor: "¡El suelo se hunde bajo {entity}!"
+  you_trapdoor: "¡El suelo se hunde — caes a la oscuridad!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -2086,3 +2088,7 @@ features:
     name: "Trampa de Esporas"
     short: "una trampa de esporas"
     long: "Vainas fúngicas secas anidan entre las losas, listas para estallar."
+  trap_trapdoor:
+    name: "Trampilla"
+    short: "una trampilla oculta"
+    long: "El suelo aquí es más fino de lo que parece — una sección con bisagras lista para abrirse."

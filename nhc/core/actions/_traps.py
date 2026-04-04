@@ -242,6 +242,19 @@ def _apply_trap_effect(
             text=_msg("trap.spores", world, actor=entity_id),
         ))
 
+    # -- Trapdoor: damage + fall to next level --
+    elif effect == "trapdoor":
+        from nhc.core.events import LevelEntered
+        events.append(MessageEvent(
+            text=_msg("trap.trapdoor", world, actor=entity_id),
+        ))
+        events.append(LevelEntered(
+            entity=entity_id,
+            level_id=level.id,
+            depth=level.depth + 1,
+            fell=True,
+        ))
+
     # -- Default: damage-only trap (pit) -- already handled above --
 
     return events

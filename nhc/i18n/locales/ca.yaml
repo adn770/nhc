@@ -441,6 +441,8 @@ trap:
   you_falling_stone: "Una pedra pesada cau del sostre!"
   spores: "{entity} inhala un núvol d'espores al·lucinògenes!"
   you_spores: "Un núvol d'espores esclata — tot sembla estrany!"
+  trapdoor: "El terra s'enfonsa sota {entity}!"
+  you_trapdoor: "El terra s'enfonsa — caus a la foscor!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -2380,3 +2382,7 @@ features:
     name: "Trampa d'Espores"
     short: "una trampa d'espores"
     long: "Beines fúngiques seques nien entre les lloses, a punt d'esclatar."
+  trap_trapdoor:
+    name: "Trapa"
+    short: "una trapa oculta"
+    long: "El terra aquí és més prim del que sembla — una secció amb frontisses a punt d'obrir-se."

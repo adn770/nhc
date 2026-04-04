@@ -1314,30 +1314,35 @@ class Game:
             populate_level(self.level)
             self._spawn_level_entities()
 
-        # Place player at the appropriate stairs
-        if ascending:
-            # Came from below → place at stairs_down
-            stair_feature = "stairs_down"
+        # Place player at the appropriate stairs (or random if fell)
+        fell = getattr(event, "fell", False)
+        if fell:
+            # Fell through trapdoor — land on a random floor tile
+            placed = self._place_player_random_floor()
         else:
-            # Came from above → place at stairs_up
-            stair_feature = "stairs_up"
+            if ascending:
+                # Came from below → place at stairs_down
+                stair_feature = "stairs_down"
+            else:
+                # Came from above → place at stairs_up
+                stair_feature = "stairs_up"
 
-        placed = False
-        for y in range(self.level.height):
-            for x in range(self.level.width):
-                tile = self.level.tile_at(x, y)
-                if tile and tile.feature == stair_feature:
-                    pos = self.world.get_component(
-                        self.player_id, "Position",
-                    )
-                    if pos:
-                        pos.x = x
-                        pos.y = y
-                        pos.level_id = self.level.id
-                    placed = True
+            placed = False
+            for y in range(self.level.height):
+                for x in range(self.level.width):
+                    tile = self.level.tile_at(x, y)
+                    if tile and tile.feature == stair_feature:
+                        pos = self.world.get_component(
+                            self.player_id, "Position",
+                        )
+                        if pos:
+                            pos.x = x
+                            pos.y = y
+                            pos.level_id = self.level.id
+                        placed = True
+                        break
+                if placed:
                     break
-            if placed:
-                break
 
         if not placed:
             # Fallback: entry room center
@@ -1373,6 +1378,32 @@ class Game:
                     self.renderer.floor_svg_id,
                     self.renderer.floor_svg,
                 )
+
+    def _place_player_random_floor(self) -> bool:
+        """Place player on a random walkable floor tile.
+
+        Used when the player falls through a trapdoor and lands
+        at an unpredictable spot.  Returns True if placed.
+        """
+        from nhc.utils.rng import get_rng
+        rng = get_rng()
+        floors: list[tuple[int, int]] = []
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if (tile and tile.terrain == Terrain.FLOOR
+                        and not tile.feature
+                        and not tile.is_corridor):
+                    floors.append((x, y))
+        if not floors:
+            return False
+        fx, fy = rng.choice(floors)
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos:
+            pos.x = fx
+            pos.y = fy
+            pos.level_id = self.level.id
+        return True
 
     def _save_floor(self) -> None:
         """Save the current floor's level and entities to cache."""

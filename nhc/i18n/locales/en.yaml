@@ -423,6 +423,8 @@ trap:
   you_falling_stone: "A heavy stone crashes down from the ceiling!"
   spores: "{entity} inhales a cloud of hallucinogenic spores!"
   you_spores: "A cloud of spores bursts — everything looks strange!"
+  trapdoor: "The floor gives way beneath {entity}!"
+  you_trapdoor: "The floor gives way — you plummet into darkness!"
 
 # ── Game state ────────────────────────────────────────────────────────
 game:
@@ -2076,3 +2078,7 @@ features:
     name: "Spore Trap"
     short: "a spore trap"
     long: "Dried fungal pods are nestled between the flagstones, ready to burst."
+  trap_trapdoor:
+    name: "Trap Door"
+    short: "a concealed trap door"
+    long: "The floor here is thinner than it looks — a hinged section ready to swing open."
