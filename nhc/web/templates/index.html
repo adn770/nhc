@@ -17,9 +17,9 @@
     <div class="login-form">
       <label for="lang-select">Language:</label>
       <select id="lang-select">
-        <option value="ca" selected>Català</option>
-        <option value="en">English</option>
-        <option value="es">Español</option>
+        <option value="en"{{ ' selected' if player_lang == 'en' or not player_lang }}>English</option>
+        <option value="es"{{ ' selected' if player_lang == 'es' }}>Español</option>
+        <option value="ca"{{ ' selected' if player_lang == 'ca' }}>Català</option>
       </select>
       <label for="tileset-select">Tileset:</label>
       <select id="tileset-select">

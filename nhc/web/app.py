@@ -171,9 +171,10 @@ def create_app(
             player = registry.get(pid)
             player_name = player["name"] if player else ""
             player_god = player.get("god_mode", False) if player else False
+            player_lang = player.get("lang", "") if player else ""
             resp = make_response(render_template(
                 "index.html", player_name=player_name,
-                god_mode=player_god,
+                god_mode=player_god, player_lang=player_lang,
             ))
             resp.set_cookie("nhc_token", token,
                             samesite="Strict")
@@ -419,6 +420,10 @@ def create_app(
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 429
 
+        # Persist language preference for returning players
+        if registry and session.lang:
+            registry.set_lang(pid, session.lang)
+
         from nhc.i18n import init as i18n_init
         i18n_init(session.lang)
 
@@ -524,6 +529,10 @@ def create_app(
         except ValueError as exc:
             logger.warning("Session limit: %s", exc)
             return jsonify({"error": str(exc)}), 429
+
+        # Persist language preference for returning players
+        if registry and pid and session.lang:
+            registry.set_lang(pid, session.lang)
 
         # Initialize i18n and create the game instance
         from nhc.i18n import init as i18n_init

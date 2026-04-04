@@ -40,6 +40,7 @@ class PlayerRegistry:
             self._players = data.get("players", [])
             for p in self._players:
                 p.setdefault("god_mode", False)
+                p.setdefault("lang", "")
             logger.info("Loaded %d players from %s",
                         len(self._players), self._path)
         except Exception:
@@ -73,6 +74,7 @@ class PlayerRegistry:
             "created_at": time.time(),
             "revoked": False,
             "god_mode": False,
+            "lang": "",
         }
         with self._lock:
             self._players.append(entry)
@@ -118,6 +120,16 @@ class PlayerRegistry:
                     logger.info("God mode %s for player %s",
                                 "enabled" if enabled else "disabled",
                                 player_id)
+                    return True
+        return False
+
+    def set_lang(self, player_id: str, lang: str) -> bool:
+        """Save the player's preferred language.  Returns True if found."""
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] == player_id:
+                    p["lang"] = lang
+                    self._save()
                     return True
         return False
 

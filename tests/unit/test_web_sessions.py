@@ -23,7 +23,7 @@ class TestSessionManager:
 
     def test_create_uses_defaults(self, manager):
         session = manager.create()
-        assert session.lang == "ca"
+        assert session.lang == "en"
         assert session.tileset == "classic"
 
     def test_get_session(self, manager):

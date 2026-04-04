@@ -113,6 +113,47 @@ class TestPersistence:
         assert reg.list_all() == []
 
 
+class TestLanguagePreference:
+    def test_new_player_has_empty_lang(self, registry):
+        _, pid = registry.register("Alice")
+        entry = registry.get(pid)
+        assert entry["lang"] == ""
+
+    def test_set_lang_persists(self, registry):
+        _, pid = registry.register("Alice")
+        assert registry.set_lang(pid, "es")
+        assert registry.get(pid)["lang"] == "es"
+
+    def test_set_lang_nonexistent(self, registry):
+        assert not registry.set_lang("bogus", "en")
+
+    def test_set_lang_survives_reload(self, tmp_path):
+        path = tmp_path / "players.json"
+        reg1 = PlayerRegistry(path)
+        reg1.load()
+        _, pid = reg1.register("Alice")
+        reg1.set_lang(pid, "ca")
+
+        reg2 = PlayerRegistry(path)
+        reg2.load()
+        assert reg2.get(pid)["lang"] == "ca"
+
+    def test_legacy_player_gets_default_lang(self, tmp_path):
+        """Players registered before lang field should get empty default."""
+        path = tmp_path / "players.json"
+        path.write_text(json.dumps({"players": [{
+            "player_id": "abc123",
+            "name": "Legacy",
+            "token_hash": "deadbeef",
+            "created_at": 0,
+            "revoked": False,
+            "god_mode": False,
+        }]}))
+        reg = PlayerRegistry(path)
+        reg.load()
+        assert reg.get("abc123")["lang"] == ""
+
+
 class TestPlayerIdForHash:
     def test_returns_pid(self, registry):
         token, pid = registry.register("Alice")

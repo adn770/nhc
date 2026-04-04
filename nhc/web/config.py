@@ -16,7 +16,7 @@ class WebConfig:
     auth_required: bool = False
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "gemma3:12b"
-    default_lang: str = "ca"
+    default_lang: str = "en"
     default_tileset: str = "classic"
     reset: bool = False
     shape_variety: float = 0.3

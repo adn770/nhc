@@ -118,7 +118,7 @@ class TestGameAPI:
         resp = client.post("/api/game/new", json={})
         assert resp.status_code == 201
         data = resp.get_json()
-        assert data["lang"] == "ca"
+        assert data["lang"] == "en"
         assert data["tileset"] == "classic"
 
     def test_list_games(self, client):
