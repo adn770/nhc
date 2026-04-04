@@ -773,6 +773,48 @@ class TestWallMaskComputation:
             terrain=Terrain.FLOOR, feature="door_closed")
         assert _is_walkable(level, 2, 1) is True
 
+    def test_floor_tile_next_to_door_has_door_side_wall_bit(self):
+        """A visible door replaces a wall segment, so the adjacent
+        floor tile must still report a wall on that side. This
+        keeps the clearHatch polygon continuous across the door
+        even when the door tile itself is gated out of the
+        polygon (approach-side not yet visible)."""
+        from nhc.dungeon.model import Tile, Terrain
+        from nhc.rendering.web_client import _wall_mask
+        level = self._rect_room()
+        # Place a closed door on the north edge of the room at
+        # (2, 1). The FLOOR interior tile (2, 2) sits directly
+        # south of it.
+        level.tiles[1][2] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_closed",
+            door_side="north",
+        )
+        # Without the door the bare interior tile has mask 0;
+        # with a door neighbour to the north, the N bit must be
+        # set so the polygon edge at that boundary is traced as
+        # a wall and offset outward.
+        mask = _wall_mask(level, 2, 2)
+        assert mask & 1, "north bit should be set (door neighbour)"
+        assert not (mask & 2)
+        assert not (mask & 4)
+        assert not (mask & 8)
+
+    def test_secret_door_neighbour_has_wall_bit(self):
+        """Secret doors are door tiles, so the same door-aware
+        rule as visible doors applies: the neighbour sees a
+        wall edge on the door side."""
+        from nhc.dungeon.model import Tile, Terrain
+        from nhc.rendering.web_client import _wall_mask
+        level = self._rect_room()
+        level.tiles[1][2] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_secret",
+            door_side="north",
+        )
+        mask = _wall_mask(level, 2, 2)
+        assert mask & 1, "north bit set for secret-door neighbour"
+
     def test_secret_door_is_not_walkable(self):
         from nhc.dungeon.model import Tile, Terrain
         from nhc.rendering.web_client import _is_walkable

@@ -128,6 +128,24 @@ _WALL_S = 4
 _WALL_W = 8
 
 
+def _edge_is_wall(level, x: int, y: int) -> bool:
+    """True iff the edge facing tile (x, y) contributes a wall
+    line to its neighbour. Non-walkable tiles (walls, void) do.
+    Door tiles of every kind — closed, open, locked, and secret
+    — also do: a door replaces a wall segment, so the adjacent
+    floor tile must still report a wall on that side. Keeping
+    the bit set means the clearHatch polygon stays continuous
+    across every door, even when the door tile itself is gated
+    out of the polygon on the far side — the offset wall line
+    runs straight past the door instead of notching inward
+    where it sits.
+    """
+    t = level.tile_at(x, y)
+    if t and t.feature in _DOOR_FEATURES:
+        return True
+    return not _is_walkable(level, x, y)
+
+
 def _wall_mask(level, x: int, y: int) -> int:
     t = level.tile_at(x, y)
     if t and t.feature in _DOOR_FEATURES and t.door_side:
@@ -153,13 +171,13 @@ def _wall_mask(level, x: int, y: int) -> int:
         if side == "south":
             return _WALL_E | _WALL_S | _WALL_W
     mask = 0
-    if not _is_walkable(level, x, y - 1):
+    if _edge_is_wall(level, x, y - 1):
         mask |= _WALL_N
-    if not _is_walkable(level, x + 1, y):
+    if _edge_is_wall(level, x + 1, y):
         mask |= _WALL_E
-    if not _is_walkable(level, x, y + 1):
+    if _edge_is_wall(level, x, y + 1):
         mask |= _WALL_S
-    if not _is_walkable(level, x - 1, y):
+    if _edge_is_wall(level, x - 1, y):
         mask |= _WALL_W
     return mask
 
