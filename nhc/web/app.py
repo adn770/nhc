@@ -589,7 +589,9 @@ def create_app(
             logger.info("Floor SVG from game cache: %s (%d bytes)",
                         client.floor_svg_id, len(client.floor_svg))
         else:
-            cached = load_svg_cache(session.save_dir)
+            # Only use disk-cached SVG when resuming, not on reset
+            cached = (load_svg_cache(session.save_dir)
+                      if not reset else None)
             if cached:
                 client.floor_svg = cached[0]
                 client.floor_svg_id = _uuid.uuid4().hex[:12]

@@ -7,6 +7,12 @@ const WS = {
   handlers: {},
 
   connect(sessionId) {
+    // Close any existing connection before opening a new one
+    if (this.socket) {
+      this.socket.onclose = null;  // suppress stale close handler
+      this.socket.close();
+      this.socket = null;
+    }
     this.sessionId = sessionId;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const token = document.cookie.match(/nhc_token=([^;]+)/)?.[1]

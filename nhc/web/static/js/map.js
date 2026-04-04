@@ -45,6 +45,32 @@ const GameMap = {
     this.fogCtx = this.fogCanvas.getContext("2d");
     this.hatchCanvas = document.getElementById("hatch-canvas");
     this.hatchCtx = this.hatchCanvas.getContext("2d");
+
+    // Reset all client-side state from any previous game
+    this.entities = [];
+    this.doors = [];
+    this.allDoors = new Map();
+    this.fov = new Set();
+    this.explored = new Set();
+    this.hatchClear = new Set();
+    this.doorInfo = new Map();
+    this.mapW = 0;
+    this.mapH = 0;
+    this.playerX = 0;
+    this.playerY = 0;
+
+    // Clear the floor SVG container
+    const floorSvg = document.getElementById("floor-svg");
+    if (floorSvg) floorSvg.innerHTML = "";
+
+    // Clear all canvas layers
+    for (const cvs of [this.canvas, this.doorCanvas,
+                        this.fogCanvas, this.hatchCanvas]) {
+      if (cvs) {
+        cvs.getContext("2d").clearRect(0, 0, cvs.width, cvs.height);
+      }
+    }
+
     console.log("GameMap.init(): canvas=", this.canvas,
                 "fog=", this.fogCanvas, "hatch=", this.hatchCanvas);
     this.initTooltip();
