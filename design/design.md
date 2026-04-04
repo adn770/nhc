@@ -425,6 +425,12 @@ WebSocket support. Each WebSocket connection is tied to a game session;
 the WS handler thread owns the socket, reading input into a queue and
 draining output via a sender thread.
 
+`create_app()` performs one-time startup work: it calls
+`EntityRegistry.discover_all()` exactly once (previously this ran on
+every new game, putting import I/O on the concurrent-init hot path),
+pre-renders the hatch SVG, and creates the dungeon generation pool
+described below.
+
 ### Authentication
 
 Two-tier token auth (`web/auth.py`):
@@ -445,6 +451,32 @@ fresh link clicks to override stale cookies.
 runs its own game loop in a separate thread. A reaper removes stale
 disconnected sessions.
 
+### Concurrency Model
+
+The server runs as a single gunicorn gevent worker process. This is
+intentional: keeping all session state (SessionManager, PlayerRegistry,
+WebSocket connections, rate limiter) in one process avoids the need
+for a shared session store. Gevent's greenlets provide per-worker
+concurrency for I/O-bound request handling.
+
+CPU parallelism comes from a separate layer. `create_app()` creates a
+`ProcessPoolExecutor` sized via the `NHC_GEN_WORKERS` env var (default
+`os.cpu_count()`), stored at `app.config["GEN_POOL"]`. Dungeon
+generation is pure Python and CPU-bound; the `game_new` and
+`game_resume` routes offload it to the pool via
+`asyncio.run(game.initialize(..., executor=gen_pool))`, so the gevent
+hub stays responsive while levels are generated in parallel across
+cores. On a quad-core host, four players can have their dungeons
+generated simultaneously on four cores.
+
+The pool is pinned to the `spawn` multiprocessing start method.
+Gunicorn's gevent worker monkey-patches `os.fork` before `create_app`
+runs, and forked children inherit a gevent hub tied to the parent's
+kernel resources that hangs on first use. Spawn re-execs a clean
+Python interpreter per worker and re-imports the dungeon modules
+once at worker startup; workers are long-lived and reused across
+requests.
+
 ### Admin Panel
 
 The admin HTML page provides session monitoring, player management
@@ -464,8 +496,18 @@ The production deployment uses Docker Compose with three services:
 - **duckdns** -- dynamic DNS updater for the public hostname
 
 Data persists in a `/var/nhc` volume (autosaves, player registry).
-Environment variables configure auth tokens, max sessions, and DuckDNS
-credentials.
+
+### Environment Variables
+
+- `NHC_AUTH_TOKEN` -- admin token (required in production)
+- `NHC_MAX_SESSIONS` -- concurrent session cap (default 8)
+- `NHC_GEN_WORKERS` -- size of the dungeon generation pool
+  (default 4 in the Dockerfile and systemd unit, targeting a
+  quad-core SBC; overridable via `docker run --env`, compose
+  environment, or the systemd override file)
+- `NHC_DATA_DIR` -- persistent data directory (default `/var/nhc`)
+- `NHC_EXTERNAL_URL` -- public URL for link generation
+- `DUCKDNS_SUBDOMAIN`, `DUCKDNS_TOKEN` -- dynamic DNS credentials
 
 Health checks poll `/health` every 30 seconds.
 

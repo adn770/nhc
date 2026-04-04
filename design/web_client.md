@@ -12,7 +12,11 @@ with automatic TLS via Caddy.
 ## 2. Architecture
 
 - **Backend**: Flask + flask-sock WebSocket. Development runs the
-  built-in server; production uses gunicorn with gevent workers.
+  built-in server; production uses gunicorn with a single gevent
+  worker process. Gevent greenlets handle per-worker request
+  concurrency; CPU-bound dungeon generation is fanned out to a
+  `ProcessPoolExecutor` so multiple cores can serve concurrent
+  players without fragmenting session state across processes.
 - **Frontend**: HTML5 with a 4-zone layout: map viewport, action
   toolbar, status bar, and history/input panel.
 - **Rendering**: Static SVG serves as the dungeon floor, overlaid
@@ -21,6 +25,42 @@ with automatic TLS via Caddy.
   delta-encoded FOV and hatch updates to minimize bandwidth.
 - **Authentication**: Two-tier system with an admin token and
   per-player tokens, all SHA256 hashed at rest.
+
+### Concurrency Model
+
+A single gunicorn gevent worker owns all session state (SessionManager,
+PlayerRegistry, WebSocket connections, rate limiter). This avoids the
+need for a shared session store that multi-process gunicorn would
+require: sessions created on one worker are always visible to
+subsequent requests for the same player.
+
+Within that worker, greenlets multiplex thousands of concurrent
+connections over one OS thread. Pure-Python CPU work, however, does
+not yield to the gevent hub and would starve other greenlets. The
+single biggest CPU-bound task in NHC is dungeon generation (BSP or
+cellular carve + room typing + terrain + populate), which takes a
+few seconds on a small SBC.
+
+`create_app()` creates a `ProcessPoolExecutor` sized via the
+`NHC_GEN_WORKERS` env var (default `os.cpu_count()`), pinned to the
+`spawn` multiprocessing start method, and stores it at
+`app.config["GEN_POOL"]`. The `game_new` and `game_resume` routes
+pass it into `Game.initialize(..., executor=pool)`, which awaits
+`loop.run_in_executor(pool, generate_level, params)`. Generation
+runs in a dedicated worker process while the gevent hub services
+other players' traffic.
+
+The `spawn` start method is mandatory. Gunicorn's gevent worker
+monkey-patches `os.fork` before `create_app` runs, and a forked
+`ProcessPoolExecutor` worker inherits a gevent hub tied to the
+parent's kernel resources that hangs on first use. Spawn re-execs
+a clean Python interpreter per pool worker, re-importing the
+dungeon modules once at startup; workers are long-lived and reused
+across requests, so the import cost is paid once.
+
+`EntityRegistry.discover_all()` is also called exactly once from
+`create_app()`, rather than on every `Game.initialize()`. The old
+per-game call put import I/O on the concurrent-init hot path.
 
 ## 3. SVG Rendering
 
@@ -243,10 +283,16 @@ endpoints.
 
 ### Docker
 
-- **Dockerfile**: Python 3.12-slim base, gunicorn with gevent
-  workers, built-in health check endpoint.
+- **Dockerfile**: Python 3.12-slim base, single gunicorn gevent
+  worker (`--workers 1 --worker-class gevent`), built-in health
+  check endpoint. Sets `NHC_GEN_WORKERS=4` as a sensible default
+  for a quad-core SBC; overridable at run time. The single-worker
+  decision is intentional — CPU parallelism comes from the
+  generation pool, not from gunicorn workers, which keeps all
+  session state in one process.
 - **docker-compose.yml**: 3 services:
-  - `nhc`: Application container on port 8080.
+  - `nhc`: Application container on port 8080. Exposes
+    `NHC_GEN_WORKERS` as an overridable env var (default 4).
   - `caddy`: Reverse proxy with automatic TLS certificate
     provisioning.
   - `duckdns`: Dynamic DNS updater sidecar.
@@ -256,7 +302,9 @@ endpoints.
 ### Systemd
 
 - **deploy/nhc.service**: Systemd unit with automatic restart on
-  failure. Environment secrets live in an `override.conf` drop-in.
+  failure. Sets `NHC_GEN_WORKERS=4` and passes it through to
+  `docker run`. Environment secrets live in an `override.conf`
+  drop-in, where `NHC_GEN_WORKERS` can also be overridden.
 - **deploy/setup.sh**: Interactive production setup script that
   handles Docker image building, admin token generation, DuckDNS
   configuration, and systemd service enablement.
@@ -291,6 +339,20 @@ WebConfig dataclass fields:
 | `data_dir` | Persistent data directory |
 | `hatch_distance` | Hatching extent from perimeter |
 
+### Environment Variables
+
+Read directly by `app_factory()` outside `WebConfig`:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `NHC_AUTH_TOKEN` | Admin token; presence enables auth | unset |
+| `NHC_MAX_SESSIONS` | Concurrent session cap | 8 |
+| `NHC_GEN_WORKERS` | Dungeon generation pool size | `os.cpu_count()` (4 in Docker) |
+| `NHC_DATA_DIR` | Persistent data directory | unset |
+| `NHC_PORT` | Bind port | 8080 |
+| `NHC_EXTERNAL_URL` | Public URL for link generation | unset |
+| `NHC_HATCH_DISTANCE` | Hatching extent | 1.0 |
+
 ## 14. Entry Points
 
 ### Development
@@ -302,8 +364,14 @@ WebConfig dataclass fields:
 ### Production
 
 ```bash
-gunicorn --worker-class gevent nhc.web.app:app_factory()
+gunicorn --worker-class gevent --workers 1 \
+    --bind 0.0.0.0:8080 --timeout 120 \
+    nhc.web.app:app_factory()
 ```
+
+`--workers 1` is intentional: one process owns all session state,
+and CPU parallelism comes from the ProcessPoolExecutor sized by
+`NHC_GEN_WORKERS`. See §2 Concurrency Model.
 
 ### Command-Line Flags
 

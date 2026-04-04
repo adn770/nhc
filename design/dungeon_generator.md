@@ -42,8 +42,50 @@ in order:
     groups (`populator.py`).
 
 Steps 1-8 are handled by `BSPGenerator.generate()` in
-`nhc/dungeon/generators/bsp.py`. Steps 9-11 are called by the
-game loop after the generator returns.
+`nhc/dungeon/generators/bsp.py` (or `CellularGenerator.generate()`
+for cave themes). Steps 9-11 are chained onto the generator output
+by the pipeline wrapper described below.
+
+### `generate_level()` -- the pipeline entry point
+
+The full sequence is wrapped by a single pure function in
+`nhc/dungeon/pipeline.py`:
+
+```python
+def generate_level(params: GenerationParams) -> Level:
+    seed = params.seed if params.seed is not None else 0
+    rng = random.Random(seed)
+    gen = CellularGenerator() if params.theme == "cave" else BSPGenerator()
+    level = gen.generate(params, rng=rng)
+    assign_room_types(level, rng)
+    apply_terrain(level, rng)
+    populate_level(level, rng=rng)
+    return level
+```
+
+Two design rules make this function safe to run in a
+`ProcessPoolExecutor` worker:
+
+- **Local RNG only.** A fresh `random.Random(seed)` is threaded
+  through every stage. The thread-local RNG in `nhc/utils/rng.py`
+  is never touched, so pool workers never race on shared state,
+  and the caller's own RNG is not perturbed.
+- **Pure data in, pure data out.** Inputs are a `GenerationParams`
+  dataclass; the return is a `Level` dataclass. No `Game`, `World`,
+  `EventBus`, or LLM references exist anywhere in the dungeon
+  module. `populate_level` records entity placements as string IDs
+  on `EntityPlacement` objects; the actual factory calls happen
+  later in the main process when `Game` spawns entities. This
+  keeps the full `Level` pickle-safe for IPC across process
+  boundaries (~40KB per level).
+
+`Game.initialize()` accepts an optional `executor` parameter. When
+provided (the web server path), it awaits
+`loop.run_in_executor(executor, generate_level, params)`, offloading
+generation to a dedicated worker process so the gevent hub stays
+responsive while levels are generated in parallel across cores.
+When `None` (CLI and tests), `generate_level(params)` runs inline.
+See `design/web_client.md` §2 for the full concurrency model.
 
 ---
 
@@ -465,6 +507,7 @@ grass density, iteration counts) as defined in `terrain.py`.
 
 | File                                  | Role                          |
 |---------------------------------------|-------------------------------|
+| `nhc/dungeon/pipeline.py`            | Pure `generate_level()`; pool-safe |
 | `nhc/dungeon/generators/bsp.py`      | BSP subdivision + generation  |
 | `nhc/dungeon/generators/cellular.py` | Cellular automata caves       |
 | `nhc/dungeon/generator.py`           | Abstract interface + params   |
