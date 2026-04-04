@@ -36,6 +36,49 @@ def _is_floor(level, x: int, y: int) -> bool:
     return t.terrain in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
 
 
+_VISIBLE_DOOR_FEATURES = frozenset(
+    {"door_closed", "door_open", "door_locked"})
+
+
+def _is_walkable(level, x: int, y: int) -> bool:
+    """True for tiles that do NOT host a wall line on their edge.
+
+    Mirrors svg.py's `_walkable`: FLOOR/WATER/GRASS terrain plus
+    visible doors (closed/open/locked). Secret doors look like
+    walls and are treated as non-walkable for this purpose.
+    """
+    if not level.in_bounds(x, y):
+        return False
+    t = level.tiles[y][x]
+    if t.terrain not in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS):
+        return False
+    if t.feature in _VISIBLE_DOOR_FEATURES:
+        return True
+    return t.feature != "door_secret"
+
+
+# Wall-edge bitmask: bit 0=N, 1=E, 2=S, 3=W. An edge is a wall
+# iff the neighbour in that direction is not walkable. Matches
+# the tile-edge stroke segments drawn by svg.py.
+_WALL_N = 1
+_WALL_E = 2
+_WALL_S = 4
+_WALL_W = 8
+
+
+def _wall_mask(level, x: int, y: int) -> int:
+    mask = 0
+    if not _is_walkable(level, x, y - 1):
+        mask |= _WALL_N
+    if not _is_walkable(level, x + 1, y):
+        mask |= _WALL_E
+    if not _is_walkable(level, x, y + 1):
+        mask |= _WALL_S
+    if not _is_walkable(level, x - 1, y):
+        mask |= _WALL_W
+    return mask
+
+
 class _WebNarrativeLog:
     """Minimal narrative log for typed mode in the web client.
 
@@ -68,6 +111,7 @@ class WebClient(GameClient):
         self._last_static_stats: dict | None = None
         self._last_inv_hash: int = 0
         self._last_fov: set[tuple[int, int]] = set()
+        self._last_walk: dict[tuple[int, int], int] = {}
         self._base_url: str = ""
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
@@ -444,22 +488,51 @@ class WebClient(GameClient):
                     visible.append([x, y])
         return visible
 
-    def _gather_explored(
+    def _gather_walk(
         self, level: "Level",
     ) -> list[list[int]]:
-        """Build list of tiles the player has explored so far.
+        """Walkable visible tiles with their 4-bit wall masks.
 
-        Used only on floor init and reconnects so the web client
-        can replay the full hatch reveal in one bulk clear. The
-        per-turn hatch update is derived purely from FOV on the
-        client — the canvas itself accumulates prior reveals.
+        Each entry is [x, y, mask] where mask has bit 0=N, 1=E,
+        2=S, 3=W set iff the neighbour in that direction is not
+        walkable — matching svg.py's wall-line rule. The web
+        client uses this list both to build the FOV reveal
+        polygon and to decide which edges should be inflated by
+        10% of a cell to cover the wall thickness.
         """
         out: list[list[int]] = []
         for y in range(level.height):
             for x in range(level.width):
                 tile = level.tile_at(x, y)
-                if tile and tile.explored:
-                    out.append([x, y])
+                if not tile or not tile.visible:
+                    continue
+                if not _is_walkable(level, x, y):
+                    continue
+                out.append([x, y, _wall_mask(level, x, y)])
+        return out
+
+    def _gather_explored(
+        self, level: "Level",
+    ) -> list[list[int]]:
+        """All explored tiles with a wall-mask sentinel.
+
+        Used only on floor init and reconnects. Each entry is
+        [x, y, mask]: mask = 0..15 for walkable tiles (wall-edge
+        bitmask as in _gather_walk), or -1 for non-walkable
+        tiles (walls/void) that are still part of the player's
+        exploration memory. The client splits the list into two
+        structures: all keys feed the drawFog dim-memory set,
+        mask >= 0 entries feed the bulk clearHatch polygon.
+        """
+        out: list[list[int]] = []
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tile_at(x, y)
+                if not tile or not tile.explored:
+                    continue
+                mask = (_wall_mask(level, x, y)
+                        if _is_walkable(level, x, y) else -1)
+                out.append([x, y, mask])
         return out
 
     def _gather_debug_data(self, level: "Level") -> dict:
@@ -587,6 +660,8 @@ class WebClient(GameClient):
 
         # Reset delta tracking for the new floor
         self._last_fov = set()
+        walk = self._gather_walk(level)
+        self._last_walk = {(e[0], e[1]): e[2] for e in walk}
 
         entities = self._gather_entities(world, level, player_id)
         fov = self._gather_fov(level)
@@ -602,6 +677,7 @@ class WebClient(GameClient):
             "entities": entities,
             "doors": doors,
             "fov": fov,
+            "walk": walk,
             "explored": explored,
             "turn": turn,
             "theme": meta.theme if meta else "dungeon",
@@ -637,6 +713,22 @@ class WebClient(GameClient):
         fov_del = prev_fov - current_fov
         self._last_fov = current_fov
 
+        # Walkable-visible + wall-mask delta tracking. Drives
+        # the client's clearHatch polygon: wall-edges get the
+        # 10% outward offset; non-wall boundary edges stay flush.
+        walk_list = self._gather_walk(level)
+        current_walk = {(e[0], e[1]): e[2] for e in walk_list}
+        prev_walk = self._last_walk
+        walk_add_items = [
+            [x, y, m] for (x, y), m in current_walk.items()
+            if prev_walk.get((x, y)) != m
+        ]
+        walk_del_items = [
+            [x, y] for (x, y) in prev_walk
+            if (x, y) not in current_walk
+        ]
+        self._last_walk = current_walk
+
         state_msg: dict = {
             "type": "state",
             "entities": entities,
@@ -651,6 +743,15 @@ class WebClient(GameClient):
         else:
             state_msg["fov_add"] = [[x, y] for x, y in fov_add]
             state_msg["fov_del"] = [[x, y] for x, y in fov_del]
+        if (not prev_walk
+                or len(walk_add_items) + len(walk_del_items)
+                > len(current_walk) * 0.5):
+            state_msg["walk"] = walk_list
+        else:
+            if walk_add_items:
+                state_msg["walk_add"] = walk_add_items
+            if walk_del_items:
+                state_msg["walk_del"] = walk_del_items
         self._send(state_msg)
         # Send static stats only when they change
         if static != self._last_static_stats:

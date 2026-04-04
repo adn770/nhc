@@ -30,6 +30,7 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
             game.world, game.level, game.player_id)
         fov = client._gather_fov(game.level)
         doors = client._gather_doors(game.level)
+        walk = client._gather_walk(game.level)
         explored = client._gather_explored(game.level)
         logger.info("Sending floor init: floor=%d bytes, "
                     "%d entities, %d doors, %d fov tiles",
@@ -42,6 +43,7 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
             "entities": entities,
             "doors": doors,
             "fov": fov,
+            "walk": walk,
             "explored": explored,
             "turn": game.turn,
         }))

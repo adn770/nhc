@@ -56,6 +56,8 @@ const NHC = {
       // Reset client state for the new floor
       GameMap.fov = new Set();
       GameMap.explored = new Set();
+      GameMap.walls = new Map();
+      GameMap.exploredWalls = new Map();
       GameMap.doorInfo = new Map();
       GameMap.allDoors = new Map();
       GameMap.entities = [];
@@ -215,6 +217,8 @@ const NHC = {
     // Reset client state
     GameMap.fov = new Set();
     GameMap.explored = new Set();
+    GameMap.walls = new Map();
+    GameMap.exploredWalls = new Map();
     GameMap.doorInfo = new Map();
     GameMap.allDoors = new Map();
     GameMap.entities = [];

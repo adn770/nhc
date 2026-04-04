@@ -725,3 +725,98 @@ class TestWebClientFloorMessage:
     def test_floor_message_includes_feeling(self):
         msg = self._send_floor(feeling="flooded")
         assert msg["feeling"] == "flooded"
+
+
+class TestWallMaskComputation:
+    """_wall_mask and _is_walkable mirror svg.py's wall rule."""
+
+    def _rect_room(self):
+        from nhc.dungeon.model import Level, Terrain, Tile
+        # 5x5 grid, FLOOR rect at (1,1)–(3,3), WALL ring around it,
+        # VOID corners untouched (default terrain is WALL).
+        level = Level.create_empty("t", "T", depth=1, width=5, height=5)
+        for y in range(5):
+            for x in range(5):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        for y in range(1, 4):
+            for x in range(1, 4):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        return level
+
+    def test_interior_floor_has_no_wall_edges(self):
+        from nhc.rendering.web_client import _wall_mask
+        level = self._rect_room()
+        # Center tile (2,2): all 4 neighbours are FLOOR → mask 0.
+        assert _wall_mask(level, 2, 2) == 0
+
+    def test_corner_floor_has_two_wall_edges(self):
+        from nhc.rendering.web_client import _wall_mask
+        level = self._rect_room()
+        # NW corner floor (1,1): walls north and west.
+        mask = _wall_mask(level, 1, 1)
+        assert mask & 1, "north bit should be set"
+        assert mask & 8, "west bit should be set"
+        assert not (mask & 2), "east bit should be clear"
+        assert not (mask & 4), "south bit should be clear"
+
+    def test_edge_floor_has_one_wall_edge(self):
+        from nhc.rendering.web_client import _wall_mask
+        level = self._rect_room()
+        # North edge floor (2,1): only north is a wall.
+        assert _wall_mask(level, 2, 1) == 1
+
+    def test_closed_door_is_walkable(self):
+        from nhc.dungeon.model import Tile, Terrain
+        from nhc.rendering.web_client import _is_walkable
+        level = self._rect_room()
+        level.tiles[1][2] = Tile(
+            terrain=Terrain.FLOOR, feature="door_closed")
+        assert _is_walkable(level, 2, 1) is True
+
+    def test_secret_door_is_not_walkable(self):
+        from nhc.dungeon.model import Tile, Terrain
+        from nhc.rendering.web_client import _is_walkable
+        level = self._rect_room()
+        level.tiles[1][2] = Tile(
+            terrain=Terrain.FLOOR, feature="door_secret")
+        assert _is_walkable(level, 2, 1) is False
+
+    def test_corridor_has_parallel_wall_edges(self):
+        from nhc.dungeon.model import Level, Terrain, Tile
+        from nhc.rendering.web_client import _wall_mask
+        # 1-tile-wide horizontal corridor: FLOOR at row 2,
+        # WALL on rows 1 and 3, VOID (default WALL) elsewhere.
+        level = Level.create_empty("t", "T", depth=1, width=5, height=5)
+        for y in range(5):
+            for x in range(5):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        for x in range(1, 4):
+            level.tiles[2][x] = Tile(terrain=Terrain.FLOOR,
+                                     is_corridor=True)
+        # Middle of corridor (2,2): walls N and S, no E/W.
+        mask = _wall_mask(level, 2, 2)
+        assert mask & 1, "north bit set"
+        assert mask & 4, "south bit set"
+        assert not (mask & 2)
+        assert not (mask & 8)
+        # End of corridor (1,2): walls N, S, and W.
+        mask = _wall_mask(level, 1, 2)
+        assert mask & 1 and mask & 4 and mask & 8
+
+    def test_gather_walk_includes_masks(self):
+        from nhc.rendering.web_client import WebClient
+        wc = WebClient(lang="en")
+        level = self._rect_room()
+        # Mark the whole floor rect as visible.
+        for y in range(1, 4):
+            for x in range(1, 4):
+                level.tiles[y][x].visible = True
+        entries = wc._gather_walk(level)
+        assert len(entries) == 9
+        for entry in entries:
+            assert len(entry) == 3
+            x, y, mask = entry
+            assert 0 <= mask <= 15
+        # Center should have mask 0.
+        center = next(e for e in entries if e[0] == 2 and e[1] == 2)
+        assert center[2] == 0

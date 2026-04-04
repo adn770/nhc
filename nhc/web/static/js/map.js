@@ -31,6 +31,13 @@ const GameMap = {
   allDoors: new Map(),  // "x,y" → {x, y, edge, state, vertical}
   fov: new Set(),
   explored: new Set(),
+  // Walkable-visible tiles with their 4-bit wall masks: bit 0=N,
+  // 1=E, 2=S, 3=W. A bit is set iff the tile-edge in that
+  // direction sits on a wall line. Drives clearHatch.
+  walls: new Map(),
+  // Cumulative walkable-explored tiles with wall masks, used by
+  // loadHatchSVG to replay the full reveal in one bulk clear.
+  exploredWalls: new Map(),
   _hatchReady: false,
   doorInfo: new Map(),  // "x,y" → {edge, state}
   tileset: null,
@@ -58,6 +65,8 @@ const GameMap = {
     this.allDoors = new Map();
     this.fov = new Set();
     this.explored = new Set();
+    this.walls = new Map();
+    this.exploredWalls = new Map();
     this._hatchReady = false;
     this.doorInfo = new Map();
     this.mapW = 0;
@@ -159,16 +168,16 @@ const GameMap = {
   },
 
   /**
-   * Update FOV from full list or delta (add/del).
-   * Full: msg.fov = [[x,y], ...]
-   * Delta: msg.fov_add = [...], msg.fov_del = [...]
+   * Update FOV and walkable-FOV from full list or delta.
+   * Full: msg.fov = [[x,y], ...], msg.walk = [[x,y,mask], ...]
+   * Delta: msg.fov_add / msg.fov_del plus msg.walk_add /
+   * msg.walk_del. Walkable entries carry a 4-bit wall mask used
+   * by clearHatch to decide which edges should be inflated.
    */
   updateFOV(msg) {
     if (msg.fov) {
-      // Full FOV list
       this.fov = new Set(msg.fov.map(([x, y]) => `${x},${y}`));
     } else {
-      // Delta update
       if (msg.fov_del) {
         for (const [x, y] of msg.fov_del) {
           this.fov.delete(`${x},${y}`);
@@ -183,17 +192,49 @@ const GameMap = {
     for (const key of this.fov) {
       this.explored.add(key);
     }
+
+    if (msg.walk) {
+      this.walls = new Map();
+      for (const [x, y, mask] of msg.walk) {
+        const k = `${x},${y}`;
+        this.walls.set(k, mask);
+        this.exploredWalls.set(k, mask);
+      }
+    } else {
+      if (msg.walk_del) {
+        for (const [x, y] of msg.walk_del) {
+          this.walls.delete(`${x},${y}`);
+        }
+      }
+      if (msg.walk_add) {
+        for (const [x, y, mask] of msg.walk_add) {
+          const k = `${x},${y}`;
+          this.walls.set(k, mask);
+          this.exploredWalls.set(k, mask);
+        }
+      }
+    }
   },
 
   /**
    * Seed the explored set from a server-provided list. Used on
    * floor init / reconnect so the hatch clear can be replayed in
    * bulk before normal per-turn FOV updates take over.
+   *
+   * Each entry is [x, y, mask]: mask >= 0 is the wall-edge
+   * bitmask for a walkable tile (also seeded into
+   * exploredWalls for the bulk clearHatch), mask == -1 marks a
+   * non-walkable tile that only contributes to drawFog's
+   * memory-dim set.
    */
   setExplored(tiles) {
     if (!tiles) return;
-    for (const [x, y] of tiles) {
-      this.explored.add(`${x},${y}`);
+    for (const [x, y, mask] of tiles) {
+      const k = `${x},${y}`;
+      this.explored.add(k);
+      if (mask !== undefined && mask >= 0) {
+        this.exploredWalls.set(k, mask);
+      }
     }
   },
 
@@ -203,7 +244,7 @@ const GameMap = {
    * so that fog, hatch, entities, and viewport stay in sync.
    */
   flush() {
-    this.clearHatch(this.fov);
+    this.clearHatch(this.walls);
     this.drawFog();
     this.draw();
     this.scrollToPlayer();
@@ -288,9 +329,9 @@ const GameMap = {
       this._hatchReady = true;
       // Bulk reveal everything explored so far (includes current
       // FOV on floor entry and the server-restored set on reconnect).
-      this.clearHatch(this.explored);
-      console.log("Hatch stamped, cleared", this.explored.size,
-                  "explored tiles");
+      this.clearHatch(this.exploredWalls);
+      console.log("Hatch stamped, cleared",
+                  this.exploredWalls.size, "explored tiles");
     };
     img.onerror = (e) => {
       console.error("Hatch patch FAILED to load:", e);
@@ -300,19 +341,23 @@ const GameMap = {
 
   /**
    * Punch a polygonal hole through the hatch pattern for the
-   * given tile set. Traces the perimeter of the tiles, inflates
-   * it by 10% of a cell along each edge's outward normal, and
-   * fills via destination-out compositing. The canvas itself
-   * accumulates clears across turns — the caller should pass the
-   * current FOV each turn and the hole will grow naturally as
-   * the player explores.
+   * given walkable-tile map. Traces the perimeter of the tiles,
+   * inflates only the edges that sit on a wall line (per the
+   * per-tile wall mask) by 10% of a cell along each edge's
+   * outward normal, and fills via destination-out compositing.
+   * Non-wall boundary edges stay exactly on the tile edge so a
+   * torch radius cutting across open floor does not bleed.
+   *
+   * The canvas itself accumulates clears across turns — the
+   * caller should pass the current walkable FOV each turn and
+   * the hole will grow naturally as the player explores.
    */
-  clearHatch(tileKeys) {
+  clearHatch(wallsMap) {
     const ctx = this.hatchCtx;
     if (!ctx || !this._hatchReady) return;
-    if (!tileKeys || tileKeys.size === 0) return;
+    if (!wallsMap || wallsMap.size === 0) return;
 
-    const loops = this._buildTileSetPolygons(tileKeys);
+    const loops = this._buildTileSetPolygons(wallsMap);
     if (loops.length === 0) return;
 
     const offset = this.cellSize * 0.1;
@@ -334,51 +379,66 @@ const GameMap = {
   },
 
   /**
-   * Trace closed perimeter polygons around a set of tile keys.
-   * Returns an array of loops; each loop is an array of pixel
-   * points {x, y} in clockwise order for outer boundaries
-   * (counter-clockwise for holes, via the non-zero fill rule).
-   * Handles multiple disjoint components naturally.
+   * Trace closed perimeter polygons around a Map<"x,y", mask>
+   * of walkable tiles, tagging each emitted edge with whether
+   * it sits on a wall line. Returns an array of loops; each
+   * loop is an array of directed edges
+   * `{ax, ay, bx, by, wall}` in clockwise order for outer
+   * boundaries (counter-clockwise for holes, via the non-zero
+   * fill rule). Handles multiple disjoint components naturally.
+   *
+   * The wall flag per edge comes from the tile's own wall mask
+   * rather than FOV membership: an edge is a wall iff the tile
+   * in that direction would not be walkable in the SVG world.
    */
-  _buildTileSetPolygons(tileKeys) {
+  _buildTileSetPolygons(wallsMap) {
     const cs = this.cellSize;
     const pad = this.padding;
+    // Wall-mask bits: 1=N, 2=E, 4=S, 8=W (matches backend).
+    const WALL_N = 1, WALL_E = 2, WALL_S = 4, WALL_W = 8;
 
-    // Build directed boundary edges. For each tile walk its four
-    // edges clockwise in screen coordinates; an edge is on the
-    // perimeter iff its outward neighbour is not in the set.
-    const outgoing = new Map();  // "px,py" → Array<{x,y}>
-    const pushEdge = (ax, ay, bx, by) => {
+    // For each corner pixel-coordinate, record the outgoing
+    // directed edges along with their wall flag.
+    const outgoing = new Map();  // "px,py" → Array<{x,y,wall}>
+    const pushEdge = (ax, ay, bx, by, wall) => {
       const k = `${ax},${ay}`;
       let list = outgoing.get(k);
       if (!list) { list = []; outgoing.set(k, list); }
-      list.push({ x: bx, y: by });
+      list.push({ x: bx, y: by, wall });
     };
 
-    for (const key of tileKeys) {
+    for (const [key, mask] of wallsMap) {
       const [tx, ty] = key.split(",").map(Number);
       const x0 = tx * cs + pad;
       const y0 = ty * cs + pad;
       const x1 = x0 + cs;
       const y1 = y0 + cs;
-      if (!tileKeys.has(`${tx},${ty - 1}`)) pushEdge(x0, y0, x1, y0);
-      if (!tileKeys.has(`${tx + 1},${ty}`)) pushEdge(x1, y0, x1, y1);
-      if (!tileKeys.has(`${tx},${ty + 1}`)) pushEdge(x1, y1, x0, y1);
-      if (!tileKeys.has(`${tx - 1},${ty}`)) pushEdge(x0, y1, x0, y0);
+      if (!wallsMap.has(`${tx},${ty - 1}`)) {
+        pushEdge(x0, y0, x1, y0, (mask & WALL_N) !== 0);
+      }
+      if (!wallsMap.has(`${tx + 1},${ty}`)) {
+        pushEdge(x1, y0, x1, y1, (mask & WALL_E) !== 0);
+      }
+      if (!wallsMap.has(`${tx},${ty + 1}`)) {
+        pushEdge(x1, y1, x0, y1, (mask & WALL_S) !== 0);
+      }
+      if (!wallsMap.has(`${tx - 1},${ty}`)) {
+        pushEdge(x0, y1, x0, y0, (mask & WALL_W) !== 0);
+      }
     }
 
-    // Stitch edges into closed loops. Each corner has a balanced
-    // in/out edge count, so following outgoing pointers always
-    // returns to the starting point.
+    // Stitch edges into closed loops. The loop is built as a
+    // raw list of 1-cell directed segments first, then runs of
+    // colinear segments sharing the same wall flag are merged
+    // into single edges for a clean offset pass.
     const loops = [];
     let safety = 0;
-    const maxIters = tileKeys.size * 4 + 16;
+    const maxIters = wallsMap.size * 4 + 16;
     while (outgoing.size > 0 && safety++ < maxIters) {
       const startKey = outgoing.keys().next().value;
       const [sx, sy] = startKey.split(",").map(Number);
-      const raw = [];
+      const raw = [];  // list of {ax, ay, bx, by, wall}
       let cx = sx, cy = sy;
-      raw.push({ x: cx, y: cy });
 
       while (true) {
         const k = `${cx},${cy}`;
@@ -386,71 +446,113 @@ const GameMap = {
         if (!list || list.length === 0) break;
         const next = list.shift();
         if (list.length === 0) outgoing.delete(k);
+        raw.push({
+          ax: cx, ay: cy, bx: next.x, by: next.y, wall: next.wall,
+        });
         cx = next.x;
         cy = next.y;
         if (cx === sx && cy === sy) break;
-        raw.push({ x: cx, y: cy });
         if (raw.length > maxIters) break;
       }
+      if (raw.length < 3) continue;
 
-      // Collapse runs of colinear points — tiles produce many
-      // 1-cell segments along straight runs of the boundary.
-      const loop = [];
-      const n = raw.length;
-      for (let i = 0; i < n; i++) {
-        const prev = raw[(i - 1 + n) % n];
-        const curr = raw[i];
-        const next = raw[(i + 1) % n];
-        const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
-        const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
-        if (dx1 * dy2 !== dy1 * dx2) loop.push(curr);
+      // Merge colinear runs with matching wall flag. A run of
+      // several 1-cell segments along the same direction and
+      // with the same wall flag collapses to one edge.
+      const merged = [];
+      for (const e of raw) {
+        const last = merged[merged.length - 1];
+        if (last) {
+          const ldx = last.bx - last.ax;
+          const ldy = last.by - last.ay;
+          const edx = e.bx - e.ax;
+          const edy = e.by - e.ay;
+          if (ldx * edy === ldy * edx
+              && last.wall === e.wall
+              && last.bx === e.ax && last.by === e.ay) {
+            last.bx = e.bx;
+            last.by = e.by;
+            continue;
+          }
+        }
+        merged.push({ ...e });
       }
-      if (loop.length >= 3) loops.push(loop);
+      // Last-to-first colinear stitch: if the loop closes with
+      // a colinear same-flag pair at the seam, fold the first
+      // edge into the last.
+      if (merged.length >= 2) {
+        const first = merged[0];
+        const last = merged[merged.length - 1];
+        const ldx = last.bx - last.ax;
+        const ldy = last.by - last.ay;
+        const fdx = first.bx - first.ax;
+        const fdy = first.by - first.ay;
+        if (ldx * fdy === ldy * fdx
+            && last.wall === first.wall
+            && last.bx === first.ax && last.by === first.ay) {
+          first.ax = last.ax;
+          first.ay = last.ay;
+          merged.pop();
+        }
+      }
+      if (merged.length >= 3) loops.push(merged);
     }
     return loops;
   },
 
   /**
-   * Offset a closed polygon loop outward by `dist` pixels along
-   * each edge's left-hand normal (outward for clockwise winding
-   * in screen coordinates). New vertices are recomputed as the
-   * intersections of consecutive offset edges so the resulting
-   * polygon has uniform feathering regardless of shape.
+   * Offset a closed loop of directed edges outward along each
+   * edge's left-hand normal (outward for clockwise winding in
+   * screen coordinates). Only edges with `wall === true` are
+   * pushed by `dist`; non-wall edges stay on their original
+   * line. Vertices are recomputed as the intersection of the
+   * offset lines of consecutive edges, so wall↔non-wall corners
+   * produce an L-shaped notch with the wall side sticking out
+   * and the open side flush with the tile boundary.
+   *
+   * At colinear junctions with a flag transition (wall run
+   * turning into a non-wall run along the same direction), the
+   * two offset lines are parallel; we emit a perpendicular
+   * bridge (the end of the previous offset edge then the start
+   * of the current) so the polygon steps cleanly between them.
    */
   _offsetLoop(loop, dist) {
     const n = loop.length;
-    if (n < 3) return loop.slice();
+    if (n < 3) return [];
 
-    // Offset each edge outward; store as two endpoint points.
-    const edges = [];
+    // Compute the offset line endpoints for each edge.
+    const lines = [];
     for (let i = 0; i < n; i++) {
-      const a = loop[i];
-      const b = loop[(i + 1) % n];
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
+      const e = loop[i];
+      const dx = e.bx - e.ax;
+      const dy = e.by - e.ay;
       const len = Math.hypot(dx, dy);
       if (len === 0) continue;
+      const d = e.wall ? dist : 0;
       // Left-hand (outward) normal in screen coords: (dy, -dx).
       const nx = dy / len;
       const ny = -dx / len;
-      edges.push({
-        ax: a.x + nx * dist, ay: a.y + ny * dist,
-        bx: b.x + nx * dist, by: b.y + ny * dist,
+      lines.push({
+        ax: e.ax + nx * d, ay: e.ay + ny * d,
+        bx: e.bx + nx * d, by: e.by + ny * d,
       });
     }
 
-    // Each output vertex is the intersection of the offset line
-    // of the previous edge with the offset line of the current
-    // edge. For the 90° corners produced by axis-aligned tile
-    // boundaries this always has a well-defined solution.
-    const m = edges.length;
+    const m = lines.length;
+    if (m < 3) return [];
+
     const out = [];
     for (let i = 0; i < m; i++) {
-      const p = edges[(i - 1 + m) % m];
-      const c = edges[i];
+      const p = lines[(i - 1 + m) % m];
+      const c = lines[i];
       const denom = (p.ax - p.bx) * (c.ay - c.by)
                   - (p.ay - p.by) * (c.ax - c.bx);
       if (Math.abs(denom) < 1e-9) {
+        // Parallel offset lines — happens at a colinear
+        // wall↔non-wall transition. Emit a perpendicular bridge
+        // between the end of the previous offset edge and the
+        // start of the current one.
+        out.push({ x: p.bx, y: p.by });
         out.push({ x: c.ax, y: c.ay });
         continue;
       }
