@@ -9,6 +9,10 @@ const UI = {
     this.statusLine3 = document.getElementById("status-line3");
   },
 
+  clearLog() {
+    this.historyLog.innerHTML = "";
+  },
+
   addMessage(text, cssClass) {
     const div = document.createElement("div");
     div.className = cssClass || "msg";

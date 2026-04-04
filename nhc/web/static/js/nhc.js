@@ -158,6 +158,9 @@ const NHC = {
     // Load tileset
     await GameMap.loadTileset(tileset);
 
+    // Clear message log from any previous game
+    UI.clearLog();
+
     // Switch to game screen BEFORE connecting WS
     // so the canvas can get proper dimensions
     document.getElementById("login-screen").classList.add("hidden");
