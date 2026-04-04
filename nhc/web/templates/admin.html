@@ -140,7 +140,7 @@ async function loadPlayers() {
     }
     const godStyle = p.god_mode ? 'color:#e6c07b;border-color:#e6c07b' : '';
     const godLabel = p.god_mode ? 'God: ON' : 'God: OFF';
-    const godBtn = `<button style="${godStyle}" onclick="toggleGodMode('${p.player_id}', ${!p.god_mode})">${godLabel}</button> `;
+    const godBtn = `<button style="width:5.5em;${godStyle}" onclick="toggleGodMode('${p.player_id}', ${!p.god_mode})">${godLabel}</button> `;
     const actions = p.revoked
       ? '<span style="color:#888">revoked</span>'
       : godBtn
