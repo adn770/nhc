@@ -894,29 +894,56 @@ class TestDoorWallMask:
         assert mask & 8, "west wall bit set (orthogonal)"
         assert not (mask & 4), "south bit clear (approach side)"
 
-    def test_secret_door_included_in_gather_walk(self):
+    def test_door_included_when_approach_side_visible(self):
+        """Corridor side visible → door joins the polygon with
+        the three-bit wall mask."""
         from nhc.rendering.web_client import WebClient
         wc = WebClient(lang="en")
         level = self._wall_column_with_secret_door()
-        # Player standing on the secret door: tile is visible.
+        # door_side=east → approach side is west (corridor)
         level.tiles[2][2].visible = True
-        level.tiles[2][1].visible = True  # corridor, visible
+        level.tiles[2][1].visible = True  # west neighbour = corridor
         entries = wc._gather_walk(level)
         coords = {(e[0], e[1]): e[2] for e in entries}
         assert (2, 2) in coords, (
-            "visible secret door must appear in _gather_walk"
+            "visible door with visible approach side must "
+            "appear in _gather_walk"
         )
         assert coords[(2, 2)] == 1 | 2 | 4
 
-    def test_secret_door_in_gather_explored(self):
+    def test_door_excluded_when_only_far_side_visible(self):
+        """Room side visible but corridor not → door stays out
+        of the polygon. The room's own W-wall halo will render
+        the door visual without leaking into the corridor."""
+        from nhc.rendering.web_client import WebClient
+        wc = WebClient(lang="en")
+        level = self._wall_column_with_secret_door()
+        # door_side=east → approach is west; make the east
+        # (room) side visible but leave the west side hidden.
+        level.tiles[2][2].visible = True
+        level.tiles[2][3].visible = True  # east neighbour = room
+        level.tiles[2][1].visible = False
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]) for e in entries}
+        assert (2, 2) not in coords, (
+            "visible door with no approach-side view must NOT "
+            "appear in _gather_walk"
+        )
+
+    def test_explored_door_polygon_gate(self):
+        """Same gate applies to the bulk explored reveal."""
         from nhc.rendering.web_client import WebClient
         wc = WebClient(lang="en")
         level = self._wall_column_with_secret_door()
         level.tiles[2][2].explored = True
+        # Approach side not explored → door entry has mask=-1
+        # so it only contributes to drawFog's memory set.
         entries = wc._gather_explored(level)
         entry = next(e for e in entries if e[0] == 2 and e[1] == 2)
-        # Secret doors previously got mask=-1; now they carry
-        # the three-bit door mask (N, E, S for a door on the
-        # east edge) so the bulk replay clears both the tile
-        # and its surrounding wall frame on reconnect.
+        assert entry[2] == -1
+        # Now mark the approach side explored → door joins the
+        # polygon with the three-bit mask.
+        level.tiles[2][1].explored = True
+        entries = wc._gather_explored(level)
+        entry = next(e for e in entries if e[0] == 2 and e[1] == 2)
         assert entry[2] == 1 | 2 | 4

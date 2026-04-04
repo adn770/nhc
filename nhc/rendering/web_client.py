@@ -67,15 +67,55 @@ def _is_walkable(level, x: int, y: int) -> bool:
 def _in_polygon(level, x: int, y: int) -> bool:
     """True iff the tile should be part of the clearHatch
     polygon when visible/explored. All floor-family terrains
-    qualify, including tiles carrying any door feature (closed,
-    open, locked, secret) — the player stands on the door tile
-    itself, so its hatch must be cleared regardless of how the
-    door interacts with neighbouring wall-line rendering.
+    qualify. Door tiles are further filtered by
+    :func:`_door_polygon_gate` so they only join the polygon
+    from the side the player can actually walk in from.
     """
     if not level.in_bounds(x, y):
         return False
     t = level.tiles[y][x]
     return t.terrain in _POLYGON_TERRAINS
+
+
+# Offset from a door tile to the neighbour on the side opposite
+# door_side. That neighbour is the "approach" side — the tile a
+# player would step through to reach the door. Including the
+# door tile in the polygon only when the approach side is in
+# view keeps the polygon faithful to what the player can
+# actually walk to from their current position.
+_DOOR_OPPOSITE = {
+    "east": (-1, 0),
+    "west": (1, 0),
+    "north": (0, 1),
+    "south": (0, -1),
+}
+
+
+def _door_polygon_gate(level, x: int, y: int, field: str) -> bool:
+    """Decide whether a door tile should join the polygon.
+
+    Non-door tiles always return True. For door tiles, the
+    neighbour opposite `door_side` must have the given flag
+    (`visible` for per-turn reveal, `explored` for the bulk
+    floor-init reveal). From the corridor/approach side the
+    flag is set → door joins the polygon → the three-bit wall
+    mask covers the door tile and its wall frame. From the far
+    side the flag is unset → door stays out of the polygon →
+    the far room's own wall halo at the shared edge renders
+    the door visual without bleeding the corridor beyond.
+    """
+    tile = level.tile_at(x, y)
+    if not tile or tile.feature not in _DOOR_FEATURES:
+        return True
+    if not tile.door_side:
+        return True
+    offset = _DOOR_OPPOSITE.get(tile.door_side)
+    if offset is None:
+        return True
+    nb = level.tile_at(x + offset[0], y + offset[1])
+    if nb is None:
+        return False
+    return bool(getattr(nb, field, False))
 
 
 # Wall-edge bitmask: bit 0=N, 1=E, 2=S, 3=W. An edge is a wall
@@ -541,10 +581,11 @@ class WebClient(GameClient):
         Each entry is [x, y, mask] where mask has bit 0=N, 1=E,
         2=S, 3=W set iff that tile edge is a wall line. For
         ordinary floor tiles this tracks svg.py's wall-line
-        rule; for door tiles (any state) the two edges
-        orthogonal to `door_side` are walls and the door's own
-        edge is not, so the door tile is revealed together with
-        the surrounding wall frame.
+        rule; for door tiles the three edges flanking the door
+        are walls and the door is only included when the
+        approach-side neighbour is also visible — so it joins
+        the corridor polygon without leaking into the room on
+        the far side.
         """
         out: list[list[int]] = []
         for y in range(level.height):
@@ -553,6 +594,8 @@ class WebClient(GameClient):
                 if not tile or not tile.visible:
                     continue
                 if not _in_polygon(level, x, y):
+                    continue
+                if not _door_polygon_gate(level, x, y, "visible"):
                     continue
                 out.append([x, y, _wall_mask(level, x, y)])
         return out
@@ -564,11 +607,12 @@ class WebClient(GameClient):
 
         Used only on floor init and reconnects. Each entry is
         [x, y, mask]: mask = 0..15 for polygon-eligible tiles
-        (including doors), or -1 for non-polygon tiles
-        (walls/void) that still belong to the exploration
-        memory set. The client splits the list into two
-        structures: all keys feed the drawFog dim-memory set,
-        mask >= 0 entries feed the bulk clearHatch polygon.
+        (including doors that pass the approach-side gate), or
+        -1 for non-polygon tiles (walls/void, plus door tiles
+        that were only seen from the far side). The client
+        splits the list into two structures: all keys feed the
+        drawFog dim-memory set, mask >= 0 entries feed the
+        bulk clearHatch polygon.
         """
         out: list[list[int]] = []
         for y in range(level.height):
@@ -576,8 +620,12 @@ class WebClient(GameClient):
                 tile = level.tile_at(x, y)
                 if not tile or not tile.explored:
                     continue
-                mask = (_wall_mask(level, x, y)
-                        if _in_polygon(level, x, y) else -1)
+                if (_in_polygon(level, x, y)
+                        and _door_polygon_gate(
+                            level, x, y, "explored")):
+                    mask = _wall_mask(level, x, y)
+                else:
+                    mask = -1
                 out.append([x, y, mask])
         return out
 
