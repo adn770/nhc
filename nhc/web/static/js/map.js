@@ -7,6 +7,12 @@
  * 3. Fog canvas (dark overlay on non-visible tiles)
  * 4. Entity canvas (player, creatures, items on top)
  *
+ * The hatch canvas is an accumulator: each FOV update punches a
+ * slightly-inflated polygon of the currently visible tiles through
+ * the hatch pattern via destination-out compositing. Previously
+ * revealed areas persist on the canvas until the pattern is
+ * re-stamped on a new floor.
+ *
  * The map viewport auto-scrolls to keep the player centered.
  */
 const GameMap = {
@@ -25,7 +31,7 @@ const GameMap = {
   allDoors: new Map(),  // "x,y" → {x, y, edge, state, vertical}
   fov: new Set(),
   explored: new Set(),
-  hatchClear: new Set(),
+  _hatchReady: false,
   doorInfo: new Map(),  // "x,y" → {edge, state}
   tileset: null,
   tilesetImg: null,
@@ -52,7 +58,7 @@ const GameMap = {
     this.allDoors = new Map();
     this.fov = new Set();
     this.explored = new Set();
-    this.hatchClear = new Set();
+    this._hatchReady = false;
     this.doorInfo = new Map();
     this.mapW = 0;
     this.mapH = 0;
@@ -177,23 +183,17 @@ const GameMap = {
     for (const key of this.fov) {
       this.explored.add(key);
     }
+  },
 
-    // Hatch-clear: backend tells us exactly which tiles to
-    // reveal (FLOOR/WATER only, respecting door blocking).
-    if (msg.hatch_clear) {
-      this.hatchClear = new Set(
-        msg.hatch_clear.map(([x, y]) => `${x},${y}`));
-    } else {
-      if (msg.hatch_clear_del) {
-        for (const [x, y] of msg.hatch_clear_del) {
-          this.hatchClear.delete(`${x},${y}`);
-        }
-      }
-      if (msg.hatch_clear_add) {
-        for (const [x, y] of msg.hatch_clear_add) {
-          this.hatchClear.add(`${x},${y}`);
-        }
-      }
+  /**
+   * Seed the explored set from a server-provided list. Used on
+   * floor init / reconnect so the hatch clear can be replayed in
+   * bulk before normal per-turn FOV updates take over.
+   */
+  setExplored(tiles) {
+    if (!tiles) return;
+    for (const [x, y] of tiles) {
+      this.explored.add(`${x},${y}`);
     }
   },
 
@@ -203,7 +203,7 @@ const GameMap = {
    * so that fog, hatch, entities, and viewport stay in sync.
    */
   flush() {
-    this.drawHatch();
+    this.clearHatch(this.fov);
     this.drawFog();
     this.draw();
     this.scrollToPlayer();
@@ -259,7 +259,10 @@ const GameMap = {
 
   /**
    * Load a small hatching SVG patch, create a repeating pattern,
-   * and fill the full hatch canvas with it.
+   * and fill the full hatch canvas with it. Once the pattern is
+   * stamped, replay the accumulated explored set as a one-shot
+   * bulk clear so reconnects and floor transitions preserve the
+   * visual exploration memory.
    */
   loadHatchSVG(url) {
     console.log("loadHatchSVG:", url, "ctx=", !!this.hatchCtx);
@@ -267,6 +270,7 @@ const GameMap = {
       console.warn("loadHatchSVG SKIPPED: no ctx or url");
       return;
     }
+    this._hatchReady = false;
     const img = new Image();
     img.onload = () => {
       console.log("Hatch patch loaded:", img.width, "x", img.height);
@@ -281,13 +285,10 @@ const GameMap = {
       this.hatchCtx.fillStyle = pattern;
       this.hatchCtx.fillRect(
         0, 0, this.hatchCanvas.width, this.hatchCanvas.height);
-      // Verify something was drawn
-      const sample = this.hatchCtx.getImageData(
-        this.padding + 16, this.padding + 16, 1, 1).data;
-      console.log("Hatch sample pixel:",
-                  `rgba(${sample[0]},${sample[1]},${sample[2]},${sample[3]})`);
-      // Re-clear already explored tiles
-      this.drawHatch();
+      this._hatchReady = true;
+      // Bulk reveal everything explored so far (includes current
+      // FOV on floor entry and the server-restored set on reconnect).
+      this.clearHatch(this.explored);
       console.log("Hatch stamped, cleared", this.explored.size,
                   "explored tiles");
     };
@@ -298,24 +299,169 @@ const GameMap = {
   },
 
   /**
-   * Clear explored tiles from the hatch canvas.
-   * Called whenever FOV updates to reveal new tiles.
+   * Punch a polygonal hole through the hatch pattern for the
+   * given tile set. Traces the perimeter of the tiles, inflates
+   * it by 10% of a cell along each edge's outward normal, and
+   * fills via destination-out compositing. The canvas itself
+   * accumulates clears across turns — the caller should pass the
+   * current FOV each turn and the hole will grow naturally as
+   * the player explores.
    */
-  drawHatch() {
+  clearHatch(tileKeys) {
     const ctx = this.hatchCtx;
-    if (!ctx) return;
-    const cs = this.cellSize;
+    if (!ctx || !this._hatchReady) return;
+    if (!tileKeys || tileKeys.size === 0) return;
 
-    // The backend computes exactly which tiles to clear
-    // (FLOOR/WATER only, excluding blocked doors). WALL and
-    // VOID tiles stay hatched, preventing SVG corridor walls
-    // from bleeding through.
-    for (const key of this.hatchClear) {
-      const [x, y] = key.split(",").map(Number);
-      const px = x * cs + this.padding;
-      const py = y * cs + this.padding;
-      ctx.clearRect(px, py, cs, cs);
+    const loops = this._buildTileSetPolygons(tileKeys);
+    if (loops.length === 0) return;
+
+    const offset = this.cellSize * 0.1;
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.beginPath();
+    for (const loop of loops) {
+      const scaled = this._offsetLoop(loop, offset);
+      if (scaled.length < 3) continue;
+      ctx.moveTo(scaled[0].x, scaled[0].y);
+      for (let i = 1; i < scaled.length; i++) {
+        ctx.lineTo(scaled[i].x, scaled[i].y);
+      }
+      ctx.closePath();
     }
+    ctx.fillStyle = "#000";
+    ctx.fill();
+    ctx.restore();
+  },
+
+  /**
+   * Trace closed perimeter polygons around a set of tile keys.
+   * Returns an array of loops; each loop is an array of pixel
+   * points {x, y} in clockwise order for outer boundaries
+   * (counter-clockwise for holes, via the non-zero fill rule).
+   * Handles multiple disjoint components naturally.
+   */
+  _buildTileSetPolygons(tileKeys) {
+    const cs = this.cellSize;
+    const pad = this.padding;
+
+    // Build directed boundary edges. For each tile walk its four
+    // edges clockwise in screen coordinates; an edge is on the
+    // perimeter iff its outward neighbour is not in the set.
+    const outgoing = new Map();  // "px,py" → Array<{x,y}>
+    const pushEdge = (ax, ay, bx, by) => {
+      const k = `${ax},${ay}`;
+      let list = outgoing.get(k);
+      if (!list) { list = []; outgoing.set(k, list); }
+      list.push({ x: bx, y: by });
+    };
+
+    for (const key of tileKeys) {
+      const [tx, ty] = key.split(",").map(Number);
+      const x0 = tx * cs + pad;
+      const y0 = ty * cs + pad;
+      const x1 = x0 + cs;
+      const y1 = y0 + cs;
+      if (!tileKeys.has(`${tx},${ty - 1}`)) pushEdge(x0, y0, x1, y0);
+      if (!tileKeys.has(`${tx + 1},${ty}`)) pushEdge(x1, y0, x1, y1);
+      if (!tileKeys.has(`${tx},${ty + 1}`)) pushEdge(x1, y1, x0, y1);
+      if (!tileKeys.has(`${tx - 1},${ty}`)) pushEdge(x0, y1, x0, y0);
+    }
+
+    // Stitch edges into closed loops. Each corner has a balanced
+    // in/out edge count, so following outgoing pointers always
+    // returns to the starting point.
+    const loops = [];
+    let safety = 0;
+    const maxIters = tileKeys.size * 4 + 16;
+    while (outgoing.size > 0 && safety++ < maxIters) {
+      const startKey = outgoing.keys().next().value;
+      const [sx, sy] = startKey.split(",").map(Number);
+      const raw = [];
+      let cx = sx, cy = sy;
+      raw.push({ x: cx, y: cy });
+
+      while (true) {
+        const k = `${cx},${cy}`;
+        const list = outgoing.get(k);
+        if (!list || list.length === 0) break;
+        const next = list.shift();
+        if (list.length === 0) outgoing.delete(k);
+        cx = next.x;
+        cy = next.y;
+        if (cx === sx && cy === sy) break;
+        raw.push({ x: cx, y: cy });
+        if (raw.length > maxIters) break;
+      }
+
+      // Collapse runs of colinear points — tiles produce many
+      // 1-cell segments along straight runs of the boundary.
+      const loop = [];
+      const n = raw.length;
+      for (let i = 0; i < n; i++) {
+        const prev = raw[(i - 1 + n) % n];
+        const curr = raw[i];
+        const next = raw[(i + 1) % n];
+        const dx1 = curr.x - prev.x, dy1 = curr.y - prev.y;
+        const dx2 = next.x - curr.x, dy2 = next.y - curr.y;
+        if (dx1 * dy2 !== dy1 * dx2) loop.push(curr);
+      }
+      if (loop.length >= 3) loops.push(loop);
+    }
+    return loops;
+  },
+
+  /**
+   * Offset a closed polygon loop outward by `dist` pixels along
+   * each edge's left-hand normal (outward for clockwise winding
+   * in screen coordinates). New vertices are recomputed as the
+   * intersections of consecutive offset edges so the resulting
+   * polygon has uniform feathering regardless of shape.
+   */
+  _offsetLoop(loop, dist) {
+    const n = loop.length;
+    if (n < 3) return loop.slice();
+
+    // Offset each edge outward; store as two endpoint points.
+    const edges = [];
+    for (let i = 0; i < n; i++) {
+      const a = loop[i];
+      const b = loop[(i + 1) % n];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len === 0) continue;
+      // Left-hand (outward) normal in screen coords: (dy, -dx).
+      const nx = dy / len;
+      const ny = -dx / len;
+      edges.push({
+        ax: a.x + nx * dist, ay: a.y + ny * dist,
+        bx: b.x + nx * dist, by: b.y + ny * dist,
+      });
+    }
+
+    // Each output vertex is the intersection of the offset line
+    // of the previous edge with the offset line of the current
+    // edge. For the 90° corners produced by axis-aligned tile
+    // boundaries this always has a well-defined solution.
+    const m = edges.length;
+    const out = [];
+    for (let i = 0; i < m; i++) {
+      const p = edges[(i - 1 + m) % m];
+      const c = edges[i];
+      const denom = (p.ax - p.bx) * (c.ay - c.by)
+                  - (p.ay - p.by) * (c.ax - c.bx);
+      if (Math.abs(denom) < 1e-9) {
+        out.push({ x: c.ax, y: c.ay });
+        continue;
+      }
+      const t = ((p.ax - c.ax) * (c.ay - c.by)
+               - (p.ay - c.ay) * (c.ax - c.bx)) / denom;
+      out.push({
+        x: p.ax + t * (p.bx - p.ax),
+        y: p.ay + t * (p.by - p.ay),
+      });
+    }
+    return out;
   },
 
   drawFog() {

@@ -47,7 +47,7 @@ from nhc.core.events import (
 from nhc.dungeon.generator import GenerationParams, pick_map_size
 from nhc.dungeon.themes import theme_for_depth
 from nhc.dungeon.loader import get_player_start, load_level
-from nhc.dungeon.model import Level, RectShape, Terrain
+from nhc.dungeon.model import Level, Terrain
 from nhc.entities.components import (
     BlocksMovement,
     Cursed,
@@ -243,72 +243,6 @@ def door_wall_run_hidden(
                         hidden.add((nx, vy))
                     nx += direction
     return hidden
-
-
-_CORRIDOR_OFFSET = {
-    "north": (0, 1),    # wall north → corridor south
-    "south": (0, -1),   # wall south → corridor north
-    "east": (-1, 0),    # wall east → corridor west
-    "west": (1, 0),     # wall west → corridor east
-}
-
-
-def compute_hatch_clear(
-    level: "Level",
-) -> set[tuple[int, int]]:
-    """Return explored tiles whose hatch should be cleared.
-
-    All walkable terrain types (FLOOR, WATER, GRASS, LAVA, CHASM)
-    are included — WALL and VOID tiles stay hatched so the expand
-    doesn't leak SVG corridor/room structure into adjacent
-    unexplored tiles.  Closed, locked, or secret doors are
-    excluded when the corridor side hasn't been explored yet.
-
-    Exception: WALL tiles inside non-rectangular room bounding
-    rects (octagon, circle, cross, hybrid) are included because
-    the SVG draws room outlines as polygons that extend into
-    those corner tiles.
-    """
-    _CLEARABLE = (
-        Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
-        Terrain.LAVA, Terrain.CHASM,
-    )
-
-    # Pre-compute WALL/VOID tiles in and around non-rect room
-    # bounding rects. The SVG room outline (circle arcs, octagon
-    # diagonals) can extend up to 1 tile beyond the bounding rect,
-    # so we expand by 1 tile on each side.
-    smooth_room_walls: set[tuple[int, int]] = set()
-    for room in level.rooms:
-        if isinstance(room.shape, RectShape):
-            continue
-        r = room.rect
-        floor = room.floor_tiles()
-        for y in range(r.y - 1, r.y2 + 1):
-            for x in range(r.x - 1, r.x2 + 1):
-                if (x, y) not in floor:
-                    smooth_room_walls.add((x, y))
-
-    result: set[tuple[int, int]] = set()
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tile_at(x, y)
-            if not tile or not tile.explored:
-                continue
-            if tile.terrain not in _CLEARABLE:
-                if (x, y) in smooth_room_walls:
-                    result.add((x, y))
-                continue
-            if (tile.feature in _CLOSED_DOOR_FEATURES
-                    and tile.door_side):
-                offset = _CORRIDOR_OFFSET.get(tile.door_side)
-                if offset:
-                    cx, cy = x + offset[0], y + offset[1]
-                    nb = level.tile_at(cx, cy)
-                    if not nb or not nb.explored:
-                        continue
-            result.add((x, y))
-    return result
 
 
 class Game:

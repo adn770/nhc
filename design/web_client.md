@@ -22,7 +22,7 @@ with automatic TLS via Caddy.
 - **Rendering**: Static SVG serves as the dungeon floor, overlaid
   with 4 canvas layers for doors, hatching, fog, and entities.
 - **Communication**: Bidirectional JSON over WebSocket with
-  delta-encoded FOV and hatch updates to minimize bandwidth.
+  delta-encoded FOV updates to minimize bandwidth.
 - **Authentication**: Two-tier system with an admin token and
   per-player tokens, all SHA256 hashed at rest.
 
@@ -99,7 +99,12 @@ Four stacked canvas layers sit over the SVG base image:
 
 1. **Door canvas** (z-index 0): Door overlays rendered on room edges.
 2. **Hatch canvas** (z-index 1): Dyson hatching pattern masking
-   unexplored areas.
+   unexplored areas. The canvas is filled once per floor with the
+   hatch pattern and then acts as an accumulator: every FOV update
+   traces the perimeter polygon of the currently visible tiles,
+   inflates it outward by 10% of a cell, and punches a hole via
+   `destination-out` compositing. Previously revealed polygons
+   persist until the pattern is re-stamped on a new floor.
 3. **Fog canvas** (z-index 2): Dark overlay on tiles outside the
    current field of view.
 4. **Entity canvas** (z-index 3): Player (@), creatures, and items
@@ -163,9 +168,12 @@ outbound queue), and game loop (async turn processing).
 
 ### Delta Encoding
 
-FOV and hatch updates send add/del sets when the change affects
-fewer than 50% of tiles; otherwise they send the full list. This
-achieves roughly 80% bandwidth reduction in typical play.
+FOV updates send add/del sets when the change affects fewer than
+50% of tiles; otherwise they send the full list. Hatch reveal is
+derived client-side from FOV — the server sends no per-turn hatch
+data. On floor init and reconnect, the `floor` message carries an
+`explored` tile list so the client can replay the full reveal in
+one bulk clear.
 
 ## 7. Web Client Renderer
 
@@ -184,8 +192,8 @@ Key methods:
   and orientation.
 - `_gather_fov()`: Visible tile coordinates, delta-tracked against
   the previous frame.
-- `_gather_hatch_clear()`: Tiles to unhatch, filtered to FLOOR and
-  WATER types only, with door-awareness.
+- `_gather_explored()`: All tiles marked as explored; sent only on
+  floor init and reconnect for the client's bulk hatch replay.
 - `_gather_debug_data()`: Room boundaries, corridor paths, and door
   metadata for the debug overlay.
 

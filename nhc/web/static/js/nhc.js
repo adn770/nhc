@@ -56,7 +56,6 @@ const NHC = {
       // Reset client state for the new floor
       GameMap.fov = new Set();
       GameMap.explored = new Set();
-      GameMap.hatchClear = new Set();
       GameMap.doorInfo = new Map();
       GameMap.allDoors = new Map();
       GameMap.entities = [];
@@ -70,14 +69,19 @@ const NHC = {
         console.log("floor SVG loaded:", svg.length, "bytes");
         GameMap.setFloorSVG(svg);
       }
-      if (msg.hatch_url) {
-        GameMap.loadHatchSVG(msg.hatch_url);
-      }
       if (msg.entities) {
         GameMap.updateEntities(msg.entities, msg.doors);
       }
+      // Seed explored before loading the hatch pattern so the
+      // onload handler can replay the full reveal in one pass.
+      if (msg.explored) {
+        GameMap.setExplored(msg.explored);
+      }
       if (msg.fov) {
         GameMap.updateFOV(msg);
+      }
+      if (msg.hatch_url) {
+        GameMap.loadHatchSVG(msg.hatch_url);
       }
       if (msg.entities || msg.fov) {
         GameMap.flush();
@@ -211,7 +215,6 @@ const NHC = {
     // Reset client state
     GameMap.fov = new Set();
     GameMap.explored = new Set();
-    GameMap.hatchClear = new Set();
     GameMap.doorInfo = new Map();
     GameMap.allDoors = new Map();
     GameMap.entities = [];

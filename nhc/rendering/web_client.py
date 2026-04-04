@@ -17,7 +17,6 @@ import queue
 import time
 from typing import TYPE_CHECKING, Any
 
-from nhc.core.game import compute_hatch_clear
 from nhc.dungeon.model import HybridShape, Terrain
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
@@ -69,7 +68,6 @@ class WebClient(GameClient):
         self._last_static_stats: dict | None = None
         self._last_inv_hash: int = 0
         self._last_fov: set[tuple[int, int]] = set()
-        self._last_hatch_clear: set[tuple[int, int]] = set()
         self._base_url: str = ""
         self._ws = None
         self._in_queue: queue.Queue = queue.Queue()
@@ -446,12 +444,23 @@ class WebClient(GameClient):
                     visible.append([x, y])
         return visible
 
-    def _gather_hatch_clear(
+    def _gather_explored(
         self, level: "Level",
     ) -> list[list[int]]:
-        """Build list of tiles whose hatch should be cleared."""
-        tiles = compute_hatch_clear(level)
-        return [[x, y] for x, y in sorted(tiles)]
+        """Build list of tiles the player has explored so far.
+
+        Used only on floor init and reconnects so the web client
+        can replay the full hatch reveal in one bulk clear. The
+        per-turn hatch update is derived purely from FOV on the
+        client — the canvas itself accumulates prior reveals.
+        """
+        out: list[list[int]] = []
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tile_at(x, y)
+                if tile and tile.explored:
+                    out.append([x, y])
+        return out
 
     def _gather_debug_data(self, level: "Level") -> dict:
         """Build debug overlay data for god mode panel."""
@@ -578,12 +587,11 @@ class WebClient(GameClient):
 
         # Reset delta tracking for the new floor
         self._last_fov = set()
-        self._last_hatch_clear = set()
 
         entities = self._gather_entities(world, level, player_id)
         fov = self._gather_fov(level)
         doors = self._gather_doors(level)
-        hatch_clear = self._gather_hatch_clear(level)
+        explored = self._gather_explored(level)
 
         meta = level.metadata
         self._send({
@@ -594,7 +602,7 @@ class WebClient(GameClient):
             "entities": entities,
             "doors": doors,
             "fov": fov,
-            "hatch_clear": hatch_clear,
+            "explored": explored,
             "turn": turn,
             "theme": meta.theme if meta else "dungeon",
             "feeling": meta.feeling if meta else "normal",
@@ -629,14 +637,6 @@ class WebClient(GameClient):
         fov_del = prev_fov - current_fov
         self._last_fov = current_fov
 
-        # Hatch-clear delta encoding
-        hatch_list = self._gather_hatch_clear(level)
-        current_hatch = {(t[0], t[1]) for t in hatch_list}
-        prev_hatch = self._last_hatch_clear
-        hatch_add = current_hatch - prev_hatch
-        hatch_del = prev_hatch - current_hatch
-        self._last_hatch_clear = current_hatch
-
         state_msg: dict = {
             "type": "state",
             "entities": entities,
@@ -651,18 +651,6 @@ class WebClient(GameClient):
         else:
             state_msg["fov_add"] = [[x, y] for x, y in fov_add]
             state_msg["fov_del"] = [[x, y] for x, y in fov_del]
-        # Hatch-clear: full or delta
-        if (not prev_hatch
-                or len(hatch_add) + len(hatch_del)
-                > len(current_hatch) * 0.5):
-            state_msg["hatch_clear"] = hatch_list
-        else:
-            if hatch_add:
-                state_msg["hatch_clear_add"] = [
-                    [x, y] for x, y in hatch_add]
-            if hatch_del:
-                state_msg["hatch_clear_del"] = [
-                    [x, y] for x, y in hatch_del]
         self._send(state_msg)
         # Send static stats only when they change
         if static != self._last_static_stats:

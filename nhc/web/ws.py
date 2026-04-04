@@ -30,7 +30,7 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
             game.world, game.level, game.player_id)
         fov = client._gather_fov(game.level)
         doors = client._gather_doors(game.level)
-        hatch_clear = client._gather_hatch_clear(game.level)
+        explored = client._gather_explored(game.level)
         logger.info("Sending floor init: floor=%d bytes, "
                     "%d entities, %d doors, %d fov tiles",
                     len(client.floor_svg),
@@ -42,7 +42,7 @@ def _send_floor_state(ws, session, client, base_url: str) -> None:
             "entities": entities,
             "doors": doors,
             "fov": fov,
-            "hatch_clear": hatch_clear,
+            "explored": explored,
             "turn": game.turn,
         }))
     elif client.floor_svg:
