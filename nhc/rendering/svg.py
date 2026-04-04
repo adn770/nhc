@@ -659,7 +659,13 @@ def _intersect_polygon_edges(
 def _circle_with_gaps(
     shape, rect, gaps: list[tuple],
 ) -> str | None:
-    """Build an SVG path for a circle with gaps at openings."""
+    """Build an SVG path for a circle with gaps at openings.
+
+    Each gap is a pair of points on the circle.  The gap is the
+    SHORTER arc between them (the opening facing the corridor).
+    We normalize all angles to [0, 2π), mark gap intervals, sort
+    them, and draw arcs between consecutive gap ends and starts.
+    """
     r = rect
     px, py = r.x * CELL, r.y * CELL
     pw, ph = r.width * CELL, r.height * CELL
@@ -668,72 +674,56 @@ def _circle_with_gaps(
     ccx = px + pw / 2
     ccy = py + ph / 2
 
-    # Convert gap points to angles
-    gap_angles = []
+    TWO_PI = 2 * math.pi
+
+    # Convert gap points to [0, 2π) angles, choosing the shorter
+    # arc as the gap.
+    gap_intervals: list[tuple[float, float]] = []
     for (ax, ay), (bx, by) in gaps:
-        a1 = math.atan2(ay - ccy, ax - ccx)
-        a2 = math.atan2(by - ccy, bx - ccx)
-        # Ensure a1 < a2 going clockwise (SVG convention)
+        a1 = math.atan2(ay - ccy, ax - ccx) % TWO_PI
+        a2 = math.atan2(by - ccy, bx - ccx) % TWO_PI
+        # Ensure a1 is the smaller angle
         if a1 > a2:
             a1, a2 = a2, a1
-        gap_angles.append((a1, a2))
+        # Choose the shorter arc as the gap
+        span = a2 - a1
+        if span > math.pi:
+            # The short arc wraps around 0 → gap is (a2, a1+2π)
+            gap_intervals.append((a2, a1 + TWO_PI))
+        else:
+            gap_intervals.append((a1, a2))
 
-    # Sort by start angle
-    gap_angles.sort()
-
-    # Build arc segments between gaps
-    # Walk from 0 to 2π, skipping gap intervals
-    arcs = []
-    # Collect all boundary angles
-    boundaries = []
-    for a1, a2 in gap_angles:
-        boundaries.append(('end', a1))
-        boundaries.append(('start', a2))
-
-    if not boundaries:
+    if not gap_intervals:
         return None
 
-    # Start from the end of the first gap, go around to the
-    # start of the first gap
-    parts = []
-    # Normalize: walk clockwise from first gap end
-    sorted_events = []
-    for a1, a2 in gap_angles:
-        sorted_events.append((a1, 'gap_start'))
-        sorted_events.append((a2, 'gap_end'))
-    sorted_events.sort()
+    # Sort gaps by start angle
+    gap_intervals.sort()
 
-    # Build segments: from each gap_end to next gap_start
-    segments = []
-    for i, (angle, event) in enumerate(sorted_events):
-        if event == 'gap_end':
-            # Find next gap_start
-            next_idx = (i + 1) % len(sorted_events)
-            next_angle, next_event = sorted_events[next_idx]
-            if next_event == 'gap_start':
-                segments.append((angle, next_angle))
-            else:
-                # Next is another gap_end, skip to its gap_start
-                pass
+    # Build draw segments: arcs between consecutive gaps.
+    # Walk from the end of each gap to the start of the next.
+    n = len(gap_intervals)
+    draw_segments: list[tuple[float, float]] = []
+    for i in range(n):
+        gap_end = gap_intervals[i][1]
+        next_gap_start = gap_intervals[(i + 1) % n][0]
+        # Wrap: ensure we go forward around the circle
+        if i == n - 1:
+            next_gap_start += TWO_PI
+        if next_gap_start <= gap_end:
+            continue  # adjacent/overlapping gaps, no arc to draw
+        draw_segments.append((gap_end, next_gap_start))
 
-    if not segments:
-        # Single gap: draw from gap end all the way around to gap start
-        a1, a2 = gap_angles[0]
-        segments = [(a2, a1 + 2 * math.pi)]
+    if not draw_segments:
+        return None
 
     path_parts = []
-    for start_a, end_a in segments:
-        # Start point
+    for start_a, end_a in draw_segments:
         sx = ccx + radius * math.cos(start_a)
         sy = ccy + radius * math.sin(start_a)
-        # End point
         ex = ccx + radius * math.cos(end_a)
         ey = ccy + radius * math.sin(end_a)
-        # Arc sweep
-        sweep_angle = end_a - start_a
-        if sweep_angle < 0:
-            sweep_angle += 2 * math.pi
-        large = 1 if sweep_angle > math.pi else 0
+        sweep = (end_a - start_a) % TWO_PI
+        large = 1 if sweep > math.pi else 0
         path_parts.append(
             f'M{sx:.1f},{sy:.1f} '
             f'A{radius:.1f},{radius:.1f} 0 {large},1 '

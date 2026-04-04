@@ -302,6 +302,80 @@ class TestGappedOutlines:
         assert has_gapped, "No gapped path for octagon opening"
 
 
+# ── 3b. Circle gaps straddling ±π ────────────────────────────────
+
+
+class TestCircleGapWrapAround:
+    """Corridors entering from the west create gap angles that straddle
+    the ±π boundary.  The drawn arcs must cover most of the circle,
+    not just a tiny sliver."""
+
+    def test_west_corridor_draws_most_of_circle(self):
+        """A circle with a west corridor should draw >270° of arc,
+        not a tiny ~20° sliver."""
+        level, _ = _make_shaped_level(
+            CircleShape(), room_w=5, room_h=5,
+            corridor_side="west")
+        svg = render_floor_svg(level)
+        # Find arc paths with A commands (wall-width strokes)
+        arc_paths = re.findall(
+            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="4',
+            svg)
+        assert arc_paths, "No wall-stroke arc path found"
+        # The large-arc flag should be 1 for at least one arc,
+        # meaning the drawn arc spans > 180°
+        all_d = " ".join(arc_paths)
+        arcs = re.findall(
+            r'A[\d.]+,[\d.]+ 0 (\d),1', all_d)
+        large_flags = [int(f) for f in arcs]
+        assert any(f == 1 for f in large_flags), (
+            f"Expected at least one large-arc flag=1, got {large_flags}. "
+            f"The circle wall is probably just a tiny sliver."
+        )
+
+    def test_west_and_north_corridors_draw_most_of_circle(self):
+        """Two corridors (west + north) should still draw the
+        majority of the circle outline, not just a small arc."""
+        level, room = _make_shaped_level(
+            CircleShape(), room_w=5, room_h=5,
+            corridor_side="west")
+        # Add a second corridor from the north
+        floor = room.floor_tiles()
+        cx_tile = room.rect.x + room.rect.width // 2
+        ey = min(fy for fx, fy in floor if fx == cx_tile)
+        _add_corridor(level, room, cx_tile, ey - 1, 0, -1)
+        svg = render_floor_svg(level)
+        # Should have arc paths with wall-width stroke
+        arc_paths = re.findall(
+            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="4',
+            svg)
+        assert arc_paths, "No wall-stroke arc path found"
+        # Count total arc segments (M...A pairs)
+        all_d = " ".join(arc_paths)
+        arc_count = all_d.count(" A")
+        assert arc_count >= 2, (
+            f"Two gaps should produce >= 2 arc segments, got {arc_count}"
+        )
+
+    def test_south_corridor_draws_most_of_circle(self):
+        """South corridor (gap near +π/2) should also work."""
+        level, _ = _make_shaped_level(
+            CircleShape(), room_w=5, room_h=5,
+            corridor_side="south")
+        svg = render_floor_svg(level)
+        arc_paths = re.findall(
+            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="4',
+            svg)
+        assert arc_paths, "No wall-stroke arc path found"
+        all_d = " ".join(arc_paths)
+        arcs = re.findall(
+            r'A[\d.]+,[\d.]+ 0 (\d),1', all_d)
+        large_flags = [int(f) for f in arcs]
+        assert any(f == 1 for f in large_flags), (
+            f"Expected large-arc for south corridor, got {large_flags}"
+        )
+
+
 # ── 4. Corridor wall extensions ──────────────────────────────────
 
 
