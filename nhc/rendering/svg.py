@@ -2450,34 +2450,61 @@ def _bone_detail(rng: random.Random, px: float, py: float) -> str:
 
 
 def _skull_detail(rng: random.Random, px: float, py: float) -> str:
-    """Small hand-drawn skull: oval cranium, eye sockets, nasal cavity.
+    """Small hand-drawn skull with separate cranium and mandible.
+
+    Anatomy (top to bottom, all in local coords centered at 0,0):
+    - Cranium: dome path curving from zygomatic arch, over the top,
+      back down to the other arch.  Narrower at the bottom than a
+      full ellipse so it reads as a skull, not a mask.
+    - Eye sockets: two filled ellipses.
+    - Nasal cavity: small inverted triangle.
+    - Tooth line: short horizontal dashes between upper and lower jaw.
+    - Mandible: separate U-shaped jawbone with ascending rami
+      connecting near the zygomatic arches and a rounded chin.
 
     Fits within ~10-12px, positioned randomly inside the tile.
     """
     cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
     cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
-    # Scale factor for slight size variation
     s = rng.uniform(0.8, 1.2)
-    # Slight rotation for a tossed-on-ground look
     rot = rng.uniform(-20, 20)
+    sw = 0.7  # stroke width
 
-    # Cranium: slightly taller than wide
-    cw = 4.5 * s   # half-width
-    ch = 5.5 * s   # half-height
+    # Proportions (half-widths/heights from center)
+    cw = 4.5 * s   # cranium half-width at widest (temples)
+    ch = 5.0 * s   # cranium half-height (top of dome to maxilla)
+    zw = cw * 0.85  # zygomatic arch width (cheekbone, narrower)
+    mw = cw * 0.55  # maxilla half-width (bottom of upper skull)
 
     parts: list[str] = []
 
-    # Cranium outline (oval)
+    # ── Cranium path ──
+    # Start at right zygomatic arch, arc over the dome, down to
+    # left zygomatic, then straight across the maxilla base.
+    top_y = -ch           # top of dome
+    zyg_y = ch * 0.35     # zygomatic arch y (below center)
+    max_y = ch * 0.55     # maxilla base y
+
     parts.append(
-        f'<ellipse cx="0" cy="0" rx="{cw:.1f}" ry="{ch:.1f}" '
-        f'fill="none" stroke="{INK}" stroke-width="0.8"/>'
+        f'<path d="'
+        f'M{-zw:.1f},{zyg_y:.1f} '
+        f'C{-cw:.1f},{-ch * 0.2:.1f} '    # left temple
+        f'{-cw * 0.6:.1f},{top_y:.1f} '    # left-top
+        f'0,{top_y:.1f} '                  # top center
+        f'C{cw * 0.6:.1f},{top_y:.1f} '    # right-top
+        f'{cw:.1f},{-ch * 0.2:.1f} '       # right temple
+        f'{zw:.1f},{zyg_y:.1f} '           # right zygomatic
+        f'L{mw:.1f},{max_y:.1f} '          # right maxilla
+        f'L{-mw:.1f},{max_y:.1f} '         # left maxilla
+        f'Z" '
+        f'fill="none" stroke="{INK}" stroke-width="{sw}"/>'
     )
 
-    # Eye sockets — two dark ellipses
-    eye_y = -ch * 0.15
-    eye_sep = cw * 0.5
-    eye_rx = cw * 0.28
-    eye_ry = ch * 0.2
+    # ── Eye sockets ──
+    eye_y = -ch * 0.05
+    eye_sep = cw * 0.42
+    eye_rx = cw * 0.26
+    eye_ry = ch * 0.16
     for ex in (-eye_sep, eye_sep):
         parts.append(
             f'<ellipse cx="{ex:.1f}" cy="{eye_y:.1f}" '
@@ -2485,10 +2512,10 @@ def _skull_detail(rng: random.Random, px: float, py: float) -> str:
             f'fill="{INK}"/>'
         )
 
-    # Nasal cavity — small inverted triangle
-    nose_y = ch * 0.15
-    nose_w = cw * 0.22
-    nose_h = ch * 0.25
+    # ── Nasal cavity ──
+    nose_y = ch * 0.2
+    nose_w = cw * 0.18
+    nose_h = ch * 0.2
     parts.append(
         f'<path d="M0,{nose_y:.1f} '
         f'L{-nose_w:.1f},{nose_y + nose_h:.1f} '
@@ -2496,14 +2523,34 @@ def _skull_detail(rng: random.Random, px: float, py: float) -> str:
         f'fill="{INK}"/>'
     )
 
-    # Jaw line — slight curve below cranium
-    jaw_y = ch * 0.7
-    jaw_w = cw * 0.65
+    # ── Tooth line ──
+    tooth_y = max_y + s * 0.8
+    tooth_w = mw * 0.75
     parts.append(
-        f'<path d="M{-jaw_w:.1f},{jaw_y:.1f} '
-        f'Q0,{jaw_y + ch * 0.25:.1f} '
-        f'{jaw_w:.1f},{jaw_y:.1f}" '
-        f'fill="none" stroke="{INK}" stroke-width="0.6"/>'
+        f'<line x1="{-tooth_w:.1f}" y1="{tooth_y:.1f}" '
+        f'x2="{tooth_w:.1f}" y2="{tooth_y:.1f}" '
+        f'stroke="{INK}" stroke-width="0.4" '
+        f'stroke-dasharray="1.2,0.8"/>'
+    )
+
+    # ── Mandible (jawbone) ──
+    # U-shape: ascending rami from zygomatic arches curving down
+    # to a rounded chin below the tooth line.
+    jaw_top = max_y + s * 0.4   # top of ramus (near zygomatic)
+    chin_y = max_y + ch * 0.55  # chin bottom
+    ramus_w = mw * 1.05         # ramus outer width
+    chin_w = mw * 0.35          # chin half-width at bottom
+
+    parts.append(
+        f'<path d="'
+        f'M{-ramus_w:.1f},{jaw_top:.1f} '
+        f'C{-ramus_w:.1f},{chin_y - s:.1f} '
+        f'{-chin_w:.1f},{chin_y:.1f} '
+        f'0,{chin_y:.1f} '
+        f'C{chin_w:.1f},{chin_y:.1f} '
+        f'{ramus_w:.1f},{chin_y - s:.1f} '
+        f'{ramus_w:.1f},{jaw_top:.1f}" '
+        f'fill="none" stroke="{INK}" stroke-width="{sw}"/>'
     )
 
     inner = "".join(parts)

@@ -268,33 +268,47 @@ class TestSkullDetail:
         svg = _skull_detail(rng, 100.0, 100.0)
         assert '<g transform="translate(' in svg
 
-    def test_skull_has_cranium(self):
-        """Skull should have an ellipse for the cranium."""
+    def test_skull_has_cranium_path(self):
+        """Skull cranium should be a path (dome shape), not a
+        full ellipse which looks like a mask."""
         rng = random.Random(42)
         svg = _skull_detail(rng, 100.0, 100.0)
-        # Cranium is the unfilled ellipse
-        assert 'fill="none"' in svg
+        # Cranium is an unfilled path with curves
+        assert re.search(
+            r'<path[^>]*fill="none"[^>]*stroke', svg
+        ), "Cranium should be a stroked path, not an ellipse"
 
     def test_skull_has_eye_sockets(self):
         """Skull should have two filled ellipses for eyes."""
         rng = random.Random(42)
         svg = _skull_detail(rng, 100.0, 100.0)
-        # Count filled ellipses (eyes)
         filled = re.findall(r'<ellipse[^/]*fill="#000000"', svg)
         assert len(filled) >= 2, "Skull needs two eye sockets"
 
     def test_skull_has_nasal_cavity(self):
-        """Skull should have a path element for the nose."""
+        """Skull should have a filled path for the nose."""
         rng = random.Random(42)
         svg = _skull_detail(rng, 100.0, 100.0)
-        # Nasal cavity is a filled path (triangle)
-        assert '<path d="M0,' in svg
+        # Look for a small filled path (nasal triangle)
+        filled_paths = re.findall(
+            r'<path[^>]*fill="#000000"', svg)
+        assert filled_paths, "Skull needs a nasal cavity"
 
-    def test_skull_has_jaw(self):
-        """Skull should have a jaw curve (Q command)."""
+    def test_skull_has_mandible(self):
+        """Skull should have a separate mandible (jawbone) with
+        a chin curve, not just a floating arc."""
         rng = random.Random(42)
         svg = _skull_detail(rng, 100.0, 100.0)
-        assert 'Q' in svg, "Skull needs a jaw curve"
+        # Mandible uses cubic bezier (C) for the chin curve
+        assert 'C' in svg, "Mandible needs a cubic bezier chin"
+
+    def test_skull_has_tooth_line(self):
+        """Skull should have a tooth line between maxilla and
+        mandible."""
+        rng = random.Random(42)
+        svg = _skull_detail(rng, 100.0, 100.0)
+        # Tooth line is a short horizontal stroked line
+        assert '<line ' in svg, "Skull needs a tooth line"
 
 
 class TestThematicDetailProbabilities:
