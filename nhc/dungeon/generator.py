@@ -70,6 +70,23 @@ class GenerationParams:
         return cls(**filtered)
 
 
+# ── Map size selection ──────────────────────────────────────────
+
+MAP_SIZES: list[tuple[int, int]] = [
+    (40, 40),
+    (80, 40),
+    (120, 40),
+]
+
+# Weights: small and medium are more likely than large
+MAP_SIZE_WEIGHTS: list[float] = [0.35, 0.45, 0.20]
+
+
+def pick_map_size(rng: random.Random) -> tuple[int, int]:
+    """Choose a random map size weighted toward smaller dungeons."""
+    return rng.choices(MAP_SIZES, weights=MAP_SIZE_WEIGHTS, k=1)[0]
+
+
 class DungeonGenerator(abc.ABC):
     """Abstract base for dungeon generators."""
 

@@ -1,6 +1,10 @@
 """Tests for the BSP dungeon generator."""
 
-from nhc.dungeon.generator import GenerationParams
+import random
+
+from nhc.dungeon.generator import (
+    MAP_SIZES, MAP_SIZE_WEIGHTS, GenerationParams, pick_map_size,
+)
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import Terrain
 from nhc.dungeon.room_types import assign_room_types
@@ -377,3 +381,42 @@ class TestFullPipeline:
         creatures = [e for e in level.entities
                      if e.entity_type == "creature"]
         assert len(creatures) >= 1
+
+
+class TestMapSizeSelection:
+    def test_pick_returns_valid_size(self):
+        rng = random.Random(42)
+        for _ in range(50):
+            w, h = pick_map_size(rng)
+            assert (w, h) in MAP_SIZES
+
+    def test_weights_favor_small_and_medium(self):
+        """Large maps (120x40) should appear less often."""
+        rng = random.Random(0)
+        counts = {s: 0 for s in MAP_SIZES}
+        n = 1000
+        for _ in range(n):
+            counts[pick_map_size(rng)] += 1
+        # Large should be roughly 20%, small+medium ~80%
+        large_ratio = counts[(120, 40)] / n
+        assert large_ratio < 0.35, f"Large ratio {large_ratio:.2f} too high"
+        assert large_ratio > 0.05, f"Large ratio {large_ratio:.2f} too low"
+
+    def test_all_sizes_appear(self):
+        rng = random.Random(99)
+        seen = set()
+        for _ in range(200):
+            seen.add(pick_map_size(rng))
+        assert seen == set(MAP_SIZES)
+
+    def test_weights_match_sizes(self):
+        assert len(MAP_SIZES) == len(MAP_SIZE_WEIGHTS)
+        assert abs(sum(MAP_SIZE_WEIGHTS) - 1.0) < 0.01
+
+    def test_bsp_generates_small_map(self):
+        set_seed(42)
+        gen = BSPGenerator()
+        level = gen.generate(GenerationParams(width=40, height=40))
+        assert level.width == 40
+        assert level.height == 40
+        assert len(level.rooms) >= 3
