@@ -55,7 +55,13 @@ def render_floor_svg(
     extends from the dungeon perimeter.  Default 2.0 gives the full
     Dyson look; lower values (e.g. 1.0) reduce SVG complexity and
     rendering time significantly.
+
+    Cave levels always use at least 2 tiles of hatch extent — the
+    wider grey halo is a defining feature of the Dyson cavern style
+    and matters more than render-time savings at that theme.
     """
+    if any(isinstance(r.shape, CaveShape) for r in level.rooms):
+        hatch_distance = max(hatch_distance, 2.0)
     w = level.width * CELL + 2 * PADDING
     h = level.height * CELL + 2 * PADDING
 
@@ -68,8 +74,21 @@ def render_floor_svg(
     svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
+    # Build the unified cave region geometry once: the SVG wall
+    # path, the matching jittered wall polygon (clip/fill), and
+    # the set of cave-region tiles.  Computed here so the polygon
+    # can feed both the dungeon clip (hatching, grid, detail) and
+    # the floor/wall renderer.
+    cave_rng = random.Random(seed + 0x5A17E5)
+    cave_wall_path, cave_wall_poly, cave_tiles = (
+        _build_cave_wall_geometry(level, cave_rng)
+    )
+
     # Build dungeon polygon once — used for hatching and grid clips
-    dungeon_poly = _build_dungeon_polygon(level)
+    dungeon_poly = _build_dungeon_polygon(
+        level, cave_wall_poly=cave_wall_poly,
+        cave_tiles=cave_tiles,
+    )
 
     # Layer 1: Shadows (rooms + corridors)
     _render_room_shadows(svg, level)
@@ -82,7 +101,12 @@ def render_floor_svg(
     _render_corridor_hatching(svg, level, seed)
 
     # Layer 3: Walls + floor fills
-    _render_walls_and_floors(svg, level)
+    _render_walls_and_floors(
+        svg, level,
+        cave_wall_path=cave_wall_path,
+        cave_wall_poly=cave_wall_poly,
+        cave_tiles=cave_tiles,
+    )
 
     # Layer 3.5: Terrain tints + room-type hints
     _render_terrain_tints(svg, level, dungeon_poly)
@@ -1463,25 +1487,38 @@ def _ring_to_subpath(
     return m.group(1) if m else ""
 
 
-def _cave_region_walls(
+def _build_cave_wall_geometry(
     level: "Level", rng: random.Random,
-) -> str | None:
-    """Build the unified cave region wall <path> element.
+):
+    """Build the unified cave region wall geometry.
+
+    Returns a tuple ``(svg_path, wall_polygon, tiles)``:
+      * ``svg_path`` is the smoothed ``<path>`` element for the
+        wall stroke (one subpath per ring).
+      * ``wall_polygon`` is a Shapely Polygon/MultiPolygon whose
+        rings match the jittered wall path — used as the clip
+        boundary for floor fill and grid, so both extend out to
+        (and are cut by) the same curve the wall stroke follows.
+      * ``tiles`` is the set of cave-region tiles (rooms +
+        connected corridors) so callers can skip per-tile
+        rendering for them.
+
+    Returns ``(None, None, empty_set)`` when the level has no cave
+    region.
 
     Collects every cave-region tile, unions into a Shapely geometry,
-    then for every ring (exterior + holes of every polygon) emits
-    one Catmull-Rom–smoothed subpath whose control points sit on
-    the tile-edge polygon boundary, densified, and pushed outward
-    along each vertex's outward normal.  Returns a single <path>
-    element that surrounds all cave floor tiles — rooms AND
-    corridors — with one continuous Dyson-style outline per ring.
+    simplifies the tile-edge staircase with Douglas-Peucker, then
+    for every ring emits one Catmull-Rom smoothed subpath whose
+    control points are densified and pushed outward along each
+    vertex's outward normal so the floor polygon stays strictly
+    enclosed by the wall ring.
     """
     tiles = _collect_cave_region(level)
     if not tiles:
-        return None
+        return None, None, set()
     geom = _build_cave_polygon(tiles)
     if geom is None or geom.is_empty:
-        return None
+        return None, None, tiles
 
     # Normalize into a list of Polygons
     polys: list = []
@@ -1490,7 +1527,7 @@ def _cave_region_walls(
     else:
         polys = [geom]
     if not polys:
-        return None
+        return None, None, tiles
 
     # Simplify with Douglas-Peucker to collapse the tile-edge
     # staircase into natural diagonals — otherwise the 90° stair
@@ -1503,6 +1540,7 @@ def _cave_region_walls(
     simplify_tol = CELL * 0.5
     step = CELL * 0.7
     subpaths: list[str] = []
+    wall_polys: list[Polygon] = []
     for poly in polys:
         simp = poly.simplify(simplify_tol, preserve_topology=True)
         simp = _shapely_orient(simp, sign=1.0)
@@ -1518,6 +1556,7 @@ def _cave_region_walls(
         if s:
             subpaths.append(s)
         # Holes (CW)
+        jittered_holes: list[list[tuple[float, float]]] = []
         for hole in simp.interiors:
             h = list(hole.coords)
             if h and h[0] == h[-1]:
@@ -1529,10 +1568,40 @@ def _cave_region_walls(
             s = _ring_to_subpath(h_j)
             if s:
                 subpaths.append(s)
+                jittered_holes.append(h_j)
+        # Matching polygon for clip/fill, built from the same
+        # jittered rings so floor + grid align exactly with the
+        # wall stroke.
+        if len(ext_j) >= 3:
+            wp = Polygon(ext_j, holes=jittered_holes)
+            if wp.is_valid and not wp.is_empty:
+                wall_polys.append(wp)
+            else:
+                # Fix tiny self-intersections from aggressive jitter.
+                wp_fixed = wp.buffer(0)
+                if not wp_fixed.is_empty:
+                    wall_polys.append(wp_fixed)
 
     if not subpaths:
-        return None
-    return f'<path d="{" ".join(subpaths)}"/>'
+        return None, None, tiles
+    svg_path = f'<path d="{" ".join(subpaths)}"/>'
+    wall_polygon = (
+        unary_union(wall_polys) if wall_polys else None
+    )
+    return svg_path, wall_polygon, tiles
+
+
+def _cave_region_walls(
+    level: "Level", rng: random.Random,
+) -> str | None:
+    """Return only the SVG wall path for a cave region.
+
+    Thin wrapper around :func:`_build_cave_wall_geometry` kept for
+    the unit tests and any caller that does not need the clip
+    polygon.
+    """
+    svg_path, _poly, _tiles = _build_cave_wall_geometry(level, rng)
+    return svg_path
 
 
 def _hybrid_svg_outline(room: "Room") -> str | None:
@@ -2871,13 +2940,26 @@ def _skull_detail(rng: random.Random, px: float, py: float) -> str:
     )
 
 
-def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
+def _render_walls_and_floors(
+    svg: list[str], level: "Level",
+    cave_wall_path: str | None = None,
+    cave_wall_poly=None,
+    cave_tiles: set[tuple[int, int]] | None = None,
+) -> None:
     """Render walls and floor fills in one pass.
 
     Smooth rooms: outline drawn with fill=BG + stroke=INK,
     so the interior is filled and the wall is drawn together.
     Rect rooms: a filled BG rect, then tile-edge wall segments.
     Corridors: per-tile BG rects (no enclosing shape).
+
+    The unified cave region (rooms + connected corridors) is
+    rendered from the precomputed *cave_wall_path* and
+    *cave_wall_poly* built by :func:`_build_cave_wall_geometry`.
+    Both the floor fill and the wall stroke come from the same
+    jittered polygon, so the wall silhouette and the floor fill
+    are pixel-aligned — mirroring the strategy used for circular
+    rooms where the circle polygon is both clip and fill.
     """
 
 
@@ -2887,11 +2969,11 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
     )
 
     # ── Unified cave region (rooms + connected corridors) ──
-    # All tiles in this set are rendered collectively via one
-    # organic Dyson-style outline and floor polygon; they skip the
-    # per-room cave branch, the per-tile corridor rect fill, AND
-    # the per-tile straight-wall-segment loop below.
-    cave_region: set[tuple[int, int]] = _collect_cave_region(level)
+    # All tiles in this set skip the per-room cave branch, the
+    # per-tile corridor rect fill, AND the per-tile straight-wall
+    # segment loop below.  Rendering is driven by the precomputed
+    # jittered polygon passed in from render_floor_svg.
+    cave_region: set[tuple[int, int]] = cave_tiles or set()
     cave_region_rooms: set[int] = set()
     if cave_region:
         for idx, room in enumerate(level.rooms):
@@ -2899,52 +2981,41 @@ def _render_walls_and_floors(svg: list[str], level: "Level") -> None:
                 cave_region_rooms.add(idx)
 
     cave_region_svg: list[str] = []
-    if cave_region:
-        # Seed the region RNG from the room ids so renders are
-        # deterministic for a given level layout.
-        seed = 0
-        for r in level.rooms:
-            if isinstance(r.shape, CaveShape):
-                seed ^= hash(r.id) & 0x7FFFFFFF
-        region_rng = random.Random(seed or 1)
-        # Floor fill from the unified polygon (one filled <path>
-        # covering all cave rooms + their corridors).
-        region_geom = _build_cave_polygon(cave_region)
-        if region_geom is not None and not region_geom.is_empty:
-            polys = (
-                list(region_geom.geoms)
-                if hasattr(region_geom, 'geoms')
-                else [region_geom]
+    if (cave_wall_poly is not None
+            and not cave_wall_poly.is_empty):
+        polys = (
+            list(cave_wall_poly.geoms)
+            if hasattr(cave_wall_poly, 'geoms')
+            else [cave_wall_poly]
+        )
+        fill_parts: list[str] = []
+        for poly in polys:
+            ext = list(poly.exterior.coords)
+            if ext and ext[0] == ext[-1]:
+                ext = ext[:-1]
+            fill_parts.append(
+                "M" + " L".join(
+                    f"{x:.1f},{y:.1f}" for x, y in ext
+                ) + " Z"
             )
-            fill_parts: list[str] = []
-            for poly in polys:
-                ext = list(poly.exterior.coords)
-                if ext and ext[0] == ext[-1]:
-                    ext = ext[:-1]
+            for hole in poly.interiors:
+                h = list(hole.coords)
+                if h and h[0] == h[-1]:
+                    h = h[:-1]
                 fill_parts.append(
                     "M" + " L".join(
-                        f"{x:.1f},{y:.1f}" for x, y in ext
+                        f"{x:.1f},{y:.1f}" for x, y in h
                     ) + " Z"
                 )
-                for hole in poly.interiors:
-                    h = list(hole.coords)
-                    if h and h[0] == h[-1]:
-                        h = h[:-1]
-                    fill_parts.append(
-                        "M" + " L".join(
-                            f"{x:.1f},{y:.1f}" for x, y in h
-                        ) + " Z"
-                    )
+        if fill_parts:
             cave_region_svg.append(
                 f'<path d="{" ".join(fill_parts)}" '
                 f'fill="{FLOOR_COLOR}" stroke="none" '
                 f'fill-rule="evenodd"/>'
             )
-        # Wall stroke from the same region (organic outline).
-        wall_el = _cave_region_walls(level, region_rng)
-        if wall_el:
-            cave_region_svg.append(wall_el.replace(
-                '/>', f' fill="none" {_STROKE_STYLE}/>'))
+    if cave_wall_path:
+        cave_region_svg.append(cave_wall_path.replace(
+            '/>', f' fill="none" {_STROKE_STYLE}/>'))
 
     # ── Pre-compute smooth room outlines and wall data ──
     smooth_tiles: set[tuple[int, int]] = set()
@@ -3534,21 +3605,42 @@ def _approximate_arc(
     return pts
 
 
-def _build_dungeon_polygon(level: "Level") -> Polygon:
+def _build_dungeon_polygon(
+    level: "Level",
+    cave_wall_poly=None,
+    cave_tiles: set[tuple[int, int]] | None = None,
+) -> Polygon:
     """Build a Shapely polygon covering room interiors only.
 
     Uses _room_shapely_polygon for every room (rect, circle,
     octagon, cross, hybrid) so the clip boundary follows the
-    wall path.  Corridors are excluded — they are handled
-    separately by grid/detail rendering.
-    """
+    wall path.  Corridors are normally excluded — they are
+    handled separately by grid/detail rendering.
 
+    For cave regions, the precomputed *cave_wall_poly* (the
+    jittered wall polygon built by :func:`_build_cave_wall_geometry`)
+    replaces the per-room cave outlines AND pulls in the connected
+    corridor tiles, so the dungeon clip extends out to exactly the
+    curve the wall stroke follows.  This keeps the grid and floor
+    fill aligned with the wall — same strategy used for circular
+    rooms, where the circle polygon serves as both fill and clip.
+    """
+    cave_tiles = cave_tiles or set()
     polys = []
 
     for room in level.rooms:
+        # Cave rooms in the unified region are covered collectively
+        # by cave_wall_poly — skip their per-room outline.
+        if (cave_wall_poly is not None
+                and isinstance(room.shape, CaveShape)
+                and room.floor_tiles() & cave_tiles):
+            continue
         room_poly = _room_shapely_polygon(room)
         if room_poly and not room_poly.is_empty:
             polys.append(room_poly)
+
+    if cave_wall_poly is not None and not cave_wall_poly.is_empty:
+        polys.append(cave_wall_poly)
 
     if not polys:
         return Polygon()
