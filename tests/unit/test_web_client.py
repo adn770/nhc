@@ -820,3 +820,103 @@ class TestWallMaskComputation:
         # Center should have mask 0.
         center = next(e for e in entries if e[0] == 2 and e[1] == 2)
         assert center[2] == 0
+
+
+class TestDoorWallMask:
+    """Door tiles get walls on the two edges orthogonal to
+    their door_side, regardless of neighbour terrain, and are
+    always included in the polygon when visible."""
+
+    def _wall_column_with_secret_door(self):
+        from nhc.dungeon.model import Level, Terrain, Tile
+        # 5x5 grid. Vertical wall column at x=2, rooms on each
+        # side. A secret door sits at (2, 2) in the wall column.
+        level = Level.create_empty("t", "T", depth=1, width=5, height=5)
+        for y in range(5):
+            for x in range(5):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        # West corridor at x=1
+        for y in range(1, 4):
+            level.tiles[y][1] = Tile(terrain=Terrain.FLOOR,
+                                     is_corridor=True)
+        # East room at x=3
+        for y in range(1, 4):
+            level.tiles[y][3] = Tile(terrain=Terrain.FLOOR)
+        # Secret door at (2, 2) on the east edge of the tile
+        level.tiles[2][2] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_secret",
+            door_side="east",
+        )
+        return level
+
+    def test_east_door_walls_north_east_south(self):
+        from nhc.rendering.web_client import _wall_mask
+        level = self._wall_column_with_secret_door()
+        mask = _wall_mask(level, 2, 2)
+        # door_side=east → walls on N (orthogonal), E (door
+        # edge), S (orthogonal). W is the player's approach
+        # side and is left clear.
+        assert mask & 1, "north wall bit should be set"
+        assert mask & 2, "east wall bit should be set"
+        assert mask & 4, "south wall bit should be set"
+        assert not (mask & 8), "west bit must be clear (approach side)"
+
+    def test_open_door_uses_same_override(self):
+        from nhc.dungeon.model import Tile, Terrain
+        from nhc.rendering.web_client import _wall_mask
+        level = self._wall_column_with_secret_door()
+        level.tiles[2][2] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_open",
+            door_side="east",
+        )
+        assert _wall_mask(level, 2, 2) == 1 | 2 | 4
+
+    def test_horizontal_door_walls_north_east_west(self):
+        from nhc.dungeon.model import Level, Terrain, Tile
+        from nhc.rendering.web_client import _wall_mask
+        level = Level.create_empty("t", "T", depth=1, width=5, height=5)
+        for y in range(5):
+            for x in range(5):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        # Horizontal wall row at y=2 with a closed door at (2, 2)
+        level.tiles[2][2] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_closed",
+            door_side="north",
+        )
+        mask = _wall_mask(level, 2, 2)
+        # door_side=north → walls on W (orthogonal), N (door
+        # edge), E (orthogonal). S (approach) is clear.
+        assert mask & 1, "north wall bit set (door edge)"
+        assert mask & 2, "east wall bit set (orthogonal)"
+        assert mask & 8, "west wall bit set (orthogonal)"
+        assert not (mask & 4), "south bit clear (approach side)"
+
+    def test_secret_door_included_in_gather_walk(self):
+        from nhc.rendering.web_client import WebClient
+        wc = WebClient(lang="en")
+        level = self._wall_column_with_secret_door()
+        # Player standing on the secret door: tile is visible.
+        level.tiles[2][2].visible = True
+        level.tiles[2][1].visible = True  # corridor, visible
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]): e[2] for e in entries}
+        assert (2, 2) in coords, (
+            "visible secret door must appear in _gather_walk"
+        )
+        assert coords[(2, 2)] == 1 | 2 | 4
+
+    def test_secret_door_in_gather_explored(self):
+        from nhc.rendering.web_client import WebClient
+        wc = WebClient(lang="en")
+        level = self._wall_column_with_secret_door()
+        level.tiles[2][2].explored = True
+        entries = wc._gather_explored(level)
+        entry = next(e for e in entries if e[0] == 2 and e[1] == 2)
+        # Secret doors previously got mask=-1; now they carry
+        # the three-bit door mask (N, E, S for a door on the
+        # east edge) so the bulk replay clears both the tile
+        # and its surrounding wall frame on reconnect.
+        assert entry[2] == 1 | 2 | 4

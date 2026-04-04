@@ -39,27 +39,49 @@ def _is_floor(level, x: int, y: int) -> bool:
 _VISIBLE_DOOR_FEATURES = frozenset(
     {"door_closed", "door_open", "door_locked"})
 
+_DOOR_FEATURES = frozenset(
+    {"door_closed", "door_open", "door_locked", "door_secret"})
+
+_POLYGON_TERRAINS = (
+    Terrain.FLOOR, Terrain.WATER, Terrain.GRASS)
+
 
 def _is_walkable(level, x: int, y: int) -> bool:
-    """True for tiles that do NOT host a wall line on their edge.
-
-    Mirrors svg.py's `_walkable`: FLOOR/WATER/GRASS terrain plus
-    visible doors (closed/open/locked). Secret doors look like
-    walls and are treated as non-walkable for this purpose.
+    """True iff the tile does NOT host a wall line from a
+    neighbour's perspective. Mirrors svg.py's `_walkable`:
+    FLOOR/WATER/GRASS terrain plus visible doors (closed, open,
+    locked). Secret doors look like walls and are treated as
+    non-walkable here so adjacent floor tiles see the usual
+    wall-line at their shared edge.
     """
     if not level.in_bounds(x, y):
         return False
     t = level.tiles[y][x]
-    if t.terrain not in (Terrain.FLOOR, Terrain.WATER, Terrain.GRASS):
+    if t.terrain not in _POLYGON_TERRAINS:
         return False
     if t.feature in _VISIBLE_DOOR_FEATURES:
         return True
     return t.feature != "door_secret"
 
 
+def _in_polygon(level, x: int, y: int) -> bool:
+    """True iff the tile should be part of the clearHatch
+    polygon when visible/explored. All floor-family terrains
+    qualify, including tiles carrying any door feature (closed,
+    open, locked, secret) — the player stands on the door tile
+    itself, so its hatch must be cleared regardless of how the
+    door interacts with neighbouring wall-line rendering.
+    """
+    if not level.in_bounds(x, y):
+        return False
+    t = level.tiles[y][x]
+    return t.terrain in _POLYGON_TERRAINS
+
+
 # Wall-edge bitmask: bit 0=N, 1=E, 2=S, 3=W. An edge is a wall
-# iff the neighbour in that direction is not walkable. Matches
-# the tile-edge stroke segments drawn by svg.py.
+# iff the neighbour in that direction is not walkable (for
+# ordinary tiles) or iff it is one of the two edges orthogonal
+# to the door's own edge (for door tiles).
 _WALL_N = 1
 _WALL_E = 2
 _WALL_S = 4
@@ -67,6 +89,29 @@ _WALL_W = 8
 
 
 def _wall_mask(level, x: int, y: int) -> int:
+    t = level.tile_at(x, y)
+    if t and t.feature in _DOOR_FEATURES and t.door_side:
+        # Door tiles get wall bits on three edges: the two
+        # orthogonal edges (where the wall column continues)
+        # and the door's own edge (where either the door visual
+        # or the secret-door wall visual is drawn by the
+        # client). The edge opposite to door_side is the
+        # through direction — the side the player enters from
+        # — and is left clear. In practice that neighbour is
+        # always part of the FOV polygon too, so the edge is
+        # interior and never traced regardless; leaving the
+        # opposite bit off keeps the rule faithful to the
+        # FOV-driven "only reveal what you see from your side"
+        # behaviour.
+        side = t.door_side
+        if side == "east":
+            return _WALL_N | _WALL_E | _WALL_S
+        if side == "west":
+            return _WALL_N | _WALL_W | _WALL_S
+        if side == "north":
+            return _WALL_N | _WALL_E | _WALL_W
+        if side == "south":
+            return _WALL_E | _WALL_S | _WALL_W
     mask = 0
     if not _is_walkable(level, x, y - 1):
         mask |= _WALL_N
@@ -491,14 +536,15 @@ class WebClient(GameClient):
     def _gather_walk(
         self, level: "Level",
     ) -> list[list[int]]:
-        """Walkable visible tiles with their 4-bit wall masks.
+        """Visible polygon-eligible tiles with 4-bit wall masks.
 
         Each entry is [x, y, mask] where mask has bit 0=N, 1=E,
-        2=S, 3=W set iff the neighbour in that direction is not
-        walkable — matching svg.py's wall-line rule. The web
-        client uses this list both to build the FOV reveal
-        polygon and to decide which edges should be inflated by
-        10% of a cell to cover the wall thickness.
+        2=S, 3=W set iff that tile edge is a wall line. For
+        ordinary floor tiles this tracks svg.py's wall-line
+        rule; for door tiles (any state) the two edges
+        orthogonal to `door_side` are walls and the door's own
+        edge is not, so the door tile is revealed together with
+        the surrounding wall frame.
         """
         out: list[list[int]] = []
         for y in range(level.height):
@@ -506,7 +552,7 @@ class WebClient(GameClient):
                 tile = level.tile_at(x, y)
                 if not tile or not tile.visible:
                     continue
-                if not _is_walkable(level, x, y):
+                if not _in_polygon(level, x, y):
                     continue
                 out.append([x, y, _wall_mask(level, x, y)])
         return out
@@ -517,10 +563,10 @@ class WebClient(GameClient):
         """All explored tiles with a wall-mask sentinel.
 
         Used only on floor init and reconnects. Each entry is
-        [x, y, mask]: mask = 0..15 for walkable tiles (wall-edge
-        bitmask as in _gather_walk), or -1 for non-walkable
-        tiles (walls/void) that are still part of the player's
-        exploration memory. The client splits the list into two
+        [x, y, mask]: mask = 0..15 for polygon-eligible tiles
+        (including doors), or -1 for non-polygon tiles
+        (walls/void) that still belong to the exploration
+        memory set. The client splits the list into two
         structures: all keys feed the drawFog dim-memory set,
         mask >= 0 entries feed the bulk clearHatch polygon.
         """
@@ -531,7 +577,7 @@ class WebClient(GameClient):
                 if not tile or not tile.explored:
                     continue
                 mask = (_wall_mask(level, x, y)
-                        if _is_walkable(level, x, y) else -1)
+                        if _in_polygon(level, x, y) else -1)
                 out.append([x, y, mask])
         return out
 
