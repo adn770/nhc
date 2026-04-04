@@ -113,7 +113,7 @@ const UI = {
     if (rawItems.length === 0) {
       const empty = document.createElement("span");
       empty.style.color = "#808080";
-      empty.textContent = "empty";
+      empty.textContent = (NHC.labels && NHC.labels.empty) || "empty";
       this.statusLine3.appendChild(empty);
     } else {
       rawItems.forEach((it, idx) => {
@@ -161,7 +161,7 @@ const UI = {
 
   _itemContextActions(item) {
     const types = item.types || [];
-    const L = this._actionLabels || {};
+    const L = NHC.labels || {};
     const actions = [];
     if (types.includes("consumable")) {
       actions.push({ action: "use", label: L.use || "Use" });
@@ -310,15 +310,16 @@ const UI = {
     const box = document.createElement("div");
     box.className = "menu-box inv-panel";
 
+    const L = NHC.labels || {};
     const h3 = document.createElement("h3");
-    h3.textContent = "Inventory";
+    h3.textContent = L.inventory_title || "Inventory";
     box.appendChild(h3);
 
     // Equipment section
     if (equipped.length > 0) {
       const eqHead = document.createElement("div");
       eqHead.className = "inv-section-header";
-      eqHead.textContent = "Equipment:";
+      eqHead.textContent = L.equipment_section || "Equipment:";
       box.appendChild(eqHead);
 
       equipped.forEach(it => {
@@ -330,14 +331,15 @@ const UI = {
     // Backpack section
     const bpHead = document.createElement("div");
     bpHead.className = "inv-section-header";
-    bpHead.textContent = `Backpack (${backpack.length} items):`;
+    const bpTpl = L.backpack_section || "Backpack ({count} items):";
+    bpHead.textContent = bpTpl.replace("{count}", backpack.length);
     box.appendChild(bpHead);
 
     if (backpack.length === 0) {
       const empty = document.createElement("div");
       empty.className = "inv-row";
       empty.style.color = "#808080";
-      empty.textContent = "  (empty)";
+      empty.textContent = "  " + (L.inventory_empty || "(empty)");
       box.appendChild(empty);
     } else {
       backpack.forEach(it => {
@@ -351,7 +353,7 @@ const UI = {
     closeBtn.className = "option";
     closeBtn.style.textAlign = "center";
     closeBtn.style.marginTop = "12px";
-    closeBtn.textContent = "[Close]";
+    closeBtn.textContent = L.close_button || "[Close]";
     closeBtn.addEventListener("click", () => overlay.remove());
     box.appendChild(closeBtn);
 
@@ -396,13 +398,17 @@ const UI = {
   },
 
   showHelp() {
+    const L = NHC.labels || {};
     const overlay = document.createElement("div");
     overlay.id = "menu-overlay";
     const box = document.createElement("div");
     box.className = "menu-box help-box";
-    box.innerHTML = `<h3>Help</h3><pre id="help-content">Loading...</pre>
+    const hTitle = L.help_title || "Help";
+    const hLoad = L.help_loading || "Loading...";
+    const hHint = L.help_close_hint || "Press ESC or click to close";
+    box.innerHTML = `<h3>${hTitle}</h3><pre id="help-content">${hLoad}</pre>
       <div class="option" style="margin-top:12px;text-align:center">
-        Press ESC or click to close
+        ${hHint}
       </div>`;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
@@ -416,7 +422,7 @@ const UI = {
       })
       .catch(() => {
         document.getElementById("help-content").textContent =
-          "Help not available.";
+          L.help_unavailable || "Help not available.";
       });
 
     const dismiss = () => {
@@ -431,18 +437,25 @@ const UI = {
   },
 
   showGameOver(msg) {
+    const L = NHC.labels || {};
     const overlay = document.createElement("div");
     overlay.id = "menu-overlay";
     const box = document.createElement("div");
     box.className = "menu-box";
-    const title = msg.won ? "⚔️ VICTORY! ⚔️" : "💀 YOU DIED 💀";
+    const vicTitle = L.victory_title || "VICTORY!";
+    const deathTitle = L.death_title || "YOU DIED";
+    const title = msg.won ? `⚔️ ${vicTitle} ⚔️` : `💀 ${deathTitle} 💀`;
+    const causeTpl = L.death_cause || "Killed by {cause}.";
     const cause = msg.killed_by
-      ? `<p>Killed by ${msg.killed_by}.</p>` : "";
+      ? `<p>${causeTpl.replace("{cause}", msg.killed_by)}</p>` : "";
+    const footerTpl = L.end_footer || "Survived {turn} turns.";
+    const footer = footerTpl.replace("{turn}", msg.turn);
+    const cont = L.game_continue || "Press any key or click to continue";
     box.innerHTML = `<h3>${title}</h3>
       ${cause}
-      <p>Survived ${msg.turn} turns.</p>
+      <p>${footer}</p>
       <br>
-      <div class="option">Press any key or click to continue</div>`;
+      <div class="option">${cont}</div>`;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
@@ -457,5 +470,13 @@ const UI = {
 
     box.addEventListener("click", dismiss, { once: true });
     document.addEventListener("keydown", dismiss, { once: true });
+  },
+
+  applyLabels(labels) {
+    // Update elements that exist before the game screen loads
+    const helpBtn = document.getElementById("help-btn");
+    if (helpBtn) helpBtn.title = labels.help_button || "Help (?)";
+    const input = document.querySelector("#typed-input input");
+    if (input) input.placeholder = labels.input_placeholder || "Type a command...";
   },
 };

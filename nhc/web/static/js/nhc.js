@@ -3,6 +3,7 @@
  */
 const NHC = {
   sessionId: null,
+  labels: {},
 
   init() {
     UI.init();
@@ -95,7 +96,8 @@ const NHC = {
     });
 
     WS.on("help", () => {
-      UI.addMessage("--- Help: press ? for full help ---");
+      const L = NHC.labels;
+      UI.addMessage(L.help_command || "--- Help: press ? for full help ---");
     });
 
     WS.on("shutdown", () => {
@@ -103,7 +105,8 @@ const NHC = {
     });
 
     WS.on("farlook", () => {
-      UI.addMessage("Farlook mode — click a tile to examine.");
+      const L = NHC.labels;
+      UI.addMessage(L.farlook_hint || "Farlook mode — click a tile to examine.");
       WS.send({ type: "action", intent: "farlook_done" });
     });
 
@@ -130,7 +133,10 @@ const NHC = {
     const lang = document.getElementById("lang-select").value;
     const tileset = document.getElementById("tileset-select").value;
 
-    this.showLoading(reset ? "Generating dungeon..." : "Loading game...");
+    const L = NHC.labels;
+    this.showLoading(reset
+      ? (L.loading_generate || "Generating dungeon...")
+      : (L.loading_resume || "Loading game..."));
 
     const resp = await fetch("/api/game/new", {
       method: "POST",
@@ -160,10 +166,14 @@ const NHC = {
     // Init map now that the DOM is visible
     GameMap.init();
 
-    // Load translated toolbar labels via HTTP
+    // Load translated UI labels via HTTP
     fetch(`/api/game/${data.session_id}/labels.json`)
       .then(r => r.json())
-      .then(labels => Input.updateToolbarLabels(labels))
+      .then(labels => {
+        NHC.labels = labels;
+        Input.updateToolbarLabels(labels);
+        UI.applyLabels(labels);
+      })
       .catch(e => console.warn("Failed to load labels:", e));
 
     // Init debug panel if god mode
@@ -213,10 +223,11 @@ const NHC = {
   },
 
   async restartGame() {
+    const L = NHC.labels;
     const choice = await UI.showMenu(
-      "Restart game? Current progress will be lost.", [
-        { id: "yes", name: "Yes, restart" },
-        { id: "no",  name: "Cancel" },
+      L.restart_confirm || "Restart game? Current progress will be lost.", [
+        { id: "yes", name: L.restart_yes || "Yes, restart" },
+        { id: "no",  name: L.restart_cancel || "Cancel" },
       ]);
     if (choice !== "yes") return;
     if (this.sessionId) {

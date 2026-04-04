@@ -220,7 +220,10 @@ const Input = {
   _updateModeIndicator() {
     const label = document.getElementById("mode-label");
     if (label) {
-      label.textContent = this.classicMode ? "[classic]" : "[typed]";
+      const L = NHC.labels || {};
+      label.textContent = this.classicMode
+        ? (L.mode_classic_tag || "[classic]")
+        : (L.mode_typed_tag || "[typed]");
     }
   },
 };

@@ -594,6 +594,35 @@ ui:
   toolbar_debug: "Panell de depuració (Mode déu)"
   mode_typed: "Canviat a mode escrit. Escriu les teves accions."
   mode_classic: "Canviat a mode clàssic. Usa les tecles."
+  # Inventory panel
+  equipment_section: "Equipament:"
+  backpack_section: "Motxilla ({count} objectes):"
+  inventory_empty: "(buit)"
+  close_button: "[Tancar]"
+  # Help dialog
+  help_title: "Ajuda"
+  help_loading: "Carregant..."
+  help_close_hint: "Prem ESC o clica per tancar"
+  help_unavailable: "Ajuda no disponible."
+  help_button: "Ajuda (?)"
+  # Game over
+  game_continue: "Prem qualsevol tecla o clica per continuar"
+  # Loading
+  loading_generate: "Generant masmorra..."
+  loading_resume: "Carregant partida..."
+  # Farlook
+  farlook_hint: "Mode exploració — clica una casella per examinar."
+  # Help command
+  help_command: "--- Ajuda: prem ? per ajuda completa ---"
+  # Restart confirmation
+  restart_confirm: "Reiniciar partida? El progrés actual es perdrà."
+  restart_yes: "Sí, reiniciar"
+  restart_cancel: "Cancel·lar"
+  # Mode indicator tags
+  mode_classic_tag: "[clàssic]"
+  mode_typed_tag: "[escrit]"
+  # Input
+  input_placeholder: "Escriu una ordre..."
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:

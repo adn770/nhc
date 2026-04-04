@@ -453,12 +453,12 @@ class TestGatherStatsItemMetadata:
         assert stats["items"] == []
 
 
-class TestActionLabels:
-    """_gather_stats includes translated action labels for context menu."""
+class TestUILabels:
+    """_ui_labels includes translated labels for toolbar, inventory, etc."""
 
     def test_action_labels_present(self):
         wc = WebClient(lang="en")
-        labels = wc._action_labels()
+        labels = wc._ui_labels()
         for key in ("use", "quaff", "zap", "equip", "unequip",
                      "drop", "throw"):
             assert key in labels, f"missing label for '{key}'"
@@ -466,10 +466,30 @@ class TestActionLabels:
     def test_action_labels_catalan(self):
         i18n_init("ca")
         wc = WebClient(lang="ca")
-        labels = wc._action_labels()
+        labels = wc._ui_labels()
         # Catalan labels should not be the English fallback keys
         assert labels["drop"] != "ui.action_drop"
         assert labels["use"] != "ui.action_use"
+
+    def test_ui_chrome_labels_present(self):
+        wc = WebClient(lang="en")
+        labels = wc._ui_labels()
+        chrome_keys = [
+            "inventory_title", "equipment_section",
+            "backpack_section", "inventory_empty", "close_button",
+            "help_title", "help_loading", "help_close_hint",
+            "help_unavailable", "help_button",
+            "victory_title", "death_title", "death_cause",
+            "end_footer", "game_continue",
+            "loading_generate", "loading_resume",
+            "farlook_hint", "help_command",
+            "restart_confirm", "restart_yes", "restart_cancel",
+            "mode_classic_tag", "mode_typed_tag",
+            "input_placeholder", "empty",
+        ]
+        for key in chrome_keys:
+            assert key in labels, f"missing UI label '{key}'"
+            assert labels[key], f"empty UI label '{key}'"
 
 
 class TestItemActionDispatch:

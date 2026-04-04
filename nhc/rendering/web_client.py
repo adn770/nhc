@@ -316,9 +316,16 @@ class WebClient(GameClient):
         }
         return static, dynamic
 
-    def _action_labels(self) -> dict[str, str]:
-        """Return translated context menu and toolbar labels."""
+    def _ui_labels(self) -> dict[str, str]:
+        """Return all translated UI labels for the web client.
+
+        Delivered once via /labels.json at game start.  Covers
+        toolbar tooltips, context menus, inventory panel, help
+        dialog, game over screen, loading text, and other
+        player-facing chrome.
+        """
         return {
+            # Context menu actions
             "use": tr("ui.action_use"),
             "quaff": tr("ui.action_quaff"),
             "zap": tr("ui.action_zap"),
@@ -326,6 +333,7 @@ class WebClient(GameClient):
             "unequip": tr("ui.action_unequip"),
             "drop": tr("ui.action_drop"),
             "throw": tr("ui.action_throw"),
+            # Toolbar
             "toolbar_pickup": tr("ui.toolbar_pickup"),
             "toolbar_inventory": tr("ui.toolbar_inventory"),
             "toolbar_quaff": tr("ui.toolbar_quaff"),
@@ -345,6 +353,39 @@ class WebClient(GameClient):
             "toolbar_zoom_out": tr("ui.toolbar_zoom_out"),
             "toolbar_restart": tr("ui.toolbar_restart"),
             "toolbar_debug": tr("ui.toolbar_debug"),
+            # Inventory panel
+            "empty": tr("ui.empty"),
+            "inventory_title": tr("ui.inventory_title"),
+            "equipment_section": tr("ui.equipment_section"),
+            "backpack_section": tr("ui.backpack_section"),
+            "inventory_empty": tr("ui.inventory_empty"),
+            "close_button": tr("ui.close_button"),
+            # Help dialog
+            "help_title": tr("ui.help_title"),
+            "help_loading": tr("ui.help_loading"),
+            "help_close_hint": tr("ui.help_close_hint"),
+            "help_unavailable": tr("ui.help_unavailable"),
+            "help_button": tr("ui.help_button"),
+            # Game over
+            "victory_title": tr("ui.victory_title"),
+            "death_title": tr("ui.death_title"),
+            "death_cause": tr("ui.death_cause"),
+            "end_footer": tr("ui.end_footer"),
+            "game_continue": tr("ui.game_continue"),
+            # Loading / farlook / help command
+            "loading_generate": tr("ui.loading_generate"),
+            "loading_resume": tr("ui.loading_resume"),
+            "farlook_hint": tr("ui.farlook_hint"),
+            "help_command": tr("ui.help_command"),
+            # Restart confirmation
+            "restart_confirm": tr("ui.restart_confirm"),
+            "restart_yes": tr("ui.restart_yes"),
+            "restart_cancel": tr("ui.restart_cancel"),
+            # Mode indicator
+            "mode_classic_tag": tr("ui.mode_classic_tag"),
+            "mode_typed_tag": tr("ui.mode_typed_tag"),
+            # Input
+            "input_placeholder": tr("ui.input_placeholder"),
         }
 
     def _gather_doors(

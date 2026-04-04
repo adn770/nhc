@@ -576,6 +576,35 @@ ui:
   toolbar_debug: "Debug Panel (God Mode)"
   mode_typed: "Switched to typed mode. Type your actions."
   mode_classic: "Switched to classic mode. Use keys."
+  # Inventory panel
+  equipment_section: "Equipment:"
+  backpack_section: "Backpack ({count} items):"
+  inventory_empty: "(empty)"
+  close_button: "[Close]"
+  # Help dialog
+  help_title: "Help"
+  help_loading: "Loading..."
+  help_close_hint: "Press ESC or click to close"
+  help_unavailable: "Help not available."
+  help_button: "Help (?)"
+  # Game over
+  game_continue: "Press any key or click to continue"
+  # Loading
+  loading_generate: "Generating dungeon..."
+  loading_resume: "Loading game..."
+  # Farlook
+  farlook_hint: "Farlook mode — click a tile to examine."
+  # Help command
+  help_command: "--- Help: press ? for full help ---"
+  # Restart confirmation
+  restart_confirm: "Restart game? Current progress will be lost."
+  restart_yes: "Yes, restart"
+  restart_cancel: "Cancel"
+  # Mode indicator tags
+  mode_classic_tag: "[classic]"
+  mode_typed_tag: "[typed]"
+  # Input
+  input_placeholder: "Type a command..."
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:

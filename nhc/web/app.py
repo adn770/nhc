@@ -646,7 +646,7 @@ def create_app(
         if not session:
             return jsonify({"error": "session not found"}), 404
         client = session.game.renderer
-        resp = jsonify(client._action_labels())
+        resp = jsonify(client._ui_labels())
         resp.headers["Cache-Control"] = "public, max-age=86400"
         return resp
 

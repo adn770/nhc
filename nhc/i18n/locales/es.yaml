@@ -576,6 +576,35 @@ ui:
   toolbar_debug: "Panel de depuración (Modo dios)"
   mode_typed: "Cambiado a modo escrito. Escribe tus acciones."
   mode_classic: "Cambiado a modo clásico. Usa las teclas."
+  # Inventory panel
+  equipment_section: "Equipamiento:"
+  backpack_section: "Mochila ({count} objetos):"
+  inventory_empty: "(vacío)"
+  close_button: "[Cerrar]"
+  # Help dialog
+  help_title: "Ayuda"
+  help_loading: "Cargando..."
+  help_close_hint: "Pulsa ESC o haz clic para cerrar"
+  help_unavailable: "Ayuda no disponible."
+  help_button: "Ayuda (?)"
+  # Game over
+  game_continue: "Pulsa cualquier tecla o haz clic para continuar"
+  # Loading
+  loading_generate: "Generando mazmorra..."
+  loading_resume: "Cargando partida..."
+  # Farlook
+  farlook_hint: "Modo exploración — haz clic en una casilla para examinar."
+  # Help command
+  help_command: "--- Ayuda: pulsa ? para ayuda completa ---"
+  # Restart confirmation
+  restart_confirm: "¿Reiniciar partida? El progreso actual se perderá."
+  restart_yes: "Sí, reiniciar"
+  restart_cancel: "Cancelar"
+  # Mode indicator tags
+  mode_classic_tag: "[clásico]"
+  mode_typed_tag: "[escrito]"
+  # Input
+  input_placeholder: "Escribe un comando..."
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:

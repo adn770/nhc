@@ -180,6 +180,29 @@ class TestGlobalInterface:
                     )
 
 
+    def test_all_locales_have_ui_chrome_keys(self):
+        """All locales must have the UI chrome keys for labels.json."""
+        keys = [
+            "ui.equipment_section", "ui.backpack_section",
+            "ui.inventory_empty", "ui.close_button",
+            "ui.help_title", "ui.help_loading",
+            "ui.help_close_hint", "ui.help_unavailable",
+            "ui.help_button", "ui.game_continue",
+            "ui.loading_generate", "ui.loading_resume",
+            "ui.farlook_hint", "ui.help_command",
+            "ui.restart_confirm", "ui.restart_yes",
+            "ui.restart_cancel", "ui.mode_classic_tag",
+            "ui.mode_typed_tag", "ui.input_placeholder",
+        ]
+        for lang in ("en", "ca", "es"):
+            init(lang)
+            for key in keys:
+                result = t(key)
+                assert result != key, (
+                    f"Missing key '{key}' in locale '{lang}'"
+                )
+
+
 class TestThreadIsolation:
     def test_concurrent_languages_dont_interfere(self):
         """Each thread gets its own language — no cross-talk."""
