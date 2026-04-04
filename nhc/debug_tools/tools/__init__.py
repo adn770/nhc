@@ -16,6 +16,7 @@ from nhc.debug_tools.tools.dungeon import (
 )
 from nhc.debug_tools.tools.rendering import (
     GetFOVAnalysisTool,
+    GetHatchPolygonTool,
     GetLayerStateTool,
 )
 from nhc.debug_tools.tools.svg_query import (
@@ -37,6 +38,7 @@ ALL_TOOL_CLASSES = [
     SearchTilesTool,
     GetFOVAnalysisTool,
     GetLayerStateTool,
+    GetHatchPolygonTool,
     GetSVGTileElementsTool,
     GetSVGRoomWallsTool,
 ]

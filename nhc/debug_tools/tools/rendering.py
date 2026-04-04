@@ -80,3 +80,65 @@ class GetLayerStateTool(BaseTool):
             "debug_doors": len(
                 layer.get("debug", {}).get("doors", [])),
         }
+
+
+class GetHatchPolygonTool(BaseTool):
+    name = "get_hatch_polygon"
+    description = (
+        "Query the clearHatch debug snapshot: walkable tile "
+        "set with wall masks, raw tile-perimeter loops, the "
+        "2px-expanded offset loops, and per-tile detail for "
+        "every door tile and its orthogonal neighbours."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "detail": {
+                "type": "string",
+                "enum": ["summary", "loops", "doors", "full"],
+                "description": (
+                    "summary (default) returns counts only; "
+                    "loops adds the raw + expanded loop "
+                    "geometry; doors adds the door "
+                    "neighbourhood detail; full returns "
+                    "everything including the walls list."
+                ),
+            },
+        },
+    }
+
+    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+        hatch = self._read_json_export("hatch_debug")
+        if "error" in hatch:
+            return hatch
+        detail = kwargs.get("detail", "summary")
+
+        raw_loops = hatch.get("loops_raw", [])
+        expanded = hatch.get("loops_expanded", [])
+        result: dict[str, Any] = {
+            "turn": hatch.get("turn"),
+            "timestamp": hatch.get("timestamp"),
+            "cell_size": hatch.get("cell_size"),
+            "padding": hatch.get("padding"),
+            "offset_px": hatch.get("offset_px"),
+            "tile_count": hatch.get("tile_count"),
+            "loop_count": hatch.get("loop_count"),
+            "loop_edges": [len(loop) for loop in raw_loops],
+            "expanded_vertices": [len(loop) for loop in expanded],
+            "door_tile_count": sum(
+                1 for e in hatch.get("door_neighbourhood", [])
+                if e.get("is_door")
+            ),
+            "door_neighbourhood_count": len(
+                hatch.get("door_neighbourhood", [])
+            ),
+        }
+        if detail in ("loops", "full"):
+            result["loops_raw"] = raw_loops
+            result["loops_expanded"] = expanded
+        if detail in ("doors", "full"):
+            result["door_neighbourhood"] = hatch.get(
+                "door_neighbourhood", [])
+        if detail == "full":
+            result["walls"] = hatch.get("walls", [])
+        return result

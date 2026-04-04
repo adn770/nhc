@@ -573,6 +573,108 @@ class WebClient(GameClient):
                     visible.append([x, y])
         return visible
 
+    def _gather_hatch_debug(
+        self, level: "Level",
+    ) -> dict:
+        """Debug snapshot of the clearHatch polygon pipeline.
+
+        Returns the current walkable tile set, the raw tile-
+        perimeter loops, the expanded (2px wall-offset) loops,
+        and verbose per-tile detail for every tile that is a
+        door or orthogonally adjacent to one. The geometry is
+        computed by :mod:`nhc.rendering.hatch_polygon`, which
+        is a line-for-line Python port of the JS algorithm in
+        ``map.js``, so the debug export mirrors exactly what
+        the browser draws.
+        """
+        from nhc.rendering.hatch_polygon import (
+            build_tile_set_polygons,
+            offset_loop,
+        )
+
+        # Must match map.js constants.
+        cell_size = 32
+        padding = 32
+        offset_px = 2
+
+        walk = self._gather_walk(level)
+        walls_map: dict[tuple[int, int], int] = {
+            (e[0], e[1]): e[2] for e in walk
+        }
+
+        raw_loops = build_tile_set_polygons(
+            walls_map, cell_size, padding)
+        expanded_loops = [
+            offset_loop(loop, offset_px) for loop in raw_loops
+        ]
+
+        # Per-tile detail for doors and tiles touching a door.
+        directions = (
+            ("n", 0, -1),
+            ("e", 1, 0),
+            ("s", 0, 1),
+            ("w", -1, 0),
+        )
+
+        def _tile_summary(tx: int, ty: int) -> dict:
+            t = level.tile_at(tx, ty)
+            if t is None:
+                return {"x": tx, "y": ty, "in_bounds": False}
+            return {
+                "x": tx, "y": ty,
+                "terrain": t.terrain.name,
+                "feature": t.feature,
+                "door_side": t.door_side or None,
+                "visible": bool(t.visible),
+                "explored": bool(t.explored),
+                "walkable": _is_walkable(level, tx, ty),
+                "in_polygon": _in_polygon(level, tx, ty),
+            }
+
+        door_neighbourhood: list[dict] = []
+        for (x, y), mask in walls_map.items():
+            tile = level.tile_at(x, y)
+            is_door = (tile is not None
+                       and tile.feature in _DOOR_FEATURES)
+            adj_door = False
+            for _, dx, dy in directions:
+                nb = level.tile_at(x + dx, y + dy)
+                if nb and nb.feature in _DOOR_FEATURES:
+                    adj_door = True
+                    break
+            if not (is_door or adj_door):
+                continue
+            entry = _tile_summary(x, y)
+            entry["wall_mask"] = mask
+            entry["is_door"] = is_door
+            entry["adjacent_to_door"] = adj_door
+            entry["neighbours"] = {
+                name: _tile_summary(x + dx, y + dy)
+                for name, dx, dy in directions
+            }
+            if is_door:
+                entry["door_polygon_gate"] = _door_polygon_gate(
+                    level, x, y, "visible")
+            door_neighbourhood.append(entry)
+        door_neighbourhood.sort(key=lambda e: (e["y"], e["x"]))
+
+        return {
+            "cell_size": cell_size,
+            "padding": padding,
+            "offset_px": offset_px,
+            "tile_count": len(walk),
+            "loop_count": len(raw_loops),
+            "walls": walk,
+            "loops_raw": [
+                [e.to_dict() for e in loop] for loop in raw_loops
+            ],
+            "loops_expanded": [
+                [{"x": x, "y": y} for (x, y) in loop]
+                for loop in expanded_loops
+            ],
+            "door_neighbourhood": door_neighbourhood,
+        }
+
     def _gather_walk(
         self, level: "Level",
     ) -> list[list[int]]:

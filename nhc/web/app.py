@@ -903,6 +903,30 @@ def create_app(
         logger.info("Exported layer state: %s", path)
         return jsonify({"path": str(path)})
 
+    @app.route("/api/game/<session_id>/export/hatch_debug",
+               methods=["POST"])
+    @_player_auth
+    def export_hatch_debug(session_id: str):
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        import json as _json
+        from datetime import datetime
+        game = session.game
+        client = game.renderer
+        data = {
+            "timestamp": datetime.now().isoformat(),
+            "turn": game.turn,
+            **client._gather_hatch_debug(game.level),
+        }
+        out = Path("debug/exports")
+        out.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = out / f"hatch_debug_{ts}.json"
+        path.write_text(_json.dumps(data, indent=2))
+        logger.info("Exported hatch debug: %s", path)
+        return jsonify({"path": str(path)})
+
     @app.route("/api/game/<session_id>/export/map_svg",
                methods=["POST"])
     @_player_auth
@@ -992,6 +1016,17 @@ def create_app(
             }
             _add_text(tar, f"exports/layer_state_{ts}.json",
                       _json.dumps(layer, indent=2))
+
+            # 2b. Hatch polygon debug snapshot — walkable tile
+            # list with wall masks, raw tile-perimeter loops,
+            # 2px-expanded loops, and door-neighbourhood detail.
+            hatch = {
+                "timestamp": datetime.now().isoformat(),
+                "turn": game.turn,
+                **client._gather_hatch_debug(level),
+            }
+            _add_text(tar, f"exports/hatch_debug_{ts}.json",
+                      _json.dumps(hatch, indent=2))
 
             # 3. Floor SVGs (all cached depths)
             for depth, (svg_id, svg) in game._svg_cache.items():
