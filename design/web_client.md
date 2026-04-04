@@ -102,7 +102,7 @@ Four stacked canvas layers sit over the SVG base image:
    unexplored areas. The canvas is filled once per floor with the
    hatch pattern and then acts as an accumulator: every FOV update
    traces the perimeter polygon of the currently visible tiles,
-   inflates it outward by 10% of a cell, and punches a hole via
+   inflates wall edges outward by 2 pixels, and punches a hole via
    `destination-out` compositing. Previously revealed polygons
    persist until the pattern is re-stamped on a new floor.
 3. **Fog canvas** (z-index 2): Dark overlay on tiles outside the

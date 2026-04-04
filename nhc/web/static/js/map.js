@@ -343,10 +343,10 @@ const GameMap = {
    * Punch a polygonal hole through the hatch pattern for the
    * given walkable-tile map. Traces the perimeter of the tiles,
    * inflates only the edges that sit on a wall line (per the
-   * per-tile wall mask) by 10% of a cell along each edge's
-   * outward normal, and fills via destination-out compositing.
-   * Non-wall boundary edges stay exactly on the tile edge so a
-   * torch radius cutting across open floor does not bleed.
+   * per-tile wall mask) by 2 pixels along each edge's outward
+   * normal, and fills via destination-out compositing. Non-wall
+   * boundary edges stay exactly on the tile edge so a torch
+   * radius cutting across open floor does not bleed.
    *
    * The canvas itself accumulates clears across turns — the
    * caller should pass the current walkable FOV each turn and
@@ -360,7 +360,7 @@ const GameMap = {
     const loops = this._buildTileSetPolygons(wallsMap);
     if (loops.length === 0) return;
 
-    const offset = this.cellSize * 0.1;
+    const offset = 2;
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
     ctx.beginPath();
