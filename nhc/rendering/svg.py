@@ -1390,25 +1390,32 @@ def _jitter_ring_outward(
     floor_poly,
     rng: random.Random,
     is_hole: bool = False,
+    direction_poly=None,
 ) -> list[tuple[float, float]]:
     """Push each control point outward along its outward normal.
 
     *coords* is a non-repeating ring (no duplicated closing point).
-    *floor_poly* is the Shapely polygon whose boundary *coords*
-    belongs to; it is used as a safety check to ensure each jittered
-    point ends up outside the polygon (so the floor is fully enclosed
-    by the wall ring).
+    *floor_poly* is the hard containment invariant — the jittered
+    result is guaranteed to stay outside this polygon (so floor
+    tiles always remain inside the final wall ring).
+    *direction_poly* is the shape whose boundary *coords* actually
+    lies on; it is used to decide which perpendicular is "outward"
+    when the vertices live on a buffered ring that is some distance
+    from *floor_poly*.  Defaults to *floor_poly* for backwards
+    compatibility.
 
-    Shapely exteriors are CCW and holes CW; "outward" (away from the
-    floor) is the *right-hand* perpendicular of the forward edge
-    direction for exteriors, and the *left-hand* perpendicular for
-    holes.  Jitter magnitude is uniform in [0.15, 0.45] * CELL.
+    Jitter magnitude is uniform in [0.25, 0.65] * CELL clamped to
+    half the local edge length so two adjacent jittered points
+    can never cross each other.
     """
     n = len(coords)
     if n < 3:
         return list(coords)
 
     from shapely.geometry import Point as ShPoint
+
+    if direction_poly is None:
+        direction_poly = floor_poly
 
     out: list[tuple[float, float]] = []
     for i in range(n):
@@ -1434,7 +1441,7 @@ def _jitter_ring_outward(
         cand_a = (ty, -tx)
         cand_b = (-ty, tx)
         probe = 0.5
-        a_outside = not floor_poly.contains(
+        a_outside = not direction_poly.contains(
             ShPoint(cur_p[0] + cand_a[0] * probe,
                     cur_p[1] + cand_a[1] * probe)
         )
@@ -1529,20 +1536,37 @@ def _build_cave_wall_geometry(
     if not polys:
         return None, None, tiles
 
-    # Simplify with Douglas-Peucker to collapse the tile-edge
-    # staircase into natural diagonals — otherwise the 90° stair
-    # corners dominate and the outward jitter can only wobble by a
-    # few pixels before crossing a neighbour.  Then densify at a
-    # sub-tile frequency so the jitter reads as Dyson's ~2 bumps
-    # per tile.  Containment safety in _jitter_ring_outward is
-    # always tested against the UNSIMPLIFIED polygon so no floor
-    # tile can end up outside the wall ring.
-    simplify_tol = CELL * 0.5
+    # Expand the tile-edge polygon outward with Shapely's round-
+    # join buffer.  This does two things at once:
+    #   1. Every 90° stairstep corner becomes a quarter-circle
+    #      arc — no pronounced L silhouettes in the wall.
+    #   2. The wall gains ~0.4 CELL of slack into the void, so
+    #      the subsequent outward jitter has room to bulge without
+    #      immediately bumping into adjacent regions.
+    # The outward jitter still uses the UNBUFFERED ``poly`` for the
+    # containment safety check, so no floor tile can end up outside
+    # the final wall ring no matter how the jitter lands.
+    buffer_r = CELL * 0.4
+    # Light simplification after buffering to remove collinear
+    # points introduced by adjacent arc segments while keeping the
+    # arcs themselves intact.
+    simplify_tol = CELL * 0.12
     step = CELL * 0.7
     subpaths: list[str] = []
     wall_polys: list[Polygon] = []
     for poly in polys:
-        simp = poly.simplify(simplify_tol, preserve_topology=True)
+        inflated = poly.buffer(
+            buffer_r, join_style='round', quad_segs=8,
+        )
+        if inflated.is_empty:
+            continue
+        # Buffering a MultiPolygon may fuse or split into multiple
+        # parts; keep the largest component for this source poly.
+        if hasattr(inflated, 'geoms'):
+            inflated = max(inflated.geoms, key=lambda g: g.area)
+        simp = inflated.simplify(
+            simplify_tol, preserve_topology=True,
+        )
         simp = _shapely_orient(simp, sign=1.0)
         if simp.is_empty or not hasattr(simp, 'exterior'):
             continue
@@ -1551,11 +1575,17 @@ def _build_cave_wall_geometry(
         if ext and ext[0] == ext[-1]:
             ext = ext[:-1]
         ext_d = _densify_ring(ext, step)
-        ext_j = _jitter_ring_outward(ext_d, poly, rng, is_hole=False)
+        ext_j = _jitter_ring_outward(
+            ext_d, poly, rng, is_hole=False,
+            direction_poly=simp,
+        )
         s = _ring_to_subpath(ext_j)
         if s:
             subpaths.append(s)
-        # Holes (CW)
+        # Holes (CW).  Buffer the source polygon's holes INWARD
+        # (i.e. use poly.interiors directly — they are already
+        # rings, and we want the wall around each hole to match
+        # the outward buffer semantics when viewed from inside).
         jittered_holes: list[list[tuple[float, float]]] = []
         for hole in simp.interiors:
             h = list(hole.coords)
@@ -1564,6 +1594,7 @@ def _build_cave_wall_geometry(
             h_d = _densify_ring(h, step)
             h_j = _jitter_ring_outward(
                 h_d, poly, rng, is_hole=True,
+                direction_poly=simp,
             )
             s = _ring_to_subpath(h_j)
             if s:

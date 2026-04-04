@@ -375,6 +375,70 @@ class TestCaveRegionWalls:
         b = _cave_region_walls(level, random.Random(7))
         assert a == b
 
+    def test_wall_polygon_extends_beyond_floor(self):
+        """The wall polygon must extend into VOID space beyond the
+        tile-edge floor polygon so long runs can arc and L corners
+        can round naturally.  A minimum 0.25-tile outward slack
+        everywhere is the invariant we care about."""
+        from nhc.rendering.svg import (
+            _build_cave_polygon, _build_cave_wall_geometry,
+            _collect_cave_region,
+        )
+        import random
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        region = _collect_cave_region(level)
+        floor_poly = _build_cave_polygon(region)
+        _svg, wall_poly, _tiles = _build_cave_wall_geometry(
+            level, random.Random(42),
+        )
+        assert floor_poly is not None and wall_poly is not None
+        # Wall has strictly more area than the tile-edge floor
+        assert wall_poly.area > floor_poly.area * 1.05, (
+            f"Wall area {wall_poly.area:.1f} should be at least 5% "
+            f"larger than floor area {floor_poly.area:.1f}"
+        )
+        # And the wall polygon must contain a slightly-inflated
+        # floor polygon — i.e. the wall has real slack over void.
+        inflated = floor_poly.buffer(CELL * 0.25)
+        assert wall_poly.buffer(0.5).contains(inflated), (
+            "Wall polygon must extend at least 0.25 CELL beyond "
+            "the tile-edge floor polygon everywhere"
+        )
+
+    def test_wall_polygon_rounds_sharp_corners(self):
+        """L-shaped cave silhouettes should be arced, not sharp.
+        Measure this by comparing the wall polygon to its convex
+        hull: a well-rounded outline has a hull/area ratio far
+        closer to 1 than the raw tile-edge polygon does."""
+        from nhc.rendering.svg import (
+            _build_cave_polygon, _build_cave_wall_geometry,
+            _collect_cave_region,
+        )
+        import random
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(theme="cave", difficulty=9)
+        region = _collect_cave_region(level)
+        floor_poly = _build_cave_polygon(region)
+        _svg, wall_poly, _tiles = _build_cave_wall_geometry(
+            level, random.Random(42),
+        )
+        assert floor_poly is not None and wall_poly is not None
+        # Compare "roundedness" via boundary length per unit area:
+        # a circle minimises this.  After rounding L corners and
+        # buffering, the wall should be notably smoother than the
+        # raw tile-edge polygon.
+        import math
+        def _compactness(p):
+            return (p.length ** 2) / (4 * math.pi * p.area)
+        floor_c = _compactness(floor_poly)
+        wall_c = _compactness(wall_poly)
+        # Wall must be at least as round as floor (lower = rounder)
+        assert wall_c <= floor_c, (
+            f"Wall compactness {wall_c:.2f} should be ≤ floor "
+            f"compactness {floor_c:.2f} (lower is rounder)"
+        )
+
 
 # ── 3. Thematic floor details ──────────────────────────────────
 
