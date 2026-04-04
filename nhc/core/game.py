@@ -261,18 +261,21 @@ def compute_hatch_clear(
 ) -> set[tuple[int, int]]:
     """Return explored tiles whose hatch should be cleared.
 
-    Only FLOOR/WATER tiles are included — WALL and VOID tiles
-    stay hatched so the expand doesn't leak SVG corridor/room
-    structure into adjacent unexplored tiles.  Closed, locked,
-    or secret doors are excluded when the corridor side hasn't
-    been explored yet.
+    All walkable terrain types (FLOOR, WATER, GRASS, LAVA, CHASM)
+    are included — WALL and VOID tiles stay hatched so the expand
+    doesn't leak SVG corridor/room structure into adjacent
+    unexplored tiles.  Closed, locked, or secret doors are
+    excluded when the corridor side hasn't been explored yet.
 
     Exception: WALL tiles inside non-rectangular room bounding
     rects (octagon, circle, cross, hybrid) are included because
     the SVG draws room outlines as polygons that extend into
     those corner tiles.
     """
-    _CLEARABLE = (Terrain.FLOOR, Terrain.WATER)
+    _CLEARABLE = (
+        Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
+        Terrain.LAVA, Terrain.CHASM,
+    )
 
     # Pre-compute WALL/VOID tiles in and around non-rect room
     # bounding rects. The SVG room outline (circle arcs, octagon

@@ -642,6 +642,33 @@ class TestHatchClearBasic:
         assert (6, 6) not in hc
 
 
+class TestHatchClearTerrainTypes:
+    """All walkable terrain types should be included in hatch_clear."""
+
+    @pytest.mark.parametrize("terrain", [
+        Terrain.GRASS, Terrain.LAVA, Terrain.CHASM,
+    ])
+    def test_terrain_tiles_included(self, terrain):
+        """Explored GRASS/LAVA/CHASM tiles must appear in
+        hatch_clear — they are walkable floor variants and
+        should not stay hidden under the hatch canvas."""
+        level = _build_room_with_two_south_doors()
+        # Replace a room floor tile with the terrain variant
+        level.tiles[3][5] = Tile(
+            terrain=terrain, explored=True,
+        )
+        # Explore surrounding tiles
+        for y in range(1, 6):
+            for x in range(3, 10):
+                tile = level.tile_at(x, y)
+                if tile:
+                    tile.explored = True
+        hc = compute_hatch_clear(level)
+        assert (5, 3) in hc, (
+            f"explored {terrain.name} tile should be in hatch_clear"
+        )
+
+
 class TestHatchClearDoorBlocking:
     """Closed doors with unexplored corridor side are excluded."""
 
