@@ -1363,6 +1363,14 @@ class Game:
         self._seen_creatures.clear()
         self._update_fov()
 
+        # Atmospheric flavour message for the new level
+        theme = self.level.metadata.theme if self.level.metadata else "dungeon"
+        roll = __import__("nhc.utils.rng", fromlist=["roll_dice"]).roll_dice("1d12")
+        atmo_key = f"atmosphere.{theme}.{roll}"
+        atmo = t(atmo_key)
+        if atmo != atmo_key:
+            self.renderer.add_message(atmo)
+
         # Notify the web client to load the new floor
         if hasattr(self.renderer, 'send_floor_change'):
             cached = self._svg_cache.get(new_depth)
