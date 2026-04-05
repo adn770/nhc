@@ -414,3 +414,21 @@ def populate_level(
     # ── Place entities on single-tile corridor segments ──
     # 50% nothing, 30% creature, 20% item
     _populate_single_tile_corridors(level, difficulty, occupied, rng)
+
+    # ── Fill vault rooms with gold ──
+    # Vaults are tiny disconnected caches; every floor tile gets a
+    # gold pile so breaking in is always worth the dig.  Normal
+    # creature/item placement already skips them via the w>=3
+    # size filter, so we don't need to clean up other entities.
+    for room in level.rooms:
+        if "vault" not in room.tags:
+            continue
+        for (vx, vy) in sorted(room.floor_tiles()):
+            tile = level.tile_at(vx, vy)
+            if not tile or tile.terrain != Terrain.FLOOR:
+                continue
+            level.entities.append(EntityPlacement(
+                entity_type="item", entity_id="gold",
+                x=vx, y=vy,
+            ))
+            occupied.add((vx, vy))

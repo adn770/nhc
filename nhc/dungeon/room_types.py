@@ -43,6 +43,11 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
     standard_count = 0
 
     for room in level.rooms:
+        # Vaults are tiny gold caches hidden off the main map —
+        # leave their tags alone, they are neither standard nor
+        # a special-painted type.
+        if "vault" in room.tags:
+            continue
         # Skip entry/exit — already tagged
         if "entry" in room.tags or "exit" in room.tags:
             room.tags.append("standard")

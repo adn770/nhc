@@ -244,6 +244,10 @@ class TestBSPGenerator:
             ex, ey = entry[0].rect.center
             reachable = flood(level, ex, ey)
             for room in level.rooms:
+                # Vaults are intentionally disconnected gold caches
+                # — only reachable by digging.  Skip them here.
+                if "vault" in room.tags:
+                    continue
                 rx, ry = room.rect.center
                 assert (rx, ry) in reachable, (
                     f"Room {room.id} at ({rx},{ry}) unreachable "

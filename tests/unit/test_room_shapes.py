@@ -754,8 +754,11 @@ class TestCircleRoomGeneration:
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 stack.append((fx + dx, fy + dy))
 
-        # Every room center must be reachable
+        # Every room center must be reachable — except vaults,
+        # which are intentionally disconnected gold caches.
         for room in level.rooms:
+            if "vault" in room.tags:
+                continue
             cx, cy = room.rect.center
             assert (cx, cy) in visited, (
                 f"{room.id} center ({cx},{cy}) not reachable"
