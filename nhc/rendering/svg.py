@@ -21,7 +21,8 @@ from shapely.ops import unary_union
 
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level,
-    OctagonShape, PillShape, Rect, RectShape, Room, Terrain,
+    OctagonShape, PillShape, Rect, RectShape, Room,
+    TempleShape, Terrain,
 )
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.rendering.terrain_palette import (
@@ -32,6 +33,7 @@ from nhc.rendering.terrain_palette import (
 
 CELL = 32          # pixels per grid cell
 PILL_ARC_SEGMENTS = 12  # per-cap polygon segments for pill outlines
+TEMPLE_ARC_SEGMENTS = 12  # per-cap polygon segments for temple arm caps
 PADDING = 32       # padding around the map (room for hatching)
 WALL_WIDTH = 4.0   # wall stroke width (bold Dyson style)
 WALL_THIN = 2.0    # thinner wall for corridors
@@ -375,7 +377,9 @@ def _outline_with_gaps(
     # Build gapped outline based on shape type
     if isinstance(shape, CircleShape):
         gapped = _circle_with_gaps(shape, r, gaps)
-    elif isinstance(shape, (OctagonShape, CrossShape, PillShape)):
+    elif isinstance(
+        shape, (OctagonShape, CrossShape, PillShape, TempleShape),
+    ):
         gapped = _polygon_with_gaps(shape, r, gaps)
     elif isinstance(shape, HybridShape):
         gapped = _hybrid_with_gaps(room, gaps)
@@ -412,7 +416,9 @@ def _intersect_outline(
     if isinstance(shape, HybridShape):
         return _intersect_hybrid(shape, r, wx, wy, dx, dy)
 
-    if isinstance(shape, (OctagonShape, CrossShape, PillShape)):
+    if isinstance(
+        shape, (OctagonShape, CrossShape, PillShape, TempleShape),
+    ):
         verts = _polygon_vertices(shape, r)
         return _intersect_polygon_edges(verts, wx, wy, dx, dy)
 
@@ -596,7 +602,8 @@ def _intersect_hybrid(
 
 
 def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
-    """Get pixel-space vertices for an octagon, cross, or pill shape."""
+    """Get pixel-space vertices for an octagon, cross, pill, or
+    temple shape."""
 
     r = rect
     px, py = r.x * CELL, r.y * CELL
@@ -604,6 +611,9 @@ def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
 
     if isinstance(shape, PillShape):
         return _pill_vertices(shape, rect)
+
+    if isinstance(shape, TempleShape):
+        return _temple_vertices(shape, rect)
 
     if isinstance(shape, OctagonShape):
         clip = max(1, min(r.width, r.height) // 3) * CELL
@@ -730,6 +740,104 @@ def _pill_vertices(
                 (cx + r_pix * math.cos(ang),
                  top_cy + r_pix * math.sin(ang))
             )
+
+    return verts
+
+
+def _temple_vertices(
+    shape: "TempleShape", rect,
+) -> list[tuple[float, float]]:
+    """Approximate a temple outline as a closed polygon.
+
+    Walks the cross outline clockwise starting at the base of the
+    north arm, substituting a semicircular arc for each of the three
+    capped arm tips (the fourth arm, ``flat_side``, keeps its
+    rectangular tip). Arcs are discretised into
+    ``TEMPLE_ARC_SEGMENTS`` segments.
+    """
+    _, _, h_left, h_right, v_top, v_bottom = shape._bar_widths(rect)
+    vl = h_left * CELL
+    vr = h_right * CELL
+    ht = v_top * CELL
+    hb = v_bottom * CELL
+    px = rect.x * CELL
+    py = rect.y * CELL
+    pw = rect.width * CELL
+    ph = rect.height * CELL
+    bar_w_tiles = h_right - h_left
+    bar_h_tiles = v_bottom - v_top
+    r_w = bar_w_tiles * CELL / 2.0
+    r_h = bar_h_tiles * CELL / 2.0
+    mid_x = (vl + vr) / 2.0
+    mid_y = (ht + hb) / 2.0
+
+    flat = shape.flat_side
+    segs = TEMPLE_ARC_SEGMENTS
+    verts: list[tuple[float, float]] = []
+
+    # ── North arm ────────────────────────────────────────────────
+    if flat == "north":
+        verts.append((vl, py))
+        verts.append((vr, py))
+    else:
+        verts.append((vl, py + r_w))
+        center_y = py + r_w
+        for i in range(1, segs):
+            ang = math.pi - math.pi * i / segs  # pi → 0
+            verts.append((
+                mid_x + r_w * math.cos(ang),
+                center_y - r_w * math.sin(ang),  # sin flipped: tip at top
+            ))
+        verts.append((vr, py + r_w))
+    verts.append((vr, ht))  # NE inner corner
+
+    # ── East arm ─────────────────────────────────────────────────
+    if flat == "east":
+        verts.append((px + pw, ht))
+        verts.append((px + pw, hb))
+    else:
+        center_x = px + pw - r_h
+        verts.append((center_x, ht))
+        for i in range(1, segs):
+            ang = -math.pi / 2 + math.pi * i / segs  # -pi/2 → pi/2
+            verts.append((
+                center_x + r_h * math.cos(ang),
+                mid_y + r_h * math.sin(ang),
+            ))
+        verts.append((center_x, hb))
+    verts.append((vr, hb))  # SE inner corner
+
+    # ── South arm ────────────────────────────────────────────────
+    if flat == "south":
+        verts.append((vr, py + ph))
+        verts.append((vl, py + ph))
+    else:
+        center_y = py + ph - r_w
+        verts.append((vr, center_y))
+        for i in range(1, segs):
+            ang = math.pi * i / segs  # 0 → pi
+            verts.append((
+                mid_x + r_w * math.cos(ang),
+                center_y + r_w * math.sin(ang),
+            ))
+        verts.append((vl, center_y))
+    verts.append((vl, hb))  # SW inner corner
+
+    # ── West arm ─────────────────────────────────────────────────
+    if flat == "west":
+        verts.append((px, hb))
+        verts.append((px, ht))
+    else:
+        center_x = px + r_h
+        verts.append((center_x, hb))
+        for i in range(1, segs):
+            ang = math.pi / 2 + math.pi * i / segs  # pi/2 → 3pi/2
+            verts.append((
+                center_x + r_h * math.cos(ang),
+                mid_y + r_h * math.sin(ang),
+            ))
+        verts.append((center_x, ht))
+    verts.append((vl, ht))  # NW inner corner (close)
 
     return verts
 
@@ -1248,6 +1356,11 @@ def _room_svg_outline(room: "Room") -> str | None:
             (px, py + ph - clip),        # left-bottom flat
             (px, py + clip),             # left-top flat
         ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return f'<polygon points="{points}"/>'
+
+    if isinstance(shape, TempleShape):
+        pts = _temple_vertices(shape, r)
         points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
         return f'<polygon points="{points}"/>'
 

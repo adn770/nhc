@@ -12,7 +12,7 @@ from shapely.geometry import Point, Polygon
 
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, OctagonShape,
-    Rect, RectShape, Room, RoomShape, Terrain, Tile,
+    Rect, RectShape, Room, RoomShape, TempleShape, Terrain, Tile,
 )
 from nhc.rendering.svg import (
     BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
@@ -151,6 +151,111 @@ class TestSmoothOutlines:
         svg = render_floor_svg(level)
         assert "<circle " not in svg
         assert "<polygon " not in svg
+
+    def test_temple_room_produces_polygon(self):
+        level, _ = _make_shaped_level(TempleShape(flat_side="south"))
+        svg = render_floor_svg(level)
+        match = re.search(r'<polygon points="([^"]+)"', svg)
+        assert match, "No polygon found for temple"
+        # Temple has 3 arc caps (12 segs each) + straight segments.
+        points = match.group(1).split()
+        assert len(points) > 20, (
+            f"Temple outline needs many vertices for arc caps, got {len(points)}"
+        )
+
+    def test_temple_orientations_all_produce_polygon(self):
+        for side in ("north", "south", "east", "west"):
+            level, _ = _make_shaped_level(TempleShape(flat_side=side))
+            svg = render_floor_svg(level)
+            assert re.search(r'<polygon points="', svg), (
+                f"temple flat={side} missing polygon"
+            )
+
+
+class TestTemplePolygonAlignment:
+    def _polygon(self, svg: str) -> Polygon:
+        match = re.search(r'<polygon points="([^"]+)"', svg)
+        assert match
+        verts = []
+        for pt in match.group(1).split():
+            x, y = pt.split(",")
+            verts.append((float(x), float(y)))
+        return Polygon(verts)
+
+    def test_temple_polygon_covers_all_floor_tiles(self):
+        shape = TempleShape(flat_side="south")
+        level, room = _make_shaped_level(shape)
+        poly = self._polygon(render_floor_svg(level))
+        for tx, ty in room.floor_tiles():
+            center = Point(tx * CELL + CELL / 2, ty * CELL + CELL / 2)
+            assert poly.contains(center), (
+                f"Floor tile ({tx},{ty}) center not inside temple polygon"
+            )
+
+    def test_temple_polygon_excludes_rect_corners(self):
+        shape = TempleShape(flat_side="south")
+        level, room = _make_shaped_level(shape)
+        poly = self._polygon(render_floor_svg(level))
+        r = room.rect
+        floor = room.floor_tiles()
+        for tx, ty in [
+            (r.x, r.y), (r.x2 - 1, r.y),
+            (r.x, r.y2 - 1), (r.x2 - 1, r.y2 - 1),
+        ]:
+            if (tx, ty) not in floor:
+                center = Point(tx * CELL + CELL / 2, ty * CELL + CELL / 2)
+                assert not poly.contains(center), (
+                    f"Non-floor corner ({tx},{ty}) inside temple polygon"
+                )
+
+    def test_temple_flat_south_has_rectangular_bottom(self):
+        """The bottom edge of a south-flat temple reaches the rect
+        bottom at multiple x-positions (flat arm tip)."""
+        shape = TempleShape(flat_side="south")
+        level, room = _make_shaped_level(shape)
+        svg = render_floor_svg(level)
+        match = re.search(r'<polygon points="([^"]+)"', svg)
+        assert match
+        verts = []
+        for pt in match.group(1).split():
+            x, y = pt.split(",")
+            verts.append((float(x), float(y)))
+        bottom_y = room.rect.y2 * CELL
+        bottom_vertices = [(x, y) for (x, y) in verts if y == bottom_y]
+        # Flat arm bottom edge has 2 vertices (tip corners).
+        assert len(bottom_vertices) >= 2, (
+            f"south-flat temple should touch y={bottom_y}, got {bottom_vertices}"
+        )
+
+
+class TestTempleGappedOutlines:
+    def test_temple_doorless_east_opening_uses_path(self):
+        """A temple with a doorless corridor uses <path> with gap,
+        not a closed polygon."""
+        level, _ = _make_shaped_level(
+            TempleShape(flat_side="south"), corridor_side="east")
+        svg = render_floor_svg(level)
+        wall_paths = re.findall(
+            r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
+        has_gapped = any(p.count("M") >= 2 for p in wall_paths)
+        assert has_gapped, "No gapped path for temple east opening"
+
+    def test_temple_doorless_flat_side_uses_path(self):
+        """A corridor on the flat arm (south) also produces a gap."""
+        level, _ = _make_shaped_level(
+            TempleShape(flat_side="south"), corridor_side="south")
+        svg = render_floor_svg(level)
+        wall_paths = re.findall(
+            r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width', svg)
+        has_gapped = any(p.count("M") >= 2 for p in wall_paths)
+        assert has_gapped, "No gapped path for temple flat-side opening"
+
+    def test_temple_with_door_stays_polygon(self):
+        level, _ = _make_shaped_level(
+            TempleShape(flat_side="south"),
+            corridor_side="east", door=True)
+        svg = render_floor_svg(level)
+        assert re.search(r'<polygon points="', svg)
 
 
 # ── 2. Cross polygon alignment ──────────────────────────────────
