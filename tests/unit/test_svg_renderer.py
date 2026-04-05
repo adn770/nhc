@@ -371,3 +371,52 @@ class TestGridAndDetailOnWallTiles:
         assert not missing, (
             f"_tile_detail was never called for WALL tiles: "
             f"{sorted(missing)[:5]}...")
+
+
+class TestSecretDoorGridRouting:
+    """Secret doors sit on the wall line between rooms, outside
+    the dungeon polygon used by grid-clip. Their grid edges must
+    therefore be routed into the unclipped (corridor) bucket —
+    the same treatment visible doors get — otherwise the south
+    edge of a secret door lands exactly on the clip boundary and
+    the 0.3-px stroke is half-clipped to invisibility."""
+
+    def _rect_room_with_secret_door(self):
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=10, height=10)
+        r = Rect(3, 4, 4, 4)
+        room = Room(id="r1", rect=r, shape=RectShape())
+        level.rooms.append(room)
+        for y in range(r.y, r.y2):
+            for x in range(r.x, r.x2):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        # Secret door on the room's north edge at (4, 4).
+        level.tiles[4][4] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_secret",
+            door_side="north",
+        )
+        return level
+
+    def test_secret_door_emits_unclipped_grid_bucket(self):
+        level = self._rect_room_with_secret_door()
+        dungeon_poly = _room_shapely_polygon(level.rooms[0])
+        svg_parts: list[str] = []
+        _render_floor_grid(svg_parts, level, dungeon_poly)
+        joined = "".join(svg_parts)
+        # Strip the clipPath definition — its inner <path> is
+        # geometry for the clip, not a grid path.
+        body = re.sub(r"<clipPath.*?</clipPath>", "", joined,
+                      flags=re.DOTALL)
+        path_count = body.count("<path ")
+        clipped_count = body.count(
+            'clip-path="url(#grid-clip)"')
+        # The level has no corridors and no visible doors, so
+        # the only source of an unclipped grid path is the
+        # secret door bucket.
+        assert path_count - clipped_count >= 1, (
+            "secret-door grid segments must be emitted into an "
+            "unclipped <path> so they render past the dungeon "
+            f"clip boundary; saw {path_count} paths, "
+            f"{clipped_count} clipped, body:\n{body}"
+        )

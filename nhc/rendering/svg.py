@@ -2307,8 +2307,15 @@ def _render_floor_grid(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
+            # Secret doors sit on the wall line between rooms
+            # and fall outside the room shapely polygons used
+            # by grid-clip. Route their grid edges through the
+            # unclipped bucket alongside visible doors, so the
+            # segment stroke doesn't land on the clip boundary
+            # and get half-masked to invisibility.
             is_cor = (tile.is_corridor
-                      or _is_door(level, x, y))
+                      or _is_door(level, x, y)
+                      or tile.feature == "door_secret")
             px, py = x * CELL, y * CELL
 
             # Right edge
