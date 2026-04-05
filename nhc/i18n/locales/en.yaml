@@ -681,6 +681,8 @@ ui:
   loading_resume: "Loading game..."
   loading_descend: "Descending to the next floor..."
   loading_ascend: "Climbing back up..."
+  autodig_on: "Autodig: ON (walk into walls to tunnel)"
+  autodig_off: "Autodig: OFF"
   # Farlook
   farlook_hint: "Farlook mode — click a tile to examine."
   # Help command

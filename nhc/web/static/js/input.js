@@ -4,6 +4,7 @@
 const Input = {
   inputEl: null,
   classicMode: true,
+  autodig: false,  // toggled by right-click on the dig toolbar button
   menuPending: null,  // resolve function for active menu
 
   // Same key mapping as nhc/rendering/terminal/input.py
@@ -102,12 +103,15 @@ const Input = {
         } else if (mapping.intent === "help") {
           UI.showHelp();
         } else {
-          Input._beforeSendAction(mapping.intent);
-          WS.send({
-            type: "action",
-            intent: mapping.intent,
-            data: mapping.data,
-          });
+          const sent = Input._maybeAutodig(mapping);
+          if (!sent) {
+            Input._beforeSendAction(mapping.intent);
+            WS.send({
+              type: "action",
+              intent: mapping.intent,
+              data: mapping.data,
+            });
+          }
         }
       }
 
@@ -141,6 +145,7 @@ const Input = {
       const btn = document.createElement("button");
       btn.textContent = icon;
       btn.dataset.labelKey = labelKey;
+      btn.dataset.intent = intent;
       btn.title = labelKey;  // fallback until translations arrive
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -151,6 +156,12 @@ const Input = {
           WS.send({ type: "action", intent, data: null });
         }
       });
+      if (intent === "dig") {
+        btn.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          Input._toggleAutodig();
+        });
+      }
       zone.appendChild(btn);
       this._toolbarButtons.push(btn);
     });
@@ -248,5 +259,47 @@ const Input = {
       NHC.waitingForFloor = true;
       NHC.showLoading(text);
     }
+  },
+
+  /**
+   * When autodig is on and the player moves toward a non-walkable
+   * adjacent tile, swap the move intent for a directed dig so the
+   * server tunnels through that exact tile.  Returns true if an
+   * autodig action was sent (the caller should then skip the
+   * normal move dispatch).
+   */
+  _maybeAutodig(mapping) {
+    if (!this.autodig) return false;
+    if (mapping.intent !== "move") return false;
+    const d = mapping.data;
+    if (!Array.isArray(d) || d.length !== 2) return false;
+    // Only handle cardinal tunnelling — diagonals would require
+    // digging two walls in one action which isn't supported.
+    const [dx, dy] = d;
+    if (dx !== 0 && dy !== 0) return false;
+    // Bail out if we don't have a populated walk map yet — the
+    // first frame after (re)connect may be empty and we must not
+    // misread that as "everything is a wall".
+    if (!GameMap.walls || GameMap.walls.size === 0) return false;
+    const tx = GameMap.playerX + dx;
+    const ty = GameMap.playerY + dy;
+    // Walkable tiles are tracked in GameMap.walls; anything
+    // absent is wall, void, or off-map — all valid dig targets
+    // from the client's perspective.  The server still validates.
+    if (GameMap.walls.has(`${tx},${ty}`)) return false;
+    WS.send({ type: "action", intent: "dig", data: [dx, dy] });
+    return true;
+  },
+
+  _toggleAutodig() {
+    this.autodig = !this.autodig;
+    const btn = (this._toolbarButtons || []).find(
+      (b) => b.dataset.intent === "dig",
+    );
+    if (btn) btn.classList.toggle("autodig-active", this.autodig);
+    const L = NHC.labels || {};
+    UI.addMessage(this.autodig
+      ? (L.autodig_on || "Autodig: ON")
+      : (L.autodig_off || "Autodig: OFF"));
   },
 };

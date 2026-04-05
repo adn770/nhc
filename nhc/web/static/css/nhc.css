@@ -570,6 +570,31 @@ body {
   color: #fff;
 }
 
+/* Autodig mode indicator — glowing ring around the dig button. */
+#toolbar-zone button.autodig-active {
+  border-color: #ffd54a;
+  box-shadow:
+    0 0 4px #ffd54a,
+    0 0 10px rgba(255, 213, 74, 0.7),
+    inset 0 0 6px rgba(255, 213, 74, 0.3);
+  animation: autodig-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes autodig-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 4px #ffd54a,
+      0 0 10px rgba(255, 213, 74, 0.7),
+      inset 0 0 6px rgba(255, 213, 74, 0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 8px #ffd54a,
+      0 0 16px rgba(255, 213, 74, 0.9),
+      inset 0 0 10px rgba(255, 213, 74, 0.5);
+  }
+}
+
 #toolbar-zone button[title]:hover::after {
   content: attr(title);
   position: absolute;

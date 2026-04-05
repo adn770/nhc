@@ -112,6 +112,38 @@ class TestDigActionValidation:
         action = DigAction(actor=pid, dx=1, dy=0)
         assert not await action.validate(world, level)
 
+    @pytest.mark.asyncio
+    async def test_valid_dig_adjacent_void(self):
+        """Autodig: digging into VOID is allowed."""
+        world, pid, level, _ = _make_world()
+        # Replace the wall at (6, 5) with VOID.
+        level.tiles[5][6] = Tile(terrain=Terrain.VOID)
+        action = DigAction(actor=pid, dx=1, dy=0)
+        assert await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_invalid_dig_into_floor(self):
+        """Digging into an existing floor is still rejected."""
+        world, pid, level, _ = _make_world()
+        action = DigAction(actor=pid, dx=-1, dy=0)  # FLOOR at (4, 5)
+        assert not await action.validate(world, level)
+
+
+class TestDigActionVoidExecution:
+    @pytest.mark.asyncio
+    async def test_success_converts_void_to_floor(self):
+        """Autodig: a successful STR check converts VOID to FLOOR."""
+        world, pid, level, _ = _make_world(strength=6, tool_bonus=5)
+        level.tiles[5][6] = Tile(terrain=Terrain.VOID)
+
+        action = DigAction(actor=pid, dx=1, dy=0)
+        assert await action.validate(world, level)
+        with patch("nhc.core.actions._interaction.d20", return_value=15):
+            await action.execute(world, level)
+
+        tile = level.tile_at(6, 5)
+        assert tile.terrain == Terrain.FLOOR
+
 
 class TestDigActionExecution:
     @pytest.mark.asyncio

@@ -313,8 +313,16 @@ _DIRECTIONS = {
 }
 
 
-def find_dig_action(game: Game) -> Action | None:
-    """Find an adjacent wall to dig through with the equipped tool."""
+def find_dig_action(
+    game: Game, data: object = None,
+) -> Action | None:
+    """Find an adjacent wall (or void) to dig through.
+
+    *data* may be a ``[dx, dy]`` pair sent by the client — used by
+    autodig so the player can walk into a wall/void and the client
+    picks the exact direction.  Without *data*, the classic flow
+    scans cardinals and prompts when multiple walls are adjacent.
+    """
     pos = game.world.get_component(game.player_id, "Position")
     if not pos or not game.level:
         return None
@@ -328,29 +336,41 @@ def find_dig_action(game: Game) -> Action | None:
         game.renderer.add_message(t("explore.dig_no_tool"))
         return None
 
-    # Scan cardinal directions for adjacent walls
-    walls: list[tuple[str, tuple[int, int]]] = []
+    _DIGGABLE = (Terrain.WALL, Terrain.VOID)
+
+    # Directed dispatch (autodig): the client already picked the
+    # exact adjacent tile.  Honour it without showing a menu.
+    if (isinstance(data, (list, tuple)) and len(data) == 2
+            and all(isinstance(v, (int, float)) for v in data)):
+        dx, dy = int(data[0]), int(data[1])
+        target = game.level.tile_at(pos.x + dx, pos.y + dy)
+        if target is None or target.terrain not in _DIGGABLE:
+            return None
+        return DigAction(actor=game.player_id, dx=dx, dy=dy)
+
+    # Scan cardinal directions for adjacent diggable tiles
+    diggable: list[tuple[str, tuple[int, int]]] = []
     for label, (dx, dy) in _DIRECTIONS.items():
         tile = game.level.tile_at(pos.x + dx, pos.y + dy)
         if tile and tile.terrain == Terrain.WALL:
-            walls.append((label, (dx, dy)))
+            diggable.append((label, (dx, dy)))
 
-    if not walls:
+    if not diggable:
         game.renderer.add_message(t("explore.dig_no_wall"))
         return None
 
-    if len(walls) == 1:
-        dx, dy = walls[0][1]
+    if len(diggable) == 1:
+        dx, dy = diggable[0][1]
         return DigAction(actor=game.player_id, dx=dx, dy=dy)
 
     # Multiple walls: ask the player for a direction
-    options = [(i, label) for i, (label, _) in enumerate(walls)]
+    options = [(i, label) for i, (label, _) in enumerate(diggable)]
     selected = game.renderer.show_selection_menu(
         t("explore.dig_which"), options,
     )
     if selected is None:
         return None
-    dx, dy = walls[selected][1]
+    dx, dy = diggable[selected][1]
     return DigAction(actor=game.player_id, dx=dx, dy=dy)
 
 

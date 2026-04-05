@@ -681,6 +681,8 @@ ui:
   loading_resume: "Cargando partida..."
   loading_descend: "Bajando al siguiente piso..."
   loading_ascend: "Subiendo las escaleras..."
+  autodig_on: "Excavación automática: ACTIVADA (camina contra muros para excavar)"
+  autodig_off: "Excavación automática: DESACTIVADA"
   # Farlook
   farlook_hint: "Modo exploración — haz clic en una casilla para examinar."
   # Help command

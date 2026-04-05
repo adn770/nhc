@@ -1019,7 +1019,7 @@ class Game:
             return SearchAction(actor=self.player_id)
 
         if intent == "dig":
-            return game_input.find_dig_action(self)
+            return game_input.find_dig_action(self, data)
 
         if intent == "descend":
             return DescendStairsAction(actor=self.player_id)

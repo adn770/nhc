@@ -699,6 +699,8 @@ ui:
   loading_resume: "Carregant partida..."
   loading_descend: "Baixant al pis següent..."
   loading_ascend: "Pujant les escales..."
+  autodig_on: "Excavació automàtica: ACTIVADA (camina contra parets per túnelar)"
+  autodig_off: "Excavació automàtica: DESACTIVADA"
   # Farlook
   farlook_hint: "Mode exploració — clica una casella per examinar."
   # Help command

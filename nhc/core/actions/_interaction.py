@@ -283,13 +283,16 @@ class CloseDoorAction(Action):
 
 
 class DigAction(Action):
-    """Dig through an adjacent wall tile.
+    """Dig through an adjacent wall or void tile.
 
     Requires a DiggingTool equipped as weapon.
-    STR save DC 12, modified by tool bonus.
+    STR save DC 12, modified by tool bonus.  Works on WALL and
+    VOID terrain so autodig can punch through either when the
+    player walks into them.
     """
 
     DIG_DC = 12
+    _DIGGABLE = (Terrain.WALL, Terrain.VOID)
 
     def __init__(self, actor: int, dx: int, dy: int) -> None:
         super().__init__(actor)
@@ -301,7 +304,7 @@ class DigAction(Action):
         if not pos:
             return False
         tile = level.tile_at(pos.x + self.dx, pos.y + self.dy)
-        if not tile or tile.terrain != Terrain.WALL:
+        if not tile or tile.terrain not in self._DIGGABLE:
             return False
         # Require DiggingTool equipped as weapon
         equip = world.get_component(self.actor, "Equipment")

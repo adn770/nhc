@@ -868,3 +868,78 @@ class TestCloseDoorAction:
         action = game_input.find_close_door_action(game)
         assert action is None
         assert game.renderer.messages  # user feedback
+
+    def _make_dig_game(self, target_terrain):
+        """Build a minimal game with a digging tool equipped and the
+        target tile east of the player set to *target_terrain*."""
+        from nhc.core import game_input  # noqa: F401
+        from nhc.entities.components import (
+            DiggingTool, Equipment, Inventory, Weapon,
+        )
+
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][6] = Tile(terrain=target_terrain)
+        pid = _make_player(world, x=5, y=5)
+        # Equip a digging tool
+        tool = world.create_entity({
+            "Description": Description(name="Pick"),
+            "Weapon": Weapon(damage="1d4", type="melee", slots=1),
+            "DiggingTool": DiggingTool(bonus=0),
+        })
+        inv = world.get_component(pid, "Inventory") or Inventory(max_slots=8)
+        if world.get_component(pid, "Inventory") is None:
+            world.add_component(pid, inv)
+        inv.slots.append(tool)
+        equip = world.get_component(pid, "Equipment") or Equipment()
+        if world.get_component(pid, "Equipment") is None:
+            world.add_component(pid, equip)
+        equip.weapon = tool
+
+        class _FakeRenderer:
+            def __init__(self):
+                self.messages = []
+
+            def add_message(self, msg):
+                self.messages.append(msg)
+
+        class _FakeGame:
+            pass
+
+        game = _FakeGame()
+        game.world = world
+        game.level = level
+        game.player_id = pid
+        game.renderer = _FakeRenderer()
+        return game
+
+    @pytest.mark.asyncio
+    async def test_find_dig_action_with_direction_data(self):
+        """Autodig: when the client sends data=[dx,dy] the dispatch
+        builds a DigAction aimed at that exact tile (no menu)."""
+        from nhc.core import game_input
+        from nhc.core.actions import DigAction
+
+        game = self._make_dig_game(Terrain.WALL)
+        action = game_input.find_dig_action(game, data=[1, 0])
+        assert isinstance(action, DigAction)
+        assert (action.dx, action.dy) == (1, 0)
+
+    @pytest.mark.asyncio
+    async def test_find_dig_action_directed_void(self):
+        """Autodig against VOID tiles must also produce a DigAction."""
+        from nhc.core import game_input
+        from nhc.core.actions import DigAction
+
+        game = self._make_dig_game(Terrain.VOID)
+        action = game_input.find_dig_action(game, data=[1, 0])
+        assert isinstance(action, DigAction)
+
+    @pytest.mark.asyncio
+    async def test_find_dig_action_directed_rejects_floor(self):
+        """Directed dig on FLOOR returns None (cannot dig floor)."""
+        from nhc.core import game_input
+
+        game = self._make_dig_game(Terrain.FLOOR)
+        action = game_input.find_dig_action(game, data=[1, 0])
+        assert action is None

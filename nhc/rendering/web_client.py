@@ -642,6 +642,8 @@ class WebClient(GameClient):
             "loading_resume": tr("ui.loading_resume"),
             "loading_descend": tr("ui.loading_descend"),
             "loading_ascend": tr("ui.loading_ascend"),
+            "autodig_on": tr("ui.autodig_on"),
+            "autodig_off": tr("ui.autodig_off"),
             "farlook_hint": tr("ui.farlook_hint"),
             "help_command": tr("ui.help_command"),
             # Restart confirmation
