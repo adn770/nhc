@@ -55,7 +55,7 @@ class GameMaster:
             {"role": "user", "content": user_msg},
         ]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
             None, self.backend.generate, messages,
         )
@@ -87,7 +87,7 @@ class GameMaster:
             {"role": "user", "content": user_msg},
         ]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         response = await loop.run_in_executor(
             None, self.backend.generate, messages,
         )
@@ -125,7 +125,7 @@ class GameMaster:
             {"role": "user", "content": user_msg},
         ]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         narrative = await loop.run_in_executor(
             None, self.backend.generate, messages,
         )
@@ -154,7 +154,7 @@ class GameMaster:
         )
         messages = [{"role": "user", "content": system}]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None, self.backend.generate, messages,
         )
@@ -184,7 +184,7 @@ class GameMaster:
         )
         messages = [{"role": "user", "content": system}]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         narrative = await loop.run_in_executor(
             None, self.backend.generate, messages,
         )
@@ -200,7 +200,7 @@ class GameMaster:
         system = load_prompt("compress", recent_narrative=recent)
         messages = [{"role": "user", "content": system}]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         summary = await loop.run_in_executor(
             None, self.backend.generate, messages,
         )

@@ -46,7 +46,7 @@ class StoryState:
         prompt = load_prompt("compress", recent_narrative=recent)
         messages = [{"role": "user", "content": prompt}]
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         new_summary = await loop.run_in_executor(
             None, backend.generate, messages,
         )

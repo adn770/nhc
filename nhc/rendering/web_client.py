@@ -1172,7 +1172,7 @@ class WebClient(GameClient):
         empty messages are retried so they don't consume turns.
         Returns ("disconnect", None) when the WebSocket disconnects.
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         while True:
             msg = await loop.run_in_executor(None, self._recv)
             msg_type = msg.get("type", "")
@@ -1200,7 +1200,7 @@ class WebClient(GameClient):
     ) -> str | tuple[str, Any]:
         """Wait for typed input from the browser."""
         self.render(world, level, player_id, turn)
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         while True:
             msg = await loop.run_in_executor(None, self._recv)
             msg_type = msg.get("type", "")

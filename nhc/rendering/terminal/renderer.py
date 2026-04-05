@@ -235,7 +235,7 @@ class TerminalRenderer(GameClient):
         Returns either a string (typed text) or a (intent, data) tuple
         if the user pressed a movement/action key.
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         inp = self._text_input
 
         while True:
@@ -590,7 +590,7 @@ class TerminalRenderer(GameClient):
 
     async def get_input(self) -> tuple[str, Any]:
         """Wait for keypress and return (intent, data)."""
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         val = await loop.run_in_executor(None, self._blocking_read)
         return map_key_to_intent(val)
 
