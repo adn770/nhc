@@ -296,7 +296,13 @@ const Input = {
     const btn = (this._toolbarButtons || []).find(
       (b) => b.dataset.intent === "dig",
     );
-    if (btn) btn.classList.toggle("autodig-active", this.autodig);
+    if (btn) {
+      btn.classList.toggle("autodig-active", this.autodig);
+      // Drop keyboard focus so the browser's default focus ring
+      // doesn't linger on the button — it looks like a residual
+      // glow once the autodig pulse class is removed.
+      btn.blur();
+    }
     const L = NHC.labels || {};
     UI.addMessage(this.autodig
       ? (L.autodig_on || "Autodig: ON")
