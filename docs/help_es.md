@@ -43,6 +43,7 @@ Empujar un cofre lo abre y suelta su contenido.
   s              Buscar trampas ocultas y puertas secretas
   p              Forzar una cerradura (requiere ganzúas, salvación DES)
   f              Forzar una puerta (salvación FUE, herramientas ayudan)
+  c              Cerrar una puerta abierta adyacente
   >              Descender escaleras
   <              Ascender escaleras
 

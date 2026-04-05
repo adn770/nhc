@@ -226,6 +226,9 @@ combat:
 explore:
   open_door: "{actor} obre una porta."
   you_open_door: "Obres una porta."
+  close_door: "{actor} tanca una porta."
+  you_close_door: "Tanques una porta."
+  no_open_door: "No hi ha cap porta oberta a prop."
   see_item: "Veus {item} aquí."
   see_items: "Veus {count} objectes aquí: {items}."
   see_feature: "Veus {feature} aquí."
@@ -667,6 +670,7 @@ ui:
   toolbar_wait: "Esperar (.)"
   toolbar_pick_lock: "Forçar pany (p)"
   toolbar_force_door: "Forçar porta (f)"
+  toolbar_close_door: "Tancar porta (c)"
   toolbar_dig: "Excavar (D)"
   toolbar_farlook: "Examinar (x)"
   toolbar_descend: "Baixar (>)"

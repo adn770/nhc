@@ -43,6 +43,7 @@ Bumping into a chest opens it and drops its loot.
   s              Search for hidden traps and secret doors
   p              Pick a lock (requires lockpicks, DEX save)
   f              Force a door open (STR save, tools help)
+  c              Close an adjacent open door
   >              Descend stairs
   <              Ascend stairs
 

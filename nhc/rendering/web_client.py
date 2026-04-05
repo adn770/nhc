@@ -608,6 +608,7 @@ class WebClient(GameClient):
             "toolbar_wait": tr("ui.toolbar_wait"),
             "toolbar_pick_lock": tr("ui.toolbar_pick_lock"),
             "toolbar_force_door": tr("ui.toolbar_force_door"),
+            "toolbar_close_door": tr("ui.toolbar_close_door"),
             "toolbar_farlook": tr("ui.toolbar_farlook"),
             "toolbar_descend": tr("ui.toolbar_descend"),
             "toolbar_ascend": tr("ui.toolbar_ascend"),

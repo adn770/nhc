@@ -4,6 +4,7 @@ import pytest
 
 from nhc.core.actions import (
     BumpAction,
+    CloseDoorAction,
     DescendStairsAction,
     LookAction,
     MeleeAttackAction,
@@ -735,3 +736,135 @@ class TestUseItemAction:
         assert any("full health" in m for m in msgs)
         # Item should not be consumed
         assert item_id in inv.slots
+
+
+class TestCloseDoorAction:
+    @pytest.mark.asyncio
+    async def test_close_open_door(self):
+        init("en")
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][6].feature = "door_open"
+        level.tiles[5][6].opened_at_turn = 3
+        pid = _make_player(world, x=5, y=5)
+
+        action = CloseDoorAction(actor=pid, dx=1, dy=0)
+        assert await action.validate(world, level)
+        events = await action.execute(world, level)
+
+        assert level.tiles[5][6].feature == "door_closed"
+        assert level.tiles[5][6].opened_at_turn is None
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("close" in m.lower() for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_validate_rejects_closed_door(self):
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][6].feature = "door_closed"
+        pid = _make_player(world, x=5, y=5)
+
+        action = CloseDoorAction(actor=pid, dx=1, dy=0)
+        assert not await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_validate_rejects_empty_tile(self):
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+
+        action = CloseDoorAction(actor=pid, dx=1, dy=0)
+        assert not await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_validate_rejects_out_of_bounds(self):
+        world = World()
+        level = _make_test_level(width=10, height=10)
+        pid = _make_player(world, x=1, y=1)
+
+        action = CloseDoorAction(actor=pid, dx=-5, dy=0)
+        assert not await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_validate_rejects_when_creature_blocks_door(self):
+        """Can't close a door while another creature stands on it."""
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][6].feature = "door_open"
+        pid = _make_player(world, x=5, y=5)
+        _make_creature(world, x=6, y=5)
+
+        action = CloseDoorAction(actor=pid, dx=1, dy=0)
+        assert not await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_close_own_tile_door(self):
+        """A player standing on an open door can close it in place."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][5].feature = "door_open"
+        level.tiles[5][5].opened_at_turn = 1
+        pid = _make_player(world, x=5, y=5)
+
+        action = CloseDoorAction(actor=pid, dx=0, dy=0)
+        assert await action.validate(world, level)
+        await action.execute(world, level)
+
+        assert level.tiles[5][5].feature == "door_closed"
+
+    @pytest.mark.asyncio
+    async def test_find_close_door_action_finds_adjacent(self):
+        """game_input.find_close_door_action returns CloseDoorAction for
+        an adjacent open door."""
+        from nhc.core import game_input
+
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][6].feature = "door_open"
+        pid = _make_player(world, x=5, y=5)
+
+        class _FakeRenderer:
+            def add_message(self, msg):
+                self.msg = msg
+
+        class _FakeGame:
+            pass
+
+        game = _FakeGame()
+        game.world = world
+        game.level = level
+        game.player_id = pid
+        game.renderer = _FakeRenderer()
+
+        action = game_input.find_close_door_action(game)
+        assert isinstance(action, CloseDoorAction)
+        assert (action.dx, action.dy) == (1, 0)
+
+    @pytest.mark.asyncio
+    async def test_find_close_door_action_none_when_missing(self):
+        from nhc.core import game_input
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+
+        class _FakeRenderer:
+            def __init__(self):
+                self.messages = []
+
+            def add_message(self, msg):
+                self.messages.append(msg)
+
+        class _FakeGame:
+            pass
+
+        game = _FakeGame()
+        game.world = world
+        game.level = level
+        game.player_id = pid
+        game.renderer = _FakeRenderer()
+
+        action = game_input.find_close_door_action(game)
+        assert action is None
+        assert game.renderer.messages  # user feedback

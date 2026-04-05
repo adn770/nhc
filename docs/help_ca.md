@@ -43,6 +43,7 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
   s              Cercar trampes ocultes i portes secretes
   p              Forçar un pany (requereix eines, salvació DES)
   f              Forçar una porta (salvació FOR, eines ajuden)
+  c              Tancar una porta oberta adjacent
   >              Descendir escales
   <              Ascendir escales
 

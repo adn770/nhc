@@ -1012,6 +1012,9 @@ class Game:
         if intent == "force_door":
             return game_input.find_lock_action(self, "force")
 
+        if intent == "close_door":
+            return game_input.find_close_door_action(self)
+
         if intent == "search":
             return SearchAction(actor=self.player_id)
 

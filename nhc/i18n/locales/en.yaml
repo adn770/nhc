@@ -210,6 +210,9 @@ combat:
 explore:
   open_door: "{actor} opens a door."
   you_open_door: "You open a door."
+  close_door: "{actor} closes a door."
+  you_close_door: "You close a door."
+  no_open_door: "There is no open door nearby."
   see_item: "You see {item} here."
   see_items: "You see {count} items here: {items}."
   see_feature: "You see {feature} here."
@@ -649,6 +652,7 @@ ui:
   toolbar_wait: "Wait (.)"
   toolbar_pick_lock: "Pick Lock (p)"
   toolbar_force_door: "Force Door (f)"
+  toolbar_close_door: "Close Door (c)"
   toolbar_dig: "Dig (D)"
   toolbar_farlook: "Farlook (x)"
   toolbar_descend: "Descend (>)"

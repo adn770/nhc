@@ -70,6 +70,7 @@ from nhc.core.actions._ranged import (
 
 # -- Interaction actions --
 from nhc.core.actions._interaction import (
+    CloseDoorAction,
     DigAction,
     ForceDoorAction,
     LookAction,
@@ -132,6 +133,7 @@ __all__ = [
     "ThrowAction",
     "ZapAction",
     # Interaction
+    "CloseDoorAction",
     "DigAction",
     "ForceDoorAction",
     "LookAction",

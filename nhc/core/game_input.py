@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.core.actions import (
+    CloseDoorAction,
     DigAction,
     DropAction,
     EquipAction,
@@ -266,6 +267,42 @@ def find_lock_action(game: Game, mode: str) -> Action | None:
         actor=game.player_id, dx=door_dir[0], dy=door_dir[1],
         tool=tool_id,
     )
+
+
+def find_close_door_action(game: Game) -> Action | None:
+    """Find an adjacent open door and return a CloseDoorAction.
+
+    Checks own tile and the four cardinal neighbours. If no open door
+    is found, shows a user message and returns None.
+    """
+    pos = game.world.get_component(game.player_id, "Position")
+    if not pos or not game.level:
+        return None
+
+    for dx, dy in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]:
+        tile = game.level.tile_at(pos.x + dx, pos.y + dy)
+        if not tile or tile.feature != "door_open":
+            continue
+        action = CloseDoorAction(
+            actor=game.player_id, dx=dx, dy=dy,
+        )
+        # Skip doors blocked by creatures; keep looking.
+        tx, ty = pos.x + dx, pos.y + dy
+        blocked = False
+        for eid, other in game.world.query("Position"):
+            if other is None or eid == game.player_id:
+                continue
+            if other.x == tx and other.y == ty and (
+                game.world.has_component(eid, "AI")
+                or game.world.has_component(eid, "BlocksMovement")
+            ):
+                blocked = True
+                break
+        if not blocked:
+            return action
+
+    game.renderer.add_message(t("explore.no_open_door"))
+    return None
 
 
 _DIRECTIONS = {

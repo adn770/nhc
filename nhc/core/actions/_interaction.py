@@ -234,6 +234,54 @@ class ForceDoorAction(Action):
         return events
 
 
+class CloseDoorAction(Action):
+    """Close an adjacent (or current) open door tile.
+
+    Fails silently in validate() when the target is not an open door,
+    or when another entity is standing on the door tile (you cannot
+    close a door on top of a creature). Passing dx=dy=0 allows the
+    actor to close a door they are standing on.
+    """
+
+    def __init__(self, actor: int, dx: int, dy: int) -> None:
+        super().__init__(actor)
+        self.dx = dx
+        self.dy = dy
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        tx, ty = pos.x + self.dx, pos.y + self.dy
+        tile = level.tile_at(tx, ty)
+        if not tile or tile.feature != "door_open":
+            return False
+        # Block if another entity occupies the door tile
+        for eid, other in world.query("Position"):
+            if other is None or eid == self.actor:
+                continue
+            if other.x == tx and other.y == ty:
+                # Only creatures or blockers prevent closing; loose
+                # items on the tile should not.
+                if (world.has_component(eid, "AI")
+                        or world.has_component(eid, "BlocksMovement")):
+                    return False
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        tx, ty = pos.x + self.dx, pos.y + self.dy
+        tile = level.tile_at(tx, ty)
+
+        tile.feature = "door_closed"
+        tile.opened_at_turn = None
+        events.append(MessageEvent(
+            text=_msg("explore.close_door", world, actor=self.actor),
+        ))
+        return events
+
+
 class DigAction(Action):
     """Dig through an adjacent wall tile.
 
