@@ -3710,7 +3710,9 @@ def _room_shapely_polygon(room) -> Polygon | None:
             (px + pw, py + ph), (px, py + ph),
         ])
 
-    if isinstance(shape, (OctagonShape, CrossShape, PillShape)):
+    if isinstance(
+        shape, (OctagonShape, CrossShape, PillShape, TempleShape),
+    ):
         verts = _polygon_vertices(shape, r)
         if verts:
             return Polygon(verts)

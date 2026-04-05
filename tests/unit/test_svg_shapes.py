@@ -730,6 +730,26 @@ class TestGridInSmoothRooms:
     def test_grid_inside_pill_room(self):
         self._assert_grid_segments(PillShape())
 
+    def test_grid_inside_temple_room(self):
+        self._assert_grid_segments(TempleShape(flat_side="south"))
+
+    def test_temple_room_has_shapely_polygon_covering_floor(self):
+        """_room_shapely_polygon must return a polygon for temple
+        rooms so grid/detail clip-paths reveal them."""
+        from nhc.rendering.svg import _room_shapely_polygon
+        room = Room(
+            id="r1", rect=Rect(0, 0, 9, 9),
+            shape=TempleShape(flat_side="south"),
+        )
+        poly = _room_shapely_polygon(room)
+        assert poly is not None, "temple room missing shapely polygon"
+        assert not poly.is_empty
+        for tx, ty in room.floor_tiles():
+            center = Point(tx * CELL + CELL / 2, ty * CELL + CELL / 2)
+            assert poly.contains(center), (
+                f"temple floor tile ({tx},{ty}) not inside shapely polygon"
+            )
+
     def test_pill_room_has_shapely_polygon_covering_floor(self):
         """_room_shapely_polygon must return a polygon for pill
         rooms so grid/detail clip-paths reveal them. Without this
@@ -841,6 +861,9 @@ class TestFloorDetailIndependentOfShape:
     def test_stones_in_pill_room(self):
         self._assert_stones(PillShape())
 
+    def test_stones_in_temple_room(self):
+        self._assert_stones(TempleShape(flat_side="south"))
+
     def test_cracks_in_rect_room(self):
         self._assert_cracks(RectShape())
 
@@ -856,6 +879,9 @@ class TestFloorDetailIndependentOfShape:
     def test_cracks_in_pill_room(self):
         self._assert_cracks(PillShape())
 
+    def test_cracks_in_temple_room(self):
+        self._assert_cracks(TempleShape(flat_side="south"))
+
     def test_scratches_in_rect_room(self):
         self._assert_scratches(RectShape())
 
@@ -870,6 +896,9 @@ class TestFloorDetailIndependentOfShape:
 
     def test_scratches_in_pill_room(self):
         self._assert_scratches(PillShape())
+
+    def test_scratches_in_temple_room(self):
+        self._assert_scratches(TempleShape(flat_side="south"))
 
     def test_detail_on_corridor_opening_tile(self):
         """Corridor opening tiles get floor detail via the
