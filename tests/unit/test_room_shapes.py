@@ -10,8 +10,8 @@ from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, OctagonShape,
-    PillShape, Rect, Room, RoomShape, RectShape, Terrain, Tile,
-    shape_from_type,
+    PillShape, Rect, Room, RoomShape, RectShape, TempleShape, Terrain,
+    Tile, shape_from_type,
 )
 from nhc.entities.components import (
     Health, Player, Position, Renderable, Stats,
@@ -352,6 +352,157 @@ class TestPillShape:
         assert room.shape.type_name == "pill"
         resolved = shape_from_type(room.shape.type_name)
         assert isinstance(resolved, PillShape)
+
+
+class TestTempleShape:
+    def test_type_name_includes_flat_side(self):
+        assert TempleShape(flat_side="south").type_name == "temple_s"
+        assert TempleShape(flat_side="north").type_name == "temple_n"
+        assert TempleShape(flat_side="east").type_name == "temple_e"
+        assert TempleShape(flat_side="west").type_name == "temple_w"
+
+    def test_invalid_flat_side_defaults(self):
+        assert TempleShape(flat_side="bogus").flat_side == "south"
+
+    def test_temple_9x9_south_flat(self):
+        """9x9 temple with flat south arm: 3 capped + 1 rectangular."""
+        rect = Rect(0, 0, 9, 9)
+        shape = TempleShape(flat_side="south")
+        tiles = shape.floor_tiles(rect)
+
+        # Centre intersection is floor
+        assert (4, 4) in tiles
+
+        # South arm (flat): full 3x3 rectangle at the bottom
+        for y in (6, 7, 8):
+            for x in (3, 4, 5):
+                assert (x, y) in tiles, f"south arm ({x},{y}) missing"
+
+        # North arm tip row has only the centre column (corners clipped)
+        assert (4, 0) in tiles
+        assert (3, 0) not in tiles
+        assert (5, 0) not in tiles
+
+        # East arm tip column has only the centre row
+        assert (8, 4) in tiles
+        assert (8, 3) not in tiles
+        assert (8, 5) not in tiles
+
+        # West arm tip column has only the centre row
+        assert (0, 4) in tiles
+        assert (0, 3) not in tiles
+        assert (0, 5) not in tiles
+
+        # Row just inside the cap: north arm at y=1 is fully 3 wide
+        for x in (3, 4, 5):
+            assert (x, 1) in tiles
+
+        # Bounding-rect corners are never floor
+        assert (0, 0) not in tiles
+        assert (8, 0) not in tiles
+        assert (0, 8) not in tiles
+        assert (8, 8) not in tiles
+
+    def test_temple_north_flat_has_rectangular_north_arm(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = TempleShape(flat_side="north").floor_tiles(rect)
+        # North arm is the flat one: full 3x3 at top
+        for y in (0, 1, 2):
+            for x in (3, 4, 5):
+                assert (x, y) in tiles
+        # South arm tip now capped: only (4, 8)
+        assert (4, 8) in tiles
+        assert (3, 8) not in tiles
+        assert (5, 8) not in tiles
+
+    def test_temple_is_superset_of_cross_with_capped_corners_removed(self):
+        """Temple tiles ⊆ cross tiles (capping only removes tiles)."""
+        rect = Rect(0, 0, 9, 9)
+        temple = TempleShape(flat_side="south").floor_tiles(rect)
+        cross = CrossShape().floor_tiles(rect)
+        assert temple <= cross
+        # Exactly 6 tiles removed (2 corners × 3 capped arms, bar_w=3)
+        assert len(cross) - len(temple) == 6
+
+    def test_temple_flat_side_symmetry(self):
+        """Mirror symmetry across the axis containing the flat arm."""
+        rect = Rect(0, 0, 9, 9)
+        tiles = TempleShape(flat_side="south").floor_tiles(rect)
+        cx = 4
+        # Horizontal mirror (across the vertical centreline x=cx)
+        for x, y in tiles:
+            assert (2 * cx - x, y) in tiles, f"mirror of ({x},{y}) missing"
+
+    def test_temple_subset_of_rect(self):
+        rect = Rect(5, 3, 9, 9)
+        assert (TempleShape().floor_tiles(rect)
+                <= RectShape().floor_tiles(rect))
+
+    def test_temple_origin_offset(self):
+        rect = Rect(10, 20, 9, 9)
+        tiles = TempleShape(flat_side="south").floor_tiles(rect)
+        for x, y in tiles:
+            assert 10 <= x < 19
+            assert 20 <= y < 29
+        # Center of temple
+        assert (14, 24) in tiles
+        # South flat arm tip
+        assert (14, 28) in tiles
+        assert (13, 28) in tiles
+        assert (15, 28) in tiles
+
+    def test_temple_perimeter(self):
+        rect = Rect(0, 0, 9, 9)
+        shape = TempleShape(flat_side="south")
+        floor = shape.floor_tiles(rect)
+        perim = shape.perimeter_tiles(rect)
+        interior = floor - perim
+        assert len(perim) > 0
+        assert len(interior) > 0
+        assert perim <= floor
+
+    def test_temple_cardinal_walls_skips_flat_side(self):
+        """cardinal_walls returns only the 3 capped arm tip wall positions."""
+        rect = Rect(0, 0, 9, 9)
+        walls = TempleShape(flat_side="south").cardinal_walls(rect)
+        assert len(walls) == 3
+        walls_set = set(walls)
+        # North, east, west cardinals (just outside rect)
+        assert (4, -1) in walls_set     # north
+        assert (9, 4) in walls_set      # east
+        assert (-1, 4) in walls_set     # west
+        # South is the flat side — not injected
+        assert (4, 9) not in walls_set
+
+    def test_temple_cardinal_walls_north_flat(self):
+        rect = Rect(0, 0, 9, 9)
+        walls = set(TempleShape(flat_side="north").cardinal_walls(rect))
+        assert (4, 9) in walls
+        assert (9, 4) in walls
+        assert (-1, 4) in walls
+        assert (4, -1) not in walls
+
+    def test_temple_registry_roundtrip(self):
+        """shape_from_type restores the same variant."""
+        for side_char, full in [
+            ("n", "north"), ("s", "south"),
+            ("e", "east"), ("w", "west"),
+        ]:
+            resolved = shape_from_type(f"temple_{side_char}")
+            assert isinstance(resolved, TempleShape)
+            assert resolved.flat_side == full
+
+    def test_temple_7x7_minimum_size(self):
+        """Smallest temple (7x7) still produces valid geometry."""
+        rect = Rect(0, 0, 7, 7)
+        tiles = TempleShape(flat_side="south").floor_tiles(rect)
+        # Center and flat-side arm must be present
+        assert (3, 3) in tiles
+        assert (3, 6) in tiles
+        # Capped tips present
+        assert (3, 0) in tiles
+        assert (0, 3) in tiles
+        assert (6, 3) in tiles
 
 
 class TestCrossShape:

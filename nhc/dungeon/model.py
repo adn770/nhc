@@ -254,6 +254,112 @@ class CrossShape(RoomShape):
         return tiles
 
 
+class TempleShape(RoomShape):
+    """Cross-shaped room with 3 arm ends rounded to a semicircle.
+
+    Built on the same bar geometry as :class:`CrossShape` but each of
+    three arm tips is clipped to a semicircular cap; the fourth arm
+    (``flat_side``) keeps its rectangular tip. Bar widths are forced
+    odd so the caps are symmetric around integer centre lines.
+    """
+
+    VALID_SIDES = ("north", "south", "east", "west")
+
+    def __init__(self, flat_side: str = "south") -> None:
+        if flat_side not in self.VALID_SIDES:
+            flat_side = "south"
+        self.flat_side = flat_side
+        self.type_name = f"temple_{flat_side[0]}"
+
+    @staticmethod
+    def _bar_widths(rect: Rect) -> tuple[int, int, int, int, int, int]:
+        """Return (cx, cy, h_left, h_right, v_top, v_bottom).
+
+        Bar widths are forced odd for clean cap centre lines and
+        clamped so the bars fit inside the rect.
+        """
+        bar_w = max(3, rect.width // 3)
+        if bar_w % 2 == 0:
+            bar_w += 1
+        bar_w = min(bar_w, rect.width - (0 if rect.width % 2 else 1))
+        bar_h = max(3, rect.height // 3)
+        if bar_h % 2 == 0:
+            bar_h += 1
+        bar_h = min(bar_h, rect.height - (0 if rect.height % 2 else 1))
+        cx = rect.x + rect.width // 2
+        cy = rect.y + rect.height // 2
+        h_left = cx - bar_w // 2
+        h_right = h_left + bar_w
+        v_top = cy - bar_h // 2
+        v_bottom = v_top + bar_h
+        return cx, cy, h_left, h_right, v_top, v_bottom
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        cx, cy, h_left, h_right, v_top, v_bottom = self._bar_widths(rect)
+        bar_w = h_right - h_left
+        bar_h = v_bottom - v_top
+        r_w = (bar_w - 1) // 2  # cap radius for N/S arms
+        r_h = (bar_h - 1) // 2  # cap radius for E/W arms
+
+        tiles: set[tuple[int, int]] = set()
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                if v_top <= y < v_bottom or h_left <= x < h_right:
+                    tiles.add((x, y))
+
+        # Cap each non-flat arm: clip corners of the last r+1 rows/cols
+        # so the tip becomes a semicircle.
+        def _clip_vertical(y_tip: int, y_dir: int) -> None:
+            """Round the N or S arm tip. y_tip is the outermost row
+            of the arm; y_dir is +1 for north (going inward = +1) or
+            -1 for south."""
+            cap_cy = y_tip + y_dir * r_w
+            for dy in range(r_w + 1):
+                y = y_tip + y_dir * dy
+                for x in range(h_left, h_right):
+                    dx = x - cx
+                    if dx * dx + (y - cap_cy) ** 2 > r_w * r_w:
+                        tiles.discard((x, y))
+
+        def _clip_horizontal(x_tip: int, x_dir: int) -> None:
+            cap_cx = x_tip + x_dir * r_h
+            for dx in range(r_h + 1):
+                x = x_tip + x_dir * dx
+                for y in range(v_top, v_bottom):
+                    dy = y - cy
+                    if (x - cap_cx) ** 2 + dy * dy > r_h * r_h:
+                        tiles.discard((x, y))
+
+        if self.flat_side != "north":
+            _clip_vertical(rect.y, +1)
+        if self.flat_side != "south":
+            _clip_vertical(rect.y2 - 1, -1)
+        if self.flat_side != "west":
+            _clip_horizontal(rect.x, +1)
+        if self.flat_side != "east":
+            _clip_horizontal(rect.x2 - 1, -1)
+
+        return tiles
+
+    def cardinal_walls(self, rect: Rect) -> list[tuple[int, int]]:
+        """Return wall positions just outside each capped arm tip.
+
+        The flat arm is skipped because its long, rectangular edge
+        produces normal door candidates via the perimeter-run scan.
+        """
+        cx, cy, *_ = self._bar_widths(rect)
+        walls: list[tuple[int, int]] = []
+        if self.flat_side != "north":
+            walls.append((cx, rect.y - 1))
+        if self.flat_side != "south":
+            walls.append((cx, rect.y2))
+        if self.flat_side != "west":
+            walls.append((rect.x - 1, cy))
+        if self.flat_side != "east":
+            walls.append((rect.x2, cy))
+        return walls
+
+
 class HybridShape(RoomShape):
     """Composite room — two sub-shapes joined along a split axis.
 
@@ -444,6 +550,14 @@ def shape_from_type(type_name: str | None) -> RoomShape:
     cls = _SHAPE_REGISTRY.get(name)
     if cls:
         return cls()
+    # Temple variants: temple_n / _s / _e / _w
+    if name.startswith("temple_"):
+        side_char = name[len("temple_"):]
+        sides = {
+            "n": "north", "s": "south",
+            "e": "east", "w": "west",
+        }
+        return TempleShape(flat_side=sides.get(side_char, "south"))
     # Check hybrid presets
     preset = _HYBRID_PRESETS.get(name)
     if preset:

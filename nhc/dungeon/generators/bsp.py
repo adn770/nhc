@@ -10,6 +10,7 @@ import logging
 import random
 from collections import deque
 from dataclasses import dataclass
+from typing import Callable
 
 from nhc.dungeon.generator import DungeonGenerator, GenerationParams
 
@@ -27,6 +28,7 @@ from nhc.dungeon.model import (
     RectShape,
     Room,
     RoomShape,
+    TempleShape,
     Terrain,
     Tile,
 )
@@ -204,11 +206,11 @@ def _door_candidates(
             for fy in inner:
                 candidates.append((fx + dx, fy + dy, side))
 
-    # For circles, ensure the 4 cardinal wall positions are always
-    # included.  Small circles produce only length-1 perimeter runs
-    # (every edge changes x), so the generic min_run filter drops
-    # them all.  Inject cardinals that aren't already present.
-    if isinstance(room.shape, CircleShape):
+    # For circles and temples, ensure the cardinal wall positions
+    # are always included.  These shapes have curved or pointed arm
+    # tips whose perimeter runs are too short for the generic
+    # min_run filter; inject cardinals that aren't already present.
+    if isinstance(room.shape, (CircleShape, TempleShape)):
         cand_set = {(x, y) for x, y, _ in candidates}
         _SIDE_FOR_DIR = {
             (0, -1): "north",
@@ -970,8 +972,8 @@ class BSPGenerator(DungeonGenerator):
                 split = "horizontal"
             return HybridShape(CircleShape(), RectShape(), split)
 
-        # Collect eligible shapes for this room size
-        candidates: list[type[RoomShape]] = [
+        # Collect eligible shape factories for this room size
+        candidates: list[Callable[[], RoomShape]] = [
             OctagonShape, CrossShape,
         ]
         # Circles only for near-square rooms where both dimensions
@@ -983,6 +985,15 @@ class BSPGenerator(DungeonGenerator):
         # is odd (clean integer geometry for the semicircle caps).
         if (max_dim - min_dim >= 2 and min_dim >= 5 and min_dim % 2 == 1):
             candidates.append(PillShape)
+        # Temples need room for 4 arms with rounded caps. Require
+        # both dimensions odd and min_dim >= 7.
+        if (min_dim >= 7
+                and rect.width % 2 == 1 and rect.height % 2 == 1):
+            candidates.append(
+                lambda r=rng: TempleShape(
+                    flat_side=r.choice(TempleShape.VALID_SIDES),
+                )
+            )
 
         return rng.choice(candidates)()
 
