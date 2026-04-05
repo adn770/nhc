@@ -12,7 +12,8 @@ from shapely.geometry import Point, Polygon
 
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, OctagonShape,
-    Rect, RectShape, Room, RoomShape, TempleShape, Terrain, Tile,
+    PillShape, Rect, RectShape, Room, RoomShape, TempleShape,
+    Terrain, Tile,
 )
 from nhc.rendering.svg import (
     BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
@@ -726,6 +727,27 @@ class TestGridInSmoothRooms:
     def test_grid_inside_octagon_room(self):
         self._assert_grid_segments(OctagonShape())
 
+    def test_grid_inside_pill_room(self):
+        self._assert_grid_segments(PillShape())
+
+    def test_pill_room_has_shapely_polygon_covering_floor(self):
+        """_room_shapely_polygon must return a polygon for pill
+        rooms so grid/detail clip-paths reveal them. Without this
+        the pill room gets clipped out of dungeon_poly and the
+        grid + floor detail layers do not render over it."""
+        from nhc.rendering.svg import _room_shapely_polygon
+        room = Room(
+            id="r1", rect=Rect(0, 0, 9, 5), shape=PillShape(),
+        )
+        poly = _room_shapely_polygon(room)
+        assert poly is not None, "pill room missing shapely polygon"
+        assert not poly.is_empty
+        for tx, ty in room.floor_tiles():
+            center = Point(tx * CELL + CELL / 2, ty * CELL + CELL / 2)
+            assert poly.contains(center), (
+                f"pill floor tile ({tx},{ty}) not inside shapely polygon"
+            )
+
     def test_no_per_room_clip_path_for_rect_room(self):
         """Rect rooms don't need per-room clip paths for grid."""
         level, _ = _make_shaped_level(RectShape())
@@ -816,6 +838,9 @@ class TestFloorDetailIndependentOfShape:
     def test_stones_in_octagon_room(self):
         self._assert_stones(OctagonShape())
 
+    def test_stones_in_pill_room(self):
+        self._assert_stones(PillShape())
+
     def test_cracks_in_rect_room(self):
         self._assert_cracks(RectShape())
 
@@ -828,6 +853,9 @@ class TestFloorDetailIndependentOfShape:
     def test_cracks_in_octagon_room(self):
         self._assert_cracks(OctagonShape())
 
+    def test_cracks_in_pill_room(self):
+        self._assert_cracks(PillShape())
+
     def test_scratches_in_rect_room(self):
         self._assert_scratches(RectShape())
 
@@ -839,6 +867,9 @@ class TestFloorDetailIndependentOfShape:
 
     def test_scratches_in_octagon_room(self):
         self._assert_scratches(OctagonShape())
+
+    def test_scratches_in_pill_room(self):
+        self._assert_scratches(PillShape())
 
     def test_detail_on_corridor_opening_tile(self):
         """Corridor opening tiles get floor detail via the

@@ -21,6 +21,7 @@ from nhc.dungeon.model import (
     CircleShape,
     HybridShape,
     OctagonShape,
+    PillShape,
     Rect,
     Terrain,
 )
@@ -205,7 +206,7 @@ def _wall_mask(
     return mask
 
 
-_EXPAND_SHAPES = (CircleShape, OctagonShape)
+_EXPAND_SHAPES = (CircleShape, OctagonShape, PillShape)
 
 
 def _rect_cells(rect: "Rect") -> set[tuple[int, int]]:
