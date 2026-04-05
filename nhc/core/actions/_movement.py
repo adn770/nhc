@@ -209,6 +209,7 @@ class BumpAction(Action):
 
     def resolve(self, world: "World", level: "Level") -> Action | None:
         """Convert bump into a concrete action."""
+        from nhc.core.actions._base import _closed_door_blocks
         from nhc.core.actions._combat import MeleeAttackAction
         from nhc.core.actions._interaction import OpenChestAction
 
@@ -217,14 +218,29 @@ class BumpAction(Action):
             return None
         nx, ny = pos.x + self.dx, pos.y + self.dy
 
-        # Check for blocking entities at target
-        for eid, _, bpos in world.query("BlocksMovement", "Position"):
-            if bpos.x == nx and bpos.y == ny and eid != self.actor:
-                # Chests: open instead of attack
-                if world.has_component(eid, "Chest"):
-                    return OpenChestAction(actor=self.actor, chest=eid)
-                # Creatures: attack
-                return MeleeAttackAction(actor=self.actor, target=eid)
+        # A closed edge-door between the actor and the target
+        # tile makes attacks and chest-opens impossible. Skip
+        # the blocking-entity scan entirely in that case and
+        # fall through to MoveAction, which opens the door as
+        # its side effect — otherwise a creature parked on the
+        # far side of the door hijacks the bump into a melee
+        # that can never land and stalls the player.
+        door_blocks = _closed_door_blocks(
+            level, pos.x, pos.y, nx, ny)
+
+        if not door_blocks:
+            for eid, _, bpos in world.query(
+                "BlocksMovement", "Position",
+            ):
+                if (bpos.x == nx and bpos.y == ny
+                        and eid != self.actor):
+                    # Chests: open instead of attack
+                    if world.has_component(eid, "Chest"):
+                        return OpenChestAction(
+                            actor=self.actor, chest=eid)
+                    # Creatures: attack
+                    return MeleeAttackAction(
+                        actor=self.actor, target=eid)
 
         # Otherwise: move (handles doors internally)
         return MoveAction(actor=self.actor, dx=self.dx, dy=self.dy,

@@ -176,3 +176,47 @@ class TestDoorMovement:
         # Player stays at corridor (door open consumed action)
         pos = world.get_component(pid, "Position")
         assert pos.x == 4
+
+
+class TestBumpThroughClosedDoorWithCreatureBehind:
+    """Regression: a creature standing on the far side of a
+    closed edge-door used to hijack BumpAction into a melee
+    that could never land (blocked by _closed_door_blocks),
+    leaving the door closed and stalling the player. The bump
+    must fall through to MoveAction so the door gets opened
+    first."""
+
+    def _make_level_with_creature_behind_door(self):
+        """Player on door tile (3,3, door_side=west), room
+        floors at (1,3) and (2,3), corridor (4,3). A creature
+        with BlocksMovement sits at (2,3) behind the door."""
+        from nhc.core.actions import BumpAction
+        from nhc.entities.components import BlocksMovement
+        level = _make_corridor_door_room()
+        world = World()
+        pid = _make_player(world, 3, 3)  # on the door tile
+        # Creature on the room side of the door.
+        cid = world.create_entity()
+        world.add_component(cid, "Position", Position(x=2, y=3))
+        world.add_component(cid, "BlocksMovement", BlocksMovement())
+        world.add_component(cid, "Renderable", Renderable(glyph="g"))
+        return level, world, pid, cid
+
+    async def test_bump_opens_door_when_creature_behind(self):
+        from nhc.core.actions import BumpAction
+        level, world, pid, cid = (
+            self._make_level_with_creature_behind_door())
+        bump = BumpAction(actor=pid, dx=-1, dy=0, edge_doors=True)
+        assert await bump.validate(world, level)
+        events = await bump.execute(world, level)
+        # Door must be open now, not a silent no-op.
+        assert level.tiles[3][3].feature == "door_open", (
+            "bump toward a creature behind a closed door should "
+            "open the door instead of stalling on a blocked "
+            "melee attack"
+        )
+        # Player stays on the door tile — opening consumed the turn.
+        pos = world.get_component(pid, "Position")
+        assert (pos.x, pos.y) == (3, 3)
+        # Events should include a DoorOpened-style response.
+        assert events, "bump must emit events (door-open)"
