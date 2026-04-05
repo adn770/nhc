@@ -27,9 +27,14 @@
       </select>
       <button id="continue-btn" class="hidden">Continue</button>
       <button id="new-game-btn">New Game</button>
+      <button id="ranking-btn">{{ (welcome_labels or {}).get('ranking_button', 'Ranking') }}</button>
     </div>
     <div id="session-list"></div>
   </div>
+
+  <script>
+    window.NHC_WELCOME_LABELS = {{ (welcome_labels or {}) | tojson }};
+  </script>
 
   <!-- Loading overlay -->
   <div id="loading-overlay" class="hidden">

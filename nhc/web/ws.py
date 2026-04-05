@@ -22,6 +22,61 @@ from nhc.web.sessions import SessionManager
 logger = logging.getLogger(__name__)
 
 
+def _submit_final_score(session) -> None:
+    """Record the run in the leaderboard, if one is configured.
+
+    Called when a game session ends (death or victory).  Idempotent
+    via ``session.score_submitted`` so races between the WS ack
+    interceptor and the session-teardown path never double-count.
+    Errors are logged but never raised — leaderboard bookkeeping
+    must never block session teardown.
+    """
+    if getattr(session, "score_submitted", False):
+        return
+    try:
+        from flask import current_app
+        leaderboard = current_app.config.get("LEADERBOARD")
+        if not leaderboard:
+            return
+        registry = current_app.config.get("PLAYER_REGISTRY")
+        game = session.game
+        if not game or not game.level:
+            return
+        player = game.world.get_component(game.player_id, "Player")
+        xp = player.xp if player else 0
+        gold = player.gold if player else 0
+        depth = game.level.depth if game.level else 1
+        won = bool(game.won)
+        # Look up the player's display name from the registry;
+        # fall back to a truncated player_id for anonymous runs.
+        name = ""
+        if registry and session.player_id:
+            pdata = registry.get(session.player_id)
+            if pdata:
+                name = pdata.get("name", "")
+        if not name:
+            name = session.player_id[:8] or "anonymous"
+
+        from nhc.web.leaderboard import (
+            LeaderboardEntry,
+            compute_score,
+        )
+        entry = LeaderboardEntry(
+            player_id=session.player_id or "",
+            name=name,
+            score=compute_score(xp=xp, gold=gold, depth=depth, won=won),
+            depth=depth,
+            turn=game.turn,
+            won=won,
+            killed_by=game.killed_by or "",
+            timestamp=time.time(),
+        )
+        leaderboard.submit(entry)
+        session.score_submitted = True
+    except Exception:
+        logger.exception("Failed to submit leaderboard score")
+
+
 def _send_floor_state(ws, session, client, base_url: str) -> None:
     """Send floor/entity/fov state to a newly connected WebSocket."""
     game = session.game
@@ -145,6 +200,17 @@ def _run_ws_session(
                 raw = ws.receive(timeout=1)
                 if raw:
                     logger.debug("WS RECV: %s", raw[:120])
+                    # Submit the leaderboard score the instant the
+                    # client acknowledges the game-over modal.  The
+                    # death modal fetches /api/ranking a moment
+                    # later, so the entry must already be on disk.
+                    try:
+                        parsed = json.loads(raw)
+                        if (isinstance(parsed, dict)
+                                and parsed.get("type") == "game_over_ack"):
+                            _submit_final_score(session)
+                    except Exception:
+                        pass
                     client._in_queue.put(raw)
             except Exception:
                 break
@@ -168,6 +234,7 @@ def _run_ws_session(
     if game.game_over or game.won:
         logger.info("WS disconnect: game ended, destroying session %s",
                      session_id)
+        _submit_final_score(session)
         sessions.destroy(session_id)
     else:
         session.connected = False

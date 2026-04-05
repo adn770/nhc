@@ -666,6 +666,19 @@ class WebClient(GameClient):
             "hunger_normal": tr("ui.hunger_normal"),
             "hunger_hungry": tr("ui.hunger_hungry"),
             "hunger_starving": tr("ui.hunger_starving"),
+            # Ranking / leaderboard
+            "ranking_button": tr("ui.ranking_button"),
+            "ranking_title": tr("ui.ranking_title"),
+            "ranking_empty": tr("ui.ranking_empty"),
+            "ranking_col_rank": tr("ui.ranking_col_rank"),
+            "ranking_col_name": tr("ui.ranking_col_name"),
+            "ranking_col_score": tr("ui.ranking_col_score"),
+            "ranking_col_depth": tr("ui.ranking_col_depth"),
+            "ranking_col_turns": tr("ui.ranking_col_turns"),
+            "ranking_col_fate": tr("ui.ranking_col_fate"),
+            "ranking_fate_won": tr("ui.ranking_fate_won"),
+            "ranking_fate_died": tr("ui.ranking_fate_died"),
+            "ranking_close": tr("ui.ranking_close"),
         }
 
     def _gather_doors(

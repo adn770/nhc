@@ -8,6 +8,7 @@ import collections
 import logging
 import multiprocessing
 import os
+import tempfile
 import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -133,6 +134,18 @@ def create_app(
         registry.load()
     app.config["PLAYER_REGISTRY"] = registry
 
+    # Leaderboard (persistent).  Scores are submitted server-side
+    # when a run ends (death or victory); see nhc.web.ws.
+    from nhc.web.leaderboard import Leaderboard
+    leaderboard_path = (
+        (config.data_dir / "leaderboard.json")
+        if config.data_dir
+        else Path(tempfile.gettempdir()) / "nhc_leaderboard.json"
+    )
+    leaderboard = Leaderboard(leaderboard_path)
+    leaderboard.load()
+    app.config["LEADERBOARD"] = leaderboard
+
     # Auth decorator wrappers
     def _player_auth(f):
         """Apply player token auth when auth is enabled."""
@@ -190,6 +203,21 @@ def create_app(
 
     # ── Public routes ───────────────────────────────────────
 
+    def _welcome_labels(lang: str) -> dict:
+        """Return the label subset the welcome screen/ranking modal
+        needs before a game session exists.  Initializes i18n on
+        the request thread so translations match the player's lang.
+        """
+        from nhc.i18n import init as i18n_init, t as tr
+        i18n_init(lang or config.default_lang)
+        keys = [
+            "ranking_button", "ranking_title", "ranking_empty",
+            "ranking_col_rank", "ranking_col_name", "ranking_col_score",
+            "ranking_col_depth", "ranking_col_turns", "ranking_col_fate",
+            "ranking_fate_won", "ranking_fate_died", "ranking_close",
+        ]
+        return {k: tr(f"ui.{k}") for k in keys}
+
     @app.route("/")
     def index():
         if config.auth_required and registry:
@@ -209,11 +237,15 @@ def create_app(
             resp = make_response(render_template(
                 "index.html", player_name=player_name,
                 god_mode=player_god, player_lang=player_lang,
+                welcome_labels=_welcome_labels(player_lang),
             ))
             resp.set_cookie("nhc_token", token,
                             samesite="Strict")
             return resp
-        return render_template("index.html")
+        return render_template(
+            "index.html",
+            welcome_labels=_welcome_labels(""),
+        )
 
     @app.route("/health", methods=["GET"])
     def health():
@@ -392,6 +424,25 @@ def create_app(
         )
 
     # ── Player routes (player token) ────────────────────────
+
+    @app.route("/api/ranking", methods=["GET"])
+    @_player_auth
+    def ranking():
+        """Return the top leaderboard entries.
+
+        Requires a valid player token so nothing is exposed publicly.
+        Accepts an optional ``?limit=N`` query parameter (1–50,
+        default 10).
+        """
+        try:
+            limit = int(request.args.get("limit", "10"))
+        except ValueError:
+            limit = 10
+        limit = max(1, min(50, limit))
+        entries = leaderboard.top(limit)
+        return jsonify({
+            "entries": [e.to_dict() for e in entries],
+        })
 
     @app.route("/api/player/login", methods=["POST"])
     @_player_auth

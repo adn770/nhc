@@ -697,6 +697,19 @@ ui:
   hunger_normal: "Normal"
   hunger_hungry: "Hambriento"
   hunger_starving: "¡Famélico!"
+  # Ranking / leaderboard
+  ranking_button: "Clasificación"
+  ranking_title: "Aventureros Destacados"
+  ranking_empty: "Aún no hay puntuaciones. ¡Sé el primero en morir con gloria!"
+  ranking_col_rank: "#"
+  ranking_col_name: "Nombre"
+  ranking_col_score: "Puntos"
+  ranking_col_depth: "Nivel"
+  ranking_col_turns: "Turnos"
+  ranking_col_fate: "Destino"
+  ranking_fate_won: "Escapado"
+  ranking_fate_died: "Caído"
+  ranking_close: "Cerrar"
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:

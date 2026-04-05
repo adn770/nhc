@@ -15,6 +15,9 @@ const NHC = {
     document.getElementById("continue-btn")
       .addEventListener("click", () => this.newGame(false));
 
+    document.getElementById("ranking-btn")
+      ?.addEventListener("click", () => UI.showRanking());
+
     document.getElementById("help-btn")
       ?.addEventListener("click", () => UI.showHelp());
 

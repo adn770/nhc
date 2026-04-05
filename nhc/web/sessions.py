@@ -39,6 +39,7 @@ class Session:
     save_dir: Path | None = None
     connected: bool = True
     disconnected_at: float | None = None
+    score_submitted: bool = False
 
 
 class SessionManager:

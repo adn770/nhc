@@ -619,3 +619,111 @@ class TestDebugBundleAutosave:
         with tarfile.open(fileobj=buf, mode="r:gz") as tar:
             names = tar.getnames()
             assert "autosave.nhc" in names
+
+
+class TestRankingAPI:
+    def test_ranking_empty(self, client_with_data_dir):
+        resp = client_with_data_dir.get("/api/ranking")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data == {"entries": []}
+
+    def test_ranking_returns_submitted_scores(self, client_with_data_dir):
+        from nhc.web.leaderboard import LeaderboardEntry
+        lb = client_with_data_dir.application.config["LEADERBOARD"]
+        lb.submit(LeaderboardEntry(
+            player_id="p1", name="Alice",
+            score=500, depth=3, turn=120, won=False,
+            killed_by="goblin", timestamp=1000.0,
+        ))
+        lb.submit(LeaderboardEntry(
+            player_id="p2", name="Bob",
+            score=1200, depth=5, turn=300, won=True,
+            killed_by="", timestamp=1001.0,
+        ))
+        resp = client_with_data_dir.get("/api/ranking")
+        assert resp.status_code == 200
+        entries = resp.get_json()["entries"]
+        assert len(entries) == 2
+        # Sorted descending by score
+        assert entries[0]["name"] == "Bob"
+        assert entries[0]["rank"] == 1
+        assert entries[0]["won"] is True
+        assert entries[1]["name"] == "Alice"
+        assert entries[1]["rank"] == 2
+        assert entries[1]["killed_by"] == "goblin"
+
+    def test_ranking_limit_parameter(self, client_with_data_dir):
+        from nhc.web.leaderboard import LeaderboardEntry
+        lb = client_with_data_dir.application.config["LEADERBOARD"]
+        for i in range(20):
+            lb.submit(LeaderboardEntry(
+                player_id=f"p{i}", name=f"P{i}",
+                score=i * 10, depth=1, turn=10, won=False,
+                killed_by="rat", timestamp=float(i),
+            ))
+        resp = client_with_data_dir.get("/api/ranking?limit=5")
+        entries = resp.get_json()["entries"]
+        assert len(entries) == 5
+        assert entries[0]["score"] == 190
+
+    def test_ranking_requires_auth_when_enabled(self, tmp_path):
+        from nhc.web.auth import hash_token
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+        )
+        app = create_app(config, auth_token="admin-secret")
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            # Without a token: 401
+            resp = c.get("/api/ranking")
+            assert resp.status_code == 401
+            # With a valid player token: 200
+            registry = app.config["PLAYER_REGISTRY"]
+            token, _pid = registry.register("Alice")
+            resp = c.get(f"/api/ranking?token={token}")
+            assert resp.status_code == 200
+
+    def test_ranking_rejects_invalid_token(self, tmp_path):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+        )
+        app = create_app(config, auth_token="admin-secret")
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            resp = c.get("/api/ranking?token=bogus")
+            assert resp.status_code == 403
+
+    def test_ws_submits_score_on_game_end(self, client_with_data_dir):
+        """_submit_final_score writes a leaderboard entry when a
+        session ends (death or victory)."""
+        from nhc.web.ws import _submit_final_score
+
+        _token, pid = _register_player(client_with_data_dir, "Hero")
+        app = client_with_data_dir.application
+        # Create a real game session so session.game is populated.
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": _token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = app.config["SESSIONS"]
+        session = sessions.get(sid)
+        session.player_id = pid
+
+        # Simulate death at turn 42.
+        session.game.game_over = True
+        session.game.killed_by = "goblin"
+        session.game.turn = 42
+
+        lb = app.config["LEADERBOARD"]
+        assert lb.top(10) == []
+        with app.app_context():
+            _submit_final_score(session)
+        top = lb.top(10)
+        assert len(top) == 1
+        assert top[0].name == "Hero"
+        assert top[0].turn == 42
+        assert top[0].killed_by == "goblin"
+        assert top[0].won is False
+        assert top[0].depth >= 1

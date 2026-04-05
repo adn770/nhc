@@ -465,7 +465,7 @@ const UI = {
     const overlay = document.createElement("div");
     overlay.id = "menu-overlay";
     const box = document.createElement("div");
-    box.className = "menu-box";
+    box.className = "menu-box menu-box-wide";
     const vicTitle = L.victory_title || "VICTORY!";
     const deathTitle = L.death_title || "YOU DIED";
     const title = msg.won ? `⚔️ ${vicTitle} ⚔️` : `💀 ${deathTitle} 💀`;
@@ -478,15 +478,25 @@ const UI = {
     box.innerHTML = `<h3>${title}</h3>
       ${cause}
       <p>${footer}</p>
+      <div id="game-over-ranking" class="ranking-block"></div>
       <br>
       <div class="option">${cont}</div>`;
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
+    // Notify server we've seen the game-over screen so it can
+    // record the score before the session is destroyed, then
+    // fetch the refreshed ranking for display.
+    WS.send({ type: "game_over_ack" });
+    // Small delay so the server-side score submission has a chance
+    // to hit the leaderboard before we query it (the WS handler
+    // writes the entry on disconnect / teardown).
+    setTimeout(() => {
+      const host = document.getElementById("game-over-ranking");
+      if (host) UI.renderRankingInto(host, 10);
+    }, 150);
+
     const dismiss = () => {
-      // Send ack so server can clean up
-      WS.send({ type: "game_over_ack" });
-      // Return to welcome screen
       document.getElementById("game-screen").classList.add("hidden");
       document.getElementById("login-screen").classList.remove("hidden");
       overlay.remove();
@@ -494,6 +504,94 @@ const UI = {
 
     box.addEventListener("click", dismiss, { once: true });
     document.addEventListener("keydown", dismiss, { once: true });
+  },
+
+  /**
+   * Fetch /api/ranking and render a table into *host*.  Uses
+   * NHC.labels when populated (in-game) and falls back to
+   * window.NHC_WELCOME_LABELS on the welcome screen.
+   */
+  async renderRankingInto(host, limit = 10) {
+    const L = Object.assign(
+      {},
+      window.NHC_WELCOME_LABELS || {},
+      NHC.labels || {},
+    );
+    host.innerHTML = `<p class="ranking-loading">...</p>`;
+    try {
+      const resp = await fetch(`/api/ranking?limit=${limit}`);
+      if (!resp.ok) {
+        host.innerHTML = `<p>HTTP ${resp.status}</p>`;
+        return;
+      }
+      const data = await resp.json();
+      const entries = data.entries || [];
+      if (entries.length === 0) {
+        host.innerHTML =
+          `<p class="ranking-empty">${L.ranking_empty || "No scores yet."}</p>`;
+        return;
+      }
+      const esc = (s) => String(s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const head = `<tr>
+        <th>${L.ranking_col_rank || "#"}</th>
+        <th>${L.ranking_col_name || "Name"}</th>
+        <th>${L.ranking_col_score || "Score"}</th>
+        <th>${L.ranking_col_depth || "Depth"}</th>
+        <th>${L.ranking_col_turns || "Turns"}</th>
+        <th>${L.ranking_col_fate || "Fate"}</th>
+      </tr>`;
+      const rows = entries.map((e) => {
+        const fate = e.won
+          ? `<span class="fate-won">${L.ranking_fate_won || "Escaped"}</span>`
+          : `<span class="fate-died">${L.ranking_fate_died || "Slain"}${
+              e.killed_by ? " — " + esc(e.killed_by) : ""}</span>`;
+        return `<tr>
+          <td>${e.rank}</td>
+          <td>${esc(e.name)}</td>
+          <td>${e.score}</td>
+          <td>${e.depth}</td>
+          <td>${e.turn}</td>
+          <td>${fate}</td>
+        </tr>`;
+      }).join("");
+      host.innerHTML =
+        `<table class="ranking-table"><thead>${head}</thead>` +
+        `<tbody>${rows}</tbody></table>`;
+    } catch (err) {
+      host.innerHTML = `<p class="ranking-error">${err}</p>`;
+    }
+  },
+
+  showRanking() {
+    const L = Object.assign(
+      {},
+      window.NHC_WELCOME_LABELS || {},
+      NHC.labels || {},
+    );
+    const overlay = document.createElement("div");
+    overlay.id = "menu-overlay";
+    const box = document.createElement("div");
+    box.className = "menu-box menu-box-wide";
+    box.innerHTML = `
+      <h3>🏆 ${L.ranking_title || "Top Adventurers"} 🏆</h3>
+      <div id="ranking-host" class="ranking-block"></div>
+      <br>
+      <div class="option">${L.ranking_close || "Close"}</div>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    UI.renderRankingInto(document.getElementById("ranking-host"), 10);
+
+    const dismiss = () => overlay.remove();
+    box.addEventListener("click", dismiss, { once: true });
+    const onKey = (e) => {
+      if (e.key === "Escape" || e.key === "Enter") {
+        dismiss();
+        document.removeEventListener("keydown", onKey);
+      }
+    };
+    document.addEventListener("keydown", onKey);
   },
 
   applyLabels(labels) {

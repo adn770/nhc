@@ -715,6 +715,19 @@ ui:
   hunger_normal: "Normal"
   hunger_hungry: "Gana"
   hunger_starving: "Famèlic!"
+  # Ranking / leaderboard
+  ranking_button: "Rànquing"
+  ranking_title: "Aventurers Destacats"
+  ranking_empty: "Encara no hi ha cap puntuació. Sigues el primer a morir amb glòria!"
+  ranking_col_rank: "#"
+  ranking_col_name: "Nom"
+  ranking_col_score: "Punts"
+  ranking_col_depth: "Nivell"
+  ranking_col_turns: "Torns"
+  ranking_col_fate: "Destí"
+  ranking_fate_won: "Escapat"
+  ranking_fate_died: "Caigut"
+  ranking_close: "Tanca"
 
 # ── Creature descriptions ────────────────────────────────────────────
 creature:
