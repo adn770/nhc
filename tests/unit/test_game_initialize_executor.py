@@ -84,6 +84,57 @@ class TestInitializeWithExecutor:
         assert len(inline.level.entities) == len(pooled.level.entities)
         assert inline.level.width == pooled.level.width
 
+    def test_descend_does_not_raise_name_error(self, make_game):
+        """Regression: _on_level_entered must resolve a generator
+        without referencing unimported BSPGenerator/CellularGenerator.
+
+        e7c2342 moved the module-level generator imports into the
+        generate_level() pipeline helper but missed the stair-descent
+        fallback and the prefetch thread, which still referenced
+        BSPGenerator/CellularGenerator as bare names. Descending on
+        a floor without a ready prefetch raised NameError and killed
+        the game loop.
+        """
+        from nhc.core.events import LevelEntered
+
+        game = make_game(seed=7777)
+        asyncio.run(game.initialize(generate=True))
+        # Force the sync fallback path: no cached floor, no prefetch.
+        game._floor_cache.clear()
+        game._prefetch_depth = None
+        game._prefetch_result = None
+        game._prefetch_params = None
+
+        # Must not raise — regenerates depth 2 via generate_level().
+        game._on_level_entered(LevelEntered(
+            entity=game.player_id,
+            level_id="depth_2",
+            depth=2,
+            fell=False,
+        ))
+        assert game.level is not None
+        assert game.level.depth == 2
+
+    def test_prefetch_thread_does_not_raise_name_error(
+        self, make_game,
+    ):
+        """Regression: _start_prefetch's background thread must be
+        able to import its generator. The daemon thread silently
+        swallows exceptions, so the only observable failure is that
+        _prefetch_result stays None forever. Check the prefetch
+        completes successfully."""
+        game = make_game(seed=8888)
+        asyncio.run(game.initialize(generate=True))
+
+        game._start_prefetch(depth=2)
+        # Wait for the background thread
+        if game._prefetch_thread is not None:
+            game._prefetch_thread.join(timeout=15)
+        assert game._prefetch_result is not None, (
+            "prefetch thread failed (likely NameError swallowed)"
+        )
+        assert game._prefetch_result.depth == 2
+
     def test_initialize_concurrent_with_shared_pool(self, tmp_path):
         """Two games initialized concurrently through the same pool
         both succeed with distinct seeds → distinct levels."""

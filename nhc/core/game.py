@@ -45,6 +45,7 @@ from nhc.core.events import (
     TrapTriggered,
 )
 from nhc.dungeon.generator import GenerationParams, pick_map_size
+from nhc.dungeon.pipeline import generate_level
 from nhc.dungeon.themes import theme_for_depth
 from nhc.dungeon.loader import get_player_start, load_level
 from nhc.dungeon.model import Level, Terrain
@@ -355,7 +356,6 @@ class Game:
             # worker process so the main event loop stays responsive
             # and multiple cores can serve concurrent players. When
             # executor is None (CLI, tests), run inline.
-            from nhc.dungeon.pipeline import generate_level
             if executor is not None:
                 loop = asyncio.get_running_loop()
                 self.level = await loop.run_in_executor(
@@ -1169,23 +1169,23 @@ class Game:
         theme = theme_for_depth(depth)
 
         def _generate() -> None:
-            rng = random.Random(seed)
-            pf_w, pf_h = pick_map_size(rng)
-            params = GenerationParams(
-                width=pf_w, height=pf_h,
-                depth=depth, shape_variety=sv, theme=theme,
-                seed=seed,
-            )
-            gen = (CellularGenerator() if theme == "cave"
-                   else BSPGenerator())
-            level = gen.generate(params, rng=rng)
-            assign_room_types(level, rng)
-            apply_terrain(level, rng)
-            populate_level(level, rng=rng)
-            self._prefetch_result = level
-            self._prefetch_params = params
-            self._prefetch_thread = None
-            logger.info("Prefetch complete for depth %d", depth)
+            try:
+                rng = random.Random(seed)
+                pf_w, pf_h = pick_map_size(rng)
+                params = GenerationParams(
+                    width=pf_w, height=pf_h,
+                    depth=depth, shape_variety=sv, theme=theme,
+                    seed=seed,
+                )
+                level = generate_level(params)
+                self._prefetch_result = level
+                self._prefetch_params = params
+                logger.info("Prefetch complete for depth %d", depth)
+            except Exception:
+                logger.exception(
+                    "Prefetch thread failed for depth %d", depth)
+            finally:
+                self._prefetch_thread = None
 
         self._prefetch_depth = depth
         self._prefetch_thread = threading.Thread(
@@ -1239,23 +1239,18 @@ class Game:
             self._prefetch_result = None
             self._prefetch_params = None
             self._prefetch_depth = None
+            seed = (self.seed or 0) + new_depth * 997
             sv = _shape_variety_for_depth(self.shape_variety, new_depth)
             theme = theme_for_depth(new_depth)
-            ft_rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
+            ft_rng = random.Random(seed)
             ft_w, ft_h = pick_map_size(ft_rng)
             params = GenerationParams(
                 width=ft_w, height=ft_h,
                 depth=new_depth, shape_variety=sv, theme=theme,
-                seed=self.seed,
+                seed=seed,
             )
             self.generation_params = params
-            gen = (CellularGenerator() if theme == "cave"
-                   else BSPGenerator())
-            self.level = gen.generate(params)
-            rng = __import__("nhc.utils.rng", fromlist=["get_rng"]).get_rng()
-            assign_room_types(self.level, rng)
-            apply_terrain(self.level, rng)
-            populate_level(self.level)
+            self.level = generate_level(params)
             self._spawn_level_entities()
 
         # Place player at the appropriate stairs (or random if fell)
