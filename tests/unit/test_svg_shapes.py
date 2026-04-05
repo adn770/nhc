@@ -568,18 +568,95 @@ class TestHybridArcDirection:
         match = re.search(r'<path[^>]+d="([^"]+Z)"', svg)
         assert match, "Hybrid outline should be a closed path"
 
-    def test_hybrid_doorless_opening_gaps_arc(self):
-        """Hybrid with doorless corridor has gapped arc."""
+    def test_hybrid_doorless_opening_gaps_outline(self):
+        """Hybrid with doorless corridor has gapped wall outline.
+
+        Gap handling converts the hybrid outline into a polyline
+        (arc approximated by many straight segments) so the gap can
+        be traced uniformly with the polygon-with-gaps pipeline.
+        The gapped wall path must therefore be open (no Z) and
+        contain multiple subpaths (multiple M commands)."""
         shape = HybridShape(CircleShape(), RectShape(), "horizontal")
         level, room = _make_shaped_level(
             shape, room_w=9, room_h=10,
             corridor_side="north")
         svg = render_floor_svg(level)
-        # Should have a path with arcs but NOT closed
-        arc_paths = re.findall(
-            r'<path[^>]+d="([^"]*A[^"]*)"', svg)
-        has_open_arc = any("Z" not in p for p in arc_paths)
-        assert has_open_arc, "Hybrid gapped arc should not be closed"
+        wall_paths = re.findall(
+            r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width="4', svg)
+        has_gapped = any(
+            p.count("M") >= 2 and "Z" not in p
+            for p in wall_paths
+        )
+        assert has_gapped, (
+            "Hybrid wall outline must be open and contain multiple "
+            f"subpaths at a corridor opening; got: {wall_paths}"
+        )
+
+    def test_hybrid_west_corridor_on_diagonal_keeps_arc_short(self):
+        """Regression: a west-side corridor whose wall lies on the
+        straight diagonal between the arc endpoint and the rect
+        corner must not be misclassified as an arc hit. The old
+        hybrid gap classification used a 2-pixel radius tolerance
+        that picked up diagonal points at sqrt(r^2 + small^2)
+        distance from the centre, projected them onto the arc via
+        atan2, and made the rendered arc sweep ~358° of the circle
+        (large_arc=1) with its endpoint back near the arc start.
+
+        For a 5x10 hybrid_circle_rect_h room (circle on top) with
+        a doorless corridor entering from the west one row below
+        the equator, the wall gap lies on the vertical diagonal
+        from (px, mid) to (ccx-r, ccy). The gapped wall must not
+        contain any near-full-circle arc sweep — after the fix
+        hybrid gap handling goes through the polygon-with-gaps
+        pipeline, so the rendered outline contains only straight
+        polygon segments with no SVG A commands at all.
+        """
+        shape = HybridShape(CircleShape(), RectShape(), "horizontal")
+        # 5 wide x 10 tall: top half is a 5x5 circle (d=5, r=2 tiles),
+        # bottom half is a 5x5 rect. Equator row of circle is at
+        # mid_row = room_y + 2 (tile-local), where room_y is 3 from
+        # _make_shaped_level defaults.
+        level, room = _make_shaped_level(
+            shape, room_x=3, room_y=3, room_w=5, room_h=10)
+        # Add a doorless corridor entering from the west one row
+        # BELOW the equator (room_y + 3). The wall gap at that row
+        # lies on the vertical diagonal line from the arc's west
+        # endpoint down to the rect-half seam, at a y-distance of
+        # ~0.5 tiles below the circle centre. Its straight-line
+        # distance from the circle centre is sqrt(r^2 + small^2),
+        # ~1.6 pixels past the radius — exactly what the old 2.0-px
+        # tolerance in _hybrid_with_gaps misclassified as on-arc.
+        floor = room.floor_tiles()
+        wy = room.rect.y + 3
+        wx = min(fx for fx, fy in floor if fy == wy)
+        _add_corridor(level, room, wx - 1, wy, -1, 0, length=3)
+        svg = render_floor_svg(level)
+        # Extract all arc commands in wall-stroked paths (width=4).
+        arc_cmds = re.findall(
+            r'<path[^>]+d="([^"]*A[^"]*)"[^>]+stroke-width="4',
+            svg,
+        )
+        # The drawn arc must not be a near-full-circle sweep. In
+        # the bug the broken arc uses large_arc=1 with sweep=1 and
+        # endpoint very close to (cx - r, cy) (the arc start). A
+        # correct gap on the diagonal leaves the arc as the full
+        # half circle unbroken, or as straight polygon segments
+        # spanning the equator — in either case, no single arc
+        # command should have large_arc=1.
+        bad_arcs = []
+        for path_d in arc_cmds:
+            for m in re.finditer(
+                r'A[\d.]+,[\d.]+ 0 (\d),(\d) ([\d.]+),([\d.]+)',
+                path_d,
+            ):
+                large = int(m.group(1))
+                if large == 1:
+                    bad_arcs.append(m.group(0))
+        assert not bad_arcs, (
+            "Hybrid wall path contains a near-full-circle arc "
+            f"(large_arc=1) indicating the diagonal gap was "
+            f"misclassified as on-arc: {bad_arcs}"
+        )
 
 
 # ── 6. Grid lines at boundaries ──────────────────────────────────

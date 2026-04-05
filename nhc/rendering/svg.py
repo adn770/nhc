@@ -378,11 +378,10 @@ def _outline_with_gaps(
     if isinstance(shape, CircleShape):
         gapped = _circle_with_gaps(shape, r, gaps)
     elif isinstance(
-        shape, (OctagonShape, CrossShape, PillShape, TempleShape),
+        shape,
+        (OctagonShape, CrossShape, PillShape, TempleShape, HybridShape),
     ):
         gapped = _polygon_with_gaps(shape, r, gaps)
-    elif isinstance(shape, HybridShape):
-        gapped = _hybrid_with_gaps(room, gaps)
     else:
         return outline_el, extensions
 
@@ -602,8 +601,8 @@ def _intersect_hybrid(
 
 
 def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
-    """Get pixel-space vertices for an octagon, cross, pill, or
-    temple shape."""
+    """Get pixel-space vertices for an octagon, cross, pill,
+    temple, or hybrid shape."""
 
     r = rect
     px, py = r.x * CELL, r.y * CELL
@@ -614,6 +613,9 @@ def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
 
     if isinstance(shape, TempleShape):
         return _temple_vertices(shape, rect)
+
+    if isinstance(shape, HybridShape):
+        return _hybrid_vertices(shape, rect)
 
     if isinstance(shape, OctagonShape):
         clip = max(1, min(r.width, r.height) // 3) * CELL
@@ -842,6 +844,35 @@ def _temple_vertices(
     return verts
 
 
+def _hybrid_vertices(
+    shape: "HybridShape", rect,
+) -> list[tuple[float, float]]:
+    """Approximate a hybrid room outline as a closed polygon.
+
+    Reuses :func:`_hybrid_svg_outline` to build the canonical
+    outline (straight segments + one SVG arc) and then expands
+    the arc to a polyline via :func:`_svg_path_to_polygon`. The
+    resulting polygon is compatible with
+    :func:`_intersect_polygon_edges` and
+    :func:`_polygon_with_gaps`, so hybrid gap handling goes
+    through the same code path as octagons, pills and temples.
+    """
+    from nhc.dungeon.model import Room
+
+    tmp_room = Room(id="_hybrid_tmp_", rect=rect, shape=shape)
+    outline = _hybrid_svg_outline(tmp_room)
+    if not outline:
+        return []
+    poly = _svg_path_to_polygon(outline)
+    if poly is None or poly.is_empty:
+        return []
+    coords = list(poly.exterior.coords)
+    # Drop the duplicate closing vertex if present.
+    if len(coords) >= 2 and coords[0] == coords[-1]:
+        coords = coords[:-1]
+    return coords
+
+
 def _intersect_polygon_edges(
     verts: list[tuple[float, float]],
     wx: float, wy: float, dx: int, dy: int,
@@ -1046,225 +1077,6 @@ def _polygon_with_gaps(
         path_parts.append(" ".join(current_path))
 
     return f'<path d="{" ".join(path_parts)}"/>'
-
-
-def _hybrid_with_gaps(
-    room, gaps: list[tuple],
-) -> str | None:
-    """Build an SVG path for a hybrid room with gaps in arcs.
-
-    Reuses the original outline structure — side walls and rect
-    edges stay intact, only the arc segment gets split at gap
-    points.
-    """
-
-    shape = room.shape
-    r = room.rect
-    px, py = r.x * CELL, r.y * CELL
-    pw, ph = r.width * CELL, r.height * CELL
-
-    if shape.split == "horizontal":
-        mid = py + (r.height // 2) * CELL
-    else:
-        mid = px + (r.width // 2) * CELL
-
-    # Compute circle sub-shape geometry
-    circle_sub = None
-    circle_side = None
-    for side_name, sub in [("left", shape.left), ("right", shape.right)]:
-        if isinstance(sub, CircleShape):
-            circle_sub = sub
-            circle_side = side_name
-            break
-
-    if not circle_sub:
-        return None  # no circle sub-shape to gap
-
-    if shape.split == "horizontal":
-        if circle_side == "left":
-            sub_py, sub_ph = py, mid - py
-        else:
-            sub_py, sub_ph = mid, py + ph - mid
-        tw, th = r.width, int(sub_ph / CELL)
-        d = circle_sub._diameter(Rect(0, 0, tw, th))
-        sub_r = d * CELL / 2
-        ccx = px + pw / 2
-        ccy = sub_py + sub_ph / 2
-    else:
-        if circle_side == "left":
-            sub_px, sub_pw = px, mid - px
-        else:
-            sub_px, sub_pw = mid, px + pw - mid
-        tw, th = int(sub_pw / CELL), r.height
-        d = circle_sub._diameter(Rect(0, 0, tw, th))
-        sub_r = d * CELL / 2
-        ccx = sub_px + sub_pw / 2
-        ccy = py + ph / 2
-
-    # Determine the arc range for this semicircle.
-    # The outline traces clockwise around the room.
-    # For horizontal split:
-    #   circle on top (left):  arc from left (π) → right (0), CW
-    #   circle on bottom (right): arc from right (0) → left (π), CW
-    # For vertical split:
-    #   circle on left:  arc from top (-π/2) → bottom (π/2), CCW
-    #   circle on right: arc from bottom (π/2) → top (-π/2), CCW
-    if shape.split == "horizontal":
-        if circle_side == "left":
-            arc_start_a = math.pi
-            arc_end_a = 0.0
-            sweep_flag = 1
-        else:
-            arc_start_a = 0.0
-            arc_end_a = math.pi
-            sweep_flag = 1
-    else:
-        if circle_side == "left":
-            arc_start_a = -math.pi / 2
-            arc_end_a = math.pi / 2
-            sweep_flag = 0
-        else:
-            arc_start_a = math.pi / 2
-            arc_end_a = -math.pi / 2
-            sweep_flag = 0
-
-    def _arc_dist(angle: float) -> float:
-        """Distance from arc_start to *angle* along the arc."""
-        if sweep_flag == 1:
-            d = angle - arc_start_a
-        else:
-            d = arc_start_a - angle
-        return d % (2 * math.pi)
-
-    # Classify each gap point: is it on the arc or on a line?
-    # Points on the arc get converted to angles. Points on
-    # transition diagonals are used as raw coordinates.
-    # gap_entries: list of (break_angle_or_None, break_pt,
-    #                        resume_angle_or_None, resume_pt)
-    gap_entries = []
-    for (ax, ay), (bx, by) in gaps:
-        a1 = math.atan2(ay - ccy, ax - ccx)
-        a2 = math.atan2(by - ccy, bx - ccx)
-        # Check if each point is on the arc (distance from center ≈ r)
-        d1 = math.sqrt((ax - ccx)**2 + (ay - ccy)**2)
-        d2 = math.sqrt((bx - ccx)**2 + (by - ccy)**2)
-        on_arc_1 = abs(d1 - sub_r) < 2.0
-        on_arc_2 = abs(d2 - sub_r) < 2.0
-        # Order by arc distance for on-arc points; for off-arc,
-        # the one on the arc comes first (it's the break point)
-        if on_arc_1 and on_arc_2:
-            if _arc_dist(a1) > _arc_dist(a2):
-                gap_entries.append((a2, (bx, by), a1, (ax, ay)))
-            else:
-                gap_entries.append((a1, (ax, ay), a2, (bx, by)))
-        elif on_arc_1:
-            # a1 is on arc (break), b is off-arc (resume)
-            gap_entries.append((a1, (ax, ay), None, (bx, by)))
-        elif on_arc_2:
-            gap_entries.append((a2, (bx, by), None, (ax, ay)))
-        else:
-            # Both off-arc — shouldn't happen, skip
-            continue
-    gap_entries.sort(key=lambda g: _arc_dist(g[0]))
-
-    arc_start_pt = (ccx + sub_r * math.cos(arc_start_a),
-                    ccy + sub_r * math.sin(arc_start_a))
-    arc_end_pt = (ccx + sub_r * math.cos(arc_end_a),
-                  ccy + sub_r * math.sin(arc_end_a))
-
-    # Build the arc portion with gaps
-    def _arc_cmd(from_a: float, to_a: float) -> str:
-        sx = ccx + sub_r * math.cos(from_a)
-        sy = ccy + sub_r * math.sin(from_a)
-        ex = ccx + sub_r * math.cos(to_a)
-        ey = ccy + sub_r * math.sin(to_a)
-        # Compute sweep angle (always going clockwise for sf=1)
-        sweep = to_a - from_a
-        if sweep_flag == 1:
-            if sweep < 0:
-                sweep += 2 * math.pi
-        else:
-            sweep = from_a - to_a
-            if sweep < 0:
-                sweep += 2 * math.pi
-        large = 1 if sweep > math.pi else 0
-        return (f'A{sub_r:.1f},{sub_r:.1f} 0 {large},'
-                f'{sweep_flag} {ex:.1f},{ey:.1f}')
-
-    # Build the complete outline path.  The hybrid outline
-    # structure (horizontal split, circle on top) is:
-    #   M left-mid → L left-arc-start → ARC → L right-mid
-    #   → L right-bottom → L left-bottom → L left-mid Z
-    # We keep the line segments and split only the arc.
-
-    _ARC_TOL = 0.02  # ~1 degree tolerance for skip
-
-    def _append_gapped_arc(parts: list[str], after_arc: str):
-        """Append arc segments with gaps, then *after_arc* line."""
-        cur_a = arc_start_a
-        for break_a, break_pt, resume_a, resume_pt in gap_entries:
-            # Arc from current pos to break point
-            if _arc_dist(break_a) - _arc_dist(cur_a) > _ARC_TOL:
-                parts[-1] += f' {_arc_cmd(cur_a, break_a)}'
-            # Start new sub-path at resume point
-            rx, ry = resume_pt
-            if resume_a is not None:
-                at_end = abs(
-                    _arc_dist(resume_a) - _arc_dist(arc_end_a)
-                ) < _ARC_TOL
-            else:
-                at_end = False
-            if not at_end:
-                parts.append(f'M{rx:.1f},{ry:.1f}')
-            cur_a = resume_a if resume_a is not None else arc_end_a
-        # Final arc from last resume to arc end
-        remaining = _arc_dist(arc_end_a) - _arc_dist(cur_a)
-        if remaining > _ARC_TOL:
-            parts[-1] += f' {_arc_cmd(cur_a, arc_end_a)}'
-        parts[-1] += after_arc
-
-    parts = []
-
-    if shape.split == "horizontal":
-        if circle_side == "left":  # circle on top
-            parts.append(
-                f'M{px:.1f},{mid:.1f} '
-                f'L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
-            _append_gapped_arc(parts,
-                f' L{px + pw:.1f},{mid:.1f}'
-                f' L{px + pw:.1f},{py + ph:.1f}'
-                f' L{px:.1f},{py + ph:.1f}'
-                f' L{px:.1f},{mid:.1f}')
-        else:  # circle on bottom
-            parts.append(
-                f'M{px + pw:.1f},{mid:.1f} '
-                f'L{px + pw:.1f},{py:.1f} '
-                f'L{px:.1f},{py:.1f} '
-                f'L{px:.1f},{mid:.1f}'
-                f' L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
-            _append_gapped_arc(parts,
-                f' L{px + pw:.1f},{mid:.1f}')
-    else:
-        if circle_side == "left":  # circle on left
-            parts.append(
-                f'M{mid:.1f},{py:.1f} '
-                f'L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
-            _append_gapped_arc(parts,
-                f' L{mid:.1f},{py + ph:.1f}'
-                f' L{px + pw:.1f},{py + ph:.1f}'
-                f' L{px + pw:.1f},{py:.1f}'
-                f' L{mid:.1f},{py:.1f}')
-        else:  # circle on right
-            parts.append(
-                f'M{mid:.1f},{py + ph:.1f} '
-                f'L{px:.1f},{py + ph:.1f} '
-                f'L{px:.1f},{py:.1f} '
-                f'L{mid:.1f},{py:.1f}'
-                f' L{arc_start_pt[0]:.1f},{arc_start_pt[1]:.1f}')
-            _append_gapped_arc(parts,
-                f' L{mid:.1f},{py + ph:.1f}')
-
-    return f'<path d="{" ".join(parts)}"/>'
 
 
 def _point_on_segment(
