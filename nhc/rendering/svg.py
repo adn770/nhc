@@ -21,7 +21,7 @@ from shapely.ops import unary_union
 
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level,
-    OctagonShape, Rect, RectShape, Room, Terrain,
+    OctagonShape, PillShape, Rect, RectShape, Room, Terrain,
 )
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.rendering.terrain_palette import (
@@ -31,6 +31,7 @@ from nhc.rendering.terrain_palette import (
 # ── Constants ────────────────────────────────────────────────────
 
 CELL = 32          # pixels per grid cell
+PILL_ARC_SEGMENTS = 12  # per-cap polygon segments for pill outlines
 PADDING = 32       # padding around the map (room for hatching)
 WALL_WIDTH = 4.0   # wall stroke width (bold Dyson style)
 WALL_THIN = 2.0    # thinner wall for corridors
@@ -374,7 +375,7 @@ def _outline_with_gaps(
     # Build gapped outline based on shape type
     if isinstance(shape, CircleShape):
         gapped = _circle_with_gaps(shape, r, gaps)
-    elif isinstance(shape, (OctagonShape, CrossShape)):
+    elif isinstance(shape, (OctagonShape, CrossShape, PillShape)):
         gapped = _polygon_with_gaps(shape, r, gaps)
     elif isinstance(shape, HybridShape):
         gapped = _hybrid_with_gaps(room, gaps)
@@ -411,7 +412,7 @@ def _intersect_outline(
     if isinstance(shape, HybridShape):
         return _intersect_hybrid(shape, r, wx, wy, dx, dy)
 
-    if isinstance(shape, (OctagonShape, CrossShape)):
+    if isinstance(shape, (OctagonShape, CrossShape, PillShape)):
         verts = _polygon_vertices(shape, r)
         return _intersect_polygon_edges(verts, wx, wy, dx, dy)
 
@@ -595,11 +596,14 @@ def _intersect_hybrid(
 
 
 def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
-    """Get pixel-space vertices for an octagon or cross shape."""
+    """Get pixel-space vertices for an octagon, cross, or pill shape."""
 
     r = rect
     px, py = r.x * CELL, r.y * CELL
     pw, ph = r.width * CELL, r.height * CELL
+
+    if isinstance(shape, PillShape):
+        return _pill_vertices(shape, rect)
 
     if isinstance(shape, OctagonShape):
         clip = max(1, min(r.width, r.height) // 3) * CELL
@@ -643,6 +647,91 @@ def _polygon_vertices(shape, rect) -> list[tuple[float, float]]:
             (vl, ht),           # inner corner: left arm top
         ]
     return []
+
+
+def _pill_vertices(
+    shape: "PillShape", rect,
+) -> list[tuple[float, float]]:
+    """Approximate a pill outline as a closed polygon.
+
+    Uses two flat long sides plus two 180° arcs discretised into
+    *PILL_ARC_SEGMENTS* segments each.  The resulting polygon is
+    compatible with ``_intersect_polygon_edges`` and
+    ``_polygon_with_gaps``.
+    """
+    r = rect
+    px, py = r.x * CELL, r.y * CELL
+    pw, ph = r.width * CELL, r.height * CELL
+    d = shape._diameter(r)
+    r_pix = d * CELL / 2.0
+
+    horizontal = r.width >= r.height
+    # The pill is the cap-diameter in the short dimension, centered
+    # in that axis.  Compute its pixel bounding box.
+    if horizontal:
+        bx = px
+        by = py + (ph - d * CELL) / 2.0
+        bw = pw
+        bh = d * CELL
+    else:
+        bx = px + (pw - d * CELL) / 2.0
+        by = py
+        bw = d * CELL
+        bh = ph
+
+    segs = PILL_ARC_SEGMENTS
+    verts: list[tuple[float, float]] = []
+
+    if horizontal:
+        cy = by + r_pix
+        left_cx = bx + r_pix
+        right_cx = bx + bw - r_pix
+        # Top straight edge: left_cx → right_cx at y = by
+        verts.append((left_cx, by))
+        verts.append((right_cx, by))
+        # Right semicircle from top (-pi/2) clockwise to bottom (+pi/2)
+        for i in range(1, segs):
+            ang = -math.pi / 2 + math.pi * i / segs
+            verts.append(
+                (right_cx + r_pix * math.cos(ang),
+                 cy + r_pix * math.sin(ang))
+            )
+        # Bottom straight edge: right_cx → left_cx at y = by + bh
+        verts.append((right_cx, by + bh))
+        verts.append((left_cx, by + bh))
+        # Left semicircle from bottom (pi/2) clockwise to top (3*pi/2)
+        for i in range(1, segs):
+            ang = math.pi / 2 + math.pi * i / segs
+            verts.append(
+                (left_cx + r_pix * math.cos(ang),
+                 cy + r_pix * math.sin(ang))
+            )
+    else:
+        cx = bx + r_pix
+        top_cy = by + r_pix
+        bot_cy = by + bh - r_pix
+        # Right straight edge: top_cy → bot_cy at x = bx + bw
+        verts.append((bx + bw, top_cy))
+        verts.append((bx + bw, bot_cy))
+        # Bottom semicircle from right (0) clockwise to left (pi)
+        for i in range(1, segs):
+            ang = math.pi * i / segs
+            verts.append(
+                (cx + r_pix * math.cos(ang),
+                 bot_cy + r_pix * math.sin(ang))
+            )
+        # Left straight edge: bot_cy → top_cy at x = bx
+        verts.append((bx, bot_cy))
+        verts.append((bx, top_cy))
+        # Top semicircle from left (pi) clockwise to right (2*pi)
+        for i in range(1, segs):
+            ang = math.pi + math.pi * i / segs
+            verts.append(
+                (cx + r_pix * math.cos(ang),
+                 top_cy + r_pix * math.sin(ang))
+            )
+
+    return verts
 
 
 def _intersect_polygon_edges(
@@ -1126,6 +1215,25 @@ def _room_svg_outline(room: "Room") -> str | None:
         return (
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" '
             f'r="{radius:.1f}"/>'
+        )
+
+    if isinstance(shape, PillShape):
+        d = shape._diameter(r)
+        radius = d * CELL / 2.0
+        if r.width >= r.height:
+            bx = px
+            by = py + (ph - d * CELL) / 2.0
+            bw = pw
+            bh = d * CELL
+        else:
+            bx = px + (pw - d * CELL) / 2.0
+            by = py
+            bw = d * CELL
+            bh = ph
+        return (
+            f'<rect x="{bx:.1f}" y="{by:.1f}" '
+            f'width="{bw:.1f}" height="{bh:.1f}" '
+            f'rx="{radius:.1f}" ry="{radius:.1f}"/>'
         )
 
     if isinstance(shape, OctagonShape):

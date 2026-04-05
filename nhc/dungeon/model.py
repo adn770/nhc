@@ -157,6 +157,70 @@ class OctagonShape(RoomShape):
         return tiles
 
 
+class PillShape(RoomShape):
+    """Pill/stadium room — rectangle with two semicircular caps.
+
+    The caps sit on the two short sides, giving a capsule outline.
+    The diameter of the caps equals the shorter bounding-rect
+    dimension (forced odd for clean integer geometry, matching
+    CircleShape). When rect.width >= rect.height the pill is
+    horizontal; otherwise it is vertical.
+    """
+
+    type_name = "pill"
+
+    @staticmethod
+    def _diameter(rect: Rect) -> int:
+        """Effective cap diameter (always odd, fits inside rect)."""
+        d = min(rect.width, rect.height)
+        return d if d % 2 == 1 else d - 1
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        d = self._diameter(rect)
+        if d <= 0:
+            return set()
+        r = (d - 1) / 2
+        r_sq = r * r
+        tiles: set[tuple[int, int]] = set()
+
+        if rect.width >= rect.height:
+            # Horizontal pill: caps on left and right.
+            cy = rect.y + (rect.height - 1) / 2
+            left_cx = rect.x + r
+            right_cx = rect.x + rect.width - 1 - r
+            for y in range(rect.y, rect.y2):
+                if (y - cy) ** 2 > r_sq:
+                    continue
+                for x in range(rect.x, rect.x2):
+                    if x < left_cx:
+                        if (x - left_cx) ** 2 + (y - cy) ** 2 <= r_sq:
+                            tiles.add((x, y))
+                    elif x > right_cx:
+                        if (x - right_cx) ** 2 + (y - cy) ** 2 <= r_sq:
+                            tiles.add((x, y))
+                    else:
+                        tiles.add((x, y))
+        else:
+            # Vertical pill: caps on top and bottom.
+            cx = rect.x + (rect.width - 1) / 2
+            top_cy = rect.y + r
+            bot_cy = rect.y + rect.height - 1 - r
+            for x in range(rect.x, rect.x2):
+                if (x - cx) ** 2 > r_sq:
+                    continue
+                for y in range(rect.y, rect.y2):
+                    if y < top_cy:
+                        if (x - cx) ** 2 + (y - top_cy) ** 2 <= r_sq:
+                            tiles.add((x, y))
+                    elif y > bot_cy:
+                        if (x - cx) ** 2 + (y - bot_cy) ** 2 <= r_sq:
+                            tiles.add((x, y))
+                    else:
+                        tiles.add((x, y))
+
+        return tiles
+
+
 class CrossShape(RoomShape):
     """Cross-shaped room — a + shape with both symmetry axes.
 
@@ -353,6 +417,7 @@ _SHAPE_REGISTRY: dict[str, type[RoomShape]] = {
     "circle": CircleShape,
     "octagon": OctagonShape,
     "cross": CrossShape,
+    "pill": PillShape,
 }
 
 # Predefined hybrid combinations for serialization

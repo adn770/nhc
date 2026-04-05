@@ -10,7 +10,8 @@ from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, OctagonShape,
-    Rect, Room, RoomShape, RectShape, Terrain, Tile, shape_from_type,
+    PillShape, Rect, Room, RoomShape, RectShape, Terrain, Tile,
+    shape_from_type,
 )
 from nhc.entities.components import (
     Health, Player, Position, Renderable, Stats,
@@ -246,6 +247,111 @@ class TestOctagonShape:
         perimeter = shape.perimeter_tiles(rect)
         assert len(perimeter) > 0
         assert perimeter <= floor
+
+
+class TestPillShape:
+    def test_type_name(self):
+        assert PillShape.type_name == "pill"
+
+    def test_horizontal_pill_5x9(self):
+        """5 tall × 9 wide pill: straight middle + two semicircle caps."""
+        rect = Rect(0, 0, 9, 5)
+        tiles = PillShape().floor_tiles(rect)
+        # Center must be floor
+        assert (4, 2) in tiles
+        # Middle band is a full rectangle between the two arc centres.
+        # For d=5, r=2: left_cx=2, right_cx=6. Straight cols [2,6] are
+        # fully covered across all 5 rows.
+        for x in range(2, 7):
+            for y in range(0, 5):
+                assert (x, y) in tiles, f"middle tile ({x},{y}) missing"
+        # Semicircle caps: corners of the bounding rect are excluded.
+        assert (0, 0) not in tiles
+        assert (0, 4) not in tiles
+        assert (8, 0) not in tiles
+        assert (8, 4) not in tiles
+        # Tip of left semicircle (x=0, y=2) and right (x=8, y=2) are floor
+        assert (0, 2) in tiles
+        assert (8, 2) in tiles
+
+    def test_vertical_pill_5x9(self):
+        """9 tall × 5 wide pill: rotated, semicircle caps on top/bottom."""
+        rect = Rect(0, 0, 5, 9)
+        tiles = PillShape().floor_tiles(rect)
+        assert (2, 4) in tiles  # center
+        # Middle band across the straight section
+        for y in range(2, 7):
+            for x in range(0, 5):
+                assert (x, y) in tiles
+        # Corners of bounding rect excluded
+        assert (0, 0) not in tiles
+        assert (4, 0) not in tiles
+        assert (0, 8) not in tiles
+        assert (4, 8) not in tiles
+        # Top and bottom tips included
+        assert (2, 0) in tiles
+        assert (2, 8) in tiles
+
+    def test_pill_symmetry(self):
+        """Horizontal pill is symmetric across both axes."""
+        rect = Rect(0, 0, 11, 5)
+        tiles = PillShape().floor_tiles(rect)
+        cx, cy = 5, 2
+        for x, y in tiles:
+            assert (2 * cx - x, y) in tiles, f"H-mirror of ({x},{y})"
+            assert (x, 2 * cy - y) in tiles, f"V-mirror of ({x},{y})"
+
+    def test_pill_subset_of_rect(self):
+        rect = Rect(3, 4, 11, 5)
+        pill = PillShape().floor_tiles(rect)
+        box = RectShape().floor_tiles(rect)
+        assert pill <= box
+
+    def test_pill_fewer_than_rect(self):
+        rect = Rect(0, 0, 9, 5)
+        assert len(PillShape().floor_tiles(rect)) < len(
+            RectShape().floor_tiles(rect)
+        )
+
+    def test_pill_more_tiles_than_circle_when_elongated(self):
+        """Elongated pills have more tiles than a circle in the same rect."""
+        rect = Rect(0, 0, 9, 5)
+        pill = PillShape().floor_tiles(rect)
+        circle = CircleShape().floor_tiles(rect)
+        assert len(pill) > len(circle)
+
+    def test_pill_origin_offset(self):
+        """Pill respects rect origin."""
+        rect = Rect(10, 20, 9, 5)
+        tiles = PillShape().floor_tiles(rect)
+        for x, y in tiles:
+            assert 10 <= x < 19
+            assert 20 <= y < 25
+        # center of pill
+        assert (14, 22) in tiles
+
+    def test_pill_perimeter(self):
+        rect = Rect(0, 0, 9, 5)
+        shape = PillShape()
+        floor = shape.floor_tiles(rect)
+        perimeter = shape.perimeter_tiles(rect)
+        interior = floor - perimeter
+        assert len(perimeter) > 0
+        assert len(interior) > 0
+        assert perimeter <= floor
+
+    def test_pill_registry_resolves(self):
+        """shape_from_type('pill') returns a PillShape."""
+        assert isinstance(shape_from_type("pill"), PillShape)
+
+    def test_pill_room_save_roundtrip(self, tmp_path):
+        """PillShape survives save/load via type_name."""
+        from nhc.dungeon.model import Room
+
+        room = Room(id="r1", rect=Rect(0, 0, 9, 5), shape=PillShape())
+        assert room.shape.type_name == "pill"
+        resolved = shape_from_type(room.shape.type_name)
+        assert isinstance(resolved, PillShape)
 
 
 class TestCrossShape:

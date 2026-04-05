@@ -22,6 +22,7 @@ from nhc.dungeon.model import (
     Level,
     LevelMetadata,
     OctagonShape,
+    PillShape,
     Rect,
     RectShape,
     Room,
@@ -978,6 +979,10 @@ class BSPGenerator(DungeonGenerator):
         if (max_dim / min_dim <= 1.3
                 and rect.width % 2 == 1 and rect.height % 2 == 1):
             candidates.append(CircleShape)
+        # Pills only for elongated rooms where the short dimension
+        # is odd (clean integer geometry for the semicircle caps).
+        if (max_dim - min_dim >= 2 and min_dim >= 5 and min_dim % 2 == 1):
+            candidates.append(PillShape)
 
         return rng.choice(candidates)()
 
