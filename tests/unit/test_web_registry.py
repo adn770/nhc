@@ -162,3 +162,87 @@ class TestPlayerIdForHash:
 
     def test_returns_empty_for_unknown(self, registry):
         assert registry.player_id_for_hash("unknown") == ""
+
+
+class TestLastSeen:
+    def test_new_player_last_seen_zero(self, registry):
+        _, pid = registry.register("Alice")
+        assert registry.get(pid)["last_seen"] == 0.0
+
+    def test_touch_updates_in_memory(self, registry):
+        _, pid = registry.register("Alice")
+        before = registry.get(pid)["last_seen"]
+        registry.touch(pid)
+        after = registry.get(pid)["last_seen"]
+        assert after > before
+
+    def test_touch_unknown_player_is_noop(self, registry):
+        # Must not raise for unknown player_id
+        registry.touch("bogus")
+        assert registry.list_all() == []
+
+    def test_touch_persists_first_call(self, tmp_path):
+        path = tmp_path / "players.json"
+        reg = PlayerRegistry(path)
+        reg.load()
+        _, pid = reg.register("Alice")
+        reg.touch(pid)
+
+        reg2 = PlayerRegistry(path)
+        reg2.load()
+        assert reg2.get(pid)["last_seen"] > 0
+
+    def test_touch_throttles_disk_writes(self, tmp_path, monkeypatch):
+        """Rapid touches must not write to disk on every call."""
+        path = tmp_path / "players.json"
+        reg = PlayerRegistry(path)
+        reg.load()
+        _, pid = reg.register("Alice")
+        reg.touch(pid)
+
+        saves = {"count": 0}
+        real_save = reg._save
+
+        def counting_save():
+            saves["count"] += 1
+            real_save()
+
+        monkeypatch.setattr(reg, "_save", counting_save)
+        # Hammer touch 50 times in quick succession.
+        for _ in range(50):
+            reg.touch(pid)
+        # Throttle keeps it at zero additional disk writes for a
+        # rapid burst; must certainly be far below 50.
+        assert saves["count"] < 5
+
+    def test_touch_persists_after_throttle_window(self, tmp_path):
+        path = tmp_path / "players.json"
+        reg = PlayerRegistry(path)
+        reg.load()
+        _, pid = reg.register("Alice")
+        # Fake an old last-persist by rewriting the on-disk value.
+        entry = reg.get(pid)
+        # Force the in-memory last_seen back far enough that the
+        # throttle window (60s) has elapsed.
+        for p in reg._players:
+            if p["player_id"] == pid:
+                p["last_seen"] = 0.0  # never seen
+        reg.touch(pid)
+        reg2 = PlayerRegistry(path)
+        reg2.load()
+        assert reg2.get(pid)["last_seen"] > 0
+
+    def test_legacy_entry_gets_last_seen_default(self, tmp_path):
+        path = tmp_path / "players.json"
+        path.write_text(json.dumps({"players": [{
+            "player_id": "abc123",
+            "name": "Legacy",
+            "token_hash": "deadbeef",
+            "created_at": 0,
+            "revoked": False,
+            "god_mode": False,
+            "lang": "",
+        }]}))
+        reg = PlayerRegistry(path)
+        reg.load()
+        assert reg.get("abc123")["last_seen"] == 0.0

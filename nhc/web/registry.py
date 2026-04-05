@@ -20,6 +20,13 @@ from nhc.web.sessions import player_id_from_token
 logger = logging.getLogger(__name__)
 
 
+# Minimum interval between ``last_seen`` disk writes per player.
+# The in-memory value is always updated; persistence is throttled
+# so hot code paths (every authenticated request) do not hammer
+# the registry file.
+_TOUCH_PERSIST_INTERVAL = 60.0
+
+
 class PlayerRegistry:
     """Manage registered players on disk."""
 
@@ -41,6 +48,7 @@ class PlayerRegistry:
             for p in self._players:
                 p.setdefault("god_mode", False)
                 p.setdefault("lang", "")
+                p.setdefault("last_seen", 0.0)
             logger.info("Loaded %d players from %s",
                         len(self._players), self._path)
         except Exception:
@@ -75,6 +83,7 @@ class PlayerRegistry:
             "revoked": False,
             "god_mode": False,
             "lang": "",
+            "last_seen": 0.0,
         }
         with self._lock:
             self._players.append(entry)
@@ -122,6 +131,35 @@ class PlayerRegistry:
                                 player_id)
                     return True
         return False
+
+    def touch(self, player_id: str) -> None:
+        """Mark *player_id* as active now.
+
+        The in-memory ``last_seen`` timestamp is always refreshed.
+        Disk persistence is throttled to
+        :data:`_TOUCH_PERSIST_INTERVAL` per player so that hot
+        code paths (every authenticated request) do not thrash
+        the registry file.  Unknown player IDs are silently
+        ignored — the caller is typically a decorator that has
+        already validated the token but does not want to fail
+        the request if a race deletes the player.
+        """
+        now = time.time()
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] != player_id:
+                    continue
+                prev = float(p.get("last_seen", 0.0))
+                p["last_seen"] = now
+                if now - prev >= _TOUCH_PERSIST_INTERVAL:
+                    try:
+                        self._save()
+                    except Exception:
+                        logger.exception(
+                            "Failed to persist last_seen for %s",
+                            player_id,
+                        )
+                return
 
     def set_lang(self, player_id: str, lang: str) -> bool:
         """Save the player's preferred language.  Returns True if found."""

@@ -84,7 +84,8 @@
     <thead>
       <tr>
         <th>Name</th><th>Player ID</th><th>Status</th>
-        <th>Save</th><th>Created</th><th>Actions</th>
+        <th>Save</th><th>Created</th><th>Last Seen</th>
+        <th>Session</th><th>Actions</th>
       </tr>
     </thead>
     <tbody id="players-body"></tbody>
@@ -122,6 +123,27 @@ function fmtDate(ts) {
   return new Date(ts * 1000).toLocaleString();
 }
 
+function fmtRelative(ts) {
+  if (!ts) return "never";
+  const now = Date.now() / 1000;
+  const diff = Math.max(0, now - ts);
+  if (diff < 60) return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
+function fmtDuration(seconds) {
+  if (seconds == null) return "—";
+  seconds = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+  return `${m}:${pad(s)}`;
+}
+
 async function loadPlayers() {
   const resp = await fetch("/api/admin/players");
   if (!resp.ok) return;
@@ -146,12 +168,20 @@ async function loadPlayers() {
       : godBtn
         + `<button onclick="getLink('${p.player_id}')">Get Link</button> `
         + `<button class="danger" onclick="revokePlayer('${p.player_id}')">Revoke</button>`;
+    const lastSeenCell = p.last_seen
+      ? `<span title="${fmtDate(p.last_seen)}">${fmtRelative(p.last_seen)}</span>`
+      : '<span style="color:#888">never</span>';
+    const sessionCell = p.session_duration != null
+      ? `<span title="started ${fmtDate(p.session_started_at)}" style="color:#98c379">${fmtDuration(p.session_duration)}</span>`
+      : '<span style="color:#888">—</span>';
     tr.innerHTML = `
       <td>${esc(p.name)}</td>
       <td><code>${p.player_id}</code></td>
       <td><span class="badge ${badge}">${status}</span></td>
       <td>${p.has_save ? "Yes" : "—"}</td>
       <td>${fmtDate(p.created_at)}</td>
+      <td>${lastSeenCell}</td>
+      <td>${sessionCell}</td>
       <td>${actions}</td>
     `;
     tbody.appendChild(tr);

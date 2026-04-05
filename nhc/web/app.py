@@ -289,11 +289,24 @@ def create_app(
     def admin_list_players():
         if not registry:
             return jsonify([])
+        now = time.time()
         players = registry.list_all()
         for p in players:
             session = sessions.get_by_player(p["player_id"])
             p["online"] = session.connected if session else False
             p["has_session"] = session is not None
+            if session is not None:
+                p["session_started_at"] = session.created_at
+                p["session_duration"] = max(
+                    0, int(now - session.created_at),
+                )
+            else:
+                p["session_started_at"] = None
+                p["session_duration"] = None
+            # ``last_seen`` is always present thanks to the
+            # load-time default, but legacy rows without the key
+            # must still serialize to a stable shape.
+            p["last_seen"] = float(p.get("last_seen", 0.0))
             from nhc.core.autosave import has_autosave
             save_dir = _player_save_dir(p["player_id"])
             p["has_save"] = has_autosave(save_dir) if save_dir else False

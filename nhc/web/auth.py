@@ -108,7 +108,9 @@ def require_admin(admin_hash: str):
 def require_player(registry: "PlayerRegistry"):
     """Decorator: valid (non-revoked) player token required.
 
-    On success, sets ``flask.g.player_id``.
+    On success, sets ``flask.g.player_id`` and bumps the player's
+    ``last_seen`` timestamp so the admin panel can report recent
+    activity.
     """
     def decorator(f):
         @wraps(f)
@@ -119,7 +121,9 @@ def require_player(registry: "PlayerRegistry"):
             h = hash_token(token)
             if not registry.is_valid_token_hash(h):
                 return jsonify({"error": "invalid or revoked token"}), 403
-            g.player_id = registry.player_id_for_hash(h)
+            pid = registry.player_id_for_hash(h)
+            g.player_id = pid
+            registry.touch(pid)
             return f(*args, **kwargs)
         return wrapped
     return decorator

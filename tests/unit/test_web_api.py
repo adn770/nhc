@@ -244,6 +244,63 @@ class TestAdminAPI:
         names = {p["name"] for p in players}
         assert names == {"Alice", "Bob"}
 
+    def test_list_players_includes_last_seen_and_duration(
+            self, client_with_data_dir):
+        """Admin response must carry last_seen + session_duration."""
+        _token, pid = _register_player(client_with_data_dir, "Alice")
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        # Offline player with no session: last_seen present, duration None
+        resp = client_with_data_dir.get("/api/admin/players")
+        assert resp.status_code == 200
+        players = resp.get_json()
+        alice = next(p for p in players if p["player_id"] == pid)
+        assert "last_seen" in alice
+        assert "session_duration" in alice
+        assert "session_started_at" in alice
+        assert alice["last_seen"] == 0
+        assert alice["session_duration"] is None
+        assert alice["session_started_at"] is None
+
+    def test_list_players_reports_session_duration_when_online(
+            self, client_with_data_dir):
+        import time as _t
+        _token, pid = _register_player(client_with_data_dir, "Bob")
+        # Create a game session for Bob (counts as online)
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": _token},
+        )
+        assert resp.status_code == 201
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get_by_player(pid)
+        assert session is not None
+        # Force a known created_at so duration is deterministic
+        session.created_at = _t.time() - 42
+
+        resp = client_with_data_dir.get("/api/admin/players")
+        bob = next(
+            p for p in resp.get_json() if p["player_id"] == pid
+        )
+        assert bob["session_duration"] is not None
+        assert bob["session_duration"] >= 40
+        assert bob["session_started_at"] == session.created_at
+
+    def test_authenticated_request_bumps_last_seen(self, tmp_path):
+        """Any authenticated player route should update last_seen."""
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+        )
+        app = create_app(config, auth_token="admin-secret")
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            registry = app.config["PLAYER_REGISTRY"]
+            token, pid = registry.register("Alice")
+            assert registry.get(pid)["last_seen"] == 0.0
+
+            resp = c.get(f"/api/ranking?token={token}")
+            assert resp.status_code == 200
+            assert registry.get(pid)["last_seen"] > 0
+
     def test_revoke_player(self, client_with_data_dir):
         resp = client_with_data_dir.post(
             "/api/admin/players", json={"name": "Alice"},
