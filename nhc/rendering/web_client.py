@@ -17,7 +17,13 @@ import queue
 import time
 from typing import TYPE_CHECKING, Any
 
-from nhc.dungeon.model import HybridShape, Terrain
+from nhc.dungeon.model import (
+    CircleShape,
+    HybridShape,
+    OctagonShape,
+    Rect,
+    Terrain,
+)
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
 from nhc.rendering.svg import render_floor_svg
@@ -128,7 +134,10 @@ _WALL_S = 4
 _WALL_W = 8
 
 
-def _edge_is_wall(level, x: int, y: int) -> bool:
+def _edge_is_wall(
+    level, x: int, y: int,
+    poly_cells: set[tuple[int, int]] | None = None,
+) -> bool:
     """True iff the edge facing tile (x, y) contributes a wall
     line to its neighbour. Non-walkable tiles (walls, void) do.
     Door tiles of every kind — closed, open, locked, and secret
@@ -139,14 +148,28 @@ def _edge_is_wall(level, x: int, y: int) -> bool:
     out of the polygon on the far side — the offset wall line
     runs straight past the door instead of notching inward
     where it sits.
+
+    When *poly_cells* is supplied, a neighbour that is already
+    in the polygon cell set is interior to the polygon and
+    returns False regardless of walkability. This lets
+    rect-expansion tiles (WALL tiles inside a circle/octagon
+    room's bounding rect that have been explicitly added to the
+    polygon) read as interior edges rather than spurious walls.
+    Doors still short-circuit to True so the door frame rule
+    wins over the expansion membership check.
     """
     t = level.tile_at(x, y)
     if t and t.feature in _DOOR_FEATURES:
         return True
+    if poly_cells is not None and (x, y) in poly_cells:
+        return False
     return not _is_walkable(level, x, y)
 
 
-def _wall_mask(level, x: int, y: int) -> int:
+def _wall_mask(
+    level, x: int, y: int,
+    poly_cells: set[tuple[int, int]] | None = None,
+) -> int:
     t = level.tile_at(x, y)
     if t and t.feature in _DOOR_FEATURES and t.door_side:
         # Door tiles get wall bits on three edges: the two
@@ -171,15 +194,106 @@ def _wall_mask(level, x: int, y: int) -> int:
         if side == "south":
             return _WALL_E | _WALL_S | _WALL_W
     mask = 0
-    if _edge_is_wall(level, x, y - 1):
+    if _edge_is_wall(level, x, y - 1, poly_cells):
         mask |= _WALL_N
-    if _edge_is_wall(level, x + 1, y):
+    if _edge_is_wall(level, x + 1, y, poly_cells):
         mask |= _WALL_E
-    if _edge_is_wall(level, x, y + 1):
+    if _edge_is_wall(level, x, y + 1, poly_cells):
         mask |= _WALL_S
-    if _edge_is_wall(level, x - 1, y):
+    if _edge_is_wall(level, x - 1, y, poly_cells):
         mask |= _WALL_W
     return mask
+
+
+_EXPAND_SHAPES = (CircleShape, OctagonShape)
+
+
+def _rect_cells(rect: "Rect") -> set[tuple[int, int]]:
+    return {
+        (x, y)
+        for y in range(rect.y, rect.y2)
+        for x in range(rect.x, rect.x2)
+    }
+
+
+def _polygon_rect_expansions(
+    level: "Level",
+) -> list[tuple[set[tuple[int, int]], set[tuple[int, int]]]]:
+    """Per-room rectangular expansions for the clearHatch
+    polygon.
+
+    Circle and octagon rooms paint walls that extend beyond
+    their floor tiles — into the rect corners clipped by the
+    shape. Those corner tiles remain WALL/VOID terrain and are
+    excluded from the normal polygon, so the hatching bleeds
+    through the wall stroke. To fix it, treat each such room
+    as its bounding rect for polygon purposes. For hybrid rooms
+    the same expansion is applied per half: only the sub-halves
+    whose shape is circle/octagon get inflated; rect sub-halves
+    already cover their half naturally via floor_tiles.
+
+    Returns a list of ``(rect_cells, trigger_cells)``: the tile
+    set to include in the polygon and the sub-shape's own floor
+    tiles whose visibility (or explored-ness) gates the
+    expansion on. A room only expands once the player has
+    actually entered it — otherwise memory of a still-hidden
+    circular room would leak rect coverage onto the map.
+    """
+    out: list[tuple[set[tuple[int, int]], set[tuple[int, int]]]] = []
+    for room in level.rooms:
+        shape = room.shape
+        rect = room.rect
+        if shape is None:
+            continue
+        if isinstance(shape, _EXPAND_SHAPES):
+            out.append((_rect_cells(rect), shape.floor_tiles(rect)))
+            continue
+        if isinstance(shape, HybridShape):
+            if shape.split == "vertical":
+                mid = rect.x + rect.width // 2
+                left_rect = Rect(
+                    rect.x, rect.y, mid - rect.x, rect.height,
+                )
+                right_rect = Rect(
+                    mid, rect.y, rect.x2 - mid, rect.height,
+                )
+            else:
+                mid = rect.y + rect.height // 2
+                left_rect = Rect(
+                    rect.x, rect.y, rect.width, mid - rect.y,
+                )
+                right_rect = Rect(
+                    rect.x, mid, rect.width, rect.y2 - mid,
+                )
+            for sub, sub_rect in (
+                (shape.left, left_rect),
+                (shape.right, right_rect),
+            ):
+                if isinstance(sub, _EXPAND_SHAPES):
+                    out.append((
+                        _rect_cells(sub_rect),
+                        sub.floor_tiles(sub_rect),
+                    ))
+    return out
+
+
+def _active_expansion_cells(
+    level: "Level",
+    expansions: list[
+        tuple[set[tuple[int, int]], set[tuple[int, int]]]
+    ],
+    field: str,
+) -> set[tuple[int, int]]:
+    """Union of rect-expansion cells whose trigger floor tiles
+    have the given visibility field set on at least one tile."""
+    active: set[tuple[int, int]] = set()
+    for rect_cells, trigger_cells in expansions:
+        for (tx, ty) in trigger_cells:
+            tile = level.tile_at(tx, ty)
+            if tile and getattr(tile, field, False):
+                active |= rect_cells
+                break
+    return active
 
 
 class _WebNarrativeLog:
@@ -705,9 +819,15 @@ class WebClient(GameClient):
         are walls and the door is only included when the
         approach-side neighbour is also visible — so it joins
         the corridor polygon without leaking into the room on
-        the far side.
+        the far side. Circle and octagon rooms expand to their
+        bounding rect (or half-rect for circular/octagonal sub-
+        halves of hybrid rooms) so the walls drawn beyond the
+        tile footprint are still covered by clearHatch.
         """
-        out: list[list[int]] = []
+        expansions = _polygon_rect_expansions(level)
+        expansion_cells = _active_expansion_cells(
+            level, expansions, "visible")
+        normal_cells: set[tuple[int, int]] = set()
         for y in range(level.height):
             for x in range(level.width):
                 tile = level.tile_at(x, y)
@@ -717,7 +837,12 @@ class WebClient(GameClient):
                     continue
                 if not _door_polygon_gate(level, x, y, "visible"):
                     continue
-                out.append([x, y, _wall_mask(level, x, y)])
+                normal_cells.add((x, y))
+        poly_cells = normal_cells | expansion_cells
+        out: list[list[int]] = []
+        for (x, y) in sorted(poly_cells):
+            mask = _wall_mask(level, x, y, poly_cells)
+            out.append([x, y, mask])
         return out
 
     def _gather_explored(
@@ -727,26 +852,45 @@ class WebClient(GameClient):
 
         Used only on floor init and reconnects. Each entry is
         [x, y, mask]: mask = 0..15 for polygon-eligible tiles
-        (including doors that pass the approach-side gate), or
-        -1 for non-polygon tiles (walls/void, plus door tiles
-        that were only seen from the far side). The client
-        splits the list into two structures: all keys feed the
-        drawFog dim-memory set, mask >= 0 entries feed the
-        bulk clearHatch polygon.
+        (including doors that pass the approach-side gate, and
+        rect-expansion tiles from visited circle/octagon rooms),
+        or -1 for non-polygon tiles (walls/void, plus door
+        tiles that were only seen from the far side). The
+        client splits the list into two structures: all keys
+        feed the drawFog dim-memory set, mask >= 0 entries feed
+        the bulk clearHatch polygon.
         """
-        out: list[list[int]] = []
+        expansions = _polygon_rect_expansions(level)
+        expansion_cells = _active_expansion_cells(
+            level, expansions, "explored")
+        normal_cells: set[tuple[int, int]] = set()
+        explored_tiles: list[tuple[int, int]] = []
         for y in range(level.height):
             for x in range(level.width):
                 tile = level.tile_at(x, y)
                 if not tile or not tile.explored:
                     continue
+                explored_tiles.append((x, y))
                 if (_in_polygon(level, x, y)
                         and _door_polygon_gate(
                             level, x, y, "explored")):
-                    mask = _wall_mask(level, x, y)
-                else:
-                    mask = -1
-                out.append([x, y, mask])
+                    normal_cells.add((x, y))
+        poly_cells = normal_cells | expansion_cells
+        # Expansion cells may reference WALL tiles whose
+        # `explored` flag is unset — emit them alongside the
+        # explored tiles so drawFog and clearHatch stay in sync.
+        emitted: set[tuple[int, int]] = set(explored_tiles)
+        for cell in expansion_cells:
+            if cell not in emitted:
+                explored_tiles.append(cell)
+                emitted.add(cell)
+        out: list[list[int]] = []
+        for (x, y) in explored_tiles:
+            if (x, y) in poly_cells:
+                mask = _wall_mask(level, x, y, poly_cells)
+            else:
+                mask = -1
+            out.append([x, y, mask])
         return out
 
     def _gather_debug_data(self, level: "Level") -> dict:

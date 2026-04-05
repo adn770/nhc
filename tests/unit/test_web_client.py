@@ -989,3 +989,167 @@ class TestDoorWallMask:
         entries = wc._gather_explored(level)
         entry = next(e for e in entries if e[0] == 2 and e[1] == 2)
         assert entry[2] == 1 | 2 | 4
+
+
+class TestPolygonRectExpansion:
+    """Circle, octagon, and circular/octagonal halves of hybrid
+    rooms should join the clearHatch polygon as their full
+    bounding rect (or half-rect) — otherwise the walls drawn
+    beyond the tile footprint have no polygon coverage and the
+    hatching bleeds through the wall visual."""
+
+    def _circle_level(self):
+        """5x5 level with a single 5x5 circle room. The diameter
+        is 5, so 13 tiles form the circle interior and 12 corner
+        tiles remain WALL under the circle's bounding rect."""
+        from nhc.dungeon.model import (
+            CircleShape, Level, Rect, Room, Terrain, Tile,
+        )
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=7, height=7)
+        for y in range(7):
+            for x in range(7):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        rect = Rect(1, 1, 5, 5)
+        shape = CircleShape()
+        room = Room(id="r1", rect=rect, shape=shape)
+        level.rooms.append(room)
+        for (x, y) in shape.floor_tiles(rect):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.tiles[y][x].visible = True
+            level.tiles[y][x].explored = True
+        return level, rect
+
+    def test_circle_room_expands_to_bounding_rect(self):
+        from nhc.rendering.web_client import WebClient
+        wc = WebClient(lang="en")
+        level, rect = self._circle_level()
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]) for e in entries}
+        # Every tile in the 5x5 bounding rect must be present,
+        # including the four corner WALL tiles (1,1), (5,1),
+        # (1,5), (5,5) which lie outside the circle.
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                assert (x, y) in coords, (
+                    f"({x},{y}) missing from polygon; circle room "
+                    f"must expand to its bounding rect"
+                )
+        # The four corners must have mask bits set for their
+        # outer edges (NW corner = N|W, etc.) so the polygon
+        # traces a rectangular perimeter.
+        mask_of = {(e[0], e[1]): e[2] for e in entries}
+        assert mask_of[(1, 1)] == 1 | 8  # N | W
+        assert mask_of[(5, 1)] == 1 | 2  # N | E
+        assert mask_of[(1, 5)] == 4 | 8  # S | W
+        assert mask_of[(5, 5)] == 2 | 4  # S | E
+
+    def test_octagon_room_expands_to_bounding_rect(self):
+        """Octagonal rooms have diagonal walls that cut off the
+        corners. The polygon must still cover the full bounding
+        rect so the diagonal wall stroke erases the hatching."""
+        from nhc.dungeon.model import (
+            Level, OctagonShape, Rect, Room, Terrain, Tile,
+        )
+        from nhc.rendering.web_client import WebClient
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=9, height=9)
+        for y in range(9):
+            for x in range(9):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        rect = Rect(1, 1, 7, 7)
+        shape = OctagonShape()
+        room = Room(id="r1", rect=rect, shape=shape)
+        level.rooms.append(room)
+        for (x, y) in shape.floor_tiles(rect):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.tiles[y][x].visible = True
+        wc = WebClient(lang="en")
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]) for e in entries}
+        # Corner tiles clipped by the octagon (e.g. (1,1)) must
+        # still be in the polygon.
+        assert (1, 1) in coords
+        assert (7, 1) in coords
+        assert (1, 7) in coords
+        assert (7, 7) in coords
+
+    def test_hybrid_circle_rect_expands_circle_half_only(self):
+        """Hybrid(circle, rect) must expand the circle half to
+        its half-rect while the rect half already covers its
+        own half naturally."""
+        from nhc.dungeon.model import (
+            CircleShape, HybridShape, Level, Rect, RectShape,
+            Room, Terrain, Tile,
+        )
+        from nhc.rendering.web_client import WebClient
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=12, height=8)
+        for y in range(8):
+            for x in range(12):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        # Hybrid rect = (1,1,10,5). Vertical split → circle on
+        # the left half (1..5, height 5), rect on the right half
+        # (6..10, height 5).
+        rect = Rect(1, 1, 10, 5)
+        shape = HybridShape(
+            left=CircleShape(), right=RectShape(),
+            split="vertical",
+        )
+        room = Room(id="r1", rect=rect, shape=shape)
+        level.rooms.append(room)
+        for (x, y) in shape.floor_tiles(rect):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+            level.tiles[y][x].visible = True
+        wc = WebClient(lang="en")
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]) for e in entries}
+        # Circle-half corners (inside the left half-rect) must
+        # be present even though they are WALL terrain.
+        assert (1, 1) in coords
+        assert (1, 5) in coords
+
+    def test_rect_room_unchanged_by_expansion(self):
+        """Pure rect rooms have no corners to fill — the polygon
+        should match the room's floor tiles as before."""
+        from nhc.dungeon.model import (
+            Level, Rect, RectShape, Room, Terrain, Tile,
+        )
+        from nhc.rendering.web_client import WebClient
+        level = Level.create_empty("t", "T", depth=1,
+                                   width=7, height=7)
+        for y in range(7):
+            for x in range(7):
+                level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+        rect = Rect(2, 2, 3, 3)
+        room = Room(id="r1", rect=rect, shape=RectShape())
+        level.rooms.append(room)
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                level.tiles[y][x].visible = True
+        wc = WebClient(lang="en")
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]) for e in entries}
+        assert coords == {
+            (x, y)
+            for y in range(rect.y, rect.y2)
+            for x in range(rect.x, rect.x2)
+        }
+
+    def test_circle_expansion_gated_by_visibility(self):
+        """Expansion tiles only join the polygon when at least
+        one floor tile of the sub-shape is visible."""
+        from nhc.rendering.web_client import WebClient
+        level, rect = self._circle_level()
+        # Reset visibility: nothing visible.
+        for y in range(level.height):
+            for x in range(level.width):
+                level.tiles[y][x].visible = False
+        wc = WebClient(lang="en")
+        entries = wc._gather_walk(level)
+        coords = {(e[0], e[1]) for e in entries}
+        assert (1, 1) not in coords, (
+            "corner must not be in polygon when the room has "
+            "no visible floor tile"
+        )
