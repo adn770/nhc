@@ -784,3 +784,78 @@ class TestRankingAPI:
         assert top[0].killed_by == "goblin"
         assert top[0].won is False
         assert top[0].depth >= 1
+
+
+class TestLabelsEndpoint:
+    """Regression tests for /api/game/<sid>/labels.json under gthread.
+
+    The thread-local i18n manager in ``nhc.i18n`` means every worker
+    thread that calls ``t()`` must first call ``init(lang)``. Under
+    gunicorn --worker-class gevent this happened implicitly — every
+    request shared one OS thread, so the single ``i18n_init`` in
+    /api/game/new carried through to all subsequent requests. After
+    switching to gthread, requests land on different pool threads; a
+    thread that never ran /api/game/new served /labels.json from an
+    empty manager and returned the raw keys (e.g. ``ui.autodig_on``)
+    instead of translated strings.
+    """
+
+    def test_labels_translated_when_called_from_fresh_thread(
+        self, tmp_path,
+    ):
+        """Serving /labels.json from a thread that never ran
+        /api/game/new must still return translated strings."""
+        import threading
+
+        from nhc.i18n import init as i18n_init
+
+        config = WebConfig(max_sessions=4, data_dir=tmp_path)
+        app = create_app(config)
+        app.config["TESTING"] = True
+
+        # Create a session on the main thread (this initializes i18n
+        # for the main thread).
+        with app.test_client() as c:
+            resp = c.post("/api/game/new", json={"lang": "ca"})
+            assert resp.status_code == 201
+            sid = resp.get_json()["session_id"]
+
+        # Run the labels request from a FRESH worker thread whose
+        # thread-local i18n manager has never been initialized. This
+        # is what gthread does: each pool thread starts fresh, and
+        # without the endpoint-level init the manager returns raw
+        # keys.
+        result: dict = {}
+
+        def _worker():
+            # Sanity: ensure this thread really has no translations
+            # loaded yet. The test would pass trivially if the main
+            # thread's manager bled across.
+            from nhc.i18n import _get_manager
+            mgr = _get_manager()
+            assert mgr._strings == {}, (
+                "fresh thread should start with an empty manager"
+            )
+            with app.test_client() as c:
+                resp = c.get(f"/api/game/{sid}/labels.json")
+                result["status"] = resp.status_code
+                result["body"] = resp.get_json()
+
+        t = threading.Thread(target=_worker)
+        t.start()
+        t.join(timeout=30)
+
+        assert result.get("status") == 200, result
+        body = result["body"]
+        # Catalan labels must be resolved, not returned as raw keys.
+        assert body["autodig_on"] != "ui.autodig_on", (
+            f"autodig_on came back as raw key: {body['autodig_on']!r}"
+        )
+        assert body["autodig_off"] != "ui.autodig_off", (
+            f"autodig_off came back as raw key: {body['autodig_off']!r}"
+        )
+        assert body["toolbar_pickup"] != "ui.toolbar_pickup"
+        # Spot-check the Catalan string actually arrived.
+        i18n_init("ca")
+        from nhc.i18n import t as tr
+        assert body["autodig_off"] == tr("ui.autodig_off")

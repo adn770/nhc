@@ -741,6 +741,14 @@ def create_app(
         session = sessions.get(session_id)
         if not session:
             return jsonify({"error": "session not found"}), 404
+        # Initialize i18n for the current worker thread before
+        # resolving labels. Under the gthread worker this request may
+        # land on any pool thread, and the previous gevent-era
+        # assumption that a single shared thread-local manager was
+        # set up once by /api/game/new no longer holds — an
+        # uninitialized manager returns the raw key for every lookup.
+        from nhc.i18n import init as i18n_init
+        i18n_init(session.lang)
         client = session.game.renderer
         resp = jsonify(client._ui_labels())
         resp.headers["Cache-Control"] = "public, max-age=86400"
