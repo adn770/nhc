@@ -78,16 +78,17 @@ def create_app(
     from nhc.entities.registry import EntityRegistry
     EntityRegistry.discover_all()
 
-    # ProcessPoolExecutor for CPU-bound dungeon generation. Keeps the
-    # single gevent worker responsive while levels are generated in
-    # parallel across cores. Sized via NHC_GEN_WORKERS (default: cpu
-    # count). Workers are long-lived and reused across requests.
+    # ProcessPoolExecutor for CPU-bound dungeon generation. Each
+    # gthread worker thread handling a request submits generation to
+    # the shared pool and blocks on the future's result — other
+    # threads in the same worker keep serving traffic in parallel.
+    # Sized via NHC_GEN_WORKERS (default: cpu count). Workers are
+    # long-lived and reused across requests.
     #
-    # Pinned to the 'spawn' start method. Under gunicorn --worker-class
-    # gevent the standard library is monkey-patched before create_app
-    # runs, which breaks fork(): forked children inherit a gevent hub
-    # tied to the parent's kernel resources and hang or crash on first
-    # use. Spawn re-execs a clean Python interpreter per worker and
+    # Pinned to the 'spawn' start method. Even under gthread, fork()
+    # inside a multi-threaded parent is unsafe (fork-locks, duplicate
+    # file descriptors, half-held locks from other threads). Spawn
+    # re-execs a clean Python interpreter per worker process and
     # re-imports the dungeon modules once at startup.
     gen_workers = int(
         os.environ.get("NHC_GEN_WORKERS", str(os.cpu_count() or 1))

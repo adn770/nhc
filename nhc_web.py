@@ -103,7 +103,8 @@ def main() -> None:
         print(f"Access URL: {url}?token={auth_token}")
 
     print("(dev mode — for production use: gunicorn --worker-class "
-          "gevent -w1 -b 0.0.0.0:8080 'nhc.web.app:app_factory()')")
+          "gthread -w1 --threads 32 -b 0.0.0.0:8080 "
+          "'nhc.web.app:app_factory()')")
     app.run(host=config.host, port=config.port, debug=True)
 
 
