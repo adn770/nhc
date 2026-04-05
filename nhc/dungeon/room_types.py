@@ -26,6 +26,12 @@ SPECIAL_TYPES = [
 # Room types that can go anywhere
 GENERAL_TYPES = ["shrine", "garden"]
 
+# Zoo: rare, medium-sized, packed with creatures.  Requires at
+# least one corridor connection — never doorless.
+ZOO_MIN_WIDTH = 5
+ZOO_MIN_HEIGHT = 5
+ZOO_PROBABILITY = 0.08
+
 
 def assign_room_types(level: Level, rng: random.Random) -> None:
     """Assign types to rooms and paint their interiors.
@@ -66,6 +72,19 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
                 _paint_room(level, room, room_type, rng)
                 specials_placed += 1
                 continue
+
+        # Zoo rooms — medium-sized, connected, creature-filled.
+        # Rare on purpose; the "cannot be doorless" rule is
+        # encoded as conn >= 1 here.
+        if (conn >= 1
+                and room.rect.width >= ZOO_MIN_WIDTH
+                and room.rect.height >= ZOO_MIN_HEIGHT
+                and specials_placed < 4
+                and rng.random() < ZOO_PROBABILITY):
+            room.tags.append("zoo")
+            _paint_room(level, room, "zoo", rng)
+            specials_placed += 1
+            continue
 
         # General special rooms (any connection count)
         if rng.random() < 0.15 and specials_placed < 4:
@@ -110,6 +129,7 @@ def _paint_room(
         "shrine": _paint_shrine,
         "garden": _paint_garden,
         "trap_room": _paint_trap_room,
+        "zoo": _paint_zoo,
     }
     painter = painters.get(room_type)
     if painter:
@@ -240,3 +260,43 @@ def _paint_trap_room(level: Level, room: Room, rng: random.Random) -> None:
     level.entities.append(EntityPlacement(
         entity_type="item", entity_id=prize, x=x, y=y,
     ))
+
+
+def _paint_zoo(level: Level, room: Room, rng: random.Random) -> None:
+    """Pack the room with creatures pulled from the depth pool.
+
+    Uses the existing :data:`CREATURE_POOLS` so the mob mix matches
+    the floor's difficulty tier.  Tries to cover roughly half of
+    the room's interior floor tiles with distinct creature
+    placements — enough to feel crowded without making the room
+    literally wall-to-wall with bodies.
+    """
+    from nhc.dungeon.populator import CREATURE_POOLS
+
+    difficulty = min(max(1, level.depth), max(CREATURE_POOLS.keys()))
+    pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
+    if not pool:
+        return
+    c_ids, c_weights = zip(*pool)
+
+    floor = room.floor_tiles()
+    perimeter = room.shape.perimeter_tiles(room.rect)
+    interior = sorted(floor - perimeter)
+    if len(interior) < 4:
+        interior = sorted(floor)
+    if not interior:
+        return
+
+    # Aim for half the interior, clamped to a sensible band so
+    # tiny zoos still feel packed and huge zoos don't become
+    # unwinnable.
+    target = max(4, min(12, len(interior) // 2))
+    rng.shuffle(interior)
+    for (x, y) in interior[:target]:
+        creature_id = rng.choices(
+            list(c_ids), weights=list(c_weights), k=1,
+        )[0]
+        level.entities.append(EntityPlacement(
+            entity_type="creature", entity_id=creature_id,
+            x=x, y=y,
+        ))
