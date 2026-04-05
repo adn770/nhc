@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import atexit
 import collections
 import logging
@@ -547,9 +546,7 @@ def create_app(
         session.game = game
 
         try:
-            asyncio.run(
-                game.initialize(generate=True, executor=gen_pool)
-            )
+            game.initialize(generate=True, executor=gen_pool)
         except Exception:
             logger.exception("Failed to restore game for player %s", pid)
             sessions.destroy(session.session_id)
@@ -665,9 +662,7 @@ def create_app(
         logger.info("Generating dungeon for session %s...",
                      session.session_id)
         try:
-            asyncio.run(
-                game.initialize(generate=True, executor=gen_pool)
-            )
+            game.initialize(generate=True, executor=gen_pool)
         except Exception:
             logger.exception("Failed to initialize game")
             sessions.destroy(session.session_id)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import random
 import threading
@@ -295,14 +294,24 @@ class Game:
             for item_id in ALL_IDS:
                 self._knowledge.identify(item_id)
 
-    async def initialize(
+    def initialize(
         self,
         level_path: str | Path | None = None,
         generate: bool = False,
         depth: int = 1,
         executor: "Executor | None" = None,
     ) -> None:
-        """Set up initial game state from a level file or generator."""
+        """Set up initial game state from a level file or generator.
+
+        Synchronous by design: under a gunicorn gevent worker, wrapping
+        this call in ``asyncio.run`` caused a race where a second
+        greenlet entering the same handler saw the first greenlet's
+        still-running loop in the thread-local registry and raised
+        ``RuntimeError: asyncio.run() cannot be called from a running
+        event loop``. The LLM intro narration used in typed mode lives
+        in :meth:`generate_intro_narration` and must be awaited by the
+        caller after ``initialize``.
+        """
         # Check for autosave recovery
         logger.info("Game.initialize: reset=%s, generate=%s", self.reset,
                      generate)
@@ -357,10 +366,13 @@ class Game:
             # and multiple cores can serve concurrent players. When
             # executor is None (CLI, tests), run inline.
             if executor is not None:
-                loop = asyncio.get_running_loop()
-                self.level = await loop.run_in_executor(
-                    executor, generate_level, params
-                )
+                # Block synchronously on the pool future. Under gevent
+                # monkey-patching, concurrent.futures.Future.result()
+                # cooperatively yields via threading primitives, so
+                # other greenlets continue to make progress.
+                self.level = executor.submit(
+                    generate_level, params
+                ).result()
             else:
                 self.level = generate_level(params)
             logger.info(
@@ -485,19 +497,28 @@ class Game:
         if self.level.metadata.ambient:
             self.renderer.add_message(self.level.metadata.ambient)
 
-        # In typed mode, generate an LLM intro narration
-        if self._gm:
-            intro = await self._gm.intro(
-                char_name=char.name,
-                char_background=t(f"traits.{char.background}"),
-                char_virtue=t(f"traits.{char.virtue}"),
-                char_vice=t(f"traits.{char.vice}"),
-                char_alignment=t(f"traits.{char.alignment}"),
-                level_name=self.level.name,
-                ambient=self.level.metadata.ambient,
-                hooks=", ".join(self.level.metadata.narrative_hooks),
-            )
-            self.renderer.add_message(intro)
+    async def generate_intro_narration(self) -> None:
+        """Generate the LLM intro narration for typed mode.
+
+        Must be called after :meth:`initialize` when the game runs in
+        typed mode with an LLM backend. Split from ``initialize`` so
+        the latter can stay synchronous and be called safely from a
+        gevent greenlet without wrapping it in ``asyncio.run``.
+        """
+        if not self._gm or not self._character or not self.level:
+            return
+        char = self._character
+        intro = await self._gm.intro(
+            char_name=char.name,
+            char_background=t(f"traits.{char.background}"),
+            char_virtue=t(f"traits.{char.virtue}"),
+            char_vice=t(f"traits.{char.vice}"),
+            char_alignment=t(f"traits.{char.alignment}"),
+            level_name=self.level.name,
+            ambient=self.level.metadata.ambient,
+            hooks=", ".join(self.level.metadata.narrative_hooks),
+        )
+        self.renderer.add_message(intro)
 
     def _spawn_level_entities(self) -> None:
         """Spawn all entities defined in the level file."""

@@ -218,14 +218,17 @@ async def main() -> int:
                 reset=args.reset, shape_variety=shape_variety)
     try:
         if args.generate:
-            await game.initialize(generate=True)
+            game.initialize(generate=True)
         else:
             level_path = args.level
             if not level_path:
                 level_path = str(
                     Path(__file__).parent / "levels" / "test_level.yaml",
                 )
-            await game.initialize(level_path=level_path)
+            game.initialize(level_path=level_path)
+        # Typed mode generates an LLM intro narration once the world
+        # is ready. Classic mode is a no-op here.
+        await game.generate_intro_narration()
         await game.run()
     except Exception:
         logger.critical("Unhandled exception in game loop", exc_info=True)

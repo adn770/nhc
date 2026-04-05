@@ -112,19 +112,17 @@ class TestGameStoresGenerationParams:
             reset=True, save_dir=tmp_path,
         )
 
-    @pytest.mark.asyncio
-    async def test_params_stored_after_initialize(self, game):
+    def test_params_stored_after_initialize(self, game):
         set_seed(42)
-        await game.initialize(generate=True, depth=1)
+        game.initialize(generate=True, depth=1)
         assert game.generation_params is not None
         assert game.generation_params.depth == 1
         assert game.generation_params.theme == "dungeon"
         assert game.generation_params.seed == 42
 
-    @pytest.mark.asyncio
-    async def test_params_reflect_depth(self, game):
+    def test_params_reflect_depth(self, game):
         set_seed(99)
-        await game.initialize(generate=True, depth=10)
+        game.initialize(generate=True, depth=10)
         assert game.generation_params is not None
         assert game.generation_params.depth == 10
         assert game.generation_params.theme == "cave"

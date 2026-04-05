@@ -7,7 +7,6 @@ runs inline (preserves CLI and non-web callers).
 
 from __future__ import annotations
 
-import asyncio
 from concurrent.futures import ProcessPoolExecutor
 
 import pytest
@@ -62,7 +61,7 @@ def make_game(tmp_path):
 class TestInitializeInline:
     def test_initialize_without_executor_runs_inline(self, make_game):
         game = make_game(seed=111)
-        asyncio.run(game.initialize(generate=True))
+        game.initialize(generate=True)
         assert game.level is not None
         assert len(game.level.rooms) > 0
         assert game.player_id is not None
@@ -72,11 +71,11 @@ class TestInitializeWithExecutor:
     def test_initialize_with_executor_produces_same_result(self, make_game):
         """Same seed, executor vs inline → identical level layout."""
         inline = make_game(seed=222)
-        asyncio.run(inline.initialize(generate=True))
+        inline.initialize(generate=True)
 
         with ProcessPoolExecutor(max_workers=1) as pool:
             pooled = make_game(seed=222)
-            asyncio.run(pooled.initialize(generate=True, executor=pool))
+            pooled.initialize(generate=True, executor=pool)
 
         assert inline.level is not None
         assert pooled.level is not None
@@ -98,7 +97,7 @@ class TestInitializeWithExecutor:
         from nhc.core.events import LevelEntered
 
         game = make_game(seed=7777)
-        asyncio.run(game.initialize(generate=True))
+        game.initialize(generate=True)
         # Force the sync fallback path: no cached floor, no prefetch.
         game._floor_cache.clear()
         game._prefetch_depth = None
@@ -124,7 +123,7 @@ class TestInitializeWithExecutor:
         _prefetch_result stays None forever. Check the prefetch
         completes successfully."""
         game = make_game(seed=8888)
-        asyncio.run(game.initialize(generate=True))
+        game.initialize(generate=True)
 
         game._start_prefetch(depth=2)
         # Wait for the background thread
@@ -136,31 +135,27 @@ class TestInitializeWithExecutor:
         assert game._prefetch_result.depth == 2
 
     def test_initialize_concurrent_with_shared_pool(self, tmp_path):
-        """Two games initialized concurrently through the same pool
-        both succeed with distinct seeds → distinct levels."""
-        async def _run():
-            with ProcessPoolExecutor(max_workers=2) as pool:
-                g1 = Game(
-                    client=_FakeClient(),
-                    backend=None,
-                    save_dir=tmp_path / "a",
-                    seed=1001,
-                )
-                g2 = Game(
-                    client=_FakeClient(),
-                    backend=None,
-                    save_dir=tmp_path / "b",
-                    seed=2002,
-                )
-                (tmp_path / "a").mkdir()
-                (tmp_path / "b").mkdir()
-                await asyncio.gather(
-                    g1.initialize(generate=True, executor=pool),
-                    g2.initialize(generate=True, executor=pool),
-                )
-                return g1, g2
-
-        g1, g2 = asyncio.run(_run())
+        """Two games initialized through the same pool both succeed
+        with distinct seeds → distinct levels. (Sequential now that
+        initialize is synchronous — concurrency is covered by the
+        gevent regression test.)"""
+        with ProcessPoolExecutor(max_workers=2) as pool:
+            (tmp_path / "a").mkdir()
+            (tmp_path / "b").mkdir()
+            g1 = Game(
+                client=_FakeClient(),
+                backend=None,
+                save_dir=tmp_path / "a",
+                seed=1001,
+            )
+            g2 = Game(
+                client=_FakeClient(),
+                backend=None,
+                save_dir=tmp_path / "b",
+                seed=2002,
+            )
+            g1.initialize(generate=True, executor=pool)
+            g2.initialize(generate=True, executor=pool)
         assert g1.level is not None and g2.level is not None
         # Different seeds produce different layouts
         assert g1.seed != g2.seed
