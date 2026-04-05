@@ -10,9 +10,11 @@ from nhc.dungeon.model import (
     HybridShape,
     Level,
     OctagonShape,
+    PillShape,
     Rect,
     RectShape,
     Room,
+    TempleShape,
     Terrain,
     Tile,
 )
@@ -123,7 +125,122 @@ class TestDoorCandidatesOctagon:
         assert len(cands) >= 4
 
 
-class TestDoorCandidatesHybrid:
+class TestDoorCandidatesPill:
+    def _candidates_on_rect_boundary(self, room: Room) -> None:
+        """Every candidate must sit one step outside the bounding rect."""
+        r = room.rect
+        for wx, wy, _side in _door_candidates(room):
+            on_edge = (
+                wx == r.x - 1 or wx == r.x2
+                or wy == r.y - 1 or wy == r.y2
+            )
+            assert on_edge, (
+                f"Candidate ({wx},{wy}) is inside the bounding rect "
+                f"{r.x},{r.y},{r.width},{r.height}"
+            )
+
+    def test_horizontal_pill_candidates_on_rect_boundary(self):
+        """Pill shoulder walls must not produce interior candidates."""
+        room = Room(id="r0", rect=Rect(33, 3, 10, 7),
+                    shape=PillShape())
+        self._candidates_on_rect_boundary(room)
+
+    def test_vertical_pill_candidates_on_rect_boundary(self):
+        room = Room(id="r0", rect=Rect(10, 5, 7, 11),
+                    shape=PillShape())
+        self._candidates_on_rect_boundary(room)
+
+    def test_horizontal_pill_has_east_and_west_cap_candidates(self):
+        """Horizontal pill: the cap extremes must be reachable.
+
+        Without the cap candidates, corridors aimed at the east/west
+        side fall back to shoulder walls and damage the pill outline.
+        """
+        room = Room(id="r0", rect=Rect(33, 3, 10, 7),
+                    shape=PillShape())
+        cands = _door_candidates(room)
+        positions = {(x, y) for x, y, _s in cands}
+        # Horizontal pill with rect y=3,h=7 → cy = 6
+        assert (32, 6) in positions, (
+            f"Missing west cap at (32,6); got {sorted(positions)}")
+        assert (43, 6) in positions, (
+            f"Missing east cap at (43,6); got {sorted(positions)}")
+        sides = {s for _, _, s in cands}
+        assert "west" in sides and "east" in sides
+
+    def test_vertical_pill_has_north_and_south_cap_candidates(self):
+        room = Room(id="r0", rect=Rect(10, 5, 7, 11),
+                    shape=PillShape())
+        cands = _door_candidates(room)
+        positions = {(x, y) for x, y, _s in cands}
+        # Vertical pill with rect x=10,w=7 → cx = 13
+        assert (13, 4) in positions, (
+            f"Missing north cap at (13,4); got {sorted(positions)}")
+        assert (13, 16) in positions, (
+            f"Missing south cap at (13,16); got {sorted(positions)}")
+        sides = {s for _, _, s in cands}
+        assert "north" in sides and "south" in sides
+
+    def test_pill_candidates_point_to_floor(self):
+        """Every candidate must be cardinally adjacent to room floor."""
+        room = Room(id="r0", rect=Rect(33, 3, 10, 7),
+                    shape=PillShape())
+        floor = room.floor_tiles()
+        _INWARD = {
+            "north": (0, 1), "south": (0, -1),
+            "east": (-1, 0), "west": (1, 0),
+        }
+        for wx, wy, side in _door_candidates(room):
+            dx, dy = _INWARD[side]
+            assert (wx + dx, wy + dy) in floor, (
+                f"Candidate ({wx},{wy}) {side} not adjacent to floor")
+
+
+class TestDoorCandidatesTemple:
+    def _candidates_on_rect_boundary(self, room: Room) -> None:
+        r = room.rect
+        for wx, wy, _side in _door_candidates(room):
+            on_edge = (
+                wx == r.x - 1 or wx == r.x2
+                or wy == r.y - 1 or wy == r.y2
+            )
+            assert on_edge, (
+                f"Candidate ({wx},{wy}) is inside the bounding rect "
+                f"{r.x},{r.y},{r.width},{r.height}"
+            )
+
+    def test_temple_north_flat_boundary(self):
+        room = Room(id="r0", rect=Rect(10, 10, 11, 11),
+                    shape=TempleShape(flat_side="north"))
+        self._candidates_on_rect_boundary(room)
+
+    def test_temple_south_flat_boundary(self):
+        room = Room(id="r0", rect=Rect(10, 10, 11, 11),
+                    shape=TempleShape(flat_side="south"))
+        self._candidates_on_rect_boundary(room)
+
+    def test_temple_east_flat_boundary(self):
+        room = Room(id="r0", rect=Rect(10, 10, 11, 11),
+                    shape=TempleShape(flat_side="east"))
+        self._candidates_on_rect_boundary(room)
+
+    def test_temple_west_flat_boundary(self):
+        room = Room(id="r0", rect=Rect(10, 10, 11, 11),
+                    shape=TempleShape(flat_side="west"))
+        self._candidates_on_rect_boundary(room)
+
+    def test_temple_caps_present_on_non_flat_arms(self):
+        """Each non-flat arm must expose its rounded cap tip."""
+        room = Room(id="r0", rect=Rect(10, 10, 11, 11),
+                    shape=TempleShape(flat_side="south"))
+        positions = {(x, y) for x, y, _ in _door_candidates(room)}
+        # Expected cardinal caps: N=(15,9), E=(21,15), W=(9,15)
+        assert (15, 9) in positions
+        assert (21, 15) in positions
+        assert (9, 15) in positions
+
+
+
     def test_hybrid_v_has_rect_side_candidates(self):
         """Vertical hybrid: rect half should provide east candidates."""
         room = Room(

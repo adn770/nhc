@@ -220,6 +220,21 @@ class PillShape(RoomShape):
 
         return tiles
 
+    def cardinal_walls(self, rect: Rect) -> list[tuple[int, int]]:
+        """Return wall positions at the two semicircular cap extremes.
+
+        For a horizontal pill these sit west and east of the rect at
+        the central row; for a vertical pill, north and south of the
+        rect at the central column. The perpendicular (flat) sides
+        have long straight runs and are covered by the generic
+        perimeter-run scan, so only the rounded caps need injection.
+        """
+        if rect.width >= rect.height:
+            cy = rect.y + (rect.height - 1) // 2
+            return [(rect.x - 1, cy), (rect.x2, cy)]
+        cx = rect.x + (rect.width - 1) // 2
+        return [(cx, rect.y - 1), (cx, rect.y2)]
+
 
 class CrossShape(RoomShape):
     """Cross-shaped room — a + shape with both symmetry axes.

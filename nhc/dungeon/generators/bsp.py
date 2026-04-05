@@ -186,6 +186,21 @@ def _door_candidates(
 
     min_run = 2
 
+    # Candidates produced by perimeter-run scanning must sit one step
+    # outside the bounding rect.  Concave shapes (pill shoulders,
+    # temple arm sides, cross inner walls) can form short straight
+    # runs *inside* the rect where a door would damage the room
+    # outline — reject those up front so corridor generation cannot
+    # carve into the shoulder.  True cardinals for shapes that lack
+    # long straight runs are injected below via cardinal_walls().
+    r = room.rect
+
+    def _on_rect_boundary(wx: int, wy: int) -> bool:
+        return (
+            wx == r.x - 1 or wx == r.x2
+            or wy == r.y - 1 or wy == r.y2
+        )
+
     for (fy, side), x_vals in h_runs.items():
         dx, dy = _OUTWARD[side]
         for run in _contiguous_runs(x_vals):
@@ -195,7 +210,9 @@ def _door_candidates(
             # For runs of exactly min_run, include both.
             inner = run[1:-1] if len(run) > min_run else run
             for fx in inner:
-                candidates.append((fx + dx, fy + dy, side))
+                wx, wy = fx + dx, fy + dy
+                if _on_rect_boundary(wx, wy):
+                    candidates.append((wx, wy, side))
 
     for (fx, side), y_vals in v_runs.items():
         dx, dy = _OUTWARD[side]
@@ -204,13 +221,16 @@ def _door_candidates(
                 continue
             inner = run[1:-1] if len(run) > min_run else run
             for fy in inner:
-                candidates.append((fx + dx, fy + dy, side))
+                wx, wy = fx + dx, fy + dy
+                if _on_rect_boundary(wx, wy):
+                    candidates.append((wx, wy, side))
 
-    # For circles and temples, ensure the cardinal wall positions
-    # are always included.  These shapes have curved or pointed arm
-    # tips whose perimeter runs are too short for the generic
-    # min_run filter; inject cardinals that aren't already present.
-    if isinstance(room.shape, (CircleShape, TempleShape)):
+    # For circles, pills, and temples, ensure the cardinal wall
+    # positions are always included.  These shapes have curved or
+    # pointed arm tips whose perimeter runs are too short for the
+    # generic min_run filter; inject cardinals that aren't already
+    # present.
+    if isinstance(room.shape, (CircleShape, PillShape, TempleShape)):
         cand_set = {(x, y) for x, y, _ in candidates}
         _SIDE_FOR_DIR = {
             (0, -1): "north",
