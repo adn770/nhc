@@ -679,6 +679,8 @@ ui:
   # Loading
   loading_generate: "Generating dungeon..."
   loading_resume: "Loading game..."
+  loading_descend: "Descending to the next floor..."
+  loading_ascend: "Climbing back up..."
   # Farlook
   farlook_hint: "Farlook mode — click a tile to examine."
   # Help command

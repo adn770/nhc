@@ -697,6 +697,8 @@ ui:
   # Loading
   loading_generate: "Generant masmorra..."
   loading_resume: "Carregant partida..."
+  loading_descend: "Baixant al pis següent..."
+  loading_ascend: "Pujant les escales..."
   # Farlook
   farlook_hint: "Mode exploració — clica una casella per examinar."
   # Help command

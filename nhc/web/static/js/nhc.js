@@ -4,6 +4,7 @@
 const NHC = {
   sessionId: null,
   labels: {},
+  waitingForFloor: false,
 
   init() {
     UI.init();
@@ -35,6 +36,14 @@ const NHC = {
       }
       GameMap.flush();
       if (DebugPanel.enabled) DebugPanel.updateFovInfo();
+      // Safety: a post-action state update with no preceding
+      // floor message means the stair action was rejected (e.g.
+      // the player wasn't standing on stairs).  Clear the overlay
+      // so we don't leave it stuck.
+      if (NHC.waitingForFloor) {
+        NHC.waitingForFloor = false;
+        NHC.hideLoading();
+      }
     });
 
     WS.on("message", (msg) => {
@@ -93,6 +102,7 @@ const NHC = {
         // Ensure scroll happens after browser has laid out the new SVG
         requestAnimationFrame(() => GameMap.scrollToPlayer());
       }
+      NHC.waitingForFloor = false;
       NHC.hideLoading();
     });
 

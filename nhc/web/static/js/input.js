@@ -102,6 +102,7 @@ const Input = {
         } else if (mapping.intent === "help") {
           UI.showHelp();
         } else {
+          Input._beforeSendAction(mapping.intent);
           WS.send({
             type: "action",
             intent: mapping.intent,
@@ -146,6 +147,7 @@ const Input = {
         if (intent === "inventory") {
           UI.showInventoryPanel();
         } else {
+          Input._beforeSendAction(intent);
           WS.send({ type: "action", intent, data: null });
         }
       });
@@ -226,6 +228,25 @@ const Input = {
       label.textContent = this.classicMode
         ? (L.mode_classic_tag || "[classic]")
         : (L.mode_typed_tag || "[typed]");
+    }
+  },
+
+  /**
+   * Hook called for every outgoing action intent before it is sent
+   * over the WebSocket.  Used to surface the shared loading overlay
+   * during stair transitions so players get feedback while the
+   * server (re)generates the next floor.  The overlay is cleared
+   * by the "floor" WS handler on success, or by the stats/state
+   * handlers if the transition never happened (invalid action).
+   */
+  _beforeSendAction(intent) {
+    if (intent === "descend" || intent === "ascend") {
+      const L = NHC.labels || {};
+      const text = intent === "descend"
+        ? (L.loading_descend || "Descending...")
+        : (L.loading_ascend || "Climbing...");
+      NHC.waitingForFloor = true;
+      NHC.showLoading(text);
     }
   },
 };
