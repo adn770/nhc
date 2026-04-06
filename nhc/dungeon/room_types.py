@@ -430,12 +430,25 @@ def _paint_lair_room(
             x=x, y=y,
         ))
 
-    # Small loot cache
-    if interior:
-        gx, gy = rng.choice(interior)
+    # Loot: gold piles and food scattered around the lair
+    food_items = ["rations", "bread", "dried_meat", "apple", "cheese"]
+    remaining = interior[target:]  # tiles not used by creatures
+    if not remaining:
+        remaining = list(interior)
+    rng.shuffle(remaining)
+
+    gold_count = rng.randint(2, 4)
+    for (x, y) in remaining[:gold_count]:
         level.entities.append(EntityPlacement(
             entity_type="item", entity_id="gold",
-            x=gx, y=gy, extra={"dice": "2d6"},
+            x=x, y=y, extra={"dice": "3d6"},
+        ))
+
+    food_count = rng.randint(1, 3)
+    for (x, y) in remaining[gold_count:gold_count + food_count]:
+        level.entities.append(EntityPlacement(
+            entity_type="item", entity_id=rng.choice(food_items),
+            x=x, y=y,
         ))
 
 

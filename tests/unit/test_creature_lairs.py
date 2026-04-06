@@ -117,6 +117,32 @@ class TestLairAssignment:
         if not found:
             pytest.skip("no lairs in 200 seeds")
 
+    def test_lair_rooms_have_gold_and_food(self):
+        """Lair rooms should contain gold and food items."""
+        gold_found = 0
+        food_found = 0
+        food_ids = {"rations", "bread", "dried_meat", "apple", "cheese"}
+        for seed in range(200):
+            level = generate_level(GenerationParams(
+                width=120, height=40, depth=2, seed=seed,
+            ))
+            lairs = _find_tagged(level, "lair")
+            if not lairs:
+                continue
+            for room in lairs:
+                for e in _entities_in_room(level, room):
+                    if e.entity_type == "item" and e.entity_id == "gold":
+                        gold_found += 1
+                    if (e.entity_type == "item"
+                            and e.entity_id in food_ids):
+                        food_found += 1
+        assert gold_found >= 5, (
+            f"Only {gold_found} gold piles across all lairs"
+        )
+        assert food_found >= 3, (
+            f"Only {food_found} food items across all lairs"
+        )
+
 
 class TestLairSurroundingTraps:
     def test_surrounding_rooms_have_traps(self):
