@@ -548,6 +548,9 @@ class Game:
                             trap.dc = placement.extra["dc"]
                         if "hidden" in placement.extra:
                             trap.hidden = placement.extra["hidden"]
+                        if "reactivatable" in placement.extra:
+                            trap.reactivatable = placement.extra[
+                                "reactivatable"]
                 else:
                     continue
 
@@ -782,6 +785,7 @@ class Game:
             self._tick_mummy_rot()
             self._tick_rings()
             self._tick_doors()
+            self._tick_traps()
             self._tick_wand_recharge()
             self._tick_hunger()
             self._tick_stairs_proximity()
@@ -1176,6 +1180,9 @@ class Game:
 
     def _tick_doors(self) -> None:
         game_ticks.tick_doors(self)
+
+    def _tick_traps(self) -> None:
+        game_ticks.tick_traps(self)
 
     def _tick_wand_recharge(self) -> None:
         game_ticks.tick_wand_recharge(self)

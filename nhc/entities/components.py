@@ -113,6 +113,8 @@ class Trap:
     effect: str = ""  # "", "poison", "paralysis", "alarm", "teleport",
                       # "summoning", "gripping", "fire", "arrow",
                       # "darts", "falling_stone", "spores"
+    reactivatable: bool = False  # True for lair traps (re-hide after 40 turns)
+    triggered_at_turn: int | None = None  # turn when last triggered
 
 
 @dataclass

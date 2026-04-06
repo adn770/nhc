@@ -56,6 +56,7 @@ def _check_traps(
 
         trap.triggered = True
         trap.hidden = False
+        trap.triggered_at_turn = world.turn
 
     return events
 

@@ -173,9 +173,9 @@ class TestVaultGeneration:
 
 class TestVaultPopulation:
     def test_populator_fills_every_vault_tile_with_gold(self):
-        set_seed(321)
+        set_seed(42)
         level = generate_level(
-            GenerationParams(width=120, height=40, depth=1, seed=321),
+            GenerationParams(width=120, height=40, depth=1, seed=42),
         )
         vaults = _find_vaults(level)
         if not vaults:

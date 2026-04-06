@@ -27,10 +27,29 @@ SPECIAL_TYPES = [
 GENERAL_TYPES = ["shrine", "garden"]
 
 # Zoo: rare, medium-sized, packed with creatures.  Requires at
-# least one corridor connection — never doorless.
+# least one corridor connection �� never doorless.
 ZOO_MIN_WIDTH = 5
 ZOO_MIN_HEIGHT = 5
 ZOO_PROBABILITY = 0.08
+
+# Lair: 1-3 connected rooms filled with same-species humanoids.
+# Surrounding rooms get reactivatable traps.
+LAIR_CREATURES: dict[int, list[str]] = {
+    1: ["kobold", "goblin"],
+    2: ["goblin", "hobgoblin", "gnoll"],
+    3: ["orc", "hobgoblin", "bugbear", "gnoll"],
+    4: ["orc", "bugbear", "ogre"],
+}
+LAIR_PROBABILITY = 0.12
+LAIR_MIN_SIZE = 4
+
+# Nest: single room filled with vermin creatures.
+NEST_CREATURES: list[str] = [
+    "rat", "bat", "giant_rat", "giant_bat",
+    "insect_swarm", "giant_bee",
+]
+NEST_PROBABILITY = 0.10
+NEST_MIN_SIZE = 3
 
 
 def assign_room_types(level: Level, rng: random.Random) -> None:
@@ -48,11 +67,20 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
     specials_placed = 0
     standard_count = 0
 
+    # ── Pre-pass: assign lair (1-3 connected rooms) ──
+    lair_ids: set[str] = set()
+    _try_place_lair(level, connections, lair_ids, rng)
+    if lair_ids:
+        specials_placed += 1
+
     for room in level.rooms:
         # Vaults are tiny gold caches hidden off the main map —
         # leave their tags alone, they are neither standard nor
         # a special-painted type.
         if "vault" in room.tags:
+            continue
+        # Skip rooms already assigned as lair
+        if room.id in lair_ids:
             continue
         # Skip entry/exit — already tagged
         if "entry" in room.tags or "exit" in room.tags:
@@ -83,6 +111,17 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
                 and rng.random() < ZOO_PROBABILITY):
             room.tags.append("zoo")
             _paint_room(level, room, "zoo", rng)
+            specials_placed += 1
+            continue
+
+        # Nest: single room with vermin — small rooms okay.
+        if (conn >= 1
+                and room.rect.width >= NEST_MIN_SIZE
+                and room.rect.height >= NEST_MIN_SIZE
+                and specials_placed < 5
+                and rng.random() < NEST_PROBABILITY):
+            room.tags.append("nest")
+            _paint_room(level, room, "nest", rng)
             specials_placed += 1
             continue
 
@@ -130,6 +169,7 @@ def _paint_room(
         "garden": _paint_garden,
         "trap_room": _paint_trap_room,
         "zoo": _paint_zoo,
+        "nest": _paint_nest,
     }
     painter = painters.get(room_type)
     if painter:
@@ -298,5 +338,161 @@ def _paint_zoo(level: Level, room: Room, rng: random.Random) -> None:
         )[0]
         level.entities.append(EntityPlacement(
             entity_type="creature", entity_id=creature_id,
+            x=x, y=y,
+        ))
+
+
+# ── Lair helpers ─────────────────────────────────────────────────────
+
+def _try_place_lair(
+    level: Level,
+    connections: dict[str, int],
+    lair_ids: set[str],
+    rng: random.Random,
+) -> None:
+    """Try to place one lair of 1-3 connected rooms.
+
+    Tags selected rooms as "lair", paints creatures, and places
+    reactivatable traps in surrounding rooms.
+    """
+    room_map = {r.id: r for r in level.rooms}
+    skip_tags = {"entry", "exit", "vault"}
+
+    # Find candidate seed rooms
+    candidates = [
+        r for r in level.rooms
+        if not any(t in skip_tags for t in r.tags)
+        and r.rect.width >= LAIR_MIN_SIZE
+        and r.rect.height >= LAIR_MIN_SIZE
+        and connections.get(r.id, 0) >= 1
+    ]
+    if not candidates or rng.random() >= LAIR_PROBABILITY:
+        return
+
+    seed_room = rng.choice(candidates)
+
+    # Expand to 1-3 connected rooms
+    lair_rooms = [seed_room]
+    max_rooms = rng.randint(1, 3)
+
+    if max_rooms > 1:
+        # Find rooms connected via corridors
+        neighbors: list[Room] = []
+        for corridor in level.corridors:
+            if seed_room.id not in corridor.connects:
+                continue
+            for rid in corridor.connects:
+                if rid == seed_room.id:
+                    continue
+                nb = room_map.get(rid)
+                if (nb and not any(t in skip_tags for t in nb.tags)
+                        and nb.rect.width >= LAIR_MIN_SIZE
+                        and nb.rect.height >= LAIR_MIN_SIZE):
+                    neighbors.append(nb)
+        rng.shuffle(neighbors)
+        for nb in neighbors[:max_rooms - 1]:
+            if nb not in lair_rooms:
+                lair_rooms.append(nb)
+
+    # Pick creature species based on depth
+    difficulty = min(max(1, level.depth), max(LAIR_CREATURES.keys()))
+    species_pool = LAIR_CREATURES.get(difficulty, LAIR_CREATURES[1])
+    species = rng.choice(species_pool)
+
+    # Tag and paint each lair room
+    for room in lair_rooms:
+        room.tags.append("lair")
+        lair_ids.add(room.id)
+        _paint_lair_room(level, room, species, rng)
+
+    # Place reactivatable traps in surrounding rooms
+    _paint_lair_traps(level, lair_ids, room_map, rng)
+
+
+def _paint_lair_room(
+    level: Level, room: Room, species: str,
+    rng: random.Random,
+) -> None:
+    """Fill a lair room with same-species humanoid creatures."""
+    floor = room.floor_tiles()
+    perimeter = room.shape.perimeter_tiles(room.rect)
+    interior = sorted(floor - perimeter)
+    if len(interior) < 3:
+        interior = sorted(floor)
+    if not interior:
+        return
+
+    target = max(3, min(8, len(interior) // 2))
+    rng.shuffle(interior)
+    for (x, y) in interior[:target]:
+        level.entities.append(EntityPlacement(
+            entity_type="creature", entity_id=species,
+            x=x, y=y,
+        ))
+
+    # Small loot cache
+    if interior:
+        gx, gy = rng.choice(interior)
+        level.entities.append(EntityPlacement(
+            entity_type="item", entity_id="gold",
+            x=gx, y=gy, extra={"dice": "2d6"},
+        ))
+
+
+def _paint_lair_traps(
+    level: Level,
+    lair_ids: set[str],
+    room_map: dict[str, Room],
+    rng: random.Random,
+) -> None:
+    """Place reactivatable traps in rooms adjacent to the lair."""
+    from nhc.dungeon.populator import FEATURE_POOLS
+
+    adjacent_ids: set[str] = set()
+    for corridor in level.corridors:
+        if any(rid in lair_ids for rid in corridor.connects):
+            for rid in corridor.connects:
+                if rid not in lair_ids and rid in room_map:
+                    adj = room_map[rid]
+                    skip = {"entry", "exit", "vault", "treasury",
+                            "armory", "library", "crypt"}
+                    if not any(t in skip for t in adj.tags):
+                        adjacent_ids.add(rid)
+
+    trap_ids, trap_weights = zip(*FEATURE_POOLS)
+    for rid in adjacent_ids:
+        room = room_map[rid]
+        count = rng.randint(1, 3)
+        for _ in range(count):
+            x, y = _random_floor(room, rng)
+            trap_id = rng.choices(
+                list(trap_ids), weights=list(trap_weights), k=1,
+            )[0]
+            level.entities.append(EntityPlacement(
+                entity_type="feature", entity_id=trap_id,
+                x=x, y=y,
+                extra={"hidden": True, "reactivatable": True},
+            ))
+
+
+# ── Nest painter ─────────────────────────────────────────────────────
+
+def _paint_nest(level: Level, room: Room, rng: random.Random) -> None:
+    """Fill a room with same-species vermin creatures."""
+    species = rng.choice(NEST_CREATURES)
+
+    floor = room.floor_tiles()
+    perimeter = room.shape.perimeter_tiles(room.rect)
+    interior = sorted(floor - perimeter)
+    if len(interior) < 3:
+        interior = sorted(floor)
+    if not interior:
+        return
+
+    target = max(3, min(10, len(interior) // 2))
+    rng.shuffle(interior)
+    for (x, y) in interior[:target]:
+        level.entities.append(EntityPlacement(
+            entity_type="creature", entity_id=species,
             x=x, y=y,
         ))

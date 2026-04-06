@@ -169,6 +169,7 @@ def tick_stairs_proximity(game: Game) -> None:
 
 
 DOOR_CLOSE_TURNS = 20
+TRAP_REACTIVATE_TURNS = 40
 
 
 def tick_doors(game: Game) -> None:
@@ -208,6 +209,19 @@ def tick_doors(game: Game) -> None:
             if tile.visible:
                 game.renderer.add_message(
                     t("explore.door_closes"))
+
+
+def tick_traps(game: Game) -> None:
+    """Reactivate lair traps that were triggered 40+ turns ago."""
+    for eid, trap, _ in game.world.query("Trap", "Position"):
+        if (trap.reactivatable
+                and trap.triggered
+                and trap.triggered_at_turn is not None
+                and game.turn - trap.triggered_at_turn
+                >= TRAP_REACTIVATE_TURNS):
+            trap.triggered = False
+            trap.hidden = True
+            trap.triggered_at_turn = None
 
 
 def tick_wand_recharge(game: Game) -> None:
