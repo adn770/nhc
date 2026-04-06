@@ -64,6 +64,18 @@ class LootTable:
 
 
 @dataclass
+class RegistryId:
+    """Tracks the original entity registry key."""
+    item_id: str = ""
+
+
+@dataclass
+class ShopInventory:
+    """Items for sale at this merchant."""
+    stock: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Disguise:
     appears_as: str = ""
     reveal_on: str = "interact"

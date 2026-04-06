@@ -80,6 +80,13 @@ from nhc.core.actions._interaction import (
     SearchAction,
 )
 
+# -- Shop actions --
+from nhc.core.actions._shop import (
+    BuyAction,
+    SellAction,
+    ShopInteractAction,
+)
+
 # -- Spell helper functions --
 from nhc.core.actions._spells import (
     _use_acid,
@@ -135,6 +142,10 @@ __all__ = [
     # Ranged
     "ThrowAction",
     "ZapAction",
+    # Shop
+    "BuyAction",
+    "SellAction",
+    "ShopInteractAction",
     # Interaction
     "CloseDoorAction",
     "DigAction",

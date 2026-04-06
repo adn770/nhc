@@ -255,8 +255,9 @@ full pipeline design.
    then add extra loop connections to prevent dead ends. Corridors use
    L-shaped or straight paths.
 3. **Specialize** -- assign room types: standard, treasury, armory,
-   library, crypt, shrine, garden, trap_room. Room painters populate
-   each room with thematic content (items, creatures, traps, features).
+   library, crypt, shrine, garden, trap_room, shop. Room painters
+   populate each room with thematic content (items, creatures, traps,
+   features). Shop rooms contain a merchant NPC with virtual stock.
 4. **Terrain** -- cellular automata pass adds water and grass patches.
    Theme parameters control density per dungeon theme (crypt, cave,
    sewer, castle, forest). Theme is auto-selected by depth via
@@ -595,8 +596,9 @@ the terminal TUI.
 ### Dungeon Generation
 
 - **Boss floors** -- every 5th depth with themed boss encounters.
-- **Shop rooms** -- rooms with merchant NPCs for buying/selling.
-  Would require NPC interaction UI and economy balancing.
+- ~~**Shop rooms**~~ -- implemented. Merchant NPCs spawn in
+  dedicated shop rooms (max 1 per level, 20% chance). Menu-based
+  buy/sell via bump interaction. Prices in `rules/prices.py`.
 - **Level feelings** -- flooded, overgrown, barren variants. Framework
   exists in `terrain.py` with `FEELINGS` list and seed probability
   overrides, but selection logic is minimal.

@@ -41,6 +41,7 @@ from nhc.core.events import (
     LevelEntered,
     MessageEvent,
     PlayerDied,
+    ShopMenuEvent,
     TrapTriggered,
     VisualEffect,
 )
@@ -61,6 +62,7 @@ from nhc.entities.components import (
     Position,
     Regeneration,
     Renderable,
+    ShopInventory,
     Stats,
     StatusEffect,
 )
@@ -531,6 +533,10 @@ class Game:
                         placement.entity_id,
                     )
                     components["BlocksMovement"] = BlocksMovement()
+                    if placement.extra.get("shop_stock"):
+                        components["ShopInventory"] = ShopInventory(
+                            stock=list(placement.extra["shop_stock"]),
+                        )
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
                     # Apply potion disguise if unidentified
@@ -742,6 +748,12 @@ class Game:
                     if tile:
                         tile.opened_at_turn = self.turn
 
+            # Handle shop interaction (free action, no turn cost)
+            for ev in events:
+                if isinstance(ev, ShopMenuEvent):
+                    await self._shop_interaction(ev.merchant)
+                    break
+
             # Check win
             if self.won:
                 delete_autosave(self.save_dir)
@@ -847,6 +859,108 @@ class Game:
                 event.actor = action.actor
             await self.event_bus.emit(event)
         return events
+
+    async def _shop_interaction(self, merchant_id: int) -> None:
+        """Run the buy/sell/leave menu loop for a merchant."""
+        from nhc.core.actions._shop import BuyAction, SellAction
+        from nhc.rules.prices import buy_price, sell_price
+
+        si = self.world.get_component(merchant_id, "ShopInventory")
+        if not si:
+            return
+
+        _BUY = -1
+        _SELL = -2
+
+        while True:
+            options: list[tuple[int, str]] = [
+                (_BUY, t("shop.buy")),
+                (_SELL, t("shop.sell")),
+            ]
+            choice = self.renderer.show_selection_menu(
+                t("shop.welcome"), options,
+            )
+            if choice is None:
+                break
+
+            if choice == _BUY:
+                if not si.stock:
+                    self.renderer.add_message(t("shop.empty_stock"))
+                    continue
+                items: list[tuple[int, str]] = []
+                for idx, item_id in enumerate(si.stock):
+                    comps = EntityRegistry.get_item(item_id)
+                    desc = comps.get("Description")
+                    name = desc.name if desc else item_id
+                    price = buy_price(item_id)
+                    items.append((idx, f"{name} ({price}g)"))
+                selected = self.renderer.show_selection_menu(
+                    t("shop.buy"), items,
+                )
+                if selected is None:
+                    continue
+                # selected is the index into si.stock
+                if selected < 0 or selected >= len(si.stock):
+                    continue
+                item_id = si.stock[selected]
+                action = BuyAction(
+                    actor=self.player_id,
+                    merchant=merchant_id,
+                    item_id=item_id,
+                )
+                if await action.validate(self.world, self.level):
+                    events = await action.execute(self.world, self.level)
+                    for ev in events:
+                        if isinstance(ev, MessageEvent):
+                            self.renderer.add_message(ev.text)
+                else:
+                    reason = action.fail_reason
+                    if reason == "cannot_afford":
+                        self.renderer.add_message(
+                            t("shop.cannot_afford",
+                              price=buy_price(item_id)),
+                        )
+                    elif reason == "inventory_full":
+                        self.renderer.add_message(
+                            t("shop.inventory_full"),
+                        )
+
+            elif choice == _SELL:
+                inv = self.world.get_component(
+                    self.player_id, "Inventory",
+                )
+                if not inv or not inv.slots:
+                    self.renderer.add_message(t("shop.nothing_to_sell"))
+                    continue
+                items = []
+                for item_eid in inv.slots:
+                    desc = self.world.get_component(item_eid, "Description")
+                    reg = self.world.get_component(item_eid, "RegistryId")
+                    name = desc.name if desc else "???"
+                    item_id = reg.item_id if reg else "gold"
+                    price = sell_price(item_id)
+                    items.append((item_eid, f"{name} ({price}g)"))
+                selected = self.renderer.show_selection_menu(
+                    t("shop.sell"), items,
+                )
+                if selected is None:
+                    continue
+                action = SellAction(
+                    actor=self.player_id,
+                    merchant=merchant_id,
+                    item_entity=selected,
+                )
+                if await action.validate(self.world, self.level):
+                    events = await action.execute(self.world, self.level)
+                    for ev in events:
+                        if isinstance(ev, MessageEvent):
+                            self.renderer.add_message(ev.text)
+                else:
+                    reason = action.fail_reason
+                    if reason == "equipped":
+                        self.renderer.add_message(
+                            t("shop.unequip_first"),
+                        )
 
     async def _get_classic_actions(self) -> list:
         """Classic mode: single keypress → single action."""

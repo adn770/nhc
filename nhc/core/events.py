@@ -122,6 +122,14 @@ class CustomActionEvent(Event):
     success: bool = False
 
 
+# --- Shop events ---
+
+@dataclass
+class ShopMenuEvent(Event):
+    """Triggers the shop UI overlay."""
+    merchant: int = 0
+
+
 # Handler type: sync or async callable
 EventHandler = Callable[..., None] | Callable[..., Awaitable[None]]
 

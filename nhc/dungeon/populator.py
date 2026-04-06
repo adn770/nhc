@@ -306,7 +306,7 @@ def populate_level(
     # Also skip rooms already populated by room_types painters
     special_tags = {"treasury", "armory", "library", "crypt",
                     "trap_room", "shrine", "garden", "zoo",
-                    "lair", "nest"}
+                    "lair", "nest", "shop"}
     combat_rooms = [r for r in placeable
                     if not any(t in special_tags for t in r.tags)]
 

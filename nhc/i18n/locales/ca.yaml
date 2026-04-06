@@ -284,6 +284,19 @@ feature:
   door_open: "una porta oberta"
   door_closed: "una porta tancada"
 
+# ── Shop ─────────────────────────────────────────────────────────────
+shop:
+  welcome: "Benvingut, viatger. Què voldries?"
+  buy: "Comprar"
+  sell: "Vendre"
+  bought: "Has comprat {item} per {price} or."
+  sold: "Has venut {item} per {price} or."
+  cannot_afford: "No tens prou or! (calen {price} or)"
+  inventory_full: "L'inventari és ple!"
+  nothing_to_sell: "No tens res per vendre."
+  empty_stock: "El mercader no té res més per vendre."
+  unequip_first: "Desequipa l'objecte abans de vendre."
+
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Has agafat {item}."

@@ -2,7 +2,7 @@
 
 After BSP generates rooms and corridors, this module assigns each room
 a type (standard, treasury, armory, library, crypt, shrine, garden,
-trap_room) and paints its interior with appropriate contents.
+trap_room, shop) and paints its interior with appropriate contents.
 """
 
 from __future__ import annotations
@@ -51,6 +51,51 @@ NEST_CREATURES: list[str] = [
 NEST_PROBABILITY = 0.10
 NEST_MIN_SIZE = 3
 
+# Shop: max 1 per level, merchant + virtual stock.
+SHOP_PROBABILITY = 0.20
+SHOP_MIN_SIZE = 4
+
+# Depth-tiered stock pools: (item_id, weight).
+# Merchants carry a mix of consumables, gear, and tools.
+SHOP_STOCK: dict[int, list[tuple[str, int]]] = {
+    1: [
+        ("healing_potion", 5), ("healing_bandage", 3),
+        ("torch", 2), ("rations", 3),
+        ("dagger", 2), ("short_sword", 2), ("shield", 1),
+        ("gambeson", 1), ("leather_armor", 1),
+        ("scroll_light", 2), ("scroll_magic_missile", 2),
+        ("rope", 1), ("arrows", 2),
+    ],
+    2: [
+        ("healing_potion", 5), ("potion_strength", 2),
+        ("potion_speed", 2), ("rations", 2),
+        ("sword", 3), ("spear", 2), ("mace", 2),
+        ("brigantine", 1), ("shield", 2), ("helmet", 2),
+        ("scroll_fireball", 2), ("scroll_sleep", 2),
+        ("scroll_cure_wounds", 2), ("scroll_shield", 2),
+        ("bow", 1), ("arrows", 2), ("lantern", 1),
+    ],
+    3: [
+        ("healing_potion", 4), ("potion_strength", 3),
+        ("potion_invisibility", 2), ("potion_speed", 2),
+        ("long_sword", 2), ("war_hammer", 2), ("halberd", 2),
+        ("chain_mail", 1), ("brigantine", 2), ("helmet", 2),
+        ("scroll_fireball", 3), ("scroll_lightning", 2),
+        ("scroll_haste", 2), ("scroll_teleportation", 1),
+        ("crossbow", 1), ("arrows", 2),
+    ],
+    4: [
+        ("healing_potion", 4), ("potion_invisibility", 3),
+        ("potion_strength", 3), ("potion_speed", 2),
+        ("long_sword", 2), ("war_hammer", 2),
+        ("chain_mail", 2), ("plate_cuirass", 1),
+        ("scroll_fireball", 2), ("scroll_lightning", 2),
+        ("scroll_teleportation", 2), ("scroll_enchant_weapon", 1),
+        ("scroll_enchant_armor", 1), ("scroll_haste", 2),
+        ("wand_magic_missile", 1), ("wand_firebolt", 1),
+    ],
+}
+
 
 def assign_room_types(level: Level, rng: random.Random) -> None:
     """Assign types to rooms and paint their interiors.
@@ -66,6 +111,7 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
 
     specials_placed = 0
     standard_count = 0
+    shop_placed = False
 
     # ── Pre-pass: assign lair (1-3 connected rooms) ──
     lair_ids: set[str] = set()
@@ -125,6 +171,18 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
             specials_placed += 1
             continue
 
+        # Shop: max 1 per level, in a room with 1-2 connections.
+        if (not shop_placed
+                and conn >= 1 and conn <= 2
+                and room.rect.width >= SHOP_MIN_SIZE
+                and room.rect.height >= SHOP_MIN_SIZE
+                and rng.random() < SHOP_PROBABILITY):
+            room.tags.append("shop")
+            _paint_room(level, room, "shop", rng)
+            specials_placed += 1
+            shop_placed = True
+            continue
+
         # General special rooms (any connection count)
         if rng.random() < 0.15 and specials_placed < 4:
             room_type = rng.choice(GENERAL_TYPES)
@@ -170,6 +228,7 @@ def _paint_room(
         "trap_room": _paint_trap_room,
         "zoo": _paint_zoo,
         "nest": _paint_nest,
+        "shop": _paint_shop,
     }
     painter = painters.get(room_type)
     if painter:
@@ -299,6 +358,30 @@ def _paint_trap_room(level: Level, room: Room, rng: random.Random) -> None:
                          "scroll_haste", "healing_potion"])
     level.entities.append(EntityPlacement(
         entity_type="item", entity_id=prize, x=x, y=y,
+    ))
+
+
+def _paint_shop(level: Level, room: Room, rng: random.Random) -> None:
+    """Place a merchant NPC with a virtual stock of items for sale."""
+    difficulty = min(max(1, level.depth), max(SHOP_STOCK.keys()))
+    pool = SHOP_STOCK.get(difficulty, SHOP_STOCK[1])
+    s_ids, s_weights = zip(*pool)
+
+    count = rng.randint(4, 7)
+    stock = rng.choices(list(s_ids), weights=list(s_weights), k=count)
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique_stock: list[str] = []
+    for item_id in stock:
+        if item_id not in seen:
+            seen.add(item_id)
+            unique_stock.append(item_id)
+    stock = unique_stock
+
+    cx, cy = room.rect.center
+    level.entities.append(EntityPlacement(
+        entity_type="creature", entity_id="merchant",
+        x=cx, y=cy, extra={"shop_stock": stock},
     ))
 
 

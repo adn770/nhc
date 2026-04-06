@@ -266,6 +266,19 @@ feature:
   door_open: "una puerta abierta"
   door_closed: "una puerta cerrada"
 
+# ── Shop ─────────────────────────────────────────────────────────────
+shop:
+  welcome: "Bienvenido, viajero. ¿Qué deseas?"
+  buy: "Comprar"
+  sell: "Vender"
+  bought: "Has comprado {item} por {price} oro."
+  sold: "Has vendido {item} por {price} oro."
+  cannot_afford: "¡No tienes suficiente oro! (se necesitan {price} oro)"
+  inventory_full: "¡El inventario está lleno!"
+  nothing_to_sell: "No tienes nada que vender."
+  empty_stock: "El mercader no tiene nada más que vender."
+  unequip_first: "Desequipa el objeto antes de vender."
+
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Has recogido {item}."

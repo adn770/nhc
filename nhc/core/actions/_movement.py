@@ -257,6 +257,13 @@ class BumpAction(Action):
                     if world.has_component(eid, "Chest"):
                         return OpenChestAction(
                             actor=self.actor, chest=eid)
+                    # Merchants: open shop instead of attack
+                    if world.has_component(eid, "ShopInventory"):
+                        from nhc.core.actions._shop import (
+                            ShopInteractAction,
+                        )
+                        return ShopInteractAction(
+                            actor=self.actor, merchant=eid)
                     # Creatures: attack
                     return MeleeAttackAction(
                         actor=self.actor, target=eid)

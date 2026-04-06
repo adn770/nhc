@@ -268,6 +268,19 @@ feature:
   door_open: "an open door"
   door_closed: "a closed door"
 
+# ── Shop ─────────────────────────────────────────────────────────────
+shop:
+  welcome: "Welcome, traveler. What would you like?"
+  buy: "Buy"
+  sell: "Sell"
+  bought: "Bought {item} for {price} gold."
+  sold: "Sold {item} for {price} gold."
+  cannot_afford: "Not enough gold! ({price} gold needed)"
+  inventory_full: "Inventory is full!"
+  nothing_to_sell: "Nothing to sell."
+  empty_stock: "The merchant has nothing left to sell."
+  unequip_first: "Unequip the item before selling."
+
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Picked up {item}."

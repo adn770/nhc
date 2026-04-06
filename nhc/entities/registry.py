@@ -77,7 +77,10 @@ class EntityRegistry:
         factory = cls._items.get(entity_id)
         if not factory:
             raise KeyError(f"Unknown item: {entity_id}")
-        return factory()
+        components = factory()
+        from nhc.entities.components import RegistryId
+        components.setdefault("RegistryId", RegistryId(item_id=entity_id))
+        return components
 
     @classmethod
     def get_feature(cls, entity_id: str) -> dict[str, Any]:
