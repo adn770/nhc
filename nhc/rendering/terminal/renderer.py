@@ -448,8 +448,12 @@ class TerminalRenderer(GameClient):
                         row_out += cfn(glyph)
                         continue
 
-                # Corridor tiles render as #
-                if tile.is_corridor:
+                # Dug passages render as brown #
+                if tile.dug_wall or tile.dug_floor:
+                    glyph = "#"
+                    color = "yellow"
+                    dim_val = "bright_black"
+                elif tile.is_corridor:
                     glyph, color, dim_val = _glyphs.CORRIDOR_GLYPH
                 elif tile.terrain == Terrain.WALL:
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]

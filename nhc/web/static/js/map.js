@@ -42,6 +42,7 @@ const GameMap = {
   exploredWalls: new Map(),
   _hatchReady: false,
   doorInfo: new Map(),  // "x,y" → {edge, state}
+  dugTiles: new Map(),  // "x,y" → {x, y, edges}
   tileset: null,
   tilesetImg: null,
   mapW: 0,
@@ -66,6 +67,7 @@ const GameMap = {
     this.entities = [];
     this.doors = [];
     this.allDoors = new Map();
+    this.dugTiles = new Map();
     this.fov = new Set();
     this.explored = new Set();
     this.lastSeen = new Map();
@@ -153,7 +155,7 @@ const GameMap = {
       });
   },
 
-  updateEntities(entities, doors) {
+  updateEntities(entities, doors, dug) {
     this.entities = entities;
     if (doors) {
       this.doors = doors;
@@ -163,6 +165,12 @@ const GameMap = {
         this.allDoors.set(key, { ...d });
       }
       this.drawDoors();
+    }
+    if (dug) {
+      for (const d of dug) {
+        this.dugTiles.set(`${d.x},${d.y}`, d);
+      }
+      this.drawDoors();  // redraws doors + dug on same canvas
     }
     // Track player position for auto-scroll
     const player = entities.find(e => e.glyph === "@");
@@ -734,6 +742,59 @@ const GameMap = {
     ctx.clearRect(0, 0, this.doorCanvas.width,
                   this.doorCanvas.height);
     this._drawDoors(ctx, this.allDoors.values());
+    this._drawDugTiles(ctx);
+  },
+
+  /**
+   * Draw cracked edge lines on dug passages.
+   * Short irregular line segments along tile edges where walls
+   * were broken through, suggesting rough-hewn stone.
+   */
+  _drawDugTiles(ctx) {
+    const cs = this.cellSize;
+    const pad = this.padding;
+    const wallW = 4;
+
+    for (const tile of this.dugTiles.values()) {
+      const px = tile.x * cs + pad;
+      const py = tile.y * cs + pad;
+
+      ctx.strokeStyle = "#6B4226";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+
+      for (const edge of tile.edges) {
+        // Draw 3-4 short irregular crack lines along each wall edge
+        const segs = 3 + (((tile.x * 7 + tile.y * 13) % 2));
+        for (let i = 0; i < segs; i++) {
+          // Deterministic pseudo-random offsets based on position
+          const seed = tile.x * 31 + tile.y * 17 + i * 7;
+          const along = 0.15 + (((seed * 37) % 70) / 100) * 0.7;
+          const depth = 2 + ((seed * 13) % 5);
+          const len = 3 + ((seed * 11) % 5);
+
+          ctx.beginPath();
+          if (edge === "top") {
+            const sx = px + cs * along;
+            ctx.moveTo(sx, py - wallW / 2);
+            ctx.lineTo(sx + len * 0.5, py + depth);
+          } else if (edge === "bottom") {
+            const sx = px + cs * along;
+            ctx.moveTo(sx, py + cs + wallW / 2);
+            ctx.lineTo(sx - len * 0.5, py + cs - depth);
+          } else if (edge === "left") {
+            const sy = py + cs * along;
+            ctx.moveTo(px - wallW / 2, sy);
+            ctx.lineTo(px + depth, sy + len * 0.5);
+          } else if (edge === "right") {
+            const sy = py + cs * along;
+            ctx.moveTo(px + cs + wallW / 2, sy);
+            ctx.lineTo(px + cs - depth, sy - len * 0.5);
+          }
+          ctx.stroke();
+        }
+      }
+    }
   },
 
   draw() {

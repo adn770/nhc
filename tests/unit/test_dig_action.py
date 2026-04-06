@@ -206,6 +206,18 @@ class TestDigActionExecution:
         assert tile.terrain == Terrain.FLOOR
         assert tile.feature is None or tile.feature == ""
 
+    @pytest.mark.asyncio
+    async def test_dug_wall_marks_tile(self):
+        """Successful dig sets dug_wall and is_corridor flags."""
+        world, pid, level, _ = _make_world(strength=6, tool_bonus=5)
+        action = DigAction(actor=pid, dx=1, dy=0)
+        with patch("nhc.core.actions._interaction.d20", return_value=20):
+            await action.execute(world, level)
+
+        tile = level.tile_at(6, 5)
+        assert tile.dug_wall is True
+        assert tile.is_corridor is True
+
 
 class TestDiggingToolItems:
     """Verify all digging tool items have correct components."""

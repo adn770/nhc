@@ -22,7 +22,7 @@ def _make_level(buried=None, dug=False) -> Level:
              for _ in range(10)]
     if buried:
         tiles[5][5].buried = list(buried)
-    tiles[5][5].dug = dug
+    tiles[5][5].dug_floor = dug
     for row in tiles:
         for t in row:
             t.visible = True
@@ -84,11 +84,12 @@ class TestDigFloorValidation:
         assert await action.validate(world, level)
 
     @pytest.mark.asyncio
-    async def test_invalid_no_buried_and_not_dug(self):
+    async def test_valid_on_empty_floor(self):
+        """Digging an empty floor is valid (may find nothing)."""
         from nhc.core.actions._interaction import DigFloorAction
         world, pid, level = _make_world()
         action = DigFloorAction(actor=pid)
-        assert not await action.validate(world, level)
+        assert await action.validate(world, level)
 
     @pytest.mark.asyncio
     async def test_invalid_without_tool(self):
@@ -175,7 +176,7 @@ class TestDigFloorExecution:
             await action.execute(world, level)
 
         tile = level.tile_at(5, 5)
-        assert tile.dug is True
+        assert tile.dug_floor is True
 
     @pytest.mark.asyncio
     async def test_second_dig_guarantees_fall(self):

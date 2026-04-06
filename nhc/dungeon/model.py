@@ -597,7 +597,8 @@ class Tile:
                          # the door sits on (set at generation time)
     opened_at_turn: int | None = None  # turn when door was opened
     buried: list[str] = field(default_factory=list)  # hidden item IDs
-    dug: bool = False  # True after first floor dig (second dig = fall)
+    dug_floor: bool = False  # True after first floor dig (second dig = fall)
+    dug_wall: bool = False  # True when a wall was dug into a passage
 
     @property
     def walkable(self) -> bool:

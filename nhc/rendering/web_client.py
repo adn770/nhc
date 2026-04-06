@@ -732,6 +732,30 @@ class WebClient(GameClient):
                 })
         return doors
 
+    def _gather_dug(self, level: "Level") -> list[dict]:
+        """Build list of dug tile positions with wall-edge info."""
+        dug = []
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tile_at(x, y)
+                if not tile or not (tile.dug_wall or tile.dug_floor):
+                    continue
+                if not tile.explored:
+                    continue
+                # Determine which edges were walls (adjacent non-floor)
+                edges = []
+                for edge, (dx, dy) in (("top", (0, -1)),
+                                        ("bottom", (0, 1)),
+                                        ("left", (-1, 0)),
+                                        ("right", (1, 0))):
+                    nb = level.tile_at(x + dx, y + dy)
+                    if not nb or nb.terrain not in (
+                        Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
+                    ):
+                        edges.append(edge)
+                dug.append({"x": x, "y": y, "edges": edges})
+        return dug
+
     def _gather_fov(self, level: "Level") -> list[list[int]]:
         """Build list of visible tile coordinates."""
         visible = []
@@ -1102,6 +1126,7 @@ class WebClient(GameClient):
         entities = self._gather_entities(world, level, player_id, turn)
         fov_list = self._gather_fov(level)
         doors = self._gather_doors(level)
+        dug_tiles = self._gather_dug(level)
         static, dynamic = self._gather_stats(
             world, player_id, turn, level)
 
@@ -1134,6 +1159,8 @@ class WebClient(GameClient):
             "doors": doors,
             "turn": turn,
         }
+        if dug_tiles:
+            state_msg["dug"] = dug_tiles
         if (not prev_fov
                 or len(fov_add) + len(fov_del)
                 > len(current_fov) * 0.5):

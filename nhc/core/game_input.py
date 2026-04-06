@@ -353,20 +353,18 @@ def find_dig_action(
             return None
         return DigAction(actor=game.player_id, dx=dx, dy=dy)
 
-    # Manual press: check if the floor tile has buried items or was
-    # already dug (floor digging takes priority over wall digging).
-    tile_here = game.level.tile_at(pos.x, pos.y)
-    if tile_here and (tile_here.buried or tile_here.dug):
-        return DigFloorAction(actor=game.player_id)
-
-    # Scan cardinal directions for adjacent diggable tiles
+    # Scan cardinal directions for adjacent diggable walls
     diggable: list[tuple[str, tuple[int, int]]] = []
     for label, (dx, dy) in _DIRECTIONS.items():
         tile = game.level.tile_at(pos.x + dx, pos.y + dy)
         if tile and tile.terrain == Terrain.WALL:
             diggable.append((label, (dx, dy)))
 
+    # No adjacent walls → dig the floor instead
     if not diggable:
+        tile_here = game.level.tile_at(pos.x, pos.y)
+        if tile_here and tile_here.terrain == Terrain.FLOOR:
+            return DigFloorAction(actor=game.player_id)
         game.renderer.add_message(t("explore.dig_no_wall"))
         return None
 

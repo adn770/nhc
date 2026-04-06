@@ -31,7 +31,7 @@ const NHC = {
                   (msg.doors || []).length, "doors,",
                   (msg.fov || []).length, "fov tiles");
       if (msg.turn !== undefined) GameMap.turn = msg.turn;
-      GameMap.updateEntities(msg.entities, msg.doors);
+      GameMap.updateEntities(msg.entities, msg.doors, msg.dug);
       if (msg.fov || msg.fov_add || msg.fov_del) {
         GameMap.updateFOV(msg);
       }
@@ -91,7 +91,7 @@ const NHC = {
         GameMap.setFloorSVG(svg);
       }
       if (msg.entities) {
-        GameMap.updateEntities(msg.entities, msg.doors);
+        GameMap.updateEntities(msg.entities, msg.doors, msg.dug);
       }
       // Seed explored before loading the hatch pattern so the
       // onload handler can replay the full reveal in one pass.

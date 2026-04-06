@@ -331,6 +331,8 @@ class DigAction(Action):
         if roll + str_bonus + tool_bonus >= self.DIG_DC:
             tile.terrain = Terrain.FLOOR
             tile.feature = None
+            tile.is_corridor = True
+            tile.dug_wall = True
             events.append(MessageEvent(
                 text=t("explore.dig_success"),
             ))
@@ -359,9 +361,6 @@ class DigFloorAction(Action):
         tile = level.tile_at(pos.x, pos.y)
         if not tile or tile.terrain != Terrain.FLOOR:
             return False
-        # Must have something to dig for, or tile already dug (second dig)
-        if not tile.buried and not tile.dug:
-            return False
         # Require DiggingTool equipped as weapon
         equip = world.get_component(self.actor, "Equipment")
         if not equip or equip.weapon is None:
@@ -377,7 +376,7 @@ class DigFloorAction(Action):
         str_bonus = max(0, stats.strength) if stats else 0
 
         # Determine if a hole opens
-        if tile.dug:
+        if tile.dug_floor:
             # Second dig on same tile → guaranteed fall
             hole = True
         else:
@@ -387,7 +386,7 @@ class DigFloorAction(Action):
 
         buried_ids = list(tile.buried)
         tile.buried = []
-        tile.dug = True
+        tile.dug_floor = True
 
         if hole:
             # Player falls — items go with them, not spawned here
