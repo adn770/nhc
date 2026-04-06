@@ -60,20 +60,15 @@ class MoveAction(Action):
         if not tile.walkable:
             return False
 
-        # Prevent player ↔ henchman tile overlap
-        is_player = world.has_component(self.actor, "Player")
-        is_henchman = world.has_component(self.actor, "Henchman")
-        if is_player or is_henchman:
+        # Henchmen must not walk onto the player or other henchmen
+        if world.has_component(self.actor, "Henchman"):
             for eid, epos in world.query("Position"):
-                if eid == self.actor:
+                if eid == self.actor or epos.x != nx or epos.y != ny:
                     continue
-                if epos.x != nx or epos.y != ny:
-                    continue
-                if is_player and world.has_component(eid, "Henchman"):
-                    h = world.get_component(eid, "Henchman")
-                    if h and h.hired:
-                        return False
-                if is_henchman and world.has_component(eid, "Player"):
+                if world.has_component(eid, "Player"):
+                    return False
+                h = world.get_component(eid, "Henchman")
+                if h and h.hired:
                     return False
 
         return True
@@ -235,6 +230,39 @@ class AscendStairsAction(Action):
         ]
 
 
+class SwapAction(Action):
+    """Swap positions with a hired henchman."""
+
+    def __init__(self, actor: int, target: int,
+                 dx: int, dy: int) -> None:
+        super().__init__(actor)
+        self.target = target
+        self.dx = dx
+        self.dy = dy
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        hench = world.get_component(self.target, "Henchman")
+        if not hench or not hench.hired:
+            return False
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        apos = world.get_component(self.actor, "Position")
+        tpos = world.get_component(self.target, "Position")
+        if not apos or not tpos:
+            return []
+        # Swap coordinates
+        apos.x, apos.y, tpos.x, tpos.y = tpos.x, tpos.y, apos.x, apos.y
+        # Check traps at new player position
+        events = _check_traps(
+            world, level, self.actor, apos.x, apos.y,
+        )
+        events += _announce_ground_items(
+            world, apos.x, apos.y, self.actor,
+        )
+        return events
+
+
 class BumpAction(Action):
     """Smart directional action: attack, open door, or move."""
 
@@ -294,6 +322,20 @@ class BumpAction(Action):
                     # Creatures: attack
                     return MeleeAttackAction(
                         actor=self.actor, target=eid)
+
+        # Hired henchmen: swap positions instead of blocking
+        if world.has_component(self.actor, "Player"):
+            for eid, epos in world.query("Position"):
+                if eid == self.actor:
+                    continue
+                if epos.x != nx or epos.y != ny:
+                    continue
+                hench = world.get_component(eid, "Henchman")
+                if hench and hench.hired and hench.owner == self.actor:
+                    return SwapAction(
+                        actor=self.actor, target=eid,
+                        dx=self.dx, dy=self.dy,
+                    )
 
         # Otherwise: move (handles doors internally)
         return MoveAction(actor=self.actor, dx=self.dx, dy=self.dy,

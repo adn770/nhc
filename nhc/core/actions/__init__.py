@@ -44,6 +44,7 @@ from nhc.core.actions._movement import (
     BumpAction,
     DescendStairsAction,
     MoveAction,
+    SwapAction,
 )
 
 # -- Combat actions --
@@ -137,6 +138,7 @@ __all__ = [
     "BumpAction",
     "DescendStairsAction",
     "MoveAction",
+    "SwapAction",
     # Combat
     "BansheeWailAction",
     "MeleeAttackAction",

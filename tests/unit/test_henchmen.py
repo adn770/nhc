@@ -604,8 +604,8 @@ class TestCallForHelp:
 
 class TestTileOverlap:
     @pytest.mark.asyncio
-    async def test_player_cannot_walk_onto_henchman(self):
-        from nhc.core.actions import MoveAction
+    async def test_bump_henchman_swaps_positions(self):
+        from nhc.core.actions import BumpAction, SwapAction
 
         world = World()
         level = _make_test_level()
@@ -615,8 +615,15 @@ class TestTileOverlap:
         )
         world.remove_component(aid, "BlocksMovement")
 
-        action = MoveAction(actor=pid, dx=1, dy=0)
-        assert not await action.validate(world, level)
+        bump = BumpAction(actor=pid, dx=1, dy=0)
+        action = bump.resolve(world, level)
+        assert isinstance(action, SwapAction)
+
+        await action.execute(world, level)
+        ppos = world.get_component(pid, "Position")
+        hpos = world.get_component(aid, "Position")
+        assert ppos.x == 6 and ppos.y == 5
+        assert hpos.x == 5 and hpos.y == 5
 
     @pytest.mark.asyncio
     async def test_henchman_wander_avoids_player(self):
