@@ -80,6 +80,14 @@ from nhc.core.actions._interaction import (
     SearchAction,
 )
 
+# -- Henchman actions --
+from nhc.core.actions._henchman import (
+    DismissAction,
+    GiveItemAction,
+    RecruitAction,
+    get_hired_henchmen,
+)
+
 # -- Shop actions --
 from nhc.core.actions._shop import (
     BuyAction,
@@ -142,6 +150,10 @@ __all__ = [
     # Ranged
     "ThrowAction",
     "ZapAction",
+    # Henchman
+    "DismissAction",
+    "GiveItemAction",
+    "RecruitAction",
     # Shop
     "BuyAction",
     "SellAction",

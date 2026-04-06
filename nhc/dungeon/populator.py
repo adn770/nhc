@@ -157,6 +157,48 @@ BURIED_POOLS: dict[int, list[tuple[str, float]]] = {
 }
 
 
+def _place_adventurer(
+    level: Level,
+    placeable: list,
+    occupied: set[tuple[int, int]],
+    rng: "random.Random",
+) -> None:
+    """Maybe place a recruitable adventurer in an eligible room.
+
+    ~15% chance per eligible room, max 1 per floor.
+    """
+    excluded_tags = {"shop", "vault", "exit", "lair", "nest", "zoo"}
+    eligible = [r for r in placeable
+                if not any(t in excluded_tags for t in r.tags)]
+    if not eligible:
+        return
+    rng.shuffle(eligible)
+    for room in eligible:
+        if rng.random() > 0.15:
+            continue
+        rect = room.rect
+        candidates = []
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                tile = level.tile_at(x, y)
+                if (tile and tile.terrain == Terrain.FLOOR
+                        and not tile.feature
+                        and (x, y) not in occupied):
+                    candidates.append((x, y))
+        if not candidates:
+            continue
+        ax, ay = rng.choice(candidates)
+        adv_level = max(1, level.depth // 2)
+        level.entities.append(EntityPlacement(
+            entity_type="creature",
+            entity_id="adventurer",
+            x=ax, y=ay,
+            extra={"adventurer_level": adv_level},
+        ))
+        occupied.add((ax, ay))
+        return  # max 1 per floor
+
+
 def _bury_items(
     level: Level,
     rng: "random.Random",
@@ -499,6 +541,9 @@ def populate_level(
                 x=vx, y=vy,
             ))
             occupied.add((vx, vy))
+
+    # ── Place an adventurer (recruitable henchman) ──
+    _place_adventurer(level, placeable, occupied, rng)
 
     # ── Bury hidden items in floor tiles ──
     _bury_items(level, rng)

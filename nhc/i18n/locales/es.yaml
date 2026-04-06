@@ -1220,6 +1220,36 @@ creature:
     long: >-
       Una colección de huesos sostenidos por nigromancia desvaneciéndose.
       Traquetean y raspan mientras se arrastran hacia los vivos.
+  adventurer:
+    name: "Aventurero"
+    short: "un aventurero compañero"
+    long: >-
+      Un explorador experimentado que busca compañeros para las
+      profundidades de la mazmorra. Ofrece su espada — por el
+      precio justo.
+
+# ── Henchman UI strings ────────────────────────────────────────────────
+henchman:
+  recruit_offer: >-
+    {name} el aventurero se ofrece a unirse a tu grupo
+    por {cost} monedas de oro.
+  recruited: "¡{name} se une a tu grupo!"
+  no_gold: "No puedes pagar para contratar a {name} ({cost} oro)."
+  party_full: "Ya tienes dos secuaces en tu grupo."
+  dismissed: "Despides a {name} de tu grupo."
+  levelup: >-
+    ¡{name} ha alcanzado el nivel {level}! Paga {cost} oro para
+    mantenerlo en el grupo.
+  levelup_paid: "{name} se queda en el grupo (nivel {level})."
+  levelup_left: >-
+    {name} abandona el grupo — no pudiste pagar
+    la cuota de {cost} oro.
+  died: "¡{name} ha caído!"
+  call_for_help: "{name} grita: \"¡Necesito curación!\""
+  give_prompt: "¿Dar objeto a qué secuaz?"
+  give_item: "Das {item} a {name}."
+  give_full: "El inventario de {name} está lleno."
+  dismiss_prompt: "¿Despedir a qué secuaz?"
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

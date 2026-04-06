@@ -43,6 +43,8 @@ const Input = {
     "?": { intent: "help", data: null },
     "[": { intent: "scroll_up", data: null },
     "]": { intent: "scroll_down", data: null },
+    "G": { intent: "give_item", data: null },
+    "P": { intent: "dismiss_henchman", data: null },
     "Q": { intent: "quit", data: null },
     "M": { intent: "reveal_map", data: null },
   },

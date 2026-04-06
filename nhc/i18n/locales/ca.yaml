@@ -1310,6 +1310,36 @@ creature:
     long: >-
       Una col·lecció d'ossos mantinguts per necromància esvaint-se.
       Traquetegen i raspen mentre s'arrosseguen cap als vivents.
+  adventurer:
+    name: "aventurer"
+    gender: "m"
+    short: "un aventurer company"
+    long: >-
+      Un explorador experimentat que busca companys per les profunditats
+      de la masmorra. Ofereix la seva espasa — pel preu just.
+
+# ── Henchman UI strings ────────────────────────────────────────────────
+henchman:
+  recruit_offer: >-
+    {name} l'aventurer s'ofereix a unir-se al teu grup
+    per {cost} monedes d'or.
+  recruited: "{name} s'uneix al teu grup!"
+  no_gold: "No pots pagar per contractar {name} ({cost} or)."
+  party_full: "Ja tens dos sequaços al teu grup."
+  dismissed: "Acomiades {name} del teu grup."
+  levelup: >-
+    {name} ha assolit el nivell {level}! Paga {cost} or per
+    mantenir-lo al grup.
+  levelup_paid: "{name} es queda al grup (nivell {level})."
+  levelup_left: >-
+    {name} abandona el grup — no has pogut pagar
+    la quota de {cost} or.
+  died: "{name} ha caigut!"
+  call_for_help: "{name} crida: \"Necessito curació!\""
+  give_prompt: "Donar objecte a quin sequaç?"
+  give_item: "Dones {item} a {name}."
+  give_full: "L'inventari de {name} és ple."
+  dismiss_prompt: "Acomiadar quin sequaç?"
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

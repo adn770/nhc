@@ -102,7 +102,9 @@ class TestPopulator:
         populate_level(level, creature_count=3, item_count=2, trap_count=1)
 
         creatures = [
-            e for e in level.entities if e.entity_type == "creature"
+            e for e in level.entities
+            if e.entity_type == "creature"
+            and e.entity_id != "adventurer"
         ]
         items = [e for e in level.entities if e.entity_type == "item"]
         features = [e for e in level.entities if e.entity_type == "feature"]

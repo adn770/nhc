@@ -54,6 +54,9 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     # Mode toggle
     "\t": ("toggle_mode", None),
     "KEY_TAB": ("toggle_mode", None),
+    # Henchman commands
+    "G": ("give_item", None),
+    "P": ("dismiss_henchman", None),
     # God mode: reveal full map
     "M": ("reveal_map", None),
     # Quit

@@ -38,6 +38,49 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _drop_henchman_inventory(
+    world: "World",
+    target: int,
+    tpos: "Position",
+    events: list[Event],
+) -> None:
+    """Drop all inventory items of a dead henchman on the ground."""
+    inv = world.get_component(target, "Inventory")
+    if not inv:
+        return
+    dropped_names: list[str] = []
+    for item_id in list(inv.slots):
+        desc = world.get_component(item_id, "Description")
+        if desc:
+            dropped_names.append(desc.name)
+        # Place item on the ground
+        item_pos = world.get_component(item_id, "Position")
+        if item_pos:
+            item_pos.x = tpos.x
+            item_pos.y = tpos.y
+            item_pos.level_id = tpos.level_id
+        else:
+            world.add_component(item_id, "Position", Position(
+                x=tpos.x, y=tpos.y, level_id=tpos.level_id,
+            ))
+    inv.slots.clear()
+    # Clear equipment references
+    equip = world.get_component(target, "Equipment")
+    if equip:
+        equip.weapon = None
+        equip.armor = None
+        equip.shield = None
+        equip.helmet = None
+        equip.ring_left = None
+        equip.ring_right = None
+    if dropped_names:
+        events.append(MessageEvent(
+            text=_msg("combat.drops", world,
+                      target=target,
+                      items=", ".join(dropped_names)),
+        ))
+
+
 class MeleeAttackAction(Action):
     """Melee attack against a target."""
 
@@ -325,25 +368,42 @@ class MeleeAttackAction(Action):
                                   actor=self.actor, target=self.target),
                     ))
 
-                    # Drop loot before destroying
+                    # Drop loot / inventory before destroying
                     tpos = world.get_component(self.target, "Position")
-                    loot = world.get_component(self.target, "LootTable")
-                    if loot and tpos:
-                        dropped = generate_loot(
-                            world, loot, tpos.x, tpos.y, tpos.level_id,
+                    is_henchman = world.has_component(
+                        self.target, "Henchman",
+                    )
+
+                    if is_henchman and tpos:
+                        # Henchmen drop their inventory, not LootTable
+                        _drop_henchman_inventory(
+                            world, self.target, tpos, events,
                         )
-                        if dropped:
-                            names = []
-                            for did in dropped:
-                                d = world.get_component(did, "Description")
-                                if d:
-                                    names.append(d.name)
-                            if names:
-                                events.append(MessageEvent(
-                                    text=_msg("combat.drops", world,
-                                              target=self.target,
-                                              items=", ".join(names)),
-                                ))
+                    elif not is_henchman:
+                        loot = world.get_component(
+                            self.target, "LootTable",
+                        )
+                        if loot and tpos:
+                            dropped = generate_loot(
+                                world, loot, tpos.x, tpos.y,
+                                tpos.level_id,
+                            )
+                            if dropped:
+                                names = []
+                                for did in dropped:
+                                    d = world.get_component(
+                                        did, "Description",
+                                    )
+                                    if d:
+                                        names.append(d.name)
+                                if names:
+                                    events.append(MessageEvent(
+                                        text=_msg(
+                                            "combat.drops", world,
+                                            target=self.target,
+                                            items=", ".join(names),
+                                        ),
+                                    ))
 
                     # Leave a corpse marker, then destroy
                     if tpos:

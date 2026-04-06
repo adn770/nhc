@@ -287,6 +287,17 @@ class Cursed:
 
 
 @dataclass
+class Henchman:
+    """Recruitable adventurer / active party member."""
+    owner: int | None = None    # player entity ID when hired
+    level: int = 1
+    xp: int = 0
+    xp_to_next: int = 1000
+    hired: bool = False
+    called_for_help: bool = False  # prevents repeated cry messages
+
+
+@dataclass
 class Hunger:
     """Tracks player satiation.  Decrements by 1 each turn.
 

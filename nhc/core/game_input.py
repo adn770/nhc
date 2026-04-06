@@ -13,15 +13,18 @@ from nhc.core.actions import (
     CloseDoorAction,
     DigAction,
     DigFloorAction,
+    DismissAction,
     DropAction,
     EquipAction,
     ForceDoorAction,
+    GiveItemAction,
     PickLockAction,
     PickupItemAction,
     ThrowAction,
     UnequipAction,
     UseItemAction,
     ZapAction,
+    get_hired_henchmen,
 )
 from nhc.dungeon.model import Terrain
 from nhc.i18n import t
@@ -428,3 +431,65 @@ def resolve_item_action(game: Game, data: dict) -> Action | None:
         )
 
     return None
+
+
+def find_give_action(game: "Game") -> "Action | None":
+    """Show menus to give an item from inventory to a henchman."""
+    henchmen = get_hired_henchmen(game.world, game.player_id)
+    if not henchmen:
+        game.renderer.add_message("No henchmen in your party.")
+        return None
+
+    # Select henchman
+    hench_items = []
+    for hid in henchmen:
+        desc = game.world.get_component(hid, "Description")
+        name = desc.name if desc else "Henchman"
+        hench_items.append((hid, name))
+
+    if len(hench_items) == 1:
+        hid = hench_items[0][0]
+    else:
+        hid = game.renderer.show_selection_menu(
+            t("henchman.give_prompt"), hench_items,
+        )
+    if hid is None:
+        return None
+
+    # Select item from player inventory
+    item_id = game.renderer.show_inventory_menu(
+        game.world, game.player_id,
+    )
+    if item_id is None:
+        return None
+
+    return GiveItemAction(
+        actor=game.player_id, henchman_id=hid, item_id=item_id,
+    )
+
+
+def find_dismiss_action(game: "Game") -> "Action | None":
+    """Show menu to dismiss a hired henchman."""
+    henchmen = get_hired_henchmen(game.world, game.player_id)
+    if not henchmen:
+        game.renderer.add_message("No henchmen in your party.")
+        return None
+
+    hench_items = []
+    for hid in henchmen:
+        desc = game.world.get_component(hid, "Description")
+        name = desc.name if desc else "Henchman"
+        hench_items.append((hid, name))
+
+    if len(hench_items) == 1:
+        hid = hench_items[0][0]
+    else:
+        hid = game.renderer.show_selection_menu(
+            t("henchman.dismiss_prompt"), hench_items,
+        )
+    if hid is None:
+        return None
+
+    return DismissAction(
+        actor=game.player_id, henchman_id=hid,
+    )

@@ -1209,6 +1209,35 @@ creature:
     long: >-
       A loose collection of bones held together by fading necromancy.
       They clatter and scrape as they drag themselves toward the living.
+  adventurer:
+    name: "Adventurer"
+    short: "a fellow adventurer"
+    long: >-
+      A seasoned explorer seeking companions for the dungeon depths.
+      They offer their sword arm — for the right price.
+
+# ── Henchman UI strings ────────────────────────────────────────────────
+henchman:
+  recruit_offer: >-
+    {name} the adventurer offers to join your party
+    for {cost} gold.
+  recruited: "{name} joins your party!"
+  no_gold: "You cannot afford to hire {name} ({cost} gold)."
+  party_full: "You already have two henchmen in your party."
+  dismissed: "You dismiss {name} from your party."
+  levelup: >-
+    {name} has reached level {level}! Pay {cost} gold to
+    keep them in the party.
+  levelup_paid: "{name} stays in the party (level {level})."
+  levelup_left: >-
+    {name} leaves the party — you could not pay
+    the {cost} gold fee.
+  died: "{name} has fallen!"
+  call_for_help: "{name} cries out: \"I need healing!\""
+  give_prompt: "Give item to which henchman?"
+  give_item: "You give {item} to {name}."
+  give_full: "{name}'s inventory is full."
+  dismiss_prompt: "Dismiss which henchman?"
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

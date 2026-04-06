@@ -529,9 +529,20 @@ class Game:
         for placement in self.level.entities:
             try:
                 if placement.entity_type == "creature":
-                    components = EntityRegistry.get_creature(
-                        placement.entity_id,
-                    )
+                    # Adventurers use level-scaled factory
+                    if (placement.entity_id == "adventurer"
+                            and placement.extra.get(
+                                "adventurer_level")):
+                        from nhc.entities.creatures.adventurer import (
+                            create_adventurer_at_level,
+                        )
+                        components = create_adventurer_at_level(
+                            placement.extra["adventurer_level"],
+                        )
+                    else:
+                        components = EntityRegistry.get_creature(
+                            placement.entity_id,
+                        )
                     components["BlocksMovement"] = BlocksMovement()
                     if placement.extra.get("shop_stock"):
                         components["ShopInventory"] = ShopInventory(
@@ -669,9 +680,12 @@ class Game:
                 tile.visible = True
                 tile.explored = True
 
-        # Announce newly spotted creatures
+        # Announce newly spotted creatures (skip hired henchmen)
         for eid, _, cpos in self.world.query("AI", "Position"):
             if cpos is None:
+                continue
+            hench = self.world.get_component(eid, "Henchman")
+            if hench and hench.hired:
                 continue
             tile = self.level.tile_at(cpos.x, cpos.y)
             if tile and tile.visible:
@@ -764,14 +778,43 @@ class Game:
             self.turn += 1
             self.world.turn = self.turn
 
-            # Process creature turns (only visible creatures act)
+            # Process creature turns (visible creatures + henchmen)
             creature_actions = []
             for eid, ai, cpos in self.world.query("AI", "Position"):
                 if cpos is None:
                     continue
-                tile = self.level.tile_at(cpos.x, cpos.y)
-                if not tile or not tile.visible:
-                    continue
+                # Hired henchmen always act; others only if visible
+                hench = self.world.get_component(eid, "Henchman")
+                is_active_henchman = (
+                    hench and hench.hired
+                    and hench.owner == self.player_id
+                )
+                if is_active_henchman:
+                    # Call for help when HP < 1/3
+                    h_health = self.world.get_component(
+                        eid, "Health",
+                    )
+                    if (h_health
+                            and h_health.current
+                            < h_health.maximum // 3
+                            and not hench.called_for_help):
+                        hench.called_for_help = True
+                        h_desc = self.world.get_component(
+                            eid, "Description",
+                        )
+                        h_name = h_desc.name if h_desc else "Henchman"
+                        self.renderer.add_message(
+                            t("henchman.call_for_help",
+                              name=h_name),
+                        )
+                    elif (h_health
+                          and h_health.current
+                          >= h_health.maximum // 3):
+                        hench.called_for_help = False
+                else:
+                    tile = self.level.tile_at(cpos.x, cpos.y)
+                    if not tile or not tile.visible:
+                        continue
                 ai_action = decide_action(
                     eid, self.world, self.level, self.player_id,
                 )
@@ -1201,6 +1244,12 @@ class Game:
             self.renderer.scroll_messages(-1)
             return None
 
+        if intent == "give_item":
+            return game_input.find_give_action(self)
+
+        if intent == "dismiss_henchman":
+            return game_input.find_dismiss_action(self)
+
         if intent == "reveal_map":
             if self.god_mode:
                 self._reveal_full_map()
@@ -1374,11 +1423,8 @@ class Game:
         # Save current floor state (level + non-player entities)
         self._save_floor()
 
-        # Remove all non-player entities from the world
-        player_inv = self.world.get_component(self.player_id, "Inventory")
-        keep_ids = {self.player_id}
-        if player_inv:
-            keep_ids.update(player_inv.slots)
+        # Remove all non-party entities from the world
+        keep_ids = self._party_keep_ids()
         for eid in list(self.world._entities):
             if eid not in keep_ids:
                 self.world.destroy_entity(eid)
@@ -1485,6 +1531,9 @@ class Game:
                     except KeyError:
                         pass
 
+        # Place hired henchmen near the player on the new floor
+        self._place_henchmen_near_player()
+
         self._seen_creatures.clear()
         self._update_fov()
 
@@ -1538,13 +1587,58 @@ class Game:
             pos.level_id = self.level.id
         return True
 
+    def _place_henchmen_near_player(self) -> None:
+        """Place hired henchmen on walkable tiles near the player."""
+        ppos = self.world.get_component(self.player_id, "Position")
+        if not ppos:
+            return
+        # Collect adjacent walkable tiles
+        candidates: list[tuple[int, int]] = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                nx, ny = ppos.x + dx, ppos.y + dy
+                tile = self.level.tile_at(nx, ny)
+                if tile and tile.walkable:
+                    candidates.append((nx, ny))
+
+        idx = 0
+        for eid, hench in self.world.query("Henchman"):
+            if not hench.hired or hench.owner != self.player_id:
+                continue
+            hpos = self.world.get_component(eid, "Position")
+            if not hpos:
+                continue
+            if idx < len(candidates):
+                hpos.x, hpos.y = candidates[idx]
+            else:
+                # Fallback: same tile as player
+                hpos.x, hpos.y = ppos.x, ppos.y
+            hpos.level_id = self.level.id
+            idx += 1
+
+    def _party_keep_ids(self) -> set[int]:
+        """Entity IDs that travel with the player across floors."""
+        keep = {self.player_id}
+        player_inv = self.world.get_component(
+            self.player_id, "Inventory",
+        )
+        if player_inv:
+            keep.update(player_inv.slots)
+        # Hired henchmen and their inventory
+        for eid, hench in self.world.query("Henchman"):
+            if hench.hired and hench.owner == self.player_id:
+                keep.add(eid)
+                h_inv = self.world.get_component(eid, "Inventory")
+                if h_inv:
+                    keep.update(h_inv.slots)
+        return keep
+
     def _save_floor(self) -> None:
         """Save the current floor's level and entities to cache."""
         depth = self.level.depth
-        player_inv = self.world.get_component(self.player_id, "Inventory")
-        keep_ids = {self.player_id}
-        if player_inv:
-            keep_ids.update(player_inv.slots)
+        keep_ids = self._party_keep_ids()
 
         # Gather components per non-player entity
         entity_data: dict[int, dict[str, object]] = {}
@@ -1580,17 +1674,122 @@ class Game:
                 self.world._next_id = eid + 1
 
     def _on_creature_died(self, event: CreatureDied) -> None:
-        """Award XP when the player kills a creature."""
-        if event.killer != self.player_id:
+        """Award XP when the player or a henchman kills a creature."""
+        from nhc.core.actions._henchman import get_hired_henchmen
+        from nhc.rules.advancement import XP_PER_HP
+
+        # Award XP if killer is player or a hired henchman
+        is_player_kill = event.killer == self.player_id
+        is_henchman_kill = False
+        if not is_player_kill:
+            killer_hench = self.world.get_component(
+                event.killer, "Henchman",
+            )
+            is_henchman_kill = (
+                killer_hench is not None
+                and killer_hench.hired
+                and killer_hench.owner == self.player_id
+            )
+
+        if not is_player_kill and not is_henchman_kill:
             return
 
-        xp = award_xp_direct(self.world, self.player_id, event.max_hp)
+        # Full XP to player
+        xp = award_xp_direct(
+            self.world, self.player_id, event.max_hp,
+        )
         if xp > 0:
             self.renderer.add_message(t("game.xp_gained", xp=xp))
 
         level_msgs = check_level_up(self.world, self.player_id)
         for msg in level_msgs:
             self.renderer.add_message(msg)
+
+        # Half XP to each hired henchman
+        half_xp = (event.max_hp * XP_PER_HP) // 2
+        if half_xp > 0:
+            for hid in get_hired_henchmen(self.world, self.player_id):
+                # Don't award XP to the creature that just died
+                if hid == event.entity:
+                    continue
+                hench = self.world.get_component(hid, "Henchman")
+                if not hench:
+                    continue
+                hench.xp += half_xp
+                self._check_henchman_level_up(hid, hench)
+
+    def _check_henchman_level_up(self, hid: int, hench) -> None:
+        """Check if a henchman should level up and handle payment."""
+        from nhc.core.actions._henchman import HIRE_COST_PER_LEVEL
+        from nhc.rules.advancement import (
+            ABILITIES_PER_LEVEL, MAX_ABILITY_BONUS, MAX_LEVEL,
+            XP_PER_LEVEL, _pick_lowest_abilities,
+        )
+        from nhc.utils.rng import roll_dice
+
+        while (hench.xp >= hench.xp_to_next
+               and hench.level < MAX_LEVEL):
+            hench.level += 1
+            hench.xp_to_next = hench.level * XP_PER_LEVEL
+
+            # HP: Knave reroll
+            health = self.world.get_component(hid, "Health")
+            hp_gain = 0
+            if health:
+                rolled = roll_dice(f"{hench.level}d8")
+                if rolled > health.maximum:
+                    hp_gain = rolled - health.maximum
+                else:
+                    hp_gain = 1
+                health.maximum += hp_gain
+                health.current += hp_gain
+
+            # Raise 3 lowest abilities
+            stats = self.world.get_component(hid, "Stats")
+            if stats:
+                abilities = _pick_lowest_abilities(
+                    stats, ABILITIES_PER_LEVEL,
+                )
+                for ability in abilities:
+                    old_val = getattr(stats, ability)
+                    if old_val < MAX_ABILITY_BONUS:
+                        setattr(stats, ability, old_val + 1)
+                # Update inventory capacity
+                inv = self.world.get_component(hid, "Inventory")
+                if inv:
+                    inv.max_slots = stats.constitution + 10
+
+            desc = self.world.get_component(hid, "Description")
+            name = desc.name if desc else "Henchman"
+            cost = HIRE_COST_PER_LEVEL * hench.level
+            player = self.world.get_component(
+                self.player_id, "Player",
+            )
+
+            if player and player.gold >= cost:
+                player.gold -= cost
+                self.renderer.add_message(
+                    t("henchman.levelup", name=name,
+                      level=hench.level, cost=cost),
+                )
+                self.renderer.add_message(
+                    t("henchman.levelup_paid", name=name,
+                      level=hench.level),
+                )
+            else:
+                # Can't pay — henchman leaves
+                self.renderer.add_message(
+                    t("henchman.levelup_left", name=name,
+                      cost=cost),
+                )
+                hench.hired = False
+                hench.owner = None
+                if not self.world.has_component(
+                    hid, "BlocksMovement",
+                ):
+                    self.world.add_component(
+                        hid, "BlocksMovement", BlocksMovement(),
+                    )
 
     def _on_visual_effect(self, event: VisualEffect) -> None:
         """Forward visual effects to the renderer (web client)."""

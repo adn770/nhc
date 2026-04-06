@@ -40,6 +40,41 @@ CHASE_RADIUS: dict[str, int] = {
 }
 
 
+def _find_attack_targets(
+    entity_id: int,
+    world: "World",
+    pos: "Position",
+    player_id: int,
+) -> list[int]:
+    """Find adjacent entities this creature can attack.
+
+    Returns player and/or hired henchmen that are adjacent,
+    sorted by distance (nearest first, random on tie).
+    """
+    from nhc.utils.rng import get_rng
+
+    targets: list[int] = []
+
+    # Check player
+    player_pos = world.get_component(player_id, "Position")
+    if player_pos and adjacent(pos.x, pos.y, player_pos.x, player_pos.y):
+        targets.append(player_id)
+
+    # Check henchmen
+    for eid, hench in world.query("Henchman"):
+        if not hench.hired:
+            continue
+        hpos = world.get_component(eid, "Position")
+        if hpos and adjacent(pos.x, pos.y, hpos.x, hpos.y):
+            targets.append(eid)
+
+    # Shuffle so ties are random
+    if len(targets) > 1:
+        get_rng().shuffle(targets)
+
+    return targets
+
+
 def decide_action(
     entity_id: int,
     world: "World",
@@ -60,6 +95,13 @@ def decide_action(
 
     if not ai or not pos or not player_pos:
         return None
+
+    # Henchman AI is handled separately
+    if ai.behavior == "henchman":
+        from nhc.ai.henchman_ai import decide_henchman_action
+        return decide_henchman_action(
+            entity_id, world, level, player_id,
+        )
 
     # Status effects: skip turn when immobilised
     status = world.get_component(entity_id, "StatusEffect")
@@ -132,14 +174,37 @@ def decide_action(
     if chase_radius == 0:
         return None
 
-    # Adjacent: attack
-    if adjacent(pos.x, pos.y, player_pos.x, player_pos.y):
-        logger.debug("AI entity=%d attacks player (adjacent)", entity_id)
-        return MeleeAttackAction(actor=entity_id, target=player_id)
+    # Adjacent: attack player or henchman (pick nearest/random)
+    targets = _find_attack_targets(
+        entity_id, world, pos, player_id,
+    )
+    if targets:
+        target = targets[0]
+        logger.debug(
+            "AI entity=%d attacks target=%d (adjacent)", entity_id, target,
+        )
+        return MeleeAttackAction(actor=entity_id, target=target)
 
-    # Within chase range: pathfind toward player
-    if dist <= chase_radius:
+    # Find nearest chase target (player or hired henchman)
+    chase_target_pos = player_pos
+    chase_dist = dist
+
+    for eid, hench in world.query("Henchman"):
+        if not hench.hired:
+            continue
+        hpos = world.get_component(eid, "Position")
+        if not hpos:
+            continue
+        h_dist = chebyshev(pos.x, pos.y, hpos.x, hpos.y)
+        if h_dist < chase_dist:
+            chase_dist = h_dist
+            chase_target_pos = hpos
+
+    # Within chase range: pathfind toward nearest target
+    if chase_dist <= chase_radius:
         can_open_doors = ai.faction in HUMANOID_FACTIONS
+
+        target_xy = (chase_target_pos.x, chase_target_pos.y)
 
         def is_walkable(x: int, y: int) -> bool:
             tile = level.tile_at(x, y)
@@ -150,14 +215,14 @@ def decide_action(
                     and tile.feature in ("door_closed", "door_locked")):
                 return False
             # Don't walk through other creatures (except target)
-            if (x, y) == (player_pos.x, player_pos.y):
+            if (x, y) == target_xy:
                 return True
             for eid, _, bpos in world.query("BlocksMovement", "Position"):
                 if bpos.x == x and bpos.y == y and eid != entity_id:
                     return False
             return True
 
-        path = astar((pos.x, pos.y), (player_pos.x, player_pos.y), is_walkable)
+        path = astar((pos.x, pos.y), target_xy, is_walkable)
         if path:
             nx, ny = path[0]
             dx = nx - pos.x
