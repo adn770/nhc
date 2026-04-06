@@ -735,7 +735,7 @@ class WebClient(GameClient):
         return doors
 
     def _gather_dug(self, level: "Level") -> list[dict]:
-        """Build list of dug tile positions with wall-edge info."""
+        """Build list of dug tile positions with type and edge info."""
         dug = []
         for y in range(level.height):
             for x in range(level.width):
@@ -744,7 +744,8 @@ class WebClient(GameClient):
                     continue
                 if not tile.explored:
                     continue
-                # Determine which edges were walls (adjacent non-floor)
+                dtype = "wall" if tile.dug_wall else "floor"
+                # Edges adjacent to non-walkable terrain (walls)
                 edges = []
                 for edge, (dx, dy) in (("top", (0, -1)),
                                         ("bottom", (0, 1)),
@@ -755,7 +756,10 @@ class WebClient(GameClient):
                         Terrain.FLOOR, Terrain.WATER, Terrain.GRASS,
                     ):
                         edges.append(edge)
-                dug.append({"x": x, "y": y, "edges": edges})
+                dug.append({
+                    "x": x, "y": y,
+                    "type": dtype, "edges": edges,
+                })
         return dug
 
     def _gather_fov(self, level: "Level") -> list[list[int]]:

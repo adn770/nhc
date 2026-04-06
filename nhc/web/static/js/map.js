@@ -746,53 +746,68 @@ const GameMap = {
   },
 
   /**
-   * Draw cracked edge lines on dug passages.
-   * Short irregular line segments along tile edges where walls
-   * were broken through, suggesting rough-hewn stone.
+   * Draw dug tile overlays on the door canvas.
+   *
+   * - dug_wall: soft brown fill covering the tile and extending
+   *   into adjacent wall edges (room walls connected to the
+   *   dug corridor).
+   * - dug_floor: radial gradient disk (soft brown center fading
+   *   to dark brown at the edge).
    */
   _drawDugTiles(ctx) {
     const cs = this.cellSize;
     const pad = this.padding;
     const wallW = 4;
+    const brown = "rgb(139, 90, 43)";
+    const edgeBrown = "rgba(139, 90, 43, 0.45)";
 
     for (const tile of this.dugTiles.values()) {
       const px = tile.x * cs + pad;
       const py = tile.y * cs + pad;
+      const cx = px + cs / 2;
+      const cy = py + cs / 2;
 
-      ctx.strokeStyle = "#6B4226";
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
+      if (tile.type === "wall") {
+        // Fill tile with soft brown
+        ctx.fillStyle = brown;
+        ctx.fillRect(px, py, cs, cs);
 
-      for (const edge of tile.edges) {
-        // Draw 3-4 short irregular crack lines along each wall edge
-        const segs = 3 + (((tile.x * 7 + tile.y * 13) % 2));
-        for (let i = 0; i < segs; i++) {
-          // Deterministic pseudo-random offsets based on position
-          const seed = tile.x * 31 + tile.y * 17 + i * 7;
-          const along = 0.15 + (((seed * 37) % 70) / 100) * 0.7;
-          const depth = 2 + ((seed * 13) % 5);
-          const len = 3 + ((seed * 11) % 5);
-
-          ctx.beginPath();
+        // Extend brown into adjacent wall edges
+        ctx.fillStyle = edgeBrown;
+        for (const edge of tile.edges) {
           if (edge === "top") {
-            const sx = px + cs * along;
-            ctx.moveTo(sx, py - wallW / 2);
-            ctx.lineTo(sx + len * 0.5, py + depth);
+            ctx.fillRect(px, py - wallW, cs, wallW);
           } else if (edge === "bottom") {
-            const sx = px + cs * along;
-            ctx.moveTo(sx, py + cs + wallW / 2);
-            ctx.lineTo(sx - len * 0.5, py + cs - depth);
+            ctx.fillRect(px, py + cs, cs, wallW);
           } else if (edge === "left") {
-            const sy = py + cs * along;
-            ctx.moveTo(px - wallW / 2, sy);
-            ctx.lineTo(px + depth, sy + len * 0.5);
+            ctx.fillRect(px - wallW, py, wallW, cs);
           } else if (edge === "right") {
-            const sy = py + cs * along;
-            ctx.moveTo(px + cs + wallW / 2, sy);
-            ctx.lineTo(px + cs - depth, sy - len * 0.5);
+            ctx.fillRect(px + cs, py, wallW, cs);
           }
-          ctx.stroke();
         }
+      } else {
+        // Dug floor: radial gradient disk with quadratic falloff.
+        // Dark brown center fading to soft brown at the edge.
+        // Simulate quadratic curve with multiple color stops:
+        //   alpha(t) = a_max * (1 - t^2)
+        const r = cs * 0.35;
+        const grad = ctx.createRadialGradient(
+          cx, cy, 0, cx, cy, r,
+        );
+        const steps = 8;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const q = 1 - t * t;  // quadratic falloff
+          const rd = Math.round(80 + 80 * t);
+          const g = Math.round(45 + 55 * t);
+          const b = Math.round(20 + 30 * t);
+          const a = (0.50 * q).toFixed(3);
+          grad.addColorStop(t, `rgba(${rd},${g},${b},${a})`);
+        }
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
   },
