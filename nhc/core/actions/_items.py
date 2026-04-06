@@ -249,6 +249,8 @@ class UseItemAction(Action):
             _use_continual_light,
             _use_damage_nearest,
             _use_detect_evil,
+            _use_detect_food,
+            _use_detect_gold,
             _use_detect_magic,
             _use_dispel_magic,
             _use_enchant_armor,
@@ -459,6 +461,12 @@ class UseItemAction(Action):
 
         elif consumable.effect == "find_traps":
             events += _use_find_traps(world, level, self.actor, self.item)
+
+        elif consumable.effect == "detect_gold":
+            events += _use_detect_gold(world, level, self.actor, self.item)
+
+        elif consumable.effect == "detect_food":
+            events += _use_detect_food(world, level, self.actor, self.item)
 
         elif consumable.effect == "light":
             events += _use_self_buff(

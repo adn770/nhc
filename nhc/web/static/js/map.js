@@ -50,6 +50,7 @@ const GameMap = {
   playerY: 0,
   _zoomLevel: 2,  // index into _zoomSteps, default 1.0x
   _zoomSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
+  _glowAnimId: null,  // requestAnimationFrame ID for detected glow
 
   init() {
     this.canvas = document.getElementById("entity-canvas");
@@ -253,6 +254,25 @@ const GameMap = {
     this.drawFog();
     this.draw();
     this.scrollToPlayer();
+    this._startGlowLoop();
+  },
+
+  /**
+   * Animate pulsating glow for detected entities.
+   * Runs a requestAnimationFrame loop while any detected entities exist.
+   */
+  _startGlowLoop() {
+    if (this._glowAnimId) return;  // already running
+    if (!this.entities.some(e => e.detected)) return;
+    const loop = () => {
+      if (!this.entities.some(e => e.detected)) {
+        this._glowAnimId = null;
+        return;
+      }
+      this.draw();
+      this._glowAnimId = requestAnimationFrame(loop);
+    };
+    this._glowAnimId = requestAnimationFrame(loop);
   },
 
   /**
@@ -729,6 +749,16 @@ const GameMap = {
       const px = ent.x * this.cellSize + this.padding;
       const py = ent.y * this.cellSize + this.padding;
 
+      // Detected entities: pulsating glow + fade
+      if (ent.detected) {
+        const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 300);
+        const alpha = (ent.glow_alpha || 1.0) * pulse;
+        ctx.save();
+        ctx.shadowColor = ent.glow_color || "#00CCFF";
+        ctx.shadowBlur = 14 * alpha;
+        ctx.globalAlpha = 0.5 + 0.5 * (ent.glow_alpha || 1.0);
+      }
+
       // Image-type tileset: draw from sprite sheet
       if (this.tileset && this.tileset.type === "image"
           && this.tilesetImg) {
@@ -741,6 +771,7 @@ const GameMap = {
             px, py,
             this.cellSize, this.cellSize,
           );
+          if (ent.detected) ctx.restore();
           continue;
         }
       }
@@ -770,6 +801,8 @@ const GameMap = {
       ctx.strokeText(ent.glyph, cx, cy);
       ctx.fillStyle = color;
       ctx.fillText(ent.glyph, cx, cy);
+
+      if (ent.detected) ctx.restore();
     }
   },
 

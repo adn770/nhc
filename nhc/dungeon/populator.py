@@ -68,6 +68,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("scroll_bless", 0.04), ("potion_frost", 0.04),
         ("potion_mind_vision", 0.03), ("lockpicks", 0.03),
         ("crowbar", 0.02), ("pick", 0.02),
+        ("scroll_detect_gold", 0.03), ("scroll_detect_food", 0.03),
     ],
     2: [
         ("healing_potion", 0.10), ("potion_frost", 0.04),
@@ -83,6 +84,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("scroll_mirror_image", 0.03), ("potion_mind_vision", 0.03),
         ("lantern", 0.03), ("scroll_identify", 0.03),
         ("pickaxe", 0.02),
+        ("scroll_detect_gold", 0.02), ("scroll_detect_food", 0.02),
     ],
     3: [
         ("healing_potion", 0.12), ("sword", 0.08), ("shield", 0.08),

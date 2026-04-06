@@ -90,6 +90,8 @@ from nhc.core.actions._spells import (
     _use_continual_light,
     _use_damage_nearest,
     _use_detect_evil,
+    _use_detect_food,
+    _use_detect_gold,
     _use_detect_magic,
     _use_dispel_magic,
     _use_enchant_armor,

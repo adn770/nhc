@@ -259,6 +259,14 @@ class Enchanted:
 
 
 @dataclass
+class Detected:
+    """Entity was revealed by a detection spell (fading glow)."""
+    turn_detected: int = 0
+    duration: int = 20
+    glow_color: str = "#00CCFF"
+
+
+@dataclass
 class Cursed:
     """Tag: creature is under a mummy's rot curse."""
     ticks_until_drain: int = 2  # decrements each turn; drains 1 max HP at 0

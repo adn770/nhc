@@ -339,6 +339,12 @@ item:
   detect_evil_none: "No detectes cap mal a prop."
   detect_invis_cast: "Els teus ulls travessen el vel d'invisibilitat!"
   detect_invis_active: "Pots veure les criatures invisibles!"
+  detect_gold_cast: "Els teus ulls brillen d'avarícia!"
+  detect_gold_reveal: "Detectes {count} tresors d'or en aquest nivell."
+  detect_gold_none: "No detectes or en aquest nivell."
+  detect_food_cast: "L'aroma de menjar omple els teus narils!"
+  detect_food_reveal: "Detectes {count} fonts d'aliment en aquest nivell."
+  detect_food_none: "No detectes menjar en aquest nivell."
   find_traps_cast: "Els perills ocults es revelen!"
   find_traps_reveal: "Divises {count} trampes ocultes."
   find_traps_none: "No hi ha trampes ocultes en aquest nivell."
@@ -2290,6 +2296,20 @@ items:
     long: >-
       Runes polsen suaument en aquest pergamí. Llegir-lo revela
       tots els objectes màgics del nivell actual.
+  scroll_detect_gold:
+    name: "Pergamí de Detectar Or"
+    gender: "m"
+    short: "un pergamí daurat i brillant"
+    long: >-
+      Les vores daurades capten la llum amb cobdícia. Llegir-lo
+      revela tots els munts d'or del nivell actual.
+  scroll_detect_food:
+    name: "Pergamí de Detectar Aliment"
+    gender: "m"
+    short: "un pergamí verd fragant"
+    long: >-
+      El pergamí fa una olor suau a pa fresc. Llegir-lo revela
+      totes les fonts d'aliment del nivell actual.
   scroll_detect_evil:
     name: "Pergamí de Detectar el Mal"
     gender: "m"

@@ -321,6 +321,12 @@ item:
   detect_evil_none: "No detectas ningún mal cercano."
   detect_invis_cast: "¡Tus ojos atraviesan el velo de invisibilidad!"
   detect_invis_active: "¡Puedes ver las criaturas invisibles!"
+  detect_gold_cast: "¡Tus ojos brillan de avaricia!"
+  detect_gold_reveal: "Detectas {count} tesoros de oro en este nivel."
+  detect_gold_none: "No detectas oro en este nivel."
+  detect_food_cast: "¡El aroma de sustento llena tus fosas nasales!"
+  detect_food_reveal: "Detectas {count} fuentes de alimento en este nivel."
+  detect_food_none: "No detectas comida en este nivel."
   find_traps_cast: "¡Los peligros ocultos se revelan!"
   find_traps_reveal: "Divisas {count} trampas ocultas."
   find_traps_none: "No hay trampas ocultas en este nivel."
@@ -2015,6 +2021,20 @@ items:
     long: >-
       Runas pulsan suavemente en este pergamino. Leerlo revela
       todos los objetos mágicos del nivel actual.
+  scroll_detect_gold:
+    name: "Pergamino de Detectar Oro"
+    gender: "m"
+    short: "un pergamino dorado y brillante"
+    long: >-
+      Los bordes dorados captan la luz con codicia. Leerlo revela
+      todos los montones de oro del nivel actual.
+  scroll_detect_food:
+    name: "Pergamino de Detectar Alimento"
+    gender: "m"
+    short: "un pergamino verde fragante"
+    long: >-
+      El pergamino huele ligeramente a pan fresco. Leerlo revela
+      todas las fuentes de sustento del nivel actual.
   scroll_detect_evil:
     name: "Pergamino de Detectar el Mal"
     short: "un pergamino pálido con runas oscuras"

@@ -53,7 +53,8 @@ POTION_APPEARANCES = [
 SCROLL_IDS = [
     "scroll_bless", "scroll_charm_person", "scroll_charm_snakes",
     "scroll_clairvoyance", "scroll_continual_light", "scroll_cure_wounds",
-    "scroll_detect_evil", "scroll_detect_invisibility",
+    "scroll_detect_evil", "scroll_detect_food",
+    "scroll_detect_gold", "scroll_detect_invisibility",
     "scroll_detect_magic", "scroll_dispel_magic", "scroll_find_traps",
     "scroll_fireball", "scroll_fly", "scroll_haste",
     "scroll_hold_person", "scroll_infravision", "scroll_invisibility",
@@ -112,6 +113,7 @@ SCROLL_APPEARANCES = [
     ("morke_dansen", "bright_green"),
     ("ulgoth_sansen", "white"),
     ("thakk_ansen", "bright_yellow"),
+    ("druul_fansen", "bright_green"),
 ]
 
 # ── Ring IDs and appearances ─────────────────────────────────────────

@@ -747,6 +747,7 @@ class Game:
 
             # Advance turn
             self.turn += 1
+            self.world.turn = self.turn
 
             # Process creature turns (only visible creatures act)
             creature_actions = []

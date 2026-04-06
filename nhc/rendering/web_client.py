@@ -377,11 +377,13 @@ class WebClient(GameClient):
 
     def _gather_entities(
         self, world: "World", level: "Level",
-        player_id: int = -1,
+        player_id: int = -1, turn: int = 0,
     ) -> list[dict]:
         """Build entity list for the client.
 
         Always includes the player regardless of visibility checks.
+        Entities with an active Detected component are included even
+        if their tile is not visible (shown with a fading glow).
         """
         entities = []
         for eid in list(world._entities):
@@ -393,11 +395,20 @@ class WebClient(GameClient):
             trap = world.get_component(eid, "Trap")
             if trap and trap.hidden:
                 continue
-            # Always include player; others need visible tile
+
+            # Check detection state
+            detected = world.get_component(eid, "Detected")
+            if detected and turn - detected.turn_detected >= detected.duration:
+                world.remove_component(eid, "Detected")
+                detected = None
+
+            # Always include player; others need visible tile or detection
             if eid != player_id:
                 tile = level.tile_at(pos.x, pos.y)
-                if not tile or not tile.visible:
+                tile_visible = tile and tile.visible
+                if not tile_visible and not detected:
                     continue
+
             entry = {
                 "id": eid,
                 "x": pos.x,
@@ -412,6 +423,12 @@ class WebClient(GameClient):
             desc = world.get_component(eid, "Description")
             if desc:
                 entry["name"] = desc.name
+            if detected:
+                elapsed = turn - detected.turn_detected
+                entry["detected"] = True
+                entry["glow_color"] = detected.glow_color
+                entry["glow_alpha"] = max(
+                    0.0, 1.0 - elapsed / detected.duration)
             entities.append(entry)
         return entities
 
@@ -1041,7 +1058,7 @@ class WebClient(GameClient):
         walk = self._gather_walk(level)
         self._last_walk = {(e[0], e[1]): e[2] for e in walk}
 
-        entities = self._gather_entities(world, level, player_id)
+        entities = self._gather_entities(world, level, player_id, turn)
         fov = self._gather_fov(level)
         doors = self._gather_doors(level)
         explored = self._gather_explored(level)
@@ -1082,7 +1099,7 @@ class WebClient(GameClient):
         player_id: int,
         turn: int,
     ) -> None:
-        entities = self._gather_entities(world, level, player_id)
+        entities = self._gather_entities(world, level, player_id, turn)
         fov_list = self._gather_fov(level)
         doors = self._gather_doors(level)
         static, dynamic = self._gather_stats(

@@ -17,6 +17,7 @@ class World:
         self._next_id: EntityId = 0
         self._components: dict[str, dict[EntityId, Any]] = {}
         self._entities: set[EntityId] = set()
+        self.turn: int = 0  # current game turn (synced by Game)
 
     def create_entity(self, components: dict[str, Any] | None = None) -> EntityId:
         """Create a new entity, optionally with initial components."""

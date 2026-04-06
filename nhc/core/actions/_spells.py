@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from nhc.core.actions._helpers import _entity_name, _msg
 from nhc.core.events import CreatureDied, Event, ItemUsed, MessageEvent
 from nhc.dungeon.model import Terrain
-from nhc.entities.components import Poison, StatusEffect
+from nhc.entities.components import Detected, Poison, StatusEffect
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage, is_dead
 from nhc.utils.rng import d20, get_rng, roll_dice
@@ -461,22 +461,31 @@ def _use_detect_magic(
     actor: int,
     item: int,
 ) -> list[Event]:
-    """Reveal all magic items (consumables) on the current level."""
+    """Reveal all magical items on the current level with a fading glow.
+
+    Detects consumables, enchanted weapons/armor, rings, and wands.
+    """
     events: list[Event] = []
     events.append(MessageEvent(text=t("item.detect_magic_cast")))
 
-    count = 0
-    for eid, _, ipos in world.query("Consumable", "Position"):
-        if ipos is None:
-            continue
-        tile = level.tile_at(ipos.x, ipos.y)
-        if tile:
-            tile.explored = True
-            count += 1
+    turn = world.turn
+    duration = 20
+    glow = "#00CCFF"
+    tagged: set[int] = set()
 
-    if count:
+    for comp_type in ("Consumable", "Enchanted", "Ring", "Wand"):
+        for eid, _, epos in world.query(comp_type, "Position"):
+            if epos is None or eid in tagged:
+                continue
+            tagged.add(eid)
+            world.add_component(eid, "Detected", Detected(
+                turn_detected=turn, duration=duration,
+                glow_color=glow,
+            ))
+
+    if tagged:
         events.append(MessageEvent(
-            text=t("item.detect_magic_reveal", count=count),
+            text=t("item.detect_magic_reveal", count=len(tagged)),
         ))
     else:
         events.append(MessageEvent(text=t("item.detect_magic_none")))
@@ -491,20 +500,24 @@ def _use_detect_evil(
     actor: int,
     item: int,
 ) -> list[Event]:
-    """Reveal hostile creatures on the current level."""
+    """Reveal hostile creatures on the current level with a fading glow."""
     events: list[Event] = []
     events.append(MessageEvent(text=t("item.detect_evil_cast")))
 
+    turn = world.turn
+    duration = 20
+    glow = "#FF3333"
     count = 0
+
     for eid, ai, cpos in world.query("AI", "Position"):
         if cpos is None or ai is None:
             continue
         if ai.behavior in ("aggressive_melee",):
-            tile = level.tile_at(cpos.x, cpos.y)
-            if tile:
-                tile.explored = True
-                tile.visible = True
-                count += 1
+            world.add_component(eid, "Detected", Detected(
+                turn_detected=turn, duration=duration,
+                glow_color=glow,
+            ))
+            count += 1
 
     if count:
         events.append(MessageEvent(
@@ -541,6 +554,77 @@ def _use_find_traps(
         events.append(MessageEvent(text=t("item.find_traps_none")))
 
     events.append(ItemUsed(entity=actor, item=item, effect="find_traps"))
+    return events
+
+
+def _use_detect_gold(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal all gold on the current level with a fading glow."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.detect_gold_cast")))
+
+    turn = world.turn
+    duration = 20
+    glow = "#FFD700"
+    count = 0
+
+    for eid, _, gpos in world.query("Gold", "Position"):
+        if gpos is None:
+            continue
+        world.add_component(eid, "Detected", Detected(
+            turn_detected=turn, duration=duration,
+            glow_color=glow,
+        ))
+        count += 1
+
+    if count:
+        events.append(MessageEvent(
+            text=t("item.detect_gold_reveal", count=count),
+        ))
+    else:
+        events.append(MessageEvent(text=t("item.detect_gold_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="detect_gold"))
+    return events
+
+
+def _use_detect_food(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal all food on the current level with a fading glow."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.detect_food_cast")))
+
+    turn = world.turn
+    duration = 20
+    glow = "#33FF33"
+    count = 0
+
+    for eid, cons, fpos in world.query("Consumable", "Position"):
+        if fpos is None or cons is None:
+            continue
+        if cons.effect == "satiate":
+            world.add_component(eid, "Detected", Detected(
+                turn_detected=turn, duration=duration,
+                glow_color=glow,
+            ))
+            count += 1
+
+    if count:
+        events.append(MessageEvent(
+            text=t("item.detect_food_reveal", count=count),
+        ))
+    else:
+        events.append(MessageEvent(text=t("item.detect_food_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="detect_food"))
     return events
 
 

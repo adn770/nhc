@@ -321,6 +321,12 @@ item:
   detect_evil_none: "You sense no evil nearby."
   detect_invis_cast: "Your eyes pierce the veil of invisibility!"
   detect_invis_active: "You can see invisible creatures!"
+  detect_gold_cast: "Your eyes glint with avarice!"
+  detect_gold_reveal: "You sense {count} caches of gold on this level."
+  detect_gold_none: "You sense no gold on this level."
+  detect_food_cast: "The scent of sustenance fills your nostrils!"
+  detect_food_reveal: "You sense {count} sources of food on this level."
+  detect_food_none: "You sense no food on this level."
   find_traps_cast: "Hidden dangers reveal themselves!"
   find_traps_reveal: "You spot {count} hidden traps."
   find_traps_none: "No hidden traps on this level."
@@ -2005,6 +2011,18 @@ items:
     long: >-
       Runes pulse faintly on this parchment. Reading it reveals
       every magical item on the current level.
+  scroll_detect_gold:
+    name: "Scroll of Detect Gold"
+    short: "a glittering golden scroll"
+    long: >-
+      Gilt edges catch the light greedily. Reading it reveals
+      every pile of gold on the current level.
+  scroll_detect_food:
+    name: "Scroll of Detect Food"
+    short: "a fragrant green scroll"
+    long: >-
+      The parchment smells faintly of fresh bread. Reading it
+      reveals every source of sustenance on the current level.
   scroll_detect_evil:
     name: "Scroll of Detect Evil"
     short: "a pale scroll with dark runes"
