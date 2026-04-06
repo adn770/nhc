@@ -889,9 +889,15 @@ class Game:
                     continue
                 items: list[tuple[int, str]] = []
                 for idx, item_id in enumerate(si.stock):
-                    comps = EntityRegistry.get_item(item_id)
-                    desc = comps.get("Description")
-                    name = desc.name if desc else item_id
+                    # Show appearance name for unidentified items
+                    if (self._knowledge
+                            and self._knowledge.is_identifiable(item_id)
+                            and not self._knowledge.is_identified(item_id)):
+                        name = self._knowledge.display_name(item_id)
+                    else:
+                        comps = EntityRegistry.get_item(item_id)
+                        desc = comps.get("Description")
+                        name = desc.name if desc else item_id
                     price = buy_price(item_id)
                     items.append((idx, f"{name} ({price}g)"))
                 selected = self.renderer.show_selection_menu(
@@ -913,6 +919,24 @@ class Game:
                     for ev in events:
                         if isinstance(ev, MessageEvent):
                             self.renderer.add_message(ev.text)
+                    # Disguise unidentified potions/scrolls
+                    inv = self.world.get_component(
+                        self.player_id, "Inventory",
+                    )
+                    if inv and inv.slots:
+                        new_eid = inv.slots[-1]
+                        new_comps = {
+                            "Description": self.world.get_component(
+                                new_eid, "Description"),
+                            "Renderable": self.world.get_component(
+                                new_eid, "Renderable"),
+                        }
+                        self._disguise_potion(new_comps, item_id)
+                        if "_potion_id" in new_comps:
+                            self.world.add_component(
+                                new_eid, "_potion_id",
+                                new_comps["_potion_id"],
+                            )
                 else:
                     reason = action.fail_reason
                     if reason == "cannot_afford":

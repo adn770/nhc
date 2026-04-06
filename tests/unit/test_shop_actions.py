@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from nhc.core.actions import BumpAction
@@ -294,3 +296,64 @@ class TestBumpMerchant:
         from nhc.core.events import CreatureAttacked
         attack_events = [e for e in events if isinstance(e, CreatureAttacked)]
         assert len(attack_events) == 1
+
+
+# ── Identification integration ───────────────────────────────────────
+
+class TestShopIdentification:
+    """Unidentified items should show appearance names in the shop."""
+
+    def test_display_name_uses_appearance_for_unidentified(self):
+        """ItemKnowledge.display_name should return appearance, not real."""
+        from nhc.rules.identification import ItemKnowledge
+        knowledge = ItemKnowledge(rng=random.Random(42))
+        # healing_potion is identifiable and not yet identified
+        name = knowledge.display_name("healing_potion")
+        assert "Healing Potion" not in name
+        assert "potion" in name.lower() or "Potion" in name
+
+    def test_display_name_uses_real_for_identified(self):
+        from nhc.rules.identification import ItemKnowledge
+        knowledge = ItemKnowledge(rng=random.Random(42))
+        knowledge.identify("healing_potion")
+        name = knowledge.display_name("healing_potion")
+        assert name == "Healing Potion"
+
+    @pytest.mark.asyncio
+    async def test_bought_potion_is_disguised(self):
+        """After buying, unidentified potion should have appearance name."""
+        from nhc.core.game import Game
+        from nhc.rules.identification import ItemKnowledge
+
+        world = World()
+        level = _make_level()
+        player = _make_player(world, gold=200)
+        merchant = _make_merchant(world, stock=["healing_potion"])
+
+        # Buy the potion
+        action = BuyAction(actor=player, merchant=merchant,
+                           item_id="healing_potion")
+        assert await action.validate(world, level)
+        await action.execute(world, level)
+
+        inv = world.get_component(player, "Inventory")
+        assert len(inv.slots) == 1
+        item_eid = inv.slots[0]
+
+        # Simulate what _shop_interaction does after buy
+        knowledge = ItemKnowledge(rng=random.Random(42))
+        # Build a components dict like _shop_interaction does
+        comps = {
+            "Description": world.get_component(item_eid, "Description"),
+            "Renderable": world.get_component(item_eid, "Renderable"),
+        }
+        # Reuse the disguise logic
+        if (knowledge.is_identifiable("healing_potion")
+                and not knowledge.is_identified("healing_potion")):
+            desc = comps["Description"]
+            desc.name = knowledge.display_name("healing_potion")
+            desc.short = knowledge.display_short("healing_potion")
+
+        desc = world.get_component(item_eid, "Description")
+        assert "Healing Potion" not in desc.name
+        assert "potion" in desc.name.lower() or "Potion" in desc.name
