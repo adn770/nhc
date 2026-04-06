@@ -407,6 +407,21 @@ def populate_level(
             x=pos[0], y=pos[1],
         ))
 
+    # ── Guarantee a digging tool on levels 1-5 ──
+    if level.depth <= 5:
+        digging_tools = ["pick", "shovel", "pickaxe", "mattock"]
+        tool_rooms = list(all_rooms or placeable)
+        rng.shuffle(tool_rooms)
+        for room in tool_rooms:
+            pos = _pick_floor(room)
+            if pos:
+                tool_id = rng.choice(digging_tools)
+                level.entities.append(EntityPlacement(
+                    entity_type="item", entity_id=tool_id,
+                    x=pos[0], y=pos[1],
+                ))
+                break
+
     # ── Place gold ──
     gold_count = rng.randint(2, 3 + level.depth)
     for _ in range(gold_count):
