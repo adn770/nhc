@@ -554,9 +554,11 @@ def populate_level(
             tile = level.tile_at(vx, vy)
             if not tile or tile.terrain != Terrain.FLOOR:
                 continue
+            vault_dice = f"{3 * level.depth}d12"
             level.entities.append(EntityPlacement(
                 entity_type="item", entity_id="gold",
                 x=vx, y=vy,
+                extra={"gold_dice": vault_dice},
             ))
             occupied.add((vx, vy))
 
