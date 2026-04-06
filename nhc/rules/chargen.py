@@ -295,8 +295,8 @@ def generate_character(seed: int | None = None) -> CharacterSheet:
     wisdom = _roll_ability(rng)
     charisma = _roll_ability(rng)
 
-    # HP: 1d8
-    hp = rng.randint(1, 8)
+    # HP: max hit die at level 1 (Knave survivability rule)
+    hp = 8
 
     # Starting gold: 3d6 × 20 copper → convert to gold (÷10)
     copper = sum(rng.randint(1, 6) for _ in range(3)) * 20

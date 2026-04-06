@@ -22,11 +22,11 @@ class TestGenerateCharacter:
                 val = getattr(char, attr)
                 assert 1 <= val <= 6, f"{attr}={val} out of range (seed={seed})"
 
-    def test_hp_in_range(self):
-        """HP is 1d8."""
+    def test_hp_max_at_level_1(self):
+        """HP is maximized (8) at level 1 per Knave rules."""
         for seed in range(100):
             char = generate_character(seed=seed)
-            assert 1 <= char.hp <= 8, f"hp={char.hp} (seed={seed})"
+            assert char.hp == 8, f"hp={char.hp} (seed={seed})"
 
     def test_gold_positive(self):
         """Starting gold is 3d6*20/10 = 6–36."""
