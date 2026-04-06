@@ -550,6 +550,13 @@ class Game:
                         )
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
+                    # Roll gold dice if present
+                    if placement.extra.get("gold_dice"):
+                        from nhc.utils.rng import roll_dice
+                        amount = roll_dice(placement.extra["gold_dice"])
+                        desc = components.get("Description")
+                        if desc:
+                            desc.name = f"{amount} {desc.name}"
                     # Apply potion disguise if unidentified
                     self._disguise_potion(
                         components, placement.entity_id,

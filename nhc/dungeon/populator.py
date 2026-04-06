@@ -465,6 +465,7 @@ def populate_level(
                 break
 
     # ── Place gold ──
+    gold_dice = f"{2 + level.depth}d8"
     gold_count = rng.randint(2, 3 + level.depth)
     for _ in range(gold_count):
         if not placeable:
@@ -475,6 +476,7 @@ def populate_level(
             level.entities.append(EntityPlacement(
                 entity_type="item", entity_id="gold",
                 x=pos[0], y=pos[1],
+                extra={"gold_dice": gold_dice},
             ))
 
     # ── Place chests ──

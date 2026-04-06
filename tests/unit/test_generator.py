@@ -115,6 +115,24 @@ class TestPopulator:
         assert len(features) >= 1  # chests, barrels, crates, traps
         assert len(level.entities) > 0
 
+    def test_gold_piles_have_dice(self):
+        set_seed(42)
+        gen = ClassicGenerator()
+        params = GenerationParams(width=60, height=40)
+        level = gen.generate(params)
+
+        populate_level(level, creature_count=0, item_count=0, trap_count=0)
+
+        gold_placements = [
+            e for e in level.entities
+            if e.entity_id == "gold" and e.extra.get("gold_dice")
+        ]
+        assert len(gold_placements) > 0
+        for gp in gold_placements:
+            # Formula: (2 + depth)d8
+            expected = f"{2 + level.depth}d8"
+            assert gp.extra["gold_dice"] == expected
+
     def test_entities_on_floor_tiles(self):
         set_seed(42)
         gen = ClassicGenerator()
