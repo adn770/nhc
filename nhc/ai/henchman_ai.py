@@ -165,8 +165,15 @@ def decide_henchman_action(
     player_room = _find_room(level, player_pos.x, player_pos.y)
     hench_room = _find_room(level, pos.x, pos.y)
 
-    # If player left the room, follow
+    # Follow if in different rooms, or if either is in a corridor
+    # and they're more than 1 tile apart
+    should_follow = False
     if player_room and hench_room and player_room != hench_room:
+        should_follow = True
+    elif (player_room is None or hench_room is None) and dist > 1:
+        should_follow = True
+
+    if should_follow:
         path = _pathfind_toward(
             entity_id, pos, player_pos, world, level, player_id,
         )
