@@ -9,5 +9,5 @@ def create_chain_mail() -> dict:
     return {
         "Renderable": Renderable(glyph="[", color="bright_white", render_order=1),
         "Description": item_desc("chain_mail"),
-        "Armor": Armor(slot="body", defense=14, slots=3),
+        "Armor": Armor(slot="body", defense=14, slots=2),
     }

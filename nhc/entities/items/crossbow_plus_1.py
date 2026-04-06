@@ -9,6 +9,6 @@ def create_crossbow_plus_1() -> dict:
     return {
         "Renderable": Renderable(glyph=")", color="bright_cyan", render_order=1),
         "Description": item_desc("crossbow_plus_1"),
-        "Weapon": Weapon(damage="1d8", type="ranged", slots=2, magic_bonus=1),
+        "Weapon": Weapon(damage="1d8", type="ranged", slots=1, magic_bonus=1),
         "Enchanted": Enchanted(),
     }

@@ -9,5 +9,5 @@ def create_full_plate_plus_1() -> dict:
     return {
         "Renderable": Renderable(glyph="[", color="bright_cyan", render_order=1),
         "Description": item_desc("full_plate_plus_1"),
-        "Armor": Armor(slot="body", defense=16, slots=4, magic_bonus=1),
+        "Armor": Armor(slot="body", defense=16, slots=2, magic_bonus=1),
     }

@@ -9,5 +9,5 @@ def create_plate_cuirass() -> dict:
     return {
         "Renderable": Renderable(glyph="[", color="white", render_order=1),
         "Description": item_desc("plate_cuirass"),
-        "Armor": Armor(slot="body", defense=15, slots=4),
+        "Armor": Armor(slot="body", defense=15, slots=3),
     }
