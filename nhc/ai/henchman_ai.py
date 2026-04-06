@@ -151,7 +151,7 @@ def decide_henchman_action(
     # 3. Follow player if too far away
     if dist > FOLLOW_DISTANCE:
         path = _pathfind_toward(
-            entity_id, pos, player_pos, world, level,
+            entity_id, pos, player_pos, world, level, player_id,
         )
         if path:
             nx, ny = path[0]
@@ -168,7 +168,7 @@ def decide_henchman_action(
     # If player left the room, follow
     if player_room and hench_room and player_room != hench_room:
         path = _pathfind_toward(
-            entity_id, pos, player_pos, world, level,
+            entity_id, pos, player_pos, world, level, player_id,
         )
         if path:
             nx, ny = path[0]
@@ -201,7 +201,7 @@ def decide_henchman_action(
         rng.shuffle(floor)
         for fx, fy in floor:
             if adjacent(pos.x, pos.y, fx, fy):
-                # Don't walk onto player or other blockers
+                # Don't walk onto blockers or allies
                 blocked = False
                 for _, _, bpos in world.query(
                     "BlocksMovement", "Position",
@@ -209,6 +209,10 @@ def decide_henchman_action(
                     if bpos.x == fx and bpos.y == fy:
                         blocked = True
                         break
+                if not blocked and _is_occupied_by_ally(
+                    world, fx, fy, entity_id, player_id,
+                ):
+                    blocked = True
                 if not blocked:
                     return MoveAction(
                         actor=entity_id,
@@ -219,12 +223,32 @@ def decide_henchman_action(
     return None
 
 
+def _is_occupied_by_ally(
+    world: "World",
+    x: int, y: int,
+    entity_id: int,
+    player_id: int,
+) -> bool:
+    """True if (x, y) is occupied by the player or another henchman."""
+    player_pos = world.get_component(player_id, "Position")
+    if player_pos and player_pos.x == x and player_pos.y == y:
+        return True
+    for eid, hench in world.query("Henchman"):
+        if eid == entity_id or not hench.hired:
+            continue
+        hpos = world.get_component(eid, "Position")
+        if hpos and hpos.x == x and hpos.y == y:
+            return True
+    return False
+
+
 def _pathfind_toward(
     entity_id: int,
     pos: object,
     target_pos: object,
     world: "World",
     level: "Level",
+    player_id: int | None = None,
 ) -> list[tuple[int, int]] | None:
     """A* pathfind toward target, returning the path."""
     def is_walkable(x: int, y: int) -> bool:
@@ -238,6 +262,17 @@ def _pathfind_toward(
                 return False
         return True
 
-    return astar(
+    path = astar(
         (pos.x, pos.y), (target_pos.x, target_pos.y), is_walkable,
     )
+    if not path:
+        return None
+
+    # Don't step onto allies (player or other henchmen)
+    if player_id is not None and path:
+        nx, ny = path[0]
+        if _is_occupied_by_ally(world, nx, ny, entity_id, player_id):
+            # Stop one tile away — don't walk onto ally
+            return None
+
+    return path

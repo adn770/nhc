@@ -858,7 +858,7 @@ const GameMap = {
       const cy = py + this.cellSize / 2;
       ctx.lineWidth = 2;
       ctx.lineJoin = "round";
-      ctx.strokeStyle = "#000000";
+      ctx.strokeStyle = ent.is_player ? "#1a3a6b" : "#000000";
       ctx.strokeText(ent.glyph, cx, cy);
       ctx.fillStyle = color;
       ctx.fillText(ent.glyph, cx, cy);

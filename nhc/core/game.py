@@ -826,11 +826,37 @@ class Game:
                     eid, self.world, self.level, self.player_id,
                 )
                 if ai_action:
-                    creature_actions.append(ai_action)
+                    creature_actions.append((ai_action, eid if is_active_henchman else None))
 
             creature_events = []
-            for ca in creature_actions:
+            for ca, bonus_eid in creature_actions:
                 creature_events += await self._resolve(ca)
+                # Henchmen in a different room get a bonus move
+                # to catch up to the player at double speed.
+                if bonus_eid is not None:
+                    from nhc.ai.henchman_ai import _find_room
+                    hpos = self.world.get_component(
+                        bonus_eid, "Position",
+                    )
+                    ppos = self.world.get_component(
+                        self.player_id, "Position",
+                    )
+                    if hpos and ppos:
+                        hr = _find_room(
+                            self.level, hpos.x, hpos.y,
+                        )
+                        pr = _find_room(
+                            self.level, ppos.x, ppos.y,
+                        )
+                        if hr != pr:
+                            extra = decide_action(
+                                bonus_eid, self.world,
+                                self.level, self.player_id,
+                            )
+                            if extra:
+                                creature_events += await (
+                                    self._resolve(extra)
+                                )
             events += creature_events
 
             # Narrate creature actions in typed mode

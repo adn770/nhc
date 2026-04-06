@@ -57,7 +57,26 @@ class MoveAction(Action):
                     and _crossing_door_edge(self.dx, self.dy, cur,
                                             entering=False)):
                 return True
-        return tile.walkable
+        if not tile.walkable:
+            return False
+
+        # Prevent player ↔ henchman tile overlap
+        is_player = world.has_component(self.actor, "Player")
+        is_henchman = world.has_component(self.actor, "Henchman")
+        if is_player or is_henchman:
+            for eid, epos in world.query("Position"):
+                if eid == self.actor:
+                    continue
+                if epos.x != nx or epos.y != ny:
+                    continue
+                if is_player and world.has_component(eid, "Henchman"):
+                    h = world.get_component(eid, "Henchman")
+                    if h and h.hired:
+                        return False
+                if is_henchman and world.has_component(eid, "Player"):
+                    return False
+
+        return True
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         events: list[Event] = []

@@ -598,3 +598,51 @@ class TestCallForHelp:
             and not hench.called_for_help
         )
         assert not should_call
+
+
+# ── Tile Overlap Prevention ────────────────────────────────────────
+
+class TestTileOverlap:
+    @pytest.mark.asyncio
+    async def test_player_cannot_walk_onto_henchman(self):
+        from nhc.core.actions import MoveAction
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        aid = _make_adventurer(
+            world, x=6, y=5, hired=True, owner=pid,
+        )
+        world.remove_component(aid, "BlocksMovement")
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        assert not await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_henchman_wander_avoids_player(self):
+        from nhc.ai.henchman_ai import _is_occupied_by_ally
+
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        aid = _make_adventurer(
+            world, x=6, y=5, hired=True, owner=pid,
+        )
+
+        assert _is_occupied_by_ally(world, 5, 5, aid, pid)
+        assert not _is_occupied_by_ally(world, 7, 7, aid, pid)
+
+    @pytest.mark.asyncio
+    async def test_henchman_avoids_other_henchman(self):
+        from nhc.ai.henchman_ai import _is_occupied_by_ally
+
+        world = World()
+        pid = _make_player(world, x=5, y=5)
+        a1 = _make_adventurer(
+            world, x=6, y=5, hired=True, owner=pid,
+        )
+        a2 = _make_adventurer(
+            world, x=7, y=5, hired=True, owner=pid,
+        )
+
+        # a1 should see a2's tile as occupied
+        assert _is_occupied_by_ally(world, 7, 5, a1, pid)

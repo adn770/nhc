@@ -416,6 +416,8 @@ class WebClient(GameClient):
                 "glyph": rend.glyph,
                 "color": rend.color,
             }
+            if eid == player_id:
+                entry["is_player"] = True
             health = world.get_component(eid, "Health")
             if health:
                 entry["hp"] = health.current
