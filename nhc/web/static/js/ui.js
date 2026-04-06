@@ -497,9 +497,8 @@ const UI = {
     }, 150);
 
     const dismiss = () => {
-      document.getElementById("game-screen").classList.add("hidden");
-      document.getElementById("login-screen").classList.remove("hidden");
       overlay.remove();
+      NHC.returnToWelcome();
     };
 
     box.addEventListener("click", dismiss, { once: true });
