@@ -74,6 +74,12 @@ class ItemUsed(Event):
 
 
 @dataclass
+class ItemSold(Event):
+    entity: int = 0       # seller
+    item_id: str = ""     # registry item ID
+
+
+@dataclass
 class TrapTriggered(Event):
     entity: int = 0
     damage: int = 0

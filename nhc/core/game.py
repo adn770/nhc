@@ -37,6 +37,7 @@ from nhc.core.events import (
     EventBus,
     GameWon,
     ItemPickedUp,
+    ItemSold,
     ItemUsed,
     LevelEntered,
     MessageEvent,
@@ -475,6 +476,7 @@ class Game:
         self.event_bus.subscribe(CreatureDied, self._on_creature_died)
         self.event_bus.subscribe(LevelEntered, self._on_level_entered)
         self.event_bus.subscribe(ItemUsed, self._on_item_used)
+        self.event_bus.subscribe(ItemSold, self._on_item_sold)
         self.event_bus.subscribe(VisualEffect, self._on_visual_effect)
 
         # Compute initial FOV
@@ -1842,6 +1844,10 @@ class Game:
                 if not tile or not tile.visible:
                     return
         self.renderer.add_message(event.text)
+
+    def _on_item_sold(self, event: ItemSold) -> None:
+        """Identify items when sold at a shop."""
+        self._identify_potion(real_id=event.item_id)
 
     def _on_item_used(self, event: ItemUsed) -> None:
         """Identify items when used. Handle identify scroll specially."""

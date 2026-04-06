@@ -163,6 +163,25 @@ wand_appearance:
   pine: "vareta de pi"
   pine_short: "una vareta de pi"
 
+gem_appearance:
+  clear_glass: "tros de vidre transparent"
+  clear_glass_short: "un tros de vidre transparent"
+  red_glass: "tros de vidre vermell"
+  red_glass_short: "un tros de vidre vermell"
+  green_glass: "tros de vidre verd"
+  green_glass_short: "un tros de vidre verd"
+  blue_glass: "tros de vidre blau"
+  blue_glass_short: "un tros de vidre blau"
+  purple_glass: "tros de vidre morat"
+  purple_glass_short: "un tros de vidre morat"
+  yellow_glass: "tros de vidre groc"
+  yellow_glass_short: "un tros de vidre groc"
+  white_glass: "tros de vidre blanc"
+  white_glass_short: "un tros de vidre blanc"
+  dark_red_glass: "tros de vidre vermell fosc"
+  dark_red_glass_short: "un tros de vidre vermell fosc"
+  identified: "L'identifiques com {name}!"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   # 3rd person (creature vs creature, or default fallback)
@@ -258,6 +277,7 @@ explore:
   search_nothing: "Escorcolles amb atenció però no trobes res d'amagat."
   dig_success: "Trenques la paret!"
   dig_fail: "Colpeges amb força però la roca aguanta."
+  dig_gem: "Alguna cosa brilla entre les runes — {gem}!"
   dig_no_wall: "No hi ha cap paret per excavar."
   dig_no_tool: "Necessites una eina d'excavació equipada."
   dig_which: "En quina direcció vols excavar?"
@@ -1973,6 +1993,51 @@ items:
     gender: "f"
     short: "una bossa de joies falses"
     long: "Pedres de vidre tallades com gemmes. Convincents per a l'ull no entrenat."
+  gem_diamond:
+    name: "Diamant"
+    gender: "m"
+    short: "un diamant brillant"
+    long: "Una gemma perfecta que refracta la llum en arcs de colors."
+  gem_ruby:
+    name: "Robí"
+    gender: "m"
+    short: "un robí vermell fosc"
+    long: "Una pedra preciosa del color de la sang, preuada pels nobles."
+  gem_emerald:
+    name: "Maragda"
+    gender: "f"
+    short: "una maragda viva"
+    long: "Una gemma d'un verd ric que diuen que atorga claredat mental."
+  gem_sapphire:
+    name: "Safir"
+    gender: "m"
+    short: "un safir blau"
+    long: "Una gemma de blau profund, associada amb la saviesa i la reialesa."
+  gem_amethyst:
+    name: "Ametista"
+    gender: "f"
+    short: "una ametista morada"
+    long: "Un cristall violeta que es creu que protegeix de la intoxicació."
+  gem_topaz:
+    name: "Topazi"
+    gender: "m"
+    short: "un topazi daurat"
+    long: "Una pedra groga càlida que atrapa la llum de les torxes."
+  gem_opal:
+    name: "Òpal"
+    gender: "m"
+    short: "un òpal brillant"
+    long: "Una pedra lletosa que canvia de color quan es gira a la llum."
+  gem_garnet:
+    name: "Granat"
+    gender: "m"
+    short: "un granat vermell fosc"
+    long: "Una pedra carmesí profunda, comuna però encara valuosa."
+  glass_piece:
+    name: "Vidre Sense Valor"
+    gender: "m"
+    short: "un tros de vidre sense valor"
+    long: "Un fragment de vidre de color opac. Bonic, però sense valor."
   lens:
     name: "Lent"
     gender: "f"

@@ -13,6 +13,8 @@ if TYPE_CHECKING:
 
 def _item_slot_cost(world: "World", eid: int) -> int:
     """Return the number of inventory slots an item uses."""
+    if world.has_component(eid, "Gem"):
+        return 0
     wpn = world.get_component(eid, "Weapon")
     if wpn:
         return wpn.slots

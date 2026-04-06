@@ -163,6 +163,25 @@ wand_appearance:
   pine: "pine wand"
   pine_short: "a pine wand"
 
+gem_appearance:
+  clear_glass: "piece of clear glass"
+  clear_glass_short: "a piece of clear glass"
+  red_glass: "piece of red glass"
+  red_glass_short: "a piece of red glass"
+  green_glass: "piece of green glass"
+  green_glass_short: "a piece of green glass"
+  blue_glass: "piece of blue glass"
+  blue_glass_short: "a piece of blue glass"
+  purple_glass: "piece of purple glass"
+  purple_glass_short: "a piece of purple glass"
+  yellow_glass: "piece of yellow glass"
+  yellow_glass_short: "a piece of yellow glass"
+  white_glass: "piece of white glass"
+  white_glass_short: "a piece of white glass"
+  dark_red_glass: "piece of dark red glass"
+  dark_red_glass_short: "a piece of dark red glass"
+  identified: "You identify it as {name}!"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   hit: "{attacker} hits {target} for {damage} damage."
@@ -242,6 +261,7 @@ explore:
   search_nothing: "You search carefully but find nothing hidden."
   dig_success: "You break through the wall!"
   dig_fail: "You swing hard but the rock holds firm."
+  dig_gem: "Something glints in the rubble — {gem}!"
   dig_no_wall: "There is no wall to dig."
   dig_no_tool: "You need a digging tool equipped."
   dig_which: "Dig which direction?"
@@ -1753,6 +1773,42 @@ items:
     name: "Fake Jewels"
     short: "a pouch of fake jewels"
     long: "Glass stones cut to look like gems. Convincing to the untrained eye."
+  gem_diamond:
+    name: "Diamond"
+    short: "a brilliant diamond"
+    long: "A flawless gemstone that refracts light into dazzling rainbows."
+  gem_ruby:
+    name: "Ruby"
+    short: "a deep red ruby"
+    long: "A precious stone the color of fresh blood, prized by nobles."
+  gem_emerald:
+    name: "Emerald"
+    short: "a vivid emerald"
+    long: "A rich green gemstone said to grant clarity of mind."
+  gem_sapphire:
+    name: "Sapphire"
+    short: "a blue sapphire"
+    long: "A gemstone of deep blue, associated with wisdom and royalty."
+  gem_amethyst:
+    name: "Amethyst"
+    short: "a purple amethyst"
+    long: "A violet crystal believed to ward off intoxication."
+  gem_topaz:
+    name: "Topaz"
+    short: "a golden topaz"
+    long: "A warm yellow stone that catches the torchlight."
+  gem_opal:
+    name: "Opal"
+    short: "a shimmering opal"
+    long: "A milky stone that shifts colors when turned in the light."
+  gem_garnet:
+    name: "Garnet"
+    short: "a dark red garnet"
+    long: "A deep crimson stone, common but still valuable."
+  glass_piece:
+    name: "Worthless Glass"
+    short: "a worthless piece of glass"
+    long: "A dull shard of colored glass. Pretty, but worthless."
   lens:
     name: "Lens"
     short: "a magnifying lens"

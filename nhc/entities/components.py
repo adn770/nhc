@@ -287,6 +287,12 @@ class Cursed:
 
 
 @dataclass
+class Gem:
+    """Valuable gemstone with a gold value."""
+    value: int = 100
+
+
+@dataclass
 class Henchman:
     """Recruitable adventurer / active party member."""
     owner: int | None = None    # player entity ID when hired

@@ -165,8 +165,31 @@ WAND_APPEARANCES = [
     ("pine", "bright_green"),
 ]
 
+# ── Gem IDs and appearances ─────────────────────────────────────────
+
+GEM_IDS = [
+    "gem_diamond", "gem_ruby", "gem_emerald", "gem_sapphire",
+    "gem_amethyst", "gem_topaz", "gem_opal", "gem_garnet",
+    "glass_piece_1", "glass_piece_2", "glass_piece_3",
+    "glass_piece_4", "glass_piece_5", "glass_piece_6",
+    "glass_piece_7", "glass_piece_8",
+]
+
+# Disguised as colored glass pieces — shuffled per seed
+# (i18n_key_suffix, glyph_color)
+GEM_APPEARANCES = [
+    ("clear_glass", "bright_white"),
+    ("red_glass", "bright_red"),
+    ("green_glass", "bright_green"),
+    ("blue_glass", "bright_blue"),
+    ("purple_glass", "magenta"),
+    ("yellow_glass", "bright_yellow"),
+    ("white_glass", "bright_cyan"),
+    ("dark_red_glass", "red"),
+]
+
 # All identifiable item IDs
-ALL_IDS = POTION_IDS + SCROLL_IDS + RING_IDS + WAND_IDS
+ALL_IDS = POTION_IDS + SCROLL_IDS + RING_IDS + WAND_IDS + GEM_IDS
 
 
 class ItemKnowledge:
@@ -185,6 +208,7 @@ class ItemKnowledge:
             (SCROLL_IDS, SCROLL_APPEARANCES),
             (RING_IDS, RING_APPEARANCES),
             (WAND_IDS, WAND_APPEARANCES),
+            (GEM_IDS, GEM_APPEARANCES),
         ]:
             pool = list(appearances)
             r.shuffle(pool)
@@ -223,6 +247,8 @@ class ItemKnowledge:
 
     @staticmethod
     def _appearance_prefix(item_id: str) -> str:
+        if item_id.startswith("gem_") or item_id.startswith("glass_piece"):
+            return "gem_appearance"
         if item_id.startswith("ring_"):
             return "ring_appearance"
         if item_id.startswith("wand_"):

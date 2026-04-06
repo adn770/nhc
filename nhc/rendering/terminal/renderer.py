@@ -824,9 +824,17 @@ class TerminalRenderer(GameClient):
             return None
 
         items: list[tuple[int, str]] = []
+        gem_stacks: dict[str, list[int]] = {}
         for item_id in inv.slots:
             desc = world.get_component(item_id, "Description")
-            items.append((item_id, desc.name if desc else "???"))
+            name = desc.name if desc else "???"
+            if world.has_component(item_id, "Gem"):
+                gem_stacks.setdefault(name, []).append(item_id)
+            else:
+                items.append((item_id, name))
+        for name, eids in gem_stacks.items():
+            label = f"{name} (x{len(eids)})" if len(eids) > 1 else name
+            items.append((eids[0], label))
 
         title = prompt or tr("ui.use_which")
         return self.show_selection_menu(title, items)

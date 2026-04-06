@@ -216,8 +216,8 @@ class TestSellAction:
         # Item removed from inventory
         assert item not in inv.slots
 
-        # Message event
-        assert len(events) == 1
+        # Message + ItemSold events
+        assert len(events) == 2
         assert isinstance(events[0], MessageEvent)
 
     @pytest.mark.asyncio

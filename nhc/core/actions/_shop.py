@@ -172,9 +172,13 @@ class SellAction(Action):
         inv.slots.remove(self.item_entity)
         world.destroy_entity(self.item_entity)
 
-        return [MessageEvent(
-            text=t("shop.sold", item=item_name, price=price),
-        )]
+        from nhc.core.events import ItemSold
+        return [
+            MessageEvent(
+                text=t("shop.sold", item=item_name, price=price),
+            ),
+            ItemSold(entity=self.actor, item_id=item_id),
+        ]
 
     @staticmethod
     def _resolve_item_id(world: "World", eid: int) -> str:

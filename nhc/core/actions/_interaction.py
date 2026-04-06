@@ -336,6 +336,36 @@ class DigAction(Action):
             events.append(MessageEvent(
                 text=t("explore.dig_success"),
             ))
+            # 10% chance to find a gem or glass in the rubble
+            from nhc.utils.rng import get_rng as _get_rng
+            if _get_rng().random() < 0.10:
+                from nhc.entities.registry import EntityRegistry
+                from nhc.entities.components import Position as Pos
+                # Glass pieces appear 2x as often as real gems
+                _GEM_POOL = [
+                    "gem_garnet", "gem_topaz", "gem_amethyst",
+                    "gem_opal", "gem_ruby", "gem_emerald",
+                    "gem_sapphire", "gem_diamond",
+                    "glass_piece_1", "glass_piece_1",
+                    "glass_piece_2", "glass_piece_2",
+                    "glass_piece_3", "glass_piece_3",
+                    "glass_piece_4", "glass_piece_4",
+                    "glass_piece_5", "glass_piece_5",
+                    "glass_piece_6", "glass_piece_6",
+                    "glass_piece_7", "glass_piece_7",
+                    "glass_piece_8", "glass_piece_8",
+                ]
+                gem_id = _get_rng().choice(_GEM_POOL)
+                gem_comps = EntityRegistry.get_item(gem_id)
+                gem_comps["Position"] = Pos(
+                    x=tx, y=ty, level_id=pos.level_id,
+                )
+                world.create_entity(gem_comps)
+                gem_desc = gem_comps.get("Description")
+                gem_name = gem_desc.name if gem_desc else "gem"
+                events.append(MessageEvent(
+                    text=t("explore.dig_gem", gem=gem_name),
+                ))
         else:
             events.append(MessageEvent(
                 text=t("explore.dig_fail"),

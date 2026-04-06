@@ -161,6 +161,25 @@ wand_appearance:
   pine: "varita de pino"
   pine_short: "una varita de pino"
 
+gem_appearance:
+  clear_glass: "trozo de cristal transparente"
+  clear_glass_short: "un trozo de cristal transparente"
+  red_glass: "trozo de cristal rojo"
+  red_glass_short: "un trozo de cristal rojo"
+  green_glass: "trozo de cristal verde"
+  green_glass_short: "un trozo de cristal verde"
+  blue_glass: "trozo de cristal azul"
+  blue_glass_short: "un trozo de cristal azul"
+  purple_glass: "trozo de cristal morado"
+  purple_glass_short: "un trozo de cristal morado"
+  yellow_glass: "trozo de cristal amarillo"
+  yellow_glass_short: "un trozo de cristal amarillo"
+  white_glass: "trozo de cristal blanco"
+  white_glass_short: "un trozo de cristal blanco"
+  dark_red_glass: "trozo de cristal rojo oscuro"
+  dark_red_glass_short: "un trozo de cristal rojo oscuro"
+  identified: "¡Lo identificas como {name}!"
+
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
   hit: "{attacker} golpea a {target} por {damage} de daño."
@@ -240,6 +259,7 @@ explore:
   search_nothing: "Registras con atención pero no encuentras nada oculto."
   dig_success: "¡Rompes la pared!"
   dig_fail: "Golpeas con fuerza pero la roca aguanta."
+  dig_gem: "¡Algo brilla entre los escombros — {gem}!"
   dig_no_wall: "No hay ninguna pared que excavar."
   dig_no_tool: "Necesitas una herramienta de excavación equipada."
   dig_which: "¿En qué dirección quieres excavar?"
@@ -1764,6 +1784,42 @@ items:
     name: "Joyas Falsas"
     short: "una bolsa de joyas falsas"
     long: "Piedras de cristal cortadas como gemas. Convincentes para el ojo inexperto."
+  gem_diamond:
+    name: "Diamante"
+    short: "un diamante brillante"
+    long: "Una gema perfecta que refracta la luz en arcoíris deslumbrantes."
+  gem_ruby:
+    name: "Rubí"
+    short: "un rubí rojo profundo"
+    long: "Una piedra preciosa del color de la sangre, apreciada por los nobles."
+  gem_emerald:
+    name: "Esmeralda"
+    short: "una esmeralda vívida"
+    long: "Una gema de verde rico que dicen otorga claridad mental."
+  gem_sapphire:
+    name: "Zafiro"
+    short: "un zafiro azul"
+    long: "Una gema de azul profundo, asociada con la sabiduría y la realeza."
+  gem_amethyst:
+    name: "Amatista"
+    short: "una amatista morada"
+    long: "Un cristal violeta que se cree protege de la intoxicación."
+  gem_topaz:
+    name: "Topacio"
+    short: "un topacio dorado"
+    long: "Una piedra amarilla cálida que atrapa la luz de las antorchas."
+  gem_opal:
+    name: "Ópalo"
+    short: "un ópalo brillante"
+    long: "Una piedra lechosa que cambia de color al girarla bajo la luz."
+  gem_garnet:
+    name: "Granate"
+    short: "un granate rojo oscuro"
+    long: "Una piedra carmesí profunda, común pero aún valiosa."
+  glass_piece:
+    name: "Cristal Sin Valor"
+    short: "un trozo de cristal sin valor"
+    long: "Un fragmento de cristal de color opaco. Bonito, pero sin valor."
   lens:
     name: "Lente"
     short: "una lente de aumento"
