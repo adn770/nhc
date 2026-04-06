@@ -26,6 +26,11 @@ if TYPE_CHECKING:
     from nhc.dungeon.model import Level
 
 
+# Factions whose creatures can open closed doors
+HUMANOID_FACTIONS: frozenset[str] = frozenset({
+    "goblinoid", "human", "humanoid", "giant", "gnoll", "undead",
+})
+
 # Maximum chase distance per behavior type
 CHASE_RADIUS: dict[str, int] = {
     "aggressive_melee": 8,
@@ -134,9 +139,15 @@ def decide_action(
 
     # Within chase range: pathfind toward player
     if dist <= chase_radius:
+        can_open_doors = ai.faction in HUMANOID_FACTIONS
+
         def is_walkable(x: int, y: int) -> bool:
             tile = level.tile_at(x, y)
             if not tile or not tile.walkable:
+                return False
+            # Non-humanoids cannot path through closed/locked doors
+            if (not can_open_doors
+                    and tile.feature in ("door_closed", "door_locked")):
                 return False
             # Don't walk through other creatures (except target)
             if (x, y) == (player_pos.x, player_pos.y):

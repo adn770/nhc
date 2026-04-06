@@ -15,6 +15,17 @@ if TYPE_CHECKING:
     from nhc.dungeon.model import Level
 
 
+def _can_open_doors(world: "World", actor: int) -> bool:
+    """Players and humanoid creatures can open doors."""
+    if world.has_component(actor, "Player"):
+        return True
+    ai = world.get_component(actor, "AI")
+    if not ai:
+        return False
+    from nhc.ai.behavior import HUMANOID_FACTIONS
+    return ai.faction in HUMANOID_FACTIONS
+
+
 class MoveAction(Action):
     """Move in a direction."""
 
@@ -83,6 +94,8 @@ class MoveAction(Action):
                 return events
 
             if door_tile and door_tile.feature == "door_locked":
+                if not _can_open_doors(world, self.actor):
+                    return events  # non-humanoid blocked silently
                 events.append(MessageEvent(
                     text=_msg("explore.door_locked", world,
                               actor=self.actor),
@@ -90,6 +103,8 @@ class MoveAction(Action):
                 return events
 
             if door_tile and door_tile.feature == "door_closed":
+                if not _can_open_doors(world, self.actor):
+                    return events  # non-humanoid blocked silently
                 door_tile.feature = "door_open"
                 events.append(DoorOpened(
                     entity=self.actor, x=door_x, y=door_y))
@@ -107,6 +122,8 @@ class MoveAction(Action):
         else:
             # -- Center door mode (terminal): bump to open --
             if tile.feature == "door_locked":
+                if not _can_open_doors(world, self.actor):
+                    return events  # non-humanoid blocked silently
                 events.append(MessageEvent(
                     text=_msg("explore.door_locked", world,
                               actor=self.actor),
@@ -114,6 +131,8 @@ class MoveAction(Action):
                 return events
 
             if tile.feature == "door_closed":
+                if not _can_open_doors(world, self.actor):
+                    return events  # non-humanoid blocked silently
                 tile.feature = "door_open"
                 events.append(DoorOpened(
                     entity=self.actor, x=nx, y=ny))
