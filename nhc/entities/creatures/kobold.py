@@ -11,6 +11,7 @@ def create_kobold() -> dict:
         "Health": Health(current=2, maximum=2),
         "Renderable": Renderable(glyph="k", color="yellow", render_order=2),
         "AI": AI(behavior="aggressive_melee", morale=6, faction="goblinoid"),
-        "LootTable": LootTable(entries=[("gold", 0.5, "1d4")]),
+        "LootTable": LootTable(entries=[("gold", 0.5, "1d4"),
+                                        ("dagger", 0.15)]),
         "Description": creature_desc("kobold"),
     }

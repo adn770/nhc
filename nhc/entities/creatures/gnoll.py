@@ -15,6 +15,8 @@ def create_gnoll() -> dict:
         "Renderable": Renderable(glyph="G", color="bright_yellow",
                                  render_order=2),
         "AI": AI(behavior="aggressive_melee", morale=8, faction="gnoll"),
-        "LootTable": LootTable(entries=[("gold", 0.6, "3d6")]),
+        "LootTable": LootTable(entries=[("gold", 0.6, "3d6"),
+                                        ("spear", 0.2),
+                                        ("shield", 0.1)]),
         "Description": creature_desc("gnoll"),
     }

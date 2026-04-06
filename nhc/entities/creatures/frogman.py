@@ -14,6 +14,7 @@ def create_frogman() -> dict:
         "Renderable": Renderable(glyph="f", color="green", render_order=2),
         "AI": AI(behavior="aggressive_melee", morale=7, faction="humanoid"),
         "Weapon": Weapon(damage="1d6"),
-        "LootTable": LootTable(entries=[("gold", 0.4, "1d6")]),
+        "LootTable": LootTable(entries=[("gold", 0.4, "1d6"),
+                                        ("dagger", 0.2)]),
         "Description": creature_desc("frogman"),
     }
