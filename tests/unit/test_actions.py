@@ -718,7 +718,7 @@ class TestCorpseAndLoot:
 
 class TestUseItemAction:
     @pytest.mark.asyncio
-    async def test_heal_at_full_hp_refused(self):
+    async def test_heal_at_full_hp_consumes_item(self):
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=5, y=5)
@@ -734,8 +734,8 @@ class TestUseItemAction:
 
         msgs = [e.text for e in events if isinstance(e, MessageEvent)]
         assert any("full health" in m for m in msgs)
-        # Item should not be consumed
-        assert item_id in inv.slots
+        # Item should still be consumed (and identified)
+        assert item_id not in inv.slots
 
 
 class TestCloseDoorAction:

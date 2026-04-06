@@ -284,15 +284,15 @@ class UseItemAction(Action):
                     events.append(MessageEvent(
                         text=t("item.full_health"),
                     ))
-                    return events
-                amount = roll_dice(consumable.dice)
-                actual = heal(health, amount)
+                else:
+                    amount = roll_dice(consumable.dice)
+                    actual = heal(health, amount)
+                    events.append(MessageEvent(
+                        text=t("item.quaff_heal", item=item_name,
+                               amount=actual),
+                    ))
                 events.append(ItemUsed(
                     entity=self.actor, item=self.item, effect="heal",
-                ))
-                events.append(MessageEvent(
-                    text=t("item.quaff_heal", item=item_name,
-                           amount=actual),
                 ))
 
         elif consumable.effect == "strength":
