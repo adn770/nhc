@@ -42,6 +42,7 @@ from nhc.core.events import (
     MessageEvent,
     PlayerDied,
     TrapTriggered,
+    VisualEffect,
 )
 from nhc.dungeon.generator import GenerationParams, pick_map_size
 from nhc.dungeon.pipeline import generate_level
@@ -472,6 +473,7 @@ class Game:
         self.event_bus.subscribe(CreatureDied, self._on_creature_died)
         self.event_bus.subscribe(LevelEntered, self._on_level_entered)
         self.event_bus.subscribe(ItemUsed, self._on_item_used)
+        self.event_bus.subscribe(VisualEffect, self._on_visual_effect)
 
         # Compute initial FOV
         self._update_fov()
@@ -1320,6 +1322,23 @@ class Game:
                     pos.y = py
                     pos.level_id = self.level.id
 
+        # Spawn items that fell with the player (dig-floor hole)
+        fallen_items = getattr(event, "fallen_items", [])
+        if fallen_items:
+            pos = self.world.get_component(self.player_id, "Position")
+            if pos:
+                from nhc.entities.registry import EntityRegistry
+                for item_id in fallen_items:
+                    try:
+                        comps = EntityRegistry.get_item(item_id)
+                        comps["Position"] = Position(
+                            x=pos.x, y=pos.y,
+                            level_id=self.level.id,
+                        )
+                        self.world.create_entity(comps)
+                    except KeyError:
+                        pass
+
         self._seen_creatures.clear()
         self._update_fov()
 
@@ -1426,6 +1445,11 @@ class Game:
         level_msgs = check_level_up(self.world, self.player_id)
         for msg in level_msgs:
             self.renderer.add_message(msg)
+
+    def _on_visual_effect(self, event: VisualEffect) -> None:
+        """Forward visual effects to the renderer (web client)."""
+        if hasattr(self.renderer, "send_effect"):
+            self.renderer.send_effect(event.effect, event.x, event.y)
 
     def _on_message(self, event: MessageEvent) -> None:
         """Handle message events by adding to renderer log.

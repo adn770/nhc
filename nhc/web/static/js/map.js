@@ -922,4 +922,47 @@ const GameMap = {
       this._tooltipEntity = null;
     });
   },
+
+  /**
+   * Play a transient visual effect on a tile.
+   * "dig_treasure" — fading-to-black circle.
+   * "dig_hole"     — fading-to-black square.
+   */
+  playEffect(effect, gx, gy) {
+    const cs = this.cellSize;
+    const pad = this.padding;
+    const cx = gx * cs + pad + cs / 2;
+    const cy = gy * cs + pad + cs / 2;
+    const ctx = this.ctx;
+    const duration = 500;
+    const start = performance.now();
+
+    const animate = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      // Redraw entities first so the effect overlays cleanly
+      this.draw();
+
+      ctx.save();
+      ctx.globalAlpha = t;
+      ctx.fillStyle = "#000";
+
+      if (effect === "dig_treasure") {
+        const r = cs * 0.38;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (effect === "dig_hole") {
+        const half = cs * 0.44;
+        ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
+      }
+
+      ctx.restore();
+
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
+  },
 };

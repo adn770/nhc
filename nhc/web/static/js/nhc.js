@@ -56,6 +56,10 @@ const NHC = {
       UI.addNarrative(msg.chunk);
     });
 
+    WS.on("effect", (msg) => {
+      GameMap.playEffect(msg.effect, msg.x, msg.y);
+    });
+
     WS.on("stats_init", (msg) => {
       UI.setStaticStats(msg);
     });

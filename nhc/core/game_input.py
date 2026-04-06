@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from nhc.core.actions import (
     CloseDoorAction,
     DigAction,
+    DigFloorAction,
     DropAction,
     EquipAction,
     ForceDoorAction,
@@ -340,6 +341,7 @@ def find_dig_action(
 
     # Directed dispatch (autodig): the client already picked the
     # exact adjacent tile.  Honour it without showing a menu.
+    # Autodig never triggers floor digging.
     if (isinstance(data, (list, tuple)) and len(data) == 2
             and all(isinstance(v, (int, float)) for v in data)):
         dx, dy = int(data[0]), int(data[1])
@@ -347,6 +349,12 @@ def find_dig_action(
         if target is None or target.terrain not in _DIGGABLE:
             return None
         return DigAction(actor=game.player_id, dx=dx, dy=dy)
+
+    # Manual press: check if the floor tile has buried items or was
+    # already dug (floor digging takes priority over wall digging).
+    tile_here = game.level.tile_at(pos.x, pos.y)
+    if tile_here and (tile_here.buried or tile_here.dug):
+        return DigFloorAction(actor=game.player_id)
 
     # Scan cardinal directions for adjacent diggable tiles
     diggable: list[tuple[str, tuple[int, int]]] = []

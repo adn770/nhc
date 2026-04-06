@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
 from nhc.core.actions._helpers import _entity_name, _items_at, _msg
-from nhc.core.events import DoorOpened, Event, MessageEvent
+from nhc.core.events import (
+    DoorOpened, Event, LevelEntered, MessageEvent, VisualEffect,
+)
 from nhc.dungeon.model import Terrain
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage
@@ -335,6 +337,105 @@ class DigAction(Action):
         else:
             events.append(MessageEvent(
                 text=t("explore.dig_fail"),
+            ))
+
+        return events
+
+
+class DigFloorAction(Action):
+    """Dig the floor tile the player stands on to unearth buried items.
+
+    Requires a DiggingTool equipped as weapon.  Reveals any buried
+    items on the tile.  There is a (1 + STR bonus) in 20 chance of
+    digging too deep and opening a hole to the level below (the
+    player falls with the treasure).  Digging a tile that was already
+    dug once guarantees a fall.
+    """
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        tile = level.tile_at(pos.x, pos.y)
+        if not tile or tile.terrain != Terrain.FLOOR:
+            return False
+        # Must have something to dig for, or tile already dug (second dig)
+        if not tile.buried and not tile.dug:
+            return False
+        # Require DiggingTool equipped as weapon
+        equip = world.get_component(self.actor, "Equipment")
+        if not equip or equip.weapon is None:
+            return False
+        return world.has_component(equip.weapon, "DiggingTool")
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        pos = world.get_component(self.actor, "Position")
+        tile = level.tile_at(pos.x, pos.y)
+
+        stats = world.get_component(self.actor, "Stats")
+        str_bonus = max(0, stats.strength) if stats else 0
+
+        # Determine if a hole opens
+        if tile.dug:
+            # Second dig on same tile → guaranteed fall
+            hole = True
+        else:
+            rng = get_rng()
+            roll = rng.randint(1, 20)
+            hole = roll <= 1 + str_bonus
+
+        buried_ids = list(tile.buried)
+        tile.buried = []
+        tile.dug = True
+
+        if hole:
+            # Player falls — items go with them, not spawned here
+            damage = roll_dice("2d6")
+            health = world.get_component(self.actor, "Health")
+            if health:
+                apply_damage(health, damage)
+
+            events.append(MessageEvent(
+                text=t("explore.dig_floor_hole"),
+            ))
+            events.append(VisualEffect(
+                effect="dig_hole", x=pos.x, y=pos.y,
+            ))
+            events.append(LevelEntered(
+                entity=self.actor,
+                level_id=level.id,
+                depth=level.depth + 1,
+                fell=True,
+                fallen_items=buried_ids,
+            ))
+        else:
+            # Spawn buried items at player position
+            from nhc.entities.components import Position as Pos
+            from nhc.entities.registry import EntityRegistry
+            names = []
+            for item_id in buried_ids:
+                comps = EntityRegistry.get_item(item_id)
+                comps["Position"] = Pos(
+                    x=pos.x, y=pos.y, level_id=pos.level_id,
+                )
+                world.create_entity(comps)
+                desc = comps.get("Description")
+                if desc:
+                    names.append(desc.name)
+
+            if names:
+                events.append(MessageEvent(
+                    text=t("explore.dig_floor_treasure",
+                           items=", ".join(names)),
+                ))
+            else:
+                events.append(MessageEvent(
+                    text=t("explore.dig_floor_nothing"),
+                ))
+
+            events.append(VisualEffect(
+                effect="dig_treasure", x=pos.x, y=pos.y,
             ))
 
         return events

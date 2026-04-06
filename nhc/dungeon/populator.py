@@ -140,6 +140,55 @@ FEATURE_POOLS: list[tuple[str, float]] = [
     ("trap_trapdoor", 0.05),
 ]
 
+# ── Buried item pools (gold + potions by tier) ─────────────────────
+
+BURIED_POOLS: dict[int, list[tuple[str, float]]] = {
+    1: [("gold", 0.65), ("healing_potion", 0.25),
+        ("potion_purification", 0.10)],
+    2: [("gold", 0.55), ("healing_potion", 0.25),
+        ("potion_strength", 0.10), ("potion_frost", 0.10)],
+    3: [("gold", 0.50), ("healing_potion", 0.20),
+        ("potion_strength", 0.15), ("potion_frost", 0.15)],
+    4: [("gold", 0.45), ("healing_potion", 0.20),
+        ("potion_strength", 0.15), ("potion_invisibility", 0.10),
+        ("potion_frost", 0.10)],
+}
+
+
+def _bury_items(
+    level: Level,
+    rng: "random.Random",
+) -> None:
+    """Bury gold and potions in random floor tiles."""
+    difficulty = min(max(1, level.depth), max(BURIED_POOLS.keys()))
+    pool = BURIED_POOLS.get(difficulty, BURIED_POOLS[1])
+    b_ids, b_weights = zip(*pool)
+
+    # Scale count with depth
+    count = 2 + level.depth // 2 + rng.randint(0, 2)
+
+    placeable = [r for r in level.rooms
+                 if "entry" not in r.tags
+                 and r.rect.width >= 3 and r.rect.height >= 3]
+    if not placeable:
+        return
+
+    for _ in range(count):
+        room = rng.choice(placeable)
+        rect = room.rect
+        candidates = []
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                tile = level.tile_at(x, y)
+                if (tile and tile.terrain == Terrain.FLOOR
+                        and not tile.feature and not tile.buried):
+                    candidates.append((x, y))
+        if not candidates:
+            continue
+        bx, by = rng.choice(candidates)
+        item_id = rng.choices(list(b_ids), weights=list(b_weights), k=1)[0]
+        level.tile_at(bx, by).buried.append(item_id)
+
 
 def _find_single_tile_corridors(level: Level) -> list[tuple[int, int]]:
     """Find corridor tiles that form segments of exactly one tile."""
@@ -432,3 +481,6 @@ def populate_level(
                 x=vx, y=vy,
             ))
             occupied.add((vx, vy))
+
+    # ── Bury hidden items in floor tiles ──
+    _bury_items(level, rng)

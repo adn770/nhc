@@ -53,6 +53,7 @@ class LevelEntered(Event):
     level_id: str = ""
     depth: int = 0
     fell: bool = False  # True when caused by trapdoor (random placement)
+    fallen_items: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -96,6 +97,16 @@ class MessageEvent(Event):
     text: str = ""
     style: str = "normal"
     actor: int | None = None  # entity that caused the message (for visibility filtering)
+
+
+# --- Visual effects ---
+
+@dataclass
+class VisualEffect(Event):
+    """Transient visual effect at a tile (rendered by web client)."""
+    effect: str = ""
+    x: int = 0
+    y: int = 0
 
 
 # --- Typed gameplay events ---

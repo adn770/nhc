@@ -1064,6 +1064,10 @@ class WebClient(GameClient):
 
     # ── Display ──────────────────────────────────────────────────
 
+    def send_effect(self, effect: str, x: int, y: int) -> None:
+        """Send a transient visual effect to the web client."""
+        self._send({"type": "effect", "effect": effect, "x": x, "y": y})
+
     def add_message(self, text: str) -> None:
         logger.info("MSG: %s", text)
         self.messages.append(text)

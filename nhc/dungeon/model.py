@@ -596,6 +596,8 @@ class Tile:
     door_side: str = ""  # "north","south","east","west" — which tile edge
                          # the door sits on (set at generation time)
     opened_at_turn: int | None = None  # turn when door was opened
+    buried: list[str] = field(default_factory=list)  # hidden item IDs
+    dug: bool = False  # True after first floor dig (second dig = fall)
 
     @property
     def walkable(self) -> bool:
