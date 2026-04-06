@@ -30,6 +30,7 @@ const NHC = {
       console.log("state:", msg.entities.length, "entities,",
                   (msg.doors || []).length, "doors,",
                   (msg.fov || []).length, "fov tiles");
+      if (msg.turn !== undefined) GameMap.turn = msg.turn;
       GameMap.updateEntities(msg.entities, msg.doors);
       if (msg.fov || msg.fov_add || msg.fov_del) {
         GameMap.updateFOV(msg);
@@ -72,8 +73,10 @@ const NHC = {
       GameMap.exploredWalls = new Map();
       GameMap.doorInfo = new Map();
       GameMap.allDoors = new Map();
+      GameMap.lastSeen = new Map();
       GameMap.entities = [];
       GameMap.doors = [];
+      if (msg.turn !== undefined) GameMap.turn = msg.turn;
       // Store theme/feeling for future terrain canvas layer
       if (msg.theme) GameMap.theme = msg.theme;
       if (msg.feeling) GameMap.feeling = msg.feeling;

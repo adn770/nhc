@@ -31,6 +31,8 @@ const GameMap = {
   allDoors: new Map(),  // "x,y" → {x, y, edge, state, vertical}
   fov: new Set(),
   explored: new Set(),
+  lastSeen: new Map(),  // "x,y" → turn number when tile was last in FOV
+  turn: 0,
   // Walkable-visible tiles with their 4-bit wall masks: bit 0=N,
   // 1=E, 2=S, 3=W. A bit is set iff the tile-edge in that
   // direction sits on a wall line. Drives clearHatch.
@@ -65,6 +67,8 @@ const GameMap = {
     this.allDoors = new Map();
     this.fov = new Set();
     this.explored = new Set();
+    this.lastSeen = new Map();
+    this.turn = 0;
     this.walls = new Map();
     this.exploredWalls = new Map();
     this._hatchReady = false;
@@ -191,6 +195,7 @@ const GameMap = {
     }
     for (const key of this.fov) {
       this.explored.add(key);
+      this.lastSeen.set(key, this.turn);
     }
 
     if (msg.walk) {
@@ -630,32 +635,72 @@ const GameMap = {
       ctx.fill();
       ctx.restore();
 
-      // FOV tiles beyond the gradient: dim instead of black
+      // FOV tiles beyond the gradient: radial dim instead of black.
+      // Alpha scales with distance so the falloff blends smoothly
+      // with the gradient rather than forming a flat slab.
       const outerR2 = outerR * outerR;
+      const memFloor = 0.55;       // brightest memory tile (nearby)
+      const memCeil  = 0.75;       // darkest memory tile (far)
+      const memReach = outerR * 1.5;  // distance where alpha saturates
+
       for (const key of this.fov) {
         const [x, y] = key.split(",").map(Number);
         const tx = x * cs + this.padding + half;
         const ty = y * cs + this.padding + half;
         const d2 = (tx - cx) * (tx - cx) + (ty - cy) * (ty - cy);
         if (d2 > outerR2) {
+          const d = Math.sqrt(d2);
+          const t = Math.min(d / memReach, 1);
+          const a = memFloor + (memCeil - memFloor) * t;
           const px = x * cs + this.padding;
           const py = y * cs + this.padding;
           ctx.clearRect(px, py, cs, cs);
-          ctx.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
+          ctx.fillStyle = `rgba(0, 0, 0, ${a.toFixed(3)})`;
           ctx.fillRect(px, py, cs, cs);
         }
       }
-    }
 
-    // Explored but not visible: dimmed
-    for (const key of this.explored) {
-      if (this.fov.has(key)) continue;
-      const [x, y] = key.split(",").map(Number);
-      const px = x * cs + this.padding;
-      const py = y * cs + this.padding;
-      ctx.clearRect(px, py, cs, cs);
-      ctx.fillStyle = `rgba(0, 0, 0, ${dimAlpha})`;
-      ctx.fillRect(px, py, cs, cs);
+      // Explored but not visible: radial dim with recency bias.
+      // Distance from the player controls base alpha (memFloor →
+      // memCeil), and tiles seen more recently get a small
+      // brightness boost that fades over ~30 turns.
+      const recencyWindow = 30;
+
+      for (const key of this.explored) {
+        if (this.fov.has(key)) continue;
+        const [x, y] = key.split(",").map(Number);
+        const tx = x * cs + this.padding + half;
+        const ty = y * cs + this.padding + half;
+        const d = Math.hypot(tx - cx, ty - cy);
+        const t = Math.min(d / memReach, 1);
+        let a = memFloor + (memCeil - memFloor) * t;
+
+        // Recency: recently-seen tiles are slightly brighter
+        const seen = this.lastSeen.get(key);
+        if (seen !== undefined) {
+          const age = Math.max(0, this.turn - seen);
+          // boost decays linearly over recencyWindow turns
+          const recency = Math.max(0, 1 - age / recencyWindow);
+          // reduce alpha by up to 0.10 for freshly-left tiles
+          a -= 0.10 * recency;
+        }
+
+        const px = x * cs + this.padding;
+        const py = y * cs + this.padding;
+        ctx.clearRect(px, py, cs, cs);
+        ctx.fillStyle = `rgba(0, 0, 0, ${a.toFixed(3)})`;
+        ctx.fillRect(px, py, cs, cs);
+      }
+    } else {
+      // No FOV at all — still show explored tiles at flat dim
+      for (const key of this.explored) {
+        const [x, y] = key.split(",").map(Number);
+        const px = x * cs + this.padding;
+        const py = y * cs + this.padding;
+        ctx.clearRect(px, py, cs, cs);
+        ctx.fillStyle = `rgba(0, 0, 0, 0.75)`;
+        ctx.fillRect(px, py, cs, cs);
+      }
     }
   },
 
