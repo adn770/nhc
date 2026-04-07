@@ -223,7 +223,7 @@ The `display_name()` method routes based on prefix:
 - `ring_*` → `ring_appearance.{key}`
 - `wand_*` → `wand_appearance.{key}`
 - `scroll_*` → `scroll_appearance.{key}`
-- `potion_*` / `healing_potion` → `potion_appearance.{key}`
+- `potion_*` / `potion_healing` → `potion_appearance.{key}`
 
 ### 4.2 Identification Triggers
 

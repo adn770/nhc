@@ -82,7 +82,7 @@ class TestItemUsedEventCarriesItemId:
         level = _make_level()
 
         potion = _add_disguised_potion(
-            world, knowledge, "healing_potion", player_id=pid,
+            world, knowledge, "potion_healing", player_id=pid,
         )
 
         action = UseItemAction(pid, potion)
@@ -91,7 +91,7 @@ class TestItemUsedEventCarriesItemId:
 
         item_used = [e for e in events if isinstance(e, ItemUsed)]
         assert len(item_used) == 1
-        assert item_used[0].item_id == "healing_potion"
+        assert item_used[0].item_id == "potion_healing"
 
 
 class TestPotionIdentifyOnQuaff:
@@ -113,9 +113,9 @@ class TestPotionIdentifyOnQuaff:
         game.world = world
         game.player_id = pid
 
-        assert not knowledge.is_identified("healing_potion")
-        game._identify_potion(real_id="healing_potion")
-        assert knowledge.is_identified("healing_potion")
+        assert not knowledge.is_identified("potion_healing")
+        game._identify_potion(real_id="potion_healing")
+        assert knowledge.is_identified("potion_healing")
 
     async def test_identify_updates_all_same_type_in_inventory(self):
         """All potions of same type in inventory should show real name."""
@@ -130,10 +130,10 @@ class TestPotionIdentifyOnQuaff:
 
         # Add two healing potions to inventory
         p1 = _add_disguised_potion(
-            world, knowledge, "healing_potion", player_id=pid,
+            world, knowledge, "potion_healing", player_id=pid,
         )
         p2 = _add_disguised_potion(
-            world, knowledge, "healing_potion", player_id=pid,
+            world, knowledge, "potion_healing", player_id=pid,
         )
 
         # Both should show disguised names
@@ -143,7 +143,7 @@ class TestPotionIdentifyOnQuaff:
         assert desc2.name != "Healing Potion"
 
         # Identify via quaff
-        game._identify_potion(real_id="healing_potion")
+        game._identify_potion(real_id="potion_healing")
 
         # Both should now show real names
         assert desc1.name == "Healing Potion"
@@ -162,17 +162,17 @@ class TestPotionIdentifyOnQuaff:
 
         # One on floor (no player_id), one in inventory
         floor_potion = _add_disguised_potion(
-            world, knowledge, "healing_potion",
+            world, knowledge, "potion_healing",
         )
         inv_potion = _add_disguised_potion(
-            world, knowledge, "healing_potion", player_id=pid,
+            world, knowledge, "potion_healing", player_id=pid,
         )
 
         floor_desc = world.get_component(floor_potion, "Description")
         inv_desc = world.get_component(inv_potion, "Description")
         assert floor_desc.name != "Healing Potion"
 
-        game._identify_potion(real_id="healing_potion")
+        game._identify_potion(real_id="potion_healing")
 
         assert floor_desc.name == "Healing Potion"
         assert inv_desc.name == "Healing Potion"
@@ -189,7 +189,7 @@ class TestPotionIdentifyOnQuaff:
         game.player_id = pid
 
         _add_disguised_potion(
-            world, knowledge, "healing_potion", player_id=pid,
+            world, knowledge, "potion_healing", player_id=pid,
         )
         strength_potion = _add_disguised_potion(
             world, knowledge, "potion_strength", player_id=pid,
@@ -201,7 +201,7 @@ class TestPotionIdentifyOnQuaff:
         strength_desc = world.get_component(strength_potion, "Description")
         original_name = strength_desc.name
 
-        game._identify_potion(real_id="healing_potion")
+        game._identify_potion(real_id="potion_healing")
 
         # Strength potion should still be disguised
         assert strength_desc.name == original_name
@@ -218,7 +218,7 @@ class TestPotionIdentifyOnQuaff:
         game.world = world
         game.player_id = pid
 
-        knowledge.identify("healing_potion")
-        game._identify_potion(real_id="healing_potion")
+        knowledge.identify("potion_healing")
+        game._identify_potion(real_id="potion_healing")
         # Should not crash or double-message
         game.renderer.add_message.assert_not_called()

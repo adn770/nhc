@@ -1279,7 +1279,7 @@ items:
     long: >-
       A compact blade favored by skirmishers.
       Well-suited for close quarters.
-  healing_potion:
+  potion_healing:
     name: "Healing Potion"
     short: "a crimson potion"
     long: >-

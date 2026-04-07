@@ -17,7 +17,7 @@ def create_crate() -> dict:
             ("dried_meat", 0.3),
             ("mushroom", 0.3),
             ("cheese", 0.3),
-            ("healing_potion", 0.2),
+            ("potion_healing", 0.2),
             ("torch", 0.2),
         ]),
         "BlocksMovement": BlocksMovement(),

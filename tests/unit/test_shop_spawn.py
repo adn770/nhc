@@ -54,7 +54,7 @@ class TestMerchantSpawnWithStock:
         level = _make_level()
         level.entities.append(EntityPlacement(
             entity_type="creature", entity_id="merchant",
-            x=5, y=5, extra={"shop_stock": ["sword", "healing_potion"]},
+            x=5, y=5, extra={"shop_stock": ["sword", "potion_healing"]},
         ))
         _spawn_entities(world, level)
 
@@ -64,7 +64,7 @@ class TestMerchantSpawnWithStock:
         ]
         assert len(merchants) == 1
         _, si = merchants[0]
-        assert si.stock == ["sword", "healing_potion"]
+        assert si.stock == ["sword", "potion_healing"]
 
     def test_merchant_without_stock_has_no_shop_inventory(self):
         world = World()

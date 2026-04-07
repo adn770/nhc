@@ -135,7 +135,7 @@ def _make_game():
     # Set up identification
     set_seed(42)
     game._knowledge = ItemKnowledge()
-    game._knowledge.identify("healing_potion")
+    game._knowledge.identify("potion_healing")
 
     # Messages
     game.renderer.messages = ["Hello", "World"]
@@ -166,7 +166,7 @@ class TestBuildPayload:
     def test_identification_captured(self):
         game = _make_game()
         payload = _build_payload(game)
-        assert "healing_potion" in payload["knowledge_identified"]
+        assert "potion_healing" in payload["knowledge_identified"]
 
     def test_messages_captured(self):
         game = _make_game()
@@ -231,7 +231,7 @@ class TestRoundTrip:
 
         game2 = FakeGame()
         _restore_payload(game2, payload)
-        assert game2._knowledge.is_identified("healing_potion")
+        assert game2._knowledge.is_identified("potion_healing")
         assert not game2._knowledge.is_identified("potion_frost")
 
     def test_restore_preserves_messages(self):

@@ -136,7 +136,7 @@ class TestDigFloorExecution:
     async def test_reveals_buried_potion(self):
         """Digging spawns buried potion as entity at player pos."""
         from nhc.core.actions._interaction import DigFloorAction
-        world, pid, level = _make_world(buried=["healing_potion"])
+        world, pid, level = _make_world(buried=["potion_healing"])
         action = DigFloorAction(actor=pid)
         with patch("nhc.core.actions._interaction.get_rng") as mock_rng:
             mock_rng.return_value.randint.return_value = 20
@@ -239,7 +239,7 @@ class TestDigFloorExecution:
         """When a hole opens, buried item IDs are in LevelEntered."""
         from nhc.core.actions._interaction import DigFloorAction
         world, pid, level = _make_world(
-            strength=3, buried=["gold", "healing_potion"],
+            strength=3, buried=["gold", "potion_healing"],
         )
         action = DigFloorAction(actor=pid)
         with patch("nhc.core.actions._interaction.get_rng") as mock_rng:
@@ -248,7 +248,7 @@ class TestDigFloorExecution:
 
         le = [e for e in events if isinstance(e, LevelEntered)][0]
         assert "gold" in le.fallen_items
-        assert "healing_potion" in le.fallen_items
+        assert "potion_healing" in le.fallen_items
 
     @pytest.mark.asyncio
     async def test_hole_items_not_spawned_on_current_level(self):

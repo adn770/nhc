@@ -59,7 +59,7 @@ SHOP_MIN_SIZE = 4
 # Merchants carry a mix of consumables, gear, and tools.
 SHOP_STOCK: dict[int, list[tuple[str, int]]] = {
     1: [
-        ("healing_potion", 5), ("healing_bandage", 3),
+        ("potion_healing", 5), ("healing_bandage", 3),
         ("torch", 2), ("rations", 3),
         ("dagger", 2), ("short_sword", 2), ("shield", 1),
         ("gambeson", 1), ("leather_armor", 1),
@@ -67,7 +67,7 @@ SHOP_STOCK: dict[int, list[tuple[str, int]]] = {
         ("rope", 1), ("arrows", 2),
     ],
     2: [
-        ("healing_potion", 5), ("potion_strength", 2),
+        ("potion_healing", 5), ("potion_strength", 2),
         ("potion_speed", 2), ("rations", 2),
         ("sword", 3), ("spear", 2), ("mace", 2),
         ("brigantine", 1), ("shield", 2), ("helmet", 2),
@@ -76,7 +76,7 @@ SHOP_STOCK: dict[int, list[tuple[str, int]]] = {
         ("bow", 1), ("arrows", 2), ("lantern", 1),
     ],
     3: [
-        ("healing_potion", 4), ("potion_strength", 3),
+        ("potion_healing", 4), ("potion_strength", 3),
         ("potion_invisibility", 2), ("potion_speed", 2),
         ("long_sword", 2), ("war_hammer", 2), ("halberd", 2),
         ("chain_mail", 1), ("brigantine", 2), ("helmet", 2),
@@ -85,7 +85,7 @@ SHOP_STOCK: dict[int, list[tuple[str, int]]] = {
         ("crossbow", 1), ("arrows", 2),
     ],
     4: [
-        ("healing_potion", 4), ("potion_invisibility", 3),
+        ("potion_healing", 4), ("potion_invisibility", 3),
         ("potion_strength", 3), ("potion_speed", 2),
         ("long_sword", 2), ("war_hammer", 2),
         ("chain_mail", 2), ("plate_cuirass", 1),
@@ -332,7 +332,7 @@ def _paint_shrine(level: Level, room: Room, rng: random.Random) -> None:
     # Healing potion on center (floor, not water)
     level.tiles[cy][cx] = Tile(terrain=Terrain.FLOOR)
     level.entities.append(EntityPlacement(
-        entity_type="item", entity_id="healing_potion", x=cx, y=cy,
+        entity_type="item", entity_id="potion_healing", x=cx, y=cy,
     ))
 
 
@@ -340,7 +340,7 @@ def _paint_garden(level: Level, room: Room, rng: random.Random) -> None:
     """Floor with items (herbs/potions)."""
     x, y = _random_floor(room, rng)
     level.entities.append(EntityPlacement(
-        entity_type="item", entity_id="healing_potion", x=x, y=y,
+        entity_type="item", entity_id="potion_healing", x=x, y=y,
     ))
 
 
@@ -355,7 +355,7 @@ def _paint_trap_room(level: Level, room: Room, rng: random.Random) -> None:
     # Prize
     x, y = _random_floor(room, rng)
     prize = rng.choice(["sword", "shield", "scroll_fireball",
-                         "scroll_haste", "healing_potion"])
+                         "scroll_haste", "potion_healing"])
     level.entities.append(EntityPlacement(
         entity_type="item", entity_id=prize, x=x, y=y,
     ))

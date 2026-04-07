@@ -59,7 +59,7 @@ ENCOUNTER_GROUPS: list[tuple[str, int, int]] = [
 
 ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
     1: [
-        ("healing_potion", 0.15), ("potion_purification", 0.03),
+        ("potion_healing", 0.15), ("potion_purification", 0.03),
         ("dagger", 0.10), ("club", 0.08), ("short_sword", 0.08),
         ("sling", 0.05), ("gambeson", 0.05), ("shield", 0.05),
         ("torch", 0.05), ("rope", 0.04), ("rations", 0.08),
@@ -71,7 +71,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("scroll_detect_gold", 0.03), ("scroll_detect_food", 0.03),
     ],
     2: [
-        ("healing_potion", 0.10), ("potion_frost", 0.04),
+        ("potion_healing", 0.10), ("potion_frost", 0.04),
         ("rations", 0.06), ("dried_meat", 0.05),
         ("bread", 0.04), ("mushroom", 0.04),
         ("potion_strength", 0.03), ("potion_invisibility", 0.03),
@@ -87,7 +87,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("scroll_detect_gold", 0.02), ("scroll_detect_food", 0.02),
     ],
     3: [
-        ("healing_potion", 0.12), ("sword", 0.08), ("shield", 0.08),
+        ("potion_healing", 0.12), ("sword", 0.08), ("shield", 0.08),
         ("rations", 0.05), ("dried_meat", 0.04),
         ("mushroom", 0.04), ("cheese", 0.03),
         ("scroll_lightning", 0.07), ("scroll_magic_missile", 0.07),
@@ -102,7 +102,7 @@ ITEM_POOLS: dict[int, list[tuple[str, float]]] = {
         ("pickaxe", 0.03), ("mattock", 0.02),
     ],
     4: [
-        ("healing_potion", 0.06), ("sword", 0.03), ("shield", 0.03),
+        ("potion_healing", 0.06), ("sword", 0.03), ("shield", 0.03),
         ("rations", 0.04), ("dried_meat", 0.03), ("mushroom", 0.03),
         ("scroll_fireball", 0.07), ("scroll_hold_person", 0.07),
         ("scroll_haste", 0.07), ("scroll_invisibility", 0.07),
@@ -145,23 +145,23 @@ FEATURE_POOLS: list[tuple[str, float]] = [
 # ── Buried item pools (gold + potions by tier) ─────────────────────
 
 BURIED_POOLS: dict[int, list[tuple[str, float]]] = {
-    1: [("gold", 0.52), ("healing_potion", 0.25),
+    1: [("gold", 0.52), ("potion_healing", 0.25),
         ("potion_purification", 0.10),
         ("gem_garnet", 0.02), ("gem_topaz", 0.01),
         ("glass_piece_1", 0.04), ("glass_piece_2", 0.02),
         ("glass_piece_3", 0.02), ("glass_piece_4", 0.02)],
-    2: [("gold", 0.42), ("healing_potion", 0.25),
+    2: [("gold", 0.42), ("potion_healing", 0.25),
         ("potion_strength", 0.10), ("potion_frost", 0.10),
         ("gem_garnet", 0.02), ("gem_topaz", 0.01),
         ("glass_piece_5", 0.04), ("glass_piece_6", 0.02),
         ("glass_piece_7", 0.02), ("glass_piece_8", 0.02)],
-    3: [("gold", 0.34), ("healing_potion", 0.20),
+    3: [("gold", 0.34), ("potion_healing", 0.20),
         ("potion_strength", 0.12), ("potion_frost", 0.12),
         ("gem_amethyst", 0.02), ("gem_opal", 0.02),
         ("gem_topaz", 0.02),
         ("glass_piece_1", 0.04), ("glass_piece_2", 0.04),
         ("glass_piece_3", 0.04), ("glass_piece_4", 0.04)],
-    4: [("gold", 0.25), ("healing_potion", 0.15),
+    4: [("gold", 0.25), ("potion_healing", 0.15),
         ("potion_strength", 0.08), ("potion_invisibility", 0.08),
         ("potion_frost", 0.08),
         ("gem_ruby", 0.03), ("gem_emerald", 0.02),

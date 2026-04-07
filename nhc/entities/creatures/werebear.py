@@ -20,5 +20,5 @@ def create_werebear() -> dict:
         "BlocksMovement": BlocksMovement(),
         "RequiresMagicWeapon": RequiresMagicWeapon(),
         "LootTable": LootTable(entries=[("gold", 0.5, "4d6"),
-                                        ("healing_potion", 0.3)]),
+                                        ("potion_healing", 0.3)]),
     }

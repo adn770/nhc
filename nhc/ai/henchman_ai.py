@@ -49,7 +49,7 @@ def _find_hostile_adjacent(
     return None
 
 
-def _find_healing_potion(world: "World", entity_id: int) -> int | None:
+def _find_potion_healing(world: "World", entity_id: int) -> int | None:
     """Return entity ID of a healing potion in inventory, or None."""
     inv = world.get_component(entity_id, "Inventory")
     if not inv:
@@ -135,7 +135,7 @@ def decide_henchman_action(
     # 1. Heal self if HP < 50%
     health = world.get_component(entity_id, "Health")
     if health and health.current < health.maximum // 2:
-        potion = _find_healing_potion(world, entity_id)
+        potion = _find_potion_healing(world, entity_id)
         if potion:
             logger.debug("Henchman %d uses healing potion", entity_id)
             return UseItemAction(actor=entity_id, item=potion)

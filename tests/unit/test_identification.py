@@ -24,14 +24,14 @@ class TestItemKnowledge:
 
     def test_identify_marks_item(self):
         k = ItemKnowledge(rng=random.Random(42))
-        k.identify("healing_potion")
-        assert k.is_identified("healing_potion")
+        k.identify("potion_healing")
+        assert k.is_identified("potion_healing")
         assert not k.is_identified("potion_frost")
 
     def test_display_name_unidentified(self):
         i18n_init("en")
         k = ItemKnowledge(rng=random.Random(42))
-        name = k.display_name("healing_potion")
+        name = k.display_name("potion_healing")
         # Should be a color-based name, not "Healing Potion"
         assert "Healing Potion" not in name
         assert "potion" in name.lower()
@@ -39,20 +39,20 @@ class TestItemKnowledge:
     def test_display_name_identified(self):
         i18n_init("en")
         k = ItemKnowledge(rng=random.Random(42))
-        k.identify("healing_potion")
-        assert k.display_name("healing_potion") == "Healing Potion"
+        k.identify("potion_healing")
+        assert k.display_name("potion_healing") == "Healing Potion"
 
     def test_display_short_unidentified(self):
         i18n_init("en")
         k = ItemKnowledge(rng=random.Random(42))
-        short = k.display_short("healing_potion")
+        short = k.display_short("potion_healing")
         assert "Healing Potion" not in short
 
     def test_display_short_identified(self):
         i18n_init("en")
         k = ItemKnowledge(rng=random.Random(42))
-        k.identify("healing_potion")
-        short = k.display_short("healing_potion")
+        k.identify("potion_healing")
+        short = k.display_short("potion_healing")
         assert "crimson" in short.lower()  # "a crimson potion"
 
 
@@ -119,7 +119,7 @@ class TestCatalanAppearances:
     def test_potion_catalan(self):
         i18n_init("ca")
         k = ItemKnowledge(rng=random.Random(42))
-        name = k.display_name("healing_potion")
+        name = k.display_name("potion_healing")
         assert "poció" in name.lower()
 
     def test_ring_catalan(self):

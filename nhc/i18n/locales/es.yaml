@@ -1291,7 +1291,7 @@ items:
     long: >-
       Una hoja compacta preferida por los escaramuzadores.
       Ideal para espacios reducidos.
-  healing_potion:
+  potion_healing:
     name: "Poción de Curación"
     short: "una poción carmesí"
     long: >-

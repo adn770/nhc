@@ -17,7 +17,7 @@ class TestEntityRegistry:
     def test_items_discovered(self):
         items = EntityRegistry.list_items()
         assert "sword" in items
-        assert "healing_potion" in items
+        assert "potion_healing" in items
 
     def test_features_discovered(self):
         features = EntityRegistry.list_features()
@@ -38,7 +38,7 @@ class TestEntityRegistry:
         assert sword["Weapon"].damage == "1d8"
 
     def test_consumable_factory(self):
-        potion = EntityRegistry.get_item("healing_potion")
+        potion = EntityRegistry.get_item("potion_healing")
         assert "Consumable" in potion
         assert isinstance(potion["Consumable"], Consumable)
         assert potion["Consumable"].effect == "heal"

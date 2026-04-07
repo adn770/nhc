@@ -28,7 +28,7 @@ class TestGodModeIdentification:
         k = ItemKnowledge(rng=random.Random(42))
         for item_id in ALL_IDS:
             k.identify(item_id)
-        assert k.display_name("healing_potion") == "Healing Potion"
+        assert k.display_name("potion_healing") == "Healing Potion"
         assert k.display_name("wand_firebolt") == "Wand of Firebolt"
         assert k.display_name("ring_mending") == "Ring of Mending"
         assert "Fireball" in k.display_name("scroll_fireball")

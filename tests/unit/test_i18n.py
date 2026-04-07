@@ -167,7 +167,7 @@ class TestGlobalInterface:
         """All locales have item name/short/long."""
         items = [
             "sword", "dagger", "short_sword",
-            "healing_potion", "gold", "shield", "scroll_lightning",
+            "potion_healing", "gold", "shield", "scroll_lightning",
         ]
         for lang in ("en", "ca", "es"):
             init(lang)

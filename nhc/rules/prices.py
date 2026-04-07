@@ -66,7 +66,7 @@ ITEM_PRICES: dict[str, int] = {
     "helmet_plus_1":       120,
     "leather_armor_plus_1": 60,
     # --- Potions ---
-    "healing_potion":      50,
+    "potion_healing":      50,
     "potion_strength":     75,
     "potion_speed":        75,
     "potion_invisibility": 100,

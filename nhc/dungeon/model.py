@@ -640,7 +640,7 @@ class Corridor:
 class EntityPlacement:
     """Entity spawn point within a level."""
     entity_type: str    # "creature", "item", "feature"
-    entity_id: str      # Registry ID: "goblin", "healing_potion", etc.
+    entity_id: str      # Registry ID: "goblin", "potion_healing", etc.
     x: int = 0
     y: int = 0
     extra: dict = field(default_factory=dict)  # patrol routes, hidden, dc, etc.

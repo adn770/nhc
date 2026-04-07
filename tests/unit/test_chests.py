@@ -49,7 +49,7 @@ def _make_world_with_chest(
     })
 
     entries = loot_entries or [
-        ("healing_potion", 1.0),
+        ("potion_healing", 1.0),
         ("gold", 1.0, "2d6"),
     ]
     chest_id = world.create_entity({

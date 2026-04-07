@@ -70,7 +70,7 @@ class ItemUsed(Event):
     entity: int = 0
     item: int = 0
     effect: str = ""
-    item_id: str = ""  # real item ID (e.g. "healing_potion") for identification
+    item_id: str = ""  # real item ID (e.g. "potion_healing") for identification
 
 
 @dataclass

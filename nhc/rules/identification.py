@@ -14,7 +14,7 @@ from nhc.i18n import t
 # ── Potion IDs and appearances ──────────────────────────────────────
 
 POTION_IDS = [
-    "healing_potion",
+    "potion_healing",
     "potion_strength",
     "potion_frost",
     "potion_invisibility",

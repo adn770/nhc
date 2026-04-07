@@ -22,10 +22,10 @@ class TestStartingEquipment:
             char = generate_character(seed=seed)
             assert "rations" in char.starting_items
 
-    def test_always_has_healing_potion(self):
+    def test_always_has_potion_healing(self):
         for seed in range(20):
             char = generate_character(seed=seed)
-            assert "healing_potion" in char.starting_items
+            assert "potion_healing" in char.starting_items
 
     def test_always_has_scroll(self):
         for seed in range(20):

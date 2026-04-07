@@ -67,7 +67,7 @@ def _make_merchant(world, x=6, y=5, stock=None):
         "AI": AI(behavior="idle", morale=4, faction="human"),
         "Health": Health(current=9, maximum=9),
         "Description": Description(name="Merchant"),
-        "ShopInventory": ShopInventory(stock=stock or ["sword", "healing_potion"]),
+        "ShopInventory": ShopInventory(stock=stock or ["sword", "potion_healing"]),
         "Renderable": Renderable(glyph="@"),
     })
 
@@ -307,16 +307,16 @@ class TestShopIdentification:
         """ItemKnowledge.display_name should return appearance, not real."""
         from nhc.rules.identification import ItemKnowledge
         knowledge = ItemKnowledge(rng=random.Random(42))
-        # healing_potion is identifiable and not yet identified
-        name = knowledge.display_name("healing_potion")
+        # potion_healing is identifiable and not yet identified
+        name = knowledge.display_name("potion_healing")
         assert "Healing Potion" not in name
         assert "potion" in name.lower() or "Potion" in name
 
     def test_display_name_uses_real_for_identified(self):
         from nhc.rules.identification import ItemKnowledge
         knowledge = ItemKnowledge(rng=random.Random(42))
-        knowledge.identify("healing_potion")
-        name = knowledge.display_name("healing_potion")
+        knowledge.identify("potion_healing")
+        name = knowledge.display_name("potion_healing")
         assert name == "Healing Potion"
 
     @pytest.mark.asyncio
@@ -328,11 +328,11 @@ class TestShopIdentification:
         world = World()
         level = _make_level()
         player = _make_player(world, gold=200)
-        merchant = _make_merchant(world, stock=["healing_potion"])
+        merchant = _make_merchant(world, stock=["potion_healing"])
 
         # Buy the potion
         action = BuyAction(actor=player, merchant=merchant,
-                           item_id="healing_potion")
+                           item_id="potion_healing")
         assert await action.validate(world, level)
         await action.execute(world, level)
 
@@ -348,11 +348,11 @@ class TestShopIdentification:
             "Renderable": world.get_component(item_eid, "Renderable"),
         }
         # Reuse the disguise logic
-        if (knowledge.is_identifiable("healing_potion")
-                and not knowledge.is_identified("healing_potion")):
+        if (knowledge.is_identifiable("potion_healing")
+                and not knowledge.is_identified("potion_healing")):
             desc = comps["Description"]
-            desc.name = knowledge.display_name("healing_potion")
-            desc.short = knowledge.display_short("healing_potion")
+            desc.name = knowledge.display_name("potion_healing")
+            desc.short = knowledge.display_short("potion_healing")
 
         desc = world.get_component(item_eid, "Description")
         assert "Healing Potion" not in desc.name

@@ -12,7 +12,7 @@ def create_chest() -> dict:
         "Renderable": Renderable(glyph="=", color="bright_yellow", render_order=1),
         "Description": item_desc("chest"),
         "LootTable": LootTable(entries=[
-            ("healing_potion", 0.5),
+            ("potion_healing", 0.5),
             ("gold", 0.8, "3d6"),
             ("rations", 0.4),
         ]),

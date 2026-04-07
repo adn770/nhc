@@ -270,7 +270,7 @@ def _roll_starting_equipment(rng) -> list[str]:
 
     # Always: rations + healing potion + random scroll
     items.append("rations")
-    items.append("healing_potion")
+    items.append("potion_healing")
     items.append(rng.choice(STARTING_SCROLLS))
 
     return items

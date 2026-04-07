@@ -194,7 +194,7 @@ entities:
 
   # Items
   - type: item
-    id: healing_potion
+    id: potion_healing
     position: {x: 3, y: 2}
 
   - type: item

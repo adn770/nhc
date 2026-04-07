@@ -1384,7 +1384,7 @@ items:
     long: >-
       Una fulla compacta preferida pels escaramussers.
       Ideal per a espais reduïts.
-  healing_potion:
+  potion_healing:
     name: "Poció de Curació"
     gender: "f"
     short: "una poció carmesí"

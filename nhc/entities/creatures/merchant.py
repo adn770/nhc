@@ -17,6 +17,6 @@ def create_merchant() -> dict:
         "Health": Health(current=9, maximum=9),
         "AI": AI(behavior="idle", morale=4, faction="human"),
         "LootTable": LootTable(entries=[("gold", 1.0, "6d6"),
-                                        ("healing_potion", 0.5),
+                                        ("potion_healing", 0.5),
                                         ("sword", 0.3)]),
     }
