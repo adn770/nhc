@@ -100,44 +100,21 @@ def _make_cave_room_level(
 
 
 class TestCaveDoors:
-    """Caves should only have secret doors and open passages."""
+    """Caves should have no doors at all — natural rock."""
 
-    def test_no_closed_doors_in_cave(self):
-        """Closed doors should never appear in cave levels."""
-        level = _generate_cave()
-        for row in level.tiles:
-            for tile in row:
-                assert tile.feature != "door_closed", (
-                    "Cave levels must not have door_closed features"
-                )
-
-    def test_no_locked_doors_in_cave(self):
-        """Locked doors should never appear in cave levels."""
-        level = _generate_cave()
-        for row in level.tiles:
-            for tile in row:
-                assert tile.feature != "door_locked", (
-                    "Cave levels must not have door_locked features"
-                )
-
-    def test_cave_may_have_secret_doors(self):
-        """With enough seeds, at least one cave should have a
-        secret door (~10% chance per junction)."""
-        found_secret = False
-        for seed in range(100):
+    def test_no_doors_in_cave(self):
+        """No door features of any kind in cave levels."""
+        door_feats = {
+            "door_closed", "door_open",
+            "door_secret", "door_locked",
+        }
+        for seed in range(20):
             level = _generate_cave(seed=seed)
             for row in level.tiles:
                 for tile in row:
-                    if tile.feature == "door_secret":
-                        found_secret = True
-                        break
-                if found_secret:
-                    break
-            if found_secret:
-                break
-        assert found_secret, (
-            "No secret doors found in 100 cave seeds"
-        )
+                    assert tile.feature not in door_feats, (
+                        f"Cave (seed={seed}) has {tile.feature}"
+                    )
 
 
 

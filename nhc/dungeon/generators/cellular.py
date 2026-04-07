@@ -163,16 +163,13 @@ class CellularGenerator(DungeonGenerator):
         # Step 7: Place stairs with max separation
         self._place_stairs(level, rng)
 
-        # Step 8: Place doors at corridor-cavern junctions
-        self._place_doors(level, rng)
-
-        # Step 8.5: Absorb corridor tiles into adjacent cave rooms.
+        # Step 8: Absorb corridor tiles into adjacent cave rooms.
         # Corridor tiles between cave rooms create narrow 1-tile
         # passages with walls on both sides — the SVG tracer
         # wraps tightly around these, producing knots.  Converting
         # them to room floor lets the tracer draw one smooth
-        # boundary.  Must run after door placement (which needs
-        # corridor flags to find junctions).
+        # boundary.  No doors in caves — natural rock has open
+        # passages only.
         absorbed = _absorb_corridors_into_caves(level)
         if absorbed:
             self._build_walls(level)

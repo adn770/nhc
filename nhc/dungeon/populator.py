@@ -142,6 +142,20 @@ FEATURE_POOLS: list[tuple[str, float]] = [
     ("trap_trapdoor", 0.05),
 ]
 
+# Cave-specific pool: more trapdoors (natural collapses),
+# more pits and falling stones, no mechanical traps.
+CAVE_FEATURE_POOLS: list[tuple[str, float]] = [
+    ("trap_pit", 0.20),
+    ("trap_trapdoor", 0.20),
+    ("trap_falling_stone", 0.15),
+    ("trap_spores", 0.12),
+    ("trap_poison", 0.10),
+    ("trap_gripping", 0.08),
+    ("trap_fire", 0.05),
+    ("trap_teleport", 0.05),
+    ("trap_summoning", 0.05),
+]
+
 # ── Buried item pools (gold + potions by tier) ─────────────────────
 
 BURIED_POOLS: dict[int, list[tuple[str, float]]] = {
@@ -531,7 +545,11 @@ def populate_level(
         pos = _pick_floor(room)
         if not pos:
             continue
-        feat_id, _ = rng.choice(FEATURE_POOLS)
+        theme = (level.metadata.theme
+                 if level.metadata else "dungeon")
+        pool = (CAVE_FEATURE_POOLS if theme == "cave"
+                else FEATURE_POOLS)
+        feat_id, _ = rng.choice(pool)
         level.entities.append(EntityPlacement(
             entity_type="feature", entity_id=feat_id,
             x=pos[0], y=pos[1],
