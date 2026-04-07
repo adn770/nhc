@@ -34,7 +34,7 @@ from nhc.rendering.terrain_palette import (
 CELL = 32          # pixels per grid cell
 PILL_ARC_SEGMENTS = 12  # per-cap polygon segments for pill outlines
 TEMPLE_ARC_SEGMENTS = 12  # per-cap polygon segments for temple arm caps
-PADDING = 48       # padding around the map (room for hatching + lobes)
+PADDING = 32       # padding around the map (must match web client)
 WALL_WIDTH = 5.0   # wall stroke width (bold Dyson style)
 WALL_THIN = 2.0    # thinner wall for corridors
 GRID_WIDTH = 0.3   # soft floor grid line width
