@@ -77,6 +77,7 @@ const NHC = {
       GameMap.exploredWalls = new Map();
       GameMap.doorInfo = new Map();
       GameMap.allDoors = new Map();
+      GameMap.dugTiles = new Map();
       GameMap.lastSeen = new Map();
       GameMap.entities = [];
       GameMap.doors = [];

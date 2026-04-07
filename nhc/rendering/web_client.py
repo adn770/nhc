@@ -1096,6 +1096,7 @@ class WebClient(GameClient):
         entities = self._gather_entities(world, level, player_id, turn)
         fov = self._gather_fov(level)
         doors = self._gather_doors(level)
+        dug = self._gather_dug(level)
         explored = self._gather_explored(level)
 
         meta = level.metadata
@@ -1106,6 +1107,7 @@ class WebClient(GameClient):
             "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,
+            "dug": dug,
             "fov": fov,
             "walk": walk,
             "explored": explored,
