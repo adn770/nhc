@@ -2234,7 +2234,7 @@ def _tile_detail(
     is_cave = theme == "cave"
 
     # Caves: more cracks, fewer scratches, bigger stones
-    crack_prob = 0.15 if is_cave else 0.08
+    crack_prob = 0.32 if is_cave else 0.08
     scratch_prob = 0.01 if is_cave else 0.05
     stone_prob = 0.10 if is_cave else 0.06
     cluster_prob = 0.06 if is_cave else 0.03
@@ -3336,6 +3336,9 @@ def _render_walls_and_floors(
         )
 
 
+STAIR_FILL = "#E0E0E0"  # bright grey fill for stairs in caves
+
+
 def _render_stairs(svg: list[str], level: "Level") -> None:
     """Render stairs as tapering wedges with parallel step lines.
 
@@ -3348,6 +3351,8 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
     rail_sw = 1.5
     step_sw = 1.0
     n_steps = 5
+    theme = (level.metadata.theme
+             if level.metadata else "dungeon")
 
     for y in range(level.height):
         for x in range(level.width):
@@ -3364,6 +3369,25 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
             # Wide end half-height and narrow end half-height
             wide_h = CELL * 0.4
             narrow_h = CELL * 0.1
+
+            # In caves, fill the stair trapezoid with bright grey
+            # so stairs stand out against the brown cave floor.
+            if theme == "cave":
+                left_x = px + m
+                right_x = px + CELL - m
+                if down:
+                    pts = (f'{left_x:.1f},{cy - wide_h:.1f} '
+                           f'{right_x:.1f},{cy - narrow_h:.1f} '
+                           f'{right_x:.1f},{cy + narrow_h:.1f} '
+                           f'{left_x:.1f},{cy + wide_h:.1f}')
+                else:
+                    pts = (f'{left_x:.1f},{cy - narrow_h:.1f} '
+                           f'{right_x:.1f},{cy - wide_h:.1f} '
+                           f'{right_x:.1f},{cy + wide_h:.1f} '
+                           f'{left_x:.1f},{cy + narrow_h:.1f}')
+                svg.append(
+                    f'<polygon points="{pts}" '
+                    f'fill="{STAIR_FILL}" stroke="none"/>')
 
             if down:
                 # Wide on left, narrow on right
@@ -3563,34 +3587,62 @@ def _render_hatching(
     min_stroke = 1.0
     max_stroke = 1.8
 
+    # Pre-compute floor tile set for grid-based skip check.
+    # Using the tile grid instead of the polygon ensures every
+    # floor tile is surrounded by hatching — the polygon boundary
+    # can deviate from the tile grid due to jitter/smoothing,
+    # leaving some adjacent wall tiles unhatched.  Any hatching
+    # that overlaps floor area is covered by the floor fill.
+    floor_set: set[tuple[int, int]] = set()
+    for ty in range(level.height):
+        for tx in range(level.width):
+            if level.tiles[ty][tx].terrain == Terrain.FLOOR:
+                floor_set.add((tx, ty))
+
     tile_fills: list[str] = []
     hatch_lines: list[str] = []
     hatch_stones: list[str] = []
 
     for gy in range(-1, level.height + 1):
         for gx in range(-1, level.width + 1):
-            center = Point((gx + 0.5) * CELL, (gy + 0.5) * CELL)
-            inside_hole = any(
-                hp.contains(center) for hp in hole_polys
-            )
-            if hatching_boundary.contains(center) and not inside_hole:
+            # Skip actual floor tiles — they're covered by fill
+            if (gx, gy) in floor_set:
                 continue
-            dist = hatching_boundary.boundary.distance(center)
-            # For hole tiles, use distance to the hole boundary
-            # so hatching fills the entire hole.
-            if inside_hole:
-                dist = 0.0
+            # Distance: use nearest floor tile as reference
+            # (faster than polygon boundary distance)
+            min_dist = float('inf')
+            for dx in range(-2, 3):
+                for dy in range(-2, 3):
+                    if (gx + dx, gy + dy) in floor_set:
+                        min_dist = min(min_dist,
+                                       math.hypot(dx, dy) * CELL)
+            if min_dist == float('inf'):
+                # No floor tile nearby — use polygon distance
+                center = Point(
+                    (gx + 0.5) * CELL, (gy + 0.5) * CELL)
+                min_dist = hatching_boundary.boundary.distance(
+                    center)
+            dist = min_dist
 
             # Irregular contour: vary distance limit per tile with
-            # Perlin noise so the hatching edge flows organically
-            noise_var = _noise.pnoise2(
-                gx * 0.3, gy * 0.3, base=50) * CELL * 0.8
-            tile_limit = base_distance_limit + noise_var
+            # Perlin noise so the hatching edge flows organically.
+            # Caves use a fixed limit — dense, continuous hatching
+            # sells the solid rock illusion.
+            if cave_wall_poly is None:
+                noise_var = _noise.pnoise2(
+                    gx * 0.3, gy * 0.3, base=50) * CELL * 0.8
+                tile_limit = base_distance_limit + noise_var
+            else:
+                tile_limit = base_distance_limit
             if dist > tile_limit:
                 continue
 
-            # Random discontinuities: skip ~10% of edge tiles
-            if dist > base_distance_limit * 0.5 and rng.random() < 0.10:
+            # Random discontinuities: skip ~10% of edge tiles.
+            # Caves skip this — they need dense, continuous hatching
+            # to sell the solid rock illusion.
+            if (cave_wall_poly is None
+                    and dist > base_distance_limit * 0.5
+                    and rng.random() < 0.10):
                 continue
 
             # Grey underlay tile
