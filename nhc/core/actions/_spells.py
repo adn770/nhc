@@ -536,14 +536,22 @@ def _use_find_traps(
     actor: int,
     item: int,
 ) -> list[Event]:
-    """Reveal all hidden traps on the level."""
+    """Reveal all hidden traps on the level with a fading glow."""
     events: list[Event] = []
     events.append(MessageEvent(text=t("item.find_traps_cast")))
 
+    turn = world.turn
+    duration = 20
+    glow = "#FF6600"
     count = 0
+
     for eid, trap, tpos in world.query("Trap", "Position"):
         if trap.hidden:
             trap.hidden = False
+            world.add_component(eid, "Detected", Detected(
+                turn_detected=turn, duration=duration,
+                glow_color=glow,
+            ))
             count += 1
 
     if count:
