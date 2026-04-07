@@ -681,6 +681,7 @@ ui:
   action_equip: "Equipar"
   action_unequip: "Desequipar"
   action_drop: "Soltar"
+  action_give: "Dar"
   action_throw: "Lanzar"
   toolbar_pickup: "Recoger (g)"
   toolbar_inventory: "Inventario (i)"

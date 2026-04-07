@@ -699,6 +699,7 @@ ui:
   action_equip: "Equipar"
   action_unequip: "Desequipar"
   action_drop: "Deixar"
+  action_give: "Donar"
   action_throw: "Llançar"
   toolbar_pickup: "Agafar (g)"
   toolbar_inventory: "Inventari (i)"

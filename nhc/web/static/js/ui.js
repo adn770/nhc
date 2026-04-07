@@ -40,6 +40,7 @@ const UI = {
     s = Object.assign({}, this._staticStats || {}, s);
     if (!s.hp_max) return;
     this._currentStats = s;
+    NHC.stats = s;
 
     // ── Line 1: Location, depth, turn, level, gold, HP bar ──
     const hp = s.hp || 0;
@@ -205,6 +206,9 @@ const UI = {
     }
     if (types.includes("throwable")) {
       actions.push({ action: "throw", label: L.throw || "Throw" });
+    }
+    if (NHC.stats && NHC.stats.has_henchmen) {
+      actions.push({ action: "give", label: L.give || "Give" });
     }
     actions.push({ action: "drop", label: L.drop || "Drop" });
     return actions;

@@ -596,6 +596,10 @@ class WebClient(GameClient):
             "items": items,
             "equipped_items": equipped_items,
             "slots_used": total_used,
+            "has_henchmen": any(
+                h.hired and h.owner == player_id
+                for _, h in world.query("Henchman")
+            ),
         }
         return static, dynamic
 
@@ -615,6 +619,7 @@ class WebClient(GameClient):
             "equip": tr("ui.action_equip"),
             "unequip": tr("ui.action_unequip"),
             "drop": tr("ui.action_drop"),
+            "give": tr("ui.action_give"),
             "throw": tr("ui.action_throw"),
             # Toolbar
             "toolbar_pickup": tr("ui.toolbar_pickup"),

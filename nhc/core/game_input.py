@@ -403,6 +403,27 @@ def resolve_item_action(game: Game, data: dict) -> Action | None:
     if action == "unequip":
         return UnequipAction(actor=game.player_id, item=item_id)
 
+    if action == "give":
+        henchmen = get_hired_henchmen(game.world, game.player_id)
+        if not henchmen:
+            return None
+        hench_items = []
+        for hid in henchmen:
+            desc = game.world.get_component(hid, "Description")
+            name = desc.name if desc else "Henchman"
+            hench_items.append((hid, name))
+        if len(hench_items) == 1:
+            hid = hench_items[0][0]
+        else:
+            hid = game.renderer.show_selection_menu(
+                t("henchman.give_prompt"), hench_items,
+            )
+        if hid is None:
+            return None
+        return GiveItemAction(
+            actor=game.player_id, henchman_id=hid, item_id=item_id,
+        )
+
     if action == "drop":
         return DropAction(actor=game.player_id, item=item_id)
 

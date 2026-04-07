@@ -681,6 +681,7 @@ ui:
   action_equip: "Equip"
   action_unequip: "Unequip"
   action_drop: "Drop"
+  action_give: "Give"
   action_throw: "Throw"
   toolbar_pickup: "Pickup (g)"
   toolbar_inventory: "Inventory (i)"
