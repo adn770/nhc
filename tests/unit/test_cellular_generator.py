@@ -8,8 +8,11 @@ from collections import deque
 import pytest
 
 from nhc.dungeon.generator import GenerationParams
-from nhc.dungeon.generators.cellular import CellularGenerator
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.generators.cellular import (
+    CellularGenerator, _absorb_corridors_into_caves,
+    _erode_wall_peninsulas,
+)
+from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.dungeon.populator import populate_level
 from nhc.dungeon.room_types import assign_room_types
 from nhc.dungeon.terrain import apply_terrain
@@ -229,6 +232,134 @@ class TestCellularCorridorShape:
             f"{self.MAX_STRAIGHT_RUN + 2} tiles; expected ≤ "
             f"{len(longest_runs) // 5}"
         )
+
+
+class TestErodeWallPeninsulas:
+    """Post-processing pass that removes narrow wall protrusions
+    from cave regions to prevent knots in the SVG outline."""
+
+    def _make_level_with_peninsula(self) -> Level:
+        """Create a level with a single-tile wall peninsula.
+
+        Layout (10x10, floor from rows 1-6, cols 1-8):
+            ..........
+            .FFFFFFFF.
+            .FFFFFFFF.
+            .FFF#FFFF.   <- wall peninsula at (4,3)
+            .FFFFFFFF.
+            .FFFFFFFF.
+            .FFFFFFFF.
+            ..........
+
+        The wall at (4,3) has floor on all 4 cardinal sides,
+        so it's a peninsula tip that should be eroded.
+        """
+        level = Level.create_empty(
+            "test", "Test", depth=1, width=10, height=10,
+        )
+        # Carve floor
+        floor_tiles: set[tuple[int, int]] = set()
+        for y in range(1, 7):
+            for x in range(1, 9):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                floor_tiles.add((x, y))
+        # Insert single-tile wall peninsula
+        level.tiles[3][4] = Tile(terrain=Terrain.WALL)
+        floor_tiles.discard((4, 3))
+        return level, floor_tiles
+
+    def test_peninsula_tip_removed(self):
+        """A 2-wide wall peninsula surrounded by floor on 3 sides
+        should be eroded to floor."""
+        level, floor_tiles = self._make_level_with_peninsula()
+        converted = _erode_wall_peninsulas(level, floor_tiles)
+        assert converted > 0, "Should convert some wall tiles"
+        # The peninsula tile should now be floor
+        assert level.tiles[3][4].terrain == Terrain.FLOOR, (
+            "Peninsula tile (4,3) should be floor"
+        )
+
+    def test_border_walls_preserved(self):
+        """Walls on the map border should never be eroded."""
+        level, floor_tiles = self._make_level_with_peninsula()
+        _erode_wall_peninsulas(level, floor_tiles)
+        # Top row should still be VOID (border)
+        for x in range(10):
+            assert level.tiles[0][x].terrain != Terrain.FLOOR
+
+    def test_solid_walls_preserved(self):
+        """A wall with only 1-2 floor neighbors (part of a solid
+        wall mass) should not be eroded."""
+        level = Level.create_empty(
+            "test", "Test", depth=1, width=10, height=10,
+        )
+        floor_tiles: set[tuple[int, int]] = set()
+        # Floor only on bottom half
+        for y in range(5, 9):
+            for x in range(1, 9):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+                floor_tiles.add((x, y))
+        # Wall row at y=4 borders floor only on south side
+        for x in range(1, 9):
+            level.tiles[4][x] = Tile(terrain=Terrain.WALL)
+        converted = _erode_wall_peninsulas(level, floor_tiles)
+        # These wall tiles have floor on only 1 side — keep them
+        assert converted == 0, (
+            "Solid wall row should not be eroded"
+        )
+
+    def test_no_peninsulas_in_generated_cave(self):
+        """After full generation, no wall tile should have floor
+        on 3+ cardinal sides or on opposite cardinal sides (those
+        are the peninsulas/thin walls that cause knots)."""
+        level = _generate(seed=42)
+        for y in range(1, level.height - 1):
+            for x in range(1, level.width - 1):
+                t = level.tiles[y][x]
+                if t.terrain != Terrain.WALL:
+                    continue
+                n = level.tiles[y-1][x].terrain == Terrain.FLOOR
+                s = level.tiles[y+1][x].terrain == Terrain.FLOOR
+                e = level.tiles[y][x+1].terrain == Terrain.FLOOR
+                w = level.tiles[y][x-1].terrain == Terrain.FLOOR
+                card = n + s + e + w
+                assert card < 3, (
+                    f"Wall peninsula at ({x},{y}) has "
+                    f"{card} cardinal floor neighbors"
+                )
+                if card == 2:
+                    assert not (n and s or e and w), (
+                        f"Thin wall at ({x},{y}): floor on "
+                        f"opposite sides"
+                    )
+
+
+class TestAbsorbCorridorsIntoCaves:
+    """Corridor tiles adjacent to cave rooms should be absorbed."""
+
+    def test_no_corridor_tiles_in_generated_cave(self):
+        """After full generation, no corridor tile should remain
+        adjacent to a cave room — they should all be absorbed."""
+        level = _generate(seed=42)
+        from nhc.dungeon.generators.cellular import CaveShape
+        cave_floor: set[tuple[int, int]] = set()
+        for room in level.rooms:
+            if isinstance(room.shape, CaveShape):
+                cave_floor |= room.floor_tiles()
+        for y in range(1, level.height - 1):
+            for x in range(1, level.width - 1):
+                t = level.tiles[y][x]
+                if not t.is_corridor:
+                    continue
+                # Check if adjacent to a cave room tile
+                adjacent = any(
+                    (x + dx, y + dy) in cave_floor
+                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+                )
+                assert not adjacent, (
+                    f"Corridor tile ({x},{y}) is adjacent to "
+                    f"cave room but was not absorbed"
+                )
 
 
 class TestCellularGeneratorIntegration:

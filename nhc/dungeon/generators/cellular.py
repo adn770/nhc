@@ -121,11 +121,65 @@ class CellularGenerator(DungeonGenerator):
         # Step 6: Build walls around floor tiles
         self._build_walls(level)
 
+        # Step 6.5: Erode wall peninsulas — wall tiles with floor
+        # on 3+ cardinal sides create tight concavities that
+        # produce knots in the SVG wall outline.  Convert them to
+        # floor, rebuild walls, and repeat until no more
+        # peninsulas remain (rebuilding can expose new ones).
+        total_eroded = 0
+        for _pass in range(10):  # bounded iterations
+            all_floor: set[tuple[int, int]] = set()
+            for y in range(level.height):
+                for x in range(level.width):
+                    if level.tiles[y][x].terrain == Terrain.FLOOR:
+                        all_floor.add((x, y))
+            eroded = _erode_wall_peninsulas(level, all_floor)
+            if not eroded:
+                break
+            total_eroded += eroded
+            self._build_walls(level)
+        # Final sanity: if the last rebuild created new
+        # peninsulas, run one more erosion + rebuild.
+        else:
+            logger.warning(
+                "Wall erosion did not converge in 10 passes",
+            )
+        if total_eroded:
+            # Add newly-converted tiles to the appropriate room.
+            for room in level.rooms:
+                if not isinstance(room.shape, CaveShape):
+                    continue
+                rtiles = room.shape._tiles
+                for (x, y) in list(all_floor - rtiles):
+                    for dx, dy in ((-1, 0), (1, 0),
+                                   (0, -1), (0, 1)):
+                        if (x + dx, y + dy) in rtiles:
+                            rtiles.add((x, y))
+                            break
+            logger.info(
+                "Eroded %d wall peninsula tiles", total_eroded,
+            )
+
         # Step 7: Place stairs with max separation
         self._place_stairs(level, rng)
 
         # Step 8: Place doors at corridor-cavern junctions
         self._place_doors(level, rng)
+
+        # Step 8.5: Absorb corridor tiles into adjacent cave rooms.
+        # Corridor tiles between cave rooms create narrow 1-tile
+        # passages with walls on both sides — the SVG tracer
+        # wraps tightly around these, producing knots.  Converting
+        # them to room floor lets the tracer draw one smooth
+        # boundary.  Must run after door placement (which needs
+        # corridor flags to find junctions).
+        absorbed = _absorb_corridors_into_caves(level)
+        if absorbed:
+            self._build_walls(level)
+            logger.info(
+                "Absorbed %d corridor tiles into cave rooms",
+                absorbed,
+            )
 
         floors = sum(
             1 for row in level.tiles for t in row
@@ -525,6 +579,101 @@ class CellularGenerator(DungeonGenerator):
                         if rng.random() < 0.10:
                             tile.feature = "door_secret"
                         break
+
+
+def _absorb_corridors_into_caves(level: Level) -> int:
+    """Convert corridor tiles into cave room floor tiles.
+
+    Walks every corridor tile and checks if it is adjacent to a
+    CaveShape room.  If so, clears its ``is_corridor`` flag and
+    adds it to that room's tile set.  This lets the SVG cave
+    region tracer include these tiles in the smooth boundary
+    instead of drawing per-tile wall segments around them.
+
+    Returns the number of tiles absorbed.
+    """
+    # Build a lookup: tile coord → CaveShape room
+    cave_tiles: dict[tuple[int, int], Room] = {}
+    for room in level.rooms:
+        if not isinstance(room.shape, CaveShape):
+            continue
+        for t in room.shape._tiles:
+            cave_tiles[t] = room
+
+    absorbed = 0
+    # Iterate until stable — absorbing a tile can make its
+    # corridor neighbor adjacent to the room.
+    changed = True
+    while changed:
+        changed = False
+        for y in range(1, level.height - 1):
+            for x in range(1, level.width - 1):
+                t = level.tiles[y][x]
+                if not (t.terrain == Terrain.FLOOR
+                        and t.is_corridor):
+                    continue
+                # Find an adjacent cave room
+                owner = None
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    owner = cave_tiles.get((x + dx, y + dy))
+                    if owner is not None:
+                        break
+                if owner is None:
+                    continue
+                # Absorb: clear corridor flag, add to room
+                t.is_corridor = False
+                owner.shape._tiles.add((x, y))
+                cave_tiles[(x, y)] = owner
+                absorbed += 1
+                changed = True
+    return absorbed
+
+
+def _erode_wall_peninsulas(
+    level: Level,
+    floor_tiles: set[tuple[int, int]],
+) -> int:
+    """Remove narrow wall protrusions that poke into cave regions.
+
+    Erodes wall tiles that form thin peninsulas or notches —
+    these create tight concavities in the cave boundary that
+    produce knots in the SVG wall outline.  Two criteria:
+
+    1. **Peninsula tips**: wall with floor on 3+ cardinal sides.
+    2. **Thin walls**: wall with floor on opposite cardinal sides
+       (north+south or east+west), forming a 1-tile-thick wall
+       between two floor areas.
+
+    Iterates until stable.  Returns total tiles converted.
+    """
+    total = 0
+    changed = True
+    while changed:
+        changed = False
+        for y in range(1, level.height - 1):
+            for x in range(1, level.width - 1):
+                t = level.tiles[y][x]
+                if t.terrain != Terrain.WALL:
+                    continue
+                n = (x, y - 1) in floor_tiles
+                s = (x, y + 1) in floor_tiles
+                e = (x + 1, y) in floor_tiles
+                w = (x - 1, y) in floor_tiles
+                card = n + s + e + w
+                erode = False
+                if card >= 3:
+                    erode = True
+                elif card == 2 and (n and s or e and w):
+                    # Floor on opposite sides — thin wall
+                    erode = True
+                if erode:
+                    level.tiles[y][x] = Tile(
+                        terrain=Terrain.FLOOR,
+                    )
+                    floor_tiles.add((x, y))
+                    total += 1
+                    changed = True
+    return total
 
 
 MAX_STRAIGHT = 4
