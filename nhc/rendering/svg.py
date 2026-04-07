@@ -44,6 +44,7 @@ HATCH_UNDERLAY = "#D0D0D0"
 
 BG = "#F5EDE0"
 FLOOR_COLOR = "#FFFFFF"
+CAVE_FLOOR_COLOR = "#F5EBD8"  # soft warm brown for cave floors
 INK = "#000000"
 FLOOR_STONE_FILL = "#E8D5B8"  # soft brown for room floor stones
 FLOOR_STONE_STROKE = "#666666"
@@ -100,7 +101,8 @@ def render_floor_svg(
     # Layer 2: Hatching (rooms clipped to exterior of dungeon
     # polygon, corridors hatched one tile on each side)
     _render_hatching(svg, level, seed, dungeon_poly,
-                     hatch_distance=hatch_distance)
+                     hatch_distance=hatch_distance,
+                     cave_wall_poly=cave_wall_poly)
     _render_corridor_hatching(svg, level, seed)
 
     # Layer 3: Walls + floor fills
@@ -1516,7 +1518,7 @@ def _jitter_ring_outward(
     # larger caves get more undulations.  Phase is random per
     # ring so each wall segment looks different.
     # Low frequency → fewer, bolder lobes (Dyson style).
-    scurve_freq = max(2.0, total_arc / (CELL * 6.0))
+    scurve_freq = max(4.0, total_arc / (CELL * 2.0))
     scurve_phase = rng.uniform(0, 2 * math.pi)
     # Second harmonic at ~1.7× frequency for organic variation
     # (avoids the mechanical look of a pure single sine wave).
@@ -1598,8 +1600,8 @@ def _jitter_ring_outward(
         # Combined wave: primary + 40% second harmonic
         combined_wave = wave + 0.4 * wave2
         # Constant outward base + sinusoidal undulation + noise
-        base_offset = CELL * 0.45
-        wave_amp = CELL * 0.4
+        base_offset = CELL * 0.15
+        wave_amp = CELL * 0.25
         noise = CELL * rng.uniform(-0.08, 0.08)
         mag = (base_offset + wave_amp * combined_wave
                + noise) * corner_damp
@@ -1698,7 +1700,7 @@ def _build_cave_wall_geometry(
     # The outward jitter still uses the UNBUFFERED ``poly`` for the
     # containment safety check, so no floor tile can end up outside
     # the final wall ring no matter how the jitter lands.
-    buffer_r = CELL * 0.8
+    buffer_r = CELL * 0.3
     # Light simplification after buffering to remove collinear
     # points introduced by adjacent arc segments while keeping the
     # arcs themselves intact.
@@ -2198,7 +2200,7 @@ def _wobbly_grid_seg(
 _DETAIL_SCALE: dict[str, float] = {
     "dungeon": 1.0,
     "crypt":   2.0,
-    "cave":    1.2,
+    "cave":    2.0,
     "sewer":   1.0,
     "castle":  0.8,
     "forest":  0.6,
@@ -2225,12 +2227,21 @@ def _tile_detail(
     rng: random.Random, x: int, y: int, seed: int,
     cracks: list[str], stones: list[str], scratches: list[str],
     detail_scale: float = 1.0,
+    theme: str = "dungeon",
 ) -> None:
     """Generate floor detail (cracks, stones, scratches) for one tile."""
     px, py = x * CELL, y * CELL
+    is_cave = theme == "cave"
+
+    # Caves: more cracks, fewer scratches, bigger stones
+    crack_prob = 0.15 if is_cave else 0.08
+    scratch_prob = 0.01 if is_cave else 0.05
+    stone_prob = 0.10 if is_cave else 0.06
+    cluster_prob = 0.06 if is_cave else 0.03
+    stone_scale = 1.8 if is_cave else 1.0
 
     roll = rng.random()
-    if roll < 0.08 * detail_scale:
+    if roll < crack_prob * detail_scale:
         # Crack line from a tile corner into the tile interior.
         # The tile grid edges complete the triangle visually.
         corner = rng.randint(0, 3)
@@ -2248,19 +2259,19 @@ def _tile_detail(
             cracks.append(
                 f'{px + CELL - s1},{py + CELL} '
                 f'{px + CELL},{py + CELL - s2}')
-    elif roll < 0.08 * detail_scale + 0.05 * detail_scale:
+    elif roll < crack_prob * detail_scale + scratch_prob * detail_scale:
         scratches.append(_y_scratch(rng, px, py, x, y, seed))
 
-    if rng.random() < 0.06 * detail_scale:
-        stones.append(_floor_stone(rng, px, py))
+    if rng.random() < stone_prob * detail_scale:
+        stones.append(_floor_stone(rng, px, py, scale=stone_scale))
 
-    if rng.random() < 0.03 * detail_scale:
+    if rng.random() < cluster_prob * detail_scale:
         cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
         cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
         for _ in range(3):
             sx = cx + rng.uniform(-CELL * 0.2, CELL * 0.2)
             sy = cy + rng.uniform(-CELL * 0.2, CELL * 0.2)
-            scale = rng.uniform(0.5, 1.3)
+            scale = rng.uniform(0.5, 1.3) * stone_scale
             rx = rng.uniform(2, CELL * 0.15) * scale
             ry = rng.uniform(2, CELL * 0.12) * scale
             angle = rng.uniform(0, 180)
@@ -2362,7 +2373,12 @@ def _emit_thematic_detail(
 
 
 def _dungeon_interior_clip(svg: list[str], dungeon_poly, clip_id: str):
-    """Emit an SVG clipPath for the dungeon interior polygon."""
+    """Emit an SVG clipPath for the dungeon interior polygon.
+
+    Includes interior holes (cave islands) so that grid lines
+    and floor details are clipped away inside them, letting the
+    hatching layer show through.
+    """
     if dungeon_poly is None or dungeon_poly.is_empty:
         return
     geoms = (dungeon_poly.geoms
@@ -2375,9 +2391,16 @@ def _dungeon_interior_clip(svg: list[str], dungeon_poly, clip_id: str):
         clip_d += ' '.join(
             f'L{x:.0f},{y:.0f}' for x, y in coords[1:])
         clip_d += ' Z '
+        # Add interior holes so the clip excludes them
+        for hole in geom.interiors:
+            h = list(hole.coords)
+            clip_d += f'M{h[0][0]:.0f},{h[0][1]:.0f} '
+            clip_d += ' '.join(
+                f'L{x:.0f},{y:.0f}' for x, y in h[1:])
+            clip_d += ' Z '
     svg.append(
         f'<defs><clipPath id="{clip_id}">'
-        f'<path d="{clip_d}"/>'
+        f'<path d="{clip_d}" fill-rule="evenodd"/>'
         f'</clipPath></defs>')
 
 
@@ -2550,21 +2573,23 @@ def _render_floor_detail(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            # Skip terrain tiles — they get their own detail layer
+            # Skip terrain tiles and stairs
             if tile.terrain in _TERRAIN_TYPES:
+                continue
+            if tile.feature in ("stairs_up", "stairs_down"):
                 continue
             is_cor = (tile.is_corridor
                       or _is_door(level, x, y))
             if is_cor:
                 _tile_detail(rng, x, y, seed,
                              cor_cracks, cor_stones, cor_scratches,
-                             detail_scale=scale)
+                             detail_scale=scale, theme=theme)
                 _tile_thematic_detail(rng, x, y, level, probs,
                                      cor_webs, cor_bones, cor_skulls)
             else:
                 _tile_detail(rng, x, y, seed,
                              room_cracks, room_stones, room_scratches,
-                             detail_scale=scale)
+                             detail_scale=scale, theme=theme)
                 _tile_thematic_detail(rng, x, y, level, probs,
                                      room_webs, room_bones,
                                      room_skulls)
@@ -2900,12 +2925,15 @@ def _y_scratch(
         f'stroke-linecap="round"/>')
 
 
-def _floor_stone(rng: random.Random, px: float, py: float) -> str:
-    """Single floor stone ellipse — original small size, brown fill."""
+def _floor_stone(
+    rng: random.Random, px: float, py: float,
+    scale: float = 1.0,
+) -> str:
+    """Single floor stone ellipse — brown fill, scaled by *scale*."""
     sx = px + rng.uniform(CELL * 0.25, CELL * 0.75)
     sy = py + rng.uniform(CELL * 0.25, CELL * 0.75)
-    rx = rng.uniform(2, CELL * 0.15)
-    ry = rng.uniform(2, CELL * 0.12)
+    rx = rng.uniform(2, CELL * 0.15) * scale
+    ry = rng.uniform(2, CELL * 0.12) * scale
     angle = rng.uniform(0, 180)
     sw = rng.uniform(1.2, 2.0)
     return (
@@ -3171,39 +3199,16 @@ def _render_walls_and_floors(
                 cave_region_rooms.add(idx)
 
     cave_region_svg: list[str] = []
-    if (cave_wall_poly is not None
-            and not cave_wall_poly.is_empty):
-        polys = (
-            list(cave_wall_poly.geoms)
-            if hasattr(cave_wall_poly, 'geoms')
-            else [cave_wall_poly]
-        )
-        fill_parts: list[str] = []
-        for poly in polys:
-            ext = list(poly.exterior.coords)
-            if ext and ext[0] == ext[-1]:
-                ext = ext[:-1]
-            fill_parts.append(
-                "M" + " L".join(
-                    f"{x:.1f},{y:.1f}" for x, y in ext
-                ) + " Z"
-            )
-            for hole in poly.interiors:
-                h = list(hole.coords)
-                if h and h[0] == h[-1]:
-                    h = h[:-1]
-                fill_parts.append(
-                    "M" + " L".join(
-                        f"{x:.1f},{y:.1f}" for x, y in h
-                    ) + " Z"
-                )
-        if fill_parts:
-            cave_region_svg.append(
-                f'<path d="{" ".join(fill_parts)}" '
-                f'fill="{FLOOR_COLOR}" stroke="none" '
-                f'fill-rule="evenodd"/>'
-            )
     if cave_wall_path:
+        # Use the same smoothed Bézier path for both fill and
+        # stroke — the wall path already contains subpaths for
+        # exterior + holes, so evenodd fill-rule cuts out holes
+        # precisely along the same curves the stroke follows.
+        cave_region_svg.append(cave_wall_path.replace(
+            '/>',
+            f' fill="{CAVE_FLOOR_COLOR}" stroke="none" '
+            f'fill-rule="evenodd"/>',
+        ))
         cave_region_svg.append(cave_wall_path.replace(
             '/>', f' fill="none" {_STROKE_STYLE}/>'))
 
@@ -3430,9 +3435,93 @@ def _render_stairs(svg: list[str], level: "Level") -> None:
 
 # ── Hatching ─────────────────────────────────────────────────────
 
+def _render_hole_hatching(
+    svg: list[str], level: "Level", seed: int,
+    cave_wall_poly,
+) -> None:
+    """Render hatching inside interior holes of the cave polygon.
+
+    Interior holes (islands of wall/void surrounded by floor) need
+    hatching rendered AFTER the cave floor fill so it's not covered
+    by the brown fill.  Uses the same grey underlay + stone style
+    as the perimeter hatching.
+    """
+    rng = random.Random(seed + 777)
+    polys = (
+        list(cave_wall_poly.geoms)
+        if hasattr(cave_wall_poly, 'geoms')
+        else [cave_wall_poly]
+    )
+    hole_polys = []
+    for p in polys:
+        for interior in p.interiors:
+            hole_polys.append(Polygon(interior.coords))
+    if not hole_polys:
+        return
+
+    tile_fills: list[str] = []
+    hatch_stones: list[str] = []
+    hatch_lines: list[str] = []
+
+    for gy in range(level.height):
+        for gx in range(level.width):
+            center = Point((gx + 0.5) * CELL, (gy + 0.5) * CELL)
+            if not any(hp.contains(center) for hp in hole_polys):
+                continue
+            # Grey underlay
+            tile_fills.append(
+                f'<rect x="{gx * CELL}" y="{gy * CELL}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{HATCH_UNDERLAY}"/>')
+            # Stones
+            n_stones = rng.choices(
+                [0, 1, 2, 3], weights=[0.25, 0.35, 0.25, 0.15],
+            )[0]
+            for _ in range(n_stones):
+                sx = (gx + rng.uniform(0.15, 0.85)) * CELL
+                sy = (gy + rng.uniform(0.15, 0.85)) * CELL
+                rx = rng.uniform(2, CELL * 0.25)
+                ry = rng.uniform(2, CELL * 0.2)
+                angle = rng.uniform(0, 180)
+                sw = rng.uniform(1.2, 2.0)
+                hatch_stones.append(
+                    f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                    f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                    f'transform="rotate({angle:.0f},'
+                    f'{sx:.1f},{sy:.1f})" '
+                    f'fill="{HATCH_UNDERLAY}" '
+                    f'stroke="{INK}" '
+                    f'stroke-width="{sw:.1f}"/>')
+            # Cross-hatch lines
+            n_lines = rng.randint(2, 4)
+            for _ in range(n_lines):
+                x1 = (gx + rng.uniform(0.05, 0.95)) * CELL
+                y1 = (gy + rng.uniform(0.05, 0.95)) * CELL
+                angle = rng.uniform(0, math.pi)
+                length = rng.uniform(CELL * 0.2, CELL * 0.5)
+                x2 = x1 + math.cos(angle) * length
+                y2 = y1 + math.sin(angle) * length
+                sw = rng.uniform(0.8, 1.5)
+                hatch_lines.append(
+                    f'<line x1="{x1:.1f}" y1="{y1:.1f}" '
+                    f'x2="{x2:.1f}" y2="{y2:.1f}" '
+                    f'stroke="{INK}" stroke-width="{sw:.1f}" '
+                    f'stroke-linecap="round"/>')
+
+    if tile_fills:
+        svg.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
+    if hatch_stones:
+        svg.append(
+            f'<g opacity="0.5">{"".join(hatch_stones)}</g>')
+    if hatch_lines:
+        svg.append(
+            f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
+
+
 def _render_hatching(
     svg: list[str], level: "Level", seed: int,
     dungeon_poly=None, hatch_distance: float = 2.0,
+    cave_wall_poly=None,
 ) -> None:
     """Procedural cross-hatching around the dungeon perimeter.
 
@@ -3440,7 +3529,9 @@ def _render_hatching(
     displacement, and tile-based section partitioning.
 
     *hatch_distance* is the max distance in tiles from the dungeon
-    edge that hatching extends.
+    edge that hatching extends.  Interior holes in the cave wall
+    polygon (islands of wall/void surrounded by floor) are also
+    hatched.
     """
     rng = random.Random(seed)
     if dungeon_poly is None:
@@ -3453,6 +3544,21 @@ def _render_hatching(
     # interior, so overlap is handled by the layer order.
     hatching_boundary = dungeon_poly
 
+    # Collect interior holes from the cave wall polygon — these
+    # are islands of wall/void surrounded by floor that should
+    # receive hatching even though they're geometrically "inside"
+    # the dungeon boundary.
+    hole_polys: list = []
+    if cave_wall_poly is not None and not cave_wall_poly.is_empty:
+        polys = (
+            list(cave_wall_poly.geoms)
+            if hasattr(cave_wall_poly, 'geoms')
+            else [cave_wall_poly]
+        )
+        for p in polys:
+            for interior in p.interiors:
+                hole_polys.append(Polygon(interior.coords))
+
     base_distance_limit = hatch_distance * CELL
     min_stroke = 1.0
     max_stroke = 1.8
@@ -3464,9 +3570,16 @@ def _render_hatching(
     for gy in range(-1, level.height + 1):
         for gx in range(-1, level.width + 1):
             center = Point((gx + 0.5) * CELL, (gy + 0.5) * CELL)
-            if hatching_boundary.contains(center):
+            inside_hole = any(
+                hp.contains(center) for hp in hole_polys
+            )
+            if hatching_boundary.contains(center) and not inside_hole:
                 continue
             dist = hatching_boundary.boundary.distance(center)
+            # For hole tiles, use distance to the hole boundary
+            # so hatching fills the entire hole.
+            if inside_hole:
+                dist = 0.0
 
             # Irregular contour: vary distance limit per tile with
             # Perlin noise so the hatching edge flows organically
@@ -3487,7 +3600,7 @@ def _render_hatching(
                 f'fill="{HATCH_UNDERLAY}"/>')
 
             # Scatter 0-2 stones of varying sizes in this tile
-            n_stones = rng.choices([0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
+            n_stones = rng.choices([0, 1, 2, 3], weights=[0.25, 0.35, 0.25, 0.15])[0]
             for _ in range(n_stones):
                 sx = (gx + rng.uniform(0.15, 0.85)) * CELL
                 sy = (gy + rng.uniform(0.15, 0.85)) * CELL
@@ -3596,6 +3709,27 @@ def _render_hatching(
             clip_d += ' '.join(
                 f'L{x:.0f},{y:.0f}' for x, y in coords[1:])
             clip_d += ' Z '
+            # Do NOT add interior holes here — the evenodd rule
+            # means the exterior ring already cuts out the dungeon
+            # interior from the hatch region.  Interior holes
+            # should remain INSIDE the hatch region (they are
+            # void/wall islands that need hatching), so we leave
+            # them out of the clip.  The outer rect + exterior
+            # ring with evenodd = hatch everywhere EXCEPT dungeon
+            # floor.  Adding holes would re-include dungeon floor
+            # at the hole, but we actually want the opposite:
+            # holes are NOT dungeon floor, so they should hatch.
+            #
+            # The trick: the exterior ring cuts out the dungeon.
+            # Adding a hole ring (which is INSIDE the exterior)
+            # would flip it back to "hatch" under evenodd — which
+            # is exactly what we want.
+            for hole in geom.interiors:
+                h = list(hole.coords)
+                clip_d += f'M{h[0][0]:.0f},{h[0][1]:.0f} '
+                clip_d += ' '.join(
+                    f'L{x:.0f},{y:.0f}' for x, y in h[1:])
+                clip_d += ' Z '
     svg.append(
         f'<defs><clipPath id="hatch-clip">'
         f'<path d="{clip_d}" clip-rule="evenodd"/>'
