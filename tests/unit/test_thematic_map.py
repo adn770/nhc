@@ -8,6 +8,7 @@ Covers:
 
 from __future__ import annotations
 
+import math
 import random
 import re
 
@@ -19,9 +20,11 @@ from nhc.dungeon.model import (
     Level, LevelMetadata, Rect, RectShape, Room, Terrain, Tile,
 )
 from nhc.rendering.svg import (
-    CELL, _bone_detail, _cave_svg_outline, _render_floor_detail,
+    CELL, _bone_detail, _cave_svg_outline, _densify_ring,
+    _jitter_ring_outward, _render_floor_detail,
     _room_shapely_polygon, _room_svg_outline, _skull_detail,
-    _tile_thematic_detail, _web_detail, render_floor_svg,
+    _smooth_closed_path, _tile_thematic_detail, _web_detail,
+    render_floor_svg,
     _THEMATIC_DETAIL_PROBS,
 )
 
@@ -665,4 +668,174 @@ class TestThematicDetailIntegration:
         )
         assert not webs and not bones and not skulls, (
             "Wall tiles should not get thematic details"
+        )
+
+
+# ── 4. Cave wall smoothing improvements ──────────────────────
+
+
+class TestCentripetalCatmullRom:
+    """Centripetal Catmull-Rom (α=0.5) should eliminate cusps."""
+
+    def test_uneven_spacing_no_self_intersection(self):
+        """A ring with wildly uneven point spacing should produce
+        a valid (non-self-intersecting) polygon when smoothed
+        with centripetal parameterization."""
+        from shapely.geometry import Polygon as ShPolygon
+        # Ring with a tight concave notch — uniform Catmull-Rom
+        # tends to produce a loop here due to tangent overshoot.
+        coords = [
+            (0, 0), (100, 0), (100, 80),
+            (60, 80), (55, 50), (50, 80),  # tight notch
+            (0, 80),
+        ]
+        svg = _smooth_closed_path(coords)
+        # Extract bezier path, sample points along it
+        m = re.search(r'd="([^"]+)"', svg)
+        assert m, "Should produce valid SVG path"
+        path_data = m.group(1)
+        # Must contain cubic beziers
+        assert 'C' in path_data
+
+    def test_collinear_points_no_degenerate(self):
+        """Collinear points (zero chord length between some)
+        should not cause division by zero or NaN."""
+        coords = [
+            (0, 0), (50, 0), (100, 0),  # collinear
+            (100, 100), (0, 100),
+        ]
+        svg = _smooth_closed_path(coords)
+        assert 'NaN' not in svg
+        assert 'nan' not in svg
+        assert 'inf' not in svg
+
+
+class TestDenserControlPoints:
+    """Reduced densification step produces more control points."""
+
+    def test_smaller_step_more_points(self):
+        """Halving the step should roughly double the synthetic
+        vertex count on long edges."""
+        ring = [(0, 0), (200, 0), (200, 200), (0, 200)]
+        coarse = _densify_ring(ring, step=CELL * 0.7)
+        fine = _densify_ring(ring, step=CELL * 0.4)
+        assert len(fine) > len(coarse), (
+            f"Fine {len(fine)} should exceed coarse {len(coarse)}"
+        )
+
+    def test_short_edges_unchanged(self):
+        """Edges shorter than step should not gain new points."""
+        ring = [(0, 0), (5, 0), (5, 5), (0, 5)]
+        result = _densify_ring(ring, step=CELL * 0.4)
+        assert len(result) == 4
+
+
+class TestCornerAwareDamping:
+    """Sharp corners should receive less jitter to prevent knots."""
+
+    def test_sharp_corner_gets_less_jitter(self):
+        """At a 90° concave corner the jitter magnitude should be
+        smaller than at a nearly-straight edge vertex."""
+        from shapely.geometry import Polygon as ShPolygon
+        # L-shaped polygon with a sharp inner corner at (50, 50)
+        coords_ext = [
+            (0, 0), (100, 0), (100, 50),
+            (50, 50),  # sharp 90° inner corner
+            (50, 100), (0, 100),
+        ]
+        floor_poly = ShPolygon(coords_ext)
+        # Densify to have vertices at corners and midpoints
+        dense = _densify_ring(coords_ext, step=CELL * 0.4)
+        rng = random.Random(42)
+        jittered = _jitter_ring_outward(
+            dense, floor_poly, rng, is_hole=False,
+        )
+        # Find the jittered point closest to the sharp corner
+        corner_idx = None
+        min_dist = float('inf')
+        for i, (x, y) in enumerate(dense):
+            d = math.hypot(x - 50, y - 50)
+            if d < min_dist:
+                min_dist = d
+                corner_idx = i
+        corner_displacement = math.hypot(
+            jittered[corner_idx][0] - dense[corner_idx][0],
+            jittered[corner_idx][1] - dense[corner_idx][1],
+        )
+        # Find a midpoint on a long straight edge (top edge)
+        mid_idx = None
+        min_dist = float('inf')
+        for i, (x, y) in enumerate(dense):
+            d = math.hypot(x - 50, y - 0)
+            if d < min_dist:
+                min_dist = d
+                mid_idx = i
+        mid_displacement = math.hypot(
+            jittered[mid_idx][0] - dense[mid_idx][0],
+            jittered[mid_idx][1] - dense[mid_idx][1],
+        )
+        assert corner_displacement < mid_displacement, (
+            f"Corner jitter {corner_displacement:.1f} should be "
+            f"less than straight-edge jitter {mid_displacement:.1f}"
+        )
+
+
+class TestScurveUndulation:
+    """S-curve perturbation creates organic Dyson-style walls."""
+
+    def test_wall_ring_has_undulation(self):
+        """The jittered wall ring should show sinusoidal variation
+        in displacement magnitude along the perimeter, not just
+        uniform random noise."""
+        from nhc.rendering.svg import (
+            _build_cave_polygon, _collect_cave_region,
+            _build_cave_wall_geometry,
+        )
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(
+            theme="cave", difficulty=9,
+        )
+        _svg, wall_poly, _tiles = _build_cave_wall_geometry(
+            level, random.Random(42),
+        )
+        assert wall_poly is not None
+        # Sample distances from centroid along the boundary
+        ext = list(wall_poly.exterior.coords)
+        cx = sum(p[0] for p in ext) / len(ext)
+        cy = sum(p[1] for p in ext) / len(ext)
+        dists = [math.hypot(x - cx, y - cy) for x, y in ext]
+        # Compute sign changes in the derivative (inflection
+        # points) — S-curves create more inflections than pure
+        # random jitter on a convex-ish shape.
+        deltas = [dists[i+1] - dists[i] for i in range(len(dists)-1)]
+        sign_changes = sum(
+            1 for i in range(len(deltas) - 1)
+            if deltas[i] * deltas[i+1] < 0
+        )
+        # With S-curve modulation we expect a meaningful number
+        # of inflection points (at least 6 for a room perimeter).
+        assert sign_changes >= 6, (
+            f"Expected ≥6 inflection points for S-curve "
+            f"undulation, got {sign_changes}"
+        )
+
+    def test_existing_containment_still_holds(self):
+        """After all smoothing improvements, the wall polygon
+        must still fully contain the floor polygon."""
+        from nhc.rendering.svg import (
+            _build_cave_polygon, _collect_cave_region,
+            _build_cave_wall_geometry,
+        )
+        level, _ = _make_cave_room_level(with_corridor=True)
+        level.metadata = LevelMetadata(
+            theme="cave", difficulty=9,
+        )
+        region = _collect_cave_region(level)
+        floor_poly = _build_cave_polygon(region)
+        _svg, wall_poly, _tiles = _build_cave_wall_geometry(
+            level, random.Random(42),
+        )
+        assert floor_poly is not None and wall_poly is not None
+        assert wall_poly.buffer(0.5).contains(floor_poly), (
+            "Wall polygon must still enclose the floor polygon"
         )

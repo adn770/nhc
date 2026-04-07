@@ -34,8 +34,8 @@ from nhc.rendering.terrain_palette import (
 CELL = 32          # pixels per grid cell
 PILL_ARC_SEGMENTS = 12  # per-cap polygon segments for pill outlines
 TEMPLE_ARC_SEGMENTS = 12  # per-cap polygon segments for temple arm caps
-PADDING = 32       # padding around the map (room for hatching)
-WALL_WIDTH = 4.0   # wall stroke width (bold Dyson style)
+PADDING = 48       # padding around the map (room for hatching + lobes)
+WALL_WIDTH = 5.0   # wall stroke width (bold Dyson style)
 WALL_THIN = 2.0    # thinner wall for corridors
 GRID_WIDTH = 0.3   # soft floor grid line width
 HATCH_UNDERLAY = "#D0D0D0"
@@ -1271,7 +1271,12 @@ def _trace_cave_boundary_coords(
 def _smooth_closed_path(
     coords: list[tuple[float, float]],
 ) -> str:
-    """Build an SVG path (closed, Catmull-Rom → cubic bezier)."""
+    """Build an SVG path (closed, centripetal Catmull-Rom → cubic bezier).
+
+    Uses centripetal parameterization (α=0.5) which eliminates
+    cusps and self-intersections that uniform Catmull-Rom produces
+    when control points are unevenly spaced (common after jitter).
+    """
     n = len(coords)
     parts = [f'M{coords[0][0]:.1f},{coords[0][1]:.1f}']
     for i in range(n):
@@ -1279,10 +1284,9 @@ def _smooth_closed_path(
         p1 = coords[i]
         p2 = coords[(i + 1) % n]
         p3 = coords[(i + 2) % n]
-        c1x = p1[0] + (p2[0] - p0[0]) / 6
-        c1y = p1[1] + (p2[1] - p0[1]) / 6
-        c2x = p2[0] - (p3[0] - p1[0]) / 6
-        c2y = p2[1] - (p3[1] - p1[1]) / 6
+        c1x, c1y, c2x, c2y = _centripetal_bezier_cps(
+            p0, p1, p2, p3,
+        )
         parts.append(
             f'C{c1x:.1f},{c1y:.1f} '
             f'{c2x:.1f},{c2y:.1f} '
@@ -1292,13 +1296,61 @@ def _smooth_closed_path(
     return f'<path d="{" ".join(parts)}"/>'
 
 
+def _centripetal_bezier_cps(
+    p0: tuple[float, float],
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    p3: tuple[float, float],
+    alpha: float = 0.5,
+) -> tuple[float, float, float, float]:
+    """Compute cubic Bézier control points for centripetal Catmull-Rom.
+
+    Given four sequential Catmull-Rom points, returns (c1x, c1y,
+    c2x, c2y) — the two interior control points of the cubic
+    Bézier segment between *p1* and *p2*.
+
+    *alpha* = 0.5 is centripetal (eliminates cusps/loops),
+    0.0 is uniform (classic), 1.0 is chordal.
+    """
+    # Knot intervals: t_{i+1} - t_i = |P_{i+1} - P_i|^alpha
+    d01 = max(math.hypot(p1[0] - p0[0], p1[1] - p0[1]) ** alpha,
+              1e-6)
+    d12 = max(math.hypot(p2[0] - p1[0], p2[1] - p1[1]) ** alpha,
+              1e-6)
+    d23 = max(math.hypot(p3[0] - p2[0], p3[1] - p2[1]) ** alpha,
+              1e-6)
+    # Tangent at p1 for the segment p1→p2 (Barry-Goldman):
+    #   m1 = d12 * [(p1-p0)/d01 - (p2-p0)/(d01+d12) + (p2-p1)/d12]
+    m1x = d12 * ((p1[0] - p0[0]) / d01
+                  - (p2[0] - p0[0]) / (d01 + d12)
+                  + (p2[0] - p1[0]) / d12)
+    m1y = d12 * ((p1[1] - p0[1]) / d01
+                  - (p2[1] - p0[1]) / (d01 + d12)
+                  + (p2[1] - p1[1]) / d12)
+    # Tangent at p2:
+    #   m2 = d12 * [(p2-p1)/d12 - (p3-p1)/(d12+d23) + (p3-p2)/d23]
+    m2x = d12 * ((p2[0] - p1[0]) / d12
+                  - (p3[0] - p1[0]) / (d12 + d23)
+                  + (p3[0] - p2[0]) / d23)
+    m2y = d12 * ((p2[1] - p1[1]) / d12
+                  - (p3[1] - p1[1]) / (d12 + d23)
+                  + (p3[1] - p2[1]) / d23)
+    # Bézier control points
+    c1x = p1[0] + m1x / 3
+    c1y = p1[1] + m1y / 3
+    c2x = p2[0] - m2x / 3
+    c2y = p2[1] - m2y / 3
+    return c1x, c1y, c2x, c2y
+
+
 def _smooth_open_path(
     coords: list[tuple[float, float]],
 ) -> str:
-    """Build an SVG path (open, Catmull-Rom → cubic bezier).
+    """Build an SVG path (open, centripetal Catmull-Rom → cubic bezier).
 
     For open curves, endpoints use duplicated neighbors as the
     virtual p0/p3 so the curve passes exactly through them.
+    Uses centripetal parameterization (α=0.5) to match closed paths.
     """
     n = len(coords)
     if n < 2:
@@ -1309,10 +1361,9 @@ def _smooth_open_path(
         p1 = coords[i]
         p2 = coords[i + 1]
         p3 = coords[i + 2] if i + 2 < n else coords[i + 1]
-        c1x = p1[0] + (p2[0] - p0[0]) / 6
-        c1y = p1[1] + (p2[1] - p0[1]) / 6
-        c2x = p2[0] - (p3[0] - p1[0]) / 6
-        c2y = p2[1] - (p3[1] - p1[1]) / 6
+        c1x, c1y, c2x, c2y = _centripetal_bezier_cps(
+            p0, p1, p2, p3,
+        )
         parts.append(
             f'C{c1x:.1f},{c1y:.1f} '
             f'{c2x:.1f},{c2y:.1f} '
@@ -1437,9 +1488,11 @@ def _jitter_ring_outward(
     from *floor_poly*.  Defaults to *floor_poly* for backwards
     compatibility.
 
-    Jitter magnitude is uniform in [0.25, 0.65] * CELL clamped to
-    half the local edge length so two adjacent jittered points
-    can never cross each other.
+    Jitter magnitude combines a base random offset, corner-aware
+    damping, and a sinusoidal S-curve modulation keyed to
+    arc-length position for organic Dyson-style undulation.
+    The result is clamped to half the local edge length so two
+    adjacent jittered points can never cross each other.
     """
     n = len(coords)
     if n < 3:
@@ -1449,6 +1502,30 @@ def _jitter_ring_outward(
 
     if direction_poly is None:
         direction_poly = floor_poly
+
+    # Pre-compute cumulative arc-length for S-curve modulation.
+    arc_lengths = [0.0]
+    for i in range(n):
+        a = coords[i]
+        b = coords[(i + 1) % n]
+        arc_lengths.append(
+            arc_lengths[-1] + math.hypot(b[0] - a[0], b[1] - a[1])
+        )
+    total_arc = max(arc_lengths[-1], 1e-6)
+    # S-curve parameters: frequency scales with perimeter so
+    # larger caves get more undulations.  Phase is random per
+    # ring so each wall segment looks different.
+    # Low frequency → fewer, bolder lobes (Dyson style).
+    scurve_freq = max(2.0, total_arc / (CELL * 6.0))
+    scurve_phase = rng.uniform(0, 2 * math.pi)
+    # Second harmonic at ~1.7× frequency for organic variation
+    # (avoids the mechanical look of a pure single sine wave).
+    scurve_freq2 = scurve_freq * 1.7
+    scurve_phase2 = rng.uniform(0, 2 * math.pi)
+    # Tangential wave — shifts points along the wall to create
+    # true S-curves, not just in/out wobble.
+    tang_freq = scurve_freq * 0.8
+    tang_phase = rng.uniform(0, 2 * math.pi)
 
     out: list[tuple[float, float]] = []
     for i in range(n):
@@ -1490,10 +1567,52 @@ def _jitter_ring_outward(
         # points cannot cross each other and the ring stays simple.
         e1_len = math.hypot(e1x, e1y)
         e2_len = math.hypot(e2x, e2y)
-        local_cap = max(1.0, min(e1_len, e2_len) * 0.45)
-        mag = min(CELL * rng.uniform(0.25, 0.65), local_cap)
-        px = cur_p[0] + nx * mag
-        py = cur_p[1] + ny * mag
+        # Cap to prevent ring self-intersection.  Sine-based
+        # displacement moves adjacent points similarly, so a
+        # generous cap is safe.
+        local_cap = max(1.0, min(e1_len, e2_len) * 0.85)
+        # Corner-aware damping: reduce jitter at sharp corners
+        # where knots are most likely to form.  Compute the
+        # cosine of the angle between incoming/outgoing edges;
+        # a sharp concave corner (cos → −1) gets damped to ~30%,
+        # a straight edge (cos → 1) gets full magnitude.
+        if e1_len > 1e-6 and e2_len > 1e-6:
+            cos_angle = (
+                (e1x * e2x + e1y * e2y) / (e1_len * e2_len)
+            )
+            # Map cos_angle from [-1, 1] to damping [0.3, 1.0]
+            corner_damp = 0.3 + 0.7 * (cos_angle + 1) / 2
+        else:
+            corner_damp = 1.0
+        # S-curve modulation: the sine wave is the PRIMARY
+        # displacement; random noise is just a small perturbation.
+        # This ensures the wall boundary visibly undulates in a
+        # Dyson hand-drawn style rather than looking randomly
+        # jittered around a straight edge.
+        arc_frac = arc_lengths[i] / total_arc
+        theta = 2 * math.pi * scurve_freq * arc_frac
+        wave = math.sin(theta + scurve_phase)
+        wave2 = math.sin(
+            2 * math.pi * scurve_freq2 * arc_frac + scurve_phase2
+        )
+        # Combined wave: primary + 40% second harmonic
+        combined_wave = wave + 0.4 * wave2
+        # Constant outward base + sinusoidal undulation + noise
+        base_offset = CELL * 0.45
+        wave_amp = CELL * 0.4
+        noise = CELL * rng.uniform(-0.08, 0.08)
+        mag = (base_offset + wave_amp * combined_wave
+               + noise) * corner_damp
+        mag = min(max(mag, CELL * 0.05), local_cap)
+        # Tangential shift — small slide along the wall direction
+        # to break up the pure-normal look.  Kept small relative
+        # to step to avoid ring self-intersection.
+        tang_wave = math.sin(
+            2 * math.pi * tang_freq * arc_frac + tang_phase
+        )
+        tang_shift = CELL * 0.08 * tang_wave * corner_damp
+        px = cur_p[0] + nx * mag + tx * tang_shift
+        py = cur_p[1] + ny * mag + ty * tang_shift
         # Safety: at deeply concave vertices the outward ray can
         # still re-enter the polygon at distance.  Shrink until out.
         attempts = 0
@@ -1579,12 +1698,12 @@ def _build_cave_wall_geometry(
     # The outward jitter still uses the UNBUFFERED ``poly`` for the
     # containment safety check, so no floor tile can end up outside
     # the final wall ring no matter how the jitter lands.
-    buffer_r = CELL * 0.4
+    buffer_r = CELL * 0.8
     # Light simplification after buffering to remove collinear
     # points introduced by adjacent arc segments while keeping the
     # arcs themselves intact.
-    simplify_tol = CELL * 0.12
-    step = CELL * 0.7
+    simplify_tol = CELL * 0.15
+    step = CELL * 0.8
     subpaths: list[str] = []
     wall_polys: list[Polygon] = []
     for poly in polys:

@@ -425,7 +425,7 @@ class TestCircleGapWrapAround:
         svg = render_floor_svg(level)
         # Find arc paths with A commands (wall-width strokes)
         arc_paths = re.findall(
-            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="4',
+            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="5',
             svg)
         assert arc_paths, "No wall-stroke arc path found"
         # The large-arc flag should be 1 for at least one arc,
@@ -453,7 +453,7 @@ class TestCircleGapWrapAround:
         svg = render_floor_svg(level)
         # Should have arc paths with wall-width stroke
         arc_paths = re.findall(
-            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="4',
+            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="5',
             svg)
         assert arc_paths, "No wall-stroke arc path found"
         # Count total arc segments (M...A pairs)
@@ -470,7 +470,7 @@ class TestCircleGapWrapAround:
             corridor_side="south")
         svg = render_floor_svg(level)
         arc_paths = re.findall(
-            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="4',
+            r'<path[^>]+d="(M[^"]*A[^"]*)"[^>]+stroke-width="5',
             svg)
         assert arc_paths, "No wall-stroke arc path found"
         all_d = " ".join(arc_paths)
@@ -582,7 +582,7 @@ class TestHybridArcDirection:
             corridor_side="north")
         svg = render_floor_svg(level)
         wall_paths = re.findall(
-            r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width="4', svg)
+            r'<path[^>]+d="(M[^"]+)"[^>]+stroke-width="5', svg)
         has_gapped = any(
             p.count("M") >= 2 and "Z" not in p
             for p in wall_paths
@@ -633,7 +633,7 @@ class TestHybridArcDirection:
         svg = render_floor_svg(level)
         # Extract all arc commands in wall-stroked paths (width=4).
         arc_cmds = re.findall(
-            r'<path[^>]+d="([^"]*A[^"]*)"[^>]+stroke-width="4',
+            r'<path[^>]+d="([^"]*A[^"]*)"[^>]+stroke-width="5',
             svg,
         )
         # The drawn arc must not be a near-full-circle sweep. In
