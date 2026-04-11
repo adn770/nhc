@@ -13,6 +13,7 @@ from nhc.core.actions import (
     CloseDoorAction,
     DigAction,
     DigFloorAction,
+    DigFloorMissAction,
     DismissAction,
     DropAction,
     EquipAction,
@@ -360,17 +361,20 @@ def find_dig_action(
         if tile and tile.terrain == Terrain.WALL:
             diggable.append((label, (dx, dy)))
 
-    # No adjacent walls → dig the floor instead (shovel only)
+    # No adjacent walls → dig the floor instead (shovel only).
+    # With a pick/mattock the player swings at the stone floor and
+    # risks hurting themselves on the rebound.
     if not diggable:
         tile_here = game.level.tile_at(pos.x, pos.y)
         tool = game.world.get_component(equip.weapon, "DiggingTool")
-        if (
-            tile_here
+        on_floor = (
+            tile_here is not None
             and tile_here.terrain == Terrain.FLOOR
-            and tool is not None
-            and tool.can_dig_floor
-        ):
+        )
+        if on_floor and tool is not None and tool.can_dig_floor:
             return DigFloorAction(actor=game.player_id)
+        if on_floor and tool is not None:
+            return DigFloorMissAction(actor=game.player_id)
         game.renderer.add_message(t("explore.dig_no_wall"))
         return None
 

@@ -266,6 +266,8 @@ explore:
   dig_floor_treasure: "¡Desentierras {items}!"
   dig_floor_nothing: "Excavas pero solo encuentras tierra."
   dig_floor_hole: "¡El suelo cede bajo tus pies! ¡Caes!"
+  dig_floor_miss: "Golpeas el suelo de piedra pero no avanzas."
+  dig_floor_miss_hurt: "¡La herramienta rebota en la piedra y te causa {damage} puntos de daño!"
   chest_loot: "Abres el cofre y encuentras: {items}."
   chest_empty: "Abres el cofre, pero está vacío."
   descend: "Desciendes más profundo en la mazmorra..."

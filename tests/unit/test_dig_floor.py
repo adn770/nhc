@@ -315,6 +315,66 @@ class TestDigFloorExecution:
         assert len(msgs) >= 1
 
 
+class TestDigFloorMiss:
+    """Swinging a non-shovel digging tool at the floor may hurt."""
+
+    @pytest.mark.asyncio
+    async def test_rolls_1_applies_1d2_damage(self):
+        from nhc.core.actions._interaction import DigFloorMissAction
+        world, pid, level = _make_world(can_dig_floor=False)
+        action = DigFloorMissAction(actor=pid)
+        with patch("nhc.core.actions._interaction.get_rng") as mock_rng:
+            # Force d20 = 1 (hurt), then d2 roll = 2
+            mock_rng.return_value.randint.side_effect = [1, 2]
+            events = await action.execute(world, level)
+
+        health = world.get_component(pid, "Health")
+        assert health.current == 18  # 20 - 2
+        msgs = [e for e in events if isinstance(e, MessageEvent)]
+        assert any("2" in m.text for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_rolls_above_1_no_damage(self):
+        from nhc.core.actions._interaction import DigFloorMissAction
+        world, pid, level = _make_world(can_dig_floor=False)
+        action = DigFloorMissAction(actor=pid)
+        with patch("nhc.core.actions._interaction.get_rng") as mock_rng:
+            mock_rng.return_value.randint.return_value = 2  # safe
+            events = await action.execute(world, level)
+
+        health = world.get_component(pid, "Health")
+        assert health.current == 20  # unchanged
+        msgs = [e for e in events if isinstance(e, MessageEvent)]
+        assert len(msgs) >= 1
+
+    def test_find_dig_action_returns_miss_for_pickaxe(self):
+        """With pickaxe equipped and no walls, find_dig_action should
+        return a DigFloorMissAction (turn-consuming risky swing)."""
+        from nhc.core.actions._interaction import DigFloorMissAction
+        from nhc.core.game_input import find_dig_action
+
+        world, pid, level = _make_world(can_dig_floor=False)
+
+        class FakeRenderer:
+            def __init__(self):
+                self.messages = []
+            def add_message(self, msg):
+                self.messages.append(msg)
+            def show_selection_menu(self, prompt, options):
+                return None
+
+        class FakeGame:
+            def __init__(self):
+                self.world = world
+                self.player_id = pid
+                self.level = level
+                self.renderer = FakeRenderer()
+
+        game = FakeGame()
+        result = find_dig_action(game)
+        assert isinstance(result, DigFloorMissAction)
+
+
 class TestDigFloorAutodigExclusion:
     def test_autodig_data_skips_floor_dig(self):
         """find_dig_action with data=[dx,dy] never returns DigFloorAction."""

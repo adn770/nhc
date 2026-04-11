@@ -268,6 +268,8 @@ explore:
   dig_floor_treasure: "You unearth {items}!"
   dig_floor_nothing: "You dig but find nothing but dirt."
   dig_floor_hole: "The ground gives way beneath you! You fall!"
+  dig_floor_miss: "You strike the stone floor but make no progress."
+  dig_floor_miss_hurt: "Your tool rebounds off the stone and gashes you for {damage} damage!"
   chest_loot: "You open the chest and find: {items}."
   chest_empty: "You open the chest, but it's empty."
   descend: "You descend deeper into the dungeon..."

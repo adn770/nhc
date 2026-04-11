@@ -475,6 +475,36 @@ class DigFloorAction(Action):
         return events
 
 
+class DigFloorMissAction(Action):
+    """Player swings a non-shovel digging tool at the floor.
+
+    Picks, pickaxes and mattocks are not designed to punch through
+    floors — they're for walls.  Attempting it spends a turn and has
+    a 1-in-20 chance of the tool rebounding and hurting the wielder
+    for 1d2 damage.
+    """
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return world.get_component(self.actor, "Position") is not None
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        events: list[Event] = []
+        rng = get_rng()
+        if rng.randint(1, 20) == 1:
+            damage = rng.randint(1, 2)
+            health = world.get_component(self.actor, "Health")
+            if health:
+                apply_damage(health, damage)
+            events.append(MessageEvent(
+                text=t("explore.dig_floor_miss_hurt", damage=damage),
+            ))
+        else:
+            events.append(MessageEvent(
+                text=t("explore.dig_floor_miss"),
+            ))
+        return events
+
+
 class LookAction(Action):
     """Examine the current tile and surroundings."""
 

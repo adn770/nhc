@@ -284,6 +284,8 @@ explore:
   dig_floor_treasure: "Desenterres {items}!"
   dig_floor_nothing: "Excaves però només trobes terra."
   dig_floor_hole: "El terra s'enfonsa sota teu! Caus!"
+  dig_floor_miss: "Colpeges el terra de pedra però no avances."
+  dig_floor_miss_hurt: "L'eina rebota sobre la pedra i et fa {damage} punts de dany!"
   chest_loot: "Obres el cofre i trobes: {items}."
   chest_empty: "Obres el cofre, però és buit."
   descend: "Descendeixes més endins de la masmorra..."
