@@ -32,7 +32,7 @@ def _make_level(buried=None, dug=False) -> Level:
 
 def _make_world(
     strength: int = 3, with_tool: bool = True, equipped: bool = True,
-    buried=None, dug=False,
+    buried=None, dug=False, can_dig_floor: bool = True,
 ) -> tuple[World, int, Level]:
     """Create world with player at (5,5) and optional shovel."""
     i18n_init("en")
@@ -56,7 +56,9 @@ def _make_world(
             "Description": Description(name="Shovel"),
             "Renderable": Renderable(glyph="(", color="white"),
             "Weapon": Weapon(damage="1d4", type="melee", slots=1),
-            "DiggingTool": DiggingTool(bonus=-2),
+            "DiggingTool": DiggingTool(
+                bonus=-2, can_dig_floor=can_dig_floor,
+            ),
         })
         inv = world.get_component(pid, "Inventory")
         inv.slots.append(tool_id)
@@ -108,6 +110,31 @@ class TestDigFloorValidation:
         )
         action = DigFloorAction(actor=pid)
         assert not await action.validate(world, level)
+
+    @pytest.mark.asyncio
+    async def test_invalid_with_pickaxe_cannot_dig_floor(self):
+        """Only a shovel (can_dig_floor) may dig the floor."""
+        from nhc.core.actions._interaction import DigFloorAction
+        world, pid, level = _make_world(
+            buried=["gold"], can_dig_floor=False,
+        )
+        action = DigFloorAction(actor=pid)
+        assert not await action.validate(world, level)
+
+    def test_shovel_factory_can_dig_floor(self):
+        from nhc.entities.registry import EntityRegistry
+        EntityRegistry.discover_all()
+        comps = EntityRegistry.get_item("shovel")
+        assert comps["DiggingTool"].can_dig_floor is True
+
+    def test_pickaxe_factory_cannot_dig_floor(self):
+        from nhc.entities.registry import EntityRegistry
+        EntityRegistry.discover_all()
+        for item_id in ("pickaxe", "pick", "mattock"):
+            comps = EntityRegistry.get_item(item_id)
+            assert comps["DiggingTool"].can_dig_floor is False, (
+                f"{item_id} should not be able to dig floors"
+            )
 
 
 class TestDigFloorExecution:

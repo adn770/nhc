@@ -391,11 +391,16 @@ class DigFloorAction(Action):
         tile = level.tile_at(pos.x, pos.y)
         if not tile or tile.terrain != Terrain.FLOOR:
             return False
-        # Require DiggingTool equipped as weapon
+        # Require a DiggingTool equipped as weapon that is capable of
+        # digging downward.  Picks and mattocks are wall tools; only
+        # a shovel (can_dig_floor=True) may dig the floor.
         equip = world.get_component(self.actor, "Equipment")
         if not equip or equip.weapon is None:
             return False
-        return world.has_component(equip.weapon, "DiggingTool")
+        tool = world.get_component(equip.weapon, "DiggingTool")
+        if not tool:
+            return False
+        return tool.can_dig_floor
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         events: list[Event] = []

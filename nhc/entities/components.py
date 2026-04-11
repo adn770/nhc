@@ -107,6 +107,7 @@ class Weapon:
 class DiggingTool:
     """Tool for excavating walls."""
     bonus: int = 0  # added to STR check for digging
+    can_dig_floor: bool = False  # only shovels can dig down
 
 
 @dataclass

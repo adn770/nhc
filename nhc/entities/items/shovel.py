@@ -10,5 +10,5 @@ def create_shovel() -> dict:
         "Renderable": Renderable(glyph="(", color="white", render_order=1),
         "Description": item_desc("shovel"),
         "Weapon": Weapon(damage="1d4", type="melee", slots=1),
-        "DiggingTool": DiggingTool(bonus=-2),
+        "DiggingTool": DiggingTool(bonus=-2, can_dig_floor=True),
     }
