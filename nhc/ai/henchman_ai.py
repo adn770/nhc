@@ -1,4 +1,10 @@
-"""Henchman AI: follow the player, fight, heal, search, pick up items."""
+"""Henchman AI: follow the player, fight, heal, search, pick up items.
+
+Unhired adventurers share this module but route to a separate wander
+behaviour — they roam the current level, flee from monsters, and only
+fight when cornered.  Recruiting them flips them into the full hired
+behaviour below.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +24,11 @@ logger = logging.getLogger(__name__)
 
 # Henchman will follow when player is farther than this
 FOLLOW_DISTANCE = 6
+
+# Tile features an unhired wanderer will not willingly step onto.
+# Descending stairs is how the player transitions levels, and the
+# whole point of "unhired" is that they stay on this floor.
+_FORBIDDEN_WANDER_FEATURES = frozenset({"stairs_down", "stairs_up"})
 
 
 def _find_room(level: "Level", x: int, y: int) -> object | None:
@@ -111,11 +122,11 @@ def decide_henchman_action(
         UseItemAction,
     )
 
-    # Only hired henchmen follow the player and act as party members.
-    # Unhired adventurers stay idle until recruited.
+    # Unhired adventurers use the lightweight wander behaviour —
+    # they live in the dungeon on their own until recruited.
     hench = world.get_component(entity_id, "Henchman")
     if not hench or not hench.hired:
-        return None
+        return decide_unhired_wander_action(entity_id, world, level)
 
     pos = world.get_component(entity_id, "Position")
     player_pos = world.get_component(player_id, "Position")
@@ -289,3 +300,118 @@ def _pathfind_toward(
             return None
 
     return path
+
+
+# ── Unhired wander behaviour ──────────────────────────────────────────
+
+
+def _find_threat_adjacent(
+    entity_id: int,
+    world: "World",
+    pos: object,
+) -> int | None:
+    """Find an adjacent aggressive creature (not a fellow henchman)."""
+    for eid, ai, epos in world.query("AI", "Position"):
+        if eid == entity_id:
+            continue
+        # Ignore peers and passive creatures
+        if ai.behavior in ("henchman", "idle", "shrieker"):
+            continue
+        if adjacent(pos.x, pos.y, epos.x, epos.y):
+            return eid
+    return None
+
+
+def _wander_walkable(
+    world: "World",
+    level: "Level",
+    x: int, y: int,
+    entity_id: int,
+) -> bool:
+    """Whether an unhired adventurer may step into (x, y)."""
+    tile = level.tile_at(x, y)
+    if not tile or not tile.walkable:
+        return False
+    if tile.feature in _FORBIDDEN_WANDER_FEATURES:
+        return False
+    for eid, _, bpos in world.query("BlocksMovement", "Position"):
+        if bpos.x == x and bpos.y == y and eid != entity_id:
+            return False
+    return True
+
+
+def decide_unhired_wander_action(
+    entity_id: int,
+    world: "World",
+    level: "Level",
+) -> "Action | None":
+    """Drift around the level; flee from threats or fight if cornered.
+
+    Unhired adventurers are independent NPCs — they explore the
+    current floor, retreat from monsters, and defend themselves when
+    they cannot run.  They never pathfind toward the player and
+    never willingly step onto stairs, so they remain on the level
+    where they were generated until the player recruits them.
+    """
+    from nhc.core.actions import MeleeAttackAction, MoveAction
+
+    pos = world.get_component(entity_id, "Position")
+    if not pos:
+        return None
+
+    # Respect incapacitating status effects.
+    status = world.get_component(entity_id, "StatusEffect")
+    if status:
+        if status.paralyzed > 0:
+            status.paralyzed -= 1
+            return None
+        if status.sleeping > 0:
+            status.sleeping -= 1
+            return None
+        if status.webbed > 0:
+            status.webbed -= 1
+            return None
+        if status.charmed > 0:
+            status.charmed -= 1
+            return None
+
+    threat = _find_threat_adjacent(entity_id, world, pos)
+    if threat is not None:
+        tpos = world.get_component(threat, "Position")
+        # Pick the adjacent step that maximises distance from the
+        # threat — chebyshev so diagonals count as one tile.
+        best: tuple[int, int] | None = None
+        best_dist = chebyshev(pos.x, pos.y, tpos.x, tpos.y)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                nx, ny = pos.x + dx, pos.y + dy
+                if not _wander_walkable(
+                    world, level, nx, ny, entity_id,
+                ):
+                    continue
+                d = chebyshev(nx, ny, tpos.x, tpos.y)
+                if d > best_dist:
+                    best_dist = d
+                    best = (dx, dy)
+        if best is not None:
+            return MoveAction(
+                actor=entity_id, dx=best[0], dy=best[1],
+            )
+        # No retreat available — fight for survival.
+        return MeleeAttackAction(actor=entity_id, target=threat)
+
+    # No visible threat — drift into a random adjacent walkable tile.
+    rng = get_rng()
+    steps = [
+        (dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1)
+        if (dx, dy) != (0, 0)
+    ]
+    rng.shuffle(steps)
+    for dx, dy in steps:
+        nx, ny = pos.x + dx, pos.y + dy
+        if _wander_walkable(world, level, nx, ny, entity_id):
+            return MoveAction(actor=entity_id, dx=dx, dy=dy)
+
+    return None

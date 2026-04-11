@@ -530,18 +530,107 @@ class TestHenchmanAI:
             assert action.target != a2
 
     @pytest.mark.asyncio
-    async def test_unhired_adventurer_does_not_follow_player(self):
-        """Unhired adventurers should idle, not chase the player."""
+    async def test_unhired_wanders_not_pathfinds_to_player(self):
+        """Unhired adventurers wander with 1-step moves; they never
+        pathfind toward the player."""
         from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MoveAction
 
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=2, y=2)
-        # Place unhired adventurer far from player (dist > FOLLOW_DISTANCE)
+        # Place unhired adventurer far from player (> FOLLOW_DISTANCE)
         aid = _make_adventurer(world, x=10, y=10, hired=False)
 
         action = decide_henchman_action(aid, world, level, pid)
-        assert action is None
+        # Wander produces a single-tile MoveAction (or None if boxed in)
+        if action is not None:
+            assert isinstance(action, MoveAction)
+            assert abs(action.dx) <= 1 and abs(action.dy) <= 1
+            assert (action.dx, action.dy) != (0, 0)
+
+    @pytest.mark.asyncio
+    async def test_unhired_flees_from_adjacent_hostile(self):
+        """Unhired adventurer prefers retreat over engagement."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MoveAction
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=1, y=1)
+        aid = _make_adventurer(world, x=5, y=5, hired=False)
+        # Hostile right next to the adventurer
+        cid = _make_hostile(world, x=6, y=5)
+
+        # Free from BlocksMovement collision by removing it from hostile
+        # on tiles the adventurer would retreat toward — not needed here
+        # because (4,5), (4,4), (5,4) are all open.
+        action = decide_henchman_action(aid, world, level, pid)
+        assert isinstance(action, MoveAction)
+        # Must step AWAY from the hostile (new distance > current 1)
+        new_x = 5 + action.dx
+        new_y = 5 + action.dy
+        new_dist = max(abs(new_x - 6), abs(new_y - 5))
+        assert new_dist > 1, (
+            f"Expected retreat but moved to ({new_x},{new_y}), "
+            f"dist={new_dist}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_unhired_cornered_fights_back(self):
+        """When retreat is impossible, unhired attacks the threat."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+
+        world = World()
+        level = _make_test_level(width=4, height=4)
+        pid = _make_player(world, x=1, y=1)
+        # Adventurer cornered in (1,2): (0,*) and (*,0) are walls,
+        # (2,2) held by the hostile, (1,1) by the player blocker
+        _ = world.create_entity({
+            "Position": Position(x=1, y=1),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="Wall"),
+        })
+        _ = world.create_entity({
+            "Position": Position(x=2, y=1),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="Wall"),
+        })
+        _ = world.create_entity({
+            "Position": Position(x=2, y=2),
+            "BlocksMovement": BlocksMovement(),
+            "Description": Description(name="Wall"),
+        })
+        aid = _make_adventurer(world, x=1, y=2, hired=False)
+        cid = _make_hostile(world, x=2, y=2)
+
+        action = decide_henchman_action(aid, world, level, pid)
+        assert isinstance(action, MeleeAttackAction)
+        assert action.target == cid
+
+    @pytest.mark.asyncio
+    async def test_unhired_avoids_stairs_down_tile(self):
+        """Wandering unhired must never step onto a stairs_down tile."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MoveAction
+        from nhc.utils.rng import set_seed
+
+        world = World()
+        level = _make_test_level()
+        # Mark the east neighbour as stairs_down
+        level.tiles[5][6].feature = "stairs_down"
+        pid = _make_player(world, x=1, y=1)
+        aid = _make_adventurer(world, x=5, y=5, hired=False)
+
+        # Sweep seeds to exercise the random wander branch
+        for seed in range(50):
+            set_seed(seed)
+            action = decide_henchman_action(aid, world, level, pid)
+            if isinstance(action, MoveAction):
+                nx, ny = 5 + action.dx, 5 + action.dy
+                assert (nx, ny) != (6, 5), (
+                    f"Seed {seed}: stepped onto stairs_down"
+                )
 
 
 # ── Call for Help ──────────────────────────────────────────────────
