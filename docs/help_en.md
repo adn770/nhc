@@ -105,7 +105,7 @@ each game. They must be used to identify them:
 ## Equipment Slots
 
   Weapon      One melee or ranged weapon
-  Body armor  Gambeson, brigantine, half plate, full plate
+  Body armor  Gambeson, brigandine, half plate, full plate
   Shield      Buckler or shield (+1 AC each)
   Helmet      Leather cap or helmet (+1 AC each)
   Ring (L/R)  Two ring slots for passive magical effects

@@ -1459,7 +1459,7 @@ items:
     name: "Armadura de Cuero +1"
     short: "una armadura de cuero encantada"
     long: "Cuero flexible endurecido con tratamiento arcano. +1 CA."
-  brigantine_plus_1:
+  brigandine_plus_1:
     name: "Brigantina +1"
     short: "una brigantina encantada"
     long: "Armadura de brigantina reforzada con sigilos protectores. +1 CA."
@@ -1507,7 +1507,7 @@ items:
     name: "Gambesón"
     short: "un gambesón acolchado"
     long: "Armadura de tela gruesa acolchada. Ligera y silenciosa. Defensa 12."
-  brigantine:
+  brigandine:
     name: "Brigantina"
     short: "una brigantina"
     long: "Pequeñas placas de acero remachadas dentro de un chaleco de cuero. Defensa 13."

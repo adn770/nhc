@@ -16,7 +16,7 @@ EQUIPMENT_PREFIXES = (
     "dagger", "short_sword", "sword", "long_sword", "spear",
     "mace", "axe", "hand_axe", "halberd", "war_hammer",
     "club", "staff", "sling", "bow", "crossbow", "javelin",
-    "shield", "helmet", "gambeson", "brigantine", "chain_mail",
+    "shield", "helmet", "gambeson", "brigandine", "chain_mail",
     "plate_cuirass", "full_plate", "leather_armor",
 )
 

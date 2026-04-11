@@ -126,11 +126,11 @@ class TestMagicArmorBonus:
             "Inventory": Inventory(max_slots=12),
             "Equipment": Equipment(),
         })
-        # Equip +1 brigantine (defense 13 + magic 1 = 14)
+        # Equip +1 brigandine (defense 13 + magic 1 = 14)
         armor = world.create_entity({
             "Armor": Armor(slot="body", defense=13, slots=2,
                            magic_bonus=1),
-            "Description": Description(name="Brigantine +1"),
+            "Description": Description(name="Brigandine +1"),
         })
         inv = world.get_component(pid, "Inventory")
         inv.slots.append(armor)
@@ -193,7 +193,7 @@ class TestMagicItemFactories:
         EntityRegistry.discover_all()
         armor = [
             "gambeson_plus_1", "leather_armor_plus_1",
-            "brigantine_plus_1", "chain_mail_plus_1",
+            "brigandine_plus_1", "chain_mail_plus_1",
             "plate_cuirass_plus_1", "full_plate_plus_1",
             "shield_plus_1", "helmet_plus_1",
         ]

@@ -1584,7 +1584,7 @@ items:
     gender: "f"
     short: "una armadura de cuir encantada"
     long: "Cuir flexible endurit amb tractament arcà. +1 CA."
-  brigantine_plus_1:
+  brigandine_plus_1:
     name: "Brigantina +1"
     gender: "f"
     short: "una brigantina encantada"
@@ -1643,7 +1643,7 @@ items:
     gender: "m"
     short: "un gambesón encoixinat"
     long: "Armadura de tela gruixuda encoixinada. Lleugera i silenciosa. Defensa 12."
-  brigantine:
+  brigandine:
     name: "Brigantina"
     gender: "f"
     short: "una brigantina"

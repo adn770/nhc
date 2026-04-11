@@ -49,7 +49,7 @@ ITEM_PRICES: dict[str, int] = {
     "crossbow_plus_1":     180,
     # --- Armor ---
     "gambeson":            6,
-    "brigantine":          50,
+    "brigandine":          50,
     "chain_mail":          120,
     "plate_cuirass":       400,
     "full_plate":          800,
@@ -58,7 +58,7 @@ ITEM_PRICES: dict[str, int] = {
     "leather_armor":       20,
     # --- Enchanted armor (+1) ---
     "gambeson_plus_1":     18,
-    "brigantine_plus_1":   150,
+    "brigandine_plus_1":   150,
     "chain_mail_plus_1":   360,
     "plate_cuirass_plus_1": 1200,
     "full_plate_plus_1":   2400,

@@ -1448,10 +1448,10 @@ items:
     name: "Leather Armor +1"
     short: "enchanted leather armor"
     long: "Supple leather hardened with arcane treatment. +1 AC."
-  brigantine_plus_1:
-    name: "Brigantine +1"
-    short: "an enchanted brigantine"
-    long: "Brigantine armor reinforced with warding sigils. +1 AC."
+  brigandine_plus_1:
+    name: "Brigandine +1"
+    short: "an enchanted brigandine"
+    long: "Brigandine armor reinforced with warding sigils. +1 AC."
   chain_mail_plus_1:
     name: "Chain Mail +1"
     short: "enchanted chain mail"
@@ -1496,9 +1496,9 @@ items:
     name: "Gambeson"
     short: "a quilted gambeson"
     long: "Thick padded cloth armor. Light and quiet. Defense 12."
-  brigantine:
-    name: "Brigantine"
-    short: "a brigantine vest"
+  brigandine:
+    name: "Brigandine"
+    short: "a brigandine vest"
     long: "Small steel plates riveted inside a leather vest. Defense 13."
   chain_mail:
     name: "Chain Mail"

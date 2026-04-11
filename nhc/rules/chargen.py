@@ -172,7 +172,7 @@ def _roll_alignment(rng) -> str:
 ARMOR_TABLE = [
     (3, None),              # 1-3: no armor
     (14, "gambeson"),       # 4-14: gambeson (defense 12)
-    (19, "brigantine"),     # 15-19: brigantine (defense 13)
+    (19, "brigandine"),     # 15-19: brigandine (defense 13)
     (20, "chain_mail"),     # 20: chain mail (defense 14)
 ]
 
