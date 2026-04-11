@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from nhc.ai.pathfinding import astar
+from nhc.ai.retreat import best_retreat_step
 from nhc.utils.rng import get_rng
 from nhc.utils.spatial import adjacent, chebyshev
 
@@ -378,26 +379,14 @@ def decide_unhired_wander_action(
     threat = _find_threat_adjacent(entity_id, world, pos)
     if threat is not None:
         tpos = world.get_component(threat, "Position")
-        # Pick the adjacent step that maximises distance from the
-        # threat — chebyshev so diagonals count as one tile.
-        best: tuple[int, int] | None = None
-        best_dist = chebyshev(pos.x, pos.y, tpos.x, tpos.y)
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                if dx == 0 and dy == 0:
-                    continue
-                nx, ny = pos.x + dx, pos.y + dy
-                if not _wander_walkable(
-                    world, level, nx, ny, entity_id,
-                ):
-                    continue
-                d = chebyshev(nx, ny, tpos.x, tpos.y)
-                if d > best_dist:
-                    best_dist = d
-                    best = (dx, dy)
-        if best is not None:
+        step = best_retreat_step(
+            (pos.x, pos.y),
+            (tpos.x, tpos.y),
+            lambda x, y: _wander_walkable(world, level, x, y, entity_id),
+        )
+        if step is not None:
             return MoveAction(
-                actor=entity_id, dx=best[0], dy=best[1],
+                actor=entity_id, dx=step[0], dy=step[1],
             )
         # No retreat available — fight for survival.
         return MeleeAttackAction(actor=entity_id, target=threat)

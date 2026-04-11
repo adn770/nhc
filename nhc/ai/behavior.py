@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 logger = logging.getLogger(__name__)
 
 from nhc.ai.pathfinding import astar
+from nhc.ai.retreat import best_retreat_step
+from nhc.ai.tactics import morale_check
 from nhc.entities.components import (
     AI,
     CharmSong,
@@ -16,7 +18,7 @@ from nhc.entities.components import (
     Position,
     StatusEffect,
 )
-from nhc.core.actions._helpers import has_ring_effect
+from nhc.core.actions._helpers import _msg, has_ring_effect
 from nhc.utils.rng import d20
 from nhc.utils.spatial import adjacent, chebyshev
 
@@ -75,6 +77,61 @@ def _find_attack_targets(
     return targets
 
 
+def _aggressive_behavior(behavior: str) -> bool:
+    """Behaviors whose creatures roll morale at all.
+
+    Idle / shrieker / henchman creatures have their own decision
+    pipelines and never enter the morale state machine.
+    """
+    return behavior in ("aggressive_melee", "guard")
+
+
+def _decide_flee_action(
+    entity_id: int,
+    world: "World",
+    level: "Level",
+    player_id: int,
+) -> "Action | None":
+    """Move one tile strictly away from the player.
+
+    Used by morale-broken creatures in the ``fleeing`` state.
+    Falls back to the cornered melee swing when no retreat tile
+    is available — this matches the unhired-adventurer logic
+    and prevents fleeing creatures from getting stuck in place.
+    """
+    from nhc.core.actions import HoldAction, MeleeAttackAction, MoveAction
+
+    pos = world.get_component(entity_id, "Position")
+    player_pos = world.get_component(player_id, "Position")
+    if not pos or not player_pos:
+        return None
+
+    def is_walkable(x: int, y: int) -> bool:
+        tile = level.tile_at(x, y)
+        if not tile or not tile.walkable:
+            return False
+        for eid, _, bpos in world.query("BlocksMovement", "Position"):
+            if bpos.x == x and bpos.y == y and eid != entity_id:
+                return False
+        return True
+
+    step = best_retreat_step(
+        (pos.x, pos.y),
+        (player_pos.x, player_pos.y),
+        is_walkable,
+    )
+    if step is not None:
+        return MoveAction(actor=entity_id, dx=step[0], dy=step[1])
+
+    # Cornered: swing back if adjacent, otherwise hold and snarl.
+    if adjacent(pos.x, pos.y, player_pos.x, player_pos.y):
+        return MeleeAttackAction(actor=entity_id, target=player_id)
+    return HoldAction(
+        actor=entity_id,
+        message_text=_msg("morale.cornered", world, actor=entity_id),
+    )
+
+
 def decide_action(
     entity_id: int,
     world: "World",
@@ -84,6 +141,7 @@ def decide_action(
     """Determine what action a creature should take this turn."""
     from nhc.core.actions import (
         BansheeWailAction,
+        HoldAction,
         MeleeAttackAction,
         MoveAction,
         ShriekAction,
@@ -125,6 +183,43 @@ def decide_action(
     # Ring of shadows: halve all detection ranges
     if has_ring_effect(world, player_id, "shadows"):
         chase_radius = chase_radius // 2
+
+    # ── Morale state machine (Knave / Basic D&D 2d6 ≤ morale) ──
+    # Only aggressive_melee / guard creatures roll morale; others
+    # have their own pipelines (shrieker, idle, special auras).
+    if _aggressive_behavior(ai.behavior) and dist <= chase_radius:
+        if ai.state == "fleeing":
+            return _decide_flee_action(
+                entity_id, world, level, player_id,
+            )
+        if ai.state == "unaware":
+            if morale_check(ai.morale):
+                ai.state = "engaged"
+                # fall through to existing chase / attack logic
+            else:
+                ai.state = "hesitant"
+                return HoldAction(
+                    actor=entity_id,
+                    message_text=_msg(
+                        "morale.hesitate", world, actor=entity_id,
+                    ),
+                )
+        elif ai.state == "hesitant":
+            if morale_check(ai.morale):
+                ai.state = "engaged"
+                # Spend this turn shouting the rally; attack
+                # resumes next tick. Keeps the narration cleanly
+                # attached to the transition.
+                return HoldAction(
+                    actor=entity_id,
+                    message_text=_msg(
+                        "morale.rally", world, actor=entity_id,
+                    ),
+                )
+            # Continued hesitation: stay silent so the log does
+            # not spam the player every turn.
+            return HoldAction(actor=entity_id)
+        # ai.state == "engaged" → fall through to chase / attack
 
     # Shrieker: stationary; screams when player enters detection range
     if ai.behavior == "shrieker":

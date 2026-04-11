@@ -109,6 +109,28 @@ class WaitAction(Action):
         return []
 
 
+class HoldAction(Action):
+    """Skip the turn while optionally narrating why.
+
+    Used by the morale state machine when a creature hesitates,
+    rallies, or otherwise pauses its decision. Carries a single
+    message that is dropped through normal visibility filtering
+    (off-screen actors stay silent).
+    """
+
+    def __init__(self, actor: int, message_text: str = "") -> None:
+        super().__init__(actor)
+        self.message_text = message_text
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        return True
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        if not self.message_text:
+            return []
+        return [MessageEvent(text=self.message_text, actor=self.actor)]
+
+
 class ImpossibleAction(Action):
     """The LLM determined the player's intent is not possible."""
 

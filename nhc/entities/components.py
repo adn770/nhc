@@ -47,6 +47,12 @@ class AI:
     behavior: str = "idle"
     morale: int = 7
     faction: str = "neutral"
+    # Morale state machine: unaware → engaged | hesitant → fleeing.
+    # Tracked at runtime; not part of any creature factory recipe.
+    state: str = "unaware"
+    # One-shot flag: True after the creature has rolled its
+    # half-HP morale check, so it does not re-roll every tick.
+    morale_checked_on_hp: bool = False
 
 
 @dataclass

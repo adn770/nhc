@@ -583,7 +583,10 @@ class TestStatusEffectAI:
         cid = world.create_entity({
             "Position": Position(x=6, y=5),
             "Stats": Stats(strength=1, dexterity=1),
-            "AI": AI(behavior="aggressive_melee"),
+            # morale=12 is fearless: bypasses the first-sight
+            # morale check so this test only exercises the
+            # status-effect branch.
+            "AI": AI(behavior="aggressive_melee", morale=12),
             "StatusEffect": StatusEffect(paralyzed=0),
         })
         pid = world.create_entity({

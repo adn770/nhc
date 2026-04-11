@@ -9,10 +9,40 @@ from nhc.core.actions._helpers import _announce_ground_items, _msg
 from nhc.core.actions._traps import _check_traps
 from nhc.core.events import DoorOpened, Event, MessageEvent
 from nhc.i18n import t
+from nhc.utils.spatial import chebyshev
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
+
+
+# Behaviors counted as "hostile" for the purpose of player
+# retreat narration. Idle creatures (merchants, mold) and the
+# player's own henchmen are excluded.
+_HOSTILE_RETREAT_BEHAVIORS = frozenset({
+    "aggressive_melee", "guard", "shrieker",
+})
+
+
+def _min_visible_hostile_distance(
+    world: "World", level: "Level", x: int, y: int,
+) -> int | None:
+    """Return the minimum Chebyshev distance from ``(x, y)`` to
+    any hostile creature whose current tile is visible to the
+    player. Returns ``None`` when no visible hostile is on the
+    map — the caller should treat that as "no retreat to
+    narrate"."""
+    best: int | None = None
+    for eid, ai, epos in world.query("AI", "Position"):
+        if ai.behavior not in _HOSTILE_RETREAT_BEHAVIORS:
+            continue
+        tile = level.tile_at(epos.x, epos.y)
+        if not tile or not tile.visible:
+            continue
+        d = chebyshev(x, y, epos.x, epos.y)
+        if best is None or d < best:
+            best = d
+    return best
 
 
 def _can_open_doors(world: "World", actor: int) -> bool:
@@ -78,6 +108,15 @@ class MoveAction(Action):
         pos = world.get_component(self.actor, "Position")
         nx, ny = pos.x + self.dx, pos.y + self.dy
         tile = level.tile_at(nx, ny)
+
+        # Snapshot pre-move distance for the player retreat cue.
+        # Only the player gets the "you back away" narration, and
+        # only when a visible hostile actually exists.
+        pre_retreat_dist: int | None = None
+        if world.has_component(self.actor, "Player"):
+            pre_retreat_dist = _min_visible_hostile_distance(
+                world, level, pos.x, pos.y,
+            )
 
         if self.edge_doors:
             # -- Edge door mode (web): directional crossing --
@@ -178,6 +217,20 @@ class MoveAction(Action):
         # Announce items on ground (player only)
         if world.has_component(self.actor, "Player"):
             events += _announce_ground_items(world, nx, ny, self.actor)
+
+        # Player retreat cue: if the step strictly increased the
+        # minimum distance to any visible hostile, narrate that
+        # the hero is backing away. Gives the player a tactile
+        # signal that disengagement is working.
+        if pre_retreat_dist is not None:
+            post_retreat_dist = _min_visible_hostile_distance(
+                world, level, nx, ny,
+            )
+            if (post_retreat_dist is not None
+                    and post_retreat_dist > pre_retreat_dist):
+                events.append(MessageEvent(
+                    text=t("explore.retreat"),
+                ))
 
         return events
 

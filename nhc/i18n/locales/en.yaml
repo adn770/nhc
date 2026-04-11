@@ -225,6 +225,13 @@ combat:
   banshee_kills: "{target} succumbs to the banshee's wail!"
   banshee_saved: "{target} resists the banshee's wail!"
 
+# ── Morale (Knave / Basic D&D 2d6 ≤ morale) ───────────────────────────
+morale:
+  hesitate: "{actor} hesitates, unsure whether to attack."
+  rally: "{actor} steels itself and presses the attack!"
+  flee_panic: "{actor} turns tail and flees in panic!"
+  cornered: "{actor} snarls, backed into a corner!"
+
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
   open_door: "{actor} opens a door."
@@ -238,6 +245,7 @@ explore:
   see_creature: "You see {creature}{status}."
   nothing_special: "Nothing special here."
   spot_creature: "You spot {creature}!"
+  retreat: "You back away."
   search_found_trap: "You discover {trap}!"
   search_found_door: "You find a hidden door!"
   door_locked: "The door is locked."

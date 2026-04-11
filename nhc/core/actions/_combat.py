@@ -38,6 +38,41 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _check_hp_morale_break(
+    world: "World",
+    target: int,
+    events: list[Event],
+) -> None:
+    """Roll a Knave / Basic D&D morale check when the target
+    first drops to 50% HP or lower.
+
+    On failure, the target's AI flips into the ``fleeing`` state
+    and a panic narration is appended to ``events``. The check
+    is one-shot per encounter — gated by ``ai.morale_checked_on_hp``
+    so a creature does not re-roll on every subsequent hit.
+    """
+    from nhc.ai.tactics import morale_check
+
+    ai = world.get_component(target, "AI")
+    if not ai:
+        return
+    if ai.morale_checked_on_hp:
+        return
+    health = world.get_component(target, "Health")
+    if not health or health.current <= 0:
+        return
+    if health.current * 2 > health.maximum:
+        return  # still above 50%
+
+    ai.morale_checked_on_hp = True
+    if not morale_check(ai.morale):
+        ai.state = "fleeing"
+        events.append(MessageEvent(
+            text=_msg("morale.flee_panic", world, actor=target),
+            actor=target,
+        ))
+
+
 def _drop_henchman_inventory(
     world: "World",
     target: int,
@@ -346,6 +381,11 @@ class MeleeAttackAction(Action):
                                       actor=self.actor, target=self.target,
                                       item=c_name),
                         ))
+
+            # Morale check: if the target survives but has just
+            # been brought to 50% HP or lower, roll 2d6 ≤ morale.
+            # On failure the creature flips into fleeing state.
+            _check_hp_morale_break(world, self.target, events)
 
             if is_dead(t_health):
                 # Player death is handled by the game loop (god mode

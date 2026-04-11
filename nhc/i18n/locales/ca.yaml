@@ -241,6 +241,13 @@ combat:
   banshee_saved: "{target} resisteix l'udol de la banshee!"
   banshee_saved_you: "Resisteixes l'udol de la banshee!"
 
+# ── Moral (Knave / Basic D&D 2d6 ≤ moral) ─────────────────────────────
+morale:
+  hesitate: "{actor} dubta, sense gosar atacar."
+  rally: "{actor} treu coratge i es llança a l'atac!"
+  flee_panic: "{actor} gira cua i fuig presa del pànic!"
+  cornered: "{actor} grunyeix, acorralat sense escapatòria!"
+
 # ── Movement & Exploration ────────────────────────────────────────────
 explore:
   open_door: "{actor} obre una porta."
@@ -254,6 +261,7 @@ explore:
   see_creature: "Veus {creature}{status}."
   nothing_special: "Res d'especial aquí."
   spot_creature: "Divises {creature}!"
+  retreat: "Recules amb cautela."
   search_found_trap: "Descobreixes {trap}!"
   search_found_door: "Trobes una porta oculta!"
   door_locked: "La porta és tancada amb clau."

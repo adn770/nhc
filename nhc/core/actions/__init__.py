@@ -10,6 +10,7 @@ from __future__ import annotations
 from nhc.core.actions._base import (
     Action,
     CustomAction,
+    HoldAction,
     ImpossibleAction,
     WaitAction,
     _BLOCKING_DOOR_FEATURES,
@@ -132,6 +133,7 @@ __all__ = [
     # Base
     "Action",
     "CustomAction",
+    "HoldAction",
     "ImpossibleAction",
     "WaitAction",
     # Movement
