@@ -642,6 +642,50 @@ class TestGroundItemAnnouncement:
         msgs = [e.text for e in events if isinstance(e, MessageEvent)]
         assert any("2 items" in m for m in msgs)
 
+    @pytest.mark.asyncio
+    async def test_move_announces_gold_amount(self):
+        """Gold sightings show the actual coin count, not 'a pile'."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(
+                name="47 Gold", short="a pile of gold coins",
+            ),
+            "Gold": True,
+        })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        # Amount present, generic "pile" wording replaced
+        assert any("47" in m for m in msgs)
+        assert not any("pile of gold coins" in m for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_move_announces_single_gold_coin(self):
+        """Amount of 1 uses singular form."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(
+                name="1 Gold", short="a pile of gold coins",
+            ),
+            "Gold": True,
+        })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("1 gold coin" in m for m in msgs)
+
 
 class TestCorpseAndLoot:
     @pytest.mark.asyncio

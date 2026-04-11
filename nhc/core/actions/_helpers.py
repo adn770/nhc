@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from nhc.core.events import Event, MessageEvent
@@ -189,6 +190,24 @@ def _items_at(
     return items
 
 
+def _gold_pile_label(world: "World", item_id: int) -> str | None:
+    """Return a localized "N gold coins" label for a gold pile.
+
+    Gold quantity is encoded as a leading integer in Description.name
+    (e.g. "47 Or").  Returns None for non-gold items or when the
+    amount cannot be parsed.
+    """
+    if not world.has_component(item_id, "Gold"):
+        return None
+    desc = world.get_component(item_id, "Description")
+    if not desc or not desc.name:
+        return None
+    match = re.match(r"(\d+)", desc.name)
+    amount = int(match.group(1)) if match else 1
+    key = "item.gold_pile_one" if amount == 1 else "item.gold_pile"
+    return t(key, amount=amount)
+
+
 def _announce_ground_items(
     world: "World", x: int, y: int, actor: int,
 ) -> list[Event]:
@@ -200,7 +219,11 @@ def _announce_ground_items(
     events: list[Event] = []
     if len(items) == 1:
         desc = world.get_component(items[0], "Description")
-        name = (desc.short or desc.name) if desc else "something"
+        gold_label = _gold_pile_label(world, items[0])
+        if gold_label is not None:
+            name = gold_label
+        else:
+            name = (desc.short or desc.name) if desc else "something"
         events.append(MessageEvent(
             text=t("explore.see_item", item=name),
         ))

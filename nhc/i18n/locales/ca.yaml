@@ -323,6 +323,8 @@ shop:
 item:
   picked_up: "Has agafat {item}."
   gold_picked_up: "+{amount} or."
+  gold_pile: "{amount} monedes d'or"
+  gold_pile_one: "1 moneda d'or"
   equipped: "Has equipat {item}."
   unequipped: "Has desequipat {item}."
   dropped: "Has deixat {item}."

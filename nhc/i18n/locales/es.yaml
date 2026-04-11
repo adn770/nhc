@@ -305,6 +305,8 @@ shop:
 item:
   picked_up: "Has recogido {item}."
   gold_picked_up: "+{amount} oro."
+  gold_pile: "{amount} monedas de oro"
+  gold_pile_one: "1 moneda de oro"
   equipped: "Has equipado {item}."
   unequipped: "Has desequipado {item}."
   dropped: "Has soltado {item}."
