@@ -18,6 +18,7 @@ from nhc.entities.components import (
     Description,
     Enchanted,
     Equipment,
+    Gem,
     Health,
     Inventory,
     Player,
@@ -466,6 +467,107 @@ class TestGatherEntitiesDetected:
         assert pot_entry["detected"] is True
 
 
+# ── Detect Gems ──────────────────────────────────────────────────────
+
+class TestDetectGems:
+    @pytest.mark.asyncio
+    async def test_detects_gem_entities(self):
+        """Detect gems should tag every entity with a Gem component."""
+        world = _make_world(turn=7)
+        level = _make_level()
+        pid = _make_player(world)
+
+        ruby = world.create_entity({
+            "Position": Position(x=2, y=2, level_id="t"),
+            "Renderable": Renderable(glyph="*", color="bright_red"),
+            "Description": Description(name="Ruby"),
+            "Gem": Gem(value=300),
+        })
+
+        scroll = world.create_entity({
+            "Renderable": Renderable(glyph="?", color="magenta"),
+            "Description": Description(name="Scroll"),
+            "Consumable": Consumable(effect="detect_gems"),
+        })
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(scroll)
+
+        await UseItemAction(actor=pid, item=scroll).execute(world, level)
+
+        detected = world.get_component(ruby, "Detected")
+        assert detected is not None
+        assert detected.turn_detected == 7
+
+    @pytest.mark.asyncio
+    async def test_ignores_non_gem(self):
+        world = _make_world()
+        level = _make_level()
+        pid = _make_player(world)
+
+        pot = world.create_entity({
+            "Position": Position(x=2, y=2, level_id="t"),
+            "Renderable": Renderable(glyph="!", color="red"),
+            "Description": Description(name="Potion"),
+            "Consumable": Consumable(effect="heal"),
+        })
+
+        scroll = world.create_entity({
+            "Renderable": Renderable(glyph="?", color="magenta"),
+            "Description": Description(name="Scroll"),
+            "Consumable": Consumable(effect="detect_gems"),
+        })
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(scroll)
+
+        await UseItemAction(actor=pid, item=scroll).execute(world, level)
+        assert not world.has_component(pot, "Detected")
+
+
+# ── Reveal Map ───────────────────────────────────────────────────────
+
+class TestRevealMap:
+    @pytest.mark.asyncio
+    async def test_marks_all_tiles_explored(self):
+        """Reveal map should set explored on every tile of the level."""
+        world = _make_world()
+        level = _make_level()
+        pid = _make_player(world)
+
+        # Sanity: nothing explored yet
+        assert not any(t.explored for row in level.tiles for t in row)
+
+        scroll = world.create_entity({
+            "Renderable": Renderable(glyph="?", color="bright_white"),
+            "Description": Description(name="Scroll"),
+            "Consumable": Consumable(effect="reveal_map"),
+        })
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(scroll)
+
+        await UseItemAction(actor=pid, item=scroll).execute(world, level)
+
+        assert all(t.explored for row in level.tiles for t in row)
+
+    @pytest.mark.asyncio
+    async def test_does_not_make_tiles_visible(self):
+        """Reveal map only memorizes tiles; it does not grant FOV."""
+        world = _make_world()
+        level = _make_level(visible=False)
+        pid = _make_player(world)
+
+        scroll = world.create_entity({
+            "Renderable": Renderable(glyph="?", color="bright_white"),
+            "Description": Description(name="Scroll"),
+            "Consumable": Consumable(effect="reveal_map"),
+        })
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(scroll)
+
+        await UseItemAction(actor=pid, item=scroll).execute(world, level)
+
+        assert not any(t.visible for row in level.tiles for t in row)
+
+
 # ── Scroll factories ─────────────────────────────────────────────────
 
 class TestDetectionScrollFactories:
@@ -483,3 +585,13 @@ class TestDetectionScrollFactories:
         comps = EntityRegistry.get_item("scroll_detect_food")
         assert "Consumable" in comps
         assert comps["Consumable"].effect == "detect_food"
+
+    def test_scroll_detect_gems_exists(self):
+        comps = EntityRegistry.get_item("scroll_detect_gems")
+        assert "Consumable" in comps
+        assert comps["Consumable"].effect == "detect_gems"
+
+    def test_scroll_reveal_map_exists(self):
+        comps = EntityRegistry.get_item("scroll_reveal_map")
+        assert "Consumable" in comps
+        assert comps["Consumable"].effect == "reveal_map"

@@ -375,6 +375,11 @@ item:
   detect_food_cast: "¡El aroma de sustento llena tus fosas nasales!"
   detect_food_reveal: "Detectas {count} fuentes de alimento en este nivel."
   detect_food_none: "No detectas comida en este nivel."
+  detect_gems_cast: "¡Facetas de luz oculta danzan tras tus ojos!"
+  detect_gems_reveal: "Detectas {count} gemas en este nivel."
+  detect_gems_none: "No detectas ninguna gema en este nivel."
+  reveal_map_cast: "La disposición de la mazmorra se despliega en tu mente..."
+  reveal_map_reveal: "¡Todo el nivel queda grabado en tu memoria!"
   find_traps_cast: "¡Los peligros ocultos se revelan!"
   find_traps_reveal: "Divisas {count} trampas ocultas."
   find_traps_none: "No hay trampas ocultas en este nivel."
@@ -405,7 +410,6 @@ item:
   clairvoyance_reveal: "¡El área circundante se te revela!"
   infravision_cast: "Tus ojos se ajustan para ver más allá de la luz visible."
   infravision_active: "¡Ves firmas de calor en la oscuridad!"
-  continual_light_cast: "¡Un orbe de luz permanente se enciende!"
   water_breathing_cast: "Tus pulmones se adaptan para respirar agua."
   water_breathing_active: "¡Puedes respirar bajo el agua!"
   charm_snakes_cast: "Una melodía hipnótica llena el aire..."
@@ -2150,6 +2154,20 @@ items:
     long: >-
       El pergamino huele ligeramente a pan fresco. Leerlo revela
       todas las fuentes de sustento del nivel actual.
+  scroll_detect_gems:
+    name: "Pergamino de Detectar Gemas"
+    gender: "m"
+    short: "un pergamino violeta facetado"
+    long: >-
+      Pequeños puntos prismáticos brillan en este pergamino. Leerlo
+      revela todas las gemas del nivel actual.
+  scroll_reveal_map:
+    name: "Pergamino de Revelar el Mapa"
+    gender: "m"
+    short: "un pergamino blanco con trazos cartográficos"
+    long: >-
+      Tenues líneas de agrimensor se entrecruzan en el pergamino. Leerlo
+      graba la disposición completa del nivel en tu memoria.
   scroll_detect_evil:
     name: "Pergamino de Detectar el Mal"
     short: "un pergamino pálido con runas oscuras"
@@ -2246,12 +2264,6 @@ items:
     long: >-
       Escrito con tinta visible solo en la oscuridad. Leerlo otorga
       la capacidad de ver firmas de calor durante 20 turnos.
-  scroll_continual_light:
-    name: "Pergamino de Luz Continua"
-    short: "un pergamino resplandeciente"
-    long: >-
-      Texto blanco cegador sobre pergamino dorado. Leerlo crea
-      una fuente de luz permanente que nunca se apaga.
   scroll_water_breathing:
     name: "Pergamino de Respirar bajo el Agua"
     short: "un pergamino húmedo"

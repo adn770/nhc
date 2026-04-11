@@ -636,6 +636,67 @@ def _use_detect_food(
     return events
 
 
+def _use_detect_gems(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Reveal all gems on the current level with a fading glow."""
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.detect_gems_cast")))
+
+    turn = world.turn
+    duration = 20
+    glow = "#FF66CC"
+    count = 0
+
+    for eid, _, gpos in world.query("Gem", "Position"):
+        if gpos is None:
+            continue
+        world.add_component(eid, "Detected", Detected(
+            turn_detected=turn, duration=duration,
+            glow_color=glow,
+        ))
+        count += 1
+
+    if count:
+        events.append(MessageEvent(
+            text=t("item.detect_gems_reveal", count=count),
+        ))
+    else:
+        events.append(MessageEvent(text=t("item.detect_gems_none")))
+
+    events.append(ItemUsed(entity=actor, item=item, effect="detect_gems"))
+    return events
+
+
+def _use_reveal_map(
+    world: "World",
+    level: "Level",
+    actor: int,
+    item: int,
+) -> list[Event]:
+    """Mark every tile on the current level as explored (memorized).
+
+    Unlike clairvoyance, which works in a radius around the player and
+    grants live FOV through the Detected glow, reveal_map simply seeds
+    the player's memory of the whole map. Tiles remain non-visible
+    until the player actually walks within sight range, so creatures
+    and items only show up if they were already known.
+    """
+    events: list[Event] = []
+    events.append(MessageEvent(text=t("item.reveal_map_cast")))
+
+    for row in level.tiles:
+        for tile in row:
+            tile.explored = True
+
+    events.append(MessageEvent(text=t("item.reveal_map_reveal")))
+    events.append(ItemUsed(entity=actor, item=item, effect="reveal_map"))
+    return events
+
+
 def _use_remove_fear(
     world: "World",
     actor: int,
@@ -843,27 +904,6 @@ def _use_clairvoyance(
 
     events.append(MessageEvent(text=t("item.clairvoyance_reveal")))
     events.append(ItemUsed(entity=actor, item=item, effect="clairvoyance"))
-    return events
-
-
-def _use_continual_light(
-    world: "World",
-    actor: int,
-    item: int,
-) -> list[Event]:
-    """Create a permanent light (very long duration infravision)."""
-    events: list[Event] = []
-    # 999 turns is effectively permanent for a dungeon level
-    status = world.get_component(actor, "StatusEffect")
-    if status is None:
-        world.add_component(actor, "StatusEffect",
-                            StatusEffect(infravision=999))
-    else:
-        status.infravision = 999
-
-    events.append(MessageEvent(text=t("item.continual_light_cast")))
-    events.append(ItemUsed(entity=actor, item=item,
-                           effect="continual_light"))
     return events
 
 

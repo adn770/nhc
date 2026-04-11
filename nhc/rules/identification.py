@@ -52,8 +52,8 @@ POTION_APPEARANCES = [
 
 SCROLL_IDS = [
     "scroll_bless", "scroll_charm_person", "scroll_charm_snakes",
-    "scroll_clairvoyance", "scroll_continual_light", "scroll_cure_wounds",
-    "scroll_detect_evil", "scroll_detect_food",
+    "scroll_clairvoyance", "scroll_cure_wounds",
+    "scroll_detect_evil", "scroll_detect_food", "scroll_detect_gems",
     "scroll_detect_gold", "scroll_detect_invisibility",
     "scroll_detect_magic", "scroll_dispel_magic", "scroll_find_traps",
     "scroll_fireball", "scroll_fly", "scroll_haste",
@@ -62,7 +62,8 @@ SCROLL_IDS = [
     "scroll_magic_missile", "scroll_mirror_image",
     "scroll_phantasmal_force", "scroll_protection_evil",
     "scroll_protection_missiles", "scroll_remove_fear",
-    "scroll_resist_cold", "scroll_resist_fire", "scroll_shield",
+    "scroll_resist_cold", "scroll_resist_fire", "scroll_reveal_map",
+    "scroll_shield",
     "scroll_silence", "scroll_sleep", "scroll_water_breathing",
     "scroll_web",
     "scroll_identify",

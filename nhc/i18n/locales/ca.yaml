@@ -393,6 +393,11 @@ item:
   detect_food_cast: "L'aroma de menjar omple els teus narils!"
   detect_food_reveal: "Detectes {count} fonts d'aliment en aquest nivell."
   detect_food_none: "No detectes menjar en aquest nivell."
+  detect_gems_cast: "Facetes de llum amagada dansen darrere dels teus ulls!"
+  detect_gems_reveal: "Detectes {count} gemmes en aquest nivell."
+  detect_gems_none: "No detectes cap gemma en aquest nivell."
+  reveal_map_cast: "La disposició del soterrani es desplega a la teva ment..."
+  reveal_map_reveal: "Tot el nivell queda gravat a la teva memòria!"
   find_traps_cast: "Els perills ocults es revelen!"
   find_traps_reveal: "Divises {count} trampes ocultes."
   find_traps_none: "No hi ha trampes ocultes en aquest nivell."
@@ -423,7 +428,6 @@ item:
   clairvoyance_reveal: "L'àrea circumdant se't revela!"
   infravision_cast: "Els teus ulls s'ajusten per veure més enllà de la llum visible."
   infravision_active: "Veus signatures de calor en la foscor!"
-  continual_light_cast: "Un orbe de llum permanent s'encén!"
   water_breathing_cast: "Els teus pulmons s'adapten per respirar aigua."
   water_breathing_active: "Pots respirar sota l'aigua!"
   charm_snakes_cast: "Una melodia hipnòtica omple l'aire..."
@@ -2434,6 +2438,20 @@ items:
     long: >-
       El pergamí fa una olor suau a pa fresc. Llegir-lo revela
       totes les fonts d'aliment del nivell actual.
+  scroll_detect_gems:
+    name: "Pergamí de Detectar Gemmes"
+    gender: "m"
+    short: "un pergamí violeta facetat"
+    long: >-
+      Petits punts prismàtics brillen en aquest pergamí. Llegir-lo
+      revela totes les gemmes del nivell actual.
+  scroll_reveal_map:
+    name: "Pergamí de Revelar el Mapa"
+    gender: "m"
+    short: "un pergamí blanc amb traços cartogràfics"
+    long: >-
+      Línies tènues de topògraf s'entrecreuen al pergamí. Llegir-lo
+      grava la disposició completa del nivell a la teva memòria.
   scroll_detect_evil:
     name: "Pergamí de Detectar el Mal"
     gender: "m"
@@ -2546,13 +2564,6 @@ items:
     long: >-
       Escrit amb tinta visible només en la foscor. Llegir-lo atorga
       la capacitat de veure signatures de calor durant 20 torns.
-  scroll_continual_light:
-    name: "Pergamí de Llum Contínua"
-    gender: "m"
-    short: "un pergamí llampant"
-    long: >-
-      Text blanc encegador sobre pergamí daurat. Llegir-lo crea
-      una font de llum permanent que mai no s'esvaeix.
   scroll_water_breathing:
     name: "Pergamí de Respirar sota l'Aigua"
     gender: "m"

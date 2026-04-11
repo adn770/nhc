@@ -375,6 +375,11 @@ item:
   detect_food_cast: "The scent of sustenance fills your nostrils!"
   detect_food_reveal: "You sense {count} sources of food on this level."
   detect_food_none: "You sense no food on this level."
+  detect_gems_cast: "Facets of buried light dance behind your eyes!"
+  detect_gems_reveal: "You sense {count} gems on this level."
+  detect_gems_none: "You sense no gems on this level."
+  reveal_map_cast: "The layout of the dungeon unfolds in your mind..."
+  reveal_map_reveal: "The entire level is committed to memory!"
   find_traps_cast: "Hidden dangers reveal themselves!"
   find_traps_reveal: "You spot {count} hidden traps."
   find_traps_none: "No hidden traps on this level."
@@ -405,7 +410,6 @@ item:
   clairvoyance_reveal: "The surrounding area is revealed to you!"
   infravision_cast: "Your eyes adjust to see beyond visible light."
   infravision_active: "You see heat signatures in the darkness!"
-  continual_light_cast: "A permanent orb of light blazes into existence!"
   water_breathing_cast: "Your lungs adapt to breathe water."
   water_breathing_active: "You can breathe underwater!"
   charm_snakes_cast: "A hypnotic melody fills the air..."
@@ -2137,6 +2141,18 @@ items:
     long: >-
       The parchment smells faintly of fresh bread. Reading it
       reveals every source of sustenance on the current level.
+  scroll_detect_gems:
+    name: "Scroll of Detect Gems"
+    short: "a faceted violet scroll"
+    long: >-
+      Tiny prismatic flecks glitter across this parchment. Reading
+      it reveals every gem on the current level.
+  scroll_reveal_map:
+    name: "Scroll of Reveal Map"
+    short: "a chart-marked white scroll"
+    long: >-
+      Faint surveyor's lines crisscross the parchment. Reading it
+      etches the entire level's layout into your memory.
   scroll_detect_evil:
     name: "Scroll of Detect Evil"
     short: "a pale scroll with dark runes"
@@ -2233,12 +2249,6 @@ items:
     long: >-
       Written in ink visible only in darkness. Reading it grants
       the ability to see heat signatures for 20 turns.
-  scroll_continual_light:
-    name: "Scroll of Continual Light"
-    short: "a blazing scroll"
-    long: >-
-      Blinding white text on golden parchment. Reading it creates
-      a permanent light source that never dims.
   scroll_water_breathing:
     name: "Scroll of Water Breathing"
     short: "a damp scroll"

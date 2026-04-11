@@ -246,12 +246,13 @@ class UseItemAction(Action):
             _use_charm_snakes,
             _use_charging,
             _use_clairvoyance,
-            _use_continual_light,
             _use_damage_nearest,
             _use_detect_evil,
             _use_detect_food,
+            _use_detect_gems,
             _use_detect_gold,
             _use_detect_magic,
+            _use_reveal_map,
             _use_dispel_magic,
             _use_enchant_armor,
             _use_enchant_weapon,
@@ -468,6 +469,12 @@ class UseItemAction(Action):
         elif consumable.effect == "detect_food":
             events += _use_detect_food(world, level, self.actor, self.item)
 
+        elif consumable.effect == "detect_gems":
+            events += _use_detect_gems(world, level, self.actor, self.item)
+
+        elif consumable.effect == "reveal_map":
+            events += _use_reveal_map(world, level, self.actor, self.item)
+
         elif consumable.effect == "light":
             events += _use_self_buff(
                 world, self.actor, self.item, consumable, "infravision",
@@ -537,9 +544,6 @@ class UseItemAction(Action):
                 world, self.actor, self.item, consumable, "infravision",
                 t("item.infravision_cast"), t("item.infravision_active"),
             )
-
-        elif consumable.effect == "continual_light":
-            events += _use_continual_light(world, self.actor, self.item)
 
         elif consumable.effect == "water_breathing":
             events += _use_self_buff(
