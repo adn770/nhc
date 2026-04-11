@@ -632,7 +632,7 @@ const GameMap = {
     // The gradient is one tile shorter than the FOV for a tight
     // torch feel. FOV tiles beyond the gradient get the memory
     // dim level so they never go fully black.
-    const dimAlpha = 0.7;  // must match explored-not-visible below
+    const dimAlpha = 0.7;  // gradient outer rim only — memory tiles use memFloor/memCeil
     const innerR = maxDist * 0.2 + half;
     const outerR = maxDist + cs;
 
