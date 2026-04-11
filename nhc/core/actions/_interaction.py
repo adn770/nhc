@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
-from nhc.core.actions._helpers import _entity_name, _items_at, _msg
+from nhc.core.actions._helpers import (
+    _entity_name, _items_at, _msg, _stack_ground_items,
+)
 from nhc.core.events import (
     DoorOpened, Event, LevelEntered, MessageEvent, VisualEffect,
 )
@@ -538,15 +540,18 @@ class LookAction(Action):
                 text=t("explore.see_feature", feature=fname),
             ))
 
-        # Describe items on tile
+        # Describe items on tile, stacking identical entries.
+        # A single-item stack with a ``long`` description still gets
+        # the prose flavor text; stacks (count > 1) collapse to the
+        # localized plural label so duplicates do not spam the log.
         items = _items_at(world, pos.x, pos.y, self.actor)
-        for eid in items:
-            desc = world.get_component(eid, "Description")
-            if desc and desc.long:
+        for rep, count, label in _stack_ground_items(world, items):
+            desc = world.get_component(rep, "Description")
+            if count == 1 and desc and desc.long:
                 events.append(MessageEvent(text=desc.long))
-            elif desc:
+            else:
                 events.append(MessageEvent(
-                    text=t("explore.see_item", item=desc.short),
+                    text=t("explore.see_item", item=label),
                 ))
 
         # Describe visible creatures

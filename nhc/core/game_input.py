@@ -27,6 +27,7 @@ from nhc.core.actions import (
     ZapAction,
     get_hired_henchmen,
 )
+from nhc.core.actions._helpers import _items_at
 from nhc.dungeon.model import Terrain
 from nhc.i18n import t
 
@@ -44,30 +45,41 @@ def find_pickup_action(game: Game) -> Action | None:
     if not pos:
         return None
 
-    # Gather all pickable items at player's feet
-    ground_items: list[tuple[int, str]] = []
-    for eid, _, ipos in game.world.query("Description", "Position"):
-        if ipos is None:
-            continue
-        if ipos.x == pos.x and ipos.y == pos.y and eid != game.player_id:
-            if (not game.world.has_component(eid, "AI")
-                    and not game.world.has_component(eid, "BlocksMovement")
-                    and not game.world.has_component(eid, "Trap")):
-                desc = game.world.get_component(eid, "Description")
-                name = desc.short or desc.name if desc else "???"
-                ground_items.append((eid, name))
-
-    if not ground_items:
+    # Gather pickable items, then collapse identical entries into
+    # stacks for the selection menu so the player sees
+    # "Goblin corpse (x3)" instead of three duplicate rows.
+    raw_items = _items_at(game.world, pos.x, pos.y, exclude=game.player_id)
+    if not raw_items:
         game.renderer.add_message(t("item.nothing_to_pickup"))
         return None
 
-    # Single item: pick up directly
-    if len(ground_items) == 1:
+    order: list[str] = []
+    groups: dict[str, list[int]] = {}
+    for eid in raw_items:
+        desc = game.world.get_component(eid, "Description")
+        key = desc.name if desc and desc.name else f"__eid_{eid}"
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(eid)
+
+    # Single stack of one: pick up directly without prompting
+    if len(order) == 1 and len(groups[order[0]]) == 1:
         return PickupItemAction(
-            actor=game.player_id, item=ground_items[0][0],
+            actor=game.player_id, item=groups[order[0]][0],
         )
 
-    # Multiple items: show selection menu
+    ground_items: list[tuple[int, str]] = []
+    for key in order:
+        eids = groups[key]
+        rep = eids[0]
+        desc = game.world.get_component(rep, "Description")
+        name = (desc.short or desc.name) if desc else "???"
+        if len(eids) > 1:
+            ground_items.append((rep, f"{name} (x{len(eids)})"))
+        else:
+            ground_items.append((rep, name))
+
     selected = game.renderer.show_ground_menu(ground_items)
     if selected is None:
         return None

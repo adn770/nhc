@@ -686,6 +686,114 @@ class TestGroundItemAnnouncement:
         msgs = [e.text for e in events if isinstance(e, MessageEvent)]
         assert any("1 gold coin" in m for m in msgs)
 
+    @pytest.mark.asyncio
+    async def test_move_stacks_identical_corpses(self):
+        """Three identical corpses report as a single pluralized entry."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        for _ in range(3):
+            world.create_entity({
+                "Position": Position(x=6, y=5),
+                "Description": Description(
+                    name="Goblin corpse",
+                    short="Goblin corpse",
+                    plural="Goblin corpses",
+                ),
+            })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        # Single stack collapses to see_item form with plural label
+        assert any("3 Goblin corpses" in m for m in msgs)
+        # Should NOT spell out three separate entries
+        assert not any("Goblin corpse, Goblin corpse" in m for m in msgs)
+
+    @pytest.mark.asyncio
+    async def test_move_stacks_mixed_items(self):
+        """Mixed stacks: 2 corpses + 1 dagger -> 'You see 3 items'."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        for _ in range(2):
+            world.create_entity({
+                "Position": Position(x=6, y=5),
+                "Description": Description(
+                    name="Goblin corpse",
+                    short="Goblin corpse",
+                    plural="Goblin corpses",
+                ),
+            })
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(
+                name="Dagger", short="a sharp dagger",
+            ),
+        })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        # Total item count is 3, distributed across 2 stacks
+        joined = " ".join(msgs)
+        assert "3 items" in joined
+        assert "2 Goblin corpses" in joined
+        assert "a sharp dagger" in joined
+
+    @pytest.mark.asyncio
+    async def test_move_stacks_single_item_no_plural_field(self):
+        """One item without a plural field renders unchanged."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "Description": Description(
+                name="Dagger", short="a sharp dagger",
+            ),
+        })
+
+        action = MoveAction(actor=pid, dx=1, dy=0)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("a sharp dagger" in m for m in msgs)
+
+
+class TestLookActionStacking:
+    @pytest.mark.asyncio
+    async def test_look_stacks_identical_corpses(self):
+        """LookAction also collapses identical items into a stacked label."""
+        init("en")
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        for _ in range(3):
+            world.create_entity({
+                "Position": Position(x=5, y=5),
+                "Description": Description(
+                    name="Goblin corpse",
+                    short="Goblin corpse",
+                    plural="Goblin corpses",
+                ),
+            })
+
+        action = LookAction(actor=pid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        joined = " ".join(msgs)
+        assert "3 Goblin corpses" in joined
+        # Three discrete corpse messages would mean 3 occurrences of "corpse"
+        # without the count prefix; verify only the stacked form appears.
+        assert joined.count("Goblin corpses") == 1
+
 
 class TestCorpseAndLoot:
     @pytest.mark.asyncio

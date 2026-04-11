@@ -190,6 +190,54 @@ def _items_at(
     return items
 
 
+def _stack_ground_items(
+    world: "World", items: list[int],
+) -> list[tuple[int, int, str]]:
+    """Group identical items into stacks for display.
+
+    Items are grouped by Description.name. Returns a list of
+    (representative_entity_id, count, label) tuples in stable order.
+    The label uses the localized plural form when count > 1 and a
+    plural is available; otherwise the singular short/name string
+    (or a generic "{count}× {name}" fallback).
+    """
+    order: list[str] = []
+    groups: dict[str, list[int]] = {}
+    for eid in items:
+        desc = world.get_component(eid, "Description")
+        # Gold piles already encode their amount in the name string,
+        # so each pile remains a unique stack via its name.
+        key = desc.name if desc and desc.name else f"__eid_{eid}"
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(eid)
+
+    stacks: list[tuple[int, int, str]] = []
+    for key in order:
+        eids = groups[key]
+        rep = eids[0]
+        count = len(eids)
+        desc = world.get_component(rep, "Description")
+        gold_label = _gold_pile_label(world, rep)
+        if count == 1:
+            if gold_label is not None:
+                label = gold_label
+            elif desc:
+                label = desc.short or desc.name or "something"
+            else:
+                label = "something"
+        else:
+            if desc and desc.plural:
+                label = f"{count} {desc.plural}"
+            elif desc and desc.name:
+                label = f"{count}× {desc.name}"
+            else:
+                label = f"{count}× something"
+        stacks.append((rep, count, label))
+    return stacks
+
+
 def _gold_pile_label(world: "World", item_id: int) -> str | None:
     """Return a localized "N gold coins" label for a gold pile.
 
@@ -211,29 +259,26 @@ def _gold_pile_label(world: "World", item_id: int) -> str | None:
 def _announce_ground_items(
     world: "World", x: int, y: int, actor: int,
 ) -> list[Event]:
-    """Generate messages for items lying on the ground at position."""
+    """Generate messages for items lying on the ground at position.
+
+    Identical items are grouped into stacks so that, e.g., three goblin
+    corpses on the same tile become "3 goblin corpses" rather than
+    three separate entries.
+    """
     items = _items_at(world, x, y, exclude=actor)
     if not items:
         return []
 
+    stacks = _stack_ground_items(world, items)
     events: list[Event] = []
-    if len(items) == 1:
-        desc = world.get_component(items[0], "Description")
-        gold_label = _gold_pile_label(world, items[0])
-        if gold_label is not None:
-            name = gold_label
-        else:
-            name = (desc.short or desc.name) if desc else "something"
+    if len(stacks) == 1:
         events.append(MessageEvent(
-            text=t("explore.see_item", item=name),
+            text=t("explore.see_item", item=stacks[0][2]),
         ))
     else:
-        names = []
-        for eid in items:
-            desc = world.get_component(eid, "Description")
-            names.append(desc.name if desc else "???")
+        total = sum(count for _, count, _ in stacks)
+        labels = ", ".join(label for _, _, label in stacks)
         events.append(MessageEvent(
-            text=t("explore.see_items", count=len(items),
-                   items=", ".join(names)),
+            text=t("explore.see_items", count=total, items=labels),
         ))
     return events

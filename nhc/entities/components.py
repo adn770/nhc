@@ -61,6 +61,7 @@ class Description:
     short: str = ""
     long: str = ""
     gender: str = ""  # "m" or "f" for grammatical gender (articles)
+    plural: str = ""  # plural form of name, used for stack labels
 
 
 @dataclass

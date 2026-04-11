@@ -190,6 +190,7 @@ combat:
   destroyed: "{target} is destroyed!"
   drops: "{target} drops: {items}."
   corpse: "{name} corpse"
+  corpse_plural: "{name} corpses"
   unarmed: "unarmed"
   # Player attacks
   you_hit: "You hit {target} for {damage} damage."

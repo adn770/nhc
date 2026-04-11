@@ -448,6 +448,9 @@ class MeleeAttackAction(Action):
                     # Leave a corpse marker, then destroy
                     if tpos:
                         corpse_name = t("combat.corpse", name=target_name)
+                        corpse_plural = t(
+                            "combat.corpse_plural", name=target_name,
+                        )
                         world.create_entity({
                             "Position": Position(
                                 x=tpos.x, y=tpos.y,
@@ -460,6 +463,7 @@ class MeleeAttackAction(Action):
                             "Description": Description(
                                 name=corpse_name,
                                 short=corpse_name,
+                                plural=corpse_plural,
                             ),
                         })
 

@@ -191,6 +191,7 @@ combat:
   destroyed: "{target} ha estat destruït!"
   drops: "{target} deixa caure: {items}."
   corpse: "cadàver de {name}"
+  corpse_plural: "cadàvers de {name}"
   unarmed: "desarmat"
   # Player attacks (2nd person singular)
   you_hit: "Colpeges {target} per {damage} de dany."

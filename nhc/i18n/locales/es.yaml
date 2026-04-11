@@ -188,6 +188,7 @@ combat:
   destroyed: "¡{target} ha sido destruido!"
   drops: "{target} deja caer: {items}."
   corpse: "cadáver de {name}"
+  corpse_plural: "cadáveres de {name}"
   unarmed: "desarmado"
   # Player attacks
   you_hit: "¡Golpeas a {target} por {damage} de daño!"
