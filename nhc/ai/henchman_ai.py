@@ -111,6 +111,12 @@ def decide_henchman_action(
         UseItemAction,
     )
 
+    # Only hired henchmen follow the player and act as party members.
+    # Unhired adventurers stay idle until recruited.
+    hench = world.get_component(entity_id, "Henchman")
+    if not hench or not hench.hired:
+        return None
+
     pos = world.get_component(entity_id, "Position")
     player_pos = world.get_component(player_id, "Position")
     if not pos or not player_pos:

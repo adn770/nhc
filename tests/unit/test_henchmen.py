@@ -529,6 +529,20 @@ class TestHenchmanAI:
         if isinstance(action, MeleeAttackAction):
             assert action.target != a2
 
+    @pytest.mark.asyncio
+    async def test_unhired_adventurer_does_not_follow_player(self):
+        """Unhired adventurers should idle, not chase the player."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=2, y=2)
+        # Place unhired adventurer far from player (dist > FOLLOW_DISTANCE)
+        aid = _make_adventurer(world, x=10, y=10, hired=False)
+
+        action = decide_henchman_action(aid, world, level, pid)
+        assert action is None
+
 
 # ── Call for Help ──────────────────────────────────────────────────
 
