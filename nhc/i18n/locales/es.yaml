@@ -251,6 +251,8 @@ explore:
   you_force_door_tool_success: "¡Fuerzas la puerta con {tool}!"
   force_door_fail: "¡{entity} golpea la puerta! ¡{damage} de daño!"
   you_force_door_fail: "¡Golpeas la puerta! ¡{damage} de daño!"
+  force_door_tool_fail: "{tool} de {entity} resbala sobre la puerta."
+  you_force_door_tool_fail: "Tu {tool} resbala sobre la puerta."
   tool_break: "¡{tool} se rompe!"
   force_with: "¿Forzar puerta con?"
   bare_hands: "Manos desnudas"

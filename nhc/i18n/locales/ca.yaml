@@ -269,6 +269,8 @@ explore:
   you_force_door_tool_success: "Forces la porta amb {tool}!"
   force_door_fail: "{entity} colpeja la porta! {damage} de dany!"
   you_force_door_fail: "Colpeges la porta! {damage} de dany!"
+  force_door_tool_fail: "{tool} de {entity} rellisca sobre la porta."
+  you_force_door_tool_fail: "{tool} et rellisca sobre la porta."
   tool_break: "{tool} es trenca!"
   force_with: "Forçar porta amb?"
   bare_hands: "Mans nues"

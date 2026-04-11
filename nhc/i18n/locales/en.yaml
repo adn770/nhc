@@ -253,6 +253,8 @@ explore:
   you_force_door_tool_success: "You pry the door open with {tool}!"
   force_door_fail: "{entity} slams against the door! {damage} damage!"
   you_force_door_fail: "You slam against the door! {damage} damage!"
+  force_door_tool_fail: "{entity}'s {tool} slips off the door."
+  you_force_door_tool_fail: "Your {tool} slips off the door."
   tool_break: "The {tool} breaks!"
   force_with: "Force door with?"
   bare_hands: "Bare hands"

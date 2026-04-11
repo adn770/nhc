@@ -144,8 +144,10 @@ class ForceDoorAction(Action):
 
     Base STR save DC 15.  On failure, take 1d4 damage.
     Using a tool lowers the effective DC:
-      - Crowbar (ForceTool): -5 DC, 10% break chance
+      - Crowbar (ForceTool): -5 DC, 10% break chance, no fail damage
       - Melee weapon: -3 DC, 20% break chance
+    The crowbar absorbs the rebound on a failed attempt, so the
+    player takes no self-inflicted damage when forcing with one.
     """
 
     FORCE_DC = 15
@@ -207,14 +209,21 @@ class ForceDoorAction(Action):
                               actor=self.actor),
                 ))
         else:
-            damage = roll_dice("1d4")
-            health = world.get_component(self.actor, "Health")
-            if health:
-                actual = apply_damage(health, damage)
+            # A crowbar absorbs the rebound — no self-damage on fail.
+            if is_crowbar:
                 events.append(MessageEvent(
-                    text=_msg("explore.force_door_fail", world,
-                              actor=self.actor, damage=actual),
+                    text=_msg("explore.force_door_tool_fail", world,
+                              actor=self.actor, tool=tool_name),
                 ))
+            else:
+                damage = roll_dice("1d4")
+                health = world.get_component(self.actor, "Health")
+                if health:
+                    actual = apply_damage(health, damage)
+                    events.append(MessageEvent(
+                        text=_msg("explore.force_door_fail", world,
+                                  actor=self.actor, damage=actual),
+                    ))
 
         # Tool breakage check (on both success and failure)
         if self.tool is not None:

@@ -219,6 +219,73 @@ class TestForceDoorWithTool:
         assert tile.feature != "door_locked"
 
     @pytest.mark.asyncio
+    async def test_crowbar_cancels_failure_damage(self):
+        """Failing to force with a crowbar must not hurt the player."""
+        # STR 0, no tool bonus to STR roll: any d20 < 15 will fail.
+        # A crowbar only lowers DC to 10; with STR 0 and d20=1 the
+        # check still fails — the interesting invariant is that the
+        # player takes no damage from that failure.
+        world, pid, level = _make_world(strength=0)
+        crowbar = world.create_entity({
+            "Description": Description(name="Crowbar"),
+            "Renderable": Renderable(glyph="(", color="cyan"),
+            "ForceTool": True,
+        })
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(crowbar)
+
+        health = world.get_component(pid, "Health")
+
+        # Exhaust failures across many seeds; assert HP never drops
+        # when a crowbar is used.
+        failed_at_least_once = False
+        for seed in range(50):
+            level.tiles[5][6].feature = "door_locked"
+            health.current = 20
+            set_seed(seed)
+            action = ForceDoorAction(
+                actor=pid, dx=1, dy=0, tool=crowbar,
+            )
+            await action.validate(world, level)
+            await action.execute(world, level)
+            if level.tiles[5][6].feature == "door_locked":
+                failed_at_least_once = True
+                assert health.current == 20, (
+                    f"Crowbar failure at seed {seed} dealt damage"
+                )
+            # Respawn crowbar if it broke
+            if not world.has_component(crowbar, "ForceTool"):
+                crowbar = world.create_entity({
+                    "Description": Description(name="Crowbar"),
+                    "Renderable": Renderable(glyph="(", color="cyan"),
+                    "ForceTool": True,
+                })
+                inv.slots.append(crowbar)
+        assert failed_at_least_once, (
+            "Test did not exercise any failure — tighten STR/DC"
+        )
+
+    @pytest.mark.asyncio
+    async def test_bare_hands_failure_still_hurts(self):
+        """Without a crowbar, failure damage still applies."""
+        world, pid, level = _make_world(strength=0)
+        health = world.get_component(pid, "Health")
+
+        hurt = False
+        for seed in range(50):
+            level.tiles[5][6].feature = "door_locked"
+            health.current = 20
+            set_seed(seed)
+            action = ForceDoorAction(actor=pid, dx=1, dy=0, tool=None)
+            await action.validate(world, level)
+            await action.execute(world, level)
+            if (level.tiles[5][6].feature == "door_locked"
+                    and health.current < 20):
+                hurt = True
+                break
+        assert hurt, "Bare-hand failure should deal 1d4 damage"
+
+    @pytest.mark.asyncio
     async def test_tool_can_break(self):
         """Tools have a chance to break when used."""
         # Use a seed where the breakage RNG triggers
