@@ -1575,9 +1575,9 @@ items:
     long: "Una fona teixida amb corda encantada. +1 a l'atac i al dany."
   # ── Armadura màgica ──
   gambeson_plus_1:
-    name: "Gambeson +1"
+    name: "Gambesó +1"
     gender: "m"
-    short: "un gambeson encantat"
+    short: "un gambesó encantat"
     long: "Armadura encoixinada teixida amb proteccions màgiques. +1 CA."
   leather_armor_plus_1:
     name: "Armadura de Cuir +1"
@@ -1639,15 +1639,15 @@ items:
     short: "un casc de ferro"
     long: "Un casc de ferro robust que protegeix el cap. +1 defensa."
   gambeson:
-    name: "Gambesón"
+    name: "Gambesó"
     gender: "m"
-    short: "un gambesón encoixinat"
+    short: "un gambesó encoixinat"
     long: "Armadura de tela gruixuda encoixinada. Lleugera i silenciosa. Defensa 12."
   brigandine:
     name: "Brigantina"
     gender: "f"
     short: "una brigantina"
-    long: "Petites plaques d'acer reblades dins d'un armilla de cuir. Defensa 13."
+    long: "Petites plaques d'acer reblades dins d'una armilla de cuir. Defensa 13."
   chain_mail:
     name: "Cota de Malla"
     gender: "f"
@@ -1676,7 +1676,7 @@ items:
   mace:
     name: "Maça"
     gender: "f"
-    short: "una maça amb ales"
+    short: "una maça d'aletes"
     long: "Un cap de ferro pesat sobre un mànec de fusta. 1d8 de dany."
   axe:
     name: "Destral"
@@ -1711,8 +1711,8 @@ items:
   torch:
     name: "Torxa"
     gender: "f"
-    short: "una torxa de pega"
-    long: "Una torxa de fusta banyada en pega. Crema durant una hora."
+    short: "una torxa de quitrà"
+    long: "Una torxa de fusta banyada en quitrà. Crema durant una hora."
   lantern:
     name: "Llanterna"
     gender: "f"
@@ -1899,15 +1899,15 @@ items:
     short: "una bossa de bales de vidre"
     long: "Una bossa de bales de vidre llises. Escampa-les per fer ensopegar."
   air_bladder:
-    name: "Baló d'Aire"
-    gender: "m"
-    short: "un baló d'aire inflat"
+    name: "Bufeta d'Aire"
+    gender: "f"
+    short: "una bufeta inflada"
     long: "Una bufeta d'animal inflada amb aire. Útil per flotar."
   waterskin:
-    name: "Bóta"
+    name: "Cantimplora"
     gender: "f"
-    short: "una bóta de cuir"
-    long: "Una bossa de cuir per portar aigua. Conté per a un dia."
+    short: "una cantimplora de cuir"
+    long: "Una cantimplora de cuir per portar aigua. Conté per a un dia."
   crampons:
     name: "Grampons"
     gender: "m"
