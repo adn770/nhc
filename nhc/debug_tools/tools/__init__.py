@@ -5,6 +5,7 @@ from nhc.debug_tools.tools.exports import ListExportsTool, ReadExportTool
 from nhc.debug_tools.tools.game_state import (
     GetEntityListTool,
     GetGameSnapshotTool,
+    GetHenchmanSheetsTool,
     GetTileInfoTool,
 )
 from nhc.debug_tools.tools.dungeon import (
@@ -31,6 +32,7 @@ ALL_TOOL_CLASSES = [
     GetGameSnapshotTool,
     GetEntityListTool,
     GetTileInfoTool,
+    GetHenchmanSheetsTool,
     GetRoomInfoTool,
     GetRoomTilesTool,
     GetDoorAnalysisTool,

@@ -601,6 +601,78 @@ class TestGenerationParamsAPI:
         assert tile.feature == "stairs_up"
 
 
+class TestHenchmenEndpoint:
+    def _create_god_session(self, client_with_data_dir):
+        token, pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        session.game.set_god_mode(True)
+        return sid, session
+
+    def test_henchmen_requires_god_mode(self, client_with_data_dir):
+        resp = client_with_data_dir.post("/api/game/new", json={})
+        sid = resp.get_json()["session_id"]
+        resp = client_with_data_dir.get(f"/api/game/{sid}/henchmen")
+        assert resp.status_code == 404
+
+    def test_henchmen_empty_when_none_hired(
+        self, client_with_data_dir,
+    ):
+        sid, _ = self._create_god_session(client_with_data_dir)
+        resp = client_with_data_dir.get(f"/api/game/{sid}/henchmen")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data == {"henchmen": [], "count": 0}
+
+    def test_henchmen_returns_hired_party(
+        self, client_with_data_dir,
+    ):
+        from nhc.entities.components import (
+            AI, Description, Equipment, Health, Henchman,
+            Inventory, Position, Renderable, Stats, Weapon,
+        )
+
+        sid, session = self._create_god_session(client_with_data_dir)
+        world = session.game.world
+        pid = session.game.player_id
+
+        # Equipped weapon
+        wid = world.create_entity({
+            "Weapon": Weapon(damage="1d8", magic_bonus=1),
+            "Description": Description(name="long sword"),
+        })
+        # Hired henchman owned by the player
+        world.create_entity({
+            "Position": Position(x=2, y=2),
+            "Stats": Stats(strength=2, dexterity=1),
+            "Health": Health(current=12, maximum=18),
+            "Inventory": Inventory(slots=[], max_slots=12),
+            "Equipment": Equipment(weapon=wid),
+            "AI": AI(behavior="henchman", faction="human"),
+            "Henchman": Henchman(
+                owner=pid, level=2, hired=True,
+            ),
+            "Description": Description(name="Bob"),
+            "Renderable": Renderable(glyph="@"),
+        })
+
+        resp = client_with_data_dir.get(f"/api/game/{sid}/henchmen")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["count"] == 1
+        sheet = data["henchmen"][0]
+        assert sheet["name"] == "Bob"
+        assert sheet["level"] == 2
+        assert sheet["hp"] == 12
+        assert sheet["max_hp"] == 18
+        assert sheet["equipment"]["weapon"]["name"] == "long sword"
+
+
 class TestDebugBundleAutosave:
     def test_bundle_includes_generation_params(self, client_with_data_dir):
         """Debug bundle must include generation parameters."""

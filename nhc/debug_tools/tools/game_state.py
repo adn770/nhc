@@ -7,6 +7,55 @@ from typing import Any
 from nhc.debug_tools.base import BaseTool
 
 
+# ── Item type detection ──────────────────────────────────────────
+# Order matters: the first matching component wins, so more
+# specific types (Wand, Ring) come before generic ones (Weapon).
+_ITEM_TYPE_COMPONENTS: tuple[tuple[str, str], ...] = (
+    ("Wand", "wand"),
+    ("Ring", "ring"),
+    ("Weapon", "weapon"),
+    ("Armor", "armor"),
+    ("Consumable", "consumable"),
+    ("DiggingTool", "tool"),
+    ("Gem", "gem"),
+)
+
+
+def _item_summary(
+    item_id: int, comps: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Build a compact summary of an item entity from its components."""
+    if comps is None:
+        return None
+
+    desc = comps.get("Description") or {}
+    summary: dict[str, Any] = {
+        "id": item_id,
+        "name": desc.get("name", ""),
+    }
+
+    reg = comps.get("RegistryId")
+    if reg and reg.get("item_id"):
+        summary["item_id"] = reg["item_id"]
+
+    item_type = "item"
+    for comp_name, type_label in _ITEM_TYPE_COMPONENTS:
+        if comp_name in comps:
+            item_type = type_label
+            data = comps[comp_name] or {}
+            # Copy non-zero / non-default fields onto the summary.
+            for key, value in data.items():
+                if value not in (0, "", None, False):
+                    summary[key] = value
+            break
+    summary["type"] = item_type
+
+    if "Enchanted" in comps:
+        summary["enchanted"] = True
+
+    return summary
+
+
 class GetGameSnapshotTool(BaseTool):
     name = "get_game_snapshot"
     description = (
@@ -166,3 +215,148 @@ class GetTileInfoTool(BaseTool):
                 break
 
         return result
+
+
+class GetHenchmanSheetsTool(BaseTool):
+    name = "get_henchman_sheets"
+    description = (
+        "Return character sheets for all henchmen in the most "
+        "recent game_state export: name, level, XP, HP, ability "
+        "stats, equipped weapon/armor/shield/helmet/rings, and "
+        "carried inventory items. Optionally filter by entity id."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "henchman_id": {
+                "type": "integer",
+                "description": (
+                    "Only return the sheet for this entity id."
+                ),
+            },
+            "filename": {
+                "type": "string",
+                "description": "Specific export file (optional)",
+            },
+        },
+    }
+
+    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+        data = self._read_json_export(
+            "game_state", kwargs.get("filename"))
+        if "error" in data:
+            return data
+        ecs: dict[str, dict[str, Any]] = data.get("ecs", {}) or {}
+        return build_henchman_sheets(
+            ecs, henchman_id=kwargs.get("henchman_id"),
+        )
+
+
+def _lookup(
+    ecs: dict[str, dict[str, Any]], item_id: int | None,
+) -> dict[str, Any] | None:
+    if item_id is None:
+        return None
+    return ecs.get(str(item_id))
+
+
+def _build_equipment(
+    equipment: dict[str, Any] | None,
+    ecs: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    if not equipment:
+        return None
+    slots = (
+        "weapon", "armor", "shield", "helmet",
+        "ring_left", "ring_right",
+    )
+    return {
+        slot: _item_summary(
+            equipment.get(slot),
+            _lookup(ecs, equipment.get(slot)),
+        )
+        for slot in slots
+    }
+
+
+def _build_inventory(
+    slot_ids: list[int],
+    ecs: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for item_id in slot_ids:
+        summary = _item_summary(item_id, _lookup(ecs, item_id))
+        if summary is not None:
+            items.append(summary)
+    return items
+
+
+def _build_sheet(
+    eid: int,
+    comps: dict[str, Any],
+    ecs: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    henchman = comps.get("Henchman") or {}
+    desc = comps.get("Description") or {}
+    stats = comps.get("Stats")
+    health = comps.get("Health")
+    equipment = comps.get("Equipment")
+    inventory = comps.get("Inventory") or {}
+
+    return {
+        "id": eid,
+        "name": desc.get("name", ""),
+        "short": desc.get("short", ""),
+        "level": henchman.get("level", 1),
+        "xp": henchman.get("xp", 0),
+        "xp_to_next": henchman.get("xp_to_next", 0),
+        "hired": henchman.get("hired", False),
+        "owner": henchman.get("owner"),
+        "hp": health.get("current") if health else None,
+        "max_hp": health.get("maximum") if health else None,
+        "stats": dict(stats) if stats else None,
+        "equipment": _build_equipment(equipment, ecs),
+        "inventory": _build_inventory(
+            inventory.get("slots", []), ecs,
+        ),
+        "inventory_max_slots": inventory.get("max_slots"),
+    }
+
+
+def build_henchman_sheets(
+    ecs: dict[str, dict[str, Any]],
+    *,
+    henchman_id: int | None = None,
+    hired_only: bool = False,
+    owner_id: int | None = None,
+) -> dict[str, Any]:
+    """Build henchman character sheets from a serialized ECS dict.
+
+    Shared by the MCP debug tool (reads from JSON exports) and the
+    live web endpoint (serializes the running ``World``).
+
+    Args:
+        ecs: Serialized ECS dict (entity_id_str → component dict).
+        henchman_id: If set, only return the sheet for this entity id.
+        hired_only: If True, exclude unhired adventurers.
+        owner_id: If set, only return henchmen owned by this player.
+    """
+    sheets: list[dict[str, Any]] = []
+    for eid_str, comps in ecs.items():
+        hench = comps.get("Henchman")
+        if not hench:
+            continue
+        try:
+            eid = int(eid_str)
+        except (TypeError, ValueError):
+            continue
+        if henchman_id is not None and eid != henchman_id:
+            continue
+        if hired_only and not hench.get("hired"):
+            continue
+        if owner_id is not None and hench.get("owner") != owner_id:
+            continue
+        sheets.append(_build_sheet(eid, comps, ecs))
+
+    sheets.sort(key=lambda s: s["id"])
+    return {"henchmen": sheets, "count": len(sheets)}

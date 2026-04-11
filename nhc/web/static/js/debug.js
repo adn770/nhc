@@ -104,6 +104,7 @@ const DebugPanel = {
     const panel = this._buildPanel();
     document.body.appendChild(panel);
     this.visible = true;
+    this._fetchHenchmen();
 
     // Dismiss on click outside
     this._onOutsideClick = (e) => {
@@ -175,27 +176,12 @@ const DebugPanel = {
     tabBar.className = "debug-tabs";
 
     const panes = [];
+    this._panel = panel;
+    this._tabBar = tabBar;
+    this._panes = panes;
 
     this._tabs.forEach((tab, i) => {
-      const tabBtn = document.createElement("button");
-      tabBtn.className = "debug-tab" + (i === 0 ? " active" : "");
-      tabBtn.textContent = tab.name;
-
-      const pane = document.createElement("div");
-      pane.className = "debug-tab-content"
-                       + (i === 0 ? " active" : "");
-      pane.appendChild(this[tab.buildFn]());
-      panes.push(pane);
-
-      tabBtn.addEventListener("click", () => {
-        tabBar.querySelectorAll(".debug-tab").forEach(
-          (t) => t.classList.remove("active"));
-        panes.forEach((p) => p.classList.remove("active"));
-        tabBtn.classList.add("active");
-        pane.classList.add("active");
-      });
-
-      tabBar.appendChild(tabBtn);
+      this._addTab(tab.name, this[tab.buildFn](), i === 0);
     });
 
     panel.appendChild(tabBar);
@@ -205,6 +191,35 @@ const DebugPanel = {
     this._makeDraggable(panel, tabBar);
 
     return panel;
+  },
+
+  _addTab(name, content, makeActive) {
+    const tabBar = this._tabBar;
+    const panes = this._panes;
+    const panel = this._panel;
+    if (!tabBar || !panes || !panel) return null;
+
+    const tabBtn = document.createElement("button");
+    tabBtn.className = "debug-tab" + (makeActive ? " active" : "");
+    tabBtn.textContent = name;
+
+    const pane = document.createElement("div");
+    pane.className = "debug-tab-content"
+                     + (makeActive ? " active" : "");
+    if (content) pane.appendChild(content);
+    panes.push(pane);
+
+    tabBtn.addEventListener("click", () => {
+      tabBar.querySelectorAll(".debug-tab").forEach(
+        (t) => t.classList.remove("active"));
+      panes.forEach((p) => p.classList.remove("active"));
+      tabBtn.classList.add("active");
+      pane.classList.add("active");
+    });
+
+    tabBar.appendChild(tabBtn);
+    panel.appendChild(pane);
+    return { tabBtn, pane };
   },
 
   // ── Layers tab ───────────────────────────────────────────────
@@ -724,6 +739,128 @@ const DebugPanel = {
       ctx.fillText(`${x},${y}`, px, py);
     }
     ctx.restore();
+  },
+
+  // ── Henchman tabs ────────────────────────────────────────────
+
+  async _fetchHenchmen() {
+    const sid = NHC.sessionId;
+    if (!sid) return;
+    try {
+      const resp = await fetch(`/api/game/${sid}/henchmen`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!this.visible) return;
+      (data.henchmen || []).forEach((sheet) => {
+        const label = (sheet.short || sheet.name || `#${sheet.id}`)
+          .split(" ")[0];
+        this._addTab(label, this._buildHenchmanSheet(sheet), false);
+      });
+    } catch (e) {
+      console.warn("Failed to fetch henchmen:", e);
+    }
+  },
+
+  _buildHenchmanSheet(sheet) {
+    const frag = document.createDocumentFragment();
+
+    // Header: name + level
+    const header = document.createElement("div");
+    header.className = "henchman-header";
+    const nameEl = document.createElement("div");
+    nameEl.className = "henchman-name";
+    nameEl.textContent = sheet.name || `Henchman #${sheet.id}`;
+    const lvlEl = document.createElement("div");
+    lvlEl.className = "henchman-sub";
+    lvlEl.textContent = `Level ${sheet.level}`
+      + `  ·  XP ${sheet.xp}/${sheet.xp_to_next}`;
+    header.appendChild(nameEl);
+    header.appendChild(lvlEl);
+    frag.appendChild(header);
+
+    // Vitals
+    frag.appendChild(this._sectionHeader("Vitals"));
+    const hp = sheet.hp != null
+      ? `${sheet.hp}/${sheet.max_hp}` : "—";
+    frag.appendChild(this._infoRow("HP", hp));
+
+    // Stats grid
+    if (sheet.stats) {
+      frag.appendChild(this._sectionHeader("Abilities"));
+      const grid = document.createElement("div");
+      grid.className = "henchman-stats-grid";
+      const order = [
+        ["STR", "strength"], ["DEX", "dexterity"],
+        ["CON", "constitution"], ["INT", "intelligence"],
+        ["WIS", "wisdom"], ["CHA", "charisma"],
+      ];
+      for (const [label, key] of order) {
+        const cell = document.createElement("div");
+        cell.className = "henchman-stat";
+        const lbl = document.createElement("span");
+        lbl.className = "stat-label";
+        lbl.textContent = label;
+        const val = document.createElement("span");
+        val.className = "stat-value";
+        const v = sheet.stats[key];
+        val.textContent = (v >= 0 ? `+${v}` : `${v}`);
+        cell.appendChild(lbl);
+        cell.appendChild(val);
+        grid.appendChild(cell);
+      }
+      frag.appendChild(grid);
+    }
+
+    // Equipment
+    frag.appendChild(this._sectionHeader("Equipment"));
+    const eq = sheet.equipment || {};
+    const slots = [
+      ["weapon", "Weapon"], ["armor", "Armor"],
+      ["shield", "Shield"], ["helmet", "Helmet"],
+      ["ring_left", "Ring L"], ["ring_right", "Ring R"],
+    ];
+    for (const [key, label] of slots) {
+      frag.appendChild(this._infoRow(label, this._itemLabel(eq[key])));
+    }
+
+    // Inventory
+    const inv = sheet.inventory || [];
+    const maxSlots = sheet.inventory_max_slots;
+    const invHeader = `Inventory (${inv.length}`
+      + (maxSlots != null ? `/${maxSlots}` : "") + ")";
+    frag.appendChild(this._sectionHeader(invHeader));
+    if (inv.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "henchman-empty";
+      empty.textContent = "(empty)";
+      frag.appendChild(empty);
+    } else {
+      const list = document.createElement("ul");
+      list.className = "henchman-inventory";
+      for (const item of inv) {
+        const li = document.createElement("li");
+        li.textContent = this._itemLabel(item);
+        list.appendChild(li);
+      }
+      frag.appendChild(list);
+    }
+
+    return frag;
+  },
+
+  _itemLabel(item) {
+    if (!item) return "—";
+    let label = item.name || `#${item.id}`;
+    const extras = [];
+    if (item.damage) extras.push(item.damage);
+    if (item.defense) extras.push(`AC ${item.defense}`);
+    if (item.magic_bonus) extras.push(`+${item.magic_bonus}`);
+    if (item.charges != null && item.max_charges != null) {
+      extras.push(`${item.charges}/${item.max_charges}`);
+    }
+    if (item.effect) extras.push(item.effect);
+    if (extras.length) label += `  (${extras.join(", ")})`;
+    return label;
   },
 
   // ── Export tab ───────────────────────────────────────────────

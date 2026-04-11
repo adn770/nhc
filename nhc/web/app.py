@@ -904,6 +904,24 @@ def create_app(
 
     # ── Export routes (god mode only) ───────────────────────
 
+    @app.route("/api/game/<session_id>/henchmen", methods=["GET"])
+    @_player_auth
+    def game_henchmen(session_id: str):
+        """Return character sheets for hired henchmen (god mode)."""
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        from nhc.core.save import _serialize_entities
+        from nhc.debug_tools.tools.game_state import (
+            build_henchman_sheets,
+        )
+        game = session.game
+        ecs = _serialize_entities(game.world)
+        result = build_henchman_sheets(
+            ecs, hired_only=True, owner_id=game.player_id,
+        )
+        return jsonify(result)
+
     @app.route("/api/game/<session_id>/export/game_state",
                methods=["POST"])
     @_player_auth

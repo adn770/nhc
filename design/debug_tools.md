@@ -14,7 +14,7 @@ The toolkit comprises:
   exporting game state.
 - **Export endpoints** for dumping game state, layer state, and map
   SVG to timestamped files.
-- **MCP debug server** exposing 11 tools for AI-assisted game state
+- **MCP debug server** exposing 17 tools for AI-assisted game state
   analysis via Claude Code.
 
 ## God Mode
@@ -84,7 +84,8 @@ Topics are organized by subsystem:
 Source: `nhc/web/static/js/debug.js`
 
 Only available in god mode. Accessed via the gear icon in the web
-toolbar. The panel is a tabbed floating window with two tabs.
+toolbar. The panel is a tabbed floating window with Layers, Map Gen,
+and Export tabs, plus one extra tab per hired henchman.
 
 ### Layers Tab
 
@@ -106,6 +107,18 @@ toolbar. The panel is a tabbed floating window with two tabs.
 - Individual export buttons: Game State, Layer State, Map SVG.
 - "Export All" button to download all three at once.
 - Files are saved to `debug/exports/` with timestamped filenames.
+
+### Henchman Tabs
+
+One tab per hired henchman is appended on panel open. Each shows:
+- Header with name, level, and XP progress.
+- Vitals (HP / max HP).
+- Abilities grid with the six Knave ability bonuses.
+- Equipment slots (weapon, armor, shield, helmet, ring L/R) with
+  damage / AC / magic bonus annotations.
+- Inventory list with slot usage.
+
+Data is fetched from `GET /api/game/{sid}/henchmen` (god mode only).
 
 ## Export Endpoints
 
@@ -160,11 +173,11 @@ Configure in `.mcp.json` for Claude Code integration.
 |-----------------|---------------------------------------------|
 | `mcp_server.py` | FastMCP server with dynamic tool registration|
 | `base.py`       | Base tool class                             |
-| `tools/`        | 13 tool implementations across 6 modules    |
+| `tools/`        | 17 tool implementations across 6 modules    |
 
 ## MCP Debug Tools
 
-The MCP server exposes 13 tools organized into six categories.
+The MCP server exposes 17 tools organized into six categories.
 
 ### Export Management (tools/exports.py)
 
@@ -185,6 +198,11 @@ by glyph or room_index.
 **get_tile_info** -- Detailed tile data at a given (x, y) position:
 terrain, feature, FOV status, entities present, room index, door
 state.
+
+**get_henchman_sheets** -- Character sheets for all henchmen in the
+most recent `game_state` export: name, level, XP, HP, ability stats,
+equipped weapon/armor/shield/helmet/rings, and carried inventory
+items. Optional `henchman_id` filters by entity id.
 
 ### Dungeon Structure (tools/dungeon.py)
 
@@ -271,3 +289,4 @@ Then use the tools from Claude Code:
 - `get_entity_list` -- find entities by glyph or room
 - `search_tiles` -- locate tiles by terrain or feature
 - `get_autosave_info` -- inspect autosave state and diagnostics
+- `get_henchman_sheets` -- inspect henchman character sheets
