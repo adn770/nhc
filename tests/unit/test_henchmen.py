@@ -8,6 +8,7 @@ from nhc.core.actions import (
     RecruitAction,
     DismissAction,
     GiveItemAction,
+    SearchAction,
 )
 from nhc.core.actions._combat import _drop_henchman_inventory
 from nhc.core.actions._henchman import (
@@ -432,6 +433,49 @@ class TestHenchmanDeath:
         assert not any("fallen" in m or "caigut" in m
                        or "caído" in m for m in msgs), (
             f"Unhired henchman death should not emit fallen message: {msgs}"
+        )
+
+
+# ── Henchman Search Messages ───────────────────────────────────────
+
+class TestHenchmanSearchMessages:
+    @pytest.mark.asyncio
+    async def test_henchman_search_uses_name(self):
+        """Search messages use the henchman's name, not 'You'."""
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        aid = _make_adventurer(
+            world, x=3, y=3, hired=True, owner=pid,
+            name="Tormund",
+        )
+
+        action = SearchAction(actor=aid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert len(msgs) == 1
+        assert "Tormund" in msgs[0], (
+            f"Expected henchman name in search message, got: {msgs[0]}"
+        )
+        assert "You" not in msgs[0], (
+            f"Henchman search should not say 'You': {msgs[0]}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_player_search_says_you(self):
+        """Player search messages still use 'You'."""
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+
+        action = SearchAction(actor=pid)
+        events = await action.execute(world, level)
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert len(msgs) == 1
+        assert "You" in msgs[0], (
+            f"Player search should say 'You': {msgs[0]}"
         )
 
 

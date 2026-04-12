@@ -691,8 +691,11 @@ class SearchAction(Action):
                             desc = world.get_component(eid, "Description")
                             name = desc.name if desc else "trap"
                             events.append(MessageEvent(
-                                text=t("explore.search_found_trap",
-                                       trap=name),
+                                text=_msg(
+                                    "explore.search_found_trap",
+                                    world, actor=self.actor,
+                                    trap=name,
+                                ),
                             ))
                             found += 1
 
@@ -703,13 +706,19 @@ class SearchAction(Action):
                     if roll_val + wis_bonus >= 12:
                         tile.feature = "door_closed"
                         events.append(MessageEvent(
-                            text=t("explore.search_found_door"),
+                            text=_msg(
+                                "explore.search_found_door",
+                                world, actor=self.actor,
+                            ),
                         ))
                         found += 1
 
         if found == 0:
             events.append(MessageEvent(
-                text=t("explore.search_nothing"),
+                text=_msg(
+                    "explore.search_nothing",
+                    world, actor=self.actor,
+                ),
             ))
 
         return events
