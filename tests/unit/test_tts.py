@@ -118,6 +118,7 @@ def _make_mock_voice():
 
 
 class TestTTSEngineSynthesize:
+    @patch("nhc.web.tts.SynthesisConfig", MagicMock())
     @patch("nhc.web.tts.PIPER_AVAILABLE", True)
     def test_synthesize_returns_wav(self):
         engine = TTSEngine()
@@ -141,10 +142,14 @@ class TestTTSEngineSynthesize:
         mock_voice = _make_mock_voice()
         engine._voices["en"] = mock_voice
 
-        engine.synthesize("**Bold** attack!", "en")
-        mock_voice.synthesize.assert_called_once_with(
-            "Bold attack!", length_scale=0.8
-        )
+        with patch("nhc.web.tts.SynthesisConfig") as MockConfig:
+            mock_cfg = MagicMock()
+            MockConfig.return_value = mock_cfg
+            engine.synthesize("**Bold** attack!", "en")
+            MockConfig.assert_called_once_with(length_scale=0.8)
+            mock_voice.synthesize.assert_called_once_with(
+                "Bold attack!", syn_config=mock_cfg
+            )
 
 
 # ── Flask endpoint tests ──────────────────────────────────────

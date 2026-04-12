@@ -21,10 +21,12 @@ log = logging.getLogger("nhc.tts")
 try:
     import requests as _requests_module
     from piper import PiperVoice
+    from piper.config import SynthesisConfig
 
     PIPER_AVAILABLE = True
 except ImportError:
     _requests_module = None  # type: ignore[assignment]
+    SynthesisConfig = None  # type: ignore[assignment,misc]
     PIPER_AVAILABLE = False
 
 # Voice model configuration — same models as ppdf
@@ -176,7 +178,8 @@ class TTSEngine:
 
         # Collect all PCM chunks
         pcm_data = bytearray()
-        for audio_chunk in voice.synthesize(text, length_scale=0.8):
+        syn_config = SynthesisConfig(length_scale=0.8)
+        for audio_chunk in voice.synthesize(text, syn_config=syn_config):
             pcm_data.extend(audio_chunk.audio_int16_bytes)
 
         # Write WAV to BytesIO
