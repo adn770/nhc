@@ -986,13 +986,22 @@ const GameMap = {
   },
 
   pixelToGrid(canvasX, canvasY) {
-    // Undo CSS transform scale so clicks map to actual tile coords
-    const scale = this._zoomSteps[this._zoomLevel] || 1.0;
-    const ux = canvasX / scale;
-    const uy = canvasY / scale;
-    const gx = Math.floor((ux - this.padding) / this.cellSize);
-    const gy = Math.floor((uy - this.padding) / this.cellSize);
+    const gx = Math.floor((canvasX - this.padding) / this.cellSize);
+    const gy = Math.floor((canvasY - this.padding) / this.cellSize);
     return { x: gx, y: gy };
+  },
+
+  /**
+   * Convert a screen-space click (from getBoundingClientRect) plus
+   * scroll offset into unscaled canvas coordinates, accounting for
+   * the CSS transform scale on map-container.
+   */
+  screenToCanvas(screenX, screenY, scrollX, scrollY) {
+    const scale = this._zoomSteps[this._zoomLevel] || 1.0;
+    return {
+      x: screenX / scale + scrollX,
+      y: screenY / scale + scrollY,
+    };
   },
 
   initTooltip() {
@@ -1007,9 +1016,11 @@ const GameMap = {
     zone.addEventListener("mousemove", (e) => {
       const container = document.getElementById("map-container");
       const rect = container.getBoundingClientRect();
-      const canvasX = e.clientX - rect.left + zone.scrollLeft;
-      const canvasY = e.clientY - rect.top + zone.scrollTop;
-      const grid = this.pixelToGrid(canvasX, canvasY);
+      const canvas = this.screenToCanvas(
+        e.clientX - rect.left, e.clientY - rect.top,
+        zone.scrollLeft, zone.scrollTop,
+      );
+      const grid = this.pixelToGrid(canvas.x, canvas.y);
 
       const ent = this.entities.find(
         en => en.x === grid.x && en.y === grid.y && en.glyph !== "@"

@@ -138,9 +138,11 @@ const Input = {
     mapZone.addEventListener("click", (e) => {
       const container = document.getElementById("map-container");
       const rect = container.getBoundingClientRect();
-      const canvasX = e.clientX - rect.left + mapZone.scrollLeft;
-      const canvasY = e.clientY - rect.top + mapZone.scrollTop;
-      const grid = GameMap.pixelToGrid(canvasX, canvasY);
+      const canvas = GameMap.screenToCanvas(
+        e.clientX - rect.left, e.clientY - rect.top,
+        mapZone.scrollLeft, mapZone.scrollTop,
+      );
+      const grid = GameMap.pixelToGrid(canvas.x, canvas.y);
       if (this.farlookActive) {
         WS.send({ type: "farlook_click", x: grid.x, y: grid.y });
       } else {
