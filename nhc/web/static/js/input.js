@@ -140,7 +140,6 @@ const Input = {
       const rect = container.getBoundingClientRect();
       const canvas = GameMap.screenToCanvas(
         e.clientX - rect.left, e.clientY - rect.top,
-        mapZone.scrollLeft, mapZone.scrollTop,
       );
       const grid = GameMap.pixelToGrid(canvas.x, canvas.y);
       if (this.farlookActive) {

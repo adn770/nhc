@@ -992,15 +992,18 @@ const GameMap = {
   },
 
   /**
-   * Convert a screen-space click (from getBoundingClientRect) plus
-   * scroll offset into unscaled canvas coordinates, accounting for
-   * the CSS transform scale on map-container.
+   * Convert a screen-space click position (relative to
+   * map-container's getBoundingClientRect) into unscaled canvas
+   * coordinates, accounting for CSS transform scale.
+   *
+   * getBoundingClientRect already accounts for scroll position,
+   * so no scroll offset should be added by the caller.
    */
-  screenToCanvas(screenX, screenY, scrollX, scrollY) {
+  screenToCanvas(screenX, screenY) {
     const scale = this._zoomSteps[this._zoomLevel] || 1.0;
     return {
-      x: screenX / scale + scrollX,
-      y: screenY / scale + scrollY,
+      x: screenX / scale,
+      y: screenY / scale,
     };
   },
 
@@ -1018,7 +1021,6 @@ const GameMap = {
       const rect = container.getBoundingClientRect();
       const canvas = this.screenToCanvas(
         e.clientX - rect.left, e.clientY - rect.top,
-        zone.scrollLeft, zone.scrollTop,
       );
       const grid = this.pixelToGrid(canvas.x, canvas.y);
 
