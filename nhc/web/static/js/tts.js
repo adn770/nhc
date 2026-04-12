@@ -2,8 +2,9 @@
  * Client-side TTS manager.
  *
  * Queues game messages, fetches WAV audio from /api/tts,
- * and plays them sequentially.  State is persisted in
- * localStorage (enabled, volume).
+ * and plays them sequentially.  The enabled/volume preference
+ * is persisted in localStorage and exposed on the welcome
+ * screen via a checkbox.
  */
 const TTS = {
   available: false,
@@ -18,18 +19,15 @@ const TTS = {
   currentAudio: null,
 
   /**
-   * Initialize TTS: check server availability, restore
-   * user preferences from localStorage.
+   * Restore preferences and sync the welcome-screen checkbox.
+   * Called once on page load (before any game starts).
    */
-  async init(lang) {
-    this.lang = lang || "en";
-    this.queue = [];
-    this.speaking = false;
-    this.currentAudio = null;
-
-    // Restore preferences
+  async initWelcome() {
+    // Restore enabled preference
     const stored = localStorage.getItem("nhc_tts_enabled");
     if (stored !== null) this.enabled = stored === "true";
+
+    // Restore volume
     const vol = localStorage.getItem("nhc_tts_volume");
     if (vol !== null) this.volume = parseFloat(vol);
 
@@ -40,6 +38,39 @@ const TTS = {
       this.available = data.available;
     } catch {
       this.available = false;
+    }
+
+    // Sync checkbox
+    const cb = document.getElementById("tts-check");
+    if (cb) {
+      if (!this.available) {
+        cb.disabled = true;
+        cb.closest("label").classList.add("hidden");
+      } else {
+        cb.checked = this.enabled;
+        cb.addEventListener("change", () => {
+          this.enabled = cb.checked;
+          localStorage.setItem("nhc_tts_enabled", this.enabled);
+        });
+      }
+    }
+  },
+
+  /**
+   * Initialize for a game session: read the current checkbox
+   * state, reset queue, and update toolbar.
+   */
+  init(lang) {
+    this.lang = lang || "en";
+    this.queue = [];
+    this.speaking = false;
+    this.currentAudio = null;
+
+    // Read preference from checkbox (authoritative at game start)
+    const cb = document.getElementById("tts-check");
+    if (cb) {
+      this.enabled = cb.checked;
+      localStorage.setItem("nhc_tts_enabled", this.enabled);
     }
 
     this._updateUI();
@@ -139,7 +170,7 @@ const TTS = {
     }
   },
 
-  /** Update the TTS button visibility and icon. */
+  /** Update toolbar button: visibility, icon, glow, volume slider. */
   _updateUI() {
     const btn = document.getElementById("tts-btn");
     if (!btn) return;
@@ -150,8 +181,8 @@ const TTS = {
     }
 
     btn.classList.remove("hidden");
-    const icon = document.getElementById("tts-icon");
-    if (icon) icon.textContent = this.enabled ? "\u{1F50A}" : "\u{1F507}";
+    btn.textContent = this.enabled ? "\u{1F50A}" : "\u{1F507}";
+    btn.classList.toggle("tts-active", this.enabled);
 
     const slider = document.getElementById("tts-volume");
     if (slider) {

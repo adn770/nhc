@@ -9,6 +9,7 @@ const NHC = {
   init() {
     UI.init();
     Input.init();
+    TTS.initWelcome();
 
     document.getElementById("new-game-btn")
       .addEventListener("click", () => this.newGame(true));
