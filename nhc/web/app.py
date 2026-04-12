@@ -793,7 +793,8 @@ def create_app(
         if not session.game.god_mode or not session.game.level:
             return jsonify({"error": "not available"}), 404
         client = session.game.renderer
-        resp = jsonify(client._gather_debug_data(session.game.level))
+        resp = jsonify(client._gather_debug_data(
+            session.game.level, session.game.world))
         resp.headers["Cache-Control"] = "no-cache"
         return resp
 
@@ -1041,7 +1042,7 @@ def create_app(
             "fov": client._gather_fov(level),
             "explored": explored,
             "doors": client._gather_doors(level),
-            "debug": client._gather_debug_data(level),
+            "debug": client._gather_debug_data(level, game.world),
         }
         out = Path("debug/exports")
         out.mkdir(parents=True, exist_ok=True)
@@ -1160,7 +1161,7 @@ def create_app(
                 "fov": client._gather_fov(level),
                 "explored": explored,
                 "doors": client._gather_doors(level),
-                "debug": client._gather_debug_data(level),
+                "debug": client._gather_debug_data(level, game.world),
             }
             _add_text(tar, f"exports/layer_state_{ts}.json",
                       _json.dumps(layer, indent=2))

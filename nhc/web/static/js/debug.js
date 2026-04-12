@@ -26,6 +26,7 @@ const DebugPanel = {
     doorLabels: false,
     corridorLabels: false,
     tileCoords: false,
+    secrets: false,
   },
 
   // Tab definitions — extensible
@@ -257,6 +258,7 @@ const DebugPanel = {
       { key: "doorLabels",     label: "Door Labels" },
       { key: "corridorLabels", label: "Corridor Labels" },
       { key: "tileCoords",     label: "Tile Coordinates" },
+      { key: "secrets",        label: "Secrets" },
     ];
 
     overlayLayers.forEach(({ key, label }) => {
@@ -620,6 +622,7 @@ const DebugPanel = {
     if (this.overlays.doorLabels) this._drawDoorLabels(ctx);
     if (this.overlays.corridorLabels) this._drawCorridorLabels(ctx);
     if (this.overlays.tileCoords) this._drawTileCoords(ctx);
+    if (this.overlays.secrets) this._drawSecrets(ctx);
   },
 
   _drawRoomLabels(ctx) {
@@ -739,6 +742,84 @@ const DebugPanel = {
       ctx.fillText(`${x},${y}`, px, py);
     }
     ctx.restore();
+  },
+
+  _drawSecrets(ctx) {
+    if (!this.debugData || !this.debugData.secrets) return;
+    const cs = GameMap.cellSize;
+    const pad = GameMap.padding;
+    const secrets = this.debugData.secrets;
+
+    // Secret doors — magenta diamond
+    for (const d of secrets.secret_doors) {
+      const cx = pad + d.x * cs + cs / 2;
+      const cy = pad + d.y * cs + cs / 2;
+      const r = cs * 0.35;
+      ctx.save();
+      ctx.fillStyle = "rgba(200,0,200,0.45)";
+      ctx.strokeStyle = "#c000c0";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy);
+      ctx.lineTo(cx, cy + r);
+      ctx.lineTo(cx - r, cy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = "bold 8px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("S", cx, cy);
+      ctx.restore();
+    }
+
+    // Buried items — amber circle with count
+    for (const b of secrets.buried) {
+      const cx = pad + b.x * cs + cs / 2;
+      const cy = pad + b.y * cs + cs / 2;
+      const r = cs * 0.3;
+      ctx.save();
+      ctx.fillStyle = "rgba(255,180,0,0.5)";
+      ctx.strokeStyle = "#c08000";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = "bold 9px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(String(b.count), cx, cy);
+      ctx.restore();
+    }
+
+    // Hidden traps — red triangle with effect initial
+    for (const t of secrets.hidden_traps) {
+      const cx = pad + t.x * cs + cs / 2;
+      const cy = pad + t.y * cs + cs / 2;
+      const r = cs * 0.35;
+      ctx.save();
+      ctx.fillStyle = "rgba(220,40,40,0.5)";
+      ctx.strokeStyle = "#c00";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy + r * 0.7);
+      ctx.lineTo(cx - r, cy + r * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      const label = t.effect ? t.effect[0].toUpperCase() : "?";
+      ctx.font = "bold 8px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(label, cx, cy + 1);
+      ctx.restore();
+    }
   },
 
   // ── Henchman tabs ────────────────────────────────────────────

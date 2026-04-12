@@ -967,7 +967,9 @@ class WebClient(GameClient):
             out.append([x, y, mask])
         return out
 
-    def _gather_debug_data(self, level: "Level") -> dict:
+    def _gather_debug_data(
+        self, level: "Level", world: "World | None" = None,
+    ) -> dict:
         """Build debug overlay data for god mode panel."""
 
         # Rooms
@@ -1036,6 +1038,31 @@ class WebClient(GameClient):
                         "side": tile.door_side,
                     })
 
+        # Secrets — hidden elements for the debug overlay
+        secret_doors = []
+        buried = []
+        for y, row in enumerate(level.tiles):
+            for x, tile in enumerate(row):
+                if tile.feature == "door_secret":
+                    secret_doors.append({"x": x, "y": y})
+                if tile.buried:
+                    buried.append({
+                        "x": x, "y": y, "count": len(tile.buried),
+                    })
+
+        hidden_traps: list[dict] = []
+        if world:
+            for eid in list(world._entities):
+                trap = world.get_component(eid, "Trap")
+                if not trap or not trap.hidden:
+                    continue
+                pos = world.get_component(eid, "Position")
+                if not pos:
+                    continue
+                hidden_traps.append({
+                    "x": pos.x, "y": pos.y, "effect": trap.effect,
+                })
+
         return {
             "level_id": level.id,
             "level_depth": level.depth,
@@ -1046,6 +1073,11 @@ class WebClient(GameClient):
             "fov_radius": 8,
             "map_width": level.width,
             "map_height": level.height,
+            "secrets": {
+                "secret_doors": secret_doors,
+                "buried": buried,
+                "hidden_traps": hidden_traps,
+            },
         }
 
     # ── Lifecycle ────────────────────────────────────────────────
