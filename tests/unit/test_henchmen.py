@@ -78,7 +78,7 @@ def _make_player(world, x=5, y=5, gold=500):
 
 
 def _make_adventurer(world, x=6, y=5, level=1, hired=False,
-                     owner=None):
+                     owner=None, name="Adventurer"):
     return world.create_entity({
         "Position": Position(x=x, y=y),
         "Stats": Stats(strength=2, dexterity=2, constitution=2),
@@ -90,7 +90,7 @@ def _make_adventurer(world, x=6, y=5, level=1, hired=False,
             level=level, hired=hired, owner=owner,
         ),
         "BlocksMovement": BlocksMovement(),
-        "Description": Description(name="Adventurer"),
+        "Description": Description(name=name),
         "Renderable": Renderable(glyph="@", color="cyan"),
     })
 
@@ -376,12 +376,13 @@ class TestHenchmanDeath:
 
     @pytest.mark.asyncio
     async def test_hired_henchman_death_emits_message(self):
-        """Killing a hired henchman produces a 'has fallen' message."""
+        """Killing a hired henchman reports their name in the message."""
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=5, y=5)
         aid = _make_adventurer(
             world, x=6, y=5, hired=True, owner=pid,
+            name="Elara",
         )
         world.remove_component(aid, "BlocksMovement")
 
@@ -398,11 +399,11 @@ class TestHenchmanDeath:
         died = any(isinstance(e, CreatureDied) for e in events)
         assert died, "Henchman should have died"
 
-        # Should have a "has fallen" message
+        # Should have a message with the henchman's name
         msgs = [e.text for e in events if isinstance(e, MessageEvent)]
-        assert any("Adventurer" in m and ("fallen" in m or "caigut" in m
+        assert any("Elara" in m and ("fallen" in m or "caigut" in m
                     or "caído" in m) for m in msgs), (
-            f"Expected henchman death message, got: {msgs}"
+            f"Expected henchman death message with name, got: {msgs}"
         )
 
     @pytest.mark.asyncio
