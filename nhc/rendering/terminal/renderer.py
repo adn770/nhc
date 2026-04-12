@@ -608,7 +608,7 @@ class TerminalRenderer(GameClient):
 
     def farlook_mode(
         self, world: World, level: Level, player_id: int, turn: int,
-        start_x: int, start_y: int,
+        start_x: int, start_y: int, *, god_mode: bool = False,
     ) -> None:
         """Interactive cursor to examine visible tiles.
 

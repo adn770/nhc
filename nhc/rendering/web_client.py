@@ -1368,6 +1368,7 @@ class WebClient(GameClient):
     def farlook_mode(
         self, world: "World", level: "Level", player_id: int,
         turn: int, start_x: int, start_y: int,
+        *, god_mode: bool = False,
     ) -> None:
         from nhc.core.actions._interaction import describe_tile
 
@@ -1393,10 +1394,11 @@ class WebClient(GameClient):
                 parts = describe_tile(
                     world, level, player_id, tx, ty,
                 )
+                prefix = f"({tx},{ty}) " if god_mode else ""
                 if parts:
-                    desc = f"({tx},{ty}) {', '.join(parts)}"
+                    desc = f"{prefix}{', '.join(parts)}"
                 else:
-                    desc = f"({tx},{ty}) {tr('farlook_unseen')}"
+                    desc = f"{prefix}{tr('farlook_unseen')}"
                 self._send({
                     "type": "farlook_desc",
                     "desc": desc,

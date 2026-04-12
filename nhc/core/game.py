@@ -1674,7 +1674,7 @@ class Game:
 
         self.renderer.farlook_mode(
             self.world, self.level, self.player_id, self.turn,
-            pos.x, pos.y,
+            pos.x, pos.y, god_mode=self.god_mode,
         )
 
     def _show_inventory(self) -> None:
