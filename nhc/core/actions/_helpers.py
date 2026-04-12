@@ -256,6 +256,18 @@ def _gold_pile_label(world: "World", item_id: int) -> str | None:
     return t(key, amount=amount)
 
 
+def _emit_henchman_died(
+    world: "World", entity: int, events: list[Event],
+) -> None:
+    """Append a 'henchman has fallen' message if entity is a hired henchman."""
+    hench = world.get_component(entity, "Henchman")
+    if hench is None or not hench.hired:
+        return
+    desc = world.get_component(entity, "Description")
+    name = desc.name if desc else "henchman"
+    events.append(MessageEvent(text=t("henchman.died", name=name)))
+
+
 def _announce_ground_items(
     world: "World", x: int, y: int, actor: int,
 ) -> list[Event]:

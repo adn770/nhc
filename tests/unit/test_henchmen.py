@@ -374,6 +374,65 @@ class TestHenchmanDeath:
         assert sword_pos.x == 6
         assert sword_pos.y == 5
 
+    @pytest.mark.asyncio
+    async def test_hired_henchman_death_emits_message(self):
+        """Killing a hired henchman produces a 'has fallen' message."""
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        aid = _make_adventurer(
+            world, x=6, y=5, hired=True, owner=pid,
+        )
+        world.remove_component(aid, "BlocksMovement")
+
+        # Strong hostile to guarantee a kill
+        cid = _make_hostile(world, x=7, y=5, hp=50)
+        # Weaken henchman to 1 HP so it dies in one hit
+        health = world.get_component(aid, "Health")
+        health.current = 1
+
+        set_seed(0)
+        action = MeleeAttackAction(actor=cid, target=aid)
+        events = await action.execute(world, level)
+
+        died = any(isinstance(e, CreatureDied) for e in events)
+        assert died, "Henchman should have died"
+
+        # Should have a "has fallen" message
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert any("Adventurer" in m and ("fallen" in m or "caigut" in m
+                    or "caído" in m) for m in msgs), (
+            f"Expected henchman death message, got: {msgs}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_unhired_henchman_death_no_fallen_message(self):
+        """Killing an unhired henchman does NOT produce 'has fallen'."""
+        world = World()
+        level = _make_test_level()
+        _make_player(world, x=5, y=5)
+        aid = _make_adventurer(
+            world, x=6, y=5, hired=False, owner=None,
+        )
+        world.remove_component(aid, "BlocksMovement")
+
+        cid = _make_hostile(world, x=7, y=5, hp=50)
+        health = world.get_component(aid, "Health")
+        health.current = 1
+
+        set_seed(0)
+        action = MeleeAttackAction(actor=cid, target=aid)
+        events = await action.execute(world, level)
+
+        died = any(isinstance(e, CreatureDied) for e in events)
+        assert died, "Henchman should have died"
+
+        msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+        assert not any("fallen" in m or "caigut" in m
+                       or "caído" in m for m in msgs), (
+            f"Unhired henchman death should not emit fallen message: {msgs}"
+        )
+
 
 # ── XP Sharing ─────────────────────────────────────────────────────
 

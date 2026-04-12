@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action, _closed_door_blocks
 from nhc.core.actions._helpers import (
-    _entity_name, _get_armor_magic, _msg, has_ring_effect,
+    _emit_henchman_died, _entity_name, _get_armor_magic, _msg,
+    has_ring_effect,
 )
 from nhc.core.events import (
     CreatureAttacked,
@@ -407,6 +408,11 @@ class MeleeAttackAction(Action):
                         text=_msg("combat.slain", world,
                                   actor=self.actor, target=self.target),
                     ))
+
+                    # Report hired henchman death to the player
+                    _emit_henchman_died(
+                        world, self.target, events,
+                    )
 
                     # Drop loot / inventory before destroying
                     tpos = world.get_component(self.target, "Position")

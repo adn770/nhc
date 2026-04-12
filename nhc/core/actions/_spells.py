@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
-from nhc.core.actions._helpers import _entity_name, _msg
+from nhc.core.actions._helpers import _emit_henchman_died, _entity_name, _msg
 from nhc.core.events import CreatureDied, Event, ItemUsed, MessageEvent
 from nhc.dungeon.model import Terrain
 from nhc.entities.components import Detected, Poison, StatusEffect
@@ -130,6 +130,7 @@ def _use_magic_missile(
                 text=_msg("combat.slain", world,
                           actor=actor, target=best_eid),
             ))
+            _emit_henchman_died(world, best_eid, events)
             world.destroy_entity(best_eid)
 
     return events
@@ -239,6 +240,7 @@ def _use_fireball(
         events.append(MessageEvent(
             text=_msg("combat.slain", world, actor=actor, target=eid),
         ))
+        _emit_henchman_died(world, eid, events)
         world.destroy_entity(eid)
 
     return events
