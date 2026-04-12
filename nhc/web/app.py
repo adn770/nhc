@@ -69,6 +69,13 @@ def create_app(
     )
     app.config["NHC_CONFIG"] = config
 
+    # Cache-busting version for static JS/CSS files
+    _static_version = str(int(time.time()))
+
+    @app.context_processor
+    def _inject_static_version():
+        return {"v": _static_version}
+
     # Set up file + console logging via shared log_utils
     from nhc.utils.log import setup_logging
     log_path = setup_logging(
