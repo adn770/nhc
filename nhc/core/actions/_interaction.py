@@ -553,6 +553,13 @@ def describe_tile(
                         hp_str = t("health_status.near_death")
                 parts.append((d.short or d.name) + hp_str)
 
+    # Visible traps
+    for eid, trap, tpos in world.query("Trap", "Position"):
+        if tpos and tpos.x == x and tpos.y == y and not trap.hidden:
+            d = world.get_component(eid, "Description")
+            if d:
+                parts.append(d.short or d.name)
+
     # Chests
     for eid in list(world._entities):
         epos = world.get_component(eid, "Position")
