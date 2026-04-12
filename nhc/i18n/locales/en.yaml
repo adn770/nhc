@@ -716,7 +716,7 @@ ui:
   toolbar_force_door: "Force Door (f)"
   toolbar_close_door: "Close Door (c)"
   toolbar_dig: "Dig (D)"
-  toolbar_farlook: "Farlook (x)"
+  toolbar_farlook: "Farlook (:)"
   toolbar_descend: "Descend (>)"
   toolbar_ascend: "Ascend (<)"
   toolbar_zoom_in: "Zoom In"
@@ -745,6 +745,8 @@ ui:
   loading_ascend: "Climbing back up..."
   autodig_on: "Autodig: ON (walk into walls to tunnel)"
   autodig_off: "Autodig: OFF"
+  autolook_on: "Autolook: ON (click tiles to examine continuously)"
+  autolook_off: "Autolook: OFF"
   # Farlook
   farlook_hint: "Farlook mode — click a tile to examine."
   # Help command

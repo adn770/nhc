@@ -716,7 +716,7 @@ ui:
   toolbar_force_door: "Forzar puerta (f)"
   toolbar_close_door: "Cerrar puerta (c)"
   toolbar_dig: "Excavar (D)"
-  toolbar_farlook: "Examinar (x)"
+  toolbar_farlook: "Examinar (:)"
   toolbar_descend: "Bajar (>)"
   toolbar_ascend: "Subir (<)"
   toolbar_zoom_in: "Ampliar"
@@ -745,6 +745,8 @@ ui:
   loading_ascend: "Subiendo las escaleras..."
   autodig_on: "Excavación automática: ACTIVADA (camina contra muros para excavar)"
   autodig_off: "Excavación automática: DESACTIVADA"
+  autolook_on: "Examen automático: ACTIVADO (haz clic en casillas para examinar continuamente)"
+  autolook_off: "Examen automático: DESACTIVADO"
   # Farlook
   farlook_hint: "Modo exploración — haz clic en una casilla para examinar."
   # Help command

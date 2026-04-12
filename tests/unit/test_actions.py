@@ -603,6 +603,71 @@ class TestLookAction:
         assert any("uninjured" in m for m in msgs)
 
 
+class TestDescribeTile:
+    """Tests for the describe_tile helper used by farlook."""
+
+    def test_empty_visible_tile_shows_terrain(self):
+        from nhc.core.actions._interaction import describe_tile
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        level.tiles[5][5].visible = True
+        parts = describe_tile(world, level, pid, 5, 5)
+        assert len(parts) >= 1
+
+    def test_creature_on_tile(self):
+        from nhc.core.actions._interaction import describe_tile
+        world = World()
+        level = _make_test_level()
+        for row in level.tiles:
+            for tile in row:
+                tile.visible = True
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=6, y=5),
+            "AI": AI(behavior="aggressive_melee"),
+            "Health": Health(current=4, maximum=4),
+            "Description": Description(name="Goblin", short="a goblin"),
+            "BlocksMovement": BlocksMovement(),
+        })
+        parts = describe_tile(world, level, pid, 6, 5)
+        assert any("goblin" in p for p in parts)
+
+    def test_item_on_tile(self):
+        from nhc.core.actions._interaction import describe_tile
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][5].visible = True
+        pid = _make_player(world, x=5, y=5)
+        world.create_entity({
+            "Position": Position(x=5, y=5),
+            "Description": Description(
+                name="Potion", short="a healing potion",
+            ),
+        })
+        parts = describe_tile(world, level, pid, 5, 5)
+        assert any("potion" in p for p in parts)
+
+    def test_non_visible_tile_returns_empty(self):
+        from nhc.core.actions._interaction import describe_tile
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        level.tiles[5][5].visible = False
+        parts = describe_tile(world, level, pid, 5, 5)
+        assert parts == []
+
+    def test_feature_on_tile(self):
+        from nhc.core.actions._interaction import describe_tile
+        world = World()
+        level = _make_test_level()
+        level.tiles[5][5].visible = True
+        level.tiles[5][5].feature = "stairs_down"
+        pid = _make_player(world, x=5, y=5)
+        parts = describe_tile(world, level, pid, 5, 5)
+        assert any("stair" in p.lower() for p in parts)
+
+
 class TestGroundItemAnnouncement:
     @pytest.mark.asyncio
     async def test_move_announces_single_item(self):

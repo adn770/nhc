@@ -734,7 +734,7 @@ ui:
   toolbar_force_door: "Forçar porta (f)"
   toolbar_close_door: "Tancar porta (c)"
   toolbar_dig: "Excavar (D)"
-  toolbar_farlook: "Examinar (x)"
+  toolbar_farlook: "Examinar (:)"
   toolbar_descend: "Baixar (>)"
   toolbar_ascend: "Pujar (<)"
   toolbar_zoom_in: "Ampliar"
@@ -763,6 +763,8 @@ ui:
   loading_ascend: "Pujant les escales..."
   autodig_on: "Excavació automàtica: ACTIVADA (camina contra parets per túnelar)"
   autodig_off: "Excavació automàtica: DESACTIVADA"
+  autolook_on: "Examen automàtic: ACTIVAT (clica caselles per examinar contínuament)"
+  autolook_off: "Examen automàtic: DESACTIVAT"
   # Farlook
   farlook_hint: "Mode exploració — clica una casella per examinar."
   # Help command

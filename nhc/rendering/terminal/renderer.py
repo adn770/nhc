@@ -640,65 +640,8 @@ class TerminalRenderer(GameClient):
                 )
 
             # Build description for cursor tile
-            tile = level.tile_at(cx, cy)
-            desc_parts: list[str] = []
-
-            if tile and tile.visible:
-                # Creatures
-                for eid, _, cpos in world.query("AI", "Position"):
-                    if cpos and cpos.x == cx and cpos.y == cy:
-                        d = world.get_component(eid, "Description")
-                        h = world.get_component(eid, "Health")
-                        if d:
-                            hp_str = ""
-                            if h:
-                                pct = h.current / h.maximum
-                                if pct >= 1.0:
-                                    hp_str = tr("health_status.uninjured")
-                                elif pct > 0.5:
-                                    hp_str = tr(
-                                        "health_status.lightly_wounded")
-                                elif pct > 0.25:
-                                    hp_str = tr(
-                                        "health_status.badly_wounded")
-                                else:
-                                    hp_str = tr("health_status.near_death")
-                            desc_parts.append(
-                                (d.short or d.name) + hp_str)
-
-                # Chests
-                for eid in list(world._entities):
-                    epos = world.get_component(eid, "Position")
-                    if (epos and epos.x == cx and epos.y == cy
-                            and world.has_component(eid, "Chest")):
-                        d = world.get_component(eid, "Description")
-                        if d:
-                            desc_parts.append(d.short or d.name)
-
-                # Items on floor
-                for eid, _, ipos in world.query("Description", "Position"):
-                    if ipos and ipos.x == cx and ipos.y == cy:
-                        if (not world.has_component(eid, "AI")
-                                and not world.has_component(eid, "BlocksMovement")
-                                and not world.has_component(eid, "Trap")
-                                and eid != player_id):
-                            d = world.get_component(eid, "Description")
-                            if d:
-                                desc_parts.append(d.short or d.name)
-
-                # Tile feature
-                if tile.feature and tile.feature != "door_secret":
-                    fname = tr(f"feature.{tile.feature}")
-                    if fname.startswith("feature."):
-                        fname = tile.feature.replace("_", " ")
-                    desc_parts.append(fname)
-
-                # Terrain
-                if not desc_parts:
-                    terrain_name = tile.terrain.name.lower()
-                    if tile.is_corridor:
-                        terrain_name = "corridor"
-                    desc_parts.append(terrain_name)
+            from nhc.core.actions._interaction import describe_tile
+            desc_parts = describe_tile(world, level, player_id, cx, cy)
 
             # Display description on the input line
             info = f" ({cx},{cy}) {', '.join(desc_parts)}"
@@ -715,7 +658,7 @@ class TerminalRenderer(GameClient):
                 key = val.name if val.is_sequence else str(val)
 
             if key in ("KEY_ESCAPE", "\x1b", "\n", "\r", "KEY_ENTER",
-                        "x", "q"):
+                        ":", "q"):
                 break
 
             # Compute proposed new position

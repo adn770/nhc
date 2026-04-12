@@ -41,7 +41,7 @@ KEY_MAP: dict[str, tuple[str, tuple[int, int] | None]] = {
     "D": ("dig", None),
     ">": ("descend", None),
     "<": ("ascend", None),
-    "x": ("farlook", None),
+    ":": ("farlook", None),
     ".": ("wait", None),
     "5": ("wait", None),
     # Message scroll

@@ -640,8 +640,9 @@ body {
   color: #fff;
 }
 
-/* Autodig mode indicator — glowing ring around the dig button. */
-#toolbar-zone button.autodig-active {
+/* Autodig / autolook mode indicator — glowing ring around the button. */
+#toolbar-zone button.autodig-active,
+#toolbar-zone button.autolook-active {
   border-color: #ffd54a;
   box-shadow:
     0 0 4px #ffd54a,

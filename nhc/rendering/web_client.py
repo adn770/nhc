@@ -668,6 +668,8 @@ class WebClient(GameClient):
             "loading_ascend": tr("ui.loading_ascend"),
             "autodig_on": tr("ui.autodig_on"),
             "autodig_off": tr("ui.autodig_off"),
+            "autolook_on": tr("ui.autolook_on"),
+            "autolook_off": tr("ui.autolook_off"),
             "farlook_hint": tr("ui.farlook_hint"),
             "help_command": tr("ui.help_command"),
             # Restart confirmation
@@ -1367,12 +1369,39 @@ class WebClient(GameClient):
         self, world: "World", level: "Level", player_id: int,
         turn: int, start_x: int, start_y: int,
     ) -> None:
+        from nhc.core.actions._interaction import describe_tile
+
         self._send({
             "type": "farlook",
             "start_x": start_x,
             "start_y": start_y,
         })
-        self._recv()
+        # Loop: receive clicks, describe the tile, send back.
+        # Exit when the client sends farlook_done.
+        while True:
+            msg = self._recv()
+            msg_type = msg.get("type", "")
+            if msg_type == "action":
+                intent = msg.get("intent", "")
+                if intent == "farlook_done":
+                    break
+                # Any other action exits farlook too
+                break
+            if msg_type == "farlook_click":
+                tx = msg.get("x", 0)
+                ty = msg.get("y", 0)
+                parts = describe_tile(
+                    world, level, player_id, tx, ty,
+                )
+                desc = f"({tx},{ty}) {', '.join(parts)}" if parts else ""
+                self._send({
+                    "type": "farlook_desc",
+                    "desc": desc,
+                    "x": tx,
+                    "y": ty,
+                })
+            elif msg_type == "disconnect":
+                break
 
     def fullmap_mode(
         self, world: "World", level: "Level", player_id: int,

@@ -516,6 +516,77 @@ class DigFloorMissAction(Action):
         return events
 
 
+def describe_tile(
+    world: "World", level: "Level", player_id: int,
+    x: int, y: int,
+) -> list[str]:
+    """Return human-readable descriptions for a single tile.
+
+    Used by both the terminal farlook cursor and the web client
+    click-to-examine flow.  Returns an empty list for non-visible
+    or out-of-bounds tiles.
+    """
+    tile = level.tile_at(x, y)
+    parts: list[str] = []
+    if not tile or not tile.visible:
+        return parts
+
+    # Creatures
+    for eid, _, cpos in world.query("AI", "Position"):
+        if cpos and cpos.x == x and cpos.y == y:
+            d = world.get_component(eid, "Description")
+            h = world.get_component(eid, "Health")
+            if d:
+                hp_str = ""
+                if h:
+                    pct = h.current / h.maximum
+                    if pct >= 1.0:
+                        hp_str = t("health_status.uninjured")
+                    elif pct > 0.5:
+                        hp_str = t("health_status.lightly_wounded")
+                    elif pct > 0.25:
+                        hp_str = t("health_status.badly_wounded")
+                    else:
+                        hp_str = t("health_status.near_death")
+                parts.append((d.short or d.name) + hp_str)
+
+    # Chests
+    for eid in list(world._entities):
+        epos = world.get_component(eid, "Position")
+        if (epos and epos.x == x and epos.y == y
+                and world.has_component(eid, "Chest")):
+            d = world.get_component(eid, "Description")
+            if d:
+                parts.append(d.short or d.name)
+
+    # Items on floor
+    for eid, _, ipos in world.query("Description", "Position"):
+        if ipos and ipos.x == x and ipos.y == y:
+            if (not world.has_component(eid, "AI")
+                    and not world.has_component(eid, "BlocksMovement")
+                    and not world.has_component(eid, "Trap")
+                    and eid != player_id):
+                d = world.get_component(eid, "Description")
+                if d:
+                    parts.append(d.short or d.name)
+
+    # Tile feature
+    if tile.feature and tile.feature != "door_secret":
+        fname = t(f"feature.{tile.feature}")
+        if fname.startswith("feature."):
+            fname = tile.feature.replace("_", " ")
+        parts.append(fname)
+
+    # Terrain fallback
+    if not parts:
+        terrain_name = tile.terrain.name.lower()
+        if tile.is_corridor:
+            terrain_name = "corridor"
+        parts.append(terrain_name)
+
+    return parts
+
+
 class LookAction(Action):
     """Examine the current tile and surroundings."""
 

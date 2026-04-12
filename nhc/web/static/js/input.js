@@ -5,6 +5,8 @@ const Input = {
   inputEl: null,
   classicMode: true,
   autodig: false,  // toggled by right-click on the dig toolbar button
+  autolook: false, // toggled by right-click on the farlook toolbar button
+  farlookActive: false, // true while in farlook click mode
   menuPending: null,  // resolve function for active menu
 
   // Same key mapping as nhc/rendering/terminal/input.py
@@ -32,7 +34,7 @@ const Input = {
     "d": { intent: "drop", data: null },
     "t": { intent: "throw", data: null },
     "z": { intent: "zap", data: null },
-    "x": { intent: "farlook", data: null },
+    ":": { intent: "farlook", data: null },
     "s": { intent: "search", data: null },
     "p": { intent: "pick_lock", data: null },
     "f": { intent: "force_door", data: null },
@@ -97,6 +99,13 @@ const Input = {
       // Skip if menu is open
       if (document.getElementById("menu-overlay")) return;
 
+      // Escape exits farlook mode
+      if (this.farlookActive && e.key === "Escape") {
+        e.preventDefault();
+        this._exitFarlook();
+        return;
+      }
+
       const mapping = this.KEY_MAP[e.key];
       if (mapping) {
         e.preventDefault();
@@ -132,7 +141,11 @@ const Input = {
       const canvasX = e.clientX - rect.left + mapZone.scrollLeft;
       const canvasY = e.clientY - rect.top + mapZone.scrollTop;
       const grid = GameMap.pixelToGrid(canvasX, canvasY);
-      WS.send({ type: "click", x: grid.x, y: grid.y });
+      if (this.farlookActive) {
+        WS.send({ type: "farlook_click", x: grid.x, y: grid.y });
+      } else {
+        WS.send({ type: "click", x: grid.x, y: grid.y });
+      }
     });
 
     this._updateModeIndicator();
@@ -162,6 +175,12 @@ const Input = {
         btn.addEventListener("contextmenu", (e) => {
           e.preventDefault();
           Input._toggleAutodig();
+        });
+      }
+      if (intent === "farlook") {
+        btn.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          Input._toggleAutolook();
         });
       }
       zone.appendChild(btn);
@@ -309,5 +328,29 @@ const Input = {
     UI.addMessage(this.autodig
       ? (L.autodig_on || "Autodig: ON")
       : (L.autodig_off || "Autodig: OFF"));
+  },
+
+  _toggleAutolook() {
+    this.autolook = !this.autolook;
+    const btn = (this._toolbarButtons || []).find(
+      (b) => b.dataset.intent === "farlook",
+    );
+    if (btn) {
+      btn.classList.toggle("autolook-active", this.autolook);
+      btn.blur();
+    }
+    const L = NHC.labels || {};
+    UI.addMessage(this.autolook
+      ? (L.autolook_on || "Autolook: ON")
+      : (L.autolook_off || "Autolook: OFF"));
+  },
+
+  _enterFarlook() {
+    this.farlookActive = true;
+  },
+
+  _exitFarlook() {
+    this.farlookActive = false;
+    WS.send({ type: "action", intent: "farlook_done" });
   },
 };

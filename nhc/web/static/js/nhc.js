@@ -136,7 +136,17 @@ const NHC = {
     WS.on("farlook", () => {
       const L = NHC.labels;
       UI.addMessage(L.farlook_hint || "Farlook mode — click a tile to examine.");
-      WS.send({ type: "action", intent: "farlook_done" });
+      Input._enterFarlook();
+    });
+
+    WS.on("farlook_desc", (msg) => {
+      if (msg.desc) {
+        UI.addMessage(msg.desc);
+      }
+      // Single-look: exit after first description
+      if (!Input.autolook) {
+        Input._exitFarlook();
+      }
     });
 
     WS.on("debug_url", (msg) => {
