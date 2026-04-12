@@ -84,6 +84,15 @@ def auto_equip_best(world: "World", entity_id: int) -> None:
             setattr(equip, attr, best_id)
 
 
+def _has_visible_trap(world: "World", x: int, y: int) -> bool:
+    """True if an unhidden, untriggered trap entity sits at (x, y)."""
+    for _, trap, tpos in world.query("Trap", "Position"):
+        if tpos.x == x and tpos.y == y:
+            if not trap.hidden and not trap.triggered:
+                return True
+    return False
+
+
 def _find_room(level: "Level", x: int, y: int) -> object | None:
     """Return the room containing (x, y), or None."""
     for room in level.rooms:
@@ -292,6 +301,8 @@ def decide_henchman_action(
                     world, fx, fy, entity_id, player_id,
                 ):
                     blocked = True
+                if not blocked and _has_visible_trap(world, fx, fy):
+                    blocked = True
                 if not blocked:
                     return MoveAction(
                         actor=entity_id,
@@ -388,6 +399,8 @@ def _wander_walkable(
     if not tile or not tile.walkable:
         return False
     if tile.feature in _FORBIDDEN_WANDER_FEATURES:
+        return False
+    if _has_visible_trap(world, x, y):
         return False
     for eid, _, bpos in world.query("BlocksMovement", "Position"):
         if bpos.x == x and bpos.y == y and eid != entity_id:
