@@ -986,8 +986,12 @@ const GameMap = {
   },
 
   pixelToGrid(canvasX, canvasY) {
-    const gx = Math.floor((canvasX - this.padding) / this.cellSize);
-    const gy = Math.floor((canvasY - this.padding) / this.cellSize);
+    // Undo CSS transform scale so clicks map to actual tile coords
+    const scale = this._zoomSteps[this._zoomLevel] || 1.0;
+    const ux = canvasX / scale;
+    const uy = canvasY / scale;
+    const gx = Math.floor((ux - this.padding) / this.cellSize);
+    const gy = Math.floor((uy - this.padding) / this.cellSize);
     return { x: gx, y: gy };
   },
 

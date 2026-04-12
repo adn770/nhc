@@ -529,22 +529,9 @@ def describe_tile(
     click-to-examine flow.  Returns an empty list for non-visible
     or out-of-bounds tiles.
     """
-    import logging
-    _log = logging.getLogger("nhc.farlook")
-
     tile = level.tile_at(x, y)
     parts: list[str] = []
-    _log.info(
-        "describe_tile(%d, %d): tile=%s, visible=%s, "
-        "feature=%s, terrain=%s",
-        x, y,
-        tile is not None,
-        tile.visible if tile else None,
-        tile.feature if tile else None,
-        tile.terrain if tile else None,
-    )
     if not tile or not tile.visible:
-        _log.info("describe_tile: tile not visible, returning empty")
         return parts
 
     # Creatures
@@ -567,22 +554,11 @@ def describe_tile(
                 parts.append((d.short or d.name) + hp_str)
 
     # Visible traps
-    trap_count = 0
     for eid, trap, tpos in world.query("Trap", "Position"):
-        trap_count += 1
-        if tpos and tpos.x == x and tpos.y == y:
-            _log.info(
-                "describe_tile: trap eid=%d at (%d,%d) "
-                "hidden=%s triggered=%s",
-                eid, tpos.x, tpos.y, trap.hidden, trap.triggered,
-            )
-            if not trap.hidden:
-                d = world.get_component(eid, "Description")
-                if d:
-                    parts.append(d.short or d.name)
-                    _log.info("describe_tile: added trap '%s'",
-                              d.short or d.name)
-    _log.info("describe_tile: checked %d trap entities", trap_count)
+        if tpos and tpos.x == x and tpos.y == y and not trap.hidden:
+            d = world.get_component(eid, "Description")
+            if d:
+                parts.append(d.short or d.name)
 
     # Chests
     for eid in list(world._entities):
@@ -618,7 +594,6 @@ def describe_tile(
             terrain_name = "corridor"
         parts.append(terrain_name)
 
-    _log.info("describe_tile(%d, %d): result=%s", x, y, parts)
     return parts
 
 
