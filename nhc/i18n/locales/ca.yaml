@@ -200,7 +200,7 @@ combat:
   you_destroyed: "Destrueixes {target}!"
   # Player is attacked (2nd person, passive)
   hit_you: "{attacker} et colpeja per {damage} de dany."
-  miss_you: "{attacker} et falla."
+  miss_you: "{attacker} falla."
   slain_you: "Has caigut en combat!"
   destroyed_you: "Has estat destruït!"
   # Status effects (always on target)
