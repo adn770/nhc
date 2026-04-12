@@ -212,6 +212,32 @@ const Input = {
     zone.appendChild(zoomIn);
     this._toolbarButtons.push(zoomIn);
 
+    // TTS toggle button (hidden until TTS.init checks availability)
+    const ttsBtn = document.createElement("button");
+    ttsBtn.id = "tts-btn";
+    ttsBtn.textContent = "\u{1F507}";
+    ttsBtn.title = "Text to Speech";
+    ttsBtn.classList.add("hidden");
+    ttsBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      TTS.toggle();
+    });
+    zone.appendChild(ttsBtn);
+
+    // TTS volume slider (hidden until TTS enabled)
+    const ttsVol = document.createElement("input");
+    ttsVol.id = "tts-volume";
+    ttsVol.type = "range";
+    ttsVol.min = "0";
+    ttsVol.max = "100";
+    ttsVol.value = "80";
+    ttsVol.title = "TTS Volume";
+    ttsVol.classList.add("tts-volume", "hidden");
+    ttsVol.addEventListener("input", (e) => {
+      TTS.setVolume(parseInt(e.target.value, 10) / 100);
+    });
+    zone.appendChild(ttsVol);
+
     // Restart button — pushed to the right
     const restart = document.createElement("button");
     restart.id = "restart-btn";

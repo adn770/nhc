@@ -50,10 +50,12 @@ const NHC = {
     WS.on("message", (msg) => {
       console.log("message:", msg.text);
       UI.addMessage(msg.text);
+      TTS.enqueue(msg.text);
     });
 
     WS.on("narrative", (msg) => {
       UI.addNarrative(msg.chunk);
+      TTS.enqueue(msg.chunk);
     });
 
     WS.on("effect", (msg) => {
@@ -200,6 +202,9 @@ const NHC = {
     // Clear message log from any previous game
     UI.clearLog();
 
+    // Initialize TTS with the selected language
+    TTS.init(lang);
+
     // Switch to game screen BEFORE connecting WS
     // so the canvas can get proper dimensions
     document.getElementById("login-screen").classList.add("hidden");
@@ -244,6 +249,7 @@ const NHC = {
   },
 
   returnToWelcome() {
+    TTS.skip();
     if (WS.socket) WS.socket.close();
     // Reset client state
     GameMap.fov = new Set();

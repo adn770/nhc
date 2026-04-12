@@ -683,6 +683,15 @@ body {
   margin-bottom: 4px;
 }
 
+/* TTS volume slider — inline in the toolbar */
+.tts-volume {
+  width: 60px;
+  height: 4px;
+  accent-color: #e6c07b;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
 /* Zone 2: Status bar */
 #status-zone {
   background: #16213e;

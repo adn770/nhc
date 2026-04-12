@@ -23,6 +23,16 @@ from nhc.web.sessions import SessionManager, player_id_from_token
 logger = logging.getLogger(__name__)
 
 
+def _get_tts_engine(app: Flask) -> "TTSEngine":
+    """Return the shared TTSEngine singleton, creating it lazily."""
+    engine = app.config.get("TTS_ENGINE")
+    if engine is None:
+        from nhc.web.tts import TTSEngine
+        engine = TTSEngine()
+        app.config["TTS_ENGINE"] = engine
+    return engine
+
+
 class _RateLimiter:
     """Simple in-memory rate limiter per IP address."""
 
@@ -268,6 +278,40 @@ def create_app(
         if not path.exists():
             return "Help not available.", 404
         return path.read_text(), 200, {"Content-Type": "text/plain"}
+
+    # ── TTS routes ─────────────────────────────────────────
+
+    @app.route("/api/tts/status", methods=["GET"])
+    def tts_status():
+        """Return TTS availability for the client."""
+        engine = _get_tts_engine(app)
+        return jsonify({"available": engine.is_available()})
+
+    @app.route("/api/tts", methods=["POST"])
+    def tts_synthesize():
+        """Synthesize text to WAV audio."""
+        engine = _get_tts_engine(app)
+        if not engine.is_available():
+            return jsonify({"error": "TTS not available"}), 503
+
+        data = request.get_json(silent=True) or {}
+        text = data.get("text")
+        lang = data.get("lang")
+        if not text or not lang:
+            return jsonify({"error": "text and lang required"}), 400
+
+        try:
+            wav_buf = engine.synthesize(text, lang)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except RuntimeError as e:
+            return jsonify({"error": str(e)}), 503
+
+        return send_file(
+            wav_buf,
+            mimetype="audio/wav",
+            download_name="tts.wav",
+        )
 
     # ── Admin routes (LAN + admin token) ────────────────────
 
