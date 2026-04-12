@@ -143,7 +143,7 @@ class TestTTSEngineSynthesize:
 
         engine.synthesize("**Bold** attack!", "en")
         mock_voice.synthesize.assert_called_once_with(
-            "Bold attack!"
+            "Bold attack!", length_scale=0.8
         )
 
 

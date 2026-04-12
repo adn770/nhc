@@ -176,7 +176,7 @@ class TTSEngine:
 
         # Collect all PCM chunks
         pcm_data = bytearray()
-        for audio_chunk in voice.synthesize(text):
+        for audio_chunk in voice.synthesize(text, length_scale=0.8):
             pcm_data.extend(audio_chunk.audio_int16_bytes)
 
         # Write WAV to BytesIO
