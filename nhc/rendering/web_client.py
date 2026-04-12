@@ -1398,7 +1398,7 @@ class WebClient(GameClient):
                 if parts:
                     desc = f"{prefix}{', '.join(parts)}"
                 else:
-                    desc = f"{prefix}{tr('farlook_unseen')}"
+                    desc = f"{prefix}{tr('ui.farlook_unseen')}"
                 self._send({
                     "type": "farlook_desc",
                     "desc": desc,
