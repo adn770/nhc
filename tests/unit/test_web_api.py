@@ -857,6 +857,32 @@ class TestRankingAPI:
         assert top[0].won is False
         assert top[0].depth >= 1
 
+    def test_ws_skips_score_in_god_mode(self, client_with_data_dir):
+        """God-mode runs must NOT appear in the leaderboard."""
+        from nhc.web.ws import _submit_final_score
+
+        _token, pid = _register_player(client_with_data_dir, "Cheater")
+        app = client_with_data_dir.application
+        resp = client_with_data_dir.post(
+            "/api/game/new", json={"player_token": _token},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = app.config["SESSIONS"]
+        session = sessions.get(sid)
+        session.player_id = pid
+
+        # Simulate death in god mode.
+        session.game.game_over = True
+        session.game.killed_by = "goblin"
+        session.game.turn = 99
+        session.game.god_mode = True
+
+        lb = app.config["LEADERBOARD"]
+        with app.app_context():
+            _submit_final_score(session)
+        assert lb.top(10) == [], "god-mode games must not be recorded"
+
 
 class TestLabelsEndpoint:
     """Regression tests for /api/game/<sid>/labels.json under gthread.

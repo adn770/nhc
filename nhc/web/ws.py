@@ -42,6 +42,9 @@ def _submit_final_score(session) -> None:
         game = session.game
         if not game or not game.level:
             return
+        if game.god_mode:
+            logger.info("Skipping leaderboard for god-mode game")
+            return
         player = game.world.get_component(game.player_id, "Player")
         xp = player.xp if player else 0
         gold = player.gold if player else 0
