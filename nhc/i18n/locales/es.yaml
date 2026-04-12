@@ -303,6 +303,9 @@ feature:
   stairs_down: "unas escaleras hacia abajo"
   door_open: "una puerta abierta"
   door_closed: "una puerta cerrada"
+  buried_marker:
+    name: "tesoro enterrado"
+    short: "algo oculto bajo los pies"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:

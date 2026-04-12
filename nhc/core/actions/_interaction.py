@@ -698,8 +698,8 @@ def _place_buried_marker(
             expires_at_turn=turn + _BURIED_MARKER_DURATION,
         ),
         "Description": Description(
-            name="buried treasure",
-            short="something hidden underfoot",
+            name=t("feature.buried_marker.name"),
+            short=t("feature.buried_marker.short"),
         ),
     })
 

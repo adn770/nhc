@@ -305,6 +305,9 @@ feature:
   stairs_down: "stairs leading down"
   door_open: "an open door"
   door_closed: "a closed door"
+  buried_marker:
+    name: "buried treasure"
+    short: "something hidden underfoot"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:

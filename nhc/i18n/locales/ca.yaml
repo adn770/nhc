@@ -321,6 +321,9 @@ feature:
   stairs_down: "unes escales cap avall"
   door_open: "una porta oberta"
   door_closed: "una porta tancada"
+  buried_marker:
+    name: "tresor enterrat"
+    short: "quelcom amagat sota els peus"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
