@@ -1393,7 +1393,10 @@ class WebClient(GameClient):
                 parts = describe_tile(
                     world, level, player_id, tx, ty,
                 )
-                desc = f"({tx},{ty}) {', '.join(parts)}" if parts else ""
+                if parts:
+                    desc = f"({tx},{ty}) {', '.join(parts)}"
+                else:
+                    desc = f"({tx},{ty}) {tr('farlook_unseen')}"
                 self._send({
                     "type": "farlook_desc",
                     "desc": desc,

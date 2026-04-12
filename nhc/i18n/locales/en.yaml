@@ -753,7 +753,8 @@ ui:
   autolook_on: "Autolook: ON (click tiles to examine continuously)"
   autolook_off: "Autolook: OFF"
   # Farlook
-  farlook_hint: "Farlook mode — click a tile to examine."
+  farlook_hint: "Click on a tile to inspect."
+  farlook_unseen: "You can't see anything there."
   # Help command
   help_command: "--- Help: press ? for full help ---"
   # Restart confirmation

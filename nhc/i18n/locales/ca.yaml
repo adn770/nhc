@@ -771,7 +771,8 @@ ui:
   autolook_on: "Examen automàtic: ACTIVAT (clica caselles per examinar contínuament)"
   autolook_off: "Examen automàtic: DESACTIVAT"
   # Farlook
-  farlook_hint: "Mode exploració — clica una casella per examinar."
+  farlook_hint: "Clica una casella per inspeccionar."
+  farlook_unseen: "No hi pots veure res."
   # Help command
   help_command: "--- Ajuda: prem ? per ajuda completa ---"
   # Restart confirmation

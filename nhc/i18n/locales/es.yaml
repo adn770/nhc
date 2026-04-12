@@ -753,7 +753,8 @@ ui:
   autolook_on: "Examen automático: ACTIVADO (haz clic en casillas para examinar continuamente)"
   autolook_off: "Examen automático: DESACTIVADO"
   # Farlook
-  farlook_hint: "Modo exploración — haz clic en una casilla para examinar."
+  farlook_hint: "Haz clic en una casilla para inspeccionar."
+  farlook_unseen: "No puedes ver nada ahí."
   # Help command
   help_command: "--- Ayuda: pulsa ? para ayuda completa ---"
   # Restart confirmation

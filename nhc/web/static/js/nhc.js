@@ -143,9 +143,7 @@ const NHC = {
     });
 
     WS.on("farlook_desc", (msg) => {
-      if (msg.desc) {
-        UI.addMessage(msg.desc);
-      }
+      UI.addMessage(msg.desc || "");
       // Single-look: exit after first description
       if (!Input.autolook) {
         Input._exitFarlook();
