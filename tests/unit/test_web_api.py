@@ -348,6 +348,42 @@ class TestAdminAPI:
         )
         assert resp.status_code == 404
 
+    def test_clear_player_scores(self, client_with_data_dir):
+        """DELETE /api/admin/players/<pid>/scores removes entries."""
+        from nhc.web.leaderboard import LeaderboardEntry
+
+        _token, pid = _register_player(client_with_data_dir, "Alice")
+        lb = client_with_data_dir.application.config["LEADERBOARD"]
+        lb.submit(LeaderboardEntry(
+            player_id=pid, name="Alice",
+            score=500, depth=3, turn=100, won=False,
+            killed_by="goblin", timestamp=1000.0,
+        ))
+        lb.submit(LeaderboardEntry(
+            player_id="other", name="Bob",
+            score=300, depth=2, turn=50, won=False,
+            killed_by="rat", timestamp=1001.0,
+        ))
+        assert len(lb.top(10)) == 2
+
+        resp = client_with_data_dir.delete(
+            f"/api/admin/players/{pid}/scores",
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["removed"] == 1
+
+        top = lb.top(10)
+        assert len(top) == 1
+        assert top[0].name == "Bob"
+
+    def test_clear_scores_nonexistent_player(self, client_with_data_dir):
+        resp = client_with_data_dir.delete(
+            "/api/admin/players/bogus/scores",
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["removed"] == 0
+
     def test_list_sessions(self, client_with_data_dir):
         client_with_data_dir.post("/api/game/new", json={})
         resp = client_with_data_dir.get("/api/admin/sessions")

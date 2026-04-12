@@ -128,6 +128,21 @@ class Leaderboard:
             entry.name, entry.score, entry.depth, entry.won,
         )
 
+    def remove_player_entries(self, player_id: str) -> int:
+        """Remove all entries for *player_id*.  Returns count removed."""
+        with self._lock:
+            before = len(self._entries)
+            self._entries = [
+                e for e in self._entries if e.player_id != player_id
+            ]
+            removed = before - len(self._entries)
+            if removed:
+                self._save()
+        if removed:
+            logger.info("Leaderboard: removed %d entries for %s",
+                        removed, player_id)
+        return removed
+
     # ── Queries ─────────────────────────────────────────────
 
     def top(self, limit: int = 10) -> list[LeaderboardEntry]:

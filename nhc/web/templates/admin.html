@@ -167,6 +167,7 @@ async function loadPlayers() {
       ? '<span style="color:#888">revoked</span>'
       : godBtn
         + `<button onclick="getLink('${p.player_id}')">Get Link</button> `
+        + `<button class="danger" onclick="clearScores('${p.player_id}')">Clear Scores</button> `
         + `<button class="danger" onclick="revokePlayer('${p.player_id}')">Revoke</button>`;
     const lastSeenCell = p.last_seen
       ? `<span title="${fmtDate(p.last_seen)}">${fmtRelative(p.last_seen)}</span>`
@@ -267,6 +268,20 @@ async function revokePlayer(pid) {
   if (resp.ok) {
     toast("Player revoked");
     loadPlayers();
+  }
+}
+
+async function clearScores(pid) {
+  if (!confirm("Remove all ranking entries for this player?")) return;
+  const resp = await fetch(`/api/admin/players/${pid}/scores`, {
+    method: "DELETE",
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    toast(`Removed ${data.removed} ranking entry/entries`);
+  } else {
+    const err = await resp.json();
+    toast(err.error || "Failed to clear scores");
   }
 }
 

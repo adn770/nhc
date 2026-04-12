@@ -371,6 +371,17 @@ def create_app(
             session.game.set_god_mode(enabled)
         return jsonify({"status": "ok", "god_mode": enabled})
 
+    @app.route(
+        "/api/admin/players/<player_id>/scores", methods=["DELETE"],
+    )
+    @_admin_auth
+    def admin_clear_scores(player_id: str):
+        leaderboard = app.config.get("LEADERBOARD")
+        if not leaderboard:
+            return jsonify({"error": "no leaderboard"}), 500
+        removed = leaderboard.remove_player_entries(player_id)
+        return jsonify({"status": "ok", "removed": removed})
+
     @app.route("/api/admin/sessions", methods=["GET"])
     @_admin_auth
     def admin_list_sessions():

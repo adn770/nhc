@@ -130,3 +130,49 @@ class TestLeaderboardPersistence:
         top = lb.top(10)
         assert top[0].name == "First"
         assert top[1].name == "Second"
+
+    def test_remove_player_entries(self, tmp_path):
+        """remove_player_entries drops all entries for a given player."""
+        lb = Leaderboard(tmp_path / "leaderboard.json")
+        lb.load()
+        lb.submit(LeaderboardEntry(
+            player_id="p1", name="Alice",
+            score=500, depth=3, turn=120, won=False,
+            killed_by="goblin", timestamp=1000.0,
+        ))
+        lb.submit(LeaderboardEntry(
+            player_id="p2", name="Bob",
+            score=300, depth=2, turn=80, won=False,
+            killed_by="rat", timestamp=1001.0,
+        ))
+        lb.submit(LeaderboardEntry(
+            player_id="p1", name="Alice",
+            score=700, depth=4, turn=200, won=False,
+            killed_by="orc", timestamp=1002.0,
+        ))
+        removed = lb.remove_player_entries("p1")
+        assert removed == 2
+        top = lb.top(10)
+        assert len(top) == 1
+        assert top[0].name == "Bob"
+
+    def test_remove_player_entries_persists(self, tmp_path):
+        """Removal is persisted to disk."""
+        path = tmp_path / "leaderboard.json"
+        lb = Leaderboard(path)
+        lb.load()
+        lb.submit(LeaderboardEntry(
+            player_id="p1", name="Alice",
+            score=100, depth=1, turn=10, won=False,
+            killed_by="", timestamp=1.0,
+        ))
+        lb.remove_player_entries("p1")
+        lb2 = Leaderboard(path)
+        lb2.load()
+        assert lb2.top(10) == []
+
+    def test_remove_player_entries_unknown_player(self, tmp_path):
+        """Removing a non-existent player returns 0."""
+        lb = Leaderboard(tmp_path / "leaderboard.json")
+        lb.load()
+        assert lb.remove_player_entries("nobody") == 0
