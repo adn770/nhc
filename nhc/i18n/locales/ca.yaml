@@ -287,6 +287,8 @@ explore:
   bare_hands: "Mans nues"
   no_locked_door: "No hi ha cap porta tancada a prop."
   door_closes: "Una porta es tanca grinyolant."
+  search_found_buried: "{entity} percep quelcom enterrat sota els seus peus!"
+  you_search_found_buried: "Perceps quelcom enterrat sota els teus peus!"
   search_nothing: "{entity} escorcolla amb atenció però no troba res d'amagat."
   you_search_nothing: "Escorcolles amb atenció però no trobes res d'amagat."
   dig_success: "Trenques la paret!"

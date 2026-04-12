@@ -289,6 +289,12 @@ class Detected:
 
 
 @dataclass
+class BuriedMarker:
+    """Tag: glowing indicator placed by search over a buried-item tile."""
+    expires_at_turn: int = 0
+
+
+@dataclass
 class Cursed:
     """Tag: creature is under a mummy's rot curse."""
     ticks_until_drain: int = 2  # decrements each turn; drains 1 max HP at 0

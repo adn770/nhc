@@ -271,6 +271,8 @@ explore:
   bare_hands: "Bare hands"
   no_locked_door: "There is no locked door nearby."
   door_closes: "A door creaks shut."
+  search_found_buried: "{entity} senses something buried underfoot!"
+  you_search_found_buried: "You sense something buried underfoot!"
   search_nothing: "{entity} searches carefully but finds nothing hidden."
   you_search_nothing: "You search carefully but find nothing hidden."
   dig_success: "You break through the wall!"

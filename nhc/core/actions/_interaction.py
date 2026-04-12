@@ -434,6 +434,9 @@ class DigFloorAction(Action):
         tile.buried = []
         tile.dug_floor = True
 
+        # Remove any search markers on this tile
+        remove_buried_markers_at(world, pos.x, pos.y)
+
         if hole:
             # Player falls — items go with them, not spawned here
             damage = roll_dice("2d6")
@@ -656,8 +659,56 @@ class LookAction(Action):
         return events
 
 
+_BURIED_MARKER_DURATION = 10  # turns before the marker fades
+
+
+def _has_buried_marker(world: "World", x: int, y: int) -> bool:
+    """Return True if a BuriedMarker entity already exists at (x, y)."""
+    for _, _, mpos in world.query("BuriedMarker", "Position"):
+        if mpos and mpos.x == x and mpos.y == y:
+            return True
+    return False
+
+
+def _place_buried_marker(
+    world: "World", x: int, y: int, level_id: str, turn: int,
+) -> int:
+    """Create a glowing marker entity over a tile with buried items."""
+    from nhc.entities.components import (
+        BuriedMarker, Detected, Description, Position, Renderable,
+    )
+    return world.create_entity({
+        "Position": Position(x=x, y=y, level_id=level_id),
+        "Renderable": Renderable(
+            glyph="\u2726", color="#00FF88", render_order=0,
+        ),
+        "Detected": Detected(
+            turn_detected=turn,
+            duration=_BURIED_MARKER_DURATION,
+            glow_color="#00FF88",
+        ),
+        "BuriedMarker": BuriedMarker(
+            expires_at_turn=turn + _BURIED_MARKER_DURATION,
+        ),
+        "Description": Description(
+            name="buried treasure",
+            short="something hidden underfoot",
+        ),
+    })
+
+
+def remove_buried_markers_at(world: "World", x: int, y: int) -> None:
+    """Destroy any BuriedMarker entities at the given position."""
+    to_remove = []
+    for eid, _, mpos in world.query("BuriedMarker", "Position"):
+        if mpos and mpos.x == x and mpos.y == y:
+            to_remove.append(eid)
+    for eid in to_remove:
+        world.destroy_entity(eid)
+
+
 class SearchAction(Action):
-    """Search adjacent tiles for hidden traps and secret doors.
+    """Search adjacent tiles for hidden traps, secret doors, and buried items.
 
     Uses a WIS check: d20 + WIS bonus vs DC of each hidden feature.
     """
@@ -701,7 +752,9 @@ class SearchAction(Action):
 
                 # Check for secret doors (tile feature)
                 tile = level.tile_at(tx, ty)
-                if tile and tile.feature == "door_secret":
+                if not tile:
+                    continue
+                if tile.feature == "door_secret":
                     roll_val = d20()
                     if roll_val + wis_bonus >= 12:
                         tile.feature = "door_closed"
@@ -712,6 +765,23 @@ class SearchAction(Action):
                             ),
                         ))
                         found += 1
+
+                # Check for buried items in the floor
+                if tile.buried and not tile.dug_floor:
+                    roll_val = d20()
+                    if roll_val + wis_bonus >= 12:
+                        if not _has_buried_marker(world, tx, ty):
+                            _place_buried_marker(
+                                world, tx, ty, pos.level_id,
+                                world.turn,
+                            )
+                            events.append(MessageEvent(
+                                text=_msg(
+                                    "explore.search_found_buried",
+                                    world, actor=self.actor,
+                                ),
+                            ))
+                            found += 1
 
         if found == 0:
             events.append(MessageEvent(

@@ -918,6 +918,7 @@ class Game:
             self._tick_wand_recharge()
             self._tick_hunger()
             self._tick_stairs_proximity()
+            self._tick_buried_markers()
 
             # God mode: restore HP to max each turn
             health = self.world.get_component(self.player_id, "Health")
@@ -1727,6 +1728,17 @@ class Game:
 
     def _tick_stairs_proximity(self) -> None:
         game_ticks.tick_stairs_proximity(self)
+
+    def _tick_buried_markers(self) -> None:
+        """Remove expired BuriedMarker entities."""
+        to_remove = []
+        for eid, marker, _ in self.world.query(
+            "BuriedMarker", "Position",
+        ):
+            if self.turn >= marker.expires_at_turn:
+                to_remove.append(eid)
+        for eid in to_remove:
+            self.world.destroy_entity(eid)
 
     def _start_prefetch(self, depth: int) -> None:
         """Spawn a background thread to pre-generate a floor."""

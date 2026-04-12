@@ -269,6 +269,8 @@ explore:
   bare_hands: "Manos desnudas"
   no_locked_door: "No hay ninguna puerta cerrada cerca."
   door_closes: "Una puerta se cierra chirriando."
+  search_found_buried: "¡{entity} percibe algo enterrado bajo sus pies!"
+  you_search_found_buried: "¡Percibes algo enterrado bajo tus pies!"
   search_nothing: "{entity} registra con atención pero no encuentra nada oculto."
   you_search_nothing: "Registras con atención pero no encuentras nada oculto."
   dig_success: "¡Rompes la pared!"

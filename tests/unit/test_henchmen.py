@@ -479,6 +479,115 @@ class TestHenchmanSearchMessages:
         )
 
 
+# ── Buried Treasure Markers ───────────────────────────────────────
+
+class TestBuriedMarkers:
+    @pytest.mark.asyncio
+    async def test_search_creates_marker_on_buried_tile(self):
+        """Searching near a buried-item tile places a glowing marker."""
+        world = World()
+        world.turn = 10
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+
+        # Bury treasure in an adjacent tile
+        tile = level.tile_at(6, 5)
+        tile.buried = ["gold"]
+
+        # Guarantee the WIS check passes
+        set_seed(99)
+        action = SearchAction(actor=pid)
+        events = await action.execute(world, level)
+
+        # Check marker was created
+        markers = list(world.query("BuriedMarker", "Position"))
+        if not markers:
+            # Retry with different seeds — d20 must beat DC 12
+            for seed in range(200):
+                world2 = World()
+                world2.turn = 10
+                pid2 = _make_player(world2, x=5, y=5)
+                set_seed(seed)
+                action2 = SearchAction(actor=pid2)
+                await action2.execute(world2, level)
+                markers = list(world2.query("BuriedMarker", "Position"))
+                if markers:
+                    break
+
+        assert markers, "Expected a BuriedMarker entity to be created"
+        _, marker, mpos = markers[0]
+        assert mpos.x == 6 and mpos.y == 5
+        assert marker.expires_at_turn == 20  # turn 10 + 10 duration
+
+    @pytest.mark.asyncio
+    async def test_search_no_duplicate_markers(self):
+        """Searching the same buried tile twice does not create duplicates."""
+        world = World()
+        world.turn = 5
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        tile = level.tile_at(6, 5)
+        tile.buried = ["gold"]
+
+        # Find a seed that passes the check
+        for seed in range(200):
+            set_seed(seed)
+            action = SearchAction(actor=pid)
+            events = await action.execute(world, level)
+            markers = list(world.query("BuriedMarker", "Position"))
+            if markers:
+                break
+
+        assert len(markers) == 1
+
+        # Search again — should not duplicate
+        for seed in range(200):
+            set_seed(seed)
+            action = SearchAction(actor=pid)
+            await action.execute(world, level)
+
+        markers = list(world.query("BuriedMarker", "Position"))
+        assert len(markers) == 1
+
+    @pytest.mark.asyncio
+    async def test_dig_removes_marker(self):
+        """Digging a tile removes its buried marker."""
+        from nhc.core.actions._interaction import (
+            remove_buried_markers_at, _place_buried_marker,
+        )
+        world = World()
+        world.turn = 5
+        _place_buried_marker(world, 6, 5, "test", 5)
+
+        markers = list(world.query("BuriedMarker", "Position"))
+        assert len(markers) == 1
+
+        remove_buried_markers_at(world, 6, 5)
+        markers = list(world.query("BuriedMarker", "Position"))
+        assert len(markers) == 0
+
+    def test_tick_removes_expired_markers(self):
+        """BuriedMarker entities are destroyed when expired."""
+        from nhc.core.actions._interaction import _place_buried_marker
+        world = World()
+        world.turn = 5
+        mid = _place_buried_marker(world, 6, 5, "test", 5)
+
+        # Not expired yet
+        to_remove = []
+        for eid, marker, _ in world.query("BuriedMarker", "Position"):
+            if 14 >= marker.expires_at_turn:
+                to_remove.append(eid)
+        assert len(to_remove) == 0
+
+        # Expired at turn 15
+        to_remove = []
+        for eid, marker, _ in world.query("BuriedMarker", "Position"):
+            if 15 >= marker.expires_at_turn:
+                to_remove.append(eid)
+        assert len(to_remove) == 1
+
+
 # ── XP Sharing ─────────────────────────────────────────────────────
 
 class TestXPSharing:
