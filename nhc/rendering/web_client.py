@@ -1391,6 +1391,10 @@ class WebClient(GameClient):
             if msg_type == "farlook_click":
                 tx = msg.get("x", 0)
                 ty = msg.get("y", 0)
+                logger.info(
+                    "farlook_click: (%d, %d), level=%s",
+                    tx, ty, level.id if level else None,
+                )
                 parts = describe_tile(
                     world, level, player_id, tx, ty,
                 )
@@ -1399,6 +1403,9 @@ class WebClient(GameClient):
                     desc = f"{prefix}{', '.join(parts)}"
                 else:
                     desc = f"{prefix}{tr('ui.farlook_unseen')}"
+                logger.info(
+                    "farlook_click: sending desc=%r", desc,
+                )
                 self._send({
                     "type": "farlook_desc",
                     "desc": desc,
