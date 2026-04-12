@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from nhc.ai.pathfinding import astar
 from nhc.ai.retreat import best_retreat_step
-from nhc.utils.rng import get_rng
+from nhc.utils.rng import get_rng, roll_dice_max
 from nhc.utils.spatial import adjacent, chebyshev
 
 if TYPE_CHECKING:
@@ -30,6 +30,58 @@ FOLLOW_DISTANCE = 6
 # Descending stairs is how the player transitions levels, and the
 # whole point of "unhired" is that they stay on this floor.
 _FORBIDDEN_WANDER_FEATURES = frozenset({"stairs_down", "stairs_up"})
+
+
+def _weapon_score(world: "World", item_id: int) -> int:
+    """Score a weapon by max damage + magic bonus."""
+    weapon = world.get_component(item_id, "Weapon")
+    if not weapon:
+        return -1
+    return roll_dice_max(weapon.damage) + weapon.magic_bonus
+
+
+def _armor_score(world: "World", item_id: int, slot: str) -> int:
+    """Score an armor piece by defense + magic bonus."""
+    armor = world.get_component(item_id, "Armor")
+    if not armor or armor.slot != slot:
+        return -1
+    return armor.defense + armor.magic_bonus
+
+
+def auto_equip_best(world: "World", entity_id: int) -> None:
+    """Equip the best weapon and armor from inventory.
+
+    Evaluates all items in the entity's inventory and equips the
+    highest-scoring item for each equipment slot (weapon, body
+    armor, shield, helmet).
+    """
+    inv = world.get_component(entity_id, "Inventory")
+    equip = world.get_component(entity_id, "Equipment")
+    if not inv or not equip:
+        return
+
+    # Best weapon
+    best_id, best_score = None, -1
+    for item_id in inv.slots:
+        score = _weapon_score(world, item_id)
+        if score > best_score:
+            best_id = item_id
+            best_score = score
+    if best_id is not None:
+        equip.weapon = best_id
+
+    # Best armor per slot
+    for slot, attr in (("body", "armor"),
+                       ("shield", "shield"),
+                       ("helmet", "helmet")):
+        best_id, best_score = None, -1
+        for item_id in inv.slots:
+            score = _armor_score(world, item_id, slot)
+            if score > best_score:
+                best_id = item_id
+                best_score = score
+        if best_id is not None:
+            setattr(equip, attr, best_id)
 
 
 def _find_room(level: "Level", x: int, y: int) -> object | None:
@@ -127,7 +179,9 @@ def decide_henchman_action(
     # they live in the dungeon on their own until recruited.
     hench = world.get_component(entity_id, "Henchman")
     if not hench or not hench.hired:
-        return decide_unhired_wander_action(entity_id, world, level)
+        return decide_unhired_wander_action(
+            entity_id, world, level, player_id,
+        )
 
     pos = world.get_component(entity_id, "Position")
     player_pos = world.get_component(player_id, "Position")
@@ -345,14 +399,16 @@ def decide_unhired_wander_action(
     entity_id: int,
     world: "World",
     level: "Level",
+    player_id: int | None = None,
 ) -> "Action | None":
     """Drift around the level; flee from threats or fight if cornered.
 
     Unhired adventurers are independent NPCs — they explore the
     current floor, retreat from monsters, and defend themselves when
-    they cannot run.  They never pathfind toward the player and
-    never willingly step onto stairs, so they remain on the level
-    where they were generated until the player recruits them.
+    they cannot run.  When sharing a room with the player they walk
+    toward them to facilitate the encounter, stopping one tile away.
+    They never willingly step onto stairs, so they remain on the
+    level where they were generated until the player recruits them.
     """
     from nhc.core.actions import MeleeAttackAction, MoveAction
 
@@ -390,6 +446,33 @@ def decide_unhired_wander_action(
             )
         # No retreat available — fight for survival.
         return MeleeAttackAction(actor=entity_id, target=threat)
+
+    # Approach the player when sharing the same room
+    if player_id is not None:
+        player_pos = world.get_component(player_id, "Position")
+        if player_pos:
+            hench_room = _find_room(level, pos.x, pos.y)
+            player_room = _find_room(level, player_pos.x, player_pos.y)
+            if (hench_room is not None
+                    and hench_room == player_room
+                    and chebyshev(pos.x, pos.y,
+                                  player_pos.x, player_pos.y) > 1):
+                path = astar(
+                    (pos.x, pos.y),
+                    (player_pos.x, player_pos.y),
+                    lambda x, y: _wander_walkable(
+                        world, level, x, y, entity_id,
+                    ),
+                )
+                if path:
+                    nx, ny = path[0]
+                    # Don't step onto the player
+                    if (nx, ny) != (player_pos.x, player_pos.y):
+                        return MoveAction(
+                            actor=entity_id,
+                            dx=nx - pos.x,
+                            dy=ny - pos.y,
+                        )
 
     # No visible threat — drift into a random adjacent walkable tile.
     rng = get_rng()

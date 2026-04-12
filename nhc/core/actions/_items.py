@@ -67,6 +67,11 @@ class PickupItemAction(Action):
             text=t("item.picked_up", item=item_name),
         ))
 
+        # Henchmen auto-equip the best available gear
+        if world.has_component(self.actor, "Henchman"):
+            from nhc.ai.henchman_ai import auto_equip_best
+            auto_equip_best(world, self.actor)
+
         return events
 
     def _pickup_gold(

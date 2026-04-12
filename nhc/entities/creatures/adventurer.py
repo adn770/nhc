@@ -65,12 +65,14 @@ def create_adventurer_at_level(
             level=level,
             xp=(level - 1) * XP_PER_LEVEL,
             xp_to_next=level * XP_PER_LEVEL,
+            gold=char.gold,
         ),
         "BlocksMovement": BlocksMovement(),
         "Description": Description(
             name=char.name,
             short=char.name,
         ),
+        "_starting_items": char.starting_items,
     }
 
 

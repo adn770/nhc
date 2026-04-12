@@ -199,7 +199,9 @@ class TestRecruitment:
         assert hench.hired is False
 
     @pytest.mark.asyncio
-    async def test_bump_unhired_adventurer_resolves_recruit(self):
+    async def test_bump_unhired_adventurer_resolves_interact(self):
+        from nhc.core.actions import HenchmanInteractAction
+
         world = World()
         level = _make_test_level()
         pid = _make_player(world, x=5, y=5)
@@ -207,7 +209,7 @@ class TestRecruitment:
 
         bump = BumpAction(actor=pid, dx=1, dy=0)
         action = bump.resolve(world, level)
-        assert isinstance(action, RecruitAction)
+        assert isinstance(action, HenchmanInteractAction)
 
     @pytest.mark.asyncio
     async def test_bump_hired_henchman_does_not_attack(self):
@@ -631,6 +633,111 @@ class TestHenchmanAI:
                 assert (nx, ny) != (6, 5), (
                     f"Seed {seed}: stepped onto stairs_down"
                 )
+
+
+# ── Unhired approach player ───────────────────────────────────────
+
+class TestUnhiredApproachPlayer:
+    @pytest.mark.asyncio
+    async def test_approaches_player_in_same_room(self):
+        """Unhired adventurer walks toward the player in the same room."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MoveAction
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=3, y=3)
+        aid = _make_adventurer(world, x=8, y=8, hired=False)
+
+        action = decide_henchman_action(aid, world, level, pid)
+        assert isinstance(action, MoveAction)
+        # Should move closer to the player
+        old_dist = max(abs(8 - 3), abs(8 - 3))  # 5
+        new_x = 8 + action.dx
+        new_y = 8 + action.dy
+        new_dist = max(abs(new_x - 3), abs(new_y - 3))
+        assert new_dist < old_dist
+
+    @pytest.mark.asyncio
+    async def test_stops_adjacent_to_player(self):
+        """Unhired adventurer stops when adjacent to the player."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MoveAction
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=5, y=5)
+        aid = _make_adventurer(world, x=6, y=5, hired=False)
+
+        # Already adjacent (dist=1) — should not move onto player
+        action = decide_henchman_action(aid, world, level, pid)
+        if isinstance(action, MoveAction):
+            new_x = 6 + action.dx
+            new_y = 5 + action.dy
+            # Must not step onto the player's tile
+            assert (new_x, new_y) != (5, 5)
+
+    @pytest.mark.asyncio
+    async def test_still_flees_threat_over_approach(self):
+        """Threat takes priority over approaching the player."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MeleeAttackAction, MoveAction
+
+        world = World()
+        level = _make_test_level()
+        pid = _make_player(world, x=3, y=3)
+        aid = _make_adventurer(world, x=8, y=8, hired=False)
+        _make_hostile(world, x=9, y=8)
+
+        action = decide_henchman_action(aid, world, level, pid)
+        # Should flee from the hostile, not approach the player
+        assert isinstance(action, MoveAction)
+        new_x = 8 + action.dx
+        new_y = 8 + action.dy
+        new_dist_hostile = max(abs(new_x - 9), abs(new_y - 8))
+        assert new_dist_hostile > 1
+
+    @pytest.mark.asyncio
+    async def test_wanders_when_in_different_room(self):
+        """Unhired adventurer wanders randomly when not sharing a room."""
+        from nhc.ai.henchman_ai import decide_henchman_action
+        from nhc.core.actions import MoveAction
+        from nhc.utils.rng import set_seed
+
+        # Two-room level
+        tiles = [
+            [Tile(terrain=Terrain.FLOOR) for _ in range(20)]
+            for _ in range(10)
+        ]
+        for x in range(20):
+            tiles[0][x].terrain = Terrain.WALL
+            tiles[9][x].terrain = Terrain.WALL
+        for y in range(10):
+            tiles[y][0].terrain = Terrain.WALL
+            tiles[y][19].terrain = Terrain.WALL
+            tiles[y][10].terrain = Terrain.WALL  # dividing wall
+        # Door at (10, 5)
+        tiles[5][10].terrain = Terrain.FLOOR
+
+        level = Level(
+            id="test", name="Test", depth=1,
+            width=20, height=10, tiles=tiles,
+        )
+        level.rooms = [
+            Room(id="left", rect=Rect(1, 1, 9, 8), tags=[]),
+            Room(id="right", rect=Rect(11, 1, 8, 8), tags=[]),
+        ]
+
+        world = World()
+        pid = _make_player(world, x=3, y=3)        # left room
+        aid = _make_adventurer(world, x=15, y=5, hired=False)  # right room
+
+        set_seed(42)
+        action = decide_henchman_action(aid, world, level, pid)
+        # Should just wander, not pathfind toward the player
+        if isinstance(action, MoveAction):
+            # Movement should be at most 1 step (random wander)
+            assert abs(action.dx) <= 1 and abs(action.dy) <= 1
 
 
 # ── Call for Help ──────────────────────────────────────────────────

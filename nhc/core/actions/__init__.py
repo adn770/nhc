@@ -87,6 +87,7 @@ from nhc.core.actions._interaction import (
 from nhc.core.actions._henchman import (
     DismissAction,
     GiveItemAction,
+    HenchmanInteractAction,
     RecruitAction,
     get_hired_henchmen,
 )
@@ -159,6 +160,7 @@ __all__ = [
     # Henchman
     "DismissAction",
     "GiveItemAction",
+    "HenchmanInteractAction",
     "RecruitAction",
     # Shop
     "BuyAction",

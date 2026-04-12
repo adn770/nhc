@@ -309,6 +309,7 @@ class Henchman:
     xp_to_next: int = 1000
     hired: bool = False
     called_for_help: bool = False  # prevents repeated cry messages
+    gold: int = 0               # personal gold purse
 
 
 @dataclass

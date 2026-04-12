@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
 from nhc.core.actions._helpers import _count_slots_used, _entity_name, _item_slot_cost
-from nhc.core.events import Event, MessageEvent
+from nhc.core.events import Event, HenchmanMenuEvent, MessageEvent
 from nhc.entities.components import BlocksMovement
 from nhc.i18n import t
 
@@ -39,6 +39,29 @@ def get_hired_henchmen(world: "World", player_id: int) -> list[int]:
         if hench.hired and hench.owner == player_id:
             result.append(eid)
     return result
+
+
+# ── HenchmanInteractAction ────────────────────────────────────────────
+
+class HenchmanInteractAction(Action):
+    """Open the henchman encounter menu when bumping an unhired adventurer."""
+
+    def __init__(self, actor: int, henchman_id: int) -> None:
+        super().__init__(actor)
+        self.henchman_id = henchman_id
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        hench = world.get_component(self.henchman_id, "Henchman")
+        if not hench or hench.hired:
+            return False
+        apos = world.get_component(self.actor, "Position")
+        hpos = world.get_component(self.henchman_id, "Position")
+        if not apos or not hpos:
+            return False
+        return abs(apos.x - hpos.x) <= 1 and abs(apos.y - hpos.y) <= 1
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        return [HenchmanMenuEvent(henchman=self.henchman_id)]
 
 
 # ── RecruitAction ──────────────────────────────────────────────────────
@@ -203,6 +226,10 @@ class GiveItemAction(Action):
                          "helmet", "ring_left", "ring_right"):
                 if getattr(equip, slot) == self.item_id:
                     setattr(equip, slot, None)
+
+        # Henchman auto-equips the best available gear
+        from nhc.ai.henchman_ai import auto_equip_best
+        auto_equip_best(world, self.henchman_id)
 
         logger.info(
             "Gave %s to henchman %s", item_name, hench_name,

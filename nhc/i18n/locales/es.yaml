@@ -1292,6 +1292,16 @@ henchman:
   give_item: "Das {item} a {name}."
   give_full: "El inventario de {name} está lleno."
   dismiss_prompt: "¿Despedir a qué secuaz?"
+  welcome: "El aventurero te saluda."
+  buy: "Comprar"
+  sell: "Vender"
+  hire: "Contratar ({cost}g)"
+  bought: "Compraste {item} a {name} por {price} oro."
+  sold: "Vendiste {item} a {name} por {price} oro."
+  cannot_afford_buy: "¡No tienes suficiente oro! ({price} oro necesarios)"
+  hench_cannot_afford: "{name} no puede permitirse eso."
+  nothing_to_buy: "{name} no tiene nada que vender."
+  dismiss_to_hire: "Despide a un secuaz para hacer sitio:"
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

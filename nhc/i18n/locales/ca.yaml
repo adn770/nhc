@@ -1382,6 +1382,16 @@ henchman:
   give_item: "Dones {item} a {name}."
   give_full: "L'inventari de {name} és ple."
   dismiss_prompt: "Acomiadar quin sequaç?"
+  welcome: "L'aventurer et saluda."
+  buy: "Comprar"
+  sell: "Vendre"
+  hire: "Contractar ({cost}g)"
+  bought: "Has comprat {item} a {name} per {price} or."
+  sold: "Has venut {item} a {name} per {price} or."
+  cannot_afford_buy: "No tens prou or! ({price} or necessaris)"
+  hench_cannot_afford: "{name} no es pot permetre això."
+  nothing_to_buy: "{name} no té res per vendre."
+  dismiss_to_hire: "Acomiada un sequaç per fer lloc:"
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

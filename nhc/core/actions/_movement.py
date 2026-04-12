@@ -364,14 +364,14 @@ class BumpAction(Action):
                         )
                         return ShopInteractAction(
                             actor=self.actor, merchant=eid)
-                    # Unhired adventurers: recruit
+                    # Unhired adventurers: open encounter menu
                     hench = world.get_component(eid, "Henchman")
                     if hench and not hench.hired:
                         from nhc.core.actions._henchman import (
-                            RecruitAction,
+                            HenchmanInteractAction,
                         )
-                        return RecruitAction(
-                            actor=self.actor, target=eid)
+                        return HenchmanInteractAction(
+                            actor=self.actor, henchman_id=eid)
                     # Creatures: attack
                     return MeleeAttackAction(
                         actor=self.actor, target=eid)

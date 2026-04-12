@@ -1280,6 +1280,16 @@ henchman:
   give_item: "You give {item} to {name}."
   give_full: "{name}'s inventory is full."
   dismiss_prompt: "Dismiss which henchman?"
+  welcome: "The adventurer greets you."
+  buy: "Buy"
+  sell: "Sell"
+  hire: "Hire ({cost}g)"
+  bought: "Bought {item} from {name} for {price} gold."
+  sold: "Sold {item} to {name} for {price} gold."
+  cannot_afford_buy: "Not enough gold! ({price} gold needed)"
+  hench_cannot_afford: "{name} cannot afford that."
+  nothing_to_buy: "{name} has nothing to sell."
+  dismiss_to_hire: "Dismiss a henchman to make room:"
 
 # ── Item descriptions ─────────────────────────────────────────────────
 items:

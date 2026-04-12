@@ -136,6 +136,12 @@ class ShopMenuEvent(Event):
     merchant: int = 0
 
 
+@dataclass
+class HenchmanMenuEvent(Event):
+    """Triggers the henchman encounter UI overlay."""
+    henchman: int = 0
+
+
 # Handler type: sync or async callable
 EventHandler = Callable[..., None] | Callable[..., Awaitable[None]]
 
