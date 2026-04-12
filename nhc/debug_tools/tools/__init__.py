@@ -3,6 +3,7 @@
 from nhc.debug_tools.tools.autosave import GetAutosaveInfoTool
 from nhc.debug_tools.tools.exports import ListExportsTool, ReadExportTool
 from nhc.debug_tools.tools.game_state import (
+    GetEntityComponentsTool,
     GetEntityListTool,
     GetGameSnapshotTool,
     GetHenchmanSheetsTool,
@@ -31,6 +32,7 @@ ALL_TOOL_CLASSES = [
     ReadExportTool,
     GetGameSnapshotTool,
     GetEntityListTool,
+    GetEntityComponentsTool,
     GetTileInfoTool,
     GetHenchmanSheetsTool,
     GetRoomInfoTool,

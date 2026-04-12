@@ -105,11 +105,36 @@ class GetGameSnapshotTool(BaseTool):
         }
 
 
+def _enrich_entity(
+    entity: dict[str, Any],
+    ecs: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    """Merge key ECS component data into a rendering entity dict."""
+    eid = entity.get("id")
+    if eid is None:
+        return entity
+    comps = ecs.get(str(eid))
+    if not comps:
+        return entity
+    enriched = dict(entity)
+    # List component names present on this entity
+    enriched["components"] = sorted(comps.keys())
+    # Include commonly useful component details
+    for comp_name in (
+        "Trap", "Henchman", "AI", "Health", "Detected",
+        "BuriedMarker", "StatusEffect", "Hunger",
+    ):
+        if comp_name in comps:
+            enriched[comp_name] = comps[comp_name]
+    return enriched
+
+
 class GetEntityListTool(BaseTool):
     name = "get_entity_list"
     description = (
         "List entities from the most recent game_state export. "
-        "Optionally filter by glyph or room index."
+        "Optionally filter by glyph or room index. Includes "
+        "ECS component names and key component details."
     )
     parameters = {
         "type": "object",
@@ -131,6 +156,7 @@ class GetEntityListTool(BaseTool):
         if "error" in data:
             return data
         entities = data.get("entities", [])
+        ecs = data.get("ecs", {}) or {}
         glyph = kwargs.get("glyph")
         room_idx = kwargs.get("room_index")
 
@@ -150,7 +176,8 @@ class GetEntityListTool(BaseTool):
                         and ry <= e.get("y", -1) < ry + rh)
                 ]
 
-        return {"entities": entities, "count": len(entities)}
+        enriched = [_enrich_entity(e, ecs) for e in entities]
+        return {"entities": enriched, "count": len(enriched)}
 
 
 class GetTileInfoTool(BaseTool):
@@ -182,6 +209,12 @@ class GetTileInfoTool(BaseTool):
             result["terrain"] = tile.get("terrain")
             result["feature"] = tile.get("feature")
             result["explored"] = tile.get("explored", False)
+            if tile.get("buried"):
+                result["buried"] = tile["buried"]
+            if tile.get("dug_floor"):
+                result["dug_floor"] = True
+            if tile.get("dug_wall"):
+                result["dug_wall"] = True
 
         # Check FOV
         fov = layer.get("fov", [])
@@ -191,11 +224,37 @@ class GetTileInfoTool(BaseTool):
         explored = layer.get("explored", [])
         result["explored_layer"] = [x, y] in explored
 
-        # Entities at position
+        # Entities at position (enriched with ECS components)
         entities = game.get("entities", [])
+        ecs = game.get("ecs", {}) or {}
         at_pos = [e for e in entities
                   if e.get("x") == x and e.get("y") == y]
-        result["entities"] = at_pos
+        result["entities"] = [
+            _enrich_entity(e, ecs) for e in at_pos
+        ]
+
+        # Also check ECS for entities at this position that may
+        # not appear in the rendering list (e.g. hidden traps)
+        rendered_ids = {e.get("id") for e in at_pos}
+        for eid_str, comps in ecs.items():
+            pos = comps.get("Position")
+            if not pos or pos.get("x") != x or pos.get("y") != y:
+                continue
+            eid = int(eid_str)
+            if eid in rendered_ids:
+                continue
+            desc = comps.get("Description", {})
+            hidden_entry: dict[str, Any] = {
+                "id": eid,
+                "x": x, "y": y,
+                "name": desc.get("name", ""),
+                "hidden_from_render": True,
+                "components": sorted(comps.keys()),
+            }
+            for comp_name in ("Trap", "BuriedMarker", "Detected"):
+                if comp_name in comps:
+                    hidden_entry[comp_name] = comps[comp_name]
+            result["entities"].append(hidden_entry)
 
         # Which room (if any)
         rooms = game.get("level", {}).get("rooms", [])
@@ -215,6 +274,36 @@ class GetTileInfoTool(BaseTool):
                 break
 
         return result
+
+
+class GetEntityComponentsTool(BaseTool):
+    name = "get_entity_components"
+    description = (
+        "Get all ECS components for a specific entity by ID. "
+        "Returns the full component data from the most recent "
+        "game_state export."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "entity_id": {
+                "type": "integer",
+                "description": "Entity ID to inspect",
+            },
+        },
+        "required": ["entity_id"],
+    }
+
+    async def execute(self, **kwargs: Any) -> dict[str, Any]:
+        data = self._read_json_export("game_state")
+        if "error" in data:
+            return data
+        ecs = data.get("ecs", {}) or {}
+        eid = kwargs["entity_id"]
+        comps = ecs.get(str(eid))
+        if comps is None:
+            return {"error": f"Entity {eid} not found in ECS"}
+        return {"entity_id": eid, "components": comps}
 
 
 class GetHenchmanSheetsTool(BaseTool):
