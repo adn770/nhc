@@ -9,7 +9,7 @@ from nhc.entities.registry import EntityRegistry, creature_desc
 @EntityRegistry.register_creature("merchant")
 def create_merchant() -> dict:
     return {
-        "Renderable": Renderable(glyph="@", color="bright_yellow",
+        "Renderable": Renderable(glyph="@", color="green",
                                  render_order=2),
         "Description": creature_desc("merchant"),
         "Stats": Stats(strength=1, dexterity=1, constitution=1,

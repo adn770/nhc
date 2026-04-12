@@ -862,7 +862,11 @@ const GameMap = {
       let color = ent.color || "#FFFFFF";
       if (this.tileset && this.tileset.sprites) {
         const sprite = this.tileset.sprites[ent.glyph];
-        if (sprite && sprite.color) {
+        // Entity color takes priority over sprite default —
+        // allows same glyph (e.g. @) to differ per entity.
+        if (ent.color) {
+          color = this._resolveColor(ent.color);
+        } else if (sprite && sprite.color) {
           color = this._resolveColor(sprite.color);
         } else {
           color = this._resolveColor(color);
