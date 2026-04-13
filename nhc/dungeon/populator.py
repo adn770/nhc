@@ -6,6 +6,7 @@ and tactically interesting dungeon populations.
 
 from __future__ import annotations
 
+import math
 import random
 
 from nhc.dungeon.model import EntityPlacement, Level, Terrain
@@ -238,14 +239,17 @@ def _bury_items(
     pool = BURIED_POOLS.get(difficulty, BURIED_POOLS[1])
     b_ids, b_weights = zip(*pool)
 
-    # Scale count with depth
-    count = 2 + level.depth // 2 + rng.randint(0, 2)
-
     placeable = [r for r in level.rooms
                  if "entry" not in r.tags
                  and r.rect.width >= 3 and r.rect.height >= 3]
     if not placeable:
         return
+
+    # Scale count inversely with depth: shallow levels are richer in
+    # buried caches, deeper levels rely on other loot sources.
+    # count = max(1, round(room_count * 2 / sqrt(depth)))
+    depth = max(1, level.depth)
+    count = max(1, round(len(placeable) * 2 / math.sqrt(depth)))
 
     for _ in range(count):
         room = rng.choice(placeable)

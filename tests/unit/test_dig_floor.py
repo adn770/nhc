@@ -430,3 +430,50 @@ class TestBuriedItemPopulation:
             for t in row if t.buried
         )
         assert buried_count > 0
+
+    def test_buried_count_scales_inversely_with_depth(self):
+        """Shallow levels should have more buried items than deep ones.
+
+        Formula: count = max(1, round(room_count * 2 / sqrt(depth))).
+        """
+        import math
+        import random
+        from nhc.dungeon.model import Rect, Room
+        from nhc.dungeon.populator import _bury_items
+
+        def _run(depth: int, n_rooms: int) -> int:
+            # One big level with n_rooms separate rooms, large enough
+            # that all requested items fit without collisions.
+            width = 6 * n_rooms + 2
+            tiles = [[Tile(terrain=Terrain.FLOOR) for _ in range(width)]
+                     for _ in range(10)]
+            rooms = [
+                Room(
+                    id=f"r{i}",
+                    rect=Rect(1 + i * 6, 1, 5, 8),
+                    tags=[],
+                    connections=[],
+                )
+                for i in range(n_rooms)
+            ]
+            level = Level(
+                id="t", name="T", depth=depth,
+                width=width, height=10,
+                tiles=tiles, rooms=rooms, corridors=[], entities=[],
+            )
+            _bury_items(level, rng=random.Random(0))
+            return sum(
+                len(t.buried) for row in level.tiles for t in row
+            )
+
+        n_rooms = 4
+        shallow = _run(1, n_rooms)
+        mid = _run(4, n_rooms)
+        deep = _run(16, n_rooms)
+
+        # Formula-exact expectations (rooms are big enough to fit all).
+        assert shallow == max(1, round(n_rooms * 2 / math.sqrt(1)))
+        assert mid == max(1, round(n_rooms * 2 / math.sqrt(4)))
+        assert deep == max(1, round(n_rooms * 2 / math.sqrt(16)))
+        assert shallow > mid > deep
+        assert deep >= 1  # floor of 1 enforced
