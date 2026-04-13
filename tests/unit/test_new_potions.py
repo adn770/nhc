@@ -370,3 +370,82 @@ class TestNewPotionI18n:
             name = t(f"items.{pid}.name")
             assert name and not name.startswith("items."), \
                 f"Missing en i18n for {pid}"
+
+
+# ── Quaff-as-light-meal ──────────────────────────────────────────
+
+
+class TestPotionNutrition:
+    @pytest.mark.asyncio
+    async def test_quaffing_potion_settles_hunger(self):
+        """Drinking a potion should restore a small amount of hunger."""
+        from nhc.core.actions._items import POTION_NUTRITION
+        from nhc.entities.components import Hunger
+
+        i18n_init("en")
+        set_seed(42)
+        EntityRegistry.discover_all()
+        world = World()
+        level = _make_level()
+        pid = _make_player(world)
+        world.add_component(pid, "Hunger", Hunger(current=500))
+
+        comps = EntityRegistry.get_item("potion_healing")
+        item = world.create_entity(comps)
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(item)
+
+        action = UseItemAction(actor=pid, item=item)
+        assert await action.validate(world, level)
+        await action.execute(world, level)
+
+        hunger = world.get_component(pid, "Hunger")
+        assert hunger.current == 500 + POTION_NUTRITION
+
+    @pytest.mark.asyncio
+    async def test_potion_nutrition_clamped_to_max(self):
+        from nhc.entities.components import Hunger
+
+        i18n_init("en")
+        set_seed(42)
+        EntityRegistry.discover_all()
+        world = World()
+        level = _make_level()
+        pid = _make_player(world)
+        world.add_component(
+            pid, "Hunger", Hunger(current=1190, maximum=1200),
+        )
+
+        item = world.create_entity(
+            EntityRegistry.get_item("potion_healing"),
+        )
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(item)
+
+        action = UseItemAction(actor=pid, item=item)
+        await action.execute(world, level)
+        hunger = world.get_component(pid, "Hunger")
+        assert hunger.current == 1200  # clamped, not 1240
+
+    @pytest.mark.asyncio
+    async def test_eating_food_does_not_use_potion_nutrition(self):
+        """Eating an apple uses the existing satiate effect, untouched."""
+        from nhc.entities.components import Hunger
+
+        i18n_init("en")
+        set_seed(42)
+        EntityRegistry.discover_all()
+        world = World()
+        level = _make_level()
+        pid = _make_player(world)
+        world.add_component(pid, "Hunger", Hunger(current=500))
+
+        item = world.create_entity(EntityRegistry.get_item("apple"))
+        inv = world.get_component(pid, "Inventory")
+        inv.slots.append(item)
+
+        action = UseItemAction(actor=pid, item=item)
+        await action.execute(world, level)
+        hunger = world.get_component(pid, "Hunger")
+        # Apple grants 200 satiation; should NOT also add POTION_NUTRITION.
+        assert hunger.current == 500 + 200

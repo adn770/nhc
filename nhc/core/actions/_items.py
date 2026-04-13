@@ -22,6 +22,11 @@ if TYPE_CHECKING:
     from nhc.dungeon.model import Level
 
 
+# Hunger granted by quaffing a potion.  Smaller than the cheapest
+# food item (apple = 200) so potions never compete with rations.
+POTION_NUTRITION = 50
+
+
 class PickupItemAction(Action):
     """Pick up an item from the ground."""
 
@@ -634,6 +639,22 @@ class UseItemAction(Action):
         for ev in events:
             if isinstance(ev, ItemUsed) and not ev.item_id:
                 ev.item_id = real_id
+
+        # Quaffing a potion counts as a very light meal — the liquid
+        # plus dissolved reagents settles a bit of hunger.  Smaller
+        # than the cheapest food (apple = 200) so it never replaces
+        # rations as a strategy.
+        reg = world.get_component(self.item, "RegistryId")
+        is_potion = (
+            (real_id and real_id.startswith("potion_"))
+            or (reg and reg.item_id.startswith("potion_"))
+        )
+        if is_potion:
+            hunger = world.get_component(self.actor, "Hunger")
+            if hunger:
+                hunger.current = min(
+                    hunger.maximum, hunger.current + POTION_NUTRITION,
+                )
 
         # Remove item from inventory and world
         if self.item in inv.slots:
