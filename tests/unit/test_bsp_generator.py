@@ -434,6 +434,20 @@ class TestMapSizeSelection:
         assert len(MAP_SIZES) == len(MAP_SIZE_WEIGHTS)
         assert abs(sum(MAP_SIZE_WEIGHTS) - 1.0) < 0.01
 
+    def test_depth_2_always_returns_largest(self):
+        """Depth 2 must always pick the largest map for the temple."""
+        rng = random.Random(0)
+        for _ in range(50):
+            assert pick_map_size(rng, depth=2) == MAP_SIZES[-1]
+
+    def test_other_depths_use_random_weighting(self):
+        """Depths != 2 still draw from the weighted distribution."""
+        rng = random.Random(1)
+        seen = set()
+        for _ in range(200):
+            seen.add(pick_map_size(rng, depth=5))
+        assert seen == set(MAP_SIZES)
+
     def test_bsp_generates_small_map(self):
         set_seed(42)
         gen = BSPGenerator()

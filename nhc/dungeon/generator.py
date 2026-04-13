@@ -82,8 +82,18 @@ MAP_SIZES: list[tuple[int, int]] = [
 MAP_SIZE_WEIGHTS: list[float] = [0.35, 0.45, 0.20]
 
 
-def pick_map_size(rng: random.Random) -> tuple[int, int]:
-    """Choose a random map size weighted toward smaller dungeons."""
+def pick_map_size(
+    rng: random.Random, depth: int | None = None,
+) -> tuple[int, int]:
+    """Choose a map size weighted toward smaller dungeons.
+
+    Depth 2 always returns the largest size: the temple sanctuary
+    needs a 7x7 odd-dim room to host a TempleShape, and small or
+    medium maps sometimes can't produce one (forcing a noisy resize
+    fallback).  A guaranteed large map keeps the geometry clean.
+    """
+    if depth == 2:
+        return MAP_SIZES[-1]
     return rng.choices(MAP_SIZES, weights=MAP_SIZE_WEIGHTS, k=1)[0]
 
 

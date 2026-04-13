@@ -360,7 +360,7 @@ class Game:
         if generate:
             sv = _shape_variety_for_depth(self.shape_variety, depth)
             theme = theme_for_depth(depth)
-            map_w, map_h = pick_map_size(get_rng())
+            map_w, map_h = pick_map_size(get_rng(), depth=depth)
             params = GenerationParams(
                 width=map_w, height=map_h,
                 depth=depth, shape_variety=sv, theme=theme,
@@ -1888,7 +1888,7 @@ class Game:
         def _generate() -> None:
             try:
                 rng = random.Random(seed)
-                pf_w, pf_h = pick_map_size(rng)
+                pf_w, pf_h = pick_map_size(rng, depth=depth)
                 params = GenerationParams(
                     width=pf_w, height=pf_h,
                     depth=depth, shape_variety=sv, theme=theme,
@@ -1957,7 +1957,7 @@ class Game:
             sv = _shape_variety_for_depth(self.shape_variety, new_depth)
             theme = theme_for_depth(new_depth)
             ft_rng = random.Random(seed)
-            ft_w, ft_h = pick_map_size(ft_rng)
+            ft_w, ft_h = pick_map_size(ft_rng, depth=new_depth)
             params = GenerationParams(
                 width=ft_w, height=ft_h,
                 depth=new_depth, shape_variety=sv, theme=theme,
