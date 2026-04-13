@@ -115,6 +115,27 @@ class TestPopulator:
         assert len(features) >= 1  # chests, barrels, crates, traps
         assert len(level.entities) > 0
 
+    def test_depth_1_always_has_adventurer(self):
+        """Depth-1 floors must always spawn a recruitable adventurer.
+
+        Gives new players a reliable path to their first henchman.
+        """
+        from nhc.dungeon.generator import GenerationParams as GP
+        from nhc.dungeon.pipeline import generate_level
+
+        for seed in range(40):
+            level = generate_level(GP(
+                width=120, height=40, depth=1, seed=seed,
+            ))
+            adventurers = [
+                e for e in level.entities
+                if (e.entity_type == "creature"
+                    and e.entity_id == "adventurer")
+            ]
+            assert len(adventurers) >= 1, (
+                f"seed={seed} depth=1 has no adventurer"
+            )
+
     def test_gold_piles_have_dice(self):
         set_seed(42)
         gen = ClassicGenerator()

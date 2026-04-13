@@ -31,6 +31,8 @@ GENERAL_TYPES = ["shrine", "garden"]
 ZOO_MIN_WIDTH = 5
 ZOO_MIN_HEIGHT = 5
 ZOO_PROBABILITY = 0.08
+# Zoos are a late-dungeon surprise — reserved for depth 5+.
+ZOO_MIN_DEPTH = 5
 
 # Lair: 1-3 connected rooms filled with same-species humanoids.
 # Surrounding rooms get reactivatable traps.
@@ -42,6 +44,9 @@ LAIR_CREATURES: dict[int, list[str]] = {
 }
 LAIR_PROBABILITY = 0.12
 LAIR_MIN_SIZE = 4
+# Lairs are organized humanoid strongholds; they don't appear on
+# the earliest floors (reserved for scattered encounters, nests).
+LAIR_MIN_DEPTH = 3
 
 # Nest: single room filled with vermin creatures.
 NEST_CREATURES: list[str] = [
@@ -149,8 +154,10 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
 
         # Zoo rooms — medium-sized, connected, creature-filled.
         # Rare on purpose; the "cannot be doorless" rule is
-        # encoded as conn >= 1 here.
-        if (conn >= 1
+        # encoded as conn >= 1 here.  Gated to depth 5+ so early
+        # floors stay readable.
+        if (level.depth >= ZOO_MIN_DEPTH
+                and conn >= 1
                 and room.rect.width >= ZOO_MIN_WIDTH
                 and room.rect.height >= ZOO_MIN_HEIGHT
                 and specials_placed < 4
@@ -438,6 +445,10 @@ def _try_place_lair(
     Tags selected rooms as "lair", paints creatures, and places
     reactivatable traps in surrounding rooms.
     """
+    # Gate lair generation by depth — early floors don't host them.
+    if level.depth < LAIR_MIN_DEPTH:
+        return
+
     room_map = {r.id: r for r in level.rooms}
     skip_tags = {"entry", "exit", "vault"}
 

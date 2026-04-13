@@ -196,7 +196,9 @@ def _place_adventurer(
 ) -> None:
     """Maybe place a recruitable adventurer in an eligible room.
 
-    ~15% chance per eligible room, max 1 per floor.
+    ~15% chance per eligible room, max 1 per floor.  On depth 1 a
+    henchman is guaranteed so new players always have the option to
+    recruit one early.
     """
     excluded_tags = {"shop", "vault", "exit", "lair", "nest", "zoo"}
     eligible = [r for r in placeable
@@ -204,8 +206,9 @@ def _place_adventurer(
     if not eligible:
         return
     rng.shuffle(eligible)
+    guaranteed = level.depth <= 1
     for room in eligible:
-        if rng.random() > 0.15:
+        if not guaranteed and rng.random() > 0.15:
             continue
         rect = room.rect
         candidates = []

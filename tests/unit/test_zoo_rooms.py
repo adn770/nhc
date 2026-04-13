@@ -38,6 +38,19 @@ def _entities_in_room(level, room):
     ]
 
 
+class TestZooDepthGate:
+    def test_no_zoos_below_depth_5(self):
+        """Zoos must not appear on depths 1–4."""
+        for depth in (1, 2, 3, 4):
+            for seed in range(50):
+                level = generate_level(GenerationParams(
+                    width=120, height=40, depth=depth, seed=seed,
+                ))
+                assert not _find_zoos(level), (
+                    f"seed={seed} depth={depth} produced a zoo"
+                )
+
+
 class TestZooAssignment:
     def test_zoos_appear_across_seeds(self):
         """Zoos are rare but not impossible.  Across 100 seeds on
@@ -45,7 +58,7 @@ class TestZooAssignment:
         with_zoo = 0
         for seed in range(100):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=3, seed=seed,
+                width=120, height=40, depth=5, seed=seed,
             ))
             if _find_zoos(level):
                 with_zoo += 1
@@ -66,7 +79,7 @@ class TestZooAssignment:
         """
         for seed in range(100):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=3, seed=seed,
+                width=120, height=40, depth=5, seed=seed,
             ))
             for zoo in _find_zoos(level):
                 conn = _connection_count(level, zoo.id)
@@ -78,7 +91,7 @@ class TestZooAssignment:
     def test_zoo_has_minimum_size(self):
         for seed in range(50):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=3, seed=seed,
+                width=120, height=40, depth=5, seed=seed,
             ))
             for zoo in _find_zoos(level):
                 assert zoo.rect.width >= ZOO_MIN_WIDTH, (
@@ -93,7 +106,7 @@ class TestZooAssignment:
     def test_zoo_not_on_vault_entry_or_exit(self):
         for seed in range(50):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=3, seed=seed,
+                width=120, height=40, depth=5, seed=seed,
             ))
             for zoo in _find_zoos(level):
                 assert "vault" not in zoo.tags
@@ -108,7 +121,7 @@ class TestZooPopulation:
         found = False
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=3, seed=seed,
+                width=120, height=40, depth=5, seed=seed,
             ))
             zoos = _find_zoos(level)
             if not zoos:
@@ -133,14 +146,13 @@ class TestZooPopulation:
 
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=5, seed=seed,
             ))
             zoos = _find_zoos(level)
             if not zoos:
                 continue
-            allowed = set()
-            for tier in (1, 2):
-                allowed.update(cid for cid, _ in CREATURE_POOLS[tier])
+            tier = min(max(1, level.depth), max(CREATURE_POOLS.keys()))
+            allowed = {cid for cid, _ in CREATURE_POOLS[tier]}
             for zoo in zoos:
                 for e in _entities_in_room(level, zoo):
                     if e.entity_type != "creature":

@@ -35,13 +35,35 @@ def _connection_count(level, room_id: str) -> int:
 
 # ── Lair tests ───────────────────────────────────────────────────────
 
+class TestLairDepthGate:
+    def test_no_lairs_at_depth_1(self):
+        """Lairs should never appear on depth 1."""
+        for seed in range(100):
+            level = generate_level(GenerationParams(
+                width=120, height=40, depth=1, seed=seed,
+            ))
+            assert not _find_tagged(level, "lair"), (
+                f"seed={seed} produced a lair at depth 1"
+            )
+
+    def test_no_lairs_at_depth_2(self):
+        """Lairs should never appear on depth 2."""
+        for seed in range(100):
+            level = generate_level(GenerationParams(
+                width=120, height=40, depth=2, seed=seed,
+            ))
+            assert not _find_tagged(level, "lair"), (
+                f"seed={seed} produced a lair at depth 2"
+            )
+
+
 class TestLairAssignment:
     def test_lairs_appear_across_seeds(self):
         """Lairs should appear in a reasonable fraction of dungeons."""
         with_lair = 0
         for seed in range(100):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             if _find_tagged(level, "lair"):
                 with_lair += 1
@@ -54,7 +76,7 @@ class TestLairAssignment:
         found = False
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             lairs = _find_tagged(level, "lair")
             if not lairs:
@@ -75,7 +97,7 @@ class TestLairAssignment:
         found = False
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             lairs = _find_tagged(level, "lair")
             if not lairs:
@@ -101,7 +123,7 @@ class TestLairAssignment:
         found = False
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             lairs = _find_tagged(level, "lair")
             if not lairs:
@@ -124,7 +146,7 @@ class TestLairAssignment:
         food_ids = {"rations", "bread", "dried_meat", "apple", "cheese"}
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             lairs = _find_tagged(level, "lair")
             if not lairs:
@@ -151,7 +173,7 @@ class TestLairSurroundingTraps:
         lairs_found = 0
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             lairs = _find_tagged(level, "lair")
             if not lairs:
@@ -190,7 +212,7 @@ class TestLairSurroundingTraps:
         found = False
         for seed in range(200):
             level = generate_level(GenerationParams(
-                width=120, height=40, depth=2, seed=seed,
+                width=120, height=40, depth=3, seed=seed,
             ))
             lairs = _find_tagged(level, "lair")
             if not lairs:
