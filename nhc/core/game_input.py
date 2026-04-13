@@ -362,7 +362,15 @@ def find_dig_action(
             and all(isinstance(v, (int, float)) for v in data)):
         dx, dy = int(data[0]), int(data[1])
         target = game.level.tile_at(pos.x + dx, pos.y + dy)
-        if target is None or target.terrain not in _DIGGABLE:
+        if target is None:
+            return None
+        # Bumping a door (closed/locked/open) should still open or
+        # bump-attack as usual — fall back to BumpAction so autodig
+        # never silently swallows door interactions.
+        if target.feature and "door" in target.feature:
+            from nhc.core.actions._movement import BumpAction
+            return BumpAction(actor=game.player_id, dx=dx, dy=dy)
+        if target.terrain not in _DIGGABLE:
             return None
         return DigAction(actor=game.player_id, dx=dx, dy=dy)
 

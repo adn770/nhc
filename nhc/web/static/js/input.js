@@ -335,6 +335,12 @@ const Input = {
     // absent is wall, void, or off-map — all valid dig targets
     // from the client's perspective.  The server still validates.
     if (GameMap.walls.has(`${tx},${ty}`)) return false;
+    // Don't autodig through known doors — let the move turn into a
+    // bump-open (or unlock prompt for locked doors).  Secret doors
+    // aren't in doorInfo yet, so they remain valid dig targets.
+    if (GameMap.doorInfo && GameMap.doorInfo.has(`${tx},${ty}`)) {
+      return false;
+    }
     WS.send({ type: "action", intent: "dig", data: [dx, dy] });
     return true;
   },

@@ -403,6 +403,34 @@ class TestDigFloorAutodigExclusion:
         # (5+1, 5) is FLOOR, not WALL → no dig action
         assert result is None or not isinstance(result, DigFloorAction)
 
+    def test_autodig_into_door_falls_back_to_bump(self):
+        """A directed dig at a door tile should bump-open it, not no-op."""
+        from nhc.core.actions._movement import BumpAction
+        from nhc.core.game_input import find_dig_action
+
+        world, pid, level = _make_world()
+        # Place a closed door east of the player.
+        door_tile = level.tile_at(6, 5)
+        door_tile.feature = "door_closed"
+
+        class FakeRenderer:
+            def add_message(self, msg):
+                pass
+            def show_selection_menu(self, prompt, options):
+                return None
+
+        class FakeGame:
+            def __init__(self):
+                self.world = world
+                self.player_id = pid
+                self.level = level
+                self.renderer = FakeRenderer()
+
+        game = FakeGame()
+        action = find_dig_action(game, data=[1, 0])
+        assert isinstance(action, BumpAction)
+        assert (action.dx, action.dy) == (1, 0)
+
 
 class TestBuriedItemPopulation:
     def test_populate_buries_items(self):
