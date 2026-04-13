@@ -45,6 +45,7 @@ from nhc.core.events import (
     PlayerDied,
     HenchmanMenuEvent,
     ShopMenuEvent,
+    TempleMenuEvent,
     TrapTriggered,
     VisualEffect,
 )
@@ -552,6 +553,15 @@ class Game:
                         components["ShopInventory"] = ShopInventory(
                             stock=list(placement.extra["shop_stock"]),
                         )
+                    if placement.extra.get("temple_services"):
+                        from nhc.entities.components import (
+                            TempleServices,
+                        )
+                        components["TempleServices"] = TempleServices(
+                            services=list(
+                                placement.extra["temple_services"],
+                            ),
+                        )
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
                     # Roll gold dice if present
@@ -811,6 +821,9 @@ class Game:
             for ev in events:
                 if isinstance(ev, ShopMenuEvent):
                     await self._shop_interaction(ev.merchant)
+                    break
+                if isinstance(ev, TempleMenuEvent):
+                    await self._temple_interaction(ev.priest)
                     break
                 if isinstance(ev, HenchmanMenuEvent):
                     await self._henchman_interaction(ev.henchman)
@@ -1103,6 +1116,132 @@ class Game:
                         self.renderer.add_message(
                             t("shop.unequip_first"),
                         )
+
+    async def _temple_interaction(self, priest_id: int) -> None:
+        """Run the services + items menu loop for a priest."""
+        from nhc.core.actions._shop import BuyAction
+        from nhc.core.actions._temple import TempleServiceAction
+        from nhc.rules.prices import buy_price, temple_service_price
+
+        ts = self.world.get_component(priest_id, "TempleServices")
+        if not ts:
+            return
+
+        _SERVICES = -1
+        _GOODS = -2
+
+        depth = self.level.depth
+
+        while True:
+            top: list[tuple[int, str]] = [
+                (_SERVICES, t("temple.services")),
+                (_GOODS, t("temple.goods")),
+            ]
+            choice = self.renderer.show_selection_menu(
+                t("temple.welcome"), top,
+            )
+            if choice is None:
+                break
+
+            if choice == _SERVICES:
+                svc_options: list[tuple[int, str]] = []
+                for idx, sid in enumerate(ts.services):
+                    price = temple_service_price(sid, depth)
+                    label = t(f"temple.service.{sid}", price=price)
+                    svc_options.append((idx, label))
+                selected = self.renderer.show_selection_menu(
+                    t("temple.services"), svc_options,
+                )
+                if selected is None or selected < 0 \
+                        or selected >= len(ts.services):
+                    continue
+                sid = ts.services[selected]
+                action = TempleServiceAction(
+                    actor=self.player_id, priest=priest_id,
+                    service_id=sid,
+                )
+                if await action.validate(self.world, self.level):
+                    evs = await action.execute(self.world, self.level)
+                    for ev in evs:
+                        if isinstance(ev, MessageEvent):
+                            self.renderer.add_message(ev.text)
+                else:
+                    reason = action.fail_reason
+                    msg_key = {
+                        "cannot_afford": "temple.cannot_afford",
+                        "no_curse": "temple.no_curse",
+                        "already_full_hp": "temple.already_full_hp",
+                        "already_blessed": "temple.already_blessed",
+                    }.get(reason)
+                    if msg_key:
+                        if reason == "cannot_afford":
+                            self.renderer.add_message(t(
+                                msg_key,
+                                price=temple_service_price(sid, depth),
+                            ))
+                        else:
+                            self.renderer.add_message(t(msg_key))
+
+            elif choice == _GOODS:
+                si = self.world.get_component(priest_id, "ShopInventory")
+                if not si or not si.stock:
+                    self.renderer.add_message(t("temple.empty_stock"))
+                    continue
+                items: list[tuple[int, str]] = []
+                for idx, item_id in enumerate(si.stock):
+                    if (self._knowledge
+                            and self._knowledge.is_identifiable(item_id)
+                            and not self._knowledge.is_identified(item_id)):
+                        name = self._knowledge.display_name(item_id)
+                    else:
+                        comps = EntityRegistry.get_item(item_id)
+                        desc = comps.get("Description")
+                        name = desc.name if desc else item_id
+                    price = buy_price(item_id)
+                    items.append((idx, f"{name} ({price}g)"))
+                selected = self.renderer.show_selection_menu(
+                    t("temple.goods"), items,
+                )
+                if selected is None or selected < 0 \
+                        or selected >= len(si.stock):
+                    continue
+                item_id = si.stock[selected]
+                action = BuyAction(
+                    actor=self.player_id,
+                    merchant=priest_id,
+                    item_id=item_id,
+                )
+                if await action.validate(self.world, self.level):
+                    evs = await action.execute(self.world, self.level)
+                    for ev in evs:
+                        if isinstance(ev, MessageEvent):
+                            self.renderer.add_message(ev.text)
+                    inv = self.world.get_component(
+                        self.player_id, "Inventory",
+                    )
+                    if inv and inv.slots:
+                        new_eid = inv.slots[-1]
+                        new_comps = {
+                            "Description": self.world.get_component(
+                                new_eid, "Description"),
+                            "Renderable": self.world.get_component(
+                                new_eid, "Renderable"),
+                        }
+                        self._disguise_potion(new_comps, item_id)
+                        if "_potion_id" in new_comps:
+                            self.world.add_component(
+                                new_eid, "_potion_id",
+                                new_comps["_potion_id"],
+                            )
+                else:
+                    reason = action.fail_reason
+                    if reason == "cannot_afford":
+                        self.renderer.add_message(t(
+                            "temple.cannot_afford",
+                            price=buy_price(item_id),
+                        ))
+                    elif reason == "inventory_full":
+                        self.renderer.add_message(t("shop.inventory_full"))
 
     async def _henchman_interaction(self, henchman_id: int) -> None:
         """Run the buy/sell/hire menu loop for an unhired henchman."""

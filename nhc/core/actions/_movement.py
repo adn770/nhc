@@ -357,6 +357,13 @@ class BumpAction(Action):
                     if world.has_component(eid, "Chest"):
                         return OpenChestAction(
                             actor=self.actor, chest=eid)
+                    # Priests: open temple menu instead of attack
+                    if world.has_component(eid, "TempleServices"):
+                        from nhc.core.actions._temple import (
+                            TempleInteractAction,
+                        )
+                        return TempleInteractAction(
+                            actor=self.actor, priest=eid)
                     # Merchants: open shop instead of attack
                     if world.has_component(eid, "ShopInventory"):
                         from nhc.core.actions._shop import (

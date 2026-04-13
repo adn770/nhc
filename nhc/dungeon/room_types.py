@@ -48,6 +48,19 @@ LAIR_MIN_SIZE = 4
 # the earliest floors (reserved for scattered encounters, nests).
 LAIR_MIN_DEPTH = 3
 
+# Temple: cross-shaped sanctuary with a priest who heals, removes
+# curses, blesses, and sells holy goods.  Guaranteed at depth 2;
+# probabilistic on later floors.
+TEMPLE_MIN_DEPTH = 2
+TEMPLE_PROBABILITY = 0.20
+TEMPLE_MIN_SIZE = 7  # TempleShape requires odd dims >= 7
+TEMPLE_SERVICES_DEFAULT: list[str] = ["heal", "remove_curse", "bless"]
+TEMPLE_STOCK_DEFAULT: list[str] = [
+    "potion_healing", "potion_healing", "potion_healing",
+    "potion_purification", "potion_purification",
+    "holy_water", "holy_water",
+]
+
 # Nest: single room filled with vermin creatures.
 NEST_CREATURES: list[str] = [
     "rat", "bat", "giant_rat", "giant_bat",
@@ -124,14 +137,20 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
     if lair_ids:
         specials_placed += 1
 
+    # ── Pre-pass: assign temple (TempleShape sanctuary, depth >= 2) ──
+    temple_ids: set[str] = set()
+    _try_place_temple(level, temple_ids, rng)
+    if temple_ids:
+        specials_placed += 1
+
     for room in level.rooms:
         # Vaults are tiny gold caches hidden off the main map —
         # leave their tags alone, they are neither standard nor
         # a special-painted type.
         if "vault" in room.tags:
             continue
-        # Skip rooms already assigned as lair
-        if room.id in lair_ids:
+        # Skip rooms already assigned as lair or temple
+        if room.id in lair_ids or room.id in temple_ids:
             continue
         # Skip entry/exit — already tagged
         if "entry" in room.tags or "exit" in room.tags:
@@ -236,6 +255,7 @@ def _paint_room(
         "zoo": _paint_zoo,
         "nest": _paint_nest,
         "shop": _paint_shop,
+        "temple": _paint_temple,
     }
     painter = painters.get(room_type)
     if painter:
@@ -389,6 +409,31 @@ def _paint_shop(level: Level, room: Room, rng: random.Random) -> None:
     level.entities.append(EntityPlacement(
         entity_type="creature", entity_id="merchant",
         x=cx, y=cy, extra={"shop_stock": stock},
+    ))
+
+
+def _paint_temple(level: Level, room: Room, rng: random.Random) -> None:
+    """Place a priest at the center, with a holy water puddle and
+    a curated stock of holy goods.  The room's TempleShape is left
+    intact (temples are tagged on rooms that already have it).
+    """
+    cx, cy = room.rect.center
+    floor = room.floor_tiles()
+    # Small holy water puddle in front of the priest (south tile).
+    for (wx, wy) in [(cx, cy + 1), (cx - 1, cy + 1), (cx + 1, cy + 1)]:
+        if (wx, wy) in floor and level.in_bounds(wx, wy):
+            tile = level.tiles[wy][wx]
+            if tile.terrain == Terrain.FLOOR and not tile.feature:
+                level.tiles[wy][wx] = Tile(terrain=Terrain.WATER)
+    # Make sure the priest stands on solid ground.
+    level.tiles[cy][cx] = Tile(terrain=Terrain.FLOOR)
+    level.entities.append(EntityPlacement(
+        entity_type="creature", entity_id="priest",
+        x=cx, y=cy,
+        extra={
+            "temple_services": list(TEMPLE_SERVICES_DEFAULT),
+            "shop_stock": list(TEMPLE_STOCK_DEFAULT),
+        },
     ))
 
 
@@ -580,6 +625,42 @@ def _paint_lair_traps(
                 x=x, y=y,
                 extra={"hidden": True, "reactivatable": True},
             ))
+
+
+# ── Temple helpers ───────────────────────────────────────────────────
+
+def _try_place_temple(
+    level: Level,
+    temple_ids: set[str],
+    rng: random.Random,
+) -> None:
+    """Tag and paint a TempleShape room as a temple.
+
+    At ``TEMPLE_MIN_DEPTH`` (depth 2) the placement is mandatory: the
+    BSP generator forces at least one TempleShape on this floor.  On
+    deeper floors a TempleShape room is upgraded to a temple with
+    ``TEMPLE_PROBABILITY``.
+    """
+    from nhc.dungeon.model import TempleShape
+
+    if level.depth < TEMPLE_MIN_DEPTH:
+        return
+
+    skip_tags = {"entry", "exit", "vault", "lair", "nest", "zoo"}
+    candidates = [
+        r for r in level.rooms
+        if isinstance(r.shape, TempleShape)
+        and not any(t in skip_tags for t in r.tags)
+    ]
+    if not candidates:
+        return
+    if level.depth > TEMPLE_MIN_DEPTH:
+        if rng.random() >= TEMPLE_PROBABILITY:
+            return
+    room = rng.choice(candidates)
+    room.tags.append("temple")
+    temple_ids.add(room.id)
+    _paint_temple(level, room, rng)
 
 
 # ── Nest painter ─────────────────────────────────────────────────────

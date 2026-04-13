@@ -322,6 +322,24 @@ shop:
   empty_stock: "The merchant has nothing left to sell."
   unequip_first: "Unequip the item before selling."
 
+temple:
+  welcome: "Peace be with you. How may I serve?"
+  services: "Services"
+  goods: "Holy goods"
+  leave: "Leave"
+  empty_stock: "The altar is bare of goods."
+  cannot_afford: "Not enough gold! ({price} gold needed)"
+  service:
+    heal: "Heal wounds ({price}g)"
+    remove_curse: "Remove curse ({price}g)"
+    bless: "Bless ({price}g)"
+  heal_done: "The priest lays hands on you. (-{price}g) You feel restored."
+  remove_curse_done: "Holy fire scours the curse from your bones. (-{price}g)"
+  bless_done: "A warm aura surrounds you for {turns} turns. (-{price}g)"
+  already_full_hp: "You are already at full health."
+  no_curse: "You bear no curse to lift."
+  already_blessed: "You are already blessed."
+
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Picked up {item}."
@@ -1254,6 +1272,13 @@ creature:
     long: >-
       A weathered trader with a heavy pack and shrewd eyes. They
       brave the dungeon depths in search of profit and rare finds.
+  priest:
+    name: "Priest"
+    short: "a robed priest"
+    long: >-
+      A serene cleric in white robes, tending the altar of a forgotten
+      deity. They offer healing, blessings, and holy water to those
+      who pay their tithe.
   animated_bones:
     name: "Animated Bones"
     short: "a pile of animated bones"

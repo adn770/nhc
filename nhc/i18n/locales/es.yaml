@@ -320,6 +320,24 @@ shop:
   empty_stock: "El mercader no tiene nada más que vender."
   unequip_first: "Desequipa el objeto antes de vender."
 
+temple:
+  welcome: "Que la paz sea contigo. ¿En qué puedo servirte?"
+  services: "Servicios"
+  goods: "Bienes sagrados"
+  leave: "Marcharse"
+  empty_stock: "El altar no tiene bienes que ofrecer."
+  cannot_afford: "¡No tienes suficiente oro! (se necesitan {price} oro)"
+  service:
+    heal: "Curar heridas ({price}o)"
+    remove_curse: "Eliminar maldición ({price}o)"
+    bless: "Bendecir ({price}o)"
+  heal_done: "El sacerdote te impone las manos. (-{price}o) Te sientes restaurado."
+  remove_curse_done: "El fuego sagrado purga la maldición de tus huesos. (-{price}o)"
+  bless_done: "Un aura cálida te envuelve durante {turns} turnos. (-{price}o)"
+  already_full_hp: "Ya tienes la salud al máximo."
+  no_curse: "No portas ninguna maldición que levantar."
+  already_blessed: "Ya estás bendecido."
+
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Has recogido {item}."
@@ -1265,6 +1283,14 @@ creature:
       Un comerciante curtido con un fardo pesado y ojos astutos.
       Se aventura en las profundidades de la mazmorra buscando beneficio
       y hallazgos raros.
+  priest:
+    name: "Sacerdote"
+    gender: "m"
+    short: "un sacerdote con hábito"
+    long: >-
+      Un clérigo sereno con hábito blanco, atendiendo el altar de una
+      divinidad olvidada. Ofrece curaciones, bendiciones y agua bendita
+      a quien pague su diezmo.
   animated_bones:
     name: "Huesos Animados"
     short: "un montón de huesos animados"

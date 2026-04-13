@@ -257,3 +257,22 @@ def buy_price(item_id: str) -> int:
 def sell_price(item_id: str) -> int:
     """Return the sell price (half buy price, minimum 1)."""
     return max(1, buy_price(item_id) // 2)
+
+
+# --- Temple service prices (per depth multiplier) ---
+TEMPLE_SERVICE_BASE: dict[str, int] = {
+    "heal":         20,
+    "remove_curse": 50,
+    "bless":        30,
+}
+
+
+def temple_service_price(service_id: str, depth: int) -> int:
+    """Return the gold cost of *service_id* on a floor of *depth*.
+
+    Prices scale linearly with depth (depth 1 == base price).
+    Unknown services fall back to a sane default so the game never
+    crashes on a typo.
+    """
+    base = TEMPLE_SERVICE_BASE.get(service_id, 30)
+    return base * max(1, depth)

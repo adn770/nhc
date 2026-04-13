@@ -83,6 +83,16 @@ class ShopInventory:
 
 
 @dataclass
+class TempleServices:
+    """Spell-like services a priest can perform on the spot.
+
+    Service IDs are looked up in the temple action dispatcher; prices
+    scale with floor depth via :func:`nhc.rules.prices.temple_service_price`.
+    """
+    services: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Disguise:
     appears_as: str = ""
     reveal_on: str = "interact"

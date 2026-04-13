@@ -338,6 +338,24 @@ shop:
   empty_stock: "El mercader no té res més per vendre."
   unequip_first: "Desequipa l'objecte abans de vendre."
 
+temple:
+  welcome: "Que la pau t'acompanyi. En què puc servir-te?"
+  services: "Serveis"
+  goods: "Béns sagrats"
+  leave: "Marxar"
+  empty_stock: "L'altar no té cap bé per oferir."
+  cannot_afford: "No tens prou or! (calen {price} or)"
+  service:
+    heal: "Curar ferides ({price}o)"
+    remove_curse: "Eliminar maledicció ({price}o)"
+    bless: "Beneir ({price}o)"
+  heal_done: "El sacerdot t'imposa les mans. (-{price}o) Et sents restaurat."
+  remove_curse_done: "Foc sagrat purga la maledicció dels teus ossos. (-{price}o)"
+  bless_done: "Una aura càlida t'envolta durant {turns} torns. (-{price}o)"
+  already_full_hp: "Ja tens la salut plena."
+  no_curse: "No portes cap maledicció a alçar."
+  already_blessed: "Ja estàs beneït."
+
 # ── Items & Inventory ─────────────────────────────────────────────────
 item:
   picked_up: "Has agafat {item}."
@@ -1354,6 +1372,14 @@ creature:
       Un comerciant curtit amb un farcell pesant i ulls astuts.
       S'aventura a les profunditats de la masmorra cercant benefici
       i troballes rares.
+  priest:
+    name: "sacerdot"
+    gender: "m"
+    short: "un sacerdot encaputxat"
+    long: >-
+      Un clergue serè amb hàbits blancs, atenent l'altar d'una divinitat
+      oblidada. Ofereix curacions, benediccions i aigua beneïda a qui
+      pagui el seu delme.
   animated_bones:
     name: "ossos animats"
     gender: "m"

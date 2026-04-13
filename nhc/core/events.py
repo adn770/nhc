@@ -142,6 +142,12 @@ class HenchmanMenuEvent(Event):
     henchman: int = 0
 
 
+@dataclass
+class TempleMenuEvent(Event):
+    """Triggers the temple (priest) services + items menu."""
+    priest: int = 0
+
+
 # Handler type: sync or async callable
 EventHandler = Callable[..., None] | Callable[..., Awaitable[None]]
 

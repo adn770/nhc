@@ -99,6 +99,12 @@ from nhc.core.actions._shop import (
     ShopInteractAction,
 )
 
+# -- Temple actions --
+from nhc.core.actions._temple import (
+    TempleInteractAction,
+    TempleServiceAction,
+)
+
 # -- Spell helper functions --
 from nhc.core.actions._spells import (
     _use_acid,
@@ -166,6 +172,9 @@ __all__ = [
     "BuyAction",
     "SellAction",
     "ShopInteractAction",
+    # Temple
+    "TempleInteractAction",
+    "TempleServiceAction",
     # Interaction
     "CloseDoorAction",
     "DigAction",

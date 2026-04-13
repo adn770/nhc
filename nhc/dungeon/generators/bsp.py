@@ -408,11 +408,72 @@ class BSPGenerator(DungeonGenerator):
             from nhc.dungeon.classic import ClassicGenerator
             return ClassicGenerator().generate(params)
 
+        # Depth 2 must always offer a temple sanctuary.  Ensure at
+        # least one rect satisfies TempleShape's geometric needs:
+        # min_dim >= 7 AND both dims odd (clean cap geometry, no
+        # walled-tunnel adjacency).  Resize a leaf's room rect in
+        # place so corridor planning sees the final rect.
+        # See nhc.dungeon.room_types.TEMPLE_MIN_DEPTH.
+        def _temple_ready(r: Rect) -> bool:
+            return (min(r.width, r.height) >= 7
+                    and r.width % 2 == 1 and r.height % 2 == 1)
+
+        if params.depth == 2 and not any(_temple_ready(r) for r in rects):
+            best_leaf = None
+            best_slack = -1
+            for lf in leaves:
+                if lf.room is None:
+                    continue
+                avail_w = lf.rect.width - PADDING * 2
+                avail_h = lf.rect.height - PADDING * 2
+                slack = min(avail_w, avail_h)
+                if slack > best_slack:
+                    best_slack = slack
+                    best_leaf = lf
+            if best_leaf is not None and best_slack >= 7:
+                avail_w = best_leaf.rect.width - PADDING * 2
+                avail_h = best_leaf.rect.height - PADDING * 2
+                new_w = min(MAX_ROOM, max(7, avail_w))
+                new_h = min(MAX_ROOM, max(7, avail_h))
+                if new_w % 2 == 0:
+                    new_w -= 1
+                if new_h % 2 == 0:
+                    new_h -= 1
+                nx = best_leaf.rect.x + PADDING
+                ny = best_leaf.rect.y + PADDING
+                # Update both the leaf's room and our local rects list.
+                old = best_leaf.room
+                best_leaf.room = Rect(nx, ny, new_w, new_h)
+                for i, r in enumerate(rects):
+                    if r is old:
+                        rects[i] = best_leaf.room
+                        break
+
         # ── Step 1: Carve rooms ──
         shapes = [
             self._pick_shape(rect, params.shape_variety, rng)
             for rect in rects
         ]
+        # Depth 2 must always offer a temple sanctuary — force one
+        # eligible room into TempleShape if none was naturally picked.
+        # Both dims must be odd so TempleShape's caps align with the
+        # rect bounds and don't create walled-tunnel adjacency.
+        if params.depth == 2 and not any(
+            isinstance(s, TempleShape) for s in shapes
+        ):
+            ranked = sorted(
+                range(len(rects)),
+                key=lambda i: -min(rects[i].width, rects[i].height),
+            )
+            for i in ranked:
+                r = rects[i]
+                if (min(r.width, r.height) >= 7
+                        and r.width % 2 == 1
+                        and r.height % 2 == 1):
+                    shapes[i] = TempleShape(
+                        flat_side=rng.choice(TempleShape.VALID_SIDES),
+                    )
+                    break
         for rect, shape in zip(rects, shapes):
             self._carve_room(level, rect, shape)
         for i, (rect, shape) in enumerate(zip(rects, shapes)):
@@ -697,6 +758,13 @@ class BSPGenerator(DungeonGenerator):
                         if nb.feature != tile.feature:
                             nb.feature = tile.feature
 
+        # ── Step 3e: Strip walled-tunnel adjacency ──
+        # If a corridor tile has WALLs on both perpendicular sides,
+        # demote one of those walls to VOID — corridors must show as
+        # open passages, not as 1-tile walled tunnels (this can occur
+        # when a TempleShape clipped corner sits next to a corridor).
+        self._fix_walled_corridors(level)
+
         # ── Step 3f: Vault rooms ──
         # Tiny 2x2 / 3x2 treasure rooms hidden in void space with
         # no corridor connection.  Placed *after* all connectivity
@@ -750,20 +818,31 @@ class BSPGenerator(DungeonGenerator):
             level.rooms[0].tags.append("exit")
             return
 
-        # Pick entry room randomly
-        entry = rng.randrange(n)
+        # Pick entry room randomly, but avoid TempleShape rooms so
+        # the depth-2 temple sanctuary is not erased by stairs.
+        non_temple = [
+            i for i in range(n)
+            if i >= len(level.rooms)
+            or not isinstance(level.rooms[i].shape, TempleShape)
+        ]
+        entry_pool = non_temple if non_temple else list(range(n))
+        entry = rng.choice(entry_pool)
         dists = _bfs_dist(adj, entry)
         max_dist = max(dists.values()) if dists else 1
 
-        # Candidates for stairs_down: at least half max distance
+        # Candidates for stairs_down: at least half max distance,
+        # excluding TempleShape rooms.
         min_dist = max(1, max_dist // 2)
         candidates = [
             i for i, d in dists.items()
-            if d >= min_dist and i != entry
+            if d >= min_dist and i != entry and i in entry_pool
         ]
         if not candidates:
-            # Fallback: any room except entry
-            candidates = [i for i in range(n) if i != entry]
+            # Fallback: any non-temple room except entry, then any.
+            candidates = [
+                i for i in range(n)
+                if i != entry and i in entry_pool
+            ] or [i for i in range(n) if i != entry]
 
         exit_idx = rng.choice(candidates)
 
@@ -945,6 +1024,55 @@ class BSPGenerator(DungeonGenerator):
             logger.info("Removed %d doors on non-straight walls", removed)
 
     # ── Carving helpers ─────────────────────────────────────────────
+
+    def _fix_walled_corridors(self, level: Level) -> None:
+        """Remove walls causing walled-tunnel adjacency on corridors.
+
+        For each corridor tile, if both perpendicular neighbours are
+        WALL (and neither is bordering an actual room floor on its
+        opposite side), demote the wall whose removal does not orphan
+        a room cell.  Targeted at TempleShape clipped corners that
+        place WALLs in cells the corridor would prefer to have as VOID.
+        """
+        from nhc.dungeon.model import Terrain, Tile
+
+        def _is_room_neighbor(x: int, y: int) -> bool:
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                t = level.tile_at(x + dx, y + dy)
+                if (t and t.terrain in (Terrain.FLOOR, Terrain.WATER)
+                        and not t.is_corridor):
+                    return True
+            return False
+
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if not (tile.terrain == Terrain.FLOOR
+                        and tile.is_corridor):
+                    continue
+                pairs = (
+                    ((x, y - 1), (x, y + 1)),  # N/S
+                    ((x - 1, y), (x + 1, y)),  # E/W
+                )
+                for (ax, ay), (bx, by) in pairs:
+                    a = level.tile_at(ax, ay)
+                    b = level.tile_at(bx, by)
+                    if not (a and b
+                            and a.terrain == Terrain.WALL
+                            and b.terrain == Terrain.WALL):
+                        continue
+                    # Demote the wall NOT serving a room cell — if
+                    # both serve rooms, leave as-is (genuine choke).
+                    a_room = _is_room_neighbor(ax, ay)
+                    b_room = _is_room_neighbor(bx, by)
+                    if a_room and not b_room:
+                        level.tiles[by][bx] = Tile(terrain=Terrain.VOID)
+                    elif b_room and not a_room:
+                        level.tiles[ay][ax] = Tile(terrain=Terrain.VOID)
+                    elif not a_room and not b_room:
+                        # Neither serves a room — strip both.
+                        level.tiles[ay][ax] = Tile(terrain=Terrain.VOID)
+                        level.tiles[by][bx] = Tile(terrain=Terrain.VOID)
 
     def _build_walls(self, level: Level) -> None:
         """Place WALL tiles around room floors only (not corridors).
