@@ -175,27 +175,34 @@ Most other creatures take a single letter. A few examples grouped
 by family (the full bestiary is larger):
 
   Humanoids / goblinoids
-    g goblin   h hobgoblin   k kobold   o orc     O ogre
-    G gnoll    f frogman     L lizardman           n snakeman
+    g goblin, h hobgoblin, k kobold, o orc, O ogre, G gnoll,
+    B bugbear, f frogman, L lizardman, n snakeman
+
   Beasts & canines
-    b bat      r rat         w wolf     d dire wolf
-    c bear     U warg        W werewolf / winter wolf
+    b bat, r rat, w wolf, d dire wolf, c black / brown bear,
+    U warg, W werewolf / winter wolf, O owlbear
+
   Reptiles & serpents
-    l lizard   S snake       D dragon lizard        F giant frog
+    l giant lizard, S giant snake, D dragon lizard,
+    F giant frog, c cockatrice, B basilisk (gaze)
+
   Undead
-    s skeleton Z zombie      M mummy    W wight / wraith
-    S spectre  g ghoul
+    s skeleton, Z zombie, M mummy, W wight / wraith,
+    S spectre, g ghoul
+
   Vermin, insects & arachnids
-    s spider   i insect swarm  a fire beetle
-    L cave locust  S giant scorpion  c giant centipede
+    s spider, i insect swarm, a fire beetle,
+    L cave locust, S giant scorpion, c giant centipede,
+    S giant tarantula, B giant bee
+
   Oozes & plants
-    P black pudding   j ochre jelly   o gray ooze
-    f fungus / carnivorous flower     m yellow mold
+    P black pudding, j ochre jelly, o gray ooze, s green slime,
+    m yellow mold, f carnivorous flower, f violet fungus
+
   Exotic & chaos
-    T troll (regenerates)    $ mimic (disguised as chest/gold)
-    ! shrieker (alerts nearby creatures)
-    C centaur  H harpy       V wyvern    I invisible stalker
-    A animated armor         G gargoyle  B basilisk (gaze)
+    T troll (regenerates), $ mimic (disguised as chest/gold),
+    ! shrieker (alerts nearby creatures), C centaur, H harpy,
+    V wyvern, I invisible stalker, A animated armor, G gargoyle
 
 Rule of thumb: lower-case = smaller, upper-case = larger or tougher.
 Troll regenerates 3 HP per turn; mimics and shriekers disguise

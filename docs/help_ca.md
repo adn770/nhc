@@ -176,34 +176,42 @@ es distingeixen pel color:
   @   Aventurer     (cian)
   @   Mercader      (verd)
   @   Sacerdot      (blanc brillant)
-  @   Bandit        (groc, hostil)
+  @   Bandoler      (groc, hostil)
 
 La majoria de criatures són una sola lletra. Alguns exemples
 agrupats per família (el bestiari complet és més gran):
 
   Humanoides / goblinoides
-    g goblin   h hobgoblin   k kobold   o orc     O ogre
-    G gnoll    f home-granota            L home-llangardaix
-    n home-serp
+    g goblin, h hobgoblin, k kobold, o orc, O ogre, G gnoll,
+    B osgo, f granyotic, L llangardànic, n home serp
+
   Bèsties i cànids
-    b ratpenat r rata        w llop     d llop terrible
-    c ós       U warg        W home-llop / llop d'hivern
+    b ratpenat, r rata, w llop, d llop terrible,
+    c os negre / os bru, U uarg, W licàntrop llop,
+    W llop d'hivern, O os oliba
+
   Rèptils i serps
-    l llangardaix  S serp    D llangardaix-drac   F granota gegant
+    l llangardaix gegant, S serp gegant, D llangardaix drac,
+    F granota gegant, c cocatriu, B basilisc (mirada)
+
   Morts vivents
-    s esquelet Z zombi       M mòmia    W espectre / ànima en pena
-    g ghoul
+    s esquelet, Z zombie, M mòmia, W entitat, W aparegut,
+    S espectre, g gul
+
   Plagues, insectes i aràcnids
-    s aranya   i eixam d'insectes       a escarabat de foc
-    L llagosta de cova        S escorpí gegant    c centpeus gegant
+    s aranya, i eixam d'insectes, a escarabat de foc,
+    L llagosta de cova, S escorpí gegant, c centpeus gegant,
+    S taràntula gegant, B abella gegant
+
   Llims i plantes
-    P pudding negre  j gelatina ocre    o llim gris
-    f fong / flor carnívora             m floridura groga
+    P púding negre, j gelatina ocre, o llot gris, s llim verd,
+    m fong groc, f flor carnívora, f bolet violeta
+
   Exòtiques i caos
-    T trol (regenera)         $ mímic (disfressat de cofre/or)
-    ! cridaner (alerta les criatures)
-    C centaure  H harpia       V vibra   I caminant invisible
-    A armadura animada         G gàrgola  B basilisc (mirada)
+    T trol (regenera), $ mímic (disfressat de cofre/or),
+    ! cridaner (alerta les criatures), C centaure, H hàrpia,
+    V víbria, I assetjador invisible, A armadura animada,
+    G gàrgola
 
 Regla general: minúscula = més petit, majúscula = més gran o fort.
 Els trols regeneren 3 PV per torn; els mímics i cridaners es

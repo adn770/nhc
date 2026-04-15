@@ -185,32 +185,42 @@ La mayoría de criaturas son una sola letra. Algunos ejemplos
 agrupados por familia (el bestiario completo es más grande):
 
   Humanoides / goblinoides
-    g goblin   h hobgoblin   k kobold   o orco    O ogro
-    G gnoll    f hombre-rana             L hombre-lagarto
-    n hombre-serpiente
+    g goblin, h hobgoblin, k kobold, o orco, O ogro, G gnoll,
+    B bugbear, f hombre rana, L hombre lagarto,
+    n hombre serpiente
+
   Bestias y cánidos
-    b murciélago  r rata     w lobo     d lobo huargo
-    c oso      U warg        W hombre-lobo / lobo de invierno
+    b murciélago, r rata, w lobo, d lobo terrible,
+    c oso negro / pardo, U warg, W hombre lobo,
+    W lobo de invierno, O oso búho
+
   Reptiles y serpientes
-    l lagarto  S serpiente   D lagarto-dragón     F rana gigante
+    l lagarto gigante, S serpiente gigante, D lagarto dragón,
+    F rana gigante, c cocatriz, B basilisco (mirada)
+
   No-muertos
-    s esqueleto Z zombi      M momia    W espectro / alma en pena
-    g ghoul
+    s esqueleto, Z zombi, M momia, W aparecido, S espectro,
+    g gul
+
   Alimañas, insectos y arácnidos
-    s araña    i enjambre de insectos   a escarabajo de fuego
-    L langosta de cueva       S escorpión gigante  c ciempiés gigante
+    s araña, i enjambre de insectos, a escarabajo de fuego,
+    L langosta de cueva, S escorpión gigante,
+    c ciempiés gigante, S tarántula gigante, B abeja gigante
+
   Limos y plantas
-    P pudding negro  j gelatina ocre    o limo gris
-    f hongo / flor carnívora            m moho amarillo
+    P pudín negro, j gelatina ocre, o limo gris, s limo verde,
+    m moho amarillo, f flor carnívora, f hongo violeta
+
   Exóticas y caos
-    T trol (regenera)         $ mímico (disfrazado de cofre/oro)
-    ! chillón (alerta a las criaturas)
-    C centauro  H harpía       V wyvern  I acechador invisible
-    A armadura animada         G gárgola  B basilisco (mirada)
+    T trol (regenera), $ mímico (disfrazado de cofre/oro),
+    ! chillador (alerta a las criaturas), C centauro, H arpía,
+    V víbora alada, I acechador invisible, A armadura animada,
+    G gárgola
 
 Regla general: minúscula = más pequeño, mayúscula = más grande
-o duro. Los troles regeneran 3 PV por turno; mímicos y chillones
-se disfrazan de objetos — las sorpresas son parte del juego.
+o duro. Los troles regeneran 3 PV por turno; mímicos y
+chilladores se disfrazan de objetos — las sorpresas son parte
+del juego.
 
 ## Objetos Mágicos
 
