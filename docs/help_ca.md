@@ -160,7 +160,7 @@ Els objectes detectats i la màgia brillen un moment i s'esvaeixen.
   =   Anell               /   Vareta o fletxa
   )   Arma                [   Armadura
   *   Gemma o vidre sense valor
-  (   Eina, menjar, clau, ganzua, llanterna, símbol sagrat, etc.
+  (   Eina, menjar, clau, rossinyol, llanterna, símbol sagrat, etc.
   $   Pila d'or           %   Cadàver
 
 Les pocions, pergamins, anells, varetes i gemmes tenen aparences
@@ -293,7 +293,7 @@ passats 40 torns.
   Tancada           Empeny per obrir (només els humanoides
                     ho poden fer).
   Bloquejada        Usa `p` per forçar el pany (salvació DES, pot
-                    trencar una ganzua) o `f` per forçar la porta
+                    trencar un rossinyol) o `f` per forçar la porta
                     (salvació FOR, pot ferir-te).
   Eines de força    Una palanca absorbeix el rebot i baixa la DC;
                     una arma baixa una mica la DC però pot

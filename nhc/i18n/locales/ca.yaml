@@ -273,7 +273,7 @@ explore:
   you_pick_lock_success: "Forces el pany!"
   pick_lock_fail: "{entity} no aconsegueix forçar el pany."
   you_pick_lock_fail: "No aconsegueixes forçar el pany."
-  lockpicks_break: "Les teves ganzues es trenquen!"
+  lockpicks_break: "Els teus rossinyols es trenquen!"
   force_door_success: "{entity} rebenta la porta!"
   you_force_door_success: "Rebentes la porta!"
   force_door_tool_success: "{entity} força la porta amb {tool}!"
@@ -1784,7 +1784,7 @@ items:
     name: "Rossinyols"
     gender: "m"
     short: "un joc de rossinyols"
-    long: "Ganzues de metall fi per obrir panys sense clau."
+    long: "Rossinyols de metall fi per obrir panys sense clau."
   mirror:
     name: "Mirall"
     gender: "m"
