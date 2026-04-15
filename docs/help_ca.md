@@ -1,7 +1,10 @@
 # NHC — Nethack-like Crawler
 
 Un dungeon crawler roguelike amb regles Knave, suport multilingüe
-i narrativa opcional amb IA.
+i narrativa opcional amb IA. Descendeixes per nivells generats
+proceduralment, lluites contra criatures, saqueges tresors,
+contractes aventurers, identifiques objectes màgics i intentes
+sobreviure.
 
 ## Modes de Joc
 
@@ -24,9 +27,12 @@ Prem TAB per canviar entre modes en qualsevol moment.
   y u b n        Diagonals vi (NO, NE, SO, SE)
   . o 5          Esperar un torn
 
-Empènyer una criatura l'ataca.
+Empènyer una criatura hostil l'ataca.
 Empènyer una porta tancada l'obre.
-Empènyer un cofre l'obre i en deixa caure el contingut.
+Empènyer un aventurer contractat intercanvia posicions amb tu.
+Empènyer un cofre, barril o caixa l'obre i en deixa caure el contingut.
+Empènyer un mercader o sacerdot obre el seu menú de botiga/servei.
+Empènyer un aventurer no contractat obre el menú d'encontre.
 
 ### Objectes i Equipament
   g o ,          Agafar objecte als peus
@@ -39,13 +45,18 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
   z              Disparar una vareta a una criatura visible
 
 ### Exploració
-  x              Mirar a distància (mou el cursor per examinar)
+  :              Mirada llunyana — mou el cursor per examinar caselles
   s              Cercar trampes ocultes i portes secretes
   p              Forçar un pany (requereix eines, salvació DES)
   f              Forçar una porta (salvació FOR, eines ajuden)
   c              Tancar una porta oberta adjacent
+  D              Excavar paret o terra (cal una eina d'excavació)
   >              Descendir escales
   <              Ascendir escales
+
+### Grup
+  G              Donar un objecte a un aventurer contractat
+  P              Acomiadar un aventurer del grup
 
 ### Interfície
   [ ]            Desplaçar registre de missatges
@@ -79,8 +90,26 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
   > intento escoltar a la porta
   > faig servir el pergamí de dormir contra els goblins
   > bec la poció de curació
-  > llançar la poció de gel a l'ogre
+  > llanço la poció de gel a l'ogre
   > disparo la vareta al goblin
+  > dono la palanca al meu aventurer
+
+## Extres del Client Web
+
+El client del navegador afegeix algunes funcions no disponibles
+al terminal:
+
+  Clic del ratolí      Moure's o actuar sobre la casella pitjada
+  Clic dret en objecte Menú contextual (Usar, Beure, Equipar,
+                       Llançar, Donar, Deixar)
+  Botó Examinar        Alterna la inspecció d'una casella; clic dret
+                       per mode Auto-examinar (inspecció contínua
+                       mentre et mous)
+  Botó Excavar         Alterna l'Auto-excavació — camina contra parets
+                       per excavar-les amb l'eina equipada
+  Opció TTS            Llegeix els missatges en veu alta amb Piper TTS
+  Classificació        Les partides acabades surten al rànquing
+                       (les de mode déu no hi compten)
 
 ## Estadístiques del Personatge (Regles Knave)
 
@@ -92,44 +121,236 @@ Empènyer un cofre l'obre i en deixa caure el contingut.
   CAR  Carisma        Social, moral, encantaments
 
   Defensa = bonificació + 10.  Espais = defensa de CON.
-  Nivell màxim: 10.  Cada pujada de nivell augmenta 3 habilitats.
-
-## Identificació
-
-Les pocions, pergamins, anells i varetes tenen aparences aleatòries
-cada partida. Cal usar-les per identificar-les:
-  - Pocions: beure per identificar
-  - Pergamins: llegir/usar per identificar
-  - Anells i varetes: usar Pergamí o Vareta d'Identificació
+  Nivell 1 comença amb PV màxims (8).
+  Nivell màxim: 10.  Cada pujada augmenta les 3 habilitats
+  més baixes en +1.
+  1000 XP per nivell. Les criatures donen XP = PV màxims × 5.
 
 ## Espais d'Equipament
 
   Arma        Una arma cos a cos o a distància
-  Armadura    Gambeson, brigantina, mitja armadura, armadura completa
+  Armadura    Gambeson, brigandina, malla, mitja armadura, armadura completa
   Escut       Rodella o escut (+1 CA cadascun)
   Casc        Capell de cuir o casc (+1 CA cadascun)
   Anell (E/D) Dos espais per efectes màgics passius
 
-L'equipament ocupat compta als espais d'inventari.
+Els objectes equipats també ocupen espais d'inventari.
+
+## Llegenda de Símbols
+
+### Terreny i Elements de la Masmorra
+
+  .   Terra               ,   Herba
+  #   Passadís / excavat  ~   Aigua o lava
+  -   Paret (dibuix de caixa al joc)
+  +   Porta tancada       '   Porta oberta
+  <   Escales amunt       >   Escales avall
+  ^   Trampa (un cop detectada)
+  =   Cofre               0   Barril              #   Caixa
+  ◎   Marca de tresor enterrat (cian, després d'excavar o detectar)
+
+Les portes secretes semblen parets fins que les trobes amb la cerca.
+Els objectes detectats i la màgia brillen un moment i s'esvaeixen.
+
+### Objectes
+
+  !   Poció               ?   Pergamí
+  =   Anell               /   Vareta o fletxa
+  )   Arma                [   Armadura
+  *   Gemma o vidre sense valor
+  (   Eina, menjar, clau, ganzua, llanterna, símbol sagrat, etc.
+  $   Pila d'or           %   Cadàver
+
+Les pocions, pergamins, anells, varetes i gemmes tenen aparences
+aleatòries (colors, etiquetes, tipus de gemma) fins que les identifiques;
+les aparences canvien cada partida.
+
+### Criatures
+
+El jugador i els PNJs amistosos comparteixen el glif `@` però
+es distingeixen pel color:
+
+  @   Jugador       (contorn blau al client web)
+  @   Aventurer     (cian)
+  @   Mercader      (verd)
+  @   Sacerdot      (blanc brillant)
+  @   Bandit        (groc, hostil)
+
+La majoria de criatures són una sola lletra. Alguns exemples
+agrupats per família (el bestiari complet és més gran):
+
+  Humanoides / goblinoides
+    g goblin   h hobgoblin   k kobold   o orc     O ogre
+    G gnoll    f home-granota            L home-llangardaix
+    n home-serp
+  Bèsties i cànids
+    b ratpenat r rata        w llop     d llop terrible
+    c ós       U warg        W home-llop / llop d'hivern
+  Rèptils i serps
+    l llangardaix  S serp    D llangardaix-drac   F granota gegant
+  Morts vivents
+    s esquelet Z zombi       M mòmia    W espectre / ànima en pena
+    g ghoul
+  Plagues, insectes i aràcnids
+    s aranya   i eixam d'insectes       a escarabat de foc
+    L llagosta de cova        S escorpí gegant    c centpeus gegant
+  Llims i plantes
+    P pudding negre  j gelatina ocre    o llim gris
+    f fong / flor carnívora             m floridura groga
+  Exòtiques i caos
+    T trol (regenera)         $ mímic (disfressat de cofre/or)
+    ! cridaner (alerta les criatures)
+    C centaure  H harpia       V vibra   I caminant invisible
+    A armadura animada         G gàrgola  B basilisc (mirada)
+
+Regla general: minúscula = més petit, majúscula = més gran o fort.
+Els trols regeneren 3 PV per torn; els mímics i cridaners es
+disfressen d'objectes — les sorpreses són part del joc.
 
 ## Objectes Màgics
 
+### Pocions (14)
+  Curació, Força, Velocitat, Gel, Invisibilitat, Levitació,
+  Flama Líquida, Visió Mental, Gas Paralitzant, Purificació,
+  Confusió, Ceguera, Àcid, Malaltia.
+
+Algunes pocions fan més mal llançades que begudes.
+Beure qualsevol poció recupera una mica de nutrició.
+
+### Pergamins
+Detecció (brillantor que s'esvaeix, revelen coses durant una estona):
+  Detectar Màgia, Detectar Mal, Detectar Or, Detectar Menjar,
+  Detectar Gemmes, Detectar Invisibilitat, Trobar Trampes,
+  Revelar Mapa.
+Ofensius / estat:
+  Llamp, Bola de Foc, Míssil Màgic, Dormir, Subjectar Persona,
+  Teranyina, Encantar Persona, Força Fantasmal, Dissipar Màgia.
+Defensius / millora:
+  Benedicció, Escut, Velocitat, Curar Ferides, Imatge Mirall,
+  Invisibilitat, Protecció contra el Mal, Protecció contra
+  Projectils, Resistència al Foc, Resistència al Fred,
+  Silenci, Levitació, Vol.
+Utilitat:
+  Identificar, Recarregar, Teletransport, Encantar Arma,
+  Encantar Armadura, Clarividència, Infravisió, Respirar
+  sota l'Aigua, Encantar Serps.
+
 ### Anells (passius, actius mentre equipats)
   Reparació, Velocitat, Detecció, Elements, Precisió,
-  Evasió, Ombres, Protecció
+  Evasió, Ombres, Protecció.
 
 ### Varetes (dispara a objectius, càrregues limitades, es recarreguen)
-  Bola de foc, Llamp, Teleportació, Verí, Lentitud,
-  Desintegració, Míssil Màgic, Amok
+  Bola de foc, Llamp, Fred, Míssil Màgic, Desintegració,
+  Teleportació, Verí, Lentitud, Amok, Obertura, Bloqueig,
+  Excavació, Cancel·lació, Mort.
 
-## Elements de la Masmorra
+### Gemmes i Vidre
+Les gemmes reals (robí, safir, maragda, diamant, ametista,
+topazi, òpal, granat) es venen per or. El vidre sense valor
+es veu igual fins a identificar — un Pergamí d'Identificació
+o l'ull expert d'un mercader els distingeix.
 
-  = Cofre      Empeny per obrir, deixa caure botí
-  ^ Trampa     Oculta fins detectada (cerca amb 's')
-  + Porta      Empeny per obrir, algunes són secretes
-  > Escales    Descendir al següent nivell
-  < Escales    Ascendir al nivell anterior
-  % Cadàver    Restes d'una criatura morta
+## Identificació
+
+Les pocions, pergamins, anells, varetes i gemmes tenen aparences
+aleatòries cada partida. Per identificar-les:
+  - Pocions: beure per identificar (o llançar-ne una coneguda)
+  - Pergamins: llegir/usar per identificar
+  - Anells i varetes: equipar/disparar, o usar Pergamí/Vareta
+    d'Identificació
+  - Gemmes: usar Pergamí d'Identificació, o vendre-les a un mercader
+
+## Elements de la Masmorra i Sales Especials
+
+  Temple (prof. 2+)    Garantit a profunditat 2. Un sacerdot ofereix
+                        curació, eliminar maledicció i benedicció,
+                        a més de béns sagrats. Els preus pugen amb
+                        la profunditat.
+  Botigues              Un mercader ven objectes i compra botí al
+                        50% del valor. Empeny per comerciar.
+  Caus (prof. 3+)       1–3 sales connectades amb humanoides de la
+                        mateixa espècie. Les caselles del voltant
+                        amaguen trampes reactivables.
+  Zoos (prof. 5+)       Sales mitjanes plenes de criatures.
+  Nius de plagues       Sales plenes de rates, ratpenats o insectes.
+  Cambres del tresor    Cambres ocultes amb piles d'or.
+  Coves                 Disposicions orgàniques sense portes però
+                        amb més pous i trapes.
+
+## Trampes
+
+Les trampes estan ocultes fins que les detectes. Usa `s` (cerca)
+adjacent a una casella sospitosa, equipa l'Anell de Detecció o
+llança Trobar Trampes. Tipus: pou, trapa, fletxa, dard, pedra,
+foc, verí, paràlisi, alarma, teletransport, invocació, aferrar,
+espores. Algunes trampes al voltant dels caus es reactiven
+passats 40 torns.
+
+## Portes
+
+  Tancada          Empeny per obrir (només els humanoides ho poden fer).
+  Bloquejada       Usa `p` per forçar el pany (salvació DES, pot
+                   trencar una ganzua) o `f` per forçar la porta
+                   (salvació FOR, pot ferir-te).
+  Eines de força   Una palanca absorbeix el rebot i baixa la DC;
+                   una arma baixa una mica la DC però pot fer-se malbé.
+  Secreta          Semblen parets. Troba-les amb `s`.
+  Coves            Sense portes — només passadissos oberts.
+
+## Excavació i Tresor Enterrat
+
+Una eina d'excavació (pala, picassa, càvec o pic) et deixa
+excavar. Se'n garanteix una a les profunditats 1–5.
+
+  Parets    Qualsevol eina. Salvació FOR DC 12 menys la bonificació
+            de l'eina.
+  Terra     Només la pala. Pot revelar objectes enterrats (◎).
+            Possibilitat 1 entre 20 (+1 per bonificació FOR) de
+            caure al pis següent rebent 2d6 de dany. Excavar la
+            mateixa casella dues vegades garanteix la caiguda.
+  Pics      Colpejar el terra amb un pic, picassa o càvec pot
+            rebotar per 1d2 de dany en un 1 natural.
+
+Al client web, clic dret al botó Excavar activa l'Auto-excavació
+i pots excavar només movent-te contra parets.
+
+## Aventurers / Grup
+
+  Reclutar    Empeny un aventurer no contractat per obrir el menú
+              d'encontre. Contractar costa 100 monedes d'or × el
+              seu nivell.
+  Mida        Fins a dos aventurers a la vegada.
+  Comportament Lluiten, es curen amb pocions, agafen botí,
+              eviten trampes visibles i et segueixen entre sales
+              i baixant escales.
+  Donar       Prem `G` (o el menú contextual) per passar objectes.
+              La seva IA tria quin equip és millor portar.
+  Intercanvi  Empeny un aventurer per canviar-vos de lloc.
+  Acomiadar   Prem `P` per alliberar-lo.
+  Mort        Es notifica al registre. Els aventurers reben la
+              meitat d'XP.
+
+## Fam i Menjar
+
+Un rellotge de fam avança mentre explores. Menja (`a` i tria
+racions, pa, formatge, poma, bolet, carn seca…) abans que et moris
+de gana.
+Els bolets poden curar, enverinar o confondre. Beure una poció
+dóna una mica de nutrició, però mai prou per viure-hi.
+
+## Conceptes de Combat
+
+  Cos a cos   d20 + bonificació FOR + màgia d'arma vs CA de
+              l'objectiu. 20 natural = dany màxim. 1 natural =
+              fallada. Dany = dau d'arma + bonificació FOR + màgia
+              (mínim 1).
+  Distància   Llançar (`t`), disparar (`z`), o disparar amb
+              l'arc equipat.
+  Defensa     CA = 10 + bonificació DES + armadura/escut/casc/anell.
+  Moral       Els enemics fan salvació de moral en veure't per
+              primera vegada i en arribar a la meitat de PV;
+              els covards fugen.
+  Aventurers  Sumen les seves armes i encanteris al teu dany.
 
 ## Barra d'Estat
 
@@ -137,17 +358,64 @@ L'equipament ocupat compta als espais d'inventari.
   Línia 2: Nom (classe), habilitats, arma equipada, CA
   Línia 3: Armadura/escut/casc equipats, contingut de l'inventari
 
-## Consells
+## Com Jugar — Guia Breu
 
-  - Agafa-ho tot. La gestió d'inventari és clau a Knave.
-  - Els pergamins són potents però d'un sol ús. Guarda'ls.
-  - Les varetes es recarreguen lentament — no malgastis càrregues.
-  - L'or no ocupa espai a l'inventari. Agafa'l tot.
-  - Cerca ('s') prop de les parets per trobar portes secretes.
-  - Empeny els cofres per obrir-los i trobar botí.
-  - Els anells donen bonificacions passives — equipa'n dos.
-  - Més CON significa més espais d'inventari.
-  - Cada 1000 XP puges de nivell, guanyant PV i +1 a 3 stats.
+1. **Explora amb cautela.** Entra una vegada a cada sala nova,
+   mira què hi ha i retrocedeix si les probabilitats no et
+   afavoreixen.
+2. **Agafa gairebé tot.** L'or no ocupa espai; la resta sí, però
+   la majoria d'objectes val la pena.
+3. **Identifica amb seguretat.** Beu pocions desconegudes amb PV
+   plens. Llegeix pergamins desconeguts en sales buides — alguns
+   invoquen o teletransporten. No identifiquis mai en un cau.
+4. **Gasta els consumibles.** Pergamins i càrregues no et
+   acompanyen si mors. Usa'ls en els combats durs, no en els fàcils.
+5. **Cerca sovint.** Portes secretes i tresors enterrats s'amaguen
+   a parets i terres. Pitjar `s` uns quants cops costa poc.
+6. **Llegeix la sala.** Una sala plena de gent sol ser un zoo; una
+   sala gran amb criatures de la mateixa espècie, un cau; una
+   graella perfecta amb un mercader, una botiga; les decoracions
+   marquen els temples.
+7. **Puja de nivell amb cap.** Cada nivell augmenta les tres
+   habilitats més baixes en +1. No ho aboquis tot a FOR — CON
+   dóna espais, DES dóna CA, SAV resisteix la màgia.
+8. **Controla la fam.** No perdis torns en passadissos. Porta
+   almenys dues racions quan baixis.
+
+## Consells Tàctics
+
+- **Els passadissos canalitzen enemics** — lluita contra grups
+  a passos d'una sola casella perquè només et pugui atacar un.
+- **Tanca les portes darrere teu** amb `c` per bloquejar els
+  perseguidors i guanyar un cop gratis quan les obrin.
+- **Llança pocions als enemics** — Gel, Flama Líquida, Gas
+  Paralitzant, Àcid, Confusió i Ceguera fan debuff a l'impacte.
+- **Les varetes brillen contra enemics durs** — guarda Míssil
+  Màgic per objectius difícils d'encertar; mai falla.
+- **Anells de Reparació + Detecció** aguanten moltes partides.
+  Equipa els dos anells sempre que puguis.
+- **Les palanques fan que forçar portes sigui segur** —
+  absorbeixen el rebot i baixen la DC.
+- **Els trols regeneren** — crema'ls (Flama Líquida, Vareta de
+  Bola de Foc, Pergamí de Bola de Foc) per aturar la regeneració.
+- **Els mímics es fan passar per cofres** i **els cridaners
+  semblen pocions** — examina (`:`) el que et sembli fora de lloc.
+- **Els temples són un botó de reset** — la curació i eliminar
+  maledicció del sacerdot poden salvar una partida per un
+  grapat d'or.
+- **Contracta aviat.** Un aventurer de profunditat 1 és barat,
+  aguanta cops i es cura sol. Dóna-li la palanca sobrant.
+- **Excava amb mesura.** Excavar el terra estalvia temps però
+  pot deixar-te en un combat amb PV baixos — cura't abans.
+- **No pugis per gust.** Pujar escales desbarata el ritme d'XP
+  i només hi ha escales amunt a profunditat 1.
+
+## Desament
+
+El joc guarda automàticament cada torn — no hi ha tecla de
+desament manual. Els desaments se signen amb HMAC per detectar
+manipulació. Usa `--reset` per començar de nou ignorant
+l'autodesament.
 
 ## Opcions de Línia d'Ordres
 
