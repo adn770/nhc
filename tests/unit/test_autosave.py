@@ -452,3 +452,119 @@ class TestCustomSaveDir:
         restored_b = FakeGame()
         assert auto_restore(restored_b, dir_b)
         assert restored_b.turn == 99
+
+
+class TestAutosaveSigning:
+    """Autosaves are signed with HMAC-SHA256 so ``pickle.loads``
+    never runs on data an attacker could have touched.  The key
+    lives next to the save file (``.autosave.key``) with mode 0600
+    and is created lazily on the first save."""
+
+    _MAGIC = b"NHC1"
+
+    def test_save_file_starts_with_magic(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        autosave(game, save_dir)
+
+        blob = (save_dir / "autosave.nhc").read_bytes()
+        assert blob.startswith(self._MAGIC), (
+            "signed save must begin with the magic header"
+        )
+
+    def test_key_is_persisted_and_reused(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        autosave(game, save_dir)
+        key_path = save_dir / ".autosave.key"
+        assert key_path.exists()
+        first_key = key_path.read_bytes()
+        assert len(first_key) == 32
+
+        # Second save must reuse the same key — rotating on every
+        # save would invalidate the existing file.
+        autosave(game, save_dir)
+        assert key_path.read_bytes() == first_key
+
+    def test_roundtrip_with_signature(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        game.turn = 57
+        autosave(game, save_dir)
+
+        restored = FakeGame()
+        assert auto_restore(restored, save_dir)
+        assert restored.turn == 57
+
+    def test_tampered_payload_rejected(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        autosave(game, save_dir)
+
+        save_path = save_dir / "autosave.nhc"
+        blob = bytearray(save_path.read_bytes())
+        # Flip a byte deep inside the compressed payload (after
+        # the magic + 32 HMAC bytes).  Load must fail closed.
+        blob[-5] ^= 0xFF
+        save_path.write_bytes(bytes(blob))
+
+        restored = FakeGame()
+        assert not auto_restore(restored, save_dir)
+        # Corrupt files are deleted so stale garbage cannot
+        # survive across restarts.
+        assert not save_path.exists()
+
+    def test_wrong_key_rejected(self, tmp_path):
+        save_dir = tmp_path / "player_abc"
+        game = _make_game()
+        autosave(game, save_dir)
+
+        # Simulate an operator scrambling the key file and then
+        # restarting the service — clearing the in-process key
+        # cache stands in for the fresh interpreter that would
+        # read the tampered key from disk.
+        from nhc.core import autosave as autosave_mod
+        (save_dir / ".autosave.key").write_bytes(b"\x00" * 32)
+        autosave_mod._key_cache.clear()
+
+        restored = FakeGame()
+        assert not auto_restore(restored, save_dir)
+
+    def test_legacy_unsigned_save_rejected_by_default(
+        self, tmp_path, monkeypatch,
+    ):
+        """Pre-signing format (raw zlib+pickle) must not load
+        unless the operator explicitly opts in."""
+        monkeypatch.delenv(
+            "NHC_AUTOSAVE_ALLOW_LEGACY", raising=False,
+        )
+        save_dir = tmp_path / "player_abc"
+        save_dir.mkdir()
+        # Write a legacy-format payload the old code would have
+        # produced: zlib-compressed pickle, no magic header.
+        payload = _build_payload(_make_game())
+        (save_dir / "autosave.nhc").write_bytes(
+            zlib.compress(pickle.dumps(payload, protocol=5)),
+        )
+
+        restored = FakeGame()
+        assert not auto_restore(restored, save_dir)
+        # Refusal is destructive — we don't want the file lingering.
+        assert not (save_dir / "autosave.nhc").exists()
+
+    def test_legacy_unsigned_save_accepted_when_opted_in(
+        self, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setenv("NHC_AUTOSAVE_ALLOW_LEGACY", "1")
+        save_dir = tmp_path / "player_abc"
+        save_dir.mkdir()
+        game = _make_game()
+        game.turn = 11
+        payload = _build_payload(game)
+        (save_dir / "autosave.nhc").write_bytes(
+            zlib.compress(pickle.dumps(payload, protocol=5)),
+        )
+
+        restored = FakeGame()
+        assert auto_restore(restored, save_dir)
+        assert restored.turn == 11

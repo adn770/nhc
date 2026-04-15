@@ -3,13 +3,22 @@
 Saves complete game state (all floors, entities, identification,
 messages) in a compact binary format.  Atomic writes via .tmp +
 os.replace prevent corruption on crash.
+
+Autosaves are wrapped in an HMAC-SHA256 signature so
+``pickle.loads`` is only ever applied to bytes this process wrote.
+The key lives next to the save file (``.autosave.key``, mode
+0600) and is created lazily on the first save.  Legacy unsigned
+saves are rejected by default; set
+``NHC_AUTOSAVE_ALLOW_LEGACY=1`` to permit a one-time migration.
 """
 
 from __future__ import annotations
 
+import hmac
 import logging
 import os
 import pickle
+import secrets
 import threading
 import zlib
 from pathlib import Path
@@ -32,12 +41,156 @@ _DEFAULT_DIR = Path.home() / ".nhc" / "saves"
 _DEFAULT_PATH = _DEFAULT_DIR / "autosave.nhc"
 AUTOSAVE_VERSION = 1
 
+# Binary framing: signed payloads start with this 4-byte magic
+# followed by a 32-byte HMAC-SHA256 digest, then the compressed
+# pickle bytes.  Anything else is legacy / corrupt.
+_MAGIC = b"NHC1"
+_DIGEST_LEN = 32
+_HEADER_LEN = len(_MAGIC) + _DIGEST_LEN
+
+# Name of the per-save-dir HMAC key file.  Each player has its own
+# key so a leak of one save does not taint others, and so the
+# keys live on the same persistent volume as the saves (simplifies
+# backup / migration).
+_KEY_FILENAME = ".autosave.key"
+
+# Per-process cache of loaded HMAC keys, keyed on the resolved key
+# file path.  Autosave runs every few turns; re-reading 32 bytes
+# from disk each time is wasted I/O, and the key never changes
+# without the path itself changing.
+_key_cache: dict[Path, bytes] = {}
+_key_cache_lock = threading.Lock()
+
 
 def _resolve(save_dir: Path | None) -> tuple[Path, Path]:
     """Return (directory, file) for the autosave location."""
     if save_dir is not None:
         return save_dir, save_dir / "autosave.nhc"
     return _DEFAULT_DIR, _DEFAULT_PATH
+
+
+def _key_path(save_dir: Path | None) -> Path:
+    """Return the path of the HMAC key file for *save_dir*."""
+    dir_, _ = _resolve(save_dir)
+    return dir_ / _KEY_FILENAME
+
+
+def _load_or_create_key(save_dir: Path | None) -> bytes:
+    """Read the HMAC key for *save_dir*, creating it if missing.
+
+    The key file is 32 random bytes written with mode 0600 and an
+    atomic replace so interrupted writes never leave a partial
+    key on disk.  The result is cached per-path for the life of
+    the process so the autosave hot path does not re-read the key
+    on every turn.
+    """
+    path = _key_path(save_dir)
+    with _key_cache_lock:
+        cached = _key_cache.get(path)
+        if cached is not None:
+            return cached
+    try:
+        key = path.read_bytes()
+    except FileNotFoundError:
+        key = b""
+    if len(key) == _DIGEST_LEN:
+        with _key_cache_lock:
+            _key_cache[path] = key
+        return key
+    if key:
+        logger.warning(
+            "Autosave key %s has unexpected length %d — "
+            "generating a fresh key; any existing save will be "
+            "unreadable and removed.",
+            path, len(key),
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    new_key = secrets.token_bytes(_DIGEST_LEN)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    # Use os.open so we can set permissions before any bytes land
+    # on disk (write_bytes would briefly leave a world-readable
+    # file).
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    fd = os.open(str(tmp), flags, 0o600)
+    try:
+        os.write(fd, new_key)
+    finally:
+        os.close(fd)
+    os.replace(str(tmp), str(path))
+    with _key_cache_lock:
+        _key_cache[path] = new_key
+    return new_key
+
+
+def _sign(key: bytes, compressed: bytes) -> bytes:
+    """Prepend the magic + HMAC-SHA256 digest to *compressed*."""
+    digest = hmac.new(key, compressed, "sha256").digest()
+    return _MAGIC + digest + compressed
+
+
+def _verify_and_strip(key: bytes, blob: bytes) -> bytes | None:
+    """Return the compressed payload if *blob* is a valid signed
+    save, ``None`` if *blob* is not in the signed format.
+
+    Raises :class:`ValueError` on signature mismatch — the caller
+    is responsible for deleting corrupt/tampered files.
+    """
+    if not blob.startswith(_MAGIC):
+        return None
+    if len(blob) < _HEADER_LEN:
+        raise ValueError("autosave too short to be valid")
+    digest = blob[len(_MAGIC):_HEADER_LEN]
+    compressed = blob[_HEADER_LEN:]
+    expected = hmac.new(key, compressed, "sha256").digest()
+    if not hmac.compare_digest(digest, expected):
+        raise ValueError("autosave signature mismatch")
+    return compressed
+
+
+def _legacy_loads_allowed() -> bool:
+    """Return True if legacy (unsigned) autosaves may be loaded.
+
+    Defaults to False.  Operators can flip this once during the
+    migration window from the unsigned format.
+    """
+    value = os.environ.get("NHC_AUTOSAVE_ALLOW_LEGACY", "").strip()
+    return value.lower() in {"1", "true", "yes"}
+
+
+def read_autosave_payload(path: Path) -> dict[str, Any] | None:
+    """Decompress and unpickle an autosave file for inspection.
+
+    Verifies the HMAC signature when a key file sits next to the
+    save (the normal case for saves produced after the signing
+    rollout).  Returns ``None`` for missing files, signature
+    mismatches, or legacy-format saves the current environment
+    is not allowed to read.
+
+    This is the forensic entry point for the debug tooling; game
+    code should keep using :func:`auto_restore` which performs a
+    full restore cycle and deletes tampered files.
+    """
+    if not path.exists():
+        return None
+    raw = path.read_bytes()
+    save_dir = path.parent
+    if (save_dir / _KEY_FILENAME).exists():
+        key = _load_or_create_key(save_dir)
+        try:
+            compressed = _verify_and_strip(key, raw)
+        except ValueError:
+            logger.warning(
+                "read_autosave_payload: signature mismatch at %s",
+                path,
+            )
+            return None
+    else:
+        compressed = None
+    if compressed is None:
+        if not _legacy_loads_allowed():
+            return None
+        compressed = raw
+    return pickle.loads(zlib.decompress(compressed))
 
 
 def has_autosave(save_dir: Path | None = None) -> bool:
@@ -81,9 +234,12 @@ def autosave(
     def _write():
         try:
             with _save_lock:
-                data = zlib.compress(
-                    pickle.dumps(payload, protocol=5), level=1)
                 save_dir_resolved.mkdir(parents=True, exist_ok=True)
+                key = _load_or_create_key(save_dir)
+                compressed = zlib.compress(
+                    pickle.dumps(payload, protocol=5), level=1,
+                )
+                data = _sign(key, compressed)
                 tmp_path = save_path.with_suffix(".tmp")
                 tmp_path.write_bytes(data)
                 os.replace(str(tmp_path), str(save_path))
@@ -104,8 +260,35 @@ def auto_restore(game: "Game", save_dir: Path | None = None) -> bool:
 
     _, save_path = _resolve(save_dir)
     try:
-        data = save_path.read_bytes()
-        payload = pickle.loads(zlib.decompress(data))
+        raw = save_path.read_bytes()
+        key = _load_or_create_key(save_dir)
+        try:
+            compressed = _verify_and_strip(key, raw)
+        except ValueError:
+            logger.error(
+                "Autosave signature mismatch — refusing to load",
+            )
+            delete_autosave(save_dir)
+            return False
+
+        if compressed is None:
+            # Legacy unsigned save — the payload is raw
+            # zlib(pickle).  Never execute pickle on untrusted
+            # bytes unless the operator has explicitly opted in.
+            if not _legacy_loads_allowed():
+                logger.error(
+                    "Unsigned legacy autosave refused "
+                    "(set NHC_AUTOSAVE_ALLOW_LEGACY=1 to migrate)",
+                )
+                delete_autosave(save_dir)
+                return False
+            compressed = raw
+            logger.warning(
+                "Loading unsigned legacy autosave — next save "
+                "will be signed.",
+            )
+
+        payload = pickle.loads(zlib.decompress(compressed))
 
         if payload.get("version") != AUTOSAVE_VERSION:
             logger.warning("Autosave version mismatch, deleting")

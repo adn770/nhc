@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-import pickle
-import zlib
 from pathlib import Path
 from typing import Any
 
+from nhc.core.autosave import read_autosave_payload
 from nhc.debug_tools.base import BaseTool
 
 
 def _load_autosave(path: Path) -> dict[str, Any] | None:
-    """Decompress and unpickle an autosave file."""
-    if not path.exists():
-        return None
-    data = path.read_bytes()
-    return pickle.loads(zlib.decompress(data))
+    """Thin wrapper over :func:`nhc.core.autosave.read_autosave_payload`."""
+    return read_autosave_payload(path)
 
 
 class GetAutosaveInfoTool(BaseTool):
