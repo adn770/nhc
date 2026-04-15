@@ -725,23 +725,25 @@ body {
 }
 
 #help-btn {
-  width: 28px;
-  height: 28px;
-  border: 1px solid #555;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #5c9cff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
-  font-size: 14px;
+  color: #5c9cff;
+  font-size: 20px;
+  font-weight: bold;
   cursor: pointer;
   flex-shrink: 0;
   margin-left: 8px;
 }
 
 #help-btn:hover {
-  color: #e6c07b;
-  border-color: #e6c07b;
+  color: #8fbcff;
+  border-color: #8fbcff;
+  box-shadow: 0 0 6px #5c9cff;
 }
 
 #status-line1 {
