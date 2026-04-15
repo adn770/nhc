@@ -3,8 +3,16 @@
 # NHC deployment script — run with sudo on the target host.
 #
 # Usage:
-#   sudo ./deploy/setup.sh          # interactive setup
-#   sudo ./deploy/setup.sh --update # rebuild image + restart only
+#   sudo ./deploy/setup.sh                       # interactive setup
+#   sudo ./deploy/setup.sh --update              # redeploy current state
+#   sudo ./deploy/setup.sh --lan-admin=CIDR,...  # enable HTTP :9080 for
+#                                                # admin from LAN clients
+#                                                # that can't use the
+#                                                # DuckDNS hostname (e.g.
+#                                                # hairpin-NAT).  Plaintext.
+#
+# Flags compose: ``--update --lan-admin=192.168.12.0/24`` redeploys and
+# turns on the LAN admin side-channel for that subnet.
 #
 set -euo pipefail
 
@@ -51,7 +59,12 @@ write_caddyfile() {
         fail "caddy user not found — install Caddy before writing the Caddyfile."
     fi
     install -d -o caddy -g caddy -m 750 /var/log/caddy
+    install -d -m 755 /etc/caddy/conf.d
     cat > /etc/caddy/Caddyfile <<CADDYFILE
+# Side-channel site blocks (e.g. LAN admin on :9080) are dropped
+# into conf.d by ``--lan-admin``.  Empty glob is harmless.
+import /etc/caddy/conf.d/*.caddy
+
 ${domain} {
     # Security response headers. HSTS is safe because Caddy only
     # serves HTTPS; -Server strips the upstream gunicorn banner.
@@ -88,6 +101,56 @@ CADDYFILE
     fi
 }
 
+# Enable plaintext HTTP admin on :9080 for LAN clients that cannot
+# reach the DuckDNS hostname (cross-VLAN hairpin-NAT).  Writes a
+# secondary Caddy site block, merges *cidrs* into the admin LAN
+# allowlist, and opens UFW.  Off by default; removing the conf.d
+# snippet plus a ``systemctl reload caddy`` disables it.
+enable_lan_admin() {
+    local cidrs="$1"
+    [[ -z "${cidrs}" ]] && fail "enable_lan_admin: empty CIDR list"
+    install -d -m 755 /etc/caddy/conf.d
+    cat > /etc/caddy/conf.d/lan-admin.caddy <<'CADDYFILE'
+# LAN admin side-channel — plaintext, no TLS.  Only reachable from
+# CIDRs listed in ``NHC_ADMIN_LAN_CIDRS`` because the app-layer
+# guard still applies.  Use over trusted LAN only.
+:9080 {
+    reverse_proxy localhost:8080
+    encode gzip
+}
+CADDYFILE
+    ok "Wrote /etc/caddy/conf.d/lan-admin.caddy (:9080)"
+
+    # Merge cidrs into NHC_ADMIN_LAN_CIDRS (dedup, stable order).
+    local current merged
+    current=$(grep -oP '^Environment=NHC_ADMIN_LAN_CIDRS=\K.*' \
+        "${OVERRIDE_FILE}" 2>/dev/null || true)
+    merged=$(printf '%s,%s' "${current}" "${cidrs}" \
+        | tr ',' '\n' \
+        | awk 'NF && !seen[$0]++' \
+        | paste -sd,)
+    if grep -q '^Environment=NHC_ADMIN_LAN_CIDRS=' "${OVERRIDE_FILE}"; then
+        sed -i "s|^Environment=NHC_ADMIN_LAN_CIDRS=.*|Environment=NHC_ADMIN_LAN_CIDRS=${merged}|" \
+            "${OVERRIDE_FILE}"
+    else
+        printf 'Environment=NHC_ADMIN_LAN_CIDRS=%s\n' "${merged}" \
+            >> "${OVERRIDE_FILE}"
+    fi
+    chmod 600 "${OVERRIDE_FILE}"
+    ok "Admin LAN CIDRs now: ${merged}"
+
+    if command -v ufw &>/dev/null; then
+        local c
+        for c in ${cidrs//,/ }; do
+            ufw allow from "${c}" to any port 9080 proto tcp \
+                >/dev/null
+            ok "ufw: allow from ${c} to 9080/tcp"
+        done
+    else
+        warn "ufw not installed — open 9080/tcp for ${cidrs} manually."
+    fi
+}
+
 # Append NHC_ADMIN_LAN_CIDRS to an existing override.conf when
 # the key is missing (migration from pre-hardening deploys).
 # Defaults to 192.168.18.0/24 — the deployment LAN.  Leaves the
@@ -121,9 +184,30 @@ info "Data dir:   ${DATA_DIR}"
 
 # ── Parse flags ─────────────────────────────────────────────
 UPDATE_ONLY=false
-if [[ "${1:-}" == "--update" ]]; then
-    UPDATE_ONLY=true
-    info "Update mode — will rebuild image and restart service."
+LAN_ADMIN_CIDRS=""
+for arg in "$@"; do
+    case "$arg" in
+        --update)
+            UPDATE_ONLY=true
+            ;;
+        --lan-admin=*)
+            LAN_ADMIN_CIDRS="${arg#--lan-admin=}"
+            [[ -z "${LAN_ADMIN_CIDRS}" ]] && \
+                fail "--lan-admin requires a CIDR list, e.g. --lan-admin=192.168.12.0/24"
+            ;;
+        --lan-admin)
+            fail "--lan-admin requires =CIDR[,CIDR], e.g. --lan-admin=192.168.12.0/24"
+            ;;
+        *)
+            fail "Unknown flag: ${arg}"
+            ;;
+    esac
+done
+if $UPDATE_ONLY; then
+    info "Update mode — will redeploy current state."
+fi
+if [[ -n "${LAN_ADMIN_CIDRS}" ]]; then
+    info "LAN admin (:9080) will be enabled for ${LAN_ADMIN_CIDRS}"
 fi
 
 # ── Build Docker image ──────────────────────────────────────
@@ -149,16 +233,24 @@ if $UPDATE_ONLY; then
     # Only rewrite the host Caddyfile when host-Caddy is actually
     # in use (docker-compose deployments use their own Caddy).
     if command -v caddy &>/dev/null && [[ -f /etc/caddy/Caddyfile ]]; then
-        # First non-comment token is the domain the current Caddy
-        # serves.  Preserves whatever was configured originally.
-        CADDY_DOMAIN=$(awk 'NF && $1 !~ /^#/ {print $1; exit}' \
-            /etc/caddy/Caddyfile)
+        # First site block header (``domain {``) identifies the
+        # production domain.  Skip comments, blank lines, and
+        # ``import`` directives that may now precede it.
+        CADDY_DOMAIN=$(awk '
+            /^[[:space:]]*($|#|import[[:space:]])/ { next }
+            /\{[[:space:]]*$/ { print $1; exit }
+        ' /etc/caddy/Caddyfile)
         if [[ -n "${CADDY_DOMAIN}" ]]; then
             info "Rewriting /etc/caddy/Caddyfile for ${CADDY_DOMAIN}..."
             write_caddyfile "${CADDY_DOMAIN}"
         else
             warn "Could not detect Caddy domain — skipping Caddyfile rewrite."
         fi
+    fi
+
+    if [[ -n "${LAN_ADMIN_CIDRS}" ]]; then
+        info "Enabling LAN admin on :9080..."
+        enable_lan_admin "${LAN_ADMIN_CIDRS}"
     fi
 
     info "Reloading systemd daemon..."
@@ -381,6 +473,17 @@ CONF
     systemctl enable caddy
     systemctl restart caddy
     ok "Caddy enabled and started."
+fi
+
+# LAN admin side-channel is independent of DuckDNS — it works even
+# on LAN-only deployments.  Applied after the main Caddy setup so
+# conf.d/lan-admin.caddy is read on the next reload.
+if [[ -n "${LAN_ADMIN_CIDRS}" ]]; then
+    info "Enabling LAN admin on :9080..."
+    enable_lan_admin "${LAN_ADMIN_CIDRS}"
+    if systemctl is-active caddy &>/dev/null; then
+        systemctl reload caddy || systemctl restart caddy
+    fi
 fi
 
 # ── Enable and start NHC ────────────────────────────────────
