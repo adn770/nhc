@@ -12,21 +12,51 @@ RestartSec=10
 # Secrets and tunables live in the override file:
 #   /etc/systemd/system/nhc.service.d/override.conf
 # Required:  NHC_AUTH_TOKEN
+#            NHC_ADMIN_LAN_CIDRS  (CIDRs allowed to reach /admin;
+#                                  empty ⇒ admin unreachable)
 # Optional:  NHC_MAX_SESSIONS (default 8)
 #            NHC_GEN_WORKERS  (default 4 — dungeon generation pool)
 Environment=NHC_DATA_DIR=/var/nhc
 Environment=NHC_MAX_SESSIONS=8
 Environment=NHC_GEN_WORKERS=4
 Environment=NHC_BIND=0.0.0.0
+Environment=NHC_ADMIN_LAN_CIDRS=
 
 ExecStartPre=-/usr/bin/docker rm -f nhc
+# Container hardening:
+#   --read-only               : rootfs cannot be modified from the
+#                               container (persistent state lives in
+#                               the /var/nhc volume).
+#   --tmpfs /tmp /app/debug   : writable scratch for Python's tempdir
+#                               and the per-run log + god-mode export
+#                               directory. /app/debug uid=1000 matches
+#                               the 'nhc' user from Dockerfile.base.
+#   --cap-drop=ALL            : no Linux capabilities needed; gunicorn
+#                               binds 8080 inside the container where
+#                               no capability is required.
+#   --security-opt no-new-privileges:true
+#                               : the container cannot gain privileges
+#                               via setuid binaries or similar.
+#   --pids-limit 256          : cap forks (defence against pid-exhaust
+#                               DoS via LLM callouts gone wrong).
+#   --memory 1g --memory-swap 1g
+#                               : hard RAM cap; prevents a single
+#                               session from starving the SBC.
 ExecStart=/usr/bin/docker run --name nhc \
     --publish ${NHC_BIND}:8080:8080 \
     --volume /var/nhc:/var/nhc \
+    --read-only \
+    --tmpfs /tmp:size=64m,mode=1777 \
+    --tmpfs /app/debug:size=64m,mode=1777,uid=1000,gid=1000 \
+    --cap-drop=ALL \
+    --security-opt no-new-privileges:true \
+    --pids-limit=256 \
+    --memory=1g --memory-swap=1g \
     --env NHC_DATA_DIR=${NHC_DATA_DIR} \
     --env NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN} \
     --env NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS} \
     --env NHC_GEN_WORKERS=${NHC_GEN_WORKERS} \
+    --env NHC_ADMIN_LAN_CIDRS=${NHC_ADMIN_LAN_CIDRS} \
     --env NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL} \
     nhc-web
 ExecStop=/usr/bin/docker stop -t 15 nhc

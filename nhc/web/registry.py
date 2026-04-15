@@ -7,6 +7,7 @@ via a lock; atomic writes via tmp + os.replace prevent corruption.
 
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import os
@@ -183,14 +184,14 @@ class PlayerRegistry:
     def is_valid_token_hash(self, h: str) -> bool:
         """True if the hash belongs to a non-revoked player."""
         for p in self._players:
-            if p["token_hash"] == h:
+            if hmac.compare_digest(p["token_hash"], h):
                 return not p["revoked"]
         return False
 
     def player_id_for_hash(self, h: str) -> str:
         """Return the player_id for a token hash, or empty string."""
         for p in self._players:
-            if p["token_hash"] == h:
+            if hmac.compare_digest(p["token_hash"], h):
                 return p["player_id"]
         return ""
 

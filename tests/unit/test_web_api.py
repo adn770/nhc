@@ -42,6 +42,260 @@ def _register_player(app_client, name="Tester"):
     return token, pid
 
 
+class TestHelpEndpoint:
+    """``/api/help/<lang>`` reads a file off disk keyed on *lang*.
+    The ``help_`` prefix already makes traversal infeasible on
+    Linux, but whitelisting is cheaper and clearer than arguing
+    about what the filesystem will refuse."""
+
+    def test_supported_language(self, client):
+        resp = client.get("/api/help/en")
+        assert resp.status_code == 200
+
+    def test_unknown_language_rejected(self, client):
+        resp = client.get("/api/help/xx")
+        assert resp.status_code == 400
+
+    def test_traversal_attempt_rejected(self, client):
+        resp = client.get("/api/help/..%2F..%2Fetc%2Fpasswd")
+        assert resp.status_code in (400, 404)
+
+
+class TestAdminListPlayersStripsTokenHash:
+    """The admin panel never needs the raw ``token_hash`` — it is
+    leaked to the caller today. The fix strips it from the JSON
+    response, leaving only the short ``player_id`` (which is the
+    hash prefix the caller already sees in URLs)."""
+
+    _TOKEN = "admin-secret"
+
+    def test_list_players_omits_token_hash(self, tmp_path):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+            trust_proxy=True,
+        )
+        app = create_app(config, auth_token=self._TOKEN)
+        app.config["TESTING"] = True
+        registry = app.config["PLAYER_REGISTRY"]
+        registry.register("tester")
+        with app.test_client() as c:
+            resp = c.get(
+                f"/api/admin/players?token={self._TOKEN}",
+                environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                headers={"X-Forwarded-For": "192.168.18.50"},
+            )
+            assert resp.status_code == 200
+            payload = resp.get_json()
+            assert payload
+            for player in payload:
+                assert "token_hash" not in player
+                # The short player_id is still there — the admin
+                # UI needs it to identify rows.
+                assert "player_id" in player
+
+
+class TestTokenStripRedirect:
+    """A ``?token=...`` in the URL bar persists in history, logs,
+    and ``Referer`` headers. After setting the cookie we must
+    redirect to the token-free URL so the sensitive value is not
+    retained anywhere user-visible."""
+
+    _TOKEN = "admin-secret"
+
+    def _auth_app(self, tmp_path):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+            trust_proxy=True,
+        )
+        app = create_app(config, auth_token=self._TOKEN)
+        app.config["TESTING"] = True
+        return app
+
+    def test_index_redirects_when_token_in_query(self, tmp_path):
+        app = self._auth_app(tmp_path)
+        registry = app.config["PLAYER_REGISTRY"]
+        token, _pid = registry.register("tester")
+        with app.test_client() as c:
+            resp = c.get(f"/?token={token}",
+                         follow_redirects=False)
+            assert resp.status_code == 303
+            assert "token=" not in resp.headers["Location"]
+            # Cookie must be set on the redirect so the next GET
+            # without the query param is still authenticated.
+            cookies = resp.headers.get_all("Set-Cookie")
+            assert any("nhc_token=" in h for h in cookies)
+            assert any("HttpOnly" in h for h in cookies)
+
+    def test_index_no_redirect_when_token_in_cookie(self, tmp_path):
+        """If there's no query token, serve directly — no bounce."""
+        app = self._auth_app(tmp_path)
+        registry = app.config["PLAYER_REGISTRY"]
+        token, _pid = registry.register("tester")
+        with app.test_client() as c:
+            c.set_cookie("nhc_token", token)
+            resp = c.get("/", follow_redirects=False)
+            assert resp.status_code == 200
+
+    def test_admin_redirects_when_token_in_query(self, tmp_path):
+        app = self._auth_app(tmp_path)
+        with app.test_client() as c:
+            resp = c.get(
+                f"/admin?token={self._TOKEN}",
+                environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                headers={"X-Forwarded-For": "192.168.18.50"},
+                follow_redirects=False,
+            )
+            assert resp.status_code == 303
+            assert "token=" not in resp.headers["Location"]
+            cookies = resp.headers.get_all("Set-Cookie")
+            assert any("nhc_admin_token=" in h for h in cookies)
+
+
+class TestTTSAuth:
+    """The TTS synthesis endpoint must require a player token AND
+    use the shared rate limiter — before the fix it accepted
+    unauthenticated bulk traffic from the public internet."""
+
+    def test_tts_status_is_public(self, tmp_path):
+        """`/api/tts/status` stays public — it tells the client
+        whether TTS is even compiled in, no resources consumed."""
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+        )
+        app = create_app(config, auth_token="admin")
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            resp = c.get("/api/tts/status")
+            assert resp.status_code == 200
+
+    def test_tts_synthesize_rejected_without_token(self, tmp_path):
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+        )
+        app = create_app(config, auth_token="admin")
+        app.config["TESTING"] = True
+        with app.test_client() as c:
+            resp = c.post(
+                "/api/tts", json={"text": "hello", "lang": "en"},
+            )
+            assert resp.status_code in (401, 403)
+
+    def test_tts_synthesize_accepts_valid_player(self, tmp_path):
+        """When auth is on and a valid player token is presented,
+        the handler proceeds past auth (may still 503 if piper
+        isn't installed in the test env)."""
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+        )
+        app = create_app(config, auth_token="admin")
+        app.config["TESTING"] = True
+        registry = app.config["PLAYER_REGISTRY"]
+        token, _pid = registry.register("tester")
+        with app.test_client() as c:
+            resp = c.post(
+                f"/api/tts?token={token}",
+                json={"text": "hello", "lang": "en"},
+            )
+            # 200 with TTS available, 503 if piper not installed,
+            # 400 if text rejected. We only require "not an auth
+            # rejection" — i.e. handler authorized the player.
+            assert resp.status_code not in (401, 403)
+
+    def test_tts_synthesize_rate_limited(self, tmp_path):
+        """Authenticated calls still hit the global rate limit."""
+        config = WebConfig(
+            max_sessions=20, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+        )
+        app = create_app(config, auth_token="admin")
+        app.config["TESTING"] = True
+        registry = app.config["PLAYER_REGISTRY"]
+        token, _pid = registry.register("tester")
+        with app.test_client() as c:
+            # First five are allowed by the 5/60s limiter.
+            for _ in range(5):
+                resp = c.post(
+                    f"/api/tts?token={token}",
+                    json={"text": "hi", "lang": "en"},
+                )
+                assert resp.status_code != 429
+            resp = c.post(
+                f"/api/tts?token={token}",
+                json={"text": "hi", "lang": "en"},
+            )
+            assert resp.status_code == 429
+
+
+class TestAdminLanAllowlist:
+    """End-to-end verification that ``create_app`` wires ProxyFix
+    and the LAN allowlist together so the vulnerable "is_private()"
+    LAN check is truly gone.
+    """
+
+    _TOKEN = "admin-secret"
+
+    def _build(self, tmp_path, cidrs):
+        config = WebConfig(
+            max_sessions=2,
+            data_dir=tmp_path,
+            auth_required=True,
+            admin_lan_cidrs=cidrs,
+            trust_proxy=True,
+        )
+        app = create_app(config, auth_token=self._TOKEN)
+        app.config["TESTING"] = True
+        return app
+
+    def test_reject_loopback_with_no_forwarded_header(self, tmp_path):
+        """C1 regression: Caddy arriving on loopback without a real
+        client IP must not be admin-eligible."""
+        app = self._build(tmp_path, ["192.168.18.0/24"])
+        with app.test_client() as c:
+            resp = c.get(f"/admin?token={self._TOKEN}",
+                         environ_base={"REMOTE_ADDR": "127.0.0.1"})
+            assert resp.status_code == 403
+
+    def test_reject_public_client_via_forwarded_header(self, tmp_path):
+        """C1 regression: Caddy forwarded a public IP — deny admin."""
+        app = self._build(tmp_path, ["192.168.18.0/24"])
+        with app.test_client() as c:
+            resp = c.get(
+                f"/admin?token={self._TOKEN}",
+                environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                headers={"X-Forwarded-For": "8.8.8.8"},
+            )
+            assert resp.status_code == 403
+
+    def test_allow_lan_client_via_forwarded_header(self, tmp_path):
+        """Real LAN client reaching Caddy over HTTP gets admin
+        (after the token-strip redirect)."""
+        app = self._build(tmp_path, ["192.168.18.0/24"])
+        with app.test_client() as c:
+            resp = c.get(
+                f"/admin?token={self._TOKEN}",
+                environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                headers={"X-Forwarded-For": "192.168.18.50"},
+                follow_redirects=True,
+            )
+            assert resp.status_code == 200
+
+    def test_empty_cidrs_blocks_admin_even_from_lan(self, tmp_path):
+        """Fail-closed default: no configured CIDRs → admin dark."""
+        app = self._build(tmp_path, [])
+        with app.test_client() as c:
+            resp = c.get(
+                f"/admin?token={self._TOKEN}",
+                environ_base={"REMOTE_ADDR": "127.0.0.1"},
+                headers={"X-Forwarded-For": "192.168.18.50"},
+            )
+            assert resp.status_code == 403
+
+
 class TestRateLimit:
     def test_game_new_rate_limited(self, tmp_path):
         config = WebConfig(max_sessions=20, data_dir=tmp_path)
@@ -458,7 +712,9 @@ class TestWelcomeMessage:
         token, pid = registry.register("Alice")
 
         with app.test_client() as c:
-            resp = c.get(f"/?token={token}")
+            # ``?token=...`` now triggers a 303 redirect that strips
+            # the query string from history/logs before rendering.
+            resp = c.get(f"/?token={token}", follow_redirects=True)
             assert resp.status_code == 200
             assert b"Welcome back, Alice" in resp.data
 

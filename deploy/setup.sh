@@ -35,6 +35,67 @@ DUCKDNS_TIMER_FILE="/etc/systemd/system/duckdns-update.timer"
 DUCKDNS_OVERRIDE_DIR="/etc/systemd/system/duckdns-update.service.d"
 DUCKDNS_OVERRIDE_FILE="${DUCKDNS_OVERRIDE_DIR}/override.conf"
 
+# ── Reusable helpers ──────────────────────────────────────
+# Render /etc/caddy/Caddyfile for the given domain with the
+# security headers, access log, and HTTPS-only reverse proxy used
+# in production.  Also creates /var/log/caddy and runs the Caddy
+# validator.  Idempotent — safe to call on every run.
+write_caddyfile() {
+    local domain="$1"
+    mkdir -p /var/log/caddy
+    chown caddy:caddy /var/log/caddy 2>/dev/null || true
+    cat > /etc/caddy/Caddyfile <<CADDYFILE
+${domain} {
+    # Security response headers. HSTS is safe because Caddy only
+    # serves HTTPS; -Server strips the upstream gunicorn banner.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Content-Security-Policy "default-src 'self'; img-src 'self' data:; connect-src 'self' wss: ws:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        -Server
+    }
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MiB
+            roll_keep 7
+        }
+        format json {
+            time_format iso8601
+        }
+    }
+
+    reverse_proxy localhost:8080
+    encode gzip
+}
+CADDYFILE
+    if caddy validate --config /etc/caddy/Caddyfile \
+        --adapter caddyfile >/dev/null 2>&1; then
+        ok "Caddyfile written + validated: /etc/caddy/Caddyfile"
+    else
+        warn "Caddyfile validation failed — check /etc/caddy/Caddyfile"
+        caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+    fi
+}
+
+# Append NHC_ADMIN_LAN_CIDRS to an existing override.conf when
+# the key is missing (migration from pre-hardening deploys).
+# Defaults to 192.168.18.0/24 — the deployment LAN.  Leaves the
+# file untouched when the key is already present.
+migrate_override() {
+    local file="$1"
+    local default_cidrs="${2:-192.168.18.0/24}"
+    if ! grep -q '^Environment=NHC_ADMIN_LAN_CIDRS=' "$file"; then
+        warn "override.conf missing NHC_ADMIN_LAN_CIDRS — adding ${default_cidrs}"
+        printf 'Environment=NHC_ADMIN_LAN_CIDRS=%s\n' \
+            "$default_cidrs" >> "$file"
+        chmod 600 "$file"
+    fi
+}
+
 # ── Pre-flight checks ──────────────────────────────────────
 if [[ $EUID -ne 0 ]]; then
     fail "This script must be run as root (sudo)."
@@ -63,16 +124,55 @@ info "Building Docker image '${DOCKER_IMAGE}'..."
 docker build -t "${DOCKER_IMAGE}" "${REPO_DIR}"
 ok "Docker image built."
 
-# In update mode, just restart and exit
+# In update mode, idempotently reinstall every system artefact
+# the repo owns (systemd unit, override schema, Caddyfile) while
+# preserving existing secrets.  This is the path the user runs
+# after pulling new code; secrets already in override.conf are
+# kept verbatim.
 if $UPDATE_ONLY; then
+    info "Reinstalling systemd unit from repo..."
+    cp "${SCRIPT_DIR}/nhc.service" "${SERVICE_FILE}"
+
+    if [[ -f "${OVERRIDE_FILE}" ]]; then
+        migrate_override "${OVERRIDE_FILE}"
+    else
+        fail "No override.conf at ${OVERRIDE_FILE} — run setup.sh without --update first."
+    fi
+
+    # Only rewrite the host Caddyfile when host-Caddy is actually
+    # in use (docker-compose deployments use their own Caddy).
+    if command -v caddy &>/dev/null && [[ -f /etc/caddy/Caddyfile ]]; then
+        # First non-comment token is the domain the current Caddy
+        # serves.  Preserves whatever was configured originally.
+        CADDY_DOMAIN=$(awk 'NF && $1 !~ /^#/ {print $1; exit}' \
+            /etc/caddy/Caddyfile)
+        if [[ -n "${CADDY_DOMAIN}" ]]; then
+            info "Rewriting /etc/caddy/Caddyfile for ${CADDY_DOMAIN}..."
+            write_caddyfile "${CADDY_DOMAIN}"
+        else
+            warn "Could not detect Caddy domain — skipping Caddyfile rewrite."
+        fi
+    fi
+
+    info "Reloading systemd daemon..."
+    systemctl daemon-reload
+
     info "Restarting ${SERVICE_NAME} service..."
     systemctl restart "${SERVICE_NAME}"
+
+    if systemctl is-active caddy &>/dev/null; then
+        info "Reloading Caddy..."
+        systemctl reload caddy || systemctl restart caddy
+    fi
+
+    # Give the container a moment to come up before probing.
     sleep 3
     if curl -sf http://localhost:8080/health &>/dev/null; then
         ok "Service restarted and healthy."
     else
         warn "Service restarted but health check failed."
         echo "  Check logs with: journalctl -u ${SERVICE_NAME} -n 30"
+        exit 1
     fi
     exit 0
 fi
@@ -100,6 +200,7 @@ echo ""
 # Load existing override values if present
 EXISTING_AUTH_TOKEN=""
 EXISTING_MAX_SESSIONS=""
+EXISTING_ADMIN_LAN_CIDRS=""
 EXISTING_DUCKDNS_SUB=""
 EXISTING_DUCKDNS_TOKEN=""
 if [[ -f "${OVERRIDE_FILE}" ]]; then
@@ -107,6 +208,8 @@ if [[ -f "${OVERRIDE_FILE}" ]]; then
     EXISTING_AUTH_TOKEN=$(grep -oP 'NHC_AUTH_TOKEN=\K.*' \
         "${OVERRIDE_FILE}" 2>/dev/null || true)
     EXISTING_MAX_SESSIONS=$(grep -oP 'NHC_MAX_SESSIONS=\K.*' \
+        "${OVERRIDE_FILE}" 2>/dev/null || true)
+    EXISTING_ADMIN_LAN_CIDRS=$(grep -oP 'NHC_ADMIN_LAN_CIDRS=\K.*' \
         "${OVERRIDE_FILE}" 2>/dev/null || true)
     EXISTING_DUCKDNS_SUB=$(grep -oP 'DUCKDNS_SUBDOMAIN=\K.*' \
         "${OVERRIDE_FILE}" 2>/dev/null || true)
@@ -138,6 +241,18 @@ fi
 DEFAULT_SESSIONS="${EXISTING_MAX_SESSIONS:-8}"
 read -rp "  Max concurrent sessions [${DEFAULT_SESSIONS}]: " max_sessions
 NHC_MAX_SESSIONS="${max_sessions:-${DEFAULT_SESSIONS}}"
+
+# Admin LAN CIDRs — list of networks allowed to reach /admin.
+# Empty or unset means /admin is unreachable (fail closed).
+# Never include loopback or Docker bridge ranges here: the app
+# sits behind a local reverse proxy, so every request arrives from
+# 127.0.0.1 / 172.17.0.x and listing those would expose /admin to
+# the public internet.
+DEFAULT_CIDRS="${EXISTING_ADMIN_LAN_CIDRS:-192.168.18.0/24}"
+echo "  Admin LAN CIDRs (comma-separated) — clients from these"
+echo "  networks are allowed to reach /admin.  Empty = fail closed."
+read -rp "  Admin LAN CIDRs [${DEFAULT_CIDRS}]: " admin_cidrs
+NHC_ADMIN_LAN_CIDRS="${admin_cidrs:-${DEFAULT_CIDRS}}"
 
 # DuckDNS (optional, for internet exposure)
 echo ""
@@ -184,6 +299,7 @@ cat > "${OVERRIDE_FILE}" <<CONF
 [Service]
 Environment=NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN}
 Environment=NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS}
+Environment=NHC_ADMIN_LAN_CIDRS=${NHC_ADMIN_LAN_CIDRS}
 Environment=NHC_BIND=${NHC_BIND}
 Environment=NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL}
 CONF
@@ -224,13 +340,7 @@ if [[ -n "${DUCKDNS_SUBDOMAIN}" && -n "${DUCKDNS_TOKEN}" ]]; then
     # ── Generate Caddyfile ──────────────────────────────────
     CADDY_DOMAIN="${DUCKDNS_SUBDOMAIN}.duckdns.org"
     info "Writing Caddyfile for ${CADDY_DOMAIN}..."
-    cat > /etc/caddy/Caddyfile <<CADDYFILE
-${CADDY_DOMAIN} {
-    reverse_proxy localhost:8080
-    encode gzip
-}
-CADDYFILE
-    ok "Caddyfile written: /etc/caddy/Caddyfile"
+    write_caddyfile "${CADDY_DOMAIN}"
 
     # ── Install DuckDNS update timer ────────────────────────
     info "Installing DuckDNS update timer..."
@@ -260,15 +370,7 @@ CONF
     systemctl enable --now duckdns-update.timer
     ok "DuckDNS timer enabled (every 5 min)."
 
-    # Validate Caddyfile before restarting
-    info "Validating Caddyfile..."
-    if caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
-        ok "Caddyfile is valid."
-    else
-        warn "Caddyfile validation failed — check /etc/caddy/Caddyfile"
-        caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-    fi
-
+    # write_caddyfile already validated above; just enable/start.
     systemctl enable caddy
     systemctl restart caddy
     ok "Caddy enabled and started."

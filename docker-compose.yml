@@ -5,11 +5,24 @@ services:
       - "8080"
     volumes:
       - /var/nhc:/var/nhc
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/debug:size=64m,mode=1777,uid=1000,gid=1000
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    memswap_limit: 1g
     environment:
       - NHC_DATA_DIR=/var/nhc
       - NHC_AUTH_TOKEN=${NHC_AUTH_TOKEN}
       - NHC_MAX_SESSIONS=${NHC_MAX_SESSIONS:-8}
       - NHC_GEN_WORKERS=${NHC_GEN_WORKERS:-4}
+      - NHC_ADMIN_LAN_CIDRS=${NHC_ADMIN_LAN_CIDRS:-}
+      - NHC_EXTERNAL_URL=${NHC_EXTERNAL_URL:-}
     restart: unless-stopped
 
   caddy:

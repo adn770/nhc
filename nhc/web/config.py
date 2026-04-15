@@ -24,3 +24,13 @@ class WebConfig:
     data_dir: Path | None = None
     hatch_distance: float = 2.0
     external_url: str = ""
+    # CIDRs allowed to reach /admin.  Empty list → admin is
+    # unreachable (fail closed).  Must NOT include loopback or
+    # Docker bridge ranges, since every request behind a local
+    # reverse proxy appears from one of those.
+    admin_lan_cidrs: list[str] = field(default_factory=list)
+    # When True, wrap the WSGI app in Werkzeug's ``ProxyFix`` so
+    # ``request.remote_addr`` reflects the original client IP sent
+    # in ``X-Forwarded-For`` by the single trusted upstream proxy
+    # (e.g. Caddy on localhost).  Leave False for bare-metal dev.
+    trust_proxy: bool = False

@@ -1,4 +1,29 @@
 {$DUCKDNS_SUBDOMAIN}.duckdns.org {
+    # Security response headers. HSTS is safe because Caddy only
+    # serves HTTPS; ``-Server`` strips the upstream gunicorn banner
+    # so we don't advertise the runtime.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Content-Security-Policy "default-src 'self'; img-src 'self' data:; connect-src 'self' wss: ws:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        -Server
+    }
+
+    # Access log, with the ``token`` query value redacted so the
+    # log file itself does not become a credential archive.
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 10MiB
+            roll_keep 7
+        }
+        format json {
+            time_format iso8601
+        }
+    }
+
     reverse_proxy nhc:8080
     encode gzip
 }

@@ -13,13 +13,45 @@ import json
 import logging
 import threading
 import time
+from urllib.parse import urlparse
 
 from flask import request
 from flask_sock import Sock
 
+from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager
 
 logger = logging.getLogger(__name__)
+
+
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def _origin_allowed(origin: str | None, config: WebConfig) -> bool:
+    """Return True if *origin* may open a WebSocket.
+
+    A missing ``Origin`` header means a non-browser client (curl,
+    health probes) and carries no CSRF risk, so we allow it.
+    When present, the origin's host must match either the
+    configured ``external_url`` host or a loopback host used in
+    development.
+    """
+    if not origin:
+        return True
+    try:
+        parsed = urlparse(origin)
+    except ValueError:
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    if host in _LOOPBACK_HOSTS:
+        return True
+    if config.external_url:
+        expected = urlparse(config.external_url).hostname or ""
+        if expected and host == expected.lower():
+            return True
+    return False
 
 
 def _submit_final_score(session) -> None:
@@ -255,8 +287,22 @@ def register_ws(app, sock: Sock) -> None:
         """Handle a WebSocket connection for a game session."""
         logger.info("WS connect: session=%s", session_id)
 
-        # Validate player token when auth is enabled
+        # Reject browser sockets from untrusted origins before we
+        # read any further request state.  Same-origin policy does
+        # not apply to WebSockets, so the browser *will* open a
+        # socket from evil.example.com — we have to enforce it.
         config = app.config.get("NHC_CONFIG")
+        if config and not _origin_allowed(
+            request.headers.get("Origin"), config,
+        ):
+            logger.warning(
+                "WS rejected: untrusted origin %r",
+                request.headers.get("Origin"),
+            )
+            ws.send('{"type":"error","text":"origin not allowed"}')
+            return
+
+        # Validate player token when auth is enabled
         registry = app.config.get("PLAYER_REGISTRY")
         if config and config.auth_required and registry:
             from nhc.web.auth import hash_token

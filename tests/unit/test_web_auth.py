@@ -1,10 +1,12 @@
 """Tests for web authentication."""
 
+import ipaddress
+
 import pytest
 from flask import Flask, g, jsonify
 
 from nhc.web.auth import (
-    _is_lan, generate_token, hash_token,
+    _ip_in_networks, generate_token, hash_token,
     require_admin, require_auth, require_player,
 )
 from nhc.web.registry import PlayerRegistry
@@ -84,24 +86,43 @@ class TestAuthMiddleware:
             assert resp.status_code == 200
 
 
-class TestIsLan:
-    def test_private_ipv4(self):
-        assert _is_lan("192.168.1.100")
-        assert _is_lan("10.0.0.1")
-        assert _is_lan("172.16.0.1")
-        assert _is_lan("127.0.0.1")
+class TestIpInNetworks:
+    """Allowlist-style LAN check.
 
-    def test_public_ipv4(self):
-        assert not _is_lan("8.8.8.8")
-        assert not _is_lan("1.2.3.4")
+    Replaces the old ``is_private()`` check, which treated loopback
+    and Docker bridges as "LAN" and silently bypassed the admin
+    guard when the app sat behind a reverse proxy on localhost.
+    """
 
-    def test_loopback_ipv6(self):
-        assert _is_lan("::1")
+    _LAN = [ipaddress.ip_network("192.168.18.0/24")]
 
-    def test_none_and_invalid(self):
-        assert not _is_lan(None)
-        assert not _is_lan("")
-        assert not _is_lan("not-an-ip")
+    def test_ip_inside_allowed_network(self):
+        assert _ip_in_networks("192.168.18.5", self._LAN)
+
+    def test_ip_outside_allowed_network(self):
+        assert not _ip_in_networks("192.168.19.5", self._LAN)
+        assert not _ip_in_networks("8.8.8.8", self._LAN)
+
+    def test_loopback_is_not_lan(self):
+        """Regression for the admin LAN-guard bypass: 127.0.0.1
+        is what Flask sees for every request behind a loopback
+        reverse proxy; it must not satisfy the LAN check."""
+        assert not _ip_in_networks("127.0.0.1", self._LAN)
+
+    def test_docker_bridge_is_not_lan(self):
+        """Regression: Docker's default bridge range (172.17.0.x)
+        is what Flask sees when the reverse proxy runs in another
+        container; it must not satisfy the LAN check."""
+        assert not _ip_in_networks("172.17.0.2", self._LAN)
+
+    def test_empty_networks_list_fails_closed(self):
+        """With no configured LAN, deny every client."""
+        assert not _ip_in_networks("192.168.18.5", [])
+
+    def test_invalid_inputs(self):
+        assert not _ip_in_networks(None, self._LAN)
+        assert not _ip_in_networks("", self._LAN)
+        assert not _ip_in_networks("not-an-ip", self._LAN)
 
 
 class TestRequireAdmin:
@@ -109,11 +130,12 @@ class TestRequireAdmin:
     def admin_app(self):
         token = "admin-secret"
         admin_hash = hash_token(token)
+        lan = [ipaddress.ip_network("192.168.18.0/24")]
         app = Flask(__name__)
         app.config["TESTING"] = True
 
         @app.route("/admin-route")
-        @require_admin(admin_hash)
+        @require_admin(admin_hash, lan_networks=lan)
         def admin_route():
             return jsonify({"status": "ok"})
 
@@ -123,16 +145,32 @@ class TestRequireAdmin:
         app, token = admin_app
         with app.test_client() as c:
             resp = c.get(f"/admin-route?token={token}",
-                         environ_base={"REMOTE_ADDR": "192.168.1.50"})
+                         environ_base={"REMOTE_ADDR": "192.168.18.50"})
             assert resp.status_code == 200
 
-    def test_admin_cookie(self, admin_app):
+    def test_admin_cookie_from_lan(self, admin_app):
         app, token = admin_app
         with app.test_client() as c:
             c.set_cookie("nhc_admin_token", token)
             resp = c.get("/admin-route",
-                         environ_base={"REMOTE_ADDR": "127.0.0.1"})
+                         environ_base={"REMOTE_ADDR": "192.168.18.50"})
             assert resp.status_code == 200
+
+    def test_reject_loopback_even_with_valid_token(self, admin_app):
+        """C1 regression: 127.0.0.1 must be rejected."""
+        app, token = admin_app
+        with app.test_client() as c:
+            resp = c.get(f"/admin-route?token={token}",
+                         environ_base={"REMOTE_ADDR": "127.0.0.1"})
+            assert resp.status_code == 403
+
+    def test_reject_docker_bridge_even_with_valid_token(self, admin_app):
+        """C1 regression: Docker bridge must be rejected."""
+        app, token = admin_app
+        with app.test_client() as c:
+            resp = c.get(f"/admin-route?token={token}",
+                         environ_base={"REMOTE_ADDR": "172.17.0.2"})
+            assert resp.status_code == 403
 
     def test_reject_from_public_ip(self, admin_app):
         app, token = admin_app
@@ -145,15 +183,32 @@ class TestRequireAdmin:
         app, _ = admin_app
         with app.test_client() as c:
             resp = c.get("/admin-route?token=wrong",
-                         environ_base={"REMOTE_ADDR": "192.168.1.50"})
+                         environ_base={"REMOTE_ADDR": "192.168.18.50"})
             assert resp.status_code == 403
 
     def test_reject_no_token(self, admin_app):
         app, _ = admin_app
         with app.test_client() as c:
             resp = c.get("/admin-route",
-                         environ_base={"REMOTE_ADDR": "192.168.1.50"})
+                         environ_base={"REMOTE_ADDR": "192.168.18.50"})
             assert resp.status_code == 401
+
+    def test_reject_when_no_lan_configured(self):
+        """If admin_lan_cidrs is empty, deny all admin access."""
+        token = "admin-secret"
+        admin_hash = hash_token(token)
+        app = Flask(__name__)
+        app.config["TESTING"] = True
+
+        @app.route("/admin-route")
+        @require_admin(admin_hash, lan_networks=[])
+        def admin_route():
+            return jsonify({"status": "ok"})
+
+        with app.test_client() as c:
+            resp = c.get(f"/admin-route?token={token}",
+                         environ_base={"REMOTE_ADDR": "192.168.18.50"})
+            assert resp.status_code == 403
 
 
 class TestRequirePlayer:

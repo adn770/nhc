@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import atexit
 import collections
+import ipaddress
 import logging
 import multiprocessing
 import os
@@ -13,9 +14,11 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from flask import (
-    Flask, g, jsonify, make_response, render_template, request, send_file,
+    Flask, g, jsonify, make_response, redirect, render_template, request,
+    send_file, url_for,
 )
 from flask_sock import Sock
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager, player_id_from_token
@@ -68,6 +71,33 @@ def create_app(
         template_folder="templates",
     )
     app.config["NHC_CONFIG"] = config
+
+    # Behind Caddy (or any single trusted upstream proxy),
+    # ``request.remote_addr`` is the proxy's loopback IP.  ProxyFix
+    # rewrites it from the ``X-Forwarded-For`` header set by the
+    # proxy so downstream code can allowlist real client IPs.
+    # Only enable when explicitly configured — a bare-metal dev
+    # server must NOT trust forwarded headers from random clients.
+    if config.trust_proxy:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+    # Empty list is interpreted as "fail closed": admin is reachable
+    # only from CIDRs listed here, so a missing configuration means
+    # no admin at all rather than any-client-accepted.
+    admin_lan_networks: list[ipaddress.IPv4Network
+                              | ipaddress.IPv6Network] = []
+    for cidr in config.admin_lan_cidrs:
+        try:
+            admin_lan_networks.append(ipaddress.ip_network(cidr))
+        except ValueError:
+            logger.error("Ignoring invalid admin_lan_cidrs entry: %s",
+                         cidr)
+    if config.auth_required and not admin_lan_networks:
+        logger.warning(
+            "NHC_ADMIN_LAN_CIDRS is empty — /admin will be "
+            "unreachable. Set NHC_ADMIN_LAN_CIDRS to a CIDR "
+            "like 192.168.18.0/24 to enable admin access.",
+        )
 
     # Cache-busting version for static JS/CSS files
     _static_version = str(int(time.time()))
@@ -175,7 +205,9 @@ def create_app(
         """Apply admin token + LAN auth when auth is enabled."""
         if config.auth_required and admin_hash:
             from nhc.web.auth import require_admin
-            return require_admin(admin_hash)(f)
+            return require_admin(
+                admin_hash, lan_networks=admin_lan_networks,
+            )(f)
         return f
 
     sock = Sock(app)
@@ -218,6 +250,28 @@ def create_app(
                 pid = player_id_from_token(token)
         return pid
 
+    def _set_auth_cookie(resp, name: str, token: str,
+                         *, path: str = "/") -> None:
+        """Write a short-lived auth cookie with the strict defaults
+        every auth route in this app shares — ``HttpOnly``,
+        ``SameSite=Strict``, and ``Secure`` whenever the request
+        arrived over HTTPS."""
+        resp.set_cookie(
+            name, token,
+            httponly=True, samesite="Strict", path=path,
+            secure=request.is_secure,
+        )
+
+    def _token_strip_redirect(endpoint: str, cookie_name: str,
+                              token: str, *, path: str = "/"):
+        """303-redirect to *endpoint* without the ``?token=``, and
+        set the auth cookie on the way out.  Called when a token
+        arrives in the URL bar so it does not linger in history,
+        access logs, or ``Referer`` headers."""
+        resp = redirect(url_for(endpoint), code=303)
+        _set_auth_cookie(resp, cookie_name, token, path=path)
+        return resp
+
     # ── Public routes ───────────────────────────────────────
 
     def _welcome_labels(lang: str) -> dict:
@@ -246,6 +300,10 @@ def create_app(
             h = hash_token(token)
             if not registry.is_valid_token_hash(h):
                 return "Invalid or revoked token.", 403
+            if request.args.get("token"):
+                return _token_strip_redirect(
+                    "index", "nhc_token", token,
+                )
             pid = registry.player_id_for_hash(h)
             player = registry.get(pid)
             player_name = player["name"] if player else ""
@@ -256,8 +314,7 @@ def create_app(
                 god_mode=player_god, player_lang=player_lang,
                 welcome_labels=_welcome_labels(player_lang),
             ))
-            resp.set_cookie("nhc_token", token,
-                            samesite="Strict")
+            _set_auth_cookie(resp, "nhc_token", token)
             return resp
         return render_template(
             "index.html",
@@ -275,9 +332,18 @@ def create_app(
     def tilesets():
         return jsonify(["classic"])
 
+    _HELP_LANGS = ("en", "es", "ca")
+
     @app.route("/api/help/<lang>", methods=["GET"])
     def help_text(lang: str):
-        """Serve the help document for the given language."""
+        """Serve the help document for the given language.
+
+        *lang* is restricted to the known locale codes so the path
+        can never contain traversal segments or odd filesystem
+        characters, even before the ``help_`` prefix.
+        """
+        if lang not in _HELP_LANGS:
+            return "unsupported language", 400
         docs = Path(__file__).parent.parent.parent / "docs"
         path = docs / f"help_{lang}.md"
         if not path.exists():
@@ -295,8 +361,17 @@ def create_app(
         return jsonify({"available": engine.is_available()})
 
     @app.route("/api/tts", methods=["POST"])
+    @_player_auth
     def tts_synthesize():
-        """Synthesize text to WAV audio."""
+        """Synthesize text to WAV audio.
+
+        Requires a player token (piper is CPU-bound; exposing this
+        unauthenticated lets any internet host pin server cores).
+        The shared rate limiter caps sustained request rate per IP.
+        """
+        blocked = _check_rate_limit()
+        if blocked:
+            return blocked
         engine = _get_tts_engine(app)
         if not engine.is_available():
             return jsonify({"error": "TTS not available"}), 503
@@ -327,12 +402,15 @@ def create_app(
     def admin_page():
         from nhc.web.auth import _extract_token
         token = _extract_token(cookie_name="nhc_admin_token")
+        if token and request.args.get("token"):
+            return _token_strip_redirect(
+                "admin_page", "nhc_admin_token", token,
+            )
         resp = make_response(render_template(
             "admin.html", external_url=config.external_url,
         ))
         if token:
-            resp.set_cookie("nhc_admin_token", token, httponly=True,
-                            samesite="Strict", path="/")
+            _set_auth_cookie(resp, "nhc_admin_token", token)
         return resp
 
     @app.route("/api/admin/players", methods=["GET"])
@@ -343,6 +421,11 @@ def create_app(
         now = time.time()
         players = registry.list_all()
         for p in players:
+            # The admin UI never displays the raw token hash —
+            # strip it before serializing so one more hop of
+            # attacker reach (screenshot, cached JSON) doesn't
+            # land on the full SHA-256.
+            p.pop("token_hash", None)
             session = sessions.get_by_player(p["player_id"])
             p["online"] = session.connected if session else False
             p["has_session"] = session is not None
@@ -1231,6 +1314,10 @@ def app_factory() -> Flask:
     data_dir_str = os.environ.get("NHC_DATA_DIR")
     data_dir = Path(data_dir_str) if data_dir_str else None
 
+    cidrs_env = os.environ.get("NHC_ADMIN_LAN_CIDRS", "")
+    admin_lan_cidrs = [c.strip() for c in cidrs_env.split(",")
+                       if c.strip()]
+
     config = WebConfig(
         host="0.0.0.0",
         port=int(os.environ.get("NHC_PORT", "8080")),
@@ -1240,6 +1327,11 @@ def app_factory() -> Flask:
         god_mode=False,
         hatch_distance=float(os.environ.get("NHC_HATCH_DISTANCE", "1.0")),
         external_url=os.environ.get("NHC_EXTERNAL_URL", ""),
+        admin_lan_cidrs=admin_lan_cidrs,
+        # gunicorn in production always sits behind Caddy on
+        # loopback — trust one forwarded hop so the LAN allowlist
+        # sees the real client IP.
+        trust_proxy=True,
     )
     auth_token = os.environ.get("NHC_AUTH_TOKEN")
     return create_app(config, auth_token=auth_token)
