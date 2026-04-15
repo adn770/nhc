@@ -22,10 +22,10 @@ Prem TAB per canviar entre modes en qualsevol moment.
 ## Dreceres de Teclat — Mode Clàssic
 
 ### Moviment
-  Fletxes        Moure's en 4 direccions
-  h j k l        Tecles vi (esquerra, avall, amunt, dreta)
-  y u b n        Diagonals vi (NO, NE, SO, SE)
-  . o 5          Esperar un torn
+  Fletxes           Moure's en 4 direccions
+  h j k l           Tecles vi (esquerra, avall, amunt, dreta)
+  y u b n           Diagonals vi (NO, NE, SO, SE)
+  . o 5             Esperar un torn
 
 Empènyer una criatura hostil l'ataca.
 Empènyer una porta tancada l'obre.
@@ -35,52 +35,53 @@ Empènyer un mercader o sacerdot obre el seu menú de botiga/servei.
 Empènyer un aventurer no contractat obre el menú d'encontre.
 
 ### Objectes i Equipament
-  g o ,          Agafar objecte als peus
-  i              Obrir inventari
-  a              Usar un objecte (mostra menú d'inventari)
-  q              Beure una poció
-  e              Equipar arma, armadura, escut, casc o anell
-  d              Deixar un objecte de l'inventari
-  t              Llançar una poció a una criatura visible
-  z              Disparar una vareta a una criatura visible
+  g o ,             Agafar objecte als peus
+  i                 Obrir inventari
+  a                 Usar un objecte (mostra menú d'inventari)
+  q                 Beure una poció
+  e                 Equipar arma, armadura, escut, casc o anell
+  d                 Deixar un objecte de l'inventari
+  t                 Llançar una poció a una criatura visible
+  z                 Disparar una vareta a una criatura visible
 
 ### Exploració
-  :              Mirada llunyana — mou el cursor per examinar caselles
-  s              Cercar trampes ocultes i portes secretes
-  p              Forçar un pany (requereix eines, salvació DES)
-  f              Forçar una porta (salvació FOR, eines ajuden)
-  c              Tancar una porta oberta adjacent
-  D              Excavar paret o terra (cal una eina d'excavació)
-  >              Descendir escales
-  <              Ascendir escales
+  :                 Mirada llunyana — mou el cursor per examinar
+                    caselles
+  s                 Cercar trampes ocultes i portes secretes
+  p                 Forçar un pany (requereix eines, salvació DES)
+  f                 Forçar una porta (salvació FOR, les eines ajuden)
+  c                 Tancar una porta oberta adjacent
+  D                 Excavar paret o terra (cal una eina d'excavació)
+  >                 Descendir escales
+  <                 Ascendir escales
 
 ### Grup
-  G              Donar un objecte a un aventurer contractat
-  P              Acomiadar un aventurer del grup
+  G                 Donar un objecte a un aventurer contractat
+  P                 Acomiadar un aventurer del grup
 
 ### Interfície
-  [ ]            Desplaçar registre de missatges
-  ?              Mostrar aquesta pantalla d'ajuda
-  TAB            Canviar entre mode clàssic i escrit
-  Q              Sortir
+  [ ]               Desplaçar registre de missatges
+  ?                 Mostrar aquesta pantalla d'ajuda
+  TAB               Canviar entre mode clàssic i escrit
+  Q                 Sortir
 
 ## Dreceres de Teclat — Mode Escrit
 
 ### Entrada de Text
-  Enter          Enviar ordre al Director de Joc
-  ESC            Esborrar entrada actual
-  Amunt/Avall    Navegar historial d'entrades
-  Retrocés       Esborrar caràcter abans del cursor
-  Esquerra/Dreta Moure cursor dins el text
-  Inici/Fi       Saltar a inici/final de línia
+  Enter             Enviar ordre al Director de Joc
+  ESC               Esborrar entrada actual
+  Amunt/Avall       Navegar historial d'entrades
+  Retrocés          Esborrar caràcter abans del cursor
+  Esquerra/Dreta    Moure cursor dins el text
+  Inici/Fi          Saltar a inici/final de línia
 
 ### Dreceres (sense passar pel text)
-  Fletxes        Moure's directament (sense interpretació del DJ)
-  h j k l        Moviment vi (igual que el clàssic)
-  TAB            Tornar al mode clàssic
-  ?              Mostrar aquesta pantalla d'ajuda
-  [ ]            Desplaçar registre narratiu
-  Q              Sortir
+  Fletxes           Moure's directament (sense interpretació del DJ)
+  h j k l           Moviment vi (igual que el clàssic)
+  TAB               Tornar al mode clàssic
+  ?                 Mostrar aquesta pantalla d'ajuda
+  [ ]               Desplaçar registre narratiu
+  Q                 Sortir
 
 ## Exemples en Mode Escrit
 
@@ -99,17 +100,17 @@ Empènyer un aventurer no contractat obre el menú d'encontre.
 El client del navegador afegeix algunes funcions no disponibles
 al terminal:
 
-  Clic del ratolí      Moure's o actuar sobre la casella pitjada
-  Clic dret en objecte Menú contextual (Usar, Beure, Equipar,
-                       Llançar, Donar, Deixar)
-  Botó Examinar        Alterna la inspecció d'una casella; clic dret
-                       per mode Auto-examinar (inspecció contínua
-                       mentre et mous)
-  Botó Excavar         Alterna l'Auto-excavació — camina contra parets
-                       per excavar-les amb l'eina equipada
-  Opció TTS            Llegeix els missatges en veu alta amb Piper TTS
-  Classificació        Les partides acabades surten al rànquing
-                       (les de mode déu no hi compten)
+  Clic del ratolí   Moure's o actuar sobre la casella pitjada
+  Clic dret         Menú contextual sobre un objecte (Usar, Beure,
+                    Equipar, Llançar, Donar, Deixar)
+  Botó Examinar     Alterna la inspecció d'una casella; clic dret
+                    per mode Auto-examinar (inspecció contínua
+                    mentre et mous)
+  Botó Excavar      Alterna l'Auto-excavació — camina contra parets
+                    per excavar-les amb l'eina equipada
+  Opció TTS         Llegeix els missatges en veu alta amb Piper TTS
+  Classificació     Les partides acabades surten al rànquing
+                    (les de mode déu no hi compten)
 
 ## Estadístiques del Personatge (Regles Knave)
 
@@ -128,11 +129,12 @@ al terminal:
 
 ## Espais d'Equipament
 
-  Arma        Una arma cos a cos o a distància
-  Armadura    Gambeson, brigandina, malla, mitja armadura, armadura completa
-  Escut       Rodella o escut (+1 CA cadascun)
-  Casc        Capell de cuir o casc (+1 CA cadascun)
-  Anell (E/D) Dos espais per efectes màgics passius
+  Arma              Una arma cos a cos o a distància
+  Armadura          Gambeson, brigandina, malla, mitja armadura,
+                    armadura completa
+  Escut             Rodella o escut (+1 CA cadascun)
+  Casc              Capell de cuir o casc (+1 CA cadascun)
+  Anell (E/D)       Dos espais per efectes màgics passius
 
 Els objectes equipats també ocupen espais d'inventari.
 
@@ -262,20 +264,20 @@ aleatòries cada partida. Per identificar-les:
 
 ## Elements de la Masmorra i Sales Especials
 
-  Temple (prof. 2+)    Garantit a profunditat 2. Un sacerdot ofereix
-                        curació, eliminar maledicció i benedicció,
-                        a més de béns sagrats. Els preus pugen amb
-                        la profunditat.
-  Botigues              Un mercader ven objectes i compra botí al
-                        50% del valor. Empeny per comerciar.
-  Caus (prof. 3+)       1–3 sales connectades amb humanoides de la
-                        mateixa espècie. Les caselles del voltant
-                        amaguen trampes reactivables.
-  Zoos (prof. 5+)       Sales mitjanes plenes de criatures.
-  Nius de plagues       Sales plenes de rates, ratpenats o insectes.
-  Cambres del tresor    Cambres ocultes amb piles d'or.
-  Coves                 Disposicions orgàniques sense portes però
-                        amb més pous i trapes.
+  Temple (2+)       Garantit a profunditat 2. Un sacerdot ofereix
+                    curació, eliminar maledicció i benedicció, a més
+                    de béns sagrats. Els preus pugen amb la
+                    profunditat.
+  Botigues          Un mercader ven objectes i compra botí al 50%
+                    del valor. Empeny per comerciar.
+  Caus (3+)         1–3 sales connectades amb humanoides de la
+                    mateixa espècie. Les caselles del voltant
+                    amaguen trampes reactivables.
+  Zoos (5+)         Sales mitjanes plenes de criatures.
+  Nius de plagues   Sales plenes de rates, ratpenats o insectes.
+  Tresoreries       Cambres ocultes amb piles d'or.
+  Coves             Disposicions orgàniques sense portes però amb
+                    més pous i trapes.
 
 ## Trampes
 
@@ -288,47 +290,51 @@ passats 40 torns.
 
 ## Portes
 
-  Tancada          Empeny per obrir (només els humanoides ho poden fer).
-  Bloquejada       Usa `p` per forçar el pany (salvació DES, pot
-                   trencar una ganzua) o `f` per forçar la porta
-                   (salvació FOR, pot ferir-te).
-  Eines de força   Una palanca absorbeix el rebot i baixa la DC;
-                   una arma baixa una mica la DC però pot fer-se malbé.
-  Secreta          Semblen parets. Troba-les amb `s`.
-  Coves            Sense portes — només passadissos oberts.
+  Tancada           Empeny per obrir (només els humanoides
+                    ho poden fer).
+  Bloquejada        Usa `p` per forçar el pany (salvació DES, pot
+                    trencar una ganzua) o `f` per forçar la porta
+                    (salvació FOR, pot ferir-te).
+  Eines de força    Una palanca absorbeix el rebot i baixa la DC;
+                    una arma baixa una mica la DC però pot
+                    fer-se malbé.
+  Secreta           Semblen parets. Troba-les amb `s`.
+  Coves             Sense portes — només passadissos oberts.
 
 ## Excavació i Tresor Enterrat
 
 Una eina d'excavació (pala, picassa, càvec o pic) et deixa
 excavar. Se'n garanteix una a les profunditats 1–5.
 
-  Parets    Qualsevol eina. Salvació FOR DC 12 menys la bonificació
-            de l'eina.
-  Terra     Només la pala. Pot revelar objectes enterrats (◎).
-            Possibilitat 1 entre 20 (+1 per bonificació FOR) de
-            caure al pis següent rebent 2d6 de dany. Excavar la
-            mateixa casella dues vegades garanteix la caiguda.
-  Pics      Colpejar el terra amb un pic, picassa o càvec pot
-            rebotar per 1d2 de dany en un 1 natural.
+  Parets            Qualsevol eina. Salvació FOR DC 12 menys la
+                    bonificació de l'eina.
+  Terra             Només la pala. Pot revelar objectes enterrats
+                    (◎). Possibilitat 1 entre 20 (+1 per bonificació
+                    FOR) de caure al pis següent rebent 2d6 de dany.
+                    Excavar la mateixa casella dues vegades garanteix
+                    la caiguda.
+  Pics              Colpejar el terra amb un pic, picassa o càvec pot
+                    rebotar per 1d2 de dany en un 1 natural.
 
 Al client web, clic dret al botó Excavar activa l'Auto-excavació
 i pots excavar només movent-te contra parets.
 
 ## Aventurers / Grup
 
-  Reclutar    Empeny un aventurer no contractat per obrir el menú
-              d'encontre. Contractar costa 100 monedes d'or × el
-              seu nivell.
-  Mida        Fins a dos aventurers a la vegada.
-  Comportament Lluiten, es curen amb pocions, agafen botí,
-              eviten trampes visibles i et segueixen entre sales
-              i baixant escales.
-  Donar       Prem `G` (o el menú contextual) per passar objectes.
-              La seva IA tria quin equip és millor portar.
-  Intercanvi  Empeny un aventurer per canviar-vos de lloc.
-  Acomiadar   Prem `P` per alliberar-lo.
-  Mort        Es notifica al registre. Els aventurers reben la
-              meitat d'XP.
+  Reclutar          Empeny un aventurer no contractat per obrir el
+                    menú d'encontre. Contractar costa 100 monedes
+                    d'or × el seu nivell.
+  Mida              Fins a dos aventurers a la vegada.
+  Comportament      Lluiten, es curen amb pocions, agafen botí,
+                    eviten trampes visibles i et segueixen entre
+                    sales i baixant escales.
+  Donar             Prem `G` (o el menú contextual) per passar
+                    objectes. La seva IA tria quin equip és millor
+                    portar.
+  Intercanvi        Empeny un aventurer per canviar-vos de lloc.
+  Acomiadar         Prem `P` per alliberar-lo.
+  Mort              Es notifica al registre. Els aventurers reben
+                    la meitat d'XP.
 
 ## Fam i Menjar
 
@@ -340,23 +346,25 @@ dóna una mica de nutrició, però mai prou per viure-hi.
 
 ## Conceptes de Combat
 
-  Cos a cos   d20 + bonificació FOR + màgia d'arma vs CA de
-              l'objectiu. 20 natural = dany màxim. 1 natural =
-              fallada. Dany = dau d'arma + bonificació FOR + màgia
-              (mínim 1).
-  Distància   Llançar (`t`), disparar (`z`), o disparar amb
-              l'arc equipat.
-  Defensa     CA = 10 + bonificació DES + armadura/escut/casc/anell.
-  Moral       Els enemics fan salvació de moral en veure't per
-              primera vegada i en arribar a la meitat de PV;
-              els covards fugen.
-  Aventurers  Sumen les seves armes i encanteris al teu dany.
+  Cos a cos         d20 + bonificació FOR + màgia d'arma vs CA de
+                    l'objectiu. 20 natural = dany màxim. 1 natural
+                    = fallada. Dany = dau d'arma + bonificació FOR
+                    + màgia (mínim 1).
+  Distància         Llançar (`t`), disparar (`z`), o disparar amb
+                    l'arc equipat.
+  Defensa           CA = 10 + bonificació DES + armadura/escut/
+                    casc/anell.
+  Moral             Els enemics fan salvació de moral en veure't
+                    per primera vegada i en arribar a la meitat
+                    de PV; els covards fugen.
+  Aventurers        Sumen les seves armes i encanteris al teu dany.
 
 ## Barra d'Estat
 
-  Línia 1: Lloc, Profunditat, Torn, Nivell/XP, Or, Barra de PV
-  Línia 2: Nom (classe), habilitats, arma equipada, CA
-  Línia 3: Armadura/escut/casc equipats, contingut de l'inventari
+  Línia 1           Lloc, Profunditat, Torn, Nivell/XP, Or, Barra de PV
+  Línia 2           Nom (classe), habilitats, arma equipada, CA
+  Línia 3           Armadura/escut/casc equipats, contingut de
+                    l'inventari
 
 ## Com Jugar — Guia Breu
 
@@ -419,11 +427,11 @@ l'autodesament.
 
 ## Opcions de Línia d'Ordres
 
-  --seed N        Llavor RNG per reproduïbilitat
-  --lang LANG     Idioma: en, ca, es
-  --god           Mode déu (invulnerable, tot identificat)
-  --reset         Nova partida, ignorant l'autodesament
-  -G              Generar masmorra aleatòria
-  --mode MODE     classic o typed
-  --no-narrative  Desactivar narrativa LLM
-  -v              Registre detallat
+  --seed N          Llavor RNG per reproduïbilitat
+  --lang LANG       Idioma: en, ca, es
+  --god             Mode déu (invulnerable, tot identificat)
+  --reset           Nova partida, ignorant l'autodesament
+  -G                Generar masmorra aleatòria
+  --mode MODE       classic o typed
+  --no-narrative    Desactivar narrativa LLM
+  -v                Registre detallat

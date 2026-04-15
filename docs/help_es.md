@@ -22,10 +22,10 @@ Pulsa TAB para cambiar entre modos en cualquier momento.
 ## Atajos de Teclado — Modo Clásico
 
 ### Movimiento
-  Flechas        Moverse en 4 direcciones
-  h j k l        Teclas vi (izquierda, abajo, arriba, derecha)
-  y u b n        Diagonales vi (NO, NE, SO, SE)
-  . o 5          Esperar un turno
+  Flechas           Moverse en 4 direcciones
+  h j k l           Teclas vi (izquierda, abajo, arriba, derecha)
+  y u b n           Diagonales vi (NO, NE, SO, SE)
+  . o 5             Esperar un turno
 
 Empujar a una criatura hostil la ataca.
 Empujar una puerta cerrada la abre.
@@ -35,52 +35,55 @@ Empujar a un mercader o sacerdote abre su menú de tienda/servicio.
 Empujar a un aventurero no contratado abre el menú de encuentro.
 
 ### Objetos y Equipamiento
-  g o ,          Recoger objeto a los pies
-  i              Abrir inventario
-  a              Usar un objeto (muestra menú de inventario)
-  q              Beber una poción
-  e              Equipar arma, armadura, escudo, casco o anillo
-  d              Soltar un objeto del inventario
-  t              Lanzar una poción a una criatura visible
-  z              Disparar una varita a una criatura visible
+  g o ,             Recoger objeto a los pies
+  i                 Abrir inventario
+  a                 Usar un objeto (muestra menú de inventario)
+  q                 Beber una poción
+  e                 Equipar arma, armadura, escudo, casco o anillo
+  d                 Soltar un objeto del inventario
+  t                 Lanzar una poción a una criatura visible
+  z                 Disparar una varita a una criatura visible
 
 ### Exploración
-  :              Mirada lejana — mueve el cursor para examinar casillas
-  s              Buscar trampas ocultas y puertas secretas
-  p              Forzar una cerradura (requiere ganzúas, salvación DES)
-  f              Forzar una puerta (salvación FUE, las herramientas ayudan)
-  c              Cerrar una puerta abierta adyacente
-  D              Excavar muro o suelo (requiere herramienta)
-  >              Descender escaleras
-  <              Ascender escaleras
+  :                 Mirada lejana — mueve el cursor para examinar
+                    casillas
+  s                 Buscar trampas ocultas y puertas secretas
+  p                 Forzar una cerradura (requiere ganzúas,
+                    salvación DES)
+  f                 Forzar una puerta (salvación FUE, las
+                    herramientas ayudan)
+  c                 Cerrar una puerta abierta adyacente
+  D                 Excavar muro o suelo (requiere herramienta)
+  >                 Descender escaleras
+  <                 Ascender escaleras
 
 ### Grupo
-  G              Dar un objeto a un aventurero contratado
-  P              Despedir a un aventurero del grupo
+  G                 Dar un objeto a un aventurero contratado
+  P                 Despedir a un aventurero del grupo
 
 ### Interfaz
-  [ ]            Desplazar registro de mensajes
-  ?              Mostrar esta pantalla de ayuda
-  TAB            Cambiar entre modo clásico y escrito
-  Q              Salir
+  [ ]               Desplazar registro de mensajes
+  ?                 Mostrar esta pantalla de ayuda
+  TAB               Cambiar entre modo clásico y escrito
+  Q                 Salir
 
 ## Atajos de Teclado — Modo Escrito
 
 ### Entrada de Texto
-  Enter          Enviar comando al Director de Juego
-  ESC            Borrar entrada actual
-  Arriba/Abajo   Navegar historial de entradas
-  Retroceso      Borrar carácter antes del cursor
-  Izq./Derecha   Mover cursor dentro del texto
-  Inicio/Fin     Saltar al inicio/final de línea
+  Enter             Enviar comando al Director de Juego
+  ESC               Borrar entrada actual
+  Arriba/Abajo      Navegar historial de entradas
+  Retroceso         Borrar carácter antes del cursor
+  Izq./Derecha      Mover cursor dentro del texto
+  Inicio/Fin        Saltar al inicio/final de línea
 
 ### Atajos (sin pasar por el texto)
-  Flechas        Moverse directamente (sin interpretación del DJ)
-  h j k l        Movimiento vi (igual que el clásico)
-  TAB            Volver al modo clásico
-  ?              Mostrar esta pantalla de ayuda
-  [ ]            Desplazar registro narrativo
-  Q              Salir
+  Flechas           Moverse directamente (sin interpretación del DJ)
+  h j k l           Movimiento vi (igual que el clásico)
+  TAB               Volver al modo clásico
+  ?                 Mostrar esta pantalla de ayuda
+  [ ]               Desplazar registro narrativo
+  Q                 Salir
 
 ## Ejemplos en Modo Escrito
 
@@ -99,18 +102,18 @@ Empujar a un aventurero no contratado abre el menú de encuentro.
 El cliente del navegador añade algunas funciones no disponibles
 en el terminal:
 
-  Clic del ratón       Moverse o actuar sobre la casilla seleccionada
-  Clic derecho en      Menú contextual (Usar, Beber, Equipar,
-  objeto               Lanzar, Dar, Soltar)
-  Botón Examinar       Alterna la inspección de una casilla; clic
-                       derecho para Auto-examinar (inspección
-                       continua al moverse)
-  Botón Excavar        Alterna la Auto-excavación — camina contra
-                       muros para excavarlos con la herramienta
-                       equipada
-  Opción TTS           Lee los mensajes en voz alta con Piper TTS
-  Clasificación        Las partidas terminadas entran en el ranking
-                       (las de modo dios no cuentan)
+  Clic del ratón    Moverse o actuar sobre la casilla seleccionada
+  Clic derecho      Menú contextual sobre un objeto del inventario
+                    (Usar, Beber, Equipar, Lanzar, Dar, Soltar)
+  Botón Examinar    Alterna la inspección de una casilla; clic
+                    derecho para Auto-examinar (inspección
+                    continua al moverse)
+  Botón Excavar     Alterna la Auto-excavación — camina contra
+                    muros para excavarlos con la herramienta
+                    equipada
+  Opción TTS        Lee los mensajes en voz alta con Piper TTS
+  Clasificación     Las partidas terminadas entran en el ranking
+                    (las de modo dios no cuentan)
 
 ## Estadísticas del Personaje (Reglas Knave)
 
@@ -129,12 +132,12 @@ en el terminal:
 
 ## Espacios de Equipamiento
 
-  Arma        Un arma cuerpo a cuerpo o a distancia
-  Armadura    Gambesón, brigantina, cota de malla, media armadura,
-              armadura completa
-  Escudo      Rodela o escudo (+1 CA cada uno)
-  Casco       Gorro de cuero o casco (+1 CA cada uno)
-  Anillo (I/D) Dos espacios para efectos mágicos pasivos
+  Arma              Un arma cuerpo a cuerpo o a distancia
+  Armadura          Gambesón, brigantina, cota de malla, media
+                    armadura, armadura completa
+  Escudo            Rodela o escudo (+1 CA cada uno)
+  Casco             Gorro de cuero o casco (+1 CA cada uno)
+  Anillo (I/D)      Dos espacios para efectos mágicos pasivos
 
 Los objetos equipados también ocupan espacios de inventario.
 
@@ -264,20 +267,20 @@ apariencias aleatorias cada partida. Para identificarlas:
 
 ## Elementos de la Mazmorra y Salas Especiales
 
-  Templo (prof. 2+)    Garantizado en profundidad 2. Un sacerdote
-                        ofrece curación, quitar maldición y
-                        bendición, además de bienes sagrados. Los
-                        precios suben con la profundidad.
-  Tiendas               Un mercader vende objetos y compra botín al
-                        50% de su valor. Empuja para comerciar.
-  Guaridas (prof. 3+)   1–3 salas conectadas con humanoides de la
-                        misma especie. Las casillas alrededor
-                        ocultan trampas reactivables.
-  Zoos (prof. 5+)       Salas medianas llenas de criaturas.
-  Nidos de alimañas     Salas llenas de ratas, murciélagos o insectos.
-  Cámaras del tesoro    Cámaras ocultas con pilas de oro.
-  Cuevas                Disposiciones orgánicas sin puertas pero
-                        con más pozos y trampas.
+  Templo (2+)       Garantizado en profundidad 2. Un sacerdote
+                    ofrece curación, quitar maldición y bendición,
+                    además de bienes sagrados. Los precios suben
+                    con la profundidad.
+  Tiendas           Un mercader vende objetos y compra botín al
+                    50% de su valor. Empuja para comerciar.
+  Guaridas (3+)     1–3 salas conectadas con humanoides de la
+                    misma especie. Las casillas alrededor ocultan
+                    trampas reactivables.
+  Zoos (5+)         Salas medianas llenas de criaturas.
+  Nidos             Salas llenas de ratas, murciélagos o insectos.
+  Tesorerías        Cámaras ocultas con pilas de oro.
+  Cuevas            Disposiciones orgánicas sin puertas pero con
+                    más pozos y trampas.
 
 ## Trampas
 
@@ -290,10 +293,11 @@ guaridas se reactivan a los 40 turnos.
 
 ## Puertas
 
-  Cerrada           Empuja para abrir (solo los humanoides pueden abrirlas).
-  Bloqueada         Usa `p` para forzar la cerradura (salvación DES,
-                    puede romper una ganzúa) o `f` para forzar la
-                    puerta (salvación FUE, puede herirte).
+  Cerrada           Empuja para abrir (solo los humanoides pueden
+                    abrirlas).
+  Bloqueada         Usa `p` para forzar la cerradura (salvación
+                    DES, puede romper una ganzúa) o `f` para
+                    forzar la puerta (salvación FUE, puede herirte).
   Herramientas      Una palanca absorbe el rebote y baja la DC;
                     un arma baja un poco la DC y puede mellarse.
   Secreta           Parecen muros. Encuéntralas con `s`.
@@ -304,33 +308,36 @@ guaridas se reactivan a los 40 turnos.
 Una herramienta de excavación (pala, piqueta, zapapico o pico) te
 permite cavar. Una está garantizada en profundidades 1–5.
 
-  Muros     Cualquier herramienta. Salvación FUE DC 12 menos la
-            bonificación de la herramienta.
-  Suelo     Solo la pala. Puede revelar objetos enterrados (◎).
-            Probabilidad 1 entre 20 (+1 por bonificación de FUE) de caer
-            al piso siguiente recibiendo 2d6 de daño. Excavar la
-            misma casilla dos veces garantiza la caída.
-  Piquetas  Golpear el suelo con una piqueta, zapapico o pico
-            puede rebotar por 1d2 de daño con un 1 natural.
+  Muros             Cualquier herramienta. Salvación FUE DC 12
+                    menos la bonificación de la herramienta.
+  Suelo             Solo la pala. Puede revelar objetos enterrados
+                    (◎). Probabilidad 1 entre 20 (+1 por bonificación
+                    de FUE) de caer al piso siguiente recibiendo 2d6
+                    de daño. Excavar la misma casilla dos veces
+                    garantiza la caída.
+  Piquetas          Golpear el suelo con una piqueta, zapapico o
+                    pico puede rebotar por 1d2 de daño con un 1
+                    natural.
 
 En el cliente web, clic derecho al botón Excavar activa la
 Auto-excavación y puedes excavar solo moviéndote contra muros.
 
 ## Aventureros / Grupo
 
-  Reclutar    Empuja a un aventurero no contratado para abrir el
-              menú de encuentro. Contratar cuesta 100 monedas de
-              oro × su nivel.
-  Tamaño      Hasta dos aventureros a la vez.
-  Comportamiento Luchan, se curan con pociones, recogen botín,
-              evitan trampas visibles y te siguen entre salas y
-              bajando escaleras.
-  Dar         Pulsa `G` (o el menú contextual) para pasarles
-              objetos. Su IA elige el mejor equipamiento.
-  Intercambio Empuja a un aventurero para intercambiar posiciones.
-  Despedir    Pulsa `P` para liberarlo.
-  Muerte      Se notifica en el registro. Los aventureros reciben
-              la mitad de XP.
+  Reclutar          Empuja a un aventurero no contratado para
+                    abrir el menú de encuentro. Contratar cuesta
+                    100 monedas de oro × su nivel.
+  Tamaño            Hasta dos aventureros a la vez.
+  Comportamiento    Luchan, se curan con pociones, recogen botín,
+                    evitan trampas visibles y te siguen entre
+                    salas y bajando escaleras.
+  Dar               Pulsa `G` (o el menú contextual) para pasarles
+                    objetos. Su IA elige el mejor equipamiento.
+  Intercambio       Empuja a un aventurero para intercambiar
+                    posiciones.
+  Despedir          Pulsa `P` para liberarlo.
+  Muerte            Se notifica en el registro. Los aventureros
+                    reciben la mitad de XP.
 
 ## Hambre y Comida
 
@@ -341,22 +348,25 @@ una poción da algo de nutrición, pero nunca suficiente para vivir.
 
 ## Conceptos de Combate
 
-  Cuerpo a cuerpo  d20 + bonificación FUE + magia de arma vs CA
-                   del objetivo. 20 natural = daño máximo. 1 natural
-                   = fallo automático. Daño = dado de arma +
-                   bonificación FUE + magia (mínimo 1).
-  Distancia       Lanzar (`t`), disparar (`z`) o disparar con arco.
-  Defensa         CA = 10 + bonificación DES + armadura/escudo/casco/anillo.
-  Moral           Los enemigos hacen salvación de moral al verte
-                  por primera vez y al bajar a la mitad de PV;
-                  los cobardes huyen.
-  Aventureros     Suman sus armas y hechizos a tu daño.
+  Cuerpo a cuerpo   d20 + bonificación FUE + magia de arma vs CA
+                    del objetivo. 20 natural = daño máximo. 1
+                    natural = fallo automático. Daño = dado de
+                    arma + bonificación FUE + magia (mínimo 1).
+  Distancia         Lanzar (`t`), disparar (`z`) o disparar con
+                    arco.
+  Defensa           CA = 10 + bonificación DES + armadura/escudo/
+                    casco/anillo.
+  Moral             Los enemigos hacen salvación de moral al verte
+                    por primera vez y al bajar a la mitad de PV;
+                    los cobardes huyen.
+  Aventureros       Suman sus armas y hechizos a tu daño.
 
 ## Barra de Estado
 
-  Línea 1: Lugar, Profundidad, Turno, Nivel/XP, Oro, Barra de PV
-  Línea 2: Nombre (clase), habilidades, arma equipada, CA
-  Línea 3: Armadura/escudo/casco equipados, contenido del inventario
+  Línea 1           Lugar, Profundidad, Turno, Nivel/XP, Oro, Barra de PV
+  Línea 2           Nombre (clase), habilidades, arma equipada, CA
+  Línea 3           Armadura/escudo/casco equipados, contenido del
+                    inventario
 
 ## Cómo Jugar — Guía Breve
 
@@ -421,11 +431,11 @@ autoguardado.
 
 ## Opciones de Línea de Comandos
 
-  --seed N        Semilla RNG para reproducibilidad
-  --lang LANG     Idioma: en, ca, es
-  --god           Modo dios (invulnerable, todo identificado)
-  --reset         Nueva partida, ignorando el autoguardado
-  -G              Generar mazmorra aleatoria
-  --mode MODE     classic o typed
-  --no-narrative  Desactivar narrativa LLM
-  -v              Registro detallado
+  --seed N          Semilla RNG para reproducibilidad
+  --lang LANG       Idioma: en, ca, es
+  --god             Modo dios (invulnerable, todo identificado)
+  --reset           Nueva partida, ignorando el autoguardado
+  -G                Generar mazmorra aleatoria
+  --mode MODE       classic o typed
+  --no-narrative    Desactivar narrativa LLM
+  -v                Registro detallado

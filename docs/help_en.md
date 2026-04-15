@@ -21,10 +21,10 @@ Press TAB to switch between modes at any time.
 ## Keyboard Shortcuts — Classic Mode
 
 ### Movement
-  Arrow keys     Move in 4 directions
-  h j k l        Vi keys (left, down, up, right)
-  y u b n        Vi diagonal (NW, NE, SW, SE)
-  . or 5         Wait one turn
+  Arrow keys        Move in 4 directions
+  h j k l           Vi keys (left, down, up, right)
+  y u b n           Vi diagonal (NW, NE, SW, SE)
+  . or 5            Wait one turn
 
 Bumping a hostile creature attacks it.
 Bumping a closed door opens it.
@@ -34,52 +34,52 @@ Bumping a merchant or priest opens their shop/service menu.
 Bumping an unhired adventurer opens the encounter menu.
 
 ### Items & Equipment
-  g or ,         Pick up item at your feet
-  i              Open inventory
-  a              Use an item (shows inventory menu)
-  q              Quaff a potion
-  e              Equip weapon, armor, shield, helmet, or ring
-  d              Drop an item from inventory
-  t              Throw a potion at a visible creature
-  z              Zap a wand at a visible creature
+  g or ,            Pick up item at your feet
+  i                 Open inventory
+  a                 Use an item (shows inventory menu)
+  q                 Quaff a potion
+  e                 Equip weapon, armor, shield, helmet, or ring
+  d                 Drop an item from inventory
+  t                 Throw a potion at a visible creature
+  z                 Zap a wand at a visible creature
 
 ### Exploration
-  :              Farlook — move cursor to examine tiles
-  s              Search for hidden traps and secret doors
-  p              Pick a lock (requires lockpicks, DEX save)
-  f              Force a door open (STR save, tools help)
-  c              Close an adjacent open door
-  D              Dig a wall or floor (requires digging tool)
-  >              Descend stairs
-  <              Ascend stairs
+  :                 Farlook — move cursor to examine tiles
+  s                 Search for hidden traps and secret doors
+  p                 Pick a lock (requires lockpicks, DEX save)
+  f                 Force a door open (STR save, tools help)
+  c                 Close an adjacent open door
+  D                 Dig a wall or floor (requires digging tool)
+  >                 Descend stairs
+  <                 Ascend stairs
 
 ### Party
-  G              Give an item to a hired henchman
-  P              Dismiss a henchman from your party
+  G                 Give an item to a hired henchman
+  P                 Dismiss a henchman from your party
 
 ### Interface
-  [ ]            Scroll message log up/down
-  ?              Show this help screen
-  TAB            Switch between classic and typed mode
-  Q              Quit
+  [ ]               Scroll message log up/down
+  ?                 Show this help screen
+  TAB               Switch between classic and typed mode
+  Q                 Quit
 
 ## Keyboard Shortcuts — Typed Mode
 
 ### Text Input
-  Enter          Submit command to the Game Master
-  ESC            Clear current input
-  Up/Down        Browse input history
-  Backspace      Delete character before cursor
-  Left/Right     Move cursor within text
-  Home/End       Jump to start/end of line
+  Enter             Submit command to the Game Master
+  ESC               Clear current input
+  Up/Down           Browse input history
+  Backspace         Delete character before cursor
+  Left/Right        Move cursor within text
+  Home/End          Jump to start/end of line
 
 ### Shortcuts (bypass text input)
-  Arrow keys     Move directly (no GM interpretation)
-  h j k l        Vi movement (same as classic)
-  TAB            Switch back to classic mode
-  ?              Show this help screen
-  [ ]            Scroll narrative log
-  Q              Quit
+  Arrow keys        Move directly (no GM interpretation)
+  h j k l           Vi movement (same as classic)
+  TAB               Switch back to classic mode
+  ?                 Show this help screen
+  [ ]               Scroll narrative log
+  Q                 Quit
 
 ## Typed Mode Examples
 
@@ -98,7 +98,8 @@ Bumping an unhired adventurer opens the encounter menu.
 The browser client adds a few features not available in the terminal:
 
   Mouse click       Move towards / act on clicked tile
-  Right-click item  Context menu (Use, Quaff, Equip, Throw, Give, Drop)
+  Right-click       Context menu on an inventory item (Use, Quaff,
+                    Equip, Throw, Give, Drop)
   Farlook button    Toggle single-tile inspection; right-click for
                     Autolook mode (continuous inspection while moving)
   Dig button        Toggle Autodig — walk into walls to tunnel through
@@ -122,11 +123,12 @@ The browser client adds a few features not available in the terminal:
 
 ## Equipment Slots
 
-  Weapon      One melee or ranged weapon
-  Body armor  Gambeson, brigandine, chain, half plate, full plate
-  Shield      Buckler or shield (+1 AC each)
-  Helmet      Leather cap or helmet (+1 AC each)
-  Ring (L/R)  Two ring slots for passive magical effects
+  Weapon            One melee or ranged weapon
+  Body armor        Gambeson, brigandine, chain, half plate,
+                    full plate
+  Shield            Buckler or shield (+1 AC each)
+  Helmet            Leather cap or helmet (+1 AC each)
+  Ring (L/R)        Two ring slots for passive magical effects
 
 Equipped items still occupy inventory slots.
 
@@ -251,19 +253,19 @@ appearances each game. Identify them by:
 
 ## Dungeon Features & Special Rooms
 
-  Temple (depth 2+)      Guaranteed on depth 2. A priest offers
-                          heal, remove curse, and bless services,
-                          plus holy goods. Prices scale with depth.
-  Shops                   A merchant sells items and buys loot
-                          at 50% value. Bump to trade.
-  Lairs (depth 3+)        1–3 connected rooms of the same humanoid
-                          species. Surrounding tiles hide
-                          reactivatable traps.
-  Zoos (depth 5+)         Rare rooms packed with creatures.
-  Vermin nests            Rooms full of rats, bats, or insects.
-  Vaults                  Hidden treasure caches with piles of gold.
-  Caves                   Organic layouts with no doors but more
-                          pits and trapdoors.
+  Temple (2+)       Guaranteed on depth 2. A priest offers heal,
+                    remove curse, and bless services, plus holy
+                    goods. Prices scale with depth.
+  Shops             A merchant sells items and buys loot at 50%
+                    value. Bump to trade.
+  Lairs (3+)        1–3 connected rooms of the same humanoid
+                    species. Surrounding tiles hide reactivatable
+                    traps.
+  Zoos (5+)         Rare rooms packed with creatures.
+  Vermin nests      Rooms full of rats, bats, or insects.
+  Vaults            Hidden treasure caches with piles of gold.
+  Caves             Organic layouts with no doors but more pits
+                    and trapdoors.
 
 ## Traps
 
@@ -275,43 +277,48 @@ Some traps around lairs reactivate after 40 turns.
 
 ## Doors
 
-  Closed          Bump to open (only humanoid creatures can).
-  Locked          Use `p` to pick (DEX save, may break a lockpick)
-                  or `f` to force (STR save, may hurt you).
-  Force tools     A crowbar absorbs rebound damage and lowers DC;
-                  a weapon lowers DC a little and may chip.
-  Secret          Look like walls. Find with `s`.
-  Caves           No doors — just open passages.
+  Closed            Bump to open (only humanoid creatures can).
+  Locked            Use `p` to pick (DEX save, may break a lockpick)
+                    or `f` to force (STR save, may hurt you).
+  Force tools       A crowbar absorbs rebound damage and lowers DC;
+                    a weapon lowers DC a little and may chip.
+  Secret            Look like walls. Find with `s`.
+  Caves             No doors — just open passages.
 
 ## Digging & Buried Treasure
 
 A digging tool (shovel, pick, pickaxe, or mattock) lets you tunnel.
 One is guaranteed to appear on depths 1–5.
 
-  Walls    Any digging tool. STR save DC 12 minus tool bonus.
-  Floors   Shovel only. May reveal buried items (shown as ◎).
-           1 in 20 (plus 1 per STR bonus) chance to dig through
-           and fall to the next floor for 2d6 damage. Digging
-           the same tile twice guarantees a fall.
-  Picks    Striking the floor with a pick, pickaxe or mattock
-           can rebound for 1d2 damage on a natural 1.
+  Walls             Any digging tool. STR save DC 12 minus tool
+                    bonus.
+  Floors            Shovel only. May reveal buried items (shown
+                    as ◎). 1 in 20 (plus 1 per STR bonus) chance
+                    to dig through and fall to the next floor for
+                    2d6 damage. Digging the same tile twice
+                    guarantees a fall.
+  Picks             Striking the floor with a pick, pickaxe or
+                    mattock can rebound for 1d2 damage on a
+                    natural 1.
 
 In the web client, right-click the Dig button to toggle Autodig
 and tunnel by simply moving into walls.
 
 ## Henchmen / Party
 
-  Recruiting  Bump an unhired adventurer to open the encounter
-              menu. Hiring costs 100 gold × their level.
-  Party size  Up to two henchmen at once.
-  Behaviour   They fight, heal themselves with potions, pick up
-              loot, avoid visible traps, and follow you between
-              rooms and down stairs.
-  Giving      Press `G` (or use the context menu) to hand over
-              items. Their AI picks smart equipment to wear.
-  Swapping    Bump a henchman to trade places.
-  Dismissing  Press `P` to release a henchman.
-  Death       Reported in the log. Henchmen earn half XP.
+  Recruiting        Bump an unhired adventurer to open the
+                    encounter menu. Hiring costs 100 gold × their
+                    level.
+  Party size        Up to two henchmen at once.
+  Behaviour         They fight, heal themselves with potions, pick
+                    up loot, avoid visible traps, and follow you
+                    between rooms and down stairs.
+  Giving            Press `G` (or use the context menu) to hand
+                    over items. Their AI picks smart equipment to
+                    wear.
+  Swapping          Bump a henchman to trade places.
+  Dismissing        Press `P` to release a henchman.
+  Death             Reported in the log. Henchmen earn half XP.
 
 ## Hunger & Food
 
@@ -322,20 +329,22 @@ potion gives a small nutrition bonus, but never enough to live on.
 
 ## Combat Basics
 
-  Melee     d20 + STR bonus + weapon magic vs target AC.
-            Natural 20 = max damage. Natural 1 = auto miss.
-            Damage = weapon die + STR bonus + magic (min 1).
-  Ranged    Throw (`t`), zap (`z`), or shoot (via wielded bow).
-  Defense   AC = 10 + DEX bonus + armor/shield/helmet/ring.
-  Morale    Enemies roll morale on first seeing you and again
-            when reduced to half HP; cowards flee.
-  Henchmen  Add their weapons and spells to your damage output.
+  Melee             d20 + STR bonus + weapon magic vs target AC.
+                    Natural 20 = max damage. Natural 1 = auto miss.
+                    Damage = weapon die + STR bonus + magic (min 1).
+  Ranged            Throw (`t`), zap (`z`), or shoot (via wielded
+                    bow).
+  Defense           AC = 10 + DEX bonus + armor/shield/helmet/ring.
+  Morale            Enemies roll morale on first seeing you and
+                    again when reduced to half HP; cowards flee.
+  Henchmen          Add their weapons and spells to your damage
+                    output.
 
 ## Status Bar
 
-  Line 1: Location, Depth, Turn, Level/XP, Gold, HP bar
-  Line 2: Name (class), stats, equipped weapon, AC
-  Line 3: Equipped armor/shield/helmet, inventory contents
+  Line 1            Location, Depth, Turn, Level/XP, Gold, HP bar
+  Line 2            Name (class), stats, equipped weapon, AC
+  Line 3            Equipped armor/shield/helmet, inventory contents
 
 ## How to Play — A Short Guide
 
@@ -395,11 +404,11 @@ key. Autosaves are signed with HMAC to detect tampering. Use
 
 ## Command Line Options
 
-  --seed N        Set RNG seed for reproducibility
-  --lang LANG     Language: en, ca, es
-  --god           God mode (invulnerable, all items identified)
-  --reset         Start a new game, ignoring autosave
-  -G              Generate a random dungeon
-  --mode MODE     classic or typed
-  --no-narrative  Disable LLM narrative
-  -v              Verbose logging
+  --seed N          Set RNG seed for reproducibility
+  --lang LANG       Language: en, ca, es
+  --god             God mode (invulnerable, all items identified)
+  --reset           Start a new game, ignoring autosave
+  -G                Generate a random dungeon
+  --mode MODE       classic or typed
+  --no-narrative    Disable LLM narrative
+  -v                Verbose logging
