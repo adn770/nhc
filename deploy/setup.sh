@@ -42,8 +42,15 @@ DUCKDNS_OVERRIDE_FILE="${DUCKDNS_OVERRIDE_DIR}/override.conf"
 # validator.  Idempotent — safe to call on every run.
 write_caddyfile() {
     local domain="$1"
-    mkdir -p /var/log/caddy
-    chown caddy:caddy /var/log/caddy 2>/dev/null || true
+    # Caddy drops privileges to the ``caddy`` user at runtime, so
+    # the log directory must be writable by that uid.  Using
+    # ``install -d`` sets owner + mode atomically and fails loudly
+    # if anything is wrong; an earlier ``mkdir; chown … || true``
+    # silently left the dir root-owned and Caddy refused to start.
+    if ! id caddy &>/dev/null; then
+        fail "caddy user not found — install Caddy before writing the Caddyfile."
+    fi
+    install -d -o caddy -g caddy -m 750 /var/log/caddy
     cat > /etc/caddy/Caddyfile <<CADDYFILE
 ${domain} {
     # Security response headers. HSTS is safe because Caddy only
