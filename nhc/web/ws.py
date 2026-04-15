@@ -302,11 +302,16 @@ def register_ws(app, sock: Sock) -> None:
             ws.send('{"type":"error","text":"origin not allowed"}')
             return
 
-        # Validate player token when auth is enabled
+        # Validate player token when auth is enabled.  Use the same
+        # extraction order as HTTP routes (query → cookie → bearer)
+        # so that a browser relying on its ``HttpOnly`` ``nhc_token``
+        # cookie can upgrade without also needing ``?token=…`` in
+        # the WS URL — the token-strip redirect on ``/`` deliberately
+        # removes the query param after login.
         registry = app.config.get("PLAYER_REGISTRY")
         if config and config.auth_required and registry:
-            from nhc.web.auth import hash_token
-            token = request.args.get("token")
+            from nhc.web.auth import _extract_token, hash_token
+            token = _extract_token()
             if not token or not registry.is_valid_token_hash(
                     hash_token(token)):
                 ws.send('{"type":"error","text":"authentication required"}')

@@ -15,8 +15,11 @@ const WS = {
     }
     this.sessionId = sessionId;
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const token = document.cookie.match(/nhc_token=([^;]+)/)?.[1]
-      || new URLSearchParams(location.search).get("token") || "";
+    // The browser sends the ``nhc_token`` HttpOnly cookie on the
+    // same-origin WebSocket handshake automatically; the server
+    // reads the token from there.  Only fall back to the URL for
+    // the legacy unauth path where no cookie is in play.
+    const token = new URLSearchParams(location.search).get("token") || "";
     let url = `${proto}//${location.host}/ws/game/${sessionId}`;
     if (token) url += `?token=${encodeURIComponent(token)}`;
     this.socket = new WebSocket(url);
