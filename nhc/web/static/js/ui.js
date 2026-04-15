@@ -425,6 +425,105 @@ const UI = {
     return row;
   },
 
+  /**
+   * Minimal Markdown renderer for the help dialog. Supports the
+   * subset our help_*.md files use: # / ## / ### headings, **bold**,
+   * `inline code`, - and numbered lists (with indented continuation
+   * lines), and blocks of 2+ space-indented lines rendered as <pre>
+   * so the aligned keybinding tables keep their columns.
+   */
+  _renderMarkdown(md) {
+    const esc = (s) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const inline = (s) =>
+      esc(s)
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>");
+
+    const lines = md.replace(/\r\n/g, "\n").split("\n");
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const h = line.match(/^(#{1,3})\s+(.*)$/);
+      if (h) {
+        out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`);
+        i++;
+        continue;
+      }
+      // 2+ space indented → preformatted block (preserves table alignment)
+      if (/^ {2,}\S/.test(line)) {
+        const block = [];
+        while (
+          i < lines.length &&
+          (/^ {2,}/.test(lines[i]) || lines[i] === "")
+        ) {
+          block.push(lines[i]);
+          i++;
+        }
+        while (block.length && block[block.length - 1] === "") block.pop();
+        out.push(`<pre>${block.map(esc).join("\n")}</pre>`);
+        continue;
+      }
+      // Numbered list
+      if (/^\d+\.\s/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+          let content = lines[i].replace(/^\d+\.\s+/, "");
+          i++;
+          while (i < lines.length && /^ {3,}\S/.test(lines[i])) {
+            content += " " + lines[i].trim();
+            i++;
+          }
+          items.push(`<li>${inline(content)}</li>`);
+        }
+        out.push(`<ol>${items.join("")}</ol>`);
+        continue;
+      }
+      // Bullet list
+      if (/^-\s/.test(line)) {
+        const items = [];
+        while (i < lines.length && /^-\s/.test(lines[i])) {
+          let content = lines[i].replace(/^-\s+/, "");
+          i++;
+          while (i < lines.length && /^ {2,}\S/.test(lines[i])) {
+            content += " " + lines[i].trim();
+            i++;
+          }
+          items.push(`<li>${inline(content)}</li>`);
+        }
+        out.push(`<ul>${items.join("")}</ul>`);
+        continue;
+      }
+      if (line.trim() === "") {
+        i++;
+        continue;
+      }
+      // Plain paragraph — collect consecutive non-block lines
+      const para = [];
+      while (
+        i < lines.length &&
+        lines[i].trim() !== "" &&
+        !/^(#{1,3}\s|-\s|\d+\.\s|\s{2,}\S)/.test(lines[i])
+      ) {
+        para.push(lines[i]);
+        i++;
+      }
+      // Heuristic: if a line ends with a sentence terminator, the
+      // author intended a line break (e.g. the "Bumping..." block);
+      // otherwise treat as soft-wrapped prose and join with a space.
+      let html = "";
+      for (let k = 0; k < para.length; k++) {
+        html += inline(para[k]);
+        if (k < para.length - 1) {
+          html += /[.!?]$/.test(para[k]) ? "<br>" : " ";
+        }
+      }
+      out.push(`<p>${html}</p>`);
+    }
+    return out.join("\n");
+  },
+
   showHelp() {
     const L = NHC.labels || {};
     const overlay = document.createElement("div");
@@ -434,7 +533,8 @@ const UI = {
     const hTitle = L.help_title || "Help";
     const hLoad = L.help_loading || "Loading...";
     const hHint = L.help_close_hint || "Press ESC or click to close";
-    box.innerHTML = `<h3>${hTitle}</h3><pre id="help-content">${hLoad}</pre>
+    box.innerHTML = `<h3>${hTitle}</h3>
+      <div id="help-content" class="help-content">${hLoad}</div>
       <div class="option" style="margin-top:12px;text-align:center">
         ${hHint}
       </div>`;
@@ -446,7 +546,8 @@ const UI = {
     fetch(`/api/help/${lang}`)
       .then(r => r.text())
       .then(text => {
-        document.getElementById("help-content").textContent = text;
+        document.getElementById("help-content").innerHTML =
+          this._renderMarkdown(text);
       })
       .catch(() => {
         document.getElementById("help-content").textContent =
