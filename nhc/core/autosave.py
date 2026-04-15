@@ -196,9 +196,7 @@ def read_autosave_payload(path: Path) -> dict[str, Any] | None:
 def has_autosave(save_dir: Path | None = None) -> bool:
     """Check if an autosave file exists."""
     _, path = _resolve(save_dir)
-    exists = path.exists()
-    logger.debug("has_autosave: %s (path=%s)", exists, path)
-    return exists
+    return path.exists()
 
 
 def delete_autosave(save_dir: Path | None = None) -> None:
