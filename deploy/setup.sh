@@ -122,15 +122,16 @@ CADDYFILE
     ok "Wrote /etc/caddy/conf.d/lan-admin.caddy (:9080)"
 
     # Merge cidrs into NHC_ADMIN_LAN_CIDRS (dedup, stable order).
-    # ``127.0.0.1/32`` is always included so the SSH-tunnel path
-    # (``ssh -L 9080:localhost:9080 …``) works without a second
-    # manual edit.  Safe: the Linux kernel rejects packets with
-    # ``src=127.0.0.1`` arriving on any non-loopback interface, so
-    # no remote attacker can forge a loopback source.
+    # Both loopback entries are always included so the SSH-tunnel
+    # path (``ssh -L 9080:localhost:9080 …``) works whether glibc
+    # resolves ``localhost`` to 127.0.0.1 or ::1 — the dual-stack
+    # default.  Safe: the Linux kernel rejects packets with a
+    # loopback source arriving on any non-loopback interface, so
+    # no remote attacker can forge them.
     local current merged
     current=$(grep -oP '^Environment=NHC_ADMIN_LAN_CIDRS=\K.*' \
         "${OVERRIDE_FILE}" 2>/dev/null || true)
-    merged=$(printf '%s,%s,127.0.0.1/32' "${current}" "${cidrs}" \
+    merged=$(printf '%s,%s,127.0.0.1/32,::1/128' "${current}" "${cidrs}" \
         | tr ',' '\n' \
         | awk 'NF && !seen[$0]++' \
         | paste -sd,)
