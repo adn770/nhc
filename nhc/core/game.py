@@ -291,7 +291,11 @@ class Game:
         self.renderer = client
         self._seen_creatures: set[int] = set()
         self._knowledge = None  # ItemKnowledge, set in initialize()
-        self._floor_cache: dict[int, tuple] = {}  # depth → (level, entity_data)
+        # depth (dungeon mode) or (q, r, depth) tuple (hex mode)
+        # -> (level, entity_data). See _cache_key().
+        self._floor_cache: dict[
+            "int | tuple[int, int, int]", tuple
+        ] = {}
         self._svg_cache: dict[int, tuple[str, str]] = {}  # depth → (uuid, svg)
         self._prefetch_depth: int | None = None   # depth being/been prefetched
         self._prefetch_result: Level | None = None  # pre-generated level
@@ -312,6 +316,26 @@ class Game:
         if enabled and self._knowledge:
             for item_id in ALL_IDS:
                 self._knowledge.identify(item_id)
+
+    def _cache_key(self, depth: int) -> "int | tuple[int, int, int]":
+        """Floor-cache key for a given ``depth``.
+
+        In pure dungeon mode the key is the depth integer, matching
+        the historical behaviour byte-for-byte. In hex mode the key
+        bundles the hex coordinate of the feature whose dungeon the
+        player is currently exploring, so two different hexes' caves
+        at the same depth are cached independently.
+
+        Degrades to the integer-depth key when ``hex_player_position``
+        is not yet set (pre-initialize or test setup).
+        """
+        if self.world_mode.is_hex and self.hex_player_position is not None:
+            return (
+                self.hex_player_position.q,
+                self.hex_player_position.r,
+                depth,
+            )
+        return depth
 
     def _init_hex_world(self) -> None:
         """Build the overland HexWorld for the configured hex mode.
@@ -1997,7 +2021,7 @@ class Game:
                 self.world.destroy_entity(eid)
 
         # Restore cached floor, use prefetch, or generate new one
-        if new_depth in self._floor_cache:
+        if self._cache_key(new_depth) in self._floor_cache:
             self._restore_floor(new_depth)
             logger.info("Restored cached floor at depth %d", new_depth)
         elif (self._prefetch_depth == new_depth
@@ -2219,7 +2243,7 @@ class Game:
             if comps:
                 entity_data[eid] = comps
 
-        self._floor_cache[depth] = (self.level, entity_data)
+        self._floor_cache[self._cache_key(depth)] = (self.level, entity_data)
         logger.info("Saved floor depth %d (%d entities cached)",
                      depth, len(entity_data))
 
@@ -2229,7 +2253,7 @@ class Game:
         Preserves original entity IDs so cross-references (inventory
         slots, equipment pointers) remain valid.
         """
-        level, entity_data = self._floor_cache[depth]
+        level, entity_data = self._floor_cache[self._cache_key(depth)]
         self.level = level
 
         for eid, comps in entity_data.items():
