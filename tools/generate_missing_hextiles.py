@@ -51,6 +51,7 @@ HEXTILES = Path(__file__).resolve().parents[1] / "hextiles"
 # 27-slot filename stems. Must match nhc/web/static/js/hex_map.js
 # SLOT_NAME. Update both together if the pack ever renames.
 SLOT_NAME: dict[int, str] = {
+    # Original 27-slot palette.
     1: "vulcano", 2: "forest", 3: "tundra", 4: "trees", 5: "water",
     6: "hills", 7: "river", 8: "portal", 9: "mountains", 10: "lake",
     11: "village", 12: "city", 13: "tower", 14: "community",
@@ -58,6 +59,16 @@ SLOT_NAME: dict[int, str] = {
     19: "graveyard", 20: "swamp", 21: "floating-Island",
     22: "keep", 23: "wonder", 24: "cristals", 25: "stones",
     26: "farms", 27: "fog",
+    # Extended slots 41-58: extracted from the CC-licensed
+    # forestPack via tools/extract_foundations.py, recanvased to
+    # 238x207 flat-top. Naming follows the same convention as the
+    # original 27 slots.
+    41: "dense-Forest", 42: "sparse-Trees", 43: "clearing",
+    44: "rift", 45: "wild-Bushes", 46: "spider-Lair",
+    47: "great-Tree", 48: "mushrooms", 49: "cave-Mouth",
+    50: "hillock", 51: "standing-Stones", 52: "cottage",
+    53: "hamlet", 54: "watchtower", 55: "overgrown-Ruins",
+    56: "blast-Site", 57: "forest-Road", 58: "forest-Temple",
 }
 
 # Biomes generated entirely from foundation tiles. Each entry
