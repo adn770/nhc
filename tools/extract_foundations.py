@@ -128,11 +128,11 @@ def extract_features(
     erode_px: int,
     halo_drop: int,
     halo_darken: float,
-) -> tuple[int, int]:
-    """Extract feature pixels from ``src_path`` and write the
-    alpha-masked overlay to ``dst_path``.
+) -> tuple[Image.Image, int, int]:
+    """Extract feature pixels from ``src_path``.
 
-    Returns ``(kept_pixels, total_opaque_pixels)`` for reporting.
+    Returns ``(image, kept_pixels, total_opaque_pixels)``. The
+    caller saves the image (possibly after a recanvas step).
     """
     img = Image.open(src_path).convert("RGBA")
     w, h = img.size
@@ -181,8 +181,31 @@ def extract_features(
     kept = sum(
         1 for y in range(h) for x in range(w) if px[x, y][3] > 0
     )
-    img.save(dst_path)
-    return kept, total
+    return img, kept, total
+
+
+def recanvas(
+    img: Image.Image,
+    target_w: int,
+    target_h: int,
+) -> Image.Image:
+    """Downscale ``img`` to fit inside ``(target_w, target_h)``
+    and centre on a transparent canvas of exactly that size.
+
+    Uses LANCZOS resampling so the contour edges come out smooth
+    rather than aliased from a nearest-neighbour resize.
+    """
+    w, h = img.size
+    # Uniform scale factor constrained by the tighter axis.
+    scale = min(target_w / w, target_h / h)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+    scaled = img.resize((new_w, new_h), Image.LANCZOS)
+    canvas = Image.new("RGBA", (target_w, target_h), (0, 0, 0, 0))
+    offset_x = (target_w - new_w) // 2
+    offset_y = (target_h - new_h) // 2
+    canvas.paste(scaled, (offset_x, offset_y), scaled)
+    return canvas
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +279,15 @@ def main() -> int:
         "--halo-darken", type=float, default=DEFAULT_HALO_DARKEN,
         help=f"RGB multiplier for kept halos (default {DEFAULT_HALO_DARKEN}).",
     )
+    parser.add_argument(
+        "--recanvas", default=None, metavar="WxH",
+        help=(
+            "After extraction, downscale + centre the feature on a "
+            "transparent canvas of exactly WxH pixels (e.g. 238x207 "
+            "for the flat-top foundation grid). Uses LANCZOS "
+            "resampling to smooth contour edges."
+        ),
+    )
     args = parser.parse_args()
 
     source = Path(args.source_dir).expanduser()
@@ -264,6 +296,20 @@ def main() -> int:
         return 1
 
     out_dir = Path(args.out) if args.out else Path("debug/extracted_foundations")
+
+    # Parse --recanvas WxH.
+    recanvas_size: tuple[int, int] | None = None
+    if args.recanvas:
+        try:
+            rw, rh = args.recanvas.lower().split("x")
+            recanvas_size = (int(rw), int(rh))
+        except (ValueError, TypeError):
+            print(
+                f"--recanvas expects WxH (e.g. 238x207), "
+                f"got {args.recanvas!r}",
+                file=sys.stderr,
+            )
+            return 1
 
     pngs = sorted(source.glob("*.png"))
     if not pngs:
@@ -275,13 +321,15 @@ def main() -> int:
         (args.floor_shadow, args.radius_shadow),
     ]
 
+    rc_label = f"  Recanvas={recanvas_size}" if recanvas_size else ""
     print(
         f"Source: {source} ({len(pngs)} tiles)\n"
         f"Output: {out_dir}\n"
         f"Floor centres: light={args.floor_light} r={args.radius_light}, "
         f"shadow={args.floor_shadow} r={args.radius_shadow}\n"
         f"Feather={args.feather}  Erode={args.erode}px  "
-        f"Halo-drop={args.halo_drop}  Halo-darken={args.halo_darken}\n"
+        f"Halo-drop={args.halo_drop}  Halo-darken={args.halo_darken}"
+        f"{rc_label}\n"
     )
 
     total_written = 0
@@ -291,7 +339,7 @@ def main() -> int:
             print(f"  {src.name} -> {dst}")
             continue
         out_dir.mkdir(parents=True, exist_ok=True)
-        kept, total = extract_features(
+        result, kept, total = extract_features(
             src, dst,
             centres=centres,
             feather=args.feather,
@@ -299,8 +347,12 @@ def main() -> int:
             halo_drop=args.halo_drop,
             halo_darken=args.halo_darken,
         )
+        if recanvas_size is not None:
+            result = recanvas(result, *recanvas_size)
+        result.save(dst)
         pct = 100 * kept / total if total else 0
-        print(f"  {src.name:<32} kept {kept:>6d}/{total:>6d} ({pct:5.1f}%)")
+        size_label = f" -> {result.size[0]}x{result.size[1]}" if recanvas_size else ""
+        print(f"  {src.name:<32} kept {kept:>6d}/{total:>6d} ({pct:5.1f}%){size_label}")
         total_written += 1
 
     print(f"\nDone. {total_written} tile(s) written.")
