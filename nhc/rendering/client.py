@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
+    from nhc.hexcrawl.coords import HexCoord
+    from nhc.hexcrawl.model import HexWorld
 
 
 class GameClient(abc.ABC):
@@ -46,7 +48,21 @@ class GameClient(abc.ABC):
         player_id: int,
         turn: int,
     ) -> None:
-        """Render the full game state."""
+        """Render the full game state (dungeon mode)."""
+
+    def render_hex(
+        self,
+        hex_world: "HexWorld",
+        player_coord: "HexCoord",
+        turn: int,
+    ) -> None:
+        """Render the overland state (hex mode).
+
+        Default implementation is a no-op so existing clients (the
+        terminal renderer until M-3) don't have to implement the
+        method on day one. The web client overrides this.
+        """
+        return None
 
     @abc.abstractmethod
     def scroll_messages(self, direction: int) -> None:

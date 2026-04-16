@@ -853,10 +853,19 @@ class Game:
         logger.info("Game loop started (mode=%s)", self.mode)
 
         while self.running:
-            # Render
-            self.renderer.render(
-                self.world, self.level, self.player_id, self.turn,
-            )
+            # Render: hex mode routes to render_hex; dungeon mode keeps
+            # the existing render() path unchanged.
+            if self.world_mode.is_hex and self.hex_world is not None \
+                    and self.level is None:
+                self.renderer.render_hex(
+                    self.hex_world,
+                    self.hex_player_position,
+                    self.turn,
+                )
+            else:
+                self.renderer.render(
+                    self.world, self.level, self.player_id, self.turn,
+                )
 
             if self.mode == "typed":
                 actions = await self._get_typed_actions()

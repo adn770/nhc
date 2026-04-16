@@ -26,6 +26,8 @@ from nhc.dungeon.model import (
     TempleShape,
     Terrain,
 )
+from nhc.hexcrawl.coords import HexCoord
+from nhc.hexcrawl.model import HexWorld
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
 from nhc.rendering.svg import render_floor_svg
@@ -33,6 +35,43 @@ from nhc.rendering.svg import render_floor_svg
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
+
+
+def build_hex_state_msg(
+    hex_world: HexWorld,
+    player_coord: HexCoord,
+    turn: int,
+) -> dict:
+    """Build the ``state_hex`` WebSocket payload for an overland turn.
+
+    Pure function so it's easy to test without plumbing a WebSocket.
+    Honours the fog of war: only hexes in ``hex_world.revealed`` are
+    shipped; unrevealed cells stay hidden until the player first
+    sees them.
+    """
+    cells_payload: list[dict] = []
+    for coord in sorted(
+        hex_world.revealed, key=lambda c: (c.q, c.r),
+    ):
+        cell = hex_world.cells.get(coord)
+        if cell is None:
+            continue
+        cells_payload.append({
+            "q": coord.q,
+            "r": coord.r,
+            "biome": cell.biome.value,
+            "feature": cell.feature.value,
+        })
+    return {
+        "type": "state_hex",
+        "turn": turn,
+        "width": hex_world.width,
+        "height": hex_world.height,
+        "day": hex_world.day,
+        "time": hex_world.time.name.lower(),
+        "player": {"q": player_coord.q, "r": player_coord.r},
+        "cells": cells_payload,
+    }
 
 logger = logging.getLogger(__name__)
 
@@ -1162,6 +1201,15 @@ class WebClient(GameClient):
         if len(self.messages) > 200:
             self.messages = self.messages[-200:]
         self._send({"type": "message", "text": text})
+
+    def render_hex(
+        self,
+        hex_world: HexWorld,
+        player_coord: HexCoord,
+        turn: int,
+    ) -> None:
+        """Overland per-turn render: emit the ``state_hex`` message."""
+        self._send(build_hex_state_msg(hex_world, player_coord, turn))
 
     def render(
         self,
