@@ -68,10 +68,17 @@ PARTIAL_BIOMES: dict[str, int] = {
     "mountain": 9,    # 9-mountain_mountains  (bare rock)
 }
 
-# Blend strength for the tint. 0.0 = pure foundation, 1.0 = pure
-# biome colour. 0.45 keeps foundation detail visible while giving
-# a clear biome tinge; tuned by eye.
-TINT_STRENGTH = 0.45
+"""Foundation tiles are overlays: only the feature silhouette is
+opaque, the rest is fully transparent. The right composition is
+a biome-coloured hex *beneath* the foundation, so the feature
+"stamps" onto a solid biome background. The hex silhouette comes
+from an existing biome tile's alpha channel -- see
+``HEX_SILHOUETTE_SLOT``."""
+
+# Which slot to use as the source for the hex silhouette (its
+# alpha defines "inside the hex"). Same for both biomes since the
+# pack's hex shape is uniform across palettes.
+HEX_SILHOUETTE_SLOT = 2
 
 
 @dataclass
@@ -129,38 +136,45 @@ def sample_background_color(tile_path: Path) -> RGB:
     return RGB(rs[mid], gs[mid], bs[mid])
 
 
-def tint_foundation(
+def _hex_silhouette_mask(biome: str) -> Image.Image:
+    """Return an "L" mode image whose non-zero pixels are inside
+    the hex shape. Cached per biome; read from the biome's own
+    HEX_SILHOUETTE_SLOT tile so the generated tiles align
+    pixel-for-pixel with the rest of the palette."""
+    src = biome_tile(biome, HEX_SILHOUETTE_SLOT)
+    img = Image.open(src).convert("RGBA")
+    # The alpha channel is the hex silhouette: opaque = inside,
+    # transparent = outside the hex bounding polygon.
+    _r, _g, _b, alpha = img.split()
+    return alpha
+
+
+def compose_biome_tile(
     foundation_path: Path,
+    biome: str,
     colour: RGB,
-    strength: float = TINT_STRENGTH,
 ) -> Image.Image:
-    """Overlay a solid colour on a foundation tile.
+    """Build a biome-specific tile by stamping a foundation feature
+    over a solid biome-colour hex.
 
-    Uses a simple per-channel linear blend:
-        out = orig * (1 - s) + tint * s
-    applied only to RGB; alpha is preserved so the hex's
-    transparent corners stay transparent.
-
-    The result keeps the foundation tile's silhouette (village,
-    tower, ruins, etc.) while recolouring the background toward
-    the biome tint, so a forest-portal looks distinctly forest-y
-    and a mountain-lake looks craggy-blue.
+    Step 1: fill a canvas the size of the foundation with the
+    biome's background colour, masked by the hex silhouette (so
+    transparent corners stay transparent).
+    Step 2: alpha-composite the foundation feature on top; its
+    partial-alpha "detail" pixels (village, tundra stipple, cave
+    mouth, etc.) land on the solid biome background.
     """
-    img = Image.open(foundation_path).convert("RGBA")
-    w, h = img.size
-    px = img.load()
-    tr, tg, tb = colour.as_tuple()
-    inv = 1.0 - strength
-    out = Image.new("RGBA", (w, h))
-    out_px = out.load()
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            nr = int(r * inv + tr * strength)
-            ng = int(g * inv + tg * strength)
-            nb = int(b * inv + tb * strength)
-            out_px[x, y] = (nr, ng, nb, a)
-    return out
+    foundation = Image.open(foundation_path).convert("RGBA")
+    w, h = foundation.size
+    # 1. Solid-colour background, hex-shaped via silhouette alpha.
+    bg = Image.new("RGBA", (w, h), (*colour.as_tuple(), 0))
+    silhouette = _hex_silhouette_mask(biome)
+    if silhouette.size != (w, h):
+        silhouette = silhouette.resize((w, h))
+    fill = Image.new("RGBA", (w, h), (*colour.as_tuple(), 255))
+    bg.paste(fill, (0, 0), silhouette)
+    # 2. Alpha-composite the foundation feature on top.
+    return Image.alpha_composite(bg, foundation)
 
 
 def existing_slots(biome: str) -> set[int]:
@@ -228,9 +242,9 @@ def main() -> int:
             if args.dry_run:
                 print(f"  slot {slot:2d}: would write {out_path.name}")
                 continue
-            tinted = tint_foundation(fnd, tint)
+            composed = compose_biome_tile(fnd, biome, tint)
             out_path.parent.mkdir(parents=True, exist_ok=True)
-            tinted.save(out_path)
+            composed.save(out_path)
             total_written += 1
             print(f"  slot {slot:2d}: wrote {out_path.name}")
 
