@@ -70,6 +70,7 @@ from nhc.entities.components import (
     Stats,
     StatusEffect,
 )
+from nhc.core.actions._hex_movement import MoveHexAction
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.generator import generate_test_world
@@ -304,6 +305,10 @@ class Game:
         self.generation_params: GenerationParams | None = None
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
+        # Character sheet used by typed-mode narration. Populated in
+        # the dungeon-init path; hex mode leaves it as None so the
+        # autosave/restore path doesn't AttributeError.
+        self._character = None
         # Hex mode state — populated by _init_hex_world() when
         # world_mode is HEX_EASY or HEX_SURVIVAL. None in pure
         # dungeon mode.
@@ -336,6 +341,40 @@ class Game:
                 depth,
             )
         return depth
+
+    async def apply_hex_step(self, target: HexCoord) -> bool:
+        """Execute a single overland step.
+
+        Validates adjacency, runs :class:`MoveHexAction`, updates
+        ``hex_player_position``, and writes an autosave. Returns
+        True on success, False when the target is non-adjacent /
+        out-of-bounds.
+
+        Raises :class:`RuntimeError` when called outside hex mode so
+        a miswired input handler fails loudly rather than silently
+        corrupting the floor cache.
+        """
+        if not self.world_mode.is_hex or self.hex_world is None:
+            raise RuntimeError(
+                "apply_hex_step only valid in hex mode"
+            )
+        origin = self.hex_player_position
+        if origin is None:
+            raise RuntimeError(
+                "apply_hex_step requires hex_player_position to be set"
+            )
+        action = MoveHexAction(
+            actor=self.player_id,
+            origin=origin,
+            target=target,
+            hex_world=self.hex_world,
+        )
+        if not await action.validate(self.world, None):
+            return False
+        await action.execute(self.world, None)
+        self.hex_player_position = target
+        _autosave(self, self.save_dir, blocking=True)
+        return True
 
     def _init_hex_world(self) -> None:
         """Build the overland HexWorld for the configured hex mode.
