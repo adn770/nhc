@@ -18,6 +18,16 @@ from nhc.dungeon.model import (
     shape_from_type,
 )
 from nhc.entities import components as comp_module
+from nhc.hexcrawl.coords import HexCoord
+from nhc.hexcrawl.model import (
+    Biome,
+    DungeonRef,
+    HexCell,
+    HexFeatureType,
+    HexWorld,
+    Rumor,
+    TimeOfDay,
+)
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -31,6 +41,15 @@ for _name in dir(comp_module):
 
 DEFAULT_SAVE_DIR = Path.home() / ".nhc" / "saves"
 
+# JSON save schema version. Bumped from 1 -> 2 when the overland
+# hex mode landed (hex_world section). Old version-1 saves are
+# rejected on load; there is no forward or backward migration.
+SCHEMA_VERSION = 2
+
+
+class SaveSchemaError(ValueError):
+    """Raised when a save file's schema version is unsupported."""
+
 
 def save_game(
     world: "World",
@@ -39,14 +58,20 @@ def save_game(
     turn: int,
     messages: list[str],
     save_path: Path | None = None,
+    hex_world: HexWorld | None = None,
 ) -> Path:
-    """Serialize game state to a JSON file."""
+    """Serialize game state to a JSON file.
+
+    ``hex_world`` is included as a top-level ``"hex_world"`` section
+    when provided (hex-easy / hex-survival modes); pure dungeon
+    saves omit the section entirely.
+    """
     if save_path is None:
         DEFAULT_SAVE_DIR.mkdir(parents=True, exist_ok=True)
         save_path = DEFAULT_SAVE_DIR / "save.json"
 
     data: dict[str, Any] = {
-        "version": 1,
+        "version": SCHEMA_VERSION,
         "turn": turn,
         "player_id": player_id,
         "next_id": world._next_id,
@@ -54,6 +79,8 @@ def save_game(
         "level": _serialize_level(level),
         "messages": messages[-50:],
     }
+    if hex_world is not None:
+        data["hex_world"] = _serialize_hex_world(hex_world)
 
     save_path.parent.mkdir(parents=True, exist_ok=True)
     save_path.write_text(json.dumps(data, indent=2))
@@ -65,7 +92,11 @@ def load_game(
 ) -> tuple["World", Level, int, int, list[str]]:
     """Deserialize game state from a JSON file.
 
-    Returns (world, level, player_id, turn, messages).
+    Returns (world, level, player_id, turn, messages). Raises
+    :class:`SaveSchemaError` when the file's ``"version"`` does not
+    match :data:`SCHEMA_VERSION`. To retrieve the optional
+    ``hex_world`` section, use :func:`load_hex_world_from_save` on
+    the same path.
     """
     if save_path is None:
         save_path = DEFAULT_SAVE_DIR / "save.json"
@@ -73,6 +104,7 @@ def load_game(
     from nhc.core.ecs import World
 
     data = json.loads(save_path.read_text())
+    _check_schema(data)
 
     world = World()
     world._next_id = data["next_id"]
@@ -90,6 +122,31 @@ def load_game(
     messages = data.get("messages", [])
 
     return world, level, player_id, turn, messages
+
+
+def load_hex_world_from_save(
+    save_path: Path | None = None,
+) -> HexWorld | None:
+    """Return the saved :class:`HexWorld` or ``None`` if the file has
+    no ``"hex_world"`` section (pure dungeon-mode save)."""
+    if save_path is None:
+        save_path = DEFAULT_SAVE_DIR / "save.json"
+    data = json.loads(save_path.read_text())
+    _check_schema(data)
+    section = data.get("hex_world")
+    if section is None:
+        return None
+    return _deserialize_hex_world(section)
+
+
+def _check_schema(data: dict[str, Any]) -> None:
+    version = data.get("version")
+    if version != SCHEMA_VERSION:
+        raise SaveSchemaError(
+            f"save schema version {version!r} is not supported; "
+            f"this build expects version {SCHEMA_VERSION}. Saves "
+            f"from older versions cannot be upgraded."
+        )
 
 
 def has_save(save_path: Path | None = None) -> bool:
@@ -275,3 +332,121 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
         corridors=corridors,
         metadata=metadata,
     )
+
+
+# ---------------------------------------------------------------------------
+# HexWorld serialisation (JSON)
+# ---------------------------------------------------------------------------
+
+
+def _coord_to_list(c: HexCoord) -> list[int]:
+    return [c.q, c.r]
+
+
+def _list_to_coord(lst: list[int]) -> HexCoord:
+    return HexCoord(int(lst[0]), int(lst[1]))
+
+
+def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
+    cells: list[dict[str, Any]] = []
+    for coord, cell in sorted(
+        hw.cells.items(), key=lambda kv: (kv[0].q, kv[0].r),
+    ):
+        cell_data: dict[str, Any] = {
+            "coord": _coord_to_list(coord),
+            "biome": cell.biome.value,
+            "feature": cell.feature.value,
+            "name_key": cell.name_key,
+            "desc_key": cell.desc_key,
+        }
+        if cell.dungeon is not None:
+            cell_data["dungeon"] = {
+                "template": cell.dungeon.template,
+                "depth": cell.dungeon.depth,
+            }
+        cells.append(cell_data)
+    rumors = [
+        {
+            "id": r.id, "text_key": r.text_key,
+            "truth": r.truth,
+            "reveals": (
+                _coord_to_list(r.reveals) if r.reveals is not None
+                else None
+            ),
+        }
+        for r in hw.active_rumors
+    ]
+    return {
+        "pack_id": hw.pack_id,
+        "seed": hw.seed,
+        "width": hw.width,
+        "height": hw.height,
+        "cells": cells,
+        "revealed": [_coord_to_list(c) for c in sorted(
+            hw.revealed, key=lambda c: (c.q, c.r))],
+        "visited": [_coord_to_list(c) for c in sorted(
+            hw.visited, key=lambda c: (c.q, c.r))],
+        "cleared": [_coord_to_list(c) for c in sorted(
+            hw.cleared, key=lambda c: (c.q, c.r))],
+        "looted": [_coord_to_list(c) for c in sorted(
+            hw.looted, key=lambda c: (c.q, c.r))],
+        "day": hw.day,
+        "time": hw.time.name.lower(),
+        "last_hub": (
+            _coord_to_list(hw.last_hub)
+            if hw.last_hub is not None else None
+        ),
+        "active_rumors": rumors,
+        "expedition_party": list(hw.expedition_party),
+        "biome_costs": {b.value: v for b, v in hw.biome_costs.items()},
+    }
+
+
+def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
+    hw = HexWorld(
+        pack_id=data["pack_id"],
+        seed=int(data["seed"]),
+        width=int(data["width"]),
+        height=int(data["height"]),
+    )
+    for cd in data.get("cells", []):
+        coord = _list_to_coord(cd["coord"])
+        dungeon = None
+        if cd.get("dungeon") is not None:
+            dungeon = DungeonRef(
+                template=cd["dungeon"]["template"],
+                depth=int(cd["dungeon"].get("depth", 1)),
+            )
+        hw.set_cell(HexCell(
+            coord=coord,
+            biome=Biome(cd["biome"]),
+            feature=HexFeatureType(cd.get("feature", "none")),
+            name_key=cd.get("name_key"),
+            desc_key=cd.get("desc_key"),
+            dungeon=dungeon,
+        ))
+    hw.revealed = {_list_to_coord(c) for c in data.get("revealed", [])}
+    hw.visited = {_list_to_coord(c) for c in data.get("visited", [])}
+    hw.cleared = {_list_to_coord(c) for c in data.get("cleared", [])}
+    hw.looted = {_list_to_coord(c) for c in data.get("looted", [])}
+    hw.day = int(data.get("day", 1))
+    hw.time = TimeOfDay[data.get("time", "morning").upper()]
+    lh = data.get("last_hub")
+    hw.last_hub = _list_to_coord(lh) if lh is not None else None
+    hw.active_rumors = [
+        Rumor(
+            id=r["id"], text_key=r["text_key"],
+            truth=bool(r.get("truth", True)),
+            reveals=(
+                _list_to_coord(r["reveals"])
+                if r.get("reveals") is not None else None
+            ),
+        )
+        for r in data.get("active_rumors", [])
+    ]
+    hw.expedition_party = list(data.get("expedition_party", []))
+    hw.biome_costs = {
+        Biome(k): int(v)
+        for k, v in data.get("biome_costs", {}).items()
+    }
+    return hw

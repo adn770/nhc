@@ -917,9 +917,9 @@ class TestShapeSaveLoadBackcompat:
     """Backward compatibility for saves without shape field."""
 
     def test_old_save_without_shape_loads_rect(self, tmp_path):
-        """Saves from before the shape field default to RectShape."""
+        """Saves that omit the optional shape field default to RectShape."""
         data = {
-            "version": 1, "turn": 1, "player_id": 1, "next_id": 2,
+            "version": 2, "turn": 1, "player_id": 1, "next_id": 2,
             "entities": {
                 "1": {
                     "Position": {"x": 3, "y": 3, "level_id": "test"},

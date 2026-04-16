@@ -347,7 +347,20 @@ def _build_payload(game: "Game") -> dict[str, Any]:
 
         # Seen creatures
         "seen_creatures": set(game._seen_creatures),
+
+        # Hex-mode state (absent from test FakeGames; getattr fallbacks
+        # keep backward compatibility with pre-hex payloads too).
+        "world_mode": _mode_value(getattr(game, "world_mode", None)),
+        "hex_world": getattr(game, "hex_world", None),
+        "hex_player_position": getattr(game, "hex_player_position", None),
     }
+
+
+def _mode_value(mode: Any) -> str:
+    """GameMode enum → value string, with None falling back to dungeon."""
+    if mode is None:
+        return "dungeon"
+    return mode.value if hasattr(mode, "value") else str(mode)
 
 
 def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
@@ -391,6 +404,14 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
 
     # Seen creatures
     game._seen_creatures = payload.get("seen_creatures", set())
+
+    # Hex-mode state
+    from nhc.hexcrawl.mode import GameMode
+    game.world_mode = GameMode.from_str(
+        payload.get("world_mode", GameMode.DUNGEON.value)
+    )
+    game.hex_world = payload.get("hex_world")
+    game.hex_player_position = payload.get("hex_player_position")
 
     # Resubscribe event handlers (they're method refs, not persisted)
     game.event_bus.subscribe(MessageEvent, game._on_message)
