@@ -44,4 +44,5 @@ markers = [
     "entities: entity registry tests",
     "rules: Knave rules tests",
     "narrative: LLM narrative tests",
+    "slow: slow tests (subprocess / pool warmup / ~120s); skipped by default, run with `-m slow`",
 ]
