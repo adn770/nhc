@@ -746,15 +746,36 @@ phase to be useful.
 - One procedural dungeon hex (`procedural:cave`)
 - Web rendering only (overland canvas stack)
 
-### Phase 2 -- Settlements, encounters, expedition party
+### Phase 2 -- Settlements, encounters, expedition party (shipped)
 
-- Town-map generator and hub settlement
-- Settlement services wired (shop, temple, henchman hire, rest)
-- Inn rumor system (true and false rumors)
-- Expedition party + `SelectPartyAction` dialog on dungeon entry
-- Encounter pipeline (Fight / Evade / Talk) with mini-dungeon push
-- Panic `FleeDungeonAction` with cost (specifics tuned in
-  playtest)
+- `nhc/hexcrawl/town.py` (25x20 fixed-slot town generator with
+  shop / inn / temple / stable / training rooms, seed-shuffled
+  building assignments)
+- Town NPCs spawned on entry: merchant + priest + one hirable
+  adventurer. Stable and training rooms stay empty as v1
+  placeholders for mounts and XP-sink services
+- `MAX_EXPEDITION = 6` raises the hex-mode party cap above the
+  dungeon `MAX_HENCHMEN = 2`. Entering a cave / ruin pulls the
+  first `MAX_HENCHMEN` hired henchmen in; the rest wait on the
+  overland hex as left-behinds (`Position.level_id == "overland"`)
+  until the player returns. Settlements have no cap -- the whole
+  expedition comes inside. Interactive selection dialog is a UI
+  polish pass on top of the deterministic first-N picker
+- `nhc/hexcrawl/encounter.py` (single-room biome-themed "arena"
+  generator with a west-side stairs_up entry) +
+  `encounter_pipeline.py` (`roll_encounter`, `Encounter`,
+  `EncounterChoice`). `Game.resolve_encounter` dispatches
+  Fight (push arena) / Flee (1d4 damage) / Talk (peaceful pop)
+- `nhc/hexcrawl/rumors.py` seeds mixed true / false rumor pools
+  from the current world state; `gather_rumor_at` pops from
+  `HexWorld.active_rumors` and reveals the target hex
+- `Game.panic_flee()` exits the dungeon from anywhere at a cost:
+  1d6 HP (floored so it never kills), plus one day-clock segment
+- Covered end-to-end by `tests/unit/hexcrawl/test_phase2_smoke.py`
+
+**Deferred to later milestones:** innkeeper NPC in the inn room,
+a dedicated interactive henchman-selection dialog, LLM Talk
+dialog, biome-tuned encounter rates.
 
 ### Phase 3 -- Terminal parity
 
