@@ -22,22 +22,29 @@ from nhc.web.app import create_app
 from nhc.web.config import WebConfig
 
 
-def _make_app(tmp_path, max_sessions=8):
+def _make_app(tmp_path, monkeypatch, max_sessions=8):
     config = WebConfig(max_sessions=max_sessions, data_dir=tmp_path)
     app = create_app(config)
     app.config["TESTING"] = True
     # Disable the per-IP rate limiter for this test so we can send
     # many requests from the same client without hitting 429.
+    # Use monkeypatch so the class-level attribute is restored at
+    # test end -- otherwise tests that run after on the same xdist
+    # worker (e.g. test_web_api.py rate-limit cases) inherit the
+    # stubbed is_allowed and break under non-sequential distribution
+    # strategies like worksteal.
     import nhc.web.app as app_mod
-    app_mod._RateLimiter.is_allowed = lambda self, ip: True
+    monkeypatch.setattr(
+        app_mod._RateLimiter, "is_allowed", lambda self, ip: True,
+    )
     return app
 
 
 class TestConcurrentGameNew:
-    def test_two_sequential_game_new_succeed(self, tmp_path):
+    def test_two_sequential_game_new_succeed(self, tmp_path, monkeypatch):
         """Baseline: after fixing the asyncio bug, two sequential
         game_new calls in the same worker both succeed."""
-        app = _make_app(tmp_path)
+        app = _make_app(tmp_path, monkeypatch)
         try:
             with app.test_client() as c:
                 r1 = c.post("/api/game/new", json={})
@@ -48,14 +55,14 @@ class TestConcurrentGameNew:
         finally:
             app.config["GEN_POOL"].shutdown(wait=True)
 
-    def test_concurrent_game_new_from_threads(self, tmp_path):
+    def test_concurrent_game_new_from_threads(self, tmp_path, monkeypatch):
         """Two threads each POST /api/game/new. Both must succeed.
 
         This reproduces the multi-session failure: before the fix,
         one or both requests returned HTTP 500 "game initialization
         failed" because of asyncio loop state races.
         """
-        app = _make_app(tmp_path, max_sessions=8)
+        app = _make_app(tmp_path, monkeypatch, max_sessions=8)
         results: list[tuple[int, dict]] = []
         errors: list[BaseException] = []
         lock = threading.Lock()
