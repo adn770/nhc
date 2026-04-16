@@ -393,26 +393,10 @@ def main() -> int:
             total_written += 1
             print(f"  slot {slot:2d}: wrote {out_path.name}")
 
-    # Water biome: a single plain-dithered hex with no foundation
-    # overlay. One tile, filename 1-water_water.png.
-    water_tint = BIOME_COLOURS["water"]
-    water_out = HEXTILES / "water" / "5-water_water.png"
-    if args.dry_run:
-        print(f"\n[water] would write {water_out.name}")
-    elif args.force or not water_out.exists():
-        print(f"\n[water] background rgb{water_tint.as_tuple()}")
-        silhouette = _hex_silhouette_mask()
-        seed = hash(("water", 1)) & 0xFFFFFFFF
-        fill = _dithered_fill(
-            silhouette.size, water_tint, args.noise, seed,
-        )
-        bg = Image.new("RGBA", silhouette.size,
-                        (*water_tint.as_tuple(), 0))
-        bg.paste(fill, (0, 0), silhouette)
-        water_out.parent.mkdir(parents=True, exist_ok=True)
-        bg.save(water_out)
-        total_written += 1
-        print(f"  wrote {water_out.name}")
+    # Water biome uses the foundation water tile directly
+    # (hextiles/water/5-water_water.png copied from
+    # 5-foundation_water.png). No generation needed — the
+    # foundation tile already has the right water texture.
 
     print(f"\nDone. {total_written} tile(s) written.")
     return 0
