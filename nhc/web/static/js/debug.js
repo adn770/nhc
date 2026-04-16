@@ -33,9 +33,21 @@ const DebugPanel = {
   _tabs: [
     { name: "Layers", buildFn: "_buildLayersTab" },
     { name: "Map Gen", buildFn: "_buildMapGenTab" },
-    { name: "Hex", buildFn: "_buildHexTab" },
+    { name: "Hex Layers", buildFn: "_buildHexLayersTab" },
+    { name: "Hex Gen", buildFn: "_buildHexGenTab" },
     { name: "Export", buildFn: "_buildExportTab" },
   ],
+
+  // Hex layer visibility state (mirrors the dungeon `layers`
+  // object for the hex canvas stack + HUD).
+  hexLayers: {
+    base: true,
+    fog: true,
+    feature: true,
+    entity: true,
+    debug: true,
+    hud: true,
+  },
 
   // Map Gen state
   _mapGenParams: null,
@@ -945,37 +957,75 @@ const DebugPanel = {
     return label;
   },
 
-  // ── Hex tab ──────────────────────────────────────────────────
+  // ── Hex Layers tab ───────────────────────────────────────────
   //
-  // In-game debug panel for hex-mode sessions. Hits the
-  // /api/game/<sid>/hex/* endpoint family (god-mode gated) so the
-  // operator can poke the live HexWorld from the floating dialog
-  // without leaving the session. Non-hex games get a "not
-  // available" notice instead of the form.
+  // Visibility toggles for the hex canvas stack + HUD, mirroring
+  // the dungeon Layers tab's pattern.
 
-  _buildHexTab() {
+  _buildHexLayersTab() {
     const frag = document.createDocumentFragment();
-    frag.appendChild(this._sectionHeader("Live HexWorld"));
+    frag.appendChild(this._sectionHeader("Hex Rendering Layers"));
+
+    const hexCanvases = [
+      { key: "base",    label: "Base Canvas",    el: "#hex-base-canvas" },
+      { key: "fog",     label: "Fog Canvas",     el: "#hex-fog-canvas" },
+      { key: "feature", label: "Feature Canvas", el: "#hex-feature-canvas" },
+      { key: "entity",  label: "Entity Canvas",  el: "#hex-entity-canvas" },
+      { key: "debug",   label: "Debug Canvas",   el: "#hex-debug-canvas" },
+      { key: "hud",     label: "HUD Overlay",    el: "#hex-hud" },
+    ];
+
+    hexCanvases.forEach(({ key, label, el }) => {
+      const row = this._checkboxRow(
+        label, this.hexLayers[key], (on) => {
+          this.hexLayers[key] = on;
+          const target = document.querySelector(el);
+          if (target) target.style.display = on ? "" : "none";
+        },
+      );
+      frag.appendChild(row);
+    });
+
+    // Hex FOW info.
+    frag.appendChild(this._sectionHeader("Hex FOW"));
+    frag.appendChild(this._infoRow("Revealed hexes", "—", "hex-revealed"));
+    frag.appendChild(this._infoRow("Visited hexes", "—", "hex-visited"));
+
+    // Show state button fetches live counts.
+    const stateBtn = this._hexButton("Refresh state", async () => {
+      const body = await this._hexCall("state", "GET");
+      if (body && !body.error) {
+        const revealed = body.cells.filter(c => c.revealed).length;
+        const visited = body.cells.filter(c => c.visited).length;
+        const el1 = document.getElementById("hex-revealed");
+        const el2 = document.getElementById("hex-visited");
+        if (el1) el1.textContent = `${revealed} / ${body.cells.length}`;
+        if (el2) el2.textContent = `${visited} / ${body.cells.length}`;
+      }
+    });
+    frag.appendChild(stateBtn);
+
+    return frag;
+  },
+
+  // ── Hex Gen tab ─────────────────────────────────────────────
+  //
+  // World manipulation tools for hex-mode sessions. Hits the
+  // /api/game/<sid>/hex/* endpoint family (god-mode gated) so
+  // the operator can poke the live HexWorld from the floating
+  // dialog without leaving the session.
+
+  _buildHexGenTab() {
+    const frag = document.createDocumentFragment();
+    frag.appendChild(this._sectionHeader("HexWorld Tools"));
 
     const status = document.createElement("div");
     status.className = "debug-hex-status";
     status.style.color = "#888";
     status.style.fontSize = "11px";
     status.style.marginBottom = "8px";
-    status.textContent = "State not fetched yet";
+    status.textContent = "";
     frag.appendChild(status);
-
-    const stateBtn = this._hexButton("Show state", async () => {
-      const body = await this._hexCall("state", "GET");
-      if (body && !body.error) {
-        status.textContent =
-          `Day ${body.day} ${body.time} — ` +
-          `${body.cells.length} cells, ` +
-          `player (${body.player.q}, ${body.player.r}), ` +
-          `${body.rumors.length} rumour(s)`;
-      }
-    });
-    frag.appendChild(stateBtn);
 
     const revealBtn = this._hexButton("Reveal all hexes", async () => {
       const body = await this._hexCall("reveal", "POST");
