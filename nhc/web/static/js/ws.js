@@ -30,9 +30,13 @@ const WS = {
 
     this.socket.onmessage = (event) => {
       const msg = JSON.parse(event.data);
-      const handler = this.handlers[msg.type];
-      if (handler) {
-        handler(msg);
+      const handlers = this.handlers[msg.type];
+      if (handlers && handlers.length) {
+        handlers.forEach(h => {
+          try { h(msg); } catch (err) {
+            console.error("WS handler error for", msg.type, err);
+          }
+        });
       } else {
         console.warn("Unhandled WS message type:", msg.type);
       }
@@ -54,6 +58,10 @@ const WS = {
   },
 
   on(type, handler) {
-    this.handlers[type] = handler;
+    // Allow multiple handlers per message type so independent
+    // modules (e.g. map.js + hex_map.js both listening to "state")
+    // can coexist.
+    if (!this.handlers[type]) this.handlers[type] = [];
+    this.handlers[type].push(handler);
   },
 };

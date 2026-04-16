@@ -292,24 +292,41 @@ function hexKeyHandler(ev) {
 
 document.addEventListener("keydown", hexKeyHandler);
 
+function _showHexOverland() {
+  const dungeon = document.getElementById("floor-svg");
+  const dungeonCanvases = document.querySelectorAll(
+    "#door-canvas, #hatch-canvas, #fog-canvas, #entity-canvas, #debug-canvas");
+  dungeonCanvases.forEach(c => c.classList.add("hidden"));
+  if (dungeon) dungeon.classList.add("hidden");
+  const hexContainer = document.getElementById("hex-container");
+  if (hexContainer) hexContainer.classList.remove("hidden");
+}
+
+function _showDungeonView() {
+  const dungeon = document.getElementById("floor-svg");
+  const dungeonCanvases = document.querySelectorAll(
+    "#door-canvas, #hatch-canvas, #fog-canvas, #entity-canvas, #debug-canvas");
+  dungeonCanvases.forEach(c => c.classList.remove("hidden"));
+  if (dungeon) dungeon.classList.remove("hidden");
+  const hexContainer = document.getElementById("hex-container");
+  if (hexContainer) hexContainer.classList.add("hidden");
+}
+
 // Wire the WS handler and toggle visibility of the hex vs dungeon
 // containers when a ``state_hex`` arrives.
 if (typeof WS !== "undefined") {
   WS.on("state_hex", (msg) => {
-    const dungeon = document.getElementById("map-container")
-      ?.querySelector("#floor-svg");
-    const dungeonCanvases = document.querySelectorAll(
-      "#door-canvas, #hatch-canvas, #fog-canvas, #entity-canvas, #debug-canvas");
-    dungeonCanvases.forEach(c => c.classList.add("hidden"));
-    if (dungeon) dungeon.classList.add("hidden");
-    const hexContainer = document.getElementById("hex-container");
-    if (hexContainer) hexContainer.classList.remove("hidden");
+    _showHexOverland();
     setHexInputActive(true);
     HexMap.render(msg);
   });
   // When the dungeon sends its own state, the player is inside a
   // dungeon; hex-movement keys should NOT fire (dungeon keybinds
-  // would collide).
-  WS.on("state_dungeon", () => { setHexInputActive(false); });
-  WS.on("state", () => { setHexInputActive(false); });
+  // would collide) and the SVG + dungeon canvases must be visible.
+  const _showDungeonAndLockHex = () => {
+    setHexInputActive(false);
+    _showDungeonView();
+  };
+  WS.on("state_dungeon", _showDungeonAndLockHex);
+  WS.on("state", _showDungeonAndLockHex);
 }
