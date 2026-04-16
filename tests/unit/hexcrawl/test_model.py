@@ -26,6 +26,9 @@ def test_biome_enum_complete() -> None:
     expected = {
         "greenlands", "drylands", "sandlands",
         "icelands", "deadlands", "forest", "mountain",
+        # Added in M-G.1 for the noise generator + Blackmarsh
+        # wetlands prep.
+        "hills", "marsh", "swamp",
     }
     assert {b.value for b in Biome} == expected
 

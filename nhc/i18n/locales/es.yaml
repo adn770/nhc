@@ -2432,6 +2432,9 @@ hex:
     deadlands: "Tierras muertas"
     forest: "Bosque"
     mountain: "Montaña"
+    hills: "Colinas"
+    marsh: "Marisma"
+    swamp: "Pantano"
   time:
     morning: "Mañana"
     midday: "Mediodía"

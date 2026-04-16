@@ -35,6 +35,11 @@ DEFAULT_BIOME_COSTS: dict[Biome, int] = {
     Biome.FOREST: 2,
     Biome.MOUNTAIN: 4,
     Biome.DEADLANDS: 2,
+    # Hills ~= forest cost; wetlands cost more -- marsh + swamp
+    # are slow slogs, tuned between forest (2) and mountain (4).
+    Biome.HILLS: 2,
+    Biome.MARSH: 3,
+    Biome.SWAMP: 3,
 }
 
 

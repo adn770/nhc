@@ -60,6 +60,11 @@ DEFAULT_BIOME_POOLS: dict[Biome, tuple[str, ...]] = {
     Biome.DEADLANDS: ("skeleton", "zombie", "ghoul"),
     Biome.FOREST: ("goblin", "giant_bee", "giant_centipede"),
     Biome.MOUNTAIN: ("kobold", "hobgoblin", "wolf"),
+    # Hills blend mountain bandits with low-hills vermin; marsh
+    # and swamp lean wet + undead (swamp heavier on the dead).
+    Biome.HILLS: ("goblin", "hobgoblin", "bandit"),
+    Biome.MARSH: ("giant_leech", "frogman", "giant_centipede"),
+    Biome.SWAMP: ("zombie", "ghoul", "giant_leech"),
 }
 
 

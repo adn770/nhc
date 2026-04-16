@@ -46,7 +46,7 @@ def test_cost_for_default_mountain_expensive() -> None:
 def test_cost_for_defaults_match_design_doc_table() -> None:
     # The mapping captured in design/overland_hexcrawl.md §5. Keeping
     # this test explicit makes the default table hard to silently
-    # drift.
+    # drift. Hills / marsh / swamp entries landed with M-G.1.
     assert dict(DEFAULT_BIOME_COSTS) == {
         Biome.GREENLANDS: 1,
         Biome.DRYLANDS: 1,
@@ -55,6 +55,9 @@ def test_cost_for_defaults_match_design_doc_table() -> None:
         Biome.FOREST: 2,
         Biome.MOUNTAIN: 4,
         Biome.DEADLANDS: 2,
+        Biome.HILLS: 2,
+        Biome.MARSH: 3,
+        Biome.SWAMP: 3,
     }
 
 

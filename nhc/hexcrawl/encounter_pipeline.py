@@ -42,6 +42,12 @@ BIOME_ENCOUNTER_RATES: dict[Biome, float] = {
     Biome.ICELANDS:   0.30,
     Biome.MOUNTAIN:   0.35,   # packs + terrain = nasty
     Biome.DEADLANDS:  0.40,   # undead wastes; highest rate
+    # Hills sit between forest and mountain. Marsh is wet
+    # ambush country; swamp is strictly worse -- denser cover
+    # and heavier undead presence push it past mountain.
+    Biome.HILLS:      0.22,
+    Biome.MARSH:      0.28,
+    Biome.SWAMP:      0.33,
 }
 
 

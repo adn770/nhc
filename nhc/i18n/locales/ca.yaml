@@ -2735,6 +2735,9 @@ hex:
     deadlands: "Terres mortes"
     forest: "Bosc"
     mountain: "Muntanya"
+    hills: "Tossals"
+    marsh: "Aiguamoll"
+    swamp: "Pantà"
   time:
     morning: "Matí"
     midday: "Migdia"

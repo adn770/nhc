@@ -42,6 +42,12 @@ BIOME_GLYPH: dict[Biome, str] = {
     Biome.DEADLANDS: "%",
     Biome.FOREST: "#",
     Biome.MOUNTAIN: "^",
+    # Hills read as a rolling line, marsh as shallow water,
+    # swamp as a denser wave motif. All three kept distinct
+    # from the seven existing glyphs.
+    Biome.HILLS: "n",
+    Biome.MARSH: "~",
+    Biome.SWAMP: "=",
 }
 
 # Feature overlays take priority over biome glyphs.

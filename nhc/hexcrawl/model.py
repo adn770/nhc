@@ -29,6 +29,12 @@ class Biome(Enum):
     DEADLANDS = "deadlands"
     FOREST = "forest"
     MOUNTAIN = "mountain"
+    # Added in M-G.1 to prepare the palette for the noise
+    # generator (hills soften mountain transitions) and the
+    # Blackmarsh content pack (marsh + swamp wetlands).
+    HILLS = "hills"
+    MARSH = "marsh"
+    SWAMP = "swamp"
 
 
 class HexFeatureType(Enum):

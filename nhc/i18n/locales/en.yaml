@@ -2412,6 +2412,9 @@ hex:
     deadlands: "Deadlands"
     forest: "Forest"
     mountain: "Mountain"
+    hills: "Hills"
+    marsh: "Marsh"
+    swamp: "Swamp"
   time:
     morning: "Morning"
     midday: "Midday"
