@@ -525,6 +525,40 @@ class Game:
                 hpos.level_id = "overland"
         return True
 
+    async def panic_flee(self) -> bool:
+        """Escape the current dungeon from anywhere at a cost.
+
+        Normal exit (:meth:`exit_dungeon_to_hex`) expects the
+        player on the entry tile. Panic-flee skips that
+        requirement in exchange for a 1d6 damage roll against the
+        player and a single half-day advance on the overland
+        clock. Floors damage so the player keeps at least 1 HP --
+        a bail-out shouldn't be the thing that kills the
+        character.
+
+        Returns ``True`` when the flee actually triggered, ``False``
+        when there's no active dungeon to flee from (no-op on the
+        overland).
+        """
+        import random as _random
+
+        if self.level is None or not self.world_mode.is_hex:
+            return False
+        # Damage roll first so the HP state is observable before
+        # the dungeon is popped (rendering hooks may read it).
+        rng = self._encounter_rng or _random.Random()
+        hp = self.world.get_component(self.player_id, "Health")
+        if hp is not None and hp.current > 1:
+            damage = rng.randint(1, 6)
+            hp.current = max(1, hp.current - damage)
+        # Day-clock penalty: half a day lost to the scramble out.
+        if self.hex_world is not None:
+            self.hex_world.advance_clock(1)
+        # Reuse the normal exit path for the cache / level reset
+        # + henchman shepherding.
+        await self.exit_dungeon_to_hex()
+        return True
+
     async def resolve_encounter(self, choice) -> bool:
         """Dispatch the player's Fight / Flee / Talk pick.
 
