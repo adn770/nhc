@@ -777,12 +777,31 @@ phase to be useful.
 a dedicated interactive henchman-selection dialog, LLM Talk
 dialog, biome-tuned encounter rates.
 
-### Phase 3 -- Terminal parity
+### Phase 3 -- Terminal parity (shipped)
 
-- Staggered char-cell hex view in the terminal client
-- Sidebar mini-map and hex status bar
-- Key bindings (movement, rest, map, party, leave hex)
-- Terminal dialogs for dungeon entry and death
+- `nhc/rendering/terminal/hex_renderer.py` emits the overland
+  ASCII frame: odd-q staggered grid with single-char biome /
+  feature glyphs, `@` for the player, trailing status line
+  showing day / time / axial coord / biome / feature
+- `TerminalRenderer.render_hex()` drops the frame above the
+  usual message log + hint strip; a ``_hex_mode`` flag toggles
+  the dispatch table in `get_input` so the hex-mode key
+  bindings land only when the player is actually on the
+  overland
+- `HEX_KEY_MAP` / `map_key_to_hex_intent` translate vi
+  (`y u k j b n`), numpad (`1-9`) and arrow keys into the six
+  flat-top directions; `>` enters a feature, `.` / `5` rest,
+  Shift+`L` exits to overland, Shift+`F` panic-flees
+- CLI wiring complete: `./play --world hex-easy` launches the
+  terminal directly onto the overland; `gamemode_from_args`
+  is routed through the `Game` constructor in `nhc.py`
+
+**Deferred to later milestones:** sidebar mini-map (the full
+frame already fits a 25x16 world in ~50 cols × 32 rows), a
+terminal henchman-selection dialog (cave entry uses the
+deterministic first-N picker for now), terminal death dialog
+(the dungeon one already fires; hex-mode permadeath follows
+the same path).
 
 ### Phase 4 -- Debug tools + polish
 
