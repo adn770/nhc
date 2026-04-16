@@ -218,6 +218,19 @@ def test_generator_features_are_reachable_from_hub(default_pack) -> None:
         assert c in seen, f"feature at {c} unreachable from hub"
 
 
+def test_generator_settlements_have_dungeon_ref(default_pack) -> None:
+    # Hub + villages all get a DungeonRef so `e` works on them.
+    w = generate_test_world(seed=42, pack=default_pack)
+    settlements = _feature_hexes(
+        w, {HexFeatureType.CITY, HexFeatureType.VILLAGE},
+    )
+    assert len(settlements) >= 1
+    for c in settlements:
+        cell = w.cells[c]
+        assert cell.dungeon is not None, (c, cell.feature)
+        assert cell.dungeon.template.startswith("procedural:")
+
+
 def test_generator_dungeon_features_have_dungeon_ref(default_pack) -> None:
     w = generate_test_world(seed=42, pack=default_pack)
     dungeon_types = {

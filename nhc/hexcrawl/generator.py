@@ -240,6 +240,11 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
         raise _FeaturePlacementError("no greenlands / drylands hex for hub")
     cells[hub].feature = HexFeatureType.CITY
     cells[hub].name_key = "content.testland.hex.hub.name"
+    cells[hub].desc_key = "content.testland.hex.hub.description"
+    # Placeholder "dungeon" so enter_hex_feature can land the
+    # player on a generated town floor until Phase 2's proper town
+    # map generator arrives.
+    cells[hub].dungeon = DungeonRef(template="procedural:settlement")
 
     taken: set[HexCoord] = {hub}
 
@@ -258,6 +263,7 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
         )
     for c in rng.sample(village_pool, n_villages):
         cells[c].feature = HexFeatureType.VILLAGE
+        cells[c].dungeon = DungeonRef(template="procedural:settlement")
         taken.add(c)
 
     # -- Dungeons -------------------------------------------------
