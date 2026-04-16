@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 from nhc.core.ecs import World
 from nhc.dungeon.model import Level, RectShape, Terrain
 from nhc.rendering.terminal import glyphs as _glyphs
+from nhc.rendering.terminal.hex_renderer import build_hex_frame
 from nhc.rendering.terminal.glyphs import (
     FEATURE_GLYPHS,
     dim_color_fn,
@@ -220,6 +221,50 @@ class TerminalRenderer(GameClient):
             hint = "TAB → typed mode  ? → help"
             padded = hint.center(t.width)
             output += t.move_xy(0, input_y) + t.color_rgb(80, 140, 210)(padded)
+
+        print(output, end="", flush=True)
+
+    def render_hex(
+        self,
+        hex_world,
+        player_coord,
+        turn: int,
+    ) -> None:
+        """Render the overland hex view.
+
+        Uses :func:`build_hex_frame` for the staggered ASCII grid
+        plus a status line; then appends the recent message log
+        and the same mode indicator as the dungeon view so the
+        player sees TAB / ? / scroll hints in the same place.
+        """
+        t = self.term
+        frame = build_hex_frame(hex_world, player_coord)
+        lines = frame.splitlines()
+        # Pad / crop each grid row to the terminal width so the
+        # overlay repaint doesn't leave stale characters to the
+        # right of the map.
+        padded = [line.ljust(t.width)[: t.width] for line in lines]
+        output = t.home + t.clear
+        for i, line in enumerate(padded):
+            if i >= t.height - LOG_HEIGHT:
+                break
+            output += t.move_xy(0, i) + line
+
+        # Message log stays at the bottom so encounter / flee
+        # messages fit the usual mental spot.
+        log_y = t.height - LOG_HEIGHT
+        msg_lines = LOG_HEIGHT - INPUT_HEIGHT
+        output += t.move_xy(0, log_y) + t.bright_black(
+            get_theme().h_line * t.width)
+        output += render_messages(
+            t, log_y + 1, msg_lines, t.width,
+            self._messages, self._msg_scroll,
+        )
+
+        input_y = log_y + 1 + msg_lines
+        hint = "TAB → typed mode  ? → help  L → leave"
+        padded_hint = hint.center(t.width)
+        output += t.move_xy(0, input_y) + t.color_rgb(80, 140, 210)(padded_hint)
 
         print(output, end="", flush=True)
 
