@@ -375,18 +375,25 @@ class Game:
         from nhc.hexcrawl.seed import dungeon_seed
         template = cell.dungeon.template
         seed = dungeon_seed(self.seed or 0, coord, template)
-        sv = _shape_variety_for_depth(self.shape_variety, depth)
-        theme = (
-            "cave" if template.startswith("procedural:cave")
-            else theme_for_depth(depth)
-        )
-        map_w, map_h = pick_map_size(get_rng(), depth=depth)
-        params = GenerationParams(
-            width=map_w, height=map_h, depth=depth,
-            shape_variety=sv, theme=theme, seed=seed,
-        )
-        self.generation_params = params
-        self.level = generate_level(params)
+        if template.startswith("procedural:settlement"):
+            from nhc.hexcrawl.town import generate_town
+            self.level = generate_town(
+                seed=seed,
+                town_id=f"town_{coord.q}_{coord.r}",
+            )
+        else:
+            sv = _shape_variety_for_depth(self.shape_variety, depth)
+            theme = (
+                "cave" if template.startswith("procedural:cave")
+                else theme_for_depth(depth)
+            )
+            map_w, map_h = pick_map_size(get_rng(), depth=depth)
+            params = GenerationParams(
+                width=map_w, height=map_h, depth=depth,
+                shape_variety=sv, theme=theme, seed=seed,
+            )
+            self.generation_params = params
+            self.level = generate_level(params)
         # Cache the freshly generated floor under the (q, r, depth)
         # key so re-entry skips regeneration.
         self._floor_cache[cache_key] = (self.level, {})
