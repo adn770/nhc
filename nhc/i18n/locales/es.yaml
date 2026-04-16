@@ -2424,6 +2424,23 @@ hex:
   pick_party: "Elige un compañero para llevar:"
   ui:
     day: "Día"
+    enter_hint: "(pulsa 'e' para entrar)"
+    controls: "y/u NO/NE · b/n SO/SE · k N · j S · e entrar · L salir · r descansar"
+  feature:
+    village: "Aldea"
+    city: "Ciudad"
+    tower: "Torre"
+    keep: "Fortaleza"
+    cave: "Cueva"
+    ruin: "Ruinas"
+    hole: "Agujero"
+    graveyard: "Cementerio"
+    crystals: "Cristales"
+    stones: "Piedras"
+    wonder: "Maravilla"
+    portal: "Portal"
+    lake: "Lago"
+    river: "Río"
   biome:
     greenlands: "Tierras verdes"
     drylands: "Tierras secas"

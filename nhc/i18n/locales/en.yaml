@@ -2404,6 +2404,8 @@ hex:
   pick_party: "Pick a henchman to bring along:"
   ui:
     day: "Day"
+    enter_hint: "(press 'e' to enter)"
+    controls: "y/u NW/NE · b/n SW/SE · k N · j S · e enter · L leave · r rest"
   biome:
     greenlands: "Greenlands"
     drylands: "Drylands"
@@ -2416,6 +2418,21 @@ hex:
     marsh: "Marsh"
     swamp: "Swamp"
     water: "Sea"
+  feature:
+    village: "Village"
+    city: "City"
+    tower: "Tower"
+    keep: "Keep"
+    cave: "Cave"
+    ruin: "Ruin"
+    hole: "Hole"
+    graveyard: "Graveyard"
+    crystals: "Crystals"
+    stones: "Stones"
+    wonder: "Wonder"
+    portal: "Portal"
+    lake: "Lake"
+    river: "River"
   time:
     morning: "Morning"
     midday: "Midday"

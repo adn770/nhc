@@ -2727,6 +2727,23 @@ hex:
   pick_party: "Tria un company per dur amb tu:"
   ui:
     day: "Dia"
+    enter_hint: "(prem 'e' per entrar)"
+    controls: "y/u NO/NE · b/n SO/SE · k N · j S · e entrar · L sortir · r descansar"
+  feature:
+    village: "Poblet"
+    city: "Ciutat"
+    tower: "Torre"
+    keep: "Fortalesa"
+    cave: "Cova"
+    ruin: "Ruïnes"
+    hole: "Forat"
+    graveyard: "Cementiri"
+    crystals: "Cristalls"
+    stones: "Pedres"
+    wonder: "Meravella"
+    portal: "Portal"
+    lake: "Llac"
+    river: "Riu"
   biome:
     greenlands: "Terres verdes"
     drylands: "Terres seques"

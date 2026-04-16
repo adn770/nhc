@@ -756,6 +756,34 @@ class WebClient(GameClient):
             "ranking_fate_won": tr("ui.ranking_fate_won"),
             "ranking_fate_died": tr("ui.ranking_fate_died"),
             "ranking_close": tr("ui.ranking_close"),
+            # Hex-mode status bar + tooltips
+            "hex_day": tr("hex.ui.day"),
+            "hex_enter_hint": tr("hex.ui.enter_hint"),
+            "hex_controls": tr("hex.ui.controls"),
+            # Per-biome translated names
+            **{
+                f"hex_biome_{b.value}": tr(f"hex.biome.{b.value}")
+                for b in __import__(
+                    "nhc.hexcrawl.model", fromlist=["Biome"],
+                ).Biome
+            },
+            # Per-feature translated names
+            **{
+                f"hex_feature_{f.value}": tr(f"hex.feature.{f.value}")
+                for f in __import__(
+                    "nhc.hexcrawl.model", fromlist=["HexFeatureType"],
+                ).HexFeatureType
+                if f.value != "none"
+            },
+            # Per-time-of-day translated names (keyed by the
+            # lowercase name the state_hex payload carries, not
+            # the integer enum value).
+            **{
+                f"hex_time_{t.name.lower()}": tr(f"hex.time.{t.name.lower()}")
+                for t in __import__(
+                    "nhc.hexcrawl.model", fromlist=["TimeOfDay"],
+                ).TimeOfDay
+            },
         }
 
     def _gather_doors(

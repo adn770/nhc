@@ -138,6 +138,7 @@ const HexMap = {
    * session so the overland doesn't open with the player off to
    * one corner. Re-armed when the view leaves and returns. */
   _scrolledOnce: false,
+  _lastState: null,
 
   /** Hover threshold: arrows appear when the pointer lies inside
    * this many px of the player hex centre. The arrow centres sit
@@ -423,6 +424,10 @@ const HexMap = {
 
   /** Main entry point, called on every state_hex payload. */
   async render(state) {
+    // Stash the latest state so the hover tooltip can look up
+    // cells by axial coord without a re-render.
+    this._lastState = state;
+
     const base = document.getElementById("hex-base-canvas");
     const fog = document.getElementById("hex-fog-canvas");
     const ent = document.getElementById("hex-entity-canvas");
@@ -477,9 +482,6 @@ const HexMap = {
         this._drawGlyphFallback(baseCtx, cell, x, y);
       }
       this._punchHex(fogCtx, x, y);
-      if (featCtx && cell.feature && cell.feature !== "none") {
-        this._drawFeatureLabel(featCtx, cell.feature, x, y);
-      }
     }
 
     // Player avatar (HUD) + direction arrow ring (HUD). Canvas
@@ -499,29 +501,33 @@ const HexMap = {
       }
     }
 
-    // Update the day/time HUD if present.
+    // Update the day/time HUD using localized labels.
+    const L = NHC.labels || {};
     const hud = document.getElementById("status-line1");
     if (hud) {
-      const time = (state.time || "morning").replace(/^\w/,
-        c => c.toUpperCase());
-      hud.textContent = `Day ${state.day} · ${time} ·` +
+      const dayLabel = L.hex_day || "Day";
+      const timeKey = `hex_time_${state.time || "morning"}`;
+      const timeLabel = L[timeKey]
+        || (state.time || "morning").replace(/^\w/, c => c.toUpperCase());
+      hud.textContent = `${dayLabel} ${state.day} · ${timeLabel} ·` +
         ` Hex (${state.player.q}, ${state.player.r})`;
     }
-    // Describe the player's current hex on line 2 so bump-to-enter
-    // is discoverable. Shows "<biome> – <feature>" when the hex has
-    // a feature, otherwise just the biome.
     const hud2 = document.getElementById("status-line2");
     if (hud2) {
       const me = state.cells.find(
         c => c.q === state.player.q && c.r === state.player.r,
       );
       if (me) {
-        const biomeTitle = me.biome.replace(/^\w/,
-          c => c.toUpperCase());
-        let line = biomeTitle;
+        const biomeKey = `hex_biome_${me.biome}`;
+        const biomeLabel = L[biomeKey]
+          || me.biome.replace(/^\w/, c => c.toUpperCase());
+        let line = biomeLabel;
         if (me.feature && me.feature !== "none") {
-          line += ` — ${me.feature}`;
-          line += "   (press 'e' to enter)";
+          const featKey = `hex_feature_${me.feature}`;
+          const featLabel = L[featKey]
+            || me.feature.replace(/^\w/, c => c.toUpperCase());
+          line += ` — ${featLabel}`;
+          line += `   ${L.hex_enter_hint || "(press 'e' to enter)"}`;
         }
         hud2.textContent = line;
       } else {
@@ -530,8 +536,8 @@ const HexMap = {
     }
     const hud3 = document.getElementById("status-line3");
     if (hud3) {
-      hud3.textContent =
-        "y/u NW/NE · b/n SW/SE · k N · j S · e enter · Shift-L leave · r rest";
+      hud3.textContent = L.hex_controls
+        || "y/u NW/NE · b/n SW/SE · k N · j S · e enter · L leave · r rest";
     }
   },
 
@@ -729,3 +735,60 @@ if (typeof WS !== "undefined") {
   WS.on("state_dungeon", _showDungeonAndLockHex);
   WS.on("state", _showDungeonAndLockHex);
 }
+
+
+// ── Hover tooltip for hex features ──────────────────────────────
+// Shows a localized tooltip (biome + feature) when the cursor is
+// over a revealed hex on the overland canvas. Replaces the old
+// permanent feature labels that cluttered the map.
+
+(function _initHexTooltip() {
+  const container = document.getElementById("hex-container");
+  if (!container) return;
+  let tip = document.getElementById("hex-tooltip");
+  if (!tip) {
+    tip = document.createElement("div");
+    tip.id = "hex-tooltip";
+    tip.style.cssText =
+      "position:absolute; pointer-events:none; display:none; " +
+      "background:rgba(8,10,14,0.85); color:#f5dea2; " +
+      "font:bold 11px system-ui,sans-serif; padding:3px 8px; " +
+      "border-radius:4px; white-space:nowrap; z-index:200;";
+    container.appendChild(tip);
+  }
+
+  container.addEventListener("mousemove", (ev) => {
+    if (!HexMap._lastState) { tip.style.display = "none"; return; }
+    const rect = container.getBoundingClientRect();
+    const mx = ev.clientX - rect.left + container.scrollLeft;
+    const my = ev.clientY - rect.top + container.scrollTop;
+    // Pixel → axial: inverse of the flat-top layout math.
+    const q = Math.round((mx - HEX_SIZE) / (HEX_SIZE * 1.5));
+    const r = Math.round(
+      (my - HEX_SIZE * Math.sqrt(3) / 2 - q * HEX_SIZE * Math.sqrt(3) / 2)
+        / (HEX_SIZE * Math.sqrt(3))
+    );
+    const cell = HexMap._lastState.cells.find(
+      c => c.q === q && c.r === r,
+    );
+    if (!cell) { tip.style.display = "none"; return; }
+
+    const L = NHC.labels || {};
+    const biomeKey = `hex_biome_${cell.biome}`;
+    const biome = L[biomeKey] || cell.biome;
+    let text = biome;
+    if (cell.feature && cell.feature !== "none") {
+      const featKey = `hex_feature_${cell.feature}`;
+      const feat = L[featKey] || cell.feature;
+      text = `${feat} — ${biome}`;
+    }
+    tip.textContent = text;
+    tip.style.display = "block";
+    tip.style.left = `${mx + 14}px`;
+    tip.style.top = `${my - 10}px`;
+  });
+
+  container.addEventListener("mouseleave", () => {
+    tip.style.display = "none";
+  });
+})();
