@@ -371,6 +371,13 @@ if (typeof WS !== "undefined") {
     _showHexOverland();
     setHexInputActive(true);
     HexMap.render(msg);
+    // Clear the "Generating dungeon…" overlay on the very first
+    // hex frame. Hex mode never emits the dungeon "floor" message
+    // that the dungeon pipeline uses to drop the overlay.
+    if (typeof NHC !== "undefined") {
+      NHC.waitingForFloor = false;
+      NHC.hideLoading();
+    }
   });
   // When the dungeon sends its own state, the player is inside a
   // dungeon; hex-movement keys should NOT fire (dungeon keybinds
