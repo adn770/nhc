@@ -363,19 +363,22 @@ class Game:
         if cell is None or cell.dungeon is None:
             return False
 
+        from nhc.hexcrawl.seed import dungeon_seed
+        template = cell.dungeon.template
+        is_settlement = template.startswith("procedural:settlement")
+
         depth = 1
         cache_key = self._cache_key(depth)
         if cache_key in self._floor_cache:
             level, _ = self._floor_cache[cache_key]
             self.level = level
             self._place_player_at_stairs_up()
+            self._place_expedition_henchmen(is_settlement=is_settlement)
             self._notify_floor_change(depth)
             return True
 
-        from nhc.hexcrawl.seed import dungeon_seed
-        template = cell.dungeon.template
         seed = dungeon_seed(self.seed or 0, coord, template)
-        if template.startswith("procedural:settlement"):
+        if is_settlement:
             from nhc.hexcrawl.town import generate_town
             self.level = generate_town(
                 seed=seed,
@@ -405,8 +408,41 @@ class Game:
         # the ECS world (merchants stay dead, hired henchmen follow).
         self._floor_cache[cache_key] = (self.level, {})
         self._place_player_at_stairs_up()
+        self._place_expedition_henchmen(is_settlement=is_settlement)
         self._notify_floor_change(depth)
         return True
+
+    def _place_expedition_henchmen(self, *, is_settlement: bool) -> None:
+        """Move hired henchmen from the overland into the current level.
+
+        Settlements bring the whole expedition inside so services
+        are reachable to everyone. A cave / ruin can only fit
+        :data:`MAX_HENCHMEN` of them in the crawl; the rest stay on
+        the overland tile (``level_id == "overland"``) as
+        "left-behinds" waiting for the player to return.
+
+        Selection is deterministic: the first ``MAX_HENCHMEN``
+        hired henchmen by entity-id come along. A proper
+        interactive dialog lands as part of later UI polish; for
+        the ECS contract a stable order is enough.
+        """
+        if self.level is None:
+            return
+        from nhc.core.actions._henchman import MAX_HENCHMEN
+        hired = [
+            (eid, h) for eid, h in self.world.query("Henchman")
+            if h.hired and h.owner == self.player_id
+        ]
+        hired.sort(key=lambda t: t[0])
+        selected = hired if is_settlement else hired[:MAX_HENCHMEN]
+        # Only touch the selected henchmen; left-behinds keep their
+        # existing "overland" position verbatim.
+        for eid, _ in selected:
+            pos = self.world.get_component(eid, "Position")
+            if pos is not None:
+                pos.level_id = self.level.id
+        # Lay them out on walkable tiles around the player.
+        self._place_henchmen_near_player()
 
     def _notify_floor_change(self, depth: int) -> None:
         """Tell the web client a new dungeon floor is in play so it
@@ -462,12 +498,26 @@ class Game:
         """
         if self.level is None or not self.world_mode.is_hex:
             return False
+        departing_level_id = self.level.id
         self.level = None
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
             pos.x = -1
             pos.y = -1
             pos.level_id = "overland"
+        # Any hired henchman who was in the crawl follows the
+        # player back out; left-behinds were never moved off
+        # "overland" in the first place and stay as they are.
+        for eid, hench in self.world.query("Henchman"):
+            if not hench.hired or hench.owner != self.player_id:
+                continue
+            hpos = self.world.get_component(eid, "Position")
+            if hpos is None:
+                continue
+            if hpos.level_id == departing_level_id:
+                hpos.x = -1
+                hpos.y = -1
+                hpos.level_id = "overland"
         return True
 
     async def apply_hex_step(self, target: HexCoord) -> bool:
@@ -1631,11 +1681,20 @@ class Game:
         """Run the buy/sell/hire menu loop for an unhired henchman."""
         from nhc.core.actions._henchman import (
             HIRE_COST_PER_LEVEL,
+            MAX_EXPEDITION,
             MAX_HENCHMEN,
             DismissAction,
             RecruitAction,
             _count_hired,
             get_hired_henchmen,
+        )
+
+        # Hex-mode campaigns allow a bigger expedition roster than
+        # a single dungeon crawl can actually fit -- enforce the
+        # correct cap both on the "party full → offer dismiss"
+        # branch and on the RecruitAction itself.
+        max_party = (
+            MAX_EXPEDITION if self.world_mode.is_hex else MAX_HENCHMEN
         )
         from nhc.rules.prices import buy_price, sell_price
 
@@ -1850,11 +1909,11 @@ class Game:
                     )
                     continue
 
-                # If party is full, offer to dismiss one
+                # If party is full, offer to dismiss one.
                 hired_count = _count_hired(
                     self.world, self.player_id,
                 )
-                if hired_count >= MAX_HENCHMEN:
+                if hired_count >= max_party:
                     hired_ids = get_hired_henchmen(
                         self.world, self.player_id,
                     )
@@ -1889,6 +1948,7 @@ class Game:
                 recruit = RecruitAction(
                     actor=self.player_id,
                     target=henchman_id,
+                    max_party=max_party,
                 )
                 if await recruit.validate(
                     self.world, self.level,
@@ -2528,7 +2588,14 @@ class Game:
         return True
 
     def _place_henchmen_near_player(self) -> None:
-        """Place hired henchmen on walkable tiles near the player."""
+        """Place hired henchmen on walkable tiles near the player.
+
+        Only henchmen already tagged for the current level move --
+        in hex mode that filters out expedition "left-behinds"
+        (whose ``Position.level_id == "overland"``) from a cave
+        entry so they stay on the overland tile until the player
+        returns.
+        """
         ppos = self.world.get_component(self.player_id, "Position")
         if not ppos:
             return
@@ -2550,12 +2617,15 @@ class Game:
             hpos = self.world.get_component(eid, "Position")
             if not hpos:
                 continue
+            # Skip left-behinds: hex-mode henchmen whose level_id
+            # still reads "overland" opted out of this crawl.
+            if hpos.level_id != self.level.id:
+                continue
             if idx < len(candidates):
                 hpos.x, hpos.y = candidates[idx]
             else:
                 # Fallback: same tile as player
                 hpos.x, hpos.y = ppos.x, ppos.y
-            hpos.level_id = self.level.id
             idx += 1
 
     def _party_keep_ids(self) -> set[int]:

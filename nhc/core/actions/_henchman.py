@@ -20,7 +20,15 @@ logger = logging.getLogger(__name__)
 # ── Constants ──────────────────────────────────────────────────────────
 
 HIRE_COST_PER_LEVEL = 100
+# Dungeon-mode party cap: how many henchmen can crawl a single
+# dungeon with the player at once.
 MAX_HENCHMEN = 2
+# Overland expedition cap (hex mode): the overland roster can
+# grow past the dungeon cap so the player builds a larger
+# expedition. Entering a cave / ruin draws at most MAX_HENCHMEN
+# of them into the crawl; settlements (towns) have no cap and
+# the whole roster comes inside.
+MAX_EXPEDITION = 6
 
 
 def _count_hired(world: "World", player_id: int) -> int:
@@ -67,11 +75,22 @@ class HenchmanInteractAction(Action):
 # ── RecruitAction ──────────────────────────────────────────────────────
 
 class RecruitAction(Action):
-    """Recruit an unhired adventurer into the party."""
+    """Recruit an unhired adventurer into the party.
 
-    def __init__(self, actor: int, target: int) -> None:
+    ``max_party`` tunes the cap the action validates against so
+    the hex-mode flow can raise it to :data:`MAX_EXPEDITION` while
+    the dungeon flow keeps the classic :data:`MAX_HENCHMEN`.
+    """
+
+    def __init__(
+        self,
+        actor: int,
+        target: int,
+        max_party: int = MAX_HENCHMEN,
+    ) -> None:
         super().__init__(actor)
         self.target = target
+        self.max_party = max_party
 
     async def validate(self, world: "World", level: "Level") -> bool:
         hench = world.get_component(self.target, "Henchman")
@@ -102,8 +121,8 @@ class RecruitAction(Action):
                     name=target_name, cost=cost),
         ))
 
-        # Check party size
-        if _count_hired(world, self.actor) >= MAX_HENCHMEN:
+        # Check party size against the mode-appropriate cap.
+        if _count_hired(world, self.actor) >= self.max_party:
             events.append(MessageEvent(
                 text=t("henchman.party_full"),
             ))
