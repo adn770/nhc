@@ -353,6 +353,10 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         "world_mode": _mode_value(getattr(game, "world_mode", None)),
         "hex_world": getattr(game, "hex_world", None),
         "hex_player_position": getattr(game, "hex_player_position", None),
+        # Staged Fight/Flee/Talk encounter -- survives a restart
+        # mid-prompt so the player doesn't lose the choice they
+        # were about to make.
+        "pending_encounter": getattr(game, "pending_encounter", None),
     }
 
 
@@ -412,6 +416,7 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     )
     game.hex_world = payload.get("hex_world")
     game.hex_player_position = payload.get("hex_player_position")
+    game.pending_encounter = payload.get("pending_encounter")
 
     # Resubscribe event handlers (they're method refs, not persisted)
     game.event_bus.subscribe(MessageEvent, game._on_message)

@@ -320,12 +320,15 @@ class Game:
         self.pending_encounter = None
         self._encounter_rng = None
         # Probability of a per-step encounter roll firing in hex
-        # mode. Lazily imported default from
-        # nhc.hexcrawl.encounter_pipeline (avoids pulling the hex
-        # modules at game.py import time).
+        # mode. Matches DEFAULT_ENCOUNTER_RATE at startup; the
+        # _maybe_stage_encounter path swaps to per-biome rates
+        # when the attribute has not been nudged by a caller.
+        # _default_encounter_rate is the sentinel we test against
+        # to detect that "unchanged" state.
         from nhc.hexcrawl.encounter_pipeline import (
             DEFAULT_ENCOUNTER_RATE,
         )
+        self._default_encounter_rate: float = DEFAULT_ENCOUNTER_RATE
         self.encounter_rate: float = DEFAULT_ENCOUNTER_RATE
 
     def set_god_mode(self, enabled: bool) -> None:
@@ -448,18 +451,27 @@ class Game:
         self._notify_floor_change(depth)
         return True
 
+    # Days between rumor refreshes on a revisit. Fresh leads
+    # don't appear every single day (that would trivialize
+    # exploration), but after three days the innkeepers have had
+    # time to hear new stories.
+    _RUMOR_REFRESH_COOLDOWN_DAYS: int = 3
+
     def _maybe_seed_rumors(self, seed: int) -> None:
         """Top up :attr:`HexWorld.active_rumors` on town entry.
 
-        No-op when the pool already has entries (the player hasn't
-        finished listening to the last batch) or when there is no
-        hex_world to populate. God-mode uses
-        :func:`generate_rumors_god_mode` so the debug player never
-        gets a false lead.
+        Rules:
+
+        * Empty pool -> seed three fresh rumors.
+        * Non-empty pool + cooldown not yet elapsed -> no-op
+          (player hasn't revisited often enough to hear new news).
+        * Non-empty pool + cooldown elapsed -> append three new
+          rumors onto whatever the player hasn't consumed yet.
+
+        God mode uses :func:`generate_rumors_god_mode` so the
+        debug player never gets a false lead.
         """
         if self.hex_world is None:
-            return
-        if self.hex_world.active_rumors:
             return
         from nhc.hexcrawl.rumors import (
             generate_rumors,
@@ -469,9 +481,21 @@ class Game:
             generate_rumors_god_mode if self.god_mode
             else generate_rumors
         )
-        self.hex_world.active_rumors = gen(
-            self.hex_world, seed=seed, count=3,
-        )
+        world = self.hex_world
+        if not world.active_rumors:
+            world.active_rumors = gen(world, seed=seed, count=3)
+            world.last_rumor_day = world.day
+            return
+        # Non-empty: honour the cooldown.
+        days_since = world.day - world.last_rumor_day
+        if days_since < self._RUMOR_REFRESH_COOLDOWN_DAYS:
+            return
+        # Append fresh rumors on top of unconsumed ones. Mix the
+        # seed with the day so the new rumors don't duplicate
+        # earlier generations.
+        fresh = gen(world, seed=seed + world.day, count=3)
+        world.active_rumors.extend(fresh)
+        world.last_rumor_day = world.day
 
     def _place_expedition_henchmen(self, *, is_settlement: bool) -> None:
         """Move hired henchmen from the overland into the current level.
@@ -778,7 +802,10 @@ class Game:
         """
         import random as _random
 
-        from nhc.hexcrawl.encounter_pipeline import roll_encounter
+        from nhc.hexcrawl.encounter_pipeline import (
+            rate_for_biome,
+            roll_encounter,
+        )
         from nhc.hexcrawl.model import HexFeatureType
 
         if self.encounters_disabled:
@@ -791,8 +818,15 @@ class Game:
         if cell is None or cell.feature is not HexFeatureType.NONE:
             return
         rng = self._encounter_rng or _random.Random()
+        # When the caller has left `encounter_rate` at its init
+        # default, use the per-biome table so mountain passes
+        # feel different from greenlands trails. Explicit overrides
+        # (e.g. tests) still win.
+        rate = self.encounter_rate
+        if rate == self._default_encounter_rate:
+            rate = rate_for_biome(cell.biome)
         enc = roll_encounter(
-            cell.biome, rng, encounter_rate=self.encounter_rate,
+            cell.biome, rng, encounter_rate=rate,
         )
         if enc is not None:
             self.pending_encounter = enc
@@ -2290,8 +2324,15 @@ class Game:
                 )
             return "entered" if ok else "ignored"
         if intent == "hex_rest":
-            # +1 full day; HP regen is future work.
+            # +1 full day and a full heal -- a day of rest is a
+            # real time investment and the payoff is a fresh
+            # start on HP.
             self.hex_world.advance_clock(4)
+            health = self.world.get_component(
+                self.player_id, "Health",
+            )
+            if health is not None:
+                health.current = health.maximum
             self.renderer.add_message(
                 f"You rest. Day {self.hex_world.day} dawns.",
             )

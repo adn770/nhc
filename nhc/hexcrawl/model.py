@@ -144,6 +144,11 @@ class HexWorld:
     time: TimeOfDay = TimeOfDay.MORNING
     last_hub: HexCoord | None = None
     active_rumors: list[Rumor] = field(default_factory=list)
+    # Day on which active_rumors was last topped up by
+    # Game._maybe_seed_rumors. 0 means "never seeded"; the first
+    # town visit records the current day. Used for cooldown-
+    # based refreshes on revisit.
+    last_rumor_day: int = 0
     expedition_party: list[int] = field(default_factory=list)
     biome_costs: dict[Biome, int] = field(default_factory=dict)
 

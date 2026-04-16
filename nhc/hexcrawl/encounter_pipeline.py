@@ -23,11 +23,43 @@ from nhc.hexcrawl.encounter import DEFAULT_BIOME_POOLS
 from nhc.hexcrawl.model import Biome
 
 
-# Default chance per hex step that an encounter fires. Kept as a
-# module constant (not per-biome) in v1 -- tunable per-biome
-# rates land with proper wilderness-travel rules in a later
-# milestone.
+# Fallback chance per hex step when no biome-specific rate is
+# configured. Per-biome tuning in :data:`BIOME_ENCOUNTER_RATES`
+# usually wins -- this constant only kicks in if the biome is
+# missing from both the pack override and the default table.
 DEFAULT_ENCOUNTER_RATE = 0.2
+
+
+# Per-biome encounter rates. Tuned so frontier biomes feel more
+# dangerous than the safe heartlands, without making any biome
+# either trivial or a constant fight. A settlement-bound player
+# rarely gets jumped; a mountain pass is a gamble every step.
+BIOME_ENCOUNTER_RATES: dict[Biome, float] = {
+    Biome.GREENLANDS: 0.10,   # safest (usually near settlements)
+    Biome.DRYLANDS:   0.15,
+    Biome.FOREST:     0.25,
+    Biome.SANDLANDS:  0.25,
+    Biome.ICELANDS:   0.30,
+    Biome.MOUNTAIN:   0.35,   # packs + terrain = nasty
+    Biome.DEADLANDS:  0.40,   # undead wastes; highest rate
+}
+
+
+def rate_for_biome(
+    biome: Biome,
+    override: dict[Biome, float] | None = None,
+) -> float:
+    """Look up the encounter rate for ``biome``.
+
+    ``override`` (e.g. from a pack manifest) wins when it
+    contains the biome; otherwise the packaged
+    :data:`BIOME_ENCOUNTER_RATES` default applies; and
+    :data:`DEFAULT_ENCOUNTER_RATE` is the final fallback for a
+    biome missing from both tables.
+    """
+    if override is not None and biome in override:
+        return override[biome]
+    return BIOME_ENCOUNTER_RATES.get(biome, DEFAULT_ENCOUNTER_RATE)
 
 
 class EncounterChoice(Enum):
