@@ -158,6 +158,10 @@ const HexMap = {
     fogCtx.fillStyle = "#05070a";
     fogCtx.fillRect(0, 0, fog.width, fog.height);
 
+    const feat = document.getElementById("hex-feature-canvas");
+    const featCtx = feat ? feat.getContext("2d") : null;
+    if (featCtx) featCtx.clearRect(0, 0, feat.width, feat.height);
+
     for (const cell of state.cells) {
       const {x, y} = axialToPixel(cell.q, cell.r);
       const url = tilePath(cell.biome, cell.feature);
@@ -173,6 +177,10 @@ const HexMap = {
       }
       // Punch the fog over this cell.
       this._punchHex(fogCtx, x, y);
+      // Label non-empty features so the overland is self-documenting.
+      if (featCtx && cell.feature && cell.feature !== "none") {
+        this._drawFeatureLabel(featCtx, cell.feature, x, y);
+      }
     }
 
     // Player avatar.
@@ -220,6 +228,24 @@ const HexMap = {
       hud3.textContent =
         "y/u N/NE · b/n SW/SE · k N · j S · e enter · l leave · r rest";
     }
+  },
+
+  _drawFeatureLabel(ctx, feature, cx, cy) {
+    const label = feature.charAt(0).toUpperCase() + feature.slice(1);
+    ctx.save();
+    ctx.font = "bold 11px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const metrics = ctx.measureText(label);
+    const pad = 3;
+    const w = Math.ceil(metrics.width) + pad * 2;
+    const h = 16;
+    const labelY = cy + HEX_HEIGHT / 2 - 10;
+    ctx.fillStyle = "rgba(8, 10, 14, 0.78)";
+    ctx.fillRect(cx - w / 2, labelY - h / 2, w, h);
+    ctx.fillStyle = "#f5dea2";
+    ctx.fillText(label, cx, labelY);
+    ctx.restore();
   },
 
   _drawGlyphFallback(ctx, cell, x, y) {
