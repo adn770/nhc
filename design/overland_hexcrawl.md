@@ -803,12 +803,37 @@ deterministic first-N picker for now), terminal death dialog
 (the dungeon one already fires; hex-mode permadeath follows
 the same path).
 
-### Phase 4 -- Debug tools + polish
+### Phase 4 -- Debug tools + polish (shipped)
 
-- MCP hex tools (table in section 9)
-- Admin UI hex panel
-- God-mode extension to hex mode
-- Logging topics for hex events
+- `nhc/hexcrawl/debug.py` hosts eight pure helpers:
+  `reveal_all_hexes`, `teleport_hex`, `force_encounter`,
+  `show_world_state`, `advance_day_clock`, `set_rumor_truth`,
+  `clear_dungeon_at`, `seed_dungeon_at`. Unit-tested in
+  isolation plus through the MCP wrapper round-trip
+- `nhc/debug_tools/tools/hex_tools.py` wraps each helper as an
+  MCP tool; the wrappers load the HexWorld from an autosave via
+  `read_autosave_payload`. Mutations run dry against the
+  in-memory copy (no write-back) so a running session can't be
+  surprised by an external edit
+- `/api/admin/sessions/<sid>/hex/{state,reveal,teleport}`
+  endpoints operate on the live session's HexWorld so the
+  admin UI can see and poke what the player is looking at.
+  The Active Sessions table on `/admin` gained Reveal / State
+  per-row buttons
+- God-mode now extends to hex: `set_god_mode(True)` lifts the
+  fog over every in-shape cell, `Game.encounters_disabled`
+  becomes True (a flag future auto-roll sites can consult),
+  and `generate_rumors_god_mode` flips every rumor's truth
+  field to True so the debug player never chases a false lead
+- End-to-end smoke in `tests/unit/hexcrawl/test_phase4_smoke.py`
+  proves the god-mode + MCP-tool round trip composes
+
+**Deferred to later milestones:** write-back hooks so MCP
+mutating tools apply to the live autosave under a cooperating
+session, per-tool admin UI forms for the remaining operations
+(force_encounter, set_rumor_truth, seed_dungeon_at,
+clear_dungeon_at, advance_day_clock), dedicated log topics
+for hex events.
 
 ### Phase 5 -- Blackmarsh content pack
 
