@@ -319,6 +319,14 @@ class Game:
         # resolve_encounter. See nhc.hexcrawl.encounter_pipeline.
         self.pending_encounter = None
         self._encounter_rng = None
+        # Probability of a per-step encounter roll firing in hex
+        # mode. Lazily imported default from
+        # nhc.hexcrawl.encounter_pipeline (avoids pulling the hex
+        # modules at game.py import time).
+        from nhc.hexcrawl.encounter_pipeline import (
+            DEFAULT_ENCOUNTER_RATE,
+        )
+        self.encounter_rate: float = DEFAULT_ENCOUNTER_RATE
 
     def set_god_mode(self, enabled: bool) -> None:
         """Toggle god mode live.
@@ -675,8 +683,43 @@ class Game:
             return False
         await action.execute(self.world, None)
         self.hex_player_position = target
+        # Roll for a wilderness encounter on the target cell --
+        # skipped on feature hexes (player is about to pick
+        # enter-or-not) and when god mode disables encounters.
+        self._maybe_stage_encounter(target)
         _autosave(self, self.save_dir, blocking=True)
         return True
+
+    def _maybe_stage_encounter(self, target: "HexCoord") -> None:
+        """Roll ``roll_encounter`` for the hex at ``target`` and stage
+        the result on :attr:`pending_encounter`.
+
+        Skipped when:
+          * god mode has flipped :attr:`encounters_disabled`
+          * an encounter is already pending (don't overwrite)
+          * the target is a feature hex (cave / settlement / etc.)
+            -- those invite "enter", not a random ambush
+        """
+        import random as _random
+
+        from nhc.hexcrawl.encounter_pipeline import roll_encounter
+        from nhc.hexcrawl.model import HexFeatureType
+
+        if self.encounters_disabled:
+            return
+        if self.pending_encounter is not None:
+            return
+        if self.hex_world is None:
+            return
+        cell = self.hex_world.get_cell(target)
+        if cell is None or cell.feature is not HexFeatureType.NONE:
+            return
+        rng = self._encounter_rng or _random.Random()
+        enc = roll_encounter(
+            cell.biome, rng, encounter_rate=self.encounter_rate,
+        )
+        if enc is not None:
+            self.pending_encounter = enc
 
     def _create_hex_player(self) -> None:
         """Create the ECS player entity for hex mode.
