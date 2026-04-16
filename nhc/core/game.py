@@ -1125,6 +1125,12 @@ class Game:
 
         if self.seed is not None:
             set_seed(self.seed)
+        else:
+            # No explicit seed → force a fresh random one so
+            # consecutive "New Game" clicks on the same thread
+            # don't reuse the stale thread-local seed from the
+            # previous session.
+            set_seed(random.Random().randint(0, 2**31 - 1))
         self.seed = get_seed()
         logger.info("RNG seed: %d (use --seed %d to reproduce)",
                      self.seed, self.seed)
