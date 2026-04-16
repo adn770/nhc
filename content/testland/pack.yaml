@@ -1,0 +1,4 @@
+# Bundled procedural test setting for overland hexcrawl mode.
+# Real schema and content are fleshed out in Phase 0 milestones.
+id: testland
+version: 0
