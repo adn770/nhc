@@ -1338,6 +1338,10 @@ rumor:
     ({q}, {r}), hace años." El cuento no huele bien.
   none: >-
     El posadero se encoge de hombros. "Nada nuevo hoy, viajero."
+  come_back_later: >-
+    El posadero limpia una jarra. "Ya te lo he contado todo.
+    Vuelve en unos días -- las caravanas deberían traer
+    noticias frescas."
 
 
 # ── Henchman UI strings ────────────────────────────────────────────────

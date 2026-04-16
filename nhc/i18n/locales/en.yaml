@@ -1322,6 +1322,10 @@ rumor:
     out near ({q}, {r}), years ago." The tale feels thin.
   none: >-
     The innkeeper shrugs. "Nothing new today, traveller."
+  come_back_later: >-
+    The innkeeper wipes a mug. "I've told you everything I
+    know. Come back in a few days -- the caravans should bring
+    fresh news by then."
 
 
 henchman:

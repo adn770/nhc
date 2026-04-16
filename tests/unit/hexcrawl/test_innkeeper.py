@@ -192,3 +192,33 @@ async def test_innkeeper_interact_empty_pool_emits_no_rumor_msg(
     # Should still emit a message so the player gets feedback.
     msgs = [e for e in events if isinstance(e, MessageEvent)]
     assert msgs, "action should say something even on empty pool"
+
+
+@pytest.mark.asyncio
+async def test_innkeeper_depleted_after_listen_uses_come_back_msg(
+    tmp_path,
+) -> None:
+    """Once the player has heard at least one rumor from a town
+    (last_rumor_day > 0), a subsequent bump at an empty pool
+    should use the 'come back later' variant instead of the
+    stock 'nothing new today' line."""
+    from nhc.i18n import t
+    world = World()
+    pid = _make_player(world, x=0, y=0)
+    inn_id = _make_innkeeper(world, x=1, y=0)
+    hex_world = _mini_hex_world()
+    hex_world.active_rumors = []
+    # Emulate "player heard rumors here before" by stamping the
+    # last_rumor_day (the rumor pool seeded, player drank them
+    # all, innkeeper is dry for the cooldown window).
+    hex_world.last_rumor_day = 1
+
+    action = InnkeeperInteractAction(
+        actor=pid, innkeeper_id=inn_id, hex_world=hex_world,
+    )
+    events = await action.execute(world, None)
+    msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+    assert msgs
+    assert msgs[0] == t("rumor.come_back_later"), (
+        f"expected come-back-later flavour, got {msgs[0]!r}"
+    )

@@ -60,6 +60,13 @@ class InnkeeperInteractAction(Action):
             return [MessageEvent(text=t("rumor.none"))]
         rumor = gather_rumor_at(self.hex_world, rng=random.Random())
         if rumor is None:
+            # Pool is empty. If the player has heard rumors here
+            # before (last_rumor_day > 0) the innkeeper already
+            # gave up everything they knew and is politely asking
+            # for patience until fresh news arrives. Otherwise
+            # they simply haven't heard anything yet.
+            if self.hex_world.last_rumor_day > 0:
+                return [MessageEvent(text=t("rumor.come_back_later"))]
             return [MessageEvent(text=t("rumor.none"))]
         if rumor.reveals is None:
             return [MessageEvent(text=t(rumor.text_key))]
