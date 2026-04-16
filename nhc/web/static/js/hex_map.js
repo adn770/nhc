@@ -241,33 +241,42 @@ const HexMap = {
     }
   },
 
+  /** Cached output of the last resize(); avoids assigning width/
+   * height (a canvas reset that flashes the view) when the map
+   * dimensions haven't changed. */
+  _sizedTo: null,
+
   /** Resize all five hex canvases to ``width × height`` (axial grid
-   * dims) at the current HEX_SIZE, set an integer pixel backing
-   * store, and clear any previous content. */
+   * dims) at the current HEX_SIZE. No-op when the pixel box would
+   * be the same as the last call -- assigning canvas.width even
+   * to the same value clears the canvas, which was the main
+   * source of the per-step flicker. */
   resize(width, height) {
-    const canvases = [
-      "hex-base-canvas", "hex-fog-canvas", "hex-feature-canvas",
-      "hex-entity-canvas", "hex-debug-canvas",
-    ];
-    // Bounding box: rightmost centre + HEX_SIZE; bottom-most centre
-    // + HEX_SIZE; plus margin.
     const lastQ = width - 1;
     const lastR = height - 1;
     const last = axialToPixel(lastQ, lastR);
     const px = Math.ceil(last.x + HEX_SIZE + HEX_MARGIN);
     const py = Math.ceil(last.y + HEX_SIZE + HEX_MARGIN);
+    if (this._sizedTo
+        && this._sizedTo.px === px
+        && this._sizedTo.py === py) {
+      return;
+    }
+    this._sizedTo = {px, py};
     const container = document.getElementById("hex-container");
     if (container) {
       container.style.width = `${px}px`;
       container.style.height = `${py}px`;
     }
+    const canvases = [
+      "hex-base-canvas", "hex-fog-canvas", "hex-feature-canvas",
+      "hex-entity-canvas", "hex-debug-canvas",
+    ];
     canvases.forEach(id => {
       const c = document.getElementById(id);
       if (!c) return;
       c.width = px;
       c.height = py;
-      const ctx = c.getContext("2d");
-      if (ctx) ctx.clearRect(0, 0, c.width, c.height);
     });
   },
 
@@ -298,18 +307,30 @@ const HexMap = {
 
     this.resize(state.width, state.height);
 
-    // Fog fills the whole grid solid; revealed hexes punch through.
-    fogCtx.fillStyle = "#05070a";
-    fogCtx.fillRect(0, 0, fog.width, fog.height);
-
     const feat = document.getElementById("hex-feature-canvas");
     const featCtx = feat ? feat.getContext("2d") : null;
+
+    // Fetch every tile image in parallel BEFORE we start painting.
+    // Awaiting each draw individually caused the browser to paint
+    // the cleared canvas between microtasks, flashing the view on
+    // every state_hex frame. With one await up front, the draw
+    // loop below is synchronous.
+    const placements = await Promise.all(state.cells.map(cell => {
+      const url = tilePath(cell.biome, cell.feature);
+      return this._loadTile(url).then(img => ({cell, img}));
+    }));
+
+    // One synchronous paint pass: clear → fog → tiles → fog punch
+    // → labels. Nothing between the first clear and the final draw
+    // yields to the event loop, so the browser only ever commits a
+    // single complete frame.
+    baseCtx.clearRect(0, 0, base.width, base.height);
+    fogCtx.fillStyle = "#05070a";
+    fogCtx.fillRect(0, 0, fog.width, fog.height);
     if (featCtx) featCtx.clearRect(0, 0, feat.width, feat.height);
 
-    for (const cell of state.cells) {
+    for (const {cell, img} of placements) {
       const {x, y} = axialToPixel(cell.q, cell.r);
-      const url = tilePath(cell.biome, cell.feature);
-      const img = await this._loadTile(url);
       if (img) {
         baseCtx.drawImage(
           img,
@@ -319,9 +340,7 @@ const HexMap = {
       } else {
         this._drawGlyphFallback(baseCtx, cell, x, y);
       }
-      // Punch the fog over this cell.
       this._punchHex(fogCtx, x, y);
-      // Label non-empty features so the overland is self-documenting.
       if (featCtx && cell.feature && cell.feature !== "none") {
         this._drawFeatureLabel(featCtx, cell.feature, x, y);
       }
