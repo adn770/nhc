@@ -291,6 +291,7 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
         seed=rng.randrange(1 << 30),      # downstream RNG seeding
         width=mp.width,
         height=mp.height,
+        biome_costs=dict(pack.biome_costs),
     )
     for cell in cells.values():
         world.set_cell(cell)

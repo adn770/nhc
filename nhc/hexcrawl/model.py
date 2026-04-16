@@ -144,6 +144,7 @@ class HexWorld:
     last_hub: HexCoord | None = None
     active_rumors: list[Rumor] = field(default_factory=list)
     expedition_party: list[int] = field(default_factory=list)
+    biome_costs: dict[Biome, int] = field(default_factory=dict)
 
     # ----- cells -----
 
@@ -189,3 +190,12 @@ class HexWorld:
         new_time, days_added = self.time.advance(segments)
         self.time = new_time
         self.day += days_added
+
+    def advance_clock_for_cell(self, cell: HexCell) -> None:
+        """Advance the clock by the cost of a step into ``cell``'s
+        biome, honouring :attr:`biome_costs` override on this world."""
+        # Imported lazily to avoid a circular import at module load
+        # (clock.py imports DEFAULT_BIOME_COSTS from pack, which
+        # imports Biome from this module).
+        from nhc.hexcrawl.clock import cost_for
+        self.advance_clock(cost_for(cell.biome, self.biome_costs))
