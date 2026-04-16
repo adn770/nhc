@@ -38,20 +38,20 @@ const FEATURE_SLOT = {
   river: 7,
 };
 
-/** Slot number to filename stem; the hextiles pack uses the slot's
- * English name in the filename (e.g. 11-greenlands_village.png). */
+/** Slot number to filename stem. The hextiles pack uses literal
+ * (and quirky) casing / spelling -- match files on disk exactly.
+ * See ls hextiles/greenlands/ for the source of truth. */
 const SLOT_NAME = {
   1: "vulcano", 2: "forest", 3: "tundra", 4: "trees", 5: "water",
   6: "hills", 7: "river", 8: "portal", 9: "mountains", 10: "lake",
   11: "village", 12: "city", 13: "tower", 14: "community",
-  15: "cave", 16: "hole", 17: "dead_trees", 18: "ruins",
-  19: "graveyard", 20: "swamp", 21: "floating_island",
-  22: "keep", 23: "wonder", 24: "crystals", 25: "stones",
+  15: "cave", 16: "hole", 17: "dead-Trees", 18: "ruins",
+  19: "graveyard", 20: "swamp", 21: "floating-Island",
+  22: "keep", 23: "wonder", 24: "cristals", 25: "stones",
   26: "farms", 27: "fog",
 };
 
-/** Biome base-tile slot: used when a hex has no feature. Each biome
- * picks a reasonable "empty" look from its 27-slot palette. */
+/** Biome base-tile slot: used when a hex has no feature. */
 const BIOME_BASE_SLOT = {
   greenlands: 4,    // scattered trees
   drylands: 3,      // tundra-ish dryland
@@ -61,6 +61,14 @@ const BIOME_BASE_SLOT = {
   forest: 2,        // dense forest
   mountain: 9,      // mountains
 };
+
+/** Biomes that follow the 27-slot {slot}-{biome}_{stem}.png
+ * convention. Other biomes (forest, mountain) carry their own
+ * per-tile naming and fall through to the foundation palette
+ * instead so everything still renders. */
+const PALETTE_BIOMES = new Set([
+  "greenlands", "drylands", "sandlands", "icelands", "deadlands",
+]);
 
 /** Fallback glyph when the hextile PNG can't be fetched. */
 const BIOME_GLYPH = {
@@ -73,7 +81,9 @@ const BIOME_GLYPH = {
   mountain: {fg: "#8a8480", bg: "#2a2826", c: "^"},
 };
 
-/** biome + feature → /hextiles/ URL. */
+/** biome + feature → /hextiles/ URL. Biomes without a full 27-slot
+ * palette (forest, mountain) fall through to the foundation tiles
+ * at the project root. */
 function tilePath(biome, feature) {
   let slot;
   if (feature && feature !== "none" && FEATURE_SLOT[feature]) {
@@ -82,7 +92,11 @@ function tilePath(biome, feature) {
     slot = BIOME_BASE_SLOT[biome] || 4;
   }
   const stem = SLOT_NAME[slot];
-  return `/hextiles/${biome}/${slot}-${biome}_${stem}.png`;
+  if (PALETTE_BIOMES.has(biome)) {
+    return `/hextiles/${biome}/${slot}-${biome}_${stem}.png`;
+  }
+  // Foundation fallback: root-level `{slot}-foundation_{stem}.png`.
+  return `/hextiles/${slot}-foundation_${stem}.png`;
 }
 
 /** Axial (q, r) → pixel (x, y) for the centre of the hex. */
