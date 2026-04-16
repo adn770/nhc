@@ -9,6 +9,27 @@ import yaml
 
 LOCALES_DIR = Path(__file__).parent / "locales"
 
+# Parsed YAML catalogues keyed by language. Populated lazily the
+# first time a locale is requested; subsequent loads reuse the
+# already-parsed dict so we don't re-read the ~2.4k-line file on
+# every TranslationManager() in tests or every init() call during
+# a language switch. Callers never mutate the returned dicts --
+# TranslationManager.get() only reads them.
+_CATALOGUE_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def _load_catalogue(lang: str) -> dict[str, Any]:
+    cached = _CATALOGUE_CACHE.get(lang)
+    if cached is not None:
+        return cached
+    path = LOCALES_DIR / f"{lang}.yaml"
+    if not path.exists():
+        return {}
+    with open(path) as f:
+        parsed = yaml.safe_load(f) or {}
+    _CATALOGUE_CACHE[lang] = parsed
+    return parsed
+
 
 class TranslationManager:
     """Loads and serves translations from YAML locale files."""
@@ -21,22 +42,12 @@ class TranslationManager:
     def load(self, lang: str = "en") -> None:
         """Load a language. English is always loaded as fallback."""
         self.lang = lang
-
-        # Always load English as fallback
-        en_path = LOCALES_DIR / "en.yaml"
-        if en_path.exists():
-            with open(en_path) as f:
-                self._fallback = yaml.safe_load(f) or {}
-
+        self._fallback = _load_catalogue("en")
         if lang == "en":
             self._strings = self._fallback
         else:
-            lang_path = LOCALES_DIR / f"{lang}.yaml"
-            if lang_path.exists():
-                with open(lang_path) as f:
-                    self._strings = yaml.safe_load(f) or {}
-            else:
-                self._strings = self._fallback
+            strings = _load_catalogue(lang)
+            self._strings = strings if strings else self._fallback
 
     def get(self, key: str, **kwargs: object) -> str:
         """Resolve a dotted key, with optional string interpolation.
