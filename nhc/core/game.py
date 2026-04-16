@@ -369,6 +369,7 @@ class Game:
             level, _ = self._floor_cache[cache_key]
             self.level = level
             self._place_player_at_stairs_up()
+            self._notify_floor_change(depth)
             return True
 
         from nhc.hexcrawl.seed import dungeon_seed
@@ -390,7 +391,28 @@ class Game:
         # key so re-entry skips regeneration.
         self._floor_cache[cache_key] = (self.level, {})
         self._place_player_at_stairs_up()
+        self._notify_floor_change(depth)
         return True
+
+    def _notify_floor_change(self, depth: int) -> None:
+        """Tell the web client a new dungeon floor is in play so it
+        can fetch / render the SVG and redraw the canvas stack."""
+        if self.level is None:
+            return
+        if not hasattr(self.renderer, "send_floor_change"):
+            return
+        cached = self._svg_cache.get(depth)
+        self.renderer.send_floor_change(
+            self.level, self.world, self.player_id,
+            self.turn, seed=self.seed or 0,
+            floor_svg=cached[1] if cached else None,
+            floor_svg_id=cached[0] if cached else None,
+        )
+        if not cached and getattr(self.renderer, "floor_svg", None):
+            self._svg_cache[depth] = (
+                self.renderer.floor_svg_id,
+                self.renderer.floor_svg,
+            )
 
     def _place_player_at_stairs_up(self) -> None:
         """Move the player's Position onto the current level's
