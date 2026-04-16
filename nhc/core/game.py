@@ -1061,6 +1061,8 @@ class Game:
                     _autosave(self, self.save_dir, blocking=True)
                     self.running = False
                     break
+                if outcome in ("moved", "entered", "rest"):
+                    self.turn += 1
                 continue
 
             self.renderer.render(
@@ -1836,13 +1838,30 @@ class Game:
             dq, dr = data
             target = HexCoord(origin.q + int(dq), origin.r + int(dr))
             ok = await self.apply_hex_step(target)
+            if not ok:
+                self.renderer.add_message("You can't go that way.")
             return "moved" if ok else "ignored"
         if intent == "hex_enter":
+            coord = self.hex_player_position
+            cell = (
+                self.hex_world.get_cell(coord)
+                if self.hex_world and coord else None
+            )
             ok = await self.enter_hex_feature()
+            if ok:
+                feature = cell.feature.value if cell else "feature"
+                self.renderer.add_message(f"You enter the {feature}.")
+            else:
+                self.renderer.add_message(
+                    "There is nothing to enter here."
+                )
             return "entered" if ok else "ignored"
         if intent == "hex_rest":
             # +1 full day; HP regen is future work.
             self.hex_world.advance_clock(4)
+            self.renderer.add_message(
+                f"You rest. Day {self.hex_world.day} dawns.",
+            )
             return "rest"
         # Unknown intents silently ignored so a stray keyboard event
         # doesn't end the turn with no visible effect.

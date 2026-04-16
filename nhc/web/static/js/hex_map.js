@@ -194,6 +194,32 @@ const HexMap = {
       hud.textContent = `Day ${state.day} · ${time} ·` +
         ` Hex (${state.player.q}, ${state.player.r})`;
     }
+    // Describe the player's current hex on line 2 so bump-to-enter
+    // is discoverable. Shows "<biome> – <feature>" when the hex has
+    // a feature, otherwise just the biome.
+    const hud2 = document.getElementById("status-line2");
+    if (hud2) {
+      const me = state.cells.find(
+        c => c.q === state.player.q && c.r === state.player.r,
+      );
+      if (me) {
+        const biomeTitle = me.biome.replace(/^\w/,
+          c => c.toUpperCase());
+        let line = biomeTitle;
+        if (me.feature && me.feature !== "none") {
+          line += ` — ${me.feature}`;
+          line += "   (press 'e' to enter)";
+        }
+        hud2.textContent = line;
+      } else {
+        hud2.textContent = "";
+      }
+    }
+    const hud3 = document.getElementById("status-line3");
+    if (hud3) {
+      hud3.textContent =
+        "y/u N/NE · b/n SW/SE · k N · j S · e enter · l leave · r rest";
+    }
   },
 
   _drawGlyphFallback(ctx, cell, x, y) {
