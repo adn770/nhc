@@ -71,6 +71,11 @@ from nhc.entities.components import (
     StatusEffect,
 )
 from nhc.entities.registry import EntityRegistry
+from nhc.hexcrawl.coords import HexCoord
+from nhc.hexcrawl.generator import generate_test_world
+from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.model import HexFeatureType, HexWorld
+from nhc.hexcrawl.pack import load_pack
 from nhc.i18n import t
 from nhc.narrative.context import ContextBuilder
 from nhc.narrative.fallback_parser import parse_intent_keywords
@@ -265,12 +270,14 @@ class Game:
         reset: bool = False,
         shape_variety: float = DEFAULT_SHAPE_VARIETY,
         save_dir: Path | None = None,
+        world_mode: GameMode = GameMode.DUNGEON,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
         self.backend = backend
         self.seed = seed
         self.mode = game_mode
+        self.world_mode = world_mode
         self.god_mode = god_mode
         self.reset = reset
         self.shape_variety = shape_variety
@@ -293,6 +300,11 @@ class Game:
         self.generation_params: GenerationParams | None = None
         self.killed_by: str = ""
         self._gm = None  # GameMaster, set in initialize() for typed mode
+        # Hex mode state — populated by _init_hex_world() when
+        # world_mode is HEX_EASY or HEX_SURVIVAL. None in pure
+        # dungeon mode.
+        self.hex_world: "HexWorld | None" = None
+        self.hex_player_position: "HexCoord | None" = None
 
     def set_god_mode(self, enabled: bool) -> None:
         """Toggle god mode live.  Identifies all items when enabled."""
@@ -300,6 +312,54 @@ class Game:
         if enabled and self._knowledge:
             for item_id in ALL_IDS:
                 self._knowledge.identify(item_id)
+
+    def _init_hex_world(self) -> None:
+        """Build the overland HexWorld for the configured hex mode.
+
+        Difficulty rules (see ``design/overland_hexcrawl.md`` §2):
+
+        * ``HEX_EASY`` -- player starts on the hub hex; the hub is
+          revealed.
+        * ``HEX_SURVIVAL`` -- player starts on a random non-feature
+          hex; the hub is *not* revealed.
+
+        Neighbour reveal on first step is the responsibility of
+        ``MoveHexAction`` (M-1.5 / M-1.6); the initial reveal here
+        is exactly one hex.
+        """
+        # Path-relative load of the bundled testland pack. A future
+        # milestone will let the caller pick a pack via the CLI.
+        pack_path = (
+            Path(__file__).resolve().parents[2]
+            / "content" / "testland" / "pack.yaml"
+        )
+        pack = load_pack(pack_path)
+        self.hex_world = generate_test_world(seed=self.seed, pack=pack)
+
+        if self.world_mode is GameMode.HEX_EASY:
+            hub = self.hex_world.last_hub
+            assert hub is not None, "generator must set last_hub"
+            self.hex_player_position = hub
+            self.hex_world.reveal(hub)
+            return
+
+        # HEX_SURVIVAL: random non-feature hex, hub stays hidden.
+        # Use a derived RNG so the start-hex roll does not perturb
+        # the seed stream consumed by the generator.
+        rng = random.Random((self.seed or 0) ^ 0xABCD1234)
+        candidates = [
+            c for c, cell in self.hex_world.cells.items()
+            if cell.feature is HexFeatureType.NONE
+            and c != self.hex_world.last_hub
+        ]
+        if not candidates:
+            raise RuntimeError(
+                "no non-feature hex available for survival start"
+            )
+        start = rng.choice(candidates)
+        self.hex_player_position = start
+        self.hex_world.revealed.clear()
+        self.hex_world.reveal(start)
 
     def initialize(
         self,
@@ -356,6 +416,14 @@ class Game:
         if self.god_mode:
             for item_id in ALL_IDS:
                 self._knowledge.identify(item_id)
+
+        # Hex modes wrap the dungeon crawler. They build the
+        # overland HexWorld and skip the dungeon-only init below;
+        # a dungeon level will be loaded later when the player
+        # enters a hex feature (M-1.12).
+        if self.world_mode.is_hex:
+            self._init_hex_world()
+            return
 
         if generate:
             sv = _shape_variety_for_depth(self.shape_variety, depth)
