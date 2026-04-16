@@ -21,6 +21,16 @@ from nhc.debug_tools.tools.rendering import (
     GetHatchPolygonTool,
     GetLayerStateTool,
 )
+from nhc.debug_tools.tools.hex_tools import (
+    AdvanceDayClockTool,
+    ClearDungeonAtTool,
+    ForceEncounterTool,
+    RevealAllHexesTool,
+    SeedDungeonAtTool,
+    SetRumorTruthTool,
+    ShowWorldStateTool,
+    TeleportHexTool,
+)
 from nhc.debug_tools.tools.svg_query import (
     GetSVGRoomWallsTool,
     GetSVGTileElementsTool,
@@ -45,4 +55,13 @@ ALL_TOOL_CLASSES = [
     GetHatchPolygonTool,
     GetSVGTileElementsTool,
     GetSVGRoomWallsTool,
+    # Hex-mode debug tools (M-4.1).
+    ShowWorldStateTool,
+    RevealAllHexesTool,
+    TeleportHexTool,
+    ForceEncounterTool,
+    AdvanceDayClockTool,
+    SetRumorTruthTool,
+    ClearDungeonAtTool,
+    SeedDungeonAtTool,
 ]
