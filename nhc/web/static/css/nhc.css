@@ -265,6 +265,40 @@ body {
 #hex-entity-canvas  { z-index: 3; }
 #hex-debug-canvas   { z-index: 4; }
 
+/* Six direction buttons that surround the player hex when the
+ * pointer moves close. Positioned absolutely by hex_map.js. */
+.hex-arrow {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  transform: translate(-50%, -50%); /* centre on (left, top) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid #e6c07b;
+  background: rgba(20, 22, 30, 0.82);
+  color: #f5dea2;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+  z-index: 5;                 /* above the five canvas layers */
+  transition: background-color 0.1s ease, transform 0.1s ease;
+}
+
+.hex-arrow:hover {
+  background: rgba(60, 50, 20, 0.95);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.hex-arrow:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #e6c07b;
+}
+
 /* God mode debug panel */
 #zoom-out-btn {
   margin-left: auto;

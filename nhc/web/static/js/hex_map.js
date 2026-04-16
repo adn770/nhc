@@ -97,6 +97,98 @@ const HexMap = {
   /** Image cache keyed by URL; prevents repeated fetches. */
   _tileCache: {},
 
+  /** Cached DOM references for the 6 direction arrow buttons. */
+  _arrows: null,
+
+  /** Last known player pixel + show state for the arrow ring. */
+  _playerPx: null,
+  _arrowsVisible: false,
+
+  /** Hover threshold: arrows appear when the pointer lies inside
+   * this many px of the player hex centre. Matches roughly one
+   * neighbour's worth of space around the player. */
+  _HOVER_RADIUS: HEX_SIZE * 2.5,
+
+  /** Lazily build the six arrow button DOM nodes and attach the
+   * mouse handlers once. Subsequent renders only update positions. */
+  _ensureArrows() {
+    if (this._arrows) return this._arrows;
+    const container = document.getElementById("hex-container");
+    if (!container) return null;
+    // Directions match NEIGHBOR_OFFSETS order in coords.py:
+    //   N, NE, SE, S, SW, NW
+    const dirs = [
+      {dq: 0,  dr: -1, glyph: "▲", title: "North (k)"},
+      {dq: 1,  dr: -1, glyph: "◥", title: "North-east (u)"},
+      {dq: 1,  dr: 0,  glyph: "◢", title: "South-east (n)"},
+      {dq: 0,  dr: 1,  glyph: "▼", title: "South (j)"},
+      {dq: -1, dr: 1,  glyph: "◣", title: "South-west (b)"},
+      {dq: -1, dr: 0,  glyph: "◤", title: "North-west (y)"},
+    ];
+    const arrows = dirs.map(d => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "hex-arrow";
+      btn.textContent = d.glyph;
+      btn.title = d.title;
+      btn.dataset.dq = String(d.dq);
+      btn.dataset.dr = String(d.dr);
+      btn.style.display = "none";
+      btn.addEventListener("click", ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        WS.send({
+          type: "action", intent: "hex_step",
+          data: [d.dq, d.dr],
+        });
+      });
+      container.appendChild(btn);
+      return btn;
+    });
+    // Track pointer over the whole container. Arrows appear when
+    // the pointer is within _HOVER_RADIUS of the player hex centre
+    // and disappear when the pointer leaves.
+    container.addEventListener("mousemove", ev => {
+      if (!this._playerPx) return;
+      const rect = container.getBoundingClientRect();
+      const mx = ev.clientX - rect.left;
+      const my = ev.clientY - rect.top;
+      const dx = mx - this._playerPx.x;
+      const dy = my - this._playerPx.y;
+      const near = (dx * dx + dy * dy)
+        <= (this._HOVER_RADIUS * this._HOVER_RADIUS);
+      this._setArrowsVisible(near);
+    });
+    container.addEventListener("mouseleave", () => {
+      this._setArrowsVisible(false);
+    });
+    this._arrows = arrows;
+    return arrows;
+  },
+
+  _setArrowsVisible(on) {
+    if (!this._arrows) return;
+    if (this._arrowsVisible === on) return;
+    this._arrowsVisible = on;
+    for (const btn of this._arrows) {
+      btn.style.display = on ? "flex" : "none";
+    }
+  },
+
+  _positionArrows(playerPx) {
+    const arrows = this._ensureArrows();
+    if (!arrows) return;
+    for (const btn of arrows) {
+      const dq = parseInt(btn.dataset.dq, 10);
+      const dr = parseInt(btn.dataset.dr, 10);
+      // Neighbour centre relative to the container's top-left.
+      const dx = HEX_SIZE * 1.5 * dq;
+      const dy = HEX_SIZE * (Math.sqrt(3) / 2 * dq + Math.sqrt(3) * dr);
+      btn.style.left = `${playerPx.x + dx}px`;
+      btn.style.top = `${playerPx.y + dy}px`;
+    }
+  },
+
   /** Resize all five hex canvases to ``width × height`` (axial grid
    * dims) at the current HEX_SIZE, set an integer pixel backing
    * store, and clear any previous content. */
@@ -183,7 +275,7 @@ const HexMap = {
       }
     }
 
-    // Player avatar.
+    // Player avatar + direction arrow ring.
     if (state.player) {
       const {x, y} = axialToPixel(state.player.q, state.player.r);
       entCtx.clearRect(0, 0, ent.width, ent.height);
@@ -192,6 +284,8 @@ const HexMap = {
       entCtx.textAlign = "center";
       entCtx.textBaseline = "middle";
       entCtx.fillText("@", x, y);
+      this._playerPx = {x, y};
+      this._positionArrows(this._playerPx);
     }
 
     // Update the day/time HUD if present.
