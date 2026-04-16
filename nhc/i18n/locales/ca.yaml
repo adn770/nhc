@@ -1413,9 +1413,9 @@ death:
 # ── Encounter prompt strings ───────────────────────────────────────────
 encounter:
   prompt: "Et topes amb {count} criatura(es) al(s) {biome}. Què fas?"
-  fight: "Lluita"
-  flee: "Fuig"
-  talk: "Parla"
+  fight: "Lluitar"
+  flee: "Fugir"
+  talk: "Parlamentar"
 
 
 # ── Rumor UI strings ───────────────────────────────────────────────────
