@@ -186,6 +186,7 @@ SLOT_BIOME_ONLY: dict[int, frozenset[str]] = {
 # that unless you mean it (and use --force to actually replace
 # the existing files).
 GENERATED_BIOMES: tuple[str, ...] = (
+    "greenlands",
     "forest",
     "mountain",
     "hills",
