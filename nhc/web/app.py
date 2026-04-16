@@ -14,8 +14,8 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from flask import (
-    Flask, g, jsonify, make_response, redirect, render_template, request,
-    send_file, url_for,
+    Flask, abort, g, jsonify, make_response, redirect, render_template,
+    request, send_file, send_from_directory, url_for,
 )
 from flask_sock import Sock
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -331,6 +331,24 @@ def create_app(
     @app.route("/api/tilesets", methods=["GET"])
     def tilesets():
         return jsonify(["classic"])
+
+    # Hex overland tile art. The hextiles/ directory lives at the
+    # project root; it's .gitignored (CC-licensed asset pack that's
+    # too large to check in) and deployed to production manually via
+    # scp. A runtime check at request time falls through to 404 if
+    # the pack is missing so the hex client can render placeholder
+    # glyphs instead of breaking.
+    _HEXTILES_DIR = (
+        Path(__file__).resolve().parents[2] / "hextiles"
+    )
+
+    @app.route("/hextiles/<path:relpath>", methods=["GET"])
+    def hextile(relpath: str):
+        if not _HEXTILES_DIR.is_dir():
+            abort(404)
+        return send_from_directory(
+            _HEXTILES_DIR, relpath, max_age=60 * 60 * 24,
+        )
 
     _HELP_LANGS = ("en", "es", "ca")
 

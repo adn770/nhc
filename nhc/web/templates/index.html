@@ -60,6 +60,16 @@
         <canvas id="entity-canvas"></canvas>
         <canvas id="debug-canvas"></canvas>
       </div>
+      <!-- Hex overland canvas stack, shown in hex-easy /
+           hex-survival mode. Z-order: base → fog → features →
+           entities → debug. -->
+      <div id="hex-container" class="hidden">
+        <canvas id="hex-base-canvas"></canvas>
+        <canvas id="hex-fog-canvas"></canvas>
+        <canvas id="hex-feature-canvas"></canvas>
+        <canvas id="hex-entity-canvas"></canvas>
+        <canvas id="hex-debug-canvas"></canvas>
+      </div>
     </div>
 
     <!-- Toolbar: clickable action icons -->
@@ -91,6 +101,7 @@
 
   <script src="/static/js/ws.js?v={{ v }}"></script>
   <script src="/static/js/map.js?v={{ v }}"></script>
+  <script src="/static/js/hex_map.js?v={{ v }}"></script>
   <script src="/static/js/ui.js?v={{ v }}"></script>
   <script src="/static/js/input.js?v={{ v }}"></script>
   <script src="/static/js/tts.js?v={{ v }}"></script>
