@@ -1943,7 +1943,11 @@ class Game:
         # overland. Returns an empty action list so the dungeon
         # turn does not also tick.
         if intent == "hex_exit" and self.world_mode.is_hex:
-            await self.exit_dungeon_to_hex()
+            ok = await self.exit_dungeon_to_hex()
+            if ok:
+                self.renderer.add_message(
+                    "You return to the overland.",
+                )
             return []
         logger.debug("Input: intent=%s data=%s", intent, data)
         action = self._intent_to_action(intent, data)
