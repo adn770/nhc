@@ -12,7 +12,7 @@ from pathlib import Path
 
 from nhc.config import ConfigManager
 from nhc.core.game import Game
-from nhc.hexcrawl.mode import add_world_arg
+from nhc.hexcrawl.mode import add_world_arg, gamemode_from_args
 from nhc.utils.llm import create_backend
 from nhc.utils.log import list_topics, setup_logging
 
@@ -215,9 +215,11 @@ async def main() -> int:
     # Create and run game
     god_mode = args.god or merged.get("god", False)
     shape_variety = merged.get("shape_variety", 0.3)
+    world_mode = gamemode_from_args(args)
     game = Game(client=client, backend=backend, seed=args.seed,
                 game_mode=game_mode, god_mode=god_mode,
-                reset=args.reset, shape_variety=shape_variety)
+                reset=args.reset, shape_variety=shape_variety,
+                world_mode=world_mode)
     try:
         if args.generate:
             game.initialize(generate=True)

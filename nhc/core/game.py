@@ -2129,6 +2129,16 @@ class Game:
                     "You return to the overland.",
                 )
             return []
+        # Panic-flee: works from anywhere in the crawl, costs 1d6
+        # HP + one day-clock segment. The game-over dialog fires
+        # naturally if the HP roll floors the player at 1.
+        if intent == "panic_flee" and self.world_mode.is_hex:
+            ok = await self.panic_flee()
+            if ok:
+                self.renderer.add_message(
+                    "You bail out in a panic.",
+                )
+            return []
         logger.debug("Input: intent=%s data=%s", intent, data)
         action = self._intent_to_action(intent, data)
         return [action] if action else []

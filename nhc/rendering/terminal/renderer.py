@@ -35,7 +35,10 @@ from nhc.rendering.terminal.glyphs import (
     wall_glyph,
 )
 from nhc.rendering.terminal.help_overlay import show_help as _show_help
-from nhc.rendering.terminal.input import map_key_to_intent
+from nhc.rendering.terminal.input import (
+    map_key_to_hex_intent,
+    map_key_to_intent,
+)
 from nhc.rendering.terminal.input_line import TextInput, render_input_line
 from nhc.rendering.terminal.narrative_log import (
     NarrativeLog,
@@ -83,6 +86,9 @@ class TerminalRenderer(GameClient):
         _glyphs.set_color_mode(self.color_mode)
         self._messages: list[str] = []
         self._msg_scroll: int = 0  # 0 = showing latest
+        # Set by render_hex() / render() so get_input() can pick
+        # the right key table (hex vs. dungeon).
+        self._hex_mode: bool = False
 
     @property
     def messages(self) -> list[str]:
@@ -164,6 +170,7 @@ class TerminalRenderer(GameClient):
         turn: int,
     ) -> None:
         """Render the full game screen."""
+        self._hex_mode = False
         t = self.term
         pos = world.get_component(player_id, "Position")
         if not pos:
@@ -237,6 +244,7 @@ class TerminalRenderer(GameClient):
         and the same mode indicator as the dungeon view so the
         player sees TAB / ? / scroll hints in the same place.
         """
+        self._hex_mode = True
         t = self.term
         frame = build_hex_frame(hex_world, player_coord)
         lines = frame.splitlines()
@@ -638,9 +646,17 @@ class TerminalRenderer(GameClient):
         return names, inv.max_slots, total_used
 
     async def get_input(self) -> tuple[str, Any]:
-        """Wait for keypress and return (intent, data)."""
+        """Wait for keypress and return (intent, data).
+
+        Dispatches against the hex-mode table when the most recent
+        frame was an overland one; falls back to the dungeon
+        table (which covers the 8-way dungeon movement, stairs,
+        inventory, etc.) otherwise.
+        """
         loop = asyncio.get_running_loop()
         val = await loop.run_in_executor(None, self._blocking_read)
+        if self._hex_mode:
+            return map_key_to_hex_intent(val)
         return map_key_to_intent(val)
 
     def _blocking_read(self) -> str:
