@@ -148,6 +148,19 @@ class TempleMenuEvent(Event):
     priest: int = 0
 
 
+# --- Overland (hex) events ---
+
+@dataclass
+class HexStepEvent(Event):
+    """Emitted when an actor moves to an adjacent overland hex.
+
+    ``target`` is a :class:`nhc.hexcrawl.coords.HexCoord`; typed as
+    Any here to keep ``nhc.core`` independent of the hex module.
+    """
+    actor: int = 0
+    target: Any = None
+
+
 # Handler type: sync or async callable
 EventHandler = Callable[..., None] | Callable[..., Awaitable[None]]
 
