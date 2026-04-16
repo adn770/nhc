@@ -881,6 +881,7 @@ class TestCorpseAndLoot:
             "Renderable": Renderable(glyph="g"),
         })
 
+        set_seed(42)  # Avoid natural-1 miss
         action = MeleeAttackAction(actor=pid, target=cid)
         events = await action.execute(world, level)
 
