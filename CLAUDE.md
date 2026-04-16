@@ -19,7 +19,8 @@ BSP dungeon generation, LLM-driven typed gameplay, multilingual
 ./server --host 0.0.0.0 --auth  # Expose on network
 
 # Tests (ALWAYS before committing)
-.venv/bin/pytest
+.venv/bin/pytest                 # Serial, ~3 min
+.venv/bin/pytest -n auto         # Parallel via pytest-xdist, ~1 min
 .venv/bin/pytest tests/unit/test_specific.py -v
 .venv/bin/pytest -k "test_name"
 .venv/bin/pytest -m core         # Markers: core, dungeon,
