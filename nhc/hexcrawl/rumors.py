@@ -103,6 +103,24 @@ def generate_rumors(
     return rumors
 
 
+def generate_rumors_god_mode(
+    world: HexWorld,
+    seed: int,
+    count: int = 3,
+) -> list[Rumor]:
+    """God-mode variant of :func:`generate_rumors`.
+
+    Delegates to the regular generator, then flips every rumor's
+    ``truth`` field to ``True`` so the player never gets a false
+    lead. Cheaper than maintaining a parallel code path and keeps
+    the coord-selection logic in lockstep.
+    """
+    rumors = generate_rumors(world, seed, count=count)
+    for r in rumors:
+        r.truth = True
+    return rumors
+
+
 def gather_rumor_at(
     world: HexWorld,
     rng: random.Random,

@@ -321,11 +321,29 @@ class Game:
         self._encounter_rng = None
 
     def set_god_mode(self, enabled: bool) -> None:
-        """Toggle god mode live.  Identifies all items when enabled."""
+        """Toggle god mode live.
+
+        Identifies all items, and in hex mode also reveals every
+        in-shape hex on the overland so the debug operator can
+        see the whole world. The ``encounters_disabled`` flag
+        follows the god-mode state so any future encounter
+        roll site can short-circuit when the flag is set.
+        """
         self.god_mode = enabled
         if enabled and self._knowledge:
             for item_id in ALL_IDS:
                 self._knowledge.identify(item_id)
+        if enabled and self.hex_world is not None:
+            for coord in self.hex_world.cells:
+                self.hex_world.revealed.add(coord)
+
+    @property
+    def encounters_disabled(self) -> bool:
+        """``True`` when hex-step encounter rolls should be
+        skipped. Currently tied to god mode; a later milestone
+        can broaden it (e.g. a safe-travel buff) without touching
+        the callers."""
+        return bool(self.god_mode)
 
     def _cache_key(self, depth: int) -> "int | tuple[int, int, int]":
         """Floor-cache key for a given ``depth``.
@@ -877,6 +895,11 @@ class Game:
         # enters a hex feature (M-1.12).
         if self.world_mode.is_hex:
             self._init_hex_world()
+            # God-mode lifts the fog of war on the overland so
+            # the operator sees the whole map from turn 0.
+            if self.god_mode and self.hex_world is not None:
+                for coord in self.hex_world.cells:
+                    self.hex_world.revealed.add(coord)
             return
 
         if generate:
