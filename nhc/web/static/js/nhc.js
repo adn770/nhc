@@ -172,6 +172,8 @@ const NHC = {
   async newGame(reset = false) {
     const lang = document.getElementById("lang-select").value;
     const tileset = document.getElementById("tileset-select").value;
+    const world = document.getElementById("world-select")?.value
+      || "dungeon";
 
     const L = NHC.labels;
     this.showLoading(reset
@@ -181,7 +183,7 @@ const NHC = {
     const resp = await fetch("/api/game/new", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lang, tileset, reset }),
+      body: JSON.stringify({ lang, tileset, reset, world }),
     });
 
     if (!resp.ok) {

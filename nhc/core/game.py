@@ -1055,10 +1055,17 @@ class Game:
                     self.hex_player_position,
                     self.turn,
                 )
-            else:
-                self.renderer.render(
-                    self.world, self.level, self.player_id, self.turn,
-                )
+                outcome = await self._process_hex_turn()
+                if outcome == "disconnect":
+                    logger.info("Player disconnected, suspending game")
+                    _autosave(self, self.save_dir, blocking=True)
+                    self.running = False
+                    break
+                continue
+
+            self.renderer.render(
+                self.world, self.level, self.player_id, self.turn,
+            )
 
             if self.mode == "typed":
                 actions = await self._get_typed_actions()
@@ -1811,11 +1818,47 @@ class Game:
                             self.renderer.add_message(ev.text)
                     break  # Exit menu after hiring
 
+    async def _process_hex_turn(self) -> str:
+        """Handle one overland input event.
+
+        Returns ``"disconnect"`` on WebSocket teardown, otherwise a
+        descriptive tag for the event ("moved", "entered", "rest",
+        "ignored"). The game loop consults the return value only
+        for the disconnect branch.
+        """
+        intent, data = await self.renderer.get_input()
+        if intent == "disconnect":
+            return "disconnect"
+        if intent == "hex_step" and data:
+            origin = self.hex_player_position
+            if origin is None:
+                return "ignored"
+            dq, dr = data
+            target = HexCoord(origin.q + int(dq), origin.r + int(dr))
+            ok = await self.apply_hex_step(target)
+            return "moved" if ok else "ignored"
+        if intent == "hex_enter":
+            ok = await self.enter_hex_feature()
+            return "entered" if ok else "ignored"
+        if intent == "hex_rest":
+            # +1 full day; HP regen is future work.
+            self.hex_world.advance_clock(4)
+            return "rest"
+        # Unknown intents silently ignored so a stray keyboard event
+        # doesn't end the turn with no visible effect.
+        return "ignored"
+
     async def _get_classic_actions(self) -> list:
         """Classic mode: single keypress → single action."""
         intent, data = await self.renderer.get_input()
         if intent == "disconnect":
             return ["disconnect"]
+        # Hex-mode exit from inside a dungeon: pop back to the
+        # overland. Returns an empty action list so the dungeon
+        # turn does not also tick.
+        if intent == "hex_exit" and self.world_mode.is_hex:
+            await self.exit_dungeon_to_hex()
+            return []
         logger.debug("Input: intent=%s data=%s", intent, data)
         action = self._intent_to_action(intent, data)
         return [action] if action else []

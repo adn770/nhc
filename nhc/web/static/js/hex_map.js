@@ -240,6 +240,58 @@ const HexMap = {
   },
 };
 
+// Key bindings (standard hex-roguelike diagonals for flat-top hexes):
+//   y = NW    k = N    u = NE
+//   b = SW    j = S    n = SE
+//   e = enter the feature on the current hex (settlement, dungeon)
+//   l = leave the current dungeon back to the overland
+//   r = rest (skip a day)
+const HEX_KEY_TO_DIR = {
+  "k": [0, -1],   // N
+  "u": [1, -1],   // NE
+  "n": [1, 0],    // SE
+  "j": [0, 1],    // S
+  "b": [-1, 1],   // SW
+  "y": [-1, 0],   // NW
+};
+
+let HexInputActive = false;
+
+function setHexInputActive(on) {
+  HexInputActive = on;
+}
+
+function hexKeyHandler(ev) {
+  if (!HexInputActive) return;
+  if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const tag = (ev.target?.tagName || "").toUpperCase();
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  const key = (ev.key || "").toLowerCase();
+  if (HEX_KEY_TO_DIR[key]) {
+    const [dq, dr] = HEX_KEY_TO_DIR[key];
+    WS.send({type: "action", intent: "hex_step", data: [dq, dr]});
+    ev.preventDefault();
+    return;
+  }
+  if (key === "e") {
+    WS.send({type: "action", intent: "hex_enter", data: null});
+    ev.preventDefault();
+    return;
+  }
+  if (key === "l") {
+    WS.send({type: "action", intent: "hex_exit", data: null});
+    ev.preventDefault();
+    return;
+  }
+  if (key === "r") {
+    WS.send({type: "action", intent: "hex_rest", data: null});
+    ev.preventDefault();
+    return;
+  }
+}
+
+document.addEventListener("keydown", hexKeyHandler);
+
 // Wire the WS handler and toggle visibility of the hex vs dungeon
 // containers when a ``state_hex`` arrives.
 if (typeof WS !== "undefined") {
@@ -252,6 +304,12 @@ if (typeof WS !== "undefined") {
     if (dungeon) dungeon.classList.add("hidden");
     const hexContainer = document.getElementById("hex-container");
     if (hexContainer) hexContainer.classList.remove("hidden");
+    setHexInputActive(true);
     HexMap.render(msg);
   });
+  // When the dungeon sends its own state, the player is inside a
+  // dungeon; hex-movement keys should NOT fire (dungeon keybinds
+  // would collide).
+  WS.on("state_dungeon", () => { setHexInputActive(false); });
+  WS.on("state", () => { setHexInputActive(false); });
 }

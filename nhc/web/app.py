@@ -764,6 +764,18 @@ def create_app(
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
         reset = data.get("reset", False) or config.reset
+        # Optional world-mode selection (dungeon / hex-easy /
+        # hex-survival). Default is "dungeon" so the existing
+        # classic dungeon-only behaviour is unchanged when the
+        # client does not pass a value.
+        world_raw = data.get("world", "dungeon")
+        from nhc.hexcrawl.mode import GameMode
+        try:
+            world_mode = GameMode.from_str(world_raw)
+        except ValueError:
+            return jsonify({
+                "error": f"unknown world mode: {world_raw!r}",
+            }), 400
         pid = _get_player_id()
 
         # Destroy any stale suspended session for this player
@@ -813,6 +825,7 @@ def create_app(
             client=client,
             backend=backend,
             game_mode="classic",
+            world_mode=world_mode,
             reset=reset,
             shape_variety=config.shape_variety,
             god_mode=player_god,
@@ -820,21 +833,37 @@ def create_app(
         )
         session.game = game
 
-        # Initialize the game world (generate dungeon). CPU-bound
-        # generation is offloaded to the process pool so the server
-        # stays responsive and multiple cores serve concurrent players.
-        logger.info("Generating dungeon for session %s...",
-                     session.session_id)
+        # Initialize the game world. Hex modes skip the dungeon
+        # generation path entirely (handled inside Game.initialize)
+        # and route the pool-free hex-world setup. Dungeon mode
+        # keeps the existing pool-offloaded generation so the
+        # server stays responsive and multiple cores serve
+        # concurrent players.
+        logger.info(
+            "Initialising session %s (world_mode=%s)...",
+            session.session_id, world_mode.value,
+        )
         try:
-            game.initialize(generate=True, executor=gen_pool)
+            if world_mode.is_hex:
+                game.initialize()
+            else:
+                game.initialize(generate=True, executor=gen_pool)
         except Exception:
             logger.exception("Failed to initialize game")
             sessions.destroy(session.session_id)
             return jsonify({"error": "game initialization failed"}), 500
 
-        logger.info("Dungeon generated: %dx%d, %d rooms",
-                     game.level.width, game.level.height,
-                     len(game.level.rooms))
+        if game.level is not None:
+            logger.info("Dungeon generated: %dx%d, %d rooms",
+                         game.level.width, game.level.height,
+                         len(game.level.rooms))
+        else:
+            logger.info(
+                "Hex world ready: %d cells, start hex (%d,%d)",
+                len(game.hex_world.cells),
+                game.hex_player_position.q,
+                game.hex_player_position.r,
+            )
 
         # Generate floor SVG; hatch is served globally.
         import uuid as _uuid
