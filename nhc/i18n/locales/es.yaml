@@ -1326,6 +1326,7 @@ encounter:
   fight: "Luchar"
   flee: "Huir"
   talk: "Parlamentar"
+  arena_cleared: "Has despejado el campo. Regresas a la superficie."
 
 
 # ── Rumor UI strings ───────────────────────────────────────────────────

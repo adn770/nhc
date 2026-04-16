@@ -629,6 +629,56 @@ class Game:
         """
         if self.level is None or not self.world_mode.is_hex:
             return False
+        # Heavy lifting lives in _exit_to_overland_sync so
+        # _maybe_exit_cleared_arena can call it synchronously
+        # from the dungeon tick loop.
+        self._exit_to_overland_sync()
+        return True
+
+    def _maybe_exit_cleared_arena(self) -> bool:
+        """Auto-pop back to the overland when an arena is cleared.
+
+        The Fight branch of an encounter pushes an arena
+        :class:`Level` (tagged :data:`ARENA_TAG`). Once every
+        creature on it is dead the arena serves no further
+        purpose, so the game exits to the overland and emits a
+        victory message. Returns ``True`` when an exit actually
+        fired, ``False`` otherwise.
+
+        Only hex mode triggers the hook -- classic dungeon runs
+        handle their own level transitions. The method is
+        synchronous so the dungeon run loop can call it between
+        actions without awaiting.
+        """
+        from nhc.hexcrawl.encounter import ARENA_TAG
+        if self.level is None or not self.world_mode.is_hex:
+            return False
+        if not any(ARENA_TAG in r.tags for r in self.level.rooms):
+            return False
+        # Any AI-bearing entity still on this level counts.
+        for eid, _ai in self.world.query("AI"):
+            pos = self.world.get_component(eid, "Position")
+            if pos is None:
+                continue
+            if pos.level_id != self.level.id:
+                continue
+            health = self.world.get_component(eid, "Health")
+            if health is None or health.current > 0:
+                return False
+        self.renderer.add_message(t("encounter.arena_cleared"))
+        self._exit_to_overland_sync()
+        return True
+
+    def _exit_to_overland_sync(self) -> None:
+        """Synchronous form of :meth:`exit_dungeon_to_hex` body.
+
+        Nothing here awaits -- it just drops the level and moves
+        the player + hired henchmen to the overland sentinel.
+        Called from :meth:`_maybe_exit_cleared_arena` (and,
+        indirectly, via the async ``exit_dungeon_to_hex`` wrapper).
+        """
+        if self.level is None or not self.world_mode.is_hex:
+            return
         departing_level_id = self.level.id
         self.level = None
         pos = self.world.get_component(self.player_id, "Position")
@@ -636,9 +686,6 @@ class Game:
             pos.x = -1
             pos.y = -1
             pos.level_id = "overland"
-        # Any hired henchman who was in the crawl follows the
-        # player back out; left-behinds were never moved off
-        # "overland" in the first place and stay as they are.
         for eid, hench in self.world.query("Henchman"):
             if not hench.hired or hench.owner != self.player_id:
                 continue
@@ -649,7 +696,6 @@ class Game:
                 hpos.x = -1
                 hpos.y = -1
                 hpos.level_id = "overland"
-        return True
 
     async def panic_flee(self) -> bool:
         """Escape the current dungeon from anywhere at a cost.
@@ -1684,6 +1730,9 @@ class Game:
             self._tick_hunger()
             self._tick_stairs_proximity()
             self._tick_buried_markers()
+
+            # Hex-mode: auto-pop a cleared encounter arena.
+            self._maybe_exit_cleared_arena()
 
             # God mode: restore HP to max each turn
             health = self.world.get_component(self.player_id, "Health")

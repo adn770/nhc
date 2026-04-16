@@ -1311,6 +1311,7 @@ encounter:
   fight: "Fight"
   flee: "Flee"
   talk: "Talk"
+  arena_cleared: "You've cleared the field. You head back to the overland."
 
 
 rumor:
