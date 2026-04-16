@@ -100,6 +100,10 @@ const HexMap = {
   /** Cached DOM references for the 6 direction arrow buttons. */
   _arrows: null,
 
+  /** DOM element (SVG inside a div) for the player avatar. Lives
+   * in the HUD layer so it never participates in canvas clears. */
+  _avatar: null,
+
   /** Last known player pixel + show state for the arrow ring. */
   _playerPx: null,
   _arrowsVisible: false,
@@ -140,6 +144,38 @@ const HexMap = {
     hud.style.top = `${c.top - z.top + zone.scrollTop}px`;
     hud.style.width = `${c.width}px`;
     hud.style.height = `${c.height}px`;
+  },
+
+  /** Lazily build the player avatar DOM node. Uses the same
+   * outline (#1a3a6b) and fill (dark_grey -> #999999) that the
+   * dungeon entity renderer applies to the "@" glyph. */
+  _ensureAvatar() {
+    if (this._avatar) return this._avatar;
+    const hud = document.getElementById("hex-hud");
+    if (!hud) return null;
+    const div = document.createElement("div");
+    div.id = "hex-player-avatar";
+    div.className = "hex-avatar";
+    div.innerHTML = (
+      '<svg viewBox="0 0 48 48" width="48" height="48"' +
+      ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<text x="24" y="32" text-anchor="middle"' +
+      ' font-family="monospace" font-size="32" font-weight="bold"' +
+      ' stroke="#1a3a6b" stroke-width="2"' +
+      ' stroke-linejoin="round" paint-order="stroke"' +
+      ' fill="#999999">@</text>' +
+      "</svg>"
+    );
+    hud.appendChild(div);
+    this._avatar = div;
+    return div;
+  },
+
+  _positionAvatar(playerPx) {
+    const el = this._ensureAvatar();
+    if (!el) return;
+    el.style.left = `${playerPx.x}px`;
+    el.style.top = `${playerPx.y}px`;
   },
 
   /** Lazily build the six arrow button DOM nodes and attach the
@@ -399,17 +435,16 @@ const HexMap = {
       }
     }
 
-    // Player avatar + direction arrow ring.
+    // Player avatar (HUD) + direction arrow ring (HUD). Canvas
+    // draws ABOVE are purely terrain + fog + labels; the avatar
+    // and arrows are DOM-backed on the HUD layer so they don't
+    // flicker on repaint.
+    entCtx.clearRect(0, 0, ent.width, ent.height);
     if (state.player) {
       const {x, y} = axialToPixel(state.player.q, state.player.r);
-      entCtx.clearRect(0, 0, ent.width, ent.height);
-      entCtx.fillStyle = "#ffd966";
-      entCtx.font = "bold 28px monospace";
-      entCtx.textAlign = "center";
-      entCtx.textBaseline = "middle";
-      entCtx.fillText("@", x, y);
       this._playerPx = {x, y};
       this._syncHudBox();
+      this._positionAvatar(this._playerPx);
       this._positionArrows(state.player, this._playerPx);
       if (!this._scrolledOnce) {
         this._centerOnPlayer();
