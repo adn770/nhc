@@ -13,6 +13,7 @@ import argparse
 import os
 from pathlib import Path
 
+from nhc.hexcrawl.mode import add_world_arg
 from nhc.web.app import create_app
 from nhc.web.config import WebConfig
 
@@ -65,6 +66,7 @@ def parse_args() -> argparse.Namespace:
         "--data-dir",
         help="Persistent data directory (env: NHC_DATA_DIR)",
     )
+    add_world_arg(parser)
     return parser.parse_args()
 
 
