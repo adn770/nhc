@@ -9,10 +9,11 @@ party.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 
-from nhc.hexcrawl.coords import HexCoord, in_bounds, neighbors
+from nhc.hexcrawl.coords import HexCoord, neighbors
 
 
 # ---------------------------------------------------------------------------
@@ -160,10 +161,10 @@ class HexWorld:
         self.revealed.add(c)
 
     def reveal_with_neighbors(self, c: HexCoord) -> None:
-        """Reveal ``c`` and any neighbours that lie inside the map."""
+        """Reveal ``c`` and any neighbours that lie inside the shape."""
         self.reveal(c)
         for n in neighbors(c):
-            if in_bounds(n, self.width, self.height):
+            if n in self.cells:
                 self.reveal(n)
 
     def visit(self, c: HexCoord) -> None:
@@ -187,19 +188,25 @@ class HexWorld:
     def visible_cells(self, center: HexCoord) -> set[HexCoord]:
         """Currently-in-sight hex coords around ``center``.
 
-        Returns the centre plus its in-bounds six neighbours. The
-        result is always bounded by the map; out-of-bounds coords
-        are trimmed. Does not depend on the revealed history --
-        callers that want the drawn-bright overlay intersect this
-        with :attr:`revealed`.
+        Returns the centre plus its six in-shape neighbours. The
+        result is always bounded by the map; coords that fall
+        outside the shape are trimmed. Does not depend on the
+        revealed history -- callers that want the drawn-bright
+        overlay intersect this with :attr:`revealed`.
         """
         out: set[HexCoord] = set()
-        if in_bounds(center, self.width, self.height):
+        if center in self.cells:
             out.add(center)
         for n in neighbors(center):
-            if in_bounds(n, self.width, self.height):
+            if n in self.cells:
                 out.add(n)
         return out
+
+    def is_in_shape(self, c: HexCoord) -> bool:
+        """Shape-aware bounds check: True iff ``c`` is a populated
+        cell on this map. Replaces the naive axial rectangle test
+        for non-parallelogram layouts (e.g. odd-q rectangular)."""
+        return c in self.cells
 
     def get_visible(self, c: HexCoord) -> HexCell | None:
         """Fog-respecting cell lookup.
@@ -211,6 +218,27 @@ class HexWorld:
         if c not in self.revealed:
             return None
         return self.cells.get(c)
+
+    def pixel_bbox(self, size: float) -> tuple[float, float]:
+        """Pixel (width, height) of the overall shape.
+
+        Computed from populated cells rather than the axial
+        bounding box so staggered / irregular layouts report
+        their real on-screen extent. Returns ``(0.0, 0.0)`` for
+        an empty map.
+        """
+        if not self.cells:
+            return (0.0, 0.0)
+        max_x = max_y = 0.0
+        sqrt3 = math.sqrt(3)
+        for c in self.cells:
+            x = size * 1.5 * c.q
+            y = size * (sqrt3 / 2 * c.q + sqrt3 * c.r)
+            if x > max_x:
+                max_x = x
+            if y > max_y:
+                max_y = y
+        return max_x, max_y
 
     # ----- clock -----
 

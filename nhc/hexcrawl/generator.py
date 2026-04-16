@@ -55,6 +55,37 @@ class GeneratorRetryError(RuntimeError):
 Rect = tuple[int, int, int, int]
 
 
+def _shape_r_range(q: int, height: int) -> tuple[int, int]:
+    """Axial ``(r_min, r_max_exclusive)`` for column ``q`` in a
+    rectangular odd-q staggered layout.
+
+    Even columns host ``height`` hexes; odd columns host
+    ``height - 1``. The r axis is shifted per column so that every
+    column's top and bottom align on screen, producing an actual
+    rectangle rather than the parallelogram an unshifted axial box
+    would paint.
+    """
+    rows = height if q % 2 == 0 else height - 1
+    r_min = -(q // 2)
+    return r_min, r_min + rows
+
+
+def _valid_shape_hex(q: int, r: int, width: int, height: int) -> bool:
+    """True iff ``(q, r)`` lies in the rectangular odd-q shape."""
+    if q < 0 or q >= width:
+        return False
+    r_min, r_max = _shape_r_range(q, height)
+    return r_min <= r < r_max
+
+
+def expected_shape_cell_count(width: int, height: int) -> int:
+    """Total number of valid hexes in a ``width`` × ``height``
+    rectangular odd-q shape (useful for tests and sizing)."""
+    even_cols = (width + 1) // 2
+    odd_cols = width // 2
+    return even_cols * height + odd_cols * (height - 1)
+
+
 # ---------------------------------------------------------------------------
 # BSP partitioning
 # ---------------------------------------------------------------------------
@@ -156,21 +187,45 @@ _FILL_BIOMES: tuple[Biome, ...] = (
 
 
 def _assign_biomes(
-    regions: list[Rect], rng: random.Random,
+    regions: list[Rect],
+    valid_cells_per_region: list[int],
+    rng: random.Random,
 ) -> dict[int, Biome]:
     """Map region index -> biome.
 
-    Guarantees each essential biome is present if the number of
-    regions allows it (>=4 regions => all four). Remaining slots are
-    filled from the variety pool.
+    Guarantees each essential biome lands in a region that
+    actually holds valid cells. Under staggered layouts some
+    partitions can end up mostly / entirely in the "invalid"
+    corners of the axial bounding box; if we let an essential
+    biome fall there, the generated world is missing that biome
+    entirely.
+
+    We sort region indices by their valid-cell count (desc),
+    assign essentials to the top slots, fills to the remainder,
+    then shuffle within each group so the biome layout still
+    varies seed-to-seed.
     """
     n = len(regions)
-    pool = list(_ESSENTIAL_BIOMES[:n])
-    fill = list(_FILL_BIOMES)
-    while len(pool) < n:
-        pool.append(rng.choice(fill))
-    rng.shuffle(pool)
-    return {i: pool[i] for i in range(n)}
+    # Biomes pool: essentials first (up to n), then fills until n.
+    essentials = list(_ESSENTIAL_BIOMES[:n])
+    fill_pool = list(_FILL_BIOMES)
+    fills: list[Biome] = []
+    while len(essentials) + len(fills) < n:
+        fills.append(rng.choice(fill_pool))
+    rng.shuffle(essentials)
+    rng.shuffle(fills)
+    # Rank regions by valid-cell count, descending (so the biggest
+    # "real" regions host essentials).
+    ranked = sorted(
+        range(n), key=lambda i: valid_cells_per_region[i], reverse=True,
+    )
+    assignment: dict[int, Biome] = {}
+    for slot, region_idx in enumerate(ranked):
+        if slot < len(essentials):
+            assignment[region_idx] = essentials[slot]
+        else:
+            assignment[region_idx] = fills[slot - len(essentials)]
+    return assignment
 
 
 # ---------------------------------------------------------------------------
@@ -213,26 +268,50 @@ class _FeaturePlacementError(Exception):
 def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     mp = pack.map
 
+    # Rectangular odd-q staggered layout: columns alternate between
+    # ``height`` and ``height - 1`` hexes, and the axial r axis is
+    # shifted per column so the overall silhouette is a rectangle.
+    # The axial r range spans [-(width-1)//2, height). We partition
+    # the full axial bounding box (width x (height + r_offset)) in
+    # non-negative space and shift back when materialising cells.
+    r_offset = (mp.width - 1) // 2
+    axial_height = mp.height + r_offset
     regions = _partition(
         width=mp.width,
-        height=mp.height,
+        height=axial_height,
         target_regions=mp.num_regions,
         min_cells=mp.region_min,
         max_cells=mp.region_max,
         rng=rng,
     )
-    biomes = _assign_biomes(regions, rng)
 
-    # Build per-cell biome mapping from region rectangles.
+    # Count valid cells per region (for biome assignment ranking).
+    # Skip cells whose axial coord falls outside the rectangular
+    # shape; those "ghost" cells inflate the axial-rect area but
+    # never get populated.
+    valid_counts: list[int] = []
+    region_valid_cells: list[list[HexCoord]] = []
+    for (q_min, rs_min, q_max, rs_max) in regions:
+        col: list[HexCoord] = []
+        for q in range(q_min, q_max):
+            for rs in range(rs_min, rs_max):
+                r = rs - r_offset
+                if _valid_shape_hex(q, r, mp.width, mp.height):
+                    col.append(HexCoord(q, r))
+        region_valid_cells.append(col)
+        valid_counts.append(len(col))
+
+    biomes = _assign_biomes(regions, valid_counts, rng)
+
+    # Build per-cell biome mapping using the pre-computed valid
+    # cell lists.
     cells: dict[HexCoord, HexCell] = {}
     hexes_by_biome: dict[Biome, list[HexCoord]] = {b: [] for b in Biome}
-    for i, (q_min, r_min, q_max, r_max) in enumerate(regions):
+    for i, valid_cells in enumerate(region_valid_cells):
         biome = biomes[i]
-        for q in range(q_min, q_max):
-            for r in range(r_min, r_max):
-                c = HexCoord(q, r)
-                cells[c] = HexCell(coord=c, biome=biome)
-                hexes_by_biome[biome].append(c)
+        for c in valid_cells:
+            cells[c] = HexCell(coord=c, biome=biome)
+            hexes_by_biome[biome].append(c)
 
     # -- Hub ------------------------------------------------------
     hub = _pick_hub(hexes_by_biome, rng)

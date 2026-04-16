@@ -11,11 +11,17 @@ id: testland
 version: 2
 attribution: "NHC test setting (procedural)"
 
-# 24x16 = 384 hexes, wider than tall for a landscape-looking map.
-# Region params aim for roughly two dozen coherent biome zones.
+# Rectangular odd-q staggered silhouette: 25 columns alternating
+# between 16-hex (even cols) and 15-hex (odd cols) lengths. Total
+# valid hexes = 13*16 + 12*15 = 388. Width is odd so the shape is
+# symmetric left-to-right.
+#
+# The underlying axial bounding box the BSP partitioner sees is
+# wider on the r axis (r_offset = (width-1)//2 = 12 extra rows),
+# but the generator filters cells to the actual rectangular shape.
 map:
   generator: bsp_regions
-  width: 24
+  width: 25
   height: 16
   num_regions: 24
   region_min: 10

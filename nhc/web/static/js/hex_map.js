@@ -335,17 +335,13 @@ const HexMap = {
    * dimensions haven't changed. */
   _sizedTo: null,
 
-  /** Resize all five hex canvases to ``width × height`` (axial grid
-   * dims) at the current HEX_SIZE. No-op when the pixel box would
-   * be the same as the last call -- assigning canvas.width even
-   * to the same value clears the canvas, which was the main
-   * source of the per-step flicker. */
-  resize(width, height) {
-    const lastQ = width - 1;
-    const lastR = height - 1;
-    const last = axialToPixel(lastQ, lastR);
-    const px = Math.ceil(last.x + HEX_SIZE + HEX_MARGIN);
-    const py = Math.ceil(last.y + HEX_SIZE + HEX_MARGIN);
+  /** Resize all five hex canvases to ``pixelW × pixelH`` plus
+   * hex-margin padding. No-op when the pixel box would be the
+   * same as the last call -- assigning canvas.width even to the
+   * same value clears the canvas. */
+  resize(pixelW, pixelH) {
+    const px = Math.ceil(pixelW + HEX_SIZE + 2 * HEX_MARGIN);
+    const py = Math.ceil(pixelH + HEX_SIZE + 2 * HEX_MARGIN);
     if (this._sizedTo
         && this._sizedTo.px === px
         && this._sizedTo.py === py) {
@@ -394,7 +390,15 @@ const HexMap = {
     const entCtx = ent.getContext("2d");
     if (!baseCtx || !fogCtx || !entCtx) return;
 
-    this.resize(state.width, state.height);
+    // Pixel box comes from the server (computed from populated
+    // cells); fall back to axial-rect sizing for older payloads.
+    const pw = state.pixel_width !== undefined
+      ? state.pixel_width
+      : axialToPixel(state.width - 1, state.height - 1).x;
+    const ph = state.pixel_height !== undefined
+      ? state.pixel_height
+      : axialToPixel(state.width - 1, state.height - 1).y;
+    this.resize(pw, ph);
 
     const feat = document.getElementById("hex-feature-canvas");
     const featCtx = feat ? feat.getContext("2d") : null;

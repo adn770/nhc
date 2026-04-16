@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
 from nhc.core.events import Event, HexStepEvent
-from nhc.hexcrawl.coords import HexCoord, distance, in_bounds
+from nhc.hexcrawl.coords import HexCoord, distance
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -41,15 +41,13 @@ class MoveHexAction(Action):
     async def validate(
         self, world: "World", level: "Level | None" = None,
     ) -> bool:
-        if not in_bounds(
-            self.target, self.hex_world.width, self.hex_world.height,
-        ):
+        # Shape-aware bounds: non-parallelogram layouts (e.g. odd-q
+        # rectangular) have valid hexes that would fail a naive
+        # axial-rect in_bounds test. is_in_shape checks membership
+        # in the populated cells dict instead.
+        if not self.hex_world.is_in_shape(self.target):
             return False
         if distance(self.origin, self.target) != 1:
-            return False
-        # Destination cell must exist on the world (generator fills
-        # the whole map, so this is belt-and-braces).
-        if self.hex_world.get_cell(self.target) is None:
             return False
         return True
 

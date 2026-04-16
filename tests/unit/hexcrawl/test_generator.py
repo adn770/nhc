@@ -13,10 +13,12 @@ import textwrap
 
 import pytest
 
-from nhc.hexcrawl.coords import HexCoord, in_bounds, neighbors
+from nhc.hexcrawl.coords import HexCoord, neighbors
 from nhc.hexcrawl.generator import (
     GeneratorRetryError,
     _partition,
+    _valid_shape_hex,
+    expected_shape_cell_count,
     generate_test_world,
 )
 from nhc.hexcrawl.model import Biome, HexFeatureType
@@ -143,14 +145,23 @@ def test_generator_different_seeds_differ(default_pack) -> None:
     assert diff > 0
 
 
-def test_generator_fills_full_map(default_pack) -> None:
+def test_generator_fills_full_shape(default_pack) -> None:
+    # Rectangular odd-q staggered shape: every valid (q, r) is
+    # populated, and no axial coord outside the shape appears.
     w = generate_test_world(seed=42, pack=default_pack)
     expected = {
         HexCoord(q, r)
         for q in range(default_pack.map.width)
-        for r in range(default_pack.map.height)
+        for r in range(-((default_pack.map.width - 1) // 2),
+                       default_pack.map.height)
+        if _valid_shape_hex(
+            q, r, default_pack.map.width, default_pack.map.height,
+        )
     }
     assert set(w.cells.keys()) == expected
+    assert len(w.cells) == expected_shape_cell_count(
+        default_pack.map.width, default_pack.map.height,
+    )
 
 
 def test_generator_places_exactly_one_hub(default_pack) -> None:
@@ -198,18 +209,16 @@ def test_generator_features_are_reachable_from_hub(default_pack) -> None:
     w = generate_test_world(seed=42, pack=default_pack)
     hubs = _feature_hexes(w, {HexFeatureType.CITY})
     assert len(hubs) == 1
-    # BFS over neighbours that lie inside the map.
+    # BFS over in-shape neighbours (populated cells).
     seen: set[HexCoord] = {hubs[0]}
-    q: deque[HexCoord] = deque([hubs[0]])
-    while q:
-        c = q.popleft()
+    frontier: deque[HexCoord] = deque([hubs[0]])
+    while frontier:
+        c = frontier.popleft()
         for n in neighbors(c):
-            if not in_bounds(n, default_pack.map.width, default_pack.map.height):
-                continue
-            if n in seen:
+            if n not in w.cells or n in seen:
                 continue
             seen.add(n)
-            q.append(n)
+            frontier.append(n)
     feature_cells = [
         c for c, cell in w.cells.items()
         if cell.feature is not HexFeatureType.NONE
@@ -265,9 +274,12 @@ def test_generator_ruins_in_forest_or_deadlands(default_pack) -> None:
 def test_generator_seed_sweep_always_succeeds(default_pack) -> None:
     # Sweeping a small set of seeds ensures the retry-on-unreachable
     # path doesn't blow up under common inputs.
+    expected = expected_shape_cell_count(
+        default_pack.map.width, default_pack.map.height,
+    )
     for seed in range(20):
         w = generate_test_world(seed=seed, pack=default_pack)
-        assert len(w.cells) == 64
+        assert len(w.cells) == expected
 
 
 def test_generator_retry_failure_raises(default_pack) -> None:

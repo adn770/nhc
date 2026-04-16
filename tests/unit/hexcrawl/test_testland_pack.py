@@ -64,11 +64,14 @@ def test_testland_locale_keys_file_populated() -> None:
 
 
 def test_testland_generator_produces_valid_world() -> None:
+    from nhc.hexcrawl.generator import expected_shape_cell_count
     pack = load_pack(_pack_path())
     world = generate_test_world(seed=42, pack=pack)
-    # width x height cells (sized by the pack, not hard-coded).
-    expected = pack.map.width * pack.map.height
-    assert len(world.cells) == expected
+    # Rectangular odd-q staggered shape (even cols carry
+    # `height` hexes, odd cols `height - 1`).
+    assert len(world.cells) == expected_shape_cell_count(
+        pack.map.width, pack.map.height,
+    )
     # Exactly one hub
     hubs = [
         c for c, cell in world.cells.items()

@@ -189,18 +189,22 @@ def test_hexworld_advance_clock_rejects_negative() -> None:
 
 
 def test_hexworld_reveal_neighbors_helper() -> None:
-    # Convenience helper: reveal a coord and its six neighbours that
-    # are inside bounds.
+    # reveal_with_neighbors is shape-aware: it reveals the centre
+    # plus each neighbour that is a populated cell. Populate a
+    # 4x4 patch and check that the helper adds neighbours only
+    # where cells exist.
     w = _make_world(width=4, height=4)
+    for q in range(4):
+        for r in range(4):
+            w.set_cell(HexCell(coord=HexCoord(q, r), biome=Biome.GREENLANDS))
     w.reveal_with_neighbors(HexCoord(1, 1))
-    # Center revealed, plus neighbours that lie inside the 4x4 grid.
     assert HexCoord(1, 1) in w.revealed
     assert HexCoord(0, 1) in w.revealed
     assert HexCoord(1, 0) in w.revealed
     assert HexCoord(2, 1) in w.revealed
-    # Neighbours outside the 4x4 box are not added.
+    # Every revealed coord corresponds to a populated cell.
     for c in w.revealed:
-        assert 0 <= c.q < 4 and 0 <= c.r < 4
+        assert c in w.cells
 
 
 def test_hexworld_set_cell_and_lookup() -> None:

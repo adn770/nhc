@@ -89,8 +89,9 @@ def test_game_hex_easy_loads_hex_world(tmp_path) -> None:
     g.initialize()
     assert g.world_mode is GameMode.HEX_EASY
     assert g.hex_world is not None
-    assert len(g.hex_world.cells) == (
-        g.hex_world.width * g.hex_world.height
+    from nhc.hexcrawl.generator import expected_shape_cell_count
+    assert len(g.hex_world.cells) == expected_shape_cell_count(
+        g.hex_world.width, g.hex_world.height,
     )
 
 
