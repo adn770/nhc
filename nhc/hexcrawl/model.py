@@ -182,6 +182,36 @@ class HexWorld:
     def is_cleared(self, c: HexCoord) -> bool:
         return c in self.cleared
 
+    # ----- fog of war -----
+
+    def visible_cells(self, center: HexCoord) -> set[HexCoord]:
+        """Currently-in-sight hex coords around ``center``.
+
+        Returns the centre plus its in-bounds six neighbours. The
+        result is always bounded by the map; out-of-bounds coords
+        are trimmed. Does not depend on the revealed history --
+        callers that want the drawn-bright overlay intersect this
+        with :attr:`revealed`.
+        """
+        out: set[HexCoord] = set()
+        if in_bounds(center, self.width, self.height):
+            out.add(center)
+        for n in neighbors(center):
+            if in_bounds(n, self.width, self.height):
+                out.add(n)
+        return out
+
+    def get_visible(self, c: HexCoord) -> HexCell | None:
+        """Fog-respecting cell lookup.
+
+        Returns the :class:`HexCell` at ``c`` when the coord has
+        been revealed, otherwise :data:`None`. Out-of-bounds coords
+        always return ``None``.
+        """
+        if c not in self.revealed:
+            return None
+        return self.cells.get(c)
+
     # ----- clock -----
 
     def advance_clock(self, segments: int) -> None:
