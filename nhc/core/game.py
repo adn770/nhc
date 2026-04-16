@@ -2354,8 +2354,15 @@ class Game:
             ok = await self.apply_hex_step(target)
             if not ok:
                 self.renderer.add_message("You can't go that way.")
-            elif self.pending_encounter is not None:
-                await self._prompt_encounter()
+            else:
+                # Overland travel ticks hunger the same way a
+                # dungeon turn does (game_ticks.tick_hunger). The
+                # inner call also surfaces any state-transition
+                # messages ("You're getting hungry.", starvation
+                # damage, etc.).
+                self._tick_hunger()
+                if self.pending_encounter is not None:
+                    await self._prompt_encounter()
             return "moved" if ok else "ignored"
         if intent == "hex_enter":
             coord = self.hex_player_position
@@ -2373,15 +2380,21 @@ class Game:
                 )
             return "entered" if ok else "ignored"
         if intent == "hex_rest":
-            # +1 full day and a full heal -- a day of rest is a
-            # real time investment and the payoff is a fresh
-            # start on HP.
+            # +1 full day, a full heal, and a meal -- rest ticks
+            # the clock and pays out both HP and hunger. A day
+            # at camp assumes rations were available to eat.
             self.hex_world.advance_clock(4)
             health = self.world.get_component(
                 self.player_id, "Health",
             )
             if health is not None:
                 health.current = health.maximum
+            hunger = self.world.get_component(
+                self.player_id, "Hunger",
+            )
+            if hunger is not None:
+                hunger.current = hunger.maximum
+                hunger.prev_state = "satiated"
             self.renderer.add_message(
                 f"You rest. Day {self.hex_world.day} dawns.",
             )
