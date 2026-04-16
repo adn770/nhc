@@ -2378,3 +2378,31 @@ features:
     name: "Trampilla"
     short: "una trampilla oculta"
     long: "El suelo aquí es más fino de lo que parece — una sección con bisagras lista para abrirse."
+
+# ── Hexcrawl exterior — cadenas del motor ─────────────────────────
+hex:
+  ui:
+    day: "Día"
+  biome:
+    greenlands: "Tierras verdes"
+    drylands: "Tierras secas"
+    sandlands: "Tierras arenosas"
+    icelands: "Tierras heladas"
+    deadlands: "Tierras muertas"
+    forest: "Bosque"
+    mountain: "Montaña"
+  time:
+    morning: "Mañana"
+    midday: "Mediodía"
+    evening: "Atardecer"
+    night: "Noche"
+
+# ── Hexcrawl exterior — paquetes de contenido ────────────────────
+content:
+  testland:
+    pack:
+      name: "Las Tierras de Prueba"
+    hex:
+      hub:
+        name: "Cruce de Piedra"
+        description: "Un pueblo de mercado en un vado de río."

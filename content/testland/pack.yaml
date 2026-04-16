@@ -1,4 +1,32 @@
 # Bundled procedural test setting for overland hexcrawl mode.
-# Real schema and content are fleshed out in Phase 0 milestones.
+#
+# See design/overland_hexcrawl.md for the engine design and
+# ~/src/nhc_overland_hexcrawl_plan.md for the implementation roadmap.
+#
+# This pack stays minimal: the entire map is generated from the
+# BSP region partitioner (see nhc/hexcrawl/generator.py). Real
+# setting content (Blackmarsh) lands in a later phase.
+
 id: testland
-version: 0
+version: 1
+attribution: "NHC test setting (procedural)"
+
+map:
+  generator: bsp_regions
+  width: 8
+  height: 8
+  num_regions: 5
+  region_min: 6
+  region_max: 16
+
+features:
+  hub: 1
+  village:
+    min: 1
+    max: 2
+  dungeon:
+    min: 3
+    max: 5
+  wonder:
+    min: 1
+    max: 3

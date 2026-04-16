@@ -2362,3 +2362,31 @@ features:
     name: "Trap Door"
     short: "a concealed trap door"
     long: "The floor here is thinner than it looks — a hinged section ready to swing open."
+
+# ── Overland hexcrawl — engine-level strings ──────────────────────
+hex:
+  ui:
+    day: "Day"
+  biome:
+    greenlands: "Greenlands"
+    drylands: "Drylands"
+    sandlands: "Sandlands"
+    icelands: "Icelands"
+    deadlands: "Deadlands"
+    forest: "Forest"
+    mountain: "Mountain"
+  time:
+    morning: "Morning"
+    midday: "Midday"
+    evening: "Evening"
+    night: "Night"
+
+# ── Overland hexcrawl — pluggable content packs ────────────────────
+content:
+  testland:
+    pack:
+      name: "The Testlands"
+    hex:
+      hub:
+        name: "Stonecross"
+        description: "A market town at a river crossing."

@@ -1,0 +1,5 @@
+# i18n keys this pack expects to resolve in en/ca/es locale files.
+keys:
+  - content.testland.pack.name
+  - content.testland.hex.hub.name
+  - content.testland.hex.hub.description

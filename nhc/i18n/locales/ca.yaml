@@ -2680,3 +2680,31 @@ features:
     name: "Trapa"
     short: "una trapa oculta"
     long: "El terra aquí és més prim del que sembla — una secció amb frontisses a punt d'obrir-se."
+
+# ── Hexcrawl d'exterior — cadenes del motor ───────────────────────
+hex:
+  ui:
+    day: "Dia"
+  biome:
+    greenlands: "Terres verdes"
+    drylands: "Terres seques"
+    sandlands: "Terres sorrenques"
+    icelands: "Terres gelades"
+    deadlands: "Terres mortes"
+    forest: "Bosc"
+    mountain: "Muntanya"
+  time:
+    morning: "Matí"
+    midday: "Migdia"
+    evening: "Capvespre"
+    night: "Nit"
+
+# ── Hexcrawl d'exterior — paquets de contingut ─────────────────────
+content:
+  testland:
+    pack:
+      name: "Les Terres de Prova"
+    hex:
+      hub:
+        name: "Travessa de Pedra"
+        description: "Una vila de mercat en un gual de riu."
