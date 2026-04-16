@@ -789,8 +789,25 @@ def create_app(
         save_dir = _player_save_dir(pid) if pid else None
         if save_dir:
             save_dir.mkdir(parents=True, exist_ok=True)
+
+        # Pre-delete the autosave BEFORE constructing the Game so
+        # a concurrent autosave from the old (still-running) game
+        # loop can't race with the delete inside Game.initialize.
+        # Without this, the old WebSocket handler's last hex-step
+        # autosave can land between the session.destroy above and
+        # the Game.initialize delete, leaving stale exploration
+        # state that the new game accidentally restores.
+        if reset and save_dir:
+            from nhc.core.autosave import delete_autosave
+            delete_autosave(save_dir)
+            logger.info(
+                "Pre-deleted autosave for player %s (reset=True)",
+                pid or "anonymous",
+            )
+
         logger.info("Creating new game: lang=%s tileset=%s reset=%s "
-                     "player=%s", lang, tileset, reset, pid or "anonymous")
+                     "player=%s", lang, tileset, reset,
+                     pid or "anonymous")
         try:
             session = sessions.create(
                 lang=lang, tileset=tileset,
@@ -816,11 +833,20 @@ def create_app(
         logger.debug("LLM backend: %s", type(backend).__name__
                       if backend else "None")
 
-        player_god = config.god_mode
-        if registry and pid:
-            pdata = registry.get(pid)
-            if pdata:
-                player_god = pdata.get("god_mode", False)
+        # God mode is session-scoped. On New Game (reset=true) the
+        # player starts clean — only the server's global config can
+        # force it on. On Continue (reset=false) the admin panel's
+        # per-player toggle carries over so a mid-session god-mode
+        # toggle survives a reconnect; the autosave's internal flag
+        # will override anyway once auto_restore runs.
+        if reset:
+            player_god = config.god_mode
+        else:
+            player_god = config.god_mode
+            if registry and pid:
+                pdata = registry.get(pid)
+                if pdata:
+                    player_god = pdata.get("god_mode", False)
         game = Game(
             client=client,
             backend=backend,
