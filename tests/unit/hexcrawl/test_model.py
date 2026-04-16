@@ -29,6 +29,8 @@ def test_biome_enum_complete() -> None:
         # Added in M-G.1 for the noise generator + Blackmarsh
         # wetlands prep.
         "hills", "marsh", "swamp",
+        # Open water / sea biome.
+        "water",
     }
     assert {b.value for b in Biome} == expected
 

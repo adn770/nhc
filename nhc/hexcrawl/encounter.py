@@ -65,6 +65,10 @@ DEFAULT_BIOME_POOLS: dict[Biome, tuple[str, ...]] = {
     Biome.HILLS: ("goblin", "hobgoblin", "bandit"),
     Biome.MARSH: ("giant_leech", "frogman", "giant_centipede"),
     Biome.SWAMP: ("zombie", "ghoul", "giant_leech"),
+    # No encounters at sea in v1 (player can't step onto water).
+    # Entry exists so the table covers every Biome member; the
+    # rate is 0 anyway.
+    Biome.WATER: (),
 }
 
 

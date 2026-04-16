@@ -165,6 +165,11 @@ BIOME_COLOURS = {
     "hills":      RGB(150, 160,  95),
     "marsh":      RGB( 95, 125,  85),
     "swamp":      RGB( 55,  72,  50),
+    # Open water / sea: a solid blue. The water biome is a
+    # single-tile biome — no per-feature variants, just one
+    # hex of ocean. Generated as a plain dithered fill with no
+    # foundation overlay on top.
+    "water":      RGB( 60, 100, 160),
 }
 
 
@@ -173,6 +178,12 @@ BIOME_COLOURS = {
 # for every biome in GENERATED_BIOMES. The mountainPack features
 # (peaks, summits, gates, alpine forest, etc.) only make visual
 # sense on a mountain background so they're restricted.
+# Slot 5 ("water") is now a biome, not a feature overlay. Skip
+# it from every per-biome generation pass — the water biome gets
+# its own single tile (a plain blue dithered hex, no foundation
+# overlay).
+_SKIP_SLOTS: frozenset[int] = frozenset({5})
+
 SLOT_BIOME_ONLY: dict[int, frozenset[str]] = {
     s: frozenset({"mountain"}) for s in range(61, 81)
 }
@@ -359,6 +370,9 @@ def main() -> int:
         present = existing_slots(biome)
         targets = set(SLOT_NAME) - (set() if args.force else present)
         for slot in sorted(targets):
+            # Skip slots that are now biomes (e.g. slot 5 "water").
+            if slot in _SKIP_SLOTS:
+                continue
             # Skip slots restricted to other biomes.
             allowed = SLOT_BIOME_ONLY.get(slot)
             if allowed is not None and biome not in allowed:
@@ -378,6 +392,27 @@ def main() -> int:
             composed.save(out_path)
             total_written += 1
             print(f"  slot {slot:2d}: wrote {out_path.name}")
+
+    # Water biome: a single plain-dithered hex with no foundation
+    # overlay. One tile, filename 1-water_water.png.
+    water_tint = BIOME_COLOURS["water"]
+    water_out = HEXTILES / "water" / "5-water_water.png"
+    if args.dry_run:
+        print(f"\n[water] would write {water_out.name}")
+    elif args.force or not water_out.exists():
+        print(f"\n[water] background rgb{water_tint.as_tuple()}")
+        silhouette = _hex_silhouette_mask()
+        seed = hash(("water", 1)) & 0xFFFFFFFF
+        fill = _dithered_fill(
+            silhouette.size, water_tint, args.noise, seed,
+        )
+        bg = Image.new("RGBA", silhouette.size,
+                        (*water_tint.as_tuple(), 0))
+        bg.paste(fill, (0, 0), silhouette)
+        water_out.parent.mkdir(parents=True, exist_ok=True)
+        bg.save(water_out)
+        total_written += 1
+        print(f"  wrote {water_out.name}")
 
     print(f"\nDone. {total_written} tile(s) written.")
     return 0

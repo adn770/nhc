@@ -48,6 +48,7 @@ BIOME_GLYPH: dict[Biome, str] = {
     Biome.HILLS: "n",
     Biome.MARSH: "~",
     Biome.SWAMP: "=",
+    Biome.WATER: "≈",
 }
 
 # Feature overlays take priority over biome glyphs.

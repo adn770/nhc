@@ -2415,6 +2415,7 @@ hex:
     hills: "Hills"
     marsh: "Marsh"
     swamp: "Swamp"
+    water: "Sea"
   time:
     morning: "Morning"
     midday: "Midday"

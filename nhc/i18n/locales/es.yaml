@@ -2435,6 +2435,7 @@ hex:
     hills: "Colinas"
     marsh: "Marisma"
     swamp: "Pantano"
+    water: "Mar"
   time:
     morning: "Mañana"
     midday: "Mediodía"

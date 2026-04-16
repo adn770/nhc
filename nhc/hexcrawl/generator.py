@@ -339,6 +339,11 @@ from nhc.hexcrawl._features import place_features as _place_features  # noqa: E4
 #   -0.10..0.20 + m dry    -> DEADLANDS (barren plains)
 #   e < -0.10              -> ICELANDS (low-elevation chill)
 def _biome_from_em(e: float, m: float) -> Biome:
+    # Sea: very low elevation. Forms coastlines and lakes on
+    # the noise map. Impassable in v1 so the player routes
+    # around it, but the visual reads as ocean / deep water.
+    if e < -0.35:
+        return Biome.WATER
     if e >= 0.70:
         return Biome.MOUNTAIN
     if e >= 0.45:

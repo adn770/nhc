@@ -40,6 +40,9 @@ DEFAULT_BIOME_COSTS: dict[Biome, int] = {
     Biome.HILLS: 2,
     Biome.MARSH: 3,
     Biome.SWAMP: 3,
+    # Open water is impassable on foot in v1. Cost 99 so the
+    # player routes around it (future: boats / swimming).
+    Biome.WATER: 99,
 }
 
 

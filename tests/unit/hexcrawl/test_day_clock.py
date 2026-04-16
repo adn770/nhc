@@ -58,6 +58,7 @@ def test_cost_for_defaults_match_design_doc_table() -> None:
         Biome.HILLS: 2,
         Biome.MARSH: 3,
         Biome.SWAMP: 3,
+        Biome.WATER: 99,
     }
 
 

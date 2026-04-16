@@ -2738,6 +2738,7 @@ hex:
     hills: "Tossals"
     marsh: "Aiguamoll"
     swamp: "Pantà"
+    water: "Mar"
   time:
     morning: "Matí"
     midday: "Migdia"

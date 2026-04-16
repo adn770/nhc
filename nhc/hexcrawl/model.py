@@ -35,6 +35,10 @@ class Biome(Enum):
     HILLS = "hills"
     MARSH = "marsh"
     SWAMP = "swamp"
+    # Open water / sea. A single-tile biome: one blue hex, no
+    # biome-coloured dither, impassable in v1 (travel cost high
+    # enough that the player routes around it).
+    WATER = "water"
 
 
 class HexFeatureType(Enum):

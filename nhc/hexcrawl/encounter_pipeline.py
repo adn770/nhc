@@ -48,6 +48,7 @@ BIOME_ENCOUNTER_RATES: dict[Biome, float] = {
     Biome.HILLS:      0.22,
     Biome.MARSH:      0.28,
     Biome.SWAMP:      0.33,
+    Biome.WATER:      0.00,   # impassable; rate is moot
 }
 
 
