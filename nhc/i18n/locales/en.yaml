@@ -1306,6 +1306,13 @@ death:
   cheat_death: "Cheat death (respawn at the last hub)"
 
 
+encounter:
+  prompt: "You run into {count} creature(s) in the {biome}. What do you do?"
+  fight: "Fight"
+  flee: "Flee"
+  talk: "Talk"
+
+
 rumor:
   true_feature: >-
     The innkeeper leans close and whispers: "Folks swear there's

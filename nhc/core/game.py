@@ -2241,6 +2241,8 @@ class Game:
             ok = await self.apply_hex_step(target)
             if not ok:
                 self.renderer.add_message("You can't go that way.")
+            elif self.pending_encounter is not None:
+                await self._prompt_encounter()
             return "moved" if ok else "ignored"
         if intent == "hex_enter":
             coord = self.hex_player_position
@@ -2267,6 +2269,47 @@ class Game:
         # Unknown intents silently ignored so a stray keyboard event
         # doesn't end the turn with no visible effect.
         return "ignored"
+
+    async def _prompt_encounter(self) -> None:
+        """Surface a pending encounter to the player.
+
+        Pops the Fight / Flee / Talk menu via
+        ``renderer.show_selection_menu`` and dispatches the pick
+        through :meth:`resolve_encounter`. A missing renderer hook
+        or a cancelled menu auto-resolves to Flee so the world
+        doesn't stall with an unconsumed pending encounter -- the
+        player takes the chicken tax and keeps moving.
+        """
+        from nhc.hexcrawl.encounter_pipeline import EncounterChoice
+        enc = self.pending_encounter
+        if enc is None:
+            return
+        prompt = getattr(
+            self.renderer, "show_selection_menu", None,
+        )
+        if prompt is None:
+            await self.resolve_encounter(EncounterChoice.FLEE)
+            return
+        options: list[tuple[str, str]] = [
+            (EncounterChoice.FIGHT.value, t("encounter.fight")),
+            (EncounterChoice.FLEE.value, t("encounter.flee")),
+            (EncounterChoice.TALK.value, t("encounter.talk")),
+        ]
+        # Describe the foes in the prompt title so the player
+        # has context for the pick.
+        title = t(
+            "encounter.prompt",
+            biome=enc.biome.value,
+            count=len(enc.creatures),
+        )
+        choice = prompt(title, options)
+        if choice is None:
+            choice = EncounterChoice.FLEE.value
+        try:
+            resolved = EncounterChoice(choice)
+        except ValueError:
+            resolved = EncounterChoice.FLEE
+        await self.resolve_encounter(resolved)
 
     async def _get_classic_actions(self) -> list:
         """Classic mode: single keypress → single action."""

@@ -1320,6 +1320,14 @@ death:
   cheat_death: "Engaña a la muerte (regresa al último hub)"
 
 
+# ── Encounter prompt strings ───────────────────────────────────────────
+encounter:
+  prompt: "Te topas con {count} criatura(s) en el(os) {biome}. ¿Qué haces?"
+  fight: "Lucha"
+  flee: "Huye"
+  talk: "Habla"
+
+
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   true_feature: >-
