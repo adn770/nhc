@@ -437,6 +437,98 @@ class Game:
         _autosave(self, self.save_dir, blocking=True)
         return True
 
+    def _create_hex_player(self) -> None:
+        """Create the ECS player entity for hex mode.
+
+        Position is a sentinel with ``level_id == "overland"`` and
+        ``(x, y) == (-1, -1)``; hex location is tracked in
+        :attr:`hex_player_position` (moves via :meth:`apply_hex_step`).
+        The same Player/Stats/Health/Inventory/Equipment shape used
+        by the dungeon init path keeps downstream systems happy.
+        """
+        char = generate_character(seed=self.seed)
+        inv_slots = 10 + char.constitution
+        self.player_id = self.world.create_entity({
+            "Position": Position(x=-1, y=-1, level_id="overland"),
+            "Renderable": Renderable(
+                glyph="@", color="dark_grey", render_order=10,
+            ),
+            "Stats": Stats(
+                strength=char.strength,
+                dexterity=char.dexterity,
+                constitution=char.constitution,
+                intelligence=char.intelligence,
+                wisdom=char.wisdom,
+                charisma=char.charisma,
+            ),
+            "Health": Health(current=char.hp, maximum=char.hp),
+            "Inventory": Inventory(max_slots=inv_slots),
+            "Player": Player(gold=char.gold),
+            "Description": Description(
+                name=char.name,
+                short=t(f"traits.{char.background}"),
+            ),
+            "Equipment": Equipment(),
+            "Hunger": Hunger(),
+        })
+        self._character = char
+
+    def allows_cheat_death_now(self) -> bool:
+        """True when the current world mode offers the cheat-death
+        dialog on player death (hex-easy only)."""
+        return self.world_mode is GameMode.HEX_EASY
+
+    def cheat_death(self) -> None:
+        """Respawn the player at the last hub with penalties.
+
+        Only valid in :attr:`GameMode.HEX_EASY`. Resets the player's
+        gold to 0, strips their carried inventory (items destroyed),
+        disbands the expedition party (henchmen destroyed),
+        teleports the player to ``hex_world.last_hub``, advances the
+        day clock by one full day (same time-of-day), and restores
+        HP to maximum. World state (revealed / visited / cleared /
+        looted sets) is preserved so the player's prior progress
+        still counts.
+
+        Raises :class:`RuntimeError` when called in a mode that does
+        not permit it.
+        """
+        if not self.allows_cheat_death_now():
+            raise RuntimeError(
+                f"cheat_death is only available in HEX_EASY; "
+                f"current mode is {self.world_mode.value}"
+            )
+        assert self.hex_world is not None
+        assert self.hex_world.last_hub is not None
+
+        # Gold -> 0.
+        player = self.world.get_component(self.player_id, "Player")
+        if player is not None:
+            player.gold = 0
+
+        # Strip inventory items (destroyed).
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if inv is not None:
+            for iid in list(inv.slots):
+                if iid in self.world._entities:
+                    self.world.destroy_entity(iid)
+            inv.slots.clear()
+
+        # Disband expedition party.
+        for henchman in list(self.hex_world.expedition_party):
+            if henchman in self.world._entities:
+                self.world.destroy_entity(henchman)
+        self.hex_world.expedition_party.clear()
+
+        # Teleport + HP reset.
+        self.hex_player_position = self.hex_world.last_hub
+        health = self.world.get_component(self.player_id, "Health")
+        if health is not None:
+            health.current = health.maximum
+
+        # Clock: +1 full day, same time-of-day segment.
+        self.hex_world.advance_clock(4)
+
     def _init_hex_world(self) -> None:
         """Build the overland HexWorld for the configured hex mode.
 
@@ -459,6 +551,7 @@ class Game:
         )
         pack = load_pack(pack_path)
         self.hex_world = generate_test_world(seed=self.seed, pack=pack)
+        self._create_hex_player()
 
         if self.world_mode is GameMode.HEX_EASY:
             hub = self.hex_world.last_hub
