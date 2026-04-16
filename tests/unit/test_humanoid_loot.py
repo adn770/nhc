@@ -36,8 +36,12 @@ class TestHumanoidLoot:
             ai = comps.get("AI")
             if not ai or ai.faction not in HUMANOID_FACTIONS:
                 continue
-            # Skip special NPCs (merchant, adventurer, priest)
-            if cid in ("merchant", "adventurer", "priest"):
+            # Skip special NPCs (town services + recruitable
+            # adventurer) -- they're peaceful humanoids that don't
+            # drop combat gear.
+            if cid in (
+                "merchant", "adventurer", "priest", "innkeeper",
+            ):
                 continue
             loot = comps.get("LootTable")
             if not loot:

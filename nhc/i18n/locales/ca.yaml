@@ -1372,6 +1372,14 @@ creature:
       Un comerciant curtit amb un farcell pesant i ulls astuts.
       S'aventura a les profunditats de la masmorra cercant benefici
       i troballes rares.
+  innkeeper:
+    name: "taverner"
+    gender: "m"
+    short: "un taverner afable"
+    long: >-
+      El regent de la taverna del poble. Comercia amb pa calent,
+      llits més calents encara, i els rumors que porten les
+      caravanes de pas.
   priest:
     name: "sacerdot"
     gender: "m"
@@ -1394,6 +1402,19 @@ creature:
     long: >-
       Un explorador experimentat que busca companys per les profunditats
       de la masmorra. Ofereix la seva espasa — pel preu just.
+
+# ── Rumor UI strings ───────────────────────────────────────────────────
+rumor:
+  true_feature: >-
+    El taverner s'acosta i xiuxiueja: "Diuen que hi ha alguna cosa
+    a l'hex ({q}, {r}). Val la pena fer-hi un cop d'ull."
+  false_lead: >-
+    Un vell bevent remuga: "Vaig veure una cosa estranya prop de
+    ({q}, {r}), fa anys." La història fa pudor.
+  none: >-
+    El taverner arronsa les espatlles. "Avui no hi ha novetats,
+    viatger."
+
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 henchman:

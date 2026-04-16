@@ -93,6 +93,19 @@ class TempleServices:
 
 
 @dataclass
+class RumorVendor:
+    """Marker component for NPCs who dispense overland rumors.
+
+    Present on innkeepers in settlement inn rooms; :class:`BumpAction`
+    dispatches an :class:`InnkeeperInteractAction` when the player
+    bumps a RumorVendor. The action side consults the active
+    :class:`HexWorld` (not stored here; supplied by the caller)
+    because rumors are overland-scope state, not per-entity.
+    """
+    pass
+
+
+@dataclass
 class Disguise:
     appears_as: str = ""
     reveal_on: str = "interact"

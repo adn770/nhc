@@ -1283,6 +1283,14 @@ creature:
       Un comerciante curtido con un fardo pesado y ojos astutos.
       Se aventura en las profundidades de la mazmorra buscando beneficio
       y hallazgos raros.
+  innkeeper:
+    name: "Posadero"
+    gender: "m"
+    short: "un posadero afable"
+    long: >-
+      El dueño de la posada del pueblo. Comercia con pan caliente,
+      camas aún más calientes, y los rumores que traen las
+      caravanas de paso.
   priest:
     name: "Sacerdote"
     gender: "m"
@@ -1304,6 +1312,18 @@ creature:
       Un explorador experimentado que busca compañeros para las
       profundidades de la mazmorra. Ofrece su espada — por el
       precio justo.
+
+# ── Rumor UI strings ───────────────────────────────────────────────────
+rumor:
+  true_feature: >-
+    El posadero se acerca y susurra: "Dicen que hay algo en la
+    hex ({q}, {r}). Vale la pena echar un vistazo."
+  false_lead: >-
+    Un viejo parroquiano masculla: "Vi algo raro cerca de
+    ({q}, {r}), hace años." El cuento no huele bien.
+  none: >-
+    El posadero se encoge de hombros. "Nada nuevo hoy, viajero."
+
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 henchman:

@@ -1272,6 +1272,13 @@ creature:
     long: >-
       A weathered trader with a heavy pack and shrewd eyes. They
       brave the dungeon depths in search of profit and rare finds.
+  innkeeper:
+    name: "Innkeeper"
+    short: "a friendly innkeeper"
+    long: >-
+      The keeper of this settlement's common room. They trade in
+      warm bread, warmer beds, and the rumours that drift in with
+      every caravan.
   priest:
     name: "Priest"
     short: "a robed priest"
@@ -1293,6 +1300,17 @@ creature:
       They offer their sword arm — for the right price.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
+rumor:
+  true_feature: >-
+    The innkeeper leans close and whispers: "Folks swear there's
+    something at hex ({q}, {r}). Worth a look."
+  false_lead: >-
+    An old timer nurses his ale and mumbles: "Saw something queer
+    out near ({q}, {r}), years ago." The tale feels thin.
+  none: >-
+    The innkeeper shrugs. "Nothing new today, traveller."
+
+
 henchman:
   recruit_offer: >-
     {name} the adventurer offers to join your party

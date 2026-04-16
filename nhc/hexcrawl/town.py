@@ -176,6 +176,7 @@ def generate_town(seed: int, town_id: str = "town") -> Level:
     entities.append(_merchant_placement(rooms_by_tag["shop"], rng))
     entities.append(_priest_placement(rooms_by_tag["temple"]))
     entities.append(_adventurer_placement(rooms_by_tag["inn"]))
+    entities.append(_innkeeper_placement(rooms_by_tag["inn"]))
 
     return Level(
         id=town_id,
@@ -245,4 +246,19 @@ def _adventurer_placement(room: Room) -> EntityPlacement:
     return EntityPlacement(
         entity_type="creature", entity_id="adventurer",
         x=cx, y=cy, extra={"adventurer_level": 1},
+    )
+
+
+def _innkeeper_placement(room: Room) -> EntityPlacement:
+    """Innkeeper NPC offset one tile from the room's adventurer.
+
+    The innkeeper dispenses overland rumors on a bump; placing
+    them a tile east of the centre keeps the pair reachable
+    without the two NPCs overlapping on the same floor tile.
+    """
+    cx, cy = room.rect.center
+    # The inn slot is 6-wide; cx + 1 is still in-room.
+    return EntityPlacement(
+        entity_type="creature", entity_id="innkeeper",
+        x=cx + 1, y=cy,
     )

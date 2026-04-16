@@ -319,12 +319,23 @@ class SwapAction(Action):
 class BumpAction(Action):
     """Smart directional action: attack, open door, or move."""
 
-    def __init__(self, actor: int, dx: int, dy: int,
-                 edge_doors: bool = False) -> None:
+    def __init__(
+        self,
+        actor: int,
+        dx: int,
+        dy: int,
+        edge_doors: bool = False,
+        hex_world: "object | None" = None,
+    ) -> None:
         super().__init__(actor)
         self.dx = dx
         self.dy = dy
         self.edge_doors = edge_doors
+        # Threaded through to InnkeeperInteractAction when the
+        # bump lands on a RumorVendor. None for dungeon-mode
+        # games -- InnkeeperInteractAction.execute degrades
+        # gracefully.
+        self.hex_world = hex_world
 
     def resolve(self, world: "World", level: "Level") -> Action | None:
         """Convert bump into a concrete action."""
@@ -379,6 +390,18 @@ class BumpAction(Action):
                         )
                         return HenchmanInteractAction(
                             actor=self.actor, henchman_id=eid)
+                    # Innkeepers: dispense a rumor. The overland
+                    # HexWorld isn't reachable from BumpAction so
+                    # the caller (game loop) fills it in before
+                    # execute().
+                    if world.has_component(eid, "RumorVendor"):
+                        from nhc.core.actions._innkeeper import (
+                            InnkeeperInteractAction,
+                        )
+                        return InnkeeperInteractAction(
+                            actor=self.actor, innkeeper_id=eid,
+                            hex_world=self.hex_world,
+                        )
                     # Creatures: attack
                     return MeleeAttackAction(
                         actor=self.actor, target=eid)

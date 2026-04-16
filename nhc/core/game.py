@@ -2345,8 +2345,11 @@ class Game:
         """Convert a player input intent to a game action."""
         if intent == "move" and data:
             dx, dy = data
-            return BumpAction(actor=self.player_id, dx=dx, dy=dy,
-                              edge_doors=self.renderer.edge_doors)
+            return BumpAction(
+                actor=self.player_id, dx=dx, dy=dy,
+                edge_doors=self.renderer.edge_doors,
+                hex_world=self.hex_world,
+            )
 
         if intent == "item_action" and data:
             return game_input.resolve_item_action(self, data)
