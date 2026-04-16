@@ -265,39 +265,38 @@ body {
 #hex-entity-canvas  { z-index: 3; }
 #hex-debug-canvas   { z-index: 4; }
 
-/* Six direction indicators that float around the player hex
- * when the pointer moves close. Bare glyphs, no chrome, the
- * hex underneath stays visible through them. Bright blue to
- * match the help button. Positioned absolutely by hex_map.js. */
+/* Six SVG delta arrows that float at the far edges of the six
+ * neighbour hexes when the pointer is near the player. The SVG
+ * inside carries fill + stroke; the button itself is a bare
+ * transparent hit-target. */
 .hex-arrow {
   position: absolute;
-  width: 32px;
-  height: 32px;
+  width: 64px;
+  height: 64px;
   transform: translate(-50%, -50%); /* centre on (left, top) */
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
-  color: #5c9cff;
-  opacity: 0.55;
-  font-size: 20px;
-  line-height: 1;
+  color: inherit;
+  opacity: 0.75;
   padding: 0;
   cursor: pointer;
   user-select: none;
   pointer-events: auto;
-  text-shadow:
-    0 0 2px rgba(8, 10, 14, 0.9),
-    0 0 4px rgba(8, 10, 14, 0.7);
   z-index: 5;                 /* above the five canvas layers */
   transition: opacity 0.1s ease, transform 0.1s ease;
 }
 
+.hex-arrow svg {
+  display: block;
+  pointer-events: none;       /* clicks land on the button */
+}
+
 .hex-arrow:hover {
   opacity: 1;
-  color: #8fbcff;
-  transform: translate(-50%, -50%) scale(1.15);
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
 .hex-arrow:focus {

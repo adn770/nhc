@@ -110,9 +110,11 @@ const HexMap = {
   _scrolledOnce: false,
 
   /** Hover threshold: arrows appear when the pointer lies inside
-   * this many px of the player hex centre. Matches roughly one
-   * neighbour's worth of space around the player. */
-  _HOVER_RADIUS: HEX_SIZE * 2.5,
+   * this many px of the player hex centre. The arrow centres sit
+   * at 1.5 * neighbour_offset (i.e. the far edge of the next hex)
+   * which is ~2.6 hex-radii away, so bump this a little to keep
+   * them visible while the cursor is on them. */
+  _HOVER_RADIUS: HEX_SIZE * 4.0,
 
   /** Lazily build the six arrow button DOM nodes and attach the
    * mouse handlers once. Subsequent renders only update positions. */
@@ -121,20 +123,38 @@ const HexMap = {
     const container = document.getElementById("hex-container");
     if (!container) return null;
     // Directions match NEIGHBOR_OFFSETS order in coords.py:
-    //   N, NE, SE, S, SW, NW
+    //   N, NE, SE, S, SW, NW. rot is the CSS rotation applied
+    //   inside the SVG so the base "up" shape points the right
+    //   way. Rotation is 0 / 60 / 120 / 180 / 240 / 300 degrees
+    //   for a flat-top hex grid.
     const dirs = [
-      {dq: 0,  dr: -1, glyph: "▲", title: "North (k)"},
-      {dq: 1,  dr: -1, glyph: "◥", title: "North-east (u)"},
-      {dq: 1,  dr: 0,  glyph: "◢", title: "South-east (n)"},
-      {dq: 0,  dr: 1,  glyph: "▼", title: "South (j)"},
-      {dq: -1, dr: 1,  glyph: "◣", title: "South-west (b)"},
-      {dq: -1, dr: 0,  glyph: "◤", title: "North-west (y)"},
+      {dq: 0,  dr: -1, rot: 0,   title: "North (k)"},
+      {dq: 1,  dr: -1, rot: 60,  title: "North-east (u)"},
+      {dq: 1,  dr: 0,  rot: 120, title: "South-east (n)"},
+      {dq: 0,  dr: 1,  rot: 180, title: "South (j)"},
+      {dq: -1, dr: 1,  rot: 240, title: "South-west (b)"},
+      {dq: -1, dr: 0,  rot: 300, title: "North-west (y)"},
     ];
+    const svgMarkup = (rot) => (
+      '<svg viewBox="0 0 64 64" width="64" height="64"' +
+      ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      `<g transform="rotate(${rot} 32 32)">` +
+      // Outer delta with a V-notch cut at the back. Tip at top,
+      // inset goes up into the shape between the two base corners.
+      '<path d="M 32 4 L 58 58 L 32 44 L 6 58 Z"' +
+      ' fill="#5c9cff" fill-opacity="0.28"' +
+      ' stroke="#1b2f5c" stroke-width="2.5"' +
+      ' stroke-linejoin="round"/>' +
+      // Centre divider from the tip to the notch.
+      '<path d="M 32 4 L 32 44"' +
+      ' stroke="#1b2f5c" stroke-width="2" stroke-linecap="round"/>' +
+      "</g></svg>"
+    );
     const arrows = dirs.map(d => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "hex-arrow";
-      btn.textContent = d.glyph;
+      btn.innerHTML = svgMarkup(d.rot);
       btn.title = d.title;
       btn.dataset.dq = String(d.dq);
       btn.dataset.dr = String(d.dr);
@@ -209,11 +229,15 @@ const HexMap = {
     for (const btn of arrows) {
       const dq = parseInt(btn.dataset.dq, 10);
       const dr = parseInt(btn.dataset.dr, 10);
-      // Neighbour centre relative to the container's top-left.
-      const dx = HEX_SIZE * 1.5 * dq;
-      const dy = HEX_SIZE * (Math.sqrt(3) / 2 * dq + Math.sqrt(3) * dr);
-      btn.style.left = `${playerPx.x + dx}px`;
-      btn.style.top = `${playerPx.y + dy}px`;
+      // Place the arrow centre at the neighbour's far edge (the
+      // edge of the next hex that is farther from the player).
+      // That sits at 1.5x the per-axis pixel offset to the
+      // neighbour centre, regardless of which of the six
+      // directions we're pointing in.
+      const ox = HEX_SIZE * 1.5 * dq;
+      const oy = HEX_SIZE * (Math.sqrt(3) / 2 * dq + Math.sqrt(3) * dr);
+      btn.style.left = `${playerPx.x + 1.5 * ox}px`;
+      btn.style.top = `${playerPx.y + 1.5 * oy}px`;
     }
   },
 
