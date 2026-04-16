@@ -52,7 +52,10 @@ def teleport_hex(world: HexWorld, target: HexCoord) -> bool:
     caller is responsible for updating its own
     ``hex_player_position`` with this coord). The cell plus its
     neighbours are revealed so the debug teleport doubles as a
-    scrying window.
+    scrying window, and the target joins
+    :attr:`HexWorld.visited` because the player is there now --
+    downstream logic that keys off "has the player been here"
+    should see a teleport the same as a normal step.
 
     Returns ``True`` when the target is a valid in-shape hex,
     ``False`` when it falls outside the map.
@@ -60,6 +63,7 @@ def teleport_hex(world: HexWorld, target: HexCoord) -> bool:
     if not world.is_in_shape(target):
         return False
     world.reveal_with_neighbors(target)
+    world.visit(target)
     return True
 
 

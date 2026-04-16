@@ -86,6 +86,17 @@ def test_teleport_hex_accepts_in_shape_target() -> None:
     assert target in w.revealed
 
 
+def test_teleport_hex_marks_target_as_visited() -> None:
+    """A teleport means the player IS at that hex; it should
+    join the visited set, not just the revealed set. Otherwise
+    repeat teleports to the same hex keep re-counting as a
+    first visit in downstream logic."""
+    w = _tiny_world()
+    target = HexCoord(q=2, r=1)
+    teleport_hex(w, target)
+    assert target in w.visited
+
+
 def test_teleport_hex_rejects_out_of_shape() -> None:
     w = _tiny_world()
     ok = teleport_hex(w, HexCoord(q=99, r=99))
