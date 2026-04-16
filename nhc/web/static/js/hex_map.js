@@ -62,13 +62,15 @@ const BIOME_BASE_SLOT = {
   mountain: 9,      // mountains
 };
 
-/** Biomes that follow the 27-slot {slot}-{biome}_{stem}.png
- * convention. Other biomes (forest, mountain) carry their own
- * per-tile naming and fall through to the foundation palette
- * instead so everything still renders. */
+/** Biomes with a full 27-slot palette; used as the primary tile
+ * URL. Any biome in PARTIAL_PALETTE_BIOMES may not have every
+ * slot -- _loadTile falls back to the foundation tile at the
+ * project root if the biome-specific path 404s. */
 const PALETTE_BIOMES = new Set([
   "greenlands", "drylands", "sandlands", "icelands", "deadlands",
+  "forest", "mountain",
 ]);
+const PARTIAL_PALETTE_BIOMES = new Set(["forest", "mountain"]);
 
 /** Fallback glyph when the hextile PNG can't be fetched. */
 const BIOME_GLYPH = {
@@ -81,9 +83,7 @@ const BIOME_GLYPH = {
   mountain: {fg: "#8a8480", bg: "#2a2826", c: "^"},
 };
 
-/** biome + feature → /hextiles/ URL. Biomes without a full 27-slot
- * palette (forest, mountain) fall through to the foundation tiles
- * at the project root. */
+/** biome + feature → {primary, fallback} /hextiles/ URLs. */
 function tilePath(biome, feature) {
   let slot;
   if (feature && feature !== "none" && FEATURE_SLOT[feature]) {
@@ -92,11 +92,17 @@ function tilePath(biome, feature) {
     slot = BIOME_BASE_SLOT[biome] || 4;
   }
   const stem = SLOT_NAME[slot];
+  const foundationUrl = `/hextiles/${slot}-foundation_${stem}.png`;
   if (PALETTE_BIOMES.has(biome)) {
-    return `/hextiles/${biome}/${slot}-${biome}_${stem}.png`;
+    const biomeUrl = `/hextiles/${biome}/${slot}-${biome}_${stem}.png`;
+    // Forest / mountain cover only some of the 27 slots; the
+    // others fall back to the foundation tile of the same slot.
+    const fallback = PARTIAL_PALETTE_BIOMES.has(biome)
+      ? foundationUrl
+      : null;
+    return {primary: biomeUrl, fallback};
   }
-  // Foundation fallback: root-level `{slot}-foundation_{stem}.png`.
-  return `/hextiles/${slot}-foundation_${stem}.png`;
+  return {primary: foundationUrl, fallback: null};
 }
 
 /** Axial (q, r) → pixel (x, y) for the centre of the hex. */
@@ -379,17 +385,39 @@ const HexMap = {
     });
   },
 
-  /** Load and cache an image. Returns a Promise<HTMLImageElement|null>;
-   * resolves with null if the tile is missing. */
-  _loadTile(url) {
-    if (this._tileCache[url]) {
-      return Promise.resolve(this._tileCache[url]);
+  /** Load and cache an image. Accepts a primary URL and an
+   * optional fallback URL; tries primary first and on error
+   * tries the fallback. The cache is keyed by the primary URL
+   * so a second lookup for the same (biome, feature) hits the
+   * cache regardless of which URL resolved. */
+  _loadTile(primary, fallback = null) {
+    if (primary in this._tileCache) {
+      return Promise.resolve(this._tileCache[primary]);
     }
     return new Promise(resolve => {
       const img = new Image();
-      img.onload = () => { this._tileCache[url] = img; resolve(img); };
-      img.onerror = () => { this._tileCache[url] = null; resolve(null); };
-      img.src = url;
+      img.onload = () => {
+        this._tileCache[primary] = img;
+        resolve(img);
+      };
+      img.onerror = () => {
+        if (!fallback || fallback === primary) {
+          this._tileCache[primary] = null;
+          resolve(null);
+          return;
+        }
+        const img2 = new Image();
+        img2.onload = () => {
+          this._tileCache[primary] = img2;
+          resolve(img2);
+        };
+        img2.onerror = () => {
+          this._tileCache[primary] = null;
+          resolve(null);
+        };
+        img2.src = fallback;
+      };
+      img.src = primary;
     });
   },
 
@@ -423,8 +451,9 @@ const HexMap = {
     // every state_hex frame. With one await up front, the draw
     // loop below is synchronous.
     const placements = await Promise.all(state.cells.map(cell => {
-      const url = tilePath(cell.biome, cell.feature);
-      return this._loadTile(url).then(img => ({cell, img}));
+      const urls = tilePath(cell.biome, cell.feature);
+      return this._loadTile(urls.primary, urls.fallback)
+        .then(img => ({cell, img}));
     }));
 
     // One synchronous paint pass: clear → fog → tiles → fog punch
