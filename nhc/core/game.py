@@ -314,6 +314,11 @@ class Game:
         # dungeon mode.
         self.hex_world: "HexWorld | None" = None
         self.hex_player_position: "HexCoord | None" = None
+        # Encounter pipeline scratch: set by apply_hex_step when a
+        # roll surfaces a Fight/Flee/Talk prompt, consumed by
+        # resolve_encounter. See nhc.hexcrawl.encounter_pipeline.
+        self.pending_encounter = None
+        self._encounter_rng = None
 
     def set_god_mode(self, enabled: bool) -> None:
         """Toggle god mode live.  Identifies all items when enabled."""
@@ -519,6 +524,73 @@ class Game:
                 hpos.y = -1
                 hpos.level_id = "overland"
         return True
+
+    async def resolve_encounter(self, choice) -> bool:
+        """Dispatch the player's Fight / Flee / Talk pick.
+
+        Returns ``True`` when a pending encounter was consumed,
+        ``False`` when there was nothing to resolve.
+
+        * ``FIGHT`` — generate an arena with the encounter's
+          creatures, load it as :attr:`level`, spawn the foes,
+          and pull the dungeon-party into it (left-behinds stay
+          on the overland via :meth:`_place_expedition_henchmen`).
+        * ``FLEE`` — stay on the overland; roll 1d4 damage against
+          the player using :attr:`_encounter_rng` (tests seed it
+          for determinism).
+        * ``TALK`` — peacefully resolve. The LLM-driven dialog is
+          a later UI-polish piece; today the pipeline just clears
+          the pending state and emits a flavour message.
+        """
+        import random as _random
+
+        from nhc.hexcrawl.coords import HexCoord
+        from nhc.hexcrawl.encounter import generate_encounter_arena
+        from nhc.hexcrawl.encounter_pipeline import EncounterChoice
+        from nhc.hexcrawl.seed import dungeon_seed
+
+        if self.pending_encounter is None:
+            return False
+        enc = self.pending_encounter
+        self.pending_encounter = None
+
+        if choice is EncounterChoice.FIGHT:
+            # Seed the arena off the hex coord so identical rolls
+            # on the same tile reproduce byte-for-byte.
+            coord = self.hex_player_position or HexCoord(0, 0)
+            seed = dungeon_seed(
+                self.seed or 0, coord, "encounter",
+            )
+            self.level = generate_encounter_arena(
+                seed=seed,
+                biome=enc.biome,
+                creatures=enc.creatures,
+                arena_id=(
+                    f"arena_{coord.q}_{coord.r}_{self.turn}"
+                ),
+            )
+            self._spawn_level_entities()
+            self._place_player_at_stairs_up()
+            # Encounters honour the dungeon party cap -- a pack
+            # of goblins can't fit the whole expedition.
+            self._place_expedition_henchmen(is_settlement=False)
+            self._notify_floor_change(depth=1)
+            return True
+
+        if choice is EncounterChoice.FLEE:
+            rng = self._encounter_rng or _random.Random()
+            hp = self.world.get_component(self.player_id, "Health")
+            if hp is not None:
+                # 1d4: a bruise, not a killing blow.
+                damage = rng.randint(1, 4)
+                hp.current = max(0, hp.current - damage)
+            return True
+
+        if choice is EncounterChoice.TALK:
+            # No ECS side-effect in v1. Just a peaceful pop-off.
+            return True
+
+        raise ValueError(f"unknown encounter choice: {choice!r}")
 
     async def apply_hex_step(self, target: HexCoord) -> bool:
         """Execute a single overland step.
