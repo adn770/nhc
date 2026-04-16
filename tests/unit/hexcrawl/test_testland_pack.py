@@ -105,12 +105,27 @@ _REQUIRED_KEYS: tuple[str, ...] = (
 )
 
 
+@pytest.fixture(scope="module")
+def translators() -> dict[str, TranslationManager]:
+    """Load each locale once per module so the 45 parametrised
+    ``test_hex_locale_key_resolves`` cases do not re-parse the
+    ~2.4k-line YAMLs 45 times over."""
+    out: dict[str, TranslationManager] = {}
+    for lang in ("en", "ca", "es"):
+        tm = TranslationManager()
+        tm.load(lang)
+        out[lang] = tm
+    return out
+
+
 @pytest.mark.parametrize("lang", ["en", "ca", "es"])
 @pytest.mark.parametrize("key", _REQUIRED_KEYS)
-def test_hex_locale_key_resolves(lang: str, key: str) -> None:
-    tm = TranslationManager()
-    tm.load(lang)
-    value = tm.get(key)
+def test_hex_locale_key_resolves(
+    translators: dict[str, TranslationManager],
+    lang: str,
+    key: str,
+) -> None:
+    value = translators[lang].get(key)
     # If the key were missing the manager returns the key itself.
     assert value != key, (
         f"missing {lang!r} translation for {key!r} "
@@ -118,7 +133,9 @@ def test_hex_locale_key_resolves(lang: str, key: str) -> None:
     )
 
 
-def test_hex_biome_names_differ_between_languages() -> None:
+def test_hex_biome_names_differ_between_languages(
+    translators: dict[str, TranslationManager],
+) -> None:
     # Sanity: the three languages should actually give different
     # surface strings for at least one biome; catches the case where
     # somebody accidentally pastes the English text into ca.yaml /
@@ -128,11 +145,9 @@ def test_hex_biome_names_differ_between_languages() -> None:
         "hex.biome.forest",
         "hex.biome.mountain",
     ]
-    values: dict[str, set[str]] = {"en": set(), "ca": set(), "es": set()}
-    for lang in values:
-        tm = TranslationManager()
-        tm.load(lang)
-        for k in keys:
-            values[lang].add(tm.get(k))
+    values = {
+        lang: {translators[lang].get(k) for k in keys}
+        for lang in ("en", "ca", "es")
+    }
     assert values["en"] != values["ca"]
     assert values["en"] != values["es"]
