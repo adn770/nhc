@@ -237,6 +237,34 @@ body {
   z-index: 4;
 }
 
+/* Hex overland: same layered-canvas pattern as the dungeon view. */
+#hex-container {
+  position: relative;
+  display: inline-block;
+}
+
+#hex-base-canvas,
+#hex-fog-canvas,
+#hex-feature-canvas,
+#hex-entity-canvas,
+#hex-debug-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  image-rendering: pixelated; /* crisp hextile PNG edges */
+}
+
+#hex-base-canvas {
+  position: static;           /* sizes the container */
+  z-index: 0;
+}
+
+#hex-fog-canvas     { z-index: 1; }
+#hex-feature-canvas { z-index: 2; }
+#hex-entity-canvas  { z-index: 3; }
+#hex-debug-canvas   { z-index: 4; }
+
 /* God mode debug panel */
 #zoom-out-btn {
   margin-left: auto;
