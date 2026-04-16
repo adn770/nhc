@@ -20,6 +20,10 @@ class EntityRegistry:
     _creatures: dict[str, Callable] = {}
     _items: dict[str, Callable] = {}
     _features: dict[str, Callable] = {}
+    # Set True on the first discover_all() so repeat callers (every
+    # create_app, every Game.initialize, ~50 test modules) skip the
+    # file-system walk + importlib.import_module per module.
+    _discovered: bool = False
 
     @classmethod
     def register_creature(cls, entity_id: str) -> Callable:
@@ -47,10 +51,22 @@ class EntityRegistry:
 
     @classmethod
     def discover_all(cls) -> None:
-        """Auto-import all entity modules from standard directories."""
+        """Auto-import all entity modules from standard directories.
+
+        Idempotent: the module import side-effects register the
+        factories once, so subsequent calls are a no-op. The memo
+        guard matters because create_app / Game.initialize /
+        dozens of test modules all call this at setup time --
+        without it each call walks ``nhc/entities/{creatures,
+        items,features}/*.py`` and re-invokes
+        ``importlib.import_module`` per module.
+        """
+        if cls._discovered:
+            return
         base = Path(__file__).parent
         for subdir in ("creatures", "items", "features"):
             cls._discover_package(base / subdir, f"nhc.entities.{subdir}")
+        cls._discovered = True
 
     @classmethod
     def _discover_package(cls, directory: Path, package: str) -> None:

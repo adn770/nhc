@@ -85,13 +85,16 @@ main()
 @pytest.mark.xfail(
     strict=False,
     reason=(
-        "Subprocess test that consistently hits the 120s timeout on "
+        "Subprocess test that consistently hits the timeout on "
         "developer machines (subprocess startup + ProcessPoolExecutor "
         "spawn-method re-imports + two concurrent dungeon generations). "
         "Behaviour is correct under production gunicorn+gevent; the "
         "test reproduces the asyncio.run nesting bug by construction, "
         "but the timing budget is unrealistic on a laptop. Kept xfail "
-        "so it surfaces if the asyncio.run regression returns."
+        "so it surfaces if the asyncio.run regression returns. The "
+        "subprocess timeout is short on purpose -- raising it doesn't "
+        "make the test pass, it only burns wall time on the way to "
+        "the same xfail."
     ),
 )
 def test_concurrent_game_new_under_gevent():
@@ -102,7 +105,7 @@ def test_concurrent_game_new_under_gevent():
         [sys.executable, "-c", _SCRIPT],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=20,
         cwd=repo_root,
     )
     assert result.returncode == 0, (
