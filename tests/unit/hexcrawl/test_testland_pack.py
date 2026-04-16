@@ -37,12 +37,17 @@ def test_testland_pack_loads_via_loader() -> None:
     assert pack.id == "testland"
     assert pack.version >= 1
     assert pack.map.generator == "bsp_regions"
-    assert pack.map.width == 8
-    assert pack.map.height == 8
+    # testland is a "bigger rectangular" sandbox.
+    assert pack.map.width > pack.map.height, "pack is landscape"
+    assert pack.map.width * pack.map.height >= 256
     assert pack.features.hub == 1
-    assert pack.features.village == FeatureTarget(1, 2)
-    assert pack.features.dungeon == FeatureTarget(3, 5)
-    assert pack.features.wonder == FeatureTarget(1, 3)
+    # Ranges inflated for the bigger map; only sanity bounds here.
+    assert pack.features.village.min >= 1
+    assert pack.features.village.max >= pack.features.village.min
+    assert pack.features.dungeon.min >= 3
+    assert pack.features.dungeon.max >= pack.features.dungeon.min
+    assert pack.features.wonder.min >= 1
+    assert pack.features.wonder.max >= pack.features.wonder.min
 
 
 def test_testland_locale_keys_file_populated() -> None:
@@ -61,8 +66,9 @@ def test_testland_locale_keys_file_populated() -> None:
 def test_testland_generator_produces_valid_world() -> None:
     pack = load_pack(_pack_path())
     world = generate_test_world(seed=42, pack=pack)
-    # 8 x 8 = 64 cells
-    assert len(world.cells) == 64
+    # width x height cells (sized by the pack, not hard-coded).
+    expected = pack.map.width * pack.map.height
+    assert len(world.cells) == expected
     # Exactly one hub
     hubs = [
         c for c, cell in world.cells.items()

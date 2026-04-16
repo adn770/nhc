@@ -89,7 +89,9 @@ def test_game_hex_easy_loads_hex_world(tmp_path) -> None:
     g.initialize()
     assert g.world_mode is GameMode.HEX_EASY
     assert g.hex_world is not None
-    assert len(g.hex_world.cells) == 64
+    assert len(g.hex_world.cells) == (
+        g.hex_world.width * g.hex_world.height
+    )
 
 
 def test_game_hex_easy_player_starts_at_hub(tmp_path) -> None:
