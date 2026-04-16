@@ -643,6 +643,14 @@ function hexKeyHandler(ev) {
     ev.preventDefault();
     return;
   }
+  // Shift+F panic-flees a dungeon from anywhere at a HP/clock
+  // cost. Mirrors the terminal binding in input.py so muscle
+  // memory carries between frontends.
+  if (HexGameActive && key === "F") {
+    WS.send({type: "action", intent: "panic_flee", data: null});
+    ev.preventDefault();
+    return;
+  }
 
   // Every other hex bind is overland-only; inside a dungeon let
   // the dungeon keybinds in input.js handle them.

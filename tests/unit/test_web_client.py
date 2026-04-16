@@ -116,6 +116,22 @@ class TestWebClientMenus:
         result = client.show_selection_menu("Pick", [(1, "a")])
         assert result is None
 
+    def test_selection_menu_roundtrips_string_ids(self, client):
+        """Hex-mode dialogs (Fight/Flee/Talk, permadeath/cheat)
+        carry string IDs instead of int entity IDs. The menu
+        protocol must preserve them through the WebSocket round
+        trip so the Python side can map them back to enums."""
+        client._in_queue.put('{"type":"menu_select","choice":"fight"}')
+        result = client.show_selection_menu(
+            "You run into foes",
+            [("fight", "Fight"), ("flee", "Flee"), ("talk", "Talk")],
+        )
+        sent = _last_sent(client)
+        assert sent["type"] == "menu"
+        option_ids = [opt["id"] for opt in sent["options"]]
+        assert option_ids == ["fight", "flee", "talk"]
+        assert result == "fight"
+
 
 class TestWebClientNarrativeLog:
     """WebClient must expose narrative_log for typed mode."""
