@@ -611,6 +611,13 @@ class Game:
             assert hub is not None, "generator must set last_hub"
             self.hex_player_position = hub
             self.hex_world.reveal(hub)
+            self.renderer.add_message(
+                "You stand in the town square of "
+                f"hex ({hub.q}, {hub.r})."
+            )
+            self.renderer.add_message(
+                "Move with y/u/n/b/j/k. Press 'e' to enter a feature."
+            )
             return
 
         # HEX_SURVIVAL: random non-feature hex, hub stays hidden.
@@ -630,6 +637,13 @@ class Game:
         self.hex_player_position = start
         self.hex_world.revealed.clear()
         self.hex_world.reveal(start)
+        self.renderer.add_message(
+            "You wake on the overland, alone. Civilization is out "
+            "there somewhere — find it."
+        )
+        self.renderer.add_message(
+            "Move with y/u/n/b/j/k. Press 'e' to enter a feature."
+        )
 
     def initialize(
         self,
