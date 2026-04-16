@@ -280,6 +280,13 @@ def main() -> int:
         help=f"RGB multiplier for kept halos (default {DEFAULT_HALO_DARKEN}).",
     )
     parser.add_argument(
+        "--skip", nargs="*", default=[], metavar="NAME",
+        help=(
+            "Filenames (without path) to skip, e.g. "
+            "--skip forest_04_dead.png forest_07_spikes.png"
+        ),
+    )
+    parser.add_argument(
         "--recanvas", default=None, metavar="WxH",
         help=(
             "After extraction, downscale + centre the feature on a "
@@ -332,8 +339,13 @@ def main() -> int:
         f"{rc_label}\n"
     )
 
+    skip_set = set(args.skip)
+
     total_written = 0
     for src in pngs:
+        if src.name in skip_set:
+            print(f"  {src.name:<32} SKIPPED")
+            continue
         dst = out_dir / src.name
         if args.dry_run:
             print(f"  {src.name} -> {dst}")
