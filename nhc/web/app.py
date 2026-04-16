@@ -539,88 +539,6 @@ def create_app(
     def admin_list_sessions():
         return jsonify(sessions.list_sessions())
 
-    # ─────────────────────────────────────────────────────────────
-    # Hex-panel endpoints (M-4.2). Operate on the live session's
-    # hex_world rather than an autosave file, so the admin UI sees
-    # (and can influence) exactly what the player is looking at.
-    # ─────────────────────────────────────────────────────────────
-
-    def _require_hex_session(session_id: str):
-        """Resolve a session that's currently running a hex world.
-
-        Returns ``(session, None)`` on success or ``(None, (body,
-        status))`` when the caller should bail out with a JSON
-        error.
-        """
-        session = sessions.get(session_id)
-        if session is None or session.game is None:
-            return None, ({"error": "session not found"}, 404)
-        hw = getattr(session.game, "hex_world", None)
-        if hw is None:
-            return None, (
-                {"error": "session is not in hex mode"}, 400,
-            )
-        return session, None
-
-    @app.route(
-        "/api/admin/sessions/<session_id>/hex/state",
-        methods=["GET"],
-    )
-    @_admin_auth
-    def admin_hex_state(session_id: str):
-        from nhc.hexcrawl.coords import HexCoord
-        from nhc.hexcrawl.debug import show_world_state
-        session, err = _require_hex_session(session_id)
-        if err is not None:
-            body, status = err
-            return jsonify(body), status
-        player = session.game.hex_player_position or HexCoord(0, 0)
-        return jsonify(show_world_state(session.game.hex_world, player))
-
-    @app.route(
-        "/api/admin/sessions/<session_id>/hex/reveal",
-        methods=["POST"],
-    )
-    @_admin_auth
-    def admin_hex_reveal(session_id: str):
-        from nhc.hexcrawl.debug import reveal_all_hexes
-        session, err = _require_hex_session(session_id)
-        if err is not None:
-            body, status = err
-            return jsonify(body), status
-        hw = session.game.hex_world
-        n = reveal_all_hexes(hw)
-        return jsonify({
-            "newly_revealed": n,
-            "total_revealed": len(hw.revealed),
-            "total_cells": len(hw.cells),
-        })
-
-    @app.route(
-        "/api/admin/sessions/<session_id>/hex/teleport",
-        methods=["POST"],
-    )
-    @_admin_auth
-    def admin_hex_teleport(session_id: str):
-        from nhc.hexcrawl.coords import HexCoord
-        from nhc.hexcrawl.debug import teleport_hex
-        session, err = _require_hex_session(session_id)
-        if err is not None:
-            body, status = err
-            return jsonify(body), status
-        data = request.get_json(silent=True) or {}
-        try:
-            target = HexCoord(q=int(data["q"]), r=int(data["r"]))
-        except (KeyError, TypeError, ValueError):
-            return jsonify({"error": "payload must be {q, r}"}), 400
-        ok = teleport_hex(session.game.hex_world, target)
-        if ok:
-            session.game.hex_player_position = target
-        return jsonify({
-            "ok": ok,
-            "target": {"q": target.q, "r": target.r},
-        })
-
     @app.route("/api/admin/debug-bundle", methods=["GET"])
     @_admin_auth
     def admin_debug_bundle():
@@ -1052,6 +970,218 @@ def create_app(
         return resp
 
     # ── Generation params / regenerate (god mode only) ──────
+
+    # ─────────────────────────────────────────────────────────────
+    # Hex-debug endpoints (in-game, gated on god_mode). Called by
+    # the Hex tab of the floating debug window.
+    # ─────────────────────────────────────────────────────────────
+
+    def _require_hex_debug_session(session_id: str):
+        """Resolve a god-mode session with a live HexWorld.
+
+        Returns ``(session, None)`` on success or
+        ``(None, (body, status))`` on failure so the caller can
+        ``return jsonify(body), status``.
+        """
+        session = sessions.get(session_id)
+        if session is None or session.game is None:
+            return None, ({"error": "not available"}, 404)
+        if not session.game.god_mode:
+            return None, ({"error": "not available"}, 404)
+        hw = getattr(session.game, "hex_world", None)
+        if hw is None:
+            return None, (
+                {"error": "session is not in hex mode"}, 400,
+            )
+        return session, None
+
+    @app.route(
+        "/api/game/<session_id>/hex/state", methods=["GET"],
+    )
+    @_player_auth
+    def game_hex_state(session_id: str):
+        from nhc.hexcrawl.coords import HexCoord
+        from nhc.hexcrawl.debug import show_world_state
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        player = session.game.hex_player_position or HexCoord(0, 0)
+        return jsonify(show_world_state(session.game.hex_world, player))
+
+    @app.route(
+        "/api/game/<session_id>/hex/reveal", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_reveal(session_id: str):
+        from nhc.hexcrawl.debug import reveal_all_hexes
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        hw = session.game.hex_world
+        n = reveal_all_hexes(hw)
+        return jsonify({
+            "newly_revealed": n,
+            "total_revealed": len(hw.revealed),
+            "total_cells": len(hw.cells),
+        })
+
+    @app.route(
+        "/api/game/<session_id>/hex/teleport", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_teleport(session_id: str):
+        from nhc.hexcrawl.coords import HexCoord
+        from nhc.hexcrawl.debug import teleport_hex
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        data = request.get_json(silent=True) or {}
+        try:
+            target = HexCoord(q=int(data["q"]), r=int(data["r"]))
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "payload must be {q, r}"}), 400
+        ok = teleport_hex(session.game.hex_world, target)
+        if ok:
+            session.game.hex_player_position = target
+        return jsonify({
+            "ok": ok,
+            "target": {"q": target.q, "r": target.r},
+        })
+
+    @app.route(
+        "/api/game/<session_id>/hex/force_encounter", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_force_encounter(session_id: str):
+        from nhc.hexcrawl.debug import force_encounter
+        from nhc.hexcrawl.model import Biome
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        data = request.get_json(silent=True) or {}
+        biome_str = data.get("biome")
+        if not biome_str:
+            return jsonify({"error": "biome is required"}), 400
+        try:
+            biome = Biome(biome_str)
+        except ValueError:
+            return jsonify({"error": f"unknown biome {biome_str!r}"}), 400
+        creatures = data.get("creatures")
+        enc = force_encounter(biome, creatures=creatures)
+        session.game.pending_encounter = enc
+        return jsonify({
+            "biome": enc.biome.value,
+            "creatures": list(enc.creatures),
+        })
+
+    @app.route(
+        "/api/game/<session_id>/hex/advance_clock", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_advance_clock(session_id: str):
+        from nhc.hexcrawl.debug import advance_day_clock
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        data = request.get_json(silent=True) or {}
+        try:
+            segments = int(data["segments"])
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "segments is required"}), 400
+        try:
+            advance_day_clock(session.game.hex_world, segments)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        hw = session.game.hex_world
+        return jsonify({"day": hw.day, "time": hw.time.name.lower()})
+
+    @app.route(
+        "/api/game/<session_id>/hex/rumor_truth", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_rumor_truth(session_id: str):
+        from nhc.hexcrawl.debug import set_rumor_truth
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        data = request.get_json(silent=True) or {}
+        rumor_id = data.get("rumor_id")
+        truth = data.get("truth")
+        if rumor_id is None or truth is None:
+            return jsonify(
+                {"error": "rumor_id and truth are required"},
+            ), 400
+        updated = set_rumor_truth(
+            session.game.hex_world, str(rumor_id), bool(truth),
+        )
+        return jsonify({
+            "rumor_id": rumor_id,
+            "truth": bool(truth),
+            "updated": updated,
+        })
+
+    @app.route(
+        "/api/game/<session_id>/hex/clear_dungeon", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_clear_dungeon(session_id: str):
+        from nhc.hexcrawl.coords import HexCoord
+        from nhc.hexcrawl.debug import clear_dungeon_at
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        data = request.get_json(silent=True) or {}
+        try:
+            coord = HexCoord(q=int(data["q"]), r=int(data["r"]))
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "payload must be {q, r}"}), 400
+        ok = clear_dungeon_at(session.game.hex_world, coord)
+        return jsonify({
+            "ok": ok,
+            "coord": {"q": coord.q, "r": coord.r},
+            "cleared_count": len(session.game.hex_world.cleared),
+        })
+
+    @app.route(
+        "/api/game/<session_id>/hex/seed_dungeon", methods=["POST"],
+    )
+    @_player_auth
+    def game_hex_seed_dungeon(session_id: str):
+        from nhc.hexcrawl.coords import HexCoord
+        from nhc.hexcrawl.debug import seed_dungeon_at
+        from nhc.hexcrawl.model import HexFeatureType
+        session, err = _require_hex_debug_session(session_id)
+        if err is not None:
+            body, status = err
+            return jsonify(body), status
+        data = request.get_json(silent=True) or {}
+        try:
+            coord = HexCoord(q=int(data["q"]), r=int(data["r"]))
+            feature = HexFeatureType(data["feature"])
+            template = str(data["template"])
+        except (KeyError, TypeError, ValueError) as exc:
+            return jsonify(
+                {"error": f"bad payload: {exc}"},
+            ), 400
+        depth = int(data.get("depth") or 1)
+        ok = seed_dungeon_at(
+            session.game.hex_world, coord,
+            feature=feature, template=template, depth=depth,
+        )
+        return jsonify({
+            "ok": ok,
+            "coord": {"q": coord.q, "r": coord.r},
+            "feature": feature.value,
+            "template": template,
+            "depth": depth,
+        })
 
     @app.route("/api/game/<session_id>/generation_params",
                methods=["GET"])

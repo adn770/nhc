@@ -33,6 +33,7 @@ const DebugPanel = {
   _tabs: [
     { name: "Layers", buildFn: "_buildLayersTab" },
     { name: "Map Gen", buildFn: "_buildMapGenTab" },
+    { name: "Hex", buildFn: "_buildHexTab" },
     { name: "Export", buildFn: "_buildExportTab" },
   ],
 
@@ -942,6 +943,295 @@ const DebugPanel = {
     if (item.effect) extras.push(item.effect);
     if (extras.length) label += `  (${extras.join(", ")})`;
     return label;
+  },
+
+  // ── Hex tab ──────────────────────────────────────────────────
+  //
+  // In-game debug panel for hex-mode sessions. Hits the
+  // /api/game/<sid>/hex/* endpoint family (god-mode gated) so the
+  // operator can poke the live HexWorld from the floating dialog
+  // without leaving the session. Non-hex games get a "not
+  // available" notice instead of the form.
+
+  _buildHexTab() {
+    const frag = document.createDocumentFragment();
+    frag.appendChild(this._sectionHeader("Live HexWorld"));
+
+    const status = document.createElement("div");
+    status.className = "debug-hex-status";
+    status.style.color = "#888";
+    status.style.fontSize = "11px";
+    status.style.marginBottom = "8px";
+    status.textContent = "State not fetched yet";
+    frag.appendChild(status);
+
+    const stateBtn = this._hexButton("Show state", async () => {
+      const body = await this._hexCall("state", "GET");
+      if (body && !body.error) {
+        status.textContent =
+          `Day ${body.day} ${body.time} — ` +
+          `${body.cells.length} cells, ` +
+          `player (${body.player.q}, ${body.player.r}), ` +
+          `${body.rumors.length} rumour(s)`;
+      }
+    });
+    frag.appendChild(stateBtn);
+
+    const revealBtn = this._hexButton("Reveal all hexes", async () => {
+      const body = await this._hexCall("reveal", "POST");
+      if (body && !body.error) {
+        status.textContent =
+          `Revealed ${body.newly_revealed} new hex(es) ` +
+          `(${body.total_revealed}/${body.total_cells} total)`;
+      }
+    });
+    frag.appendChild(revealBtn);
+
+    // Teleport: two integer inputs + a button.
+    frag.appendChild(this._sectionHeader("Teleport"));
+    const tpRow = document.createElement("div");
+    tpRow.style.display = "flex";
+    tpRow.style.gap = "4px";
+    tpRow.style.marginBottom = "6px";
+    const qIn = this._smallNumInput("q", 0);
+    const rIn = this._smallNumInput("r", 0);
+    tpRow.appendChild(qIn);
+    tpRow.appendChild(rIn);
+    const tpBtn = this._hexButton("Teleport", async () => {
+      const body = await this._hexCall("teleport", "POST", {
+        q: parseInt(qIn.value, 10) || 0,
+        r: parseInt(rIn.value, 10) || 0,
+      });
+      if (body) {
+        status.textContent = body.ok
+          ? `Teleported to (${body.target.q}, ${body.target.r})`
+          : `Teleport rejected: out of shape`;
+      }
+    });
+    tpRow.appendChild(tpBtn);
+    frag.appendChild(tpRow);
+
+    // Force encounter: biome picker + button.
+    frag.appendChild(this._sectionHeader("Force encounter"));
+    const encRow = document.createElement("div");
+    encRow.style.display = "flex";
+    encRow.style.gap = "4px";
+    encRow.style.marginBottom = "6px";
+    const biomeSel = document.createElement("select");
+    biomeSel.className = "debug-input";
+    [
+      "greenlands", "drylands", "sandlands", "icelands",
+      "deadlands", "forest", "mountain",
+    ].forEach((b) => {
+      const opt = document.createElement("option");
+      opt.value = b;
+      opt.textContent = b;
+      biomeSel.appendChild(opt);
+    });
+    encRow.appendChild(biomeSel);
+    const encBtn = this._hexButton("Stage encounter", async () => {
+      const body = await this._hexCall(
+        "force_encounter", "POST", { biome: biomeSel.value },
+      );
+      if (body && !body.error) {
+        status.textContent =
+          `Staged ${body.creatures.length} ${body.biome} foe(s) — ` +
+          `next step fires the prompt`;
+      }
+    });
+    encRow.appendChild(encBtn);
+    frag.appendChild(encRow);
+
+    // Advance day clock.
+    frag.appendChild(this._sectionHeader("Advance clock"));
+    const clkRow = document.createElement("div");
+    clkRow.style.display = "flex";
+    clkRow.style.gap = "4px";
+    clkRow.style.marginBottom = "6px";
+    const segIn = this._smallNumInput("segments", 4);
+    segIn.style.width = "60px";
+    clkRow.appendChild(segIn);
+    const clkBtn = this._hexButton("+ segments", async () => {
+      const segs = parseInt(segIn.value, 10) || 0;
+      const body = await this._hexCall(
+        "advance_clock", "POST", { segments: segs },
+      );
+      if (body && !body.error) {
+        status.textContent =
+          `Clock now day ${body.day} ${body.time}`;
+      }
+    });
+    clkRow.appendChild(clkBtn);
+    frag.appendChild(clkRow);
+
+    // Rumor truth flip.
+    frag.appendChild(this._sectionHeader("Flip rumor truth"));
+    const ruRow = document.createElement("div");
+    ruRow.style.display = "flex";
+    ruRow.style.gap = "4px";
+    ruRow.style.marginBottom = "6px";
+    const ruIdIn = this._smallTextInput("rumor_id", 100);
+    ruRow.appendChild(ruIdIn);
+    const ruBoolSel = document.createElement("select");
+    ruBoolSel.className = "debug-input";
+    [["true", "true"], ["false", "false"]].forEach(([v, t]) => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = t;
+      ruBoolSel.appendChild(opt);
+    });
+    ruRow.appendChild(ruBoolSel);
+    const ruBtn = this._hexButton("Set truth", async () => {
+      const body = await this._hexCall(
+        "rumor_truth", "POST",
+        {
+          rumor_id: ruIdIn.value,
+          truth: ruBoolSel.value === "true",
+        },
+      );
+      if (body) {
+        status.textContent = body.updated
+          ? `Rumor ${body.rumor_id} truth=${body.truth}`
+          : `Rumor ${body.rumor_id} not found`;
+      }
+    });
+    ruRow.appendChild(ruBtn);
+    frag.appendChild(ruRow);
+
+    // Clear dungeon at coord.
+    frag.appendChild(this._sectionHeader("Mark dungeon cleared"));
+    const clRow = document.createElement("div");
+    clRow.style.display = "flex";
+    clRow.style.gap = "4px";
+    clRow.style.marginBottom = "6px";
+    const clqIn = this._smallNumInput("q", 0);
+    const clrIn = this._smallNumInput("r", 0);
+    clRow.appendChild(clqIn);
+    clRow.appendChild(clrIn);
+    const clBtn = this._hexButton("Mark cleared", async () => {
+      const body = await this._hexCall(
+        "clear_dungeon", "POST",
+        {
+          q: parseInt(clqIn.value, 10) || 0,
+          r: parseInt(clrIn.value, 10) || 0,
+        },
+      );
+      if (body) {
+        status.textContent = body.ok
+          ? `Cleared (${body.coord.q}, ${body.coord.r}) — ` +
+            `${body.cleared_count} total`
+          : `Reject: out of shape`;
+      }
+    });
+    clRow.appendChild(clBtn);
+    frag.appendChild(clRow);
+
+    // Seed dungeon.
+    frag.appendChild(this._sectionHeader("Seed feature"));
+    const sdRow = document.createElement("div");
+    sdRow.style.display = "flex";
+    sdRow.style.gap = "4px";
+    sdRow.style.marginBottom = "6px";
+    sdRow.style.flexWrap = "wrap";
+    const sdqIn = this._smallNumInput("q", 0);
+    const sdrIn = this._smallNumInput("r", 0);
+    const sdFeatSel = document.createElement("select");
+    sdFeatSel.className = "debug-input";
+    [
+      "village", "city", "tower", "keep", "cave", "ruin",
+      "hole", "graveyard", "crystals", "stones", "wonder",
+      "portal", "lake", "river",
+    ].forEach((f) => {
+      const opt = document.createElement("option");
+      opt.value = f; opt.textContent = f;
+      sdFeatSel.appendChild(opt);
+    });
+    const sdTplIn = this._smallTextInput(
+      "template (e.g. procedural:cave)", 180,
+    );
+    sdTplIn.value = "procedural:cave";
+    sdRow.appendChild(sdqIn);
+    sdRow.appendChild(sdrIn);
+    sdRow.appendChild(sdFeatSel);
+    sdRow.appendChild(sdTplIn);
+    const sdBtn = this._hexButton("Seed", async () => {
+      const body = await this._hexCall(
+        "seed_dungeon", "POST",
+        {
+          q: parseInt(sdqIn.value, 10) || 0,
+          r: parseInt(sdrIn.value, 10) || 0,
+          feature: sdFeatSel.value,
+          template: sdTplIn.value,
+        },
+      );
+      if (body) {
+        status.textContent = body.ok
+          ? `Seeded ${body.feature} at ` +
+            `(${body.coord.q}, ${body.coord.r})`
+          : `Reject: out of shape`;
+      }
+    });
+    sdRow.appendChild(sdBtn);
+    frag.appendChild(sdRow);
+
+    return frag;
+  },
+
+  _hexButton(label, onClick) {
+    const btn = document.createElement("button");
+    btn.className = "debug-export-btn";
+    btn.textContent = label;
+    btn.style.marginRight = "4px";
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        await onClick();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    return btn;
+  },
+
+  _smallNumInput(placeholder, def) {
+    const inp = document.createElement("input");
+    inp.type = "number";
+    inp.className = "debug-input";
+    inp.placeholder = placeholder;
+    inp.value = String(def);
+    inp.style.width = "52px";
+    return inp;
+  },
+
+  _smallTextInput(placeholder, widthPx) {
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.className = "debug-input";
+    inp.placeholder = placeholder;
+    inp.style.width = `${widthPx}px`;
+    return inp;
+  },
+
+  async _hexCall(path, method, body) {
+    const sid = NHC.sessionId;
+    if (!sid) return null;
+    const opts = { method };
+    if (body !== undefined) {
+      opts.headers = { "Content-Type": "application/json" };
+      opts.body = JSON.stringify(body);
+    }
+    try {
+      const resp = await fetch(
+        `/api/game/${sid}/hex/${path}`, opts,
+      );
+      const data = await resp.json();
+      if (!resp.ok) {
+        console.warn("hex call failed:", path, data);
+      }
+      return data;
+    } catch (e) {
+      console.warn("hex fetch error:", path, e);
+      return null;
+    }
   },
 
   // ── Export tab ───────────────────────────────────────────────

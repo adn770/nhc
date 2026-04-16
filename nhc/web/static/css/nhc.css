@@ -530,6 +530,22 @@ body {
   font-size: 10px;
 }
 
+/* Generic input used by the Hex tab (number / text / select). */
+.debug-input {
+  background: #0f1529;
+  border: 1px solid #444;
+  border-radius: 3px;
+  color: #ccc;
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
+.debug-input:focus {
+  border-color: #e6c07b;
+  outline: none;
+}
+
 .debug-select-row {
   display: flex;
   align-items: center;
