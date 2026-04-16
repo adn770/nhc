@@ -104,6 +104,11 @@ const HexMap = {
   _playerPx: null,
   _arrowsVisible: false,
 
+  /** Scroll the player into view exactly once per hex-mode
+   * session so the overland doesn't open with the player off to
+   * one corner. Re-armed when the view leaves and returns. */
+  _scrolledOnce: false,
+
   /** Hover threshold: arrows appear when the pointer lies inside
    * this many px of the player hex centre. Matches roughly one
    * neighbour's worth of space around the player. */
@@ -164,6 +169,29 @@ const HexMap = {
     });
     this._arrows = arrows;
     return arrows;
+  },
+
+  /** Scroll #map-zone so the player pixel lands in the middle of
+   * the viewport. Called once on game start / reload. */
+  _centerOnPlayer() {
+    if (!this._playerPx) return;
+    const zone = document.getElementById("map-zone");
+    const container = document.getElementById("hex-container");
+    if (!zone || !container) return;
+    // The container can be offset inside map-zone if the zone has
+    // flex centering; measure its real position and add the
+    // player pixel on top.
+    const z = zone.getBoundingClientRect();
+    const c = container.getBoundingClientRect();
+    const offsetX = (c.left - z.left) + zone.scrollLeft;
+    const offsetY = (c.top - z.top) + zone.scrollTop;
+    const targetLeft = offsetX + this._playerPx.x - zone.clientWidth / 2;
+    const targetTop = offsetY + this._playerPx.y - zone.clientHeight / 2;
+    zone.scrollTo({
+      left: Math.max(0, targetLeft),
+      top: Math.max(0, targetTop),
+      behavior: "auto",
+    });
   },
 
   _setArrowsVisible(on) {
@@ -286,6 +314,10 @@ const HexMap = {
       entCtx.fillText("@", x, y);
       this._playerPx = {x, y};
       this._positionArrows(this._playerPx);
+      if (!this._scrolledOnce) {
+        this._centerOnPlayer();
+        this._scrolledOnce = true;
+      }
     }
 
     // Update the day/time HUD if present.
@@ -499,6 +531,9 @@ if (typeof WS !== "undefined") {
   const _showDungeonAndLockHex = () => {
     setHexInputActive(false);
     _showDungeonView();
+    // Re-arm the centre-on-player scroll for the next time the
+    // overland view comes back.
+    HexMap._scrolledOnce = false;
   };
   WS.on("state_dungeon", _showDungeonAndLockHex);
   WS.on("state", _showDungeonAndLockHex);
