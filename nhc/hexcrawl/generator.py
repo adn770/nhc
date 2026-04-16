@@ -27,13 +27,7 @@ from __future__ import annotations
 import random
 
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.model import (
-    Biome,
-    DungeonRef,
-    HexCell,
-    HexFeatureType,
-    HexWorld,
-)
+from nhc.hexcrawl.model import Biome, HexCell, HexWorld
 from nhc.hexcrawl.pack import PackMeta
 
 
@@ -55,35 +49,14 @@ class GeneratorRetryError(RuntimeError):
 Rect = tuple[int, int, int, int]
 
 
-def _shape_r_range(q: int, height: int) -> tuple[int, int]:
-    """Axial ``(r_min, r_max_exclusive)`` for column ``q`` in a
-    rectangular odd-q staggered layout.
-
-    Even columns host ``height`` hexes; odd columns host
-    ``height - 1``. The r axis is shifted per column so that every
-    column's top and bottom align on screen, producing an actual
-    rectangle rather than the parallelogram an unshifted axial box
-    would paint.
-    """
-    rows = height if q % 2 == 0 else height - 1
-    r_min = -(q // 2)
-    return r_min, r_min + rows
-
-
-def _valid_shape_hex(q: int, r: int, width: int, height: int) -> bool:
-    """True iff ``(q, r)`` lies in the rectangular odd-q shape."""
-    if q < 0 or q >= width:
-        return False
-    r_min, r_max = _shape_r_range(q, height)
-    return r_min <= r < r_max
-
-
-def expected_shape_cell_count(width: int, height: int) -> int:
-    """Total number of valid hexes in a ``width`` × ``height``
-    rectangular odd-q shape (useful for tests and sizing)."""
-    even_cols = (width + 1) // 2
-    odd_cols = width // 2
-    return even_cols * height + odd_cols * (height - 1)
+# Shape helpers live in nhc.hexcrawl.coords now (M-G.2 refactor).
+# Re-exported here under the original names so the test-suite
+# imports (and any external code) keep working without churn.
+from nhc.hexcrawl.coords import (
+    expected_shape_cell_count,  # noqa: F401
+    shape_r_range as _shape_r_range,  # noqa: F401
+    valid_shape_hex as _valid_shape_hex,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -260,9 +233,13 @@ def generate_test_world(
 # ---------------------------------------------------------------------------
 
 
-class _FeaturePlacementError(Exception):
-    """Internal signal that the current attempt cannot host the
-    required features; caught by the retry loop."""
+# Back-compat alias: a handful of earlier tests and callers
+# imported the private name from this module. The exception body
+# now lives alongside the feature placer.
+from nhc.hexcrawl._features import (  # noqa: E402
+    FeaturePlacementError as _FeaturePlacementError,
+    place_features as _place_features,
+)
 
 
 def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
@@ -313,65 +290,8 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
             cells[c] = HexCell(coord=c, biome=biome)
             hexes_by_biome[biome].append(c)
 
-    # -- Hub ------------------------------------------------------
-    hub = _pick_hub(hexes_by_biome, rng)
-    if hub is None:
-        raise _FeaturePlacementError("no greenlands / drylands hex for hub")
-    cells[hub].feature = HexFeatureType.CITY
-    cells[hub].name_key = "content.testland.hex.hub.name"
-    cells[hub].desc_key = "content.testland.hex.hub.description"
-    # Placeholder "dungeon" so enter_hex_feature can land the
-    # player on a generated town floor until Phase 2's proper town
-    # map generator arrives.
-    cells[hub].dungeon = DungeonRef(template="procedural:settlement")
+    hub = _place_features(cells, hexes_by_biome, pack, rng)
 
-    taken: set[HexCoord] = {hub}
-
-    # -- Villages -------------------------------------------------
-    vt = pack.features.village
-    n_villages = rng.randint(vt.min, vt.max)
-    village_pool = [
-        c for c in (
-            hexes_by_biome[Biome.GREENLANDS]
-            + hexes_by_biome[Biome.DRYLANDS]
-        ) if c not in taken
-    ]
-    if len(village_pool) < n_villages:
-        raise _FeaturePlacementError(
-            f"not enough greenlands/drylands hexes for {n_villages} villages"
-        )
-    for c in rng.sample(village_pool, n_villages):
-        cells[c].feature = HexFeatureType.VILLAGE
-        cells[c].dungeon = DungeonRef(template="procedural:settlement")
-        taken.add(c)
-
-    # -- Dungeons -------------------------------------------------
-    dt = pack.features.dungeon
-    n_dungeons = rng.randint(dt.min, dt.max)
-    _place_dungeons(cells, hexes_by_biome, taken, n_dungeons, rng)
-
-    # -- Wonders --------------------------------------------------
-    wt = pack.features.wonder
-    n_wonders = rng.randint(wt.min, wt.max)
-    wonder_pool = [
-        c for c in (
-            hexes_by_biome[Biome.ICELANDS]
-            + hexes_by_biome[Biome.DEADLANDS]
-        ) if c not in taken
-    ]
-    if len(wonder_pool) < n_wonders:
-        raise _FeaturePlacementError(
-            f"not enough icelands/deadlands hexes for {n_wonders} wonders"
-        )
-    wonder_types = [
-        HexFeatureType.WONDER, HexFeatureType.CRYSTALS,
-        HexFeatureType.STONES, HexFeatureType.PORTAL,
-    ]
-    for c in rng.sample(wonder_pool, n_wonders):
-        cells[c].feature = rng.choice(wonder_types)
-        taken.add(c)
-
-    # -- Build the world ------------------------------------------
     world = HexWorld(
         pack_id=pack.id,
         seed=rng.randrange(1 << 30),      # downstream RNG seeding
@@ -385,92 +305,10 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     return world
 
 
-# ---------------------------------------------------------------------------
-# Feature placement helpers
-# ---------------------------------------------------------------------------
-
-
-def _pick_hub(
-    hexes_by_biome: dict[Biome, list[HexCoord]],
-    rng: random.Random,
-) -> HexCoord | None:
-    greens = list(hexes_by_biome.get(Biome.GREENLANDS, []))
-    if greens:
-        return rng.choice(greens)
-    drys = list(hexes_by_biome.get(Biome.DRYLANDS, []))
-    if drys:
-        return rng.choice(drys)
-    return None
-
-
-def _place_dungeons(
-    cells: dict[HexCoord, HexCell],
-    hexes_by_biome: dict[Biome, list[HexCoord]],
-    taken: set[HexCoord],
-    n: int,
-    rng: random.Random,
-) -> None:
-    """Place ``n`` dungeon features.
-
-    Prefers variety: first place 1 cave (mountain), 1 ruin (forest
-    or deadlands), 1 tower (any biome), then fill the rest as towers
-    or extra caves/ruins depending on biome availability.
-    """
-    if n == 0:
-        return
-
-    def _pool(biomes: tuple[Biome, ...]) -> list[HexCoord]:
-        out: list[HexCoord] = []
-        for b in biomes:
-            out.extend(c for c in hexes_by_biome[b] if c not in taken)
-        return out
-
-    placed = 0
-
-    def _template_for(feature: HexFeatureType) -> str:
-        # Each dungeon feature picks up a procedural template so
-        # Game.enter_hex_feature can seed a BSP level for it.
-        return {
-            HexFeatureType.CAVE: "procedural:cave",
-            HexFeatureType.RUIN: "procedural:ruin",
-            HexFeatureType.TOWER: "procedural:tower",
-        }.get(feature, "procedural:cave")
-
-    # First: one of each type if possible.
-    recipes: list[tuple[HexFeatureType, tuple[Biome, ...]]] = [
-        (HexFeatureType.CAVE, (Biome.MOUNTAIN,)),
-        (HexFeatureType.RUIN, (Biome.FOREST, Biome.DEADLANDS)),
-        (HexFeatureType.TOWER, tuple(Biome)),
-    ]
-    for feature, biomes in recipes:
-        if placed >= n:
-            break
-        pool = _pool(biomes)
-        if not pool:
-            continue
-        c = rng.choice(pool)
-        cells[c].feature = feature
-        cells[c].dungeon = DungeonRef(template=_template_for(feature))
-        taken.add(c)
-        placed += 1
-
-    # Remaining: round-robin over recipes until filled or exhausted.
-    while placed < n:
-        made_progress = False
-        for feature, biomes in recipes:
-            if placed >= n:
-                break
-            pool = _pool(biomes)
-            if not pool:
-                continue
-            c = rng.choice(pool)
-            cells[c].feature = feature
-            cells[c].dungeon = DungeonRef(template=_template_for(feature))
-            taken.add(c)
-            placed += 1
-            made_progress = True
-        if not made_progress:
-            raise _FeaturePlacementError(
-                f"could not place {n} dungeons "
-                f"(placed {placed} before exhausting biome pools)"
-            )
+# Feature placement helpers moved to nhc.hexcrawl._features
+# (M-G.2). Re-exported under the original private names so any
+# external caller that imports them keeps working.
+from nhc.hexcrawl._features import (  # noqa: E402
+    pick_hub as _pick_hub,  # noqa: F401
+    place_dungeons as _place_dungeons,  # noqa: F401
+)

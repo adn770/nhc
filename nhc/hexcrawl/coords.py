@@ -142,3 +142,44 @@ def _cube_round_to_axial(cube: tuple[float, float, float]) -> HexCoord:
     elif dr > ds:
         rr = -rq - rs
     return HexCoord(rq, rr)
+
+
+# ---------------------------------------------------------------------------
+# Odd-q staggered rectangular shape
+# ---------------------------------------------------------------------------
+
+
+def shape_r_range(q: int, height: int) -> tuple[int, int]:
+    """Axial ``(r_min, r_max_exclusive)`` for column ``q`` in a
+    rectangular odd-q staggered layout.
+
+    Even columns host ``height`` hexes; odd columns host
+    ``height - 1``. The r axis is shifted per column so that every
+    column's top and bottom align on screen, producing an actual
+    rectangle rather than the parallelogram an unshifted axial box
+    would paint.
+    """
+    rows = height if q % 2 == 0 else height - 1
+    r_min = -(q // 2)
+    return r_min, r_min + rows
+
+
+def valid_shape_hex(q: int, r: int, width: int, height: int) -> bool:
+    """True iff ``(q, r)`` lies in the rectangular odd-q shape."""
+    if q < 0 or q >= width:
+        return False
+    r_min, r_max = shape_r_range(q, height)
+    return r_min <= r < r_max
+
+
+def expected_shape_cell_count(width: int, height: int) -> int:
+    """Number of valid hexes in a ``width × height`` odd-q
+    rectangular shape.
+
+    Even columns contribute ``height`` hexes; odd columns
+    contribute ``height - 1``. Handy for test assertions that
+    need to pin "every hex is populated".
+    """
+    even_cols = (width + 1) // 2
+    odd_cols = width // 2
+    return even_cols * height + odd_cols * (height - 1)
