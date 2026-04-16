@@ -29,6 +29,7 @@ import random
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.model import (
     Biome,
+    DungeonRef,
     HexCell,
     HexFeatureType,
     HexWorld,
@@ -340,6 +341,16 @@ def _place_dungeons(
         return out
 
     placed = 0
+
+    def _template_for(feature: HexFeatureType) -> str:
+        # Each dungeon feature picks up a procedural template so
+        # Game.enter_hex_feature can seed a BSP level for it.
+        return {
+            HexFeatureType.CAVE: "procedural:cave",
+            HexFeatureType.RUIN: "procedural:ruin",
+            HexFeatureType.TOWER: "procedural:tower",
+        }.get(feature, "procedural:cave")
+
     # First: one of each type if possible.
     recipes: list[tuple[HexFeatureType, tuple[Biome, ...]]] = [
         (HexFeatureType.CAVE, (Biome.MOUNTAIN,)),
@@ -354,6 +365,7 @@ def _place_dungeons(
             continue
         c = rng.choice(pool)
         cells[c].feature = feature
+        cells[c].dungeon = DungeonRef(template=_template_for(feature))
         taken.add(c)
         placed += 1
 
@@ -368,6 +380,7 @@ def _place_dungeons(
                 continue
             c = rng.choice(pool)
             cells[c].feature = feature
+            cells[c].dungeon = DungeonRef(template=_template_for(feature))
             taken.add(c)
             placed += 1
             made_progress = True

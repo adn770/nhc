@@ -218,6 +218,19 @@ def test_generator_features_are_reachable_from_hub(default_pack) -> None:
         assert c in seen, f"feature at {c} unreachable from hub"
 
 
+def test_generator_dungeon_features_have_dungeon_ref(default_pack) -> None:
+    w = generate_test_world(seed=42, pack=default_pack)
+    dungeon_types = {
+        HexFeatureType.CAVE, HexFeatureType.RUIN, HexFeatureType.TOWER,
+    }
+    dungeons = _feature_hexes(w, dungeon_types)
+    assert len(dungeons) > 0
+    for c in dungeons:
+        cell = w.cells[c]
+        assert cell.dungeon is not None, (c, cell.feature)
+        assert cell.dungeon.template.startswith("procedural:")
+
+
 def test_generator_caves_in_mountain_regions(default_pack) -> None:
     w = generate_test_world(seed=42, pack=default_pack)
     caves = _feature_hexes(w, {HexFeatureType.CAVE})
