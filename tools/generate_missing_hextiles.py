@@ -168,6 +168,16 @@ BIOME_COLOURS = {
 }
 
 
+# Per-slot biome restriction. Slots listed here are only
+# generated for the named biomes; slots NOT listed are generated
+# for every biome in GENERATED_BIOMES. The mountainPack features
+# (peaks, summits, gates, alpine forest, etc.) only make visual
+# sense on a mountain background so they're restricted.
+SLOT_BIOME_ONLY: dict[int, frozenset[str]] = {
+    s: frozenset({"mountain"}) for s in range(61, 81)
+}
+
+
 # Biomes this tool actually generates tiles for. The main loop
 # iterates these; the rest of BIOME_COLOURS is reference-only.
 # Re-adding one of the full-palette biomes here would attempt
@@ -348,6 +358,10 @@ def main() -> int:
         present = existing_slots(biome)
         targets = set(SLOT_NAME) - (set() if args.force else present)
         for slot in sorted(targets):
+            # Skip slots restricted to other biomes.
+            allowed = SLOT_BIOME_ONLY.get(slot)
+            if allowed is not None and biome not in allowed:
+                continue
             fnd = foundation_tile(slot)
             if not fnd.is_file():
                 print(f"  slot {slot:2d}: no foundation tile, skip")
