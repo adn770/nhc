@@ -243,6 +243,18 @@ body {
   display: inline-block;
 }
 
+/* HUD layer: sized and positioned to overlay the hex-container
+ * exactly, but as a sibling so canvas clears don't mutate its
+ * contents. hex_map.js sets width / height / left / top via JS
+ * right after resize(). pointer-events: none lets clicks fall
+ * through to the canvases; the six .hex-arrow buttons inside
+ * re-enable pointer-events on themselves. */
+#hex-hud {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+}
+
 #hex-base-canvas,
 #hex-fog-canvas,
 #hex-feature-canvas,

@@ -76,6 +76,10 @@
         <canvas id="hex-entity-canvas"></canvas>
         <canvas id="hex-debug-canvas"></canvas>
       </div>
+      <!-- HUD layer for DOM-backed overlays (the six direction
+           arrow buttons live here). Topmost; never touched by
+           canvas renders so it never flickers. -->
+      <div id="hex-hud" class="hidden"></div>
     </div>
 
     <!-- Toolbar: clickable action icons -->

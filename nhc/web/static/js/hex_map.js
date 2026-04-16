@@ -116,12 +116,33 @@ const HexMap = {
    * them visible while the cursor is on them. */
   _HOVER_RADIUS: HEX_SIZE * 4.0,
 
+  /** Last player coord the arrow ring was positioned for. Lets
+   * us skip reposition work when the player hasn't moved. */
+  _lastArrowCoord: null,
+
+  /** Sync the #hex-hud DOM overlay to sit exactly over
+   * #hex-container. Called when the canvas pixel box changes; a
+   * no-op on frames where the map dimensions match the last call. */
+  _syncHudBox() {
+    const hud = document.getElementById("hex-hud");
+    const container = document.getElementById("hex-container");
+    const zone = document.getElementById("map-zone");
+    if (!hud || !container || !zone) return;
+    const c = container.getBoundingClientRect();
+    const z = zone.getBoundingClientRect();
+    hud.style.left = `${c.left - z.left + zone.scrollLeft}px`;
+    hud.style.top = `${c.top - z.top + zone.scrollTop}px`;
+    hud.style.width = `${c.width}px`;
+    hud.style.height = `${c.height}px`;
+  },
+
   /** Lazily build the six arrow button DOM nodes and attach the
    * mouse handlers once. Subsequent renders only update positions. */
   _ensureArrows() {
     if (this._arrows) return this._arrows;
+    const hud = document.getElementById("hex-hud");
     const container = document.getElementById("hex-container");
-    if (!container) return null;
+    if (!hud || !container) return null;
     // Directions match NEIGHBOR_OFFSETS order in coords.py:
     //   N, NE, SE, S, SW, NW. rot is the CSS rotation applied
     //   inside the SVG so the base "up" shape points the right
@@ -167,12 +188,13 @@ const HexMap = {
           data: [d.dq, d.dr],
         });
       });
-      container.appendChild(btn);
+      hud.appendChild(btn);
       return btn;
     });
-    // Track pointer over the whole container. Arrows appear when
-    // the pointer is within _HOVER_RADIUS of the player hex centre
-    // and disappear when the pointer leaves.
+    // Track pointer over the WHOLE container (canvas stack). The
+    // hud overlay has pointer-events: none so it doesn't swallow
+    // the mousemove; the buttons themselves re-enable pointer
+    // events so their clicks still land.
     container.addEventListener("mousemove", ev => {
       if (!this._playerPx) return;
       const rect = container.getBoundingClientRect();
@@ -223,7 +245,15 @@ const HexMap = {
     }
   },
 
-  _positionArrows(playerPx) {
+  _positionArrows(playerCoord, playerPx) {
+    // Skip the style writes when the player hasn't moved; the
+    // arrows stay anchored to their HUD-relative pixel offsets
+    // across canvas repaints.
+    if (this._lastArrowCoord
+        && this._lastArrowCoord.q === playerCoord.q
+        && this._lastArrowCoord.r === playerCoord.r) {
+      return;
+    }
     const arrows = this._ensureArrows();
     if (!arrows) return;
     for (const btn of arrows) {
@@ -231,14 +261,13 @@ const HexMap = {
       const dr = parseInt(btn.dataset.dr, 10);
       // Place the arrow centre at the neighbour's far edge (the
       // edge of the next hex that is farther from the player).
-      // That sits at 1.5x the per-axis pixel offset to the
-      // neighbour centre, regardless of which of the six
-      // directions we're pointing in.
+      // 1.5x the per-axis pixel offset to the neighbour centre.
       const ox = HEX_SIZE * 1.5 * dq;
       const oy = HEX_SIZE * (Math.sqrt(3) / 2 * dq + Math.sqrt(3) * dr);
       btn.style.left = `${playerPx.x + 1.5 * ox}px`;
       btn.style.top = `${playerPx.y + 1.5 * oy}px`;
     }
+    this._lastArrowCoord = {q: playerCoord.q, r: playerCoord.r};
   },
 
   /** Cached output of the last resize(); avoids assigning width/
@@ -356,7 +385,8 @@ const HexMap = {
       entCtx.textBaseline = "middle";
       entCtx.fillText("@", x, y);
       this._playerPx = {x, y};
-      this._positionArrows(this._playerPx);
+      this._syncHudBox();
+      this._positionArrows(state.player, this._playerPx);
       if (!this._scrolledOnce) {
         this._centerOnPlayer();
         this._scrolledOnce = true;
@@ -540,6 +570,8 @@ function _showHexOverland() {
   if (dungeon) dungeon.classList.add("hidden");
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.remove("hidden");
+  const hexHud = document.getElementById("hex-hud");
+  if (hexHud) hexHud.classList.remove("hidden");
 }
 
 function _showDungeonView() {
@@ -550,6 +582,8 @@ function _showDungeonView() {
   if (dungeon) dungeon.classList.remove("hidden");
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.add("hidden");
+  const hexHud = document.getElementById("hex-hud");
+  if (hexHud) hexHud.classList.add("hidden");
 }
 
 // Wire the WS handler and toggle visibility of the hex vs dungeon
