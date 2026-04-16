@@ -69,6 +69,16 @@ SLOT_NAME: dict[int, str] = {
     50: "hillock", 51: "standing-Stones", 52: "cottage",
     53: "hamlet", 54: "watchtower", 55: "overgrown-Ruins",
     56: "blast-Site", 57: "forest-Road", 58: "forest-Temple",
+    # Extended slots 61-80: extracted from the CC-licensed
+    # mountainPack via tools/extract_foundations.py, recanvased
+    # to 238x207 flat-top.
+    61: "mountain-Range", 62: "scattered-Peaks", 63: "plateau",
+    64: "active-Vulcano", 65: "mountain-Rift", 66: "foothills",
+    67: "rock-Spikes", 68: "mountain-Gates", 69: "summit",
+    70: "stone-Bridge", 71: "mountain-Cave", 72: "alpine-Forest",
+    73: "obelisk", 74: "mountain-Lodge", 75: "mountain-Village",
+    76: "mountain-Tower", 77: "mountain-Ruins", 78: "mountain-Blast",
+    79: "mountain-Pass", 80: "mountain-Temple",
 }
 
 # Biomes generated entirely from foundation tiles. Each entry
