@@ -96,7 +96,7 @@
     <thead>
       <tr>
         <th>Session</th><th>Player</th><th>Lang</th>
-        <th>Connected</th><th>Created</th>
+        <th>Connected</th><th>Created</th><th>Hex</th>
       </tr>
     </thead>
     <tbody id="sessions-body"></tbody>
@@ -206,12 +206,41 @@ async function loadSessions() {
       <td>${s.lang}</td>
       <td>${badge}</td>
       <td>${fmtDate(s.created_at)}</td>
+      <td>
+        <button onclick="hexReveal('${s.session_id}')">Reveal</button>
+        <button onclick="hexState('${s.session_id}')">State</button>
+      </td>
     `;
     tbody.appendChild(tr);
   }
   document.getElementById("status-text").textContent =
     `${sessions.length} active session(s) — ` +
     new Date().toLocaleTimeString();
+}
+
+async function hexReveal(sid) {
+  const resp = await fetch(
+    `/api/admin/sessions/${sid}/hex/reveal`, { method: "POST" },
+  );
+  const body = await resp.json();
+  if (!resp.ok) {
+    toast(body.error || "Reveal failed");
+    return;
+  }
+  toast(`Revealed ${body.newly_revealed} new hex(es)`);
+}
+
+async function hexState(sid) {
+  const resp = await fetch(`/api/admin/sessions/${sid}/hex/state`);
+  const body = await resp.json();
+  if (!resp.ok) {
+    toast(body.error || "State query failed");
+    return;
+  }
+  toast(
+    `Day ${body.day} ${body.time} — ` +
+    `${body.cells.length} cells, player (${body.player.q}, ${body.player.r})`
+  );
 }
 
 async function registerPlayer() {
