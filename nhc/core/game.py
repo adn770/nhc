@@ -394,8 +394,15 @@ class Game:
             )
             self.generation_params = params
             self.level = generate_level(params)
+        # Spawn NPCs / items declared by the generator (merchant,
+        # priest and recruitable adventurer for a town; future
+        # populators for cave/ruin dungeons hook in the same way).
+        self._spawn_level_entities()
         # Cache the freshly generated floor under the (q, r, depth)
-        # key so re-entry skips regeneration.
+        # key so re-entry skips regeneration. The empty dict is a
+        # placeholder -- hex-side exits don't yet serialize entity
+        # components, but cache re-entry reuses whoever survived in
+        # the ECS world (merchants stay dead, hired henchmen follow).
         self._floor_cache[cache_key] = (self.level, {})
         self._place_player_at_stairs_up()
         self._notify_floor_change(depth)

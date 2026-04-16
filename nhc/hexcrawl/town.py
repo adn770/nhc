@@ -16,6 +16,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.model import (
+    EntityPlacement,
     Level,
     LevelMetadata,
     Rect,
@@ -23,6 +24,11 @@ from nhc.dungeon.model import (
     Room,
     Terrain,
     Tile,
+)
+from nhc.dungeon.room_types import (
+    SHOP_STOCK,
+    TEMPLE_SERVICES_DEFAULT,
+    TEMPLE_STOCK_DEFAULT,
 )
 
 
@@ -147,16 +153,29 @@ def generate_town(seed: int, town_id: str = "town") -> Level:
     # 7. Build Room records, tagging each rect with its assigned
     #    building name.
     rooms: list[Room] = []
+    rooms_by_tag: dict[str, Room] = {}
     for slot_idx, (rect, building) in enumerate(
         zip(_BUILDING_SLOTS, assignments),
     ):
-        rooms.append(Room(
+        room = Room(
             id=f"{town_id}_room_{slot_idx}",
             rect=rect,
             shape=RectShape(),
             tags=[building],
             description=f"{building} of {town_id}",
-        ))
+        )
+        rooms.append(room)
+        rooms_by_tag[building] = room
+
+    # 8. NPC placements: merchant in the shop, priest in the temple,
+    #    recruitable adventurer in the inn. Stable and training are
+    #    intentionally left unpopulated in v1 -- they exist as
+    #    labelled slots ready for mounts (stable) and XP-sink
+    #    services (training) to wire into later.
+    entities: list[EntityPlacement] = []
+    entities.append(_merchant_placement(rooms_by_tag["shop"], rng))
+    entities.append(_priest_placement(rooms_by_tag["temple"]))
+    entities.append(_adventurer_placement(rooms_by_tag["inn"]))
 
     return Level(
         id=town_id,
@@ -167,5 +186,63 @@ def generate_town(seed: int, town_id: str = "town") -> Level:
         tiles=tiles,
         rooms=rooms,
         corridors=[],
+        entities=entities,
         metadata=LevelMetadata(theme="town", ambient="town"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# NPC placement helpers (settlement services)
+# ---------------------------------------------------------------------------
+
+
+def _merchant_placement(room: Room, rng: random.Random) -> EntityPlacement:
+    """Merchant at the shop-room centre, stocked from depth-1 pool.
+
+    Towns reuse the dungeon shop's depth-1 :data:`SHOP_STOCK` pool
+    (any procedural settlement sits at depth 1) so settlements and
+    dungeon shops carry compatible wares.
+    """
+    pool = SHOP_STOCK[1]
+    ids, weights = zip(*pool)
+    count = rng.randint(4, 7)
+    stock = rng.choices(list(ids), weights=list(weights), k=count)
+    # Preserve order while deduping.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for iid in stock:
+        if iid not in seen:
+            seen.add(iid)
+            unique.append(iid)
+    cx, cy = room.rect.center
+    return EntityPlacement(
+        entity_type="creature", entity_id="merchant",
+        x=cx, y=cy, extra={"shop_stock": unique},
+    )
+
+
+def _priest_placement(room: Room) -> EntityPlacement:
+    cx, cy = room.rect.center
+    return EntityPlacement(
+        entity_type="creature", entity_id="priest",
+        x=cx, y=cy,
+        extra={
+            "temple_services": list(TEMPLE_SERVICES_DEFAULT),
+            "shop_stock": list(TEMPLE_STOCK_DEFAULT),
+        },
+    )
+
+
+def _adventurer_placement(room: Room) -> EntityPlacement:
+    """Hirable adventurer at the inn-room centre.
+
+    Procedural settlements sit at depth 1, so the recruitable
+    NPC is a level-1 adventurer -- matches the dungeon's depth-1
+    guaranteed henchman rule (see
+    :func:`nhc.dungeon.populator._place_adventurer`).
+    """
+    cx, cy = room.rect.center
+    return EntityPlacement(
+        entity_type="creature", entity_id="adventurer",
+        x=cx, y=cy, extra={"adventurer_level": 1},
     )
