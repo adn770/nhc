@@ -415,6 +415,11 @@ class Game:
                 seed=seed,
                 town_id=f"town_{coord.q}_{coord.r}",
             )
+            # First visit with an empty pool: seed fresh rumors
+            # so the innkeeper bump has something to say. Keep
+            # any existing rumors (previous town visit filled
+            # the pool and the player hasn't consumed them yet).
+            self._maybe_seed_rumors(seed)
         else:
             sv = _shape_variety_for_depth(self.shape_variety, depth)
             theme = (
@@ -442,6 +447,31 @@ class Game:
         self._place_expedition_henchmen(is_settlement=is_settlement)
         self._notify_floor_change(depth)
         return True
+
+    def _maybe_seed_rumors(self, seed: int) -> None:
+        """Top up :attr:`HexWorld.active_rumors` on town entry.
+
+        No-op when the pool already has entries (the player hasn't
+        finished listening to the last batch) or when there is no
+        hex_world to populate. God-mode uses
+        :func:`generate_rumors_god_mode` so the debug player never
+        gets a false lead.
+        """
+        if self.hex_world is None:
+            return
+        if self.hex_world.active_rumors:
+            return
+        from nhc.hexcrawl.rumors import (
+            generate_rumors,
+            generate_rumors_god_mode,
+        )
+        gen = (
+            generate_rumors_god_mode if self.god_mode
+            else generate_rumors
+        )
+        self.hex_world.active_rumors = gen(
+            self.hex_world, seed=seed, count=3,
+        )
 
     def _place_expedition_henchmen(self, *, is_settlement: bool) -> None:
         """Move hired henchmen from the overland into the current level.
