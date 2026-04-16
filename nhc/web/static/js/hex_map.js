@@ -226,7 +226,7 @@ const HexMap = {
     const hud3 = document.getElementById("status-line3");
     if (hud3) {
       hud3.textContent =
-        "y/u N/NE · b/n SW/SE · k N · j S · e enter · l leave · r rest";
+        "y/u NW/NE · b/n SW/SE · k N · j S · e enter · Shift-L leave · r rest";
     }
   },
 
@@ -307,6 +307,13 @@ const HEX_KEY_TO_DIR = {
   "y": [-1, 0],   // NW
 };
 
+// Two flags:
+// - HexGameActive: true as soon as a state_hex has ever arrived;
+//   never cleared until page reload. Gates the Escape-to-exit key.
+// - HexInputActive: true only while the overland view is on screen
+//   (i.e. the player is not inside a dungeon). Gates the movement
+//   keybinds whose letters collide with dungeon bindings.
+let HexGameActive = false;
 let HexInputActive = false;
 
 function setHexInputActive(on) {
@@ -314,28 +321,40 @@ function setHexInputActive(on) {
 }
 
 function hexKeyHandler(ev) {
-  if (!HexInputActive) return;
   if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
   const tag = (ev.target?.tagName || "").toUpperCase();
   if (tag === "INPUT" || tag === "TEXTAREA") return;
-  const key = (ev.key || "").toLowerCase();
-  if (HEX_KEY_TO_DIR[key]) {
-    const [dq, dr] = HEX_KEY_TO_DIR[key];
-    WS.send({type: "action", intent: "hex_step", data: [dq, dr]});
-    ev.preventDefault();
-    return;
-  }
-  if (key === "e") {
-    WS.send({type: "action", intent: "hex_enter", data: null});
-    ev.preventDefault();
-    return;
-  }
-  if (key === "l") {
+  const key = ev.key;
+
+  // Shift-L (uppercase "L") always exits the current dungeon
+  // when the game is in hex mode, regardless of whether the
+  // overland is visible -- this is how the player leaves a
+  // settlement / cave back to the overland. Fires while
+  // HexInputActive is false so it works while the dungeon
+  // canvases are in front. Lowercase "l" stays bound to the
+  // dungeon's "move east" in input.js.
+  if (HexGameActive && key === "L") {
     WS.send({type: "action", intent: "hex_exit", data: null});
     ev.preventDefault();
     return;
   }
-  if (key === "r") {
+
+  // Every other hex bind is overland-only; inside a dungeon let
+  // the dungeon keybinds in input.js handle them.
+  if (!HexInputActive) return;
+  const lkey = (key || "").toLowerCase();
+  if (HEX_KEY_TO_DIR[lkey]) {
+    const [dq, dr] = HEX_KEY_TO_DIR[lkey];
+    WS.send({type: "action", intent: "hex_step", data: [dq, dr]});
+    ev.preventDefault();
+    return;
+  }
+  if (lkey === "e") {
+    WS.send({type: "action", intent: "hex_enter", data: null});
+    ev.preventDefault();
+    return;
+  }
+  if (lkey === "r") {
     WS.send({type: "action", intent: "hex_rest", data: null});
     ev.preventDefault();
     return;
@@ -368,6 +387,7 @@ function _showDungeonView() {
 // containers when a ``state_hex`` arrives.
 if (typeof WS !== "undefined") {
   WS.on("state_hex", (msg) => {
+    HexGameActive = true;
     _showHexOverland();
     setHexInputActive(true);
     HexMap.render(msg);
