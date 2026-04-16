@@ -342,6 +342,67 @@ class Game:
             )
         return depth
 
+    async def enter_hex_feature(self) -> bool:
+        """Enter the dungeon attached to the player's current hex.
+
+        Returns ``True`` when a dungeon was loaded (freshly
+        generated, or restored from the floor cache); ``False`` when
+        the player is not on a feature hex with a :class:`DungeonRef`.
+
+        Day clock stays frozen for the duration of the visit
+        (intentionally — dungeon time is "out of band"). Floor cache
+        is keyed by ``(q, r, depth)`` so re-entering the same hex
+        after exiting hands back the same Level instance.
+        """
+        if not self.world_mode.is_hex or self.hex_world is None:
+            return False
+        coord = self.hex_player_position
+        if coord is None:
+            return False
+        cell = self.hex_world.get_cell(coord)
+        if cell is None or cell.dungeon is None:
+            return False
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+        if cache_key in self._floor_cache:
+            level, _ = self._floor_cache[cache_key]
+            self.level = level
+            return True
+
+        from nhc.hexcrawl.seed import dungeon_seed
+        template = cell.dungeon.template
+        seed = dungeon_seed(self.seed or 0, coord, template)
+        sv = _shape_variety_for_depth(self.shape_variety, depth)
+        theme = (
+            "cave" if template.startswith("procedural:cave")
+            else theme_for_depth(depth)
+        )
+        map_w, map_h = pick_map_size(get_rng(), depth=depth)
+        params = GenerationParams(
+            width=map_w, height=map_h, depth=depth,
+            shape_variety=sv, theme=theme, seed=seed,
+        )
+        self.generation_params = params
+        self.level = generate_level(params)
+        # Cache the freshly generated floor under the (q, r, depth)
+        # key so re-entry skips regeneration.
+        self._floor_cache[cache_key] = (self.level, {})
+        return True
+
+    async def exit_dungeon_to_hex(self) -> bool:
+        """Pop back to the overland after a dungeon visit.
+
+        Returns ``True`` when there was an active dungeon to leave;
+        ``False`` (no-op) otherwise. The current Level is dropped
+        from ``game.level`` but stays in the floor cache so re-entry
+        is instantaneous.
+        """
+        if self.level is None or not self.world_mode.is_hex:
+            return False
+        self.level = None
+        return True
+
     async def apply_hex_step(self, target: HexCoord) -> bool:
         """Execute a single overland step.
 
