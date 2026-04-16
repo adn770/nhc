@@ -1403,6 +1403,13 @@ creature:
       Un explorador experimentat que busca companys per les profunditats
       de la masmorra. Ofereix la seva espasa — pel preu just.
 
+# ── Death dialog strings ───────────────────────────────────────────────
+death:
+  prompt: "Has caigut. I ara?"
+  permadeath: "Accepta el teu destí (mort permanent)"
+  cheat_death: "Enganya la mort (torna a l'últim hub)"
+
+
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   true_feature: >-

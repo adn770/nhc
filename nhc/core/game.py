@@ -803,6 +803,42 @@ class Game:
         })
         self._character = char
 
+    def handle_player_death(self) -> bool:
+        """Decide what happens when the player's HP hits 0.
+
+        In :attr:`GameMode.HEX_EASY` shows a Permadeath /
+        Cheat-Death selection menu via
+        :meth:`renderer.show_selection_menu`. On a cheat-death
+        pick, applies :meth:`cheat_death` and returns ``True``
+        so the game loop resumes. Any other pick (or any other
+        mode) returns ``False``, letting the loop proceed with
+        the classic end-screen path.
+
+        A renderer that lacks ``show_selection_menu`` (or returns
+        ``None``) defaults to permadeath so a headless / scripted
+        flow doesn't hang waiting on a prompt.
+        """
+        if not self.allows_cheat_death_now():
+            return False
+        prompt = getattr(
+            self.renderer, "show_selection_menu", None,
+        )
+        if prompt is None:
+            return False
+        options: list[tuple[int, str]] = [
+            (0, t("death.permadeath")),
+            (1, t("death.cheat_death")),
+        ]
+        choice = prompt(t("death.prompt"), options)
+        if choice != 1:
+            return False
+        try:
+            self.cheat_death()
+        except RuntimeError:
+            # Mode-gate tripped; treat as permadeath.
+            return False
+        return True
+
     def allows_cheat_death_now(self) -> bool:
         """True when the current world mode offers the cheat-death
         dialog on player death (hex-easy only)."""
@@ -1592,7 +1628,6 @@ class Game:
 
             # Check player death (None means entity was destroyed)
             if not health or health.current <= 0:
-                self.game_over = True
                 self._detect_death_cause(events)
                 logger.info("Player died: killed_by=%s turn=%d",
                             self.killed_by, self.turn)
@@ -1600,6 +1635,13 @@ class Game:
                 if self.killed_by:
                     death_msg = t("game.slain_by", killer=self.killed_by)
                 self.renderer.add_message(death_msg)
+                # Hex-easy offers a cheat-death dialog before the
+                # classic end-screen path; every other mode falls
+                # through to permadeath.
+                if self.handle_player_death():
+                    logger.info("Player cheated death, resuming loop")
+                    continue
+                self.game_over = True
                 self.renderer.render(
                     self.world, self.level, self.player_id, self.turn,
                 )

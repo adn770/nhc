@@ -194,3 +194,112 @@ def test_hex_easy_creates_player_entity(tmp_path) -> None:
     assert g.player_id != -1
     assert g.world.get_component(g.player_id, "Player") is not None
     assert g.world.get_component(g.player_id, "Inventory") is not None
+
+
+# ---------------------------------------------------------------------------
+# handle_player_death dispatcher: permadeath / cheat menu
+# ---------------------------------------------------------------------------
+
+
+class _MenuClient:
+    """Renderer stub that captures death-dialog interactions."""
+
+    game_mode = "classic"
+    lang = "en"
+    edge_doors = False
+
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+        self.menu_calls: list[tuple] = []
+        self.menu_picks: list = []
+        self.end_screen_shown = False
+
+    def show_selection_menu(self, title, options):
+        self.menu_calls.append((title, list(options)))
+        if not self.menu_picks:
+            return options[0][0] if options else None
+        return self.menu_picks.pop(0)
+
+    def show_end_screen(self, *, won, turn, killed_by=""):
+        self.end_screen_shown = True
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        def _sync(*a, **kw):
+            return None
+
+        return _sync
+
+
+def _menu_game(tmp_path, mode: GameMode) -> tuple[Game, _MenuClient]:
+    client = _MenuClient()
+    g = Game(
+        client=client,
+        backend=None,
+        game_mode="classic",
+        world_mode=mode,
+        save_dir=tmp_path,
+        seed=42,
+    )
+    g.initialize()
+    # Anchor last_hub for the cheat_death teleport.
+    if g.hex_world is not None:
+        g.hex_world.last_hub = g.hex_player_position
+    return g, client
+
+
+def test_hex_easy_death_dispatcher_offers_cheat(tmp_path) -> None:
+    g, client = _menu_game(tmp_path, GameMode.HEX_EASY)
+    client.menu_picks = [1]  # 0=permadeath, 1=cheat_death
+    resumed = g.handle_player_death()
+    assert resumed is True, "cheat-death pick must resume the loop"
+    assert client.menu_calls, "death dialog must fire"
+    hp = g.world.get_component(g.player_id, "Health")
+    assert hp.current == hp.maximum
+    assert g.hex_player_position == g.hex_world.last_hub
+
+
+def test_hex_easy_permadeath_pick_ends_run(tmp_path) -> None:
+    g, client = _menu_game(tmp_path, GameMode.HEX_EASY)
+    client.menu_picks = [0]
+    resumed = g.handle_player_death()
+    assert resumed is False
+    assert client.menu_calls
+
+
+def test_hex_survival_death_skips_dialog(tmp_path) -> None:
+    g, client = _menu_game(tmp_path, GameMode.HEX_SURVIVAL)
+    resumed = g.handle_player_death()
+    assert resumed is False
+    assert client.menu_calls == []
+
+
+def test_dungeon_death_skips_dialog(tmp_path) -> None:
+    client = _MenuClient()
+    g = Game(
+        client=client,
+        backend=None,
+        game_mode="classic",
+        world_mode=GameMode.DUNGEON,
+        save_dir=tmp_path,
+        seed=42,
+    )
+    g.initialize(generate=True)
+    resumed = g.handle_player_death()
+    assert resumed is False
+    assert client.menu_calls == []
+
+
+def test_cancelled_dialog_treats_as_permadeath(tmp_path) -> None:
+    """Escaping the menu without picking must not resurrect."""
+    g, client = _menu_game(tmp_path, GameMode.HEX_EASY)
+
+    def cancel(_title, _options):
+        client.menu_calls.append((_title, list(_options)))
+        return None
+    client.show_selection_menu = cancel
+
+    resumed = g.handle_player_death()
+    assert resumed is False

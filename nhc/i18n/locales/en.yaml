@@ -1300,6 +1300,12 @@ creature:
       They offer their sword arm — for the right price.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
+death:
+  prompt: "You have fallen. What now?"
+  permadeath: "Accept your fate (permadeath)"
+  cheat_death: "Cheat death (respawn at the last hub)"
+
+
 rumor:
   true_feature: >-
     The innkeeper leans close and whispers: "Folks swear there's

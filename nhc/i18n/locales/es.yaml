@@ -1313,6 +1313,13 @@ creature:
       profundidades de la mazmorra. Ofrece su espada — por el
       precio justo.
 
+# ── Death dialog strings ───────────────────────────────────────────────
+death:
+  prompt: "Has caído. ¿Y ahora?"
+  permadeath: "Acepta tu destino (muerte permanente)"
+  cheat_death: "Engaña a la muerte (regresa al último hub)"
+
+
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   true_feature: >-
