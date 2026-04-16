@@ -2704,6 +2704,7 @@ features:
 
 # ── Hexcrawl d'exterior — cadenes del motor ───────────────────────
 hex:
+  pick_party: "Tria un company per dur amb tu:"
   ui:
     day: "Dia"
   biome:

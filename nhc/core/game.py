@@ -448,14 +448,13 @@ class Game:
 
         Settlements bring the whole expedition inside so services
         are reachable to everyone. A cave / ruin can only fit
-        :data:`MAX_HENCHMEN` of them in the crawl; the rest stay on
-        the overland tile (``level_id == "overland"``) as
-        "left-behinds" waiting for the player to return.
-
-        Selection is deterministic: the first ``MAX_HENCHMEN``
-        hired henchmen by entity-id come along. A proper
-        interactive dialog lands as part of later UI polish; for
-        the ECS contract a stable order is enough.
+        :data:`MAX_HENCHMEN` of them in the crawl; when the player
+        has more than that hired, an interactive dialog lets them
+        pick which :data:`MAX_HENCHMEN` come along. Unpicked
+        henchmen keep :attr:`Position.level_id` ``"overland"`` as
+        left-behinds. If the dialog isn't available (no renderer
+        hook, player cancels), falls back to sorted-by-entity-id
+        first-N so entry never blocks.
         """
         if self.level is None:
             return
@@ -465,7 +464,16 @@ class Game:
             if h.hired and h.owner == self.player_id
         ]
         hired.sort(key=lambda t: t[0])
-        selected = hired if is_settlement else hired[:MAX_HENCHMEN]
+        if is_settlement or len(hired) <= MAX_HENCHMEN:
+            selected = hired
+        else:
+            picked_ids = self._select_dungeon_party(
+                hired, MAX_HENCHMEN,
+            )
+            selected_by_id = dict(hired)
+            selected = [
+                (eid, selected_by_id[eid]) for eid in picked_ids
+            ]
         # Only touch the selected henchmen; left-behinds keep their
         # existing "overland" position verbatim.
         for eid, _ in selected:
@@ -474,6 +482,44 @@ class Game:
                 pos.level_id = self.level.id
         # Lay them out on walkable tiles around the player.
         self._place_henchmen_near_player()
+
+    def _select_dungeon_party(
+        self, hired: list, max_size: int,
+    ) -> list[int]:
+        """Prompt the player to pick ``max_size`` henchmen.
+
+        Falls back to the first ``max_size`` hired-by-entity-id
+        when the renderer has no ``show_selection_menu`` hook or
+        the player cancels a prompt. Returns a list of entity
+        ids in the order picked.
+        """
+        from nhc.core.actions._helpers import _entity_name
+        prompt = getattr(
+            self.renderer, "show_selection_menu", None,
+        )
+        default = [eid for eid, _ in hired[:max_size]]
+        if prompt is None:
+            return default
+        picked: list[int] = []
+        remaining = list(hired)
+        for _ in range(max_size):
+            if not remaining:
+                break
+            options = [
+                (eid, _entity_name(self.world, eid))
+                for eid, _ in remaining
+            ]
+            choice = prompt(t("hex.pick_party"), options)
+            if choice is None:
+                # Player bailed out; fall back to the first-N
+                # pick from the original hired order.
+                return default
+            picked.append(int(choice))
+            remaining = [
+                (eid, h) for eid, h in remaining
+                if eid != int(choice)
+            ]
+        return picked
 
     def _notify_floor_change(self, depth: int) -> None:
         """Tell the web client a new dungeon floor is in play so it

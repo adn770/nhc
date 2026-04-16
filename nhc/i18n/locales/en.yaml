@@ -2383,6 +2383,7 @@ features:
 
 # ── Overland hexcrawl — engine-level strings ──────────────────────
 hex:
+  pick_party: "Pick a henchman to bring along:"
   ui:
     day: "Day"
   biome:
