@@ -100,6 +100,20 @@ class RGB:
 BIOME_COLOURS = {
     "forest":   RGB(60, 100, 50),     # deep forest canopy
     "mountain": RGB(125, 110, 100),   # warm stone grey
+    # Added alongside the Biome enum expansion (M-G.1). Colours
+    # calibrated against the five full-palette biomes so the
+    # generated tiles sit in the same saturation band:
+    #   hills  -- olive-sage, between greenlands and drylands,
+    #             pulled toward green.
+    #   marsh  -- murky wet-grass, darker than greenlands but
+    #             distinctly green vs. the olive deadlands
+    #             (80, 80, 64).
+    #   swamp  -- shadowed wetland, darker than forest with a
+    #             touch less saturation so the two read as
+    #             related but distinct on the map.
+    "hills":    RGB(150, 160, 95),
+    "marsh":    RGB(95, 125, 85),
+    "swamp":    RGB(55, 72, 50),
 }
 
 # Background dither: per-pixel random offset (signed, uniform)
