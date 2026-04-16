@@ -104,6 +104,12 @@ const HexMap = {
   _playerPx: null,
   _arrowsVisible: false,
 
+  /** True while the pointer is over one of the arrow buttons.
+   * Prevents the container's mouseleave from hiding the ring
+   * mid-hover (the button captures pointer events so the
+   * container thinks the cursor left it). */
+  _pointerOnArrow: false,
+
   /** Scroll the player into view exactly once per hex-mode
    * session so the overland doesn't open with the player off to
    * one corner. Re-armed when the view leaves and returns. */
@@ -188,6 +194,21 @@ const HexMap = {
           data: [d.dq, d.dr],
         });
       });
+      // While the pointer is on an arrow the button itself is
+      // the target and the container's mousemove/mouseleave no
+      // longer fire. Force the ring to stay visible through the
+      // click.
+      btn.addEventListener("mouseenter", () => {
+        this._pointerOnArrow = true;
+        this._setArrowsVisible(true);
+      });
+      btn.addEventListener("mouseleave", () => {
+        this._pointerOnArrow = false;
+        // Re-evaluate on the next container mousemove; if the
+        // cursor lands back in the canvas area the proximity
+        // check will decide. If it goes outside the container
+        // entirely, the container's mouseleave below hides.
+      });
       hud.appendChild(btn);
       return btn;
     });
@@ -207,6 +228,9 @@ const HexMap = {
       this._setArrowsVisible(near);
     });
     container.addEventListener("mouseleave", () => {
+      // Keep the ring up while the cursor is hovering one of
+      // the arrow buttons -- that counts as "near".
+      if (this._pointerOnArrow) return;
       this._setArrowsVisible(false);
     });
     this._arrows = arrows;
