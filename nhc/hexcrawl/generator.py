@@ -309,6 +309,180 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
 # (M-G.2). Re-exported under the original private names so any
 # external caller that imports them keeps working.
 from nhc.hexcrawl._features import (  # noqa: E402
+    FeaturePlacementError,  # noqa: F401
     pick_hub as _pick_hub,  # noqa: F401
     place_dungeons as _place_dungeons,  # noqa: F401
 )
+from nhc.hexcrawl._features import place_features as _place_features  # noqa: E402,F811
+
+
+# ---------------------------------------------------------------------------
+# Noise-based generator (perlin_regions, M-G.4)
+# ---------------------------------------------------------------------------
+
+
+# Whittaker-style lookup. Two simplex fields (elevation e,
+# moisture m), both rescaled from raw simplex into roughly
+# [-1, 1], pick a biome. Ordering matters: bands are evaluated
+# top-down, first match wins. Callers can override the table
+# per-pack in a future patch; hardcoded constants today.
+#
+# Rough reading:
+#   e >= 0.70              -> MOUNTAIN (peaks)
+#   0.45..0.70 + m >= 0.2  -> HILLS (wet highlands)
+#   0.20..0.45 + m >= 0.5  -> FOREST (wet midlands)
+#   0.20..0.45 + m mid     -> GREENLANDS (temperate plains)
+#   0.20..0.45 + m dry     -> DRYLANDS (arid midlands)
+#   -0.10..0.20 + m v.wet  -> SWAMP (dense wetlands)
+#   -0.10..0.20 + m wet    -> MARSH (shallow wetlands)
+#   -0.10..0.20 + m normal -> SANDLANDS (coastal sand)
+#   -0.10..0.20 + m dry    -> DEADLANDS (barren plains)
+#   e < -0.10              -> ICELANDS (low-elevation chill)
+def _biome_from_em(e: float, m: float) -> Biome:
+    if e >= 0.70:
+        return Biome.MOUNTAIN
+    if e >= 0.45:
+        if m >= 0.20:
+            return Biome.HILLS
+        # High ground with low moisture -- treat as mountain's
+        # dry foothills (drylands reads better than hills here).
+        return Biome.DRYLANDS
+    if e >= 0.20:
+        if m >= 0.50:
+            return Biome.FOREST
+        if m >= -0.20:
+            return Biome.GREENLANDS
+        return Biome.DRYLANDS
+    if e >= -0.10:
+        if m >= 0.60:
+            return Biome.SWAMP
+        if m >= 0.20:
+            return Biome.MARSH
+        if m >= -0.30:
+            return Biome.SANDLANDS
+        return Biome.DEADLANDS
+    return Biome.ICELANDS
+
+
+# Essential biomes must appear on every seed so feature
+# placement doesn't choke (hub needs GREENLANDS / DRYLANDS;
+# dungeons need MOUNTAIN for caves; wonders need ICELANDS /
+# DEADLANDS). The repair pass converts the rarest cells of a
+# thematically-adjacent biome if an essential is missing.
+_ESSENTIAL_FALLBACKS: tuple[tuple[Biome, tuple[Biome, ...]], ...] = (
+    # (missing_essential, donor_biomes_to_convert_from_if_short)
+    (Biome.GREENLANDS, (Biome.DRYLANDS, Biome.FOREST)),
+    (Biome.MOUNTAIN, (Biome.HILLS, Biome.DRYLANDS)),
+    (Biome.FOREST, (Biome.GREENLANDS, Biome.SWAMP)),
+    (Biome.ICELANDS, (Biome.DEADLANDS, Biome.MARSH)),
+)
+
+
+def _repair_essentials(
+    cells: dict[HexCoord, HexCell],
+    hexes_by_biome: dict[Biome, list[HexCoord]],
+    rng: random.Random,
+) -> None:
+    """If any essential biome is missing, convert one cell from
+    a donor biome so ``place_features`` can still succeed."""
+    for essential, donors in _ESSENTIAL_FALLBACKS:
+        if hexes_by_biome[essential]:
+            continue
+        # Find a donor that actually has cells to spare.
+        for donor in donors:
+            if len(hexes_by_biome[donor]) > 1:
+                # Pull a random cell; keep the donor non-empty
+                # so its own essential guarantee survives.
+                victim = rng.choice(hexes_by_biome[donor])
+                cells[victim].biome = essential
+                hexes_by_biome[donor].remove(victim)
+                hexes_by_biome[essential].append(victim)
+                break
+
+
+def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
+    from nhc.hexcrawl.noise import SimplexNoise
+
+    mp = pack.map
+    # Two independent simplex fields driven from the same seed;
+    # offset by a constant so elevation and moisture bands don't
+    # align identically across the map.
+    elev_noise = SimplexNoise(seed=rng.randrange(1 << 30))
+    moist_noise = SimplexNoise(seed=rng.randrange(1 << 30))
+
+    cells: dict[HexCoord, HexCell] = {}
+    hexes_by_biome: dict[Biome, list[HexCoord]] = {b: [] for b in Biome}
+    e_scale = mp.elevation_scale
+    m_scale = mp.moisture_scale
+    octaves = mp.octaves
+
+    # Iterate every valid in-shape hex, sample elevation +
+    # moisture, map to biome.
+    for q in range(mp.width):
+        for r in range(-(mp.width - 1), mp.height):
+            if not _valid_shape_hex(q, r, mp.width, mp.height):
+                continue
+            # Axial (q, r) -> planar (x, y) for noise sampling.
+            # A simple linear map is fine: simplex produces
+            # hex-friendly output at any coord.
+            fx = q * e_scale
+            fy = (r + q * 0.5) * e_scale  # compensate odd-q shift
+            e = elev_noise.fractal(
+                fx, fy, octaves=octaves,
+            )
+            mx = q * m_scale
+            my = (r + q * 0.5) * m_scale
+            m = moist_noise.fractal(
+                mx, my, octaves=octaves,
+            )
+            biome = _biome_from_em(e, m)
+            coord = HexCoord(q, r)
+            cells[coord] = HexCell(coord=coord, biome=biome)
+            hexes_by_biome[biome].append(coord)
+
+    # Repair pass: guarantee every essential biome exists so the
+    # feature placer doesn't need to retry a fresh seed.
+    _repair_essentials(cells, hexes_by_biome, rng)
+
+    hub = _place_features(cells, hexes_by_biome, pack, rng)
+
+    world = HexWorld(
+        pack_id=pack.id,
+        seed=rng.randrange(1 << 30),
+        width=mp.width,
+        height=mp.height,
+        biome_costs=dict(pack.biome_costs),
+    )
+    for cell in cells.values():
+        world.set_cell(cell)
+    world.last_hub = hub
+    return world
+
+
+def generate_perlin_world(
+    seed: int,
+    pack: PackMeta,
+    max_attempts: int = 10,
+) -> HexWorld:
+    """Generate a noise-based :class:`HexWorld`.
+
+    Uses elevation + moisture simplex fields with a Whittaker-
+    style biome lookup, followed by the shared
+    :func:`nhc.hexcrawl._features.place_features` pipeline so
+    output shape is identical to the BSP generator.
+
+    The retry loop guards against feature-placement failures
+    the repair pass can't cover on its own (e.g. a seed where
+    fresh rolls keep landing too many mountain hexes and
+    starve the village pool).
+    """
+    rng = random.Random(seed)
+    last_err: str | None = None
+    for _ in range(max_attempts):
+        try:
+            return _attempt_perlin(rng, pack)
+        except FeaturePlacementError as exc:
+            last_err = str(exc)
+    raise GeneratorRetryError(
+        f"exhausted {max_attempts} attempts; last error: {last_err}"
+    )

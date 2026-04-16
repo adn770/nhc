@@ -43,7 +43,14 @@ DEFAULT_BIOME_COSTS: dict[Biome, int] = {
 }
 
 
-KNOWN_GENERATORS: frozenset[str] = frozenset({"bsp_regions"})
+KNOWN_GENERATORS: frozenset[str] = frozenset({
+    "bsp_regions",
+    # M-G.4: elevation + moisture simplex fields, Whittaker-
+    # style biome lookup. Same HexWorld output shape as BSP;
+    # the dispatcher in Game._init_hex_world picks which one
+    # to call.
+    "perlin_regions",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -65,9 +72,16 @@ class MapParams:
     generator: str
     width: int
     height: int
+    # BSP-specific knobs; ignored when generator is perlin_regions.
     num_regions: int = 5
     region_min: int = 6
     region_max: int = 16
+    # Perlin-specific knobs; ignored when generator is
+    # bsp_regions. Defaults tuned for the 25x16 testland-perlin
+    # shape -- smaller elevation_scale = larger continents.
+    elevation_scale: float = 0.08
+    moisture_scale: float = 0.12
+    octaves: int = 4
 
 
 @dataclass
@@ -175,6 +189,9 @@ def _parse_map(raw: dict[str, Any]) -> MapParams:
         num_regions=int(block.get("num_regions", 5)),
         region_min=int(block.get("region_min", 6)),
         region_max=int(block.get("region_max", 16)),
+        elevation_scale=float(block.get("elevation_scale", 0.08)),
+        moisture_scale=float(block.get("moisture_scale", 0.12)),
+        octaves=int(block.get("octaves", 4)),
     )
 
 

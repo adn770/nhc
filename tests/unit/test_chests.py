@@ -34,6 +34,12 @@ def _make_world_with_chest(
 ) -> tuple[World, int, int, Level]:
     """Create world with a player adjacent to a chest."""
     i18n_init("en")
+    # Ensure the item registry is populated so generate_loot can
+    # look up "potion_healing" / "gold". Without this the test
+    # passed in isolation (a sibling class's test happened to
+    # call discover_all first) but failed under pytest-xdist
+    # worksteal whenever this test landed first on a worker.
+    EntityRegistry.discover_all()
     set_seed(42)
     world = World()
     level = _make_level()

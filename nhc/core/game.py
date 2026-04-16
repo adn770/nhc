@@ -73,7 +73,10 @@ from nhc.entities.components import (
 from nhc.core.actions._hex_movement import MoveHexAction
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.generator import generate_test_world
+from nhc.hexcrawl.generator import (
+    generate_perlin_world,
+    generate_test_world,
+)
 from nhc.hexcrawl.mode import GameMode
 from nhc.hexcrawl.model import HexFeatureType, HexWorld
 from nhc.hexcrawl.pack import load_pack
@@ -1026,7 +1029,18 @@ class Game:
             / "content" / "testland" / "pack.yaml"
         )
         pack = load_pack(pack_path)
-        self.hex_world = generate_test_world(seed=self.seed, pack=pack)
+        # Dispatcher: pick the generator named in the pack.
+        # Unknown generators are rejected at pack-load time
+        # (KNOWN_GENERATORS) so we only need to handle the
+        # currently-shipped set here.
+        if pack.map.generator == "perlin_regions":
+            self.hex_world = generate_perlin_world(
+                seed=self.seed, pack=pack,
+            )
+        else:  # bsp_regions (default)
+            self.hex_world = generate_test_world(
+                seed=self.seed, pack=pack,
+            )
         self._create_hex_player()
 
         if self.world_mode is GameMode.HEX_EASY:
