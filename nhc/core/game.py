@@ -368,6 +368,7 @@ class Game:
         if cache_key in self._floor_cache:
             level, _ = self._floor_cache[cache_key]
             self.level = level
+            self._place_player_at_stairs_up()
             return True
 
         from nhc.hexcrawl.seed import dungeon_seed
@@ -388,7 +389,30 @@ class Game:
         # Cache the freshly generated floor under the (q, r, depth)
         # key so re-entry skips regeneration.
         self._floor_cache[cache_key] = (self.level, {})
+        self._place_player_at_stairs_up()
         return True
+
+    def _place_player_at_stairs_up(self) -> None:
+        """Move the player's Position onto the current level's
+        stairs_up tile (or (1, 1) as a fallback)."""
+        if self.level is None:
+            return
+        px, py = 1, 1
+        for y in range(self.level.height):
+            row_found = False
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile and tile.feature == "stairs_up":
+                    px, py = x, y
+                    row_found = True
+                    break
+            if row_found:
+                break
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x = px
+            pos.y = py
+            pos.level_id = self.level.id
 
     async def exit_dungeon_to_hex(self) -> bool:
         """Pop back to the overland after a dungeon visit.
@@ -396,11 +420,18 @@ class Game:
         Returns ``True`` when there was an active dungeon to leave;
         ``False`` (no-op) otherwise. The current Level is dropped
         from ``game.level`` but stays in the floor cache so re-entry
-        is instantaneous.
+        is instantaneous. The player's Position is moved back to the
+        overland sentinel so any stray dungeon system that consults
+        it sees "out of bounds".
         """
         if self.level is None or not self.world_mode.is_hex:
             return False
         self.level = None
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x = -1
+            pos.y = -1
+            pos.level_id = "overland"
         return True
 
     async def apply_hex_step(self, target: HexCoord) -> bool:
