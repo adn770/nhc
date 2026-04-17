@@ -116,6 +116,9 @@ class RiverParams:
     source_elevation_min: float = 0.65
     flatness_window: int = 5
     flatness_threshold: float = 0.02
+    arid_biomes: frozenset[Biome] = frozenset({
+        Biome.DRYLANDS, Biome.SANDLANDS,
+    })
 
 
 @dataclass
