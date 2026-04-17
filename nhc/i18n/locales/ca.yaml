@@ -828,6 +828,7 @@ ui:
 creature:
   goblin:
     name: "goblin"
+    plural: "gòblins"
     gender: "m"
     short: "un goblin grunyidor"
     long: >-
@@ -835,6 +836,7 @@ creature:
       i una fulla rovellada.
   skeleton:
     name: "esquelet"
+    plural: "esquelets"
     gender: "m"
     short: "un esquelet sorollós"
     long: >-
@@ -842,6 +844,7 @@ creature:
       empunyant una fulla mellada.
   giant_rat:
     name: "rata gegant"
+    plural: "rates gegants"
     gender: "f"
     short: "una rata gegant"
     long: >-
@@ -856,6 +859,7 @@ creature:
       Gruny agressivament.
   zombie:
     name: "zombie"
+    plural: "zombis"
     gender: "m"
     short: "un zombie arrossegat"
     long: >-
@@ -863,6 +867,7 @@ creature:
       La pudor és aclaparadora.
   gnoll:
     name: "gnoll"
+    plural: "gnolls"
     gender: "m"
     short: "un gnoll cap d'hiena"
     long: >-
@@ -870,6 +875,7 @@ creature:
       Riu maníacament mentre es prepara per atacar.
   giant_bee:
     name: "abella gegant"
+    plural: "abelles gegants"
     gender: "f"
     short: "una abella gegant"
     long: >-
@@ -898,6 +904,7 @@ creature:
       No li miris als ulls o et petrificarà.
   kobold:
     name: "kobold"
+    plural: "cobolds"
     gender: "m"
     short: "un kobold espavilat"
     long: >-
@@ -905,6 +912,7 @@ creature:
       Xiscla i s'atansa amb una fulla rovellada.
   hobgoblin:
     name: "hobgoblin"
+    plural: "hobgòblins"
     gender: "m"
     short: "un soldat hobgoblin"
     long: >-
@@ -926,6 +934,7 @@ creature:
       Porta un tronc d'arbre com a maça.
   bandit:
     name: "bandoler"
+    plural: "bandits"
     gender: "m"
     short: "un bandoler encaputxat"
     long: >-
@@ -940,6 +949,7 @@ creature:
       Caça acompanyat d'orcs i gruny amb veu gutural.
   wolf:
     name: "llop"
+    plural: "llops"
     gender: "m"
     short: "un llop gris"
     long: >-
@@ -975,6 +985,7 @@ creature:
       El seu rugit fa tremolar les parets de la masmorra.
   frogman:
     name: "granyotic"
+    plural: "homes granota"
     gender: "m"
     short: "un guerrer granyotic"
     long: >-
@@ -1003,6 +1014,7 @@ creature:
       Dues caps discuteixen des de quin costat atacar.
   ghoul:
     name: "gul"
+    plural: "guls"
     gender: "m"
     short: "un fètid gul"
     long: >-
@@ -1010,6 +1022,7 @@ creature:
       drenen l'espurna vital dels vivents.
   giant_scorpion:
     name: "escorpí gegant"
+    plural: "escorpins gegants"
     gender: "m"
     short: "un escorpí gegant"
     long: >-
@@ -1017,6 +1030,7 @@ creature:
       i una cua amb agulló que degota verí potent.
   giant_centipede:
     name: "centpeus gegant"
+    plural: "centpeus gegants"
     gender: "m"
     short: "un centpeus gegant"
     long: >-
@@ -1045,6 +1059,7 @@ creature:
       Un cop perfora la carn, drena la sang a velocitat aterridora.
   giant_leech:
     name: "sangonera gegant"
+    plural: "sangoneres gegants"
     gender: "f"
     short: "una sangonera gegant"
     long: >-
@@ -1073,6 +1088,7 @@ creature:
       Secreta un verí adormir que deixa les preses indefenses.
   winter_wolf:
     name: "llop d'hivern"
+    plural: "llops d'hivern"
     gender: "m"
     short: "un llop d'hivern"
     long: >-
@@ -1412,7 +1428,8 @@ death:
 
 # ── Encounter prompt strings ───────────────────────────────────────────
 encounter:
-  prompt: "Et topes amb {count} criatura(es) al(s) {biome}. Què fas?"
+  prompt: "Et topes amb {creatures} al {biome}. Què fas?"
+  and: "i"
   fight: "Lluitar"
   flee: "Fugir"
   talk: "Parlamentar"

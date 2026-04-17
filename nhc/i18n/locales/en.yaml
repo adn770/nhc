@@ -810,18 +810,21 @@ ui:
 creature:
   goblin:
     name: "Goblin"
+    plural: "Goblins"
     short: "a snarling goblin"
     long: >-
       A wiry, green-skinned creature with yellowed fangs
       and a rusty blade.
   skeleton:
     name: "Skeleton"
+    plural: "Skeletons"
     short: "a rattling skeleton"
     long: >-
       Bleached bones held together by dark magic,
       wielding a notched blade.
   giant_rat:
     name: "Giant Rat"
+    plural: "Giant Rats"
     short: "a giant rat"
     long: >-
       A mangy rat the size of a dog, its eyes gleaming
@@ -834,18 +837,21 @@ creature:
       It grunts aggressively.
   zombie:
     name: "Zombie"
+    plural: "Zombies"
     short: "a shambling zombie"
     long: >-
       A decomposing corpse that refuses to stay dead.
       The stench is overwhelming.
   gnoll:
     name: "Gnoll"
+    plural: "Gnolls"
     short: "a hyena-headed gnoll"
     long: >-
       A hulking humanoid with the head of a hyena.
       It laughs maniacally as it prepares to strike.
   giant_bee:
     name: "Giant Bee"
+    plural: "Giant Bees"
     short: "a giant bee"
     long: >-
       A bee the size of a house cat, its stinger
@@ -870,12 +876,14 @@ creature:
       Do not meet its gaze or face petrification.
   kobold:
     name: "Kobold"
+    plural: "Kobolds"
     short: "a scrappy kobold"
     long: >-
       A tiny, dog-snouted humanoid dressed in scraps of leather.
       It chatters shrilly and lunges with a rusty blade.
   hobgoblin:
     name: "Hobgoblin"
+    plural: "Hobgoblins"
     short: "a hobgoblin soldier"
     long: >-
       A large, red-skinned goblinoid with military bearing.
@@ -894,6 +902,7 @@ creature:
       It carries a tree trunk as a club.
   bandit:
     name: "Bandit"
+    plural: "Bandits"
     short: "a hooded bandit"
     long: >-
       A human outlaw with a scarred face and hungry eyes.
@@ -906,6 +915,7 @@ creature:
       It hunts alongside orcs and speaks in guttural growls.
   wolf:
     name: "Wolf"
+    plural: "Wolves"
     short: "a grey wolf"
     long: >-
       A lean grey wolf that circles warily before lunging.
@@ -936,6 +946,7 @@ creature:
       Its roar shakes the walls of the dungeon.
   frogman:
     name: "Frogman"
+    plural: "Frogmen"
     short: "a frogman warrior"
     long: >-
       A humanoid with mottled green skin, bulging eyes, and
@@ -960,18 +971,21 @@ creature:
       Two heads argue over which direction to attack from.
   ghoul:
     name: "Ghoul"
+    plural: "Ghouls"
     short: "a foul ghoul"
     long: >-
       An undead horror that reeks of the grave. Its clawed touch
       drains the vital spark of the living.
   giant_scorpion:
     name: "Giant Scorpion"
+    plural: "Giant Scorpions"
     short: "a giant scorpion"
     long: >-
       An arachnid the size of a horse with massive pincers and a
       barbed tail dripping with potent venom.
   giant_centipede:
     name: "Giant Centipede"
+    plural: "Giant Centipedes"
     short: "a giant centipede"
     long: >-
       A segmented horror two feet long with hundreds of legs and
@@ -996,6 +1010,7 @@ creature:
       Once it pierces flesh it drains blood with terrifying speed.
   giant_leech:
     name: "Giant Leech"
+    plural: "Giant Leeches"
     short: "a giant leech"
     long: >-
       A bloated, rubbery worm nearly three feet long. It attaches
@@ -1020,6 +1035,7 @@ creature:
       a numbing venom that leaves prey helpless.
   winter_wolf:
     name: "Winter Wolf"
+    plural: "Winter Wolves"
     short: "a winter wolf"
     long: >-
       A great white wolf from the frozen north. It exhales arctic
@@ -1307,7 +1323,8 @@ death:
 
 
 encounter:
-  prompt: "You run into {count} creature(s) in the {biome}. What do you do?"
+  prompt: "You run into {creatures} in the {biome}. What do you do?"
+  and: "and"
   fight: "Fight"
   flee: "Flee"
   talk: "Talk"

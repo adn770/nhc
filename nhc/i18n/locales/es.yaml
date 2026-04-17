@@ -810,18 +810,24 @@ ui:
 creature:
   goblin:
     name: "Goblin"
+    plural: "Goblins"
+    gender: "m"
     short: "un goblin gruñón"
     long: >-
       Una criatura delgada de piel verde con colmillos amarillentos
       y una hoja oxidada.
   skeleton:
     name: "Esqueleto"
+    plural: "Esqueletos"
+    gender: "m"
     short: "un esqueleto ruidoso"
     long: >-
       Huesos blanqueados sostenidos por magia oscura,
       empuñando una hoja mellada.
   giant_rat:
     name: "Rata Gigante"
+    plural: "Ratas Gigantes"
+    gender: "f"
     short: "una rata gigante"
     long: >-
       Una rata sarnosa del tamaño de un perro, con ojos
@@ -834,18 +840,24 @@ creature:
       Gruñe agresivamente.
   zombie:
     name: "Zombi"
+    plural: "Zombis"
+    gender: "m"
     short: "un zombi tambaleante"
     long: >-
       Un cadáver en descomposición que se niega a quedarse muerto.
       El hedor es abrumador.
   gnoll:
     name: "Gnoll"
+    plural: "Gnolls"
+    gender: "m"
     short: "un gnoll con cabeza de hiena"
     long: >-
       Un humanoide corpulento con cabeza de hiena.
       Ríe maniacamente mientras se prepara para atacar.
   giant_bee:
     name: "Abeja Gigante"
+    plural: "Abejas Gigantes"
+    gender: "f"
     short: "una abeja gigante"
     long: >-
       Una abeja del tamaño de un gato, con el aguijón
@@ -870,12 +882,16 @@ creature:
       No le mires a los ojos o te petrificará.
   kobold:
     name: "Kobold"
+    plural: "Kobolds"
+    gender: "m"
     short: "un kobold peleón"
     long: >-
       Un humanoide diminuto con hocico de perro vestido con retazos de cuero.
       Chilla y se lanza con una hoja oxidada.
   hobgoblin:
     name: "Hobgoblin"
+    plural: "Hobgoblins"
+    gender: "m"
     short: "un soldado hobgoblin"
     long: >-
       Un goblinoide grande de piel rojiza con porte militar.
@@ -894,6 +910,8 @@ creature:
       Porta un tronco de árbol como maza.
   bandit:
     name: "Bandido"
+    plural: "Bandidos"
+    gender: "m"
     short: "un bandido encapuchado"
     long: >-
       Un proscrito humano con cara marcada y ojos hambrientos.
@@ -906,6 +924,8 @@ creature:
       Caza junto a orcos y gruñe con voz gutural.
   wolf:
     name: "Lobo"
+    plural: "Lobos"
+    gender: "m"
     short: "un lobo gris"
     long: >-
       Un lobo gris y ágil que rodea cautelosamente antes de lanzarse.
@@ -936,6 +956,8 @@ creature:
       Su rugido hace temblar las paredes de la mazmorra.
   frogman:
     name: "Hombre Rana"
+    plural: "Hombres Rana"
+    gender: "m"
     short: "un guerrero hombre rana"
     long: >-
       Un humanoide con piel verde moteada, ojos saltones y
@@ -960,18 +982,24 @@ creature:
       Dos cabezas discuten desde qué lado atacar.
   ghoul:
     name: "Gul"
+    plural: "Gules"
+    gender: "m"
     short: "un fétido gul"
     long: >-
       Un horror no muerto que apesta a tumba. Sus garras
       drenan la chispa vital de los vivos.
   giant_scorpion:
     name: "Escorpión Gigante"
+    plural: "Escorpiones Gigantes"
+    gender: "m"
     short: "un escorpión gigante"
     long: >-
       Un arácnido del tamaño de un caballo con enormes pinzas y
       una cola con aguijón chorreando potente veneno.
   giant_centipede:
     name: "Ciempiés Gigante"
+    plural: "Ciempiés Gigantes"
+    gender: "m"
     short: "un ciempiés gigante"
     long: >-
       Un horror segmentado de sesenta centímetros con cientos de
@@ -996,6 +1024,8 @@ creature:
       Una vez perfora la carne, drena la sangre a velocidad aterradora.
   giant_leech:
     name: "Sanguijuela Gigante"
+    plural: "Sanguijuelas Gigantes"
+    gender: "f"
     short: "una sanguijuela gigante"
     long: >-
       Un gusano gordo y gomoso de casi un metro de largo. Se aferra
@@ -1020,6 +1050,8 @@ creature:
       Segrega un veneno adormecedor que deja a las presas indefensas.
   winter_wolf:
     name: "Lobo de Invierno"
+    plural: "Lobos Invernales"
+    gender: "m"
     short: "un lobo de invierno"
     long: >-
       Un gran lobo blanco del norte helado. Exhala hielo ártico
@@ -1322,7 +1354,8 @@ death:
 
 # ── Encounter prompt strings ───────────────────────────────────────────
 encounter:
-  prompt: "Te topas con {count} criatura(s) en el(os) {biome}. ¿Qué haces?"
+  prompt: "Te topas con {creatures} en el {biome}. ¿Qué haces?"
+  and: "y"
   fight: "Luchar"
   flee: "Huir"
   talk: "Parlamentar"

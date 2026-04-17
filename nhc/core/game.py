@@ -2448,12 +2448,18 @@ class Game:
             (EncounterChoice.FLEE.value, t("encounter.flee")),
             (EncounterChoice.TALK.value, t("encounter.talk")),
         ]
-        # Describe the foes in the prompt title so the player
-        # has context for the pick.
+        # Describe the foes in natural language so the prompt
+        # reads "You run into 2 goblins and a kobold" with
+        # localized plural + gender + articles.
+        from nhc.hexcrawl.encounter_text import (
+            format_encounter_creatures,
+        )
+        creatures_text = format_encounter_creatures(enc.creatures)
+        biome_label = t(f"hex.biome.{enc.biome.value}")
         title = t(
             "encounter.prompt",
-            biome=enc.biome.value,
-            count=len(enc.creatures),
+            creatures=creatures_text,
+            biome=biome_label,
         )
         choice = prompt(title, options)
         if choice is None:
