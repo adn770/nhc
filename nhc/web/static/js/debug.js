@@ -60,10 +60,8 @@ const DebugPanel = {
     if (this.debugCanvas) {
       this.debugCtx = this.debugCanvas.getContext("2d");
     }
-    // Reveal the god-mode toolbar buttons (always created hidden).
-    if (typeof Input !== "undefined") {
-      Input.showGodModeButtons();
-    }
+    // God-mode toolbar buttons are created by Input._initToolbar
+    // which runs before this. We only init canvas refs here.
     this._onEsc = (e) => {
       if (e.key === "Escape" && this.visible) this._hidePanel();
     };

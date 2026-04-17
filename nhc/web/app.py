@@ -318,6 +318,7 @@ def create_app(
             return resp
         return render_template(
             "index.html",
+            god_mode=config.god_mode,
             welcome_labels=_welcome_labels(""),
         )
 

@@ -8,6 +8,13 @@ const NHC = {
 
   init() {
     UI.init();
+    // Activate god-mode debug tools from the flag embedded in the
+    // HTML by the server (player registry or --god CLI flag). Done
+    // before Input.init so the first toolbar build includes the
+    // god-mode buttons.
+    if (window.NHC_GOD_MODE) {
+      DebugPanel.enabled = true;
+    }
     Input.init();
     TTS.initWelcome();
 
@@ -224,9 +231,8 @@ const NHC = {
       })
       .catch(e => console.warn("Failed to load labels:", e));
 
-    // Init debug panel if god mode
-    if (data.god_mode) {
-      DebugPanel.enabled = true;
+    // Init debug panel canvases now that DOM is visible.
+    if (DebugPanel.enabled) {
       DebugPanel.init();
     }
 
