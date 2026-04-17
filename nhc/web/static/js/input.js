@@ -228,7 +228,7 @@ const Input = {
     });
 
     // ── Right-aligned utility group ──
-    // margin-left:auto on the first item pushes the rest right.
+    // margin-left:auto on zoom-out (via CSS) pushes the rest right.
 
     // Zoom
     const zoomOut = this._toolbarBtn(
@@ -242,29 +242,6 @@ const Input = {
       () => GameMap.zoom(1),
     );
     zone.appendChild(zoomIn);
-
-    // God mode (debug bundle + panel toggle)
-    const godMode = typeof DebugPanel !== "undefined"
-      && DebugPanel.enabled;
-    if (godMode) {
-      const dlBtn = this._toolbarBtn(
-        "\uD83D\uDCBE", "debug-bundle-btn", null,
-        "Download Debug Bundle",
-        () => {
-          const sid = NHC.sessionId;
-          if (sid) window.location.href =
-            `/api/game/${sid}/export/bundle`;
-        },
-      );
-      zone.appendChild(dlBtn);
-
-      const gearBtn = this._toolbarBtn(
-        "\u2699", "god-mode-btn", null,
-        "Debug Panel (God Mode)",
-        () => DebugPanel._togglePanel(),
-      );
-      zone.appendChild(gearBtn);
-    }
 
     // TTS toggle (hidden until TTS.init checks availability)
     const ttsBtn = this._toolbarBtn(
@@ -294,7 +271,44 @@ const Input = {
       "Restart Game", () => NHC.restartGame(),
     );
     zone.appendChild(restart);
-    this._toolbarButtons.push(restart);
+
+    // God mode — always created, hidden by default. Shown when
+    // DebugPanel.init() calls Input.showGodModeButtons().
+    const dlBtn = this._toolbarBtn(
+      "\uD83D\uDCBE", "debug-bundle-btn", null,
+      "Download Debug Bundle",
+      () => {
+        const sid = NHC.sessionId;
+        if (sid) window.location.href =
+          `/api/game/${sid}/export/bundle`;
+      },
+    );
+    dlBtn.classList.add("god-mode-only", "hidden");
+    zone.appendChild(dlBtn);
+
+    const gearBtn = this._toolbarBtn(
+      "\u2699", "god-mode-btn", null,
+      "Debug Panel (God Mode)",
+      () => {
+        if (typeof DebugPanel !== "undefined") {
+          DebugPanel._togglePanel();
+        }
+      },
+    );
+    gearBtn.classList.add("god-mode-only", "hidden");
+    zone.appendChild(gearBtn);
+
+    // If god mode is already active, reveal them immediately.
+    if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
+      this.showGodModeButtons();
+    }
+  },
+
+  /** Reveal the god-mode toolbar buttons. Called once from
+   * DebugPanel.init() when god mode is confirmed. */
+  showGodModeButtons() {
+    document.querySelectorAll("#toolbar-zone .god-mode-only")
+      .forEach(el => el.classList.remove("hidden"));
   },
 
   /** Create a toolbar button with consistent styling. */
