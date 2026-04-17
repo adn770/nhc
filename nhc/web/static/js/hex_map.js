@@ -461,8 +461,11 @@ const HexMap = {
    * same as the last call -- assigning canvas.width even to the
    * same value clears the canvas. */
   resize(pixelW, pixelH) {
-    const px = Math.ceil(pixelW + HEX_SIZE + 2 * HEX_MARGIN);
-    const py = Math.ceil(pixelH + HEX_SIZE + 2 * HEX_MARGIN);
+    // pixelW/pixelH is the extent between the leftmost and
+    // rightmost hex centres. Each side needs HEX_SIZE (hex
+    // radius) plus HEX_MARGIN padding.
+    const px = Math.ceil(pixelW + 2 * HEX_SIZE + 2 * HEX_MARGIN);
+    const py = Math.ceil(pixelH + 2 * HEX_SIZE + 2 * HEX_MARGIN);
     if (this._sizedTo
         && this._sizedTo.px === px
         && this._sizedTo.py === py) {
