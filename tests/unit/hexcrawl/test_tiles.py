@@ -1,0 +1,143 @@
+"""Tests for backend tile slot selection.
+
+The tiles module is the single source of truth for which tile
+PNG each hex displays. It replaces the frontend-side selection
+that previously lived in hex_map.js.
+"""
+
+from __future__ import annotations
+
+from nhc.hexcrawl.tiles import (
+    BIOME_BASE_SLOTS,
+    DENSE_SLOTS,
+    SLOT_NAME,
+    assign_tile_slot,
+    feature_variants,
+    hex_hash,
+    weighted_slot,
+)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic hash
+# ---------------------------------------------------------------------------
+
+
+def test_hex_hash_deterministic() -> None:
+    assert hex_hash(3, 5) == hex_hash(3, 5)
+
+
+def test_hex_hash_varies_with_input() -> None:
+    assert hex_hash(0, 0) != hex_hash(1, 0)
+    assert hex_hash(0, 0) != hex_hash(0, 1)
+
+
+# ---------------------------------------------------------------------------
+# Weighted slot selection
+# ---------------------------------------------------------------------------
+
+
+def test_weighted_slot_deterministic() -> None:
+    pairs = [(3, 30), (6, 20), (25, 10)]
+    a = weighted_slot(5, 7, pairs)
+    b = weighted_slot(5, 7, pairs)
+    assert a == b
+
+
+def test_weighted_slot_returns_valid_slot() -> None:
+    pairs = [(3, 30), (6, 20), (25, 10)]
+    valid = {s for s, _ in pairs}
+    for q in range(10):
+        for r in range(10):
+            assert weighted_slot(q, r, pairs) in valid
+
+
+def test_weighted_slot_single_entry() -> None:
+    assert weighted_slot(0, 0, [(5, 1)]) == 5
+
+
+# ---------------------------------------------------------------------------
+# Feature variants
+# ---------------------------------------------------------------------------
+
+
+def test_feature_variants_base_only_for_non_extended() -> None:
+    """Non-extended biomes should only get base feature slots."""
+    variants = feature_variants("tower", "icelands")
+    assert variants == [13]  # base only, no ext slot 54
+
+
+def test_feature_variants_includes_ext_for_extended() -> None:
+    """Extended biomes should get base + ext feature slots."""
+    variants = feature_variants("tower", "forest")
+    assert 13 in variants
+    assert 54 in variants
+
+
+def test_feature_variants_unknown_returns_none() -> None:
+    assert feature_variants("nonexistent", "greenlands") is None
+
+
+# ---------------------------------------------------------------------------
+# assign_tile_slot
+# ---------------------------------------------------------------------------
+
+
+def test_assign_tile_slot_deterministic() -> None:
+    a = assign_tile_slot("greenlands", "none", 3, 5, False)
+    b = assign_tile_slot("greenlands", "none", 3, 5, False)
+    assert a == b
+
+
+def test_assign_tile_slot_returns_valid_slot_name() -> None:
+    slot = assign_tile_slot("forest", "none", 0, 0, False)
+    assert slot in SLOT_NAME
+
+
+def test_assign_tile_slot_excludes_dense_on_waterway() -> None:
+    """When has_waterway is True, dense canopy slots must not
+    be selected."""
+    dense_count = 0
+    for q in range(20):
+        for r in range(20):
+            slot = assign_tile_slot(
+                "greenlands", "none", q, r, has_waterway=True,
+            )
+            if slot in DENSE_SLOTS:
+                dense_count += 1
+    assert dense_count == 0, (
+        f"dense slots appeared {dense_count} times on waterway hexes"
+    )
+
+
+def test_assign_tile_slot_allows_dense_without_waterway() -> None:
+    """Without waterway, dense slots should appear sometimes."""
+    dense_count = 0
+    for q in range(20):
+        for r in range(20):
+            slot = assign_tile_slot(
+                "greenlands", "none", q, r, has_waterway=False,
+            )
+            if slot in DENSE_SLOTS:
+                dense_count += 1
+    assert dense_count > 0, "dense slots should appear sometimes"
+
+
+def test_assign_tile_slot_all_biomes() -> None:
+    """Every biome should produce a valid slot."""
+    for biome in BIOME_BASE_SLOTS:
+        slot = assign_tile_slot(biome, "none", 0, 0, False)
+        assert slot in SLOT_NAME, f"{biome} produced invalid slot {slot}"
+
+
+def test_assign_tile_slot_feature_overrides_base() -> None:
+    """When a feature is present, the slot should come from the
+    feature variant list, not the base slots."""
+    slot = assign_tile_slot("greenlands", "cave", 0, 0, False)
+    assert slot in (15, 49)  # cave base + ext
+
+
+def test_assign_tile_slot_water_ignores_feature() -> None:
+    """Water biome always uses slot 5 regardless of feature."""
+    slot = assign_tile_slot("water", "tower", 0, 0, False)
+    assert slot == 5
