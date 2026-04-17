@@ -281,3 +281,66 @@ def test_no_mountains_produces_no_rivers() -> None:
     rng = random.Random(42)
     rivers = generate_rivers(cells, rng, params)
     assert rivers == []
+
+
+# ---------------------------------------------------------------------------
+# Max-length enforcement
+# ---------------------------------------------------------------------------
+
+
+def test_river_respects_max_length() -> None:
+    """Rivers must not exceed max_length hexes."""
+    # Wide flat grid — river would meander forever without cap.
+    cells: dict[HexCoord, HexCell] = {}
+    for q in range(10):
+        for r in range(20):
+            if q == 5 and r == 0:
+                biome, elev = Biome.MOUNTAIN, 0.85
+            else:
+                biome = Biome.GREENLANDS
+                elev = 0.6 - 0.02 * r
+            cells[HexCoord(q, r)] = HexCell(
+                coord=HexCoord(q, r), biome=biome, elevation=elev,
+            )
+    params = RiverParams(max_rivers=1, min_length=2, max_length=10)
+    rng = random.Random(42)
+    rivers = generate_rivers(cells, rng, params)
+    for river in rivers:
+        assert len(river) <= 10, (
+            f"river exceeded max_length: {len(river)} > 10"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Flatness termination
+# ---------------------------------------------------------------------------
+
+
+def test_river_flatness_termination() -> None:
+    """River stops when terrain becomes flat for too long."""
+    # Mountain start, steep drop, then perfectly flat terrain.
+    cells: dict[HexCoord, HexCell] = {}
+    for r in range(15):
+        if r == 0:
+            biome, elev = Biome.MOUNTAIN, 0.85
+        elif r <= 3:
+            biome, elev = Biome.GREENLANDS, 0.85 - 0.15 * r
+        else:
+            # Perfectly flat from r=4 onward
+            biome, elev = Biome.GREENLANDS, 0.30
+        cells[HexCoord(0, r)] = HexCell(
+            coord=HexCoord(0, r), biome=biome, elevation=elev,
+        )
+    params = RiverParams(
+        max_rivers=1, min_length=2, max_length=50,
+        flatness_window=3, flatness_threshold=0.01,
+    )
+    rng = random.Random(42)
+    rivers = generate_rivers(cells, rng, params)
+    assert len(rivers) >= 1
+    # River should terminate in the flat zone, not reach the end.
+    river = rivers[0]
+    assert len(river) < 15, (
+        f"river should have stopped in flat terrain, "
+        f"but went {len(river)} hexes"
+    )

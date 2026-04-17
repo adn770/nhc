@@ -36,10 +36,13 @@ from nhc.hexcrawl.model import Biome, EdgeSegment, HexCell
 class RiverParams:
     """Pack-configurable knobs for river generation."""
 
-    max_rivers: int = 3
-    min_length: int = 4
+    max_rivers: int = 2
+    min_length: int = 6
+    max_length: int = 30
     bifurcation_chance: float = 0.05
     source_elevation_min: float = 0.65
+    flatness_window: int = 5
+    flatness_threshold: float = 0.02
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +117,19 @@ def _trace_river(
 
         if cells[current].biome is Biome.WATER:
             break
+
+        if len(path) >= params.max_length:
+            break
+
+        # Flatness termination: stop when the river has been
+        # flowing through terrain with negligible elevation drop.
+        if len(path) >= params.flatness_window:
+            recent_drop = (
+                cells[path[-params.flatness_window]].elevation
+                - cells[current].elevation
+            )
+            if recent_drop < params.flatness_threshold:
+                break
 
     return path
 

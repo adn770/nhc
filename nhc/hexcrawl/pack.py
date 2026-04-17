@@ -109,10 +109,13 @@ class FeatureTargets:
 
 @dataclass
 class RiverParams:
-    max_rivers: int = 3
-    min_length: int = 4
+    max_rivers: int = 2
+    min_length: int = 6
+    max_length: int = 30
     bifurcation_chance: float = 0.05
     source_elevation_min: float = 0.65
+    flatness_window: int = 5
+    flatness_threshold: float = 0.02
 
 
 @dataclass
@@ -272,11 +275,16 @@ def _parse_rivers(block: dict[str, Any] | None) -> RiverParams:
     if block is None:
         return RiverParams()
     return RiverParams(
-        max_rivers=int(block.get("max_rivers", 3)),
-        min_length=int(block.get("min_length", 4)),
+        max_rivers=int(block.get("max_rivers", 2)),
+        min_length=int(block.get("min_length", 6)),
+        max_length=int(block.get("max_length", 30)),
         bifurcation_chance=float(block.get("bifurcation_chance", 0.05)),
         source_elevation_min=float(
             block.get("source_elevation_min", 0.65),
+        ),
+        flatness_window=int(block.get("flatness_window", 5)),
+        flatness_threshold=float(
+            block.get("flatness_threshold", 0.02),
         ),
     )
 
