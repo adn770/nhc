@@ -316,10 +316,14 @@ const GameMap = {
     if (newLevel === this._zoomLevel) return;
     this._zoomLevel = newLevel;
     const scale = this._zoomSteps[newLevel];
-    const container = document.getElementById("map-container");
-    if (container) {
-      container.style.transformOrigin = "0 0";
-      container.style.transform = `scale(${scale})`;
+    // Apply zoom to whichever container is currently visible
+    // (dungeon map-container or hex-container).
+    for (const id of ["map-container", "hex-container"]) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.transformOrigin = "0 0";
+        el.style.transform = `scale(${scale})`;
+      }
     }
     this.scrollToPlayer();
   },

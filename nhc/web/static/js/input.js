@@ -258,6 +258,12 @@ const Input = {
     });
     zone.appendChild(ttsBtn);
 
+    // Re-create god-mode toolbar buttons if enabled — the toolbar
+    // rebuild above clears them.
+    if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
+      DebugPanel._createGearButton();
+    }
+
     // TTS volume slider (hidden until TTS enabled)
     const ttsVol = document.createElement("input");
     ttsVol.id = "tts-volume";
