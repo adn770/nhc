@@ -545,6 +545,19 @@ const HexMap = {
       this._punchHex(fogCtx, x, y);
     }
 
+    // River/path edge segments on the feature canvas (z-index 2).
+    // Drawn after tiles so they appear above terrain art but below
+    // entities and the HUD.
+    if (featCtx) {
+      for (const {cell} of placements) {
+        if (!cell.edges) continue;
+        const {x, y} = axialToPixel(cell.q, cell.r);
+        for (const seg of cell.edges) {
+          this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);
+        }
+      }
+    }
+
     // Player avatar (HUD) + direction arrow ring (HUD). Canvas
     // draws ABOVE are purely terrain + fog + labels; the avatar
     // and arrows are DOM-backed on the HUD layer so they don't
@@ -565,6 +578,68 @@ const HexMap = {
     // Status bar is now filled by UI.updateStatus via the
     // stats/stats_init WebSocket messages sent alongside
     // state_hex. No direct status-line writes needed here.
+  },
+
+  /** Edge midpoint for flat-top hex, indexed by NEIGHBOR_OFFSETS
+   * direction (0=N, 1=NE, 2=SE, 3=S, 4=SW, 5=NW). Returns {x, y}
+   * relative to hex centre. */
+  _edgeMidpoint(edgeIndex, size) {
+    const R = size;
+    const s3 = Math.sqrt(3);
+    const mids = [
+      [0, -R * s3 / 2],              // 0: N
+      [3 * R / 4, -R * s3 / 4],      // 1: NE
+      [3 * R / 4,  R * s3 / 4],      // 2: SE
+      [0,  R * s3 / 2],              // 3: S
+      [-3 * R / 4,  R * s3 / 4],     // 4: SW
+      [-3 * R / 4, -R * s3 / 4],     // 5: NW
+    ];
+    const [dx, dy] = mids[edgeIndex];
+    return {x: dx, y: dy};
+  },
+
+  /** Draw a single river or path segment as a quadratic Bezier
+   * curve between the entry and exit edge midpoints (or hex centre
+   * for source/sink). Deterministic jitter from (q, r) keeps the
+   * curve stable across repaints. */
+  _drawEdgeSegment(ctx, cx, cy, q, r, seg) {
+    // Start/end points: edge midpoint or hex centre.
+    let p0, p1;
+    if (seg.entry !== null && seg.entry !== undefined) {
+      const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
+      p0 = {x: cx + m.x, y: cy + m.y};
+    } else {
+      p0 = {x: cx, y: cy};
+    }
+    if (seg.exit !== null && seg.exit !== undefined) {
+      const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
+      p1 = {x: cx + m.x, y: cy + m.y};
+    } else {
+      p1 = {x: cx, y: cy};
+    }
+
+    // Deterministic jitter for organic curve (seeded from coords).
+    const h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
+    const jx = ((h % 7) - 3) * 0.8;
+    const jy = (((h >> 3) % 7) - 3) * 0.8;
+
+    ctx.save();
+    if (seg.type === "river") {
+      ctx.strokeStyle = "rgba(60, 120, 200, 0.55)";
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = "rgba(140, 100, 60, 0.45)";
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([4, 3]);
+    }
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.quadraticCurveTo(cx + jx, cy + jy, p1.x, p1.y);
+    ctx.stroke();
+    ctx.restore();
   },
 
   _drawFeatureLabel(ctx, feature, cx, cy) {
