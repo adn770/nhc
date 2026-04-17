@@ -276,11 +276,17 @@ def _roll_starting_equipment(rng) -> list[str]:
     return items
 
 
-def generate_character(seed: int | None = None) -> CharacterSheet:
+def generate_character(
+    seed: int | None = None,
+    *,
+    double_gold: bool = False,
+) -> CharacterSheet:
     """Generate a random Knave character.
 
     Uses the game RNG if no seed is provided, otherwise creates a
-    dedicated RNG for reproducibility.
+    dedicated RNG for reproducibility. When *double_gold* is True,
+    roll 6d6 instead of 3d6 for starting gold (easy/medium
+    difficulty).
     """
     if seed is not None:
         rng = random.Random(seed)
@@ -298,8 +304,9 @@ def generate_character(seed: int | None = None) -> CharacterSheet:
     # HP: max hit die at level 1 (Knave survivability rule)
     hp = 8
 
-    # Starting gold: 3d6 × 20 copper → convert to gold (÷10)
-    copper = sum(rng.randint(1, 6) for _ in range(3)) * 20
+    # Starting gold: 3d6 × 20 copper → gold (÷10); double = 6d6
+    dice = 6 if double_gold else 3
+    copper = sum(rng.randint(1, 6) for _ in range(dice)) * 20
     gold = copper // 10
 
     # Random name
