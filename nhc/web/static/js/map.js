@@ -318,7 +318,7 @@ const GameMap = {
     const scale = this._zoomSteps[newLevel];
     // Apply zoom to whichever container is currently visible
     // (dungeon map-container or hex-container).
-    for (const id of ["map-container", "hex-container"]) {
+    for (const id of ["map-container", "hex-container", "flower-container"]) {
       const el = document.getElementById(id);
       if (el) {
         el.style.transformOrigin = "0 0";
@@ -326,7 +326,11 @@ const GameMap = {
       }
     }
     // Centre on the player in whichever mode is active.
-    if (typeof HexMap !== "undefined" && HexMap._playerPx) {
+    if (typeof HexFlower !== "undefined" && HexFlower._playerPx
+        && !document.getElementById("flower-container")
+            ?.classList.contains("hidden")) {
+      HexFlower._centerOnPlayer();
+    } else if (typeof HexMap !== "undefined" && HexMap._playerPx) {
       HexMap._centerOnPlayer();
     } else {
       this.scrollToPlayer();

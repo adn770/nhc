@@ -106,6 +106,7 @@ const HexFlower = {
   resetStatic() {
     this._staticDrawn = false;
     this._punchedHexes = new Set();
+    this._zoomApplied = false;
   },
 
   /* ---- hex drawing helpers ---- */
@@ -286,6 +287,55 @@ const HexFlower = {
     this._lastArrowCoord = { q: playerCoord.q, r: playerCoord.r };
   },
 
+  /* ---- centering & auto-fit zoom ---- */
+
+  _centerOnPlayer() {
+    if (!this._playerPx) return;
+    const zone = document.getElementById("map-zone");
+    const container = document.getElementById("flower-container");
+    if (!zone || !container) return;
+    const scale = (typeof GameMap !== "undefined")
+      ? (GameMap._zoomSteps[GameMap._zoomLevel] || 1) : 1;
+    const px = this._playerPx.x * scale;
+    const py = this._playerPx.y * scale;
+    const z = zone.getBoundingClientRect();
+    const c = container.getBoundingClientRect();
+    const offsetX = (c.left - z.left) + zone.scrollLeft;
+    const offsetY = (c.top - z.top) + zone.scrollTop;
+    zone.scrollTo({
+      left: Math.max(0, offsetX + px - zone.clientWidth / 2),
+      top: Math.max(0, offsetY + py - zone.clientHeight / 2),
+      behavior: "auto",
+    });
+  },
+
+  _autoFitZoom() {
+    const zone = document.getElementById("map-zone");
+    const container = document.getElementById("flower-container");
+    if (!zone || !container || typeof GameMap === "undefined") return;
+    // Compute the scale that fits the flower container in the viewport
+    const cw = parseInt(container.style.width, 10) || 600;
+    const ch = parseInt(container.style.height, 10) || 600;
+    const zw = zone.clientWidth;
+    const zh = zone.clientHeight;
+    const fitScale = Math.min(zw / cw, zh / ch, 2.0);
+    // Find the closest zoom step that doesn't exceed fitScale
+    const steps = GameMap._zoomSteps;
+    let best = 0;
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i] <= fitScale + 0.01) best = i;
+    }
+    GameMap._zoomLevel = best;
+    const scale = steps[best];
+    for (const id of ["map-container", "hex-container", "flower-container"]) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.transformOrigin = "0 0";
+        el.style.transform = `scale(${scale})`;
+      }
+    }
+  },
+
   /* ---- main render ---- */
 
   async render(state) {
@@ -426,6 +476,13 @@ const HexFlower = {
       this._positionArrows(state.player, this._playerPx);
     }
     entCtx.restore();
+
+    // Auto-fit zoom on first render; center on every render.
+    if (!this._zoomApplied) {
+      this._autoFitZoom();
+      this._zoomApplied = true;
+    }
+    this._centerOnPlayer();
   },
 };
 
