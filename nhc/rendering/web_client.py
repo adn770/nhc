@@ -611,8 +611,8 @@ class WebClient(GameClient):
         static = {
             "char_name": pdesc.name if pdesc else "?",
             "char_bg": pdesc.short if pdesc else "",
-            "level_name": level.name,
-            "depth": level.depth,
+            "level_name": level.name if level else "Overland",
+            "depth": level.depth if level else 0,
             "hp_max": health.maximum if health else 0,
             "str": stats.strength if stats else 0,
             "dex": dex,
@@ -1247,8 +1247,45 @@ class WebClient(GameClient):
         player_coord: HexCoord,
         turn: int,
     ) -> None:
-        """Overland per-turn render: emit the ``state_hex`` message."""
+        """Overland per-turn render: emit ``state_hex`` + stats."""
         self._send(build_hex_state_msg(hex_world, player_coord, turn))
+        # Also send player stats so the unified status bar
+        # renders HP / gold / inventory the same as dungeon mode.
+        # _hex_game and _hex_world are set by the Game before
+        # calling render_hex (via the public game reference).
+        if hasattr(self, "_hex_game") and self._hex_game is not None:
+            game = self._hex_game
+            static, dynamic = self._gather_stats(
+                game.world, game.player_id, turn, level=None,
+            )
+            # Inject hex-specific overrides so UI.updateStatus
+            # can render the hex-mode line 1 differently.
+            cell = hex_world.cells.get(player_coord)
+            biome_label = tr(
+                f"hex.biome.{cell.biome.value}",
+            ) if cell else "?"
+            feat = ""
+            if cell and cell.feature.value != "none":
+                feat = tr(f"hex.feature.{cell.feature.value}")
+            location = biome_label
+            if feat:
+                location += f" — {feat}"
+            static["level_name"] = location
+            static["depth"] = 0
+            dynamic["hex_mode"] = True
+            dynamic["hex_day"] = hex_world.day
+            dynamic["hex_time"] = tr(
+                f"hex.time.{hex_world.time.name.lower()}",
+            )
+            if static != self._last_static_stats:
+                self._send({"type": "stats_init", **static})
+                self._last_static_stats = static
+            inv_hash = hash(str(dynamic.get("items", [])))
+            if inv_hash != self._last_inv_hash:
+                self._last_inv_hash = inv_hash
+            else:
+                dynamic.pop("items", None)
+            self._send({"type": "stats", **dynamic})
 
     def render(
         self,

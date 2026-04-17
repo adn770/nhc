@@ -548,44 +548,9 @@ const HexMap = {
       }
     }
 
-    // Update the day/time HUD using localized labels.
-    const L = NHC.labels || {};
-    const hud = document.getElementById("status-line1");
-    if (hud) {
-      const dayLabel = L.hex_day || "Day";
-      const timeKey = `hex_time_${state.time || "morning"}`;
-      const timeLabel = L[timeKey]
-        || (state.time || "morning").replace(/^\w/, c => c.toUpperCase());
-      hud.textContent = `${dayLabel} ${state.day} · ${timeLabel} ·` +
-        ` Hex (${state.player.q}, ${state.player.r})`;
-    }
-    const hud2 = document.getElementById("status-line2");
-    if (hud2) {
-      const me = state.cells.find(
-        c => c.q === state.player.q && c.r === state.player.r,
-      );
-      if (me) {
-        const biomeKey = `hex_biome_${me.biome}`;
-        const biomeLabel = L[biomeKey]
-          || me.biome.replace(/^\w/, c => c.toUpperCase());
-        let line = biomeLabel;
-        if (me.feature && me.feature !== "none") {
-          const featKey = `hex_feature_${me.feature}`;
-          const featLabel = L[featKey]
-            || me.feature.replace(/^\w/, c => c.toUpperCase());
-          line += ` — ${featLabel}`;
-          line += `   ${L.hex_enter_hint || "(press 'e' to enter)"}`;
-        }
-        hud2.textContent = line;
-      } else {
-        hud2.textContent = "";
-      }
-    }
-    const hud3 = document.getElementById("status-line3");
-    if (hud3) {
-      hud3.textContent = L.hex_controls
-        || "y/u NW/NE · b/n SW/SE · k N · j S · e enter · L leave · r rest";
-    }
+    // Status bar is now filled by UI.updateStatus via the
+    // stats/stats_init WebSocket messages sent alongside
+    // state_hex. No direct status-line writes needed here.
   },
 
   _drawFeatureLabel(ctx, feature, cx, cy) {
@@ -720,7 +685,7 @@ function hexKeyHandler(ev) {
     ev.preventDefault();
     return;
   }
-  if (lkey === "r") {
+  if (lkey === ".") {
     WS.send({type: "action", intent: "hex_rest", data: null});
     ev.preventDefault();
     return;

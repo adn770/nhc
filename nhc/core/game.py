@@ -1565,6 +1565,9 @@ class Game:
             # the existing render() path unchanged.
             if self.world_mode.is_hex and self.hex_world is not None \
                     and self.level is None:
+                # Give the renderer a back-reference so it can
+                # gather player stats for the unified status bar.
+                self.renderer._hex_game = self
                 self.renderer.render_hex(
                     self.hex_world,
                     self.hex_player_position,

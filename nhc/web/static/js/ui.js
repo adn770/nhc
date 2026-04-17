@@ -72,10 +72,22 @@ const UI = {
       hungerColor = "#FF4444";
     }
 
-    this.statusLine1.innerHTML =
-      ` 📍 <b>${s.level_name || "?"}</b>` +
-      `${sep}⬇ ${s.depth}` +
-      `${sep}⏳ ${s.turn}` +
+    // Line 1 differs by mode: hex shows day + time-of-day;
+    // dungeon shows depth + turn.
+    let locationPart;
+    if (s.hex_mode) {
+      const dayLabel = (NHC.labels && NHC.labels.hex_day) || "Day";
+      locationPart =
+        ` 📍 <b>${s.level_name || "?"}</b>` +
+        `${sep}📅 ${dayLabel} ${s.hex_day || 1}` +
+        `${sep}🕐 ${s.hex_time || "?"}`;
+    } else {
+      locationPart =
+        ` 📍 <b>${s.level_name || "?"}</b>` +
+        `${sep}⬇ ${s.depth}` +
+        `${sep}⏳ ${s.turn}`;
+    }
+    this.statusLine1.innerHTML = locationPart +
       `${sep}${(NHC.labels && NHC.labels.lv) || "Lv"} ${s.plevel} (${s.xp}/${s.xp_next} ${(NHC.labels && NHC.labels.xp) || "XP"})` +
       `${sep}💰 <span style="color:#FFFF44">${s.gold}</span>` +
       `${sep}❤️  <span style="color:${hpColor}">${hpBar} ${hp}/${hpMax}</span>` +
