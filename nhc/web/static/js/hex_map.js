@@ -171,12 +171,28 @@ function tilePath(biome, feature, q, r) {
   return {primary: foundationUrl, fallback: null};
 }
 
-/** Axial (q, r) → pixel (x, y) for the centre of the hex. */
+/** Raw axial → pixel without any canvas offset. */
+function _rawAxialToPixel(q, r, size = HEX_SIZE) {
+  return {
+    x: size * 1.5 * q,
+    y: size * (Math.sqrt(3) / 2 * q + Math.sqrt(3) * r),
+  };
+}
+
+/** Pixel origin offset from the server (min_x, min_y of all hex
+ * centres). Set on each render so axialToPixel produces canvas-
+ * relative coords with uniform HEX_MARGIN padding. */
+let _pixelOriginX = 0;
+let _pixelOriginY = 0;
+
+/** Axial (q, r) → pixel (x, y) for the centre of the hex,
+ * offset so the top-left hex sits at (HEX_MARGIN, HEX_MARGIN). */
 function axialToPixel(q, r, size = HEX_SIZE) {
-  const x = size * 1.5 * q + HEX_MARGIN + HEX_SIZE;
-  const y = size * (Math.sqrt(3) / 2 * q + Math.sqrt(3) * r)
-          + HEX_MARGIN + HEX_SIZE;
-  return {x, y};
+  const raw = _rawAxialToPixel(q, r, size);
+  return {
+    x: raw.x - _pixelOriginX + HEX_MARGIN + HEX_SIZE,
+    y: raw.y - _pixelOriginY + HEX_MARGIN + HEX_SIZE,
+  };
 }
 
 const HexMap = {
@@ -521,14 +537,12 @@ const HexMap = {
     const entCtx = ent.getContext("2d");
     if (!baseCtx || !fogCtx || !entCtx) return;
 
-    // Pixel box comes from the server (computed from populated
-    // cells); fall back to axial-rect sizing for older payloads.
-    const pw = state.pixel_width !== undefined
-      ? state.pixel_width
-      : axialToPixel(state.width - 1, state.height - 1).x;
-    const ph = state.pixel_height !== undefined
-      ? state.pixel_height
-      : axialToPixel(state.width - 1, state.height - 1).y;
+    // Pixel origin + extent from the server so axialToPixel
+    // produces uniform-margin canvas coords.
+    _pixelOriginX = state.pixel_origin_x || 0;
+    _pixelOriginY = state.pixel_origin_y || 0;
+    const pw = state.pixel_width || 0;
+    const ph = state.pixel_height || 0;
     this.resize(pw, ph);
 
     const feat = document.getElementById("hex-feature-canvas");

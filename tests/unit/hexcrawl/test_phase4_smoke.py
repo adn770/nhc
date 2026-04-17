@@ -65,10 +65,9 @@ async def test_phase4_god_mode_plus_mcp_tools(tmp_path, monkeypatch) -> None:
     )
     g.initialize()
 
-    # Fog is lifted for the whole map.
+    # God mode does NOT auto-reveal fog; only the hub is revealed.
     assert g.hex_world is not None
-    cells = set(g.hex_world.cells.keys())
-    assert g.hex_world.revealed == cells
+    assert len(g.hex_world.revealed) < len(g.hex_world.cells)
 
     # Encounter rolls flag flipped by god mode.
     assert g.encounters_disabled is True
@@ -96,9 +95,9 @@ async def test_phase4_god_mode_plus_mcp_tools(tmp_path, monkeypatch) -> None:
     assert state["height"] == g.hex_world.height
     assert state["day"] == g.hex_world.day
     assert state["time"] == g.hex_world.time.name.lower()
-    assert len(state["cells"]) == len(cells)
+    assert len(state["cells"]) == len(g.hex_world.cells)
 
-    # reveal_all_hexes is idempotent on a fog-lifted world.
+    # reveal_all_hexes lifts the remaining fog.
     reveal = await RevealAllHexesTool().execute(path=str(save_path))
-    assert reveal["newly_revealed"] == 0
+    assert reveal["newly_revealed"] > 0
     assert reveal["total_revealed"] == reveal["total_cells"]

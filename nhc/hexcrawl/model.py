@@ -264,26 +264,36 @@ class HexWorld:
             return None
         return self.cells.get(c)
 
-    def pixel_bbox(self, size: float) -> tuple[float, float]:
-        """Pixel (width, height) of the overall shape.
+    def pixel_bbox(
+        self, size: float,
+    ) -> tuple[float, float, float, float]:
+        """Pixel extent of the overall shape.
 
-        Computed from populated cells rather than the axial
-        bounding box so staggered / irregular layouts report
-        their real on-screen extent. Returns ``(0.0, 0.0)`` for
-        an empty map.
+        Returns ``(width, height, min_x, min_y)`` computed from
+        populated cells so staggered / irregular layouts report
+        their real on-screen extent. ``min_x``/``min_y`` are the
+        raw pixel coords of the top-left-most hex centre; the
+        client uses them to offset all hex positions so the map
+        starts at the canvas margin. Returns four zeros for an
+        empty map.
         """
         if not self.cells:
-            return (0.0, 0.0)
-        max_x = max_y = 0.0
+            return (0.0, 0.0, 0.0, 0.0)
+        min_x = min_y = float("inf")
+        max_x = max_y = float("-inf")
         sqrt3 = math.sqrt(3)
         for c in self.cells:
             x = size * 1.5 * c.q
             y = size * (sqrt3 / 2 * c.q + sqrt3 * c.r)
+            if x < min_x:
+                min_x = x
             if x > max_x:
                 max_x = x
+            if y < min_y:
+                min_y = y
             if y > max_y:
                 max_y = y
-        return max_x, max_y
+        return max_x - min_x, max_y - min_y, min_x, min_y
 
     # ----- clock -----
 

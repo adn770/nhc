@@ -1,13 +1,15 @@
 """God-mode extensions for hex world (M-4.3).
 
-In hex mode, ``set_god_mode(True)`` does three things beyond the
+In hex mode, ``set_god_mode(True)`` does two things beyond the
 classic item-identify pass:
 
-* reveals every in-shape hex on the overland map
 * disables the encounter roll (``Game.encounters_disabled``
   flag flipped on; downstream callers consult it)
 * marks every generated rumor truth=True via the
   ``god_mode_all_rumors_true`` helper
+
+Fog of war is NOT auto-revealed by god mode; use the debug
+panel's fog layer toggle to see the full map visually.
 """
 
 from __future__ import annotations
@@ -64,29 +66,27 @@ def _make_hex_game(tmp_path, god: bool) -> Game:
 # ---------------------------------------------------------------------------
 
 
-def test_god_mode_reveals_all_hexes_on_init(tmp_path) -> None:
+def test_god_mode_does_not_reveal_all_hexes(tmp_path) -> None:
+    """God mode should NOT auto-reveal the fog — use the debug
+    panel's fog layer toggle instead."""
     g = _make_hex_game(tmp_path, god=True)
     assert g.hex_world is not None
-    # Every in-shape cell is in the revealed set.
-    assert g.hex_world.revealed == set(g.hex_world.cells.keys())
+    # Only the hub is revealed at start, not the entire map.
+    assert len(g.hex_world.revealed) < len(g.hex_world.cells)
 
 
 def test_normal_mode_keeps_fog(tmp_path) -> None:
     g = _make_hex_game(tmp_path, god=False)
     assert g.hex_world is not None
-    # Fog of war: only a small number of cells are revealed at
-    # start (the hub + neighbours), not every cell.
     assert len(g.hex_world.revealed) < len(g.hex_world.cells)
 
 
-def test_set_god_mode_mid_game_reveals_remaining_hexes(tmp_path) -> None:
-    """Toggling god mode on after init should lift any remaining
-    fog for the rest of the session."""
+def test_set_god_mode_mid_game_does_not_reveal_fog(tmp_path) -> None:
+    """Toggling god mode on after init should NOT change fog."""
     g = _make_hex_game(tmp_path, god=False)
     revealed_before = len(g.hex_world.revealed)
     g.set_god_mode(True)
-    assert len(g.hex_world.revealed) == len(g.hex_world.cells)
-    assert len(g.hex_world.revealed) > revealed_before
+    assert len(g.hex_world.revealed) == revealed_before
 
 
 # ---------------------------------------------------------------------------

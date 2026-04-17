@@ -76,7 +76,7 @@ def build_hex_state_msg(
     # staggered shapes (e.g. odd-q rectangular) report their real
     # on-screen extent rather than the axial bounding box.
     HEX_SIZE = 36.0   # must match HEX_SIZE in hex_map.js
-    pw, ph = hex_world.pixel_bbox(HEX_SIZE)
+    pw, ph, min_x, min_y = hex_world.pixel_bbox(HEX_SIZE)
     return {
         "type": "state_hex",
         "turn": turn,
@@ -84,6 +84,8 @@ def build_hex_state_msg(
         "height": hex_world.height,
         "pixel_width": pw,
         "pixel_height": ph,
+        "pixel_origin_x": min_x,
+        "pixel_origin_y": min_y,
         "hex_size": HEX_SIZE,
         "day": hex_world.day,
         "time": hex_world.time.name.lower(),
