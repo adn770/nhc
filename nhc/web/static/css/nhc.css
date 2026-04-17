@@ -285,7 +285,8 @@ body {
 /* Hex overland: same layered-canvas pattern as the dungeon view. */
 #hex-container {
   position: relative;
-  display: inline-block;
+  display: block;
+  margin: 0 auto;
 }
 
 /* HUD layer: lives inside hex-container so it inherits the CSS

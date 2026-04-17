@@ -390,6 +390,38 @@ const HexMap = {
     });
   },
 
+  _autoFitZoom() {
+    const zone = document.getElementById("map-zone");
+    const container = document.getElementById("hex-container");
+    if (!zone || !container || typeof GameMap === "undefined") return;
+    // Use hex content extent (without margin/padding) for fit calc
+    const contentW = (this._contentW || 400) + HEX_WIDTH;
+    const contentH = (this._contentH || 400) + HEX_HEIGHT;
+    const zw = zone.clientWidth;
+    const zh = zone.clientHeight;
+    const fitScale = Math.min(zw / contentW, zh / contentH, 2.0);
+    const steps = GameMap._zoomSteps;
+    let best = 0;
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i] <= fitScale + 0.01) best = i;
+    }
+    GameMap._zoomLevel = best;
+    const scale = steps[best];
+    for (const id of ["map-container", "hex-container"]) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.transformOrigin = "center top";
+        el.style.transform = `scale(${scale})`;
+      }
+    }
+    const fc = document.getElementById("flower-container");
+    if (fc) {
+      fc.style.transformOrigin = "center top";
+      fc.style.transform = `scale(${scale})`;
+    }
+    if (typeof Input !== "undefined") Input._updateZoomLabel();
+  },
+
   _setArrowsVisible(on) {
     if (!this._arrows) return;
     if (this._arrowsVisible === on) return;
@@ -526,6 +558,8 @@ const HexMap = {
     _pixelOriginY = state.pixel_origin_y || 0;
     const pw = state.pixel_width || 0;
     const ph = state.pixel_height || 0;
+    this._contentW = pw;
+    this._contentH = ph;
 
     // ── Static layers: drawn once per world ──
     if (!this._staticDrawn) {
@@ -629,6 +663,7 @@ const HexMap = {
       this._drawPlayerAvatar(entCtx, x, y);
       this._positionArrows(state.player, this._playerPx);
       if (!this._scrolledOnce) {
+        this._autoFitZoom();
         this._centerOnPlayer();
         this._scrolledOnce = true;
       }
