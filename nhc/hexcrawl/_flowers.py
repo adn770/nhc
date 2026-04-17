@@ -801,25 +801,8 @@ def pick_flower_start(
 
     if mode in (GameMode.HEX_EASY, GameMode.HEX_MEDIUM):
         assert hub is not None
-        # Pick an adjacent hex to the hub
-        adj = [
-            n for n in neighbors(hub)
-            if n in hw.cells
-        ]
-        if not adj:
-            # Fallback: use hub itself
-            macro = hub
-        else:
-            macro = rng.choice(adj)
-        # Enter from the edge facing the hub
-        from nhc.hexcrawl._rivers import direction_index
-        try:
-            edge = direction_index(macro, hub)
-        except ValueError:
-            edge = 0
-        entry_pair = EDGE_TO_RING2[edge]
-        sub = rng.choice(list(entry_pair))
-        return (macro, sub)
+        # Start at the hub hex, center of the flower
+        return (hub, HexCoord(0, 0))
 
     # Survival: random non-feature hex
     candidates = [

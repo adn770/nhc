@@ -95,12 +95,10 @@ def test_game_hex_easy_loads_hex_world(tmp_path) -> None:
     )
 
 
-def test_game_hex_easy_player_starts_adjacent_to_hub(tmp_path) -> None:
-    from nhc.hexcrawl.coords import distance
+def test_game_hex_easy_player_starts_at_hub(tmp_path) -> None:
     g = _make_game(GameMode.HEX_EASY, seed=42, tmp_path=tmp_path)
     g.initialize()
-    # Player starts adjacent to the hub (distance 1), not on it.
-    assert distance(g.hex_player_position, g.hex_world.last_hub) == 1
+    assert g.hex_player_position == g.hex_world.last_hub
     # And directly in the flower view
     assert g.hex_world.exploring_hex is not None
 

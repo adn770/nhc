@@ -64,24 +64,23 @@ def _make_hex_world(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def test_easy_start_adjacent_to_hub(tmp_path) -> None:
+def test_easy_start_at_hub_center(tmp_path) -> None:
     from nhc.hexcrawl._flowers import pick_flower_start
     hw = _make_hex_world(tmp_path)
     hub = hw.last_hub
     assert hub is not None
     macro, sub = pick_flower_start(hw, GameMode.HEX_EASY, seed=42)
-    # Should be adjacent to hub (distance 1)
-    assert distance(macro, hub) == 1
-    assert sub in FLOWER_COORDS
+    assert macro == hub
+    assert sub == HexCoord(0, 0)
 
 
-def test_medium_start_adjacent_to_hub(tmp_path) -> None:
+def test_medium_start_at_hub_center(tmp_path) -> None:
     from nhc.hexcrawl._flowers import pick_flower_start
     hw = _make_hex_world(tmp_path)
     hub = hw.last_hub
     macro, sub = pick_flower_start(hw, GameMode.HEX_MEDIUM, seed=42)
-    assert distance(macro, hub) == 1
-    assert sub in FLOWER_COORDS
+    assert macro == hub
+    assert sub == HexCoord(0, 0)
 
 
 def test_survival_start_random_hex(tmp_path) -> None:
