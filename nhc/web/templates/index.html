@@ -75,11 +75,10 @@
         <canvas id="hex-feature-canvas"></canvas>
         <canvas id="hex-entity-canvas"></canvas>
         <canvas id="hex-debug-canvas"></canvas>
+        <!-- HUD layer for DOM-backed overlays (direction arrows).
+             Inside hex-container so it inherits CSS zoom. -->
+        <div id="hex-hud"></div>
       </div>
-      <!-- HUD layer for DOM-backed overlays (the six direction
-           arrow buttons live here). Topmost; never touched by
-           canvas renders so it never flickers. -->
-      <div id="hex-hud" class="hidden"></div>
     </div>
 
     <!-- Toolbar: clickable action icons -->

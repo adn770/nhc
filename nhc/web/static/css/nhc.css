@@ -243,14 +243,16 @@ body {
   display: inline-block;
 }
 
-/* HUD layer: sized and positioned to overlay the hex-container
- * exactly, but as a sibling so canvas clears don't mutate its
- * contents. hex_map.js sets width / height / left / top via JS
- * right after resize(). pointer-events: none lets clicks fall
- * through to the canvases; the six .hex-arrow buttons inside
- * re-enable pointer-events on themselves. */
+/* HUD layer: lives inside hex-container so it inherits the CSS
+ * zoom transform. Covers the full container area; pointer-events
+ * are off so clicks fall through to the canvases. The .hex-arrow
+ * buttons re-enable pointer-events on themselves. */
 #hex-hud {
   position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   z-index: 6;
 }

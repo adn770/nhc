@@ -248,21 +248,6 @@ const HexMap = {
    * us skip reposition work when the player hasn't moved. */
   _lastArrowCoord: null,
 
-  /** Sync the #hex-hud DOM overlay to sit exactly over
-   * #hex-container. Called when the canvas pixel box changes; a
-   * no-op on frames where the map dimensions match the last call. */
-  _syncHudBox() {
-    const hud = document.getElementById("hex-hud");
-    const container = document.getElementById("hex-container");
-    const zone = document.getElementById("map-zone");
-    if (!hud || !container || !zone) return;
-    const c = container.getBoundingClientRect();
-    const z = zone.getBoundingClientRect();
-    hud.style.left = `${c.left - z.left + zone.scrollLeft}px`;
-    hud.style.top = `${c.top - z.top + zone.scrollTop}px`;
-    hud.style.width = `${c.width}px`;
-    hud.style.height = `${c.height}px`;
-  },
 
 
 
@@ -599,7 +584,6 @@ const HexMap = {
       const {x, y} = axialToPixel(state.player.q, state.player.r);
       this._playerPx = {x, y};
       this._drawPlayerAvatar(entCtx, x, y);
-      this._syncHudBox();
       this._positionArrows(state.player, this._playerPx);
       if (!this._scrolledOnce) {
         this._centerOnPlayer();
@@ -869,26 +853,18 @@ function hexKeyHandler(ev) {
 document.addEventListener("keydown", hexKeyHandler);
 
 function _showHexOverland() {
-  // Hide the entire dungeon container (not individual canvases).
   const mapContainer = document.getElementById("map-container");
   if (mapContainer) mapContainer.classList.add("hidden");
-  // Show the hex container + HUD.
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.remove("hidden");
-  const hexHud = document.getElementById("hex-hud");
-  if (hexHud) hexHud.classList.remove("hidden");
   if (typeof Input !== "undefined") Input.setToolbarMode("hex");
 }
 
 function _showDungeonView() {
-  // Show the dungeon container.
   const mapContainer = document.getElementById("map-container");
   if (mapContainer) mapContainer.classList.remove("hidden");
-  // Hide hex container + HUD.
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.add("hidden");
-  const hexHud = document.getElementById("hex-hud");
-  if (hexHud) hexHud.classList.add("hidden");
   if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
 }
 
