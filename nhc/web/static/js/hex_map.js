@@ -778,28 +778,71 @@ const HexMap = {
   },
 
   /**
+   * Deterministic hash for jitter — same inputs always produce
+   * the same pseudo-random value.
+   */
+  _jitterHash(a, b, c) {
+    let h = ((a * 7919 + b * 104729 + c * 34159) & 0x7FFFFFFF);
+    h = ((h >> 16) ^ h) * 0x45d9f3b;
+    return ((h >> 16) ^ h) & 0x7FFFFFFF;
+  },
+
+  /**
    * Draw a river or road using sub-hex waypoints projected into
-   * the macro hex. Each waypoint is a local flower coord scaled
-   * to fit within HEX_SIZE.
+   * the macro hex with deterministic jitter and smooth curves.
    */
   _drawSubPathCurve(ctx, cx, cy, seg) {
-    // Scale factor: flower radius 2, so sub-hex coords span
-    // roughly [-2, 2] in q/r. Map to a fraction of HEX_SIZE.
     const scale = HEX_SIZE / 2.5;
     const s3 = Math.sqrt(3);
-    const pts = seg.sub_path.map(p => ({
-      x: cx + scale * 1.5 * p.q,
-      y: cy + scale * (s3 / 2 * p.q + s3 * p.r),
-    }));
+    const JITTER = HEX_SIZE * 0.12;
+    const MID_JITTER = HEX_SIZE * 0.08;
 
+    // Project waypoints with per-point jitter
+    const raw = seg.sub_path.map((p, i) => {
+      const bx = cx + scale * 1.5 * p.q;
+      const by = cy + scale * (s3 / 2 * p.q + s3 * p.r);
+      const h1 = this._jitterHash(p.q, p.r, i * 2);
+      const h2 = this._jitterHash(p.q, p.r, i * 2 + 1);
+      const jx = ((h1 % 1000) / 500 - 1) * JITTER;
+      const jy = ((h2 % 1000) / 500 - 1) * JITTER;
+      return { x: bx + jx, y: by + jy };
+    });
+
+    // Insert noisy midpoints between consecutive waypoints
+    const pts = [raw[0]];
+    for (let i = 1; i < raw.length; i++) {
+      const a = raw[i - 1];
+      const b = raw[i];
+      const sp = seg.sub_path;
+      const hm = this._jitterHash(
+        sp[i - 1].q + sp[i].q, sp[i - 1].r + sp[i].r, i * 7,
+      );
+      const hm2 = this._jitterHash(sp[i].q, sp[i].r, i * 13);
+      const mjx = ((hm % 1000) / 500 - 1) * MID_JITTER;
+      const mjy = ((hm2 % 1000) / 500 - 1) * MID_JITTER;
+      pts.push({
+        x: (a.x + b.x) / 2 + mjx,
+        y: (a.y + b.y) / 2 + mjy,
+      });
+      pts.push(b);
+    }
+
+    // Smooth quadratic Bezier through the noisy points
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-
     const curve = new Path2D();
     curve.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      curve.lineTo(pts[i].x, pts[i].y);
+    if (pts.length === 2) {
+      curve.lineTo(pts[1].x, pts[1].y);
+    } else {
+      for (let i = 1; i < pts.length - 1; i++) {
+        const xc = (pts[i].x + pts[i + 1].x) / 2;
+        const yc = (pts[i].y + pts[i + 1].y) / 2;
+        curve.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
+      }
+      const last = pts[pts.length - 1];
+      curve.lineTo(last.x, last.y);
     }
 
     if (seg.type === "river") {

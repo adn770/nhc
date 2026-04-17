@@ -175,18 +175,85 @@ const HexFlower = {
 
   /* ---- edge segment drawing ---- */
 
+  /**
+   * Deterministic hash for jitter — same (q, r, i) always
+   * produces the same pseudo-random offset.
+   */
+  _jitterHash(q, r, i) {
+    let h = ((q * 7919 + r * 104729 + i * 34159) & 0x7FFFFFFF);
+    // Mix bits a little more
+    h = ((h >> 16) ^ h) * 0x45d9f3b;
+    return ((h >> 16) ^ h) & 0x7FFFFFFF;
+  },
+
+  /**
+   * Draw a river or road through sub-hex waypoints with organic
+   * jitter.  Each waypoint is offset from the hex centre by a
+   * deterministic random amount, and midpoints are inserted
+   * between consecutive waypoints with additional noise so the
+   * line curves naturally instead of running straight.
+   */
   _drawFlowerEdge(ctx, seg) {
-    // Draw a river/road through sub-hex waypoints
     if (!seg.path || seg.path.length < 2) return;
-    const pts = seg.path.map(p => _flowerAxialToPixel(p.q, p.r));
+    const R = HEX_FLOWER_SIZE;
+    // Max jitter as fraction of hex radius
+    const JITTER = R * 0.35;
+    const MID_JITTER = R * 0.25;
+
+    // Build jittered points at each waypoint
+    const raw = seg.path.map((p, i) => {
+      const base = _flowerAxialToPixel(p.q, p.r);
+      const h1 = this._jitterHash(p.q, p.r, i * 2);
+      const h2 = this._jitterHash(p.q, p.r, i * 2 + 1);
+      const jx = ((h1 % 1000) / 500 - 1) * JITTER;
+      const jy = ((h2 % 1000) / 500 - 1) * JITTER;
+      return { x: base.x + jx, y: base.y + jy };
+    });
+
+    // Insert noisy midpoints between consecutive waypoints
+    const pts = [raw[0]];
+    for (let i = 1; i < raw.length; i++) {
+      const a = raw[i - 1];
+      const b = raw[i];
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const hm = this._jitterHash(
+        seg.path[i - 1].q + seg.path[i].q,
+        seg.path[i - 1].r + seg.path[i].r,
+        i * 7,
+      );
+      const hm2 = this._jitterHash(
+        seg.path[i].q, seg.path[i].r, i * 13,
+      );
+      const mjx = ((hm % 1000) / 500 - 1) * MID_JITTER;
+      const mjy = ((hm2 % 1000) / 500 - 1) * MID_JITTER;
+      pts.push({ x: mx + mjx, y: my + mjy });
+      pts.push(b);
+    }
+
+    // Draw smooth curve through the points using quadratic
+    // Bezier segments (each point is a control point, with
+    // the curve passing through the midpoints between them).
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const curve = new Path2D();
     curve.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      curve.lineTo(pts[i].x, pts[i].y);
+    if (pts.length === 2) {
+      curve.lineTo(pts[1].x, pts[1].y);
+    } else {
+      // Smooth: for each pair, curve toward the control point
+      // and through the midpoint to the next.
+      for (let i = 1; i < pts.length - 1; i++) {
+        const xc = (pts[i].x + pts[i + 1].x) / 2;
+        const yc = (pts[i].y + pts[i + 1].y) / 2;
+        curve.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
+      }
+      // Final segment to last point
+      const last = pts[pts.length - 1];
+      curve.lineTo(last.x, last.y);
     }
+
     if (seg.type === "river") {
       ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
       ctx.lineWidth = 8;
