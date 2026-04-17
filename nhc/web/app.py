@@ -1528,8 +1528,9 @@ def create_app(
         with tarfile.open(fileobj=buf, mode="w:gz") as tar:
             # 1. Game state JSON (MCP expects exports/game_state_*.json)
             from nhc.core.save import _serialize_entities, _serialize_level
+            level = game.level
             static, dynamic = client._gather_stats(
-                game.world, game.player_id, game.turn, game.level)
+                game.world, game.player_id, game.turn, level)
             gen_params = (game.generation_params.to_dict()
                           if game.generation_params else None)
             state = {
@@ -1537,45 +1538,56 @@ def create_app(
                 "turn": game.turn,
                 "player_id": game.player_id,
                 "seed": game.seed,
-                "level_id": game.level.id if game.level else None,
+                "level_id": level.id if level else None,
                 "floor_svg_id": client.floor_svg_id,
                 "generation_params": gen_params,
                 "stats": {**static, **dynamic},
-                "entities": client._gather_entities(
-                    game.world, game.level, game.player_id),
-                "level": _serialize_level(game.level),
                 "ecs": _serialize_entities(game.world),
             }
+            if level:
+                state["entities"] = client._gather_entities(
+                    game.world, level, game.player_id)
+                state["level"] = _serialize_level(level)
+            # Hex world state (when in hexcrawl mode).
+            hex_world = getattr(game, "hex_world", None)
+            if hex_world:
+                from nhc.core.save import _serialize_hex_world
+                state["hex_world"] = _serialize_hex_world(hex_world)
+                state["hex_player"] = (
+                    {"q": game.hex_player_position.q,
+                     "r": game.hex_player_position.r}
+                    if game.hex_player_position else None
+                )
             _add_text(tar, f"exports/game_state_{ts}.json",
                       _json.dumps(state, indent=2))
 
-            # 2. Layer state JSON
-            level = game.level
-            explored = [[x, y]
-                        for y in range(level.height)
-                        for x in range(level.width)
-                        if (t := level.tile_at(x, y)) and t.explored]
-            layer = {
-                "timestamp": datetime.now().isoformat(),
-                "turn": game.turn,
-                "fov": client._gather_fov(level),
-                "explored": explored,
-                "doors": client._gather_doors(level),
-                "debug": client._gather_debug_data(level, game.world),
-            }
-            _add_text(tar, f"exports/layer_state_{ts}.json",
-                      _json.dumps(layer, indent=2))
+            # 2. Layer state JSON (dungeon mode only)
+            if level:
+                explored = [[x, y]
+                            for y in range(level.height)
+                            for x in range(level.width)
+                            if (t := level.tile_at(x, y))
+                            and t.explored]
+                layer = {
+                    "timestamp": datetime.now().isoformat(),
+                    "turn": game.turn,
+                    "fov": client._gather_fov(level),
+                    "explored": explored,
+                    "doors": client._gather_doors(level),
+                    "debug": client._gather_debug_data(
+                        level, game.world),
+                }
+                _add_text(tar, f"exports/layer_state_{ts}.json",
+                          _json.dumps(layer, indent=2))
 
-            # 2b. Hatch polygon debug snapshot — walkable tile
-            # list with wall masks, raw tile-perimeter loops,
-            # 2px-expanded loops, and door-neighbourhood detail.
-            hatch = {
-                "timestamp": datetime.now().isoformat(),
-                "turn": game.turn,
-                **client._gather_hatch_debug(level),
-            }
-            _add_text(tar, f"exports/hatch_debug_{ts}.json",
-                      _json.dumps(hatch, indent=2))
+                # 2b. Hatch polygon debug snapshot.
+                hatch = {
+                    "timestamp": datetime.now().isoformat(),
+                    "turn": game.turn,
+                    **client._gather_hatch_debug(level),
+                }
+                _add_text(tar, f"exports/hatch_debug_{ts}.json",
+                          _json.dumps(hatch, indent=2))
 
             # 3. Floor SVGs (all cached depths)
             for depth, (svg_id, svg) in game._svg_cache.items():
