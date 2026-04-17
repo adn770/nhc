@@ -34,7 +34,8 @@ def test_gamemode_default_is_dungeon() -> None:
 
 
 def test_gamemode_value_strings() -> None:
-    assert GameMode.DUNGEON.value == "dungeon"
+    assert GameMode.DUNGEON.value == "dungeon-medium"
+    assert GameMode.DUNGEON_MEDIUM.value == "dungeon-medium"
     assert GameMode.HEX_EASY.value == "hex-easy"
     assert GameMode.HEX_SURVIVAL.value == "hex-survival"
 
@@ -79,14 +80,14 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def test_add_world_arg_default_is_dungeon() -> None:
+def test_add_world_arg_default_is_dungeon_medium() -> None:
     ns = _build_parser().parse_args([])
-    assert ns.world == "dungeon"
+    assert ns.world == "dungeon-medium"
 
 
-def test_add_world_arg_accepts_dungeon() -> None:
-    ns = _build_parser().parse_args(["--world", "dungeon"])
-    assert ns.world == "dungeon"
+def test_add_world_arg_accepts_dungeon_medium() -> None:
+    ns = _build_parser().parse_args(["--world", "dungeon-medium"])
+    assert ns.world == "dungeon-medium"
 
 
 def test_add_world_arg_accepts_hex_easy() -> None:
