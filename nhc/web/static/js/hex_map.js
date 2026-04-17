@@ -664,9 +664,9 @@ const HexMap = {
       this._positionArrows(state.player, this._playerPx);
       if (!this._scrolledOnce) {
         this._autoFitZoom();
-        this._centerOnPlayer();
         this._scrolledOnce = true;
       }
+      this._centerOnPlayer();
     }
     entCtx.restore();
   },
@@ -748,31 +748,46 @@ const HexMap = {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    const curve = new Path2D();
-    curve.moveTo(p0.x, p0.y);
-    curve.quadraticCurveTo(cx + jx, cy + jy, p1.x, p1.y);
+    // Variable-thickness: split the Bezier into 3 sub-segments
+    // with slightly different widths for organic feel.
+    const isRiver = seg.type === "river";
+    const baseOutline = isRiver ? 7 : 5.5;
+    const baseFill = isRiver ? 4.5 : 3;
+    const cp = { x: cx + jx, y: cy + jy };
+    const subPts = [p0];
+    for (let t = 1; t <= 3; t++) {
+      const f = t / 3;
+      // Quadratic Bezier interpolation at t=f
+      const x = (1 - f) * (1 - f) * p0.x
+        + 2 * (1 - f) * f * cp.x + f * f * p1.x;
+      const y = (1 - f) * (1 - f) * p0.y
+        + 2 * (1 - f) * f * cp.y + f * f * p1.y;
+      subPts.push({ x, y });
+    }
 
-    if (seg.type === "river") {
-      // Dark blue outline
-      ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
-      ctx.lineWidth = 6;
-      ctx.setLineDash([]);
-      ctx.stroke(curve);
-      // Blue fill
-      ctx.strokeStyle = "rgba(40, 100, 200, 0.75)";
-      ctx.lineWidth = 3.5;
-      ctx.stroke(curve);
-    } else {
-      // Dark outline
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-      ctx.lineWidth = 5;
-      ctx.setLineDash([]);
-      ctx.stroke(curve);
-      // Brown fill
-      ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke(curve);
+    for (let pass = 0; pass < 2; pass++) {
+      const isOutline = pass === 0;
+      if (isRiver) {
+        ctx.strokeStyle = isOutline
+          ? "rgba(15, 40, 100, 0.6)"
+          : "rgba(40, 100, 200, 0.75)";
+      } else {
+        ctx.strokeStyle = isOutline
+          ? "rgba(0, 0, 0, 0.6)"
+          : "rgba(120, 80, 40, 0.7)";
+        if (!isOutline) ctx.setLineDash([5, 4]);
+        else ctx.setLineDash([]);
+      }
+      const baseW = isOutline ? baseOutline : baseFill;
+      for (let i = 0; i < subPts.length - 1; i++) {
+        const hw = this._jitterHash(q, r, i * 11 + pass);
+        const v = ((hw % 1000) / 500 - 1) * 1.5;
+        ctx.lineWidth = Math.max(1, baseW + v);
+        const s = new Path2D();
+        s.moveTo(subPts[i].x, subPts[i].y);
+        s.lineTo(subPts[i + 1].x, subPts[i + 1].y);
+        ctx.stroke(s);
+      }
     }
     ctx.restore();
   },
@@ -827,41 +842,50 @@ const HexMap = {
       pts.push(b);
     }
 
-    // Smooth quadratic Bezier through the noisy points
+    // Variable-thickness drawing: stroke short segments with
+    // per-segment lineWidth for organic swelling/tapering.
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const curve = new Path2D();
-    curve.moveTo(pts[0].x, pts[0].y);
-    if (pts.length === 2) {
-      curve.lineTo(pts[1].x, pts[1].y);
-    } else {
-      for (let i = 1; i < pts.length - 1; i++) {
-        const xc = (pts[i].x + pts[i + 1].x) / 2;
-        const yc = (pts[i].y + pts[i + 1].y) / 2;
-        curve.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-      }
-      const last = pts[pts.length - 1];
-      curve.lineTo(last.x, last.y);
-    }
+    const isRiver = seg.type === "river";
+    const baseOutline = isRiver ? 7 : 5.5;
+    const baseFill = isRiver ? 4.5 : 3;
+    const variance = isRiver ? 1.5 : 1;
 
-    if (seg.type === "river") {
-      ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
-      ctx.lineWidth = 6;
-      ctx.setLineDash([]);
-      ctx.stroke(curve);
-      ctx.strokeStyle = "rgba(40, 100, 200, 0.75)";
-      ctx.lineWidth = 3.5;
-      ctx.stroke(curve);
-    } else {
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-      ctx.lineWidth = 5;
-      ctx.setLineDash([]);
-      ctx.stroke(curve);
-      ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke(curve);
+    for (let pass = 0; pass < 2; pass++) {
+      const isOutline = pass === 0;
+      if (isRiver) {
+        ctx.strokeStyle = isOutline
+          ? "rgba(15, 40, 100, 0.6)"
+          : "rgba(40, 100, 200, 0.75)";
+      } else {
+        ctx.strokeStyle = isOutline
+          ? "rgba(0, 0, 0, 0.6)"
+          : "rgba(120, 80, 40, 0.7)";
+        if (!isOutline) ctx.setLineDash([5, 4]);
+        else ctx.setLineDash([]);
+      }
+      const baseW = isOutline ? baseOutline : baseFill;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const sp = seg.sub_path;
+        const hw = this._jitterHash(
+          sp[Math.min(i, sp.length - 1)].q,
+          sp[Math.min(i, sp.length - 1)].r,
+          i * 17 + pass,
+        );
+        const v = ((hw % 1000) / 500 - 1) * variance;
+        ctx.lineWidth = Math.max(1, baseW + v);
+        const s = new Path2D();
+        s.moveTo(pts[i].x, pts[i].y);
+        if (i + 2 < pts.length) {
+          const xc = (pts[i + 1].x + pts[i + 2].x) / 2;
+          const yc = (pts[i + 1].y + pts[i + 2].y) / 2;
+          s.quadraticCurveTo(pts[i + 1].x, pts[i + 1].y, xc, yc);
+        } else {
+          s.lineTo(pts[i + 1].x, pts[i + 1].y);
+        }
+        ctx.stroke(s);
+      }
     }
     ctx.restore();
   },
