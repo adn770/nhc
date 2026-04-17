@@ -153,6 +153,31 @@ FEATURE_LABELS: dict[str, str] = {
     "portal": "P", "lake": "L", "river": "Rv",
 }
 
+# Biomes with extended tile packs (slots 41-80). Must match
+# hex_map.js _EXTENDED_BIOMES.
+_EXTENDED_BIOMES = frozenset({
+    "greenlands", "forest", "mountain", "hills", "marsh", "swamp",
+})
+
+# Feature → base slots vs extended slots (mirrors hex_map.js
+# _FEATURE_BASE). Non-extended biomes only use base slots.
+_FEATURE_BASE: dict[str, tuple[list[int], list[int]]] = {
+    "cave":      ([15], [49]),
+    "ruin":      ([18], [55]),
+    "tower":     ([13], [54]),
+    "village":   ([11], [53]),
+    "stones":    ([25], [51]),
+    "hole":      ([16], [44]),
+    "keep":      ([22], []),
+    "city":      ([12], []),
+    "graveyard": ([19], []),
+    "crystals":  ([24], []),
+    "wonder":    ([23], []),
+    "portal":    ([8],  []),
+    "lake":      ([10], []),
+    "river":     ([7],  []),
+}
+
 
 # ── Deterministic hash (mirrors hex_map.js _hexHash) ───────────
 
@@ -175,12 +200,27 @@ def _weighted_slot(q: int, r: int, pairs: list[tuple[int, int]]) -> int:
     return pairs[-1][0]
 
 
+def _feature_variants(feature: str, biome: str) -> list[int] | None:
+    """Return slot variants for a feature, gated by biome."""
+    entry = _FEATURE_BASE.get(feature)
+    if entry is None:
+        return None
+    base, ext = entry
+    if biome in _EXTENDED_BIOMES and ext:
+        return base + ext
+    return list(base)
+
+
 def _tile_path(biome: str, feature: str, q: int, r: int) -> Path:
     """Resolve which tile PNG to use for a hex."""
-    if feature and feature != "none" and feature in FEATURE_SLOTS:
-        variants = FEATURE_SLOTS[feature]
-        idx = _hex_hash(q, r) % len(variants)
-        slot = variants[idx]
+    if feature and feature != "none":
+        variants = _feature_variants(feature, biome)
+        if variants:
+            idx = _hex_hash(q, r) % len(variants)
+            slot = variants[idx]
+        else:
+            pairs = BIOME_BASE_SLOTS.get(biome, [(4, 1)])
+            slot = _weighted_slot(q, r, pairs)
     else:
         pairs = BIOME_BASE_SLOTS.get(biome, [(4, 1)])
         slot = _weighted_slot(q, r, pairs)
@@ -194,6 +234,33 @@ def _tile_path(biome: str, feature: str, q: int, r: int) -> Path:
         return foundation
     # Last resort: greenlands trees
     return HEXTILES / "greenlands" / "4-greenlands_trees.png"
+
+
+# Foundation tiles are transparent overlays. When used as
+# fallback, compose them over a biome-colored hex background.
+_COMPOSED_CACHE: dict[tuple[Path, str], Image.Image] = {}
+
+
+def _load_tile(path: Path, biome: str) -> Image.Image:
+    """Load a tile, compositing over biome color if foundation."""
+    cache_key = (path, biome)
+    if cache_key in _COMPOSED_CACHE:
+        return _COMPOSED_CACHE[cache_key]
+
+    img = Image.open(path).convert("RGBA")
+
+    if "foundation" in path.name:
+        # Compose over biome-colored hex background
+        color_hex = BIOME_COLORS.get(biome, "#505050")
+        r = int(color_hex[1:3], 16)
+        g = int(color_hex[3:5], 16)
+        b = int(color_hex[5:7], 16)
+        bg = Image.new("RGBA", img.size, (r, g, b, 255))
+        bg = Image.alpha_composite(bg, img)
+        img = bg
+
+    _COMPOSED_CACHE[cache_key] = img
+    return img
 
 
 # ── Jitter hash (mirrors hex_map.js _jitterHash) ──────────────
@@ -255,7 +322,6 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
     ch = int(ph) + 2 * MARGIN
 
     canvas = Image.new("RGBA", (cw, ch), (20, 20, 24, 255))
-    tile_cache: dict[Path, Image.Image] = {}
 
     # Pass 1: composite tile PNGs
     for coord, cell in world.cells.items():
@@ -265,12 +331,10 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
 
         tp = _tile_path(cell.biome.value, cell.feature.value,
                         coord.q, coord.r)
-        if tp not in tile_cache:
-            try:
-                tile_cache[tp] = Image.open(tp).convert("RGBA")
-            except Exception:
-                continue
-        tile = tile_cache[tp]
+        try:
+            tile = _load_tile(tp, cell.biome.value)
+        except Exception:
+            continue
         canvas.paste(tile, (sx, sy), tile)
 
     # Pass 2: draw rivers and roads
@@ -298,10 +362,16 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
                 scale = HEX_RADIUS / 2.5
                 s3 = math.sqrt(3)
                 jitter = HEX_RADIUS * 0.20
+                last = len(sub_path) - 1
                 pts = []
                 for i, p in enumerate(sub_path):
                     bx = ox + scale * 1.5 * p.q
                     by = oy + scale * (s3 / 2 * p.q + s3 * p.r)
+                    # Don't jitter first/last points — they sit
+                    # on hex edges and must align with neighbors.
+                    if i == 0 or i == last:
+                        pts.append((bx, by))
+                        continue
                     h1 = _jitter_hash(p.q, p.r, i * 2)
                     h2 = _jitter_hash(p.q, p.r, i * 2 + 1)
                     jx = ((h1 % 1000) / 500 - 1) * jitter
@@ -423,17 +493,17 @@ def render_flower(
 
         tp = _tile_path(biome_str, feat_str,
                         sub_coord.q, sub_coord.r)
-        if tp not in tile_cache:
+        cache_key = (tp, biome_str)
+        if cache_key not in tile_cache:
             try:
-                img = Image.open(tp).convert("RGBA")
-                # Scale tile to flower hex size
+                img = _load_tile(tp, biome_str)
                 tw = int(2 * R)
                 th = int(s3 * R)
                 img = img.resize((tw, th), Image.LANCZOS)
-                tile_cache[tp] = img
+                tile_cache[cache_key] = img
             except Exception:
                 continue
-        tile = tile_cache[tp]
+        tile = tile_cache[cache_key]
         tw, th = tile.size
         canvas.paste(tile, (sx - tw // 2, sy - th // 2), tile)
 
@@ -444,10 +514,14 @@ def render_flower(
         if not seg.path or len(seg.path) < 2:
             continue
         is_river = seg.type == "river"
+        last_idx = len(seg.path) - 1
         pts = []
         for i, p in enumerate(seg.path):
             bx = R * 1.5 * p.q - min_fx + margin
             by = R * (s3 / 2 * p.q + s3 * p.r) - min_fy + margin
+            if i == 0 or i == last_idx:
+                pts.append((bx, by))
+                continue
             h1 = _jitter_hash(p.q, p.r, i * 2)
             h2 = _jitter_hash(p.q, p.r, i * 2 + 1)
             jx = ((h1 % 1000) / 500 - 1) * jitter
