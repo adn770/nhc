@@ -226,41 +226,23 @@ def _tile_path(biome: str, feature: str, q: int, r: int) -> Path:
         slot = _weighted_slot(q, r, pairs)
 
     stem = SLOT_NAME.get(slot, "tundra")
-    biome_path = HEXTILES / biome / f"{slot}-{biome}_{stem}.png"
-    if biome_path.is_file():
-        return biome_path
-    foundation = HEXTILES / f"{slot}-foundation_{stem}.png"
-    if foundation.is_file():
-        return foundation
-    # Last resort: greenlands trees
-    return HEXTILES / "greenlands" / "4-greenlands_trees.png"
+    path = HEXTILES / biome / f"{slot}-{biome}_{stem}.png"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"missing tile: {path} "
+            f"(biome={biome}, feature={feature}, slot={slot})"
+        )
+    return path
 
 
-# Foundation tiles are transparent overlays. When used as
-# fallback, compose them over a biome-colored hex background.
-_COMPOSED_CACHE: dict[tuple[Path, str], Image.Image] = {}
+_TILE_CACHE: dict[Path, Image.Image] = {}
 
 
-def _load_tile(path: Path, biome: str) -> Image.Image:
-    """Load a tile, compositing over biome color if foundation."""
-    cache_key = (path, biome)
-    if cache_key in _COMPOSED_CACHE:
-        return _COMPOSED_CACHE[cache_key]
-
-    img = Image.open(path).convert("RGBA")
-
-    if "foundation" in path.name:
-        # Compose over biome-colored hex background
-        color_hex = BIOME_COLORS.get(biome, "#505050")
-        r = int(color_hex[1:3], 16)
-        g = int(color_hex[3:5], 16)
-        b = int(color_hex[5:7], 16)
-        bg = Image.new("RGBA", img.size, (r, g, b, 255))
-        bg = Image.alpha_composite(bg, img)
-        img = bg
-
-    _COMPOSED_CACHE[cache_key] = img
-    return img
+def _load_tile(path: Path) -> Image.Image:
+    """Load and cache a biome tile PNG."""
+    if path not in _TILE_CACHE:
+        _TILE_CACHE[path] = Image.open(path).convert("RGBA")
+    return _TILE_CACHE[path]
 
 
 # ── Jitter hash (mirrors hex_map.js _jitterHash) ──────────────
@@ -332,7 +314,7 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
         tp = _tile_path(cell.biome.value, cell.feature.value,
                         coord.q, coord.r)
         try:
-            tile = _load_tile(tp, cell.biome.value)
+            tile = _load_tile(tp)
         except Exception:
             continue
         canvas.paste(tile, (sx, sy), tile)
@@ -496,7 +478,7 @@ def render_flower(
         cache_key = (tp, biome_str)
         if cache_key not in tile_cache:
             try:
-                img = _load_tile(tp, biome_str)
+                img = _load_tile(tp)
                 tw = int(2 * R)
                 th = int(s3 * R)
                 img = img.resize((tw, th), Image.LANCZOS)
