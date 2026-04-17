@@ -365,6 +365,56 @@ const Input = {
         console.warn("Layer capture failed:", name, e);
       }
     }
+    // Composite view: stack the active layers in z-order to
+    // produce a single PNG matching what the player sees.
+    try {
+      // Pick the layer set based on which mode is active.
+      const hexActive = document.getElementById("hex-container")
+        && !document.getElementById("hex-container")
+            .classList.contains("hidden");
+      const ids = hexActive
+        ? ["#hex-base-canvas", "#hex-feature-canvas",
+           "#hex-fog-canvas", "#hex-entity-canvas"]
+        : ["#door-canvas", "#hatch-canvas",
+           "#fog-canvas", "#entity-canvas"];
+      // Use the first canvas to determine the display size.
+      const ref = document.querySelector(ids[0]);
+      if (ref && ref.width && ref.height) {
+        const dw = ref.clientWidth || ref.width;
+        const dh = ref.clientHeight || ref.height;
+        const comp = document.createElement("canvas");
+        comp.width = dw;
+        comp.height = dh;
+        const cctx = comp.getContext("2d");
+        // For dungeon mode, draw the floor SVG as background.
+        if (!hexActive) {
+          const svg = document.querySelector("#floor-svg svg");
+          if (svg) {
+            const s = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([s], {type: "image/svg+xml"});
+            const url = URL.createObjectURL(blob);
+            const img = await new Promise((resolve, reject) => {
+              const i = new Image();
+              i.onload = () => resolve(i);
+              i.onerror = reject;
+              i.src = url;
+            });
+            cctx.drawImage(img, 0, 0, dw, dh);
+            URL.revokeObjectURL(url);
+          }
+        }
+        for (const sel of ids) {
+          const src = document.querySelector(sel);
+          if (src && src.width && src.height) {
+            cctx.drawImage(src, 0, 0, dw, dh);
+          }
+        }
+        layers["composite"] = comp.toDataURL("image/png");
+      }
+    } catch (e) {
+      console.warn("Composite capture failed:", e);
+    }
+
     // Include console log buffer.
     const consoleLog = (window._consoleBuf || []).join("\n");
     try {
