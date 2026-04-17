@@ -77,7 +77,7 @@ from nhc.hexcrawl.generator import (
     generate_perlin_world,
     generate_test_world,
 )
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, GameMode
 from nhc.hexcrawl.model import HexFeatureType, HexWorld
 from nhc.hexcrawl.pack import load_pack
 from nhc.i18n import t
@@ -1269,40 +1269,28 @@ class Game:
             )
         self._create_hex_player()
 
-        if self.world_mode is GameMode.HEX_EASY:
+        from nhc.hexcrawl._flowers import pick_flower_start
+        macro, sub = pick_flower_start(
+            self.hex_world, self.world_mode,
+            seed=(self.seed or 0) ^ 0xABCD1234,
+        )
+        self.hex_player_position = macro
+        self.hex_world.visit(macro)
+
+        if self.world_mode.difficulty is not Difficulty.SURVIVAL:
             hub = self.hex_world.last_hub
             assert hub is not None, "generator must set last_hub"
-            self.hex_player_position = hub
             self.hex_world.reveal(hub)
-            self.renderer.add_message(
-                "You stand in the town square of "
-                f"hex ({hub.q}, {hub.r})."
-            )
-            self.renderer.add_message(
-                "Move with y/u/n/b/j/k. Press 'e' to enter a feature."
-            )
-            return
 
-        # HEX_SURVIVAL: random non-feature hex, hub stays hidden.
-        # Use a derived RNG so the start-hex roll does not perturb
-        # the seed stream consumed by the generator.
-        rng = random.Random((self.seed or 0) ^ 0xABCD1234)
-        candidates = [
-            c for c, cell in self.hex_world.cells.items()
-            if cell.feature is HexFeatureType.NONE
-            and c != self.hex_world.last_hub
-        ]
-        if not candidates:
-            raise RuntimeError(
-                "no non-feature hex available for survival start"
-            )
-        start = rng.choice(candidates)
-        self.hex_player_position = start
-        self.hex_world.revealed.clear()
-        self.hex_world.reveal(start)
+        if self.world_mode is GameMode.HEX_SURVIVAL:
+            self.hex_world.revealed.clear()
+            self.hex_world.reveal(macro)
+
+        # Enter flower view directly
+        self.hex_world.enter_flower(macro, sub)
         self.renderer.add_message(
-            "You wake on the overland, alone. Civilization is out "
-            "there somewhere — find it."
+            "You begin your journey. Move with y/u/n/b/j/k. "
+            "Press 'x' to exit to the overland map."
         )
         self.renderer.add_message(
             "Move with y/u/n/b/j/k. Press 'e' to enter a feature."

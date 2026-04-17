@@ -95,19 +95,20 @@ def test_game_hex_easy_loads_hex_world(tmp_path) -> None:
     )
 
 
-def test_game_hex_easy_player_starts_at_hub(tmp_path) -> None:
+def test_game_hex_easy_player_starts_adjacent_to_hub(tmp_path) -> None:
+    from nhc.hexcrawl.coords import distance
     g = _make_game(GameMode.HEX_EASY, seed=42, tmp_path=tmp_path)
     g.initialize()
-    assert g.hex_player_position == g.hex_world.last_hub
+    # Player starts adjacent to the hub (distance 1), not on it.
+    assert distance(g.hex_player_position, g.hex_world.last_hub) == 1
+    # And directly in the flower view
+    assert g.hex_world.exploring_hex is not None
 
 
 def test_game_hex_easy_hub_revealed(tmp_path) -> None:
     g = _make_game(GameMode.HEX_EASY, seed=42, tmp_path=tmp_path)
     g.initialize()
     assert g.hex_world.last_hub in g.hex_world.revealed
-    # In easy mode the starting reveal is just the hub; neighbours
-    # come into view on first hex step (M-1.5 / M-1.6).
-    assert g.hex_world.revealed == {g.hex_world.last_hub}
 
 
 def test_game_hex_easy_skips_dungeon_init(tmp_path) -> None:

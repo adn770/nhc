@@ -756,3 +756,64 @@ def generate_flowers(
     for coord, cell in cells.items():
         cell_seed = hash((world_seed, coord.q, coord.r)) & 0x7FFFFFFF
         cell.flower = generate_flower(cell, cells, cell_seed)
+
+
+# ---------------------------------------------------------------------------
+# Starting position for new hex games
+# ---------------------------------------------------------------------------
+
+
+def pick_flower_start(
+    hw: "HexWorld",
+    mode: "GameMode",
+    seed: int,
+) -> tuple[HexCoord, HexCoord]:
+    """Pick the starting (macro_hex, sub_hex) for a new hex game.
+
+    * Easy/Medium: a hex adjacent to the hub. The sub-hex is a
+      ring-2 cell on the edge facing the hub.
+    * Survival: a random non-feature hex, random sub-hex.
+
+    Returns ``(macro_coord, sub_hex_coord)``.
+    """
+    from nhc.hexcrawl.model import HexWorld
+    from nhc.hexcrawl.mode import GameMode
+
+    rng = random.Random(seed)
+    hub = hw.last_hub
+
+    if mode in (GameMode.HEX_EASY, GameMode.HEX_MEDIUM):
+        assert hub is not None
+        # Pick an adjacent hex to the hub
+        adj = [
+            n for n in neighbors(hub)
+            if n in hw.cells
+        ]
+        if not adj:
+            # Fallback: use hub itself
+            macro = hub
+        else:
+            macro = rng.choice(adj)
+        # Enter from the edge facing the hub
+        from nhc.hexcrawl._rivers import direction_index
+        try:
+            edge = direction_index(macro, hub)
+        except ValueError:
+            edge = 0
+        entry_pair = EDGE_TO_RING2[edge]
+        sub = rng.choice(list(entry_pair))
+        return (macro, sub)
+
+    # Survival: random non-feature hex
+    candidates = [
+        c for c, cell in hw.cells.items()
+        if cell.feature is HexFeatureType.NONE
+        and c != hub
+    ]
+    if not candidates:
+        raise RuntimeError(
+            "no non-feature hex available for survival start"
+        )
+    macro = rng.choice(candidates)
+    sub = rng.choice(list(FLOWER_COORDS))
+    return (macro, sub)
