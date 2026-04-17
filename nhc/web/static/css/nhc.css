@@ -81,6 +81,51 @@ body {
   background: #d4a855;
 }
 
+/* Welcome screen toggle-button groups */
+.welcome-group {
+  margin: 6px 0;
+}
+
+.welcome-group label {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.welcome-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.welcome-btn {
+  flex: 1;
+  padding: 6px 10px;
+  font-family: monospace;
+  font-size: 14px;
+  color: #aaa;
+  background: transparent;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.welcome-btn:hover {
+  background: #2a2a4e;
+  border-color: #e6c07b;
+  color: #fff;
+}
+
+.welcome-btn.welcome-active {
+  color: #fff;
+  border-color: #ffd54a;
+  background: #2a2a4e;
+  box-shadow:
+    0 0 4px #ffd54a,
+    0 0 10px rgba(255, 213, 74, 0.7),
+    inset 0 0 6px rgba(255, 213, 74, 0.3);
+  animation: autodig-pulse 1.6s ease-in-out infinite;
+}
+
 .tts-check-label {
   display: flex;
   align-items: center;

@@ -27,6 +27,18 @@ const NHC = {
     document.getElementById("ranking-btn")
       ?.addEventListener("click", () => UI.showRanking());
 
+    // Welcome toggle-button groups: click toggles .welcome-active
+    for (const group of document.querySelectorAll(".welcome-btns")) {
+      for (const btn of group.querySelectorAll(".welcome-btn")) {
+        btn.addEventListener("click", () => {
+          for (const sib of group.querySelectorAll(".welcome-btn")) {
+            sib.classList.remove("welcome-active");
+          }
+          btn.classList.add("welcome-active");
+        });
+      }
+    }
+
     document.getElementById("help-btn")
       ?.addEventListener("click", () => UI.showHelp());
 
@@ -182,11 +194,19 @@ const NHC = {
     document.getElementById("loading-overlay").classList.add("hidden");
   },
 
+  _getWelcomeSelection(groupId, fallback) {
+    const btns = document.querySelectorAll(
+      `#${groupId} .welcome-btn.welcome-active`,
+    );
+    if (btns.length > 0) return btns[0].dataset.value;
+    return fallback;
+  },
+
   async newGame(reset = false) {
     const lang = document.getElementById("lang-select").value;
     const tileset = document.getElementById("tileset-select").value;
-    const world = document.getElementById("world-select")?.value
-      || "dungeon";
+    const world = this._getWelcomeSelection("world-btns", "dungeon");
+    const difficulty = this._getWelcomeSelection("diff-btns", "medium");
 
     const L = NHC.labels;
     this.showLoading(reset
@@ -196,7 +216,7 @@ const NHC = {
     const resp = await fetch("/api/game/new", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lang, tileset, reset, world }),
+      body: JSON.stringify({ lang, tileset, reset, world, difficulty }),
     });
 
     if (!resp.ok) {

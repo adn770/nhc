@@ -25,12 +25,26 @@
       <select id="tileset-select">
         <option value="classic" selected>Classic</option>
       </select>
-      <label for="world-select">World:</label>
-      <select id="world-select">
-        <option value="dungeon" selected>Classic Dungeon</option>
-        <option value="hex-easy">Hexcrawl — Easy</option>
-        <option value="hex-survival">Hexcrawl — Survival</option>
-      </select>
+      <div class="welcome-group">
+        <label>World:</label>
+        <div class="welcome-btns" id="world-btns">
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_world == 'hexcrawl' }}"
+                  data-value="hexcrawl">Hexcrawl</button>
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_world != 'hexcrawl' }}"
+                  data-value="dungeon">Dungeoncrawl</button>
+        </div>
+      </div>
+      <div class="welcome-group">
+        <label>Difficulty:</label>
+        <div class="welcome-btns" id="diff-btns">
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_difficulty == 'easy' }}"
+                  data-value="easy">Easy</button>
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_difficulty == 'medium' or not player_difficulty }}"
+                  data-value="medium">Medium</button>
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_difficulty == 'survival' }}"
+                  data-value="survival">Survival</button>
+        </div>
+      </div>
       <label class="tts-check-label">
         <input type="checkbox" id="tts-check">
         Text to Speech

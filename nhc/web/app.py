@@ -309,9 +309,13 @@ def create_app(
             player_name = player["name"] if player else ""
             player_god = player.get("god_mode", False) if player else False
             player_lang = player.get("lang", "") if player else ""
+            player_world = player.get("world", "dungeon") if player else "dungeon"
+            player_difficulty = player.get("difficulty", "medium") if player else "medium"
             resp = make_response(render_template(
                 "index.html", player_name=player_name,
                 god_mode=player_god, player_lang=player_lang,
+                player_world=player_world,
+                player_difficulty=player_difficulty,
                 welcome_labels=_welcome_labels(player_lang),
             ))
             _set_auth_cookie(resp, "nhc_token", token)
@@ -319,6 +323,8 @@ def create_app(
         return render_template(
             "index.html",
             god_mode=config.god_mode,
+            player_world="dungeon",
+            player_difficulty="medium",
             welcome_labels=_welcome_labels(""),
         )
 
@@ -770,13 +776,26 @@ def create_app(
         # classic dungeon-only behaviour is unchanged when the
         # client does not pass a value.
         world_raw = data.get("world", "dungeon")
-        from nhc.hexcrawl.mode import GameMode
+        difficulty_raw = data.get("difficulty", "medium")
+        from nhc.hexcrawl.mode import Difficulty, GameMode, WorldType
         try:
-            world_mode = GameMode.from_str(world_raw)
+            wtype = WorldType.from_str(world_raw)
         except ValueError:
-            return jsonify({
-                "error": f"unknown world mode: {world_raw!r}",
-            }), 400
+            # Legacy fallback for old clients
+            try:
+                world_mode = GameMode.from_str(world_raw)
+            except ValueError:
+                return jsonify({
+                    "error": f"unknown world: {world_raw!r}",
+                }), 400
+        else:
+            try:
+                diff = Difficulty.from_str(difficulty_raw)
+            except ValueError:
+                return jsonify({
+                    "error": f"unknown difficulty: {difficulty_raw!r}",
+                }), 400
+            world_mode = GameMode.from_world_difficulty(wtype, diff)
         pid = _get_player_id()
 
         # Destroy any stale suspended session for this player
