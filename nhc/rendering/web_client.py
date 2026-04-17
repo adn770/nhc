@@ -760,6 +760,9 @@ class WebClient(GameClient):
             "hex_day": tr("hex.ui.day"),
             "hex_enter_hint": tr("hex.ui.enter_hint"),
             "hex_controls": tr("hex.ui.controls"),
+            # Hex toolbar button tooltips
+            "toolbar_hex_enter": tr("hex.ui.toolbar_enter"),
+            "toolbar_hex_rest": tr("hex.ui.toolbar_rest"),
             # Per-biome translated names
             **{
                 f"hex_biome_{b.value}": tr(f"hex.biome.{b.value}")

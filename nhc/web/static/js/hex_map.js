@@ -692,6 +692,8 @@ function _showHexOverland() {
   if (hexContainer) hexContainer.classList.remove("hidden");
   const hexHud = document.getElementById("hex-hud");
   if (hexHud) hexHud.classList.remove("hidden");
+  // Switch to the compact hex toolbar.
+  if (typeof Input !== "undefined") Input.setToolbarMode("hex");
 }
 
 function _showDungeonView() {
@@ -704,6 +706,8 @@ function _showDungeonView() {
   if (hexContainer) hexContainer.classList.add("hidden");
   const hexHud = document.getElementById("hex-hud");
   if (hexHud) hexHud.classList.add("hidden");
+  // Switch back to the full dungeon toolbar.
+  if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
 }
 
 // Wire the WS handler and toggle visibility of the hex vs dungeon

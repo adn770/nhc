@@ -2406,6 +2406,8 @@ hex:
     day: "Day"
     enter_hint: "(press 'e' to enter)"
     controls: "y/u NW/NE · b/n SW/SE · k N · j S · e enter · L leave · r rest"
+    toolbar_enter: "Enter feature"
+    toolbar_rest: "Rest (1 day)"
   biome:
     greenlands: "Greenlands"
     drylands: "Drylands"

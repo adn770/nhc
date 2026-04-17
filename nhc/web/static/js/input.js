@@ -51,7 +51,8 @@ const Input = {
     "M": { intent: "reveal_map", data: null },
   },
 
-  TOOLBAR_ACTIONS: [
+  // Dungeon-mode toolbar actions (the full set).
+  DUNGEON_TOOLBAR: [
     { icon: "👆", intent: "pickup",     labelKey: "toolbar_pickup" },
     { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
     { icon: "🧪", intent: "quaff",      labelKey: "toolbar_quaff" },
@@ -70,6 +71,27 @@ const Input = {
     { icon: "⬇️", intent: "descend",    labelKey: "toolbar_descend" },
     { icon: "⬆️", intent: "ascend",     labelKey: "toolbar_ascend" },
   ],
+
+  // Hex overland toolbar — compact set relevant to the overland.
+  // Inventory actions still useful (the player carries gear);
+  // dungeon-specific actions (locks, doors, dig, stairs) dropped.
+  HEX_TOOLBAR: [
+    { icon: "🏠", intent: "hex_enter",  labelKey: "toolbar_hex_enter" },
+    { icon: "🏕", intent: "hex_rest",   labelKey: "toolbar_hex_rest" },
+    { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
+    { icon: "🧪", intent: "quaff",      labelKey: "toolbar_quaff" },
+    { icon: "📜", intent: "use_item",   labelKey: "toolbar_use_item" },
+    { icon: "⚔️", intent: "equip",      labelKey: "toolbar_equip" },
+  ],
+
+  // Which toolbar is currently rendered.
+  _currentToolbarMode: "dungeon",
+
+  // Alias for backward compat (debug.js etc. reads this).
+  get TOOLBAR_ACTIONS() {
+    return this._currentToolbarMode === "hex"
+      ? this.HEX_TOOLBAR : this.DUNGEON_TOOLBAR;
+  },
 
   init() {
     this.inputEl = document.getElementById("game-input");
@@ -152,12 +174,22 @@ const Input = {
     this._updateModeIndicator();
   },
 
+  setToolbarMode(mode) {
+    if (mode === this._currentToolbarMode) return;
+    this._currentToolbarMode = mode;
+    this._initToolbar();
+    // Re-apply translated tooltips if labels are available.
+    if (typeof UI !== "undefined") UI.applyLabels(NHC.labels || {});
+  },
+
   _initToolbar() {
     const zone = document.getElementById("toolbar-zone");
     if (!zone) return;
     zone.innerHTML = "";
     this._toolbarButtons = [];
-    this.TOOLBAR_ACTIONS.forEach(({ icon, intent, labelKey }) => {
+    const actions = this._currentToolbarMode === "hex"
+      ? this.HEX_TOOLBAR : this.DUNGEON_TOOLBAR;
+    actions.forEach(({ icon, intent, labelKey }) => {
       const btn = document.createElement("button");
       btn.textContent = icon;
       btn.dataset.labelKey = labelKey;

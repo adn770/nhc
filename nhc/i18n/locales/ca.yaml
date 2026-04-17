@@ -2729,6 +2729,8 @@ hex:
     day: "Dia"
     enter_hint: "(prem 'e' per entrar)"
     controls: "y/u NO/NE · b/n SO/SE · k N · j S · e entrar · L sortir · r descansar"
+    toolbar_enter: "Entrar al lloc"
+    toolbar_rest: "Descansar (1 dia)"
   feature:
     village: "Poblet"
     city: "Ciutat"
