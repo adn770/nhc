@@ -318,6 +318,11 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
 
     hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
+    # Paths: generate after feature placement so all connectable
+    # features (settlements, towers, caves) are present.
+    from nhc.hexcrawl._paths import generate_paths as _gen_paths
+    paths = _gen_paths(cells, rng, pack.paths, pack.biome_costs)
+
     world = HexWorld(
         pack_id=pack.id,
         seed=rng.randrange(1 << 30),      # downstream RNG seeding
@@ -330,6 +335,7 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     world.last_hub = hub
     world.cave_clusters = clusters
     world.rivers = rivers
+    world.paths = paths
     return world
 
 
@@ -484,6 +490,11 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
 
     hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
+    # Paths: generate after feature placement so all connectable
+    # features (settlements, towers, caves) are present.
+    from nhc.hexcrawl._paths import generate_paths as _gen_paths
+    paths = _gen_paths(cells, rng, pack.paths, pack.biome_costs)
+
     world = HexWorld(
         pack_id=pack.id,
         seed=rng.randrange(1 << 30),
@@ -496,6 +507,7 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
     world.last_hub = hub
     world.cave_clusters = clusters
     world.rivers = rivers
+    world.paths = paths
     return world
 
 
