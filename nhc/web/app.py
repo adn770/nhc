@@ -834,20 +834,14 @@ def create_app(
         logger.debug("LLM backend: %s", type(backend).__name__
                       if backend else "None")
 
-        # God mode is session-scoped. On New Game (reset=true) the
-        # player starts clean — only the server's global config can
-        # force it on. On Continue (reset=false) the admin panel's
-        # per-player toggle carries over so a mid-session god-mode
-        # toggle survives a reconnect; the autosave's internal flag
-        # will override anyway once auto_restore runs.
-        if reset:
-            player_god = config.god_mode
-        else:
-            player_god = config.god_mode
-            if registry and pid:
-                pdata = registry.get(pid)
-                if pdata:
-                    player_god = pdata.get("god_mode", False)
+        # God mode: the server's global --god flag forces it on for
+        # everyone; otherwise check the per-player flag in the
+        # registry (set via admin panel).
+        player_god = config.god_mode
+        if not player_god and registry and pid:
+            pdata = registry.get(pid)
+            if pdata:
+                player_god = pdata.get("god_mode", False)
         game = Game(
             client=client,
             backend=backend,
