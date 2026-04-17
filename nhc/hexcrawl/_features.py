@@ -35,6 +35,53 @@ _SETTLEMENT_FEATURES: frozenset[HexFeatureType] = frozenset({
 })
 
 
+def assign_cave_clusters(
+    cells: dict[HexCoord, HexCell],
+) -> dict[HexCoord, list[HexCoord]]:
+    """BFS over CAVE hexes to group adjacent ones into clusters.
+
+    Returns ``{canonical_coord: [member_coords, ...]}``.  The
+    canonical coord is the smallest ``(q, r)`` in the cluster
+    (sorted lexicographically). Each cave's
+    :attr:`DungeonRef.cluster_id` is updated in place, and
+    ``DungeonRef.depth`` is set to 2 (all caves are two-floor).
+    Solo caves form a cluster of size 1.
+    """
+    cave_coords = {
+        c for c, cell in cells.items()
+        if cell.feature is HexFeatureType.CAVE
+        and cell.dungeon is not None
+    }
+    visited: set[HexCoord] = set()
+    clusters: dict[HexCoord, list[HexCoord]] = {}
+
+    for start in sorted(cave_coords, key=lambda c: (c.q, c.r)):
+        if start in visited:
+            continue
+        # BFS to find the connected component.
+        component: list[HexCoord] = []
+        frontier = [start]
+        while frontier:
+            cur = frontier.pop()
+            if cur in visited:
+                continue
+            visited.add(cur)
+            component.append(cur)
+            for n in neighbors(cur):
+                if n in cave_coords and n not in visited:
+                    frontier.append(n)
+        component.sort(key=lambda c: (c.q, c.r))
+        canonical = component[0]
+        clusters[canonical] = component
+        # Tag each cave with its cluster + two-floor depth.
+        for c in component:
+            cell = cells[c]
+            cell.dungeon.cluster_id = canonical
+            cell.dungeon.depth = 2
+
+    return clusters
+
+
 class FeaturePlacementError(Exception):
     """Signal that the current biome roll cannot host the required
     feature counts. Callers catch this and retry with a fresh
@@ -248,4 +295,10 @@ def place_features(
         cells[c].feature = rng.choice(wonder_types)
         taken.add(c)
 
-    return hub
+    # Cave cluster detection — groups adjacent CAVE hexes so they
+    # share a connected Floor 2 underground. Must run after all
+    # features are placed so every cave is visible. Returns the
+    # clusters dict for the caller to store on HexWorld.
+    clusters = assign_cave_clusters(cells)
+
+    return hub, clusters

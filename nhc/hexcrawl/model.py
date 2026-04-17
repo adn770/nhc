@@ -92,6 +92,11 @@ class DungeonRef:
 
     template: str       # e.g. "procedural:cave", "scripted:foo"
     depth: int = 1      # number of dungeon floors
+    # For cave clusters: the canonical coord (smallest (q,r) in
+    # the cluster). All caves in a cluster share the same Floor 2
+    # keyed by this coord. None for non-cave features or if the
+    # feature hasn't been cluster-assigned yet.
+    cluster_id: "HexCoord | None" = None
 
 
 @dataclass
@@ -161,6 +166,12 @@ class HexWorld:
     last_rumor_day: int = 0
     expedition_party: list[int] = field(default_factory=list)
     biome_costs: dict[Biome, int] = field(default_factory=dict)
+    # Cave clusters: canonical coord → list of member coords.
+    # Populated by _assign_cave_clusters after feature placement.
+    # All caves in a cluster share a single Floor 2 dungeon.
+    cave_clusters: dict[HexCoord, list[HexCoord]] = field(
+        default_factory=dict,
+    )
 
     # ----- cells -----
 

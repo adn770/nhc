@@ -290,7 +290,7 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
             cells[c] = HexCell(coord=c, biome=biome)
             hexes_by_biome[biome].append(c)
 
-    hub = _place_features(cells, hexes_by_biome, pack, rng)
+    hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
     world = HexWorld(
         pack_id=pack.id,
@@ -302,6 +302,7 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     for cell in cells.values():
         world.set_cell(cell)
     world.last_hub = hub
+    world.cave_clusters = clusters
     return world
 
 
@@ -449,7 +450,7 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
     # feature placer doesn't need to retry a fresh seed.
     _repair_essentials(cells, hexes_by_biome, rng)
 
-    hub = _place_features(cells, hexes_by_biome, pack, rng)
+    hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
     world = HexWorld(
         pack_id=pack.id,
@@ -461,6 +462,7 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
     for cell in cells.values():
         world.set_cell(cell)
     world.last_hub = hub
+    world.cave_clusters = clusters
     return world
 
 
