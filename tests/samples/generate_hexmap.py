@@ -213,6 +213,9 @@ def _feature_variants(feature: str, biome: str) -> list[int] | None:
 
 def _tile_path(biome: str, feature: str, q: int, r: int) -> Path:
     """Resolve which tile PNG to use for a hex."""
+    # Water is a single-tile biome — no feature variants.
+    if biome == "water":
+        feature = "none"
     if feature and feature != "none":
         variants = _feature_variants(feature, biome)
         if variants:
