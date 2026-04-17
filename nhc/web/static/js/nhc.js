@@ -165,6 +165,12 @@ const NHC = {
           .catch(e => console.warn("Failed to load debug data:", e));
       }
     });
+
+    // Server-triggered layer capture (for remote debug-bundle).
+    WS.on("capture_layers", async () => {
+      const n = await Input._captureAndUploadLayers();
+      console.log(`[capture_layers] uploaded ${n} layers`);
+    });
   },
 
   showLoading(text = "Generating dungeon...") {

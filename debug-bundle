@@ -54,7 +54,20 @@ if [[ -z "$SESSION" ]]; then
 fi
 ok "Session: ${SESSION:0:12}..."
 
-# 2. Download the debug bundle
+# 2. Ask the browser to capture layer PNGs and upload them
+info "Requesting layer capture from browser..."
+CAPTURE_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+    -X POST "${SERVER}/api/game/${SESSION}/capture_layers" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "Content-Type: application/json") || true
+if [[ "$CAPTURE_CODE" == "200" ]]; then
+    ok "Layer capture requested, waiting for upload..."
+    sleep 2
+else
+    info "Layer capture skipped (browser may not be open)"
+fi
+
+# 3. Download the debug bundle
 info "Downloading debug bundle..."
 BUNDLE=$(mktemp /tmp/nhc-bundle-XXXXXX.tar.gz)
 HTTP_CODE=$(curl -sf -o "$BUNDLE" -w "%{http_code}" \
@@ -68,14 +81,14 @@ if [[ "$HTTP_CODE" != "200" ]]; then
 fi
 ok "Downloaded $(du -h "$BUNDLE" | cut -f1) bundle"
 
-# 3. Clean old exports and unpack
+# 4. Clean old exports and unpack
 info "Unpacking into debug/..."
 rm -rf "$DEBUG_DIR/exports"
 mkdir -p "$DEBUG_DIR"
 tar xzf "$BUNDLE" -C "$DEBUG_DIR"
 rm -f "$BUNDLE"
 
-# 4. Summary
+# 5. Summary
 EXPORT_COUNT=$(find "$DEBUG_DIR/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
 ok "Unpacked ${EXPORT_COUNT} export files into debug/exports/"
 ls -la "$DEBUG_DIR/exports/" 2>/dev/null || true

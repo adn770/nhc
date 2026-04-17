@@ -307,15 +307,11 @@ const Input = {
     return btn;
   },
 
-  /** Capture all active canvas layers as PNGs, upload them to the
-   * server, then trigger the debug bundle download. */
-  async _downloadDebugBundle() {
+  /** Capture all canvas layers as PNGs and upload to the server.
+   * Returns the number of layers captured. */
+  async _captureAndUploadLayers() {
     const sid = NHC.sessionId;
-    if (!sid) return;
-    const btn = document.getElementById("debug-bundle-btn");
-    if (btn) { btn.disabled = true; btn.textContent = "\u231B"; }
-
-    // Gather PNGs from all canvas layers (both modes).
+    if (!sid) return 0;
     const canvases = [
       { name: "floor_svg",     el: "#floor-svg svg",      svg: true },
       { name: "door_canvas",   el: "#door-canvas" },
@@ -358,8 +354,6 @@ const Input = {
         console.warn("Layer capture failed:", name, e);
       }
     }
-
-    // Upload PNGs to server, then download the bundle.
     try {
       await fetch(`/api/game/${sid}/export/layer_pngs`, {
         method: "POST",
@@ -369,6 +363,16 @@ const Input = {
     } catch (e) {
       console.warn("Layer PNG upload failed:", e);
     }
+    return Object.keys(layers).length;
+  },
+
+  /** Capture layers + download the debug bundle. */
+  async _downloadDebugBundle() {
+    const sid = NHC.sessionId;
+    if (!sid) return;
+    const btn = document.getElementById("debug-bundle-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "\u231B"; }
+    await this._captureAndUploadLayers();
     window.location.href = `/api/game/${sid}/export/bundle`;
     if (btn) {
       btn.disabled = false;

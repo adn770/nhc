@@ -1459,6 +1459,25 @@ def create_app(
         return jsonify({"path": str(path)})
 
     @app.route(
+        "/api/game/<session_id>/capture_layers", methods=["POST"],
+    )
+    @_player_auth
+    def capture_layers(session_id: str):
+        """Ask the browser to capture canvas layer PNGs.
+
+        Sends a ``capture_layers`` WebSocket message to the client.
+        The client captures all canvases and POSTs them back to
+        ``/export/layer_pngs``. The caller should wait ~2 seconds
+        before downloading the bundle.
+        """
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        client = session.game.renderer
+        client._send({"type": "capture_layers"})
+        return jsonify({"status": "ok", "message": "capture requested"})
+
+    @app.route(
         "/api/game/<session_id>/export/layer_pngs", methods=["POST"],
     )
     @_player_auth
