@@ -187,7 +187,8 @@ def test_generator_places_villages_within_range(default_pack) -> None:
 def test_generator_places_dungeons_within_range(default_pack) -> None:
     w = generate_test_world(seed=42, pack=default_pack)
     dungeon_types = {
-        HexFeatureType.CAVE, HexFeatureType.RUIN, HexFeatureType.TOWER,
+        HexFeatureType.CAVE, HexFeatureType.RUIN,
+        HexFeatureType.TOWER, HexFeatureType.GRAVEYARD,
     }
     dungeons = _feature_hexes(w, dungeon_types)
     target = default_pack.features.dungeon
@@ -243,7 +244,8 @@ def test_generator_settlements_have_dungeon_ref(default_pack) -> None:
 def test_generator_dungeon_features_have_dungeon_ref(default_pack) -> None:
     w = generate_test_world(seed=42, pack=default_pack)
     dungeon_types = {
-        HexFeatureType.CAVE, HexFeatureType.RUIN, HexFeatureType.TOWER,
+        HexFeatureType.CAVE, HexFeatureType.RUIN,
+        HexFeatureType.TOWER, HexFeatureType.GRAVEYARD,
     }
     dungeons = _feature_hexes(w, dungeon_types)
     assert len(dungeons) > 0

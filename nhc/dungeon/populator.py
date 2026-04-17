@@ -47,6 +47,21 @@ CREATURE_POOLS: dict[int, list[tuple[str, float]]] = {
     ],
 }
 
+# Crypt creature pool: undead-dominated. Used instead of the
+# depth-tiered CREATURE_POOLS when the level theme is "crypt".
+CRYPT_CREATURE_POOL: list[tuple[str, float]] = [
+    ("skeleton", 0.25),
+    ("zombie", 0.20),
+    ("ghoul", 0.15),
+    ("wight", 0.10),
+    ("spectre", 0.08),
+    ("mummy", 0.07),
+    ("banshee", 0.05),
+    ("bat", 0.05),
+    ("giant_rat", 0.05),
+]
+
+
 # ── Encounter group templates ────────────────────────────────────────
 
 ENCOUNTER_GROUPS: list[tuple[str, int, int]] = [
@@ -155,6 +170,20 @@ CAVE_FEATURE_POOLS: list[tuple[str, float]] = [
     ("trap_fire", 0.05),
     ("trap_teleport", 0.05),
     ("trap_summoning", 0.05),
+]
+
+# Crypt-specific pool: undead-themed traps — poison gas from
+# coffins, paralysis curses, summoning circles that raise the
+# dead. No natural traps (pits, falling stones).
+CRYPT_FEATURE_POOLS: list[tuple[str, float]] = [
+    ("trap_poison", 0.20),
+    ("trap_paralysis", 0.18),
+    ("trap_summoning", 0.15),
+    ("trap_fire", 0.12),
+    ("trap_spores", 0.10),
+    ("trap_alarm", 0.10),
+    ("trap_teleport", 0.08),
+    ("trap_gripping", 0.07),
 ]
 
 # ── Buried item pools (gold + potions by tier) ─────────────────────
@@ -419,7 +448,11 @@ def populate_level(
 
     # ── Place creature encounters ──
     MIN_CREATURES = 3
-    c_pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
+    theme = (level.metadata.theme if level.metadata else "dungeon")
+    if theme == "crypt":
+        c_pool = CRYPT_CREATURE_POOL
+    else:
+        c_pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])
     c_ids, c_weights = zip(*c_pool) if c_pool else ([], [])
     remaining = creature_count
     max_attempts = creature_count * 3  # prevent infinite loop
@@ -554,8 +587,12 @@ def populate_level(
             continue
         theme = (level.metadata.theme
                  if level.metadata else "dungeon")
-        pool = (CAVE_FEATURE_POOLS if theme == "cave"
-                else FEATURE_POOLS)
+        if theme == "cave":
+            pool = CAVE_FEATURE_POOLS
+        elif theme == "crypt":
+            pool = CRYPT_FEATURE_POOLS
+        else:
+            pool = FEATURE_POOLS
         feat_id, _ = rng.choice(pool)
         level.entities.append(EntityPlacement(
             entity_type="feature", entity_id=feat_id,

@@ -82,6 +82,7 @@ def _template_for(feature: HexFeatureType) -> str:
         HexFeatureType.CAVE: "procedural:cave",
         HexFeatureType.RUIN: "procedural:ruin",
         HexFeatureType.TOWER: "procedural:tower",
+        HexFeatureType.GRAVEYARD: "procedural:crypt",
     }.get(feature, "procedural:cave")
 
 
@@ -112,6 +113,8 @@ def place_dungeons(
     recipes: list[tuple[HexFeatureType, tuple[Biome, ...]]] = [
         (HexFeatureType.CAVE, (Biome.MOUNTAIN,)),
         (HexFeatureType.RUIN, (Biome.FOREST, Biome.DEADLANDS)),
+        (HexFeatureType.GRAVEYARD, (Biome.DEADLANDS, Biome.ICELANDS,
+                                    Biome.SWAMP, Biome.MARSH)),
         (HexFeatureType.TOWER, tuple(Biome)),
     ]
     # First: one of each type if possible.

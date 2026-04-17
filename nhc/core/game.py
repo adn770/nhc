@@ -428,10 +428,12 @@ class Game:
             self._maybe_seed_rumors(seed)
         else:
             sv = _shape_variety_for_depth(self.shape_variety, depth)
-            theme = (
-                "cave" if template.startswith("procedural:cave")
-                else theme_for_depth(depth)
-            )
+            if template.startswith("procedural:cave"):
+                theme = "cave"
+            elif template.startswith("procedural:crypt"):
+                theme = "crypt"
+            else:
+                theme = theme_for_depth(depth)
             map_w, map_h = pick_map_size(get_rng(), depth=depth)
             params = GenerationParams(
                 width=map_w, height=map_h, depth=depth,
