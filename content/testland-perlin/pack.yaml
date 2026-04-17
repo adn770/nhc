@@ -33,3 +33,12 @@ features:
   wonder:
     min: 2
     max: 4
+
+rivers:
+  max_rivers: 3
+  min_length: 4
+  bifurcation_chance: 0.05
+
+paths:
+  connect_towers: 0.6
+  connect_caves: 0.2
