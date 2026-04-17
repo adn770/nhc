@@ -254,21 +254,51 @@ const HexFlower = {
       curve.lineTo(last.x, last.y);
     }
 
-    if (seg.type === "river") {
-      ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
-      ctx.lineWidth = 24;
-      ctx.stroke(curve);
-      ctx.strokeStyle = "rgba(40, 100, 200, 0.75)";
-      ctx.lineWidth = 14;
-      ctx.stroke(curve);
-    } else {
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.lineWidth = 20;
-      ctx.stroke(curve);
-      ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
-      ctx.lineWidth = 10;
-      ctx.setLineDash([12, 10]);
-      ctx.stroke(curve);
+    // Draw with variable thickness: stroke short segments between
+    // consecutive points, each with a slightly different lineWidth
+    // derived from the deterministic hash. This creates natural
+    // swelling/tapering along the path.
+    const isRiver = seg.type === "river";
+    const baseOutline = isRiver ? 26 : 22;
+    const baseFill = isRiver ? 18 : 14;
+    const variance = isRiver ? 6 : 4;  // +/- per segment
+
+    // Two passes: outline first, then fill
+    for (let pass = 0; pass < 2; pass++) {
+      const isOutline = pass === 0;
+      if (isRiver) {
+        ctx.strokeStyle = isOutline
+          ? "rgba(15, 40, 100, 0.6)"
+          : "rgba(40, 100, 200, 0.75)";
+      } else {
+        ctx.strokeStyle = isOutline
+          ? "rgba(0, 0, 0, 0.5)"
+          : "rgba(120, 80, 40, 0.7)";
+        if (!isOutline) ctx.setLineDash([12, 10]);
+        else ctx.setLineDash([]);
+      }
+      const baseW = isOutline ? baseOutline : baseFill;
+
+      for (let i = 0; i < pts.length - 1; i++) {
+        const hw = this._jitterHash(
+          seg.path[Math.min(i, seg.path.length - 1)].q,
+          seg.path[Math.min(i, seg.path.length - 1)].r,
+          i * 17 + pass,
+        );
+        const v = ((hw % 1000) / 500 - 1) * variance;
+        ctx.lineWidth = Math.max(2, baseW + v);
+        const s = new Path2D();
+        s.moveTo(pts[i].x, pts[i].y);
+        // Use quadratic curve to the midpoint toward the next
+        if (i + 2 < pts.length) {
+          const xc = (pts[i + 1].x + pts[i + 2].x) / 2;
+          const yc = (pts[i + 1].y + pts[i + 2].y) / 2;
+          s.quadraticCurveTo(pts[i + 1].x, pts[i + 1].y, xc, yc);
+        } else {
+          s.lineTo(pts[i + 1].x, pts[i + 1].y);
+        }
+        ctx.stroke(s);
+      }
     }
     ctx.restore();
   },
