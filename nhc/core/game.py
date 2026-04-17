@@ -886,11 +886,17 @@ class Game:
         Position is a sentinel with ``level_id == "overland"`` and
         ``(x, y) == (-1, -1)``; hex location is tracked in
         :attr:`hex_player_position` (moves via :meth:`apply_hex_step`).
-        The same Player/Stats/Health/Inventory/Equipment shape used
-        by the dungeon init path keeps downstream systems happy.
+
+        Character generation is identical to dungeon mode (same
+        stats, HP, starting gear); hex-easy doubles the starting
+        gold so the player can hire a henchman on the first town
+        visit.
         """
         char = generate_character(seed=self.seed)
         inv_slots = 10 + char.constitution
+        gold = char.gold
+        if self.world_mode is GameMode.HEX_EASY:
+            gold *= 2
         self.player_id = self.world.create_entity({
             "Position": Position(x=-1, y=-1, level_id="overland"),
             "Renderable": Renderable(
@@ -906,7 +912,7 @@ class Game:
             ),
             "Health": Health(current=char.hp, maximum=char.hp),
             "Inventory": Inventory(max_slots=inv_slots),
-            "Player": Player(gold=char.gold),
+            "Player": Player(gold=gold),
             "Description": Description(
                 name=char.name,
                 short=t(f"traits.{char.background}"),
@@ -915,6 +921,53 @@ class Game:
             "Hunger": Hunger(),
         })
         self._character = char
+        self._give_starting_gear(char)
+
+    def _give_starting_gear(self, char) -> None:
+        """Equip the player with the character's rolled starting
+        items. Shared across dungeon and hex init paths so every
+        mode starts with the same gear."""
+        inv = self.world.get_component(self.player_id, "Inventory")
+        equip = self.world.get_component(self.player_id, "Equipment")
+        for item_id in char.starting_items:
+            try:
+                item_comps = EntityRegistry.get_item(item_id)
+                self._disguise_potion(item_comps, item_id)
+                eid = self.world.create_entity(item_comps)
+                if inv:
+                    cost = _item_slot_cost(self.world, eid)
+                    used = _count_slots_used(self.world, inv)
+                    if used + cost > inv.max_slots:
+                        self.world.destroy_entity(eid)
+                        logger.info(
+                            "Starting item %s skipped (slots full)",
+                            item_id,
+                        )
+                        continue
+                    inv.slots.append(eid)
+                    if equip:
+                        if (equip.weapon is None
+                                and self.world.has_component(
+                                    eid, "Weapon")):
+                            equip.weapon = eid
+                        armor_comp = self.world.get_component(
+                            eid, "Armor",
+                        )
+                        if armor_comp:
+                            slot_map = {
+                                "body": "armor",
+                                "shield": "shield",
+                                "helmet": "helmet",
+                            }
+                            attr = slot_map.get(
+                                armor_comp.slot, "armor",
+                            )
+                            if getattr(equip, attr) is None:
+                                setattr(equip, attr, eid)
+            except KeyError:
+                logger.warning(
+                    "Unknown starting item: %s", item_id,
+                )
 
     def handle_player_death(self) -> bool:
         """Decide what happens when the player's HP hits 0.
@@ -1235,40 +1288,7 @@ class Game:
         })
         self._character = char
 
-        # Give starting equipment (respecting slot costs)
-        inv = self.world.get_component(self.player_id, "Inventory")
-        equip = self.world.get_component(self.player_id, "Equipment")
-        for item_id in char.starting_items:
-            try:
-                item_comps = EntityRegistry.get_item(item_id)
-                self._disguise_potion(item_comps, item_id)
-                eid = self.world.create_entity(item_comps)
-                if inv:
-                    cost = _item_slot_cost(self.world, eid)
-                    used = _count_slots_used(self.world, inv)
-                    if used + cost > inv.max_slots:
-                        # Doesn't fit — drop on the ground
-                        self.world.destroy_entity(eid)
-                        logger.info(
-                            "Starting item %s skipped (slots full)", item_id,
-                        )
-                        continue
-                    inv.slots.append(eid)
-                    # Auto-equip starting gear
-                    if equip:
-                        if (equip.weapon is None
-                                and self.world.has_component(eid, "Weapon")):
-                            equip.weapon = eid
-                        armor_comp = self.world.get_component(eid, "Armor")
-                        if armor_comp:
-                            slot_map = {"body": "armor",
-                                        "shield": "shield",
-                                        "helmet": "helmet"}
-                            attr = slot_map.get(armor_comp.slot, "armor")
-                            if getattr(equip, attr) is None:
-                                setattr(equip, attr, eid)
-            except KeyError:
-                logger.warning("Unknown starting item: %s", item_id)
+        self._give_starting_gear(char)
 
         # Spawn level entities
         self._spawn_level_entities()
