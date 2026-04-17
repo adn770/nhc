@@ -307,12 +307,38 @@ const HexFlower = {
     if (!this._staticDrawn) {
       this.resize(pw, ph);
 
-      /* -- base layer: biome tiles -- */
+      /* -- base layer: load tile PNGs (reuse hex_map.js globals) -- */
+      const tileLoads = state.cells.map(cell => {
+        // Use major_feature for tile lookup; minor features are
+        // overlay icons, not full tiles.
+        const feat = (cell.major_feature && cell.major_feature !== "none")
+          ? cell.major_feature : "none";
+        const urls = tilePath(cell.biome, feat, cell.q, cell.r);
+        return HexMap._loadTile(urls.primary, urls.fallback)
+          .then(img => ({ cell, img }));
+      });
+      if (this._fogTile === undefined) {
+        this._fogTile = null;
+        tileLoads.push(
+          HexMap._loadTile("/hextiles/27-foundation_fog.png")
+            .then(img => { this._fogTile = img; return null; }),
+        );
+      }
+      const placements = (await Promise.all(tileLoads)).filter(Boolean);
+
       baseCtx.save();
       baseCtx.scale(FLOWER_CANVAS_SCALE, FLOWER_CANVAS_SCALE);
-      for (const cell of state.cells) {
+      for (const { cell, img } of placements) {
         const { x, y } = _flowerAxialToPixel(cell.q, cell.r);
-        this._drawGlyphFallback(baseCtx, cell, x, y);
+        if (img) {
+          baseCtx.drawImage(
+            img,
+            x - HEX_FLOWER_WIDTH / 2, y - HEX_FLOWER_HEIGHT / 2,
+            HEX_FLOWER_WIDTH, HEX_FLOWER_HEIGHT,
+          );
+        } else {
+          this._drawGlyphFallback(baseCtx, cell, x, y);
+        }
       }
       baseCtx.restore();
 
@@ -357,9 +383,17 @@ const HexFlower = {
         fog.width / FLOWER_CANVAS_SCALE,
         fog.height / FLOWER_CANVAS_SCALE,
       );
-      for (const cell of state.cells) {
+      for (const { cell } of placements) {
         const { x, y } = _flowerAxialToPixel(cell.q, cell.r);
-        this._fillHex(fogCtx, x, y, HEX_FLOWER_SIZE, "#5a7a9a");
+        if (this._fogTile) {
+          fogCtx.drawImage(
+            this._fogTile,
+            x - HEX_FLOWER_WIDTH / 2, y - HEX_FLOWER_HEIGHT / 2,
+            HEX_FLOWER_WIDTH, HEX_FLOWER_HEIGHT,
+          );
+        } else {
+          this._fillHex(fogCtx, x, y, HEX_FLOWER_SIZE, "#5a7a9a");
+        }
       }
       fogCtx.restore();
 
