@@ -969,6 +969,7 @@ class Game:
         if not await action.validate(self.world, None):
             return False
         await action.execute(self.world, None)
+        self.hex_world.record_entry_edge(origin, target)
         self.hex_player_position = target
         # Roll for a wilderness encounter on the target cell --
         # skipped on feature hexes (player is about to pick
@@ -2606,9 +2607,9 @@ class Game:
                 if self.hex_world and coord else None
             )
             if cell and cell.flower:
-                from nhc.hexcrawl.model import EDGE_TO_RING2
-                # Enter from a default edge (center of flower)
-                entry_sub = HexCoord(0, 0)
+                from nhc.hexcrawl._flowers import entry_sub_hex_for_edge
+                edge = self.hex_world.last_entry_edge.get(coord)
+                entry_sub = entry_sub_hex_for_edge(edge)
                 self.hex_world.enter_flower(coord, entry_sub)
                 self.renderer.add_message("You begin exploring.")
                 return "moved"

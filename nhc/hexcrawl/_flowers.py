@@ -763,6 +763,23 @@ def generate_flowers(
 # ---------------------------------------------------------------------------
 
 
+def entry_sub_hex_for_edge(edge: int | None) -> HexCoord:
+    """Pick the ring-2 sub-hex the player enters from.
+
+    *edge* is the NEIGHBOR_OFFSETS direction the player was
+    traveling when they entered this hex. The entry sub-hex is
+    on the opposite side of the flower (they came from that
+    direction, so they enter at the boundary facing back).
+
+    Returns ``HexCoord(0, 0)`` (center) if edge is None.
+    """
+    if edge is None:
+        return HexCoord(0, 0)
+    opposite = (edge + 3) % 6
+    # Pick the vertex hex (second element of the pair)
+    return EDGE_TO_RING2[opposite][1]
+
+
 def pick_flower_start(
     hw: "HexWorld",
     mode: "GameMode",

@@ -316,6 +316,11 @@ class HexWorld:
     sub_hex_visited: dict[HexCoord, set[HexCoord]] = field(
         default_factory=dict,
     )
+    # Direction the player last entered each macro hex from.
+    # Key = macro hex coord, value = NEIGHBOR_OFFSETS index (0-5).
+    last_entry_edge: dict[HexCoord, int] = field(
+        default_factory=dict,
+    )
 
     # ----- cells -----
 
@@ -365,6 +370,14 @@ class HexWorld:
         self.sub_hex_visited.setdefault(macro_hex, set()).add(
             entry_sub,
         )
+
+    def record_entry_edge(
+        self, origin: HexCoord, target: HexCoord,
+    ) -> None:
+        """Record the direction the player entered *target* from."""
+        from nhc.hexcrawl._rivers import direction_index
+        edge = direction_index(origin, target)
+        self.last_entry_edge[target] = edge
 
     def exit_flower(self) -> None:
         """Leave the current hex flower back to the macro map."""
