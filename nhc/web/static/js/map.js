@@ -325,7 +325,12 @@ const GameMap = {
         el.style.transform = `scale(${scale})`;
       }
     }
-    this.scrollToPlayer();
+    // Centre on the player in whichever mode is active.
+    if (typeof HexMap !== "undefined" && HexMap._playerPx) {
+      HexMap._centerOnPlayer();
+    } else {
+      this.scrollToPlayer();
+    }
   },
 
   _resolveColor(colorName) {

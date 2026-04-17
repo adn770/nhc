@@ -359,18 +359,17 @@ const HexMap = {
     const zone = document.getElementById("map-zone");
     const container = document.getElementById("hex-container");
     if (!zone || !container) return;
-    // The container can be offset inside map-zone if the zone has
-    // flex centering; measure its real position and add the
-    // player pixel on top.
+    const scale = _hexZoomScale();
+    // Player canvas coords → scaled screen coords.
+    const px = this._playerPx.x * scale;
+    const py = this._playerPx.y * scale;
     const z = zone.getBoundingClientRect();
     const c = container.getBoundingClientRect();
     const offsetX = (c.left - z.left) + zone.scrollLeft;
     const offsetY = (c.top - z.top) + zone.scrollTop;
-    const targetLeft = offsetX + this._playerPx.x - zone.clientWidth / 2;
-    const targetTop = offsetY + this._playerPx.y - zone.clientHeight / 2;
     zone.scrollTo({
-      left: Math.max(0, targetLeft),
-      top: Math.max(0, targetTop),
+      left: Math.max(0, offsetX + px - zone.clientWidth / 2),
+      top: Math.max(0, offsetY + py - zone.clientHeight / 2),
       behavior: "auto",
     });
   },
