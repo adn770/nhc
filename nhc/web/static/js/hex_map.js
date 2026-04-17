@@ -591,11 +591,11 @@ const HexMap = {
       }
     }
 
-    // River/path edge segments on the feature canvas (z-index 2).
-    // Only draw on revealed hexes (unrevealed are fogged anyway).
+    // River/path edge segments on the feature canvas (z-index 1,
+    // below fog). Unrevealed segments are hidden by the fog layer.
     if (featCtx) {
       for (const {cell} of placements) {
-        if (!cell.edges || !cell.revealed) continue;
+        if (!cell.edges) continue;
         const {x, y} = axialToPixel(cell.q, cell.r);
         for (const seg of cell.edges) {
           this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);

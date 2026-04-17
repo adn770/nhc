@@ -988,8 +988,8 @@ const DebugPanel = {
 
     const hexCanvases = [
       { key: "base",    label: "Base Canvas",    el: "#hex-base-canvas" },
-      { key: "fog",     label: "Fog Canvas",     el: "#hex-fog-canvas" },
       { key: "feature", label: "Feature Canvas", el: "#hex-feature-canvas" },
+      { key: "fog",     label: "Fog Canvas",     el: "#hex-fog-canvas" },
       { key: "entity",  label: "Entity Canvas",  el: "#hex-entity-canvas" },
       { key: "debug",   label: "Debug Canvas",   el: "#hex-debug-canvas" },
       { key: "hud",     label: "HUD Overlay",    el: "#hex-hud" },

@@ -285,8 +285,8 @@ body {
   z-index: 0;
 }
 
-#hex-fog-canvas     { z-index: 1; }
-#hex-feature-canvas { z-index: 2; }
+#hex-feature-canvas { z-index: 1; }
+#hex-fog-canvas     { z-index: 2; }
 #hex-entity-canvas  { z-index: 3; }
 #hex-debug-canvas   { z-index: 4; }
 
