@@ -815,5 +815,4 @@ def pick_flower_start(
             "no non-feature hex available for survival start"
         )
     macro = rng.choice(candidates)
-    sub = rng.choice(list(FLOWER_COORDS))
-    return (macro, sub)
+    return (macro, HexCoord(0, 0))
