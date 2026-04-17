@@ -57,6 +57,5 @@ class MoveHexAction(Action):
         cell = self.hex_world.get_cell(self.target)
         assert cell is not None, "validate() should have rejected"
         self.hex_world.visit(self.target)
-        self.hex_world.reveal_with_neighbors(self.target)
         self.hex_world.advance_clock_for_cell(cell)
         return [HexStepEvent(actor=self.actor, target=self.target)]

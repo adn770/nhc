@@ -45,22 +45,22 @@ def build_hex_state_msg(
     """Build the ``state_hex`` WebSocket payload for an overland turn.
 
     Pure function so it's easy to test without plumbing a WebSocket.
-    Honours the fog of war: only hexes in ``hex_world.revealed`` are
-    shipped; unrevealed cells stay hidden until the player first
-    sees them.
+    Ships **all** cells so the frontend can draw the full map on the
+    base canvas; fog of war is enforced client-side via the fog
+    canvas layer. Each cell carries a ``revealed`` boolean so the
+    renderer knows which hexes to punch through the fog.
     """
     cells_payload: list[dict] = []
     for coord in sorted(
-        hex_world.revealed, key=lambda c: (c.q, c.r),
+        hex_world.cells, key=lambda c: (c.q, c.r),
     ):
-        cell = hex_world.cells.get(coord)
-        if cell is None:
-            continue
+        cell = hex_world.cells[coord]
         cell_data: dict = {
             "q": coord.q,
             "r": coord.r,
             "biome": cell.biome.value,
             "feature": cell.feature.value,
+            "revealed": coord in hex_world.revealed,
         }
         if cell.edges:
             cell_data["edges"] = [

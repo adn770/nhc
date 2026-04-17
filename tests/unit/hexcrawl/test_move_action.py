@@ -136,19 +136,20 @@ async def test_move_hex_marks_visited() -> None:
 
 
 @pytest.mark.asyncio
-async def test_move_hex_reveals_destination_neighbors() -> None:
+async def test_move_hex_reveals_only_destination() -> None:
+    """With 5-mile hexes, only the stepped hex is revealed."""
     w = _make_world_8x8()
     target = HexCoord(5, 4)
     action = MoveHexAction(
         actor=1, origin=HexCoord(4, 4), target=target, hex_world=w,
     )
     await action.execute(world=World(), level=None)
-    expected_reveal = {target} | {
-        n for n in neighbors(target)
-        if 0 <= n.q < w.width and 0 <= n.r < w.height
-    }
-    # Origin stays revealed from the initial state too.
-    assert expected_reveal <= w.revealed
+    assert target in w.revealed
+    # Neighbours of target are NOT revealed (no extended FOV).
+    for n in neighbors(target):
+        if n == HexCoord(4, 4):
+            continue  # origin was already revealed
+        assert n not in w.revealed
 
 
 @pytest.mark.asyncio

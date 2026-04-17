@@ -239,19 +239,13 @@ class HexWorld:
     def visible_cells(self, center: HexCoord) -> set[HexCoord]:
         """Currently-in-sight hex coords around ``center``.
 
-        Returns the centre plus its six in-shape neighbours. The
-        result is always bounded by the map; coords that fall
-        outside the shape are trimmed. Does not depend on the
-        revealed history -- callers that want the drawn-bright
-        overlay intersect this with :attr:`revealed`.
+        With 5-mile hexes there is no extended field of view: the
+        player sees only the hex they occupy. Returns ``{center}``
+        when the coord is a populated cell, empty set otherwise.
         """
-        out: set[HexCoord] = set()
         if center in self.cells:
-            out.add(center)
-        for n in neighbors(center):
-            if n in self.cells:
-                out.add(n)
-        return out
+            return {center}
+        return set()
 
     def is_in_shape(self, c: HexCoord) -> bool:
         """Shape-aware bounds check: True iff ``c`` is a populated

@@ -164,6 +164,10 @@ const HexMap = {
   /** Image cache keyed by URL; prevents repeated fetches. */
   _tileCache: {},
 
+  /** Cached fog tile image (27-foundation_fog.png). Loaded once
+   * on first render; used to stamp the fog canvas. */
+  _fogTile: undefined,
+
   /** Cached DOM references for the 6 direction arrow buttons. */
   _arrows: null,
 
@@ -516,21 +520,33 @@ const HexMap = {
     // the cleared canvas between microtasks, flashing the view on
     // every state_hex frame. With one await up front, the draw
     // loop below is synchronous.
-    const placements = await Promise.all(state.cells.map(cell => {
+    const tileLoads = state.cells.map(cell => {
       const urls = tilePath(cell.biome, cell.feature, cell.q, cell.r);
       return this._loadTile(urls.primary, urls.fallback)
         .then(img => ({cell, img}));
-    }));
+    });
+    // Also load the fog tile if not cached yet.
+    if (this._fogTile === undefined) {
+      this._fogTile = null;  // mark as loading
+      tileLoads.push(
+        this._loadTile("/hextiles/27-foundation_fog.png")
+          .then(img => { this._fogTile = img; return null; }),
+      );
+    }
+    const placements = (await Promise.all(tileLoads)).filter(Boolean);
 
-    // One synchronous paint pass: clear → fog → tiles → fog punch
-    // → labels. Nothing between the first clear and the final draw
-    // yields to the event loop, so the browser only ever commits a
-    // single complete frame.
+    // One synchronous paint pass: clear → fog → tiles → fog punch.
+    // Nothing between the first clear and the final draw yields to
+    // the event loop, so the browser only commits a single frame.
     baseCtx.clearRect(0, 0, base.width, base.height);
-    fogCtx.fillStyle = "#05070a";
-    fogCtx.fillRect(0, 0, fog.width, fog.height);
     if (featCtx) featCtx.clearRect(0, 0, feat.width, feat.height);
 
+    // Fog canvas: sky-blue background + fog tile stamped over
+    // every hex position. Revealed hexes are punched through.
+    fogCtx.fillStyle = "#87CEEB";
+    fogCtx.fillRect(0, 0, fog.width, fog.height);
+
+    // Draw ALL tiles on the base canvas (fog covers unrevealed).
     for (const {cell, img} of placements) {
       const {x, y} = axialToPixel(cell.q, cell.r);
       if (img) {
@@ -542,15 +558,25 @@ const HexMap = {
       } else {
         this._drawGlyphFallback(baseCtx, cell, x, y);
       }
-      this._punchHex(fogCtx, x, y);
+      // Stamp fog tile on every hex (unrevealed stay fogged).
+      if (this._fogTile) {
+        fogCtx.drawImage(
+          this._fogTile,
+          x - HEX_WIDTH / 2, y - HEX_HEIGHT / 2,
+          HEX_WIDTH, HEX_HEIGHT,
+        );
+      }
+      // Punch revealed hexes through the fog.
+      if (cell.revealed) {
+        this._punchHex(fogCtx, x, y);
+      }
     }
 
     // River/path edge segments on the feature canvas (z-index 2).
-    // Drawn after tiles so they appear above terrain art but below
-    // entities and the HUD.
+    // Only draw on revealed hexes (unrevealed are fogged anyway).
     if (featCtx) {
       for (const {cell} of placements) {
-        if (!cell.edges) continue;
+        if (!cell.edges || !cell.revealed) continue;
         const {x, y} = axialToPixel(cell.q, cell.r);
         for (const seg of cell.edges) {
           this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);

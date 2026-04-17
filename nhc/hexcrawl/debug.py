@@ -62,7 +62,6 @@ def teleport_hex(world: HexWorld, target: HexCoord) -> bool:
     """
     if not world.is_in_shape(target):
         return False
-    world.reveal_with_neighbors(target)
     world.visit(target)
     return True
 

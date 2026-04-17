@@ -81,43 +81,39 @@ def test_state_hex_map_dimensions() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_state_hex_includes_revealed_only() -> None:
+def test_state_hex_includes_all_cells() -> None:
     w = _make_world()
-    # Only (1,1) is revealed in the fixture.
+    # All cells are shipped, not just revealed ones.
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
     coords = {(c["q"], c["r"]) for c in msg["cells"]}
-    assert coords == {(1, 1)}
+    assert len(coords) == 16  # 4x4 grid
 
 
 def test_state_hex_revealed_cells_carry_biome_and_feature() -> None:
     w = _make_world()
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
-    (cell,) = msg["cells"]
-    assert cell["q"] == 1
-    assert cell["r"] == 1
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    cell = by_coord[(1, 1)]
     assert cell["biome"] == "drylands"
     assert cell["feature"] == "city"
 
 
-def test_state_hex_additional_reveals_are_included() -> None:
+def test_state_hex_revealed_flag_true_for_revealed() -> None:
     w = _make_world()
     w.reveal(HexCoord(0, 0))
-    w.reveal(HexCoord(3, 3))
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
-    coords = {(c["q"], c["r"]) for c in msg["cells"]}
-    assert coords == {(0, 0), (1, 1), (3, 3)}
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    assert by_coord[(1, 1)]["revealed"] is True
+    assert by_coord[(0, 0)]["revealed"] is True
 
 
-def test_state_hex_unrevealed_hexes_absent() -> None:
+def test_state_hex_revealed_flag_false_for_unrevealed() -> None:
     w = _make_world()
-    # Only (1,1) revealed; other coords have cells but aren't
-    # revealed -- they must not appear in the payload.
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
-    shipped = {(c["q"], c["r"]) for c in msg["cells"]}
-    for q in range(4):
-        for r in range(4):
-            if (q, r) != (1, 1):
-                assert (q, r) not in shipped
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    # (1,1) is revealed, (3,3) is not.
+    assert by_coord[(1, 1)]["revealed"] is True
+    assert by_coord[(3, 3)]["revealed"] is False
 
 
 def test_state_hex_cells_without_feature_use_none_string() -> None:
@@ -143,7 +139,8 @@ def test_state_hex_cell_with_edges_includes_edges_key() -> None:
         EdgeSegment(type="river", entry_edge=0, exit_edge=3),
     )
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
-    (cell,) = msg["cells"]
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    cell = by_coord[(1, 1)]
     assert "edges" in cell
     assert len(cell["edges"]) == 1
     seg = cell["edges"][0]
@@ -155,7 +152,8 @@ def test_state_hex_cell_with_edges_includes_edges_key() -> None:
 def test_state_hex_cell_without_edges_omits_key() -> None:
     w = _make_world()
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
-    (cell,) = msg["cells"]
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    cell = by_coord[(0, 0)]
     assert "edges" not in cell
 
 
@@ -165,6 +163,7 @@ def test_state_hex_edge_source_and_sink_use_null() -> None:
         EdgeSegment(type="river", entry_edge=None, exit_edge=3),
     )
     msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
-    seg = msg["cells"][0]["edges"][0]
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    seg = by_coord[(1, 1)]["edges"][0]
     assert seg["entry"] is None
     assert seg["exit"] == 3
