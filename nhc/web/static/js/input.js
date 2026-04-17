@@ -178,8 +178,9 @@ const Input = {
     if (mode === this._currentToolbarMode) return;
     this._currentToolbarMode = mode;
     this._initToolbar();
-    // Re-apply translated tooltips if labels are available.
-    if (typeof UI !== "undefined") UI.applyLabels(NHC.labels || {});
+    // Re-apply translated tooltips to the rebuilt buttons.
+    const labels = (typeof NHC !== "undefined" && NHC.labels) || {};
+    this.updateToolbarLabels(labels);
   },
 
   _initToolbar() {
