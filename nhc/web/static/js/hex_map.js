@@ -678,8 +678,8 @@ const HexMap = {
     curve.quadraticCurveTo(cx + jx, cy + jy, p1.x, p1.y);
 
     if (seg.type === "river") {
-      // Black outline
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+      // Dark blue outline
+      ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
       ctx.lineWidth = 6;
       ctx.setLineDash([]);
       ctx.stroke(curve);
@@ -688,8 +688,8 @@ const HexMap = {
       ctx.lineWidth = 3.5;
       ctx.stroke(curve);
     } else {
-      // Black outline
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+      // Dark outline
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
       ctx.lineWidth = 5;
       ctx.setLineDash([]);
       ctx.stroke(curve);
