@@ -100,6 +100,21 @@ class DungeonRef:
 
 
 @dataclass
+class EdgeSegment:
+    """A river or path segment crossing through a hex.
+
+    ``entry_edge`` and ``exit_edge`` are indices into
+    :data:`~nhc.hexcrawl.coords.NEIGHBOR_OFFSETS` (0=N, 1=NE,
+    2=SE, 3=S, 4=SW, 5=NW). ``None`` marks a source (river
+    originates here) or sink (river/path terminates here).
+    """
+
+    type: str              # "river" or "path"
+    entry_edge: int | None
+    exit_edge: int | None
+
+
+@dataclass
 class HexCell:
     """A single hex on the overland map."""
 
@@ -109,6 +124,8 @@ class HexCell:
     name_key: str | None = None
     desc_key: str | None = None
     dungeon: DungeonRef | None = None
+    elevation: float = 0.0
+    edges: list[EdgeSegment] = field(default_factory=list)
 
 
 @dataclass
@@ -172,6 +189,14 @@ class HexWorld:
     cave_clusters: dict[HexCoord, list[HexCoord]] = field(
         default_factory=dict,
     )
+    # River coord sequences (source → sink). Each inner list is
+    # one river (or branch). Populated by generate_rivers after
+    # biome + elevation assignment.
+    rivers: list[list[HexCoord]] = field(default_factory=list)
+    # Path coord sequences. Each inner list is one path between
+    # two features. Populated by generate_paths after feature
+    # placement.
+    paths: list[list[HexCoord]] = field(default_factory=list)
 
     # ----- cells -----
 

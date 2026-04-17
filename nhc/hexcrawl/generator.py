@@ -32,6 +32,25 @@ from nhc.hexcrawl.pack import PackMeta
 
 
 # ---------------------------------------------------------------------------
+# BSP synthetic elevation (biome → base height)
+# ---------------------------------------------------------------------------
+
+_BSP_BIOME_ELEVATION: dict[Biome, float] = {
+    Biome.MOUNTAIN: 0.80,
+    Biome.HILLS: 0.55,
+    Biome.DRYLANDS: 0.35,
+    Biome.FOREST: 0.30,
+    Biome.GREENLANDS: 0.25,
+    Biome.SANDLANDS: 0.05,
+    Biome.MARSH: 0.00,
+    Biome.SWAMP: -0.05,
+    Biome.DEADLANDS: -0.05,
+    Biome.ICELANDS: -0.15,
+    Biome.WATER: -0.40,
+}
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 
@@ -281,13 +300,15 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     biomes = _assign_biomes(regions, valid_counts, rng)
 
     # Build per-cell biome mapping using the pre-computed valid
-    # cell lists.
+    # cell lists. Elevation is synthesised from biome type plus a
+    # small per-cell jitter so rivers can flow sensibly.
     cells: dict[HexCoord, HexCell] = {}
     hexes_by_biome: dict[Biome, list[HexCoord]] = {b: [] for b in Biome}
     for i, valid_cells in enumerate(region_valid_cells):
         biome = biomes[i]
         for c in valid_cells:
-            cells[c] = HexCell(coord=c, biome=biome)
+            elev = _BSP_BIOME_ELEVATION[biome] + rng.uniform(-0.05, 0.05)
+            cells[c] = HexCell(coord=c, biome=biome, elevation=elev)
             hexes_by_biome[biome].append(c)
 
     hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
@@ -443,7 +464,7 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
             )
             biome = _biome_from_em(e, m)
             coord = HexCoord(q, r)
-            cells[coord] = HexCell(coord=coord, biome=biome)
+            cells[coord] = HexCell(coord=coord, biome=biome, elevation=e)
             hexes_by_biome[biome].append(coord)
 
     # Repair pass: guarantee every essential biome exists so the

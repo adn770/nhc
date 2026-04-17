@@ -31,6 +31,12 @@ BSP dungeon generation, LLM-driven typed gameplay, multilingual
                                  # slow
 ```
 
+## Current Focus
+
+**Web-only development.** Terminal TUI is paused. Do not
+add or modify terminal-specific features. All new work
+targets the web frontend.
+
 ## Development Rules
 
 - **Strict TDD**: Write tests first. No functional change

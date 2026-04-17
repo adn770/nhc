@@ -93,10 +93,12 @@ def test_cache_key_hex_mode_without_position_returns_depth(tmp_path) -> None:
 def test_cache_key_different_hexes_different_keys(tmp_path) -> None:
     g = _make_game(GameMode.HEX_EASY, tmp_path)
     g.initialize()
-    # Simulate the player having moved to a different hex by setting
-    # hex_player_position directly (MoveHexAction is M-1.5).
+    # Simulate the player at three distinct hexes. Use coords that
+    # won't collide with each other regardless of where the hub
+    # lands for this seed.
+    g.hex_player_position = HexCoord(1, 1)
     first = g._cache_key(1)
-    g.hex_player_position = HexCoord(0, 0)
+    g.hex_player_position = HexCoord(2, 2)
     second = g._cache_key(1)
     g.hex_player_position = HexCoord(5, 3)
     third = g._cache_key(1)
