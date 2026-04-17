@@ -814,8 +814,8 @@ class Game:
 
         Nothing here awaits -- it just drops the level and moves
         the player + hired henchmen to the overland sentinel.
-        Called from :meth:`_maybe_exit_cleared_arena` (and,
-        indirectly, via the async ``exit_dungeon_to_hex`` wrapper).
+        If ``exploring_hex`` is set, the player returns to the
+        flower view at the feature_cell rather than the macro map.
         """
         if self.level is None or not self.world_mode.is_hex:
             return
@@ -837,6 +837,16 @@ class Game:
                 hpos.x = -1
                 hpos.y = -1
                 hpos.level_id = "overland"
+        # If we were exploring a flower when we entered the
+        # feature, return to the flower at the feature_cell.
+        if (self.hex_world
+                and self.hex_world.exploring_hex is not None):
+            macro = self.hex_world.exploring_hex
+            cell = self.hex_world.get_cell(macro)
+            if cell and cell.flower and cell.flower.feature_cell:
+                self.hex_world.exploring_sub_hex = (
+                    cell.flower.feature_cell
+                )
 
     async def panic_flee(self) -> bool:
         """Escape the current dungeon from anywhere at a cost.
@@ -2765,11 +2775,12 @@ class Game:
         if intent == "hex_enter":
             # Enter dungeon/settlement from within the flower —
             # only valid when standing on the feature_cell.
+            # Keep exploring_hex set so we can return to the
+            # flower on dungeon exit.
             macro = self.hex_world.exploring_hex
             cell = self.hex_world.get_cell(macro) if macro else None
             if cell and cell.flower and cell.flower.feature_cell:
                 if self.hex_world.exploring_sub_hex == cell.flower.feature_cell:
-                    self.hex_world.exit_flower()
                     ok = await self.enter_hex_feature()
                     if ok:
                         feature = cell.feature.value

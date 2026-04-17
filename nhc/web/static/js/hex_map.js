@@ -923,7 +923,8 @@ function hexKeyHandler(ev) {
       ev.preventDefault();
       return;
     }
-    if (lkey === "e") {
+    // x = explore/enter feature (drill down)
+    if (lkey === "x" || lkey === "e") {
       WS.send({type: "action", intent: "hex_enter", data: null});
       ev.preventDefault();
       return;
@@ -943,7 +944,8 @@ function hexKeyHandler(ev) {
       ev.preventDefault();
       return;
     }
-    if (lkey === "x" || key === "Escape") {
+    // L = leave to hexmap (go up)
+    if (key === "L" || key === "Escape") {
       WS.send({type: "action", intent: "flower_exit", data: null});
       ev.preventDefault();
       return;
