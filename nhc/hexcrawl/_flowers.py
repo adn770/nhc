@@ -312,7 +312,13 @@ def route_river_through_flower(
         candidates = [c for c in ring1 if c != start]
         goal = rng.choice(candidates) if candidates else ring1[0]
 
-    path = _flower_astar(cells, start, goal)
+    # Penalise center (ring 0) so rivers don't obscure feature icons.
+    def river_cost(_from: HexCoord, to: HexCoord) -> float:
+        if to == center:
+            return 5.0
+        return 1.0
+
+    path = _flower_astar(cells, start, goal, step_cost=river_cost)
 
     if mark_cells:
         for c in path:

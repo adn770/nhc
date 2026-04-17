@@ -234,3 +234,28 @@ def test_river_deterministic() -> None:
         cells2, entry_edge=0, exit_edge=3, rng=rng2,
     )
     assert path1 == path2
+
+
+# ---------------------------------------------------------------------------
+# Center avoidance
+# ---------------------------------------------------------------------------
+
+
+def test_river_avoids_center() -> None:
+    """Rivers should avoid the hex center (ring 0) so they don't
+    obscure feature icons."""
+    center = HexCoord(0, 0)
+    # Run many seeds; the center should rarely appear in the path.
+    center_count = 0
+    for seed in range(50):
+        cells = _make_sub_cells()
+        rng = random.Random(seed)
+        path = route_river_through_flower(
+            cells, entry_edge=0, exit_edge=3, rng=rng,
+        )
+        if center in path:
+            center_count += 1
+    assert center_count < 10, (
+        f"river should avoid center most of the time, "
+        f"but crossed it {center_count}/50 times"
+    )
