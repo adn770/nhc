@@ -237,6 +237,16 @@ const HexMap = {
   _scrolledOnce: false,
   _lastState: null,
 
+  /** True after the static layers (base, features, fog
+   * background) have been drawn for this world. Reset on
+   * game restart / dungeon re-entry. */
+  _staticDrawn: false,
+
+  /** Set of "(q,r)" keys for hexes already punched through
+   * the fog canvas. Lets us punch incrementally instead of
+   * redrawing the entire fog layer each turn. */
+  _punchedHexes: new Set(),
+
   /** Hover threshold: arrows appear when the pointer lies inside
    * this many px of the player hex centre. The arrow centres sit
    * at 1.5 * neighbour_offset (i.e. the far edge of the next hex)
@@ -482,10 +492,13 @@ const HexMap = {
     });
   },
 
-  /** Main entry point, called on every state_hex payload. */
+  /** Main entry point, called on every state_hex payload.
+   *
+   * Static layers (base tiles, features, fog background) are
+   * drawn only once on the first call. Subsequent calls just
+   * punch newly-revealed hexes through the fog and reposition
+   * the player glyph — no full redraw. */
   async render(state) {
-    // Stash the latest state so the hover tooltip can look up
-    // cells by axial coord without a re-render.
     this._lastState = state;
 
     const base = document.getElementById("hex-base-canvas");
@@ -497,87 +510,89 @@ const HexMap = {
     const entCtx = ent.getContext("2d");
     if (!baseCtx || !fogCtx || !entCtx) return;
 
-    // Pixel origin + extent from the server so axialToPixel
-    // produces uniform-margin canvas coords.
     _pixelOriginX = state.pixel_origin_x || 0;
     _pixelOriginY = state.pixel_origin_y || 0;
     const pw = state.pixel_width || 0;
     const ph = state.pixel_height || 0;
-    this.resize(pw, ph);
 
-    const feat = document.getElementById("hex-feature-canvas");
-    const featCtx = feat ? feat.getContext("2d") : null;
+    // ── Static layers: drawn once per world ──
+    if (!this._staticDrawn) {
+      this.resize(pw, ph);
 
-    // Fetch every tile image in parallel BEFORE we start painting.
-    // Awaiting each draw individually caused the browser to paint
-    // the cleared canvas between microtasks, flashing the view on
-    // every state_hex frame. With one await up front, the draw
-    // loop below is synchronous.
-    const tileLoads = state.cells.map(cell => {
-      const urls = tilePath(cell.biome, cell.feature, cell.q, cell.r);
-      return this._loadTile(urls.primary, urls.fallback)
-        .then(img => ({cell, img}));
-    });
-    // Also load the fog tile if not cached yet.
-    if (this._fogTile === undefined) {
-      this._fogTile = null;  // mark as loading
-      tileLoads.push(
-        this._loadTile("/hextiles/27-foundation_fog.png")
-          .then(img => { this._fogTile = img; return null; }),
-      );
-    }
-    const placements = (await Promise.all(tileLoads)).filter(Boolean);
+      const feat = document.getElementById("hex-feature-canvas");
+      const featCtx = feat ? feat.getContext("2d") : null;
 
-    // One synchronous paint pass: clear → fog → tiles → fog punch.
-    // Nothing between the first clear and the final draw yields to
-    // the event loop, so the browser only commits a single frame.
-    baseCtx.clearRect(0, 0, base.width, base.height);
-    if (featCtx) featCtx.clearRect(0, 0, feat.width, feat.height);
-
-    // Fog canvas: sky-blue background + fog tile stamped over
-    // every hex position. Revealed hexes are punched through.
-    fogCtx.fillStyle = "#87CEEB";
-    fogCtx.fillRect(0, 0, fog.width, fog.height);
-
-    // Draw ALL tiles on the base canvas (fog covers unrevealed).
-    for (const {cell, img} of placements) {
-      const {x, y} = axialToPixel(cell.q, cell.r);
-      if (img) {
-        baseCtx.drawImage(
-          img,
-          x - HEX_WIDTH / 2, y - HEX_HEIGHT / 2,
-          HEX_WIDTH, HEX_HEIGHT,
-        );
-      } else {
-        this._drawGlyphFallback(baseCtx, cell, x, y);
-      }
-      // Stamp fog tile on every hex (unrevealed stay fogged).
-      if (this._fogTile) {
-        fogCtx.drawImage(
-          this._fogTile,
-          x - HEX_WIDTH / 2, y - HEX_HEIGHT / 2,
-          HEX_WIDTH, HEX_HEIGHT,
+      // Load all tile images + fog tile in parallel.
+      const tileLoads = state.cells.map(cell => {
+        const urls = tilePath(cell.biome, cell.feature, cell.q, cell.r);
+        return this._loadTile(urls.primary, urls.fallback)
+          .then(img => ({cell, img}));
+      });
+      if (this._fogTile === undefined) {
+        this._fogTile = null;
+        tileLoads.push(
+          this._loadTile("/hextiles/27-foundation_fog.png")
+            .then(img => { this._fogTile = img; return null; }),
         );
       }
-      // Punch revealed hexes through the fog.
-      if (cell.revealed) {
-        this._punchHex(fogCtx, x, y);
-      }
-    }
+      const placements = (await Promise.all(tileLoads)).filter(Boolean);
 
-    // River/path edge segments on the feature canvas (z-index 1,
-    // below fog). Unrevealed segments are hidden by the fog layer.
-    if (featCtx) {
-      for (const {cell} of placements) {
-        if (!cell.edges) continue;
+      // Base canvas: all hex tiles.
+      baseCtx.clearRect(0, 0, base.width, base.height);
+      for (const {cell, img} of placements) {
         const {x, y} = axialToPixel(cell.q, cell.r);
-        for (const seg of cell.edges) {
-          this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);
+        if (img) {
+          baseCtx.drawImage(
+            img,
+            x - HEX_WIDTH / 2, y - HEX_HEIGHT / 2,
+            HEX_WIDTH, HEX_HEIGHT,
+          );
+        } else {
+          this._drawGlyphFallback(baseCtx, cell, x, y);
         }
       }
+
+      // Feature canvas: rivers and paths.
+      if (featCtx) {
+        featCtx.clearRect(0, 0, feat.width, feat.height);
+        for (const {cell} of placements) {
+          if (!cell.edges) continue;
+          const {x, y} = axialToPixel(cell.q, cell.r);
+          for (const seg of cell.edges) {
+            this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);
+          }
+        }
+      }
+
+      // Fog canvas: blue fill + fog tile on every hex.
+      fogCtx.fillStyle = "#87CEEB";
+      fogCtx.fillRect(0, 0, fog.width, fog.height);
+      for (const {cell} of placements) {
+        if (this._fogTile) {
+          const {x, y} = axialToPixel(cell.q, cell.r);
+          fogCtx.drawImage(
+            this._fogTile,
+            x - HEX_WIDTH / 2, y - HEX_HEIGHT / 2,
+            HEX_WIDTH, HEX_HEIGHT,
+          );
+        }
+      }
+
+      this._punchedHexes.clear();
+      this._staticDrawn = true;
     }
 
-    // Player avatar on the entity canvas; direction arrows on HUD.
+    // ── Incremental fog: punch only newly-revealed hexes ──
+    for (const cell of state.cells) {
+      if (!cell.revealed) continue;
+      const key = `${cell.q},${cell.r}`;
+      if (this._punchedHexes.has(key)) continue;
+      const {x, y} = axialToPixel(cell.q, cell.r);
+      this._punchHex(fogCtx, x, y);
+      this._punchedHexes.add(key);
+    }
+
+    // ── Entity layer: player glyph (redrawn each turn) ──
     entCtx.clearRect(0, 0, ent.width, ent.height);
     if (state.player) {
       const {x, y} = axialToPixel(state.player.q, state.player.r);
@@ -589,10 +604,6 @@ const HexMap = {
         this._scrolledOnce = true;
       }
     }
-
-    // Status bar is now filled by UI.updateStatus via the
-    // stats/stats_init WebSocket messages sent alongside
-    // state_hex. No direct status-line writes needed here.
   },
 
   /** Draw the player "@" glyph on the entity canvas. */
@@ -889,9 +900,12 @@ if (typeof WS !== "undefined") {
   const _showDungeonAndLockHex = () => {
     setHexInputActive(false);
     _showDungeonView();
-    // Re-arm the centre-on-player scroll for the next time the
-    // overland view comes back.
+    // Re-arm the static draw + scroll for the next time the
+    // overland view comes back (canvas may have been resized
+    // or cleared by the dungeon renderer).
     HexMap._scrolledOnce = false;
+    HexMap._staticDrawn = false;
+    HexMap._punchedHexes.clear();
   };
   WS.on("state_dungeon", _showDungeonAndLockHex);
   WS.on("state", _showDungeonAndLockHex);
