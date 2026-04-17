@@ -221,10 +221,6 @@ const HexMap = {
   /** Cached DOM references for the 6 direction arrow buttons. */
   _arrows: null,
 
-  /** DOM element (SVG inside a div) for the player avatar. Lives
-   * in the HUD layer so it never participates in canvas clears. */
-  _avatar: null,
-
   /** Last known player pixel + show state for the arrow ring. */
   _playerPx: null,
   _arrowsVisible: false,
@@ -268,45 +264,7 @@ const HexMap = {
     hud.style.height = `${c.height}px`;
   },
 
-  /** Lazily build the player avatar DOM node. Uses the same
-   * outline (#1a3a6b) and fill (dark_grey -> #999999) that the
-   * dungeon entity renderer applies to the "@" glyph. */
-  _ensureAvatar() {
-    if (this._avatar) return this._avatar;
-    const hud = document.getElementById("hex-hud");
-    if (!hud) return null;
-    const div = document.createElement("div");
-    div.id = "hex-player-avatar";
-    div.className = "hex-avatar";
-    div.innerHTML = (
-      '<svg viewBox="0 0 48 48" width="48" height="48"' +
-      ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      '<text x="24" y="32" text-anchor="middle"' +
-      ' font-family="monospace" font-size="32" font-weight="bold"' +
-      ' stroke="#1a3a6b" stroke-width="2"' +
-      ' stroke-linejoin="round" paint-order="stroke"' +
-      ' fill="#999999">@</text>' +
-      "</svg>"
-    );
-    // Left-click on the avatar = enter the hex feature (same as
-    // pressing 'e'). Convenient for touch / mouse-only play.
-    div.style.cursor = "pointer";
-    div.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      WS.send({type: "action", intent: "hex_enter", data: null});
-    });
-    hud.appendChild(div);
-    this._avatar = div;
-    return div;
-  },
 
-  _positionAvatar(playerPx) {
-    const el = this._ensureAvatar();
-    if (!el) return;
-    el.style.left = `${playerPx.x}px`;
-    el.style.top = `${playerPx.y}px`;
-  },
 
   /** Lazily build the six arrow button DOM nodes and attach the
    * mouse handlers once. Subsequent renders only update positions. */
@@ -635,16 +593,13 @@ const HexMap = {
       }
     }
 
-    // Player avatar (HUD) + direction arrow ring (HUD). Canvas
-    // draws ABOVE are purely terrain + fog + labels; the avatar
-    // and arrows are DOM-backed on the HUD layer so they don't
-    // flicker on repaint.
+    // Player avatar on the entity canvas; direction arrows on HUD.
     entCtx.clearRect(0, 0, ent.width, ent.height);
     if (state.player) {
       const {x, y} = axialToPixel(state.player.q, state.player.r);
       this._playerPx = {x, y};
+      this._drawPlayerAvatar(entCtx, x, y);
       this._syncHudBox();
-      this._positionAvatar(this._playerPx);
       this._positionArrows(state.player, this._playerPx);
       if (!this._scrolledOnce) {
         this._centerOnPlayer();
@@ -655,6 +610,23 @@ const HexMap = {
     // Status bar is now filled by UI.updateStatus via the
     // stats/stats_init WebSocket messages sent alongside
     // state_hex. No direct status-line writes needed here.
+  },
+
+  /** Draw the player "@" glyph on the entity canvas. */
+  _drawPlayerAvatar(ctx, cx, cy) {
+    ctx.save();
+    ctx.font = "bold 32px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    // Outline stroke
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "#1a3a6b";
+    ctx.lineJoin = "round";
+    ctx.strokeText("@", cx, cy);
+    // Fill
+    ctx.fillStyle = "#999999";
+    ctx.fillText("@", cx, cy);
+    ctx.restore();
   },
 
   /** Edge midpoint for flat-top hex, indexed by NEIGHBOR_OFFSETS

@@ -255,19 +255,6 @@ body {
   z-index: 6;
 }
 
-/* Player "@" avatar. Same stroke colour (#1a3a6b) and dark_grey
- * fill (#999999) the dungeon entity renderer uses. Positioned
- * absolutely in the HUD layer by hex_map.js. */
-.hex-avatar {
-  position: absolute;
-  width: 48px;
-  height: 48px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  user-select: none;
-  line-height: 1;
-}
-
 #hex-base-canvas,
 #hex-fog-canvas,
 #hex-feature-canvas,
