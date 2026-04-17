@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.hexcrawl.coords import HexCoord
+from nhc.hexcrawl.coords import HexCoord, neighbors
 from nhc.hexcrawl.model import (
     Biome,
     DungeonRef,
@@ -24,6 +24,15 @@ from nhc.hexcrawl.model import (
     HexFeatureType,
 )
 from nhc.hexcrawl.pack import PackMeta
+
+
+# Settlement features — these must not be placed adjacent to
+# each other so the map reads as distinct communities with
+# wilderness between them rather than an urban sprawl.
+_SETTLEMENT_FEATURES: frozenset[HexFeatureType] = frozenset({
+    HexFeatureType.CITY,
+    HexFeatureType.VILLAGE,
+})
 
 
 class FeaturePlacementError(Exception):
@@ -35,6 +44,18 @@ class FeaturePlacementError(Exception):
 # ---------------------------------------------------------------------------
 # Hub
 # ---------------------------------------------------------------------------
+
+
+def _adjacent_to_settlement(
+    coord: HexCoord,
+    cells: dict[HexCoord, HexCell],
+) -> bool:
+    """True if any neighbour of ``coord`` is a settlement hex."""
+    for n in neighbors(coord):
+        cell = cells.get(n)
+        if cell is not None and cell.feature in _SETTLEMENT_FEATURES:
+            return True
+    return False
 
 
 def pick_hub(
@@ -166,7 +187,10 @@ def place_features(
     cells[hub].dungeon = DungeonRef(template="procedural:settlement")
     taken: set[HexCoord] = {hub}
 
-    # Villages.
+    # Villages — placed one at a time with an adjacency check so
+    # no two settlements (hub + villages) end up next to each
+    # other. The map should read as distinct communities with
+    # wilderness between them.
     vt = pack.features.village
     n_villages = rng.randint(vt.min, vt.max)
     village_pool = [
@@ -175,15 +199,24 @@ def place_features(
             + hexes_by_biome[Biome.DRYLANDS]
         ) if c not in taken
     ]
-    if len(village_pool) < n_villages:
-        raise FeaturePlacementError(
-            f"not enough greenlands/drylands hexes for "
-            f"{n_villages} villages",
-        )
-    for c in rng.sample(village_pool, n_villages):
+    rng.shuffle(village_pool)
+    placed_villages = 0
+    for c in village_pool:
+        if placed_villages >= n_villages:
+            break
+        # Reject candidates adjacent to any existing settlement.
+        if _adjacent_to_settlement(c, cells):
+            continue
         cells[c].feature = HexFeatureType.VILLAGE
         cells[c].dungeon = DungeonRef(template="procedural:settlement")
         taken.add(c)
+        placed_villages += 1
+    if placed_villages < vt.min:
+        raise FeaturePlacementError(
+            f"could only place {placed_villages} villages "
+            f"(need at least {vt.min}; settlement spacing "
+            f"rejected too many candidates)",
+        )
 
     # Dungeons.
     dt = pack.features.dungeon

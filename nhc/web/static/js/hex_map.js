@@ -19,25 +19,6 @@ const HEX_WIDTH = 2 * HEX_SIZE;                 // corner-to-corner
 const HEX_HEIGHT = Math.sqrt(3) * HEX_SIZE;     // edge-to-edge
 const HEX_MARGIN = HEX_SIZE;    // padding on all four sides
 
-/** Map a HexFeatureType.value to the hextiles slot number.
- * See the biome × feature matrix in design/overland_hexcrawl.md §3. */
-const FEATURE_SLOT = {
-  village: 11,
-  city: 12,
-  tower: 13,
-  keep: 22,
-  cave: 15,
-  ruin: 18,
-  hole: 16,
-  graveyard: 19,
-  crystals: 24,
-  stones: 25,
-  wonder: 23,
-  portal: 8,
-  lake: 10,
-  river: 7,
-};
-
 /** Slot number to filename stem. The hextiles pack uses literal
  * (and quirky) casing / spelling -- match files on disk exactly.
  * See ls hextiles/greenlands/ for the source of truth. */
@@ -49,18 +30,68 @@ const SLOT_NAME = {
   19: "graveyard", 20: "swamp", 21: "floating-Island",
   22: "keep", 23: "wonder", 24: "cristals", 25: "stones",
   26: "farms", 27: "fog",
+  // forestPack extensions (41-58)
+  41: "dense-Forest", 42: "sparse-Trees", 43: "clearing",
+  44: "rift", 45: "wild-Bushes", 46: "spider-Lair",
+  47: "great-Tree", 48: "mushrooms", 49: "cave-Mouth",
+  50: "hillock", 51: "standing-Stones", 52: "cottage",
+  53: "hamlet", 54: "watchtower", 55: "overgrown-Ruins",
+  56: "blast-Site", 57: "forest-Road", 58: "forest-Temple",
+  // mountainPack extensions (61-80)
+  61: "mountain-Range", 62: "scattered-Peaks", 63: "plateau",
+  64: "active-Vulcano", 65: "mountain-Rift", 66: "foothills",
+  67: "rock-Spikes", 68: "mountain-Gates", 69: "summit",
+  70: "stone-Bridge", 71: "mountain-Cave", 72: "alpine-Forest",
+  73: "obelisk", 74: "mountain-Lodge", 75: "mountain-Village",
+  76: "mountain-Tower", 77: "mountain-Ruins", 78: "mountain-Blast",
+  79: "mountain-Pass", 80: "mountain-Temple",
 };
 
-/** Biome base-tile slot: used when a hex has no feature. */
-const BIOME_BASE_SLOT = {
-  greenlands: 4,    // scattered trees
-  drylands: 3,      // tundra-ish dryland
-  sandlands: 3,
-  icelands: 3,      // tundra
-  deadlands: 17,    // dead trees
-  forest: 2,        // dense forest
-  mountain: 9,      // mountains
+/** Biome base-tile slots: arrays of candidate slots for visual
+ * variety on featureless hexes. The renderer picks one per hex
+ * deterministically from (q + r) so the choice is stable across
+ * repaints but varies tile-to-tile. */
+const BIOME_BASE_SLOTS = {
+  greenlands: [4, 42, 43, 26],      // trees, sparse, clearing, farms
+  drylands:   [3, 25],              // tundra, stones
+  sandlands:  [3, 25],
+  icelands:   [3],
+  deadlands:  [17, 25],             // dead trees, stones
+  forest:     [2, 41, 42, 47],      // forest, dense, sparse, great tree
+  mountain:   [9, 62, 63, 66, 69],  // mountains, peaks, plateau, foothills, summit
+  hills:      [6, 50, 45],          // hills, hillock, wild bushes
+  marsh:      [20, 45, 48],         // swamp, wild bushes, mushrooms
+  swamp:      [20, 41, 48],         // swamp, dense forest, mushrooms
+  water:      [5],                  // single water tile
 };
+
+/** Feature-tile variants: when a feature maps to multiple
+ * candidate slots, the renderer picks one per hex. Gives visual
+ * diversity to e.g. caves (slot 15 vs 49 cave-Mouth). */
+const FEATURE_VARIANTS = {
+  cave:     [15, 49],               // cave, cave-Mouth
+  ruin:     [18, 55],               // ruins, overgrown-Ruins
+  tower:    [13, 54],               // tower, watchtower
+  village:  [11, 53],               // village, hamlet
+  stones:   [25, 51],               // stones, standing-Stones
+  keep:     [22],
+  city:     [12],
+  hole:     [16, 44],               // hole, rift
+  graveyard:[19],
+  crystals: [24],
+  wonder:   [23],
+  portal:   [8],
+  lake:     [10],
+  river:    [7],
+};
+
+/** Deterministic per-hex pick: (q, r) → index into a variant
+ * array. Stable across renders so tiles don't flicker. */
+function _hexVariant(q, r, n) {
+  // Simple hash to avoid modular patterns on small maps.
+  const h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
+  return h % n;
+}
 
 /** Biomes with a full 27-slot palette; used as the primary tile
  * URL. Any biome in PARTIAL_PALETTE_BIOMES may not have every
@@ -68,28 +99,44 @@ const BIOME_BASE_SLOT = {
  * project root if the biome-specific path 404s. */
 const PALETTE_BIOMES = new Set([
   "greenlands", "drylands", "sandlands", "icelands", "deadlands",
-  "forest", "mountain",
+  "forest", "mountain", "hills", "marsh", "swamp", "water",
 ]);
-const PARTIAL_PALETTE_BIOMES = new Set(["forest", "mountain"]);
+// Biomes whose tilesets don't cover every slot — the renderer
+// falls back to the foundation tile when a biome-specific path
+// 404s. All generated biomes are partial (they only have the
+// slots the generate_missing_hextiles tool produced).
+const PARTIAL_PALETTE_BIOMES = new Set([
+  "greenlands", "forest", "mountain", "hills", "marsh", "swamp", "water",
+]);
 
 /** Fallback glyph when the hextile PNG can't be fetched. */
 const BIOME_GLYPH = {
   greenlands: {fg: "#5a8a4e", bg: "#2a3a1e", c: "."},
-  drylands: {fg: "#a08840", bg: "#3a3220", c: "."},
-  sandlands: {fg: "#c0a868", bg: "#4a3e22", c: "."},
-  icelands: {fg: "#a8c0d0", bg: "#283038", c: "~"},
-  deadlands: {fg: "#6a6858", bg: "#2a2824", c: "x"},
-  forest: {fg: "#3a7844", bg: "#1a2e22", c: "T"},
-  mountain: {fg: "#8a8480", bg: "#2a2826", c: "^"},
+  drylands:   {fg: "#a08840", bg: "#3a3220", c: "."},
+  sandlands:  {fg: "#c0a868", bg: "#4a3e22", c: "."},
+  icelands:   {fg: "#a8c0d0", bg: "#283038", c: "~"},
+  deadlands:  {fg: "#6a6858", bg: "#2a2824", c: "x"},
+  forest:     {fg: "#3a7844", bg: "#1a2e22", c: "T"},
+  mountain:   {fg: "#8a8480", bg: "#2a2826", c: "^"},
+  hills:      {fg: "#8a9a5a", bg: "#2a3020", c: "n"},
+  marsh:      {fg: "#5a7a52", bg: "#1a2a1e", c: "~"},
+  swamp:      {fg: "#3a4a34", bg: "#141e14", c: "="},
+  water:      {fg: "#3c64a0", bg: "#102040", c: "≈"},
 };
 
-/** biome + feature → {primary, fallback} /hextiles/ URLs. */
-function tilePath(biome, feature) {
+/** biome + feature + coord → {primary, fallback} /hextiles/ URLs.
+ * The coord (q, r) drives deterministic tile variety: featureless
+ * hexes pick from BIOME_BASE_SLOTS, feature hexes pick from
+ * FEATURE_VARIANTS, both indexed by _hexVariant so the choice is
+ * stable across repaints. */
+function tilePath(biome, feature, q, r) {
   let slot;
-  if (feature && feature !== "none" && FEATURE_SLOT[feature]) {
-    slot = FEATURE_SLOT[feature];
+  if (feature && feature !== "none" && FEATURE_VARIANTS[feature]) {
+    const variants = FEATURE_VARIANTS[feature];
+    slot = variants[_hexVariant(q || 0, r || 0, variants.length)];
   } else {
-    slot = BIOME_BASE_SLOT[biome] || 4;
+    const bases = BIOME_BASE_SLOTS[biome] || [4];
+    slot = bases[_hexVariant(q || 0, r || 0, bases.length)];
   }
   const stem = SLOT_NAME[slot];
   const foundationUrl = `/hextiles/${slot}-foundation_${stem}.png`;
@@ -456,7 +503,7 @@ const HexMap = {
     // every state_hex frame. With one await up front, the draw
     // loop below is synchronous.
     const placements = await Promise.all(state.cells.map(cell => {
-      const urls = tilePath(cell.biome, cell.feature);
+      const urls = tilePath(cell.biome, cell.feature, cell.q, cell.r);
       return this._loadTile(urls.primary, urls.fallback)
         .then(img => ({cell, img}));
     }));
