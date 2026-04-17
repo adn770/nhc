@@ -266,7 +266,7 @@ body {
   top: 0;
   left: 0;
   pointer-events: none;
-  image-rendering: pixelated; /* crisp hextile PNG edges */
+  image-rendering: auto; /* full-res tiles, smooth scaling */
 }
 
 #hex-base-canvas {

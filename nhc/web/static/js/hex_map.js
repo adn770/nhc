@@ -14,10 +14,16 @@
  *     y = size * (sqrt(3)/2 * q + sqrt(3) * r)
  */
 
-const HEX_SIZE = 36;            // hex radius (centre → corner), px
+const HEX_SIZE = 36;            // hex radius (centre → corner), logical px
 const HEX_WIDTH = 2 * HEX_SIZE;                 // corner-to-corner
 const HEX_HEIGHT = Math.sqrt(3) * HEX_SIZE;     // edge-to-edge
 const HEX_MARGIN = HEX_SIZE;    // padding on all four sides
+
+// Canvas resolution multiplier. Tile PNGs are 238x207; at
+// HEX_WIDTH=72 that's ~3.3x downscale. Drawing at this factor
+// makes tiles render at their native resolution. The CSS
+// transform compensates so the visual size stays the same.
+const CANVAS_SCALE = 238 / HEX_WIDTH;
 
 /** Slot number to filename stem. The hextiles pack uses literal
  * (and quirky) casing / spelling -- match files on disk exactly.
@@ -428,21 +434,23 @@ const HexMap = {
    * same as the last call -- assigning canvas.width even to the
    * same value clears the canvas. */
   resize(pixelW, pixelH) {
-    // pixelW/pixelH is the extent between the leftmost and
-    // rightmost hex centres. Each side needs HEX_SIZE (hex
-    // radius) plus HEX_MARGIN padding.
-    const px = Math.ceil(pixelW + 2 * HEX_SIZE + 2 * HEX_MARGIN);
-    const py = Math.ceil(pixelH + 2 * HEX_SIZE + 2 * HEX_MARGIN);
+    // Logical dimensions (used for CSS container size).
+    const lx = Math.ceil(pixelW + 2 * HEX_SIZE + 2 * HEX_MARGIN);
+    const ly = Math.ceil(pixelH + 2 * HEX_SIZE + 2 * HEX_MARGIN);
     if (this._sizedTo
-        && this._sizedTo.px === px
-        && this._sizedTo.py === py) {
+        && this._sizedTo.lx === lx
+        && this._sizedTo.ly === ly) {
       return;
     }
-    this._sizedTo = {px, py};
+    this._sizedTo = {lx, ly};
+    // Canvas internal resolution: logical * CANVAS_SCALE so tiles
+    // render at their native PNG resolution.
+    const cx = Math.ceil(lx * CANVAS_SCALE);
+    const cy = Math.ceil(ly * CANVAS_SCALE);
     const container = document.getElementById("hex-container");
     if (container) {
-      container.style.width = `${px}px`;
-      container.style.height = `${py}px`;
+      container.style.width = `${lx}px`;
+      container.style.height = `${ly}px`;
     }
     const canvases = [
       "hex-base-canvas", "hex-fog-canvas", "hex-feature-canvas",
@@ -451,8 +459,12 @@ const HexMap = {
     canvases.forEach(id => {
       const c = document.getElementById(id);
       if (!c) return;
-      c.width = px;
-      c.height = py;
+      c.width = cx;
+      c.height = cy;
+      // CSS size matches logical size; the extra canvas pixels
+      // give us higher resolution within the same visual area.
+      c.style.width = `${lx}px`;
+      c.style.height = `${ly}px`;
     });
   },
 
@@ -537,8 +549,10 @@ const HexMap = {
       }
       const placements = (await Promise.all(tileLoads)).filter(Boolean);
 
-      // Base canvas: all hex tiles.
-      baseCtx.clearRect(0, 0, base.width, base.height);
+      // All drawing uses logical coords (HEX_SIZE-based). The
+      // CANVAS_SCALE transform makes them fill the high-res canvas.
+      baseCtx.save();
+      baseCtx.scale(CANVAS_SCALE, CANVAS_SCALE);
       for (const {cell, img} of placements) {
         const {x, y} = axialToPixel(cell.q, cell.r);
         if (img) {
@@ -551,10 +565,12 @@ const HexMap = {
           this._drawGlyphFallback(baseCtx, cell, x, y);
         }
       }
+      baseCtx.restore();
 
       // Feature canvas: rivers and paths.
       if (featCtx) {
-        featCtx.clearRect(0, 0, feat.width, feat.height);
+        featCtx.save();
+        featCtx.scale(CANVAS_SCALE, CANVAS_SCALE);
         for (const {cell} of placements) {
           if (!cell.edges) continue;
           const {x, y} = axialToPixel(cell.q, cell.r);
@@ -562,11 +578,17 @@ const HexMap = {
             this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);
           }
         }
+        featCtx.restore();
       }
 
       // Fog canvas: blue fill + fog tile on every hex.
+      fogCtx.save();
+      fogCtx.scale(CANVAS_SCALE, CANVAS_SCALE);
       fogCtx.fillStyle = "#87CEEB";
-      fogCtx.fillRect(0, 0, fog.width, fog.height);
+      // fillRect in logical coords covers the full canvas
+      // (scale transform maps it to real pixels).
+      fogCtx.fillRect(0, 0,
+        fog.width / CANVAS_SCALE, fog.height / CANVAS_SCALE);
       for (const {cell} of placements) {
         if (this._fogTile) {
           const {x, y} = axialToPixel(cell.q, cell.r);
@@ -577,12 +599,15 @@ const HexMap = {
           );
         }
       }
+      fogCtx.restore();
 
       this._punchedHexes.clear();
       this._staticDrawn = true;
     }
 
     // ── Incremental fog: punch only newly-revealed hexes ──
+    fogCtx.save();
+    fogCtx.scale(CANVAS_SCALE, CANVAS_SCALE);
     for (const cell of state.cells) {
       if (!cell.revealed) continue;
       const key = `${cell.q},${cell.r}`;
@@ -591,9 +616,13 @@ const HexMap = {
       this._punchHex(fogCtx, x, y);
       this._punchedHexes.add(key);
     }
+    fogCtx.restore();
 
     // ── Entity layer: player glyph (redrawn each turn) ──
+    entCtx.save();
+    // clearRect needs real canvas pixels (no transform).
     entCtx.clearRect(0, 0, ent.width, ent.height);
+    entCtx.scale(CANVAS_SCALE, CANVAS_SCALE);
     if (state.player) {
       const {x, y} = axialToPixel(state.player.q, state.player.r);
       this._playerPx = {x, y};
@@ -604,6 +633,7 @@ const HexMap = {
         this._scrolledOnce = true;
       }
     }
+    entCtx.restore();
   },
 
   /** Draw the player "@" glyph on the entity canvas. */
