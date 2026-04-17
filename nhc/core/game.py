@@ -322,6 +322,15 @@ class Game:
         # resolve_encounter. See nhc.hexcrawl.encounter_pipeline.
         self.pending_encounter = None
         self._encounter_rng = None
+        # Set when the player is inside a cave dungeon so
+        # _cache_key can route Floor 2 to the cluster's shared
+        # cache slot. Cleared on exit to hex overland.
+        self._active_cave_cluster: "HexCoord | None" = None
+        # Maps "q_r" → (x, y) for each cluster member's stairs_up
+        # on the shared Floor 2. Populated by _generate_cave_floor2,
+        # consumed by the player-placement branch in
+        # _on_level_entered when descending to Floor 2.
+        self._cave_floor2_stairs: dict[str, tuple[int, int]] = {}
         # Probability of a per-step encounter roll firing in hex
         # mode. Matches DEFAULT_ENCOUNTER_RATE at startup; the
         # _maybe_stage_encounter path swaps to per-biome rates
@@ -368,10 +377,19 @@ class Game:
         player is currently exploring, so two different hexes' caves
         at the same depth are cached independently.
 
+        Cave clusters share Floor 2: when ``_active_cave_cluster``
+        is set and ``depth >= 2``, the key uses the cluster's
+        canonical coord instead of the player's current hex, so
+        every cave entrance in the cluster resolves to the same
+        cached Floor 2.
+
         Degrades to the integer-depth key when ``hex_player_position``
         is not yet set (pre-initialize or test setup).
         """
         if self.world_mode.is_hex and self.hex_player_position is not None:
+            if depth >= 2 and self._active_cave_cluster is not None:
+                cc = self._active_cave_cluster
+                return (cc.q, cc.r, depth)
             return (
                 self.hex_player_position.q,
                 self.hex_player_position.r,
@@ -403,6 +421,14 @@ class Game:
         from nhc.hexcrawl.seed import dungeon_seed
         template = cell.dungeon.template
         is_settlement = template.startswith("procedural:settlement")
+        is_cave = template.startswith("procedural:cave")
+
+        # Track the cave cluster so _cache_key routes Floor 2
+        # to the shared slot for the whole cluster.
+        if is_cave and cell.dungeon.cluster_id is not None:
+            self._active_cave_cluster = cell.dungeon.cluster_id
+        else:
+            self._active_cave_cluster = None
 
         depth = 1
         cache_key = self._cache_key(depth)
@@ -421,16 +447,20 @@ class Game:
                 seed=seed,
                 town_id=f"town_{coord.q}_{coord.r}",
             )
-            # First visit with an empty pool: seed fresh rumors
-            # so the innkeeper bump has something to say. Keep
-            # any existing rumors (previous town visit filled
-            # the pool and the player hasn't consumed them yet).
             self._maybe_seed_rumors(seed)
+        elif is_cave:
+            # Cave Floor 1: smaller cellular cave with stairs_down
+            # linking to Floor 2.
+            params = GenerationParams(
+                width=40, height=25, depth=depth,
+                shape_variety=0.3, theme="cave", seed=seed,
+            )
+            self.generation_params = params
+            self.level = generate_level(params)
+            self._add_stairs_down_to_level()
         else:
             sv = _shape_variety_for_depth(self.shape_variety, depth)
-            if template.startswith("procedural:cave"):
-                theme = "cave"
-            elif template.startswith("procedural:crypt"):
+            if template.startswith("procedural:crypt"):
                 theme = "crypt"
             else:
                 theme = theme_for_depth(depth)
@@ -674,6 +704,114 @@ class Game:
         self._exit_to_overland_sync()
         return True
 
+    def _generate_cave_floor2(self) -> None:
+        """Generate the shared Floor 2 for a cave cluster.
+
+        Size scales with cluster membership: a solo cave gets a
+        small floor; a 4-cave cluster gets a large one. Each
+        cluster member gets a stairs_up tile placed at well-
+        separated positions so the underground complex feels
+        connected. The mapping ``{hex_key: (x, y)}`` is stored on
+        ``self._cave_floor2_stairs`` for the player-placement code
+        to look up the correct entry point.
+        """
+        cc = self._active_cave_cluster
+        if cc is None or self.hex_world is None:
+            return
+        members = self.hex_world.cave_clusters.get(cc, [cc])
+        n = len(members)
+        # Size: 50x30 base + 15x10 per member.
+        w = 50 + n * 15
+        h = 30 + n * 10
+        from nhc.hexcrawl.seed import dungeon_seed
+        seed = dungeon_seed(self.seed or 0, cc, "cave_floor2")
+        params = GenerationParams(
+            width=w, height=h, depth=2,
+            shape_variety=0.3, theme="cave", seed=seed,
+        )
+        self.generation_params = params
+        self.level = generate_level(params)
+
+        # Remove the default stairs_up placed by the generator
+        # (cave generator places one at start); we'll place N
+        # of our own.
+        from nhc.dungeon.model import Terrain
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile and tile.feature == "stairs_up":
+                    tile.feature = ""
+
+        # Place N stairs_up, one per cluster member, spread across
+        # the map. Collect floor tiles and partition into N sectors.
+        floors: list[tuple[int, int]] = []
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if (tile and tile.terrain is Terrain.FLOOR
+                        and not tile.feature):
+                    floors.append((x, y))
+        if not floors:
+            return
+        rng = random.Random(seed + 1)
+        rng.shuffle(floors)
+
+        # Spread stairs across the map by dividing floor tiles
+        # into N equal sectors (sorted by x then y for spatial
+        # spread) and picking one from each sector.
+        floors.sort(key=lambda p: (p[0], p[1]))
+        sector_size = max(1, len(floors) // n)
+        self._cave_floor2_stairs = {}
+        for i, member in enumerate(members):
+            sector = floors[i * sector_size:(i + 1) * sector_size]
+            if not sector:
+                sector = [rng.choice(floors)]
+            sx, sy = sector[len(sector) // 2]
+            self.level.tiles[sy][sx].feature = "stairs_up"
+            key = f"{member.q}_{member.r}"
+            self._cave_floor2_stairs[key] = (sx, sy)
+            logger.info(
+                "Cave Floor 2 stairs_up for %s at (%d, %d)",
+                key, sx, sy,
+            )
+
+    def _add_stairs_down_to_level(self) -> None:
+        """Place a stairs_down tile on the current level.
+
+        Picks a random FLOOR tile far from stairs_up so the
+        player has to explore the cave floor before descending.
+        """
+        if self.level is None:
+            return
+        from nhc.dungeon.model import Terrain
+        # Find stairs_up position.
+        up_x = up_y = 0
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile and tile.feature == "stairs_up":
+                    up_x, up_y = x, y
+        # Collect floor candidates far from stairs_up.
+        candidates: list[tuple[int, int, int]] = []
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if (tile and tile.terrain is Terrain.FLOOR
+                        and not tile.feature):
+                    dist = abs(x - up_x) + abs(y - up_y)
+                    candidates.append((dist, x, y))
+        if not candidates:
+            return
+        # Pick among the farthest 20%.
+        candidates.sort(reverse=True)
+        top = candidates[:max(1, len(candidates) // 5)]
+        rng = random.Random(
+            (self.seed or 0) + hash(("stairs_down",
+             self.hex_player_position)),
+        )
+        _, sx, sy = rng.choice(top)
+        self.level.tiles[sy][sx].feature = "stairs_down"
+
     def _exit_to_overland_sync(self) -> None:
         """Synchronous form of :meth:`exit_dungeon_to_hex` body.
 
@@ -686,6 +824,7 @@ class Game:
             return
         departing_level_id = self.level.id
         self.level = None
+        self._active_cave_cluster = None
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
             pos.x = -1
@@ -2954,18 +3093,28 @@ class Game:
             self._prefetch_result = None
             self._prefetch_params = None
             self._prefetch_depth = None
-            seed = (self.seed or 0) + new_depth * 997
-            sv = _shape_variety_for_depth(self.shape_variety, new_depth)
-            theme = theme_for_depth(new_depth)
-            ft_rng = random.Random(seed)
-            ft_w, ft_h = pick_map_size(ft_rng, depth=new_depth)
-            params = GenerationParams(
-                width=ft_w, height=ft_h,
-                depth=new_depth, shape_variety=sv, theme=theme,
-                seed=seed,
-            )
-            self.generation_params = params
-            self.level = generate_level(params)
+
+            # Hex-mode cave Floor 2: shared across the cluster,
+            # larger, with N stairs_up (one per cluster member).
+            if (self._active_cave_cluster is not None
+                    and new_depth == 2
+                    and self.hex_world is not None):
+                self._generate_cave_floor2()
+            else:
+                seed = (self.seed or 0) + new_depth * 997
+                sv = _shape_variety_for_depth(
+                    self.shape_variety, new_depth,
+                )
+                theme = theme_for_depth(new_depth)
+                ft_rng = random.Random(seed)
+                ft_w, ft_h = pick_map_size(ft_rng, depth=new_depth)
+                params = GenerationParams(
+                    width=ft_w, height=ft_h,
+                    depth=new_depth, shape_variety=sv, theme=theme,
+                    seed=seed,
+                )
+                self.generation_params = params
+                self.level = generate_level(params)
             self._spawn_level_entities()
 
         # Place player at the appropriate stairs (or random if fell)
@@ -2975,28 +3124,49 @@ class Game:
             placed = self._place_player_random_floor()
         else:
             if ascending:
-                # Came from below → place at stairs_down
                 stair_feature = "stairs_down"
             else:
-                # Came from above → place at stairs_up
                 stair_feature = "stairs_up"
 
-            placed = False
-            for y in range(self.level.height):
-                for x in range(self.level.width):
-                    tile = self.level.tile_at(x, y)
-                    if tile and tile.feature == stair_feature:
-                        pos = self.world.get_component(
-                            self.player_id, "Position",
-                        )
-                        if pos:
-                            pos.x = x
-                            pos.y = y
-                            pos.level_id = self.level.id
-                        placed = True
+            # Cave Floor 2: when descending, place at the
+            # stairs_up that corresponds to the player's entry hex
+            # (looked up from _cave_floor2_stairs).
+            if (not ascending
+                    and self._active_cave_cluster is not None
+                    and new_depth == 2
+                    and self.hex_player_position is not None):
+                hp = self.hex_player_position
+                key = f"{hp.q}_{hp.r}"
+                target_xy = self._cave_floor2_stairs.get(key)
+                if target_xy:
+                    pos = self.world.get_component(
+                        self.player_id, "Position",
+                    )
+                    if pos:
+                        pos.x, pos.y = target_xy
+                        pos.level_id = self.level.id
+                    placed = True
+                else:
+                    placed = False
+            else:
+                placed = False
+
+            if not placed:
+                for y in range(self.level.height):
+                    for x in range(self.level.width):
+                        tile = self.level.tile_at(x, y)
+                        if tile and tile.feature == stair_feature:
+                            pos = self.world.get_component(
+                                self.player_id, "Position",
+                            )
+                            if pos:
+                                pos.x = x
+                                pos.y = y
+                                pos.level_id = self.level.id
+                            placed = True
+                            break
+                    if placed:
                         break
-                if placed:
-                    break
 
         if not placed:
             # Fallback: entry room center
