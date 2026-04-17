@@ -13,6 +13,7 @@ import pytest
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.model import (
     Biome,
+    EdgeSegment,
     HexCell,
     HexFeatureType,
     HexWorld,
@@ -129,3 +130,41 @@ def test_state_hex_cells_without_feature_use_none_string() -> None:
     mtn = by_coord[(0, 2)]
     assert mtn["biome"] == "mountain"
     assert mtn["feature"] == "none"
+
+
+# ---------------------------------------------------------------------------
+# Edge segments in payload
+# ---------------------------------------------------------------------------
+
+
+def test_state_hex_cell_with_edges_includes_edges_key() -> None:
+    w = _make_world()
+    w.cells[HexCoord(1, 1)].edges.append(
+        EdgeSegment(type="river", entry_edge=0, exit_edge=3),
+    )
+    msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
+    (cell,) = msg["cells"]
+    assert "edges" in cell
+    assert len(cell["edges"]) == 1
+    seg = cell["edges"][0]
+    assert seg["type"] == "river"
+    assert seg["entry"] == 0
+    assert seg["exit"] == 3
+
+
+def test_state_hex_cell_without_edges_omits_key() -> None:
+    w = _make_world()
+    msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
+    (cell,) = msg["cells"]
+    assert "edges" not in cell
+
+
+def test_state_hex_edge_source_and_sink_use_null() -> None:
+    w = _make_world()
+    w.cells[HexCoord(1, 1)].edges.append(
+        EdgeSegment(type="river", entry_edge=None, exit_edge=3),
+    )
+    msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
+    seg = msg["cells"][0]["edges"][0]
+    assert seg["entry"] is None
+    assert seg["exit"] == 3

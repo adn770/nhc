@@ -56,12 +56,22 @@ def build_hex_state_msg(
         cell = hex_world.cells.get(coord)
         if cell is None:
             continue
-        cells_payload.append({
+        cell_data: dict = {
             "q": coord.q,
             "r": coord.r,
             "biome": cell.biome.value,
             "feature": cell.feature.value,
-        })
+        }
+        if cell.edges:
+            cell_data["edges"] = [
+                {
+                    "type": seg.type,
+                    "entry": seg.entry_edge,
+                    "exit": seg.exit_edge,
+                }
+                for seg in cell.edges
+            ]
+        cells_payload.append(cell_data)
     # Pixel bounds are computed from the populated cells so
     # staggered shapes (e.g. odd-q rectangular) report their real
     # on-screen extent rather than the axial bounding box.
