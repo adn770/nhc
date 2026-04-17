@@ -1717,6 +1717,26 @@ class Game:
             # Render: hex mode routes to render_hex; dungeon mode keeps
             # the existing render() path unchanged.
             if self.world_mode.is_hex and self.hex_world is not None \
+                    and self.level is None \
+                    and self.hex_world.exploring_hex is not None:
+                # Sub-hex flower exploration mode
+                self.renderer._hex_game = self
+                self.renderer.render_flower(
+                    self.hex_world,
+                    self.hex_world.exploring_sub_hex,
+                    self.turn,
+                )
+                outcome = await self._process_flower_turn()
+                if outcome == "disconnect":
+                    logger.info("Player disconnected, suspending game")
+                    _autosave(self, self.save_dir, blocking=True)
+                    self.running = False
+                    break
+                if outcome in ("moved", "rest"):
+                    self.turn += 1
+                continue
+
+            if self.world_mode.is_hex and self.hex_world is not None \
                     and self.level is None:
                 # Give the renderer a back-reference so it can
                 # gather player stats for the unified status bar.
@@ -2578,6 +2598,129 @@ class Game:
         # Unknown intents silently ignored so a stray keyboard event
         # doesn't end the turn with no visible effect.
         return "ignored"
+
+    async def _process_flower_turn(self) -> str:
+        """Handle one sub-hex exploration input event.
+
+        Returns ``"disconnect"`` on WebSocket teardown, otherwise
+        a descriptive tag for the event.
+        """
+        from nhc.core.actions._sub_hex_movement import MoveSubHexAction
+        from nhc.hexcrawl._flowers import get_exit_edge
+        from nhc.hexcrawl._rivers import direction_index
+        from nhc.hexcrawl.encounter_pipeline import (
+            rate_for_biome,
+            roll_encounter,
+        )
+        import random as _random
+
+        intent, data = await self.renderer.get_input()
+        if intent == "disconnect":
+            return "disconnect"
+
+        if intent == "flower_step" and data:
+            sub_pos = self.hex_world.exploring_sub_hex
+            if sub_pos is None:
+                return "ignored"
+            dq, dr = data
+            target_sub = HexCoord(sub_pos.q + int(dq), sub_pos.r + int(dr))
+
+            # Check if stepping outside the flower (exit)
+            exit_edge = get_exit_edge(sub_pos, target_sub)
+            if exit_edge is not None:
+                from nhc.hexcrawl.coords import NEIGHBOR_OFFSETS
+                macro = self.hex_world.exploring_hex
+                edq, edr = NEIGHBOR_OFFSETS[exit_edge]
+                new_macro = HexCoord(macro.q + edq, macro.r + edr)
+                self.hex_world.exit_flower()
+                if self.hex_world.is_in_shape(new_macro):
+                    self.hex_world.visit(new_macro)
+                    self.hex_player_position = new_macro
+                    self.renderer.add_message(
+                        "You leave the area.",
+                    )
+                else:
+                    self.renderer.add_message(
+                        "You can't go that way.",
+                    )
+                return "moved"
+
+            action = MoveSubHexAction(
+                actor=self.player_id,
+                origin=sub_pos,
+                target=target_sub,
+                hex_world=self.hex_world,
+            )
+            if not action.validate_sync():
+                self.renderer.add_message("You can't go that way.")
+                return "ignored"
+            action.execute_sync()
+            self._tick_hunger()
+            # Sub-hex encounter check at lower rate
+            self._maybe_stage_sub_hex_encounter(target_sub)
+            if self.pending_encounter is not None:
+                await self._prompt_encounter()
+            return "moved"
+
+        if intent == "flower_exit":
+            macro = self.hex_world.exploring_hex
+            self.hex_world.exit_flower()
+            self.renderer.add_message("You return to the overland.")
+            return "moved"
+
+        if intent == "hex_enter":
+            # Enter dungeon/settlement from within the flower —
+            # only valid when standing on the feature_cell.
+            macro = self.hex_world.exploring_hex
+            cell = self.hex_world.get_cell(macro) if macro else None
+            if cell and cell.flower and cell.flower.feature_cell:
+                if self.hex_world.exploring_sub_hex == cell.flower.feature_cell:
+                    self.hex_world.exit_flower()
+                    ok = await self.enter_hex_feature()
+                    if ok:
+                        feature = cell.feature.value
+                        self.renderer.add_message(
+                            f"You enter the {feature}.",
+                        )
+                    return "entered" if ok else "ignored"
+            self.renderer.add_message(
+                "There is nothing to enter here.",
+            )
+            return "ignored"
+
+        return "ignored"
+
+    def _maybe_stage_sub_hex_encounter(
+        self, target_sub: HexCoord,
+    ) -> None:
+        """Roll encounter at sub-hex level (~15% of macro rate)."""
+        import random as _random
+        from nhc.hexcrawl.encounter_pipeline import (
+            rate_for_biome,
+            roll_encounter,
+        )
+
+        if self.encounters_disabled:
+            return
+        if self.pending_encounter is not None:
+            return
+        macro = self.hex_world.exploring_hex
+        if macro is None:
+            return
+        cell = self.hex_world.get_cell(macro)
+        if cell is None or cell.flower is None:
+            return
+        sub_cell = cell.flower.cells.get(target_sub)
+        if sub_cell is None:
+            return
+        rng = self._encounter_rng or _random.Random()
+        base_rate = rate_for_biome(sub_cell.biome) * 0.15
+        rate = base_rate * sub_cell.encounter_modifier
+        enc = roll_encounter(
+            sub_cell.biome, rng, encounter_rate=rate,
+        )
+        if enc is not None:
+            self.pending_encounter = enc
 
     async def _prompt_encounter(self) -> None:
         """Surface a pending encounter to the player.

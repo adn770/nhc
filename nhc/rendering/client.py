@@ -64,6 +64,18 @@ class GameClient(abc.ABC):
         """
         return None
 
+    def render_flower(
+        self,
+        hex_world: "HexWorld",
+        player_sub: "HexCoord",
+        turn: int,
+    ) -> None:
+        """Render the sub-hex flower exploration state.
+
+        Default implementation is a no-op. The web client overrides.
+        """
+        return None
+
     @abc.abstractmethod
     def scroll_messages(self, direction: int) -> None:
         """Scroll the message log. +1 = older, -1 = newer."""

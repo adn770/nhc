@@ -27,7 +27,7 @@ from nhc.dungeon.model import (
     Terrain,
 )
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.model import HexWorld
+from nhc.hexcrawl.model import FLOWER_COORDS, HexWorld
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
 from nhc.rendering.svg import render_floor_svg
@@ -92,6 +92,84 @@ def build_hex_state_msg(
         "player": {"q": player_coord.q, "r": player_coord.r},
         "cells": cells_payload,
     }
+
+
+def build_flower_state_msg(
+    hex_world: HexWorld,
+    player_sub: HexCoord,
+    turn: int,
+) -> dict:
+    """Build the ``state_flower`` WebSocket payload.
+
+    Ships the 19 sub-hex cells of the active flower with their
+    revealed/visited state, plus river/road edge segments.
+    """
+    macro = hex_world.exploring_hex
+    assert macro is not None
+    cell = hex_world.get_cell(macro)
+    assert cell is not None and cell.flower is not None
+    flower = cell.flower
+    revealed = hex_world.sub_hex_revealed.get(macro, set())
+    visited = hex_world.sub_hex_visited.get(macro, set())
+
+    cells_payload: list[dict] = []
+    for coord in sorted(FLOWER_COORDS, key=lambda c: (c.q, c.r)):
+        sc = flower.cells[coord]
+        cells_payload.append({
+            "q": coord.q,
+            "r": coord.r,
+            "biome": sc.biome.value,
+            "minor_feature": sc.minor_feature.value,
+            "major_feature": sc.major_feature.value,
+            "has_road": sc.has_road,
+            "has_river": sc.has_river,
+            "revealed": coord in revealed,
+            "visited": coord in visited,
+        })
+
+    edges_payload = [
+        {
+            "type": seg.type,
+            "path": [{"q": c.q, "r": c.r} for c in seg.path],
+            "entry": seg.entry_macro_edge,
+            "exit": seg.exit_macro_edge,
+        }
+        for seg in flower.edges
+    ]
+
+    import math
+    HEX_SIZE = 92.0  # larger sub-hex size for flower view
+    pw, ph, min_x, min_y = hex_world.pixel_bbox(HEX_SIZE)
+    # Recompute pixel bbox for the flower's local coords
+    sqrt3 = math.sqrt(3)
+    xs = [HEX_SIZE * 1.5 * c.q for c in FLOWER_COORDS]
+    ys = [
+        HEX_SIZE * (sqrt3 / 2 * c.q + sqrt3 * c.r)
+        for c in FLOWER_COORDS
+    ]
+    f_min_x, f_max_x = min(xs), max(xs)
+    f_min_y, f_max_y = min(ys), max(ys)
+
+    return {
+        "type": "state_flower",
+        "turn": turn,
+        "macro_hex": {"q": macro.q, "r": macro.r},
+        "macro_biome": cell.biome.value,
+        "macro_feature": cell.feature.value,
+        "pixel_width": f_max_x - f_min_x,
+        "pixel_height": f_max_y - f_min_y,
+        "pixel_origin_x": f_min_x,
+        "pixel_origin_y": f_min_y,
+        "hex_size": HEX_SIZE,
+        "day": hex_world.day,
+        "time": hex_world.time.name.lower(),
+        "hour": hex_world.hour,
+        "minute": hex_world.minute,
+        "player": {"q": player_sub.q, "r": player_sub.r},
+        "cells": cells_payload,
+        "edges": edges_payload,
+    }
+
 
 logger = logging.getLogger(__name__)
 
@@ -1289,6 +1367,45 @@ class WebClient(GameClient):
             dynamic["hex_time"] = tr(
                 f"hex.time.{hex_world.time.name.lower()}",
             )
+            if static != self._last_static_stats:
+                self._send({"type": "stats_init", **static})
+                self._last_static_stats = static
+            inv_hash = hash(str(dynamic.get("items", [])))
+            if inv_hash != self._last_inv_hash:
+                self._last_inv_hash = inv_hash
+            else:
+                dynamic.pop("items", None)
+            self._send({"type": "stats", **dynamic})
+
+    def render_flower(
+        self,
+        hex_world: HexWorld,
+        player_sub: HexCoord,
+        turn: int,
+    ) -> None:
+        """Sub-hex flower per-turn render: emit ``state_flower``."""
+        self._send(build_flower_state_msg(
+            hex_world, player_sub, turn,
+        ))
+        if hasattr(self, "_hex_game") and self._hex_game is not None:
+            game = self._hex_game
+            static, dynamic = self._gather_stats(
+                game.world, game.player_id, turn, level=None,
+            )
+            macro = hex_world.exploring_hex
+            cell = hex_world.cells.get(macro) if macro else None
+            biome_label = tr(
+                f"hex.biome.{cell.biome.value}",
+            ) if cell else "?"
+            static["level_name"] = f"{biome_label} (exploring)"
+            static["depth"] = 0
+            dynamic["hex_mode"] = True
+            dynamic["hex_day"] = hex_world.day
+            dynamic["hex_time"] = tr(
+                f"hex.time.{hex_world.time.name.lower()}",
+            )
+            dynamic["hex_hour"] = hex_world.hour
+            dynamic["hex_minute"] = hex_world.minute
             if static != self._last_static_stats:
                 self._send({"type": "stats_init", **static})
                 self._last_static_stats = static

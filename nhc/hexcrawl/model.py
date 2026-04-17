@@ -305,6 +305,16 @@ class HexWorld:
     # two features. Populated by generate_paths after feature
     # placement.
     paths: list[list[HexCoord]] = field(default_factory=list)
+    # Sub-hex exploration state. When exploring_hex is set, the
+    # player is inside a hex flower rather than on the macro map.
+    exploring_hex: HexCoord | None = None
+    exploring_sub_hex: HexCoord | None = None
+    sub_hex_revealed: dict[HexCoord, set[HexCoord]] = field(
+        default_factory=dict,
+    )
+    sub_hex_visited: dict[HexCoord, set[HexCoord]] = field(
+        default_factory=dict,
+    )
 
     # ----- cells -----
 
@@ -341,6 +351,42 @@ class HexWorld:
 
     def is_cleared(self, c: HexCoord) -> bool:
         return c in self.cleared
+
+    # ----- sub-hex exploration -----
+
+    def enter_flower(
+        self, macro_hex: HexCoord, entry_sub: HexCoord,
+    ) -> None:
+        """Enter a hex flower at *entry_sub*."""
+        self.exploring_hex = macro_hex
+        self.exploring_sub_hex = entry_sub
+        self._reveal_flower_fov(macro_hex, entry_sub)
+        self.sub_hex_visited.setdefault(macro_hex, set()).add(
+            entry_sub,
+        )
+
+    def exit_flower(self) -> None:
+        """Leave the current hex flower back to the macro map."""
+        self.exploring_hex = None
+        self.exploring_sub_hex = None
+
+    def move_sub_hex(self, target: HexCoord) -> None:
+        """Move within the current flower to *target*."""
+        macro = self.exploring_hex
+        assert macro is not None
+        self.exploring_sub_hex = target
+        self._reveal_flower_fov(macro, target)
+        self.sub_hex_visited.setdefault(macro, set()).add(target)
+
+    def _reveal_flower_fov(
+        self, macro: HexCoord, sub: HexCoord,
+    ) -> None:
+        """Reveal ring-1 FOV around *sub* in the flower."""
+        revealed = self.sub_hex_revealed.setdefault(macro, set())
+        revealed.add(sub)
+        for n in neighbors(sub):
+            if n in FLOWER_COORDS:
+                revealed.add(n)
 
     # ----- fog of war -----
 

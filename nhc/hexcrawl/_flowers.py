@@ -83,6 +83,38 @@ for _edge, _pair in EDGE_TO_RING2.items():
         _RING2_TO_EDGE[_h] = _edge
 
 
+def get_exit_edge(
+    sub_from: HexCoord,
+    sub_to: HexCoord,
+) -> int | None:
+    """Determine the macro exit edge when stepping out of the flower.
+
+    Returns the macro edge index (0-5) if *sub_from* is a ring-2
+    hex and *sub_to* is outside the flower in the direction of
+    that edge. Returns ``None`` if this is an interior move.
+    """
+    if sub_to in FLOWER_COORDS:
+        return None
+    edge = _RING2_TO_EDGE.get(sub_from)
+    if edge is None:
+        return None
+    # Verify the step direction matches the edge direction
+    dq, dr = NEIGHBOR_OFFSETS[edge]
+    expected = HexCoord(sub_from.q + dq, sub_from.r + dr)
+    if sub_to == expected:
+        return edge
+    # The sub-hex is on this edge but the player is stepping
+    # in a different outward direction — find which edge that is.
+    step = (sub_to.q - sub_from.q, sub_to.r - sub_from.r)
+    for d in range(6):
+        if NEIGHBOR_OFFSETS[d] == step:
+            # Check if this direction actually exits the flower
+            target = HexCoord(sub_from.q + step[0], sub_from.r + step[1])
+            if target not in FLOWER_COORDS:
+                return d
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------

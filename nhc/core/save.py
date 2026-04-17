@@ -515,6 +515,22 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
             [_coord_to_list(c) for c in path]
             for path in hw.paths
         ],
+        "exploring_hex": (
+            _coord_to_list(hw.exploring_hex)
+            if hw.exploring_hex is not None else None
+        ),
+        "exploring_sub_hex": (
+            _coord_to_list(hw.exploring_sub_hex)
+            if hw.exploring_sub_hex is not None else None
+        ),
+        "sub_hex_revealed": {
+            f"{k.q},{k.r}": [_coord_to_list(c) for c in v]
+            for k, v in hw.sub_hex_revealed.items()
+        },
+        "sub_hex_visited": {
+            f"{k.q},{k.r}": [_coord_to_list(c) for c in v]
+            for k, v in hw.sub_hex_visited.items()
+        },
     }
 
 
@@ -589,4 +605,16 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
         [_list_to_coord(c) for c in path]
         for path in data.get("paths", [])
     ]
+    eh = data.get("exploring_hex")
+    hw.exploring_hex = _list_to_coord(eh) if eh is not None else None
+    es = data.get("exploring_sub_hex")
+    hw.exploring_sub_hex = _list_to_coord(es) if es is not None else None
+    for k, v in data.get("sub_hex_revealed", {}).items():
+        parts = k.split(",")
+        macro = HexCoord(int(parts[0]), int(parts[1]))
+        hw.sub_hex_revealed[macro] = {_list_to_coord(c) for c in v}
+    for k, v in data.get("sub_hex_visited", {}).items():
+        parts = k.split(",")
+        macro = HexCoord(int(parts[0]), int(parts[1]))
+        hw.sub_hex_visited[macro] = {_list_to_coord(c) for c in v}
     return hw
