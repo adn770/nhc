@@ -106,7 +106,8 @@ const PALETTE_BIOMES = new Set([
 // 404s. All generated biomes are partial (they only have the
 // slots the generate_missing_hextiles tool produced).
 const PARTIAL_PALETTE_BIOMES = new Set([
-  "greenlands", "forest", "mountain", "hills", "marsh", "swamp", "water",
+  "greenlands", "drylands", "sandlands", "icelands", "deadlands",
+  "forest", "mountain", "hills", "marsh", "swamp", "water",
 ]);
 
 /** Fallback glyph when the hextile PNG can't be fetched. */
@@ -818,30 +819,26 @@ function hexKeyHandler(ev) {
 document.addEventListener("keydown", hexKeyHandler);
 
 function _showHexOverland() {
-  const dungeon = document.getElementById("floor-svg");
-  const dungeonCanvases = document.querySelectorAll(
-    "#door-canvas, #hatch-canvas, #fog-canvas, #entity-canvas, #debug-canvas");
-  dungeonCanvases.forEach(c => c.classList.add("hidden"));
-  if (dungeon) dungeon.classList.add("hidden");
+  // Hide the entire dungeon container (not individual canvases).
+  const mapContainer = document.getElementById("map-container");
+  if (mapContainer) mapContainer.classList.add("hidden");
+  // Show the hex container + HUD.
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.remove("hidden");
   const hexHud = document.getElementById("hex-hud");
   if (hexHud) hexHud.classList.remove("hidden");
-  // Switch to the compact hex toolbar.
   if (typeof Input !== "undefined") Input.setToolbarMode("hex");
 }
 
 function _showDungeonView() {
-  const dungeon = document.getElementById("floor-svg");
-  const dungeonCanvases = document.querySelectorAll(
-    "#door-canvas, #hatch-canvas, #fog-canvas, #entity-canvas, #debug-canvas");
-  dungeonCanvases.forEach(c => c.classList.remove("hidden"));
-  if (dungeon) dungeon.classList.remove("hidden");
+  // Show the dungeon container.
+  const mapContainer = document.getElementById("map-container");
+  if (mapContainer) mapContainer.classList.remove("hidden");
+  // Hide hex container + HUD.
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.add("hidden");
   const hexHud = document.getElementById("hex-hud");
   if (hexHud) hexHud.classList.add("hidden");
-  // Switch back to the full dungeon toolbar.
   if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
 }
 
