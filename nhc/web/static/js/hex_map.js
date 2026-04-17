@@ -185,6 +185,21 @@ function _rawAxialToPixel(q, r, size = HEX_SIZE) {
 let _pixelOriginX = 0;
 let _pixelOriginY = 0;
 
+/** Current CSS zoom scale on the hex container. */
+function _hexZoomScale() {
+  if (typeof GameMap !== "undefined") {
+    return GameMap._zoomSteps[GameMap._zoomLevel] || 1;
+  }
+  return 1;
+}
+
+/** Convert screen-relative mouse coords (from getBoundingClientRect)
+ * to canvas-relative coords, accounting for CSS zoom scale. */
+function _screenToCanvas(mx, my) {
+  const s = _hexZoomScale();
+  return {x: mx / s, y: my / s};
+}
+
 /** Axial (q, r) → pixel (x, y) for the centre of the hex,
  * offset so the top-left hex sits at (HEX_MARGIN, HEX_MARGIN). */
 function axialToPixel(q, r, size = HEX_SIZE) {
@@ -376,8 +391,8 @@ const HexMap = {
     container.addEventListener("mousemove", ev => {
       if (!this._playerPx) return;
       const rect = container.getBoundingClientRect();
-      const mx = ev.clientX - rect.left;
-      const my = ev.clientY - rect.top;
+      const {x: mx, y: my} = _screenToCanvas(
+        ev.clientX - rect.left, ev.clientY - rect.top);
       const dx = mx - this._playerPx.x;
       const dy = my - this._playerPx.y;
       const near = (dx * dx + dy * dy)
@@ -956,12 +971,15 @@ if (typeof WS !== "undefined") {
   container.addEventListener("mousemove", (ev) => {
     if (!HexMap._lastState) { tip.style.display = "none"; return; }
     const rect = container.getBoundingClientRect();
-    const mx = ev.clientX - rect.left + container.scrollLeft;
-    const my = ev.clientY - rect.top + container.scrollTop;
-    // Pixel → axial: inverse of the flat-top layout math.
-    const q = Math.round((mx - HEX_SIZE) / (HEX_SIZE * 1.5));
+    const {x: mx, y: my} = _screenToCanvas(
+      ev.clientX - rect.left, ev.clientY - rect.top);
+    // Pixel → axial: inverse of axialToPixel, accounting for
+    // the pixel origin offset + margin.
+    const ox = mx - HEX_MARGIN - HEX_SIZE + _pixelOriginX;
+    const oy = my - HEX_MARGIN - HEX_SIZE + _pixelOriginY;
+    const q = Math.round(ox / (HEX_SIZE * 1.5));
     const r = Math.round(
-      (my - HEX_SIZE * Math.sqrt(3) / 2 - q * HEX_SIZE * Math.sqrt(3) / 2)
+      (oy - HEX_SIZE * Math.sqrt(3) / 2 * q)
         / (HEX_SIZE * Math.sqrt(3))
     );
     const cell = HexMap._lastState.cells.find(
