@@ -1137,7 +1137,10 @@ class Game:
         if choice != 1:
             return False
         try:
-            self.cheat_death()
+            if self.world_mode.is_hex:
+                self.cheat_death()
+            else:
+                self.cheat_death_dungeon()
         except RuntimeError:
             # Mode-gate tripped; treat as permadeath.
             return False
@@ -1145,8 +1148,8 @@ class Game:
 
     def allows_cheat_death_now(self) -> bool:
         """True when the current world mode offers the cheat-death
-        dialog on player death (hex-easy only)."""
-        return self.world_mode is GameMode.HEX_EASY
+        dialog on player death (easy difficulty in any world)."""
+        return self.world_mode.allows_cheat_death
 
     def cheat_death(self) -> None:
         """Respawn the player at the last hub with penalties.
@@ -1198,6 +1201,38 @@ class Game:
 
         # Clock: +1 full day, same time-of-day segment.
         self.hex_world.advance_clock(4)
+
+    def cheat_death_dungeon(self) -> None:
+        """Respawn the player in place with penalties (dungeon mode).
+
+        Only valid when :attr:`world_mode.allows_cheat_death` is
+        True. Resets gold to 0, strips inventory, and restores HP
+        to maximum. Dungeon state is preserved — cleared rooms stay
+        cleared.
+        """
+        if not self.world_mode.allows_cheat_death:
+            raise RuntimeError(
+                f"cheat_death_dungeon requires easy difficulty; "
+                f"current mode is {self.world_mode.value}"
+            )
+
+        # Gold -> 0.
+        player = self.world.get_component(self.player_id, "Player")
+        if player is not None:
+            player.gold = 0
+
+        # Strip inventory items (destroyed).
+        inv = self.world.get_component(self.player_id, "Inventory")
+        if inv is not None:
+            for iid in list(inv.slots):
+                if iid in self.world._entities:
+                    self.world.destroy_entity(iid)
+            inv.slots.clear()
+
+        # HP to max.
+        health = self.world.get_component(self.player_id, "Health")
+        if health is not None:
+            health.current = health.maximum
 
     def _init_hex_world(self) -> None:
         """Build the overland HexWorld for the configured hex mode.
