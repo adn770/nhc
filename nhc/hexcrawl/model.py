@@ -183,6 +183,7 @@ class SubHexCell:
     has_river: bool = False
     move_cost_hours: float = 1.0
     encounter_modifier: float = 1.0
+    searched: bool = False
 
 
 @dataclass

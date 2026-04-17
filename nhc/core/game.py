@@ -2663,10 +2663,62 @@ class Game:
             return "moved"
 
         if intent == "flower_exit":
-            macro = self.hex_world.exploring_hex
             self.hex_world.exit_flower()
             self.renderer.add_message("You return to the overland.")
             return "moved"
+
+        if intent == "flower_search":
+            from nhc.core.actions._sub_hex_actions import (
+                SearchSubHexAction,
+            )
+            action = SearchSubHexAction(
+                actor=self.player_id, hex_world=self.hex_world,
+            )
+            if not action.validate_sync():
+                self.renderer.add_message(
+                    "Nothing more to find here.",
+                )
+                return "ignored"
+            events = action.execute_sync()
+            for ev in events:
+                if hasattr(ev, "text"):
+                    self.renderer.add_message(ev.text)
+            return "moved"
+
+        if intent == "flower_forage":
+            from nhc.core.actions._sub_hex_actions import (
+                ForageSubHexAction,
+            )
+            action = ForageSubHexAction(
+                actor=self.player_id, hex_world=self.hex_world,
+            )
+            if not action.validate_sync():
+                return "ignored"
+            events = action.execute_sync()
+            for ev in events:
+                if hasattr(ev, "text"):
+                    self.renderer.add_message(ev.text)
+            return "moved"
+
+        if intent == "flower_rest":
+            from nhc.core.actions._sub_hex_actions import (
+                RestSubHexAction,
+            )
+            action = RestSubHexAction(
+                actor=self.player_id,
+                hex_world=self.hex_world,
+                ecs_world=self.world,
+            )
+            events = action.execute_sync()
+            for ev in events:
+                if hasattr(ev, "text"):
+                    self.renderer.add_message(ev.text)
+            self._maybe_stage_sub_hex_encounter(
+                self.hex_world.exploring_sub_hex,
+            )
+            if self.pending_encounter is not None:
+                await self._prompt_encounter()
+            return "rest"
 
         if intent == "hex_enter":
             # Enter dungeon/settlement from within the flower —
