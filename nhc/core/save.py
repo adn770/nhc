@@ -22,6 +22,7 @@ from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.model import (
     Biome,
     DungeonRef,
+    EdgeSegment,
     HexCell,
     HexFeatureType,
     HexWorld,
@@ -358,12 +359,22 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
             "feature": cell.feature.value,
             "name_key": cell.name_key,
             "desc_key": cell.desc_key,
+            "elevation": cell.elevation,
         }
         if cell.dungeon is not None:
             cell_data["dungeon"] = {
                 "template": cell.dungeon.template,
                 "depth": cell.dungeon.depth,
             }
+        if cell.edges:
+            cell_data["edges"] = [
+                {
+                    "type": seg.type,
+                    "entry": seg.entry_edge,
+                    "exit": seg.exit_edge,
+                }
+                for seg in cell.edges
+            ]
         cells.append(cell_data)
     rumors = [
         {
@@ -399,6 +410,14 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
         "active_rumors": rumors,
         "expedition_party": list(hw.expedition_party),
         "biome_costs": {b.value: v for b, v in hw.biome_costs.items()},
+        "rivers": [
+            [_coord_to_list(c) for c in river]
+            for river in hw.rivers
+        ],
+        "paths": [
+            [_coord_to_list(c) for c in path]
+            for path in hw.paths
+        ],
     }
 
 
@@ -417,6 +436,14 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
                 template=cd["dungeon"]["template"],
                 depth=int(cd["dungeon"].get("depth", 1)),
             )
+        edges = [
+            EdgeSegment(
+                type=e["type"],
+                entry_edge=e.get("entry"),
+                exit_edge=e.get("exit"),
+            )
+            for e in cd.get("edges", [])
+        ]
         hw.set_cell(HexCell(
             coord=coord,
             biome=Biome(cd["biome"]),
@@ -424,6 +451,8 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
             name_key=cd.get("name_key"),
             desc_key=cd.get("desc_key"),
             dungeon=dungeon,
+            elevation=float(cd.get("elevation", 0.0)),
+            edges=edges,
         ))
     hw.revealed = {_list_to_coord(c) for c in data.get("revealed", [])}
     hw.visited = {_list_to_coord(c) for c in data.get("visited", [])}
@@ -449,4 +478,12 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
         Biome(k): int(v)
         for k, v in data.get("biome_costs", {}).items()
     }
+    hw.rivers = [
+        [_list_to_coord(c) for c in river]
+        for river in data.get("rivers", [])
+    ]
+    hw.paths = [
+        [_list_to_coord(c) for c in path]
+        for path in data.get("paths", [])
+    ]
     return hw
