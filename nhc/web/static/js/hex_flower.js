@@ -401,16 +401,26 @@ if (typeof WS !== "undefined") {
     const hexC = document.getElementById("hex-container");
     const flowerC = document.getElementById("flower-container");
     const mapC = document.getElementById("map-container");
+    const loginScreen = document.getElementById("login-screen");
     if (hexC) hexC.classList.add("hidden");
     if (mapC) mapC.classList.add("hidden");
+    if (loginScreen) loginScreen.classList.add("hidden");
     if (flowerC) flowerC.classList.remove("hidden");
     /* eslint-disable no-undef */
     if (typeof FlowerInputActive !== "undefined") {
       FlowerInputActive = true;
       HexInputActive = false;
     }
+    if (typeof HexGameActive !== "undefined") {
+      HexGameActive = true;
+    }
     /* eslint-enable no-undef */
     HexFlower.render(msg);
+    // Dismiss the loading spinner (same as state_hex handler)
+    if (typeof NHC !== "undefined") {
+      NHC.waitingForFloor = false;
+      NHC.hideLoading();
+    }
   });
 
   WS.on("state_hex", () => {
