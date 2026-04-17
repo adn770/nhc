@@ -348,7 +348,18 @@ const Input = {
           layers[name] = c.toDataURL("image/png");
         } else {
           if (!target.width || !target.height) continue;
-          layers[name] = target.toDataURL("image/png");
+          // Export at CSS display size (not internal hi-res).
+          const dw = target.clientWidth || target.width;
+          const dh = target.clientHeight || target.height;
+          if (dw === target.width && dh === target.height) {
+            layers[name] = target.toDataURL("image/png");
+          } else {
+            const tmp = document.createElement("canvas");
+            tmp.width = dw;
+            tmp.height = dh;
+            tmp.getContext("2d").drawImage(target, 0, 0, dw, dh);
+            layers[name] = tmp.toDataURL("image/png");
+          }
         }
       } catch (e) {
         console.warn("Layer capture failed:", name, e);
