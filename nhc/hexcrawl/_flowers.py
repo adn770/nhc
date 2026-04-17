@@ -529,3 +529,40 @@ def _place_lair(
     chosen = rng.choice(eligible)
     cells[chosen].minor_feature = rng.choice(_LAIR_TYPES)
     cells[chosen].encounter_modifier = 3.0
+
+
+# ---------------------------------------------------------------------------
+# Fast-travel cost pre-computation
+# ---------------------------------------------------------------------------
+
+
+def compute_fast_travel_costs(
+    cells: dict[HexCoord, SubHexCell],
+) -> dict[tuple[int, int], float]:
+    """Pre-compute A* travel costs for all 30 (entry, exit) pairs.
+
+    Returns a dict mapping ``(entry_edge, exit_edge)`` → cost in
+    hours, where the cost is the sum of ``move_cost_hours`` along
+    the cheapest path through the flower.
+    """
+    result: dict[tuple[int, int], float] = {}
+
+    for entry in range(6):
+        for exit_ in range(6):
+            if entry == exit_:
+                continue
+            # Try all combinations of entry/exit sub-hexes and
+            # keep the cheapest.
+            best = float("inf")
+            for start in EDGE_TO_RING2[entry]:
+                for goal in EDGE_TO_RING2[exit_]:
+                    path = _flower_astar(
+                        cells, start, goal,
+                        step_cost=lambda _f, t: cells[t].move_cost_hours,
+                    )
+                    cost = sum(cells[c].move_cost_hours for c in path)
+                    if cost < best:
+                        best = cost
+            result[(entry, exit_)] = best
+
+    return result
