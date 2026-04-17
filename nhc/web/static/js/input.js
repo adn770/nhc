@@ -181,6 +181,10 @@ const Input = {
     // Re-apply translated tooltips to the rebuilt buttons.
     const labels = (typeof NHC !== "undefined" && NHC.labels) || {};
     this.updateToolbarLabels(labels);
+    // Update debug panel tab visibility for the new mode.
+    if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
+      DebugPanel.setMode(mode);
+    }
   },
 
   _initToolbar() {

@@ -29,13 +29,15 @@ const DebugPanel = {
     secrets: false,
   },
 
-  // Tab definitions — extensible
+  // Tab definitions — extensible.
+  // `mode`: "dungeon", "hex", or "both" controls visibility when
+  // the toolbar mode switches.
   _tabs: [
-    { name: "Layers", buildFn: "_buildLayersTab" },
-    { name: "Map Gen", buildFn: "_buildMapGenTab" },
-    { name: "Hex Layers", buildFn: "_buildHexLayersTab" },
-    { name: "Hex Gen", buildFn: "_buildHexGenTab" },
-    { name: "Export", buildFn: "_buildExportTab" },
+    { name: "Layers",     buildFn: "_buildLayersTab",    mode: "dungeon" },
+    { name: "Map Gen",    buildFn: "_buildMapGenTab",    mode: "dungeon" },
+    { name: "Hex Layers", buildFn: "_buildHexLayersTab", mode: "hex" },
+    { name: "Hex Gen",    buildFn: "_buildHexGenTab",    mode: "hex" },
+    { name: "Export",     buildFn: "_buildExportTab",    mode: "both" },
   ],
 
   // Hex layer visibility state (mirrors the dungeon `layers`
@@ -193,9 +195,27 @@ const DebugPanel = {
     this._panel = panel;
     this._tabBar = tabBar;
     this._panes = panes;
+    // Track tab button + pane + mode for mode-sensitive visibility.
+    this._tabEntries = [];
 
-    this._tabs.forEach((tab, i) => {
-      this._addTab(tab.name, this[tab.buildFn](), i === 0);
+    const currentMode = (typeof Input !== "undefined"
+      && Input._currentToolbarMode) || "dungeon";
+    let firstVisible = true;
+    this._tabs.forEach((tab) => {
+      const visible = tab.mode === "both" || tab.mode === currentMode;
+      const active = visible && firstVisible;
+      if (active) firstVisible = false;
+      const entry = this._addTab(
+        tab.name, this[tab.buildFn](), active,
+      );
+      if (entry) {
+        entry.mode = tab.mode;
+        if (!visible) {
+          entry.tabBtn.style.display = "none";
+          entry.pane.classList.remove("active");
+        }
+        this._tabEntries.push(entry);
+      }
     });
 
     panel.appendChild(tabBar);
@@ -205,6 +225,34 @@ const DebugPanel = {
     this._makeDraggable(panel, tabBar);
 
     return panel;
+  },
+
+  /** Update tab visibility when toolbar mode changes. */
+  setMode(mode) {
+    if (!this._tabEntries) return;
+    let activated = false;
+    for (const entry of this._tabEntries) {
+      const show = entry.mode === "both" || entry.mode === mode;
+      entry.tabBtn.style.display = show ? "" : "none";
+      if (!show) {
+        entry.tabBtn.classList.remove("active");
+        entry.pane.classList.remove("active");
+      }
+    }
+    // If no tab is active, activate the first visible one.
+    const anyActive = this._tabEntries.some(
+      e => e.tabBtn.classList.contains("active")
+        && e.tabBtn.style.display !== "none",
+    );
+    if (!anyActive) {
+      for (const entry of this._tabEntries) {
+        if (entry.tabBtn.style.display !== "none") {
+          entry.tabBtn.classList.add("active");
+          entry.pane.classList.add("active");
+          break;
+        }
+      }
+    }
   },
 
   _addTab(name, content, makeActive) {
