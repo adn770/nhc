@@ -194,16 +194,39 @@ const HexFlower = {
     if (!seg.path || seg.path.length < 2) return;
     const R = HEX_FLOWER_SIZE;
     const JITTER = R * 0.35;
+    const s3 = Math.sqrt(3);
 
-    // Project waypoints with per-point jitter
-    const pts = seg.path.map((p, i) => {
+    // Macro hex edge midpoints at 2.5 sub-hex radii from center,
+    // so curves reach the flower boundary instead of stopping at
+    // ring-2 sub-hex centers.
+    // NEIGHBOR_OFFSETS: N, NE, SE, S, SW, NW
+    const _DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
+    const _edgePt = (d) => {
+      const [dq, dr] = _DIRS[d];
+      return _flowerAxialToPixel(dq * 2.5, dr * 2.5);
+    };
+
+    // Project waypoints with per-point jitter (skip endpoints)
+    const last = seg.path.length - 1;
+    const raw = seg.path.map((p, i) => {
       const base = _flowerAxialToPixel(p.q, p.r);
+      if (i === 0 || i === last) return base;
       const h1 = this._jitterHash(p.q, p.r, i * 2);
       const h2 = this._jitterHash(p.q, p.r, i * 2 + 1);
       const jx = ((h1 % 1000) / 500 - 1) * JITTER;
       const jy = ((h2 % 1000) / 500 - 1) * JITTER;
       return { x: base.x + jx, y: base.y + jy };
     });
+
+    // Prepend/append edge boundary points
+    const pts = [];
+    if (seg.entry !== null && seg.entry !== undefined) {
+      pts.push(_edgePt(seg.entry));
+    }
+    pts.push(...raw);
+    if (seg.exit !== null && seg.exit !== undefined) {
+      pts.push(_edgePt(seg.exit));
+    }
 
     // Build single continuous path via Catmull-Rom → cubic Bezier
     const path2d = new Path2D();
