@@ -20,8 +20,10 @@ from nhc.hexcrawl.model import (
     Biome,
     HexCell,
     HexFeatureType,
+    HexFlower,
     MinorFeatureType,
     SubHexCell,
+    SubHexEdgeSegment,
     EDGE_TO_RING2,
     FLOWER_COORDS,
     FLOWER_RADIUS,
@@ -289,8 +291,8 @@ def route_river_through_flower(
 
 def route_road_through_flower(
     cells: dict[HexCoord, "SubHexCell"],
-    entry_edge: int,
-    exit_edge: int,
+    entry_edge: int | None,
+    exit_edge: int | None,
     rng: random.Random,
     *,
     feature_cell: HexCoord | None = None,
@@ -302,8 +304,9 @@ def route_road_through_flower(
     ----------
     cells : dict[HexCoord, SubHexCell]
         The 19 sub-hex cells of the flower.
-    entry_edge, exit_edge : int
-        Macro edge indices (0-5).
+    entry_edge, exit_edge : int | None
+        Macro edge indices (0-5), or None for paths that
+        originate/terminate at this hex's feature.
     rng : random.Random
         Seeded RNG for picking among entry/exit options.
     feature_cell : HexCoord | None
@@ -313,10 +316,26 @@ def route_road_through_flower(
         If True, set ``has_road = True`` and halve
         ``move_cost_hours`` on crossed sub-hexes.
     """
-    start_options = list(EDGE_TO_RING2[entry_edge])
-    start = rng.choice(start_options)
-    goal_options = list(EDGE_TO_RING2[exit_edge])
-    goal = rng.choice(goal_options)
+    center = HexCoord(0, 0)
+
+    if entry_edge is not None:
+        start_options = list(EDGE_TO_RING2[entry_edge])
+        start = rng.choice(start_options)
+    elif feature_cell is not None:
+        start = feature_cell
+    else:
+        ring1 = [c for c in FLOWER_COORDS if distance(center, c) == 1]
+        start = rng.choice(ring1)
+
+    if exit_edge is not None:
+        goal_options = list(EDGE_TO_RING2[exit_edge])
+        goal = rng.choice(goal_options)
+    elif feature_cell is not None:
+        goal = feature_cell
+    else:
+        ring1 = [c for c in FLOWER_COORDS if distance(center, c) == 1]
+        candidates = [c for c in ring1 if c != start]
+        goal = rng.choice(candidates) if candidates else ring1[0]
 
     # Cost function: stepping onto the feature cell is cheap (0.1)
     # so A* routes through it when it doesn't add too much detour.
@@ -566,3 +585,142 @@ def compute_fast_travel_costs(
             result[(entry, exit_)] = best
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Sub-hex biome → move cost
+# ---------------------------------------------------------------------------
+
+_SUB_HEX_BIOME_HOURS: dict[Biome, float] = {
+    Biome.GREENLANDS: 1.0,
+    Biome.DRYLANDS: 1.0,
+    Biome.FOREST: 1.5,
+    Biome.HILLS: 1.5,
+    Biome.ICELANDS: 1.5,
+    Biome.SANDLANDS: 1.5,
+    Biome.DEADLANDS: 1.5,
+    Biome.MARSH: 2.0,
+    Biome.SWAMP: 2.0,
+    Biome.MOUNTAIN: 3.0,
+    Biome.WATER: 99.0,
+}
+
+
+# ---------------------------------------------------------------------------
+# Orchestrator: generate one flower for a macro hex
+# ---------------------------------------------------------------------------
+
+
+def generate_flower(
+    parent: HexCell,
+    all_cells: dict[HexCoord, HexCell],
+    seed: int,
+) -> HexFlower:
+    """Generate the complete hex flower for *parent*.
+
+    Runs biome blending, river/road routing, feature placement,
+    and fast-travel cost computation.
+
+    Parameters
+    ----------
+    parent : HexCell
+        The macro hex cell to generate a flower for.
+    all_cells : dict[HexCoord, HexCell]
+        Full macro map cells (for neighbor biome lookups).
+    seed : int
+        Seed for deterministic generation.
+    """
+    rng = random.Random(seed)
+
+    # 1. Biome assignment
+    biomes = assign_sub_hex_biomes(parent, all_cells, rng)
+
+    # 2. Build sub-hex cells with biome-derived move costs
+    cells: dict[HexCoord, SubHexCell] = {}
+    center = HexCoord(0, 0)
+    for c in FLOWER_COORDS:
+        biome = biomes[c]
+        d = distance(center, c)
+        # Elevation: ring 0 = parent, ring 1 = jitter, ring 2 = blend
+        if d == 0:
+            elev = parent.elevation
+        elif d == 1:
+            elev = parent.elevation + rng.uniform(-0.02, 0.02)
+        else:
+            elev = parent.elevation + rng.uniform(-0.04, 0.04)
+        cells[c] = SubHexCell(
+            coord=c,
+            biome=biome,
+            elevation=elev,
+            move_cost_hours=_SUB_HEX_BIOME_HOURS.get(biome, 1.0),
+        )
+
+    # 3. Route rivers through sub-hexes
+    edge_segments: list[SubHexEdgeSegment] = []
+    for seg in parent.edges:
+        if seg.type == "river":
+            path = route_river_through_flower(
+                cells,
+                entry_edge=seg.entry_edge,
+                exit_edge=seg.exit_edge,
+                rng=rng,
+                mark_cells=True,
+            )
+            edge_segments.append(SubHexEdgeSegment(
+                type="river",
+                path=path,
+                entry_macro_edge=seg.entry_edge,
+                exit_macro_edge=seg.exit_edge,
+            ))
+
+    # 4. Place major feature
+    feature_cell = place_flower_features(
+        cells,
+        major=parent.feature,
+        biome=parent.biome,
+        rng=rng,
+    )
+
+    # 5. Route roads through sub-hexes (after feature placement
+    # so roads can target the feature cell)
+    for seg in parent.edges:
+        if seg.type == "path":
+            path = route_road_through_flower(
+                cells,
+                entry_edge=seg.entry_edge,
+                exit_edge=seg.exit_edge,
+                rng=rng,
+                feature_cell=feature_cell,
+                mark_cells=True,
+            )
+            edge_segments.append(SubHexEdgeSegment(
+                type="road",
+                path=path,
+                entry_macro_edge=seg.entry_edge,
+                exit_macro_edge=seg.exit_edge,
+            ))
+
+    # 6. Pre-compute fast-travel costs
+    ft_costs = compute_fast_travel_costs(cells)
+
+    return HexFlower(
+        parent_coord=parent.coord,
+        cells=cells,
+        edges=edge_segments,
+        feature_cell=feature_cell,
+        fast_travel_costs=ft_costs,
+    )
+
+
+def generate_flowers(
+    cells: dict[HexCoord, HexCell],
+    world_seed: int,
+) -> None:
+    """Generate flowers for all macro hex cells in place.
+
+    Each cell gets a deterministic seed derived from the world
+    seed and cell coordinates.
+    """
+    for coord, cell in cells.items():
+        cell_seed = hash((world_seed, coord.q, coord.r)) & 0x7FFFFFFF
+        cell.flower = generate_flower(cell, cells, cell_seed)

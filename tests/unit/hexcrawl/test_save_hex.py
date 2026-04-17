@@ -71,17 +71,17 @@ def _tiny_hex_world() -> HexWorld:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_is_two() -> None:
-    assert SCHEMA_VERSION == 2
+def test_schema_version_is_three() -> None:
+    assert SCHEMA_VERSION == 3
 
 
-def test_save_writes_schema_version_two(tmp_path) -> None:
+def test_save_writes_schema_version_three(tmp_path) -> None:
     w = World()
     pid = w.create_entity({})
     path = tmp_path / "s.json"
     save_game(w, _tiny_level(), pid, turn=1, messages=[], save_path=path)
     data = json.loads(path.read_text())
-    assert data["version"] == 2
+    assert data["version"] == 3
 
 
 # ---------------------------------------------------------------------------

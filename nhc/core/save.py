@@ -25,9 +25,14 @@ from nhc.hexcrawl.model import (
     EdgeSegment,
     HexCell,
     HexFeatureType,
+    HexFlower,
     HexWorld,
+    MinorFeatureType,
     Rumor,
+    SubHexCell,
+    SubHexEdgeSegment,
     TimeOfDay,
+    FLOWER_COORDS,
 )
 
 if TYPE_CHECKING:
@@ -42,10 +47,10 @@ for _name in dir(comp_module):
 
 DEFAULT_SAVE_DIR = Path.home() / ".nhc" / "saves"
 
-# JSON save schema version. Bumped from 1 -> 2 when the overland
-# hex mode landed (hex_world section). Old version-1 saves are
-# rejected on load; there is no forward or backward migration.
-SCHEMA_VERSION = 2
+# JSON save schema version. Bumped from 2 -> 3 when the sub-hex
+# flower layer landed (flower data on each HexCell, hour/minute
+# clock fields on HexWorld). Old saves are rejected on load.
+SCHEMA_VERSION = 3
 
 
 class SaveSchemaError(ValueError):
@@ -348,6 +353,94 @@ def _list_to_coord(lst: list[int]) -> HexCoord:
     return HexCoord(int(lst[0]), int(lst[1]))
 
 
+# ---------------------------------------------------------------------------
+# Flower serialization
+# ---------------------------------------------------------------------------
+
+
+def _serialize_flower(flower: HexFlower) -> dict[str, Any]:
+    sub_cells = []
+    for coord in sorted(
+        flower.cells.keys(), key=lambda c: (c.q, c.r),
+    ):
+        sc = flower.cells[coord]
+        sub_cells.append({
+            "c": _coord_to_list(coord),
+            "b": sc.biome.value,
+            "e": sc.elevation,
+            "mf": sc.minor_feature.value,
+            "MF": sc.major_feature.value,
+            "rd": sc.has_road,
+            "rv": sc.has_river,
+            "mc": sc.move_cost_hours,
+            "em": sc.encounter_modifier,
+        })
+    edges = [
+        {
+            "type": seg.type,
+            "path": [_coord_to_list(c) for c in seg.path],
+            "entry": seg.entry_macro_edge,
+            "exit": seg.exit_macro_edge,
+        }
+        for seg in flower.edges
+    ]
+    ft = {
+        f"{k[0]},{k[1]}": v
+        for k, v in flower.fast_travel_costs.items()
+    }
+    result: dict[str, Any] = {
+        "cells": sub_cells,
+        "edges": edges,
+        "ft": ft,
+    }
+    if flower.feature_cell is not None:
+        result["fc"] = _coord_to_list(flower.feature_cell)
+    return result
+
+
+def _deserialize_flower(
+    data: dict[str, Any],
+    parent_coord: HexCoord,
+) -> HexFlower:
+    cells: dict[HexCoord, SubHexCell] = {}
+    for sc_data in data.get("cells", []):
+        coord = _list_to_coord(sc_data["c"])
+        cells[coord] = SubHexCell(
+            coord=coord,
+            biome=Biome(sc_data["b"]),
+            elevation=float(sc_data.get("e", 0.0)),
+            minor_feature=MinorFeatureType(sc_data.get("mf", "none")),
+            major_feature=HexFeatureType(sc_data.get("MF", "none")),
+            has_road=bool(sc_data.get("rd", False)),
+            has_river=bool(sc_data.get("rv", False)),
+            move_cost_hours=float(sc_data.get("mc", 1.0)),
+            encounter_modifier=float(sc_data.get("em", 1.0)),
+        )
+    edges = [
+        SubHexEdgeSegment(
+            type=e["type"],
+            path=[_list_to_coord(c) for c in e["path"]],
+            entry_macro_edge=e.get("entry"),
+            exit_macro_edge=e.get("exit"),
+        )
+        for e in data.get("edges", [])
+    ]
+    ft_raw = data.get("ft", {})
+    ft_costs: dict[tuple[int, int], float] = {}
+    for k, v in ft_raw.items():
+        parts = k.split(",")
+        ft_costs[(int(parts[0]), int(parts[1]))] = float(v)
+    fc_data = data.get("fc")
+    feature_cell = _list_to_coord(fc_data) if fc_data is not None else None
+    return HexFlower(
+        parent_coord=parent_coord,
+        cells=cells,
+        edges=edges,
+        feature_cell=feature_cell,
+        fast_travel_costs=ft_costs,
+    )
+
+
 def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
     cells: list[dict[str, Any]] = []
     for coord, cell in sorted(
@@ -375,6 +468,8 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
                 }
                 for seg in cell.edges
             ]
+        if cell.flower is not None:
+            cell_data["flower"] = _serialize_flower(cell.flower)
         cells.append(cell_data)
     rumors = [
         {
@@ -403,6 +498,8 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
             hw.looted, key=lambda c: (c.q, c.r))],
         "day": hw.day,
         "time": hw.time.name.lower(),
+        "hour": hw.hour,
+        "minute": hw.minute,
         "last_hub": (
             _coord_to_list(hw.last_hub)
             if hw.last_hub is not None else None
@@ -444,6 +541,9 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
             )
             for e in cd.get("edges", [])
         ]
+        flower = None
+        if cd.get("flower") is not None:
+            flower = _deserialize_flower(cd["flower"], coord)
         hw.set_cell(HexCell(
             coord=coord,
             biome=Biome(cd["biome"]),
@@ -453,6 +553,7 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
             dungeon=dungeon,
             elevation=float(cd.get("elevation", 0.0)),
             edges=edges,
+            flower=flower,
         ))
     hw.revealed = {_list_to_coord(c) for c in data.get("revealed", [])}
     hw.visited = {_list_to_coord(c) for c in data.get("visited", [])}
@@ -460,6 +561,8 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
     hw.looted = {_list_to_coord(c) for c in data.get("looted", [])}
     hw.day = int(data.get("day", 1))
     hw.time = TimeOfDay[data.get("time", "morning").upper()]
+    hw.hour = int(data.get("hour", 6))
+    hw.minute = int(data.get("minute", 0))
     lh = data.get("last_hub")
     hw.last_hub = _list_to_coord(lh) if lh is not None else None
     hw.active_rumors = [

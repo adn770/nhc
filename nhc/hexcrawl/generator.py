@@ -323,9 +323,15 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     from nhc.hexcrawl._paths import generate_paths as _gen_paths
     paths = _gen_paths(cells, rng, pack.paths, pack.biome_costs)
 
+    # Flowers: generate after paths so sub-hex routing can
+    # reference macro-level river/path edge segments.
+    from nhc.hexcrawl._flowers import generate_flowers as _gen_flowers
+    world_seed = rng.randrange(1 << 30)
+    _gen_flowers(cells, world_seed)
+
     world = HexWorld(
         pack_id=pack.id,
-        seed=rng.randrange(1 << 30),      # downstream RNG seeding
+        seed=world_seed,
         width=mp.width,
         height=mp.height,
         biome_costs=dict(pack.biome_costs),
@@ -495,9 +501,15 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
     from nhc.hexcrawl._paths import generate_paths as _gen_paths
     paths = _gen_paths(cells, rng, pack.paths, pack.biome_costs)
 
+    # Flowers: generate after paths so sub-hex routing can
+    # reference macro-level river/path edge segments.
+    from nhc.hexcrawl._flowers import generate_flowers as _gen_flowers
+    world_seed = rng.randrange(1 << 30)
+    _gen_flowers(cells, world_seed)
+
     world = HexWorld(
         pack_id=pack.id,
-        seed=rng.randrange(1 << 30),
+        seed=world_seed,
         width=mp.width,
         height=mp.height,
         biome_costs=dict(pack.biome_costs),
