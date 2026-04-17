@@ -110,6 +110,26 @@
   </div>
 
   <script>window.NHC_GOD_MODE = {{ god_mode | tojson }};</script>
+  <script>
+  // Console ring buffer — captures log/warn/error for debug bundles.
+  (function() {
+    const MAX = 500;
+    const buf = [];
+    window._consoleBuf = buf;
+    const ts = () => new Date().toISOString().slice(11, 23);
+    ["log", "warn", "error"].forEach(level => {
+      const orig = console[level].bind(console);
+      console[level] = function() {
+        if (buf.length >= MAX) buf.shift();
+        buf.push(ts() + " [" + level + "] " +
+          Array.from(arguments).map(a =>
+            typeof a === "object" ? JSON.stringify(a) : String(a)
+          ).join(" "));
+        orig.apply(console, arguments);
+      };
+    });
+  })();
+  </script>
   <script src="/static/js/ws.js?v={{ v }}"></script>
   <script src="/static/js/map.js?v={{ v }}"></script>
   <script src="/static/js/hex_map.js?v={{ v }}"></script>

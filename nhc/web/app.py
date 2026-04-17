@@ -1492,6 +1492,7 @@ def create_app(
             return jsonify({"error": "not available"}), 404
         data = request.get_json(silent=True) or {}
         session.layer_pngs = data.get("layers", {})
+        session.console_log = data.get("console_log", "")
         return jsonify({"status": "ok", "count": len(session.layer_pngs)})
 
     @app.route("/api/game/<session_id>/export/bundle", methods=["GET"])
@@ -1617,6 +1618,13 @@ def create_app(
                     pass  # skip malformed entries
             # Clear after bundling so they don't accumulate.
             session.layer_pngs = {}
+
+            # 8. Browser console log (captured by the client-side
+            # interceptor and uploaded with layer PNGs).
+            console_log = getattr(session, "console_log", "")
+            if console_log:
+                _add_text(tar, "console.log", console_log)
+                session.console_log = ""
 
         buf.seek(0)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")

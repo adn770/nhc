@@ -354,11 +354,13 @@ const Input = {
         console.warn("Layer capture failed:", name, e);
       }
     }
+    // Include console log buffer.
+    const consoleLog = (window._consoleBuf || []).join("\n");
     try {
       await fetch(`/api/game/${sid}/export/layer_pngs`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({layers}),
+        body: JSON.stringify({layers, console_log: consoleLog}),
       });
     } catch (e) {
       console.warn("Layer PNG upload failed:", e);
