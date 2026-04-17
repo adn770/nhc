@@ -669,21 +669,36 @@ const HexMap = {
     const jy = (((h >> 3) % 7) - 3) * 0.8;
 
     ctx.save();
-    if (seg.type === "river") {
-      ctx.strokeStyle = "rgba(60, 120, 200, 0.55)";
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([]);
-    } else {
-      ctx.strokeStyle = "rgba(140, 100, 60, 0.45)";
-      ctx.lineWidth = 1.8;
-      ctx.setLineDash([4, 3]);
-    }
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    ctx.quadraticCurveTo(cx + jx, cy + jy, p1.x, p1.y);
-    ctx.stroke();
+
+    // Build the curve path once, stroke twice (outline then fill).
+    const curve = new Path2D();
+    curve.moveTo(p0.x, p0.y);
+    curve.quadraticCurveTo(cx + jx, cy + jy, p1.x, p1.y);
+
+    if (seg.type === "river") {
+      // White outline
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 6;
+      ctx.setLineDash([]);
+      ctx.stroke(curve);
+      // Blue fill
+      ctx.strokeStyle = "rgba(40, 100, 200, 0.75)";
+      ctx.lineWidth = 3.5;
+      ctx.stroke(curve);
+    } else {
+      // White outline
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([]);
+      ctx.stroke(curve);
+      // Brown fill
+      ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.stroke(curve);
+    }
     ctx.restore();
   },
 
