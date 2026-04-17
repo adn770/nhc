@@ -16,8 +16,12 @@ from nhc.hexcrawl.model import (
     EdgeSegment,
     HexCell,
     HexFeatureType,
+    HexFlower,
     HexWorld,
+    SubHexCell,
+    SubHexEdgeSegment,
     TimeOfDay,
+    FLOWER_COORDS,
 )
 from nhc.rendering.web_client import build_hex_state_msg
 
@@ -167,3 +171,36 @@ def test_state_hex_edge_source_and_sink_use_null() -> None:
     seg = by_coord[(1, 1)]["edges"][0]
     assert seg["entry"] is None
     assert seg["exit"] == 3
+
+
+# ---------------------------------------------------------------------------
+# Sub-path inclusion for roads
+# ---------------------------------------------------------------------------
+
+
+def test_state_hex_road_edge_includes_sub_path() -> None:
+    """Road (path) edges must include sub_path waypoints when
+    the flower is generated via generate_flower().
+
+    Regression: _flowers.py created SubHexEdgeSegment with
+    type="road" while macro edges use type="path", causing
+    the match in build_hex_state_msg to fail silently.
+    """
+    from nhc.hexcrawl._flowers import generate_flower
+
+    w = _make_world()
+    cell = w.cells[HexCoord(1, 1)]
+    cell.edges.append(
+        EdgeSegment(type="path", entry_edge=0, exit_edge=3),
+    )
+    # Generate flower — this is where the bug lived: the flower
+    # would create SubHexEdgeSegment(type="road") instead of
+    # type="path".
+    cell.flower = generate_flower(cell, w.cells, seed=42)
+
+    msg = build_hex_state_msg(w, player_coord=HexCoord(1, 1), turn=0)
+    by_coord = {(c["q"], c["r"]): c for c in msg["cells"]}
+    seg = by_coord[(1, 1)]["edges"][0]
+    assert "sub_path" in seg, (
+        "road edge must include sub_path from flower"
+    )

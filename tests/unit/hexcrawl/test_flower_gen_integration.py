@@ -125,7 +125,7 @@ def test_generate_flower_paths_create_edge_segments() -> None:
     )
     cells = {parent.coord: parent}
     flower = generate_flower(parent, cells, seed=42)
-    road_segs = [e for e in flower.edges if e.type == "road"]
+    road_segs = [e for e in flower.edges if e.type == "path"]
     assert len(road_segs) == 1
     assert road_segs[0].entry_macro_edge == 1
     assert road_segs[0].exit_macro_edge == 4
@@ -228,7 +228,7 @@ def test_generator_path_hexes_have_sub_hex_segments(tmp_path) -> None:
     assert len(path_cells) > 0, "expected at least one path hex"
     for cell in path_cells:
         road_segs = [
-            e for e in cell.flower.edges if e.type == "road"
+            e for e in cell.flower.edges if e.type == "path"
         ]
         assert len(road_segs) > 0, (
             f"hex ({cell.coord.q}, {cell.coord.r}) has macro path "

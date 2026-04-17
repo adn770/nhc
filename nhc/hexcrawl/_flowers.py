@@ -726,7 +726,7 @@ def generate_flower(
                 mark_cells=True,
             )
             edge_segments.append(SubHexEdgeSegment(
-                type="road",
+                type="path",
                 path=path,
                 entry_macro_edge=seg.entry_edge,
                 exit_macro_edge=seg.exit_edge,
