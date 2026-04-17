@@ -13,7 +13,7 @@ import math
 from dataclasses import dataclass, field
 from enum import Enum
 
-from nhc.hexcrawl.coords import HexCoord, neighbors
+from nhc.hexcrawl.coords import HexCoord, neighbors, ring
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +57,31 @@ class HexFeatureType(Enum):
     PORTAL = "portal"
     LAKE = "lake"
     RIVER = "river"
+
+
+class MinorFeatureType(Enum):
+    """Small discoverable features within a sub-hex."""
+
+    NONE = "none"
+    # Civilized
+    FARM = "farm"
+    WELL = "well"
+    SHRINE = "shrine"
+    SIGNPOST = "signpost"
+    CAMPSITE = "campsite"
+    ORCHARD = "orchard"
+    # Wilderness
+    CAIRN = "cairn"
+    ANIMAL_DEN = "animal_den"
+    HOLLOW_LOG = "hollow_log"
+    MUSHROOM_RING = "mushroom_ring"
+    HERB_PATCH = "herb_patch"
+    BONE_PILE = "bone_pile"
+    STANDING_STONE = "standing_stone"
+    # Encounter-scaling (lairs)
+    LAIR = "lair"
+    NEST = "nest"
+    BURROW = "burrow"
 
 
 class TimeOfDay(Enum):
@@ -114,6 +139,86 @@ class EdgeSegment:
     exit_edge: int | None
 
 
+# ---------------------------------------------------------------------------
+# Sub-hex flower constants and dataclasses
+# ---------------------------------------------------------------------------
+
+FLOWER_RADIUS: int = 2
+"""Radius of the hex flower (5-hex diameter = radius 2)."""
+
+_CENTER = HexCoord(0, 0)
+
+FLOWER_COORDS: frozenset[HexCoord] = frozenset(
+    ring(_CENTER, 0) + ring(_CENTER, 1) + ring(_CENTER, 2),
+)
+"""All 19 valid sub-hex coordinates in a hex flower (local,
+centered at (0, 0))."""
+
+# Edge-to-ring2 mapping: for each macro edge direction (0-5),
+# the two ring-2 sub-hexes that sit on that edge of the flower.
+# Derived from the ring() walk: edge d gets the vertex hex at
+# 2 * NEIGHBOR_OFFSETS[d] plus the mid-edge hex from the
+# previous ring side.
+_ring2 = ring(_CENTER, FLOWER_RADIUS)
+EDGE_TO_RING2: dict[int, tuple[HexCoord, HexCoord]] = {
+    d: (_ring2[((d - 1) % 6) * 2 + 1], _ring2[d * 2])
+    for d in range(6)
+}
+"""Map from macro edge index (0=N … 5=NW) to the two ring-2
+sub-hexes at that flower boundary. The first element is the
+mid-edge hex, the second is the vertex hex (at the edge
+midpoint)."""
+
+
+@dataclass
+class SubHexCell:
+    """A single sub-hex inside a hex flower."""
+
+    coord: HexCoord
+    biome: Biome
+    elevation: float = 0.0
+    minor_feature: MinorFeatureType = MinorFeatureType.NONE
+    major_feature: HexFeatureType = HexFeatureType.NONE
+    has_road: bool = False
+    has_river: bool = False
+    move_cost_hours: float = 1.0
+    encounter_modifier: float = 1.0
+
+
+@dataclass
+class SubHexEdgeSegment:
+    """A river or road segment at sub-hex granularity.
+
+    ``path`` is an ordered list of sub-hex coords the segment
+    crosses through the flower. ``entry_macro_edge`` and
+    ``exit_macro_edge`` are macro edge indices (0-5) or None
+    for sources/sinks.
+    """
+
+    type: str                        # "river" or "road"
+    path: list[HexCoord]
+    entry_macro_edge: int | None
+    exit_macro_edge: int | None
+
+
+@dataclass
+class HexFlower:
+    """The 19 sub-hexes for a single macro hex."""
+
+    parent_coord: HexCoord
+    cells: dict[HexCoord, SubHexCell]
+    edges: list[SubHexEdgeSegment] = field(default_factory=list)
+    feature_cell: HexCoord | None = None
+    fast_travel_costs: dict[tuple[int, int], float] = field(
+        default_factory=dict,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Macro hex cell
+# ---------------------------------------------------------------------------
+
+
 @dataclass
 class HexCell:
     """A single hex on the overland map."""
@@ -126,6 +231,7 @@ class HexCell:
     dungeon: DungeonRef | None = None
     elevation: float = 0.0
     edges: list[EdgeSegment] = field(default_factory=list)
+    flower: HexFlower | None = None
 
 
 @dataclass
