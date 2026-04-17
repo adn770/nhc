@@ -63,14 +63,27 @@ def build_hex_state_msg(
             "revealed": coord in hex_world.revealed,
         }
         if cell.edges:
-            cell_data["edges"] = [
-                {
+            edge_list = []
+            for seg in cell.edges:
+                ed: dict = {
                     "type": seg.type,
                     "entry": seg.entry_edge,
                     "exit": seg.exit_edge,
                 }
-                for seg in cell.edges
-            ]
+                # Include sub-hex waypoints when available
+                # for smoother macro-map curves.
+                if cell.flower:
+                    for fseg in cell.flower.edges:
+                        if (fseg.type == seg.type
+                                and fseg.entry_macro_edge == seg.entry_edge
+                                and fseg.exit_macro_edge == seg.exit_edge):
+                            ed["sub_path"] = [
+                                {"q": c.q, "r": c.r}
+                                for c in fseg.path
+                            ]
+                            break
+                edge_list.append(ed)
+            cell_data["edges"] = edge_list
         cells_payload.append(cell_data)
     # Pixel bounds are computed from the populated cells so
     # staggered shapes (e.g. odd-q rectangular) report their real

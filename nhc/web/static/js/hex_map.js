@@ -676,18 +676,20 @@ const HexMap = {
    * for source/sink). Deterministic jitter from (q, r) keeps the
    * curve stable across repaints. */
   _drawEdgeSegment(ctx, cx, cy, q, r, seg) {
-    // Start/end points: edge midpoint, or 2/3 radius from centre
-    // toward the opposite edge for source/sink endpoints (keeps
-    // the line away from the feature artwork at the hex centre).
-    // For source/sink endpoints (entry/exit = null), stop the
-    // line at 2/3 of the way from the connected edge toward the
-    // centre so it doesn't cross over the feature artwork.
+    // When sub-hex waypoints are available, use them for smoother
+    // curves. The sub_path coords are local flower coords that map
+    // into the macro hex at a fraction of HEX_SIZE.
+    if (seg.sub_path && seg.sub_path.length >= 2) {
+      this._drawSubPathCurve(ctx, cx, cy, seg);
+      return;
+    }
+
+    // Fallback: single-control-point quadratic Bezier.
     let p0, p1;
     if (seg.entry !== null && seg.entry !== undefined) {
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
       p0 = {x: cx + m.x, y: cy + m.y};
     } else if (seg.exit !== null && seg.exit !== undefined) {
-      // Source: 1/4 from exit edge toward centre.
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
       p0 = {x: cx + m.x * 3 / 4, y: cy + m.y * 3 / 4};
     } else {
@@ -697,14 +699,12 @@ const HexMap = {
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
       p1 = {x: cx + m.x, y: cy + m.y};
     } else if (seg.entry !== null && seg.entry !== undefined) {
-      // Sink: 1/4 from entry edge toward centre.
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
       p1 = {x: cx + m.x * 3 / 4, y: cy + m.y * 3 / 4};
     } else {
       p1 = {x: cx, y: cy};
     }
 
-    // Deterministic jitter for organic curve (seeded from coords).
     const h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
     const jx = ((h % 7) - 3) * 0.8;
     const jy = (((h >> 3) % 7) - 3) * 0.8;
@@ -713,7 +713,6 @@ const HexMap = {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    // Build the curve path once, stroke twice (outline then fill).
     const curve = new Path2D();
     curve.moveTo(p0.x, p0.y);
     curve.quadraticCurveTo(cx + jx, cy + jy, p1.x, p1.y);
@@ -735,6 +734,52 @@ const HexMap = {
       ctx.setLineDash([]);
       ctx.stroke(curve);
       // Brown fill
+      ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.stroke(curve);
+    }
+    ctx.restore();
+  },
+
+  /**
+   * Draw a river or road using sub-hex waypoints projected into
+   * the macro hex. Each waypoint is a local flower coord scaled
+   * to fit within HEX_SIZE.
+   */
+  _drawSubPathCurve(ctx, cx, cy, seg) {
+    // Scale factor: flower radius 2, so sub-hex coords span
+    // roughly [-2, 2] in q/r. Map to a fraction of HEX_SIZE.
+    const scale = HEX_SIZE / 2.5;
+    const s3 = Math.sqrt(3);
+    const pts = seg.sub_path.map(p => ({
+      x: cx + scale * 1.5 * p.q,
+      y: cy + scale * (s3 / 2 * p.q + s3 * p.r),
+    }));
+
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    const curve = new Path2D();
+    curve.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) {
+      curve.lineTo(pts[i].x, pts[i].y);
+    }
+
+    if (seg.type === "river") {
+      ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
+      ctx.lineWidth = 6;
+      ctx.setLineDash([]);
+      ctx.stroke(curve);
+      ctx.strokeStyle = "rgba(40, 100, 200, 0.75)";
+      ctx.lineWidth = 3.5;
+      ctx.stroke(curve);
+    } else {
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([]);
+      ctx.stroke(curve);
       ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
       ctx.lineWidth = 2.5;
       ctx.setLineDash([5, 4]);
