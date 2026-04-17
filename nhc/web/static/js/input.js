@@ -194,12 +194,14 @@ const Input = {
     this._toolbarButtons = [];
     const actions = this._currentToolbarMode === "hex"
       ? this.HEX_TOOLBAR : this.DUNGEON_TOOLBAR;
+
+    // ── Action buttons (mode-specific) ──
     actions.forEach(({ icon, intent, labelKey }) => {
       const btn = document.createElement("button");
       btn.textContent = icon;
       btn.dataset.labelKey = labelKey;
       btn.dataset.intent = intent;
-      btn.title = labelKey;  // fallback until translations arrive
+      btn.title = labelKey;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (intent === "inventory") {
@@ -225,48 +227,52 @@ const Input = {
       this._toolbarButtons.push(btn);
     });
 
-    // Zoom buttons
-    const zoomOut = document.createElement("button");
-    zoomOut.id = "zoom-out-btn";
-    zoomOut.textContent = "\u2212";
-    zoomOut.dataset.labelKey = "toolbar_zoom_out";
-    zoomOut.title = "Zoom Out";
-    zoomOut.addEventListener("click", (e) => {
-      e.stopPropagation();
-      GameMap.zoom(-1);
-    });
+    // ── Right-aligned utility group ──
+    // margin-left:auto on the first item pushes the rest right.
+
+    // Zoom
+    const zoomOut = this._toolbarBtn(
+      "\u2212", "zoom-out-btn", "toolbar_zoom_out", "Zoom Out",
+      () => GameMap.zoom(-1),
+    );
     zone.appendChild(zoomOut);
-    this._toolbarButtons.push(zoomOut);
 
-    const zoomIn = document.createElement("button");
-    zoomIn.id = "zoom-in-btn";
-    zoomIn.textContent = "+";
-    zoomIn.dataset.labelKey = "toolbar_zoom_in";
-    zoomIn.title = "Zoom In";
-    zoomIn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      GameMap.zoom(1);
-    });
+    const zoomIn = this._toolbarBtn(
+      "+", "zoom-in-btn", "toolbar_zoom_in", "Zoom In",
+      () => GameMap.zoom(1),
+    );
     zone.appendChild(zoomIn);
-    this._toolbarButtons.push(zoomIn);
 
-    // TTS toggle button (hidden until TTS.init checks availability)
-    const ttsBtn = document.createElement("button");
-    ttsBtn.id = "tts-btn";
-    ttsBtn.textContent = "\u{1F507}";
-    ttsBtn.title = "Text to Speech";
-    ttsBtn.classList.add("hidden");
-    ttsBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      TTS.toggle();
-    });
-    zone.appendChild(ttsBtn);
+    // God mode (debug bundle + panel toggle)
+    const godMode = typeof DebugPanel !== "undefined"
+      && DebugPanel.enabled;
+    if (godMode) {
+      const dlBtn = this._toolbarBtn(
+        "\uD83D\uDCBE", "debug-bundle-btn", null,
+        "Download Debug Bundle",
+        () => {
+          const sid = NHC.sessionId;
+          if (sid) window.location.href =
+            `/api/game/${sid}/export/bundle`;
+        },
+      );
+      zone.appendChild(dlBtn);
 
-    // Re-create god-mode toolbar buttons if enabled — the toolbar
-    // rebuild above clears them.
-    if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
-      DebugPanel._createGearButton();
+      const gearBtn = this._toolbarBtn(
+        "\u2699", "god-mode-btn", null,
+        "Debug Panel (God Mode)",
+        () => DebugPanel._togglePanel(),
+      );
+      zone.appendChild(gearBtn);
     }
+
+    // TTS toggle (hidden until TTS.init checks availability)
+    const ttsBtn = this._toolbarBtn(
+      "\u{1F507}", "tts-btn", null, "Text to Speech",
+      () => TTS.toggle(),
+    );
+    ttsBtn.classList.add("hidden");
+    zone.appendChild(ttsBtn);
 
     // TTS volume slider (hidden until TTS enabled)
     const ttsVol = document.createElement("input");
@@ -282,18 +288,28 @@ const Input = {
     });
     zone.appendChild(ttsVol);
 
-    // Restart button — pushed to the right
-    const restart = document.createElement("button");
-    restart.id = "restart-btn";
-    restart.textContent = "\u{1F504}";
-    restart.dataset.labelKey = "toolbar_restart";
-    restart.title = "Restart Game";
-    restart.addEventListener("click", (e) => {
-      e.stopPropagation();
-      NHC.restartGame();
-    });
+    // Restart
+    const restart = this._toolbarBtn(
+      "\u{1F504}", "restart-btn", "toolbar_restart",
+      "Restart Game", () => NHC.restartGame(),
+    );
     zone.appendChild(restart);
     this._toolbarButtons.push(restart);
+  },
+
+  /** Create a toolbar button with consistent styling. */
+  _toolbarBtn(icon, id, labelKey, title, onClick) {
+    const btn = document.createElement("button");
+    btn.textContent = icon;
+    if (id) btn.id = id;
+    if (labelKey) btn.dataset.labelKey = labelKey;
+    btn.title = title;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
+    this._toolbarButtons.push(btn);
+    return btn;
   },
 
   /**

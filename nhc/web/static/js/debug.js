@@ -60,7 +60,12 @@ const DebugPanel = {
     if (this.debugCanvas) {
       this.debugCtx = this.debugCanvas.getContext("2d");
     }
-    this._createGearButton();
+    // God-mode toolbar buttons are created by Input._initToolbar
+    // which checks DebugPanel.enabled. Trigger a rebuild so the
+    // buttons appear now that enabled is true.
+    if (typeof Input !== "undefined") {
+      Input._initToolbar();
+    }
     this._onEsc = (e) => {
       if (e.key === "Escape" && this.visible) this._hidePanel();
     };
@@ -74,35 +79,6 @@ const DebugPanel = {
                 data.corridors.length, "corridors,",
                 data.doors.length, "doors");
     this._drawDebugOverlays();
-  },
-
-  // ── Gear button ──────────────────────────────────────────────
-
-  _createGearButton() {
-    const zone = document.getElementById("toolbar-zone");
-    if (!zone) return;
-    if (document.getElementById("god-mode-btn")) return;
-
-    const dlBtn = document.createElement("button");
-    dlBtn.id = "debug-bundle-btn";
-    dlBtn.textContent = "\uD83D\uDCBE";
-    dlBtn.title = "Download Debug Bundle";
-    dlBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const sid = NHC.sessionId;
-      if (sid) window.location.href = `/api/game/${sid}/export/bundle`;
-    });
-    zone.appendChild(dlBtn);
-
-    const btn = document.createElement("button");
-    btn.id = "god-mode-btn";
-    btn.textContent = "\u2699";
-    btn.title = "Debug Panel (God Mode)";
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this._togglePanel();
-    });
-    zone.appendChild(btn);
   },
 
   // ── Panel toggle ─────────────────────────────────────────────
