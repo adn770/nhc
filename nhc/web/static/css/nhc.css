@@ -409,6 +409,16 @@ body {
   font-size: 18px;
 }
 
+.zoom-label {
+  font-family: monospace;
+  font-size: 12px;
+  color: #aaa;
+  min-width: 32px;
+  text-align: center;
+  line-height: 28px;
+  user-select: none;
+}
+
 #god-mode-btn {
   border-color: #e6c07b !important;
   color: #e6c07b;

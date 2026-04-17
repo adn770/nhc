@@ -334,6 +334,7 @@ const HexFlower = {
         el.style.transform = `scale(${scale})`;
       }
     }
+    if (typeof Input !== "undefined") Input._updateZoomLabel();
   },
 
   /* ---- main render ---- */

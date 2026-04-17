@@ -233,13 +233,19 @@ const Input = {
     // Zoom
     const zoomOut = this._toolbarBtn(
       "\u2212", "zoom-out-btn", "toolbar_zoom_out", "Zoom Out",
-      () => GameMap.zoom(-1),
+      () => { GameMap.zoom(-1); this._updateZoomLabel(); },
     );
     zone.appendChild(zoomOut);
 
+    const zoomLabel = document.createElement("span");
+    zoomLabel.id = "zoom-label";
+    zoomLabel.className = "zoom-label";
+    zoomLabel.textContent = "1.0x";
+    zone.appendChild(zoomLabel);
+
     const zoomIn = this._toolbarBtn(
       "+", "zoom-in-btn", "toolbar_zoom_in", "Zoom In",
-      () => GameMap.zoom(1),
+      () => { GameMap.zoom(1); this._updateZoomLabel(); },
     );
     zone.appendChild(zoomIn);
 
@@ -305,6 +311,13 @@ const Input = {
     });
     this._toolbarButtons.push(btn);
     return btn;
+  },
+
+  _updateZoomLabel() {
+    const el = document.getElementById("zoom-label");
+    if (!el || typeof GameMap === "undefined") return;
+    const scale = GameMap._zoomSteps[GameMap._zoomLevel] || 1;
+    el.textContent = `${scale.toFixed(scale % 1 ? 2 : 1)}x`;
   },
 
   /** Capture all canvas layers as PNGs and upload to the server.
