@@ -44,6 +44,14 @@ const WS = {
 
     this.socket.onclose = () => {
       console.log("WS disconnected");
+      // Reset flower and hex map static state so a new game
+      // redraws from scratch instead of showing stale tiles.
+      if (typeof HexFlower !== "undefined") HexFlower.resetStatic();
+      if (typeof HexMap !== "undefined") {
+        HexMap._staticDrawn = false;
+        HexMap._punchedHexes.clear();
+        HexMap._scrolledOnce = false;
+      }
     };
 
     this.socket.onerror = (err) => {
