@@ -311,6 +311,11 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
             cells[c] = HexCell(coord=c, biome=biome, elevation=elev)
             hexes_by_biome[biome].append(c)
 
+    # Rivers: generate before feature placement so settlements
+    # can prefer river-adjacent hexes.
+    from nhc.hexcrawl._rivers import generate_rivers as _gen_rivers
+    rivers = _gen_rivers(cells, rng, pack.rivers)
+
     hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
     world = HexWorld(
@@ -324,6 +329,7 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
         world.set_cell(cell)
     world.last_hub = hub
     world.cave_clusters = clusters
+    world.rivers = rivers
     return world
 
 
@@ -471,6 +477,11 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
     # feature placer doesn't need to retry a fresh seed.
     _repair_essentials(cells, hexes_by_biome, rng)
 
+    # Rivers: generate before feature placement so settlements
+    # can prefer river-adjacent hexes.
+    from nhc.hexcrawl._rivers import generate_rivers as _gen_rivers
+    rivers = _gen_rivers(cells, rng, pack.rivers)
+
     hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
     world = HexWorld(
@@ -484,6 +495,7 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
         world.set_cell(cell)
     world.last_hub = hub
     world.cave_clusters = clusters
+    world.rivers = rivers
     return world
 
 

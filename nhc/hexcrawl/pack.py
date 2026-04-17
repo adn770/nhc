@@ -108,6 +108,20 @@ class FeatureTargets:
 
 
 @dataclass
+class RiverParams:
+    max_rivers: int = 3
+    min_length: int = 4
+    bifurcation_chance: float = 0.05
+    source_elevation_min: float = 0.65
+
+
+@dataclass
+class PathParams:
+    connect_towers: float = 0.6
+    connect_caves: float = 0.2
+
+
+@dataclass
 class PackMeta:
     id: str
     version: int
@@ -116,6 +130,8 @@ class PackMeta:
     features: FeatureTargets
     biome_costs: dict[Biome, int]
     locale_keys: list[str] = field(default_factory=list)
+    rivers: RiverParams = field(default_factory=RiverParams)
+    paths: PathParams = field(default_factory=PathParams)
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +159,8 @@ def load_pack(path: Path) -> PackMeta:
     features = _parse_features(raw.get("features"))
     biome_costs = _parse_biome_costs(raw.get("biome_costs"))
     locale_keys = _load_locale_keys(path.parent)
+    rivers = _parse_rivers(raw.get("rivers"))
+    paths = _parse_paths(raw.get("paths"))
 
     return PackMeta(
         id=pack_id,
@@ -152,6 +170,8 @@ def load_pack(path: Path) -> PackMeta:
         features=features,
         biome_costs=biome_costs,
         locale_keys=locale_keys,
+        rivers=rivers,
+        paths=paths,
     )
 
 
@@ -246,6 +266,28 @@ def _parse_biome_costs(block: dict[str, Any] | None) -> dict[Biome, int]:
             )
         out[biome] = cost_int
     return out
+
+
+def _parse_rivers(block: dict[str, Any] | None) -> RiverParams:
+    if block is None:
+        return RiverParams()
+    return RiverParams(
+        max_rivers=int(block.get("max_rivers", 3)),
+        min_length=int(block.get("min_length", 4)),
+        bifurcation_chance=float(block.get("bifurcation_chance", 0.05)),
+        source_elevation_min=float(
+            block.get("source_elevation_min", 0.65),
+        ),
+    )
+
+
+def _parse_paths(block: dict[str, Any] | None) -> PathParams:
+    if block is None:
+        return PathParams()
+    return PathParams(
+        connect_towers=float(block.get("connect_towers", 0.6)),
+        connect_caves=float(block.get("connect_caves", 0.2)),
+    )
 
 
 def _load_locale_keys(pack_dir: Path) -> list[str]:
