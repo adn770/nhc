@@ -188,20 +188,15 @@ const HexFlower = {
 
   /**
    * Draw a river or road through sub-hex waypoints with organic
-   * jitter.  Each waypoint is offset from the hex centre by a
-   * deterministic random amount, and midpoints are inserted
-   * between consecutive waypoints with additional noise so the
-   * line curves naturally instead of running straight.
+   * jitter and Catmull-Rom splines for C1-smooth curves.
    */
   _drawFlowerEdge(ctx, seg) {
     if (!seg.path || seg.path.length < 2) return;
     const R = HEX_FLOWER_SIZE;
-    // Max jitter as fraction of hex radius
     const JITTER = R * 0.35;
-    const MID_JITTER = R * 0.25;
 
-    // Build jittered points at each waypoint
-    const raw = seg.path.map((p, i) => {
+    // Project waypoints with per-point jitter
+    const pts = seg.path.map((p, i) => {
       const base = _flowerAxialToPixel(p.q, p.r);
       const h1 = this._jitterHash(p.q, p.r, i * 2);
       const h2 = this._jitterHash(p.q, p.r, i * 2 + 1);
@@ -210,60 +205,36 @@ const HexFlower = {
       return { x: base.x + jx, y: base.y + jy };
     });
 
-    // Insert noisy midpoints between consecutive waypoints
-    const pts = [raw[0]];
-    for (let i = 1; i < raw.length; i++) {
-      const a = raw[i - 1];
-      const b = raw[i];
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-      const hm = this._jitterHash(
-        seg.path[i - 1].q + seg.path[i].q,
-        seg.path[i - 1].r + seg.path[i].r,
-        i * 7,
-      );
-      const hm2 = this._jitterHash(
-        seg.path[i].q, seg.path[i].r, i * 13,
-      );
-      const mjx = ((hm % 1000) / 500 - 1) * MID_JITTER;
-      const mjy = ((hm2 % 1000) / 500 - 1) * MID_JITTER;
-      pts.push({ x: mx + mjx, y: my + mjy });
-      pts.push(b);
+    // Build single continuous path via Catmull-Rom → cubic Bezier
+    const path2d = new Path2D();
+    path2d.moveTo(pts[0].x, pts[0].y);
+    const tension = 0.5;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) / (6 * tension);
+      const cp1y = p1.y + (p2.y - p0.y) / (6 * tension);
+      const cp2x = p2.x - (p3.x - p1.x) / (6 * tension);
+      const cp2y = p2.y - (p3.y - p1.y) / (6 * tension);
+      path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
     }
 
-    // Draw smooth curve through the points using quadratic
-    // Bezier segments (each point is a control point, with
-    // the curve passing through the midpoints between them).
+    // Per-segment width from endpoint hash
+    const isRiver = seg.type === "river";
+    const sp0 = seg.path[0];
+    const spN = seg.path[seg.path.length - 1];
+    const wh = this._jitterHash(sp0.q + spN.q, sp0.r + spN.r, 31);
+    const wVar = isRiver ? 6 : 4;
+    const wOfs = ((wh % 1000) / 500 - 1) * wVar;
+
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const curve = new Path2D();
-    curve.moveTo(pts[0].x, pts[0].y);
-    if (pts.length === 2) {
-      curve.lineTo(pts[1].x, pts[1].y);
-    } else {
-      // Smooth: for each pair, curve toward the control point
-      // and through the midpoint to the next.
-      for (let i = 1; i < pts.length - 1; i++) {
-        const xc = (pts[i].x + pts[i + 1].x) / 2;
-        const yc = (pts[i].y + pts[i + 1].y) / 2;
-        curve.quadraticCurveTo(pts[i].x, pts[i].y, xc, yc);
-      }
-      // Final segment to last point
-      const last = pts[pts.length - 1];
-      curve.lineTo(last.x, last.y);
-    }
-
-    // Draw with variable thickness: stroke short segments between
-    // consecutive points, each with a slightly different lineWidth
-    // derived from the deterministic hash. This creates natural
-    // swelling/tapering along the path.
-    const isRiver = seg.type === "river";
     const baseOutline = isRiver ? 26 : 22;
     const baseFill = isRiver ? 18 : 14;
-    const variance = isRiver ? 6 : 4;  // +/- per segment
 
-    // Two passes: outline first, then fill
     for (let pass = 0; pass < 2; pass++) {
       const isOutline = pass === 0;
       if (isRiver) {
@@ -278,27 +249,8 @@ const HexFlower = {
         else ctx.setLineDash([]);
       }
       const baseW = isOutline ? baseOutline : baseFill;
-
-      for (let i = 0; i < pts.length - 1; i++) {
-        const hw = this._jitterHash(
-          seg.path[Math.min(i, seg.path.length - 1)].q,
-          seg.path[Math.min(i, seg.path.length - 1)].r,
-          i * 17 + pass,
-        );
-        const v = ((hw % 1000) / 500 - 1) * variance;
-        ctx.lineWidth = Math.max(2, baseW + v);
-        const s = new Path2D();
-        s.moveTo(pts[i].x, pts[i].y);
-        // Use quadratic curve to the midpoint toward the next
-        if (i + 2 < pts.length) {
-          const xc = (pts[i + 1].x + pts[i + 2].x) / 2;
-          const yc = (pts[i + 1].y + pts[i + 2].y) / 2;
-          s.quadraticCurveTo(pts[i + 1].x, pts[i + 1].y, xc, yc);
-        } else {
-          s.lineTo(pts[i + 1].x, pts[i + 1].y);
-        }
-        ctx.stroke(s);
-      }
+      ctx.lineWidth = Math.max(2, baseW + wOfs);
+      ctx.stroke(path2d);
     }
     ctx.restore();
   },

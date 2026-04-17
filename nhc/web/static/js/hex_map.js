@@ -854,16 +854,16 @@ const HexMap = {
 
   /**
    * Draw a river or road using sub-hex waypoints projected into
-   * the macro hex with deterministic jitter and smooth curves.
+   * the macro hex with deterministic jitter and Catmull-Rom splines
+   * for smooth, C1-continuous curves.
    */
   _drawSubPathCurve(ctx, cx, cy, seg) {
     const scale = HEX_SIZE / 2.5;
     const s3 = Math.sqrt(3);
-    const JITTER = HEX_SIZE * 0.12;
-    const MID_JITTER = HEX_SIZE * 0.08;
+    const JITTER = HEX_SIZE * 0.20;
 
     // Project waypoints with per-point jitter
-    const raw = seg.sub_path.map((p, i) => {
+    const pts = seg.sub_path.map((p, i) => {
       const bx = cx + scale * 1.5 * p.q;
       const by = cy + scale * (s3 / 2 * p.q + s3 * p.r);
       const h1 = this._jitterHash(p.q, p.r, i * 2);
@@ -872,35 +872,39 @@ const HexMap = {
       const jy = ((h2 % 1000) / 500 - 1) * JITTER;
       return { x: bx + jx, y: by + jy };
     });
+    if (pts.length < 2) return;
 
-    // Insert noisy midpoints between consecutive waypoints
-    const pts = [raw[0]];
-    for (let i = 1; i < raw.length; i++) {
-      const a = raw[i - 1];
-      const b = raw[i];
-      const sp = seg.sub_path;
-      const hm = this._jitterHash(
-        sp[i - 1].q + sp[i].q, sp[i - 1].r + sp[i].r, i * 7,
-      );
-      const hm2 = this._jitterHash(sp[i].q, sp[i].r, i * 13);
-      const mjx = ((hm % 1000) / 500 - 1) * MID_JITTER;
-      const mjy = ((hm2 % 1000) / 500 - 1) * MID_JITTER;
-      pts.push({
-        x: (a.x + b.x) / 2 + mjx,
-        y: (a.y + b.y) / 2 + mjy,
-      });
-      pts.push(b);
+    // Build a single continuous path using Catmull-Rom → cubic
+    // Bezier conversion for C1-smooth tangents at each point.
+    const path2d = new Path2D();
+    path2d.moveTo(pts[0].x, pts[0].y);
+    const tension = 0.5;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) / (6 * tension);
+      const cp1y = p1.y + (p2.y - p0.y) / (6 * tension);
+      const cp2x = p2.x - (p3.x - p1.x) / (6 * tension);
+      const cp2y = p2.y - (p3.y - p1.y) / (6 * tension);
+      path2d.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
     }
 
-    // Variable-thickness drawing: stroke short segments with
-    // per-segment lineWidth for organic swelling/tapering.
+    // Determine per-segment line width from endpoint hash
+    const isRiver = seg.type === "river";
+    const sp0 = seg.sub_path[0];
+    const spN = seg.sub_path[seg.sub_path.length - 1];
+    const wh = this._jitterHash(sp0.q + spN.q, sp0.r + spN.r, 31);
+    const wVar = isRiver ? 1.5 : 1;
+    const wOfs = ((wh % 1000) / 500 - 1) * wVar;
+
+    // Two-pass stroke: outline then fill, single path each
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const isRiver = seg.type === "river";
     const baseOutline = isRiver ? 7 : 5.5;
     const baseFill = isRiver ? 4.5 : 3;
-    const variance = isRiver ? 1.5 : 1;
 
     for (let pass = 0; pass < 2; pass++) {
       const isOutline = pass === 0;
@@ -916,26 +920,8 @@ const HexMap = {
         else ctx.setLineDash([]);
       }
       const baseW = isOutline ? baseOutline : baseFill;
-      for (let i = 0; i < pts.length - 1; i++) {
-        const sp = seg.sub_path;
-        const hw = this._jitterHash(
-          sp[Math.min(i, sp.length - 1)].q,
-          sp[Math.min(i, sp.length - 1)].r,
-          i * 17 + pass,
-        );
-        const v = ((hw % 1000) / 500 - 1) * variance;
-        ctx.lineWidth = Math.max(1, baseW + v);
-        const s = new Path2D();
-        s.moveTo(pts[i].x, pts[i].y);
-        if (i + 2 < pts.length) {
-          const xc = (pts[i + 1].x + pts[i + 2].x) / 2;
-          const yc = (pts[i + 1].y + pts[i + 2].y) / 2;
-          s.quadraticCurveTo(pts[i + 1].x, pts[i + 1].y, xc, yc);
-        } else {
-          s.lineTo(pts[i + 1].x, pts[i + 1].y);
-        }
-        ctx.stroke(s);
-      }
+      ctx.lineWidth = Math.max(1, baseW + wOfs);
+      ctx.stroke(path2d);
     }
     ctx.restore();
   },
