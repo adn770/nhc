@@ -8,6 +8,7 @@ feature scattering, and fast-travel cost pre-computation.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 
 from nhc.hexcrawl.coords import (
     HexCoord,
@@ -181,12 +182,13 @@ def _flower_astar(
     cells: dict[HexCoord, "SubHexCell"],
     start: HexCoord,
     goal: HexCoord,
+    step_cost: "Callable[[HexCoord, HexCoord], float] | None" = None,
 ) -> list[HexCoord]:
     """A* through the 19-cell flower from *start* to *goal*.
 
-    Cost is uniform (all sub-hex steps cost 1.0) since river
-    routing cares about topology, not travel cost. Returns the
-    path including both endpoints.
+    *step_cost*, if provided, is called as ``step_cost(from, to)``
+    to get the edge weight. Defaults to uniform 1.0.
+    Returns the path including both endpoints.
     """
     import heapq
 
@@ -209,7 +211,8 @@ def _flower_astar(
         for n in neighbors(current):
             if n not in cells:
                 continue
-            tentative = g_score[current] + 1.0
+            w = step_cost(current, n) if step_cost else 1.0
+            tentative = g_score[current] + w
             if tentative < g_score.get(n, float("inf")):
                 came_from[n] = current
                 g_score[n] = tentative
@@ -277,5 +280,55 @@ def route_river_through_flower(
     if mark_cells:
         for c in path:
             cells[c].has_river = True
+
+    return path
+
+
+def route_road_through_flower(
+    cells: dict[HexCoord, "SubHexCell"],
+    entry_edge: int,
+    exit_edge: int,
+    rng: random.Random,
+    *,
+    feature_cell: HexCoord | None = None,
+    mark_cells: bool = False,
+) -> list[HexCoord]:
+    """Route a road through the flower, preferring the feature cell.
+
+    Parameters
+    ----------
+    cells : dict[HexCoord, SubHexCell]
+        The 19 sub-hex cells of the flower.
+    entry_edge, exit_edge : int
+        Macro edge indices (0-5).
+    rng : random.Random
+        Seeded RNG for picking among entry/exit options.
+    feature_cell : HexCoord | None
+        If set, the A* cost function gives a strong bonus for
+        stepping onto this cell (roads lead to the feature).
+    mark_cells : bool
+        If True, set ``has_road = True`` and halve
+        ``move_cost_hours`` on crossed sub-hexes.
+    """
+    start_options = list(EDGE_TO_RING2[entry_edge])
+    start = rng.choice(start_options)
+    goal_options = list(EDGE_TO_RING2[exit_edge])
+    goal = rng.choice(goal_options)
+
+    # Cost function: stepping onto the feature cell is cheap (0.1)
+    # so A* routes through it when it doesn't add too much detour.
+    def step_cost(_from: HexCoord, to: HexCoord) -> float:
+        if feature_cell is not None and to == feature_cell:
+            return 0.1
+        return 1.0
+
+    path = _flower_astar(cells, start, goal, step_cost=step_cost)
+
+    if mark_cells:
+        for c in path:
+            cells[c].has_road = True
+            cells[c].move_cost_hours = max(
+                0.5, cells[c].move_cost_hours / 2,
+            )
 
     return path
