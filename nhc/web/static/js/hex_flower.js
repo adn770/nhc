@@ -256,18 +256,18 @@ const HexFlower = {
 
     if (seg.type === "river") {
       ctx.strokeStyle = "rgba(15, 40, 100, 0.6)";
-      ctx.lineWidth = 8;
+      ctx.lineWidth = 24;
       ctx.stroke(curve);
       ctx.strokeStyle = "rgba(40, 100, 200, 0.75)";
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 14;
       ctx.stroke(curve);
     } else {
       ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.lineWidth = 6;
+      ctx.lineWidth = 20;
       ctx.stroke(curve);
       ctx.strokeStyle = "rgba(120, 80, 40, 0.7)";
-      ctx.lineWidth = 3;
-      ctx.setLineDash([8, 6]);
+      ctx.lineWidth = 10;
+      ctx.setLineDash([12, 10]);
       ctx.stroke(curve);
     }
     ctx.restore();
