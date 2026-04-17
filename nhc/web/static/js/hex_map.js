@@ -665,17 +665,27 @@ const HexMap = {
    * for source/sink). Deterministic jitter from (q, r) keeps the
    * curve stable across repaints. */
   _drawEdgeSegment(ctx, cx, cy, q, r, seg) {
-    // Start/end points: edge midpoint or hex centre.
+    // Start/end points: edge midpoint, or 2/3 radius from centre
+    // toward the opposite edge for source/sink endpoints (keeps
+    // the line away from the feature artwork at the hex centre).
     let p0, p1;
     if (seg.entry !== null && seg.entry !== undefined) {
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
       p0 = {x: cx + m.x, y: cy + m.y};
+    } else if (seg.exit !== null && seg.exit !== undefined) {
+      // Source: place at 2/3 radius opposite the exit edge.
+      const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
+      p0 = {x: cx - m.x * 2 / 3, y: cy - m.y * 2 / 3};
     } else {
       p0 = {x: cx, y: cy};
     }
     if (seg.exit !== null && seg.exit !== undefined) {
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
       p1 = {x: cx + m.x, y: cy + m.y};
+    } else if (seg.entry !== null && seg.entry !== undefined) {
+      // Sink: place at 2/3 radius opposite the entry edge.
+      const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
+      p1 = {x: cx - m.x * 2 / 3, y: cy - m.y * 2 / 3};
     } else {
       p1 = {x: cx, y: cy};
     }
