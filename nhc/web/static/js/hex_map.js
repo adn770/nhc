@@ -914,7 +914,7 @@ function hexKeyHandler(ev) {
     return;
   }
 
-  // Sub-hex flower mode: same direction keys, different intent.
+  // Sub-hex flower mode: direction + action keys.
   if (FlowerInputActive) {
     const lkey = (key || "").toLowerCase();
     if (HEX_KEY_TO_DIR[lkey]) {
@@ -928,7 +928,22 @@ function hexKeyHandler(ev) {
       ev.preventDefault();
       return;
     }
-    if (lkey === "x" || lkey === "escape") {
+    if (lkey === "s") {
+      WS.send({type: "action", intent: "flower_search", data: null});
+      ev.preventDefault();
+      return;
+    }
+    if (lkey === "f") {
+      WS.send({type: "action", intent: "flower_forage", data: null});
+      ev.preventDefault();
+      return;
+    }
+    if (lkey === "r" || lkey === ".") {
+      WS.send({type: "action", intent: "flower_rest", data: null});
+      ev.preventDefault();
+      return;
+    }
+    if (lkey === "x" || key === "Escape") {
       WS.send({type: "action", intent: "flower_exit", data: null});
       ev.preventDefault();
       return;
@@ -953,6 +968,11 @@ function hexKeyHandler(ev) {
   }
   if (lkey === ".") {
     WS.send({type: "action", intent: "hex_rest", data: null});
+    ev.preventDefault();
+    return;
+  }
+  if (lkey === "x") {
+    WS.send({type: "action", intent: "hex_explore", data: null});
     ev.preventDefault();
     return;
   }

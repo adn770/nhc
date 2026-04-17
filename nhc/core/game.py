@@ -2575,6 +2575,24 @@ class Game:
                     "There is nothing to enter here."
                 )
             return "entered" if ok else "ignored"
+        if intent == "hex_explore":
+            # Enter the current hex's flower for sub-hex exploration.
+            coord = self.hex_player_position
+            cell = (
+                self.hex_world.get_cell(coord)
+                if self.hex_world and coord else None
+            )
+            if cell and cell.flower:
+                from nhc.hexcrawl.model import EDGE_TO_RING2
+                # Enter from a default edge (center of flower)
+                entry_sub = HexCoord(0, 0)
+                self.hex_world.enter_flower(coord, entry_sub)
+                self.renderer.add_message("You begin exploring.")
+                return "moved"
+            self.renderer.add_message(
+                "There is nothing to explore here.",
+            )
+            return "ignored"
         if intent == "hex_rest":
             # +1 full day, a full heal, and a meal -- rest ticks
             # the clock and pays out both HP and hunger. A day
