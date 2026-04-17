@@ -492,12 +492,29 @@ def render_flower(
     # Draw river/road edge segments
     draw = ImageDraw.Draw(canvas)
     jitter = R * 0.35
+
+    # Macro hex edge midpoints in flower pixel coords.
+    # NEIGHBOR_OFFSETS: N, NE, SE, S, SW, NW
+    from nhc.hexcrawl.coords import NEIGHBOR_OFFSETS
+    _edge_midpoints: list[tuple[float, float]] = []
+    for dq, dr in NEIGHBOR_OFFSETS:
+        # Edge midpoint is ~2.5 sub-hex radii from center
+        ex = R * 1.5 * dq * 2.5 - min_fx + margin
+        ey = R * (s3 / 2 * dq + s3 * dr) * 2.5 - min_fy + margin
+        _edge_midpoints.append((ex, ey))
+
     for seg in flower.edges:
         if not seg.path or len(seg.path) < 2:
             continue
         is_river = seg.type == "river"
         last_idx = len(seg.path) - 1
-        pts = []
+        pts: list[tuple[float, float]] = []
+
+        # Prepend entry edge point so the curve starts at
+        # the flower boundary, not at the ring-2 sub-hex center.
+        if seg.entry_macro_edge is not None:
+            pts.append(_edge_midpoints[seg.entry_macro_edge])
+
         for i, p in enumerate(seg.path):
             bx = R * 1.5 * p.q - min_fx + margin
             by = R * (s3 / 2 * p.q + s3 * p.r) - min_fy + margin
@@ -509,6 +526,11 @@ def render_flower(
             jx = ((h1 % 1000) / 500 - 1) * jitter
             jy = ((h2 % 1000) / 500 - 1) * jitter
             pts.append((bx + jx, by + jy))
+
+        # Append exit edge point so the curve reaches the
+        # flower boundary on the exit side.
+        if seg.exit_macro_edge is not None:
+            pts.append(_edge_midpoints[seg.exit_macro_edge])
 
         curve = _catmull_rom_points(pts)
         if len(curve) >= 2:
