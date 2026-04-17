@@ -279,6 +279,42 @@ body {
 #hex-entity-canvas  { z-index: 3; }
 #hex-debug-canvas   { z-index: 4; }
 
+/* --------------- Flower container (sub-hex exploration) -------------- */
+
+#flower-container {
+  position: relative;
+  display: inline-block;
+}
+
+#flower-hud {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 6;
+}
+
+#flower-base-canvas,
+#flower-fog-canvas,
+#flower-feature-canvas,
+#flower-entity-canvas,
+#flower-debug-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  image-rendering: auto;
+}
+
+#flower-base-canvas {
+  position: static;
+  z-index: 0;
+}
+
+#flower-feature-canvas { z-index: 1; }
+#flower-fog-canvas     { z-index: 2; }
+#flower-entity-canvas  { z-index: 3; }
+#flower-debug-canvas   { z-index: 4; }
+
 /* Six SVG delta arrows that float at the far edges of the six
  * neighbour hexes when the pointer is near the player. The SVG
  * inside carries fill + stroke; the button itself is a bare

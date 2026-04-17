@@ -79,6 +79,17 @@
              Inside hex-container so it inherits CSS zoom. -->
         <div id="hex-hud"></div>
       </div>
+      <!-- Sub-hex flower exploration canvas stack.
+           Same z-order as hex-container: base → fog → features →
+           entities → debug. Hidden until the player enters a flower. -->
+      <div id="flower-container" class="hidden">
+        <canvas id="flower-base-canvas"></canvas>
+        <canvas id="flower-fog-canvas"></canvas>
+        <canvas id="flower-feature-canvas"></canvas>
+        <canvas id="flower-entity-canvas"></canvas>
+        <canvas id="flower-debug-canvas"></canvas>
+        <div id="flower-hud"></div>
+      </div>
     </div>
 
     <!-- Toolbar: clickable action icons -->
@@ -132,6 +143,7 @@
   <script src="/static/js/ws.js?v={{ v }}"></script>
   <script src="/static/js/map.js?v={{ v }}"></script>
   <script src="/static/js/hex_map.js?v={{ v }}"></script>
+  <script src="/static/js/hex_flower.js?v={{ v }}"></script>
   <script src="/static/js/ui.js?v={{ v }}"></script>
   <script src="/static/js/input.js?v={{ v }}"></script>
   <script src="/static/js/tts.js?v={{ v }}"></script>

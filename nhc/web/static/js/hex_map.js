@@ -836,6 +836,7 @@ const HEX_KEY_TO_DIR = {
 //   keybinds whose letters collide with dungeon bindings.
 let HexGameActive = false;
 let HexInputActive = false;
+let FlowerInputActive = false;
 
 function setHexInputActive(on) {
   HexInputActive = on;
@@ -865,6 +866,28 @@ function hexKeyHandler(ev) {
   if (HexGameActive && key === "F") {
     WS.send({type: "action", intent: "panic_flee", data: null});
     ev.preventDefault();
+    return;
+  }
+
+  // Sub-hex flower mode: same direction keys, different intent.
+  if (FlowerInputActive) {
+    const lkey = (key || "").toLowerCase();
+    if (HEX_KEY_TO_DIR[lkey]) {
+      const [dq, dr] = HEX_KEY_TO_DIR[lkey];
+      WS.send({type: "action", intent: "flower_step", data: [dq, dr]});
+      ev.preventDefault();
+      return;
+    }
+    if (lkey === "e") {
+      WS.send({type: "action", intent: "hex_enter", data: null});
+      ev.preventDefault();
+      return;
+    }
+    if (lkey === "x" || lkey === "escape") {
+      WS.send({type: "action", intent: "flower_exit", data: null});
+      ev.preventDefault();
+      return;
+    }
     return;
   }
 
