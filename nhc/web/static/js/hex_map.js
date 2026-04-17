@@ -658,8 +658,32 @@ const HexMap = {
         for (const {cell} of placements) {
           if (!cell.edges) continue;
           const {x, y} = axialToPixel(cell.q, cell.r);
+          // At junction hexes (2+ segments of the same type),
+          // draw secondary segments thinner to reduce clutter.
+          // At overlap hexes (river + road), offset road slightly.
+          const typeCounts = {};
           for (const seg of cell.edges) {
-            this._drawEdgeSegment(featCtx, x, y, cell.q, cell.r, seg);
+            typeCounts[seg.type] = (typeCounts[seg.type] || 0) + 1;
+          }
+          const hasRiver = (typeCounts["river"] || 0) > 0;
+          const hasRoad = (typeCounts["path"] || 0) > 0;
+          const overlap = hasRiver && hasRoad;
+          // Draw rivers first, then roads on top with offset.
+          const sorted = [...cell.edges].sort((a, b) =>
+            a.type === "river" ? -1 : b.type === "river" ? 1 : 0,
+          );
+          const drawn = {};
+          for (const seg of sorted) {
+            drawn[seg.type] = (drawn[seg.type] || 0) + 1;
+            const isJunction = typeCounts[seg.type] > 1;
+            const wScale = isJunction && drawn[seg.type] > 1
+              ? 0.65 : 1.0;
+            // Offset roads at overlap hexes so both are visible.
+            const ox = overlap && seg.type !== "river" ? 3 : 0;
+            const oy = overlap && seg.type !== "river" ? 2 : 0;
+            this._drawEdgeSegment(
+              featCtx, x + ox, y + oy, cell.q, cell.r, seg, wScale,
+            );
           }
         }
         featCtx.restore();
@@ -760,12 +784,12 @@ const HexMap = {
    * curve between the entry and exit edge midpoints (or hex centre
    * for source/sink). Deterministic jitter from (q, r) keeps the
    * curve stable across repaints. */
-  _drawEdgeSegment(ctx, cx, cy, q, r, seg) {
+  _drawEdgeSegment(ctx, cx, cy, q, r, seg, widthScale = 1.0) {
     // When sub-hex waypoints are available, use them for smoother
     // curves. The sub_path coords are local flower coords that map
     // into the macro hex at a fraction of HEX_SIZE.
     if (seg.sub_path && seg.sub_path.length >= 2) {
-      this._drawSubPathCurve(ctx, cx, cy, seg);
+      this._drawSubPathCurve(ctx, cx, cy, seg, widthScale);
       return;
     }
 
@@ -801,8 +825,8 @@ const HexMap = {
     // Variable-thickness: split the Bezier into 3 sub-segments
     // with slightly different widths for organic feel.
     const isRiver = seg.type === "river";
-    const baseOutline = isRiver ? 7 : 5.5;
-    const baseFill = isRiver ? 4.5 : 3;
+    const baseOutline = (isRiver ? 7 : 5.5) * widthScale;
+    const baseFill = (isRiver ? 4.5 : 3) * widthScale;
     const cp = { x: cx + jx, y: cy + jy };
     const subPts = [p0];
     for (let t = 1; t <= 3; t++) {
@@ -857,7 +881,7 @@ const HexMap = {
    * the macro hex with deterministic jitter and Catmull-Rom splines
    * for smooth, C1-continuous curves.
    */
-  _drawSubPathCurve(ctx, cx, cy, seg) {
+  _drawSubPathCurve(ctx, cx, cy, seg, widthScale = 1.0) {
     const scale = HEX_SIZE / 2.5;
     const s3 = Math.sqrt(3);
     const JITTER = HEX_SIZE * 0.20;
@@ -903,8 +927,8 @@ const HexMap = {
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const baseOutline = isRiver ? 7 : 5.5;
-    const baseFill = isRiver ? 4.5 : 3;
+    const baseOutline = (isRiver ? 7 : 5.5) * widthScale;
+    const baseFill = (isRiver ? 4.5 : 3) * widthScale;
 
     for (let pass = 0; pass < 2; pass++) {
       const isOutline = pass === 0;
@@ -920,7 +944,7 @@ const HexMap = {
         else ctx.setLineDash([]);
       }
       const baseW = isOutline ? baseOutline : baseFill;
-      ctx.lineWidth = Math.max(1, baseW + wOfs);
+      ctx.lineWidth = Math.max(1, baseW + wOfs * widthScale);
       ctx.stroke(path2d);
     }
     ctx.restore();
