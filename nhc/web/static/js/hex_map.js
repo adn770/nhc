@@ -67,23 +67,40 @@ const BIOME_BASE_SLOTS = {
 
 /** Feature-tile variants: when a feature maps to multiple
  * candidate slots, the renderer picks one per hex. Gives visual
- * diversity to e.g. caves (slot 15 vs 49 cave-Mouth). */
-const FEATURE_VARIANTS = {
-  cave:     [15, 49],               // cave, cave-Mouth
-  ruin:     [18, 55],               // ruins, overgrown-Ruins
-  tower:    [13, 54],               // tower, watchtower
-  village:  [11, 53],               // village, hamlet
-  stones:   [25, 51],               // stones, standing-Stones
-  keep:     [22],
-  city:     [12],
-  hole:     [16, 44],               // hole, rift
-  graveyard:[19],
-  crystals: [24],
-  wonder:   [23],
-  portal:   [8],
-  lake:     [10],
-  river:    [7],
+ * diversity to e.g. caves (slot 15 vs 49 cave-Mouth).
+ *
+ * Extended-pack slots (41-80) only exist for biomes with full
+ * generated tile sets: greenlands, forest, mountain, hills,
+ * marsh, swamp. The base 27-slot tiles exist for all biomes.
+ * _EXTENDED_BIOMES gates which biomes may use the extra slots. */
+const _EXTENDED_BIOMES = new Set([
+  "greenlands", "forest", "mountain", "hills", "marsh", "swamp",
+]);
+const _FEATURE_BASE = {
+  cave:     { base: [15], ext: [49] },     // cave, cave-Mouth
+  ruin:     { base: [18], ext: [55] },     // ruins, overgrown-Ruins
+  tower:    { base: [13], ext: [54] },     // tower, watchtower
+  village:  { base: [11], ext: [53] },     // village, hamlet
+  stones:   { base: [25], ext: [51] },     // stones, standing-Stones
+  hole:     { base: [16], ext: [44] },     // hole, rift
+  keep:     { base: [22], ext: [] },
+  city:     { base: [12], ext: [] },
+  graveyard:{ base: [19], ext: [] },
+  crystals: { base: [24], ext: [] },
+  wonder:   { base: [23], ext: [] },
+  portal:   { base: [8],  ext: [] },
+  lake:     { base: [10], ext: [] },
+  river:    { base: [7],  ext: [] },
 };
+/** Return the variant slot array for a feature in a given biome. */
+function featureVariants(feature, biome) {
+  const entry = _FEATURE_BASE[feature];
+  if (!entry) return null;
+  if (_EXTENDED_BIOMES.has(biome) && entry.ext.length) {
+    return entry.base.concat(entry.ext);
+  }
+  return entry.base;
+}
 
 /** Deterministic per-hex pick: (q, r) → index into a variant
  * array. Stable across renders so tiles don't flicker. */
@@ -132,8 +149,9 @@ const BIOME_GLYPH = {
  * stable across repaints. */
 function tilePath(biome, feature, q, r) {
   let slot;
-  if (feature && feature !== "none" && FEATURE_VARIANTS[feature]) {
-    const variants = FEATURE_VARIANTS[feature];
+  const variants = (feature && feature !== "none")
+    ? featureVariants(feature, biome) : null;
+  if (variants) {
     slot = variants[_hexVariant(q || 0, r || 0, variants.length)];
   } else {
     const bases = BIOME_BASE_SLOTS[biome] || [4];
