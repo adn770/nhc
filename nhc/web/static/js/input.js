@@ -365,20 +365,29 @@ const Input = {
         console.warn("Layer capture failed:", name, e);
       }
     }
-    // Composite view: stack the active layers in z-order to
-    // produce a single PNG matching what the player sees.
+    // Composite view: stack visible layers in z-order to produce
+    // a single PNG matching what the player sees. Layers hidden
+    // via the debug panel are excluded.
     try {
-      // Pick the layer set based on which mode is active.
       const hexActive = document.getElementById("hex-container")
         && !document.getElementById("hex-container")
             .classList.contains("hidden");
-      const ids = hexActive
-        ? ["#hex-base-canvas", "#hex-feature-canvas",
-           "#hex-fog-canvas", "#hex-entity-canvas"]
-        : ["#door-canvas", "#hatch-canvas",
-           "#fog-canvas", "#entity-canvas"];
-      // Use the first canvas to determine the display size.
-      const ref = document.querySelector(ids[0]);
+      // Layer selectors in z-order, matching the CSS stacking.
+      const layerDefs = hexActive
+        ? [{sel: "#hex-base-canvas"},
+           {sel: "#hex-feature-canvas"},
+           {sel: "#hex-fog-canvas"},
+           {sel: "#hex-entity-canvas"},
+           {sel: "#hex-debug-canvas"}]
+        : [{sel: "#floor-svg svg", svg: true},
+           {sel: "#door-canvas"},
+           {sel: "#hatch-canvas"},
+           {sel: "#fog-canvas"},
+           {sel: "#entity-canvas"},
+           {sel: "#debug-canvas"}];
+      // Find a canvas to determine display size.
+      const refSel = hexActive ? "#hex-base-canvas" : "#entity-canvas";
+      const ref = document.querySelector(refSel);
       if (ref && ref.width && ref.height) {
         const dw = ref.clientWidth || ref.width;
         const dh = ref.clientHeight || ref.height;
@@ -386,11 +395,16 @@ const Input = {
         comp.width = dw;
         comp.height = dh;
         const cctx = comp.getContext("2d");
-        // For dungeon mode, draw the floor SVG as background.
-        if (!hexActive) {
-          const svg = document.querySelector("#floor-svg svg");
+        for (const {sel, svg} of layerDefs) {
+          const src = document.querySelector(sel);
+          if (!src) continue;
+          // Skip layers hidden by the debug panel.
+          if (src.style.display === "none") continue;
+          // Also check the parent for floor-svg visibility.
+          if (src.parentElement
+              && src.parentElement.style.display === "none") continue;
           if (svg) {
-            const s = new XMLSerializer().serializeToString(svg);
+            const s = new XMLSerializer().serializeToString(src);
             const blob = new Blob([s], {type: "image/svg+xml"});
             const url = URL.createObjectURL(blob);
             const img = await new Promise((resolve, reject) => {
@@ -401,11 +415,7 @@ const Input = {
             });
             cctx.drawImage(img, 0, 0, dw, dh);
             URL.revokeObjectURL(url);
-          }
-        }
-        for (const sel of ids) {
-          const src = document.querySelector(sel);
-          if (src && src.width && src.height) {
+          } else if (src.width && src.height) {
             cctx.drawImage(src, 0, 0, dw, dh);
           }
         }

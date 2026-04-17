@@ -267,9 +267,9 @@ const DebugPanel = {
     const renderLayers = [
       { key: "floor",    label: "Floor SVG",     el: "#floor-svg" },
       { key: "doors",    label: "Door Canvas",   el: "#door-canvas" },
-      { key: "entities", label: "Entity Canvas", el: "#entity-canvas" },
       { key: "hatch",    label: "Hatch Canvas",  el: "#hatch-canvas" },
       { key: "fog",      label: "Fog Canvas",    el: "#fog-canvas" },
+      { key: "entities", label: "Entity Canvas", el: "#entity-canvas" },
     ];
 
     renderLayers.forEach(({ key, label, el }) => {
