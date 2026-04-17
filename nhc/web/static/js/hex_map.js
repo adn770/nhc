@@ -259,33 +259,39 @@ const HexMap = {
     //   way. Rotation is 0 / 60 / 120 / 180 / 240 / 300 degrees
     //   for a flat-top hex grid.
     const dirs = [
-      {dq: 0,  dr: -1, rot: 0,   title: "North (k)"},
-      {dq: 1,  dr: -1, rot: 60,  title: "North-east (u)"},
-      {dq: 1,  dr: 0,  rot: 120, title: "South-east (n)"},
-      {dq: 0,  dr: 1,  rot: 180, title: "South (j)"},
-      {dq: -1, dr: 1,  rot: 240, title: "South-west (b)"},
-      {dq: -1, dr: 0,  rot: 300, title: "North-west (y)"},
+      {dq: 0,  dr: -1, rot: 0,   key: "8", title: "North (8/k)"},
+      {dq: 1,  dr: -1, rot: 60,  key: "9", title: "North-east (9/u)"},
+      {dq: 1,  dr: 0,  rot: 120, key: "3", title: "South-east (3/n)"},
+      {dq: 0,  dr: 1,  rot: 180, key: "2", title: "South (2/j)"},
+      {dq: -1, dr: 1,  rot: 240, key: "1", title: "South-west (1/b)"},
+      {dq: -1, dr: 0,  rot: 300, key: "7", title: "North-west (7/y)"},
     ];
-    const svgMarkup = (rot) => (
+    const svgMarkup = (rot, key) => (
       '<svg viewBox="0 0 64 64" width="64" height="64"' +
       ' xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
       `<g transform="rotate(${rot} 32 32)">` +
-      // Outer delta with a V-notch cut at the back. Tip at top,
-      // inset goes up into the shape between the two base corners.
       '<path d="M 32 4 L 58 58 L 32 44 L 6 58 Z"' +
       ' fill="#5c9cff" fill-opacity="0.28"' +
       ' stroke="#1b2f5c" stroke-width="2.5"' +
       ' stroke-linejoin="round"/>' +
-      // Centre divider from the tip to the notch.
       '<path d="M 32 4 L 32 44"' +
       ' stroke="#1b2f5c" stroke-width="2" stroke-linecap="round"/>' +
-      "</g></svg>"
+      "</g>" +
+      // Number label: counter-rotate so it stays upright
+      // regardless of arrow direction. Positioned near the
+      // centre of the delta shape.
+      `<text x="32" y="36" text-anchor="middle"` +
+      ` dominant-baseline="central"` +
+      ` font-size="14" font-weight="bold" font-family="monospace"` +
+      ` fill="#a0c4ff" fill-opacity="0.9"` +
+      ` stroke="#0a1428" stroke-width="2" paint-order="stroke">` +
+      `${key}</text></svg>`
     );
     const arrows = dirs.map(d => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "hex-arrow";
-      btn.innerHTML = svgMarkup(d.rot);
+      btn.innerHTML = svgMarkup(d.rot, d.key);
       btn.title = d.title;
       btn.dataset.dq = String(d.dq);
       btn.dataset.dr = String(d.dr);
@@ -622,12 +628,20 @@ const HexMap = {
 //   l = leave the current dungeon back to the overland
 //   r = rest (skip a day)
 const HEX_KEY_TO_DIR = {
+  // Vi keys
   "k": [0, -1],   // N
   "u": [1, -1],   // NE
   "n": [1, 0],    // SE
   "j": [0, 1],    // S
   "b": [-1, 1],   // SW
   "y": [-1, 0],   // NW
+  // Numpad layout: 7=NW 8=N 9=NE / 1=SW 2=S 3=SE
+  "7": [-1, 0],   // NW
+  "8": [0, -1],   // N
+  "9": [1, -1],   // NE
+  "1": [-1, 1],   // SW
+  "2": [0, 1],    // S
+  "3": [1, 0],    // SE
 };
 
 // Two flags:
