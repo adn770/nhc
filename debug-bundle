@@ -4,11 +4,15 @@
 # it into debug/ so the MCP tools can read the exports directly.
 #
 # Usage:
-#   ./debug-bundle <server_url> <player_token>
+#   ./debug-bundle <server_url> <player_token> [ssh_host]
 #
-# Example:
+# Examples:
 #   ./debug-bundle https://nhc.example.com abc123...
 #   ./debug-bundle http://localhost:8080 abc123...
+#   ./debug-bundle https://nhc-game.duckdns.org abc123... 192.168.18.7
+#
+# When ssh_host is provided, the script sets up an SSH tunnel to
+# reach the server (works around hairpin NAT / DNS issues).
 #
 set -euo pipefail
 
@@ -22,19 +26,52 @@ ok()    { echo -e "${GREEN}[ok]${NC}    $*"; }
 fail()  { echo -e "${RED}[fail]${NC}  $*"; exit 1; }
 
 if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <server_url> <player_token>"
-    echo "Example: $0 https://nhc.example.com abc123..."
+    echo "Usage: $0 <server_url> <player_token> [ssh_host]"
+    echo ""
+    echo "  server_url    The public URL of the NHC server"
+    echo "  player_token  Player auth token"
+    echo "  ssh_host      Optional SSH host for tunnel (e.g. 192.168.18.7)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 https://nhc-game.duckdns.org TOKEN"
+    echo "  $0 https://nhc-game.duckdns.org TOKEN 192.168.18.7"
     exit 1
 fi
 
 SERVER="$1"
 TOKEN="$2"
+SSH_HOST="${3:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEBUG_DIR="$SCRIPT_DIR/debug"
 
+# ── SSH tunnel setup ──
+# When an ssh_host is provided, open a tunnel so curl talks to
+# localhost:LOCAL_PORT which forwards to the server's 8080.
+TUNNEL_PID=""
+API_BASE="$SERVER"
+
+cleanup_tunnel() {
+    if [[ -n "$TUNNEL_PID" ]]; then
+        kill "$TUNNEL_PID" 2>/dev/null || true
+        wait "$TUNNEL_PID" 2>/dev/null || true
+    fi
+}
+trap cleanup_tunnel EXIT
+
+if [[ -n "$SSH_HOST" ]]; then
+    # Pick a random high port to avoid collisions.
+    LOCAL_PORT=$(python3 -c "import random; print(random.randint(18000, 19000))")
+    info "Opening SSH tunnel via ${SSH_HOST} (localhost:${LOCAL_PORT} → 8080)..."
+    ssh -f -N -L "${LOCAL_PORT}:localhost:8080" "$SSH_HOST" \
+        || fail "SSH tunnel failed (check ssh access to ${SSH_HOST})"
+    TUNNEL_PID=$(lsof -ti:"${LOCAL_PORT}" 2>/dev/null | head -1)
+    API_BASE="http://localhost:${LOCAL_PORT}"
+    ok "Tunnel open (PID ${TUNNEL_PID:-?})"
+fi
+
 # 1. Log in and get active session ID
 info "Logging in..."
-LOGIN=$(curl -sf -X POST "${SERVER}/api/player/login" \
+LOGIN=$(curl -sf -X POST "${API_BASE}/api/player/login" \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json") \
     || fail "Login failed (check URL and token)"
@@ -57,7 +94,7 @@ ok "Session: ${SESSION:0:12}..."
 # 2. Ask the browser to capture layer PNGs and upload them
 info "Requesting layer capture from browser..."
 CAPTURE_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
-    -X POST "${SERVER}/api/game/${SESSION}/capture_layers" \
+    -X POST "${API_BASE}/api/game/${SESSION}/capture_layers" \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json") || true
 if [[ "$CAPTURE_CODE" == "200" ]]; then
@@ -69,9 +106,9 @@ fi
 
 # 3. Download the debug bundle
 info "Downloading debug bundle..."
-BUNDLE=$(mktemp /tmp/nhc-bundle-XXXXXX.tar.gz)
+BUNDLE="/tmp/nhc-bundle-$(date +%Y%m%d_%H%M%S).tar.gz"
 HTTP_CODE=$(curl -sf -o "$BUNDLE" -w "%{http_code}" \
-    "${SERVER}/api/game/${SESSION}/export/bundle" \
+    "${API_BASE}/api/game/${SESSION}/export/bundle" \
     -H "Authorization: Bearer ${TOKEN}") \
     || fail "Download failed (HTTP ${HTTP_CODE:-?}). Is god mode enabled?"
 
@@ -83,14 +120,18 @@ ok "Downloaded $(du -h "$BUNDLE" | cut -f1) bundle"
 
 # 4. Clean old exports and unpack
 info "Unpacking into debug/..."
-rm -rf "$DEBUG_DIR/exports"
+rm -rf "$DEBUG_DIR/exports" "$DEBUG_DIR/layers"
 mkdir -p "$DEBUG_DIR"
 tar xzf "$BUNDLE" -C "$DEBUG_DIR"
 rm -f "$BUNDLE"
 
 # 5. Summary
 EXPORT_COUNT=$(find "$DEBUG_DIR/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
-ok "Unpacked ${EXPORT_COUNT} export files into debug/exports/"
+LAYER_COUNT=$(find "$DEBUG_DIR/layers" -type f 2>/dev/null | wc -l | tr -d ' ')
+CONSOLE_LOG=""
+[[ -f "$DEBUG_DIR/console.log" ]] && CONSOLE_LOG=" + console.log"
+ok "Unpacked ${EXPORT_COUNT} exports, ${LAYER_COUNT} layer PNGs${CONSOLE_LOG}"
 ls -la "$DEBUG_DIR/exports/" 2>/dev/null || true
+ls -la "$DEBUG_DIR/layers/" 2>/dev/null || true
 echo ""
 info "MCP tools are ready. Use get_game_snapshot, get_room_info, etc."
