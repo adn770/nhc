@@ -318,12 +318,18 @@ const GameMap = {
     const scale = this._zoomSteps[newLevel];
     // Apply zoom to whichever container is currently visible
     // (dungeon map-container or hex-container).
-    for (const id of ["map-container", "hex-container", "flower-container"]) {
+    for (const id of ["map-container", "hex-container"]) {
       const el = document.getElementById(id);
       if (el) {
         el.style.transformOrigin = "0 0";
         el.style.transform = `scale(${scale})`;
       }
+    }
+    // Flower uses center-top origin for horizontal centering
+    const fc = document.getElementById("flower-container");
+    if (fc) {
+      fc.style.transformOrigin = "center top";
+      fc.style.transform = `scale(${scale})`;
     }
     // Centre on the player in whichever mode is active.
     if (typeof HexFlower !== "undefined" && HexFlower._playerPx

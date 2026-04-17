@@ -313,13 +313,15 @@ const HexFlower = {
     const zone = document.getElementById("map-zone");
     const container = document.getElementById("flower-container");
     if (!zone || !container || typeof GameMap === "undefined") return;
-    // Compute the scale that fits the flower container in the viewport
-    const cw = parseInt(container.style.width, 10) || 600;
-    const ch = parseInt(container.style.height, 10) || 600;
+    // Use the actual hex content extent (pixel_width/height from
+    // the state + one hex diameter for edge radii) instead of the
+    // full padded container size — maximises the fit.
+    const contentW = (this._contentW || 400) + HEX_FLOWER_WIDTH;
+    const contentH = (this._contentH || 400) + HEX_FLOWER_HEIGHT;
     const zw = zone.clientWidth;
     const zh = zone.clientHeight;
-    const fitScale = Math.min(zw / cw, zh / ch, 2.0);
-    // Find the closest zoom step that doesn't exceed fitScale
+    const fitScale = Math.min(zw / contentW, zh / contentH, 2.0);
+    // Pick the largest zoom step that fits
     const steps = GameMap._zoomSteps;
     let best = 0;
     for (let i = 0; i < steps.length; i++) {
@@ -327,12 +329,18 @@ const HexFlower = {
     }
     GameMap._zoomLevel = best;
     const scale = steps[best];
-    for (const id of ["map-container", "hex-container", "flower-container"]) {
+    for (const id of ["map-container", "hex-container"]) {
       const el = document.getElementById(id);
       if (el) {
         el.style.transformOrigin = "0 0";
         el.style.transform = `scale(${scale})`;
       }
+    }
+    // Flower uses center origin for horizontal centering
+    const fc = document.getElementById("flower-container");
+    if (fc) {
+      fc.style.transformOrigin = "center top";
+      fc.style.transform = `scale(${scale})`;
     }
     if (typeof Input !== "undefined") Input._updateZoomLabel();
   },
@@ -354,6 +362,8 @@ const HexFlower = {
     _flowerOriginY = state.pixel_origin_y || 0;
     const pw = state.pixel_width || 0;
     const ph = state.pixel_height || 0;
+    this._contentW = pw;
+    this._contentH = ph;
 
     if (!this._staticDrawn) {
       this.resize(pw, ph);

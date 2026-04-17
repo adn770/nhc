@@ -328,7 +328,8 @@ body {
 
 #flower-container {
   position: relative;
-  display: inline-block;
+  display: block;
+  margin: 0 auto;
 }
 
 #flower-hud {
