@@ -56,7 +56,7 @@ const _FLOWER_BIOME_COLORS = {
   water:      { bg: "#3070c0", fg: "#1040a0", c: "=" },
 };
 
-const _MINOR_FEATURE_GLYPHS = {
+const _MINOR_FEATURE_GLYPHS = {  // kept for future use
   farm: "F", well: "W", shrine: "S", signpost: "+",
   campsite: "C", orchard: "O", cairn: "c", animal_den: "d",
   hollow_log: "l", mushroom_ring: "m", herb_patch: "h",
@@ -159,12 +159,9 @@ const HexFlower = {
     const g = _FLOWER_BIOME_COLORS[cell.biome]
       || _FLOWER_BIOME_COLORS.greenlands;
     this._fillHex(ctx, x, y, HEX_FLOWER_SIZE, g.bg);
-    // Minor/major feature glyph
     let glyph = g.c;
     if (cell.major_feature && cell.major_feature !== "none") {
       glyph = cell.major_feature.charAt(0).toUpperCase();
-    } else if (cell.minor_feature && cell.minor_feature !== "none") {
-      glyph = _MINOR_FEATURE_GLYPHS[cell.minor_feature] || "?";
     }
     ctx.fillStyle = g.fg;
     ctx.font = `bold ${Math.round(HEX_FLOWER_SIZE * 0.5)}px monospace`;
@@ -483,27 +480,22 @@ const HexFlower = {
           this._drawFlowerEdge(featCtx, seg);
         }
       }
-      /* minor feature markers on revealed cells */
+      /* major feature labels on revealed cells */
       for (const cell of state.cells) {
         if (!cell.revealed) continue;
-        if (cell.minor_feature === "none"
-            && cell.major_feature === "none") continue;
+        if (!cell.major_feature || cell.major_feature === "none") continue;
         const { x, y } = _flowerAxialToPixel(cell.q, cell.r);
-        const label = cell.major_feature !== "none"
-          ? cell.major_feature.charAt(0).toUpperCase()
-          : (_MINOR_FEATURE_GLYPHS[cell.minor_feature] || "");
-        if (label) {
-          featCtx.save();
-          featCtx.font = `bold ${Math.round(HEX_FLOWER_SIZE * 0.35)}px monospace`;
-          featCtx.textAlign = "center";
-          featCtx.textBaseline = "middle";
-          featCtx.fillStyle = "rgba(255,255,255,0.85)";
-          featCtx.strokeStyle = "rgba(0,0,0,0.6)";
-          featCtx.lineWidth = 2;
-          featCtx.strokeText(label, x, y + HEX_FLOWER_SIZE * 0.25);
-          featCtx.fillText(label, x, y + HEX_FLOWER_SIZE * 0.25);
-          featCtx.restore();
-        }
+        const label = cell.major_feature.charAt(0).toUpperCase();
+        featCtx.save();
+        featCtx.font = `bold ${Math.round(HEX_FLOWER_SIZE * 0.35)}px monospace`;
+        featCtx.textAlign = "center";
+        featCtx.textBaseline = "middle";
+        featCtx.fillStyle = "rgba(255,255,255,0.85)";
+        featCtx.strokeStyle = "rgba(0,0,0,0.6)";
+        featCtx.lineWidth = 2;
+        featCtx.strokeText(label, x, y + HEX_FLOWER_SIZE * 0.25);
+        featCtx.fillText(label, x, y + HEX_FLOWER_SIZE * 0.25);
+        featCtx.restore();
       }
       featCtx.restore();
 

@@ -548,26 +548,6 @@ def render_flower(
             draw.line(curve, fill=fill_color,
                       width=max(2, fill_w), joint="curve")
 
-    # Draw minor feature glyphs
-    minor_glyphs = {
-        "farm": "F", "well": "W", "shrine": "S",
-        "signpost": "Si", "campsite": "Ca", "orchard": "O",
-        "cairn": "Ci", "hollow_log": "HL", "mushroom_ring": "M",
-        "herb_patch": "Hp", "bone_pile": "Bp",
-        "standing_stone": "Ss", "lair": "L!", "nest": "N!",
-        "burrow": "B!",
-    }
-    for sub_coord, sub_cell in flower.cells.items():
-        minor = sub_cell.minor_feature.value
-        if minor == "none":
-            continue
-        glyph = minor_glyphs.get(minor, minor[0].upper())
-        fx = R * 1.5 * sub_coord.q - min_fx + margin
-        fy = R * (s3 / 2 * sub_coord.q + s3 * sub_coord.r) \
-            - min_fy + margin
-        draw.text((fx, fy), glyph, fill=(245, 222, 162, 220),
-                  anchor="mm")
-
     canvas = canvas.convert("RGB")
     canvas.save(outpath)
 
