@@ -234,6 +234,14 @@ const HexMap = {
       ' fill="#999999">@</text>' +
       "</svg>"
     );
+    // Left-click on the avatar = enter the hex feature (same as
+    // pressing 'e'). Convenient for touch / mouse-only play.
+    div.style.cursor = "pointer";
+    div.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      WS.send({type: "action", intent: "hex_enter", data: null});
+    });
     hud.appendChild(div);
     this._avatar = div;
     return div;
