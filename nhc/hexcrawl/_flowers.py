@@ -170,3 +170,112 @@ def _ring2_biome(
             (parent.biome, neighbor.biome),
         )
         return transition if transition is not None else neighbor.biome
+
+
+# ---------------------------------------------------------------------------
+# River / road routing through the flower (mini A*)
+# ---------------------------------------------------------------------------
+
+
+def _flower_astar(
+    cells: dict[HexCoord, "SubHexCell"],
+    start: HexCoord,
+    goal: HexCoord,
+) -> list[HexCoord]:
+    """A* through the 19-cell flower from *start* to *goal*.
+
+    Cost is uniform (all sub-hex steps cost 1.0) since river
+    routing cares about topology, not travel cost. Returns the
+    path including both endpoints.
+    """
+    import heapq
+
+    open_set: list[tuple[float, int, HexCoord]] = []
+    counter = 0
+    heapq.heappush(open_set, (0.0, counter, start))
+    came_from: dict[HexCoord, HexCoord] = {}
+    g_score: dict[HexCoord, float] = {start: 0.0}
+
+    while open_set:
+        _, _, current = heapq.heappop(open_set)
+        if current == goal:
+            path = [current]
+            while current in came_from:
+                current = came_from[current]
+                path.append(current)
+            path.reverse()
+            return path
+
+        for n in neighbors(current):
+            if n not in cells:
+                continue
+            tentative = g_score[current] + 1.0
+            if tentative < g_score.get(n, float("inf")):
+                came_from[n] = current
+                g_score[n] = tentative
+                h = distance(n, goal)
+                counter += 1
+                heapq.heappush(open_set, (tentative + h, counter, n))
+
+    # Fallback: should not happen in a connected 19-cell flower
+    return [start, goal]
+
+
+def route_river_through_flower(
+    cells: dict[HexCoord, "SubHexCell"],
+    entry_edge: int | None,
+    exit_edge: int | None,
+    rng: random.Random,
+    *,
+    mark_cells: bool = False,
+) -> list[HexCoord]:
+    """Route a river (or road) through the flower.
+
+    Parameters
+    ----------
+    cells : dict[HexCoord, SubHexCell]
+        The 19 sub-hex cells of the flower.
+    entry_edge : int | None
+        Macro edge index (0-5) the river enters from, or None for
+        a river source (starts at ring 1).
+    exit_edge : int | None
+        Macro edge index the river exits to, or None for a sink
+        (ends at ring 1).
+    rng : random.Random
+        Seeded RNG for picking among entry/exit options.
+    mark_cells : bool
+        If True, set ``has_river = True`` on crossed sub-hexes.
+
+    Returns
+    -------
+    list[HexCoord]
+        Ordered sub-hex coords from entry to exit.
+    """
+    center = HexCoord(0, 0)
+
+    # Pick start sub-hex
+    if entry_edge is not None:
+        start_options = list(EDGE_TO_RING2[entry_edge])
+        start = rng.choice(start_options)
+    else:
+        # Source: pick a ring-1 sub-hex
+        ring1 = [c for c in FLOWER_COORDS if distance(center, c) == 1]
+        start = rng.choice(ring1)
+
+    # Pick goal sub-hex
+    if exit_edge is not None:
+        goal_options = list(EDGE_TO_RING2[exit_edge])
+        goal = rng.choice(goal_options)
+    else:
+        # Sink: pick a ring-1 sub-hex (different from start if possible)
+        ring1 = [c for c in FLOWER_COORDS if distance(center, c) == 1]
+        candidates = [c for c in ring1 if c != start]
+        goal = rng.choice(candidates) if candidates else ring1[0]
+
+    path = _flower_astar(cells, start, goal)
+
+    if mark_cells:
+        for c in path:
+            cells[c].has_river = True
+
+    return path
