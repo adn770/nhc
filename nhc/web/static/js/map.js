@@ -1114,3 +1114,81 @@ const GameMap = {
     requestAnimationFrame(animate);
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Two-finger gestures on the map viewport                            */
+/* ------------------------------------------------------------------ */
+
+(function initMapGestures() {
+  const zone = document.getElementById("map-zone");
+  if (!zone) return;
+
+  // ── Wheel zoom (Ctrl+wheel or trackpad pinch) ──
+  // Without Ctrl the wheel scrolls the viewport normally.
+  zone.addEventListener("wheel", (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const dir = e.deltaY < 0 ? 1 : -1;
+    GameMap.zoom(dir);
+    if (typeof Input !== "undefined") Input._updateZoomLabel();
+  }, { passive: false });
+
+  // ── Touch pinch-to-zoom + two-finger pan ──
+  let _touches = [];
+  let _lastPinchDist = 0;
+  let _lastPanX = 0;
+  let _lastPanY = 0;
+
+  function _touchDist(t) {
+    const dx = t[0].clientX - t[1].clientX;
+    const dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function _touchCenter(t) {
+    return {
+      x: (t[0].clientX + t[1].clientX) / 2,
+      y: (t[0].clientY + t[1].clientY) / 2,
+    };
+  }
+
+  zone.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      _touches = Array.from(e.touches);
+      _lastPinchDist = _touchDist(_touches);
+      const c = _touchCenter(_touches);
+      _lastPanX = c.x;
+      _lastPanY = c.y;
+    }
+  }, { passive: false });
+
+  zone.addEventListener("touchmove", (e) => {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    const cur = Array.from(e.touches);
+    const dist = _touchDist(cur);
+    const center = _touchCenter(cur);
+
+    // Pinch zoom: threshold of 30px change per step
+    const delta = dist - _lastPinchDist;
+    if (Math.abs(delta) > 30) {
+      GameMap.zoom(delta > 0 ? 1 : -1);
+      if (typeof Input !== "undefined") Input._updateZoomLabel();
+      _lastPinchDist = dist;
+    }
+
+    // Two-finger pan: scroll the viewport
+    const panDx = _lastPanX - center.x;
+    const panDy = _lastPanY - center.y;
+    zone.scrollLeft += panDx;
+    zone.scrollTop += panDy;
+    _lastPanX = center.x;
+    _lastPanY = center.y;
+  }, { passive: false });
+
+  zone.addEventListener("touchend", () => {
+    _touches = [];
+    _lastPinchDist = 0;
+  });
+})();
