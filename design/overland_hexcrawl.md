@@ -87,9 +87,11 @@ to production manually via `scp`. A runtime check on hex-mode startup
 warns clearly if the directory is missing or incomplete and falls
 back to a placeholder glyph.
 
-The asset set covers five biome variants (greenlands, drylands,
-sandlands, icelands, deadlands) plus forest and mountain specialty
-sets, with a consistent 27-slot template per biome:
+The asset set covers five base biome variants (greenlands,
+drylands, sandlands, icelands, deadlands) plus forest and
+mountain specialty sets, with additional biomes (hills, marsh,
+swamp, water) for a total of 11 `Biome` enum members. Each
+biome variant uses a consistent 27-slot template:
 
 | Slot | Feature      | Slot | Feature      | Slot | Feature        |
 |------|--------------|------|--------------|------|----------------|
@@ -216,6 +218,12 @@ class HexCoord:
     r: int
 
 @dataclass
+class EdgeSegment:
+    type: str              # "river" or "path"
+    entry_edge: int | None # NEIGHBOR_OFFSETS index (0-5), None = source/sink
+    exit_edge: int | None  # NEIGHBOR_OFFSETS index (0-5), None = source/sink
+
+@dataclass
 class HexCell:
     coord: HexCoord
     biome: Biome
@@ -223,12 +231,15 @@ class HexCell:
     name_key: str | None        # i18n key, optional
     desc_key: str | None        # i18n key, optional
     dungeon: DungeonRef | None  # see below
+    elevation: float = 0.0      # terrain height, used by river gen
+    edges: list[EdgeSegment]    # river/path segments crossing this hex
 
 @dataclass
 class DungeonRef:
     template: str               # "procedural:cave",
                                 # "scripted:castle_blackmarsh_upper"
     depth: int                  # how many floors deep
+    cluster_id: HexCoord | None # cave cluster canonical coord
 
 @dataclass
 class Rumor:
@@ -251,8 +262,12 @@ class HexWorld:
     time: TimeOfDay
     last_hub: HexCoord
     active_rumors: list[Rumor]
-    expedition_party: list[EntityId]   # henchmen on the overland
-    pending_event: Event | None        # encounter, dialog, etc.
+    last_rumor_day: int = 0             # cooldown tracking
+    expedition_party: list[EntityId]    # henchmen on the overland
+    biome_costs: dict[Biome, int]       # per-pack travel costs
+    cave_clusters: dict[HexCoord, list[HexCoord]]  # adjacent cave groups
+    rivers: list[list[HexCoord]]        # river paths (source -> sink)
+    paths: list[list[HexCoord]]         # settlement connection paths
 ```
 
 A stub `Faction` type is included so save format reserves room. No
@@ -288,20 +303,27 @@ Pack manifest sketch:
 ```yaml
 # content/testland/pack.yaml
 id: testland
-version: 1
+version: 2
 attribution: "NHC test setting (procedural)"
 map:
-  generator: bsp_regions
-  width: 8
-  height: 8
-  num_regions: 5
-  region_min: 6
-  region_max: 16
+  generator: bsp_regions       # or perlin_regions
+  width: 25
+  height: 16
+  num_regions: 24
+  region_min: 10
+  region_max: 24
 features:
   hub: 1
-  village: { min: 1, max: 2 }
-  dungeon: { min: 3, max: 5 }
-  wonder: { min: 1, max: 3 }
+  village: { min: 2, max: 4 }
+  dungeon: { min: 6, max: 10 }
+  wonder: { min: 2, max: 4 }
+rivers:
+  max_rivers: 2                # mountain sources to trace
+  min_length: 3                # discard rivers shorter than this
+  bifurcation_chance: 0.03     # branch probability per step
+paths:
+  connect_towers: 0.5          # probability of connecting each tower
+  connect_caves: 0.15          # probability of connecting each cave
 ```
 
 ### Save format
@@ -318,7 +340,7 @@ slice, so revisiting a dungeon hex restores its exact state.
 ```python
 # Save shape (sketch)
 {
-  "schema_version": 3,                # was 2 for dungeon-only
+  "schema_version": 2,                # bumped from 1 for hex_world section
   "mode": "hex-easy",
   "world": {...},                     # ECS dump
   "level": {...} | None,              # current dungeon floor or None
@@ -385,16 +407,17 @@ segments:
 | Sandlands   | 2                 | 0.50     |
 | Icelands    | 2                 | 0.50     |
 | Forest      | 2                 | 0.50     |
-| Hills*      | 2                 | 0.50     |
+| Deadlands   | 2                 | 0.50     |
+| Hills       | 2                 | 0.50     |
+| Marsh       | 3                 | 0.75     |
+| Swamp       | 3                 | 0.75     |
 | Mountain    | 4                 | 1.00     |
-| Swamp*      | 4                 | 1.00     |
+| Water       | 99 (impassable)   | N/A      |
 
-*Hills and swamp are biome **modifiers** layered onto a base biome
-(e.g. greenlands hills, deadlands swamp). The cost table consults
-the modifier first, then the base biome.
-
-The exact table lives in `pack.yaml` so settings can override.
-Defaults above are the engine's bundled values.
+Hills, marsh, swamp, and water are first-class `Biome` enum
+members (not modifiers). The exact table lives in `pack.yaml`
+`biome_costs:` so settings can override. Defaults above are
+the engine's bundled values in `pack.py:DEFAULT_BIOME_COSTS`.
 
 The clock is **frozen while inside a dungeon**. No bookkeeping
 crosses the mode boundary. A dungeon visit, however long, returns
@@ -480,6 +503,68 @@ biome, playtest-driven). On trigger, the player sees a prompt:
 Drawn from the existing 78-creature bestiary, filtered by biome and
 time-of-day weights stored in the pack manifest. The creature
 factory pipeline is unchanged.
+
+### Rivers and paths
+
+Rivers and paths are inter-hex connectivity features rendered
+as thin overlay lines crossing hex edges on the web frontend.
+Both are stored as `EdgeSegment` entries on each hex they cross.
+
+#### Rivers
+
+Generated **before** feature placement so settlements can
+prefer river-adjacent hexes. Algorithm:
+
+1. Pick mountain sources above `source_elevation_min`.
+2. Walk downhill via weighted-random neighbour selection
+   (prefer steeper descent, add jitter for organic shape).
+3. Low-probability bifurcation spawns branches.
+4. Terminate at WATER tiles or map edge.
+5. Discard rivers shorter than `min_length`.
+
+Each hex cell stores elevation (`HexCell.elevation`). The
+Perlin generator uses the actual noise sample; BSP synthesises
+from biome type plus per-cell jitter.
+
+Hub and village placement soft-prefer hexes within distance 1
+of a river cell, falling back to random selection when no
+river-adjacent candidate exists.
+
+Configuration via `pack.yaml`:
+
+```yaml
+rivers:
+  max_rivers: 3
+  min_length: 4
+  bifurcation_chance: 0.05
+  source_elevation_min: 0.65
+```
+
+#### Paths
+
+Generated **after** feature placement so all connectable
+features are present. Algorithm:
+
+1. Build a minimum spanning tree (MST) over all settlements.
+2. A* each MST edge using biome travel costs as weights.
+3. Optionally connect towers/keeps and caves to the nearest
+   settlement with configurable probability.
+
+Configuration via `pack.yaml`:
+
+```yaml
+paths:
+  connect_towers: 0.6
+  connect_caves: 0.2
+```
+
+#### Rendering
+
+Edge segments are drawn on the `hex-feature-canvas` (z-index 2)
+as quadratic Bezier curves between entry/exit edge midpoints.
+Rivers render as blue solid lines; paths as brown dashed lines.
+Deterministic jitter from `(q, r)` keeps curves stable across
+repaints.
 
 ---
 
@@ -624,8 +709,13 @@ Two reasons:
   region", "a mountain range") rather than noisy speckle. The
   player can recognize zones at a glance.
 
-A noise-based generator can be added later as an alternative under
-the same `pack.yaml.map.generator` knob.
+A noise-based (Perlin simplex) generator was added as an
+alternative (`perlin_regions`). It samples elevation + moisture
+via two independent SimplexNoise fields and uses a Whittaker-
+style biome lookup. The `testland-perlin` content pack
+demonstrates this. Both generators use the shared feature-
+placement pipeline so output contracts are identical; the
+choice is made via `pack.yaml` `map.generator` field.
 
 ---
 
@@ -644,7 +734,7 @@ Overland canvas stack mirrors the dungeon's five-layer pattern:
 |-------------|---------------------|---------------------------------------|
 | 0           | `hex-base-canvas`   | hex tile PNGs (biome + feature)       |
 | 1           | `hex-fog-canvas`    | unrevealed-hex mask                   |
-| 2           | `hex-feature-canvas`| labels, rumor pins, hub markers       |
+| 2           | `hex-feature-canvas`| edge segments (rivers, paths)         |
 | 3           | `hex-entity-canvas` | player avatar, encounter markers      |
 | 4           | `hex-debug-canvas`  | god-mode overlay                      |
 
