@@ -53,22 +53,52 @@ const SLOT_NAME = {
   79: "mountain-Pass", 80: "mountain-Temple",
 };
 
-/** Biome base-tile slots: arrays of candidate slots for visual
- * variety on featureless hexes. The renderer picks one per hex
- * deterministically from (q + r) so the choice is stable across
- * repaints but varies tile-to-tile. */
+/** Biome base-tile slots: weighted [slot, weight] pairs for
+ * visual variety on featureless hexes. The renderer picks one
+ * per hex deterministically so the choice is stable across
+ * repaints. Higher weight = more frequent. */
 const BIOME_BASE_SLOTS = {
-  greenlands: [4, 42, 43, 26],      // trees, sparse, clearing, farms
-  drylands:   [3, 25],              // tundra, stones
-  sandlands:  [3, 25],
-  icelands:   [3],
-  deadlands:  [17, 25],             // dead trees, stones
-  forest:     [2, 41, 42, 47],      // forest, dense, sparse, great tree
-  mountain:   [9, 62, 63, 66, 69],  // mountains, peaks, plateau, foothills, summit
-  hills:      [6, 50, 45],          // hills, hillock, wild bushes
-  marsh:      [20, 45, 48],         // swamp, wild bushes, mushrooms
-  swamp:      [20, 41, 48],         // swamp, dense forest, mushrooms
-  water:      [5],                  // single water tile
+  greenlands: [
+    [42, 20], [4, 18], [43, 15], [45, 12], [26, 10], [2, 8],
+    [41, 5], [50, 4], [20, 3], [55, 3], [10, 2],
+  ],
+  forest: [
+    [2, 20], [41, 18], [4, 15], [42, 12], [47, 8], [45, 7],
+    [43, 5], [6, 4], [48, 3], [50, 3], [20, 3], [55, 2],
+  ],
+  mountain: [
+    [9, 18], [61, 15], [62, 14], [69, 10], [66, 8], [79, 7],
+    [67, 6], [63, 5], [6, 5], [72, 4], [65, 4], [70, 4],
+  ],
+  hills: [
+    [6, 22], [45, 16], [50, 14], [4, 12], [42, 10], [3, 10],
+    [43, 8], [9, 8],
+  ],
+  marsh: [
+    [20, 25], [3, 18], [17, 14], [6, 12], [42, 9], [45, 7],
+    [10, 6], [19, 5], [55, 4],
+  ],
+  swamp: [
+    [20, 28], [17, 18], [3, 12], [45, 10], [42, 8], [10, 8],
+    [6, 6], [55, 5], [19, 5],
+  ],
+  drylands: [
+    [3, 30], [6, 20], [17, 15], [20, 12], [9, 10], [4, 8],
+    [10, 5],
+  ],
+  sandlands: [
+    [3, 30], [6, 20], [17, 15], [20, 12], [9, 10], [18, 5],
+    [19, 4], [4, 4],
+  ],
+  icelands: [
+    [3, 30], [6, 20], [17, 15], [20, 12], [27, 10], [9, 5],
+    [10, 4], [18, 4],
+  ],
+  deadlands: [
+    [3, 30], [6, 20], [20, 15], [9, 12], [17, 10], [18, 5],
+    [19, 4], [1, 4],
+  ],
+  water: [[5, 1]],
 };
 
 /** Feature-tile variants: when a feature maps to multiple
@@ -108,12 +138,32 @@ function featureVariants(feature, biome) {
   return entry.base;
 }
 
+/** Deterministic per-hex hash with good bit mixing. */
+function _hexHash(q, r) {
+  let h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
+  h = ((h >> 16) ^ h) * 0x45d9f3b;
+  return ((h >> 16) ^ h) & 0x7FFFFFFF;
+}
+
 /** Deterministic per-hex pick: (q, r) → index into a variant
  * array. Stable across renders so tiles don't flicker. */
 function _hexVariant(q, r, n) {
-  // Simple hash to avoid modular patterns on small maps.
-  const h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
-  return h % n;
+  return _hexHash(q, r) % n;
+}
+
+/** Pick a slot from weighted [slot, weight] pairs using (q, r)
+ * as a deterministic seed. */
+function _weightedSlot(q, r, pairs) {
+  if (pairs.length === 1) return pairs[0][0];
+  let total = 0;
+  for (const [, w] of pairs) total += w;
+  const roll = _hexHash(q, r) % total;
+  let acc = 0;
+  for (const [slot, w] of pairs) {
+    acc += w;
+    if (roll < acc) return slot;
+  }
+  return pairs[pairs.length - 1][0];
 }
 
 /** Biomes with a full 27-slot palette; used as the primary tile
@@ -160,8 +210,8 @@ function tilePath(biome, feature, q, r) {
   if (variants) {
     slot = variants[_hexVariant(q || 0, r || 0, variants.length)];
   } else {
-    const bases = BIOME_BASE_SLOTS[biome] || [4];
-    slot = bases[_hexVariant(q || 0, r || 0, bases.length)];
+    const bases = BIOME_BASE_SLOTS[biome] || [[4, 1]];
+    slot = _weightedSlot(q || 0, r || 0, bases);
   }
   const stem = SLOT_NAME[slot];
   const foundationUrl = `/hextiles/${slot}-foundation_${stem}.png`;
