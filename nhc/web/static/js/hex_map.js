@@ -683,14 +683,17 @@ const HexMap = {
     // Start/end points: edge midpoint, or 2/3 radius from centre
     // toward the opposite edge for source/sink endpoints (keeps
     // the line away from the feature artwork at the hex centre).
+    // For source/sink endpoints (entry/exit = null), stop the
+    // line at 2/3 of the way from the connected edge toward the
+    // centre so it doesn't cross over the feature artwork.
     let p0, p1;
     if (seg.entry !== null && seg.entry !== undefined) {
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
       p0 = {x: cx + m.x, y: cy + m.y};
     } else if (seg.exit !== null && seg.exit !== undefined) {
-      // Source: place at 2/3 radius opposite the exit edge.
+      // Source: 2/3 from exit edge toward centre.
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
-      p0 = {x: cx - m.x * 2 / 3, y: cy - m.y * 2 / 3};
+      p0 = {x: cx + m.x * 1 / 3, y: cy + m.y * 1 / 3};
     } else {
       p0 = {x: cx, y: cy};
     }
@@ -698,9 +701,9 @@ const HexMap = {
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
       p1 = {x: cx + m.x, y: cy + m.y};
     } else if (seg.entry !== null && seg.entry !== undefined) {
-      // Sink: place at 2/3 radius opposite the entry edge.
+      // Sink: 2/3 from entry edge toward centre.
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
-      p1 = {x: cx - m.x * 2 / 3, y: cy - m.y * 2 / 3};
+      p1 = {x: cx + m.x * 1 / 3, y: cy + m.y * 1 / 3};
     } else {
       p1 = {x: cx, y: cy};
     }
