@@ -280,6 +280,8 @@ class HexWorld:
     looted: set[HexCoord] = field(default_factory=set)
     day: int = 1
     time: TimeOfDay = TimeOfDay.MORNING
+    hour: int = 6       # 0-23; 6 = start of MORNING
+    minute: int = 0     # 0-59; for 10-minute turn tracking
     last_hub: HexCoord | None = None
     active_rumors: list[Rumor] = field(default_factory=list)
     # Day on which active_rumors was last topped up by
@@ -403,12 +405,36 @@ class HexWorld:
 
     # ----- clock -----
 
+    _SEGMENT_MAP = [
+        TimeOfDay.NIGHT,    # hours 0-5
+        TimeOfDay.MORNING,  # hours 6-11
+        TimeOfDay.MIDDAY,   # hours 12-17
+        TimeOfDay.EVENING,  # hours 18-23
+    ]
+
+    def _sync_time_from_hour(self) -> None:
+        """Derive :attr:`time` from :attr:`hour`."""
+        self.time = self._SEGMENT_MAP[self.hour // 6]
+
+    def advance_clock_hours(self, hours: float) -> None:
+        """Advance the clock by a fractional number of hours.
+
+        Updates :attr:`hour`, :attr:`minute`, :attr:`time`, and
+        :attr:`day`. This is the canonical clock-advance method;
+        :meth:`advance_clock` delegates here.
+        """
+        total_minutes = self.hour * 60 + self.minute + round(hours * 60)
+        self.day += total_minutes // (24 * 60)
+        remaining = total_minutes % (24 * 60)
+        self.hour = remaining // 60
+        self.minute = remaining % 60
+        self._sync_time_from_hour()
+
     def advance_clock(self, segments: int) -> None:
+        """Advance the clock by ``segments`` quarter-days (6 h each)."""
         if segments < 0:
             raise ValueError(f"segments must be >= 0, got {segments}")
-        new_time, days_added = self.time.advance(segments)
-        self.time = new_time
-        self.day += days_added
+        self.advance_clock_hours(segments * 6.0)
 
     def advance_clock_for_cell(self, cell: HexCell) -> None:
         """Advance the clock by the cost of a step into ``cell``'s
