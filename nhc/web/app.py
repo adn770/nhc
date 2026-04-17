@@ -1458,6 +1458,23 @@ def create_app(
         logger.info("Exported map SVG: %s", path)
         return jsonify({"path": str(path)})
 
+    @app.route(
+        "/api/game/<session_id>/export/layer_pngs", methods=["POST"],
+    )
+    @_player_auth
+    def upload_layer_pngs(session_id: str):
+        """Receive base64-encoded layer PNGs from the client.
+
+        Stashed on the session so the next bundle download includes
+        them. Payload: ``{"layers": {"name": "data:image/png;base64,..."}}``.
+        """
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        data = request.get_json(silent=True) or {}
+        session.layer_pngs = data.get("layers", {})
+        return jsonify({"status": "ok", "count": len(session.layer_pngs)})
+
     @app.route("/api/game/<session_id>/export/bundle", methods=["GET"])
     @_player_auth
     def export_debug_bundle(session_id: str):
@@ -1562,6 +1579,25 @@ def create_app(
                     f"exports/generation_params_{ts}.json",
                     _json.dumps(gen_params, indent=2),
                 )
+
+            # 7. Layer PNGs (uploaded by the client before bundle
+            # download). Each value is a data:image/png;base64 URI.
+            import base64
+            layer_pngs = getattr(session, "layer_pngs", {})
+            for name, data_uri in layer_pngs.items():
+                try:
+                    # Strip the data:image/png;base64, prefix.
+                    _, encoded = data_uri.split(",", 1)
+                    png_bytes = base64.b64decode(encoded)
+                    info = tarfile.TarInfo(
+                        name=f"layers/{name}.png",
+                    )
+                    info.size = len(png_bytes)
+                    tar.addfile(info, io.BytesIO(png_bytes))
+                except Exception:
+                    pass  # skip malformed entries
+            # Clear after bundling so they don't accumulate.
+            session.layer_pngs = {}
 
         buf.seek(0)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -278,12 +278,8 @@ const Input = {
     if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
       const dlBtn = this._toolbarBtn(
         "\uD83D\uDCBE", "debug-bundle-btn", null,
-        "Download Debug Bundle",
-        () => {
-          const sid = NHC.sessionId;
-          if (sid) window.location.href =
-            `/api/game/${sid}/export/bundle`;
-        },
+        "Download Debug Bundle (incl. layer PNGs)",
+        () => this._downloadDebugBundle(),
       );
       zone.appendChild(dlBtn);
 
@@ -309,6 +305,75 @@ const Input = {
     });
     this._toolbarButtons.push(btn);
     return btn;
+  },
+
+  /** Capture all active canvas layers as PNGs, upload them to the
+   * server, then trigger the debug bundle download. */
+  async _downloadDebugBundle() {
+    const sid = NHC.sessionId;
+    if (!sid) return;
+    const btn = document.getElementById("debug-bundle-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "\u231B"; }
+
+    // Gather PNGs from all canvas layers (both modes).
+    const canvases = [
+      { name: "floor_svg",     el: "#floor-svg svg",      svg: true },
+      { name: "door_canvas",   el: "#door-canvas" },
+      { name: "hatch_canvas",  el: "#hatch-canvas" },
+      { name: "fog_canvas",    el: "#fog-canvas" },
+      { name: "entity_canvas", el: "#entity-canvas" },
+      { name: "debug_canvas",  el: "#debug-canvas" },
+      { name: "hex_base",      el: "#hex-base-canvas" },
+      { name: "hex_feature",   el: "#hex-feature-canvas" },
+      { name: "hex_fog",       el: "#hex-fog-canvas" },
+      { name: "hex_entity",    el: "#hex-entity-canvas" },
+      { name: "hex_debug",     el: "#hex-debug-canvas" },
+    ];
+    const layers = {};
+    for (const {name, el, svg} of canvases) {
+      const target = document.querySelector(el);
+      if (!target) continue;
+      try {
+        if (svg) {
+          const s = new XMLSerializer().serializeToString(target);
+          const blob = new Blob([s], {type: "image/svg+xml"});
+          const url = URL.createObjectURL(blob);
+          const img = await new Promise((resolve, reject) => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = url;
+          });
+          const c = document.createElement("canvas");
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          c.getContext("2d").drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          layers[name] = c.toDataURL("image/png");
+        } else {
+          if (!target.width || !target.height) continue;
+          layers[name] = target.toDataURL("image/png");
+        }
+      } catch (e) {
+        console.warn("Layer capture failed:", name, e);
+      }
+    }
+
+    // Upload PNGs to server, then download the bundle.
+    try {
+      await fetch(`/api/game/${sid}/export/layer_pngs`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({layers}),
+      });
+    } catch (e) {
+      console.warn("Layer PNG upload failed:", e);
+    }
+    window.location.href = `/api/game/${sid}/export/bundle`;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "\uD83D\uDCBE";
+    }
   },
 
   /**
