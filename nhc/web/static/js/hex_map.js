@@ -657,9 +657,9 @@ const HexMap = {
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
       p0 = {x: cx + m.x, y: cy + m.y};
     } else if (seg.exit !== null && seg.exit !== undefined) {
-      // Source: halfway from exit edge toward centre.
+      // Source: 3/4 from exit edge toward centre.
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
-      p0 = {x: cx + m.x * 1 / 2, y: cy + m.y * 1 / 2};
+      p0 = {x: cx + m.x * 1 / 4, y: cy + m.y * 1 / 4};
     } else {
       p0 = {x: cx, y: cy};
     }
@@ -667,9 +667,9 @@ const HexMap = {
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
       p1 = {x: cx + m.x, y: cy + m.y};
     } else if (seg.entry !== null && seg.entry !== undefined) {
-      // Sink: halfway from entry edge toward centre.
+      // Sink: 3/4 from entry edge toward centre.
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
-      p1 = {x: cx + m.x * 1 / 2, y: cy + m.y * 1 / 2};
+      p1 = {x: cx + m.x * 1 / 4, y: cy + m.y * 1 / 4};
     } else {
       p1 = {x: cx, y: cy};
     }
