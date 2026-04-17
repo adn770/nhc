@@ -19,6 +19,9 @@ from nhc.hexcrawl.coords import (
 from nhc.hexcrawl.model import (
     Biome,
     HexCell,
+    HexFeatureType,
+    MinorFeatureType,
+    SubHexCell,
     EDGE_TO_RING2,
     FLOWER_COORDS,
     FLOWER_RADIUS,
@@ -332,3 +335,197 @@ def route_road_through_flower(
             )
 
     return path
+
+
+# ---------------------------------------------------------------------------
+# Feature placement
+# ---------------------------------------------------------------------------
+
+# Biome → (min, max) minor features per flower.
+_MINOR_DENSITY: dict[Biome, tuple[int, int]] = {
+    Biome.GREENLANDS: (3, 6),
+    Biome.FOREST: (2, 5),
+    Biome.DRYLANDS: (2, 4),
+    Biome.HILLS: (2, 4),
+    Biome.MARSH: (2, 4),
+    Biome.SWAMP: (2, 4),
+    Biome.MOUNTAIN: (1, 3),
+    Biome.SANDLANDS: (1, 3),
+    Biome.DEADLANDS: (1, 3),
+    Biome.ICELANDS: (1, 2),
+    Biome.WATER: (0, 0),
+}
+
+# Biome → pool of eligible minor feature types.
+_MINOR_POOLS: dict[Biome, list[MinorFeatureType]] = {
+    Biome.GREENLANDS: [
+        MinorFeatureType.FARM, MinorFeatureType.WELL,
+        MinorFeatureType.SHRINE, MinorFeatureType.SIGNPOST,
+        MinorFeatureType.CAMPSITE, MinorFeatureType.ORCHARD,
+    ],
+    Biome.FOREST: [
+        MinorFeatureType.HERB_PATCH, MinorFeatureType.MUSHROOM_RING,
+        MinorFeatureType.HOLLOW_LOG, MinorFeatureType.CAIRN,
+        MinorFeatureType.STANDING_STONE,
+    ],
+    Biome.MOUNTAIN: [
+        MinorFeatureType.CAIRN, MinorFeatureType.BONE_PILE,
+        MinorFeatureType.STANDING_STONE,
+    ],
+    Biome.HILLS: [
+        MinorFeatureType.CAIRN, MinorFeatureType.CAMPSITE,
+        MinorFeatureType.STANDING_STONE, MinorFeatureType.HERB_PATCH,
+    ],
+    Biome.DRYLANDS: [
+        MinorFeatureType.WELL, MinorFeatureType.CAIRN,
+        MinorFeatureType.CAMPSITE, MinorFeatureType.SIGNPOST,
+    ],
+    Biome.SANDLANDS: [
+        MinorFeatureType.CAIRN, MinorFeatureType.BONE_PILE,
+        MinorFeatureType.WELL,
+    ],
+    Biome.ICELANDS: [
+        MinorFeatureType.CAIRN, MinorFeatureType.STANDING_STONE,
+    ],
+    Biome.DEADLANDS: [
+        MinorFeatureType.BONE_PILE, MinorFeatureType.STANDING_STONE,
+        MinorFeatureType.CAIRN,
+    ],
+    Biome.MARSH: [
+        MinorFeatureType.HOLLOW_LOG, MinorFeatureType.MUSHROOM_RING,
+        MinorFeatureType.HERB_PATCH,
+    ],
+    Biome.SWAMP: [
+        MinorFeatureType.HOLLOW_LOG, MinorFeatureType.MUSHROOM_RING,
+        MinorFeatureType.BONE_PILE,
+    ],
+    Biome.WATER: [],
+}
+
+# Biome → probability of placing a lair.
+_LAIR_CHANCE: dict[Biome, float] = {
+    Biome.DEADLANDS: 0.40,
+    Biome.MOUNTAIN: 0.30,
+    Biome.FOREST: 0.20,
+    Biome.HILLS: 0.15,
+    Biome.MARSH: 0.15,
+    Biome.SWAMP: 0.15,
+    Biome.ICELANDS: 0.10,
+    Biome.DRYLANDS: 0.10,
+    Biome.SANDLANDS: 0.10,
+    Biome.GREENLANDS: 0.05,
+}
+
+_LAIR_TYPES = [
+    MinorFeatureType.LAIR,
+    MinorFeatureType.NEST,
+    MinorFeatureType.BURROW,
+]
+
+
+def place_flower_features(
+    cells: dict[HexCoord, SubHexCell],
+    major: HexFeatureType,
+    biome: Biome,
+    rng: random.Random,
+) -> HexCoord | None:
+    """Place major and minor features in the flower.
+
+    Returns the sub-hex coord of the major feature, or None if
+    the major feature type is NONE.
+    """
+    center = HexCoord(0, 0)
+    feature_cell: HexCoord | None = None
+
+    # --- Major feature ---
+    if major is not HexFeatureType.NONE:
+        feature_cell = _place_major(cells, major, rng)
+
+    # --- Minor features ---
+    lo, hi = _MINOR_DENSITY.get(biome, (0, 0))
+    count = rng.randint(lo, hi) if hi > 0 else 0
+    pool = _MINOR_POOLS.get(biome, [])
+    if count > 0 and pool:
+        _place_minors(cells, count, pool, feature_cell, rng)
+
+    # --- Lair ---
+    lair_prob = _LAIR_CHANCE.get(biome, 0.0)
+    if lair_prob > 0 and rng.random() < lair_prob:
+        _place_lair(cells, feature_cell, rng)
+
+    return feature_cell
+
+
+def _place_major(
+    cells: dict[HexCoord, SubHexCell],
+    major: HexFeatureType,
+    rng: random.Random,
+) -> HexCoord:
+    """Place the macro feature in a weighted-random sub-hex."""
+    center = HexCoord(0, 0)
+    # Build weighted candidates: ring 0 = 3, ring 1 = 5, ring 2 = 1
+    ring_weights = {0: 3, 1: 5, 2: 1}
+    candidates: list[HexCoord] = []
+    weights: list[int] = []
+    for c in FLOWER_COORDS:
+        d = distance(center, c)
+        cell = cells[c]
+        if cell.has_river:
+            continue
+        candidates.append(c)
+        weights.append(ring_weights[d])
+
+    if not candidates:
+        # Fallback: all sub-hexes have rivers (very unlikely)
+        candidates = list(FLOWER_COORDS)
+        weights = [1] * len(candidates)
+
+    chosen = rng.choices(candidates, weights=weights, k=1)[0]
+    cells[chosen].major_feature = major
+    return chosen
+
+
+def _place_minors(
+    cells: dict[HexCoord, SubHexCell],
+    count: int,
+    pool: list[MinorFeatureType],
+    feature_cell: HexCoord | None,
+    rng: random.Random,
+) -> None:
+    """Scatter minor features, avoiding feature cell and rivers/roads."""
+    eligible = [
+        c for c in FLOWER_COORDS
+        if c != feature_cell
+        and not cells[c].has_river
+        and not cells[c].has_road
+        and cells[c].minor_feature is MinorFeatureType.NONE
+    ]
+    rng.shuffle(eligible)
+    placed = 0
+    for c in eligible:
+        if placed >= count:
+            break
+        cells[c].minor_feature = rng.choice(pool)
+        placed += 1
+
+
+def _place_lair(
+    cells: dict[HexCoord, SubHexCell],
+    feature_cell: HexCoord | None,
+    rng: random.Random,
+) -> None:
+    """Place at most one lair in ring 2."""
+    center = HexCoord(0, 0)
+    eligible = [
+        c for c in FLOWER_COORDS
+        if distance(center, c) == 2
+        and c != feature_cell
+        and not cells[c].has_river
+        and not cells[c].has_road
+        and cells[c].minor_feature is MinorFeatureType.NONE
+    ]
+    if not eligible:
+        return
+    chosen = rng.choice(eligible)
+    cells[chosen].minor_feature = rng.choice(_LAIR_TYPES)
+    cells[chosen].encounter_modifier = 3.0
