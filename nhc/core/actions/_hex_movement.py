@@ -1,12 +1,13 @@
 """Overland hex movement action.
 
-The action's job is small and well-scoped: step one hex, reveal
-the destination's visible ring, mark it visited, advance the day
-clock by the destination's biome cost, and emit a
-:class:`HexStepEvent`. Dungeon-mode plumbing (``world``/``level``)
-is accepted but not used -- hex moves never touch the ECS or any
-dungeon :class:`Level`. Feature / settlement entry is a separate
-action (M-1.12 / M-2.2).
+The action's job is small and well-scoped: step one hex, mark
+the destination visited (which also reveals it), advance the
+day clock by the destination's biome cost, and emit a
+:class:`HexStepEvent`. With 5-mile hexes there is no extended
+FOV ring — only the destination hex is revealed. Dungeon-mode
+plumbing (``world``/``level``) is accepted but not used; hex
+moves never touch the ECS or any dungeon :class:`Level`.
+Feature / settlement entry is a separate action.
 """
 
 from __future__ import annotations

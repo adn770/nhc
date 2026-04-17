@@ -431,12 +431,21 @@ triggers an encounter check at higher weights for night segments.
 
 ### Fog of war
 
-Roguelike-style. Only the starting hex is revealed initially. Each
-hex move reveals adjacent hexes (showing terrain and feature). Hex
-**contents** (rumor pinning, names) are revealed only on visit.
+Roguelike-style with single-hex visibility. With 5-mile hexes
+the player sees only the hex they occupy — there is no extended
+field of view ring. Each hex move reveals the destination hex
+only. ``visible_cells(center)`` returns ``{center}``.
+
+The ``state_hex`` WebSocket payload ships **all** cells with a
+per-cell ``revealed`` boolean. Fog of war is enforced purely
+client-side: the fog canvas covers unrevealed hexes with a
+sky-blue background stamped with the fog tile
+(``27-foundation_fog.png``). Revealed hexes are punched through
+the fog. Disabling the fog layer in the debug panel reveals the
+entire map visually.
 
 Rumors can pin a *named* distant hex on the map without revealing
-intermediate terrain -- a single highlighted unknown hex with a
+intermediate terrain — a single highlighted unknown hex with a
 known name, drawn through the fog.
 
 ### Rumor system
@@ -534,11 +543,14 @@ Configuration via `pack.yaml`:
 
 ```yaml
 rivers:
-  max_rivers: 3
-  min_length: 4
-  bifurcation_chance: 0.05
-  source_elevation_min: 0.65
+  max_rivers: 3              # default 3
+  min_length: 4              # default 4
+  bifurcation_chance: 0.05   # default 0.05
+  source_elevation_min: 0.65 # default 0.65 (optional)
 ```
+
+All fields are optional; defaults from ``RiverParams`` in
+``pack.py`` apply when omitted.
 
 #### Paths
 
@@ -728,27 +740,86 @@ messages gain a `mode` field; the server emits `state_hex` for
 overland frames and the existing `state_dungeon` (renamed from
 `state`) for dungeon frames.
 
-Overland canvas stack mirrors the dungeon's five-layer pattern:
+Overland canvas stack (all inside ``#hex-container``):
 
-| Layer index | Canvas              | Contents                              |
-|-------------|---------------------|---------------------------------------|
-| 0           | `hex-base-canvas`   | hex tile PNGs (biome + feature)       |
-| 1           | `hex-fog-canvas`    | unrevealed-hex mask                   |
-| 2           | `hex-feature-canvas`| edge segments (rivers, paths)         |
-| 3           | `hex-entity-canvas` | player avatar, encounter markers      |
-| 4           | `hex-debug-canvas`  | god-mode overlay                      |
+| z-index | Canvas              | Contents                        |
+|---------|---------------------|---------------------------------|
+| 0       | `hex-base-canvas`   | hex tile PNGs (biome + feature) |
+| 1       | `hex-feature-canvas`| edge segments (rivers, paths)   |
+| 2       | `hex-fog-canvas`    | sky-blue + fog tile overlay     |
+| 3       | `hex-entity-canvas` | player "@" glyph                |
+| 4       | `hex-debug-canvas`  | debug overlays                  |
+| 6       | `hex-hud`           | direction arrows (DOM)          |
+
+Features sit below fog so unrevealed rivers/paths are hidden
+by the fog layer without per-cell checks.
+
+The HUD layer lives inside ``hex-container`` (not as a sibling)
+so it inherits the CSS zoom transform. The player avatar is
+drawn on the entity canvas, not the HUD.
+
+#### High-resolution rendering
+
+Canvases render at ``CANVAS_SCALE = 238 / HEX_WIDTH`` (~3.3x)
+so tile PNGs paint at their native 238x207 resolution. All
+drawing uses ``ctx.scale(CANVAS_SCALE)`` in logical coords
+(``HEX_SIZE``-based); CSS ``width``/``height`` on each canvas
+matches the logical size. Zoom is pure CSS ``transform:
+scale(N)`` on the container.
+
+#### Static-once drawing with incremental updates
+
+Static layers (base tiles, features, fog background) are drawn
+once on the first ``state_hex`` message and never redrawn.
+Subsequent turns only:
+
+- punch newly-revealed hexes through the fog (tracked via a
+  ``Set`` of already-punched ``"q,r"`` keys)
+- clear + redraw the entity canvas (player glyph)
+
+Static layers are re-armed when leaving hex mode (entering a
+dungeon) so they redraw on return.
+
+#### God mode
+
+God mode (``--god`` CLI or per-player registry flag) is
+embedded in the HTML as ``window.NHC_GOD_MODE`` at page load.
+It enables debug toolbar buttons and the debug panel but does
+**not** auto-reveal the hex fog — use the debug panel's fog
+layer toggle to see the full map visually. God mode disables
+encounter rolls and marks all rumours truthful.
+
+#### Debug bundle
+
+The toolbar's debug-bundle button (or the ``./debug-bundle``
+script with optional SSH tunnel) captures:
+
+- game state JSON (ECS, hex world, stats)
+- floor SVGs (dungeon depths)
+- layer PNGs (all canvas layers, downscaled to CSS display
+  size) plus a composite PNG reflecting the player's view
+  (respects debug panel layer visibility toggles)
+- browser console log (last 500 entries)
+- autosave binary, server log
+
+The ``./debug-bundle`` script sends a ``capture_layers``
+WebSocket message to the browser, waits for the PNGs to
+upload, then downloads the tarball.
 
 Flat-top axial layout math:
 
 ```
-size = HEX_SIZE                       # tile half-width
-width  = sqrt(3) * size               # screen width per hex
-height = 2 * size                     # screen height per hex
-x = q * width + (r % 2) * width / 2   # column stagger
-y = r * height * 3/4                  # row pitch
+HEX_SIZE  = 36              # hex radius (centre → corner)
+HEX_WIDTH = 2 * HEX_SIZE    # 72 px corner-to-corner
+HEX_HEIGHT = sqrt(3) * HEX_SIZE   # ~62 px edge-to-edge
+
+x = HEX_SIZE * 1.5 * q - origin_x + margin
+y = HEX_SIZE * (sqrt(3)/2 * q + sqrt(3) * r) - origin_y + margin
 ```
 
-Status bar shows: `Day 3 . Morning . HP 18/20 . Hex (3,5) Stonecross`.
+The server computes the pixel origin (min x/y of all hex
+centres) and ships it in the ``state_hex`` payload so the
+client offsets all positions for uniform margin padding.
 
 ### Terminal
 
@@ -802,8 +873,10 @@ with the existing dungeon tools:
 The admin web UI gains a "Hex" panel exposing the same operations
 for live sessions.
 
-God mode (`--god`) extends to hex mode: invulnerability, all hexes
-revealed, all rumors marked truthful, no encounter checks.
+God mode (``--god`` CLI or per-player registry flag) extends to
+hex mode: invulnerability, all rumors marked truthful, no
+encounter checks. Fog of war is **not** auto-revealed — use
+the debug panel's fog layer toggle to see the full map.
 
 ---
 
