@@ -48,6 +48,21 @@ LAIR_MIN_SIZE = 4
 # the earliest floors (reserved for scattered encounters, nests).
 LAIR_MIN_DEPTH = 3
 
+# Cave lair creatures: beasts and monsters that inhabit natural
+# cave systems PLUS humanoid bands that camp underground. The
+# combined pool means cave lairs can be a bear den, a spider
+# nest, or a goblin outpost.
+CAVE_LAIR_CREATURES: list[str] = [
+    # Beasts
+    "black_bear", "brown_bear", "dire_wolf", "wolf",
+    "giant_scorpion", "giant_snake", "basilisk",
+    "giant_tarantula", "warg",
+    # Humanoids
+    "kobold", "goblin", "hobgoblin", "gnoll", "orc", "bugbear",
+]
+CAVE_LAIR_PROBABILITY = 0.35  # higher: cave Floor 2 IS the lair
+CAVE_LAIR_MIN_DEPTH = 1       # no depth gate for caves
+
 # Temple: cross-shaped sanctuary with a priest who heals, removes
 # curses, blesses, and sells holy goods.  Guaranteed at depth 2;
 # probabilistic on later floors.
@@ -133,7 +148,18 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
 
     # ── Pre-pass: assign lair (1-3 connected rooms) ──
     lair_ids: set[str] = set()
-    _try_place_lair(level, connections, lair_ids, rng)
+    theme = (level.metadata.theme if level.metadata else "dungeon")
+    if theme == "cave":
+        # Cave lairs: beast/monster species, higher chance,
+        # no depth gate.
+        _try_place_lair(
+            level, connections, lair_ids, rng,
+            min_depth=CAVE_LAIR_MIN_DEPTH,
+            probability=CAVE_LAIR_PROBABILITY,
+            creature_pool=CAVE_LAIR_CREATURES,
+        )
+    else:
+        _try_place_lair(level, connections, lair_ids, rng)
     if lair_ids:
         specials_placed += 1
 
@@ -484,38 +510,48 @@ def _try_place_lair(
     connections: dict[str, int],
     lair_ids: set[str],
     rng: random.Random,
+    *,
+    min_depth: int = LAIR_MIN_DEPTH,
+    probability: float = LAIR_PROBABILITY,
+    creature_pool: list[str] | None = None,
 ) -> None:
     """Try to place one lair of 1-3 connected rooms.
 
     Tags selected rooms as "lair", paints creatures, and places
     reactivatable traps in surrounding rooms.
+
+    Parameters are configurable so cave-themed levels can call
+    with a beast pool and different depth/probability gates.
+    When ``creature_pool`` is given it overrides the depth-tiered
+    :data:`LAIR_CREATURES` lookup.
     """
-    # Gate lair generation by depth — early floors don't host them.
-    if level.depth < LAIR_MIN_DEPTH:
+    if level.depth < min_depth:
         return
 
     room_map = {r.id: r for r in level.rooms}
     skip_tags = {"entry", "exit", "vault"}
 
-    # Find candidate seed rooms
+    # Connection requirement: dungeon lairs need at least one
+    # corridor connecting the room so the lair isn't isolated.
+    # Cave lairs skip this because cellular caves have no
+    # corridors — rooms are connected via shared floor tiles.
+    need_conn = bool(level.corridors)
     candidates = [
         r for r in level.rooms
         if not any(t in skip_tags for t in r.tags)
         and r.rect.width >= LAIR_MIN_SIZE
         and r.rect.height >= LAIR_MIN_SIZE
-        and connections.get(r.id, 0) >= 1
+        and (not need_conn or connections.get(r.id, 0) >= 1)
     ]
-    if not candidates or rng.random() >= LAIR_PROBABILITY:
+    if not candidates or rng.random() >= probability:
         return
 
     seed_room = rng.choice(candidates)
 
-    # Expand to 1-3 connected rooms
     lair_rooms = [seed_room]
     max_rooms = rng.randint(1, 3)
 
     if max_rooms > 1:
-        # Find rooms connected via corridors
         neighbors: list[Room] = []
         for corridor in level.corridors:
             if seed_room.id not in corridor.connects:
@@ -533,18 +569,22 @@ def _try_place_lair(
             if nb not in lair_rooms:
                 lair_rooms.append(nb)
 
-    # Pick creature species based on depth
-    difficulty = min(max(1, level.depth), max(LAIR_CREATURES.keys()))
-    species_pool = LAIR_CREATURES.get(difficulty, LAIR_CREATURES[1])
-    species = rng.choice(species_pool)
+    # Pick creature species.
+    if creature_pool:
+        species = rng.choice(creature_pool)
+    else:
+        difficulty = min(max(1, level.depth),
+                         max(LAIR_CREATURES.keys()))
+        species_pool = LAIR_CREATURES.get(
+            difficulty, LAIR_CREATURES[1],
+        )
+        species = rng.choice(species_pool)
 
-    # Tag and paint each lair room
     for room in lair_rooms:
         room.tags.append("lair")
         lair_ids.add(room.id)
         _paint_lair_room(level, room, species, rng)
 
-    # Place reactivatable traps in surrounding rooms
     _paint_lair_traps(level, lair_ids, room_map, rng)
 
 
