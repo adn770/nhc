@@ -105,18 +105,45 @@ def _adjacent_to_settlement(
     return False
 
 
+def _near_river(
+    coord: HexCoord,
+    cells: dict[HexCoord, HexCell],
+) -> bool:
+    """True if *coord* or any of its neighbours has a river segment."""
+    cell = cells.get(coord)
+    if cell is not None and any(s.type == "river" for s in cell.edges):
+        return True
+    for n in neighbors(coord):
+        ncell = cells.get(n)
+        if ncell is not None and any(
+            s.type == "river" for s in ncell.edges
+        ):
+            return True
+    return False
+
+
 def pick_hub(
     hexes_by_biome: dict[Biome, list[HexCoord]],
     rng: random.Random,
+    cells: dict[HexCoord, HexCell] | None = None,
 ) -> HexCoord | None:
-    """Pick a greenlands hex for the hub; fall back to drylands."""
-    greens = list(hexes_by_biome.get(Biome.GREENLANDS, []))
-    if greens:
-        return rng.choice(greens)
-    drys = list(hexes_by_biome.get(Biome.DRYLANDS, []))
-    if drys:
-        return rng.choice(drys)
-    return None
+    """Pick a greenlands hex for the hub; fall back to drylands.
+
+    When *cells* is provided and contains rivers, the hub
+    prefers hexes within distance 1 of a river hex. Falls back
+    to a random candidate if no river-adjacent hex exists.
+    """
+    pool = list(hexes_by_biome.get(Biome.GREENLANDS, []))
+    if not pool:
+        pool = list(hexes_by_biome.get(Biome.DRYLANDS, []))
+    if not pool:
+        return None
+    # Soft river-proximity preference.
+    if cells is not None:
+        river_adj = [c for c in pool if _near_river(c, cells)]
+        if river_adj:
+            return rng.choice(river_adj)
+    return rng.choice(pool)
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +251,7 @@ def place_features(
     Returns the hub coord so the caller can stash it on
     ``HexWorld.last_hub``.
     """
-    hub = pick_hub(hexes_by_biome, rng)
+    hub = pick_hub(hexes_by_biome, rng, cells)
     if hub is None:
         raise FeaturePlacementError(
             "no greenlands / drylands hex for hub",
@@ -250,6 +277,11 @@ def place_features(
         ) if c not in taken
     ]
     rng.shuffle(village_pool)
+    # Soft river-proximity preference: river-adjacent candidates
+    # appear first in the pool so they are tried before distant ones.
+    village_pool.sort(
+        key=lambda c: (0 if _near_river(c, cells) else 1),
+    )
     placed_villages = 0
     for c in village_pool:
         if placed_villages >= n_villages:
