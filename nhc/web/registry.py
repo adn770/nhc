@@ -50,6 +50,8 @@ class PlayerRegistry:
                 p.setdefault("god_mode", False)
                 p.setdefault("lang", "")
                 p.setdefault("last_seen", 0.0)
+                p.setdefault("world", "dungeon")
+                p.setdefault("difficulty", "medium")
             logger.info("Loaded %d players from %s",
                         len(self._players), self._path)
         except Exception:
@@ -168,6 +170,19 @@ class PlayerRegistry:
             for p in self._players:
                 if p["player_id"] == player_id:
                     p["lang"] = lang
+                    self._save()
+                    return True
+        return False
+
+    def set_preferences(
+        self, player_id: str, world: str, difficulty: str,
+    ) -> bool:
+        """Save the player's world/difficulty preferences."""
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] == player_id:
+                    p["world"] = world
+                    p["difficulty"] = difficulty
                     self._save()
                     return True
         return False

@@ -837,9 +837,15 @@ def create_app(
             logger.warning("Session limit: %s", exc)
             return jsonify({"error": str(exc)}), 429
 
-        # Persist language preference for returning players
+        # Persist language and game preferences for returning players
         if registry and pid and session.lang:
             registry.set_lang(pid, session.lang)
+        if registry and pid:
+            registry.set_preferences(
+                pid,
+                world_mode.world_type.value,
+                world_mode.difficulty.value,
+            )
 
         # Initialize i18n and create the game instance
         from nhc.i18n import init as i18n_init
