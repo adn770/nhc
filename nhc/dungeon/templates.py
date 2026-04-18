@@ -101,4 +101,7 @@ def apply_template(
     if template.theme != "dungeon":
         effective.theme = template.theme
 
+    if template.preferred_shapes:
+        effective.preferred_shapes = list(template.preferred_shapes)
+
     return effective

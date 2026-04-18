@@ -78,6 +78,7 @@ class TestGenerationParamsToDict:
             "corridor_style", "density", "connectivity", "theme",
             "seed", "dead_ends", "secret_doors", "water_features",
             "multiple_stairs", "shape_variety", "template",
+            "preferred_shapes",
         }
         assert set(d.keys()) == expected
 

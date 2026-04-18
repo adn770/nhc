@@ -141,7 +141,8 @@ class BSPGenerator(DungeonGenerator):
 
         # ── Step 1: Carve rooms ──
         shapes = [
-            _pick_shape(rect, params.shape_variety, rng)
+            _pick_shape(rect, params.shape_variety, rng,
+                        preferred_shapes=params.preferred_shapes)
             for rect in rects
         ]
         # Depth 2 must always offer a temple sanctuary — force one

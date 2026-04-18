@@ -35,6 +35,7 @@ class GenerationParams:
     multiple_stairs: bool = False
     shape_variety: float = 0.0  # 0.0 = all rect, 1.0 = all non-rect
     template: str | None = None  # structural template, e.g. "procedural:tower"
+    preferred_shapes: list[str] | None = None  # restrict shape selection
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-friendly dictionary."""
@@ -57,6 +58,7 @@ class GenerationParams:
             "multiple_stairs": self.multiple_stairs,
             "shape_variety": self.shape_variety,
             "template": self.template,
+            "preferred_shapes": self.preferred_shapes,
         }
 
     @classmethod
