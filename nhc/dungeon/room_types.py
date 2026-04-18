@@ -294,9 +294,13 @@ def _assign_keep_types(
         key=lambda r: r.rect.width * r.rect.height,
     )
 
-    # Force courtyard on the largest room
+    # Force courtyard on the largest room. Keeps are the player's
+    # safe base (Caves of Chaos pattern), so the courtyard and
+    # barracks rooms are tagged "safe" to suppress hostile spawns
+    # in the populator.
     largest.tags = [t for t in largest.tags if t in preserved]
     largest.tags.append("courtyard")
+    largest.tags.append("safe")
 
     for room in level.rooms:
         if "vault" in room.tags or room is largest:
@@ -319,6 +323,7 @@ def _assign_keep_types(
             room.tags.append("gate")
         else:
             room.tags.append("barracks")
+            room.tags.append("safe")
 
 
 def _paint_room(

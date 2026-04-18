@@ -426,9 +426,12 @@ def populate_level(
     if trap_count is None:
         trap_count = max(0, level.depth - 1) + rng.randint(0, 1)
 
-    # Gather valid rooms (skip entry room — player spawn)
+    # Gather valid rooms (skip entry room — player spawn).
+    # "safe" rooms (keeps, future safe zones) are also excluded
+    # so hostile creatures cannot spawn in the player's base.
     placeable = [r for r in level.rooms
                  if "entry" not in r.tags
+                 and "safe" not in r.tags
                  and r.rect.width >= 3 and r.rect.height >= 3]
     # Also skip rooms already populated by room_types painters
     special_tags = {"treasury", "armory", "library", "crypt",
@@ -440,10 +443,14 @@ def populate_level(
     if not combat_rooms:
         combat_rooms = placeable
     # Last resort: include all rooms (even entry) so the
-    # level is never completely empty of creatures.
+    # level is never completely empty of creatures. Still
+    # exclude safe rooms — the keep stays hostile-free even
+    # when the map is otherwise unpopulatable.
     if not combat_rooms:
         combat_rooms = [r for r in level.rooms
-                        if r.rect.width >= 3 and r.rect.height >= 3]
+                        if "safe" not in r.tags
+                        and r.rect.width >= 3
+                        and r.rect.height >= 3]
     if not combat_rooms:
         return
 
