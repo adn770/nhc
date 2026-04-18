@@ -177,7 +177,7 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
             if sub_path and len(sub_path) >= 2:
                 scale = HEX_RADIUS / 2.5
                 s3 = math.sqrt(3)
-                jitter = HEX_RADIUS * 0.20
+                jitter = HEX_RADIUS * 0.15
                 last = len(sub_path) - 1
                 # Edge midpoints for anchoring first/last points
                 # so curves meet at hex boundaries.
@@ -192,11 +192,14 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
                 pts = []
                 for i, p in enumerate(sub_path):
                     # First point: snap to entry edge midpoint
+                    # and skip the ring-2 sub-hex entirely so
+                    # the curve doesn't bulge toward the hex
+                    # boundary.
                     if i == 0 and seg.entry_edge is not None:
                         mx, my = _mids[seg.entry_edge]
                         pts.append((ox + mx, oy + my))
                         continue
-                    # Last point: snap to exit edge midpoint
+                    # Last point: same treatment.
                     if i == last and seg.exit_edge is not None:
                         mx, my = _mids[seg.exit_edge]
                         pts.append((ox + mx, oy + my))
@@ -207,6 +210,16 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
                         # Source/sink: use projected sub-hex pos
                         pts.append((bx, by))
                         continue
+                    # Clamp interior points to stay well inside
+                    # the hex (max 70% of radius from center).
+                    dx = bx - ox
+                    dy = by - oy
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    max_r = HEX_RADIUS * 0.70
+                    if dist > max_r:
+                        ratio = max_r / dist
+                        bx = ox + dx * ratio
+                        by = oy + dy * ratio
                     h1 = _jitter_hash(p.q, p.r, i * 2)
                     h2 = _jitter_hash(p.q, p.r, i * 2 + 1)
                     jx = ((h1 % 1000) / 500 - 1) * jitter

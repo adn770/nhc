@@ -762,11 +762,22 @@ const HexMap = {
         const [mx, my] = mids[seg.exit];
         return { x: cx + mx, y: cy + my };
       }
-      const bx = cx + scale * 1.5 * p.q;
-      const by = cy + scale * (s3 / 2 * p.q + s3 * p.r);
+      let bx = cx + scale * 1.5 * p.q;
+      let by = cy + scale * (s3 / 2 * p.q + s3 * p.r);
       // Source/sink points: no jitter
       if (i === 0 || i === last) {
         return { x: bx, y: by };
+      }
+      // Clamp interior points to stay inside the hex (max 70%
+      // of radius from center) so curves don't bulge into
+      // adjacent tiles.
+      const ddx = bx - cx, ddy = by - cy;
+      const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+      const maxR = HEX_SIZE * 0.70;
+      if (dist > maxR) {
+        const ratio = maxR / dist;
+        bx = cx + ddx * ratio;
+        by = cy + ddy * ratio;
       }
       const h1 = this._jitterHash(p.q, p.r, i * 2);
       const h2 = this._jitterHash(p.q, p.r, i * 2 + 1);
