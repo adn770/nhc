@@ -1,0 +1,92 @@
+id: room.dressing.smell
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: damp_moss
+    text: L'aire fa olor d'humitat i pedra mullada.
+    only_if:
+      room_type: [crypt, standard]
+  - id: rusted_iron
+    text: Una punxada agra de ferro rovellat impregna l'ambient.
+    only_if:
+      room_type: [barracks, armory]
+  - id: old_tallow
+    text: El sèu vell i el fum s'enganxen a les parets.
+    only_if:
+      room_type: [barracks, standard]
+  - id: dust_parchment
+    text: L'olor de pols i pergamí vell omple la sala.
+    only_if:
+      room_type: [library, standard]
+  - id: incense_faded
+    text: Un rastre esvaït d'encens flota en l'aire quiet.
+    only_if:
+      room_type: [shrine, temple]
+  - id: rot_decay
+    text: Una pudor agra de descomposició sura entre les esquerdes.
+    only_if:
+      room_type: [crypt, standard]
+---
+id: room.dressing.sight
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: cobwebs_corners
+    text: Teranyines espesses pengen dels racons.
+    only_if:
+      room_type: [crypt, standard]
+  - id: weapon_racks
+    text: Suports d'armes buits es rengleren a la paret del fons.
+    only_if:
+      room_type: [barracks, armory]
+  - id: faded_banner
+    text: Un estendard descolorit penja d'un ganxo rovellat.
+    only_if:
+      room_type: [barracks, standard]
+  - id: scattered_bones
+    text: Ossos escampats cobreixen el terra.
+    only_if:
+      room_type: [crypt, lair, nest]
+  - id: cracked_altar
+    text: Un altar de pedra esquerdat domina el centre.
+    only_if:
+      room_type: [shrine, temple]
+  - id: toppled_shelves
+    text: Prestatgeries tombades escampen rotlles podrits pel terra.
+    only_if:
+      room_type: [library, standard]
+---
+id: room.dressing.sound
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: dripping_water
+    text: L'aigua degota constantment en algun racó fosc.
+    only_if:
+      room_type: [crypt, standard]
+  - id: faint_scraping
+    text: Un raspat feble ressona darrere les parets.
+    only_if:
+      room_type: [standard, lair, nest]
+  - id: wind_whistles
+    text: El vent xiula a través d'una esquerda a l'obra.
+    only_if:
+      room_type: [barracks, standard]
+  - id: silence_heavy
+    text: El silenci aquí és dens i opressiu.
+    only_if:
+      room_type: [crypt, shrine, temple]
+  - id: chains_rattle
+    text: Cadenes llunyanes dringuegen feblament.
+    only_if:
+      room_type: [barracks, armory, standard]
+  - id: rustling_pages
+    text: Alguna cosa remou, com pàgines que es giren soles.
+    only_if:
+      room_type: [library, standard]

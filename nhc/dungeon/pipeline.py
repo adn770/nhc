@@ -66,6 +66,43 @@ def generate_level(params: GenerationParams) -> Level:
                 fn(level, rng)
 
     assign_room_types(level, rng)
+    # Fork a separate RNG for dressing so we don't shift the
+    # downstream seed sequence (terrain, population).
+    dressing_rng = random.Random(seed ^ 0x44524553)  # "DRES"
+    _roll_room_dressing(level, dressing_rng)
     apply_terrain(level, rng)
     populate_level(level, rng=rng)
     return level
+
+
+def _roll_room_dressing(level: "Level", rng: "random.Random") -> None:
+    """Roll smell/sight/sound dressing for each room."""
+    from nhc.i18n import current_lang
+    from nhc.tables.registry import TableRegistry
+    from nhc.tables.roller import NoMatchingEntriesError
+
+    lang = current_lang()
+    registry = TableRegistry.get_or_load(lang)
+
+    for room in level.rooms:
+        room_type = _primary_room_type(room.tags)
+        ctx = {"room_type": room_type}
+        for aspect in ("smell", "sight", "sound"):
+            table_id = f"room.dressing.{aspect}"
+            try:
+                result = registry.roll(table_id, rng=rng, context=ctx)
+                room.dressing[aspect] = result.text
+            except (NoMatchingEntriesError, KeyError):
+                pass
+
+
+def _primary_room_type(tags: list[str]) -> str:
+    """Pick the most specific room type tag for dressing context."""
+    for tag in tags:
+        if tag in (
+            "crypt", "barracks", "armory", "library",
+            "shrine", "temple", "lair", "nest",
+            "treasury", "trap_room", "garden",
+        ):
+            return tag
+    return "standard"

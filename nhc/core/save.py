@@ -243,6 +243,7 @@ def _serialize_level(level: Level) -> dict[str, Any]:
             "tags": room.tags,
             "description": room.description,
             "connections": room.connections,
+            "dressing": room.dressing,
         }
         if room.shape.type_name != "rect":
             rd["shape"] = room.shape.type_name
@@ -309,6 +310,7 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
             tags=rd.get("tags", []),
             description=rd.get("description", ""),
             connections=rd.get("connections", []),
+            dressing=rd.get("dressing", {}),
         ))
 
     corridors = []

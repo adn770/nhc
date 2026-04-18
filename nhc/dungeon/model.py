@@ -624,6 +624,7 @@ class Room:
     tags: list[str] = field(default_factory=list)
     description: str = ""
     connections: list[str] = field(default_factory=list)
+    dressing: dict[str, str] = field(default_factory=dict)
 
     def floor_tiles(self) -> set[tuple[int, int]]:
         """Return the set of (x, y) tiles belonging to this room."""

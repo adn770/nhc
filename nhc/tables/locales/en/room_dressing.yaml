@@ -1,0 +1,92 @@
+id: room.dressing.smell
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: damp_moss
+    text: The air smells of damp moss and wet stone.
+    only_if:
+      room_type: [crypt, standard]
+  - id: rusted_iron
+    text: A sharp tang of rusted iron lingers here.
+    only_if:
+      room_type: [barracks, armory]
+  - id: old_tallow
+    text: Old tallow and smoke cling to the walls.
+    only_if:
+      room_type: [barracks, standard]
+  - id: dust_parchment
+    text: The scent of dust and old parchment fills the room.
+    only_if:
+      room_type: [library, standard]
+  - id: incense_faded
+    text: A faded hint of incense hangs in the still air.
+    only_if:
+      room_type: [shrine, temple]
+  - id: rot_decay
+    text: A sour reek of decay seeps from the cracks.
+    only_if:
+      room_type: [crypt, standard]
+---
+id: room.dressing.sight
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: cobwebs_corners
+    text: Thick cobwebs drape from the corners.
+    only_if:
+      room_type: [crypt, standard]
+  - id: weapon_racks
+    text: Empty weapon racks line the far wall.
+    only_if:
+      room_type: [barracks, armory]
+  - id: faded_banner
+    text: A faded banner hangs from a rusted hook.
+    only_if:
+      room_type: [barracks, standard]
+  - id: scattered_bones
+    text: Scattered bones litter the floor.
+    only_if:
+      room_type: [crypt, lair, nest]
+  - id: cracked_altar
+    text: A cracked stone altar dominates the centre.
+    only_if:
+      room_type: [shrine, temple]
+  - id: toppled_shelves
+    text: Toppled shelves spill rotted scrolls across the floor.
+    only_if:
+      room_type: [library, standard]
+---
+id: room.dressing.sound
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: dripping_water
+    text: Water drips steadily somewhere in the dark.
+    only_if:
+      room_type: [crypt, standard]
+  - id: faint_scraping
+    text: A faint scraping echoes beyond the walls.
+    only_if:
+      room_type: [standard, lair, nest]
+  - id: wind_whistles
+    text: Wind whistles through a crack in the masonry.
+    only_if:
+      room_type: [barracks, standard]
+  - id: silence_heavy
+    text: The silence here is heavy and oppressive.
+    only_if:
+      room_type: [crypt, shrine, temple]
+  - id: chains_rattle
+    text: Distant chains rattle faintly.
+    only_if:
+      room_type: [barracks, armory, standard]
+  - id: rustling_pages
+    text: Something rustles, like pages turning on their own.
+    only_if:
+      room_type: [library, standard]
