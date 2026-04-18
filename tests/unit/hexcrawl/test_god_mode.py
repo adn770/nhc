@@ -21,7 +21,7 @@ import pytest
 from nhc.core.game import Game
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.mode import GameMode
-from nhc.hexcrawl.rumors import generate_rumors_god_mode
+from nhc.hexcrawl.rumor_pool import generate_rumors_god_mode
 from nhc.i18n import init as i18n_init
 
 
@@ -131,7 +131,7 @@ def test_non_god_generator_still_mixes_truth(tmp_path) -> None:
     """Sanity: the normal generate_rumors continues to produce a
     mix under the same world -- god mode is the only flag that
     flips every rumor true."""
-    from nhc.hexcrawl.rumors import generate_rumors
+    from nhc.hexcrawl.rumor_pool import generate_rumors
     g = _make_hex_game(tmp_path, god=False)
     rumors = generate_rumors(g.hex_world, seed=1, count=6)
     truths = [r for r in rumors if r.truth]

@@ -21,7 +21,7 @@ class InnkeeperInteractAction(Action):
     """Bump an innkeeper and hear a rumor from the overland pool.
 
     Consumes the head of :attr:`HexWorld.active_rumors` via
-    :func:`nhc.hexcrawl.rumors.gather_rumor_at`, applies the
+    :func:`nhc.hexcrawl.rumor_pool.consume_rumor`, applies the
     reveal side-effect, and emits a localized
     :class:`MessageEvent` so the player sees the lead. An empty
     pool yields a polite "nothing new today" beat so the bump

@@ -32,7 +32,7 @@ def setup_module():
 
 
 def test_rumor_generation_populates_source() -> None:
-    from nhc.hexcrawl.rumors import generate_rumors
+    from nhc.hexcrawl.rumor_pool import generate_rumors
 
     world = _world()
     rumors = generate_rumors(world, seed=1, count=3, lang="en")
@@ -49,7 +49,7 @@ def test_rumor_generation_populates_source() -> None:
 
 
 def test_rumor_text_is_rendered_not_a_key() -> None:
-    from nhc.hexcrawl.rumors import generate_rumors
+    from nhc.hexcrawl.rumor_pool import generate_rumors
 
     world = _world()
     rumors = generate_rumors(world, seed=1, count=3, lang="en")
@@ -68,7 +68,7 @@ def test_rumor_text_is_rendered_not_a_key() -> None:
 
 def test_rumor_save_roundtrip_preserves_source() -> None:
     from nhc.core.save import _deserialize_hex_world, _serialize_hex_world
-    from nhc.hexcrawl.rumors import generate_rumors
+    from nhc.hexcrawl.rumor_pool import generate_rumors
 
     world = _world()
     world.active_rumors = generate_rumors(
@@ -114,7 +114,7 @@ def _minimal_hex_data(world):
 
 
 def test_generate_rumors_uses_table_registry() -> None:
-    from nhc.hexcrawl.rumors import generate_rumors
+    from nhc.hexcrawl.rumor_pool import generate_rumors
     from nhc.tables.registry import TableRegistry
 
     world = _world()
@@ -126,7 +126,7 @@ def test_generate_rumors_uses_table_registry() -> None:
 
 
 def test_refresh_rumor_language_swaps_text_preserves_id_and_reveals() -> None:
-    from nhc.hexcrawl.rumors import generate_rumors, refresh_rumor_language
+    from nhc.hexcrawl.rumor_pool import generate_rumors, refresh_rumor_language
 
     world = _world()
     rumors = generate_rumors(world, seed=1, count=1, lang="en")

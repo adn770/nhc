@@ -1445,12 +1445,6 @@ encounter:
 
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
-  true_feature: >-
-    El taverner s'acosta i xiuxiueja: "Diuen que hi ha alguna cosa
-    a l'hex ({q}, {r}). Val la pena fer-hi un cop d'ull."
-  false_lead: >-
-    Un vell bevent remuga: "Vaig veure una cosa estranya prop de
-    ({q}, {r}), fa anys." La història fa pudor.
   none: >-
     El taverner arronsa les espatlles. "Avui no hi ha novetats,
     viatger."

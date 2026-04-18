@@ -25,7 +25,7 @@ from nhc.debug_tools.tools.hex_tools import (
 )
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.mode import GameMode
-from nhc.hexcrawl.rumors import generate_rumors_god_mode
+from nhc.hexcrawl.rumor_pool import generate_rumors_god_mode
 from nhc.i18n import init as i18n_init
 
 

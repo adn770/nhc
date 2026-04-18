@@ -1371,12 +1371,6 @@ encounter:
 
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
-  true_feature: >-
-    El posadero se acerca y susurra: "Dicen que hay algo en la
-    hex ({q}, {r}). Vale la pena echar un vistazo."
-  false_lead: >-
-    Un viejo parroquiano masculla: "Vi algo raro cerca de
-    ({q}, {r}), hace años." El cuento no huele bien.
   none: >-
     El posadero se encoge de hombros. "Nada nuevo hoy, viajero."
   come_back_later: >-

@@ -1339,12 +1339,6 @@ encounter:
 
 
 rumor:
-  true_feature: >-
-    The innkeeper leans close and whispers: "Folks swear there's
-    something at hex ({q}, {r}). Worth a look."
-  false_lead: >-
-    An old timer nurses his ale and mumbles: "Saw something queer
-    out near ({q}, {r}), years ago." The tale feels thin.
   none: >-
     The innkeeper shrugs. "Nothing new today, traveller."
   come_back_later: >-

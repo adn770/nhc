@@ -16,7 +16,7 @@ from pathlib import Path
 from nhc.hexcrawl._generator import generate_continental_world
 from nhc.hexcrawl.model import HexFeatureType, Rumor
 from nhc.hexcrawl.pack import load_pack
-from nhc.hexcrawl.rumors import (
+from nhc.hexcrawl.rumor_pool import (
     gather_rumor_at,
     generate_rumors,
 )
