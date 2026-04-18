@@ -444,7 +444,7 @@ class TestBiomeAssignment:
         erosion, plates = _make_erosion()
         rng = random.Random(42)
         cells, by_biome = assign_biomes(
-            rng, _params(), erosion, plates,
+            rng, _params(), erosion, plates, _WIDTH, _HEIGHT,
         )
         for essential in (
             Biome.GREENLANDS, Biome.MOUNTAIN,
@@ -461,7 +461,7 @@ class TestBiomeAssignment:
         erosion, plates = _make_erosion()
         rng = random.Random(42)
         cells, by_biome = assign_biomes(
-            rng, _params(), erosion, plates,
+            rng, _params(), erosion, plates, _WIDTH, _HEIGHT,
         )
         mountain_hexes = by_biome[Biome.MOUNTAIN]
         if len(mountain_hexes) < 2:
@@ -488,7 +488,7 @@ class TestBiomeAssignment:
         erosion, plates = _make_erosion()
         rng = random.Random(42)
         cells, by_biome = assign_biomes(
-            rng, _params(), erosion, plates,
+            rng, _params(), erosion, plates, _WIDTH, _HEIGHT,
         )
         distinct = sum(1 for v in by_biome.values() if v)
         assert distinct >= 6
@@ -500,7 +500,7 @@ class TestBiomeAssignment:
         erosion, plates = _make_erosion()
         rng = random.Random(42)
         cells, by_biome = assign_biomes(
-            rng, _params(), erosion, plates,
+            rng, _params(), erosion, plates, _WIDTH, _HEIGHT,
         )
         for h in by_biome[Biome.WATER]:
             assert cells[h].elevation < _params().sea_level
@@ -511,9 +511,11 @@ class TestBiomeAssignment:
         erosion, plates = _make_erosion()
         cells_a, _ = assign_biomes(
             random.Random(42), _params(), erosion, plates,
+            _WIDTH, _HEIGHT,
         )
         cells_b, _ = assign_biomes(
             random.Random(42), _params(), erosion, plates,
+            _WIDTH, _HEIGHT,
         )
         for h in cells_a:
             assert cells_a[h].biome == cells_b[h].biome

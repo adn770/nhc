@@ -451,35 +451,70 @@ def _biome_from_em(
     m: float,
     sea_level: float,
     is_near_convergent: bool,
+    latitude: float,
 ) -> Biome:
-    """Whittaker-style biome lookup from elevation and moisture."""
+    """Whittaker-style biome lookup from elevation and moisture.
+
+    *latitude* is a normalised value from -1 (north) to +1
+    (south). Cold biomes (icelands) are pushed north, warm
+    biomes (sandlands, drylands) are pushed south.
+    """
     if e < sea_level:
         return Biome.WATER
 
     # Mountain threshold is lower near convergent boundaries
-    # to create coherent mountain ranges. The thresholds are
-    # tuned for the biased noise output (continent_bias shifts
-    # the distribution upward).
+    # to create coherent mountain ranges.
     mt_threshold = 0.75 if is_near_convergent else 0.85
     if e >= mt_threshold:
         return Biome.MOUNTAIN
     if e >= 0.60:
         return Biome.HILLS if m >= 0.20 else Biome.DRYLANDS
+
+    # Mid-elevation band: latitude influences biome choice.
     if e >= 0.35:
         if m >= 0.30:
             return Biome.FOREST
         if m >= -0.20:
+            # Cold latitudes get icelands instead of greenlands
+            if latitude < -0.5:
+                return Biome.ICELANDS
             return Biome.GREENLANDS
+        # Warm latitudes get sandlands, cold get icelands
+        if latitude > 0.3:
+            return Biome.SANDLANDS
+        if latitude < -0.5:
+            return Biome.ICELANDS
         return Biome.DRYLANDS
+
+    # Low-elevation band: strong latitude influence.
     if e >= 0.10:
+        if latitude < -0.4:
+            # Northern low ground: icelands or tundra
+            if m >= 0.30:
+                return Biome.MARSH
+            return Biome.ICELANDS
+        if latitude > 0.4:
+            # Southern low ground: hot and dry
+            if m >= 0.60:
+                return Biome.SWAMP
+            if m >= 0.20:
+                return Biome.MARSH
+            return Biome.SANDLANDS
+        # Temperate low ground
         if m >= 0.60:
             return Biome.SWAMP
         if m >= 0.20:
             return Biome.MARSH
         if m >= -0.30:
-            return Biome.SANDLANDS
+            return Biome.GREENLANDS
         return Biome.DEADLANDS
-    return Biome.ICELANDS
+
+    # Very low elevation: latitude-driven
+    if latitude < -0.2:
+        return Biome.ICELANDS
+    if latitude > 0.3:
+        return Biome.SANDLANDS
+    return Biome.DEADLANDS
 
 
 # Essential biomes that must exist for feature placement.
@@ -511,11 +546,64 @@ def _repair_essentials(
                 break
 
 
+def _remove_interior_water(
+    cells: dict[HexCoord, HexCell],
+    hexes_by_biome: dict[Biome, list[HexCoord]],
+    width: int,
+    height: int,
+) -> None:
+    """Convert interior water to land biomes.
+
+    Flood-fill from edge water hexes. Any water hex not
+    reachable from the map edge is interior and gets converted
+    to marsh (wet) or greenlands (dry) based on moisture.
+    """
+    from nhc.hexcrawl.coords import valid_shape_hex
+
+    water_hexes = set(hexes_by_biome[Biome.WATER])
+    if not water_hexes:
+        return
+
+    # Find edge hexes: hexes where at least one neighbor is
+    # outside the map bounds.
+    edge_water: set[HexCoord] = set()
+    for h in water_hexes:
+        for nbr in neighbors(h):
+            if not valid_shape_hex(nbr.q, nbr.r, width, height):
+                edge_water.add(h)
+                break
+
+    # Flood-fill from edge water to find all coastal/ocean water.
+    coastal: set[HexCoord] = set(edge_water)
+    frontier = list(edge_water)
+    while frontier:
+        current = frontier.pop()
+        for nbr in neighbors(current):
+            if nbr in water_hexes and nbr not in coastal:
+                coastal.add(nbr)
+                frontier.append(nbr)
+
+    # Interior water: water hexes not connected to the edge.
+    interior = water_hexes - coastal
+    for h in interior:
+        cell = cells[h]
+        # Convert based on elevation: low -> marsh, mid -> green
+        if cell.elevation < 0.15:
+            new_biome = Biome.MARSH
+        else:
+            new_biome = Biome.GREENLANDS
+        cell.biome = new_biome
+        hexes_by_biome[Biome.WATER].remove(h)
+        hexes_by_biome[new_biome].append(h)
+
+
 def assign_biomes(
     rng: random.Random,
     params: ContinentalParams,
     erosion: ErosionResult,
     plates: PlateResult,
+    width: int,
+    height: int,
 ) -> tuple[dict[HexCoord, HexCell], dict[Biome, list[HexCoord]]]:
     """Map post-erosion elevation + moisture to biomes.
 
@@ -532,6 +620,12 @@ def assign_biomes(
                 if h in erosion.elevation:
                     near_convergent.add(h)
 
+    # Compute the r range for latitude normalisation.
+    all_r = [h.r for h in erosion.elevation]
+    r_min_val = min(all_r)
+    r_max_val = max(all_r)
+    r_span = max(r_max_val - r_min_val, 1)
+
     cells: dict[HexCoord, HexCell] = {}
     hexes_by_biome: dict[Biome, list[HexCoord]] = {
         b: [] for b in Biome
@@ -540,12 +634,18 @@ def assign_biomes(
     for h in erosion.elevation:
         e = erosion.elevation[h]
         m = erosion.moisture[h]
+        # Latitude: -1 = north (low r), +1 = south (high r).
+        latitude = 2.0 * (h.r - r_min_val) / r_span - 1.0
         biome = _biome_from_em(
             e, m, params.sea_level, h in near_convergent,
+            latitude,
         )
         cell = HexCell(coord=h, biome=biome, elevation=e)
         cells[h] = cell
         hexes_by_biome[biome].append(h)
+
+    # Remove interior water pockets (land-locked water tiles).
+    _remove_interior_water(cells, hexes_by_biome, width, height)
 
     _repair_essentials(cells, hexes_by_biome, rng)
 
@@ -656,7 +756,9 @@ def _attempt_continental(
     erosion = hydraulic_erosion(rng, cp, warped)
 
     # Stage 5: Biome assignment.
-    cells, hexes_by_biome = assign_biomes(rng, cp, erosion, plates)
+    cells, hexes_by_biome = assign_biomes(
+        rng, cp, erosion, plates, mp.width, mp.height,
+    )
 
     # Stage 6: Rivers.
     rivers = generate_rivers_v2(
