@@ -321,8 +321,12 @@ const HexFlower = {
       container.addEventListener("mousemove", (ev) => {
         if (!this._playerPx) return;
         const rect = container.getBoundingClientRect();
-        const mx = (ev.clientX - rect.left);
-        const my = (ev.clientY - rect.top);
+        // Convert screen coords to canvas coords by dividing
+        // out the CSS zoom scale.
+        const scale = (typeof GameMap !== "undefined")
+          ? (GameMap._zoomSteps[GameMap._zoomLevel] || 1) : 1;
+        const mx = (ev.clientX - rect.left) / scale;
+        const my = (ev.clientY - rect.top) / scale;
         const dx = mx - this._playerPx.x;
         const dy = my - this._playerPx.y;
         const near = (dx * dx + dy * dy)
