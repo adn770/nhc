@@ -446,11 +446,27 @@ class Game:
 
         seed = dungeon_seed(self.seed or 0, coord, template)
         if is_settlement:
-            from nhc.hexcrawl.town import generate_town
-            self.level = generate_town(
-                seed=seed,
-                town_id=f"town_{coord.q}_{coord.r}",
-            )
+            size_class = cell.dungeon.size_class or "hamlet"
+            if size_class == "hamlet":
+                from nhc.hexcrawl.town import generate_town
+                self.level = generate_town(
+                    seed=seed,
+                    town_id=f"town_{coord.q}_{coord.r}",
+                )
+            else:
+                from nhc.dungeon.generators.settlement import (
+                    SIZE_CLASSES, SettlementGenerator,
+                )
+                sc = SIZE_CLASSES.get(size_class, SIZE_CLASSES["village"])
+                params = GenerationParams(
+                    width=sc["width"], height=sc["height"],
+                    depth=1, seed=seed,
+                    template=template,
+                )
+                self.generation_params = params
+                self.level = SettlementGenerator().generate(
+                    params, rng=random.Random(seed),
+                )
             self._maybe_seed_rumors(seed)
         elif is_cave:
             # Cave Floor 1: smaller cellular cave with stairs_down

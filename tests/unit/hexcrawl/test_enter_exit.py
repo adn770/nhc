@@ -242,6 +242,26 @@ async def test_crypt_template_passes_through(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_village_uses_settlement_generator(tmp_path) -> None:
+    """Entering a village hex uses SettlementGenerator."""
+    g = _make_game(tmp_path)
+    _attach_feature(g, HexCoord(0, 0), HexFeatureType.VILLAGE,
+                    "procedural:settlement")
+    # Set size_class on the dungeon ref
+    g.hex_world.cells[HexCoord(0, 0)].dungeon.size_class = "village"
+    await g.enter_hex_feature()
+    assert g.level is not None
+    assert g.level.metadata.theme == "settlement"
+    assert g.level.width == 40
+    assert g.level.height == 30
+    # Should have streets
+    street_tiles = sum(
+        1 for row in g.level.tiles for t in row if t.is_street
+    )
+    assert street_tiles > 0
+
+
+@pytest.mark.asyncio
 async def test_keep_template_passes_through(tmp_path) -> None:
     """Entering a keep hex generates a walled dungeon."""
     g = _make_game(tmp_path)

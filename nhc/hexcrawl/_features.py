@@ -266,7 +266,9 @@ def place_features(
     cells[hub].desc_key = "content.testland.hex.hub.description"
     # Placeholder so enter_hex_feature can land on a generated
     # town floor; actual town-map generation is M-2.1 work.
-    cells[hub].dungeon = DungeonRef(template="procedural:settlement")
+    cells[hub].dungeon = DungeonRef(
+        template="procedural:settlement", size_class="city",
+    )
     taken: set[HexCoord] = {hub}
 
     # Villages — placed one at a time with an adjacency check so
@@ -295,7 +297,9 @@ def place_features(
         if _adjacent_to_settlement(c, cells):
             continue
         cells[c].feature = HexFeatureType.VILLAGE
-        cells[c].dungeon = DungeonRef(template="procedural:settlement")
+        cells[c].dungeon = DungeonRef(
+            template="procedural:settlement", size_class="village",
+        )
         taken.add(c)
         placed_villages += 1
     if placed_villages < vt.min:

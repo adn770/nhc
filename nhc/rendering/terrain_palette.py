@@ -83,6 +83,12 @@ THEME_PALETTES: dict[str, ThemePalette] = {
         lava=TerrainStyle("#C08070", 0.12, "#8A5A4A", 0.30),
         chasm=TerrainStyle("#9A9AAA", 0.10, "#5A5A6A", 0.30),
     ),
+    "settlement": ThemePalette(
+        water=TerrainStyle("#90C0D0", 0.10, "#5A8A9A", 0.25),
+        grass=TerrainStyle("#88B888", 0.12, "#4A7A4A", 0.28),
+        lava=TerrainStyle("#D4816B", 0.10, "#A04030", 0.25),
+        chasm=TerrainStyle("#999999", 0.08, "#555555", 0.25),
+    ),
     "mine": ThemePalette(
         water=TerrainStyle("#6A8A8A", 0.15, "#4A6868", 0.35),
         grass=TerrainStyle("#6A7A5A", 0.10, "#4A5A3A", 0.28),
