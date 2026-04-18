@@ -1181,11 +1181,15 @@ class Game:
                 self._knowledge.identify(item_id)
 
         # Hex modes wrap the dungeon crawler. They build the
-        # overland HexWorld and skip the dungeon-only init below;
-        # a dungeon level will be loaded later when the player
-        # enters a hex feature (M-1.12).
+        # overland HexWorld and skip the dungeon-only level
+        # generation below; a dungeon level will be loaded later
+        # when the player enters a hex feature (M-1.12). Event
+        # handlers still need to be wired so within-dungeon
+        # actions (descend stairs, pick up items, kill creatures)
+        # reach the Game-side dispatch.
         if self.world_mode.is_hex:
             self._init_hex_world()
+            self._subscribe_event_handlers()
             return
 
         if generate:
@@ -1271,14 +1275,9 @@ class Game:
         # Spawn level entities
         self._spawn_level_entities()
 
-        # Subscribe event handlers
-        self.event_bus.subscribe(MessageEvent, self._on_message)
-        self.event_bus.subscribe(GameWon, self._on_game_won)
-        self.event_bus.subscribe(CreatureDied, self._on_creature_died)
-        self.event_bus.subscribe(LevelEntered, self._on_level_entered)
-        self.event_bus.subscribe(ItemUsed, self._on_item_used)
-        self.event_bus.subscribe(ItemSold, self._on_item_sold)
-        self.event_bus.subscribe(VisualEffect, self._on_visual_effect)
+        # Subscribe event handlers (shared with hex mode — see
+        # _subscribe_event_handlers).
+        self._subscribe_event_handlers()
 
         # Compute initial FOV
         self._update_fov()
@@ -2293,6 +2292,23 @@ class Game:
         )
         self._prefetch_thread.start()
         logger.info("Prefetch started for depth %d", depth)
+
+    def _subscribe_event_handlers(self) -> None:
+        """Wire Game-side handlers onto the event bus.
+
+        Shared by dungeon and hex modes so that actions firing
+        LevelEntered, CreatureDied, and friends reach the game
+        loop in both paths. Idempotent-ish: re-registering the
+        same (type, handler) pair would duplicate subscriptions,
+        so this method is expected to run once per Game.
+        """
+        self.event_bus.subscribe(MessageEvent, self._on_message)
+        self.event_bus.subscribe(GameWon, self._on_game_won)
+        self.event_bus.subscribe(CreatureDied, self._on_creature_died)
+        self.event_bus.subscribe(LevelEntered, self._on_level_entered)
+        self.event_bus.subscribe(ItemUsed, self._on_item_used)
+        self.event_bus.subscribe(ItemSold, self._on_item_sold)
+        self.event_bus.subscribe(VisualEffect, self._on_visual_effect)
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a dungeon level (ascending or descending)."""

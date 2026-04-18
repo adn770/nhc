@@ -81,10 +81,7 @@ async def test_underworld_sector_map_populated_on_descent(
     g.hex_player_position = members[0]
 
     await g.enter_hex_feature()
-    # Descend to the shared underworld floor. Bypass the event bus
-    # because hex-mode Game.initialize skips the LevelEntered
-    # subscribe; the handler is still a plain method.
-    g._on_level_entered(LevelEntered(
+    await g.event_bus.emit(LevelEntered(
         entity=g.player_id, level_id=g.level.id, depth=2,
     ))
 
@@ -106,7 +103,7 @@ async def test_ascending_from_sibling_sector_updates_hex_position(
     g.hex_player_position = members[0]
 
     await g.enter_hex_feature()
-    g._on_level_entered(LevelEntered(
+    await g.event_bus.emit(LevelEntered(
         entity=g.player_id, level_id=g.level.id, depth=2,
     ))
     assert g.level.depth == 2
@@ -118,7 +115,7 @@ async def test_ascending_from_sibling_sector_updates_hex_position(
     pos.x, pos.y = bx, by
 
     # Ascend from the underworld floor
-    g._on_level_entered(LevelEntered(
+    await g.event_bus.emit(LevelEntered(
         entity=g.player_id, level_id=g.level.id, depth=1,
     ))
 
@@ -136,7 +133,7 @@ async def test_ascending_from_original_sector_leaves_position_alone(
     g.hex_player_position = members[0]
 
     await g.enter_hex_feature()
-    g._on_level_entered(LevelEntered(
+    await g.event_bus.emit(LevelEntered(
         entity=g.player_id, level_id=g.level.id, depth=2,
     ))
 
@@ -145,7 +142,7 @@ async def test_ascending_from_original_sector_leaves_position_alone(
     pos = g.world.get_component(g.player_id, "Position")
     pos.x, pos.y = ax, ay
 
-    g._on_level_entered(LevelEntered(
+    await g.event_bus.emit(LevelEntered(
         entity=g.player_id, level_id=g.level.id, depth=1,
     ))
     assert g.hex_player_position == members[0]
