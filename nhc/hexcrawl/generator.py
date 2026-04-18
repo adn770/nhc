@@ -567,3 +567,15 @@ def generate_perlin_world(
     raise GeneratorRetryError(
         f"exhausted {max_attempts} attempts; last error: {last_err}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Continental V2 generator (continental_v2)
+# ---------------------------------------------------------------------------
+
+
+# Re-export from the v2 module so callers can import from
+# generator.py as usual.
+from nhc.hexcrawl._gen_v2 import (  # noqa: E402, F401
+    generate_continental_world,
+)

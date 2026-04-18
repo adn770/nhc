@@ -74,6 +74,7 @@ from nhc.core.actions._hex_movement import MoveHexAction
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.generator import (
+    generate_continental_world,
     generate_perlin_world,
     generate_test_world,
 )
@@ -1270,7 +1271,11 @@ class Game:
         # Unknown generators are rejected at pack-load time
         # (KNOWN_GENERATORS) so we only need to handle the
         # currently-shipped set here.
-        if pack.map.generator == "perlin_regions":
+        if pack.map.generator == "continental_v2":
+            self.hex_world = generate_continental_world(
+                seed=self.seed, pack=pack,
+            )
+        elif pack.map.generator == "perlin_regions":
             self.hex_world = generate_perlin_world(
                 seed=self.seed, pack=pack,
             )

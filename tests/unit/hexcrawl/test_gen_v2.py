@@ -622,3 +622,99 @@ class TestMacroEdgeOffsets:
         # Sink (last hex) has exit_edge=None -> offset=None
         seg_sink = cells[HexCoord(3, 0)].edges[0]
         assert seg_sink.exit_offset is None
+
+
+# ---------------------------------------------------------------------------
+# Integration: full pipeline
+# ---------------------------------------------------------------------------
+
+
+class TestFullPipeline:
+    """Integration tests for generate_continental_world()."""
+
+    def _make_pack(self, tmp_path) -> object:
+        import textwrap
+        from nhc.hexcrawl.pack import load_pack
+
+        body = textwrap.dedent("""
+            id: testland-v2
+            version: 2
+            map:
+              generator: continental_v2
+              width: 15
+              height: 10
+              continental:
+                plate_count: 4
+                erosion_iterations: 2
+            features:
+              hub: 1
+              village:
+                min: 1
+                max: 3
+              dungeon:
+                min: 1
+                max: 3
+              wonder:
+                min: 0
+                max: 1
+        """)
+        p = tmp_path / "pack.yaml"
+        p.write_text(body)
+        return load_pack(p)
+
+    def test_produces_hexworld(self, tmp_path) -> None:
+        from nhc.hexcrawl._gen_v2 import generate_continental_world
+        from nhc.hexcrawl.model import HexWorld
+
+        pack = self._make_pack(tmp_path)
+        world = generate_continental_world(seed=42, pack=pack)
+        assert isinstance(world, HexWorld)
+        assert len(world.cells) > 0
+
+    def test_deterministic(self, tmp_path) -> None:
+        from nhc.hexcrawl._gen_v2 import generate_continental_world
+
+        pack = self._make_pack(tmp_path)
+        a = generate_continental_world(seed=99, pack=pack)
+        b = generate_continental_world(seed=99, pack=pack)
+        assert len(a.cells) == len(b.cells)
+        for h in a.cells:
+            assert a.cells[h].biome == b.cells[h].biome
+            assert a.cells[h].elevation == b.cells[h].elevation
+
+    def test_all_cells_populated(self, tmp_path) -> None:
+        from nhc.hexcrawl._gen_v2 import generate_continental_world
+
+        pack = self._make_pack(tmp_path)
+        world = generate_continental_world(seed=42, pack=pack)
+        for coord, cell in world.cells.items():
+            assert cell.biome is not None
+            assert cell.tile_slot > 0
+
+    def test_rivers_valid(self, tmp_path) -> None:
+        from nhc.hexcrawl._gen_v2 import generate_continental_world
+
+        pack = self._make_pack(tmp_path)
+        world = generate_continental_world(seed=42, pack=pack)
+        for river in world.rivers:
+            src = river[0]
+            assert world.cells[src].biome is Biome.MOUNTAIN
+
+    def test_edge_continuity(self, tmp_path) -> None:
+        from nhc.hexcrawl._gen_v2 import generate_continental_world
+
+        pack = self._make_pack(tmp_path)
+        world = generate_continental_world(seed=42, pack=pack)
+        # Check macro offset sharing.
+        for coord, cell in world.cells.items():
+            for seg in cell.edges:
+                if seg.exit_edge is not None and seg.exit_offset is not None:
+                    nbr = neighbors(coord)[seg.exit_edge]
+                    if nbr not in world.cells:
+                        continue
+                    # Find matching entry on the neighbor.
+                    expected_entry = (seg.exit_edge + 3) % 6
+                    for nseg in world.cells[nbr].edges:
+                        if (nseg.type == seg.type
+                                and nseg.entry_edge == expected_entry):
+                            assert nseg.entry_offset == seg.exit_offset

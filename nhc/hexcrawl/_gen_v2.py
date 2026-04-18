@@ -23,9 +23,9 @@ from nhc.hexcrawl.coords import (
     ring,
     shape_r_range,
 )
-from nhc.hexcrawl.model import Biome, HexCell
+from nhc.hexcrawl.model import Biome, HexCell, HexWorld
 from nhc.hexcrawl.noise import SimplexNoise
-from nhc.hexcrawl.pack import ContinentalParams
+from nhc.hexcrawl.pack import ContinentalParams, PackMeta
 
 
 # ---------------------------------------------------------------------------
@@ -612,3 +612,120 @@ def _assign_macro_offsets(
                     h = _edge_hash(*key[:4])
                     cache[key] = ((h % 81) - 40) / 100.0
                 seg.exit_offset = cache[key]
+
+
+# ---------------------------------------------------------------------------
+# Pipeline orchestrator
+# ---------------------------------------------------------------------------
+
+
+class GeneratorRetryError(RuntimeError):
+    """Raised after exhausting retry attempts."""
+
+
+def _attempt_continental(
+    rng: random.Random,
+    pack: PackMeta,
+) -> HexWorld:
+    """Run the full pipeline once, returning a HexWorld."""
+    from nhc.hexcrawl._features import (
+        FeaturePlacementError,
+        place_features as _place_features,
+    )
+    from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+    from nhc.hexcrawl._paths_v2 import generate_paths_v2
+    from nhc.hexcrawl._flowers import generate_flowers as _gen_flowers
+    from nhc.hexcrawl.tiles import assign_tile_slot as _assign_slot
+
+    mp = pack.map
+    cp = mp.continental
+    assert cp is not None
+
+    # Stage 1: Continental shape.
+    field = continental_shape(rng, cp, mp.width, mp.height)
+
+    # Stage 2: Tectonic plates.
+    plates = tectonic_plates(rng, cp, field)
+
+    # Stage 3: Domain warping.
+    warped = domain_warp(
+        rng, cp, field, plates, mp.width, mp.height,
+    )
+
+    # Stage 4: Hydraulic erosion.
+    erosion = hydraulic_erosion(rng, cp, warped)
+
+    # Stage 5: Biome assignment.
+    cells, hexes_by_biome = assign_biomes(rng, cp, erosion, plates)
+
+    # Stage 6: Rivers.
+    rivers = generate_rivers_v2(
+        cells, rng, pack.rivers, cp, erosion.flow_count,
+    )
+
+    # Stage 7+: Features (settlements, dungeons, wonders).
+    # Reuse the existing v1 feature placer which handles hubs,
+    # villages, dungeons, wonders, and cave clustering.
+    hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
+
+    # Stage 8: Roads.
+    paths = generate_paths_v2(cells, rng, pack.paths)
+
+    # Stage 9: Edge-point offsets.
+    _assign_macro_offsets(cells)
+
+    # Flowers.
+    world_seed = rng.randrange(1 << 30)
+    _gen_flowers(cells, world_seed)
+
+    # Tile slots.
+    for coord, cell in cells.items():
+        has_ww = any(e.type == "river" for e in cell.edges)
+        cell.tile_slot = _assign_slot(
+            cell.biome.value, cell.feature.value,
+            coord.q, coord.r, has_ww,
+        )
+
+    world = HexWorld(
+        pack_id=pack.id,
+        seed=world_seed,
+        width=mp.width,
+        height=mp.height,
+        biome_costs=dict(pack.biome_costs),
+    )
+    for cell in cells.values():
+        world.set_cell(cell)
+    world.last_hub = hub
+    world.cave_clusters = clusters
+    world.rivers = rivers
+    world.paths = paths
+    return world
+
+
+def generate_continental_world(
+    seed: int,
+    pack: PackMeta,
+    max_attempts: int = 10,
+) -> HexWorld:
+    """Generate a geologically-inspired :class:`HexWorld`.
+
+    Nine-stage pipeline: simplex continents, Voronoi plates,
+    domain warping, flow-accumulation erosion, Whittaker biomes,
+    rivers, scored settlements, terrain-aware roads, and edge-
+    point continuity.
+
+    Retries up to ``max_attempts`` times if feature placement
+    can't meet the pack's targets.
+    """
+    from nhc.hexcrawl._features import FeaturePlacementError
+
+    rng = random.Random(seed)
+    last_err: str | None = None
+    for _ in range(max_attempts):
+        try:
+            return _attempt_continental(rng, pack)
+        except FeaturePlacementError as exc:
+            last_err = str(exc)
+    raise GeneratorRetryError(
+        f"exhausted {max_attempts} attempts; last error: {last_err}"
+    )
