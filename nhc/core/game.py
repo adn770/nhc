@@ -971,6 +971,10 @@ class Game:
             raise RuntimeError(
                 "apply_hex_step requires hex_player_position to be set"
             )
+        # First-visit detection: check before the move marks
+        # the hex as visited.
+        first_visit = not self.hex_world.is_visited(target)
+
         action = MoveHexAction(
             actor=self.player_id,
             origin=origin,
@@ -986,6 +990,17 @@ class Game:
         # skipped on feature hexes (player is about to pick
         # enter-or-not) and when god mode disables encounters.
         self._maybe_stage_encounter(target)
+
+        # First visit: auto-enter flower mode so the player
+        # explores the sub-hex on their first arrival.
+        if first_visit:
+            cell = self.hex_world.get_cell(target)
+            if cell and cell.flower:
+                from nhc.hexcrawl._flowers import entry_sub_hex_for_edge
+                edge = self.hex_world.last_entry_edge.get(target)
+                entry_sub = entry_sub_hex_for_edge(edge)
+                self.hex_world.enter_flower(target, entry_sub)
+
         _autosave(self, self.save_dir, blocking=True)
         return True
 
