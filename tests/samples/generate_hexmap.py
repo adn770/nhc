@@ -43,108 +43,12 @@ from nhc.hexcrawl.model import (
 from nhc.hexcrawl.pack import load_pack
 
 
-# ── Tile path resolution (mirrors hex_map.js logic) ────────────
+# ── Tile path resolution ───────────────────────────────────────
 
 HEXTILES = Path(__file__).resolve().parents[2] / "hextiles"
 
-SLOT_NAME: dict[int, str] = {
-    1: "vulcano", 2: "forest", 3: "tundra", 4: "trees", 5: "water",
-    6: "hills", 7: "river", 8: "portal", 9: "mountains", 10: "lake",
-    11: "village", 12: "city", 13: "tower", 14: "community",
-    15: "cave", 16: "hole", 17: "dead-Trees", 18: "ruins",
-    19: "graveyard", 20: "swamp", 21: "floating-Island",
-    22: "keep", 23: "wonder", 24: "cristals", 25: "stones",
-    26: "farms", 27: "fog",
-    41: "dense-Forest", 42: "sparse-Trees", 43: "clearing",
-    44: "rift", 45: "wild-Bushes", 46: "spider-Lair",
-    47: "great-Tree", 48: "mushrooms", 49: "cave-Mouth",
-    50: "hillock", 51: "standing-Stones", 52: "cottage",
-    53: "hamlet", 54: "watchtower", 55: "overgrown-Ruins",
-    56: "blast-Site", 57: "forest-Road", 58: "forest-Temple",
-    61: "mountain-Range", 62: "scattered-Peaks", 63: "plateau",
-    64: "active-Vulcano", 65: "mountain-Rift", 66: "foothills",
-    67: "rock-Spikes", 68: "mountain-Gates", 69: "summit",
-    70: "stone-Bridge", 71: "mountain-Cave", 72: "alpine-Forest",
-    73: "obelisk", 74: "mountain-Lodge", 75: "mountain-Village",
-    76: "mountain-Tower", 77: "mountain-Ruins", 78: "mountain-Blast",
-    79: "mountain-Pass", 80: "mountain-Temple",
-}
-
-# Weighted [slot, weight] pairs — must match hex_map.js
-BIOME_BASE_SLOTS: dict[str, list[tuple[int, int]]] = {
-    "greenlands": [
-        (42, 20), (4, 18), (43, 15), (45, 12), (26, 10), (2, 8),
-        (41, 5), (50, 4), (20, 3), (55, 3), (10, 2),
-    ],
-    "forest": [
-        (2, 20), (41, 18), (4, 15), (42, 12), (47, 8), (45, 7),
-        (43, 5), (6, 4), (48, 3), (50, 3), (20, 3), (55, 2),
-    ],
-    "mountain": [
-        (9, 18), (61, 15), (62, 14), (69, 10), (66, 8), (79, 7),
-        (67, 6), (63, 5), (6, 5), (72, 4), (65, 4), (70, 4),
-    ],
-    "hills": [
-        (6, 22), (45, 16), (50, 14), (4, 12), (42, 10), (3, 10),
-        (43, 8), (9, 8),
-    ],
-    "marsh": [
-        (20, 25), (3, 18), (17, 14), (6, 12), (42, 9), (45, 7),
-        (10, 6), (19, 5), (55, 4),
-    ],
-    "swamp": [
-        (20, 28), (17, 18), (3, 12), (45, 10), (42, 8), (10, 8),
-        (6, 6), (55, 5), (19, 5),
-    ],
-    "drylands": [
-        (3, 30), (6, 20), (17, 15), (20, 12), (9, 10), (4, 8),
-        (10, 5),
-    ],
-    "sandlands": [
-        (3, 30), (6, 20), (17, 15), (20, 12), (9, 10), (18, 5),
-        (19, 4), (4, 4),
-    ],
-    "icelands": [
-        (3, 30), (6, 20), (17, 15), (20, 12), (27, 10), (9, 5),
-        (10, 4), (18, 4),
-    ],
-    "deadlands": [
-        (3, 30), (6, 20), (20, 15), (9, 12), (17, 10), (18, 5),
-        (19, 4), (1, 4),
-    ],
-    "water": [(5, 1)],
-}
-
-FEATURE_SLOTS: dict[str, list[int]] = {
-    "cave":      [15, 49],
-    "ruin":      [18, 55],
-    "tower":     [13, 54],
-    "village":   [11, 53],
-    "stones":    [25, 51],
-    "hole":      [16, 44],
-    "keep":      [22],
-    "city":      [12],
-    "graveyard": [19],
-    "crystals":  [24],
-    "wonder":    [23],
-    "portal":    [8],
-    "lake":      [10],
-    "river":     [7],
-}
-
-BIOME_COLORS: dict[str, str] = {
-    "greenlands": "#88B860",
-    "drylands":   "#A88068",
-    "sandlands":  "#F0D078",
-    "icelands":   "#B8C8D0",
-    "deadlands":  "#505040",
-    "forest":     "#3C6432",
-    "mountain":   "#7D6E64",
-    "hills":      "#96A05F",
-    "marsh":      "#5F7D55",
-    "swamp":      "#374832",
-    "water":      "#3C64A0",
-}
+# Import from the canonical backend module.
+from nhc.hexcrawl.tiles import SLOT_NAME
 
 FEATURE_LABELS: dict[str, str] = {
     "village": "V", "city": "C", "tower": "T", "keep": "K",
@@ -153,89 +57,12 @@ FEATURE_LABELS: dict[str, str] = {
     "portal": "P", "lake": "L", "river": "Rv",
 }
 
-# Biomes with extended tile packs (slots 41-80). Must match
-# hex_map.js _EXTENDED_BIOMES.
-_EXTENDED_BIOMES = frozenset({
-    "greenlands", "forest", "mountain", "hills", "marsh", "swamp",
-})
 
-# Feature → base slots vs extended slots (mirrors hex_map.js
-# _FEATURE_BASE). Non-extended biomes only use base slots.
-_FEATURE_BASE: dict[str, tuple[list[int], list[int]]] = {
-    "cave":      ([15], [49]),
-    "ruin":      ([18], [55]),
-    "tower":     ([13], [54]),
-    "village":   ([11], [53]),
-    "stones":    ([25], [51]),
-    "hole":      ([16], [44]),
-    "keep":      ([22], []),
-    "city":      ([12], []),
-    "graveyard": ([19], []),
-    "crystals":  ([24], []),
-    "wonder":    ([23], []),
-    "portal":    ([8],  []),
-    "lake":      ([10], []),
-    "river":     ([7],  []),
-}
-
-
-# ── Deterministic hash (mirrors hex_map.js _hexHash) ───────────
-
-def _hex_hash(q: int, r: int) -> int:
-    h = (q * 7919 + r * 104729) & 0x7FFFFFFF
-    h = ((h >> 16) ^ h) * 0x45D9F3B
-    return ((h >> 16) ^ h) & 0x7FFFFFFF
-
-
-def _weighted_slot(q: int, r: int, pairs: list[tuple[int, int]]) -> int:
-    if len(pairs) == 1:
-        return pairs[0][0]
-    total = sum(w for _, w in pairs)
-    roll = _hex_hash(q, r) % total
-    acc = 0
-    for slot, w in pairs:
-        acc += w
-        if roll < acc:
-            return slot
-    return pairs[-1][0]
-
-
-def _feature_variants(feature: str, biome: str) -> list[int] | None:
-    """Return slot variants for a feature, gated by biome."""
-    entry = _FEATURE_BASE.get(feature)
-    if entry is None:
-        return None
-    base, ext = entry
-    if biome in _EXTENDED_BIOMES and ext:
-        return base + ext
-    return list(base)
-
-
-def _tile_path(biome: str, feature: str, q: int, r: int) -> Path:
-    """Resolve which tile PNG to use for a hex."""
-    # Water is a single-tile biome — no feature variants.
-    if biome == "water":
-        feature = "none"
-    if feature and feature != "none":
-        variants = _feature_variants(feature, biome)
-        if variants:
-            idx = _hex_hash(q, r) % len(variants)
-            slot = variants[idx]
-        else:
-            pairs = BIOME_BASE_SLOTS.get(biome, [(4, 1)])
-            slot = _weighted_slot(q, r, pairs)
-    else:
-        pairs = BIOME_BASE_SLOTS.get(biome, [(4, 1)])
-        slot = _weighted_slot(q, r, pairs)
-
-    stem = SLOT_NAME.get(slot, "tundra")
-    path = HEXTILES / biome / f"{slot}-{biome}_{stem}.png"
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"missing tile: {path} "
-            f"(biome={biome}, feature={feature}, slot={slot})"
-        )
-    return path
+def _tile_path_from_slot(biome: str, slot: int) -> Path:
+    """Build the tile PNG path from biome + slot (assigned at
+    generation time by nhc.hexcrawl.tiles)."""
+    stem = SLOT_NAME[slot]
+    return HEXTILES / biome / f"{slot}-{biome}_{stem}.png"
 
 
 _TILE_CACHE: dict[Path, Image.Image] = {}
@@ -314,8 +141,7 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
         sx = int(px - min_x + MARGIN - TILE_W / 2)
         sy = int(py - min_y + MARGIN - TILE_H / 2)
 
-        tp = _tile_path(cell.biome.value, cell.feature.value,
-                        coord.q, coord.r)
+        tp = _tile_path_from_slot(cell.biome.value, cell.tile_slot)
         try:
             tile = _load_tile(tp)
         except Exception:
@@ -472,13 +298,8 @@ def render_flower(
         sy = int(fy - min_fy + margin)
 
         biome_str = sub_cell.biome.value
-        feat_str = "none"
-        if sub_cell.major_feature is not HexFeatureType.NONE:
-            feat_str = sub_cell.major_feature.value
-
-        tp = _tile_path(biome_str, feat_str,
-                        sub_coord.q, sub_coord.r)
-        cache_key = (tp, biome_str)
+        tp = _tile_path_from_slot(biome_str, sub_cell.tile_slot)
+        cache_key = tp
         if cache_key not in tile_cache:
             try:
                 img = _load_tile(tp)
