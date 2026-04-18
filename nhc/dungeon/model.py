@@ -157,6 +157,41 @@ class OctagonShape(RoomShape):
         return tiles
 
 
+class LShape(RoomShape):
+    """L-shaped room — rectangle with one corner cut out.
+
+    The notch is placed in one of the four corners
+    (``nw``, ``ne``, ``sw``, ``se``) and sized to ~1/3 of the base
+    rect on each axis (min 2 tiles, capped so the remaining L shape
+    is at least 2 tiles thick on both arms).
+    """
+
+    _VALID_CORNERS = ("nw", "ne", "sw", "se")
+
+    def __init__(self, corner: str = "nw") -> None:
+        self.corner = corner if corner in self._VALID_CORNERS else "nw"
+
+    @property
+    def type_name(self) -> str:
+        return f"l_shape_{self.corner}"
+
+    def _notch_rect(self, rect: Rect) -> Rect:
+        nw = max(2, min(rect.width // 3, rect.width - 2))
+        nh = max(2, min(rect.height // 3, rect.height - 2))
+        if self.corner == "nw":
+            return Rect(rect.x, rect.y, nw, nh)
+        if self.corner == "ne":
+            return Rect(rect.x2 - nw, rect.y, nw, nh)
+        if self.corner == "sw":
+            return Rect(rect.x, rect.y2 - nh, nw, nh)
+        return Rect(rect.x2 - nw, rect.y2 - nh, nw, nh)
+
+    def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
+        base = RectShape().floor_tiles(rect)
+        notch = RectShape().floor_tiles(self._notch_rect(rect))
+        return base - notch
+
+
 class PillShape(RoomShape):
     """Pill/stadium room — rectangle with two semicircular caps.
 
@@ -573,6 +608,11 @@ def shape_from_type(type_name: str | None) -> RoomShape:
             "e": "east", "w": "west",
         }
         return TempleShape(flat_side=sides.get(side_char, "south"))
+    # L-shape variants: l_shape_nw / _ne / _sw / _se
+    if name.startswith("l_shape_"):
+        corner = name[len("l_shape_"):]
+        if corner in LShape._VALID_CORNERS:
+            return LShape(corner=corner)
     # Check hybrid presets
     preset = _HYBRID_PRESETS.get(name)
     if preset:

@@ -9,7 +9,7 @@ from nhc.core.save import load_game, save_game
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import (
-    CircleShape, CrossShape, HybridShape, Level, OctagonShape,
+    CircleShape, CrossShape, HybridShape, Level, LShape, OctagonShape,
     PillShape, Rect, Room, RoomShape, RectShape, TempleShape, Terrain,
     Tile, shape_from_type,
 )
@@ -247,6 +247,146 @@ class TestOctagonShape:
         perimeter = shape.perimeter_tiles(rect)
         assert len(perimeter) > 0
         assert perimeter <= floor
+
+
+class TestLShape:
+    def test_type_name_includes_corner(self):
+        assert LShape(corner="nw").type_name == "l_shape_nw"
+        assert LShape(corner="ne").type_name == "l_shape_ne"
+        assert LShape(corner="sw").type_name == "l_shape_sw"
+        assert LShape(corner="se").type_name == "l_shape_se"
+
+    def test_invalid_corner_defaults_to_nw(self):
+        assert LShape(corner="bogus").corner == "nw"
+
+    def test_default_corner_is_nw(self):
+        assert LShape().corner == "nw"
+
+    def test_nw_corner_notch_9x9(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = LShape(corner="nw").floor_tiles(rect)
+        # NW corner tile is cut
+        assert (0, 0) not in tiles
+        # Other corners retained
+        assert (8, 0) in tiles
+        assert (0, 8) in tiles
+        assert (8, 8) in tiles
+
+    def test_ne_corner_notch_9x9(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = LShape(corner="ne").floor_tiles(rect)
+        assert (8, 0) not in tiles
+        assert (0, 0) in tiles
+        assert (0, 8) in tiles
+        assert (8, 8) in tiles
+
+    def test_sw_corner_notch_9x9(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = LShape(corner="sw").floor_tiles(rect)
+        assert (0, 8) not in tiles
+        assert (0, 0) in tiles
+        assert (8, 0) in tiles
+        assert (8, 8) in tiles
+
+    def test_se_corner_notch_9x9(self):
+        rect = Rect(0, 0, 9, 9)
+        tiles = LShape(corner="se").floor_tiles(rect)
+        assert (8, 8) not in tiles
+        assert (0, 0) in tiles
+        assert (8, 0) in tiles
+        assert (0, 8) in tiles
+
+    def test_subset_of_rect(self):
+        rect = Rect(3, 5, 9, 9)
+        l_tiles = LShape(corner="nw").floor_tiles(rect)
+        rect_tiles = RectShape().floor_tiles(rect)
+        assert l_tiles <= rect_tiles
+
+    def test_fewer_tiles_than_rect(self):
+        rect = Rect(0, 0, 9, 9)
+        assert len(LShape().floor_tiles(rect)) < len(
+            RectShape().floor_tiles(rect)
+        )
+
+    def test_notch_size_9x9_is_3x3(self):
+        """On a 9x9 rect the notch is 3x3 = 9 tiles removed."""
+        rect = Rect(0, 0, 9, 9)
+        rect_count = len(RectShape().floor_tiles(rect))
+        l_count = len(LShape(corner="nw").floor_tiles(rect))
+        assert rect_count - l_count == 9
+
+    def test_origin_offset(self):
+        rect = Rect(10, 20, 9, 9)
+        tiles = LShape(corner="nw").floor_tiles(rect)
+        assert (10, 20) not in tiles
+        for x, y in tiles:
+            assert 10 <= x < 19
+            assert 20 <= y < 29
+        # SE corner still floor
+        assert (18, 28) in tiles
+
+    def test_perimeter_nonempty_and_subset(self):
+        rect = Rect(0, 0, 9, 9)
+        shape = LShape(corner="nw")
+        floor = shape.floor_tiles(rect)
+        perim = shape.perimeter_tiles(rect)
+        assert len(perim) > 0
+        assert perim <= floor
+        # Interior tiles exist
+        assert len(floor - perim) > 0
+
+    def test_perimeter_forms_single_connected_polygon(self):
+        """No perimeter islands — walking 4-adjacent reaches every piece."""
+        rect = Rect(0, 0, 9, 9)
+        perim = LShape(corner="nw").perimeter_tiles(rect)
+        assert len(perim) > 0
+        start = next(iter(perim))
+        visited = {start}
+        stack = [start]
+        while stack:
+            x, y = stack.pop()
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                n = (x + dx, y + dy)
+                if n in perim and n not in visited:
+                    visited.add(n)
+                    stack.append(n)
+        assert visited == perim, (
+            f"perimeter has islands: reached {len(visited)} "
+            f"of {len(perim)}"
+        )
+
+    def test_all_corners_produce_distinct_tile_sets(self):
+        rect = Rect(0, 0, 9, 9)
+        sets = [
+            frozenset(LShape(corner=c).floor_tiles(rect))
+            for c in ("nw", "ne", "sw", "se")
+        ]
+        assert len(set(sets)) == 4
+
+    def test_small_6x6_still_valid(self):
+        """6x6 still produces a valid L-shape (notch=2x2 at minimum)."""
+        rect = Rect(0, 0, 6, 6)
+        tiles = LShape(corner="nw").floor_tiles(rect)
+        assert (0, 0) not in tiles
+        assert (5, 5) in tiles
+        # Notch is at least 2x2 => at least 4 tiles removed
+        rect_tiles = RectShape().floor_tiles(rect)
+        assert len(rect_tiles) - len(tiles) >= 4
+
+    def test_registry_resolves_each_corner(self):
+        for corner in ("nw", "ne", "sw", "se"):
+            shape = shape_from_type(f"l_shape_{corner}")
+            assert isinstance(shape, LShape)
+            assert shape.corner == corner
+
+    def test_save_roundtrip_preserves_corner(self):
+        for corner in ("nw", "ne", "sw", "se"):
+            shape = LShape(corner=corner)
+            resolved = shape_from_type(shape.type_name)
+            assert isinstance(resolved, LShape)
+            assert resolved.corner == corner
+            rect = Rect(0, 0, 9, 9)
+            assert resolved.floor_tiles(rect) == shape.floor_tiles(rect)
 
 
 class TestPillShape:
