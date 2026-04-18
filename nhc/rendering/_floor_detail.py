@@ -563,8 +563,13 @@ def _render_floor_detail(
     Room tiles: generated for all tiles, clipped to dungeon polygon.
     Corridor/door tiles: generated directly, no clipping needed.
     Thematic details (webs, bones, skulls) added based on theme.
+    Wood Building floors short-circuit to a dedicated plank renderer
+    that skips cracks, scratches, and the surface-type passes.
     """
     rng = random.Random(seed + 99)
+    if getattr(level, "interior_floor", "stone") == "wood":
+        _render_wood_floor(svg, level, rng)
+        return
     theme = level.metadata.theme if level.metadata else "dungeon"
     scale = _DETAIL_SCALE.get(theme, 1.0)
     probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
@@ -852,6 +857,87 @@ def _garden_line(
     x1 = px + rng.uniform(CELL * 0.6, CELL * 0.85)
     y1 = py + rng.uniform(CELL * 0.15, CELL * 0.85)
     return f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}"/>'
+
+
+# ── Wood interior floors (tunable constants) ──────────────────
+
+WOOD_FLOOR_FILL = "#B58B5A"
+WOOD_SEAM_STROKE = "#8A5A2A"
+WOOD_SEAM_WIDTH = 0.8
+WOOD_PLANK_WIDTH_TILES = 3        # plank cross-axis thickness
+WOOD_PLANK_JITTER = 0.1           # +/- fraction of plank width
+
+
+def _render_wood_floor(
+    svg: list[str], level: "Level", rng: random.Random,
+) -> None:
+    """Wood plank fill and seams for Building interior floors.
+
+    Emits one ``<rect>`` filled with :data:`WOOD_FLOOR_FILL` per
+    FLOOR tile, then horizontal seam ``<line>`` elements every
+    :data:`WOOD_PLANK_WIDTH_TILES` rows (with small y-jitter)
+    across each room's bounding rect. No cracks, scratches, or
+    stones.
+
+    Room major-axis alignment (wider rooms get horizontal planks,
+    taller rooms get vertical) is implemented per room; rooms with
+    equal width and height default to horizontal.
+    """
+    fills: list[str] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            if level.tiles[y][x].terrain != Terrain.FLOOR:
+                continue
+            px, py = x * CELL, y * CELL
+            fills.append(
+                f'<rect x="{px}" y="{py}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{WOOD_FLOOR_FILL}"/>'
+            )
+    if fills:
+        svg.append("".join(fills))
+
+    if not level.rooms:
+        return
+
+    plank_px = WOOD_PLANK_WIDTH_TILES * CELL
+    seams: list[str] = []
+    for room in level.rooms:
+        x0 = room.rect.x * CELL
+        y0 = room.rect.y * CELL
+        x1 = (room.rect.x + room.rect.width) * CELL
+        y1 = (room.rect.y + room.rect.height) * CELL
+        horizontal = room.rect.width >= room.rect.height
+        if horizontal:
+            y = y0 + plank_px
+            while y < y1:
+                jy = y + rng.uniform(
+                    -plank_px * WOOD_PLANK_JITTER,
+                    plank_px * WOOD_PLANK_JITTER,
+                )
+                seams.append(
+                    f'<line x1="{x0:.1f}" y1="{jy:.1f}" '
+                    f'x2="{x1:.1f}" y2="{jy:.1f}"/>'
+                )
+                y += plank_px
+        else:
+            x = x0 + plank_px
+            while x < x1:
+                jx = x + rng.uniform(
+                    -plank_px * WOOD_PLANK_JITTER,
+                    plank_px * WOOD_PLANK_JITTER,
+                )
+                seams.append(
+                    f'<line x1="{jx:.1f}" y1="{y0:.1f}" '
+                    f'x2="{jx:.1f}" y2="{y1:.1f}"/>'
+                )
+                x += plank_px
+    if seams:
+        svg.append(
+            f'<g fill="none" stroke="{WOOD_SEAM_STROKE}" '
+            f'stroke-width="{WOOD_SEAM_WIDTH}">'
+            f'{"".join(seams)}</g>'
+        )
 
 
 # ── Mine cart tracks ─────────────────────────────────────────

@@ -133,3 +133,14 @@ class TestLevelBuildingRefs:
         level = Level.create_empty("l1", "L1", 1, 5, 5)
         level.floor_index = 2
         assert level.floor_index == 2
+
+
+class TestLevelInteriorFloor:
+    def test_interior_floor_default_stone(self):
+        level = Level.create_empty("l1", "L1", 1, 5, 5)
+        assert level.interior_floor == "stone"
+
+    def test_interior_floor_can_be_wood(self):
+        level = Level.create_empty("l1", "L1", 1, 5, 5)
+        level.interior_floor = "wood"
+        assert level.interior_floor == "wood"

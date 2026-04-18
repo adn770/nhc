@@ -154,3 +154,53 @@ class TestFieldVsGardenPalette:
                 int(hx[1:3], 16), int(hx[3:5], 16), int(hx[5:7], 16),
             )
             assert g >= r and g >= b
+
+
+class TestWoodInteriorFloor:
+    def test_wood_floor_emits_wood_fill(self):
+        from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
+        level = _blank_level()
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        assert WOOD_FLOOR_FILL in svg
+
+    def test_wood_floor_emits_seam_stroke(self):
+        from nhc.rendering._floor_detail import WOOD_SEAM_STROKE
+        level = _blank_level(30, 30)
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        assert WOOD_SEAM_STROKE in svg
+
+    def test_stone_floor_has_no_wood_colors(self):
+        from nhc.rendering._floor_detail import (
+            WOOD_FLOOR_FILL, WOOD_SEAM_STROKE,
+        )
+        level = _blank_level()
+        assert level.interior_floor == "stone"
+        svg = render_floor_svg(level, seed=42)
+        assert WOOD_FLOOR_FILL not in svg
+        assert WOOD_SEAM_STROKE not in svg
+
+    def test_wood_floor_suppresses_crack_detail(self):
+        """Wood floors have no dungeon-style crack scratches."""
+        level = _blank_level(20, 20)
+        level.interior_floor = "wood"
+        wood_svg = render_floor_svg(level, seed=42)
+        stone_level = _blank_level(20, 20)
+        stone_svg = render_floor_svg(stone_level, seed=42)
+        # Wood SVG should not contain the scratch/crack "<g" section
+        # produced by _render_floor_detail when interior_floor ==
+        # "stone". Count a crude proxy: hand-scratched path strokes
+        # at 0.3-0.7 width are scratches.
+        def _count_hand_scratches(svg: str) -> int:
+            return (
+                svg.count('stroke-width="0.3"')
+                + svg.count('stroke-width="0.4"')
+                + svg.count('stroke-width="0.5"')
+                + svg.count('stroke-width="0.6"')
+                + svg.count('stroke-width="0.7"')
+            )
+        # Wood has far fewer hand-drawn detail strokes
+        assert _count_hand_scratches(wood_svg) < _count_hand_scratches(
+            stone_svg,
+        )

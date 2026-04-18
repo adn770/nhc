@@ -736,6 +736,7 @@ class Level:
     metadata: LevelMetadata = field(default_factory=LevelMetadata)
     building_id: str | None = None
     floor_index: int | None = None
+    interior_floor: str = "stone"  # stone | wood (building floors)
 
     @classmethod
     def create_empty(cls, id: str, name: str, depth: int,
