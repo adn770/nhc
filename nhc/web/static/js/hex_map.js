@@ -297,7 +297,7 @@ const HexMap = {
     // Zoom to 4x and center on the player so the current tile
     // is visible when switching from flower to hex map view.
     const steps = GameMap._zoomSteps;
-    const targetScale = 3.0;
+    const targetScale = 2.5;
     let best = steps.length - 1;
     for (let i = 0; i < steps.length; i++) {
       if (steps[i] >= targetScale - 0.01) { best = i; break; }
