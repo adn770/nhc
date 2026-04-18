@@ -259,11 +259,59 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
             room.tags.append("standard")
             standard_count += 1
 
+    # ── Keep-specific overrides ──
+    template = (level.metadata.template if level.metadata else None)
+    if template == "procedural:keep":
+        _assign_keep_types(level, connections, rng)
+
     tag_counts = Counter(
         t for r in level.rooms for t in r.tags
         if t not in ("entry", "exit")
     )
     logger.info("Room types assigned: %s", dict(tag_counts))
+
+
+def _assign_keep_types(
+    level: Level,
+    connections: dict[str, int],
+    rng: random.Random,
+) -> None:
+    """Override room types for keep-themed levels.
+
+    - Largest room → courtyard (replaces standard/corridor)
+    - Entry/exit rooms → gate
+    - Remaining standard/corridor rooms → barracks
+    Specialized rooms (shrine, library, etc.) keep their types.
+    """
+    keep_special = {"courtyard", "barracks", "gate"}
+    non_vault = [r for r in level.rooms if "vault" not in r.tags]
+    if not non_vault:
+        return
+
+    # Find the largest room for courtyard
+    largest = max(
+        non_vault,
+        key=lambda r: r.rect.width * r.rect.height,
+    )
+
+    for room in level.rooms:
+        if "vault" in room.tags:
+            continue
+        # Replace generic types with keep-specific ones
+        generic = {"standard", "corridor"}
+        has_generic = bool(generic & set(room.tags))
+        if not has_generic:
+            continue
+
+        # Remove generic tags
+        room.tags = [t for t in room.tags if t not in generic]
+
+        if room is largest:
+            room.tags.append("courtyard")
+        elif "entry" in room.tags or "exit" in room.tags:
+            room.tags.append("gate")
+        else:
+            room.tags.append("barracks")
 
 
 def _paint_room(

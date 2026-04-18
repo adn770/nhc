@@ -74,6 +74,7 @@ class BSPGenerator(DungeonGenerator):
         )
         level.metadata = LevelMetadata(
             theme=params.theme, difficulty=params.depth,
+            template=params.template,
         )
 
         # ── 1. BSP subdivision ──

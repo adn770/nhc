@@ -657,6 +657,7 @@ class LevelMetadata:
     narrative_hooks: list[str] = field(default_factory=list)
     faction: str | None = None
     ambient: str = ""
+    template: str | None = None
 
 
 @dataclass
