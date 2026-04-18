@@ -60,9 +60,15 @@ def _trace_river_v2(
         if cells[current].biome in _TERMINAL_BIOMES and current != source:
             break
 
-        # Check lake creation (no adjacent lakes).
+        # Check water termination (river reached the sea).
+        if cells[current].biome is Biome.WATER and current != source:
+            break
+
+        # Check lake creation — only after the river has some
+        # length so short rivers don't all end in lakes.
         if (
-            current != source
+            len(path) >= 6
+            and current != source
             and cells[current].biome in _LAKE_BIOMES
             and cells[current].elevation < _LAKE_ELEVATION_MAX
             and cells[current].feature is HexFeatureType.NONE
@@ -76,10 +82,6 @@ def _trace_river_v2(
             cells[current].feature = HexFeatureType.LAKE
             break
 
-        # Check water termination.
-        if cells[current].biome is Biome.WATER and current != source:
-            break
-
         if len(path) >= params.max_length:
             break
 
@@ -88,6 +90,20 @@ def _trace_river_v2(
             n for n in neighbors(current)
             if n in cells and n not in visited
         ]
+
+        # If a WATER neighbor exists, always step into it —
+        # the river should reach the sea rather than dying
+        # one hex short due to flatness.
+        water_nbrs = [
+            n for n in all_nbrs
+            if cells[n].biome is Biome.WATER
+        ]
+        if water_nbrs:
+            chosen = water_nbrs[0]
+            path.append(chosen)
+            visited.add(chosen)
+            break
+
         # Also consider visited hexes that carry a river — the
         # new river can merge into an existing one (confluence).
         merge_nbrs = [
@@ -112,6 +128,8 @@ def _trace_river_v2(
 
         # Weight by elevation drop. Forest gets a penalty
         # (0.5x weight multiplier) but is not blocked.
+        # WATER neighbors get a strong bonus to pull rivers
+        # toward the coast.
         cur_elev = cells[current].elevation
         weights: list[float] = []
         for n in all_nbrs:
@@ -119,6 +137,14 @@ def _trace_river_v2(
             w = max(drop + rng.uniform(-0.03, 0.03), 0.001)
             if cells[n].biome is Biome.FOREST:
                 w *= 0.5
+            # Bonus for neighbors adjacent to water (pull
+            # toward the coast).
+            if any(
+                nn in cells and cells[nn].biome is Biome.WATER
+                for nn in neighbors(n)
+                if nn in cells
+            ):
+                w += 0.3
             weights.append(w)
 
         chosen = rng.choices(all_nbrs, weights=weights, k=1)[0]
