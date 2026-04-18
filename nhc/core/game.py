@@ -435,6 +435,7 @@ class Game:
             self.level = level
             self._place_player_at_stairs_up()
             self._place_expedition_henchmen(is_settlement=is_settlement)
+            self._update_fov()
             self._notify_floor_change(depth)
             return True
 
@@ -481,6 +482,9 @@ class Game:
         self._floor_cache[cache_key] = (self.level, {})
         self._place_player_at_stairs_up()
         self._place_expedition_henchmen(is_settlement=is_settlement)
+        # Compute FOV before sending the floor so the client
+        # receives visible tiles on entry (not a black map).
+        self._update_fov()
         self._notify_floor_change(depth)
         return True
 
