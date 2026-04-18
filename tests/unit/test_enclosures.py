@@ -6,6 +6,8 @@ an equally-spaced white dashed overlay, with gate gaps cutting the
 polygon into sub-polylines.
 """
 
+import re
+
 import pytest
 
 from nhc.rendering._enclosures import (
@@ -14,8 +16,16 @@ from nhc.rendering._enclosures import (
     FORTIFICATION_DASH_ARRAY,
     FORTIFICATION_OVERLAY_COLOR,
     FORTIFICATION_OVERLAY_WIDTH,
+    PALISADE_CIRCLE_STEP,
+    PALISADE_DOOR_LENGTH_PX,
+    PALISADE_FILL,
+    PALISADE_RADIUS_MAX,
+    PALISADE_RADIUS_MIN,
+    PALISADE_STROKE,
     render_fortification_enclosure,
     render_fortification_polyline,
+    render_palisade_enclosure,
+    render_palisade_polyline,
 )
 
 
@@ -136,3 +146,124 @@ class TestFortificationPalette:
 
     def test_dash_array_8_6(self):
         assert FORTIFICATION_DASH_ARRAY == "8 6"
+
+
+def _circles(items: list[str]) -> list[str]:
+    return [s for s in items if s.lstrip().startswith("<circle ")]
+
+
+def _rects(items: list[str]) -> list[str]:
+    return [s for s in items if s.lstrip().startswith("<rect ")]
+
+
+class TestPalisadePolyline:
+    def test_empty_points_returns_empty(self):
+        assert render_palisade_polyline([]) == []
+        assert render_palisade_polyline([(0.0, 0.0)]) == []
+
+    def test_polyline_emits_circles(self):
+        out = render_palisade_polyline([(0, 0), (100, 0)], seed=1)
+        circles = _circles(out)
+        # Step ~1.6px over 100px ≈ 63 circles.
+        assert len(circles) > 30
+
+    def test_circle_uses_palisade_palette(self):
+        out = render_palisade_polyline([(0, 0), (100, 0)], seed=1)
+        circles = _circles(out)
+        for c in circles:
+            assert f'fill="{PALISADE_FILL}"' in c
+            assert f'stroke="{PALISADE_STROKE}"' in c
+
+    def test_circle_radius_within_bounds(self):
+        out = render_palisade_polyline([(0, 0), (200, 0)], seed=3)
+        circles = _circles(out)
+        assert circles
+        for c in circles:
+            m = re.search(r'r="([0-9.]+)"', c)
+            assert m
+            r = float(m.group(1))
+            # Allow ±0.3 jitter beyond the bounds (doc says
+            # "±0.3px jitter per circle").
+            assert PALISADE_RADIUS_MIN - 0.31 <= r
+            assert r <= PALISADE_RADIUS_MAX + 0.31
+
+
+class TestPalisadeDeterminism:
+    def test_same_seed_same_output(self):
+        a = render_palisade_polyline([(0, 0), (200, 0)], seed=7)
+        b = render_palisade_polyline([(0, 0), (200, 0)], seed=7)
+        assert a == b
+
+    def test_different_seed_differs(self):
+        a = render_palisade_polyline([(0, 0), (200, 0)], seed=1)
+        b = render_palisade_polyline([(0, 0), (200, 0)], seed=2)
+        assert a != b
+
+
+class TestPalisadeEnclosure:
+    def test_closed_polygon_no_gates_emits_circles(self):
+        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
+        out = render_palisade_enclosure(polygon, seed=1)
+        assert len(_circles(out)) > 20
+        # No rectangles when there are no gates.
+        assert _rects(out) == []
+
+    def test_gate_inserts_rectangle(self):
+        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
+        gates = [(0, 0.5, PALISADE_DOOR_LENGTH_PX / 2)]
+        out = render_palisade_enclosure(polygon, gates=gates, seed=1)
+        rects = _rects(out)
+        # Exactly one door rect per gate.
+        assert len(rects) == 1
+        rect = rects[0]
+        assert f'fill="{PALISADE_FILL}"' in rect
+        assert f'stroke="{PALISADE_STROKE}"' in rect
+
+    def test_gate_rectangle_matches_door_length(self):
+        polygon = [(0, 0), (200, 0), (200, 50), (0, 50)]
+        gates = [(0, 0.5, PALISADE_DOOR_LENGTH_PX / 2)]
+        out = render_palisade_enclosure(polygon, gates=gates, seed=1)
+        rect = _rects(out)[0]
+        m_w = re.search(r'width="([0-9.]+)"', rect)
+        assert m_w
+        # Door span = 2 * half-len.
+        assert (
+            abs(float(m_w.group(1)) - PALISADE_DOOR_LENGTH_PX) < 0.5
+        )
+
+    def test_gate_removes_circles_from_gap(self):
+        polygon = [(0, 0), (200, 0), (200, 50), (0, 50)]
+        no_gates = render_palisade_enclosure(polygon, seed=1)
+        with_gate = render_palisade_enclosure(
+            polygon,
+            gates=[(0, 0.5, PALISADE_DOOR_LENGTH_PX / 2)],
+            seed=1,
+        )
+        assert len(_circles(with_gate)) < len(_circles(no_gates))
+
+    def test_two_gates_two_rectangles(self):
+        polygon = [(0, 0), (200, 0), (200, 50), (0, 50)]
+        gates = [
+            (0, 0.5, PALISADE_DOOR_LENGTH_PX / 2),
+            (2, 0.5, PALISADE_DOOR_LENGTH_PX / 2),
+        ]
+        out = render_palisade_enclosure(polygon, gates=gates, seed=1)
+        assert len(_rects(out)) == 2
+
+
+class TestPalisadePalette:
+    def test_fill_is_soft_brown(self):
+        assert PALISADE_FILL == "#8A5A2A"
+
+    def test_stroke_is_dark_brown(self):
+        assert PALISADE_STROKE == "#4A2E1A"
+
+    def test_radius_bounds_match_spec(self):
+        assert PALISADE_RADIUS_MIN == 3.0
+        assert PALISADE_RADIUS_MAX == 4.0
+
+    def test_step_is_positive(self):
+        assert PALISADE_CIRCLE_STEP > 0
+
+    def test_door_length_positive(self):
+        assert PALISADE_DOOR_LENGTH_PX > 0
