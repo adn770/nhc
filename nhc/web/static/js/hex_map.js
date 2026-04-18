@@ -1070,6 +1070,10 @@ function _showDungeonView() {
   if (mapContainer) mapContainer.classList.remove("hidden");
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.add("hidden");
+  // Also hide the flower container — entering a dungeon from
+  // flower mode must dismiss the flower view.
+  const flowerContainer = document.getElementById("flower-container");
+  if (flowerContainer) flowerContainer.classList.add("hidden");
   if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
 }
 
@@ -1094,6 +1098,11 @@ if (typeof WS !== "undefined") {
   // would collide) and the SVG + dungeon canvases must be visible.
   const _showDungeonAndLockHex = () => {
     setHexInputActive(false);
+    /* eslint-disable no-undef */
+    if (typeof FlowerInputActive !== "undefined") {
+      FlowerInputActive = false;
+    }
+    /* eslint-enable no-undef */
     _showDungeonView();
     // Re-arm the static draw + scroll for the next time the
     // overland view comes back (canvas may have been resized
