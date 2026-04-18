@@ -25,8 +25,6 @@ class StructuralTemplate:
     room_size_override: Range | None = None
     room_count_override: Range | None = None
     layout_strategy: str = "default"
-    outer_wall: bool = False
-    courtyard: bool = False
     forced_connectivity: float | None = None
     transforms: list[str] = field(default_factory=list)
     theme: str = "dungeon"
@@ -48,8 +46,6 @@ TEMPLATES: dict[str, StructuralTemplate] = {
         base_generator="bsp",
         preferred_shapes=["rect", "octagon"],
         layout_strategy="walled",
-        outer_wall=True,
-        courtyard=True,
         transforms=["add_battlements", "add_gate"],
     ),
     "procedural:crypt": StructuralTemplate(
@@ -59,6 +55,7 @@ TEMPLATES: dict[str, StructuralTemplate] = {
         room_size_override=Range(3, 6),
         forced_connectivity=0.3,
         theme="crypt",
+        transforms=["narrow_corridors"],
     ),
     "procedural:mine": StructuralTemplate(
         name="procedural:mine",

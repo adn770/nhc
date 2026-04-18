@@ -18,8 +18,6 @@ class TestStructuralTemplate:
         assert t.name == "test"
         assert t.base_generator == "bsp"
         assert t.layout_strategy == "default"
-        assert t.outer_wall is False
-        assert t.courtyard is False
         assert t.transforms == []
         assert t.theme == "dungeon"
 
@@ -39,14 +37,17 @@ class TestStructuralTemplate:
 
     def test_keep_template_properties(self):
         t = TEMPLATES["procedural:keep"]
-        assert t.outer_wall is True
-        assert t.courtyard is True
         assert t.layout_strategy == "walled"
+        # Wall + gate behavior is driven by transforms, not flags.
+        assert "add_battlements" in t.transforms
+        assert "add_gate" in t.transforms
 
     def test_crypt_template_properties(self):
         t = TEMPLATES["procedural:crypt"]
         assert t.forced_connectivity is not None
         assert t.forced_connectivity < 0.5
+        # Crypt aesthetic: narrow winding passages
+        assert "narrow_corridors" in t.transforms
 
     def test_mine_template_properties(self):
         t = TEMPLATES["procedural:mine"]
