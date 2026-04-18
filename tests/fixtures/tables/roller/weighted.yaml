@@ -1,0 +1,12 @@
+id: roller.weighted
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: common
+    weight: 3
+    text: Common result.
+  - id: rare
+    weight: 1
+    text: Rare result.

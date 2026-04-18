@@ -1,0 +1,16 @@
+id: roller.gated_table
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+only_if:
+  terrain: forest
+
+entries:
+  - id: mushroom
+    text: You spot a cluster of mushrooms.
+    only_if:
+      season: autumn
+  - id: birdsong
+    text: Birds sing in the canopy.
+  - id: moss
+    text: Moss carpets the ground.

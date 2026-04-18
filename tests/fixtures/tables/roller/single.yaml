@@ -1,0 +1,8 @@
+id: roller.single
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: only_one
+    text: The only option.

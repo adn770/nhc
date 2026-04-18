@@ -1,0 +1,14 @@
+id: roller.all_gated
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: snow
+    text: Snow blankets the ground.
+    only_if:
+      season: winter
+  - id: flowers
+    text: Flowers bloom.
+    only_if:
+      season: spring
