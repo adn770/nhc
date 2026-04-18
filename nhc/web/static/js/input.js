@@ -84,13 +84,24 @@ const Input = {
     { icon: "⚔️", intent: "equip",      labelKey: "toolbar_equip" },
   ],
 
+  // Flower exploration toolbar.
+  FLOWER_TOOLBAR: [
+    { icon: "🏠", intent: "hex_enter",    labelKey: "toolbar_hex_enter" },
+    { icon: "🔍", intent: "flower_search", labelKey: "toolbar_flower_search" },
+    { icon: "🌿", intent: "flower_forage", labelKey: "toolbar_flower_forage" },
+    { icon: "🏕", intent: "flower_rest",   labelKey: "toolbar_flower_rest" },
+    { icon: "🗺️", intent: "flower_exit",   labelKey: "toolbar_flower_exit" },
+    { icon: "🎒", intent: "inventory",     labelKey: "toolbar_inventory" },
+  ],
+
   // Which toolbar is currently rendered.
   _currentToolbarMode: "dungeon",
 
   // Alias for backward compat (debug.js etc. reads this).
   get TOOLBAR_ACTIONS() {
-    return this._currentToolbarMode === "hex"
-      ? this.HEX_TOOLBAR : this.DUNGEON_TOOLBAR;
+    if (this._currentToolbarMode === "hex") return this.HEX_TOOLBAR;
+    if (this._currentToolbarMode === "flower") return this.FLOWER_TOOLBAR;
+    return this.DUNGEON_TOOLBAR;
   },
 
   init() {
@@ -193,7 +204,10 @@ const Input = {
     zone.innerHTML = "";
     this._toolbarButtons = [];
     const actions = this._currentToolbarMode === "hex"
-      ? this.HEX_TOOLBAR : this.DUNGEON_TOOLBAR;
+      ? this.HEX_TOOLBAR
+      : this._currentToolbarMode === "flower"
+        ? this.FLOWER_TOOLBAR
+        : this.DUNGEON_TOOLBAR;
 
     // ── Action buttons (mode-specific) ──
     actions.forEach(({ icon, intent, labelKey }) => {

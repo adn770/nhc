@@ -335,6 +335,23 @@ const HexFlower = {
           a.style.display = near ? "" : "none";
         }
       });
+      // Click on the player glyph → enter feature (hex_enter).
+      container.addEventListener("click", (ev) => {
+        if (!this._playerPx) return;
+        const rect = container.getBoundingClientRect();
+        const scale = (typeof GameMap !== "undefined")
+          ? (GameMap._zoomSteps[GameMap._zoomLevel] || 1) : 1;
+        const mx = (ev.clientX - rect.left) / scale;
+        const my = (ev.clientY - rect.top) / scale;
+        const dx = mx - this._playerPx.x;
+        const dy = my - this._playerPx.y;
+        if (dx * dx + dy * dy
+            <= HEX_FLOWER_SIZE * HEX_FLOWER_SIZE) {
+          WS.send({
+            type: "action", intent: "hex_enter", data: null,
+          });
+        }
+      });
       container.addEventListener("mouseleave", () => {
         for (const a of arrows) a.style.display = "none";
       });
@@ -564,6 +581,8 @@ if (typeof WS !== "undefined") {
     }
     /* eslint-enable no-undef */
     HexFlower.render(msg);
+    // Switch to flower toolbar.
+    if (typeof Input !== "undefined") Input.setToolbarMode("flower");
     // Dismiss the loading spinner (same as state_hex handler)
     if (typeof NHC !== "undefined") {
       NHC.waitingForFloor = false;

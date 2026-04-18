@@ -1126,6 +1126,23 @@ if (typeof WS !== "undefined") {
   };
   WS.on("state_dungeon", _showDungeonAndLockHex);
   WS.on("state", _showDungeonAndLockHex);
+
+  // Click on the player glyph in hex map → enter exploration.
+  const _hexContainer = document.getElementById("hex-container");
+  if (_hexContainer) {
+    _hexContainer.addEventListener("click", (ev) => {
+      if (!HexInputActive || !HexMap._playerPx) return;
+      const rect = _hexContainer.getBoundingClientRect();
+      const scale = _hexZoomScale();
+      const mx = (ev.clientX - rect.left) / scale;
+      const my = (ev.clientY - rect.top) / scale;
+      const dx = mx - HexMap._playerPx.x;
+      const dy = my - HexMap._playerPx.y;
+      if (dx * dx + dy * dy <= HEX_SIZE * HEX_SIZE) {
+        WS.send({type: "action", intent: "hex_explore", data: null});
+      }
+    });
+  }
 }
 
 
