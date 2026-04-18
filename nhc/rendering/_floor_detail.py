@@ -640,6 +640,12 @@ def _render_floor_detail(
     # Street cobblestone detail — rendered on is_street tiles
     _render_street_cobblestone(svg, level, rng)
 
+    # Mine cart tracks — rendered on is_track tiles
+    _render_cart_tracks(svg, level)
+
+    # Ore deposits — rendered on wall tiles with ore_deposit feature
+    _render_ore_deposits(svg, level, rng)
+
 
 # ── Street cobblestone ───────────────────────────────────────
 
@@ -728,4 +734,121 @@ def _street_stone(
         f'transform="rotate({angle:.0f},{cx:.1f},{cy:.1f})" '
         f'fill="{_STONE_FILL}" stroke="{_STONE_STROKE}" '
         f'stroke-width="0.5"/>'
+    )
+
+
+# ── Mine cart tracks ─────────────────────────────────────────
+
+_TRACK_RAIL = "#6A5A4A"
+_TRACK_TIE = "#8A7A5A"
+
+
+def _render_cart_tracks(
+    svg: list[str], level: "Level",
+) -> None:
+    """Draw parallel rails plus cross-ties on is_track tiles.
+
+    Rails run along the dominant corridor direction: tiles with
+    horizontal track neighbours get east-west rails, otherwise
+    north-south. Ties are drawn as short perpendicular lines.
+    """
+    segments: list[str] = []
+    ties: list[str] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if not tile.is_track:
+                continue
+            # Decide orientation from neighbours
+            e = level.tile_at(x + 1, y)
+            w = level.tile_at(x - 1, y)
+            horizontal = (
+                (e is not None and e.is_track)
+                or (w is not None and w.is_track)
+            )
+            px, py = x * CELL, y * CELL
+            cx, cy = px + CELL / 2, py + CELL / 2
+            if horizontal:
+                # Two horizontal rails, tie every tile
+                y1 = py + CELL * 0.35
+                y2 = py + CELL * 0.65
+                segments.append(
+                    f'<line x1="{px:.1f}" y1="{y1:.1f}" '
+                    f'x2="{px + CELL:.1f}" y2="{y1:.1f}"/>'
+                )
+                segments.append(
+                    f'<line x1="{px:.1f}" y1="{y2:.1f}" '
+                    f'x2="{px + CELL:.1f}" y2="{y2:.1f}"/>'
+                )
+                ties.append(
+                    f'<line x1="{cx:.1f}" y1="{y1 - 1:.1f}" '
+                    f'x2="{cx:.1f}" y2="{y2 + 1:.1f}"/>'
+                )
+            else:
+                # Two vertical rails
+                x1 = px + CELL * 0.35
+                x2 = px + CELL * 0.65
+                segments.append(
+                    f'<line x1="{x1:.1f}" y1="{py:.1f}" '
+                    f'x2="{x1:.1f}" y2="{py + CELL:.1f}"/>'
+                )
+                segments.append(
+                    f'<line x1="{x2:.1f}" y1="{py:.1f}" '
+                    f'x2="{x2:.1f}" y2="{py + CELL:.1f}"/>'
+                )
+                ties.append(
+                    f'<line x1="{x1 - 1:.1f}" y1="{cy:.1f}" '
+                    f'x2="{x2 + 1:.1f}" y2="{cy:.1f}"/>'
+                )
+    if not segments:
+        return
+    svg.append(
+        f'<g id="cart-tracks" opacity="0.55" '
+        f'stroke="{_TRACK_RAIL}" stroke-width="0.9" '
+        f'stroke-linecap="round">'
+        f'{"".join(segments)}</g>'
+    )
+    if ties:
+        svg.append(
+            f'<g id="cart-track-ties" opacity="0.5" '
+            f'stroke="{_TRACK_TIE}" stroke-width="1.4" '
+            f'stroke-linecap="round">'
+            f'{"".join(ties)}</g>'
+        )
+
+
+# ── Ore deposits ─────────────────────────────────────────────
+
+_ORE_FILL = "#D4B14A"
+_ORE_STROKE = "#6A4A1A"
+
+
+def _render_ore_deposits(
+    svg: list[str], level: "Level", rng: random.Random,
+) -> None:
+    """Mark ore_deposit wall tiles with a small diamond glint."""
+    marks: list[str] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.feature != "ore_deposit":
+                continue
+            px, py = x * CELL, y * CELL
+            cx = px + CELL / 2 + rng.uniform(-1.0, 1.0)
+            cy = py + CELL / 2 + rng.uniform(-1.0, 1.0)
+            r = rng.uniform(1.8, 2.6)
+            # Diamond shape
+            marks.append(
+                f'<polygon points="'
+                f'{cx:.1f},{cy - r:.1f} '
+                f'{cx + r:.1f},{cy:.1f} '
+                f'{cx:.1f},{cy + r:.1f} '
+                f'{cx - r:.1f},{cy:.1f}"/>'
+            )
+    if not marks:
+        return
+    svg.append(
+        f'<g id="ore-deposits" fill="{_ORE_FILL}" '
+        f'stroke="{_ORE_STROKE}" stroke-width="0.4">'
+        f'{"".join(marks)}</g>'
     )
