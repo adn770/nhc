@@ -1,0 +1,7 @@
+id: example.test
+kind: flavor
+shared_structure: true
+
+entries:
+  - id: hello
+    text: Hello!

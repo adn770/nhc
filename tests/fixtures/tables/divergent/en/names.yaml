@@ -1,0 +1,10 @@
+id: names.tavern
+kind: flavor
+lifetime: ephemeral
+shared_structure: false
+
+entries:
+  - id: rusty_sword
+    text: The Rusty Sword
+  - id: golden_goblet
+    text: The Golden Goblet

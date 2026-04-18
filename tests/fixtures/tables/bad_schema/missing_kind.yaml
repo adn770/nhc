@@ -1,0 +1,7 @@
+id: example.test
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: hello
+    text: Hello!

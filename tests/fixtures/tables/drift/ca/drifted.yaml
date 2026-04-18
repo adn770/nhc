@@ -1,0 +1,11 @@
+id: drift.test
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: hello
+    weight: 3
+    text: Hola!
+  - id: farewell
+    text: Adéu!

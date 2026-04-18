@@ -1,0 +1,7 @@
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: hello
+    text: Hello!

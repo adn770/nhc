@@ -45,6 +45,15 @@ elif ! docker image inspect "$BASE_IMAGE" &>/dev/null; then
     ok "Base image built."
 fi
 
+# ── Validate multilingual tables (if subsystem exists) ────
+if [[ -d nhc/tables ]]; then
+    info "Validating multilingual tables..."
+    docker run --rm -v "$REPO_DIR:/app" -w /app "$BASE_IMAGE" \
+        python -m nhc.tables.validator \
+        || fail "Table validation failed — deploy aborted."
+    ok "Tables validated."
+fi
+
 # ── Rebuild app image ─────────────────────────────────────
 info "Building app image..."
 docker build -t "$APP_IMAGE" "$REPO_DIR"

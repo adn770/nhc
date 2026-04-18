@@ -1,0 +1,8 @@
+id: example.test
+kind: flavor
+lifetime: invalid_lifetime
+shared_structure: true
+
+entries:
+  - id: hello
+    text: Hello!

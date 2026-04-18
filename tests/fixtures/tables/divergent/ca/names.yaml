@@ -1,0 +1,12 @@
+id: names.tavern
+kind: flavor
+lifetime: ephemeral
+shared_structure: false
+
+entries:
+  - id: espasa_rovellada
+    text: L'Espasa Rovellada
+  - id: copa_daurada
+    text: La Copa Daurada
+  - id: drac_adormit
+    text: El Drac Adormit

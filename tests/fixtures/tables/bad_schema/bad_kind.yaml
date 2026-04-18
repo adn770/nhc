@@ -1,0 +1,8 @@
+id: example.test
+kind: invalid_kind
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: hello
+    text: Hello!

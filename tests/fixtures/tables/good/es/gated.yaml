@@ -1,0 +1,14 @@
+id: example.gated
+kind: structured
+lifetime: gen_time
+shared_structure: true
+only_if:
+  room_type: [barracks, crypt]
+
+entries:
+  - id: damp
+    text: El aire huele a humedad.
+    only_if:
+      has_water: true
+  - id: dusty
+    text: El polvo lo cubre todo.
