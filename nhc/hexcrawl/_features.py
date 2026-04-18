@@ -122,6 +122,23 @@ def _near_river(
     return False
 
 
+# Village-tier size weighting. Hamlet is the rustic default,
+# village is the common case, town is rarer and larger. The
+# hub is always "city" — that's the capital of the map.
+_VILLAGE_SIZE_WEIGHTS: list[tuple[str, float]] = [
+    ("hamlet", 0.35),
+    ("village", 0.50),
+    ("town", 0.15),
+]
+
+
+def _pick_village_size_class(rng: random.Random) -> str:
+    """Choose a size class for a non-hub settlement."""
+    names = [n for n, _ in _VILLAGE_SIZE_WEIGHTS]
+    weights = [w for _, w in _VILLAGE_SIZE_WEIGHTS]
+    return rng.choices(names, weights=weights, k=1)[0]
+
+
 def pick_hub(
     hexes_by_biome: dict[Biome, list[HexCoord]],
     rng: random.Random,
@@ -298,7 +315,8 @@ def place_features(
             continue
         cells[c].feature = HexFeatureType.VILLAGE
         cells[c].dungeon = DungeonRef(
-            template="procedural:settlement", size_class="village",
+            template="procedural:settlement",
+            size_class=_pick_village_size_class(rng),
         )
         taken.add(c)
         placed_villages += 1
