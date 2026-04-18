@@ -20,6 +20,7 @@ from nhc.hexcrawl.coords import (
     HexCoord,
     distance,
     neighbors,
+    ring,
     shape_r_range,
 )
 from nhc.hexcrawl.noise import SimplexNoise
@@ -209,3 +210,100 @@ def tectonic_plates(
         divergent=frozenset(divergent),
         transform=frozenset(transform),
     )
+
+
+# ---------------------------------------------------------------------------
+# Stage 3: Domain warping
+# ---------------------------------------------------------------------------
+
+
+def domain_warp(
+    rng: random.Random,
+    params: ContinentalParams,
+    continent_field: dict[HexCoord, float],
+    plates: PlateResult,
+    width: int,
+    height: int,
+) -> dict[HexCoord, float]:
+    """Warp noise coordinates for organic coastlines.
+
+    Re-samples the continent noise at displaced coordinates and
+    combines with tectonic elevation boosts at plate boundaries.
+    Returns the pre-erosion elevation field in ``[-1, 1]``.
+    """
+    continent_noise = SimplexNoise(seed=rng.randrange(1 << 30))
+    warp_x_noise = SimplexNoise(seed=rng.randrange(1 << 30))
+    warp_y_noise = SimplexNoise(seed=rng.randrange(1 << 30))
+
+    freq = params.continent_frequency
+    octaves = params.continent_octaves
+    warp_freq = params.warp_frequency
+    warp_amp = params.warp_amplitude
+    falloff = params.island_falloff
+
+    cx = (width - 1) / 2.0
+    cy = (height - 1) / 2.0
+    max_dist = math.sqrt(2.0)
+
+    elevation: dict[HexCoord, float] = {}
+
+    for h in continent_field:
+        fx = h.q * freq
+        fy = (h.r + h.q * 0.5) * freq
+
+        # Domain warp displacement.
+        wfx = h.q * warp_freq
+        wfy = (h.r + h.q * 0.5) * warp_freq
+        warp_dx = warp_x_noise.fractal(
+            wfx, wfy, octaves=2,
+        ) * warp_amp
+        warp_dy = warp_y_noise.fractal(
+            wfx, wfy, octaves=2,
+        ) * warp_amp
+
+        # Re-sample continent noise at warped coordinates.
+        raw = continent_noise.fractal(
+            fx + warp_dx, fy + warp_dy, octaves=octaves,
+        )
+
+        # Re-apply island mask.
+        dx = (h.q - cx) / max(cx, 1)
+        dy = (h.r - cy) / max(cy, 1)
+        dist = math.sqrt(dx * dx + dy * dy) / max_dist
+        mask = 1.0 - (dist * falloff) ** 2
+        mask = max(mask, 0.0)
+
+        elevation[h] = raw * mask
+
+    # Apply tectonic elevation boosts at boundaries.
+    # Pre-compute per-boundary-hex boosts, then fade into
+    # neighbours.
+    boost_map: dict[HexCoord, float] = {}
+    for bh in plates.boundaries:
+        if bh in plates.convergent:
+            boost = rng.uniform(0.3, 0.5)
+        elif bh in plates.divergent:
+            boost = -0.1
+        else:
+            boost = 0.1
+        boost_map[bh] = boost
+
+    # Apply boosts with distance fade (up to 2 hexes out).
+    accumulated: dict[HexCoord, float] = {}
+    for bh, boost in boost_map.items():
+        # Distance 0 (the boundary hex itself).
+        accumulated[bh] = accumulated.get(bh, 0.0) + boost
+        # Rings at distance 1 and 2.
+        for d in (1, 2):
+            fade = 1.0 - d / 3.0
+            for h in ring(bh, d):
+                if h in elevation:
+                    accumulated[h] = (
+                        accumulated.get(h, 0.0) + boost * fade
+                    )
+
+    for h in elevation:
+        elevation[h] += accumulated.get(h, 0.0)
+        elevation[h] = max(-1.0, min(1.0, elevation[h]))
+
+    return elevation

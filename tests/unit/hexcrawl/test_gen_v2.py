@@ -215,3 +215,93 @@ class TestTectonicPlates:
         b = tectonic_plates(random.Random(42), _params(), field)
         assert a.plate_of == b.plate_of
         assert a.boundaries == b.boundaries
+
+
+# ---------------------------------------------------------------------------
+# Stage 3: Domain warping
+# ---------------------------------------------------------------------------
+
+
+def _make_plates(
+    seed: int = 42,
+) -> tuple[dict[HexCoord, float], object]:
+    from nhc.hexcrawl._gen_v2 import continental_shape, tectonic_plates
+
+    rng = random.Random(seed)
+    field = continental_shape(rng, _params(), _WIDTH, _HEIGHT)
+    plates = tectonic_plates(rng, _params(), field)
+    return field, plates
+
+
+class TestDomainWarping:
+    """Tests for the domain_warp() stage function."""
+
+    def test_bounded(self) -> None:
+        from nhc.hexcrawl._gen_v2 import domain_warp
+
+        field, plates = _make_plates()
+        rng = random.Random(42)
+        warped = domain_warp(
+            rng, _params(), field, plates,
+            _WIDTH, _HEIGHT,
+        )
+        for v in warped.values():
+            assert -1.0 <= v <= 1.0
+
+    def test_changes_coastline(self) -> None:
+        from nhc.hexcrawl._gen_v2 import domain_warp
+
+        field, plates = _make_plates()
+        rng = random.Random(42)
+        warped = domain_warp(
+            rng, _params(), field, plates,
+            _WIDTH, _HEIGHT,
+        )
+        # Count how many hexes changed sign relative to sea level
+        sea = _params().sea_level
+        changes = sum(
+            1 for h in field
+            if (field[h] >= sea) != (warped[h] >= sea)
+        )
+        # Some coastline hexes should have changed
+        assert changes > 0
+
+    def test_convergent_boost(self) -> None:
+        from nhc.hexcrawl._gen_v2 import domain_warp
+
+        field, plates = _make_plates()
+        rng = random.Random(42)
+        warped = domain_warp(
+            rng, _params(), field, plates,
+            _WIDTH, _HEIGHT,
+        )
+        if not plates.convergent:
+            pytest.skip("no convergent boundaries on this seed")
+
+        # Average elevation at convergent boundaries should be
+        # higher than the average of the plate interior.
+        conv_avg = sum(
+            warped[h] for h in plates.convergent
+        ) / len(plates.convergent)
+        interior = [
+            h for h in warped
+            if h not in plates.boundaries
+        ]
+        if not interior:
+            pytest.skip("no interior hexes")
+        int_avg = sum(warped[h] for h in interior) / len(interior)
+        assert conv_avg > int_avg
+
+    def test_deterministic(self) -> None:
+        from nhc.hexcrawl._gen_v2 import domain_warp
+
+        field, plates = _make_plates()
+        a = domain_warp(
+            random.Random(42), _params(), field, plates,
+            _WIDTH, _HEIGHT,
+        )
+        b = domain_warp(
+            random.Random(42), _params(), field, plates,
+            _WIDTH, _HEIGHT,
+        )
+        assert a == b
