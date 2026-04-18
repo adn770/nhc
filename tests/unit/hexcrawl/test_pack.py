@@ -254,3 +254,92 @@ def test_pack_resolves_locale_keys(tmp_path: Path) -> None:
 def test_pack_locale_keys_default_empty(tmp_path: Path) -> None:
     pack = load_pack(_write(tmp_path, _MINIMAL))
     assert pack.locale_keys == []
+
+
+# ---------------------------------------------------------------------------
+# Continental V2 generator
+# ---------------------------------------------------------------------------
+
+_CONTINENTAL_V2 = textwrap.dedent(
+    """
+    id: testland-v2
+    version: 2
+    attribution: "NHC test setting v2"
+    map:
+      generator: continental_v2
+      width: 25
+      height: 16
+      continental:
+        continent_frequency: 0.06
+        continent_octaves: 3
+        island_falloff: 0.8
+        sea_level: -0.25
+        plate_count: 6
+        warp_amplitude: 0.4
+        warp_frequency: 0.15
+        erosion_iterations: 4
+        erosion_rate: 0.15
+        deposit_rate: 0.3
+        lake_chance: 0.3
+    """
+)
+
+
+def test_pack_loads_continental_v2(tmp_path: Path) -> None:
+    pack = load_pack(_write(tmp_path, _CONTINENTAL_V2))
+    assert pack.id == "testland-v2"
+    assert pack.map.generator == "continental_v2"
+    assert pack.map.continental is not None
+    c = pack.map.continental
+    assert c.continent_frequency == pytest.approx(0.06)
+    assert c.continent_octaves == 3
+    assert c.island_falloff == pytest.approx(0.8)
+    assert c.sea_level == pytest.approx(-0.25)
+    assert c.plate_count == 6
+    assert c.warp_amplitude == pytest.approx(0.4)
+    assert c.warp_frequency == pytest.approx(0.15)
+    assert c.erosion_iterations == 4
+    assert c.erosion_rate == pytest.approx(0.15)
+    assert c.deposit_rate == pytest.approx(0.3)
+    assert c.lake_chance == pytest.approx(0.3)
+
+
+def test_continental_v2_in_known_generators(tmp_path: Path) -> None:
+    from nhc.hexcrawl.pack import KNOWN_GENERATORS
+    assert "continental_v2" in KNOWN_GENERATORS
+
+
+def test_continental_v2_defaults(tmp_path: Path) -> None:
+    body = textwrap.dedent(
+        """
+        id: testland-v2
+        version: 2
+        map:
+          generator: continental_v2
+          width: 25
+          height: 16
+          continental: {}
+        """
+    )
+    pack = load_pack(_write(tmp_path, body))
+    c = pack.map.continental
+    assert c is not None
+    # All fields should have defaults
+    assert c.continent_frequency > 0
+    assert c.continent_octaves >= 1
+    assert c.plate_count >= 2
+
+
+def test_continental_v2_missing_block_errors(tmp_path: Path) -> None:
+    body = textwrap.dedent(
+        """
+        id: testland-v2
+        version: 2
+        map:
+          generator: continental_v2
+          width: 25
+          height: 16
+        """
+    )
+    with pytest.raises(PackValidationError, match="continental"):
+        load_pack(_write(tmp_path, body))

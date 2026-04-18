@@ -51,6 +51,10 @@ KNOWN_GENERATORS: frozenset[str] = frozenset({
     # the dispatcher in Game._init_hex_world picks which one
     # to call.
     "perlin_regions",
+    # V2: geologically-inspired pipeline -- simplex continents,
+    # Voronoi tectonic plates, domain warping, flow-accumulation
+    # erosion, scored settlement placement.
+    "continental_v2",
 })
 
 
@@ -69,6 +73,32 @@ class PackValidationError(ValueError):
 
 
 @dataclass
+class ContinentalParams:
+    """Pack-configurable knobs for the continental_v2 generator."""
+
+    # Stage 1: Continental shape
+    continent_frequency: float = 0.06
+    continent_octaves: int = 3
+    island_falloff: float = 0.8
+    sea_level: float = -0.25
+
+    # Stage 2: Tectonic plates
+    plate_count: int = 6
+
+    # Stage 3: Domain warping
+    warp_amplitude: float = 0.4
+    warp_frequency: float = 0.15
+
+    # Stage 4: Erosion
+    erosion_iterations: int = 4
+    erosion_rate: float = 0.15
+    deposit_rate: float = 0.3
+
+    # Stage 6: Rivers (extends RiverParams)
+    lake_chance: float = 0.3
+
+
+@dataclass
 class MapParams:
     generator: str
     width: int
@@ -83,6 +113,9 @@ class MapParams:
     elevation_scale: float = 0.08
     moisture_scale: float = 0.12
     octaves: int = 4
+    # Continental V2 knobs; required when generator is
+    # continental_v2, None otherwise.
+    continental: ContinentalParams | None = None
 
 
 @dataclass
@@ -209,6 +242,15 @@ def _parse_map(raw: dict[str, Any]) -> MapParams:
         raise PackValidationError(f"map.width must be > 0, got {width}")
     if height <= 0:
         raise PackValidationError(f"map.height must be > 0, got {height}")
+    continental: ContinentalParams | None = None
+    if generator == "continental_v2":
+        if "continental" not in block:
+            raise PackValidationError(
+                "generator 'continental_v2' requires a "
+                "'continental' configuration block in map"
+            )
+        continental = _parse_continental(block["continental"])
+
     return MapParams(
         generator=generator,
         width=width,
@@ -219,6 +261,7 @@ def _parse_map(raw: dict[str, Any]) -> MapParams:
         elevation_scale=float(block.get("elevation_scale", 0.08)),
         moisture_scale=float(block.get("moisture_scale", 0.12)),
         octaves=int(block.get("octaves", 4)),
+        continental=continental,
     )
 
 
@@ -270,6 +313,26 @@ def _parse_biome_costs(block: dict[str, Any] | None) -> dict[Biome, int]:
             )
         out[biome] = cost_int
     return out
+
+
+def _parse_continental(block: dict[str, Any] | None) -> ContinentalParams:
+    if block is None:
+        return ContinentalParams()
+    return ContinentalParams(
+        continent_frequency=float(
+            block.get("continent_frequency", 0.06),
+        ),
+        continent_octaves=int(block.get("continent_octaves", 3)),
+        island_falloff=float(block.get("island_falloff", 0.8)),
+        sea_level=float(block.get("sea_level", -0.25)),
+        plate_count=int(block.get("plate_count", 6)),
+        warp_amplitude=float(block.get("warp_amplitude", 0.4)),
+        warp_frequency=float(block.get("warp_frequency", 0.15)),
+        erosion_iterations=int(block.get("erosion_iterations", 4)),
+        erosion_rate=float(block.get("erosion_rate", 0.15)),
+        deposit_rate=float(block.get("deposit_rate", 0.3)),
+        lake_chance=float(block.get("lake_chance", 0.3)),
+    )
 
 
 def _parse_rivers(block: dict[str, Any] | None) -> RiverParams:
