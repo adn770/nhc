@@ -122,6 +122,8 @@ class DungeonRef:
     # keyed by this coord. None for non-cave features or if the
     # feature hasn't been cluster-assigned yet.
     cluster_id: "HexCoord | None" = None
+    size_class: str | None = None  # hamlet, village, town, city
+    faction: str | None = None     # e.g. "goblin", "orc"
 
 
 @dataclass

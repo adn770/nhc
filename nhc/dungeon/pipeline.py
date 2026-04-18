@@ -30,7 +30,9 @@ from nhc.dungeon.generators.cellular import CellularGenerator
 from nhc.dungeon.model import Level
 from nhc.dungeon.populator import populate_level
 from nhc.dungeon.room_types import assign_room_types
+from nhc.dungeon.templates import TEMPLATES, apply_template
 from nhc.dungeon.terrain import apply_terrain
+from nhc.dungeon.transforms import TRANSFORM_REGISTRY
 
 
 def generate_level(params: GenerationParams) -> Level:
@@ -42,12 +44,27 @@ def generate_level(params: GenerationParams) -> Level:
     seed = params.seed if params.seed is not None else 0
     rng = random.Random(seed)
 
-    if params.theme == "cave":
+    # Apply structural template if specified
+    tmpl = TEMPLATES.get(params.template) if params.template else None
+    if tmpl:
+        effective = apply_template(params, tmpl)
+    else:
+        effective = params
+
+    if effective.theme == "cave":
         generator = CellularGenerator()
     else:
         generator = BSPGenerator()
 
-    level = generator.generate(params, rng=rng)
+    level = generator.generate(effective, rng=rng)
+
+    # Run post-generation transforms from template
+    if tmpl:
+        for transform_name in tmpl.transforms:
+            fn = TRANSFORM_REGISTRY.get(transform_name)
+            if fn:
+                fn(level, rng)
+
     assign_room_types(level, rng)
     apply_terrain(level, rng)
     populate_level(level, rng=rng)

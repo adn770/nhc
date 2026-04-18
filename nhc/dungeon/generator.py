@@ -34,6 +34,7 @@ class GenerationParams:
     water_features: bool = False
     multiple_stairs: bool = False
     shape_variety: float = 0.0  # 0.0 = all rect, 1.0 = all non-rect
+    template: str | None = None  # structural template, e.g. "procedural:tower"
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-friendly dictionary."""
@@ -55,6 +56,7 @@ class GenerationParams:
             "water_features": self.water_features,
             "multiple_stairs": self.multiple_stairs,
             "shape_variety": self.shape_variety,
+            "template": self.template,
         }
 
     @classmethod

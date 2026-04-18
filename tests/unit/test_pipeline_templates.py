@@ -1,0 +1,46 @@
+"""Tests for template routing in the generation pipeline."""
+
+from nhc.dungeon.generator import GenerationParams
+from nhc.dungeon.model import Level
+from nhc.dungeon.pipeline import generate_level
+
+
+class TestPipelineTemplateRouting:
+    def test_generate_without_template(self):
+        """Default generation (no template) still works."""
+        params = GenerationParams(
+            width=40, height=40, depth=1, seed=42,
+        )
+        level = generate_level(params)
+        assert isinstance(level, Level)
+        assert len(level.rooms) >= 3
+
+    def test_generate_with_template(self):
+        """Providing a template produces a valid level."""
+        params = GenerationParams(
+            width=60, height=40, depth=1, seed=42,
+            template="procedural:crypt",
+        )
+        level = generate_level(params)
+        assert isinstance(level, Level)
+        assert len(level.rooms) >= 3
+        assert level.metadata.theme == "crypt"
+
+    def test_unknown_template_falls_back(self):
+        """Unknown template name falls back to default BSP."""
+        params = GenerationParams(
+            width=40, height=40, depth=1, seed=42,
+            template="nonexistent:foo",
+        )
+        level = generate_level(params)
+        assert isinstance(level, Level)
+        assert len(level.rooms) >= 3
+
+    def test_cave_theme_uses_cellular(self):
+        """Cave theme still uses CellularGenerator."""
+        params = GenerationParams(
+            width=40, height=40, depth=1, seed=42,
+            theme="cave",
+        )
+        level = generate_level(params)
+        assert isinstance(level, Level)

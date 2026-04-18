@@ -599,6 +599,8 @@ class Tile:
     buried: list[str] = field(default_factory=list)  # hidden item IDs
     dug_floor: bool = False  # True after first floor dig (second dig = fall)
     dug_wall: bool = False  # True when a wall was dug into a passage
+    is_street: bool = False  # settlement street tile
+    is_track: bool = False   # mine cart track tile
 
     @property
     def walkable(self) -> bool:

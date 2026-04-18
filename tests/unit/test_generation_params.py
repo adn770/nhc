@@ -58,13 +58,26 @@ class TestGenerationParamsToDict:
         assert d["room_count"] == {"min": 2, "max": 10}
         assert d["room_size"] == {"min": 3, "max": 8}
 
+    def test_template_roundtrip(self):
+        params = GenerationParams(template="procedural:tower")
+        d = params.to_dict()
+        assert d["template"] == "procedural:tower"
+        restored = GenerationParams.from_dict(d)
+        assert restored.template == "procedural:tower"
+
+    def test_template_default_none(self):
+        params = GenerationParams()
+        assert params.template is None
+        d = params.to_dict()
+        assert d["template"] is None
+
     def test_to_dict_contains_all_fields(self):
         d = GenerationParams().to_dict()
         expected = {
             "width", "height", "depth", "room_count", "room_size",
             "corridor_style", "density", "connectivity", "theme",
             "seed", "dead_ends", "secret_doors", "water_features",
-            "multiple_stairs", "shape_variety",
+            "multiple_stairs", "shape_variety", "template",
         }
         assert set(d.keys()) == expected
 
