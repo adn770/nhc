@@ -15,5 +15,5 @@ def test_hexcrawl_module_importable() -> None:
 
 
 def test_testland_pack_file_exists() -> None:
-    pack = _project_root() / "content" / "testland" / "pack.yaml"
+    pack = _project_root() / "content" / "testland-v2" / "pack.yaml"
     assert pack.is_file(), pack

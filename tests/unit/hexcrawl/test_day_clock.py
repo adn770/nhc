@@ -116,7 +116,8 @@ def test_cost_for_with_pack_biome_costs(tmp_path) -> None:
 id: override_pack
 version: 1
 map:
-  generator: bsp_regions
+  generator: continental_v2
+  continental: {}
   width: 4
   height: 4
 biome_costs:
@@ -137,20 +138,21 @@ def test_generator_populates_hexworld_biome_costs(tmp_path) -> None:
     # When the generator builds a world from a pack, the world's
     # biome_costs mirror the pack -- so MoveHexAction etc. can
     # consult world.biome_costs without needing a pack reference.
-    from nhc.hexcrawl.generator import generate_test_world
+    from nhc.hexcrawl._gen_v2 import generate_continental_world
     body = """
 id: override_pack
 version: 1
 map:
-  generator: bsp_regions
+  generator: continental_v2
   width: 8
   height: 8
+  continental: {}
 biome_costs:
   mountain: 6
 """
     p = tmp_path / "pack.yaml"
     p.write_text(body)
     pack = load_pack(p)
-    world = generate_test_world(seed=1, pack=pack)
+    world = generate_continental_world(seed=1, pack=pack)
     assert world.biome_costs[Biome.MOUNTAIN] == 6
     assert world.biome_costs[Biome.GREENLANDS] == 1

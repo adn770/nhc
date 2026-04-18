@@ -75,8 +75,6 @@ from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.generator import (
     generate_continental_world,
-    generate_perlin_world,
-    generate_test_world,
 )
 from nhc.hexcrawl.mode import Difficulty, GameMode
 from nhc.hexcrawl.model import HexFeatureType, HexWorld
@@ -1290,18 +1288,9 @@ class Game:
         # Unknown generators are rejected at pack-load time
         # (KNOWN_GENERATORS) so we only need to handle the
         # currently-shipped set here.
-        if pack.map.generator == "continental_v2":
-            self.hex_world = generate_continental_world(
-                seed=self.seed, pack=pack,
-            )
-        elif pack.map.generator == "perlin_regions":
-            self.hex_world = generate_perlin_world(
-                seed=self.seed, pack=pack,
-            )
-        else:  # bsp_regions (default)
-            self.hex_world = generate_test_world(
-                seed=self.seed, pack=pack,
-            )
+        self.hex_world = generate_continental_world(
+            seed=self.seed, pack=pack,
+        )
         self._create_hex_player()
 
         from nhc.hexcrawl._flowers import pick_flower_start
@@ -2683,7 +2672,7 @@ class Game:
         """
         from nhc.core.actions._sub_hex_movement import MoveSubHexAction
         from nhc.hexcrawl._flowers import get_exit_edge
-        from nhc.hexcrawl._rivers import direction_index
+        from nhc.hexcrawl.coords import direction_index
         from nhc.hexcrawl.encounter_pipeline import (
             rate_for_biome,
             roll_encounter,

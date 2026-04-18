@@ -45,15 +45,6 @@ DEFAULT_BIOME_COSTS: dict[Biome, int] = {
 
 
 KNOWN_GENERATORS: frozenset[str] = frozenset({
-    "bsp_regions",
-    # M-G.4: elevation + moisture simplex fields, Whittaker-
-    # style biome lookup. Same HexWorld output shape as BSP;
-    # the dispatcher in Game._init_hex_world picks which one
-    # to call.
-    "perlin_regions",
-    # V2: geologically-inspired pipeline -- simplex continents,
-    # Voronoi tectonic plates, domain warping, flow-accumulation
-    # erosion, scored settlement placement.
     "continental_v2",
 })
 

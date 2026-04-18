@@ -11,10 +11,9 @@ from __future__ import annotations
 
 import random
 
-from nhc.hexcrawl.coords import HexCoord, distance, neighbors
+from nhc.hexcrawl.coords import HexCoord, direction_index, distance, neighbors
 from nhc.hexcrawl.model import Biome, EdgeSegment, HexCell, HexFeatureType
 from nhc.hexcrawl.pack import ContinentalParams, RiverParams
-from nhc.hexcrawl._rivers import direction_index
 
 
 # Biomes where rivers die (terminate, not route around).

@@ -42,6 +42,27 @@ def neighbors(c: HexCoord) -> list[HexCoord]:
     return [HexCoord(c.q + dq, c.r + dr) for dq, dr in NEIGHBOR_OFFSETS]
 
 
+# Pre-built offset→index lookup for direction_index.
+_OFFSET_TO_IDX: dict[tuple[int, int], int] = {
+    offset: i for i, offset in enumerate(NEIGHBOR_OFFSETS)
+}
+
+
+def direction_index(a: HexCoord, b: HexCoord) -> int:
+    """Return the NEIGHBOR_OFFSETS index for the step from *a* to *b*.
+
+    Raises :class:`ValueError` if *b* is not a direct neighbour
+    of *a*.
+    """
+    key = (b.q - a.q, b.r - a.r)
+    idx = _OFFSET_TO_IDX.get(key)
+    if idx is None:
+        raise ValueError(
+            f"{b} is not a neighbour of {a} (offset {key})"
+        )
+    return idx
+
+
 def distance(a: HexCoord, b: HexCoord) -> int:
     """Hex distance between two axial coordinates.
 

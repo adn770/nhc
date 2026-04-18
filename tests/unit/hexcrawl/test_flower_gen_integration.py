@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from nhc.hexcrawl.coords import HexCoord, distance
-from nhc.hexcrawl.generator import generate_test_world
+from nhc.hexcrawl._gen_v2 import generate_continental_world
 from nhc.hexcrawl.model import (
     Biome,
     EdgeSegment,
@@ -46,12 +46,10 @@ _PACK_BODY = textwrap.dedent(
     version: 1
     attribution: "NHC test setting"
     map:
-      generator: bsp_regions
+      generator: continental_v2
       width: 8
       height: 8
-      num_regions: 5
-      region_min: 6
-      region_max: 16
+      continental: {}
     features:
       hub: 1
       village:
@@ -186,13 +184,13 @@ def test_generate_flower_deterministic() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Generator integration (generate_test_world)
+# Generator integration (generate_continental_world)
 # ---------------------------------------------------------------------------
 
 
 def test_generator_produces_flowers_on_every_hex(tmp_path) -> None:
     pack = _load_pack(tmp_path)
-    world = generate_test_world(12345, pack)
+    world = generate_continental_world(12345, pack)
     for coord, cell in world.cells.items():
         assert cell.flower is not None, (
             f"hex ({coord.q}, {coord.r}) has no flower"
@@ -202,7 +200,7 @@ def test_generator_produces_flowers_on_every_hex(tmp_path) -> None:
 
 def test_generator_river_hexes_have_sub_hex_segments(tmp_path) -> None:
     pack = _load_pack(tmp_path)
-    world = generate_test_world(12345, pack)
+    world = generate_continental_world(12345, pack)
     river_cells = [
         cell for cell in world.cells.values()
         if any(e.type == "river" for e in cell.edges)
@@ -220,7 +218,7 @@ def test_generator_river_hexes_have_sub_hex_segments(tmp_path) -> None:
 
 def test_generator_path_hexes_have_sub_hex_segments(tmp_path) -> None:
     pack = _load_pack(tmp_path)
-    world = generate_test_world(12345, pack)
+    world = generate_continental_world(12345, pack)
     path_cells = [
         cell for cell in world.cells.values()
         if any(e.type == "path" for e in cell.edges)

@@ -13,7 +13,7 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
-from nhc.hexcrawl.generator import generate_test_world
+from nhc.hexcrawl._gen_v2 import generate_continental_world
 from nhc.hexcrawl.model import HexFeatureType, Rumor
 from nhc.hexcrawl.pack import load_pack
 from nhc.hexcrawl.rumors import (
@@ -22,11 +22,11 @@ from nhc.hexcrawl.rumors import (
 )
 
 
-_PACK = Path(__file__).resolve().parents[3] / "content" / "testland" / "pack.yaml"
+_PACK = Path(__file__).resolve().parents[3] / "content" / "testland-v2" / "pack.yaml"
 
 
 def _world(seed: int = 7):
-    return generate_test_world(seed=seed, pack=load_pack(_PACK))
+    return generate_continental_world(seed=seed, pack=load_pack(_PACK))
 
 
 # ---------------------------------------------------------------------------

@@ -23,7 +23,8 @@ _MINIMAL = textwrap.dedent(
     version: 1
     attribution: "NHC test setting"
     map:
-      generator: bsp_regions
+      generator: continental_v2
+      continental: {}
       width: 8
       height: 8
     """
@@ -47,7 +48,7 @@ def test_pack_loads_minimal_yaml(tmp_path: Path) -> None:
     assert pack.id == "testland"
     assert pack.version == 1
     assert pack.attribution == "NHC test setting"
-    assert pack.map.generator == "bsp_regions"
+    assert pack.map.generator == "continental_v2"
     assert pack.map.width == 8
     assert pack.map.height == 8
 
@@ -71,7 +72,8 @@ def test_pack_rejects_missing_id(tmp_path: Path) -> None:
         """
         version: 1
         map:
-          generator: bsp_regions
+          generator: continental_v2
+          continental: {}
           width: 8
           height: 8
         """
@@ -101,7 +103,8 @@ def test_pack_validates_map_size_positive(tmp_path: Path) -> None:
         id: bad
         version: 1
         map:
-          generator: bsp_regions
+          generator: continental_v2
+          continental: {}
           width: 0
           height: 8
         """
@@ -116,7 +119,8 @@ def test_pack_validates_map_height_positive(tmp_path: Path) -> None:
         id: bad
         version: 1
         map:
-          generator: bsp_regions
+          generator: continental_v2
+          continental: {}
           width: 8
           height: -3
         """

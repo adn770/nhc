@@ -11,7 +11,7 @@ from pathlib import Path
 from nhc.hexcrawl.coords import HexCoord, distance, neighbors
 from nhc.hexcrawl.mode import GameMode
 from nhc.hexcrawl.model import HexFeatureType, FLOWER_COORDS
-from nhc.hexcrawl.generator import generate_test_world
+from nhc.hexcrawl._gen_v2 import generate_continental_world
 from nhc.hexcrawl.pack import load_pack
 
 
@@ -25,12 +25,10 @@ _PACK_BODY = textwrap.dedent("""
     version: 1
     attribution: "test"
     map:
-      generator: bsp_regions
+      generator: continental_v2
       width: 8
       height: 8
-      num_regions: 5
-      region_min: 6
-      region_max: 16
+      continental: {}
     features:
       hub: 1
       village:
@@ -56,7 +54,7 @@ def _load_pack(tmp_path: Path):
 
 def _make_hex_world(tmp_path: Path):
     pack = _load_pack(tmp_path)
-    return generate_test_world(42, pack)
+    return generate_continental_world(42, pack)
 
 
 # ---------------------------------------------------------------------------

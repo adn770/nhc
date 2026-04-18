@@ -2,7 +2,7 @@
 """Generate sample hexcrawl map PNGs for visual inspection.
 
 Usage:
-    python -m tests.samples.generate_hexmap [--seed SEED] [--generator bsp|perlin]
+    python -m tests.samples.generate_hexmap [--seed SEED]
     python -m tests.samples.generate_hexmap --seeds 1,2,3
     python -m tests.samples.generate_hexmap --seed 42 --flower 5,3
 
@@ -28,11 +28,7 @@ except ImportError:
     sys.exit(2)
 
 from nhc.hexcrawl.coords import HexCoord, to_pixel
-from nhc.hexcrawl.generator import (
-    generate_continental_world,
-    generate_test_world,
-    generate_perlin_world,
-)
+from nhc.hexcrawl._gen_v2 import generate_continental_world
 from nhc.hexcrawl.model import (
     Biome,
     HexCell,
@@ -487,18 +483,10 @@ def render_flower(
 
 # ── Pack loading ───────────────────────────────────────────────
 
-def _find_pack(generator: str) -> Path:
-    """Find the appropriate content pack for the generator type."""
+def _find_pack() -> Path:
+    """Find the testland-v2 content pack."""
     content = Path(__file__).resolve().parents[2] / "content"
-    if generator == "continental_v2":
-        pack_path = content / "testland-v2" / "pack.yaml"
-        if pack_path.is_file():
-            return pack_path
-    if generator == "perlin":
-        pack_path = content / "testland-perlin" / "pack.yaml"
-        if pack_path.is_file():
-            return pack_path
-    pack_path = content / "testland" / "pack.yaml"
+    pack_path = content / "testland-v2" / "pack.yaml"
     if pack_path.is_file():
         return pack_path
     raise FileNotFoundError(
@@ -515,19 +503,12 @@ def generate(
     flower_coord: tuple[int, int] | None,
 ) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
-    pack_path = _find_pack(generator)
+    pack_path = _find_pack()
     pack = load_pack(pack_path)
-
-    if generator == "continental_v2":
-        gen_fn = generate_continental_world
-    elif generator == "perlin":
-        gen_fn = generate_perlin_world
-    else:
-        gen_fn = generate_test_world
 
     for seed in seeds:
         print(f"Generating {generator} map with seed {seed}...")
-        world = gen_fn(seed, pack)
+        world = generate_continental_world(seed, pack)
 
         # Stats
         biomes: dict[str, int] = {}
@@ -585,9 +566,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--generator",
-        choices=["bsp", "perlin", "continental_v2"],
-        default="bsp",
-        help="generator type (default: bsp)",
+        choices=["continental_v2"],
+        default="continental_v2",
+        help="generator type (default: continental_v2)",
     )
     parser.add_argument(
         "--flower", type=str, default=None,

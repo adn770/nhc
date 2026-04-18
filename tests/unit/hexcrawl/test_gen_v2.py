@@ -545,7 +545,7 @@ class TestMacroEdgeOffsets:
                 )
 
         # Stamp a 3-hex river: (1,0) -> (2,0) -> (3,0)
-        from nhc.hexcrawl._rivers import direction_index
+        from nhc.hexcrawl.coords import direction_index
         path = [HexCoord(1, 0), HexCoord(2, 0), HexCoord(3, 0)]
         for i, coord in enumerate(path):
             entry = None if i == 0 else (

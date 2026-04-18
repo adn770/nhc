@@ -384,7 +384,7 @@ class HexWorld:
         self, origin: HexCoord, target: HexCoord,
     ) -> None:
         """Record the direction the player entered *target* from."""
-        from nhc.hexcrawl._rivers import direction_index
+        from nhc.hexcrawl.coords import direction_index
         edge = direction_index(origin, target)
         self.last_entry_edge[target] = edge
 

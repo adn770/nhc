@@ -162,7 +162,7 @@ def test_hexworld_rivers_independent_instances() -> None:
 
 
 @pytest.fixture
-def bsp_pack(tmp_path: Path):
+def continental_pack(tmp_path: Path):
     from nhc.hexcrawl.pack import load_pack
     p = tmp_path / "pack.yaml"
     p.write_text(textwrap.dedent("""
@@ -170,12 +170,10 @@ def bsp_pack(tmp_path: Path):
         version: 1
         attribution: test
         map:
-          generator: bsp_regions
+          generator: continental_v2
           width: 8
           height: 8
-          num_regions: 5
-          region_min: 6
-          region_max: 16
+          continental: {}
         features:
           hub: 1
           village:
@@ -191,39 +189,9 @@ def bsp_pack(tmp_path: Path):
     return load_pack(p)
 
 
-@pytest.fixture
-def perlin_pack(tmp_path: Path):
-    from nhc.hexcrawl.pack import load_pack
-    p = tmp_path / "pack.yaml"
-    p.write_text(textwrap.dedent("""
-        id: testland-perlin
-        version: 1
-        attribution: test
-        map:
-          generator: perlin_regions
-          width: 8
-          height: 8
-          elevation_scale: 0.08
-          moisture_scale: 0.12
-          octaves: 4
-        features:
-          hub: 1
-          village:
-            min: 1
-            max: 2
-          dungeon:
-            min: 3
-            max: 5
-          wonder:
-            min: 1
-            max: 3
-    """))
-    return load_pack(p)
-
-
-def test_bsp_cells_have_elevation(bsp_pack) -> None:
-    from nhc.hexcrawl.generator import generate_test_world
-    w = generate_test_world(seed=42, pack=bsp_pack)
+def test_continental_cells_have_elevation(continental_pack) -> None:
+    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    w = generate_continental_world(seed=42, pack=continental_pack)
     # Every cell should have a non-default elevation.
     for cell in w.cells.values():
         assert isinstance(cell.elevation, float)
@@ -232,9 +200,9 @@ def test_bsp_cells_have_elevation(bsp_pack) -> None:
     assert len(elevations) > 1, "all cells have identical elevation"
 
 
-def test_bsp_mountain_higher_than_water(bsp_pack) -> None:
-    from nhc.hexcrawl.generator import generate_test_world
-    w = generate_test_world(seed=42, pack=bsp_pack)
+def test_continental_mountain_higher_than_water(continental_pack) -> None:
+    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    w = generate_continental_world(seed=42, pack=continental_pack)
     mountains = [c for c in w.cells.values() if c.biome is Biome.MOUNTAIN]
     greens = [c for c in w.cells.values() if c.biome is Biome.GREENLANDS]
     if mountains and greens:
@@ -243,19 +211,19 @@ def test_bsp_mountain_higher_than_water(bsp_pack) -> None:
         assert avg_mtn > avg_grn
 
 
-def test_perlin_cells_have_elevation(perlin_pack) -> None:
-    from nhc.hexcrawl.generator import generate_perlin_world
-    w = generate_perlin_world(seed=42, pack=perlin_pack)
+def test_continental_elevation_spread(continental_pack) -> None:
+    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    w = generate_continental_world(seed=42, pack=continental_pack)
     for cell in w.cells.values():
         assert isinstance(cell.elevation, float)
     elevations = [cell.elevation for cell in w.cells.values()]
-    # Perlin noise should produce a spread of values.
+    # Continental generator should produce a spread of values.
     assert max(elevations) - min(elevations) > 0.3
 
 
-def test_perlin_elevation_correlates_with_biome(perlin_pack) -> None:
-    from nhc.hexcrawl.generator import generate_perlin_world
-    w = generate_perlin_world(seed=42, pack=perlin_pack)
+def test_continental_elevation_correlates_with_biome(continental_pack) -> None:
+    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    w = generate_continental_world(seed=42, pack=continental_pack)
     mountains = [c for c in w.cells.values() if c.biome is Biome.MOUNTAIN]
     if mountains:
         avg = sum(c.elevation for c in mountains) / len(mountains)

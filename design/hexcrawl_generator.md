@@ -1,16 +1,14 @@
-# NHC -- Overland Hexcrawl V2: Continental World Generator
+# NHC -- Hexcrawl World Generator
 
-Design document for a geologically-inspired world map generator
-that replaces the BSP and Perlin generators. Produces organic
-continents, tectonic mountain ranges, erosion-carved drainage
-basins, and terrain-aware placement of rivers, settlements, and
-roads.
+Design document for the continental world map generator.
+Produces organic continents, tectonic mountain ranges, erosion-
+carved drainage basins, and terrain-aware placement of rivers,
+settlements, and roads.
 
-This document supersedes the generator sections (7, rivers, and
-paths) of `overland_hexcrawl.md` once the implementation is
-proven. All other sections of the v1 document (vision, game
-modes, data model, gameplay loop, rendering, debug tools, and
-phasing) remain authoritative.
+This document covers map generation. The overland gameplay
+concepts (vision, game modes, data model, gameplay loop,
+rendering, debug tools, and phasing) are in
+`overland_hexcrawl.md`.
 
 ---
 
