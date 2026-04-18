@@ -159,10 +159,7 @@ const HexFlower = {
     const g = _FLOWER_BIOME_COLORS[cell.biome]
       || _FLOWER_BIOME_COLORS.greenlands;
     this._fillHex(ctx, x, y, HEX_FLOWER_SIZE, g.bg);
-    let glyph = g.c;
-    if (cell.major_feature && cell.major_feature !== "none") {
-      glyph = cell.major_feature.charAt(0).toUpperCase();
-    }
+    const glyph = g.c;
     ctx.fillStyle = g.fg;
     ctx.font = `bold ${Math.round(HEX_FLOWER_SIZE * 0.5)}px monospace`;
     ctx.textAlign = "center";
@@ -477,23 +474,7 @@ const HexFlower = {
           this._drawFlowerEdge(featCtx, seg);
         }
       }
-      /* major feature labels on revealed cells */
-      for (const cell of state.cells) {
-        if (!cell.revealed) continue;
-        if (!cell.major_feature || cell.major_feature === "none") continue;
-        const { x, y } = _flowerAxialToPixel(cell.q, cell.r);
-        const label = cell.major_feature.charAt(0).toUpperCase();
-        featCtx.save();
-        featCtx.font = `bold ${Math.round(HEX_FLOWER_SIZE * 0.35)}px monospace`;
-        featCtx.textAlign = "center";
-        featCtx.textBaseline = "middle";
-        featCtx.fillStyle = "rgba(255,255,255,0.85)";
-        featCtx.strokeStyle = "rgba(0,0,0,0.6)";
-        featCtx.lineWidth = 2;
-        featCtx.strokeText(label, x, y + HEX_FLOWER_SIZE * 0.25);
-        featCtx.fillText(label, x, y + HEX_FLOWER_SIZE * 0.25);
-        featCtx.restore();
-      }
+      /* major feature labels removed — tile art is sufficient */
       featCtx.restore();
 
       /* -- fog layer -- */
