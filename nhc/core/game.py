@@ -1259,11 +1259,11 @@ class Game:
         ``MoveHexAction`` (M-1.5 / M-1.6); the initial reveal here
         is exactly one hex.
         """
-        # Path-relative load of the bundled testland pack. A future
+        # Path-relative load of the bundled pack. A future
         # milestone will let the caller pick a pack via the CLI.
         pack_path = (
             Path(__file__).resolve().parents[2]
-            / "content" / "testland" / "pack.yaml"
+            / "content" / "testland-perlin" / "pack.yaml"
         )
         pack = load_pack(pack_path)
         # Dispatcher: pick the generator named in the pack.

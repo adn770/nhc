@@ -35,9 +35,9 @@ features:
     max: 4
 
 rivers:
-  max_rivers: 3
-  min_length: 4
-  bifurcation_chance: 0.05
+  max_rivers: 2
+  min_length: 6
+  bifurcation_chance: 0.03
 
 paths:
   connect_towers: 0.6
