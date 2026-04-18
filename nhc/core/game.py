@@ -2903,6 +2903,18 @@ class Game:
         intent, data = await self.renderer.get_input()
         if intent == "disconnect":
             return ["disconnect"]
+        # Ascend at depth 1 in hex mode = exit to overland/flower.
+        if (intent == "ascend" and self.world_mode.is_hex
+                and self.level is not None and self.level.depth <= 1):
+            pos = self.world.get_component(self.player_id, "Position")
+            tile = self.level.tile_at(pos.x, pos.y) if pos else None
+            if tile and tile.feature == "stairs_up":
+                ok = await self.exit_dungeon_to_hex()
+                if ok:
+                    self.renderer.add_message(
+                        "You return to the overland.",
+                    )
+                return []
         # Hex-mode exit from inside a dungeon: pop back to the
         # overland. Returns an empty action list so the dungeon
         # turn does not also tick.
