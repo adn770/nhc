@@ -81,6 +81,7 @@ def assemble_tower(
         interior_floor="stone",
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
+    _flip_stair_semantics_for_tower(building)
     _place_entry_door(building, rng)
     building.validate()
 
@@ -144,6 +145,26 @@ def _build_tower_floor(
     level.building_id = building_id
     level.floor_index = floor_idx
     return level
+
+
+def _flip_stair_semantics_for_tower(building: Building) -> None:
+    """Swap stairs_up <-> stairs_down on every floor of the tower.
+
+    :func:`place_cross_floor_stairs` uses dungeon conventions: the
+    lower-index floor's stair feature is ``stairs_up`` because
+    climbing reaches a lower ``depth``. In a tower the physical
+    direction is inverted: ``floor_index + 1`` is the floor
+    *above*, and the engine treats that as a ``depth`` increase
+    reached by the ``descend`` action. Flipping the feature names
+    on both sides of each stair link keeps the engine's floor-
+    transition logic correct without special-casing towers.
+    """
+    swap = {"stairs_up": "stairs_down", "stairs_down": "stairs_up"}
+    for floor in building.floors:
+        for row in floor.tiles:
+            for tile in row:
+                if tile.feature in swap:
+                    tile.feature = swap[tile.feature]
 
 
 def _place_entry_door(

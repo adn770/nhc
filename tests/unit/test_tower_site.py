@@ -134,6 +134,10 @@ class TestTowerStairs:
             assert (i, i + 1) in internal
 
     def test_stair_tiles_feature_marked_on_both_floors(self):
+        """Tower stairs use dungeon-depth semantics: the lower
+        physical floor carries stairs_down (depth increases as you
+        climb), so the engine's 'descend' action walks the player
+        up the tower."""
         site = assemble_tower("t1", random.Random(1))
         b = site.buildings[0]
         for link in b.stair_links:
@@ -143,8 +147,8 @@ class TestTowerStairs:
             hi = b.floors[link.to_floor]
             lx, ly = link.from_tile
             ux, uy = link.to_tile
-            assert lo.tiles[ly][lx].feature == "stairs_up"
-            assert hi.tiles[uy][ux].feature == "stairs_down"
+            assert lo.tiles[ly][lx].feature == "stairs_down"
+            assert hi.tiles[uy][ux].feature == "stairs_up"
 
     def test_building_validate_passes(self):
         site = assemble_tower("t1", random.Random(1))
