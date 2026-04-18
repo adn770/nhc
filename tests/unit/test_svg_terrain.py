@@ -75,6 +75,16 @@ class TestTerrainPalette:
                     f"{style.detail_opacity} out of range"
                 )
 
+    def test_tower_palette_exists(self):
+        palette = get_palette("tower")
+        assert palette is not None
+        assert palette != get_palette("dungeon")
+
+    def test_mine_palette_exists(self):
+        palette = get_palette("mine")
+        assert palette is not None
+        assert palette != get_palette("dungeon")
+
     def test_room_type_tints_cover_special_types(self):
         for rtype in ("shrine", "garden", "library", "treasury"):
             assert rtype in ROOM_TYPE_TINTS, (

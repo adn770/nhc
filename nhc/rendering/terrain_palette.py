@@ -77,6 +77,18 @@ THEME_PALETTES: dict[str, ThemePalette] = {
         lava=TerrainStyle("#E06040", 0.25, "#B03020", 0.50),
         chasm=TerrainStyle("#444444", 0.20, "#222222", 0.45),
     ),
+    "tower": ThemePalette(
+        water=TerrainStyle("#8AAABE", 0.12, "#5A7A8A", 0.30),
+        grass=TerrainStyle("#7A9A7A", 0.08, "#4A6A4A", 0.22),
+        lava=TerrainStyle("#C08070", 0.12, "#8A5A4A", 0.30),
+        chasm=TerrainStyle("#9A9AAA", 0.10, "#5A5A6A", 0.30),
+    ),
+    "mine": ThemePalette(
+        water=TerrainStyle("#6A8A8A", 0.15, "#4A6868", 0.35),
+        grass=TerrainStyle("#6A7A5A", 0.10, "#4A5A3A", 0.28),
+        lava=TerrainStyle("#D08050", 0.20, "#A06030", 0.45),
+        chasm=TerrainStyle("#5A4A3A", 0.18, "#3A2A1A", 0.40),
+    ),
 }
 
 # ── Room-type hint tints ───────────────────────────────────────
@@ -91,7 +103,12 @@ ROOM_TYPE_TINTS: dict[str, tuple[str, float]] = {
     "treasury": ("#E8E0B0", 0.06),
     "armory":   ("#D0C0B0", 0.06),
     "crypt":    ("#B8B0A0", 0.06),
-    "trap_room": ("#E0C0C0", 0.06),
+    "trap_room":   ("#E0C0C0", 0.06),
+    "barracks":    ("#C0B0A0", 0.06),
+    "courtyard":   ("#D0E0C0", 0.06),
+    "gate":        ("#B0A090", 0.06),
+    "market":      ("#E0D0B0", 0.06),
+    "residential": ("#D8D0C0", 0.06),
 }
 
 
