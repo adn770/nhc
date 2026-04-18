@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import random
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._base import Action
@@ -51,14 +50,14 @@ class InnkeeperInteractAction(Action):
         )
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
-        from nhc.hexcrawl.rumors import gather_rumor_at
+        from nhc.hexcrawl.rumor_pool import consume_rumor
 
         if self.hex_world is None:
             # No overland context -- nothing to dispense. Quietly
             # fail open rather than 500 if the action is triggered
             # in a dungeon-mode game somehow.
             return [MessageEvent(text=t("rumor.none"))]
-        rumor = gather_rumor_at(self.hex_world, rng=random.Random())
+        rumor = consume_rumor(self.hex_world)
         if rumor is None:
             # Pool is empty. If the player has heard rumors here
             # before (last_rumor_day > 0) the innkeeper already

@@ -532,22 +532,21 @@ class Game:
         * Non-empty pool + cooldown elapsed -> append three new
           rumors onto whatever the player hasn't consumed yet.
 
-        God mode uses :func:`generate_rumors_god_mode` so the
-        debug player never gets a false lead.
+        God mode uses the truthful generator so the debug player
+        never gets a false lead.
         """
         if self.hex_world is None:
             return
-        from nhc.hexcrawl.rumors import (
-            generate_rumors,
-            generate_rumors_god_mode,
-        )
-        gen = (
-            generate_rumors_god_mode if self.god_mode
-            else generate_rumors
-        )
+        from nhc.hexcrawl.rumor_pool import seed_rumor_pool, top_up_rumor_pool
+        from nhc.i18n import current_lang
+
+        lang = current_lang()
         world = self.hex_world
         if not world.active_rumors:
-            world.active_rumors = gen(world, seed=seed, count=3)
+            seed_rumor_pool(
+                world, seed=seed, lang=lang, count=3,
+                god_mode=self.god_mode,
+            )
             world.last_rumor_day = world.day
             return
         # Non-empty: honour the cooldown.
@@ -557,8 +556,10 @@ class Game:
         # Append fresh rumors on top of unconsumed ones. Mix the
         # seed with the day so the new rumors don't duplicate
         # earlier generations.
-        fresh = gen(world, seed=seed + world.day, count=3)
-        world.active_rumors.extend(fresh)
+        top_up_rumor_pool(
+            world, seed=seed + world.day, lang=lang, count=3,
+            god_mode=self.god_mode,
+        )
         world.last_rumor_day = world.day
 
     def _place_expedition_henchmen(self, *, is_settlement: bool) -> None:
