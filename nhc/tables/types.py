@@ -33,6 +33,21 @@ class Table:
     only_if: dict = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class TableEffect:
+    """An effect attached to a table entry."""
+    kind: str
+    payload: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class TableResult:
+    """Result of rolling or rendering a table entry."""
+    text: str
+    entry_id: str
+    effect: TableEffect | None = None
+
+
 class SchemaError(Exception):
     """Raised when a table YAML file has an invalid schema."""
 
