@@ -268,4 +268,43 @@ def generate_rivers_v2(
             _stamp_edges(branch, cells)
             rivers.append(branch)
 
+    # Connect isolated lakes to the nearest river hex.
+    _connect_lakes_to_rivers(cells, rivers, visited, rng, params, continental)
+
     return rivers
+
+
+def _connect_lakes_to_rivers(
+    cells: dict[HexCoord, HexCell],
+    rivers: list[list[HexCoord]],
+    visited: set[HexCoord],
+    rng: random.Random,
+    params: RiverParams,
+    continental: ContinentalParams,
+) -> None:
+    """Trace a short river from each lake to the nearest river."""
+    river_hexes = {h for river in rivers for h in river}
+    if not river_hexes:
+        return
+
+    lakes = [
+        c for c, cell in cells.items()
+        if cell.feature is HexFeatureType.LAKE
+        and c not in river_hexes
+    ]
+
+    for lake in lakes:
+        # Find nearest river hex.
+        nearest = min(
+            river_hexes, key=lambda h: distance(lake, h),
+        )
+        if distance(lake, nearest) > 8:
+            continue
+
+        # Trace downhill from the lake toward the river.
+        path = _trace_river_v2(
+            lake, cells, rng, visited, params, continental,
+        )
+        if len(path) >= 2:
+            _stamp_edges(path, cells)
+            rivers.append(path)
