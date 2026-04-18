@@ -59,7 +59,12 @@ def _stamp_path_edges(
     path: list[HexCoord],
     cells: dict[HexCoord, HexCell],
 ) -> None:
-    """Add ``EdgeSegment(type="path", ...)`` to each cell."""
+    """Add ``EdgeSegment(type="path", ...)`` to each cell.
+
+    Skips hexes that already carry a path segment covering the
+    same edge pair (or its reverse), preventing duplicate stamps
+    when two paths share the same stretch of road.
+    """
     for i, coord in enumerate(path):
         if i == 0:
             entry: int | None = None
@@ -72,9 +77,25 @@ def _stamp_path_edges(
         else:
             exit_ = direction_index(coord, path[i + 1])
 
-        cells[coord].edges.append(
-            EdgeSegment(type="path", entry_edge=entry, exit_edge=exit_),
-        )
+        # Check for duplicate or reverse segment already present.
+        existing = cells[coord].edges
+        duplicate = False
+        for seg in existing:
+            if seg.type != "path":
+                continue
+            if (seg.entry_edge == entry and seg.exit_edge == exit_):
+                duplicate = True
+                break
+            # Reverse: same road traversed in opposite direction.
+            if (seg.entry_edge == exit_ and seg.exit_edge == entry):
+                duplicate = True
+                break
+        if not duplicate:
+            cells[coord].edges.append(
+                EdgeSegment(
+                    type="path", entry_edge=entry, exit_edge=exit_,
+                ),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -194,14 +215,13 @@ def generate_paths_v2(
 def _merge_junction_edges(
     cells: dict[HexCoord, HexCell],
 ) -> None:
-    """Convert multi-segment path hexes into star junctions.
+    """Convert true junction hexes into star topology.
 
-    When 2+ path segments cross the same hex, collect all unique
-    edge indices and replace the segments with one arm per edge,
-    each running from the edge to the hex center (entry=edge,
-    exit=None) or from center to edge (entry=None, exit=edge).
-    The renderer draws each arm as a curve from the edge midpoint
-    to the hex center, producing a clean crossroad.
+    A true junction is a hex where 3+ distinct edge indices
+    meet (roads branching, not just a single road passing
+    through). Replace its path segments with one arm per edge,
+    each running from the edge to the hex center. Hexes with
+    only 2 edges (a road passing through) are left as-is.
     """
     for coord, cell in cells.items():
         path_segs = [s for s in cell.edges if s.type == "path"]
@@ -216,7 +236,10 @@ def _merge_junction_edges(
             if seg.exit_edge is not None:
                 edge_indices.add(seg.exit_edge)
 
-        if len(edge_indices) < 2:
+        # Only merge true junctions (3+ distinct edges).
+        # A through-route has exactly 2 edges and should stay
+        # as a single entry->exit segment.
+        if len(edge_indices) < 3:
             continue
 
         # Remove old path segments.
