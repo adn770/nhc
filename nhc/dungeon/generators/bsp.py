@@ -57,6 +57,7 @@ from nhc.dungeon.generators._dead_ends import (
     _remove_orphaned_doors,
     _verify_connectivity,
 )
+from nhc.dungeon.generators._shapes import _carve_room, _pick_shape
 from nhc.dungeon.generators._stairs import _place_stairs
 from nhc.dungeon.generators._vaults import _place_vaults
 from nhc.dungeon.generators._walls import _build_walls, _fix_walled_corridors
@@ -154,7 +155,7 @@ class BSPGenerator(DungeonGenerator):
 
         # ── Step 1: Carve rooms ──
         shapes = [
-            self._pick_shape(rect, params.shape_variety, rng)
+            _pick_shape(rect, params.shape_variety, rng)
             for rect in rects
         ]
         # Depth 2 must always offer a temple sanctuary — force one
@@ -178,7 +179,7 @@ class BSPGenerator(DungeonGenerator):
                     )
                     break
         for rect, shape in zip(rects, shapes):
-            self._carve_room(level, rect, shape)
+            _carve_room(level, rect, shape)
         for i, (rect, shape) in enumerate(zip(rects, shapes)):
             level.rooms.append(
                 Room(id=f"room_{i + 1}", rect=rect, shape=shape),
@@ -327,59 +328,4 @@ class BSPGenerator(DungeonGenerator):
 
         return level
 
-    @staticmethod
-    def _pick_shape(
-        rect: Rect, variety: float, rng: random.Random,
-    ) -> RoomShape:
-        """Choose a room shape based on variety setting and rect size."""
-        if variety <= 0 or rng.random() >= variety:
-            return RectShape()
-        min_dim = min(rect.width, rect.height)
-        max_dim = max(rect.width, rect.height)
-
-        if min_dim < 5:
-            return RectShape()
-
-        # Hybrids: half-circle + rect. Split along the longer axis
-        # so the circle half is near-square.  The half that receives
-        # the circle must have an odd dimension for clean cardinal
-        # points (CircleShape enforces odd diameter internally).
-        if max_dim >= 7 and rng.random() < 0.20:
-            if rect.width >= rect.height:
-                split = "vertical"
-            else:
-                split = "horizontal"
-            return HybridShape(CircleShape(), RectShape(), split)
-
-        # Collect eligible shape factories for this room size
-        candidates: list[Callable[[], RoomShape]] = [
-            OctagonShape, CrossShape,
-        ]
-        # Circles only for near-square rooms where both dimensions
-        # are odd (ensures integer center and clean cardinal points)
-        if (max_dim / min_dim <= 1.3
-                and rect.width % 2 == 1 and rect.height % 2 == 1):
-            candidates.append(CircleShape)
-        # Pills only for elongated rooms where the short dimension
-        # is odd (clean integer geometry for the semicircle caps).
-        if (max_dim - min_dim >= 2 and min_dim >= 5 and min_dim % 2 == 1):
-            candidates.append(PillShape)
-        # Temples need room for 4 arms with rounded caps. Require
-        # both dimensions odd and min_dim >= 7.
-        if (min_dim >= 7
-                and rect.width % 2 == 1 and rect.height % 2 == 1):
-            candidates.append(
-                lambda r=rng: TempleShape(
-                    flat_side=r.choice(TempleShape.VALID_SIDES),
-                )
-            )
-
-        return rng.choice(candidates)()
-
-    def _carve_room(self, level: Level, rect: Rect,
-                    shape: RoomShape | None = None) -> None:
-        tiles = (shape or RectShape()).floor_tiles(rect)
-        for x, y in tiles:
-            if level.in_bounds(x, y):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
 
