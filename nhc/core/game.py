@@ -430,6 +430,16 @@ class Game:
             return False
 
         from nhc.hexcrawl.seed import dungeon_seed
+
+        # Building-generator sites take precedence over template
+        # routing. Only "tower" is live in this step; other
+        # site_kinds still fall through to the template pipeline
+        # below until their engine wiring lands.
+        if cell.dungeon.site_kind == "tower":
+            self._active_cave_cluster = None
+            if await self._enter_tower_site(coord):
+                return True
+
         template = cell.dungeon.template
         is_settlement = template.startswith("procedural:settlement")
         is_cave = template.startswith("procedural:cave")
@@ -667,6 +677,90 @@ class Game:
                 self.renderer.floor_svg_id,
                 self.renderer.floor_svg,
             )
+
+    async def _enter_tower_site(self, coord) -> bool:
+        """Route a tower-site hex through assemble_site().
+
+        Places the player on the assembled tower's ground floor at
+        the entry-door tile (or a perimeter floor tile if the door
+        is missing). Reuses the same (q, r, depth) floor cache as
+        the template pipeline so re-entry restores the same Level
+        instance.
+        """
+        import random
+
+        from nhc.dungeon.site import assemble_site
+        from nhc.hexcrawl.seed import dungeon_seed
+
+        cell = self.hex_world.get_cell(coord)
+        if cell is None or cell.dungeon is None:
+            return False
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+        if cache_key in self._floor_cache:
+            level, _ = self._floor_cache[cache_key]
+            self.level = level
+            self._place_player_on_tower_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, coord, cell.dungeon.template,
+        )
+        site = assemble_site(
+            "tower",
+            f"site_{coord.q}_{coord.r}",
+            random.Random(seed),
+        )
+        self.level = site.buildings[0].ground
+        if (self.level and self.level.metadata
+                and cell.dungeon.faction):
+            self.level.metadata.faction = cell.dungeon.faction
+        self._spawn_level_entities()
+        self._floor_cache[cache_key] = (self.level, {})
+        self._place_player_on_tower_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    def _place_player_on_tower_entry(self) -> None:
+        """Land the player on the tower's entry-door tile.
+
+        Falls back to any perimeter FLOOR tile if the door feature
+        is missing, and finally to ``(1, 1)`` as a last resort.
+        """
+        from nhc.dungeon.model import Terrain
+
+        if self.level is None:
+            return
+        px, py = 1, 1
+        door_found = False
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile and tile.feature == "door_closed":
+                    px, py = x, y
+                    door_found = True
+                    break
+            if door_found:
+                break
+        if not door_found:
+            for y in range(self.level.height):
+                for x in range(self.level.width):
+                    tile = self.level.tile_at(x, y)
+                    if tile and tile.terrain == Terrain.FLOOR:
+                        px, py = x, y
+                        door_found = True
+                        break
+                if door_found:
+                    break
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x = px
+            pos.y = py
+            pos.level_id = self.level.id
 
     def _place_player_at_stairs_up(self) -> None:
         """Move the player's Position onto the current level's
