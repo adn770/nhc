@@ -9,6 +9,7 @@ import pytest
 from nhc.hexcrawl.coords import (
     HexCoord,
     expected_shape_cell_count,
+    neighbors,
     shape_r_range,
     valid_shape_hex,
 )
@@ -125,3 +126,92 @@ class TestContinentalShape:
         # Both land and sea should exist
         assert land > 0
         assert sea > 0
+
+
+# ---------------------------------------------------------------------------
+# Stage 2: Tectonic plates
+# ---------------------------------------------------------------------------
+
+
+def _make_continent_field(
+    seed: int = 42,
+) -> dict[HexCoord, float]:
+    from nhc.hexcrawl._gen_v2 import continental_shape
+    return continental_shape(
+        random.Random(seed), _params(), _WIDTH, _HEIGHT,
+    )
+
+
+class TestTectonicPlates:
+    """Tests for the tectonic_plates() stage function."""
+
+    def test_coverage(self) -> None:
+        from nhc.hexcrawl._gen_v2 import tectonic_plates
+
+        field = _make_continent_field()
+        result = tectonic_plates(
+            random.Random(42), _params(), field,
+        )
+        # Every hex must be assigned to exactly one plate
+        assert set(result.plate_of.keys()) == set(field.keys())
+        for plate_id in result.plate_of.values():
+            assert 0 <= plate_id < _params().plate_count
+
+    def test_plate_count(self) -> None:
+        from nhc.hexcrawl._gen_v2 import tectonic_plates
+
+        field = _make_continent_field()
+        params = _params(plate_count=5)
+        result = tectonic_plates(
+            random.Random(42), params, field,
+        )
+        distinct_plates = set(result.plate_of.values())
+        assert len(distinct_plates) == 5
+
+    def test_boundaries_have_cross_plate_neighbors(self) -> None:
+        from nhc.hexcrawl._gen_v2 import tectonic_plates
+
+        field = _make_continent_field()
+        result = tectonic_plates(
+            random.Random(42), _params(), field,
+        )
+        for bh in result.boundaries:
+            nbr_plates = {
+                result.plate_of[n]
+                for n in neighbors(bh)
+                if n in result.plate_of
+            }
+            # Must have at least one neighbor in a different plate
+            assert len(nbr_plates) > 1, (
+                f"boundary {bh} has no cross-plate neighbor"
+            )
+
+    def test_boundary_classification_disjoint(self) -> None:
+        from nhc.hexcrawl._gen_v2 import tectonic_plates
+
+        field = _make_continent_field()
+        result = tectonic_plates(
+            random.Random(42), _params(), field,
+        )
+        # All classified sets are subsets of boundaries
+        assert result.convergent <= result.boundaries
+        assert result.divergent <= result.boundaries
+        assert result.transform <= result.boundaries
+        # Disjoint
+        assert not (result.convergent & result.divergent)
+        assert not (result.convergent & result.transform)
+        assert not (result.divergent & result.transform)
+        # Together they cover all boundaries
+        assert (
+            result.convergent | result.divergent | result.transform
+            == result.boundaries
+        )
+
+    def test_deterministic(self) -> None:
+        from nhc.hexcrawl._gen_v2 import tectonic_plates
+
+        field = _make_continent_field()
+        a = tectonic_plates(random.Random(42), _params(), field)
+        b = tectonic_plates(random.Random(42), _params(), field)
+        assert a.plate_of == b.plate_of
+        assert a.boundaries == b.boundaries
