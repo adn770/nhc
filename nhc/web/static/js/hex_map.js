@@ -736,10 +736,38 @@ const HexMap = {
     const s3 = Math.sqrt(3);
     const JITTER = HEX_SIZE * 0.20;
 
-    // Project waypoints with per-point jitter
+    // Edge midpoints for anchoring first/last curve points
+    // so adjacent hex curves meet at hex boundaries.
+    const R = HEX_SIZE;
+    const mids = [
+      [0, -R * s3 / 2],              // 0: N
+      [3 * R / 4, -R * s3 / 4],      // 1: NE
+      [3 * R / 4,  R * s3 / 4],      // 2: SE
+      [0,  R * s3 / 2],              // 3: S
+      [-3 * R / 4,  R * s3 / 4],     // 4: SW
+      [-3 * R / 4, -R * s3 / 4],     // 5: NW
+    ];
+    const last = seg.sub_path.length - 1;
+
+    // Project waypoints with per-point jitter, snapping
+    // first/last to edge midpoints for cross-hex continuity.
     const pts = seg.sub_path.map((p, i) => {
+      // First point: snap to entry edge midpoint
+      if (i === 0 && seg.entry != null) {
+        const [mx, my] = mids[seg.entry];
+        return { x: cx + mx, y: cy + my };
+      }
+      // Last point: snap to exit edge midpoint
+      if (i === last && seg.exit != null) {
+        const [mx, my] = mids[seg.exit];
+        return { x: cx + mx, y: cy + my };
+      }
       const bx = cx + scale * 1.5 * p.q;
       const by = cy + scale * (s3 / 2 * p.q + s3 * p.r);
+      // Source/sink points: no jitter
+      if (i === 0 || i === last) {
+        return { x: bx, y: by };
+      }
       const h1 = this._jitterHash(p.q, p.r, i * 2);
       const h2 = this._jitterHash(p.q, p.r, i * 2 + 1);
       const jx = ((h1 % 1000) / 500 - 1) * JITTER;

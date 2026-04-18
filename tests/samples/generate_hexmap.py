@@ -175,13 +175,32 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
                 s3 = math.sqrt(3)
                 jitter = HEX_RADIUS * 0.20
                 last = len(sub_path) - 1
+                # Edge midpoints for anchoring first/last points
+                # so curves meet at hex boundaries.
+                _mids = [
+                    (0, -HEX_RADIUS * s3 / 2),
+                    (3 * HEX_RADIUS / 4, -HEX_RADIUS * s3 / 4),
+                    (3 * HEX_RADIUS / 4, HEX_RADIUS * s3 / 4),
+                    (0, HEX_RADIUS * s3 / 2),
+                    (-3 * HEX_RADIUS / 4, HEX_RADIUS * s3 / 4),
+                    (-3 * HEX_RADIUS / 4, -HEX_RADIUS * s3 / 4),
+                ]
                 pts = []
                 for i, p in enumerate(sub_path):
+                    # First point: snap to entry edge midpoint
+                    if i == 0 and seg.entry_edge is not None:
+                        mx, my = _mids[seg.entry_edge]
+                        pts.append((ox + mx, oy + my))
+                        continue
+                    # Last point: snap to exit edge midpoint
+                    if i == last and seg.exit_edge is not None:
+                        mx, my = _mids[seg.exit_edge]
+                        pts.append((ox + mx, oy + my))
+                        continue
                     bx = ox + scale * 1.5 * p.q
                     by = oy + scale * (s3 / 2 * p.q + s3 * p.r)
-                    # Don't jitter first/last points — they sit
-                    # on hex edges and must align with neighbors.
                     if i == 0 or i == last:
+                        # Source/sink: use projected sub-hex pos
                         pts.append((bx, by))
                         continue
                     h1 = _jitter_hash(p.q, p.r, i * 2)
