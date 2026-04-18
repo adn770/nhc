@@ -24,6 +24,13 @@ from nhc.hexcrawl.model import (
     HexFeatureType,
 )
 from nhc.hexcrawl.pack import PackMeta
+from nhc.hexcrawl.patterns import PATTERNS, place_pattern
+
+
+# Default pattern set. B2 (pack YAML schema) will let packs
+# override this per-world; until then every generated world
+# attempts the Caves-of-Chaos placement.
+DEFAULT_ENABLED_PATTERNS: list[str] = ["caves_of_chaos"]
 
 
 # Settlement features — these must not be placed adjacent to
@@ -137,6 +144,33 @@ def _pick_village_size_class(rng: random.Random) -> str:
     names = [n for n, _ in _VILLAGE_SIZE_WEIGHTS]
     weights = [w for _, w in _VILLAGE_SIZE_WEIGHTS]
     return rng.choices(names, weights=weights, k=1)[0]
+
+
+def _place_patterns(
+    cells: dict[HexCoord, HexCell],
+    taken: set[HexCoord],
+    rng: random.Random,
+    enabled_patterns: list[str] | None = None,
+) -> int:
+    """Stamp enabled feature patterns onto the cell map.
+
+    Returns the number of hexes consumed by pattern placements
+    (anchor + satellites). Callers subtract this from the dungeon
+    budget so patterns don't double-count against the pack's
+    generic dungeon target.
+    """
+    if enabled_patterns is None:
+        enabled_patterns = DEFAULT_ENABLED_PATTERNS
+
+    consumed = 0
+    for pattern_name in enabled_patterns:
+        pattern = PATTERNS.get(pattern_name)
+        if pattern is None:
+            continue
+        before = len(taken)
+        if place_pattern(pattern, cells, taken, rng):
+            consumed += len(taken) - before
+    return consumed
 
 
 def pick_hub(
@@ -327,10 +361,20 @@ def place_features(
             f"rejected too many candidates)",
         )
 
+    # Feature patterns (e.g., Caves of Chaos keep + lair cluster).
+    # Patterns run before generic dungeon placement and consume
+    # from the same dungeon budget so a pack's feature count
+    # stays meaningful.
+    pattern_consumed = _place_patterns(cells, taken, rng)
+
     # Dungeons.
     dt = pack.features.dungeon
     n_dungeons = rng.randint(dt.min, dt.max)
-    place_dungeons(cells, hexes_by_biome, taken, n_dungeons, rng)
+    remaining = max(0, n_dungeons - pattern_consumed)
+    if remaining > 0:
+        place_dungeons(
+            cells, hexes_by_biome, taken, remaining, rng,
+        )
 
     # Wonders.
     wt = pack.features.wonder
