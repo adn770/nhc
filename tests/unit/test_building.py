@@ -1,13 +1,16 @@
-"""Tests for the multi-floor Building primitive (M2).
+"""Tests for the multi-floor Building primitive (M2, M3).
 
 See design/building_generator.md sections 3-4.
 """
 
+import random
+
 import pytest
 
 from nhc.dungeon.building import Building, StairLink
+from nhc.dungeon.generators._stairs import place_cross_floor_stairs
 from nhc.dungeon.model import (
-    CircleShape, Level, LShape, Rect, RectShape,
+    CircleShape, Level, LShape, Rect, RectShape, Terrain, Tile,
 )
 from nhc.hexcrawl.model import DungeonRef
 
@@ -16,6 +19,26 @@ def _empty_level(
     id_: str, depth: int = 1, width: int = 10, height: int = 10,
 ) -> Level:
     return Level.create_empty(id_, id_, depth, width, height)
+
+
+def _floor_level(id_: str, depth: int, rect: Rect) -> Level:
+    """Level with a rect-shaped interior carved as FLOOR."""
+    level = Level.create_empty(
+        id_, id_, depth, rect.x2 + 2, rect.y2 + 2,
+    )
+    for y in range(rect.y, rect.y2):
+        for x in range(rect.x, rect.x2):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    return level
+
+
+def _two_floor_building(rect: Rect) -> Building:
+    f0 = _floor_level("f0", 1, rect)
+    f1 = _floor_level("f1", 2, rect)
+    return Building(
+        id="b", base_shape=RectShape(), base_rect=rect,
+        floors=[f0, f1],
+    )
 
 
 class TestStairLink:
@@ -221,3 +244,155 @@ class TestBuildingValidate:
         ))
         with pytest.raises(ValueError, match="ground floor"):
             b.validate()
+
+
+class TestPlaceCrossFloorStairs:
+    def test_single_floor_no_descent_returns_empty(self):
+        rect = Rect(1, 1, 6, 6)
+        b = Building(
+            id="b", base_shape=RectShape(), base_rect=rect,
+            floors=[_floor_level("f0", 1, rect)],
+        )
+        links = place_cross_floor_stairs(b, random.Random(42))
+        assert links == []
+
+    def test_two_floors_produces_one_link(self):
+        b = _two_floor_building(Rect(1, 1, 6, 6))
+        links = place_cross_floor_stairs(b, random.Random(42))
+        assert len(links) == 1
+        link = links[0]
+        assert link.from_floor == 0
+        assert link.to_floor == 1
+
+    def test_stair_tiles_are_marked(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        links = place_cross_floor_stairs(b, random.Random(42))
+        link = links[0]
+        lower = b.floors[0]
+        upper = b.floors[1]
+        lx, ly = link.from_tile
+        ux, uy = link.to_tile
+        # Lower floor's tile is stairs_up; upper's is stairs_down.
+        assert lower.tiles[ly][lx].feature == "stairs_up"
+        assert upper.tiles[uy][ux].feature == "stairs_down"
+
+    def test_aligned_tiles_across_floors(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        links = place_cross_floor_stairs(b, random.Random(42))
+        for link in links:
+            assert link.from_tile == link.to_tile
+
+    def test_stair_tiles_not_on_perimeter(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        links = place_cross_floor_stairs(b, random.Random(42))
+        perim = RectShape().perimeter_tiles(rect)
+        for link in links:
+            assert link.from_tile not in perim
+            assert link.to_tile not in perim
+
+    def test_three_floors_produces_two_adjacent_links(self):
+        rect = Rect(1, 1, 6, 6)
+        floors = [
+            _floor_level(f"f{i}", i + 1, rect) for i in range(3)
+        ]
+        b = Building(
+            id="b", base_shape=RectShape(), base_rect=rect,
+            floors=floors,
+        )
+        links = place_cross_floor_stairs(b, random.Random(42))
+        assert len(links) == 2
+        pairs = {(link.from_floor, link.to_floor) for link in links}
+        assert pairs == {(0, 1), (1, 2)}
+
+    def test_avoids_existing_door_tiles(self):
+        """Tiles with a pre-existing feature are not chosen as stairs."""
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        # Keep exactly one interior tile free on each floor; mark the
+        # rest of the interior as closed doors.
+        perim = RectShape().perimeter_tiles(rect)
+        keep = (3, 3)
+        for floor in b.floors:
+            for y in range(rect.y, rect.y2):
+                for x in range(rect.x, rect.x2):
+                    if (x, y) in perim or (x, y) == keep:
+                        continue
+                    floor.tiles[y][x].feature = "door_closed"
+        links = place_cross_floor_stairs(b, random.Random(42))
+        assert len(links) == 1
+        assert links[0].from_tile == keep
+
+    def test_descent_adds_link_from_ground(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        ref = DungeonRef(template="procedural:crypt")
+        b.descent = ref
+        links = place_cross_floor_stairs(b, random.Random(42))
+        # 1 internal + 1 descent
+        assert len(links) == 2
+        descent = [
+            l for l in links if isinstance(l.to_floor, DungeonRef)
+        ]
+        assert len(descent) == 1
+        assert descent[0].from_floor == 0
+        assert descent[0].to_floor is ref
+        dx, dy = descent[0].from_tile
+        assert b.ground.tiles[dy][dx].feature == "stairs_down"
+
+    def test_descent_and_upstair_use_distinct_tiles(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        b.descent = DungeonRef(template="procedural:crypt")
+        links = place_cross_floor_stairs(b, random.Random(42))
+        internal = next(
+            l for l in links if isinstance(l.to_floor, int)
+        )
+        descent = next(
+            l for l in links if isinstance(l.to_floor, DungeonRef)
+        )
+        assert internal.from_tile != descent.from_tile
+
+    def test_links_pass_building_validate(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        b.descent = DungeonRef(template="procedural:crypt")
+        b.stair_links = place_cross_floor_stairs(b, random.Random(42))
+        b.validate()  # does not raise
+
+    def test_raises_when_no_valid_shared_tile(self):
+        rect = Rect(1, 1, 6, 6)
+        b = _two_floor_building(rect)
+        perim = RectShape().perimeter_tiles(rect)
+        f0 = b.floors[0]
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                if (x, y) not in perim:
+                    f0.tiles[y][x].feature = "door_closed"
+        with pytest.raises(ValueError, match="no valid stair tile"):
+            place_cross_floor_stairs(b, random.Random(42))
+
+    def test_deterministic_under_same_seed(self):
+        rect = Rect(1, 1, 6, 6)
+        b1 = _two_floor_building(rect)
+        b2 = _two_floor_building(rect)
+        links1 = place_cross_floor_stairs(b1, random.Random(42))
+        links2 = place_cross_floor_stairs(b2, random.Random(42))
+        assert [l.from_tile for l in links1] == [
+            l.from_tile for l in links2
+        ]
+
+    def test_descent_only_on_single_floor_building(self):
+        """A 1-floor building with a descent still emits the descent."""
+        rect = Rect(1, 1, 6, 6)
+        b = Building(
+            id="b", base_shape=RectShape(), base_rect=rect,
+            floors=[_floor_level("f0", 1, rect)],
+            descent=DungeonRef(template="procedural:crypt"),
+        )
+        links = place_cross_floor_stairs(b, random.Random(42))
+        assert len(links) == 1
+        assert isinstance(links[0].to_floor, DungeonRef)
+        assert links[0].from_floor == 0

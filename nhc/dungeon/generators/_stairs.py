@@ -1,11 +1,15 @@
-"""Stair placement for BSP dungeons."""
+"""Stair placement for BSP dungeons and multi-floor Buildings."""
 
 from __future__ import annotations
 
 import random
+from typing import TYPE_CHECKING
 
 from nhc.dungeon.generators._connectivity import _bfs_dist
-from nhc.dungeon.model import Level, Rect, TempleShape
+from nhc.dungeon.model import Level, Rect, TempleShape, Terrain
+
+if TYPE_CHECKING:
+    from nhc.dungeon.building import Building, StairLink
 
 
 def _place_stairs(
@@ -75,3 +79,96 @@ def _place_stairs(
             x2, y2 = rects[idx2].center
             level.tiles[y2][x2].feature = "stairs_down"
             level.rooms[idx2].tags.append("exit")
+
+
+def _valid_stair_tiles(
+    floor: Level, perimeter: set[tuple[int, int]],
+) -> set[tuple[int, int]]:
+    """Interior floor tiles without a feature, off the shared perimeter."""
+    valid: set[tuple[int, int]] = set()
+    for y, row in enumerate(floor.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain != Terrain.FLOOR:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in perimeter:
+                continue
+            valid.add((x, y))
+    return valid
+
+
+def place_cross_floor_stairs(
+    building: "Building", rng: random.Random,
+) -> list["StairLink"]:
+    """Place stairs between adjacent floors of ``building``.
+
+    For each adjacent (i, i+1) pair, picks a tile valid on both
+    floors (FLOOR terrain, no pre-existing feature, not on the
+    shared perimeter), marks lower's feature as ``stairs_up`` and
+    upper's as ``stairs_down``, and records a
+    :class:`StairLink`.
+
+    If ``building.descent`` is set, also places a ``stairs_down``
+    on the ground floor and appends a descent ``StairLink`` whose
+    ``to_floor`` is the ``DungeonRef``.
+
+    Raises ``ValueError`` if no shared valid tile exists for some
+    adjacent pair or if the descent cannot be placed.
+    """
+    # Deferred import to break the circular building <-> _stairs link.
+    from nhc.dungeon.building import StairLink
+
+    perimeter = building.shared_perimeter()
+    used: dict[int, set[tuple[int, int]]] = {}
+    links: list[StairLink] = []
+
+    def _pick(floor_idx: int) -> tuple[int, int]:
+        floor = building.floors[floor_idx]
+        pool = _valid_stair_tiles(floor, perimeter) - used.get(
+            floor_idx, set(),
+        )
+        if not pool:
+            raise ValueError(
+                f"no valid stair tile on floor {floor_idx}"
+            )
+        return rng.choice(sorted(pool))
+
+    def _shared_pick(lo: int, hi: int) -> tuple[int, int]:
+        lower = _valid_stair_tiles(
+            building.floors[lo], perimeter,
+        ) - used.get(lo, set())
+        upper = _valid_stair_tiles(
+            building.floors[hi], perimeter,
+        ) - used.get(hi, set())
+        shared = lower & upper
+        if not shared:
+            raise ValueError(
+                f"no valid stair tile shared between floors "
+                f"{lo} and {hi}"
+            )
+        return rng.choice(sorted(shared))
+
+    for i in range(len(building.floors) - 1):
+        tile = _shared_pick(i, i + 1)
+        x, y = tile
+        building.floors[i].tiles[y][x].feature = "stairs_up"
+        building.floors[i + 1].tiles[y][x].feature = "stairs_down"
+        used.setdefault(i, set()).add(tile)
+        used.setdefault(i + 1, set()).add(tile)
+        links.append(StairLink(
+            from_floor=i, to_floor=i + 1,
+            from_tile=tile, to_tile=tile,
+        ))
+
+    if building.descent is not None:
+        tile = _pick(0)
+        x, y = tile
+        building.floors[0].tiles[y][x].feature = "stairs_down"
+        used.setdefault(0, set()).add(tile)
+        links.append(StairLink(
+            from_floor=0, to_floor=building.descent,
+            from_tile=tile, to_tile=(0, 0),
+        ))
+
+    return links
