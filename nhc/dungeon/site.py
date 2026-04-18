@@ -8,6 +8,7 @@ by each site assembler (``tower``, ``farm``, ``mansion``, ``keep``,
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 
 from nhc.dungeon.building import Building
@@ -45,3 +46,36 @@ class Site:
     buildings: list[Building]
     surface: Level
     enclosure: Enclosure | None = None
+
+
+# ── Assembler dispatcher ─────────────────────────────────────
+
+SITE_KINDS = ("tower", "farm", "mansion", "keep", "town")
+
+
+def assemble_site(
+    kind: str, site_id: str, rng: random.Random,
+) -> Site:
+    """Dispatch ``kind`` to the matching site assembler.
+
+    Valid ``kind`` values are :data:`SITE_KINDS`. Any other value
+    raises ``ValueError``.
+    """
+    # Deferred imports keep this module cheap to import and avoid
+    # circular references back to Building / Level helpers.
+    if kind == "tower":
+        from nhc.dungeon.sites.tower import assemble_tower
+        return assemble_tower(site_id, rng)
+    if kind == "farm":
+        from nhc.dungeon.sites.farm import assemble_farm
+        return assemble_farm(site_id, rng)
+    if kind == "mansion":
+        from nhc.dungeon.sites.mansion import assemble_mansion
+        return assemble_mansion(site_id, rng)
+    if kind == "keep":
+        from nhc.dungeon.sites.keep import assemble_keep
+        return assemble_keep(site_id, rng)
+    if kind == "town":
+        from nhc.dungeon.sites.town import assemble_town
+        return assemble_town(site_id, rng)
+    raise ValueError(f"unknown site kind: {kind!r}")
