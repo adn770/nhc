@@ -333,6 +333,14 @@ class Game:
         # consumed by the player-placement branch in
         # _on_level_entered when descending to Floor 2.
         self._cave_floor2_stairs: dict[str, tuple[int, int]] = {}
+        # Voronoi-style sector partition of a shared underworld
+        # floor: floor tile (x, y) → the cluster member whose
+        # stairs_up is nearest. Lets _on_level_entered update
+        # hex_player_position when the player ascends through a
+        # sector other than the one they descended from.
+        self._underworld_sector_map: (
+            "dict[tuple[int, int], HexCoord]"
+        ) = {}
         # Probability of a per-step encounter roll firing in hex
         # mode. Matches DEFAULT_ENCOUNTER_RATE at startup; the
         # _maybe_stage_encounter path swaps to per-biome rates
@@ -795,6 +803,7 @@ class Game:
         floors.sort(key=lambda p: (p[0], p[1]))
         sector_size = max(1, len(floors) // n)
         self._cave_floor2_stairs = {}
+        stairs_by_member: "dict[HexCoord, tuple[int, int]]" = {}
         for i, member in enumerate(members):
             sector = floors[i * sector_size:(i + 1) * sector_size]
             if not sector:
@@ -803,16 +812,55 @@ class Game:
             self.level.tiles[sy][sx].feature = "stairs_up"
             key = f"{member.q}_{member.r}"
             self._cave_floor2_stairs[key] = (sx, sy)
+            stairs_by_member[member] = (sx, sy)
             logger.info(
                 "Underworld floor %d stairs_up for %s at (%d, %d)",
                 depth, key, sx, sy,
             )
+
+        # Build the sector partition so ascend knows which member
+        # hex the player is currently under.
+        from nhc.hexcrawl.underworld import assign_sector_map
+        self._underworld_sector_map = assign_sector_map(
+            self.level, stairs_by_member,
+        )
 
         # Add stairs_down if deeper floors exist
         region = self.hex_world.underworld_regions.get(cc)
         max_depth = region.max_depth if region else 2
         if depth < max_depth:
             self._add_stairs_down_to_level()
+
+    def _refresh_underworld_sector_map(self, depth: int) -> None:
+        """Rebuild sector map for a cached underworld floor.
+
+        Called after _restore_floor so the map is available even
+        when the floor was not freshly generated this session.
+        """
+        if (depth < 2
+                or self._active_cave_cluster is None
+                or self.hex_world is None
+                or self.level is None):
+            self._underworld_sector_map = {}
+            return
+        cc = self._active_cave_cluster
+        members = self.hex_world.cave_clusters.get(cc, [cc])
+        # Find stairs_up tiles on the level and pair with members
+        # using the cached _cave_floor2_stairs dict when available,
+        # otherwise round-robin against the stairs_up positions.
+        stairs_by_member: dict[HexCoord, tuple[int, int]] = {}
+        for member in members:
+            key = f"{member.q}_{member.r}"
+            xy = self._cave_floor2_stairs.get(key)
+            if xy is not None:
+                stairs_by_member[member] = xy
+        if not stairs_by_member:
+            self._underworld_sector_map = {}
+            return
+        from nhc.hexcrawl.underworld import assign_sector_map
+        self._underworld_sector_map = assign_sector_map(
+            self.level, stairs_by_member,
+        )
 
     def _add_stairs_down_to_level(self) -> None:
         """Place a stairs_down tile on the current level.
@@ -864,6 +912,7 @@ class Game:
         departing_level_id = self.level.id
         self.level = None
         self._active_cave_cluster = None
+        self._underworld_sector_map = {}
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
             pos.x = -1
@@ -2253,6 +2302,25 @@ class Game:
         logger.info("%s to depth %d",
                      "Ascending" if ascending else "Descending", new_depth)
 
+        # When ascending from an underworld floor, the player may
+        # have walked into a sector belonging to a different cluster
+        # member than the one they originally descended from. Update
+        # hex_player_position before _cache_key is consulted so the
+        # shallower floor resolves to the correct surface hex.
+        if (ascending and old_depth >= 2
+                and self._active_cave_cluster is not None
+                and self._underworld_sector_map
+                and self.hex_player_position is not None):
+            p = self.world.get_component(self.player_id, "Position")
+            if p is not None:
+                target = self._underworld_sector_map.get((p.x, p.y))
+                if target is not None and target != self.hex_player_position:
+                    logger.info(
+                        "Underworld crossing: %s → %s via sector",
+                        self.hex_player_position, target,
+                    )
+                    self.hex_player_position = target
+
         # Save current floor state (level + non-player entities)
         self._save_floor()
 
@@ -2538,6 +2606,12 @@ class Game:
         """
         level, entity_data = self._floor_cache[self._cache_key(depth)]
         self.level = level
+
+        # Rebuild the underworld sector map from the cached level so
+        # an ascend immediately after restore still routes the player
+        # to the correct surface hex. The floor cache itself is
+        # pickle-friendly and doesn't persist the map.
+        self._refresh_underworld_sector_map(depth)
 
         for eid, comps in entity_data.items():
             self.world._entities.add(eid)

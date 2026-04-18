@@ -84,6 +84,46 @@ def floor_dimensions(
     return w, h
 
 
+def assign_sector_map(
+    level: "Level",
+    stairs_by_member: dict[HexCoord, tuple[int, int]],
+) -> dict[tuple[int, int], HexCoord]:
+    """Partition a shared underworld floor into member sectors.
+
+    Every FLOOR tile is assigned to the member whose stairs_up
+    position has the smallest Manhattan distance. Ties break by
+    the iteration order of *stairs_by_member*, which is keyed on
+    ``HexCoord`` and therefore stable per call.
+
+    Used by the game loop to tell which surface hex the player is
+    currently "under" on a shared underworld floor.
+    """
+    # Lazy import keeps the module importable by tests that build
+    # synthetic Level objects without pulling the whole dungeon
+    # package at import time.
+    from nhc.dungeon.model import Terrain
+
+    if not stairs_by_member:
+        return {}
+
+    items = list(stairs_by_member.items())
+    sector_map: dict[tuple[int, int], HexCoord] = {}
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain is not Terrain.FLOOR:
+                continue
+            best_member = items[0][0]
+            best_dist = abs(x - items[0][1][0]) + abs(y - items[0][1][1])
+            for member, (sx, sy) in items[1:]:
+                d = abs(x - sx) + abs(y - sy)
+                if d < best_dist:
+                    best_dist = d
+                    best_member = member
+            sector_map[(x, y)] = best_member
+    return sector_map
+
+
 def build_regions(
     clusters: dict[HexCoord, list[HexCoord]],
 ) -> dict[HexCoord, UnderworldRegion]:
