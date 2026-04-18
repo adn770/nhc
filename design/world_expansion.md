@@ -16,7 +16,8 @@ underworld regions, and Caves of Chaos patterns.
 
 ## Overview
 
-Eight phases organized as seven design documents:
+Eight phases organized as seven design documents (plus the
+building generator as a dedicated follow-on doc):
 
 1. **BSP Generator Modularization** -- foundational refactor
 2. **SVG Renderer Modularization** -- foundational refactor
@@ -25,6 +26,11 @@ Eight phases organized as seven design documents:
 5. **Mega-Dungeon / Underworld** -- Multi-level cave regions
 6. **Caves of Chaos Pattern** -- Keep + faction lairs
 7. **SVG Rendering Extensions** -- Visual support for all above
+8. **Building Generator** (see `building_generator.md`) --
+   multi-floor building primitive + site assemblers (tower,
+   farm, mansion, keep, town); subsumes the single-level
+   `procedural:keep` template and reframes the settlement
+   generator as a Building consumer
 
 ## Current State
 
@@ -747,6 +753,67 @@ appropriate sub-module rather than the monolithic svg.py:
 
 ---
 
+## 8. Building Generator
+
+### Problem
+
+Current generators model a single `Level`. Towers, mansions,
+and keeps collapse into one floor of rooms. The settlement
+generator has no "building" primitive -- each building is a
+room tagged with a district. SVG rendering has no material
+vocabulary for exterior walls (brick, stone), site enclosures
+(fortification wall, palisade), or surface types (field,
+garden, street beyond cobblestone).
+
+### Solution: Building + Site
+
+A new `Building` dataclass owns a list of `Level` floors that
+share a base shape. A `Site` composes Buildings with walkable
+surface and an optional enclosure. Site assemblers
+(`tower`, `farm`, `mansion`, `keep`, `town`) replace the
+current `procedural:keep` template and the single-level
+settlement generator.
+
+### Scope
+
+Full design lives in `design/building_generator.md`. Summary
+of model changes, rendering additions, and 16 milestones
+there.
+
+### Subsumption
+
+- `procedural:keep` template and its `add_battlements` /
+  `add_gate` transforms are removed. The new keep site
+  assembler uses `add_fortification_wall` +
+  `add_fortification_gate` instead.
+- The existing settlement generator is reframed as the
+  `town` site assembler, producing `Building` instances per
+  district instead of single-level rooms.
+- `Tile.is_corridor` / `is_street` / `is_track` booleans are
+  migrated into a single `Tile.surface_type` enum (adds
+  FIELD, GARDEN, PALISADE, FORTIFICATION).
+
+### Files (overview -- full table in the dedicated doc)
+
+| Action | Path                                    |
+|--------|-----------------------------------------|
+| Create | `nhc/dungeon/building.py`               |
+| Create | `nhc/dungeon/site.py`                   |
+| Create | `nhc/dungeon/sites/{tower,farm,         |
+|        | mansion,keep,town}.py`                  |
+| Create | `nhc/rendering/_building_walls.py`      |
+| Create | `nhc/rendering/_enclosures.py`          |
+| Modify | `nhc/dungeon/model.py` (Tile,           |
+|        | LShape, Level back-refs)                |
+| Modify | `nhc/dungeon/transforms.py` (replace    |
+|        | battlements/gate with fortification)    |
+| Modify | `nhc/dungeon/generators/settlement.py`  |
+| Modify | `nhc/rendering/_floor_detail.py`        |
+| Modify | `nhc/hexcrawl/model.py` (DungeonRef     |
+|        | site_kind)                              |
+
+---
+
 ## Implementation Phases
 
 ```
@@ -757,14 +824,22 @@ Phase 1: Foundation ───────────┘
   │
   ├── Phase 2: Variants (tower/crypt/mine)
   │     │
-  │     └── Phase 3: Keep (walled layout)
-  │           │
-  │     Phase 4: Settlements (parallel with 2-3)
-  │           │
+  │     └── Phase 3: Keep (walled layout)   ── subsumed
+  │           │                                 by Phase 8
+  │     Phase 4: Settlements (parallel with 2-3) ── subsumed
+  │           │                                    by Phase 8
   │     Phase 5: Underworld
   │           │
   │           └── Phase 6: Caves of Chaos
+  │
+  └── Phase 8: Building Generator (see building_generator.md)
 ```
+
+Phase 3 (Keep) and Phase 4 (Settlements) remain useful as
+early spikes but are superseded by Phase 8 once the Building
+primitive lands. The site assemblers in Phase 8 replace the
+single-level `procedural:keep` template and reframe the
+settlement generator as a Building consumer.
 
 ### Phase 0a: BSP Generator Modularization
 
@@ -835,6 +910,13 @@ identical rendering.
 - Pack YAML schema for patterns
 - Tests: pattern places keep + caves, distinct factions
 - Commit per milestone
+
+### Phase 8: Building Generator
+
+See `design/building_generator.md` for the full design, test
+strategy, and 16-milestone implementation plan. One commit
+per milestone. Supersedes Phase 3 (`procedural:keep`
+template) and Phase 4 (single-level settlement generator).
 
 ---
 
