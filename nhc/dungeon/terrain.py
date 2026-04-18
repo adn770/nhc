@@ -13,21 +13,22 @@ logger = logging.getLogger(__name__)
 
 from nhc.dungeon.model import Level, Terrain
 
-# Theme → (water_seed, water_iters, grass_seed, grass_iters)
-THEME_PARAMS: dict[str, tuple[float, int, float, int]] = {
-    "crypt":   (0.35, 4, 0.20, 3),
-    "cave":    (0.45, 6, 0.35, 3),
-    "sewer":   (0.50, 5, 0.40, 4),
-    "castle":  (0.25, 3, 0.15, 2),
-    "forest":  (0.30, 4, 0.55, 5),
-    "dungeon": (0.35, 4, 0.25, 3),
-    "abyss":   (0.55, 6, 0.05, 2),
-    "tower":   (0.20, 3, 0.10, 2),
-    "mine":             (0.30, 4, 0.10, 2),
-    "settlement":       (0.15, 2, 0.20, 3),
-    "fungal_cavern":    (0.35, 5, 0.55, 6),
-    "lava_chamber":     (0.15, 3, 0.05, 2),
-    "underground_lake": (0.60, 7, 0.10, 3),
+# Theme → (water_seed, water_iters, grass_seed, grass_iters,
+#           lava_seed, lava_iters)
+THEME_PARAMS: dict[str, tuple[float, int, float, int, float, int]] = {
+    "crypt":            (0.35, 4, 0.20, 3, 0.0, 0),
+    "cave":             (0.45, 6, 0.35, 3, 0.0, 0),
+    "sewer":            (0.50, 5, 0.40, 4, 0.0, 0),
+    "castle":           (0.25, 3, 0.15, 2, 0.0, 0),
+    "forest":           (0.30, 4, 0.55, 5, 0.0, 0),
+    "dungeon":          (0.35, 4, 0.25, 3, 0.0, 0),
+    "abyss":            (0.55, 6, 0.05, 2, 0.0, 0),
+    "tower":            (0.20, 3, 0.10, 2, 0.0, 0),
+    "mine":             (0.30, 4, 0.10, 2, 0.0, 0),
+    "settlement":       (0.15, 2, 0.20, 3, 0.0, 0),
+    "fungal_cavern":    (0.35, 5, 0.55, 6, 0.0, 0),
+    "lava_chamber":     (0.15, 3, 0.05, 2, 0.45, 5),
+    "underground_lake": (0.60, 7, 0.10, 3, 0.0, 0),
 }
 
 # Level feelings override seed probabilities
@@ -42,7 +43,8 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
     """
     theme = level.metadata.theme if level.metadata else "dungeon"
     params = THEME_PARAMS.get(theme, THEME_PARAMS["dungeon"])
-    water_seed, water_iters, grass_seed, grass_iters = params
+    (water_seed, water_iters, grass_seed, grass_iters,
+     lava_seed, lava_iters) = params
 
     # Roll for level feeling (10% chance on depth > 1)
     feeling = "normal"
@@ -89,6 +91,20 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
                         and grass[y][x]):
                     tile.terrain = Terrain.GRASS
 
+    # Generate lava mask (same cellular automata as water)
+    if lava_seed > 0:
+        lava = _cellular_automata(
+            level.width, level.height, lava_seed, lava_iters, rng,
+        )
+        for y in range(1, level.height - 1):
+            for x in range(1, level.width - 1):
+                tile = level.tiles[y][x]
+                if (tile.terrain == Terrain.FLOOR
+                        and not tile.feature
+                        and not tile.is_corridor
+                        and lava[y][x]):
+                    tile.terrain = Terrain.LAVA
+
     water_count = sum(
         1 for row in level.tiles for t in row
         if t.terrain == Terrain.WATER
@@ -97,10 +113,15 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
         1 for row in level.tiles for t in row
         if t.terrain == Terrain.GRASS
     )
+    lava_count = sum(
+        1 for row in level.tiles for t in row
+        if t.terrain == Terrain.LAVA
+    )
     logger.info(
-        "Terrain: theme=%s feeling=%s water=%.2f grass=%.2f"
-        " → %d water, %d grass tiles",
-        theme, feeling, water_seed, grass_seed, water_count, grass_count,
+        "Terrain: theme=%s feeling=%s water=%.2f grass=%.2f lava=%.2f"
+        " → %d water, %d grass, %d lava tiles",
+        theme, feeling, water_seed, grass_seed, lava_seed,
+        water_count, grass_count, lava_count,
     )
 
 
