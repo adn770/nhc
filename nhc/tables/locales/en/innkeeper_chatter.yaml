@@ -1,0 +1,44 @@
+id: innkeeper.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: polish_mug
+    text: The innkeeper polishes a mug absently.
+  - id: fire_crackling
+    text: >-
+      "Fire's been good tonight," the innkeeper remarks,
+      nodding toward the hearth.
+  - id: weather_talk
+    text: >-
+      "Rain's coming, I can feel it in my knees,"
+      the innkeeper mutters.
+  - id: trade_slow
+    text: >-
+      "Trade's been slow. Not many travellers these days."
+  - id: local_brew
+    text: >-
+      "Try the local brew. Brewed it myself."
+      The innkeeper grins proudly.
+  - id: strange_folk
+    text: >-
+      "Strange folk been passing through lately.
+      Keep your wits about you."
+  - id: old_days
+    text: >-
+      "In the old days, this place was always packed.
+      Now look at it." The innkeeper sighs.
+  - id: stay_warm
+    text: >-
+      "Stay as long as you like. Warmth's free,
+      the ale isn't."
+  - id: cellar_noise
+    text: >-
+      "Heard something in the cellar last night.
+      Probably just rats." The innkeeper doesn't
+      sound convinced.
+  - id: road_danger
+    text: >-
+      "The roads aren't safe after dark.
+      You didn't hear that from me."

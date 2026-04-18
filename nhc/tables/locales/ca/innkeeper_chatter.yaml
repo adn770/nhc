@@ -1,0 +1,45 @@
+id: innkeeper.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: polish_mug
+    text: El taverner neteja una gerra distrètament.
+  - id: fire_crackling
+    text: >-
+      "El foc ha anat bé aquesta nit," diu el taverner,
+      assenyalant la llar.
+  - id: weather_talk
+    text: >-
+      "Ve pluja, ho noto als genolls,"
+      remuga el taverner.
+  - id: trade_slow
+    text: >-
+      "El comerç va fluix. No passen gaires viatgers
+      últimament."
+  - id: local_brew
+    text: >-
+      "Tasta la cervesa del poble. L'he feta jo."
+      El taverner somriu orgullós.
+  - id: strange_folk
+    text: >-
+      "Gent estranya ha passat per aquí darrerament.
+      Ves amb compte."
+  - id: old_days
+    text: >-
+      "Abans, aquest lloc sempre anava ple.
+      Ara mira'l." El taverner sospira.
+  - id: stay_warm
+    text: >-
+      "Queda't tant com vulguis. La calor és gratis,
+      la cervesa no."
+  - id: cellar_noise
+    text: >-
+      "Ahir a la nit vaig sentir sorolls al celler.
+      Segurament rates." El taverner no en sembla
+      gaire convençut.
+  - id: road_danger
+    text: >-
+      "Els camins no són segurs quan es fa fosc.
+      No ho has sentit de mi."

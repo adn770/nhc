@@ -53,20 +53,20 @@ class InnkeeperInteractAction(Action):
         from nhc.hexcrawl.rumor_pool import consume_rumor
 
         if self.hex_world is None:
-            # No overland context -- nothing to dispense. Quietly
-            # fail open rather than 500 if the action is triggered
-            # in a dungeon-mode game somehow.
             return [MessageEvent(text=t("rumor.none"))]
         rumor = consume_rumor(self.hex_world)
         if rumor is None:
-            # Pool is empty. If the player has heard rumors here
-            # before (last_rumor_day > 0) the innkeeper already
-            # gave up everything they knew and is politely asking
-            # for patience until fresh news arrives. Otherwise
-            # they simply haven't heard anything yet.
+            events: list[Event] = []
             if self.hex_world.last_rumor_day > 0:
-                return [MessageEvent(text=t("rumor.come_back_later"))]
-            return [MessageEvent(text=t("rumor.none"))]
+                events.append(
+                    MessageEvent(text=t("rumor.come_back_later")),
+                )
+            else:
+                events.append(MessageEvent(text=t("rumor.none")))
+            chatter = self._roll_chatter()
+            if chatter:
+                events.append(MessageEvent(text=chatter))
+            return events
         if rumor.reveals is None:
             return [MessageEvent(text=rumor.text)]
         logger.info(
@@ -74,3 +74,16 @@ class InnkeeperInteractAction(Action):
             rumor.id, rumor.truth, rumor.reveals.q, rumor.reveals.r,
         )
         return [MessageEvent(text=rumor.text)]
+
+    def _roll_chatter(self) -> str | None:
+        """Roll an ephemeral chatter line from the innkeeper."""
+        try:
+            from nhc.i18n import current_lang
+            from nhc.tables import roll_ephemeral
+
+            result = roll_ephemeral(
+                "innkeeper.chatter", lang=current_lang(),
+            )
+            return result.text
+        except Exception:
+            return None

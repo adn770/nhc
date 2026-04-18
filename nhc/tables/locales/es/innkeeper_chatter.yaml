@@ -1,0 +1,45 @@
+id: innkeeper.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: polish_mug
+    text: El posadero limpia una jarra distraídamente.
+  - id: fire_crackling
+    text: >-
+      "El fuego ha ido bien esta noche," comenta
+      el posadero, señalando la chimenea.
+  - id: weather_talk
+    text: >-
+      "Viene lluvia, lo noto en las rodillas,"
+      masculla el posadero.
+  - id: trade_slow
+    text: >-
+      "El comercio va flojo. No pasan muchos viajeros
+      últimamente."
+  - id: local_brew
+    text: >-
+      "Prueba la cerveza del pueblo. La he hecho yo."
+      El posadero sonríe orgulloso.
+  - id: strange_folk
+    text: >-
+      "Gente extraña ha pasado por aquí últimamente.
+      Ten cuidado."
+  - id: old_days
+    text: >-
+      "Antes, este lugar siempre estaba lleno.
+      Ahora míralo." El posadero suspira.
+  - id: stay_warm
+    text: >-
+      "Quédate todo lo que quieras. El calor es gratis,
+      la cerveza no."
+  - id: cellar_noise
+    text: >-
+      "Anoche oí ruidos en la bodega.
+      Probablemente ratas." El posadero no parece
+      muy convencido.
+  - id: road_danger
+    text: >-
+      "Los caminos no son seguros de noche.
+      No lo has oído de mí."
