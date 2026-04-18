@@ -23,6 +23,7 @@ from nhc.hexcrawl.coords import (
     ring,
     shape_r_range,
 )
+from nhc.hexcrawl.model import Biome, HexCell
 from nhc.hexcrawl.noise import SimplexNoise
 from nhc.hexcrawl.pack import ContinentalParams
 
@@ -440,3 +441,112 @@ def hydraulic_erosion(
         flow_count=flow_count,
         basins=basins,
     )
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: Biome assignment
+# ---------------------------------------------------------------------------
+
+
+def _biome_from_em(
+    e: float,
+    m: float,
+    sea_level: float,
+    is_near_convergent: bool,
+) -> Biome:
+    """Whittaker-style biome lookup from elevation and moisture."""
+    if e < sea_level:
+        return Biome.WATER
+
+    # Mountain threshold is lower near convergent boundaries
+    # to create coherent mountain ranges.
+    mt_threshold = 0.45 if is_near_convergent else 0.55
+    if e >= mt_threshold:
+        return Biome.MOUNTAIN
+    if e >= 0.35:
+        return Biome.HILLS if m >= 0.20 else Biome.DRYLANDS
+    if e >= 0.20:
+        if m >= 0.50:
+            return Biome.FOREST
+        if m >= -0.20:
+            return Biome.GREENLANDS
+        return Biome.DRYLANDS
+    if e >= -0.10:
+        if m >= 0.60:
+            return Biome.SWAMP
+        if m >= 0.20:
+            return Biome.MARSH
+        if m >= -0.30:
+            return Biome.SANDLANDS
+        return Biome.DEADLANDS
+    return Biome.ICELANDS
+
+
+# Essential biomes that must exist for feature placement.
+_ESSENTIAL_FALLBACKS: tuple[tuple[Biome, tuple[Biome, ...]], ...] = (
+    (Biome.GREENLANDS, (Biome.DRYLANDS, Biome.FOREST)),
+    (Biome.MOUNTAIN, (Biome.HILLS, Biome.DRYLANDS)),
+    (Biome.FOREST, (Biome.GREENLANDS, Biome.SWAMP)),
+    (Biome.ICELANDS, (Biome.DEADLANDS, Biome.MARSH)),
+)
+
+
+def _repair_essentials(
+    cells: dict[HexCoord, HexCell],
+    hexes_by_biome: dict[Biome, list[HexCoord]],
+    rng: random.Random,
+) -> None:
+    """Guarantee every essential biome exists."""
+    for essential, donors in _ESSENTIAL_FALLBACKS:
+        if hexes_by_biome[essential]:
+            continue
+        for donor in donors:
+            if len(hexes_by_biome[donor]) > 1:
+                victim = rng.choice(hexes_by_biome[donor])
+                cells[victim].biome = essential
+                if essential is Biome.MOUNTAIN:
+                    cells[victim].elevation = 0.80
+                hexes_by_biome[donor].remove(victim)
+                hexes_by_biome[essential].append(victim)
+                break
+
+
+def assign_biomes(
+    rng: random.Random,
+    params: ContinentalParams,
+    erosion: ErosionResult,
+    plates: PlateResult,
+) -> tuple[dict[HexCoord, HexCell], dict[Biome, list[HexCoord]]]:
+    """Map post-erosion elevation + moisture to biomes.
+
+    Returns ``(cells, hexes_by_biome)`` where cells is a dict
+    of :class:`HexCell` keyed by coordinate.
+    """
+    # Pre-compute which hexes are near convergent boundaries
+    # (within 2 hexes) for mountain threshold lowering.
+    near_convergent: set[HexCoord] = set()
+    for bh in plates.convergent:
+        near_convergent.add(bh)
+        for d in (1, 2):
+            for h in ring(bh, d):
+                if h in erosion.elevation:
+                    near_convergent.add(h)
+
+    cells: dict[HexCoord, HexCell] = {}
+    hexes_by_biome: dict[Biome, list[HexCoord]] = {
+        b: [] for b in Biome
+    }
+
+    for h in erosion.elevation:
+        e = erosion.elevation[h]
+        m = erosion.moisture[h]
+        biome = _biome_from_em(
+            e, m, params.sea_level, h in near_convergent,
+        )
+        cell = HexCell(coord=h, biome=biome, elevation=e)
+        cells[h] = cell
+        hexes_by_biome[biome].append(h)
+
+    _repair_essentials(cells, hexes_by_biome, rng)
+
+    return cells, hexes_by_biome

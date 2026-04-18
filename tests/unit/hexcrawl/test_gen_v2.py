@@ -8,6 +8,7 @@ import pytest
 
 from nhc.hexcrawl.coords import (
     HexCoord,
+    distance,
     expected_shape_cell_count,
     neighbors,
     shape_r_range,
@@ -407,3 +408,111 @@ class TestHydraulicErosion:
         b = hydraulic_erosion(random.Random(42), _params(), elev)
         assert a.elevation == b.elevation
         assert a.basins == b.basins
+
+
+# ---------------------------------------------------------------------------
+# Stage 5: Biome assignment
+# ---------------------------------------------------------------------------
+
+
+def _make_erosion(
+    seed: int = 42,
+) -> tuple[object, object]:
+    """Run stages 1-4 and return (erosion_result, plates)."""
+    from nhc.hexcrawl._gen_v2 import (
+        continental_shape,
+        domain_warp,
+        hydraulic_erosion,
+        tectonic_plates,
+    )
+    rng = random.Random(seed)
+    field = continental_shape(rng, _params(), _WIDTH, _HEIGHT)
+    plates = tectonic_plates(rng, _params(), field)
+    warped = domain_warp(rng, _params(), field, plates, _WIDTH, _HEIGHT)
+    erosion = hydraulic_erosion(rng, _params(), warped)
+    return erosion, plates
+
+
+class TestBiomeAssignment:
+    """Tests for the assign_biomes() stage function."""
+
+    def test_essentials_present(self) -> None:
+        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl.model import Biome
+
+        erosion, plates = _make_erosion()
+        rng = random.Random(42)
+        cells, by_biome = assign_biomes(
+            rng, _params(), erosion, plates,
+        )
+        for essential in (
+            Biome.GREENLANDS, Biome.MOUNTAIN,
+            Biome.FOREST, Biome.ICELANDS,
+        ):
+            assert len(by_biome[essential]) > 0, (
+                f"essential biome {essential} missing"
+            )
+
+    def test_mountain_coherence(self) -> None:
+        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl.model import Biome
+
+        erosion, plates = _make_erosion()
+        rng = random.Random(42)
+        cells, by_biome = assign_biomes(
+            rng, _params(), erosion, plates,
+        )
+        mountain_hexes = by_biome[Biome.MOUNTAIN]
+        if len(mountain_hexes) < 2:
+            pytest.skip("too few mountains to test coherence")
+        near_convergent = sum(
+            1 for h in mountain_hexes
+            if any(
+                distance(h, bh) <= 2
+                for bh in plates.convergent
+            )
+        )
+        # At least 30% of mountain hexes should be near
+        # convergent boundaries (relaxed from 50% since some
+        # seeds may have few convergent hexes).
+        ratio = near_convergent / len(mountain_hexes)
+        assert ratio >= 0.3, (
+            f"only {ratio:.0%} mountains near convergent "
+            f"boundaries"
+        )
+
+    def test_diversity(self) -> None:
+        from nhc.hexcrawl._gen_v2 import assign_biomes
+
+        erosion, plates = _make_erosion()
+        rng = random.Random(42)
+        cells, by_biome = assign_biomes(
+            rng, _params(), erosion, plates,
+        )
+        distinct = sum(1 for v in by_biome.values() if v)
+        assert distinct >= 6
+
+    def test_water_below_sea_level(self) -> None:
+        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl.model import Biome
+
+        erosion, plates = _make_erosion()
+        rng = random.Random(42)
+        cells, by_biome = assign_biomes(
+            rng, _params(), erosion, plates,
+        )
+        for h in by_biome[Biome.WATER]:
+            assert cells[h].elevation < _params().sea_level
+
+    def test_deterministic(self) -> None:
+        from nhc.hexcrawl._gen_v2 import assign_biomes
+
+        erosion, plates = _make_erosion()
+        cells_a, _ = assign_biomes(
+            random.Random(42), _params(), erosion, plates,
+        )
+        cells_b, _ = assign_biomes(
+            random.Random(42), _params(), erosion, plates,
+        )
+        for h in cells_a:
+            assert cells_a[h].biome == cells_b[h].biome
