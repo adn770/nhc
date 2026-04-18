@@ -242,6 +242,32 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
         draw.text((sx, sy), label, fill=(245, 222, 162, 200),
                   anchor="mm")
 
+    # Pass 4: coordinate labels on every hex
+    try:
+        from PIL import ImageFont
+        coord_font = ImageFont.truetype(
+            "/System/Library/Fonts/Menlo.ttc", 36,
+        )
+    except Exception:
+        coord_font = ImageFont.load_default()
+    for coord, cell in world.cells.items():
+        px, py = to_pixel(coord, HEX_RADIUS)
+        sx = px - min_x + MARGIN
+        sy = py - min_y + MARGIN - TILE_H * 0.25
+        label = f"{coord.q},{coord.r}"
+        # Dark outline for readability
+        for dx, dy in [(-2, -2), (-2, 2), (2, -2), (2, 2)]:
+            draw.text(
+                (sx + dx, sy + dy), label,
+                fill=(0, 0, 0, 200), anchor="mm",
+                font=coord_font,
+            )
+        draw.text(
+            (sx, sy), label,
+            fill=(255, 255, 255, 220), anchor="mm",
+            font=coord_font,
+        )
+
     canvas = canvas.convert("RGB")
     canvas.save(outpath)
 
