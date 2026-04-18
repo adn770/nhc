@@ -8,29 +8,20 @@ from __future__ import annotations
 
 import logging
 import random
-from typing import Callable
 
 from nhc.dungeon.generator import DungeonGenerator, GenerationParams
-
-logger = logging.getLogger(__name__)
 from nhc.dungeon.model import (
-    CircleShape,
     Corridor,
-    CrossShape,
-    HybridShape,
     Level,
     LevelMetadata,
-    OctagonShape,
-    PillShape,
     Rect,
-    RectShape,
     Room,
-    RoomShape,
     TempleShape,
     Terrain,
-    Tile,
 )
 from nhc.utils.rng import get_rng
+
+logger = logging.getLogger(__name__)
 
 from nhc.dungeon.generators._bsp_tree import (
     MAX_ROOM,
@@ -46,10 +37,7 @@ from nhc.dungeon.generators._connectivity import (
     _center_dist,
     _find_neighbors,
 )
-from nhc.dungeon.generators._corridors import (
-    _carve_corridor,
-    _carve_corridor_force,
-)
+from nhc.dungeon.generators._corridors import _carve_corridor
 from nhc.dungeon.generators._dead_ends import (
     _handle_dead_ends,
     _harmonize_doors,
@@ -66,8 +54,6 @@ from nhc.dungeon.generators._doors import (
     _door_candidates,
     _remove_non_straight_doors,
 )
-
-MIN_LEAF = 9  # kept for backward compat; canonical copy in _bsp_tree
 
 
 # ── Generator ───────────────────────────────────────────────────────
