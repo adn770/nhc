@@ -155,6 +155,49 @@ def test_pack_loads_default_feature_targets(tmp_path: Path) -> None:
     assert pack.features.wonder == FeatureTarget(1, 3)
 
 
+def test_pack_default_patterns_includes_caves_of_chaos(
+    tmp_path: Path,
+) -> None:
+    """Without a patterns: key, the default enables caves_of_chaos."""
+    pack = load_pack(_write(tmp_path, _MINIMAL))
+    assert pack.features.patterns == ["caves_of_chaos"]
+
+
+def test_pack_empty_patterns_disables_all(tmp_path: Path) -> None:
+    body = _MINIMAL + textwrap.dedent(
+        """
+        features:
+          patterns: []
+        """
+    )
+    pack = load_pack(_write(tmp_path, body))
+    assert pack.features.patterns == []
+
+
+def test_pack_explicit_patterns_override_default(tmp_path: Path) -> None:
+    body = _MINIMAL + textwrap.dedent(
+        """
+        features:
+          patterns:
+            - caves_of_chaos
+        """
+    )
+    pack = load_pack(_write(tmp_path, body))
+    assert pack.features.patterns == ["caves_of_chaos"]
+
+
+def test_pack_rejects_unknown_pattern_name(tmp_path: Path) -> None:
+    body = _MINIMAL + textwrap.dedent(
+        """
+        features:
+          patterns:
+            - not_a_real_pattern
+        """
+    )
+    with pytest.raises(PackValidationError, match="pattern"):
+        load_pack(_write(tmp_path, body))
+
+
 # ---------------------------------------------------------------------------
 # Overrides
 # ---------------------------------------------------------------------------

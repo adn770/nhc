@@ -130,6 +130,12 @@ class FeatureTargets:
     wonder: FeatureTarget = field(
         default_factory=lambda: FeatureTarget(1, 3)
     )
+    # Feature patterns enabled for this pack. An empty list
+    # disables all pattern placement; omitting the key falls
+    # back to the default pattern set.
+    patterns: list[str] = field(
+        default_factory=lambda: ["caves_of_chaos"]
+    )
 
 
 @dataclass
@@ -268,6 +274,36 @@ def _parse_features(block: dict[str, Any] | None) -> FeatureTargets:
     for name in ("village", "dungeon", "wonder"):
         if name in block:
             setattr(out, name, _parse_target(block[name], name))
+    if "patterns" in block:
+        out.patterns = _parse_patterns(block["patterns"])
+    return out
+
+
+def _parse_patterns(raw: Any) -> list[str]:
+    """Validate and normalize the ``features.patterns`` list."""
+    # Imported lazily to avoid a circular import in packages that
+    # import pack.py during hexcrawl init.
+    from nhc.hexcrawl.patterns import PATTERNS
+
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise PackValidationError(
+            "features.patterns must be a list of pattern names",
+        )
+    out: list[str] = []
+    for entry in raw:
+        if not isinstance(entry, str):
+            raise PackValidationError(
+                "features.patterns entries must be strings",
+            )
+        if entry not in PATTERNS:
+            known = ", ".join(sorted(PATTERNS)) or "(none)"
+            raise PackValidationError(
+                f"features.patterns: unknown pattern {entry!r} "
+                f"(known: {known})",
+            )
+        out.append(entry)
     return out
 
 

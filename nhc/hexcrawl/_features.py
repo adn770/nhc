@@ -365,7 +365,10 @@ def place_features(
     # Patterns run before generic dungeon placement and consume
     # from the same dungeon budget so a pack's feature count
     # stays meaningful.
-    pattern_consumed = _place_patterns(cells, taken, rng)
+    pattern_consumed = _place_patterns(
+        cells, taken, rng,
+        enabled_patterns=list(pack.features.patterns),
+    )
 
     # Dungeons.
     dt = pack.features.dungeon
