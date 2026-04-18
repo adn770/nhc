@@ -592,6 +592,11 @@ if (typeof WS !== "undefined") {
     if (flowerC && !flowerC.classList.contains("hidden")) {
       flowerC.classList.add("hidden");
       HexFlower.resetStatic();
+      // Re-arm zoom + scroll so the hex map zooms to the player
+      // tile when coming back from flower view.
+      if (typeof HexMap !== "undefined") {
+        HexMap._scrolledOnce = false;
+      }
     }
     /* eslint-disable no-undef */
     if (typeof FlowerInputActive !== "undefined") {

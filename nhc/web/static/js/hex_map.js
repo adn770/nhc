@@ -294,29 +294,26 @@ const HexMap = {
     const zone = document.getElementById("map-zone");
     const container = document.getElementById("hex-container");
     if (!zone || !container || typeof GameMap === "undefined") return;
-    // Use hex content extent (without margin/padding) for fit calc
-    const contentW = (this._contentW || 400) + HEX_WIDTH;
-    const contentH = (this._contentH || 400) + HEX_HEIGHT;
-    const zw = zone.clientWidth;
-    const zh = zone.clientHeight;
-    const fitScale = Math.min(zw / contentW, zh / contentH, 2.0);
+    // Zoom to 4x and center on the player so the current tile
+    // is visible when switching from flower to hex map view.
     const steps = GameMap._zoomSteps;
-    let best = 0;
+    const targetScale = 4.0;
+    let best = steps.length - 1;
     for (let i = 0; i < steps.length; i++) {
-      if (steps[i] <= fitScale + 0.01) best = i;
+      if (steps[i] >= targetScale - 0.01) { best = i; break; }
     }
     GameMap._zoomLevel = best;
     const scale = steps[best];
     for (const id of ["map-container", "hex-container"]) {
       const el = document.getElementById(id);
       if (el) {
-        el.style.transformOrigin = "center top";
+        el.style.transformOrigin = "0 0";
         el.style.transform = `scale(${scale})`;
       }
     }
     const fc = document.getElementById("flower-container");
     if (fc) {
-      fc.style.transformOrigin = "center top";
+      fc.style.transformOrigin = "0 0";
       fc.style.transform = `scale(${scale})`;
     }
     if (typeof Input !== "undefined") Input._updateZoomLabel();

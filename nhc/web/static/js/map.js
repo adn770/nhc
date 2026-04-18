@@ -50,7 +50,7 @@ const GameMap = {
   playerX: 0,
   playerY: 0,
   _zoomLevel: 2,  // index into _zoomSteps, default 1.0x
-  _zoomSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0],
+  _zoomSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0, 4.0],
   _glowAnimId: null,  // requestAnimationFrame ID for detected glow
 
   init() {
