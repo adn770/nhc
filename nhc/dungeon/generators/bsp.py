@@ -50,6 +50,13 @@ from nhc.dungeon.generators._corridors import (
     _carve_corridor,
     _carve_corridor_force,
 )
+from nhc.dungeon.generators._dead_ends import (
+    _handle_dead_ends,
+    _harmonize_doors,
+    _prune_dead_ends,
+    _remove_orphaned_doors,
+    _verify_connectivity,
+)
 from nhc.dungeon.generators._doors import (
     _compute_door_sides,
     _door_candidates,
@@ -265,191 +272,19 @@ class BSPGenerator(DungeonGenerator):
             ))
 
         # ── Step 3b: Prune dead-end corridor stubs ──
-        # L-shaped corridors can leave dead stubs at bend points.
-        # Iteratively remove corridor tiles with ≤1 floor neighbor
-        # until no more dead ends remain.
-        def _adjacent_to_door(ax: int, ay: int) -> bool:
-            """True if any cardinal neighbor is a door."""
-            for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                nb = level.tile_at(ax + ddx, ay + ddy)
-                if nb and nb.feature in (
-                    "door_closed", "door_open", "door_secret",
-                    "door_locked",
-                ):
-                    return True
-            return False
-
-        pruned = True
-        while pruned:
-            pruned = False
-            for y in range(level.height):
-                for x in range(level.width):
-                    tile = level.tiles[y][x]
-                    if not (tile.terrain == Terrain.FLOOR
-                            and tile.is_corridor
-                            and not tile.feature):
-                        continue
-                    # Never prune corridor tiles next to doors
-                    if _adjacent_to_door(x, y):
-                        continue
-                    floor_neighbors = 0
-                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        nb = level.tile_at(x + dx, y + dy)
-                        if nb and nb.terrain == Terrain.FLOOR:
-                            floor_neighbors += 1
-                    if floor_neighbors <= 1:
-                        level.tiles[y][x] = Tile(terrain=Terrain.VOID)
-                        pruned = True
+        _prune_dead_ends(level)
 
         # ── Step 3b: Handle dead-end corridor stubs ──
-        # L-shaped corridors can leave dead stubs at bend points.
-        # For each dead end: 30% add secret door if wall adjacent,
-        # 30% keep as atmospheric dead end, 40% prune.
-        changed = True
-        while changed:
-            changed = False
-            for y in range(level.height):
-                for x in range(level.width):
-                    tile = level.tiles[y][x]
-                    if not (tile.terrain == Terrain.FLOOR
-                            and tile.is_corridor
-                            and not tile.feature):
-                        continue
-                    # Never prune corridor tiles next to doors
-                    if _adjacent_to_door(x, y):
-                        continue
-                    floor_neighbors = 0
-                    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                        nb = level.tile_at(x + dx, y + dy)
-                        if nb and nb.terrain == Terrain.FLOOR:
-                            floor_neighbors += 1
-                    if floor_neighbors > 1:
-                        continue
-                    # Dead end found
-                    roll = rng.random()
-                    if roll < 0.3:
-                        # Try to place a secret door on adjacent wall
-                        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                            nb = level.tile_at(x + dx, y + dy)
-                            if nb and nb.terrain == Terrain.WALL:
-                                nb.terrain = Terrain.FLOOR
-                                nb.feature = "door_secret"
-                                break
-                        # Keep the corridor tile
-                    elif roll < 0.6:
-                        pass  # Keep as dead end
-                    else:
-                        # Prune
-                        level.tiles[y][x] = Tile(terrain=Terrain.VOID)
-                        changed = True
+        _handle_dead_ends(level, rng)
 
         # ── Step 3c: Remove orphaned doors ──
-        # After pruning, some doors may have no corridor/floor on the
-        # non-room side.  Revert those back to plain walls.
-        door_features = {
-            "door_closed", "door_open", "door_secret", "door_locked",
-        }
-        for y in range(level.height):
-            for x in range(level.width):
-                tile = level.tiles[y][x]
-                if tile.feature not in door_features:
-                    continue
-                # Find which room this door belongs to (adjacent floor
-                # that is NOT a corridor)
-                has_room_side = False
-                has_corridor_side = False
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    nb = level.tile_at(x + dx, y + dy)
-                    if not nb:
-                        continue
-                    if nb.terrain == Terrain.FLOOR and not nb.is_corridor:
-                        has_room_side = True
-                    if nb.terrain == Terrain.FLOOR and nb.is_corridor:
-                        has_corridor_side = True
-                if has_room_side and not has_corridor_side:
-                    # Door leads nowhere — revert to wall
-                    level.tiles[y][x] = Tile(terrain=Terrain.WALL)
-                    logger.debug(
-                        "Removed orphaned door at (%d, %d)", x, y,
-                    )
-
-        all_door_feats = {
-            "door_closed", "door_open", "door_secret", "door_locked",
-        }
+        _remove_orphaned_doors(level)
 
         # ── Step 3d: Verify connectivity via flood fill ──
-        # After all pruning and cleanup, verify every room is reachable
-        # from the entrance via walkable tiles.  If not, re-carve.
-        def _flood_reachable(sx: int, sy: int) -> set[tuple[int, int]]:
-            """Flood-fill from (sx,sy) across FLOOR tiles."""
-            visited: set[tuple[int, int]] = set()
-            stack = [(sx, sy)]
-            while stack:
-                fx, fy = stack.pop()
-                if (fx, fy) in visited:
-                    continue
-                ft = level.tile_at(fx, fy)
-                if not ft or ft.terrain != Terrain.FLOOR:
-                    continue
-                visited.add((fx, fy))
-                for ddx, ddy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    stack.append((fx + ddx, fy + ddy))
-            return visited
-
-        ecx, ecy = rects[entrance].center
-        reconnected = 0
-        for _attempt in range(len(rects)):
-            reachable = _flood_reachable(ecx, ecy)
-            found_disconnect = False
-            for ri, rect in enumerate(rects):
-                rcx, rcy = rect.center
-                if (rcx, rcy) in reachable:
-                    continue
-                found_disconnect = True
-                # Room is disconnected — find closest reachable room
-                best_other = None
-                best_dist = 9999
-                for oi, orect in enumerate(rects):
-                    ocx, ocy = orect.center
-                    if (ocx, ocy) not in reachable:
-                        continue
-                    d = abs(rcx - ocx) + abs(rcy - ocy)
-                    if d < best_dist:
-                        best_dist = d
-                        best_other = oi
-                if best_other is not None:
-                    # Use force=True on _carve_line to punch through
-                    # any walls in the path
-                    _carve_corridor_force(
-                        level, level.rooms[ri], level.rooms[best_other],
-                        rng,
-                    )
-                    reconnected += 1
-                    logger.info(
-                        "Reconnected room_%d to room_%d (flood-fill)",
-                        ri + 1, best_other + 1,
-                    )
-                break  # Re-check from scratch after each reconnection
-            if not found_disconnect:
-                break
-
-        if reconnected:
-            logger.info("Post-prune reconnection: %d corridors added",
-                        reconnected)
+        _verify_connectivity(level, rects, entrance, rng)
 
         # ── Step 3e: Final door harmonization ──
-        # Reconnection (3d) may have added new doors adjacent to
-        # existing ones.  One final pass to unify types.
-        for y in range(level.height):
-            for x in range(level.width):
-                tile = level.tiles[y][x]
-                if tile.feature not in all_door_feats:
-                    continue
-                for ddx, ddy in [(1, 0), (0, 1)]:
-                    nb = level.tile_at(x + ddx, y + ddy)
-                    if nb and nb.feature in all_door_feats:
-                        if nb.feature != tile.feature:
-                            nb.feature = tile.feature
+        _harmonize_doors(level)
 
         # ── Step 3e: Strip walled-tunnel adjacency ──
         # If a corridor tile has WALLs on both perpendicular sides,
