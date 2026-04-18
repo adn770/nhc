@@ -68,3 +68,89 @@ class TestSurfaceTypeStreetRendering:
             level.tiles[4][4] = tile
         svg = render_floor_svg(level, seed=42)
         assert "#8A7A6A" not in svg
+
+
+class TestFieldSurface:
+    def test_field_tile_emits_green_tint(self):
+        from nhc.rendering._floor_detail import FIELD_TINT
+        level = _blank_level()
+        level.tiles[4][4].surface_type = SurfaceType.FIELD
+        svg = render_floor_svg(level, seed=42)
+        assert FIELD_TINT in svg
+
+    def test_no_field_no_green(self):
+        from nhc.rendering._floor_detail import FIELD_TINT
+        level = _blank_level()
+        svg = render_floor_svg(level, seed=42)
+        assert FIELD_TINT not in svg
+
+    def test_field_tile_emits_stones(self):
+        """Fields are lightly scattered with visible stones."""
+        from nhc.rendering._floor_detail import (
+            FIELD_STONE_FILL,
+        )
+        level = _blank_level(20, 20)
+        for y in range(20):
+            for x in range(20):
+                level.tiles[y][x].surface_type = SurfaceType.FIELD
+        svg = render_floor_svg(level, seed=42)
+        # Over 400 field tiles, the stone probability should produce
+        # several visible stones.
+        assert FIELD_STONE_FILL in svg
+
+    def test_field_surface_skips_cobblestones(self):
+        """Field tiles never get the street's cobblestone style."""
+        level = _blank_level()
+        level.tiles[5][5].surface_type = SurfaceType.FIELD
+        svg = render_floor_svg(level, seed=42)
+        assert "#8A7A6A" not in svg
+
+
+class TestGardenSurface:
+    def test_garden_tile_emits_green_tint(self):
+        from nhc.rendering._floor_detail import GARDEN_TINT
+        level = _blank_level()
+        level.tiles[4][4].surface_type = SurfaceType.GARDEN
+        svg = render_floor_svg(level, seed=42)
+        assert GARDEN_TINT in svg
+
+    def test_garden_tile_emits_wobbly_grid(self):
+        """Garden uses dungeon-style line detail in its own colour."""
+        from nhc.rendering._floor_detail import GARDEN_LINE_STROKE
+        level = _blank_level(20, 20)
+        for y in range(20):
+            for x in range(20):
+                level.tiles[y][x].surface_type = SurfaceType.GARDEN
+        svg = render_floor_svg(level, seed=42)
+        assert GARDEN_LINE_STROKE in svg
+
+    def test_garden_surface_skips_cobblestones(self):
+        level = _blank_level()
+        level.tiles[5][5].surface_type = SurfaceType.GARDEN
+        svg = render_floor_svg(level, seed=42)
+        assert "#8A7A6A" not in svg
+
+    def test_garden_surface_skips_field_stones(self):
+        """Gardens use lines, not stones -- the field stone marker
+        should not appear when only GARDEN tiles are present."""
+        from nhc.rendering._floor_detail import FIELD_STONE_FILL
+        level = _blank_level(10, 10)
+        for y in range(10):
+            for x in range(10):
+                level.tiles[y][x].surface_type = SurfaceType.GARDEN
+        svg = render_floor_svg(level, seed=42)
+        assert FIELD_STONE_FILL not in svg
+
+
+class TestFieldVsGardenPalette:
+    def test_field_and_garden_use_green_family(self):
+        from nhc.rendering._floor_detail import FIELD_TINT, GARDEN_TINT
+        # Both live in the green family; they may match exactly or
+        # differ slightly, but neither should be a grey or brown.
+        for hx in (FIELD_TINT, GARDEN_TINT):
+            assert hx.startswith("#")
+            # crude "green family" check: green channel dominates
+            r, g, b = (
+                int(hx[1:3], 16), int(hx[3:5], 16), int(hx[5:7], 16),
+            )
+            assert g >= r and g >= b

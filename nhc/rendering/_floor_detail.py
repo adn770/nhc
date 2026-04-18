@@ -640,6 +640,10 @@ def _render_floor_detail(
     # Street cobblestone detail — rendered on is_street tiles
     _render_street_cobblestone(svg, level, rng)
 
+    # Field and garden surface detail — rendered on surface_type tiles
+    _render_field_surface(svg, level, rng)
+    _render_garden_surface(svg, level, rng)
+
     # Mine cart tracks — rendered on is_track tiles
     _render_cart_tracks(svg, level)
 
@@ -738,6 +742,116 @@ def _street_stone(
         f'fill="{_STONE_FILL}" stroke="{_STONE_STROKE}" '
         f'stroke-width="0.5"/>'
     )
+
+
+# ── Field and garden surfaces (tunable constants) ─────────────
+
+FIELD_TINT = "#6B8A56"
+FIELD_TINT_OPACITY = 0.15
+FIELD_STONE_FILL = "#8A9A6A"
+FIELD_STONE_STROKE = "#4A5A3A"
+FIELD_STONE_PROBABILITY = 0.10
+
+GARDEN_TINT = "#6B8A56"
+GARDEN_TINT_OPACITY = 0.15
+GARDEN_LINE_STROKE = "#4A6A3A"
+GARDEN_LINE_WIDTH = 0.5
+GARDEN_LINE_PROBABILITY = 0.35
+
+
+def _render_field_surface(
+    svg: list[str], level: "Level", rng: random.Random,
+) -> None:
+    """Draw cultivated-field detail on SurfaceType.FIELD tiles.
+
+    Emits a subtle green tint per tile plus sparse stone ellipses
+    at ``FIELD_STONE_PROBABILITY``. No cracks, no scratches.
+    """
+    tints: list[str] = []
+    stones: list[str] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            px, py = x * CELL, y * CELL
+            tints.append(
+                f'<rect x="{px}" y="{py}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{FIELD_TINT}" '
+                f'opacity="{FIELD_TINT_OPACITY}"/>'
+            )
+            if rng.random() < FIELD_STONE_PROBABILITY:
+                stones.append(_field_stone(rng, px, py))
+    if tints:
+        svg.append("".join(tints))
+    if stones:
+        svg.append(
+            f'<g opacity="0.8">{"".join(stones)}</g>'
+        )
+
+
+def _field_stone(
+    rng: random.Random, px: float, py: float,
+) -> str:
+    cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
+    cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
+    rx = rng.uniform(1.5, 2.8)
+    ry = rng.uniform(1.2, 2.2)
+    angle = rng.uniform(0, 180)
+    return (
+        f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
+        f'rx="{rx:.1f}" ry="{ry:.1f}" '
+        f'transform="rotate({angle:.0f},{cx:.1f},{cy:.1f})" '
+        f'fill="{FIELD_STONE_FILL}" '
+        f'stroke="{FIELD_STONE_STROKE}" '
+        f'stroke-width="0.5"/>'
+    )
+
+
+def _render_garden_surface(
+    svg: list[str], level: "Level", rng: random.Random,
+) -> None:
+    """Draw garden detail on SurfaceType.GARDEN tiles.
+
+    Emits a subtle green tint per tile plus short dungeon-style
+    wobbly line segments at ``GARDEN_LINE_PROBABILITY``. No cracks,
+    no scratches, no stones.
+    """
+    tints: list[str] = []
+    lines: list[str] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.surface_type != SurfaceType.GARDEN:
+                continue
+            px, py = x * CELL, y * CELL
+            tints.append(
+                f'<rect x="{px}" y="{py}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{GARDEN_TINT}" '
+                f'opacity="{GARDEN_TINT_OPACITY}"/>'
+            )
+            if rng.random() < GARDEN_LINE_PROBABILITY:
+                lines.append(_garden_line(rng, px, py))
+    if tints:
+        svg.append("".join(tints))
+    if lines:
+        svg.append(
+            f'<g fill="none" stroke="{GARDEN_LINE_STROKE}" '
+            f'stroke-width="{GARDEN_LINE_WIDTH}" '
+            f'opacity="0.65">{"".join(lines)}</g>'
+        )
+
+
+def _garden_line(
+    rng: random.Random, px: float, py: float,
+) -> str:
+    x0 = px + rng.uniform(CELL * 0.15, CELL * 0.4)
+    y0 = py + rng.uniform(CELL * 0.15, CELL * 0.85)
+    x1 = px + rng.uniform(CELL * 0.6, CELL * 0.85)
+    y1 = py + rng.uniform(CELL * 0.15, CELL * 0.85)
+    return f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}"/>'
 
 
 # ── Mine cart tracks ─────────────────────────────────────────
