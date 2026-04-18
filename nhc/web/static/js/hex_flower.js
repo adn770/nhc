@@ -440,10 +440,7 @@ const HexFlower = {
       /* -- base layer: load tile PNGs (reuse hex_map.js globals) -- */
       const tileLoads = state.cells.map(cell => {
         // Use major_feature for tile lookup; minor features are
-        // overlay icons, not full tiles.
-        const feat = (cell.major_feature && cell.major_feature !== "none")
-          ? cell.major_feature : "none";
-        const urls = tilePath(cell.biome, feat, cell.q, cell.r);
+        const urls = tilePath(cell.biome, cell.tile_slot);
         return HexMap._loadTile(urls.primary, urls.fallback)
           .then(img => ({ cell, img }));
       });

@@ -53,136 +53,6 @@ const SLOT_NAME = {
   79: "mountain-Pass", 80: "mountain-Temple",
 };
 
-/** Biome base-tile slots: weighted [slot, weight] pairs for
- * visual variety on featureless hexes. The renderer picks one
- * per hex deterministically so the choice is stable across
- * repaints. Higher weight = more frequent. */
-const BIOME_BASE_SLOTS = {
-  greenlands: [
-    [42, 20], [4, 18], [43, 15], [45, 12], [26, 10], [2, 8],
-    [41, 5], [50, 4], [20, 3], [55, 3], [10, 2],
-  ],
-  forest: [
-    [2, 20], [41, 18], [4, 15], [42, 12], [47, 8], [45, 7],
-    [43, 5], [6, 4], [48, 3], [50, 3], [20, 3], [55, 2],
-  ],
-  mountain: [
-    [9, 18], [61, 15], [62, 14], [69, 10], [66, 8], [79, 7],
-    [67, 6], [63, 5], [6, 5], [72, 4], [65, 4], [70, 4],
-  ],
-  hills: [
-    [6, 22], [45, 16], [50, 14], [4, 12], [42, 10], [3, 10],
-    [43, 8], [9, 8],
-  ],
-  marsh: [
-    [20, 25], [3, 18], [17, 14], [6, 12], [42, 9], [45, 7],
-    [10, 6], [19, 5], [55, 4],
-  ],
-  swamp: [
-    [20, 28], [17, 18], [3, 12], [45, 10], [42, 8], [10, 8],
-    [6, 6], [55, 5], [19, 5],
-  ],
-  drylands: [
-    [3, 30], [6, 20], [17, 15], [20, 12], [9, 10], [4, 8],
-    [10, 5],
-  ],
-  sandlands: [
-    [3, 30], [6, 20], [17, 15], [20, 12], [9, 10], [18, 5],
-    [19, 4], [4, 4],
-  ],
-  icelands: [
-    [3, 30], [6, 20], [17, 15], [20, 12], [27, 10], [9, 5],
-    [10, 4], [18, 4],
-  ],
-  deadlands: [
-    [3, 30], [6, 20], [20, 15], [9, 12], [17, 10], [18, 5],
-    [19, 4], [1, 4],
-  ],
-  water: [[5, 1]],
-};
-
-/** Feature-tile variants: when a feature maps to multiple
- * candidate slots, the renderer picks one per hex. Gives visual
- * diversity to e.g. caves (slot 15 vs 49 cave-Mouth).
- *
- * Extended-pack slots (41-80) only exist for biomes with full
- * generated tile sets: greenlands, forest, mountain, hills,
- * marsh, swamp. The base 27-slot tiles exist for all biomes.
- * _EXTENDED_BIOMES gates which biomes may use the extra slots. */
-const _EXTENDED_BIOMES = new Set([
-  "greenlands", "forest", "mountain", "hills", "marsh", "swamp",
-]);
-const _FEATURE_BASE = {
-  cave:     { base: [15], ext: [49] },     // cave, cave-Mouth
-  ruin:     { base: [18], ext: [55] },     // ruins, overgrown-Ruins
-  tower:    { base: [13], ext: [54] },     // tower, watchtower
-  village:  { base: [11], ext: [53] },     // village, hamlet
-  stones:   { base: [25], ext: [51] },     // stones, standing-Stones
-  hole:     { base: [16], ext: [44] },     // hole, rift
-  keep:     { base: [22], ext: [] },
-  city:     { base: [12], ext: [] },
-  graveyard:{ base: [19], ext: [] },
-  crystals: { base: [24], ext: [] },
-  wonder:   { base: [23], ext: [] },
-  portal:   { base: [8],  ext: [] },
-  lake:     { base: [10], ext: [] },
-  river:    { base: [7],  ext: [] },
-};
-/** Return the variant slot array for a feature in a given biome. */
-function featureVariants(feature, biome) {
-  const entry = _FEATURE_BASE[feature];
-  if (!entry) return null;
-  if (_EXTENDED_BIOMES.has(biome) && entry.ext.length) {
-    return entry.base.concat(entry.ext);
-  }
-  return entry.base;
-}
-
-/** Deterministic per-hex hash with good bit mixing. */
-function _hexHash(q, r) {
-  let h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
-  h = ((h >> 16) ^ h) * 0x45d9f3b;
-  return ((h >> 16) ^ h) & 0x7FFFFFFF;
-}
-
-/** Deterministic per-hex pick: (q, r) → index into a variant
- * array. Stable across renders so tiles don't flicker. */
-function _hexVariant(q, r, n) {
-  return _hexHash(q, r) % n;
-}
-
-/** Pick a slot from weighted [slot, weight] pairs using (q, r)
- * as a deterministic seed. */
-function _weightedSlot(q, r, pairs) {
-  if (pairs.length === 1) return pairs[0][0];
-  let total = 0;
-  for (const [, w] of pairs) total += w;
-  const roll = _hexHash(q, r) % total;
-  let acc = 0;
-  for (const [slot, w] of pairs) {
-    acc += w;
-    if (roll < acc) return slot;
-  }
-  return pairs[pairs.length - 1][0];
-}
-
-/** Biomes with a full 27-slot palette; used as the primary tile
- * URL. Any biome in PARTIAL_PALETTE_BIOMES may not have every
- * slot -- _loadTile falls back to the foundation tile at the
- * project root if the biome-specific path 404s. */
-const PALETTE_BIOMES = new Set([
-  "greenlands", "drylands", "sandlands", "icelands", "deadlands",
-  "forest", "mountain", "hills", "marsh", "swamp", "water",
-]);
-// Biomes whose tilesets don't cover every slot — the renderer
-// falls back to the foundation tile when a biome-specific path
-// 404s. All generated biomes are partial (they only have the
-// slots the generate_missing_hextiles tool produced).
-const PARTIAL_PALETTE_BIOMES = new Set([
-  "greenlands", "drylands", "sandlands", "icelands", "deadlands",
-  "forest", "mountain", "hills", "marsh", "swamp", "water",
-]);
-
 /** Fallback glyph when the hextile PNG can't be fetched. */
 const BIOME_GLYPH = {
   greenlands: {fg: "#5a8a4e", bg: "#2a3a1e", c: "."},
@@ -198,33 +68,13 @@ const BIOME_GLYPH = {
   water:      {fg: "#3c64a0", bg: "#102040", c: "≈"},
 };
 
-/** biome + feature + coord → {primary, fallback} /hextiles/ URLs.
- * The coord (q, r) drives deterministic tile variety: featureless
- * hexes pick from BIOME_BASE_SLOTS, feature hexes pick from
- * FEATURE_VARIANTS, both indexed by _hexVariant so the choice is
- * stable across repaints. */
-function tilePath(biome, feature, q, r) {
-  let slot;
-  const variants = (feature && feature !== "none")
-    ? featureVariants(feature, biome) : null;
-  if (variants) {
-    slot = variants[_hexVariant(q || 0, r || 0, variants.length)];
-  } else {
-    const bases = BIOME_BASE_SLOTS[biome] || [[4, 1]];
-    slot = _weightedSlot(q || 0, r || 0, bases);
-  }
+/** Build tile URL from biome + slot (assigned by the backend).
+ * Tile selection logic lives in nhc/hexcrawl/tiles.py — the
+ * frontend just renders the slot it receives. */
+function tilePath(biome, slot) {
   const stem = SLOT_NAME[slot];
-  const foundationUrl = `/hextiles/${slot}-foundation_${stem}.png`;
-  if (PALETTE_BIOMES.has(biome)) {
-    const biomeUrl = `/hextiles/${biome}/${slot}-${biome}_${stem}.png`;
-    // Forest / mountain cover only some of the 27 slots; the
-    // others fall back to the foundation tile of the same slot.
-    const fallback = PARTIAL_PALETTE_BIOMES.has(biome)
-      ? foundationUrl
-      : null;
-    return {primary: biomeUrl, fallback};
-  }
-  return {primary: foundationUrl, fallback: null};
+  const biomeUrl = `/hextiles/${biome}/${slot}-${biome}_${stem}.png`;
+  return {primary: biomeUrl, fallback: null};
 }
 
 /** Raw axial → pixel without any canvas offset. */
@@ -620,7 +470,7 @@ const HexMap = {
 
       // Load all tile images + fog tile in parallel.
       const tileLoads = state.cells.map(cell => {
-        const urls = tilePath(cell.biome, cell.feature, cell.q, cell.r);
+        const urls = tilePath(cell.biome, cell.tile_slot);
         return this._loadTile(urls.primary, urls.fallback)
           .then(img => ({cell, img}));
       });
