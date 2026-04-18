@@ -533,6 +533,7 @@ const HexMap = {
             const oy = overlap && seg.type !== "river" ? 2 : 0;
             this._drawEdgeSegment(
               featCtx, x + ox, y + oy, cell.q, cell.r, seg, wScale,
+              isJunction,
             );
           }
         }
@@ -634,11 +635,15 @@ const HexMap = {
    * curve between the entry and exit edge midpoints (or hex centre
    * for source/sink). Deterministic jitter from (q, r) keeps the
    * curve stable across repaints. */
-  _drawEdgeSegment(ctx, cx, cy, q, r, seg, widthScale = 1.0) {
+  _drawEdgeSegment(ctx, cx, cy, q, r, seg, widthScale = 1.0,
+                   isJunction = false) {
     // When sub-hex waypoints are available, use them for smoother
-    // curves. The sub_path coords are local flower coords that map
-    // into the macro hex at a fraction of HEX_SIZE.
-    if (seg.sub_path && seg.sub_path.length >= 2) {
+    // curves. Skip at path junctions — flower sub-paths were
+    // generated for the original segments and don't match the
+    // junction layout; use the clean Bezier fallback instead.
+    const useSubPath = seg.sub_path && seg.sub_path.length >= 2
+                       && !(isJunction && seg.type !== "river");
+    if (useSubPath) {
       this._drawSubPathCurve(ctx, cx, cy, seg, widthScale);
       return;
     }

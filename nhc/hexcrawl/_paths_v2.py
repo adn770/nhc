@@ -189,12 +189,7 @@ def generate_paths_v2(
                 _stamp_path_edges(route, cells)
                 paths.append(route)
 
-    # 5. Merge junction edges: where multiple roads share a hex,
-    # replace overlapping segments with a star topology so all
-    # arms meet at the hex center.
-    _merge_junction_edges(cells)
-
-    # 6. Dead-end detection: road endpoints that are not
+    # 5. Dead-end detection: road endpoints that are not
     # settlements get a TOWER or KEEP.
     for path in paths:
         for endpoint in (path[0], path[-1]):
@@ -212,52 +207,3 @@ def generate_paths_v2(
     return paths
 
 
-def _merge_junction_edges(
-    cells: dict[HexCoord, HexCell],
-) -> None:
-    """Convert true junction hexes into star topology.
-
-    A true junction is a hex where 3+ distinct edge indices
-    meet (roads branching, not just a single road passing
-    through). Replace its path segments with one arm per edge,
-    each running from the edge to the hex center. Hexes with
-    only 2 edges (a road passing through) are left as-is.
-    """
-    for coord, cell in cells.items():
-        path_segs = [s for s in cell.edges if s.type == "path"]
-        if len(path_segs) < 2:
-            continue
-
-        # Collect all unique edge indices from all path segments.
-        edge_indices: set[int] = set()
-        has_terminus = False
-        for seg in path_segs:
-            if seg.entry_edge is not None:
-                edge_indices.add(seg.entry_edge)
-            else:
-                has_terminus = True
-            if seg.exit_edge is not None:
-                edge_indices.add(seg.exit_edge)
-            else:
-                has_terminus = True
-
-        # Merge into star when it's a true junction:
-        # - 3+ distinct named edges, OR
-        # - 2+ named edges plus a terminus (path start/end),
-        #   making it a T-junction.
-        min_edges = 2 if has_terminus else 3
-        if len(edge_indices) < min_edges:
-            continue
-
-        # Remove old path segments.
-        cell.edges = [s for s in cell.edges if s.type != "path"]
-
-        # Add one arm per edge: from edge to center.
-        for edge_idx in sorted(edge_indices):
-            cell.edges.append(
-                EdgeSegment(
-                    type="path",
-                    entry_edge=edge_idx,
-                    exit_edge=None,
-                ),
-            )

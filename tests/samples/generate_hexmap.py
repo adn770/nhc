@@ -162,11 +162,22 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
         ox = cx - min_x + MARGIN
         oy = cy - min_y + MARGIN
 
+        # At junction hexes (2+ path segments), skip flower
+        # sub-paths and use simple Bezier fallback for cleaner
+        # crossroad rendering.
+        path_seg_count = sum(
+            1 for s in cell.edges if s.type == "path"
+        )
+        is_junction = path_seg_count >= 2
+
         for seg in cell.edges:
             is_river = seg.type == "river"
-            # Try sub_path from flower
+            # Try sub_path from flower (skip at junctions for
+            # paths — flower sub-paths were generated for the
+            # original segments which may not match junctions).
             sub_path = None
-            if cell.flower:
+            use_sub = not (is_junction and seg.type == "path")
+            if use_sub and cell.flower:
                 for fseg in cell.flower.edges:
                     if (fseg.type == seg.type
                             and fseg.entry_macro_edge == seg.entry_edge
