@@ -29,14 +29,12 @@ from nhc.hexcrawl.model import Biome
 
 DEFAULT_BIOME_COSTS: dict[Biome, int] = {
     Biome.GREENLANDS: 1,
-    Biome.DRYLANDS: 1,
-    Biome.SANDLANDS: 2,
-    Biome.ICELANDS: 2,
+    Biome.DRYLANDS: 3,
+    Biome.SANDLANDS: 4,
+    Biome.ICELANDS: 3,
     Biome.FOREST: 6,
     Biome.MOUNTAIN: 4,
-    Biome.DEADLANDS: 2,
-    # Hills ~= forest cost; wetlands cost more -- marsh + swamp
-    # are slow slogs, tuned between forest (2) and mountain (4).
+    Biome.DEADLANDS: 3,
     Biome.HILLS: 2,
     Biome.MARSH: 3,
     Biome.SWAMP: 3,
@@ -113,7 +111,7 @@ class RiverParams:
     min_length: int = 6
     max_length: int = 30
     bifurcation_chance: float = 0.05
-    source_elevation_min: float = 0.65
+    source_elevation_min: float = 0.50
     flatness_window: int = 5
     flatness_threshold: float = 0.02
     avoided_biomes: frozenset[Biome] = frozenset({
@@ -283,7 +281,7 @@ def _parse_rivers(block: dict[str, Any] | None) -> RiverParams:
         max_length=int(block.get("max_length", 30)),
         bifurcation_chance=float(block.get("bifurcation_chance", 0.05)),
         source_elevation_min=float(
-            block.get("source_elevation_min", 0.65),
+            block.get("source_elevation_min", 0.50),
         ),
         flatness_window=int(block.get("flatness_window", 5)),
         flatness_threshold=float(

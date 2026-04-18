@@ -40,7 +40,7 @@ class RiverParams:
     min_length: int = 6
     max_length: int = 30
     bifurcation_chance: float = 0.05
-    source_elevation_min: float = 0.65
+    source_elevation_min: float = 0.50
     flatness_window: int = 5
     flatness_threshold: float = 0.02
     # Biomes rivers won't enter — they route around or terminate.

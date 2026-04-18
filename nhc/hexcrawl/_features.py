@@ -189,7 +189,9 @@ def place_dungeons(
         (HexFeatureType.RUIN, (Biome.FOREST, Biome.DEADLANDS)),
         (HexFeatureType.GRAVEYARD, (Biome.DEADLANDS, Biome.ICELANDS,
                                     Biome.SWAMP, Biome.MARSH)),
-        (HexFeatureType.TOWER, tuple(Biome)),
+        (HexFeatureType.TOWER, tuple(
+            b for b in Biome if b is not Biome.WATER
+        )),
     ]
     # First: one of each type if possible.
     for feature, biomes in recipes:

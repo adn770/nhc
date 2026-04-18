@@ -124,11 +124,12 @@ def test_noise_generator_feature_counts_match_pack_targets() -> None:
     # Villages in declared range.
     villages = counts[HexFeatureType.VILLAGE]
     assert pack.features.village.min <= villages <= pack.features.village.max
-    # Dungeons: sum of caves / ruins / towers fits the range.
+    # Dungeons: sum of all dungeon types placed by place_dungeons.
     dungeons = (
         counts[HexFeatureType.CAVE]
         + counts[HexFeatureType.RUIN]
         + counts[HexFeatureType.TOWER]
+        + counts[HexFeatureType.GRAVEYARD]
     )
     assert pack.features.dungeon.min <= dungeons <= pack.features.dungeon.max
 

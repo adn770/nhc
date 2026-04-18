@@ -29,14 +29,14 @@ def test_cost_for_default_greenlands() -> None:
 
 
 def test_cost_for_default_drylands() -> None:
-    assert cost_for(Biome.DRYLANDS) == 1
+    assert cost_for(Biome.DRYLANDS) == 3
 
 
-def test_cost_for_default_forest_and_hills_midrange() -> None:
+def test_cost_for_default_arid_and_forest_expensive() -> None:
     assert cost_for(Biome.FOREST) == 6
-    assert cost_for(Biome.SANDLANDS) == 2
-    assert cost_for(Biome.ICELANDS) == 2
-    assert cost_for(Biome.DEADLANDS) == 2
+    assert cost_for(Biome.SANDLANDS) == 4
+    assert cost_for(Biome.ICELANDS) == 3
+    assert cost_for(Biome.DEADLANDS) == 3
 
 
 def test_cost_for_default_mountain_expensive() -> None:
@@ -44,17 +44,14 @@ def test_cost_for_default_mountain_expensive() -> None:
 
 
 def test_cost_for_defaults_match_design_doc_table() -> None:
-    # The mapping captured in design/overland_hexcrawl.md §5. Keeping
-    # this test explicit makes the default table hard to silently
-    # drift. Hills / marsh / swamp entries landed with M-G.1.
     assert dict(DEFAULT_BIOME_COSTS) == {
         Biome.GREENLANDS: 1,
-        Biome.DRYLANDS: 1,
-        Biome.SANDLANDS: 2,
-        Biome.ICELANDS: 2,
+        Biome.DRYLANDS: 3,
+        Biome.SANDLANDS: 4,
+        Biome.ICELANDS: 3,
         Biome.FOREST: 6,
         Biome.MOUNTAIN: 4,
-        Biome.DEADLANDS: 2,
+        Biome.DEADLANDS: 3,
         Biome.HILLS: 2,
         Biome.MARSH: 3,
         Biome.SWAMP: 3,

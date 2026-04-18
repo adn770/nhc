@@ -389,18 +389,14 @@ from nhc.hexcrawl._features import place_features as _place_features  # noqa: E4
 #   -0.10..0.20 + m dry    -> DEADLANDS (barren plains)
 #   e < -0.10              -> ICELANDS (low-elevation chill)
 def _biome_from_em(e: float, m: float) -> Biome:
-    # Sea: very low elevation. Forms coastlines and lakes on
-    # the noise map. Impassable in v1 so the player routes
-    # around it, but the visual reads as ocean / deep water.
+    # Sea: very low elevation.
     if e < -0.35:
         return Biome.WATER
-    if e >= 0.70:
+    if e >= 0.55:
         return Biome.MOUNTAIN
-    if e >= 0.45:
+    if e >= 0.35:
         if m >= 0.20:
             return Biome.HILLS
-        # High ground with low moisture -- treat as mountain's
-        # dry foothills (drylands reads better than hills here).
         return Biome.DRYLANDS
     if e >= 0.20:
         if m >= 0.50:
@@ -450,6 +446,9 @@ def _repair_essentials(
                 # so its own essential guarantee survives.
                 victim = rng.choice(hexes_by_biome[donor])
                 cells[victim].biome = essential
+                # Set proper elevation so river sources work.
+                if essential is Biome.MOUNTAIN:
+                    cells[victim].elevation = 0.80
                 hexes_by_biome[donor].remove(victim)
                 hexes_by_biome[essential].append(victim)
                 break
