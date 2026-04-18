@@ -199,3 +199,43 @@ async def test_re_enter_hex_feature_reuses_cached_floor(tmp_path) -> None:
     # should hand back the same Level instance, not regenerate.
     await g.enter_hex_feature()
     assert g.level is level_first
+
+
+# ---------------------------------------------------------------------------
+# Template wiring through enter_hex_feature
+# ---------------------------------------------------------------------------
+
+
+def _attach_feature(
+    g: Game, coord: HexCoord, feature: HexFeatureType, template: str,
+) -> None:
+    """Attach a feature with a specific template to a hex."""
+    cell = g.hex_world.cells[coord]
+    cell.feature = feature
+    cell.dungeon = DungeonRef(template=template, depth=1)
+    g.hex_player_position = coord
+
+
+@pytest.mark.asyncio
+async def test_tower_template_passes_through(tmp_path) -> None:
+    """Entering a tower hex sets params.template so the pipeline
+    applies StructuralTemplate overrides."""
+    g = _make_game(tmp_path)
+    _attach_feature(g, HexCoord(0, 0), HexFeatureType.TOWER,
+                    "procedural:tower")
+    await g.enter_hex_feature()
+    assert g.level is not None
+    assert g.generation_params is not None
+    assert g.generation_params.template == "procedural:tower"
+
+
+@pytest.mark.asyncio
+async def test_crypt_template_passes_through(tmp_path) -> None:
+    """Entering a crypt/graveyard hex sets params.template."""
+    g = _make_game(tmp_path)
+    _attach_feature(g, HexCoord(0, 0), HexFeatureType.GRAVEYARD,
+                    "procedural:crypt")
+    await g.enter_hex_feature()
+    assert g.level is not None
+    assert g.generation_params is not None
+    assert g.generation_params.template == "procedural:crypt"

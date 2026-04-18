@@ -472,6 +472,7 @@ class Game:
             params = GenerationParams(
                 width=map_w, height=map_h, depth=depth,
                 shape_variety=sv, theme=theme, seed=seed,
+                template=template,
             )
             self.generation_params = params
             self.level = generate_level(params)
