@@ -50,11 +50,13 @@ features:
     max: 4
 
 rivers:
-  max_rivers: 4
+  max_rivers: 8
   min_length: 3
-  max_length: 25
-  bifurcation_chance: 0.05
-  source_elevation_min: 0.40
+  max_length: 20
+  bifurcation_chance: 0.08
+  source_elevation_min: 0.35
+  flatness_threshold: 0.005
+  flatness_window: 8
 
 paths:
   connect_towers: 0.6

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.hexcrawl.coords import HexCoord, neighbors
+from nhc.hexcrawl.coords import HexCoord, distance, neighbors
 from nhc.hexcrawl.model import Biome, EdgeSegment, HexCell, HexFeatureType
 from nhc.hexcrawl.pack import ContinentalParams, RiverParams
 from nhc.hexcrawl._rivers import direction_index
@@ -88,7 +88,26 @@ def _trace_river_v2(
             n for n in neighbors(current)
             if n in cells and n not in visited
         ]
+        # Also consider visited hexes that carry a river — the
+        # new river can merge into an existing one (confluence).
+        merge_nbrs = [
+            n for n in neighbors(current)
+            if n in cells and n in visited
+            and any(s.type == "river" for s in cells[n].edges)
+        ]
+        if not all_nbrs and not merge_nbrs:
+            break
+
+        # If only merge targets remain, pick the best one and
+        # terminate (confluence).
         if not all_nbrs:
+            cur_elev = cells[current].elevation
+            best = min(
+                merge_nbrs,
+                key=lambda n: cells[n].elevation,
+            )
+            if cells[best].elevation < cur_elev:
+                path.append(best)
             break
 
         # Weight by elevation drop. Forest gets a penalty
@@ -159,24 +178,38 @@ def generate_rivers_v2(
     hex a river crosses. Returns the list of river coord
     sequences (source->sink).
     """
-    # Source selection: mountain hexes above elevation floor.
-    # Prefer hexes with highest flow accumulation (headwaters
-    # of the largest drainage basins).
+    # Source selection: mountain and hills hexes above elevation
+    # floor. Hills are valid secondary sources for rivers that
+    # originate in highland plateaus.
+    _SOURCE_BIOMES = frozenset({Biome.MOUNTAIN, Biome.HILLS})
     sources = [
         c for c, cell in cells.items()
-        if cell.biome is Biome.MOUNTAIN
+        if cell.biome in _SOURCE_BIOMES
         and cell.elevation >= params.source_elevation_min
     ]
     if not sources:
         return []
 
-    # Sort by flow count descending (drainage-basin preference).
+    # Sort by flow count descending (drainage-basin preference),
+    # then select sources with minimum spacing so rivers
+    # originate from different parts of the map.
     sources.sort(
         key=lambda c: flow_count.get(c, 0), reverse=True,
     )
-    sources = sources[:params.max_rivers]
+    min_source_spacing = 4
+    selected: list[HexCoord] = []
+    for s in sources:
+        if len(selected) >= params.max_rivers:
+            break
+        if all(
+            distance(s, prev) >= min_source_spacing
+            for prev in selected
+        ):
+            selected.append(s)
+    sources = selected
 
     rivers: list[list[HexCoord]] = []
+    # Global visited prevents rivers from crossing each other.
     visited: set[HexCoord] = set()
     branches: list[HexCoord] = []
 
@@ -199,7 +232,8 @@ def generate_rivers_v2(
             _stamp_edges(path, cells)
             rivers.append(path)
 
-    # Process branches.
+    # Process branches (share the visited set so they don't
+    # cross the main river or each other).
     for branch_src in branches:
         branch = _trace_river_v2(
             branch_src, cells, rng, visited, params, continental,

@@ -700,7 +700,9 @@ class TestFullPipeline:
         world = generate_continental_world(seed=42, pack=pack)
         for river in world.rivers:
             src = river[0]
-            assert world.cells[src].biome is Biome.MOUNTAIN
+            assert world.cells[src].biome in (
+                Biome.MOUNTAIN, Biome.HILLS,
+            )
 
     def test_edge_continuity(self, tmp_path) -> None:
         from nhc.hexcrawl._gen_v2 import generate_continental_world

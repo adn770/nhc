@@ -95,9 +95,9 @@ class TestRiversV2:
         )
         for river in rivers:
             src = river[0]
-            assert cells[src].biome is Biome.MOUNTAIN, (
-                f"river source {src} is {cells[src].biome}"
-            )
+            assert cells[src].biome in (
+                Biome.MOUNTAIN, Biome.HILLS,
+            ), f"river source {src} is {cells[src].biome}"
 
     def test_forest_crossing(self) -> None:
         from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
