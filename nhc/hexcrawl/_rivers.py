@@ -43,9 +43,9 @@ class RiverParams:
     source_elevation_min: float = 0.65
     flatness_window: int = 5
     flatness_threshold: float = 0.02
-    # Biomes where rivers terminate (water evaporates).
-    arid_biomes: frozenset[Biome] = frozenset({
-        Biome.DRYLANDS, Biome.SANDLANDS,
+    # Biomes rivers won't enter — they route around or terminate.
+    avoided_biomes: frozenset[Biome] = frozenset({
+        Biome.DRYLANDS, Biome.SANDLANDS, Biome.FOREST,
     })
 
 
@@ -107,7 +107,7 @@ def _trace_river(
         # reachable neighbor is arid (river dries up).
         nbrs = [
             n for n in all_nbrs
-            if cells[n].biome not in params.arid_biomes
+            if cells[n].biome not in params.avoided_biomes
         ]
         if not nbrs:
             break

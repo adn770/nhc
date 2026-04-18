@@ -316,10 +316,9 @@ def test_river_respects_max_length() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_river_avoids_arid_biomes() -> None:
-    """Rivers should not flow through drylands or sandlands."""
-    # Mountain source, then greenlands path flanked by drylands,
-    # ending in water. River should follow the green corridor.
+def test_river_avoids_avoided_biomes() -> None:
+    """Rivers should not flow through drylands, sandlands,
+    or forest biomes."""
     cells: dict[HexCoord, HexCell] = {}
     for q in range(5):
         for r in range(8):
@@ -328,11 +327,9 @@ def test_river_avoids_arid_biomes() -> None:
             elif r == 7:
                 biome, elev = Biome.WATER, -0.40
             elif q == 2:
-                # Green corridor down the middle
                 biome = Biome.GREENLANDS
                 elev = 0.6 - 0.1 * r
             else:
-                # Arid flanks
                 biome = Biome.DRYLANDS
                 elev = 0.5 - 0.08 * r
             cells[HexCoord(q, r)] = HexCell(
@@ -341,27 +338,53 @@ def test_river_avoids_arid_biomes() -> None:
     params = RiverParams(max_rivers=1, min_length=2)
     rng = random.Random(42)
     rivers = generate_rivers(cells, rng, params)
-    arid = frozenset({Biome.DRYLANDS, Biome.SANDLANDS})
+    avoided = params.avoided_biomes
     for river in rivers:
         for coord in river:
-            assert cells[coord].biome not in arid, (
-                f"river entered arid biome at {coord}: "
+            assert cells[coord].biome not in avoided, (
+                f"river entered avoided biome at {coord}: "
                 f"{cells[coord].biome}"
             )
 
 
-def test_river_goes_around_arid_when_possible() -> None:
-    """River should route around arid hexes if a non-arid
+def test_river_avoids_forest() -> None:
+    """Rivers should route around forest hexes."""
+    cells: dict[HexCoord, HexCell] = {}
+    for q in range(5):
+        for r in range(8):
+            if q == 2 and r == 0:
+                biome, elev = Biome.MOUNTAIN, 0.85
+            elif r == 7:
+                biome, elev = Biome.WATER, -0.40
+            elif q == 2:
+                biome = Biome.GREENLANDS
+                elev = 0.6 - 0.1 * r
+            else:
+                biome = Biome.FOREST
+                elev = 0.5 - 0.08 * r
+            cells[HexCoord(q, r)] = HexCell(
+                coord=HexCoord(q, r), biome=biome, elevation=elev,
+            )
+    params = RiverParams(max_rivers=1, min_length=2)
+    rng = random.Random(42)
+    rivers = generate_rivers(cells, rng, params)
+    for river in rivers:
+        for coord in river:
+            assert cells[coord].biome is not Biome.FOREST, (
+                f"river entered forest at {coord}"
+            )
+
+
+def test_river_goes_around_avoided_when_possible() -> None:
+    """River should route around avoided hexes if a non-avoided
     neighbor exists, not just terminate."""
-    # Mountain at top, greenlands path that bends around a
-    # drylands hex, water at bottom.
     cells: dict[HexCoord, HexCell] = {}
     specs = {
         HexCoord(0, 0): (Biome.MOUNTAIN, 0.85),
         HexCoord(0, 1): (Biome.GREENLANDS, 0.55),
-        HexCoord(0, 2): (Biome.DRYLANDS, 0.35),   # arid blocker
-        HexCoord(1, 1): (Biome.GREENLANDS, 0.40),  # detour
-        HexCoord(1, 2): (Biome.GREENLANDS, 0.25),  # detour
+        HexCoord(0, 2): (Biome.FOREST, 0.35),      # blocker
+        HexCoord(1, 1): (Biome.GREENLANDS, 0.40),   # detour
+        HexCoord(1, 2): (Biome.GREENLANDS, 0.25),   # detour
         HexCoord(0, 3): (Biome.GREENLANDS, 0.15),
         HexCoord(0, 4): (Biome.WATER, -0.40),
     }
@@ -374,9 +397,9 @@ def test_river_goes_around_arid_when_possible() -> None:
     assert len(rivers) >= 1, "river should find a path around"
     river = rivers[0]
     assert len(river) >= 3, "river should be long enough"
-    arid = frozenset({Biome.DRYLANDS, Biome.SANDLANDS})
+    avoided = params.avoided_biomes
     for coord in river:
-        assert cells[coord].biome not in arid
+        assert cells[coord].biome not in avoided
 
 
 def test_river_flatness_termination() -> None:
