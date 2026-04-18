@@ -124,6 +124,7 @@ class DungeonRef:
     cluster_id: "HexCoord | None" = None
     size_class: str | None = None  # hamlet, village, town, city
     faction: str | None = None     # e.g. "goblin", "orc"
+    site_kind: str | None = None   # tower|farm|mansion|keep|town
 
 
 @dataclass

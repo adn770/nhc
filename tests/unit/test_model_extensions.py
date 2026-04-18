@@ -25,6 +25,16 @@ class TestDungeonRefExtensions:
         )
         assert ref.faction == "goblin"
 
+    def test_site_kind_default_none(self):
+        ref = DungeonRef(template="procedural:cave")
+        assert ref.site_kind is None
+
+    def test_site_kind_set(self):
+        ref = DungeonRef(
+            template="procedural:tower", site_kind="tower",
+        )
+        assert ref.site_kind == "tower"
+
 
 class TestTileExtensions:
     def test_is_street_default_false(self):
