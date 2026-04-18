@@ -157,6 +157,7 @@ def _template_for(feature: HexFeatureType) -> str:
         HexFeatureType.RUIN: "procedural:ruin",
         HexFeatureType.TOWER: "procedural:tower",
         HexFeatureType.GRAVEYARD: "procedural:crypt",
+        HexFeatureType.KEEP: "procedural:keep",
     }.get(feature, "procedural:cave")
 
 
@@ -189,6 +190,8 @@ def place_dungeons(
         (HexFeatureType.RUIN, (Biome.FOREST, Biome.DEADLANDS)),
         (HexFeatureType.GRAVEYARD, (Biome.DEADLANDS, Biome.ICELANDS,
                                     Biome.SWAMP, Biome.MARSH)),
+        (HexFeatureType.KEEP, (Biome.GREENLANDS, Biome.HILLS,
+                               Biome.DRYLANDS)),
         (HexFeatureType.TOWER, tuple(
             b for b in Biome if b is not Biome.WATER
         )),

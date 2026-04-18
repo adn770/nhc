@@ -278,12 +278,12 @@ def _assign_keep_types(
 ) -> None:
     """Override room types for keep-themed levels.
 
-    - Largest room → courtyard (replaces standard/corridor)
+    - Largest room → courtyard (always, regardless of prior type)
     - Entry/exit rooms → gate
     - Remaining standard/corridor rooms → barracks
     Specialized rooms (shrine, library, etc.) keep their types.
     """
-    keep_special = {"courtyard", "barracks", "gate"}
+    preserved = {"entry", "exit", "vault"}
     non_vault = [r for r in level.rooms if "vault" not in r.tags]
     if not non_vault:
         return
@@ -294,21 +294,28 @@ def _assign_keep_types(
         key=lambda r: r.rect.width * r.rect.height,
     )
 
+    # Force courtyard on the largest room
+    largest.tags = [t for t in largest.tags if t in preserved]
+    largest.tags.append("courtyard")
+
     for room in level.rooms:
-        if "vault" in room.tags:
+        if "vault" in room.tags or room is largest:
             continue
         # Replace generic types with keep-specific ones
         generic = {"standard", "corridor"}
         has_generic = bool(generic & set(room.tags))
         if not has_generic:
+            # Keep specialized rooms (shrine, etc.) but add gate
+            # if it's an entry/exit
+            if "entry" in room.tags or "exit" in room.tags:
+                if "gate" not in room.tags:
+                    room.tags.append("gate")
             continue
 
         # Remove generic tags
         room.tags = [t for t in room.tags if t not in generic]
 
-        if room is largest:
-            room.tags.append("courtyard")
-        elif "entry" in room.tags or "exit" in room.tags:
+        if "entry" in room.tags or "exit" in room.tags:
             room.tags.append("gate")
         else:
             room.tags.append("barracks")

@@ -239,3 +239,20 @@ async def test_crypt_template_passes_through(tmp_path) -> None:
     assert g.level is not None
     assert g.generation_params is not None
     assert g.generation_params.template == "procedural:crypt"
+
+
+@pytest.mark.asyncio
+async def test_keep_template_passes_through(tmp_path) -> None:
+    """Entering a keep hex generates a walled dungeon."""
+    g = _make_game(tmp_path)
+    _attach_feature(g, HexCoord(0, 0), HexFeatureType.KEEP,
+                    "procedural:keep")
+    await g.enter_hex_feature()
+    assert g.level is not None
+    assert g.generation_params is not None
+    assert g.generation_params.template == "procedural:keep"
+    # Keep should have courtyard rooms
+    courtyard_rooms = [
+        r for r in g.level.rooms if "courtyard" in r.tags
+    ]
+    assert len(courtyard_rooms) >= 1
