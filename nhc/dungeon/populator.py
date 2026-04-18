@@ -62,6 +62,25 @@ CRYPT_CREATURE_POOL: list[tuple[str, float]] = [
 ]
 
 
+# Faction creature pools: used when level.metadata.faction is set
+# (e.g., Caves of Chaos cave lairs). Each faction gets a themed
+# creature mix dominated by its species.
+FACTION_POOLS: dict[str, list[tuple[str, float]]] = {
+    "goblin":  [("goblin", 0.50), ("goblin", 0.20),
+                ("giant_rat", 0.15), ("bat", 0.15)],
+    "orc":     [("orc", 0.50), ("orc", 0.20),
+                ("wolf", 0.15), ("warg", 0.15)],
+    "kobold":  [("kobold", 0.50), ("kobold", 0.20),
+                ("giant_rat", 0.15), ("giant_centipede", 0.15)],
+    "gnoll":   [("gnoll", 0.50), ("gnoll", 0.20),
+                ("dire_wolf", 0.15), ("bandit", 0.15)],
+    "bugbear": [("bugbear", 0.50), ("bugbear", 0.20),
+                ("hobgoblin", 0.15), ("goblin", 0.15)],
+    "ogre":    [("ogre", 0.40), ("ogre", 0.20),
+                ("orc", 0.20), ("wolf", 0.20)],
+}
+
+
 # ── Encounter group templates ────────────────────────────────────────
 
 ENCOUNTER_GROUPS: list[tuple[str, int, int]] = [
@@ -449,7 +468,10 @@ def populate_level(
     # ── Place creature encounters ──
     MIN_CREATURES = 3
     theme = (level.metadata.theme if level.metadata else "dungeon")
-    if theme == "crypt":
+    faction = (level.metadata.faction if level.metadata else None)
+    if faction and faction in FACTION_POOLS:
+        c_pool = FACTION_POOLS[faction]
+    elif theme == "crypt":
         c_pool = CRYPT_CREATURE_POOL
     else:
         c_pool = CREATURE_POOLS.get(difficulty, CREATURE_POOLS[1])

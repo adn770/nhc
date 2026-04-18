@@ -492,6 +492,11 @@ class Game:
             )
             self.generation_params = params
             self.level = generate_level(params)
+        # Set faction on level metadata from DungeonRef (used by
+        # populator for faction-specific creature pools).
+        if (self.level and self.level.metadata
+                and cell.dungeon.faction):
+            self.level.metadata.faction = cell.dungeon.faction
         # Spawn NPCs / items declared by the generator (merchant,
         # priest and recruitable adventurer for a town; future
         # populators for cave/ruin dungeons hook in the same way).
