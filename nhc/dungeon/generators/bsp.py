@@ -57,6 +57,8 @@ from nhc.dungeon.generators._dead_ends import (
     _remove_orphaned_doors,
     _verify_connectivity,
 )
+from nhc.dungeon.generators._stairs import _place_stairs
+from nhc.dungeon.generators._vaults import _place_vaults
 from nhc.dungeon.generators._walls import _build_walls, _fix_walled_corridors
 from nhc.dungeon.generators._doors import (
     _compute_door_sides,
@@ -299,10 +301,10 @@ class BSPGenerator(DungeonGenerator):
         # no corridor connection.  Placed *after* all connectivity
         # work so the flood-fill reconnection (Step 3d) cannot
         # accidentally link them back into the main dungeon.
-        self._place_vaults(level, rng, params)
+        _place_vaults(level, rng, params)
 
         # ── Step 4: Stairs ──
-        self._place_stairs(level, rects, adj, rng)
+        _place_stairs(level, rects, adj, rng)
 
         # Compute door_side for all door tiles
         _compute_door_sides(level)
@@ -324,158 +326,6 @@ class BSPGenerator(DungeonGenerator):
         )
 
         return level
-
-    @staticmethod
-    def _place_stairs(
-        level: Level, rects: list[Rect],
-        adj: dict[int, set[int]], rng: random.Random,
-    ) -> None:
-        """Place stairs randomly with distance constraints.
-
-        - stairs_up in a random room (entry)
-        - stairs_down in a room at least half the max BFS
-          distance from entry
-        - ~15% chance of a second stairs_down in another
-          distant room
-        """
-        n = len(rects)
-        if n < 2:
-            # Degenerate: single room gets both stairs
-            cx, cy = rects[0].center
-            level.tiles[cy][cx].feature = "stairs_up"
-            level.rooms[0].tags.append("entry")
-            level.rooms[0].tags.append("exit")
-            return
-
-        # Pick entry room randomly, but avoid TempleShape rooms so
-        # the depth-2 temple sanctuary is not erased by stairs.
-        non_temple = [
-            i for i in range(n)
-            if i >= len(level.rooms)
-            or not isinstance(level.rooms[i].shape, TempleShape)
-        ]
-        entry_pool = non_temple if non_temple else list(range(n))
-        entry = rng.choice(entry_pool)
-        dists = _bfs_dist(adj, entry)
-        max_dist = max(dists.values()) if dists else 1
-
-        # Candidates for stairs_down: at least half max distance,
-        # excluding TempleShape rooms.
-        min_dist = max(1, max_dist // 2)
-        candidates = [
-            i for i, d in dists.items()
-            if d >= min_dist and i != entry and i in entry_pool
-        ]
-        if not candidates:
-            # Fallback: any non-temple room except entry, then any.
-            candidates = [
-                i for i in range(n)
-                if i != entry and i in entry_pool
-            ] or [i for i in range(n) if i != entry]
-
-        exit_idx = rng.choice(candidates)
-
-        # Place stairs
-        sx, sy = rects[entry].center
-        level.tiles[sy][sx].feature = "stairs_up"
-        ex, ey = rects[exit_idx].center
-        level.tiles[ey][ex].feature = "stairs_down"
-        level.rooms[entry].tags.append("entry")
-        level.rooms[exit_idx].tags.append("exit")
-
-        # ~15% chance of a second stairs_down
-        if rng.random() < 0.15:
-            second = [
-                i for i in candidates if i != exit_idx
-            ]
-            if second:
-                idx2 = rng.choice(second)
-                x2, y2 = rects[idx2].center
-                level.tiles[y2][x2].feature = "stairs_down"
-                level.rooms[idx2].tags.append("exit")
-
-
-    def _place_vaults(
-        self, level: Level, rng: random.Random,
-        params: GenerationParams,
-    ) -> list[Rect]:
-        """Place 2x2 / 3x2 disconnected vault rooms in void space.
-
-        Vaults are tiny treasure caches unreachable from the main
-        dungeon.  Players can only get in by digging through a
-        wall.  Each vault is added to ``level.rooms`` with a
-        ``"vault"`` tag but is never inserted into the BSP
-        adjacency graph, so corridor carving and flood-fill
-        reconnection leave it untouched.
-        """
-        target = 1 + params.depth // 2 + rng.randint(0, 1)
-        sizes = [(2, 2), (3, 2), (2, 3)]
-        placed: list[Rect] = []
-        attempts = 0
-        max_attempts = 300
-        # Buffer in tiles around the vault: the inner ring becomes
-        # the vault's own wall, the outer ring stays VOID so the
-        # new walls never sit directly next to an existing corridor
-        # or room wall (which would close the corridor into a
-        # walled tunnel).
-        BUFFER = 2
-
-        while len(placed) < target and attempts < max_attempts:
-            attempts += 1
-            vw, vh = rng.choice(sizes)
-            vx = rng.randint(
-                BUFFER + 1, level.width - vw - BUFFER - 2,
-            )
-            vy = rng.randint(
-                BUFFER + 1, level.height - vh - BUFFER - 2,
-            )
-
-            # The bounding box plus a BUFFER-tile border must be
-            # entirely VOID — guarantees a clean wall ring and
-            # prevents the new wall from sealing a neighbouring
-            # corridor on both sides.
-            box_ok = True
-            for dy in range(-BUFFER, vh + BUFFER):
-                if not box_ok:
-                    break
-                for dx in range(-BUFFER, vw + BUFFER):
-                    t = level.tile_at(vx + dx, vy + dy)
-                    if t is None or t.terrain != Terrain.VOID:
-                        box_ok = False
-                        break
-            if not box_ok:
-                continue
-
-            # Carve the vault interior as plain FLOOR.
-            for dy in range(vh):
-                for dx in range(vw):
-                    level.tiles[vy + dy][vx + dx] = Tile(
-                        terrain=Terrain.FLOOR,
-                    )
-            # Wrap it in a solid wall ring (the border was VOID).
-            for dy in range(-1, vh + 1):
-                for dx in range(-1, vw + 1):
-                    if 0 <= dx < vw and 0 <= dy < vh:
-                        continue
-                    level.tiles[vy + dy][vx + dx] = Tile(
-                        terrain=Terrain.WALL,
-                    )
-
-            rect = Rect(vx, vy, vw, vh)
-            placed.append(rect)
-            level.rooms.append(Room(
-                id=f"vault_{len(placed)}",
-                rect=rect,
-                shape=RectShape(),
-                tags=["vault"],
-            ))
-
-        if placed:
-            logger.info(
-                "Placed %d vault(s) (target=%d, attempts=%d)",
-                len(placed), target, attempts,
-            )
-        return placed
 
     @staticmethod
     def _pick_shape(
