@@ -81,6 +81,9 @@ class ContinentalParams:
     continent_octaves: int = 3
     island_falloff: float = 0.8
     sea_level: float = -0.25
+    # Upward shift applied to raw noise before the island mask.
+    # Positive values produce more land; 0.0 = symmetric noise.
+    continent_bias: float = 0.35
 
     # Stage 2: Tectonic plates
     plate_count: int = 6
@@ -325,6 +328,7 @@ def _parse_continental(block: dict[str, Any] | None) -> ContinentalParams:
         continent_octaves=int(block.get("continent_octaves", 3)),
         island_falloff=float(block.get("island_falloff", 0.8)),
         sea_level=float(block.get("sea_level", -0.25)),
+        continent_bias=float(block.get("continent_bias", 0.35)),
         plate_count=int(block.get("plate_count", 6)),
         warp_amplitude=float(block.get("warp_amplitude", 0.4)),
         warp_frequency=float(block.get("warp_frequency", 0.15)),

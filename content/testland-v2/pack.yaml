@@ -20,6 +20,7 @@ map:
     continent_octaves: 3
     island_falloff: 0.6
     sea_level: -0.20
+    continent_bias: 0.55
 
     # Stage 2: Tectonic plates
     plate_count: 5

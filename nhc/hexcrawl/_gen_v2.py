@@ -68,6 +68,10 @@ def continental_shape(
 
             raw = noise.fractal(fx, fy, octaves=octaves)
 
+            # Continent bias: shift noise upward so more hexes
+            # are above sea level (more land, less ocean).
+            raw += params.continent_bias
+
             # Island mask: radial falloff from map center pushes
             # edges toward ocean.
             dx = (q - cx) / max(cx, 1)
@@ -266,6 +270,7 @@ def domain_warp(
         raw = continent_noise.fractal(
             fx + warp_dx, fy + warp_dy, octaves=octaves,
         )
+        raw += params.continent_bias
 
         # Re-apply island mask.
         dx = (h.q - cx) / max(cx, 1)
@@ -282,26 +287,19 @@ def domain_warp(
     boost_map: dict[HexCoord, float] = {}
     for bh in plates.boundaries:
         if bh in plates.convergent:
-            boost = rng.uniform(0.15, 0.30)
+            boost = rng.uniform(0.10, 0.20)
         elif bh in plates.divergent:
-            boost = -0.1
+            boost = -0.05
         else:
-            boost = 0.05
+            boost = 0.0
         boost_map[bh] = boost
 
-    # Apply boosts with distance fade (up to 2 hexes out).
+    # Apply boosts only to the boundary hex itself (no fade)
+    # to keep mountain ranges narrow and avoid inflating the
+    # elevation of half the map.
     accumulated: dict[HexCoord, float] = {}
     for bh, boost in boost_map.items():
-        # Distance 0 (the boundary hex itself).
         accumulated[bh] = accumulated.get(bh, 0.0) + boost
-        # Rings at distance 1 and 2.
-        for d in (1, 2):
-            fade = 1.0 - d / 3.0
-            for h in ring(bh, d):
-                if h in elevation:
-                    accumulated[h] = (
-                        accumulated.get(h, 0.0) + boost * fade
-                    )
 
     for h in elevation:
         elevation[h] += accumulated.get(h, 0.0)
@@ -459,19 +457,21 @@ def _biome_from_em(
         return Biome.WATER
 
     # Mountain threshold is lower near convergent boundaries
-    # to create coherent mountain ranges.
-    mt_threshold = 0.55 if is_near_convergent else 0.70
+    # to create coherent mountain ranges. The thresholds are
+    # tuned for the biased noise output (continent_bias shifts
+    # the distribution upward).
+    mt_threshold = 0.75 if is_near_convergent else 0.85
     if e >= mt_threshold:
         return Biome.MOUNTAIN
-    if e >= 0.45:
+    if e >= 0.60:
         return Biome.HILLS if m >= 0.20 else Biome.DRYLANDS
-    if e >= 0.20:
+    if e >= 0.35:
         if m >= 0.30:
             return Biome.FOREST
         if m >= -0.20:
             return Biome.GREENLANDS
         return Biome.DRYLANDS
-    if e >= 0.00:
+    if e >= 0.10:
         if m >= 0.60:
             return Biome.SWAMP
         if m >= 0.20:
