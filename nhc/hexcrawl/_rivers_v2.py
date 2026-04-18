@@ -60,12 +60,17 @@ def _trace_river_v2(
         if cells[current].biome in _TERMINAL_BIOMES and current != source:
             break
 
-        # Check lake creation.
+        # Check lake creation (no adjacent lakes).
         if (
             current != source
             and cells[current].biome in _LAKE_BIOMES
             and cells[current].elevation < _LAKE_ELEVATION_MAX
             and cells[current].feature is HexFeatureType.NONE
+            and not any(
+                cells[n].feature is HexFeatureType.LAKE
+                for n in neighbors(current)
+                if n in cells
+            )
             and rng.random() < continental.lake_chance
         ):
             cells[current].feature = HexFeatureType.LAKE
