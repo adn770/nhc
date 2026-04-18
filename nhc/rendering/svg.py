@@ -13,21 +13,11 @@ from __future__ import annotations
 
 import math
 import random
-import re
-import noise as _noise
-from shapely.geometry import LineString, Point, Polygon
-from shapely.geometry.polygon import orient as _shapely_orient
-from shapely.ops import unary_union
 
-from nhc.dungeon.model import (
-    CircleShape, CrossShape, HybridShape, Level,
-    OctagonShape, PillShape, Rect, RectShape, Room,
-    TempleShape, Terrain,
-)
+import noise as _noise
+from shapely.geometry import LineString
+
 from nhc.dungeon.generators.cellular import CaveShape
-from nhc.rendering.terrain_palette import (
-    ROOM_TYPE_TINTS, get_palette,
-)
 from nhc.rendering._svg_helpers import (
     BG,
     CAVE_FLOOR_COLOR,
