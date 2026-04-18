@@ -1,0 +1,29 @@
+id: rumor.true_feature
+kind: structured
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: innkeeper_whisper
+    weight: 1
+    text: >-
+      The innkeeper leans close and whispers: "Folks swear there's
+      something at hex ({q}, {r}). Worth a look."
+    effect:
+      kind: reveal_hex
+      payload: { source: context }
+---
+id: rumor.false_lead
+kind: structured
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: old_timer_mumble
+    weight: 1
+    text: >-
+      An old timer nurses his ale and mumbles: "Saw something queer
+      out near ({q}, {r}), years ago." The tale feels thin.
+    effect:
+      kind: reveal_hex
+      payload: { source: context }

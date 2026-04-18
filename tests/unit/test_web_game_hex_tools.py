@@ -267,7 +267,7 @@ def test_hex_rumor_truth_flips_existing(tmp_path) -> None:
     app, client = _app(tmp_path)
     token, session = _register_session(app, tmp_path)
     session.game.hex_world.active_rumors = [
-        Rumor(id="r1", text_key="rumor.true_feature", truth=True),
+        Rumor(id="r1", text="rumor.true_feature", truth=True),
     ]
     resp = client.post(
         f"/api/game/{session.session_id}/hex/rumor_truth",

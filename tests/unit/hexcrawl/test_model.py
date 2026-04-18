@@ -103,7 +103,7 @@ def test_hexcell_with_dungeon() -> None:
 
 
 def test_rumor_defaults() -> None:
-    r = Rumor(id="atacyl", text_key="content.x.rumor.atacyl")
+    r = Rumor(id="atacyl", text="content.x.rumor.atacyl")
     assert r.truth is True
     assert r.reveals is None
 

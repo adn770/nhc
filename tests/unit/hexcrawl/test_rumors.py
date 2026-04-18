@@ -85,7 +85,7 @@ def test_generate_rumors_seed_reproducibility() -> None:
     world_b = _world(seed=7)
     a = generate_rumors(world_a, seed=42, count=5)
     b = generate_rumors(world_b, seed=42, count=5)
-    to_tuple = lambda r: (r.id, r.text_key, r.truth, r.reveals)
+    to_tuple = lambda r: (r.id, r.text, r.truth, r.reveals)
     assert [to_tuple(r) for r in a] == [to_tuple(r) for r in b]
 
 

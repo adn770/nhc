@@ -173,8 +173,8 @@ def test_advance_day_clock_rejects_negative_segments() -> None:
 def test_set_rumor_truth_flips_matching_rumor() -> None:
     w = _tiny_world()
     w.active_rumors = [
-        Rumor(id="r1", text_key="rumor.foo", truth=True),
-        Rumor(id="r2", text_key="rumor.bar", truth=True),
+        Rumor(id="r1", text="rumor.foo", truth=True),
+        Rumor(id="r2", text="rumor.bar", truth=True),
     ]
     ok = set_rumor_truth(w, "r2", False)
     assert ok is True
@@ -184,7 +184,7 @@ def test_set_rumor_truth_flips_matching_rumor() -> None:
 
 def test_set_rumor_truth_returns_false_on_missing_id() -> None:
     w = _tiny_world()
-    w.active_rumors = [Rumor(id="r1", text_key="x", truth=True)]
+    w.active_rumors = [Rumor(id="r1", text="x", truth=True)]
     assert set_rumor_truth(w, "nope", False) is False
 
 

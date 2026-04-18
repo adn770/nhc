@@ -125,7 +125,7 @@ async def test_pre_existing_pool_does_not_block_cooldown_refresh(
     stays."""
     g = _make_game(tmp_path)
     preset = Rumor(
-        id="preset", text_key="rumor.true_feature", truth=True,
+        id="preset", text="rumor.true_feature", truth=True,
     )
     g.hex_world.active_rumors = [preset]
     _seed_settlement(g)

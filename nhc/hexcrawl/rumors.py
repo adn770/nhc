@@ -6,11 +6,6 @@ upon, reveal that hex on the fog-of-war map. Some of them are
 deliberately misleading -- a ``truth=False`` rumor still reveals
 its ``reveals`` coord but points at a non-feature tile, so the
 player has travelled for nothing.
-
-The actual settlement wiring (innkeeper NPC + "listen" action)
-is a later UI pass; this module ships the pool generator and a
-pop-and-apply helper so higher layers can plug in straight
-away.
 """
 
 from __future__ import annotations
@@ -18,15 +13,12 @@ from __future__ import annotations
 import random
 
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.model import HexFeatureType, HexWorld, Rumor
+from nhc.hexcrawl.model import HexFeatureType, HexWorld, Rumor, RumorSource
+from nhc.i18n import current_lang
+from nhc.tables.registry import TableRegistry
 
-
-# Per-rumor text keys are resolved from the i18n layer by the
-# narrator at dialogue time. v1 just carries opaque slugs --
-# ``rumor.true_feature``/``rumor.false_lead`` bundle well enough
-# for a placeholder rendering.
-_TRUE_KEY = "rumor.true_feature"
-_FALSE_KEY = "rumor.false_lead"
+_TRUE_TABLE = "rumor.true_feature"
+_FALSE_TABLE = "rumor.false_lead"
 
 
 def _feature_coords(world: HexWorld) -> list[HexCoord]:
@@ -49,10 +41,30 @@ def _plain_coords(world: HexWorld) -> list[HexCoord]:
     )
 
 
+def _roll_rumor_text(
+    table_id: str,
+    rng: random.Random,
+    coord: HexCoord,
+    lang: str,
+) -> tuple[str, RumorSource]:
+    """Roll a rumor table and return (rendered_text, source)."""
+    ctx = {"q": coord.q, "r": coord.r}
+    registry = TableRegistry.get_or_load(lang)
+    result = registry.roll(table_id, rng=rng, context=ctx)
+    source = RumorSource(
+        table_id=table_id,
+        entry_id=result.entry_id,
+        context=ctx,
+        lang=lang,
+    )
+    return result.text, source
+
+
 def generate_rumors(
     world: HexWorld,
     seed: int,
     count: int = 3,
+    lang: str | None = None,
 ) -> list[Rumor]:
     """Seed a ``count``-sized rumor pool from the current world.
 
@@ -64,39 +76,45 @@ def generate_rumors(
     seed, count)`` tuple always produces the same rumor list --
     save games serialize the pool verbatim.
     """
+    if lang is None:
+        lang = current_lang()
     rng = random.Random(seed)
     features = _feature_coords(world)
     plains = _plain_coords(world)
 
-    # Split count into (true_n, false_n), true-favoured on odd.
     true_n = (count + 1) // 2
     false_n = count - true_n
 
     rumors: list[Rumor] = []
     idx = 0
-    # Sample WITH replacement -- small worlds may have fewer
-    # feature hexes than rumors, and repeats of "a cave at (5,3)"
-    # still read plausibly when both innkeepers repeat a story.
     for _ in range(true_n):
         if not features:
             break
         coord = rng.choice(features)
+        text, source = _roll_rumor_text(
+            _TRUE_TABLE, rng, coord, lang,
+        )
         rumors.append(Rumor(
             id=f"rumor_{seed}_{idx}",
-            text_key=_TRUE_KEY,
+            text=text,
             truth=True,
             reveals=coord,
+            source=source,
         ))
         idx += 1
     for _ in range(false_n):
         if not plains:
             break
         coord = rng.choice(plains)
+        text, source = _roll_rumor_text(
+            _FALSE_TABLE, rng, coord, lang,
+        )
         rumors.append(Rumor(
             id=f"rumor_{seed}_{idx}",
-            text_key=_FALSE_KEY,
+            text=text,
             truth=False,
             reveals=coord,
+            source=source,
         ))
         idx += 1
 
@@ -107,15 +125,10 @@ def generate_rumors_god_mode(
     world: HexWorld,
     seed: int,
     count: int = 3,
+    lang: str | None = None,
 ) -> list[Rumor]:
-    """God-mode variant of :func:`generate_rumors`.
-
-    Delegates to the regular generator, then flips every rumor's
-    ``truth`` field to ``True`` so the player never gets a false
-    lead. Cheaper than maintaining a parallel code path and keeps
-    the coord-selection logic in lockstep.
-    """
-    rumors = generate_rumors(world, seed, count=count)
+    """God-mode variant: all rumors are truthful."""
+    rumors = generate_rumors(world, seed, count=count, lang=lang)
     for r in rumors:
         r.truth = True
     return rumors
@@ -129,9 +142,7 @@ def gather_rumor_at(
     its reveal side-effect.
 
     Returns the popped :class:`Rumor` so the settlement UI can
-    narrate it, or ``None`` when the pool is empty. The RNG
-    parameter is reserved for future shuffle / pick-from-pool
-    variants; v1 always consumes from the head of the list.
+    narrate it, or ``None`` when the pool is empty.
     """
     del rng  # reserved
     if not world.active_rumors:
@@ -140,3 +151,36 @@ def gather_rumor_at(
     if rumor.reveals is not None:
         world.reveal(rumor.reveals)
     return rumor
+
+
+def refresh_rumor_language(
+    rumor: Rumor,
+    new_lang: str,
+) -> Rumor:
+    """Re-render a rumor's text in a different language.
+
+    Requires ``rumor.source`` to be set (table-backed rumor).
+    Returns a new Rumor with updated text and source lang.
+    Legacy rumors without source are returned unchanged.
+    """
+    if rumor.source is None:
+        return rumor
+    registry = TableRegistry.get_or_load(new_lang)
+    result = registry.render(
+        rumor.source.table_id,
+        entry_id=rumor.source.entry_id,
+        context=rumor.source.context,
+    )
+    new_source = RumorSource(
+        table_id=rumor.source.table_id,
+        entry_id=rumor.source.entry_id,
+        context=rumor.source.context,
+        lang=new_lang,
+    )
+    return Rumor(
+        id=rumor.id,
+        text=result.text,
+        truth=rumor.truth,
+        reveals=rumor.reveals,
+        source=new_source,
+    )

@@ -246,14 +246,25 @@ class HexCell:
     tile_slot: int = 0
 
 
+@dataclass(frozen=True)
+class RumorSource:
+    """Provenance of a table-backed rumor for language re-rendering."""
+
+    table_id: str
+    entry_id: str
+    context: dict
+    lang: str
+
+
 @dataclass
 class Rumor:
     """A piece of intel acquired at a settlement."""
 
     id: str
-    text_key: str
+    text: str
     truth: bool = True
     reveals: HexCoord | None = None
+    source: RumorSource | None = None
 
 
 @dataclass

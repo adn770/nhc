@@ -29,6 +29,7 @@ from nhc.hexcrawl.model import (
     HexWorld,
     MinorFeatureType,
     Rumor,
+    RumorSource,
     SubHexCell,
     SubHexEdgeSegment,
     TimeOfDay,
@@ -474,17 +475,24 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
         if cell.flower is not None:
             cell_data["flower"] = _serialize_flower(cell.flower)
         cells.append(cell_data)
-    rumors = [
-        {
-            "id": r.id, "text_key": r.text_key,
+    rumors = []
+    for r in hw.active_rumors:
+        rd = {
+            "id": r.id, "text": r.text,
             "truth": r.truth,
             "reveals": (
                 _coord_to_list(r.reveals) if r.reveals is not None
                 else None
             ),
         }
-        for r in hw.active_rumors
-    ]
+        if r.source is not None:
+            rd["source"] = {
+                "table_id": r.source.table_id,
+                "entry_id": r.source.entry_id,
+                "context": r.source.context,
+                "lang": r.source.lang,
+            }
+        rumors.append(rd)
     return {
         "pack_id": hw.pack_id,
         "seed": hw.seed,
@@ -585,17 +593,29 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
     hw.minute = int(data.get("minute", 0))
     lh = data.get("last_hub")
     hw.last_hub = _list_to_coord(lh) if lh is not None else None
-    hw.active_rumors = [
-        Rumor(
-            id=r["id"], text_key=r["text_key"],
+    hw.active_rumors = []
+    for r in data.get("active_rumors", []):
+        # Support both old "text_key" and new "text" field
+        text = r.get("text") or r.get("text_key", "")
+        src_data = r.get("source")
+        source = (
+            RumorSource(
+                table_id=src_data["table_id"],
+                entry_id=src_data["entry_id"],
+                context=src_data.get("context", {}),
+                lang=src_data.get("lang", "en"),
+            )
+            if src_data is not None else None
+        )
+        hw.active_rumors.append(Rumor(
+            id=r["id"], text=text,
             truth=bool(r.get("truth", True)),
             reveals=(
                 _list_to_coord(r["reveals"])
                 if r.get("reveals") is not None else None
             ),
-        )
-        for r in data.get("active_rumors", [])
-    ]
+            source=source,
+        ))
     hw.expedition_party = list(data.get("expedition_party", []))
     hw.biome_costs = {
         Biome(k): int(v)

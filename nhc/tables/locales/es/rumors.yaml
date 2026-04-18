@@ -1,0 +1,29 @@
+id: rumor.true_feature
+kind: structured
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: innkeeper_whisper
+    weight: 1
+    text: >-
+      El posadero se acerca y susurra: "Dicen que hay algo en la
+      hex ({q}, {r}). Vale la pena echar un vistazo."
+    effect:
+      kind: reveal_hex
+      payload: { source: context }
+---
+id: rumor.false_lead
+kind: structured
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: old_timer_mumble
+    weight: 1
+    text: >-
+      Un viejo parroquiano masculla: "Vi algo raro cerca de
+      ({q}, {r}), hace años." El cuento no huele bien.
+    effect:
+      kind: reveal_hex
+      payload: { source: context }

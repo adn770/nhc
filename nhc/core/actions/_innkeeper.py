@@ -69,14 +69,9 @@ class InnkeeperInteractAction(Action):
                 return [MessageEvent(text=t("rumor.come_back_later"))]
             return [MessageEvent(text=t("rumor.none"))]
         if rumor.reveals is None:
-            return [MessageEvent(text=t(rumor.text_key))]
+            return [MessageEvent(text=rumor.text)]
         logger.info(
             "Innkeeper shared rumor %s (truth=%s, reveals=(%d, %d))",
             rumor.id, rumor.truth, rumor.reveals.q, rumor.reveals.r,
         )
-        return [MessageEvent(
-            text=t(
-                rumor.text_key,
-                q=rumor.reveals.q, r=rumor.reveals.r,
-            ),
-        )]
+        return [MessageEvent(text=rumor.text)]

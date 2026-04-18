@@ -84,7 +84,7 @@ async def test_entry_seeds_rumors_when_pool_empty(tmp_path) -> None:
 async def test_entry_keeps_existing_rumors(tmp_path) -> None:
     g = _make_hex_game(tmp_path)
     preset = [
-        Rumor(id="preset", text_key="rumor.true_feature", truth=True),
+        Rumor(id="preset", text="rumor.true_feature", truth=True),
     ]
     g.hex_world.active_rumors = list(preset)
     _seed_settlement(g)

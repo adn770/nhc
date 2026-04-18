@@ -158,7 +158,7 @@ async def test_innkeeper_interact_consumes_rumor(tmp_path) -> None:
     hex_world = _mini_hex_world()
     target = HexCoord(q=2, r=2)
     hex_world.active_rumors = [
-        Rumor(id="r1", text_key="rumor.true_feature",
+        Rumor(id="r1", text="rumor.true_feature",
               truth=True, reveals=target),
     ]
 

@@ -1,0 +1,29 @@
+id: rumor.true_feature
+kind: structured
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: innkeeper_whisper
+    weight: 1
+    text: >-
+      El taverner s'acosta i xiuxiueja: "Diuen que hi ha alguna cosa
+      a l'hex ({q}, {r}). Val la pena fer-hi un cop d'ull."
+    effect:
+      kind: reveal_hex
+      payload: { source: context }
+---
+id: rumor.false_lead
+kind: structured
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: old_timer_mumble
+    weight: 1
+    text: >-
+      Un vell bevent remuga: "Vaig veure una cosa estranya prop de
+      ({q}, {r}), fa anys." La història fa pudor.
+    effect:
+      kind: reveal_hex
+      payload: { source: context }

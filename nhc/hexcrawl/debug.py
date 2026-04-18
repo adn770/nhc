@@ -124,7 +124,7 @@ def show_world_state(
     rumors = [
         {
             "id": r.id,
-            "text_key": r.text_key,
+            "text": r.text,
             "truth": r.truth,
             "reveals": (
                 {"q": r.reveals.q, "r": r.reveals.r}
