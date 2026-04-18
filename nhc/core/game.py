@@ -728,37 +728,40 @@ class Game:
         self._exit_to_overland_sync()
         return True
 
-    def _generate_cave_floor2(self) -> None:
-        """Generate the shared Floor 2 for a cave cluster.
+    def _generate_underworld_floor(self, depth: int) -> None:
+        """Generate a shared underground floor for a cave cluster.
 
-        Size scales with cluster membership: a solo cave gets a
-        small floor; a 4-cave cluster gets a large one. Each
-        cluster member gets a stairs_up tile placed at well-
-        separated positions so the underground complex feels
-        connected. The mapping ``{hex_key: (x, y)}`` is stored on
-        ``self._cave_floor2_stairs`` for the player-placement code
-        to look up the correct entry point.
+        Generalizes the old Floor 2 generator to handle depths
+        2-5 with biome progression. Size scales with cluster
+        membership and depth. Each cluster member gets a
+        stairs_up tile at well-separated positions.
         """
         cc = self._active_cave_cluster
         if cc is None or self.hex_world is None:
             return
         members = self.hex_world.cave_clusters.get(cc, [cc])
         n = len(members)
-        # Size: 50x30 base + 15x10 per member.
-        w = 50 + n * 15
-        h = 30 + n * 10
+
         from nhc.hexcrawl.seed import dungeon_seed
-        seed = dungeon_seed(self.seed or 0, cc, "cave_floor2")
+        from nhc.hexcrawl.underworld import (
+            floor_dimensions,
+            theme_for_underworld_depth,
+        )
+
+        w, h = floor_dimensions(n, depth)
+        theme = theme_for_underworld_depth(depth)
+        seed = dungeon_seed(
+            self.seed or 0, cc, f"cave_floor{depth}",
+        )
         params = GenerationParams(
-            width=w, height=h, depth=2,
-            shape_variety=0.3, theme="cave", seed=seed,
+            width=w, height=h, depth=depth,
+            shape_variety=0.3, theme=theme, seed=seed,
         )
         self.generation_params = params
         self.level = generate_level(params)
 
-        # Remove the default stairs_up placed by the generator
-        # (cave generator places one at start); we'll place N
-        # of our own.
+        # Remove the default stairs_up placed by the generator;
+        # we'll place N of our own.
         from nhc.dungeon.model import Terrain
         for y in range(self.level.height):
             for x in range(self.level.width):
@@ -795,9 +798,15 @@ class Game:
             key = f"{member.q}_{member.r}"
             self._cave_floor2_stairs[key] = (sx, sy)
             logger.info(
-                "Cave Floor 2 stairs_up for %s at (%d, %d)",
-                key, sx, sy,
+                "Underworld floor %d stairs_up for %s at (%d, %d)",
+                depth, key, sx, sy,
             )
+
+        # Add stairs_down if deeper floors exist
+        region = self.hex_world.underworld_regions.get(cc)
+        max_depth = region.max_depth if region else 2
+        if depth < max_depth:
+            self._add_stairs_down_to_level()
 
     def _add_stairs_down_to_level(self) -> None:
         """Place a stairs_down tile on the current level.
@@ -2273,12 +2282,12 @@ class Game:
             self._prefetch_params = None
             self._prefetch_depth = None
 
-            # Hex-mode cave Floor 2: shared across the cluster,
-            # larger, with N stairs_up (one per cluster member).
+            # Hex-mode underworld: shared floors across the cluster,
+            # scaling with depth and cluster size.
             if (self._active_cave_cluster is not None
-                    and new_depth == 2
+                    and new_depth >= 2
                     and self.hex_world is not None):
-                self._generate_cave_floor2()
+                self._generate_underworld_floor(new_depth)
             else:
                 seed = (self.seed or 0) + new_depth * 997
                 sv = _shape_variety_for_depth(
@@ -2307,12 +2316,12 @@ class Game:
             else:
                 stair_feature = "stairs_up"
 
-            # Cave Floor 2: when descending, place at the
+            # Underworld floors: when descending, place at the
             # stairs_up that corresponds to the player's entry hex
             # (looked up from _cave_floor2_stairs).
             if (not ascending
                     and self._active_cave_cluster is not None
-                    and new_depth == 2
+                    and new_depth >= 2
                     and self.hex_player_position is not None):
                 hp = self.hex_player_position
                 key = f"{hp.q}_{hp.r}"

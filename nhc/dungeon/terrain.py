@@ -23,8 +23,11 @@ THEME_PARAMS: dict[str, tuple[float, int, float, int]] = {
     "dungeon": (0.35, 4, 0.25, 3),
     "abyss":   (0.55, 6, 0.05, 2),
     "tower":   (0.20, 3, 0.10, 2),
-    "mine":       (0.30, 4, 0.10, 2),
-    "settlement": (0.15, 2, 0.20, 3),
+    "mine":             (0.30, 4, 0.10, 2),
+    "settlement":       (0.15, 2, 0.20, 3),
+    "fungal_cavern":    (0.35, 5, 0.55, 6),
+    "lava_chamber":     (0.15, 3, 0.05, 2),
+    "underground_lake": (0.60, 7, 0.10, 3),
 }
 
 # Level feelings override seed probabilities

@@ -95,6 +95,24 @@ THEME_PALETTES: dict[str, ThemePalette] = {
         lava=TerrainStyle("#D08050", 0.20, "#A06030", 0.45),
         chasm=TerrainStyle("#5A4A3A", 0.18, "#3A2A1A", 0.40),
     ),
+    "fungal_cavern": ThemePalette(
+        water=TerrainStyle("#5A8A70", 0.18, "#3A6A50", 0.38),
+        grass=TerrainStyle("#4A8A4A", 0.25, "#2A6A2A", 0.45),
+        lava=TerrainStyle("#C07060", 0.12, "#904838", 0.30),
+        chasm=TerrainStyle("#5A5A4A", 0.15, "#3A3A2A", 0.35),
+    ),
+    "lava_chamber": ThemePalette(
+        water=TerrainStyle("#4A6878", 0.12, "#2A4858", 0.30),
+        grass=TerrainStyle("#4A5A3A", 0.06, "#2A3A1A", 0.18),
+        lava=TerrainStyle("#E06030", 0.28, "#C04020", 0.55),
+        chasm=TerrainStyle("#3A2A1A", 0.22, "#1A1008", 0.45),
+    ),
+    "underground_lake": ThemePalette(
+        water=TerrainStyle("#4A7898", 0.25, "#2A5878", 0.50),
+        grass=TerrainStyle("#4A6A4A", 0.10, "#2A4A2A", 0.25),
+        lava=TerrainStyle("#C08060", 0.10, "#905838", 0.25),
+        chasm=TerrainStyle("#3A4A5A", 0.18, "#1A2A3A", 0.40),
+    ),
 }
 
 # ── Room-type hint tints ───────────────────────────────────────
