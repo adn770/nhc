@@ -128,9 +128,15 @@ const NHC = {
         GameMap.loadHatchSVG(msg.hatch_url);
       }
       if (msg.entities || msg.fov) {
-        GameMap.flush();
-        // Ensure scroll happens after browser has laid out the new SVG
-        requestAnimationFrame(() => GameMap.scrollToPlayer());
+        // Defer rendering to give the browser time to lay out
+        // the SVG and resize canvases. A double rAF ensures
+        // the SVG is painted before we draw on the canvas stack.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            GameMap.flush();
+            GameMap.scrollToPlayer();
+          });
+        });
       }
       NHC.waitingForFloor = false;
       NHC.hideLoading();
