@@ -76,8 +76,8 @@ const Input = {
   // Inventory actions still useful (the player carries gear);
   // dungeon-specific actions (locks, doors, dig, stairs) dropped.
   HEX_TOOLBAR: [
-    { icon: "🏠", intent: "hex_enter",  labelKey: "toolbar_hex_enter" },
-    { icon: "🏕", intent: "hex_rest",   labelKey: "toolbar_hex_rest" },
+    { icon: "🔍", intent: "hex_explore", labelKey: "toolbar_hex_explore" },
+    { icon: "🏕", intent: "hex_rest",    labelKey: "toolbar_hex_rest" },
     { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
     { icon: "🧪", intent: "quaff",      labelKey: "toolbar_quaff" },
     { icon: "📜", intent: "use_item",   labelKey: "toolbar_use_item" },
@@ -86,7 +86,7 @@ const Input = {
 
   // Flower exploration toolbar.
   FLOWER_TOOLBAR: [
-    { icon: "🏠", intent: "hex_enter",    labelKey: "toolbar_hex_enter" },
+    { icon: "🏠", intent: "hex_enter",    labelKey: "toolbar_flower_enter" },
     { icon: "🔍", intent: "flower_search", labelKey: "toolbar_flower_search" },
     { icon: "🌿", intent: "flower_forage", labelKey: "toolbar_flower_forage" },
     { icon: "🏕", intent: "flower_rest",   labelKey: "toolbar_flower_rest" },

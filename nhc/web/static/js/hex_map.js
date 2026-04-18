@@ -998,8 +998,8 @@ function hexKeyHandler(ev) {
       ev.preventDefault();
       return;
     }
-    // x = explore/enter feature (drill down)
-    if (lkey === "x" || lkey === "e") {
+    // x = enter feature (explore deeper into dungeon/city)
+    if (lkey === "x") {
       WS.send({type: "action", intent: "hex_enter", data: null});
       ev.preventDefault();
       return;
@@ -1019,8 +1019,8 @@ function hexKeyHandler(ev) {
       ev.preventDefault();
       return;
     }
-    // L = leave to hexmap (go up)
-    if (key === "L" || key === "Escape") {
+    // L = leave flower, return to hexmap
+    if (key === "L") {
       WS.send({type: "action", intent: "flower_exit", data: null});
       ev.preventDefault();
       return;
@@ -1038,16 +1038,12 @@ function hexKeyHandler(ev) {
     ev.preventDefault();
     return;
   }
-  if (lkey === "e") {
-    WS.send({type: "action", intent: "hex_enter", data: null});
-    ev.preventDefault();
-    return;
-  }
   if (lkey === ".") {
     WS.send({type: "action", intent: "hex_rest", data: null});
     ev.preventDefault();
     return;
   }
+  // x = explore current hex (enter flower view)
   if (lkey === "x") {
     WS.send({type: "action", intent: "hex_explore", data: null});
     ev.preventDefault();
@@ -1082,6 +1078,12 @@ function _showDungeonView() {
 if (typeof WS !== "undefined") {
   WS.on("state_hex", (msg) => {
     HexGameActive = true;
+    // Re-arm zoom + scroll when returning from flower or dungeon
+    // view so the hex map auto-zooms and centers on the player.
+    const flowerC = document.getElementById("flower-container");
+    if (flowerC && !flowerC.classList.contains("hidden")) {
+      HexMap._scrolledOnce = false;
+    }
     _showHexOverland();
     setHexInputActive(true);
     HexMap.render(msg);
