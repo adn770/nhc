@@ -165,6 +165,12 @@ def _render_walls_and_floors(
                         segments.append(seg)
                 continue
 
+            tile = level.tiles[y][x]
+
+            # Street tiles are open-air — no side walls
+            if tile.is_street:
+                continue
+
             px, py = x * CELL, y * CELL
             if not _walkable(x, y - 1):
                 segments.append(f'M{px},{py} L{px + CELL},{py}')

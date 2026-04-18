@@ -111,11 +111,15 @@ def render_floor_svg(
     _render_corridor_shadows(svg, level)
 
     # Layer 2: Hatching (rooms clipped to exterior of dungeon
-    # polygon, corridors hatched one tile on each side)
-    _render_hatching(svg, level, seed, dungeon_poly,
-                     hatch_distance=hatch_distance,
-                     cave_wall_poly=cave_wall_poly)
-    _render_corridor_hatching(svg, level, seed)
+    # polygon, corridors hatched one tile on each side).
+    # Settlements skip hatching — open-air maps don't need the
+    # underground darkness halo.
+    theme = level.metadata.theme if level.metadata else "dungeon"
+    if theme != "settlement":
+        _render_hatching(svg, level, seed, dungeon_poly,
+                         hatch_distance=hatch_distance,
+                         cave_wall_poly=cave_wall_poly)
+        _render_corridor_hatching(svg, level, seed)
 
     # Layer 3: Walls + floor fills
     _render_walls_and_floors(

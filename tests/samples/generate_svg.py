@@ -574,6 +574,109 @@ def generate(outdir: Path, seeds: list[int],
                   f"{len(level.rooms)} rooms, {shapes}")
 
 
+# ── Template-based generation ──────────────────────────────────────
+
+# Each entry: (file_label, template_name, width, height, theme_hint)
+TEMPLATE_SPECS: list[tuple[str, str, int, int, str | None]] = [
+    ("tower",   "procedural:tower",  60,  40, None),
+    ("crypt",   "procedural:crypt",  80,  40, None),
+    ("mine",    "procedural:mine",   80,  40, None),
+    ("keep",    "procedural:keep",   60,  40, None),
+]
+
+# Underworld biome samples: (label, theme, width, height)
+UNDERWORLD_SPECS: list[tuple[str, str, int, int]] = [
+    ("cave",             "cave",             80, 50),
+    ("fungal_cavern",    "fungal_cavern",    90, 55),
+    ("lava_chamber",     "lava_chamber",    100, 60),
+    ("underground_lake", "underground_lake", 110, 65),
+]
+
+# Settlement size classes: (label, width, height)
+SETTLEMENT_SPECS: list[tuple[str, int, int]] = [
+    ("village", 40, 30),
+    ("town",    60, 40),
+    ("city",    80, 50),
+]
+
+
+def _render_and_save(
+    level, seed: int, base: Path, label: str,
+    inject_labels: bool = True,
+) -> None:
+    """Render a level to SVG with optional debug labels."""
+    svg = render_floor_svg(level, seed=seed)
+    if inject_labels:
+        svg = _inject_room_labels(svg, level)
+        svg = _inject_door_labels(svg, level)
+        svg = _inject_corridor_labels(svg, level)
+    base.with_suffix(".svg").write_text(svg)
+
+    tags = {}
+    for room in level.rooms:
+        for t in room.tags:
+            tags[t] = tags.get(t, 0) + 1
+    theme = level.metadata.theme if level.metadata else "?"
+    print(f"  {base.with_suffix('.svg').name}: "
+          f"{len(level.rooms)} rooms, theme={theme}, tags={tags}")
+
+
+def generate_templates(outdir: Path, seeds: list[int]) -> None:
+    """Generate sample SVGs for each structural template."""
+    from nhc.dungeon.pipeline import generate_level as gen_level
+
+    tdir = outdir / "templates"
+    tdir.mkdir(parents=True, exist_ok=True)
+
+    for seed in seeds:
+        for label, template, w, h, _ in TEMPLATE_SPECS:
+            params = GenerationParams(
+                width=w, height=h, depth=1, seed=seed,
+                shape_variety=0.5, template=template,
+            )
+            level = gen_level(params)
+            base = tdir / f"{label}_seed{seed}"
+            _render_and_save(level, seed, base, label)
+
+
+def generate_underworld(outdir: Path, seeds: list[int]) -> None:
+    """Generate sample SVGs for underworld biome themes."""
+    from nhc.dungeon.pipeline import generate_level as gen_level
+
+    udir = outdir / "underworld"
+    udir.mkdir(parents=True, exist_ok=True)
+
+    for seed in seeds:
+        for label, theme, w, h in UNDERWORLD_SPECS:
+            params = GenerationParams(
+                width=w, height=h, depth=1, seed=seed,
+                shape_variety=0.3, theme=theme,
+            )
+            level = gen_level(params)
+            base = udir / f"{label}_seed{seed}"
+            _render_and_save(level, seed, base, label)
+
+
+def generate_settlements(outdir: Path, seeds: list[int]) -> None:
+    """Generate sample SVGs for settlement sizes."""
+    import random as rand_mod
+    from nhc.dungeon.generators.settlement import SettlementGenerator
+
+    sdir = outdir / "settlements"
+    sdir.mkdir(parents=True, exist_ok=True)
+
+    gen = SettlementGenerator()
+    for seed in seeds:
+        for label, w, h in SETTLEMENT_SPECS:
+            params = GenerationParams(
+                width=w, height=h, depth=1, seed=seed,
+                template="procedural:settlement",
+            )
+            level = gen.generate(params, rng=rand_mod.Random(seed))
+            base = sdir / f"{label}_seed{seed}"
+            _render_and_save(level, seed, base, label)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -588,18 +691,32 @@ def main(argv: list[str] | None = None) -> None:
         "--shape-variety", type=float, default=None,
         help="exact shape_variety value (omit for 0.0/0.5/1.0 sweep)",
     )
+    parser.add_argument(
+        "--templates-only", action="store_true",
+        help="only generate template samples (skip BSP varieties)",
+    )
     args = parser.parse_args(argv)
 
     seeds = (
         [int(s) for s in args.seeds.split(",")]
         if args.seeds else DEFAULT_SEEDS
     )
-    varieties = None
-    if args.shape_variety is not None:
-        sv = args.shape_variety
-        label = f"sv{sv:.2f}".replace(".", "_")
-        varieties = [(label, sv)]
-    generate(args.outdir, seeds, varieties)
+
+    if not args.templates_only:
+        varieties = None
+        if args.shape_variety is not None:
+            sv = args.shape_variety
+            label = f"sv{sv:.2f}".replace(".", "_")
+            varieties = [(label, sv)]
+        print("── BSP shape variety samples ──")
+        generate(args.outdir, seeds, varieties)
+
+    print("\n── Structural template samples ──")
+    generate_templates(args.outdir, seeds)
+    print("\n── Underworld biome samples ──")
+    generate_underworld(args.outdir, seeds)
+    print("\n── Settlement samples ──")
+    generate_settlements(args.outdir, seeds)
 
 
 if __name__ == "__main__":

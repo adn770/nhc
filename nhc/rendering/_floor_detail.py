@@ -636,3 +636,96 @@ def _render_floor_detail(
     if has_cor:
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
         _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
+
+    # Street cobblestone detail — rendered on is_street tiles
+    _render_street_cobblestone(svg, level, rng)
+
+
+# ── Street cobblestone ───────────────────────────────────────
+
+_COBBLE_STROKE = "#8A7A6A"
+_COBBLE_FILL = "#E8DFD0"
+_STONE_FILL = "#C8BEB0"
+_STONE_STROKE = "#9A8A7A"
+
+
+def _render_street_cobblestone(
+    svg: list[str], level: "Level", rng: random.Random,
+) -> None:
+    """Draw cobblestone pattern on street tiles.
+
+    Each tile gets a grid of irregular small rectangles to
+    suggest cobblestones, with occasional small stone
+    decorations on top.
+    """
+    cobbles: list[str] = []
+    stones: list[str] = []
+
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if not tile.is_street:
+                continue
+            px, py = x * CELL, y * CELL
+            _cobblestone_tile(rng, px, py, cobbles)
+            if rng.random() < 0.12:
+                _street_stone(rng, px, py, stones)
+
+    if cobbles:
+        svg.append(
+            f'<g opacity="0.35" fill="none" '
+            f'stroke="{_COBBLE_STROKE}" '
+            f'stroke-width="0.4">'
+            f'{"".join(cobbles)}</g>'
+        )
+    if stones:
+        svg.append(
+            f'<g opacity="0.5">{"".join(stones)}</g>'
+        )
+
+
+def _cobblestone_tile(
+    rng: random.Random, px: float, py: float,
+    cobbles: list[str],
+) -> None:
+    """Draw a grid of irregular small rectangles for one tile."""
+    # 3x3 cobblestone grid within the tile
+    cols, rows = 3, 3
+    cw = CELL / cols
+    ch = CELL / rows
+    for row in range(rows):
+        for col in range(cols):
+            # Jitter position and size for irregularity
+            jx = rng.uniform(-cw * 0.1, cw * 0.1)
+            jy = rng.uniform(-ch * 0.1, ch * 0.1)
+            jw = rng.uniform(-cw * 0.08, cw * 0.08)
+            jh = rng.uniform(-ch * 0.08, ch * 0.08)
+            cx = px + col * cw + jx + 0.5
+            cy = py + row * ch + jy + 0.5
+            sw = cw + jw - 1.0
+            sh = ch + jh - 1.0
+            if sw > 2 and sh > 2:
+                cobbles.append(
+                    f'<rect x="{cx:.1f}" y="{cy:.1f}" '
+                    f'width="{sw:.1f}" height="{sh:.1f}" '
+                    f'rx="1"/>'
+                )
+
+
+def _street_stone(
+    rng: random.Random, px: float, py: float,
+    stones: list[str],
+) -> None:
+    """Place a small decorative stone on a street tile."""
+    cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
+    cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
+    rx = rng.uniform(1.5, 3.0)
+    ry = rng.uniform(1.0, 2.5)
+    angle = rng.uniform(0, 180)
+    stones.append(
+        f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
+        f'rx="{rx:.1f}" ry="{ry:.1f}" '
+        f'transform="rotate({angle:.0f},{cx:.1f},{cy:.1f})" '
+        f'fill="{_STONE_FILL}" stroke="{_STONE_STROKE}" '
+        f'stroke-width="0.5"/>'
+    )
