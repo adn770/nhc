@@ -232,9 +232,20 @@ def generate_test_world(
 ) -> HexWorld:
     """Generate a :class:`HexWorld` for the test setting.
 
+    .. deprecated::
+        Use :func:`generate_continental_world` with the
+        ``continental_v2`` generator instead.
+
     Retries up to ``max_attempts`` times if feature placement can't
     meet the pack's targets with the current partition / biome roll.
     """
+    import warnings
+    warnings.warn(
+        "generate_test_world (bsp_regions) is deprecated; "
+        "use generate_continental_world (continental_v2) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     rng = random.Random(seed)
     last_err: str | None = None
     for _ in range(max_attempts):
@@ -547,6 +558,10 @@ def generate_perlin_world(
 ) -> HexWorld:
     """Generate a noise-based :class:`HexWorld`.
 
+    .. deprecated::
+        Use :func:`generate_continental_world` with the
+        ``continental_v2`` generator instead.
+
     Uses elevation + moisture simplex fields with a Whittaker-
     style biome lookup, followed by the shared
     :func:`nhc.hexcrawl._features.place_features` pipeline so
@@ -557,6 +572,13 @@ def generate_perlin_world(
     fresh rolls keep landing too many mountain hexes and
     starve the village pool).
     """
+    import warnings
+    warnings.warn(
+        "generate_perlin_world (perlin_regions) is deprecated; "
+        "use generate_continental_world (continental_v2) instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     rng = random.Random(seed)
     last_err: str | None = None
     for _ in range(max_attempts):
