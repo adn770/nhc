@@ -16,33 +16,11 @@ from nhc.hexcrawl.model import (
     HexFeatureType,
 )
 from nhc.hexcrawl.pack import FeatureTargets
-
-
-# Biomes where settlements may appear.
-_CANDIDATE_BIOMES: frozenset[Biome] = frozenset({
-    Biome.GREENLANDS,
-    Biome.HILLS,
-    Biome.FOREST,
-    Biome.DRYLANDS,
-    Biome.SANDLANDS,
-    Biome.MARSH,
-    Biome.SWAMP,
-})
-
-_BIOME_BONUS: dict[Biome, float] = {
-    Biome.GREENLANDS: 2.0,
-    Biome.HILLS: 1.5,
-    Biome.FOREST: 0.5,
-    Biome.DRYLANDS: 0.5,
-    Biome.SANDLANDS: -1.0,
-    Biome.MARSH: -1.0,
-    Biome.SWAMP: -2.0,
-}
-
-_SETTLEMENT_FEATURES = frozenset({
-    HexFeatureType.CITY,
-    HexFeatureType.VILLAGE,
-})
+from nhc.hexcrawl._biome_data import (
+    BIOME_SETTLEMENT_BONUS,
+    CANDIDATE_BIOMES,
+    SETTLEMENT_FEATURES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +62,7 @@ def settlement_score(
             break
 
     # 4. Biome suitability.
-    score += _BIOME_BONUS.get(cell.biome, 0.0)
+    score += BIOME_SETTLEMENT_BONUS.get(cell.biome, 0.0)
 
     # 5. Elevation preference: mid-elevation is best.
     if 0.15 <= cell.elevation <= 0.45:
@@ -104,7 +82,7 @@ def _adjacent_to_settlement(
 ) -> bool:
     """True if any neighbor already has a settlement feature."""
     for n in neighbors(coord):
-        if n in cells and cells[n].feature in _SETTLEMENT_FEATURES:
+        if n in cells and cells[n].feature in SETTLEMENT_FEATURES:
             return True
     return False
 
@@ -121,7 +99,7 @@ def place_settlements(
     # Score all candidate hexes.
     candidates: list[tuple[float, HexCoord]] = []
     for coord, cell in cells.items():
-        if cell.biome not in _CANDIDATE_BIOMES:
+        if cell.biome not in CANDIDATE_BIOMES:
             continue
         if cell.feature is not HexFeatureType.NONE:
             continue

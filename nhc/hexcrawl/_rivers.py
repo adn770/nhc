@@ -14,20 +14,12 @@ import random
 from nhc.hexcrawl.coords import HexCoord, direction_index, distance, neighbors
 from nhc.hexcrawl.model import Biome, EdgeSegment, HexCell, HexFeatureType
 from nhc.hexcrawl.pack import ContinentalParams, RiverParams
-
-
-# Biomes where rivers die (terminate, not route around).
-_TERMINAL_BIOMES: frozenset[Biome] = frozenset({
-    Biome.DRYLANDS, Biome.SANDLANDS,
-})
-
-# Lake-eligible biomes.
-_LAKE_BIOMES: frozenset[Biome] = frozenset({
-    Biome.GREENLANDS, Biome.MARSH,
-})
-
-# Maximum elevation for lake creation.
-_LAKE_ELEVATION_MAX = 0.15
+from nhc.hexcrawl._biome_data import (
+    LAKE_BIOMES,
+    LAKE_ELEVATION_MAX,
+    SOURCE_BIOMES,
+    TERMINAL_BIOMES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +48,7 @@ def _trace_river(
 
     while True:
         # Check terminal biome: river dries up here.
-        if cells[current].biome in _TERMINAL_BIOMES and current != source:
+        if cells[current].biome in TERMINAL_BIOMES and current != source:
             break
 
         # Check water termination (river reached the sea).
@@ -68,8 +60,8 @@ def _trace_river(
         if (
             len(path) >= 6
             and current != source
-            and cells[current].biome in _LAKE_BIOMES
-            and cells[current].elevation < _LAKE_ELEVATION_MAX
+            and cells[current].biome in LAKE_BIOMES
+            and cells[current].elevation < LAKE_ELEVATION_MAX
             and cells[current].feature is HexFeatureType.NONE
             and not any(
                 cells[n].feature is HexFeatureType.LAKE
@@ -168,21 +160,8 @@ def _stamp_edges(
     cells: dict[HexCoord, HexCell],
 ) -> None:
     """Add ``EdgeSegment(type="river", ...)`` to each cell."""
-    for i, coord in enumerate(path):
-        if i == 0:
-            entry: int | None = None
-        else:
-            d = direction_index(path[i - 1], coord)
-            entry = (d + 3) % 6
-
-        if i == len(path) - 1:
-            exit_: int | None = None
-        else:
-            exit_ = direction_index(coord, path[i + 1])
-
-        cells[coord].edges.append(
-            EdgeSegment(type="river", entry_edge=entry, exit_edge=exit_),
-        )
+    from nhc.hexcrawl._edge_stamping import stamp_edge_path
+    stamp_edge_path(path, cells, "river")
 
 
 # ---------------------------------------------------------------------------
@@ -206,10 +185,9 @@ def generate_rivers(
     # Source selection: mountain and hills hexes above elevation
     # floor. Hills are valid secondary sources for rivers that
     # originate in highland plateaus.
-    _SOURCE_BIOMES = frozenset({Biome.MOUNTAIN, Biome.HILLS})
     sources = [
         c for c, cell in cells.items()
-        if cell.biome in _SOURCE_BIOMES
+        if cell.biome in SOURCE_BIOMES
         and cell.elevation >= params.source_elevation_min
     ]
     if not sources:

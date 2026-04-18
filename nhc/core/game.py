@@ -1963,16 +1963,7 @@ class Game:
                         self.renderer.add_message(c_narr)
 
             # Tick poison on all affected entities
-            self._tick_poison()
-            self._tick_regeneration()
-            self._tick_mummy_rot()
-            self._tick_rings()
-            self._tick_doors()
-            self._tick_traps()
-            self._tick_wand_recharge()
-            self._tick_hunger()
-            self._tick_stairs_proximity()
-            self._tick_buried_markers()
+            self._apply_turn_ticks()
 
             # Hex-mode: auto-pop a cleared encounter arena.
             self._maybe_exit_cleared_arena()
@@ -3228,12 +3219,42 @@ class Game:
             prompt=t("ui.inventory_title"),
         )
 
+    # ── Per-turn tick sequence ─────────────────────────────────
+    # Individual methods kept for direct use (hex movement ticks
+    # hunger alone, tests call individual ticks).
+
+    _TURN_TICKS = (
+        game_ticks.tick_poison,
+        game_ticks.tick_regeneration,
+        game_ticks.tick_mummy_rot,
+        game_ticks.tick_rings,
+        game_ticks.tick_doors,
+        game_ticks.tick_traps,
+        game_ticks.tick_wand_recharge,
+        game_ticks.tick_hunger,
+        game_ticks.tick_stairs_proximity,
+    )
+
+    def _apply_turn_ticks(self) -> None:
+        """Run all per-turn status/world ticks in sequence."""
+        for tick in self._TURN_TICKS:
+            tick(self)
+        self._tick_buried_markers()
+
     def _tick_poison(self) -> None:
         game_ticks.tick_poison(self)
 
+    def _tick_regeneration(self) -> None:
+        game_ticks.tick_regeneration(self)
+
+    def _tick_mummy_rot(self) -> None:
+        game_ticks.tick_mummy_rot(self)
+
+    def _tick_hunger(self) -> None:
+        game_ticks.tick_hunger(self)
+
     def _detect_death_cause(self, events: list) -> None:
         """Determine what killed the player from turn events."""
-        # Melee attacks take priority
         for ev in events:
             if (isinstance(ev, CreatureAttacked)
                     and ev.target == self.player_id and ev.hit):
@@ -3242,36 +3263,11 @@ class Game:
                     self.killed_by = desc.name
         if self.killed_by:
             return
-        # Check trap damage
         for ev in events:
             if (isinstance(ev, TrapTriggered)
                     and ev.entity == self.player_id and ev.damage > 0):
                 self.killed_by = ev.trap_name
                 return
-
-    def _tick_regeneration(self) -> None:
-        game_ticks.tick_regeneration(self)
-
-    def _tick_mummy_rot(self) -> None:
-        game_ticks.tick_mummy_rot(self)
-
-    def _tick_rings(self) -> None:
-        game_ticks.tick_rings(self)
-
-    def _tick_doors(self) -> None:
-        game_ticks.tick_doors(self)
-
-    def _tick_traps(self) -> None:
-        game_ticks.tick_traps(self)
-
-    def _tick_wand_recharge(self) -> None:
-        game_ticks.tick_wand_recharge(self)
-
-    def _tick_hunger(self) -> None:
-        game_ticks.tick_hunger(self)
-
-    def _tick_stairs_proximity(self) -> None:
-        game_ticks.tick_stairs_proximity(self)
 
     def _tick_buried_markers(self) -> None:
         """Remove expired BuriedMarker entities."""
