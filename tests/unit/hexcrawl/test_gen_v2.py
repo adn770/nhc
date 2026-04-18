@@ -305,3 +305,105 @@ class TestDomainWarping:
             _WIDTH, _HEIGHT,
         )
         assert a == b
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: Hydraulic erosion
+# ---------------------------------------------------------------------------
+
+
+def _make_elevation(
+    seed: int = 42,
+) -> dict[HexCoord, float]:
+    from nhc.hexcrawl._gen_v2 import (
+        continental_shape,
+        domain_warp,
+        tectonic_plates,
+    )
+    rng = random.Random(seed)
+    field = continental_shape(rng, _params(), _WIDTH, _HEIGHT)
+    plates = tectonic_plates(rng, _params(), field)
+    return domain_warp(rng, _params(), field, plates, _WIDTH, _HEIGHT)
+
+
+class TestHydraulicErosion:
+    """Tests for the hydraulic_erosion() stage function."""
+
+    def test_bounded(self) -> None:
+        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+
+        elev = _make_elevation()
+        result = hydraulic_erosion(
+            random.Random(42), _params(), elev,
+        )
+        for v in result.elevation.values():
+            assert -1.0 <= v <= 1.0
+
+    def test_reduces_total_elevation(self) -> None:
+        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+
+        elev = _make_elevation()
+        total_before = sum(elev.values())
+        result = hydraulic_erosion(
+            random.Random(42), _params(), elev,
+        )
+        total_after = sum(result.elevation.values())
+        # Net erosion should reduce total elevation
+        assert total_after < total_before
+
+    def test_basins_cover_land(self) -> None:
+        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+
+        elev = _make_elevation()
+        sea = _params().sea_level
+        result = hydraulic_erosion(
+            random.Random(42), _params(), elev,
+        )
+        land_hexes = {
+            h for h, v in result.elevation.items()
+            if v >= sea
+        }
+        # Every land hex should belong to a drainage basin
+        for h in land_hexes:
+            assert h in result.basins, f"{h} has no basin"
+
+    def test_moisture_enhanced_at_high_flow(self) -> None:
+        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+
+        elev = _make_elevation()
+        result = hydraulic_erosion(
+            random.Random(42), _params(), elev,
+        )
+        if not result.flow_count:
+            pytest.skip("no flow data")
+        max_flow = max(result.flow_count.values())
+        if max_flow < 2:
+            pytest.skip("flow too uniform to test")
+        # Find hexes with above-median flow
+        flows = sorted(result.flow_count.values())
+        median_flow = flows[len(flows) // 2]
+        high_flow = [
+            h for h, fc in result.flow_count.items()
+            if fc > median_flow and fc > 1
+        ]
+        low_flow = [
+            h for h, fc in result.flow_count.items()
+            if fc <= 1
+        ]
+        if high_flow and low_flow:
+            avg_high = sum(
+                result.moisture[h] for h in high_flow
+            ) / len(high_flow)
+            avg_low = sum(
+                result.moisture[h] for h in low_flow
+            ) / len(low_flow)
+            assert avg_high > avg_low
+
+    def test_deterministic(self) -> None:
+        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+
+        elev = _make_elevation()
+        a = hydraulic_erosion(random.Random(42), _params(), elev)
+        b = hydraulic_erosion(random.Random(42), _params(), elev)
+        assert a.elevation == b.elevation
+        assert a.basins == b.basins

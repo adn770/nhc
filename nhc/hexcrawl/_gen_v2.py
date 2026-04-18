@@ -307,3 +307,136 @@ def domain_warp(
         elevation[h] = max(-1.0, min(1.0, elevation[h]))
 
     return elevation
+
+
+# ---------------------------------------------------------------------------
+# Stage 4: Hydraulic erosion
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ErosionResult:
+    """Output of the hydraulic_erosion() stage."""
+
+    elevation: dict[HexCoord, float]
+    moisture: dict[HexCoord, float]
+    flow_to: dict[HexCoord, HexCoord | None]
+    flow_count: dict[HexCoord, int]
+    basins: dict[HexCoord, int]
+
+
+def hydraulic_erosion(
+    rng: random.Random,
+    params: ContinentalParams,
+    elevation_field: dict[HexCoord, float],
+) -> ErosionResult:
+    """Iterative flow-accumulation erosion for hex grids.
+
+    Simulates water flow to carve peaks, fill valleys, and
+    identify natural drainage basins. Adapted for ~400-cell grids
+    where individual-droplet erosion would be invisible.
+    """
+    # Work on a mutable copy.
+    elev = dict(elevation_field)
+    all_hexes = list(elev.keys())
+    hex_set = set(all_hexes)
+
+    # Moisture noise field.
+    moist_noise = SimplexNoise(seed=rng.randrange(1 << 30))
+    moisture: dict[HexCoord, float] = {}
+    for h in all_hexes:
+        mx = h.q * 0.12
+        my = (h.r + h.q * 0.5) * 0.12
+        moisture[h] = moist_noise.fractal(mx, my, octaves=4)
+
+    flow_to: dict[HexCoord, HexCoord | None] = {}
+    flow_count: dict[HexCoord, int] = {}
+
+    for _ in range(params.erosion_iterations):
+        # 1. Flow direction: steepest descent neighbor.
+        flow_to.clear()
+        for h in all_hexes:
+            best_nbr: HexCoord | None = None
+            best_drop = 0.0
+            for nbr in neighbors(h):
+                if nbr not in hex_set:
+                    continue
+                drop = elev[h] - elev[nbr]
+                if drop > best_drop:
+                    best_drop = drop
+                    best_nbr = nbr
+            flow_to[h] = best_nbr
+
+        # 2. Flow accumulation.
+        flow_count = {h: 0 for h in all_hexes}
+        for h in all_hexes:
+            current = h
+            steps = 0
+            while current is not None and steps < 30:
+                nxt = flow_to.get(current)
+                if nxt is None:
+                    break
+                flow_count[nxt] = flow_count.get(nxt, 0) + 1
+                current = nxt
+                steps += 1
+
+        # 3. Erosion: reduce elevation proportional to flow.
+        for h in all_hexes:
+            fc = flow_count.get(h, 0)
+            if fc > 0:
+                elev[h] -= params.erosion_rate * math.log(1 + fc)
+
+        # 4. Deposition: where flow slows, add sediment.
+        for h in all_hexes:
+            upstream = flow_to.get(h)
+            if upstream is None:
+                continue
+            # h flows TO somewhere; check if upstream flows to h
+            # (i.e., h is downstream of upstream).
+            fc_h = flow_count.get(h, 0)
+            fc_up = flow_count.get(upstream, 0)
+            if fc_h < fc_up and fc_up > 0:
+                delta = (fc_up - fc_h)
+                elev[h] += params.deposit_rate * delta * 0.01
+
+        # 5. Clamp.
+        for h in all_hexes:
+            elev[h] = max(-1.0, min(1.0, elev[h]))
+
+    # Drainage basin identification: follow flow_to to the sink,
+    # group hexes by their terminal sink.
+    basins: dict[HexCoord, int] = {}
+    sink_to_basin: dict[HexCoord, int] = {}
+    next_basin = 0
+
+    for h in all_hexes:
+        # Walk to the sink.
+        current = h
+        steps = 0
+        while flow_to.get(current) is not None and steps < 30:
+            current = flow_to[current]  # type: ignore[assignment]
+            steps += 1
+        sink = current
+        if sink not in sink_to_basin:
+            sink_to_basin[sink] = next_basin
+            next_basin += 1
+        basins[h] = sink_to_basin[sink]
+
+    # Moisture enhancement in high-flow areas.
+    max_flow = max(flow_count.values()) if flow_count else 1
+    log_max = math.log(1 + max_flow)
+    if log_max > 0:
+        for h in all_hexes:
+            fc = flow_count.get(h, 0)
+            if fc > 0:
+                moisture[h] += (
+                    0.2 * math.log(1 + fc) / log_max
+                )
+
+    return ErosionResult(
+        elevation=elev,
+        moisture=moisture,
+        flow_to=dict(flow_to),
+        flow_count=flow_count,
+        basins=basins,
+    )
