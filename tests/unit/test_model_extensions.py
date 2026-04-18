@@ -1,6 +1,6 @@
 """Tests for Phase 1 model extensions."""
 
-from nhc.dungeon.model import Tile, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -50,3 +50,86 @@ class TestTileExtensions:
     def test_track_tile_is_walkable(self):
         tile = Tile(terrain=Terrain.FLOOR, is_track=True)
         assert tile.walkable is True
+
+
+class TestSurfaceType:
+    def test_has_none_value(self):
+        assert SurfaceType.NONE.value == "none"
+
+    def test_has_all_expected_values(self):
+        expected = {
+            "none", "corridor", "track", "street",
+            "field", "garden", "palisade", "fortification",
+        }
+        actual = {s.value for s in SurfaceType}
+        assert actual == expected
+
+    def test_mutually_exclusive_lookup_by_value(self):
+        assert SurfaceType("field") is SurfaceType.FIELD
+        assert SurfaceType("garden") is SurfaceType.GARDEN
+        assert SurfaceType("palisade") is SurfaceType.PALISADE
+        assert SurfaceType("fortification") is SurfaceType.FORTIFICATION
+
+
+class TestTileSurfaceType:
+    def test_default_is_none(self):
+        assert Tile().surface_type == SurfaceType.NONE
+
+    def test_set_field(self):
+        tile = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.FIELD,
+        )
+        assert tile.surface_type == SurfaceType.FIELD
+
+    def test_set_garden(self):
+        tile = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.GARDEN,
+        )
+        assert tile.surface_type == SurfaceType.GARDEN
+
+    def test_set_palisade(self):
+        tile = Tile(
+            terrain=Terrain.WALL, surface_type=SurfaceType.PALISADE,
+        )
+        assert tile.surface_type == SurfaceType.PALISADE
+
+    def test_set_fortification(self):
+        tile = Tile(
+            terrain=Terrain.WALL,
+            surface_type=SurfaceType.FORTIFICATION,
+        )
+        assert tile.surface_type == SurfaceType.FORTIFICATION
+
+    def test_legacy_bools_independent_of_surface_type(self):
+        """During the additive-phase of M2 the booleans still exist.
+
+        surface_type is its own field; setting it does not flip the
+        legacy flags. Retirement of the bools is a later milestone.
+        """
+        tile = Tile(
+            terrain=Terrain.FLOOR,
+            surface_type=SurfaceType.STREET,
+        )
+        assert tile.is_street is False
+        assert tile.is_track is False
+        assert tile.is_corridor is False
+
+
+class TestLevelBuildingRefs:
+    def test_building_id_default_none(self):
+        level = Level.create_empty("l1", "L1", 1, 5, 5)
+        assert level.building_id is None
+
+    def test_floor_index_default_none(self):
+        level = Level.create_empty("l1", "L1", 1, 5, 5)
+        assert level.floor_index is None
+
+    def test_building_id_set(self):
+        level = Level.create_empty("l1", "L1", 1, 5, 5)
+        level.building_id = "tower_01"
+        assert level.building_id == "tower_01"
+
+    def test_floor_index_set(self):
+        level = Level.create_empty("l1", "L1", 1, 5, 5)
+        level.floor_index = 2
+        assert level.floor_index == 2

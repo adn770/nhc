@@ -18,6 +18,25 @@ class Terrain(Enum):
     GRASS = auto()
 
 
+class SurfaceType(Enum):
+    """Walkable-surface category for a tile.
+
+    Mutually exclusive category layered on top of ``Terrain``. The
+    existing ``is_corridor`` / ``is_street`` / ``is_track`` booleans
+    remain for now and will be retired in a later cleanup milestone
+    once building-generator renderers emit ``surface_type`` directly.
+    See ``design/building_generator.md`` section 8.
+    """
+    NONE = "none"
+    CORRIDOR = "corridor"
+    TRACK = "track"
+    STREET = "street"
+    FIELD = "field"
+    GARDEN = "garden"
+    PALISADE = "palisade"
+    FORTIFICATION = "fortification"
+
+
 @dataclass
 class Rect:
     """Axis-aligned rectangle."""
@@ -641,6 +660,7 @@ class Tile:
     dug_wall: bool = False  # True when a wall was dug into a passage
     is_street: bool = False  # settlement street tile
     is_track: bool = False   # mine cart track tile
+    surface_type: SurfaceType = SurfaceType.NONE
 
     @property
     def walkable(self) -> bool:
@@ -714,6 +734,8 @@ class Level:
     corridors: list[Corridor] = field(default_factory=list)
     entities: list[EntityPlacement] = field(default_factory=list)
     metadata: LevelMetadata = field(default_factory=LevelMetadata)
+    building_id: str | None = None
+    floor_index: int | None = None
 
     @classmethod
     def create_empty(cls, id: str, name: str, depth: int,
