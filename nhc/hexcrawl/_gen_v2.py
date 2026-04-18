@@ -551,12 +551,15 @@ def _remove_interior_water(
     hexes_by_biome: dict[Biome, list[HexCoord]],
     width: int,
     height: int,
+    rng: random.Random,
 ) -> None:
     """Convert interior water to land biomes.
 
     Flood-fill from edge water hexes. Any water hex not
     reachable from the map edge is interior and gets converted
-    to marsh (wet) or greenlands (dry) based on moisture.
+    to a latitude-appropriate land biome. A fraction of
+    interior hexes with high elevation become mountains to
+    seed river sources across the continent.
     """
     from nhc.hexcrawl.coords import valid_shape_hex
 
@@ -588,16 +591,35 @@ def _remove_interior_water(
     all_r = [h.r for h in cells]
     r_min_val = min(all_r)
     r_span = max(max(all_r) - r_min_val, 1)
-    interior = water_hexes - coastal
+    interior = list(water_hexes - coastal)
+    rng.shuffle(interior)
+
+    # Scatter a few mountains among interior hexes with high
+    # elevation so rivers have sources across the continent.
+    mountain_budget = max(1, len(interior) // 8)
+    mountains_placed = 0
+
     for h in interior:
         cell = cells[h]
         latitude = 2.0 * (h.r - r_min_val) / r_span - 1.0
-        if latitude < -0.4:
+
+        # Scatter mountains in the temperate interior to seed
+        # river sources across the continent. Elevation is
+        # boosted to make them viable river sources.
+        if (
+            mountains_placed < mountain_budget
+            and -0.5 < latitude < 0.5
+        ):
+            new_biome = Biome.MOUNTAIN
+            cell.elevation = 0.55 + rng.uniform(0, 0.15)
+            mountains_placed += 1
+        elif latitude < -0.4:
             new_biome = Biome.ICELANDS
         elif latitude > 0.4:
             new_biome = Biome.SANDLANDS
         else:
             new_biome = Biome.GREENLANDS
+
         cell.biome = new_biome
         hexes_by_biome[Biome.WATER].remove(h)
         hexes_by_biome[new_biome].append(h)
@@ -651,7 +673,7 @@ def assign_biomes(
         hexes_by_biome[biome].append(h)
 
     # Remove interior water pockets (land-locked water tiles).
-    _remove_interior_water(cells, hexes_by_biome, width, height)
+    _remove_interior_water(cells, hexes_by_biome, width, height, rng)
 
     _repair_essentials(cells, hexes_by_biome, rng)
 
