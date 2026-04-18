@@ -154,6 +154,10 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
     for coord, cell in world.cells.items():
         if not cell.edges:
             continue
+        # Skip water hexes — segments terminating at sea are
+        # hidden under the water tile.
+        if cell.biome is Biome.WATER:
+            continue
         cx, cy = to_pixel(coord, HEX_RADIUS)
         ox = cx - min_x + MARGIN
         oy = cy - min_y + MARGIN
