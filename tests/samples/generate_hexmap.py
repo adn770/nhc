@@ -29,6 +29,7 @@ except ImportError:
 
 from nhc.hexcrawl.coords import HexCoord, to_pixel
 from nhc.hexcrawl.generator import (
+    generate_continental_world,
     generate_test_world,
     generate_perlin_world,
 )
@@ -378,6 +379,10 @@ def render_flower(
 def _find_pack(generator: str) -> Path:
     """Find the appropriate content pack for the generator type."""
     content = Path(__file__).resolve().parents[2] / "content"
+    if generator == "continental_v2":
+        pack_path = content / "testland-v2" / "pack.yaml"
+        if pack_path.is_file():
+            return pack_path
     if generator == "perlin":
         pack_path = content / "testland-perlin" / "pack.yaml"
         if pack_path.is_file():
@@ -402,8 +407,12 @@ def generate(
     pack_path = _find_pack(generator)
     pack = load_pack(pack_path)
 
-    gen_fn = (generate_perlin_world if generator == "perlin"
-              else generate_test_world)
+    if generator == "continental_v2":
+        gen_fn = generate_continental_world
+    elif generator == "perlin":
+        gen_fn = generate_perlin_world
+    else:
+        gen_fn = generate_test_world
 
     for seed in seeds:
         print(f"Generating {generator} map with seed {seed}...")
@@ -464,7 +473,9 @@ def main(argv: list[str] | None = None) -> None:
         help="comma-separated seeds",
     )
     parser.add_argument(
-        "--generator", choices=["bsp", "perlin"], default="bsp",
+        "--generator",
+        choices=["bsp", "perlin", "continental_v2"],
+        default="bsp",
         help="generator type (default: bsp)",
     )
     parser.add_argument(

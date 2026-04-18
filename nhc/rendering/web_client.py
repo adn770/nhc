@@ -71,6 +71,10 @@ def build_hex_state_msg(
                     "entry": seg.entry_edge,
                     "exit": seg.exit_edge,
                 }
+                if seg.entry_offset is not None:
+                    ed["entry_offset"] = seg.entry_offset
+                if seg.exit_offset is not None:
+                    ed["exit_offset"] = seg.exit_offset
                 # Include sub-hex waypoints when available
                 # for smoother macro-map curves.
                 if cell.flower:
