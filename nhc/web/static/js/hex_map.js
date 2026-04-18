@@ -768,12 +768,12 @@ const HexMap = {
       if (i === 0 || i === last) {
         return { x: bx, y: by };
       }
-      // Clamp interior points to stay inside the hex (max 70%
+      // Clamp interior points to stay inside the hex (max 60%
       // of radius from center) so curves don't bulge into
       // adjacent tiles.
       const ddx = bx - cx, ddy = by - cy;
       const dist = Math.sqrt(ddx * ddx + ddy * ddy);
-      const maxR = HEX_SIZE * 0.70;
+      const maxR = HEX_SIZE * 0.60;
       if (dist > maxR) {
         const ratio = maxR / dist;
         bx = cx + ddx * ratio;
@@ -785,18 +785,29 @@ const HexMap = {
       const jy = ((h2 % 1000) / 500 - 1) * JITTER;
       return { x: bx + jx, y: by + jy };
     });
-    if (pts.length < 2) return;
+    // Drop interior points too close to their neighbour —
+    // they create sharp kinks in the Catmull-Rom spline.
+    const minGap = HEX_SIZE * 0.25;
+    const filtered = pts.filter((pt, j) => {
+      if (j === 0 || j === pts.length - 1) return true;
+      const prev = pts[j - 1], nxt = pts[j + 1];
+      const dPrev = Math.hypot(pt.x - prev.x, pt.y - prev.y);
+      const dNxt = Math.hypot(pt.x - nxt.x, pt.y - nxt.y);
+      return dPrev >= minGap && dNxt >= minGap;
+    });
+    const crPts = filtered.length >= 2 ? filtered : pts;
+    if (crPts.length < 2) return;
 
     // Build a single continuous path using Catmull-Rom → cubic
     // Bezier conversion for C1-smooth tangents at each point.
     const path2d = new Path2D();
-    path2d.moveTo(pts[0].x, pts[0].y);
+    path2d.moveTo(crPts[0].x, crPts[0].y);
     const tension = 0.5;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[Math.max(0, i - 1)];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let i = 0; i < crPts.length - 1; i++) {
+      const p0 = crPts[Math.max(0, i - 1)];
+      const p1 = crPts[i];
+      const p2 = crPts[i + 1];
+      const p3 = crPts[Math.min(crPts.length - 1, i + 2)];
       const cp1x = p1.x + (p2.x - p0.x) / (6 * tension);
       const cp1y = p1.y + (p2.y - p0.y) / (6 * tension);
       const cp2x = p2.x - (p3.x - p1.x) / (6 * tension);

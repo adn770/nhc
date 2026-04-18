@@ -189,33 +189,27 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
                     (-3 * HEX_RADIUS / 4, HEX_RADIUS * s3 / 4),
                     (-3 * HEX_RADIUS / 4, -HEX_RADIUS * s3 / 4),
                 ]
-                pts = []
+                # Build raw projected points, then filter.
+                raw_pts: list[tuple[float, float]] = []
                 for i, p in enumerate(sub_path):
-                    # First point: snap to entry edge midpoint
-                    # and skip the ring-2 sub-hex entirely so
-                    # the curve doesn't bulge toward the hex
-                    # boundary.
                     if i == 0 and seg.entry_edge is not None:
                         mx, my = _mids[seg.entry_edge]
-                        pts.append((ox + mx, oy + my))
+                        raw_pts.append((ox + mx, oy + my))
                         continue
-                    # Last point: same treatment.
                     if i == last and seg.exit_edge is not None:
                         mx, my = _mids[seg.exit_edge]
-                        pts.append((ox + mx, oy + my))
+                        raw_pts.append((ox + mx, oy + my))
                         continue
                     bx = ox + scale * 1.5 * p.q
                     by = oy + scale * (s3 / 2 * p.q + s3 * p.r)
                     if i == 0 or i == last:
-                        # Source/sink: use projected sub-hex pos
-                        pts.append((bx, by))
+                        raw_pts.append((bx, by))
                         continue
-                    # Clamp interior points to stay well inside
-                    # the hex (max 70% of radius from center).
+                    # Clamp interior to 60% of radius from center
                     dx = bx - ox
                     dy = by - oy
                     dist = math.sqrt(dx * dx + dy * dy)
-                    max_r = HEX_RADIUS * 0.70
+                    max_r = HEX_RADIUS * 0.60
                     if dist > max_r:
                         ratio = max_r / dist
                         bx = ox + dx * ratio
@@ -224,7 +218,27 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
                     h2 = _jitter_hash(p.q, p.r, i * 2 + 1)
                     jx = ((h1 % 1000) / 500 - 1) * jitter
                     jy = ((h2 % 1000) / 500 - 1) * jitter
-                    pts.append((bx + jx, by + jy))
+                    raw_pts.append((bx + jx, by + jy))
+                # Drop interior points that are too close to
+                # their neighbouring edge-snap point — they
+                # create sharp kinks in the Catmull-Rom curve.
+                min_gap = HEX_RADIUS * 0.25
+                pts: list[tuple[float, float]] = []
+                for j, pt in enumerate(raw_pts):
+                    if 0 < j < len(raw_pts) - 1:
+                        prev = raw_pts[j - 1]
+                        nxt = raw_pts[j + 1]
+                        d_prev = math.hypot(
+                            pt[0] - prev[0], pt[1] - prev[1],
+                        )
+                        d_nxt = math.hypot(
+                            pt[0] - nxt[0], pt[1] - nxt[1],
+                        )
+                        if d_prev < min_gap or d_nxt < min_gap:
+                            continue
+                    pts.append(pt)
+                if len(pts) < 2:
+                    pts = raw_pts
                 curve = _catmull_rom_points(pts)
             else:
                 # Fallback: edge midpoint to edge midpoint
