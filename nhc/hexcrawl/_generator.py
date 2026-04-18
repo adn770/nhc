@@ -827,6 +827,8 @@ def _attempt_continental(
         world.set_cell(cell)
     world.last_hub = hub
     world.cave_clusters = clusters
+    from nhc.hexcrawl.underworld import build_regions
+    world.underworld_regions = build_regions(clusters)
     world.rivers = rivers
     world.paths = paths
     return world

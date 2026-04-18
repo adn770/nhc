@@ -309,6 +309,9 @@ class HexWorld:
     cave_clusters: dict[HexCoord, list[HexCoord]] = field(
         default_factory=dict,
     )
+    # Underworld regions: canonical coord → UnderworldRegion.
+    # Built from cave_clusters with depth scaling by cluster size.
+    underworld_regions: dict = field(default_factory=dict)
     # River coord sequences (source → sink). Each inner list is
     # one river (or branch). Populated by generate_rivers after
     # biome + elevation assignment.

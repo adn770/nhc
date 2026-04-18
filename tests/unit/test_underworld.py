@@ -96,3 +96,21 @@ class TestBuildRegions:
         clusters = {HexCoord(0, 0): members}
         regions = build_regions(clusters)
         assert regions[HexCoord(0, 0)].max_depth == 5
+
+
+class TestHexWorldIntegration:
+    def test_underworld_regions_populated(self):
+        """HexWorld should have underworld_regions after generation."""
+        from nhc.hexcrawl.model import HexWorld
+        w = HexWorld(
+            pack_id="test", seed=42, width=10, height=10,
+        )
+        # Manually set clusters and build regions
+        clusters = {
+            HexCoord(0, 0): [HexCoord(0, 0), HexCoord(1, 0)],
+        }
+        w.cave_clusters = clusters
+        w.underworld_regions = build_regions(clusters)
+        assert len(w.underworld_regions) == 1
+        r = w.underworld_regions[HexCoord(0, 0)]
+        assert r.max_depth == 3
