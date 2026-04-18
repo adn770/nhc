@@ -157,6 +157,12 @@ def assign_sub_hex_biomes(
         else:
             result[c] = _ring2_biome(parent, c, cells, rng)
 
+    # Never place WATER sub-hexes inside a land flower — ring-2
+    # blending toward an ocean neighbor can produce them.
+    for c in FLOWER_COORDS:
+        if result[c] is Biome.WATER:
+            result[c] = parent.biome
+
     return result
 
 
