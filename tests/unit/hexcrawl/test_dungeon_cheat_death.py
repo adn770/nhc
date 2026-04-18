@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from nhc.core.death import DeathHandler
 from nhc.core.ecs import World
 from nhc.entities.components import Health, Inventory, Player
 from nhc.hexcrawl.mode import GameMode
@@ -31,6 +32,7 @@ def _make_game(mode: GameMode) -> "Game":
     game.hex_world = None
     game.hex_player_position = None
     game.level = None  # dungeon mode
+    game._death = DeathHandler(game)
     return game
 
 
