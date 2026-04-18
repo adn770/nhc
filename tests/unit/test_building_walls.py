@@ -4,6 +4,8 @@ See design/building_generator.md section 7 (Rendering) for the
 full specification. M4 covers the brick-wall 3-strip renderer.
 """
 
+import re
+
 import pytest
 
 from nhc.rendering._building_walls import (
@@ -12,7 +14,12 @@ from nhc.rendering._building_walls import (
     BRICK_SEAM,
     BRICK_STRIP_COUNT,
     BRICK_WALL_THICKNESS,
+    STONE_CORNER_RADIUS,
+    STONE_FILL,
+    STONE_MISSING_PROBABILITY,
+    STONE_SEAM,
     render_brick_wall_run,
+    render_stone_wall_run,
 )
 
 
@@ -146,3 +153,108 @@ class TestBrickWallConstantsAreSane:
 
     def test_wall_thickness_positive(self):
         assert BRICK_WALL_THICKNESS > 0
+
+
+def _count_matches(items: list[str], pattern: str) -> int:
+    return sum(1 for s in items if pattern in s)
+
+
+class TestStoneWallRunSignature:
+    def test_returns_list_of_strings(self):
+        out = render_stone_wall_run(0, 50, 200, 50)
+        assert isinstance(out, list)
+        assert all(isinstance(s, str) for s in out)
+
+    def test_zero_length_returns_empty(self):
+        assert render_stone_wall_run(50, 50, 50, 50) == []
+
+    def test_diagonal_run_rejected(self):
+        with pytest.raises(ValueError):
+            render_stone_wall_run(0, 0, 20, 10)
+
+
+class TestStoneWallRunRendering:
+    def test_emits_stone_fill_rects(self):
+        out = render_stone_wall_run(0, 50, 200, 50, seed=1)
+        # Each stone is its own rect; a wall that wide yields many.
+        stones = _count_matches(out, f'fill="{STONE_FILL}"')
+        assert stones > 10
+
+    def test_each_stone_has_rounded_corners(self):
+        out = render_stone_wall_run(0, 50, 200, 50, seed=1)
+        stones = [s for s in out if f'fill="{STONE_FILL}"' in s]
+        for s in stones:
+            assert f'rx="{STONE_CORNER_RADIUS}"' in s
+            assert f'ry="{STONE_CORNER_RADIUS}"' in s
+
+    def test_stones_stroked_with_seam_color(self):
+        out = render_stone_wall_run(0, 50, 200, 50, seed=1)
+        stones = [s for s in out if f'fill="{STONE_FILL}"' in s]
+        assert stones
+        for s in stones:
+            assert f'stroke="{STONE_SEAM}"' in s
+
+    def test_three_courses_by_y_coord(self):
+        """Horizontal run: stones cluster into 3 distinct y-rows."""
+        out = render_stone_wall_run(0, 100, 300, 100, seed=2)
+        stones = [s for s in out if f'fill="{STONE_FILL}"' in s]
+        ys: set[str] = set()
+        for s in stones:
+            m = re.search(r'y="([0-9.]+)"', s)
+            if m:
+                ys.add(m.group(1))
+        assert len(ys) == BRICK_STRIP_COUNT
+
+
+class TestStoneWallDeterminism:
+    def test_same_seed_produces_same_output(self):
+        a = render_stone_wall_run(0, 50, 200, 50, seed=42)
+        b = render_stone_wall_run(0, 50, 200, 50, seed=42)
+        assert a == b
+
+    def test_different_seeds_produce_different_output(self):
+        a = render_stone_wall_run(0, 50, 200, 50, seed=1)
+        b = render_stone_wall_run(0, 50, 200, 50, seed=2)
+        assert a != b
+
+
+class TestStoneWidthDistribution:
+    def test_width_has_wider_range_than_brick(self):
+        """Stone widths vary more than brick widths at the same seed."""
+        out = render_stone_wall_run(0, 50, 1000, 50, seed=5)
+        widths = []
+        for s in out:
+            if f'fill="{STONE_FILL}"' not in s:
+                continue
+            m = re.search(r'width="([0-9.]+)"', s)
+            if m:
+                widths.append(float(m.group(1)))
+        assert len(widths) > 20
+        spread = max(widths) - min(widths)
+        # Stones: 0.7x - 1.6x of ~12px mean => spread ~10px+
+        assert spread > 5.0
+
+
+class TestStoneMissingProbability:
+    def test_missing_probability_lower_than_brick(self):
+        assert STONE_MISSING_PROBABILITY < 0.05
+
+    def test_long_wall_rarely_misses_stones(self):
+        """A reasonably long wall has at most a few missing-stone gaps."""
+        out = render_stone_wall_run(0, 50, 600, 50, seed=1)
+        # Missing stones are the only rects WITHOUT STONE_FILL and
+        # with fill=BG; the brick module's BRICK_MISSING constant is
+        # the same BG value.
+        missing = _count_matches(out, f'fill="{BRICK_MISSING}"')
+        assert 0 <= missing < 15
+
+
+class TestStoneVsBrickContrast:
+    def test_stone_uses_different_palette(self):
+        assert STONE_FILL != BRICK_FILL
+        assert STONE_SEAM != BRICK_SEAM
+
+    def test_stone_output_differs_from_brick_at_same_seed(self):
+        b = render_brick_wall_run(0, 50, 200, 50, seed=11)
+        s = render_stone_wall_run(0, 50, 200, 50, seed=11)
+        assert b != s

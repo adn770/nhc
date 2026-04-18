@@ -39,6 +39,20 @@ _BRICK_STRIP_OFFSETS = (
 )
 
 
+# ── Stone rendering constants (initial values, tunable) ───────────
+
+STONE_FILL = "#9A8E80"
+STONE_SEAM = "#4A3E35"
+STONE_SEAM_WIDTH = 1.0
+STONE_CORNER_RADIUS = 1.2
+STONE_MEAN_WIDTH = 12.0
+STONE_WIDTH_LOW = 0.7    # of mean
+STONE_WIDTH_HIGH = 1.6   # of mean
+STONE_MISSING_PROBABILITY = 0.02
+
+_STONE_STRIP_OFFSETS = _BRICK_STRIP_OFFSETS
+
+
 def render_brick_wall_run(
     x0: float, y0: float, x1: float, y1: float,
     thickness: float = BRICK_WALL_THICKNESS,
@@ -163,4 +177,83 @@ def _missing_brick(
         f'<rect x="{perp:.1f}" y="{run_start + left:.1f}" '
         f'width="{strip_thick:.1f}" height="{width:.1f}" '
         f'fill="{BRICK_MISSING}"/>'
+    )
+
+
+def render_stone_wall_run(
+    x0: float, y0: float, x1: float, y1: float,
+    thickness: float = BRICK_WALL_THICKNESS,
+    *, seed: int = 0,
+) -> list[str]:
+    """Render a straight orthogonal wall run as stone.
+
+    Shares the 3-course running-bond layout with the brick variant
+    but emits per-stone rounded ``<rect>`` primitives (with visible
+    stroke) instead of a strip background plus seam lines. Stone
+    widths vary more widely (``STONE_WIDTH_LOW`` to
+    ``STONE_WIDTH_HIGH`` times ``STONE_MEAN_WIDTH``) and the
+    missing-stone probability is lower.
+    """
+    if x0 == x1 and y0 == y1:
+        return []
+    horizontal = y0 == y1
+    vertical = x0 == x1
+    if not (horizontal ^ vertical):
+        raise ValueError(
+            "wall run must be strictly horizontal or vertical"
+        )
+
+    run_len = abs(x1 - x0) if horizontal else abs(y1 - y0)
+    run_start = min(x0, x1) if horizontal else min(y0, y1)
+    perp_start = (y0 if horizontal else x0) - thickness / 2
+    strip_thick = thickness / BRICK_STRIP_COUNT
+
+    rng = random.Random(seed)
+    out: list[str] = []
+    for idx in range(BRICK_STRIP_COUNT):
+        perp = perp_start + idx * strip_thick
+        pos = _STONE_STRIP_OFFSETS[idx]
+        # Clamp leading partial stone so it starts at run boundary.
+        if pos < 0:
+            pos = 0.0
+        while pos < run_len:
+            width = STONE_MEAN_WIDTH * rng.uniform(
+                STONE_WIDTH_LOW, STONE_WIDTH_HIGH,
+            )
+            # Cap the final stone at the run boundary.
+            width = min(width, run_len - pos)
+            if rng.random() < STONE_MISSING_PROBABILITY:
+                out.append(_missing_brick(
+                    horizontal, run_start, perp,
+                    pos, pos + width, strip_thick,
+                ))
+            else:
+                out.append(_stone_rect(
+                    horizontal, run_start, perp,
+                    pos, width, strip_thick,
+                ))
+            pos += width
+    return out
+
+
+def _stone_rect(
+    horizontal: bool, run_start: float, perp: float,
+    pos: float, width: float, strip_thick: float,
+) -> str:
+    if horizontal:
+        return (
+            f'<rect x="{run_start + pos:.1f}" y="{perp:.1f}" '
+            f'width="{width:.1f}" height="{strip_thick:.1f}" '
+            f'rx="{STONE_CORNER_RADIUS}" '
+            f'ry="{STONE_CORNER_RADIUS}" '
+            f'fill="{STONE_FILL}" stroke="{STONE_SEAM}" '
+            f'stroke-width="{STONE_SEAM_WIDTH}"/>'
+        )
+    return (
+        f'<rect x="{perp:.1f}" y="{run_start + pos:.1f}" '
+        f'width="{strip_thick:.1f}" height="{width:.1f}" '
+        f'rx="{STONE_CORNER_RADIUS}" '
+        f'ry="{STONE_CORNER_RADIUS}" '
+        f'fill="{STONE_FILL}" stroke="{STONE_SEAM}" '
+        f'stroke-width="{STONE_SEAM_WIDTH}"/>'
     )
