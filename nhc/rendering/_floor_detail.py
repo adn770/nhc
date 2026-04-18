@@ -10,7 +10,7 @@ import math
 import random
 import sys
 
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.rendering._svg_helpers import (
     CELL,
     FLOOR_STONE_FILL,
@@ -670,7 +670,10 @@ def _render_street_cobblestone(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            if not tile.is_street:
+            if not (
+                tile.is_street
+                or tile.surface_type == SurfaceType.STREET
+            ):
                 continue
             px, py = x * CELL, y * CELL
             _cobblestone_tile(rng, px, py, cobbles)
