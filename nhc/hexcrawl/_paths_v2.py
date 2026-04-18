@@ -230,16 +230,23 @@ def _merge_junction_edges(
 
         # Collect all unique edge indices from all path segments.
         edge_indices: set[int] = set()
+        has_terminus = False
         for seg in path_segs:
             if seg.entry_edge is not None:
                 edge_indices.add(seg.entry_edge)
+            else:
+                has_terminus = True
             if seg.exit_edge is not None:
                 edge_indices.add(seg.exit_edge)
+            else:
+                has_terminus = True
 
-        # Only merge true junctions (3+ distinct edges).
-        # A through-route has exactly 2 edges and should stay
-        # as a single entry->exit segment.
-        if len(edge_indices) < 3:
+        # Merge into star when it's a true junction:
+        # - 3+ distinct named edges, OR
+        # - 2+ named edges plus a terminus (path start/end),
+        #   making it a T-junction.
+        min_edges = 2 if has_terminus else 3
+        if len(edge_indices) < min_edges:
             continue
 
         # Remove old path segments.
