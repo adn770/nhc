@@ -1,0 +1,70 @@
+id: hex.dressing.approach
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: forest_canopy
+    text: Árboles altos forman un dosel denso en lo alto.
+    only_if:
+      terrain: forest
+  - id: forest_clearing
+    text: Rayos de luz atraviesan la penumbra verde.
+    only_if:
+      terrain: forest
+  - id: plains_wind
+    text: El viento ondula la hierba alta.
+    only_if:
+      terrain: [greenlands, drylands]
+  - id: plains_horizon
+    text: La tierra se extiende llana hasta el horizonte.
+    only_if:
+      terrain: [greenlands, drylands]
+  - id: mountain_crag
+    text: Riscos escarpados se alzan contra el cielo.
+    only_if:
+      terrain: mountain
+  - id: mountain_path
+    text: Un sendero estrecho serpentea entre peñascos.
+    only_if:
+      terrain: [mountain, hills]
+  - id: hills_gentle
+    text: Colinas verdes suben y bajan suavemente.
+    only_if:
+      terrain: hills
+  - id: swamp_mist
+    text: Una niebla baja se aferra al suelo encharcado.
+    only_if:
+      terrain: [swamp, marsh]
+  - id: swamp_reeds
+    text: Juncos espesos ahogan las aguas turbias.
+    only_if:
+      terrain: [swamp, marsh]
+  - id: sand_dunes
+    text: Dunas de arena pálida brillan con el calor.
+    only_if:
+      terrain: sandlands
+  - id: ice_frost
+    text: La escarcha recubre cada superficie de blanco.
+    only_if:
+      terrain: icelands
+  - id: dead_ash
+    text: Ceniza y polvo cubren la tierra yerma.
+    only_if:
+      terrain: deadlands
+  - id: cave_mouth
+    text: Una abertura oscura bosteza en la roca.
+    only_if:
+      feature: cave
+  - id: ruin_stones
+    text: Muros rotos asoman entre la maleza.
+    only_if:
+      feature: ruin
+  - id: tower_shadow
+    text: Una torre solitaria proyecta una sombra larga.
+    only_if:
+      feature: tower
+  - id: keep_walls
+    text: Almenas erosionadas coronan la cima de la colina.
+    only_if:
+      feature: keep

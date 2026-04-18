@@ -244,6 +244,7 @@ class HexCell:
     edges: list[EdgeSegment] = field(default_factory=list)
     flower: HexFlower | None = None
     tile_slot: int = 0
+    dressing: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

@@ -476,6 +476,8 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
             ]
         if cell.flower is not None:
             cell_data["flower"] = _serialize_flower(cell.flower)
+        if cell.dressing:
+            cell_data["dressing"] = cell.dressing
         cells.append(cell_data)
     rumors = []
     for r in hw.active_rumors:
@@ -584,6 +586,7 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
             edges=edges,
             flower=flower,
             tile_slot=int(cd.get("tile_slot", 0)),
+            dressing=cd.get("dressing", {}),
         ))
     hw.revealed = {_list_to_coord(c) for c in data.get("revealed", [])}
     hw.visited = {_list_to_coord(c) for c in data.get("visited", [])}

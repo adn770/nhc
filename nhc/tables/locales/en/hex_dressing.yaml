@@ -1,0 +1,70 @@
+id: hex.dressing.approach
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: forest_canopy
+    text: Tall trees form a dense canopy overhead.
+    only_if:
+      terrain: forest
+  - id: forest_clearing
+    text: Shafts of light pierce the leafy gloom.
+    only_if:
+      terrain: forest
+  - id: plains_wind
+    text: Wind ripples through the tall grass.
+    only_if:
+      terrain: [greenlands, drylands]
+  - id: plains_horizon
+    text: The land stretches flat to the horizon.
+    only_if:
+      terrain: [greenlands, drylands]
+  - id: mountain_crag
+    text: Jagged crags rise against the sky.
+    only_if:
+      terrain: mountain
+  - id: mountain_path
+    text: A narrow path winds between boulders.
+    only_if:
+      terrain: [mountain, hills]
+  - id: hills_gentle
+    text: Rolling green hills rise and fall gently.
+    only_if:
+      terrain: hills
+  - id: swamp_mist
+    text: A low mist clings to the waterlogged ground.
+    only_if:
+      terrain: [swamp, marsh]
+  - id: swamp_reeds
+    text: Thick reeds choke the murky shallows.
+    only_if:
+      terrain: [swamp, marsh]
+  - id: sand_dunes
+    text: Dunes of pale sand shimmer in the heat.
+    only_if:
+      terrain: sandlands
+  - id: ice_frost
+    text: Frost rimes every surface in white.
+    only_if:
+      terrain: icelands
+  - id: dead_ash
+    text: Ash and dust blanket the barren earth.
+    only_if:
+      terrain: deadlands
+  - id: cave_mouth
+    text: A dark opening yawns in the rock face.
+    only_if:
+      feature: cave
+  - id: ruin_stones
+    text: Broken walls jut from the undergrowth.
+    only_if:
+      feature: ruin
+  - id: tower_shadow
+    text: A lone tower casts a long shadow.
+    only_if:
+      feature: tower
+  - id: keep_walls
+    text: Weathered battlements crown the hilltop.
+    only_if:
+      feature: keep

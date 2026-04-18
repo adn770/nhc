@@ -816,6 +816,8 @@ def _attempt_continental(
             coord.q, coord.r, has_ww,
         )
 
+    _roll_hex_dressing(cells, rng)
+
     world = HexWorld(
         pack_id=pack.id,
         seed=world_seed,
@@ -832,6 +834,31 @@ def _attempt_continental(
     world.rivers = rivers
     world.paths = paths
     return world
+
+
+def _roll_hex_dressing(
+    cells: dict,
+    rng: "random.Random",
+) -> None:
+    """Roll approach-line dressing for each hex cell."""
+    from nhc.i18n import current_lang
+    from nhc.tables.registry import TableRegistry
+    from nhc.tables.roller import NoMatchingEntriesError
+
+    lang = current_lang()
+    registry = TableRegistry.get_or_load(lang)
+
+    for cell in cells.values():
+        ctx: dict = {"terrain": cell.biome.value}
+        if cell.feature.value != "none":
+            ctx["feature"] = cell.feature.value
+        try:
+            result = registry.roll(
+                "hex.dressing.approach", rng=rng, context=ctx,
+            )
+            cell.dressing["approach"] = result.text
+        except (NoMatchingEntriesError, KeyError):
+            pass
 
 
 def generate_continental_world(

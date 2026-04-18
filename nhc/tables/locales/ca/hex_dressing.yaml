@@ -1,0 +1,70 @@
+id: hex.dressing.approach
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: forest_canopy
+    text: Arbres alts formen una capçada densa al damunt.
+    only_if:
+      terrain: forest
+  - id: forest_clearing
+    text: Raigs de llum travessen la penombra verda.
+    only_if:
+      terrain: forest
+  - id: plains_wind
+    text: El vent ondula l'herba alta.
+    only_if:
+      terrain: [greenlands, drylands]
+  - id: plains_horizon
+    text: La terra s'estén plana fins a l'horitzó.
+    only_if:
+      terrain: [greenlands, drylands]
+  - id: mountain_crag
+    text: Cingleres esmolades s'alcen contra el cel.
+    only_if:
+      terrain: mountain
+  - id: mountain_path
+    text: Un sender estret serpenteja entre penyes.
+    only_if:
+      terrain: [mountain, hills]
+  - id: hills_gentle
+    text: Turons verds s'alcen i cauen suaument.
+    only_if:
+      terrain: hills
+  - id: swamp_mist
+    text: Una boira baixa s'aferra al sòl entollat.
+    only_if:
+      terrain: [swamp, marsh]
+  - id: swamp_reeds
+    text: Canyes espesses ofeguen les aigües tèrboles.
+    only_if:
+      terrain: [swamp, marsh]
+  - id: sand_dunes
+    text: Dunes de sorra pàl·lida brillen amb la calor.
+    only_if:
+      terrain: sandlands
+  - id: ice_frost
+    text: La gelada recobreix cada superfície de blanc.
+    only_if:
+      terrain: icelands
+  - id: dead_ash
+    text: Cendra i pols cobreixen la terra erma.
+    only_if:
+      terrain: deadlands
+  - id: cave_mouth
+    text: Una obertura fosca badalla a la roca.
+    only_if:
+      feature: cave
+  - id: ruin_stones
+    text: Murs trencats despunten entre la malesa.
+    only_if:
+      feature: ruin
+  - id: tower_shadow
+    text: Una torre solitària projecta una ombra llarga.
+    only_if:
+      feature: tower
+  - id: keep_walls
+    text: Merlets erosionats coronen el cim del turó.
+    only_if:
+      feature: keep
