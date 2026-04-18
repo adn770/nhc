@@ -172,11 +172,18 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
 
         for seg in cell.edges:
             is_river = seg.type == "river"
-            # Try sub_path from flower (skip at junctions for
-            # paths — flower sub-paths were generated for the
-            # original segments which may not match junctions).
+            # Try sub_path from flower. Skip for paths when:
+            # - junction hex (flower sub-paths don't match), or
+            # - source/sink segment (would cross the feature icon)
             sub_path = None
-            use_sub = not (is_junction and seg.type == "path")
+            is_path_terminus = (
+                seg.type == "path"
+                and (seg.entry_edge is None or seg.exit_edge is None)
+            )
+            use_sub = not (
+                (is_junction and seg.type == "path")
+                or is_path_terminus
+            )
             if use_sub and cell.flower:
                 for fseg in cell.flower.edges:
                     if (fseg.type == seg.type
@@ -313,7 +320,12 @@ def render_hexmap(world: HexWorld, outpath: Path) -> None:
 def _fallback_curve(
     cx: float, cy: float, seg,
 ) -> list[tuple[float, float]]:
-    """Simple quadratic arc between entry/exit edge midpoints."""
+    """Simple quadratic arc between entry/exit edge midpoints.
+
+    For source/sink segments (one end is None), the curve is
+    shortened to 40% of the way from edge to center so it
+    doesn't cross over the feature icon in the tile.
+    """
     s3 = math.sqrt(3)
     mids = [
         (0, -HEX_RADIUS * s3 / 2),
@@ -333,6 +345,18 @@ def _fallback_curve(
         p1 = (cx + dx, cy + dy)
     else:
         p1 = (cx, cy)
+
+    # For source/sink (one end at center), shorten the curve
+    # so it stops before crossing the feature icon.
+    if seg.entry_edge is None and seg.exit_edge is not None:
+        # Source: pull p0 from center toward exit edge (40%)
+        p0 = (cx + (p1[0] - cx) * 0.40,
+              cy + (p1[1] - cy) * 0.40)
+    elif seg.exit_edge is None and seg.entry_edge is not None:
+        # Sink: pull p1 from center toward entry edge (40%)
+        p1 = (cx + (p0[0] - cx) * 0.40,
+              cy + (p0[1] - cy) * 0.40)
+
     mid = ((p0[0] + p1[0]) / 2 + (cx - (p0[0] + p1[0]) / 2) * 0.3,
            (p0[1] + p1[1]) / 2 + (cy - (p0[1] + p1[1]) / 2) * 0.3)
     return [p0, mid, p1]

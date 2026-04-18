@@ -638,11 +638,14 @@ const HexMap = {
   _drawEdgeSegment(ctx, cx, cy, q, r, seg, widthScale = 1.0,
                    isJunction = false) {
     // When sub-hex waypoints are available, use them for smoother
-    // curves. Skip at path junctions — flower sub-paths were
-    // generated for the original segments and don't match the
-    // junction layout; use the clean Bezier fallback instead.
+    // curves. Skip for paths at junctions (flower sub-paths don't
+    // match the junction layout) and at source/sink segments
+    // (would cross over the feature icon).
+    const isPathTerminus = seg.type !== "river"
+        && (seg.entry == null || seg.exit == null);
     const useSubPath = seg.sub_path && seg.sub_path.length >= 2
-                       && !(isJunction && seg.type !== "river");
+        && !(isJunction && seg.type !== "river")
+        && !isPathTerminus;
     if (useSubPath) {
       this._drawSubPathCurve(ctx, cx, cy, seg, widthScale);
       return;
@@ -653,20 +656,28 @@ const HexMap = {
     if (seg.entry !== null && seg.entry !== undefined) {
       const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
       p0 = {x: cx + m.x, y: cy + m.y};
-    } else if (seg.exit !== null && seg.exit !== undefined) {
-      const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
-      p0 = {x: cx + m.x * 3 / 4, y: cy + m.y * 3 / 4};
     } else {
       p0 = {x: cx, y: cy};
     }
     if (seg.exit !== null && seg.exit !== undefined) {
       const m = this._edgeMidpoint(seg.exit, HEX_SIZE);
       p1 = {x: cx + m.x, y: cy + m.y};
-    } else if (seg.entry !== null && seg.entry !== undefined) {
-      const m = this._edgeMidpoint(seg.entry, HEX_SIZE);
-      p1 = {x: cx + m.x * 3 / 4, y: cy + m.y * 3 / 4};
     } else {
       p1 = {x: cx, y: cy};
+    }
+    // Source/sink: shorten the curve so it stops before the
+    // feature icon. Pull the center-end 40% toward the edge.
+    if (seg.entry === null || seg.entry === undefined) {
+      if (seg.exit !== null && seg.exit !== undefined) {
+        p0 = {x: cx + (p1.x - cx) * 0.40,
+              y: cy + (p1.y - cy) * 0.40};
+      }
+    }
+    if (seg.exit === null || seg.exit === undefined) {
+      if (seg.entry !== null && seg.entry !== undefined) {
+        p1 = {x: cx + (p0.x - cx) * 0.40,
+              y: cy + (p0.y - cy) * 0.40};
+      }
     }
 
     const h = ((q * 7919 + r * 104729) & 0x7FFFFFFF);
