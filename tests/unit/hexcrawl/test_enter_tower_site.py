@@ -137,3 +137,40 @@ async def test_non_tower_site_kind_still_uses_old_path(
     assert g.level is not None
     assert g.generation_params is not None
     assert g.generation_params.template == "procedural:keep"
+
+
+@pytest.mark.asyncio
+async def test_tower_caches_every_floor_by_depth(tmp_path) -> None:
+    """All tower floors land in the floor cache at their depths so
+    the engine's existing descend-stair transition finds them."""
+    g = _make_game(tmp_path)
+    _attach_tower_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    assert g.level is not None
+    # Active level is depth=1 (ground). Tower towers have 2-6
+    # floors; every depth from 1..n should be cached.
+    ground_depth = 1
+    cache = g._floor_cache
+    assert g._cache_key(ground_depth) in cache
+    # At least one higher floor is present.
+    higher_keys = [
+        k for k in cache.keys()
+        if k != g._cache_key(ground_depth)
+    ]
+    assert higher_keys, "expected upper floors cached"
+
+
+@pytest.mark.asyncio
+async def test_tower_cached_upper_floor_has_floor_index(
+    tmp_path,
+) -> None:
+    """Cached upper floors still carry the Building back-reference."""
+    g = _make_game(tmp_path)
+    _attach_tower_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    for key, (level, _) in g._floor_cache.items():
+        if level is g.level:
+            continue
+        assert level.building_id is not None
+        assert level.floor_index is not None
+        assert level.floor_index >= 1

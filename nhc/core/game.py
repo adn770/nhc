@@ -714,12 +714,17 @@ class Game:
             f"site_{coord.q}_{coord.r}",
             random.Random(seed),
         )
-        self.level = site.buildings[0].ground
+        building = site.buildings[0]
+        self.level = building.ground
         if (self.level and self.level.metadata
                 and cell.dungeon.faction):
             self.level.metadata.faction = cell.dungeon.faction
         self._spawn_level_entities()
-        self._floor_cache[cache_key] = (self.level, {})
+        # Pre-cache every floor of the tower under (q, r, depth) so
+        # the engine's existing descend/ascend transition finds the
+        # adjacent floor without having to regenerate the building.
+        for i, floor in enumerate(building.floors):
+            self._floor_cache[self._cache_key(i + 1)] = (floor, {})
         self._place_player_on_tower_entry()
         self._update_fov()
         self._notify_floor_change(depth)
