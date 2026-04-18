@@ -550,3 +550,65 @@ def assign_biomes(
     _repair_essentials(cells, hexes_by_biome, rng)
 
     return cells, hexes_by_biome
+
+
+# ---------------------------------------------------------------------------
+# Stage 9: Edge-point continuity (macro offsets)
+# ---------------------------------------------------------------------------
+
+
+def _edge_hash(
+    aq: int, ar: int, bq: int, br: int, extra: int = 0,
+) -> int:
+    """Deterministic hash for edge-point allocation.
+
+    Same family as the jitter hash used by both renderers.
+    """
+    h = (aq * 7919 + ar * 104729
+         + bq * 34159 + br * 65537
+         + extra * 48611) & 0x7FFFFFFF
+    h = ((h >> 16) ^ h) * 0x45D9F3B
+    return ((h >> 16) ^ h) & 0x7FFFFFFF
+
+
+def _assign_macro_offsets(
+    cells: dict[HexCoord, HexCell],
+) -> None:
+    """Assign random edge-crossing offsets to all edge segments.
+
+    For each shared edge between adjacent hexes, compute a
+    deterministic random offset in ``[-0.4, +0.4]`` and assign it
+    to the exit_offset of the upstream hex and the entry_offset of
+    the downstream hex so they share the same physical point.
+    """
+    # Cache: canonical edge key -> offset.
+    cache: dict[tuple[int, int, int, int, str], float] = {}
+
+    for coord, cell in cells.items():
+        for seg in cell.edges:
+            # Entry offset.
+            if seg.entry_edge is not None:
+                nbrs = neighbors(coord)
+                nbr = nbrs[seg.entry_edge]
+                # Canonical key: smaller coord first.
+                if (coord.q, coord.r) < (nbr.q, nbr.r):
+                    key = (coord.q, coord.r, nbr.q, nbr.r, seg.type)
+                else:
+                    key = (nbr.q, nbr.r, coord.q, coord.r, seg.type)
+                if key not in cache:
+                    h = _edge_hash(*key[:4])
+                    cache[key] = ((h % 81) - 40) / 100.0
+                seg.entry_offset = cache[key]
+
+            # Exit offset.
+            if seg.exit_edge is not None:
+                nbrs = neighbors(coord)
+                nbr = nbrs[seg.exit_edge]
+                if (coord.q, coord.r) < (nbr.q, nbr.r):
+                    key = (coord.q, coord.r, nbr.q, nbr.r, seg.type)
+                else:
+                    key = (nbr.q, nbr.r, coord.q, coord.r, seg.type)
+                if key not in cache:
+                    h = _edge_hash(*key[:4])
+                    cache[key] = ((h % 81) - 40) / 100.0
+                seg.exit_offset = cache[key]

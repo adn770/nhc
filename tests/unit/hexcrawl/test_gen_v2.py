@@ -14,6 +14,7 @@ from nhc.hexcrawl.coords import (
     shape_r_range,
     valid_shape_hex,
 )
+from nhc.hexcrawl.model import Biome, EdgeSegment, HexCell
 from nhc.hexcrawl.pack import ContinentalParams
 
 
@@ -516,3 +517,108 @@ class TestBiomeAssignment:
         )
         for h in cells_a:
             assert cells_a[h].biome == cells_b[h].biome
+
+
+# ---------------------------------------------------------------------------
+# Stage 9: Edge-point continuity (macro offsets)
+# ---------------------------------------------------------------------------
+
+
+class TestMacroEdgeOffsets:
+    """Tests for _assign_macro_offsets()."""
+
+    def _make_cells_with_river(self) -> dict[HexCoord, HexCell]:
+        """Build cells with a simple 3-hex river for offset testing."""
+        from nhc.hexcrawl.model import EdgeSegment, HexCell
+        from nhc.hexcrawl.coords import shape_r_range
+
+        cells: dict[HexCoord, HexCell] = {}
+        for q in range(5):
+            r_min, r_max = shape_r_range(q, 5)
+            for r in range(r_min, r_max):
+                cells[HexCoord(q, r)] = HexCell(
+                    coord=HexCoord(q, r),
+                    biome=Biome.GREENLANDS,
+                    elevation=0.3,
+                )
+
+        # Stamp a 3-hex river: (1,0) -> (2,0) -> (3,0)
+        from nhc.hexcrawl._rivers import direction_index
+        path = [HexCoord(1, 0), HexCoord(2, 0), HexCoord(3, 0)]
+        for i, coord in enumerate(path):
+            entry = None if i == 0 else (
+                direction_index(path[i - 1], coord) + 3
+            ) % 6
+            exit_ = None if i == len(path) - 1 else (
+                direction_index(coord, path[i + 1])
+            )
+            cells[coord].edges.append(
+                EdgeSegment(
+                    type="river",
+                    entry_edge=entry if i > 0 else None,
+                    exit_edge=exit_,
+                ),
+            )
+        return cells
+
+    def test_shared_offset(self) -> None:
+        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+
+        cells = self._make_cells_with_river()
+        _assign_macro_offsets(cells)
+
+        # The exit offset of (1,0) should equal the entry offset
+        # of (2,0) -- they share the same edge.
+        seg_1 = cells[HexCoord(1, 0)].edges[0]
+        seg_2 = cells[HexCoord(2, 0)].edges[0]
+        assert seg_1.exit_offset is not None
+        assert seg_2.entry_offset is not None
+        assert seg_1.exit_offset == seg_2.entry_offset
+
+        # Same for (2,0) exit and (3,0) entry.
+        seg_3 = cells[HexCoord(3, 0)].edges[0]
+        assert seg_2.exit_offset is not None
+        assert seg_3.entry_offset is not None
+        assert seg_2.exit_offset == seg_3.entry_offset
+
+    def test_bounded(self) -> None:
+        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+
+        cells = self._make_cells_with_river()
+        _assign_macro_offsets(cells)
+
+        for cell in cells.values():
+            for seg in cell.edges:
+                if seg.entry_offset is not None:
+                    assert -0.4 <= seg.entry_offset <= 0.4
+                if seg.exit_offset is not None:
+                    assert -0.4 <= seg.exit_offset <= 0.4
+
+    def test_deterministic(self) -> None:
+        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+
+        cells_a = self._make_cells_with_river()
+        _assign_macro_offsets(cells_a)
+        cells_b = self._make_cells_with_river()
+        _assign_macro_offsets(cells_b)
+
+        for h in cells_a:
+            for sa, sb in zip(
+                cells_a[h].edges, cells_b[h].edges, strict=True,
+            ):
+                assert sa.entry_offset == sb.entry_offset
+                assert sa.exit_offset == sb.exit_offset
+
+    def test_source_and_sink_remain_none(self) -> None:
+        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+
+        cells = self._make_cells_with_river()
+        _assign_macro_offsets(cells)
+
+        # Source (first hex) has entry_edge=None -> offset=None
+        seg_src = cells[HexCoord(1, 0)].edges[0]
+        assert seg_src.entry_offset is None
+
+        # Sink (last hex) has exit_edge=None -> offset=None
+        seg_sink = cells[HexCoord(3, 0)].edges[0]
+        assert seg_sink.exit_offset is None
