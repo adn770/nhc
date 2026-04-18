@@ -584,12 +584,18 @@ def _remove_interior_water(
                 frontier.append(nbr)
 
     # Interior water: water hexes not connected to the edge.
+    # Convert to a land biome that fits the latitude.
+    all_r = [h.r for h in cells]
+    r_min_val = min(all_r)
+    r_span = max(max(all_r) - r_min_val, 1)
     interior = water_hexes - coastal
     for h in interior:
         cell = cells[h]
-        # Convert based on elevation: low -> marsh, mid -> green
-        if cell.elevation < 0.15:
-            new_biome = Biome.MARSH
+        latitude = 2.0 * (h.r - r_min_val) / r_span - 1.0
+        if latitude < -0.4:
+            new_biome = Biome.ICELANDS
+        elif latitude > 0.4:
+            new_biome = Biome.SANDLANDS
         else:
             new_biome = Biome.GREENLANDS
         cell.biome = new_biome
