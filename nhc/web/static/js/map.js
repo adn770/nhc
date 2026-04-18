@@ -261,7 +261,17 @@ const GameMap = {
     // Skip if the floor SVG hasn't loaded yet — canvas
     // dimensions are 0 and nothing would be visible. The
     // floor handler will call flush() again after loading.
-    if (!this.mapW || !this.mapH) return;
+    if (!this.mapW || !this.mapH) {
+      console.log("[flush] SKIP: mapW=", this.mapW,
+                  "mapH=", this.mapH);
+      return;
+    }
+    console.log("[flush] rendering: mapW=", this.mapW,
+                "mapH=", this.mapH,
+                "canvas=", this.canvas?.width, "x",
+                this.canvas?.height,
+                "entities=", this.entities?.length,
+                "fov=", this.fov?.size);
     this.clearHatch(this.walls);
     this.drawFog();
     this.draw();

@@ -47,9 +47,10 @@ const NHC = {
 
     // Wire up WebSocket message handlers
     WS.on("state", (msg) => {
-      console.log("state:", msg.entities.length, "entities,",
-                  (msg.doors || []).length, "doors,",
-                  (msg.fov || []).length, "fov tiles");
+      console.log("[state] entities:", msg.entities.length,
+                  "doors:", (msg.doors || []).length,
+                  "fov:", (msg.fov || []).length,
+                  "mapW:", GameMap.mapW, "mapH:", GameMap.mapH);
       if (msg.turn !== undefined) GameMap.turn = msg.turn;
       GameMap.updateEntities(msg.entities, msg.doors, msg.dug);
       if (msg.fov || msg.fov_add || msg.fov_del) {
@@ -91,7 +92,10 @@ const NHC = {
     });
 
     WS.on("floor", async (msg) => {
-      console.log("floor msg keys:", Object.keys(msg));
+      console.log("[floor] msg keys:", Object.keys(msg),
+                  "entities:", (msg.entities||[]).length,
+                  "fov:", (msg.fov||[]).length,
+                  "explored:", (msg.explored||[]).length);
       // Reset client state for the new floor
       GameMap.fov = new Set();
       GameMap.explored = new Set();
@@ -109,34 +113,62 @@ const NHC = {
       if (msg.feeling) GameMap.feeling = msg.feeling;
       // Load floor SVG via HTTP
       if (msg.floor_url) {
+        console.log("[floor] fetching SVG from:", msg.floor_url);
         const svg = await fetch(msg.floor_url).then(r => r.text());
-        console.log("floor SVG loaded:", svg.length, "bytes");
+        console.log("[floor] SVG loaded:", svg.length, "bytes");
         GameMap.setFloorSVG(svg);
+        console.log("[floor] after setFloorSVG: mapW=",
+                    GameMap.mapW, "mapH=", GameMap.mapH,
+                    "canvas=", GameMap.canvas?.width, "x",
+                    GameMap.canvas?.height);
       }
       if (msg.entities) {
         GameMap.updateEntities(msg.entities, msg.doors, msg.dug);
+        console.log("[floor] updateEntities done:",
+                    GameMap.entities.length, "entities");
       }
-      // Seed explored before loading the hatch pattern so the
-      // onload handler can replay the full reveal in one pass.
       if (msg.explored) {
         GameMap.setExplored(msg.explored);
+        console.log("[floor] setExplored:", msg.explored.length);
       }
       if (msg.fov) {
         GameMap.updateFOV(msg);
+        console.log("[floor] updateFOV:", msg.fov.length, "tiles");
       }
       if (msg.hatch_url) {
         GameMap.loadHatchSVG(msg.hatch_url);
       }
+      const mapContainer = document.getElementById("map-container");
+      const hexContainer = document.getElementById("hex-container");
+      const flowerContainer = document.getElementById("flower-container");
+      console.log("[floor] visibility: map-container=",
+                  mapContainer && !mapContainer.classList.contains("hidden"),
+                  "hex-container=",
+                  hexContainer && !hexContainer.classList.contains("hidden"),
+                  "flower-container=",
+                  flowerContainer && !flowerContainer.classList.contains("hidden"));
+      console.log("[floor] map-container transform:",
+                  mapContainer?.style.transform,
+                  "origin:", mapContainer?.style.transformOrigin);
       if (msg.entities || msg.fov) {
         // Defer rendering to give the browser time to lay out
-        // the SVG and resize canvases. A double rAF ensures
-        // the SVG is painted before we draw on the canvas stack.
+        // the SVG and resize canvases.
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
+            console.log("[floor] deferred flush: mapW=",
+                        GameMap.mapW, "mapH=", GameMap.mapH,
+                        "canvas=", GameMap.canvas?.width, "x",
+                        GameMap.canvas?.height,
+                        "fov size=", GameMap.fov?.size,
+                        "entities=", GameMap.entities?.length);
             GameMap.flush();
             GameMap.scrollToPlayer();
+            console.log("[floor] flush+scroll done, playerX=",
+                        GameMap.playerX, "playerY=", GameMap.playerY);
           });
         });
+      } else {
+        console.log("[floor] NO entities/fov — skipping flush");
       }
       NHC.waitingForFloor = false;
       NHC.hideLoading();
