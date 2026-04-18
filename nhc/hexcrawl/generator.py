@@ -329,6 +329,16 @@ def _attempt(rng: random.Random, pack: PackMeta) -> HexWorld:
     world_seed = rng.randrange(1 << 30)
     _gen_flowers(cells, world_seed)
 
+    # Tile slots: assign after rivers/roads/flowers so waterway
+    # hexes get lighter tile variants (no dense canopy).
+    from nhc.hexcrawl.tiles import assign_tile_slot as _assign_slot
+    for coord, cell in cells.items():
+        has_ww = any(e.type == "river" for e in cell.edges)
+        cell.tile_slot = _assign_slot(
+            cell.biome.value, cell.feature.value,
+            coord.q, coord.r, has_ww,
+        )
+
     world = HexWorld(
         pack_id=pack.id,
         seed=world_seed,
@@ -506,6 +516,14 @@ def _attempt_perlin(rng: random.Random, pack: PackMeta) -> HexWorld:
     from nhc.hexcrawl._flowers import generate_flowers as _gen_flowers
     world_seed = rng.randrange(1 << 30)
     _gen_flowers(cells, world_seed)
+
+    from nhc.hexcrawl.tiles import assign_tile_slot as _assign_slot
+    for coord, cell in cells.items():
+        has_ww = any(e.type == "river" for e in cell.edges)
+        cell.tile_slot = _assign_slot(
+            cell.biome.value, cell.feature.value,
+            coord.q, coord.r, has_ww,
+        )
 
     world = HexWorld(
         pack_id=pack.id,

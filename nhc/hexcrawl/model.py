@@ -184,6 +184,7 @@ class SubHexCell:
     move_cost_hours: float = 1.0
     encounter_modifier: float = 1.0
     searched: bool = False
+    tile_slot: int = 0
 
 
 @dataclass
@@ -233,6 +234,7 @@ class HexCell:
     elevation: float = 0.0
     edges: list[EdgeSegment] = field(default_factory=list)
     flower: HexFlower | None = None
+    tile_slot: int = 0
 
 
 @dataclass

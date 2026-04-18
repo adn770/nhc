@@ -60,6 +60,7 @@ def build_hex_state_msg(
             "r": coord.r,
             "biome": cell.biome.value,
             "feature": cell.feature.value,
+            "tile_slot": cell.tile_slot,
             "revealed": coord in hex_world.revealed,
         }
         if cell.edges:
@@ -136,6 +137,7 @@ def build_flower_state_msg(
             "major_feature": sc.major_feature.value,
             "has_road": sc.has_road,
             "has_river": sc.has_river,
+            "tile_slot": sc.tile_slot,
             "revealed": coord in revealed,
             "visited": coord in visited,
         })

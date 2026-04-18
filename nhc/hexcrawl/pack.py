@@ -32,7 +32,7 @@ DEFAULT_BIOME_COSTS: dict[Biome, int] = {
     Biome.DRYLANDS: 1,
     Biome.SANDLANDS: 2,
     Biome.ICELANDS: 2,
-    Biome.FOREST: 2,
+    Biome.FOREST: 6,
     Biome.MOUNTAIN: 4,
     Biome.DEADLANDS: 2,
     # Hills ~= forest cost; wetlands cost more -- marsh + swamp
@@ -116,8 +116,8 @@ class RiverParams:
     source_elevation_min: float = 0.65
     flatness_window: int = 5
     flatness_threshold: float = 0.02
-    arid_biomes: frozenset[Biome] = frozenset({
-        Biome.DRYLANDS, Biome.SANDLANDS,
+    avoided_biomes: frozenset[Biome] = frozenset({
+        Biome.DRYLANDS, Biome.SANDLANDS, Biome.FOREST,
     })
 
 

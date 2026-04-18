@@ -312,9 +312,13 @@ def route_river_through_flower(
         candidates = [c for c in ring1 if c != start]
         goal = rng.choice(candidates) if candidates else ring1[0]
 
-    # Penalise center (ring 0) so rivers don't obscure feature icons.
+    # Penalise center (ring 0) so rivers don't obscure feature
+    # icons, and forest sub-hexes so rivers flow through
+    # clearings and lighter vegetation instead.
     def river_cost(_from: HexCoord, to: HexCoord) -> float:
         if to == center:
+            return 5.0
+        if cells[to].biome is Biome.FOREST:
             return 5.0
         return 1.0
 
@@ -377,9 +381,14 @@ def route_road_through_flower(
 
     # Cost function: stepping onto the feature cell is cheap (0.1)
     # so A* routes through it when it doesn't add too much detour.
+    # Forest sub-hexes are penalised so roads route around them.
+    _ROAD_AVOID = frozenset({Biome.FOREST})
+
     def step_cost(_from: HexCoord, to: HexCoord) -> float:
         if feature_cell is not None and to == feature_cell:
             return 0.1
+        if cells[to].biome in _ROAD_AVOID:
+            return 4.0
         return 1.0
 
     path = _flower_astar(cells, start, goal, step_cost=step_cost)
@@ -738,7 +747,18 @@ def generate_flower(
                 exit_macro_edge=seg.exit_edge,
             ))
 
-    # 6. Pre-compute fast-travel costs
+    # 6. Tile slots: assign after rivers/roads so waterway
+    # sub-hexes get lighter tile variants.
+    from nhc.hexcrawl.tiles import assign_tile_slot
+    for c, sc in cells.items():
+        has_ww = sc.has_river or sc.has_road
+        sc.tile_slot = assign_tile_slot(
+            sc.biome.value,
+            sc.major_feature.value,
+            c.q, c.r, has_ww,
+        )
+
+    # 7. Pre-compute fast-travel costs
     ft_costs = compute_fast_travel_costs(cells)
 
     return HexFlower(

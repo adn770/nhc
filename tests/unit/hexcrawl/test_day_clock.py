@@ -33,7 +33,7 @@ def test_cost_for_default_drylands() -> None:
 
 
 def test_cost_for_default_forest_and_hills_midrange() -> None:
-    assert cost_for(Biome.FOREST) == 2
+    assert cost_for(Biome.FOREST) == 6
     assert cost_for(Biome.SANDLANDS) == 2
     assert cost_for(Biome.ICELANDS) == 2
     assert cost_for(Biome.DEADLANDS) == 2
@@ -52,7 +52,7 @@ def test_cost_for_defaults_match_design_doc_table() -> None:
         Biome.DRYLANDS: 1,
         Biome.SANDLANDS: 2,
         Biome.ICELANDS: 2,
-        Biome.FOREST: 2,
+        Biome.FOREST: 6,
         Biome.MOUNTAIN: 4,
         Biome.DEADLANDS: 2,
         Biome.HILLS: 2,

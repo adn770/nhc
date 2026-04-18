@@ -241,8 +241,8 @@ def test_generator_path_hexes_have_sub_hex_segments(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_is_three() -> None:
-    assert SCHEMA_VERSION == 3
+def test_schema_version_is_four() -> None:
+    assert SCHEMA_VERSION == 4
 
 
 def test_flower_survives_round_trip() -> None:

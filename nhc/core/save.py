@@ -47,10 +47,10 @@ for _name in dir(comp_module):
 
 DEFAULT_SAVE_DIR = Path.home() / ".nhc" / "saves"
 
-# JSON save schema version. Bumped from 2 -> 3 when the sub-hex
-# flower layer landed (flower data on each HexCell, hour/minute
-# clock fields on HexWorld). Old saves are rejected on load.
-SCHEMA_VERSION = 3
+# JSON save schema version. Bumped from 3 -> 4 when tile_slot
+# moved to the backend (each HexCell and SubHexCell now carries
+# its tile slot, assigned during generation).
+SCHEMA_VERSION = 4
 
 
 class SaveSchemaError(ValueError):
@@ -374,6 +374,7 @@ def _serialize_flower(flower: HexFlower) -> dict[str, Any]:
             "rv": sc.has_river,
             "mc": sc.move_cost_hours,
             "em": sc.encounter_modifier,
+            "ts": sc.tile_slot,
         })
     edges = [
         {
@@ -415,6 +416,7 @@ def _deserialize_flower(
             has_river=bool(sc_data.get("rv", False)),
             move_cost_hours=float(sc_data.get("mc", 1.0)),
             encounter_modifier=float(sc_data.get("em", 1.0)),
+            tile_slot=int(sc_data.get("ts", 0)),
         )
     edges = [
         SubHexEdgeSegment(
@@ -453,6 +455,7 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
             "name_key": cell.name_key,
             "desc_key": cell.desc_key,
             "elevation": cell.elevation,
+            "tile_slot": cell.tile_slot,
         }
         if cell.dungeon is not None:
             cell_data["dungeon"] = {
@@ -570,6 +573,7 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
             elevation=float(cd.get("elevation", 0.0)),
             edges=edges,
             flower=flower,
+            tile_slot=int(cd.get("tile_slot", 0)),
         ))
     hw.revealed = {_list_to_coord(c) for c in data.get("revealed", [])}
     hw.visited = {_list_to_coord(c) for c in data.get("visited", [])}
