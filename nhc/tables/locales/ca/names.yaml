@@ -1,0 +1,233 @@
+id: name.given.male
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: male_jordi
+    text: Jordi
+  - id: male_josep
+    text: Josep
+  - id: male_arnau
+    text: Arnau
+  - id: male_pere
+    text: Pere
+  - id: male_ramon
+    text: Ramon
+  - id: male_guillem
+    text: Guillem
+  - id: male_bernat
+    text: Bernat
+  - id: male_marc
+    text: Marc
+  - id: male_oriol
+    text: Oriol
+  - id: male_ferran
+    text: Ferran
+  - id: male_pau
+    text: Pau
+  - id: male_joan
+    text: Joan
+  - id: male_xavier
+    text: Xavier
+  - id: male_enric
+    text: Enric
+  - id: male_andreu
+    text: Andreu
+  - id: male_miquel
+    text: Miquel
+  - id: male_roger
+    text: Roger
+  - id: male_pol
+    text: Pol
+  - id: male_aleix
+    text: Aleix
+  - id: male_biel
+    text: Biel
+  - id: male_lluc
+    text: Lluc
+  - id: male_carles
+    text: Carles
+  - id: male_jaume
+    text: Jaume
+  - id: male_narcis
+    text: Narcís
+  - id: male_llorenç
+    text: Llorenç
+  - id: male_esteve
+    text: Esteve
+  - id: male_felip
+    text: Felip
+  - id: male_martí
+    text: Martí
+  - id: male_salvador
+    text: Salvador
+  - id: male_pere_joan
+    text: Pere Joan
+---
+id: name.given.female
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: female_marta
+    text: Marta
+  - id: female_montserrat
+    text: Montserrat
+  - id: female_mireia
+    text: Mireia
+  - id: female_nuria
+    text: Núria
+  - id: female_gemma
+    text: Gemma
+  - id: female_anna
+    text: Anna
+  - id: female_laia
+    text: Laia
+  - id: female_meritxell
+    text: Meritxell
+  - id: female_carme
+    text: Carme
+  - id: female_roser
+    text: Roser
+  - id: female_blanca
+    text: Blanca
+  - id: female_aina
+    text: Aina
+  - id: female_maria
+    text: Maria
+  - id: female_elisabet
+    text: Elisabet
+  - id: female_joana
+    text: Joana
+  - id: female_caterina
+    text: Caterina
+  - id: female_alba
+    text: Alba
+  - id: female_eulalia
+    text: Eulàlia
+  - id: female_judit
+    text: Judit
+  - id: female_ariadna
+    text: Ariadna
+  - id: female_griselda
+    text: Griselda
+  - id: female_isabel
+    text: Isabel
+  - id: female_elionor
+    text: Elionor
+  - id: female_agnès
+    text: Agnès
+  - id: female_dolors
+    text: Dolors
+  - id: female_teresa
+    text: Teresa
+  - id: female_pilar
+    text: Pilar
+  - id: female_rosa
+    text: Rosa
+  - id: female_marina
+    text: Marina
+  - id: female_clàudia
+    text: Clàudia
+---
+id: name.surname
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: sur_puig
+    text: Puig
+  - id: sur_fabra
+    text: Fabra
+  - id: sur_roca
+    text: Roca
+  - id: sur_vila
+    text: Vila
+  - id: sur_serra
+    text: Serra
+  - id: sur_oliver
+    text: Oliver
+  - id: sur_ferrer
+    text: Ferrer
+  - id: sur_soler
+    text: Soler
+  - id: sur_font
+    text: Font
+  - id: sur_mas
+    text: Mas
+  - id: sur_bosch
+    text: Bosch
+  - id: sur_valls
+    text: Valls
+  - id: sur_coll
+    text: Coll
+  - id: sur_prat
+    text: Prat
+  - id: sur_camps
+    text: Camps
+  - id: sur_costa
+    text: Costa
+  - id: sur_sala
+    text: Sala
+  - id: sur_riu
+    text: Riu
+  - id: sur_torrent
+    text: Torrent
+  - id: sur_ribas
+    text: Ribas
+  - id: sur_pons
+    text: Pons
+  - id: sur_vendrell
+    text: Vendrell
+  - id: sur_badia
+    text: Badia
+  - id: sur_figueres
+    text: Figueres
+  - id: sur_grau
+    text: Grau
+  - id: sur_casals
+    text: Casals
+  - id: sur_rovira
+    text: Rovira
+  - id: sur_plana
+    text: Plana
+  - id: sur_martorell
+    text: Martorell
+  - id: sur_torra
+    text: Torra
+  - id: sur_vilar
+    text: Vilar
+  - id: sur_estrada
+    text: Estrada
+  - id: sur_pi
+    text: Pi
+  - id: sur_molins
+    text: Molins
+  - id: sur_bach
+    text: Bach
+  - id: sur_rosell
+    text: Rosell
+  - id: sur_puigvert
+    text: Puigvert
+  - id: sur_solà
+    text: Solà
+  - id: sur_riera
+    text: Riera
+  - id: sur_bonet
+    text: Bonet
+---
+id: name.person.full
+kind: composed
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: male_full
+    only_if: { gender: m }
+    text: "{@name.given.male} {@name.surname}"
+  - id: female_full
+    only_if: { gender: f }
+    text: "{@name.given.female} {@name.surname}"

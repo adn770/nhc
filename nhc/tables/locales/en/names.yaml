@@ -1,0 +1,233 @@
+id: name.given.male
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: male_william
+    text: William
+  - id: male_john
+    text: John
+  - id: male_thomas
+    text: Thomas
+  - id: male_richard
+    text: Richard
+  - id: male_robert
+    text: Robert
+  - id: male_henry
+    text: Henry
+  - id: male_edward
+    text: Edward
+  - id: male_james
+    text: James
+  - id: male_george
+    text: George
+  - id: male_charles
+    text: Charles
+  - id: male_arthur
+    text: Arthur
+  - id: male_walter
+    text: Walter
+  - id: male_alfred
+    text: Alfred
+  - id: male_ralph
+    text: Ralph
+  - id: male_edmund
+    text: Edmund
+  - id: male_hugh
+    text: Hugh
+  - id: male_roger
+    text: Roger
+  - id: male_simon
+    text: Simon
+  - id: male_gilbert
+    text: Gilbert
+  - id: male_stephen
+    text: Stephen
+  - id: male_geoffrey
+    text: Geoffrey
+  - id: male_martin
+    text: Martin
+  - id: male_nicholas
+    text: Nicholas
+  - id: male_peter
+    text: Peter
+  - id: male_alan
+    text: Alan
+  - id: male_adam
+    text: Adam
+  - id: male_philip
+    text: Philip
+  - id: male_lawrence
+    text: Lawrence
+  - id: male_andrew
+    text: Andrew
+  - id: male_miles
+    text: Miles
+---
+id: name.given.female
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: female_alice
+    text: Alice
+  - id: female_margaret
+    text: Margaret
+  - id: female_joan
+    text: Joan
+  - id: female_agnes
+    text: Agnes
+  - id: female_matilda
+    text: Matilda
+  - id: female_emma
+    text: Emma
+  - id: female_rose
+    text: Rose
+  - id: female_isabel
+    text: Isabel
+  - id: female_eleanor
+    text: Eleanor
+  - id: female_cecily
+    text: Cecily
+  - id: female_edith
+    text: Edith
+  - id: female_mabel
+    text: Mabel
+  - id: female_lucy
+    text: Lucy
+  - id: female_beatrice
+    text: Beatrice
+  - id: female_anne
+    text: Anne
+  - id: female_katherine
+    text: Katherine
+  - id: female_constance
+    text: Constance
+  - id: female_helen
+    text: Helen
+  - id: female_mary
+    text: Mary
+  - id: female_elizabeth
+    text: Elizabeth
+  - id: female_jane
+    text: Jane
+  - id: female_winifred
+    text: Winifred
+  - id: female_sybil
+    text: Sybil
+  - id: female_clara
+    text: Clara
+  - id: female_philippa
+    text: Philippa
+  - id: female_gwendolen
+    text: Gwendolen
+  - id: female_ivy
+    text: Ivy
+  - id: female_mildred
+    text: Mildred
+  - id: female_dorothy
+    text: Dorothy
+  - id: female_violet
+    text: Violet
+---
+id: name.surname
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: sur_smith
+    text: Smith
+  - id: sur_johnson
+    text: Johnson
+  - id: sur_brown
+    text: Brown
+  - id: sur_taylor
+    text: Taylor
+  - id: sur_wilson
+    text: Wilson
+  - id: sur_wright
+    text: Wright
+  - id: sur_walker
+    text: Walker
+  - id: sur_cooper
+    text: Cooper
+  - id: sur_baker
+    text: Baker
+  - id: sur_fletcher
+    text: Fletcher
+  - id: sur_mason
+    text: Mason
+  - id: sur_turner
+    text: Turner
+  - id: sur_ward
+    text: Ward
+  - id: sur_hunt
+    text: Hunt
+  - id: sur_price
+    text: Price
+  - id: sur_bell
+    text: Bell
+  - id: sur_ford
+    text: Ford
+  - id: sur_gray
+    text: Gray
+  - id: sur_stone
+    text: Stone
+  - id: sur_fox
+    text: Fox
+  - id: sur_cole
+    text: Cole
+  - id: sur_marsh
+    text: Marsh
+  - id: sur_cross
+    text: Cross
+  - id: sur_dale
+    text: Dale
+  - id: sur_field
+    text: Field
+  - id: sur_brooks
+    text: Brooks
+  - id: sur_wood
+    text: Wood
+  - id: sur_lake
+    text: Lake
+  - id: sur_hill
+    text: Hill
+  - id: sur_mills
+    text: Mills
+  - id: sur_drake
+    text: Drake
+  - id: sur_ash
+    text: Ash
+  - id: sur_hawk
+    text: Hawk
+  - id: sur_thorn
+    text: Thorn
+  - id: sur_frost
+    text: Frost
+  - id: sur_briggs
+    text: Briggs
+  - id: sur_warren
+    text: Warren
+  - id: sur_penn
+    text: Penn
+  - id: sur_hyde
+    text: Hyde
+  - id: sur_wolfe
+    text: Wolfe
+---
+id: name.person.full
+kind: composed
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: male_full
+    only_if: { gender: m }
+    text: "{@name.given.male} {@name.surname}"
+  - id: female_full
+    only_if: { gender: f }
+    text: "{@name.given.female} {@name.surname}"

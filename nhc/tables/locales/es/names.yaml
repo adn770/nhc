@@ -1,0 +1,233 @@
+id: name.given.male
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: male_jorge
+    text: Jorge
+  - id: male_carlos
+    text: Carlos
+  - id: male_miguel
+    text: Miguel
+  - id: male_antonio
+    text: Antonio
+  - id: male_fernando
+    text: Fernando
+  - id: male_pedro
+    text: Pedro
+  - id: male_rafael
+    text: Rafael
+  - id: male_luis
+    text: Luis
+  - id: male_alberto
+    text: Alberto
+  - id: male_pablo
+    text: Pablo
+  - id: male_diego
+    text: Diego
+  - id: male_alejandro
+    text: Alejandro
+  - id: male_andres
+    text: Andrés
+  - id: male_javier
+    text: Javier
+  - id: male_enrique
+    text: Enrique
+  - id: male_marcos
+    text: Marcos
+  - id: male_juan
+    text: Juan
+  - id: male_francisco
+    text: Francisco
+  - id: male_ramon
+    text: Ramón
+  - id: male_nicolas
+    text: Nicolás
+  - id: male_esteban
+    text: Esteban
+  - id: male_guillermo
+    text: Guillermo
+  - id: male_rodrigo
+    text: Rodrigo
+  - id: male_felix
+    text: Félix
+  - id: male_martin
+    text: Martín
+  - id: male_gonzalo
+    text: Gonzalo
+  - id: male_alvaro
+    text: Álvaro
+  - id: male_tomas
+    text: Tomás
+  - id: male_sergio
+    text: Sergio
+  - id: male_manuel
+    text: Manuel
+---
+id: name.given.female
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: female_maria
+    text: María
+  - id: female_lucia
+    text: Lucía
+  - id: female_carmen
+    text: Carmen
+  - id: female_elena
+    text: Elena
+  - id: female_rosa
+    text: Rosa
+  - id: female_isabel
+    text: Isabel
+  - id: female_ana
+    text: Ana
+  - id: female_laura
+    text: Laura
+  - id: female_pilar
+    text: Pilar
+  - id: female_teresa
+    text: Teresa
+  - id: female_beatriz
+    text: Beatriz
+  - id: female_clara
+    text: Clara
+  - id: female_ines
+    text: Inés
+  - id: female_consuelo
+    text: Consuelo
+  - id: female_blanca
+    text: Blanca
+  - id: female_leonor
+    text: Leonor
+  - id: female_esperanza
+    text: Esperanza
+  - id: female_mercedes
+    text: Mercedes
+  - id: female_dolores
+    text: Dolores
+  - id: female_amparo
+    text: Amparo
+  - id: female_soledad
+    text: Soledad
+  - id: female_aurora
+    text: Aurora
+  - id: female_rocio
+    text: Rocío
+  - id: female_alicia
+    text: Alicia
+  - id: female_nuria
+    text: Nuria
+  - id: female_marta
+    text: Marta
+  - id: female_catalina
+    text: Catalina
+  - id: female_juana
+    text: Juana
+  - id: female_susana
+    text: Susana
+  - id: female_raquel
+    text: Raquel
+---
+id: name.surname
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: sur_garcia
+    text: García
+  - id: sur_martinez
+    text: Martínez
+  - id: sur_rodriguez
+    text: Rodríguez
+  - id: sur_lopez
+    text: López
+  - id: sur_gonzalez
+    text: González
+  - id: sur_fernandez
+    text: Fernández
+  - id: sur_sanchez
+    text: Sánchez
+  - id: sur_perez
+    text: Pérez
+  - id: sur_diaz
+    text: Díaz
+  - id: sur_ruiz
+    text: Ruiz
+  - id: sur_moreno
+    text: Moreno
+  - id: sur_jimenez
+    text: Jiménez
+  - id: sur_romero
+    text: Romero
+  - id: sur_navarro
+    text: Navarro
+  - id: sur_torres
+    text: Torres
+  - id: sur_delgado
+    text: Delgado
+  - id: sur_castro
+    text: Castro
+  - id: sur_ortega
+    text: Ortega
+  - id: sur_ramos
+    text: Ramos
+  - id: sur_herrero
+    text: Herrero
+  - id: sur_calvo
+    text: Calvo
+  - id: sur_vega
+    text: Vega
+  - id: sur_molina
+    text: Molina
+  - id: sur_blanco
+    text: Blanco
+  - id: sur_prieto
+    text: Prieto
+  - id: sur_fuentes
+    text: Fuentes
+  - id: sur_serrano
+    text: Serrano
+  - id: sur_leon
+    text: León
+  - id: sur_campos
+    text: Campos
+  - id: sur_arias
+    text: Arias
+  - id: sur_medina
+    text: Medina
+  - id: sur_santos
+    text: Santos
+  - id: sur_reyes
+    text: Reyes
+  - id: sur_vargas
+    text: Vargas
+  - id: sur_soto
+    text: Soto
+  - id: sur_cano
+    text: Cano
+  - id: sur_rubio
+    text: Rubio
+  - id: sur_mendez
+    text: Méndez
+  - id: sur_prado
+    text: Prado
+  - id: sur_ibarra
+    text: Ibarra
+---
+id: name.person.full
+kind: composed
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: male_full
+    only_if: { gender: m }
+    text: "{@name.given.male} {@name.surname}"
+  - id: female_full
+    only_if: { gender: f }
+    text: "{@name.given.female} {@name.surname}"
