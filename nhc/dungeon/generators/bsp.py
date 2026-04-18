@@ -31,13 +31,8 @@ from nhc.dungeon.generators._bsp_tree import (
     _place_room,
     _split,
 )
-from nhc.dungeon.generators._connectivity import (
-    _bfs,
-    _bfs_dist,
-    _center_dist,
-    _find_neighbors,
-)
 from nhc.dungeon.generators._corridors import _carve_corridor
+from nhc.dungeon.generators._layout import LAYOUT_STRATEGIES
 from nhc.dungeon.generators._dead_ends import (
     _handle_dead_ends,
     _harmonize_doors,
@@ -179,82 +174,33 @@ class BSPGenerator(DungeonGenerator):
         # ── Step 2: Build walls around rooms ──
         _build_walls(level)
 
-        # ── Step 3: Connectivity — carve corridors through VOID ──
-        neighbors = _find_neighbors(rects)
-        adj: dict[int, set[int]] = {i: set() for i in range(len(rects))}
-        for i, j in neighbors:
-            adj[i].add(j)
-            adj[j].add(i)
-        logger.info("Neighbor pairs found: %d", len(neighbors))
-
-        entrance = 0
-        dists = _bfs_dist(adj, entrance)
-        exit_idx = max(dists, key=dists.get) if dists else len(rects) - 1
+        # ── Step 3: Connectivity — carve corridors ──
+        strategy = LAYOUT_STRATEGIES.get(
+            params.layout_strategy, LAYOUT_STRATEGIES["default"],
+        )
+        pairs, entrance, exit_idx = strategy(
+            rects, params.connectivity, rng,
+        )
         logger.info(
-            "Entrance: room_%d (%d,%d)  Exit: room_%d (%d,%d)  "
-            "path distance: %d",
-            entrance + 1, *rects[entrance].center,
-            exit_idx + 1, *rects[exit_idx].center,
-            dists.get(exit_idx, -1),
+            "Layout '%s': %d pairs, entrance=room_%d, exit=room_%d",
+            params.layout_strategy, len(pairs), entrance + 1,
+            exit_idx + 1,
         )
 
-        # Main path
         connected: set[tuple[int, int]] = set()
-        main_path = _bfs(adj, entrance, exit_idx)
-        if main_path:
-            logger.info("Main path: %d rooms", len(main_path))
-            for k in range(len(main_path) - 1):
-                a, b = main_path[k], main_path[k + 1]
-                pair = (min(a, b), max(a, b))
+        for a, b in pairs:
+            pair = (min(a, b), max(a, b))
+            if pair not in connected:
                 connected.add(pair)
                 _carve_corridor(
                     level, level.rooms[a], level.rooms[b], rng,
                 )
-        else:
-            logger.warning("No main path found between entrance and exit")
 
-        # Extra loops
-        extra = 0
-        for i, j in neighbors:
-            pair = (min(i, j), max(i, j))
-            if pair not in connected and rng.random() < params.connectivity * 0.5:
-                connected.add(pair)
-                _carve_corridor(
-                    level, level.rooms[i], level.rooms[j], rng,
-                )
-                extra += 1
-        logger.info("Extra loop corridors: %d", extra)
-
-        # Ensure full reachability
-        changed = True
-        while changed:
-            changed = False
-            reachable = _bfs_dist(adj, entrance)
-            for idx in range(len(rects)):
-                if idx in reachable:
-                    continue
-                best_other = None
-                best_dist = 9999
-                for other in reachable:
-                    d = _center_dist(rects[idx], rects[other])
-                    if d < best_dist:
-                        best_dist = d
-                        best_other = other
-                if best_other is not None:
-                    pair = (min(idx, best_other), max(idx, best_other))
-                    connected.add(pair)
-                    adj[idx].add(best_other)
-                    adj[best_other].add(idx)
-                    _carve_corridor(
-                        level, level.rooms[idx], level.rooms[best_other],
-                        rng,
-                    )
-                    logger.info(
-                        "Connected isolated room_%d to room_%d (dist=%d)",
-                        idx + 1, best_other + 1, best_dist,
-                    )
-                    changed = True
-                    break
+        # Build adj from connected pairs for downstream use
+        adj: dict[int, set[int]] = {i: set() for i in range(len(rects))}
+        for a, b in connected:
+            adj[a].add(b)
+            adj[b].add(a)
 
         for ci, (a, b) in enumerate(connected):
             level.corridors.append(Corridor(

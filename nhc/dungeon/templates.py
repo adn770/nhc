@@ -104,4 +104,7 @@ def apply_template(
     if template.preferred_shapes:
         effective.preferred_shapes = list(template.preferred_shapes)
 
+    if template.layout_strategy != "default":
+        effective.layout_strategy = template.layout_strategy
+
     return effective

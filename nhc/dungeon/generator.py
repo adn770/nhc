@@ -36,6 +36,7 @@ class GenerationParams:
     shape_variety: float = 0.0  # 0.0 = all rect, 1.0 = all non-rect
     template: str | None = None  # structural template, e.g. "procedural:tower"
     preferred_shapes: list[str] | None = None  # restrict shape selection
+    layout_strategy: str = "default"  # room connectivity strategy
 
     def to_dict(self) -> dict:
         """Serialize to a JSON-friendly dictionary."""
@@ -59,6 +60,7 @@ class GenerationParams:
             "shape_variety": self.shape_variety,
             "template": self.template,
             "preferred_shapes": self.preferred_shapes,
+            "layout_strategy": self.layout_strategy,
         }
 
     @classmethod
