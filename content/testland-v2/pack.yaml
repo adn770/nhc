@@ -1,0 +1,60 @@
+# Continental V2 test setting. Geologically-inspired pipeline:
+# simplex continents, Voronoi tectonic plates, domain warping,
+# flow-accumulation erosion, scored settlement placement, and
+# terrain-aware roads.
+#
+# Same map size and feature targets as the other testland packs
+# for easy visual comparison across generators.
+
+id: testland-v2
+version: 2
+attribution: "NHC test setting (continental v2)"
+
+map:
+  generator: continental_v2
+  width: 25
+  height: 16
+  continental:
+    # Stage 1: Continental shape
+    continent_frequency: 0.05
+    continent_octaves: 3
+    island_falloff: 0.6
+    sea_level: -0.20
+
+    # Stage 2: Tectonic plates
+    plate_count: 5
+
+    # Stage 3: Domain warping
+    warp_amplitude: 0.3
+    warp_frequency: 0.12
+
+    # Stage 4: Erosion
+    erosion_iterations: 5
+    erosion_rate: 0.20
+    deposit_rate: 0.25
+
+    # Stage 6: Rivers
+    lake_chance: 0.3
+
+features:
+  hub: 1
+  village:
+    min: 2
+    max: 4
+  dungeon:
+    min: 6
+    max: 10
+  wonder:
+    min: 2
+    max: 4
+
+rivers:
+  max_rivers: 4
+  min_length: 3
+  max_length: 25
+  bifurcation_chance: 0.05
+  source_elevation_min: 0.40
+
+paths:
+  connect_towers: 0.6
+  connect_caves: 0.3

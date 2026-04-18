@@ -282,11 +282,11 @@ def domain_warp(
     boost_map: dict[HexCoord, float] = {}
     for bh in plates.boundaries:
         if bh in plates.convergent:
-            boost = rng.uniform(0.3, 0.5)
+            boost = rng.uniform(0.15, 0.30)
         elif bh in plates.divergent:
             boost = -0.1
         else:
-            boost = 0.1
+            boost = 0.05
         boost_map[bh] = boost
 
     # Apply boosts with distance fade (up to 2 hexes out).
@@ -460,18 +460,18 @@ def _biome_from_em(
 
     # Mountain threshold is lower near convergent boundaries
     # to create coherent mountain ranges.
-    mt_threshold = 0.45 if is_near_convergent else 0.55
+    mt_threshold = 0.55 if is_near_convergent else 0.70
     if e >= mt_threshold:
         return Biome.MOUNTAIN
-    if e >= 0.35:
+    if e >= 0.45:
         return Biome.HILLS if m >= 0.20 else Biome.DRYLANDS
     if e >= 0.20:
-        if m >= 0.50:
+        if m >= 0.30:
             return Biome.FOREST
         if m >= -0.20:
             return Biome.GREENLANDS
         return Biome.DRYLANDS
-    if e >= -0.10:
+    if e >= 0.00:
         if m >= 0.60:
             return Biome.SWAMP
         if m >= 0.20:
