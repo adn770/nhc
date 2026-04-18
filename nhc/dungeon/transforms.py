@@ -71,13 +71,70 @@ def narrow_corridors(level: Level, rng: random.Random) -> None:
 
 
 def add_battlements(level: Level, rng: random.Random) -> None:
-    """Add battlement decorations to keep outer walls."""
-    pass  # Phase 3 implementation
+    """Build a 2-tile thick outer wall ring around the level.
+
+    Converts the outermost 2 rows/columns to WALL terrain,
+    preserving any existing floor tiles (rooms/corridors that
+    happen to be near the edge keep their tiles).
+    """
+    from nhc.dungeon.model import Tile
+    for y in range(level.height):
+        for x in range(level.width):
+            if (x < 2 or x >= level.width - 2
+                    or y < 2 or y >= level.height - 2):
+                tile = level.tiles[y][x]
+                if tile.terrain in (Terrain.VOID, Terrain.WALL):
+                    level.tiles[y][x] = Tile(terrain=Terrain.WALL)
 
 
 def add_gate(level: Level, rng: random.Random) -> None:
-    """Add fortified gate entry points."""
-    pass  # Phase 3 implementation
+    """Punch gate openings through the outer battlement wall.
+
+    Finds the midpoint of each wall side and carves a 1-tile
+    wide doorway through the 2-tile thick wall. Places a
+    closed door at the outer edge.
+    """
+    from nhc.dungeon.model import Tile
+    w, h = level.width, level.height
+    mid_x = w // 2
+    mid_y = h // 2
+
+    # Pick 1-2 gate positions from the 4 cardinal sides
+    sides = ["south", "north", "east", "west"]
+    rng.shuffle(sides)
+    gate_count = rng.choice([1, 2])
+    chosen = sides[:gate_count]
+
+    for side in chosen:
+        if side == "south":
+            # Carve through bottom wall at mid_x
+            for row in range(max(0, h - 2), h):
+                level.tiles[row][mid_x] = Tile(
+                    terrain=Terrain.FLOOR, is_corridor=True,
+                )
+            level.tiles[h - 1][mid_x].feature = "door_closed"
+            level.tiles[h - 1][mid_x].door_side = "south"
+        elif side == "north":
+            for row in range(min(2, h)):
+                level.tiles[row][mid_x] = Tile(
+                    terrain=Terrain.FLOOR, is_corridor=True,
+                )
+            level.tiles[0][mid_x].feature = "door_closed"
+            level.tiles[0][mid_x].door_side = "north"
+        elif side == "east":
+            for col in range(max(0, w - 2), w):
+                level.tiles[mid_y][col] = Tile(
+                    terrain=Terrain.FLOOR, is_corridor=True,
+                )
+            level.tiles[mid_y][w - 1].feature = "door_closed"
+            level.tiles[mid_y][w - 1].door_side = "east"
+        elif side == "west":
+            for col in range(min(2, w)):
+                level.tiles[mid_y][col] = Tile(
+                    terrain=Terrain.FLOOR, is_corridor=True,
+                )
+            level.tiles[mid_y][0].feature = "door_closed"
+            level.tiles[mid_y][0].door_side = "west"
 
 
 def add_ore_deposits(level: Level, rng: random.Random) -> None:
