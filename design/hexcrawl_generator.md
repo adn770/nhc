@@ -33,9 +33,9 @@ testable.
 
 ### 1.3 Deprecation Plan
 
-1. Implement the v2 generator as `continental_v2` alongside the
+1. Implement the v2 generator as `continental` alongside the
    existing `bsp_regions` and `perlin_regions` generators.
-2. Create a new `testland-v2` content pack that uses the v2
+2. Create a new `testland` content pack that uses the v2
    generator.
 3. Once playtested and stable, switch the default pack to v2.
 4. Mark BSP and Perlin generators as deprecated in code.
@@ -91,7 +91,7 @@ def generate_continental_world(
 ) -> HexWorld:
 ```
 
-Registered as `"continental_v2"` in `KNOWN_GENERATORS`. The
+Registered as `"continental"` in `KNOWN_GENERATORS`. The
 retry loop guards against the rare case where the full pipeline
 produces a world that fails feature-placement validation.
 
@@ -101,7 +101,7 @@ New `continental` block in `pack.yaml`:
 
 ```yaml
 map:
-  generator: continental_v2
+  generator: continental
   width: 25
   height: 16
   continental:
@@ -945,16 +945,16 @@ nhc/hexcrawl/
     _paths_v2.py        # stage 8: enhanced road generation
 
 tests/unit/hexcrawl/
-    test_gen_v2.py       # pipeline and stage tests
-    test_rivers_v2.py    # river-specific tests
-    test_features_v2.py  # settlement scoring tests
-    test_paths_v2.py     # road-specific tests
+    test_generator.py       # pipeline and stage tests
+    test_rivers.py    # river-specific tests
+    test_features_scored.py  # settlement scoring tests
+    test_paths.py     # road-specific tests
 ```
 
 ### 12.2 Modified Modules
 
 - `nhc/hexcrawl/pack.py` -- add `ContinentalParams` dataclass,
-  `"continental_v2"` to `KNOWN_GENERATORS`, parser.
+  `"continental"` to `KNOWN_GENERATORS`, parser.
 - `nhc/hexcrawl/generator.py` -- add
   `generate_continental_world` dispatch function.
 - `nhc/hexcrawl/_flowers.py` -- add `forced_entry`/`forced_exit`
@@ -969,8 +969,8 @@ tests/unit/hexcrawl/
 ### 12.3 New Content Pack
 
 ```
-content/testland-v2/
-    pack.yaml           # generator: continental_v2
+content/testland/
+    pack.yaml           # generator: continental
 ```
 
 ### 12.4 Reused As-Is
@@ -1004,12 +1004,12 @@ Tests live alongside the code they exercise:
 
 | Stage | Test file |
 |-------|-----------|
-| 1-5 (terrain pipeline) | `tests/unit/hexcrawl/test_gen_v2.py` |
-| 6 (rivers) | `tests/unit/hexcrawl/test_rivers_v2.py` |
-| 7 (settlements) | `tests/unit/hexcrawl/test_features_v2.py` |
-| 8 (roads) | `tests/unit/hexcrawl/test_paths_v2.py` |
-| 9 (edge continuity) | `tests/unit/hexcrawl/test_gen_v2.py` |
-| Integration | `tests/unit/hexcrawl/test_gen_v2.py` |
+| 1-5 (terrain pipeline) | `tests/unit/hexcrawl/test_generator.py` |
+| 6 (rivers) | `tests/unit/hexcrawl/test_rivers.py` |
+| 7 (settlements) | `tests/unit/hexcrawl/test_features_scored.py` |
+| 8 (roads) | `tests/unit/hexcrawl/test_paths.py` |
+| 9 (edge continuity) | `tests/unit/hexcrawl/test_generator.py` |
+| Integration | `tests/unit/hexcrawl/test_generator.py` |
 
 Run the full suite before every commit:
 
@@ -1063,13 +1063,13 @@ against the live web view for the same seed:
 
 ```bash
 python -m tests.samples.generate_hexmap \
-    --seed 42 --generator continental_v2
+    --seed 42 --generator continental
 ./server
 # Open the game with seed 42, compare visually
 ```
 
 The `generate_hexmap.py` tool must be extended to support the
-`continental_v2` generator (add `--generator continental_v2`
+`continental` generator (add `--generator continental`
 choice and wire to `generate_continental_world`).
 
 ### 13.3 Commits at Each Milestone
@@ -1081,18 +1081,18 @@ is clean, no trailing whitespace.
 | Commit | Scope | Gate |
 |--------|-------|------|
 | A1 | `ContinentalParams` in `pack.py`, pack loading test | `test_pack` green |
-| A2 | Stage 1: continental shape + tests | `test_gen_v2::test_continental_shape_*` green |
-| A3 | Stage 2: Voronoi plates + tests | `test_gen_v2::test_plates_*` green |
-| A4 | Stage 3: domain warping + tests | `test_gen_v2::test_warping_*` green |
-| B1 | Stage 4: erosion + tests | `test_gen_v2::test_erosion_*` green |
-| B2 | Stage 5: biome assignment + tests | `test_gen_v2::test_biome_*` green |
-| C1 | Stage 6: rivers + tests | `test_rivers_v2` green |
-| C2 | Stage 7: settlement scoring + tests | `test_features_v2` green |
-| C3 | Stage 8: roads + tests | `test_paths_v2` green |
-| D1 | Stage 9: edge continuity + tests | `test_gen_v2::test_edge_*` green |
-| D2 | Pipeline wiring + integration test | full `test_gen_v2` green |
+| A2 | Stage 1: continental shape + tests | `test_generator::test_continental_shape_*` green |
+| A3 | Stage 2: Voronoi plates + tests | `test_generator::test_plates_*` green |
+| A4 | Stage 3: domain warping + tests | `test_generator::test_warping_*` green |
+| B1 | Stage 4: erosion + tests | `test_generator::test_erosion_*` green |
+| B2 | Stage 5: biome assignment + tests | `test_generator::test_biome_*` green |
+| C1 | Stage 6: rivers + tests | `test_rivers` green |
+| C2 | Stage 7: settlement scoring + tests | `test_features_scored` green |
+| C3 | Stage 8: roads + tests | `test_paths` green |
+| D1 | Stage 9: edge continuity + tests | `test_generator::test_edge_*` green |
+| D2 | Pipeline wiring + integration test | full `test_generator` green |
 | D3 | `generate_hexmap.py` v2 support, visual QA | sample PNGs match web |
-| D4 | `testland-v2` content pack | playtest pass |
+| D4 | `testland` content pack | playtest pass |
 | E1 | Default pack switch | all existing tests still green |
 | E2 | Deprecation markers on BSP/Perlin | no regressions |
 
@@ -1123,7 +1123,7 @@ ends with all prior tests green and a clean commit.
 No gameplay impact. Can be developed and tested in isolation.
 
 1. Add `ContinentalParams` to `pack.py`, add
-   `"continental_v2"` to `KNOWN_GENERATORS`. Tests: pack
+   `"continental"` to `KNOWN_GENERATORS`. Tests: pack
    loading.
 2. Implement Stage 1 (continental shape). Tests: bounds,
    determinism, island mask.
@@ -1154,11 +1154,11 @@ No gameplay impact. Can be developed and tested in isolation.
     consistency, offset determinism.
 11. Wire up the pipeline runner and game dispatcher. Integration
     test: full world generation with the v2 pack.
-12. Create `testland-v2` content pack. Playtest.
+12. Create `testland` content pack. Playtest.
 
 ### Phase E: Transition
 
-13. Switch default pack to `testland-v2`.
+13. Switch default pack to `testland`.
 14. Mark BSP and Perlin generators as deprecated.
 15. Remove deprecated generators after one release cycle.
 
@@ -1168,7 +1168,7 @@ No gameplay impact. Can be developed and tested in isolation.
 
 **Note:** The `generate_hexmap.py` visual QA tool is a critical
 part of verification. It must be updated at commit D3 to support
-`--generator continental_v2`. Until then, use the web server for
+`--generator continental`. Until then, use the web server for
 visual inspection.
 
 ### 15.1 Automated Tests

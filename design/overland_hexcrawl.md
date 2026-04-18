@@ -302,11 +302,11 @@ Pack manifest sketch:
 
 ```yaml
 # content/testland/pack.yaml
-id: testland-v2
+id: testland
 version: 2
 attribution: "NHC test setting (continental)"
 map:
-  generator: continental_v2
+  generator: continental
   width: 25
   height: 16
   continental:
@@ -653,7 +653,7 @@ aware roads, and edge-point continuity.
 
 The generator is fully documented in
 `design/hexcrawl_generator.md`. Configuration lives in
-`content/testland-v2/pack.yaml` under the `continental` block.
+`content/testland/pack.yaml` under the `continental` block.
 
 ---
 

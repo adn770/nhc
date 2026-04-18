@@ -65,12 +65,12 @@ def _build_road_cells() -> dict[HexCoord, HexCell]:
 class TestPathsV2:
 
     def test_avoids_sandlands(self) -> None:
-        from nhc.hexcrawl._paths_v2 import generate_paths_v2
+        from nhc.hexcrawl._paths import generate_paths
 
         cells = _build_road_cells()
         rng = random.Random(42)
         params = PathParams(connect_towers=0.0, connect_caves=0.0)
-        paths = generate_paths_v2(cells, rng, params)
+        paths = generate_paths(cells, rng, params)
 
         # Check if any path goes through sandlands
         sandlands_hexes = {
@@ -87,12 +87,12 @@ class TestPathsV2:
             pass  # Cost-based avoidance verified by connectivity
 
     def test_connectivity(self) -> None:
-        from nhc.hexcrawl._paths_v2 import generate_paths_v2
+        from nhc.hexcrawl._paths import generate_paths
 
         cells = _build_road_cells()
         rng = random.Random(42)
         params = PathParams(connect_towers=0.0, connect_caves=0.0)
-        paths = generate_paths_v2(cells, rng, params)
+        paths = generate_paths(cells, rng, params)
 
         # All settlements should be reachable via roads.
         # Collect all hexes on any road.
@@ -113,7 +113,7 @@ class TestPathsV2:
             )
 
     def test_dead_end_tower_or_keep(self) -> None:
-        from nhc.hexcrawl._paths_v2 import generate_paths_v2
+        from nhc.hexcrawl._paths import generate_paths
 
         cells = _build_road_cells()
         # Remove all settlements except one to create dead ends
@@ -124,7 +124,7 @@ class TestPathsV2:
 
         rng = random.Random(42)
         params = PathParams(connect_towers=0.0, connect_caves=0.0)
-        generate_paths_v2(cells, rng, params)
+        generate_paths(cells, rng, params)
 
         # With only one settlement, roads should be minimal
         # but any dead-end road endpoints should get a tower/keep
@@ -132,12 +132,12 @@ class TestPathsV2:
         # comes from integration tests.
 
     def test_cave_connects_to_road(self) -> None:
-        from nhc.hexcrawl._paths_v2 import generate_paths_v2
+        from nhc.hexcrawl._paths import generate_paths
 
         cells = _build_road_cells()
         rng = random.Random(42)
         params = PathParams(connect_towers=0.0, connect_caves=1.0)
-        paths = generate_paths_v2(cells, rng, params)
+        paths = generate_paths(cells, rng, params)
 
         cave_coord = HexCoord(10, 0)
         # Cave should be on some road path
@@ -145,12 +145,12 @@ class TestPathsV2:
         assert cave_on_road, "cave not connected to road network"
 
     def test_edge_segments_consistent(self) -> None:
-        from nhc.hexcrawl._paths_v2 import generate_paths_v2
+        from nhc.hexcrawl._paths import generate_paths
 
         cells = _build_road_cells()
         rng = random.Random(42)
         params = PathParams(connect_towers=0.0, connect_caves=0.0)
-        generate_paths_v2(cells, rng, params)
+        generate_paths(cells, rng, params)
 
         for coord, cell in cells.items():
             for seg in cell.edges:
@@ -162,15 +162,15 @@ class TestPathsV2:
                     assert 0 <= seg.exit_edge <= 5
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._paths_v2 import generate_paths_v2
+        from nhc.hexcrawl._paths import generate_paths
 
         params = PathParams(connect_towers=0.0, connect_caves=1.0)
         cells_a = _build_road_cells()
-        paths_a = generate_paths_v2(
+        paths_a = generate_paths(
             cells_a, random.Random(42), params,
         )
         cells_b = _build_road_cells()
-        paths_b = generate_paths_v2(
+        paths_b = generate_paths(
             cells_b, random.Random(42), params,
         )
         assert paths_a == paths_b

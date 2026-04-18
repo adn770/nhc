@@ -1281,7 +1281,7 @@ class Game:
         # milestone will let the caller pick a pack via the CLI.
         pack_path = (
             Path(__file__).resolve().parents[2]
-            / "content" / "testland-v2" / "pack.yaml"
+            / "content" / "testland" / "pack.yaml"
         )
         pack = load_pack(pack_path)
         # Dispatcher: pick the generator named in the pack.

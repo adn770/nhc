@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from nhc.hexcrawl._gen_v2 import generate_continental_world
+from nhc.hexcrawl._generator import generate_continental_world
 from nhc.hexcrawl.model import Biome, HexFeatureType
 from nhc.hexcrawl.pack import FeatureTarget, load_pack
 from nhc.i18n.manager import TranslationManager
@@ -24,7 +24,7 @@ def _project_root() -> Path:
 
 
 def _pack_path() -> Path:
-    return _project_root() / "content" / "testland-v2" / "pack.yaml"
+    return _project_root() / "content" / "testland" / "pack.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -34,9 +34,9 @@ def _pack_path() -> Path:
 
 def test_testland_pack_loads_via_loader() -> None:
     pack = load_pack(_pack_path())
-    assert pack.id == "testland-v2"
+    assert pack.id == "testland"
     assert pack.version >= 1
-    assert pack.map.generator == "continental_v2"
+    assert pack.map.generator == "continental"
     # testland is a "bigger rectangular" sandbox.
     assert pack.map.width > pack.map.height, "pack is landscape"
     assert pack.map.width * pack.map.height >= 256
@@ -52,7 +52,7 @@ def test_testland_pack_loads_via_loader() -> None:
 
 def test_testland_locale_keys_file_populated() -> None:
     pack = load_pack(_pack_path())
-    # testland-v2 does not ship its own locale_keys.yaml;
+    # testland does not ship its own locale_keys.yaml;
     # it reuses engine-level hex strings from the main locale
     # files. The loader returns an empty list when the sibling
     # file is absent.

@@ -52,7 +52,7 @@ def _build_scored_cells() -> dict[HexCoord, HexCell]:
 class TestSettlementScore:
 
     def test_river_adjacent_higher(self) -> None:
-        from nhc.hexcrawl._features_v2 import settlement_score
+        from nhc.hexcrawl._features_scored import settlement_score
 
         cells = _build_scored_cells()
         h = HexCoord(2, 0)
@@ -66,7 +66,7 @@ class TestSettlementScore:
         assert score_with_river > score_no_river
 
     def test_biome_border_higher(self) -> None:
-        from nhc.hexcrawl._features_v2 import settlement_score
+        from nhc.hexcrawl._features_scored import settlement_score
 
         cells = _build_scored_cells()
         # Interior greenlands hex (all neighbors also greenlands)
@@ -79,7 +79,7 @@ class TestSettlementScore:
         assert score_border > score_interior
 
     def test_lake_adjacent_higher(self) -> None:
-        from nhc.hexcrawl._features_v2 import settlement_score
+        from nhc.hexcrawl._features_scored import settlement_score
 
         cells = _build_scored_cells()
         h = HexCoord(2, 0)
@@ -93,7 +93,7 @@ class TestSettlementScore:
         assert score_with_lake > score_no_lake
 
     def test_greenlands_scores_higher_than_swamp(self) -> None:
-        from nhc.hexcrawl._features_v2 import settlement_score
+        from nhc.hexcrawl._features_scored import settlement_score
 
         cells = _build_scored_cells()
         h = HexCoord(2, 0)
@@ -112,7 +112,7 @@ class TestSettlementScore:
 class TestSettlementPlacement:
 
     def test_spacing(self) -> None:
-        from nhc.hexcrawl._features_v2 import place_settlements_v2
+        from nhc.hexcrawl._features_scored import place_settlements
 
         cells = _build_scored_cells()
         targets = FeatureTargets(
@@ -122,7 +122,7 @@ class TestSettlementPlacement:
             wonder=FeatureTarget(0, 0),
         )
         rng = random.Random(42)
-        place_settlements_v2(cells, targets, rng)
+        place_settlements(cells, targets, rng)
 
         settlements = [
             c for c, cell in cells.items()
@@ -139,18 +139,18 @@ class TestSettlementPlacement:
                 )
 
     def test_hub_in_greenlands(self) -> None:
-        from nhc.hexcrawl._features_v2 import place_settlements_v2
+        from nhc.hexcrawl._features_scored import place_settlements
 
         cells = _build_scored_cells()
         targets = FeatureTargets(hub=1)
         rng = random.Random(42)
-        hub = place_settlements_v2(cells, targets, rng)
+        hub = place_settlements(cells, targets, rng)
 
         assert hub is not None
         assert cells[hub].biome is Biome.GREENLANDS
 
     def test_count_within_targets(self) -> None:
-        from nhc.hexcrawl._features_v2 import place_settlements_v2
+        from nhc.hexcrawl._features_scored import place_settlements
 
         cells = _build_scored_cells()
         targets = FeatureTargets(
@@ -160,7 +160,7 @@ class TestSettlementPlacement:
             wonder=FeatureTarget(0, 0),
         )
         rng = random.Random(42)
-        place_settlements_v2(cells, targets, rng)
+        place_settlements(cells, targets, rng)
 
         villages = sum(
             1 for c in cells.values()
@@ -170,7 +170,7 @@ class TestSettlementPlacement:
         assert targets.village.min <= villages <= targets.village.max
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._features_v2 import place_settlements_v2
+        from nhc.hexcrawl._features_scored import place_settlements
 
         targets = FeatureTargets(
             hub=1,
@@ -179,11 +179,11 @@ class TestSettlementPlacement:
             wonder=FeatureTarget(0, 0),
         )
         cells_a = _build_scored_cells()
-        hub_a = place_settlements_v2(
+        hub_a = place_settlements(
             cells_a, targets, random.Random(42),
         )
         cells_b = _build_scored_cells()
-        hub_b = place_settlements_v2(
+        hub_b = place_settlements(
             cells_b, targets, random.Random(42),
         )
         assert hub_a == hub_b

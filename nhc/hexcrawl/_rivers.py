@@ -1,4 +1,4 @@
-"""Enhanced river generation for the continental_v2 generator.
+"""Enhanced river generation for the continental generator.
 
 Extends the v1 river algorithm with:
 - Forest crossing (allowed, not blocked)
@@ -35,7 +35,7 @@ _LAKE_ELEVATION_MAX = 0.15
 # ---------------------------------------------------------------------------
 
 
-def _trace_river_v2(
+def _trace_river(
     source: HexCoord,
     cells: dict[HexCoord, HexCell],
     rng: random.Random,
@@ -190,14 +190,14 @@ def _stamp_edges(
 # ---------------------------------------------------------------------------
 
 
-def generate_rivers_v2(
+def generate_rivers(
     cells: dict[HexCoord, HexCell],
     rng: random.Random,
     params: RiverParams,
     continental: ContinentalParams,
     flow_count: dict[HexCoord, int],
 ) -> list[list[HexCoord]]:
-    """Generate rivers on the overland map (v2 algorithm).
+    """Generate rivers on the overland map (continental algorithm).
 
     Mutates *cells* in place, stamping ``EdgeSegment`` on each
     hex a river crosses. Returns the list of river coord
@@ -242,7 +242,7 @@ def generate_rivers_v2(
         if source in visited:
             continue
 
-        path = _trace_river_v2(
+        path = _trace_river(
             source, cells, rng, visited, params, continental,
         )
 
@@ -260,7 +260,7 @@ def generate_rivers_v2(
     # Process branches (share the visited set so they don't
     # cross the main river or each other).
     for branch_src in branches:
-        branch = _trace_river_v2(
+        branch = _trace_river(
             branch_src, cells, rng, visited, params, continental,
         )
         if len(branch) >= params.min_length:
@@ -301,7 +301,7 @@ def _connect_lakes_to_rivers(
             continue
 
         # Trace downhill from the lake toward the river.
-        path = _trace_river_v2(
+        path = _trace_river(
             lake, cells, rng, visited, params, continental,
         )
         if len(path) >= 2:

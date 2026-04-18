@@ -6,12 +6,12 @@
 # Same map size and feature targets as the other testland packs
 # for easy visual comparison across generators.
 
-id: testland-v2
+id: testland
 version: 2
 attribution: "NHC test setting (continental v2)"
 
 map:
-  generator: continental_v2
+  generator: continental
   width: 25
   height: 16
   continental:

@@ -23,7 +23,7 @@ _MINIMAL = textwrap.dedent(
     version: 1
     attribution: "NHC test setting"
     map:
-      generator: continental_v2
+      generator: continental
       continental: {}
       width: 8
       height: 8
@@ -48,7 +48,7 @@ def test_pack_loads_minimal_yaml(tmp_path: Path) -> None:
     assert pack.id == "testland"
     assert pack.version == 1
     assert pack.attribution == "NHC test setting"
-    assert pack.map.generator == "continental_v2"
+    assert pack.map.generator == "continental"
     assert pack.map.width == 8
     assert pack.map.height == 8
 
@@ -72,7 +72,7 @@ def test_pack_rejects_missing_id(tmp_path: Path) -> None:
         """
         version: 1
         map:
-          generator: continental_v2
+          generator: continental
           continental: {}
           width: 8
           height: 8
@@ -103,7 +103,7 @@ def test_pack_validates_map_size_positive(tmp_path: Path) -> None:
         id: bad
         version: 1
         map:
-          generator: continental_v2
+          generator: continental
           continental: {}
           width: 0
           height: 8
@@ -119,7 +119,7 @@ def test_pack_validates_map_height_positive(tmp_path: Path) -> None:
         id: bad
         version: 1
         map:
-          generator: continental_v2
+          generator: continental
           continental: {}
           width: 8
           height: -3
@@ -261,16 +261,16 @@ def test_pack_locale_keys_default_empty(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Continental V2 generator
+# Continental generator
 # ---------------------------------------------------------------------------
 
 _CONTINENTAL_V2 = textwrap.dedent(
     """
-    id: testland-v2
+    id: testland
     version: 2
     attribution: "NHC test setting v2"
     map:
-      generator: continental_v2
+      generator: continental
       width: 25
       height: 16
       continental:
@@ -289,10 +289,10 @@ _CONTINENTAL_V2 = textwrap.dedent(
 )
 
 
-def test_pack_loads_continental_v2(tmp_path: Path) -> None:
+def test_pack_loads_continental(tmp_path: Path) -> None:
     pack = load_pack(_write(tmp_path, _CONTINENTAL_V2))
-    assert pack.id == "testland-v2"
-    assert pack.map.generator == "continental_v2"
+    assert pack.id == "testland"
+    assert pack.map.generator == "continental"
     assert pack.map.continental is not None
     c = pack.map.continental
     assert c.continent_frequency == pytest.approx(0.06)
@@ -308,18 +308,18 @@ def test_pack_loads_continental_v2(tmp_path: Path) -> None:
     assert c.lake_chance == pytest.approx(0.3)
 
 
-def test_continental_v2_in_known_generators(tmp_path: Path) -> None:
+def test_continental_in_known_generators(tmp_path: Path) -> None:
     from nhc.hexcrawl.pack import KNOWN_GENERATORS
-    assert "continental_v2" in KNOWN_GENERATORS
+    assert "continental" in KNOWN_GENERATORS
 
 
-def test_continental_v2_defaults(tmp_path: Path) -> None:
+def test_continental_defaults(tmp_path: Path) -> None:
     body = textwrap.dedent(
         """
-        id: testland-v2
+        id: testland
         version: 2
         map:
-          generator: continental_v2
+          generator: continental
           width: 25
           height: 16
           continental: {}
@@ -334,13 +334,13 @@ def test_continental_v2_defaults(tmp_path: Path) -> None:
     assert c.plate_count >= 2
 
 
-def test_continental_v2_missing_block_errors(tmp_path: Path) -> None:
+def test_continental_missing_block_errors(tmp_path: Path) -> None:
     body = textwrap.dedent(
         """
-        id: testland-v2
+        id: testland
         version: 2
         map:
-          generator: continental_v2
+          generator: continental
           width: 25
           height: 16
         """

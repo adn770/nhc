@@ -81,7 +81,7 @@ def _build_test_cells() -> dict[HexCoord, HexCell]:
 class TestRiversV2:
 
     def test_starts_at_mountain(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         cells = _build_test_cells()
         rng = random.Random(42)
@@ -89,7 +89,7 @@ class TestRiversV2:
             max_rivers=3, min_length=3,
             avoided_biomes=frozenset(),
         )
-        rivers = generate_rivers_v2(
+        rivers = generate_rivers(
             cells, rng, rparams, _params(),
             flow_count={},
         )
@@ -100,7 +100,7 @@ class TestRiversV2:
             ), f"river source {src} is {cells[src].biome}"
 
     def test_forest_crossing(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         cells = _build_test_cells()
         rng = random.Random(42)
@@ -109,7 +109,7 @@ class TestRiversV2:
             max_rivers=5, min_length=2,
             avoided_biomes=frozenset(),
         )
-        rivers = generate_rivers_v2(
+        rivers = generate_rivers(
             cells, rng, rparams, _params(),
             flow_count={},
         )
@@ -121,7 +121,7 @@ class TestRiversV2:
         assert forest_crossed, "no river crossed a forest hex"
 
     def test_dies_in_drylands(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         cells = _build_test_cells()
         rng = random.Random(42)
@@ -129,7 +129,7 @@ class TestRiversV2:
             max_rivers=5, min_length=2,
             avoided_biomes=frozenset(),
         )
-        rivers = generate_rivers_v2(
+        rivers = generate_rivers(
             cells, rng, rparams, _params(),
             flow_count={},
         )
@@ -143,7 +143,7 @@ class TestRiversV2:
                     )
 
     def test_sea_termination(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         cells = _build_test_cells()
         rng = random.Random(42)
@@ -151,7 +151,7 @@ class TestRiversV2:
             max_rivers=5, min_length=2,
             avoided_biomes=frozenset(),
         )
-        rivers = generate_rivers_v2(
+        rivers = generate_rivers(
             cells, rng, rparams, _params(),
             flow_count={},
         )
@@ -162,7 +162,7 @@ class TestRiversV2:
                 pass
 
     def test_lake_creation(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         cells = _build_test_cells()
         rng = random.Random(42)
@@ -171,7 +171,7 @@ class TestRiversV2:
             avoided_biomes=frozenset(),
         )
         cparams = _params(lake_chance=1.0)
-        rivers = generate_rivers_v2(
+        rivers = generate_rivers(
             cells, rng, rparams, cparams,
             flow_count={},
         )
@@ -188,7 +188,7 @@ class TestRiversV2:
         )
 
     def test_edge_segments_consistent(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         cells = _build_test_cells()
         rng = random.Random(42)
@@ -196,7 +196,7 @@ class TestRiversV2:
             max_rivers=3, min_length=2,
             avoided_biomes=frozenset(),
         )
-        generate_rivers_v2(
+        generate_rivers(
             cells, rng, rparams, _params(),
             flow_count={},
         )
@@ -210,7 +210,7 @@ class TestRiversV2:
                     assert 0 <= seg.exit_edge <= 5
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
+        from nhc.hexcrawl._rivers import generate_rivers
 
         rparams = _river_params(
             max_rivers=3, min_length=2,
@@ -218,13 +218,13 @@ class TestRiversV2:
         )
 
         cells_a = _build_test_cells()
-        rivers_a = generate_rivers_v2(
+        rivers_a = generate_rivers(
             cells_a, random.Random(42), rparams, _params(),
             flow_count={},
         )
 
         cells_b = _build_test_cells()
-        rivers_b = generate_rivers_v2(
+        rivers_b = generate_rivers(
             cells_b, random.Random(42), rparams, _params(),
             flow_count={},
         )

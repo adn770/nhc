@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from nhc.hexcrawl.coords import HexCoord, distance
-from nhc.hexcrawl._gen_v2 import generate_continental_world
+from nhc.hexcrawl._generator import generate_continental_world
 from nhc.hexcrawl.model import (
     Biome,
     EdgeSegment,
@@ -46,7 +46,7 @@ _PACK_BODY = textwrap.dedent(
     version: 1
     attribution: "NHC test setting"
     map:
-      generator: continental_v2
+      generator: continental
       width: 8
       height: 8
       continental: {}

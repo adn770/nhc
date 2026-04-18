@@ -1,4 +1,4 @@
-"""Continental V2 world generator pipeline.
+"""Continental world generator pipeline.
 
 A nine-stage pipeline that builds terrain geologically:
 continental crust, tectonic plates, domain warping, erosion,
@@ -760,8 +760,8 @@ def _attempt_continental(
         FeaturePlacementError,
         place_features as _place_features,
     )
-    from nhc.hexcrawl._rivers_v2 import generate_rivers_v2
-    from nhc.hexcrawl._paths_v2 import generate_paths_v2
+    from nhc.hexcrawl._rivers import generate_rivers
+    from nhc.hexcrawl._paths import generate_paths
     from nhc.hexcrawl._flowers import generate_flowers as _gen_flowers
     from nhc.hexcrawl.tiles import assign_tile_slot as _assign_slot
 
@@ -789,7 +789,7 @@ def _attempt_continental(
     )
 
     # Stage 6: Rivers.
-    rivers = generate_rivers_v2(
+    rivers = generate_rivers(
         cells, rng, pack.rivers, cp, erosion.flow_count,
     )
 
@@ -799,7 +799,7 @@ def _attempt_continental(
     hub, clusters = _place_features(cells, hexes_by_biome, pack, rng)
 
     # Stage 8: Roads.
-    paths = generate_paths_v2(cells, rng, pack.paths)
+    paths = generate_paths(cells, rng, pack.paths)
 
     # Stage 9: Edge-point offsets.
     _assign_macro_offsets(cells)

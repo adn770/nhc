@@ -1,4 +1,4 @@
-"""Tests for the continental_v2 world generator pipeline."""
+"""Tests for the continental world generator pipeline."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ class TestContinentalShape:
     """Tests for the continental_shape() stage function."""
 
     def test_bounded(self) -> None:
-        from nhc.hexcrawl._gen_v2 import continental_shape
+        from nhc.hexcrawl._generator import continental_shape
 
         rng = random.Random(42)
         field = continental_shape(
@@ -62,7 +62,7 @@ class TestContinentalShape:
             assert -1.0 <= v <= 1.0
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._gen_v2 import continental_shape
+        from nhc.hexcrawl._generator import continental_shape
 
         a = continental_shape(
             random.Random(99), _params(), _WIDTH, _HEIGHT,
@@ -73,7 +73,7 @@ class TestContinentalShape:
         assert a == b
 
     def test_island_mask_edges_lower(self) -> None:
-        from nhc.hexcrawl._gen_v2 import continental_shape
+        from nhc.hexcrawl._generator import continental_shape
 
         field = continental_shape(
             random.Random(42), _params(), _WIDTH, _HEIGHT,
@@ -97,7 +97,7 @@ class TestContinentalShape:
             assert avg_center > avg_edge
 
     def test_different_seeds(self) -> None:
-        from nhc.hexcrawl._gen_v2 import continental_shape
+        from nhc.hexcrawl._generator import continental_shape
 
         a = continental_shape(
             random.Random(1), _params(), _WIDTH, _HEIGHT,
@@ -108,7 +108,7 @@ class TestContinentalShape:
         assert a != b
 
     def test_covers_all_valid_hexes(self) -> None:
-        from nhc.hexcrawl._gen_v2 import continental_shape
+        from nhc.hexcrawl._generator import continental_shape
 
         field = continental_shape(
             random.Random(42), _params(), _WIDTH, _HEIGHT,
@@ -117,7 +117,7 @@ class TestContinentalShape:
         assert len(field) == expected
 
     def test_sea_level_classification(self) -> None:
-        from nhc.hexcrawl._gen_v2 import continental_shape
+        from nhc.hexcrawl._generator import continental_shape
 
         params = _params(sea_level=-0.25)
         field = continental_shape(
@@ -138,7 +138,7 @@ class TestContinentalShape:
 def _make_continent_field(
     seed: int = 42,
 ) -> dict[HexCoord, float]:
-    from nhc.hexcrawl._gen_v2 import continental_shape
+    from nhc.hexcrawl._generator import continental_shape
     return continental_shape(
         random.Random(seed), _params(), _WIDTH, _HEIGHT,
     )
@@ -148,7 +148,7 @@ class TestTectonicPlates:
     """Tests for the tectonic_plates() stage function."""
 
     def test_coverage(self) -> None:
-        from nhc.hexcrawl._gen_v2 import tectonic_plates
+        from nhc.hexcrawl._generator import tectonic_plates
 
         field = _make_continent_field()
         result = tectonic_plates(
@@ -160,7 +160,7 @@ class TestTectonicPlates:
             assert 0 <= plate_id < _params().plate_count
 
     def test_plate_count(self) -> None:
-        from nhc.hexcrawl._gen_v2 import tectonic_plates
+        from nhc.hexcrawl._generator import tectonic_plates
 
         field = _make_continent_field()
         params = _params(plate_count=5)
@@ -171,7 +171,7 @@ class TestTectonicPlates:
         assert len(distinct_plates) == 5
 
     def test_boundaries_have_cross_plate_neighbors(self) -> None:
-        from nhc.hexcrawl._gen_v2 import tectonic_plates
+        from nhc.hexcrawl._generator import tectonic_plates
 
         field = _make_continent_field()
         result = tectonic_plates(
@@ -189,7 +189,7 @@ class TestTectonicPlates:
             )
 
     def test_boundary_classification_disjoint(self) -> None:
-        from nhc.hexcrawl._gen_v2 import tectonic_plates
+        from nhc.hexcrawl._generator import tectonic_plates
 
         field = _make_continent_field()
         result = tectonic_plates(
@@ -210,7 +210,7 @@ class TestTectonicPlates:
         )
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._gen_v2 import tectonic_plates
+        from nhc.hexcrawl._generator import tectonic_plates
 
         field = _make_continent_field()
         a = tectonic_plates(random.Random(42), _params(), field)
@@ -227,7 +227,7 @@ class TestTectonicPlates:
 def _make_plates(
     seed: int = 42,
 ) -> tuple[dict[HexCoord, float], object]:
-    from nhc.hexcrawl._gen_v2 import continental_shape, tectonic_plates
+    from nhc.hexcrawl._generator import continental_shape, tectonic_plates
 
     rng = random.Random(seed)
     field = continental_shape(rng, _params(), _WIDTH, _HEIGHT)
@@ -239,7 +239,7 @@ class TestDomainWarping:
     """Tests for the domain_warp() stage function."""
 
     def test_bounded(self) -> None:
-        from nhc.hexcrawl._gen_v2 import domain_warp
+        from nhc.hexcrawl._generator import domain_warp
 
         field, plates = _make_plates()
         rng = random.Random(42)
@@ -251,7 +251,7 @@ class TestDomainWarping:
             assert -1.0 <= v <= 1.0
 
     def test_changes_coastline(self) -> None:
-        from nhc.hexcrawl._gen_v2 import domain_warp
+        from nhc.hexcrawl._generator import domain_warp
 
         field, plates = _make_plates()
         rng = random.Random(42)
@@ -269,7 +269,7 @@ class TestDomainWarping:
         assert changes > 0
 
     def test_convergent_boost(self) -> None:
-        from nhc.hexcrawl._gen_v2 import domain_warp
+        from nhc.hexcrawl._generator import domain_warp
 
         field, plates = _make_plates()
         rng = random.Random(42)
@@ -295,7 +295,7 @@ class TestDomainWarping:
         assert conv_avg > int_avg
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._gen_v2 import domain_warp
+        from nhc.hexcrawl._generator import domain_warp
 
         field, plates = _make_plates()
         a = domain_warp(
@@ -317,7 +317,7 @@ class TestDomainWarping:
 def _make_elevation(
     seed: int = 42,
 ) -> dict[HexCoord, float]:
-    from nhc.hexcrawl._gen_v2 import (
+    from nhc.hexcrawl._generator import (
         continental_shape,
         domain_warp,
         tectonic_plates,
@@ -332,7 +332,7 @@ class TestHydraulicErosion:
     """Tests for the hydraulic_erosion() stage function."""
 
     def test_bounded(self) -> None:
-        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+        from nhc.hexcrawl._generator import hydraulic_erosion
 
         elev = _make_elevation()
         result = hydraulic_erosion(
@@ -342,7 +342,7 @@ class TestHydraulicErosion:
             assert -1.0 <= v <= 1.0
 
     def test_reduces_total_elevation(self) -> None:
-        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+        from nhc.hexcrawl._generator import hydraulic_erosion
 
         elev = _make_elevation()
         total_before = sum(elev.values())
@@ -354,7 +354,7 @@ class TestHydraulicErosion:
         assert total_after < total_before
 
     def test_basins_cover_land(self) -> None:
-        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+        from nhc.hexcrawl._generator import hydraulic_erosion
 
         elev = _make_elevation()
         sea = _params().sea_level
@@ -370,7 +370,7 @@ class TestHydraulicErosion:
             assert h in result.basins, f"{h} has no basin"
 
     def test_moisture_enhanced_at_high_flow(self) -> None:
-        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+        from nhc.hexcrawl._generator import hydraulic_erosion
 
         elev = _make_elevation()
         result = hydraulic_erosion(
@@ -402,7 +402,7 @@ class TestHydraulicErosion:
             assert avg_high > avg_low
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._gen_v2 import hydraulic_erosion
+        from nhc.hexcrawl._generator import hydraulic_erosion
 
         elev = _make_elevation()
         a = hydraulic_erosion(random.Random(42), _params(), elev)
@@ -420,7 +420,7 @@ def _make_erosion(
     seed: int = 42,
 ) -> tuple[object, object]:
     """Run stages 1-4 and return (erosion_result, plates)."""
-    from nhc.hexcrawl._gen_v2 import (
+    from nhc.hexcrawl._generator import (
         continental_shape,
         domain_warp,
         hydraulic_erosion,
@@ -438,7 +438,7 @@ class TestBiomeAssignment:
     """Tests for the assign_biomes() stage function."""
 
     def test_essentials_present(self) -> None:
-        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl._generator import assign_biomes
         from nhc.hexcrawl.model import Biome
 
         erosion, plates = _make_erosion()
@@ -455,7 +455,7 @@ class TestBiomeAssignment:
             )
 
     def test_mountain_coherence(self) -> None:
-        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl._generator import assign_biomes
         from nhc.hexcrawl.model import Biome
 
         erosion, plates = _make_erosion()
@@ -483,7 +483,7 @@ class TestBiomeAssignment:
         )
 
     def test_diversity(self) -> None:
-        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl._generator import assign_biomes
 
         erosion, plates = _make_erosion()
         rng = random.Random(42)
@@ -494,7 +494,7 @@ class TestBiomeAssignment:
         assert distinct >= 6
 
     def test_water_below_sea_level(self) -> None:
-        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl._generator import assign_biomes
         from nhc.hexcrawl.model import Biome
 
         erosion, plates = _make_erosion()
@@ -506,7 +506,7 @@ class TestBiomeAssignment:
             assert cells[h].elevation < _params().sea_level
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._gen_v2 import assign_biomes
+        from nhc.hexcrawl._generator import assign_biomes
 
         erosion, plates = _make_erosion()
         cells_a, _ = assign_biomes(
@@ -564,7 +564,7 @@ class TestMacroEdgeOffsets:
         return cells
 
     def test_shared_offset(self) -> None:
-        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+        from nhc.hexcrawl._generator import _assign_macro_offsets
 
         cells = self._make_cells_with_river()
         _assign_macro_offsets(cells)
@@ -584,7 +584,7 @@ class TestMacroEdgeOffsets:
         assert seg_2.exit_offset == seg_3.entry_offset
 
     def test_bounded(self) -> None:
-        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+        from nhc.hexcrawl._generator import _assign_macro_offsets
 
         cells = self._make_cells_with_river()
         _assign_macro_offsets(cells)
@@ -597,7 +597,7 @@ class TestMacroEdgeOffsets:
                     assert -0.4 <= seg.exit_offset <= 0.4
 
     def test_deterministic(self) -> None:
-        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+        from nhc.hexcrawl._generator import _assign_macro_offsets
 
         cells_a = self._make_cells_with_river()
         _assign_macro_offsets(cells_a)
@@ -612,7 +612,7 @@ class TestMacroEdgeOffsets:
                 assert sa.exit_offset == sb.exit_offset
 
     def test_source_and_sink_remain_none(self) -> None:
-        from nhc.hexcrawl._gen_v2 import _assign_macro_offsets
+        from nhc.hexcrawl._generator import _assign_macro_offsets
 
         cells = self._make_cells_with_river()
         _assign_macro_offsets(cells)
@@ -639,10 +639,10 @@ class TestFullPipeline:
         from nhc.hexcrawl.pack import load_pack
 
         body = textwrap.dedent("""
-            id: testland-v2
+            id: testland
             version: 2
             map:
-              generator: continental_v2
+              generator: continental
               width: 15
               height: 10
               continental:
@@ -665,7 +665,7 @@ class TestFullPipeline:
         return load_pack(p)
 
     def test_produces_hexworld(self, tmp_path) -> None:
-        from nhc.hexcrawl._gen_v2 import generate_continental_world
+        from nhc.hexcrawl._generator import generate_continental_world
         from nhc.hexcrawl.model import HexWorld
 
         pack = self._make_pack(tmp_path)
@@ -674,7 +674,7 @@ class TestFullPipeline:
         assert len(world.cells) > 0
 
     def test_deterministic(self, tmp_path) -> None:
-        from nhc.hexcrawl._gen_v2 import generate_continental_world
+        from nhc.hexcrawl._generator import generate_continental_world
 
         pack = self._make_pack(tmp_path)
         a = generate_continental_world(seed=99, pack=pack)
@@ -685,7 +685,7 @@ class TestFullPipeline:
             assert a.cells[h].elevation == b.cells[h].elevation
 
     def test_all_cells_populated(self, tmp_path) -> None:
-        from nhc.hexcrawl._gen_v2 import generate_continental_world
+        from nhc.hexcrawl._generator import generate_continental_world
 
         pack = self._make_pack(tmp_path)
         world = generate_continental_world(seed=42, pack=pack)
@@ -694,7 +694,7 @@ class TestFullPipeline:
             assert cell.tile_slot > 0
 
     def test_rivers_valid(self, tmp_path) -> None:
-        from nhc.hexcrawl._gen_v2 import generate_continental_world
+        from nhc.hexcrawl._generator import generate_continental_world
 
         pack = self._make_pack(tmp_path)
         world = generate_continental_world(seed=42, pack=pack)
@@ -705,7 +705,7 @@ class TestFullPipeline:
             )
 
     def test_edge_continuity(self, tmp_path) -> None:
-        from nhc.hexcrawl._gen_v2 import generate_continental_world
+        from nhc.hexcrawl._generator import generate_continental_world
 
         pack = self._make_pack(tmp_path)
         world = generate_continental_world(seed=42, pack=pack)

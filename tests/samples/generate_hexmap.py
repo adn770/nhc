@@ -28,7 +28,7 @@ except ImportError:
     sys.exit(2)
 
 from nhc.hexcrawl.coords import HexCoord, to_pixel
-from nhc.hexcrawl._gen_v2 import generate_continental_world
+from nhc.hexcrawl._generator import generate_continental_world
 from nhc.hexcrawl.model import (
     Biome,
     HexCell,
@@ -484,9 +484,9 @@ def render_flower(
 # ── Pack loading ───────────────────────────────────────────────
 
 def _find_pack() -> Path:
-    """Find the testland-v2 content pack."""
+    """Find the testland content pack."""
     content = Path(__file__).resolve().parents[2] / "content"
-    pack_path = content / "testland-v2" / "pack.yaml"
+    pack_path = content / "testland" / "pack.yaml"
     if pack_path.is_file():
         return pack_path
     raise FileNotFoundError(
@@ -566,9 +566,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--generator",
-        choices=["continental_v2"],
-        default="continental_v2",
-        help="generator type (default: continental_v2)",
+        choices=["continental"],
+        default="continental",
+        help="generator type (default: continental)",
     )
     parser.add_argument(
         "--flower", type=str, default=None,

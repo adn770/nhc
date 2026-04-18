@@ -1,4 +1,4 @@
-"""Scored settlement placement for the continental_v2 generator.
+"""Scored settlement placement for the continental generator.
 
 Places settlements using a scoring function that prefers
 geographically advantageous locations: biome borders, river
@@ -109,7 +109,7 @@ def _adjacent_to_settlement(
     return False
 
 
-def place_settlements_v2(
+def place_settlements(
     cells: dict[HexCoord, HexCell],
     targets: FeatureTargets,
     rng: random.Random,

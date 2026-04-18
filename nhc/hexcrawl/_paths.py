@@ -1,4 +1,4 @@
-"""Enhanced road generation for the continental_v2 generator.
+"""Enhanced road generation for the continental generator.
 
 Extends the v1 path algorithm with:
 - Modified cost weights (sandlands/deadlands heavily penalised)
@@ -183,12 +183,12 @@ def _stamp_path_edges(
 # ---------------------------------------------------------------------------
 
 
-def generate_paths_v2(
+def generate_paths(
     cells: dict[HexCoord, HexCell],
     rng: random.Random,
     params: PathParams,
 ) -> list[list[HexCoord]]:
-    """Generate roads on the overland map (v2 algorithm).
+    """Generate roads on the overland map (continental algorithm).
 
     Mutates *cells* in place, stamping ``EdgeSegment`` on each
     hex a road crosses. Returns the list of path coord sequences.

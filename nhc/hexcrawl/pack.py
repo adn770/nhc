@@ -45,7 +45,7 @@ DEFAULT_BIOME_COSTS: dict[Biome, int] = {
 
 
 KNOWN_GENERATORS: frozenset[str] = frozenset({
-    "continental_v2",
+    "continental",
 })
 
 
@@ -65,7 +65,7 @@ class PackValidationError(ValueError):
 
 @dataclass
 class ContinentalParams:
-    """Pack-configurable knobs for the continental_v2 generator."""
+    """Pack-configurable knobs for the continental generator."""
 
     # Stage 1: Continental shape
     continent_frequency: float = 0.06
@@ -107,8 +107,8 @@ class MapParams:
     elevation_scale: float = 0.08
     moisture_scale: float = 0.12
     octaves: int = 4
-    # Continental V2 knobs; required when generator is
-    # continental_v2, None otherwise.
+    # Continental knobs; required when generator is
+    # continental, None otherwise.
     continental: ContinentalParams | None = None
 
 
@@ -237,10 +237,10 @@ def _parse_map(raw: dict[str, Any]) -> MapParams:
     if height <= 0:
         raise PackValidationError(f"map.height must be > 0, got {height}")
     continental: ContinentalParams | None = None
-    if generator == "continental_v2":
+    if generator == "continental":
         if "continental" not in block:
             raise PackValidationError(
-                "generator 'continental_v2' requires a "
+                "generator 'continental' requires a "
                 "'continental' configuration block in map"
             )
         continental = _parse_continental(block["continental"])

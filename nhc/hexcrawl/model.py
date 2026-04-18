@@ -137,7 +137,7 @@ class EdgeSegment:
     type: str              # "river" or "path"
     entry_edge: int | None
     exit_edge: int | None
-    # V2: random offset along the hex edge, [-0.4, +0.4].
+    # random offset along the hex edge, [-0.4, +0.4].
     # 0.0 = midpoint. None = not yet assigned.
     entry_offset: float | None = None
     exit_offset: float | None = None
@@ -205,7 +205,7 @@ class SubHexEdgeSegment:
     path: list[HexCoord]
     entry_macro_edge: int | None
     exit_macro_edge: int | None
-    # V2: pixel offset within the entry/exit sub-hex cell.
+    # pixel offset within the entry/exit sub-hex cell.
     entry_offset: tuple[float, float] | None = None
     exit_offset: tuple[float, float] | None = None
 

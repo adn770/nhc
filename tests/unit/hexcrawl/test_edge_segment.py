@@ -170,7 +170,7 @@ def continental_pack(tmp_path: Path):
         version: 1
         attribution: test
         map:
-          generator: continental_v2
+          generator: continental
           width: 8
           height: 8
           continental: {}
@@ -190,7 +190,7 @@ def continental_pack(tmp_path: Path):
 
 
 def test_continental_cells_have_elevation(continental_pack) -> None:
-    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    from nhc.hexcrawl._generator import generate_continental_world
     w = generate_continental_world(seed=42, pack=continental_pack)
     # Every cell should have a non-default elevation.
     for cell in w.cells.values():
@@ -201,7 +201,7 @@ def test_continental_cells_have_elevation(continental_pack) -> None:
 
 
 def test_continental_mountain_higher_than_water(continental_pack) -> None:
-    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    from nhc.hexcrawl._generator import generate_continental_world
     w = generate_continental_world(seed=42, pack=continental_pack)
     mountains = [c for c in w.cells.values() if c.biome is Biome.MOUNTAIN]
     greens = [c for c in w.cells.values() if c.biome is Biome.GREENLANDS]
@@ -212,7 +212,7 @@ def test_continental_mountain_higher_than_water(continental_pack) -> None:
 
 
 def test_continental_elevation_spread(continental_pack) -> None:
-    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    from nhc.hexcrawl._generator import generate_continental_world
     w = generate_continental_world(seed=42, pack=continental_pack)
     for cell in w.cells.values():
         assert isinstance(cell.elevation, float)
@@ -222,7 +222,7 @@ def test_continental_elevation_spread(continental_pack) -> None:
 
 
 def test_continental_elevation_correlates_with_biome(continental_pack) -> None:
-    from nhc.hexcrawl._gen_v2 import generate_continental_world
+    from nhc.hexcrawl._generator import generate_continental_world
     w = generate_continental_world(seed=42, pack=continental_pack)
     mountains = [c for c in w.cells.values() if c.biome is Biome.MOUNTAIN]
     if mountains:
