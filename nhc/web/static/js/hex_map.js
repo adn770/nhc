@@ -1104,6 +1104,19 @@ if (typeof WS !== "undefined") {
     }
     /* eslint-enable no-undef */
     _showDungeonView();
+    // Reset zoom to 1x for the dungeon view — hex map may
+    // have been at 3x which makes the dungeon map oversized.
+    if (typeof GameMap !== "undefined") {
+      const steps = GameMap._zoomSteps;
+      const idx = steps.indexOf(1.0);
+      if (idx >= 0) GameMap._zoomLevel = idx;
+      const mc = document.getElementById("map-container");
+      if (mc) {
+        mc.style.transformOrigin = "0 0";
+        mc.style.transform = "scale(1)";
+      }
+      if (typeof Input !== "undefined") Input._updateZoomLabel();
+    }
     // Re-arm the static draw + scroll for the next time the
     // overland view comes back (canvas may have been resized
     // or cleared by the dungeon renderer).

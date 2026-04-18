@@ -258,6 +258,10 @@ const GameMap = {
    * so that fog, hatch, entities, and viewport stay in sync.
    */
   flush() {
+    // Skip if the floor SVG hasn't loaded yet — canvas
+    // dimensions are 0 and nothing would be visible. The
+    // floor handler will call flush() again after loading.
+    if (!this.mapW || !this.mapH) return;
     this.clearHatch(this.walls);
     this.drawFog();
     this.draw();

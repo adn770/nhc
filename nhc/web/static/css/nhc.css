@@ -233,6 +233,7 @@ body {
   background: #0f0f23;
   border-bottom: 1px solid #333;
   position: relative;
+  text-align: center;
 }
 
 #map-container {
