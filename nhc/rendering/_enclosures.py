@@ -27,13 +27,13 @@ FORTIFICATION_CRENEL_FILL = "#000000"
 FORTIFICATION_CORNER_FILL = "#000000"   # corners blend with crenels
 FORTIFICATION_SIZE = 8.0             # merlon side + crenel short side
 FORTIFICATION_RATIO = math.sqrt(2)   # crenel long / short (DIN A)
-# Corner side = SIZE * scale. Both default and tower scales are
-# larger than 1.0 so the corner always overlaps the adjacent wall
-# band (SIZE thick) perpendicular to the edge, and the default
-# corner reaches past the SIZE/2 inset so it also overlaps along
-# each edge direction.
-FORTIFICATION_CORNER_SCALE = 1.5
-FORTIFICATION_TOWER_SCALE = 2.0
+# Corner side = SIZE * scale. Default is large enough that the
+# corner reach past the vertex (scale * SIZE / 2) covers roughly
+# one full pattern period (crenel + merlon = SIZE * (1 + ratio)
+# ~ 2.41 * SIZE) of the adjacent wall, so the two walls visibly
+# merge into the corner block instead of seaming against it.
+FORTIFICATION_CORNER_SCALE = 3.0
+FORTIFICATION_TOWER_SCALE = 4.0
 FORTIFICATION_CORNER_STYLES = ("merlon", "tower", "diamond")
 
 
