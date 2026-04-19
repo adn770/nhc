@@ -609,7 +609,11 @@ def _render_and_save(
     inject_labels: bool = True,
 ) -> None:
     """Render a level to SVG with optional debug labels."""
+    from nhc.rendering._doors_svg import door_overlay_fragments
     svg = render_floor_svg(level, seed=seed)
+    door_frags = door_overlay_fragments(level, seed=seed)
+    if door_frags:
+        svg = svg.replace("</svg>", "".join(door_frags) + "</svg>")
     if inject_labels:
         svg = _inject_room_labels(svg, level)
         svg = _inject_door_labels(svg, level)
@@ -1371,14 +1375,22 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
             site = assemble_site(
                 kind, f"{kind}_s{seed}", rand_mod.Random(seed),
             )
-            # Surface level with roof + enclosure overlay. Roofs
-            # paint building footprints with gradient shingles;
-            # the enclosure (palisade / fortification) draws on
-            # top of roofs so gates remain visible.
+            # Surface level with roof + enclosure + door overlay.
+            # Roofs paint building footprints with gradient
+            # shingles; the enclosure (palisade / fortification)
+            # draws on top of roofs so gates remain visible; the
+            # door overlay is sample-only chrome so the wall edges
+            # read correctly outside the game.
+            from nhc.rendering._doors_svg import door_overlay_fragments
             surface_svg = render_floor_svg(site.surface, seed=seed)
             roof_frags = _building_roof_fragments(site, seed)
             enc_frags = _enclosure_fragments_for_site(site, seed)
-            overlay = "".join(roof_frags) + "".join(enc_frags)
+            door_frags = door_overlay_fragments(site.surface, seed=seed)
+            overlay = (
+                "".join(roof_frags)
+                + "".join(enc_frags)
+                + "".join(door_frags)
+            )
             if overlay:
                 surface_svg = surface_svg.replace(
                     "</svg>", overlay + "</svg>",
