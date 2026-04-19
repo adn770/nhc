@@ -21,11 +21,8 @@ class Terrain(Enum):
 class SurfaceType(Enum):
     """Walkable-surface category for a tile.
 
-    Mutually exclusive category layered on top of ``Terrain``. The
-    existing ``is_corridor`` / ``is_street`` / ``is_track`` booleans
-    remain for now and will be retired in a later cleanup milestone
-    once building-generator renderers emit ``surface_type`` directly.
-    See ``design/building_generator.md`` section 8.
+    Mutually exclusive category layered on top of ``Terrain``. See
+    ``design/building_generator.md`` section 8.
     """
     NONE = "none"
     CORRIDOR = "corridor"
@@ -651,15 +648,12 @@ class Tile:
     feature: str | None = None  # door, stairs_up, stairs_down, trap, etc.
     explored: bool = False
     visible: bool = False
-    is_corridor: bool = False  # True for tunnel tiles (rendered as #)
     door_side: str = ""  # "north","south","east","west" — which tile edge
                          # the door sits on (set at generation time)
     opened_at_turn: int | None = None  # turn when door was opened
     buried: list[str] = field(default_factory=list)  # hidden item IDs
     dug_floor: bool = False  # True after first floor dig (second dig = fall)
     dug_wall: bool = False  # True when a wall was dug into a passage
-    is_street: bool = False  # settlement street tile
-    is_track: bool = False   # mine cart track tile
     surface_type: SurfaceType = SurfaceType.NONE
 
     @property

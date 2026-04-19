@@ -208,7 +208,7 @@ class TestDigActionExecution:
 
     @pytest.mark.asyncio
     async def test_dug_wall_marks_tile(self):
-        """Successful dig sets dug_wall and is_corridor flags."""
+        """Successful dig sets dug_wall and marks CORRIDOR surface."""
         world, pid, level, _ = _make_world(strength=6, tool_bonus=5)
         action = DigAction(actor=pid, dx=1, dy=0)
         with patch("nhc.core.actions._interaction.d20", return_value=20):

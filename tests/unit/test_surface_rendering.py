@@ -1,9 +1,9 @@
 """Tests for walkable-surface rendering on Tile.surface_type.
 
-See design/building_generator.md section 7.3. M8 wires the new
+See design/building_generator.md section 7.3. M8 wires the
 SurfaceType enum into the existing street cobblestone renderer so
 that a tile with ``surface_type = SurfaceType.STREET`` is drawn
-with cobblestones regardless of the legacy ``is_street`` boolean.
+with cobblestones.
 """
 
 from __future__ import annotations

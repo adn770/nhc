@@ -675,14 +675,14 @@ def _render_floor_detail(
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
         _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
 
-    # Street cobblestone detail — rendered on is_street tiles
+    # Street cobblestone detail — rendered on SurfaceType.STREET tiles
     _render_street_cobblestone(svg, level, rng)
 
     # Field and garden surface detail — rendered on surface_type tiles
     _render_field_surface(svg, level, rng)
     _render_garden_surface(svg, level, rng)
 
-    # Mine cart tracks — rendered on is_track tiles
+    # Mine cart tracks — rendered on SurfaceType.TRACK tiles
     _render_cart_tracks(svg, level)
 
     # Ore deposits — rendered on wall tiles with ore_deposit feature
@@ -1121,7 +1121,7 @@ _TRACK_TIE = "#8A7A5A"
 def _render_cart_tracks(
     svg: list[str], level: "Level",
 ) -> None:
-    """Draw parallel rails plus cross-ties on is_track tiles.
+    """Draw parallel rails plus cross-ties on SurfaceType.TRACK tiles.
 
     Rails run along the dominant corridor direction: tiles with
     horizontal track neighbours get east-west rails, otherwise

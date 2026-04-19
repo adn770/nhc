@@ -32,7 +32,7 @@ def _make_level() -> Level:
 
 
 class TestTileFieldSerialization:
-    def test_is_corridor_roundtrip(self):
+    def test_surface_type_corridor_roundtrip(self):
         level = _make_level()
         data = _serialize_level(level)
         # Check the serialized tile has surface_type
@@ -68,7 +68,7 @@ class TestTileFieldSerialization:
         data = _serialize_level(level)
         # A default VOID tile should be minimal
         empty_tile = data["tiles"][0][0]
-        assert "is_corridor" not in empty_tile
+        assert "surface_type" not in empty_tile
         assert "visible" not in empty_tile
         assert "door_side" not in empty_tile
 

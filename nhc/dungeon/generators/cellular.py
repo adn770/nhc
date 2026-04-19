@@ -589,10 +589,10 @@ def _absorb_corridors_into_caves(level: Level) -> int:
 
     Walks every floor tile that is either a corridor tile or not
     in any cave room and checks if it is adjacent to a CaveShape
-    room.  If so, clears its ``is_corridor`` flag and adds it to
-    that room's tile set.  This lets the SVG cave region tracer
-    include these tiles in the smooth boundary instead of drawing
-    per-tile wall segments around them.
+    room.  If so, clears its ``surface_type`` (from CORRIDOR back
+    to NONE) and adds it to that room's tile set.  This lets the
+    SVG cave region tracer include these tiles in the smooth
+    boundary instead of drawing per-tile wall segments around them.
 
     Iterates until stable — absorbing a tile can make its
     neighbor newly adjacent to the room.
@@ -600,7 +600,7 @@ def _absorb_corridors_into_caves(level: Level) -> int:
     Returns the number of tiles absorbed.
     """
     # Build a lookup: tile coord → CaveShape room.
-    # Also clear is_corridor on any corridor tile already in a
+    # Also clear surface_type on any corridor tile already in a
     # cave room (e.g. added during erosion).
     cave_tiles: dict[tuple[int, int], Room] = {}
     for room in level.rooms:
