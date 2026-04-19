@@ -214,15 +214,13 @@ class TestWoodParquetConstants:
         from nhc.rendering._svg_helpers import CELL
         assert math.isclose(WOOD_PLANK_WIDTH_PX, CELL / 4)
 
-    def test_plank_length_is_two_and_half_tiles(self):
-        from nhc.rendering._floor_detail import WOOD_PLANK_LENGTH_PX
+    def test_plank_length_range_is_1_5_to_2_5_tiles(self):
+        from nhc.rendering._floor_detail import (
+            WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
+        )
         from nhc.rendering._svg_helpers import CELL
-        assert math.isclose(WOOD_PLANK_LENGTH_PX, CELL * 2.5)
-
-    def test_plank_offset_is_fifth_tile(self):
-        from nhc.rendering._floor_detail import WOOD_PLANK_OFFSET_PX
-        from nhc.rendering._svg_helpers import CELL
-        assert math.isclose(WOOD_PLANK_OFFSET_PX, CELL / 5)
+        assert math.isclose(WOOD_PLANK_LENGTH_MIN, CELL * 1.5)
+        assert math.isclose(WOOD_PLANK_LENGTH_MAX, CELL * 2.5)
 
 
 class TestWoodGrainEffect:
@@ -266,6 +264,87 @@ class TestWoodGrainEffect:
         svg = render_floor_svg(level, seed=42)
         assert WOOD_GRAIN_LIGHT not in svg
         assert WOOD_GRAIN_DARK not in svg
+
+
+class TestWoodParquetRandomLengths:
+    def test_plank_end_gaps_cover_a_range(self):
+        """Plank-end x-coords within a strip should NOT be uniformly
+        spaced; instead consecutive gaps span a range between MIN
+        and MAX."""
+        from nhc.rendering._floor_detail import (
+            WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
+            WOOD_SEAM_STROKE,
+        )
+        level = _blank_level(40, 6)  # wide so many planks fit
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        start = svg.find(f'stroke="{WOOD_SEAM_STROKE}"')
+        assert start > 0
+        end = svg.find("</g>", start)
+        segment = svg[start:end]
+
+        # Extract vertical plank-end lines on the first strip
+        # (y1 == y2 is horizontal; we want vertical lines where
+        # x1 == x2 and y2 - y1 == WOOD_PLANK_WIDTH_PX).
+        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
+        xs = []
+        for m in re.finditer(
+            r'<line x1="([0-9.]+)" y1="([0-9.]+)" '
+            r'x2="([0-9.]+)" y2="([0-9.]+)"', segment,
+        ):
+            x1, y1 = float(m.group(1)), float(m.group(2))
+            x2, y2 = float(m.group(3)), float(m.group(4))
+            if math.isclose(x1, x2) and math.isclose(
+                y1, 0, abs_tol=0.1,
+            ) and math.isclose(
+                y2 - y1, WOOD_PLANK_WIDTH_PX, abs_tol=0.1,
+            ):
+                xs.append(round(x1, 2))
+        xs.sort()
+        assert len(xs) >= 3
+        gaps = [b - a for a, b in zip(xs, xs[1:])]
+        # Every gap is within the plank length range.
+        for g in gaps:
+            assert (
+                WOOD_PLANK_LENGTH_MIN - 0.1
+                <= g <= WOOD_PLANK_LENGTH_MAX + 0.1
+            ), f"gap {g} outside plank-length range"
+        # The range of gaps observed is > 1 tile wide, proving the
+        # lengths actually vary.
+        assert max(gaps) - min(gaps) > 10.0
+
+    def test_plank_ends_do_not_align_across_strips(self):
+        """Adjacent strips shouldn't have plank-end x-coords at the
+        same positions (stagger via random lengths)."""
+        from nhc.rendering._floor_detail import (
+            WOOD_PLANK_WIDTH_PX, WOOD_SEAM_STROKE,
+        )
+        level = _blank_level(40, 6)
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        start = svg.find(f'stroke="{WOOD_SEAM_STROKE}"')
+        end = svg.find("</g>", start)
+        segment = svg[start:end]
+
+        # Group plank-end x-coords by strip y.
+        ends_by_strip: dict[float, set[float]] = {}
+        for m in re.finditer(
+            r'<line x1="([0-9.]+)" y1="([0-9.]+)" '
+            r'x2="([0-9.]+)" y2="([0-9.]+)"', segment,
+        ):
+            x1, y1 = float(m.group(1)), float(m.group(2))
+            x2, y2 = float(m.group(3)), float(m.group(4))
+            if math.isclose(x1, x2):  # vertical -> plank end
+                key = round(y1, 2)
+                ends_by_strip.setdefault(key, set()).add(round(x1, 2))
+
+        strip_ys = sorted(ends_by_strip)
+        assert len(strip_ys) >= 2
+        # First two strips' plank-end x-coords should differ.
+        a = ends_by_strip[strip_ys[0]]
+        b = ends_by_strip[strip_ys[1]]
+        # At least one end in strip 0 that is not in strip 1.
+        assert a - b
 
 
 class TestWoodParquetPattern:

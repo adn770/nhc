@@ -864,11 +864,14 @@ def _garden_line(
 WOOD_FLOOR_FILL = "#B58B5A"
 WOOD_SEAM_STROKE = "#8A5A2A"
 WOOD_SEAM_WIDTH = 0.8
-# Laminated-parquet plank geometry: 1/4 tile cross-axis, 2.5 tile
-# along-axis, 1/5 tile running-bond offset per strip.
+# Laminated-parquet plank geometry: 1/4 tile cross-axis, random
+# along-axis length in [1.5, 2.5] tiles per plank. With per-plank
+# randomness the running-bond offset mechanism is unnecessary --
+# adjacent strips naturally stagger because each uses its own
+# random length sequence.
 WOOD_PLANK_WIDTH_PX = CELL / 4
-WOOD_PLANK_LENGTH_PX = CELL * 2.5
-WOOD_PLANK_OFFSET_PX = CELL / 5
+WOOD_PLANK_LENGTH_MIN = CELL * 1.5
+WOOD_PLANK_LENGTH_MAX = CELL * 2.5
 # Subtle grain overlay: two thin streaks per strip, one lighter
 # and one darker than the base fill, at low opacity so the base
 # colour still dominates.
@@ -923,7 +926,7 @@ def _render_wood_floor(
 
     seams: list[str] = []
     for room in level.rooms:
-        seams.extend(_parquet_seams_for_room(room))
+        seams.extend(_parquet_seams_for_room(room, rng))
     if not seams:
         return
     svg.append(
@@ -1009,7 +1012,9 @@ def _render_wood_grain(
         svg.append("</g>")
 
 
-def _parquet_seams_for_room(room) -> list[str]:
+def _parquet_seams_for_room(
+    room, rng: random.Random,
+) -> list[str]:
     r = room.rect
     x0 = r.x * CELL
     y0 = r.y * CELL
@@ -1017,48 +1022,48 @@ def _parquet_seams_for_room(room) -> list[str]:
     y1 = (r.y + r.height) * CELL
     horizontal = r.width >= r.height
     width = WOOD_PLANK_WIDTH_PX
-    length = WOOD_PLANK_LENGTH_PX
-    offset = WOOD_PLANK_OFFSET_PX
 
     seams: list[str] = []
     if horizontal:
-        strip_idx = 0
         y = y0
         while y < y1:
-            shift = (strip_idx * offset) % length
             strip_bot = min(y + width, y1)
-            # Vertical plank-end lines within this strip.
-            x_end = x0 - shift + length
+            # Walk along the strip picking a random plank length
+            # in [MIN, MAX] per plank. A random initial offset in
+            # the same range keeps the first plank from always
+            # starting flush with the left edge.
+            x_end = x0 + rng.uniform(
+                WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_LENGTH_MAX,
+            )
             while x_end < x1:
-                if x_end > x0:
-                    seams.append(
-                        f'<line x1="{x_end:.1f}" y1="{y:.1f}" '
-                        f'x2="{x_end:.1f}" y2="{strip_bot:.1f}"/>'
-                    )
-                x_end += length
-            strip_idx += 1
+                seams.append(
+                    f'<line x1="{x_end:.1f}" y1="{y:.1f}" '
+                    f'x2="{x_end:.1f}" y2="{strip_bot:.1f}"/>'
+                )
+                x_end += rng.uniform(
+                    WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_LENGTH_MAX,
+                )
             y += width
-            # Horizontal strip boundary (shared with next strip).
             if y < y1:
                 seams.append(
                     f'<line x1="{x0:.1f}" y1="{y:.1f}" '
                     f'x2="{x1:.1f}" y2="{y:.1f}"/>'
                 )
     else:
-        strip_idx = 0
         x = x0
         while x < x1:
-            shift = (strip_idx * offset) % length
             strip_right = min(x + width, x1)
-            y_end = y0 - shift + length
+            y_end = y0 + rng.uniform(
+                WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_LENGTH_MAX,
+            )
             while y_end < y1:
-                if y_end > y0:
-                    seams.append(
-                        f'<line x1="{x:.1f}" y1="{y_end:.1f}" '
-                        f'x2="{strip_right:.1f}" y2="{y_end:.1f}"/>'
-                    )
-                y_end += length
-            strip_idx += 1
+                seams.append(
+                    f'<line x1="{x:.1f}" y1="{y_end:.1f}" '
+                    f'x2="{strip_right:.1f}" y2="{y_end:.1f}"/>'
+                )
+                y_end += rng.uniform(
+                    WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_LENGTH_MAX,
+                )
             x += width
             if x < x1:
                 seams.append(
