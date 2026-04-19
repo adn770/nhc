@@ -377,6 +377,16 @@ const GameMap = {
       return;
     }
     this._hatchReady = false;
+    // Prerevealed surfaces (town / keep / ruin / cottage / temple
+    // courtyards) render without any hatching at all so the SVG
+    // rooftops and enclosure stay visible. Skip the pattern stamp
+    // and leave the canvas transparent.
+    if (this.prerevealed) {
+      this.hatchCtx.clearRect(
+        0, 0, this.hatchCanvas.width, this.hatchCanvas.height);
+      this._hatchReady = true;
+      return;
+    }
     const img = new Image();
     img.onload = () => {
       console.log("Hatch patch loaded:", img.width, "x", img.height);
