@@ -932,6 +932,15 @@ def _render_wood_floor(
     When ``dungeon_poly`` is supplied, the seam group is clipped
     to the dungeon interior so plank ends don't bleed onto walls.
     """
+    # Emit the clip first (if any) so per-tile fills AND the
+    # grain / seam overlays share it. Non-orthogonal footprints
+    # (octagon, circle) otherwise let the square per-tile wood
+    # rects overflow past the diagonal wall.
+    clip_attr = ""
+    if dungeon_poly is not None and not dungeon_poly.is_empty:
+        _dungeon_interior_clip(svg, dungeon_poly, "wood-interior-clip")
+        clip_attr = ' clip-path="url(#wood-interior-clip)"'
+
     fills: list[str] = []
     for y in range(level.height):
         for x in range(level.width):
@@ -944,15 +953,15 @@ def _render_wood_floor(
                 f'fill="{WOOD_FLOOR_FILL}"/>'
             )
     if fills:
-        svg.append("".join(fills))
+        if clip_attr:
+            svg.append(f"<g{clip_attr}>")
+            svg.append("".join(fills))
+            svg.append("</g>")
+        else:
+            svg.append("".join(fills))
 
     if not level.rooms:
         return
-
-    clip_attr = ""
-    if dungeon_poly is not None and not dungeon_poly.is_empty:
-        _dungeon_interior_clip(svg, dungeon_poly, "wood-interior-clip")
-        clip_attr = ' clip-path="url(#wood-interior-clip)"'
 
     # Grain first (sits under the plank seams).
     _render_wood_grain(svg, level, rng, clip_attr)
