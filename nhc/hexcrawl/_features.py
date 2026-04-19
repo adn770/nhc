@@ -39,7 +39,44 @@ DEFAULT_ENABLED_PATTERNS: list[str] = ["caves_of_chaos"]
 _SETTLEMENT_FEATURES: frozenset[HexFeatureType] = frozenset({
     HexFeatureType.CITY,
     HexFeatureType.VILLAGE,
+    HexFeatureType.COMMUNITY,
 })
+
+
+# Biome eligibility matrix (design/biome_features.md §3). Single
+# source of truth for which hex biomes can host which major
+# feature. Consulted by both ``place_features`` (hub / village /
+# community / ruin) and ``place_dungeons`` (MANSION / COTTAGE /
+# TEMPLE / etc.). Features not listed here retain their ad-hoc
+# biome pools inside ``place_dungeons`` (CAVE, GRAVEYARD, TOWER).
+FEATURE_BIOMES: dict[HexFeatureType, tuple[Biome, ...]] = {
+    HexFeatureType.CITY: (Biome.GREENLANDS, Biome.HILLS),
+    HexFeatureType.VILLAGE: (
+        Biome.GREENLANDS, Biome.HILLS, Biome.SANDLANDS,
+        Biome.DRYLANDS, Biome.MARSH, Biome.MOUNTAIN,
+    ),
+    HexFeatureType.COMMUNITY: (
+        Biome.GREENLANDS, Biome.HILLS, Biome.SANDLANDS,
+        Biome.DRYLANDS, Biome.MARSH, Biome.MOUNTAIN,
+        Biome.FOREST,
+    ),
+    HexFeatureType.FARM: (Biome.GREENLANDS,),
+    HexFeatureType.MANSION: (
+        Biome.GREENLANDS, Biome.HILLS, Biome.MARSH,
+    ),
+    HexFeatureType.COTTAGE: (Biome.FOREST,),
+    HexFeatureType.TEMPLE: (
+        Biome.MOUNTAIN, Biome.FOREST,
+        Biome.SANDLANDS, Biome.ICELANDS,
+    ),
+    HexFeatureType.RUIN: (
+        Biome.FOREST, Biome.DEADLANDS,
+        Biome.MARSH, Biome.SANDLANDS, Biome.ICELANDS,
+    ),
+    HexFeatureType.KEEP: (
+        Biome.GREENLANDS, Biome.HILLS, Biome.DRYLANDS,
+    ),
+}
 
 
 def assign_cave_clusters(
@@ -129,23 +166,6 @@ def _near_river(
     return False
 
 
-# Village-tier size weighting. Hamlet is the rustic default,
-# village is the common case, town is rarer and larger. The
-# hub is always "city" — that's the capital of the map.
-_VILLAGE_SIZE_WEIGHTS: list[tuple[str, float]] = [
-    ("hamlet", 0.35),
-    ("village", 0.50),
-    ("town", 0.15),
-]
-
-
-def _pick_village_size_class(rng: random.Random) -> str:
-    """Choose a size class for a non-hub settlement."""
-    names = [n for n, _ in _VILLAGE_SIZE_WEIGHTS]
-    weights = [w for _, w in _VILLAGE_SIZE_WEIGHTS]
-    return rng.choices(names, weights=weights, k=1)[0]
-
-
 def _place_patterns(
     cells: dict[HexCoord, HexCell],
     taken: set[HexCoord],
@@ -178,15 +198,17 @@ def pick_hub(
     rng: random.Random,
     cells: dict[HexCoord, HexCell] | None = None,
 ) -> HexCoord | None:
-    """Pick a greenlands hex for the hub; fall back to drylands.
+    """Pick a hub hex from the CITY biome pool.
 
-    When *cells* is provided and contains rivers, the hub
-    prefers hexes within distance 1 of a river hex. Falls back
-    to a random candidate if no river-adjacent hex exists.
+    Greenlands is the preferred biome; hills is the sole
+    fallback because CITY is restricted to those two biomes in
+    :data:`FEATURE_BIOMES`. When *cells* is provided and contains
+    rivers, the hub prefers hexes within distance 1 of a river
+    hex; otherwise it falls back to a random candidate.
     """
     pool = list(hexes_by_biome.get(Biome.GREENLANDS, []))
     if not pool:
-        pool = list(hexes_by_biome.get(Biome.DRYLANDS, []))
+        pool = list(hexes_by_biome.get(Biome.HILLS, []))
     if not pool:
         return None
     # Soft river-proximity preference.
@@ -252,9 +274,12 @@ def place_dungeons(
 ) -> None:
     """Place ``n`` dungeon features.
 
-    Prefers variety: first place 1 cave (mountain), 1 ruin (forest
-    or deadlands), 1 tower (any biome), then fill the rest as
-    towers / extra caves / ruins depending on biome availability.
+    Prefers variety: first place one of each feature kind, then
+    round-robins the remaining budget over the same recipes.
+    Pools come from :data:`FEATURE_BIOMES` for site-assembler
+    features (COTTAGE, TEMPLE, KEEP, MANSION, FARM); CAVE /
+    GRAVEYARD / TOWER keep bespoke pools. RUIN placement has
+    moved to the dedicated ruin loop in :func:`place_features`.
     """
     if n == 0:
         return
@@ -269,14 +294,16 @@ def place_dungeons(
 
     recipes: list[tuple[HexFeatureType, tuple[Biome, ...]]] = [
         (HexFeatureType.CAVE, (Biome.MOUNTAIN,)),
-        (HexFeatureType.RUIN, (Biome.FOREST, Biome.DEADLANDS)),
         (HexFeatureType.GRAVEYARD, (Biome.DEADLANDS, Biome.ICELANDS,
                                     Biome.SWAMP, Biome.MARSH)),
-        (HexFeatureType.KEEP, (Biome.GREENLANDS, Biome.HILLS,
-                               Biome.DRYLANDS)),
-        (HexFeatureType.MANSION, (Biome.GREENLANDS, Biome.HILLS,
-                                  Biome.FOREST)),
-        (HexFeatureType.FARM, (Biome.GREENLANDS, Biome.DRYLANDS)),
+        (HexFeatureType.KEEP, FEATURE_BIOMES[HexFeatureType.KEEP]),
+        (HexFeatureType.MANSION,
+         FEATURE_BIOMES[HexFeatureType.MANSION]),
+        (HexFeatureType.FARM, FEATURE_BIOMES[HexFeatureType.FARM]),
+        (HexFeatureType.COTTAGE,
+         FEATURE_BIOMES[HexFeatureType.COTTAGE]),
+        (HexFeatureType.TEMPLE,
+         FEATURE_BIOMES[HexFeatureType.TEMPLE]),
         (HexFeatureType.TOWER, tuple(
             b for b in Biome if b is not Biome.WATER
         )),
@@ -327,6 +354,89 @@ def place_dungeons(
 # ---------------------------------------------------------------------------
 
 
+def _place_settlement_loop(
+    cells: dict[HexCoord, HexCell],
+    hexes_by_biome: dict[Biome, list[HexCoord]],
+    taken: set[HexCoord],
+    feature: HexFeatureType,
+    size_class: str,
+    count: int,
+    rng: random.Random,
+    min_required: int = 0,
+) -> int:
+    """Place up to ``count`` settlements of ``feature``.
+
+    Consults :data:`FEATURE_BIOMES` for the biome pool, rejects
+    candidates adjacent to an existing settlement, and pins
+    ``size_class`` on the DungeonRef. Raises
+    :class:`FeaturePlacementError` when fewer than
+    ``min_required`` placements are possible.
+    """
+    if count <= 0:
+        return 0
+    pool = [
+        c for b in FEATURE_BIOMES[feature]
+        for c in hexes_by_biome[b] if c not in taken
+    ]
+    rng.shuffle(pool)
+    # Soft river-proximity preference for settlement placement.
+    pool.sort(key=lambda c: (0 if _near_river(c, cells) else 1))
+    placed = 0
+    for c in pool:
+        if placed >= count:
+            break
+        if _adjacent_to_settlement(c, cells):
+            continue
+        cells[c].feature = feature
+        cells[c].dungeon = DungeonRef(
+            template="procedural:settlement",
+            size_class=size_class,
+            site_kind="town",
+        )
+        taken.add(c)
+        placed += 1
+    if placed < min_required:
+        raise FeaturePlacementError(
+            f"could only place {placed} {feature.value} hexes "
+            f"(need at least {min_required}; settlement spacing "
+            f"rejected too many candidates)",
+        )
+    return placed
+
+
+def _place_ruins(
+    cells: dict[HexCoord, HexCell],
+    hexes_by_biome: dict[Biome, list[HexCoord]],
+    taken: set[HexCoord],
+    count: int,
+    rng: random.Random,
+) -> int:
+    """Place ``count`` RUIN hexes from the biome pool.
+
+    Ruins are abandoned dungeon entrances, not settlements, so
+    they are free to sit adjacent to other features.
+    """
+    if count <= 0:
+        return 0
+    pool = [
+        c for b in FEATURE_BIOMES[HexFeatureType.RUIN]
+        for c in hexes_by_biome[b] if c not in taken
+    ]
+    if len(pool) < count:
+        raise FeaturePlacementError(
+            f"not enough ruin-eligible hexes to place {count} "
+            f"ruins (have {len(pool)})",
+        )
+    for c in rng.sample(pool, count):
+        cells[c].feature = HexFeatureType.RUIN
+        cells[c].dungeon = DungeonRef(
+            template=_template_for(HexFeatureType.RUIN),
+            site_kind=_site_kind_for(HexFeatureType.RUIN),
+        )
+        taken.add(c)
+    return count
+
+
 def place_features(
     cells: dict[HexCoord, HexCell],
     hexes_by_biome: dict[Biome, list[HexCoord]],
@@ -337,71 +447,60 @@ def place_features(
 
     Order is deliberate:
 
-    1. Hub (greenlands or drylands; name + desc keys + settlement
-       template).
-    2. Villages (from the leftover greenlands / drylands pool).
-    3. Dungeons (biome-themed: caves in mountain, ruins in forest
-       or deadlands, towers anywhere).
-    4. Wonders (icelands / deadlands hexes; random wonder sub-type).
+    1. Hub (CITY biome pool from :data:`FEATURE_BIOMES`).
+    2. Villages — pinned to ``size_class="village"``.
+    3. Communities — pinned to ``size_class="hamlet"``.
+    4. Ruins — dedicated pool from ``pack.features.ruin``.
+    5. Feature patterns (Caves of Chaos, etc.).
+    6. Generic dungeons (caves, towers, keeps, mansions, …).
+    7. Wonders.
 
-    Returns the hub coord so the caller can stash it on
-    ``HexWorld.last_hub``.
+    Returns ``(hub_coord, cave_clusters)`` so the caller can
+    stash the hub on ``HexWorld.last_hub``.
     """
     hub = pick_hub(hexes_by_biome, rng, cells)
     if hub is None:
         raise FeaturePlacementError(
-            "no greenlands / drylands hex for hub",
+            "no greenlands / hills hex for hub",
         )
     cells[hub].feature = HexFeatureType.CITY
     cells[hub].name_key = "content.testland.hex.hub.name"
     cells[hub].desc_key = "content.testland.hex.hub.description"
-    # Placeholder so enter_hex_feature can land on a generated
-    # town floor; actual town-map generation is M-2.1 work.
     cells[hub].dungeon = DungeonRef(
         template="procedural:settlement", size_class="city",
         site_kind="town",
     )
     taken: set[HexCoord] = {hub}
 
-    # Villages — placed one at a time with an adjacency check so
-    # no two settlements (hub + villages) end up next to each
-    # other. The map should read as distinct communities with
-    # wilderness between them.
+    # Villages — size_class is pinned; no random hamlet / town roll.
     vt = pack.features.village
     n_villages = rng.randint(vt.min, vt.max)
-    village_pool = [
-        c for c in (
-            hexes_by_biome[Biome.GREENLANDS]
-            + hexes_by_biome[Biome.DRYLANDS]
-        ) if c not in taken
-    ]
-    rng.shuffle(village_pool)
-    # Soft river-proximity preference: river-adjacent candidates
-    # appear first in the pool so they are tried before distant ones.
-    village_pool.sort(
-        key=lambda c: (0 if _near_river(c, cells) else 1),
+    _place_settlement_loop(
+        cells, hexes_by_biome, taken,
+        feature=HexFeatureType.VILLAGE,
+        size_class="village",
+        count=n_villages,
+        rng=rng,
+        min_required=vt.min,
     )
-    placed_villages = 0
-    for c in village_pool:
-        if placed_villages >= n_villages:
-            break
-        # Reject candidates adjacent to any existing settlement.
-        if _adjacent_to_settlement(c, cells):
-            continue
-        cells[c].feature = HexFeatureType.VILLAGE
-        cells[c].dungeon = DungeonRef(
-            template="procedural:settlement",
-            size_class=_pick_village_size_class(rng),
-            site_kind="town",
-        )
-        taken.add(c)
-        placed_villages += 1
-    if placed_villages < vt.min:
-        raise FeaturePlacementError(
-            f"could only place {placed_villages} villages "
-            f"(need at least {vt.min}; settlement spacing "
-            f"rejected too many candidates)",
-        )
+
+    # Communities — hamlet-scale settlements, own biome pool
+    # (includes FOREST), respect settlement spacing.
+    ct = pack.features.community
+    n_communities = rng.randint(ct.min, ct.max)
+    _place_settlement_loop(
+        cells, hexes_by_biome, taken,
+        feature=HexFeatureType.COMMUNITY,
+        size_class="hamlet",
+        count=n_communities,
+        rng=rng,
+        min_required=ct.min,
+    )
+
+    # Ruins — abandoned dungeon entrances with their own pack knob.
+    rt = pack.features.ruin
+    n_ruins = rng.randint(rt.min, rt.max)
+    _place_ruins(cells, hexes_by_biome, taken, n_ruins, rng)
 
     # Feature patterns (e.g., Caves of Chaos keep + lair cluster).
     # Patterns run before generic dungeon placement and consume
