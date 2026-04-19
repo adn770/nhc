@@ -870,9 +870,20 @@ class WebClient(GameClient):
             "hex_day": tr("hex.ui.day"),
             "hex_enter_hint": tr("hex.ui.enter_hint"),
             "hex_controls": tr("hex.ui.controls"),
-            # Hex toolbar button tooltips
-            "toolbar_hex_enter": tr("hex.ui.toolbar_enter"),
-            "toolbar_hex_rest": tr("hex.ui.toolbar_rest"),
+            # Hex + flower toolbar button tooltips. The JS
+            # client in input.js declares one ``labelKey`` per
+            # button; each key must have a matching entry here
+            # or the browser falls back to showing the raw key
+            # in the tooltip. tests/unit/test_toolbar_labels.py
+            # asserts the two lists stay in sync.
+            "toolbar_dig": tr("ui.toolbar_dig"),
+            "toolbar_hex_explore": tr("ui.toolbar_hex_explore"),
+            "toolbar_hex_rest": tr("ui.toolbar_hex_rest"),
+            "toolbar_flower_enter": tr("ui.toolbar_flower_enter"),
+            "toolbar_flower_search": tr("ui.toolbar_flower_search"),
+            "toolbar_flower_forage": tr("ui.toolbar_flower_forage"),
+            "toolbar_flower_rest": tr("ui.toolbar_flower_rest"),
+            "toolbar_flower_exit": tr("ui.toolbar_flower_exit"),
             # Per-biome translated names
             **{
                 f"hex_biome_{b.value}": tr(f"hex.biome.{b.value}")
