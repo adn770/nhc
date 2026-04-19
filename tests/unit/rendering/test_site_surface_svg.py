@@ -81,6 +81,43 @@ class TestRenderSiteSurfaceSvg:
         assert _ROOF_CLIP_MARKER in svg[:end]
 
 
+class TestGoldenSnapshot:
+    """Byte-for-byte regression trip wire. When this test fails,
+    regenerate the golden via
+    ``tests/samples/golden/regenerate_town_surface.py`` (or by
+    hand) and inspect the diff in the PR before blessing the new
+    bytes. Seed 7 was picked because it yields a town with a
+    palisade, seven buildings, and at least one L-shape, so the
+    golden covers gable, pyramid, and polygon-clipping paths."""
+
+    GOLDEN_SEED = 7
+
+    def test_town_surface_matches_golden(self) -> None:
+        from pathlib import Path
+        site = assemble_site(
+            "town", f"town_seed{self.GOLDEN_SEED}",
+            random.Random(self.GOLDEN_SEED),
+        )
+        got = render_site_surface_svg(site, seed=self.GOLDEN_SEED)
+        golden = Path(
+            "tests/samples/golden/"
+            f"town_surface_seed{self.GOLDEN_SEED}.svg"
+        ).read_text()
+        assert got == golden, (
+            "Site-surface SVG drift. Inspect the diff; if the "
+            "change is intentional, regenerate the golden:\n\n"
+            "    .venv/bin/python -c 'import random; "
+            "from nhc.dungeon.site import assemble_site; "
+            "from nhc.rendering.site_svg import render_site_surface_svg; "
+            f"seed={self.GOLDEN_SEED}; "
+            "site=assemble_site(\"town\", f\"town_seed{seed}\", "
+            "random.Random(seed)); "
+            "open(f\"tests/samples/golden/"
+            "town_surface_seed{seed}.svg\", \"w\")"
+            ".write(render_site_surface_svg(site, seed=seed))'"
+        )
+
+
 class TestRenderLevelSvgDispatch:
     """When the Level is a Site's surface, render_level_svg must
     route through render_site_surface_svg so rooftops land on the
