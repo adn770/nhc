@@ -334,6 +334,15 @@ class Game:
         # buildings without re-running the assembler. None for
         # single-building sites (tower) and dungeon features.
         self._active_site = None
+        # Set when the player has descended from a building ground
+        # floor into that building's descent ``DungeonRef``. Holds
+        # the Building the descent originates from and the tile on
+        # its ground floor to land back on when the player ascends.
+        # Cleared on ascent or overland exit.
+        self._active_descent_building: "object | None" = None
+        self._active_descent_return_tile: (
+            "tuple[int, int] | None"
+        ) = None
         # Maps "q_r" → (x, y) for each cluster member's stairs_up
         # on the shared Floor 2. Populated by _generate_cave_floor2,
         # consumed by the player-placement branch in
@@ -1041,6 +1050,183 @@ class Game:
         self._update_fov()
         self._notify_floor_change(self.level.depth)
 
+    def _is_building_descent_entry(self) -> bool:
+        """Return True when the player is standing on the active
+        site building's descent stair tile.
+
+        The caller must have already decided the action is a
+        descent; this method only checks tile eligibility.
+        """
+        from nhc.hexcrawl.model import DungeonRef
+
+        if self._active_site is None or self.level is None:
+            return False
+        if self.level.building_id is None:
+            return False
+        if self.level.floor_index != 0:
+            return False
+        building = next(
+            (b for b in self._active_site.buildings
+             if b.id == self.level.building_id),
+            None,
+        )
+        if building is None or building.descent is None:
+            return False
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is None:
+            return False
+        for link in building.stair_links:
+            if not isinstance(link.to_floor, DungeonRef):
+                continue
+            if link.from_tile == (pos.x, pos.y):
+                return True
+        return False
+
+    def _collect_non_party_entities(
+        self,
+    ) -> dict[int, dict[str, object]]:
+        """Snapshot components of every non-party entity."""
+        keep_ids = self._party_keep_ids()
+        data: dict[int, dict[str, object]] = {}
+        for eid in list(self.world._entities):
+            if eid in keep_ids:
+                continue
+            comps: dict[str, object] = {}
+            for comp_type, store in self.world._components.items():
+                if eid in store:
+                    comps[comp_type] = store[eid]
+            if comps:
+                data[eid] = comps
+        return data
+
+    def _destroy_non_party_entities(self) -> None:
+        keep_ids = self._party_keep_ids()
+        for eid in list(self.world._entities):
+            if eid not in keep_ids:
+                self.world.destroy_entity(eid)
+
+    def _restore_entities(
+        self, data: dict[int, dict[str, object]],
+    ) -> None:
+        for eid, comps in data.items():
+            self.world._entities.add(eid)
+            for comp_type, comp in comps.items():
+                self.world.add_component(eid, comp_type, comp)
+            if eid >= self.world._next_id:
+                self.world._next_id = eid + 1
+
+    def _enter_building_descent(self) -> None:
+        """Generate / restore the first floor of the active
+        building's descent ``DungeonRef`` and swap ``self.level``."""
+        import random
+        from nhc.hexcrawl.model import DungeonRef
+        from nhc.hexcrawl.seed import dungeon_seed
+
+        assert self._active_site is not None
+        assert self.level is not None and self.level.building_id
+        building = next(
+            b for b in self._active_site.buildings
+            if b.id == self.level.building_id
+        )
+        assert building.descent is not None
+        descent_link = next(
+            l for l in building.stair_links
+            if isinstance(l.to_floor, DungeonRef)
+        )
+        coord = self.hex_player_position
+        bi = next(
+            i for i, b in enumerate(self._active_site.buildings)
+            if b.id == building.id
+        )
+        descent_key = (
+            "descent", self._active_site.kind,
+            coord.q, coord.r, bi, 1,
+        )
+        ground_key = (
+            "descent_ground", self._active_site.kind,
+            coord.q, coord.r, bi,
+        )
+        # Stash ground-level entities so the player finds the same
+        # creatures / items when they climb back up.
+        ground_entities = self._collect_non_party_entities()
+        self._floor_cache[ground_key] = (self.level, ground_entities)
+        self._destroy_non_party_entities()
+
+        if descent_key in self._floor_cache:
+            level, entity_data = self._floor_cache[descent_key]
+            self.level = level
+            self._restore_entities(entity_data)
+        else:
+            template = descent_link.to_floor.template
+            seed = dungeon_seed(
+                self.seed or 0, coord, template + "_descent",
+            )
+            sv = _shape_variety_for_depth(self.shape_variety, 2)
+            theme = (
+                "crypt" if template.startswith("procedural:crypt")
+                else theme_for_depth(2)
+            )
+            rng = random.Random(seed)
+            w, h = pick_map_size(rng, depth=2)
+            params = GenerationParams(
+                width=w, height=h, depth=2,
+                shape_variety=sv, theme=theme, seed=seed,
+                template=template,
+            )
+            self.generation_params = params
+            self.level = generate_level(params)
+            self._floor_cache[descent_key] = (self.level, {})
+            self._spawn_level_entities()
+
+        self._active_descent_building = building
+        self._active_descent_return_tile = descent_link.from_tile
+        self._place_player_at_stairs_up()
+        self._update_fov()
+        self._notify_floor_change(self.level.depth)
+
+    def _exit_building_descent(self) -> None:
+        """Return from an active descent to the building ground
+        floor, placing the player on the descent source tile."""
+        assert self._active_descent_building is not None
+        assert self._active_descent_return_tile is not None
+        assert self._active_site is not None
+        coord = self.hex_player_position
+        bi = next(
+            i for i, b in enumerate(self._active_site.buildings)
+            if b.id == self._active_descent_building.id
+        )
+        descent_key = (
+            "descent", self._active_site.kind,
+            coord.q, coord.r, bi, 1,
+        )
+        ground_key = (
+            "descent_ground", self._active_site.kind,
+            coord.q, coord.r, bi,
+        )
+        # Stash descent entities so a second descent finds the
+        # same state; then destroy and rehydrate ground entities.
+        self._floor_cache[descent_key] = (
+            self.level, self._collect_non_party_entities(),
+        )
+        self._destroy_non_party_entities()
+        building = self._active_descent_building
+        return_tile = self._active_descent_return_tile
+        ground_cache = self._floor_cache.pop(ground_key, None)
+        if ground_cache is not None:
+            cached_level, ground_entities = ground_cache
+            self.level = cached_level
+            self._restore_entities(ground_entities)
+        else:
+            self.level = building.ground
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x, pos.y = return_tile
+            pos.level_id = self.level.id
+        self._active_descent_building = None
+        self._active_descent_return_tile = None
+        self._update_fov()
+        self._notify_floor_change(self.level.depth)
+
     def _swap_to_site_surface(self, sx: int, sy: int) -> None:
         """Switch ``self.level`` back to the active site's surface
         Level and place the player on ``(sx, sy)``."""
@@ -1303,6 +1489,8 @@ class Game:
         self.level = None
         self._active_cave_cluster = None
         self._active_site = None
+        self._active_descent_building = None
+        self._active_descent_return_tile = None
         self._underworld_sector_map = {}
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
@@ -2714,6 +2902,23 @@ class Game:
         ascending = new_depth < old_depth
         logger.info("%s to depth %d",
                      "Ascending" if ascending else "Descending", new_depth)
+
+        # Building descent: descending from a building ground
+        # floor onto the descent stair tile routes through the
+        # dungeon template pipeline (cave / crypt / ...), not
+        # the in-building floor cache.
+        if not ascending and self._is_building_descent_entry():
+            self._enter_building_descent()
+            return
+        # Exiting the descent: ascending from descent depth 1
+        # (old_depth == 2) to depth 1 returns to the source
+        # building's ground floor. Deeper-floor ascents inside the
+        # descent use the normal dungeon cache.
+        if (ascending
+                and self._active_descent_building is not None
+                and new_depth == 1 and old_depth == 2):
+            self._exit_building_descent()
+            return
 
         # When ascending from an underworld floor, the player may
         # have walked into a sector belonging to a different cluster
