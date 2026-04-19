@@ -38,8 +38,9 @@ def test_biome_enum_complete() -> None:
 def test_hexfeature_enum_complete() -> None:
     # NONE is the sentinel for hexes without a feature.
     expected = {
-        "none", "village", "city", "tower", "keep",
-        "mansion", "farm",
+        "none", "village", "city", "community",
+        "tower", "keep", "mansion", "farm",
+        "cottage", "temple",
         "cave", "ruin", "hole", "graveyard",
         "crystals", "stones", "wonder", "portal",
         "lake", "river",

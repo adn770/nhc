@@ -33,8 +33,10 @@ class TestSiteKindForFeature:
         through the template-based pipeline."""
         assert _site_kind_for(HexFeatureType.CAVE) is None
 
-    def test_ruin_has_no_site_kind(self):
-        assert _site_kind_for(HexFeatureType.RUIN) is None
+    def test_ruin_routes_to_ruin_site(self):
+        """After biome-features M1, ruin hexes dispatch through
+        the ruin site assembler (see design/biome_features.md §6)."""
+        assert _site_kind_for(HexFeatureType.RUIN) == "ruin"
 
     def test_graveyard_has_no_site_kind(self):
         assert _site_kind_for(HexFeatureType.GRAVEYARD) is None

@@ -42,9 +42,15 @@ features:
   village:
     min: 2
     max: 4
+  community:
+    min: 2
+    max: 5
   dungeon:
     min: 6
     max: 10
+  ruin:
+    min: 2
+    max: 4
   wonder:
     min: 2
     max: 4

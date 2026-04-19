@@ -124,8 +124,20 @@ class FeatureTargets:
     village: FeatureTarget = field(
         default_factory=lambda: FeatureTarget(1, 2)
     )
+    # Hamlet-scale community settlements; default off so existing
+    # packs stay at their current settlement mix until they opt
+    # in (see design/biome_features.md §5).
+    community: FeatureTarget = field(
+        default_factory=lambda: FeatureTarget(0, 0)
+    )
     dungeon: FeatureTarget = field(
         default_factory=lambda: FeatureTarget(3, 5)
+    )
+    # Abandoned multi-floor dungeon entrances. Kept as a first-
+    # class knob (not rolled up into the generic dungeon budget)
+    # so packs can tune ruin density independently. Default off.
+    ruin: FeatureTarget = field(
+        default_factory=lambda: FeatureTarget(0, 0)
     )
     wonder: FeatureTarget = field(
         default_factory=lambda: FeatureTarget(1, 3)
@@ -271,7 +283,7 @@ def _parse_features(block: dict[str, Any] | None) -> FeatureTargets:
     out = FeatureTargets()
     if "hub" in block:
         out.hub = int(block["hub"])
-    for name in ("village", "dungeon", "wonder"):
+    for name in ("village", "community", "dungeon", "ruin", "wonder"):
         if name in block:
             setattr(out, name, _parse_target(block[name], name))
     if "patterns" in block:

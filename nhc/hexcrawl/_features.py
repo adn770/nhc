@@ -213,6 +213,11 @@ def _template_for(feature: HexFeatureType) -> str:
         # only used for seeding, so a neutral placeholder keeps
         # the dungeon_seed hash stable across world generations.
         HexFeatureType.KEEP: "site:keep",
+        # Communities route through the town assembler as
+        # hamlets; the template string matches VILLAGE / CITY.
+        HexFeatureType.COMMUNITY: "procedural:settlement",
+        HexFeatureType.TEMPLE: "site:temple",
+        HexFeatureType.COTTAGE: "site:cottage",
     }.get(feature, "procedural:cave")
 
 
@@ -231,6 +236,10 @@ def _site_kind_for(feature: HexFeatureType) -> str | None:
         HexFeatureType.FARM: "farm",
         HexFeatureType.CITY: "town",
         HexFeatureType.VILLAGE: "town",
+        HexFeatureType.COMMUNITY: "town",
+        HexFeatureType.TEMPLE: "temple",
+        HexFeatureType.COTTAGE: "cottage",
+        HexFeatureType.RUIN: "ruin",
     }.get(feature)
 
 
