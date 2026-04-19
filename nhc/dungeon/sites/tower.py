@@ -13,7 +13,9 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.building import Building
-from nhc.dungeon.generators._stairs import place_cross_floor_stairs
+from nhc.dungeon.generators._stairs import (
+    flip_building_stair_semantics, place_cross_floor_stairs,
+)
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, Room,
     RoomShape, Terrain, Tile,
@@ -81,7 +83,7 @@ def assemble_tower(
         interior_floor="stone",
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
-    _flip_stair_semantics_for_tower(building)
+    flip_building_stair_semantics(building)
     door_xy = _place_entry_door(building, rng)
     building.validate()
 
@@ -152,40 +154,6 @@ def _build_tower_floor(
     level.building_id = building_id
     level.floor_index = floor_idx
     return level
-
-
-def _flip_stair_semantics_for_tower(building: Building) -> None:
-    """Swap stairs_up <-> stairs_down on cross-floor stair tiles.
-
-    :func:`place_cross_floor_stairs` uses dungeon conventions: the
-    lower-index floor's stair feature is ``stairs_up`` because
-    climbing reaches a lower ``depth``. In a tower the physical
-    direction is inverted: ``floor_index + 1`` is the floor
-    *above*, and the engine treats that as a ``depth`` increase
-    reached by the ``descend`` action. Flipping the feature names
-    on both sides of each stair link keeps the engine's floor-
-    transition logic correct without special-casing towers.
-
-    The descent stair (when ``building.descent is not None``) is
-    excluded from the flip: it leads physically downward to the
-    cellar, so it must stay as ``stairs_down`` on the ground
-    floor regardless of the cross-floor inversion.
-    """
-    from nhc.hexcrawl.model import DungeonRef
-    cross_tiles: set[tuple[int, int, int]] = set()
-    for link in building.stair_links:
-        if isinstance(link.to_floor, DungeonRef):
-            continue
-        cross_tiles.add((link.from_floor, *link.from_tile))
-        cross_tiles.add((link.to_floor, *link.to_tile))
-    swap = {"stairs_up": "stairs_down", "stairs_down": "stairs_up"}
-    for idx, floor in enumerate(building.floors):
-        for y, row in enumerate(floor.tiles):
-            for x, tile in enumerate(row):
-                if (idx, x, y) not in cross_tiles:
-                    continue
-                if tile.feature in swap:
-                    tile.feature = swap[tile.feature]
 
 
 def _place_entry_door(

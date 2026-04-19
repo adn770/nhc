@@ -1035,8 +1035,11 @@ class Game:
         the player on the ``(bx, by)`` tile.
 
         Marks the landing door tile as open so the player is never
-        stuck on a closed-door square after a level swap. Emits a
-        floor-change notification for the web renderer.
+        stuck on a closed-door square after a level swap.
+        Re-keys the depth-indexed floor cache to point at the
+        target building's floors so cross-floor stair navigation
+        works for whichever building the player just entered.
+        Emits a floor-change notification for the web renderer.
         """
         self.level = building.ground
         pos = self.world.get_component(self.player_id, "Position")
@@ -1047,8 +1050,26 @@ class Game:
         tile = self.level.tile_at(bx, by)
         if tile is not None and tile.feature == "door_closed":
             tile.feature = "door_open"
+        self._activate_building_floor_cache(building)
         self._update_fov()
         self._notify_floor_change(self.level.depth)
+
+    def _activate_building_floor_cache(self, building) -> None:
+        """Point the depth-keyed floor cache at ``building.floors``.
+
+        In multi-building sites (mansion, keep, town, farm) only
+        the first building's floors land in the depth-keyed cache
+        slots at site entry. When the player swaps into a sibling
+        via a door, the depth cache must move to that sibling so
+        DescendStairsAction / AscendStairsAction resolve to the
+        right Level. Entity state is cleared on swap; a later
+        pass can thread per-building entity stashes through if
+        sibling populations turn out to matter.
+        """
+        if self._active_site is None:
+            return
+        for fi, floor in enumerate(building.floors):
+            self._floor_cache[self._cache_key(fi + 1)] = (floor, {})
 
     def _is_building_descent_entry(self) -> bool:
         """Return True when the player is standing on the active

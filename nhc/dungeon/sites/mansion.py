@@ -12,7 +12,9 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.building import Building
-from nhc.dungeon.generators._stairs import place_cross_floor_stairs
+from nhc.dungeon.generators._stairs import (
+    flip_building_stair_semantics, place_cross_floor_stairs,
+)
 from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, Room, RoomShape, SurfaceType,
     Terrain, Tile,
@@ -143,6 +145,7 @@ def _build_mansion_building(
         interior_floor="stone",
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
+    flip_building_stair_semantics(building)
     return building
 
 
