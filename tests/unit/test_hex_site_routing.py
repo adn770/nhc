@@ -18,6 +18,12 @@ class TestSiteKindForFeature:
     def test_keep_maps_to_keep(self):
         assert _site_kind_for(HexFeatureType.KEEP) == "keep"
 
+    def test_mansion_maps_to_mansion(self):
+        assert _site_kind_for(HexFeatureType.MANSION) == "mansion"
+
+    def test_farm_maps_to_farm(self):
+        assert _site_kind_for(HexFeatureType.FARM) == "farm"
+
     def test_city_and_village_map_to_town(self):
         assert _site_kind_for(HexFeatureType.CITY) == "town"
         assert _site_kind_for(HexFeatureType.VILLAGE) == "town"

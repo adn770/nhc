@@ -261,6 +261,9 @@ def place_dungeons(
                                     Biome.SWAMP, Biome.MARSH)),
         (HexFeatureType.KEEP, (Biome.GREENLANDS, Biome.HILLS,
                                Biome.DRYLANDS)),
+        (HexFeatureType.MANSION, (Biome.GREENLANDS, Biome.HILLS,
+                                  Biome.FOREST)),
+        (HexFeatureType.FARM, (Biome.GREENLANDS, Biome.DRYLANDS)),
         (HexFeatureType.TOWER, tuple(
             b for b in Biome if b is not Biome.WATER
         )),
