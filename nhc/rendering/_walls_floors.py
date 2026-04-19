@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from nhc.dungeon.generators.cellular import CaveShape
-from nhc.dungeon.model import Level, RectShape, Terrain
+from nhc.dungeon.model import Level, RectShape, SurfaceType, Terrain
 from nhc.rendering._room_outlines import (
     _outline_with_gaps,
     _room_svg_outline,
@@ -167,8 +167,13 @@ def _render_walls_and_floors(
 
             tile = level.tiles[y][x]
 
-            # Street tiles are open-air — no side walls
-            if tile.is_street:
+            # Street tiles are open-air -- no side walls. Accept
+            # either the legacy is_street boolean or the newer
+            # Tile.surface_type == SurfaceType.STREET so site
+            # assemblers that only set the enum (town / keep)
+            # stop painting walled-island rings around streets.
+            if (tile.is_street
+                    or tile.surface_type == SurfaceType.STREET):
                 continue
 
             px, py = x * CELL, y * CELL

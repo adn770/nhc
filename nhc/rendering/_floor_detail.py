@@ -493,6 +493,12 @@ def _render_floor_grid(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
+            # Skip VOID tiles: they're truly empty space, never
+            # rendered on surface levels (no dungeon_poly to clip
+            # against) and on dungeon levels their grid edges
+            # would be clipped out anyway.
+            if tile.terrain == Terrain.VOID:
+                continue
             # Secret doors sit on the wall line between rooms
             # and fall outside the room shapely polygons used
             # by grid-clip. Route their grid edges through the

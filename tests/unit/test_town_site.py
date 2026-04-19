@@ -112,6 +112,48 @@ class TestTownSurface:
                     t = site.surface.tiles[y][x]
                     assert t.surface_type != SurfaceType.STREET
 
+    def test_surface_svg_has_no_walled_island_strokes(self):
+        """Street tiles must not emit the thick WALL stroke around
+        them -- that creates the "walled island" look around every
+        building and around the palisade. Detected via absence of
+        the WALL_WIDTH stroke on a path inside the surface SVG."""
+        from nhc.rendering._svg_helpers import WALL_WIDTH
+        from nhc.rendering.svg import render_floor_svg
+        site = assemble_town("t1", random.Random(42))
+        svg = render_floor_svg(site.surface, seed=42)
+        assert f'stroke-width="{WALL_WIDTH}"' not in svg
+
+    def test_surface_svg_skips_grid_on_void_tiles(self):
+        """On a surface with only street + void, the grid segment
+        count (M commands inside the grid path) should be bounded
+        by the street area rather than the full level area."""
+        import re
+        from nhc.dungeon.model import Terrain
+        from nhc.rendering.svg import render_floor_svg
+        site = assemble_town("t1", random.Random(42))
+        svg = render_floor_svg(site.surface, seed=42)
+        # Grid path(s) carry stroke-width="0.3". Pull the d="..."
+        # attribute and count M commands = segments emitted.
+        total_segments = 0
+        for d in re.findall(
+            r'<path d="([^"]+)"[^/]*stroke-width="0\.3"', svg,
+        ):
+            total_segments += d.count("M")
+        n_floor = sum(
+            1 for row in site.surface.tiles for t in row
+            if t.terrain == Terrain.FLOOR
+        )
+        # Right + bottom edge per tile => 2 segments; each grid
+        # segment can contribute up to 2 M commands when
+        # _wobbly_grid_seg inserts a mid-gap. Cap at 3 * n_floor
+        # with a small margin; if VOID tiles were contributing
+        # (1500 total tiles vs 380 floor) we'd be well past this
+        # bound.
+        assert total_segments <= 3 * n_floor + 50, (
+            f"grid emits {total_segments} segments for {n_floor} "
+            f"FLOOR tiles -- VOID tiles are contributing"
+        )
+
     def test_surface_svg_has_no_indoor_details(self):
         """The outdoor surface (STREET / FIELD / GARDEN tiles)
         should not carry indoor detail: no bones, skulls, floor
