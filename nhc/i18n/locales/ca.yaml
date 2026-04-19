@@ -1447,6 +1447,30 @@ creature:
     long: >-
       Un gegant blanc i pelut dels passos alts, amb espatlles
       carregades de gebre. El seu rugit fa caure la neu de cada cornisa.
+  cult_leader:
+    name: "líder del culte"
+    gender: "m"
+    short: "un líder del culte"
+    long: >-
+      Un zelot veterà amb vestidures fosques, una daga
+      ensangonada en una mà i un llibre de ritus prohibits
+      en l'altra.
+  lizardman_chief:
+    name: "cap llangardànic"
+    gender: "m"
+    short: "un cap llangardànic"
+    long: >-
+      Un guerrer escatós carregat amb trofeus d'os, més gran i
+      astut que els seus. El seu xisclet empeny la ventrada
+      cap a la frenesí.
+  gnoll_chieftain:
+    name: "cabdill gnoll"
+    gender: "m"
+    short: "un cabdill gnoll"
+    long: >-
+      L'alfa brutal d'una manada de gnolls, cobert de pells i
+      trofeus. La seva rialla ressona per les dunes i la manada
+      riu amb ell.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

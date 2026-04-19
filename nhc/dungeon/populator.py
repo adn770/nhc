@@ -111,13 +111,33 @@ FACTION_POOLS: dict[str, list[tuple[str, float]]] = {
                   ("frogman", 0.15), ("giant_frog", 0.15)],
     "frozen_dead": [("frozen_dead", 0.50), ("frozen_dead", 0.20),
                     ("skeleton", 0.15), ("wraith", 0.15)],
-    "yeti":    [("yeti", 0.45), ("yeti", 0.20),
-                ("winter_wolf", 0.20), ("dire_wolf", 0.15)],
+    "yeti":    [("yeti", 0.50), ("yeti", 0.20),
+                ("wolf", 0.20), ("winter_wolf", 0.10)],
     # v2 category aliases: reuse the module-level pools verbatim so
     # "beast" / "undead" in the biome table resolve to the same
     # weight list every caller sees.
     "beast": BEAST_POOL,
     "undead": UNDEAD_POOL,
+}
+
+
+# ── Faction leaders (biome-features v2, M10 boss rooms) ───────────────
+#
+# One room on the deepest ruin descent floor is tagged "boss" and
+# seeded with a creature rolled from the faction's leader list.
+# Entries prefer existing creatures where flavour allows (warg for
+# bandit captain, brown_bear for beast alpha, wraith for undead
+# champion); only cult_leader / lizardman_chief / gnoll_chieftain
+# were load-bearing enough to justify new factories.
+FACTION_LEADERS: dict[str, list[tuple[str, float]]] = {
+    "bandit":      [("warg", 1.0)],
+    "beast":       [("brown_bear", 0.6), ("dire_wolf", 0.4)],
+    "cultist":     [("cult_leader", 1.0)],
+    "undead":      [("wraith", 0.7), ("wight", 0.3)],
+    "lizardman":   [("lizardman_chief", 1.0)],
+    "gnoll":       [("gnoll_chieftain", 1.0)],
+    "frozen_dead": [("wraith", 1.0)],
+    "yeti":        [("yeti", 1.0)],
 }
 
 
@@ -274,6 +294,89 @@ BURIED_POOLS: dict[int, list[tuple[str, float]]] = {
         ("glass_piece_7", 0.04), ("glass_piece_8", 0.04),
         ("glass_piece_1", 0.04), ("glass_piece_2", 0.04)],
 }
+
+
+def assign_ruin_boss_room(
+    level: Level, faction: str, rng: "random.Random",
+) -> None:
+    """Tag the room farthest from the entry as ``boss`` and seed it.
+
+    Meant for the deepest ruin descent floor. Picks the largest
+    non-entry room with the highest Chebyshev distance from the
+    entry room as the boss chamber (so the boss sits at the end
+    of the crawl, not under the descent stair), stamps the
+    ``"boss"`` tag on it, evicts any regular-pool creatures the
+    populator placed inside its footprint, and drops a leader
+    unit rolled from :data:`FACTION_LEADERS` on the room centre.
+
+    Runs after ``populate_level`` so the regular creature pass
+    has already seen ``"boss"`` among the ``special_tags`` set
+    above -- in practice the tag is stamped by this helper, so
+    the eviction handles the case where ``populate_level`` ran
+    before the tag was applied.
+    """
+    if not level.rooms or faction not in FACTION_LEADERS:
+        return
+
+    entry_room = next(
+        (r for r in level.rooms if "entry" in r.tags),
+        level.rooms[0],
+    )
+    er = entry_room.rect
+    ex, ey = (er.x + er.width // 2, er.y + er.height // 2)
+
+    candidates = [
+        r for r in level.rooms
+        if r is not entry_room
+        and r.rect.width >= 3 and r.rect.height >= 3
+        and "boss" not in r.tags
+    ]
+    if not candidates:
+        return
+
+    def _distance(room) -> int:
+        rc = room.rect
+        rx, ry = (rc.x + rc.width // 2, rc.y + rc.height // 2)
+        return max(abs(rx - ex), abs(ry - ey))
+
+    candidates.sort(key=lambda r: (-_distance(r), -r.rect.width * r.rect.height))
+    boss_room = candidates[0]
+    if "boss" not in boss_room.tags:
+        boss_room.tags = list(boss_room.tags) + ["boss"]
+
+    rect = boss_room.rect
+    level.entities = [
+        e for e in level.entities
+        if not (
+            e.entity_type == "creature"
+            and rect.x <= e.x < rect.x2
+            and rect.y <= e.y < rect.y2
+        )
+    ]
+
+    leaders = FACTION_LEADERS[faction]
+    ids, weights = zip(*leaders)
+    leader_id = rng.choices(list(ids), weights=list(weights), k=1)[0]
+
+    cx = rect.x + rect.width // 2
+    cy = rect.y + rect.height // 2
+    tile = level.tile_at(cx, cy)
+    if tile is None or tile.terrain != Terrain.FLOOR:
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                t = level.tile_at(x, y)
+                if t and t.terrain == Terrain.FLOOR and not t.feature:
+                    cx, cy = x, y
+                    tile = t
+                    break
+            if tile and tile.terrain == Terrain.FLOOR:
+                break
+    if tile is None or tile.terrain != Terrain.FLOOR:
+        return
+
+    level.entities.append(EntityPlacement(
+        entity_type="creature", entity_id=leader_id, x=cx, y=cy,
+    ))
 
 
 def _place_adventurer(
@@ -475,9 +578,10 @@ def populate_level(
                  and "safe" not in r.tags
                  and r.rect.width >= 3 and r.rect.height >= 3]
     # Also skip rooms already populated by room_types painters
+    # (or, for "boss", by a later post-populate pass).
     special_tags = {"treasury", "armory", "library", "crypt",
                     "trap_room", "shrine", "garden", "zoo",
-                    "lair", "nest", "shop"}
+                    "lair", "nest", "shop", "boss"}
     combat_rooms = [r for r in placeable
                     if not any(t in special_tags for t in r.tags)]
 

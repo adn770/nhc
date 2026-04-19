@@ -1339,6 +1339,26 @@ creature:
     long: >-
       A shaggy white giant of the high passes, shoulders thick with
       rime. Its roar sends snow tumbling from every ledge.
+  cult_leader:
+    name: "Cult Leader"
+    short: "a cult leader"
+    long: >-
+      A senior zealot in dark vestments, a blooded dagger in one
+      hand and a tome of forbidden rites in the other.
+  lizardman_chief:
+    name: "Lizardman Chief"
+    short: "a lizardman chief"
+    long: >-
+      A thick-scaled warrior decked in trophy bones, bigger and
+      more cunning than its kin. Its snarl drives the brood
+      into a frenzy.
+  gnoll_chieftain:
+    name: "Gnoll Chieftain"
+    short: "a gnoll chieftain"
+    long: >-
+      The brutish alpha of a gnoll pack, draped in furs and
+      trophies. Its laugh carries through the dunes and the
+      pack laughs with it.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 death:

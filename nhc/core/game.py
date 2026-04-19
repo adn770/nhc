@@ -3139,6 +3139,17 @@ class Game:
                 if (surface_faction and self.level
                         and self.level.metadata):
                     self.level.metadata.faction = surface_faction
+                # Ruin Floor 3 (depth == RUIN_DESCENT_FLOORS + 1)
+                # gets a boss room seeded from FACTION_LEADERS.
+                from nhc.dungeon.populator import assign_ruin_boss_room
+                from nhc.dungeon.sites.ruin import RUIN_DESCENT_FLOORS
+                if (template == "procedural:ruin"
+                        and surface_faction
+                        and new_depth == RUIN_DESCENT_FLOORS + 1):
+                    assign_ruin_boss_room(
+                        self.level, surface_faction,
+                        random.Random(seed ^ 0xB055),
+                    )
             else:
                 seed = (self.seed or 0) + new_depth * 997
                 sv = _shape_variety_for_depth(

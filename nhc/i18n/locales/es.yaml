@@ -1374,6 +1374,30 @@ creature:
       Un gigante blanco y peludo de los pasos altos, con hombros
       cargados de escarcha. Su rugido hace caer la nieve de
       cada cornisa.
+  cult_leader:
+    name: "Líder del Culto"
+    gender: "m"
+    short: "un líder del culto"
+    long: >-
+      Un zelote veterano con vestiduras oscuras, una daga
+      ensangrentada en una mano y un tomo de ritos prohibidos
+      en la otra.
+  lizardman_chief:
+    name: "Jefe Hombre Lagarto"
+    gender: "m"
+    short: "un jefe hombre lagarto"
+    long: >-
+      Un guerrero escamoso cargado con trofeos de hueso, más
+      grande y astuto que los suyos. Su rugido empuja a la
+      camada a la frenesí.
+  gnoll_chieftain:
+    name: "Caudillo Gnoll"
+    gender: "m"
+    short: "un caudillo gnoll"
+    long: >-
+      El alfa brutal de una manada de gnolls, cubierto de
+      pieles y trofeos. Su risa resuena por las dunas y la
+      manada ríe con él.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:
