@@ -86,14 +86,18 @@ def test_ruin_building_entry_doors_have_side():
     _assert_doors_have_sides(site)
 
 
-def test_side_points_toward_interior_floor():
-    """The door_side semantic is 'direction of the room interior
-    floor' (matching the BSP dungeon behaviour). For a building
-    entry door the interior floor sits opposite the building
-    boundary, so door_side must point at a FLOOR neighbour, not
-    at a wall or void neighbour."""
+def test_side_points_toward_building_wall():
+    """The web client draws the door rect on the tile edge named
+    by ``door_side``. On a building interior that edge must line
+    up with the adjacent wall tile -- drawing on the interior
+    floor edge instead places the door on the opposite side of
+    the tile from its wall, which is the misplacement reported
+    from the live session. Every building-entry door's
+    ``door_side`` should therefore point at a WALL or VOID
+    neighbour, not a floor neighbour."""
     from nhc.dungeon.model import Terrain
     site = assemble_site("town", "t_dir", random.Random(11))
+    checked = 0
     for b in site.buildings:
         for x, y, tile in _ground_doors(b):
             side = tile.door_side
@@ -103,7 +107,14 @@ def test_side_points_toward_interior_floor():
             }[side]
             nx, ny = x + delta[0], y + delta[1]
             nb = b.ground.tile_at(nx, ny)
-            assert nb is not None and nb.terrain == Terrain.FLOOR, (
-                f"door at ({x},{y}) side={side!r} points at "
-                f"{nb.terrain if nb else None}, not FLOOR"
+            assert nb is not None, (
+                f"door at ({x},{y}) side={side!r} points "
+                "out of bounds"
             )
+            assert nb.terrain in (Terrain.WALL, Terrain.VOID), (
+                f"door at ({x},{y}) side={side!r} points at "
+                f"{nb.terrain}, must point at wall/void so the "
+                "client renders the door on the correct edge"
+            )
+            checked += 1
+    assert checked > 0

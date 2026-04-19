@@ -237,70 +237,101 @@ def _door_candidates(
 def _compute_door_sides(level: Level) -> None:
     """Set door_side for every door tile.
 
-    For each door, find the adjacent room-interior floor tile to
-    determine which direction the door faces. The primary path
-    consults ``level.rooms`` so a door wedged between a room and
-    a corridor picks the room side. Building ground floors do not
-    populate ``Room`` objects -- they are single-room interiors --
-    so the fallback searches for any ``Terrain.FLOOR`` neighbour
-    and uses its direction. Only if no floor neighbour exists does
-    the final fallback consult wall/void, picking the side with
-    the most continuous wall run so the door reads as sitting in
-    that wall.
+    The web client uses ``door_side`` to pick the tile edge where
+    the door rectangle is drawn. That edge must line up with the
+    SVG's wall line for the door to appear embedded in the wall
+    rather than floating on the opposite side of the tile.
+
+    Two topologies show up:
+
+    * **Dungeon doors** sit in a wall column between a room and
+      a corridor -- wall tiles on two perpendicular neighbours,
+      floor tiles on the other two. The wall line drawn by the
+      SVG's perpendicular wall neighbours passes along the door
+      tile's room-facing edge, so ``door_side`` = the room-floor
+      direction.
+    * **Building interior doors** are carved into a single-room
+      wall -- one wall neighbour, the other three sides floor.
+      The wall line is on the shared edge with that lone wall
+      tile, so ``door_side`` = that wall direction.
+
+    The rule is decided by counting wall/void neighbours so it
+    does not matter whether ``level.rooms`` is populated: both
+    dungeon floors and building ground floors get the right
+    answer.
     """
     door_feats = {
         "door_closed", "door_open", "door_secret", "door_locked",
     }
-    # Build floor→room lookup for all rooms
     floor_to_room: dict[tuple[int, int], Room] = {}
     for room in level.rooms:
         for pos in room.floor_tiles():
             floor_to_room[pos] = room
 
-    # Map: if room floor is in direction (dx,dy) from door,
-    # door_side is that direction name (pointing at the floor).
     _DIR = {
-        (0, -1): "north",   # floor is north → door faces north
+        (0, -1): "north",
         (0, 1): "south",
         (1, 0): "east",
         (-1, 0): "west",
     }
+    _BLOCKING = (Terrain.WALL, Terrain.VOID)
 
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
             if tile.feature not in door_feats:
                 continue
-            # 1. Prefer a Room's floor tile.
-            matched = False
-            for (dx, dy), side in _DIR.items():
-                if (x + dx, y + dy) in floor_to_room:
-                    tile.door_side = side
-                    matched = True
-                    break
-            if matched:
-                continue
-            # 2. No Rooms: accept any FLOOR neighbour so building
-            #    interiors (single-room spaces with no Room objects
-            #    attached) still get the interior direction.
-            for (dx, dy), side in _DIR.items():
-                nb = level.tile_at(x + dx, y + dy)
-                if nb and nb.terrain == Terrain.FLOOR:
-                    tile.door_side = side
-                    matched = True
-                    break
-            if matched:
-                continue
-            # 3. Degenerate: pick the wall/void side as a last
-            #    resort. The door will still render somewhere; the
-            #    primary caller should avoid this branch.
-            for (dx, dy), side in _DIR.items():
-                nb = level.tile_at(x + dx, y + dy)
-                if nb and nb.terrain in (
-                    Terrain.WALL, Terrain.VOID,
+
+            # Classify the door by its neighbourhood. A dungeon
+            # door has a FLOOR neighbour that is NOT part of any
+            # Room (typically a corridor); the wall line from
+            # perpendicular wall neighbours lands on the room
+            # facing edge, so door_side = room-floor direction,
+            # which is also the invariant downstream logic
+            # (_remove_non_straight_doors) relies on. A building
+            # door only borders room floor on the walkable sides
+            # -- the wall line is on the shared edge with its lone
+            # wall / void neighbour, so door_side = wall
+            # direction.
+            has_non_room_floor = False
+            wall_dirs: list[str] = []
+            for delta, side in _DIR.items():
+                nb = level.tile_at(x + delta[0], y + delta[1])
+                if nb is None:
+                    continue
+                if nb.terrain in _BLOCKING:
+                    wall_dirs.append(side)
+                elif (
+                    nb.terrain == Terrain.FLOOR
+                    and (x + delta[0], y + delta[1])
+                    not in floor_to_room
                 ):
-                    tile.door_side = side
-                    break
+                    has_non_room_floor = True
+
+            is_dungeon_door = (
+                has_non_room_floor or not wall_dirs
+            )
+
+            if is_dungeon_door:
+                matched = False
+                for delta, side in _DIR.items():
+                    if (x + delta[0], y + delta[1]) in floor_to_room:
+                        tile.door_side = side
+                        matched = True
+                        break
+                if matched:
+                    continue
+                # No Room on any side: keep downstream invariant
+                # by picking any floor neighbour direction.
+                for delta, side in _DIR.items():
+                    nb = level.tile_at(x + delta[0], y + delta[1])
+                    if nb and nb.terrain == Terrain.FLOOR:
+                        tile.door_side = side
+                        break
+                continue
+
+            # Building door: snap to the wall direction.
+            tile.door_side = wall_dirs[0]
 
 
 def _remove_non_straight_doors(level: Level) -> None:
