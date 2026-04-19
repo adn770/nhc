@@ -287,6 +287,7 @@ class Game:
         self.world_type: WorldType = world_type
         self.difficulty: Difficulty = difficulty
         self.god_mode = god_mode
+        self.tester_mode = False
         self.reset = reset
         self.shape_variety = shape_variety
         self.save_dir = save_dir

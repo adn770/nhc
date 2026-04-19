@@ -163,9 +163,12 @@ async function loadPlayers() {
     const godStyle = p.god_mode ? 'color:#e6c07b;border-color:#e6c07b' : '';
     const godLabel = p.god_mode ? 'God: ON' : 'God: OFF';
     const godBtn = `<button style="width:7em;white-space:nowrap;${godStyle}" onclick="toggleGodMode('${p.player_id}', ${!p.god_mode})">${godLabel}</button> `;
+    const testerStyle = p.tester_mode ? 'color:#61afef;border-color:#61afef' : '';
+    const testerLabel = p.tester_mode ? 'Tester: ON' : 'Tester: OFF';
+    const testerBtn = `<button style="width:8em;white-space:nowrap;${testerStyle}" onclick="toggleTesterMode('${p.player_id}', ${!p.tester_mode})">${testerLabel}</button> `;
     const actions = p.revoked
       ? '<span style="color:#888">revoked</span>'
-      : godBtn
+      : godBtn + testerBtn
         + `<button onclick="getLink('${p.player_id}')">Get Link</button> `
         + `<button class="danger" onclick="clearScores('${p.player_id}')">Clear Scores</button> `
         + `<button class="danger" onclick="revokePlayer('${p.player_id}')">Revoke</button>`;
@@ -297,6 +300,21 @@ async function toggleGodMode(pid, enabled) {
   } else {
     const err = await resp.json();
     toast(err.error || "Failed to toggle god mode");
+  }
+}
+
+async function toggleTesterMode(pid, enabled) {
+  const resp = await fetch(`/api/admin/players/${pid}/tester_mode`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({enabled}),
+  });
+  if (resp.ok) {
+    toast(`Tester mode ${enabled ? "enabled" : "disabled"}`);
+    loadPlayers();
+  } else {
+    const err = await resp.json();
+    toast(err.error || "Failed to toggle tester mode");
   }
 }
 

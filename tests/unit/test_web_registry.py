@@ -154,6 +154,54 @@ class TestLanguagePreference:
         assert reg.get("abc123")["lang"] == ""
 
 
+class TestTesterMode:
+    def test_new_player_has_tester_mode_off(self, registry):
+        _, pid = registry.register("Alice")
+        entry = registry.get(pid)
+        assert entry["tester_mode"] is False
+
+    def test_set_tester_mode_enables(self, registry):
+        _, pid = registry.register("Alice")
+        assert registry.set_tester_mode(pid, True)
+        assert registry.get(pid)["tester_mode"] is True
+
+    def test_set_tester_mode_disables(self, registry):
+        _, pid = registry.register("Alice")
+        registry.set_tester_mode(pid, True)
+        assert registry.set_tester_mode(pid, False)
+        assert registry.get(pid)["tester_mode"] is False
+
+    def test_set_tester_mode_unknown_player(self, registry):
+        assert not registry.set_tester_mode("bogus", True)
+
+    def test_set_tester_mode_persists(self, tmp_path):
+        path = tmp_path / "players.json"
+        reg1 = PlayerRegistry(path)
+        reg1.load()
+        _, pid = reg1.register("Alice")
+        reg1.set_tester_mode(pid, True)
+
+        reg2 = PlayerRegistry(path)
+        reg2.load()
+        assert reg2.get(pid)["tester_mode"] is True
+
+    def test_legacy_entry_gets_tester_mode_default(self, tmp_path):
+        """Players registered before tester_mode field must default to False."""
+        path = tmp_path / "players.json"
+        path.write_text(json.dumps({"players": [{
+            "player_id": "abc123",
+            "name": "Legacy",
+            "token_hash": "deadbeef",
+            "created_at": 0,
+            "revoked": False,
+            "god_mode": False,
+            "lang": "",
+        }]}))
+        reg = PlayerRegistry(path)
+        reg.load()
+        assert reg.get("abc123")["tester_mode"] is False
+
+
 class TestPlayerIdForHash:
     def test_returns_pid(self, registry):
         token, pid = registry.register("Alice")

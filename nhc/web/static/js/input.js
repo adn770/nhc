@@ -310,6 +310,18 @@ const Input = {
       );
       zone.appendChild(gearBtn);
     }
+
+    // Report issue button — visible to god AND tester players on
+    // every toolbar (dungeon, hex, flower). Rightmost position so
+    // it doesn't shuffle when god-mode adds its own buttons.
+    if (window.NHC_GOD_MODE || window.NHC_TESTER_MODE) {
+      const reportBtn = this._toolbarBtn(
+        "\u2709\uFE0F", "report-issue-btn", "toolbar_report_issue",
+        "Report Issue",
+        () => this._submitReport(),
+      );
+      zone.appendChild(reportBtn);
+    }
   },
 
   /** Create a toolbar button with consistent styling. */
@@ -502,6 +514,43 @@ const Input = {
     if (btn) {
       btn.disabled = false;
       btn.textContent = "\uD83D\uDCBE";
+    }
+  },
+
+  /** Capture layers, prompt for a description, POST a report. */
+  async _submitReport() {
+    const sid = NHC.sessionId;
+    if (!sid) return;
+    const L = NHC.labels || {};
+    const btn = document.getElementById("report-issue-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "\u231B"; }
+    try {
+      // Capture first so the bundle reflects the state the player
+      // was looking at when they hit the button, not the state
+      // after they typed a paragraph.
+      await this._captureAndUploadLayers();
+      const description = await UI.showReportDialog();
+      if (!description) return;  // explicit cancel
+      UI.addMessage(L.report_dialog_sending || "Sending report...");
+      const resp = await fetch(`/api/game/${sid}/report`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({description}),
+      });
+      if (resp.ok) {
+        UI.addMessage(L.report_dialog_saved || "Report saved");
+      } else {
+        UI.addMessage(
+          L.report_dialog_failed || "Failed to save report");
+      }
+    } catch (e) {
+      console.warn("Report submit failed:", e);
+      UI.addMessage(L.report_dialog_failed || "Failed to save report");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "\u2709\uFE0F";
+      }
     }
   },
 

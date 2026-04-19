@@ -577,6 +577,73 @@ const UI = {
     document.addEventListener("keydown", onKey);
   },
 
+  /**
+   * Show a modal dialog asking the player to describe an issue.
+   * Resolves to the trimmed description string on submit, or null
+   * on cancel / empty input (the "required" inline error keeps the
+   * dialog open, so a null return always means explicit cancel).
+   */
+  showReportDialog() {
+    const L = NHC.labels || {};
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.id = "menu-overlay";
+      const box = document.createElement("div");
+      box.className = "menu-box";
+      const title = L.report_dialog_title || "Report an Issue";
+      const placeholder = L.report_dialog_placeholder
+        || "Describe what happened...";
+      const submitLabel = L.report_dialog_submit || "Send Report";
+      const cancelLabel = L.report_dialog_cancel || "Cancel";
+      box.innerHTML = `<h3>${title}</h3>
+        <textarea id="report-description" rows="6"
+                  placeholder="${placeholder}"
+                  style="width:100%;box-sizing:border-box;
+                         font-family:inherit;font-size:13px;
+                         padding:8px;margin-top:8px;"></textarea>
+        <div id="report-error" class="report-error"
+             style="color:#e06c75;margin-top:6px;min-height:1em;
+                    font-size:12px;"></div>
+        <div style="margin-top:12px;text-align:right;display:flex;
+                    gap:8px;justify-content:flex-end;">
+          <button id="report-cancel" type="button">${cancelLabel}</button>
+          <button id="report-submit" type="button">${submitLabel}</button>
+        </div>`;
+      box.addEventListener("click", (e) => e.stopPropagation());
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      const textarea = box.querySelector("#report-description");
+      const errorEl = box.querySelector("#report-error");
+      const submitBtn = box.querySelector("#report-submit");
+      const cancelBtn = box.querySelector("#report-cancel");
+      textarea.focus();
+
+      const finish = (value) => {
+        document.removeEventListener("keydown", onKey);
+        overlay.remove();
+        resolve(value);
+      };
+      const onKey = (e) => {
+        if (e.key === "Escape") { e.preventDefault(); finish(null); }
+      };
+
+      submitBtn.addEventListener("click", () => {
+        const text = textarea.value.trim();
+        if (!text) {
+          errorEl.textContent = L.report_dialog_required
+            || "Please describe the issue.";
+          textarea.focus();
+          return;
+        }
+        finish(text);
+      });
+      cancelBtn.addEventListener("click", () => finish(null));
+      overlay.addEventListener("click", () => finish(null));
+      document.addEventListener("keydown", onKey);
+    });
+  },
+
   showGameOver(msg) {
     const L = NHC.labels || {};
     const overlay = document.createElement("div");

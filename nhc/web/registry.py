@@ -48,6 +48,7 @@ class PlayerRegistry:
             self._players = data.get("players", [])
             for p in self._players:
                 p.setdefault("god_mode", False)
+                p.setdefault("tester_mode", False)
                 p.setdefault("lang", "")
                 p.setdefault("last_seen", 0.0)
                 p.setdefault("world", "dungeon")
@@ -85,6 +86,7 @@ class PlayerRegistry:
             "created_at": time.time(),
             "revoked": False,
             "god_mode": False,
+            "tester_mode": False,
             "lang": "",
             "last_seen": 0.0,
         }
@@ -130,6 +132,19 @@ class PlayerRegistry:
                     p["god_mode"] = enabled
                     self._save()
                     logger.info("God mode %s for player %s",
+                                "enabled" if enabled else "disabled",
+                                player_id)
+                    return True
+        return False
+
+    def set_tester_mode(self, player_id: str, enabled: bool) -> bool:
+        """Toggle tester mode for a player.  Returns True if found."""
+        with self._lock:
+            for p in self._players:
+                if p["player_id"] == player_id:
+                    p["tester_mode"] = enabled
+                    self._save()
+                    logger.info("Tester mode %s for player %s",
                                 "enabled" if enabled else "disabled",
                                 player_id)
                     return True

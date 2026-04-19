@@ -133,7 +133,10 @@
     </div>
   </div>
 
-  <script>window.NHC_GOD_MODE = {{ god_mode | tojson }};</script>
+  <script>
+    window.NHC_GOD_MODE = {{ god_mode | tojson }};
+    window.NHC_TESTER_MODE = {{ tester_mode | tojson }};
+  </script>
   <script>
   // Console ring buffer — captures log/warn/error for debug bundles.
   (function() {

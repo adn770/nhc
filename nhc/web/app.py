@@ -256,6 +256,17 @@ def create_app(
             return None
         return config.data_dir / "players" / pid
 
+    def _has_debug_access(session) -> bool:
+        """True if the session's game exposes debug/bundle endpoints.
+
+        God mode unlocks the full debug toolchain; tester mode unlocks
+        only the bundle/report path so non-god players can file issues.
+        """
+        if not session or not session.game:
+            return False
+        return bool(session.game.god_mode
+                    or getattr(session.game, "tester_mode", False))
+
     def _get_player_id() -> str:
         """Get current player_id from auth context or request body."""
         pid = getattr(g, "player_id", "") or ""
@@ -325,12 +336,15 @@ def create_app(
             player = registry.get(pid)
             player_name = player["name"] if player else ""
             player_god = player.get("god_mode", False) if player else False
+            player_tester = (player.get("tester_mode", False)
+                             if player else False)
             player_lang = player.get("lang", "") if player else ""
             player_world = player.get("world", "hexcrawl") if player else "hexcrawl"
             player_difficulty = player.get("difficulty", "medium") if player else "medium"
             resp = make_response(render_template(
                 "index.html", player_name=player_name,
-                god_mode=player_god, player_lang=player_lang,
+                god_mode=player_god, tester_mode=player_tester,
+                player_lang=player_lang,
                 player_world=player_world,
                 player_difficulty=player_difficulty,
                 welcome_labels=_welcome_labels(player_lang),
@@ -340,6 +354,7 @@ def create_app(
         return render_template(
             "index.html",
             god_mode=config.god_mode,
+            tester_mode=False,
             player_world="hexcrawl",
             player_difficulty="medium",
             welcome_labels=_welcome_labels(""),
@@ -548,6 +563,22 @@ def create_app(
         return jsonify({"status": "ok", "god_mode": enabled})
 
     @app.route(
+        "/api/admin/players/<player_id>/tester_mode", methods=["POST"],
+    )
+    @_admin_auth
+    def admin_toggle_tester_mode(player_id: str):
+        if not registry:
+            return jsonify({"error": "no registry"}), 500
+        data = request.get_json(silent=True) or {}
+        enabled = bool(data.get("enabled", False))
+        if not registry.set_tester_mode(player_id, enabled):
+            return jsonify({"error": "player not found"}), 404
+        session = sessions.get_by_player(player_id)
+        if session and session.game:
+            session.game.tester_mode = enabled
+        return jsonify({"status": "ok", "tester_mode": enabled})
+
+    @app.route(
         "/api/admin/players/<player_id>/scores", methods=["DELETE"],
     )
     @_admin_auth
@@ -725,10 +756,12 @@ def create_app(
         backend = _create_llm_backend()
 
         player_god = config.god_mode
+        player_tester = False
         if registry and pid:
             pdata = registry.get(pid)
             if pdata:
                 player_god = pdata.get("god_mode", False)
+                player_tester = pdata.get("tester_mode", False)
         game = Game(
             client=client,
             backend=backend,
@@ -737,6 +770,7 @@ def create_app(
             god_mode=player_god,
             save_dir=save_dir,
         )
+        game.tester_mode = player_tester
         session.game = game
 
         try:
@@ -878,12 +912,17 @@ def create_app(
 
         # God mode: the server's global --god flag forces it on for
         # everyone; otherwise check the per-player flag in the
-        # registry (set via admin panel).
+        # registry (set via admin panel). Tester mode is strictly
+        # per-player and unlocks the bug-report debug bundle path
+        # without any of god mode's gameplay effects.
         player_god = config.god_mode
-        if not player_god and registry and pid:
+        player_tester = False
+        if registry and pid:
             pdata = registry.get(pid)
             if pdata:
-                player_god = pdata.get("god_mode", False)
+                if not player_god:
+                    player_god = pdata.get("god_mode", False)
+                player_tester = pdata.get("tester_mode", False)
         game = Game(
             client=client,
             backend=backend,
@@ -895,6 +934,7 @@ def create_app(
             god_mode=player_god,
             save_dir=session.save_dir,
         )
+        game.tester_mode = player_tester
         session.game = game
 
         # Initialize the game world. Hex modes skip the dungeon
@@ -1533,7 +1573,7 @@ def create_app(
         before downloading the bundle.
         """
         session = sessions.get(session_id)
-        if not session or not session.game.god_mode:
+        if not _has_debug_access(session):
             return jsonify({"error": "not available"}), 404
         client = session.game.renderer
         client._send({"type": "capture_layers"})
@@ -1550,21 +1590,20 @@ def create_app(
         them. Payload: ``{"layers": {"name": "data:image/png;base64,..."}}``.
         """
         session = sessions.get(session_id)
-        if not session or not session.game.god_mode:
+        if not _has_debug_access(session):
             return jsonify({"error": "not available"}), 404
         data = request.get_json(silent=True) or {}
         session.layer_pngs = data.get("layers", {})
         session.console_log = data.get("console_log", "")
         return jsonify({"status": "ok", "count": len(session.layer_pngs)})
 
-    @app.route("/api/game/<session_id>/export/bundle", methods=["GET"])
-    @_player_auth
-    def export_debug_bundle(session_id: str):
-        """Build a tar.gz with all debug data for this session."""
-        session = sessions.get(session_id)
-        if not session or not session.game.god_mode:
-            return jsonify({"error": "not available"}), 404
+    def _build_debug_tar(session, extra_entries=()) -> bytes:
+        """Produce a debug tar.gz for ``session`` as raw bytes.
 
+        ``extra_entries`` is an iterable of ``(arcname, text)`` pairs
+        injected at the archive root. Used by the tester bug-report
+        flow to bundle the user's description as ``report.txt``.
+        """
         import io
         import json as _json
         import tarfile
@@ -1700,14 +1739,115 @@ def create_app(
                 _add_text(tar, "console.log", console_log)
                 session.console_log = ""
 
-        buf.seek(0)
+            # 9. Extra entries supplied by the caller (e.g. the tester
+            # report's ``report.txt``). Added last so bundle builders
+            # can override any standard entry if they need to.
+            for arcname, text in extra_entries:
+                _add_text(tar, arcname, text)
+
+        return buf.getvalue()
+
+    @app.route("/api/game/<session_id>/export/bundle", methods=["GET"])
+    @_player_auth
+    def export_debug_bundle(session_id: str):
+        """Build a tar.gz with all debug data for this session."""
+        session = sessions.get(session_id)
+        if not _has_debug_access(session):
+            return jsonify({"error": "not available"}), 404
+
+        import io
+        from datetime import datetime
+        data = _build_debug_tar(session)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         return send_file(
-            buf,
+            io.BytesIO(data),
             mimetype="application/gzip",
             as_attachment=True,
             download_name=f"nhc-debug-{session_id[:12]}-{ts}.tar.gz",
         )
+
+    # Characters that NFKD does not decompose but that have an
+    # obvious ASCII equivalent for filename purposes.
+    _TRANSLIT = {
+        ord("ø"): "o", ord("Ø"): "O",
+        ord("æ"): "ae", ord("Æ"): "AE",
+        ord("ß"): "ss",
+        ord("ð"): "d", ord("Ð"): "D",
+        ord("þ"): "th", ord("Þ"): "Th",
+        ord("ł"): "l", ord("Ł"): "L",
+    }
+
+    def _slug_player_name(name: str) -> str:
+        """Produce a filesystem-safe slug from a player display name.
+
+        Transliterates a small set of non-decomposable latin chars,
+        NFKD-normalizes and strips combining marks, lowercases, then
+        collapses any run of non-alphanumeric characters into a
+        single underscore. An empty result falls back to ``player``
+        so the filename stem is always well-formed.
+        """
+        import re
+        import unicodedata
+        translit = name.translate(_TRANSLIT)
+        nfkd = unicodedata.normalize("NFKD", translit)
+        ascii_only = "".join(
+            c for c in nfkd if not unicodedata.combining(c)
+        )
+        slug = re.sub(r"[^A-Za-z0-9]+", "_", ascii_only).strip("_")
+        return slug.lower() or "player"
+
+    @app.route("/api/game/<session_id>/report", methods=["POST"])
+    @_player_auth
+    def submit_report(session_id: str):
+        """Write a bug-report bundle to ``<data_dir>/reports/``.
+
+        Tester-mode and god-mode players can file a report: the
+        client captures the debug bundle, the server injects the
+        user-supplied description as ``report.txt`` at the tarball
+        root, and the result is persisted to disk for triage.
+        """
+        session = sessions.get(session_id)
+        if not _has_debug_access(session):
+            return jsonify({"error": "not available"}), 404
+        if not config.data_dir:
+            return jsonify({"error": "no data_dir configured"}), 500
+
+        data = request.get_json(silent=True) or {}
+        description = str(data.get("description", "")).strip()
+        if not description:
+            return jsonify({"error": "description required"}), 400
+
+        # Resolve player display name for the filename stem. Falls
+        # back to "player" if the session was created without a
+        # registered identity (god_mode + no-auth dev workflow).
+        player_name = "player"
+        if registry and session.player_id:
+            pdata = registry.get(session.player_id)
+            if pdata:
+                player_name = pdata.get("name") or player_name
+        slug = _slug_player_name(player_name)
+
+        from datetime import datetime, timezone
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
+        stem = f"{slug}_{ts}"
+
+        reports_dir = config.data_dir / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        path = reports_dir / f"{stem}.tar.gz"
+
+        tar_bytes = _build_debug_tar(
+            session, extra_entries=[("report.txt", description)],
+        )
+        path.write_bytes(tar_bytes)
+        logger.info(
+            "Saved issue report: %s (%d bytes) from player %s",
+            path, len(tar_bytes), session.player_id or "anon",
+        )
+        return jsonify({
+            "status": "ok",
+            "path": str(path),
+            "filename": path.name,
+        }), 201
 
     @app.route("/api/game/list", methods=["GET"])
     @_player_auth

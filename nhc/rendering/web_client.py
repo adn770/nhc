@@ -799,6 +799,17 @@ class WebClient(GameClient):
             "toolbar_zoom_out": tr("ui.toolbar_zoom_out"),
             "toolbar_restart": tr("ui.toolbar_restart"),
             "toolbar_debug": tr("ui.toolbar_debug"),
+            "toolbar_report_issue": tr("ui.toolbar_report_issue"),
+            # Issue-report dialog (tester / god mode)
+            "report_dialog_title": tr("ui.report_dialog_title"),
+            "report_dialog_placeholder": tr(
+                "ui.report_dialog_placeholder"),
+            "report_dialog_submit": tr("ui.report_dialog_submit"),
+            "report_dialog_cancel": tr("ui.report_dialog_cancel"),
+            "report_dialog_required": tr("ui.report_dialog_required"),
+            "report_dialog_sending": tr("ui.report_dialog_sending"),
+            "report_dialog_saved": tr("ui.report_dialog_saved"),
+            "report_dialog_failed": tr("ui.report_dialog_failed"),
             # Inventory panel
             "empty": tr("ui.empty"),
             "inventory_title": tr("ui.inventory_title"),

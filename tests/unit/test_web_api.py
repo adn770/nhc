@@ -638,6 +638,65 @@ class TestAdminAPI:
         assert resp.status_code == 200
         assert resp.get_json()["removed"] == 0
 
+    def test_toggle_tester_mode_enables(self, client_with_data_dir):
+        _, pid = _register_player(client_with_data_dir, "Alice")
+        resp = client_with_data_dir.post(
+            f"/api/admin/players/{pid}/tester_mode",
+            json={"enabled": True},
+        )
+        assert resp.status_code == 200
+        assert resp.get_json() == {"status": "ok", "tester_mode": True}
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        assert registry.get(pid)["tester_mode"] is True
+
+    def test_toggle_tester_mode_disables(self, client_with_data_dir):
+        _, pid = _register_player(client_with_data_dir, "Alice")
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        registry.set_tester_mode(pid, True)
+        resp = client_with_data_dir.post(
+            f"/api/admin/players/{pid}/tester_mode",
+            json={"enabled": False},
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["tester_mode"] is False
+        assert registry.get(pid)["tester_mode"] is False
+
+    def test_toggle_tester_mode_unknown_player(self, client_with_data_dir):
+        resp = client_with_data_dir.post(
+            "/api/admin/players/bogus/tester_mode",
+            json={"enabled": True},
+        )
+        assert resp.status_code == 404
+
+    def test_admin_list_includes_tester_mode(self, client_with_data_dir):
+        """The admin panel reads ``tester_mode`` from the listing
+        endpoint to render the toggle button's state."""
+        _, pid = _register_player(client_with_data_dir, "Alice")
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        registry.set_tester_mode(pid, True)
+        resp = client_with_data_dir.get("/api/admin/players")
+        assert resp.status_code == 200
+        alice = next(
+            p for p in resp.get_json() if p["player_id"] == pid
+        )
+        assert alice["tester_mode"] is True
+
+    def test_toggle_tester_mode_default_payload(self, client_with_data_dir):
+        """Missing ``enabled`` key defaults to False (disables)."""
+        _, pid = _register_player(client_with_data_dir, "Alice")
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        registry.set_tester_mode(pid, True)
+        resp = client_with_data_dir.post(
+            f"/api/admin/players/{pid}/tester_mode",
+            json={},
+        )
+        assert resp.status_code == 200
+        assert registry.get(pid)["tester_mode"] is False
+
     def test_list_sessions(self, client_with_data_dir):
         client_with_data_dir.post("/api/game/new", json={})
         resp = client_with_data_dir.get("/api/admin/sessions")
@@ -973,6 +1032,233 @@ class TestHenchmenEndpoint:
         assert sheet["hp"] == 12
         assert sheet["max_hp"] == 18
         assert sheet["equipment"]["weapon"]["name"] == "long sword"
+
+
+class TestReportEndpoint:
+    """POST /api/game/<sid>/report captures the debug bundle, injects
+    the user-supplied description as report.txt at the archive root,
+    and writes it to ``<data_dir>/reports/<slug>_<utc_ts>Z.tar.gz``.
+    Filename stem format is fixed for server-side triage."""
+
+    def _setup(self, c, name="Josep"):
+        token, pid = _register_player(c, name)
+        registry = c.application.config["PLAYER_REGISTRY"]
+        registry.set_tester_mode(pid, True)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        return resp.get_json()["session_id"], pid
+
+    def test_rejects_unauthorized_session(self, client_with_data_dir):
+        token, _pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        sid = resp.get_json()["session_id"]
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report",
+            json={"description": "buggy"},
+        )
+        assert resp.status_code == 404
+
+    def test_rejects_empty_description(self, client_with_data_dir):
+        sid, _ = self._setup(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report",
+            json={"description": "   "},
+        )
+        assert resp.status_code == 400
+
+    def test_rejects_missing_description(self, client_with_data_dir):
+        sid, _ = self._setup(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report", json={},
+        )
+        assert resp.status_code == 400
+
+    def test_happy_path_writes_tarball(self, client_with_data_dir):
+        sid, _ = self._setup(client_with_data_dir, name="Josep")
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report",
+            json={"description": "Floor clips under door"},
+        )
+        assert resp.status_code == 201
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        reports_dir = config.data_dir / "reports"
+        assert reports_dir.is_dir()
+        files = list(reports_dir.glob("*.tar.gz"))
+        assert len(files) == 1
+        name = files[0].name
+        # Slug prefix from player name.
+        assert name.startswith("josep_")
+        # UTC timestamp suffix ending in Z.
+        assert name.endswith("Z.tar.gz")
+        # Format: josep_YYYYMMDD_HHMMSSZ.tar.gz (stem has 15 chars
+        # after slug: 8 date + _ + 6 time + Z = 16).
+        stem = name.removesuffix(".tar.gz")
+        assert stem.startswith("josep_")
+        assert "path" in data
+        assert data["path"].endswith(name)
+
+    def test_tarball_contains_report_txt(self, client_with_data_dir):
+        sid, _ = self._setup(client_with_data_dir)
+        description = "Stairs missing on depth 3"
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report",
+            json={"description": description},
+        )
+        assert resp.status_code == 201
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        path = next(
+            (config.data_dir / "reports").glob("*.tar.gz"),
+        )
+        import io
+        import tarfile
+        with tarfile.open(str(path), "r:gz") as tar:
+            names = tar.getnames()
+            assert "report.txt" in names
+            body = tar.extractfile("report.txt").read().decode("utf-8")
+            assert description in body
+
+    def test_slug_handles_special_chars(self, client_with_data_dir):
+        sid, _ = self._setup(client_with_data_dir, name="Dr. Møller")
+        config = client_with_data_dir.application.config["NHC_CONFIG"]
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report",
+            json={"description": "report"},
+        )
+        assert resp.status_code == 201
+        files = list((config.data_dir / "reports").glob("*.tar.gz"))
+        assert len(files) == 1
+        # Expect accents stripped, non-alnum collapsed, lowercased.
+        assert files[0].name.startswith("dr_moller_")
+
+    def test_also_works_in_god_mode(self, client_with_data_dir):
+        """God-mode players keep access to the report flow."""
+        token, pid = _register_player(client_with_data_dir)
+        registry = client_with_data_dir.application.config[
+            "PLAYER_REGISTRY"]
+        registry.set_god_mode(pid, True)
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        sid = resp.get_json()["session_id"]
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/report",
+            json={"description": "test"},
+        )
+        assert resp.status_code == 201
+
+
+class TestTesterModeAccess:
+    """Tester mode must grant the same debug-endpoint access as god
+    mode, without granting any of god mode's gameplay effects."""
+
+    def _create_tester_session(self, c):
+        token, pid = _register_player(c)
+        registry = c.application.config["PLAYER_REGISTRY"]
+        registry.set_tester_mode(pid, True)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = c.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        return sid, session, pid
+
+    def test_new_game_plumbs_tester_mode_from_registry(
+        self, client_with_data_dir,
+    ):
+        sid, session, _ = self._create_tester_session(client_with_data_dir)
+        assert session.game.tester_mode is True
+        assert session.game.god_mode is False
+
+    def test_tester_mode_defaults_false_on_game(
+        self, client_with_data_dir,
+    ):
+        token, _pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        sid = resp.get_json()["session_id"]
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        assert session.game.tester_mode is False
+
+    def test_bundle_endpoint_accessible_with_tester_mode(
+        self, client_with_data_dir,
+    ):
+        sid, session, _ = self._create_tester_session(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/export/bundle",
+        )
+        assert resp.status_code == 200
+
+    def test_capture_layers_accessible_with_tester_mode(
+        self, client_with_data_dir,
+    ):
+        sid, _, _ = self._create_tester_session(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/capture_layers",
+        )
+        assert resp.status_code == 200
+
+    def test_upload_layer_pngs_accessible_with_tester_mode(
+        self, client_with_data_dir,
+    ):
+        sid, _, _ = self._create_tester_session(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/export/layer_pngs",
+            json={"layers": {}},
+        )
+        assert resp.status_code == 200
+
+    def test_bundle_denied_without_god_or_tester(
+        self, client_with_data_dir,
+    ):
+        """Baseline sanity: a plain authenticated player still gets 404."""
+        token, _pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        sid = resp.get_json()["session_id"]
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/export/bundle",
+        )
+        assert resp.status_code == 404
+
+    def test_index_exposes_tester_mode_flag(self, tmp_path):
+        """The index page must inject ``window.NHC_TESTER_MODE``
+        so client JS can render the report button."""
+        config = WebConfig(
+            max_sessions=2, data_dir=tmp_path, auth_required=True,
+            admin_lan_cidrs=["192.168.18.0/24"],
+            trust_proxy=True,
+        )
+        app = create_app(config, auth_token="admin-secret")
+        app.config["TESTING"] = True
+        registry = app.config["PLAYER_REGISTRY"]
+        token, pid = registry.register("tester")
+        registry.set_tester_mode(pid, True)
+        with app.test_client() as c:
+            resp = c.get(f"/?token={token}")
+            # Follow redirect so the rendered body comes back.
+            if resp.status_code == 303:
+                resp = c.get("/")
+            assert resp.status_code == 200
+            body = resp.get_data(as_text=True)
+            assert "window.NHC_TESTER_MODE" in body
+            assert "window.NHC_TESTER_MODE = true" in body
 
 
 class TestDebugBundleAutosave:
