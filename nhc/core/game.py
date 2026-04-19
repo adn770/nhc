@@ -3070,6 +3070,17 @@ class Game:
         logger.info("%s to depth %d",
                      "Ascending" if ascending else "Descending", new_depth)
 
+        # Capture source-floor building context so we can place the
+        # player on the matching StairLink tile after the swap (the
+        # ascending/stair-feature heuristic below is inverted for
+        # building floors because the actions flip depth).
+        old_building_id = self.level.building_id
+        old_floor_index = self.level.floor_index
+        _pre_pos = self.world.get_component(self.player_id, "Position")
+        old_player_tile: tuple[int, int] | None = (
+            (_pre_pos.x, _pre_pos.y) if _pre_pos else None
+        )
+
         # Building descent: descending from a building ground
         # floor onto the descent stair tile routes through the
         # dungeon template pipeline (cave / crypt / ...), not
@@ -3241,10 +3252,22 @@ class Game:
             else:
                 stair_feature = "stairs_up"
 
+            # Same-building cross-floor transition: look up the
+            # matching StairLink so the player lands on the exact
+            # counterpart tile rather than relying on the
+            # stair-feature search (whose ascending/descending
+            # polarity is inverted for building floors).
+            placed = self._place_player_via_building_link(
+                old_building_id=old_building_id,
+                old_floor_index=old_floor_index,
+                old_player_tile=old_player_tile,
+            )
+
             # Underworld floors: when descending, place at the
             # stairs_up that corresponds to the player's entry hex
             # (looked up from _cave_floor2_stairs).
-            if (not ascending
+            if (not placed
+                    and not ascending
                     and self._active_cave_cluster is not None
                     and new_depth >= 2
                     and self.hex_player_position is not None):
@@ -3259,10 +3282,6 @@ class Game:
                         pos.x, pos.y = target_xy
                         pos.level_id = self.level.id
                     placed = True
-                else:
-                    placed = False
-            else:
-                placed = False
 
             if not placed:
                 for y in range(self.level.height):
@@ -3344,6 +3363,58 @@ class Game:
                 fresh_id = self.renderer.floor_svg_id
                 if isinstance(fresh_svg, str):
                     self._svg_cache[cache_key] = (fresh_id, fresh_svg)
+
+    def _place_player_via_building_link(
+        self,
+        old_building_id: str | None,
+        old_floor_index: int | None,
+        old_player_tile: tuple[int, int] | None,
+    ) -> bool:
+        """Place the player on the counterpart stair tile of the
+        :class:`StairLink` that matches the cross-floor transition.
+
+        Only activates when both the source and destination levels
+        belong to the same building. Used because building stair
+        actions flip depth direction, which breaks the generic
+        stair-feature search used for dungeon transitions.
+        """
+        if (old_building_id is None
+                or old_floor_index is None
+                or old_player_tile is None
+                or self._active_site is None
+                or self.level is None
+                or self.level.building_id is None
+                or self.level.building_id != old_building_id):
+            return False
+        building = next(
+            (b for b in self._active_site.buildings
+             if b.id == old_building_id),
+            None,
+        )
+        if building is None:
+            return False
+        new_fi = self.level.floor_index
+        target_xy: tuple[int, int] | None = None
+        for link in building.stair_links:
+            if not isinstance(link.to_floor, int):
+                continue
+            if (link.from_floor == old_floor_index
+                    and link.from_tile == old_player_tile
+                    and link.to_floor == new_fi):
+                target_xy = link.to_tile
+                break
+            if (link.to_floor == old_floor_index
+                    and link.to_tile == old_player_tile
+                    and link.from_floor == new_fi):
+                target_xy = link.from_tile
+                break
+        if target_xy is None:
+            return False
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos:
+            pos.x, pos.y = target_xy
+            pos.level_id = self.level.id
+        return True
 
     def _place_player_random_floor(self) -> bool:
         """Place player on a random walkable floor tile.
