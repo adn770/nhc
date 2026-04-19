@@ -148,3 +148,79 @@ async def test_town_site_caches_all_buildings(tmp_path) -> None:
         if isinstance(k, tuple) and len(k) == 5 and k[0] == "town"
     ]
     assert town_keys, "expected town-specific cache entries"
+
+
+@pytest.mark.asyncio
+async def test_town_entry_pre_reveals_non_void_tiles(tmp_path) -> None:
+    """Entering a town marks every non-VOID surface tile as explored,
+    so the client can draw the whole layout without fog of war. Visible
+    marking stays tied to the player's FOV -- explored is the only bit
+    we're short-cutting."""
+    from nhc.dungeon.model import Terrain
+    g = _make_game(tmp_path)
+    _attach_town_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    level = g.level
+    assert level is not None and level.metadata.prerevealed is True
+    total = 0
+    explored = 0
+    for row in level.tiles:
+        for t in row:
+            if t.terrain == Terrain.VOID:
+                continue
+            total += 1
+            if t.explored:
+                explored += 1
+    assert total > 0, "expected some walkable tiles on town surface"
+    assert explored == total, (
+        f"every non-VOID tile should be explored, got {explored}/{total}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_town_entry_does_not_over_mark_visible(tmp_path) -> None:
+    """Prereveal only touches the ``explored`` bit. ``visible`` stays
+    tied to the player's FOV radius; otherwise entities sprinkled
+    across the town would render without their discovery loop."""
+    from nhc.dungeon.model import Terrain
+    g = _make_game(tmp_path)
+    _attach_town_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    level = g.level
+    assert level is not None
+    visible_count = sum(
+        1 for row in level.tiles for t in row
+        if t.visible and t.terrain != Terrain.VOID
+    )
+    non_void_count = sum(
+        1 for row in level.tiles for t in row
+        if t.terrain != Terrain.VOID
+    )
+    # A tight FOV on a big street grid never lights up the full
+    # surface on turn 1.
+    assert visible_count < non_void_count, (
+        "prereveal must not flip every tile to visible; that would "
+        "expose entities outside the player's FOV"
+    )
+
+
+@pytest.mark.asyncio
+async def test_keep_entry_pre_reveals_non_void_tiles(tmp_path) -> None:
+    """Same rule for the keep courtyard -- walled-site entry flags
+    prereveal uniformly, regardless of faction (Q2=a)."""
+    from nhc.dungeon.model import Terrain
+    g = _make_game(tmp_path)
+    _attach_keep_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    level = g.level
+    assert level is not None and level.metadata.prerevealed is True
+    total = explored = 0
+    for row in level.tiles:
+        for t in row:
+            if t.terrain == Terrain.VOID:
+                continue
+            total += 1
+            if t.explored:
+                explored += 1
+    assert total > 0
+    assert explored == total

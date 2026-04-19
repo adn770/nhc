@@ -461,6 +461,7 @@ def _build_town_surface(
     )
     surface.metadata.theme = "town"
     surface.metadata.ambient = "town"
+    surface.metadata.prerevealed = True
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)

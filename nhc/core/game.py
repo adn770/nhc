@@ -871,6 +871,7 @@ class Game:
         if cache_key in self._floor_cache:
             level, _ = self._floor_cache[cache_key]
             self.level = level
+            self._mark_surface_explored_if_prerevealed()
             self._place_player_on_surface()
             self._place_expedition_henchmen(
                 is_settlement=kind == "town",
@@ -902,6 +903,7 @@ class Game:
         if (self.level and self.level.metadata
                 and cell.dungeon.faction):
             self.level.metadata.faction = cell.dungeon.faction
+        self._mark_surface_explored_if_prerevealed()
         self._spawn_level_entities()
         # Ground-depth cache slot holds the surface so re-entry is
         # O(1). Buildings go under site-kind-keyed tuples for
@@ -917,6 +919,21 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    def _mark_surface_explored_if_prerevealed(self) -> None:
+        """Flip ``tile.explored`` on every non-VOID tile of a
+        prerevealed level so the web client skips fog of war on the
+        layout. ``tile.visible`` stays untouched -- entities and
+        secrets continue to gate on the player's FOV.
+        """
+        from nhc.dungeon.model import Terrain
+        level = self.level
+        if not (level and level.metadata and level.metadata.prerevealed):
+            return
+        for row in level.tiles:
+            for tile in row:
+                if tile.terrain != Terrain.VOID:
+                    tile.explored = True
 
     def _place_player_on_surface(self) -> None:
         """Land the player on the site surface near a gate.

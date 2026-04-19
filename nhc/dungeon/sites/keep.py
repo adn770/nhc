@@ -393,6 +393,9 @@ def _build_keep_surface(
         surface_id, surface_id, 0,
         KEEP_SURFACE_WIDTH, KEEP_SURFACE_HEIGHT,
     )
+    surface.metadata.theme = "keep"
+    surface.metadata.ambient = "keep"
+    surface.metadata.prerevealed = True
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)

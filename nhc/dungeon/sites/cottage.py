@@ -245,6 +245,7 @@ def _build_cottage_surface(
     )
     surface.metadata.theme = "cottage"
     surface.metadata.ambient = "forest"
+    surface.metadata.prerevealed = True
 
     footprint = building.base_shape.floor_tiles(building.base_rect)
     blocked: set[tuple[int, int]] = set()

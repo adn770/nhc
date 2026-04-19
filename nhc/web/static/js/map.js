@@ -637,6 +637,12 @@ const GameMap = {
 
     ctx.clearRect(0, 0, this.mapW, this.mapH);
 
+    // Prerevealed surfaces (town / keep / ruin / cottage / temple
+    // courtyards) render without fog of war so the player can
+    // see the structure on arrival. Entities and secrets stay
+    // gated by the separate FOV-driven entity list.
+    if (this.prerevealed) return;
+
     // Cover everything in fully opaque black
     ctx.fillStyle = "rgba(0, 0, 0, 1.0)";
     ctx.fillRect(0, 0, this.mapW, this.mapH);

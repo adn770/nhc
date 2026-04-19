@@ -306,6 +306,7 @@ def _build_ruin_surface(
     )
     surface.metadata.theme = "ruin"
     surface.metadata.ambient = "ruin"
+    surface.metadata.prerevealed = True
 
     blocked: set[tuple[int, int]] = set()
     for b in buildings:

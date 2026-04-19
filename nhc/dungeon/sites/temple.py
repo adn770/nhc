@@ -324,6 +324,7 @@ def _build_temple_surface(
     )
     surface.metadata.theme = "temple"
     surface.metadata.ambient = "temple"
+    surface.metadata.prerevealed = True
 
     footprint = building.base_shape.floor_tiles(building.base_rect)
     blocked: set[tuple[int, int]] = set()

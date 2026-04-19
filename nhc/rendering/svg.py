@@ -118,9 +118,12 @@ def render_floor_svg(
 
     # Layer 2: Hatching (rooms clipped to exterior of dungeon
     # polygon, corridors hatched one tile on each side).
-    # Settlements and Building interiors skip hatching.
-    theme = level.metadata.theme if level.metadata else "dungeon"
-    if theme != "settlement" and not is_building:
+    # Prerevealed surfaces (site courtyards) and building interiors
+    # skip hatching -- they read as open daylight / enclosed rooms.
+    prerevealed = bool(
+        level.metadata and level.metadata.prerevealed
+    )
+    if not prerevealed and not is_building:
         _render_hatching(svg, level, seed, dungeon_poly,
                          hatch_distance=hatch_distance,
                          cave_wall_poly=cave_wall_poly)

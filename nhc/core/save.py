@@ -326,12 +326,24 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
         ))
 
     meta_data = data.get("metadata", {})
+    # Auto-upgrade pre-M1 saves: a site-surface theme with no rooms
+    # means the player is standing on a courtyard Level that should
+    # be prerevealed. Older saves lack the field entirely.
+    _SITE_SURFACE_THEMES = {"town", "keep", "ruin", "cottage", "temple"}
+    prerevealed = meta_data.get("prerevealed")
+    if prerevealed is None:
+        theme_val = meta_data.get("theme", "dungeon")
+        has_rooms = bool(data.get("rooms"))
+        prerevealed = (
+            theme_val in _SITE_SURFACE_THEMES and not has_rooms
+        )
     metadata = LevelMetadata(
         theme=meta_data.get("theme", "dungeon"),
         difficulty=meta_data.get("difficulty", 1),
         narrative_hooks=meta_data.get("narrative_hooks", []),
         faction=meta_data.get("faction"),
         ambient=meta_data.get("ambient", ""),
+        prerevealed=bool(prerevealed),
     )
 
     return Level(

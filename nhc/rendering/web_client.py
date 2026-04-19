@@ -1342,6 +1342,7 @@ class WebClient(GameClient):
             "turn": turn,
             "theme": meta.theme if meta else "dungeon",
             "feeling": meta.feeling if meta else "normal",
+            "prerevealed": bool(meta and meta.prerevealed),
         })
 
     # ── Display ──────────────────────────────────────────────────

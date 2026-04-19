@@ -111,6 +111,7 @@ const NHC = {
       // Store theme/feeling for future terrain canvas layer
       if (msg.theme) GameMap.theme = msg.theme;
       if (msg.feeling) GameMap.feeling = msg.feeling;
+      GameMap.prerevealed = !!msg.prerevealed;
       // Load floor SVG via HTTP
       if (msg.floor_url) {
         console.log("[floor] fetching SVG from:", msg.floor_url);

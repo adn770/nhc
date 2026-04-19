@@ -713,6 +713,11 @@ class LevelMetadata:
     faction: str | None = None
     ambient: str = ""
     template: str | None = None
+    # Site surfaces (town, keep, ruin, cottage, temple courtyards)
+    # ship prerevealed so the client renders the layout without fog
+    # and the SVG pipeline skips dungeon-style hatching. Entity and
+    # secret visibility stay gated by FOV.
+    prerevealed: bool = False
 
 
 @dataclass
