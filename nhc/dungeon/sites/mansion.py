@@ -21,6 +21,7 @@ from nhc.dungeon.model import (
 )
 from nhc.dungeon.site import (
     Site, outside_neighbour, paint_surface_doors,
+    stamp_building_door,
 )
 from nhc.hexcrawl.model import DungeonRef
 
@@ -209,7 +210,7 @@ def _place_entry_door(
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
-    ground.tiles[dy][dx].feature = "door_closed"
+    stamp_building_door(building, dx, dy)
     return (dx, dy)
 
 
@@ -249,8 +250,8 @@ def _connect_adjacent_buildings(
     y = overlap_y[len(overlap_y) // 2]
     lx = left.base_rect.x2 - 1
     rx = right.base_rect.x
-    left.ground.tiles[y][lx].feature = "door_closed"
-    right.ground.tiles[y][rx].feature = "door_closed"
+    stamp_building_door(left, lx, y)
+    stamp_building_door(right, rx, y)
     return ((left.id, lx, y), (right.id, rx, y))
 
 

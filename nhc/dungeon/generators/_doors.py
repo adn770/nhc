@@ -235,30 +235,22 @@ def _door_candidates(
 
 
 def _compute_door_sides(level: Level) -> None:
-    """Set door_side for every door tile.
+    """Set door_side on dungeon door tiles where the assembler
+    did not already set it.
 
-    The web client uses ``door_side`` to pick the tile edge where
-    the door rectangle is drawn. That edge must line up with the
-    SVG's wall line for the door to appear embedded in the wall
-    rather than floating on the opposite side of the tile.
+    Site assemblers that place building-entry doors go through
+    :func:`nhc.dungeon.site.stamp_building_door` which records
+    ``door_side`` explicitly -- the right wall from the same
+    :func:`outside_neighbour` call that drives the surface-side
+    door placement. This function keeps the BSP dungeon path
+    working (doors drop in during generation without any
+    hand-stamped metadata) and acts as a safety net for any
+    future code path that forgets to use the helper.
 
-    Two topologies show up:
-
-    * **Dungeon doors** sit in a wall column between a room and
-      a corridor -- wall tiles on two perpendicular neighbours,
-      floor tiles on the other two. The wall line drawn by the
-      SVG's perpendicular wall neighbours passes along the door
-      tile's room-facing edge, so ``door_side`` = the room-floor
-      direction.
-    * **Building interior doors** are carved into a single-room
-      wall -- one wall neighbour, the other three sides floor.
-      The wall line is on the shared edge with that lone wall
-      tile, so ``door_side`` = that wall direction.
-
-    The rule is decided by counting wall/void neighbours so it
-    does not matter whether ``level.rooms`` is populated: both
-    dungeon floors and building ground floors get the right
-    answer.
+    For each door with an empty ``door_side`` the primary rule
+    is ``door_side`` = direction to the adjacent room-interior
+    floor tile. That invariant is also what
+    :func:`_remove_non_straight_doors` relies on.
     """
     door_feats = {
         "door_closed", "door_open", "door_secret", "door_locked",
@@ -274,64 +266,32 @@ def _compute_door_sides(level: Level) -> None:
         (1, 0): "east",
         (-1, 0): "west",
     }
-    _BLOCKING = (Terrain.WALL, Terrain.VOID)
 
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
             if tile.feature not in door_feats:
                 continue
-
-            # Classify the door by its neighbourhood. A dungeon
-            # door has a FLOOR neighbour that is NOT part of any
-            # Room (typically a corridor); the wall line from
-            # perpendicular wall neighbours lands on the room
-            # facing edge, so door_side = room-floor direction,
-            # which is also the invariant downstream logic
-            # (_remove_non_straight_doors) relies on. A building
-            # door only borders room floor on the walkable sides
-            # -- the wall line is on the shared edge with its lone
-            # wall / void neighbour, so door_side = wall
-            # direction.
-            has_non_room_floor = False
-            wall_dirs: list[str] = []
+            if tile.door_side:
+                # Already set explicitly at generation time.
+                continue
+            # Primary: room-floor direction (BSP dungeons).
+            matched = False
+            for delta, side in _DIR.items():
+                if (x + delta[0], y + delta[1]) in floor_to_room:
+                    tile.door_side = side
+                    matched = True
+                    break
+            if matched:
+                continue
+            # Fallback: adjacent wall / void direction.
             for delta, side in _DIR.items():
                 nb = level.tile_at(x + delta[0], y + delta[1])
-                if nb is None:
-                    continue
-                if nb.terrain in _BLOCKING:
-                    wall_dirs.append(side)
-                elif (
-                    nb.terrain == Terrain.FLOOR
-                    and (x + delta[0], y + delta[1])
-                    not in floor_to_room
+                if nb and nb.terrain in (
+                    Terrain.WALL, Terrain.VOID,
                 ):
-                    has_non_room_floor = True
-
-            is_dungeon_door = (
-                has_non_room_floor or not wall_dirs
-            )
-
-            if is_dungeon_door:
-                matched = False
-                for delta, side in _DIR.items():
-                    if (x + delta[0], y + delta[1]) in floor_to_room:
-                        tile.door_side = side
-                        matched = True
-                        break
-                if matched:
-                    continue
-                # No Room on any side: keep downstream invariant
-                # by picking any floor neighbour direction.
-                for delta, side in _DIR.items():
-                    nb = level.tile_at(x + delta[0], y + delta[1])
-                    if nb and nb.terrain == Terrain.FLOOR:
-                        tile.door_side = side
-                        break
-                continue
-
-            # Building door: snap to the wall direction.
-            tile.door_side = wall_dirs[0]
+                    tile.door_side = side
+                    break
 
 
 def _remove_non_straight_doors(level: Level) -> None:

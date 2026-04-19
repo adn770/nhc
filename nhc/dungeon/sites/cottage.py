@@ -19,6 +19,7 @@ from nhc.dungeon.model import (
 )
 from nhc.dungeon.site import (
     Site, outside_neighbour, paint_surface_doors,
+    stamp_building_door,
 )
 from nhc.hexcrawl.model import Biome
 
@@ -232,7 +233,7 @@ def _place_entry_door(
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
-    ground.tiles[dy][dx].feature = "door_closed"
+    stamp_building_door(building, dx, dy)
     return (dx, dy)
 
 

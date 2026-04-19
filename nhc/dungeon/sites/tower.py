@@ -20,7 +20,7 @@ from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, Room,
     RoomShape, Terrain, Tile,
 )
-from nhc.dungeon.site import Site, outside_neighbour
+from nhc.dungeon.site import Site, outside_neighbour, stamp_building_door
 from nhc.hexcrawl.model import Biome, DungeonRef
 
 
@@ -204,5 +204,5 @@ def _place_entry_door(
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
-    ground.tiles[dy][dx].feature = "door_closed"
+    stamp_building_door(building, dx, dy)
     return (dx, dy)

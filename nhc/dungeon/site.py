@@ -112,6 +112,36 @@ def outside_neighbour(
     return None
 
 
+def stamp_building_door(
+    building: Building, bx: int, by: int,
+    feature: str = "door_closed",
+) -> None:
+    """Mark ``(bx, by)`` on ``building.ground`` as a door with
+    precise ``door_side`` metadata.
+
+    The wall direction is taken from :func:`outside_neighbour` --
+    the same call used to pick the matching surface-level door --
+    so the building interior door and the surface door describe
+    the *same physical wall* from their respective sides. No
+    downstream heuristic has to guess orientation, which fixes
+    the case reported in the live session where a corner door
+    appeared on one wall from the outside and a different wall
+    from the inside.
+
+    Every site assembler should go through this helper instead of
+    stamping ``tile.feature = "door_closed"`` directly.
+    """
+    tile = building.ground.tiles[by][bx]
+    tile.feature = feature
+    nb = outside_neighbour(building, bx, by)
+    if nb is None:
+        return
+    dx = nb[0] - bx
+    dy = nb[1] - by
+    if (dx, dy) in _COMPASS:
+        tile.door_side = _COMPASS[(dx, dy)]
+
+
 def paint_surface_doors(
     site: Site, default_surface: SurfaceType,
 ) -> None:
@@ -147,15 +177,15 @@ SITE_KINDS = (
 
 
 def populate_building_door_sides(site: "Site") -> None:
-    """Set ``door_side`` on every ``door_closed`` tile of every
-    building's ground floor. Individual site assemblers stamp the
-    door feature but don't compute orientation; without this
-    metadata the web client falls back to drawing the door on the
-    tile's left edge, which looks wrong whenever the actual
-    opening is on the north / east / south wall.
+    """Fill any door tiles that still lack ``door_side``.
 
-    Called from :func:`assemble_site` so every dispatched kind
-    picks it up without touching the 8 sub-assemblers.
+    Deprecated: every assembler now calls
+    :func:`stamp_building_door` which sets ``door_side`` at
+    generation time. Kept as a safety net so a future code path
+    that hand-stamps ``feature = "door_closed"`` without the
+    helper still ends up with a non-empty ``door_side`` via the
+    dungeon-style heuristic (which is imprecise at corners but
+    better than an empty string).
     """
     from nhc.dungeon.generators._doors import _compute_door_sides
     for b in site.buildings:
