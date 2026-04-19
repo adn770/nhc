@@ -10,9 +10,13 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
+
+if TYPE_CHECKING:
+    from nhc.hexcrawl.model import Biome
 
 
 @dataclass
@@ -115,13 +119,16 @@ SITE_KINDS = ("tower", "farm", "mansion", "keep", "town")
 def assemble_site(
     kind: str, site_id: str, rng: random.Random,
     size_class: str | None = None,
+    biome: "Biome | None" = None,  # noqa: UP037
 ) -> Site:
     """Dispatch ``kind`` to the matching site assembler.
 
     Valid ``kind`` values are :data:`SITE_KINDS`. Any other value
     raises ``ValueError``. ``size_class`` only applies to the
     ``town`` assembler (hamlet / village / town / city); it is
-    ignored for every other kind.
+    ignored for every other kind. ``biome`` lets the town
+    assembler apply per-biome overrides (see ``assemble_town``);
+    other kinds ignore it for now.
     """
     # Deferred imports keep this module cheap to import and avoid
     # circular references back to Building / Level helpers.
@@ -139,7 +146,10 @@ def assemble_site(
         return assemble_keep(site_id, rng)
     if kind == "town":
         from nhc.dungeon.sites.town import assemble_town
-        if size_class is None:
-            return assemble_town(site_id, rng)
-        return assemble_town(site_id, rng, size_class=size_class)
+        kwargs: dict = {}
+        if size_class is not None:
+            kwargs["size_class"] = size_class
+        if biome is not None:
+            kwargs["biome"] = biome
+        return assemble_town(site_id, rng, **kwargs)
     raise ValueError(f"unknown site kind: {kind!r}")

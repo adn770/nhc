@@ -46,7 +46,7 @@ from nhc.dungeon.room_types import (
 from nhc.dungeon.site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
 )
-from nhc.hexcrawl.model import DungeonRef
+from nhc.hexcrawl.model import Biome, DungeonRef
 
 
 # ── Town tunable constants ───────────────────────────────────
@@ -125,20 +125,38 @@ def assemble_town(
     site_id: str,
     rng: random.Random,
     size_class: str = "village",
+    biome: Biome | None = None,
 ) -> Site:
     """Assemble a town site.
 
     ``size_class`` must be one of ``hamlet``, ``village``,
     ``town`` or ``city``. Defaults to ``village`` so legacy
     call sites and tests remain unchanged.
+
+    ``biome`` is an optional :class:`Biome` that lets the
+    assembler tweak its defaults without growing a new feature
+    type. On :attr:`Biome.MOUNTAIN` every building becomes
+    stone, the palisade is suppressed regardless of ``size_class``
+    so the site reads as a mountain-Village / mountain-Lodge, and
+    the building count skews to the lower half of the size class.
+    All other biomes fall through to the unmodified defaults.
     """
     if size_class not in _SIZE_CLASSES:
         raise ValueError(f"unknown town size_class: {size_class!r}")
     config = _SIZE_CLASSES[size_class]
-    n_buildings = rng.randint(*config.building_count_range)
+    mountain = biome is Biome.MOUNTAIN
+
+    if mountain:
+        lo, hi = config.building_count_range
+        # Clamp to the lower half so a mountain site never pushes
+        # to the top of the band. Guarantees at least one building.
+        mtn_hi = max(lo, (lo + hi) // 2)
+        n_buildings = rng.randint(lo, mtn_hi)
+    else:
+        n_buildings = rng.randint(*config.building_count_range)
 
     buildings = _place_buildings(
-        site_id, rng, n_buildings, config,
+        site_id, rng, n_buildings, config, mountain=mountain,
     )
     role_assignments = _assign_service_roles(rng, buildings)
 
@@ -153,7 +171,10 @@ def assemble_town(
                 )
         b.validate()
 
-    if config.has_palisade:
+    # Mountain sites read as lodges perched on stone -- the
+    # palisade would look absurd. size_class still controls
+    # building count; only the wall comes off.
+    if config.has_palisade and not mountain:
         enclosure = _build_palisade(buildings, config, rng)
     else:
         enclosure = None
@@ -177,6 +198,7 @@ def assemble_town(
 def _place_buildings(
     site_id: str, rng: random.Random,
     n_buildings: int, config: _TownSizeConfig,
+    mountain: bool = False,
 ) -> list[Building]:
     """Distribute ``n_buildings`` across two rows of the site."""
     per_row = (n_buildings + 1) // 2
@@ -191,10 +213,13 @@ def _place_buildings(
             rect = Rect(x_cursor, base_y, w, h)
             shape = _pick_shape(rng)
             n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
-            is_wood = (
-                rng.random() < TOWN_WOOD_BUILDING_PROBABILITY
-            )
-            interior = "wood" if is_wood else "stone"
+            if mountain:
+                interior = "stone"
+            else:
+                is_wood = (
+                    rng.random() < TOWN_WOOD_BUILDING_PROBABILITY
+                )
+                interior = "wood" if is_wood else "stone"
             descent: DungeonRef | None = None
             if rng.random() < TOWN_DESCENT_PROBABILITY:
                 descent = DungeonRef(

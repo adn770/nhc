@@ -862,6 +862,7 @@ class Game:
             f"site_{coord.q}_{coord.r}",
             random.Random(seed),
             size_class=cell.dungeon.size_class,
+            biome=cell.biome,
         )
         # Settlements top up the overland rumor pool on entry;
         # keep / town assemblers cover every settlement now, so
