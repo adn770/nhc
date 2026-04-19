@@ -33,8 +33,7 @@ FORTIFICATION_RATIO = math.sqrt(2)   # crenel long / short (DIN A)
 # ~ 2.41 * SIZE) of the adjacent wall, so the two walls visibly
 # merge into the corner block instead of seaming against it.
 FORTIFICATION_CORNER_SCALE = 3.0
-FORTIFICATION_TOWER_SCALE = 4.0
-FORTIFICATION_CORNER_STYLES = ("merlon", "tower", "diamond")
+FORTIFICATION_CORNER_STYLES = ("merlon", "diamond")
 
 
 # ── Palisade rendering constants (initial values, tunable) ───────
@@ -244,11 +243,6 @@ def _corner_inset() -> float:
 
 def _corner_shape(x: float, y: float, corner_style: str) -> str:
     size = FORTIFICATION_SIZE
-    if corner_style == "tower":
-        tsize = size * FORTIFICATION_TOWER_SCALE
-        return _fortification_rect(
-            x, y, tsize, tsize, FORTIFICATION_CORNER_FILL,
-        )
     if corner_style == "diamond":
         dsize = size * FORTIFICATION_CORNER_SCALE
         half = dsize / 2.0
@@ -260,7 +254,7 @@ def _corner_shape(x: float, y: float, corner_style: str) -> str:
             f'stroke-width="{FORTIFICATION_STROKE_WIDTH}" '
             f'transform="rotate(45 {x:.1f} {y:.1f})"/>'
         )
-    # "merlon" default: 1.5x square corner, black.
+    # "merlon" default: axis-aligned square corner, black.
     msize = size * FORTIFICATION_CORNER_SCALE
     return _fortification_rect(
         x, y, msize, msize, FORTIFICATION_CORNER_FILL,

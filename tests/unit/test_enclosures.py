@@ -21,7 +21,6 @@ from nhc.rendering._enclosures import (
     FORTIFICATION_SIZE,
     FORTIFICATION_STROKE,
     FORTIFICATION_STROKE_WIDTH,
-    FORTIFICATION_TOWER_SCALE,
     PALISADE_CIRCLE_STEP,
     PALISADE_DOOR_LENGTH_PX,
     PALISADE_FILL,
@@ -247,9 +246,9 @@ class TestFortificationCornerShapes:
 
 
 class TestFortificationCornerStyles:
-    def test_corner_styles_contains_three(self):
+    def test_corner_styles_contains_two(self):
         assert set(FORTIFICATION_CORNER_STYLES) == {
-            "merlon", "tower", "diamond",
+            "merlon", "diamond",
         }
 
     def test_default_corner_style_is_merlon(self):
@@ -264,25 +263,6 @@ class TestFortificationCornerStyles:
         polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
         out = render_fortification_enclosure(polygon)
         expected = FORTIFICATION_SIZE * FORTIFICATION_CORNER_SCALE
-        corners = 0
-        for a in _parse_rects(out):
-            if not _centers_near(a, polygon):
-                continue
-            w = float(a["width"])
-            h = float(a["height"])
-            if math.isclose(w, expected) and math.isclose(h, expected):
-                corners += 1
-        assert corners == 4
-
-    def test_tower_style_larger_than_merlon(self):
-        assert FORTIFICATION_TOWER_SCALE > FORTIFICATION_CORNER_SCALE
-
-    def test_tower_style_uses_tower_scale(self):
-        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
-        out = render_fortification_enclosure(
-            polygon, corner_style="tower",
-        )
-        expected = FORTIFICATION_SIZE * FORTIFICATION_TOWER_SCALE
         corners = 0
         for a in _parse_rects(out):
             if not _centers_near(a, polygon):
@@ -317,7 +297,7 @@ class TestFortificationCornerStyles:
         polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
         with pytest.raises(ValueError):
             render_fortification_enclosure(
-                polygon, corner_style="spaceship",
+                polygon, corner_style="tower",
             )
 
 
