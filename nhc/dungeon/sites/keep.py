@@ -23,7 +23,9 @@ from nhc.dungeon.model import (
     Level, OctagonShape, Rect, RectShape, Room, RoomShape,
     SurfaceType, Terrain, Tile,
 )
-from nhc.dungeon.site import Enclosure, Site
+from nhc.dungeon.site import (
+    Enclosure, Site, outside_neighbour, paint_surface_doors,
+)
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -98,11 +100,15 @@ def assemble_keep(
         sx_cursor += sw + 2
 
     buildings = main_buildings + sparse_buildings
-    door_map: dict[tuple[int, int], str] = {}
+    door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
     for b in buildings:
         door_xy = _place_entry_door(b, rng)
         if door_xy is not None:
-            door_map[door_xy] = b.id
+            neighbour = outside_neighbour(b, *door_xy)
+            if neighbour is not None:
+                door_map[neighbour] = (
+                    b.id, door_xy[0], door_xy[1],
+                )
         b.validate()
 
     enclosure = _build_fortification(buildings, rng)
@@ -118,6 +124,7 @@ def assemble_keep(
         enclosure=enclosure,
     )
     site.building_doors.update(door_map)
+    paint_surface_doors(site, SurfaceType.STREET)
     return site
 
 

@@ -17,7 +17,9 @@ from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, Room, RoomShape, SurfaceType,
     Terrain, Tile,
 )
-from nhc.dungeon.site import Site
+from nhc.dungeon.site import (
+    Site, outside_neighbour, paint_surface_doors,
+)
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -61,11 +63,17 @@ def assemble_mansion(
         x_cursor += w
 
     # Each building gets at least one exterior entry door.
-    entry_doors: dict[tuple[int, int], str] = {}
+    entry_doors: dict[
+        tuple[int, int], tuple[str, int, int]
+    ] = {}
     for b in buildings:
         door_xy = _place_entry_door(b, rng)
         if door_xy is not None:
-            entry_doors[door_xy] = b.id
+            neighbour = outside_neighbour(b, *door_xy)
+            if neighbour is not None:
+                entry_doors[neighbour] = (
+                    b.id, door_xy[0], door_xy[1],
+                )
 
     # Adjacent pairs get a shared interior door at a mid-height tile
     # on both their shared edges.
@@ -97,6 +105,7 @@ def assemble_mansion(
     )
     site.building_doors.update(entry_doors)
     site.interior_doors.update(interior_doors)
+    paint_surface_doors(site, SurfaceType.GARDEN)
     return site
 
 

@@ -12,7 +12,7 @@ import random
 from dataclasses import dataclass, field
 
 from nhc.dungeon.building import Building
-from nhc.dungeon.model import Level
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 
 
 @dataclass
@@ -40,14 +40,15 @@ class Site:
     (street / field / garden tiles live here). ``enclosure`` is
     ``None`` for unwalled sites (tower, farm, mansion).
 
-    ``building_doors`` maps an ``(x, y)`` tile on the surface to
-    the ``id`` of the building reachable by crossing that door,
-    and vice-versa -- when the player is on that building's ground
-    floor at the same ``(x, y)`` they can step back out to the
-    surface. ``interior_doors`` links adjacent buildings (mansions
-    only): ``(from_building_id, x, y)`` -> ``(to_building_id,
-    target_x, target_y)``; the target coord is the sibling
-    building's mirrored door tile.
+    ``building_doors`` maps a surface ``(sx, sy)`` tile (one step
+    outside the building's footprint) to ``(building_id, bx, by)``
+    -- the building-ground door tile reached by crossing that
+    surface door. ``(sx, sy)`` and ``(bx, by)`` are adjacent
+    (distance 1); the surface tile is on the walkable outdoor
+    area, the building tile is on the building's perimeter.
+    ``interior_doors`` links adjacent buildings (mansions only):
+    ``(from_building_id, fx, fy)`` -> ``(to_building_id, tx, ty)``
+    -- the sibling building's mirrored door tile.
     """
 
     id: str
@@ -55,12 +56,55 @@ class Site:
     buildings: list[Building]
     surface: Level
     enclosure: Enclosure | None = None
-    building_doors: dict[tuple[int, int], str] = field(
-        default_factory=dict,
-    )
+    building_doors: dict[
+        tuple[int, int], tuple[str, int, int]
+    ] = field(default_factory=dict)
     interior_doors: dict[
         tuple[str, int, int], tuple[str, int, int]
     ] = field(default_factory=dict)
+
+
+# ── Surface door painter ─────────────────────────────────────
+
+
+def outside_neighbour(
+    building: Building, bx: int, by: int,
+) -> tuple[int, int] | None:
+    """Return the 4-neighbour of ``(bx, by)`` that is outside the
+    building's footprint, or ``None`` when every neighbour is
+    inside the footprint (shouldn't happen for perimeter tiles)."""
+    footprint = building.base_shape.floor_tiles(building.base_rect)
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        nx, ny = bx + dx, by + dy
+        if (nx, ny) in footprint:
+            continue
+        return (nx, ny)
+    return None
+
+
+def paint_surface_doors(
+    site: Site, default_surface: SurfaceType,
+) -> None:
+    """Paint surface-side door tiles for every building entry.
+
+    For each ``(sx, sy)`` in ``site.building_doors``, replace the
+    surface tile at that coord with a walkable ``FLOOR`` + closed
+    door. The surface door lives one tile outside the building's
+    footprint so it sits naturally on the walkable outdoor area
+    and carries the site's ``default_surface`` type (STREET for
+    keep/town, GARDEN for mansion, FIELD for farm). Coordinates
+    outside the surface bounds are skipped, which lets tower
+    sites (tiny framing surface) call this without error.
+    """
+    surface = site.surface
+    for (sx, sy) in site.building_doors.keys():
+        if not surface.in_bounds(sx, sy):
+            continue
+        surface.tiles[sy][sx] = Tile(
+            terrain=Terrain.FLOOR,
+            feature="door_closed",
+            surface_type=default_surface,
+        )
 
 
 # ── Assembler dispatcher ─────────────────────────────────────

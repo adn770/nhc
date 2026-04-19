@@ -17,7 +17,9 @@ from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, Room, RoomShape, SurfaceType,
     Terrain, Tile,
 )
-from nhc.dungeon.site import Site
+from nhc.dungeon.site import (
+    Site, outside_neighbour, paint_surface_doors,
+)
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -87,7 +89,12 @@ def assemble_farm(
     )
     for b in buildings:
         for door_xy in _find_entry_doors(b):
-            site.building_doors[door_xy] = b.id
+            neighbour = outside_neighbour(b, *door_xy)
+            if neighbour is not None:
+                site.building_doors[neighbour] = (
+                    b.id, door_xy[0], door_xy[1],
+                )
+    paint_surface_doors(site, SurfaceType.FIELD)
     return site
 
 

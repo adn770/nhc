@@ -21,7 +21,9 @@ from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, Room, RoomShape, SurfaceType,
     Terrain, Tile,
 )
-from nhc.dungeon.site import Enclosure, Site
+from nhc.dungeon.site import (
+    Enclosure, Site, outside_neighbour, paint_surface_doors,
+)
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -90,11 +92,15 @@ def assemble_town(
             buildings.append(building)
             x_cursor += w + TOWN_BUILDING_SPACING
 
-    door_map: dict[tuple[int, int], str] = {}
+    door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
     for b in buildings:
         door_xy = _place_entry_door(b, rng)
         if door_xy is not None:
-            door_map[door_xy] = b.id
+            neighbour = outside_neighbour(b, *door_xy)
+            if neighbour is not None:
+                door_map[neighbour] = (
+                    b.id, door_xy[0], door_xy[1],
+                )
         b.validate()
 
     enclosure = _build_palisade(buildings, rng)
@@ -110,6 +116,7 @@ def assemble_town(
         enclosure=enclosure,
     )
     site.building_doors.update(door_map)
+    paint_surface_doors(site, SurfaceType.STREET)
     return site
 
 

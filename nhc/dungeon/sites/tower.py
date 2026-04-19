@@ -18,7 +18,7 @@ from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, Room,
     RoomShape, Terrain, Tile,
 )
-from nhc.dungeon.site import Site
+from nhc.dungeon.site import Site, outside_neighbour
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -99,7 +99,11 @@ def assemble_tower(
         enclosure=None,
     )
     if door_xy is not None:
-        site.building_doors[door_xy] = building.id
+        neighbour = outside_neighbour(building, *door_xy)
+        if neighbour is not None:
+            site.building_doors[neighbour] = (
+                building.id, door_xy[0], door_xy[1],
+            )
     return site
 
 
