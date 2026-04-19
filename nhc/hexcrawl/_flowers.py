@@ -345,6 +345,7 @@ def route_road_through_flower(
     *,
     feature_cell: HexCoord | None = None,
     mark_cells: bool = False,
+    trunk_cells: frozenset[HexCoord] | set[HexCoord] | None = None,
 ) -> list[HexCoord]:
     """Route a road through the flower, preferring the feature cell.
 
@@ -363,6 +364,11 @@ def route_road_through_flower(
     mark_cells : bool
         If True, set ``has_road = True`` and halve
         ``move_cost_hours`` on crossed sub-hexes.
+    trunk_cells : set[HexCoord] | None
+        Sub-cells already occupied by an earlier road heading to
+        the same macro exit. When provided, A* strongly prefers
+        these cells so the new road joins the trunk instead of
+        laying a parallel path.
     """
     center = HexCoord(0, 0)
 
@@ -388,9 +394,13 @@ def route_road_through_flower(
     # Cost function: stepping onto the feature cell is cheap (0.1)
     # so A* routes through it when it doesn't add too much detour.
     # Forest sub-hexes are penalised so roads route around them.
+    # Trunk cells of a prior road to the same exit are even
+    # cheaper so a second road merges into them.
     _ROAD_AVOID = frozenset({Biome.FOREST})
 
     def step_cost(_from: HexCoord, to: HexCoord) -> float:
+        if trunk_cells and to in trunk_cells:
+            return 0.05
         if feature_cell is not None and to == feature_cell:
             return 0.1
         if cells[to].biome in _ROAD_AVOID:
@@ -735,23 +745,49 @@ def generate_flower(
     )
 
     # 5. Route roads through sub-hexes (after feature placement
-    # so roads can target the feature cell)
+    # so roads can target the feature cell). When two roads exit
+    # via the same macro edge, the second one is biased onto the
+    # first's sub-cells and then trimmed to a branch so the flower
+    # renders a clean Y-junction instead of parallel roads.
+    trunk_by_exit: dict[int, set[HexCoord]] = {}
     for seg in parent.edges:
-        if seg.type == "path":
-            path = route_road_through_flower(
-                cells,
-                entry_edge=seg.entry_edge,
-                exit_edge=seg.exit_edge,
-                rng=rng,
-                feature_cell=feature_cell,
-                mark_cells=True,
-            )
-            edge_segments.append(SubHexEdgeSegment(
-                type="path",
-                path=path,
-                entry_macro_edge=seg.entry_edge,
-                exit_macro_edge=seg.exit_edge,
-            ))
+        if seg.type != "path":
+            continue
+        trunk_cells = (
+            trunk_by_exit.get(seg.exit_edge)
+            if seg.exit_edge is not None else None
+        )
+        path = route_road_through_flower(
+            cells,
+            entry_edge=seg.entry_edge,
+            exit_edge=seg.exit_edge,
+            rng=rng,
+            feature_cell=feature_cell,
+            mark_cells=True,
+            trunk_cells=trunk_cells,
+        )
+        seg_exit = seg.exit_edge
+        if trunk_cells:
+            # Trim the new road at the first cell that already
+            # belongs to an earlier road with the same exit. The
+            # trimmed segment terminates at the junction sub-cell
+            # (exit_macro_edge=None) so the renderer draws it as
+            # a branch rather than duplicating the trunk.
+            for i, c in enumerate(path):
+                if i > 0 and c in trunk_cells:
+                    path = path[: i + 1]
+                    seg_exit = None
+                    break
+        edge_segments.append(SubHexEdgeSegment(
+            type="path",
+            path=path,
+            entry_macro_edge=seg.entry_edge,
+            exit_macro_edge=seg_exit,
+        ))
+        if seg.exit_edge is not None:
+            trunk_by_exit.setdefault(
+                seg.exit_edge, set()
+            ).update(path)
 
     # 6. Tile slots: assign after rivers/roads so waterway
     # sub-hexes get lighter tile variants.
