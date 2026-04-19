@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from nhc.rendering.building import render_building_floor_svg
+from nhc.rendering.site_svg import render_site_surface_svg
 from nhc.rendering.svg import render_floor_svg
 
 if TYPE_CHECKING:
@@ -31,20 +32,23 @@ def render_level_svg(
 
     When ``level.building_id`` is set and matches a building on
     ``site``, render the composite Building floor (base SVG plus
-    brick/stone wall overlay). Otherwise fall back to the plain
-    floor renderer so dungeons and Site surfaces keep the same
-    output byte-for-byte.
+    brick/stone wall overlay). When the Level *is* the site's
+    surface, compose roofs + (town/keep) enclosure on top of the
+    bare floor SVG. Otherwise fall back to the plain floor
+    renderer so dungeon floors keep the same output byte-for-byte.
     """
-    if (
-        site is not None
-        and getattr(level, "building_id", None) is not None
-        and level.floor_index is not None
-    ):
-        for b in site.buildings:
-            if b.id == level.building_id:
-                return render_building_floor_svg(
-                    b, level.floor_index, seed=seed,
-                )
+    if site is not None:
+        if (
+            getattr(level, "building_id", None) is not None
+            and level.floor_index is not None
+        ):
+            for b in site.buildings:
+                if b.id == level.building_id:
+                    return render_building_floor_svg(
+                        b, level.floor_index, seed=seed,
+                    )
+        if level is site.surface:
+            return render_site_surface_svg(site, seed=seed)
     return render_floor_svg(
         level, seed=seed, hatch_distance=hatch_distance,
     )
