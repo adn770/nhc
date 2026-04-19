@@ -13,6 +13,7 @@ from nhc.dungeon.model import (
     LevelMetadata,
     Rect,
     Room,
+    SurfaceType,
     Terrain,
     Tile,
     shape_from_type,
@@ -226,8 +227,8 @@ def _serialize_level(level: Level) -> dict[str, Any]:
                 td["explored"] = True
             if tile.visible:
                 td["visible"] = True
-            if tile.is_corridor:
-                td["is_corridor"] = True
+            if tile.surface_type != SurfaceType.NONE:
+                td["surface_type"] = tile.surface_type.value
             if tile.door_side:
                 td["door_side"] = tile.door_side
             if tile.opened_at_turn is not None:
@@ -286,7 +287,10 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
                 feature=td.get("feature"),
                 explored=td.get("explored", False),
                 visible=td.get("visible", False),
-                is_corridor=td.get("is_corridor", False),
+                surface_type=(
+                    SurfaceType(td["surface_type"])
+                    if "surface_type" in td else SurfaceType.NONE
+                ),
                 door_side=td.get("door_side", ""),
                 opened_at_turn=td.get("opened_at_turn"),
             )

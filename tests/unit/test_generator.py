@@ -4,7 +4,7 @@ import pytest
 
 from nhc.dungeon.classic import ClassicGenerator
 from nhc.dungeon.generator import GenerationParams, Range
-from nhc.dungeon.model import Level, Room, Rect, Terrain, Tile
+from nhc.dungeon.model import Level, Room, Rect, SurfaceType, Terrain, Tile
 from nhc.dungeon.populator import populate_level
 from nhc.utils.rng import set_seed
 
@@ -211,7 +211,7 @@ class TestPopulator:
                                  feature="door_closed")
         # Single-tile corridor at (5,3)
         level.tiles[3][5] = Tile(terrain=Terrain.FLOOR,
-                                 is_corridor=True)
+                                 surface_type=SurfaceType.CORRIDOR)
 
         # Run populate many times and collect placements at (5,3)
         creature_count = 0

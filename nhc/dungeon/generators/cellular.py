@@ -18,6 +18,7 @@ from nhc.dungeon.model import (
     Rect,
     Room,
     RoomShape,
+    SurfaceType,
     Terrain,
     Tile,
 )
@@ -340,7 +341,9 @@ class CellularGenerator(DungeonGenerator):
         def _is_corridor(x: int, y: int) -> bool:
             if not level.in_bounds(x, y):
                 return False
-            return level.tiles[y][x].is_corridor
+            return (
+                level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+            )
 
         def _is_carvable(x: int, y: int) -> bool:
             if not level.in_bounds(x, y):
@@ -351,7 +354,7 @@ class CellularGenerator(DungeonGenerator):
 
         def _carve(x: int, y: int) -> None:
             level.tiles[y][x] = Tile(
-                terrain=Terrain.FLOOR, is_corridor=True,
+                terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
             )
 
         def _void(x: int, y: int) -> None:
@@ -392,7 +395,8 @@ class CellularGenerator(DungeonGenerator):
                     risky = False
                     for nb in (nb_up, nb_dn):
                         if (nb and nb.terrain == Terrain.FLOOR
-                                and not nb.is_corridor):
+                                and nb.surface_type
+                                != SurfaceType.CORRIDOR):
                             risky = True
                             break
                     if risky:
@@ -431,7 +435,8 @@ class CellularGenerator(DungeonGenerator):
                     risky = False
                     for nb in (nb_l, nb_r):
                         if (nb and nb.terrain == Terrain.FLOOR
-                                and not nb.is_corridor):
+                                and nb.surface_type
+                                != SurfaceType.CORRIDOR):
                             risky = True
                             break
                     if risky:
@@ -515,7 +520,7 @@ class CellularGenerator(DungeonGenerator):
             (x, y) for y in range(level.height)
             for x in range(level.width)
             if level.tiles[y][x].terrain == Terrain.FLOOR
-            and not level.tiles[y][x].is_corridor
+            and level.tiles[y][x].surface_type != SurfaceType.CORRIDOR
         ]
 
         if len(floors) < 2:
@@ -566,12 +571,13 @@ class CellularGenerator(DungeonGenerator):
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
                 tile = level.tiles[y][x]
-                if not tile.is_corridor or tile.feature:
+                if (tile.surface_type != SurfaceType.CORRIDOR
+                        or tile.feature):
                     continue
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nb = level.tiles[y + dy][x + dx]
                     if (nb.terrain == Terrain.FLOOR
-                            and not nb.is_corridor
+                            and nb.surface_type != SurfaceType.CORRIDOR
                             and not nb.feature):
                         if rng.random() < 0.10:
                             tile.feature = "door_secret"
@@ -603,8 +609,8 @@ def _absorb_corridors_into_caves(level: Level) -> int:
         for tx, ty in room.shape._tiles:
             cave_tiles[(tx, ty)] = room
             tile = level.tiles[ty][tx]
-            if tile.is_corridor:
-                tile.is_corridor = False
+            if tile.surface_type == SurfaceType.CORRIDOR:
+                tile.surface_type = SurfaceType.NONE
 
     absorbed = 0
     changed = True
@@ -626,7 +632,7 @@ def _absorb_corridors_into_caves(level: Level) -> int:
                 if owner is None:
                     continue
                 # Absorb: clear corridor flag, add to room
-                t.is_corridor = False
+                t.surface_type = SurfaceType.NONE
                 owner.shape._tiles.add((x, y))
                 cave_tiles[(x, y)] = owner
                 absorbed += 1
@@ -703,7 +709,7 @@ def _carve_line(
             t = level.tiles[y1][x]
             if t.terrain in (Terrain.VOID, Terrain.WALL):
                 level.tiles[y1][x] = Tile(
-                    terrain=Terrain.FLOOR, is_corridor=True,
+                    terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
                 )
     else:
         for y in range(min(y1, y2), max(y1, y2) + 1):
@@ -712,7 +718,7 @@ def _carve_line(
             t = level.tiles[y][x1]
             if t.terrain in (Terrain.VOID, Terrain.WALL):
                 level.tiles[y][x1] = Tile(
-                    terrain=Terrain.FLOOR, is_corridor=True,
+                    terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
                 )
 
 

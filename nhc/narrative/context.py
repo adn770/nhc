@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.model import SurfaceType, Terrain
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -152,7 +152,7 @@ class ContextBuilder:
 
         # In a corridor
         tile = level.tile_at(pos.x, pos.y)
-        if tile and tile.is_corridor:
+        if tile and tile.surface_type == SurfaceType.CORRIDOR:
             return {
                 "id": "corridor",
                 "type": "corridor",

@@ -35,22 +35,15 @@ class TestSurfaceTypeStreetRendering:
         # Cobblestone stroke colour is the canonical street marker.
         assert "#8A7A6A" in svg
 
-    def test_legacy_is_street_still_works(self):
+    def test_no_surface_means_no_cobblestones(self):
         level = _blank_level()
-        level.tiles[5][5].is_street = True
-        svg = render_floor_svg(level, seed=42)
-        assert "#8A7A6A" in svg
-
-    def test_no_surface_or_flag_means_no_cobblestones(self):
-        level = _blank_level()
-        # Leave every tile with surface_type = NONE and is_street = False.
+        # Leave every tile with surface_type = NONE.
         svg = render_floor_svg(level, seed=42)
         # Without any street tile, the cobblestone group does not appear.
         assert "#8A7A6A" not in svg
 
-    def test_both_flags_set_still_renders(self):
+    def test_street_surface_renders_idempotently(self):
         level = _blank_level()
-        level.tiles[3][3].is_street = True
         level.tiles[3][3].surface_type = SurfaceType.STREET
         svg = render_floor_svg(level, seed=42)
         assert "#8A7A6A" in svg

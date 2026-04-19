@@ -14,7 +14,7 @@ from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient as _shapely_orient
 from shapely.ops import unary_union
 
-from nhc.dungeon.model import Level, Room, Terrain
+from nhc.dungeon.model import Level, Room, SurfaceType, Terrain
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.rendering._svg_helpers import CELL, WALL_WIDTH  # noqa: F401
 
@@ -208,7 +208,7 @@ def _collect_cave_region(level: "Level") -> set[tuple[int, int]]:
                 continue
             # Only expand into corridor tiles — we don't want to
             # absorb adjacent non-cave rooms.
-            if not nb.is_corridor:
+            if nb.surface_type != SurfaceType.CORRIDOR:
                 continue
             region.add((nx, ny))
             frontier.append((nx, ny))

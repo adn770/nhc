@@ -8,6 +8,7 @@ from nhc.dungeon.model import (
     Level,
     Rect,
     Room,
+    SurfaceType,
     Terrain,
     Tile,
 )
@@ -106,7 +107,8 @@ class ClassicGenerator(DungeonGenerator):
         for y in range(level.height):
             for x in range(level.width):
                 tile = level.tiles[y][x]
-                if tile.terrain not in walkable or tile.is_corridor:
+                if (tile.terrain not in walkable
+                        or tile.surface_type == SurfaceType.CORRIDOR):
                     continue
                 for dy in range(-1, 2):
                     for dx in range(-1, 2):
@@ -137,7 +139,7 @@ class ClassicGenerator(DungeonGenerator):
                 existing = level.tiles[y][x]
                 if existing.terrain != Terrain.FLOOR:
                     level.tiles[y][x] = Tile(
-                        terrain=Terrain.FLOOR, is_corridor=True,
+                        terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
                     )
                 points.append((x, y))
         return points
@@ -152,7 +154,7 @@ class ClassicGenerator(DungeonGenerator):
                 existing = level.tiles[y][x]
                 if existing.terrain != Terrain.FLOOR:
                     level.tiles[y][x] = Tile(
-                        terrain=Terrain.FLOOR, is_corridor=True,
+                        terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
                     )
                 points.append((x, y))
         return points

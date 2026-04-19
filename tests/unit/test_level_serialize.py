@@ -6,7 +6,7 @@ from __future__ import annotations
 from nhc.core.save import _serialize_level, _deserialize_level
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
-    Level, LevelMetadata, Rect, Room, Terrain, Tile,
+    Level, LevelMetadata, Rect, Room, SurfaceType, Terrain, Tile,
 )
 
 
@@ -14,9 +14,9 @@ def _make_level() -> Level:
     level = Level.create_empty(
         "test", "Test", depth=1, width=10, height=8,
     )
-    # A floor tile with is_corridor=True
+    # A floor tile with surface_type=CORRIDOR
     level.tiles[3][3] = Tile(
-        terrain=Terrain.FLOOR, is_corridor=True,
+        terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
     )
     # A floor tile that's visible
     level.tiles[4][4] = Tile(
@@ -35,14 +35,16 @@ class TestTileFieldSerialization:
     def test_is_corridor_roundtrip(self):
         level = _make_level()
         data = _serialize_level(level)
-        # Check the serialized tile has is_corridor
+        # Check the serialized tile has surface_type
         serialized_tile = data["tiles"][3][3]
-        assert serialized_tile.get("is_corridor") is True, (
-            f"is_corridor missing from export: {serialized_tile}"
+        assert serialized_tile.get("surface_type") == "corridor", (
+            f"surface_type missing from export: {serialized_tile}"
         )
         # Deserialize and verify
         level2 = _deserialize_level(data)
-        assert level2.tiles[3][3].is_corridor is True
+        assert (
+            level2.tiles[3][3].surface_type == SurfaceType.CORRIDOR
+        )
 
     def test_visible_roundtrip(self):
         level = _make_level()

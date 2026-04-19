@@ -13,7 +13,7 @@ import pytest
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.model import EntityPlacement, Terrain
+from nhc.dungeon.model import EntityPlacement, SurfaceType, Terrain
 from nhc.dungeon.pipeline import generate_level
 from nhc.dungeon.populator import populate_level
 from nhc.utils.rng import set_seed
@@ -95,7 +95,7 @@ class TestVaultGeneration:
                     f"vault {v.id} tile ({x},{y}) is {tile.terrain}"
                 )
                 # Vault floor must never be flagged as a corridor
-                assert not tile.is_corridor
+                assert tile.surface_type != SurfaceType.CORRIDOR
 
     def test_vault_perimeter_is_solid_wall(self):
         """Every tile adjacent (8-neighbor) to a vault floor that is

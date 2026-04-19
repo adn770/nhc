@@ -7,7 +7,7 @@ import pytest
 from nhc.core.actions import DigAction
 from nhc.core.ecs import World
 from nhc.core.events import MessageEvent
-from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.entities.components import (
     Description, DiggingTool, Equipment, Health, Inventory, Player,
     Position, Renderable, Stats, Weapon,
@@ -216,7 +216,7 @@ class TestDigActionExecution:
 
         tile = level.tile_at(6, 5)
         assert tile.dug_wall is True
-        assert tile.is_corridor is True
+        assert tile.surface_type == SurfaceType.CORRIDOR
 
 
 class TestDiggingToolItems:

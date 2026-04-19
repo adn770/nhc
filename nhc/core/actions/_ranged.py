@@ -10,7 +10,7 @@ from nhc.core.actions._helpers import _entity_name
 from nhc.core.events import (
     CreatureDied, DoorOpened, Event, ItemUsed, MessageEvent,
 )
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.entities.components import Poison, StatusEffect
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage, heal as do_heal
@@ -316,7 +316,8 @@ class ZapAction(Action):
                 for tx in range(level.width):
                     tile = level.tile_at(tx, ty)
                     if (tile and tile.terrain.name == "FLOOR"
-                            and not tile.feature and not tile.is_corridor):
+                            and not tile.feature
+                            and tile.surface_type != SurfaceType.CORRIDOR):
                         floors.append((tx, ty))
             if floors:
                 nx, ny = get_rng().choice(floors)

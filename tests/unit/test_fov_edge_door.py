@@ -24,7 +24,7 @@ import pytest
 from nhc.core.game import (
     door_wall_run_hidden, edge_door_blocked_tiles,
 )
-from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.utils.fov import compute_fov
 
 WIDTH, HEIGHT = 7, 7
@@ -52,7 +52,7 @@ def _build_level() -> Level:
             level.tiles[y][x] = Tile(terrain=Terrain.WALL)
 
     # Corridor at (3,1)
-    level.tiles[1][3] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[1][3] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
 
     # Door at (3,2) — closed, south-facing
     level.tiles[2][3] = Tile(
@@ -147,7 +147,7 @@ def _build_east_door_level() -> Level:
     # Corridor column at x=1, rows 1-3
     for y in range(1, 4):
         level.tiles[y][1] = Tile(terrain=Terrain.FLOOR,
-                                 is_corridor=True)
+                                 surface_type=SurfaceType.CORRIDOR)
 
     # Door at (2,2) — east-facing
     level.tiles[2][2] = Tile(
@@ -292,8 +292,8 @@ def _build_isolated_room_west_door() -> Level:
     )
 
     # Corridor: (2,4) and (1,4) — the player approaches from west
-    level.tiles[4][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[4][1] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[4][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.tiles[4][1] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
 
     return level
 
@@ -359,10 +359,10 @@ def _build_corridor_along_room_wall() -> Level:
             level.tiles[y][x] = Tile(terrain=Terrain.WALL)
 
     # Corridor
-    level.tiles[2][1] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[1][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[2][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
-    level.tiles[3][2] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[2][1] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.tiles[1][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.tiles[2][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
+    level.tiles[3][2] = Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
 
     # Door
     level.tiles[2][3] = Tile(
@@ -467,7 +467,7 @@ def _build_long_wall_run() -> Level:
     # Corridor west of door: (5,3), (4,3), (3,3)
     for x in range(3, 6):
         level.tiles[3][x] = Tile(terrain=Terrain.FLOOR,
-                                 is_corridor=True)
+                                 surface_type=SurfaceType.CORRIDOR)
 
     return level
 
@@ -509,7 +509,7 @@ class TestWallRunPlayerAdjacentToWall:
         # Player at (5,2): one tile north of corridor center,
         # adjacent to wall (6,2)
         level.tiles[2][5] = Tile(terrain=Terrain.FLOOR,
-                                 is_corridor=True)
+                                 surface_type=SurfaceType.CORRIDOR)
         return _fov_with_wall_run_hiding(level, 5, 2)
 
     def test_adjacent_wall_visible(self, fov):
@@ -578,9 +578,9 @@ def _build_room_with_two_south_doors() -> Level:
 
     # Corridors behind doors
     level.tiles[6][4] = Tile(terrain=Terrain.FLOOR,
-                             is_corridor=True)
+                             surface_type=SurfaceType.CORRIDOR)
     level.tiles[6][6] = Tile(terrain=Terrain.FLOOR,
-                             is_corridor=True)
+                             surface_type=SurfaceType.CORRIDOR)
 
     return level
 

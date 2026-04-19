@@ -109,8 +109,9 @@ def _render_walls_and_floors(
                 Terrain.GRASS, Terrain.LAVA,
             ):
                 continue
-            if tile.is_corridor or (tile.feature and "door" in
-                                    (tile.feature or "")):
+            if (tile.surface_type == SurfaceType.CORRIDOR
+                    or (tile.feature and "door" in
+                        (tile.feature or ""))):
                 svg.append(
                     f'<rect x="{x * CELL}" y="{y * CELL}" '
                     f'width="{CELL}" height="{CELL}" '
@@ -170,17 +171,17 @@ def _render_walls_and_floors(
                      f'M{px + CELL},{py} L{px + CELL},{py + CELL}'),
                 ]:
                     nb = level.tile_at(nx, ny)
-                    if nb and nb.is_corridor and not _walkable(nx, ny):
+                    if (nb and nb.surface_type == SurfaceType.CORRIDOR
+                            and not _walkable(nx, ny)):
                         segments.append(seg)
                 continue
 
             tile = level.tiles[y][x]
 
             # Outdoor surfaces are open-air -- no side walls.
-            # Covers STREET (town / keep) via legacy is_street
-            # or the enum, plus FIELD / GARDEN (farm / mansion)
-            # which never touched the legacy boolean.
-            if tile.is_street or tile.surface_type in (
+            # Covers STREET (town / keep), plus FIELD / GARDEN
+            # (farm / mansion) surface backdrops.
+            if tile.surface_type in (
                 SurfaceType.STREET,
                 SurfaceType.FIELD,
                 SurfaceType.GARDEN,

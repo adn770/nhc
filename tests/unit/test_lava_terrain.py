@@ -3,7 +3,7 @@
 import random
 
 from nhc.dungeon.generator import GenerationParams
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.dungeon.pipeline import generate_level
 
 
@@ -44,5 +44,5 @@ class TestLavaGeneration:
         for row in level.tiles:
             for t in row:
                 if t.terrain == Terrain.LAVA:
-                    assert not t.is_corridor
+                    assert t.surface_type != SurfaceType.CORRIDOR
                     assert not t.feature

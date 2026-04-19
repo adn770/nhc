@@ -6,7 +6,7 @@ import pytest
 
 from nhc.core.actions import MoveAction, _crossing_door_edge
 from nhc.core.ecs import World
-from nhc.dungeon.model import Level, Room, Rect, Terrain, Tile
+from nhc.dungeon.model import Level, Room, Rect, SurfaceType, Terrain, Tile
 from nhc.entities.components import Health, Player, Position, Renderable, Stats
 
 
@@ -28,7 +28,9 @@ def _make_corridor_door_room():
         terrain=Terrain.FLOOR, feature="door_closed", door_side="west",
     )
     # Corridor
-    level.tiles[3][4] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[3][4] = Tile(
+        terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
+    )
     level.rooms.append(Room(id="r", rect=Rect(1, 2, 2, 3)))
     return level
 

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.utils.fov import compute_fov
 
 WIDTH, HEIGHT = 10, 9
@@ -82,7 +82,7 @@ def _build_level(door_feature: str = "door_secret") -> Level:
     # Corridor tiles behind each door
     for cx, cy in [CORRIDOR_N, CORRIDOR_S, CORRIDOR_W, CORRIDOR_E]:
         level.tiles[cy][cx] = Tile(terrain=Terrain.FLOOR,
-                                   is_corridor=True)
+                                   surface_type=SurfaceType.CORRIDOR)
 
     return level
 

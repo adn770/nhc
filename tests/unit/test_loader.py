@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from nhc.dungeon.loader import get_player_start, load_level
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.i18n import init as i18n_init
 
 
@@ -80,7 +80,7 @@ class TestLoadLevel:
         # Corridor at y=3, x=8-19 (marked '#' in map)
         tile = level.tile_at(12, 3)
         assert tile.terrain == Terrain.FLOOR
-        assert tile.is_corridor
+        assert tile.surface_type == SurfaceType.CORRIDOR
         assert tile.walkable
 
     def test_room_floor_not_corridor(self):
@@ -88,7 +88,7 @@ class TestLoadLevel:
         # Room floor inside entry room should not be a corridor
         tile = level.tile_at(3, 2)
         assert tile.terrain == Terrain.FLOOR
-        assert not tile.is_corridor
+        assert tile.surface_type != SurfaceType.CORRIDOR
 
     def test_rooms_loaded(self):
         level = load_level(LEVEL_PATH)

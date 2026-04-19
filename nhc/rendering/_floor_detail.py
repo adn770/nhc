@@ -505,7 +505,7 @@ def _render_floor_grid(
             # unclipped bucket alongside visible doors, so the
             # segment stroke doesn't land on the clip boundary
             # and get half-masked to invisibility.
-            is_cor = (tile.is_corridor
+            is_cor = (tile.surface_type == SurfaceType.CORRIDOR
                       or _is_door(level, x, y)
                       or tile.feature == "door_secret")
             px, py = x * CELL, y * CELL
@@ -623,7 +623,7 @@ def _render_floor_detail(
                 SurfaceType.GARDEN,
             ):
                 continue
-            is_cor = (tile.is_corridor
+            is_cor = (tile.surface_type == SurfaceType.CORRIDOR
                       or _is_door(level, x, y))
             if is_cor:
                 _td(rng, x, y, seed,
@@ -712,10 +712,7 @@ def _render_street_cobblestone(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            if not (
-                tile.is_street
-                or tile.surface_type == SurfaceType.STREET
-            ):
+            if tile.surface_type != SurfaceType.STREET:
                 continue
             px, py = x * CELL, y * CELL
             _cobblestone_tile(rng, px, py, cobbles)
@@ -1135,14 +1132,16 @@ def _render_cart_tracks(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            if not tile.is_track:
+            if tile.surface_type != SurfaceType.TRACK:
                 continue
             # Decide orientation from neighbours
             e = level.tile_at(x + 1, y)
             w = level.tile_at(x - 1, y)
             horizontal = (
-                (e is not None and e.is_track)
-                or (w is not None and w.is_track)
+                (e is not None
+                 and e.surface_type == SurfaceType.TRACK)
+                or (w is not None
+                    and w.surface_type == SurfaceType.TRACK)
             )
             px, py = x * CELL, y * CELL
             cx, cy = px + CELL / 2, py + CELL / 2

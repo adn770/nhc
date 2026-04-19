@@ -5,7 +5,9 @@ from unittest.mock import patch
 
 from shapely.geometry import Point, box
 
-from nhc.dungeon.model import Level, Rect, RectShape, Room, Terrain, Tile
+from nhc.dungeon.model import (
+    Level, Rect, RectShape, Room, SurfaceType, Terrain, Tile,
+)
 from nhc.rendering.svg import (
     CELL, FLOOR_STONE_FILL, PADDING,
     _render_floor_detail, _render_floor_grid, _room_shapely_polygon,
@@ -25,7 +27,9 @@ def _make_level(width=10, height=8):
 
     # Carve a corridor from (6,3) to (8,3)
     for x in range(6, 9):
-        level.tiles[3][x] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+        level.tiles[3][x] = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
+        )
 
     # Add a closed door at (6,3)
     level.tiles[3][6].feature = "door_closed"

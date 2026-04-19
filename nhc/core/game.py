@@ -56,7 +56,7 @@ from nhc.dungeon.generator import GenerationParams, pick_map_size
 from nhc.dungeon.pipeline import generate_level
 from nhc.dungeon.themes import theme_for_depth
 from nhc.dungeon.loader import get_player_start, load_level
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.entities.components import (
     BlocksMovement,
     Cursed,
@@ -3147,7 +3147,7 @@ class Game:
                 tile = self.level.tile_at(x, y)
                 if (tile and tile.terrain == Terrain.FLOOR
                         and not tile.feature
-                        and not tile.is_corridor):
+                        and tile.surface_type != SurfaceType.CORRIDOR):
                     floors.append((x, y))
         if not floors:
             return False

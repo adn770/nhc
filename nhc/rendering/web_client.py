@@ -23,6 +23,7 @@ from nhc.dungeon.model import (
     OctagonShape,
     PillShape,
     Rect,
+    SurfaceType,
     TempleShape,
     Terrain,
 )
@@ -1181,7 +1182,8 @@ class WebClient(GameClient):
         corridor_tiles: set[tuple[int, int]] = set()
         for y, row in enumerate(level.tiles):
             for x, tile in enumerate(row):
-                if tile.terrain == Terrain.FLOOR and tile.is_corridor:
+                if (tile.terrain == Terrain.FLOOR
+                        and tile.surface_type == SurfaceType.CORRIDOR):
                     corridor_tiles.add((x, y))
 
         corridors = []

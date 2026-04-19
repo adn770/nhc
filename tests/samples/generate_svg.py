@@ -22,7 +22,7 @@ from pathlib import Path
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.model import HybridShape, Terrain
+from nhc.dungeon.model import HybridShape, SurfaceType, Terrain
 from nhc.rendering.svg import (
     CELL, PADDING, render_floor_svg,
     _room_svg_outline, _find_doorless_openings, _outline_with_gaps,
@@ -237,7 +237,8 @@ def _find_corridor_segments(level):
     corridor_tiles = set()
     for y, row in enumerate(level.tiles):
         for x, tile in enumerate(row):
-            if tile.terrain == Terrain.FLOOR and tile.is_corridor:
+            if (tile.terrain == Terrain.FLOOR
+                    and tile.surface_type == SurfaceType.CORRIDOR):
                 corridor_tiles.add((x, y))
 
     segments = []
@@ -415,8 +416,8 @@ def _build_level_json(level, seed: int, variety: float) -> dict:
                 cell = {"terrain": t.terrain.name}
                 if t.feature:
                     cell["feature"] = t.feature
-                if t.is_corridor:
-                    cell["is_corridor"] = True
+                if t.surface_type != SurfaceType.NONE:
+                    cell["surface_type"] = t.surface_type.value
                 if t.door_side:
                     cell["door_side"] = t.door_side
                 if (tx, ty) in room_floor_set:

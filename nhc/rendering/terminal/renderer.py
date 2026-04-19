@@ -26,7 +26,7 @@ from nhc.i18n import t as tr
 logger = logging.getLogger(__name__)
 
 from nhc.core.ecs import World
-from nhc.dungeon.model import Level, RectShape, Terrain
+from nhc.dungeon.model import Level, RectShape, SurfaceType, Terrain
 from nhc.rendering.terminal import glyphs as _glyphs
 from nhc.rendering.terminal.hex_renderer import build_hex_frame
 from nhc.rendering.terminal.glyphs import (
@@ -506,7 +506,7 @@ class TerminalRenderer(GameClient):
                     glyph = "#"
                     color = "yellow"
                     dim_val = "bright_black"
-                elif tile.is_corridor:
+                elif tile.surface_type == SurfaceType.CORRIDOR:
                     glyph, color, dim_val = _glyphs.CORRIDOR_GLYPH
                 elif tile.terrain == Terrain.WALL:
                     _, color, dim_val = _glyphs.TERRAIN_GLYPHS[Terrain.WALL]

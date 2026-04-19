@@ -6,7 +6,9 @@ import random
 
 import pytest
 
-from nhc.dungeon.model import Level, LevelMetadata, Terrain, Tile, Room, Rect
+from nhc.dungeon.model import (
+    Level, LevelMetadata, Rect, Room, SurfaceType, Terrain, Tile,
+)
 from nhc.dungeon.terrain import apply_terrain
 
 
@@ -177,7 +179,7 @@ class TestGrassNotOnCorridors:
         level = _make_level(depth=1, theme="forest")
         # Mark some tiles as corridors
         for x in range(1, 10):
-            level.tiles[5][x].is_corridor = True
+            level.tiles[5][x].surface_type = SurfaceType.CORRIDOR
         rng = random.Random(42)
         apply_terrain(level, rng)
         for x in range(1, 10):

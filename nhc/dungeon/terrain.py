@@ -11,7 +11,7 @@ import random
 
 logger = logging.getLogger(__name__)
 
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 
 # Theme → (water_seed, water_iters, grass_seed, grass_iters,
 #           lava_seed, lava_iters)
@@ -73,7 +73,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
             tile = level.tiles[y][x]
             if (tile.terrain == Terrain.FLOOR
                     and not tile.feature
-                    and not tile.is_corridor
+                    and tile.surface_type != SurfaceType.CORRIDOR
                     and water[y][x]):
                 tile.terrain = Terrain.WATER
 
@@ -87,7 +87,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
                 tile = level.tiles[y][x]
                 if (tile.terrain == Terrain.FLOOR
                         and not tile.feature
-                        and not tile.is_corridor
+                        and tile.surface_type != SurfaceType.CORRIDOR
                         and grass[y][x]):
                     tile.terrain = Terrain.GRASS
 
@@ -101,7 +101,7 @@ def apply_terrain(level: Level, rng: random.Random) -> None:
                 tile = level.tiles[y][x]
                 if (tile.terrain == Terrain.FLOOR
                         and not tile.feature
-                        and not tile.is_corridor
+                        and tile.surface_type != SurfaceType.CORRIDOR
                         and lava[y][x]):
                     tile.terrain = Terrain.LAVA
 

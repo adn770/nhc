@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.generators._doors import _door_candidates
-from nhc.dungeon.model import Level, Room, Terrain, Tile
+from nhc.dungeon.model import Level, Room, SurfaceType, Terrain, Tile
 
 
 def _wall_entry(
@@ -76,7 +76,7 @@ def _carve_line(
         t = level.tiles[cy][cx]
         if t.terrain == Terrain.VOID:
             level.tiles[cy][cx] = Tile(
-                terrain=Terrain.FLOOR, is_corridor=True,
+                terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
             )
         elif force and t.terrain == Terrain.WALL:
             level.tiles[cy][cx] = Tile(

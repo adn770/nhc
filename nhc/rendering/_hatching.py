@@ -11,7 +11,7 @@ import random
 import noise as _noise
 from shapely.geometry import LineString, Point, Polygon
 
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.rendering._svg_helpers import (
     CELL,
     HATCH_UNDERLAY,
@@ -41,7 +41,8 @@ def _render_corridor_hatching(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            if not (tile.is_corridor or _is_door(level, x, y)):
+            if not (tile.surface_type == SurfaceType.CORRIDOR
+                    or _is_door(level, x, y)):
                 continue
             for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = x + dx, y + dy
@@ -49,7 +50,7 @@ def _render_corridor_hatching(
                     continue
                 nb = level.tiles[ny][nx]
                 if (nb.terrain == Terrain.VOID
-                        and not nb.is_corridor):
+                        and nb.surface_type != SurfaceType.CORRIDOR):
                     hatch_tiles.add((nx, ny))
 
     if not hatch_tiles:

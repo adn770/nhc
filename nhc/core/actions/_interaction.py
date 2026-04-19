@@ -11,7 +11,7 @@ from nhc.core.actions._helpers import (
 from nhc.core.events import (
     DoorOpened, Event, LevelEntered, MessageEvent, VisualEffect,
 )
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.i18n import t
 from nhc.rules.combat import apply_damage
 from nhc.rules.loot import generate_loot
@@ -342,7 +342,7 @@ class DigAction(Action):
         if roll + str_bonus + tool_bonus >= self.DIG_DC:
             tile.terrain = Terrain.FLOOR
             tile.feature = None
-            tile.is_corridor = True
+            tile.surface_type = SurfaceType.CORRIDOR
             tile.dug_wall = True
             events.append(MessageEvent(
                 text=t("explore.dig_success"),
@@ -590,7 +590,7 @@ def describe_tile(
     # Terrain fallback
     if not parts:
         terrain_name = tile.terrain.name.lower()
-        if tile.is_corridor:
+        if tile.surface_type == SurfaceType.CORRIDOR:
             terrain_name = "corridor"
         parts.append(terrain_name)
 

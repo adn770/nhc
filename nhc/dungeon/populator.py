@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 import random
 
-from nhc.dungeon.model import EntityPlacement, Level, Terrain
+from nhc.dungeon.model import EntityPlacement, Level, SurfaceType, Terrain
 from nhc.utils.rng import get_rng
 
 # ── Creature pools by difficulty tier ────────────────────────────────
@@ -325,7 +325,8 @@ def _find_single_tile_corridors(level: Level) -> list[tuple[int, int]]:
     for y in range(level.height):
         for x in range(level.width):
             t = level.tiles[y][x]
-            if t.terrain == Terrain.FLOOR and t.is_corridor:
+            if (t.terrain == Terrain.FLOOR
+                    and t.surface_type == SurfaceType.CORRIDOR):
                 corridor_tiles.add((x, y))
 
     # Flood-fill into connected segments

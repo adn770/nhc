@@ -4,7 +4,7 @@ import random
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.settlement import SettlementGenerator
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.rendering.svg import render_floor_svg
 
 
@@ -30,7 +30,8 @@ class TestStreetRendering:
     def test_streets_exist_in_level(self):
         level = _make_settlement()
         street_count = sum(
-            1 for row in level.tiles for t in row if t.is_street
+            1 for row in level.tiles for t in row
+            if t.surface_type == SurfaceType.STREET
         )
         assert street_count > 0
 
@@ -38,7 +39,7 @@ class TestStreetRendering:
         level = _make_settlement()
         for row in level.tiles:
             for t in row:
-                if t.is_street:
+                if t.surface_type == SurfaceType.STREET:
                     assert t.terrain == Terrain.FLOOR
 
     def test_settlement_svg_renders(self):

@@ -18,6 +18,7 @@ from nhc.dungeon.model import (
     Rect,
     RectShape,
     Room,
+    SurfaceType,
     Terrain,
     Tile,
 )
@@ -315,7 +316,7 @@ def _carve_street_line(
                 if tile.terrain in (Terrain.VOID, Terrain.WALL):
                     level.tiles[y][x1] = Tile(
                         terrain=Terrain.FLOOR,
-                        is_street=True,
+                        surface_type=SurfaceType.STREET,
                     )
     elif y1 == y2:
         for x in range(min(x1, x2), max(x1, x2) + 1):
@@ -324,7 +325,7 @@ def _carve_street_line(
                 if tile.terrain in (Terrain.VOID, Terrain.WALL):
                     level.tiles[y1][x] = Tile(
                         terrain=Terrain.FLOOR,
-                        is_street=True,
+                        surface_type=SurfaceType.STREET,
                     )
 
 
@@ -370,7 +371,7 @@ def _place_entry(
         level.tiles[ey][ex] = Tile(
             terrain=Terrain.FLOOR,
             feature="stairs_up",
-            is_street=True,
+            surface_type=SurfaceType.STREET,
         )
         # Carve a path to the main street
         mid_y = level.height // 2
@@ -386,6 +387,6 @@ def _carve_gate(level: Level, rng: random.Random) -> None:
     for row in range(max(0, h - 2), h):
         level.tiles[row][mid_x] = Tile(
             terrain=Terrain.FLOOR,
-            is_street=True,
+            surface_type=SurfaceType.STREET,
         )
     level.tiles[h - 1][mid_x].feature = "door_closed"

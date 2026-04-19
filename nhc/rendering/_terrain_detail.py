@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.rendering._floor_detail import _TERRAIN_TYPES, _dungeon_interior_clip
 from nhc.rendering._svg_helpers import CELL
 from nhc.rendering.terrain_palette import ROOM_TYPE_TINTS, get_palette
@@ -244,7 +244,7 @@ def _render_terrain_detail(
             style = terrain_styles[tile.terrain]
             px, py = x * CELL, y * CELL
             els = fn(rng, px, py, style.detail_ink, style.detail_opacity)
-            if tile.is_corridor:
+            if tile.surface_type == SurfaceType.CORRIDOR:
                 cor_els[tile.terrain].extend(els)
             else:
                 room_els[tile.terrain].extend(els)

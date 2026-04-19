@@ -841,7 +841,7 @@ class TestWallMaskComputation:
         assert _is_walkable(level, 2, 1) is False
 
     def test_corridor_has_parallel_wall_edges(self):
-        from nhc.dungeon.model import Level, Terrain, Tile
+        from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
         from nhc.rendering.web_client import _wall_mask
         # 1-tile-wide horizontal corridor: FLOOR at row 2,
         # WALL on rows 1 and 3, VOID (default WALL) elsewhere.
@@ -850,8 +850,10 @@ class TestWallMaskComputation:
             for x in range(5):
                 level.tiles[y][x] = Tile(terrain=Terrain.WALL)
         for x in range(1, 4):
-            level.tiles[2][x] = Tile(terrain=Terrain.FLOOR,
-                                     is_corridor=True)
+            level.tiles[2][x] = Tile(
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.CORRIDOR,
+            )
         # Middle of corridor (2,2): walls N and S, no E/W.
         mask = _wall_mask(level, 2, 2)
         assert mask & 1, "north bit set"
@@ -887,7 +889,7 @@ class TestDoorWallMask:
     always included in the polygon when visible."""
 
     def _wall_column_with_secret_door(self):
-        from nhc.dungeon.model import Level, Terrain, Tile
+        from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
         # 5x5 grid. Vertical wall column at x=2, rooms on each
         # side. A secret door sits at (2, 2) in the wall column.
         level = Level.create_empty("t", "T", depth=1, width=5, height=5)
@@ -896,8 +898,10 @@ class TestDoorWallMask:
                 level.tiles[y][x] = Tile(terrain=Terrain.WALL)
         # West corridor at x=1
         for y in range(1, 4):
-            level.tiles[y][1] = Tile(terrain=Terrain.FLOOR,
-                                     is_corridor=True)
+            level.tiles[y][1] = Tile(
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.CORRIDOR,
+            )
         # East room at x=3
         for y in range(1, 4):
             level.tiles[y][3] = Tile(terrain=Terrain.FLOOR)

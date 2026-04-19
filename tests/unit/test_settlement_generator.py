@@ -8,7 +8,7 @@ from nhc.dungeon.generators.settlement import (
     SettlementGenerator,
 )
 from nhc.dungeon.generator import GenerationParams
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 
 
 class TestSizeClasses:
@@ -65,7 +65,7 @@ class TestSettlementGenerator:
         level = gen.generate(params, rng=random.Random(42))
         street_tiles = sum(
             1 for row in level.tiles for t in row
-            if t.is_street
+            if t.surface_type == SurfaceType.STREET
         )
         assert street_tiles > 0
 
@@ -78,7 +78,7 @@ class TestSettlementGenerator:
         level = gen.generate(params, rng=random.Random(42))
         for row in level.tiles:
             for t in row:
-                if t.is_street:
+                if t.surface_type == SurfaceType.STREET:
                     assert t.terrain == Terrain.FLOOR
 
     def test_rooms_have_district_tags(self):

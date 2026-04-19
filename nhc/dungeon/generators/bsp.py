@@ -16,6 +16,7 @@ from nhc.dungeon.model import (
     LevelMetadata,
     Rect,
     Room,
+    SurfaceType,
     TempleShape,
     Terrain,
 )
@@ -252,7 +253,7 @@ class BSPGenerator(DungeonGenerator):
         secrets = sum(1 for row in level.tiles for t in row
                       if t.feature == "door_secret")
         corridors_total = sum(1 for row in level.tiles for t in row
-                              if t.is_corridor)
+                              if t.surface_type == SurfaceType.CORRIDOR)
         logger.info(
             "Generation complete: %d rooms, %d corridors, %d doors "
             "(%d secret), %d corridor tiles",

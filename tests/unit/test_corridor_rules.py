@@ -10,7 +10,7 @@ Rules:
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.model import Terrain
+from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.dungeon.room_types import assign_room_types
 from nhc.dungeon.terrain import apply_terrain
 from nhc.utils.rng import set_seed, get_rng
@@ -46,7 +46,8 @@ class TestCorridorNoWalledTunnels:
                 for x in range(level.width):
                     tile = level.tiles[y][x]
                     if not (tile.terrain == Terrain.FLOOR
-                            and tile.is_corridor):
+                            and tile.surface_type
+                            == SurfaceType.CORRIDOR):
                         continue
                     # Check both perpendicular pairs
                     n = level.tile_at(x, y - 1)
@@ -78,7 +79,8 @@ class TestCorridorRoomDoors:
                 for x in range(level.width):
                     tile = level.tiles[y][x]
                     if not (tile.terrain == Terrain.FLOOR
-                            and tile.is_corridor):
+                            and tile.surface_type
+                            == SurfaceType.CORRIDOR):
                         continue
                     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         nb = level.tile_at(x + dx, y + dy)
@@ -86,7 +88,8 @@ class TestCorridorRoomDoors:
                             continue
                         # Corridor adjacent to room floor (non-corridor)
                         if (nb.terrain == Terrain.FLOOR
-                                and not nb.is_corridor
+                                and nb.surface_type
+                                != SurfaceType.CORRIDOR
                                 and not nb.feature):
                             # There must be a door between them —
                             # either this tile or the neighbor

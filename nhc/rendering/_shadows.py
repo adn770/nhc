@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nhc.dungeon.model import Level, Room
+from nhc.dungeon.model import Level, Room, SurfaceType
 from nhc.rendering._svg_helpers import CELL, INK, _is_door
 
 
@@ -44,7 +44,8 @@ def _render_corridor_shadows(svg: list[str], level: Level) -> None:
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            if not (tile.is_corridor or _is_door(level, x, y)):
+            if not (tile.surface_type == SurfaceType.CORRIDOR
+                    or _is_door(level, x, y)):
                 continue
             px, py = x * CELL + 3, y * CELL + 3
             svg.append(

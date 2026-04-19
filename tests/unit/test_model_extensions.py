@@ -37,28 +37,36 @@ class TestDungeonRefExtensions:
 
 
 class TestTileExtensions:
-    def test_is_street_default_false(self):
+    def test_street_surface_default_none(self):
         tile = Tile()
-        assert tile.is_street is False
+        assert tile.surface_type == SurfaceType.NONE
 
-    def test_is_track_default_false(self):
+    def test_track_surface_default_none(self):
         tile = Tile()
-        assert tile.is_track is False
+        assert tile.surface_type == SurfaceType.NONE
 
-    def test_is_street_set(self):
-        tile = Tile(terrain=Terrain.FLOOR, is_street=True)
-        assert tile.is_street is True
+    def test_street_surface_set(self):
+        tile = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.STREET,
+        )
+        assert tile.surface_type == SurfaceType.STREET
 
-    def test_is_track_set(self):
-        tile = Tile(terrain=Terrain.FLOOR, is_track=True)
-        assert tile.is_track is True
+    def test_track_surface_set(self):
+        tile = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.TRACK,
+        )
+        assert tile.surface_type == SurfaceType.TRACK
 
     def test_street_tile_is_walkable(self):
-        tile = Tile(terrain=Terrain.FLOOR, is_street=True)
+        tile = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.STREET,
+        )
         assert tile.walkable is True
 
     def test_track_tile_is_walkable(self):
-        tile = Tile(terrain=Terrain.FLOOR, is_track=True)
+        tile = Tile(
+            terrain=Terrain.FLOOR, surface_type=SurfaceType.TRACK,
+        )
         assert tile.walkable is True
 
 
@@ -110,19 +118,15 @@ class TestTileSurfaceType:
         )
         assert tile.surface_type == SurfaceType.FORTIFICATION
 
-    def test_legacy_bools_independent_of_surface_type(self):
-        """During the additive-phase of M2 the booleans still exist.
-
-        surface_type is its own field; setting it does not flip the
-        legacy flags. Retirement of the bools is a later milestone.
-        """
+    def test_surface_type_survives_tile_construction(self):
+        """surface_type round-trips through the dataclass constructor."""
         tile = Tile(
             terrain=Terrain.FLOOR,
             surface_type=SurfaceType.STREET,
         )
-        assert tile.is_street is False
-        assert tile.is_track is False
-        assert tile.is_corridor is False
+        assert tile.surface_type == SurfaceType.STREET
+        other = Tile(terrain=Terrain.FLOOR)
+        assert other.surface_type == SurfaceType.NONE
 
 
 class TestLevelBuildingRefs:

@@ -6,7 +6,7 @@ import logging
 import random
 
 from nhc.dungeon.generators._corridors import _carve_corridor_force
-from nhc.dungeon.model import Level, Rect, Room, Terrain, Tile
+from nhc.dungeon.model import Level, Rect, Room, SurfaceType, Terrain, Tile
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def _prune_dead_ends(level: Level) -> None:
             for x in range(level.width):
                 tile = level.tiles[y][x]
                 if not (tile.terrain == Terrain.FLOOR
-                        and tile.is_corridor
+                        and tile.surface_type == SurfaceType.CORRIDOR
                         and not tile.feature):
                     continue
                 if _adjacent_to_door(level, x, y):
@@ -59,7 +59,7 @@ def _handle_dead_ends(level: Level, rng: random.Random) -> None:
             for x in range(level.width):
                 tile = level.tiles[y][x]
                 if not (tile.terrain == Terrain.FLOOR
-                        and tile.is_corridor
+                        and tile.surface_type == SurfaceType.CORRIDOR
                         and not tile.feature):
                     continue
                 if _adjacent_to_door(level, x, y):
@@ -103,9 +103,11 @@ def _remove_orphaned_doors(level: Level) -> None:
                 nb = level.tile_at(x + dx, y + dy)
                 if not nb:
                     continue
-                if nb.terrain == Terrain.FLOOR and not nb.is_corridor:
+                if (nb.terrain == Terrain.FLOOR
+                        and nb.surface_type != SurfaceType.CORRIDOR):
                     has_room_side = True
-                if nb.terrain == Terrain.FLOOR and nb.is_corridor:
+                if (nb.terrain == Terrain.FLOOR
+                        and nb.surface_type == SurfaceType.CORRIDOR):
                     has_corridor_side = True
             if has_room_side and not has_corridor_side:
                 level.tiles[y][x] = Tile(terrain=Terrain.WALL)

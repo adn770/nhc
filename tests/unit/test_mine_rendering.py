@@ -6,7 +6,7 @@ import random
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.dungeon.transforms import add_cart_tracks, add_ore_deposits
 from nhc.rendering.svg import render_floor_svg
 
@@ -27,7 +27,8 @@ class TestCartTrackRendering:
         level = _mine_level()
         # Confirm transform marked tracks
         assert sum(
-            1 for row in level.tiles for t in row if t.is_track
+            1 for row in level.tiles for t in row
+            if t.surface_type == SurfaceType.TRACK
         ) > 0
         svg = render_floor_svg(level)
         # Rail marker (group id) should appear in output

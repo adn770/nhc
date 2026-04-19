@@ -19,6 +19,7 @@ from nhc.dungeon.model import (
     LevelMetadata,
     Rect,
     Room,
+    SurfaceType,
     Terrain,
     Tile,
 )
@@ -77,7 +78,7 @@ def _parse_tile(char: str, legend: dict[str, str]) -> Tile:
     meaning = legend.get(char, "void")
 
     if meaning == "corridor":
-        return Tile(terrain=Terrain.FLOOR, is_corridor=True)
+        return Tile(terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR)
 
     if meaning in FEATURE_TYPES:
         return Tile(terrain=Terrain.FLOOR, feature=meaning)

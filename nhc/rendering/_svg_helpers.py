@@ -7,7 +7,7 @@ import random
 
 import noise as _noise
 
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 
 # ── Constants (shared across SVG modules) ──────────────────────────
 
@@ -63,7 +63,7 @@ def _find_doorless_openings(
             if (nx, ny) in floor:
                 continue
             nb = level.tile_at(nx, ny)
-            if (nb and nb.is_corridor
+            if (nb and nb.surface_type == SurfaceType.CORRIDOR
                     and nb.terrain == Terrain.FLOOR
                     and nb.feature not in _DOOR_FEATS):
                 openings.append((fx, fy, nx, ny))

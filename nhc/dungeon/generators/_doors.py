@@ -14,6 +14,7 @@ from nhc.dungeon.model import (
     Room,
     RoomShape,
     RectShape,
+    SurfaceType,
     TempleShape,
     Terrain,
 )
@@ -384,7 +385,7 @@ def _remove_non_straight_doors(level: Level) -> None:
 
             if not straight:
                 tile.feature = None
-                tile.is_corridor = True
+                tile.surface_type = SurfaceType.CORRIDOR
                 tile.door_side = ""
                 removed += 1
     if removed:

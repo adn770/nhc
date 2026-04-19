@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 
 
 def _build_walls(level: Level) -> None:
@@ -19,7 +19,8 @@ def _build_walls(level: Level) -> None:
         for x in range(level.width):
             tile = level.tiles[y][x]
             # Only build walls around room tiles, not corridors
-            if tile.terrain not in walkable or tile.is_corridor:
+            if (tile.terrain not in walkable
+                    or tile.surface_type == SurfaceType.CORRIDOR):
                 continue
             for dy in range(-1, 2):
                 for dx in range(-1, 2):
@@ -48,7 +49,7 @@ def _fix_walled_corridors(level: Level) -> None:
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             t = level.tile_at(x + dx, y + dy)
             if (t and t.terrain in (Terrain.FLOOR, Terrain.WATER)
-                    and not t.is_corridor):
+                    and t.surface_type != SurfaceType.CORRIDOR):
                 return True
         return False
 
@@ -56,7 +57,7 @@ def _fix_walled_corridors(level: Level) -> None:
         for x in range(level.width):
             tile = level.tiles[y][x]
             if not (tile.terrain == Terrain.FLOOR
-                    and tile.is_corridor):
+                    and tile.surface_type == SurfaceType.CORRIDOR):
                 continue
             pairs = (
                 ((x, y - 1), (x, y + 1)),  # N/S

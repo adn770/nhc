@@ -4,7 +4,7 @@ import random
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.dungeon.transforms import (
     TRANSFORM_REGISTRY,
     add_cart_tracks,
@@ -35,19 +35,30 @@ class TestAddCartTracks:
         rng = random.Random(42)
         add_cart_tracks(level, rng)
         track_tiles = sum(
-            1 for row in level.tiles for t in row if t.is_track
+            1 for row in level.tiles for t in row
+            if t.surface_type == SurfaceType.TRACK
         )
         assert track_tiles > 0
 
     def test_tracks_only_on_corridors(self):
         level = _make_level()
         rng = random.Random(42)
+        # Capture corridor tiles BEFORE the transform flips them to
+        # TRACK -- add_cart_tracks replaces CORRIDOR with TRACK on
+        # the same tile, so post-transform we can only check that
+        # track tiles originated from corridor tiles.
+        pre_corridors = {
+            (x, y)
+            for y, row in enumerate(level.tiles)
+            for x, t in enumerate(row)
+            if t.surface_type == SurfaceType.CORRIDOR
+        }
         add_cart_tracks(level, rng)
-        for row in level.tiles:
-            for t in row:
-                if t.is_track:
-                    assert t.is_corridor, (
-                        "Track tile must be a corridor tile"
+        for y, row in enumerate(level.tiles):
+            for x, t in enumerate(row):
+                if t.surface_type == SurfaceType.TRACK:
+                    assert (x, y) in pre_corridors, (
+                        "Track tile must originate from a corridor"
                     )
 
 
@@ -77,13 +88,15 @@ class TestNarrowCorridors:
         level = _make_level()
         corridors_before = sum(
             1 for row in level.tiles for t in row
-            if t.is_corridor and t.terrain == Terrain.FLOOR
+            if t.surface_type == SurfaceType.CORRIDOR
+            and t.terrain == Terrain.FLOOR
         )
         rng = random.Random(42)
         narrow_corridors(level, rng)
         corridors_after = sum(
             1 for row in level.tiles for t in row
-            if t.is_corridor and t.terrain == Terrain.FLOOR
+            if t.surface_type == SurfaceType.CORRIDOR
+            and t.terrain == Terrain.FLOOR
         )
         # Should have same or fewer corridor tiles
         assert corridors_after <= corridors_before

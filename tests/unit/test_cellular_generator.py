@@ -12,7 +12,7 @@ from nhc.dungeon.generators.cellular import (
     CellularGenerator, _absorb_corridors_into_caves,
     _erode_wall_peninsulas,
 )
-from nhc.dungeon.model import Level, Terrain, Tile
+from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.dungeon.populator import populate_level
 from nhc.dungeon.room_types import assign_room_types
 from nhc.dungeon.terrain import apply_terrain
@@ -183,7 +183,8 @@ class TestCellularCorridorShape:
         for y in range(h):
             run = 0
             for x in range(w):
-                if level.tiles[y][x].is_corridor:
+                if (level.tiles[y][x].surface_type
+                        == SurfaceType.CORRIDOR):
                     run += 1
                     best = max(best, run)
                 else:
@@ -192,7 +193,8 @@ class TestCellularCorridorShape:
         for x in range(w):
             run = 0
             for y in range(h):
-                if level.tiles[y][x].is_corridor:
+                if (level.tiles[y][x].surface_type
+                        == SurfaceType.CORRIDOR):
                     run += 1
                     best = max(best, run)
                 else:
@@ -349,7 +351,7 @@ class TestAbsorbCorridorsIntoCaves:
         for y in range(1, level.height - 1):
             for x in range(1, level.width - 1):
                 t = level.tiles[y][x]
-                if not t.is_corridor:
+                if t.surface_type != SurfaceType.CORRIDOR:
                     continue
                 # Check if adjacent to a cave room tile
                 adjacent = any(

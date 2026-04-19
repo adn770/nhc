@@ -17,7 +17,8 @@ import pytest
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.cellular import CaveShape, CellularGenerator
 from nhc.dungeon.model import (
-    Level, LevelMetadata, Rect, RectShape, Room, Terrain, Tile,
+    Level, LevelMetadata, Rect, RectShape, Room, SurfaceType,
+    Terrain, Tile,
 )
 from nhc.rendering.svg import (
     CELL, _bone_detail, _cave_svg_outline, _densify_ring,
@@ -80,7 +81,8 @@ def _make_cave_room_level(
         # Room's leftmost floor at y=6 is (3, 6).
         for cx in range(0, 3):
             level.tiles[6][cx] = Tile(
-                terrain=Terrain.FLOOR, is_corridor=True,
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.CORRIDOR,
             )
         # Walls above/below the corridor
         for cx in range(0, 3):

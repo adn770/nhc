@@ -5,7 +5,8 @@ from __future__ import annotations
 import re
 
 from nhc.dungeon.model import (
-    Level, LevelMetadata, Rect, RectShape, Room, Terrain, Tile,
+    Level, LevelMetadata, Rect, RectShape, Room, SurfaceType,
+    Terrain, Tile,
 )
 from nhc.dungeon.terrain import THEME_PARAMS
 from nhc.rendering.terrain_palette import (
@@ -40,7 +41,9 @@ def _make_terrain_level(
             level.tiles[y][x] = Tile(terrain=terrain)
 
     # One corridor tile so walls render properly
-    level.tiles[3][8] = Tile(terrain=Terrain.FLOOR, is_corridor=True)
+    level.tiles[3][8] = Tile(
+        terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
+    )
 
     return level
 

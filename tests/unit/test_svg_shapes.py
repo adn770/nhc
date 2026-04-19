@@ -12,8 +12,8 @@ from shapely.geometry import Point, Polygon
 
 from nhc.dungeon.model import (
     CircleShape, CrossShape, HybridShape, Level, OctagonShape,
-    PillShape, Rect, RectShape, Room, RoomShape, TempleShape,
-    Terrain, Tile,
+    PillShape, Rect, RectShape, Room, RoomShape, SurfaceType,
+    TempleShape, Terrain, Tile,
 )
 from nhc.rendering.svg import (
     BG, CELL, FLOOR_COLOR, FLOOR_STONE_FILL, GRID_WIDTH,
@@ -58,14 +58,16 @@ def _add_corridor(
         )
     else:
         level.tiles[entry_y][entry_x] = Tile(
-            terrain=Terrain.FLOOR, is_corridor=True,
+            terrain=Terrain.FLOOR,
+            surface_type=SurfaceType.CORRIDOR,
         )
     # Carve corridor tiles outward
     cx, cy = entry_x + dx, entry_y + dy
     for _ in range(length):
         if level.in_bounds(cx, cy):
             level.tiles[cy][cx] = Tile(
-                terrain=Terrain.FLOOR, is_corridor=True,
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.CORRIDOR,
             )
         cx += dx
         cy += dy
@@ -989,7 +991,10 @@ class TestFloorDetailIndependentOfShape:
         # Corridor opening tile is a corridor tile rendered
         # without polygon clipping — verify it gets detail
         tile = level.tile_at(ex, cy)
-        assert tile is not None and tile.is_corridor, (
+        assert (
+            tile is not None
+            and tile.surface_type == SurfaceType.CORRIDOR
+        ), (
             f"Tile ({ex},{cy}) should be a corridor tile"
         )
         # Render with many seeds to hit detail RNG
@@ -1012,7 +1017,8 @@ class TestFloorDetailIndependentOfShape:
             for x in range(ex, ex + 10):
                 if level.in_bounds(x, cy):
                     level.tiles[cy][x] = Tile(
-                        terrain=Terrain.FLOOR, is_corridor=True)
+                        terrain=Terrain.FLOOR,
+                        surface_type=SurfaceType.CORRIDOR)
             svg = render_floor_svg(level, seed=seed)
             if FLOOR_STONE_FILL in svg:
                 return
@@ -1029,7 +1035,8 @@ class TestFloorDetailIndependentOfShape:
             for x in range(ex, ex + 10):
                 if level.in_bounds(x, cy):
                     level.tiles[cy][x] = Tile(
-                        terrain=Terrain.FLOOR, is_corridor=True)
+                        terrain=Terrain.FLOOR,
+                        surface_type=SurfaceType.CORRIDOR)
             svg = render_floor_svg(level, seed=seed)
             if 'opacity="0.5"' in svg and "<line " in svg:
                 return
@@ -1046,7 +1053,8 @@ class TestFloorDetailIndependentOfShape:
             for x in range(ex, ex + 10):
                 if level.in_bounds(x, cy):
                     level.tiles[cy][x] = Tile(
-                        terrain=Terrain.FLOOR, is_corridor=True)
+                        terrain=Terrain.FLOOR,
+                        surface_type=SurfaceType.CORRIDOR)
             svg = render_floor_svg(level, seed=seed)
             if "y-scratch" in svg or 'opacity="0.45"' in svg:
                 return
