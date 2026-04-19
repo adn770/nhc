@@ -61,13 +61,25 @@ def assemble_mansion(
         x_cursor += w
 
     # Each building gets at least one exterior entry door.
+    entry_doors: dict[tuple[int, int], str] = {}
     for b in buildings:
-        _place_entry_door(b, rng)
+        door_xy = _place_entry_door(b, rng)
+        if door_xy is not None:
+            entry_doors[door_xy] = b.id
 
     # Adjacent pairs get a shared interior door at a mid-height tile
     # on both their shared edges.
+    interior_doors: dict[
+        tuple[str, int, int], tuple[str, int, int]
+    ] = {}
     for i in range(n_buildings - 1):
-        _connect_adjacent_buildings(buildings[i], buildings[i + 1])
+        pair = _connect_adjacent_buildings(
+            buildings[i], buildings[i + 1],
+        )
+        if pair is not None:
+            (l_id, lx, ly), (r_id, rx, ry) = pair
+            interior_doors[(l_id, lx, ly)] = (r_id, rx, ry)
+            interior_doors[(r_id, rx, ry)] = (l_id, lx, ly)
 
     for b in buildings:
         b.validate()
@@ -76,13 +88,16 @@ def assemble_mansion(
         f"{site_id}_surface", buildings,
     )
 
-    return Site(
+    site = Site(
         id=site_id,
         kind="mansion",
         buildings=buildings,
         surface=surface,
         enclosure=None,
     )
+    site.building_doors.update(entry_doors)
+    site.interior_doors.update(interior_doors)
+    return site
 
 
 def _pick_shape(rng: random.Random) -> RoomShape:
@@ -164,7 +179,7 @@ def _build_mansion_floor(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
-) -> None:
+) -> tuple[int, int] | None:
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -180,14 +195,17 @@ def _place_entry_door(
                 candidates.append((px, py))
                 break
     if not candidates:
-        return
+        return None
     dx, dy = rng.choice(sorted(candidates))
     ground.tiles[dy][dx].feature = "door_closed"
+    return (dx, dy)
 
 
 def _connect_adjacent_buildings(
     left: Building, right: Building,
-) -> None:
+) -> tuple[
+    tuple[str, int, int], tuple[str, int, int]
+] | None:
     """Place an interior door on each side of the shared wall.
 
     Buildings are laid out left-to-right with touching bases, so
@@ -195,6 +213,10 @@ def _connect_adjacent_buildings(
     ``right.base_rect`` starts at the next tile. The interior door
     goes on the east edge of left and the west edge of right at a
     y-coord where both perimeters overlap.
+
+    Returns ``((left.id, lx, y), (right.id, rx, y))`` for the
+    placed door pair, or ``None`` when the buildings share no
+    overlapping perimeter rows.
     """
     left_perim = left.base_shape.perimeter_tiles(left.base_rect)
     right_perim = right.base_shape.perimeter_tiles(right.base_rect)
@@ -211,12 +233,13 @@ def _connect_adjacent_buildings(
         & {y for (_, y) in right_west}
     )
     if not overlap_y:
-        return
+        return None
     y = overlap_y[len(overlap_y) // 2]
     lx = left.base_rect.x2 - 1
     rx = right.base_rect.x
     left.ground.tiles[y][lx].feature = "door_closed"
     right.ground.tiles[y][rx].feature = "door_closed"
+    return ((left.id, lx, y), (right.id, rx, y))
 
 
 def _build_mansion_surface(

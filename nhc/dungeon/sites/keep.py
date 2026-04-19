@@ -98,8 +98,11 @@ def assemble_keep(
         sx_cursor += sw + 2
 
     buildings = main_buildings + sparse_buildings
+    door_map: dict[tuple[int, int], str] = {}
     for b in buildings:
-        _place_entry_door(b, rng)
+        door_xy = _place_entry_door(b, rng)
+        if door_xy is not None:
+            door_map[door_xy] = b.id
         b.validate()
 
     enclosure = _build_fortification(buildings, rng)
@@ -107,13 +110,15 @@ def assemble_keep(
         f"{site_id}_surface", buildings, enclosure,
     )
 
-    return Site(
+    site = Site(
         id=site_id,
         kind="keep",
         buildings=buildings,
         surface=surface,
         enclosure=enclosure,
     )
+    site.building_doors.update(door_map)
+    return site
 
 
 def _pick_main_shape(rng: random.Random) -> RoomShape:
@@ -190,7 +195,7 @@ def _build_keep_floor(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
-) -> None:
+) -> tuple[int, int] | None:
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -206,9 +211,10 @@ def _place_entry_door(
                 candidates.append((px, py))
                 break
     if not candidates:
-        return
+        return None
     dx, dy = rng.choice(sorted(candidates))
     ground.tiles[dy][dx].feature = "door_closed"
+    return (dx, dy)
 
 
 def _build_fortification(

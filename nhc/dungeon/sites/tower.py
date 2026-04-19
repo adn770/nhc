@@ -82,7 +82,7 @@ def assemble_tower(
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
     _flip_stair_semantics_for_tower(building)
-    _place_entry_door(building, rng)
+    door_xy = _place_entry_door(building, rng)
     building.validate()
 
     surface = Level.create_empty(
@@ -91,13 +91,16 @@ def assemble_tower(
         base_rect.y + base_rect.height + 2,
     )
 
-    return Site(
+    site = Site(
         id=site_id,
         kind="tower",
         buildings=[building],
         surface=surface,
         enclosure=None,
     )
+    if door_xy is not None:
+        site.building_doors[door_xy] = building.id
+    return site
 
 
 def _build_tower_floor(
@@ -169,8 +172,12 @@ def _flip_stair_semantics_for_tower(building: Building) -> None:
 
 def _place_entry_door(
     building: Building, rng: random.Random,
-) -> None:
-    """Mark one ground-floor perimeter tile as ``door_closed``."""
+) -> tuple[int, int] | None:
+    """Mark one ground-floor perimeter tile as ``door_closed``.
+
+    Returns the ``(x, y)`` of the placed door, or ``None`` when no
+    eligible perimeter tile exists (small shape edge-case).
+    """
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -188,6 +195,7 @@ def _place_entry_door(
                 candidates.append((px, py))
                 break
     if not candidates:
-        return
+        return None
     dx, dy = rng.choice(sorted(candidates))
     ground.tiles[dy][dx].feature = "door_closed"
+    return (dx, dy)

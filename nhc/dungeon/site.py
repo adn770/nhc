@@ -39,6 +39,15 @@ class Site:
     make up the site. ``surface`` is the outdoor walkable level
     (street / field / garden tiles live here). ``enclosure`` is
     ``None`` for unwalled sites (tower, farm, mansion).
+
+    ``building_doors`` maps an ``(x, y)`` tile on the surface to
+    the ``id`` of the building reachable by crossing that door,
+    and vice-versa -- when the player is on that building's ground
+    floor at the same ``(x, y)`` they can step back out to the
+    surface. ``interior_doors`` links adjacent buildings (mansions
+    only): ``(from_building_id, x, y)`` -> ``(to_building_id,
+    target_x, target_y)``; the target coord is the sibling
+    building's mirrored door tile.
     """
 
     id: str
@@ -46,6 +55,12 @@ class Site:
     buildings: list[Building]
     surface: Level
     enclosure: Enclosure | None = None
+    building_doors: dict[tuple[int, int], str] = field(
+        default_factory=dict,
+    )
+    interior_doors: dict[
+        tuple[str, int, int], tuple[str, int, int]
+    ] = field(default_factory=dict)
 
 
 # ── Assembler dispatcher ─────────────────────────────────────

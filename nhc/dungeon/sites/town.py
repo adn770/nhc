@@ -90,8 +90,11 @@ def assemble_town(
             buildings.append(building)
             x_cursor += w + TOWN_BUILDING_SPACING
 
+    door_map: dict[tuple[int, int], str] = {}
     for b in buildings:
-        _place_entry_door(b, rng)
+        door_xy = _place_entry_door(b, rng)
+        if door_xy is not None:
+            door_map[door_xy] = b.id
         b.validate()
 
     enclosure = _build_palisade(buildings, rng)
@@ -99,13 +102,15 @@ def assemble_town(
         f"{site_id}_surface", buildings, enclosure,
     )
 
-    return Site(
+    site = Site(
         id=site_id,
         kind="town",
         buildings=buildings,
         surface=surface,
         enclosure=enclosure,
     )
+    site.building_doors.update(door_map)
+    return site
 
 
 def _pick_shape(rng: random.Random) -> RoomShape:
@@ -182,7 +187,7 @@ def _build_town_floor(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
-) -> None:
+) -> tuple[int, int] | None:
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -198,9 +203,10 @@ def _place_entry_door(
                 candidates.append((px, py))
                 break
     if not candidates:
-        return
+        return None
     dx, dy = rng.choice(sorted(candidates))
     ground.tiles[dy][dx].feature = "door_closed"
+    return (dx, dy)
 
 
 def _build_palisade(
