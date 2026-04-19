@@ -90,29 +90,69 @@ BIOME_BASE_SLOTS: dict[str, list[tuple[int, int]]] = {
 
 
 # ---------------------------------------------------------------------------
-# Feature variant slots
+# Feature variant slots (biome-keyed)
 # ---------------------------------------------------------------------------
 
-_EXTENDED_BIOMES: frozenset[str] = frozenset({
-    "greenlands", "forest", "mountain", "hills", "marsh", "swamp",
-})
-
-# (base_slots, extended_slots) per feature.
-_FEATURE_BASE: dict[str, tuple[list[int], list[int]]] = {
-    "cave":      ([15], [49]),
-    "ruin":      ([18], [55]),
-    "tower":     ([13], [54]),
-    "village":   ([11], [53]),
-    "stones":    ([25], [51]),
-    "hole":      ([16], [44]),
-    "keep":      ([22], []),
-    "city":      ([12], []),
-    "graveyard": ([19], []),
-    "crystals":  ([24], []),
-    "wonder":    ([23], []),
-    "portal":    ([8],  []),
-    "lake":      ([10], []),
-    "river":     ([7],  []),
+# ``_FEATURE_TILES[feature][biome]`` lists the tile slot candidates
+# for a feature on a given biome. When a (feature, biome) pair is
+# not present, ``feature_variants`` falls back to the first
+# greenlands / hills / any-listed-biome entry — see the lookup
+# rules at :func:`feature_variants`.
+_FEATURE_TILES: dict[str, dict[str, list[int]]] = {
+    "city":      {"greenlands": [12], "hills": [12]},
+    "village":   {"greenlands": [11], "hills": [11],
+                  "sandlands": [11], "drylands": [11],
+                  "marsh": [11], "mountain": [75]},
+    "community": {"greenlands": [14], "hills": [14],
+                  "sandlands": [14], "drylands": [14],
+                  "marsh": [14], "mountain": [74],
+                  "forest": [53]},
+    "farm":      {"greenlands": [26]},
+    "mansion":   {"greenlands": [52], "hills": [52],
+                  "marsh": [52]},
+    "cottage":   {"forest": [52]},
+    "temple":    {"mountain":  [80], "forest":   [58],
+                  # Mysterious variants use the mountain- /
+                  # forest-Temple foundation re-rendered onto a
+                  # sandlands / icelands background. See
+                  # tools/generate_missing_hextiles.py.
+                  "sandlands": [80], "icelands":  [58]},
+    "ruin":      {"forest":    [18, 55],  # 55 = overgrown-Ruins
+                  "deadlands": [18], "marsh": [18],
+                  "sandlands": [18], "icelands":  [18]},
+    "tower":     {"greenlands": [13], "hills": [13],
+                  "sandlands": [13], "drylands": [13],
+                  "marsh": [13], "mountain": [76],
+                  "forest": [54],
+                  "icelands": [13], "deadlands": [13],
+                  "swamp": [13]},
+    "keep":      {"greenlands": [22], "hills": [22],
+                  "drylands": [22]},
+    # Dungeon features previously encoded via the
+    # ``_EXTENDED_BIOMES`` frozenset: extended biomes list the
+    # extra slot variant so rolls can hit it; non-extended biomes
+    # stay on the base slot.
+    "cave":      {"greenlands": [15, 49], "forest": [15, 49],
+                  "mountain": [15, 49], "hills": [15, 49],
+                  "marsh": [15, 49], "swamp": [15, 49],
+                  "icelands": [15], "deadlands": [15],
+                  "drylands": [15], "sandlands": [15]},
+    "hole":      {"greenlands": [16, 44], "forest": [16, 44],
+                  "mountain": [16, 44], "hills": [16, 44],
+                  "marsh": [16, 44], "swamp": [16, 44],
+                  "icelands": [16], "deadlands": [16],
+                  "drylands": [16], "sandlands": [16]},
+    "stones":    {"greenlands": [25, 51], "forest": [25, 51],
+                  "mountain": [25, 51], "hills": [25, 51],
+                  "marsh": [25, 51], "swamp": [25, 51],
+                  "icelands": [25], "deadlands": [25],
+                  "drylands": [25], "sandlands": [25]},
+    "graveyard": {"greenlands": [19]},
+    "crystals":  {"greenlands": [24]},
+    "wonder":    {"greenlands": [23]},
+    "portal":    {"greenlands": [8]},
+    "lake":      {"greenlands": [10]},
+    "river":     {"greenlands": [7]},
 }
 
 
@@ -162,18 +202,32 @@ def weighted_slot(
 def feature_variants(
     feature: str, biome: str,
 ) -> list[int] | None:
-    """Return tile slot variants for a feature, gated by biome.
+    """Return tile slot variants for a feature on a given biome.
 
-    Non-extended biomes only get base slots. Returns None if the
-    feature is unknown.
+    Lookup order:
+
+    1. ``_FEATURE_TILES[feature][biome]`` when present.
+    2. ``_FEATURE_TILES[feature]["greenlands"]`` as a biome-
+       agnostic fallback, then ``"hills"``.
+    3. The first listed biome entry for ``feature`` — deterministic
+       because dicts preserve insertion order.
+
+    Returns ``None`` when the feature is entirely unknown.
     """
-    entry = _FEATURE_BASE.get(feature)
+    entry = _FEATURE_TILES.get(feature)
     if entry is None:
         return None
-    base, ext = entry
-    if biome in _EXTENDED_BIOMES and ext:
-        return base + ext
-    return list(base)
+    specific = entry.get(biome)
+    if specific is not None:
+        return list(specific)
+    for fallback_biome in ("greenlands", "hills"):
+        fallback = entry.get(fallback_biome)
+        if fallback is not None:
+            return list(fallback)
+    # Last resort: first listed biome slot. Entry is non-empty by
+    # construction, so next(iter(...)) is safe.
+    _, slots = next(iter(entry.items()))
+    return list(slots)
 
 
 def assign_tile_slot(

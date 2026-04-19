@@ -62,16 +62,24 @@ def test_weighted_slot_single_entry() -> None:
 
 
 def test_feature_variants_base_only_for_non_extended() -> None:
-    """Non-extended biomes should only get base feature slots."""
+    """Biomes without a custom tower tile should fall back to the
+    greenlands slot."""
     variants = feature_variants("tower", "icelands")
-    assert variants == [13]  # base only, no ext slot 54
+    assert variants == [13]
 
 
-def test_feature_variants_includes_ext_for_extended() -> None:
-    """Extended biomes should get base + ext feature slots."""
+def test_feature_variants_forest_swaps_to_forest_tower() -> None:
+    """Forest replaces the generic tower tile with the watchtower
+    tile; biome-keyed lookup returns only the biome-specific slot."""
     variants = feature_variants("tower", "forest")
-    assert 13 in variants
-    assert 54 in variants
+    assert variants == [54]
+
+
+def test_feature_variants_mountain_swaps_to_mountain_tower() -> None:
+    """Mountain replaces the generic tower tile with the
+    mountain-Tower slot."""
+    variants = feature_variants("tower", "mountain")
+    assert variants == [76]
 
 
 def test_feature_variants_unknown_returns_none() -> None:
