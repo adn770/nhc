@@ -589,14 +589,14 @@ const UI = {
       const overlay = document.createElement("div");
       overlay.id = "menu-overlay";
       const box = document.createElement("div");
-      box.className = "menu-box";
+      box.className = "menu-box menu-box-wide";
       const title = L.report_dialog_title || "Report an Issue";
       const placeholder = L.report_dialog_placeholder
         || "Describe what happened...";
       const submitLabel = L.report_dialog_submit || "Send Report";
       const cancelLabel = L.report_dialog_cancel || "Cancel";
       box.innerHTML = `<h3>${title}</h3>
-        <textarea id="report-description" rows="6"
+        <textarea id="report-description" rows="14"
                   placeholder="${placeholder}"
                   style="width:100%;box-sizing:border-box;
                          font-family:inherit;font-size:13px;
