@@ -79,6 +79,22 @@ FEATURE_BIOMES: dict[HexFeatureType, tuple[Biome, ...]] = {
 }
 
 
+# Per-biome ruin faction pools (design/biome_features.md §8, option b).
+# A ruin hex rolls one faction from its biome's list at placement
+# time; the faction is stamped on DungeonRef.faction and flows
+# through the surface + every descent floor. "beast" and "undead"
+# are category keys expanded by FACTION_POOLS in populator.py.
+RUIN_BIOME_FACTIONS: dict[Biome, list[tuple[str, float]]] = {
+    Biome.FOREST:    [("bandit", 0.45), ("beast", 0.30),
+                      ("cultist", 0.25)],
+    Biome.DEADLANDS: [("undead", 0.65), ("cultist", 0.35)],
+    Biome.MARSH:     [("lizardman", 0.55), ("beast", 0.45)],
+    Biome.SANDLANDS: [("gnoll", 0.55), ("undead", 0.45)],
+    Biome.ICELANDS:  [("frozen_dead", 0.40), ("yeti", 0.30),
+                      ("cultist", 0.30)],
+}
+
+
 def assign_cave_clusters(
     cells: dict[HexCoord, HexCell],
 ) -> dict[HexCoord, list[HexCoord]]:
@@ -429,9 +445,18 @@ def _place_ruins(
         )
     for c in rng.sample(pool, count):
         cells[c].feature = HexFeatureType.RUIN
+        biome = cells[c].biome
+        faction_pool = RUIN_BIOME_FACTIONS.get(biome)
+        rolled_faction: str | None = None
+        if faction_pool:
+            ids, weights = zip(*faction_pool)
+            rolled_faction = rng.choices(
+                list(ids), weights=list(weights), k=1,
+            )[0]
         cells[c].dungeon = DungeonRef(
             template=_template_for(HexFeatureType.RUIN),
             site_kind=_site_kind_for(HexFeatureType.RUIN),
+            faction=rolled_faction,
         )
         taken.add(c)
     return count

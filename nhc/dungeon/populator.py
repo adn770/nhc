@@ -65,29 +65,12 @@ CRYPT_CREATURE_POOL: list[tuple[str, float]] = [
 # Faction creature pools: used when level.metadata.faction is set
 # (e.g., Caves of Chaos cave lairs). Each faction gets a themed
 # creature mix dominated by its species.
-FACTION_POOLS: dict[str, list[tuple[str, float]]] = {
-    "goblin":  [("goblin", 0.50), ("goblin", 0.20),
-                ("giant_rat", 0.15), ("bat", 0.15)],
-    "orc":     [("orc", 0.50), ("orc", 0.20),
-                ("wolf", 0.15), ("warg", 0.15)],
-    "kobold":  [("kobold", 0.50), ("kobold", 0.20),
-                ("giant_rat", 0.15), ("giant_centipede", 0.15)],
-    "gnoll":   [("gnoll", 0.50), ("gnoll", 0.20),
-                ("dire_wolf", 0.15), ("bandit", 0.15)],
-    "bugbear": [("bugbear", 0.50), ("bugbear", 0.20),
-                ("hobgoblin", 0.15), ("goblin", 0.15)],
-    "ogre":    [("ogre", 0.40), ("ogre", 0.20),
-                ("orc", 0.20), ("wolf", 0.20)],
-}
-
-
 # ── Category alias pools (biome-features v2) ──────────────────────────
 #
 # Expand "beast" / "undead" category keys used by the v2 per-biome
 # ruin faction table (design/biome_features.md §8) into concrete
-# creature weight lists. Next milestone (M9) wires these into
-# place_features so a ruin's biome → faction → creature pool resolves
-# without ever leaking a category string into the populator.
+# creature weight lists. Wired into FACTION_POOLS below so "beast"
+# and "undead" act as full-weight faction keys for the ruin populator.
 
 BEAST_POOL: list[tuple[str, float]] = [
     ("wolf", 0.35),
@@ -103,6 +86,39 @@ UNDEAD_POOL: list[tuple[str, float]] = [
     ("ghoul", 0.20),
     ("wraith", 0.15),
 ]
+
+
+FACTION_POOLS: dict[str, list[tuple[str, float]]] = {
+    "goblin":  [("goblin", 0.50), ("goblin", 0.20),
+                ("giant_rat", 0.15), ("bat", 0.15)],
+    "orc":     [("orc", 0.50), ("orc", 0.20),
+                ("wolf", 0.15), ("warg", 0.15)],
+    "kobold":  [("kobold", 0.50), ("kobold", 0.20),
+                ("giant_rat", 0.15), ("giant_centipede", 0.15)],
+    "gnoll":   [("gnoll", 0.50), ("gnoll", 0.20),
+                ("dire_wolf", 0.15), ("bandit", 0.15)],
+    "bugbear": [("bugbear", 0.50), ("bugbear", 0.20),
+                ("hobgoblin", 0.15), ("goblin", 0.15)],
+    "ogre":    [("ogre", 0.40), ("ogre", 0.20),
+                ("orc", 0.20), ("wolf", 0.20)],
+    # v2 biome-ruin pools: single-creature factions built from the
+    # headline creature at ~70% plus themed pool mates.
+    "bandit":  [("bandit", 0.50), ("bandit", 0.20),
+                ("wolf", 0.15), ("dire_wolf", 0.15)],
+    "cultist": [("cultist", 0.50), ("cultist", 0.20),
+                ("bandit", 0.15), ("skeleton", 0.15)],
+    "lizardman": [("lizardman", 0.50), ("lizardman", 0.20),
+                  ("frogman", 0.15), ("giant_frog", 0.15)],
+    "frozen_dead": [("frozen_dead", 0.50), ("frozen_dead", 0.20),
+                    ("skeleton", 0.15), ("wraith", 0.15)],
+    "yeti":    [("yeti", 0.45), ("yeti", 0.20),
+                ("winter_wolf", 0.20), ("dire_wolf", 0.15)],
+    # v2 category aliases: reuse the module-level pools verbatim so
+    # "beast" / "undead" in the biome table resolve to the same
+    # weight list every caller sees.
+    "beast": BEAST_POOL,
+    "undead": UNDEAD_POOL,
+}
 
 
 # ── Encounter group templates ────────────────────────────────────────

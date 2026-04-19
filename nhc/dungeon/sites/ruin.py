@@ -30,7 +30,9 @@ from nhc.dungeon.model import (
     Terrain, Tile,
 )
 from nhc.dungeon.model import EntityPlacement
-from nhc.dungeon.populator import CREATURE_POOLS, ENCOUNTER_GROUPS
+from nhc.dungeon.populator import (
+    CREATURE_POOLS, ENCOUNTER_GROUPS, FACTION_POOLS,
+)
 from nhc.dungeon.site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
 )
@@ -364,13 +366,22 @@ def _populate_ruin_surface(
     depth <= 1 which breaks the "no service NPCs" invariant. We
     reuse the populator's depth-1 creature pool and encounter
     size rules but skip the adventurer, item bury, and trap
-    passes. v2 will swap :data:`CREATURE_POOLS[1]` for a biome-
-    keyed faction pool (see design/biome_features.md §8).
+    passes. When ``surface.metadata.faction`` is set (biome-
+    features v2 wires this via
+    :func:`place_features._place_ruins`), the faction's
+    :data:`FACTION_POOLS` entry drives the creature roll instead
+    of the shared depth-1 pool.
     """
     if not surface.rooms:
         return
     room = surface.rooms[0]
-    c_pool = CREATURE_POOLS[1]
+    faction = (
+        surface.metadata.faction if surface.metadata else None
+    )
+    if faction and faction in FACTION_POOLS:
+        c_pool = FACTION_POOLS[faction]
+    else:
+        c_pool = CREATURE_POOLS[1]
     c_ids, c_weights = zip(*c_pool)
     encounter_count = 2 + rng.randint(0, 2)
 

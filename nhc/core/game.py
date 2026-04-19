@@ -1232,6 +1232,20 @@ class Game:
             )
             self.generation_params = params
             self.level = generate_level(params)
+            # Inherit the surface's faction so a biome-rolled
+            # ruin pool (design/biome_features.md §8) drives the
+            # descent populator on Floor 1 just like it did on
+            # the surface -- no grab-bag crypt creatures in a
+            # cultist-flavoured ruin.
+            site_surface = self._active_site.surface
+            inherited_faction = (
+                site_surface.metadata.faction
+                if (site_surface and site_surface.metadata)
+                else None
+            )
+            if (inherited_faction and self.level
+                    and self.level.metadata):
+                self.level.metadata.faction = inherited_faction
             self._floor_cache[descent_key] = (self.level, {})
             self._spawn_level_entities()
 
@@ -3111,6 +3125,20 @@ class Game:
                 )
                 self.generation_params = params
                 self.level = generate_level(params)
+                # Propagate the active site's faction (rolled at
+                # hexcrawl placement time) through every descent
+                # floor so a cultist ruin stays a cultist ruin from
+                # Floor 1 down to Floor 3.
+                site = self._active_site
+                surface_faction = (
+                    site.surface.metadata.faction
+                    if (site and site.surface
+                        and site.surface.metadata)
+                    else None
+                )
+                if (surface_faction and self.level
+                        and self.level.metadata):
+                    self.level.metadata.faction = surface_faction
             else:
                 seed = (self.seed or 0) + new_depth * 997
                 sv = _shape_variety_for_depth(
