@@ -1373,6 +1373,26 @@ creature:
       A ragged caster who has made this abandoned cottage her
       own. Her mutters resolve into words of binding; her
       fingers twitch toward a scroll at her belt.
+  guard:
+    name: "Guard"
+    short: "a keep guard"
+    long: >-
+      A liveried keep guard on courtyard watch, spear grounded
+      and eyes tracking anyone who has no business here.
+  quartermaster:
+    name: "Quartermaster"
+    short: "the keep quartermaster"
+    long: >-
+      The keep's quartermaster, weighing every newcomer against
+      the ledger at the gatehouse. A ring of keys clinks at her
+      belt.
+  commander:
+    name: "Commander"
+    short: "the keep's commander"
+    long: >-
+      The keep's ranking officer, cloak trimmed with the
+      garrison's colours. A veteran who earns every order they
+      bark by standing in the first rank.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 death:

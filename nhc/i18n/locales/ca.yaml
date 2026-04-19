@@ -1487,6 +1487,29 @@ creature:
       Una fetillera esparracada que ha fet seva aquesta casa
       abandonada. Els seus murmuris es resolen en paraules de
       lligam; els dits se li mouen cap a un pergamí al cinturó.
+  guard:
+    name: "guàrdia"
+    gender: "m"
+    short: "un guàrdia del castell"
+    long: >-
+      Un guàrdia uniformat que vetlla el pati del castell, llança
+      a terra i mirada atenta a qualsevol que no tingui feina aquí.
+  quartermaster:
+    name: "intendent"
+    gender: "m"
+    short: "l'intendent del castell"
+    long: >-
+      L'intendent del castell, que pesa cada nouvingut contra el
+      registre de la caseta de guàrdia. Un manat de claus li dringa
+      al cinturó.
+  commander:
+    name: "comandant"
+    gender: "m"
+    short: "el comandant del castell"
+    long: >-
+      L'oficial al comandament del castell, amb la capa guarnida
+      amb els colors de la guarnició. Un veterà que guanya cada
+      ordre que crida plantant-se a la primera línia.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

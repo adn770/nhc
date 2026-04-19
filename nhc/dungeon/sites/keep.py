@@ -22,8 +22,8 @@ from nhc.dungeon.generators._stairs import (
     flip_building_stair_semantics, place_cross_floor_stairs,
 )
 from nhc.dungeon.model import (
-    Level, OctagonShape, Rect, RectShape, Room, RoomShape,
-    SurfaceType, Terrain, Tile,
+    EntityPlacement, Level, OctagonShape, Rect, RectShape, Room,
+    RoomShape, SurfaceType, Terrain, Tile,
 )
 from nhc.dungeon.site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
@@ -35,6 +35,15 @@ from nhc.hexcrawl.model import DungeonRef
 
 KEEP_SURFACE_WIDTH = 46
 KEEP_SURFACE_HEIGHT = 36
+
+# biome-features v2 M12: the inhabited half of the keep↔ruin pair.
+# 2-4 guards scatter across the courtyard; one quartermaster sits
+# within GATE_PROXIMITY tiles of the first gate so the player meets
+# them on entry; one commander stands near the largest main
+# building so they read as the garrison's head.
+KEEP_GUARD_COUNT_RANGE = (2, 4)
+KEEP_QUARTERMASTER_GATE_PROXIMITY = 3
+KEEP_COMMANDER_MAIN_PROXIMITY = 5
 
 KEEP_MAIN_BUILDING_COUNT_RANGE = (2, 3)
 KEEP_MAIN_BUILDING_WIDTH_RANGE = (7, 9)
@@ -127,7 +136,114 @@ def assemble_keep(
     )
     site.building_doors.update(door_map)
     paint_surface_doors(site, SurfaceType.STREET)
+    _place_keep_surface_npcs(site, rng)
     return site
+
+
+def _place_keep_surface_npcs(
+    site: Site, rng: random.Random,
+) -> None:
+    """Seed the keep surface with guards, one quartermaster,
+    one commander.
+
+    Order matters: the quartermaster claims a tile within
+    :data:`KEEP_QUARTERMASTER_GATE_PROXIMITY` of the first gate;
+    the commander picks a tile near the largest main building;
+    guards scatter across the remaining walkable courtyard tiles.
+    All three NPCs share the ``guardhouse`` faction (hostile until
+    the narrative-systems milestone wires reputation-based stances).
+    """
+    surface = site.surface
+    occupied: set[tuple[int, int]] = set()
+
+    walkable: list[tuple[int, int]] = [
+        (x, y)
+        for y in range(surface.height)
+        for x in range(surface.width)
+        if _walkable_tile(surface, x, y)
+    ]
+    if not walkable:
+        return
+    walkable_set = set(walkable)
+
+    gate_xy: tuple[int, int] | None = None
+    if site.enclosure and site.enclosure.gates:
+        gx, gy, _ = site.enclosure.gates[0]
+        gate_xy = (gx, gy)
+
+    if gate_xy is not None:
+        qx, qy = _nearest_walkable(
+            gate_xy, walkable_set, occupied,
+            max_distance=KEEP_QUARTERMASTER_GATE_PROXIMITY,
+        ) or _nearest_walkable(gate_xy, walkable_set, occupied)
+        if qx is not None:
+            surface.entities.append(EntityPlacement(
+                entity_type="creature", entity_id="quartermaster",
+                x=qx, y=qy,
+            ))
+            occupied.add((qx, qy))
+
+    main = [b for b in site.buildings if "keep_main" in b.id]
+    if main:
+        largest = max(
+            main,
+            key=lambda b: b.base_rect.width * b.base_rect.height,
+        )
+        rect = largest.base_rect
+        cx = rect.x + rect.width // 2
+        cy = rect.y + rect.height // 2
+        cxy, cyy = _nearest_walkable(
+            (cx, cy), walkable_set, occupied,
+            max_distance=KEEP_COMMANDER_MAIN_PROXIMITY,
+        ) or _nearest_walkable((cx, cy), walkable_set, occupied)
+        if cxy is not None:
+            surface.entities.append(EntityPlacement(
+                entity_type="creature", entity_id="commander",
+                x=cxy, y=cyy,
+            ))
+            occupied.add((cxy, cyy))
+
+    guard_count = rng.randint(*KEEP_GUARD_COUNT_RANGE)
+    remaining = [p for p in walkable if p not in occupied]
+    rng.shuffle(remaining)
+    for (gx, gy) in remaining[:guard_count]:
+        surface.entities.append(EntityPlacement(
+            entity_type="creature", entity_id="guard",
+            x=gx, y=gy,
+        ))
+        occupied.add((gx, gy))
+
+
+def _walkable_tile(level: Level, x: int, y: int) -> bool:
+    tile = level.tile_at(x, y)
+    return (
+        tile is not None
+        and tile.terrain is Terrain.FLOOR
+        and tile.feature is None
+    )
+
+
+def _nearest_walkable(
+    target: tuple[int, int],
+    walkable: set[tuple[int, int]],
+    occupied: set[tuple[int, int]],
+    max_distance: int | None = None,
+) -> tuple[int, int] | None:
+    """Return the walkable tile closest to ``target`` within
+    Chebyshev ``max_distance`` (unbounded when None). ``None`` if
+    no candidate exists."""
+    best: tuple[int, int] | None = None
+    best_d = None
+    for (wx, wy) in walkable:
+        if (wx, wy) in occupied:
+            continue
+        d = max(abs(wx - target[0]), abs(wy - target[1]))
+        if max_distance is not None and d > max_distance:
+            continue
+        if best is None or d < best_d:
+            best = (wx, wy)
+            best_d = d
+    return best
 
 
 def _pick_main_shape(rng: random.Random) -> RoomShape:

@@ -892,9 +892,11 @@ class Game:
         # Settlements top up the overland rumor pool on entry;
         # keep / town assemblers cover every settlement now, so
         # the hook belongs here rather than in the legacy
-        # procedural:settlement branch.
+        # procedural:settlement branch. Inhabited keeps (v2 M12)
+        # also refresh rumors so the garrison feels like a live
+        # source of leads, not an empty parade ground.
         is_settlement = kind == "town"
-        if is_settlement:
+        if is_settlement or kind == "keep":
             self._maybe_seed_rumors(seed)
         self.level = site.surface
         if (self.level and self.level.metadata
