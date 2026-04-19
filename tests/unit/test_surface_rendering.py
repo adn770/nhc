@@ -225,6 +225,49 @@ class TestWoodParquetConstants:
         assert math.isclose(WOOD_PLANK_OFFSET_PX, CELL / 5)
 
 
+class TestWoodGrainEffect:
+    def test_grain_light_colour_present(self):
+        from nhc.rendering._floor_detail import WOOD_GRAIN_LIGHT
+        level = _blank_level(20, 6)
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        assert WOOD_GRAIN_LIGHT in svg
+
+    def test_grain_dark_colour_present(self):
+        from nhc.rendering._floor_detail import WOOD_GRAIN_DARK
+        level = _blank_level(20, 6)
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        assert WOOD_GRAIN_DARK in svg
+
+    def test_grain_colours_differ_from_base_and_seam(self):
+        from nhc.rendering._floor_detail import (
+            WOOD_FLOOR_FILL, WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
+            WOOD_SEAM_STROKE,
+        )
+        # Distinct from base fill and from the seam stroke so the
+        # grain layer is visually separate.
+        assert WOOD_GRAIN_LIGHT != WOOD_FLOOR_FILL
+        assert WOOD_GRAIN_DARK != WOOD_FLOOR_FILL
+        assert WOOD_GRAIN_LIGHT != WOOD_SEAM_STROKE
+        assert WOOD_GRAIN_DARK != WOOD_SEAM_STROKE
+
+    def test_grain_uses_low_opacity(self):
+        from nhc.rendering._floor_detail import WOOD_GRAIN_OPACITY
+        # Subtle grain: well below 1.0, well above 0.
+        assert 0.1 < WOOD_GRAIN_OPACITY < 0.8
+
+    def test_stone_floor_has_no_grain_colors(self):
+        from nhc.rendering._floor_detail import (
+            WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
+        )
+        level = _blank_level(20, 6)
+        assert level.interior_floor == "stone"
+        svg = render_floor_svg(level, seed=42)
+        assert WOOD_GRAIN_LIGHT not in svg
+        assert WOOD_GRAIN_DARK not in svg
+
+
 class TestWoodParquetPattern:
     def test_horizontal_room_emits_many_plank_end_lines(self):
         """A wide wood room produces more vertical plank-end seams

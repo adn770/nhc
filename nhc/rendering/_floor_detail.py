@@ -869,6 +869,14 @@ WOOD_SEAM_WIDTH = 0.8
 WOOD_PLANK_WIDTH_PX = CELL / 4
 WOOD_PLANK_LENGTH_PX = CELL * 2.5
 WOOD_PLANK_OFFSET_PX = CELL / 5
+# Subtle grain overlay: two thin streaks per strip, one lighter
+# and one darker than the base fill, at low opacity so the base
+# colour still dominates.
+WOOD_GRAIN_LIGHT = "#C4A076"
+WOOD_GRAIN_DARK = "#8F6540"
+WOOD_GRAIN_STROKE_WIDTH = 0.4
+WOOD_GRAIN_OPACITY = 0.35
+WOOD_GRAIN_LINES_PER_STRIP = 2
 
 
 def _render_wood_floor(
@@ -905,25 +913,100 @@ def _render_wood_floor(
     if not level.rooms:
         return
 
+    clip_attr = ""
+    if dungeon_poly is not None and not dungeon_poly.is_empty:
+        _dungeon_interior_clip(svg, dungeon_poly, "wood-interior-clip")
+        clip_attr = ' clip-path="url(#wood-interior-clip)"'
+
+    # Grain first (sits under the plank seams).
+    _render_wood_grain(svg, level, rng, clip_attr)
+
     seams: list[str] = []
     for room in level.rooms:
         seams.extend(_parquet_seams_for_room(room))
     if not seams:
         return
-
-    group_open = (
+    svg.append(
         f'<g fill="none" stroke="{WOOD_SEAM_STROKE}" '
-        f'stroke-width="{WOOD_SEAM_WIDTH}"'
+        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}>'
     )
-    if dungeon_poly is not None and not dungeon_poly.is_empty:
-        _dungeon_interior_clip(svg, dungeon_poly, "wood-parquet-clip")
-        svg.append(
-            f'{group_open} clip-path="url(#wood-parquet-clip)">'
-        )
-    else:
-        svg.append(f"{group_open}>")
     svg.append("".join(seams))
     svg.append("</g>")
+
+
+def _render_wood_grain(
+    svg: list[str], level: "Level", rng: random.Random,
+    clip_attr: str,
+) -> None:
+    """Overlay subtle grain streaks along the parquet direction.
+
+    Each strip carries :data:`WOOD_GRAIN_LINES_PER_STRIP` streaks
+    at jittered positions, alternating between the lighter and
+    darker grain colours. Each streak spans the room's full
+    major-axis extent so the grain reads as a continuous flow
+    rather than per-plank strokes.
+    """
+    lines_light: list[str] = []
+    lines_dark: list[str] = []
+    for room in level.rooms:
+        r = room.rect
+        x0 = r.x * CELL
+        y0 = r.y * CELL
+        x1 = (r.x + r.width) * CELL
+        y1 = (r.y + r.height) * CELL
+        horizontal = r.width >= r.height
+        width = WOOD_PLANK_WIDTH_PX
+
+        if horizontal:
+            y = y0
+            while y < y1:
+                strip_bot = min(y + width, y1)
+                span = strip_bot - y
+                if span <= 0.5:
+                    y += width
+                    continue
+                for i in range(WOOD_GRAIN_LINES_PER_STRIP):
+                    gy = rng.uniform(
+                        y + span * 0.15, strip_bot - span * 0.15,
+                    )
+                    dest = lines_light if i % 2 == 0 else lines_dark
+                    dest.append(
+                        f'<line x1="{x0:.1f}" y1="{gy:.1f}" '
+                        f'x2="{x1:.1f}" y2="{gy:.1f}"/>'
+                    )
+                y += width
+        else:
+            x = x0
+            while x < x1:
+                strip_right = min(x + width, x1)
+                span = strip_right - x
+                if span <= 0.5:
+                    x += width
+                    continue
+                for i in range(WOOD_GRAIN_LINES_PER_STRIP):
+                    gx = rng.uniform(
+                        x + span * 0.15, strip_right - span * 0.15,
+                    )
+                    dest = lines_light if i % 2 == 0 else lines_dark
+                    dest.append(
+                        f'<line x1="{gx:.1f}" y1="{y0:.1f}" '
+                        f'x2="{gx:.1f}" y2="{y1:.1f}"/>'
+                    )
+                x += width
+
+    for colour, group in (
+        (WOOD_GRAIN_LIGHT, lines_light),
+        (WOOD_GRAIN_DARK, lines_dark),
+    ):
+        if not group:
+            continue
+        svg.append(
+            f'<g fill="none" stroke="{colour}" '
+            f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
+            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
+        )
+        svg.append("".join(group))
+        svg.append("</g>")
 
 
 def _parquet_seams_for_room(room) -> list[str]:
