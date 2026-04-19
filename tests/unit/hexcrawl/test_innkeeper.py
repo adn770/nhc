@@ -38,7 +38,6 @@ from nhc.hexcrawl.model import (
     HexWorld,
     Rumor,
 )
-from nhc.hexcrawl.town import generate_town
 from nhc.i18n import init as i18n_init
 
 
@@ -53,19 +52,28 @@ def _bootstrap():
 # ---------------------------------------------------------------------------
 
 
-def _inn_room(level):
-    return next(r for r in level.rooms if "inn" in r.tags)
+def test_town_site_places_innkeeper_in_inn_building() -> None:
+    """The town site assembler tags one building as ``inn`` and
+    appends an innkeeper EntityPlacement to that building's
+    ground floor."""
+    import random
 
+    from nhc.dungeon.sites.town import assemble_town
 
-def test_generate_town_places_innkeeper_in_inn() -> None:
-    level = generate_town(seed=1)
+    site = assemble_town(
+        "t1", random.Random(1), size_class="village",
+    )
+    inn = next(
+        b for b in site.buildings
+        if "inn" in b.ground.rooms[0].tags
+    )
     innkeepers = [
-        p for p in level.entities
+        p for p in inn.ground.entities
         if p.entity_id == "innkeeper"
     ]
     assert len(innkeepers) == 1
     p = innkeepers[0]
-    rect = _inn_room(level).rect
+    rect = inn.base_rect
     assert rect.x <= p.x < rect.x + rect.width
     assert rect.y <= p.y < rect.y + rect.height
 

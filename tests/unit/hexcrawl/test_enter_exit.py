@@ -243,8 +243,8 @@ async def test_crypt_template_passes_through(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_village_routes_through_town_assembler(tmp_path) -> None:
-    """Non-hamlet settlements auto-upgrade to the town site
-    assembler (conservative SettlementGenerator migration)."""
+    """Non-hamlet settlements route through the town site
+    assembler via ``site_kind="town"``."""
     from nhc.dungeon.model import SurfaceType
 
     g = _make_game(tmp_path)

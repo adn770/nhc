@@ -592,11 +592,15 @@ UNDERWORLD_SPECS: list[tuple[str, str, int, int]] = [
     ("underground_lake", "underground_lake", 110, 65),
 ]
 
-# Settlement size classes: (label, width, height)
+# Settlement size classes. Width / height are unused now (the
+# town assembler picks the footprint from its own size-class
+# preset) but kept in the tuple so the renderer loop below can
+# stay structurally aligned with TEMPLATE_SPECS.
 SETTLEMENT_SPECS: list[tuple[str, int, int]] = [
-    ("village", 40, 30),
-    ("town",    60, 40),
-    ("city",    80, 50),
+    ("hamlet",  30, 22),
+    ("village", 50, 30),
+    ("town",    62, 36),
+    ("city",    74, 42),
 ]
 
 
@@ -658,23 +662,28 @@ def generate_underworld(outdir: Path, seeds: list[int]) -> None:
 
 
 def generate_settlements(outdir: Path, seeds: list[int]) -> None:
-    """Generate sample SVGs for settlement sizes."""
+    """Generate sample SVGs for settlement sizes.
+
+    Renders each size class from the town site assembler; the
+    sample shows the town's walkable surface (street grid +
+    palisade for non-hamlet sizes) with service-role buildings
+    carrying the labelled NPCs.
+    """
     import random as rand_mod
-    from nhc.dungeon.generators.settlement import SettlementGenerator
+    from nhc.dungeon.sites.town import assemble_town
 
     sdir = outdir / "settlements"
     sdir.mkdir(parents=True, exist_ok=True)
 
-    gen = SettlementGenerator()
     for seed in seeds:
-        for label, w, h in SETTLEMENT_SPECS:
-            params = GenerationParams(
-                width=w, height=h, depth=1, seed=seed,
-                template="procedural:settlement",
+        for label, _w, _h in SETTLEMENT_SPECS:
+            site = assemble_town(
+                f"settlement_{label}_seed{seed}",
+                rand_mod.Random(seed),
+                size_class=label,
             )
-            level = gen.generate(params, rng=rand_mod.Random(seed))
             base = sdir / f"{label}_seed{seed}"
-            _render_and_save(level, seed, base, label)
+            _render_and_save(site.surface, seed, base, label)
 
 
 # ── Building generator samples ─────────────────────────────────────
