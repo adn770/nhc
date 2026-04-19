@@ -39,6 +39,7 @@ def test_hexfeature_enum_complete() -> None:
     # NONE is the sentinel for hexes without a feature.
     expected = {
         "none", "village", "city", "tower", "keep",
+        "mansion",
         "cave", "ruin", "hole", "graveyard",
         "crystals", "stones", "wonder", "portal",
         "lake", "river",

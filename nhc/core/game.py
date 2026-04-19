@@ -328,6 +328,12 @@ class Game:
         # _cache_key can route Floor 2 to the cluster's shared
         # cache slot. Cleared on exit to hex overland.
         self._active_cave_cluster: "HexCoord | None" = None
+        # Set by building-generator site assemblers (mansion, keep,
+        # town) when the player enters a multi-building site so
+        # future door-transition code can reach the sibling
+        # buildings without re-running the assembler. None for
+        # single-building sites (tower) and dungeon features.
+        self._active_site = None
         # Maps "q_r" → (x, y) for each cluster member's stairs_up
         # on the shared Floor 2. Populated by _generate_cave_floor2,
         # consumed by the player-placement branch in
@@ -432,12 +438,16 @@ class Game:
         from nhc.hexcrawl.seed import dungeon_seed
 
         # Building-generator sites take precedence over template
-        # routing. Only "tower" is live in this step; other
-        # site_kinds still fall through to the template pipeline
-        # below until their engine wiring lands.
+        # routing. "tower" and "mansion" are live in this step;
+        # other site_kinds still fall through to the template
+        # pipeline below until their engine wiring lands.
         if cell.dungeon.site_kind == "tower":
             self._active_cave_cluster = None
             if await self._enter_tower_site(coord):
+                return True
+        if cell.dungeon.site_kind == "mansion":
+            self._active_cave_cluster = None
+            if await self._enter_mansion_site(coord):
                 return True
 
         template = cell.dungeon.template
@@ -729,6 +739,81 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    async def _enter_mansion_site(self, coord) -> bool:
+        """Route a mansion-site hex through assemble_site().
+
+        Lands the player on the first building's ground floor at an
+        entry-door tile. Every building's every floor is cached
+        under a mansion-specific cache key so cross-building
+        navigation (a future feature) can reach them without
+        re-running the assembler. The depth-keyed slot the engine
+        reads for descend/ascend is filled from the first
+        building's floors so the in-building stair transition
+        works exactly like a tower.
+        """
+        import random
+
+        from nhc.dungeon.site import assemble_site
+        from nhc.hexcrawl.seed import dungeon_seed
+
+        cell = self.hex_world.get_cell(coord)
+        if cell is None or cell.dungeon is None:
+            return False
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+        if cache_key in self._floor_cache:
+            level, _ = self._floor_cache[cache_key]
+            self.level = level
+            self._place_player_on_building_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, coord, cell.dungeon.template,
+        )
+        site = assemble_site(
+            "mansion",
+            f"site_{coord.q}_{coord.r}",
+            random.Random(seed),
+        )
+        first = site.buildings[0]
+        self.level = first.ground
+        if (self.level and self.level.metadata
+                and cell.dungeon.faction):
+            self.level.metadata.faction = cell.dungeon.faction
+        self._spawn_level_entities()
+        # Cache the first building's floors under (q, r, depth) so
+        # the existing stair-based floor transition can find them.
+        for i, floor in enumerate(first.floors):
+            self._floor_cache[self._cache_key(i + 1)] = (floor, {})
+        # Cache every other building's floors under a mansion-
+        # specific key (building_idx, floor_idx) so cross-building
+        # door transitions (future) don't have to re-assemble the
+        # site. Storing the Site on the Game gives the future
+        # door-transition code an O(1) handle too.
+        for bi in range(1, len(site.buildings)):
+            b = site.buildings[bi]
+            for fi, floor in enumerate(b.floors):
+                key = ("mansion", coord.q, coord.r, bi, fi)
+                self._floor_cache[key] = (floor, {})
+        self._active_site = site
+        self._place_player_on_building_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    def _place_player_on_building_entry(self) -> None:
+        """Land the player on the active Level's entry-door tile.
+
+        Falls back to a perimeter FLOOR tile when the door feature
+        is missing, and to ``(1, 1)`` as a last resort.  Reuses the
+        tower-entry algorithm; factored out so new site assemblers
+        can land the player uniformly.
+        """
+        self._place_player_on_tower_entry()
 
     def _place_player_on_tower_entry(self) -> None:
         """Land the player on the tower's entry-door tile.

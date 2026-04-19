@@ -47,6 +47,7 @@ class HexFeatureType(Enum):
     CITY = "city"
     TOWER = "tower"
     KEEP = "keep"
+    MANSION = "mansion"
     CAVE = "cave"
     RUIN = "ruin"
     HOLE = "hole"
