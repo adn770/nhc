@@ -227,6 +227,23 @@ class TestBuildingFloorsSkipBonesAndSkulls:
                         f"skulls on keep seed={seed} b{bi} f{fi}"
                     )
 
+    def test_no_floor_stones_across_many_keep_floors(self):
+        """Stone keep floors also skip the dungeon-style floor
+        stone ellipses (FLOOR_STONE_FILL)."""
+        from nhc.dungeon.sites.keep import assemble_keep
+        from nhc.rendering._svg_helpers import FLOOR_STONE_FILL
+        for seed in range(30):
+            site = assemble_keep("k", random.Random(seed))
+            for bi, b in enumerate(site.buildings):
+                for fi in range(len(b.floors)):
+                    out = render_building_floor_svg(
+                        b, fi, seed=seed + fi,
+                    )
+                    assert FLOOR_STONE_FILL not in out, (
+                        f"floor stones on keep seed={seed} "
+                        f"b{bi} f{fi}"
+                    )
+
     def test_regular_dungeon_level_still_may_have_bones(self):
         """Sanity check: a plain Level can still emit bone /
         skull groups for crypt / cave themes."""
