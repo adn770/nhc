@@ -2613,8 +2613,12 @@ class Game:
         if intent == "disconnect":
             return ["disconnect"]
         # Ascend at depth 1 in hex mode = exit to overland/flower.
+        # Skip when the player is inside a building interior --
+        # there `stairs_up` means "physically up a floor" and must
+        # fall through to AscendStairsAction.
         if (intent == "ascend" and self.world_type is WorldType.HEXCRAWL
-                and self.level is not None and self.level.depth <= 1):
+                and self.level is not None and self.level.depth <= 1
+                and self.level.building_id is None):
             pos = self.world.get_component(self.player_id, "Position")
             tile = self.level.tile_at(pos.x, pos.y) if pos else None
             if tile and tile.feature == "stairs_up":
