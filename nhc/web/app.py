@@ -1007,9 +1007,27 @@ def create_app(
         if not session:
             return "session not found", 404
         client = session.game.renderer
-        if not client.floor_svg:
-            return "floor SVG not generated", 404
-        resp = make_response(client.floor_svg)
+        # Look up the SVG by the UUID baked into the URL. The
+        # current-floor shortcut (client.floor_svg) is racy: when
+        # the player bounces in and out of a building, the HTTP
+        # GET can arrive after the engine has already swapped
+        # client.floor_svg to the next level, serving the wrong
+        # body under a Cache-Control response that the browser
+        # will then reuse forever. Iterating the svg_cache keeps
+        # the URL contract honest -- the SVG with id X always
+        # returns the SVG registered as id X.
+        svg_body: str | None = None
+        svg_cache = getattr(session.game, "_svg_cache", None)
+        if svg_cache:
+            for cached_id, cached_svg in svg_cache.values():
+                if cached_id == svg_id:
+                    svg_body = cached_svg
+                    break
+        if svg_body is None and client.floor_svg_id == svg_id:
+            svg_body = client.floor_svg
+        if svg_body is None:
+            return "floor SVG not found", 404
+        resp = make_response(svg_body)
         resp.headers["Content-Type"] = "image/svg+xml"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
