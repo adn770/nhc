@@ -244,6 +244,41 @@ class TestBuildingFloorsSkipBonesAndSkulls:
                         f"b{bi} f{fi}"
                     )
 
+
+class TestLShapeBuildingFloorFilled:
+    def test_lshape_building_emits_floor_fill(self):
+        """An LShape building floor must produce a floor fill that
+        covers the interior, not just a per-tile rect on the
+        lone door tile. Before the fix _room_svg_outline returned
+        None for LShape, so the interior showed through as page
+        background with only the door's white rect standing out."""
+        from nhc.dungeon.model import LShape
+        from nhc.dungeon.sites.town import assemble_town
+        from nhc.rendering._svg_helpers import FLOOR_COLOR
+        for seed in range(50):
+            site = assemble_town("t", random.Random(seed))
+            for b in site.buildings:
+                if not isinstance(b.base_shape, LShape):
+                    continue
+                # Stone interior so we can check FLOOR_COLOR fills
+                # (wood interior short-circuits to its own fills).
+                b.interior_floor = "stone"
+                for f in b.floors:
+                    f.interior_floor = "stone"
+                out = render_building_floor_svg(b, 0, seed=seed)
+                # Count FLOOR_COLOR fills -- with the outline fix
+                # the LShape room emits a polygon fill AND the
+                # single door tile. Without the fix, only the
+                # door tile. Expect the outline to produce at
+                # least one extra FLOOR_COLOR element.
+                count = out.count(f'fill="{FLOOR_COLOR}"')
+                assert count >= 2, (
+                    f"expected >=2 FLOOR_COLOR fills on LShape "
+                    f"interior (got {count} on seed={seed})"
+                )
+                return
+        pytest.skip("no L-shape town building in 50 seeds")
+
     def test_regular_dungeon_level_still_may_have_bones(self):
         """Sanity check: a plain Level can still emit bone /
         skull groups for crypt / cave themes."""

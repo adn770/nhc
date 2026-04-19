@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 from nhc.dungeon.model import (
-    CircleShape, CrossShape, HybridShape,
+    CircleShape, CrossShape, HybridShape, LShape,
     OctagonShape, PillShape, Rect, RectShape, Room,
     TempleShape,
 )
@@ -885,6 +885,43 @@ def _room_svg_outline(room: "Room") -> str | None:
             (px, py + clip),             # left-top flat
         ]
         points = " ".join(f"{x:.1f},{y:.1f}" for x, y in pts)
+        return f'<polygon points="{points}"/>'
+
+    if isinstance(shape, LShape):
+        notch = shape._notch_rect(r)
+        x0, y0 = r.x, r.y
+        x1, y1 = r.x2, r.y2
+        nx0, ny0 = notch.x, notch.y
+        nx1, ny1 = notch.x2, notch.y2
+
+        def _tp(tx: int, ty: int) -> tuple[float, float]:
+            return (tx * CELL, ty * CELL)
+
+        if shape.corner == "nw":
+            verts = [
+                _tp(nx1, y0), _tp(x1, y0),
+                _tp(x1, y1), _tp(x0, y1),
+                _tp(x0, ny1), _tp(nx1, ny1),
+            ]
+        elif shape.corner == "ne":
+            verts = [
+                _tp(x0, y0), _tp(nx0, y0),
+                _tp(nx0, ny1), _tp(x1, ny1),
+                _tp(x1, y1), _tp(x0, y1),
+            ]
+        elif shape.corner == "sw":
+            verts = [
+                _tp(x0, y0), _tp(x1, y0),
+                _tp(x1, y1), _tp(nx1, y1),
+                _tp(nx1, ny0), _tp(x0, ny0),
+            ]
+        else:  # "se"
+            verts = [
+                _tp(x0, y0), _tp(x1, y0),
+                _tp(x1, ny0), _tp(nx0, ny0),
+                _tp(nx0, y1), _tp(x0, y1),
+            ]
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in verts)
         return f'<polygon points="{points}"/>'
 
     if isinstance(shape, TempleShape):
