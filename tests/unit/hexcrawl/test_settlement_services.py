@@ -1,28 +1,32 @@
-"""Settlement services wiring (M-2.3).
+"""Settlement services wiring.
 
-When the player enters a settlement hex, the generated town
-Level should carry entity placements for a merchant (shop
-room), a priest (temple room), and a hirable adventurer (inn
-room). Spawning them via ``_spawn_level_entities`` lets the
-existing :mod:`nhc.core.actions._shop`, ``_temple``, and
-``_henchman`` interact actions fire on a bump, unchanged.
+Every settlement hex (hamlet / village / town / city) routes
+through the town site assembler. The assembler tags three
+buildings with service roles (shop / inn / temple) and appends
+NPC :class:`EntityPlacement`s to each tagged building's ground
+floor: a merchant in the shop, an innkeeper + hirable adventurer
+in the inn, a priest in the temple. Stable and training are
+reserved slots (no NPCs in v1).
 
-Stable and training rooms stay empty in v1 -- stable is a
-mount-system placeholder, training is reserved for a future
-XP-sink service. They exist here as tagged rooms so pack
-descriptions and future wiring have a slot to hook into.
+The NPCs become ECS entities only when the player crosses the
+matching building's door -- ``Game._swap_to_building`` calls
+``_spawn_level_entities`` on the target level. These tests
+exercise both halves: the static placement on the assembled
+Site and the dynamic spawn via a simulated door crossing.
 """
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
 from nhc.core.game import Game
+from nhc.dungeon.sites.town import assemble_town
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.mode import GameMode
 from nhc.hexcrawl.model import DungeonRef, HexFeatureType
-from nhc.hexcrawl.town import generate_town
 from nhc.i18n import init as i18n_init
 
 
@@ -66,141 +70,157 @@ def _settle_hub(g: Game) -> HexCoord:
     cell = g.hex_world.cells[coord]
     if cell.feature is HexFeatureType.NONE:
         cell.feature = HexFeatureType.CITY
-    cell.dungeon = DungeonRef(template="procedural:settlement")
+    cell.dungeon = DungeonRef(
+        template="procedural:settlement", size_class="village",
+    )
     return coord
 
 
-def _room_with_tag(level, tag: str):
-    for room in level.rooms:
-        if tag in room.tags:
-            return room
-    raise AssertionError(f"no room tagged {tag!r}")
+def _building_with_role(site, role: str):
+    return next(
+        b for b in site.buildings
+        if role in b.ground.rooms[0].tags
+    )
 
 
 # ---------------------------------------------------------------------------
-# Generator: placements on the Level match room tags
+# Assembler: service-building placements
 # ---------------------------------------------------------------------------
 
 
-def test_town_places_merchant_in_shop_room() -> None:
-    level = generate_town(seed=1)
-    shop = _room_with_tag(level, "shop")
-    merchants = [p for p in level.entities if p.entity_id == "merchant"]
-    assert len(merchants) == 1, "town should place exactly one merchant"
-    p = merchants[0]
-    rect = shop.rect
-    assert rect.x <= p.x < rect.x + rect.width
-    assert rect.y <= p.y < rect.y + rect.height
-    assert p.extra.get("shop_stock"), "merchant needs a non-empty stock"
+def test_town_places_merchant_in_shop_building() -> None:
+    site = assemble_town(
+        "t1", random.Random(1), size_class="village",
+    )
+    shop = _building_with_role(site, "shop")
+    merchants = [
+        p for p in shop.ground.entities
+        if p.entity_id == "merchant"
+    ]
+    assert len(merchants) == 1
+    assert merchants[0].extra.get("shop_stock"), (
+        "merchant needs a non-empty stock"
+    )
 
 
-def test_town_places_priest_in_temple_room() -> None:
-    level = generate_town(seed=1)
-    temple = _room_with_tag(level, "temple")
-    priests = [p for p in level.entities if p.entity_id == "priest"]
+def test_town_places_priest_in_temple_building() -> None:
+    site = assemble_town(
+        "t1", random.Random(1), size_class="village",
+    )
+    temple = _building_with_role(site, "temple")
+    priests = [
+        p for p in temple.ground.entities
+        if p.entity_id == "priest"
+    ]
     assert len(priests) == 1
-    p = priests[0]
-    rect = temple.rect
-    assert rect.x <= p.x < rect.x + rect.width
-    assert rect.y <= p.y < rect.y + rect.height
-    assert p.extra.get("temple_services"), (
+    assert priests[0].extra.get("temple_services"), (
         "priest needs temple_services set"
     )
 
 
 def test_town_places_hirable_adventurer_in_inn() -> None:
-    level = generate_town(seed=1)
-    inn = _room_with_tag(level, "inn")
-    adventurers = [p for p in level.entities if p.entity_id == "adventurer"]
+    site = assemble_town(
+        "t1", random.Random(1), size_class="village",
+    )
+    inn = _building_with_role(site, "inn")
+    adventurers = [
+        p for p in inn.ground.entities
+        if p.entity_id == "adventurer"
+    ]
     assert len(adventurers) == 1
-    p = adventurers[0]
-    rect = inn.rect
-    assert rect.x <= p.x < rect.x + rect.width
-    assert rect.y <= p.y < rect.y + rect.height
-    # Level-scaled adventurer factory needs a level hint.
-    assert p.extra.get("adventurer_level", 0) >= 1
+    assert adventurers[0].extra.get("adventurer_level", 0) >= 1
 
 
-def test_town_leaves_stable_and_training_empty() -> None:
-    level = generate_town(seed=1)
-    stable = _room_with_tag(level, "stable")
-    training = _room_with_tag(level, "training")
-    for room in (stable, training):
-        rect = room.rect
-        inside = [
-            p for p in level.entities
-            if rect.x <= p.x < rect.x + rect.width
-            and rect.y <= p.y < rect.y + rect.height
-        ]
-        assert inside == [], (
-            f"room {room.tags} should be empty in v1, got {inside}"
-        )
+def test_town_places_innkeeper_in_inn() -> None:
+    site = assemble_town(
+        "t1", random.Random(1), size_class="village",
+    )
+    inn = _building_with_role(site, "inn")
+    innkeepers = [
+        p for p in inn.ground.entities
+        if p.entity_id == "innkeeper"
+    ]
+    assert len(innkeepers) == 1
 
 
 # ---------------------------------------------------------------------------
-# Game wiring: entering a settlement materializes the NPCs as ECS entities
+# Game wiring: crossing a door materialises the NPC as an ECS entity
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_enter_settlement_spawns_merchant_entity(tmp_path) -> None:
+async def test_enter_shop_building_spawns_merchant(tmp_path) -> None:
     g = _make_hex_game(tmp_path)
     _settle_hub(g)
     await g.enter_hex_feature()
-    # Priest also carries a ShopInventory (holy water + potions) so
-    # the merchant is identified as the one without TempleServices.
+    site = g._active_site
+    shop = _building_with_role(site, "shop")
+    # Swap in via the door-crossing helper; this is the same code
+    # path the runtime handler uses after a move lands on an open
+    # surface door.
+    g._swap_to_building(shop, *shop.base_rect.center)
     merchants = [
-        (eid, inv) for eid, inv in g.world.query("ShopInventory")
+        (eid, inv)
+        for eid, inv in g.world.query("ShopInventory")
         if g.world.get_component(eid, "TempleServices") is None
     ]
     assert len(merchants) == 1
-    _eid, shop_inv = merchants[0]
-    assert shop_inv.stock, "ShopInventory should carry a non-empty stock"
+    _eid, stock = merchants[0]
+    assert stock.stock
 
 
 @pytest.mark.asyncio
-async def test_enter_settlement_spawns_priest_entity(tmp_path) -> None:
+async def test_enter_temple_building_spawns_priest(tmp_path) -> None:
     g = _make_hex_game(tmp_path)
     _settle_hub(g)
     await g.enter_hex_feature()
-    hits = list(g.world.query("TempleServices"))
-    assert len(hits) == 1
-    _eid, svc = hits[0]
+    site = g._active_site
+    temple = _building_with_role(site, "temple")
+    g._swap_to_building(temple, *temple.base_rect.center)
+    priests = list(g.world.query("TempleServices"))
+    assert len(priests) == 1
+    _eid, svc = priests[0]
     assert "heal" in svc.services
 
 
 @pytest.mark.asyncio
-async def test_enter_settlement_spawns_hirable_henchman(tmp_path) -> None:
+async def test_enter_inn_building_spawns_hirable_adventurer(
+    tmp_path,
+) -> None:
     g = _make_hex_game(tmp_path)
     _settle_hub(g)
     await g.enter_hex_feature()
-    hits = list(g.world.query("Henchman"))
-    unhired = [(eid, h) for eid, h in hits if not h.hired]
-    assert len(unhired) == 1, (
-        f"exactly one unhired adventurer expected, got {unhired}"
-    )
+    site = g._active_site
+    inn = _building_with_role(site, "inn")
+    g._swap_to_building(inn, *inn.base_rect.center)
+    unhired = [
+        (eid, h) for eid, h in g.world.query("Henchman")
+        if not h.hired
+    ]
+    assert len(unhired) == 1
 
 
 @pytest.mark.asyncio
-async def test_re_enter_settlement_preserves_spent_merchant(tmp_path) -> None:
-    """Floor cache must remember who we killed / hired so exiting
-    and re-entering the same town doesn't resurrect the merchant.
-    """
+async def test_leaving_and_reentering_building_preserves_merchant_state(
+    tmp_path,
+) -> None:
+    """Entity stashing across door swaps keeps the merchant gone
+    when the player destroys them and re-enters the shop."""
     g = _make_hex_game(tmp_path)
     _settle_hub(g)
     await g.enter_hex_feature()
-    # Remove the merchant entity to simulate "killed / emptied".
-    # Priest also has ShopInventory (holy water stock) so filter
-    # to the entity that has no TempleServices.
+    site = g._active_site
+    shop = _building_with_role(site, "shop")
+    g._swap_to_building(shop, *shop.base_rect.center)
+    # Destroy the merchant to simulate a sale-emptied shop.
     for eid, _ in list(g.world.query("ShopInventory")):
         if g.world.get_component(eid, "TempleServices") is None:
             g.world.destroy_entity(eid)
-    await g.exit_dungeon_to_hex()
-    await g.enter_hex_feature()
+    # Step back out onto the surface and then into the shop again.
+    g._swap_to_site_surface(*next(iter(site.building_doors.keys())))
+    g._swap_to_building(shop, *shop.base_rect.center)
     remaining = [
         eid for eid, _ in g.world.query("ShopInventory")
         if g.world.get_component(eid, "TempleServices") is None
     ]
-    assert remaining == [], (
-        "merchant should stay gone after exit+re-entry"
-    )
+    assert remaining == []

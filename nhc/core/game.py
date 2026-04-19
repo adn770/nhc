@@ -452,17 +452,15 @@ class Game:
 
         from nhc.hexcrawl.seed import dungeon_seed
 
-        # Conservative SettlementGenerator migration: route every
-        # non-hamlet procedural:settlement through the town site
-        # assembler. Hamlet-sized settlements keep the legacy
-        # generate_town path because the town assembler's 5-8
-        # building count overshoots what reads as a hamlet.
+        # Settlement routing: every procedural:settlement hex --
+        # hamlet, village, town, city -- flows through the town
+        # site assembler. size_class is forwarded so the assembler
+        # picks the right footprint / palisade / building count
+        # preset.
         if (cell.dungeon.site_kind is None
                 and cell.dungeon.template.startswith(
                     "procedural:settlement",
-                )
-                and cell.dungeon.size_class
-                and cell.dungeon.size_class != "hamlet"):
+                )):
             cell.dungeon.site_kind = "town"
 
         # Building-generator sites take precedence over template
@@ -511,18 +509,7 @@ class Game:
             return True
 
         seed = dungeon_seed(self.seed or 0, coord, template)
-        if is_settlement:
-            # Any settlement reaching this branch is a hamlet --
-            # larger sizes are auto-upgraded to site_kind="town"
-            # above and handled by _enter_walled_site. Hamlets
-            # use the lightweight generate_town layout.
-            from nhc.hexcrawl.town import generate_town
-            self.level = generate_town(
-                seed=seed,
-                town_id=f"town_{coord.q}_{coord.r}",
-            )
-            self._maybe_seed_rumors(seed)
-        elif is_cave:
+        if is_cave:
             # Cave Floor 1: smaller cellular cave with stairs_down
             # linking to Floor 2.
             params = GenerationParams(
@@ -860,6 +847,9 @@ class Game:
             level, _ = self._floor_cache[cache_key]
             self.level = level
             self._place_player_on_surface()
+            self._place_expedition_henchmen(
+                is_settlement=kind == "town",
+            )
             self._update_fov()
             self._notify_floor_change(depth)
             return True
@@ -871,7 +861,15 @@ class Game:
             kind,
             f"site_{coord.q}_{coord.r}",
             random.Random(seed),
+            size_class=cell.dungeon.size_class,
         )
+        # Settlements top up the overland rumor pool on entry;
+        # keep / town assemblers cover every settlement now, so
+        # the hook belongs here rather than in the legacy
+        # procedural:settlement branch.
+        is_settlement = kind == "town"
+        if is_settlement:
+            self._maybe_seed_rumors(seed)
         self.level = site.surface
         if (self.level and self.level.metadata
                 and cell.dungeon.faction):
@@ -887,6 +885,7 @@ class Game:
                 self._floor_cache[key] = (floor, {})
         self._active_site = site
         self._place_player_on_surface()
+        self._place_expedition_henchmen(is_settlement=is_settlement)
         self._update_fov()
         self._notify_floor_change(depth)
         return True

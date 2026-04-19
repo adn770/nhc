@@ -15,7 +15,6 @@ from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.mode import GameMode
 from nhc.hexcrawl.model import DungeonRef, HexFeatureType
-from nhc.hexcrawl.town import REQUIRED_BUILDINGS
 from nhc.i18n import init as i18n_init
 
 
@@ -79,11 +78,20 @@ async def test_enter_settlement_loads_town_map(tmp_path) -> None:
     ok = await g.enter_hex_feature()
     assert ok
     assert g.level is not None
-    # Town signature: metadata theme and the five required buildings.
-    assert g.level.metadata.theme == "town"
-    tags = {t for r in g.level.rooms for t in r.tags}
-    for building in REQUIRED_BUILDINGS:
-        assert building in tags, (building, tags)
+    # Town signature: lands the player on the town site's
+    # surface level (street grid) and parks the Site on
+    # _active_site for the door-crossing handler.
+    assert g._active_site is not None
+    assert g._active_site.kind == "town"
+    # The service-role buildings get their role tags on the
+    # ground-floor Room so downstream systems can find them.
+    all_tags = {
+        t for b in g._active_site.buildings
+        for t in b.ground.rooms[0].tags
+    }
+    # At minimum the three NPC-bearing roles are always present.
+    for required in ("shop", "inn", "temple"):
+        assert required in all_tags, (required, all_tags)
 
 
 @pytest.mark.asyncio
@@ -102,7 +110,12 @@ async def test_enter_settlement_is_seed_reproducible(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enter_settlement_places_player_at_stairs_up(tmp_path) -> None:
+async def test_enter_settlement_places_player_on_street(tmp_path) -> None:
+    """Town sites land the player on a walkable STREET tile near
+    the first palisade gate -- there is no stairs_up tile on the
+    site surface."""
+    from nhc.dungeon.model import SurfaceType, Terrain
+
     g = _make_hex_game(tmp_path)
     _settle_hub(g)
     await g.enter_hex_feature()
@@ -110,7 +123,8 @@ async def test_enter_settlement_places_player_at_stairs_up(tmp_path) -> None:
     assert pos is not None
     tile = g.level.tile_at(pos.x, pos.y)
     assert tile is not None
-    assert tile.feature == "stairs_up"
+    assert tile.terrain == Terrain.FLOOR
+    assert tile.surface_type == SurfaceType.STREET
 
 
 # ---------------------------------------------------------------------------

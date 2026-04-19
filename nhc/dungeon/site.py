@@ -114,11 +114,14 @@ SITE_KINDS = ("tower", "farm", "mansion", "keep", "town")
 
 def assemble_site(
     kind: str, site_id: str, rng: random.Random,
+    size_class: str | None = None,
 ) -> Site:
     """Dispatch ``kind`` to the matching site assembler.
 
     Valid ``kind`` values are :data:`SITE_KINDS`. Any other value
-    raises ``ValueError``.
+    raises ``ValueError``. ``size_class`` only applies to the
+    ``town`` assembler (hamlet / village / town / city); it is
+    ignored for every other kind.
     """
     # Deferred imports keep this module cheap to import and avoid
     # circular references back to Building / Level helpers.
@@ -136,5 +139,7 @@ def assemble_site(
         return assemble_keep(site_id, rng)
     if kind == "town":
         from nhc.dungeon.sites.town import assemble_town
-        return assemble_town(site_id, rng)
+        if size_class is None:
+            return assemble_town(site_id, rng)
+        return assemble_town(site_id, rng, size_class=size_class)
     raise ValueError(f"unknown site kind: {kind!r}")

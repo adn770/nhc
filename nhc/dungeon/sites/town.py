@@ -384,6 +384,8 @@ def _build_town_surface(
         surface_id, surface_id, 0,
         config.surface_width, config.surface_height,
     )
+    surface.metadata.theme = "town"
+    surface.metadata.ambient = "town"
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)

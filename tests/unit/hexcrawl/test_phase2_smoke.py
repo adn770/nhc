@@ -81,22 +81,44 @@ async def test_phase2_full_loop(tmp_path) -> None:
     await g.enter_hex_feature()
     assert g.level is not None
     assert g.level.metadata.theme == "town"
-    # The town has a merchant (ShopInventory, no TempleServices),
-    # a priest (TempleServices), and one unhired adventurer
-    # (Henchman.hired is False).
+    # Settlement service NPCs live inside their tagged buildings
+    # now -- shop holds the merchant, inn the adventurer /
+    # innkeeper, temple the priest. They only materialise in the
+    # ECS world when the player crosses the matching door.
+    site = g._active_site
+    assert site is not None
+    shop = next(
+        b for b in site.buildings
+        if "shop" in b.ground.rooms[0].tags
+    )
+    inn = next(
+        b for b in site.buildings
+        if "inn" in b.ground.rooms[0].tags
+    )
+    temple = next(
+        b for b in site.buildings
+        if "temple" in b.ground.rooms[0].tags
+    )
+
+    # Step into the shop; merchant spawns.
+    g._swap_to_building(shop, *shop.base_rect.center)
     merchants = [
         eid for eid, _ in g.world.query("ShopInventory")
         if g.world.get_component(eid, "TempleServices") is None
     ]
-    priests = [
-        eid for eid, _ in g.world.query("TempleServices")
-    ]
+    assert len(merchants) == 1
+
+    # Step into the temple; priest spawns.
+    g._swap_to_building(temple, *temple.base_rect.center)
+    priests = [eid for eid, _ in g.world.query("TempleServices")]
+    assert len(priests) == 1
+
+    # Step into the inn; hirable adventurer spawns.
+    g._swap_to_building(inn, *inn.base_rect.center)
     unhired = [
         eid for eid, h in g.world.query("Henchman")
         if not h.hired
     ]
-    assert len(merchants) == 1
-    assert len(priests) == 1
     assert len(unhired) == 1
 
     # ── 2. Recruit the henchman ────────────────────────────────

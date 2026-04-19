@@ -265,17 +265,18 @@ async def test_village_routes_through_town_assembler(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_hamlet_uses_generate_town(tmp_path) -> None:
-    """Hamlet-size settlements still go through generate_town."""
+async def test_hamlet_routes_through_town_assembler(tmp_path) -> None:
+    """Hamlet-size settlements go through the town site assembler
+    with ``size_class="hamlet"`` -- no palisade, 3-4 buildings."""
     g = _make_game(tmp_path)
     _attach_feature(g, HexCoord(0, 0), HexFeatureType.VILLAGE,
                     "procedural:settlement")
     g.hex_world.cells[HexCoord(0, 0)].dungeon.size_class = "hamlet"
     await g.enter_hex_feature()
     assert g.level is not None
-    # Hamlet uses the legacy generate_town helper (no _active_site).
-    assert g._active_site is None
-    # generate_town tags the Level as a town-themed settlement.
-    assert g.level.metadata.theme == "town"
+    assert g._active_site is not None
+    assert g._active_site.kind == "town"
+    assert g._active_site.enclosure is None  # hamlet = no palisade
+    assert 3 <= len(g._active_site.buildings) <= 4
 
 
