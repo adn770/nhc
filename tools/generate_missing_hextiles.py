@@ -205,6 +205,26 @@ GENERATED_BIOMES: tuple[str, ...] = (
     "swamp",
 )
 
+# Extra (biome, slot) pairs generated outside the normal biome x
+# slot iteration. These bypass both GENERATED_BIOMES membership
+# and SLOT_BIOME_ONLY restrictions, so they're the right place
+# to drop biome-specific variants of features that don't belong
+# in a full palette. Current entries:
+#
+# - icelands + slot 58 (forest-Temple): a "mysterious" temple
+#   variant -- a forest-style shrine overlaid on pale blue-grey
+#   icelands, reads as a forgotten temple in a frozen land.
+# - sandlands + slot 80 (mountain-Temple): a stone mountain
+#   temple overlaid on pale sand, reads as an ancient shrine
+#   abandoned in the desert.
+#
+# Added to support the biome-features design (see
+# design/biome_features.md §6, "mysterious temple" variants).
+EXTRA_PAIRS: tuple[tuple[str, int], ...] = (
+    ("icelands",  58),
+    ("sandlands", 80),
+)
+
 # Background dither: per-pixel random offset (signed, uniform)
 # added to each RGB channel of the flat biome colour. 0 turns
 # the effect off (pure flat fill). 12 is a subtle terrain grain
@@ -392,6 +412,47 @@ def main() -> int:
             composed.save(out_path)
             total_written += 1
             print(f"  slot {slot:2d}: wrote {out_path.name}")
+
+    # Extra (biome, slot) pairs: bypass GENERATED_BIOMES and
+    # SLOT_BIOME_ONLY so cross-biome variants (e.g. the
+    # mysterious forest-temple on icelands) still write even
+    # though icelands ships a full hand-drawn palette and slot
+    # 80 is otherwise mountain-restricted.
+    for biome, slot in EXTRA_PAIRS:
+        if biome not in BIOME_COLOURS:
+            print(
+                f"[extra] skipping {biome} slot {slot}: "
+                f"biome not in BIOME_COLOURS"
+            )
+            continue
+        fnd = foundation_tile(slot)
+        if not fnd.is_file():
+            print(
+                f"[extra] skipping {biome} slot {slot}: "
+                f"no foundation tile at {fnd.name}"
+            )
+            continue
+        out_path = biome_tile(biome, slot)
+        if out_path.exists() and not args.force:
+            print(
+                f"[extra] {biome} slot {slot}: "
+                f"{out_path.name} already exists (use --force)"
+            )
+            continue
+        if args.dry_run:
+            print(
+                f"[extra] {biome} slot {slot}: "
+                f"would write {out_path.name}"
+            )
+            continue
+        tint = BIOME_COLOURS[biome]
+        composed = compose_biome_tile(
+            fnd, biome, tint, slot=slot, noise=args.noise,
+        )
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        composed.save(out_path)
+        total_written += 1
+        print(f"[extra] {biome} slot {slot}: wrote {out_path.name}")
 
     # Water biome uses the foundation water tile directly
     # (hextiles/water/5-water_water.png copied from

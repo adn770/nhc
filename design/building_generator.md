@@ -954,8 +954,15 @@ precision.
 
 ## Appendix B: Temple -- open problems
 
-Deferred to a later design pass. Intent recorded so the name
-is reserved:
+The elaborate temple (vertical open halls, multi-stair landings,
+altar sightlines through upper floors) is deferred to milestone
+M16. A **minimal temple site assembler** lands earlier to
+support the mountain / forest `TEMPLE` hex feature; see
+`design/biome_features.md` §6 for that spec. The minimal
+assembler produces a single stone building with a priest
+placement and no vertical tricks, drop-in replaceable by M16.
+
+Open problems still reserved for M16:
 
 - **Multi-floor open spaces:** some `(x, y)` columns span
   several floors with no intermediate ceiling. Requires an
@@ -970,3 +977,17 @@ is reserved:
   the ground floor and remain visible from upper floors --
   implies the web client needs a "current floor + visible
   tiles below" mode.
+
+
+## Appendix C: Cottage (small forest site)
+
+The `COTTAGE` hex feature (forest only) routes through a tiny
+single-building site. Full spec lives in
+`design/biome_features.md` §6 alongside the temple:
+
+- One ~5x5 wood-interior building, brick walls, single floor.
+- No NPCs in v1 (placeholder for future hermit / squatter /
+  abandoned content).
+- Forest-floor GARDEN surface ring; no palisade or enclosure.
+- Standard door-crossing handler applies so the player enters
+  the cottage via the perimeter door like any other site.
