@@ -1471,6 +1471,22 @@ creature:
       L'alfa brutal d'una manada de gnolls, cobert de pells i
       trofeus. La seva rialla ressona per les dunes i la manada
       riu amb ell.
+  hermit:
+    name: "ermità"
+    gender: "m"
+    short: "un vell ermità"
+    long: >-
+      Un reclús ancià que fa temps que va canviar la vila per
+      una casa tranquil·la al bosc. Et mira amb ulls pacients
+      i cansats, i t'ofereix seient vora el foc.
+  witch:
+    name: "bruixa"
+    gender: "f"
+    short: "una bruixa de mirada salvatge"
+    long: >-
+      Una fetillera esparracada que ha fet seva aquesta casa
+      abandonada. Els seus murmuris es resolen en paraules de
+      lligam; els dits se li mouen cap a un pergamí al cinturó.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

@@ -14,8 +14,8 @@ from nhc.dungeon.generators._stairs import (
     flip_building_stair_semantics, place_cross_floor_stairs,
 )
 from nhc.dungeon.model import (
-    Level, Rect, RectShape, Room, RoomShape, SurfaceType,
-    Terrain, Tile,
+    EntityPlacement, Level, Rect, RectShape, Room, RoomShape,
+    SurfaceType, Terrain, Tile,
 )
 from nhc.dungeon.site import (
     Site, outside_neighbour, paint_surface_doors,
@@ -30,6 +30,16 @@ COTTAGE_SURFACE_HEIGHT = 12
 COTTAGE_BUILDING_POS = (4, 3)
 COTTAGE_BUILDING_SIZE = (5, 5)
 COTTAGE_GARDEN_RING = 1
+
+# design/biome_features.md §8: three-bucket occupant roll applied
+# on cottage assembly. The friendly hermit is the headline
+# outcome; the hostile witch adds combat variety; abandoned
+# keeps the v1 silent cottage as a plausible find.
+COTTAGE_CONTENT_WEIGHTS: list[tuple[str, float]] = [
+    ("hermit", 0.40),
+    ("witch", 0.30),
+    ("abandoned", 0.30),
+]
 
 
 def assemble_cottage(
@@ -64,9 +74,9 @@ def assemble_cottage(
             )
     building.validate()
 
-    # TODO (v2): populator hook -- roll a hermit / witch /
-    # squatter / empty here to give abandoned cottages a soul.
-    # design/biome_features.md §8.
+    # v2 populator: roll hermit (friendly) / witch (hostile) /
+    # abandoned (empty) per design/biome_features.md §8.
+    _roll_cottage_content(building, rng)
 
     surface = _build_cottage_surface(
         f"{site_id}_surface", building,
@@ -143,6 +153,56 @@ def _build_cottage_floor(
     level.floor_index = floor_idx
     level.interior_floor = "wood"
     return level
+
+
+def _roll_cottage_content(
+    building: Building, rng: random.Random,
+) -> None:
+    """Place exactly one NPC (hermit or witch) on the cottage's
+    ground-floor room centre, or leave it empty.
+
+    Rolls from :data:`COTTAGE_CONTENT_WEIGHTS`. Uses the interior
+    floor tile closest to the room centre that isn't already a
+    door, so the entity never sits under the door-crossing handler
+    and the player meets them face-to-face on entry.
+    """
+    labels, weights = zip(*COTTAGE_CONTENT_WEIGHTS)
+    outcome = rng.choices(list(labels), weights=list(weights), k=1)[0]
+    if outcome == "abandoned":
+        return
+
+    ground = building.ground
+    room = ground.rooms[0] if ground.rooms else None
+    if room is None:
+        return
+    rect = room.rect
+    cx = rect.x + rect.width // 2
+    cy = rect.y + rect.height // 2
+
+    def _usable(x: int, y: int) -> bool:
+        tile = ground.tile_at(x, y)
+        return (
+            tile is not None
+            and tile.terrain is Terrain.FLOOR
+            and tile.feature is None
+        )
+
+    if not _usable(cx, cy):
+        fallback: tuple[int, int] | None = None
+        for y in range(rect.y, rect.y2):
+            for x in range(rect.x, rect.x2):
+                if _usable(x, y):
+                    fallback = (x, y)
+                    break
+            if fallback is not None:
+                break
+        if fallback is None:
+            return
+        cx, cy = fallback
+
+    ground.entities.append(EntityPlacement(
+        entity_type="creature", entity_id=outcome, x=cx, y=cy,
+    ))
 
 
 def _place_entry_door(

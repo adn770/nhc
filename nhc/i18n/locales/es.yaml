@@ -1398,6 +1398,23 @@ creature:
       El alfa brutal de una manada de gnolls, cubierto de
       pieles y trofeos. Su risa resuena por las dunas y la
       manada ríe con él.
+  hermit:
+    name: "Ermitaño"
+    gender: "m"
+    short: "un viejo ermitaño"
+    long: >-
+      Un recluso anciano que hace tiempo cambió el pueblo por
+      una cabaña tranquila en el bosque. Te mira con ojos
+      pacientes y cansados, y te ofrece sentarte junto al fuego.
+  witch:
+    name: "Bruja"
+    gender: "f"
+    short: "una bruja de mirada salvaje"
+    long: >-
+      Una hechicera andrajosa que ha hecho suya esta cabaña
+      abandonada. Sus murmullos se resuelven en palabras de
+      atadura; los dedos se le crispan hacia un pergamino en
+      el cinturón.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

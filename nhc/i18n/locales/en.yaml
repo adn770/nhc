@@ -1359,6 +1359,20 @@ creature:
       The brutish alpha of a gnoll pack, draped in furs and
       trophies. Its laugh carries through the dunes and the
       pack laughs with it.
+  hermit:
+    name: "Hermit"
+    short: "an old hermit"
+    long: >-
+      A weathered recluse who long ago traded the town for a
+      quiet forest cottage. They watch you with patient, tired
+      eyes and offer you a seat by the fire.
+  witch:
+    name: "Witch"
+    short: "a wild-eyed witch"
+    long: >-
+      A ragged caster who has made this abandoned cottage her
+      own. Her mutters resolve into words of binding; her
+      fingers twitch toward a scroll at her belt.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 death:

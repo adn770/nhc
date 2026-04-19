@@ -42,20 +42,20 @@ class TestCottageStructure:
 
 
 # ---------------------------------------------------------------------------
-# v1 empty interior
+# Surface stays empty (v2 hermit / witch populator lives indoors)
 # ---------------------------------------------------------------------------
 
 
-def test_assemble_cottage_has_no_entities() -> None:
-    """v1: no NPCs / creatures / service placements on either the
-    surface or the interior."""
+def test_assemble_cottage_surface_is_always_empty() -> None:
+    """The surface (garden ring) carries no entities in any v2
+    outcome -- hermits and witches live inside the cottage, not
+    on the outdoor field. The abandoned roll simply leaves the
+    indoor level empty as well. See test_cottage_populator for
+    the per-outcome indoor assertions."""
     site = assemble_cottage(
         "c3", random.Random(0), biome=Biome.FOREST,
     )
     assert site.surface.entities == []
-    for b in site.buildings:
-        for f in b.floors:
-            assert f.entities == []
 
 
 # ---------------------------------------------------------------------------
