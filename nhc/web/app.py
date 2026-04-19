@@ -106,11 +106,15 @@ def create_app(
     def _inject_static_version():
         return {"v": _static_version}
 
-    # Set up file + console logging via shared log_utils
+    # Set up file + console logging via shared log_utils. The
+    # server logs land outside the project's debug/ tree so that
+    # routine debug-dir cleanups don't wipe an in-flight session.
     from nhc.utils.log import setup_logging
+    server_log = Path.home() / "src" / "nhc-server.log"
     log_path = setup_logging(
         level=logging.DEBUG,
         debug_topics="all",
+        log_file=str(server_log),
         console_output=True,
     )
     app.config["LOG_PATH"] = str(log_path)

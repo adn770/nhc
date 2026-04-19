@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # NHC web server launcher — creates venv, installs deps, and runs the server.
 # Usage: ./server [args...]
-#   e.g. ./server --host 0.0.0.0 --port 5000 --auth
+#   e.g. ./server --host 0.0.0.0 --port 5005 --auth
 #        ./server --reset          # ignore autosave, start new game
 #        ./server --restart        # kill running server and start fresh
 
@@ -28,9 +28,9 @@ if [[ "${1:-}" == "--restart" ]]; then
         rm -f "$PIDFILE"
     else
         # Try to find by port
-        PID=$(lsof -ti:5000 2>/dev/null || true)
+        PID=$(lsof -ti:5005 2>/dev/null || true)
         if [ -n "$PID" ]; then
-            echo "Stopping server on port 5000 (PID $PID)..."
+            echo "Stopping server on port 5005 (PID $PID)..."
             kill "$PID" 2>/dev/null || true
             sleep 1
         fi

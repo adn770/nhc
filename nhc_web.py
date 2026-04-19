@@ -27,8 +27,8 @@ def parse_args() -> argparse.Namespace:
         help="Bind address (default: 127.0.0.1)",
     )
     parser.add_argument(
-        "--port", type=int, default=5000,
-        help="Port (default: 5000)",
+        "--port", type=int, default=5005,
+        help="Port (default: 5005)",
     )
     parser.add_argument(
         "--max-sessions", type=int, default=8,

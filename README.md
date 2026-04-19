@@ -58,7 +58,7 @@ and starts the game. The `-G` flag generates a new dungeon.
 ./server
 ```
 
-Open `http://localhost:5000` in your browser. The `./server` launcher handles
+Open `http://localhost:5005` in your browser. The `./server` launcher handles
 venv setup and dependency installation automatically.
 
 ### Docker

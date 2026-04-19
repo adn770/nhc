@@ -11,7 +11,7 @@ class WebConfig:
     """Configuration for the nhc web server."""
 
     host: str = "127.0.0.1"
-    port: int = 5000
+    port: int = 5005
     max_sessions: int = 8
     auth_required: bool = False
     ollama_url: str = "http://localhost:11434"
