@@ -8,7 +8,9 @@ with cobblestones regardless of the legacy ``is_street`` boolean.
 
 from __future__ import annotations
 
+import math
 import random
+import re
 
 from nhc.dungeon.model import (
     Level, Rect, Room, SurfaceType, Terrain, Tile,
@@ -204,3 +206,66 @@ class TestWoodInteriorFloor:
         assert _count_hand_scratches(wood_svg) < _count_hand_scratches(
             stone_svg,
         )
+
+
+class TestWoodParquetConstants:
+    def test_plank_width_is_quarter_tile(self):
+        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
+        from nhc.rendering._svg_helpers import CELL
+        assert math.isclose(WOOD_PLANK_WIDTH_PX, CELL / 4)
+
+    def test_plank_length_is_two_and_half_tiles(self):
+        from nhc.rendering._floor_detail import WOOD_PLANK_LENGTH_PX
+        from nhc.rendering._svg_helpers import CELL
+        assert math.isclose(WOOD_PLANK_LENGTH_PX, CELL * 2.5)
+
+    def test_plank_offset_is_fifth_tile(self):
+        from nhc.rendering._floor_detail import WOOD_PLANK_OFFSET_PX
+        from nhc.rendering._svg_helpers import CELL
+        assert math.isclose(WOOD_PLANK_OFFSET_PX, CELL / 5)
+
+
+class TestWoodParquetPattern:
+    def test_horizontal_room_emits_many_plank_end_lines(self):
+        """A wide wood room produces more vertical plank-end seams
+        than the 3 horizontal seams the old renderer emitted."""
+        level = _blank_level(20, 6)
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        # Count <line> inside the wood-seam group.
+        lines = re.findall(r'<line\s[^/]*/>', svg)
+        # Roughly: 20 tiles wide * 32 = 640px. Plank length 80.
+        # Per strip ~8 vertical seams. 6 tiles tall * 32 / 8 = 24
+        # strips. Plus 23 horizontal strip boundaries.
+        # Total roughly 200+ lines.
+        assert len(lines) > 50
+
+    def test_parquet_strips_use_plank_width(self):
+        """Distance between consecutive horizontal seam y-coords
+        inside the wood-seam group equals the plank width."""
+        from nhc.rendering._floor_detail import (
+            WOOD_PLANK_WIDTH_PX, WOOD_SEAM_STROKE,
+        )
+        level = _blank_level(20, 6)
+        level.interior_floor = "wood"
+        svg = render_floor_svg(level, seed=42)
+        # Restrict scan to the wood-seam <g ...> ... </g> block so
+        # unrelated floor-grid lines don't leak in.
+        group_start = svg.find(f'stroke="{WOOD_SEAM_STROKE}"')
+        assert group_start > 0
+        group_end = svg.find("</g>", group_start)
+        segment = svg[group_start:group_end]
+        ys = set()
+        for m in re.finditer(
+            r'<line x1="[0-9.]+" y1="([0-9.]+)" '
+            r'x2="[0-9.]+" y2="([0-9.]+)"', segment,
+        ):
+            y1, y2 = float(m.group(1)), float(m.group(2))
+            if math.isclose(y1, y2):
+                ys.add(round(y1, 2))
+        assert len(ys) >= 2
+        ys_sorted = sorted(ys)
+        for a, b in zip(ys_sorted, ys_sorted[1:]):
+            assert math.isclose(
+                b - a, WOOD_PLANK_WIDTH_PX, abs_tol=0.1,
+            ), f"strip gap {b - a:.2f}"
