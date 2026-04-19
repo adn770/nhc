@@ -146,6 +146,23 @@ SITE_KINDS = (
 )
 
 
+def populate_building_door_sides(site: "Site") -> None:
+    """Set ``door_side`` on every ``door_closed`` tile of every
+    building's ground floor. Individual site assemblers stamp the
+    door feature but don't compute orientation; without this
+    metadata the web client falls back to drawing the door on the
+    tile's left edge, which looks wrong whenever the actual
+    opening is on the north / east / south wall.
+
+    Called from :func:`assemble_site` so every dispatched kind
+    picks it up without touching the 8 sub-assemblers.
+    """
+    from nhc.dungeon.generators._doors import _compute_door_sides
+    for b in site.buildings:
+        for floor in b.floors:
+            _compute_door_sides(floor)
+
+
 def assemble_site(
     kind: str, site_id: str, rng: random.Random,
     size_class: str | None = None,
@@ -164,31 +181,34 @@ def assemble_site(
     # circular references back to Building / Level helpers.
     if kind == "tower":
         from nhc.dungeon.sites.tower import assemble_tower
-        return assemble_tower(site_id, rng, biome=biome)
-    if kind == "farm":
+        site = assemble_tower(site_id, rng, biome=biome)
+    elif kind == "farm":
         from nhc.dungeon.sites.farm import assemble_farm
-        return assemble_farm(site_id, rng)
-    if kind == "mansion":
+        site = assemble_farm(site_id, rng)
+    elif kind == "mansion":
         from nhc.dungeon.sites.mansion import assemble_mansion
-        return assemble_mansion(site_id, rng)
-    if kind == "keep":
+        site = assemble_mansion(site_id, rng)
+    elif kind == "keep":
         from nhc.dungeon.sites.keep import assemble_keep
-        return assemble_keep(site_id, rng)
-    if kind == "town":
+        site = assemble_keep(site_id, rng)
+    elif kind == "town":
         from nhc.dungeon.sites.town import assemble_town
         kwargs: dict = {}
         if size_class is not None:
             kwargs["size_class"] = size_class
         if biome is not None:
             kwargs["biome"] = biome
-        return assemble_town(site_id, rng, **kwargs)
-    if kind == "temple":
+        site = assemble_town(site_id, rng, **kwargs)
+    elif kind == "temple":
         from nhc.dungeon.sites.temple import assemble_temple
-        return assemble_temple(site_id, rng, biome=biome)
-    if kind == "cottage":
+        site = assemble_temple(site_id, rng, biome=biome)
+    elif kind == "cottage":
         from nhc.dungeon.sites.cottage import assemble_cottage
-        return assemble_cottage(site_id, rng, biome=biome)
-    if kind == "ruin":
+        site = assemble_cottage(site_id, rng, biome=biome)
+    elif kind == "ruin":
         from nhc.dungeon.sites.ruin import assemble_ruin
-        return assemble_ruin(site_id, rng, biome=biome)
-    raise ValueError(f"unknown site kind: {kind!r}")
+        site = assemble_ruin(site_id, rng, biome=biome)
+    else:
+        raise ValueError(f"unknown site kind: {kind!r}")
+    populate_building_door_sides(site)
+    return site

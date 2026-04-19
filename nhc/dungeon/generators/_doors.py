@@ -237,9 +237,16 @@ def _door_candidates(
 def _compute_door_sides(level: Level) -> None:
     """Set door_side for every door tile.
 
-    For each door, find the adjacent room floor tile to determine
-    which direction the door faces (toward the room interior).
-    Works for any room shape, not just rectangles.
+    For each door, find the adjacent room-interior floor tile to
+    determine which direction the door faces. The primary path
+    consults ``level.rooms`` so a door wedged between a room and
+    a corridor picks the room side. Building ground floors do not
+    populate ``Room`` objects -- they are single-room interiors --
+    so the fallback searches for any ``Terrain.FLOOR`` neighbour
+    and uses its direction. Only if no floor neighbour exists does
+    the final fallback consult wall/void, picking the side with
+    the most continuous wall run so the door reads as sitting in
+    that wall.
     """
     door_feats = {
         "door_closed", "door_open", "door_secret", "door_locked",
@@ -251,8 +258,8 @@ def _compute_door_sides(level: Level) -> None:
             floor_to_room[pos] = room
 
     # Map: if room floor is in direction (dx,dy) from door,
-    # door_side is the opposite direction name
-    _OPPOSITE = {
+    # door_side is that direction name (pointing at the floor).
+    _DIR = {
         (0, -1): "north",   # floor is north → door faces north
         (0, 1): "south",
         (1, 0): "east",
@@ -264,23 +271,36 @@ def _compute_door_sides(level: Level) -> None:
             tile = level.tiles[y][x]
             if tile.feature not in door_feats:
                 continue
-            # Find adjacent room floor tile
-            for (dx, dy), side in _OPPOSITE.items():
+            # 1. Prefer a Room's floor tile.
+            matched = False
+            for (dx, dy), side in _DIR.items():
                 if (x + dx, y + dy) in floor_to_room:
                     tile.door_side = side
+                    matched = True
                     break
-            else:
-                # Fallback: find adjacent wall/void
-                for side, dx, dy in [
-                    ("north", 0, -1), ("south", 0, 1),
-                    ("east", 1, 0), ("west", -1, 0),
-                ]:
-                    nb = level.tile_at(x + dx, y + dy)
-                    if nb and nb.terrain in (
-                        Terrain.WALL, Terrain.VOID,
-                    ):
-                        tile.door_side = side
-                        break
+            if matched:
+                continue
+            # 2. No Rooms: accept any FLOOR neighbour so building
+            #    interiors (single-room spaces with no Room objects
+            #    attached) still get the interior direction.
+            for (dx, dy), side in _DIR.items():
+                nb = level.tile_at(x + dx, y + dy)
+                if nb and nb.terrain == Terrain.FLOOR:
+                    tile.door_side = side
+                    matched = True
+                    break
+            if matched:
+                continue
+            # 3. Degenerate: pick the wall/void side as a last
+            #    resort. The door will still render somewhere; the
+            #    primary caller should avoid this branch.
+            for (dx, dy), side in _DIR.items():
+                nb = level.tile_at(x + dx, y + dy)
+                if nb and nb.terrain in (
+                    Terrain.WALL, Terrain.VOID,
+                ):
+                    tile.door_side = side
+                    break
 
 
 def _remove_non_straight_doors(level: Level) -> None:
