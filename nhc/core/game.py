@@ -400,7 +400,7 @@ class Game:
         the callers."""
         return bool(self.god_mode)
 
-    def _cache_key(self, depth: int) -> "int | tuple[int, int, int]":
+    def _cache_key(self, depth: int) -> "int | tuple":
         """Floor-cache key for a given ``depth``.
 
         In pure dungeon mode the key is the depth integer, matching
@@ -415,10 +415,33 @@ class Game:
         every cave entrance in the cluster resolves to the same
         cached Floor 2.
 
+        Building descents (ruin, keep cellar, tower basement) use
+        a site-kind-keyed tuple so ruin descent floors don't
+        collide with hex-wide floors at the same depth: when
+        ``_active_descent_building`` is set and ``depth >= 2`` the
+        key becomes ``("descent", site_kind, q, r, bi,
+        floor_index)``. The format matches the one stamped by
+        :meth:`_enter_building_descent` for the first descent
+        floor so all descent floors share one cache namespace.
+
         Degrades to the integer-depth key when ``hex_player_position``
         is not yet set (pre-initialize or test setup).
         """
         if self.world_mode.is_hex and self.hex_player_position is not None:
+            if (
+                depth >= 2
+                and self._active_descent_building is not None
+                and self._active_site is not None
+            ):
+                coord = self.hex_player_position
+                bi = next(
+                    i for i, b in enumerate(self._active_site.buildings)
+                    if b.id == self._active_descent_building.id
+                )
+                return (
+                    "descent", self._active_site.kind,
+                    coord.q, coord.r, bi, depth - 1,
+                )
             if depth >= 2 and self._active_cave_cluster is not None:
                 cc = self._active_cave_cluster
                 return (cc.q, cc.r, depth)
@@ -3047,6 +3070,47 @@ class Game:
                     and new_depth >= 2
                     and self.hex_world is not None):
                 self._generate_underworld_floor(new_depth)
+            elif (
+                self._active_descent_building is not None
+                and new_depth >= 2
+            ):
+                # Within an N-floor building descent (ruin, keep
+                # cellar, etc.): reuse the descent's template for
+                # every floor so the ruin stays a ruin all the way
+                # down rather than falling back to the depth-themed
+                # dungeon pipeline.
+                from nhc.hexcrawl.model import DungeonRef
+                from nhc.hexcrawl.seed import dungeon_seed
+
+                descent_link = next(
+                    link for link in
+                    self._active_descent_building.stair_links
+                    if isinstance(link.to_floor, DungeonRef)
+                )
+                template = descent_link.to_floor.template
+                coord = self.hex_player_position
+                floor_idx = new_depth - 1
+                seed = dungeon_seed(
+                    self.seed or 0, coord,
+                    f"{template}_descent_{floor_idx}",
+                )
+                sv = _shape_variety_for_depth(
+                    self.shape_variety, new_depth,
+                )
+                theme = (
+                    "crypt"
+                    if template.startswith("procedural:crypt")
+                    else theme_for_depth(new_depth)
+                )
+                ft_rng = random.Random(seed)
+                ft_w, ft_h = pick_map_size(ft_rng, depth=new_depth)
+                params = GenerationParams(
+                    width=ft_w, height=ft_h,
+                    depth=new_depth, shape_variety=sv, theme=theme,
+                    seed=seed, template=template,
+                )
+                self.generation_params = params
+                self.level = generate_level(params)
             else:
                 seed = (self.seed or 0) + new_depth * 997
                 sv = _shape_variety_for_depth(
