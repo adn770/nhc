@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import logging
+
 from nhc.rendering.building import render_building_floor_svg
 from nhc.rendering.site_svg import render_site_surface_svg
 from nhc.rendering.svg import render_floor_svg
@@ -19,6 +21,9 @@ from nhc.rendering.svg import render_floor_svg
 if TYPE_CHECKING:
     from nhc.dungeon.model import Level
     from nhc.dungeon.site import Site
+
+
+logger = logging.getLogger(__name__)
 
 
 def render_level_svg(
@@ -44,11 +49,28 @@ def render_level_svg(
         ):
             for b in site.buildings:
                 if b.id == level.building_id:
+                    logger.debug(
+                        "render-level-svg: branch=building "
+                        "level=%s building=%s floor=%s",
+                        level.id, b.id, level.floor_index,
+                    )
                     return render_building_floor_svg(
                         b, level.floor_index, seed=seed,
                     )
         if level is site.surface:
+            logger.debug(
+                "render-level-svg: branch=site_surface "
+                "level=%s site=%s",
+                level.id, site.kind,
+            )
             return render_site_surface_svg(site, seed=seed)
+    logger.debug(
+        "render-level-svg: branch=plain_floor level=%s "
+        "has_site=%s building_id=%s floor_index=%s",
+        level.id, site is not None,
+        getattr(level, "building_id", None),
+        getattr(level, "floor_index", None),
+    )
     return render_floor_svg(
         level, seed=seed, hatch_distance=hatch_distance,
     )

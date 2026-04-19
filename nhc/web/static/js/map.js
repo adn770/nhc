@@ -100,11 +100,18 @@ const GameMap = {
 
   setFloorSVG(svgString) {
     const container = document.getElementById("floor-svg");
+    const prevSvg = container.querySelector("svg");
+    const prevW = prevSvg ? parseInt(prevSvg.getAttribute("width")) : 0;
+    const prevH = prevSvg ? parseInt(prevSvg.getAttribute("height")) : 0;
+    console.log("[setFloorSVG] replacing: prev=",
+                prevW, "x", prevH, "new length=", svgString.length);
     container.innerHTML = svgString;
     const svg = container.querySelector("svg");
     if (svg) {
       const w = parseInt(svg.getAttribute("width"));
       const h = parseInt(svg.getAttribute("height"));
+      console.log("[setFloorSVG] installed: new=", w, "x", h,
+                  "prerevealed=", this.prerevealed);
       this.canvas.width = w;
       this.canvas.height = h;
       if (this.doorCanvas) {

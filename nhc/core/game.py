@@ -714,18 +714,37 @@ class Game:
         if not hasattr(self.renderer, "send_floor_change"):
             return
         cached = self._svg_cache.get(depth)
+        site = self._active_site
+        logger.debug(
+            "floor-change: level=%s depth=%s svg_cache_hit=%s "
+            "cached_depths=%s active_site=%s building_id=%s "
+            "level_dim=%sx%s theme=%s prerevealed=%s",
+            self.level.id, depth, cached is not None,
+            sorted(self._svg_cache.keys()),
+            site.kind if site else None,
+            getattr(self.level, "building_id", None),
+            self.level.width, self.level.height,
+            self.level.metadata.theme if self.level.metadata else None,
+            (self.level.metadata.prerevealed
+             if self.level.metadata else None),
+        )
         self.renderer.send_floor_change(
             self.level, self.world, self.player_id,
             self.turn, seed=self.seed or 0,
             floor_svg=cached[1] if cached else None,
             floor_svg_id=cached[0] if cached else None,
-            site=self._active_site,
+            site=site,
         )
         if not cached and getattr(self.renderer, "floor_svg", None):
-            self._svg_cache[depth] = (
-                self.renderer.floor_svg_id,
-                self.renderer.floor_svg,
-            )
+            fresh_svg = self.renderer.floor_svg
+            fresh_id = self.renderer.floor_svg_id
+            if isinstance(fresh_svg, str):
+                self._svg_cache[depth] = (fresh_id, fresh_svg)
+                logger.debug(
+                    "floor-change: cached new SVG at depth=%s id=%s "
+                    "size=%d bytes",
+                    depth, fresh_id, len(fresh_svg),
+                )
 
     async def _enter_tower_site(self, coord) -> bool:
         """Route a tower-site hex through assemble_site().
@@ -1094,6 +1113,13 @@ class Game:
         and restores (or spawns) the target level's entities.
         Emits a floor-change notification for the web renderer.
         """
+        from_level = self.level.id if self.level else None
+        logger.debug(
+            "swap-to-building: from=%s to=%s building=%s "
+            "ground_depth=%s tile=(%s,%s)",
+            from_level, building.ground.id, building.id,
+            building.ground.depth, bx, by,
+        )
         self._stash_current_level_entities()
         self.level = building.ground
         pos = self.world.get_component(self.player_id, "Position")
@@ -1326,6 +1352,11 @@ class Game:
         """
         if self._active_site is None:
             return
+        from_level = self.level.id if self.level else None
+        logger.debug(
+            "swap-to-site-surface: from=%s to=%s tile=(%s,%s)",
+            from_level, self._active_site.surface.id, sx, sy,
+        )
         self._stash_current_level_entities()
         self.level = self._active_site.surface
         pos = self.world.get_component(self.player_id, "Position")

@@ -1302,19 +1302,36 @@ class WebClient(GameClient):
         wall overlay for Building floors.
         """
         import uuid as _uuid
+        logger.debug(
+            "send-floor-change: level=%s depth=%s site=%s "
+            "building_id=%s floor_index=%s cache_hint=%s",
+            level.id, level.depth,
+            getattr(site, "kind", None) if site else None,
+            getattr(level, "building_id", None),
+            getattr(level, "floor_index", None),
+            floor_svg_id,
+        )
         if floor_svg and floor_svg_id:
             self.floor_svg = floor_svg
             self.floor_svg_id = floor_svg_id
-            logger.info("Floor SVG cache hit: %s (%d bytes)",
-                        floor_svg_id, len(floor_svg))
+            logger.info(
+                "Floor SVG cache hit: id=%s (%d bytes) "
+                "level=%s depth=%s",
+                floor_svg_id, len(floor_svg),
+                level.id, level.depth,
+            )
         else:
             self.floor_svg = render_level_svg(
                 level, site=site,
                 seed=seed, hatch_distance=hatch_distance,
             )
             self.floor_svg_id = _uuid.uuid4().hex[:12]
-            logger.info("Floor SVG rendered: %s (%d bytes)",
-                        self.floor_svg_id, len(self.floor_svg))
+            logger.info(
+                "Floor SVG rendered: id=%s (%d bytes) "
+                "level=%s depth=%s",
+                self.floor_svg_id, len(self.floor_svg),
+                level.id, level.depth,
+            )
 
         # Reset delta tracking for the new floor
         self._last_fov = set()

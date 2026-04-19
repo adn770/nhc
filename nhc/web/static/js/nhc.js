@@ -95,7 +95,10 @@ const NHC = {
       console.log("[floor] msg keys:", Object.keys(msg),
                   "entities:", (msg.entities||[]).length,
                   "fov:", (msg.fov||[]).length,
-                  "explored:", (msg.explored||[]).length);
+                  "explored:", (msg.explored||[]).length,
+                  "theme:", msg.theme,
+                  "prerevealed:", msg.prerevealed,
+                  "floor_url:", msg.floor_url);
       // Reset client state for the new floor
       GameMap.fov = new Set();
       GameMap.explored = new Set();
