@@ -596,10 +596,26 @@ def _render_floor_detail(
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
-            # Skip terrain tiles and stairs
-            if tile.terrain in _TERRAIN_TYPES:
+            # Only FLOOR tiles get indoor floor detail. WALL /
+            # VOID / terrain tiles previously entered the loop and
+            # relied on dungeon-polygon clipping at emission time;
+            # the town / keep surface levels have no rooms, so
+            # dungeon_poly is empty and the clip never fires --
+            # that's how spurious cracks / stones leaked out.
+            if tile.terrain != Terrain.FLOOR:
                 continue
             if tile.feature in ("stairs_up", "stairs_down"):
+                continue
+            # Outdoor surfaces (STREET / FIELD / GARDEN) have
+            # their own per-tile renderers -- cobblestone, field
+            # stones, garden lines. Skip the indoor pass here so
+            # town / keep / farm surfaces don't pick up bones,
+            # skulls, floor stones, scratches, or cracks.
+            if tile.surface_type in (
+                SurfaceType.STREET,
+                SurfaceType.FIELD,
+                SurfaceType.GARDEN,
+            ):
                 continue
             is_cor = (tile.is_corridor
                       or _is_door(level, x, y))

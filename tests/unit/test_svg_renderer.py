@@ -342,9 +342,12 @@ class TestGridAndDetailOnWallTiles:
             f"Grid produced {seg_count} segments, expected >= "
             f"{min_expected} (all tiles in room rect processed)")
 
-    def test_detail_processes_wall_tiles(self):
-        """_render_floor_detail must call _tile_detail for WALL tile
-        coordinates, not skip them with _is_floor filtering."""
+    def test_detail_only_processes_floor_tiles(self):
+        """_render_floor_detail only generates detail on FLOOR
+        tiles. WALL and VOID tiles are skipped outright now --
+        the old all-tiles-then-clip strategy leaked spurious
+        detail onto surface levels that have no rooms (and so no
+        dungeon polygon to clip against)."""
         level = self._make_walled_level()
         called_coords: list[tuple[int, int]] = []
         original = __import__(
@@ -360,6 +363,12 @@ class TestGridAndDetailOnWallTiles:
             _render_floor_detail([], level, 42)
 
         r = level.rooms[0].rect
+        floor_coords = {
+            (x, y)
+            for y in range(r.y, r.y2)
+            for x in range(r.x, r.x2)
+            if level.tiles[y][x].terrain == Terrain.FLOOR
+        }
         wall_coords = {
             (x, y)
             for y in range(r.y, r.y2)
@@ -367,10 +376,17 @@ class TestGridAndDetailOnWallTiles:
             if level.tiles[y][x].terrain == Terrain.WALL
         }
         called_set = set(called_coords)
-        missing = wall_coords - called_set
-        assert not missing, (
-            f"_tile_detail was never called for WALL tiles: "
-            f"{sorted(missing)[:5]}...")
+        # Every FLOOR tile got the detail call
+        assert floor_coords <= called_set, (
+            f"missing FLOOR tiles: "
+            f"{sorted(floor_coords - called_set)[:5]}..."
+        )
+        # No WALL tile got the detail call
+        leaked = wall_coords & called_set
+        assert not leaked, (
+            f"_tile_detail was called on WALL tiles: "
+            f"{sorted(leaked)[:5]}..."
+        )
 
 
 class TestSecretDoorGridRouting:

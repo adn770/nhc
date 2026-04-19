@@ -86,6 +86,19 @@ class TestTownSurface:
                     t = site.surface.tiles[y][x]
                     assert t.surface_type != SurfaceType.STREET
 
+    def test_surface_svg_has_no_indoor_details(self):
+        """The outdoor surface (STREET / FIELD / GARDEN tiles)
+        should not carry indoor detail: no bones, skulls, floor
+        stones, scratches, or hand-drawn cracks."""
+        from nhc.rendering._svg_helpers import FLOOR_STONE_FILL
+        from nhc.rendering.svg import render_floor_svg
+        site = assemble_town("t1", random.Random(42))
+        svg = render_floor_svg(site.surface, seed=42)
+        assert "detail-bones" not in svg
+        assert "detail-skulls" not in svg
+        assert FLOOR_STONE_FILL not in svg
+        assert 'class="y-scratch"' not in svg
+
     def test_street_tiles_lie_inside_palisade_polygon(self):
         """Every STREET tile must sit strictly inside the palisade
         bbox so the palisade border reads as drawn ON the black
