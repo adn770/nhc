@@ -15,9 +15,13 @@ import pytest
 from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.dungeon.site import Enclosure, Site
 from nhc.dungeon.sites.town import (
-    TOWN_BUILDING_COUNT_RANGE,
     TOWN_DESCENT_PROBABILITY,
+    _SIZE_CLASSES,
     assemble_town,
+)
+
+TOWN_BUILDING_COUNT_RANGE = (
+    _SIZE_CLASSES["village"].building_count_range
 )
 
 
@@ -61,14 +65,13 @@ class TestAssembleTownBasics:
     def test_gates_aligned_with_main_street_y(self):
         """All gates share the same y coordinate -- the main
         street passes through them."""
-        from nhc.dungeon.sites.town import TOWN_MAIN_STREET_Y
         for seed in range(30):
             site = assemble_town("t1", random.Random(seed))
-            for (gx, gy, length) in site.enclosure.gates:
-                assert gy == TOWN_MAIN_STREET_Y, (
-                    f"gate at y={gy} on seed={seed} not on the "
-                    f"main street (y={TOWN_MAIN_STREET_Y})"
-                )
+            ys = {gy for (_, gy, _) in site.enclosure.gates}
+            assert len(ys) == 1, (
+                f"gates span y={sorted(ys)} on seed={seed}; "
+                "all gates must sit on the main street y-centre"
+            )
 
 
 class TestTownBuildings:

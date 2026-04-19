@@ -343,6 +343,12 @@ class Game:
         self._active_descent_return_tile: (
             "tuple[int, int] | None"
         ) = None
+        # Per-level ECS component stash, keyed by Level.id, used by
+        # site door crossings to preserve creatures / items across
+        # level swaps. An entry is populated when the player leaves
+        # a level, consumed when they swap back in. Cleared on
+        # overland exit.
+        self._site_level_entities: dict[int, dict] = {}
         # Maps "q_r" → (x, y) for each cluster member's stairs_up
         # on the shared Floor 2. Populated by _generate_cave_floor2,
         # consumed by the player-placement branch in
@@ -1040,8 +1046,11 @@ class Game:
         Re-keys the depth-indexed floor cache to point at the
         target building's floors so cross-floor stair navigation
         works for whichever building the player just entered.
+        Saves entities of the outgoing level to a per-level stash
+        and restores (or spawns) the target level's entities.
         Emits a floor-change notification for the web renderer.
         """
+        self._stash_current_level_entities()
         self.level = building.ground
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
@@ -1052,6 +1061,7 @@ class Game:
         if tile is not None and tile.feature == "door_closed":
             tile.feature = "door_open"
         self._activate_building_floor_cache(building)
+        self._restore_or_spawn_level_entities()
         self._update_fov()
         self._notify_floor_change(self.level.depth)
 
@@ -1251,9 +1261,14 @@ class Game:
 
     def _swap_to_site_surface(self, sx: int, sy: int) -> None:
         """Switch ``self.level`` back to the active site's surface
-        Level and place the player on ``(sx, sy)``."""
+        Level and place the player on ``(sx, sy)``.
+
+        Saves entities of the outgoing building level and restores
+        (or spawns) surface entities.
+        """
         if self._active_site is None:
             return
+        self._stash_current_level_entities()
         self.level = self._active_site.surface
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
@@ -1263,8 +1278,35 @@ class Game:
         tile = self.level.tile_at(sx, sy)
         if tile is not None and tile.feature == "door_closed":
             tile.feature = "door_open"
+        self._restore_or_spawn_level_entities()
         self._update_fov()
         self._notify_floor_change(self.level.depth)
+
+    def _stash_current_level_entities(self) -> None:
+        """Save non-party entity components for the current level.
+
+        Stores under ``self._site_level_entities[level.id]`` so
+        ``_restore_or_spawn_level_entities`` can rehydrate them
+        when the player swaps back to the same level.
+        """
+        if self.level is None:
+            return
+        self._site_level_entities[self.level.id] = (
+            self._collect_non_party_entities()
+        )
+        self._destroy_non_party_entities()
+
+    def _restore_or_spawn_level_entities(self) -> None:
+        """Rehydrate stashed entities for the current level, or
+        spawn fresh placements when the level has never been
+        activated this session."""
+        if self.level is None:
+            return
+        stash = self._site_level_entities.pop(self.level.id, None)
+        if stash is not None:
+            self._restore_entities(stash)
+        else:
+            self._spawn_level_entities()
 
     def _place_player_at_stairs_up(self) -> None:
         """Move the player's Position onto the current level's
@@ -1513,6 +1555,7 @@ class Game:
         self._active_site = None
         self._active_descent_building = None
         self._active_descent_return_tile = None
+        self._site_level_entities = {}
         self._underworld_sector_map = {}
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
