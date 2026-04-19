@@ -45,6 +45,17 @@ TOWN_PALISADE_PADDING = 3                # tiles beyond bbox
 TOWN_GATE_COUNT_RANGE = (1, 2)
 TOWN_GATE_LENGTH_TILES = 2
 
+# Main street runs horizontally in the gap between the two
+# building rows. Its y-centre is used to anchor palisade gates
+# so the entrances line up with the road running through town.
+TOWN_MAIN_STREET_Y = (
+    TOWN_ROW_Y[0] + TOWN_BUILDING_SIZE_RANGE[1]
+    + (
+        TOWN_ROW_Y[1] - TOWN_ROW_Y[0]
+        - TOWN_BUILDING_SIZE_RANGE[1]
+    ) // 2
+)
+
 TOWN_SHAPE_POOL = ("rect", "lshape")
 
 
@@ -211,17 +222,18 @@ def _build_palisade(
         (max_x, max_y),
         (min_x, max_y),
     ]
+    # Palisade gates sit on the east / west edges at the main
+    # street's y-centre so the road runs straight through the
+    # town -- not at random midpoints of a random edge.
     gate_count = rng.randint(*TOWN_GATE_COUNT_RANGE)
-    edges = list(range(4))
-    rng.shuffle(edges)
+    sides = ["west", "east"]
+    rng.shuffle(sides)
     gates: list[tuple[int, int, int]] = []
     for i in range(gate_count):
-        edge_idx = edges[i]
-        a = polygon[edge_idx]
-        b = polygon[(edge_idx + 1) % 4]
-        mx = (a[0] + b[0]) // 2
-        my = (a[1] + b[1]) // 2
-        gates.append((mx, my, TOWN_GATE_LENGTH_TILES))
+        gx = min_x if sides[i] == "west" else max_x
+        gates.append(
+            (gx, TOWN_MAIN_STREET_Y, TOWN_GATE_LENGTH_TILES),
+        )
     return Enclosure(
         kind="palisade", polygon=polygon, gates=gates,
     )

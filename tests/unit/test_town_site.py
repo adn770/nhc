@@ -44,6 +44,32 @@ class TestAssembleTownBasics:
             site = assemble_town("t1", random.Random(seed))
             assert 1 <= len(site.enclosure.gates) <= 2
 
+    def test_gates_sit_on_west_or_east_edge(self):
+        """Gates align with the main street running east-west
+        between the two building rows; they live on the west
+        (min_x) or east (max_x) palisade edge, not on top/bottom."""
+        for seed in range(30):
+            site = assemble_town("t1", random.Random(seed))
+            xs = [p[0] for p in site.enclosure.polygon]
+            min_x, max_x = min(xs), max(xs)
+            for (gx, gy, length) in site.enclosure.gates:
+                assert gx in (min_x, max_x), (
+                    f"gate at x={gx} on seed={seed} is not on "
+                    f"the west ({min_x}) or east ({max_x}) edge"
+                )
+
+    def test_gates_aligned_with_main_street_y(self):
+        """All gates share the same y coordinate -- the main
+        street passes through them."""
+        from nhc.dungeon.sites.town import TOWN_MAIN_STREET_Y
+        for seed in range(30):
+            site = assemble_town("t1", random.Random(seed))
+            for (gx, gy, length) in site.enclosure.gates:
+                assert gy == TOWN_MAIN_STREET_Y, (
+                    f"gate at y={gy} on seed={seed} not on the "
+                    f"main street (y={TOWN_MAIN_STREET_Y})"
+                )
+
 
 class TestTownBuildings:
     def test_building_count_in_range(self):
