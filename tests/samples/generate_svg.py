@@ -940,6 +940,113 @@ def generate_surface_samples(outdir: Path) -> None:
     print(f"  {sdir}/surface_wood_reference.svg")
 
 
+ROOF_TINTS: list[tuple[str, str]] = [
+    # (dark_hex, bright_hex) pairs. Bright end = full sunlit
+    # south / east side; shadow side interpolates halfway
+    # between dark and bright for the north / west.
+    ("#3A3A3A", "#9A9A9A"),   # cool gray
+    ("#3A3328", "#9A8A6A"),   # warm tan
+    ("#3A2A1C", "#9A6A4A"),   # terracotta
+    ("#2F2A26", "#7A6A5A"),   # charcoal
+    ("#3A2F1F", "#8A7A5A"),   # ochre
+]
+ROOF_SHADOW_FACTOR = 0.5
+
+
+def _hex_mix(a: str, b: str, t: float) -> str:
+    ar, ag, ab = (int(a[i:i + 2], 16) for i in (1, 3, 5))
+    br, bg, bb = (int(b[i:i + 2], 16) for i in (1, 3, 5))
+    r = int(ar + (br - ar) * t)
+    g = int(ag + (bg - ag) * t)
+    bl = int(ab + (bb - ab) * t)
+    return f"#{r:02X}{g:02X}{bl:02X}"
+
+
+def _building_roof_fragments(site, seed: int) -> list[str]:
+    """Two gradient-filled half-rectangles per building.
+
+    The building is split along its longest axis: horizontal
+    ridge if width >= height, vertical otherwise. Each half gets
+    a linear gradient from dark (at the ridge) to bright (at the
+    eave); the shadow-facing half (north for horizontal ridge,
+    west for vertical) terminates at a dim midpoint instead of
+    full bright to read as non-illuminated.
+    """
+    import random as rand_mod
+    rng = rand_mod.Random(seed + 0xCAFE)
+    defs: list[str] = []
+    rects: list[str] = []
+    for i, b in enumerate(site.buildings):
+        r = b.base_rect
+        dark, bright = rng.choice(ROOF_TINTS)
+        dim = _hex_mix(dark, bright, ROOF_SHADOW_FACTOR)
+        px = PADDING + r.x * CELL
+        py = PADDING + r.y * CELL
+        pw = r.width * CELL
+        ph = r.height * CELL
+        gid_shadow = f"roof_{i}_shadow"
+        gid_lit = f"roof_{i}_lit"
+        horizontal = r.width >= r.height
+
+        if horizontal:
+            # North (shadow): gradient bottom -> top, dark -> dim.
+            defs.append(
+                f'<linearGradient id="{gid_shadow}" '
+                f'x1="0" y1="1" x2="0" y2="0">'
+                f'<stop offset="0%" stop-color="{dark}"/>'
+                f'<stop offset="100%" stop-color="{dim}"/>'
+                f'</linearGradient>'
+            )
+            # South (lit): gradient top -> bottom, dark -> bright.
+            defs.append(
+                f'<linearGradient id="{gid_lit}" '
+                f'x1="0" y1="0" x2="0" y2="1">'
+                f'<stop offset="0%" stop-color="{dark}"/>'
+                f'<stop offset="100%" stop-color="{bright}"/>'
+                f'</linearGradient>'
+            )
+            rects.append(
+                f'<rect x="{px}" y="{py}" width="{pw}" '
+                f'height="{ph / 2:.1f}" '
+                f'fill="url(#{gid_shadow})"/>'
+            )
+            rects.append(
+                f'<rect x="{px}" y="{py + ph / 2:.1f}" '
+                f'width="{pw}" height="{ph / 2:.1f}" '
+                f'fill="url(#{gid_lit})"/>'
+            )
+        else:
+            # West (shadow): gradient right -> left, dark -> dim.
+            defs.append(
+                f'<linearGradient id="{gid_shadow}" '
+                f'x1="1" y1="0" x2="0" y2="0">'
+                f'<stop offset="0%" stop-color="{dark}"/>'
+                f'<stop offset="100%" stop-color="{dim}"/>'
+                f'</linearGradient>'
+            )
+            # East (lit): gradient left -> right, dark -> bright.
+            defs.append(
+                f'<linearGradient id="{gid_lit}" '
+                f'x1="0" y1="0" x2="1" y2="0">'
+                f'<stop offset="0%" stop-color="{dark}"/>'
+                f'<stop offset="100%" stop-color="{bright}"/>'
+                f'</linearGradient>'
+            )
+            rects.append(
+                f'<rect x="{px}" y="{py}" '
+                f'width="{pw / 2:.1f}" height="{ph}" '
+                f'fill="url(#{gid_shadow})"/>'
+            )
+            rects.append(
+                f'<rect x="{px + pw / 2:.1f}" y="{py}" '
+                f'width="{pw / 2:.1f}" height="{ph}" '
+                f'fill="url(#{gid_lit})"/>'
+            )
+    if not rects:
+        return []
+    return [f'<defs>{"".join(defs)}</defs>'] + rects
+
+
 def _enclosure_fragments_for_site(site, seed: int) -> list[str]:
     """Convert Site.enclosure (tile-coord polygon + tile gates) into
     SVG fragments from the enclosure renderers.
@@ -1018,12 +1125,17 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
             site = assemble_site(
                 kind, f"{kind}_s{seed}", rand_mod.Random(seed),
             )
-            # Surface level with enclosure overlay.
+            # Surface level with roof + enclosure overlay. Roofs
+            # paint building footprints with gradient shingles;
+            # the enclosure (palisade / fortification) draws on
+            # top of roofs so gates remain visible.
             surface_svg = render_floor_svg(site.surface, seed=seed)
+            roof_frags = _building_roof_fragments(site, seed)
             enc_frags = _enclosure_fragments_for_site(site, seed)
-            if enc_frags:
+            overlay = "".join(roof_frags) + "".join(enc_frags)
+            if overlay:
                 surface_svg = surface_svg.replace(
-                    "</svg>", "".join(enc_frags) + "</svg>",
+                    "</svg>", overlay + "</svg>",
                 )
             enc_kind = (
                 site.enclosure.kind if site.enclosure else "none"
