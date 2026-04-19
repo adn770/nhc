@@ -617,6 +617,14 @@ def _render_floor_detail(
                      room_webs, room_bones,
                      room_skulls)
 
+    # Building floors are inhabited architecture -- no bones or
+    # skulls. Webs are kept (a dusty room is plausible).
+    if getattr(level, "building_id", None) is not None:
+        room_bones = []
+        room_skulls = []
+        cor_bones = []
+        cor_skulls = []
+
     # Room detail — clipped to dungeon polygon
     has_room = (room_cracks or room_stones or room_scratches
                 or room_webs or room_bones or room_skulls)

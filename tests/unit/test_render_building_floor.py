@@ -206,6 +206,49 @@ class TestBuildingFloorsSkipDungeonEffects:
         assert HATCH_UNDERLAY in svg
 
 
+class TestBuildingFloorsSkipBonesAndSkulls:
+    def test_no_bones_or_skulls_across_many_keep_floors(self):
+        """Scan every floor of every keep building across many
+        seeds. Keep buildings are stone-interior, so they would
+        otherwise hit the full thematic-detail path. None of them
+        should emit a bones or skulls group."""
+        from nhc.dungeon.sites.keep import assemble_keep
+        for seed in range(30):
+            site = assemble_keep("k", random.Random(seed))
+            for bi, b in enumerate(site.buildings):
+                for fi in range(len(b.floors)):
+                    out = render_building_floor_svg(
+                        b, fi, seed=seed + fi,
+                    )
+                    assert "detail-bones" not in out, (
+                        f"bones on keep seed={seed} b{bi} f{fi}"
+                    )
+                    assert "detail-skulls" not in out, (
+                        f"skulls on keep seed={seed} b{bi} f{fi}"
+                    )
+
+    def test_regular_dungeon_level_still_may_have_bones(self):
+        """Sanity check: a plain Level can still emit bone /
+        skull groups for crypt / cave themes."""
+        from nhc.dungeon.generator import GenerationParams
+        from nhc.dungeon.generators.bsp import BSPGenerator
+        from nhc.rendering.svg import render_floor_svg
+        found = False
+        for seed in range(20):
+            level = BSPGenerator().generate(
+                GenerationParams(
+                    seed=seed, shape_variety=0.5, theme="crypt",
+                ),
+            )
+            svg = render_floor_svg(level, seed=seed)
+            if "detail-bones" in svg or "detail-skulls" in svg:
+                found = True
+                break
+        assert found, (
+            "expected at least one crypt seed to emit thematic details"
+        )
+
+
 def _brick_rects(svg: str) -> list[dict]:
     """Extract <rect> elements whose fill is the brick colour."""
     rects = []
