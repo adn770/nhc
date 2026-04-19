@@ -22,11 +22,18 @@ import random
 
 FORTIFICATION_STROKE = "#1A1A1A"
 FORTIFICATION_STROKE_WIDTH = 0.8
-FORTIFICATION_MERLON_FILL = "#FFFFFF"
+FORTIFICATION_MERLON_FILL = "#D8D8D8"   # soft grey (was white)
 FORTIFICATION_CRENEL_FILL = "#000000"
+FORTIFICATION_CORNER_FILL = "#000000"   # corners blend with crenels
 FORTIFICATION_SIZE = 8.0             # merlon side + crenel short side
 FORTIFICATION_RATIO = math.sqrt(2)   # crenel long / short (DIN A)
-FORTIFICATION_TOWER_SCALE = 1.5      # "tower" corner size multiplier
+# Corner side = SIZE * scale. Both default and tower scales are
+# larger than 1.0 so the corner always overlaps the adjacent wall
+# band (SIZE thick) perpendicular to the edge, and the default
+# corner reaches past the SIZE/2 inset so it also overlaps along
+# each edge direction.
+FORTIFICATION_CORNER_SCALE = 1.5
+FORTIFICATION_TOWER_SCALE = 2.0
 FORTIFICATION_CORNER_STYLES = ("merlon", "tower", "diamond")
 
 
@@ -188,27 +195,23 @@ def render_fortification_enclosure(
             if hi > lo:
                 by_edge.setdefault(edge_idx, []).append((lo, hi))
 
-    corner_half = _corner_extent(corner_style)
+    inset = _corner_inset()
     out: list[str] = []
     for i in range(n):
         a = polygon[i]
         b = polygon[(i + 1) % n]
         edge_len = math.hypot(b[0] - a[0], b[1] - a[1])
-        if edge_len <= 2 * corner_half + 1e-6:
+        if edge_len <= 2 * inset + 1e-6:
             continue
         ux = (b[0] - a[0]) / edge_len
         uy = (b[1] - a[1]) / edge_len
-        a_in = (
-            a[0] + ux * corner_half, a[1] + uy * corner_half,
-        )
-        b_in = (
-            b[0] - ux * corner_half, b[1] - uy * corner_half,
-        )
+        a_in = (a[0] + ux * inset, a[1] + uy * inset)
+        b_in = (b[0] - ux * inset, b[1] - uy * inset)
 
         # Translate cuts from [0, 1] on the original edge to
         # [0, 1] on the inset edge.
         cuts = _merge_cuts(by_edge.get(i, []))
-        t_inset = corner_half / edge_len
+        t_inset = inset / edge_len
         denom = 1.0 - 2.0 * t_inset
         inset_cuts: list[tuple[float, float]] = []
         if denom > 1e-9:
@@ -229,12 +232,13 @@ def render_fortification_enclosure(
     return out
 
 
-def _corner_extent(corner_style: str) -> float:
-    """Half the corner shape's reach along each edge direction."""
-    if corner_style == "tower":
-        return FORTIFICATION_SIZE * FORTIFICATION_TOWER_SCALE / 2.0
-    if corner_style == "diamond":
-        return FORTIFICATION_SIZE * math.sqrt(2) / 2.0
+def _corner_inset() -> float:
+    """Distance the wall pattern retreats from each polygon vertex.
+
+    Half the wall thickness so walls terminate flush with the
+    vertex band. Corner shapes are drawn larger than this, on top,
+    to produce visible overlap.
+    """
     return FORTIFICATION_SIZE / 2.0
 
 
@@ -243,20 +247,23 @@ def _corner_shape(x: float, y: float, corner_style: str) -> str:
     if corner_style == "tower":
         tsize = size * FORTIFICATION_TOWER_SCALE
         return _fortification_rect(
-            x, y, tsize, tsize, FORTIFICATION_MERLON_FILL,
+            x, y, tsize, tsize, FORTIFICATION_CORNER_FILL,
         )
     if corner_style == "diamond":
-        half = size / 2.0
+        dsize = size * FORTIFICATION_CORNER_SCALE
+        half = dsize / 2.0
         return (
             f'<rect x="{x - half:.1f}" y="{y - half:.1f}" '
-            f'width="{size:.1f}" height="{size:.1f}" '
-            f'fill="{FORTIFICATION_MERLON_FILL}" '
+            f'width="{dsize:.1f}" height="{dsize:.1f}" '
+            f'fill="{FORTIFICATION_CORNER_FILL}" '
             f'stroke="{FORTIFICATION_STROKE}" '
             f'stroke-width="{FORTIFICATION_STROKE_WIDTH}" '
             f'transform="rotate(45 {x:.1f} {y:.1f})"/>'
         )
+    # "merlon" default: 1.5x square corner, black.
+    msize = size * FORTIFICATION_CORNER_SCALE
     return _fortification_rect(
-        x, y, size, size, FORTIFICATION_MERLON_FILL,
+        x, y, msize, msize, FORTIFICATION_CORNER_FILL,
     )
 
 
