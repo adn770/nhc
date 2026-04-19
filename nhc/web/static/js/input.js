@@ -351,6 +351,11 @@ const Input = {
       { name: "hex_fog",       el: "#hex-fog-canvas" },
       { name: "hex_entity",    el: "#hex-entity-canvas" },
       { name: "hex_debug",     el: "#hex-debug-canvas" },
+      { name: "flower_base",    el: "#flower-base-canvas" },
+      { name: "flower_feature", el: "#flower-feature-canvas" },
+      { name: "flower_fog",     el: "#flower-fog-canvas" },
+      { name: "flower_entity",  el: "#flower-entity-canvas" },
+      { name: "flower_debug",   el: "#flower-debug-canvas" },
     ];
     const layers = {};
     for (const {name, el, svg} of canvases) {
@@ -396,24 +401,44 @@ const Input = {
     // a single PNG matching what the player sees. Layers hidden
     // via the debug panel are excluded.
     try {
-      const hexActive = document.getElementById("hex-container")
-        && !document.getElementById("hex-container")
-            .classList.contains("hidden");
+      const isVisible = (id) => {
+        const el = document.getElementById(id);
+        return el && !el.classList.contains("hidden");
+      };
+      const flowerActive = isVisible("flower-container");
+      const hexActive = !flowerActive && isVisible("hex-container");
       // Layer selectors in z-order, matching the CSS stacking.
-      const layerDefs = hexActive
-        ? [{sel: "#hex-base-canvas"},
-           {sel: "#hex-feature-canvas"},
-           {sel: "#hex-fog-canvas"},
-           {sel: "#hex-entity-canvas"},
-           {sel: "#hex-debug-canvas"}]
-        : [{sel: "#floor-svg svg", svg: true},
-           {sel: "#door-canvas"},
-           {sel: "#hatch-canvas"},
-           {sel: "#fog-canvas"},
-           {sel: "#entity-canvas"},
-           {sel: "#debug-canvas"}];
-      // Find a canvas to determine display size.
-      const refSel = hexActive ? "#hex-base-canvas" : "#entity-canvas";
+      let layerDefs;
+      let refSel;
+      if (flowerActive) {
+        layerDefs = [
+          {sel: "#flower-base-canvas"},
+          {sel: "#flower-feature-canvas"},
+          {sel: "#flower-fog-canvas"},
+          {sel: "#flower-entity-canvas"},
+          {sel: "#flower-debug-canvas"},
+        ];
+        refSel = "#flower-base-canvas";
+      } else if (hexActive) {
+        layerDefs = [
+          {sel: "#hex-base-canvas"},
+          {sel: "#hex-feature-canvas"},
+          {sel: "#hex-fog-canvas"},
+          {sel: "#hex-entity-canvas"},
+          {sel: "#hex-debug-canvas"},
+        ];
+        refSel = "#hex-base-canvas";
+      } else {
+        layerDefs = [
+          {sel: "#floor-svg svg", svg: true},
+          {sel: "#door-canvas"},
+          {sel: "#hatch-canvas"},
+          {sel: "#fog-canvas"},
+          {sel: "#entity-canvas"},
+          {sel: "#debug-canvas"},
+        ];
+        refSel = "#entity-canvas";
+      }
       const ref = document.querySelector(refSel);
       if (ref && ref.width && ref.height) {
         const dw = ref.clientWidth || ref.width;
