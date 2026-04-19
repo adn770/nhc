@@ -11,7 +11,7 @@ from shapely.ops import unary_union
 
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
-    CircleShape, CrossShape, HybridShape, Level,
+    CircleShape, CrossShape, HybridShape, Level, LShape,
     OctagonShape, PillShape, RectShape, TempleShape,
 )
 from nhc.rendering._svg_helpers import CELL
@@ -51,6 +51,42 @@ def _room_shapely_polygon(room) -> Polygon | None:
             (px, py), (px + pw, py),
             (px + pw, py + ph), (px, py + ph),
         ])
+
+    if isinstance(shape, LShape):
+        notch = shape._notch_rect(r)
+        x0, y0 = r.x, r.y
+        x1, y1 = r.x2, r.y2
+        nx0, ny0 = notch.x, notch.y
+        nx1, ny1 = notch.x2, notch.y2
+
+        def _tp(tx: int, ty: int) -> tuple[float, float]:
+            return (tx * CELL, ty * CELL)
+
+        if shape.corner == "nw":
+            verts = [
+                _tp(nx1, y0), _tp(x1, y0),
+                _tp(x1, y1), _tp(x0, y1),
+                _tp(x0, ny1), _tp(nx1, ny1),
+            ]
+        elif shape.corner == "ne":
+            verts = [
+                _tp(x0, y0), _tp(nx0, y0),
+                _tp(nx0, ny1), _tp(x1, ny1),
+                _tp(x1, y1), _tp(x0, y1),
+            ]
+        elif shape.corner == "sw":
+            verts = [
+                _tp(x0, y0), _tp(x1, y0),
+                _tp(x1, y1), _tp(nx1, y1),
+                _tp(nx1, ny0), _tp(x0, ny0),
+            ]
+        else:  # "se"
+            verts = [
+                _tp(x0, y0), _tp(x1, y0),
+                _tp(x1, ny0), _tp(nx0, ny0),
+                _tp(nx0, y1), _tp(x0, y1),
+            ]
+        return Polygon(verts)
 
     if isinstance(
         shape, (OctagonShape, CrossShape, PillShape, TempleShape),

@@ -114,6 +114,56 @@ class TestLShapeBuildingWalls:
                 return
         pytest.skip("no L-shape mansion building in 200 seeds")
 
+    def test_lshape_building_floor_has_interior_clip(self):
+        """LShape building floors must build a non-empty dungeon
+        polygon so wood plank seams (and other floor detail) get
+        clipped to the interior and don't bleed onto walls."""
+        from nhc.dungeon.model import LShape
+        from nhc.rendering._cave_geometry import (
+            _build_cave_wall_geometry,
+        )
+        from nhc.rendering._dungeon_polygon import (
+            _build_dungeon_polygon,
+        )
+        for seed in range(200):
+            site = assemble_mansion("m", random.Random(seed))
+            for b in site.buildings:
+                if not isinstance(b.base_shape, LShape):
+                    continue
+                level = b.floors[0]
+                cave_rng = random.Random(seed + 0x5A17E5)
+                _, cave_poly, cave_tiles = (
+                    _build_cave_wall_geometry(level, cave_rng)
+                )
+                dp = _build_dungeon_polygon(
+                    level,
+                    cave_wall_poly=cave_poly,
+                    cave_tiles=cave_tiles,
+                )
+                assert dp is not None
+                assert not dp.is_empty, (
+                    "LShape level produced an empty dungeon polygon"
+                )
+                return
+        pytest.skip("no L-shape mansion building in 200 seeds")
+
+    def test_wood_lshape_building_floor_clips_seams(self):
+        """Wood seams on an LShape floor reference the interior
+        clip path."""
+        from nhc.dungeon.model import LShape
+        for seed in range(200):
+            site = assemble_mansion("m", random.Random(seed))
+            for b in site.buildings:
+                if not isinstance(b.base_shape, LShape):
+                    continue
+                level = b.floors[0]
+                level.interior_floor = "wood"
+                out = render_building_floor_svg(b, 0, seed=42)
+                assert "wood-interior-clip" in out
+                assert 'clip-path="url(#wood-interior-clip)"' in out
+                return
+        pytest.skip("no L-shape mansion building in 200 seeds")
+
 
 def _brick_rects(svg: str) -> list[dict]:
     """Extract <rect> elements whose fill is the brick colour."""
