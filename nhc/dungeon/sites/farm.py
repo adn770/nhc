@@ -13,7 +13,7 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    flip_building_stair_semantics, place_cross_floor_stairs,
+    place_cross_floor_stairs,
 )
 from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, Room, RoomShape, SurfaceType,
@@ -131,7 +131,6 @@ def _build_farm_building(
         interior_floor="wood",
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
-    flip_building_stair_semantics(building)
     _place_entry_door(building, rng)
     building.validate()
     return building

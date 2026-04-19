@@ -14,7 +14,7 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    flip_building_stair_semantics, place_cross_floor_stairs,
+    place_cross_floor_stairs,
 )
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, Room,
@@ -104,7 +104,6 @@ def assemble_tower(
         roof_material=roof_material,
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
-    flip_building_stair_semantics(building)
     door_xy = _place_entry_door(building, rng)
     building.validate()
 

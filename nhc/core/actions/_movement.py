@@ -235,8 +235,32 @@ class MoveAction(Action):
         return events
 
 
+def _building_upper_floor(level: "Level") -> bool:
+    """True when ``level`` is an upper floor of a building (not
+    the ground floor and not a dungeon). Used by the stair
+    actions to flip depth direction: inside a building, physical
+    up corresponds to a *higher* floor_index and therefore a
+    higher cache depth, while physical down is a lower depth."""
+    return (
+        getattr(level, "building_id", None) is not None
+        and (level.floor_index or 0) > 0
+    )
+
+
+def _building_floor(level: "Level") -> bool:
+    return getattr(level, "building_id", None) is not None
+
+
 class DescendStairsAction(Action):
-    """Descend to the next dungeon level."""
+    """Descend one step.
+
+    * Dungeon floor: depth + 1 (deeper).
+    * Building upper floor: depth - 1 (physically down = lower
+      floor index).
+    * Building ground floor with a descent stair (the only
+      ``stairs_down`` on that level): depth + 1, routed by the
+      game loop to the dungeon descent pipeline.
+    """
 
     async def validate(self, world: "World", level: "Level") -> bool:
         pos = world.get_component(self.actor, "Position")
@@ -247,18 +271,28 @@ class DescendStairsAction(Action):
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         from nhc.core.events import LevelEntered
+        if _building_upper_floor(level):
+            target = level.depth - 1
+        else:
+            target = level.depth + 1
         return [
             LevelEntered(
                 entity=self.actor,
                 level_id=level.id,
-                depth=level.depth + 1,
+                depth=target,
             ),
             MessageEvent(text=t("explore.descend")),
         ]
 
 
 class AscendStairsAction(Action):
-    """Ascend to the previous dungeon level."""
+    """Ascend one step.
+
+    * Dungeon floor: depth - 1 (shallower).
+    * Any building floor with a ``stairs_up``: depth + 1. In a
+      building ``floor_index + 1`` is physically *above*, so the
+      cache slot for the next floor up lives at ``depth + 1``.
+    """
 
     async def validate(self, world: "World", level: "Level") -> bool:
         pos = world.get_component(self.actor, "Position")
@@ -269,15 +303,19 @@ class AscendStairsAction(Action):
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         from nhc.core.events import LevelEntered
-        if level.depth <= 1:
-            return [MessageEvent(
-                text=t("explore.surface_blocked"),
-            )]
+        if _building_floor(level):
+            target = level.depth + 1
+        else:
+            if level.depth <= 1:
+                return [MessageEvent(
+                    text=t("explore.surface_blocked"),
+                )]
+            target = level.depth - 1
         return [
             LevelEntered(
                 entity=self.actor,
                 level_id=level.id,
-                depth=level.depth - 1,
+                depth=target,
             ),
             MessageEvent(text=t("explore.ascend")),
         ]

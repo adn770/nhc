@@ -34,7 +34,7 @@ from dataclasses import dataclass
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    flip_building_stair_semantics, place_cross_floor_stairs,
+    place_cross_floor_stairs,
 )
 from nhc.dungeon.model import (
     EntityPlacement, Level, LShape, Rect, RectShape, Room,
@@ -342,7 +342,6 @@ def _build_town_building(
         interior_floor=interior,
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
-    flip_building_stair_semantics(building)
     return building
 
 

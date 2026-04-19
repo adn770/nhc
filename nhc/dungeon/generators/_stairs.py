@@ -174,36 +174,3 @@ def place_cross_floor_stairs(
     return links
 
 
-def flip_building_stair_semantics(building: "Building") -> None:
-    """Flip cross-floor stair features on every floor of a building.
-
-    :func:`place_cross_floor_stairs` uses dungeon conventions: the
-    lower-index floor's stair feature is ``stairs_up`` because
-    climbing reaches a lower ``depth``. In a multi-floor building
-    the physical direction is inverted: ``floor_index + 1`` is the
-    floor *above*, and the engine treats that as a ``depth``
-    increase reached by the ``descend`` action. Flipping the
-    feature names on both sides of each cross-floor stair link
-    keeps the engine's floor-transition logic correct.
-
-    The descent stair (when ``building.descent is not None``) is
-    excluded from the flip: it leads physically downward to the
-    cellar, so it must stay as ``stairs_down`` on the ground
-    floor regardless of the cross-floor inversion.
-    """
-    from nhc.hexcrawl.model import DungeonRef
-
-    cross_tiles: set[tuple[int, int, int]] = set()
-    for link in building.stair_links:
-        if isinstance(link.to_floor, DungeonRef):
-            continue
-        cross_tiles.add((link.from_floor, *link.from_tile))
-        cross_tiles.add((link.to_floor, *link.to_tile))
-    swap = {"stairs_up": "stairs_down", "stairs_down": "stairs_up"}
-    for idx, floor in enumerate(building.floors):
-        for y, row in enumerate(floor.tiles):
-            for x, tile in enumerate(row):
-                if (idx, x, y) not in cross_tiles:
-                    continue
-                if tile.feature in swap:
-                    tile.feature = swap[tile.feature]

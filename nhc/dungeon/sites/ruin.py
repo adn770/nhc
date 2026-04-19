@@ -23,7 +23,7 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    flip_building_stair_semantics, place_cross_floor_stairs,
+    place_cross_floor_stairs,
 )
 from nhc.dungeon.model import (
     Level, Rect, RectShape, Room, RoomShape, SurfaceType,
@@ -158,7 +158,6 @@ def _build_ruin_building(
         interior_floor="stone",
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
-    flip_building_stair_semantics(building)
     return building
 
 
