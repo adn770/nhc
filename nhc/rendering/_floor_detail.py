@@ -870,7 +870,7 @@ WOOD_SEAM_WIDTH = 0.8
 # adjacent strips naturally stagger because each uses its own
 # random length sequence.
 WOOD_PLANK_WIDTH_PX = CELL / 4
-WOOD_PLANK_LENGTH_MIN = CELL * 1.5
+WOOD_PLANK_LENGTH_MIN = CELL * 0.5
 WOOD_PLANK_LENGTH_MAX = CELL * 2.5
 # Subtle grain overlay: two thin streaks per strip, one lighter
 # and one darker than the base fill, at low opacity so the base

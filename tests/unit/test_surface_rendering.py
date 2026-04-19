@@ -214,12 +214,12 @@ class TestWoodParquetConstants:
         from nhc.rendering._svg_helpers import CELL
         assert math.isclose(WOOD_PLANK_WIDTH_PX, CELL / 4)
 
-    def test_plank_length_range_is_1_5_to_2_5_tiles(self):
+    def test_plank_length_range_is_half_to_two_and_half_tiles(self):
         from nhc.rendering._floor_detail import (
             WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
         )
         from nhc.rendering._svg_helpers import CELL
-        assert math.isclose(WOOD_PLANK_LENGTH_MIN, CELL * 1.5)
+        assert math.isclose(WOOD_PLANK_LENGTH_MIN, CELL * 0.5)
         assert math.isclose(WOOD_PLANK_LENGTH_MAX, CELL * 2.5)
 
 
