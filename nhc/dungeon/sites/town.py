@@ -248,8 +248,14 @@ def _build_town_surface(
     min_x, max_x = min(xs), max(xs)
     min_y, max_y = min(ys), max(ys)
 
-    for y in range(max(0, min_y), min(surface.height, max_y + 1)):
-        for x in range(max(0, min_x), min(surface.width, max_x + 1)):
+    # Enclosure polygon sits at tile boundaries: vertex (x, y)
+    # aligns with the top-left corner of tile (x, y). A tile at
+    # (tx, ty) is inside the polygon only when tx+1 <= max_x and
+    # ty+1 <= max_y, so the STREET fill stops one row short of
+    # max_x / max_y -- otherwise tiles at max_x or max_y would
+    # sit outside the palisade and read as "one tile off".
+    for y in range(max(0, min_y), min(surface.height, max_y)):
+        for x in range(max(0, min_x), min(surface.width, max_x)):
             if (x, y) in blocked:
                 continue
             tile = Tile(

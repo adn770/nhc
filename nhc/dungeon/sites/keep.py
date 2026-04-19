@@ -274,8 +274,13 @@ def _build_keep_surface(
     min_x, max_x = min(xs), max(xs)
     min_y, max_y = min(ys), max(ys)
 
-    for y in range(max(0, min_y), min(surface.height, max_y + 1)):
-        for x in range(max(0, min_x), min(surface.width, max_x + 1)):
+    # Fortification polygon vertices align with tile boundaries;
+    # tile (tx, ty) is inside the polygon only when tx+1 <= max_x
+    # and ty+1 <= max_y, so STREET fill stops one row short of
+    # max_x / max_y so the wall reads as enclosing the courtyard
+    # instead of cutting through one tile of it.
+    for y in range(max(0, min_y), min(surface.height, max_y)):
+        for x in range(max(0, min_x), min(surface.width, max_x)):
             if (x, y) in blocked:
                 continue
             tile = Tile(

@@ -130,6 +130,28 @@ class TestKeepSurface:
                     t = site.surface.tiles[y][x]
                     assert t.surface_type != SurfaceType.STREET
 
+    def test_street_tiles_lie_inside_fortification_polygon(self):
+        """Every STREET tile must sit strictly inside the
+        fortification bbox so the wall reads as drawn ON the
+        black line enclosing the courtyard."""
+        site = assemble_keep("k1", random.Random(1))
+        xs = [p[0] for p in site.enclosure.polygon]
+        ys = [p[1] for p in site.enclosure.polygon]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        for y, row in enumerate(site.surface.tiles):
+            for x, t in enumerate(row):
+                if t.surface_type != SurfaceType.STREET:
+                    continue
+                assert min_x <= x and x + 1 <= max_x, (
+                    f"STREET tile x={x} outside wall "
+                    f"x-range [{min_x}, {max_x})"
+                )
+                assert min_y <= y and y + 1 <= max_y, (
+                    f"STREET tile y={y} outside wall "
+                    f"y-range [{min_y}, {max_y})"
+                )
+
 
 class TestKeepDescent:
     def test_descent_probability_roughly_matches_spec(self):
