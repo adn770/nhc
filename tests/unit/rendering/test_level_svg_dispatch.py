@@ -48,3 +48,33 @@ def test_plain_dungeon_level_unaffected():
     assert svg.startswith("<svg")
     assert BRICK_FILL not in svg
     assert STONE_FILL not in svg
+
+
+def test_building_interior_has_no_roofs():
+    """When the player enters a building, the view swaps to that
+    building's floor -- a dungeon-style interior. The site-surface
+    roof overlay must stay out of the interior SVG or the player
+    would see the rooftop they're standing under."""
+    site = assemble_site("town", "t_inside", random.Random(7))
+    ground = site.buildings[0].ground
+    svg = render_level_svg(ground, site, seed=7)
+    assert 'id="roof_fp_' not in svg, (
+        "building interior SVG must not contain site-surface roofs"
+    )
+    # Also no palisade: that's town-exterior chrome only.
+    assert 'fill="#8A5A2A"' not in svg
+
+
+def test_building_floor_beyond_ground_has_no_roofs():
+    """Upper floors of a multi-storey building also route through
+    render_building_floor_svg; no roofs should creep in."""
+    site = assemble_site("town", "t_upper", random.Random(13))
+    target = None
+    for b in site.buildings:
+        if len(b.floors) > 1:
+            target = b
+            break
+    if target is None:
+        return  # Seed 13 has no multi-storey; guard is still covered.
+    svg = render_level_svg(target.floors[1], site, seed=13)
+    assert 'id="roof_fp_' not in svg
