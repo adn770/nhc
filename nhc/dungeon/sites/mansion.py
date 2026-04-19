@@ -33,7 +33,6 @@ MANSION_BUILDING_X_START = 3
 MANSION_FLOOR_COUNT_RANGE = (1, 2)
 MANSION_DESCENT_PROBABILITY = 0.2
 MANSION_DESCENT_TEMPLATE = "procedural:crypt"
-MANSION_GARDEN_RING = 1
 MANSION_SHAPE_POOL = ("rect", "lshape")
 
 
@@ -235,35 +234,15 @@ def _build_mansion_surface(
                 for dy in range(-1, 2):
                     blocked.add((x + dx, y + dy))
 
-    # Garden ring around every building.
-    garden: set[tuple[int, int]] = set()
-    for b in buildings:
-        footprint = b.base_shape.floor_tiles(b.base_rect)
-        for (x, y) in footprint:
-            for dx in range(
-                -MANSION_GARDEN_RING - 1, MANSION_GARDEN_RING + 2,
-            ):
-                for dy in range(
-                    -MANSION_GARDEN_RING - 1,
-                    MANSION_GARDEN_RING + 2,
-                ):
-                    ax, ay = x + dx, y + dy
-                    if (ax, ay) in blocked:
-                        continue
-                    if not surface.in_bounds(ax, ay):
-                        continue
-                    dist = max(abs(dx), abs(dy))
-                    if dist == MANSION_GARDEN_RING + 1:
-                        garden.add((ax, ay))
-
+    # Every outdoor tile is garden. Mansions sit on continuous
+    # manicured grounds -- buildings are the only non-garden
+    # surface.
     for y in range(surface.height):
         for x in range(surface.width):
             if (x, y) in blocked:
                 continue
-            tile = Tile(terrain=Terrain.FLOOR)
-            if (x, y) in garden:
-                tile.surface_type = SurfaceType.GARDEN
-            # Non-garden outdoor tiles stay plain FLOOR with
-            # SurfaceType.NONE -- mansion surface is not FIELD.
-            surface.tiles[y][x] = tile
+            surface.tiles[y][x] = Tile(
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.GARDEN,
+            )
     return surface

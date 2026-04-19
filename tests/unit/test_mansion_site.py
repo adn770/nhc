@@ -94,14 +94,25 @@ def _door_tiles(level) -> list[tuple[int, int]]:
 
 
 class TestMansionSurface:
-    def test_garden_surrounds_compound(self):
-        """Every building has GARDEN tiles in the ring just outside
-        its footprint (ignoring shared walls with neighbours)."""
+    def test_garden_fills_every_outdoor_tile(self):
+        """The entire outdoor area (every FLOOR tile outside the
+        building footprints) is GARDEN. No "lawn" NONE tiles."""
+        from nhc.dungeon.model import Terrain
         site = assemble_mansion("m1", random.Random(1))
-        gardens = _surface_count(site, SurfaceType.GARDEN)
-        # Even the smallest 2-building mansion produces several
-        # garden tiles.
-        assert gardens >= 10
+        outdoor_floor = 0
+        gardens = 0
+        for row in site.surface.tiles:
+            for t in row:
+                if t.terrain != Terrain.FLOOR:
+                    continue
+                outdoor_floor += 1
+                if t.surface_type == SurfaceType.GARDEN:
+                    gardens += 1
+        assert outdoor_floor > 0
+        assert gardens == outdoor_floor, (
+            f"{outdoor_floor - gardens} FLOOR tiles outside "
+            f"the garden fill"
+        )
 
     def test_surface_has_no_field_or_street(self):
         site = assemble_mansion("m1", random.Random(1))
