@@ -26,6 +26,8 @@ FORTIFICATION_MERLON_FILL = "#FFFFFF"
 FORTIFICATION_CRENEL_FILL = "#000000"
 FORTIFICATION_SIZE = 8.0             # merlon side + crenel short side
 FORTIFICATION_RATIO = math.sqrt(2)   # crenel long / short (DIN A)
+FORTIFICATION_TOWER_SCALE = 1.5      # "tower" corner size multiplier
+FORTIFICATION_CORNER_STYLES = ("merlon", "tower", "diamond")
 
 
 # ── Palisade rendering constants (initial values, tunable) ───────
@@ -140,68 +142,178 @@ def _fortification_rect(
 def render_fortification_enclosure(
     polygon: list[tuple[float, float]],
     gates: list[tuple[int, float, float]] | None = None,
+    corner_style: str = "merlon",
 ) -> list[str]:
-    """Render a closed fortification polygon with optional gates.
+    """Render a closed fortification polygon with corner emphasis.
 
-    ``polygon`` is a list of pixel-coordinate vertices; the closing
-    edge from the last point back to the first is implicit.
+    Each polygon vertex carries a corner shape (merlon / tower /
+    diamond per ``corner_style``). Each edge between corners is
+    inset by the corner's extent so there is no overlap, then
+    filled with a centered ``C M C M ... C`` chain that begins
+    and ends with a crenel; leftover space is split evenly so the
+    pattern is visually centered between the two corners.
 
-    ``gates`` is a list of ``(edge_index, t_center, half_len_px)``.
-    ``edge_index`` addresses the edge from ``polygon[i]`` to
-    ``polygon[(i + 1) % n]``; ``t_center`` is the gate midpoint
-    parameter along that edge in ``[0, 1]``; ``half_len_px`` is the
-    half-width of the gap in pixels. Gates on the same edge merge
-    if their gaps overlap.
-
-    When no gates are given, the polygon is closed and stroked as a
-    single polyline. With gates, each edge is split into
-    sub-polylines by its gate gaps and every surviving segment is
-    stroked independently (base + overlay).
+    Gates cut polygon edges into sub-segments; gate endpoints are
+    NOT polygon vertices, so no corner shape appears at a gate
+    cut. A sub-segment that bounds a gate cut on one side is still
+    inset on the polygon-vertex side and gets its own centered
+    chain.
     """
     if not polygon:
         return []
     n = len(polygon)
     if n < 2:
         return []
+    if corner_style not in FORTIFICATION_CORNER_STYLES:
+        raise ValueError(
+            f"unknown corner_style: {corner_style!r}; "
+            f"expected one of {FORTIFICATION_CORNER_STYLES}"
+        )
 
-    if not gates:
-        closed = list(polygon) + [polygon[0]]
-        return render_fortification_polyline(closed)
-
-    # Group gates by edge index.
+    # Group gates by edge index (parametric t still relative to
+    # the ORIGINAL edge, not the inset edge; we translate below).
     by_edge: dict[int, list[tuple[float, float]]] = {}
-    for edge_idx, t_center, half_px in gates:
-        if not 0 <= edge_idx < n:
-            continue
-        a = polygon[edge_idx]
-        b = polygon[(edge_idx + 1) % n]
-        edge_len = ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5
-        if edge_len < 1e-6:
-            continue
-        half_t = half_px / edge_len
-        lo = max(0.0, t_center - half_t)
-        hi = min(1.0, t_center + half_t)
-        if hi > lo:
-            by_edge.setdefault(edge_idx, []).append((lo, hi))
+    if gates:
+        for edge_idx, t_center, half_px in gates:
+            if not 0 <= edge_idx < n:
+                continue
+            a = polygon[edge_idx]
+            b = polygon[(edge_idx + 1) % n]
+            edge_len = math.hypot(b[0] - a[0], b[1] - a[1])
+            if edge_len < 1e-6:
+                continue
+            half_t = half_px / edge_len
+            lo = max(0.0, t_center - half_t)
+            hi = min(1.0, t_center + half_t)
+            if hi > lo:
+                by_edge.setdefault(edge_idx, []).append((lo, hi))
 
-    # If every gate was rejected, fall back to the closed-loop render
-    # so the caller sees a single polyline (consistent with the
-    # gates=None path).
-    if not by_edge:
-        closed = list(polygon) + [polygon[0]]
-        return render_fortification_polyline(closed)
-
-    segments: list[list[tuple[float, float]]] = []
+    corner_half = _corner_extent(corner_style)
+    out: list[str] = []
     for i in range(n):
         a = polygon[i]
         b = polygon[(i + 1) % n]
-        cuts = _merge_cuts(by_edge.get(i, []))
-        subs = _subsegments(a, b, cuts)
-        segments.extend(subs)
+        edge_len = math.hypot(b[0] - a[0], b[1] - a[1])
+        if edge_len <= 2 * corner_half + 1e-6:
+            continue
+        ux = (b[0] - a[0]) / edge_len
+        uy = (b[1] - a[1]) / edge_len
+        a_in = (
+            a[0] + ux * corner_half, a[1] + uy * corner_half,
+        )
+        b_in = (
+            b[0] - ux * corner_half, b[1] - uy * corner_half,
+        )
 
+        # Translate cuts from [0, 1] on the original edge to
+        # [0, 1] on the inset edge.
+        cuts = _merge_cuts(by_edge.get(i, []))
+        t_inset = corner_half / edge_len
+        denom = 1.0 - 2.0 * t_inset
+        inset_cuts: list[tuple[float, float]] = []
+        if denom > 1e-9:
+            for lo, hi in cuts:
+                new_lo = max(0.0, (lo - t_inset) / denom)
+                new_hi = min(1.0, (hi - t_inset) / denom)
+                if new_hi > new_lo:
+                    inset_cuts.append((new_lo, new_hi))
+
+        subs = _subsegments(a_in, b_in, inset_cuts)
+        for sub in subs:
+            out.extend(_centered_fortification_chain(sub[0], sub[1]))
+
+    # Corner shapes drawn last so they sit on top of any edge
+    # geometry that happened to land near the vertex.
+    for (x, y) in polygon:
+        out.append(_corner_shape(x, y, corner_style))
+    return out
+
+
+def _corner_extent(corner_style: str) -> float:
+    """Half the corner shape's reach along each edge direction."""
+    if corner_style == "tower":
+        return FORTIFICATION_SIZE * FORTIFICATION_TOWER_SCALE / 2.0
+    if corner_style == "diamond":
+        return FORTIFICATION_SIZE * math.sqrt(2) / 2.0
+    return FORTIFICATION_SIZE / 2.0
+
+
+def _corner_shape(x: float, y: float, corner_style: str) -> str:
+    size = FORTIFICATION_SIZE
+    if corner_style == "tower":
+        tsize = size * FORTIFICATION_TOWER_SCALE
+        return _fortification_rect(
+            x, y, tsize, tsize, FORTIFICATION_MERLON_FILL,
+        )
+    if corner_style == "diamond":
+        half = size / 2.0
+        return (
+            f'<rect x="{x - half:.1f}" y="{y - half:.1f}" '
+            f'width="{size:.1f}" height="{size:.1f}" '
+            f'fill="{FORTIFICATION_MERLON_FILL}" '
+            f'stroke="{FORTIFICATION_STROKE}" '
+            f'stroke-width="{FORTIFICATION_STROKE_WIDTH}" '
+            f'transform="rotate(45 {x:.1f} {y:.1f})"/>'
+        )
+    return _fortification_rect(
+        x, y, size, size, FORTIFICATION_MERLON_FILL,
+    )
+
+
+def _centered_fortification_chain(
+    a: tuple[float, float], b: tuple[float, float],
+) -> list[str]:
+    """Emit a ``C M C M ... C`` chain centered inside segment A-B.
+
+    A and B are the endpoints of an already-inset, possibly-cut
+    sub-segment. The chain starts and ends with crenel so the
+    abutting corner merlons take the merlon role. Leftover space
+    is split evenly between the two ends.
+    """
+    ax, ay = a
+    bx, by = b
+    dx = bx - ax
+    dy = by - ay
+    seg_len = math.hypot(dx, dy)
+    if seg_len < 1e-6:
+        return []
+    horizontal = abs(dy) < 1e-6 and abs(dx) > 1e-6
+    vertical = abs(dx) < 1e-6 and abs(dy) > 1e-6
+    if not (horizontal or vertical):
+        return []
+
+    size = FORTIFICATION_SIZE
+    rect_len = size * FORTIFICATION_RATIO
+    # Max k so k crenels + (k - 1) merlons fit in seg_len.
+    k = int((seg_len + size) / (rect_len + size))
+    if k < 1:
+        # Edge can't hold even one crenel between the two corners.
+        return []
+    used = k * rect_len + (k - 1) * size
+    offset = (seg_len - used) / 2.0
+
+    ux = dx / seg_len
+    uy = dy / seg_len
     out: list[str] = []
-    for seg in segments:
-        out.extend(render_fortification_polyline(seg))
+    pos = offset
+    alternate = 1  # start with crenel
+    for _ in range(2 * k - 1):
+        length = size if alternate == 0 else rect_len
+        cx = ax + ux * (pos + length / 2.0)
+        cy = ay + uy * (pos + length / 2.0)
+        if horizontal:
+            shape_w, shape_h = length, size
+        else:
+            shape_w, shape_h = size, length
+        fill = (
+            FORTIFICATION_MERLON_FILL if alternate == 0
+            else FORTIFICATION_CRENEL_FILL
+        )
+        out.append(
+            _fortification_rect(cx, cy, shape_w, shape_h, fill),
+        )
+        pos += length
+        alternate = 1 - alternate
     return out
 
 

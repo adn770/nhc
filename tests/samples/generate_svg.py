@@ -726,6 +726,7 @@ def generate_building_walls(outdir: Path) -> None:
 def generate_enclosure_demos(outdir: Path) -> None:
     """Fortification + palisade reference SVGs on a shared polygon."""
     from nhc.rendering._enclosures import (
+        FORTIFICATION_CORNER_STYLES,
         render_fortification_enclosure,
         render_palisade_enclosure,
     )
@@ -741,10 +742,16 @@ def generate_enclosure_demos(outdir: Path) -> None:
         (1, 0.5, 30.0),  # right edge midpoint, 60px-wide gap
     ]
 
-    fort = render_fortification_enclosure(polygon, gates=gates)
-    svg = _svg_frame(400, 280, "".join(fort))
-    (edir / "fortification_reference.svg").write_text(svg)
-    print(f"  {edir}/fortification_reference.svg")
+    # One fortification reference per corner style so the variants
+    # can be eyeballed side by side.
+    for style in FORTIFICATION_CORNER_STYLES:
+        frags = render_fortification_enclosure(
+            polygon, gates=gates, corner_style=style,
+        )
+        svg = _svg_frame(400, 280, "".join(frags))
+        path = edir / f"fortification_{style}_reference.svg"
+        path.write_text(svg)
+        print(f"  {path}")
 
     palisade = render_palisade_enclosure(polygon, gates=gates, seed=5)
     svg = _svg_frame(400, 280, "".join(palisade))

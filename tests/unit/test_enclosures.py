@@ -12,12 +12,14 @@ import re
 import pytest
 
 from nhc.rendering._enclosures import (
+    FORTIFICATION_CORNER_STYLES,
     FORTIFICATION_CRENEL_FILL,
     FORTIFICATION_MERLON_FILL,
     FORTIFICATION_RATIO,
     FORTIFICATION_SIZE,
     FORTIFICATION_STROKE,
     FORTIFICATION_STROKE_WIDTH,
+    FORTIFICATION_TOWER_SCALE,
     PALISADE_CIRCLE_STEP,
     PALISADE_DOOR_LENGTH_PX,
     PALISADE_FILL,
@@ -146,8 +148,9 @@ class TestFortificationClosedEnclosure:
     def test_rect_no_gates_emits_shapes_on_every_edge(self):
         polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
         out = render_fortification_enclosure(polygon)
-        assert _merlon_count(out) >= 12
-        assert _crenel_count(out) >= 12
+        # 4 corners + alternating on edges.
+        assert _merlon_count(out) >= 4 + 4
+        assert _crenel_count(out) >= 8
 
     def test_rect_no_gates_uses_merlon_and_crenel_fills(self):
         polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
@@ -155,6 +158,154 @@ class TestFortificationClosedEnclosure:
         fills = {a["fill"] for a in _parse_rects(out)}
         assert FORTIFICATION_MERLON_FILL in fills
         assert FORTIFICATION_CRENEL_FILL in fills
+
+
+class TestFortificationCornerMerlons:
+    def test_rect_emits_one_corner_merlon_per_vertex(self):
+        """Corner merlons sit exactly at each polygon vertex."""
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        out = render_fortification_enclosure(polygon)
+        rects = _parse_rects(out)
+        corner_centers = set()
+        size = FORTIFICATION_SIZE
+        for a in rects:
+            if a["fill"] != FORTIFICATION_MERLON_FILL:
+                continue
+            if not math.isclose(float(a["width"]), size):
+                continue
+            if not math.isclose(float(a["height"]), size):
+                continue
+            cx = float(a["x"]) + size / 2
+            cy = float(a["y"]) + size / 2
+            corner_centers.add((round(cx, 2), round(cy, 2)))
+        for (x, y) in polygon:
+            assert (float(x), float(y)) in corner_centers
+
+    def test_first_edge_shape_is_crenel(self):
+        """The corner provides the merlon; the edge pattern starts
+        with a crenel."""
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        out = render_fortification_enclosure(polygon)
+        # Pick the leftmost non-corner rect on the bottom edge.
+        rects = _parse_rects(out)
+        bottom = [
+            a for a in rects
+            if math.isclose(
+                float(a["y"]) + float(a["height"]) / 2, 0, abs_tol=0.1,
+            )
+        ]
+        # Exclude the corner merlons at (0, 0) and (200, 0).
+        non_corner = [
+            a for a in bottom
+            if not math.isclose(
+                float(a["x"]) + float(a["width"]) / 2, 0, abs_tol=0.1,
+            ) and not math.isclose(
+                float(a["x"]) + float(a["width"]) / 2, 200,
+                abs_tol=0.1,
+            )
+        ]
+        non_corner.sort(key=lambda a: float(a["x"]))
+        assert non_corner
+        assert non_corner[0]["fill"] == FORTIFICATION_CRENEL_FILL
+
+    def test_edge_pattern_is_centered(self):
+        """Leftover space on an edge is split evenly so the first
+        and last non-corner shapes are equidistant from their
+        nearest corner merlon."""
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        out = render_fortification_enclosure(polygon)
+        rects = _parse_rects(out)
+        size = FORTIFICATION_SIZE
+        # Bottom edge only.
+        bottom_edge_rects = []
+        for a in rects:
+            h = float(a["height"])
+            cy = float(a["y"]) + h / 2
+            if not math.isclose(cy, 0, abs_tol=0.1):
+                continue
+            bottom_edge_rects.append(a)
+        # Exclude the two corner merlons.
+        non_corner = [
+            a for a in bottom_edge_rects
+            if not (
+                math.isclose(float(a["width"]), size)
+                and math.isclose(float(a["height"]), size)
+                and (
+                    math.isclose(
+                        float(a["x"]) + size / 2, 0, abs_tol=0.1,
+                    )
+                    or math.isclose(
+                        float(a["x"]) + size / 2, 200, abs_tol=0.1,
+                    )
+                )
+            )
+        ]
+        non_corner.sort(key=lambda a: float(a["x"]))
+        assert non_corner
+        # Distance from left corner merlon's right edge (x=4) to
+        # first shape's left edge should equal distance from last
+        # shape's right edge to right corner merlon's left edge
+        # (x=196), within small tolerance.
+        left_gap = float(non_corner[0]["x"]) - size / 2
+        right_edge_x = (
+            float(non_corner[-1]["x"]) + float(non_corner[-1]["width"])
+        )
+        right_gap = (200 - size / 2) - right_edge_x
+        assert math.isclose(left_gap, right_gap, abs_tol=0.2), (
+            f"pattern not centered: left_gap={left_gap:.2f}, "
+            f"right_gap={right_gap:.2f}"
+        )
+
+
+class TestFortificationCornerStyles:
+    def test_corner_styles_contains_three(self):
+        assert set(FORTIFICATION_CORNER_STYLES) == {
+            "merlon", "tower", "diamond",
+        }
+
+    def test_default_corner_style_is_merlon(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        default = render_fortification_enclosure(polygon)
+        explicit = render_fortification_enclosure(
+            polygon, corner_style="merlon",
+        )
+        assert default == explicit
+
+    def test_tower_style_uses_larger_corner(self):
+        """Tower-style corners have side FORTIFICATION_SIZE * scale."""
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        out = render_fortification_enclosure(
+            polygon, corner_style="tower",
+        )
+        rects = _parse_rects(out)
+        expected = FORTIFICATION_SIZE * FORTIFICATION_TOWER_SCALE
+        corners_found = 0
+        for a in rects:
+            if a["fill"] != FORTIFICATION_MERLON_FILL:
+                continue
+            w = float(a["width"])
+            h = float(a["height"])
+            if math.isclose(w, expected) and math.isclose(h, expected):
+                corners_found += 1
+        assert corners_found == 4
+
+    def test_diamond_style_corners_carry_rotation(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        out = render_fortification_enclosure(
+            polygon, corner_style="diamond",
+        )
+        rotated = [
+            s for s in out
+            if "<rect" in s and "rotate(45" in s
+        ]
+        assert len(rotated) == 4
+
+    def test_invalid_corner_style_raises(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        with pytest.raises(ValueError):
+            render_fortification_enclosure(
+                polygon, corner_style="spaceship",
+            )
 
 
 class TestFortificationGateGap:
