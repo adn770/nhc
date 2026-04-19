@@ -24,13 +24,13 @@ class DeathHandler:
     def handle_player_death(self) -> bool:
         """Decide what happens when the player's HP hits 0.
 
-        In :attr:`GameMode.HEX_EASY` shows a Permadeath /
-        Cheat-Death selection menu via
+        On an ``easy`` difficulty game (any world type) shows a
+        Permadeath / Cheat-Death selection menu via
         :meth:`renderer.show_selection_menu`. On a cheat-death
         pick, applies :meth:`cheat_death` and returns ``True``
         so the game loop resumes. Any other pick (or any other
-        mode) returns ``False``, letting the loop proceed with
-        the classic end-screen path.
+        difficulty) returns ``False``, letting the loop proceed
+        with the classic end-screen path.
 
         A renderer that lacks ``show_selection_menu`` (or returns
         ``None``) defaults to permadeath so a headless / scripted
@@ -68,7 +68,7 @@ class DeathHandler:
     def cheat_death(self) -> None:
         """Respawn the player at the last hub with penalties.
 
-        Only valid in :attr:`GameMode.HEX_EASY`. Resets the player's
+        Only valid in an easy-difficulty hexcrawl game. Resets the player's
         gold to 0, strips their carried inventory (items destroyed),
         disbands the expedition party (henchmen destroyed),
         teleports the player to ``hex_world.last_hub``, advances the

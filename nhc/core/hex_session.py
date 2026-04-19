@@ -28,7 +28,7 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.generator import generate_continental_world
-from nhc.hexcrawl.mode import Difficulty, GameMode
+from nhc.hexcrawl.mode import Difficulty
 from nhc.hexcrawl.pack import load_pack
 from nhc.i18n import t
 from nhc.rules.chargen import generate_character
@@ -176,7 +176,7 @@ class HexSession:
         char = generate_character(seed=game.seed)
         inv_slots = 10 + char.constitution
         gold = char.gold
-        if game.world_mode is GameMode.HEX_EASY:
+        if game.world_mode.difficulty is Difficulty.EASY:
             gold *= 2
         game.player_id = self.world.create_entity({
             "Position": Position(x=-1, y=-1, level_id="overland"),
@@ -250,7 +250,7 @@ class HexSession:
             assert hub is not None, "generator must set last_hub"
             game.hex_world.reveal(hub)
 
-        if game.world_mode is GameMode.HEX_SURVIVAL:
+        if game.world_mode.difficulty is Difficulty.SURVIVAL:
             game.hex_world.revealed.clear()
             game.hex_world.reveal(macro)
 
