@@ -27,8 +27,6 @@ class TestTransformRegistry:
         assert "add_cart_tracks" in TRANSFORM_REGISTRY
         assert "add_ore_deposits" in TRANSFORM_REGISTRY
         assert "narrow_corridors" in TRANSFORM_REGISTRY
-        assert "add_battlements" in TRANSFORM_REGISTRY
-        assert "add_gate" in TRANSFORM_REGISTRY
 
 
 class TestAddCartTracks:

@@ -23,7 +23,6 @@ class TestStructuralTemplate:
 
     def test_registry_has_known_templates(self):
         assert "procedural:tower" in TEMPLATES
-        assert "procedural:keep" in TEMPLATES
         assert "procedural:crypt" in TEMPLATES
         assert "procedural:mine" in TEMPLATES
 
@@ -34,13 +33,6 @@ class TestStructuralTemplate:
         assert t.layout_strategy == "radial"
         assert t.room_size_override is not None
         assert t.room_size_override.max <= 7
-
-    def test_keep_template_properties(self):
-        t = TEMPLATES["procedural:keep"]
-        assert t.layout_strategy == "walled"
-        # Wall + gate behavior is driven by transforms, not flags.
-        assert "add_battlements" in t.transforms
-        assert "add_gate" in t.transforms
 
     def test_crypt_template_properties(self):
         t = TEMPLATES["procedural:crypt"]

@@ -126,7 +126,7 @@ class TestPlacePattern:
             cell for cell in cells.values()
             if cell.feature == HexFeatureType.KEEP
         ]
-        assert keeps[0].dungeon.template == "procedural:keep"
+        assert keeps[0].dungeon.template == "site:keep"
 
     def test_returns_false_when_no_space(self):
         """Pattern fails gracefully when there's no room."""

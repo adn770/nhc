@@ -41,13 +41,6 @@ TEMPLATES: dict[str, StructuralTemplate] = {
         layout_strategy="radial",
         room_size_override=Range(4, 7),
     ),
-    "procedural:keep": StructuralTemplate(
-        name="procedural:keep",
-        base_generator="bsp",
-        preferred_shapes=["rect", "octagon"],
-        layout_strategy="walled",
-        transforms=["add_battlements", "add_gate"],
-    ),
     "procedural:crypt": StructuralTemplate(
         name="procedural:crypt",
         base_generator="bsp",

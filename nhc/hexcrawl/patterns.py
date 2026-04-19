@@ -53,7 +53,7 @@ CAVES_OF_CHAOS = FeaturePattern(
     name="caves_of_chaos",
     anchor_feature=HexFeatureType.KEEP,
     anchor_biomes=(Biome.GREENLANDS, Biome.HILLS),
-    anchor_template="procedural:keep",
+    anchor_template="site:keep",
     satellite_specs=[
         SatelliteSpec(
             feature=HexFeatureType.CAVE,

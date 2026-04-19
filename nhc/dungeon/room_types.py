@@ -259,71 +259,11 @@ def assign_room_types(level: Level, rng: random.Random) -> None:
             room.tags.append("standard")
             standard_count += 1
 
-    # ── Keep-specific overrides ──
-    template = (level.metadata.template if level.metadata else None)
-    if template == "procedural:keep":
-        _assign_keep_types(level, connections, rng)
-
     tag_counts = Counter(
         t for r in level.rooms for t in r.tags
         if t not in ("entry", "exit")
     )
     logger.info("Room types assigned: %s", dict(tag_counts))
-
-
-def _assign_keep_types(
-    level: Level,
-    connections: dict[str, int],
-    rng: random.Random,
-) -> None:
-    """Override room types for keep-themed levels.
-
-    - Largest room → courtyard (always, regardless of prior type)
-    - Entry/exit rooms → gate
-    - Remaining standard/corridor rooms → barracks
-    Specialized rooms (shrine, library, etc.) keep their types.
-    """
-    preserved = {"entry", "exit", "vault"}
-    non_vault = [r for r in level.rooms if "vault" not in r.tags]
-    if not non_vault:
-        return
-
-    # Find the largest room for courtyard
-    largest = max(
-        non_vault,
-        key=lambda r: r.rect.width * r.rect.height,
-    )
-
-    # Force courtyard on the largest room. Keeps are the player's
-    # safe base (Caves of Chaos pattern), so the courtyard and
-    # barracks rooms are tagged "safe" to suppress hostile spawns
-    # in the populator.
-    largest.tags = [t for t in largest.tags if t in preserved]
-    largest.tags.append("courtyard")
-    largest.tags.append("safe")
-
-    for room in level.rooms:
-        if "vault" in room.tags or room is largest:
-            continue
-        # Replace generic types with keep-specific ones
-        generic = {"standard", "corridor"}
-        has_generic = bool(generic & set(room.tags))
-        if not has_generic:
-            # Keep specialized rooms (shrine, etc.) but add gate
-            # if it's an entry/exit
-            if "entry" in room.tags or "exit" in room.tags:
-                if "gate" not in room.tags:
-                    room.tags.append("gate")
-            continue
-
-        # Remove generic tags
-        room.tags = [t for t in room.tags if t not in generic]
-
-        if "entry" in room.tags or "exit" in room.tags:
-            room.tags.append("gate")
-        else:
-            room.tags.append("barracks")
-            room.tags.append("safe")
 
 
 def _paint_room(

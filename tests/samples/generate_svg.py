@@ -581,7 +581,6 @@ TEMPLATE_SPECS: list[tuple[str, str, int, int, str | None]] = [
     ("tower",   "procedural:tower",  60,  40, None),
     ("crypt",   "procedural:crypt",  80,  40, None),
     ("mine",    "procedural:mine",   80,  40, None),
-    ("keep",    "procedural:keep",   60,  40, None),
 ]
 
 # Underworld biome samples: (label, theme, width, height)

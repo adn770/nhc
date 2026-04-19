@@ -208,7 +208,11 @@ def _template_for(feature: HexFeatureType) -> str:
         HexFeatureType.RUIN: "procedural:ruin",
         HexFeatureType.TOWER: "procedural:tower",
         HexFeatureType.GRAVEYARD: "procedural:crypt",
-        HexFeatureType.KEEP: "procedural:keep",
+        # Keep hexes now route through the keep site assembler
+        # (see site_kind mapping below); the template string is
+        # only used for seeding, so a neutral placeholder keeps
+        # the dungeon_seed hash stable across world generations.
+        HexFeatureType.KEEP: "site:keep",
     }.get(feature, "procedural:cave")
 
 

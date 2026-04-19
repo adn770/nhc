@@ -194,59 +194,8 @@ def plan_linear(
     return pairs, entrance, exit_idx
 
 
-def plan_walled(
-    rects: list[Rect], connectivity: float, rng: random.Random,
-) -> tuple[list[tuple[int, int]], int, int]:
-    """Walled layout: courtyard hub with perimeter guard rooms.
-
-    The largest room becomes the courtyard (entrance/hub).
-    All other rooms connect to it. Rooms closest to the map
-    edges act as guard positions. The exit is placed at the
-    room farthest from the courtyard.
-    """
-    if len(rects) < 2:
-        return [], 0, 0
-
-    # Courtyard = largest room by area
-    courtyard = max(
-        range(len(rects)),
-        key=lambda i: rects[i].width * rects[i].height,
-    )
-
-    pairs: list[tuple[int, int]] = []
-    connected: set[tuple[int, int]] = set()
-
-    others = [i for i in range(len(rects)) if i != courtyard]
-
-    # Connect every room to the courtyard
-    for o in others:
-        pair = (min(courtyard, o), max(courtyard, o))
-        if pair not in connected:
-            connected.add(pair)
-            pairs.append(pair)
-
-    # Add some neighbor-to-neighbor links for patrol routes
-    neighbors = _find_neighbors(rects, max_dist=20)
-    for i, j in neighbors:
-        if i == courtyard or j == courtyard:
-            continue
-        pair = (min(i, j), max(i, j))
-        if pair not in connected and rng.random() < connectivity * 0.4:
-            connected.add(pair)
-            pairs.append(pair)
-
-    # Exit = farthest room from courtyard
-    exit_idx = max(
-        others,
-        key=lambda i: _center_dist(rects[courtyard], rects[i]),
-    )
-
-    return pairs, courtyard, exit_idx
-
-
 LAYOUT_STRATEGIES: dict[str, callable] = {
     "default": plan_default,
     "radial": plan_radial,
     "linear": plan_linear,
-    "walled": plan_walled,
 }
