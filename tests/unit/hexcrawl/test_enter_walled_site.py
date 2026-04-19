@@ -36,6 +36,56 @@ class _FakeClient:
         return _sync
 
 
+class _RecordingClient:
+    """Fake client that records every send_floor_change call and
+    pretends to render a unique SVG string per Level id so
+    ``_svg_cache`` actually ends up storing string values (instead
+    of the __getattr__ lambdas of the bare _FakeClient).
+    """
+
+    game_mode = "classic"
+    lang = "en"
+    edge_doors = False
+
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+        self.floor_svg: str = ""
+        self.floor_svg_id: str = ""
+        self.calls: list[dict] = []
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+
+        def _sync(*a, **kw):
+            return None
+
+        return _sync
+
+    def send_floor_change(
+        self, level, world, player_id, turn, *,
+        seed=0, floor_svg=None, floor_svg_id=None,
+        hatch_distance=2.0, site=None,
+    ) -> None:
+        if floor_svg and floor_svg_id:
+            self.floor_svg = floor_svg
+            self.floor_svg_id = floor_svg_id
+            cache_hit = True
+        else:
+            # Pretend to render a Level-specific SVG with the
+            # Level's id woven into the body so a collision is
+            # detectable by inspecting floor_svg.
+            self.floor_svg = f"<svg data-level='{level.id}'/>"
+            self.floor_svg_id = f"id-{level.id}"
+            cache_hit = False
+        self.calls.append({
+            "level_id": level.id,
+            "depth": level.depth,
+            "cache_hit": cache_hit,
+            "floor_svg_id": self.floor_svg_id,
+        })
+
+
 @pytest.fixture(scope="module", autouse=True)
 def _bootstrap():
     i18n_init("en")
@@ -224,3 +274,57 @@ async def test_keep_entry_pre_reveals_non_void_tiles(tmp_path) -> None:
                 explored += 1
     assert total > 0
     assert explored == total
+
+
+@pytest.mark.asyncio
+async def test_svg_cache_keyed_by_level_id_not_depth(tmp_path) -> None:
+    """Regression: an earlier `_svg_cache` was keyed by depth,
+    which collided when the town surface (depth=0 via
+    Level.create_empty but passed as 1 to _notify_floor_change) and
+    a building ground floor (depth=1 by construction) both landed
+    in the same slot. The building interior was served the cached
+    town-surface SVG as a result. Keying by level.id avoids the
+    collision."""
+    g = _make_game(tmp_path)
+    g.renderer = _RecordingClient()
+    _attach_town_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    surface_level = g.level
+    assert surface_level is not None
+    assert g.renderer.floor_svg.endswith(f"data-level='{surface_level.id}'/>")
+    # Cache must be keyed by level.id, not a depth integer.
+    assert surface_level.id in g._svg_cache
+    assert all(
+        isinstance(k, str) for k in g._svg_cache.keys()
+    ), f"_svg_cache keys must be strings, got {list(g._svg_cache)}"
+
+    # Swap into one of the buildings (ground floor). Pick any
+    # walkable tile from the ground floor to seed the position.
+    from nhc.dungeon.model import Terrain
+    assert g._active_site is not None
+    building = g._active_site.buildings[0]
+    bx = by = 1
+    for y, row in enumerate(building.ground.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain == Terrain.FLOOR:
+                bx, by = x, y
+                break
+        if (bx, by) != (1, 1):
+            break
+    g._swap_to_building(building, bx, by)
+    # After swap, the recorder should NOT have served the cached
+    # surface SVG for the building interior. Either it's a miss
+    # and rendered fresh, or it has the building's own Level id
+    # stitched in (our _RecordingClient proves this via the body).
+    interior_level = g.level
+    assert interior_level is not None
+    assert interior_level.id != surface_level.id
+    assert g.renderer.floor_svg_id != f"id-{surface_level.id}", (
+        "building interior must not reuse the surface SVG cache slot"
+    )
+    assert (
+        f"data-level='{interior_level.id}'"
+        in g.renderer.floor_svg
+    ), (
+        "floor_svg body must reflect the new (interior) Level's id"
+    )

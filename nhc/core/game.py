@@ -302,7 +302,13 @@ class Game:
         self._floor_cache: dict[
             "int | tuple[int, int, int]", tuple
         ] = {}
-        self._svg_cache: dict[int, tuple[str, str]] = {}  # depth → (uuid, svg)
+        # level.id → (uuid, svg). Keyed by Level.id rather than
+        # depth because site-surface Levels share depth=0 with
+        # overland dungeon floors, and a building's ground floor
+        # shares depth=1 with its host site's interior, so a
+        # depth-keyed cache would serve the wrong SVG to a
+        # building interior after the surface got rendered.
+        self._svg_cache: dict[str, tuple[str, str]] = {}
         self._prefetch_depth: int | None = None   # depth being/been prefetched
         self._prefetch_result: Level | None = None  # pre-generated level
         self._prefetch_params: GenerationParams | None = None
@@ -713,13 +719,14 @@ class Game:
             return
         if not hasattr(self.renderer, "send_floor_change"):
             return
-        cached = self._svg_cache.get(depth)
+        cache_key = self.level.id
+        cached = self._svg_cache.get(cache_key)
         site = self._active_site
         logger.debug(
             "floor-change: level=%s depth=%s svg_cache_hit=%s "
-            "cached_depths=%s active_site=%s building_id=%s "
+            "cached_levels=%s active_site=%s building_id=%s "
             "level_dim=%sx%s theme=%s prerevealed=%s",
-            self.level.id, depth, cached is not None,
+            cache_key, depth, cached is not None,
             sorted(self._svg_cache.keys()),
             site.kind if site else None,
             getattr(self.level, "building_id", None),
@@ -739,11 +746,11 @@ class Game:
             fresh_svg = self.renderer.floor_svg
             fresh_id = self.renderer.floor_svg_id
             if isinstance(fresh_svg, str):
-                self._svg_cache[depth] = (fresh_id, fresh_svg)
+                self._svg_cache[cache_key] = (fresh_id, fresh_svg)
                 logger.debug(
-                    "floor-change: cached new SVG at depth=%s id=%s "
-                    "size=%d bytes",
-                    depth, fresh_id, len(fresh_svg),
+                    "floor-change: cached new SVG for level=%s "
+                    "id=%s size=%d bytes",
+                    cache_key, fresh_id, len(fresh_svg),
                 )
 
     async def _enter_tower_site(self, coord) -> bool:
@@ -3317,7 +3324,8 @@ class Game:
 
         # Notify the web client to load the new floor
         if hasattr(self.renderer, 'send_floor_change'):
-            cached = self._svg_cache.get(new_depth)
+            cache_key = self.level.id
+            cached = self._svg_cache.get(cache_key)
             self.renderer.send_floor_change(
                 self.level, self.world, self.player_id,
                 self.turn, seed=self.seed or 0,
@@ -3326,10 +3334,10 @@ class Game:
             )
             # Store the rendered SVG for future revisits
             if not cached:
-                self._svg_cache[new_depth] = (
-                    self.renderer.floor_svg_id,
-                    self.renderer.floor_svg,
-                )
+                fresh_svg = self.renderer.floor_svg
+                fresh_id = self.renderer.floor_svg_id
+                if isinstance(fresh_svg, str):
+                    self._svg_cache[cache_key] = (fresh_id, fresh_svg)
 
     def _place_player_random_floor(self) -> bool:
         """Place player on a random walkable floor tile.
