@@ -271,7 +271,7 @@ class Game:
         client: GameClient,
         backend: "LLMBackend | None" = None,
         seed: int | None = None,
-        game_mode: str = "classic",
+        style: str = "classic",
         god_mode: bool = False,
         reset: bool = False,
         shape_variety: float = DEFAULT_SHAPE_VARIETY,
@@ -282,7 +282,7 @@ class Game:
         self.event_bus = EventBus()
         self.backend = backend
         self.seed = seed
-        self.mode = game_mode
+        self.style = style
         self.world_mode = world_mode
         self.god_mode = god_mode
         self.reset = reset
@@ -2026,7 +2026,7 @@ class Game:
         self.renderer.initialize()
 
         # Initialize GM for typed mode
-        if self.mode == "typed" and self.backend:
+        if self.style == "typed" and self.backend:
             self._ctx_builder = ContextBuilder()
             self._gm = GameMaster(self.backend, self._ctx_builder)
 
@@ -2295,7 +2295,7 @@ class Game:
     async def run(self) -> None:
         """Main game loop."""
         self.running = True
-        logger.info("Game loop started (mode=%s)", self.mode)
+        logger.info("Game loop started (mode=%s)", self.style)
 
         while self.running:
             # Render: hex mode routes to render_hex; dungeon mode keeps
@@ -2344,7 +2344,7 @@ class Game:
                 self.world, self.level, self.player_id, self.turn,
             )
 
-            if self.mode == "typed":
+            if self.style == "typed":
                 actions = await self._get_typed_actions()
             else:
                 actions = await self._get_classic_actions()
@@ -2492,7 +2492,7 @@ class Game:
             events += creature_events
 
             # Narrate creature actions in typed mode
-            if self.mode == "typed" and self._gm and creature_events:
+            if self.style == "typed" and self._gm and creature_events:
                 c_outcomes = self._events_to_outcomes(creature_events)
                 if c_outcomes:
                     c_narr = await self._gm.narrate_creatures(c_outcomes)
@@ -2891,17 +2891,17 @@ class Game:
 
     def _toggle_mode(self) -> None:
         """Switch between classic and typed game modes."""
-        if self.mode == "classic":
-            self.mode = "typed"
-            self.renderer.game_mode = "typed"
+        if self.style == "classic":
+            self.style = "typed"
+            self.renderer.style = "typed"
             # Initialize GM if backend available and not already set up
             if self.backend and not self._gm:
                 self._ctx_builder = ContextBuilder()
                 self._gm = GameMaster(self.backend, self._ctx_builder)
         else:
-            self.mode = "classic"
-            self.renderer.game_mode = "classic"
-        logger.info("Switched to %s mode", self.mode)
+            self.style = "classic"
+            self.renderer.style = "classic"
+        logger.info("Switched to %s mode", self.style)
 
     def _reveal_full_map(self) -> None:
         """God mode: reveal entire map and display it scrollably."""

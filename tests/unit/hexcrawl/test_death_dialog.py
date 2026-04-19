@@ -47,7 +47,7 @@ def _make_game(mode: GameMode, tmp_path) -> Game:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=mode,
         save_dir=tmp_path,
         seed=42,
@@ -92,7 +92,7 @@ def test_cheat_death_blocked_in_hex_survival(tmp_path) -> None:
 
 def test_cheat_death_blocked_in_dungeon_mode(tmp_path) -> None:
     g = Game(
-        client=_FakeClient(), backend=None, game_mode="classic",
+        client=_FakeClient(), backend=None, style="classic",
         world_mode=GameMode.DUNGEON, save_dir=tmp_path, seed=1,
     )
     g.initialize(generate=True)
@@ -238,7 +238,7 @@ def _menu_game(tmp_path, mode: GameMode) -> tuple[Game, _MenuClient]:
     g = Game(
         client=client,
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=mode,
         save_dir=tmp_path,
         seed=42,
@@ -281,7 +281,7 @@ def test_dungeon_death_skips_dialog(tmp_path) -> None:
     g = Game(
         client=client,
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.DUNGEON,
         save_dir=tmp_path,
         seed=42,

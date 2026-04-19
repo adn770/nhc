@@ -67,7 +67,7 @@ def _make_game(
     g = Game(
         client=_QueueClient(script),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=mode,
         save_dir=tmp_path,
         seed=42,

@@ -31,7 +31,7 @@ class FakeRenderer:
 
     def __init__(self):
         self.messages = []
-        self.game_mode = "classic"
+        self.style = "classic"
         self.narrative_log = type("NL", (), {"add_mechanical": lambda s, t: None})()
 
     def initialize(self):
@@ -52,7 +52,7 @@ class FakeGame:
         self.player_id = -1
         self.level = None
         self.god_mode = False
-        self.mode = "classic"
+        self.style = "classic"
         self.renderer = FakeRenderer()
         self._floor_cache = {}
         self._svg_cache = {}

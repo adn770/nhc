@@ -14,7 +14,7 @@ from nhc.rendering.web_client import WebClient
 
 @pytest.fixture
 def client():
-    wc = WebClient(game_mode="classic", lang="ca")
+    wc = WebClient(style="classic", lang="ca")
     return wc
 
 
@@ -38,7 +38,7 @@ class TestWebClientInterface:
 
     def test_initial_state(self):
         wc = WebClient()
-        assert wc.game_mode == "classic"
+        assert wc.style == "classic"
         assert wc.messages == []
 
 
@@ -143,7 +143,7 @@ class TestWebClientNarrativeLog:
         client.narrative_log.add_mechanical("> attack goblin")
 
     def test_add_mechanical_typed_mode(self):
-        wc = WebClient(game_mode="typed")
+        wc = WebClient(style="typed")
         wc.narrative_log.add_mechanical("> look around")
 
 
@@ -167,7 +167,7 @@ class TestWebClientModeToggle:
         assert data is None
 
     def test_get_typed_input_returns_toggle_mode(self):
-        wc = WebClient(game_mode="typed")
+        wc = WebClient(style="typed")
         wc._in_queue.put(json.dumps({
             "type": "action",
             "intent": "toggle_mode",

@@ -47,7 +47,7 @@ def _bootstrap() -> None:
 def _make_game(tmp_path) -> Game:
     g = Game(
         client=_FakeClient(), backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.HEX_EASY,
         save_dir=tmp_path, seed=42,
     )

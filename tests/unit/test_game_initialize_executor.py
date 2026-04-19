@@ -50,7 +50,7 @@ def make_game(tmp_path):
         g = Game(
             client=_FakeClient(),
             backend=None,
-            game_mode="classic",
+            style="classic",
             save_dir=tmp_path,
             seed=seed,
         )

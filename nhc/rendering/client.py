@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class GameClient(abc.ABC):
     """Abstract base class for game frontends."""
 
-    game_mode: str
+    style: str
     messages: list[str]
     edge_doors: bool  # True = doors on tile edges (web), False = center (terminal)
 

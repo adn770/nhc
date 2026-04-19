@@ -14,7 +14,7 @@ def _make_level() -> Level:
 
 
 def _make_client() -> WebClient:
-    return WebClient(game_mode="classic", lang="en")
+    return WebClient(style="classic", lang="en")
 
 
 class TestSecretsInDebugData:

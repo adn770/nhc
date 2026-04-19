@@ -43,7 +43,7 @@ def _make_game(mode: GameMode, tmp_path) -> Game:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=mode,
         save_dir=tmp_path,
         seed=42,
@@ -124,7 +124,7 @@ async def test_autosave_from_hex_step_restores_hex_world(tmp_path) -> None:
     g2 = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.HEX_EASY,
         save_dir=tmp_path,
         seed=42,
@@ -145,7 +145,7 @@ async def test_apply_hex_step_rejects_dungeon_mode(tmp_path) -> None:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.DUNGEON,
         save_dir=tmp_path,
         seed=42,

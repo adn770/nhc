@@ -57,7 +57,7 @@ async def test_phase4_god_mode_plus_mcp_tools(tmp_path, monkeypatch) -> None:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.HEX_EASY,
         save_dir=tmp_path,
         seed=7,

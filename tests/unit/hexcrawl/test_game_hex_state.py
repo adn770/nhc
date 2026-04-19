@@ -46,7 +46,7 @@ def _make_game(world_mode: GameMode, seed: int, tmp_path) -> Game:
     return Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=world_mode,
         save_dir=tmp_path,
         seed=seed,
@@ -72,7 +72,7 @@ def test_game_default_world_mode_is_dungeon(tmp_path) -> None:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         save_dir=tmp_path,
         seed=99,
     )

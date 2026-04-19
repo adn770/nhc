@@ -70,7 +70,7 @@ class TerminalRenderer(GameClient):
     """ASCII terminal renderer using blessed."""
 
     def __init__(self, color_mode: str = "256",
-                 game_mode: str = "classic",
+                 style: str = "classic",
                  theme: str | None = None) -> None:
         # Set theme first (determines color depth)
         if theme:
@@ -81,7 +81,7 @@ class TerminalRenderer(GameClient):
         # blessed cannot auto-detect (e.g. inside tmux/screen).
         force = self.color_mode == "256"
         self.term = Terminal(force_styling=force)
-        self.game_mode = game_mode
+        self.style = style
         self.edge_doors = False  # terminal: doors at tile center
         _glyphs.set_color_mode(self.color_mode)
         self._messages: list[str] = []
@@ -132,7 +132,7 @@ class TerminalRenderer(GameClient):
         # Reset scroll to bottom on new message
         self._msg_scroll = 0
         # Mirror to narrative log in typed mode
-        if self.game_mode == "typed":
+        if self.style == "typed":
             self.narrative_log.add_mechanical(text)
 
     @staticmethod
@@ -218,7 +218,7 @@ class TerminalRenderer(GameClient):
 
         # Input line: prompt in typed mode, blank in classic
         input_y = log_y + 1 + msg_lines
-        if self.game_mode == "typed":
+        if self.style == "typed":
             output += render_input_line(
                 t, input_y, t.width,
                 self._text_input.text, self._text_input.cursor,

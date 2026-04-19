@@ -476,9 +476,9 @@ class WebClient(GameClient):
     """
 
     def __init__(
-        self, game_mode: str = "classic", lang: str = "ca",
+        self, style: str = "classic", lang: str = "ca",
     ) -> None:
-        self.game_mode = game_mode
+        self.style = style
         self.edge_doors = True  # web: doors on tile edges
         self.lang = lang
         self.messages: list[str] = []

@@ -120,9 +120,9 @@ class TestGameStoresGenerationParams:
     def game(self, tmp_path):
         from nhc.rendering.web_client import WebClient
         from nhc.core.game import Game
-        client = WebClient(game_mode="classic", lang="en")
+        client = WebClient(style="classic", lang="en")
         return Game(
-            client=client, game_mode="classic", seed=42,
+            client=client, style="classic", seed=42,
             reset=True, save_dir=tmp_path,
         )
 

@@ -199,9 +199,9 @@ async def main() -> int:
         lang = args.lang
     i18n_init(lang)
 
-    # Color / gameplay mode
+    # Color mode + input style
     color_mode = merged.get("colors", "256")
-    game_mode = merged.get("mode", "classic")
+    style = merged.get("mode", "classic")
 
     # Create LLM backend (or None if provider is "none")
     backend = create_backend(merged)
@@ -213,7 +213,7 @@ async def main() -> int:
     from nhc.rendering.terminal.renderer import TerminalRenderer
     theme = args.theme or merged.get("theme", None)
     client = TerminalRenderer(
-        color_mode=color_mode, game_mode=game_mode, theme=theme,
+        color_mode=color_mode, style=style, theme=theme,
     )
 
     # Create and run game
@@ -221,7 +221,7 @@ async def main() -> int:
     shape_variety = merged.get("shape_variety", 0.3)
     world_mode = gamemode_from_args(args)
     game = Game(client=client, backend=backend, seed=args.seed,
-                game_mode=game_mode, god_mode=god_mode,
+                style=style, god_mode=god_mode,
                 reset=args.reset, shape_variety=shape_variety,
                 world_mode=world_mode)
     try:

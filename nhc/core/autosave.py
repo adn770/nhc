@@ -314,7 +314,7 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         "turn": game.turn,
         "player_id": game.player_id,
         "god_mode": game.god_mode,
-        "mode": game.mode,
+        "style": game.style,
 
         # ECS world
         "world_next_id": world._next_id,
@@ -376,8 +376,8 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     game.turn = payload["turn"]
     game.player_id = payload["player_id"]
     game.god_mode = payload.get("god_mode", False)
-    game.mode = payload.get("mode", "classic")
-    game.renderer.game_mode = game.mode
+    game.style = payload.get("style", "classic")
+    game.renderer.style = game.style
 
     # ECS world
     world = game.world

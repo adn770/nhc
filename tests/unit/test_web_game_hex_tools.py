@@ -54,7 +54,7 @@ def _make_hex_game(tmp_path, *, god: bool = True) -> Game:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.HEX_EASY,
         save_dir=tmp_path,
         seed=42,
@@ -121,7 +121,7 @@ def test_hex_state_400_for_dungeon_session(tmp_path) -> None:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.DUNGEON,
         save_dir=tmp_path,
         seed=42,

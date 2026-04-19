@@ -49,7 +49,7 @@ def _make_arena_game(tmp_path) -> Game:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.HEX_EASY,
         save_dir=tmp_path,
         seed=42,
@@ -105,7 +105,7 @@ async def test_non_arena_level_never_auto_exits(tmp_path) -> None:
     g = Game(
         client=_FakeClient(),
         backend=None,
-        game_mode="classic",
+        style="classic",
         world_mode=GameMode.HEX_EASY,
         save_dir=tmp_path,
         seed=42,

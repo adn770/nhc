@@ -43,7 +43,7 @@ class _StubGame:
         self.player_id = -1
         self.level = None
         self.god_mode = False
-        self.mode = "classic"
+        self.style = "classic"
         self.renderer = _FakeRenderer()
         self._floor_cache: dict = {}
         self._svg_cache: dict = {}
