@@ -745,18 +745,19 @@ def generate_flower(
     )
 
     # 5. Route roads through sub-hexes (after feature placement
-    # so roads can target the feature cell). When two roads exit
-    # via the same macro edge, the second one is biased onto the
-    # first's sub-cells and then trimmed to a branch so the flower
-    # renders a clean Y-junction instead of parallel roads.
-    trunk_by_exit: dict[int, set[HexCoord]] = {}
+    # so roads can target the feature cell). A* for each new road
+    # is biased toward cells already owned by a previously-placed
+    # road; afterwards the new sub-path is trimmed so no cell is
+    # drawn by more than one segment. Without trimming, hub hexes
+    # with three sources/sinks converging on the feature cell
+    # stamp the same trunk sub-cells two or three times and the
+    # renderer draws overlapping curves on top of each other --
+    # the "doubled road near the town" case reported from the
+    # live session.
+    claimed: set[HexCoord] = set()
     for seg in parent.edges:
         if seg.type != "path":
             continue
-        trunk_cells = (
-            trunk_by_exit.get(seg.exit_edge)
-            if seg.exit_edge is not None else None
-        )
         path = route_road_through_flower(
             cells,
             entry_edge=seg.entry_edge,
@@ -764,30 +765,50 @@ def generate_flower(
             rng=rng,
             feature_cell=feature_cell,
             mark_cells=True,
-            trunk_cells=trunk_cells,
+            trunk_cells=claimed if claimed else None,
         )
-        seg_exit = seg.exit_edge
-        if trunk_cells:
-            # Trim the new road at the first cell that already
-            # belongs to an earlier road with the same exit. The
-            # trimmed segment terminates at the junction sub-cell
-            # (exit_macro_edge=None) so the renderer draws it as
-            # a branch rather than duplicating the trunk.
-            for i, c in enumerate(path):
-                if i > 0 and c in trunk_cells:
-                    path = path[: i + 1]
-                    seg_exit = None
-                    break
+        trimmed = list(path)
+        new_entry = seg.entry_edge
+        new_exit = seg.exit_edge
+        if claimed:
+            # Find the longest claimed prefix and suffix of the
+            # returned sub-path. Keep one anchor cell in each
+            # (the last claimed cell of the prefix, the first
+            # claimed cell of the suffix) so the segment visibly
+            # connects to the trunk at the junction.
+            first_new = 0
+            while (
+                first_new < len(trimmed)
+                and trimmed[first_new] in claimed
+            ):
+                first_new += 1
+            last_new = len(trimmed) - 1
+            while (
+                last_new >= 0
+                and trimmed[last_new] in claimed
+            ):
+                last_new -= 1
+            if first_new > last_new:
+                # Every cell is already trunk; this segment would
+                # only redraw what another segment already owns.
+                # Skip it entirely.
+                continue
+            # Keep last claimed cell of the prefix run as anchor.
+            start = max(0, first_new - 1)
+            # Keep first claimed cell of the suffix run as anchor.
+            end = min(len(trimmed), last_new + 2)
+            trimmed = trimmed[start:end]
+            if start > 0:
+                new_entry = None
+            if end < len(path):
+                new_exit = None
         edge_segments.append(SubHexEdgeSegment(
             type="path",
-            path=path,
-            entry_macro_edge=seg.entry_edge,
-            exit_macro_edge=seg_exit,
+            path=trimmed,
+            entry_macro_edge=new_entry,
+            exit_macro_edge=new_exit,
         ))
-        if seg.exit_edge is not None:
-            trunk_by_exit.setdefault(
-                seg.exit_edge, set()
-            ).update(path)
+        claimed.update(trimmed)
 
     # 6. Tile slots: assign after rivers/roads so waterway
     # sub-hexes get lighter tile variants.
