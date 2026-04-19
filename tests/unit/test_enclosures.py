@@ -6,16 +6,18 @@ an equally-spaced white dashed overlay, with gate gaps cutting the
 polygon into sub-polylines.
 """
 
+import math
 import re
 
 import pytest
 
 from nhc.rendering._enclosures import (
-    FORTIFICATION_BASE_COLOR,
-    FORTIFICATION_BASE_WIDTH,
-    FORTIFICATION_DASH_ARRAY,
-    FORTIFICATION_OVERLAY_COLOR,
-    FORTIFICATION_OVERLAY_WIDTH,
+    FORTIFICATION_CRENEL_FILL,
+    FORTIFICATION_MERLON_FILL,
+    FORTIFICATION_RATIO,
+    FORTIFICATION_SIZE,
+    FORTIFICATION_STROKE,
+    FORTIFICATION_STROKE_WIDTH,
     PALISADE_CIRCLE_STEP,
     PALISADE_DOOR_LENGTH_PX,
     PALISADE_FILL,
@@ -29,123 +31,189 @@ from nhc.rendering._enclosures import (
 )
 
 
+def _parse_rects(items: list[str]) -> list[dict]:
+    """Parse each SVG <rect> string into a dict of attrs."""
+    out = []
+    for s in items:
+        if "<rect" not in s:
+            continue
+        # Attribute names may contain hyphens (stroke-width), so
+        # accept [\w-]+ rather than \w+.
+        attrs = dict(re.findall(r'([\w-]+)="([^"]*)"', s))
+        out.append(attrs)
+    return out
+
+
+def _merlon_count(items: list[str]) -> int:
+    return sum(
+        1 for a in _parse_rects(items)
+        if a.get("fill") == FORTIFICATION_MERLON_FILL
+    )
+
+
+def _crenel_count(items: list[str]) -> int:
+    return sum(
+        1 for a in _parse_rects(items)
+        if a.get("fill") == FORTIFICATION_CRENEL_FILL
+    )
+
+
 class TestFortificationPolyline:
     def test_empty_points_returns_empty(self):
         assert render_fortification_polyline([]) == []
         assert render_fortification_polyline([(0.0, 0.0)]) == []
 
-    def test_two_point_polyline_emits_base_and_overlay(self):
-        out = render_fortification_polyline([(0, 0), (100, 0)])
-        assert len(out) == 2
-        assert FORTIFICATION_BASE_COLOR in out[0]
-        assert f'stroke-width="{FORTIFICATION_BASE_WIDTH}"' in out[0]
-        assert FORTIFICATION_OVERLAY_COLOR in out[1]
-        assert f'stroke-width="{FORTIFICATION_OVERLAY_WIDTH}"' in out[1]
-        assert (
-            f'stroke-dasharray="{FORTIFICATION_DASH_ARRAY}"' in out[1]
-        )
+    def test_horizontal_run_emits_merlons_and_crenels(self):
+        out = render_fortification_polyline([(0, 100), (200, 100)])
+        assert _merlon_count(out) >= 5
+        assert _crenel_count(out) >= 5
 
-    def test_polyline_path_has_move_and_lines(self):
-        out = render_fortification_polyline([(0, 0), (100, 0), (100, 50)])
-        assert "M0.0,0.0" in out[0]
-        assert "L100.0,0.0" in out[0]
-        assert "L100.0,50.0" in out[0]
+    def test_shapes_alternate_along_horizontal_run(self):
+        out = render_fortification_polyline([(0, 100), (300, 100)])
+        rects = _parse_rects(out)
+        fills = [a["fill"] for a in rects]
+        assert fills, "no rects emitted"
+        # Strictly alternate: M, C, M, C, ...
+        for i in range(len(fills) - 1):
+            assert fills[i] != fills[i + 1], (
+                f"non-alternating at index {i}: {fills[i]} then "
+                f"{fills[i + 1]}"
+            )
 
-    def test_base_stroke_wider_than_overlay(self):
-        assert FORTIFICATION_BASE_WIDTH > FORTIFICATION_OVERLAY_WIDTH
+    def test_first_shape_is_merlon(self):
+        out = render_fortification_polyline([(0, 100), (200, 100)])
+        rects = _parse_rects(out)
+        assert rects
+        assert rects[0]["fill"] == FORTIFICATION_MERLON_FILL
 
-    def test_dash_array_has_two_components(self):
-        parts = FORTIFICATION_DASH_ARRAY.split()
-        assert len(parts) == 2
-        for p in parts:
-            assert float(p) > 0
+    def test_horizontal_merlons_are_square(self):
+        out = render_fortification_polyline([(0, 100), (200, 100)])
+        for a in _parse_rects(out):
+            if a["fill"] != FORTIFICATION_MERLON_FILL:
+                continue
+            assert math.isclose(float(a["width"]), FORTIFICATION_SIZE)
+            assert math.isclose(float(a["height"]), FORTIFICATION_SIZE)
+
+    def test_horizontal_crenels_use_din_a_ratio(self):
+        """On a horizontal run the crenel is wider than tall by √2."""
+        out = render_fortification_polyline([(0, 100), (200, 100)])
+        for a in _parse_rects(out):
+            if a["fill"] != FORTIFICATION_CRENEL_FILL:
+                continue
+            w = float(a["width"])
+            h = float(a["height"])
+            assert math.isclose(
+                w / h, FORTIFICATION_RATIO, rel_tol=0.02,
+            )
+
+    def test_vertical_crenels_use_din_a_ratio(self):
+        """On a vertical run the crenel is taller than wide by √2."""
+        out = render_fortification_polyline([(100, 0), (100, 300)])
+        crenels = [
+            a for a in _parse_rects(out)
+            if a["fill"] == FORTIFICATION_CRENEL_FILL
+        ]
+        assert crenels
+        for a in crenels:
+            w = float(a["width"])
+            h = float(a["height"])
+            assert math.isclose(
+                h / w, FORTIFICATION_RATIO, rel_tol=0.02,
+            )
+
+    def test_all_shapes_share_thin_stroke(self):
+        out = render_fortification_polyline([(0, 100), (200, 100)])
+        rects = _parse_rects(out)
+        assert rects
+        for a in rects:
+            assert a["stroke"] == FORTIFICATION_STROKE
+            assert math.isclose(
+                float(a["stroke-width"]),
+                FORTIFICATION_STROKE_WIDTH,
+            )
+
+    def test_diagonal_segment_emits_nothing(self):
+        """Non-orthogonal segments are skipped (building polygons
+        are all axis-aligned)."""
+        out = render_fortification_polyline([(0, 0), (100, 100)])
+        assert out == []
 
 
 class TestFortificationClosedEnclosure:
     def test_empty_polygon_returns_empty(self):
         assert render_fortification_enclosure([]) == []
 
-    def test_rect_no_gates_two_paths(self):
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
+    def test_rect_no_gates_emits_shapes_on_every_edge(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
         out = render_fortification_enclosure(polygon)
-        # Single closed polyline -> 2 paths (base + overlay).
-        assert len(out) == 2
-        # Path closes back to starting point.
-        assert "L0.0,0.0" in out[0] or "L0,0" in out[0]
+        assert _merlon_count(out) >= 12
+        assert _crenel_count(out) >= 12
 
-    def test_rect_no_gates_uses_base_and_overlay(self):
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
+    def test_rect_no_gates_uses_merlon_and_crenel_fills(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
         out = render_fortification_enclosure(polygon)
-        assert any(FORTIFICATION_BASE_COLOR in s for s in out)
-        assert any(FORTIFICATION_OVERLAY_COLOR in s for s in out)
-        assert any(FORTIFICATION_DASH_ARRAY in s for s in out)
+        fills = {a["fill"] for a in _parse_rects(out)}
+        assert FORTIFICATION_MERLON_FILL in fills
+        assert FORTIFICATION_CRENEL_FILL in fills
 
 
 class TestFortificationGateGap:
-    def test_single_gate_splits_into_two_polylines(self):
-        """One gate on a rect -> 4 edges, 1 split -> 4+1 sub-polylines.
-
-        Each polyline emits 2 paths (base + overlay), so we expect
-        10 paths total (vs 2 for an uncut rect).
-        """
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
-        gates = [(0, 0.5, 10.0)]  # on edge 0, midpoint, 10 px half-gap
-        out = render_fortification_enclosure(polygon, gates=gates)
-        # More paths than the gate-less baseline.
+    def test_gate_reduces_shape_count(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
         baseline = render_fortification_enclosure(polygon)
-        assert len(out) > len(baseline)
+        gated = render_fortification_enclosure(
+            polygon, gates=[(0, 0.5, 30.0)],
+        )
+        assert len(gated) < len(baseline)
 
-    def test_gate_removes_edge_midpoint(self):
-        """Verify no path covers the full gate midpoint (40,0)-(60,0)."""
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
-        gates = [(0, 0.5, 10.0)]  # midpoint x=50, half=10 -> gap 40..60
-        out = render_fortification_enclosure(polygon, gates=gates)
-        # No single polyline path should span across x in (40, 60)
-        # along the bottom edge (y=0).
-        for path in out:
-            if "y1=" in path:
-                continue  # not a polyline path
-        # Just confirm the left sub-edge end appears and the right
-        # sub-edge start appears somewhere in the output.
-        joined = "\n".join(out)
-        assert "L40.0,0.0" in joined  # left sub-edge ending
-        assert "M60.0,0.0" in joined  # right sub-edge starting
+    def test_two_gates_reduce_more(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        baseline = render_fortification_enclosure(polygon)
+        one = render_fortification_enclosure(
+            polygon, gates=[(0, 0.5, 30.0)],
+        )
+        two = render_fortification_enclosure(
+            polygon,
+            gates=[(0, 0.5, 30.0), (2, 0.5, 30.0)],
+        )
+        assert len(two) < len(one) < len(baseline)
 
     def test_gate_endpoints_inside_edge(self):
-        """Gate t_lo, t_hi are clamped to [0, 1]."""
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
-        # Gate near edge start, half-len bigger than midpoint's room
-        gates = [(0, 0.05, 20.0)]  # center at x=5, half=20 -> clamped
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        gates = [(0, 0.05, 60.0)]  # clamped
         out = render_fortification_enclosure(polygon, gates=gates)
-        assert out  # renders something, doesn't crash
+        assert out
 
-    def test_two_gates_on_different_edges(self):
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
-        gates = [
-            (0, 0.5, 10.0),   # bottom edge gate
-            (2, 0.5, 10.0),   # top edge gate
-        ]
-        out = render_fortification_enclosure(polygon, gates=gates)
+    def test_gate_on_invalid_edge_index_falls_back(self):
+        polygon = [(0, 0), (200, 0), (200, 120), (0, 120)]
+        gates = [(99, 0.5, 10.0)]
         baseline = render_fortification_enclosure(polygon)
-        assert len(out) > len(baseline)
-
-    def test_gate_on_invalid_edge_index_ignored(self):
-        polygon = [(0, 0), (100, 0), (100, 50), (0, 50)]
-        gates = [(99, 0.5, 10.0)]  # nonexistent edge
-        # Should not raise; treat as no gate
         out = render_fortification_enclosure(polygon, gates=gates)
-        assert len(out) == 2
+        # Invalid gate is rejected and we fall back to gate-less
+        # render, so counts match.
+        assert len(out) == len(baseline)
 
 
 class TestFortificationPalette:
-    def test_base_color_is_specified_dark(self):
-        assert FORTIFICATION_BASE_COLOR == "#1A1A1A"
+    def test_merlon_fill_is_white(self):
+        assert FORTIFICATION_MERLON_FILL == "#FFFFFF"
 
-    def test_overlay_color_is_white(self):
-        assert FORTIFICATION_OVERLAY_COLOR == "#FFFFFF"
+    def test_crenel_fill_is_black(self):
+        assert FORTIFICATION_CRENEL_FILL == "#000000"
 
-    def test_dash_array_8_6(self):
-        assert FORTIFICATION_DASH_ARRAY == "8 6"
+    def test_stroke_color_is_dark(self):
+        assert FORTIFICATION_STROKE == "#1A1A1A"
+
+    def test_stroke_is_thin(self):
+        assert 0 < FORTIFICATION_STROKE_WIDTH <= 1.5
+
+    def test_size_positive(self):
+        assert FORTIFICATION_SIZE > 0
+
+    def test_ratio_is_din_a(self):
+        assert math.isclose(
+            FORTIFICATION_RATIO, math.sqrt(2), rel_tol=1e-9,
+        )
 
 
 def _circles(items: list[str]) -> list[str]:

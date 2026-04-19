@@ -10,16 +10,22 @@ Palisades (M7) live in the same module once implemented.
 
 from __future__ import annotations
 
+import math
 import random
 
 
 # ── Fortification rendering constants (initial values, tunable) ──
+#
+# Battlement-style chain: alternating merlon (square, white-filled)
+# and crenel (DIN A rectangle, black-filled) along each polygon
+# edge. Both shapes share the same thin dark stroke.
 
-FORTIFICATION_BASE_COLOR = "#1A1A1A"
-FORTIFICATION_BASE_WIDTH = 6.0
-FORTIFICATION_OVERLAY_COLOR = "#FFFFFF"
-FORTIFICATION_OVERLAY_WIDTH = 3.0
-FORTIFICATION_DASH_ARRAY = "8 6"
+FORTIFICATION_STROKE = "#1A1A1A"
+FORTIFICATION_STROKE_WIDTH = 0.8
+FORTIFICATION_MERLON_FILL = "#FFFFFF"
+FORTIFICATION_CRENEL_FILL = "#000000"
+FORTIFICATION_SIZE = 8.0             # merlon side + crenel short side
+FORTIFICATION_RATIO = math.sqrt(2)   # crenel long / short (DIN A)
 
 
 # ── Palisade rendering constants (initial values, tunable) ───────
@@ -41,32 +47,94 @@ PALISADE_DOOR_LENGTH_PX = 64.0      # gate rect length (2 tiles)
 def render_fortification_polyline(
     points: list[tuple[float, float]],
 ) -> list[str]:
-    """Render an open polyline as one fortification wall segment.
+    """Render an open polyline as a battlement-style chain.
 
-    Emits two ``<path>`` elements: a continuous dark base stroke and
-    an equally-spaced white dashed overlay along the same path.
-    Returns an empty list for fewer than two points.
+    Each straight segment of the polyline emits a chain of
+    alternating shapes: a square merlon (side
+    :data:`FORTIFICATION_SIZE`, white fill) followed by a DIN A
+    rectangle crenel (short side equal to the merlon side, long
+    side :data:`FORTIFICATION_SIZE` * :data:`FORTIFICATION_RATIO`,
+    black fill). Both shapes carry the same thin dark stroke.
+
+    The pattern restarts at every vertex so corners stay aligned.
+    Non-orthogonal segments emit nothing (building polygons are
+    axis-aligned). Partial-period remainders at segment ends are
+    dropped so shapes never overflow the run.
     """
     if len(points) < 2:
         return []
-    parts = [f"M{points[0][0]:.1f},{points[0][1]:.1f}"]
-    for (x, y) in points[1:]:
-        parts.append(f"L{x:.1f},{y:.1f}")
-    d = " ".join(parts)
-    base = (
-        f'<path d="{d}" fill="none" '
-        f'stroke="{FORTIFICATION_BASE_COLOR}" '
-        f'stroke-width="{FORTIFICATION_BASE_WIDTH}" '
-        f'stroke-linejoin="round" stroke-linecap="round"/>'
+    out: list[str] = []
+    for i in range(len(points) - 1):
+        out.extend(_fortification_segment_shapes(
+            points[i], points[i + 1],
+        ))
+    return out
+
+
+def _fortification_segment_shapes(
+    a: tuple[float, float], b: tuple[float, float],
+) -> list[str]:
+    ax, ay = a
+    bx, by = b
+    dx = bx - ax
+    dy = by - ay
+    seg_len = math.hypot(dx, dy)
+    if seg_len < 1e-6:
+        return []
+    horizontal = abs(dy) < 1e-6 and abs(dx) > 1e-6
+    vertical = abs(dx) < 1e-6 and abs(dy) > 1e-6
+    if not (horizontal or vertical):
+        # Diagonal segments are unsupported today -- the site
+        # assemblers only emit axis-aligned polygons.
+        return []
+
+    ux = dx / seg_len
+    uy = dy / seg_len
+    size = FORTIFICATION_SIZE
+    rect_len = size * FORTIFICATION_RATIO
+
+    out: list[str] = []
+    pos = 0.0
+    alternate = 0  # 0 = merlon (square), 1 = crenel (DIN A rect)
+    while True:
+        length = size if alternate == 0 else rect_len
+        if pos + length > seg_len + 1e-6:
+            break
+        cx = ax + ux * (pos + length / 2)
+        cy = ay + uy * (pos + length / 2)
+        if horizontal:
+            shape_w = length
+            shape_h = size
+        else:
+            shape_w = size
+            shape_h = length
+        if alternate == 0:
+            out.append(_fortification_rect(
+                cx, cy, shape_w, shape_h,
+                FORTIFICATION_MERLON_FILL,
+            ))
+        else:
+            out.append(_fortification_rect(
+                cx, cy, shape_w, shape_h,
+                FORTIFICATION_CRENEL_FILL,
+            ))
+        pos += length
+        alternate = 1 - alternate
+    return out
+
+
+def _fortification_rect(
+    cx: float, cy: float, w: float, h: float, fill: str,
+) -> str:
+    x = cx - w / 2
+    y = cy - h / 2
+    return (
+        f'<rect x="{x:.1f}" y="{y:.1f}" '
+        f'width="{w:.1f}" height="{h:.1f}" '
+        f'fill="{fill}" '
+        f'stroke="{FORTIFICATION_STROKE}" '
+        f'stroke-width="{FORTIFICATION_STROKE_WIDTH}"/>'
     )
-    overlay = (
-        f'<path d="{d}" fill="none" '
-        f'stroke="{FORTIFICATION_OVERLAY_COLOR}" '
-        f'stroke-width="{FORTIFICATION_OVERLAY_WIDTH}" '
-        f'stroke-dasharray="{FORTIFICATION_DASH_ARRAY}" '
-        f'stroke-linejoin="round" stroke-linecap="round"/>'
-    )
-    return [base, overlay]
 
 
 def render_fortification_enclosure(
