@@ -141,6 +141,15 @@ def _render_walls_and_floors(
         )
 
     # ── 4. Tile-edge wall segments (rect rooms + corridors) ──
+    # Surface levels (no rooms) are open-air sites: town /
+    # mansion / farm / tower surface backdrops. Their building
+    # footprints are VOID tiles not rooms, and the only
+    # enclosure is the palisade / fortification drawn separately.
+    # Skipping the tile-edge wall pass here keeps the thick wall
+    # stroke off the surface entirely.
+    if not level.rooms:
+        return
+
     segments: list[str] = []
 
     def _walkable(x: int, y: int) -> bool:
@@ -167,13 +176,15 @@ def _render_walls_and_floors(
 
             tile = level.tiles[y][x]
 
-            # Street tiles are open-air -- no side walls. Accept
-            # either the legacy is_street boolean or the newer
-            # Tile.surface_type == SurfaceType.STREET so site
-            # assemblers that only set the enum (town / keep)
-            # stop painting walled-island rings around streets.
-            if (tile.is_street
-                    or tile.surface_type == SurfaceType.STREET):
+            # Outdoor surfaces are open-air -- no side walls.
+            # Covers STREET (town / keep) via legacy is_street
+            # or the enum, plus FIELD / GARDEN (farm / mansion)
+            # which never touched the legacy boolean.
+            if tile.is_street or tile.surface_type in (
+                SurfaceType.STREET,
+                SurfaceType.FIELD,
+                SurfaceType.GARDEN,
+            ):
                 continue
 
             px, py = x * CELL, y * CELL

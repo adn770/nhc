@@ -110,6 +110,16 @@ class TestFarmSurface:
         site = assemble_farm("f1", random.Random(1))
         assert _surface_count(site, SurfaceType.STREET) == 0
 
+    def test_surface_svg_has_no_walled_island_strokes(self):
+        """FIELD and GARDEN tiles must not trigger the thick WALL
+        stroke around them -- same pattern as STREET on town /
+        keep surfaces."""
+        from nhc.rendering._svg_helpers import WALL_WIDTH
+        from nhc.rendering.svg import render_floor_svg
+        site = assemble_farm("f1", random.Random(7))
+        svg = render_floor_svg(site.surface, seed=7)
+        assert f'stroke-width="{WALL_WIDTH}"' not in svg
+
     def test_building_footprint_not_in_surface_field(self):
         """FIELD tiles do not overlap building footprints."""
         site = assemble_farm("f1", random.Random(1))
