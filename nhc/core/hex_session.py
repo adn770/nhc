@@ -28,7 +28,7 @@ from nhc.entities.components import (
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.generator import generate_continental_world
-from nhc.hexcrawl.mode import Difficulty
+from nhc.hexcrawl.mode import Difficulty, WorldType
 from nhc.hexcrawl.pack import load_pack
 from nhc.i18n import t
 from nhc.rules.chargen import generate_character
@@ -74,7 +74,7 @@ class HexSession:
         corrupting the floor cache.
         """
         game = self.game
-        if not game.world_mode.is_hex or game.hex_world is None:
+        if not game.world_type is WorldType.HEXCRAWL or game.hex_world is None:
             raise RuntimeError(
                 "apply_hex_step only valid in hex mode"
             )
@@ -176,7 +176,7 @@ class HexSession:
         char = generate_character(seed=game.seed)
         inv_slots = 10 + char.constitution
         gold = char.gold
-        if game.world_mode.difficulty is Difficulty.EASY:
+        if game.difficulty is Difficulty.EASY:
             gold *= 2
         game.player_id = self.world.create_entity({
             "Position": Position(x=-1, y=-1, level_id="overland"),
@@ -239,18 +239,18 @@ class HexSession:
 
         from nhc.hexcrawl._flowers import pick_flower_start
         macro, sub = pick_flower_start(
-            game.hex_world, game.world_mode,
+            game.hex_world, game.difficulty,
             seed=(game.seed or 0) ^ 0xABCD1234,
         )
         game.hex_player_position = macro
         game.hex_world.visit(macro)
 
-        if game.world_mode.difficulty is not Difficulty.SURVIVAL:
+        if game.difficulty is not Difficulty.SURVIVAL:
             hub = game.hex_world.last_hub
             assert hub is not None, "generator must set last_hub"
             game.hex_world.reveal(hub)
 
-        if game.world_mode.difficulty is Difficulty.SURVIVAL:
+        if game.difficulty is Difficulty.SURVIVAL:
             game.hex_world.revealed.clear()
             game.hex_world.reveal(macro)
 

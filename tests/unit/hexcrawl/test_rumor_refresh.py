@@ -18,7 +18,7 @@ import pytest
 
 from nhc.core.game import Game
 from nhc.entities.registry import EntityRegistry
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.hexcrawl.model import DungeonRef, HexFeatureType, Rumor
 from nhc.i18n import init as i18n_init
 
@@ -50,7 +50,7 @@ def _make_game(tmp_path) -> Game:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=GameMode.HEX_EASY,
+        world_type=WorldType.HEXCRAWL, difficulty=Difficulty.EASY,
         save_dir=tmp_path,
         seed=42,
     )

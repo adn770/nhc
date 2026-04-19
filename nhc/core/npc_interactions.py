@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from nhc.core.actions import _count_slots_used, _entity_name, _item_slot_cost
 from nhc.core.events import MessageEvent
 from nhc.entities.registry import EntityRegistry
+from nhc.hexcrawl.mode import WorldType
 from nhc.i18n import t
 
 if TYPE_CHECKING:
@@ -317,7 +318,7 @@ class NpcInteractions:
         )
 
         max_party = (
-            MAX_EXPEDITION if self.game.world_mode.is_hex else MAX_HENCHMEN
+            MAX_EXPEDITION if self.game.world_type is WorldType.HEXCRAWL else MAX_HENCHMEN
         )
         from nhc.rules.prices import buy_price, sell_price
 

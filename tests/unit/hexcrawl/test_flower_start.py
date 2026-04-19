@@ -9,7 +9,7 @@ import textwrap
 from pathlib import Path
 
 from nhc.hexcrawl.coords import HexCoord, distance, neighbors
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, GameMode
 from nhc.hexcrawl.model import HexFeatureType, FLOWER_COORDS
 from nhc.hexcrawl._generator import generate_continental_world
 from nhc.hexcrawl.pack import load_pack
@@ -67,7 +67,7 @@ def test_easy_start_at_hub_center(tmp_path) -> None:
     hw = _make_hex_world(tmp_path)
     hub = hw.last_hub
     assert hub is not None
-    macro, sub = pick_flower_start(hw, GameMode.HEX_EASY, seed=42)
+    macro, sub = pick_flower_start(hw, Difficulty.EASY, seed=42)
     assert macro == hub
     assert sub == HexCoord(0, 0)
 
@@ -76,7 +76,7 @@ def test_medium_start_at_hub_center(tmp_path) -> None:
     from nhc.hexcrawl._flowers import pick_flower_start
     hw = _make_hex_world(tmp_path)
     hub = hw.last_hub
-    macro, sub = pick_flower_start(hw, GameMode.HEX_MEDIUM, seed=42)
+    macro, sub = pick_flower_start(hw, Difficulty.MEDIUM, seed=42)
     assert macro == hub
     assert sub == HexCoord(0, 0)
 
@@ -86,7 +86,7 @@ def test_survival_start_random_hex(tmp_path) -> None:
     hw = _make_hex_world(tmp_path)
     hub = hw.last_hub
     macro, sub = pick_flower_start(
-        hw, GameMode.HEX_SURVIVAL, seed=42,
+        hw, Difficulty.SURVIVAL, seed=42,
     )
     # Should NOT be the hub
     assert macro != hub
@@ -99,7 +99,7 @@ def test_survival_start_random_hex(tmp_path) -> None:
 def test_start_enters_flower(tmp_path) -> None:
     from nhc.hexcrawl._flowers import pick_flower_start
     hw = _make_hex_world(tmp_path)
-    macro, sub = pick_flower_start(hw, GameMode.HEX_EASY, seed=42)
+    macro, sub = pick_flower_start(hw, Difficulty.EASY, seed=42)
     # After entering, exploring_hex should be set
     hw.enter_flower(macro, sub)
     assert hw.exploring_hex == macro
@@ -111,7 +111,7 @@ def test_easy_start_hub_is_revealed(tmp_path) -> None:
     from nhc.hexcrawl._flowers import pick_flower_start
     hw = _make_hex_world(tmp_path)
     hub = hw.last_hub
-    macro, sub = pick_flower_start(hw, GameMode.HEX_EASY, seed=42)
+    macro, sub = pick_flower_start(hw, Difficulty.EASY, seed=42)
     # The caller (game.py) reveals the hub, not pick_flower_start
     # — but the macro hex should be marked visited
     hw.visit(macro)
@@ -124,7 +124,7 @@ def test_survival_hub_not_revealed(tmp_path) -> None:
     from nhc.hexcrawl._flowers import pick_flower_start
     hw = _make_hex_world(tmp_path)
     macro, sub = pick_flower_start(
-        hw, GameMode.HEX_SURVIVAL, seed=42,
+        hw, Difficulty.SURVIVAL, seed=42,
     )
     # Hub should not be in revealed set
     assert hw.last_hub not in hw.revealed

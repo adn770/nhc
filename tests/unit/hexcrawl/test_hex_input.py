@@ -68,7 +68,7 @@ def _make_game(
         client=_QueueClient(script),
         backend=None,
         style="classic",
-        world_mode=mode,
+        world_type=mode.world_type, difficulty=mode.difficulty,
         save_dir=tmp_path,
         seed=42,
     )
@@ -192,13 +192,19 @@ def test_game_new_defaults_to_dungeon(tmp_path) -> None:
 
 def test_game_new_accepts_hex_easy(tmp_path) -> None:
     c, _ = _client(tmp_path)
-    resp = c.post("/api/game/new", json={"world": "hex-easy"})
+    resp = c.post(
+        "/api/game/new",
+        json={"world": "hexcrawl", "difficulty": "easy"},
+    )
     assert resp.status_code == 201
 
 
 def test_game_new_accepts_hex_survival(tmp_path) -> None:
     c, _ = _client(tmp_path)
-    resp = c.post("/api/game/new", json={"world": "hex-survival"})
+    resp = c.post(
+        "/api/game/new",
+        json={"world": "hexcrawl", "difficulty": "survival"},
+    )
     assert resp.status_code == 201
 
 

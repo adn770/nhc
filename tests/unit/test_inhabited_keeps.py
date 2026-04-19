@@ -22,7 +22,7 @@ from nhc.core.game import Game
 from nhc.dungeon.sites.keep import assemble_keep
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.hexcrawl.model import (
     Biome, DungeonRef, HexCell, HexFeatureType, HexWorld,
 )
@@ -159,7 +159,7 @@ def _make_game(tmp_path) -> Game:
     g = Game(
         client=_FakeClient(), backend=None,
         style="classic",
-        world_mode=GameMode.HEX_EASY,
+        world_type=WorldType.HEXCRAWL, difficulty=Difficulty.EASY,
         save_dir=tmp_path, seed=42,
     )
     g.initialize()

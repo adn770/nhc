@@ -13,7 +13,7 @@ from nhc.core.autosave import has_autosave, auto_restore
 from nhc.core.game import Game
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.i18n import init as i18n_init
 
 
@@ -44,7 +44,7 @@ def _make_game(mode: GameMode, tmp_path) -> Game:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=mode,
+        world_type=mode.world_type, difficulty=mode.difficulty,
         save_dir=tmp_path,
         seed=42,
     )
@@ -125,12 +125,12 @@ async def test_autosave_from_hex_step_restores_hex_world(tmp_path) -> None:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=GameMode.HEX_EASY,
+        world_type=WorldType.HEXCRAWL, difficulty=Difficulty.EASY,
         save_dir=tmp_path,
         seed=42,
     )
     assert auto_restore(g2, tmp_path)
-    assert g2.world_mode is GameMode.HEX_EASY
+    assert g2.world_type is WorldType.HEXCRAWL and g2.difficulty is Difficulty.EASY
     assert g2.hex_world is not None
     assert g2.hex_player_position == target
 
@@ -146,7 +146,7 @@ async def test_apply_hex_step_rejects_dungeon_mode(tmp_path) -> None:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=GameMode.DUNGEON,
+        world_type=WorldType.DUNGEON, difficulty=Difficulty.MEDIUM,
         save_dir=tmp_path,
         seed=42,
     )

@@ -350,7 +350,12 @@ def _build_payload(game: "Game") -> dict[str, Any]:
 
         # Hex-mode state (absent from test FakeGames; getattr fallbacks
         # keep backward compatibility with pre-hex payloads too).
-        "world_mode": _mode_value(getattr(game, "world_mode", None)),
+        "world": _enum_value(
+            getattr(game, "world_type", None), "dungeon",
+        ),
+        "difficulty": _enum_value(
+            getattr(game, "difficulty", None), "medium",
+        ),
         "hex_world": getattr(game, "hex_world", None),
         "hex_player_position": getattr(game, "hex_player_position", None),
         # Staged Fight/Flee/Talk encounter -- survives a restart
@@ -360,11 +365,11 @@ def _build_payload(game: "Game") -> dict[str, Any]:
     }
 
 
-def _mode_value(mode: Any) -> str:
-    """GameMode enum → value string, with None falling back to dungeon."""
-    if mode is None:
-        return "dungeon"
-    return mode.value if hasattr(mode, "value") else str(mode)
+def _enum_value(val: Any, fallback: str) -> str:
+    """Enum → ``.value`` string, with None falling back to ``fallback``."""
+    if val is None:
+        return fallback
+    return val.value if hasattr(val, "value") else str(val)
 
 
 def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
@@ -410,9 +415,12 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     game._seen_creatures = payload.get("seen_creatures", set())
 
     # Hex-mode state
-    from nhc.hexcrawl.mode import GameMode
-    game.world_mode = GameMode.from_str(
-        payload.get("world_mode", GameMode.DUNGEON.value)
+    from nhc.hexcrawl.mode import Difficulty, WorldType
+    game.world_type = WorldType.from_str(
+        payload.get("world", "dungeon"),
+    )
+    game.difficulty = Difficulty.from_str(
+        payload.get("difficulty", "medium"),
     )
     game.hex_world = payload.get("hex_world")
     game.hex_player_position = payload.get("hex_player_position")

@@ -17,7 +17,7 @@ from nhc.entities.components import (
 )
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.i18n import init as i18n_init
 
 
@@ -48,7 +48,7 @@ def _make_game(mode: GameMode, tmp_path) -> Game:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=mode,
+        world_type=mode.world_type, difficulty=mode.difficulty,
         save_dir=tmp_path,
         seed=42,
     )
@@ -93,7 +93,7 @@ def test_cheat_death_blocked_in_hex_survival(tmp_path) -> None:
 def test_cheat_death_blocked_in_dungeon_mode(tmp_path) -> None:
     g = Game(
         client=_FakeClient(), backend=None, style="classic",
-        world_mode=GameMode.DUNGEON, save_dir=tmp_path, seed=1,
+        world_type=WorldType.DUNGEON, difficulty=Difficulty.MEDIUM, save_dir=tmp_path, seed=1,
     )
     g.initialize(generate=True)
     assert not g.allows_cheat_death_now()
@@ -239,7 +239,7 @@ def _menu_game(tmp_path, mode: GameMode) -> tuple[Game, _MenuClient]:
         client=client,
         backend=None,
         style="classic",
-        world_mode=mode,
+        world_type=mode.world_type, difficulty=mode.difficulty,
         save_dir=tmp_path,
         seed=42,
     )
@@ -282,7 +282,7 @@ def test_dungeon_death_skips_dialog(tmp_path) -> None:
         client=client,
         backend=None,
         style="classic",
-        world_mode=GameMode.DUNGEON,
+        world_type=WorldType.DUNGEON, difficulty=Difficulty.MEDIUM,
         save_dir=tmp_path,
         seed=42,
     )

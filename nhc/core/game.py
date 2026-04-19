@@ -79,7 +79,7 @@ from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.generator import (
     generate_continental_world,
 )
-from nhc.hexcrawl.mode import Difficulty, GameMode
+from nhc.hexcrawl.mode import Difficulty, GameMode, WorldType
 from nhc.hexcrawl.model import HexFeatureType, HexWorld
 from nhc.hexcrawl.pack import load_pack
 from nhc.i18n import t
@@ -276,14 +276,16 @@ class Game:
         reset: bool = False,
         shape_variety: float = DEFAULT_SHAPE_VARIETY,
         save_dir: Path | None = None,
-        world_mode: GameMode = GameMode.DUNGEON,
+        world_type: WorldType = WorldType.DUNGEON,
+        difficulty: Difficulty = Difficulty.MEDIUM,
     ) -> None:
         self.world = World()
         self.event_bus = EventBus()
         self.backend = backend
         self.seed = seed
         self.style = style
-        self.world_mode = world_mode
+        self.world_type: WorldType = world_type
+        self.difficulty: Difficulty = difficulty
         self.god_mode = god_mode
         self.reset = reset
         self.shape_variety = shape_variety
@@ -433,7 +435,7 @@ class Game:
         Degrades to the integer-depth key when ``hex_player_position``
         is not yet set (pre-initialize or test setup).
         """
-        if self.world_mode.is_hex and self.hex_player_position is not None:
+        if self.world_type is WorldType.HEXCRAWL and self.hex_player_position is not None:
             if (
                 depth >= 2
                 and self._active_descent_building is not None
@@ -470,7 +472,7 @@ class Game:
         is keyed by ``(q, r, depth)`` so re-entering the same hex
         after exiting hands back the same Level instance.
         """
-        if not self.world_mode.is_hex or self.hex_world is None:
+        if not self.world_type is WorldType.HEXCRAWL or self.hex_world is None:
             return False
         coord = self.hex_player_position
         if coord is None:
@@ -1436,7 +1438,7 @@ class Game:
         overland sentinel so any stray dungeon system that consults
         it sees "out of bounds".
         """
-        if self.level is None or not self.world_mode.is_hex:
+        if self.level is None or not self.world_type is WorldType.HEXCRAWL:
             return False
         # Heavy lifting lives in _exit_to_overland_sync so
         # _maybe_exit_cleared_arena can call it synchronously
@@ -1460,7 +1462,7 @@ class Game:
         actions without awaiting.
         """
         from nhc.hexcrawl.encounter import ARENA_TAG
-        if self.level is None or not self.world_mode.is_hex:
+        if self.level is None or not self.world_type is WorldType.HEXCRAWL:
             return False
         if not any(ARENA_TAG in r.tags for r in self.level.rooms):
             return False
@@ -1643,7 +1645,7 @@ class Game:
         If ``exploring_hex`` is set, the player returns to the
         flower view at the feature_cell rather than the macro map.
         """
-        if self.level is None or not self.world_mode.is_hex:
+        if self.level is None or not self.world_type is WorldType.HEXCRAWL:
             return
         departing_level_id = self.level.id
         self.level = None
@@ -1696,7 +1698,7 @@ class Game:
         """
         import random as _random
 
-        if self.level is None or not self.world_mode.is_hex:
+        if self.level is None or not self.world_type is WorldType.HEXCRAWL:
             return False
         # Damage roll first so the HP state is observable before
         # the dungeon is popped (rendering hooks may read it).
@@ -1927,7 +1929,7 @@ class Game:
         # handlers still need to be wired so within-dungeon
         # actions (descend stairs, pick up items, kill creatures)
         # reach the Game-side dispatch.
-        if self.world_mode.is_hex:
+        if self.world_type is WorldType.HEXCRAWL:
             self._init_hex_world()
             self._subscribe_event_handlers()
             return
@@ -2300,7 +2302,7 @@ class Game:
         while self.running:
             # Render: hex mode routes to render_hex; dungeon mode keeps
             # the existing render() path unchanged.
-            if self.world_mode.is_hex and self.hex_world is not None \
+            if self.world_type is WorldType.HEXCRAWL and self.hex_world is not None \
                     and self.level is None \
                     and self.hex_world.exploring_hex is not None:
                 # Sub-hex flower exploration mode
@@ -2320,7 +2322,7 @@ class Game:
                     self.turn += 1
                 continue
 
-            if self.world_mode.is_hex and self.hex_world is not None \
+            if self.world_type is WorldType.HEXCRAWL and self.hex_world is not None \
                     and self.level is None:
                 # Give the renderer a back-reference so it can
                 # gather player stats for the unified status bar.
@@ -2611,7 +2613,7 @@ class Game:
         if intent == "disconnect":
             return ["disconnect"]
         # Ascend at depth 1 in hex mode = exit to overland/flower.
-        if (intent == "ascend" and self.world_mode.is_hex
+        if (intent == "ascend" and self.world_type is WorldType.HEXCRAWL
                 and self.level is not None and self.level.depth <= 1):
             pos = self.world.get_component(self.player_id, "Position")
             tile = self.level.tile_at(pos.x, pos.y) if pos else None
@@ -2625,7 +2627,7 @@ class Game:
         # Hex-mode exit from inside a dungeon: pop back to the
         # overland. Returns an empty action list so the dungeon
         # turn does not also tick.
-        if intent == "hex_exit" and self.world_mode.is_hex:
+        if intent == "hex_exit" and self.world_type is WorldType.HEXCRAWL:
             ok = await self.exit_dungeon_to_hex()
             if ok:
                 self.renderer.add_message(
@@ -2635,7 +2637,7 @@ class Game:
         # Panic-flee: works from anywhere in the crawl, costs 1d6
         # HP + one day-clock segment. The game-over dialog fires
         # naturally if the HP roll floors the player at 1.
-        if intent == "panic_flee" and self.world_mode.is_hex:
+        if intent == "panic_flee" and self.world_type is WorldType.HEXCRAWL:
             ok = await self.panic_flee()
             if ok:
                 self.renderer.add_message(

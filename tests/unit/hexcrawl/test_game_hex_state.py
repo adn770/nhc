@@ -8,7 +8,7 @@ import pytest
 
 from nhc.core.game import Game
 from nhc.entities.registry import EntityRegistry
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.hexcrawl.model import HexFeatureType
 from nhc.i18n import init as i18n_init
 
@@ -47,7 +47,7 @@ def _make_game(world_mode: GameMode, seed: int, tmp_path) -> Game:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=world_mode,
+        world_type=world_mode.world_type, difficulty=world_mode.difficulty,
         save_dir=tmp_path,
         seed=seed,
     )
@@ -61,7 +61,7 @@ def _make_game(world_mode: GameMode, seed: int, tmp_path) -> Game:
 def test_game_dungeon_mode_has_no_hex_world(tmp_path) -> None:
     g = _make_game(GameMode.DUNGEON, seed=42, tmp_path=tmp_path)
     g.initialize(generate=True)
-    assert g.world_mode is GameMode.DUNGEON
+    assert g.world_type is WorldType.DUNGEON and g.difficulty is Difficulty.MEDIUM
     assert g.hex_world is None
     assert g.hex_player_position is None
     # And dungeon init still ran.
@@ -76,7 +76,7 @@ def test_game_default_world_mode_is_dungeon(tmp_path) -> None:
         save_dir=tmp_path,
         seed=99,
     )
-    assert g.world_mode is GameMode.DUNGEON
+    assert g.world_type is WorldType.DUNGEON and g.difficulty is Difficulty.MEDIUM
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ def test_game_default_world_mode_is_dungeon(tmp_path) -> None:
 def test_game_hex_easy_loads_hex_world(tmp_path) -> None:
     g = _make_game(GameMode.HEX_EASY, seed=42, tmp_path=tmp_path)
     g.initialize()
-    assert g.world_mode is GameMode.HEX_EASY
+    assert g.world_type is WorldType.HEXCRAWL and g.difficulty is Difficulty.EASY
     assert g.hex_world is not None
     from nhc.hexcrawl.coords import expected_shape_cell_count
     assert len(g.hex_world.cells) == expected_shape_cell_count(
@@ -125,7 +125,7 @@ def test_game_hex_easy_skips_dungeon_init(tmp_path) -> None:
 def test_game_hex_survival_loads_hex_world(tmp_path) -> None:
     g = _make_game(GameMode.HEX_SURVIVAL, seed=42, tmp_path=tmp_path)
     g.initialize()
-    assert g.world_mode is GameMode.HEX_SURVIVAL
+    assert g.world_type is WorldType.HEXCRAWL and g.difficulty is Difficulty.SURVIVAL
     assert g.hex_world is not None
 
 

@@ -68,8 +68,9 @@ def _make_game_stub(world, level, player_id, knowledge=None):
     game.player_id = player_id
     game.renderer = MagicMock()
     game._knowledge = knowledge
-    game.world_mode = MagicMock()
-    game.world_mode.is_hex = False
+    from nhc.hexcrawl.mode import Difficulty, WorldType
+    game.world_type = WorldType.DUNGEON
+    game.difficulty = Difficulty.MEDIUM
     game._disguise_potion = MagicMock()
     return game
 

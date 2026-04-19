@@ -787,25 +787,19 @@ def create_app(
         # player's explicit choice when it differs.
         world_raw = data.get("world", "hexcrawl")
         difficulty_raw = data.get("difficulty", "medium")
-        from nhc.hexcrawl.mode import Difficulty, GameMode, WorldType
+        from nhc.hexcrawl.mode import Difficulty, WorldType
         try:
             wtype = WorldType.from_str(world_raw)
         except ValueError:
-            # Legacy fallback for old clients
-            try:
-                world_mode = GameMode.from_str(world_raw)
-            except ValueError:
-                return jsonify({
-                    "error": f"unknown world: {world_raw!r}",
-                }), 400
-        else:
-            try:
-                diff = Difficulty.from_str(difficulty_raw)
-            except ValueError:
-                return jsonify({
-                    "error": f"unknown difficulty: {difficulty_raw!r}",
-                }), 400
-            world_mode = GameMode.from_world_difficulty(wtype, diff)
+            return jsonify({
+                "error": f"unknown world: {world_raw!r}",
+            }), 400
+        try:
+            diff = Difficulty.from_str(difficulty_raw)
+        except ValueError:
+            return jsonify({
+                "error": f"unknown difficulty: {difficulty_raw!r}",
+            }), 400
         pid = _get_player_id()
 
         # Destroy any stale suspended session for this player
@@ -853,8 +847,8 @@ def create_app(
         if registry and pid:
             registry.set_preferences(
                 pid,
-                world_mode.world_type.value,
-                world_mode.difficulty.value,
+                wtype.value,
+                diff.value,
             )
 
         # Initialize i18n and create the game instance
@@ -881,7 +875,8 @@ def create_app(
             client=client,
             backend=backend,
             style="classic",
-            world_mode=world_mode,
+            world_type=wtype,
+            difficulty=diff,
             reset=reset,
             shape_variety=config.shape_variety,
             god_mode=player_god,
@@ -896,11 +891,11 @@ def create_app(
         # server stays responsive and multiple cores serve
         # concurrent players.
         logger.info(
-            "Initialising session %s (world_mode=%s)...",
-            session.session_id, world_mode.value,
+            "Initialising session %s (world=%s, difficulty=%s)...",
+            session.session_id, wtype.value, diff.value,
         )
         try:
-            if world_mode.is_hex:
+            if wtype is WorldType.HEXCRAWL:
                 game.initialize()
             else:
                 game.initialize(generate=True, executor=gen_pool)

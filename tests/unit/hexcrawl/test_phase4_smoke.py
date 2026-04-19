@@ -24,7 +24,7 @@ from nhc.debug_tools.tools.hex_tools import (
     ShowWorldStateTool,
 )
 from nhc.entities.registry import EntityRegistry
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.hexcrawl.rumor_pool import generate_rumors_god_mode
 from nhc.i18n import init as i18n_init
 
@@ -58,7 +58,7 @@ async def test_phase4_god_mode_plus_mcp_tools(tmp_path, monkeypatch) -> None:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=GameMode.HEX_EASY,
+        world_type=WorldType.HEXCRAWL, difficulty=Difficulty.EASY,
         save_dir=tmp_path,
         seed=7,
         god_mode=True,

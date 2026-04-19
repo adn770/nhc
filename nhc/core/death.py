@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from nhc.hexcrawl.mode import WorldType
 from nhc.i18n import t
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ class DeathHandler:
         if choice != 1:
             return False
         try:
-            if self.game.world_mode.is_hex:
+            if self.game.world_type is WorldType.HEXCRAWL:
                 self.cheat_death()
             else:
                 self.cheat_death_dungeon()
@@ -63,7 +64,7 @@ class DeathHandler:
     def allows_cheat_death_now(self) -> bool:
         """True when the current world mode offers the cheat-death
         dialog on player death (easy difficulty in any world)."""
-        return self.game.world_mode.allows_cheat_death
+        return self.game.difficulty.allows_cheat_death
 
     def cheat_death(self) -> None:
         """Respawn the player at the last hub with penalties.
@@ -83,7 +84,7 @@ class DeathHandler:
         if not self.allows_cheat_death_now():
             raise RuntimeError(
                 f"cheat_death is only available in HEX_EASY; "
-                f"current mode is {self.game.world_mode.value}"
+                f"current world={self.game.world_type.value}, difficulty={self.game.difficulty.value}"
             )
         assert self.game.hex_world is not None
         assert self.game.hex_world.last_hub is not None
@@ -121,15 +122,16 @@ class DeathHandler:
     def cheat_death_dungeon(self) -> None:
         """Respawn the player in place with penalties (dungeon mode).
 
-        Only valid when :attr:`world_mode.allows_cheat_death` is
-        True. Resets gold to 0, strips inventory, and restores HP
+        Only valid on easy difficulty (where
+        :meth:`Difficulty.allows_cheat_death` is True). Resets gold
+        to 0, strips inventory, and restores HP
         to maximum. Dungeon state is preserved — cleared rooms stay
         cleared.
         """
-        if not self.game.world_mode.allows_cheat_death:
+        if not self.game.difficulty.allows_cheat_death:
             raise RuntimeError(
                 f"cheat_death_dungeon requires easy difficulty; "
-                f"current mode is {self.game.world_mode.value}"
+                f"current world={self.game.world_type.value}, difficulty={self.game.difficulty.value}"
             )
 
         world = self.game.world

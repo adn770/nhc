@@ -22,7 +22,7 @@ from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord, neighbors
 from nhc.hexcrawl.encounter import ARENA_TAG
 from nhc.hexcrawl.encounter_pipeline import Encounter, EncounterChoice
-from nhc.hexcrawl.mode import GameMode
+from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
 from nhc.hexcrawl.model import Biome, HexFeatureType
 from nhc.i18n import init as i18n_init
 
@@ -66,7 +66,7 @@ def _make_hex_game(tmp_path, client: _FakeClient) -> Game:
         client=client,
         backend=None,
         style="classic",
-        world_mode=GameMode.HEX_EASY,
+        world_type=WorldType.HEXCRAWL, difficulty=Difficulty.EASY,
         save_dir=tmp_path,
         seed=42,
     )

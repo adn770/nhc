@@ -52,7 +52,7 @@ def _make_game(tmp_path, mode: GameMode = GameMode.HEX_EASY) -> Game:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=mode,
+        world_type=mode.world_type, difficulty=mode.difficulty,
         save_dir=tmp_path,
         seed=42,
     )

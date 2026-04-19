@@ -28,7 +28,8 @@ def _make_game(mode: GameMode) -> "Game":
         "Player": Player(gold=50),
         "Inventory": Inventory(slots=[]),
     })
-    game.world_mode = mode
+    game.world_type = mode.world_type
+    game.difficulty = mode.difficulty
     game.hex_world = None
     game.hex_player_position = None
     game.level = None  # dungeon mode

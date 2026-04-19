@@ -43,7 +43,7 @@ def _make_game(world_mode: GameMode, tmp_path) -> Game:
         client=_FakeClient(),
         backend=None,
         style="classic",
-        world_mode=world_mode,
+        world_type=world_mode.world_type, difficulty=world_mode.difficulty,
         save_dir=tmp_path,
         seed=42,
     )

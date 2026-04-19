@@ -871,7 +871,7 @@ def entry_sub_hex_for_edge(edge: int | None) -> HexCoord:
 
 def pick_flower_start(
     hw: "HexWorld",
-    mode: "GameMode",
+    difficulty: "Difficulty",
     seed: int,
 ) -> tuple[HexCoord, HexCoord]:
     """Pick the starting (macro_hex, sub_hex) for a new hex game.
@@ -883,12 +883,12 @@ def pick_flower_start(
     Returns ``(macro_coord, sub_hex_coord)``.
     """
     from nhc.hexcrawl.model import HexWorld
-    from nhc.hexcrawl.mode import GameMode
+    from nhc.hexcrawl.mode import Difficulty
 
     rng = random.Random(seed)
     hub = hw.last_hub
 
-    if mode in (GameMode.HEX_EASY, GameMode.HEX_MEDIUM):
+    if difficulty is not Difficulty.SURVIVAL:
         assert hub is not None
         # Start at the hub hex, center of the flower
         return (hub, HexCoord(0, 0))
