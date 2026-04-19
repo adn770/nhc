@@ -677,6 +677,256 @@ def generate_settlements(outdir: Path, seeds: list[int]) -> None:
             _render_and_save(level, seed, base, label)
 
 
+# ── Building generator samples ─────────────────────────────────────
+
+def _svg_frame(
+    width_px: int, height_px: int, body: str, bg: str = "#F5EDE0",
+) -> str:
+    """Minimal standalone SVG frame for wall / enclosure demos."""
+    return (
+        f'<?xml version="1.0" encoding="utf-8"?>\n'
+        f'<svg width="{width_px}" height="{height_px}" '
+        f'viewBox="0 0 {width_px} {height_px}" '
+        f'xmlns="http://www.w3.org/2000/svg">\n'
+        f'<rect width="100%" height="100%" fill="{bg}"/>\n'
+        f'{body}\n'
+        f'</svg>\n'
+    )
+
+
+def generate_building_walls(outdir: Path) -> None:
+    """Standalone brick / stone wall-run reference sheets."""
+    from nhc.rendering._building_walls import (
+        render_brick_wall_run, render_stone_wall_run,
+    )
+
+    wdir = outdir / "building_walls"
+    wdir.mkdir(parents=True, exist_ok=True)
+
+    for label, fn in (
+        ("brick", render_brick_wall_run),
+        ("stone", render_stone_wall_run),
+    ):
+        body: list[str] = []
+        # Three horizontal runs at increasing lengths, stacked with
+        # 40px breathing room. Each run uses a distinct seed so the
+        # stagger / missing-brick randomness visibly differs.
+        for i, length in enumerate((120, 240, 360)):
+            y = 40 + i * 30
+            body.extend(fn(30, y, 30 + length, y, seed=7 + i))
+        # Two short vertical runs at x=420, x=470 to show the
+        # perpendicular path.
+        for i, x in enumerate((420, 480)):
+            body.extend(fn(x, 40, x, 40 + 200, seed=21 + i))
+        svg = _svg_frame(560, 280, "".join(body))
+        (wdir / f"{label}_wall_reference.svg").write_text(svg)
+        print(f"  {wdir}/{label}_wall_reference.svg")
+
+
+def generate_enclosure_demos(outdir: Path) -> None:
+    """Fortification + palisade reference SVGs on a shared polygon."""
+    from nhc.rendering._enclosures import (
+        render_fortification_enclosure,
+        render_palisade_enclosure,
+    )
+
+    edir = outdir / "enclosures"
+    edir.mkdir(parents=True, exist_ok=True)
+
+    # Shared test polygon: a 320x200 rect with one gate on the
+    # bottom edge and one on the right edge.
+    polygon = [(40, 40), (360, 40), (360, 240), (40, 240)]
+    gates = [
+        (2, 0.5, 40.0),  # bottom edge midpoint, 80px-wide gap
+        (1, 0.5, 30.0),  # right edge midpoint, 60px-wide gap
+    ]
+
+    fort = render_fortification_enclosure(polygon, gates=gates)
+    svg = _svg_frame(400, 280, "".join(fort))
+    (edir / "fortification_reference.svg").write_text(svg)
+    print(f"  {edir}/fortification_reference.svg")
+
+    palisade = render_palisade_enclosure(polygon, gates=gates, seed=5)
+    svg = _svg_frame(400, 280, "".join(palisade))
+    (edir / "palisade_reference.svg").write_text(svg)
+    print(f"  {edir}/palisade_reference.svg")
+
+
+def _make_surface_patch_level(
+    w: int, h: int, patch_w: int = 6, patch_h: int = 4,
+    interior_floor: str = "stone",
+):
+    """Hand-built Level with four surface_type patches side-by-side.
+
+    Patches left→right: STREET, FIELD, GARDEN, plain floor.
+    """
+    from nhc.dungeon.model import (
+        Level, Rect, Room, RectShape, SurfaceType, Terrain, Tile,
+    )
+    level = Level.create_empty(
+        "surface_demo", "Surface demo", 1, w, h,
+    )
+    # Fill everything with floor first
+    for y in range(h):
+        for x in range(w):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    level.interior_floor = interior_floor
+    level.rooms = [Room(id="demo", rect=Rect(0, 0, w, h))]
+
+    surfaces = (
+        SurfaceType.STREET,
+        SurfaceType.FIELD,
+        SurfaceType.GARDEN,
+        SurfaceType.NONE,
+    )
+    for i, st in enumerate(surfaces):
+        x0 = 1 + i * (patch_w + 2)
+        if x0 + patch_w >= w:
+            break
+        for dy in range(patch_h):
+            for dx in range(patch_w):
+                level.tiles[2 + dy][x0 + dx].surface_type = st
+    return level
+
+
+def generate_surface_samples(outdir: Path) -> None:
+    """Reference sheet with STREET / FIELD / GARDEN / wood patches."""
+    sdir = outdir / "surface_samples"
+    sdir.mkdir(parents=True, exist_ok=True)
+
+    # Stone interior floor with street/field/garden patches side by side.
+    level = _make_surface_patch_level(w=40, h=12, interior_floor="stone")
+    svg = render_floor_svg(level, seed=42)
+    (sdir / "surface_stone_reference.svg").write_text(svg)
+    print(f"  {sdir}/surface_stone_reference.svg")
+
+    # Same layout with wood interior; street/field/garden passes are
+    # suppressed under wood but the plank fill + seams should show.
+    level = _make_surface_patch_level(w=40, h=12, interior_floor="wood")
+    svg = render_floor_svg(level, seed=42)
+    (sdir / "surface_wood_reference.svg").write_text(svg)
+    print(f"  {sdir}/surface_wood_reference.svg")
+
+
+def _enclosure_fragments_for_site(site, seed: int) -> list[str]:
+    """Convert Site.enclosure (tile-coord polygon + tile gates) into
+    SVG fragments from the enclosure renderers.
+
+    The Enclosure dataclass stores gates as (x, y, length_tiles) in
+    tile space; the renderers expect (edge_index, t_center,
+    half_len_px). This helper projects each gate midpoint onto its
+    nearest polygon edge and emits the parametric form.
+    """
+    from nhc.rendering._enclosures import (
+        render_fortification_enclosure,
+        render_palisade_enclosure,
+    )
+    if site.enclosure is None:
+        return []
+    poly_px = [
+        (PADDING + x * CELL, PADDING + y * CELL)
+        for (x, y) in site.enclosure.polygon
+    ]
+    gates_param: list[tuple[int, float, float]] = []
+    for (gx, gy, length_tiles) in site.enclosure.gates:
+        gx_px = PADDING + gx * CELL
+        gy_px = PADDING + gy * CELL
+        # Pick the edge whose midpoint is nearest the gate point.
+        best_idx = 0
+        best_d = float("inf")
+        best_t = 0.5
+        for i in range(len(poly_px)):
+            ax, ay = poly_px[i]
+            bx, by = poly_px[(i + 1) % len(poly_px)]
+            dx, dy = bx - ax, by - ay
+            seg_len_sq = dx * dx + dy * dy
+            if seg_len_sq == 0:
+                continue
+            t = max(0.0, min(1.0, (
+                (gx_px - ax) * dx + (gy_px - ay) * dy
+            ) / seg_len_sq))
+            px = ax + dx * t
+            py = ay + dy * t
+            d = (px - gx_px) ** 2 + (py - gy_px) ** 2
+            if d < best_d:
+                best_d = d
+                best_idx = i
+                best_t = t
+        gates_param.append(
+            (best_idx, best_t, length_tiles * CELL / 2)
+        )
+
+    if site.enclosure.kind == "fortification":
+        return render_fortification_enclosure(
+            poly_px, gates=gates_param,
+        )
+    if site.enclosure.kind == "palisade":
+        return render_palisade_enclosure(
+            poly_px, gates=gates_param, seed=seed,
+        )
+    return []
+
+
+def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
+    """Render every site kind for each seed.
+
+    Per site, per seed:
+      <kind>_seed<N>_surface.svg -- outdoor surface + enclosure
+      <kind>_seed<N>_b<bi>_f<fi>.svg -- each building floor
+    """
+    import random as rand_mod
+    from nhc.dungeon.site import SITE_KINDS, assemble_site
+    from nhc.rendering.building import render_building_floor_svg
+
+    bdir = outdir / "building_sites"
+    bdir.mkdir(parents=True, exist_ok=True)
+
+    for seed in seeds:
+        for kind in SITE_KINDS:
+            site = assemble_site(
+                kind, f"{kind}_s{seed}", rand_mod.Random(seed),
+            )
+            # Surface level with enclosure overlay.
+            surface_svg = render_floor_svg(site.surface, seed=seed)
+            enc_frags = _enclosure_fragments_for_site(site, seed)
+            if enc_frags:
+                surface_svg = surface_svg.replace(
+                    "</svg>", "".join(enc_frags) + "</svg>",
+                )
+            base = bdir / f"{kind}_seed{seed}_surface"
+            base.with_suffix(".svg").write_text(surface_svg)
+
+            for bi, building in enumerate(site.buildings):
+                for fi in range(len(building.floors)):
+                    floor_svg = render_building_floor_svg(
+                        building, fi, seed=seed + fi,
+                    )
+                    floor_base = (
+                        bdir
+                        / f"{kind}_seed{seed}_b{bi}_f{fi}"
+                    )
+                    floor_base.with_suffix(".svg").write_text(
+                        floor_svg,
+                    )
+
+            bldg_floor_count = sum(
+                len(b.floors) for b in site.buildings
+            )
+            shapes = {
+                type(b.base_shape).__name__
+                for b in site.buildings
+            }
+            enc = (
+                site.enclosure.kind if site.enclosure else "none"
+            )
+            print(
+                f"  {kind} seed={seed}: "
+                f"{len(site.buildings)} buildings, "
+                f"{bldg_floor_count} floors, "
+                f"shapes={sorted(shapes)}, enclosure={enc}"
+            )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -695,12 +945,30 @@ def main(argv: list[str] | None = None) -> None:
         "--templates-only", action="store_true",
         help="only generate template samples (skip BSP varieties)",
     )
+    parser.add_argument(
+        "--buildings-only", action="store_true",
+        help=(
+            "only generate building-generator samples "
+            "(walls, enclosures, surfaces, sites)"
+        ),
+    )
     args = parser.parse_args(argv)
 
     seeds = (
         [int(s) for s in args.seeds.split(",")]
         if args.seeds else DEFAULT_SEEDS
     )
+
+    if args.buildings_only:
+        print("── Building wall references ──")
+        generate_building_walls(args.outdir)
+        print("\n── Enclosure references ──")
+        generate_enclosure_demos(args.outdir)
+        print("\n── Surface references ──")
+        generate_surface_samples(args.outdir)
+        print("\n── Building site samples ──")
+        generate_building_sites(args.outdir, seeds)
+        return
 
     if not args.templates_only:
         varieties = None
@@ -717,6 +985,14 @@ def main(argv: list[str] | None = None) -> None:
     generate_underworld(args.outdir, seeds)
     print("\n── Settlement samples ──")
     generate_settlements(args.outdir, seeds)
+    print("\n── Building wall references ──")
+    generate_building_walls(args.outdir)
+    print("\n── Enclosure references ──")
+    generate_enclosure_demos(args.outdir)
+    print("\n── Surface references ──")
+    generate_surface_samples(args.outdir)
+    print("\n── Building site samples ──")
+    generate_building_sites(args.outdir, seeds)
 
 
 if __name__ == "__main__":
