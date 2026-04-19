@@ -1109,10 +1109,14 @@ def _building_roof_fragments(site, seed: int) -> list[str]:
     axis with a black ridge line); square (w==h) and octagon get
     pyramid roofs (N triangles from the polygon centre with N
     ridge lines). Circle roofs are skipped.
+
+    Each roof gets a tile-size label on top so visual alignment
+    with walls can be inspected alongside the shape dimensions.
     """
     import random as rand_mod
     defs: list[str] = []
     body: list[str] = []
+    labels: list[str] = []
     for i, b in enumerate(site.buildings):
         polygon = _footprint_polygon_px(b)
         if polygon is None:
@@ -1157,9 +1161,41 @@ def _building_roof_fragments(site, seed: int) -> list[str]:
             )
             body.append('</g>')
 
+        labels.extend(_building_size_label(
+            i, b, type(b.base_shape).__name__, px, py, pw, ph, mode,
+        ))
+
     if not body:
         return []
-    return [f'<defs>{"".join(defs)}</defs>'] + body
+    return (
+        [f'<defs>{"".join(defs)}</defs>'] + body + labels
+    )
+
+
+def _building_size_label(
+    i: int, b, shape_name: str,
+    px: float, py: float, pw: float, ph: float, mode: str,
+) -> list[str]:
+    """A small pill+text overlay at the building's centre showing
+    index, shape, tile dimensions, and roof mode."""
+    cx = px + pw / 2
+    cy = py + ph / 2
+    r = b.base_rect
+    text = f"b{i} {shape_name} {r.width}x{r.height} {mode}"
+    char_w = 5.8
+    font_size = 10
+    pill_w = len(text) * char_w + 14
+    pill_h = font_size + 8
+    return [
+        f'<rect x="{cx - pill_w / 2:.1f}" '
+        f'y="{cy - pill_h / 2:.1f}" '
+        f'width="{pill_w:.1f}" height="{pill_h:.1f}" '
+        f'rx="3" fill="rgba(255,255,240,0.88)" '
+        f'stroke="#333" stroke-width="0.4"/>',
+        f'<text x="{cx:.1f}" y="{cy + 3:.1f}" '
+        f'font-family="monospace" font-size="{font_size}" '
+        f'text-anchor="middle" fill="#111">{text}</text>',
+    ]
 
 
 def _gable_sides(
