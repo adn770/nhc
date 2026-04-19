@@ -1,0 +1,222 @@
+"""Cottage site assembler.
+
+See ``design/biome_features.md`` §6. A cottage is a tiny one-
+building forest site with a GARDEN ring around it and no
+entities in v1.
+"""
+
+from __future__ import annotations
+
+import random
+
+from nhc.dungeon.building import Building
+from nhc.dungeon.generators._stairs import (
+    flip_building_stair_semantics, place_cross_floor_stairs,
+)
+from nhc.dungeon.model import (
+    Level, Rect, RectShape, Room, RoomShape, SurfaceType,
+    Terrain, Tile,
+)
+from nhc.dungeon.site import (
+    Site, outside_neighbour, paint_surface_doors,
+)
+from nhc.hexcrawl.model import Biome
+
+
+# ── Cottage tunable constants ────────────────────────────────
+
+COTTAGE_SURFACE_WIDTH = 14
+COTTAGE_SURFACE_HEIGHT = 12
+COTTAGE_BUILDING_POS = (4, 3)
+COTTAGE_BUILDING_SIZE = (5, 5)
+COTTAGE_GARDEN_RING = 1
+
+
+def assemble_cottage(
+    site_id: str, rng: random.Random,
+    biome: Biome | None = None,
+) -> Site:
+    """Assemble a cottage site.
+
+    ``biome`` is accepted for dispatcher symmetry with the other
+    site assemblers; cottages are forest-only in v1 so the
+    parameter is ignored for now. TODO (v2): branch on biome for
+    mountain / swamp cottages once content supports them.
+    """
+    del biome  # unused in v1
+
+    base_rect = Rect(
+        COTTAGE_BUILDING_POS[0], COTTAGE_BUILDING_POS[1],
+        COTTAGE_BUILDING_SIZE[0], COTTAGE_BUILDING_SIZE[1],
+    )
+    shape: RoomShape = RectShape()
+    building = _build_cottage_building(
+        f"{site_id}_cottage", shape, base_rect, rng,
+    )
+
+    door_xy = _place_entry_door(building, rng)
+    door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
+    if door_xy is not None:
+        neighbour = outside_neighbour(building, *door_xy)
+        if neighbour is not None:
+            door_map[neighbour] = (
+                building.id, door_xy[0], door_xy[1],
+            )
+    building.validate()
+
+    # TODO (v2): populator hook -- roll a hermit / witch /
+    # squatter / empty here to give abandoned cottages a soul.
+    # design/biome_features.md §8.
+
+    surface = _build_cottage_surface(
+        f"{site_id}_surface", building,
+    )
+
+    site = Site(
+        id=site_id,
+        kind="cottage",
+        buildings=[building],
+        surface=surface,
+        enclosure=None,
+    )
+    site.building_doors.update(door_map)
+    paint_surface_doors(site, SurfaceType.GARDEN)
+    return site
+
+
+def _build_cottage_building(
+    building_id: str, shape: RoomShape, base_rect: Rect,
+    rng: random.Random,
+) -> Building:
+    ground = _build_cottage_floor(building_id, 0, shape, base_rect)
+    ground.interior_floor = "wood"
+    building = Building(
+        id=building_id,
+        base_shape=shape,
+        base_rect=base_rect,
+        floors=[ground],
+        descent=None,
+        wall_material="brick",
+        interior_floor="wood",
+    )
+    building.stair_links = place_cross_floor_stairs(building, rng)
+    flip_building_stair_semantics(building)
+    return building
+
+
+def _build_cottage_floor(
+    building_id: str, floor_idx: int,
+    shape: RoomShape, base_rect: Rect,
+) -> Level:
+    w = base_rect.x + base_rect.width + 2
+    h = base_rect.y + base_rect.height + 2
+    level = Level.create_empty(
+        f"{building_id}_f{floor_idx}",
+        f"{building_id} floor {floor_idx}",
+        floor_idx + 1, w, h,
+    )
+    footprint = shape.floor_tiles(base_rect)
+    for (x, y) in footprint:
+        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    for (x, y) in footprint:
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                nx, ny = x + dx, y + dy
+                if (nx, ny) in footprint:
+                    continue
+                if not level.in_bounds(nx, ny):
+                    continue
+                if level.tiles[ny][nx].terrain == Terrain.VOID:
+                    level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+    level.rooms = [Room(
+        id=f"{building_id}_f{floor_idx}_room",
+        rect=Rect(
+            base_rect.x, base_rect.y,
+            base_rect.width, base_rect.height,
+        ),
+        shape=shape,
+        tags=["cottage_interior"] + (
+            ["entrance"] if floor_idx == 0 else []
+        ),
+    )]
+    level.building_id = building_id
+    level.floor_index = floor_idx
+    level.interior_floor = "wood"
+    return level
+
+
+def _place_entry_door(
+    building: Building, rng: random.Random,
+) -> tuple[int, int] | None:
+    """Stamp a ``door_closed`` on an interior perimeter floor tile.
+
+    Matches the farm / town convention: perimeter floor tiles
+    whose neighbour is a WALL are eligible; the door feature sits
+    on the floor side so the door-crossing handler can step the
+    player from the outside surface tile through the door onto
+    the interior.
+    """
+    ground = building.ground
+    candidates: list[tuple[int, int]] = []
+    for (px, py) in building.shared_perimeter():
+        tile = ground.tiles[py][px]
+        if tile.feature is not None:
+            continue
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nx, ny = px + dx, py + dy
+            if not ground.in_bounds(nx, ny):
+                continue
+            if ground.tiles[ny][nx].terrain is Terrain.WALL:
+                candidates.append((px, py))
+                break
+    if not candidates:
+        return None
+    dx, dy = rng.choice(sorted(candidates))
+    ground.tiles[dy][dx].feature = "door_closed"
+    return (dx, dy)
+
+
+def _build_cottage_surface(
+    surface_id: str, building: Building,
+) -> Level:
+    surface = Level.create_empty(
+        surface_id, surface_id, 0,
+        COTTAGE_SURFACE_WIDTH, COTTAGE_SURFACE_HEIGHT,
+    )
+    surface.metadata.theme = "cottage"
+    surface.metadata.ambient = "forest"
+
+    footprint = building.base_shape.floor_tiles(building.base_rect)
+    blocked: set[tuple[int, int]] = set()
+    blocked |= footprint
+    for (x, y) in footprint:
+        for dx in range(-1, 2):
+            for dy in range(-1, 2):
+                blocked.add((x + dx, y + dy))
+
+    garden_tiles: set[tuple[int, int]] = set()
+    for (x, y) in footprint:
+        for dx in range(-COTTAGE_GARDEN_RING - 1,
+                        COTTAGE_GARDEN_RING + 2):
+            for dy in range(-COTTAGE_GARDEN_RING - 1,
+                            COTTAGE_GARDEN_RING + 2):
+                ax, ay = x + dx, y + dy
+                if (ax, ay) in blocked:
+                    continue
+                if not surface.in_bounds(ax, ay):
+                    continue
+                dist = max(abs(dx), abs(dy))
+                if dist == COTTAGE_GARDEN_RING + 1:
+                    garden_tiles.add((ax, ay))
+
+    for y in range(surface.height):
+        for x in range(surface.width):
+            if (x, y) in blocked:
+                continue
+            tile = Tile(terrain=Terrain.FLOOR)
+            if (x, y) in garden_tiles:
+                tile.surface_type = SurfaceType.GARDEN
+            else:
+                tile.surface_type = SurfaceType.FIELD
+            surface.tiles[y][x] = tile
+    return surface

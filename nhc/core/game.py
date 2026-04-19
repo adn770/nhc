@@ -479,7 +479,9 @@ class Game:
             self._active_cave_cluster = None
             if await self._enter_farm_site(coord):
                 return True
-        if cell.dungeon.site_kind in ("keep", "town"):
+        if cell.dungeon.site_kind in (
+            "keep", "town", "temple", "cottage",
+        ):
             self._active_cave_cluster = None
             if await self._enter_walled_site(
                 coord, cell.dungeon.site_kind,
