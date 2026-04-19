@@ -89,6 +89,47 @@ class _TownSizeConfig:
     has_palisade: bool
 
 
+@dataclass(frozen=True)
+class _BiomeOverrides:
+    """Biome-driven tweaks applied on top of the size-class config.
+
+    ``wall_material`` / ``interior_floor`` force every building to
+    the given material when set; ``None`` falls through to the
+    default wood/brick/stone roll. ``suppress_palisade`` flips the
+    size-class palisade off regardless of has_palisade. ``skew_small``
+    clamps the building-count roll to the lower half of the range.
+    ``ambient`` overrides ``surface.metadata.ambient`` when set.
+    """
+
+    wall_material: str | None = None
+    interior_floor: str | None = None
+    suppress_palisade: bool = False
+    skew_small: bool = False
+    ambient: str | None = None
+
+
+_BIOME_OVERRIDES: dict[Biome, _BiomeOverrides] = {
+    Biome.MOUNTAIN: _BiomeOverrides(
+        wall_material="stone", interior_floor="stone",
+        suppress_palisade=True, skew_small=True,
+    ),
+    Biome.DRYLANDS: _BiomeOverrides(
+        wall_material="adobe", interior_floor="earth",
+    ),
+    Biome.MARSH: _BiomeOverrides(
+        wall_material="wood", interior_floor="wood",
+        ambient="stilted",
+    ),
+}
+
+
+def _biome_overrides(biome: Biome | None) -> _BiomeOverrides:
+    """Return the override bundle for ``biome`` (or empty defaults)."""
+    if biome is None:
+        return _BiomeOverrides()
+    return _BIOME_OVERRIDES.get(biome, _BiomeOverrides())
+
+
 _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
     "hamlet": _TownSizeConfig(
         building_count_range=(3, 4),
@@ -134,29 +175,30 @@ def assemble_town(
     call sites and tests remain unchanged.
 
     ``biome`` is an optional :class:`Biome` that lets the
-    assembler tweak its defaults without growing a new feature
-    type. On :attr:`Biome.MOUNTAIN` every building becomes
-    stone, the palisade is suppressed regardless of ``size_class``
-    so the site reads as a mountain-Village / mountain-Lodge, and
-    the building count skews to the lower half of the size class.
+    assembler tweak its defaults via :data:`_BIOME_OVERRIDES`
+    without growing a new feature type. Mountain settlements get
+    stone walls, no palisade, and skewed-small building counts;
+    drylands towns land adobe walls over packed-earth floors;
+    marsh towns switch to stilted wood with a ``"stilted"``
+    surface ambient marker the frontend can raise a tile for.
     All other biomes fall through to the unmodified defaults.
     """
     if size_class not in _SIZE_CLASSES:
         raise ValueError(f"unknown town size_class: {size_class!r}")
     config = _SIZE_CLASSES[size_class]
-    mountain = biome is Biome.MOUNTAIN
+    overrides = _biome_overrides(biome)
 
-    if mountain:
+    if overrides.skew_small:
         lo, hi = config.building_count_range
-        # Clamp to the lower half so a mountain site never pushes
+        # Clamp to the lower half so small-biome sites never push
         # to the top of the band. Guarantees at least one building.
-        mtn_hi = max(lo, (lo + hi) // 2)
-        n_buildings = rng.randint(lo, mtn_hi)
+        skewed_hi = max(lo, (lo + hi) // 2)
+        n_buildings = rng.randint(lo, skewed_hi)
     else:
         n_buildings = rng.randint(*config.building_count_range)
 
     buildings = _place_buildings(
-        site_id, rng, n_buildings, config, mountain=mountain,
+        site_id, rng, n_buildings, config, overrides=overrides,
     )
     role_assignments = _assign_service_roles(rng, buildings)
 
@@ -171,16 +213,17 @@ def assemble_town(
                 )
         b.validate()
 
-    # Mountain sites read as lodges perched on stone -- the
-    # palisade would look absurd. size_class still controls
-    # building count; only the wall comes off.
-    if config.has_palisade and not mountain:
+    # Mountain lodges read best without a palisade; everything else
+    # inherits the size-class default.
+    if config.has_palisade and not overrides.suppress_palisade:
         enclosure = _build_palisade(buildings, config, rng)
     else:
         enclosure = None
     surface = _build_town_surface(
         f"{site_id}_surface", buildings, enclosure, config,
     )
+    if overrides.ambient is not None:
+        surface.metadata.ambient = overrides.ambient
 
     site = Site(
         id=site_id,
@@ -198,9 +241,10 @@ def assemble_town(
 def _place_buildings(
     site_id: str, rng: random.Random,
     n_buildings: int, config: _TownSizeConfig,
-    mountain: bool = False,
+    overrides: _BiomeOverrides | None = None,
 ) -> list[Building]:
     """Distribute ``n_buildings`` across two rows of the site."""
+    overrides = overrides or _BiomeOverrides()
     per_row = (n_buildings + 1) // 2
     buildings: list[Building] = []
     for row_idx, base_y in enumerate(config.row_y):
@@ -213,8 +257,8 @@ def _place_buildings(
             rect = Rect(x_cursor, base_y, w, h)
             shape = _pick_shape(rng)
             n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
-            if mountain:
-                interior = "stone"
+            if overrides.interior_floor is not None:
+                interior = overrides.interior_floor
             else:
                 is_wood = (
                     rng.random() < TOWN_WOOD_BUILDING_PROBABILITY
@@ -228,6 +272,7 @@ def _place_buildings(
             building = _build_town_building(
                 f"{site_id}_b{row_idx}_{i}", shape, rect,
                 n_floors, descent, interior, rng,
+                wall_override=overrides.wall_material,
             )
             buildings.append(building)
             x_cursor += w + TOWN_BUILDING_SPACING
@@ -273,6 +318,7 @@ def _build_town_building(
     building_id: str, base_shape: RoomShape, base_rect: Rect,
     n_floors: int, descent: DungeonRef | None,
     interior: str, rng: random.Random,
+    wall_override: str | None = None,
 ) -> Building:
     floors: list[Level] = []
     for idx in range(n_floors):
@@ -281,13 +327,17 @@ def _build_town_building(
         )
         level.interior_floor = interior
         floors.append(level)
+    if wall_override is not None:
+        wall_material = wall_override
+    else:
+        wall_material = "brick" if interior == "wood" else "stone"
     building = Building(
         id=building_id,
         base_shape=base_shape,
         base_rect=base_rect,
         floors=floors,
         descent=descent,
-        wall_material="brick" if interior == "wood" else "stone",
+        wall_material=wall_material,
         interior_floor=interior,
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
