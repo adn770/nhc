@@ -81,6 +81,30 @@ FACTION_POOLS: dict[str, list[tuple[str, float]]] = {
 }
 
 
+# ── Category alias pools (biome-features v2) ──────────────────────────
+#
+# Expand "beast" / "undead" category keys used by the v2 per-biome
+# ruin faction table (design/biome_features.md §8) into concrete
+# creature weight lists. Next milestone (M9) wires these into
+# place_features so a ruin's biome → faction → creature pool resolves
+# without ever leaking a category string into the populator.
+
+BEAST_POOL: list[tuple[str, float]] = [
+    ("wolf", 0.35),
+    ("dire_wolf", 0.15),
+    ("black_bear", 0.25),
+    ("brown_bear", 0.15),
+    ("giant_rat", 0.10),
+]
+
+UNDEAD_POOL: list[tuple[str, float]] = [
+    ("skeleton", 0.35),
+    ("zombie", 0.30),
+    ("ghoul", 0.20),
+    ("wraith", 0.15),
+]
+
+
 # ── Encounter group templates ────────────────────────────────────────
 
 ENCOUNTER_GROUPS: list[tuple[str, int, int]] = [

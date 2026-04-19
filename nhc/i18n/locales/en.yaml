@@ -1321,6 +1321,24 @@ creature:
     long: >-
       A seasoned explorer seeking companions for the dungeon depths.
       They offer their sword arm — for the right price.
+  cultist:
+    name: "Cultist"
+    short: "a robed cultist"
+    long: >-
+      A hooded zealot bearing the marks of a forbidden creed.
+      Their chants are low and their dagger is quick.
+  frozen_dead:
+    name: "Frozen Dead"
+    short: "a frozen corpse"
+    long: >-
+      A corpse preserved in the deep frost, its flesh rimed blue.
+      It lurches forward with limbs that crack like splitting ice.
+  yeti:
+    name: "Yeti"
+    short: "a towering yeti"
+    long: >-
+      A shaggy white giant of the high passes, shoulders thick with
+      rime. Its roar sends snow tumbling from every ledge.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 death:

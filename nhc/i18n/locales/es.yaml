@@ -1351,6 +1351,29 @@ creature:
       Un explorador experimentado que busca compañeros para las
       profundidades de la mazmorra. Ofrece su espada — por el
       precio justo.
+  cultist:
+    name: "Cultista"
+    gender: "m"
+    short: "un cultista encapuchado"
+    long: >-
+      Un fanático con túnica que lleva las marcas de un credo
+      prohibido. Sus cánticos son bajos y su daga, rápida.
+  frozen_dead:
+    name: "Muerto Helado"
+    gender: "m"
+    short: "un cadáver helado"
+    long: >-
+      Un cadáver conservado en la helada profunda, con la carne
+      escarchada de azul. Avanza con miembros que crujen como
+      hielo al resquebrajarse.
+  yeti:
+    name: "Yeti"
+    gender: "m"
+    short: "un yeti descomunal"
+    long: >-
+      Un gigante blanco y peludo de los pasos altos, con hombros
+      cargados de escarcha. Su rugido hace caer la nieve de
+      cada cornisa.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

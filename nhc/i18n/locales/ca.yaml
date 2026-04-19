@@ -1425,6 +1425,28 @@ creature:
     long: >-
       Un explorador experimentat que busca companys per les profunditats
       de la masmorra. Ofereix la seva espasa — pel preu just.
+  cultist:
+    name: "cultista"
+    gender: "m"
+    short: "un cultista encaputxat"
+    long: >-
+      Un fanàtic amb túnica que duu les marques d'un credo prohibit.
+      Els seus cants són baixos i la seva daga, ràpida.
+  frozen_dead:
+    name: "mort glaçat"
+    gender: "m"
+    short: "un cadàver glaçat"
+    long: >-
+      Un cadàver conservat sota la gelada profunda, amb la carn
+      cobeta de gebre blavós. Avança arrossegant-se amb membres que
+      es trenquen com gel esquerdat.
+  yeti:
+    name: "ieti"
+    gender: "m"
+    short: "un ieti enorme"
+    long: >-
+      Un gegant blanc i pelut dels passos alts, amb espatlles
+      carregades de gebre. El seu rugit fa caure la neu de cada cornisa.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:
