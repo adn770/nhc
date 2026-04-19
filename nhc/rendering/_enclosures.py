@@ -30,7 +30,11 @@ PALISADE_STROKE_WIDTH = 1.5
 PALISADE_RADIUS_MIN = 3.0
 PALISADE_RADIUS_MAX = 4.0
 PALISADE_RADIUS_JITTER = 0.3
-PALISADE_CIRCLE_STEP = 1.6          # spacing between circle centres
+# Step >= 2 * (RADIUS_MAX + RADIUS_JITTER) guarantees that any two
+# adjacent circles are tangent-or-separated regardless of their
+# individually sampled radii. 2 * 4.3 = 8.6; we round up to 9 so
+# typical-radius circles show a small visible gap between them.
+PALISADE_CIRCLE_STEP = 9.0
 PALISADE_DOOR_LENGTH_PX = 64.0      # gate rect length (2 tiles)
 
 

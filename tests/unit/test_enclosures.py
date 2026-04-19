@@ -164,8 +164,10 @@ class TestPalisadePolyline:
     def test_polyline_emits_circles(self):
         out = render_palisade_polyline([(0, 0), (100, 0)], seed=1)
         circles = _circles(out)
-        # Step ~1.6px over 100px ≈ 63 circles.
-        assert len(circles) > 30
+        # Step is ``2 * max_effective_radius + gap`` so adjacent
+        # circles never overlap; count is smaller than the dense
+        # original but still a handful on a 100px segment.
+        assert len(circles) > 5
 
     def test_circle_uses_palisade_palette(self):
         out = render_palisade_polyline([(0, 0), (100, 0)], seed=1)
@@ -186,6 +188,27 @@ class TestPalisadePolyline:
             # "±0.3px jitter per circle").
             assert PALISADE_RADIUS_MIN - 0.31 <= r
             assert r <= PALISADE_RADIUS_MAX + 0.31
+
+    def test_adjacent_circles_do_not_overlap(self):
+        """Distance between adjacent circle centres is >= sum of radii."""
+        out = render_palisade_polyline([(0, 0), (300, 0)], seed=5)
+        parsed: list[tuple[float, float, float]] = []
+        for c in _circles(out):
+            mx = re.search(r'cx="([0-9.]+)"', c)
+            my = re.search(r'cy="([0-9.]+)"', c)
+            mr = re.search(r'r="([0-9.]+)"', c)
+            assert mx and my and mr
+            parsed.append(
+                (float(mx.group(1)), float(my.group(1)),
+                 float(mr.group(1))),
+            )
+        assert len(parsed) >= 2
+        for (x0, y0, r0), (x1, y1, r1) in zip(parsed, parsed[1:]):
+            dist = ((x0 - x1) ** 2 + (y0 - y1) ** 2) ** 0.5
+            assert dist >= r0 + r1 - 1e-6, (
+                f"circles at ({x0},{y0}) r={r0} and "
+                f"({x1},{y1}) r={r1} overlap (dist={dist:.2f})"
+            )
 
 
 class TestPalisadeDeterminism:
