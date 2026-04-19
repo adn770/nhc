@@ -71,6 +71,32 @@ class Site:
 # ── Surface door painter ─────────────────────────────────────
 
 
+_COMPASS: dict[tuple[int, int], str] = {
+    (0, -1): "north",
+    (0, 1): "south",
+    (1, 0): "east",
+    (-1, 0): "west",
+}
+
+
+def _compass(dx: int, dy: int) -> str:
+    """Return the compass edge name for an orthogonal unit delta.
+
+    Used to tag ``Tile.door_side`` when painting surface doors, so
+    the web client's wall-mask code can snap the door to the
+    building-side edge instead of the tile centre. Raises
+    ``ValueError`` for non-orthogonal or zero deltas -- callers
+    always have ``(sx, sy)`` and ``(bx, by)`` one step apart.
+    """
+    side = _COMPASS.get((dx, dy))
+    if side is None:
+        raise ValueError(
+            f"non-orthogonal delta ({dx}, {dy}); "
+            "surface door and building-side tile must be adjacent"
+        )
+    return side
+
+
 def outside_neighbour(
     building: Building, bx: int, by: int,
 ) -> tuple[int, int] | None:
@@ -101,13 +127,14 @@ def paint_surface_doors(
     sites (tiny framing surface) call this without error.
     """
     surface = site.surface
-    for (sx, sy) in site.building_doors.keys():
+    for (sx, sy), (_bid, bx, by) in site.building_doors.items():
         if not surface.in_bounds(sx, sy):
             continue
         surface.tiles[sy][sx] = Tile(
             terrain=Terrain.FLOOR,
             feature="door_closed",
             surface_type=default_surface,
+            door_side=_compass(bx - sx, by - sy),
         )
 
 
