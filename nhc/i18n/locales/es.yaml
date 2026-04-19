@@ -1439,6 +1439,26 @@ creature:
       El oficial al mando del castillo, con la capa orlada con
       los colores de la guarnición. Un veterano que se gana cada
       orden que grita plantándose en la primera línea.
+  hermit_priest:
+    name: "Sacerdote Ermitaño"
+    gender: "m"
+    short: "un sacerdote ermitaño"
+    long: >-
+      Un clérigo solitario que atiende este santuario olvidado.
+      Su libro de ritos es escaso y sus oraciones pocas; puede
+      ofrecer una bendición, pero la curación real requiere un
+      templo de verdad.
+
+# ── Temple dressing flavour (M15) ──────────────────────────────────────
+temple:
+  dressing:
+    cursed_altar: >-
+      Un altar oscuro, cubierto de escarcha y sangre antigua.
+      Algo fue atado aquí; algo aún vigila.
+    buried_relic: >-
+      Un santuario ahogado en arena. Un relicario reposa
+      medio enterrado al pie del altar, a la espera de las manos
+      adecuadas -- o de las equivocadas.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

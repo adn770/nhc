@@ -1510,6 +1510,26 @@ creature:
       L'oficial al comandament del castell, amb la capa guarnida
       amb els colors de la guarnició. Un veterà que guanya cada
       ordre que crida plantant-se a la primera línia.
+  hermit_priest:
+    name: "sacerdot ermità"
+    gender: "m"
+    short: "un sacerdot ermità"
+    long: >-
+      Un clergue solitari que cuida d'aquest santuari oblidat.
+      El seu llibre de ritus és prim i les seves pregàries
+      poques; pot oferir una benedicció, però la curació real
+      requereix un temple de veritat.
+
+# ── Temple dressing flavour (M15) ──────────────────────────────────────
+temple:
+  dressing:
+    cursed_altar: >-
+      Un altar fosc, crostat de gebre i sang antiga. Alguna cosa
+      va ser lligada aquí; alguna cosa encara vigila.
+    buried_relic: >-
+      Un santuari ofegat en sorra. Un reliquiari reposa
+      mig enterrat al peu de l'altar, a l'espera de les mans
+      adequades -- o de les equivocades.
 
 # ── Death dialog strings ───────────────────────────────────────────────
 death:

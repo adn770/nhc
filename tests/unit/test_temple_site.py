@@ -93,18 +93,21 @@ class TestMysteriousTemple:
     ) -> None:
         """Mysterious variants are not abandoned -- a hermit priest
         still tends the forgotten shrine so the player has a
-        reachable service NPC."""
+        reachable service NPC. Since v2 M15 this is specifically
+        the ``hermit_priest`` factory with a reduced service list
+        (see test_mysterious_temple_v2 for the services check)."""
         site = assemble_temple(
             f"t_{biome.value}_priest", random.Random(0),
             biome=biome,
         )
         b = site.buildings[0]
         ground = b.ground
-        priest_count = sum(
-            1 for e in ground.entities
-            if e.entity_id == "priest"
-        )
-        assert priest_count == 1
+        priests = [
+            e for e in ground.entities
+            if e.entity_id in ("priest", "hermit_priest")
+        ]
+        assert len(priests) == 1
+        assert priests[0].entity_id == "hermit_priest"
 
 
 # ---------------------------------------------------------------------------
@@ -123,9 +126,12 @@ def test_assemble_temple_places_priest_on_ground_floor(
         f"t_{biome.value}_pp", random.Random(0), biome=biome,
     )
     b = site.buildings[0]
+    # Expected (mountain / forest) temples get the full-service
+    # priest; mysterious (sandlands / icelands) temples get the
+    # v2 M15 hermit_priest with the reduced service list.
     priests = [
         e for e in b.ground.entities
-        if e.entity_id == "priest"
+        if e.entity_id in ("priest", "hermit_priest")
     ]
     assert len(priests) == 1
     priest = priests[0]

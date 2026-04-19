@@ -91,9 +91,11 @@ def assemble_temple(
     building.validate()
 
     # Priest placement on the ground-floor room centre. Mysterious
-    # variants still get one -- a hermit tending the forgotten
-    # shrine -- so the hex is not a dead-end for the player.
-    _place_priest(building)
+    # variants still get one -- but it's a hermit_priest with a
+    # reduced service menu (v2 M15) rather than the full-service
+    # priest. See design/biome_features.md §8.
+    _place_priest(building, biome)
+    _apply_mysterious_dressing(building, biome)
 
     surface = _build_temple_surface(
         f"{site_id}_surface", building, biome,
@@ -242,7 +244,17 @@ def _place_entry_door(
     return (dx, dy)
 
 
-def _place_priest(building: Building) -> None:
+MYSTERIOUS_BIOMES: frozenset[Biome] = frozenset({
+    Biome.SANDLANDS, Biome.ICELANDS,
+})
+
+# Bless is the only service a mysterious-temple hermit_priest
+# offers -- heal and remove_curse still require the full-service
+# priest at a mountain / forest temple (design §8).
+HERMIT_PRIEST_SERVICES: tuple[str, ...] = ("bless",)
+
+
+def _place_priest(building: Building, biome: Biome) -> None:
     ground = building.ground
     if not ground.rooms:
         return
@@ -256,6 +268,18 @@ def _place_priest(building: Building) -> None:
             footprint,
             key=lambda t: (t[0] - cx) ** 2 + (t[1] - cy) ** 2,
         )
+
+    if biome in MYSTERIOUS_BIOMES:
+        ground.entities.append(EntityPlacement(
+            entity_type="creature", entity_id="hermit_priest",
+            x=cx, y=cy,
+            extra={
+                "temple_services": list(HERMIT_PRIEST_SERVICES),
+                "shop_stock": [],
+            },
+        ))
+        return
+
     ground.entities.append(EntityPlacement(
         entity_type="creature", entity_id="priest",
         x=cx, y=cy,
@@ -264,6 +288,31 @@ def _place_priest(building: Building) -> None:
             "shop_stock": list(TEMPLE_STOCK_DEFAULT),
         },
     ))
+
+
+def _apply_mysterious_dressing(
+    building: Building, biome: Biome,
+) -> None:
+    """Tag the ground-floor room with a biome-specific dressing
+    tag so the frontend can paint a flavour tile and look up the
+    per-biome lore string.
+
+    Icelands temples carry a ``"cursed_altar"`` tag; sandlands
+    temples carry ``"buried_relic"``. Mountain / forest temples
+    never get a mysterious dressing tag.
+    """
+    ground = building.ground
+    if not ground.rooms:
+        return
+    room = ground.rooms[0]
+    if biome is Biome.ICELANDS:
+        tag = "cursed_altar"
+    elif biome is Biome.SANDLANDS:
+        tag = "buried_relic"
+    else:
+        return
+    if tag not in room.tags:
+        room.tags = list(room.tags) + [tag]
 
 
 def _build_temple_surface(

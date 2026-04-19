@@ -1393,6 +1393,23 @@ creature:
       The keep's ranking officer, cloak trimmed with the
       garrison's colours. A veteran who earns every order they
       bark by standing in the first rank.
+  hermit_priest:
+    name: "Hermit Priest"
+    short: "a hermit priest"
+    long: >-
+      A lone cleric who tends this forgotten shrine. Their rite
+      book is thin and their prayers few; they can offer a
+      blessing, but real healing requires a proper temple.
+
+# ── Temple dressing flavour (M15) ──────────────────────────────────────
+temple:
+  dressing:
+    cursed_altar: >-
+      A dark altar crusted with rime and older blood. Something
+      was bound here; something watches still.
+    buried_relic: >-
+      A sand-choked shrine. A reliquary sits half-buried at the
+      altar's foot, waiting for the right hands -- or the wrong.
 
 # ── Henchman UI strings ────────────────────────────────────────────────
 death:

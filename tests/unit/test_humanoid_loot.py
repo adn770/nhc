@@ -38,9 +38,11 @@ class TestHumanoidLoot:
                 continue
             # Skip special NPCs (town services + recruitable
             # adventurer) -- they're peaceful humanoids that don't
-            # drop combat gear.
+            # drop combat gear. hermit_priest joined the list in
+            # v2 M15 (mysterious temple minister).
             if cid in (
                 "merchant", "adventurer", "priest", "innkeeper",
+                "hermit_priest",
             ):
                 continue
             loot = comps.get("LootTable")
