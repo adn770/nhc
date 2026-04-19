@@ -449,6 +449,10 @@ class Game:
             self._active_cave_cluster = None
             if await self._enter_mansion_site(coord):
                 return True
+        if cell.dungeon.site_kind == "farm":
+            self._active_cave_cluster = None
+            if await self._enter_farm_site(coord):
+                return True
 
         template = cell.dungeon.template
         is_settlement = template.startswith("procedural:settlement")
@@ -741,16 +745,25 @@ class Game:
         return True
 
     async def _enter_mansion_site(self, coord) -> bool:
-        """Route a mansion-site hex through assemble_site().
+        """Route a mansion-site hex through assemble_site()."""
+        return await self._enter_multi_building_site(coord, "mansion")
 
-        Lands the player on the first building's ground floor at an
-        entry-door tile. Every building's every floor is cached
-        under a mansion-specific cache key so cross-building
-        navigation (a future feature) can reach them without
-        re-running the assembler. The depth-keyed slot the engine
-        reads for descend/ascend is filled from the first
-        building's floors so the in-building stair transition
-        works exactly like a tower.
+    async def _enter_farm_site(self, coord) -> bool:
+        """Route a farm-site hex through assemble_site()."""
+        return await self._enter_multi_building_site(coord, "farm")
+
+    async def _enter_multi_building_site(
+        self, coord, kind: str,
+    ) -> bool:
+        """Land the player on ``site.buildings[0].ground``.
+
+        Caches the first building's floors under the engine's
+        depth-keyed slots so the existing stair-based floor
+        transition works exactly like a tower; every sibling
+        building's every floor is cached under a site-kind-keyed
+        tuple so future cross-building door transitions can find
+        them without re-running the assembler. The assembled Site
+        is parked on :attr:`_active_site` as an O(1) handle.
         """
         import random
 
@@ -775,7 +788,7 @@ class Game:
             self.seed or 0, coord, cell.dungeon.template,
         )
         site = assemble_site(
-            "mansion",
+            kind,
             f"site_{coord.q}_{coord.r}",
             random.Random(seed),
         )
@@ -785,19 +798,12 @@ class Game:
                 and cell.dungeon.faction):
             self.level.metadata.faction = cell.dungeon.faction
         self._spawn_level_entities()
-        # Cache the first building's floors under (q, r, depth) so
-        # the existing stair-based floor transition can find them.
         for i, floor in enumerate(first.floors):
             self._floor_cache[self._cache_key(i + 1)] = (floor, {})
-        # Cache every other building's floors under a mansion-
-        # specific key (building_idx, floor_idx) so cross-building
-        # door transitions (future) don't have to re-assemble the
-        # site. Storing the Site on the Game gives the future
-        # door-transition code an O(1) handle too.
         for bi in range(1, len(site.buildings)):
             b = site.buildings[bi]
             for fi, floor in enumerate(b.floors):
-                key = ("mansion", coord.q, coord.r, bi, fi)
+                key = (kind, coord.q, coord.r, bi, fi)
                 self._floor_cache[key] = (floor, {})
         self._active_site = site
         self._place_player_on_building_entry()

@@ -432,6 +432,19 @@ name.
   route to `assemble_site()` and cache the returned `Site`.
   Other kinds (DUNGEON, CAVE) keep using the existing
   pipeline unchanged.
+
+### FARM placement policy
+
+`FARM` is promoted to a first-class `HexFeatureType` so the
+farm assembler drives hex-level entry the same way Tower,
+Mansion, Keep, and Town do. The pre-existing
+`MinorFeatureType.FARM` is kept for sub-hex farmstead dressing
+(a flavour message when the player finds a roadside farm inside
+a flower) -- the two uses don't conflict because one lives on
+`HexCell.feature` and the other on `SubHexCell.minor_feature`.
+Reason: building a separate "enter minor feature" path for a
+single kind would duplicate the `enter_hex_feature` pipeline
+without adding anything the major-feature route can't.
 - `nhc/core/game.py`: movement handlers already consume
   `Level`; the new code routes the active `Level` from
   `Site.surface` by default, switching to

@@ -224,6 +224,7 @@ def _site_kind_for(feature: HexFeatureType) -> str | None:
         HexFeatureType.TOWER: "tower",
         HexFeatureType.KEEP: "keep",
         HexFeatureType.MANSION: "mansion",
+        HexFeatureType.FARM: "farm",
         HexFeatureType.CITY: "town",
         HexFeatureType.VILLAGE: "town",
     }.get(feature)
