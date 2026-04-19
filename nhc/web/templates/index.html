@@ -28,9 +28,9 @@
       <div class="welcome-group">
         <label>World:</label>
         <div class="welcome-btns" id="world-btns">
-          <button type="button" class="welcome-btn{{ ' welcome-active' if player_world == 'hexcrawl' }}"
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_world != 'dungeon' }}"
                   data-value="hexcrawl">Hexcrawl</button>
-          <button type="button" class="welcome-btn{{ ' welcome-active' if player_world != 'hexcrawl' }}"
+          <button type="button" class="welcome-btn{{ ' welcome-active' if player_world == 'dungeon' }}"
                   data-value="dungeon">Dungeoncrawl</button>
         </div>
       </div>

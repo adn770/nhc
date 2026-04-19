@@ -247,7 +247,7 @@ const NHC = {
   async newGame(reset = false) {
     const lang = document.getElementById("lang-select").value;
     const tileset = document.getElementById("tileset-select").value;
-    const world = this._getWelcomeSelection("world-btns", "dungeon");
+    const world = this._getWelcomeSelection("world-btns", "hexcrawl");
     const difficulty = this._getWelcomeSelection("diff-btns", "medium");
 
     const L = NHC.labels;

@@ -99,7 +99,13 @@ def test_fresh_game_after_death(tmp_path, monkeypatch):
     app.config["TESTING"] = True
 
     with app.test_client() as client:
-        resp = client.post("/api/game/new", json={})
+        # Dungeon-mode: asserts session.game.level is populated,
+        # which is only the case for dungeon entries (hex-mode
+        # games sit on an overland HexWorld until a feature is
+        # entered).
+        resp = client.post(
+            "/api/game/new", json={"world": "dungeon"},
+        )
         assert resp.status_code == 201
         data = resp.get_json()
         assert "session_id" in data

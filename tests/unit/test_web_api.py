@@ -753,11 +753,13 @@ class TestNewGameCleansUp:
     def test_new_game_reset_clears_stale_svg_cache(
         self, client_with_data_dir,
     ):
+        # Dungeon-mode test -- the SVG cache lives on the
+        # dungeon floor; hexcrawl's overland doesn't exercise it.
         token, pid = _register_player(client_with_data_dir)
 
         resp = client_with_data_dir.post(
             "/api/game/new",
-            json={"player_token": token},
+            json={"player_token": token, "world": "dungeon"},
         )
         assert resp.status_code == 201
         sid = resp.get_json()["session_id"]
@@ -773,7 +775,11 @@ class TestNewGameCleansUp:
         # New game with reset should NOT load stale SVGs
         resp = client_with_data_dir.post(
             "/api/game/new",
-            json={"player_token": token, "reset": True},
+            json={
+                "player_token": token,
+                "reset": True,
+                "world": "dungeon",
+            },
         )
         assert resp.status_code == 201
         # The new game re-generates SVGs; they must not be the stale ones
@@ -804,10 +810,14 @@ class TestQuitSavesGame:
 
 class TestGenerationParamsAPI:
     def _create_god_session(self, client_with_data_dir):
-        """Create a game session with god mode enabled."""
+        """Create a dungeon-mode game session with god mode
+        enabled. Generation params / regenerate endpoints are
+        dungeon-only; pass ``world=dungeon`` explicitly so the
+        hexcrawl default doesn't land us on the overland map."""
         token, pid = _register_player(client_with_data_dir)
         resp = client_with_data_dir.post(
-            "/api/game/new", json={"player_token": token},
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
         )
         assert resp.status_code == 201
         sid = resp.get_json()["session_id"]
@@ -967,10 +977,13 @@ class TestHenchmenEndpoint:
 
 class TestDebugBundleAutosave:
     def test_bundle_includes_generation_params(self, client_with_data_dir):
-        """Debug bundle must include generation parameters."""
+        """Debug bundle must include generation parameters.
+        Dungeon-only test; pass world explicitly so the hexcrawl
+        default (no generation_params) doesn't trip the check."""
         token, pid = _register_player(client_with_data_dir)
         resp = client_with_data_dir.post(
-            "/api/game/new", json={"player_token": token},
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
         )
         sid = resp.get_json()["session_id"]
         sessions = client_with_data_dir.application.config["SESSIONS"]
@@ -1117,14 +1130,16 @@ class TestRankingAPI:
 
     def test_ws_submits_score_on_game_end(self, client_with_data_dir):
         """_submit_final_score writes a leaderboard entry when a
-        session ends (death or victory)."""
+        session ends (death or victory). Dungeon-mode session
+        (the leaderboard records depth, which is dungeon data)."""
         from nhc.web.ws import _submit_final_score
 
         _token, pid = _register_player(client_with_data_dir, "Hero")
         app = client_with_data_dir.application
         # Create a real game session so session.game is populated.
         resp = client_with_data_dir.post(
-            "/api/game/new", json={"player_token": _token},
+            "/api/game/new",
+            json={"player_token": _token, "world": "dungeon"},
         )
         assert resp.status_code == 201
         sid = resp.get_json()["session_id"]

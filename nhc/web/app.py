@@ -313,7 +313,7 @@ def create_app(
             player_name = player["name"] if player else ""
             player_god = player.get("god_mode", False) if player else False
             player_lang = player.get("lang", "") if player else ""
-            player_world = player.get("world", "dungeon") if player else "dungeon"
+            player_world = player.get("world", "hexcrawl") if player else "hexcrawl"
             player_difficulty = player.get("difficulty", "medium") if player else "medium"
             resp = make_response(render_template(
                 "index.html", player_name=player_name,
@@ -327,7 +327,7 @@ def create_app(
         return render_template(
             "index.html",
             god_mode=config.god_mode,
-            player_world="dungeon",
+            player_world="hexcrawl",
             player_difficulty="medium",
             welcome_labels=_welcome_labels(""),
         )
@@ -663,9 +663,15 @@ def create_app(
             return jsonify({"error": "player identity required"}), 400
         save_dir = _player_save_dir(pid)
 
-        # Check for an active (disconnected) session
+        # Check for an active (disconnected) session. Either a
+        # dungeon floor or a hex world counts as "has state" --
+        # hex-mode games sit on an overland HexWorld while the
+        # player is on the macro map, with ``game.level`` None
+        # until they enter a feature.
         existing = sessions.get_by_player(pid)
-        if existing and existing.game and existing.game.level:
+        if existing and existing.game and (
+            existing.game.level or existing.game.hex_world
+        ):
             logger.info("Resume: found active session %s for player %s",
                         existing.session_id, pid)
             return jsonify({
@@ -776,11 +782,10 @@ def create_app(
         lang = data.get("lang", "")
         tileset = data.get("tileset", "")
         reset = data.get("reset", False) or config.reset
-        # Optional world-mode selection (dungeon / hex-easy /
-        # hex-survival). Default is "dungeon" so the existing
-        # classic dungeon-only behaviour is unchanged when the
-        # client does not pass a value.
-        world_raw = data.get("world", "dungeon")
+        # Optional world + difficulty selection. Default is
+        # "hexcrawl"/"medium"; the welcome screen sends the
+        # player's explicit choice when it differs.
+        world_raw = data.get("world", "hexcrawl")
         difficulty_raw = data.get("difficulty", "medium")
         from nhc.hexcrawl.mode import Difficulty, GameMode, WorldType
         try:
