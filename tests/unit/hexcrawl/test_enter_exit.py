@@ -242,22 +242,40 @@ async def test_crypt_template_passes_through(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_village_uses_settlement_generator(tmp_path) -> None:
-    """Entering a village hex uses SettlementGenerator."""
+async def test_village_routes_through_town_assembler(tmp_path) -> None:
+    """Non-hamlet settlements auto-upgrade to the town site
+    assembler (conservative SettlementGenerator migration)."""
+    from nhc.dungeon.model import SurfaceType
+
     g = _make_game(tmp_path)
     _attach_feature(g, HexCoord(0, 0), HexFeatureType.VILLAGE,
                     "procedural:settlement")
-    # Set size_class on the dungeon ref
     g.hex_world.cells[HexCoord(0, 0)].dungeon.size_class = "village"
     await g.enter_hex_feature()
     assert g.level is not None
-    assert g.level.metadata.theme == "settlement"
-    assert g.level.width == 40
-    assert g.level.height == 30
-    # Should have streets
+    # Active level is the town site's surface; every enclosed
+    # tile is STREET and the Site is parked on _active_site.
+    assert g._active_site is not None
+    assert g._active_site.kind == "town"
     street_tiles = sum(
-        1 for row in g.level.tiles for t in row if t.is_street
+        1 for row in g.level.tiles
+        for t in row if t.surface_type == SurfaceType.STREET
     )
     assert street_tiles > 0
+
+
+@pytest.mark.asyncio
+async def test_hamlet_uses_generate_town(tmp_path) -> None:
+    """Hamlet-size settlements still go through generate_town."""
+    g = _make_game(tmp_path)
+    _attach_feature(g, HexCoord(0, 0), HexFeatureType.VILLAGE,
+                    "procedural:settlement")
+    g.hex_world.cells[HexCoord(0, 0)].dungeon.size_class = "hamlet"
+    await g.enter_hex_feature()
+    assert g.level is not None
+    # Hamlet uses the legacy generate_town helper (no _active_site).
+    assert g._active_site is None
+    # generate_town tags the Level as a town-themed settlement.
+    assert g.level.metadata.theme == "town"
 
 

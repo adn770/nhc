@@ -446,6 +446,19 @@ class Game:
 
         from nhc.hexcrawl.seed import dungeon_seed
 
+        # Conservative SettlementGenerator migration: route every
+        # non-hamlet procedural:settlement through the town site
+        # assembler. Hamlet-sized settlements keep the legacy
+        # generate_town path because the town assembler's 5-8
+        # building count overshoots what reads as a hamlet.
+        if (cell.dungeon.site_kind is None
+                and cell.dungeon.template.startswith(
+                    "procedural:settlement",
+                )
+                and cell.dungeon.size_class
+                and cell.dungeon.size_class != "hamlet"):
+            cell.dungeon.site_kind = "town"
+
         # Building-generator sites take precedence over template
         # routing. "tower" and "mansion" are live in this step;
         # other site_kinds still fall through to the template
@@ -493,27 +506,15 @@ class Game:
 
         seed = dungeon_seed(self.seed or 0, coord, template)
         if is_settlement:
-            size_class = cell.dungeon.size_class or "hamlet"
-            if size_class == "hamlet":
-                from nhc.hexcrawl.town import generate_town
-                self.level = generate_town(
-                    seed=seed,
-                    town_id=f"town_{coord.q}_{coord.r}",
-                )
-            else:
-                from nhc.dungeon.generators.settlement import (
-                    SIZE_CLASSES, SettlementGenerator,
-                )
-                sc = SIZE_CLASSES.get(size_class, SIZE_CLASSES["village"])
-                params = GenerationParams(
-                    width=sc["width"], height=sc["height"],
-                    depth=1, seed=seed,
-                    template=template,
-                )
-                self.generation_params = params
-                self.level = SettlementGenerator().generate(
-                    params, rng=random.Random(seed),
-                )
+            # Any settlement reaching this branch is a hamlet --
+            # larger sizes are auto-upgraded to site_kind="town"
+            # above and handled by _enter_walled_site. Hamlets
+            # use the lightweight generate_town layout.
+            from nhc.hexcrawl.town import generate_town
+            self.level = generate_town(
+                seed=seed,
+                town_id=f"town_{coord.q}_{coord.r}",
+            )
             self._maybe_seed_rumors(seed)
         elif is_cave:
             # Cave Floor 1: smaller cellular cave with stairs_down
