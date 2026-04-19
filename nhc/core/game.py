@@ -453,6 +453,12 @@ class Game:
             self._active_cave_cluster = None
             if await self._enter_farm_site(coord):
                 return True
+        if cell.dungeon.site_kind in ("keep", "town"):
+            self._active_cave_cluster = None
+            if await self._enter_walled_site(
+                coord, cell.dungeon.site_kind,
+            ):
+                return True
 
         template = cell.dungeon.template
         is_settlement = template.startswith("procedural:settlement")
@@ -810,6 +816,106 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    async def _enter_walled_site(self, coord, kind: str) -> bool:
+        """Route a keep / town hex through assemble_site().
+
+        Lands the player on the Site's ``surface`` Level (the
+        courtyard for a keep, the street grid for a town) at the
+        walkable tile nearest to the first gate of the enclosure,
+        not on any individual building floor. Every building's
+        every floor is cached under a site-kind-specific key so a
+        future door-based transition can find the interior
+        without re-running the assembler.
+        """
+        import random
+
+        from nhc.dungeon.site import assemble_site
+        from nhc.hexcrawl.seed import dungeon_seed
+
+        cell = self.hex_world.get_cell(coord)
+        if cell is None or cell.dungeon is None:
+            return False
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+        if cache_key in self._floor_cache:
+            level, _ = self._floor_cache[cache_key]
+            self.level = level
+            self._place_player_on_surface()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, coord, cell.dungeon.template,
+        )
+        site = assemble_site(
+            kind,
+            f"site_{coord.q}_{coord.r}",
+            random.Random(seed),
+        )
+        self.level = site.surface
+        if (self.level and self.level.metadata
+                and cell.dungeon.faction):
+            self.level.metadata.faction = cell.dungeon.faction
+        self._spawn_level_entities()
+        # Ground-depth cache slot holds the surface so re-entry is
+        # O(1). Buildings go under site-kind-keyed tuples for
+        # future cross-building entry.
+        self._floor_cache[self._cache_key(depth)] = (self.level, {})
+        for bi, b in enumerate(site.buildings):
+            for fi, floor in enumerate(b.floors):
+                key = (kind, coord.q, coord.r, bi, fi)
+                self._floor_cache[key] = (floor, {})
+        self._active_site = site
+        self._place_player_on_surface()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    def _place_player_on_surface(self) -> None:
+        """Land the player on the site surface near a gate.
+
+        Prefers a FLOOR tile within the enclosure's first gate
+        window; otherwise falls back to any FLOOR tile on the
+        surface, and finally to ``(1, 1)``.
+        """
+        from nhc.dungeon.model import Terrain
+
+        if self.level is None:
+            return
+        gate_xy: tuple[int, int] | None = None
+        site = getattr(self, "_active_site", None)
+        if (
+            site is not None
+            and site.enclosure is not None
+            and site.enclosure.gates
+        ):
+            gx, gy, _ = site.enclosure.gates[0]
+            gate_xy = (gx, gy)
+        px, py = 1, 1
+        best_d2 = None
+        for y in range(self.level.height):
+            for x in range(self.level.width):
+                tile = self.level.tile_at(x, y)
+                if tile is None or tile.terrain != Terrain.FLOOR:
+                    continue
+                if gate_xy is None:
+                    px, py = x, y
+                    best_d2 = 0
+                    break
+                d2 = (x - gate_xy[0]) ** 2 + (y - gate_xy[1]) ** 2
+                if best_d2 is None or d2 < best_d2:
+                    best_d2 = d2
+                    px, py = x, y
+            if best_d2 == 0:
+                break
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x = px
+            pos.y = py
+            pos.level_id = self.level.id
 
     def _place_player_on_building_entry(self) -> None:
         """Land the player on the active Level's entry-door tile.

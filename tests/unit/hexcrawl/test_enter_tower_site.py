@@ -120,17 +120,18 @@ async def test_bare_dungeonref_without_site_kind_uses_old_path(
 
 
 @pytest.mark.asyncio
-async def test_non_tower_site_kind_still_uses_old_path(
+async def test_unknown_site_kind_falls_through_to_template(
     tmp_path,
 ) -> None:
-    """Only 'tower' is routed through the new path in this commit."""
+    """Only the known site_kinds route through the new path; any
+    other value falls through to the template pipeline."""
     g = _make_game(tmp_path)
     cell = g.hex_world.cells[HexCoord(0, 0)]
     cell.feature = HexFeatureType.KEEP
     cell.dungeon = DungeonRef(
         template="procedural:keep",
         depth=1,
-        site_kind="keep",   # not wired yet
+        site_kind="somewhere_not_wired",
     )
     g.hex_player_position = HexCoord(0, 0)
     await g.enter_hex_feature()
