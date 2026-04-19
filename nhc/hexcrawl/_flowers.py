@@ -274,8 +274,9 @@ def route_river_through_flower(
     rng: random.Random,
     *,
     mark_cells: bool = False,
+    trunk_cells: frozenset[HexCoord] | set[HexCoord] | None = None,
 ) -> list[HexCoord]:
-    """Route a river (or road) through the flower.
+    """Route a river through the flower.
 
     Parameters
     ----------
@@ -291,37 +292,47 @@ def route_river_through_flower(
         Seeded RNG for picking among entry/exit options.
     mark_cells : bool
         If True, set ``has_river = True`` on crossed sub-hexes.
-
-    Returns
-    -------
-    list[HexCoord]
-        Ordered sub-hex coords from entry to exit.
+    trunk_cells : set[HexCoord] | None
+        Sub-cells already occupied by an earlier river in the same
+        flower. When provided, A* strongly prefers these cells so
+        a later river merges into the trunk at a confluence
+        instead of drawing a second parallel line.
     """
     center = HexCoord(0, 0)
 
-    # Pick start sub-hex
+    # Pick start sub-hex. Prefer a cell already on the trunk so
+    # the new river shares the entry point with the earlier one.
     if entry_edge is not None:
         start_options = list(EDGE_TO_RING2[entry_edge])
-        start = rng.choice(start_options)
+        on_trunk = [c for c in start_options if trunk_cells and c in trunk_cells]
+        start = rng.choice(on_trunk or start_options)
     else:
-        # Source: pick a ring-1 sub-hex
+        # Source: pick a ring-1 sub-hex (preferably already trunk
+        # so the source joins the existing flow immediately).
         ring1 = [c for c in FLOWER_COORDS if distance(center, c) == 1]
-        start = rng.choice(ring1)
+        on_trunk = [c for c in ring1 if trunk_cells and c in trunk_cells]
+        start = rng.choice(on_trunk or ring1)
 
-    # Pick goal sub-hex
+    # Pick goal sub-hex. Same preference -- a trunk cell on the
+    # same edge wins so the merge happens at the shared exit.
     if exit_edge is not None:
         goal_options = list(EDGE_TO_RING2[exit_edge])
-        goal = rng.choice(goal_options)
+        on_trunk = [c for c in goal_options if trunk_cells and c in trunk_cells]
+        goal = rng.choice(on_trunk or goal_options)
     else:
-        # Sink: pick a ring-1 sub-hex (different from start if possible)
         ring1 = [c for c in FLOWER_COORDS if distance(center, c) == 1]
         candidates = [c for c in ring1 if c != start]
-        goal = rng.choice(candidates) if candidates else ring1[0]
+        on_trunk = [c for c in candidates if trunk_cells and c in trunk_cells]
+        pool = on_trunk or candidates or ring1
+        goal = rng.choice(pool)
 
     # Penalise center (ring 0) so rivers don't obscure feature
     # icons, and forest sub-hexes so rivers flow through
-    # clearings and lighter vegetation instead.
+    # clearings and lighter vegetation instead. Trunk cells of a
+    # prior river are heavily discounted so the new river merges.
     def river_cost(_from: HexCoord, to: HexCoord) -> float:
+        if trunk_cells and to in trunk_cells:
+            return 0.05
         if to == center:
             return 5.0
         if cells[to].biome is Biome.FOREST:
@@ -670,6 +681,54 @@ _SUB_HEX_BIOME_HOURS: dict[Biome, float] = {
 
 
 # ---------------------------------------------------------------------------
+# Trunk-trim helper (shared by river and road merge passes)
+# ---------------------------------------------------------------------------
+
+
+def _trim_against_trunk(
+    path: list[HexCoord],
+    claimed: set[HexCoord],
+    entry_edge: int | None,
+    exit_edge: int | None,
+) -> tuple[list[HexCoord] | None, int | None, int | None]:
+    """Trim ``path`` so it shares at most one anchor cell with an
+    existing ``claimed`` set of trunk cells.
+
+    Returns ``(trimmed_path, new_entry, new_exit)``. When
+    ``trimmed_path`` is ``None`` the segment is fully subsumed by
+    the trunk and should be dropped entirely. Entry / exit macro
+    edges are cleared when the corresponding end of the path was
+    chopped away (the segment now starts or ends interior, at the
+    anchor on the trunk instead of at a macro edge).
+
+    Strategy: find the longest claimed prefix and suffix of
+    ``path``. Keep one anchor cell in each (the last claimed
+    prefix cell, the first claimed suffix cell) so the branch
+    visibly connects to the trunk at the junction.
+    """
+    if not claimed:
+        return list(path), entry_edge, exit_edge
+    trimmed = list(path)
+    first_new = 0
+    while (
+        first_new < len(trimmed)
+        and trimmed[first_new] in claimed
+    ):
+        first_new += 1
+    last_new = len(trimmed) - 1
+    while last_new >= 0 and trimmed[last_new] in claimed:
+        last_new -= 1
+    if first_new > last_new:
+        return None, None, None
+    start = max(0, first_new - 1)
+    end = min(len(trimmed), last_new + 2)
+    trimmed = trimmed[start:end]
+    new_entry = entry_edge if start == 0 else None
+    new_exit = exit_edge if end == len(path) else None
+    return trimmed, new_entry, new_exit
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator: generate one flower for a macro hex
 # ---------------------------------------------------------------------------
 
@@ -718,23 +777,38 @@ def generate_flower(
             move_cost_hours=_SUB_HEX_BIOME_HOURS.get(biome, 1.0),
         )
 
-    # 3. Route rivers through sub-hexes
+    # 3. Route rivers through sub-hexes. A second river with a
+    # shared entry/exit or a source flowing into an existing
+    # trunk is A*-biased onto the already-claimed sub-cells and
+    # then trimmed so two rivers never draw the same sub-cell
+    # except at one anchor (the confluence). Mirrors the road
+    # merge pass in step 5.
     edge_segments: list[SubHexEdgeSegment] = []
+    river_claimed: set[HexCoord] = set()
     for seg in parent.edges:
-        if seg.type == "river":
-            path = route_river_through_flower(
-                cells,
-                entry_edge=seg.entry_edge,
-                exit_edge=seg.exit_edge,
-                rng=rng,
-                mark_cells=True,
-            )
-            edge_segments.append(SubHexEdgeSegment(
-                type="river",
-                path=path,
-                entry_macro_edge=seg.entry_edge,
-                exit_macro_edge=seg.exit_edge,
-            ))
+        if seg.type != "river":
+            continue
+        path = route_river_through_flower(
+            cells,
+            entry_edge=seg.entry_edge,
+            exit_edge=seg.exit_edge,
+            rng=rng,
+            mark_cells=True,
+            trunk_cells=river_claimed if river_claimed else None,
+        )
+        trimmed, new_entry, new_exit = _trim_against_trunk(
+            path, river_claimed,
+            seg.entry_edge, seg.exit_edge,
+        )
+        if trimmed is None:
+            continue
+        edge_segments.append(SubHexEdgeSegment(
+            type="river",
+            path=trimmed,
+            entry_macro_edge=new_entry,
+            exit_macro_edge=new_exit,
+        ))
+        river_claimed.update(trimmed)
 
     # 4. Place major feature
     feature_cell = place_flower_features(
@@ -767,41 +841,11 @@ def generate_flower(
             mark_cells=True,
             trunk_cells=claimed if claimed else None,
         )
-        trimmed = list(path)
-        new_entry = seg.entry_edge
-        new_exit = seg.exit_edge
-        if claimed:
-            # Find the longest claimed prefix and suffix of the
-            # returned sub-path. Keep one anchor cell in each
-            # (the last claimed cell of the prefix, the first
-            # claimed cell of the suffix) so the segment visibly
-            # connects to the trunk at the junction.
-            first_new = 0
-            while (
-                first_new < len(trimmed)
-                and trimmed[first_new] in claimed
-            ):
-                first_new += 1
-            last_new = len(trimmed) - 1
-            while (
-                last_new >= 0
-                and trimmed[last_new] in claimed
-            ):
-                last_new -= 1
-            if first_new > last_new:
-                # Every cell is already trunk; this segment would
-                # only redraw what another segment already owns.
-                # Skip it entirely.
-                continue
-            # Keep last claimed cell of the prefix run as anchor.
-            start = max(0, first_new - 1)
-            # Keep first claimed cell of the suffix run as anchor.
-            end = min(len(trimmed), last_new + 2)
-            trimmed = trimmed[start:end]
-            if start > 0:
-                new_entry = None
-            if end < len(path):
-                new_exit = None
+        trimmed, new_entry, new_exit = _trim_against_trunk(
+            path, claimed, seg.entry_edge, seg.exit_edge,
+        )
+        if trimmed is None:
+            continue
         edge_segments.append(SubHexEdgeSegment(
             type="path",
             path=trimmed,
