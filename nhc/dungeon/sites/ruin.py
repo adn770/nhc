@@ -236,20 +236,37 @@ def _drop_perimeter_walls(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
+    blocked: set[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
+    """Pick a perimeter tile to stamp as the entry door.
+
+    ``blocked`` is the combined footprints of every other
+    building in the site; reject candidates whose outside-
+    neighbour would fall inside another building's wall. Ruin
+    sites carry a single building today but the helper is
+    future-proofed for multi-building layouts.
+    """
+    blocked = blocked or set()
     ground = building.ground
     candidates: list[tuple[int, int]] = []
     for (px, py) in building.shared_perimeter():
         tile = ground.tiles[py][px]
         if tile.feature is not None:
             continue
+        has_wall = False
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
             if ground.tiles[ny][nx].terrain is Terrain.WALL:
-                candidates.append((px, py))
+                has_wall = True
                 break
+        if not has_wall:
+            continue
+        nb = outside_neighbour(building, px, py)
+        if nb is None or nb in blocked:
+            continue
+        candidates.append((px, py))
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
@@ -308,14 +325,12 @@ def _build_ruin_surface(
     surface.metadata.ambient = "ruin"
     surface.metadata.prerevealed = True
 
+    # Only building footprints block the courtyard surface -- no
+    # 1-tile buffer ring. The SVG wall mask handles the visual
+    # separation.
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
-        footprint = b.base_shape.floor_tiles(b.base_rect)
-        blocked |= footprint
-        for (x, y) in footprint:
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    blocked.add((x + dx, y + dy))
+        blocked |= b.base_shape.floor_tiles(b.base_rect)
 
     xs = [p[0] for p in enclosure.polygon]
     ys = [p[1] for p in enclosure.polygon]

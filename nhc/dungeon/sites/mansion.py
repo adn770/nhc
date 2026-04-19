@@ -66,11 +66,17 @@ def assemble_mansion(
         x_cursor += w
 
     # Each building gets at least one exterior entry door.
+    combined_footprints: set[tuple[int, int]] = set()
+    for b in buildings:
+        combined_footprints |= b.base_shape.floor_tiles(b.base_rect)
     entry_doors: dict[
         tuple[int, int], tuple[str, int, int]
     ] = {}
     for b in buildings:
-        door_xy = _place_entry_door(b, rng)
+        own = b.base_shape.floor_tiles(b.base_rect)
+        door_xy = _place_entry_door(
+            b, rng, blocked=combined_footprints - own,
+        )
         if door_xy is not None:
             neighbour = outside_neighbour(b, *door_xy)
             if neighbour is not None:
@@ -191,7 +197,16 @@ def _build_mansion_floor(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
+    blocked: set[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
+    """Pick a perimeter tile to stamp as the entry door.
+
+    ``blocked`` carries the combined footprints of every other
+    building in the site; candidates whose outside-neighbour
+    falls inside ``blocked`` are rejected so the surface door
+    never lands inside a neighbour's wall.
+    """
+    blocked = blocked or set()
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -199,13 +214,20 @@ def _place_entry_door(
         tile = ground.tiles[py][px]
         if tile.feature is not None:
             continue
+        has_wall = False
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
             if ground.tiles[ny][nx].terrain == Terrain.WALL:
-                candidates.append((px, py))
+                has_wall = True
                 break
+        if not has_wall:
+            continue
+        nb = outside_neighbour(building, px, py)
+        if nb is None or nb in blocked:
+            continue
+        candidates.append((px, py))
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
@@ -261,13 +283,12 @@ def _build_mansion_surface(
         surface_id, surface_id, 0,
         MANSION_SURFACE_WIDTH, MANSION_SURFACE_HEIGHT,
     )
+    # Only building footprints block the garden surface -- no
+    # 1-tile buffer ring. The SVG wall mask provides the visual
+    # separation, and a ring would seal L-inner-corner doors.
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)
-        for (x, y) in b.base_shape.floor_tiles(b.base_rect):
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    blocked.add((x + dx, y + dy))
 
     # Every outdoor tile is garden. Mansions sit on continuous
     # manicured grounds -- buildings are the only non-garden

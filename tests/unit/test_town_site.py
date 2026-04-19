@@ -211,6 +211,97 @@ class TestTownEnclosure:
                 assert min_y <= y <= max_y
 
 
+class TestTownSurfaceReachability:
+    """After dropping the 1-tile VOID buffer ring around building
+    footprints and tightening ``_place_entry_door``, every
+    building's surface door must sit on a walkable STREET tile
+    with at least one walkable 4-neighbour that is also STREET.
+
+    The old code would (1) add an 8-neighbour VOID ring around
+    each building, and (2) pick any perimeter tile regardless of
+    whether its outside-neighbour was reachable from the street.
+    An L-shaped building could then land its door in the
+    concave notch, sealed on three sides by its own footprint.
+    """
+
+    def _walkable_neighbour_count(self, site, x, y) -> int:
+        count = 0
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nx, ny = x + dx, y + dy
+            if not site.surface.in_bounds(nx, ny):
+                continue
+            t = site.surface.tiles[ny][nx]
+            if t.terrain == Terrain.FLOOR:
+                count += 1
+        return count
+
+    def test_every_surface_door_has_walkable_approach(self):
+        """Each surface door tile must have ≥1 walkable 4-neighbour
+        so the player can step onto it from the street."""
+        for seed in range(60):
+            site = assemble_town("t1", random.Random(seed))
+            for (sx, sy), (bid, _bx, _by) in (
+                site.building_doors.items()
+            ):
+                if not site.surface.in_bounds(sx, sy):
+                    continue
+                tile = site.surface.tiles[sy][sx]
+                assert tile.terrain == Terrain.FLOOR, (
+                    f"seed {seed}: surface door of {bid} at "
+                    f"({sx},{sy}) is not FLOOR"
+                )
+                assert self._walkable_neighbour_count(
+                    site, sx, sy,
+                ) >= 1, (
+                    f"seed {seed}: surface door of {bid} at "
+                    f"({sx},{sy}) has no walkable 4-neighbour -- "
+                    "door is sealed in a VOID pocket (L-shape "
+                    "inner corner or abutting building)"
+                )
+
+    def test_no_void_buffer_ring_around_rect_buildings(self):
+        """A rectangular building's footprint must be flanked by
+        STREET tiles on every side that lies inside the enclosure
+        -- no 8-neighbour VOID buffer ring."""
+        site = assemble_town("t1", random.Random(7))
+        poly = site.enclosure.polygon
+        xs = [p[0] for p in poly]
+        ys = [p[1] for p in poly]
+        min_x, max_x = min(xs), max(xs)
+        min_y, max_y = min(ys), max(ys)
+        # All footprint tiles of every building in this site.
+        all_footprints: set[tuple[int, int]] = set()
+        for b in site.buildings:
+            all_footprints |= b.base_shape.floor_tiles(b.base_rect)
+        found_flank = False
+        for b in site.buildings:
+            from nhc.dungeon.model import RectShape
+            if not isinstance(b.base_shape, RectShape):
+                continue
+            footprint = b.base_shape.floor_tiles(b.base_rect)
+            for (x, y) in footprint:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if (nx, ny) in all_footprints:
+                        continue
+                    if not (min_x <= nx < max_x
+                            and min_y <= ny < max_y):
+                        continue
+                    if not site.surface.in_bounds(nx, ny):
+                        continue
+                    tile = site.surface.tiles[ny][nx]
+                    assert tile.terrain == Terrain.FLOOR, (
+                        f"building {b.id} footprint at ({x},{y}) "
+                        f"has VOID neighbour ({nx},{ny}) inside "
+                        "palisade -- buffer ring should be gone"
+                    )
+                    assert tile.surface_type == SurfaceType.STREET
+                    found_flank = True
+        assert found_flank, (
+            "test did not exercise any flanking tile -- adjust seed"
+        )
+
+
 class TestTownDescent:
     def test_descent_is_rare(self):
         count = 0

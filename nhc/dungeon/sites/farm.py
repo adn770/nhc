@@ -179,7 +179,18 @@ def _build_farm_floor(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
+    blocked: set[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
+    """Pick a perimeter tile to stamp as the entry door.
+
+    ``blocked`` carries any other buildings' footprints so the
+    door's outside-neighbour cannot land inside a neighbouring
+    wall. Farm currently runs the picker before the optional
+    barn exists, so ``blocked`` is empty in that path -- the
+    parameter is present for symmetry with the multi-building
+    assemblers.
+    """
+    blocked = blocked or set()
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -187,13 +198,20 @@ def _place_entry_door(
         tile = ground.tiles[py][px]
         if tile.feature is not None:
             continue
+        has_wall = False
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
             if ground.tiles[ny][nx].terrain == Terrain.WALL:
-                candidates.append((px, py))
+                has_wall = True
                 break
+        if not has_wall:
+            continue
+        nb = outside_neighbour(building, px, py)
+        if nb is None or nb in blocked:
+            continue
+        candidates.append((px, py))
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
@@ -221,16 +239,13 @@ def _build_farm_surface(
         surface_id, surface_id, 0,
         FARM_SURFACE_WIDTH, FARM_SURFACE_HEIGHT,
     )
-    # Collect all footprint tiles across buildings.
+    # Collect all footprint tiles across buildings. The old code
+    # also blocked a 1-tile buffer ring; dropped so fields reach
+    # right up to the wall (the SVG wall mask handles the visual
+    # break without it).
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)
-        # Also block the wall ring immediately around each building
-        # so fields don't paint over them.
-        for (x, y) in b.base_shape.floor_tiles(b.base_rect):
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    blocked.add((x + dx, y + dy))
 
     # Garden ring around the farmhouse (one tile beyond the ring
     # blocked above).

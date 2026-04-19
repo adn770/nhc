@@ -326,13 +326,11 @@ def _build_temple_surface(
     surface.metadata.ambient = "temple"
     surface.metadata.prerevealed = True
 
+    # Only the temple footprint blocks the outdoor surface --
+    # no 1-tile buffer ring.
     footprint = building.base_shape.floor_tiles(building.base_rect)
     blocked: set[tuple[int, int]] = set()
     blocked |= footprint
-    for (x, y) in footprint:
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                blocked.add((x + dx, y + dy))
 
     garden_tiles: set[tuple[int, int]] = set()
     if biome is Biome.FOREST:

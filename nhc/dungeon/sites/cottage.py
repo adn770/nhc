@@ -247,13 +247,11 @@ def _build_cottage_surface(
     surface.metadata.ambient = "forest"
     surface.metadata.prerevealed = True
 
+    # Only the cottage footprint blocks the outdoor surface --
+    # no 1-tile buffer ring.
     footprint = building.base_shape.floor_tiles(building.base_rect)
     blocked: set[tuple[int, int]] = set()
     blocked |= footprint
-    for (x, y) in footprint:
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                blocked.add((x + dx, y + dy))
 
     garden_tiles: set[tuple[int, int]] = set()
     for (x, y) in footprint:

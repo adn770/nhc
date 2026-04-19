@@ -112,9 +112,15 @@ def assemble_keep(
         sx_cursor += sw + 2
 
     buildings = main_buildings + sparse_buildings
+    combined_footprints: set[tuple[int, int]] = set()
+    for b in buildings:
+        combined_footprints |= b.base_shape.floor_tiles(b.base_rect)
     door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
     for b in buildings:
-        door_xy = _place_entry_door(b, rng)
+        own = b.base_shape.floor_tiles(b.base_rect)
+        door_xy = _place_entry_door(
+            b, rng, blocked=combined_footprints - own,
+        )
         if door_xy is not None:
             neighbour = outside_neighbour(b, *door_xy)
             if neighbour is not None:
@@ -321,7 +327,15 @@ def _build_keep_floor(
 
 def _place_entry_door(
     building: Building, rng: random.Random,
+    blocked: set[tuple[int, int]] | None = None,
 ) -> tuple[int, int] | None:
+    """Pick a perimeter tile to stamp as the entry door.
+
+    ``blocked`` is the combined footprints of every other
+    building; reject candidates whose outside-neighbour would
+    fall inside another building's wall.
+    """
+    blocked = blocked or set()
     ground = building.ground
     perim = building.shared_perimeter()
     candidates: list[tuple[int, int]] = []
@@ -329,13 +343,20 @@ def _place_entry_door(
         tile = ground.tiles[py][px]
         if tile.feature is not None:
             continue
+        has_wall = False
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = px + dx, py + dy
             if not ground.in_bounds(nx, ny):
                 continue
             if ground.tiles[ny][nx].terrain == Terrain.WALL:
-                candidates.append((px, py))
+                has_wall = True
                 break
+        if not has_wall:
+            continue
+        nb = outside_neighbour(building, px, py)
+        if nb is None or nb in blocked:
+            continue
+        candidates.append((px, py))
     if not candidates:
         return None
     dx, dy = rng.choice(sorted(candidates))
@@ -396,13 +417,12 @@ def _build_keep_surface(
     surface.metadata.theme = "keep"
     surface.metadata.ambient = "keep"
     surface.metadata.prerevealed = True
+    # Only building footprints block the courtyard surface -- no
+    # 1-tile buffer ring. The SVG wall mask separates street from
+    # building without help.
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)
-        for (x, y) in b.base_shape.floor_tiles(b.base_rect):
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    blocked.add((x + dx, y + dy))
 
     xs = [p[0] for p in enclosure.polygon]
     ys = [p[1] for p in enclosure.polygon]
