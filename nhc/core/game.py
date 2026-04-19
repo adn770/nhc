@@ -965,6 +965,99 @@ class Game:
             pos.y = py
             pos.level_id = self.level.id
 
+    def _maybe_traverse_building_door(self) -> None:
+        """Swap the active level when the player stands on an open
+        site door.
+
+        Fires after each action resolution. If the player is on the
+        active site's surface on a door registered in
+        ``site.building_doors``, the active level swaps to the
+        target building's ground floor at the registered perimeter
+        tile. On a building ground floor, interior-door entries
+        (mansion shared walls) take precedence over the exterior
+        surface door. No-op when there is no active site, no
+        player position, or the tile under the player is not an
+        open door.
+        """
+        site = self._active_site
+        if site is None or self.level is None:
+            return
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is None:
+            return
+        x, y = pos.x, pos.y
+        tile = self.level.tile_at(x, y)
+        if tile is None or tile.feature != "door_open":
+            return
+        # Surface -> building entry.
+        if self.level is site.surface:
+            target = site.building_doors.get((x, y))
+            if target is None:
+                return
+            bid, bx, by = target
+            building = next(
+                (b for b in site.buildings if b.id == bid), None,
+            )
+            if building is None:
+                return
+            self._swap_to_building(building, bx, by)
+            return
+        # Building -> building (mansion shared door) or building ->
+        # surface (perimeter exterior door).
+        current_bid = self.level.building_id
+        if current_bid is None:
+            return
+        interior = site.interior_doors.get((current_bid, x, y))
+        if interior is not None:
+            tbid, tx, ty = interior
+            target_b = next(
+                (b for b in site.buildings if b.id == tbid), None,
+            )
+            if target_b is not None:
+                self._swap_to_building(target_b, tx, ty)
+                return
+        for (sx, sy), (bid, bx, by) in site.building_doors.items():
+            if bid == current_bid and (bx, by) == (x, y):
+                self._swap_to_site_surface(sx, sy)
+                return
+
+    def _swap_to_building(self, building, bx: int, by: int) -> None:
+        """Switch ``self.level`` to ``building.ground`` and place
+        the player on the ``(bx, by)`` tile.
+
+        Marks the landing door tile as open so the player is never
+        stuck on a closed-door square after a level swap. Emits a
+        floor-change notification for the web renderer.
+        """
+        self.level = building.ground
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x = bx
+            pos.y = by
+            pos.level_id = self.level.id
+        tile = self.level.tile_at(bx, by)
+        if tile is not None and tile.feature == "door_closed":
+            tile.feature = "door_open"
+        self._update_fov()
+        self._notify_floor_change(self.level.depth)
+
+    def _swap_to_site_surface(self, sx: int, sy: int) -> None:
+        """Switch ``self.level`` back to the active site's surface
+        Level and place the player on ``(sx, sy)``."""
+        if self._active_site is None:
+            return
+        self.level = self._active_site.surface
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x = sx
+            pos.y = sy
+            pos.level_id = self.level.id
+        tile = self.level.tile_at(sx, sy)
+        if tile is not None and tile.feature == "door_closed":
+            tile.feature = "door_open"
+        self._update_fov()
+        self._notify_floor_change(self.level.depth)
+
     def _place_player_at_stairs_up(self) -> None:
         """Move the player's Position onto the current level's
         stairs_up tile (or (1, 1) as a fallback)."""
@@ -2125,6 +2218,12 @@ class Game:
             if isinstance(event, MessageEvent) and event.actor is None:
                 event.actor = action.actor
             await self.event_bus.emit(event)
+        # Site door-crossing: a MoveAction that lands the player on
+        # an open door registered in the active site's door maps
+        # swaps the active level to the target building ground
+        # floor (surface -> building or building -> building) or
+        # back to the site surface (building -> surface).
+        self._maybe_traverse_building_door()
         return events
 
     async def _shop_interaction(self, merchant_id: int) -> None:
