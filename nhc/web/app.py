@@ -739,10 +739,11 @@ def create_app(
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 logger.info("Resume: floor SVG from disk cache")
             elif game.level:
-                from nhc.rendering.svg import render_floor_svg
+                from nhc.rendering.level_svg import render_level_svg
                 seed = game.seed or 0
-                client.floor_svg = render_floor_svg(
-                    game.level, seed=seed,
+                client.floor_svg = render_level_svg(
+                    game.level, site=game._active_site,
+                    seed=seed,
                     hatch_distance=config.hatch_distance,
                 )
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
@@ -930,11 +931,12 @@ def create_app(
                 logger.info("Floor SVG from disk cache: %d bytes",
                             len(client.floor_svg))
             elif game.level:
-                from nhc.rendering.svg import render_floor_svg
+                from nhc.rendering.level_svg import render_level_svg
                 logger.info("Rendering floor SVG...")
                 seed = game.seed or 0
-                client.floor_svg = render_floor_svg(
-                    game.level, seed=seed,
+                client.floor_svg = render_level_svg(
+                    game.level, site=game._active_site,
+                    seed=seed,
                     hatch_distance=config.hatch_distance,
                 )
                 client.floor_svg_id = _uuid.uuid4().hex[:12]

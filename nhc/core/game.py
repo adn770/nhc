@@ -691,6 +691,7 @@ class Game:
             self.turn, seed=self.seed or 0,
             floor_svg=cached[1] if cached else None,
             floor_svg_id=cached[0] if cached else None,
+            site=self._active_site,
         )
         if not cached and getattr(self.renderer, "floor_svg", None):
             self._svg_cache[depth] = (
@@ -1208,6 +1209,7 @@ class Game:
         departing_level_id = self.level.id
         self.level = None
         self._active_cave_cluster = None
+        self._active_site = None
         self._underworld_sector_map = {}
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:

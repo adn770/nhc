@@ -30,7 +30,7 @@ from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.model import FLOWER_COORDS, HexWorld
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
-from nhc.rendering.svg import render_floor_svg
+from nhc.rendering.level_svg import render_level_svg
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -1287,13 +1287,17 @@ class WebClient(GameClient):
         floor_svg: str | None = None,
         floor_svg_id: str | None = None,
         hatch_distance: float = 2.0,
+        site: "object | None" = None,
     ) -> None:
         """Send new floor SVG to the client.
 
         Called on floor transitions (descend/ascend stairs).
         If *floor_svg* is provided, skips rendering (cache hit).
         Resets FOV/hatch delta tracking so the next render sends
-        full state for the new level.
+        full state for the new level. ``site`` is the active
+        :class:`Site` when the player is inside a building-generator
+        site, which lets the renderer pick up the brick / stone
+        wall overlay for Building floors.
         """
         import uuid as _uuid
         if floor_svg and floor_svg_id:
@@ -1302,8 +1306,9 @@ class WebClient(GameClient):
             logger.info("Floor SVG cache hit: %s (%d bytes)",
                         floor_svg_id, len(floor_svg))
         else:
-            self.floor_svg = render_floor_svg(
-                level, seed=seed, hatch_distance=hatch_distance,
+            self.floor_svg = render_level_svg(
+                level, site=site,
+                seed=seed, hatch_distance=hatch_distance,
             )
             self.floor_svg_id = _uuid.uuid4().hex[:12]
             logger.info("Floor SVG rendered: %s (%d bytes)",
