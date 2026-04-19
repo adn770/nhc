@@ -12,7 +12,7 @@ from pathlib import Path
 
 from nhc.config import ConfigManager
 from nhc.core.game import Game
-from nhc.hexcrawl.mode import add_world_arg, gamemode_from_args
+from nhc.hexcrawl.mode import add_mode_args, gamemode_from_args
 from nhc.utils.llm import create_backend
 from nhc.utils.log import list_topics, setup_logging
 
@@ -117,7 +117,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Room shape variety 0.0-1.0 (default: 0.3, scales with depth)",
     )
-    add_world_arg(game_group)
+    add_mode_args(
+        game_group,
+        default_world="dungeon",
+        default_difficulty="medium",
+    )
 
     # Logging options
     log_group = parser.add_argument_group("Logging")

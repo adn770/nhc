@@ -160,23 +160,44 @@ class GameMode(Enum):
 # ---------------------------------------------------------------------------
 
 
-def add_world_arg(
+def add_mode_args(
     parser: argparse._ActionsContainer,
-) -> argparse.Action:
-    """Register the ``--world`` flag on ``parser``."""
-    return parser.add_argument(
+    default_world: str = "dungeon",
+    default_difficulty: str = "medium",
+) -> tuple[argparse.Action, argparse.Action]:
+    """Register the ``--world`` and ``--difficulty`` flags.
+
+    Each entry point picks its own defaults: ``nhc.py`` launches
+    on the classic dungeon world; ``nhc_web.py`` launches on the
+    overland hexcrawl. ``GameMode`` is rebuilt from the two
+    strings by :func:`gamemode_from_args` -- the combined
+    ``hex-medium`` style strings are no longer a CLI concern.
+    """
+    world_action = parser.add_argument(
         "--world",
-        choices=[m.value for m in GameMode],
-        default=GameMode.default().value,
+        choices=[w.value for w in WorldType],
+        default=default_world,
         help=(
-            "World mode: dungeon-easy, dungeon-medium (default), "
-            "dungeon-survival, hex-easy, hex-medium, hex-survival. "
-            "Legacy values 'dungeon' and 'hex-easy'/'hex-survival' "
-            "are also accepted."
+            "World type: 'hexcrawl' (overland + flowers + "
+            "dungeons) or 'dungeon' (classic dungeon only)."
         ),
     )
+    difficulty_action = parser.add_argument(
+        "--difficulty",
+        choices=[d.value for d in Difficulty],
+        default=default_difficulty,
+        help=(
+            "Difficulty: 'easy' (cheat death + double gold), "
+            "'medium' (double gold), or 'survival' (permadeath, "
+            "normal gold)."
+        ),
+    )
+    return world_action, difficulty_action
 
 
 def gamemode_from_args(ns: argparse.Namespace) -> GameMode:
-    """Translate the parsed ``--world`` string."""
-    return GameMode.from_str(ns.world)
+    """Compose a :class:`GameMode` from the parsed ``--world`` and
+    ``--difficulty`` flags."""
+    wtype = WorldType.from_str(ns.world)
+    diff = Difficulty.from_str(ns.difficulty)
+    return GameMode.from_world_difficulty(wtype, diff)

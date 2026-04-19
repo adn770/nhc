@@ -1,12 +1,10 @@
-"""GameMode enum and the new --world CLI flag.
+"""GameMode enum and the split ``--world`` / ``--difficulty`` flags.
 
-Plan note: the original M-1.1 spec named the flag --mode, but the
-existing nhc.py already exposes --mode {typed,classic} for the
-input style (typed-LLM vs roguelike-keys), referenced in the README,
-the three help files, and design/typed_gameplay.md. To keep that
-surface stable we introduce --world {dungeon,hex-easy,hex-survival}
-for the new world-mode axis. The two flags are orthogonal:
---mode controls input, --world controls the overland wrapper.
+The two CLI flags are orthogonal: ``--world`` picks the world
+shape (hexcrawl overland vs classic dungeon), ``--difficulty``
+picks the play difficulty (easy / medium / survival). A third
+existing ``--mode`` flag (not tested here) picks the input style
+(typed-LLM vs roguelike-keys).
 """
 
 from __future__ import annotations
@@ -18,7 +16,10 @@ from pathlib import Path
 
 import pytest
 
-from nhc.hexcrawl.mode import GameMode, add_world_arg
+from nhc.hexcrawl.mode import (
+    Difficulty, GameMode, WorldType, add_mode_args,
+    gamemode_from_args,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -70,47 +71,92 @@ def test_gamemode_easy_vs_survival_predicates() -> None:
 
 
 # ---------------------------------------------------------------------------
-# add_world_arg helper (used by both nhc.py and nhc_web.py)
+# add_mode_args: registers --world and --difficulty as two flags
 # ---------------------------------------------------------------------------
 
 
-def _build_parser() -> argparse.ArgumentParser:
+def _build_parser(
+    default_world: str = "dungeon",
+    default_difficulty: str = "medium",
+) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="test")
-    add_world_arg(parser)
+    add_mode_args(
+        parser,
+        default_world=default_world,
+        default_difficulty=default_difficulty,
+    )
     return parser
 
 
-def test_add_world_arg_default_is_dungeon_medium() -> None:
+def test_add_mode_args_default_is_dungeon_medium() -> None:
     ns = _build_parser().parse_args([])
-    assert ns.world == "dungeon-medium"
+    assert ns.world == "dungeon"
+    assert ns.difficulty == "medium"
 
 
-def test_add_world_arg_accepts_dungeon_medium() -> None:
-    ns = _build_parser().parse_args(["--world", "dungeon-medium"])
-    assert ns.world == "dungeon-medium"
+def test_add_mode_args_default_override() -> None:
+    ns = _build_parser(
+        default_world="hexcrawl",
+        default_difficulty="survival",
+    ).parse_args([])
+    assert ns.world == "hexcrawl"
+    assert ns.difficulty == "survival"
 
 
-def test_add_world_arg_accepts_hex_easy() -> None:
-    ns = _build_parser().parse_args(["--world", "hex-easy"])
-    assert ns.world == "hex-easy"
+def test_nhc_web_defaults_to_hex_medium() -> None:
+    """The local dev server launches on the hexcrawl overland
+    map by default; dungeon-only play requires an explicit
+    ``--world dungeon``."""
+    from unittest.mock import patch
+    from nhc_web import parse_args
+    with patch.object(sys, "argv", ["nhc_web.py"]):
+        ns = parse_args()
+    assert ns.world == "hexcrawl"
+    assert ns.difficulty == "medium"
 
 
-def test_add_world_arg_accepts_hex_survival() -> None:
-    ns = _build_parser().parse_args(["--world", "hex-survival"])
-    assert ns.world == "hex-survival"
+def test_add_mode_args_accepts_world_dungeon() -> None:
+    ns = _build_parser().parse_args(["--world", "dungeon"])
+    assert ns.world == "dungeon"
 
 
-def test_add_world_arg_rejects_unknown() -> None:
+def test_add_mode_args_accepts_world_hexcrawl() -> None:
+    ns = _build_parser().parse_args(["--world", "hexcrawl"])
+    assert ns.world == "hexcrawl"
+
+
+def test_add_mode_args_accepts_difficulty_easy() -> None:
+    ns = _build_parser().parse_args(["--difficulty", "easy"])
+    assert ns.difficulty == "easy"
+
+
+def test_add_mode_args_accepts_difficulty_survival() -> None:
+    ns = _build_parser().parse_args(["--difficulty", "survival"])
+    assert ns.difficulty == "survival"
+
+
+def test_add_mode_args_rejects_unknown_world() -> None:
     with pytest.raises(SystemExit):
         _build_parser().parse_args(["--world", "atlantis"])
 
 
-def test_add_world_arg_returns_gamemode_via_helper() -> None:
-    ns = _build_parser().parse_args(["--world", "hex-easy"])
-    # Convenience helper to translate the parsed string into a
-    # GameMode enum value.
-    from nhc.hexcrawl.mode import gamemode_from_args
+def test_add_mode_args_rejects_unknown_difficulty() -> None:
+    with pytest.raises(SystemExit):
+        _build_parser().parse_args(["--difficulty", "nightmare"])
+
+
+def test_gamemode_from_args_composes_split() -> None:
+    ns = _build_parser().parse_args([
+        "--world", "hexcrawl", "--difficulty", "easy",
+    ])
     assert gamemode_from_args(ns) is GameMode.HEX_EASY
+
+
+def test_gamemode_from_args_survival_dungeon() -> None:
+    ns = _build_parser().parse_args([
+        "--world", "dungeon", "--difficulty", "survival",
+    ])
+    assert gamemode_from_args(ns) is GameMode.DUNGEON_SURVIVAL
 
 
 # ---------------------------------------------------------------------------
@@ -130,16 +176,18 @@ def _run_help(script: str) -> str:
     return result.stdout
 
 
-def test_nhc_script_advertises_world_flag() -> None:
+def test_nhc_script_advertises_split_flags() -> None:
     out = _run_help("nhc.py")
     assert "--world" in out
-    assert "hex-easy" in out
-    assert "hex-survival" in out
+    assert "--difficulty" in out
+    assert "hexcrawl" in out
+    assert "survival" in out
     # And the existing --mode flag is still there.
     assert "--mode" in out
 
 
-def test_nhc_web_script_advertises_world_flag() -> None:
+def test_nhc_web_script_advertises_split_flags() -> None:
     out = _run_help("nhc_web.py")
     assert "--world" in out
-    assert "hex-easy" in out
+    assert "--difficulty" in out
+    assert "hexcrawl" in out

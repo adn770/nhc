@@ -13,7 +13,7 @@ import argparse
 import os
 from pathlib import Path
 
-from nhc.hexcrawl.mode import add_world_arg
+from nhc.hexcrawl.mode import add_mode_args
 from nhc.web.app import create_app
 from nhc.web.config import WebConfig
 
@@ -66,7 +66,13 @@ def parse_args() -> argparse.Namespace:
         "--data-dir",
         help="Persistent data directory (env: NHC_DATA_DIR)",
     )
-    add_world_arg(parser)
+    # Local dev server launches on the hexcrawl overland by
+    # default so `./server` drops the player onto the hex map
+    # without explicit CLI overrides. Dungeon-only play still
+    # works via `./server --world dungeon`.
+    add_mode_args(
+        parser, default_world="hexcrawl", default_difficulty="medium",
+    )
     return parser.parse_args()
 
 
