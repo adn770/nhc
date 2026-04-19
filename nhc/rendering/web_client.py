@@ -820,6 +820,7 @@ class WebClient(GameClient):
             "game_continue": tr("ui.game_continue"),
             # Loading / farlook / help command
             "loading_generate": tr("ui.loading_generate"),
+            "loading_generate_world": tr("ui.loading_generate_world"),
             "loading_resume": tr("ui.loading_resume"),
             "loading_descend": tr("ui.loading_descend"),
             "loading_ascend": tr("ui.loading_ascend"),

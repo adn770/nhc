@@ -773,6 +773,7 @@ ui:
   game_continue: "Pulsa cualquier tecla o haz clic para continuar"
   # Loading
   loading_generate: "Generando mazmorra..."
+  loading_generate_world: "Generando mundo..."
   loading_resume: "Cargando partida..."
   loading_descend: "Bajando al siguiente piso..."
   loading_ascend: "Subiendo las escaleras..."

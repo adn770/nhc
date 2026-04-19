@@ -251,9 +251,15 @@ const NHC = {
     const difficulty = this._getWelcomeSelection("diff-btns", "medium");
 
     const L = NHC.labels;
-    this.showLoading(reset
-      ? (L.loading_generate || "Generating dungeon...")
-      : (L.loading_resume || "Loading game..."));
+    let loadingText;
+    if (reset) {
+      loadingText = (world === "hexcrawl")
+        ? (L.loading_generate_world || "Generating world...")
+        : (L.loading_generate || "Generating dungeon...");
+    } else {
+      loadingText = L.loading_resume || "Loading game...";
+    }
+    this.showLoading(loadingText);
 
     const resp = await fetch("/api/game/new", {
       method: "POST",

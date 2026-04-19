@@ -773,6 +773,7 @@ ui:
   game_continue: "Press any key or click to continue"
   # Loading
   loading_generate: "Generating dungeon..."
+  loading_generate_world: "Generating world..."
   loading_resume: "Loading game..."
   loading_descend: "Descending to the next floor..."
   loading_ascend: "Climbing back up..."

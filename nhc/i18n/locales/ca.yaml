@@ -791,6 +791,7 @@ ui:
   game_continue: "Prem qualsevol tecla o clica per continuar"
   # Loading
   loading_generate: "Generant masmorra..."
+  loading_generate_world: "Generant món..."
   loading_resume: "Carregant partida..."
   loading_descend: "Baixant al pis següent..."
   loading_ascend: "Pujant les escales..."
