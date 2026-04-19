@@ -106,16 +106,21 @@ def render_floor_svg(
         cave_tiles=cave_tiles,
     )
 
+    # Building floors live inside a building and look like interior
+    # architecture -- no underground shadow halo or cross-hatch
+    # darkness belongs on them.
+    is_building = getattr(level, "building_id", None) is not None
+
     # Layer 1: Shadows (rooms + corridors)
-    _render_room_shadows(svg, level)
-    _render_corridor_shadows(svg, level)
+    if not is_building:
+        _render_room_shadows(svg, level)
+        _render_corridor_shadows(svg, level)
 
     # Layer 2: Hatching (rooms clipped to exterior of dungeon
     # polygon, corridors hatched one tile on each side).
-    # Settlements skip hatching — open-air maps don't need the
-    # underground darkness halo.
+    # Settlements and Building interiors skip hatching.
     theme = level.metadata.theme if level.metadata else "dungeon"
-    if theme != "settlement":
+    if theme != "settlement" and not is_building:
         _render_hatching(svg, level, seed, dungeon_poly,
                          hatch_distance=hatch_distance,
                          cave_wall_poly=cave_wall_poly)

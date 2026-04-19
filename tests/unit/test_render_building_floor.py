@@ -165,6 +165,47 @@ class TestLShapeBuildingWalls:
         pytest.skip("no L-shape mansion building in 200 seeds")
 
 
+class TestBuildingFloorsSkipDungeonEffects:
+    def _rect_building(self):
+        from nhc.dungeon.model import RectShape
+        for seed in range(200):
+            site = assemble_tower("t", random.Random(seed))
+            b = site.buildings[0]
+            if isinstance(b.base_shape, RectShape):
+                return b
+        pytest.skip("no RectShape tower in 200 seeds")
+
+    def test_no_shadow_elements(self):
+        """Building floors don't render the 8%-opacity offset
+        shadow that normal dungeons use."""
+        b = self._rect_building()
+        out = render_building_floor_svg(b, 0, seed=42)
+        assert 'opacity="0.08"' not in out
+
+    def test_no_hatch_clip(self):
+        """Building floors don't emit the cross-hatch clip or
+        underlay."""
+        from nhc.rendering._svg_helpers import HATCH_UNDERLAY
+        b = self._rect_building()
+        out = render_building_floor_svg(b, 0, seed=42)
+        assert "hatch-clip" not in out
+        assert HATCH_UNDERLAY not in out
+
+    def test_regular_dungeon_level_still_has_shadows_and_hatch(self):
+        """Sanity check: a plain Level without building_id still
+        gets shadows + hatching."""
+        from nhc.dungeon.generator import GenerationParams
+        from nhc.dungeon.generators.bsp import BSPGenerator
+        from nhc.rendering._svg_helpers import HATCH_UNDERLAY
+        from nhc.rendering.svg import render_floor_svg
+        level = BSPGenerator().generate(
+            GenerationParams(seed=42, shape_variety=0.5),
+        )
+        svg = render_floor_svg(level, seed=42)
+        assert 'opacity="0.08"' in svg
+        assert HATCH_UNDERLAY in svg
+
+
 def _brick_rects(svg: str) -> list[dict]:
     """Extract <rect> elements whose fill is the brick colour."""
     rects = []
