@@ -10,9 +10,12 @@ See ``design/building_generator.md`` sections 4 and 7.
 
 from __future__ import annotations
 
+import math
+
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import LShape, RectShape, Rect
 from nhc.rendering._building_walls import (
+    MASONRY_WALL_THICKNESS,
     render_brick_wall_run,
     render_stone_wall_run,
 )
@@ -51,11 +54,29 @@ def render_building_floor_svg(
 
     fragments: list[str] = []
     n = len(polygon)
+    # Extend each edge by half the wall thickness at both ends so
+    # adjacent edges overlap at every polygon vertex. This paints
+    # the thick x thick corner square fully -- without it, each
+    # wall stops at the vertex and the corner square is only half
+    # covered, leaving a visible gap on the outside of every
+    # corner.
+    ext = MASONRY_WALL_THICKNESS / 2
     for i in range(n):
         ax, ay = polygon[i]
         bx, by = polygon[(i + 1) % n]
+        dx = bx - ax
+        dy = by - ay
+        length = math.hypot(dx, dy)
+        if length < 1e-6:
+            continue
+        ux = dx / length
+        uy = dy / length
+        ax_ext = ax - ux * ext
+        ay_ext = ay - uy * ext
+        bx_ext = bx + ux * ext
+        by_ext = by + uy * ext
         fragments.extend(run_renderer(
-            ax, ay, bx, by, seed=seed + i,
+            ax_ext, ay_ext, bx_ext, by_ext, seed=seed + i,
         ))
     if not fragments:
         return base

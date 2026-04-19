@@ -10,12 +10,18 @@ only orthogonal wall runs are supported so far.
 from __future__ import annotations
 
 import random
+import re
 
 import pytest
 
 from nhc.dungeon.sites.mansion import assemble_mansion
 from nhc.dungeon.sites.tower import assemble_tower
-from nhc.rendering._building_walls import BRICK_FILL, STONE_FILL
+from nhc.rendering._building_walls import (
+    BRICK_FILL,
+    MASONRY_WALL_THICKNESS,
+    STONE_FILL,
+)
+from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.building import render_building_floor_svg
 
 
@@ -107,3 +113,117 @@ class TestLShapeBuildingWalls:
                 assert BRICK_FILL in out
                 return
         pytest.skip("no L-shape mansion building in 200 seeds")
+
+
+def _brick_rects(svg: str) -> list[dict]:
+    """Extract <rect> elements whose fill is the brick colour."""
+    rects = []
+    for m in re.finditer(r'<rect([^/]*)/>', svg):
+        attrs = dict(re.findall(r'([\w-]+)="([^"]*)"', m.group(1)))
+        if attrs.get("fill") == BRICK_FILL:
+            rects.append(attrs)
+    return rects
+
+
+class TestBrickWallsExtendPastCorners:
+    def _rect_building(self):
+        from nhc.dungeon.model import RectShape
+        for seed in range(200):
+            site = assemble_tower("t", random.Random(seed))
+            b = site.buildings[0]
+            if isinstance(b.base_shape, RectShape):
+                b.wall_material = "brick"
+                return b
+        pytest.skip("no RectShape tower in 200 seeds")
+
+    def test_top_edge_bricks_extend_past_left_vertex(self):
+        """The top wall starts to the LEFT of the NW polygon vertex
+        by thickness/2 so it overlaps the left wall's upper end."""
+        b = self._rect_building()
+        out = render_building_floor_svg(b, 0, seed=42)
+        rect = b.base_rect
+        nw_x = PADDING + rect.x * CELL
+        nw_y = PADDING + rect.y * CELL
+        ext = MASONRY_WALL_THICKNESS / 2
+        # Find the leftmost brick rect whose y-center matches the top
+        # edge y. It should start at x <= nw_x - ext + small tolerance.
+        top_y_center = nw_y
+        min_x = None
+        for a in _brick_rects(out):
+            y = float(a["y"])
+            h = float(a["height"])
+            # Two strips sit symmetrically around the edge line, so
+            # any rect whose centre is within thickness/2 of the
+            # edge belongs to this wall band.
+            if abs(y + h / 2 - top_y_center) > MASONRY_WALL_THICKNESS / 2:
+                continue
+            x = float(a["x"])
+            if min_x is None or x < min_x:
+                min_x = x
+        assert min_x is not None
+        assert min_x <= nw_x - ext + 0.2, (
+            f"leftmost brick x={min_x:.1f}, expected <= "
+            f"{nw_x - ext + 0.2:.1f}"
+        )
+
+    def test_top_edge_bricks_extend_past_right_vertex(self):
+        b = self._rect_building()
+        out = render_building_floor_svg(b, 0, seed=42)
+        rect = b.base_rect
+        ne_x = PADDING + rect.x2 * CELL
+        ne_y = PADDING + rect.y * CELL
+        ext = MASONRY_WALL_THICKNESS / 2
+        # Find the rightmost brick rect whose y-center matches the
+        # top edge y. Its right edge should reach x >= ne_x + ext
+        # (within tolerance).
+        top_y_center = ne_y
+        max_right = None
+        for a in _brick_rects(out):
+            y = float(a["y"])
+            h = float(a["height"])
+            # Two strips sit symmetrically around the edge line, so
+            # any rect whose centre is within thickness/2 of the
+            # edge belongs to this wall band.
+            if abs(y + h / 2 - top_y_center) > MASONRY_WALL_THICKNESS / 2:
+                continue
+            right = float(a["x"]) + float(a["width"])
+            if max_right is None or right > max_right:
+                max_right = right
+        assert max_right is not None
+        assert max_right >= ne_x + ext - 0.2, (
+            f"rightmost brick right={max_right:.1f}, expected >= "
+            f"{ne_x + ext - 0.2:.1f}"
+        )
+
+    def test_corner_square_fully_covered_by_at_least_one_wall(self):
+        """The thick x thick square at the NW polygon vertex is
+        covered by wall bricks (from the top run and/or the left
+        run) -- no empty L-shape in the corner."""
+        b = self._rect_building()
+        out = render_building_floor_svg(b, 0, seed=42)
+        rect = b.base_rect
+        nw_x = PADDING + rect.x * CELL
+        nw_y = PADDING + rect.y * CELL
+        thick = MASONRY_WALL_THICKNESS
+        # The NW corner square spans (nw_x - thick/2, nw_y - thick/2)
+        # to (nw_x + thick/2, nw_y + thick/2). For fullness, check
+        # all four thick/2 x thick/2 quadrants have a brick covering
+        # their centre.
+        brick_rects = _brick_rects(out)
+
+        def _covered(px: float, py: float) -> bool:
+            for a in brick_rects:
+                x = float(a["x"])
+                y = float(a["y"])
+                w = float(a["width"])
+                h = float(a["height"])
+                if x <= px <= x + w and y <= py <= y + h:
+                    return True
+            return False
+
+        for dx in (-thick / 4, thick / 4):
+            for dy in (-thick / 4, thick / 4):
+                assert _covered(nw_x + dx, nw_y + dy), (
+                    f"NW corner point ({nw_x + dx:.1f}, "
+                    f"{nw_y + dy:.1f}) not covered by any brick"
+                )
