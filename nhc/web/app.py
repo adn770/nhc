@@ -106,15 +106,28 @@ def create_app(
     def _inject_static_version():
         return {"v": _static_version}
 
-    # Set up file + console logging via shared log_utils. The
-    # server logs land outside the project's debug/ tree so that
-    # routine debug-dir cleanups don't wipe an in-flight session.
+    # Set up file + console logging via shared log_utils. On the
+    # dev host we want the log outside the project's debug/ tree
+    # so routine debug-dir cleanups don't wipe an in-flight
+    # session. In the production container the rootfs is
+    # read-only with a tmpfs on /app/debug, so fall back to the
+    # default path when ~/src isn't writable. ``NHC_SERVER_LOG``
+    # overrides both.
     from nhc.utils.log import setup_logging
-    server_log = Path.home() / "src" / "nhc-server.log"
+    env_log = os.environ.get("NHC_SERVER_LOG")
+    if env_log:
+        server_log_arg: str | None = env_log
+    else:
+        candidate = Path.home() / "src" / "nhc-server.log"
+        try:
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            server_log_arg = str(candidate)
+        except OSError:
+            server_log_arg = None
     log_path = setup_logging(
         level=logging.DEBUG,
         debug_topics="all",
-        log_file=str(server_log),
+        log_file=server_log_arg,
         console_output=True,
     )
     app.config["LOG_PATH"] = str(log_path)
