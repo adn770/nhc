@@ -51,8 +51,12 @@ class Building:
     floors: list[Level] = field(default_factory=list)
     stair_links: list[StairLink] = field(default_factory=list)
     descent: DungeonRef | None = None
-    wall_material: str = "brick"     # brick | stone | dungeon
-    interior_floor: str = "stone"    # stone | wood
+    wall_material: str = "brick"     # brick | stone | dungeon | adobe | wood
+    interior_floor: str = "stone"    # stone | wood | earth
+    # Optional roof-material marker used by rendering for flavour
+    # variants (e.g. forest watchtower wood cap) -- None means "no
+    # explicit roof style requested; renderer picks the default".
+    roof_material: str | None = None
 
     @property
     def ground(self) -> Level:

@@ -21,7 +21,7 @@ from nhc.dungeon.model import (
     RoomShape, Terrain, Tile,
 )
 from nhc.dungeon.site import Site, outside_neighbour
-from nhc.hexcrawl.model import DungeonRef
+from nhc.hexcrawl.model import Biome, DungeonRef
 
 
 # ── Tower tunable constants ───────────────────────────────────
@@ -35,6 +35,7 @@ TOWER_SHAPE_POOL = ("circle", "octagon", "square")
 
 def assemble_tower(
     site_id: str, rng: random.Random,
+    biome: Biome | None = None,
 ) -> Site:
     """Assemble a tower site from ``rng``.
 
@@ -43,6 +44,14 @@ def assemble_tower(
     tower footprint. Interior rendering is handled by
     ``render_floor_svg`` per floor and the building-wall SVG
     renderers in later integration milestones.
+
+    ``biome`` is an optional :class:`Biome` that lets the
+    assembler apply per-biome overrides matching v1's tile-only
+    split (design/biome_features.md §8). Forest watchtowers cap
+    at 2 floors and stamp ``roof_material="wood"`` on the
+    Building; mountain towers force every floor's wall + interior
+    to stone. All other biomes fall through to the unmodified
+    defaults.
     """
     shape_key = rng.choice(TOWER_SHAPE_POOL)
     size = rng.randint(*TOWER_SIZE_RANGE)
@@ -57,10 +66,21 @@ def assemble_tower(
         base_shape = RectShape()
 
     n_floors = rng.randint(*TOWER_FLOOR_COUNT_RANGE)
+    if biome is Biome.FOREST:
+        # Forest watchtowers read as short wooden spotter
+        # platforms, not full stone towers.
+        n_floors = min(2, n_floors)
 
     descent: DungeonRef | None = None
     if rng.random() < TOWER_DESCENT_PROBABILITY:
         descent = DungeonRef(template=TOWER_DESCENT_TEMPLATE)
+
+    mountain = biome is Biome.MOUNTAIN
+    interior_floor_default = "stone"
+    wall_material = "stone" if mountain else "brick"
+    roof_material: str | None = None
+    if biome is Biome.FOREST:
+        roof_material = "wood"
 
     building_id = f"{site_id}_tower"
     floors: list[Level] = []
@@ -70,7 +90,7 @@ def assemble_tower(
         )
         floors.append(level)
 
-    if n_floors >= 3:
+    if not mountain and n_floors >= 3:
         floors[-1].interior_floor = "wood"
 
     building = Building(
@@ -79,8 +99,9 @@ def assemble_tower(
         base_rect=base_rect,
         floors=floors,
         descent=descent,
-        wall_material="brick",
-        interior_floor="stone",
+        wall_material=wall_material,
+        interior_floor=interior_floor_default,
+        roof_material=roof_material,
     )
     building.stair_links = place_cross_floor_stairs(building, rng)
     flip_building_stair_semantics(building)

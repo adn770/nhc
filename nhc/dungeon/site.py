@@ -137,7 +137,7 @@ def assemble_site(
     # circular references back to Building / Level helpers.
     if kind == "tower":
         from nhc.dungeon.sites.tower import assemble_tower
-        return assemble_tower(site_id, rng)
+        return assemble_tower(site_id, rng, biome=biome)
     if kind == "farm":
         from nhc.dungeon.sites.farm import assemble_farm
         return assemble_farm(site_id, rng)
