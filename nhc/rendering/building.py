@@ -13,7 +13,9 @@ from __future__ import annotations
 import math
 
 from nhc.dungeon.building import Building
-from nhc.dungeon.model import LShape, RectShape, Rect
+from nhc.dungeon.model import (
+    CircleShape, LShape, OctagonShape, Rect, RectShape,
+)
 from nhc.rendering._building_walls import (
     MASONRY_WALL_THICKNESS,
     render_brick_wall_run,
@@ -21,6 +23,13 @@ from nhc.rendering._building_walls import (
 )
 from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.svg import render_floor_svg
+
+# Circle perimeter is approximated as an N-sided polygon. The
+# segment count scales with circumference so each edge stays
+# roughly the same pixel length across tower sizes.
+_CIRCLE_TARGET_SEGMENT_PX = 24.0
+_CIRCLE_MIN_SEGMENTS = 12
+_CIRCLE_MAX_SEGMENTS = 36
 
 
 def render_building_floor_svg(
@@ -87,17 +96,20 @@ def render_building_floor_svg(
 def _perimeter_polygon(
     building: Building,
 ) -> list[tuple[float, float]] | None:
-    """Pixel-coord perimeter polygon for orthogonal base shapes.
-
-    Returns ``None`` for circular / octagonal footprints so the
-    caller can fall back to the base SVG.
-    """
+    """Pixel-coord perimeter polygon for every base shape except
+    cave-style ones. Diagonal edges (octagon sides, circle
+    approximation) are handled by the masonry renderer via
+    per-rect rotation transforms."""
     shape = building.base_shape
     rect = building.base_rect
     if isinstance(shape, RectShape):
         return _rect_polygon(rect)
     if isinstance(shape, LShape):
         return _lshape_polygon(rect, shape)
+    if isinstance(shape, OctagonShape):
+        return _octagon_polygon(rect)
+    if isinstance(shape, CircleShape):
+        return _circle_polygon(rect, shape)
     return None
 
 
@@ -107,6 +119,58 @@ def _rect_polygon(rect: Rect) -> list[tuple[float, float]]:
     x1 = PADDING + rect.x2 * CELL
     y1 = PADDING + rect.y2 * CELL
     return [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+
+
+def _octagon_polygon(rect: Rect) -> list[tuple[float, float]]:
+    """Eight-vertex polygon matching OctagonShape.floor_tiles.
+
+    The flat sides are on N/E/S/W axis-aligned; the four 45-degree
+    chamfered corners become diagonal wall runs.
+    """
+    clip = max(1, min(rect.width, rect.height) // 3)
+
+    def _p(tx: int, ty: int) -> tuple[float, float]:
+        return (PADDING + tx * CELL, PADDING + ty * CELL)
+
+    return [
+        _p(rect.x + clip, rect.y),
+        _p(rect.x2 - clip, rect.y),
+        _p(rect.x2, rect.y + clip),
+        _p(rect.x2, rect.y2 - clip),
+        _p(rect.x2 - clip, rect.y2),
+        _p(rect.x + clip, rect.y2),
+        _p(rect.x, rect.y2 - clip),
+        _p(rect.x, rect.y + clip),
+    ]
+
+
+def _circle_polygon(
+    rect: Rect, shape: CircleShape,
+) -> list[tuple[float, float]]:
+    """Regular N-gon approximating CircleShape.floor_tiles.
+
+    Segment count scales with circumference so each edge stays
+    roughly ``_CIRCLE_TARGET_SEGMENT_PX`` long.
+    """
+    diameter = shape._diameter(rect)
+    radius_px = diameter * CELL / 2.0
+    cx = PADDING + (rect.x + rect.width / 2.0) * CELL
+    cy = PADDING + (rect.y + rect.height / 2.0) * CELL
+    circumference = 2.0 * math.pi * radius_px
+    n = max(
+        _CIRCLE_MIN_SEGMENTS,
+        min(
+            _CIRCLE_MAX_SEGMENTS,
+            int(circumference / _CIRCLE_TARGET_SEGMENT_PX),
+        ),
+    )
+    return [
+        (
+            cx + radius_px * math.cos(2 * math.pi * i / n),
+            cy + radius_px * math.sin(2 * math.pi * i / n),
+        )
+        for i in range(n)
+    ]
 
 
 def _lshape_polygon(

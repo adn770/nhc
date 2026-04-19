@@ -80,13 +80,46 @@ class TestRectBuildingWallsEmitted:
         assert STONE_FILL not in out
 
 
-class TestNonOrthogonalBuildingFallback:
-    def test_circle_or_octagon_falls_back_to_base(self):
-        """Non-orthogonal perimeters don't get brick / stone overlays."""
-        b = _first_circle_or_octagon_tower()
-        b.wall_material = "brick"
-        out = render_building_floor_svg(b, 0, seed=42)
-        assert BRICK_FILL not in out
+class TestNonOrthogonalBuildingWalls:
+    def test_octagon_tower_emits_brick_overlay(self):
+        """Octagon and circle perimeters now get masonry overlays
+        via the diagonal-run path."""
+        from nhc.dungeon.model import OctagonShape
+        for seed in range(200):
+            site = assemble_tower("t", random.Random(seed))
+            b = site.buildings[0]
+            if isinstance(b.base_shape, OctagonShape):
+                b.wall_material = "brick"
+                out = render_building_floor_svg(b, 0, seed=42)
+                assert BRICK_FILL in out
+                return
+        pytest.skip("no OctagonShape tower in 200 seeds")
+
+    def test_circle_tower_emits_brick_overlay(self):
+        from nhc.dungeon.model import CircleShape
+        for seed in range(200):
+            site = assemble_tower("t", random.Random(seed))
+            b = site.buildings[0]
+            if isinstance(b.base_shape, CircleShape):
+                b.wall_material = "brick"
+                out = render_building_floor_svg(b, 0, seed=42)
+                assert BRICK_FILL in out
+                return
+        pytest.skip("no CircleShape tower in 200 seeds")
+
+    def test_octagon_wall_has_rotated_units(self):
+        """Octagon has 4 diagonal edges -> some rects must carry
+        a rotate() transform."""
+        from nhc.dungeon.model import OctagonShape
+        for seed in range(200):
+            site = assemble_tower("t", random.Random(seed))
+            b = site.buildings[0]
+            if isinstance(b.base_shape, OctagonShape):
+                b.wall_material = "brick"
+                out = render_building_floor_svg(b, 0, seed=42)
+                assert "rotate(" in out
+                return
+        pytest.skip("no OctagonShape tower in 200 seeds")
 
 
 class TestRenderBuildingFloorDeterminism:

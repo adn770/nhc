@@ -57,9 +57,19 @@ class _SharedRunBehaviour:
     def test_zero_length_returns_empty(self):
         assert self._render(50, 50, 50, 50) == []
 
-    def test_diagonal_run_rejected(self):
-        with pytest.raises(ValueError):
-            self._render(0, 0, 20, 10)
+    def test_diagonal_run_renders_with_rotation(self):
+        """Diagonal runs now emit rotated rects (per-rect
+        transform='translate(...) rotate(...)')."""
+        out = self._render(0, 0, 100, 100, seed=1)
+        assert out
+        rotated = [
+            s for s in out
+            if 'transform="translate(' in s and 'rotate(' in s
+        ]
+        assert rotated, (
+            f"expected rotated rects on a diagonal run, got "
+            f"{out[:1]}"
+        )
 
     # ── per-unit rounded rects ──
 

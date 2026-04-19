@@ -11,6 +11,7 @@ See ``design/building_generator.md`` section 7.
 
 from __future__ import annotations
 
+import math
 import random
 
 
@@ -68,25 +69,41 @@ def _render_masonry_wall_run(
 ) -> list[str]:
     """Shared implementation: 2-strip rounded-rect chain.
 
-    Endpoints are pixel coordinates of the wall centerline; the
-    run must be strictly horizontal (``y0 == y1``) or vertical
-    (``x0 == x1``). Oblique runs raise ``ValueError``. Every unit
-    is a rounded ``<rect>`` filled with ``fill`` and stroked with
-    ``stroke`` at :data:`MASONRY_STROKE_WIDTH`. Widths jitter in
-    ``[MASONRY_WIDTH_LOW, MASONRY_WIDTH_HIGH]`` around
-    :data:`MASONRY_MEAN_WIDTH`, clipped at the run end so no unit
-    overflows. Output is deterministic given the same ``seed`` +
-    endpoints.
+    Endpoints are pixel coordinates of the wall centerline.
+    Orthogonal runs (horizontal or vertical) emit axis-aligned
+    ``<rect>`` units directly. Diagonal runs emit the same units
+    in canonical orientation with a per-rect ``transform`` that
+    translates the run start to ``(x0, y0)`` and rotates by the
+    run angle, so octagon and circle perimeters can be masoned
+    too.
+
+    Every unit is a rounded ``<rect>`` filled with ``fill`` and
+    stroked with ``stroke`` at :data:`MASONRY_STROKE_WIDTH`.
+    Widths jitter in ``[MASONRY_WIDTH_LOW, MASONRY_WIDTH_HIGH]``
+    around :data:`MASONRY_MEAN_WIDTH`, clipped at the run end so
+    no unit overflows. Output is deterministic given the same
+    ``seed`` + endpoints.
     """
     if x0 == x1 and y0 == y1:
         return []
     horizontal = y0 == y1
     vertical = x0 == x1
-    if not (horizontal ^ vertical):
-        raise ValueError(
-            "wall run must be strictly horizontal or vertical"
+    if horizontal or vertical:
+        return _render_ortho_run(
+            x0, y0, x1, y1, thickness,
+            horizontal=horizontal, seed=seed, fill=fill, stroke=stroke,
         )
+    return _render_diagonal_run(
+        x0, y0, x1, y1, thickness,
+        seed=seed, fill=fill, stroke=stroke,
+    )
 
+
+def _render_ortho_run(
+    x0: float, y0: float, x1: float, y1: float,
+    thickness: float, *, horizontal: bool,
+    seed: int, fill: str, stroke: str,
+) -> list[str]:
     run_len = abs(x1 - x0) if horizontal else abs(y1 - y0)
     run_start = min(x0, x1) if horizontal else min(y0, y1)
     perp_start = (y0 if horizontal else x0) - thickness / 2
@@ -105,6 +122,40 @@ def _render_masonry_wall_run(
             out.append(_masonry_rect(
                 horizontal, run_start, perp,
                 pos, width, strip_thick, fill, stroke,
+            ))
+            pos += width
+    return out
+
+
+def _render_diagonal_run(
+    x0: float, y0: float, x1: float, y1: float,
+    thickness: float, *,
+    seed: int, fill: str, stroke: str,
+) -> list[str]:
+    """Canonical horizontal masonry rotated into place via a
+    per-rect ``transform`` attribute. Each unit carries its own
+    translate+rotate so the individual rects remain
+    independently addressable (same shape as orthogonal output
+    -- one ``<rect>`` per list element)."""
+    dx = x1 - x0
+    dy = y1 - y0
+    run_len = math.hypot(dx, dy)
+    angle_deg = math.degrees(math.atan2(dy, dx))
+    strip_thick = thickness / MASONRY_STRIP_COUNT
+
+    rng = random.Random(seed)
+    out: list[str] = []
+    for idx in range(MASONRY_STRIP_COUNT):
+        perp = -thickness / 2 + idx * strip_thick
+        pos = max(0.0, _MASONRY_STRIP_OFFSETS[idx])
+        while pos < run_len:
+            width = MASONRY_MEAN_WIDTH * rng.uniform(
+                MASONRY_WIDTH_LOW, MASONRY_WIDTH_HIGH,
+            )
+            width = min(width, run_len - pos)
+            out.append(_diagonal_masonry_rect(
+                pos, perp, width, strip_thick,
+                x0, y0, angle_deg, fill, stroke,
             ))
             pos += width
     return out
@@ -132,4 +183,21 @@ def _masonry_rect(
         f'ry="{MASONRY_CORNER_RADIUS}" '
         f'fill="{fill}" stroke="{stroke}" '
         f'stroke-width="{MASONRY_STROKE_WIDTH}"/>'
+    )
+
+
+def _diagonal_masonry_rect(
+    pos: float, perp: float, width: float, strip_thick: float,
+    x0: float, y0: float, angle_deg: float,
+    fill: str, stroke: str,
+) -> str:
+    return (
+        f'<rect x="{pos:.1f}" y="{perp:.1f}" '
+        f'width="{width:.1f}" height="{strip_thick:.1f}" '
+        f'rx="{MASONRY_CORNER_RADIUS}" '
+        f'ry="{MASONRY_CORNER_RADIUS}" '
+        f'fill="{fill}" stroke="{stroke}" '
+        f'stroke-width="{MASONRY_STROKE_WIDTH}" '
+        f'transform="translate({x0:.1f} {y0:.1f}) '
+        f'rotate({angle_deg:.2f})"/>'
     )
