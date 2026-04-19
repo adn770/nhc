@@ -246,6 +246,27 @@ class TestTowerDescent:
             return
         pytest.skip("No descent tower in 200 seeds")
 
+    def test_descent_stair_feature_stays_down_after_flip(self):
+        """The tower's cross-floor flip must not invert the
+        descent stair; cellar entry descends physically, so the
+        ground-floor descent tile must remain ``stairs_down``."""
+        from nhc.hexcrawl.model import DungeonRef
+        for seed in range(200):
+            site = assemble_tower("t1", random.Random(seed))
+            b = site.buildings[0]
+            if b.descent is None:
+                continue
+            dlink = next(
+                l for l in b.stair_links
+                if isinstance(l.to_floor, DungeonRef)
+            )
+            fx, fy = dlink.from_tile
+            assert (
+                b.ground.tiles[fy][fx].feature == "stairs_down"
+            )
+            return
+        pytest.skip("No descent tower in 200 seeds")
+
 
 class TestTowerDeterminism:
     def test_same_seed_same_floor_count(self):
