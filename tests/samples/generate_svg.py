@@ -694,23 +694,75 @@ def _svg_frame(
     )
 
 
+def _xml_escape(s: str) -> str:
+    return (
+        s.replace("&", "&amp;")
+         .replace("<", "&lt;")
+         .replace(">", "&gt;")
+    )
+
+
+def _inject_info_panel(
+    svg_text: str, lines: list[str], *,
+    x: int = 8, y: int = 8,
+) -> str:
+    """Overlay a small legend listing the generation parameters.
+
+    Used by every sample generator so the SVG can be eyeballed
+    alongside the intent (material, constants, seed, etc.) --
+    what was rendered AND why.
+    """
+    if not lines:
+        return svg_text
+    font_size = 10
+    line_height = font_size + 2
+    char_w = 6.3
+    panel_w = max(
+        220,
+        int(max(len(line) for line in lines) * char_w) + 18,
+    )
+    panel_h = line_height * len(lines) + 14
+    parts = [
+        f'<g id="info-panel" font-family="monospace" '
+        f'font-size="{font_size}">',
+        f'<rect x="{x}" y="{y}" width="{panel_w}" '
+        f'height="{panel_h}" rx="3" '
+        f'fill="rgba(255,255,240,0.95)" stroke="#333" '
+        f'stroke-width="0.5"/>',
+    ]
+    for i, line in enumerate(lines):
+        ty = y + 14 + i * line_height
+        parts.append(
+            f'<text x="{x + 8}" y="{ty}" fill="#111">'
+            f'{_xml_escape(line)}</text>'
+        )
+    parts.append('</g>')
+    injection = "".join(parts)
+    return svg_text.replace("</svg>", f"{injection}</svg>")
+
+
 def generate_building_walls(outdir: Path) -> None:
     """Standalone brick / stone wall-run reference sheets."""
     from nhc.rendering._building_walls import (
+        BRICK_FILL, BRICK_SEAM,
+        MASONRY_CORNER_RADIUS, MASONRY_MEAN_WIDTH,
+        MASONRY_STRIP_COUNT, MASONRY_WALL_THICKNESS,
+        MASONRY_WIDTH_HIGH, MASONRY_WIDTH_LOW,
+        STONE_FILL, STONE_SEAM,
         render_brick_wall_run, render_stone_wall_run,
     )
 
     wdir = outdir / "building_walls"
     wdir.mkdir(parents=True, exist_ok=True)
 
-    for label, fn in (
-        ("brick", render_brick_wall_run),
-        ("stone", render_stone_wall_run),
+    for label, fn, fill, stroke in (
+        ("brick", render_brick_wall_run, BRICK_FILL, BRICK_SEAM),
+        ("stone", render_stone_wall_run, STONE_FILL, STONE_SEAM),
     ):
         body: list[str] = []
         # Three horizontal runs at increasing lengths, stacked with
         # 40px breathing room. Each run uses a distinct seed so the
-        # stagger / missing-brick randomness visibly differs.
+        # stagger visibly differs.
         for i, length in enumerate((120, 240, 360)):
             y = 40 + i * 30
             body.extend(fn(30, y, 30 + length, y, seed=7 + i))
@@ -718,7 +770,20 @@ def generate_building_walls(outdir: Path) -> None:
         # perpendicular path.
         for i, x in enumerate((420, 480)):
             body.extend(fn(x, 40, x, 40 + 200, seed=21 + i))
+        info = [
+            f"Building wall material: {label}",
+            f"Strip count: {MASONRY_STRIP_COUNT} "
+            "(running-bond courses)",
+            f"Mean unit width: {MASONRY_MEAN_WIDTH} px "
+            f"(jitter {MASONRY_WIDTH_LOW:.2f}-"
+            f"{MASONRY_WIDTH_HIGH:.2f})",
+            f"Wall thickness: {MASONRY_WALL_THICKNESS} px",
+            f"Corner radius: {MASONRY_CORNER_RADIUS} px",
+            f"Fill: {fill}   Stroke: {stroke}",
+            "Fully filled, no missing overlays",
+        ]
         svg = _svg_frame(560, 280, "".join(body))
+        svg = _inject_info_panel(svg, info)
         (wdir / f"{label}_wall_reference.svg").write_text(svg)
         print(f"  {wdir}/{label}_wall_reference.svg")
 
@@ -726,7 +791,15 @@ def generate_building_walls(outdir: Path) -> None:
 def generate_enclosure_demos(outdir: Path) -> None:
     """Fortification + palisade reference SVGs on a shared polygon."""
     from nhc.rendering._enclosures import (
-        FORTIFICATION_CORNER_STYLES,
+        FORTIFICATION_CORNER_FILL, FORTIFICATION_CORNER_SCALE,
+        FORTIFICATION_CORNER_STYLES, FORTIFICATION_CRENEL_FILL,
+        FORTIFICATION_MERLON_FILL, FORTIFICATION_RATIO,
+        FORTIFICATION_SIZE, FORTIFICATION_STROKE,
+        FORTIFICATION_STROKE_WIDTH,
+        PALISADE_CIRCLE_STEP, PALISADE_DOOR_LENGTH_PX,
+        PALISADE_FILL, PALISADE_RADIUS_JITTER,
+        PALISADE_RADIUS_MAX, PALISADE_RADIUS_MIN,
+        PALISADE_STROKE,
         render_fortification_enclosure,
         render_palisade_enclosure,
     )
@@ -748,13 +821,38 @@ def generate_enclosure_demos(outdir: Path) -> None:
         frags = render_fortification_enclosure(
             polygon, gates=gates, corner_style=style,
         )
+        info = [
+            f"Fortification wall | corner style: {style}",
+            f"Corner fill: {FORTIFICATION_CORNER_FILL} "
+            f"(scale {FORTIFICATION_CORNER_SCALE}x SIZE)",
+            f"Merlon fill: {FORTIFICATION_MERLON_FILL} "
+            f"(size {FORTIFICATION_SIZE} px)",
+            f"Crenel fill: {FORTIFICATION_CRENEL_FILL} "
+            f"(DIN A {FORTIFICATION_RATIO:.3f})",
+            f"Stroke: {FORTIFICATION_STROKE} @ "
+            f"{FORTIFICATION_STROKE_WIDTH} px",
+            "Polygon: 320x200, gates on bottom + right edges",
+            "Edges inset by SIZE/2; chain centered per edge",
+        ]
         svg = _svg_frame(400, 280, "".join(frags))
+        svg = _inject_info_panel(svg, info)
         path = edir / f"fortification_{style}_reference.svg"
         path.write_text(svg)
         print(f"  {path}")
 
     palisade = render_palisade_enclosure(polygon, gates=gates, seed=5)
+    palisade_info = [
+        "Palisade enclosure",
+        f"Circle radius: {PALISADE_RADIUS_MIN}-{PALISADE_RADIUS_MAX}"
+        f" px (jitter ±{PALISADE_RADIUS_JITTER})",
+        f"Circle step: {PALISADE_CIRCLE_STEP} px (non-overlap)",
+        f"Fill: {PALISADE_FILL}   Stroke: {PALISADE_STROKE}",
+        f"Door length: {PALISADE_DOOR_LENGTH_PX} px "
+        "(gate rects)",
+        "Polygon: 320x200, gates on bottom + right edges",
+    ]
     svg = _svg_frame(400, 280, "".join(palisade))
+    svg = _inject_info_panel(svg, palisade_info)
     (edir / "palisade_reference.svg").write_text(svg)
     print(f"  {edir}/palisade_reference.svg")
 
@@ -798,19 +896,46 @@ def _make_surface_patch_level(
 
 def generate_surface_samples(outdir: Path) -> None:
     """Reference sheet with STREET / FIELD / GARDEN / wood patches."""
+    from nhc.rendering._floor_detail import (
+        FIELD_STONE_FILL, FIELD_TINT, GARDEN_LINE_STROKE,
+        GARDEN_TINT, WOOD_FLOOR_FILL, WOOD_GRAIN_DARK,
+        WOOD_GRAIN_LIGHT, WOOD_PLANK_LENGTH_MAX,
+        WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
+        WOOD_SEAM_STROKE,
+    )
+
     sdir = outdir / "surface_samples"
     sdir.mkdir(parents=True, exist_ok=True)
 
-    # Stone interior floor with street/field/garden patches side by side.
+    stone_info = [
+        "Stone interior + surface patch demo",
+        "Patches L->R: STREET, FIELD, GARDEN, plain",
+        f"FIELD tint: {FIELD_TINT} + stones "
+        f"({FIELD_STONE_FILL})",
+        f"GARDEN tint: {GARDEN_TINT} + lines "
+        f"({GARDEN_LINE_STROKE})",
+        "STREET: cobblestone pattern from legacy renderer",
+    ]
     level = _make_surface_patch_level(w=40, h=12, interior_floor="stone")
     svg = render_floor_svg(level, seed=42)
+    svg = _inject_info_panel(svg, stone_info)
     (sdir / "surface_stone_reference.svg").write_text(svg)
     print(f"  {sdir}/surface_stone_reference.svg")
 
-    # Same layout with wood interior; street/field/garden passes are
-    # suppressed under wood but the plank fill + seams should show.
+    wood_info = [
+        "Wood (parquet) interior + surface patch demo",
+        f"Plank width: {WOOD_PLANK_WIDTH_PX} px (1/4 tile)",
+        f"Plank length: "
+        f"{WOOD_PLANK_LENGTH_MIN:.0f}-"
+        f"{WOOD_PLANK_LENGTH_MAX:.0f} px (random)",
+        f"Fill: {WOOD_FLOOR_FILL}   Seam: {WOOD_SEAM_STROKE}",
+        f"Grain streaks: {WOOD_GRAIN_LIGHT} / "
+        f"{WOOD_GRAIN_DARK} @ low opacity",
+        "Wood short-circuits street/field/garden passes",
+    ]
     level = _make_surface_patch_level(w=40, h=12, interior_floor="wood")
     svg = render_floor_svg(level, seed=42)
+    svg = _inject_info_panel(svg, wood_info)
     (sdir / "surface_wood_reference.svg").write_text(svg)
     print(f"  {sdir}/surface_wood_reference.svg")
 
@@ -900,6 +1025,33 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
                 surface_svg = surface_svg.replace(
                     "</svg>", "".join(enc_frags) + "</svg>",
                 )
+            enc_kind = (
+                site.enclosure.kind if site.enclosure else "none"
+            )
+            shapes = sorted({
+                type(b.base_shape).__name__
+                for b in site.buildings
+            })
+            materials = sorted({b.wall_material for b in site.buildings})
+            floors_used = sorted({
+                f.interior_floor
+                for b in site.buildings for f in b.floors
+            })
+            surface_info = [
+                f"Site: {kind} | seed={seed}",
+                f"Buildings: {len(site.buildings)}",
+                f"Shapes: {', '.join(shapes)}",
+                f"Wall materials: {', '.join(materials)}",
+                f"Interior floors: {', '.join(floors_used)}",
+                f"Enclosure: {enc_kind}"
+                + (
+                    f" ({len(site.enclosure.gates)} gate(s))"
+                    if site.enclosure else ""
+                ),
+                f"Surface size: {site.surface.width}x"
+                f"{site.surface.height} tiles",
+            ]
+            surface_svg = _inject_info_panel(surface_svg, surface_info)
             base = bdir / f"{kind}_seed{seed}_surface"
             base.with_suffix(".svg").write_text(surface_svg)
 
@@ -907,6 +1059,28 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
                 for fi in range(len(building.floors)):
                     floor_svg = render_building_floor_svg(
                         building, fi, seed=seed + fi,
+                    )
+                    floor = building.floors[fi]
+                    floor_info = [
+                        f"Site: {kind} | seed={seed}",
+                        f"Building b{bi} of {len(site.buildings)-1}"
+                        f" | floor f{fi} of {len(building.floors)-1}",
+                        f"Shape: "
+                        f"{type(building.base_shape).__name__} "
+                        f"{building.base_rect.width}x"
+                        f"{building.base_rect.height}",
+                        f"Wall material: {building.wall_material}",
+                        f"Interior floor: {floor.interior_floor}",
+                        f"Stair links: "
+                        f"{len(building.stair_links)} total",
+                        "Descent: "
+                        + (
+                            str(building.descent.template)
+                            if building.descent else "none"
+                        ),
+                    ]
+                    floor_svg = _inject_info_panel(
+                        floor_svg, floor_info,
                     )
                     floor_base = (
                         bdir
