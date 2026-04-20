@@ -1,0 +1,474 @@
+id: trait.physique
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: athletic
+  text: athletic
+- id: brawny
+  text: brawny
+- id: corpulent
+  text: corpulent
+- id: delicate
+  text: delicate
+- id: gaunt
+  text: gaunt
+- id: giant
+  text: giant
+- id: lanky
+  text: lanky
+- id: muscular
+  text: muscular
+- id: robust
+  text: robust
+- id: scrawny
+  text: scrawny
+- id: short
+  text: short
+- id: stout
+  text: stout
+- id: slim
+  text: slim
+- id: plump
+  text: plump
+- id: sculpted
+  text: sculpted
+- id: fat
+  text: fat
+- id: petite
+  text: petite
+- id: tall
+  text: tall
+- id: slender
+  text: slender
+- id: wiry
+  text: wiry
+---
+id: trait.face
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: bloated
+  text: bloated
+- id: thin
+  text: thin
+- id: cadaverous
+  text: cadaverous
+- id: chiseled
+  text: chiseled
+- id: delicate
+  text: delicate
+- id: elongated
+  text: elongated
+- id: stern
+  text: stern
+- id: gaunt
+  text: gaunt
+- id: fierce
+  text: fierce
+- id: broken
+  text: broken
+- id: wicked
+  text: wicked
+- id: narrow
+  text: narrow
+- id: cunning
+  text: cunning
+- id: round
+  text: round
+- id: sunken
+  text: sunken
+- id: sharp
+  text: sharp
+- id: soft
+  text: soft
+- id: square
+  text: square
+- id: wide
+  text: wide
+- id: wild
+  text: wild
+---
+id: trait.skin
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: battle_scar
+  text: battle_scar
+- id: birthmark
+  text: birthmark
+- id: burned
+  text: burned
+- id: dark
+  text: dark
+- id: painted
+  text: painted
+- id: greasy
+  text: greasy
+- id: sallow
+  text: sallow
+- id: flawless
+  text: flawless
+- id: pierced
+  text: pierced
+- id: pockmarked
+  text: pockmarked
+- id: sweaty
+  text: sweaty
+- id: tattooed
+  text: tattooed
+- id: radiant
+  text: radiant
+- id: rough
+  text: rough
+- id: pale
+  text: pale
+- id: sunburned
+  text: sunburned
+- id: tanned
+  text: tanned
+- id: war_paint
+  text: war_paint
+- id: wrinkled
+  text: wrinkled
+- id: whipped
+  text: whipped
+---
+id: trait.hair
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: bald
+  text: bald
+- id: braided
+  text: braided
+- id: bristly
+  text: bristly
+- id: half_shaved
+  text: half_shaved
+- id: curly
+  text: curly
+- id: disheveled
+  text: disheveled
+- id: dreadlocks
+  text: dreadlocks
+- id: filthy
+  text: filthy
+- id: frizzy
+  text: frizzy
+- id: greasy
+  text: greasy
+- id: limp
+  text: limp
+- id: long
+  text: long
+- id: luxurious
+  text: luxurious
+- id: mohawk
+  text: mohawk
+- id: oily
+  text: oily
+- id: ponytail
+  text: ponytail
+- id: silky
+  text: silky
+- id: topknot
+  text: topknot
+- id: wavy
+  text: wavy
+- id: feathery
+  text: feathery
+---
+id: trait.clothing
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: antique
+  text: antique
+- id: bloody
+  text: bloody
+- id: ceremonial
+  text: ceremonial
+- id: decorated
+  text: decorated
+- id: eccentric
+  text: eccentric
+- id: elegant
+  text: elegant
+- id: distinguished
+  text: distinguished
+- id: provocative
+  text: provocative
+- id: flashy
+  text: flashy
+- id: stained
+  text: stained
+- id: foreign
+  text: foreign
+- id: worn
+  text: worn
+- id: oversized
+  text: oversized
+- id: uniform
+  text: uniform
+- id: large
+  text: large
+- id: patched
+  text: patched
+- id: perfumed
+  text: perfumed
+- id: rancid
+  text: rancid
+- id: tattered
+  text: tattered
+- id: small
+  text: small
+---
+id: trait.virtue
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: ambitious
+  text: ambiciós
+- id: cautious
+  text: prudent
+- id: brave
+  text: valent
+- id: courteous
+  text: cortès
+- id: curious
+  text: curiós
+- id: disciplined
+  text: disciplinat
+- id: focused
+  text: enfocat
+- id: generous
+  text: generós
+- id: gregarious
+  text: gregari
+- id: honest
+  text: honest
+- id: honorable
+  text: honorable
+- id: humble
+  text: humil
+- id: idealistic
+  text: idealista
+- id: just
+  text: just
+- id: loyal
+  text: lleial
+- id: compassionate
+  text: compassiu
+- id: proper
+  text: correcte
+- id: serene
+  text: seré
+- id: stoic
+  text: estoic
+- id: tolerant
+  text: tolerant
+---
+id: trait.vice
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: aggressive
+  text: agressiu
+- id: arrogant
+  text: arrogant
+- id: bitter
+  text: agre
+- id: cowardly
+  text: covard
+- id: cruel
+  text: cruel
+- id: deceitful
+  text: fals
+- id: frivolous
+  text: frívol
+- id: gluttonous
+  text: golafre
+- id: greedy
+  text: cobdiciós
+- id: irascible
+  text: irascible
+- id: lazy
+  text: mandrós
+- id: nervous
+  text: nerviós
+- id: prejudiced
+  text: prejudicis
+- id: reckless
+  text: imprudent
+- id: rude
+  text: groller
+- id: suspicious
+  text: sospitós
+- id: vain
+  text: vanitós
+- id: vengeful
+  text: venjatiu
+- id: wasteful
+  text: malbaratador
+- id: whiny
+  text: queixós
+---
+id: trait.speech
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: gruff
+  text: gruff
+- id: deep
+  text: deep
+- id: halting
+  text: halting
+- id: cryptic
+  text: cryptic
+- id: drawling
+  text: drawling
+- id: singsong
+  text: singsong
+- id: flowery
+  text: flowery
+- id: formal
+  text: formal
+- id: grave
+  text: grave
+- id: hoarse
+  text: hoarse
+- id: mumbling
+  text: mumbling
+- id: precise
+  text: precise
+- id: quaint
+  text: quaint
+- id: incoherent
+  text: incoherent
+- id: rapid
+  text: rapid
+- id: dialectal
+  text: dialectal
+- id: calm
+  text: calm
+- id: booming
+  text: booming
+- id: stuttering
+  text: stuttering
+- id: whispering
+  text: whispering
+---
+id: trait.background
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: alchemist
+  text: alquimista
+- id: beggar
+  text: captaire
+- id: butcher
+  text: carnisser
+- id: burglar
+  text: lladre
+- id: charlatan
+  text: xarlatà
+- id: cleric
+  text: clergue
+- id: cook
+  text: cuiner
+- id: cultist
+  text: adorador
+- id: gambler
+  text: jugador
+- id: herbalist
+  text: herbolari
+- id: wizard
+  text: mag
+- id: sailor
+  text: mariner
+- id: mercenary
+  text: mercenari
+- id: merchant
+  text: comerciant
+- id: outlaw
+  text: criminal
+- id: performer
+  text: intèrpret
+- id: pickpocket
+  text: tallabosses
+- id: smuggler
+  text: contrabandista
+- id: student
+  text: estudiant
+- id: tracker
+  text: rastrejador
+---
+id: trait.misfortune
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: abandoned
+  text: abandoned
+- id: addicted
+  text: addicted
+- id: blackmailed
+  text: blackmailed
+- id: condemned
+  text: condemned
+- id: cursed
+  text: cursed
+- id: swindled
+  text: swindled
+- id: demoted
+  text: demoted
+- id: discredited
+  text: discredited
+- id: dispossessed
+  text: dispossessed
+- id: exiled
+  text: exiled
+- id: sentenced
+  text: sentenced
+- id: obsessed
+  text: obsessed
+- id: kidnapped
+  text: kidnapped
+- id: mutilated
+  text: mutilated
+- id: destitute
+  text: destitute
+- id: hunted
+  text: hunted
+- id: expelled
+  text: expelled
+- id: replaced
+  text: replaced
+- id: robbed
+  text: robbed
+- id: suspected
+  text: suspected
+---
+id: trait.alignment
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+entries:
+- id: lawful
+  weight: 5
+  text: Legal
+- id: neutral
+  weight: 10
+  text: Neutral
+- id: chaotic
+  weight: 5
+  text: Caòtic

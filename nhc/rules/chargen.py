@@ -8,9 +8,37 @@ misfortune, alignment), a random name, and starting gold.
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass, field, field
+from dataclasses import dataclass, field
 
+from nhc.tables.registry import TableRegistry
 from nhc.utils.rng import get_rng, roll_dice
+
+
+# Language used to load the trait registry for chargen. Traits are
+# shared_structure, so entry_ids are identical across locales; any
+# locale works to surface the entry_id we store on the sheet.
+_TRAIT_LANG = "en"
+
+_TRAIT_TABLE_BY_AXIS = {
+    "physique": "trait.physique",
+    "face": "trait.face",
+    "skin": "trait.skin",
+    "hair": "trait.hair",
+    "clothing": "trait.clothing",
+    "virtue": "trait.virtue",
+    "vice": "trait.vice",
+    "speech": "trait.speech",
+    "background": "trait.background",
+    "misfortune": "trait.misfortune",
+    "alignment": "trait.alignment",
+}
+
+
+def _roll_trait(axis: str, rng: random.Random) -> str:
+    """Roll a trait axis via the TableRegistry, returning the entry id."""
+    registry = TableRegistry.get_or_load(_TRAIT_LANG)
+    table_id = _TRAIT_TABLE_BY_AXIS[axis]
+    return registry.roll(table_id, rng=rng, context={}).entry_id
 
 
 # ── Trait tables (from BEB / Knave) ─────────────────────────────────
@@ -330,16 +358,16 @@ def generate_character(
         charisma=charisma,
         hp=hp,
         gold=gold,
-        physique=_pick(PHYSIQUE, rng),
-        face=_pick(FACE, rng),
-        skin=_pick(SKIN, rng),
-        hair=_pick(HAIR, rng),
-        clothing=_pick(CLOTHING, rng),
-        virtue=_pick(VIRTUE, rng),
-        vice=_pick(VICE, rng),
-        speech=_pick(SPEECH, rng),
-        background=_pick(BACKGROUND, rng),
-        misfortune=_pick(MISFORTUNE, rng),
-        alignment=_roll_alignment(rng),
+        physique=_roll_trait("physique", rng),
+        face=_roll_trait("face", rng),
+        skin=_roll_trait("skin", rng),
+        hair=_roll_trait("hair", rng),
+        clothing=_roll_trait("clothing", rng),
+        virtue=_roll_trait("virtue", rng),
+        vice=_roll_trait("vice", rng),
+        speech=_roll_trait("speech", rng),
+        background=_roll_trait("background", rng),
+        misfortune=_roll_trait("misfortune", rng),
+        alignment=_roll_trait("alignment", rng),
         starting_items=starting_items,
     )
