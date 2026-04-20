@@ -236,7 +236,8 @@ entries:
 - id: ambitious
   text: ambicioso
 - id: cautious
-  text: prudente
+  text: [prudente, precavido]
+  tags: [cairn-1e-es]
 - id: brave
   text: valiente
 - id: courteous
@@ -250,7 +251,8 @@ entries:
 - id: generous
   text: generoso
 - id: gregarious
-  text: gregario
+  text: [gregario, sociable]
+  tags: [cairn-1e-es]
 - id: honest
   text: honesto
 - id: honorable
@@ -290,7 +292,8 @@ entries:
 - id: cruel
   text: cruel
 - id: deceitful
-  text: falso
+  text: mentiroso
+  tags: [cairn-1e-es]
 - id: frivolous
   text: frívolo
 - id: gluttonous
@@ -308,7 +311,8 @@ entries:
 - id: reckless
   text: imprudente
 - id: rude
-  text: grosero
+  text: rudo
+  tags: [cairn-1e-es]
 - id: suspicious
   text: suspicaz
 - id: vain
@@ -398,11 +402,13 @@ entries:
 - id: mercenary
   text: mercenario
 - id: merchant
-  text: comerciante
+  text: mercader
+  tags: [cairn-1e-es]
 - id: outlaw
   text: criminal
 - id: performer
-  text: intérprete
+  text: artista
+  tags: [cairn-1e-es]
 - id: pickpocket
   text: carterista
 - id: smuggler

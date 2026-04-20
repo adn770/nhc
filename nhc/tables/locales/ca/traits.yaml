@@ -250,7 +250,8 @@ entries:
 - id: generous
   text: generós
 - id: gregarious
-  text: gregari
+  text: [gregari, sociable]
+  tags: [cairn-1e-ca]
 - id: honest
   text: honest
 - id: honorable
@@ -284,13 +285,15 @@ entries:
 - id: arrogant
   text: arrogant
 - id: bitter
-  text: agre
+  text: amargat
+  tags: [cairn-1e-ca]
 - id: cowardly
   text: covard
 - id: cruel
   text: cruel
 - id: deceitful
-  text: fals
+  text: mentider
+  tags: [cairn-1e-ca]
 - id: frivolous
   text: frívol
 - id: gluttonous
@@ -402,7 +405,8 @@ entries:
 - id: outlaw
   text: criminal
 - id: performer
-  text: intèrpret
+  text: artista
+  tags: [cairn-1e-ca]
 - id: pickpocket
   text: tallabosses
 - id: smuggler
