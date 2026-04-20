@@ -61,6 +61,18 @@ class Building:
     # explicit roof style requested; renderer picks the default".
     roof_material: str | None = None
 
+    def __setstate__(self, state: dict) -> None:
+        """Restore defaults for fields added after save snapshots.
+
+        Keeps older pickles loading cleanly. M7 added
+        ``interior_wall_material``; older pickles lack the key
+        and would otherwise deserialize into a Building without
+        the attribute (AttributeError on first access).
+        """
+        state.setdefault("interior_wall_material", "stone")
+        state.setdefault("roof_material", None)
+        self.__dict__.update(state)
+
     @property
     def ground(self) -> Level:
         """Return the ground floor (``floors[0]``)."""

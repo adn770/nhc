@@ -991,3 +991,56 @@ single-building site. Full spec lives in
 - Forest-floor GARDEN surface ring; no palisade or enclosure.
 - Standard door-crossing handler applies so the player enters
   the cottage via the perimeter door like any other site.
+
+
+## Appendix D: Building interiors (M16+)
+
+Lands milestones M16-M20 of the building-interiors plan; the
+authoritative design document is `design/building_interiors.md`.
+This appendix summarises the changes that ship against
+`design/building_generator.md`'s vocabulary so a reader who
+only has this file still sees the shape of the work.
+
+- **Shell composer (M1):** perimeter wall stamping moves from
+  each `_build_*_floor()` into `nhc/dungeon/sites/_shell.py`.
+  Site assemblers carve footprints, run a partitioner, stamp
+  the plan, then call `compose_shell()` to close the exterior.
+- **Partitioner protocol (M2):** every building floor now
+  goes through a partitioner (`SingleRoomPartitioner`,
+  `DividedPartitioner`, `RectBSPPartitioner` with doorway /
+  corridor modes, `SectorPartitioner` with simple / enriched
+  modes, `TemplePartitioner`, `LShapePartitioner`). Partitioners
+  return a `LayoutPlan`; sites stamp the plan.
+- **Per-link stair alignment (M5):** `build_floors_with_stairs()`
+  interleaves floor partitioning with stair picks — each
+  link's tile is threaded into the next floor's partitioner
+  via `required_walkable` so the upper floor keeps that tile
+  walkable.
+- **Interior wall material + SVG (M7):** Buildings carry an
+  `interior_wall_material` (wood / stone / brick). The
+  building renderer emits one `<line>` per straight run of
+  interior-wall tiles, colored by material.
+- **ARCHETYPE_CONFIG (M13-M14):** `nhc/dungeon/interior/
+  registry.py` holds every per-archetype knob (size range,
+  shape pool, partitioner, BSP / sector mode, corridor width,
+  interior wall material, locked-door rate). Every site
+  assembler reads from it via `build_building_floor()`.
+- **InteriorDoorLink (M15):** `Site.interior_door_links` is a
+  list of typed links between two buildings on the same floor;
+  `sync_linked_door_state()` propagates open / closed / tick
+  state across a link so both sides never drift.
+- **Safe NPC placement (M16):** `nhc/dungeon/sites/_placement.py`
+  exports `safe_floor_near()` — BFS-based fallback when the
+  natural room center lands on a wall / door. Town NPCs
+  (merchant, priest, innkeeper, adventurer) route through it.
+- **Shop locked doors (M17):** `_lock_shop_doors()` converts
+  one interior door to `door_locked` on shop-role buildings at
+  the configured rate, preferring the door adjacent to the
+  smallest room (BSP-style leaf).
+- **Mage residence (M19):** new site kind wired through
+  `assemble_mage_residence()`. Octagon / circle footprint
+  partitioned by the enriched sector partitioner (rotating
+  "main" sector, one door omitted on alternating floors).
+- **Pickle compat (M20):** `Building.__setstate__` fills
+  defaults for fields added in M7+ so older save snapshots
+  continue to load. `StairLink` serialization is unchanged.
