@@ -1404,6 +1404,7 @@ def create_app(
             game.level, game.world, game.player_id,
             game.turn, seed=game.seed or 0,
             hatch_distance=config.hatch_distance,
+            site=game._active_site,
         )
         game._svg_cache[params.depth] = (
             client.floor_svg_id, client.floor_svg,

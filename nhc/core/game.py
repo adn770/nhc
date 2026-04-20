@@ -3844,6 +3844,7 @@ class Game:
                 self.turn, seed=self.seed or 0,
                 floor_svg=cached[1] if cached else None,
                 floor_svg_id=cached[0] if cached else None,
+                site=self._active_site,
             )
             # Store the rendered SVG for future revisits
             if not cached:
