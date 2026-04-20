@@ -13,6 +13,7 @@ import random
 
 import pytest
 
+from nhc.dungeon.interior.divided import DividedPartitioner
 from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
@@ -121,6 +122,112 @@ class TestInteriorDoor:
     def test_xy_helper(self):
         d = InteriorDoor(x=3, y=4, side="north", feature="door_closed")
         assert d.xy == (3, 4)
+
+
+def _bfs_connected(
+    floor_tiles: set[tuple[int, int]], start: tuple[int, int],
+) -> set[tuple[int, int]]:
+    seen = {start}
+    queue = [start]
+    while queue:
+        x, y = queue.pop()
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            n = (x + dx, y + dy)
+            if n in floor_tiles and n not in seen:
+                seen.add(n)
+                queue.append(n)
+    return seen
+
+
+class TestDividedPartitioner:
+    def test_seven_by_seven_returns_two_rooms(self):
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        assert len(plan.rooms) == 2
+
+    def test_single_interior_wall_one_door(self):
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        # Wall is a straight run (interior_walls non-empty, all on
+        # same axis).
+        assert plan.interior_walls
+        assert len(plan.doors) == 1
+
+    def test_door_not_on_footprint_edge(self):
+        """Footprint-edge tiles are the boundary ring of the rect
+        footprint — interior doors never sit on them."""
+        rect = Rect(2, 2, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        edge = RectShape().perimeter_tiles(rect)
+        for door in plan.doors:
+            assert door.xy not in edge
+
+    def test_rooms_bfs_connected(self):
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        foot = RectShape().floor_tiles(rect)
+        walkable = (foot - plan.interior_walls) | {
+            d.xy for d in plan.doors
+        }
+        # Flood fill from a tile in room A should reach room B.
+        a_center = plan.rooms[0].rect.center
+        reached = _bfs_connected(walkable, a_center)
+        b_center = plan.rooms[1].rect.center
+        assert b_center in reached
+
+    def test_disjointness_invariants(self):
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        doors_xy = {d.xy for d in plan.doors}
+        assert plan.interior_walls.isdisjoint(doors_xy)
+        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
+
+    def test_required_walkable_respected(self):
+        rect = Rect(1, 1, 7, 7)
+        # Pick a central tile the partitioner MUST leave walkable.
+        required = frozenset({(4, 4)})
+        plan = DividedPartitioner().plan(
+            _cfg(rect, required_walkable=required, seed=1),
+        )
+        assert plan.interior_walls.isdisjoint(required)
+        assert required.isdisjoint({d.xy for d in plan.doors})
+
+    def test_wall_is_straight_run(self):
+        """Interior wall is a single straight line (horizontal OR
+        vertical)."""
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        xs = {x for (x, _) in plan.interior_walls}
+        ys = {y for (_, y) in plan.interior_walls}
+        # Either all same x (vertical wall) or all same y (horizontal).
+        assert len(xs) == 1 or len(ys) == 1
+
+    def test_door_on_interior_wall_line(self):
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        door = plan.doors[0]
+        # Door coord lies on the wall axis.
+        xs = {x for (x, _) in plan.interior_walls}
+        ys = {y for (_, y) in plan.interior_walls}
+        if len(xs) == 1:   # vertical wall
+            assert door.x == next(iter(xs))
+        else:
+            assert door.y == next(iter(ys))
+
+    def test_too_small_footprint_falls_back_to_single_room(self):
+        """A 4×4 footprint cannot satisfy min_room=3 on both halves;
+        DividedPartitioner returns one room instead of failing."""
+        rect = Rect(1, 1, 4, 4)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        assert len(plan.rooms) == 1
+        assert plan.interior_walls == set()
+        assert plan.doors == []
+
+    def test_door_side_set(self):
+        rect = Rect(1, 1, 7, 7)
+        plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        door = plan.doors[0]
+        assert door.side in ("north", "south", "east", "west")
 
 
 class TestPartitionerConfigDisjointness:
