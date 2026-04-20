@@ -1,0 +1,12 @@
+id: variants.simple
+kind: flavor
+lifetime: gen_time
+shared_structure: false
+
+entries:
+  - id: single_str
+    text: one
+  - id: multi_text
+    text: [alpha, beta, gamma]
+  - id: duo_text
+    text: [red, blue]

@@ -259,12 +259,18 @@ class HexCell:
 
 @dataclass(frozen=True)
 class RumorSource:
-    """Provenance of a table-backed rumor for language re-rendering."""
+    """Provenance of a table-backed rumor for language re-rendering.
+
+    *variant* records the variant index selected at roll time when
+    the underlying entry ships a list-valued text. None when the
+    entry's text is a single string (most common case).
+    """
 
     table_id: str
     entry_id: str
     context: dict
     lang: str
+    variant: int | None = None
 
 
 @dataclass

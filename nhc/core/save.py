@@ -546,6 +546,8 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
                 "context": r.source.context,
                 "lang": r.source.lang,
             }
+            if r.source.variant is not None:
+                rd["source"]["variant"] = r.source.variant
         rumors.append(rd)
     return {
         "pack_id": hw.pack_id,
@@ -656,6 +658,7 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
                 entry_id=src_data["entry_id"],
                 context=src_data.get("context", {}),
                 lang=src_data.get("lang", "en"),
+                variant=src_data.get("variant"),
             )
             if src_data is not None else None
         )

@@ -18,6 +18,32 @@ _REQUIRED_TABLE_FIELDS = ("id", "kind", "lifetime")
 _REQUIRED_ENTRY_FIELDS = ("id", "text")
 
 
+def _validate_text(raw, entry_id: str, path: Path) -> str | list[str]:
+    """Normalize and validate an entry's text field.
+
+    Accepts a single string or a non-empty list of strings. Rejects
+    empty lists and lists containing non-string values.
+    """
+    if isinstance(raw, str):
+        return raw
+    if isinstance(raw, list):
+        if not raw:
+            raise SchemaError(
+                f"{path}: entry '{entry_id}' has empty list text"
+            )
+        for v in raw:
+            if not isinstance(v, str):
+                raise SchemaError(
+                    f"{path}: entry '{entry_id}' list text must "
+                    f"contain only strings; got {type(v).__name__}"
+                )
+        return list(raw)
+    raise SchemaError(
+        f"{path}: entry '{entry_id}' text must be a string or list "
+        f"of strings; got {type(raw).__name__}"
+    )
+
+
 def load_table_file(path: Path) -> list[Table]:
     """Load all YAML documents from *path* and return Table objects."""
     with open(path) as f:
@@ -62,7 +88,7 @@ def _parse_table(doc: dict, path: Path) -> Table:
                 )
         entries.append(TableEntry(
             id=raw["id"],
-            text=raw["text"],
+            text=_validate_text(raw["text"], raw["id"], path),
             weight=raw.get("weight", 1),
             only_if=raw.get("only_if", {}),
             effect=raw.get("effect"),

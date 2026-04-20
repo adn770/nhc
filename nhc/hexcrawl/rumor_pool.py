@@ -60,6 +60,7 @@ def _roll_rumor_text(
         entry_id=result.entry_id,
         context=ctx,
         lang=lang,
+        variant=result.variant_index,
     )
 
 
@@ -253,6 +254,7 @@ def seed_wilderness_rumor_pool(
                 entry_id=result.entry_id,
                 context={},
                 lang=lang,
+                variant=result.variant_index,
             ),
         ))
     world.active_rumors.extend(rumors)
@@ -290,6 +292,7 @@ def refresh_rumor_language(
         rumor.source.table_id,
         entry_id=rumor.source.entry_id,
         context=rumor.source.context,
+        variant=rumor.source.variant,
     )
     return Rumor(
         id=rumor.id,
@@ -301,5 +304,6 @@ def refresh_rumor_language(
             entry_id=rumor.source.entry_id,
             context=rumor.source.context,
             lang=new_lang,
+            variant=rumor.source.variant,
         ),
     )

@@ -15,7 +15,7 @@ VALID_LIFETIMES: set[str] = {"gen_time", "ephemeral"}
 @dataclass(frozen=True)
 class TableEntry:
     id: str
-    text: str
+    text: str | list[str]
     weight: int = 1
     only_if: dict = field(default_factory=dict)
     effect: dict | None = None
@@ -42,10 +42,17 @@ class TableEffect:
 
 @dataclass(frozen=True)
 class TableResult:
-    """Result of rolling or rendering a table entry."""
+    """Result of rolling or rendering a table entry.
+
+    *variant_index* is populated only when the chosen entry ships
+    ``text`` as a list of variants; None otherwise. Callers can
+    persist it alongside ``entry_id`` to make re-rendering
+    (e.g. after a language switch) deterministic.
+    """
     text: str
     entry_id: str
     effect: TableEffect | None = None
+    variant_index: int | None = None
 
 
 class SchemaError(Exception):

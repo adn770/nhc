@@ -29,6 +29,18 @@ class RecursionTooDeepError(Exception):
 # roll_subtable signature: (table_id, context) -> (TableEntry, entry_id)
 RollSubtable = Callable[[str, dict], tuple[TableEntry, str]]
 
+# pick_variant resolves an entry's text to a single string.
+# Called both for the top-level entry and for each sub-entry.
+PickVariant = Callable[[TableEntry], str]
+
+
+def _pick_first_variant(entry: TableEntry) -> str:
+    """Default variant picker: pass-through str, list → first item."""
+    text = entry.text
+    if isinstance(text, list):
+        return text[0]
+    return text
+
 
 class StrFormatFormatter:
     """Format table entry templates using str.format_map."""
@@ -38,10 +50,12 @@ class StrFormatFormatter:
         entry: TableEntry,
         context: dict,
         roll_subtable: RollSubtable | None,
+        pick_variant: PickVariant | None = None,
     ) -> str:
-        template = entry.text
+        picker = pick_variant or _pick_first_variant
+        template = picker(entry)
         template = self._resolve_subtables(
-            template, roll_subtable, context, depth=0,
+            template, roll_subtable, picker, context, depth=0,
         )
         return template.format_map(_ContextMap(context))
 
@@ -49,6 +63,7 @@ class StrFormatFormatter:
         self,
         template: str,
         roll_subtable: RollSubtable | None,
+        pick_variant: PickVariant,
         context: dict,
         depth: int,
     ) -> str:
@@ -62,8 +77,9 @@ class StrFormatFormatter:
             agree_slot = match.group(2)
 
             sub_entry, _ = roll_subtable(table_id, context)
+            sub_text = pick_variant(sub_entry)
             sub_text = self._resolve_subtables(
-                sub_entry.text, roll_subtable, context, depth + 1,
+                sub_text, roll_subtable, pick_variant, context, depth + 1,
             )
 
             if agree_slot and sub_entry.forms:
