@@ -522,6 +522,279 @@ def test_undead_site_medium_tier() -> None:
     assert (site.level.width, site.level.height) == (w, h)
 
 
+# ---------------------------------------------------------------------------
+# M4: _resolve_sub_hex_entry dispatcher resolver
+# ---------------------------------------------------------------------------
+
+
+def _sub_cell(*, major=HexFeatureType.NONE, minor=None, dungeon=None):
+    """Build a throwaway SubHexCell for resolver tests."""
+    from nhc.hexcrawl.model import SubHexCell
+
+    return SubHexCell(
+        coord=HexCoord(0, 0), biome=Biome.GREENLANDS,
+        major_feature=major,
+        minor_feature=minor if minor is not None else MinorFeatureType.NONE,
+        dungeon=dungeon,
+    )
+
+
+def test_resolve_entry_bespoke_town() -> None:
+    """A feature_cell sub-hex with a town DungeonRef resolves to bespoke."""
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(
+        major=HexFeatureType.CITY,
+        dungeon=DungeonRef(
+            template="procedural:settlement", depth=1,
+            site_kind="town", size_class="city",
+        ),
+    )
+    kind, payload = resolve_sub_hex_entry(sub)
+    assert kind == "bespoke"
+    assert payload == "town"
+
+
+def test_resolve_entry_bespoke_tower() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(
+        major=HexFeatureType.TOWER,
+        dungeon=DungeonRef(
+            template="procedural:tower", depth=1, site_kind="tower",
+        ),
+    )
+    kind, payload = resolve_sub_hex_entry(sub)
+    assert kind == "bespoke"
+    assert payload == "tower"
+
+
+def test_resolve_entry_bespoke_cave() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(
+        major=HexFeatureType.CAVE,
+        dungeon=DungeonRef(template="procedural:cave", depth=1),
+    )
+    kind, payload = resolve_sub_hex_entry(sub)
+    assert kind == "bespoke"
+    assert payload == "cave"
+
+
+def test_resolve_entry_family_wayside_well() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.WELL)
+    kind, family, feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "wayside"
+    assert feature is MinorFeatureType.WELL
+
+
+def test_resolve_entry_family_wayside_signpost() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.SIGNPOST)
+    kind, family, feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "wayside"
+    assert feature is MinorFeatureType.SIGNPOST
+
+
+def test_resolve_entry_family_inhabited_farm() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.FARM)
+    kind, family, feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "inhabited_settlement"
+    assert feature is MinorFeatureType.FARM
+
+
+def test_resolve_entry_family_sacred_shrine() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.SHRINE)
+    kind, family, _feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "sacred"
+
+
+def test_resolve_entry_family_animal_den() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.LAIR)
+    kind, family, _feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "animal_den"
+
+
+def test_resolve_entry_family_curiosity_mushrooms() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.MUSHROOM_RING)
+    kind, family, _feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "natural_curiosity"
+
+
+def test_resolve_entry_family_undead_graveyard() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(major=HexFeatureType.GRAVEYARD)
+    kind, family, _feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "undead"
+
+
+def test_resolve_entry_non_enterable_lake() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(major=HexFeatureType.LAKE)
+    kind, _reason = resolve_sub_hex_entry(sub)
+    assert kind == "non-enterable"
+
+
+def test_resolve_entry_non_enterable_river() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(major=HexFeatureType.RIVER)
+    kind, _reason = resolve_sub_hex_entry(sub)
+    assert kind == "non-enterable"
+
+
+def test_resolve_entry_empty_returns_none() -> None:
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    assert resolve_sub_hex_entry(_sub_cell()) is None
+
+
+# ---------------------------------------------------------------------------
+# M4: Game.enter_sub_hex_family_site — the runtime entry path
+# ---------------------------------------------------------------------------
+
+
+def _flower_fixture(tmp_path, feature: MinorFeatureType):
+    """Build a minimal Game positioned inside a flower on a sub-hex
+    that carries ``feature``, ready for ``enter_sub_hex_family_site``."""
+    import pytest as _pytest
+    from nhc.core.game import Game
+    from nhc.entities.registry import EntityRegistry
+    from nhc.hexcrawl.mode import GameMode
+    from nhc.i18n import init as i18n_init
+
+    i18n_init("en")
+    EntityRegistry.discover_all()
+
+    class _Silent:
+        game_mode = "classic"
+        lang = "en"
+        edge_doors = False
+        messages: list[str] = []
+
+        def __getattr__(self, name):
+            if name.startswith("_"):
+                raise AttributeError(name)
+
+            def _sync(*_a, **_kw):
+                return None
+
+            return _sync
+
+        async def get_input(self):
+            return ("disconnect", None)
+
+    mode = GameMode.HEX_EASY
+    game = Game(
+        client=_Silent(),
+        backend=None,
+        style="classic",
+        world_type=mode.world_type, difficulty=mode.difficulty,
+        save_dir=tmp_path,
+        seed=42,
+    )
+    game.initialize()
+    macro = game.hex_player_position
+    cell = game.hex_world.get_cell(macro)
+    # Pick any non-feature sub-hex and stamp the desired minor.
+    pick = next(
+        c for c, sc in cell.flower.cells.items()
+        if sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+    cell.flower.cells[pick].minor_feature = feature
+    game.hex_world.enter_flower(macro, pick)
+    return game, macro, pick
+
+
+def test_enter_sub_hex_family_site_wayside_well(tmp_path) -> None:
+    """Entering a WELL sub-hex produces a small wayside Level and
+    stores it in the floor cache under the sub-hex key."""
+    from nhc.hexcrawl.sub_hex_sites import SITE_TIER_DIMS, SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    import asyncio
+
+    ok = asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert ok is True
+    w, h = SITE_TIER_DIMS[SiteTier.SMALL]
+    assert game.level is not None
+    assert (game.level.width, game.level.height) == (w, h)
+    assert game._active_sub_hex == sub
+
+    # Cache key is the sub-hex namespace, keyed off the macro + sub
+    # coords, and the cached Level matches game.level.
+    key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
+    assert key in game._floor_cache
+    cached_level, _ = game._floor_cache[key]
+    assert cached_level is game.level
+
+
+def test_enter_sub_hex_family_site_unknown_family(tmp_path) -> None:
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    import asyncio
+
+    ok = asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "not_a_family", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert ok is False
+
+
+def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
+    """Second call with the same (macro, sub) returns the cached level."""
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    import asyncio
+
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    first = game.level
+    # Leave the site (clear _active_sub_hex) and re-enter.
+    game._active_sub_hex = None
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert game.level is first
+
+
 def test_family_generators_are_deterministic() -> None:
     """Same seed → identical level tile grid."""
     from nhc.hexcrawl.sub_hex_sites import (

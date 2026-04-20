@@ -606,6 +606,95 @@ class Game:
         self._notify_floor_change(depth)
         return True
 
+    async def enter_sub_hex_family_site(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        family: str,
+        feature,
+        tier,
+        biome,
+    ) -> bool:
+        """Enter a family-generated sub-hex site at ``sub`` of ``macro``.
+
+        Routes the six new family generators (wayside, sacred,
+        inhabited_settlement, animal_den, natural_curiosity,
+        undead) through the sub-hex floor cache. The level is
+        generated from a per-sub-hex seed and cached under a
+        ("sub", mq, mr, sq, sr, depth) key so re-entry is O(1).
+
+        Sets ``_active_sub_hex`` so ``_cache_key`` routes
+        subsequent lookups to the sub-hex namespace; the overland
+        day clock stays frozen for the duration of the visit.
+        """
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SiteTier,
+            generate_animal_den_site,
+            generate_inhabited_settlement_site,
+            generate_natural_curiosity_site,
+            generate_sacred_site,
+            generate_undead_site,
+            generate_wayside_site,
+        )
+
+        family_dispatch = {
+            "wayside": generate_wayside_site,
+            "sacred": generate_sacred_site,
+            "inhabited_settlement": (
+                generate_inhabited_settlement_site
+            ),
+            "animal_den": generate_animal_den_site,
+            "natural_curiosity": generate_natural_curiosity_site,
+            "undead": generate_undead_site,
+        }
+        generator = family_dispatch.get(family)
+        if generator is None:
+            return False
+
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_site = None
+        self._active_descent_building = None
+        depth = 1
+        cache_key = self._cache_key(depth)
+
+        if cache_key in self._floor_cache:
+            self.level, _ = self._floor_cache[cache_key]
+            self._place_player_on_sub_hex_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        base_template = f"family:{family}"
+        seed = dungeon_seed(
+            self.seed or 0, macro, base_template, sub=sub,
+        )
+        site = generator(
+            feature=feature, biome=biome, seed=seed, tier=tier,
+        )
+        self.level = site.level
+        if (self.level and self.level.metadata and site.faction):
+            self.level.metadata.faction = site.faction
+        self._floor_cache[cache_key] = (self.level, {})
+        self._sub_hex_entry_tile = site.entry_tile
+        self._place_player_on_sub_hex_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    def _place_player_on_sub_hex_entry(self) -> None:
+        """Drop the player onto the family site's canonical front door."""
+        if self.level is None:
+            return
+        entry = getattr(self, "_sub_hex_entry_tile", None)
+        if entry is None:
+            entry = (1, 1)
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is not None:
+            pos.x, pos.y = entry
+            pos.level_id = self.level.id
+
     # Days between rumor refreshes on a revisit. Fresh leads
     # don't appear every single day (that would trivialize
     # exploration), but after three days the innkeepers have had

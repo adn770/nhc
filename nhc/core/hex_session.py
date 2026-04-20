@@ -297,21 +297,6 @@ class HexSession:
                 if game.pending_encounter is not None:
                     await self._prompt_encounter()
             return "moved" if ok else "ignored"
-        if intent == "hex_enter":
-            coord = game.hex_player_position
-            cell = (
-                game.hex_world.get_cell(coord)
-                if game.hex_world and coord else None
-            )
-            ok = await game.enter_hex_feature()
-            if ok:
-                feature = cell.feature.value if cell else "feature"
-                self.renderer.add_message(f"You enter the {feature}.")
-            else:
-                self.renderer.add_message(
-                    "There is nothing to enter here."
-                )
-            return "entered" if ok else "ignored"
         if intent == "hex_explore":
             # Enter the current hex's flower for sub-hex exploration.
             coord = game.hex_player_position
@@ -477,21 +462,86 @@ class HexSession:
             return "rest"
 
         if intent == "hex_enter":
-            # Enter dungeon/settlement from within the flower —
-            # only valid when standing on the feature_cell.
-            # Keep exploring_hex set so we can return to the
-            # flower on dungeon exit.
+            # Sub-hex entry: dispatch on the content of the sub-hex
+            # the player is standing on, not the flower's feature
+            # cell. Each sub-hex with a feature is independently
+            # enterable; the old "feature_cell gate" is gone.
+            from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+            from nhc.hexcrawl.sub_hex_sites import SiteTier
+
             macro = game.hex_world.exploring_hex
+            sub = game.hex_world.exploring_sub_hex
             cell = game.hex_world.get_cell(macro) if macro else None
-            if cell and cell.flower and cell.flower.feature_cell:
-                if game.hex_world.exploring_sub_hex == cell.flower.feature_cell:
-                    ok = await game.enter_hex_feature()
-                    if ok:
-                        feature = cell.feature.value
-                        self.renderer.add_message(
-                            f"You enter the {feature}.",
-                        )
-                    return "entered" if ok else "ignored"
+            if (
+                cell is None or cell.flower is None
+                or sub is None
+            ):
+                self.renderer.add_message(
+                    "There is nothing to enter here.",
+                )
+                return "ignored"
+            sub_cell = cell.flower.cells.get(sub)
+            if sub_cell is None:
+                self.renderer.add_message(
+                    "There is nothing to enter here.",
+                )
+                return "ignored"
+
+            resolved = resolve_sub_hex_entry(sub_cell)
+            if resolved is None:
+                self.renderer.add_message(
+                    "There is nothing to enter here.",
+                )
+                return "ignored"
+
+            if resolved[0] == "non-enterable":
+                reason = resolved[1]
+                self.renderer.add_message(
+                    f"The {reason} blocks your way.",
+                )
+                return "ignored"
+
+            if resolved[0] == "bespoke":
+                # Existing macro pipeline reads ``hex_player_position``
+                # and the macro cell's DungeonRef. The sub-hex's
+                # folded DungeonRef means even non-feature_cell
+                # sub-hexes could in principle dispatch here, but
+                # today only the feature_cell carries the ref.
+                ok = await game.enter_hex_feature()
+                if ok:
+                    feature = cell.feature.value
+                    self.renderer.add_message(
+                        f"You enter the {feature}.",
+                    )
+                else:
+                    self.renderer.add_message(
+                        "There is nothing to enter here.",
+                    )
+                return "entered" if ok else "ignored"
+
+            if resolved[0] == "family":
+                _, family, feature = resolved
+                # Family tier: small for wayside / natural
+                # curiosity, medium for everyone else. Large tier
+                # is reserved for bespoke-only macros per the plan.
+                if family in ("wayside", "natural_curiosity"):
+                    tier = SiteTier.SMALL
+                else:
+                    tier = SiteTier.MEDIUM
+                ok = await game.enter_sub_hex_family_site(
+                    macro, sub, family, feature, tier,
+                    sub_cell.biome,
+                )
+                if ok:
+                    self.renderer.add_message(
+                        f"You enter the {feature.value}.",
+                    )
+                else:
+                    self.renderer.add_message(
+                        "There is nothing to enter here.",
+                    )
+                return "entered" if ok else "ignored"
+
             self.renderer.add_message(
                 "There is nothing to enter here.",
             )

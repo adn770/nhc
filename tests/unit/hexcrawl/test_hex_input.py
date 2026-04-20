@@ -101,22 +101,39 @@ async def test_process_hex_turn_ignores_non_adjacent_step(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_hex_turn_enters_feature(tmp_path) -> None:
+async def test_game_enter_hex_feature_loads_dungeon(tmp_path) -> None:
+    """Game.enter_hex_feature still loads a level when invoked from
+    the flower dispatcher (bespoke path). The overland ``hex_enter``
+    intent is gone; entry now routes through
+    hex_explore → flower view → sub-hex ``hex_enter``."""
+    g = _make_game([("disconnect", None)], tmp_path)
+    coord = g.hex_player_position
+    cell = g.hex_world.cells[coord]
+    cell.feature = HexFeatureType.CAVE
+    cell.dungeon = DungeonRef(template="procedural:cave", depth=1)
+    ok = await g.enter_hex_feature()
+    assert ok is True
+    assert g.level is not None
+
+
+@pytest.mark.asyncio
+async def test_game_enter_hex_feature_fails_without_dungeon(tmp_path) -> None:
+    g = _make_game([("disconnect", None)], tmp_path)
+    g.hex_world.cells[g.hex_player_position].dungeon = None
+    ok = await g.enter_hex_feature()
+    assert ok is False
+    assert g.level is None
+
+
+@pytest.mark.asyncio
+async def test_process_hex_turn_ignores_overland_hex_enter(tmp_path) -> None:
+    """``hex_enter`` is no longer handled on the overland — the only
+    path to a feature is hex_explore → flower → sub-hex hex_enter."""
     g = _make_game([("hex_enter", None)], tmp_path)
     coord = g.hex_player_position
     cell = g.hex_world.cells[coord]
     cell.feature = HexFeatureType.CAVE
     cell.dungeon = DungeonRef(template="procedural:cave", depth=1)
-    outcome = await g._process_hex_turn()
-    assert outcome == "entered"
-    assert g.level is not None
-
-
-@pytest.mark.asyncio
-async def test_process_hex_turn_enter_fails_without_dungeon(tmp_path) -> None:
-    g = _make_game([("hex_enter", None)], tmp_path)
-    # Player on hub (CITY) but with no DungeonRef.
-    g.hex_world.cells[g.hex_player_position].dungeon = None
     outcome = await g._process_hex_turn()
     assert outcome == "ignored"
     assert g.level is None
