@@ -796,6 +796,178 @@ def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# B1: populator spawns SubHexSite.population into the ECS
+# ---------------------------------------------------------------------------
+
+
+def test_sub_hex_population_is_typed() -> None:
+    """``SubHexSite.population`` is a typed dataclass, not an untyped
+    dict, so generators can rely on field names instead of string
+    lookups."""
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+
+    pop = SubHexPopulation()
+    assert pop.creatures == []
+    assert pop.npcs == []
+    assert pop.items == []
+    assert pop.features == []
+    # Default on SubHexSite is an empty SubHexPopulation instance.
+    from nhc.dungeon.model import Level
+    level = Level.create_empty(
+        id="t", name="t", depth=1, width=5, height=5,
+    )
+    site = SubHexSite(level=level, entry_tile=(1, 1))
+    assert isinstance(site.population, SubHexPopulation)
+
+
+def test_populate_sub_hex_spawns_creatures(tmp_path) -> None:
+    """A family site carrying ``creatures=[("goblin", (3, 3))]`` spawns
+    a goblin entity at (3, 3) whose Position.level_id matches the
+    site level."""
+    from nhc.core.ecs import World
+    from nhc.core.sub_hex_populator import populate_sub_hex_site
+    from nhc.dungeon.model import Level
+    from nhc.entities.registry import EntityRegistry
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+    from nhc.i18n import init as i18n_init
+
+    i18n_init("en")
+    EntityRegistry.discover_all()
+
+    level = Level.create_empty(
+        id="sub_test", name="test", depth=1, width=10, height=10,
+    )
+    site = SubHexSite(
+        level=level, entry_tile=(1, 1),
+        population=SubHexPopulation(
+            creatures=[("goblin", (3, 3))],
+        ),
+    )
+    world = World()
+    spawned = populate_sub_hex_site(world, site)
+    assert len(spawned) == 1
+    eid = spawned[0]
+    pos = world.get_component(eid, "Position")
+    assert pos is not None
+    assert (pos.x, pos.y) == (3, 3)
+    assert pos.level_id == level.id
+    desc = world.get_component(eid, "Description")
+    assert desc is not None
+    assert "goblin" in desc.name.lower()
+
+
+def test_populate_sub_hex_empty_is_noop(tmp_path) -> None:
+    """An empty population spec spawns nothing."""
+    from nhc.core.ecs import World
+    from nhc.core.sub_hex_populator import populate_sub_hex_site
+    from nhc.dungeon.model import Level
+    from nhc.hexcrawl.sub_hex_sites import SubHexSite
+
+    level = Level.create_empty(
+        id="sub_empty", name="e", depth=1, width=5, height=5,
+    )
+    site = SubHexSite(level=level, entry_tile=(1, 1))
+    world = World()
+    spawned = populate_sub_hex_site(world, site)
+    assert spawned == []
+
+
+def test_populate_sub_hex_spawns_items(tmp_path) -> None:
+    """Items in the population spec land as ECS entities at the
+    requested tile with Position.level_id set."""
+    from nhc.core.ecs import World
+    from nhc.core.sub_hex_populator import populate_sub_hex_site
+    from nhc.dungeon.model import Level
+    from nhc.entities.registry import EntityRegistry
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+    from nhc.i18n import init as i18n_init
+
+    i18n_init("en")
+    EntityRegistry.discover_all()
+    # Pick the first registered item so the test is independent of
+    # which specific items exist.
+    sample = sorted(EntityRegistry.list_items())[0]
+
+    level = Level.create_empty(
+        id="sub_item", name="i", depth=1, width=5, height=5,
+    )
+    site = SubHexSite(
+        level=level, entry_tile=(1, 1),
+        population=SubHexPopulation(items=[(sample, (2, 2))]),
+    )
+    world = World()
+    spawned = populate_sub_hex_site(world, site)
+    assert len(spawned) == 1
+    pos = world.get_component(spawned[0], "Position")
+    assert pos is not None
+    assert (pos.x, pos.y) == (2, 2)
+    assert pos.level_id == level.id
+
+
+def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
+    """Wiring check: entering a family site whose generator emits a
+    creature pops it into the ECS world with a level-scoped Position."""
+    import asyncio
+
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        SubHexPopulation,
+        SubHexSite,
+    )
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+
+    # Monkeypatch the wayside generator so the family entry path
+    # produces a site with a known creature, without polluting the
+    # real wayside pool.
+    import nhc.core.game as game_mod
+
+    orig = game_mod.generate_wayside_site if hasattr(
+        game_mod, "generate_wayside_site",
+    ) else None
+    # Actually the generator is imported inside
+    # enter_sub_hex_family_site, so we monkeypatch at source.
+    import nhc.hexcrawl.sub_hex_sites as sites_mod
+
+    real = sites_mod.generate_wayside_site
+
+    def fake_generator(*, feature, biome, seed, tier):
+        site = real(
+            feature=feature, biome=biome, seed=seed, tier=tier,
+        )
+        return SubHexSite(
+            level=site.level,
+            entry_tile=site.entry_tile,
+            feature_tile=site.feature_tile,
+            faction=site.faction,
+            population=SubHexPopulation(
+                creatures=[("goblin", (3, 3))],
+            ),
+        )
+
+    sites_mod.generate_wayside_site = fake_generator
+    try:
+        asyncio.run(
+            game.enter_sub_hex_family_site(
+                macro, sub, "wayside", MinorFeatureType.WELL,
+                SiteTier.SMALL, Biome.GREENLANDS,
+            ),
+        )
+    finally:
+        sites_mod.generate_wayside_site = real
+
+    # One goblin should now live on the site level.
+    goblins = [
+        (eid, pos) for eid, pos in game.world.query("Position")
+        if pos.level_id == game.level.id
+        and game.world.get_component(eid, "AI")
+    ]
+    assert len(goblins) == 1
+    _, gpos = goblins[0]
+    assert (gpos.x, gpos.y) == (3, 3)
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

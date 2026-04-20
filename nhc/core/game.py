@@ -680,6 +680,8 @@ class Game:
             self.level.metadata.faction = site.faction
         self._floor_cache[cache_key] = (self.level, {})
         self._sub_hex_entry_tile = site.entry_tile
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
+        populate_sub_hex_site(self.world, site)
         self._place_player_on_sub_hex_entry()
         self._update_fov()
         self._notify_floor_change(depth)

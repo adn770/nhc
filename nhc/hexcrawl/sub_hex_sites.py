@@ -51,6 +51,31 @@ SITE_TIER_DIMS: dict[SiteTier, tuple[int, int]] = {
 
 
 @dataclass
+class SubHexPopulation:
+    """Entity placement spec for a sub-hex family site.
+
+    Each list holds ``(registry_id, (x, y))`` tuples. The
+    populator walks the lists and creates the matching ECS
+    entities via :class:`EntityRegistry`. ``features`` is for
+    non-entity tile tags the generator wants to stamp onto the
+    level (currently unused — kept for parity with the plan).
+    """
+
+    creatures: list[tuple[str, tuple[int, int]]] = field(
+        default_factory=list,
+    )
+    npcs: list[tuple[str, tuple[int, int]]] = field(
+        default_factory=list,
+    )
+    items: list[tuple[str, tuple[int, int]]] = field(
+        default_factory=list,
+    )
+    features: list[tuple[str, tuple[int, int]]] = field(
+        default_factory=list,
+    )
+
+
+@dataclass
 class SubHexSite:
     """Bundle produced by a family generator.
 
@@ -62,16 +87,18 @@ class SubHexSite:
       den mouth, etc.) the player interacts with. ``None`` for
       families with no single central tile.
     - ``faction`` — optional creature faction for the populator.
-    - ``population`` — dicts of ``{"creatures": [...], "npcs":
-      [...], "items": [...]}`` for v2. Empty in v1 — the generator
-      just lays out the map.
+    - ``population`` — :class:`SubHexPopulation` listing the
+      creatures, NPCs, items, and feature tags the populator will
+      spawn on entry.
     """
 
     level: Level
     entry_tile: tuple[int, int]
     feature_tile: tuple[int, int] | None = None
     faction: str | None = None
-    population: dict = field(default_factory=dict)
+    population: "SubHexPopulation" = field(
+        default_factory=lambda: SubHexPopulation(),
+    )
 
 
 # ---------------------------------------------------------------------------
