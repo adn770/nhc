@@ -57,20 +57,15 @@ class LayoutPlan:
     Disjointness invariants (checked in tests, never silently
     patched at runtime):
 
-    - ``interior_walls`` ∩ ``{d.xy for d in doors}`` == ∅
-    - ``interior_walls`` ∩ ``corridor_tiles`` == ∅
-    - ``interior_walls`` ∩ ``cfg.required_walkable`` == ∅
     - ``{d.xy for d in doors}`` ∩ ``cfg.required_walkable`` == ∅
 
     ``interior_edges`` is the axis-aligned edge-wall primitive
     (see ``design/building_interiors.md``). Every triple must be
-    canonical (side ∈ {"north", "west"}). ``interior_walls`` is
-    the legacy tile-based form retained until M12 so un-migrated
-    partitioners keep working during the transition.
+    canonical (side ∈ {"north", "west"}). Interior partitioning
+    is always expressed as edges — there is no tile-WALL form.
     """
 
     rooms: list[Room]
-    interior_walls: set[tuple[int, int]] = field(default_factory=set)
     interior_edges: set[tuple[int, int, str]] = field(
         default_factory=set,
     )

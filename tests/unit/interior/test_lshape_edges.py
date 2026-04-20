@@ -59,16 +59,6 @@ class TestLShapeEdges:
             )
 
     @pytest.mark.parametrize("corner", ["nw", "ne", "sw", "se"])
-    def test_no_interior_wall_tiles(self, corner: str) -> None:
-        rect = Rect(0, 0, 9, 9)
-        plan = LShapePartitioner().plan(
-            _cfg(rect, corner=corner, seed=0),
-        )
-        if len(plan.rooms) == 1:
-            pytest.skip("fell through to SingleRoom")
-        assert plan.interior_walls == set()
-
-    @pytest.mark.parametrize("corner", ["nw", "ne", "sw", "se"])
     def test_arms_tile_the_L_footprint(self, corner: str) -> None:
         rect = Rect(0, 0, 9, 9)
         shape = LShape(corner=corner)

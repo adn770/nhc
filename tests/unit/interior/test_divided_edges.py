@@ -47,11 +47,6 @@ class TestDividedEdges:
                 f"edge {e} not canonical"
             )
 
-    def test_no_interior_wall_tiles(self) -> None:
-        rect = Rect(0, 0, 8, 8)
-        plan = DividedPartitioner().plan(_cfg(rect, seed=0))
-        assert plan.interior_walls == set()
-
     def test_two_rooms_tile_the_footprint(self) -> None:
         rect = Rect(0, 0, 8, 8)
         plan = DividedPartitioner().plan(_cfg(rect, seed=0))

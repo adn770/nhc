@@ -47,11 +47,6 @@ class TestTempleEdges:
                 f"edge {e} not canonical"
             )
 
-    def test_no_interior_wall_tiles(self) -> None:
-        rect = Rect(0, 0, 14, 14)
-        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
-        assert plan.interior_walls == set()
-
     def test_three_rooms_tile_the_footprint(self) -> None:
         rect = Rect(0, 0, 14, 14)
         plan = TemplePartitioner().plan(_cfg(rect, seed=0))

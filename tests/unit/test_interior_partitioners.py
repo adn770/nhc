@@ -62,7 +62,6 @@ class TestSingleRoomPartitioner:
 
     def test_empty_walls_corridors_doors(self):
         plan = SingleRoomPartitioner().plan(_cfg(Rect(2, 2, 5, 5)))
-        assert plan.interior_walls == set()
         assert plan.corridor_tiles == set()
         assert plan.doors == []
 
@@ -87,7 +86,6 @@ class TestSingleRoomPartitioner:
         room_tiles = plan.rooms[0].shape.floor_tiles(plan.rooms[0].rect)
         assert required <= room_tiles
         # Not a wall, not a door.
-        assert plan.interior_walls.isdisjoint(required)
 
     def test_required_walkable_outside_shape_raises(self):
         """Caller passed a tile the shape doesn't consider walkable.
@@ -119,7 +117,6 @@ class TestLayoutPlanDefaults:
             _cfg(Rect(1, 1, 5, 5)),
         ).rooms[0]
         plan = LayoutPlan(rooms=[room])
-        assert plan.interior_walls == set()
         assert plan.corridor_tiles == set()
         assert plan.doors == []
 
@@ -142,6 +139,32 @@ def _bfs_connected(
             if n in floor_tiles and n not in seen:
                 seen.add(n)
                 queue.append(n)
+    return seen
+
+
+def _bfs_edge_connected(
+    floor_tiles: set[tuple[int, int]], plan,
+    start: tuple[int, int],
+) -> set[tuple[int, int]]:
+    """BFS across ``floor_tiles`` treating ``plan.interior_edges``
+    as barriers and door-suppressed edges as open."""
+    from nhc.dungeon.model import canonicalize, edge_between
+    door_edges = {
+        canonicalize(d.x, d.y, d.side) for d in plan.doors
+    }
+    blocked = plan.interior_edges - door_edges
+    seen = {start}
+    queue = [start]
+    while queue:
+        x, y = queue.pop()
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            n = (x + dx, y + dy)
+            if n not in floor_tiles or n in seen:
+                continue
+            if edge_between((x, y), n) in blocked:
+                continue
+            seen.add(n)
+            queue.append(n)
     return seen
 
 
@@ -199,8 +222,6 @@ class TestDividedPartitioner:
         rect = Rect(1, 1, 7, 7)
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
     def test_required_walkable_respected(self):
         rect = Rect(1, 1, 7, 7)
@@ -244,7 +265,6 @@ class TestDividedPartitioner:
         rect = Rect(1, 1, 4, 4)
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
         assert len(plan.rooms) == 1
-        assert plan.interior_walls == set()
         assert plan.doors == []
 
     def test_door_side_set(self):
@@ -268,13 +288,8 @@ class TestRectBSPPartitionerDoorway:
             _cfg(rect, seed=0),
         )
         foot = RectShape().floor_tiles(rect)
-        walkable = (foot - plan.interior_walls) | {
-            d.xy for d in plan.doors
-        }
-        # Flood fill from first room's center; every other room's
-        # center must be reachable.
         start = plan.rooms[0].rect.center
-        reached = _bfs_connected(walkable, start)
+        reached = _bfs_edge_connected(foot, plan, start)
         for room in plan.rooms[1:]:
             assert room.rect.center in reached
 
@@ -306,8 +321,6 @@ class TestRectBSPPartitionerDoorway:
             _cfg(rect, seed=0),
         )
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
     def test_no_corridor_tiles_in_doorway_mode(self):
         rect = Rect(1, 1, 14, 10)
@@ -322,7 +335,6 @@ class TestRectBSPPartitionerDoorway:
         plan = RectBSPPartitioner(mode="doorway").plan(
             _cfg(rect, required_walkable=required, seed=1),
         )
-        assert plan.interior_walls.isdisjoint(required)
         assert required.isdisjoint({d.xy for d in plan.doors})
 
     def test_small_footprint_falls_back_gracefully(self):
@@ -393,12 +405,8 @@ class TestRectBSPPartitionerCorridor:
             _cfg(rect, corridor_width=2, seed=0),
         )
         foot = RectShape().floor_tiles(rect)
-        walkable = (
-            (foot - plan.interior_walls)
-            | {d.xy for d in plan.doors}
-        )
         start = plan.rooms[0].rect.center
-        reached = _bfs_connected(walkable, start)
+        reached = _bfs_edge_connected(foot, plan, start)
         for room in plan.rooms[1:]:
             assert room.rect.center in reached
 
@@ -408,8 +416,7 @@ class TestRectBSPPartitionerCorridor:
             _cfg(rect, corridor_width=1, seed=0),
         )
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
+        assert doors_xy.isdisjoint(plan.corridor_tiles)
 
     def test_required_walkable_lands_on_floor_or_corridor(self):
         rect = Rect(1, 1, 20, 14)
@@ -420,7 +427,6 @@ class TestRectBSPPartitionerCorridor:
         )
         # Required tile MUST NOT be a wall or door; it can be a
         # corridor tile or a sub-room floor tile.
-        assert plan.interior_walls.isdisjoint(required)
         assert required.isdisjoint({d.xy for d in plan.doors})
 
 
@@ -444,7 +450,6 @@ class TestSectorPartitionerSimple:
                  seed=0),
         )
         # Center is required_walkable — no wall, no door on it.
-        assert (6, 6) not in plan.interior_walls
         assert (6, 6) not in {d.xy for d in plan.doors}
 
     def test_rooms_bfs_connected_via_doors(self):
@@ -489,8 +494,6 @@ class TestSectorPartitionerSimple:
                  seed=0),
         )
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
     def test_falls_back_when_not_circle(self):
         """Sector mode requires a CircleShape — non-circle footprints
@@ -500,7 +503,6 @@ class TestSectorPartitionerSimple:
             _cfg(rect, shape=RectShape(), seed=0),
         )
         assert len(plan.rooms) == 1
-        assert plan.interior_walls == set()
 
 
 class TestTemplePartitioner:
@@ -528,11 +530,8 @@ class TestTemplePartitioner:
         rect = Rect(1, 1, 15, 10)
         plan = TemplePartitioner().plan(_cfg(rect, seed=0))
         foot = RectShape().floor_tiles(rect)
-        walkable = (foot - plan.interior_walls) | {
-            d.xy for d in plan.doors
-        }
         start = plan.rooms[0].rect.center
-        reached = _bfs_connected(walkable, start)
+        reached = _bfs_edge_connected(foot, plan, start)
         for room in plan.rooms[1:]:
             assert room.rect.center in reached
 
@@ -540,8 +539,6 @@ class TestTemplePartitioner:
         rect = Rect(1, 1, 15, 10)
         plan = TemplePartitioner().plan(_cfg(rect, seed=0))
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
     def test_too_narrow_falls_back_to_single_room(self):
         rect = Rect(1, 1, 8, 10)
@@ -554,7 +551,6 @@ class TestTemplePartitioner:
         plan = TemplePartitioner().plan(
             _cfg(rect, required_walkable=required, seed=1),
         )
-        assert plan.interior_walls.isdisjoint(required)
 
 
 class TestLShapePartitioner:
@@ -576,12 +572,10 @@ class TestLShapePartitioner:
             _cfg(rect, shape=shape, seed=0),
         )
         foot = shape.floor_tiles(rect)
-        walkable = (foot - plan.interior_walls) | {
-            d.xy for d in plan.doors
-        }
+        walkable = foot | {d.xy for d in plan.doors}
         # Start from first room center, reach all others.
         start = plan.rooms[0].rect.center
-        reached = _bfs_connected(walkable, start)
+        reached = _bfs_edge_connected(foot, plan, start)
         for room in plan.rooms[1:]:
             cx, cy = room.rect.center
             # Center may fall outside L; pick any walkable tile in
@@ -609,7 +603,6 @@ class TestLShapePartitioner:
             _cfg(rect, shape=RectShape(), seed=0),
         )
         assert len(plan.rooms) == 1
-        assert plan.interior_walls == set()
 
     def test_disjointness_invariants(self):
         rect = Rect(1, 1, 15, 10)
@@ -617,8 +610,6 @@ class TestLShapePartitioner:
             _cfg(rect, shape=LShape(corner="nw"), seed=0),
         )
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
 
 class TestSectorPartitionerOctagon:
@@ -638,7 +629,6 @@ class TestSectorPartitionerOctagon:
                  required_walkable=frozenset({(6, 6)}),
                  seed=0),
         )
-        assert (6, 6) not in plan.interior_walls
 
 
 class TestSectorPartitionerEnriched:
@@ -732,7 +722,4 @@ class TestPartitionerConfigDisjointness:
             _cfg(rect, required_walkable=required),
         )
         doors_xy = {d.xy for d in plan.doors}
-        assert plan.interior_walls.isdisjoint(doors_xy)
-        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
-        assert plan.interior_walls.isdisjoint(required)
         assert doors_xy.isdisjoint(required)

@@ -1,10 +1,9 @@
-"""LayoutPlan.interior_edges + apply_plan stamping (M2).
+"""LayoutPlan.interior_edges + apply_plan stamping (M2, M12).
 
-Partitioners emit interior walls as canonical edges via the new
-field. ``apply_plan`` writes them into ``level.interior_edges``.
-The legacy ``interior_walls`` tile-set still works so un-migrated
-partitioners keep functioning; M4-M9 migrate them one at a time,
-and M12 removes the tile-wall field entirely.
+Partitioners emit interior walls as canonical edges via
+``interior_edges``. ``apply_plan`` writes them into
+``level.interior_edges``. After M12 the legacy tile-based
+``interior_walls`` field is gone — partitioning is edges-only.
 """
 
 from __future__ import annotations
@@ -49,19 +48,24 @@ class TestApplyStampsEdges:
             (3, 4, "north"), (5, 2, "west"),
         }
 
-    def test_coexists_with_legacy_tile_walls(self) -> None:
-        """Until M12, both interior_walls (tile) and interior_edges
-        can be emitted by a single plan."""
+    def test_apply_sets_corridor_surface_and_doors(self) -> None:
+        """apply_plan also stamps corridor surface types and door
+        features — edges alone do not make a layout."""
         level = _empty_level()
         plan = LayoutPlan(
             rooms=[],
-            interior_walls={(1, 1)},
             interior_edges={(3, 3, "north")},
+            corridor_tiles={(5, 5)},
+            doors=[InteriorDoor(
+                x=5, y=6, side="north", feature="door_closed",
+            )],
         )
         apply_plan(level, plan)
-        from nhc.dungeon.model import Terrain
-        assert level.tiles[1][1].terrain is Terrain.WALL
+        from nhc.dungeon.model import SurfaceType
         assert (3, 3, "north") in level.interior_edges
+        assert level.tiles[5][5].surface_type is SurfaceType.CORRIDOR
+        assert level.tiles[6][5].feature == "door_closed"
+        assert level.tiles[6][5].door_side == "north"
 
 
 class TestEdgeInvariants:

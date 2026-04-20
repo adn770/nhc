@@ -54,14 +54,6 @@ class TestRectBSPDoorwayEdges:
                 f"edge {e} is not canonical"
             )
 
-    def test_no_interior_wall_tiles(self) -> None:
-        """After M4, doorway mode produces no WALL tile entries."""
-        rect = Rect(1, 1, 14, 10)
-        plan = RectBSPPartitioner(mode="doorway").plan(
-            _cfg(rect, seed=0),
-        )
-        assert plan.interior_walls == set()
-
     def test_rooms_cover_full_footprint(self) -> None:
         """Leaves grow to fill the old wall rows; every footprint
         tile lives in exactly one room."""
@@ -155,10 +147,6 @@ class TestRectBSPDoorwayEdges:
             # and at least 2 rooms).
             if not plan.corridor_tiles or len(plan.rooms) < 2:
                 continue
-            assert plan.interior_walls == set(), (
-                f"seed={seed}: corridor mode must not emit tile "
-                f"walls; got {plan.interior_walls}"
-            )
             assert plan.interior_edges, (
                 f"seed={seed}: corridor mode must emit edges"
             )

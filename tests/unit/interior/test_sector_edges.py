@@ -45,16 +45,6 @@ def _cfg(
 
 
 class TestSectorEdgesSimple:
-    def test_no_interior_wall_tiles(self) -> None:
-        rect = Rect(1, 1, 11, 11)
-        for seed in range(10):
-            plan = SectorPartitioner(mode="simple").plan(
-                _cfg(rect, CircleShape(), seed=seed),
-            )
-            assert plan.interior_walls == set(), (
-                f"seed={seed}: sector mode must not emit tile walls"
-            )
-
     def test_emits_canonical_edges(self) -> None:
         rect = Rect(1, 1, 11, 11)
         plan = SectorPartitioner(mode="simple").plan(
@@ -151,7 +141,6 @@ class TestSectorEdgesSimple:
         plan = SectorPartitioner(mode="simple").plan(
             _cfg(rect, OctagonShape(), seed=0),
         )
-        assert plan.interior_walls == set()
         assert plan.interior_edges
 
     def test_falls_back_when_not_circle(self) -> None:
