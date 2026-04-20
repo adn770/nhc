@@ -23,7 +23,7 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    place_cross_floor_stairs,
+    build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
@@ -144,40 +144,53 @@ def _build_ruin_building(
     ``procedural:ruin`` template; milestone 7 generalises
     ``_enter_building_descent`` so all three floors are reachable.
     """
-    ground = _build_ruin_floor(building_id, 0, shape, base_rect, rng)
-    ground.interior_floor = "stone"
     descent = DungeonRef(
         template=RUIN_DESCENT_TEMPLATE,
         depth=RUIN_DESCENT_FLOORS,
     )
+    floors, stair_links = build_floors_with_stairs(
+        building_id=building_id,
+        base_shape=shape,
+        base_rect=base_rect,
+        n_floors=1,
+        descent=descent,
+        rng=rng,
+        build_floor_fn=lambda idx, n, req: _build_ruin_floor(
+            building_id, idx, shape, base_rect, n, rng,
+            required_walkable=req,
+        ),
+    )
+    floors[0].interior_floor = "stone"
     building = Building(
         id=building_id,
         base_shape=shape,
         base_rect=base_rect,
-        floors=[ground],
+        floors=floors,
         descent=descent,
         wall_material="stone",
         interior_floor="stone",
     )
-    building.stair_links = place_cross_floor_stairs(building, rng)
+    building.stair_links = stair_links
     return building
 
 
 def _build_ruin_floor(
     building_id: str, floor_idx: int,
     shape: RoomShape, base_rect: Rect,
-    rng: random.Random,
+    n_floors: int, rng: random.Random,
+    required_walkable: frozenset[tuple[int, int]] = frozenset(),
 ) -> Level:
     level = build_building_floor(
         building_id=building_id,
         floor_idx=floor_idx,
         base_shape=shape,
         base_rect=base_rect,
-        n_floors=1,
+        n_floors=n_floors,
         rng=rng,
         archetype="ruin",
         tags=["ruin_interior"],
         partitioner=SingleRoomPartitioner(),
+        required_walkable=required_walkable,
     )
     level.interior_floor = "stone"
     return level

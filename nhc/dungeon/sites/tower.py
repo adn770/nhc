@@ -14,7 +14,7 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    place_cross_floor_stairs,
+    build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
@@ -85,12 +85,18 @@ def assemble_tower(
         roof_material = "wood"
 
     building_id = f"{site_id}_tower"
-    floors: list[Level] = []
-    for idx in range(n_floors):
-        level = _build_tower_floor(
-            building_id, idx, base_shape, base_rect, n_floors, rng,
-        )
-        floors.append(level)
+    floors, stair_links = build_floors_with_stairs(
+        building_id=building_id,
+        base_shape=base_shape,
+        base_rect=base_rect,
+        n_floors=n_floors,
+        descent=descent,
+        rng=rng,
+        build_floor_fn=lambda idx, n, req: _build_tower_floor(
+            building_id, idx, base_shape, base_rect, n, rng,
+            required_walkable=req,
+        ),
+    )
 
     if not mountain and n_floors >= 3:
         floors[-1].interior_floor = "wood"
@@ -105,7 +111,7 @@ def assemble_tower(
         interior_floor=interior_floor_default,
         roof_material=roof_material,
     )
-    building.stair_links = place_cross_floor_stairs(building, rng)
+    building.stair_links = stair_links
     door_xy = _place_entry_door(building, rng)
     building.validate()
 
@@ -135,6 +141,7 @@ def _build_tower_floor(
     building_id: str, floor_idx: int,
     base_shape: RoomShape, base_rect: Rect,
     n_floors: int, rng: random.Random,
+    required_walkable: frozenset[tuple[int, int]] = frozenset(),
 ) -> Level:
     """Build a tower floor via :class:`SingleRoomPartitioner`."""
     return build_building_floor(
@@ -147,6 +154,7 @@ def _build_tower_floor(
         archetype="tower",
         tags=["tower_interior"],
         partitioner=SingleRoomPartitioner(),
+        required_walkable=required_walkable,
     )
 
 

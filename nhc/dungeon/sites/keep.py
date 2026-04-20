@@ -19,7 +19,7 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
-    place_cross_floor_stairs,
+    build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
@@ -267,13 +267,20 @@ def _build_keep_building(
     n_floors: int, descent: DungeonRef | None,
     rng: random.Random,
 ) -> Building:
-    floors: list[Level] = []
-    for idx in range(n_floors):
-        level = _build_keep_floor(
-            building_id, idx, base_shape, base_rect, n_floors, rng,
-        )
-        level.interior_floor = "stone"
-        floors.append(level)
+    floors, stair_links = build_floors_with_stairs(
+        building_id=building_id,
+        base_shape=base_shape,
+        base_rect=base_rect,
+        n_floors=n_floors,
+        descent=descent,
+        rng=rng,
+        build_floor_fn=lambda idx, n, req: _build_keep_floor(
+            building_id, idx, base_shape, base_rect, n, rng,
+            required_walkable=req,
+        ),
+    )
+    for f in floors:
+        f.interior_floor = "stone"
     building = Building(
         id=building_id,
         base_shape=base_shape,
@@ -283,7 +290,7 @@ def _build_keep_building(
         wall_material="stone",
         interior_floor="stone",
     )
-    building.stair_links = place_cross_floor_stairs(building, rng)
+    building.stair_links = stair_links
     return building
 
 
@@ -291,6 +298,7 @@ def _build_keep_floor(
     building_id: str, floor_idx: int,
     base_shape: RoomShape, base_rect: Rect,
     n_floors: int, rng: random.Random,
+    required_walkable: frozenset[tuple[int, int]] = frozenset(),
 ) -> Level:
     return build_building_floor(
         building_id=building_id,
@@ -302,6 +310,7 @@ def _build_keep_floor(
         archetype="keep",
         tags=["keep_interior"],
         partitioner=SingleRoomPartitioner(),
+        required_walkable=required_walkable,
     )
 
 

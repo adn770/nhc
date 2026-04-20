@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from nhc.dungeon.generators._connectivity import _bfs_dist
-from nhc.dungeon.model import Level, Rect, TempleShape, Terrain
+from nhc.dungeon.model import Level, Rect, RoomShape, TempleShape, Terrain
 
 if TYPE_CHECKING:
     from nhc.dungeon.building import Building, StairLink
+    from nhc.hexcrawl.model import DungeonRef
 
 
 def _place_stairs(
@@ -172,5 +173,100 @@ def place_cross_floor_stairs(
         ))
 
     return links
+
+
+def _pick_stair_tile(
+    floor: Level, perimeter: set[tuple[int, int]],
+    exclude: set[tuple[int, int]], rng: random.Random,
+) -> tuple[int, int]:
+    """Pick one walkable, featureless, non-perimeter tile on ``floor``."""
+    pool = _valid_stair_tiles(floor, perimeter) - exclude
+    if not pool:
+        raise ValueError("no valid stair tile on floor")
+    return rng.choice(sorted(pool))
+
+
+def build_floors_with_stairs(
+    *,
+    building_id: str,
+    base_shape: RoomShape,
+    base_rect: Rect,
+    n_floors: int,
+    descent: "DungeonRef | None",
+    rng: random.Random,
+    build_floor_fn: Callable[
+        [int, int, frozenset[tuple[int, int]]], Level,
+    ],
+) -> tuple[list[Level], list["StairLink"]]:
+    """Interleaved floor-build + per-link stair placement.
+
+    For each adjacent pair ``(i, i+1)``, pick a walkable tile on
+    floor ``i`` (which has just been partitioned) and thread it
+    into floor ``i+1``'s partitioner call via
+    ``required_walkable``. See
+    ``design/building_interiors.md`` — the stair-alignment
+    invariant is per-link, not per-building.
+
+    ``build_floor_fn(floor_idx, n_floors, required_walkable)``
+    builds and returns a :class:`Level`.
+    """
+    from nhc.dungeon.building import StairLink
+
+    perimeter = base_shape.perimeter_tiles(base_rect)
+    floors: list[Level] = []
+    links: list[StairLink] = []
+    used: dict[int, set[tuple[int, int]]] = {}
+    required: frozenset[tuple[int, int]] = frozenset()
+    pending_upper: tuple[int, tuple[int, int]] | None = None
+
+    for idx in range(n_floors):
+        level = build_floor_fn(idx, n_floors, required)
+        floors.append(level)
+
+        # Stamp stairs_down landing from the prior link.
+        if pending_upper is not None:
+            prev_idx, prev_tile = pending_upper
+            assert prev_idx == idx - 1, (
+                "pending stair landing came from a non-adjacent floor"
+            )
+            px, py = prev_tile
+            assert level.tiles[py][px].terrain is Terrain.FLOOR, (
+                f"required_walkable tile {prev_tile} lost its FLOOR "
+                f"on floor {idx}"
+            )
+            level.tiles[py][px].feature = "stairs_down"
+            used.setdefault(idx, set()).add(prev_tile)
+            pending_upper = None
+
+        # Pick the stair for the link to the next floor, if any.
+        if idx + 1 < n_floors:
+            tile = _pick_stair_tile(
+                level, perimeter, used.get(idx, set()), rng,
+            )
+            fx, fy = tile
+            level.tiles[fy][fx].feature = "stairs_up"
+            used.setdefault(idx, set()).add(tile)
+            links.append(StairLink(
+                from_floor=idx, to_floor=idx + 1,
+                from_tile=tile, to_tile=tile,
+            ))
+            required = frozenset({tile})
+            pending_upper = (idx, tile)
+        else:
+            required = frozenset()
+
+    if descent is not None:
+        tile = _pick_stair_tile(
+            floors[0], perimeter, used.get(0, set()), rng,
+        )
+        fx, fy = tile
+        floors[0].tiles[fy][fx].feature = "stairs_down"
+        used.setdefault(0, set()).add(tile)
+        links.append(StairLink(
+            from_floor=0, to_floor=descent,
+            from_tile=tile, to_tile=(0, 0),
+        ))
+
+    return floors, links
 
 
