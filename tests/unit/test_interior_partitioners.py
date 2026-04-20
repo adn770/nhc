@@ -20,6 +20,7 @@ from nhc.dungeon.interior.protocol import (
 from nhc.dungeon.interior.rect_bsp import RectBSPPartitioner
 from nhc.dungeon.interior.sector import SectorPartitioner
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.temple import TemplePartitioner
 from nhc.dungeon.model import (
     CircleShape, OctagonShape, Rect, RectShape, SurfaceType,
 )
@@ -470,6 +471,60 @@ class TestSectorPartitionerSimple:
         )
         assert len(plan.rooms) == 1
         assert plan.interior_walls == set()
+
+
+class TestTemplePartitioner:
+    def test_15_wide_rect_has_nave_plus_two_chapels(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
+        assert len(plan.rooms) == 3
+
+    def test_nave_is_tagged_and_chapels_are_tagged(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
+        tags = [set(r.tags) for r in plan.rooms]
+        # Exactly one nave, two chapels.
+        nave_count = sum(1 for t in tags if "nave" in t)
+        chapel_count = sum(1 for t in tags if "chapel" in t)
+        assert nave_count == 1
+        assert chapel_count == 2
+
+    def test_two_doors_into_nave(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
+        assert len(plan.doors) == 2
+
+    def test_rooms_bfs_connected_through_nave(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
+        foot = RectShape().floor_tiles(rect)
+        walkable = (foot - plan.interior_walls) | {
+            d.xy for d in plan.doors
+        }
+        start = plan.rooms[0].rect.center
+        reached = _bfs_connected(walkable, start)
+        for room in plan.rooms[1:]:
+            assert room.rect.center in reached
+
+    def test_disjointness_invariants(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
+        doors_xy = {d.xy for d in plan.doors}
+        assert plan.interior_walls.isdisjoint(doors_xy)
+        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
+
+    def test_too_narrow_falls_back_to_single_room(self):
+        rect = Rect(1, 1, 8, 10)
+        plan = TemplePartitioner().plan(_cfg(rect, seed=0))
+        assert len(plan.rooms) == 1
+
+    def test_required_walkable_respected(self):
+        rect = Rect(1, 1, 15, 10)
+        required = frozenset({(8, 5)})
+        plan = TemplePartitioner().plan(
+            _cfg(rect, required_walkable=required, seed=1),
+        )
+        assert plan.interior_walls.isdisjoint(required)
 
 
 class TestPartitionerConfigDisjointness:
