@@ -15,7 +15,7 @@ import math
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, Rect, RectShape,
-    Terrain,
+    canonicalize,
 )
 from nhc.rendering._building_walls import (
     MASONRY_WALL_THICKNESS,
@@ -108,89 +108,128 @@ def render_building_floor_svg(
     return base.replace("</svg>", f"{inject}</svg>")
 
 
+_DOOR_SUPPRESSING_FEATURES = frozenset({
+    "door_open", "door_closed", "door_locked",
+})
+
+
 def _render_interior_walls(
     level: Level, building: Building,
 ) -> list[str]:
-    """Emit one ``<line>`` per straight run of interior walls.
+    """Emit one ``<line>`` per coalesced run of interior edges.
 
-    Interior walls are WALL tiles that sit INSIDE the building
-    footprint — the shell composer stamps walls OUTSIDE the
-    footprint so the distinction is purely positional.
+    See ``design/building_interiors.md`` — partitioners emit
+    canonical axis-aligned edges on ``Level.interior_edges``. This
+    pass draws them directly; door-suppressed edges (a door tile
+    adjacent with a matching ``door_side``) are skipped so the
+    door glyph replaces the wall stroke visually. Secret doors do
+    NOT suppress the edge — they deliberately read as wall until
+    discovered.
     """
-    footprint = building.base_shape.floor_tiles(building.base_rect)
-    walls: set[tuple[int, int]] = set()
-    for (x, y) in footprint:
-        if level.tiles[y][x].terrain is Terrain.WALL:
-            walls.add((x, y))
-    if not walls:
+    if not level.interior_edges:
         return []
+
+    # Split edges by side and filter out door-suppressed ones.
+    norths: set[tuple[int, int]] = set()
+    wests: set[tuple[int, int]] = set()
+    for (x, y, side) in level.interior_edges:
+        if _edge_has_visible_door(level, x, y, side):
+            continue
+        if side == "north":
+            norths.add((x, y))
+        elif side == "west":
+            wests.add((x, y))
 
     color = INTERIOR_WALL_COLORS.get(
         building.interior_wall_material,
         INTERIOR_WALL_COLORS["stone"],
     )
-    runs = _split_into_straight_runs(walls)
+
     fragments: list[str] = []
-    for (ax, ay), (bx, by) in runs:
-        px0 = PADDING + (ax + 0.5) * CELL
-        py0 = PADDING + (ay + 0.5) * CELL
-        px1 = PADDING + (bx + 0.5) * CELL
-        py1 = PADDING + (by + 0.5) * CELL
-        fragments.append(
-            f'<line x1="{px0}" y1="{py0}" x2="{px1}" y2="{py1}" '
-            f'stroke="{color}" stroke-width="{_INTERIOR_WALL_STROKE}" '
-            f'stroke-linecap="round"/>'
-        )
+    for (ax, ay, bx, by) in _coalesce_north_edges(norths):
+        fragments.append(_edge_line(ax, ay, bx, by, color))
+    for (ax, ay, bx, by) in _coalesce_west_edges(wests):
+        fragments.append(_edge_line(ax, ay, bx, by, color))
     return fragments
 
 
-def _split_into_straight_runs(
-    walls: set[tuple[int, int]],
-) -> list[tuple[tuple[int, int], tuple[int, int]]]:
-    """Greedy split a set of WALL coords into maximal horizontal or
-    vertical runs. Isolated tiles become zero-length runs (point
-    lines)."""
-    seen: set[tuple[int, int]] = set()
-    runs: list[tuple[tuple[int, int], tuple[int, int]]] = []
+def _edge_has_visible_door(
+    level: Level, edge_x: int, edge_y: int, edge_side: str,
+) -> bool:
+    """True when an open/closed/locked door on either adjacent
+    tile targets this canonical edge. The door glyph substitutes
+    for the wall line."""
+    if edge_side == "north":
+        candidates = [(edge_x, edge_y - 1), (edge_x, edge_y)]
+    elif edge_side == "west":
+        candidates = [(edge_x - 1, edge_y), (edge_x, edge_y)]
+    else:
+        return False
+    for (tx, ty) in candidates:
+        tile = level.tile_at(tx, ty)
+        if tile is None:
+            continue
+        if tile.feature not in _DOOR_SUPPRESSING_FEATURES:
+            continue
+        if not tile.door_side:
+            continue
+        target = canonicalize(tx, ty, tile.door_side)
+        if target == (edge_x, edge_y, edge_side):
+            return True
+    return False
 
-    # Horizontal runs: start at a tile whose left neighbour isn't
-    # a wall AND whose right neighbour is.
-    for (x, y) in sorted(walls):
+
+def _coalesce_north_edges(
+    norths: set[tuple[int, int]],
+) -> list[tuple[int, int, int, int]]:
+    """Merge consecutive north edges at the same y into one span."""
+    runs: list[tuple[int, int, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for (x, y) in sorted(norths):
         if (x, y) in seen:
             continue
-        if (x - 1, y) in walls:
-            continue
-        if (x + 1, y) not in walls:
-            continue
         end = x
-        while (end + 1, y) in walls:
+        while (end + 1, y) in norths:
             end += 1
         for ix in range(x, end + 1):
             seen.add((ix, y))
-        runs.append(((x, y), (end, y)))
+        # Line from pixel (x, y) to (end+1, y) — a horizontal line
+        # at y spanning that many tile columns.
+        runs.append((x, y, end + 1, y))
+    return runs
 
-    # Vertical runs on remaining tiles.
-    for (x, y) in sorted(walls):
+
+def _coalesce_west_edges(
+    wests: set[tuple[int, int]],
+) -> list[tuple[int, int, int, int]]:
+    """Merge consecutive west edges at the same x into one span."""
+    runs: list[tuple[int, int, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for (x, y) in sorted(wests):
         if (x, y) in seen:
             continue
-        if (x, y - 1) in walls:
-            continue
-        if (x, y + 1) not in walls:
-            continue
         end = y
-        while (x, end + 1) in walls:
+        while (x, end + 1) in wests:
             end += 1
         for iy in range(y, end + 1):
             seen.add((x, iy))
-        runs.append(((x, y), (x, end)))
-
-    # Isolated singletons.
-    for (x, y) in sorted(walls):
-        if (x, y) in seen:
-            continue
-        seen.add((x, y))
-        runs.append(((x, y), (x, y)))
+        runs.append((x, y, x, end + 1))
     return runs
+
+
+def _edge_line(
+    ax: int, ay: int, bx: int, by: int, color: str,
+) -> str:
+    """SVG ``<line>`` on tile-boundary coordinates (not centres)."""
+    px0 = PADDING + ax * CELL
+    py0 = PADDING + ay * CELL
+    px1 = PADDING + bx * CELL
+    py1 = PADDING + by * CELL
+    return (
+        f'<line x1="{px0}" y1="{py0}" x2="{px1}" y2="{py1}" '
+        f'stroke="{color}" stroke-width="{_INTERIOR_WALL_STROKE}" '
+        f'stroke-linecap="round"/>'
+    )
 
 
 def _perimeter_polygon(

@@ -12,7 +12,7 @@ import re
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import (
-    Level, Rect, RectShape, Room, Terrain, Tile,
+    Level, Rect, RectShape, Room, Terrain, Tile, canonicalize,
 )
 from nhc.rendering.building import (
     INTERIOR_WALL_COLORS, render_building_floor_svg,
@@ -21,7 +21,8 @@ from nhc.rendering.building import (
 
 def _single_floor_building(
     *, interior_wall_material: str = "stone",
-    interior_wall_tiles: set[tuple[int, int]] | None = None,
+    interior_edges: set[tuple[int, int, str]] | None = None,
+    door_at: tuple[int, int, str] | None = None,
 ) -> Building:
     rect = Rect(1, 1, 7, 7)
     w = rect.x + rect.width + 2
@@ -42,9 +43,12 @@ def _single_floor_building(
                     continue
                 if level.tiles[ny][nx].terrain is Terrain.VOID:
                     level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
-    # Stamp interior walls if provided.
-    for (x, y) in interior_wall_tiles or set():
-        level.tiles[y][x] = Tile(terrain=Terrain.WALL)
+    for e in interior_edges or set():
+        level.interior_edges.add(canonicalize(*e))
+    if door_at is not None:
+        dx, dy, dside = door_at
+        level.tiles[dy][dx].feature = "door_closed"
+        level.tiles[dy][dx].door_side = dside
     level.rooms = [Room(
         id="r", rect=rect, shape=RectShape(), tags=["interior"],
     )]
@@ -57,13 +61,10 @@ def _single_floor_building(
 
 class TestInteriorWallOverlay:
     def test_no_interior_walls_emits_no_line(self):
-        """A SingleRoom-like floor (no interior walls) emits no
+        """A SingleRoom-like floor (no interior edges) emits no
         interior-wall <line>s."""
         building = _single_floor_building()
         svg = render_building_floor_svg(building, 0)
-        # The only <line> should come from legitimate sources (not
-        # the interior-wall overlay). Search for the interior-wall
-        # stone color specifically.
         color = INTERIOR_WALL_COLORS["stone"]
         matches = re.findall(
             rf'<line[^>]*stroke="{re.escape(color)}"[^>]*/>',
@@ -72,12 +73,14 @@ class TestInteriorWallOverlay:
         assert matches == []
 
     def test_horizontal_wall_emits_one_line(self):
-        """A single horizontal interior wall becomes one <line>."""
-        # Horizontal wall at y=4 spanning x=1..7 (minus door at 4).
-        wall = {(x, 4) for x in range(1, 8) if x != 4}
+        """A horizontal edge run split by one door becomes 2 lines."""
+        # North edges at y=4 for x=1..7; door on tile (4, 4)
+        # with door_side="north" suppresses the edge at (4, 4, N).
+        edges = {(x, 4, "north") for x in range(1, 8)}
         building = _single_floor_building(
             interior_wall_material="wood",
-            interior_wall_tiles=wall,
+            interior_edges=edges,
+            door_at=(4, 4, "north"),
         )
         svg = render_building_floor_svg(building, 0)
         color = INTERIOR_WALL_COLORS["wood"]
@@ -85,15 +88,16 @@ class TestInteriorWallOverlay:
             rf'<line[^>]*stroke="{re.escape(color)}"[^>]*/>',
             svg,
         )
-        # Door splits the wall into 2 runs (left + right of door).
+        # Door splits the wall into 2 coalesced runs.
         assert len(matches) == 2
 
     def test_material_selects_color(self):
-        wall = {(x, 4) for x in range(1, 8) if x != 4}
+        edges = {(x, 4, "north") for x in range(1, 8)}
         for material, expected in INTERIOR_WALL_COLORS.items():
             building = _single_floor_building(
                 interior_wall_material=material,
-                interior_wall_tiles=wall,
+                interior_edges=edges,
+                door_at=(4, 4, "north"),
             )
             svg = render_building_floor_svg(building, 0)
             assert f'stroke="{expected}"' in svg, (
