@@ -12,7 +12,9 @@ from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
-from nhc.dungeon.model import LShape, Rect, RectShape, Room
+from nhc.dungeon.model import (
+    LShape, Rect, RectShape, Room, canonicalize,
+)
 
 
 class LShapePartitioner:
@@ -36,20 +38,20 @@ class LShapePartitioner:
         geom = self._geometry(rect, notch, shape.corner)
         if geom is None:
             return SingleRoomPartitioner().plan(cfg)
-        arm_a, arm_b, wall, door_side = geom
+        arm_a, arm_b, edge_xs, edge_y = geom
 
         if not self._arms_fit(arm_a, arm_b, min_room):
             return SingleRoomPartitioner().plan(cfg)
 
-        if not wall.isdisjoint(cfg.required_walkable):
-            return SingleRoomPartitioner().plan(cfg)
-
         door = self._pick_junction_door(
-            wall, rect, shape.corner, cfg, door_side,
+            edge_xs, edge_y, cfg,
         )
         if door is None:
             return SingleRoomPartitioner().plan(cfg)
-        wall.discard(door.xy)
+
+        edges = {
+            canonicalize(x, edge_y, "north") for x in edge_xs
+        }
 
         rooms = [
             Room(
@@ -65,16 +67,22 @@ class LShapePartitioner:
         ]
         return LayoutPlan(
             rooms=rooms,
-            interior_walls=wall,
+            interior_edges=edges,
             doors=[door],
         )
 
     def _geometry(
         self, rect: Rect, notch: Rect, corner: str,
-    ) -> tuple[Rect, Rect, set[tuple[int, int]], str] | None:
-        """Return ``(arm_a, arm_b, junction_wall, door_side)`` for
-        the given L corner. Arms are the room bounding rects; the
-        wall line separates them at the inner corner."""
+    ) -> tuple[Rect, Rect, range, int] | None:
+        """Return ``(arm_a, arm_b, edge_xs, edge_y)`` for the given
+        L corner.
+
+        ``edge_xs`` is the x-range (inclusive of endpoints as a
+        range) and ``edge_y`` is the canonical y for the edge run:
+        ``(x, edge_y, "north")`` sits between the arm above and
+        the arm below. The door always targets this canonical
+        edge, so ``door_side`` is always ``"north"``.
+        """
         if corner == "nw":
             arm_a = Rect(
                 notch.x2, rect.y,
@@ -84,12 +92,7 @@ class LShapePartitioner:
                 rect.x, notch.y2,
                 rect.width, rect.y2 - notch.y2,
             )
-            wall = {
-                (x, notch.y2)
-                for x in range(notch.x2, rect.x2)
-            }
-            door_side = "north"
-            return arm_a, arm_b, wall, door_side
+            return arm_a, arm_b, range(notch.x2, rect.x2), notch.y2
         if corner == "ne":
             arm_a = Rect(
                 rect.x, rect.y,
@@ -99,12 +102,7 @@ class LShapePartitioner:
                 rect.x, notch.y2,
                 rect.width, rect.y2 - notch.y2,
             )
-            wall = {
-                (x, notch.y2)
-                for x in range(rect.x, notch.x)
-            }
-            door_side = "north"
-            return arm_a, arm_b, wall, door_side
+            return arm_a, arm_b, range(rect.x, notch.x), notch.y2
         if corner == "sw":
             arm_a = Rect(
                 rect.x, rect.y,
@@ -114,12 +112,7 @@ class LShapePartitioner:
                 notch.x2, notch.y,
                 rect.x2 - notch.x2, notch.height,
             )
-            wall = {
-                (x, notch.y)
-                for x in range(notch.x2, rect.x2)
-            }
-            door_side = "south"
-            return arm_a, arm_b, wall, door_side
+            return arm_a, arm_b, range(notch.x2, rect.x2), notch.y
         if corner == "se":
             arm_a = Rect(
                 rect.x, rect.y,
@@ -129,12 +122,7 @@ class LShapePartitioner:
                 rect.x, notch.y,
                 notch.x - rect.x, notch.height,
             )
-            wall = {
-                (x, notch.y)
-                for x in range(rect.x, notch.x)
-            }
-            door_side = "south"
-            return arm_a, arm_b, wall, door_side
+            return arm_a, arm_b, range(rect.x, notch.x), notch.y
         return None
 
     def _arms_fit(
@@ -146,30 +134,27 @@ class LShapePartitioner:
         return True
 
     def _pick_junction_door(
-        self, wall: set[tuple[int, int]], rect: Rect,
-        corner: str, cfg: PartitionerConfig, door_side: str,
+        self, edge_xs: range, edge_y: int,
+        cfg: PartitionerConfig,
     ) -> InteriorDoor | None:
-        """Pick a wall tile that has wall neighbours on both sides
-        along the wall axis (run ≥ 3) and is not at the footprint
-        edge."""
-        if not wall:
+        """Pick a door tile on arm_b's junction row.
+
+        Door tile ``(x, edge_y)`` with ``door_side="north"``
+        targets canonical edge ``(x, edge_y, "north")``. First
+        and last x in the run are excluded so the door sits on a
+        run of at least 3 edges.
+        """
+        xs = list(edge_xs)
+        if len(xs) < 3:
             return None
-        # All wall tiles share the same y (horizontal wall line).
-        ys = {y for (_, y) in wall}
-        if len(ys) != 1:
-            return None
-        wall_y = next(iter(ys))
-        xs = sorted(x for (x, _) in wall)
-        lo_x = xs[0]
-        hi_x = xs[-1]
+        interior_xs = xs[1:-1]
         candidates = [
-            (x, wall_y) for x in xs
-            if x != lo_x and x != hi_x
-            and (x, wall_y) not in cfg.required_walkable
+            (x, edge_y) for x in interior_xs
+            if (x, edge_y) not in cfg.required_walkable
         ]
         if not candidates:
             return None
         x, y = cfg.rng.choice(candidates)
         return InteriorDoor(
-            x=x, y=y, side=door_side, feature="door_closed",
+            x=x, y=y, side="north", feature="door_closed",
         )
