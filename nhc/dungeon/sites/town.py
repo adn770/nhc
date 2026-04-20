@@ -55,12 +55,6 @@ from nhc.hexcrawl.model import Biome, DungeonRef
 
 # ── Town tunable constants ───────────────────────────────────
 
-# Default building size range for untagged (residential) slots.
-# Per-archetype overrides land in M14 when ARCHETYPE_CONFIG drives
-# per-role sizing end-to-end; for now every town building still
-# draws from this single range, read from the registry so
-# retuning residentials is one edit away.
-_RESIDENTIAL_SIZE_RANGE = ARCHETYPE_CONFIG["residential"].size_range
 TOWN_ROW_X_START = 6
 TOWN_BUILDING_SPACING = 3                 # tile gap between buildings
 TOWN_FLOOR_COUNT_RANGE = (1, 2)
@@ -72,9 +66,6 @@ TOWN_DESCENT_TEMPLATE = "procedural:crypt"
 TOWN_PALISADE_PADDING = 3                # tiles beyond bbox
 TOWN_GATE_COUNT_RANGE = (1, 2)
 TOWN_GATE_LENGTH_TILES = 2
-
-TOWN_SHAPE_POOL = ("rect", "lshape")
-
 
 # Service role vocabulary. The first three roles own NPCs that
 # ``_spawn_level_entities`` pulls into the ECS world on interior
@@ -139,31 +130,36 @@ def _biome_overrides(biome: Biome | None) -> _BiomeOverrides:
 
 
 _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
+    # Surface sizes grew in C3 to fit variable per-role buildings
+    # (tavern/inn 13-16, temple 14-16, shop 10-12). Old hamlets
+    # sized 36x26 could only host residential (7-9) footprints; the
+    # same sites now need to host 2-3 tall service buildings that
+    # wrap to a second row.
     "hamlet": _TownSizeConfig(
         building_count_range=(3, 4),
-        surface_width=36,
-        surface_height=26,
+        surface_width=48,
+        surface_height=44,
         row_y=(4, 15),
         has_palisade=False,
     ),
     "village": _TownSizeConfig(
         building_count_range=(5, 7),
-        surface_width=58,
-        surface_height=34,
+        surface_width=72,
+        surface_height=58,
         row_y=(5, 19),
         has_palisade=True,
     ),
     "town": _TownSizeConfig(
         building_count_range=(8, 10),
-        surface_width=72,
-        surface_height=42,
+        surface_width=88,
+        surface_height=72,
         row_y=(6, 23),
         has_palisade=True,
     ),
     "city": _TownSizeConfig(
         building_count_range=(10, 13),
-        surface_width=84,
-        surface_height=50,
+        surface_width=104,
+        surface_height=86,
         row_y=(6, 28),
         has_palisade=True,
     ),
@@ -205,10 +201,21 @@ def assemble_town(
     else:
         n_buildings = rng.randint(*config.building_count_range)
 
+    # Assign the role of each building BEFORE placement so the
+    # greedy packer can draw a per-role size. The returned list is
+    # role-by-slot, one string per building, with every service
+    # role covered first and the rest filled with "residential".
+    roles = _roll_role_slots(rng, n_buildings)
+    sizes = [_draw_size_for_role(role, rng) for role in roles]
     buildings = _place_buildings(
-        site_id, rng, n_buildings, config, overrides=overrides,
+        site_id, rng, roles, sizes, config, overrides=overrides,
     )
-    role_assignments = _assign_service_roles(rng, buildings)
+    role_assignments: dict[str, str] = {}
+    for b, role in zip(buildings, roles):
+        if role == "residential":
+            continue
+        role_assignments[b.id] = role
+        b.floors[0].rooms[0].tags.append(role)
 
     combined_footprints: set[tuple[int, int]] = set()
     for b in buildings:
@@ -252,35 +259,62 @@ def assemble_town(
     return site
 
 
+def _roll_role_slots(
+    rng: random.Random, n_buildings: int,
+) -> list[str]:
+    """Decide which role each building slot carries.
+
+    The three NPC-bearing service roles (``shop``, ``inn``,
+    ``temple``) are filled first, followed by the reserved
+    ``stable`` / ``training`` slots if there is room. Remaining
+    slots are plain ``"residential"``. The whole list is then
+    shuffled so the placement order doesn't encode the role.
+    """
+    role_order = list(SERVICE_ROLES_WITH_NPCS) + list(
+        SERVICE_ROLES_RESERVED,
+    )
+    if n_buildings <= len(role_order):
+        slots = role_order[:n_buildings]
+    else:
+        slots = role_order + [
+            "residential"
+        ] * (n_buildings - len(role_order))
+    rng.shuffle(slots)
+    return slots
+
+
+def _draw_size_for_role(
+    role: str, rng: random.Random,
+) -> tuple[int, int]:
+    """Draw ``(width, height)`` from the role's size_range."""
+    spec = ARCHETYPE_CONFIG[role]
+    w = rng.randint(*spec.size_range)
+    h = rng.randint(*spec.size_range)
+    return (w, h)
+
+
 def _place_buildings(
     site_id: str, rng: random.Random,
-    n_buildings: int, config: _TownSizeConfig,
+    roles: list[str], sizes: list[tuple[int, int]],
+    config: _TownSizeConfig,
     overrides: _BiomeOverrides | None = None,
 ) -> list[Building]:
-    """Greedy row-pack ``n_buildings`` across the town surface.
+    """Greedy row-pack ``sizes`` across the town surface.
 
-    Per-building ``(w, h)`` sizes are drawn up front, then laid out
-    left-to-right starting at ``config.row_y[0]``. When the next
-    building would exceed ``surface_width - TOWN_ROW_X_START`` on the
-    current row, the cursor wraps to a new row whose top ``y`` is
-    ``previous_row_top + tallest_in_previous_row + spacing``. This
-    replaces the old two-fixed-rows layout that assumed a uniform
-    residential size range and overflowed ``city`` seeds when the
-    per-row count pushed the cursor past the surface width.
+    ``roles`` and ``sizes`` are parallel lists, one entry per
+    building. Each building's ``(w, h)`` is already drawn from
+    its role's ``ARCHETYPE_CONFIG`` size_range; this helper just
+    runs the greedy row packer and constructs each ``Building``
+    with its role wired through as the archetype.
     """
     overrides = overrides or _BiomeOverrides()
-    sizes = [
-        (
-            rng.randint(*_RESIDENTIAL_SIZE_RANGE),
-            rng.randint(*_RESIDENTIAL_SIZE_RANGE),
-        )
-        for _ in range(n_buildings)
-    ]
     placements = _greedy_pack(sizes, config)
     buildings: list[Building] = []
-    for i, (x, y, w, h) in enumerate(placements):
+    for i, ((x, y, w, h), role) in enumerate(
+        zip(placements, roles),
+    ):
         rect = Rect(x, y, w, h)
-        shape = _pick_shape(rng)
+        shape = _pick_shape_for_role(rng, role)
         n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
         if overrides.interior_floor is not None:
             interior = overrides.interior_floor
@@ -293,6 +327,7 @@ def _place_buildings(
         building = _build_town_building(
             f"{site_id}_b{i}", shape, rect,
             n_floors, descent, interior, rng,
+            archetype=role,
             wall_override=overrides.wall_material,
         )
         buildings.append(building)
@@ -327,45 +362,33 @@ def _greedy_pack(
     return placements
 
 
-def _assign_service_roles(
-    rng: random.Random, buildings: list[Building],
-) -> dict[str, str]:
-    """Pick which buildings fill which service slots.
+def _pick_shape_for_role(
+    rng: random.Random, role: str,
+) -> RoomShape:
+    """Pick a RoomShape from the role's ``shape_pool``.
 
-    Returns ``{building_id: role}`` for every tagged building.
-    The three NPC-bearing roles (``shop``, ``inn``, ``temple``)
-    are filled first, then the reserved ``stable`` / ``training``
-    slots if there are enough buildings; remaining buildings stay
-    untagged (plain residential). Hamlets with only 3 buildings
-    will cover exactly the three NPC roles; larger sites fill more
-    slots and leave the rest as residential.
+    Maps registry shape keys (``"rect"``, ``"l"``) to concrete
+    shape instances. Unsupported keys (``"circle"``, ``"octagon"``)
+    never appear in town archetypes today, so we raise on them
+    rather than silently degrading — loud failure per the design
+    doc's KeyError policy.
     """
-    if not buildings:
-        return {}
-    shuffled = list(buildings)
-    rng.shuffle(shuffled)
-
-    role_order = list(SERVICE_ROLES_WITH_NPCS) + list(
-        SERVICE_ROLES_RESERVED,
-    )
-    assignments: dict[str, str] = {}
-    for role, building in zip(role_order, shuffled):
-        assignments[building.id] = role
-        building.floors[0].rooms[0].tags.append(role)
-    return assignments
-
-
-def _pick_shape(rng: random.Random) -> RoomShape:
-    key = rng.choice(TOWN_SHAPE_POOL)
+    spec = ARCHETYPE_CONFIG[role]
+    key = rng.choice(spec.shape_pool)
     if key == "rect":
         return RectShape()
-    return LShape(corner=rng.choice(LShape._VALID_CORNERS))
+    if key == "l":
+        return LShape(corner=rng.choice(LShape._VALID_CORNERS))
+    raise ValueError(
+        f"unsupported shape key {key!r} for town role {role!r}"
+    )
 
 
 def _build_town_building(
     building_id: str, base_shape: RoomShape, base_rect: Rect,
     n_floors: int, descent: DungeonRef | None,
     interior: str, rng: random.Random,
+    archetype: str = "residential",
     wall_override: str | None = None,
 ) -> Building:
     floors, stair_links = build_floors_with_stairs(
@@ -377,6 +400,7 @@ def _build_town_building(
         rng=rng,
         build_floor_fn=lambda idx, n, req: _build_town_floor(
             building_id, idx, base_shape, base_rect, n, rng,
+            archetype=archetype,
             required_walkable=req,
         ),
     )
@@ -395,7 +419,7 @@ def _build_town_building(
         wall_material=wall_material,
         interior_floor=interior,
         interior_wall_material=(
-            ARCHETYPE_CONFIG["residential"].interior_wall_material
+            ARCHETYPE_CONFIG[archetype].interior_wall_material
         ),
     )
     building.stair_links = stair_links
@@ -406,11 +430,9 @@ def _build_town_floor(
     building_id: str, floor_idx: int,
     base_shape: RoomShape, base_rect: Rect,
     n_floors: int, rng: random.Random,
+    archetype: str = "residential",
     required_walkable: frozenset[tuple[int, int]] = frozenset(),
 ) -> Level:
-    # Town buildings default to the residential archetype; M16 will
-    # re-roll the per-role archetype (shop / inn / temple / etc.)
-    # before partitioning once safe_floor_near() is in place.
     return build_building_floor(
         building_id=building_id,
         floor_idx=floor_idx,
@@ -418,7 +440,7 @@ def _build_town_floor(
         base_rect=base_rect,
         n_floors=n_floors,
         rng=rng,
-        archetype="residential",
+        archetype=archetype,
         tags=["town_interior"],
         required_walkable=required_walkable,
     )

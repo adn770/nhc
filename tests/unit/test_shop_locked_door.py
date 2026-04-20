@@ -55,7 +55,6 @@ class TestShopLockedDoor:
     def test_only_shop_buildings_get_locked_doors(self):
         """For every seed, locked doors live only on shop-role
         buildings."""
-        from nhc.dungeon.sites.town import _assign_service_roles
         for seed in range(100):
             site = assemble_town(
                 "t1", random.Random(seed), size_class="village",
