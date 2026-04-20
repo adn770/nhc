@@ -257,40 +257,74 @@ def _place_buildings(
     n_buildings: int, config: _TownSizeConfig,
     overrides: _BiomeOverrides | None = None,
 ) -> list[Building]:
-    """Distribute ``n_buildings`` across two rows of the site."""
+    """Greedy row-pack ``n_buildings`` across the town surface.
+
+    Per-building ``(w, h)`` sizes are drawn up front, then laid out
+    left-to-right starting at ``config.row_y[0]``. When the next
+    building would exceed ``surface_width - TOWN_ROW_X_START`` on the
+    current row, the cursor wraps to a new row whose top ``y`` is
+    ``previous_row_top + tallest_in_previous_row + spacing``. This
+    replaces the old two-fixed-rows layout that assumed a uniform
+    residential size range and overflowed ``city`` seeds when the
+    per-row count pushed the cursor past the surface width.
+    """
     overrides = overrides or _BiomeOverrides()
-    per_row = (n_buildings + 1) // 2
+    sizes = [
+        (
+            rng.randint(*_RESIDENTIAL_SIZE_RANGE),
+            rng.randint(*_RESIDENTIAL_SIZE_RANGE),
+        )
+        for _ in range(n_buildings)
+    ]
+    placements = _greedy_pack(sizes, config)
     buildings: list[Building] = []
-    for row_idx, base_y in enumerate(config.row_y):
-        x_cursor = TOWN_ROW_X_START
-        for i in range(per_row):
-            if len(buildings) >= n_buildings:
-                break
-            w = rng.randint(*_RESIDENTIAL_SIZE_RANGE)
-            h = rng.randint(*_RESIDENTIAL_SIZE_RANGE)
-            rect = Rect(x_cursor, base_y, w, h)
-            shape = _pick_shape(rng)
-            n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
-            if overrides.interior_floor is not None:
-                interior = overrides.interior_floor
-            else:
-                is_wood = (
-                    rng.random() < TOWN_WOOD_BUILDING_PROBABILITY
-                )
-                interior = "wood" if is_wood else "stone"
-            descent: DungeonRef | None = None
-            if rng.random() < TOWN_DESCENT_PROBABILITY:
-                descent = DungeonRef(
-                    template=TOWN_DESCENT_TEMPLATE,
-                )
-            building = _build_town_building(
-                f"{site_id}_b{row_idx}_{i}", shape, rect,
-                n_floors, descent, interior, rng,
-                wall_override=overrides.wall_material,
-            )
-            buildings.append(building)
-            x_cursor += w + TOWN_BUILDING_SPACING
+    for i, (x, y, w, h) in enumerate(placements):
+        rect = Rect(x, y, w, h)
+        shape = _pick_shape(rng)
+        n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
+        if overrides.interior_floor is not None:
+            interior = overrides.interior_floor
+        else:
+            is_wood = rng.random() < TOWN_WOOD_BUILDING_PROBABILITY
+            interior = "wood" if is_wood else "stone"
+        descent: DungeonRef | None = None
+        if rng.random() < TOWN_DESCENT_PROBABILITY:
+            descent = DungeonRef(template=TOWN_DESCENT_TEMPLATE)
+        building = _build_town_building(
+            f"{site_id}_b{i}", shape, rect,
+            n_floors, descent, interior, rng,
+            wall_override=overrides.wall_material,
+        )
+        buildings.append(building)
     return buildings
+
+
+def _greedy_pack(
+    sizes: list[tuple[int, int]], config: _TownSizeConfig,
+) -> list[tuple[int, int, int, int]]:
+    """Return ``[(x, y, w, h)]`` placements for the given sizes.
+
+    Wraps to a new row when the cursor would push past
+    ``surface_width - TOWN_ROW_X_START``. Row heights grow from the
+    tallest building placed so far in that row.
+    """
+    row_x_limit = config.surface_width - TOWN_ROW_X_START
+    placements: list[tuple[int, int, int, int]] = []
+    row_top = config.row_y[0]
+    x_cursor = TOWN_ROW_X_START
+    row_height = 0
+    for w, h in sizes:
+        # Wrap to the next row only when there is already something
+        # on this row — a single oversized building may exceed the
+        # row limit but still has to go somewhere.
+        if x_cursor > TOWN_ROW_X_START and x_cursor + w > row_x_limit:
+            row_top += row_height + TOWN_BUILDING_SPACING
+            x_cursor = TOWN_ROW_X_START
+            row_height = 0
+        placements.append((x_cursor, row_top, w, h))
+        x_cursor += w + TOWN_BUILDING_SPACING
+        row_height = max(row_height, h)
+    return placements
 
 
 def _assign_service_roles(
@@ -432,6 +466,38 @@ def _place_entry_door(
     return (dx, dy)
 
 
+def _main_street_y(buildings: list[Building]) -> int:
+    """Return a y coordinate sitting in the widest gap between
+    building rows, used as the main-street / gate y.
+
+    Falls back to the midpoint of the building bounding box when
+    every y is occupied by at least one building.
+    """
+    if not buildings:
+        return 0
+    occupied: set[int] = set()
+    for b in buildings:
+        for y in range(b.base_rect.y, b.base_rect.y2):
+            occupied.add(y)
+    min_y = min(b.base_rect.y for b in buildings)
+    max_y = max(b.base_rect.y2 for b in buildings) - 1
+    best_len = 0
+    best_mid = (min_y + max_y) // 2
+    cur_start: int | None = None
+    for y in range(min_y, max_y + 2):
+        if y not in occupied and y <= max_y:
+            if cur_start is None:
+                cur_start = y
+        else:
+            if cur_start is not None:
+                run_len = y - cur_start
+                if run_len > best_len:
+                    best_len = run_len
+                    best_mid = (cur_start + y - 1) // 2
+                cur_start = None
+    return best_mid
+
+
 def _build_palisade(
     buildings: list[Building], config: _TownSizeConfig,
     rng: random.Random,
@@ -454,14 +520,11 @@ def _build_palisade(
     ]
     # Palisade gates sit on the east / west edges at the main
     # street's y-centre so the road runs straight through the
-    # town -- not at random midpoints of a random edge.
-    gate_y = (
-        config.row_y[0] + _RESIDENTIAL_SIZE_RANGE[1]
-        + (
-            config.row_y[1] - config.row_y[0]
-            - _RESIDENTIAL_SIZE_RANGE[1]
-        ) // 2
-    )
+    # town -- not at random midpoints of a random edge. With
+    # greedy row packing, the gate sits in the biggest vertical
+    # gap between building rows so variable building heights don't
+    # push the street inside a building.
+    gate_y = _main_street_y(buildings)
     gate_count = rng.randint(*TOWN_GATE_COUNT_RANGE)
     sides = ["west", "east"]
     rng.shuffle(sides)
