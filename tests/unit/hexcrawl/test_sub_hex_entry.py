@@ -796,6 +796,53 @@ def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# A3: day clock freezes for the duration of a sub-hex family visit
+# ---------------------------------------------------------------------------
+
+
+def test_sub_hex_family_visit_does_not_advance_day_clock(tmp_path) -> None:
+    """Entering a sub-hex site, ticking turns inside, and exiting
+    through the leave-site event leaves ``hex_world.day`` /
+    ``hex_world.time`` / ``hex_world.hour`` untouched. Matches the
+    behaviour of a macro-feature dungeon visit (caves, towns): time
+    inside a site is "out of band" for the overland clock."""
+    import asyncio
+
+    from nhc.core.events import LeaveSiteRequested
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    day0 = game.hex_world.day
+    time0 = game.hex_world.time
+    hour0 = game.hex_world.hour
+
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    # Simulate in-site turns. The dungeon-tick path does not touch
+    # ``hex_world.advance_clock``; bumping ``game.turn`` stands in
+    # for a handful of in-level moves without wiring a full turn
+    # loop into the test.
+    for _ in range(10):
+        game.turn += 1
+
+    assert game.hex_world.day == day0
+    assert game.hex_world.time is time0
+    assert game.hex_world.hour == hour0
+
+    asyncio.run(
+        game.event_bus.emit(LeaveSiteRequested(actor=game.player_id)),
+    )
+    assert game.level is None
+    assert game.hex_world.day == day0
+    assert game.hex_world.time is time0
+    assert game.hex_world.hour == hour0
+
+
+# ---------------------------------------------------------------------------
 # M5: welcome message / i18n hint updates
 # ---------------------------------------------------------------------------
 
