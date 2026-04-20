@@ -273,6 +273,9 @@ def _serialize_level(level: Level) -> dict[str, Any]:
         "rooms": rooms_data,
         "corridors": corridors_data,
         "metadata": asdict(level.metadata),
+        "interior_edges": sorted(
+            [list(e) for e in level.interior_edges]
+        ),
     }
 
 
@@ -346,6 +349,11 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
         prerevealed=bool(prerevealed),
     )
 
+    interior_edges: set[tuple[int, int, str]] = set()
+    for entry in data.get("interior_edges", []) or []:
+        # Stored as list[list[int, int, str]] in JSON.
+        interior_edges.add((int(entry[0]), int(entry[1]), str(entry[2])))
+
     return Level(
         id=data["id"],
         name=data["name"],
@@ -356,6 +364,7 @@ def _deserialize_level(data: dict[str, Any]) -> Level:
         rooms=rooms,
         corridors=corridors,
         metadata=metadata,
+        interior_edges=interior_edges,
     )
 
 

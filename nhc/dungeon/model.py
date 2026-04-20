@@ -720,6 +720,65 @@ class LevelMetadata:
     prerevealed: bool = False
 
 
+# ─── Interior edge-wall primitive ─────────────────────────────
+#
+# Interior partitioning walls live on tile edges, not tiles. An
+# edge is stored as ``(x, y, side)`` with ``side ∈ {"north",
+# "west"}`` so each physical edge has exactly one key in the
+# set. ``canonicalize`` normalizes any four-sided form to the
+# canonical pair; ``edge_between`` returns the edge crossed by
+# an orthogonal step.
+
+
+_CANONICAL_EDGE_SIDES = ("north", "west")
+_EDGE_SIDE_MIRROR = {
+    "south": (0, 1, "north"),   # south of (x, y) = north of (x, y+1)
+    "east":  (1, 0, "west"),    # east of (x, y)  = west of (x+1, y)
+}
+
+
+def canonicalize(
+    x: int, y: int, side: str,
+) -> tuple[int, int, str]:
+    """Normalize an edge triple to canonical form.
+
+    Canonical form keeps ``side ∈ {"north", "west"}`` only. South
+    and east forms are rewritten as the north / west of the
+    mirror tile so every physical edge maps to a single triple.
+    """
+    if side in _CANONICAL_EDGE_SIDES:
+        return (x, y, side)
+    mirror = _EDGE_SIDE_MIRROR.get(side)
+    if mirror is None:
+        raise ValueError(f"unknown edge side: {side!r}")
+    dx, dy, canon_side = mirror
+    return (x + dx, y + dy, canon_side)
+
+
+def edge_between(
+    a: tuple[int, int], b: tuple[int, int],
+) -> tuple[int, int, str]:
+    """Return the canonical edge crossed by the step ``a -> b``.
+
+    Raises ``ValueError`` if ``a`` and ``b`` are not orthogonally
+    adjacent (or are the same tile)."""
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    if (dx, dy) == (0, 1):
+        return (bx, by, "north")            # b is below a
+    if (dx, dy) == (0, -1):
+        return (ax, ay, "north")            # a is below b
+    if (dx, dy) == (1, 0):
+        return (bx, by, "west")             # b is right of a
+    if (dx, dy) == (-1, 0):
+        return (ax, ay, "west")             # a is right of b
+    raise ValueError(
+        f"edge_between only accepts orthogonal adjacency; "
+        f"got {a} -> {b}"
+    )
+
+
 @dataclass
 class Level:
     """A single dungeon level."""
@@ -736,6 +795,12 @@ class Level:
     building_id: str | None = None
     floor_index: int | None = None
     interior_floor: str = "stone"  # stone | wood (building floors)
+    # Interior partitioning walls as canonical edges. See
+    # ``canonicalize`` / ``edge_between``. Stamped by partitioners,
+    # consulted by FOV / movement / the SVG renderer.
+    interior_edges: set[tuple[int, int, str]] = field(
+        default_factory=set,
+    )
 
     @classmethod
     def create_empty(cls, id: str, name: str, depth: int,

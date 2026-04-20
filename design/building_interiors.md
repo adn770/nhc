@@ -26,6 +26,10 @@ a row-house terrace or a tavern-inn passage.
 - Multi-room interiors with interior doors and optional corridors.
 - Per-archetype layouts (tavern/shop doorways; temple nave + chapels;
   keep/mansion central corridor; tower sectors around a central hub).
+- **Interior walls are axis-aligned edges between tiles**, not
+  WALL tiles. Rooms keep every tile they draw; walls live on the
+  grid edges and render as thin lines. `Tile.terrain = WALL` is
+  reserved for the site-level perimeter shell.
 - Strict cross-floor stair alignment preserved — redefined as a
   per-link invariant.
 - Shared walls and optional connecting doors between adjacent
@@ -147,6 +151,59 @@ pre-validated hard constraint and assert if any tile lies outside
 the shape's walkable set — that's a caller bug, not a runtime
 recoverable condition.
 
+### Interior wall primitive (edge walls)
+
+Interior walls are **axis-aligned edges between tiles**, not WALL
+tiles. An edge is a triple `(x, y, side)` with `side ∈ {"north",
+"west"}`. Canonical form: the north edge of `(x, y)` is the same
+physical wall as the south edge of `(x, y-1)`; the set stores the
+`"north"` form only. Same for west / east. A small
+`canonicalize(x, y, side)` helper normalizes every read and write
+so the engine has one truth per edge.
+
+```python
+# nhc/dungeon/model.py
+@dataclass
+class Level:
+    ...
+    interior_edges: set[tuple[int, int, str]] = field(
+        default_factory=set,
+    )
+```
+
+Why edges and not tiles:
+
+- A BSP split between two rooms used to eat a full row/column of
+  WALL tiles. A 9×8 building became two 9×3 rooms with a 9-tile
+  wall row in between. Edge walls give two 9×4 rooms with the
+  wall on the boundary — both rooms keep every tile they draw.
+- Renderers draw the wall directly from the data model — no
+  "scan for contiguous WALL tiles, then draw a line" heuristic.
+- `Tile.terrain = WALL` is reserved exclusively for the site
+  perimeter shell. Nothing in the interior ever produces a WALL
+  tile. One wall primitive per "owner" (shell vs partitioner),
+  both consumed by the engine without ambiguity.
+
+Interior walls are **always axis-aligned**, including inside
+circle / octagon / L-shape footprints. A circle is split by a
+single vertical edge at the centre, or by a `(+)` cross, or by an
+off-centre split — the interior grammar is the same regardless of
+the footprint shape. Edges are intersected with the footprint's
+walkable set so they never dangle over VOID tiles.
+
+### Doors and edge walls
+
+Doors stay on tiles (no change to the action system). An edge in
+`interior_edges` is **suppressed** when an adjacent tile has a
+door feature (`door_closed`, `door_open`, `door_locked`) with
+`door_side` pointing across that edge. The partitioner emits the
+full edge run and the door tile; the engine treats the door as the
+gap.
+
+This keeps `OpenDoorAction`, `CloseDoorAction`, `PickLockAction`,
+`ForceDoorAction`, `DoorOpened` / `DoorClosed`, `sync_linked_door_
+state`, `tick_doors`, and save-load of doors exactly as they are.
+
 ### Partitioner API
 
 Partitioners return a layout description. The site floor builder
@@ -178,17 +235,18 @@ class InteriorDoor:
 @dataclass
 class LayoutPlan:
     rooms: list[Room]
-    interior_walls: set[tuple[int, int]]
+    interior_edges: set[tuple[int, int, str]]   # canonical, axis-aligned
     corridor_tiles: set[tuple[int, int]]
     doors: list[InteriorDoor]
     # Disjointness contract (checked in tests):
-    #   interior_walls ∩ {d.xy for d in doors}         == ∅
-    #   interior_walls ∩ corridor_tiles                == ∅
-    #   interior_walls ∩ cfg.required_walkable         == ∅
-    #   {d.xy for d in doors} ∩ cfg.required_walkable  == ∅
-    # Caller stamps WALL, then corridor surface, then doors — no
-    # precedence ambiguity. required_walkable tiles must land on
-    # FLOOR inside some room.
+    #   every edge is in canonical form (side ∈ {"north","west"})
+    #   every edge lies between two footprint-walkable tiles
+    #   door_edges ⊆ interior_edges    # doors sit on an emitted
+    #                                   # edge; engine suppresses them
+    #   corridor_tiles ∩ cfg.required_walkable == ∅  # corridor tiles
+    #                                                 # stay FLOOR
+    #   {d.xy for d in doors} ∩ cfg.required_walkable == ∅
+    # required_walkable tiles must land on FLOOR inside some room.
 
 class Partitioner(Protocol):
     def plan(self, cfg: PartitionerConfig) -> LayoutPlan: ...
@@ -206,8 +264,8 @@ Concrete partitioners:
 | `DividedPartitioner` | residential, cottage, small farm, square tower |
 | `RectBSPPartitioner` (doorway mode) | tavern, shop, training |
 | `RectBSPPartitioner` (corridor mode) | keep, mansion |
-| `SectorPartitioner` (simple mode) | circle tower — pie slices around a hub |
-| `SectorPartitioner` (enriched mode) | mage residence — rotates main sector per floor |
+| `SectorPartitioner` (simple mode) | circle tower — axis splits (vertical / horizontal / cross) inside circle footprint |
+| `SectorPartitioner` (enriched mode) | mage residence — axis split rotates per floor, stair picker favours diagonally opposite leaves to force "spiral" traversal |
 | `TemplePartitioner` | temple nave + flanking chapels |
 | `LShapePartitioner` | L-shape footprints — splits at inner corner, one junction door |
 
@@ -228,10 +286,15 @@ Propagation is through `PartitionerConfig.required_walkable`:
    not a door).
 4. The same pattern repeats upward.
 
-A "structural stairwell" (central tower stair) emerges when a site
-picks the same coord for every link; the sector partitioner wraps
-pie-slice rooms around it. It is an optional pattern, not an
-invariant.
+A **"spiral stairwell" pattern** emerges when the link picker
+places consecutive floors' shared tiles in diagonally opposite
+leaves of the partition — stair-up on one side, stair-down on the
+other. With ≥ 2 rooms per floor and an interior door between
+them, the player has to cross the floor to progress. Mage
+residences lean into this to read as chaotic / labyrinthine.
+Towers that pick the same coord for every link produce a
+"central stairwell" instead; both are optional patterns, not
+invariants.
 
 ### Interior wall rendering
 
@@ -244,14 +307,21 @@ stylized perimeter rendering. Three categories:
 | stone | `#707070` | keep, mansion, temple, tower, mage residence |
 | brick | `#c4651d` | shop, training, urban service buildings |
 
-`Building.interior_wall_material` chooses per building; the tile
-`terrain` stays `WALL` (no new enum). The SVG renderer classifies
-each WALL tile as perimeter/shared (stamped by `compose_shell()`) or
-interior (stamped by a partitioner). Perimeter walls keep the
-existing stylized pass. Interior walls emit one `<line>` per
-straight run, stroke width ≈ 0.25 tile, colored by material, no
-corner decoration. Long walls are a single SVG element, not N
-tiles.
+`Building.interior_wall_material` chooses per building. The SVG
+renderer iterates `level.interior_edges` directly:
+
+```python
+for (x, y, side) in level.interior_edges:
+    if edge_has_door(level, x, y, side):
+        continue
+    draw_line_on_edge(x, y, side, building.interior_wall_material)
+```
+
+Optional coalescing collapses colinear edges into one `<line>`
+element for smaller SVGs — purely a rendering concern; the data
+model stays per-edge. Perimeter walls use the separate tile-based
+stylized pass stamped by `compose_shell()`. No heuristic scanning
+of WALL tile runs.
 
 Interior doors render via the existing door SVG, keyed by
 `door_side`.
@@ -434,15 +504,34 @@ consistency and pathfinding symmetry.
 - `_doors._compute_door_sides()` — reuse as a post-pass after
   stamping to tag `door_side` on every interior door.
 - `_walls._build_walls` — not needed; partitioner emits interior
-  walls directly and the shell composer handles the perimeter.
+  edges directly and the shell composer handles the perimeter.
+
+## FOV and movement with edge walls
+
+Both subsystems gain one per-step check that consults
+`level.interior_edges` and the door-suppression rule. Closed
+doors continue to block via the tile-feature check; they're
+independent of the edge primitive.
+
+```python
+def edge_blocks_sight(level, from_xy, to_xy) -> bool:
+    edge = edge_between(from_xy, to_xy)
+    if edge not in level.interior_edges:
+        return False
+    return not edge_has_open_door(level, edge)
+
+def edge_blocks_movement(level, from_xy, to_xy) -> bool:
+    # Symmetric to edge_blocks_sight; closed doors still block
+    # via the tile-feature path, not via this check.
+    ...
+```
+
+FOV's raycast adds one call per step; A* adds one call per
+neighbour expansion. Both are O(1) set lookups after
+canonicalization.
 
 ## Risks and tradeoffs
 
-- **Octagon sector partitioning**: diagonal edges produce short,
-  awkward interior walls. Circle-only sectors ship first; octagon
-  lands later for mage residences. If octagon geometry proves
-  intractable, mage residences can fall back to circle without
-  blocking regular towers.
 - **L-shape partitioning**: splitting at the inner corner is a
   bespoke geometry. Each arm runs its own sub-partitioner; a
   junction door at the inner corner ensures connectivity.
