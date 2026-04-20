@@ -18,6 +18,7 @@ from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.rect_bsp import RectBSPPartitioner
+from nhc.dungeon.interior.sector import SectorPartitioner
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
     CircleShape, OctagonShape, Rect, RectShape, SurfaceType,
@@ -402,6 +403,73 @@ class TestRectBSPPartitionerCorridor:
         # corridor tile or a sub-room floor tile.
         assert plan.interior_walls.isdisjoint(required)
         assert required.isdisjoint({d.xy for d in plan.doors})
+
+
+class TestSectorPartitionerSimple:
+    def test_11_wide_circle_returns_four_sectors(self):
+        rect = Rect(1, 1, 11, 11)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=frozenset({(6, 6)}),
+                 seed=0),
+        )
+        assert len(plan.rooms) == 4
+
+    def test_central_hub_walkable(self):
+        rect = Rect(1, 1, 11, 11)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=frozenset({(6, 6)}),
+                 seed=0),
+        )
+        # Hub tile is the required_walkable one, at the circle center.
+        # It must not be a wall and not be a door.
+        assert (6, 6) not in plan.interior_walls
+        assert (6, 6) not in {d.xy for d in plan.doors}
+
+    def test_at_least_one_door_per_sector_onto_hub(self):
+        """Each sector must be BFS-connected to the hub through a
+        door tile."""
+        rect = Rect(1, 1, 11, 11)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=frozenset({(6, 6)}),
+                 seed=0),
+        )
+        foot = CircleShape().floor_tiles(rect)
+        walkable = (foot - plan.interior_walls) | {
+            d.xy for d in plan.doors
+        }
+        reached = _bfs_connected(walkable, (6, 6))
+        # Every sector room has at least one tile reachable from hub.
+        for room in plan.rooms:
+            room_tiles = room.floor_tiles() & foot
+            # Sector overlaps the shape; at least one of its tiles
+            # must be reachable from the hub.
+            assert room_tiles & reached, (
+                f"sector {room.id} not reachable from hub"
+            )
+
+    def test_disjointness_invariants(self):
+        rect = Rect(1, 1, 11, 11)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=frozenset({(6, 6)}),
+                 seed=0),
+        )
+        doors_xy = {d.xy for d in plan.doors}
+        assert plan.interior_walls.isdisjoint(doors_xy)
+        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
+
+    def test_falls_back_when_not_circle(self):
+        """Sector mode requires a CircleShape — non-circle footprints
+        fall back to SingleRoom."""
+        rect = Rect(1, 1, 7, 7)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=RectShape(), seed=0),
+        )
+        assert len(plan.rooms) == 1
+        assert plan.interior_walls == set()
 
 
 class TestPartitionerConfigDisjointness:
