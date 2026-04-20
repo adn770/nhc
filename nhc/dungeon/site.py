@@ -161,7 +161,21 @@ def stamp_building_door(
     Every site assembler should go through this helper instead of
     stamping ``tile.feature = "door_closed"`` directly.
     """
-    tile = building.ground.tiles[by][bx]
+    stamp_building_door_on_floor(building, 0, bx, by, feature)
+
+
+def stamp_building_door_on_floor(
+    building: Building, floor_idx: int, bx: int, by: int,
+    feature: str = "door_closed",
+) -> None:
+    """Stamp a door at ``(bx, by)`` on ``building.floors[floor_idx]``.
+
+    Variant of :func:`stamp_building_door` that targets any floor
+    (not just the ground). Used by the cross-building links in
+    multi-floor town pairs where the link must land on each shared
+    floor.
+    """
+    tile = building.floors[floor_idx].tiles[by][bx]
     tile.feature = feature
     nb = outside_neighbour(building, bx, by)
     if nb is None:

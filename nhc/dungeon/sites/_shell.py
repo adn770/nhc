@@ -18,6 +18,10 @@ from nhc.dungeon.model import Level, Terrain, Tile
 def compose_shell(
     level: Level,
     building_footprints: Mapping[str, set[tuple[int, int]]],
+    *,
+    shared_doors: (
+        list[tuple[str, str, tuple[int, int]]] | None
+    ) = None,
 ) -> None:
     """Stamp WALL at every 8-neighbour of any building footprint.
 
@@ -25,6 +29,13 @@ def compose_shell(
     (so edge-adjacent footprints share their seam). Neighbours
     that are already non-VOID are preserved. Out-of-bounds
     neighbours are skipped.
+
+    ``shared_doors`` is ``[(from_id, to_id, (x, y)), …]``. Each
+    entry stamps a ``door_closed`` feature at ``(x, y)``. Today
+    every building floor is its own Level, so the parameter is
+    declared for API completeness and exercised via unit calls;
+    the town assembler wires tavern↔inn / residential pairs via
+    the separate :class:`InteriorDoorLink` teleport mechanism.
     """
     all_footprints: set[tuple[int, int]] = set()
     for tiles in building_footprints.values():
@@ -40,3 +51,10 @@ def compose_shell(
                     continue
                 if level.tiles[ny][nx].terrain is Terrain.VOID:
                     level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+
+    for (_from_id, _to_id, xy) in shared_doors or ():
+        x, y = xy
+        if not level.in_bounds(x, y):
+            continue
+        tile = level.tiles[y][x]
+        tile.feature = "door_closed"

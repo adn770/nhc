@@ -37,7 +37,9 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
+from nhc.dungeon.interior.registry import (
+    ARCHETYPE_CONFIG, SHARED_DOOR_PAIRS,
+)
 from nhc.dungeon.model import (
     EntityPlacement, Level, LShape, Rect, RectShape,
     RoomShape, SurfaceType, Terrain, Tile,
@@ -46,8 +48,9 @@ from nhc.dungeon.room_types import (
     SHOP_STOCK, TEMPLE_SERVICES_DEFAULT, TEMPLE_STOCK_DEFAULT,
 )
 from nhc.dungeon.site import (
-    Enclosure, Site, outside_neighbour, paint_surface_doors,
-    stamp_building_door,
+    Enclosure, InteriorDoorLink, Site, outside_neighbour,
+    paint_surface_doors, stamp_building_door,
+    stamp_building_door_on_floor,
 )
 from nhc.dungeon.sites._placement import (
     safe_floor_near, smallest_leaf_door,
@@ -258,6 +261,7 @@ def assemble_town(
     paint_surface_doors(site, SurfaceType.STREET)
     _place_service_npcs(buildings, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
+    _connect_cross_building_doors(site, roles)
     return site
 
 
@@ -718,6 +722,105 @@ def _lock_shop_doors(
             continue
         x, y = door_tile
         ground.tiles[y][x].feature = "door_locked"
+
+
+def _connect_cross_building_doors(
+    site: Site, roles: list[str],
+) -> None:
+    """Add :class:`InteriorDoorLink`s for same-row adjacent pairs
+    whose roles appear in :data:`SHARED_DOOR_PAIRS`.
+
+    A pair is "adjacent" when the two buildings sit on the same row
+    (overlapping y-range) with no third building's x-range between
+    them. Links land on each floor shared by both buildings
+    (``floor < min(len(A.floors), len(B.floors))``). On each floor
+    the helper stamps ``door_closed`` on mirrored east / west edge
+    tiles and records the pair in :attr:`Site.interior_doors`
+    (ground-floor only, legacy shape) and
+    :attr:`Site.interior_door_links`.
+
+    Each building floor is its own Level, so the two tiles never
+    share a tile — movement crosses them via the engine's
+    teleport-on-door-step mechanism, same as mansion inter-
+    building doors and surface entry doors.
+    """
+    pair_set: set[tuple[str, str]] = set()
+    for a, b in SHARED_DOOR_PAIRS:
+        pair_set.add((a, b))
+        pair_set.add((b, a))
+
+    by_id = {b.id: b for b in site.buildings}
+    role_of = dict(zip([b.id for b in site.buildings], roles))
+
+    # Group buildings by row: same y-range (base_rect.y).
+    rows: dict[int, list[Building]] = {}
+    for b in site.buildings:
+        rows.setdefault(b.base_rect.y, []).append(b)
+    for row in rows.values():
+        row.sort(key=lambda b: b.base_rect.x)
+
+    for row in rows.values():
+        for left, right in zip(row, row[1:]):
+            rl = role_of[left.id]
+            rr = role_of[right.id]
+            if (rl, rr) not in pair_set:
+                continue
+            _link_pair_per_floor(site, left, right, by_id)
+
+
+def _link_pair_per_floor(
+    site: Site, left: Building, right: Building,
+    by_id: dict[str, Building],
+) -> None:
+    """Stamp a door on each floor shared by both buildings.
+
+    ``left`` sits to the west of ``right`` on the same row. The
+    door lands on the east edge of ``left`` and the west edge of
+    ``right`` at the centre of their vertically overlapping
+    perimeter rows. Every floor uses the same ``(lx, ly)`` /
+    ``(rx, ry)`` pair since floors share ``base_rect``.
+    """
+    left_east_ys = {
+        y for (x, y) in left.shared_perimeter()
+        if x == left.base_rect.x2 - 1
+    }
+    right_west_ys = {
+        y for (x, y) in right.shared_perimeter()
+        if x == right.base_rect.x
+    }
+    overlap = sorted(left_east_ys & right_west_ys)
+    if not overlap:
+        return
+    y = overlap[len(overlap) // 2]
+    lx = left.base_rect.x2 - 1
+    rx = right.base_rect.x
+
+    shared_floor_count = min(len(left.floors), len(right.floors))
+    for floor_idx in range(shared_floor_count):
+        l_tile = left.floors[floor_idx].tiles[y][lx]
+        r_tile = right.floors[floor_idx].tiles[y][rx]
+        # Only stamp if both tiles are interior floor tiles on
+        # their respective Levels; a mismatched shape can leave a
+        # wall where we expect floor.
+        if (l_tile.terrain is not Terrain.FLOOR
+                or r_tile.terrain is not Terrain.FLOOR):
+            continue
+        stamp_building_door_on_floor(left, floor_idx, lx, y)
+        stamp_building_door_on_floor(right, floor_idx, rx, y)
+        if floor_idx == 0:
+            # Legacy ground-floor dict preserves the old mansion
+            # movement contract so existing code keeps working.
+            site.interior_doors[(left.id, lx, y)] = (
+                right.id, rx, y,
+            )
+            site.interior_doors[(right.id, rx, y)] = (
+                left.id, lx, y,
+            )
+        site.interior_door_links.append(InteriorDoorLink(
+            from_building=left.id, to_building=right.id,
+            floor=floor_idx,
+            from_tile=(lx, y), to_tile=(rx, y),
+        ))
 
 
 def _innkeeper_placement(cx: int, cy: int) -> EntityPlacement:
