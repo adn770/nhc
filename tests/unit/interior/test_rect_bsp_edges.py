@@ -1,9 +1,13 @@
-"""RectBSPPartitioner doorway mode emits edge walls (M4).
+"""RectBSPPartitioner doorway mode emits edge walls (M4, M5).
 
 Every split produces a canonical edge run; rooms grow into the
 old wall row (a 9×8 footprint now yields two 9×4 rooms instead
 of 9×3 + wall + 9×4). Doors stay as tile features with
 ``door_side`` suppressing the edge beneath them.
+
+M5 extends the same treatment to corridor mode: the two flanking
+wall bands become edge runs, rooms absorb their wall row, the
+corridor itself stays tile-based FLOOR (``corridor_tiles``).
 """
 
 from __future__ import annotations
@@ -136,6 +140,131 @@ class TestRectBSPDoorwayEdges:
             assert room.rect.center in seen, (
                 f"room {room.id} unreachable via door edges"
             )
+
+    def test_corridor_emits_canonical_edges(self) -> None:
+        """Corridor mode emits edges only; no WALL tiles."""
+        # 14x11 favours horiz corridor (wider than tall) and
+        # comfortably fits min_room=3 rooms on each side of a
+        # 1-tile corridor.
+        rect = Rect(0, 0, 14, 11)
+        for seed in range(30):
+            plan = RectBSPPartitioner(mode="corridor").plan(
+                _cfg(rect, seed=seed),
+            )
+            # Sanity: saw a corridor layout (has corridor_tiles
+            # and at least 2 rooms).
+            if not plan.corridor_tiles or len(plan.rooms) < 2:
+                continue
+            assert plan.interior_walls == set(), (
+                f"seed={seed}: corridor mode must not emit tile "
+                f"walls; got {plan.interior_walls}"
+            )
+            assert plan.interior_edges, (
+                f"seed={seed}: corridor mode must emit edges"
+            )
+            for e in plan.interior_edges:
+                assert e[2] in ("north", "west"), (
+                    f"seed={seed}: edge {e} is not canonical"
+                )
+            return
+        pytest.skip(
+            "no seed in 30 yielded a corridor layout; partitioner "
+            "may prefer doorway fallback for this footprint"
+        )
+
+    def test_corridor_rooms_absorb_wall_rows(self) -> None:
+        """Each leaf's boundary row adjacent to the corridor used
+        to be a WALL row; after M5 it is part of the room so every
+        footprint tile outside the corridor lives in a room."""
+        rect = Rect(0, 0, 14, 11)
+        for seed in range(30):
+            plan = RectBSPPartitioner(mode="corridor").plan(
+                _cfg(rect, seed=seed),
+            )
+            if not plan.corridor_tiles or len(plan.rooms) < 2:
+                continue
+            foot = RectShape().floor_tiles(rect)
+            covered: set[tuple[int, int]] = set()
+            for room in plan.rooms:
+                covered |= RectShape().floor_tiles(room.rect)
+            expected = foot - plan.corridor_tiles
+            assert covered == expected, (
+                f"seed={seed}: rooms + corridor should tile the "
+                f"footprint; missing={expected - covered}, "
+                f"extra={covered - expected}"
+            )
+            return
+        pytest.skip("no corridor layout in 30 seeds")
+
+    def test_corridor_edges_on_corridor_boundary(self) -> None:
+        """The two flanking edge runs sit exactly on the corridor
+        boundary — every corridor tile has a canonical edge on its
+        side touching a room."""
+        rect = Rect(0, 0, 14, 11)
+        for seed in range(30):
+            plan = RectBSPPartitioner(mode="corridor").plan(
+                _cfg(rect, seed=seed),
+            )
+            if not plan.corridor_tiles or len(plan.rooms) < 2:
+                continue
+            # Walk each corridor tile; every room neighbour across
+            # the corridor boundary must correspond to a canonical
+            # edge UNLESS a door tile sits on the room side.
+            door_edges = {
+                canonicalize(d.x, d.y, d.side)
+                for d in plan.doors
+            }
+            room_tiles: set[tuple[int, int]] = set()
+            for room in plan.rooms:
+                room_tiles |= RectShape().floor_tiles(room.rect)
+            from nhc.dungeon.model import edge_between
+            for (cx, cy) in plan.corridor_tiles:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = (cx + dx, cy + dy)
+                    if nb not in room_tiles:
+                        continue
+                    edge = edge_between((cx, cy), nb)
+                    if edge in door_edges:
+                        continue
+                    assert edge in plan.interior_edges, (
+                        f"seed={seed}: corridor tile {(cx, cy)} "
+                        f"adjacent to room tile {nb} but edge "
+                        f"{edge} missing"
+                    )
+            return
+        pytest.skip("no corridor layout in 30 seeds")
+
+    def test_corridor_doors_reach_every_leaf(self) -> None:
+        """Every leaf has at least one door whose canonical edge
+        is in interior_edges, so opening the door makes the
+        corridor reachable from the leaf."""
+        rect = Rect(0, 0, 14, 11)
+        for seed in range(30):
+            plan = RectBSPPartitioner(mode="corridor").plan(
+                _cfg(rect, seed=seed),
+            )
+            if not plan.corridor_tiles or len(plan.rooms) < 2:
+                continue
+            door_edges = {
+                canonicalize(d.x, d.y, d.side)
+                for d in plan.doors
+            }
+            for e in door_edges:
+                assert e in plan.interior_edges, (
+                    f"seed={seed}: door edge {e} not in "
+                    f"interior_edges"
+                )
+            # Every room must have at least one door tile.
+            for room in plan.rooms:
+                room_tiles = RectShape().floor_tiles(room.rect)
+                door_tiles = {
+                    (d.x, d.y) for d in plan.doors
+                }
+                assert room_tiles & door_tiles, (
+                    f"seed={seed}: room {room.id} has no door"
+                )
+            return
+        pytest.skip("no corridor layout in 30 seeds")
 
     def test_9x8_splits_into_equal_rooms(self) -> None:
         """The user's motivating example: 9×8 building splits on

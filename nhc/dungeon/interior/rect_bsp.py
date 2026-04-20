@@ -134,36 +134,32 @@ class RectBSPPartitioner:
         min_room = cfg.min_room
         bot_wall_at = top_wall_at + cw + 1
 
-        top_wall, corridor, bot_wall = self._corridor_tiles(
+        _, corridor, _ = self._corridor_tiles(
             rect, axis, top_wall_at, cw,
         )
-        # Walls cannot overlap required_walkable; corridor tiles
-        # may (they are FLOOR, walkable).
-        if not (top_wall | bot_wall).isdisjoint(
-            cfg.required_walkable,
-        ):
-            return None
 
+        # Grown rects absorb the former wall rows so every tile
+        # outside the corridor lives in a leaf.
         if axis == "horiz":
             top_rect = Rect(
                 rect.x, rect.y,
-                rect.width, top_wall_at - rect.y,
+                rect.width, top_wall_at + 1 - rect.y,
             )
             bot_rect = Rect(
-                rect.x, bot_wall_at + 1,
-                rect.width, rect.y2 - bot_wall_at - 1,
+                rect.x, bot_wall_at,
+                rect.width, rect.y2 - bot_wall_at,
             )
         else:
             top_rect = Rect(
                 rect.x, rect.y,
-                top_wall_at - rect.x, rect.height,
+                top_wall_at + 1 - rect.x, rect.height,
             )
             bot_rect = Rect(
-                bot_wall_at + 1, rect.y,
-                rect.x2 - bot_wall_at - 1, rect.height,
+                bot_wall_at, rect.y,
+                rect.x2 - bot_wall_at, rect.height,
             )
 
-        # Sub-split each half (doorway-style BSP).
+        # Sub-split each half (doorway-style BSP, grown rects).
         total_target = cfg.rng.randint(3, 5)
         top_target = max(1, total_target // 2)
         bot_target = max(1, total_target - top_target)
@@ -176,18 +172,20 @@ class RectBSPPartitioner:
             bot_rect, min_room, cfg.rng,
             cfg.required_walkable, bot_target,
         )
-        top_leaves = self._leaves(top_tree)
-        bot_leaves = self._leaves(bot_tree)
+        top_leaves = self._leaves_grown(top_tree)
+        bot_leaves = self._leaves_grown(bot_tree)
 
-        sub_walls = (
-            self._collect_walls(top_tree)
-            | self._collect_walls(bot_tree)
+        sub_edges = (
+            self._collect_edges(top_tree)
+            | self._collect_edges(bot_tree)
         )
-        sub_doors = self._place_doors(top_tree, cfg) + (
-            self._place_doors(bot_tree, cfg)
+        sub_doors = self._place_edge_doors(top_tree, cfg) + (
+            self._place_edge_doors(bot_tree, cfg)
         )
 
-        walls = top_wall | bot_wall | sub_walls
+        corridor_edges = self._corridor_boundary_edges(
+            rect, axis, top_wall_at, bot_wall_at,
+        )
 
         corridor_doors: list[InteriorDoor] = []
         for leaf in top_leaves:
@@ -208,8 +206,7 @@ class RectBSPPartitioner:
             corridor_doors.append(d)
 
         all_doors = sub_doors + corridor_doors
-        for door in all_doors:
-            walls.discard(door.xy)
+        edges = sub_edges | corridor_edges
 
         leaves = top_leaves + bot_leaves
         rooms = [
@@ -223,10 +220,26 @@ class RectBSPPartitioner:
         ]
         return LayoutPlan(
             rooms=rooms,
-            interior_walls=walls,
+            interior_edges=edges,
             corridor_tiles=corridor,
             doors=all_doors,
         )
+
+    def _corridor_boundary_edges(
+        self, rect: Rect, axis: str,
+        top_wall_at: int, bot_wall_at: int,
+    ) -> set[tuple[int, int, str]]:
+        """Canonical edges along the two corridor boundaries."""
+        edges: set[tuple[int, int, str]] = set()
+        if axis == "horiz":
+            for x in range(rect.x, rect.x2):
+                edges.add(canonicalize(x, top_wall_at + 1, "north"))
+                edges.add(canonicalize(x, bot_wall_at, "north"))
+        else:
+            for y in range(rect.y, rect.y2):
+                edges.add(canonicalize(top_wall_at + 1, y, "west"))
+                edges.add(canonicalize(bot_wall_at, y, "west"))
+        return edges
 
     def _corridor_tiles(
         self, rect: Rect, axis: str, top_wall_at: int, cw: int,
