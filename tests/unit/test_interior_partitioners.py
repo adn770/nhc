@@ -154,9 +154,8 @@ class TestDividedPartitioner:
     def test_single_interior_wall_one_door(self):
         rect = Rect(1, 1, 7, 7)
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
-        # Wall is a straight run (interior_walls non-empty, all on
-        # same axis).
-        assert plan.interior_walls
+        # Wall is a straight edge run along one axis.
+        assert plan.interior_edges
         assert len(plan.doors) == 1
 
     def test_door_not_on_footprint_edge(self):
@@ -172,14 +171,29 @@ class TestDividedPartitioner:
         rect = Rect(1, 1, 7, 7)
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
         foot = RectShape().floor_tiles(rect)
-        walkable = (foot - plan.interior_walls) | {
-            d.xy for d in plan.doors
+        # Edge-wall mode: every tile is walkable; the edge under the
+        # door tile is suppressed so BFS crosses it.
+        from nhc.dungeon.model import canonicalize, edge_between
+        door_edges = {
+            canonicalize(d.x, d.y, d.side) for d in plan.doors
         }
-        # Flood fill from a tile in room A should reach room B.
+        blocked = plan.interior_edges - door_edges
+
         a_center = plan.rooms[0].rect.center
-        reached = _bfs_connected(walkable, a_center)
+        seen = {a_center}
+        queue = [a_center]
+        while queue:
+            x, y = queue.pop(0)
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nb = (x + dx, y + dy)
+                if nb not in foot or nb in seen:
+                    continue
+                if edge_between((x, y), nb) in blocked:
+                    continue
+                seen.add(nb)
+                queue.append(nb)
         b_center = plan.rooms[1].rect.center
-        assert b_center in reached
+        assert b_center in seen
 
     def test_disjointness_invariants(self):
         rect = Rect(1, 1, 7, 7)
@@ -195,30 +209,34 @@ class TestDividedPartitioner:
         plan = DividedPartitioner().plan(
             _cfg(rect, required_walkable=required, seed=1),
         )
-        assert plan.interior_walls.isdisjoint(required)
         assert required.isdisjoint({d.xy for d in plan.doors})
 
     def test_wall_is_straight_run(self):
-        """Interior wall is a single straight line (horizontal OR
-        vertical)."""
+        """Interior edge run is a single straight line (all north
+        edges share a y, or all west edges share an x)."""
         rect = Rect(1, 1, 7, 7)
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
-        xs = {x for (x, _) in plan.interior_walls}
-        ys = {y for (_, y) in plan.interior_walls}
-        # Either all same x (vertical wall) or all same y (horizontal).
-        assert len(xs) == 1 or len(ys) == 1
+        norths = [e for e in plan.interior_edges if e[2] == "north"]
+        wests = [e for e in plan.interior_edges if e[2] == "west"]
+        # Exactly one of the two sides carries the run.
+        assert bool(norths) ^ bool(wests), (
+            "edge run must be purely horizontal or purely vertical"
+        )
+        if norths:
+            ys = {y for (_, y, _) in norths}
+            assert len(ys) == 1
+        else:
+            xs = {x for (x, _, _) in wests}
+            assert len(xs) == 1
 
     def test_door_on_interior_wall_line(self):
         rect = Rect(1, 1, 7, 7)
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
+        from nhc.dungeon.model import canonicalize
         door = plan.doors[0]
-        # Door coord lies on the wall axis.
-        xs = {x for (x, _) in plan.interior_walls}
-        ys = {y for (_, y) in plan.interior_walls}
-        if len(xs) == 1:   # vertical wall
-            assert door.x == next(iter(xs))
-        else:
-            assert door.y == next(iter(ys))
+        assert canonicalize(door.x, door.y, door.side) in (
+            plan.interior_edges
+        )
 
     def test_too_small_footprint_falls_back_to_single_room(self):
         """A 4×4 footprint cannot satisfy min_room=3 on both halves;

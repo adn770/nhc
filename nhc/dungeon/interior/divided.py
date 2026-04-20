@@ -11,7 +11,7 @@ from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
-from nhc.dungeon.model import Rect, RectShape, Room
+from nhc.dungeon.model import Rect, RectShape, Room, canonicalize
 
 
 class DividedPartitioner:
@@ -73,35 +73,52 @@ class DividedPartitioner:
         if split_lo > split_hi:
             return None
 
-        # Try each candidate split (shuffled) until one avoids
-        # required_walkable on the wall line.
+        # Try each candidate split (shuffled) until one admits a
+        # door (the door tile avoids ``required_walkable``).
         splits = list(range(split_lo, split_hi + 1))
         cfg.rng.shuffle(splits)
 
         for split in splits:
-            wall = self._wall_line(rect, axis, split)
-            if not wall.isdisjoint(cfg.required_walkable):
-                continue
-            door = self._pick_door(cfg, axis, split, wall)
+            door = self._pick_door(cfg, axis, split)
             if door is None:
                 continue
-            wall.discard(door.xy)
-            return self._build_plan(cfg, axis, split, wall, door)
+            edges = self._edge_run(rect, axis, split)
+            return self._build_plan(cfg, axis, split, edges, door)
         return None
 
-    def _wall_line(
+    def _edge_run(
         self, rect: Rect, axis: str, split: int,
-    ) -> set[tuple[int, int]]:
+    ) -> set[tuple[int, int, str]]:
+        """Canonical edges along the split line.
+
+        Horizontal split at ``split`` (a y-coord) emits
+        ``(x, split + 1, "north")`` for every x in the footprint.
+        Vertical split at ``split`` (an x-coord) emits
+        ``(split + 1, y, "west")`` for every y in the footprint.
+        """
         if axis == "horizontal":
-            return {(x, split) for x in range(rect.x, rect.x2)}
-        return {(split, y) for y in range(rect.y, rect.y2)}
+            return {
+                canonicalize(x, split + 1, "north")
+                for x in range(rect.x, rect.x2)
+            }
+        return {
+            canonicalize(split + 1, y, "west")
+            for y in range(rect.y, rect.y2)
+        }
 
     def _pick_door(
         self, cfg: PartitionerConfig, axis: str, split: int,
-        wall: set[tuple[int, int]],
     ) -> InteriorDoor | None:
-        """Pick a non-edge tile on the wall that also avoids
-        required_walkable."""
+        """Pick a door tile on the un-grown side of the split.
+
+        Horizontal: door tile ``(x, split + 1)`` with
+        ``door_side="north"`` → canonical edge
+        ``(x, split + 1, "north")``. Vertical: door tile
+        ``(split + 1, y)`` with ``door_side="west"`` → canonical
+        edge ``(split + 1, y, "west")``. The first and last tile
+        of the run are excluded so the door sits on an edge run of
+        ≥ 3 segments.
+        """
         rect = cfg.footprint
         if axis == "horizontal":
             lo = rect.x + 1
@@ -109,8 +126,8 @@ class DividedPartitioner:
             if lo > hi:
                 return None
             candidates = [
-                (x, split) for x in range(lo, hi + 1)
-                if (x, split) not in cfg.required_walkable
+                (x, split + 1) for x in range(lo, hi + 1)
+                if (x, split + 1) not in cfg.required_walkable
             ]
             side = "north"
         else:
@@ -119,10 +136,10 @@ class DividedPartitioner:
             if lo > hi:
                 return None
             candidates = [
-                (split, y) for y in range(lo, hi + 1)
-                if (split, y) not in cfg.required_walkable
+                (split + 1, y) for y in range(lo, hi + 1)
+                if (split + 1, y) not in cfg.required_walkable
             ]
-            side = "east"
+            side = "west"
         if not candidates:
             return None
         x, y = cfg.rng.choice(candidates)
@@ -132,12 +149,14 @@ class DividedPartitioner:
 
     def _build_plan(
         self, cfg: PartitionerConfig, axis: str, split: int,
-        wall: set[tuple[int, int]], door: InteriorDoor,
+        edges: set[tuple[int, int, str]], door: InteriorDoor,
     ) -> LayoutPlan:
         rect = cfg.footprint
+        # "Top" / "left" leaf absorbs the former wall row so both
+        # rooms tile the footprint.
         if axis == "horizontal":
             room_a_rect = Rect(
-                rect.x, rect.y, rect.width, split - rect.y,
+                rect.x, rect.y, rect.width, split + 1 - rect.y,
             )
             room_b_rect = Rect(
                 rect.x, split + 1,
@@ -145,7 +164,7 @@ class DividedPartitioner:
             )
         else:
             room_a_rect = Rect(
-                rect.x, rect.y, split - rect.x, rect.height,
+                rect.x, rect.y, split + 1 - rect.x, rect.height,
             )
             room_b_rect = Rect(
                 split + 1, rect.y,
@@ -164,6 +183,6 @@ class DividedPartitioner:
         ]
         return LayoutPlan(
             rooms=rooms,
-            interior_walls=wall,
+            interior_edges=edges,
             doors=[door],
         )
