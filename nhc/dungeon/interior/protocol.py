@@ -33,6 +33,7 @@ class PartitionerConfig:
     required_walkable: frozenset[tuple[int, int]] = frozenset()
     min_room: int = 3
     padding: int = 1
+    corridor_width: int = 1
 
 
 @dataclass

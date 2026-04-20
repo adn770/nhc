@@ -59,7 +59,11 @@ class RectBSPPartitioner:
             assert tile in floor_tiles, (
                 f"required_walkable tile {tile} outside shape"
             )
+        if self.mode == "corridor":
+            return self._plan_corridor(cfg)
+        return self._plan_doorway(cfg)
 
+    def _plan_doorway(self, cfg: PartitionerConfig) -> LayoutPlan:
         target = cfg.rng.randint(3, 5)
         root = self._build_tree_to_target(
             cfg.footprint, cfg.min_room, cfg.rng,
@@ -89,6 +93,212 @@ class RectBSPPartitioner:
             rooms=rooms,
             interior_walls=walls,
             doors=doors,
+        )
+
+    def _plan_corridor(self, cfg: PartitionerConfig) -> LayoutPlan:
+        """Central corridor flanked by rooms.
+
+        The longer axis determines corridor orientation: a wider
+        footprint gets a horizontal corridor; a taller one gets a
+        vertical corridor. Each half is then BSP-split in
+        doorway-mode for its sub-rooms.
+        """
+        rect = cfg.footprint
+        min_room = cfg.min_room
+        cw = cfg.corridor_width
+        axis = "horiz" if rect.width >= rect.height else "vert"
+
+        # Perpendicular span must fit min_room + wall + corridor +
+        # wall + min_room.
+        perp_origin = rect.y if axis == "horiz" else rect.x
+        perp_end = rect.y2 if axis == "horiz" else rect.x2
+        lo = perp_origin + min_room
+        hi = perp_end - min_room - cw - 2
+        if lo > hi:
+            return self._plan_doorway(cfg)
+
+        positions = list(range(lo, hi + 1))
+        cfg.rng.shuffle(positions)
+
+        for top_wall_at in positions:
+            plan = self._try_corridor_layout(
+                cfg, axis, top_wall_at, cw,
+            )
+            if plan is not None:
+                return plan
+        return self._plan_doorway(cfg)
+
+    def _try_corridor_layout(
+        self, cfg: PartitionerConfig, axis: str,
+        top_wall_at: int, cw: int,
+    ) -> LayoutPlan | None:
+        rect = cfg.footprint
+        min_room = cfg.min_room
+        bot_wall_at = top_wall_at + cw + 1
+
+        top_wall, corridor, bot_wall = self._corridor_tiles(
+            rect, axis, top_wall_at, cw,
+        )
+        # Walls cannot overlap required_walkable; corridor tiles
+        # may (they are FLOOR, walkable).
+        if not (top_wall | bot_wall).isdisjoint(
+            cfg.required_walkable,
+        ):
+            return None
+
+        if axis == "horiz":
+            top_rect = Rect(
+                rect.x, rect.y,
+                rect.width, top_wall_at - rect.y,
+            )
+            bot_rect = Rect(
+                rect.x, bot_wall_at + 1,
+                rect.width, rect.y2 - bot_wall_at - 1,
+            )
+        else:
+            top_rect = Rect(
+                rect.x, rect.y,
+                top_wall_at - rect.x, rect.height,
+            )
+            bot_rect = Rect(
+                bot_wall_at + 1, rect.y,
+                rect.x2 - bot_wall_at - 1, rect.height,
+            )
+
+        # Sub-split each half (doorway-style BSP).
+        total_target = cfg.rng.randint(3, 5)
+        top_target = max(1, total_target // 2)
+        bot_target = max(1, total_target - top_target)
+
+        top_tree = self._build_tree_to_target(
+            top_rect, min_room, cfg.rng,
+            cfg.required_walkable, top_target,
+        )
+        bot_tree = self._build_tree_to_target(
+            bot_rect, min_room, cfg.rng,
+            cfg.required_walkable, bot_target,
+        )
+        top_leaves = self._leaves(top_tree)
+        bot_leaves = self._leaves(bot_tree)
+
+        sub_walls = (
+            self._collect_walls(top_tree)
+            | self._collect_walls(bot_tree)
+        )
+        sub_doors = self._place_doors(top_tree, cfg) + (
+            self._place_doors(bot_tree, cfg)
+        )
+
+        walls = top_wall | bot_wall | sub_walls
+
+        corridor_doors: list[InteriorDoor] = []
+        for leaf in top_leaves:
+            d = self._pick_corridor_door(
+                leaf, axis, top_wall_at, "top",
+                cfg.rng, cfg.required_walkable,
+            )
+            if d is None:
+                return None
+            corridor_doors.append(d)
+        for leaf in bot_leaves:
+            d = self._pick_corridor_door(
+                leaf, axis, bot_wall_at, "bottom",
+                cfg.rng, cfg.required_walkable,
+            )
+            if d is None:
+                return None
+            corridor_doors.append(d)
+
+        all_doors = sub_doors + corridor_doors
+        for door in all_doors:
+            walls.discard(door.xy)
+
+        leaves = top_leaves + bot_leaves
+        rooms = [
+            Room(
+                id=f"{cfg.archetype}_f{cfg.floor_index}_r{i}",
+                rect=leaf,
+                shape=RectShape(),
+                tags=[],
+            )
+            for i, leaf in enumerate(leaves)
+        ]
+        return LayoutPlan(
+            rooms=rooms,
+            interior_walls=walls,
+            corridor_tiles=corridor,
+            doors=all_doors,
+        )
+
+    def _corridor_tiles(
+        self, rect: Rect, axis: str, top_wall_at: int, cw: int,
+    ) -> tuple[
+        set[tuple[int, int]],
+        set[tuple[int, int]],
+        set[tuple[int, int]],
+    ]:
+        bot_wall_at = top_wall_at + cw + 1
+        if axis == "horiz":
+            top_wall = {
+                (x, top_wall_at) for x in range(rect.x, rect.x2)
+            }
+            bot_wall = {
+                (x, bot_wall_at) for x in range(rect.x, rect.x2)
+            }
+            corridor = {
+                (x, y)
+                for y in range(top_wall_at + 1, bot_wall_at)
+                for x in range(rect.x, rect.x2)
+            }
+        else:
+            top_wall = {
+                (top_wall_at, y) for y in range(rect.y, rect.y2)
+            }
+            bot_wall = {
+                (bot_wall_at, y) for y in range(rect.y, rect.y2)
+            }
+            corridor = {
+                (x, y)
+                for x in range(top_wall_at + 1, bot_wall_at)
+                for y in range(rect.y, rect.y2)
+            }
+        return top_wall, corridor, bot_wall
+
+    def _pick_corridor_door(
+        self, leaf: Rect, axis: str, wall_at: int, side: str,
+        rng: random.Random,
+        required: frozenset[tuple[int, int]],
+    ) -> InteriorDoor | None:
+        """Pick a door on the wall between ``leaf`` and the
+        corridor. ``side`` is "top" when the leaf sits above the
+        corridor (horiz) or left of it (vert); "bottom" for the
+        mirrored case."""
+        if axis == "horiz":
+            # door x lies within leaf's width, not on leaf edge.
+            lo = leaf.x + 1
+            hi = leaf.x2 - 2
+            if lo > hi:
+                return None
+            candidates = [
+                (x, wall_at) for x in range(lo, hi + 1)
+                if (x, wall_at) not in required
+            ]
+            door_side = "south" if side == "top" else "north"
+        else:
+            lo = leaf.y + 1
+            hi = leaf.y2 - 2
+            if lo > hi:
+                return None
+            candidates = [
+                (wall_at, y) for y in range(lo, hi + 1)
+                if (wall_at, y) not in required
+            ]
+            door_side = "east" if side == "top" else "west"
+        if not candidates:
+            return None
+        x, y = rng.choice(candidates)
+        return InteriorDoor(
+            x=x, y=y, side=door_side, feature="door_closed",
         )
 
     def _build_tree_to_target(

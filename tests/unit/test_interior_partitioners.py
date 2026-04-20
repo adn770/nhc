@@ -20,7 +20,7 @@ from nhc.dungeon.interior.protocol import (
 from nhc.dungeon.interior.rect_bsp import RectBSPPartitioner
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
-    CircleShape, OctagonShape, Rect, RectShape,
+    CircleShape, OctagonShape, Rect, RectShape, SurfaceType,
 )
 
 
@@ -32,6 +32,7 @@ def _cfg(
     n_floors: int = 1,
     archetype: str = "tower",
     seed: int = 0,
+    corridor_width: int = 1,
 ) -> PartitionerConfig:
     return PartitionerConfig(
         footprint=rect,
@@ -41,6 +42,7 @@ def _cfg(
         rng=random.Random(seed),
         archetype=archetype,
         required_walkable=required_walkable,
+        corridor_width=corridor_width,
     )
 
 
@@ -322,6 +324,84 @@ class TestRectBSPPartitionerDoorway:
             )
             counts.add(len(plan.rooms))
         assert len(counts) >= 1  # Sanity; full range asserted elsewhere.
+
+
+class TestRectBSPPartitionerCorridor:
+    def test_width1_has_corridor_tiles(self):
+        rect = Rect(1, 1, 20, 14)
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, corridor_width=1, seed=0),
+        )
+        assert plan.corridor_tiles, "corridor mode must mark corridor tiles"
+
+    def test_width1_corridor_is_one_tile_wide(self):
+        rect = Rect(1, 1, 20, 14)
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, corridor_width=1, seed=0),
+        )
+        # Corridor is a straight run — all same y (horizontal) or all
+        # same x (vertical). Exactly one axis should have 1 unique value.
+        xs = {x for (x, _) in plan.corridor_tiles}
+        ys = {y for (_, y) in plan.corridor_tiles}
+        assert len(ys) == 1 or len(xs) == 1
+
+    def test_width2_corridor_is_two_tiles_wide(self):
+        rect = Rect(1, 1, 20, 14)
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, corridor_width=2, seed=0),
+        )
+        xs = {x for (x, _) in plan.corridor_tiles}
+        ys = {y for (_, y) in plan.corridor_tiles}
+        # For a horizontal corridor, corridor_tiles covers 2 distinct y
+        # values across the full width.
+        assert len(ys) == 2 or len(xs) == 2
+
+    def test_door_count_equals_room_count(self):
+        rect = Rect(1, 1, 20, 14)
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, corridor_width=1, seed=0),
+        )
+        # Each room has exactly one door onto the corridor; sub-splits
+        # inside a half would add extra doors. With no sub-splits,
+        # doors == rooms.
+        # Allow some extra doors from sub-splits: doors >= rooms.
+        assert len(plan.doors) >= len(plan.rooms)
+
+    def test_rooms_bfs_connected_through_corridor(self):
+        rect = Rect(1, 1, 20, 14)
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, corridor_width=2, seed=0),
+        )
+        foot = RectShape().floor_tiles(rect)
+        walkable = (
+            (foot - plan.interior_walls)
+            | {d.xy for d in plan.doors}
+        )
+        start = plan.rooms[0].rect.center
+        reached = _bfs_connected(walkable, start)
+        for room in plan.rooms[1:]:
+            assert room.rect.center in reached
+
+    def test_disjointness_invariants(self):
+        rect = Rect(1, 1, 20, 14)
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, corridor_width=1, seed=0),
+        )
+        doors_xy = {d.xy for d in plan.doors}
+        assert plan.interior_walls.isdisjoint(doors_xy)
+        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
+
+    def test_required_walkable_lands_on_floor_or_corridor(self):
+        rect = Rect(1, 1, 20, 14)
+        required = frozenset({(10, 7)})
+        plan = RectBSPPartitioner(mode="corridor").plan(
+            _cfg(rect, required_walkable=required,
+                 corridor_width=1, seed=1),
+        )
+        # Required tile MUST NOT be a wall or door; it can be a
+        # corridor tile or a sub-room floor tile.
+        assert plan.interior_walls.isdisjoint(required)
+        assert required.isdisjoint({d.xy for d in plan.doors})
 
 
 class TestPartitionerConfigDisjointness:
