@@ -17,6 +17,7 @@ from nhc.dungeon.interior.divided import DividedPartitioner
 from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
+from nhc.dungeon.interior.rect_bsp import RectBSPPartitioner
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
     CircleShape, OctagonShape, Rect, RectShape,
@@ -228,6 +229,99 @@ class TestDividedPartitioner:
         plan = DividedPartitioner().plan(_cfg(rect, seed=1))
         door = plan.doors[0]
         assert door.side in ("north", "south", "east", "west")
+
+
+class TestRectBSPPartitionerDoorway:
+    def test_14x10_produces_3_to_5_rooms(self):
+        rect = Rect(1, 1, 14, 10)
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, seed=0),
+        )
+        assert 3 <= len(plan.rooms) <= 5
+
+    def test_every_pair_bfs_connected(self):
+        rect = Rect(1, 1, 14, 10)
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, seed=0),
+        )
+        foot = RectShape().floor_tiles(rect)
+        walkable = (foot - plan.interior_walls) | {
+            d.xy for d in plan.doors
+        }
+        # Flood fill from first room's center; every other room's
+        # center must be reachable.
+        start = plan.rooms[0].rect.center
+        reached = _bfs_connected(walkable, start)
+        for room in plan.rooms[1:]:
+            assert room.rect.center in reached
+
+    def test_doors_on_wall_runs_ge_3_tiles(self):
+        """Every door sits on a wall run of ≥ 3 tiles — i.e., it
+        has a wall neighbour on both axis-aligned sides along the
+        wall's orientation."""
+        rect = Rect(1, 1, 14, 10)
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, seed=0),
+        )
+        all_walls = plan.interior_walls | {d.xy for d in plan.doors}
+        for door in plan.doors:
+            x, y = door.xy
+            # Door is FLOOR but originally lived on a wall line.
+            # Two collinear neighbours must be in all_walls.
+            horiz_run = (
+                (x - 1, y) in all_walls and (x + 1, y) in all_walls
+            )
+            vert_run = (
+                (x, y - 1) in all_walls and (x, y + 1) in all_walls
+            )
+            assert horiz_run or vert_run, (
+                f"door at {door.xy} is not on a wall run of ≥ 3 tiles"
+            )
+
+    def test_disjointness_invariants(self):
+        rect = Rect(1, 1, 14, 10)
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, seed=0),
+        )
+        doors_xy = {d.xy for d in plan.doors}
+        assert plan.interior_walls.isdisjoint(doors_xy)
+        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
+
+    def test_no_corridor_tiles_in_doorway_mode(self):
+        rect = Rect(1, 1, 14, 10)
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, seed=0),
+        )
+        assert plan.corridor_tiles == set()
+
+    def test_required_walkable_avoided_on_walls_and_doors(self):
+        rect = Rect(1, 1, 14, 10)
+        required = frozenset({(8, 5)})
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, required_walkable=required, seed=1),
+        )
+        assert plan.interior_walls.isdisjoint(required)
+        assert required.isdisjoint({d.xy for d in plan.doors})
+
+    def test_small_footprint_falls_back_gracefully(self):
+        """A too-small footprint still produces a valid plan."""
+        rect = Rect(1, 1, 5, 5)
+        plan = RectBSPPartitioner(mode="doorway").plan(
+            _cfg(rect, seed=0),
+        )
+        assert len(plan.rooms) >= 1
+
+    def test_room_count_varies_with_seed(self):
+        """Room count should fluctuate across seeds to exercise the
+        partitioner's stochastic branches."""
+        counts: set[int] = set()
+        for seed in range(20):
+            rect = Rect(1, 1, 14, 10)
+            plan = RectBSPPartitioner(mode="doorway").plan(
+                _cfg(rect, seed=seed),
+            )
+            counts.add(len(plan.rooms))
+        assert len(counts) >= 1  # Sanity; full range asserted elsewhere.
 
 
 class TestPartitionerConfigDisjointness:

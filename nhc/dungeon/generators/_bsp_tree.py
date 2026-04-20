@@ -35,10 +35,19 @@ class _Node:
         return out
 
 
-def _split(node: _Node, rng: random.Random) -> None:
-    """Recursively split a BSP node."""
+def _split(
+    node: _Node, rng: random.Random,
+    min_leaf: int = MIN_LEAF,
+) -> None:
+    """Recursively split a BSP node.
+
+    ``min_leaf`` tunes how small a leaf can be before splits stop.
+    Dungeon callers use the module-level :data:`MIN_LEAF` (9);
+    building partitioners pass a tighter value (5) so small
+    footprints still get multiple rooms.
+    """
     w, h = node.rect.width, node.rect.height
-    if w < MIN_LEAF * 2 and h < MIN_LEAF * 2:
+    if w < min_leaf * 2 and h < min_leaf * 2:
         return
 
     if w > h * 1.25:
@@ -49,20 +58,20 @@ def _split(node: _Node, rng: random.Random) -> None:
         horiz = rng.random() < 0.5
 
     if horiz:
-        if h < MIN_LEAF * 2:
+        if h < min_leaf * 2:
             return
-        at = rng.randint(MIN_LEAF, h - MIN_LEAF)
+        at = rng.randint(min_leaf, h - min_leaf)
         node.left = _Node(Rect(node.rect.x, node.rect.y, w, at))
         node.right = _Node(Rect(node.rect.x, node.rect.y + at, w, h - at))
     else:
-        if w < MIN_LEAF * 2:
+        if w < min_leaf * 2:
             return
-        at = rng.randint(MIN_LEAF, w - MIN_LEAF)
+        at = rng.randint(min_leaf, w - min_leaf)
         node.left = _Node(Rect(node.rect.x, node.rect.y, at, h))
         node.right = _Node(Rect(node.rect.x + at, node.rect.y, w - at, h))
 
-    _split(node.left, rng)
-    _split(node.right, rng)
+    _split(node.left, rng, min_leaf=min_leaf)
+    _split(node.right, rng, min_leaf=min_leaf)
 
 
 def _place_room(leaf: _Node, rng: random.Random) -> None:
