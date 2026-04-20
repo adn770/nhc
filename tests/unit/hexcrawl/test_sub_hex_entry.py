@@ -2383,6 +2383,87 @@ def test_undead_locale_round_trip() -> None:
 
 
 # ---------------------------------------------------------------------------
+# D2: hole macro vs lair minor disambiguation
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_hole_macro_routes_to_cave_bespoke() -> None:
+    """A HOLE major sub-cell resolves to the cave bespoke pipeline."""
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(
+        major=HexFeatureType.HOLE,
+        dungeon=DungeonRef(template="procedural:cave", depth=1),
+    )
+    kind, payload = resolve_sub_hex_entry(sub)
+    assert kind == "bespoke"
+    assert payload == "cave"
+
+
+def test_resolve_lair_minor_routes_to_animal_den_family() -> None:
+    """A LAIR minor sub-cell resolves to the animal_den family."""
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    sub = _sub_cell(minor=MinorFeatureType.LAIR)
+    kind, family, feature = resolve_sub_hex_entry(sub)
+    assert kind == "family"
+    assert family == "animal_den"
+    assert feature is MinorFeatureType.LAIR
+
+
+def test_resolve_hole_and_lair_are_distinct() -> None:
+    """Regression: HOLE and LAIR must not collide on a single route —
+    the sub-hex entry plan (D6) calls for them to split between the
+    bespoke cave pipeline and the animal_den family generator."""
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+
+    hole_sub = _sub_cell(
+        major=HexFeatureType.HOLE,
+        dungeon=DungeonRef(template="procedural:cave", depth=1),
+    )
+    lair_sub = _sub_cell(minor=MinorFeatureType.LAIR)
+    hole_route = resolve_sub_hex_entry(hole_sub)
+    lair_route = resolve_sub_hex_entry(lair_sub)
+    assert hole_route != lair_route
+    assert hole_route[0] == "bespoke"
+    assert lair_route[0] == "family"
+
+
+def test_hole_flower_entry_lands_on_cave_floor(tmp_path) -> None:
+    """End-to-end: entering a HOLE sub-hex lands the player on a
+    cave floor via the bespoke pipeline, not an animal_den family."""
+    import asyncio
+
+    from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.hexcrawl.model import HexFeatureType as HFT
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    # Stamp HOLE on the sub-cell the player is standing on AND the
+    # macro cell itself, because enter_hex_feature reads the macro
+    # DungeonRef.
+    cell = game.hex_world.get_cell(macro)
+    sub_cell = cell.flower.cells[sub]
+    sub_cell.major_feature = HFT.HOLE
+    sub_cell.minor_feature = MinorFeatureType.NONE
+    sub_cell.dungeon = DungeonRef(
+        template="procedural:cave", depth=1,
+    )
+    cell.feature = HFT.HOLE
+    cell.dungeon = DungeonRef(
+        template="procedural:cave", depth=1,
+    )
+    # The resolver must pick the bespoke cave route for HOLE.
+    resolved = resolve_sub_hex_entry(sub_cell)
+    assert resolved == ("bespoke", "cave")
+    # Loading the feature through the macro pipeline must succeed
+    # and leave _active_sub_hex cleared (that marker is family-only).
+    ok = asyncio.run(game.enter_hex_feature())
+    assert ok is True
+    assert game.level is not None
+    assert game._active_sub_hex is None
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 
