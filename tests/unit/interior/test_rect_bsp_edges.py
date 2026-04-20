@@ -254,6 +254,41 @@ class TestRectBSPDoorwayEdges:
             return
         pytest.skip("no corridor layout in 30 seeds")
 
+    def test_edges_cover_every_leaf_boundary(self) -> None:
+        """Every boundary between two adjacent grown leaves must
+        carry a canonical edge. Regression: nested BSP splits used
+        ``node.rect`` (un-grown) for the sub-split's edge run, so
+        sub-splits inside a grown subtree left a 1-tile opening on
+        the column / row the parent absorbed."""
+        for seed in range(50):
+            rect = Rect(33, 6, 10, 11)
+            plan = RectBSPPartitioner(mode="doorway").plan(
+                _cfg(rect, seed=seed),
+            )
+            if len(plan.rooms) < 3:
+                continue
+            foot = RectShape().floor_tiles(rect)
+            tile_to_room: dict[tuple[int, int], str] = {}
+            for room in plan.rooms:
+                for t in RectShape().floor_tiles(room.rect):
+                    tile_to_room[t] = room.id
+            from nhc.dungeon.model import edge_between
+            for (x, y) in foot:
+                for dx, dy in [(0, 1), (1, 0)]:
+                    nb = (x + dx, y + dy)
+                    if nb not in foot:
+                        continue
+                    ra = tile_to_room.get((x, y))
+                    rb = tile_to_room.get(nb)
+                    if ra is None or rb is None or ra == rb:
+                        continue
+                    edge = edge_between((x, y), nb)
+                    assert edge in plan.interior_edges, (
+                        f"seed={seed}: missing edge {edge} between "
+                        f"{ra} and {rb} — leaves are separated but "
+                        f"no wall runs between them"
+                    )
+
     def test_9x8_splits_into_equal_rooms(self) -> None:
         """The user's motivating example: 9×8 building splits on
         a single row, yielding two 9×4 rooms."""

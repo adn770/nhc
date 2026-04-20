@@ -515,29 +515,53 @@ class RectBSPPartitioner:
     ) -> set[tuple[int, int, str]]:
         """Return canonical edges for every split in the tree."""
         edges: set[tuple[int, int, str]] = set()
-        self._collect_edges_recursive(node, edges)
+        self._collect_edges_recursive(node, node.rect, edges)
         return edges
 
     def _collect_edges_recursive(
-        self, node: _BSPNode,
+        self, node: _BSPNode, effective: Rect,
         edges: set[tuple[int, int, str]],
     ) -> None:
+        """Emit edges for this node's split, then recurse.
+
+        ``effective`` is the rect actually covered by this subtree
+        in the final layout, i.e., ``node.rect`` widened by any
+        column / row that an ancestor split absorbed into this
+        side. Sub-split edges must span that full extent — otherwise
+        the sub-split leaves a 1-tile opening on the absorbed
+        column / row.
+        """
         if node.split is None:
             return
         assert node.left is not None and node.right is not None
-        # A horizontal split at ``at`` places the canonical edge
-        # between (x, at) and (x, at+1) → (x, at+1, "north").
-        # A vertical split places (at+1, y, "west").
-        rect = node.rect
         at = node.split.at
         if node.split.axis == "horiz":
-            for x in range(rect.x, rect.x2):
+            # Edge between (x, at) and (x, at+1) for every x in the
+            # effective span. Top child absorbs row ``at`` down to
+            # y == at+1; bottom child keeps its rect.
+            for x in range(effective.x, effective.x2):
                 edges.add(canonicalize(x, at + 1, "north"))
+            top_eff = Rect(
+                effective.x, effective.y,
+                effective.width, at + 1 - effective.y,
+            )
+            bot_eff = Rect(
+                effective.x, at + 1,
+                effective.width, effective.y2 - at - 1,
+            )
         else:
-            for y in range(rect.y, rect.y2):
+            for y in range(effective.y, effective.y2):
                 edges.add(canonicalize(at + 1, y, "west"))
-        self._collect_edges_recursive(node.left, edges)
-        self._collect_edges_recursive(node.right, edges)
+            top_eff = Rect(
+                effective.x, effective.y,
+                at + 1 - effective.x, effective.height,
+            )
+            bot_eff = Rect(
+                at + 1, effective.y,
+                effective.x2 - at - 1, effective.height,
+            )
+        self._collect_edges_recursive(node.left, top_eff, edges)
+        self._collect_edges_recursive(node.right, bot_eff, edges)
 
     def _place_edge_doors(
         self, node: _BSPNode, cfg: PartitionerConfig,
