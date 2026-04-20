@@ -9,8 +9,8 @@ from nhc.core.actions._helpers import (
     _entity_name, _items_at, _msg, _stack_ground_items,
 )
 from nhc.core.events import (
-    DoorOpened, Event, LevelEntered, MessageEvent, TerrainChanged,
-    VisualEffect,
+    DoorClosed, DoorOpened, Event, LevelEntered, MessageEvent,
+    TerrainChanged, VisualEffect,
 )
 from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.i18n import t
@@ -290,6 +290,7 @@ class CloseDoorAction(Action):
 
         tile.feature = "door_closed"
         tile.opened_at_turn = None
+        events.append(DoorClosed(entity=self.actor, x=tx, y=ty))
         events.append(MessageEvent(
             text=_msg("explore.close_door", world, actor=self.actor),
         ))

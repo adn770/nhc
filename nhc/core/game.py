@@ -2830,12 +2830,20 @@ class Game:
                 )
                 events += await self._resolve(haste_move)
 
-            # Track when doors were opened (for auto-close)
+            # Track when doors were opened (for auto-close) and
+            # propagate open/close to any linked door pair so both
+            # sides of a cross-building InteriorDoorLink stay in
+            # sync with their ``opened_at_turn``.
+            from nhc.core.events import DoorClosed as _DoorClosed
+            from nhc.core.game_ticks import _sync_linked_door
             for ev in events:
                 if isinstance(ev, DoorOpened):
                     tile = self.level.tile_at(ev.x, ev.y)
                     if tile:
                         tile.opened_at_turn = self.turn
+                    _sync_linked_door(self, ev.x, ev.y)
+                elif isinstance(ev, _DoorClosed):
+                    _sync_linked_door(self, ev.x, ev.y)
 
             # Handle shop interaction (free action, no turn cost)
             for ev in events:

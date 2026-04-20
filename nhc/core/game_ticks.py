@@ -209,6 +209,24 @@ def tick_doors(game: Game) -> None:
             if tile.visible:
                 game.renderer.add_message(
                     t("explore.door_closes"))
+            _sync_linked_door(game, x, y)
+
+
+def _sync_linked_door(game: Game, x: int, y: int) -> None:
+    """Propagate a door state change to the mirrored tile of any
+    :class:`InteriorDoorLink` that touches ``(x, y)``.
+
+    Safe no-op when the current level isn't a building floor or
+    when there is no active site (dungeon mode).
+    """
+    site = getattr(game, "_active_site", None)
+    if site is None:
+        return
+    bid = getattr(game.level, "building_id", None)
+    if bid is None:
+        return
+    from nhc.dungeon.site import sync_linked_door_state
+    sync_linked_door_state(site, bid, (x, y))
 
 
 def tick_traps(game: Game) -> None:
