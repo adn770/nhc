@@ -2521,8 +2521,8 @@ hex:
   pick_party: "Pick a henchman to bring along:"
   ui:
     day: "Day"
-    enter_hint: "(press 'e' to enter)"
-    controls: "y/u NW/NE · b/n SW/SE · k N · j S · e enter · L leave · r rest"
+    enter_hint: "(press 'x' to explore)"
+    controls: "y/u NW/NE · b/n SW/SE · k N · j S · x explore · L leave · r rest"
     toolbar_enter: "Enter feature"
     toolbar_rest: "Rest (1 day)"
   biome:

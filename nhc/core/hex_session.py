@@ -258,10 +258,7 @@ class HexSession:
         game.hex_world.enter_flower(macro, sub)
         self.renderer.add_message(
             "You begin your journey. Move with y/u/n/b/j/k. "
-            "Press 'x' to exit to the overland map."
-        )
-        self.renderer.add_message(
-            "Move with y/u/n/b/j/k. Press 'e' to enter a feature."
+            "Press 'x' to enter a feature. Press 'L' to leave."
         )
 
     # ── Turn processing ────────────────────────────────────────────

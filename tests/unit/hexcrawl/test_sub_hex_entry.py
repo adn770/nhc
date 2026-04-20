@@ -795,6 +795,76 @@ def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
     assert game.level is first
 
 
+# ---------------------------------------------------------------------------
+# M5: welcome message / i18n hint updates
+# ---------------------------------------------------------------------------
+
+
+def test_overland_enter_hint_mentions_x_explore() -> None:
+    """The overland tile hint should read 'x to explore', not 'e to enter'."""
+    import yaml
+    from pathlib import Path
+
+    root = Path("nhc/i18n/locales")
+    for lang in ("en", "ca", "es"):
+        data = yaml.safe_load((root / f"{lang}.yaml").read_text())
+        hint = data["hex"]["ui"]["enter_hint"]
+        controls = data["hex"]["ui"]["controls"]
+        assert "x" in hint.lower(), f"{lang}: {hint}"
+        # The old binding (standalone 'e enter ·') is gone.
+        assert " e enter" not in controls
+        assert " e entrar" not in controls
+        assert "x " in controls
+
+
+def test_flower_welcome_message_mentions_x_and_L(tmp_path) -> None:
+    """Starting a hex game in flower view shows the new x/L hint."""
+    from nhc.core.game import Game
+    from nhc.entities.registry import EntityRegistry
+    from nhc.hexcrawl.mode import GameMode
+    from nhc.i18n import init as i18n_init
+
+    i18n_init("en")
+    EntityRegistry.discover_all()
+
+    captured: list[str] = []
+
+    class _Capture:
+        game_mode = "classic"
+        lang = "en"
+        edge_doors = False
+        messages: list[str] = []
+
+        def __getattr__(self, name):
+            if name.startswith("_"):
+                raise AttributeError(name)
+
+            def _sync(*_a, **_kw):
+                return None
+
+            return _sync
+
+        def add_message(self, text):
+            captured.append(text)
+
+        async def get_input(self):
+            return ("disconnect", None)
+
+    mode = GameMode.HEX_EASY
+    game = Game(
+        client=_Capture(),
+        backend=None, style="classic",
+        world_type=mode.world_type, difficulty=mode.difficulty,
+        save_dir=tmp_path, seed=42,
+    )
+    game.initialize()
+    joined = " | ".join(captured)
+    assert "'x'" in joined
+    assert "'L'" in joined
+    # Old 'e' binding is gone.
+    assert "'e'" not in joined
+
+
 def test_family_generators_are_deterministic() -> None:
     """Same seed → identical level tile grid."""
     from nhc.hexcrawl.sub_hex_sites import (

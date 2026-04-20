@@ -968,15 +968,15 @@ function hexKeyHandler(ev) {
   if (tag === "INPUT" || tag === "TEXTAREA") return;
   const key = ev.key;
 
-  // Shift-L (uppercase "L") always exits the current dungeon
-  // when the game is in hex mode, regardless of whether the
-  // overland is visible -- this is how the player leaves a
-  // settlement / cave back to the overland. Fires while
-  // HexInputActive is false so it works while the dungeon
-  // canvases are in front. Lowercase "l" stays bound to the
-  // dungeon's "move east" in input.js.
+  // Shift-L ("L") routes by context: inside the flower it
+  // returns to the overland; in a dungeon / settlement / cave it
+  // exits back to the overland. Fires while HexInputActive is
+  // false so it works with the dungeon canvases in front.
+  // Lowercase "l" stays bound to the dungeon's "move east" in
+  // input.js.
   if (HexGameActive && key === "L") {
-    WS.send({type: "action", intent: "hex_exit", data: null});
+    const intent = FlowerInputActive ? "flower_exit" : "hex_exit";
+    WS.send({type: "action", intent, data: null});
     ev.preventDefault();
     return;
   }

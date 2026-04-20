@@ -2576,8 +2576,8 @@ hex:
   pick_party: "Elige un compañero para llevar:"
   ui:
     day: "Día"
-    enter_hint: "(pulsa 'e' para entrar)"
-    controls: "y/u NO/NE · b/n SO/SE · k N · j S · e entrar · L salir · r descansar"
+    enter_hint: "(pulsa 'x' para explorar)"
+    controls: "y/u NO/NE · b/n SO/SE · k N · j S · x explorar · L salir · r descansar"
     toolbar_enter: "Entrar al lugar"
     toolbar_rest: "Descansar (1 día)"
   feature:
