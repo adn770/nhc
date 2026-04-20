@@ -178,12 +178,71 @@ def place_cross_floor_stairs(
 def _pick_stair_tile(
     floor: Level, perimeter: set[tuple[int, int]],
     exclude: set[tuple[int, int]], rng: random.Random,
+    *,
+    avoid_tile: tuple[int, int] | None = None,
 ) -> tuple[int, int]:
-    """Pick one walkable, featureless, non-perimeter tile on ``floor``."""
+    """Pick one walkable, featureless, non-perimeter tile on
+    ``floor``.
+
+    When ``avoid_tile`` is given and the floor has ≥ 2 rooms, the
+    picker prefers a tile in the room whose centroid is furthest
+    from the room containing ``avoid_tile`` — the "diagonally
+    opposite leaf" heuristic from M10. Falls back to a uniform
+    pick when the floor has one room or no tile is available in
+    the preferred room.
+    """
     pool = _valid_stair_tiles(floor, perimeter) - exclude
     if not pool:
         raise ValueError("no valid stair tile on floor")
+    if avoid_tile is not None and len(floor.rooms) >= 2:
+        preferred = _opposite_leaf_tiles(
+            floor, avoid_tile, pool,
+        )
+        if preferred:
+            return rng.choice(sorted(preferred))
     return rng.choice(sorted(pool))
+
+
+def _opposite_leaf_tiles(
+    floor: Level, avoid_tile: tuple[int, int],
+    pool: set[tuple[int, int]],
+) -> set[tuple[int, int]]:
+    """Return the subset of ``pool`` that lies in the room whose
+    centroid is furthest from the room containing ``avoid_tile``.
+
+    Returns an empty set when the source room can't be identified
+    or the opposite room has no tiles in ``pool``.
+    """
+    source = _room_containing(floor, avoid_tile)
+    if source is None:
+        return set()
+    sx, sy = source.rect.center
+    others = [r for r in floor.rooms if r is not source]
+    if not others:
+        return set()
+    others.sort(
+        key=lambda r: (
+            (r.rect.center[0] - sx) ** 2
+            + (r.rect.center[1] - sy) ** 2
+        ),
+        reverse=True,
+    )
+    target = others[0]
+    target_tiles = {
+        (x, y)
+        for y in range(target.rect.y, target.rect.y2)
+        for x in range(target.rect.x, target.rect.x2)
+    }
+    return pool & target_tiles
+
+
+def _room_containing(floor: Level, xy: tuple[int, int]):
+    x, y = xy
+    for room in floor.rooms:
+        r = room.rect
+        if r.x <= x < r.x2 and r.y <= y < r.y2:
+            return room
+    return None
 
 
 def build_floors_with_stairs(
@@ -240,8 +299,19 @@ def build_floors_with_stairs(
 
         # Pick the stair for the link to the next floor, if any.
         if idx + 1 < n_floors:
+            # If a stairs_down landed on this floor from the
+            # previous link, place the next stairs_up in a room
+            # diagonally opposite so the traversal spirals.
+            landing = None
+            for prev_tile in used.get(idx, set()):
+                if level.tiles[prev_tile[1]][prev_tile[0]].feature == (
+                    "stairs_down"
+                ):
+                    landing = prev_tile
+                    break
             tile = _pick_stair_tile(
                 level, perimeter, used.get(idx, set()), rng,
+                avoid_tile=landing,
             )
             fx, fy = tile
             level.tiles[fy][fx].feature = "stairs_up"
