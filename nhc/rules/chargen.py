@@ -53,29 +53,18 @@ def trait_text(axis: str, entry_id: str, lang: str | None = None) -> str:
     return registry.render(table_id, entry_id=entry_id, context={}).text
 
 
-# ── Name tables ─────────────────────────────────────────────────────
-# Mix of medieval/fantasy names suitable for a Catalan-flavored setting.
+def _roll_name(lang: str, rng: random.Random) -> str:
+    """Roll a full person name via the TableRegistry.
 
-NAMES_MALE = [
-    "Arnau", "Bernat", "Carles", "Dídac", "Esteve",
-    "Ferran", "Guillem", "Hug", "Jordi", "Llorenç",
-    "Marc", "Narcís", "Oriol", "Pere", "Quim",
-    "Ramon", "Salvador", "Toni", "Ulf", "Valentí",
-]
-
-NAMES_FEMALE = [
-    "Aina", "Blanca", "Carme", "Dolors", "Elsa",
-    "Fiona", "Gemma", "Helena", "Irene", "Joana",
-    "Laia", "Mercè", "Núria", "Olga", "Pilar",
-    "Queralt", "Rosa", "Sílvia", "Teresa", "Violeta",
-]
-
-SURNAMES = [
-    "Boscater", "Ferrer", "Llopis", "Puig", "Serra",
-    "Valls", "Agramunt", "Cardona", "Montcada", "Torrelles",
-    "Bellpuig", "Castellar", "Olesa", "Ribes", "Soler",
-    "Figueres", "Manresa", "Peralada", "Rosselló", "Vilafranca",
-]
+    Gender is coin-flipped here (a pre-roll decision, not a
+    table), then passed as context to name.person.full which
+    composes {given} {surname} from the locale-specific pools.
+    """
+    gender = "m" if rng.random() < 0.5 else "f"
+    registry = TableRegistry.get_or_load(lang)
+    return registry.roll(
+        "name.person.full", rng=rng, context={"gender": gender},
+    ).text
 
 
 @dataclass
@@ -227,6 +216,7 @@ def _roll_starting_equipment(rng) -> list[str]:
 def generate_character(
     seed: int | None = None,
     *,
+    lang: str | None = None,
     double_gold: bool = False,
 ) -> CharacterSheet:
     """Generate a random Knave character.
@@ -234,12 +224,15 @@ def generate_character(
     Uses the game RNG if no seed is provided, otherwise creates a
     dedicated RNG for reproducibility. When *double_gold* is True,
     roll 6d6 instead of 3d6 for starting gold (easy/medium
-    difficulty).
+    difficulty). The *lang* argument selects the locale-specific
+    name pool; when omitted, the current i18n language is used.
     """
     if seed is not None:
         rng = random.Random(seed)
     else:
         rng = get_rng()
+
+    name_lang = lang or current_lang()
 
     # Ability scores: 3d6, take lowest
     strength = _roll_ability(rng)
@@ -257,13 +250,8 @@ def generate_character(
     copper = sum(rng.randint(1, 6) for _ in range(dice)) * 20
     gold = copper // 10
 
-    # Random name
-    if rng.random() < 0.5:
-        first = rng.choice(NAMES_MALE)
-    else:
-        first = rng.choice(NAMES_FEMALE)
-    surname = rng.choice(SURNAMES)
-    name = f"{first} {surname}"
+    # Random name via locale-specific name.person.full table
+    name = _roll_name(name_lang, rng)
 
     # Starting equipment
     starting_items = _roll_starting_equipment(rng)
