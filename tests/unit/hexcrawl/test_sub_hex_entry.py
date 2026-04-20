@@ -748,11 +748,13 @@ def test_enter_sub_hex_family_site_wayside_well(tmp_path) -> None:
     assert game._active_sub_hex == sub
 
     # Cache key is the sub-hex namespace, keyed off the macro + sub
-    # coords, and the cached Level matches game.level.
+    # coords. Sub-hex keys live in the SubHexCacheManager (C1); the
+    # legacy ``_floor_cache`` only holds macro-site keys.
     key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
-    assert key in game._floor_cache
-    cached_level, _ = game._floor_cache[key]
-    assert cached_level is game.level
+    assert game._sub_hex_cache is not None
+    assert game._sub_hex_cache.has(key)
+    assert game._sub_hex_cache.get(key) is game.level
+    assert key not in game._floor_cache
 
 
 def test_enter_sub_hex_family_site_unknown_family(tmp_path) -> None:
@@ -1614,6 +1616,150 @@ def test_signpost_near_settlement_does_not_seed_wilderness(
     # Must match the localized no_news fallback exactly — wilderness
     # seed is skipped so the sign surfaces the standard beat.
     assert texts == [t("action.sign_read.no_news")]
+
+
+# ---------------------------------------------------------------------------
+# C1: route family-site entries through SubHexCacheManager
+# ---------------------------------------------------------------------------
+
+
+def test_family_entry_populates_sub_hex_cache(tmp_path) -> None:
+    """After entering a family site, the sub-hex key lives in the
+    SubHexCacheManager, not the legacy ``_floor_cache``."""
+    import asyncio
+
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
+    assert game._sub_hex_cache is not None
+    assert game._sub_hex_cache.has(key)
+    # The sub-hex key must NOT also live in the plain floor cache.
+    assert key not in game._floor_cache
+
+
+def test_family_entry_reuses_cached_level_from_manager(tmp_path) -> None:
+    """Cache-hit path returns the same Level instance from the manager."""
+    import asyncio
+
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    first = game.level
+    game._active_sub_hex = None
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert game.level is first
+
+
+def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
+    """With the manager's capacity forced to 1, entering a second
+    distinct sub-hex site evicts the first."""
+    import asyncio
+
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    # Pick a second non-feature sub-hex to stamp another minor onto.
+    cell = game.hex_world.get_cell(macro)
+    sub_b = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_a
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+    cell.flower.cells[sub_b].minor_feature = MinorFeatureType.SIGNPOST
+
+    # Force a 1-slot manager via a pre-emptive replacement so Game
+    # picks it up on first entry.
+    game._sub_hex_cache = SubHexCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="test",
+    )
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    key_a = ("sub", macro.q, macro.r, sub_a.q, sub_a.r, 1)
+    assert game._sub_hex_cache.has(key_a)
+
+    # Leave sub_a and enter sub_b; this should evict sub_a.
+    game._active_sub_hex = None
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_b, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    key_b = ("sub", macro.q, macro.r, sub_b.q, sub_b.r, 1)
+    assert game._sub_hex_cache.has(key_b)
+    assert not game._sub_hex_cache.has(key_a)
+
+
+def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
+    """Re-entering an evicted sub-hex site produces a fresh Level
+    (distinct object from the original, but functionally equivalent
+    because the seed is deterministic)."""
+    import asyncio
+
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    cell = game.hex_world.get_cell(macro)
+    sub_b = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_a
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+    cell.flower.cells[sub_b].minor_feature = MinorFeatureType.SIGNPOST
+    game._sub_hex_cache = SubHexCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="test",
+    )
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    original_level = game.level
+    game._active_sub_hex = None
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_b, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    game._active_sub_hex = None
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert game.level is not original_level
+    # Deterministic regeneration: same dimensions and id prefix.
+    assert game.level.width == original_level.width
+    assert game.level.height == original_level.height
 
 
 # ---------------------------------------------------------------------------

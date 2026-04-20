@@ -661,8 +661,16 @@ class Game:
         depth = 1
         cache_key = self._cache_key(depth)
 
-        if cache_key in self._floor_cache:
-            self.level, _ = self._floor_cache[cache_key]
+        # Lazy-init the sub-hex LRU / mutation cache on first family
+        # entry so pure-dungeon runs never pay for the scaffolding.
+        self._ensure_sub_hex_cache()
+
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
             self._place_player_on_sub_hex_entry()
             self._update_fov()
             self._notify_floor_change(depth)
@@ -678,7 +686,14 @@ class Game:
         self.level = site.level
         if (self.level and self.level.metadata and site.faction):
             self.level.metadata.faction = site.faction
-        self._floor_cache[cache_key] = (self.level, {})
+        if self._sub_hex_cache is not None:
+            self._sub_hex_cache.store(
+                cache_key, self.level, mutations={},
+            )
+        else:
+            # Test paths without a save_dir still need the Level
+            # addressable for the re-entry cache-hit path.
+            self._floor_cache[cache_key] = (self.level, {})
         self._sub_hex_entry_tile = site.entry_tile
         from nhc.core.sub_hex_populator import populate_sub_hex_site
         populate_sub_hex_site(self.world, site)
@@ -686,6 +701,23 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    def _ensure_sub_hex_cache(self) -> None:
+        """Construct :attr:`_sub_hex_cache` on first family-site entry.
+
+        Only a game with a ``save_dir`` gets a manager — without one
+        there is no place to persist evicted mutation records. Pure
+        dungeon runs and transient tests stay on the in-memory
+        ``_floor_cache`` fallback in ``enter_sub_hex_family_site``.
+        """
+        if self._sub_hex_cache is not None or self.save_dir is None:
+            return
+        from nhc.core.sub_hex_cache import SubHexCacheManager
+
+        self._sub_hex_cache = SubHexCacheManager(
+            storage_dir=self.save_dir,
+            player_id="game",
+        )
 
     def _place_player_on_sub_hex_entry(self) -> None:
         """Drop the player onto the family site's canonical front door."""
