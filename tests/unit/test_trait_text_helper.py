@@ -18,7 +18,8 @@ def test_trait_text_renders_known_axis() -> None:
     i18n_init("en")
     assert trait_text("virtue", "brave") == "brave"
     assert trait_text("background", "alchemist") == "alchemist"
-    assert trait_text("alignment", "lawful") == "Lawful"
+    # Data stays lowercase; casing is applied at display site.
+    assert trait_text("alignment", "lawful") == "lawful"
 
 
 def test_trait_text_follows_current_locale() -> None:
@@ -28,11 +29,11 @@ def test_trait_text_follows_current_locale() -> None:
     i18n_init("ca")
     assert trait_text("virtue", "brave") == "valent"
     assert trait_text("vice", "aggressive") == "agressiu"
-    assert trait_text("alignment", "chaotic") == "Caòtic"
+    assert trait_text("alignment", "chaotic") == "caòtic"
 
     i18n_init("es")
     assert trait_text("virtue", "brave") == "valiente"
-    assert trait_text("alignment", "chaotic") == "Caótico"
+    assert trait_text("alignment", "chaotic") == "caótico"
 
     i18n_init("en")
 

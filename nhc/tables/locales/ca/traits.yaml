@@ -465,10 +465,10 @@ shared_structure: true
 entries:
 - id: lawful
   weight: 5
-  text: Legal
+  text: legal
 - id: neutral
   weight: 10
-  text: Neutral
+  text: neutral
 - id: chaotic
   weight: 5
-  text: Caòtic
+  text: caòtic

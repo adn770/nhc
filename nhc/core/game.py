@@ -2477,7 +2477,10 @@ class Game:
             background=trait_text("background", char.background),
             virtue=trait_text("virtue", char.virtue),
             vice=trait_text("vice", char.vice),
-            alignment=trait_text("alignment", char.alignment),
+            # Alignment sits at a sentence boundary in the template.
+            alignment=trait_text(
+                "alignment", char.alignment,
+            ).capitalize(),
         ))
         if self.level.metadata.ambient:
             self.renderer.add_message(self.level.metadata.ambient)
