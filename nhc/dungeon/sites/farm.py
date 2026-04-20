@@ -15,15 +15,16 @@ from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
     place_cross_floor_stairs,
 )
+from nhc.dungeon.interior._floor import build_building_floor
+from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
-    Level, LShape, Rect, RectShape, Room, RoomShape, SurfaceType,
+    Level, LShape, Rect, RectShape, RoomShape, SurfaceType,
     Terrain, Tile,
 )
 from nhc.dungeon.site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
-from nhc.dungeon.sites._shell import compose_shell
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -117,7 +118,9 @@ def _build_farm_building(
     floors: list[Level] = []
     for idx in range(n_floors):
         floors.append(
-            _build_farm_floor(building_id, idx, base_shape, base_rect)
+            _build_farm_floor(
+                building_id, idx, base_shape, base_rect, n_floors, rng,
+            )
         )
     # Farms are wood throughout.
     for f in floors:
@@ -140,31 +143,19 @@ def _build_farm_building(
 def _build_farm_floor(
     building_id: str, floor_idx: int,
     base_shape: RoomShape, base_rect: Rect,
+    n_floors: int, rng: random.Random,
 ) -> Level:
-    w = base_rect.x + base_rect.width + 2
-    h = base_rect.y + base_rect.height + 2
-    level = Level.create_empty(
-        f"{building_id}_f{floor_idx}",
-        f"{building_id} floor {floor_idx}",
-        floor_idx + 1, w, h,
+    level = build_building_floor(
+        building_id=building_id,
+        floor_idx=floor_idx,
+        base_shape=base_shape,
+        base_rect=base_rect,
+        n_floors=n_floors,
+        rng=rng,
+        archetype="farm",
+        tags=["farm_interior"],
+        partitioner=SingleRoomPartitioner(),
     )
-    footprint = base_shape.floor_tiles(base_rect)
-    for (x, y) in footprint:
-        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    compose_shell(level, {building_id: footprint})
-    level.rooms = [Room(
-        id=f"{building_id}_f{floor_idx}_room",
-        rect=Rect(
-            base_rect.x, base_rect.y,
-            base_rect.width, base_rect.height,
-        ),
-        shape=base_shape,
-        tags=["farm_interior"] + (
-            ["entrance"] if floor_idx == 0 else []
-        ),
-    )]
-    level.building_id = building_id
-    level.floor_index = floor_idx
     level.interior_floor = "wood"
     return level
 

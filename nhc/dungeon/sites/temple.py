@@ -24,9 +24,11 @@ from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
     place_cross_floor_stairs,
 )
+from nhc.dungeon.interior._floor import build_building_floor
+from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
     EntityPlacement, Level, OctagonShape, Rect, RectShape,
-    Room, RoomShape, SurfaceType, Terrain, Tile,
+    RoomShape, SurfaceType, Terrain, Tile,
 )
 from nhc.dungeon.room_types import (
     TEMPLE_SERVICES_DEFAULT, TEMPLE_STOCK_DEFAULT,
@@ -35,7 +37,6 @@ from nhc.dungeon.site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
-from nhc.dungeon.sites._shell import compose_shell
 from nhc.hexcrawl.model import Biome
 
 
@@ -129,7 +130,7 @@ def _build_temple_building(
     rng: random.Random,
 ) -> Building:
     # Single floor in v1 (M16 will redesign with vertical halls).
-    ground = _build_temple_floor(building_id, 0, shape, base_rect)
+    ground = _build_temple_floor(building_id, 0, shape, base_rect, rng)
     ground.interior_floor = "stone"
     building = Building(
         id=building_id,
@@ -147,31 +148,19 @@ def _build_temple_building(
 def _build_temple_floor(
     building_id: str, floor_idx: int,
     shape: RoomShape, base_rect: Rect,
+    rng: random.Random,
 ) -> Level:
-    w = base_rect.x + base_rect.width + 2
-    h = base_rect.y + base_rect.height + 2
-    level = Level.create_empty(
-        f"{building_id}_f{floor_idx}",
-        f"{building_id} floor {floor_idx}",
-        floor_idx + 1, w, h,
+    level = build_building_floor(
+        building_id=building_id,
+        floor_idx=floor_idx,
+        base_shape=shape,
+        base_rect=base_rect,
+        n_floors=1,
+        rng=rng,
+        archetype="temple",
+        tags=["temple"],
+        partitioner=SingleRoomPartitioner(),
     )
-    footprint = shape.floor_tiles(base_rect)
-    for (x, y) in footprint:
-        level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    compose_shell(level, {building_id: footprint})
-    level.rooms = [Room(
-        id=f"{building_id}_f{floor_idx}_room",
-        rect=Rect(
-            base_rect.x, base_rect.y,
-            base_rect.width, base_rect.height,
-        ),
-        shape=shape,
-        tags=["temple"] + (
-            ["entrance"] if floor_idx == 0 else []
-        ),
-    )]
-    level.building_id = building_id
-    level.floor_index = floor_idx
     level.interior_floor = "stone"
     return level
 
