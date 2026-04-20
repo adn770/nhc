@@ -372,6 +372,34 @@ def _list_to_coord(lst: list[int]) -> HexCoord:
     return HexCoord(int(lst[0]), int(lst[1]))
 
 
+def _serialize_dungeon_ref(ref: DungeonRef) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "template": ref.template,
+        "depth": ref.depth,
+    }
+    if ref.cluster_id is not None:
+        data["cluster_id"] = _coord_to_list(ref.cluster_id)
+    if ref.size_class is not None:
+        data["size_class"] = ref.size_class
+    if ref.faction is not None:
+        data["faction"] = ref.faction
+    if ref.site_kind is not None:
+        data["site_kind"] = ref.site_kind
+    return data
+
+
+def _deserialize_dungeon_ref(data: dict[str, Any]) -> DungeonRef:
+    cid = data.get("cluster_id")
+    return DungeonRef(
+        template=data["template"],
+        depth=int(data.get("depth", 1)),
+        cluster_id=_list_to_coord(cid) if cid is not None else None,
+        size_class=data.get("size_class"),
+        faction=data.get("faction"),
+        site_kind=data.get("site_kind"),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Flower serialization
 # ---------------------------------------------------------------------------
@@ -383,7 +411,7 @@ def _serialize_flower(flower: HexFlower) -> dict[str, Any]:
         flower.cells.keys(), key=lambda c: (c.q, c.r),
     ):
         sc = flower.cells[coord]
-        sub_cells.append({
+        entry: dict[str, Any] = {
             "c": _coord_to_list(coord),
             "b": sc.biome.value,
             "e": sc.elevation,
@@ -394,7 +422,10 @@ def _serialize_flower(flower: HexFlower) -> dict[str, Any]:
             "mc": sc.move_cost_hours,
             "em": sc.encounter_modifier,
             "ts": sc.tile_slot,
-        })
+        }
+        if sc.dungeon is not None:
+            entry["dungeon"] = _serialize_dungeon_ref(sc.dungeon)
+        sub_cells.append(entry)
     edges = [
         {
             "type": seg.type,
@@ -425,6 +456,11 @@ def _deserialize_flower(
     cells: dict[HexCoord, SubHexCell] = {}
     for sc_data in data.get("cells", []):
         coord = _list_to_coord(sc_data["c"])
+        dungeon_data = sc_data.get("dungeon")
+        dungeon = (
+            _deserialize_dungeon_ref(dungeon_data)
+            if dungeon_data is not None else None
+        )
         cells[coord] = SubHexCell(
             coord=coord,
             biome=Biome(sc_data["b"]),
@@ -436,6 +472,7 @@ def _deserialize_flower(
             move_cost_hours=float(sc_data.get("mc", 1.0)),
             encounter_modifier=float(sc_data.get("em", 1.0)),
             tile_slot=int(sc_data.get("ts", 0)),
+            dungeon=dungeon,
         )
     edges = [
         SubHexEdgeSegment(
@@ -477,10 +514,7 @@ def _serialize_hex_world(hw: HexWorld) -> dict[str, Any]:
             "tile_slot": cell.tile_slot,
         }
         if cell.dungeon is not None:
-            cell_data["dungeon"] = {
-                "template": cell.dungeon.template,
-                "depth": cell.dungeon.depth,
-            }
+            cell_data["dungeon"] = _serialize_dungeon_ref(cell.dungeon)
         if cell.edges:
             cell_data["edges"] = [
                 {
@@ -576,10 +610,7 @@ def _deserialize_hex_world(data: dict[str, Any]) -> HexWorld:
         coord = _list_to_coord(cd["coord"])
         dungeon = None
         if cd.get("dungeon") is not None:
-            dungeon = DungeonRef(
-                template=cd["dungeon"]["template"],
-                depth=int(cd["dungeon"].get("depth", 1)),
-            )
+            dungeon = _deserialize_dungeon_ref(cd["dungeon"])
         edges = [
             EdgeSegment(
                 type=e["type"],

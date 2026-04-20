@@ -197,6 +197,10 @@ class SubHexCell:
     encounter_modifier: float = 1.0
     searched: bool = False
     tile_slot: int = 0
+    # Present only on the flower's feature_cell sub-hex: a copy of
+    # the macro's DungeonRef so the sub-hex entry dispatcher can
+    # route bespoke generators without reading macro state.
+    dungeon: "DungeonRef | None" = None
 
 
 @dataclass

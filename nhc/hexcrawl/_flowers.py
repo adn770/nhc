@@ -817,6 +817,12 @@ def generate_flower(
         biome=parent.biome,
         rng=rng,
     )
+    # Fold the macro's DungeonRef onto the feature_cell sub-hex so
+    # the sub-hex entry dispatcher can route bespoke generators
+    # without reading macro state. The macro keeps its own
+    # ``HexCell.dungeon`` populated for backward compatibility.
+    if feature_cell is not None and parent.dungeon is not None:
+        cells[feature_cell].dungeon = parent.dungeon
 
     # 5. Route roads through sub-hexes (after feature placement
     # so roads can target the feature cell). A* for each new road
