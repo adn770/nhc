@@ -248,6 +248,7 @@ def assemble_town(
     site.building_doors.update(door_map)
     paint_surface_doors(site, SurfaceType.STREET)
     _place_service_npcs(buildings, role_assignments, rng)
+    _lock_shop_doors(buildings, role_assignments, rng)
     return site
 
 
@@ -598,6 +599,75 @@ def _adventurer_placement(cx: int, cy: int) -> EntityPlacement:
         entity_type="creature", entity_id="adventurer",
         x=cx, y=cy, extra={"adventurer_level": 1},
     )
+
+
+def _lock_shop_doors(
+    buildings: list[Building],
+    role_assignments: dict[str, str],
+    rng: random.Random,
+) -> None:
+    """Convert one interior ``door_closed`` to ``door_locked`` on
+    each shop building, gated by ``ARCHETYPE_CONFIG["shop"]
+    .locked_door_rate``.
+
+    See ``design/building_interiors.md`` door rules: one locked
+    door max per shop, door separating the smallest BSP leaf. The
+    smallest-leaf rule lands cleanly once shops route through
+    RectBSPPartitioner; for the current residential (Divided)
+    layout the single interior door is already the split between
+    two rooms — locking it satisfies the spirit of the rule.
+    """
+    rate = ARCHETYPE_CONFIG["shop"].locked_door_rate
+    if rate <= 0:
+        return
+    by_id = {b.id: b for b in buildings}
+    for bid, role in role_assignments.items():
+        if role != "shop":
+            continue
+        if rng.random() >= rate:
+            continue
+        ground = by_id[bid].ground
+        door_tile = _smallest_room_door(ground, by_id[bid])
+        if door_tile is None:
+            continue
+        x, y = door_tile
+        ground.tiles[y][x].feature = "door_locked"
+
+
+def _smallest_room_door(
+    ground: Level, building: Building,
+) -> tuple[int, int] | None:
+    """Return the interior-door tile adjacent to the smallest room.
+
+    Interior doors live off the shared perimeter; the smallest
+    room is picked by :meth:`Room.floor_tiles` count. Entry doors
+    (on the perimeter) are skipped so locking never blocks the
+    building entrance.
+    """
+    perim = building.shared_perimeter()
+    door_candidates: list[tuple[int, int]] = []
+    for y, row in enumerate(ground.tiles):
+        for x, tile in enumerate(row):
+            if tile.feature != "door_closed":
+                continue
+            if (x, y) in perim:
+                continue
+            door_candidates.append((x, y))
+    if not door_candidates:
+        return None
+    smallest_room = min(
+        ground.rooms, key=lambda r: len(r.floor_tiles()),
+    )
+    adjacent = [
+        (dx, dy) for (dx, dy) in door_candidates
+        if any(
+            (dx + ox, dy + oy) in smallest_room.floor_tiles()
+            for (ox, oy) in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        )
+    ]
+    if adjacent:
+        return adjacent[0]
+    return door_candidates[0]
 
 
 def _innkeeper_placement(cx: int, cy: int) -> EntityPlacement:
