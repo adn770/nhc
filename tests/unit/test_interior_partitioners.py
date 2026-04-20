@@ -20,9 +20,10 @@ from nhc.dungeon.interior.protocol import (
 from nhc.dungeon.interior.rect_bsp import RectBSPPartitioner
 from nhc.dungeon.interior.sector import SectorPartitioner
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.lshape import LShapePartitioner
 from nhc.dungeon.interior.temple import TemplePartitioner
 from nhc.dungeon.model import (
-    CircleShape, OctagonShape, Rect, RectShape, SurfaceType,
+    CircleShape, LShape, OctagonShape, Rect, RectShape, SurfaceType,
 )
 
 
@@ -525,6 +526,70 @@ class TestTemplePartitioner:
             _cfg(rect, required_walkable=required, seed=1),
         )
         assert plan.interior_walls.isdisjoint(required)
+
+
+class TestLShapePartitioner:
+    def test_produces_at_least_one_room_per_arm(self):
+        rect = Rect(1, 1, 15, 10)
+        for corner in ("nw", "ne", "sw", "se"):
+            plan = LShapePartitioner().plan(
+                _cfg(rect, shape=LShape(corner=corner), seed=0),
+            )
+            assert len(plan.rooms) >= 2, (
+                f"L-shape corner={corner} did not produce ≥ 1 room "
+                f"per arm (got {len(plan.rooms)})"
+            )
+
+    def test_rooms_bfs_connected_through_junction_door(self):
+        rect = Rect(1, 1, 15, 10)
+        shape = LShape(corner="nw")
+        plan = LShapePartitioner().plan(
+            _cfg(rect, shape=shape, seed=0),
+        )
+        foot = shape.floor_tiles(rect)
+        walkable = (foot - plan.interior_walls) | {
+            d.xy for d in plan.doors
+        }
+        # Start from first room center, reach all others.
+        start = plan.rooms[0].rect.center
+        reached = _bfs_connected(walkable, start)
+        for room in plan.rooms[1:]:
+            cx, cy = room.rect.center
+            # Center may fall outside L; pick any walkable tile in
+            # the room's rect instead.
+            room_tiles = [
+                (x, y) for x in range(room.rect.x, room.rect.x2)
+                for y in range(room.rect.y, room.rect.y2)
+                if (x, y) in walkable
+            ]
+            assert room_tiles, f"room {room.id} has no walkable tiles"
+            assert any(t in reached for t in room_tiles), (
+                f"room {room.id} not reachable from room 0"
+            )
+
+    def test_exactly_one_junction_door(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = LShapePartitioner().plan(
+            _cfg(rect, shape=LShape(corner="nw"), seed=0),
+        )
+        assert len(plan.doors) >= 1
+
+    def test_falls_back_when_not_lshape(self):
+        rect = Rect(1, 1, 10, 10)
+        plan = LShapePartitioner().plan(
+            _cfg(rect, shape=RectShape(), seed=0),
+        )
+        assert len(plan.rooms) == 1
+        assert plan.interior_walls == set()
+
+    def test_disjointness_invariants(self):
+        rect = Rect(1, 1, 15, 10)
+        plan = LShapePartitioner().plan(
+            _cfg(rect, shape=LShape(corner="nw"), seed=0),
+        )
+        doors_xy = {d.xy for d in plan.doors}
+        assert plan.interior_walls.isdisjoint(doors_xy)
+        assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
 
 class TestPartitionerConfigDisjointness:
