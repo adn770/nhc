@@ -120,6 +120,24 @@ class TestTowerFloorGeometry:
             assert floor.building_id == b.id
             assert floor.floor_index == i
 
+    def test_every_floor_has_exactly_one_room(self):
+        """Tower routes through SingleRoomPartitioner — every floor
+        is one open room."""
+        for seed in range(10):
+            site = assemble_tower("t1", random.Random(seed))
+            for floor in site.buildings[0].floors:
+                assert len(floor.rooms) == 1
+
+    def test_floor_room_tags_preserve_tower_interior(self):
+        """Site assembler augments partitioner output with archetype
+        tags so downstream consumers still see ``tower_interior``."""
+        site = assemble_tower("t1", random.Random(1))
+        b = site.buildings[0]
+        for i, floor in enumerate(b.floors):
+            tags = floor.rooms[0].tags
+            assert "tower_interior" in tags
+            assert ("entrance" in tags) is (i == 0)
+
 
 class TestTowerStairs:
     def test_every_adjacent_pair_is_linked(self):

@@ -16,8 +16,11 @@ from nhc.dungeon.building import Building
 from nhc.dungeon.generators._stairs import (
     place_cross_floor_stairs,
 )
+from nhc.dungeon.interior._apply import apply_plan
+from nhc.dungeon.interior.protocol import PartitionerConfig
+from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
-    CircleShape, Level, OctagonShape, Rect, RectShape, Room,
+    CircleShape, Level, OctagonShape, Rect, RectShape,
     RoomShape, Terrain, Tile,
 )
 from nhc.dungeon.site import Site, outside_neighbour, stamp_building_door
@@ -87,7 +90,7 @@ def assemble_tower(
     floors: list[Level] = []
     for idx in range(n_floors):
         level = _build_tower_floor(
-            building_id, idx, base_shape, base_rect,
+            building_id, idx, base_shape, base_rect, n_floors, rng,
         )
         floors.append(level)
 
@@ -133,11 +136,15 @@ def assemble_tower(
 def _build_tower_floor(
     building_id: str, floor_idx: int,
     base_shape: RoomShape, base_rect: Rect,
+    n_floors: int, rng: random.Random,
 ) -> Level:
-    """Create a single-room Level with the footprint carved as FLOOR.
+    """Build a tower floor via :class:`SingleRoomPartitioner`.
 
-    Walls fill the 8-neighbours of every floor tile that are not
-    themselves floor, giving the standard Dyson-style wall ring.
+    Pipeline follows ``design/building_interiors.md``: carve
+    footprint, run partitioner, stamp plan, assign rooms, close
+    the shell. Tower interior is always one open room; the
+    archetype tags (``tower_interior``, ``entrance``) are applied
+    here by the site since they are site semantics, not layout.
     """
     w = base_rect.x + base_rect.width + 2
     h = base_rect.y + base_rect.height + 2
@@ -149,20 +156,24 @@ def _build_tower_floor(
     footprint = base_shape.floor_tiles(base_rect)
     for (x, y) in footprint:
         level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+
+    cfg = PartitionerConfig(
+        footprint=base_rect,
+        shape=base_shape,
+        floor_index=floor_idx,
+        n_floors=n_floors,
+        rng=rng,
+        archetype="tower",
+    )
+    plan = SingleRoomPartitioner().plan(cfg)
+    apply_plan(level, plan)
+
+    plan.rooms[0].tags = ["tower_interior"] + (
+        ["entrance"] if floor_idx == 0 else []
+    )
+    level.rooms = plan.rooms
     compose_shell(level, {building_id: footprint})
 
-    room = Room(
-        id=f"{building_id}_f{floor_idx}_room",
-        rect=Rect(
-            base_rect.x, base_rect.y,
-            base_rect.width, base_rect.height,
-        ),
-        shape=base_shape,
-        tags=["tower_interior"] + (
-            ["entrance"] if floor_idx == 0 else []
-        ),
-    )
-    level.rooms = [room]
     level.building_id = building_id
     level.floor_index = floor_idx
     return level
