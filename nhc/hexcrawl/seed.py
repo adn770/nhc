@@ -16,17 +16,29 @@ _MASK_32 = (1 << 32) - 1
 
 
 def dungeon_seed(
-    world_seed: int, coord: HexCoord, template: str,
+    world_seed: int,
+    coord: HexCoord,
+    template: str,
+    sub: HexCoord | None = None,
 ) -> int:
-    """Return a uint32 seed derived from the triple.
+    """Return a uint32 seed derived from the hex context.
 
     Uses SHA-256 for stability across Python versions (Python's
     built-in ``hash()`` is salted per-process). Only the low 32
     bits are kept so the seed fits any ``random.Random(seed)``
     consumer on 32-bit platforms.
+
+    When ``sub`` is provided the sub-hex coord is mixed into the
+    digest so the same ``(world_seed, macro, template)`` yields a
+    distinct per-sub-hex seed — used to generate the small-site
+    maps behind minor features in the flower view.
     """
-    key = f"{int(world_seed)}|{coord.q}|{coord.r}|{template}".encode(
-        "utf-8",
-    )
-    digest = hashlib.sha256(key).digest()
+    if sub is None:
+        key = f"{int(world_seed)}|{coord.q}|{coord.r}|{template}"
+    else:
+        key = (
+            f"{int(world_seed)}|{coord.q}|{coord.r}|{template}"
+            f"|sub={sub.q},{sub.r}"
+        )
+    digest = hashlib.sha256(key.encode("utf-8")).digest()
     return int.from_bytes(digest[:4], "big") & _MASK_32

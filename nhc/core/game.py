@@ -343,6 +343,16 @@ class Game:
         # buildings without re-running the assembler. None for
         # single-building sites (tower) and dungeon features.
         self._active_site = None
+        # Set when the player enters a sub-hex-keyed site (farm
+        # minor, shrine, well, etc.) so ``_cache_key`` routes the
+        # floor under the ("sub", ...) namespace and the leave-site
+        # mechanic can restore ``exploring_sub_hex`` to where the
+        # player entered from. Cleared on exit to the flower.
+        self._active_sub_hex: "HexCoord | None" = None
+        # Sub-hex floor cache with bounded LRU eviction + mutation
+        # persistence. Lazy — built on first sub-hex entry once we
+        # know the player id / save dir. See nhc.core.sub_hex_cache.
+        self._sub_hex_cache = None
         # Set when the player has descended from a building ground
         # floor into that building's descent ``DungeonRef``. Holds
         # the Building the descent originates from and the tile on
@@ -437,6 +447,12 @@ class Game:
         is not yet set (pre-initialize or test setup).
         """
         if self.world_type is WorldType.HEXCRAWL and self.hex_player_position is not None:
+            if self._active_sub_hex is not None:
+                coord = self.hex_player_position
+                sub = self._active_sub_hex
+                return (
+                    "sub", coord.q, coord.r, sub.q, sub.r, depth,
+                )
             if (
                 depth >= 2
                 and self._active_descent_building is not None

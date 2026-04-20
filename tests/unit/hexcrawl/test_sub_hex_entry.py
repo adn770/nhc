@@ -6,6 +6,10 @@ Companion to ``nhc_sub_hex_entry_plan.md``.
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
 from nhc.core.save import _deserialize_hex_world, _serialize_hex_world
 from nhc.hexcrawl._flowers import generate_flower
 from nhc.hexcrawl.coords import HexCoord
@@ -16,6 +20,7 @@ from nhc.hexcrawl.model import (
     HexFeatureType,
     HexWorld,
 )
+from nhc.hexcrawl.seed import dungeon_seed
 
 
 # ---------------------------------------------------------------------------
@@ -143,3 +148,224 @@ def test_sub_hex_dungeon_survives_save_roundtrip() -> None:
     assert sub.dungeon.site_kind == "town"
     assert sub.dungeon.size_class == "city"
     assert sub.dungeon.faction == "human"
+
+
+# ---------------------------------------------------------------------------
+# M2: dungeon_seed accepts an optional sub coord
+# ---------------------------------------------------------------------------
+
+
+def test_dungeon_seed_without_sub_is_stable() -> None:
+    """Existing two-argument call path keeps its value (backward compat)."""
+    s1 = dungeon_seed(123, HexCoord(1, 2), "procedural:cave")
+    s2 = dungeon_seed(123, HexCoord(1, 2), "procedural:cave")
+    assert s1 == s2
+
+
+def test_dungeon_seed_none_sub_matches_no_sub() -> None:
+    """``sub=None`` equals the no-sub path so the macro seed is stable."""
+    s_none = dungeon_seed(
+        123, HexCoord(1, 2), "procedural:cave", sub=None,
+    )
+    s_unset = dungeon_seed(123, HexCoord(1, 2), "procedural:cave")
+    assert s_none == s_unset
+
+
+def test_dungeon_seed_with_sub_is_stable() -> None:
+    s1 = dungeon_seed(
+        123, HexCoord(1, 2), "procedural:cave", sub=HexCoord(0, 1),
+    )
+    s2 = dungeon_seed(
+        123, HexCoord(1, 2), "procedural:cave", sub=HexCoord(0, 1),
+    )
+    assert s1 == s2
+
+
+def test_dungeon_seed_differs_from_macro_seed() -> None:
+    s_macro = dungeon_seed(123, HexCoord(1, 2), "procedural:cave")
+    s_sub = dungeon_seed(
+        123, HexCoord(1, 2), "procedural:cave", sub=HexCoord(0, 1),
+    )
+    assert s_macro != s_sub
+
+
+def test_dungeon_seed_distinct_subs_differ() -> None:
+    s_a = dungeon_seed(
+        123, HexCoord(1, 2), "procedural:cave", sub=HexCoord(0, 1),
+    )
+    s_b = dungeon_seed(
+        123, HexCoord(1, 2), "procedural:cave", sub=HexCoord(1, 0),
+    )
+    assert s_a != s_b
+
+
+# ---------------------------------------------------------------------------
+# M2: sub-hex cache keying + LRU + mutation persistence
+# ---------------------------------------------------------------------------
+
+
+def _fake_level(name: str) -> object:
+    """Minimal stand-in for a dungeon Level in cache-behaviour tests."""
+    class _L:
+        pass
+
+    lvl = _L()
+    lvl.name = name
+    lvl.id = name
+    return lvl
+
+
+def test_sub_hex_cache_key_shape() -> None:
+    """Game._cache_key returns ('sub', q, r, sq, sr, depth) when a
+    sub-hex site is active, regardless of the overland coord."""
+    from nhc.core.game import Game
+    from nhc.hexcrawl.mode import WorldType
+
+    game = Game.__new__(Game)
+    game.world_type = WorldType.HEXCRAWL
+    game.hex_player_position = HexCoord(3, 4)
+    game._active_cave_cluster = None
+    game._active_descent_building = None
+    game._active_site = None
+    game._active_sub_hex = HexCoord(-1, 0)
+
+    key = game._cache_key(1)
+    assert key == ("sub", 3, 4, -1, 0, 1)
+
+
+def test_sub_hex_cache_key_distinct_per_sub() -> None:
+    """Two different sub-coords under the same macro yield different
+    cache keys, so each sub-hex site caches independently."""
+    from nhc.core.game import Game
+    from nhc.hexcrawl.mode import WorldType
+
+    game = Game.__new__(Game)
+    game.world_type = WorldType.HEXCRAWL
+    game.hex_player_position = HexCoord(3, 4)
+    game._active_cave_cluster = None
+    game._active_descent_building = None
+    game._active_site = None
+
+    game._active_sub_hex = HexCoord(-1, 0)
+    key_a = game._cache_key(1)
+    game._active_sub_hex = HexCoord(1, 1)
+    key_b = game._cache_key(1)
+    assert key_a != key_b
+
+
+def test_sub_hex_cache_key_does_not_affect_macro_keys() -> None:
+    """When _active_sub_hex is None the macro-keyed path is unchanged."""
+    from nhc.core.game import Game
+    from nhc.hexcrawl.mode import WorldType
+
+    game = Game.__new__(Game)
+    game.world_type = WorldType.HEXCRAWL
+    game.hex_player_position = HexCoord(3, 4)
+    game._active_cave_cluster = None
+    game._active_descent_building = None
+    game._active_site = None
+    game._active_sub_hex = None
+
+    key = game._cache_key(1)
+    assert key == (3, 4, 1)
+
+
+def test_sub_hex_cache_lru_evicts_oldest(tmp_path) -> None:
+    """After 33 distinct sub-hex inserts the first is evicted."""
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=32, storage_dir=tmp_path, player_id="p1",
+    )
+    for i in range(33):
+        key = ("sub", 0, 0, i, 0, 1)
+        mgr.store(key, _fake_level(f"L{i}"), mutations={})
+    # First insert should now be evicted.
+    assert not mgr.has(("sub", 0, 0, 0, 0, 1))
+    # Every later insert is still resident.
+    for i in range(1, 33):
+        assert mgr.has(("sub", 0, 0, i, 0, 1))
+
+
+def test_sub_hex_cache_lru_access_promotes(tmp_path) -> None:
+    """Reading a sub-hex entry marks it most-recently-used."""
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=2, storage_dir=tmp_path, player_id="p1",
+    )
+    k0 = ("sub", 0, 0, 0, 0, 1)
+    k1 = ("sub", 0, 0, 1, 0, 1)
+    k2 = ("sub", 0, 0, 2, 0, 1)
+    mgr.store(k0, _fake_level("L0"), mutations={})
+    mgr.store(k1, _fake_level("L1"), mutations={})
+    # Touch k0 so it becomes MRU.
+    mgr.get(k0)
+    # Inserting k2 should now evict k1, not k0.
+    mgr.store(k2, _fake_level("L2"), mutations={})
+    assert mgr.has(k0)
+    assert not mgr.has(k1)
+    assert mgr.has(k2)
+
+
+def test_sub_hex_cache_mutation_persists_on_evict(tmp_path) -> None:
+    """On eviction the sparse mutation record is written to disk under
+    <storage_dir>/players/<pid>/sub_hex_cache/<macro>_<sub>.json."""
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="p1",
+    )
+    k0 = ("sub", 8, 3, -1, 0, 1)
+    k1 = ("sub", 8, 3, 1, 1, 1)
+    mgr.store(
+        k0, _fake_level("L0"),
+        mutations={"looted": [[4, 2]], "killed": [101]},
+    )
+    # Evict k0 by inserting beyond capacity.
+    mgr.store(k1, _fake_level("L1"), mutations={})
+
+    path = (
+        tmp_path / "players" / "p1" / "sub_hex_cache"
+        / "8_3_-1_0.json"
+    )
+    assert path.exists()
+    data = json.loads(path.read_text())
+    assert data["macro"] == [8, 3]
+    assert data["sub"] == [-1, 0]
+    assert data["mutations"]["looted"] == [[4, 2]]
+    assert data["mutations"]["killed"] == [101]
+
+
+def test_sub_hex_cache_mutation_load_and_delete(tmp_path) -> None:
+    """load_mutations reads the persisted record then deletes the file."""
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="p1",
+    )
+    k0 = ("sub", 8, 3, -1, 0, 1)
+    k1 = ("sub", 8, 3, 1, 1, 1)
+    mgr.store(
+        k0, _fake_level("L0"),
+        mutations={"looted": [[4, 2]]},
+    )
+    mgr.store(k1, _fake_level("L1"), mutations={})
+    path = (
+        tmp_path / "players" / "p1" / "sub_hex_cache"
+        / "8_3_-1_0.json"
+    )
+    assert path.exists()
+
+    loaded = mgr.load_mutations(k0)
+    assert loaded == {"looted": [[4, 2]]}
+    assert not path.exists()
+
+
+def test_sub_hex_cache_load_mutations_missing_returns_empty(tmp_path) -> None:
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=4, storage_dir=tmp_path, player_id="p1",
+    )
+    assert mgr.load_mutations(("sub", 0, 0, 0, 0, 1)) == {}
