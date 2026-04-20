@@ -48,6 +48,18 @@ class DoorOpened(Event):
 
 
 @dataclass
+class LeaveSiteRequested(Event):
+    """Player stepped off the edge of a Site surface.
+
+    Emitted by :class:`LeaveSiteAction`; the Game subscribes and
+    runs the full off-map-exit path in response. Carrying the
+    actor lets a future hook on this event (e.g. companion AI)
+    react without pulling the game state in.
+    """
+    actor: int = 0
+
+
+@dataclass
 class LevelEntered(Event):
     entity: int = 0
     level_id: str = ""

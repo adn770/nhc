@@ -17,6 +17,7 @@ from nhc.core.actions import (
     AscendStairsAction,
     BumpAction,
     DescendStairsAction,
+    LeaveSiteAction,
     LookAction,
     PickupItemAction,
     SearchAction,
@@ -43,6 +44,7 @@ from nhc.core.events import (
     ItemPickedUp,
     ItemSold,
     ItemUsed,
+    LeaveSiteRequested,
     LevelEntered,
     MessageEvent,
     PlayerDied,
@@ -1743,6 +1745,38 @@ class Game:
         _, sx, sy = rng.choice(top)
         self.level.tiles[sy][sx].feature = "stairs_down"
 
+    def _is_site_edge_exit(self, dx: int, dy: int) -> bool:
+        """Return True when a move of ``(dx, dy)`` from the
+        player's current tile steps off the edge of an active
+        Site surface.
+
+        Used by :meth:`_intent_to_action` to route an off-map
+        move into :class:`LeaveSiteAction` rather than a regular
+        bump. The surface check rejects building interiors
+        (``level.building_id`` is set there) so the player still
+        has to leave through a door when inside a building.
+        """
+        if self.world_type is not WorldType.HEXCRAWL:
+            return False
+        if self.level is None or self._active_site is None:
+            return False
+        if self.level.id != self._active_site.surface.id:
+            return False
+        pos = self.world.get_component(self.player_id, "Position")
+        if pos is None:
+            return False
+        nx, ny = pos.x + dx, pos.y + dy
+        return self.level.tile_at(nx, ny) is None
+
+    def _on_leave_site_requested(self, event: LeaveSiteRequested) -> None:
+        """Handle the :class:`LeaveSiteRequested` bus event.
+
+        Drops the level, moves the player to the overland
+        sentinel, and restores the flower view. Subscribed in
+        :meth:`_subscribe_event_handlers`.
+        """
+        self._exit_to_overland_sync()
+
     def _exit_to_overland_sync(self) -> None:
         """Synchronous form of :meth:`exit_dungeon_to_hex` body.
 
@@ -2894,6 +2928,10 @@ class Game:
         """Convert a player input intent to a game action."""
         if intent == "move" and data:
             dx, dy = data
+            if self._is_site_edge_exit(dx, dy):
+                return LeaveSiteAction(
+                    actor=self.player_id, dx=dx, dy=dy,
+                )
             return BumpAction(
                 actor=self.player_id, dx=dx, dy=dy,
                 edge_doors=self.renderer.edge_doors,
@@ -3167,6 +3205,9 @@ class Game:
         self.event_bus.subscribe(ItemUsed, self._on_item_used)
         self.event_bus.subscribe(ItemSold, self._on_item_sold)
         self.event_bus.subscribe(VisualEffect, self._on_visual_effect)
+        self.event_bus.subscribe(
+            LeaveSiteRequested, self._on_leave_site_requested,
+        )
 
     def _on_level_entered(self, event: LevelEntered) -> None:
         """Transition to a dungeon level (ascending or descending)."""

@@ -1487,6 +1487,10 @@ encounter:
   arena_cleared: "Has despejado el campo. Regresas a la superficie."
 
 
+leave_site:
+  exit: "Sales del lugar."
+
+
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   none: >-

@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING
 from nhc.core.actions._base import Action, _crossing_door_edge
 from nhc.core.actions._helpers import _announce_ground_items, _msg
 from nhc.core.actions._traps import _check_traps
-from nhc.core.events import DoorOpened, Event, MessageEvent
+from nhc.core.events import (
+    DoorOpened,
+    Event,
+    LeaveSiteRequested,
+    MessageEvent,
+)
 from nhc.i18n import t
 from nhc.utils.spatial import chebyshev
 
@@ -352,6 +357,38 @@ class SwapAction(Action):
             world, apos.x, apos.y, self.actor,
         )
         return events
+
+
+class LeaveSiteAction(Action):
+    """Step off the edge of a Site surface back to the overland.
+
+    Emitted when the player bumps the boundary of a walled-site
+    (keep, town, farm, ...) surface Level from the outside of
+    any in-bounds tile. The action emits :class:`LeaveSiteRequested`
+    and a narration :class:`MessageEvent`; the :class:`Game`
+    handler drops the level and restores the flower view.
+    """
+
+    def __init__(self, actor: int, dx: int, dy: int) -> None:
+        super().__init__(actor)
+        self.dx = dx
+        self.dy = dy
+
+    async def validate(self, world: "World", level: "Level") -> bool:
+        pos = world.get_component(self.actor, "Position")
+        if not pos:
+            return False
+        # The destination tile is off-map by construction; the
+        # bump router is the authority for when this action is
+        # chosen so we just sanity-check the step lands outside.
+        nx, ny = pos.x + self.dx, pos.y + self.dy
+        return level.tile_at(nx, ny) is None
+
+    async def execute(self, world: "World", level: "Level") -> list[Event]:
+        return [
+            LeaveSiteRequested(actor=self.actor),
+            MessageEvent(text=t("leave_site.exit")),
+        ]
 
 
 class BumpAction(Action):

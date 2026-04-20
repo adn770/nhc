@@ -1437,6 +1437,10 @@ encounter:
   arena_cleared: "You've cleared the field. You head back to the overland."
 
 
+leave_site:
+  exit: "You leave the site."
+
+
 rumor:
   none: >-
     The innkeeper shrugs. "Nothing new today, traveller."

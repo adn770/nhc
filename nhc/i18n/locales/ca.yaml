@@ -1558,6 +1558,10 @@ encounter:
   arena_cleared: "Has netejat el camp. Tornes a la superfície."
 
 
+leave_site:
+  exit: "Surts del lloc."
+
+
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   none: >-
