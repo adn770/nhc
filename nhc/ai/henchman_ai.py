@@ -352,8 +352,10 @@ def _pathfind_toward(
                 return False
         return True
 
+    edge_blocks = _edge_blocks_for(level)
     path = astar(
         (pos.x, pos.y), (target_pos.x, target_pos.y), is_walkable,
+        edge_blocks=edge_blocks,
     )
     if not path:
         return None
@@ -366,6 +368,16 @@ def _pathfind_toward(
             return None
 
     return path
+
+
+def _edge_blocks_for(level):
+    """Return an edge-blocker callable bound to ``level``, or
+    ``None`` when the level has no interior edges (so A*'s
+    interior-edge branch short-circuits to its fast path)."""
+    if not level.interior_edges:
+        return None
+    from nhc.dungeon.edges import edge_blocks_movement
+    return lambda a, b: edge_blocks_movement(level, a, b)
 
 
 # ── Unhired wander behaviour ──────────────────────────────────────────
@@ -476,6 +488,7 @@ def decide_unhired_wander_action(
                     lambda x, y: _wander_walkable(
                         world, level, x, y, entity_id,
                     ),
+                    edge_blocks=_edge_blocks_for(level),
                 )
                 if path:
                     nx, ny = path[0]

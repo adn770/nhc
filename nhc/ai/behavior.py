@@ -317,7 +317,17 @@ def decide_action(
                     return False
             return True
 
-        path = astar((pos.x, pos.y), target_xy, is_walkable)
+        edge_blocks = None
+        if level.interior_edges:
+            from nhc.dungeon.edges import edge_blocks_movement
+
+            def edge_blocks(a, b):
+                return edge_blocks_movement(level, a, b)
+
+        path = astar(
+            (pos.x, pos.y), target_xy, is_walkable,
+            edge_blocks=edge_blocks,
+        )
         if path:
             nx, ny = path[0]
             dx = nx - pos.x

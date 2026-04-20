@@ -95,6 +95,13 @@ class MoveAction(Action):
         if not tile.walkable:
             return False
 
+        # Interior edge walls block the step even when the
+        # destination tile is otherwise walkable.
+        if level.interior_edges:
+            from nhc.dungeon.edges import edge_blocks_movement
+            if edge_blocks_movement(level, (pos.x, pos.y), (nx, ny)):
+                return False
+
         # Henchmen must not walk onto the player or other henchmen
         if world.has_component(self.actor, "Henchman"):
             for eid, epos in world.query("Position"):

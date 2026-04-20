@@ -2690,8 +2690,24 @@ class Game:
                     pos.x, pos.y, cur.door_side,
                 )
 
+        # Interior edge walls aren't tile-level blockers — they
+        # sit on the edge between two tiles. The FOV raycast is
+        # tile-based, so we precompute the BFS-reachable set with
+        # edges as barriers and treat unreachable tiles as blocked
+        # for the purposes of this cast. Subtract the shadow set
+        # after so rooms behind a wall stay invisible instead of
+        # partially revealed.
+        edge_shadow: set[tuple[int, int]] = set()
+        if self.level.interior_edges:
+            from nhc.dungeon.edges import edge_shadow_tiles
+            edge_shadow = edge_shadow_tiles(
+                self.level, (pos.x, pos.y), FOV_RADIUS,
+            )
+
         def is_blocking(x: int, y: int) -> bool:
             if (x, y) in blocked_tiles:
+                return True
+            if (x, y) in edge_shadow:
                 return True
             tile = self.level.tile_at(x, y)
             if not tile:
@@ -2702,6 +2718,7 @@ class Game:
         # Virtual wall tiles are room floor behind the door —
         # exclude them so the room isn't partially revealed.
         visible -= blocked_tiles
+        visible -= edge_shadow
 
         # Hide wall tiles flanking visible closed doors so the
         # room's wall structure isn't revealed before entry.

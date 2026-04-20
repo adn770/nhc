@@ -13,11 +13,19 @@ def astar(
     goal: tuple[int, int],
     is_walkable: Callable[[int, int], bool],
     max_steps: int = 200,
+    edge_blocks: (
+        Callable[[tuple[int, int], tuple[int, int]], bool] | None
+    ) = None,
 ) -> list[tuple[int, int]]:
     """A* pathfinding with 8-directional movement.
 
     Returns path as list of (x, y) from start to goal (exclusive of start),
     or empty list if no path found within max_steps.
+
+    ``edge_blocks(from_xy, to_xy)`` is an optional callable that
+    returns True when the step is blocked by an interior edge
+    wall (see :mod:`nhc.dungeon.edges`). Tile-level walls and
+    doors are still handled by ``is_walkable``.
     """
     if start == goal:
         return []
@@ -44,6 +52,9 @@ def astar(
 
         for nx, ny in neighbors(*current):
             if not is_walkable(nx, ny):
+                continue
+            if (edge_blocks is not None
+                    and edge_blocks(current, (nx, ny))):
                 continue
 
             # Diagonal moves cost same as cardinal (Chebyshev)
