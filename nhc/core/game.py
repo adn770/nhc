@@ -51,6 +51,7 @@ from nhc.core.events import (
     HenchmanMenuEvent,
     ShopMenuEvent,
     TempleMenuEvent,
+    TerrainChanged,
     TrapTriggered,
     VisualEffect,
 )
@@ -1836,6 +1837,93 @@ class Game:
         """
         self._exit_to_overland_sync()
 
+    # -- C2: sub-hex mutation tracking ---------------------------------
+
+    def _active_sub_hex_cache_key(self) -> "tuple | None":
+        """Return the ``("sub", ...)`` cache-manager key for the
+        currently-active sub-hex family visit, or ``None`` when no
+        visit is in progress. Used by the mutation handlers below."""
+        if self._active_sub_hex is None or self.hex_world is None:
+            return None
+        macro = self.hex_world.exploring_hex
+        if macro is None:
+            return None
+        sub = self._active_sub_hex
+        return ("sub", macro.q, macro.r, sub.q, sub.r, 1)
+
+    def _append_sub_hex_mutation(
+        self, kind: str, value,
+    ) -> None:
+        """Append ``value`` onto the named mutation list for the
+        current sub-hex cache entry. No-op when no visit is active."""
+        if self._sub_hex_cache is None:
+            return
+        key = self._active_sub_hex_cache_key()
+        if key is None:
+            return
+        entry = self._sub_hex_cache._entries.get(key)
+        if entry is None:
+            return
+        muts = entry["mutations"]
+        bucket = muts.setdefault(kind, [])
+        bucket.append(value)
+        self._sub_hex_cache.update_mutations(key, muts)
+
+    def _set_sub_hex_mutation(
+        self, kind: str, subkey: str, value,
+    ) -> None:
+        """Set ``mutations[kind][subkey] = value`` for the current
+        sub-hex cache entry. No-op outside a visit."""
+        if self._sub_hex_cache is None:
+            return
+        key = self._active_sub_hex_cache_key()
+        if key is None:
+            return
+        entry = self._sub_hex_cache._entries.get(key)
+        if entry is None:
+            return
+        muts = entry["mutations"]
+        bucket = muts.setdefault(kind, {})
+        bucket[subkey] = value
+        self._sub_hex_cache.update_mutations(key, muts)
+
+    def _on_sub_hex_item_picked(self, event: ItemPickedUp) -> None:
+        """Record the tile an item was picked up from so replay on
+        re-entry can remove the matching placement."""
+        if self._active_sub_hex is None:
+            return
+        pos = self.world.get_component(event.entity, "Position")
+        if pos is None:
+            return
+        self._append_sub_hex_mutation(
+            "looted", [pos.x, pos.y],
+        )
+
+    def _on_sub_hex_creature_died(self, event: CreatureDied) -> None:
+        """Record the id of a creature that died inside a sub-hex
+        site so the populator skips it on re-entry."""
+        if self._active_sub_hex is None:
+            return
+        self._append_sub_hex_mutation("killed", event.entity)
+
+    def _on_sub_hex_door_opened(self, event: DoorOpened) -> None:
+        """Record an opened door so re-entry keeps it open rather
+        than resetting to closed."""
+        if self._active_sub_hex is None:
+            return
+        self._set_sub_hex_mutation(
+            "doors", f"{event.x},{event.y}", "open",
+        )
+
+    def _on_sub_hex_terrain_changed(self, event: TerrainChanged) -> None:
+        """Record a dug-through wall (U4: skip door tiles, handled by
+        the emitter — DigAction only fires for walls/voids)."""
+        if self._active_sub_hex is None:
+            return
+        self._set_sub_hex_mutation(
+            "terrain", f"{event.x},{event.y}", event.kind,
+        )
+
     def _exit_to_overland_sync(self) -> None:
         """Synchronous form of :meth:`exit_dungeon_to_hex` body.
 
@@ -3274,6 +3362,21 @@ class Game:
         self.event_bus.subscribe(VisualEffect, self._on_visual_effect)
         self.event_bus.subscribe(
             LeaveSiteRequested, self._on_leave_site_requested,
+        )
+        # Sub-hex mutation tracking (C2): the handlers below short-
+        # circuit when _active_sub_hex is None, so dungeon runs and
+        # macro-site visits are untouched.
+        self.event_bus.subscribe(
+            ItemPickedUp, self._on_sub_hex_item_picked,
+        )
+        self.event_bus.subscribe(
+            CreatureDied, self._on_sub_hex_creature_died,
+        )
+        self.event_bus.subscribe(
+            DoorOpened, self._on_sub_hex_door_opened,
+        )
+        self.event_bus.subscribe(
+            TerrainChanged, self._on_sub_hex_terrain_changed,
         )
 
     def _on_level_entered(self, event: LevelEntered) -> None:

@@ -1763,6 +1763,203 @@ def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# C2: record sub-hex mutations via EventBus
+# ---------------------------------------------------------------------------
+
+
+def _active_sub_hex_mutations(game) -> dict:
+    """Helper: read the mutation dict for the currently active sub-hex
+    cache entry straight from the manager."""
+    macro = game.hex_world.exploring_hex
+    sub = game._active_sub_hex
+    key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
+    entry = game._sub_hex_cache._entries.get(key)
+    assert entry is not None
+    return entry["mutations"]
+
+
+def test_terrain_changed_event_exists() -> None:
+    """``TerrainChanged`` is a pub/sub Event carrying tile coord +
+    the applied change kind."""
+    from nhc.core.events import Event, TerrainChanged
+
+    ev = TerrainChanged(x=2, y=3, kind="dug")
+    assert isinstance(ev, Event)
+    assert (ev.x, ev.y, ev.kind) == (2, 3, "dug")
+
+
+def test_item_pickup_appends_looted_tile(tmp_path) -> None:
+    """Picking up an item inside a sub-hex site appends its tile to
+    ``mutations['looted']`` of that site's cache entry."""
+    import asyncio
+
+    from nhc.core.events import ItemPickedUp
+    from nhc.entities.components import Position
+    from nhc.entities.registry import EntityRegistry
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    EntityRegistry.discover_all()
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    # Spawn a fake item at (4, 2) and move the actor onto it so the
+    # handler can read Position off the actor.
+    actor_pos = game.world.get_component(game.player_id, "Position")
+    actor_pos.x, actor_pos.y = 4, 2
+    asyncio.run(
+        game.event_bus.emit(ItemPickedUp(
+            entity=game.player_id, item=-1,
+        )),
+    )
+    muts = _active_sub_hex_mutations(game)
+    assert [4, 2] in muts.get("looted", [])
+
+
+def test_creature_died_appends_killed(tmp_path) -> None:
+    """A CreatureDied event inside a sub-hex site appends to
+    ``mutations['killed']``."""
+    import asyncio
+
+    from nhc.core.events import CreatureDied
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    asyncio.run(
+        game.event_bus.emit(CreatureDied(
+            entity=4242, killer=game.player_id, cause="melee",
+        )),
+    )
+    muts = _active_sub_hex_mutations(game)
+    assert 4242 in muts.get("killed", [])
+
+
+def test_door_opened_records_door_state(tmp_path) -> None:
+    """DoorOpened inside a sub-hex site records ``{'x,y': 'open'}``."""
+    import asyncio
+
+    from nhc.core.events import DoorOpened
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    asyncio.run(
+        game.event_bus.emit(DoorOpened(
+            entity=game.player_id, x=5, y=3,
+        )),
+    )
+    muts = _active_sub_hex_mutations(game)
+    assert muts.get("doors", {}).get("5,3") == "open"
+
+
+def test_terrain_changed_records_dug_tile(tmp_path) -> None:
+    """TerrainChanged (kind='dug') inside a sub-hex site records
+    ``{'x,y': 'dug'}`` in terrain mutations."""
+    import asyncio
+
+    from nhc.core.events import TerrainChanged
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    asyncio.run(
+        game.event_bus.emit(TerrainChanged(x=7, y=4, kind="dug")),
+    )
+    muts = _active_sub_hex_mutations(game)
+    assert muts.get("terrain", {}).get("7,4") == "dug"
+
+
+def test_mutation_handlers_no_op_outside_sub_hex(tmp_path) -> None:
+    """Emitting a mutation event outside an active sub-hex site is
+    a no-op — no cache entry is touched."""
+    import asyncio
+
+    from nhc.core.events import CreatureDied, DoorOpened
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    # Never entered a sub-hex family site — manager is lazy and
+    # _active_sub_hex is still None.
+    assert game._active_sub_hex is None
+    asyncio.run(
+        game.event_bus.emit(CreatureDied(entity=1, cause="x")),
+    )
+    asyncio.run(
+        game.event_bus.emit(DoorOpened(entity=1, x=0, y=0)),
+    )
+    # No exception raised; the handlers short-circuited.
+    assert game._active_sub_hex is None
+
+
+def test_dig_action_emits_terrain_changed(tmp_path) -> None:
+    """DigAction on a wall emits a TerrainChanged event so the
+    mutation handler observes the dig."""
+    import asyncio
+
+    from nhc.core.actions import DigAction
+    from nhc.core.events import TerrainChanged
+    from nhc.dungeon.model import Level, Terrain
+
+    level = Level.create_empty(
+        id="t", name="t", depth=1, width=5, height=5,
+    )
+    for y in range(5):
+        for x in range(5):
+            level.tiles[y][x].terrain = Terrain.FLOOR
+    level.tiles[2][3].terrain = Terrain.WALL
+
+    from nhc.core.ecs import World
+    from nhc.entities.components import (
+        Equipment, Position, Stats,
+    )
+    world = World()
+    # Create a minimal actor with a digging tool.
+    actor = world.create_entity({
+        "Position": Position(x=2, y=2, level_id=level.id),
+        "Stats": Stats(strength=5),
+        "Equipment": Equipment(),
+    })
+    # Forge a digging tool entity.
+    from nhc.entities.components import DiggingTool, Weapon
+    tool = world.create_entity({
+        "Weapon": Weapon(damage="1d6"),
+        "DiggingTool": DiggingTool(bonus=5),
+    })
+    equip = world.get_component(actor, "Equipment")
+    equip.weapon = tool
+
+    action = DigAction(actor=actor, dx=1, dy=0)
+    # Force a guaranteed success with a high-str modifier.
+    events = asyncio.run(action.execute(world, level))
+    terrain_events = [
+        e for e in events if isinstance(e, TerrainChanged)
+    ]
+    assert terrain_events, (
+        "DigAction on a wall must emit TerrainChanged"
+    )
+    ev = terrain_events[0]
+    assert (ev.x, ev.y, ev.kind) == (3, 2, "dug")
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

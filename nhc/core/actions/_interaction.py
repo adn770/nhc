@@ -9,7 +9,8 @@ from nhc.core.actions._helpers import (
     _entity_name, _items_at, _msg, _stack_ground_items,
 )
 from nhc.core.events import (
-    DoorOpened, Event, LevelEntered, MessageEvent, VisualEffect,
+    DoorOpened, Event, LevelEntered, MessageEvent, TerrainChanged,
+    VisualEffect,
 )
 from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.i18n import t
@@ -346,6 +347,9 @@ class DigAction(Action):
             tile.dug_wall = True
             events.append(MessageEvent(
                 text=t("explore.dig_success"),
+            ))
+            events.append(TerrainChanged(
+                x=tx, y=ty, kind="dug",
             ))
             # 10% chance to find a gem or glass in the rubble
             from nhc.utils.rng import get_rng as _get_rng

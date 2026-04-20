@@ -48,6 +48,19 @@ class DoorOpened(Event):
 
 
 @dataclass
+class TerrainChanged(Event):
+    """A terrain-mutating action touched tile ``(x, y)``.
+
+    ``kind`` is a short tag describing the change (``"dug"`` for a
+    wall dug through to floor). Used by the sub-hex mutation
+    tracker to replay changes on re-entry.
+    """
+    x: int = 0
+    y: int = 0
+    kind: str = ""
+
+
+@dataclass
 class LeaveSiteRequested(Event):
     """Player stepped off the edge of a Site surface.
 
