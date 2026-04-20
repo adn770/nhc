@@ -4,45 +4,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: athletic
-  text: athletic
+  text: atlético
 - id: brawny
-  text: brawny
+  text: musculoso
 - id: corpulent
-  text: corpulent
+  text: corpulento
 - id: delicate
-  text: delicate
+  text: delicado
 - id: gaunt
-  text: gaunt
+  text: demacrado
 - id: giant
-  text: giant
+  text: gigante
 - id: lanky
-  text: lanky
+  text: larguirucho
 - id: muscular
-  text: muscular
+  text: fornido
 - id: robust
-  text: robust
+  text: robusto
 - id: scrawny
-  text: scrawny
+  text: flaco
 - id: short
-  text: short
+  text: bajito
 - id: stout
-  text: stout
+  text: rechoncho
 - id: slim
-  text: slim
+  text: esbelto
 - id: plump
-  text: plump
+  text: regordete
 - id: sculpted
-  text: sculpted
+  text: escultural
 - id: fat
-  text: fat
+  text: grueso
 - id: petite
-  text: petite
+  text: pequeño
 - id: tall
-  text: tall
+  text: alto
 - id: slender
-  text: slender
+  text: delgado
 - id: wiry
-  text: wiry
+  text: fibroso
 ---
 id: trait.face
 kind: flavor
@@ -50,45 +50,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: bloated
-  text: bloated
+  text: hinchada
 - id: thin
-  text: thin
+  text: delgada
 - id: cadaverous
-  text: cadaverous
+  text: cadavérica
 - id: chiseled
-  text: chiseled
+  text: cincelada
 - id: delicate
-  text: delicate
+  text: delicada
 - id: elongated
-  text: elongated
+  text: alargada
 - id: stern
-  text: stern
+  text: severa
 - id: gaunt
-  text: gaunt
+  text: demacrada
 - id: fierce
-  text: fierce
+  text: feroz
 - id: broken
-  text: broken
+  text: rota
 - id: wicked
-  text: wicked
+  text: malévola
 - id: narrow
-  text: narrow
+  text: estrecha
 - id: cunning
-  text: cunning
+  text: astuta
 - id: round
-  text: round
+  text: redonda
 - id: sunken
-  text: sunken
+  text: hundida
 - id: sharp
-  text: sharp
+  text: afilada
 - id: soft
-  text: soft
+  text: suave
 - id: square
-  text: square
+  text: cuadrada
 - id: wide
-  text: wide
+  text: ancha
 - id: wild
-  text: wild
+  text: salvaje
 ---
 id: trait.skin
 kind: flavor
@@ -96,45 +96,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: battle_scar
-  text: battle_scar
+  text: cicatriz de guerra
 - id: birthmark
-  text: birthmark
+  text: marca de nacimiento
 - id: burned
-  text: burned
+  text: quemada
 - id: dark
-  text: dark
+  text: oscura
 - id: painted
-  text: painted
+  text: maquillada
 - id: greasy
-  text: greasy
+  text: aceitosa
 - id: sallow
-  text: sallow
+  text: cetrina
 - id: flawless
-  text: flawless
+  text: perfecta
 - id: pierced
-  text: pierced
+  text: perforada
 - id: pockmarked
-  text: pockmarked
+  text: marcas de viruela
 - id: sweaty
-  text: sweaty
+  text: sudorosa
 - id: tattooed
-  text: tattooed
+  text: tatuada
 - id: radiant
-  text: radiant
+  text: radiante
 - id: rough
-  text: rough
+  text: rugosa
 - id: pale
-  text: pale
+  text: pálida
 - id: sunburned
-  text: sunburned
+  text: quemada por el sol
 - id: tanned
-  text: tanned
+  text: bronceada
 - id: war_paint
-  text: war_paint
+  text: pintura de guerra
 - id: wrinkled
-  text: wrinkled
+  text: arrugada
 - id: whipped
-  text: whipped
+  text: cicatriz por látigo
 ---
 id: trait.hair
 kind: flavor
@@ -142,45 +142,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: bald
-  text: bald
+  text: calvo
 - id: braided
-  text: braided
+  text: trenzado
 - id: bristly
-  text: bristly
+  text: erizado
 - id: half_shaved
-  text: half_shaved
+  text: medio afeitado
 - id: curly
-  text: curly
+  text: rizado
 - id: disheveled
-  text: disheveled
+  text: despeinado
 - id: dreadlocks
-  text: dreadlocks
+  text: rastas
 - id: filthy
-  text: filthy
+  text: sucio
 - id: frizzy
-  text: frizzy
+  text: ensortijado
 - id: greasy
-  text: greasy
+  text: grasiento
 - id: limp
-  text: limp
+  text: lacio
 - id: long
-  text: long
+  text: largo
 - id: luxurious
-  text: luxurious
+  text: lujoso
 - id: mohawk
-  text: mohawk
+  text: cresta
 - id: oily
-  text: oily
+  text: aceitoso
 - id: ponytail
-  text: ponytail
+  text: coleta
 - id: silky
-  text: silky
+  text: sedoso
 - id: topknot
-  text: topknot
+  text: moño
 - id: wavy
-  text: wavy
+  text: ondulado
 - id: feathery
-  text: feathery
+  text: plumoso
 ---
 id: trait.clothing
 kind: flavor
@@ -188,45 +188,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: antique
-  text: antique
+  text: antiguos
 - id: bloody
-  text: bloody
+  text: ensangrentados
 - id: ceremonial
-  text: ceremonial
+  text: ceremoniales
 - id: decorated
-  text: decorated
+  text: decorados
 - id: eccentric
-  text: eccentric
+  text: excéntricos
 - id: elegant
-  text: elegant
+  text: elegantes
 - id: distinguished
-  text: distinguished
+  text: distinguidos
 - id: provocative
-  text: provocative
+  text: provocativos
 - id: flashy
-  text: flashy
+  text: llamativos
 - id: stained
-  text: stained
+  text: manchados
 - id: foreign
-  text: foreign
+  text: extranjeros
 - id: worn
-  text: worn
+  text: raídos
 - id: oversized
-  text: oversized
+  text: holgados
 - id: uniform
-  text: uniform
+  text: uniformes
 - id: large
-  text: large
+  text: amplios
 - id: patched
-  text: patched
+  text: remendados
 - id: perfumed
-  text: perfumed
+  text: perfumados
 - id: rancid
-  text: rancid
+  text: rancios
 - id: tattered
-  text: tattered
+  text: rasgados
 - id: small
-  text: small
+  text: estrechos
 ---
 id: trait.virtue
 kind: flavor
@@ -236,8 +236,11 @@ entries:
 - id: ambitious
   text: ambicioso
 - id: cautious
-  text: [prudente, precavido]
-  tags: [cairn-1e-es]
+  text:
+  - prudente
+  - precavido
+  tags:
+  - cairn-1e-es
 - id: brave
   text: valiente
 - id: courteous
@@ -251,8 +254,11 @@ entries:
 - id: generous
   text: generoso
 - id: gregarious
-  text: [gregario, sociable]
-  tags: [cairn-1e-es]
+  text:
+  - gregario
+  - sociable
+  tags:
+  - cairn-1e-es
 - id: honest
   text: honesto
 - id: honorable
@@ -293,7 +299,8 @@ entries:
   text: cruel
 - id: deceitful
   text: mentiroso
-  tags: [cairn-1e-es]
+  tags:
+  - cairn-1e-es
 - id: frivolous
   text: frívolo
 - id: gluttonous
@@ -312,7 +319,8 @@ entries:
   text: imprudente
 - id: rude
   text: rudo
-  tags: [cairn-1e-es]
+  tags:
+  - cairn-1e-es
 - id: suspicious
   text: suspicaz
 - id: vain
@@ -330,45 +338,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: gruff
-  text: gruff
+  text: brusca
 - id: deep
-  text: deep
+  text: profunda
 - id: halting
-  text: halting
+  text: entrecortada
 - id: cryptic
-  text: cryptic
+  text: críptica
 - id: drawling
-  text: drawling
+  text: arrastrada
 - id: singsong
-  text: singsong
+  text: cantarina
 - id: flowery
-  text: flowery
+  text: florida
 - id: formal
   text: formal
 - id: grave
   text: grave
 - id: hoarse
-  text: hoarse
+  text: ronca
 - id: mumbling
-  text: mumbling
+  text: murmurante
 - id: precise
-  text: precise
+  text: precisa
 - id: quaint
-  text: quaint
+  text: pintoresca
 - id: incoherent
-  text: incoherent
+  text: incoherente
 - id: rapid
-  text: rapid
+  text: rápida
 - id: dialectal
   text: dialectal
 - id: calm
-  text: calm
+  text: tranquila
 - id: booming
-  text: booming
+  text: retumbante
 - id: stuttering
-  text: stuttering
+  text: tartamuda
 - id: whispering
-  text: whispering
+  text: susurrante
 ---
 id: trait.background
 kind: flavor
@@ -403,12 +411,14 @@ entries:
   text: mercenario
 - id: merchant
   text: mercader
-  tags: [cairn-1e-es]
+  tags:
+  - cairn-1e-es
 - id: outlaw
   text: criminal
 - id: performer
   text: artista
-  tags: [cairn-1e-es]
+  tags:
+  - cairn-1e-es
 - id: pickpocket
   text: carterista
 - id: smuggler
@@ -424,45 +434,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: abandoned
-  text: abandoned
+  text: abandonado
 - id: addicted
-  text: addicted
+  text: adicto
 - id: blackmailed
-  text: blackmailed
+  text: chantajeado
 - id: condemned
-  text: condemned
+  text: condenado
 - id: cursed
-  text: cursed
+  text: maldito
 - id: swindled
-  text: swindled
+  text: defraudado
 - id: demoted
-  text: demoted
+  text: degradado
 - id: discredited
-  text: discredited
+  text: desacreditado
 - id: dispossessed
-  text: dispossessed
+  text: desposeído
 - id: exiled
-  text: exiled
+  text: exiliado
 - id: sentenced
-  text: sentenced
+  text: sentenciado
 - id: obsessed
-  text: obsessed
+  text: obsesionado
 - id: kidnapped
-  text: kidnapped
+  text: secuestrado
 - id: mutilated
-  text: mutilated
+  text: mutilado
 - id: destitute
-  text: destitute
+  text: indigente
 - id: hunted
-  text: hunted
+  text: cazado
 - id: expelled
-  text: expelled
+  text: expulsado
 - id: replaced
-  text: replaced
+  text: reemplazado
 - id: robbed
-  text: robbed
+  text: robado
 - id: suspected
-  text: suspected
+  text: sospechoso
 ---
 id: trait.alignment
 kind: flavor

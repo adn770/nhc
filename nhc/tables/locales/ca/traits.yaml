@@ -4,45 +4,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: athletic
-  text: athletic
+  text: atlètic
 - id: brawny
-  text: brawny
+  text: forçut
 - id: corpulent
   text: corpulent
 - id: delicate
-  text: delicate
+  text: delicat
 - id: gaunt
-  text: gaunt
+  text: demacrat
 - id: giant
-  text: giant
+  text: gegantí
 - id: lanky
-  text: lanky
+  text: llarguerut
 - id: muscular
-  text: muscular
+  text: musculat
 - id: robust
   text: robust
 - id: scrawny
-  text: scrawny
+  text: escanyolit
 - id: short
-  text: short
+  text: baix
 - id: stout
-  text: stout
+  text: fornit
 - id: slim
-  text: slim
+  text: prim
 - id: plump
-  text: plump
+  text: fofo
 - id: sculpted
-  text: sculpted
+  text: escultural
 - id: fat
-  text: fat
+  text: gros
 - id: petite
-  text: petite
+  text: menut
 - id: tall
-  text: tall
+  text: alt
 - id: slender
-  text: slender
+  text: esvelt
 - id: wiry
-  text: wiry
+  text: fibrat
 ---
 id: trait.face
 kind: flavor
@@ -50,45 +50,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: bloated
-  text: bloated
+  text: inflada
 - id: thin
-  text: thin
+  text: fina
 - id: cadaverous
-  text: cadaverous
+  text: cadavèrica
 - id: chiseled
-  text: chiseled
+  text: cisellada
 - id: delicate
-  text: delicate
+  text: delicada
 - id: elongated
-  text: elongated
+  text: allargada
 - id: stern
-  text: stern
+  text: severa
 - id: gaunt
-  text: gaunt
+  text: demacrada
 - id: fierce
-  text: fierce
+  text: agressiva
 - id: broken
-  text: broken
+  text: partida
 - id: wicked
-  text: wicked
+  text: malèvola
 - id: narrow
-  text: narrow
+  text: estreta
 - id: cunning
-  text: cunning
+  text: astuta
 - id: round
-  text: round
+  text: rodona
 - id: sunken
-  text: sunken
+  text: xuclada
 - id: sharp
-  text: sharp
+  text: esmolada
 - id: soft
-  text: soft
+  text: suau
 - id: square
-  text: square
+  text: quadrada
 - id: wide
-  text: wide
+  text: ample
 - id: wild
-  text: wild
+  text: salvatge
 ---
 id: trait.skin
 kind: flavor
@@ -96,45 +96,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: battle_scar
-  text: battle_scar
+  text: cicatriu de guerra
 - id: birthmark
-  text: birthmark
+  text: marca de naixement
 - id: burned
-  text: burned
+  text: cremada
 - id: dark
-  text: dark
+  text: fosca
 - id: painted
-  text: painted
+  text: maquillada
 - id: greasy
-  text: greasy
+  text: greixosa
 - id: sallow
-  text: sallow
+  text: groguenca
 - id: flawless
-  text: flawless
+  text: perfecta
 - id: pierced
-  text: pierced
+  text: perforada
 - id: pockmarked
-  text: pockmarked
+  text: granelluda
 - id: sweaty
-  text: sweaty
+  text: suada
 - id: tattooed
-  text: tattooed
+  text: tatuada
 - id: radiant
   text: radiant
 - id: rough
-  text: rough
+  text: aspre
 - id: pale
-  text: pale
+  text: pàl·lida
 - id: sunburned
-  text: sunburned
+  text: cremada solar
 - id: tanned
-  text: tanned
+  text: bronzejada
 - id: war_paint
-  text: war_paint
+  text: pintures de guerra
 - id: wrinkled
-  text: wrinkled
+  text: arrugada
 - id: whipped
-  text: whipped
+  text: fuetada
 ---
 id: trait.hair
 kind: flavor
@@ -142,45 +142,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: bald
-  text: bald
+  text: calb
 - id: braided
-  text: braided
+  text: trenat
 - id: bristly
-  text: bristly
+  text: estarrufat
 - id: half_shaved
-  text: half_shaved
+  text: mig rapat
 - id: curly
-  text: curly
+  text: arrissat
 - id: disheveled
-  text: disheveled
+  text: despentinat
 - id: dreadlocks
-  text: dreadlocks
+  text: rastes
 - id: filthy
-  text: filthy
+  text: brut
 - id: frizzy
-  text: frizzy
+  text: encrespat
 - id: greasy
-  text: greasy
+  text: llardós
 - id: limp
-  text: limp
+  text: dèbil
 - id: long
-  text: long
+  text: llarg
 - id: luxurious
-  text: luxurious
+  text: luxós
 - id: mohawk
-  text: mohawk
+  text: cresta
 - id: oily
-  text: oily
+  text: greixós
 - id: ponytail
-  text: ponytail
+  text: cua
 - id: silky
-  text: silky
+  text: sedós
 - id: topknot
-  text: topknot
+  text: monyo
 - id: wavy
-  text: wavy
+  text: ondulat
 - id: feathery
-  text: feathery
+  text: plomós
 ---
 id: trait.clothing
 kind: flavor
@@ -188,45 +188,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: antique
-  text: antique
+  text: antiga
 - id: bloody
-  text: bloody
+  text: ensagnada
 - id: ceremonial
-  text: ceremonial
+  text: cerimonial
 - id: decorated
-  text: decorated
+  text: decorada
 - id: eccentric
-  text: eccentric
+  text: excèntrica
 - id: elegant
   text: elegant
 - id: distinguished
-  text: distinguished
+  text: distingida
 - id: provocative
-  text: provocative
+  text: provocativa
 - id: flashy
-  text: flashy
+  text: llampant
 - id: stained
-  text: stained
+  text: tacada
 - id: foreign
-  text: foreign
+  text: forana
 - id: worn
-  text: worn
+  text: desgastada
 - id: oversized
-  text: oversized
+  text: massa gran
 - id: uniform
-  text: uniform
+  text: uniforme
 - id: large
-  text: large
+  text: talla gran
 - id: patched
-  text: patched
+  text: apedaçada
 - id: perfumed
-  text: perfumed
+  text: perfumada
 - id: rancid
-  text: rancid
+  text: rància
 - id: tattered
-  text: tattered
+  text: estripada
 - id: small
-  text: small
+  text: petita
 ---
 id: trait.virtue
 kind: flavor
@@ -250,8 +250,11 @@ entries:
 - id: generous
   text: generós
 - id: gregarious
-  text: [gregari, sociable]
-  tags: [cairn-1e-ca]
+  text:
+  - gregari
+  - sociable
+  tags:
+  - cairn-1e-ca
 - id: honest
   text: honest
 - id: honorable
@@ -286,14 +289,16 @@ entries:
   text: arrogant
 - id: bitter
   text: amargat
-  tags: [cairn-1e-ca]
+  tags:
+  - cairn-1e-ca
 - id: cowardly
   text: covard
 - id: cruel
   text: cruel
 - id: deceitful
   text: mentider
-  tags: [cairn-1e-ca]
+  tags:
+  - cairn-1e-ca
 - id: frivolous
   text: frívol
 - id: gluttonous
@@ -329,45 +334,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: gruff
-  text: gruff
+  text: esquerpa
 - id: deep
-  text: deep
+  text: profunda
 - id: halting
-  text: halting
+  text: entretallada
 - id: cryptic
-  text: cryptic
+  text: críptica
 - id: drawling
-  text: drawling
+  text: arrossegada
 - id: singsong
-  text: singsong
+  text: cantarella
 - id: flowery
-  text: flowery
+  text: florida
 - id: formal
   text: formal
 - id: grave
-  text: grave
+  text: greu
 - id: hoarse
-  text: hoarse
+  text: ronca
 - id: mumbling
-  text: mumbling
+  text: embarbussada
 - id: precise
-  text: precise
+  text: precisa
 - id: quaint
-  text: quaint
+  text: pintoresca
 - id: incoherent
   text: incoherent
 - id: rapid
-  text: rapid
+  text: ràpida
 - id: dialectal
   text: dialectal
 - id: calm
-  text: calm
+  text: calmada
 - id: booming
-  text: booming
+  text: cridanera
 - id: stuttering
-  text: stuttering
+  text: tartamuda
 - id: whispering
-  text: whispering
+  text: xiuxiuejant
 ---
 id: trait.background
 kind: flavor
@@ -406,7 +411,8 @@ entries:
   text: criminal
 - id: performer
   text: artista
-  tags: [cairn-1e-ca]
+  tags:
+  - cairn-1e-ca
 - id: pickpocket
   text: tallabosses
 - id: smuggler
@@ -422,45 +428,45 @@ lifetime: gen_time
 shared_structure: true
 entries:
 - id: abandoned
-  text: abandoned
+  text: abandonat
 - id: addicted
-  text: addicted
+  text: addicte
 - id: blackmailed
-  text: blackmailed
+  text: xantatjat
 - id: condemned
-  text: condemned
+  text: condemnat
 - id: cursed
-  text: cursed
+  text: maleït
 - id: swindled
-  text: swindled
+  text: estafat
 - id: demoted
-  text: demoted
+  text: degradat
 - id: discredited
-  text: discredited
+  text: desacreditat
 - id: dispossessed
-  text: dispossessed
+  text: desposseït
 - id: exiled
-  text: exiled
+  text: exiliat
 - id: sentenced
-  text: sentenced
+  text: sentenciat
 - id: obsessed
-  text: obsessed
+  text: obsessionat
 - id: kidnapped
-  text: kidnapped
+  text: segrestat
 - id: mutilated
-  text: mutilated
+  text: mutilat
 - id: destitute
-  text: destitute
+  text: pobre
 - id: hunted
-  text: hunted
+  text: perseguit
 - id: expelled
-  text: expelled
+  text: expulsat
 - id: replaced
-  text: replaced
+  text: substituït
 - id: robbed
-  text: robbed
+  text: robat
 - id: suspected
-  text: suspected
+  text: sospitós
 ---
 id: trait.alignment
 kind: flavor
