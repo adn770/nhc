@@ -260,27 +260,26 @@ class TestRectBSPPartitionerDoorway:
         for room in plan.rooms[1:]:
             assert room.rect.center in reached
 
-    def test_doors_on_wall_runs_ge_3_tiles(self):
-        """Every door sits on a wall run of ≥ 3 tiles — i.e., it
-        has a wall neighbour on both axis-aligned sides along the
-        wall's orientation."""
+    def test_doors_on_edge_runs_ge_3_edges(self):
+        """Every door sits on an edge run of ≥ 3 edges — i.e., the
+        canonical edge targeted by door_side has both neighbouring
+        collinear edges in plan.interior_edges."""
+        from nhc.dungeon.model import canonicalize
         rect = Rect(1, 1, 14, 10)
         plan = RectBSPPartitioner(mode="doorway").plan(
             _cfg(rect, seed=0),
         )
-        all_walls = plan.interior_walls | {d.xy for d in plan.doors}
         for door in plan.doors:
-            x, y = door.xy
-            # Door is FLOOR but originally lived on a wall line.
-            # Two collinear neighbours must be in all_walls.
-            horiz_run = (
-                (x - 1, y) in all_walls and (x + 1, y) in all_walls
-            )
-            vert_run = (
-                (x, y - 1) in all_walls and (x, y + 1) in all_walls
-            )
-            assert horiz_run or vert_run, (
-                f"door at {door.xy} is not on a wall run of ≥ 3 tiles"
+            ex, ey, side = canonicalize(door.x, door.y, door.side)
+            if side == "north":
+                left = (ex - 1, ey, "north") in plan.interior_edges
+                right = (ex + 1, ey, "north") in plan.interior_edges
+            else:  # west
+                left = (ex, ey - 1, "west") in plan.interior_edges
+                right = (ex, ey + 1, "west") in plan.interior_edges
+            assert left and right, (
+                f"door at {door.xy} side={door.side} is not on an "
+                f"edge run of ≥ 3 edges"
             )
 
     def test_disjointness_invariants(self):

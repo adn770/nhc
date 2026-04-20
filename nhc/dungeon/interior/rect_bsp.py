@@ -20,7 +20,7 @@ from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
-from nhc.dungeon.model import Rect, RectShape, Room
+from nhc.dungeon.model import Rect, RectShape, Room, canonicalize
 
 
 @dataclass
@@ -69,16 +69,14 @@ class RectBSPPartitioner:
             cfg.footprint, cfg.min_room, cfg.rng,
             cfg.required_walkable, target,
         )
-        leaves = self._leaves(root)
+        leaves = self._leaves_grown(root)
         if not leaves:
             return SingleRoomPartitioner().plan(cfg)
         if len(leaves) == 1:
             return SingleRoomPartitioner().plan(cfg)
 
-        walls = self._collect_walls(root)
-        doors = self._place_doors(root, cfg)
-        for door in doors:
-            walls.discard(door.xy)
+        edges = self._collect_edges(root)
+        doors = self._place_edge_doors(root, cfg)
 
         rooms = [
             Room(
@@ -91,7 +89,7 @@ class RectBSPPartitioner:
         ]
         return LayoutPlan(
             rooms=rooms,
-            interior_walls=walls,
+            interior_edges=edges,
             doors=doors,
         )
 
@@ -434,6 +432,161 @@ class RectBSPPartitioner:
             return [node.rect]
         assert node.left is not None and node.right is not None
         return self._leaves(node.left) + self._leaves(node.right)
+
+    # ─── Edge-wall primitives ───────────────────────────────
+    #
+    # In the edge-wall model a split's "wall row" at coord ``at``
+    # is absorbed into one of the two children so rooms fill the
+    # footprint with no WALL tile rows. The canonical edge sits
+    # between the grown leaf and the other leaf. ``_grow_rect``
+    # expands a child rect by one tile toward the split line;
+    # ``_collect_edges`` walks the tree and emits one canonical
+    # edge-run per split; ``_place_edge_doors`` picks a door tile
+    # on a grown leaf whose ``door_side`` targets the split edge.
+
+    def _leaves_grown(self, node: _BSPNode) -> list[Rect]:
+        """Return leaves grown to absorb their side of each split.
+
+        Each split's wall row / column (tile at coord ``at``) is
+        absorbed into the "top" (horiz) or "left" (vert) leaf in
+        that split's subtree. Nested splits mean a single leaf may
+        absorb on multiple axes, so we match each split against
+        the leaf's ORIGINAL rect (``orig``) rather than its
+        currently-grown rect.
+        """
+        originals = self._leaves(node)
+        grown: list[list[int]] = [
+            [r.x, r.y, r.width, r.height] for r in originals
+        ]
+        splits = self._collect_split_rects(node)
+        for (axis, at, parent) in splits:
+            if axis == "horiz":
+                x0, x1 = parent.x, parent.x2
+                for i, orig in enumerate(originals):
+                    if orig.y2 != at:
+                        continue
+                    if orig.x < x0 or orig.x2 > x1:
+                        continue
+                    grown[i][3] += 1
+            else:
+                y0, y1 = parent.y, parent.y2
+                for i, orig in enumerate(originals):
+                    if orig.x2 != at:
+                        continue
+                    if orig.y < y0 or orig.y2 > y1:
+                        continue
+                    grown[i][2] += 1
+        return [Rect(x, y, w, h) for (x, y, w, h) in grown]
+
+    def _collect_split_rects(
+        self, node: _BSPNode,
+    ) -> list[tuple[str, int, Rect]]:
+        """Return ``(axis, at, parent_rect)`` for every split."""
+        out: list[tuple[str, int, Rect]] = []
+        self._collect_split_rects_recursive(node, out)
+        return out
+
+    def _collect_split_rects_recursive(
+        self, node: _BSPNode,
+        out: list[tuple[str, int, Rect]],
+    ) -> None:
+        if node.split is None:
+            return
+        out.append((node.split.axis, node.split.at, node.rect))
+        assert node.left is not None and node.right is not None
+        self._collect_split_rects_recursive(node.left, out)
+        self._collect_split_rects_recursive(node.right, out)
+
+    def _collect_edges(
+        self, node: _BSPNode,
+    ) -> set[tuple[int, int, str]]:
+        """Return canonical edges for every split in the tree."""
+        edges: set[tuple[int, int, str]] = set()
+        self._collect_edges_recursive(node, edges)
+        return edges
+
+    def _collect_edges_recursive(
+        self, node: _BSPNode,
+        edges: set[tuple[int, int, str]],
+    ) -> None:
+        if node.split is None:
+            return
+        assert node.left is not None and node.right is not None
+        # A horizontal split at ``at`` places the canonical edge
+        # between (x, at) and (x, at+1) → (x, at+1, "north").
+        # A vertical split places (at+1, y, "west").
+        rect = node.rect
+        at = node.split.at
+        if node.split.axis == "horiz":
+            for x in range(rect.x, rect.x2):
+                edges.add(canonicalize(x, at + 1, "north"))
+        else:
+            for y in range(rect.y, rect.y2):
+                edges.add(canonicalize(at + 1, y, "west"))
+        self._collect_edges_recursive(node.left, edges)
+        self._collect_edges_recursive(node.right, edges)
+
+    def _place_edge_doors(
+        self, node: _BSPNode, cfg: PartitionerConfig,
+    ) -> list[InteriorDoor]:
+        doors: list[InteriorDoor] = []
+        self._place_edge_doors_recursive(node, cfg, doors)
+        return doors
+
+    def _place_edge_doors_recursive(
+        self, node: _BSPNode, cfg: PartitionerConfig,
+        doors: list[InteriorDoor],
+    ) -> None:
+        if node.split is None:
+            return
+        door = self._pick_edge_door(
+            node.rect, node.split, cfg.rng, cfg.required_walkable,
+        )
+        if door is not None:
+            doors.append(door)
+        assert node.left is not None and node.right is not None
+        self._place_edge_doors_recursive(node.left, cfg, doors)
+        self._place_edge_doors_recursive(node.right, cfg, doors)
+
+    def _pick_edge_door(
+        self, rect: Rect, split: _Split, rng: random.Random,
+        required: frozenset[tuple[int, int]],
+    ) -> InteriorDoor | None:
+        """Pick a door tile on the grown-leaf side of the split.
+
+        Interior candidates: exclude the two end tiles of the
+        split line so the door sits on a run of ≥ 3 edges.
+        Horizontal split at ``at`` → door tile (x, at+1) with
+        door_side="north"; vertical split at ``at`` → door tile
+        (at+1, y) with door_side="west". Either form's canonical
+        edge matches one of the edges emitted by the split.
+        """
+        if split.axis == "horiz":
+            lo = rect.x + 1
+            hi = rect.x2 - 2
+            if lo > hi:
+                return None
+            candidates = [
+                (x, split.at + 1) for x in range(lo, hi + 1)
+                if (x, split.at + 1) not in required
+            ]
+            side = "north"
+        else:
+            lo = rect.y + 1
+            hi = rect.y2 - 2
+            if lo > hi:
+                return None
+            candidates = [
+                (split.at + 1, y) for y in range(lo, hi + 1)
+                if (split.at + 1, y) not in required
+            ]
+            side = "west"
+        if not candidates:
+            return None
+        x, y = rng.choice(candidates)
+        return InteriorDoor(
+            x=x, y=y, side=side, feature="door_closed",
+        )
 
     def _collect_walls(
         self, node: _BSPNode,
