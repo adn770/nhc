@@ -20,6 +20,28 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class InteriorDoorLink:
+    """Paired door tiles on mirrored perimeter positions of two
+    adjacent buildings, on the same floor index.
+
+    Stepping onto either tile teleports to the other (same
+    mechanism as surface entry doors). Door state (open / closed,
+    ``opened_at_turn``) must stay in sync across the pair — the
+    door action and ``tick_doors`` propagate changes through the
+    site via :func:`sync_linked_door_state`.
+
+    Invariant: ``floor < min(len(A.floors), len(B.floors))`` —
+    links only exist on floors present on both buildings.
+    """
+
+    from_building: str
+    to_building: str
+    floor: int
+    from_tile: tuple[int, int]
+    to_tile: tuple[int, int]
+
+
+@dataclass
 class Enclosure:
     """Closed outer wall around a Site.
 
@@ -66,6 +88,14 @@ class Site:
     interior_doors: dict[
         tuple[str, int, int], tuple[str, int, int]
     ] = field(default_factory=dict)
+    # Structured per-floor cross-building links (M15). The legacy
+    # interior_doors dict stays for back-compat with existing
+    # movement / door-crossing code; interior_door_links is the
+    # new list iterator paths should prefer and is what
+    # sync_linked_door_state uses to propagate state.
+    interior_door_links: list[InteriorDoorLink] = field(
+        default_factory=list,
+    )
 
 
 # ── Surface door painter ─────────────────────────────────────
@@ -174,6 +204,44 @@ SITE_KINDS = (
     "tower", "farm", "mansion", "keep", "town",
     "temple", "cottage", "ruin",
 )
+
+
+def sync_linked_door_state(
+    site: "Site", building_id: str, tile_xy: tuple[int, int],
+) -> None:
+    """Propagate the door feature + ``opened_at_turn`` at
+    ``(building_id, tile_xy)`` to its mirrored tile, if the tile is
+    part of an :class:`InteriorDoorLink`.
+
+    Called after open / close actions and after
+    :func:`tick_doors` auto-closes a door so both sides of a
+    link stay in sync. See ``design/building_interiors.md``
+    section "Auto-close rule".
+    """
+    buildings = {b.id: b for b in site.buildings}
+    src_b = buildings.get(building_id)
+    if src_b is None:
+        return
+    for link in site.interior_door_links:
+        if link.from_building == building_id and link.from_tile == tile_xy:
+            other_id = link.to_building
+            other_tile = link.to_tile
+        elif link.to_building == building_id and link.to_tile == tile_xy:
+            other_id = link.from_building
+            other_tile = link.from_tile
+        else:
+            continue
+        other_b = buildings.get(other_id)
+        if other_b is None or not (
+            0 <= link.floor < len(other_b.floors)
+        ):
+            continue
+        src_tile = src_b.floors[link.floor].tiles[tile_xy[1]][tile_xy[0]]
+        dst_tile = other_b.floors[link.floor].tiles[
+            other_tile[1]
+        ][other_tile[0]]
+        dst_tile.feature = src_tile.feature
+        dst_tile.opened_at_turn = src_tile.opened_at_turn
 
 
 def populate_building_door_sides(site: "Site") -> None:

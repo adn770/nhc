@@ -22,7 +22,7 @@ from nhc.dungeon.model import (
     Terrain, Tile,
 )
 from nhc.dungeon.site import (
-    Site, outside_neighbour, paint_surface_doors,
+    InteriorDoorLink, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
 from nhc.hexcrawl.model import DungeonRef
@@ -91,6 +91,7 @@ def assemble_mansion(
     interior_doors: dict[
         tuple[str, int, int], tuple[str, int, int]
     ] = {}
+    interior_door_links: list[InteriorDoorLink] = []
     for i in range(n_buildings - 1):
         pair = _connect_adjacent_buildings(
             buildings[i], buildings[i + 1],
@@ -99,6 +100,11 @@ def assemble_mansion(
             (l_id, lx, ly), (r_id, rx, ry) = pair
             interior_doors[(l_id, lx, ly)] = (r_id, rx, ry)
             interior_doors[(r_id, rx, ry)] = (l_id, lx, ly)
+            interior_door_links.append(InteriorDoorLink(
+                from_building=l_id, to_building=r_id,
+                floor=0,
+                from_tile=(lx, ly), to_tile=(rx, ry),
+            ))
 
     for b in buildings:
         b.validate()
@@ -116,6 +122,7 @@ def assemble_mansion(
     )
     site.building_doors.update(entry_doors)
     site.interior_doors.update(interior_doors)
+    site.interior_door_links.extend(interior_door_links)
     paint_surface_doors(site, SurfaceType.GARDEN)
     return site
 
