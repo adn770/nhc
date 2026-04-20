@@ -12,10 +12,17 @@ from nhc.dungeon.interior.protocol import LayoutPlan
 from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 
 
+_CANONICAL_EDGE_SIDES = ("north", "west")
+
+
 def apply_plan(level: Level, plan: LayoutPlan) -> None:
-    """Stamp ``plan.interior_walls`` as WALL, corridor tiles as
-    :attr:`SurfaceType.CORRIDOR`, and doors as FLOOR with the
-    door feature + ``door_side`` metadata."""
+    """Stamp a LayoutPlan onto a Level.
+
+    Order: interior edges → interior tile walls (legacy) →
+    corridor tile surface types → doors. Edges and tile walls both
+    describe wall geometry today, but the edge form is the
+    long-term primitive — M12 removes the tile form.
+    """
     doors_xy = {d.xy for d in plan.doors}
     assert plan.interior_walls.isdisjoint(doors_xy), (
         "LayoutPlan invariant: interior_walls must not overlap doors"
@@ -24,7 +31,13 @@ def apply_plan(level: Level, plan: LayoutPlan) -> None:
         "LayoutPlan invariant: interior_walls must not overlap "
         "corridor tiles"
     )
+    for (x, y, side) in plan.interior_edges:
+        assert side in _CANONICAL_EDGE_SIDES, (
+            f"LayoutPlan edge ({x}, {y}, {side!r}) is not canonical; "
+            "partitioner must normalize via canonicalize()"
+        )
 
+    level.interior_edges.update(plan.interior_edges)
     for (x, y) in plan.interior_walls:
         level.tiles[y][x] = Tile(terrain=Terrain.WALL)
     for (x, y) in plan.corridor_tiles:

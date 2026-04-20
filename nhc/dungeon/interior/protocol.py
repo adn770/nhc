@@ -61,10 +61,19 @@ class LayoutPlan:
     - ``interior_walls`` ∩ ``corridor_tiles`` == ∅
     - ``interior_walls`` ∩ ``cfg.required_walkable`` == ∅
     - ``{d.xy for d in doors}`` ∩ ``cfg.required_walkable`` == ∅
+
+    ``interior_edges`` is the axis-aligned edge-wall primitive
+    (see ``design/building_interiors.md``). Every triple must be
+    canonical (side ∈ {"north", "west"}). ``interior_walls`` is
+    the legacy tile-based form retained until M12 so un-migrated
+    partitioners keep working during the transition.
     """
 
     rooms: list[Room]
     interior_walls: set[tuple[int, int]] = field(default_factory=set)
+    interior_edges: set[tuple[int, int, str]] = field(
+        default_factory=set,
+    )
     corridor_tiles: set[tuple[int, int]] = field(default_factory=set)
     doors: list[InteriorDoor] = field(default_factory=list)
 
