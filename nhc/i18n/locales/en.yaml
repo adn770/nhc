@@ -1318,6 +1318,27 @@ creature:
       The keeper of this settlement's common room. They trade in
       warm bread, warmer beds, and the rumours that drift in with
       every caravan.
+  farmer:
+    name: "Farmer"
+    short: "a weatherbeaten farmer"
+    long: >-
+      A sturdy farmhand in a straw hat, always ready to share the
+      latest gossip from the neighbouring hexes while leaning on a
+      fencepost.
+  campsite_traveller:
+    name: "Traveller"
+    short: "a wayworn traveller"
+    long: >-
+      A seasoned wanderer tending a small fire. They have seen a
+      dozen roads this month and will trade stories for a moment
+      of warmth.
+  orchardist:
+    name: "Orchardist"
+    short: "an orchard keeper"
+    long: >-
+      A patient grower of fruit trees, pruning shears at their
+      belt. They pick up more news than you would expect from
+      passing pickers.
   priest:
     name: "Priest"
     short: "a robed priest"

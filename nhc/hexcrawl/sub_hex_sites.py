@@ -277,6 +277,26 @@ _INHABITED_TAGS: dict[MinorFeatureType, str] = {
     MinorFeatureType.ORCHARD: "tree",
 }
 
+_INHABITED_NPCS: dict[MinorFeatureType, str] = {
+    MinorFeatureType.FARM: "farmer",
+    MinorFeatureType.CAMPSITE: "campsite_traveller",
+    MinorFeatureType.ORCHARD: "orchardist",
+}
+
+
+def _adjacent_walkable(
+    width: int, height: int, center: tuple[int, int],
+) -> tuple[int, int]:
+    """Pick the tile immediately south of ``center`` (inside the
+    walkable interior) for the NPC. Falls back to ``center`` when
+    that lands on the wall border, which only happens on degenerate
+    centre picks inside tiny tiers."""
+    cx, cy = center
+    ny = cy + 1
+    if 0 < ny < height - 1 and 0 < cx < width - 1:
+        return (cx, ny)
+    return center
+
 
 def generate_inhabited_settlement_site(
     *,
@@ -287,8 +307,10 @@ def generate_inhabited_settlement_site(
 ) -> SubHexSite:
     """A minor farmhouse / campsite / orchard, medium footprint.
 
-    Single interactable centrepiece in v1; the rumour-dispensing
-    NPC gets plugged in by the populator step in M4.
+    Spawns a rumour-dispensing NPC (farmer, campsite_traveller, or
+    orchardist) one tile south of the centrepiece. Keeps the
+    centre tile walkable so the player can reach the interactable
+    feature and still bump the NPC without extra routing.
     """
     width, height = SITE_TIER_DIMS[tier]
     rng = random.Random(seed)
@@ -304,10 +326,18 @@ def generate_inhabited_settlement_site(
         else "farmhouse_door"
     )
     _tag_feature(level, center, tag)
+    population = SubHexPopulation()
+    if isinstance(feature, MinorFeatureType):
+        npc_id = _INHABITED_NPCS.get(feature)
+        if npc_id is not None:
+            population.npcs.append(
+                (npc_id, _adjacent_walkable(width, height, center)),
+            )
     return SubHexSite(
         level=level,
         entry_tile=_south_gate_entry(width, height),
         feature_tile=center,
+        population=population,
     )
 
 

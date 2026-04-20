@@ -43,6 +43,7 @@ class TestHumanoidLoot:
             if cid in (
                 "merchant", "adventurer", "priest", "innkeeper",
                 "hermit_priest",
+                "farmer", "campsite_traveller", "orchardist",
             ):
                 continue
             loot = comps.get("LootTable")

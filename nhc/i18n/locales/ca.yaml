@@ -1419,6 +1419,30 @@ creature:
       El regent de la taverna del poble. Comercia amb pa calent,
       llits més calents encara, i els rumors que porten les
       caravanes de pas.
+  farmer:
+    name: "pagès"
+    gender: "m"
+    short: "un pagès fornit"
+    long: >-
+      Un camperol fort amb barret de palla, sempre disposat a
+      compartir les darreres tafaneries dels hexàgons veïns mentre
+      s'arrecera al pal d'un tancat.
+  campsite_traveller:
+    name: "caminant"
+    gender: "m"
+    short: "un caminant cansat"
+    long: >-
+      Un viatger avesat atiant un foc modest. Ha vist desenes de
+      camins aquest mes i bescanvia històries per una estona
+      d'escalf.
+  orchardist:
+    name: "hortolà"
+    gender: "m"
+    short: "un hortolà pacient"
+    long: >-
+      Un cultivador d'arbres fruiters amb estisores de podar a la
+      cintura. Recull més noves del que es pensa dels collidors
+      que hi passen.
   priest:
     name: "sacerdot"
     gender: "m"

@@ -1346,6 +1346,30 @@ creature:
       El dueño de la posada del pueblo. Comercia con pan caliente,
       camas aún más calientes, y los rumores que traen las
       caravanas de paso.
+  farmer:
+    name: "Granjero"
+    gender: "m"
+    short: "un granjero curtido"
+    long: >-
+      Un trabajador del campo con sombrero de paja, siempre
+      dispuesto a compartir los últimos chismes de los hexágonos
+      vecinos apoyado en un poste de la cerca.
+  campsite_traveller:
+    name: "Viajero"
+    gender: "m"
+    short: "un viajero curtido"
+    long: >-
+      Un caminante veterano avivando una pequeña hoguera. Ha
+      visto una docena de caminos este mes y cambia historias por
+      un rato de calor.
+  orchardist:
+    name: "Hortelano"
+    gender: "m"
+    short: "un hortelano paciente"
+    long: >-
+      Un cultivador de frutales con tijeras de podar al cinto.
+      Recoge más noticias de las que cabría esperar de los
+      recolectores que pasan.
   priest:
     name: "Sacerdote"
     gender: "m"

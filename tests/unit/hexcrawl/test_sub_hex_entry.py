@@ -1312,6 +1312,109 @@ def test_well_drink_locale_keys_present() -> None:
 
 
 # ---------------------------------------------------------------------------
+# B4: RumorVendorInteractAction base + new NPCs
+# ---------------------------------------------------------------------------
+
+
+def test_rumor_vendor_interact_action_is_base() -> None:
+    """``InnkeeperInteractAction`` inherits from
+    :class:`RumorVendorInteractAction` so new vendor NPCs (farmer,
+    campsite_traveller, orchardist) share a single dispense flow."""
+    from nhc.core.actions._innkeeper import InnkeeperInteractAction
+    from nhc.core.actions._rumor_vendor import (
+        RumorVendorInteractAction,
+    )
+
+    assert issubclass(
+        InnkeeperInteractAction, RumorVendorInteractAction,
+    )
+
+
+def test_new_rumor_vendor_creatures_registered() -> None:
+    """farmer, campsite_traveller and orchardist are registered
+    creatures and carry a RumorVendor marker."""
+    from nhc.entities.registry import EntityRegistry
+
+    EntityRegistry.discover_all()
+    for entity_id in ("farmer", "campsite_traveller", "orchardist"):
+        comps = EntityRegistry.get_creature(entity_id)
+        assert "RumorVendor" in comps, (
+            f"{entity_id} must carry the RumorVendor marker"
+        )
+
+
+def test_inhabited_settlement_populates_matching_npc(tmp_path) -> None:
+    """The inhabited-settlement generator places the right NPC next
+    to the centrepiece based on ``feature``."""
+    from nhc.hexcrawl.model import Biome
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, generate_inhabited_settlement_site,
+    )
+
+    mapping = {
+        MinorFeatureType.FARM: "farmer",
+        MinorFeatureType.CAMPSITE: "campsite_traveller",
+        MinorFeatureType.ORCHARD: "orchardist",
+    }
+    for minor, expected in mapping.items():
+        site = generate_inhabited_settlement_site(
+            feature=minor, biome=Biome.GREENLANDS, seed=42,
+            tier=SiteTier.MEDIUM,
+        )
+        npcs = [
+            (eid, xy) for eid, xy in site.population.npcs
+            if eid == expected
+        ]
+        assert npcs, (
+            f"{minor.name}: expected NPC {expected} in population"
+        )
+
+
+def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
+    """A bump onto the farmer dispatches the rumor-vendor flow and
+    emits a MessageEvent with the next overland rumour."""
+    import asyncio
+
+    from nhc.core.actions import BumpAction
+    from nhc.core.actions._rumor_vendor import (
+        RumorVendorInteractAction,
+    )
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.FARM)
+    _make_rumor(game.hex_world, text="The miller's dog has gone missing.")
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "inhabited_settlement", MinorFeatureType.FARM,
+            SiteTier.MEDIUM, Biome.GREENLANDS,
+        ),
+    )
+    farmers = [
+        (eid, pos) for eid, pos in game.world.query("Position")
+        if pos.level_id == game.level.id
+        and game.world.has_component(eid, "RumorVendor")
+    ]
+    assert len(farmers) == 1
+    fid, fpos = farmers[0]
+    # Stand the player adjacent so the bump routes through.
+    player_pos = game.world.get_component(game.player_id, "Position")
+    player_pos.x = fpos.x - 1
+    player_pos.y = fpos.y
+    bump = BumpAction(
+        actor=game.player_id, dx=1, dy=0,
+        hex_world=game.hex_world,
+    )
+    resolved = bump.resolve(game.world, game.level)
+    assert isinstance(resolved, RumorVendorInteractAction)
+    events = asyncio.run(resolved.execute(game.world, game.level))
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert any("miller's dog" in t for t in texts)
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 
