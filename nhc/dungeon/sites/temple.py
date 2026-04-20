@@ -35,6 +35,7 @@ from nhc.dungeon.site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.dungeon.sites._shell import compose_shell
 from nhc.hexcrawl.model import Biome
 
 
@@ -157,16 +158,7 @@ def _build_temple_floor(
     footprint = shape.floor_tiles(base_rect)
     for (x, y) in footprint:
         level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-    for (x, y) in footprint:
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                nx, ny = x + dx, y + dy
-                if (nx, ny) in footprint:
-                    continue
-                if not level.in_bounds(nx, ny):
-                    continue
-                if level.tiles[ny][nx].terrain == Terrain.VOID:
-                    level.tiles[ny][nx] = Tile(terrain=Terrain.WALL)
+    compose_shell(level, {building_id: footprint})
     level.rooms = [Room(
         id=f"{building_id}_f{floor_idx}_room",
         rect=Rect(
