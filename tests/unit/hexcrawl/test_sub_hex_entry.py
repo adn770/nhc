@@ -2305,6 +2305,84 @@ def test_autosave_triggers_gc_old_records(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# D1: undead creature pool audit + 3-locale names
+# ---------------------------------------------------------------------------
+
+
+def test_undead_pool_has_core_creatures() -> None:
+    """Registry includes the four undead staples the plan calls out."""
+    from nhc.entities.registry import EntityRegistry
+
+    EntityRegistry.discover_all()
+    ids = set(EntityRegistry.list_creatures())
+    for cid in ("skeleton", "zombie", "ghoul", "wraith"):
+        assert cid in ids, f"missing undead creature: {cid}"
+
+
+def test_undead_site_populates_undead_creatures(tmp_path) -> None:
+    """generate_undead_site stamps 2+ undead creatures in population."""
+    from nhc.hexcrawl.model import Biome
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, generate_undead_site,
+    )
+
+    site = generate_undead_site(
+        feature=None, biome=Biome.DEADLANDS, seed=42,
+        tier=SiteTier.MEDIUM,
+    )
+    creatures = [eid for eid, _ in site.population.creatures]
+    assert creatures, "undead site must populate at least one creature"
+    undead_pool = {"skeleton", "zombie", "ghoul", "wraith"}
+    assert all(c in undead_pool for c in creatures), (
+        f"creatures must come from the undead pool, got {creatures}"
+    )
+
+
+def test_undead_site_places_creatures_on_floor_tiles() -> None:
+    """Every spawned creature lands on a walkable (non-wall) tile."""
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.model import Biome
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, generate_undead_site,
+    )
+
+    site = generate_undead_site(
+        feature=None, biome=Biome.DEADLANDS, seed=123,
+        tier=SiteTier.MEDIUM,
+    )
+    for _, (x, y) in site.population.creatures:
+        tile = site.level.tile_at(x, y)
+        assert tile is not None
+        assert tile.terrain is Terrain.FLOOR, (
+            f"undead creature at ({x},{y}) must land on FLOOR, "
+            f"got {tile.terrain}"
+        )
+
+
+def test_undead_locale_round_trip() -> None:
+    """Every undead creature has name / short / long entries in all
+    three locales, with Catalan + Spanish carrying grammatical gender."""
+    import yaml
+    from pathlib import Path
+
+    root = Path("nhc/i18n/locales")
+    for lang in ("en", "ca", "es"):
+        data = yaml.safe_load((root / f"{lang}.yaml").read_text())
+        for cid in ("skeleton", "zombie", "ghoul", "wraith"):
+            entry = data["creature"][cid]
+            assert entry.get("name"), (
+                f"{lang}.creature.{cid}.name missing"
+            )
+            assert entry.get("short"), (
+                f"{lang}.creature.{cid}.short missing"
+            )
+            if lang in ("ca", "es"):
+                assert entry.get("gender"), (
+                    f"{lang}.creature.{cid}.gender missing"
+                )
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

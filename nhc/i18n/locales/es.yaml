@@ -1155,6 +1155,7 @@ creature:
       compensa con ferocidad.
   wraith:
     name: "Aparecido"
+    gender: "m"
     short: "un aparecido espectral"
     long: >-
       Un horror incorpóreo de sombra y malicia. Su toque helado
