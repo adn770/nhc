@@ -37,6 +37,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
     EntityPlacement, Level, LShape, Rect, RectShape,
@@ -54,8 +55,12 @@ from nhc.hexcrawl.model import Biome, DungeonRef
 
 # ── Town tunable constants ───────────────────────────────────
 
-TOWN_BUILDING_SIZE_RANGE = (5, 7)     # min 5 guarantees L-shape
-                                      # has interior for stairs
+# Default building size range for untagged (residential) slots.
+# Per-archetype overrides land in M14 when ARCHETYPE_CONFIG drives
+# per-role sizing end-to-end; for now every town building still
+# draws from this single range, read from the registry so
+# retuning residentials is one edit away.
+_RESIDENTIAL_SIZE_RANGE = ARCHETYPE_CONFIG["residential"].size_range
 TOWN_ROW_X_START = 6
 TOWN_BUILDING_SPACING = 3                 # tile gap between buildings
 TOWN_FLOOR_COUNT_RANGE = (1, 2)
@@ -136,30 +141,30 @@ def _biome_overrides(biome: Biome | None) -> _BiomeOverrides:
 _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
     "hamlet": _TownSizeConfig(
         building_count_range=(3, 4),
-        surface_width=30,
-        surface_height=22,
-        row_y=(4, 13),
+        surface_width=36,
+        surface_height=26,
+        row_y=(4, 15),
         has_palisade=False,
     ),
     "village": _TownSizeConfig(
-        building_count_range=(5, 8),
-        surface_width=50,
-        surface_height=30,
-        row_y=(6, 17),
+        building_count_range=(5, 7),
+        surface_width=58,
+        surface_height=34,
+        row_y=(5, 19),
         has_palisade=True,
     ),
     "town": _TownSizeConfig(
-        building_count_range=(9, 12),
-        surface_width=62,
-        surface_height=36,
-        row_y=(8, 21),
+        building_count_range=(8, 10),
+        surface_width=72,
+        surface_height=42,
+        row_y=(6, 23),
         has_palisade=True,
     ),
     "city": _TownSizeConfig(
-        building_count_range=(12, 16),
-        surface_width=74,
-        surface_height=42,
-        row_y=(10, 25),
+        building_count_range=(10, 13),
+        surface_width=84,
+        surface_height=50,
+        row_y=(6, 28),
         has_palisade=True,
     ),
 }
@@ -260,8 +265,8 @@ def _place_buildings(
         for i in range(per_row):
             if len(buildings) >= n_buildings:
                 break
-            w = rng.randint(*TOWN_BUILDING_SIZE_RANGE)
-            h = rng.randint(*TOWN_BUILDING_SIZE_RANGE)
+            w = rng.randint(*_RESIDENTIAL_SIZE_RANGE)
+            h = rng.randint(*_RESIDENTIAL_SIZE_RANGE)
             rect = Rect(x_cursor, base_y, w, h)
             shape = _pick_shape(rng)
             n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
@@ -445,10 +450,10 @@ def _build_palisade(
     # street's y-centre so the road runs straight through the
     # town -- not at random midpoints of a random edge.
     gate_y = (
-        config.row_y[0] + TOWN_BUILDING_SIZE_RANGE[1]
+        config.row_y[0] + _RESIDENTIAL_SIZE_RANGE[1]
         + (
             config.row_y[1] - config.row_y[0]
-            - TOWN_BUILDING_SIZE_RANGE[1]
+            - _RESIDENTIAL_SIZE_RANGE[1]
         ) // 2
     )
     gate_count = rng.randint(*TOWN_GATE_COUNT_RANGE)

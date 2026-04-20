@@ -45,19 +45,19 @@ class TestSizeClassBuildingCounts:
         )
         assert len(default.buildings) == len(village.buildings)
 
-    def test_town_has_nine_to_twelve_buildings(self):
+    def test_town_has_eight_to_ten_buildings(self):
         for seed in range(10):
             site = assemble_town(
                 "t1", random.Random(seed), size_class="town",
             )
-            assert 9 <= len(site.buildings) <= 12
+            assert 8 <= len(site.buildings) <= 10
 
-    def test_city_has_twelve_to_sixteen_buildings(self):
+    def test_city_has_ten_to_thirteen_buildings(self):
         for seed in range(10):
             site = assemble_town(
                 "t1", random.Random(seed), size_class="city",
             )
-            assert 12 <= len(site.buildings) <= 16
+            assert 10 <= len(site.buildings) <= 13
 
     def test_unknown_size_class_raises(self):
         with pytest.raises(ValueError):
