@@ -995,9 +995,10 @@ single-building site. Full spec lives in
 
 ## Appendix D: Building interiors (M16+)
 
-Lands milestones M16-M20 of the building-interiors plan; the
-authoritative design document is `design/building_interiors.md`.
-This appendix summarises the changes that ship against
+Lands milestones M16-M20 of the building-interiors plan plus the
+C1-C5 follow-ups from the continuation plan; the authoritative
+design document is `design/building_interiors.md`. This appendix
+summarises the changes that ship against
 `design/building_generator.md`'s vocabulary so a reader who
 only has this file still sees the shape of the work.
 
@@ -1044,3 +1045,50 @@ only has this file still sees the shape of the work.
 - **Pickle compat (M20):** `Building.__setstate__` fills
   defaults for fields added in M7+ so older save snapshots
   continue to load. `StairLink` serialization is unchanged.
+
+### Continuation (C1-C5)
+
+- **Live door sync (C1):** `tick_doors()` and the main game
+  loop's post-resolve block now call `sync_linked_door_state()`
+  after every auto-close and after every `DoorOpened` /
+  `DoorClosed` event. A new `DoorClosed` event is emitted by
+  `CloseDoorAction` so the close path has a matching hook. Both
+  sides of an `InteriorDoorLink` therefore stay in sync during
+  real play, not just in unit tests.
+- **Greedy town packing (C2):** `_place_buildings()` takes
+  per-building `(w, h)` pairs and wraps to a new row when the
+  cursor would exceed `surface_width - TOWN_ROW_X_START`. Row
+  heights grow from the tallest building in that row. The
+  palisade gate_y derives from the widest vertical gap between
+  building rows instead of a hard-coded `config.row_y` pair.
+- **Role-first sizing (C3):** towns assign every building's role
+  (shop, inn, temple, stable, training, residential) BEFORE
+  placement, then draw `(w, h)` from
+  `ARCHETYPE_CONFIG[role].size_range`. The role is plumbed
+  through `_build_town_floor` → `build_building_floor` as the
+  archetype, so taverns/inns partition as rect_bsp doorway and
+  temples as nave + chapels. Surface sizes grow to fit the
+  variable service buildings (hamlet 48×44, village 72×58,
+  town 88×72, city 104×86).
+- **Shop-leaf locker (C4):** `smallest_leaf_door()` in
+  `nhc/dungeon/sites/_placement.py` picks the interior door
+  leading to the smallest BSP leaf, with a deterministic
+  tie-break on `(floor_tile_count, rect.x, rect.y, rect.width,
+  rect.height)`. `_lock_shop_doors()` calls it in place of the
+  old 2-room picker.
+- **Cross-building town links (C5):** `_connect_cross_building_
+  doors()` scans same-row adjacent pairs whose roles appear in
+  `SHARED_DOOR_PAIRS` (residential-residential, tavern-inn) and
+  creates one `InteriorDoorLink` per shared floor. The door tiles
+  land on the mirrored east / west perimeters via a new
+  `stamp_building_door_on_floor()` helper, and ground-floor pairs
+  also populate the legacy `Site.interior_doors` dict so existing
+  movement code keeps working. `compose_shell()` grows a
+  `shared_doors` parameter for API completeness; the town's
+  cross-building movement uses the teleport path (separate
+  Levels) rather than the shared-wall path.
+
+**Still deferred:** M19 star / dodecagon mage residence shapes —
+pure cosmetic variety requiring new `RoomShape` classes in
+`nhc/dungeon/model.py` that these milestones deliberately leave
+alone.
