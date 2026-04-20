@@ -16,7 +16,12 @@ from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
-from nhc.dungeon.model import CircleShape, Rect, RectShape, Room
+from nhc.dungeon.model import (
+    CircleShape, OctagonShape, Rect, RectShape, Room,
+)
+
+
+_SECTOR_LABELS = ("nw", "ne", "se", "sw")
 
 
 class SectorPartitioner:
@@ -37,7 +42,7 @@ class SectorPartitioner:
                 f"required_walkable tile {tile} outside shape"
             )
 
-        if not isinstance(cfg.shape, CircleShape):
+        if not isinstance(cfg.shape, (CircleShape, OctagonShape)):
             return SingleRoomPartitioner().plan(cfg)
 
         rect = cfg.footprint
@@ -59,17 +64,46 @@ class SectorPartitioner:
             return SingleRoomPartitioner().plan(cfg)
 
         doors = self._place_cardinal_doors(cx, cy, walls, cfg)
+        if self.mode == "enriched":
+            doors = self._omit_alternating_door(doors, cfg)
         door_xys = {d.xy for d in doors}
         if door_xys & cfg.required_walkable:
             return SingleRoomPartitioner().plan(cfg)
         walls -= door_xys
 
         rooms = self._build_sector_rooms(cfg, rect, cx, cy)
+        if self.mode == "enriched":
+            self._tag_main_sector(rooms, cfg.floor_index)
         return LayoutPlan(
             rooms=rooms,
             interior_walls=walls,
             doors=doors,
         )
+
+    def _omit_alternating_door(
+        self,
+        doors: list[InteriorDoor],
+        cfg: PartitionerConfig,
+    ) -> list[InteriorDoor]:
+        """Drop one door on every other floor so the enriched
+        layout reads as a spiral progression. The dropped door
+        rotates with ``floor_index`` to keep the pattern fresh
+        across the full stack."""
+        if cfg.floor_index % 2 != 0 or not doors:
+            return doors
+        drop = cfg.floor_index % len(doors)
+        return [d for i, d in enumerate(doors) if i != drop]
+
+    def _tag_main_sector(
+        self, rooms: list[Room], floor_index: int,
+    ) -> None:
+        """Tag one sector as ``"main"`` per floor, rotating the
+        pick by ``floor_index`` — the sector the stair / entry
+        prefers to land in."""
+        if not rooms:
+            return
+        main = floor_index % len(rooms)
+        rooms[main].tags.append("main")
 
     def _place_cardinal_doors(
         self, cx: int, cy: int,

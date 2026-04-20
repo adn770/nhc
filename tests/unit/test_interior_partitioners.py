@@ -592,6 +592,88 @@ class TestLShapePartitioner:
         assert plan.interior_walls.isdisjoint(plan.corridor_tiles)
 
 
+class TestSectorPartitionerOctagon:
+    def test_octagon_footprint_partitions_into_four_sectors(self):
+        rect = Rect(1, 1, 11, 11)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=OctagonShape(),
+                 required_walkable=frozenset({(6, 6)}),
+                 seed=0),
+        )
+        assert len(plan.rooms) == 4
+
+    def test_octagon_hub_walkable(self):
+        rect = Rect(1, 1, 11, 11)
+        plan = SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=OctagonShape(),
+                 required_walkable=frozenset({(6, 6)}),
+                 seed=0),
+        )
+        assert (6, 6) not in plan.interior_walls
+
+
+class TestSectorPartitionerEnriched:
+    def test_main_sector_rotates_per_floor(self):
+        """Across 4 floors, the ``"main"`` tag lands on a different
+        sector each time."""
+        rect = Rect(1, 1, 11, 11)
+        main_positions: list[int] = []
+        for floor in range(4):
+            plan = SectorPartitioner(mode="enriched").plan(
+                _cfg(rect, shape=CircleShape(),
+                     required_walkable=frozenset({(6, 6)}),
+                     floor_index=floor, n_floors=4, seed=0),
+            )
+            main_idx = next(
+                i for i, r in enumerate(plan.rooms) if "main" in r.tags
+            )
+            main_positions.append(main_idx)
+        assert len(set(main_positions)) == 4
+
+    def test_door_omitted_on_even_floors(self):
+        """Simple mode: 4 doors every floor. Enriched: one fewer on
+        every even-indexed floor (the omit-pattern)."""
+        rect = Rect(1, 1, 11, 11)
+        req = frozenset({(6, 6)})
+        base = len(SectorPartitioner(mode="simple").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=req, seed=0),
+        ).doors)
+        even = len(SectorPartitioner(mode="enriched").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=req,
+                 floor_index=0, n_floors=4, seed=0),
+        ).doors)
+        odd = len(SectorPartitioner(mode="enriched").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=req,
+                 floor_index=1, n_floors=4, seed=0),
+        ).doors)
+        assert even == base - 1
+        assert odd == base
+
+    def test_hub_still_reaches_some_sector_on_enriched_floors(self):
+        """Omitting one door must still leave connectivity: the hub
+        can reach at least one sector."""
+        rect = Rect(1, 1, 11, 11)
+        req = frozenset({(6, 6)})
+        plan = SectorPartitioner(mode="enriched").plan(
+            _cfg(rect, shape=CircleShape(),
+                 required_walkable=req,
+                 floor_index=0, n_floors=4, seed=0),
+        )
+        foot = CircleShape().floor_tiles(rect)
+        walkable = (foot - plan.interior_walls) | {
+            d.xy for d in plan.doors
+        }
+        reached = _bfs_connected(walkable, (6, 6))
+        reached_sectors = sum(
+            1 for r in plan.rooms
+            if r.floor_tiles() & reached
+        )
+        assert reached_sectors >= 1
+
+
 class TestPartitionerConfigDisjointness:
     """Partitioners must respect the disjointness invariants from
     ``design/building_interiors.md``. SingleRoomPartitioner has
