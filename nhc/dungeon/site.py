@@ -202,7 +202,7 @@ def paint_surface_doors(
 
 SITE_KINDS = (
     "tower", "farm", "mansion", "keep", "town",
-    "temple", "cottage", "ruin",
+    "temple", "cottage", "ruin", "mage_residence",
 )
 
 
@@ -306,6 +306,11 @@ def assemble_site(
     elif kind == "ruin":
         from nhc.dungeon.sites.ruin import assemble_ruin
         site = assemble_ruin(site_id, rng, biome=biome)
+    elif kind == "mage_residence":
+        from nhc.dungeon.sites.mage_residence import (
+            assemble_mage_residence,
+        )
+        site = assemble_mage_residence(site_id, rng)
     else:
         raise ValueError(f"unknown site kind: {kind!r}")
     populate_building_door_sides(site)
