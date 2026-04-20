@@ -1748,19 +1748,44 @@ class Game:
     def _is_site_edge_exit(self, dx: int, dy: int) -> bool:
         """Return True when a move of ``(dx, dy)`` from the
         player's current tile steps off the edge of an active
-        Site surface.
+        Site surface, whether walled (keep / town / farm) or a
+        sub-hex family site.
 
         Used by :meth:`_intent_to_action` to route an off-map
         move into :class:`LeaveSiteAction` rather than a regular
-        bump. The surface check rejects building interiors
-        (``level.building_id`` is set there) so the player still
-        has to leave through a door when inside a building.
+        bump. Surface identification:
+
+        * Walled sites expose ``_active_site`` with a ``surface``
+          Level; the player is on the surface when
+          ``level.id == _active_site.surface.id``.
+        * Sub-hex family sites assign ``self.level`` directly and
+          mark ``_active_sub_hex``; they run at ``depth == 1``
+          without ``building_id``.
+
+        Building interiors (``level.building_id`` is set) are
+        rejected so the player still has to leave through a door
+        when inside a building.
         """
         if self.world_type is not WorldType.HEXCRAWL:
             return False
-        if self.level is None or self._active_site is None:
+        if self.level is None:
             return False
-        if self.level.id != self._active_site.surface.id:
+        if self._active_site is None and self._active_sub_hex is None:
+            return False
+        on_walled_surface = (
+            self._active_site is not None
+            and self.level.id == self._active_site.surface.id
+        )
+        on_sub_hex_surface = (
+            self._active_sub_hex is not None
+            and self.level.depth == 1
+            and self.level.building_id is None
+            and (
+                self._active_site is None
+                or self.level.id == self._active_site.surface.id
+            )
+        )
+        if not (on_walled_surface or on_sub_hex_surface):
             return False
         pos = self.world.get_component(self.player_id, "Position")
         if pos is None:
@@ -1788,9 +1813,11 @@ class Game:
         if self.level is None or not self.world_type is WorldType.HEXCRAWL:
             return
         departing_level_id = self.level.id
+        entry_sub_hex = self._active_sub_hex
         self.level = None
         self._active_cave_cluster = None
         self._active_site = None
+        self._active_sub_hex = None
         self._active_descent_building = None
         self._active_descent_return_tile = None
         self._site_level_entities = {}
@@ -1811,15 +1838,21 @@ class Game:
                 hpos.y = -1
                 hpos.level_id = "overland"
         # If we were exploring a flower when we entered the
-        # feature, return to the flower at the feature_cell.
+        # feature, return to the flower. Sub-hex family sites
+        # restore the entry sub-hex (so the flower view keeps the
+        # player at the door they walked through); walled sites
+        # and dungeon exits fall back to the feature_cell.
         if (self.hex_world
                 and self.hex_world.exploring_hex is not None):
-            macro = self.hex_world.exploring_hex
-            cell = self.hex_world.get_cell(macro)
-            if cell and cell.flower and cell.flower.feature_cell:
-                self.hex_world.exploring_sub_hex = (
-                    cell.flower.feature_cell
-                )
+            if entry_sub_hex is not None:
+                self.hex_world.exploring_sub_hex = entry_sub_hex
+            else:
+                macro = self.hex_world.exploring_hex
+                cell = self.hex_world.get_cell(macro)
+                if cell and cell.flower and cell.flower.feature_cell:
+                    self.hex_world.exploring_sub_hex = (
+                        cell.flower.feature_cell
+                    )
 
     async def panic_flee(self) -> bool:
         """Escape the current dungeon from anywhere at a cost.
