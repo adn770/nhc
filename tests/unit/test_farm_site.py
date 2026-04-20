@@ -68,18 +68,20 @@ class TestFarmBuildings:
                 seen.add(type(b.base_shape).__name__)
         assert seen <= {"RectShape", "LShape"}
 
-    def test_farmhouse_has_door_on_perimeter(self):
+    def test_farmhouse_has_entry_door_on_perimeter(self):
+        """At least one ground-floor door sits on the perimeter — the
+        surface entry. Interior doors from the partitioner may sit
+        off-perimeter."""
         site = assemble_farm("f1", random.Random(1))
         farmhouse = site.buildings[0]
         ground = farmhouse.ground
         perim = farmhouse.shared_perimeter()
-        doors = [
+        perim_doors = [
             (x, y) for y, row in enumerate(ground.tiles)
-            for x, t in enumerate(row) if t.feature == "door_closed"
+            for x, t in enumerate(row)
+            if t.feature == "door_closed" and (x, y) in perim
         ]
-        assert len(doors) >= 1
-        for d in doors:
-            assert d in perim
+        assert len(perim_doors) >= 1
 
     def test_building_validate_passes(self):
         site = assemble_farm("f1", random.Random(1))

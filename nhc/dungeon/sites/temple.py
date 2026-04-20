@@ -25,7 +25,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     EntityPlacement, Level, OctagonShape, Rect, RectShape,
     RoomShape, SurfaceType, Terrain, Tile,
@@ -151,6 +151,9 @@ def _build_temple_building(
         descent=None,
         wall_material="stone",
         interior_floor="stone",
+        interior_wall_material=(
+            ARCHETYPE_CONFIG["temple"].interior_wall_material
+        ),
     )
     building.stair_links = stair_links
     return building
@@ -171,7 +174,6 @@ def _build_temple_floor(
         rng=rng,
         archetype="temple",
         tags=["temple"],
-        partitioner=SingleRoomPartitioner(),
         required_walkable=required_walkable,
     )
     level.interior_floor = "stone"

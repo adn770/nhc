@@ -38,7 +38,6 @@ from nhc.dungeon.generators._stairs import (
 )
 from nhc.dungeon.interior._floor import build_building_floor
 from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
-from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.model import (
     EntityPlacement, Level, LShape, Rect, RectShape,
     RoomShape, SurfaceType, Terrain, Tile,
@@ -359,6 +358,9 @@ def _build_town_building(
         descent=descent,
         wall_material=wall_material,
         interior_floor=interior,
+        interior_wall_material=(
+            ARCHETYPE_CONFIG["residential"].interior_wall_material
+        ),
     )
     building.stair_links = stair_links
     return building
@@ -370,6 +372,9 @@ def _build_town_floor(
     n_floors: int, rng: random.Random,
     required_walkable: frozenset[tuple[int, int]] = frozenset(),
 ) -> Level:
+    # Town buildings default to the residential archetype; M16 will
+    # re-roll the per-role archetype (shop / inn / temple / etc.)
+    # before partitioning once safe_floor_near() is in place.
     return build_building_floor(
         building_id=building_id,
         floor_idx=floor_idx,
@@ -377,9 +382,8 @@ def _build_town_floor(
         base_rect=base_rect,
         n_floors=n_floors,
         rng=rng,
-        archetype="town",
+        archetype="residential",
         tags=["town_interior"],
-        partitioner=SingleRoomPartitioner(),
         required_walkable=required_walkable,
     )
 

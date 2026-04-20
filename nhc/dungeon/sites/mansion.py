@@ -16,7 +16,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, RoomShape, SurfaceType,
     Terrain, Tile,
@@ -156,6 +156,9 @@ def _build_mansion_building(
         descent=descent,
         wall_material="stone",
         interior_floor="stone",
+        interior_wall_material=(
+            ARCHETYPE_CONFIG["mansion"].interior_wall_material
+        ),
     )
     building.stair_links = stair_links
     return building
@@ -176,7 +179,6 @@ def _build_mansion_floor(
         rng=rng,
         archetype="mansion",
         tags=["mansion_interior"],
-        partitioner=SingleRoomPartitioner(),
         required_walkable=required_walkable,
     )
 

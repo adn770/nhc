@@ -16,7 +16,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, RoomShape, SurfaceType,
     Terrain, Tile,
@@ -138,6 +138,9 @@ def _build_farm_building(
         descent=descent,
         wall_material="brick",
         interior_floor="wood",
+        interior_wall_material=(
+            ARCHETYPE_CONFIG["farm_main"].interior_wall_material
+        ),
     )
     building.stair_links = stair_links
     _place_entry_door(building, rng)
@@ -158,9 +161,8 @@ def _build_farm_floor(
         base_rect=base_rect,
         n_floors=n_floors,
         rng=rng,
-        archetype="farm",
+        archetype="farm_main",
         tags=["farm_interior"],
-        partitioner=SingleRoomPartitioner(),
         required_walkable=required_walkable,
     )
     level.interior_floor = "wood"

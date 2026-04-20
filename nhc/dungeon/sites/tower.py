@@ -17,7 +17,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, RoomShape,
     Terrain,
@@ -85,6 +85,16 @@ def assemble_tower(
         roof_material = "wood"
 
     building_id = f"{site_id}_tower"
+    # Circle towers route through SectorPartitioner; square
+    # towers split into two rooms via DividedPartitioner. Octagon
+    # towers borrow tower_circle since SectorPartitioner falls
+    # back to SingleRoom for non-circle shapes.
+    if shape_key == "circle":
+        archetype = "tower_circle"
+    elif shape_key == "octagon":
+        archetype = "tower_circle"
+    else:
+        archetype = "tower_square"
     floors, stair_links = build_floors_with_stairs(
         building_id=building_id,
         base_shape=base_shape,
@@ -94,6 +104,7 @@ def assemble_tower(
         rng=rng,
         build_floor_fn=lambda idx, n, req: _build_tower_floor(
             building_id, idx, base_shape, base_rect, n, rng,
+            archetype=archetype,
             required_walkable=req,
         ),
     )
@@ -109,6 +120,9 @@ def assemble_tower(
         descent=descent,
         wall_material=wall_material,
         interior_floor=interior_floor_default,
+        interior_wall_material=(
+            ARCHETYPE_CONFIG[archetype].interior_wall_material
+        ),
         roof_material=roof_material,
     )
     building.stair_links = stair_links
@@ -141,9 +155,10 @@ def _build_tower_floor(
     building_id: str, floor_idx: int,
     base_shape: RoomShape, base_rect: Rect,
     n_floors: int, rng: random.Random,
+    archetype: str,
     required_walkable: frozenset[tuple[int, int]] = frozenset(),
 ) -> Level:
-    """Build a tower floor via :class:`SingleRoomPartitioner`."""
+    """Build a tower floor via the archetype's registered partitioner."""
     return build_building_floor(
         building_id=building_id,
         floor_idx=floor_idx,
@@ -151,9 +166,8 @@ def _build_tower_floor(
         base_rect=base_rect,
         n_floors=n_floors,
         rng=rng,
-        archetype="tower",
+        archetype=archetype,
         tags=["tower_interior"],
-        partitioner=SingleRoomPartitioner(),
         required_walkable=required_walkable,
     )
 

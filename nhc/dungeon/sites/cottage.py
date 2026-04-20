@@ -14,7 +14,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.single_room import SingleRoomPartitioner
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     EntityPlacement, Level, Rect, RectShape, RoomShape,
     SurfaceType, Terrain, Tile,
@@ -122,6 +122,9 @@ def _build_cottage_building(
         descent=None,
         wall_material="brick",
         interior_floor="wood",
+        interior_wall_material=(
+            ARCHETYPE_CONFIG["cottage"].interior_wall_material
+        ),
     )
     building.stair_links = stair_links
     return building
@@ -142,7 +145,6 @@ def _build_cottage_floor(
         rng=rng,
         archetype="cottage",
         tags=["cottage_interior"],
-        partitioner=SingleRoomPartitioner(),
         required_walkable=required_walkable,
     )
     level.interior_floor = "wood"

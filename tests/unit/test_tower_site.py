@@ -103,15 +103,19 @@ class TestTowerShape:
 
 
 class TestTowerFloorGeometry:
-    def test_all_floors_have_footprint_floor_tiles(self):
+    def test_all_footprint_tiles_are_floor_or_interior(self):
+        """Every footprint tile is walkable (FLOOR) or blocked by an
+        interior wall / door — no VOID gaps inside the footprint."""
         site = assemble_tower("t1", random.Random(1))
         b = site.buildings[0]
         footprint = b.base_shape.floor_tiles(b.base_rect)
         for floor in b.floors:
             for (x, y) in footprint:
-                assert (
-                    floor.tiles[y][x].terrain == Terrain.FLOOR
-                ), f"footprint tile ({x},{y}) not FLOOR"
+                tile = floor.tiles[y][x]
+                assert tile.terrain in (Terrain.FLOOR, Terrain.WALL), (
+                    f"footprint tile ({x},{y}) has terrain "
+                    f"{tile.terrain}"
+                )
 
     def test_all_floors_point_to_building(self):
         site = assemble_tower("t1", random.Random(1))
@@ -120,17 +124,17 @@ class TestTowerFloorGeometry:
             assert floor.building_id == b.id
             assert floor.floor_index == i
 
-    def test_every_floor_has_exactly_one_room(self):
-        """Tower routes through SingleRoomPartitioner — every floor
-        is one open room."""
+    def test_every_floor_has_at_least_one_room(self):
+        """Towers may have multiple rooms per floor after M14
+        (sector / divided partitioners)."""
         for seed in range(10):
             site = assemble_tower("t1", random.Random(seed))
             for floor in site.buildings[0].floors:
-                assert len(floor.rooms) == 1
+                assert len(floor.rooms) >= 1
 
-    def test_floor_room_tags_preserve_tower_interior(self):
-        """Site assembler augments partitioner output with archetype
-        tags so downstream consumers still see ``tower_interior``."""
+    def test_tower_interior_tag_preserved_on_first_room(self):
+        """Site assembler keeps ``tower_interior`` on the first
+        partitioner room so downstream consumers still find it."""
         site = assemble_tower("t1", random.Random(1))
         b = site.buildings[0]
         for i, floor in enumerate(b.floors):
@@ -211,24 +215,20 @@ class TestTowerEntryDoor:
         ]
         assert len(doors) >= 1
 
-    def test_door_lives_on_perimeter(self):
+    def test_entry_door_lives_on_perimeter(self):
+        """At least one ground-floor door sits on the building
+        perimeter — the surface-side entry. Other doors may be
+        interior (partitioner) doors off-perimeter."""
         site = assemble_tower("t1", random.Random(1))
         b = site.buildings[0]
         perim = b.shared_perimeter()
         ground = b.floors[0]
-        for y, row in enumerate(ground.tiles):
-            for x, t in enumerate(row):
-                if t.feature == "door_closed":
-                    assert (x, y) in perim
-
-    def test_upper_floors_have_no_outside_door(self):
-        """Only the ground floor has the entry door feature."""
-        site = assemble_tower("t1", random.Random(1))
-        b = site.buildings[0]
-        for floor in b.floors[1:]:
-            for row in floor.tiles:
-                for t in row:
-                    assert t.feature != "door_closed"
+        perim_doors = [
+            (x, y) for y, row in enumerate(ground.tiles)
+            for x, t in enumerate(row)
+            if t.feature == "door_closed" and (x, y) in perim
+        ]
+        assert len(perim_doors) >= 1
 
 
 class TestTowerDescent:
