@@ -130,6 +130,34 @@ class SubHexCacheManager:
         }
         path.write_text(json.dumps(payload))
 
+    def gc_old_records(self, *, max_age_days: int = 90) -> int:
+        """Delete persisted mutation records older than ``max_age_days``.
+
+        Returns the number of files unlinked. No-op when the cache
+        directory doesn't exist yet. Called from the Game autosave
+        path so long-abandoned records don't linger forever.
+        """
+        import time
+
+        cache_dir = self._cache_dir()
+        if not cache_dir.exists():
+            return 0
+        cutoff = time.time() - max_age_days * 24 * 60 * 60
+        unlinked = 0
+        for path in cache_dir.glob("*.json"):
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                continue
+            if mtime >= cutoff:
+                continue
+            try:
+                path.unlink()
+                unlinked += 1
+            except OSError:
+                pass
+        return unlinked
+
     def load_mutations(self, key: SubHexKey) -> dict[str, Any]:
         """Load and delete the persisted mutation record for *key*.
 

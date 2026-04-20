@@ -308,6 +308,17 @@ def _build_payload(game: "Game") -> dict[str, Any]:
     """Extract complete game state into a picklable dict."""
     world = game.world
 
+    # GC long-dead sub-hex mutation records so the player's
+    # on-disk footprint stays proportional to recent activity.
+    sub_cache = getattr(game, "_sub_hex_cache", None)
+    if sub_cache is not None:
+        try:
+            sub_cache.gc_old_records()
+        except Exception:
+            logger.warning(
+                "Sub-hex mutation GC failed", exc_info=True,
+            )
+
     return {
         "version": AUTOSAVE_VERSION,
         "seed": game.seed,

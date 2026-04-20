@@ -2228,6 +2228,83 @@ def test_replay_terrain_restores_dug(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# C4: GC stale mutation records at save time
+# ---------------------------------------------------------------------------
+
+
+def test_gc_old_records_unlinks_old_files(tmp_path) -> None:
+    """``SubHexCacheManager.gc_old_records`` unlinks files whose mtime
+    is older than ``max_age_days`` and preserves fresh ones."""
+    import os
+    import time
+
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=4, storage_dir=tmp_path, player_id="p1",
+    )
+    cache_dir = tmp_path / "players" / "p1" / "sub_hex_cache"
+    cache_dir.mkdir(parents=True)
+    old_path = cache_dir / "8_3_-1_0.json"
+    new_path = cache_dir / "8_3_1_1.json"
+    old_path.write_text("{}")
+    new_path.write_text("{}")
+    # Back-date the old file 100 days.
+    hundred_days_ago = time.time() - 100 * 24 * 60 * 60
+    os.utime(old_path, (hundred_days_ago, hundred_days_ago))
+
+    mgr.gc_old_records(max_age_days=90)
+    assert not old_path.exists()
+    assert new_path.exists()
+
+
+def test_gc_old_records_handles_missing_dir(tmp_path) -> None:
+    """gc_old_records is a no-op when the cache directory doesn't
+    exist yet (first-run path)."""
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+
+    mgr = SubHexCacheManager(
+        capacity=4, storage_dir=tmp_path, player_id="never-made",
+    )
+    # Must not raise.
+    mgr.gc_old_records(max_age_days=90)
+
+
+def test_autosave_triggers_gc_old_records(tmp_path) -> None:
+    """Game.autosave / _build_payload path invokes gc_old_records
+    on the sub-hex cache so long-dead records don't linger forever."""
+    import os
+    import time
+
+    # Ensure the manager is set up so the autosave GC hook has
+    # something to call. Enter a sub-hex site to materialise it.
+    import asyncio
+
+    from nhc.core.autosave import autosave as autosave_fn
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert game._sub_hex_cache is not None
+    cache_dir = game._sub_hex_cache._cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    old_file = cache_dir / "99_99_99_99.json"
+    old_file.write_text("{}")
+    hundred_days_ago = time.time() - 120 * 24 * 60 * 60
+    os.utime(old_file, (hundred_days_ago, hundred_days_ago))
+
+    autosave_fn(game, game.save_dir, blocking=True)
+    assert not old_file.exists(), (
+        "autosave must GC old sub-hex mutation records"
+    )
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 
