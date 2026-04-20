@@ -687,21 +687,104 @@ class Game:
         self.level = site.level
         if (self.level and self.level.metadata and site.faction):
             self.level.metadata.faction = site.faction
+        # Load persisted mutations from a previous eviction and
+        # replay them onto the regenerated level before the populator
+        # runs (so looted items / killed creatures are filtered out
+        # of the population walk).
+        persisted_mutations: dict = {}
         if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
             self._sub_hex_cache.store(
-                cache_key, self.level, mutations={},
+                cache_key, self.level, mutations=persisted_mutations,
             )
         else:
             # Test paths without a save_dir still need the Level
             # addressable for the re-entry cache-hit path.
             self._floor_cache[cache_key] = (self.level, {})
         self._sub_hex_entry_tile = site.entry_tile
+        # Purge stale ECS entities tied to this level_id before the
+        # populator runs. Regeneration reuses the same deterministic
+        # level.id, so entities from an earlier visit (items, NPCs,
+        # creatures) would otherwise double up with the fresh
+        # population walk. The player and hired henchmen live on
+        # their own level_id ("overland") after the exit so they
+        # aren't touched here.
+        self._purge_entities_on_level(self.level.id)
         from nhc.core.sub_hex_populator import populate_sub_hex_site
-        populate_sub_hex_site(self.world, site)
+        populate_sub_hex_site(
+            self.world, site, mutations=persisted_mutations,
+        )
         self._place_player_on_sub_hex_entry()
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    def _purge_entities_on_level(self, level_id: str) -> None:
+        """Destroy every ECS entity whose Position sits on ``level_id``.
+
+        Skips the player and hired henchmen (they carry their own
+        level id after the exit). Called before the sub-hex populator
+        runs so regenerated levels don't stack duplicates on top of
+        stale entities from a prior visit.
+        """
+        to_destroy: list[int] = []
+        for eid, pos in self.world.query("Position"):
+            if pos.level_id != level_id:
+                continue
+            if eid == self.player_id:
+                continue
+            hench = self.world.get_component(eid, "Henchman")
+            if hench and hench.hired:
+                continue
+            to_destroy.append(eid)
+        for eid in to_destroy:
+            self.world.destroy_entity(eid)
+
+    def _apply_sub_hex_mutations_to_level(
+        self, level, mutations: dict,
+    ) -> None:
+        """Replay persisted door / terrain mutations onto a freshly
+        regenerated sub-hex level. Looted items and killed creatures
+        are filtered inside the populator; this method only touches
+        map tiles."""
+        from nhc.dungeon.model import SurfaceType, Terrain
+
+        doors = mutations.get("doors") or {}
+        for coord_str, state in doors.items():
+            try:
+                x_str, y_str = coord_str.split(",", 1)
+                x, y = int(x_str), int(y_str)
+            except ValueError:
+                continue
+            tile = level.tile_at(x, y)
+            if tile is None:
+                continue
+            # All recorded states (open/forced/picked) collapse to
+            # an open door tile on replay — the state distinction
+            # is for audit only (U4).
+            tile.feature = "door_open"
+
+        terrain = mutations.get("terrain") or {}
+        for coord_str, kind in terrain.items():
+            if kind != "dug":
+                continue
+            try:
+                x_str, y_str = coord_str.split(",", 1)
+                x, y = int(x_str), int(y_str)
+            except ValueError:
+                continue
+            tile = level.tile_at(x, y)
+            if tile is None:
+                continue
+            tile.terrain = Terrain.FLOOR
+            tile.feature = None
+            tile.surface_type = SurfaceType.CORRIDOR
+            tile.dug_wall = True
 
     def _ensure_sub_hex_cache(self) -> None:
         """Construct :attr:`_sub_hex_cache` on first family-site entry.
@@ -1901,10 +1984,24 @@ class Game:
 
     def _on_sub_hex_creature_died(self, event: CreatureDied) -> None:
         """Record the id of a creature that died inside a sub-hex
-        site so the populator skips it on re-entry."""
+        site so the populator skips it on re-entry.
+
+        Populator-spawned entities carry a ``SubHexStableId``
+        component; record that stable id so the mutation survives
+        the ECS destroy that follows the event. Non-populated
+        casualties (e.g. adventurers wandered in) fall back to the
+        ECS int so the mutation is still unique, though they won't
+        match on re-entry (non-populated creatures don't respawn)."""
         if self._active_sub_hex is None:
             return
-        self._append_sub_hex_mutation("killed", event.entity)
+        sid_comp = self.world.get_component(
+            event.entity, "SubHexStableId",
+        )
+        marker = (
+            sid_comp.stable_id if sid_comp is not None
+            else event.entity
+        )
+        self._append_sub_hex_mutation("killed", marker)
 
     def _on_sub_hex_door_opened(self, event: DoorOpened) -> None:
         """Record an opened door so re-entry keeps it open rather

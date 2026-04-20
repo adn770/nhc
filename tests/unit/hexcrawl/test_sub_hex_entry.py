@@ -1960,6 +1960,274 @@ def test_dig_action_emits_terrain_changed(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# C3: replay sub-hex mutations on re-entry
+# ---------------------------------------------------------------------------
+
+
+def _force_eviction(game, macro, sub_a, sub_b, tmp_path) -> None:
+    """Force the current sub-hex site (sub_a) to be evicted from the
+    manager by lowering capacity to 1 and entering a second site.
+
+    Leaves the player back on sub_b's level with sub_a evicted. On the
+    evicted site's next entry, the manager runs a cache miss.
+    """
+    import asyncio
+
+    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    # Replace the manager with a 1-slot version that preserves any
+    # already-recorded mutations on sub_a.
+    prev = game._sub_hex_cache
+    new = SubHexCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="test",
+    )
+    if prev is not None:
+        for k, v in prev._entries.items():
+            new.store(k, v["level"], mutations=v["mutations"])
+    game._sub_hex_cache = new
+    # Exit sub_a so the next entry lands us on sub_b.
+    from nhc.core.events import LeaveSiteRequested
+    asyncio.run(
+        game.event_bus.emit(LeaveSiteRequested(actor=game.player_id)),
+    )
+    # Enter sub_b; capacity=1 evicts sub_a, persisting its mutations
+    # to disk.
+    cell = game.hex_world.get_cell(macro)
+    cell.flower.cells[sub_b].minor_feature = MinorFeatureType.SIGNPOST
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_b, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    # Exit sub_b; sub_b's mutations evict to disk too (empty record).
+    asyncio.run(
+        game.event_bus.emit(LeaveSiteRequested(actor=game.player_id)),
+    )
+
+
+def test_replay_looted_removes_item(tmp_path) -> None:
+    """Loot an item at (4, 2), evict, re-enter — the populator must
+    skip the placement at that tile."""
+    import asyncio
+
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, SubHexPopulation, SubHexSite,
+    )
+    from nhc.entities.registry import EntityRegistry
+
+    EntityRegistry.discover_all()
+    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    cell = game.hex_world.get_cell(macro)
+    sub_b = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_a
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+
+    # Patch the wayside generator to stamp a known item on the map.
+    import nhc.hexcrawl.sub_hex_sites as sites_mod
+
+    real = sites_mod.generate_wayside_site
+    sample_item = sorted(EntityRegistry.list_items())[0]
+
+    def fake(*, feature, biome, seed, tier):
+        site = real(
+            feature=feature, biome=biome, seed=seed, tier=tier,
+        )
+        return SubHexSite(
+            level=site.level,
+            entry_tile=site.entry_tile,
+            feature_tile=site.feature_tile,
+            faction=site.faction,
+            population=SubHexPopulation(
+                items=[(sample_item, (4, 2))],
+                features=list(site.population.features),
+            ),
+        )
+
+    sites_mod.generate_wayside_site = fake
+    try:
+        asyncio.run(
+            game.enter_sub_hex_family_site(
+                macro, sub_a, "wayside", MinorFeatureType.WELL,
+                SiteTier.SMALL, Biome.GREENLANDS,
+            ),
+        )
+        # Item should exist at (4, 2) on this level.
+        before = [
+            eid for eid, pos in game.world.query("Position")
+            if pos.level_id == game.level.id and (pos.x, pos.y) == (4, 2)
+        ]
+        assert before, "precondition: item exists at (4, 2)"
+        # Record the loot.
+        game._append_sub_hex_mutation("looted", [4, 2])
+        _force_eviction(game, macro, sub_a, sub_b, tmp_path)
+        # Re-enter sub_a.
+        asyncio.run(
+            game.enter_sub_hex_family_site(
+                macro, sub_a, "wayside", MinorFeatureType.WELL,
+                SiteTier.SMALL, Biome.GREENLANDS,
+            ),
+        )
+        after = [
+            eid for eid, pos in game.world.query("Position")
+            if pos.level_id == game.level.id and (pos.x, pos.y) == (4, 2)
+        ]
+        assert not after, (
+            "looted tile should not re-spawn the item on re-entry"
+        )
+    finally:
+        sites_mod.generate_wayside_site = real
+
+
+def test_replay_killed_skips_creature(tmp_path) -> None:
+    """Kill a creature at (3, 3), evict, re-enter — the populator
+    skips it via the stable-id record."""
+    import asyncio
+
+    from nhc.core.sub_hex_populator import populate_sub_hex_site  # noqa
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, SubHexPopulation, SubHexSite,
+    )
+    import nhc.hexcrawl.sub_hex_sites as sites_mod
+
+    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    cell = game.hex_world.get_cell(macro)
+    sub_b = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_a
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+
+    real = sites_mod.generate_wayside_site
+
+    def fake(*, feature, biome, seed, tier):
+        site = real(
+            feature=feature, biome=biome, seed=seed, tier=tier,
+        )
+        return SubHexSite(
+            level=site.level, entry_tile=site.entry_tile,
+            feature_tile=site.feature_tile, faction=site.faction,
+            population=SubHexPopulation(
+                creatures=[("goblin", (3, 3))],
+                features=list(site.population.features),
+            ),
+        )
+
+    sites_mod.generate_wayside_site = fake
+    try:
+        asyncio.run(
+            game.enter_sub_hex_family_site(
+                macro, sub_a, "wayside", MinorFeatureType.WELL,
+                SiteTier.SMALL, Biome.GREENLANDS,
+            ),
+        )
+        goblins = [
+            eid for eid, _ in game.world.query("AI")
+            if (pos := game.world.get_component(eid, "Position"))
+            and pos.level_id == game.level.id and (pos.x, pos.y) == (3, 3)
+        ]
+        assert goblins
+        # Record the kill using the populator stable id for (goblin,3,3).
+        game._append_sub_hex_mutation("killed", "goblin_3_3")
+        _force_eviction(game, macro, sub_a, sub_b, tmp_path)
+        asyncio.run(
+            game.enter_sub_hex_family_site(
+                macro, sub_a, "wayside", MinorFeatureType.WELL,
+                SiteTier.SMALL, Biome.GREENLANDS,
+            ),
+        )
+        respawned = [
+            eid for eid, _ in game.world.query("AI")
+            if (pos := game.world.get_component(eid, "Position"))
+            and pos.level_id == game.level.id and (pos.x, pos.y) == (3, 3)
+        ]
+        assert not respawned, (
+            "killed creature must not re-spawn on re-entry"
+        )
+    finally:
+        sites_mod.generate_wayside_site = real
+
+
+def test_replay_doors_restores_open_state(tmp_path) -> None:
+    """An opened door persists across eviction — the tile re-opens
+    on re-entry."""
+    import asyncio
+
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    cell = game.hex_world.get_cell(macro)
+    sub_b = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_a
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    # Plant a closed-door tile we can flip.
+    tile = game.level.tile_at(3, 3)
+    tile.feature = "door_closed"
+    # Record the open mutation.
+    game._set_sub_hex_mutation("doors", "3,3", "open")
+    _force_eviction(game, macro, sub_a, sub_b, tmp_path)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert game.level.tile_at(3, 3).feature == "door_open"
+
+
+def test_replay_terrain_restores_dug(tmp_path) -> None:
+    """A dug wall persists across eviction — the tile comes back as
+    floor with dug_wall True."""
+    import asyncio
+
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    cell = game.hex_world.get_cell(macro)
+    sub_b = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_a
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    # Target a boundary wall tile.
+    tile = game.level.tile_at(0, 0)
+    assert tile.terrain is Terrain.WALL
+    game._set_sub_hex_mutation("terrain", "0,0", "dug")
+    _force_eviction(game, macro, sub_a, sub_b, tmp_path)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_a, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    replayed = game.level.tile_at(0, 0)
+    assert replayed.terrain is Terrain.FLOOR
+    assert replayed.dug_wall is True
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

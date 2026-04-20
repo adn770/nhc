@@ -27,8 +27,20 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _stable_id(entity_id: str, x: int, y: int) -> str:
+    """Stable per-placement key: registry id + tile coord.
+
+    Used by the C3 mutation-replay path to recognise "this is the
+    same placement we spawned last visit," so killed creatures and
+    looted items don't re-spawn."""
+    return f"{entity_id}_{x}_{y}"
+
+
 def populate_sub_hex_site(
-    world: "World", site: "SubHexSite",
+    world: "World",
+    site: "SubHexSite",
+    *,
+    mutations: dict | None = None,
 ) -> list[int]:
     """Spawn ``site.population`` into ``world``; return new entity ids.
 
@@ -38,14 +50,27 @@ def populate_sub_hex_site(
     avoids a parallel NPC factory table). Items go through
     ``get_item``. Feature tile tags are ignored here; generators are
     responsible for stamping them onto the Level directly.
+
+    When ``mutations`` is passed, entries listed in
+    ``mutations["killed"]`` (by stable id) and ``mutations["looted"]``
+    (by [x, y] tile) are skipped so replayed state stays consistent
+    with the player's last visit.
     """
+    from nhc.entities.components import SubHexStableId
+
     level = site.level
     spawned: list[int] = []
     population = site.population
+    muts = mutations or {}
+    killed = set(muts.get("killed", []))
+    looted = {tuple(xy) for xy in muts.get("looted", [])}
 
     for entity_id, (x, y) in (
         list(population.creatures) + list(population.npcs)
     ):
+        sid = _stable_id(entity_id, x, y)
+        if sid in killed:
+            continue
         try:
             components = EntityRegistry.get_creature(entity_id)
         except KeyError:
@@ -58,9 +83,12 @@ def populate_sub_hex_site(
         components["Position"] = Position(
             x=x, y=y, level_id=level.id,
         )
+        components["SubHexStableId"] = SubHexStableId(stable_id=sid)
         spawned.append(world.create_entity(components))
 
     for entity_id, (x, y) in population.items:
+        if (x, y) in looted:
+            continue
         try:
             components = EntityRegistry.get_item(entity_id)
         except KeyError:
@@ -71,6 +99,9 @@ def populate_sub_hex_site(
             continue
         components["Position"] = Position(
             x=x, y=y, level_id=level.id,
+        )
+        components["SubHexStableId"] = SubHexStableId(
+            stable_id=_stable_id(entity_id, x, y),
         )
         spawned.append(world.create_entity(components))
 
@@ -85,6 +116,9 @@ def populate_sub_hex_site(
             continue
         components["Position"] = Position(
             x=x, y=y, level_id=level.id,
+        )
+        components["SubHexStableId"] = SubHexStableId(
+            stable_id=_stable_id(entity_id, x, y),
         )
         spawned.append(world.create_entity(components))
 

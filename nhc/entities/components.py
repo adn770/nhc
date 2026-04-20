@@ -77,6 +77,19 @@ class RegistryId:
 
 
 @dataclass
+class SubHexStableId:
+    """Stable identity for entities spawned by the sub-hex populator.
+
+    Populator stamps ``f"{registry_id}_{x}_{y}"`` on every creature,
+    NPC, item, and feature it spawns so the C3 mutation replay path
+    can recognise "this is the same placement as last visit" when
+    the player re-enters a previously-evicted sub-hex site.
+    """
+
+    stable_id: str = ""
+
+
+@dataclass
 class ShopInventory:
     """Items for sale at this merchant."""
     stock: list[str] = field(default_factory=list)
