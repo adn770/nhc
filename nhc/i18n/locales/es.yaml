@@ -306,6 +306,9 @@ feature:
   buried_marker:
     name: "tesoro enterrado"
     short: "algo oculto bajo los pies"
+  rumor_sign:
+    name: "poste indicador"
+    short: "un indicador desgastado"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
@@ -1489,6 +1492,11 @@ encounter:
 
 leave_site:
   exit: "Sales del lugar."
+
+
+action:
+  sign_read:
+    no_news: "El poste está limpio — sin avisos nuevos."
 
 
 # ── Rumor UI strings ───────────────────────────────────────────────────

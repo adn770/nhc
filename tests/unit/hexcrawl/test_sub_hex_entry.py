@@ -968,6 +968,149 @@ def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# B2: RumorSign entity + SignReadAction
+# ---------------------------------------------------------------------------
+
+
+def _make_rumor(world, text: str = "A caravan passed last week.") -> None:
+    from nhc.hexcrawl.model import Rumor
+
+    world.active_rumors.append(
+        Rumor(id=f"r_{len(world.active_rumors)}", text=text),
+    )
+
+
+def test_rumor_sign_feature_registered() -> None:
+    """``rumor_sign`` is registered as a feature entity with an ECS
+    marker component the BumpAction router can key off."""
+    from nhc.entities.registry import EntityRegistry
+
+    EntityRegistry.discover_all()
+    comps = EntityRegistry.get_feature("rumor_sign")
+    assert "RumorSign" in comps
+    assert "Renderable" in comps
+    assert "BlocksMovement" in comps
+
+
+def test_signpost_wayside_populates_rumor_sign(tmp_path) -> None:
+    """Generating a wayside site for ``SIGNPOST`` lands a RumorSign
+    at ``feature_tile`` in the population."""
+    from nhc.hexcrawl.model import Biome
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, generate_wayside_site,
+    )
+
+    site = generate_wayside_site(
+        feature=MinorFeatureType.SIGNPOST,
+        biome=Biome.GREENLANDS,
+        seed=42,
+        tier=SiteTier.SMALL,
+    )
+    assert site.feature_tile is not None
+    signs = [
+        (eid, xy) for eid, xy in site.population.features
+        if eid == "rumor_sign"
+    ]
+    # Features go through the populator too; same list.
+    sign_npcs = [
+        (eid, xy) for eid, xy in (
+            site.population.creatures + site.population.npcs
+            + site.population.items + site.population.features
+        ) if eid == "rumor_sign"
+    ]
+    assert sign_npcs, "expected a rumor_sign in the population"
+    _, xy = sign_npcs[0]
+    assert xy == site.feature_tile
+
+
+def test_sign_read_action_dispenses_rumor(tmp_path) -> None:
+    """Bumping a RumorSign fires SignReadAction and emits a
+    MessageEvent whose text is the next active rumour."""
+    import asyncio
+
+    from nhc.core.actions._sign import SignReadAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    _make_rumor(game.hex_world, text="A caravan passed last week.")
+
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    signs = [
+        eid for eid, _ in game.world.query("RumorSign")
+    ]
+    assert len(signs) == 1
+    action = SignReadAction(
+        actor=game.player_id, sign_id=signs[0],
+        hex_world=game.hex_world,
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert "A caravan passed last week." in texts
+
+
+def test_sign_read_action_no_rumor_emits_no_news(tmp_path) -> None:
+    """Empty rumour pool produces a 'no news' message instead of
+    erroring out."""
+    import asyncio
+
+    from nhc.core.actions._sign import SignReadAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.i18n import t
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    # Pool is empty in the fixture.
+    assert game.hex_world.active_rumors == []
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    signs = [eid for eid, _ in game.world.query("RumorSign")]
+    action = SignReadAction(
+        actor=game.player_id, sign_id=signs[0],
+        hex_world=game.hex_world,
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    msgs = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert msgs, "SignReadAction must emit a message even with no rumors"
+    # Use the action's own no-news key.
+    assert msgs[0] == t("action.sign_read.no_news")
+
+
+def test_sign_read_locale_keys_present() -> None:
+    """``feature.rumor_sign`` and ``action.sign_read.no_news`` exist
+    in all three locales."""
+    import yaml
+    from pathlib import Path
+
+    root = Path("nhc/i18n/locales")
+    for lang in ("en", "ca", "es"):
+        data = yaml.safe_load((root / f"{lang}.yaml").read_text())
+        feat = data.get("feature", {}).get("rumor_sign")
+        assert feat and feat.get("name"), (
+            f"missing feature.rumor_sign in {lang}"
+        )
+        assert feat.get("short"), (
+            f"missing feature.rumor_sign.short in {lang}"
+        )
+        assert data.get("action", {}).get("sign_read", {}).get(
+            "no_news"
+        ), f"missing action.sign_read.no_news in {lang}"
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

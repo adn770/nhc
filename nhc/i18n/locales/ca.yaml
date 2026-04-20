@@ -324,6 +324,9 @@ feature:
   buried_marker:
     name: "tresor enterrat"
     short: "quelcom amagat sota els peus"
+  rumor_sign:
+    name: "pal indicador"
+    short: "un indicador rovellat"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
@@ -1560,6 +1563,11 @@ encounter:
 
 leave_site:
   exit: "Surts del lloc."
+
+
+action:
+  sign_read:
+    no_news: "El pal no duu cap avís nou."
 
 
 # ── Rumor UI strings ───────────────────────────────────────────────────

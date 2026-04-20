@@ -74,4 +74,18 @@ def populate_sub_hex_site(
         )
         spawned.append(world.create_entity(components))
 
+    for entity_id, (x, y) in population.features:
+        try:
+            components = EntityRegistry.get_feature(entity_id)
+        except KeyError:
+            logger.warning(
+                "Unknown feature entity in sub-hex population: %s",
+                entity_id,
+            )
+            continue
+        components["Position"] = Position(
+            x=x, y=y, level_id=level.id,
+        )
+        spawned.append(world.create_entity(components))
+
     return spawned

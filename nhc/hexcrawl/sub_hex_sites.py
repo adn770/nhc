@@ -190,7 +190,9 @@ def generate_wayside_site(
     Handles WELL and SIGNPOST. The interactable tile is tagged on
     the Level and also returned as ``feature_tile`` so the
     dispatcher can wire the right action (rumour roll for a well,
-    rumour dispense for a signpost).
+    rumour dispense for a signpost). SIGNPOST sites drop a
+    ``rumor_sign`` feature entity on the centrepiece so BumpAction
+    can dispatch :class:`SignReadAction`.
     """
     width, height = SITE_TIER_DIMS[tier]
     rng = random.Random(seed)
@@ -200,10 +202,12 @@ def generate_wayside_site(
         name="wayside", theme="wayside",
     )
     center = _central_feature_tile(width, height, rng)
+    population = SubHexPopulation()
     if isinstance(feature, MinorFeatureType) and feature is MinorFeatureType.WELL:
         tag = "well"
     elif isinstance(feature, MinorFeatureType) and feature is MinorFeatureType.SIGNPOST:
         tag = "signpost"
+        population.features.append(("rumor_sign", center))
     else:
         tag = "landmark"
     _tag_feature(level, center, tag)
@@ -211,6 +215,7 @@ def generate_wayside_site(
         level=level,
         entry_tile=_south_gate_entry(width, height),
         feature_tile=center,
+        population=population,
     )
 
 

@@ -477,6 +477,15 @@ class BumpAction(Action):
                             actor=self.actor, innkeeper_id=eid,
                             hex_world=self.hex_world,
                         )
+                    # Rumour signs: read the next active rumour.
+                    if world.has_component(eid, "RumorSign"):
+                        from nhc.core.actions._sign import (
+                            SignReadAction,
+                        )
+                        return SignReadAction(
+                            actor=self.actor, sign_id=eid,
+                            hex_world=self.hex_world,
+                        )
                     # Creatures: attack
                     return MeleeAttackAction(
                         actor=self.actor, target=eid)

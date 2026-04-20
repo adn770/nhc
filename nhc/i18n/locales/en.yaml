@@ -308,6 +308,9 @@ feature:
   buried_marker:
     name: "buried treasure"
     short: "something hidden underfoot"
+  rumor_sign:
+    name: "rumor sign"
+    short: "a weathered signpost"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
@@ -1439,6 +1442,11 @@ encounter:
 
 leave_site:
   exit: "You leave the site."
+
+
+action:
+  sign_read:
+    no_news: "The signpost is bare — no new notices."
 
 
 rumor:
