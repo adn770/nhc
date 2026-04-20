@@ -1911,6 +1911,51 @@ class Game:
         nx, ny = pos.x + dx, pos.y + dy
         return self.level.tile_at(nx, ny) is None
 
+    def _leave_site_narration_key(self) -> str:
+        """Pick the most specific ``leave_site.exit_<kind>`` key for
+        the currently active site.
+
+        Sub-hex family visits key off the minor/major feature of the
+        sub-hex cell; walled sites key off ``_active_site.kind``
+        with a macro-cell feature fallback. Returns ``leave_site.exit``
+        as the generic catch-all; :class:`LeaveSiteAction` already
+        falls back to the same key when the specific entry is
+        missing from the current locale, so callers don't need to
+        probe themselves.
+        """
+        from nhc.hexcrawl.model import HexFeatureType, MinorFeatureType
+
+        if (self._active_sub_hex is not None
+                and self.hex_world is not None):
+            macro = self.hex_world.exploring_hex
+            if macro is not None:
+                cell = self.hex_world.get_cell(macro)
+                if cell is not None and cell.flower is not None:
+                    sub_cell = cell.flower.cells.get(
+                        self._active_sub_hex,
+                    )
+                    if sub_cell is not None:
+                        minor = sub_cell.minor_feature
+                        if minor is not MinorFeatureType.NONE:
+                            return f"leave_site.exit_{minor.value}"
+                        major = sub_cell.major_feature
+                        if major is not HexFeatureType.NONE:
+                            return f"leave_site.exit_{major.value}"
+        if self._active_site is not None:
+            kind = getattr(self._active_site, "kind", None)
+            if kind:
+                return f"leave_site.exit_{kind}"
+            if (self.hex_world is not None
+                    and self.hex_player_position is not None):
+                cell = self.hex_world.get_cell(
+                    self.hex_player_position,
+                )
+                if cell is not None:
+                    feat = cell.feature
+                    if feat is not HexFeatureType.NONE:
+                        return f"leave_site.exit_{feat.value}"
+        return "leave_site.exit"
+
     def _on_leave_site_requested(self, event: LeaveSiteRequested) -> None:
         """Handle the :class:`LeaveSiteRequested` bus event.
 
@@ -3183,6 +3228,7 @@ class Game:
             if self._is_site_edge_exit(dx, dy):
                 return LeaveSiteAction(
                     actor=self.player_id, dx=dx, dy=dy,
+                    narration_key=self._leave_site_narration_key(),
                 )
             return BumpAction(
                 actor=self.player_id, dx=dx, dy=dy,

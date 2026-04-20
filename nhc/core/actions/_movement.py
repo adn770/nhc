@@ -367,12 +367,24 @@ class LeaveSiteAction(Action):
     any in-bounds tile. The action emits :class:`LeaveSiteRequested`
     and a narration :class:`MessageEvent`; the :class:`Game`
     handler drops the level and restores the flower view.
+
+    ``narration_key`` lets the intent router pre-select a
+    per-feature i18n key (``leave_site.exit_town``, ...). Missing
+    or explicitly ``None`` falls back to the generic
+    ``leave_site.exit``.
     """
 
-    def __init__(self, actor: int, dx: int, dy: int) -> None:
+    def __init__(
+        self,
+        actor: int,
+        dx: int,
+        dy: int,
+        narration_key: str | None = None,
+    ) -> None:
         super().__init__(actor)
         self.dx = dx
         self.dy = dy
+        self.narration_key = narration_key or "leave_site.exit"
 
     async def validate(self, world: "World", level: "Level") -> bool:
         pos = world.get_component(self.actor, "Position")
@@ -385,9 +397,16 @@ class LeaveSiteAction(Action):
         return level.tile_at(nx, ny) is None
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
+        rendered = t(self.narration_key)
+        # t() returns the key itself when missing. Fall back to the
+        # generic key so a typo (or a site_kind without a bespoke
+        # line) never surfaces a raw "leave_site.exit_foo" to the
+        # player.
+        if rendered == self.narration_key:
+            rendered = t("leave_site.exit")
         return [
             LeaveSiteRequested(actor=self.actor),
-            MessageEvent(text=t("leave_site.exit")),
+            MessageEvent(text=rendered),
         ]
 
 

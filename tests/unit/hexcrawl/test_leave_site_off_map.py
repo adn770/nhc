@@ -426,6 +426,112 @@ async def test_sub_hex_active_sub_hex_cleared_on_exit(tmp_path) -> None:
     assert g._active_sub_hex is None
 
 
+# ---------------------------------------------------------------------------
+# D3: per-feature leave-site narration
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_leave_walled_town_uses_exit_town(tmp_path) -> None:
+    """Leaving a town fires the ``leave_site.exit_town`` key."""
+    from nhc.core.actions import LeaveSiteAction
+    from nhc.core.events import MessageEvent
+    from nhc.i18n import t
+
+    g = _make_game(tmp_path)
+    _attach_town_site(g, HexCoord(0, 0))
+    _enter_flower(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    pos = g.world.get_component(g.player_id, "Position")
+    pos.x, pos.y = 0, 0
+    action = g._intent_to_action("move", (-1, 0))
+    assert isinstance(action, LeaveSiteAction)
+    events = await action.execute(g.world, g.level)
+    msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+    assert t("leave_site.exit_town") in msgs
+    assert t("leave_site.exit_town") != "leave_site.exit_town", (
+        "precondition: exit_town is localized"
+    )
+
+
+@pytest.mark.asyncio
+async def test_leave_wayside_well_uses_exit_well(tmp_path) -> None:
+    """Leaving a sub-hex wayside well fires ``leave_site.exit_well``."""
+    from nhc.core.actions import LeaveSiteAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.model import MinorFeatureType
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.i18n import t
+
+    g = _make_game(tmp_path)
+    # Build a flower with a WELL sub-hex.
+    macro = g.hex_player_position
+    cell = g.hex_world.get_cell(macro)
+    from nhc.hexcrawl.model import HexFeatureType as HFT
+
+    pick = next(
+        c for c, sc in cell.flower.cells.items()
+        if sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HFT.NONE
+    )
+    cell.flower.cells[pick].minor_feature = MinorFeatureType.WELL
+    g.hex_world.enter_flower(macro, pick)
+    from nhc.hexcrawl.model import Biome as B
+
+    await g.enter_sub_hex_family_site(
+        macro, pick, "wayside", MinorFeatureType.WELL,
+        SiteTier.SMALL, B.GREENLANDS,
+    )
+    pos = g.world.get_component(g.player_id, "Position")
+    pos.x, pos.y = 0, 0
+    action = g._intent_to_action("move", (-1, 0))
+    assert isinstance(action, LeaveSiteAction)
+    events = await action.execute(g.world, g.level)
+    msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+    assert t("leave_site.exit_well") in msgs
+    assert t("leave_site.exit_well") != "leave_site.exit_well", (
+        "precondition: exit_well is localized"
+    )
+
+
+@pytest.mark.asyncio
+async def test_leave_site_falls_back_to_generic(tmp_path) -> None:
+    """A LeaveSiteAction constructed without a narration hint emits
+    the generic leave_site.exit message."""
+    from nhc.core.actions import LeaveSiteAction
+    from nhc.core.events import MessageEvent
+    from nhc.i18n import t
+
+    g = _make_game(tmp_path)
+    _attach_keep_site(g, HexCoord(0, 0))
+    _enter_flower(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    pos = g.world.get_component(g.player_id, "Position")
+    pos.x, pos.y = 0, 0
+    # Construct without going through _intent_to_action — no hint.
+    action = LeaveSiteAction(actor=g.player_id, dx=-1, dy=0)
+    events = await action.execute(g.world, g.level)
+    msgs = [e.text for e in events if isinstance(e, MessageEvent)]
+    assert t("leave_site.exit") in msgs
+
+
+@pytest.mark.asyncio
+async def test_leave_site_per_feature_locale_keys_present() -> None:
+    """Per-feature leave-site keys exist in all three locales."""
+    import yaml
+    from pathlib import Path
+
+    required = ("exit", "exit_town", "exit_keep", "exit_well")
+    root = Path("nhc/i18n/locales")
+    for lang in ("en", "ca", "es"):
+        data = yaml.safe_load((root / f"{lang}.yaml").read_text())
+        leave = data.get("leave_site", {})
+        for key in required:
+            assert leave.get(key), (
+                f"missing leave_site.{key} in {lang}"
+            )
+
+
 @pytest.mark.asyncio
 async def test_leave_site_locale_keys_present() -> None:
     """``leave_site.exit`` is defined in every locale."""
