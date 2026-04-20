@@ -49,6 +49,7 @@ from nhc.dungeon.site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.dungeon.sites._placement import safe_floor_near
 from nhc.hexcrawl.model import Biome, DungeonRef
 
 
@@ -545,14 +546,19 @@ def _place_service_npcs(
         if not ground.rooms:
             continue
         room = ground.rooms[0]
-        cx, cy = room.rect.center
+        cx, cy = safe_floor_near(
+            ground, *room.rect.center, room,
+        )
         if role == "shop":
             ground.entities.append(_merchant_placement(cx, cy, rng))
         elif role == "temple":
             ground.entities.append(_priest_placement(cx, cy))
         elif role == "inn":
             ground.entities.append(_adventurer_placement(cx, cy))
-            ground.entities.append(_innkeeper_placement(cx, cy))
+            ix, iy = safe_floor_near(
+                ground, cx + 1, cy, room,
+            )
+            ground.entities.append(_innkeeper_placement(ix, iy))
 
 
 def _merchant_placement(
@@ -595,9 +601,9 @@ def _adventurer_placement(cx: int, cy: int) -> EntityPlacement:
 
 
 def _innkeeper_placement(cx: int, cy: int) -> EntityPlacement:
-    """Innkeeper one tile east of the inn-room centre so the pair
-    does not overlap with the adventurer."""
+    """Innkeeper near the inn-room centre; caller nudges the coord
+    off the adventurer via :func:`safe_floor_near`."""
     return EntityPlacement(
         entity_type="creature", entity_id="innkeeper",
-        x=cx + 1, y=cy,
+        x=cx, y=cy,
     )
