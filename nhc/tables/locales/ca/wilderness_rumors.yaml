@@ -1,0 +1,36 @@
+id: rumor.wilderness
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: road_washout
+    weight: 1
+    text: >-
+      Un avís desdibuixat alerta que el camí s'ha esllavissat
+      passada la carena. El paper és trencadís de la pluja.
+  - id: bandit_sightings
+    weight: 1
+    text: >-
+      Algú ha escrit a corre-cuita: bandolers vistos prop del
+      vell cruïlla un cop fosc.
+  - id: wolves_hungry
+    weight: 1
+    text: >-
+      Nota d'un viatger: "Els llops tenen gana aquesta
+      estació. No acampis sol a camp obert."
+  - id: caravan_late
+    weight: 1
+    text: >-
+      Un mercader hi ha clavat una súplica: notícies d'una
+      caravana que havia d'arribar fa quinze dies.
+  - id: spring_source
+    weight: 1
+    text: >-
+      Una fletxa tallada a ganivet assenyala a llevant:
+      "Font fresca, dues hores de camí. Aigua bona."
+  - id: bridge_collapsed
+    weight: 1
+    text: >-
+      Un mapa ratllat indica que un pont de pedra ha
+      cedit. Gual més al sud.

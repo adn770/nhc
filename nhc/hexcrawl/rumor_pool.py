@@ -15,6 +15,14 @@ from nhc.tables.registry import TableRegistry
 
 _TRUE_TABLE = "rumor.true_feature"
 _FALSE_TABLE = "rumor.false_lead"
+_WILDERNESS_TABLE = "rumor.wilderness"
+
+_SETTLEMENT_FEATURES = frozenset({
+    HexFeatureType.VILLAGE,
+    HexFeatureType.CITY,
+    HexFeatureType.COMMUNITY,
+    HexFeatureType.KEEP,
+})
 
 
 def _feature_coords(world: HexWorld) -> list[HexCoord]:
@@ -178,6 +186,77 @@ def top_up_rumor_pool(
         for r in fresh:
             r.truth = True
     world.active_rumors.extend(fresh)
+
+
+def has_settlement_in_reach(
+    world: HexWorld,
+    macro: HexCoord,
+    radius: int = 3,
+) -> bool:
+    """True when any cell within ``radius`` hexes of ``macro``
+    carries a settlement-class feature (VILLAGE / CITY / COMMUNITY
+    / KEEP).
+
+    Used by the wilderness-signpost fallback to decide whether a
+    bumped signpost should seed a generic nature-travel pool or
+    collapse to the town come-back-later beat.
+    """
+    from nhc.hexcrawl.coords import distance as hex_distance
+
+    for coord, cell in world.cells.items():
+        if cell.feature not in _SETTLEMENT_FEATURES:
+            continue
+        if hex_distance(coord, macro) <= radius:
+            return True
+    return False
+
+
+def seed_wilderness_rumor_pool(
+    world: HexWorld,
+    world_seed: int,
+    macro_coord: HexCoord,
+    *,
+    lang: str | None = None,
+    count: int = 2,
+) -> list[Rumor]:
+    """Append ``count`` wilderness-pool rumours to ``active_rumors``.
+
+    Entries are drawn from the ``rumor.wilderness`` table with a
+    per-hex RNG seeded off ``(world_seed, macro_coord)`` so every
+    visit to the same macro sees the same pool. No reveal effect
+    is attached — these are flavor only, not leads.
+    """
+    if lang is None:
+        lang = current_lang()
+    # Stable per-hex seed. XORs mix the macro coord into the world
+    # seed without zero-collisions at the origin (the large primes
+    # diverge both axes).
+    seed = (
+        world_seed
+        ^ ((macro_coord.q & 0xFFFFFFFF) * 1000003)
+        ^ ((macro_coord.r & 0xFFFFFFFF) * 97)
+    ) & 0xFFFFFFFF
+    rng = random.Random(seed)
+    registry = TableRegistry.get_or_load(lang)
+    rumors: list[Rumor] = []
+    for i in range(count):
+        result = registry.roll(
+            _WILDERNESS_TABLE, rng=rng, context={},
+        )
+        rumors.append(Rumor(
+            id=f"wild_{macro_coord.q}_{macro_coord.r}_{i}",
+            text=result.text,
+            truth=True,
+            reveals=None,
+            source=RumorSource(
+                table_id=_WILDERNESS_TABLE,
+                entry_id=result.entry_id,
+                context={},
+                lang=lang,
+            ),
+        ))
+    world.active_rumors.extend(rumors)
+    return rumors
 
 
 def consume_rumor(world: HexWorld) -> Rumor | None:

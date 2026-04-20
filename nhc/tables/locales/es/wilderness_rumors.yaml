@@ -1,0 +1,36 @@
+id: rumor.wilderness
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: road_washout
+    weight: 1
+    text: >-
+      Un aviso descolorido advierte que el camino está cortado
+      más allá de la cresta. El pergamino está frágil de lluvia.
+  - id: bandit_sightings
+    weight: 1
+    text: >-
+      Alguien ha garabateado un aviso: bandidos avistados cerca
+      del viejo cruce al anochecer.
+  - id: wolves_hungry
+    weight: 1
+    text: >-
+      Nota de un viajero: "Los lobos tienen hambre esta
+      estación. No acampéis solos a campo abierto."
+  - id: caravan_late
+    weight: 1
+    text: >-
+      Un mercader ha clavado una súplica: noticias de una
+      caravana que debía llegar hace quince días.
+  - id: spring_source
+    weight: 1
+    text: >-
+      Una flecha tallada señala al este: "Manantial fresco,
+      dos horas de camino. Agua buena, trae tu taza."
+  - id: bridge_collapsed
+    weight: 1
+    text: >-
+      Un mapa tachado dice que un puente de piedra ha
+      cedido. Vadeo al sur.

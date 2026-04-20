@@ -1,0 +1,36 @@
+id: rumor.wilderness
+kind: flavor
+lifetime: gen_time
+shared_structure: true
+
+entries:
+  - id: road_washout
+    weight: 1
+    text: >-
+      A faded notice warns of a road washout beyond the
+      next ridge. The parchment is brittle with rain.
+  - id: bandit_sightings
+    weight: 1
+    text: >-
+      Someone has scrawled a warning: bandits seen near
+      the old crossroads after dusk.
+  - id: wolves_hungry
+    weight: 1
+    text: >-
+      A traveller's note: "The wolves are hungry this
+      season. Do not camp alone in the open."
+  - id: caravan_late
+    weight: 1
+    text: >-
+      A merchant has pinned a plea for word of a caravan
+      that was due a fortnight ago.
+  - id: spring_source
+    weight: 1
+    text: >-
+      A whittled arrow points east: "Fresh spring, two
+      hours' walk. Good water, bring your own cup."
+  - id: bridge_collapsed
+    weight: 1
+    text: >-
+      A crossed-out map fragment claims a stone bridge
+      has given way. Ford the river further south.

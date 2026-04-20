@@ -1415,6 +1415,208 @@ def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# B5: wilderness signpost rumour pool
+# ---------------------------------------------------------------------------
+
+
+def _strip_settlements(game, within_of) -> None:
+    """Remove every settlement feature within radius 6 of ``within_of``
+    so the wilderness pool isn't pre-empted by a stray CITY on the
+    generated continental map."""
+    from nhc.hexcrawl.coords import distance as hex_distance
+    from nhc.hexcrawl.model import HexFeatureType
+
+    settlement_features = {
+        HexFeatureType.VILLAGE,
+        HexFeatureType.CITY,
+        HexFeatureType.COMMUNITY,
+        HexFeatureType.KEEP,
+    }
+    for coord, cell in list(game.hex_world.cells.items()):
+        if (cell.feature in settlement_features
+                and hex_distance(coord, within_of) <= 6):
+            cell.feature = HexFeatureType.NONE
+            cell.dungeon = None
+
+
+def test_wilderness_rumors_table_exists() -> None:
+    """``rumor.wilderness`` loads in each locale so the fallback
+    pool has at least one entry to draw from."""
+    from nhc.tables.registry import TableRegistry
+
+    for lang in ("en", "ca", "es"):
+        registry = TableRegistry.get_or_load(lang)
+        # _get_table raises UnknownTableError when missing.
+        registry._get_table("rumor.wilderness")
+
+
+def test_seed_wilderness_rumor_pool_appends(tmp_path) -> None:
+    """``seed_wilderness_rumor_pool`` appends 1-2 rumours to the
+    world's active pool, each with a RumorSource and no reveal."""
+    from nhc.hexcrawl.rumor_pool import seed_wilderness_rumor_pool
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    assert game.hex_world.active_rumors == []
+    seeded = seed_wilderness_rumor_pool(
+        game.hex_world, world_seed=42,
+        macro_coord=macro, lang="en", count=2,
+    )
+    assert len(seeded) == 2
+    assert len(game.hex_world.active_rumors) == 2
+    for r in seeded:
+        assert r.source is not None
+        assert r.source.table_id == "rumor.wilderness"
+        assert r.reveals is None
+
+
+def test_wilderness_pool_is_per_hex_deterministic(tmp_path) -> None:
+    """Same (world_seed, macro_coord) yields the same pool."""
+    from nhc.hexcrawl.rumor_pool import seed_wilderness_rumor_pool
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    first = [
+        (r.source.entry_id, r.text)
+        for r in seed_wilderness_rumor_pool(
+            game.hex_world, world_seed=42,
+            macro_coord=macro, lang="en", count=2,
+        )
+    ]
+    game.hex_world.active_rumors.clear()
+    second = [
+        (r.source.entry_id, r.text)
+        for r in seed_wilderness_rumor_pool(
+            game.hex_world, world_seed=42,
+            macro_coord=macro, lang="en", count=2,
+        )
+    ]
+    assert first == second
+
+    # Different macro produces a different pool (otherwise the
+    # per-hex seeding is broken).
+    other_macro = HexCoord(macro.q + 1, macro.r + 2)
+    game.hex_world.active_rumors.clear()
+    other = [
+        (r.source.entry_id, r.text)
+        for r in seed_wilderness_rumor_pool(
+            game.hex_world, world_seed=42,
+            macro_coord=other_macro, lang="en", count=2,
+        )
+    ]
+    # Stable determinism must include the macro — at least the
+    # pair of texts should diverge for some offset.
+    assert other != first or len(first) == 1
+
+
+def test_has_settlement_in_reach(tmp_path) -> None:
+    """``has_settlement_in_reach`` detects a nearby keep/town/village."""
+    from nhc.hexcrawl.model import HexFeatureType
+    from nhc.hexcrawl.rumor_pool import has_settlement_in_reach
+
+    game, macro, _ = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    _strip_settlements(game, macro)
+    assert not has_settlement_in_reach(
+        game.hex_world, macro, radius=3,
+    )
+    # Plant a village adjacent.
+    neighbor = HexCoord(macro.q + 1, macro.r)
+    if neighbor in game.hex_world.cells:
+        game.hex_world.cells[neighbor].feature = (
+            HexFeatureType.VILLAGE
+        )
+    assert has_settlement_in_reach(
+        game.hex_world, macro, radius=3,
+    )
+
+
+def test_signpost_reads_wilderness_rumor_when_isolated(tmp_path) -> None:
+    """In a macro hex with no settlement within radius 3, bumping a
+    signpost with an empty rumour pool seeds the wilderness pool and
+    dispenses one of its entries."""
+    import asyncio
+
+    from nhc.core.actions._sign import SignReadAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    _strip_settlements(game, macro)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    signs = [eid for eid, _ in game.world.query("RumorSign")]
+    action = SignReadAction(
+        actor=game.player_id, sign_id=signs[0],
+        hex_world=game.hex_world,
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert texts and texts[0], (
+        "signpost should surface a wilderness rumour"
+    )
+    # The dispensed rumour must match a wilderness-table entry.
+    from nhc.tables.registry import TableRegistry
+
+    registry = TableRegistry.get_or_load("en")
+    table = registry._get_table("rumor.wilderness")
+    # Render every entry and check the dispensed text matches one.
+    rendered = {
+        registry.render(
+            "rumor.wilderness", entry_id=e.id, context={}
+        ).text
+        for e in table.entries
+    }
+    assert texts[0] in rendered
+
+
+def test_signpost_near_settlement_does_not_seed_wilderness(
+    tmp_path,
+) -> None:
+    """With the town pool empty and a settlement within reach,
+    bumping a signpost falls back to the come-back-later beat, NOT
+    a wilderness rumour."""
+    import asyncio
+
+    from nhc.core.actions._sign import SignReadAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.model import HexFeatureType
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.i18n import t
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    _strip_settlements(game, macro)
+    # Plant a village within reach.
+    neighbor = HexCoord(macro.q + 1, macro.r)
+    assert neighbor in game.hex_world.cells
+    game.hex_world.cells[neighbor].feature = HexFeatureType.VILLAGE
+    # Simulate a town visit: last_rumor_day > 0 but the pool is
+    # empty right now (all rumours consumed earlier).
+    game.hex_world.last_rumor_day = 1
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    signs = [eid for eid, _ in game.world.query("RumorSign")]
+    action = SignReadAction(
+        actor=game.player_id, sign_id=signs[0],
+        hex_world=game.hex_world,
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    # Must match the localized no_news fallback exactly — wilderness
+    # seed is skipped so the sign surfaces the standard beat.
+    assert texts == [t("action.sign_read.no_news")]
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

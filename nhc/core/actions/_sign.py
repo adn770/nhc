@@ -55,13 +55,36 @@ class SignReadAction(Action):
         )
 
     async def execute(self, world: "World", level: "Level") -> list[Event]:
-        from nhc.hexcrawl.rumor_pool import consume_rumor
+        from nhc.hexcrawl.rumor_pool import (
+            consume_rumor,
+            has_settlement_in_reach,
+            seed_wilderness_rumor_pool,
+        )
 
         if self.hex_world is None:
             return [MessageEvent(text=t("action.sign_read.no_news"))]
         rumor = consume_rumor(self.hex_world)
         if rumor is None:
-            return [MessageEvent(text=t("action.sign_read.no_news"))]
+            # Wilderness fallback: if the surrounding macro hex has
+            # no settlement in reach to seed a proper rumour pool,
+            # seed 1-2 nature/travel flavor rumours so the signpost
+            # is never silent.
+            macro = self.hex_world.exploring_hex
+            if (macro is not None
+                    and not has_settlement_in_reach(
+                        self.hex_world, macro,
+                    )):
+                seed_wilderness_rumor_pool(
+                    self.hex_world,
+                    world_seed=self.hex_world.seed,
+                    macro_coord=macro,
+                    count=2,
+                )
+                rumor = consume_rumor(self.hex_world)
+            if rumor is None:
+                return [
+                    MessageEvent(text=t("action.sign_read.no_news")),
+                ]
         logger.info(
             "Sign shared rumor %s (truth=%s)",
             rumor.id, rumor.truth,
