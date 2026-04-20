@@ -19,6 +19,7 @@ from nhc.hexcrawl.model import (
     HexCell,
     HexFeatureType,
     HexWorld,
+    MinorFeatureType,
 )
 from nhc.hexcrawl.seed import dungeon_seed
 
@@ -369,3 +370,179 @@ def test_sub_hex_cache_load_mutations_missing_returns_empty(tmp_path) -> None:
         capacity=4, storage_dir=tmp_path, player_id="p1",
     )
     assert mgr.load_mutations(("sub", 0, 0, 0, 0, 1)) == {}
+
+
+# ---------------------------------------------------------------------------
+# M3: family-based sub-hex site generators
+# ---------------------------------------------------------------------------
+
+
+def _tier_dims(tier: str) -> tuple[int, int]:
+    from nhc.hexcrawl.sub_hex_sites import SITE_TIER_DIMS, SiteTier
+
+    return SITE_TIER_DIMS[SiteTier(tier)]
+
+
+def test_wayside_well_small_tier_has_well_feature() -> None:
+    """WELL → small wayside site with a 'well' feature tile."""
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_wayside_site,
+    )
+
+    site = generate_wayside_site(
+        feature=MinorFeatureType.WELL,
+        biome=Biome.GREENLANDS,
+        seed=1,
+        tier=SiteTier.SMALL,
+    )
+    w, h = _tier_dims("small")
+    assert site.level.width == w
+    assert site.level.height == h
+    # Entry tile must be walkable.
+    ex, ey = site.entry_tile
+    entry = site.level.tile_at(ex, ey)
+    assert entry is not None and entry.terrain is Terrain.FLOOR
+    # A tile somewhere on the map is tagged as the well.
+    flagged = [
+        (x, y)
+        for y in range(h) for x in range(w)
+        if (t := site.level.tile_at(x, y)) and t.feature == "well"
+    ]
+    assert len(flagged) == 1
+
+
+def test_wayside_signpost_has_signpost_feature() -> None:
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_wayside_site,
+    )
+
+    site = generate_wayside_site(
+        feature=MinorFeatureType.SIGNPOST,
+        biome=Biome.GREENLANDS,
+        seed=7,
+        tier=SiteTier.SMALL,
+    )
+    flagged = [
+        (x, y)
+        for y in range(site.level.height)
+        for x in range(site.level.width)
+        if (t := site.level.tile_at(x, y)) and t.feature == "signpost"
+    ]
+    assert len(flagged) == 1
+    assert site.feature_tile == flagged[0]
+
+
+def test_sacred_site_medium_tier() -> None:
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_sacred_site,
+    )
+
+    site = generate_sacred_site(
+        feature=MinorFeatureType.SHRINE,
+        biome=Biome.GREENLANDS,
+        seed=42,
+        tier=SiteTier.MEDIUM,
+    )
+    w, h = _tier_dims("medium")
+    assert (site.level.width, site.level.height) == (w, h)
+    # Entry tile walkable.
+    ex, ey = site.entry_tile
+    entry = site.level.tile_at(ex, ey)
+    assert entry is not None and entry.terrain is Terrain.FLOOR
+
+
+def test_inhabited_settlement_farm_medium_tier() -> None:
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_inhabited_settlement_site,
+    )
+
+    site = generate_inhabited_settlement_site(
+        feature=MinorFeatureType.FARM,
+        biome=Biome.GREENLANDS,
+        seed=1,
+        tier=SiteTier.MEDIUM,
+    )
+    w, h = _tier_dims("medium")
+    assert (site.level.width, site.level.height) == (w, h)
+    assert site.entry_tile is not None
+
+
+def test_animal_den_medium_tier() -> None:
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_animal_den_site,
+    )
+
+    site = generate_animal_den_site(
+        feature=MinorFeatureType.LAIR,
+        biome=Biome.FOREST,
+        seed=1,
+        tier=SiteTier.MEDIUM,
+    )
+    w, h = _tier_dims("medium")
+    assert (site.level.width, site.level.height) == (w, h)
+
+
+def test_natural_curiosity_small_tier() -> None:
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_natural_curiosity_site,
+    )
+
+    site = generate_natural_curiosity_site(
+        feature=MinorFeatureType.HERB_PATCH,
+        biome=Biome.FOREST,
+        seed=1,
+        tier=SiteTier.SMALL,
+    )
+    w, h = _tier_dims("small")
+    assert (site.level.width, site.level.height) == (w, h)
+
+
+def test_undead_site_medium_tier() -> None:
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_undead_site,
+    )
+
+    site = generate_undead_site(
+        feature=HexFeatureType.GRAVEYARD,
+        biome=Biome.DEADLANDS,
+        seed=1,
+        tier=SiteTier.MEDIUM,
+    )
+    w, h = _tier_dims("medium")
+    assert (site.level.width, site.level.height) == (w, h)
+
+
+def test_family_generators_are_deterministic() -> None:
+    """Same seed → identical level tile grid."""
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier,
+        generate_wayside_site,
+    )
+
+    s1 = generate_wayside_site(
+        feature=MinorFeatureType.WELL, biome=Biome.GREENLANDS,
+        seed=1234, tier=SiteTier.SMALL,
+    )
+    s2 = generate_wayside_site(
+        feature=MinorFeatureType.WELL, biome=Biome.GREENLANDS,
+        seed=1234, tier=SiteTier.SMALL,
+    )
+    # Compare the full tile grid (terrain + feature).
+    for y in range(s1.level.height):
+        for x in range(s1.level.width):
+            t1 = s1.level.tile_at(x, y)
+            t2 = s2.level.tile_at(x, y)
+            assert t1.terrain == t2.terrain
+            assert t1.feature == t2.feature
+    assert s1.entry_tile == s2.entry_tile
+    assert s1.feature_tile == s2.feature_tile
