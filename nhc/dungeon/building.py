@@ -53,6 +53,9 @@ class Building:
     descent: DungeonRef | None = None
     wall_material: str = "brick"     # brick | stone | dungeon | adobe | wood
     interior_floor: str = "stone"    # stone | wood | earth
+    # Interior-wall material — picks the line color for the SVG
+    # interior-wall overlay. See design/building_interiors.md.
+    interior_wall_material: str = "stone"   # wood | stone | brick
     # Optional roof-material marker used by rendering for flavour
     # variants (e.g. forest watchtower wood cap) -- None means "no
     # explicit roof style requested; renderer picks the default".

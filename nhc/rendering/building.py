@@ -14,7 +14,8 @@ import math
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import (
-    CircleShape, LShape, OctagonShape, Rect, RectShape,
+    CircleShape, Level, LShape, OctagonShape, Rect, RectShape,
+    Terrain,
 )
 from nhc.rendering._building_walls import (
     MASONRY_WALL_THICKNESS,
@@ -23,6 +24,17 @@ from nhc.rendering._building_walls import (
 )
 from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.svg import render_floor_svg
+
+
+# Interior wall stroke colors, keyed by Building.interior_wall_material.
+# See design/building_interiors.md — interior walls read as simple
+# wood/stone/brick lines, distinct from the stylized perimeter pass.
+INTERIOR_WALL_COLORS: dict[str, str] = {
+    "wood":  "#7a4e2c",
+    "stone": "#707070",
+    "brick": "#c4651d",
+}
+_INTERIOR_WALL_STROKE = CELL * 0.25
 
 # Circle perimeter is approximated as an N-sided polygon. The
 # segment count scales with circumference so each edge stays
@@ -87,10 +99,98 @@ def render_building_floor_svg(
         fragments.extend(run_renderer(
             ax_ext, ay_ext, bx_ext, by_ext, seed=seed + i,
         ))
+    interior_frags = _render_interior_walls(level, building)
+    if interior_frags:
+        fragments.extend(interior_frags)
     if not fragments:
         return base
     inject = "".join(fragments)
     return base.replace("</svg>", f"{inject}</svg>")
+
+
+def _render_interior_walls(
+    level: Level, building: Building,
+) -> list[str]:
+    """Emit one ``<line>`` per straight run of interior walls.
+
+    Interior walls are WALL tiles that sit INSIDE the building
+    footprint — the shell composer stamps walls OUTSIDE the
+    footprint so the distinction is purely positional.
+    """
+    footprint = building.base_shape.floor_tiles(building.base_rect)
+    walls: set[tuple[int, int]] = set()
+    for (x, y) in footprint:
+        if level.tiles[y][x].terrain is Terrain.WALL:
+            walls.add((x, y))
+    if not walls:
+        return []
+
+    color = INTERIOR_WALL_COLORS.get(
+        building.interior_wall_material,
+        INTERIOR_WALL_COLORS["stone"],
+    )
+    runs = _split_into_straight_runs(walls)
+    fragments: list[str] = []
+    for (ax, ay), (bx, by) in runs:
+        px0 = PADDING + (ax + 0.5) * CELL
+        py0 = PADDING + (ay + 0.5) * CELL
+        px1 = PADDING + (bx + 0.5) * CELL
+        py1 = PADDING + (by + 0.5) * CELL
+        fragments.append(
+            f'<line x1="{px0}" y1="{py0}" x2="{px1}" y2="{py1}" '
+            f'stroke="{color}" stroke-width="{_INTERIOR_WALL_STROKE}" '
+            f'stroke-linecap="round"/>'
+        )
+    return fragments
+
+
+def _split_into_straight_runs(
+    walls: set[tuple[int, int]],
+) -> list[tuple[tuple[int, int], tuple[int, int]]]:
+    """Greedy split a set of WALL coords into maximal horizontal or
+    vertical runs. Isolated tiles become zero-length runs (point
+    lines)."""
+    seen: set[tuple[int, int]] = set()
+    runs: list[tuple[tuple[int, int], tuple[int, int]]] = []
+
+    # Horizontal runs: start at a tile whose left neighbour isn't
+    # a wall AND whose right neighbour is.
+    for (x, y) in sorted(walls):
+        if (x, y) in seen:
+            continue
+        if (x - 1, y) in walls:
+            continue
+        if (x + 1, y) not in walls:
+            continue
+        end = x
+        while (end + 1, y) in walls:
+            end += 1
+        for ix in range(x, end + 1):
+            seen.add((ix, y))
+        runs.append(((x, y), (end, y)))
+
+    # Vertical runs on remaining tiles.
+    for (x, y) in sorted(walls):
+        if (x, y) in seen:
+            continue
+        if (x, y - 1) in walls:
+            continue
+        if (x, y + 1) not in walls:
+            continue
+        end = y
+        while (x, end + 1) in walls:
+            end += 1
+        for iy in range(y, end + 1):
+            seen.add((x, iy))
+        runs.append(((x, y), (x, end)))
+
+    # Isolated singletons.
+    for (x, y) in sorted(walls):
+        if (x, y) in seen:
+            continue
+        seen.add((x, y))
+        runs.append(((x, y), (x, y)))
+    return runs
 
 
 def _perimeter_polygon(
