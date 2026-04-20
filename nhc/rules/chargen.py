@@ -10,6 +10,7 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
+from nhc.i18n import current_lang
 from nhc.tables.registry import TableRegistry
 from nhc.utils.rng import get_rng, roll_dice
 
@@ -41,83 +42,16 @@ def _roll_trait(axis: str, rng: random.Random) -> str:
     return registry.roll(table_id, rng=rng, context={}).entry_id
 
 
-# ── Trait tables (from BEB / Knave) ─────────────────────────────────
-# Each table has 20 entries, rolled with 1d20.
+def trait_text(axis: str, entry_id: str, lang: str | None = None) -> str:
+    """Localized text for a trait entry_id.
 
-PHYSIQUE = [
-    "athletic", "brawny", "corpulent", "delicate", "gaunt",
-    "giant", "lanky", "muscular", "robust", "scrawny",
-    "short", "stout", "slim", "plump", "sculpted",
-    "fat", "petite", "tall", "slender", "wiry",
-]
+    Defaults to the current i18n language. Raises KeyError for
+    unknown axes or unknown entry ids.
+    """
+    table_id = _TRAIT_TABLE_BY_AXIS[axis]
+    registry = TableRegistry.get_or_load(lang or current_lang())
+    return registry.render(table_id, entry_id=entry_id, context={}).text
 
-FACE = [
-    "bloated", "thin", "cadaverous", "chiseled", "delicate",
-    "elongated", "stern", "gaunt", "fierce", "broken",
-    "wicked", "narrow", "cunning", "round", "sunken",
-    "sharp", "soft", "square", "wide", "wild",
-]
-
-SKIN = [
-    "battle_scar", "birthmark", "burned", "dark", "painted",
-    "greasy", "sallow", "flawless", "pierced", "pockmarked",
-    "sweaty", "tattooed", "radiant", "rough", "pale",
-    "sunburned", "tanned", "war_paint", "wrinkled", "whipped",
-]
-
-HAIR = [
-    "bald", "braided", "bristly", "half_shaved", "curly",
-    "disheveled", "dreadlocks", "filthy", "frizzy", "greasy",
-    "limp", "long", "luxurious", "mohawk", "oily",
-    "ponytail", "silky", "topknot", "wavy", "feathery",
-]
-
-CLOTHING = [
-    "antique", "bloody", "ceremonial", "decorated", "eccentric",
-    "elegant", "distinguished", "provocative", "flashy", "stained",
-    "foreign", "worn", "oversized", "uniform", "large",
-    "patched", "perfumed", "rancid", "tattered", "small",
-]
-
-VIRTUE = [
-    "ambitious", "cautious", "brave", "courteous", "curious",
-    "disciplined", "focused", "generous", "gregarious", "honest",
-    "honorable", "humble", "idealistic", "just", "loyal",
-    "compassionate", "proper", "serene", "stoic", "tolerant",
-]
-
-VICE = [
-    "aggressive", "arrogant", "bitter", "cowardly", "cruel",
-    "deceitful", "frivolous", "gluttonous", "greedy", "irascible",
-    "lazy", "nervous", "prejudiced", "reckless", "rude",
-    "suspicious", "vain", "vengeful", "wasteful", "whiny",
-]
-
-SPEECH = [
-    "gruff", "deep", "halting", "cryptic", "drawling",
-    "singsong", "flowery", "formal", "grave", "hoarse",
-    "mumbling", "precise", "quaint", "incoherent", "rapid",
-    "dialectal", "calm", "booming", "stuttering", "whispering",
-]
-
-BACKGROUND = [
-    "alchemist", "beggar", "butcher", "burglar", "charlatan",
-    "cleric", "cook", "cultist", "gambler", "herbalist",
-    "wizard", "sailor", "mercenary", "merchant", "outlaw",
-    "performer", "pickpocket", "smuggler", "student", "tracker",
-]
-
-MISFORTUNE = [
-    "abandoned", "addicted", "blackmailed", "condemned", "cursed",
-    "swindled", "demoted", "discredited", "dispossessed", "exiled",
-    "sentenced", "obsessed", "kidnapped", "mutilated", "destitute",
-    "hunted", "expelled", "replaced", "robbed", "suspected",
-]
-
-ALIGNMENT = ["lawful", "neutral", "chaotic"]
-
-# Weighted alignment roll: 1-5 lawful, 6-15 neutral, 16-20 chaotic
-_ALIGNMENT_THRESHOLDS = [(5, "lawful"), (15, "neutral"), (20, "chaotic")]
 
 # ── Name tables ─────────────────────────────────────────────────────
 # Mix of medieval/fantasy names suitable for a Catalan-flavored setting.
@@ -178,20 +112,6 @@ def _roll_ability(rng) -> int:
     """Roll 3d6, take the lowest die as the ability bonus."""
     dice = [rng.randint(1, 6) for _ in range(3)]
     return min(dice)
-
-
-def _pick(table: list[str], rng) -> str:
-    """Pick a random entry from a 20-item trait table."""
-    return table[rng.randint(0, len(table) - 1)]
-
-
-def _roll_alignment(rng) -> str:
-    """Roll 1d20 for alignment: 1-5 lawful, 6-15 neutral, 16-20 chaotic."""
-    roll = rng.randint(1, 20)
-    for threshold, align in _ALIGNMENT_THRESHOLDS:
-        if roll <= threshold:
-            return align
-    return "neutral"
 
 
 # ── Starting equipment tables (Knave rules) ─────────────────────────
@@ -339,10 +259,10 @@ def generate_character(
 
     # Random name
     if rng.random() < 0.5:
-        first = _pick(NAMES_MALE, rng)
+        first = rng.choice(NAMES_MALE)
     else:
-        first = _pick(NAMES_FEMALE, rng)
-    surname = _pick(SURNAMES, rng)
+        first = rng.choice(NAMES_FEMALE)
+    surname = rng.choice(SURNAMES)
     name = f"{first} {surname}"
 
     # Starting equipment

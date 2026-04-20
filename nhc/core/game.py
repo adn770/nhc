@@ -93,7 +93,7 @@ from nhc.narrative.parser import action_plan_to_actions
 from nhc.rendering.client import GameClient
 from nhc.rendering.terminal.input import map_key_to_intent
 from nhc.rules.advancement import award_xp_direct, check_level_up
-from nhc.rules.chargen import generate_character
+from nhc.rules.chargen import generate_character, trait_text
 from nhc.rules.identification import ALL_IDS, ItemKnowledge
 from nhc.utils.fov import compute_fov
 from nhc.utils.rng import get_rng, get_seed, set_seed
@@ -2442,7 +2442,7 @@ class Game:
             "Player": Player(gold=char.gold),
             "Description": Description(
                 name=char.name,
-                short=t(f"traits.{char.background}"),
+                short=trait_text("background", char.background),
             ),
             "Equipment": Equipment(),
             "Hunger": Hunger(),
@@ -2474,10 +2474,10 @@ class Game:
         self.renderer.add_message(t(
             "game.char_intro",
             name=char.name,
-            background=t(f"traits.{char.background}"),
-            virtue=t(f"traits.{char.virtue}"),
-            vice=t(f"traits.{char.vice}"),
-            alignment=t(f"traits.{char.alignment}"),
+            background=trait_text("background", char.background),
+            virtue=trait_text("virtue", char.virtue),
+            vice=trait_text("vice", char.vice),
+            alignment=trait_text("alignment", char.alignment),
         ))
         if self.level.metadata.ambient:
             self.renderer.add_message(self.level.metadata.ambient)
@@ -2495,10 +2495,10 @@ class Game:
         char = self._character
         intro = await self._gm.intro(
             char_name=char.name,
-            char_background=t(f"traits.{char.background}"),
-            char_virtue=t(f"traits.{char.virtue}"),
-            char_vice=t(f"traits.{char.vice}"),
-            char_alignment=t(f"traits.{char.alignment}"),
+            char_background=trait_text("background", char.background),
+            char_virtue=trait_text("virtue", char.virtue),
+            char_vice=trait_text("vice", char.vice),
+            char_alignment=trait_text("alignment", char.alignment),
             level_name=self.level.name,
             ambient=self.level.metadata.ambient,
             hooks=", ".join(self.level.metadata.narrative_hooks),
@@ -3166,9 +3166,9 @@ class Game:
                 intent=typed_text,
                 outcomes=outcomes,
                 char_name=char.name,
-                char_background=t(f"traits.{char.background}"),
-                char_virtue=t(f"traits.{char.virtue}"),
-                char_vice=t(f"traits.{char.vice}"),
+                char_background=trait_text("background", char.background),
+                char_virtue=trait_text("virtue", char.virtue),
+                char_vice=trait_text("vice", char.vice),
                 ambient=self.level.metadata.ambient,
             )
             self.renderer.add_message(narrative)

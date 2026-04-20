@@ -31,7 +31,7 @@ from nhc.hexcrawl.generator import generate_continental_world
 from nhc.hexcrawl.mode import Difficulty, WorldType
 from nhc.hexcrawl.pack import load_pack
 from nhc.i18n import t
-from nhc.rules.chargen import generate_character
+from nhc.rules.chargen import generate_character, trait_text
 
 if TYPE_CHECKING:
     from nhc.core.game import Game
@@ -196,7 +196,7 @@ class HexSession:
             "Player": Player(gold=gold),
             "Description": Description(
                 name=char.name,
-                short=t(f"traits.{char.background}"),
+                short=trait_text("background", char.background),
             ),
             "Equipment": Equipment(),
             "Hunger": Hunger(),
