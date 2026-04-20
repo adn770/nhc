@@ -327,6 +327,9 @@ feature:
   rumor_sign:
     name: "pal indicador"
     short: "un indicador rovellat"
+  well:
+    name: "pou"
+    short: "un pou de pedra"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
@@ -1568,6 +1571,9 @@ leave_site:
 action:
   sign_read:
     no_news: "El pal no duu cap avís nou."
+  well_drink:
+    healed: "Beus aigua fresca. (+1 PV)"
+    rumour: "Fas un glop. L'aigua fa gust antic."
 
 
 # ── Rumor UI strings ───────────────────────────────────────────────────

@@ -311,6 +311,9 @@ feature:
   rumor_sign:
     name: "rumor sign"
     short: "a weathered signpost"
+  well:
+    name: "well"
+    short: "a stone-ringed well"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
@@ -1447,6 +1450,9 @@ leave_site:
 action:
   sign_read:
     no_news: "The signpost is bare — no new notices."
+  well_drink:
+    healed: "You drink the cool water. (+1 HP)"
+    rumour: "You take a drink. The water tastes old."
 
 
 rumor:

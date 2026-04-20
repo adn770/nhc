@@ -1111,6 +1111,207 @@ def test_sign_read_locale_keys_present() -> None:
 
 
 # ---------------------------------------------------------------------------
+# B3: WellDrink entity + WellInteractAction
+# ---------------------------------------------------------------------------
+
+
+def test_well_drink_feature_registered() -> None:
+    """``well_drink`` is registered as a feature entity with a
+    WellDrink marker component the BumpAction router can key off."""
+    from nhc.entities.registry import EntityRegistry
+
+    EntityRegistry.discover_all()
+    comps = EntityRegistry.get_feature("well_drink")
+    assert "WellDrink" in comps
+    assert "Renderable" in comps
+    assert "BlocksMovement" in comps
+
+
+def test_well_wayside_populates_well_drink(tmp_path) -> None:
+    """Generating a wayside site for ``WELL`` lands a well_drink
+    feature entity at ``feature_tile`` in the population."""
+    from nhc.hexcrawl.model import Biome
+    from nhc.hexcrawl.sub_hex_sites import (
+        SiteTier, generate_wayside_site,
+    )
+
+    site = generate_wayside_site(
+        feature=MinorFeatureType.WELL,
+        biome=Biome.GREENLANDS,
+        seed=42,
+        tier=SiteTier.SMALL,
+    )
+    wells = [
+        (eid, xy) for eid, xy in site.population.features
+        if eid == "well_drink"
+    ]
+    assert wells, "expected a well_drink in the population"
+    _, xy = wells[0]
+    assert xy == site.feature_tile
+
+
+def test_well_interact_heals_one_hp(tmp_path) -> None:
+    """Drinking from the well heals exactly +1 HP when below max."""
+    import asyncio
+    import random
+
+    from nhc.core.actions._well import WellInteractAction
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    wells = [eid for eid, _ in game.world.query("WellDrink")]
+    assert len(wells) == 1
+    hp = game.world.get_component(game.player_id, "Health")
+    hp.maximum = 10
+    hp.current = 5
+    # Force no rumour roll by seeding the RNG past 0.3.
+    rng = random.Random()
+    rng.seed(0xFACE)  # arbitrary; we also force random() below
+    action = WellInteractAction(
+        actor=game.player_id, well_id=wells[0],
+        hex_world=game.hex_world,
+        rng=random.Random(0),  # deterministic; triggers consistent roll
+    )
+    asyncio.run(action.execute(game.world, game.level))
+    assert hp.current == 6
+
+
+def test_well_interact_no_heal_at_full_hp(tmp_path) -> None:
+    """Drinking at full HP does not overflow the health bar but the
+    rumour roll still fires."""
+    import asyncio
+    import random
+
+    from nhc.core.actions._well import WellInteractAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    wells = [eid for eid, _ in game.world.query("WellDrink")]
+    hp = game.world.get_component(game.player_id, "Health")
+    hp.maximum = 10
+    hp.current = 10
+    # Stack a rumour so a passing roll surfaces something.
+    _make_rumor(game.hex_world, text="A bridge fell last season.")
+
+    class _FixedRNG:
+        """Roll <0.3 so the well surfaces a rumour."""
+
+        def random(self):
+            return 0.1
+
+    action = WellInteractAction(
+        actor=game.player_id, well_id=wells[0],
+        hex_world=game.hex_world, rng=_FixedRNG(),
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    assert hp.current == 10
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert any("bridge" in t for t in texts)
+
+
+def test_well_interact_surfaces_rumor_on_low_roll(tmp_path) -> None:
+    """A roll below 0.3 consumes a rumour and surfaces its text."""
+    import asyncio
+
+    from nhc.core.actions._well import WellInteractAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    wells = [eid for eid, _ in game.world.query("WellDrink")]
+    _make_rumor(game.hex_world, text="Thieves lurk on the west road.")
+
+    class _LowRoll:
+        def random(self):
+            return 0.1
+
+    action = WellInteractAction(
+        actor=game.player_id, well_id=wells[0],
+        hex_world=game.hex_world, rng=_LowRoll(),
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert any("Thieves" in t for t in texts)
+    assert game.hex_world.active_rumors == [], (
+        "low-roll should consume the active rumour"
+    )
+
+
+def test_well_interact_silent_on_high_roll(tmp_path) -> None:
+    """A roll >= 0.3 does not consume a rumour or emit one."""
+    import asyncio
+
+    from nhc.core.actions._well import WellInteractAction
+    from nhc.core.events import MessageEvent
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    wells = [eid for eid, _ in game.world.query("WellDrink")]
+    _make_rumor(game.hex_world, text="Thieves lurk on the west road.")
+
+    class _HighRoll:
+        def random(self):
+            return 0.9
+
+    action = WellInteractAction(
+        actor=game.player_id, well_id=wells[0],
+        hex_world=game.hex_world, rng=_HighRoll(),
+    )
+    events = asyncio.run(action.execute(game.world, game.level))
+    texts = [
+        ev.text for ev in events if isinstance(ev, MessageEvent)
+    ]
+    assert not any("Thieves" in t for t in texts)
+    assert len(game.hex_world.active_rumors) == 1
+
+
+def test_well_drink_locale_keys_present() -> None:
+    """Well i18n entries exist in all three locales."""
+    import yaml
+    from pathlib import Path
+
+    root = Path("nhc/i18n/locales")
+    for lang in ("en", "ca", "es"):
+        data = yaml.safe_load((root / f"{lang}.yaml").read_text())
+        well = data.get("feature", {}).get("well")
+        assert well and (
+            (isinstance(well, dict) and well.get("name")) or well
+        ), f"missing feature.well in {lang}"
+        wd = data.get("action", {}).get("well_drink", {})
+        assert wd.get("healed"), f"missing action.well_drink.healed in {lang}"
+        assert wd.get("rumour"), f"missing action.well_drink.rumour in {lang}"
+
+
+# ---------------------------------------------------------------------------
 # A3: day clock freezes for the duration of a sub-hex family visit
 # ---------------------------------------------------------------------------
 

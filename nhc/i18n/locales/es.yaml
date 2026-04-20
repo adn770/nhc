@@ -309,6 +309,9 @@ feature:
   rumor_sign:
     name: "poste indicador"
     short: "un indicador desgastado"
+  well:
+    name: "pozo"
+    short: "un pozo de piedra"
 
 # ── Shop ─────────────────────────────────────────────────────────────
 shop:
@@ -1497,6 +1500,9 @@ leave_site:
 action:
   sign_read:
     no_news: "El poste está limpio — sin avisos nuevos."
+  well_drink:
+    healed: "Bebes agua fresca. (+1 PV)"
+    rumour: "Das un trago. El agua sabe a añejo."
 
 
 # ── Rumor UI strings ───────────────────────────────────────────────────

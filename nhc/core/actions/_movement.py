@@ -486,6 +486,15 @@ class BumpAction(Action):
                             actor=self.actor, sign_id=eid,
                             hex_world=self.hex_world,
                         )
+                    # Wayside wells: drink + rumour roll.
+                    if world.has_component(eid, "WellDrink"):
+                        from nhc.core.actions._well import (
+                            WellInteractAction,
+                        )
+                        return WellInteractAction(
+                            actor=self.actor, well_id=eid,
+                            hex_world=self.hex_world,
+                        )
                     # Creatures: attack
                     return MeleeAttackAction(
                         actor=self.actor, target=eid)

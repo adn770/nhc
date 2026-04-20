@@ -205,6 +205,7 @@ def generate_wayside_site(
     population = SubHexPopulation()
     if isinstance(feature, MinorFeatureType) and feature is MinorFeatureType.WELL:
         tag = "well"
+        population.features.append(("well_drink", center))
     elif isinstance(feature, MinorFeatureType) and feature is MinorFeatureType.SIGNPOST:
         tag = "signpost"
         population.features.append(("rumor_sign", center))
