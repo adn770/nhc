@@ -333,6 +333,16 @@ def place_dungeons(
         )),
         (HexFeatureType.HOLE, FEATURE_BIOMES[HexFeatureType.HOLE]),
     ]
+    def _stamp(feature: HexFeatureType, coord: HexCoord) -> None:
+        mage = _roll_mage_variant(feature, rng)
+        cells[coord].feature = feature
+        cells[coord].dungeon = DungeonRef(
+            template=_template_for(feature),
+            site_kind=_site_kind_for(feature),
+            mage_variant=mage,
+        )
+        taken.add(coord)
+
     # First: one of each type if possible.
     for feature, biomes in recipes:
         if placed >= n:
@@ -341,12 +351,7 @@ def place_dungeons(
         if not pool:
             continue
         c = rng.choice(pool)
-        cells[c].feature = feature
-        cells[c].dungeon = DungeonRef(
-            template=_template_for(feature),
-            site_kind=_site_kind_for(feature),
-        )
-        taken.add(c)
+        _stamp(feature, c)
         placed += 1
 
     # Remaining: round-robin over recipes until filled or exhausted.
@@ -359,12 +364,7 @@ def place_dungeons(
             if not pool:
                 continue
             c = rng.choice(pool)
-            cells[c].feature = feature
-            cells[c].dungeon = DungeonRef(
-            template=_template_for(feature),
-            site_kind=_site_kind_for(feature),
-        )
-            taken.add(c)
+            _stamp(feature, c)
             placed += 1
             made_progress = True
         if not made_progress:
@@ -372,6 +372,22 @@ def place_dungeons(
                 f"could not place {n} dungeons "
                 f"(placed {placed} before exhausting biome pools)"
             )
+
+
+# Share of TOWER / MANSION hexes that roll as mage residences.
+_MAGE_VARIANT_CHANCE: dict[HexFeatureType, float] = {
+    HexFeatureType.TOWER: 0.25,
+    HexFeatureType.MANSION: 0.15,
+}
+
+
+def _roll_mage_variant(
+    feature: HexFeatureType, rng: random.Random,
+) -> bool:
+    prob = _MAGE_VARIANT_CHANCE.get(feature, 0.0)
+    if prob <= 0.0:
+        return False
+    return rng.random() < prob
 
 
 # ---------------------------------------------------------------------------

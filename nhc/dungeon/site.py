@@ -279,6 +279,7 @@ def assemble_site(
     kind: str, site_id: str, rng: random.Random,
     size_class: str | None = None,
     biome: "Biome | None" = None,  # noqa: UP037
+    mage_variant: bool = False,
 ) -> Site:
     """Dispatch ``kind`` to the matching site assembler.
 
@@ -287,13 +288,16 @@ def assemble_site(
     ``town`` assembler (hamlet / village / town / city); it is
     ignored for every other kind. ``biome`` lets the town
     assembler apply per-biome overrides (see ``assemble_town``);
-    other kinds ignore it for now.
+    other kinds ignore it for now. ``mage_variant`` toggles the
+    mage-residence flavour on tower and mansion kinds.
     """
     # Deferred imports keep this module cheap to import and avoid
     # circular references back to Building / Level helpers.
     if kind == "tower":
         from nhc.dungeon.sites.tower import assemble_tower
-        site = assemble_tower(site_id, rng, biome=biome)
+        site = assemble_tower(
+            site_id, rng, biome=biome, mage_variant=mage_variant,
+        )
     elif kind == "farm":
         from nhc.dungeon.sites.farm import assemble_farm
         site = assemble_farm(site_id, rng)

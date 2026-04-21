@@ -38,6 +38,7 @@ TOWER_SHAPE_POOL = ("circle", "octagon", "square")
 def assemble_tower(
     site_id: str, rng: random.Random,
     biome: Biome | None = None,
+    mage_variant: bool = False,
 ) -> Site:
     """Assemble a tower site from ``rng``.
 
@@ -54,8 +55,16 @@ def assemble_tower(
     Building; mountain towers force every floor's wall + interior
     to stone. All other biomes fall through to the unmodified
     defaults.
+
+    When ``mage_variant`` is True the tower is always octagonal
+    and every interior floor receives one teleporter pair — the
+    mage's wayfinding trick. Mage towers keep biome-driven
+    material overrides so a mountain mage tower stays stone.
     """
-    shape_key = rng.choice(TOWER_SHAPE_POOL)
+    if mage_variant:
+        shape_key = "octagon"
+    else:
+        shape_key = rng.choice(TOWER_SHAPE_POOL)
     size = rng.randint(*TOWER_SIZE_RANGE)
     base_rect = Rect(1, 1, size, size)
 
@@ -148,7 +157,51 @@ def assemble_tower(
             site.building_doors[neighbour] = (
                 building.id, door_xy[0], door_xy[1],
             )
+    if mage_variant:
+        _stamp_mage_teleporters(building, rng)
     return site
+
+
+def _stamp_mage_teleporters(
+    building: Building, rng: random.Random,
+) -> None:
+    """Stamp one teleporter pair on each floor of a mage tower.
+
+    Picks two floor tiles on the floor that are as far apart as
+    possible (by chebyshev distance) and marks them with feature
+    ``teleporter_pad``, registering the pair in the floor's
+    ``teleporter_pairs`` map so the post-move hook can transit
+    the player between them.
+    """
+    for floor in building.floors:
+        candidates: list[tuple[int, int]] = []
+        for y in range(floor.height):
+            for x in range(floor.width):
+                tile = floor.tiles[y][x]
+                if tile.terrain is not Terrain.FLOOR:
+                    continue
+                if tile.feature is not None:
+                    continue
+                candidates.append((x, y))
+        if len(candidates) < 2:
+            continue
+        # Pick the most-separated pair so the teleport is visibly
+        # useful (walking to the sibling would take several turns).
+        best: tuple[int, int, int, int] | None = None
+        best_d = -1
+        for i, a in enumerate(candidates):
+            for b in candidates[i + 1:]:
+                d = max(abs(a[0] - b[0]), abs(a[1] - b[1]))
+                if d > best_d:
+                    best_d = d
+                    best = (a[0], a[1], b[0], b[1])
+        if best is None:
+            continue
+        ax, ay, bx, by = best
+        floor.tiles[ay][ax].feature = "teleporter_pad"
+        floor.tiles[by][bx].feature = "teleporter_pad"
+        floor.teleporter_pairs[(ax, ay)] = (bx, by)
+        floor.teleporter_pairs[(bx, by)] = (ax, ay)
 
 
 def _build_tower_floor(

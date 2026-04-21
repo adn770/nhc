@@ -130,6 +130,11 @@ class DungeonRef:
     size_class: str | None = None  # hamlet, village, town, city
     faction: str | None = None     # e.g. "goblin", "orc"
     site_kind: str | None = None   # tower|farm|mansion|keep|town
+    # Mage residence flavour: TOWER -> octagonal tower with
+    # teleporter pads; MANSION -> adds an attached octagonal tower
+    # building with pads. Rolled at placement time; default False
+    # keeps behaviour unchanged for every other feature.
+    mage_variant: bool = False
 
 
 @dataclass

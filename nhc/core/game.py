@@ -1016,6 +1016,7 @@ class Game:
             "tower",
             f"site_{coord.q}_{coord.r}",
             random.Random(seed),
+            mage_variant=cell.dungeon.mage_variant,
         )
         building = site.buildings[0]
         self.level = building.ground
