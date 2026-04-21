@@ -61,7 +61,14 @@ from nhc.hexcrawl.model import Biome, DungeonRef
 # ── Town tunable constants ───────────────────────────────────
 
 TOWN_ROW_X_START = 6
-TOWN_BUILDING_SPACING = 3                 # tile gap between buildings
+TOWN_BUILDING_SPACING = 3                 # row-to-row y-gap (street)
+# Per-pair x-spacing within a row: 0 = touching (paired houses),
+# 1 = narrow passage, 3 = proper street. Weights are street-biased
+# so most adjacent pairs still read as "town with streets", while
+# the occasional touching or alley pair adds variety. Cross-
+# building interior doors fire only for the touching pairs.
+TOWN_BUILDING_SPACING_CHOICES: tuple[int, ...] = (0, 1, 3)
+TOWN_BUILDING_SPACING_WEIGHTS: tuple[float, ...] = (0.2, 0.2, 0.6)
 TOWN_FLOOR_COUNT_RANGE = (1, 2)
 
 TOWN_WOOD_BUILDING_PROBABILITY = 0.65    # rest are stone
@@ -314,7 +321,7 @@ def _place_buildings(
     with its role wired through as the archetype.
     """
     overrides = overrides or _BiomeOverrides()
-    placements = _greedy_pack(sizes, config)
+    placements = _greedy_pack(sizes, config, rng)
     buildings: list[Building] = []
     for i, ((x, y, w, h), role) in enumerate(
         zip(placements, roles),
@@ -342,12 +349,17 @@ def _place_buildings(
 
 def _greedy_pack(
     sizes: list[tuple[int, int]], config: _TownSizeConfig,
+    rng: random.Random,
 ) -> list[tuple[int, int, int, int]]:
     """Return ``[(x, y, w, h)]`` placements for the given sizes.
 
+    Each adjacent pair within a row draws its x-gap from
+    :data:`TOWN_BUILDING_SPACING_CHOICES`. The first building in a
+    row always starts at ``TOWN_ROW_X_START`` (no leading gap).
     Wraps to a new row when the cursor would push past
     ``surface_width - TOWN_ROW_X_START``. Row heights grow from the
-    tallest building placed so far in that row.
+    tallest building placed so far in that row; row-to-row y-gap
+    stays at ``TOWN_BUILDING_SPACING`` (street between rows).
     """
     row_x_limit = config.surface_width - TOWN_ROW_X_START
     placements: list[tuple[int, int, int, int]] = []
@@ -355,15 +367,25 @@ def _greedy_pack(
     x_cursor = TOWN_ROW_X_START
     row_height = 0
     for w, h in sizes:
+        at_row_start = x_cursor == TOWN_ROW_X_START
+        if at_row_start:
+            spacing = 0
+        else:
+            spacing = rng.choices(
+                TOWN_BUILDING_SPACING_CHOICES,
+                weights=TOWN_BUILDING_SPACING_WEIGHTS,
+            )[0]
+        x_candidate = x_cursor + spacing
         # Wrap to the next row only when there is already something
         # on this row — a single oversized building may exceed the
         # row limit but still has to go somewhere.
-        if x_cursor > TOWN_ROW_X_START and x_cursor + w > row_x_limit:
+        if not at_row_start and x_candidate + w > row_x_limit:
             row_top += row_height + TOWN_BUILDING_SPACING
             x_cursor = TOWN_ROW_X_START
             row_height = 0
-        placements.append((x_cursor, row_top, w, h))
-        x_cursor += w + TOWN_BUILDING_SPACING
+            x_candidate = x_cursor
+        placements.append((x_candidate, row_top, w, h))
+        x_cursor = x_candidate + w
         row_height = max(row_height, h)
     return placements
 
@@ -764,6 +786,11 @@ def _connect_cross_building_doors(
             rl = role_of[left.id]
             rr = role_of[right.id]
             if (rl, rr) not in pair_set:
+                continue
+            # Only link buildings whose base rects touch — pairs
+            # with a narrow passage or a full street between them
+            # don't get an interior door.
+            if left.base_rect.x2 != right.base_rect.x:
                 continue
             _link_pair_per_floor(site, left, right, by_id)
 
