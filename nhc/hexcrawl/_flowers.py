@@ -860,7 +860,20 @@ def generate_flower(
         ))
         claimed.update(trimmed)
 
-    # 6. Tile slots: assign after rivers/roads so waterway
+    # 6. Flag crossroads: a road-carrying sub-hex with 3+ road
+    # neighbours inside the flower is where roads physically meet,
+    # which is where signposts belong.
+    for c, sc in cells.items():
+        if not sc.has_road:
+            continue
+        road_neighbours = sum(
+            1 for nb in neighbors(c)
+            if nb in cells and cells[nb].has_road
+        )
+        if road_neighbours >= 3:
+            sc.has_crossroad = True
+
+    # 7. Tile slots: assign after rivers/roads so waterway
     # sub-hexes get lighter tile variants.
     from nhc.hexcrawl.tiles import assign_tile_slot
     for c, sc in cells.items():

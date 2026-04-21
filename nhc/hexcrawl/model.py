@@ -193,6 +193,10 @@ class SubHexCell:
     major_feature: HexFeatureType = HexFeatureType.NONE
     has_road: bool = False
     has_river: bool = False
+    # Set True during flower assembly on road-carrying cells with
+    # 3+ road neighbours inside the flower. Drives the signpost
+    # placement pass so signposts cluster at junctions.
+    has_crossroad: bool = False
     move_cost_hours: float = 1.0
     encounter_modifier: float = 1.0
     searched: bool = False
