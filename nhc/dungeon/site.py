@@ -303,7 +303,9 @@ def assemble_site(
         site = assemble_farm(site_id, rng)
     elif kind == "mansion":
         from nhc.dungeon.sites.mansion import assemble_mansion
-        site = assemble_mansion(site_id, rng)
+        site = assemble_mansion(
+            site_id, rng, mage_variant=mage_variant,
+        )
     elif kind == "keep":
         from nhc.dungeon.sites.keep import assemble_keep
         site = assemble_keep(site_id, rng)

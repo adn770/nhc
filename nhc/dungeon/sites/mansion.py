@@ -18,8 +18,8 @@ from nhc.dungeon.generators._stairs import (
 from nhc.dungeon.interior._floor import build_building_floor
 from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
-    Level, LShape, Rect, RectShape, RoomShape, SurfaceType,
-    Terrain, Tile,
+    Level, LShape, OctagonShape, Rect, RectShape, RoomShape,
+    SurfaceType, Terrain, Tile,
 )
 from nhc.dungeon.site import (
     InteriorDoorLink, Site, outside_neighbour, paint_surface_doors,
@@ -42,11 +42,24 @@ MANSION_DESCENT_PROBABILITY = 0.2
 MANSION_DESCENT_TEMPLATE = "procedural:crypt"
 MANSION_SHAPE_POOL = ("rect", "lshape")
 
+# Mage-variant tower tunables (only used when mage_variant=True).
+MAGE_TOWER_SIZE = 7
+MAGE_TOWER_FLOOR_COUNT_RANGE = (2, 3)
+MAGE_TOWER_GAP = 2  # tiles of garden between mansion and tower
+
 
 def assemble_mansion(
     site_id: str, rng: random.Random,
+    mage_variant: bool = False,
 ) -> Site:
-    """Assemble a mansion site."""
+    """Assemble a mansion site.
+
+    When ``mage_variant`` is True, after the ordinary 2-4 mansion
+    buildings are placed an extra octagonal tower building is
+    appended on the east side, reached via its own surface entry
+    door and carrying teleporter pads on each interior floor — the
+    resident mage's workshop.
+    """
     n_buildings = rng.randint(*MANSION_BUILDING_COUNT_RANGE)
     buildings: list[Building] = []
     x_cursor = MANSION_BUILDING_X_START
@@ -66,6 +79,13 @@ def assemble_mansion(
         )
         buildings.append(building)
         x_cursor += w
+
+    mage_tower: Building | None = None
+    if mage_variant:
+        mage_tower = _build_mage_tower(
+            f"{site_id}_mage", x_cursor + MAGE_TOWER_GAP, rng,
+        )
+        buildings.append(mage_tower)
 
     # Each building gets at least one exterior entry door.
     combined_footprints: set[tuple[int, int]] = set()
@@ -124,7 +144,97 @@ def assemble_mansion(
     site.interior_doors.update(interior_doors)
     site.interior_door_links.extend(interior_door_links)
     paint_surface_doors(site, SurfaceType.GARDEN)
+    if mage_tower is not None:
+        _stamp_mage_teleporters(mage_tower, rng)
     return site
+
+
+def _build_mage_tower(
+    building_id: str, x: int, rng: random.Random,
+) -> Building:
+    """Build the small octagonal tower attached to a mage mansion.
+
+    Uses the ``tower_circle`` archetype (the octagon-compatible
+    single-room partitioner) and the ground-floor-stone /
+    upper-wood material convention inherited from the mansion.
+    """
+    size = MAGE_TOWER_SIZE
+    rect = Rect(x, MANSION_BUILDING_Y, size, size)
+    base_shape = OctagonShape()
+    n_floors = rng.randint(*MAGE_TOWER_FLOOR_COUNT_RANGE)
+    floors, stair_links = build_floors_with_stairs(
+        building_id=building_id,
+        base_shape=base_shape,
+        base_rect=rect,
+        n_floors=n_floors,
+        descent=None,
+        rng=rng,
+        build_floor_fn=lambda idx, n, req: build_building_floor(
+            building_id=building_id,
+            floor_idx=idx,
+            base_shape=base_shape,
+            base_rect=rect,
+            n_floors=n,
+            rng=rng,
+            archetype="tower_circle",
+            tags=["mansion_interior", "mage_tower"],
+            required_walkable=req,
+        ),
+    )
+    for idx, level in enumerate(floors):
+        level.interior_floor = "stone" if idx == 0 else "wood"
+    building = Building(
+        id=building_id,
+        base_shape=base_shape,
+        base_rect=rect,
+        floors=floors,
+        descent=None,
+        wall_material="stone",
+        interior_floor="stone",
+        interior_wall_material=(
+            ARCHETYPE_CONFIG["tower_circle"].interior_wall_material
+        ),
+    )
+    building.stair_links = stair_links
+    return building
+
+
+def _stamp_mage_teleporters(
+    building: Building, rng: random.Random,
+) -> None:
+    """Stamp one teleporter pair on each floor of the mage tower.
+
+    Mirrors ``nhc.dungeon.sites.tower._stamp_mage_teleporters`` —
+    inlined here to keep the mansion assembler self-contained
+    without reaching across site-kind modules.
+    """
+    for floor in building.floors:
+        candidates: list[tuple[int, int]] = []
+        for y in range(floor.height):
+            for x in range(floor.width):
+                tile = floor.tiles[y][x]
+                if tile.terrain is not Terrain.FLOOR:
+                    continue
+                if tile.feature is not None:
+                    continue
+                candidates.append((x, y))
+        if len(candidates) < 2:
+            continue
+        best: tuple[int, int, int, int] | None = None
+        best_d = -1
+        for i, a in enumerate(candidates):
+            for b in candidates[i + 1:]:
+                d = max(abs(a[0] - b[0]), abs(a[1] - b[1]))
+                if d > best_d:
+                    best_d = d
+                    best = (a[0], a[1], b[0], b[1])
+        if best is None:
+            continue
+        ax, ay, bx, by = best
+        floor.tiles[ay][ax].feature = "teleporter_pad"
+        floor.tiles[by][bx].feature = "teleporter_pad"
+        floor.teleporter_pairs[(ax, ay)] = (bx, by)
+        floor.teleporter_pairs[(bx, by)] = (ax, ay)
 
 
 def _pick_shape(rng: random.Random) -> RoomShape:
@@ -274,9 +384,22 @@ def _connect_adjacent_buildings(
 def _build_mansion_surface(
     surface_id: str, buildings: list[Building],
 ) -> Level:
+    # Fit every building's footprint plus a small garden margin.
+    # The default dims are the minimum floor; if the mage variant
+    # extends the east side with an octagonal tower, the surface
+    # grows to cover it.
+    max_x2 = max(
+        (b.base_rect.x2 for b in buildings),
+        default=MANSION_SURFACE_WIDTH,
+    )
+    max_y2 = max(
+        (b.base_rect.y2 for b in buildings),
+        default=MANSION_SURFACE_HEIGHT,
+    )
+    width = max(MANSION_SURFACE_WIDTH, max_x2 + MANSION_BUILDING_X_START)
+    height = max(MANSION_SURFACE_HEIGHT, max_y2 + 3)
     surface = Level.create_empty(
-        surface_id, surface_id, 0,
-        MANSION_SURFACE_WIDTH, MANSION_SURFACE_HEIGHT,
+        surface_id, surface_id, 0, width, height,
     )
     # Only building footprints block the garden surface -- no
     # 1-tile buffer ring. The SVG wall mask provides the visual
