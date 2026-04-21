@@ -40,6 +40,7 @@ CHASE_RADIUS: dict[str, int] = {
     "idle": 0,
     "shrieker": 5,  # detection range; shrieker never moves
     "errand": 0,    # town villagers never chase
+    "thief": 0,     # pickpockets wander + lift; never combat
 }
 
 # Tile features an errand NPC will not step onto. Door tiles
@@ -270,6 +271,50 @@ def _decide_errand_action(
     return MoveAction(actor=entity_id, dx=nx - pos.x, dy=ny - pos.y)
 
 
+def _decide_thief_action(
+    entity_id: int,
+    world: "World",
+    level: "Level",
+    player_id: int,
+) -> "Action | None":
+    """Thief tick: wander like a villager until adjacent to the
+    player, then attempt one theft per adjacency streak.
+
+    Cooldown lives on the ``Thief`` component: ``attempted_in_streak``
+    flips True after a theft roll fires and only resets when the
+    thief breaks adjacency again. Without the cooldown, a thief could
+    pick the player clean in a single stand-still encounter.
+    """
+    from nhc.core.actions import PickpocketAction, player_has_stealable
+
+    thief = world.get_component(entity_id, "Thief")
+    pos = world.get_component(entity_id, "Position")
+    player_pos = world.get_component(player_id, "Position")
+    if not thief or not pos or not player_pos:
+        return None
+
+    is_adj = adjacent(pos.x, pos.y, player_pos.x, player_pos.y)
+
+    if not is_adj:
+        thief.attempted_in_streak = False
+        return _decide_errand_action(
+            entity_id, world, level, player_id,
+        )
+
+    if thief.attempted_in_streak:
+        return _decide_errand_action(
+            entity_id, world, level, player_id,
+        )
+
+    if not player_has_stealable(world, player_id):
+        return _decide_errand_action(
+            entity_id, world, level, player_id,
+        )
+
+    thief.attempted_in_streak = True
+    return PickpocketAction(actor=entity_id, target=player_id)
+
+
 def decide_action(
     entity_id: int,
     world: "World",
@@ -302,6 +347,12 @@ def decide_action(
     # Non-combat town behavior: errand NPCs never engage the player.
     if ai.behavior == "errand":
         return _decide_errand_action(
+            entity_id, world, level, player_id,
+        )
+
+    # Pickpockets wander like villagers but lift on adjacency.
+    if ai.behavior == "thief":
+        return _decide_thief_action(
             entity_id, world, level, player_id,
         )
 

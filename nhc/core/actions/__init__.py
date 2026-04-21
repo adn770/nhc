@@ -100,6 +100,12 @@ from nhc.core.actions._shop import (
     ShopInteractAction,
 )
 
+# -- Pickpocket actions --
+from nhc.core.actions._pickpocket import (
+    PickpocketAction,
+    player_has_stealable,
+)
+
 # -- Temple actions --
 from nhc.core.actions._temple import (
     TempleInteractAction,
@@ -174,6 +180,8 @@ __all__ = [
     "BuyAction",
     "SellAction",
     "ShopInteractAction",
+    # Pickpocket
+    "PickpocketAction",
     # Temple
     "TempleInteractAction",
     "TempleServiceAction",

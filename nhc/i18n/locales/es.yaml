@@ -326,6 +326,11 @@ shop:
   empty_stock: "El mercader no tiene nada más que vender."
   unequip_first: "Desequipa el objeto antes de vender."
 
+pickpocket:
+  steals_gold: "¡Un carterista te birla {amount} oro de la bolsa!"
+  steals_item: "¡Un carterista te birla {item}!"
+  caught_fumble: "Pillas a un carterista hurgándote la bolsa."
+
 temple:
   welcome: "Que la paz sea contigo. ¿En qué puedo servirte?"
   services: "Servicios"
@@ -1323,6 +1328,14 @@ creature:
       profundidades de la mazmorra. Ofrece su espada — por el
       precio justo.
   villager:
+    name: "Aldeano"
+    gender: "m"
+    short: "un aldeano del pueblo"
+    long: >-
+      Un habitante del pueblo ocupado en lo suyo — cargando leña,
+      haciendo un recado o charlando en un puesto. No te presta
+      mucha atención mientras no alteres la paz.
+  pickpocket:
     name: "Aldeano"
     gender: "m"
     short: "un aldeano del pueblo"

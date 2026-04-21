@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.sites.town import (
-    TOWN_VILLAGER_COUNT, assemble_town,
+    TOWN_PICKPOCKET_COUNT, TOWN_VILLAGER_COUNT, assemble_town,
 )
 
 
@@ -68,6 +68,48 @@ class TestVillagerPlacement:
             ]
             assert len(coords) == len(set(coords)), (
                 f"duplicate villager positions seed={seed}"
+            )
+
+
+class TestPickpocketSpawn:
+    def test_hamlet_has_no_pickpockets(self):
+        for seed in range(10):
+            site = assemble_town(
+                "t1", random.Random(seed), size_class="hamlet",
+            )
+            thieves = [
+                e for e in site.surface.entities
+                if e.entity_id == "pickpocket"
+            ]
+            assert thieves == []
+
+    def test_city_has_two_pickpockets(self):
+        for seed in range(10):
+            site = assemble_town(
+                "t1", random.Random(seed), size_class="city",
+            )
+            thieves = [
+                e for e in site.surface.entities
+                if e.entity_id == "pickpocket"
+            ]
+            assert len(thieves) == TOWN_PICKPOCKET_COUNT["city"]
+
+    def test_villagers_and_pickpockets_disjoint(self):
+        """No spawn tile is shared between the two populations."""
+        for seed in range(10):
+            site = assemble_town(
+                "t1", random.Random(seed), size_class="city",
+            )
+            villager_coords = {
+                (p.x, p.y) for p in site.surface.entities
+                if p.entity_id == "villager"
+            }
+            thief_coords = {
+                (p.x, p.y) for p in site.surface.entities
+                if p.entity_id == "pickpocket"
+            }
+            assert villager_coords.isdisjoint(thief_coords), (
+                f"pickpocket shares tile with villager seed={seed}"
             )
 
 

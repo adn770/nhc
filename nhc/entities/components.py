@@ -148,6 +148,18 @@ class Errand:
 
 
 @dataclass
+class Thief:
+    """Per-NPC state for the `thief` behavior.
+
+    Marks a pickpocket and tracks the single-attempt cooldown: set
+    ``attempted_in_streak`` to True after a theft roll fires and
+    clear it again when the thief breaks adjacency with the player,
+    so one streak of adjacency yields at most one attempt.
+    """
+    attempted_in_streak: bool = False
+
+
+@dataclass
 class BlocksMovement:
     """Tag component for entities that block tile movement."""
 

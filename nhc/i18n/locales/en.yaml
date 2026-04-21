@@ -328,6 +328,11 @@ shop:
   empty_stock: "The merchant has nothing left to sell."
   unequip_first: "Unequip the item before selling."
 
+pickpocket:
+  steals_gold: "A pickpocket lifts {amount} gold from your purse!"
+  steals_item: "A pickpocket swipes {item} from you!"
+  caught_fumble: "You catch a pickpocket fumbling at your purse."
+
 temple:
   welcome: "Peace be with you. How may I serve?"
   services: "Services"
@@ -1289,6 +1294,13 @@ creature:
       A seasoned explorer seeking companions for the dungeon depths.
       They offer their sword arm — for the right price.
   villager:
+    name: "Villager"
+    short: "a local villager"
+    long: >-
+      A townsfolk going about their day — hauling firewood, running
+      an errand, or simply chatting at a stall. They pay you little
+      mind so long as you keep the peace.
+  pickpocket:
     name: "Villager"
     short: "a local villager"
     long: >-

@@ -344,6 +344,11 @@ shop:
   empty_stock: "El mercader no té res més per vendre."
   unequip_first: "Desequipa l'objecte abans de vendre."
 
+pickpocket:
+  steals_gold: "Un pispa et buida {amount} or de la bossa!"
+  steals_item: "Un pispa et pispa {item}!"
+  caught_fumble: "Atrapes un pispa furgant-te la bossa."
+
 temple:
   welcome: "Que la pau t'acompanyi. En què puc servir-te?"
   services: "Serveis"
@@ -1396,6 +1401,14 @@ creature:
       Un explorador experimentat que busca companys per les profunditats
       de la masmorra. Ofereix la seva espasa — pel preu just.
   villager:
+    name: "vilatà"
+    gender: "m"
+    short: "un vilatà del poble"
+    long: >-
+      Un habitant del poble fent la seva — carregant llenya, portant
+      un encàrrec o simplement xerrant a una parada. No et fa gaire
+      cas mentre no alteris la pau.
+  pickpocket:
     name: "vilatà"
     gender: "m"
     short: "un vilatà del poble"

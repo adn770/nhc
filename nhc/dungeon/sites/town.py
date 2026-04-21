@@ -861,27 +861,41 @@ def _innkeeper_placement(cx: int, cy: int) -> EntityPlacement:
 
 
 # Villager headcount per town size class — sprinkled across street
-# tiles to give the surface visible life.
+# tiles to give the surface visible life. Pickpockets grow with
+# settlement size: hamlets and small villages are too small to host
+# an unseen thief, but towns and cities always carry one or two.
 TOWN_VILLAGER_COUNT: dict[str, int] = {
     "hamlet": 2,
     "village": 4,
     "town": 6,
     "city": 8,
 }
+TOWN_PICKPOCKET_COUNT: dict[str, int] = {
+    "hamlet": 0,
+    "village": 0,
+    "town": 1,
+    "city": 2,
+}
 
 
 def _place_surface_villagers(
     site: Site, size_class: str, rng: random.Random,
 ) -> None:
-    """Sprinkle villager ``EntityPlacement``s on street tiles.
+    """Sprinkle villager + pickpocket placements on street tiles.
 
-    Villagers use the ``errand`` behavior: they path between random
-    walkable street tiles without ever stepping onto door tiles, so
-    they stay on the surface even when the player enters a shop.
+    Both use the same street-tile candidate pool and are mutually
+    exclusive — a pickpocket never shares a spawn tile with a
+    villager, and positions are unique across both populations.
+    Villagers drive the town's baseline life; pickpockets lean on
+    the errand-style wander to blend in visually (identical glyph,
+    identical locale name) until they attempt a lift.
     """
-    count = TOWN_VILLAGER_COUNT.get(size_class, 0)
-    if count <= 0:
+    villager_count = TOWN_VILLAGER_COUNT.get(size_class, 0)
+    pickpocket_count = TOWN_PICKPOCKET_COUNT.get(size_class, 0)
+    total = villager_count + pickpocket_count
+    if total <= 0:
         return
+
     surface = site.surface
     candidates: list[tuple[int, int]] = []
     for y in range(surface.height):
@@ -893,22 +907,40 @@ def _place_surface_villagers(
             if not tile.walkable:
                 continue
             if tile.feature is not None:
-                # Skip door tiles and any other stamped feature.
                 continue
             candidates.append((x, y))
     if not candidates:
         return
+
     rng.shuffle(candidates)
-    placed = 0
     used: set[tuple[int, int]] = set()
-    for (x, y) in candidates:
-        if placed >= count:
+    cursor = 0
+
+    def _take_next() -> tuple[int, int] | None:
+        nonlocal cursor
+        while cursor < len(candidates):
+            spot = candidates[cursor]
+            cursor += 1
+            if spot in used:
+                continue
+            used.add(spot)
+            return spot
+        return None
+
+    for _ in range(villager_count):
+        spot = _take_next()
+        if spot is None:
             break
-        if (x, y) in used:
-            continue
         surface.entities.append(EntityPlacement(
             entity_type="creature", entity_id="villager",
-            x=x, y=y,
+            x=spot[0], y=spot[1],
         ))
-        used.add((x, y))
-        placed += 1
+
+    for _ in range(pickpocket_count):
+        spot = _take_next()
+        if spot is None:
+            break
+        surface.entities.append(EntityPlacement(
+            entity_type="creature", entity_id="pickpocket",
+            x=spot[0], y=spot[1],
+        ))
