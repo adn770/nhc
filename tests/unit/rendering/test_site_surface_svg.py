@@ -11,9 +11,56 @@ producing for months.
 from __future__ import annotations
 
 import random
+from pathlib import Path
+
+import pytest
 
 from nhc.dungeon.site import assemble_site
 from nhc.rendering.site_svg import render_site_surface_svg
+
+
+# Hard ceiling on the AssertionError message emitted on golden
+# drift. Keeps pytest's assertion rewriter from feeding multi-MB
+# operands to difflib.SequenceMatcher, whose _fancy_replace /
+# find_longest_match goes O(n²)+ on large near-matching strings
+# and wedges CI for minutes per failing iteration.
+_GOLDEN_DRIFT_MSG_CEILING = 4096
+
+
+def _assert_svg_matches_golden(got: str, golden_path: Path) -> None:
+    """Byte-compare ``got`` against the golden SVG at ``golden_path``.
+
+    Raises a bare ``AssertionError`` (not a rewritten ``assert`` with
+    the operands attached) so pytest's diff pretty-printer never sees
+    the full multi-MB strings.
+    """
+    golden = golden_path.read_text()
+    if got == golden:
+        return
+    for i, (a, b) in enumerate(zip(got, golden)):
+        if a != b:
+            offset = i
+            break
+    else:
+        offset = min(len(got), len(golden))
+    ctx = 80
+    start = max(0, offset - ctx // 2)
+    got_snip = got[start:start + ctx]
+    golden_snip = golden[start:start + ctx]
+    raise AssertionError(
+        f"SVG drift at offset {offset} "
+        f"(got {len(got)}B, golden {len(golden)}B).\n"
+        f"got    : {got_snip!r}\n"
+        f"golden : {golden_snip!r}\n"
+        f"Regenerate: .venv/bin/python -c 'import random; "
+        f"from nhc.dungeon.site import assemble_site; "
+        f"from nhc.rendering.site_svg import render_site_surface_svg; "
+        f"seed=7; "
+        f'site=assemble_site("town", f"town_seed{{seed}}", '
+        f"random.Random(seed)); "
+        f'open(f"{golden_path}", "w")'
+        f".write(render_site_surface_svg(site, seed=seed))'"
+    )
 
 
 _ROOF_CLIP_MARKER = 'id="roof_fp_'
@@ -82,40 +129,69 @@ class TestRenderSiteSurfaceSvg:
 
 
 class TestGoldenSnapshot:
-    """Byte-for-byte regression trip wire. When this test fails,
-    regenerate the golden via
-    ``tests/samples/golden/regenerate_town_surface.py`` (or by
-    hand) and inspect the diff in the PR before blessing the new
-    bytes. Seed 7 was picked because it yields a town with a
-    palisade, seven buildings, and at least one L-shape, so the
-    golden covers gable, pyramid, and polygon-clipping paths."""
+    """Byte-for-byte regression trip wire. Seed 7 was picked
+    because it yields a town with a palisade, seven buildings,
+    and at least one L-shape, so the golden covers gable, pyramid,
+    and polygon-clipping paths. On drift the helper below fails
+    fast with a short, bounded message — see _assert_svg_matches_golden
+    for why we avoid a bare ``assert got == golden``."""
 
     GOLDEN_SEED = 7
 
     def test_town_surface_matches_golden(self) -> None:
-        from pathlib import Path
         site = assemble_site(
             "town", f"town_seed{self.GOLDEN_SEED}",
             random.Random(self.GOLDEN_SEED),
         )
         got = render_site_surface_svg(site, seed=self.GOLDEN_SEED)
-        golden = Path(
+        golden_path = Path(
             "tests/samples/golden/"
             f"town_surface_seed{self.GOLDEN_SEED}.svg"
-        ).read_text()
-        assert got == golden, (
-            "Site-surface SVG drift. Inspect the diff; if the "
-            "change is intentional, regenerate the golden:\n\n"
-            "    .venv/bin/python -c 'import random; "
-            "from nhc.dungeon.site import assemble_site; "
-            "from nhc.rendering.site_svg import render_site_surface_svg; "
-            f"seed={self.GOLDEN_SEED}; "
-            "site=assemble_site(\"town\", f\"town_seed{seed}\", "
-            "random.Random(seed)); "
-            "open(f\"tests/samples/golden/"
-            "town_surface_seed{seed}.svg\", \"w\")"
-            ".write(render_site_surface_svg(site, seed=seed))'"
         )
+        _assert_svg_matches_golden(got, golden_path)
+
+
+class TestAssertSvgMatchesGolden:
+    """Guards the helper that compares generated SVGs to golden
+    files. The helper must: (a) pass silently on exact match;
+    (b) on mismatch, raise an AssertionError whose message stays
+    well under the difflib-pathology threshold even for multi-MB
+    operands; (c) report a useful byte offset and snippet."""
+
+    def test_passes_on_exact_match(self, tmp_path: Path) -> None:
+        golden = tmp_path / "g.svg"
+        golden.write_text("<svg>hello</svg>")
+        _assert_svg_matches_golden("<svg>hello</svg>", golden)
+
+    def test_raises_on_mismatch(self, tmp_path: Path) -> None:
+        golden = tmp_path / "g.svg"
+        golden.write_text("<svg>hello</svg>")
+        with pytest.raises(AssertionError, match="SVG drift"):
+            _assert_svg_matches_golden("<svg>world</svg>", golden)
+
+    def test_message_is_bounded_for_huge_operands(
+        self, tmp_path: Path
+    ) -> None:
+        """Core protection: a 3 MB near-matching mismatch must
+        still emit a small message. Before this helper, pytest's
+        assertion rewriter fed such operands to difflib and hung
+        the suite for >5 minutes per failing iteration."""
+        golden_text = "<svg>" + ("a" * 3_000_000) + "</svg>"
+        got = "<svg>" + ("a" * 1_500_000) + "b" + (
+            "a" * 1_499_999
+        ) + "</svg>"
+        golden = tmp_path / "g.svg"
+        golden.write_text(golden_text)
+        with pytest.raises(AssertionError) as excinfo:
+            _assert_svg_matches_golden(got, golden)
+        assert len(str(excinfo.value)) <= _GOLDEN_DRIFT_MSG_CEILING
+
+    def test_reports_divergence_offset(self, tmp_path: Path) -> None:
+        golden = tmp_path / "g.svg"
+        golden.write_text("abcdefghij")
+        with pytest.raises(AssertionError) as excinfo:
+            _assert_svg_matches_golden("abcdeXghij", golden)
+        assert "offset 5" in str(excinfo.value)
 
 
 class TestRenderLevelSvgDispatch:
