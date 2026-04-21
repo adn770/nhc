@@ -578,6 +578,25 @@ def _place_major(
     return chosen
 
 
+def _stamp_crossroad_signposts(
+    cells: dict[HexCoord, SubHexCell],
+) -> None:
+    """Stamp SIGNPOST on every crossroad sub-hex.
+
+    Runs after ``has_crossroad`` is flagged. Overwrites any
+    biome-pool minor that happened to land on the same cell —
+    minor placement runs before roads, so a crossroad tile may
+    have accidentally picked up a shrine or cairn, and a signpost
+    at the junction is the reliable affordance the player expects
+    to find there. A handful of lost shrines per seed is an
+    acceptable cost for consistent wayfinding.
+    """
+    for sc in cells.values():
+        if not sc.has_crossroad:
+            continue
+        sc.minor_feature = MinorFeatureType.SIGNPOST
+
+
 def _place_minors(
     cells: dict[HexCoord, SubHexCell],
     count: int,
@@ -872,6 +891,12 @@ def generate_flower(
         )
         if road_neighbours >= 3:
             sc.has_crossroad = True
+
+    # 6b. Stamp signposts at crossroads so road junctions reliably
+    # carry a wayside signpost the player can interact with. Biome-
+    # driven signpost placement still runs, so crossroads are an
+    # additional source rather than a replacement.
+    _stamp_crossroad_signposts(cells)
 
     # 7. Tile slots: assign after rivers/roads so waterway
     # sub-hexes get lighter tile variants.
