@@ -19,7 +19,7 @@ from nhc.entities.components import (
     StatusEffect,
 )
 from nhc.core.actions._helpers import _msg, has_ring_effect
-from nhc.utils.rng import d20
+from nhc.utils.rng import d20, get_rng
 from nhc.utils.spatial import adjacent, chebyshev
 
 if TYPE_CHECKING:
@@ -39,7 +39,21 @@ CHASE_RADIUS: dict[str, int] = {
     "guard": 5,
     "idle": 0,
     "shrieker": 5,  # detection range; shrieker never moves
+    "errand": 0,    # town villagers never chase
 }
+
+# Tile features an errand NPC will not step onto. Door tiles
+# trigger interior teleport on entry, which would whisk a villager
+# into a building off-screen; keeping them on the surface means the
+# player reliably sees the crowd.
+_ERRAND_BLOCKING_FEATURES: frozenset[str] = frozenset({
+    "door_closed", "door_open", "door_locked", "door_secret",
+    "stairs_up", "stairs_down",
+})
+
+# How long an errand NPC lingers at its destination before picking
+# the next one. Roughly "visiting a shop / chatting at a stall".
+_ERRAND_IDLE_TURNS_RANGE = (3, 8)
 
 
 def _find_attack_targets(
@@ -132,6 +146,130 @@ def _decide_flee_action(
     )
 
 
+def _errand_walkable(
+    world: "World",
+    level: "Level",
+    x: int,
+    y: int,
+    entity_id: int,
+) -> bool:
+    """Whether an errand NPC may stand on ``(x, y)``."""
+    tile = level.tile_at(x, y)
+    if not tile or not tile.walkable:
+        return False
+    if tile.feature in _ERRAND_BLOCKING_FEATURES:
+        return False
+    for eid, _, bpos in world.query("BlocksMovement", "Position"):
+        if bpos.x == x and bpos.y == y and eid != entity_id:
+            return False
+    return True
+
+
+def _pick_errand_destination(
+    world: "World",
+    level: "Level",
+    pos: "Position",
+    entity_id: int,
+) -> tuple[int, int] | None:
+    """Pick a fresh destination for an errand NPC.
+
+    Prefers street tiles adjacent to a door feature (~40% of the
+    time) so villagers visibly gather near shops and homes; falls
+    back to any walkable street tile.
+    """
+    rng = get_rng()
+    candidates: list[tuple[int, int]] = []
+    door_adjacent: list[tuple[int, int]] = []
+    for y in range(level.height):
+        row = level.tiles[y]
+        for x in range(level.width):
+            if (x, y) == (pos.x, pos.y):
+                continue
+            if not _errand_walkable(world, level, x, y, entity_id):
+                continue
+            candidates.append((x, y))
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                nx, ny = x + dx, y + dy
+                if not (0 <= nx < level.width
+                        and 0 <= ny < level.height):
+                    continue
+                feat = level.tiles[ny][nx].feature
+                if feat is not None and feat.startswith("door_"):
+                    door_adjacent.append((x, y))
+                    break
+    if not candidates:
+        return None
+    if door_adjacent and rng.random() < 0.4:
+        return rng.choice(door_adjacent)
+    return rng.choice(candidates)
+
+
+def _decide_errand_action(
+    entity_id: int,
+    world: "World",
+    level: "Level",
+    player_id: int,
+) -> "Action | None":
+    """Tick an errand NPC: idle → pick target → walk one step."""
+    from nhc.core.actions import HoldAction, MoveAction
+
+    errand = world.get_component(entity_id, "Errand")
+    pos = world.get_component(entity_id, "Position")
+    if not errand or not pos:
+        return None
+
+    if errand.idle_turns_remaining > 0:
+        errand.idle_turns_remaining -= 1
+        return HoldAction(actor=entity_id)
+
+    if errand.target_x is None or errand.target_y is None:
+        target = _pick_errand_destination(
+            world, level, pos, entity_id,
+        )
+        if target is None:
+            return HoldAction(actor=entity_id)
+        errand.target_x, errand.target_y = target
+
+    target_xy = (errand.target_x, errand.target_y)
+    if (pos.x, pos.y) == target_xy:
+        lo, hi = _ERRAND_IDLE_TURNS_RANGE
+        errand.idle_turns_remaining = get_rng().randint(lo, hi)
+        errand.target_x = None
+        errand.target_y = None
+        return HoldAction(actor=entity_id)
+
+    def is_walkable(x: int, y: int) -> bool:
+        if (x, y) == target_xy:
+            # Always allow the goal tile itself (blocker check
+            # already ran when we picked the destination).
+            tile = level.tile_at(x, y)
+            if not tile or not tile.walkable:
+                return False
+            return tile.feature not in _ERRAND_BLOCKING_FEATURES
+        return _errand_walkable(world, level, x, y, entity_id)
+
+    edge_blocks = None
+    if level.interior_edges:
+        from nhc.dungeon.edges import edge_blocks_movement
+
+        def edge_blocks(a, b):
+            return edge_blocks_movement(level, a, b)
+
+    path = astar(
+        (pos.x, pos.y), target_xy, is_walkable,
+        edge_blocks=edge_blocks,
+    )
+    if not path:
+        # Unreachable — drop the target and idle a beat so the
+        # next tick rolls a fresh one.
+        errand.target_x = None
+        errand.target_y = None
+        return HoldAction(actor=entity_id)
+
+    nx, ny = path[0]
+    return MoveAction(actor=entity_id, dx=nx - pos.x, dy=ny - pos.y)
+
+
 def decide_action(
     entity_id: int,
     world: "World",
@@ -158,6 +296,12 @@ def decide_action(
     if ai.behavior == "henchman":
         from nhc.ai.henchman_ai import decide_henchman_action
         return decide_henchman_action(
+            entity_id, world, level, player_id,
+        )
+
+    # Non-combat town behavior: errand NPCs never engage the player.
+    if ai.behavior == "errand":
+        return _decide_errand_action(
             entity_id, world, level, player_id,
         )
 

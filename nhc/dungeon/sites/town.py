@@ -268,6 +268,7 @@ def assemble_town(
     paint_surface_doors(site, SurfaceType.STREET)
     _place_service_npcs(buildings, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
+    _place_surface_villagers(site, size_class, rng)
     _connect_cross_building_doors(site, roles)
     return site
 
@@ -857,3 +858,57 @@ def _innkeeper_placement(cx: int, cy: int) -> EntityPlacement:
         entity_type="creature", entity_id="innkeeper",
         x=cx, y=cy,
     )
+
+
+# Villager headcount per town size class — sprinkled across street
+# tiles to give the surface visible life.
+TOWN_VILLAGER_COUNT: dict[str, int] = {
+    "hamlet": 2,
+    "village": 4,
+    "town": 6,
+    "city": 8,
+}
+
+
+def _place_surface_villagers(
+    site: Site, size_class: str, rng: random.Random,
+) -> None:
+    """Sprinkle villager ``EntityPlacement``s on street tiles.
+
+    Villagers use the ``errand`` behavior: they path between random
+    walkable street tiles without ever stepping onto door tiles, so
+    they stay on the surface even when the player enters a shop.
+    """
+    count = TOWN_VILLAGER_COUNT.get(size_class, 0)
+    if count <= 0:
+        return
+    surface = site.surface
+    candidates: list[tuple[int, int]] = []
+    for y in range(surface.height):
+        row = surface.tiles[y]
+        for x in range(surface.width):
+            tile = row[x]
+            if tile.surface_type != SurfaceType.STREET:
+                continue
+            if not tile.walkable:
+                continue
+            if tile.feature is not None:
+                # Skip door tiles and any other stamped feature.
+                continue
+            candidates.append((x, y))
+    if not candidates:
+        return
+    rng.shuffle(candidates)
+    placed = 0
+    used: set[tuple[int, int]] = set()
+    for (x, y) in candidates:
+        if placed >= count:
+            break
+        if (x, y) in used:
+            continue
+        surface.entities.append(EntityPlacement(
+            entity_type="creature", entity_id="villager",
+            x=x, y=y,
+        ))
+        used.add((x, y))
+        placed += 1

@@ -1322,6 +1322,14 @@ creature:
       Un explorador experimentado que busca compañeros para las
       profundidades de la mazmorra. Ofrece su espada — por el
       precio justo.
+  villager:
+    name: "Aldeano"
+    gender: "m"
+    short: "un aldeano del pueblo"
+    long: >-
+      Un habitante del pueblo ocupado en lo suyo — cargando leña,
+      haciendo un recado o charlando en un puesto. No te presta
+      mucha atención mientras no alteres la paz.
   cultist:
     name: "Cultista"
     gender: "m"

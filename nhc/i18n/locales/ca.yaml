@@ -1395,6 +1395,14 @@ creature:
     long: >-
       Un explorador experimentat que busca companys per les profunditats
       de la masmorra. Ofereix la seva espasa — pel preu just.
+  villager:
+    name: "vilatà"
+    gender: "m"
+    short: "un vilatà del poble"
+    long: >-
+      Un habitant del poble fent la seva — carregant llenya, portant
+      un encàrrec o simplement xerrant a una parada. No et fa gaire
+      cas mentre no alteris la pau.
   cultist:
     name: "cultista"
     gender: "m"

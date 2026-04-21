@@ -134,6 +134,20 @@ class Player:
 
 
 @dataclass
+class Errand:
+    """Per-NPC state for the `errand` behavior.
+
+    Town villagers path toward ``(target_x, target_y)``; on arrival
+    they idle for a few turns (simulating a visit) and then pick a
+    new destination. When both target fields are ``None`` the
+    behavior picks a fresh walkable street tile.
+    """
+    target_x: int | None = None
+    target_y: int | None = None
+    idle_turns_remaining: int = 0
+
+
+@dataclass
 class BlocksMovement:
     """Tag component for entities that block tile movement."""
 

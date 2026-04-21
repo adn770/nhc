@@ -1288,6 +1288,13 @@ creature:
     long: >-
       A seasoned explorer seeking companions for the dungeon depths.
       They offer their sword arm — for the right price.
+  villager:
+    name: "Villager"
+    short: "a local villager"
+    long: >-
+      A townsfolk going about their day — hauling firewood, running
+      an errand, or simply chatting at a stall. They pay you little
+      mind so long as you keep the peace.
   cultist:
     name: "Cultist"
     short: "a robed cultist"

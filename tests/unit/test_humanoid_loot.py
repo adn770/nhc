@@ -44,6 +44,7 @@ class TestHumanoidLoot:
                 "merchant", "adventurer", "priest", "innkeeper",
                 "hermit_priest",
                 "farmer", "campsite_traveller", "orchardist",
+                "villager",
             ):
                 continue
             loot = comps.get("LootTable")
