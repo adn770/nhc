@@ -134,6 +134,17 @@ class Player:
 
 
 @dataclass
+class CombatEngaged:
+    """Tag: the entity is engaged in a fight with the player.
+
+    Set on the first melee strike between the player and an
+    otherwise-peaceful NPC (or when a caught pickpocket flips to
+    fleeing). Gates the peaceful-attack confirmation prompt so one
+    swing opens combat and every swing after it runs unprompted.
+    """
+
+
+@dataclass
 class Errand:
     """Per-NPC state for the `errand` behavior.
 

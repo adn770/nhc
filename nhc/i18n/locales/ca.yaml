@@ -184,6 +184,9 @@ gem_appearance:
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
+  confirm_prompt: "Atacar {name} de debò?"
+  confirm_attack: "Atacar"
+  confirm_cancel: "Atura la mà"
   # 3rd person (creature vs creature, or default fallback)
   hit: "{attacker} colpeja {target} per {damage} de dany."
   miss: "{attacker} falla {target}."

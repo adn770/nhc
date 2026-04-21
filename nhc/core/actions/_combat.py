@@ -18,6 +18,7 @@ from nhc.core.events import (
 )
 from nhc.utils.spatial import chebyshev
 from nhc.entities.components import (
+    CombatEngaged,
     Cursed,
     Description,
     MummyRot,
@@ -37,6 +38,26 @@ if TYPE_CHECKING:
     from nhc.dungeon.model import Level
 
 logger = logging.getLogger(__name__)
+
+
+def _mark_combat_engaged(
+    world: "World", attacker: int, target: int,
+) -> None:
+    """Tag the non-player side of a melee exchange as CombatEngaged.
+
+    First strike between the player and an NPC — in either
+    direction — flips the flag so the peaceful-attack confirmation
+    prompt never fires again for the rest of that encounter.
+    """
+    if world.has_component(attacker, "Player"):
+        if not world.has_component(target, "CombatEngaged"):
+            world.add_component(target, "CombatEngaged", CombatEngaged())
+        return
+    if world.has_component(target, "Player"):
+        if not world.has_component(attacker, "CombatEngaged"):
+            world.add_component(
+                attacker, "CombatEngaged", CombatEngaged(),
+            )
 
 
 def _check_hp_morale_break(
@@ -144,6 +165,8 @@ class MeleeAttackAction(Action):
 
         if not a_stats or not t_stats or not t_health:
             return events
+
+        _mark_combat_engaged(world, self.actor, self.target)
 
         attacker_name = _entity_name(world, self.actor)
         target_name = _entity_name(world, self.target)

@@ -184,6 +184,9 @@ gem_appearance:
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
+  confirm_prompt: "Really attack {name}?"
+  confirm_attack: "Attack"
+  confirm_cancel: "Stay your hand"
   hit: "{attacker} hits {target} for {damage} damage."
   miss: "{attacker} misses {target}."
   slain: "{target} is slain!"

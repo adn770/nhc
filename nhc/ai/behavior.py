@@ -33,6 +33,15 @@ HUMANOID_FACTIONS: frozenset[str] = frozenset({
     "goblinoid", "human", "humanoid", "giant", "gnoll", "undead",
 })
 
+# AI behaviors classified as "peaceful" for the attack-confirmation
+# prompt. A melee bump directed at a creature in this set opens a
+# confirmation dialog on the first strike — so the player can't
+# accidentally cut down villagers, shopkeepers, or disguised
+# pickpockets on the way through a crowded street.
+PEACEFUL_BEHAVIORS: frozenset[str] = frozenset({
+    "idle", "errand", "thief",
+})
+
 # Maximum chase distance per behavior type
 CHASE_RADIUS: dict[str, int] = {
     "aggressive_melee": 8,

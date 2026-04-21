@@ -106,6 +106,11 @@ from nhc.core.actions._pickpocket import (
     player_has_stealable,
 )
 
+# -- Peaceful-attack confirmation --
+from nhc.core.actions._confirm import (
+    confirm_peaceful_attack,
+)
+
 # -- Temple actions --
 from nhc.core.actions._temple import (
     TempleInteractAction,

@@ -3022,6 +3022,14 @@ class Game:
 
     async def _resolve(self, action: "Action") -> list:
         """Validate and execute an action, emitting events."""
+        from nhc.core.actions._confirm import confirm_peaceful_attack
+
+        prompt = getattr(
+            self.renderer, "show_selection_menu", None,
+        )
+        action = confirm_peaceful_attack(
+            self.world, self.level, action, prompt,
+        )
         if not await action.validate(self.world, self.level):
             logger.debug("Action %s failed validation", type(action).__name__)
             return []

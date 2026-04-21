@@ -289,6 +289,13 @@ def react_to_notice(
         return
     thief.fleeing = True
     thief.flee_target_x, thief.flee_target_y = edge
+    # Fleeing is a visibly hostile act to the player — skip the
+    # peaceful-attack confirmation if they give chase.
+    from nhc.entities.components import CombatEngaged
+    if not world.has_component(thief_id, "CombatEngaged"):
+        world.add_component(
+            thief_id, "CombatEngaged", CombatEngaged(),
+        )
 
 
 def _blend_into_crowd(
