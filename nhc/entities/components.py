@@ -151,12 +151,22 @@ class Errand:
 class Thief:
     """Per-NPC state for the `thief` behavior.
 
-    Marks a pickpocket and tracks the single-attempt cooldown: set
-    ``attempted_in_streak`` to True after a theft roll fires and
-    clear it again when the thief breaks adjacency with the player,
-    so one streak of adjacency yields at most one attempt.
+    ``attempted_in_streak`` is the single-attempt cooldown: set
+    True after a theft roll fires, reset when the thief breaks
+    adjacency with the player.
+
+    ``fleeing`` / ``flee_target_x`` / ``flee_target_y`` carry the
+    post-notice reaction. When a theft attempt is perceived and the
+    thief lacks crowd cover to blend in, the pickpocket paths to
+    the nearest walkable edge tile and despawns on arrival. When
+    cover exists, the reaction demotes the thief to a plain villager
+    (``AI.behavior = "errand"`` + Thief component removed), so no
+    flee state is needed.
     """
     attempted_in_streak: bool = False
+    fleeing: bool = False
+    flee_target_x: int | None = None
+    flee_target_y: int | None = None
 
 
 @dataclass

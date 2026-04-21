@@ -9,6 +9,10 @@ Only one of the four outcomes is silent: theft-fail + miss-notice
 produces no message at all. Successful theft removes gold (preferred)
 or a random non-equipped inventory item (equipment is safe —
 equipped gear is harder to lift than loose gear in a belt pouch).
+
+On any noticed outcome (success *or* fail) the thief reacts: blend
+back into the crowd when enough humanoid neighbours are nearby,
+otherwise flee to the town edge and despawn on arrival.
 """
 
 from __future__ import annotations
@@ -19,11 +23,21 @@ from nhc.core.actions._base import Action
 from nhc.core.actions._helpers import _msg
 from nhc.core.events import Event, MessageEvent
 from nhc.utils.rng import d20, get_rng
-from nhc.utils.spatial import adjacent
+from nhc.utils.spatial import adjacent, chebyshev
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
+
+
+# Radius (chebyshev) within which other humanoid NPCs count as
+# "crowd cover" that lets a caught pickpocket blend back into the
+# errand flow instead of fleeing.
+_BLEND_RADIUS = 5
+# Minimum neighbouring humanoids required to blend. Two bystanders
+# give the thief a plausible crowd to disappear into; with fewer,
+# the player would trivially spot which tile the message pointed at.
+_BLEND_THRESHOLD = 2
 
 
 def _equipped_item_ids(world: "World", target: int) -> set[int]:
@@ -137,6 +151,9 @@ class PickpocketAction(Action):
         # theft_success but stole_what is None: target carried
         # nothing to take — silent pass. theft_fail + unseen: silent.
 
+        if noticed:
+            react_to_notice(world, level, self.actor)
+
         return events
 
     def _take_loot(
@@ -170,3 +187,113 @@ class PickpocketAction(Action):
         if target_iid in world._entities:
             world.destroy_entity(target_iid)
         return "item"
+
+
+def _count_crowd_cover(
+    world: "World", thief_id: int, tx: int, ty: int,
+) -> int:
+    """Count humanoid NPCs (excluding the thief) within the blend
+    radius. Player and hired henchmen do not count — only other
+    villagers, pickpockets, and service NPCs can provide cover."""
+    from nhc.ai.behavior import HUMANOID_FACTIONS
+
+    count = 0
+    for eid, ai, pos in world.query("AI", "Position"):
+        if eid == thief_id:
+            continue
+        if world.has_component(eid, "Player"):
+            continue
+        hench = world.get_component(eid, "Henchman")
+        if hench and hench.hired:
+            continue
+        if ai.faction not in HUMANOID_FACTIONS:
+            continue
+        if chebyshev(tx, ty, pos.x, pos.y) <= _BLEND_RADIUS:
+            count += 1
+    return count
+
+
+def _nearest_edge_tile(
+    world: "World", level: "Level", thief_id: int, tx: int, ty: int,
+) -> tuple[int, int] | None:
+    """Nearest walkable level-perimeter tile by chebyshev distance.
+
+    Skips tiles with a feature (door/stairs) so the fleeing thief
+    does not stumble into a building interior, and tiles occupied
+    by other blockers so the despawn spot is actually reachable.
+    """
+    from nhc.ai.behavior import _ERRAND_BLOCKING_FEATURES
+
+    w, h = level.width, level.height
+    best: tuple[int, int] | None = None
+    best_d = 10 ** 9
+    for y in range(h):
+        for x in range(w):
+            on_edge = x == 0 or y == 0 or x == w - 1 or y == h - 1
+            if not on_edge:
+                continue
+            tile = level.tile_at(x, y)
+            if not tile or not tile.walkable:
+                continue
+            if tile.feature in _ERRAND_BLOCKING_FEATURES:
+                continue
+            occupied = False
+            for eid, _, bpos in world.query(
+                "BlocksMovement", "Position",
+            ):
+                if eid == thief_id:
+                    continue
+                if bpos.x == x and bpos.y == y:
+                    occupied = True
+                    break
+            if occupied:
+                continue
+            d = chebyshev(tx, ty, x, y)
+            if d < best_d:
+                best_d = d
+                best = (x, y)
+    return best
+
+
+def react_to_notice(
+    world: "World", level: "Level", thief_id: int,
+) -> None:
+    """Resolve a caught pickpocket: blend back in or flee to an edge.
+
+    Blend path: at least ``_BLEND_THRESHOLD`` other humanoid NPCs
+    sit within ``_BLEND_RADIUS`` chebyshev tiles. The thief becomes
+    visually and mechanically indistinguishable from a villager —
+    AI.behavior flips to ``"errand"`` and the Thief component is
+    removed so it never rearms for another lift.
+
+    Flee path: the thief sets a flee target on the nearest walkable
+    perimeter tile of the level and flips its ``fleeing`` flag.
+    ``_decide_thief_action`` takes it from there (path + despawn on
+    arrival). If no edge is reachable the thief also blends as a
+    graceful fallback.
+    """
+    pos = world.get_component(thief_id, "Position")
+    ai = world.get_component(thief_id, "AI")
+    thief = world.get_component(thief_id, "Thief")
+    if not pos or not ai or not thief:
+        return
+
+    crowd = _count_crowd_cover(world, thief_id, pos.x, pos.y)
+    if crowd >= _BLEND_THRESHOLD:
+        _blend_into_crowd(world, thief_id, ai)
+        return
+
+    edge = _nearest_edge_tile(world, level, thief_id, pos.x, pos.y)
+    if edge is None:
+        _blend_into_crowd(world, thief_id, ai)
+        return
+    thief.fleeing = True
+    thief.flee_target_x, thief.flee_target_y = edge
+
+
+def _blend_into_crowd(
+    world: "World", thief_id: int, ai,
+) -> None:
+    ai.behavior = "errand"
+    if world.has_component(thief_id, "Thief"):
+        world.remove_component(thief_id, "Thief")

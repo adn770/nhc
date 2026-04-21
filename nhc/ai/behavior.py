@@ -271,6 +271,66 @@ def _decide_errand_action(
     return MoveAction(actor=entity_id, dx=nx - pos.x, dy=ny - pos.y)
 
 
+def _decide_flee_to_edge(
+    entity_id: int,
+    world: "World",
+    level: "Level",
+    thief,
+    pos: "Position",
+) -> "Action | None":
+    """Path one step toward the flee target, despawning on arrival.
+
+    Fallbacks: if the target is stale or the path cannot be found,
+    downgrade the thief to an errand villager so it doesn't freeze
+    mid-street.
+    """
+    from nhc.core.actions import HoldAction, MoveAction
+
+    tx = thief.flee_target_x
+    ty = thief.flee_target_y
+    if tx is None or ty is None:
+        thief.fleeing = False
+        return HoldAction(actor=entity_id)
+
+    if (pos.x, pos.y) == (tx, ty):
+        world.destroy_entity(entity_id)
+        return None
+
+    target_xy = (tx, ty)
+
+    def is_walkable(x: int, y: int) -> bool:
+        if (x, y) == target_xy:
+            tile = level.tile_at(x, y)
+            if not tile or not tile.walkable:
+                return False
+            return tile.feature not in _ERRAND_BLOCKING_FEATURES
+        return _errand_walkable(world, level, x, y, entity_id)
+
+    edge_blocks = None
+    if level.interior_edges:
+        from nhc.dungeon.edges import edge_blocks_movement
+
+        def edge_blocks(a, b):
+            return edge_blocks_movement(level, a, b)
+
+    path = astar(
+        (pos.x, pos.y), target_xy, is_walkable,
+        edge_blocks=edge_blocks,
+    )
+    if not path:
+        # Unreachable edge (crowd, new blockers). Fall back to
+        # blending so the thief doesn't lock in place.
+        ai = world.get_component(entity_id, "AI")
+        if ai is not None:
+            ai.behavior = "errand"
+        if world.has_component(entity_id, "Thief"):
+            world.remove_component(entity_id, "Thief")
+        return HoldAction(actor=entity_id)
+
+    nx, ny = path[0]
+    return MoveAction(actor=entity_id, dx=nx - pos.x, dy=ny - pos.y)
+
+
 def _decide_thief_action(
     entity_id: int,
     world: "World",
@@ -280,10 +340,12 @@ def _decide_thief_action(
     """Thief tick: wander like a villager until adjacent to the
     player, then attempt one theft per adjacency streak.
 
-    Cooldown lives on the ``Thief`` component: ``attempted_in_streak``
-    flips True after a theft roll fires and only resets when the
-    thief breaks adjacency again. Without the cooldown, a thief could
-    pick the player clean in a single stand-still encounter.
+    When the thief was caught on a noticed attempt and lacked crowd
+    cover, ``react_to_notice`` flips ``Thief.fleeing`` and this
+    branch paths to the chosen town-edge tile, despawning on
+    arrival. Cooldown lives on the ``Thief`` component:
+    ``attempted_in_streak`` flips True after a theft roll fires and
+    only resets when the thief breaks adjacency again.
     """
     from nhc.core.actions import PickpocketAction, player_has_stealable
 
@@ -292,6 +354,11 @@ def _decide_thief_action(
     player_pos = world.get_component(player_id, "Position")
     if not thief or not pos or not player_pos:
         return None
+
+    if thief.fleeing:
+        return _decide_flee_to_edge(
+            entity_id, world, level, thief, pos,
+        )
 
     is_adj = adjacent(pos.x, pos.y, player_pos.x, player_pos.y)
 
