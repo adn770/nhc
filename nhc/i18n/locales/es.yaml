@@ -334,6 +334,9 @@ pickpocket:
   steals_item: "¡Un carterista te birla {item}!"
   caught_fumble: "Pillas a un carterista hurgándote la bolsa."
 
+teleporter:
+  step: "Las runas fulguran y el mundo se pliega a tu alrededor."
+
 temple:
   welcome: "Que la paz sea contigo. ¿En qué puedo servirte?"
   services: "Servicios"

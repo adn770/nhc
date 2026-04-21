@@ -352,6 +352,9 @@ pickpocket:
   steals_item: "Un pispa et pispa {item}!"
   caught_fumble: "Atrapes un pispa furgant-te la bossa."
 
+teleporter:
+  step: "Les runes espurnegen i el món es plega al teu voltant."
+
 temple:
   welcome: "Que la pau t'acompanyi. En què puc servir-te?"
   services: "Serveis"

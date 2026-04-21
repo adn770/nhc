@@ -801,6 +801,13 @@ class Level:
     interior_edges: set[tuple[int, int, str]] = field(
         default_factory=set,
     )
+    # Teleporter pad pairs keyed by tile coord. Symmetric by
+    # convention — if (a, b) maps to (c, d) then (c, d) maps back
+    # to (a, b). Stamped by the mage-residence assemblers; empty
+    # on ordinary levels.
+    teleporter_pairs: dict[
+        tuple[int, int], tuple[int, int]
+    ] = field(default_factory=dict)
 
     @classmethod
     def create_empty(cls, id: str, name: str, depth: int,

@@ -111,6 +111,12 @@ from nhc.core.actions._confirm import (
     confirm_peaceful_attack,
 )
 
+# -- Teleporter movement hook --
+from nhc.core.actions._teleport import (
+    TELEPORTER_FEATURE,
+    maybe_teleport_player,
+)
+
 # -- Temple actions --
 from nhc.core.actions._temple import (
     TempleInteractAction,

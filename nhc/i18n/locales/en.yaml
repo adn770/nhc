@@ -336,6 +336,9 @@ pickpocket:
   steals_item: "A pickpocket swipes {item} from you!"
   caught_fumble: "You catch a pickpocket fumbling at your purse."
 
+teleporter:
+  step: "The runes flare and the world folds around you."
+
 temple:
   welcome: "Peace be with you. How may I serve?"
   services: "Services"

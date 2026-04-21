@@ -3055,6 +3055,18 @@ class Game:
         # floor (surface -> building or building -> building) or
         # back to the site surface (building -> surface).
         self._maybe_traverse_building_door()
+        # Teleporter pads: step onto a pad on the current level and
+        # get whisked to the paired tile (one hop, no chaining).
+        from nhc.core.actions._teleport import maybe_teleport_player
+        if self.level is not None:
+            if maybe_teleport_player(
+                self.world, self.level, self.player_id,
+            ):
+                from nhc.core.events import MessageEvent
+                from nhc.core.actions._teleport import teleport_message
+                msg = MessageEvent(text=teleport_message())
+                await self.event_bus.emit(msg)
+                events.append(msg)
         return events
 
     async def _shop_interaction(self, merchant_id: int) -> None:
