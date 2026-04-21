@@ -76,6 +76,13 @@ FEATURE_BIOMES: dict[HexFeatureType, tuple[Biome, ...]] = {
     HexFeatureType.KEEP: (
         Biome.GREENLANDS, Biome.HILLS, Biome.DRYLANDS,
     ),
+    # HOLE is a small cave that appears in softer terrain — hills,
+    # forests, open fields. It shares the cave template with CAVE
+    # but occupies a different biome niche so the two features
+    # don't compete for the same placement pool.
+    HexFeatureType.HOLE: (
+        Biome.GREENLANDS, Biome.HILLS, Biome.FOREST,
+    ),
 }
 
 
@@ -243,6 +250,7 @@ def pick_hub(
 def _template_for(feature: HexFeatureType) -> str:
     return {
         HexFeatureType.CAVE: "procedural:cave",
+        HexFeatureType.HOLE: "procedural:cave",
         HexFeatureType.RUIN: "procedural:ruin",
         HexFeatureType.TOWER: "procedural:tower",
         HexFeatureType.GRAVEYARD: "procedural:crypt",
@@ -323,6 +331,7 @@ def place_dungeons(
         (HexFeatureType.TOWER, tuple(
             b for b in Biome if b is not Biome.WATER
         )),
+        (HexFeatureType.HOLE, FEATURE_BIOMES[HexFeatureType.HOLE]),
     ]
     # First: one of each type if possible.
     for feature, biomes in recipes:
