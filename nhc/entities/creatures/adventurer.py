@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from nhc.entities.components import (
-    AI, BlocksMovement, Description, Equipment, Health, Henchman,
-    Inventory, Renderable, Stats,
+    AI, BlocksMovement, Description, Equipment, Errand, Health,
+    Henchman, Inventory, Renderable, Stats,
 )
 from nhc.entities.registry import EntityRegistry
 from nhc.rules.advancement import (
@@ -72,6 +72,11 @@ def create_adventurer_at_level(
             name=char.name,
             short=char.name,
         ),
+        # Errand state is dormant in dungeons (the unhired wander
+        # falls through its own Brownian path) and activates only
+        # when the level theme is ``"town"``, where the henchman AI
+        # routes the tick through ``_decide_errand_action``.
+        "Errand": Errand(),
         "_starting_items": char.starting_items,
     }
 

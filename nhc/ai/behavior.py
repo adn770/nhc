@@ -174,13 +174,25 @@ def _pick_errand_destination(
 ) -> tuple[int, int] | None:
     """Pick a fresh destination for an errand NPC.
 
-    Prefers street tiles adjacent to a door feature (~40% of the
-    time) so villagers visibly gather near shops and homes; falls
-    back to any walkable street tile.
+    Order of preference:
+      1. Anchor bias (if the Errand has ``anchor_x/y`` and a roll
+         beats ``anchor_weight``) — returns a street tile within 3
+         chebyshev of the anchor.
+      2. Door-adjacent bias (~40%) — tiles next to a building door
+         so villagers visibly gather near shops and homes.
+      3. Any walkable street tile, uniform.
     """
     rng = get_rng()
+    errand = world.get_component(entity_id, "Errand")
+
     candidates: list[tuple[int, int]] = []
     door_adjacent: list[tuple[int, int]] = []
+    anchor_near: list[tuple[int, int]] = []
+    anchor = None
+    if errand and errand.anchor_x is not None \
+            and errand.anchor_y is not None:
+        anchor = (errand.anchor_x, errand.anchor_y)
+
     for y in range(level.height):
         row = level.tiles[y]
         for x in range(level.width):
@@ -189,6 +201,10 @@ def _pick_errand_destination(
             if not _errand_walkable(world, level, x, y, entity_id):
                 continue
             candidates.append((x, y))
+            if anchor is not None:
+                ax, ay = anchor
+                if max(abs(x - ax), abs(y - ay)) <= 3:
+                    anchor_near.append((x, y))
             for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
                 nx, ny = x + dx, y + dy
                 if not (0 <= nx < level.width
@@ -200,6 +216,9 @@ def _pick_errand_destination(
                     break
     if not candidates:
         return None
+    if (errand and errand.anchor_weight > 0.0
+            and anchor_near and rng.random() < errand.anchor_weight):
+        return rng.choice(anchor_near)
     if door_adjacent and rng.random() < 0.4:
         return rng.choice(door_adjacent)
     return rng.choice(candidates)

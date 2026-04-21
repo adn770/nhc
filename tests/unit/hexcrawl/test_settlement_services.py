@@ -118,17 +118,32 @@ def test_town_places_priest_in_temple_building() -> None:
     )
 
 
-def test_town_places_hirable_adventurer_in_inn() -> None:
+def test_town_places_hirable_adventurer_on_surface() -> None:
+    """Unhired adventurers stroll the town streets now — they live
+    on site.surface near the inn door, not inside the inn itself."""
     site = assemble_town(
         "t1", random.Random(1), size_class="village",
     )
     inn = _building_with_role(site, "inn")
+    inn_door = next(
+        sxy for sxy, (bid, _, _) in site.building_doors.items()
+        if bid == inn.id
+    )
     adventurers = [
-        p for p in inn.ground.entities
+        p for p in site.surface.entities
         if p.entity_id == "adventurer"
     ]
     assert len(adventurers) == 1
-    assert adventurers[0].extra.get("adventurer_level", 0) >= 1
+    adv = adventurers[0]
+    assert adv.extra.get("adventurer_level", 0) >= 1
+    assert adv.extra.get("errand_anchor") == inn_door
+    # Adventurer lands on a street tile within chebyshev 3 of the
+    # inn door — close enough for the player to spot on arrival.
+    assert max(
+        abs(adv.x - inn_door[0]),
+        abs(adv.y - inn_door[1]),
+    ) <= 3
+    assert (adv.x, adv.y) != inn_door  # not on the door itself
 
 
 def test_town_places_innkeeper_in_inn() -> None:
@@ -184,9 +199,11 @@ async def test_enter_temple_building_spawns_priest(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_enter_inn_building_spawns_hirable_adventurer(
+async def test_enter_inn_building_has_innkeeper_no_adventurer(
     tmp_path,
 ) -> None:
+    """The hireling now lives on the town surface, so entering the
+    inn spawns only the innkeeper — not an unhired adventurer."""
     g = _make_hex_game(tmp_path)
     _settle_hub(g)
     await g.enter_hex_feature()
@@ -197,7 +214,7 @@ async def test_enter_inn_building_spawns_hirable_adventurer(
         (eid, h) for eid, h in g.world.query("Henchman")
         if not h.hired
     ]
-    assert len(unhired) == 1
+    assert len(unhired) == 0
 
 
 @pytest.mark.asyncio

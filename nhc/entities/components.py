@@ -141,10 +141,19 @@ class Errand:
     they idle for a few turns (simulating a visit) and then pick a
     new destination. When both target fields are ``None`` the
     behavior picks a fresh walkable street tile.
+
+    ``anchor_x`` / ``anchor_y`` / ``anchor_weight`` let callers bias
+    destination choice toward a landmark. Used to keep unhired
+    adventurers near the inn door so the player can reliably find
+    them to hire; villagers leave the defaults (None / 0.0) and
+    wander uniformly.
     """
     target_x: int | None = None
     target_y: int | None = None
     idle_turns_remaining: int = 0
+    anchor_x: int | None = None
+    anchor_y: int | None = None
+    anchor_weight: float = 0.0
 
 
 @dataclass

@@ -267,6 +267,7 @@ def assemble_town(
     site.building_doors.update(door_map)
     paint_surface_doors(site, SurfaceType.STREET)
     _place_service_npcs(buildings, role_assignments, rng)
+    _place_surface_adventurers(site, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
     _place_surface_villagers(site, size_class, rng)
     _connect_cross_building_doors(site, roles)
@@ -669,11 +670,7 @@ def _place_service_npcs(
         elif role == "temple":
             ground.entities.append(_priest_placement(cx, cy))
         elif role == "inn":
-            ground.entities.append(_adventurer_placement(cx, cy))
-            ix, iy = safe_floor_near(
-                ground, cx + 1, cy, room,
-            )
-            ground.entities.append(_innkeeper_placement(ix, iy))
+            ground.entities.append(_innkeeper_placement(cx, cy))
 
 
 def _merchant_placement(
@@ -707,12 +704,99 @@ def _priest_placement(cx: int, cy: int) -> EntityPlacement:
     )
 
 
-def _adventurer_placement(cx: int, cy: int) -> EntityPlacement:
-    """Hirable level-1 adventurer at the inn-room centre."""
+def _adventurer_placement(
+    x: int, y: int,
+    anchor: tuple[int, int] | None = None,
+) -> EntityPlacement:
+    """Hirable level-1 adventurer.
+
+    When ``anchor`` is supplied the placement carries errand-bias
+    metadata so the spawner can wire an ``Errand`` anchor at entity
+    creation: off-duty hirelings loiter near the inn door instead
+    of drifting the entire surface.
+    """
+    extra: dict = {"adventurer_level": 1}
+    if anchor is not None:
+        extra["errand_anchor"] = anchor
+        extra["errand_weight"] = 0.5
     return EntityPlacement(
         entity_type="creature", entity_id="adventurer",
-        x=cx, y=cy, extra={"adventurer_level": 1},
+        x=x, y=y, extra=extra,
     )
+
+
+def _place_surface_adventurers(
+    site: Site,
+    role_assignments: dict[str, str],
+    rng: random.Random,
+) -> None:
+    """Spawn unhired adventurers on the street next to each inn door.
+
+    Hirelings are off-duty — they stroll the town via the errand
+    behaviour with an ~50% destination bias toward the inn door, so
+    the player can reliably find them to recruit. One per inn.
+    """
+    inn_ids = {
+        bid for bid, role in role_assignments.items() if role == "inn"
+    }
+    if not inn_ids:
+        return
+    surface = site.surface
+
+    # Reverse index: inn building id → (surface_x, surface_y)
+    # using site.building_doors (surface-side tile → (bid, _, _)).
+    inn_door_map: dict[str, tuple[int, int]] = {}
+    for sxy, (bid, _bx, _by) in site.building_doors.items():
+        if bid in inn_ids:
+            inn_door_map[bid] = sxy
+
+    occupied: set[tuple[int, int]] = {
+        (p.x, p.y) for p in surface.entities
+    }
+
+    for bid, (dx, dy) in inn_door_map.items():
+        spot = _nearest_street_tile_near(
+            surface, dx, dy, occupied,
+        )
+        if spot is None:
+            continue
+        occupied.add(spot)
+        surface.entities.append(
+            _adventurer_placement(spot[0], spot[1], anchor=(dx, dy)),
+        )
+
+
+def _nearest_street_tile_near(
+    surface: Level, cx: int, cy: int,
+    occupied: set[tuple[int, int]],
+) -> tuple[int, int] | None:
+    """Pick a walkable, feature-free STREET tile within 3 chebyshev
+    of ``(cx, cy)`` and not in ``occupied``."""
+    best: tuple[int, int] | None = None
+    best_d = 10 ** 9
+    for y in range(
+        max(0, cy - 3), min(surface.height, cy + 4),
+    ):
+        row = surface.tiles[y]
+        for x in range(
+            max(0, cx - 3), min(surface.width, cx + 4),
+        ):
+            if (x, y) == (cx, cy):
+                continue
+            if (x, y) in occupied:
+                continue
+            tile = row[x]
+            if tile.surface_type != SurfaceType.STREET:
+                continue
+            if not tile.walkable:
+                continue
+            if tile.feature is not None:
+                continue
+            d = max(abs(x - cx), abs(y - cy))
+            if d < best_d:
+                best_d = d
+                best = (x, y)
+    return best
 
 
 def _lock_shop_doors(

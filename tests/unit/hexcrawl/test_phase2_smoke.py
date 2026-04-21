@@ -81,19 +81,15 @@ async def test_phase2_full_loop(tmp_path) -> None:
     await g.enter_hex_feature()
     assert g.level is not None
     assert g.level.metadata.theme == "town"
-    # Settlement service NPCs live inside their tagged buildings
-    # now -- shop holds the merchant, inn the adventurer /
-    # innkeeper, temple the priest. They only materialise in the
-    # ECS world when the player crosses the matching door.
+    # Service NPCs (merchant, innkeeper, priest) live inside their
+    # tagged buildings and materialise when the player crosses the
+    # door. The unhired adventurer strolls the streets instead and
+    # is spawned on the surface already.
     site = g._active_site
     assert site is not None
     shop = next(
         b for b in site.buildings
         if "shop" in b.ground.rooms[0].tags
-    )
-    inn = next(
-        b for b in site.buildings
-        if "inn" in b.ground.rooms[0].tags
     )
     temple = next(
         b for b in site.buildings
@@ -113,8 +109,9 @@ async def test_phase2_full_loop(tmp_path) -> None:
     priests = [eid for eid, _ in g.world.query("TempleServices")]
     assert len(priests) == 1
 
-    # Step into the inn; hirable adventurer spawns.
-    g._swap_to_building(inn, *inn.base_rect.center)
+    # Return to the town surface; the unhired adventurer lives there.
+    surface_xy = next(iter(site.building_doors.keys()))
+    g._swap_to_site_surface(*surface_xy)
     unhired = [
         eid for eid, h in g.world.query("Henchman")
         if not h.hired

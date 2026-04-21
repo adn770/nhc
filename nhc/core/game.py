@@ -2541,6 +2541,13 @@ class Game:
                                 placement.extra["temple_services"],
                             ),
                         )
+                    anchor = placement.extra.get("errand_anchor")
+                    if anchor is not None and "Errand" in components:
+                        errand = components["Errand"]
+                        errand.anchor_x, errand.anchor_y = anchor
+                        errand.anchor_weight = placement.extra.get(
+                            "errand_weight", 0.5,
+                        )
                 elif placement.entity_type == "item":
                     components = EntityRegistry.get_item(placement.entity_id)
                     # Roll gold dice if present

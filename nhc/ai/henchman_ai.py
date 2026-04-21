@@ -434,6 +434,13 @@ def decide_unhired_wander_action(
     toward them to facilitate the encounter, stopping one tile away.
     They never willingly step onto stairs, so they remain on the
     level where they were generated until the player recruits them.
+
+    On town surfaces the unhired adventurer is off-duty and strolls
+    like a villager: delegate to the ``errand`` pipeline so they
+    path through the streets instead of bouncing randomly. Their
+    Errand component carries an inn-door anchor, so ~50% of
+    destinations cluster near the inn and the player can reliably
+    find them to hire.
     """
     from nhc.core.actions import MeleeAttackAction, MoveAction
 
@@ -456,6 +463,15 @@ def decide_unhired_wander_action(
         if status.charmed > 0:
             status.charmed -= 1
             return None
+
+    # Town surfaces: stroll via errand with inn-door anchor bias.
+    if (player_id is not None
+            and world.has_component(entity_id, "Errand")
+            and level.metadata.theme == "town"):
+        from nhc.ai.behavior import _decide_errand_action
+        return _decide_errand_action(
+            entity_id, world, level, player_id,
+        )
 
     threat = _find_threat_adjacent(entity_id, world, pos)
     if threat is not None:

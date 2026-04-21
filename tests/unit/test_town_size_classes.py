@@ -23,11 +23,21 @@ from nhc.dungeon.sites.town import (
 
 
 def _npc_ids(site: Site) -> list[str]:
+    """IDs of every building-interior service NPC.
+
+    Does not include surface-level townsfolk (villagers, pickpockets,
+    adventurers) — those live on ``site.surface.entities`` and are
+    tested separately.
+    """
     out: list[str] = []
     for b in site.buildings:
         for p in b.ground.entities:
             out.append(p.entity_id)
     return out
+
+
+def _surface_npc_ids(site: Site) -> list[str]:
+    return [p.entity_id for p in site.surface.entities]
 
 
 class TestSizeClassBuildingCounts:
@@ -126,7 +136,9 @@ class TestServiceNpcPlacement:
         assert ids.count("merchant") == 1
         assert ids.count("priest") == 1
         assert ids.count("innkeeper") == 1
-        assert ids.count("adventurer") == 1
+        # The adventurer now loiters on the street near the inn
+        # instead of inside it, so they show up in surface.entities.
+        assert _surface_npc_ids(site).count("adventurer") == 1
 
     def test_merchant_lives_in_shop_building(self):
         site = assemble_town(
@@ -166,7 +178,7 @@ class TestServiceNpcPlacement:
             "priest needs temple_services set"
         )
 
-    def test_inn_has_innkeeper_and_adventurer(self):
+    def test_inn_has_innkeeper_not_adventurer(self):
         site = assemble_town(
             "t1", random.Random(1), size_class="hamlet",
         )
@@ -176,12 +188,30 @@ class TestServiceNpcPlacement:
         )
         ids = [p.entity_id for p in inn.ground.entities]
         assert "innkeeper" in ids
-        assert "adventurer" in ids
+        assert "adventurer" not in ids
+
+    def test_adventurer_on_surface_with_inn_anchor(self):
+        """The unhired hireling lives on the street and carries the
+        inn door as its errand anchor so the player can find them."""
+        site = assemble_town(
+            "t1", random.Random(1), size_class="hamlet",
+        )
+        inn = next(
+            b for b in site.buildings
+            if "inn" in b.ground.rooms[0].tags
+        )
+        # Resolve the inn's surface-side door.
+        inn_door = next(
+            sxy for sxy, (bid, _, _) in site.building_doors.items()
+            if bid == inn.id
+        )
         adv = next(
-            p for p in inn.ground.entities
+            p for p in site.surface.entities
             if p.entity_id == "adventurer"
         )
         assert adv.extra.get("adventurer_level", 0) >= 1
+        assert adv.extra.get("errand_anchor") == inn_door
+        assert 0 < adv.extra.get("errand_weight", 0) <= 1.0
 
     def test_stable_and_training_buildings_empty(self):
         site = assemble_town(
