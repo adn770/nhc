@@ -142,6 +142,16 @@ def edge_shadow_tiles(
         x, y, dist = frontier.popleft()
         if dist >= radius:
             continue
+        # Sight doesn't propagate through walls or closed doors.
+        # The origin is exempt so a player standing on a closed
+        # door still sees their own tile and neighbours. Without
+        # this guard the BFS would happily walk along a perimeter
+        # wall column to wrap around a partial interior edge wall
+        # and light up the far room's floor tiles.
+        if (x, y) != origin:
+            tile = level.tile_at(x, y)
+            if tile is not None and tile.blocks_sight:
+                continue
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             nx, ny = x + dx, y + dy
             if not level.in_bounds(nx, ny):
