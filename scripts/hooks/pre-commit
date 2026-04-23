@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Pre-commit hook: block commits that reintroduce function-local
+# imports shadowing module-level names. Mirrors the check in
+# tests/unit/test_import_hygiene.py, but runs only over staged
+# Python files under nhc/ so it's fast on every commit.
+#
+# Install via scripts/install-hooks.sh.
+
+set -e
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+staged=$(git diff --cached --name-only --diff-filter=ACM \
+    | grep '^nhc/.*\.py$' || true)
+
+if [ -z "$staged" ]; then
+    exit 0
+fi
+
+if [ -x ".venv/bin/python3" ]; then
+    py=".venv/bin/python3"
+else
+    py="python3"
+fi
+
+# shellcheck disable=SC2086
+"$py" scripts/lint_import_shadowing.py --paths $staged

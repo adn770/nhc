@@ -68,6 +68,22 @@ cp .env.example .env   # edit with your DuckDNS token and settings
 docker-compose up -d
 ```
 
+### First-time setup (contributors)
+
+Install the project git hooks. The pre-commit hook runs
+`scripts/lint_import_shadowing.py` over staged files under `nhc/`
+and rejects commits that reintroduce function-local imports
+shadowing a module-level name -- the bug class behind the
+teleporter-pad `UnboundLocalError` regression.
+
+```bash
+./scripts/install-hooks.sh
+```
+
+The same check also runs as a regular pytest
+(`tests/unit/test_import_hygiene.py`), so CI catches it even if a
+contributor skips the hook install.
+
 ## Usage
 
 ### Terminal
