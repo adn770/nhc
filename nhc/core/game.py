@@ -429,6 +429,51 @@ class Game:
         self._death = DeathHandler(self)
         self._hex = HexSession(self)
 
+    def current_view(self) -> str:
+        """Classify the player's current view as one of the five
+        canonical names: ``hex`` / ``flower`` / ``site`` /
+        ``structure`` / ``dungeon``.
+
+        This is the single source of truth for "what is the
+        player looking at right now?". Every server-side dispatch
+        that branches on view (state message type, toolbar set,
+        allowed intents) routes through this method so the rules
+        stay coherent. See ``design/views.md`` for the rule table
+        and the rationale.
+
+        Classification (applied in order):
+
+        1. ``world_type`` is ``HEXCRAWL`` and ``level is None``:
+           the player is in the overland layer. If
+           ``hex_world.exploring_sub_hex`` is set, they're in
+           flower mode (``flower``); otherwise on the macro map
+           (``hex``).
+        2. ``level is None`` in a non-hexcrawl game: defensive
+           fallback to ``hex`` so the classifier always returns
+           a valid name.
+        3. ``level.building_id is not None``: any building floor
+           is ``structure``, regardless of whether it was reached
+           from a site or a standalone dungeon.
+        4. ``_active_site is not None`` and the current level is
+           the site's surface: ``site``.
+        5. Everything else: ``dungeon`` (covers both standalone
+           dungeon-mode levels and descents routed through a
+           site's building stairs).
+        """
+        if self.world_type is WorldType.HEXCRAWL and self.level is None:
+            hw = getattr(self, "hex_world", None)
+            if hw is not None and hw.exploring_sub_hex is not None:
+                return "flower"
+            return "hex"
+        if self.level is None:
+            return "hex"
+        if getattr(self.level, "building_id", None) is not None:
+            return "structure"
+        site = getattr(self, "_active_site", None)
+        if site is not None and self.level is site.surface:
+            return "site"
+        return "dungeon"
+
     def set_god_mode(self, enabled: bool) -> None:
         """Toggle god mode live.
 

@@ -147,3 +147,7 @@ shuffled per game seed. Show appearance until identified by use.
 Architecture, stats, and directory structure are documented in
 `design/design.md`. See also `design/` for dungeon generator,
 web client, debug tools, magic items, and typed gameplay docs.
+The player-facing view hierarchy (hex / flower / site /
+structure / dungeon) is formalised in `design/views.md`; when
+branching on "which view is the player in?" route through
+`Game.current_view()` rather than re-deriving the answer.
