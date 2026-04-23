@@ -150,7 +150,14 @@ async def test_mansion_sibling_activates_on_swap(tmp_path) -> None:
     pos = g.world.get_component(g.player_id, "Position")
     pos.x, pos.y = fx, fy
     pos.level_id = g.level.id
-    g._maybe_traverse_building_door()
+    # Traversal now requires the move direction to match the
+    # door's side (cross through the wall edge).
+    _side_to_dir = {
+        "north": (0, -1), "south": (0, 1),
+        "east": (1, 0), "west": (-1, 0),
+    }
+    cross_dx, cross_dy = _side_to_dir[g.level.tiles[fy][fx].door_side]
+    g._maybe_traverse_building_door(cross_dx, cross_dy)
     # Now self.level is target.ground.
     assert g.level is target.ground
     # The depth-keyed cache for this site points at target.

@@ -212,6 +212,18 @@ _CLOSED_DOOR_FEATURES = frozenset({
 })
 
 
+# Move-direction that represents stepping *through* a door, keyed
+# by ``Tile.door_side``. Used by :meth:`Game._maybe_traverse_building_door`
+# to reject lateral steps that end on an open door tile but walk
+# along the wall instead of crossing the edge.
+_DOOR_SIDE_CROSS_DIR: dict[str, tuple[int, int]] = {
+    "north": (0, -1),
+    "south": (0, 1),
+    "east": (1, 0),
+    "west": (-1, 0),
+}
+
+
 def _has_visible_floor_neighbor(
     x: int, y: int, visible: set[tuple[int, int]],
     level: "Level", exclude: tuple[int, int] | None = None,
@@ -1284,19 +1296,32 @@ class Game:
             pos.y = py
             pos.level_id = self.level.id
 
-    def _maybe_traverse_building_door(self) -> None:
-        """Swap the active level when the player stands on an open
+    def _maybe_traverse_building_door(
+        self, dx: int = 0, dy: int = 0,
+    ) -> None:
+        """Swap the active level when the player crosses an open
         site door.
 
-        Fires after each action resolution. If the player is on the
-        active site's surface on a door registered in
-        ``site.building_doors``, the active level swaps to the
-        target building's ground floor at the registered perimeter
-        tile. On a building ground floor, interior-door entries
-        (mansion shared walls) take precedence over the exterior
-        surface door. No-op when there is no active site, no
-        player position, or the tile under the player is not an
-        open door.
+        Called after each player-originated action with the move
+        direction. Only traverses when ``(dx, dy)`` is perpendicular
+        to the door's wall edge (``tile.door_side``) -- i.e., the
+        player's last step actually went *through* the door. A
+        lateral step that ends on the door tile but walks *along*
+        the wall is not a crossing and must not teleport. Calling
+        with ``(0, 0)`` (non-movement actions like ``WaitAction``)
+        never traverses.
+
+        Direction mapping, matching :data:`_DOOR_SIDE_CROSS_DIR`:
+        ``north`` → ``(0, -1)``, ``south`` → ``(0, 1)``,
+        ``east`` → ``(1, 0)``, ``west`` → ``(-1, 0)``. When the
+        direction matches, the player is treated as having stepped
+        onto the door tile from its wall-opposite neighbour, so
+        they've crossed the edge and we swap levels at the paired
+        coordinate registered in ``site.building_doors`` (or
+        ``site.interior_doors`` for mansion cross-building walls).
+        No-op when there is no active site, no player position,
+        the tile under the player is not an open door, or the
+        door has no valid ``door_side``.
         """
         site = self._active_site
         if site is None or self.level is None:
@@ -1307,6 +1332,9 @@ class Game:
         x, y = pos.x, pos.y
         tile = self.level.tile_at(x, y)
         if tile is None or tile.feature != "door_open":
+            return
+        expected = _DOOR_SIDE_CROSS_DIR.get(tile.door_side)
+        if expected is None or (dx, dy) != expected:
             return
         # Surface -> building entry.
         if self.level is site.surface:
@@ -2846,6 +2874,14 @@ class Game:
                 logger.debug("Turn %d: resolving %s",
                              self.turn, type(act).__name__)
                 events += await self._resolve(act)
+                # Site door-crossing: fire after each player
+                # action with its own move direction so a
+                # lateral step onto an open door tile doesn't
+                # teleport, only a step *through* the wall edge.
+                # Non-movement actions pass (0, 0) and no-op.
+                self._maybe_traverse_building_door(
+                    getattr(act, "dx", 0), getattr(act, "dy", 0),
+                )
 
             # Haste: auto-repeat movement in the same direction
             if (player_status and player_status.hasted > 0
@@ -2855,14 +2891,9 @@ class Game:
                     dx=action.dx, dy=action.dy,
                 )
                 events += await self._resolve(haste_move)
-
-            # Site door-crossing: once all player-originated
-            # actions for this turn have resolved, check whether
-            # the player is standing on an open site door and swap
-            # levels. Kept out of ``_resolve`` so that subsequent
-            # creature/haste/bonus resolves in the same turn
-            # don't re-traverse the freshly-entered door back.
-            self._maybe_traverse_building_door()
+                self._maybe_traverse_building_door(
+                    haste_move.dx, haste_move.dy,
+                )
 
             # Track when doors were opened (for auto-close) and
             # propagate open/close to any linked door pair so both
@@ -3196,6 +3227,9 @@ class Game:
             for act in actions:
                 evts = await self._resolve(act)
                 all_events += evts
+                self._maybe_traverse_building_door(
+                    getattr(act, "dx", 0), getattr(act, "dy", 0),
+                )
 
             # Phase 2b: Follow-up — if custom checks were resolved,
             # ask the GM what mechanical consequences follow
@@ -3216,13 +3250,10 @@ class Game:
                 for act in follow_actions:
                     evts = await self._resolve(act)
                     all_events += evts
-
-            # Site door-crossing: typed-mode actions are resolved
-            # inside this branch (the main-loop path does not see
-            # them), so fire the hook once here after everything
-            # the GM plan asked for is done. Mirrors the call in
-            # the classic main loop.
-            self._maybe_traverse_building_door()
+                    self._maybe_traverse_building_door(
+                        getattr(act, "dx", 0),
+                        getattr(act, "dy", 0),
+                    )
 
             # Phase 3: Narrate all outcomes together
             outcomes = self._events_to_outcomes(all_events)
