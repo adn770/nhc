@@ -769,8 +769,6 @@ class Game:
         regenerated sub-hex level. Looted items and killed creatures
         are filtered inside the populator; this method only touches
         map tiles."""
-        from nhc.dungeon.model import SurfaceType, Terrain
-
         doors = mutations.get("doors") or {}
         for coord_str, state in doors.items():
             try:
@@ -929,7 +927,6 @@ class Game:
         the player cancels a prompt. Returns a list of entity
         ids in the order picked.
         """
-        from nhc.core.actions._helpers import _entity_name
         prompt = getattr(
             self.renderer, "show_selection_menu", None,
         )
@@ -1007,8 +1004,6 @@ class Game:
         the template pipeline so re-entry restores the same Level
         instance.
         """
-        import random
-
         from nhc.dungeon.site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
 
@@ -1072,8 +1067,6 @@ class Game:
         them without re-running the assembler. The assembled Site
         is parked on :attr:`_active_site` as an O(1) handle.
         """
-        import random
-
         from nhc.dungeon.site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
 
@@ -1130,8 +1123,6 @@ class Game:
         future door-based transition can find the interior
         without re-running the assembler.
         """
-        import random
-
         from nhc.dungeon.site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
 
@@ -1199,7 +1190,6 @@ class Game:
         layout. ``tile.visible`` stays untouched -- entities and
         secrets continue to gate on the player's FOV.
         """
-        from nhc.dungeon.model import Terrain
         level = self.level
         if not (level and level.metadata and level.metadata.prerevealed):
             return
@@ -1215,8 +1205,6 @@ class Game:
         window; otherwise falls back to any FLOOR tile on the
         surface, and finally to ``(1, 1)``.
         """
-        from nhc.dungeon.model import Terrain
-
         if self.level is None:
             return
         gate_xy: tuple[int, int] | None = None
@@ -1267,8 +1255,6 @@ class Game:
         Falls back to any perimeter FLOOR tile if the door feature
         is missing, and finally to ``(1, 1)`` as a last resort.
         """
-        from nhc.dungeon.model import Terrain
-
         if self.level is None:
             return
         px, py = 1, 1
@@ -1474,7 +1460,6 @@ class Game:
     def _enter_building_descent(self) -> None:
         """Generate / restore the first floor of the active
         building's descent ``DungeonRef`` and swap ``self.level``."""
-        import random
         from nhc.hexcrawl.model import DungeonRef
         from nhc.hexcrawl.seed import dungeon_seed
 
@@ -1759,7 +1744,6 @@ class Game:
 
         # Remove the default stairs_up placed by the generator;
         # we'll place N of our own.
-        from nhc.dungeon.model import Terrain
         for y in range(self.level.height):
             for x in range(self.level.width):
                 tile = self.level.tile_at(x, y)
@@ -1853,7 +1837,6 @@ class Game:
         """
         if self.level is None:
             return
-        from nhc.dungeon.model import Terrain
         # Find stairs_up position.
         up_x = up_y = 0
         for y in range(self.level.height):
@@ -1942,7 +1925,7 @@ class Game:
         missing from the current locale, so callers don't need to
         probe themselves.
         """
-        from nhc.hexcrawl.model import HexFeatureType, MinorFeatureType
+        from nhc.hexcrawl.model import MinorFeatureType
 
         if (self._active_sub_hex is not None
                 and self.hex_world is not None):
@@ -2190,7 +2173,6 @@ class Game:
         """
         import random as _random
 
-        from nhc.hexcrawl.coords import HexCoord
         from nhc.hexcrawl.encounter import generate_encounter_arena
         from nhc.hexcrawl.encounter_pipeline import EncounterChoice
         from nhc.hexcrawl.seed import dungeon_seed
@@ -3855,7 +3837,6 @@ class Game:
         if fallen_items:
             pos = self.world.get_component(self.player_id, "Position")
             if pos:
-                from nhc.entities.registry import EntityRegistry
                 for item_id in fallen_items:
                     try:
                         comps = EntityRegistry.get_item(item_id)
@@ -3957,7 +3938,6 @@ class Game:
         Used when the player falls through a trapdoor and lands
         at an unpredictable spot.  Returns True if placed.
         """
-        from nhc.utils.rng import get_rng
         rng = get_rng()
         floors: list[tuple[int, int]] = []
         for y in range(self.level.height):

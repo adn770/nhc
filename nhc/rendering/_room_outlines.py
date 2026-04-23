@@ -572,7 +572,6 @@ def _hybrid_vertices(
     :func:`_polygon_with_gaps`, so hybrid gap handling goes
     through the same code path as octagons, pills and temples.
     """
-    from nhc.dungeon.model import Room
     from nhc.rendering._dungeon_polygon import _svg_path_to_polygon
 
     tmp_room = Room(id="_hybrid_tmp_", rect=rect, shape=shape)

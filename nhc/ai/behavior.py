@@ -77,8 +77,6 @@ def _find_attack_targets(
     Returns player and/or hired henchmen that are adjacent,
     sorted by distance (nearest first, random on tie).
     """
-    from nhc.utils.rng import get_rng
-
     targets: list[int] = []
 
     # Check player

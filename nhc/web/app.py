@@ -1867,8 +1867,6 @@ def create_app(
 
 def app_factory() -> Flask:
     """WSGI app factory for gunicorn. Reads config from env vars."""
-    import os
-
     data_dir_str = os.environ.get("NHC_DATA_DIR")
     data_dir = Path(data_dir_str) if data_dir_str else None
 
