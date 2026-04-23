@@ -106,6 +106,23 @@ if TYPE_CHECKING:
     from nhc.utils.llm import LLMBackend
 
 FOV_RADIUS = 5
+# Outdoor site surfaces (town, keep, ruin, cottage, temple courtyards
+# and sub-hex family sites) use a substantially larger sight radius so
+# wandering villagers don't pop in and out of the dungeon-scale FOV
+# disc. Flagged by ``LevelMetadata.prerevealed``.
+FOV_RADIUS_SURFACE = 12
+
+
+def _fov_radius_for_level(level) -> int:
+    """Return the sight radius appropriate for *level*.
+
+    Prerevealed surfaces see farther; every other level (dungeon,
+    building interior) uses the default dungeon radius.
+    """
+    meta = getattr(level, "metadata", None)
+    if meta is not None and getattr(meta, "prerevealed", False):
+        return FOV_RADIUS_SURFACE
+    return FOV_RADIUS
 
 DEFAULT_SHAPE_VARIETY = 0.3
 SHAPE_VARIETY_PER_DEPTH = 0.05
@@ -2706,11 +2723,12 @@ class Game:
         # for the purposes of this cast. Subtract the shadow set
         # after so rooms behind a wall stay invisible instead of
         # partially revealed.
+        radius = _fov_radius_for_level(self.level)
         edge_shadow: set[tuple[int, int]] = set()
         if self.level.interior_edges:
             from nhc.dungeon.edges import edge_shadow_tiles
             edge_shadow = edge_shadow_tiles(
-                self.level, (pos.x, pos.y), FOV_RADIUS,
+                self.level, (pos.x, pos.y), radius,
             )
 
         def is_blocking(x: int, y: int) -> bool:
@@ -2723,7 +2741,7 @@ class Game:
                 return True
             return tile.blocks_sight
 
-        visible = compute_fov(pos.x, pos.y, FOV_RADIUS, is_blocking)
+        visible = compute_fov(pos.x, pos.y, radius, is_blocking)
         # Virtual wall tiles are room floor behind the door —
         # exclude them so the room isn't partially revealed.
         visible -= blocked_tiles
