@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pytest
 
+from nhc.core.actions import WaitAction
 from nhc.core.actions._movement import MoveAction
 from nhc.core.game import Game
 from nhc.entities.registry import EntityRegistry
@@ -178,4 +179,52 @@ async def test_closed_door_does_not_trigger_crossing(tmp_path) -> None:
     surface.tiles[sy][sx].feature = "door_closed"
     _place_player(g, sx, sy)
     g._maybe_traverse_building_door()
+    assert g.level is surface
+
+
+@pytest.mark.asyncio
+async def test_resolve_does_not_call_door_traversal_hook(tmp_path) -> None:
+    """Regression: ``_resolve`` must not invoke the door-traversal
+    hook. Each player turn fires several ``_resolve`` calls
+    (player action, haste, every creature action, henchman
+    catch-up). The hook reads the *player's* position regardless
+    of the actor, so if it runs at the end of every ``_resolve``,
+    the first call correctly swaps the player out of a building
+    onto the paired surface door tile -- and the second call
+    (from a neighbouring villager's action) sees the player on a
+    surface door and swaps them right back in. The player sees a
+    flip-flop at every building entrance on any surface with
+    NPCs. Fix: keep the hook a member of ``Game`` (so existing
+    tests and typed-mode callers can still trigger it on demand)
+    but make the per-turn player-action path the sole trigger.
+    """
+    g = _make_game(tmp_path)
+    _attach_keep_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    site = g._active_site
+    surface = site.surface
+    # Stand the player on a surface door tile in the exact state
+    # left by a just-completed building exit.
+    (sx, sy), _ = next(iter(site.building_doors.items()))
+    surface.tiles[sy][sx].feature = "door_open"
+    g.level = surface
+    _place_player(g, sx, sy)
+    # Spy on the hook.
+    calls = []
+    original_hook = g._maybe_traverse_building_door
+
+    def _spy() -> None:
+        calls.append(True)
+        original_hook()
+
+    g._maybe_traverse_building_door = _spy  # type: ignore[method-assign]
+    # Resolve any action through ``_resolve`` -- before the fix
+    # this triggered the hook; after the fix it must not.
+    await g._resolve(WaitAction(actor=g.player_id))
+    assert calls == [], (
+        "_resolve called _maybe_traverse_building_door; move the "
+        "hook into the per-turn player-action path instead."
+    )
+    # And the player must still be on the surface (no sneaky
+    # implicit traversal slipped in via some other path).
     assert g.level is surface

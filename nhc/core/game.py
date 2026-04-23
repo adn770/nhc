@@ -2856,6 +2856,14 @@ class Game:
                 )
                 events += await self._resolve(haste_move)
 
+            # Site door-crossing: once all player-originated
+            # actions for this turn have resolved, check whether
+            # the player is standing on an open site door and swap
+            # levels. Kept out of ``_resolve`` so that subsequent
+            # creature/haste/bonus resolves in the same turn
+            # don't re-traverse the freshly-entered door back.
+            self._maybe_traverse_building_door()
+
             # Track when doors were opened (for auto-close) and
             # propagate open/close to any linked door pair so both
             # sides of a cross-building InteriorDoorLink stay in
@@ -3051,12 +3059,6 @@ class Game:
             if isinstance(event, MessageEvent) and event.actor is None:
                 event.actor = action.actor
             await self.event_bus.emit(event)
-        # Site door-crossing: a MoveAction that lands the player on
-        # an open door registered in the active site's door maps
-        # swaps the active level to the target building ground
-        # floor (surface -> building or building -> building) or
-        # back to the site surface (building -> surface).
-        self._maybe_traverse_building_door()
         # Teleporter pads: step onto a pad on the current level and
         # get whisked to the paired tile (one hop, no chaining).
         from nhc.core.actions._teleport import maybe_teleport_player
@@ -3214,6 +3216,13 @@ class Game:
                 for act in follow_actions:
                     evts = await self._resolve(act)
                     all_events += evts
+
+            # Site door-crossing: typed-mode actions are resolved
+            # inside this branch (the main-loop path does not see
+            # them), so fire the hook once here after everything
+            # the GM plan asked for is done. Mirrors the call in
+            # the classic main loop.
+            self._maybe_traverse_building_door()
 
             # Phase 3: Narrate all outcomes together
             outcomes = self._events_to_outcomes(all_events)
