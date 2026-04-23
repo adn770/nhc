@@ -189,6 +189,43 @@ async def test_mansion_shared_interior_door(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_step_onto_door_does_not_teleport(tmp_path) -> None:
+    """Regression: stepping *onto* an open site-door tile from an
+    adjacent floor tile must not teleport, even when the move
+    direction matches the door's side. Only a bump attempt
+    *from* the door tile (the player is already standing on it
+    and tries to move through the wall edge) should trigger a
+    level swap. Seen in production after the first door-direction
+    fix: walking a single step south onto an open surface door
+    still teleported into the building.
+    """
+    g = _make_game(tmp_path)
+    _attach_keep_site(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    site = g._active_site
+    surface = site.surface
+    (sx, sy), _ = next(iter(site.building_doors.items()))
+    surface.tiles[sy][sx].feature = "door_open"
+    _place_player(g, sx, sy)
+    # Simulate a step *onto* the door: pre-pos is the adjacent
+    # tile on the door's wall-opposite side, post-pos (current)
+    # is the door tile. Direction matches door_side -- the move
+    # that naturally lands the player on the door.
+    cross_dx, cross_dy = _SIDE_TO_DIR[surface.tiles[sy][sx].door_side]
+    g._maybe_traverse_building_door(
+        cross_dx, cross_dy,
+        sx - cross_dx, sy - cross_dy,
+    )
+    assert g.level is surface, (
+        "walking onto an open door tile teleported; traversal "
+        "must require the player to have been *already* on the "
+        "door tile (i.e., the bump stayed put -- open-door edge "
+        "bump, or closed-door open-and-stay). Step-onto does not "
+        "count."
+    )
+
+
+@pytest.mark.asyncio
 async def test_lateral_step_does_not_teleport(tmp_path) -> None:
     """Regression: only a move *through* the door's edge should
     swap levels. Previously ``_maybe_traverse_building_door``

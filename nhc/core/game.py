@@ -1297,28 +1297,45 @@ class Game:
             pos.level_id = self.level.id
 
     def _maybe_traverse_building_door(
-        self, dx: int = 0, dy: int = 0,
+        self,
+        dx: int = 0,
+        dy: int = 0,
+        pre_x: int | None = None,
+        pre_y: int | None = None,
     ) -> None:
-        """Swap the active level when the player crosses an open
-        site door.
+        """Swap the active level when the player bumps *through*
+        an open site door.
 
         Called after each player-originated action with the move
-        direction. Only traverses when ``(dx, dy)`` is perpendicular
-        to the door's wall edge (``tile.door_side``) -- i.e., the
-        player's last step actually went *through* the door. A
-        lateral step that ends on the door tile but walks *along*
-        the wall is not a crossing and must not teleport. Calling
-        with ``(0, 0)`` (non-movement actions like ``WaitAction``)
-        never traverses.
+        direction and the player's pre-action position. Traverses
+        only when both of the following hold:
 
-        Direction mapping, matching :data:`_DOOR_SIDE_CROSS_DIR`:
-        ``north`` → ``(0, -1)``, ``south`` → ``(0, 1)``,
-        ``east`` → ``(1, 0)``, ``west`` → ``(-1, 0)``. When the
-        direction matches, the player is treated as having stepped
-        onto the door tile from its wall-opposite neighbour, so
-        they've crossed the edge and we swap levels at the paired
-        coordinate registered in ``site.building_doors`` (or
-        ``site.interior_doors`` for mansion cross-building walls).
+        1. The player is *still* on the door tile after the action
+           (``(pre_x, pre_y) == current position``). I.e., they
+           were already standing on the door and their bump either
+           got blocked by the wall on the other side of the edge
+           or opened a closed door in place -- the classic
+           "second step" that actually crosses. Merely *stepping
+           onto* the door tile from an adjacent neighbour does
+           not count; the player has to land on the door and then
+           bump the edge to cross.
+        2. The move direction matches the door's ``door_side`` --
+           i.e., the bump was perpendicular to the wall carrying
+           the door, not a lateral step along it. Mapping
+           (:data:`_DOOR_SIDE_CROSS_DIR`):
+           ``north`` → ``(0, -1)``, ``south`` → ``(0, 1)``,
+           ``east`` → ``(1, 0)``, ``west`` → ``(-1, 0)``.
+           ``(0, 0)`` (non-movement actions such as ``WaitAction``)
+           never traverses.
+
+        If ``pre_x`` / ``pre_y`` are ``None``, the pre-pos gate is
+        skipped -- callers that place the player directly on a
+        door tile (tests, scripted scenarios) can invoke the hook
+        without fabricating a pre-position.
+
+        Swaps land on the paired coordinate registered in
+        ``site.building_doors`` (surface <-> building) or
+        ``site.interior_doors`` (mansion cross-building walls).
         No-op when there is no active site, no player position,
         the tile under the player is not an open door, or the
         door has no valid ``door_side``.
@@ -1330,6 +1347,9 @@ class Game:
         if pos is None:
             return
         x, y = pos.x, pos.y
+        if pre_x is not None and pre_y is not None:
+            if (pre_x, pre_y) != (x, y):
+                return
         tile = self.level.tile_at(x, y)
         if tile is None or tile.feature != "door_open":
             return
@@ -2873,14 +2893,19 @@ class Game:
             for act in actions:
                 logger.debug("Turn %d: resolving %s",
                              self.turn, type(act).__name__)
+                # Snapshot pre-action position so the door-
+                # crossing hook can tell "player bumped through
+                # the door edge while on the door tile" from
+                # "player just stepped onto an open door tile".
+                pre_pos = self.world.get_component(
+                    self.player_id, "Position",
+                )
+                pre_x = pre_pos.x if pre_pos else 0
+                pre_y = pre_pos.y if pre_pos else 0
                 events += await self._resolve(act)
-                # Site door-crossing: fire after each player
-                # action with its own move direction so a
-                # lateral step onto an open door tile doesn't
-                # teleport, only a step *through* the wall edge.
-                # Non-movement actions pass (0, 0) and no-op.
                 self._maybe_traverse_building_door(
                     getattr(act, "dx", 0), getattr(act, "dy", 0),
+                    pre_x, pre_y,
                 )
 
             # Haste: auto-repeat movement in the same direction
@@ -2890,9 +2915,14 @@ class Game:
                     actor=self.player_id,
                     dx=action.dx, dy=action.dy,
                 )
+                pre_pos = self.world.get_component(
+                    self.player_id, "Position",
+                )
+                pre_x = pre_pos.x if pre_pos else 0
+                pre_y = pre_pos.y if pre_pos else 0
                 events += await self._resolve(haste_move)
                 self._maybe_traverse_building_door(
-                    haste_move.dx, haste_move.dy,
+                    haste_move.dx, haste_move.dy, pre_x, pre_y,
                 )
 
             # Track when doors were opened (for auto-close) and
@@ -3225,10 +3255,16 @@ class Game:
             )
             all_events = []
             for act in actions:
+                pre_pos = self.world.get_component(
+                    self.player_id, "Position",
+                )
+                pre_x = pre_pos.x if pre_pos else 0
+                pre_y = pre_pos.y if pre_pos else 0
                 evts = await self._resolve(act)
                 all_events += evts
                 self._maybe_traverse_building_door(
                     getattr(act, "dx", 0), getattr(act, "dy", 0),
+                    pre_x, pre_y,
                 )
 
             # Phase 2b: Follow-up — if custom checks were resolved,
@@ -3248,11 +3284,17 @@ class Game:
                     follow_plan, self.player_id, self.world, self.level,
                 )
                 for act in follow_actions:
+                    pre_pos = self.world.get_component(
+                        self.player_id, "Position",
+                    )
+                    pre_x = pre_pos.x if pre_pos else 0
+                    pre_y = pre_pos.y if pre_pos else 0
                     evts = await self._resolve(act)
                     all_events += evts
                     self._maybe_traverse_building_door(
                         getattr(act, "dx", 0),
                         getattr(act, "dy", 0),
+                        pre_x, pre_y,
                     )
 
             # Phase 3: Narrate all outcomes together
