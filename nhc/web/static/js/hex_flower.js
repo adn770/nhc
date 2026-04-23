@@ -400,6 +400,17 @@ const HexFlower = {
     const zone = document.getElementById("map-zone");
     const container = document.getElementById("flower-container");
     if (!zone || !container || typeof GameMap === "undefined") return;
+    // User already has a remembered zoom for this view -- apply
+    // it and skip the fit (setActiveView will have done this
+    // before we got here in the happy path; keep this here for
+    // callers that hit _autoFitZoom directly).
+    if ("flower" in GameMap._zoomByView) {
+      GameMap._applyScaleToContainer(
+        "flower", GameMap._zoomByView.flower,
+      );
+      if (typeof Input !== "undefined") Input._updateZoomLabel();
+      return;
+    }
     // Use the actual hex content extent (pixel_width/height from
     // the state + one hex diameter for edge radii) instead of the
     // full padded container size — maximises the fit.
@@ -414,21 +425,8 @@ const HexFlower = {
     for (let i = 0; i < steps.length; i++) {
       if (steps[i] <= fitScale + 0.01) best = i;
     }
-    GameMap._zoomLevel = best;
-    const scale = steps[best];
-    for (const id of ["map-container", "hex-container"]) {
-      const el = document.getElementById(id);
-      if (el) {
-        el.style.transformOrigin = "0 0";
-        el.style.transform = `scale(${scale})`;
-      }
-    }
-    // Flower uses center origin for horizontal centering
-    const fc = document.getElementById("flower-container");
-    if (fc) {
-      fc.style.transformOrigin = "center top";
-      fc.style.transform = `scale(${scale})`;
-    }
+    GameMap._recordAutoFit("flower", best);
+    GameMap._applyScaleToContainer("flower", best);
     if (typeof Input !== "undefined") Input._updateZoomLabel();
   },
 
@@ -580,6 +578,9 @@ if (typeof WS !== "undefined") {
       HexGameActive = true;
     }
     /* eslint-enable no-undef */
+    // Restore the flower view's remembered zoom (no-op on first
+    // entry -- auto-fit in render() will stamp the initial value).
+    if (typeof GameMap !== "undefined") GameMap.setActiveView("flower");
     HexFlower.render(msg);
     // Switch to flower toolbar.
     if (typeof Input !== "undefined") Input.setToolbarMode("flower");

@@ -192,6 +192,11 @@ const Input = {
     // Re-apply translated tooltips to the rebuilt buttons.
     const labels = (typeof NHC !== "undefined" && NHC.labels) || {};
     this.updateToolbarLabels(labels);
+    // The toolbar rebuild created a fresh #zoom-label element
+    // hardcoded to "1.0x". Resync it with the active view's
+    // current zoom so the control doesn't drift out of sync with
+    // the CSS transform on the visible container.
+    this._updateZoomLabel();
     // Update debug panel tab visibility for the new mode.
     if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
       DebugPanel.setMode(mode);

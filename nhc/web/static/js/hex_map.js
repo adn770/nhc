@@ -294,7 +294,16 @@ const HexMap = {
     const zone = document.getElementById("map-zone");
     const container = document.getElementById("hex-container");
     if (!zone || !container || typeof GameMap === "undefined") return;
-    // Zoom to 4x and center on the player so the current tile
+    // User already has a remembered zoom for the hex view -- use
+    // that instead of re-fitting (setActiveView will typically
+    // have applied it already; keep this branch for direct
+    // callers).
+    if ("hex" in GameMap._zoomByView) {
+      GameMap._applyScaleToContainer("hex", GameMap._zoomByView.hex);
+      if (typeof Input !== "undefined") Input._updateZoomLabel();
+      return;
+    }
+    // Zoom to 2.5x and center on the player so the current tile
     // is visible when switching from flower to hex map view.
     const steps = GameMap._zoomSteps;
     const targetScale = 2.5;
@@ -302,20 +311,8 @@ const HexMap = {
     for (let i = 0; i < steps.length; i++) {
       if (steps[i] >= targetScale - 0.01) { best = i; break; }
     }
-    GameMap._zoomLevel = best;
-    const scale = steps[best];
-    for (const id of ["map-container", "hex-container"]) {
-      const el = document.getElementById(id);
-      if (el) {
-        el.style.transformOrigin = "0 0";
-        el.style.transform = `scale(${scale})`;
-      }
-    }
-    const fc = document.getElementById("flower-container");
-    if (fc) {
-      fc.style.transformOrigin = "0 0";
-      fc.style.transform = `scale(${scale})`;
-    }
+    GameMap._recordAutoFit("hex", best);
+    GameMap._applyScaleToContainer("hex", best);
     if (typeof Input !== "undefined") Input._updateZoomLabel();
   },
 
@@ -1058,6 +1055,7 @@ function _showHexOverland() {
   if (mapContainer) mapContainer.classList.add("hidden");
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.remove("hidden");
+  if (typeof GameMap !== "undefined") GameMap.setActiveView("hex");
   if (typeof Input !== "undefined") Input.setToolbarMode("hex");
 }
 
@@ -1070,6 +1068,7 @@ function _showDungeonView() {
   // flower mode must dismiss the flower view.
   const flowerContainer = document.getElementById("flower-container");
   if (flowerContainer) flowerContainer.classList.add("hidden");
+  if (typeof GameMap !== "undefined") GameMap.setActiveView("map");
   if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
 }
 
@@ -1106,17 +1105,17 @@ if (typeof WS !== "undefined") {
     }
     /* eslint-enable no-undef */
     _showDungeonView();
-    // Reset zoom to 1x for the dungeon view — hex map may
-    // have been at 3x which makes the dungeon map oversized.
-    if (typeof GameMap !== "undefined") {
-      const steps = GameMap._zoomSteps;
-      const idx = steps.indexOf(1.0);
-      if (idx >= 0) GameMap._zoomLevel = idx;
-      const mc = document.getElementById("map-container");
-      if (mc) {
-        mc.style.transformOrigin = "0 0";
-        mc.style.transform = "scale(1)";
-      }
+    // Dungeon / site / building all share the "map" view -- their
+    // zoom preference lives under that key and is restored by
+    // _showDungeonView -> GameMap.setActiveView("map"). Default
+    // for a fresh player is 1.0x, but once the user zooms we
+    // honour that choice (previously we clobbered it back to 1x
+    // on every dungeon entry).
+    if (typeof GameMap !== "undefined"
+        && !("map" in GameMap._zoomByView)) {
+      const idx = GameMap._zoomSteps.indexOf(1.0);
+      if (idx >= 0) GameMap._recordAutoFit("map", idx);
+      GameMap._applyScaleToContainer("map", idx);
       if (typeof Input !== "undefined") Input._updateZoomLabel();
     }
     // Re-arm the static draw + scroll for the next time the

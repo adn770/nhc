@@ -49,8 +49,17 @@ const GameMap = {
   mapH: 0,
   playerX: 0,
   playerY: 0,
-  _zoomLevel: 2,  // index into _zoomSteps, default 1.0x
+  _zoomLevel: 2,  // mirror of _zoomByView[_activeView]; read by UI
   _zoomSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0],
+  // Per-view zoom memory. Key: "hex" | "flower" | "map".
+  // "map" covers dungeon / site surface / site building (they all
+  // share map-container). A view is absent from the map until
+  // either the user explicitly zooms or the view's auto-fit runs
+  // for the first time in this browser. Persisted to localStorage
+  // so the player's zoom choice survives reloads.
+  _activeView: "map",
+  _zoomByView: {},
+  _ZOOM_STORAGE_KEY: "nhc.zoom.byView.v1",
   _glowAnimId: null,  // requestAnimationFrame ID for detected glow
 
   init() {
@@ -95,7 +104,107 @@ const GameMap = {
 
     console.log("GameMap.init(): canvas=", this.canvas,
                 "fog=", this.fogCanvas, "hatch=", this.hatchCanvas);
+    this._loadZoomPrefs();
     this.initTooltip();
+  },
+
+  /**
+   * Load per-view zoom preferences from localStorage. Silently
+   * ignores missing / malformed data; out-of-range indices are
+   * dropped. Runs once during GameMap.init().
+   */
+  _loadZoomPrefs() {
+    this._zoomByView = {};
+    let raw;
+    try {
+      raw = localStorage.getItem(this._ZOOM_STORAGE_KEY);
+    } catch (e) {
+      return;
+    }
+    if (!raw) return;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      return;
+    }
+    if (!parsed || typeof parsed !== "object") return;
+    const maxIdx = this._zoomSteps.length - 1;
+    for (const key of ["hex", "flower", "map"]) {
+      const v = parsed[key];
+      if (Number.isInteger(v) && v >= 0 && v <= maxIdx) {
+        this._zoomByView[key] = v;
+      }
+    }
+  },
+
+  /** Persist _zoomByView to localStorage. Best-effort. */
+  _saveZoomPrefs() {
+    try {
+      localStorage.setItem(
+        this._ZOOM_STORAGE_KEY,
+        JSON.stringify(this._zoomByView),
+      );
+    } catch (e) {
+      // ignore: quota exceeded / localStorage disabled
+    }
+  },
+
+  /**
+   * Return the DOM container element that hosts the given view's
+   * rendered content, or null if the container is missing.
+   */
+  _containerForView(view) {
+    const id = view === "hex" ? "hex-container"
+      : view === "flower" ? "flower-container"
+      : "map-container";
+    return document.getElementById(id);
+  },
+
+  /** Transform-origin convention per view. Keeps hex/flower
+   * horizontally centered and the dungeon map anchored at 0,0. */
+  _originForView(view) {
+    return view === "map" ? "0 0" : "center top";
+  },
+
+  /** Apply the scale corresponding to zoom level ``idx`` to the
+   * given view's container. Does nothing if the container is not
+   * in the DOM. */
+  _applyScaleToContainer(view, idx) {
+    const el = this._containerForView(view);
+    if (!el) return;
+    const scale = this._zoomSteps[idx];
+    el.style.transformOrigin = this._originForView(view);
+    el.style.transform = `scale(${scale})`;
+  },
+
+  /**
+   * Declare which view is now active. When a saved zoom exists
+   * for that view, apply it immediately and update the toolbar
+   * label; the view's first-entry auto-fit will then no-op. When
+   * no saved zoom exists, leave _zoomLevel untouched and let the
+   * view's own auto-fit decide the initial value.
+   */
+  setActiveView(view) {
+    if (view !== "hex" && view !== "flower" && view !== "map") return;
+    this._activeView = view;
+    if (view in this._zoomByView) {
+      const idx = this._zoomByView[view];
+      this._zoomLevel = idx;
+      this._applyScaleToContainer(view, idx);
+      if (typeof Input !== "undefined") Input._updateZoomLabel();
+    }
+  },
+
+  /**
+   * Record the initial zoom chosen by a view's auto-fit so later
+   * entries to the same view skip re-fitting and restore this
+   * value instead. Called by HexMap / HexFlower auto-fit helpers.
+   */
+  _recordAutoFit(view, idx) {
+    this._zoomByView[view] = idx;
+    this._zoomLevel = idx;
+    this._saveZoomPrefs();
   },
 
   setFloorSVG(svgString) {
@@ -328,35 +437,28 @@ const GameMap = {
   },
 
   /**
-   * Zoom the map by stepping through predefined scale levels.
+   * Zoom the currently active view. Mutates only that view's
+   * stored zoom and scales only that view's container; the other
+   * views keep their own remembered zoom. Persists to localStorage.
    * @param {number} dir — +1 to zoom in, -1 to zoom out
    */
   zoom(dir) {
+    const cur = this._zoomLevel;
     const newLevel = Math.max(0, Math.min(
-      this._zoomSteps.length - 1, this._zoomLevel + dir));
-    if (newLevel === this._zoomLevel) return;
+      this._zoomSteps.length - 1, cur + dir));
+    if (newLevel === cur) return;
     this._zoomLevel = newLevel;
-    const scale = this._zoomSteps[newLevel];
-    // Apply zoom to all containers. Dungeon uses 0 0 origin;
-    // hex and flower use center top for horizontal centering.
-    const mc = document.getElementById("map-container");
-    if (mc) {
-      mc.style.transformOrigin = "0 0";
-      mc.style.transform = `scale(${scale})`;
-    }
-    for (const id of ["hex-container", "flower-container"]) {
-      const el = document.getElementById(id);
-      if (el) {
-        el.style.transformOrigin = "center top";
-        el.style.transform = `scale(${scale})`;
-      }
-    }
-    // Centre on the player in whichever mode is active.
-    if (typeof HexFlower !== "undefined" && HexFlower._playerPx
-        && !document.getElementById("flower-container")
-            ?.classList.contains("hidden")) {
+    this._zoomByView[this._activeView] = newLevel;
+    this._saveZoomPrefs();
+    this._applyScaleToContainer(this._activeView, newLevel);
+    // Centre on the player in the active view.
+    if (this._activeView === "flower"
+        && typeof HexFlower !== "undefined"
+        && HexFlower._centerOnPlayer) {
       HexFlower._centerOnPlayer();
-    } else if (typeof HexMap !== "undefined" && HexMap._playerPx) {
+    } else if (this._activeView === "hex"
+        && typeof HexMap !== "undefined"
+        && HexMap._centerOnPlayer) {
       HexMap._centerOnPlayer();
     } else {
       this.scrollToPlayer();
