@@ -3082,7 +3082,6 @@ class Game:
             if maybe_teleport_player(
                 self.world, self.level, self.player_id,
             ):
-                from nhc.core.events import MessageEvent
                 from nhc.core.actions._teleport import teleport_message
                 msg = MessageEvent(text=teleport_message())
                 await self.event_bus.emit(msg)
