@@ -384,56 +384,55 @@ def _tier_dims(tier: str) -> tuple[int, int]:
 
 
 def test_wayside_well_small_tier_has_well_feature() -> None:
-    """WELL → small wayside site with a 'well' feature tile."""
-    from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_wayside_site,
-    )
+    """WELL → small wayside site with a 'well' feature tile.
 
-    site = generate_wayside_site(
+    Wayside now routes through :func:`nhc.sites.wayside.assemble_wayside`
+    which returns a :class:`Site`. The assertion shape stays the same:
+    small tier dims, one ``well`` feature tile on the surface."""
+    import random
+
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.wayside import assemble_wayside
+
+    site = assemble_wayside(
+        "w", random.Random(1),
         feature=MinorFeatureType.WELL,
-        biome=Biome.GREENLANDS,
-        seed=1,
         tier=SiteTier.SMALL,
     )
     w, h = _tier_dims("small")
-    assert site.level.width == w
-    assert site.level.height == h
-    # Entry tile must be walkable.
-    ex, ey = site.entry_tile
-    entry = site.level.tile_at(ex, ey)
-    assert entry is not None and entry.terrain is Terrain.FLOOR
-    # A tile somewhere on the map is tagged as the well.
+    assert site.surface.width == w
+    assert site.surface.height == h
     flagged = [
         (x, y)
         for y in range(h) for x in range(w)
-        if (t := site.level.tile_at(x, y)) and t.feature == "well"
+        if (t := site.surface.tile_at(x, y)) and t.feature == "well"
     ]
     assert len(flagged) == 1
+    # The tagged tile is walkable.
+    wx, wy = flagged[0]
+    wtile = site.surface.tile_at(wx, wy)
+    assert wtile is not None and wtile.terrain is Terrain.FLOOR
 
 
 def test_wayside_signpost_has_signpost_feature() -> None:
-    from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_wayside_site,
-    )
+    import random
 
-    site = generate_wayside_site(
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.wayside import assemble_wayside
+
+    site = assemble_wayside(
+        "w", random.Random(7),
         feature=MinorFeatureType.SIGNPOST,
-        biome=Biome.GREENLANDS,
-        seed=7,
         tier=SiteTier.SMALL,
     )
     flagged = [
         (x, y)
-        for y in range(site.level.height)
-        for x in range(site.level.width)
-        if (t := site.level.tile_at(x, y)) and t.feature == "signpost"
+        for y in range(site.surface.height)
+        for x in range(site.surface.width)
+        if (t := site.surface.tile_at(x, y)) and t.feature == "signpost"
     ]
     assert len(flagged) == 1
-    assert site.feature_tile == flagged[0]
 
 
 def test_sacred_site_medium_tier() -> None:
@@ -910,7 +909,12 @@ def test_populate_sub_hex_spawns_items(tmp_path) -> None:
 
 def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
     """Wiring check: entering a family site whose generator emits a
-    creature pops it into the ECS world with a level-scoped Position."""
+    creature pops it into the ECS world with a level-scoped Position.
+
+    Uses the sacred family (SHRINE) after the wayside unification
+    retired ``generate_wayside_site``. The populator is shared
+    across every family-SubHexSite, so the sacred monkey-patch
+    exercises the same plumbing."""
     import asyncio
 
     from nhc.hexcrawl.sub_hex_sites import (
@@ -918,22 +922,10 @@ def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
         SubHexPopulation,
         SubHexSite,
     )
-
-    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
-
-    # Monkeypatch the wayside generator so the family entry path
-    # produces a site with a known creature, without polluting the
-    # real wayside pool.
-    import nhc.core.game as game_mod
-
-    orig = game_mod.generate_wayside_site if hasattr(
-        game_mod, "generate_wayside_site",
-    ) else None
-    # Actually the generator is imported inside
-    # enter_sub_hex_family_site, so we monkeypatch at source.
     import nhc.hexcrawl.sub_hex_sites as sites_mod
 
-    real = sites_mod.generate_wayside_site
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SHRINE)
+    real = sites_mod.generate_sacred_site
 
     def fake_generator(*, feature, biome, seed, tier):
         site = real(
@@ -949,16 +941,16 @@ def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
             ),
         )
 
-    sites_mod.generate_wayside_site = fake_generator
+    sites_mod.generate_sacred_site = fake_generator
     try:
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub, "wayside", MinorFeatureType.WELL,
-                SiteTier.SMALL, Biome.GREENLANDS,
+                macro, sub, "sacred", MinorFeatureType.SHRINE,
+                SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
     finally:
-        sites_mod.generate_wayside_site = real
+        sites_mod.generate_sacred_site = real
 
     # One goblin should now live on the site level.
     goblins = [
@@ -997,34 +989,32 @@ def test_rumor_sign_feature_registered() -> None:
 
 
 def test_signpost_wayside_populates_rumor_sign(tmp_path) -> None:
-    """Generating a wayside site for ``SIGNPOST`` lands a RumorSign
-    at ``feature_tile`` in the population."""
-    from nhc.hexcrawl.model import Biome
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, generate_wayside_site,
-    )
+    """Entering a SIGNPOST wayside spawns a ``rumor_sign`` feature
+    entity on the tagged surface tile. After the wayside
+    unification, the companion entity is placed by the game
+    dispatcher (:meth:`Game._enter_sub_hex_wayside`) rather than
+    by the family generator's population list."""
+    import asyncio
 
-    site = generate_wayside_site(
-        feature=MinorFeatureType.SIGNPOST,
-        biome=Biome.GREENLANDS,
-        seed=42,
-        tier=SiteTier.SMALL,
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.SIGNPOST,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
     )
-    assert site.feature_tile is not None
     signs = [
-        (eid, xy) for eid, xy in site.population.features
-        if eid == "rumor_sign"
+        (eid, pos) for eid, pos in game.world.query("Position")
+        if pos.level_id == game.level.id
+        and game.world.has_component(eid, "RumorSign")
     ]
-    # Features go through the populator too; same list.
-    sign_npcs = [
-        (eid, xy) for eid, xy in (
-            site.population.creatures + site.population.npcs
-            + site.population.items + site.population.features
-        ) if eid == "rumor_sign"
-    ]
-    assert sign_npcs, "expected a rumor_sign in the population"
-    _, xy = sign_npcs[0]
-    assert xy == site.feature_tile
+    assert len(signs) == 1
+    _, spos = signs[0]
+    surface_tile = game.level.tile_at(spos.x, spos.y)
+    assert surface_tile is not None
+    assert surface_tile.feature == "signpost"
 
 
 def test_sign_read_action_dispenses_rumor(tmp_path) -> None:
@@ -1132,26 +1122,31 @@ def test_well_drink_feature_registered() -> None:
 
 
 def test_well_wayside_populates_well_drink(tmp_path) -> None:
-    """Generating a wayside site for ``WELL`` lands a well_drink
-    feature entity at ``feature_tile`` in the population."""
-    from nhc.hexcrawl.model import Biome
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, generate_wayside_site,
-    )
+    """Entering a WELL wayside spawns a ``well_drink`` feature
+    entity on the tagged surface tile. After the wayside
+    unification, the companion entity is placed by the game
+    dispatcher rather than the family generator's population list."""
+    import asyncio
 
-    site = generate_wayside_site(
-        feature=MinorFeatureType.WELL,
-        biome=Biome.GREENLANDS,
-        seed=42,
-        tier=SiteTier.SMALL,
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
     )
     wells = [
-        (eid, xy) for eid, xy in site.population.features
-        if eid == "well_drink"
+        (eid, pos) for eid, pos in game.world.query("Position")
+        if pos.level_id == game.level.id
+        and game.world.has_component(eid, "WellDrink")
     ]
-    assert wells, "expected a well_drink in the population"
-    _, xy = wells[0]
-    assert xy == site.feature_tile
+    assert len(wells) == 1
+    _, wpos = wells[0]
+    surface_tile = game.level.tile_at(wpos.x, wpos.y)
+    assert surface_tile is not None
+    assert surface_tile.feature == "well"
 
 
 def test_well_interact_heals_one_hp(tmp_path) -> None:
@@ -2027,7 +2022,11 @@ def _force_eviction(game, macro, sub_a, sub_b, tmp_path) -> None:
 
 def test_replay_looted_removes_item(tmp_path) -> None:
     """Loot an item at (4, 2), evict, re-enter — the populator must
-    skip the placement at that tile."""
+    skip the placement at that tile.
+
+    Switched from wayside to the sacred family after M4a retired
+    ``generate_wayside_site``; the populator's replay logic is
+    shared, so any family-SubHexSite path exercises it."""
     import asyncio
 
     from nhc.hexcrawl.sub_hex_sites import (
@@ -2036,7 +2035,9 @@ def test_replay_looted_removes_item(tmp_path) -> None:
     from nhc.entities.registry import EntityRegistry
 
     EntityRegistry.discover_all()
-    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    game, macro, sub_a = _flower_fixture(
+        tmp_path, MinorFeatureType.SHRINE,
+    )
     cell = game.hex_world.get_cell(macro)
     sub_b = next(
         c for c, sc in cell.flower.cells.items()
@@ -2045,10 +2046,9 @@ def test_replay_looted_removes_item(tmp_path) -> None:
         and sc.major_feature is HexFeatureType.NONE
     )
 
-    # Patch the wayside generator to stamp a known item on the map.
     import nhc.hexcrawl.sub_hex_sites as sites_mod
 
-    real = sites_mod.generate_wayside_site
+    real = sites_mod.generate_sacred_site
     sample_item = sorted(EntityRegistry.list_items())[0]
 
     def fake(*, feature, biome, seed, tier):
@@ -2066,28 +2066,25 @@ def test_replay_looted_removes_item(tmp_path) -> None:
             ),
         )
 
-    sites_mod.generate_wayside_site = fake
+    sites_mod.generate_sacred_site = fake
     try:
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "wayside", MinorFeatureType.WELL,
-                SiteTier.SMALL, Biome.GREENLANDS,
+                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
-        # Item should exist at (4, 2) on this level.
         before = [
             eid for eid, pos in game.world.query("Position")
             if pos.level_id == game.level.id and (pos.x, pos.y) == (4, 2)
         ]
         assert before, "precondition: item exists at (4, 2)"
-        # Record the loot.
         game._append_sub_hex_mutation("looted", [4, 2])
         _force_eviction(game, macro, sub_a, sub_b, tmp_path)
-        # Re-enter sub_a.
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "wayside", MinorFeatureType.WELL,
-                SiteTier.SMALL, Biome.GREENLANDS,
+                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
         after = [
@@ -2098,12 +2095,13 @@ def test_replay_looted_removes_item(tmp_path) -> None:
             "looted tile should not re-spawn the item on re-entry"
         )
     finally:
-        sites_mod.generate_wayside_site = real
+        sites_mod.generate_sacred_site = real
 
 
 def test_replay_killed_skips_creature(tmp_path) -> None:
     """Kill a creature at (3, 3), evict, re-enter — the populator
-    skips it via the stable-id record."""
+    skips it via the stable-id record. Sacred family stands in
+    for the retired wayside generator."""
     import asyncio
 
     from nhc.core.sub_hex_populator import populate_sub_hex_site  # noqa
@@ -2112,7 +2110,9 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
     )
     import nhc.hexcrawl.sub_hex_sites as sites_mod
 
-    game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    game, macro, sub_a = _flower_fixture(
+        tmp_path, MinorFeatureType.SHRINE,
+    )
     cell = game.hex_world.get_cell(macro)
     sub_b = next(
         c for c, sc in cell.flower.cells.items()
@@ -2121,7 +2121,7 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
         and sc.major_feature is HexFeatureType.NONE
     )
 
-    real = sites_mod.generate_wayside_site
+    real = sites_mod.generate_sacred_site
 
     def fake(*, feature, biome, seed, tier):
         site = real(
@@ -2136,12 +2136,12 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
             ),
         )
 
-    sites_mod.generate_wayside_site = fake
+    sites_mod.generate_sacred_site = fake
     try:
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "wayside", MinorFeatureType.WELL,
-                SiteTier.SMALL, Biome.GREENLANDS,
+                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
         goblins = [
@@ -2150,13 +2150,12 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
             and pos.level_id == game.level.id and (pos.x, pos.y) == (3, 3)
         ]
         assert goblins
-        # Record the kill using the populator stable id for (goblin,3,3).
         game._append_sub_hex_mutation("killed", "goblin_3_3")
         _force_eviction(game, macro, sub_a, sub_b, tmp_path)
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "wayside", MinorFeatureType.WELL,
-                SiteTier.SMALL, Biome.GREENLANDS,
+                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
         respawned = [
@@ -2168,7 +2167,7 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
             "killed creature must not re-spawn on re-entry"
         )
     finally:
-        sites_mod.generate_wayside_site = real
+        sites_mod.generate_sacred_site = real
 
 
 def test_replay_doors_restores_open_state(tmp_path) -> None:
@@ -2599,19 +2598,22 @@ def test_flower_welcome_message_mentions_x_and_L(tmp_path) -> None:
 
 
 def test_family_generators_are_deterministic() -> None:
-    """Same seed → identical level tile grid."""
+    """Same seed → identical level tile grid. Exercises the
+    sacred family generator (the wayside generator was retired in
+    M4a of sites-unification; wayside determinism is pinned
+    separately in ``tests/unit/sites/test_wayside.py``)."""
     from nhc.hexcrawl.sub_hex_sites import (
         SiteTier,
-        generate_wayside_site,
+        generate_sacred_site,
     )
 
-    s1 = generate_wayside_site(
-        feature=MinorFeatureType.WELL, biome=Biome.GREENLANDS,
-        seed=1234, tier=SiteTier.SMALL,
+    s1 = generate_sacred_site(
+        feature=MinorFeatureType.SHRINE, biome=Biome.GREENLANDS,
+        seed=1234, tier=SiteTier.MEDIUM,
     )
-    s2 = generate_wayside_site(
-        feature=MinorFeatureType.WELL, biome=Biome.GREENLANDS,
-        seed=1234, tier=SiteTier.SMALL,
+    s2 = generate_sacred_site(
+        feature=MinorFeatureType.SHRINE, biome=Biome.GREENLANDS,
+        seed=1234, tier=SiteTier.MEDIUM,
     )
     # Compare the full tile grid (terrain + feature).
     for y in range(s1.level.height):

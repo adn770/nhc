@@ -174,50 +174,13 @@ def _tag_feature(
 
 
 # ---------------------------------------------------------------------------
-# Family: wayside (well, signpost) — small tier
+# Family: wayside (well, signpost) — retired
 # ---------------------------------------------------------------------------
-
-
-def generate_wayside_site(
-    *,
-    feature: "HexFeatureType | MinorFeatureType",
-    biome: Biome,
-    seed: int,
-    tier: SiteTier,
-) -> SubHexSite:
-    """A tiny clearing with one interactable tile.
-
-    Handles WELL and SIGNPOST. The interactable tile is tagged on
-    the Level and also returned as ``feature_tile`` so the
-    dispatcher can wire the right action (rumour roll for a well,
-    rumour dispense for a signpost). SIGNPOST sites drop a
-    ``rumor_sign`` feature entity on the centrepiece so BumpAction
-    can dispatch :class:`SignReadAction`.
-    """
-    width, height = SITE_TIER_DIMS[tier]
-    rng = random.Random(seed)
-    level = _make_enclosed_level(
-        width=width, height=height,
-        level_id=f"sub_wayside_{seed}",
-        name="wayside", theme="wayside",
-    )
-    center = _central_feature_tile(width, height, rng)
-    population = SubHexPopulation()
-    if isinstance(feature, MinorFeatureType) and feature is MinorFeatureType.WELL:
-        tag = "well"
-        population.features.append(("well_drink", center))
-    elif isinstance(feature, MinorFeatureType) and feature is MinorFeatureType.SIGNPOST:
-        tag = "signpost"
-        population.features.append(("rumor_sign", center))
-    else:
-        tag = "landmark"
-    _tag_feature(level, center, tag)
-    return SubHexSite(
-        level=level,
-        entry_tile=_south_gate_entry(width, height),
-        feature_tile=center,
-        population=population,
-    )
+#
+# Waysides now route through :func:`nhc.sites.wayside.assemble_wayside`
+# and :meth:`Game._enter_sub_hex_wayside`. The family generator was
+# deleted in the sites-unification milestone 4a; keep this header
+# as a breadcrumb so grep for "wayside" still lands here.
 
 
 # ---------------------------------------------------------------------------

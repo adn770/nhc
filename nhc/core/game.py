@@ -739,7 +739,6 @@ class Game:
             generate_natural_curiosity_site,
             generate_sacred_site,
             generate_undead_site,
-            generate_wayside_site,
         )
 
         if (
@@ -748,8 +747,12 @@ class Game:
         ):
             return await self._enter_sub_hex_farm(macro, sub, biome)
 
+        if family == "wayside":
+            return await self._enter_sub_hex_wayside(
+                macro, sub, feature, biome,
+            )
+
         family_dispatch = {
-            "wayside": generate_wayside_site,
             "sacred": generate_sacred_site,
             "inhabited_settlement": (
                 generate_inhabited_settlement_site
@@ -901,6 +904,142 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    async def _enter_sub_hex_wayside(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        feature,
+        biome,
+    ) -> bool:
+        """Enter a sub-hex WELL / SIGNPOST through the unified
+        wayside assembler.
+
+        Tiny, no-building site: the surface Level carries a single
+        ``well`` / ``signpost`` / ``landmark`` feature tag and the
+        dispatcher spawns the companion entity (``well_drink`` or
+        ``rumor_sign``) on the tagged tile. Uses the sub-hex
+        cache manager (``_sub_hex_cache``) so killed / looted /
+        door-state mutations survive cache evictions, mirroring
+        the family-site path that preceded this assembler.
+        """
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SiteTier,
+            SubHexPopulation,
+            SubHexSite,
+        )
+        from nhc.sites.wayside import assemble_wayside
+
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_descent_building = None
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+
+        self._ensure_sub_hex_cache()
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
+            self._place_player_on_sub_hex_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, macro, "bespoke:wayside", sub=sub,
+        )
+        site = assemble_wayside(
+            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_wayside",
+            random.Random(seed),
+            feature=feature,
+            tier=SiteTier.SMALL,
+        )
+        self.level = site.surface
+        self._active_site = site
+        if (self.level and self.level.metadata and site.id):
+            self.level.metadata.faction = None
+
+        persisted_mutations: dict = {}
+        if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._sub_hex_cache.store(
+                cache_key, self.level, mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
+        self._site_cache[cache_key] = site
+
+        self._sub_hex_entry_tile = (
+            site.surface.width // 2, site.surface.height - 2,
+        )
+
+        # Reuse the existing populator by synthesising a SubHexSite
+        # envelope from the Site's surface + the wayside feature
+        # entity -- avoids duplicating the looted / killed
+        # mutation-replay logic here.
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
+
+        self._purge_entities_on_level(self.level.id)
+        shim_population = SubHexPopulation()
+        feature_xy = self._find_feature_tile_on(
+            site.surface, ("well", "signpost", "landmark"),
+        )
+        if feature_xy is not None:
+            entity_id = self._wayside_feature_entity_for(feature)
+            if entity_id is not None:
+                shim_population.features.append(
+                    (entity_id, feature_xy),
+                )
+        shim = SubHexSite(
+            level=site.surface,
+            entry_tile=self._sub_hex_entry_tile,
+            feature_tile=feature_xy,
+            population=shim_population,
+        )
+        populate_sub_hex_site(
+            self.world, shim, mutations=persisted_mutations,
+        )
+        self._place_player_on_sub_hex_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    @staticmethod
+    def _find_feature_tile_on(level, tags: tuple[str, ...]):
+        """Return the first tile on ``level`` whose feature tag is
+        in ``tags``, or ``None``. Scan order is deterministic
+        (row-major) so sub-hex sites with a single feature tile
+        always resolve to the same coord."""
+        for y in range(level.height):
+            for x in range(level.width):
+                t = level.tile_at(x, y)
+                if t is not None and t.feature in tags:
+                    return (x, y)
+        return None
+
+    @staticmethod
+    def _wayside_feature_entity_for(feature) -> "str | None":
+        """Map a wayside feature to its companion populator entity."""
+        from nhc.hexcrawl.model import MinorFeatureType
+
+        if feature is MinorFeatureType.WELL:
+            return "well_drink"
+        if feature is MinorFeatureType.SIGNPOST:
+            return "rumor_sign"
+        return None
 
     def _place_sub_hex_farmer(self, site) -> None:
         """Spawn the farmer NPC on a safe interior tile of the

@@ -327,8 +327,10 @@ def _sub_hex_fixture(tmp_path, feature):
 
 @pytest.mark.asyncio
 async def test_sub_hex_site_edge_exit_detected(tmp_path) -> None:
-    """Off-map move from a sub-hex family site surface counts as an
-    edge exit even though ``_active_site`` is None."""
+    """Off-map move from a sub-hex site surface counts as an edge
+    exit. After wayside unified onto the site assembler, the path
+    also parks a :class:`Site` wrapper on ``_active_site`` so the
+    walled-site surface check fires alongside the sub-hex check."""
     from nhc.hexcrawl.model import Biome, MinorFeatureType
     from nhc.hexcrawl.sub_hex_sites import SiteTier
 
@@ -338,8 +340,9 @@ async def test_sub_hex_site_edge_exit_detected(tmp_path) -> None:
         SiteTier.SMALL, Biome.GREENLANDS,
     )
     assert ok is True
-    assert g._active_site is None
     assert g._active_sub_hex == sub
+    assert g._active_site is not None
+    assert g._active_site.kind == "wayside"
     pos = g.world.get_component(g.player_id, "Position")
     assert pos is not None
     pos.x = 0
