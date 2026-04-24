@@ -337,6 +337,17 @@ class Game:
         self._floor_cache: dict[
             "int | tuple[int, int, int]", tuple
         ] = {}
+        # Assembled :class:`Site` wrappers keyed by the same
+        # ``_cache_key`` used for the surface floor. _enter_walled_site
+        # (and sibling site entries) populate this so warm-cache
+        # re-entries can restore ``_active_site`` without rebuilding
+        # the Site. Without this, ``current_view`` saw ``_active_site``
+        # as ``None`` on every second visit to a walled site and
+        # classified the player as "dungeon" -- which in turn broke
+        # building-door traversal because that reads ``site.building_doors``.
+        self._site_cache: dict[
+            "int | tuple[int, int, int]", object
+        ] = {}
         # level.id → (uuid, svg). Keyed by Level.id rather than
         # depth because site-surface Levels share depth=0 with
         # overland dungeon floors, and a building's ground floor
@@ -1136,6 +1147,12 @@ class Game:
         if cache_key in self._floor_cache:
             level, _ = self._floor_cache[cache_key]
             self.level = level
+            # Restore the Site wrapper so cross-building door
+            # traversal still has a handle after a warm-cache
+            # re-entry. Same rationale as _enter_walled_site.
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
             self._place_player_on_building_entry()
             self._update_fov()
             self._notify_floor_change(depth)
@@ -1164,6 +1181,9 @@ class Game:
                 key = (kind, coord.q, coord.r, bi, fi)
                 self._floor_cache[key] = (floor, {})
         self._active_site = site
+        # Stash the Site so warm-cache re-entries (above) can
+        # restore it without rebuilding. See _site_cache docstring.
+        self._site_cache[cache_key] = site
         self._place_player_on_building_entry()
         self._update_fov()
         self._notify_floor_change(depth)
@@ -1192,6 +1212,14 @@ class Game:
         if cache_key in self._floor_cache:
             level, _ = self._floor_cache[cache_key]
             self.level = level
+            # Restore the Site wrapper too: building-door
+            # traversal and current_view classification both
+            # read self._active_site, and without this the
+            # warm-cache re-entry looks like a standalone
+            # dungeon to the rest of the engine.
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
             self._mark_surface_explored_if_prerevealed()
             self._place_player_on_surface()
             self._place_expedition_henchmen(
@@ -1235,6 +1263,9 @@ class Game:
                 key = (kind, coord.q, coord.r, bi, fi)
                 self._floor_cache[key] = (floor, {})
         self._active_site = site
+        # Stash the Site so warm-cache re-entries (above) can
+        # restore it without rebuilding. See _site_cache docstring.
+        self._site_cache[cache_key] = site
         self._place_player_on_surface()
         self._place_expedition_henchmen(is_settlement=is_settlement)
         self._update_fov()

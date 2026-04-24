@@ -152,6 +152,66 @@ async def test_full_transition_hex_flower_site_structure_dungeon(
 
 
 @pytest.mark.asyncio
+async def test_reentering_walled_site_keeps_site_classifier(
+    tmp_path,
+) -> None:
+    """Regression: re-entering a keep/town via the floor cache
+    must still land the classifier on ``"site"``.
+
+    Production debug bundle (2026-04-24) showed a second
+    ``enter_hex_feature`` on the same town producing
+    ``state_dungeon`` frames instead of ``state_site``. Root
+    cause: ``_enter_walled_site``'s cache-hit branch
+    (``game.py`` ~line 1192) reassigns ``self.level`` but
+    never re-populates ``self._active_site``. The classifier
+    reads ``_active_site is None`` and falls through its final
+    branch -> ``"dungeon"``. Downstream consequences were bigger
+    than "wrong view label": the tile-layer dispatcher uses
+    ``site.building_doors`` to traverse into buildings, so
+    cache-hit re-entries silently broke building entry.
+
+    The fix ships with this test; both the cold-cache and
+    warm-cache paths must return ``"site"``.
+    """
+    g = _make_game(tmp_path)
+    start = g.hex_player_position
+    assert g.hex_world.exploring_hex is not None
+    _attach_keep(g, start)
+
+    # First entry: cold cache -- assembler builds the Site from
+    # scratch and stamps _active_site. This leg has always worked.
+    ok = await g.enter_hex_feature()
+    assert ok
+    assert g.current_view() == "site", (
+        "first entry should classify as site -- if this fails "
+        "the cold-cache path is also broken, not just the cache "
+        "hit"
+    )
+    first_site = g._active_site
+    assert first_site is not None
+
+    # Leave the site back to the flower view. _active_site is
+    # cleared by _exit_to_overland_sync.
+    g._exit_to_overland_sync()
+    assert g._active_site is None
+
+    # Second entry: warm cache -- the surface level is pulled
+    # straight out of _floor_cache. _active_site must be
+    # restored too, otherwise current_view() classifies the
+    # surface level as "dungeon".
+    ok2 = await g.enter_hex_feature()
+    assert ok2
+    assert g._active_site is not None, (
+        "warm-cache re-entry left _active_site unset; the "
+        "classifier can't distinguish the site surface from a "
+        "standalone dungeon level and every dispatcher that "
+        "reads _active_site (building-door traversal, etc) "
+        "breaks too"
+    )
+    assert g.current_view() == "site"
+
+
+@pytest.mark.asyncio
 async def test_leave_site_intent_returns_player_to_flower(
     tmp_path,
 ) -> None:
