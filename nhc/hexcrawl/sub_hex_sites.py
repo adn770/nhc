@@ -307,10 +307,11 @@ def generate_inhabited_settlement_site(
 ) -> SubHexSite:
     """A minor farmhouse / campsite / orchard, medium footprint.
 
-    Spawns a rumour-dispensing NPC (farmer, campsite_traveller, or
-    orchardist) one tile south of the centrepiece. Keeps the
-    centre tile walkable so the player can reach the interactable
-    feature and still bump the NPC without extra routing.
+    FARM stamps an actual farmhouse (small walled rectangle with
+    one door opening in the south wall) and puts the farmer
+    inside. ORCHARD scatters several tree tiles in a rough grid
+    around the orchardist. CAMPSITE stays an open clearing with a
+    campfire tile — sitting down under the sky is the whole point.
     """
     width, height = SITE_TIER_DIMS[tier]
     rng = random.Random(seed)
@@ -319,26 +320,108 @@ def generate_inhabited_settlement_site(
         level_id=f"sub_inhabited_{seed}",
         name="settlement", theme="settlement",
     )
-    center = _central_feature_tile(width, height, rng)
-    tag = (
-        _INHABITED_TAGS.get(feature, "farmhouse_door")
-        if isinstance(feature, MinorFeatureType)
-        else "farmhouse_door"
-    )
-    _tag_feature(level, center, tag)
     population = SubHexPopulation()
-    if isinstance(feature, MinorFeatureType):
-        npc_id = _INHABITED_NPCS.get(feature)
-        if npc_id is not None:
-            population.npcs.append(
-                (npc_id, _adjacent_walkable(width, height, center)),
-            )
+
+    if feature is MinorFeatureType.FARM:
+        door_xy, interior_xy = _stamp_farmhouse(level, rng)
+        population.npcs.append(("farmer", interior_xy))
+        feature_tile = door_xy
+    elif feature is MinorFeatureType.ORCHARD:
+        center = _central_feature_tile(width, height, rng)
+        _tag_feature(level, center, "tree")
+        _scatter_orchard_trees(level, center, rng)
+        population.npcs.append(
+            ("orchardist", _adjacent_walkable(width, height, center)),
+        )
+        feature_tile = center
+    else:
+        # CAMPSITE and any HexFeatureType fallback (unused today
+        # — no macro feature routes here — but keeps the function
+        # total over the union type).
+        center = _central_feature_tile(width, height, rng)
+        tag = (
+            _INHABITED_TAGS.get(feature, "farmhouse_door")
+            if isinstance(feature, MinorFeatureType)
+            else "farmhouse_door"
+        )
+        _tag_feature(level, center, tag)
+        if isinstance(feature, MinorFeatureType):
+            npc_id = _INHABITED_NPCS.get(feature)
+            if npc_id is not None:
+                population.npcs.append(
+                    (npc_id, _adjacent_walkable(width, height, center)),
+                )
+        feature_tile = center
+
     return SubHexSite(
         level=level,
         entry_tile=_south_gate_entry(width, height),
-        feature_tile=center,
+        feature_tile=feature_tile,
         population=population,
     )
+
+
+def _stamp_farmhouse(
+    level: Level, rng: random.Random,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Stamp a small walled farmhouse roughly north of centre.
+
+    Returns ``(door_xy, interior_xy)`` — the south-wall door tile
+    with ``farmhouse_door`` feature, and an interior tile where
+    the farmer NPC stands.
+    """
+    fw = rng.randint(5, 6)
+    fh = rng.randint(4, 5)
+    cx = level.width // 2 + rng.randint(-1, 1)
+    cy = level.height // 2 - 3 + rng.randint(-1, 1)
+    x0 = cx - fw // 2
+    y0 = cy - fh // 2
+    x1 = x0 + fw - 1
+    y1 = y0 + fh - 1
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            tile = level.tile_at(x, y)
+            if tile is None:
+                continue
+            on_border = x in (x0, x1) or y in (y0, y1)
+            tile.terrain = Terrain.WALL if on_border else Terrain.FLOOR
+    door_x = x0 + fw // 2
+    door_y = y1
+    door_tile = level.tile_at(door_x, door_y)
+    if door_tile is not None:
+        door_tile.terrain = Terrain.FLOOR
+        door_tile.feature = "farmhouse_door"
+    interior_x = x0 + fw // 2
+    interior_y = y0 + fh // 2
+    return (door_x, door_y), (interior_x, interior_y)
+
+
+def _scatter_orchard_trees(
+    level: Level, center: tuple[int, int], rng: random.Random,
+) -> None:
+    """Stamp a rough 3×3 grid of trees around ``center``.
+
+    The grid stride is ~3 tiles so the rows read as planted,
+    not random forest. The centre tile is already tagged
+    (``tree``) by the caller; this fills the other eight grid
+    slots, skipping any that fall on the perimeter or overlap
+    a non-FLOOR tile the generator may add later.
+    """
+    cx, cy = center
+    stride = 3
+    jitter = lambda: rng.randint(-1, 1)                    # noqa: E731
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            if dx == 0 and dy == 0:
+                continue
+            tx = cx + dx * stride + jitter()
+            ty = cy + dy * stride + jitter()
+            tile = level.tile_at(tx, ty)
+            if tile is None or tile.terrain is not Terrain.FLOOR:
+                continue
+            if tile.feature:
+                continue
+            tile.feature = "tree"
 
 
 # ---------------------------------------------------------------------------
