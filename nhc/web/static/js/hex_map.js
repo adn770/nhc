@@ -1076,10 +1076,10 @@ function _showMapView(view) {
   const flowerContainer = document.getElementById("flower-container");
   if (flowerContainer) flowerContainer.classList.add("hidden");
   if (typeof GameMap !== "undefined") GameMap.setActiveView(view);
-  // Toolbar mode splits into per-view sets in a later phase;
-  // today all three views share the "dungeon" toolbar so the
-  // behaviour doesn't change mid-refactor.
-  if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
+  // Each tile-layer view has its own toolbar -- site has the
+  // Leave (L) button, structure hides dig, dungeon gets the
+  // full set. See design/views.md / input.js toolbar tables.
+  if (typeof Input !== "undefined") Input.setToolbarMode(view);
 }
 
 // Wire the WS handler and toggle visibility of the hex vs dungeon

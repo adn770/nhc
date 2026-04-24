@@ -49,9 +49,23 @@ const Input = {
     "P": { intent: "dismiss_henchman", data: null },
     "Q": { intent: "quit", data: null },
     "M": { intent: "reveal_map", data: null },
+    // Leave the site for the flower view. Only valid when the
+    // active view is "site" (or "flower" -- from flower, L
+    // climbs back to the macro hex map). The per-view gate in
+    // the keyboard handler drops this keypress on every other
+    // view so pressing L inside a building or dungeon is a
+    // no-op rather than an oversight.
+    "L": { intent: "flower_exit", data: null },
   },
 
-  // Dungeon-mode toolbar actions (the full set).
+  // Per-view toolbar action sets. See design/views.md for the
+  // canonical gate table; to change what's available in a view,
+  // add/remove entries here and the input gate
+  // (_allowedOnView) updates automatically because it reads the
+  // same list. Intents listed in GLOBAL_INTENTS fire in every
+  // view and don't need to appear in any toolbar.
+
+  // Dungeon: procedural underground, full combat-capable set.
   DUNGEON_TOOLBAR: [
     { icon: "👆", intent: "pickup",     labelKey: "toolbar_pickup" },
     { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
@@ -70,6 +84,49 @@ const Input = {
     { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
     { icon: "⬇️", intent: "descend",    labelKey: "toolbar_descend" },
     { icon: "⬆️", intent: "ascend",     labelKey: "toolbar_ascend" },
+  ],
+
+  // Structure: inside a building. Stairs + door tools + item
+  // actions, but no dig (dig is dungeon-exclusive).
+  STRUCTURE_TOOLBAR: [
+    { icon: "👆", intent: "pickup",     labelKey: "toolbar_pickup" },
+    { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
+    { icon: "🧪", intent: "quaff",      labelKey: "toolbar_quaff" },
+    { icon: "📜", intent: "use_item",   labelKey: "toolbar_use_item" },
+    { icon: "⚔️", intent: "equip",      labelKey: "toolbar_equip" },
+    { icon: "🗑️", intent: "drop",       labelKey: "toolbar_drop" },
+    { icon: "🏹", intent: "throw",      labelKey: "toolbar_throw" },
+    { icon: "✨", intent: "zap",        labelKey: "toolbar_zap" },
+    { icon: "🔍", intent: "search",     labelKey: "toolbar_search" },
+    { icon: "⏳", intent: "wait",       labelKey: "toolbar_wait" },
+    { icon: "🔓", intent: "pick_lock",  labelKey: "toolbar_pick_lock" },
+    { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
+    { icon: "🚪", intent: "close_door", labelKey: "toolbar_close_door" },
+    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
+    { icon: "⬇️", intent: "descend",    labelKey: "toolbar_descend" },
+    { icon: "⬆️", intent: "ascend",     labelKey: "toolbar_ascend" },
+  ],
+
+  // Site: outdoor layer of a named location. No stairs (those
+  // live inside buildings) and no dig. The "Leave (L)" button
+  // returns to the flower view -- the only view where
+  // flower_exit is meaningful from a tile-layer context.
+  SITE_TOOLBAR: [
+    { icon: "👆", intent: "pickup",     labelKey: "toolbar_pickup" },
+    { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
+    { icon: "🧪", intent: "quaff",      labelKey: "toolbar_quaff" },
+    { icon: "📜", intent: "use_item",   labelKey: "toolbar_use_item" },
+    { icon: "⚔️", intent: "equip",      labelKey: "toolbar_equip" },
+    { icon: "🗑️", intent: "drop",       labelKey: "toolbar_drop" },
+    { icon: "🏹", intent: "throw",      labelKey: "toolbar_throw" },
+    { icon: "✨", intent: "zap",        labelKey: "toolbar_zap" },
+    { icon: "🔍", intent: "search",     labelKey: "toolbar_search" },
+    { icon: "⏳", intent: "wait",       labelKey: "toolbar_wait" },
+    { icon: "🔓", intent: "pick_lock",  labelKey: "toolbar_pick_lock" },
+    { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
+    { icon: "🚪", intent: "close_door", labelKey: "toolbar_close_door" },
+    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
+    { icon: "🗺️", intent: "flower_exit", labelKey: "toolbar_flower_exit" },
   ],
 
   // Hex overland toolbar — compact set relevant to the overland.
@@ -94,14 +151,49 @@ const Input = {
     { icon: "🎒", intent: "inventory",     labelKey: "toolbar_inventory" },
   ],
 
-  // Which toolbar is currently rendered.
+  // Intents that fire on every view regardless of toolbar.
+  // Move is always allowed -- the server interprets it per
+  // view (macro hex step, sub-hex step, tile step).
+  GLOBAL_INTENTS: new Set([
+    "move", "help", "inventory", "quit",
+    "reveal_map", "scroll_up", "scroll_down",
+  ]),
+
+  // Which toolbar is currently rendered. One of: "hex",
+  // "flower", "site", "structure", "dungeon".
   _currentToolbarMode: "dungeon",
+
+  /**
+   * Return the toolbar action list for the given view name.
+   * Unknown names fall back to the dungeon toolbar so a stale
+   * caller never ends up with an empty toolbar.
+   */
+  _toolbarForView(view) {
+    switch (view) {
+      case "hex":       return this.HEX_TOOLBAR;
+      case "flower":    return this.FLOWER_TOOLBAR;
+      case "site":      return this.SITE_TOOLBAR;
+      case "structure": return this.STRUCTURE_TOOLBAR;
+      default:          return this.DUNGEON_TOOLBAR;
+    }
+  },
+
+  /**
+   * Input gate: return true if ``intent`` may fire while the
+   * player is in the given ``view``. The check is anchored on
+   * the toolbar action lists above plus ``GLOBAL_INTENTS``, so
+   * toolbar presence and keyboard gating cannot drift apart.
+   * See design/views.md for the canonical rule table.
+   */
+  _allowedOnView(intent, view) {
+    if (this.GLOBAL_INTENTS.has(intent)) return true;
+    const toolbar = this._toolbarForView(view);
+    return toolbar.some((a) => a.intent === intent);
+  },
 
   // Alias for backward compat (debug.js etc. reads this).
   get TOOLBAR_ACTIONS() {
-    if (this._currentToolbarMode === "hex") return this.HEX_TOOLBAR;
-    if (this._currentToolbarMode === "flower") return this.FLOWER_TOOLBAR;
-    return this.DUNGEON_TOOLBAR;
+    return this._toolbarForView(this._currentToolbarMode);
   },
 
   init() {
@@ -142,6 +234,17 @@ const Input = {
       const mapping = this.KEY_MAP[e.key];
       if (mapping) {
         e.preventDefault();
+        // Per-view gate: if the intent isn't valid on the
+        // currently-active view, swallow the keypress silently.
+        // This is what keeps L from teleporting the player out
+        // of a building (or a dungeon) -- the active view is
+        // "structure" / "dungeon" there, and flower_exit isn't
+        // on their toolbar. See design/views.md.
+        const curView = (typeof GameMap !== "undefined")
+          ? GameMap._activeView : this._currentToolbarMode;
+        if (!this._allowedOnView(mapping.intent, curView)) {
+          return;
+        }
         if (mapping.intent === "inventory") {
           UI.showInventoryPanel();
         } else if (mapping.intent === "help") {
@@ -208,11 +311,7 @@ const Input = {
     if (!zone) return;
     zone.innerHTML = "";
     this._toolbarButtons = [];
-    const actions = this._currentToolbarMode === "hex"
-      ? this.HEX_TOOLBAR
-      : this._currentToolbarMode === "flower"
-        ? this.FLOWER_TOOLBAR
-        : this.DUNGEON_TOOLBAR;
+    const actions = this._toolbarForView(this._currentToolbarMode);
 
     // ── Action buttons (mode-specific) ──
     actions.forEach(({ icon, intent, labelKey }) => {
