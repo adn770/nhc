@@ -77,6 +77,13 @@ const HexFlower = {
   _playerPx: null,
   _arrowsVisible: false,
   _lastArrowCoord: null,
+  // Macro hex of the flower currently painted on the static
+  // canvases. When render() receives a state_flower for a
+  // different macro, the base / feature / fog layers are from
+  // the WRONG flower and must be repainted -- otherwise the
+  // @ glyph moves but the tiles below it stay stale, which is
+  // the "always returns to the initial hexflower" bug.
+  _lastMacro: null,
 
   /* ---- canvas management ---- */
 
@@ -443,6 +450,22 @@ const HexFlower = {
     const featCtx = feat.getContext("2d");
     const entCtx = ent.getContext("2d");
 
+    // Flower switch invalidates the static canvases. Detect it
+    // here rather than piggybacking on state_hex transitions,
+    // because the state_hex handler order was fragile: hex_map.js
+    // hid the container before hex_flower.js could observe it and
+    // reset. Keying off the payload's macro_hex is order-
+    // independent and also handles flower -> flower hops that
+    // never pass through state_hex (first-visit auto-enter).
+    const newMacro = state.macro_hex;
+    if (newMacro
+        && this._lastMacro
+        && (this._lastMacro.q !== newMacro.q
+            || this._lastMacro.r !== newMacro.r)) {
+      this.resetStatic();
+    }
+    if (newMacro) this._lastMacro = newMacro;
+
     _flowerOriginX = state.pixel_origin_x || 0;
     _flowerOriginY = state.pixel_origin_y || 0;
     const pw = state.pixel_width || 0;
@@ -592,17 +615,16 @@ if (typeof WS !== "undefined") {
   });
 
   WS.on("state_hex", () => {
-    /* When we get a state_hex, hide the flower and show hex map. */
-    const flowerC = document.getElementById("flower-container");
-    if (flowerC && !flowerC.classList.contains("hidden")) {
-      flowerC.classList.add("hidden");
-      HexFlower.resetStatic();
-      // Re-arm zoom + scroll so the hex map zooms to the player
-      // tile when coming back from flower view.
-      if (typeof HexMap !== "undefined") {
-        HexMap._scrolledOnce = false;
-      }
-    }
+    // Disable flower input when the server reports the player
+    // is back on the overland. Hiding the container, resetting
+    // HexMap._scrolledOnce, and invalidating the flower's static
+    // canvases are handled elsewhere (hex_map.js's state_hex
+    // handler for the first two; HexFlower.render's macro-change
+    // check for the third). The older visibility-gated
+    // resetStatic() lived here but silently dropped every time
+    // hex_map.js's listener ran first and hid the container --
+    // which is the default, since index.html loads hex_map.js
+    // before hex_flower.js.
     /* eslint-disable no-undef */
     if (typeof FlowerInputActive !== "undefined") {
       FlowerInputActive = false;
