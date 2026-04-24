@@ -64,6 +64,37 @@ def test_state_flower_includes_macro_hex() -> None:
     assert msg["macro_hex"] == {"q": 6, "r": 7}
 
 
+def test_state_flower_cells_carry_revealed_flag() -> None:
+    """Each sub-hex entry must carry an explicit ``revealed``
+    boolean. The client uses this to decide which cells to punch
+    out of the fog layer. If the payload were to drop this flag,
+    the client would silently leave the whole flower fogged."""
+    macro = HexCoord(6, 7)
+    w = _make_world_with_flower(macro)
+    # Reveal the center + ring 1 (seven cells) so a non-trivial
+    # subset is flagged.
+    revealed = {
+        HexCoord(0, 0),
+        HexCoord(1, 0), HexCoord(-1, 0),
+        HexCoord(0, 1), HexCoord(0, -1),
+        HexCoord(1, -1), HexCoord(-1, 1),
+    }
+    w.sub_hex_revealed[macro] = revealed
+
+    msg = build_flower_state_msg(w, player_sub=HexCoord(0, 0), turn=1)
+    cells = msg["cells"]
+    flagged_true = {
+        (c["q"], c["r"]) for c in cells if c["revealed"]
+    }
+    expected = {(c.q, c.r) for c in revealed}
+    assert flagged_true == expected, (
+        "revealed flag must mirror sub_hex_revealed exactly; "
+        "client-side fog punching keys off this per-cell bool"
+    )
+    # Every cell has the flag (true or false), never missing.
+    assert all("revealed" in c for c in cells)
+
+
 def test_state_flower_macro_hex_tracks_exploring_hex() -> None:
     """Each re-enter (e.g. overland → flower) ships the *current*
     macro. Two messages with distinct macros must report distinct

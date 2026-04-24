@@ -70,7 +70,6 @@ const _MINOR_FEATURE_GLYPHS = {  // kept for future use
 
 const HexFlower = {
   _staticDrawn: false,
-  _punchedHexes: new Set(),
   _tileCache: {},
   _fogTile: undefined,
   _arrows: null,
@@ -112,7 +111,6 @@ const HexFlower = {
 
   resetStatic() {
     this._staticDrawn = false;
-    this._punchedHexes = new Set();
     this._zoomApplied = false;
   },
 
@@ -545,16 +543,24 @@ const HexFlower = {
       this._staticDrawn = true;
     }
 
-    /* -- incremental fog punch -- */
+    /* -- fog punch -- always punch every revealed cell.
+     * An earlier version memoised punches in a Set to skip
+     * redundant draws, but state_flower arrives in pairs (one
+     * per user action + a follow-up refresh) which meant two
+     * render() calls ran concurrently. Both entered the static
+     * block before either finished, the first filled the set
+     * and punched, the second redrew fog on top of those
+     * punches but then saw a full set and skipped the
+     * re-punch -- leaving the whole flower fogged. destination-
+     * out on already-transparent pixels is idempotent, so
+     * unconditional punching is both correct and cheap (<= 19
+     * hex fills). */
     fogCtx.save();
     fogCtx.scale(FLOWER_CANVAS_SCALE, FLOWER_CANVAS_SCALE);
     for (const cell of state.cells) {
       if (!cell.revealed) continue;
-      const key = `${cell.q},${cell.r}`;
-      if (this._punchedHexes.has(key)) continue;
       const { x, y } = _flowerAxialToPixel(cell.q, cell.r);
       this._punchHex(fogCtx, x, y);
-      this._punchedHexes.add(key);
     }
     fogCtx.restore();
 
