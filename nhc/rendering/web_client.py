@@ -896,6 +896,7 @@ class WebClient(GameClient):
             "toolbar_flower_forage": tr("ui.toolbar_flower_forage"),
             "toolbar_flower_rest": tr("ui.toolbar_flower_rest"),
             "toolbar_flower_exit": tr("ui.toolbar_flower_exit"),
+            "toolbar_leave_site": tr("ui.toolbar_leave_site"),
             # Per-biome translated names
             **{
                 f"hex_biome_{b.value}": tr(f"hex.biome.{b.value}")

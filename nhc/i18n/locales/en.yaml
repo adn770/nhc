@@ -699,6 +699,7 @@ ui:
   toolbar_flower_forage: "Forage (f)"
   toolbar_flower_rest: "Rest (.)"
   toolbar_flower_exit: "Leave (L)"
+  toolbar_leave_site: "Leave (L)"
   toolbar_zoom_in: "Zoom In"
   toolbar_zoom_out: "Zoom Out"
   toolbar_restart: "Restart Game"

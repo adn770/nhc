@@ -49,13 +49,14 @@ const Input = {
     "P": { intent: "dismiss_henchman", data: null },
     "Q": { intent: "quit", data: null },
     "M": { intent: "reveal_map", data: null },
-    // Leave the site for the flower view. Only valid when the
-    // active view is "site" (or "flower" -- from flower, L
-    // climbs back to the macro hex map). The per-view gate in
-    // the keyboard handler drops this keypress on every other
-    // view so pressing L inside a building or dungeon is a
-    // no-op rather than an oversight.
-    "L": { intent: "flower_exit", data: null },
+    // L is a per-view leave action: on "site" it fires
+    // leave_site (returns to the flower view); on "flower" it
+    // fires flower_exit (returns to the overland hex map). Both
+    // intents are distinct on the server; the per-view gate in
+    // the keyboard handler resolves which one runs based on
+    // _activeView. L is a silent no-op on structure / dungeon /
+    // hex -- those views' toolbars don't carry either intent.
+    "L": { intent: "leave_site", data: null },
   },
 
   // Per-view toolbar action sets. See design/views.md for the
@@ -109,8 +110,9 @@ const Input = {
 
   // Site: outdoor layer of a named location. No stairs (those
   // live inside buildings) and no dig. The "Leave (L)" button
-  // returns to the flower view -- the only view where
-  // flower_exit is meaningful from a tile-layer context.
+  // fires leave_site, which returns to the flower view of the
+  // macro hex the site lives on -- distinct from flower_exit,
+  // which only makes sense from inside the flower view itself.
   SITE_TOOLBAR: [
     { icon: "👆", intent: "pickup",     labelKey: "toolbar_pickup" },
     { icon: "🎒", intent: "inventory",  labelKey: "toolbar_inventory" },
@@ -126,7 +128,7 @@ const Input = {
     { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
     { icon: "🚪", intent: "close_door", labelKey: "toolbar_close_door" },
     { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
-    { icon: "🗺️", intent: "flower_exit", labelKey: "toolbar_flower_exit" },
+    { icon: "🗺️", intent: "leave_site",  labelKey: "toolbar_leave_site" },
   ],
 
   // Hex overland toolbar — compact set relevant to the overland.
@@ -234,28 +236,39 @@ const Input = {
       const mapping = this.KEY_MAP[e.key];
       if (mapping) {
         e.preventDefault();
-        // Per-view gate: if the intent isn't valid on the
-        // currently-active view, swallow the keypress silently.
-        // This is what keeps L from teleporting the player out
-        // of a building (or a dungeon) -- the active view is
-        // "structure" / "dungeon" there, and flower_exit isn't
-        // on their toolbar. See design/views.md.
         const curView = (typeof GameMap !== "undefined")
           ? GameMap._activeView : this._currentToolbarMode;
-        if (!this._allowedOnView(mapping.intent, curView)) {
+        // L is a per-view "leave" action: on flower it fires
+        // flower_exit (back to overland hex); on site it fires
+        // leave_site (back to flower view of the macro hex the
+        // site sits on); elsewhere it's a silent no-op. The
+        // KEY_MAP declares leave_site as the default so the
+        // lookup table stays flat -- we swap to flower_exit
+        // only when the active view says so.
+        let intent = mapping.intent;
+        if (e.key === "L") {
+          if (curView === "flower") intent = "flower_exit";
+          else if (curView === "site") intent = "leave_site";
+          else return;
+        }
+        // Per-view gate: swallow intents that aren't valid on
+        // the active view. This is what keeps e.g. dig from
+        // firing on the site surface -- the intent isn't in
+        // SITE_TOOLBAR. See design/views.md.
+        if (!this._allowedOnView(intent, curView)) {
           return;
         }
-        if (mapping.intent === "inventory") {
+        if (intent === "inventory") {
           UI.showInventoryPanel();
-        } else if (mapping.intent === "help") {
+        } else if (intent === "help") {
           UI.showHelp();
         } else {
           const sent = Input._maybeAutodig(mapping);
           if (!sent) {
-            Input._beforeSendAction(mapping.intent);
+            Input._beforeSendAction(intent);
             WS.send({
               type: "action",
-              intent: mapping.intent,
+              intent: intent,
               data: mapping.data,
             });
           }

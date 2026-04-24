@@ -717,6 +717,7 @@ ui:
   toolbar_flower_forage: "Recol·lectar (f)"
   toolbar_flower_rest: "Descansar (.)"
   toolbar_flower_exit: "Sortir (L)"
+  toolbar_leave_site: "Sortir (L)"
   toolbar_zoom_in: "Ampliar"
   toolbar_zoom_out: "Reduir"
   toolbar_restart: "Reiniciar partida"

@@ -3245,6 +3245,23 @@ class Game:
                     "You return to the overland.",
                 )
             return []
+        # Leave-site intent (Shift-L on the site surface toolbar).
+        # Routes through the same _exit_to_overland_sync helper
+        # as hex_exit / site-edge-exit, which puts the player
+        # back in the flower view of the macro hex the site
+        # lives on. Distinct intent name so the five-view input
+        # gate in input.js stays narrow: L on structure / dungeon
+        # must remain a no-op, so it can't piggy-back on hex_exit
+        # (which is meaningful on those views for the terminal
+        # client).
+        if (intent == "leave_site"
+                and self.world_type is WorldType.HEXCRAWL):
+            ok = await self.exit_dungeon_to_hex()
+            if ok:
+                self.renderer.add_message(
+                    "You leave the area.",
+                )
+            return []
         # Panic-flee: works from anywhere in the crawl, costs 1d6
         # HP + one day-clock segment. The game-over dialog fires
         # naturally if the HP roll floors the player at 1.

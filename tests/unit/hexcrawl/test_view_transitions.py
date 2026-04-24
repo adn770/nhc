@@ -149,3 +149,66 @@ async def test_full_transition_hex_flower_site_structure_dungeon(
     g.level = None
     g._active_site = None
     assert g.current_view() == "hex"
+
+
+@pytest.mark.asyncio
+async def test_leave_site_intent_returns_player_to_flower(
+    tmp_path,
+) -> None:
+    """Regression: pressing Leave (**L**) on a site surface must
+    transition the player back to the flower view of the macro
+    hex the site lives on -- not strand them on the site.
+
+    Production debug bundle (2026-04-24) showed the intent
+    ``flower_exit`` arriving on the server while the player was
+    on a site surface, followed immediately by another
+    ``state_site`` frame: the tile-layer input dispatcher
+    silently dropped the intent because ``flower_exit`` is only
+    wired in the flower-mode input path. The fix introduces a
+    distinct ``leave_site`` intent handled in the tile-layer
+    dispatcher, which calls ``_exit_to_overland_sync`` -- the
+    same helper that powers site-edge-exit, so the post-leave
+    state ends up in the flower view (the path the player came
+    in on) rather than the bare overland map.
+    """
+    from unittest.mock import AsyncMock
+
+    g = _make_game(tmp_path)
+    # HEX_EASY places the player inside the hub's flower, so
+    # ``hex_world.exploring_hex`` is already set -- that's the
+    # signal ``_exit_to_overland_sync`` reads to route back to
+    # flower instead of the bare overland. We preserve that
+    # state and just attach a keep to the current hex before
+    # entering it.
+    start = g.hex_player_position
+    assert g.hex_world.exploring_hex is not None, (
+        "fixture precondition: entering a feature from flower "
+        "mode must preserve exploring_hex so the return path "
+        "knows where to restore the player to"
+    )
+    _attach_keep(g, start)
+    ok = await g.enter_hex_feature()
+    assert ok
+    assert g.current_view() == "site", (
+        "fixture should land the player on a keep surface "
+        "before exercising the leave_site dispatch"
+    )
+
+    # Fire the intent through the real dispatcher. Mock
+    # renderer.get_input to return the intent we want; the real
+    # implementation would have picked this up from a Shift-L
+    # keypress via input.js.
+    g.renderer.get_input = AsyncMock(return_value=("leave_site", None))
+    actions = await g._get_classic_actions()
+    assert actions == [], (
+        "leave_site is handled directly in the dispatcher and "
+        "should short-circuit with an empty action list"
+    )
+    assert g.current_view() == "flower", (
+        "pressing Leave (L) on the site must drop us back in "
+        "the flower view, not leave the site state unchanged"
+    )
+    # Sanity: the level and active site are cleared, just like
+    # the equivalent site-edge-exit flow.
+    assert g.level is None
+    assert g._active_site is None
