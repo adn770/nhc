@@ -29,14 +29,21 @@ const DebugPanel = {
     secrets: false,
   },
 
-  // Tab definitions — extensible.
-  // `mode`: "dungeon", "hex", or "both" controls visibility when
-  // the toolbar mode switches.
+  // Tab definitions — extensible. ``modes`` lists the view
+  // names the tab is visible in. The tile-layer tabs (Layers,
+  // Map Gen) apply to any of site / structure / dungeon since
+  // those three share the map-container. See design/views.md.
   _tabs: [
-    { name: "Layers",     buildFn: "_buildLayersTab",    mode: "dungeon" },
-    { name: "Map Gen",    buildFn: "_buildMapGenTab",    mode: "dungeon" },
-    { name: "Hex Layers", buildFn: "_buildHexLayersTab", mode: "hex" },
-    { name: "Hex Gen",    buildFn: "_buildHexGenTab",    mode: "hex" },
+    {
+      name: "Layers", buildFn: "_buildLayersTab",
+      modes: ["site", "structure", "dungeon"],
+    },
+    {
+      name: "Map Gen", buildFn: "_buildMapGenTab",
+      modes: ["site", "structure", "dungeon"],
+    },
+    { name: "Hex Layers", buildFn: "_buildHexLayersTab", modes: ["hex"] },
+    { name: "Hex Gen",    buildFn: "_buildHexGenTab",    modes: ["hex"] },
   ],
 
   // Hex layer visibility state (mirrors the dungeon `layers`
@@ -173,14 +180,14 @@ const DebugPanel = {
       && Input._currentToolbarMode) || "dungeon";
     let firstVisible = true;
     this._tabs.forEach((tab) => {
-      const visible = tab.mode === "both" || tab.mode === currentMode;
+      const visible = tab.modes.includes(currentMode);
       const active = visible && firstVisible;
       if (active) firstVisible = false;
       const entry = this._addTab(
         tab.name, this[tab.buildFn](), active,
       );
       if (entry) {
-        entry.mode = tab.mode;
+        entry.modes = tab.modes;
         if (!visible) {
           entry.tabBtn.style.display = "none";
           entry.pane.classList.remove("active");
@@ -200,10 +207,14 @@ const DebugPanel = {
 
   /** Update tab visibility when toolbar mode changes. */
   setMode(mode) {
+    /* Adjust debug-tab visibility when the active view changes.
+       ``mode`` is one of the five canonical view names. A tab
+       stays visible when its ``modes`` list contains the new
+       view. */
     if (!this._tabEntries) return;
     let activated = false;
     for (const entry of this._tabEntries) {
-      const show = entry.mode === "both" || entry.mode === mode;
+      const show = entry.modes.includes(mode);
       entry.tabBtn.style.display = show ? "" : "none";
       if (!show) {
         entry.tabBtn.classList.remove("active");
