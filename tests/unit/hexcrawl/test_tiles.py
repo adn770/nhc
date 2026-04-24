@@ -152,6 +152,66 @@ def test_assign_tile_slot_water_ignores_feature() -> None:
     assert slot == 5
 
 
+def test_assign_tile_slot_minor_farm_in_greenlands_uses_farm_art() -> None:
+    """A sub-cell whose ``major`` is none and whose ``minor`` is
+    ``farm`` should render with slot 26 (``farms.png``) so the
+    flower art advertises the feature the player can enter."""
+    slot = assign_tile_slot(
+        "greenlands", "none", 0, 0, False, minor_feature="farm",
+    )
+    assert slot == 26
+
+
+def test_assign_tile_slot_minor_mushroom_ring_uses_mushrooms_art() -> None:
+    slot = assign_tile_slot(
+        "forest", "none", 0, 0, False,
+        minor_feature="mushroom_ring",
+    )
+    assert slot == 48
+
+
+def test_assign_tile_slot_minor_standing_stone_uses_standing_stones_art() -> None:
+    slot = assign_tile_slot(
+        "hills", "none", 0, 0, False,
+        minor_feature="standing_stone",
+    )
+    assert slot == 51
+
+
+def test_assign_tile_slot_minor_cairn_uses_stones_art() -> None:
+    """CAIRN minor reuses slot 25 (``stones.png``) — the same art
+    the ``stones`` major may pick. Semantically consistent: the
+    player sees a pile of stones either way and the entry
+    dispatcher routes to a sacred-site generator in both cases."""
+    slot = assign_tile_slot(
+        "mountain", "none", 0, 0, False, minor_feature="cairn",
+    )
+    assert slot == 25
+
+
+def test_assign_tile_slot_major_overrides_minor() -> None:
+    """When both are set, the major feature wins — otherwise a
+    bespoke site like a town would be hidden behind a minor-farm
+    tile."""
+    slot = assign_tile_slot(
+        "greenlands", "city", 0, 0, False, minor_feature="farm",
+    )
+    assert slot == 12  # city
+
+
+def test_assign_tile_slot_unmapped_minor_falls_back_to_base_palette() -> None:
+    """Minors without tile art (well, shrine, signpost, ...)
+    leave the tile as a neutral biome texture. The flower
+    renderer is free to add glyph overlays later without the
+    backend lying about the tile."""
+    slot = assign_tile_slot(
+        "greenlands", "none", 0, 0, False, minor_feature="well",
+    )
+    # WELL has no _FEATURE_TILES entry, so slot comes from the
+    # greenlands base palette.
+    assert slot in {s for s, _ in BIOME_BASE_SLOTS["greenlands"]}
+
+
 def test_base_palettes_do_not_alias_feature_slots() -> None:
     """Regression: user reported a ``farm`` tile in the flower that
     actually housed a ``well``. Root cause: ``greenlands`` base

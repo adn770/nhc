@@ -55,7 +55,7 @@ BIOME_BASE_SLOTS: dict[str, list[tuple[int, int]]] = {
     ],
     "forest": [
         (2, 20), (41, 18), (4, 15), (42, 12), (47, 8), (45, 7),
-        (43, 5), (6, 4), (48, 3), (50, 3), (20, 3),
+        (43, 5), (6, 4), (50, 3), (20, 3),
     ],
     "mountain": [
         (9, 18), (61, 15), (62, 14), (69, 10), (66, 8), (79, 7),
@@ -154,6 +154,21 @@ _FEATURE_TILES: dict[str, dict[str, list[int]]] = {
     "portal":    {"greenlands": [8]},
     "lake":      {"greenlands": [10]},
     "river":     {"greenlands": [7]},
+
+    # Minor-feature entries. The four minors below have tile art
+    # that matches their gameplay footprint (a farm, a mushroom
+    # ring, a standing stone, a cairn). Every biome that carries
+    # the minor in its ``_MINOR_POOLS`` entry also ships a PNG for
+    # the listed slot (verified by the biome-specific files under
+    # ``hextiles/<biome>/``). The remaining minors (well, shrine,
+    # signpost, campsite, orchard, animal_den, hollow_log,
+    # herb_patch, bone_pile, lair, nest, burrow) have no matching
+    # art yet, so they stay on the biome base palette. ``farm`` is
+    # shared with the MAJOR farm entry above — same art at both
+    # scales (macro-farm site vs. sub-hex farmhouse).
+    "cairn":          {"greenlands": [25]},
+    "mushroom_ring":  {"greenlands": [48]},
+    "standing_stone": {"greenlands": [51]},
 }
 
 
@@ -237,20 +252,36 @@ def assign_tile_slot(
     q: int,
     r: int,
     has_waterway: bool = False,
+    minor_feature: str = "none",
 ) -> int:
     """Assign the tile slot for a hex cell.
 
     Called during world generation after rivers/roads are routed.
     When *has_waterway* is True, dense canopy slots are excluded
     so waterways remain visible.
+
+    ``feature`` is the primary (macro or sub-hex ``major``) feature
+    and wins if set. ``minor_feature`` only influences the result
+    when ``feature`` is ``"none"`` AND the minor has a matching
+    entry in ``_FEATURE_TILES`` (currently farm, cairn,
+    mushroom_ring, standing_stone) — minors without tile art fall
+    through to the biome base palette so the renderer can overlay
+    a glyph later without the backend lying about the tile.
     """
     # Water is a single-tile biome.
     if biome == "water":
         return 5
 
-    # Feature hexes use feature-specific slots.
+    # Major-feature cells use feature-specific slots.
     if feature and feature != "none":
         variants = feature_variants(feature, biome)
+        if variants:
+            idx = hex_hash(q, r) % len(variants)
+            return variants[idx]
+
+    # Fall back to a minor feature's art when major is absent.
+    if minor_feature and minor_feature != "none":
+        variants = feature_variants(minor_feature, biome)
         if variants:
             idx = hex_hash(q, r) % len(variants)
             return variants[idx]

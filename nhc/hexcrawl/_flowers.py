@@ -899,7 +899,11 @@ def generate_flower(
     _stamp_crossroad_signposts(cells)
 
     # 7. Tile slots: assign after rivers/roads so waterway
-    # sub-hexes get lighter tile variants.
+    # sub-hexes get lighter tile variants. ``minor_feature`` is
+    # forwarded so featureless sub-cells carrying a minor with
+    # matching art (farm, cairn, mushroom_ring, standing_stone)
+    # render that art instead of a neutral biome tile — otherwise
+    # the flower map hides minor features the player can enter.
     from nhc.hexcrawl.tiles import assign_tile_slot
     for c, sc in cells.items():
         has_ww = sc.has_river or sc.has_road
@@ -907,6 +911,7 @@ def generate_flower(
             sc.biome.value,
             sc.major_feature.value,
             c.q, c.r, has_ww,
+            minor_feature=sc.minor_feature.value,
         )
 
     # 7. Pre-compute fast-travel costs
