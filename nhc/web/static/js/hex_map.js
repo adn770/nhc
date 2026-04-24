@@ -965,18 +965,13 @@ function hexKeyHandler(ev) {
   if (tag === "INPUT" || tag === "TEXTAREA") return;
   const key = ev.key;
 
-  // Shift-L ("L") routes by context: inside the flower it
-  // returns to the overland; in a dungeon / settlement / cave it
-  // exits back to the overland. Fires while HexInputActive is
-  // false so it works with the dungeon canvases in front.
-  // Lowercase "l" stays bound to the dungeon's "move east" in
-  // input.js.
-  if (HexGameActive && key === "L") {
-    const intent = FlowerInputActive ? "flower_exit" : "hex_exit";
-    WS.send({type: "action", intent, data: null});
-    ev.preventDefault();
-    return;
-  }
+  // The Shift-L binding now lives in input.js KEY_MAP, gated by
+  // Input._allowedOnView so it only fires on views whose toolbar
+  // carries flower_exit (flower + site in the current model).
+  // A second handler here would double-fire the WS action --
+  // that's how pressing L on the site sent both hex_exit AND
+  // flower_exit in the same tick until this block was removed.
+  //
   // Shift+F panic-flees a dungeon from anywhere at a HP/clock
   // cost. Mirrors the terminal binding in input.py so muscle
   // memory carries between frontends.
@@ -1016,12 +1011,9 @@ function hexKeyHandler(ev) {
       ev.preventDefault();
       return;
     }
-    // L = leave flower, return to hexmap
-    if (key === "L") {
-      WS.send({type: "action", intent: "flower_exit", data: null});
-      ev.preventDefault();
-      return;
-    }
+    // L (leave flower -> hex overland) is handled by the
+    // input.js KEY_MAP now; a second dispatch here would
+    // double-fire the flower_exit action.
     return;
   }
 
