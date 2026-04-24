@@ -11,6 +11,7 @@ from nhc.hexcrawl.tiles import (
     BIOME_BASE_SLOTS,
     DENSE_SLOTS,
     SLOT_NAME,
+    _FEATURE_TILES,
     assign_tile_slot,
     feature_variants,
     hex_hash,
@@ -149,3 +150,25 @@ def test_assign_tile_slot_water_ignores_feature() -> None:
     """Water biome always uses slot 5 regardless of feature."""
     slot = assign_tile_slot("water", "tower", 0, 0, False)
     assert slot == 5
+
+
+def test_base_palettes_do_not_alias_feature_slots() -> None:
+    """Regression: user reported a ``farm`` tile in the flower that
+    actually housed a ``well``. Root cause: ``greenlands`` base
+    palette included slot 26 (farms) at 10 % weight. Any slot used
+    as a primary feature tile must NOT appear in a biome's base
+    palette — otherwise a featureless sub-hex can display tile art
+    that advertises a feature the gameplay code never generated."""
+    feature_slots: set[int] = set()
+    for slots_by_biome in _FEATURE_TILES.values():
+        for slots in slots_by_biome.values():
+            feature_slots.update(slots)
+    offenders: dict[str, list[int]] = {}
+    for biome, pairs in BIOME_BASE_SLOTS.items():
+        bad = sorted({s for s, _ in pairs} & feature_slots)
+        if bad:
+            offenders[biome] = bad
+    assert not offenders, (
+        "base-palette slots shadow feature slots — featureless "
+        f"cells would render as features: {offenders}"
+    )
