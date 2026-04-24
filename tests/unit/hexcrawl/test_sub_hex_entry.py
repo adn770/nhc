@@ -457,21 +457,23 @@ def test_sacred_site_medium_tier() -> None:
     assert entry is not None and entry.terrain is Terrain.FLOOR
 
 
-def test_inhabited_settlement_farm_medium_tier() -> None:
+def test_inhabited_settlement_rejects_farm_feature() -> None:
+    """FARM routes through the unified farm assembler; the family
+    generator raises so stale callers fail loudly."""
+    import pytest
+
     from nhc.hexcrawl.sub_hex_sites import (
         SiteTier,
         generate_inhabited_settlement_site,
     )
 
-    site = generate_inhabited_settlement_site(
-        feature=MinorFeatureType.FARM,
-        biome=Biome.GREENLANDS,
-        seed=1,
-        tier=SiteTier.MEDIUM,
-    )
-    w, h = _tier_dims("medium")
-    assert (site.level.width, site.level.height) == (w, h)
-    assert site.entry_tile is not None
+    with pytest.raises(ValueError):
+        generate_inhabited_settlement_site(
+            feature=MinorFeatureType.FARM,
+            biome=Biome.GREENLANDS,
+            seed=1,
+            tier=SiteTier.MEDIUM,
+        )
 
 
 def test_animal_den_medium_tier() -> None:
@@ -1347,14 +1349,16 @@ def test_new_rumor_vendor_creatures_registered() -> None:
 
 def test_inhabited_settlement_populates_matching_npc(tmp_path) -> None:
     """The inhabited-settlement generator places the right NPC next
-    to the centrepiece based on ``feature``."""
+    to the centrepiece based on ``feature``. FARM now routes through
+    the unified farm assembler and :meth:`Game._enter_sub_hex_farm`;
+    its farmer is placed by the dispatcher, not the family
+    generator, so this test only covers CAMPSITE and ORCHARD."""
     from nhc.hexcrawl.model import Biome
     from nhc.hexcrawl.sub_hex_sites import (
         SiteTier, generate_inhabited_settlement_site,
     )
 
     mapping = {
-        MinorFeatureType.FARM: "farmer",
         MinorFeatureType.CAMPSITE: "campsite_traveller",
         MinorFeatureType.ORCHARD: "orchardist",
     }
@@ -1374,7 +1378,14 @@ def test_inhabited_settlement_populates_matching_npc(tmp_path) -> None:
 
 def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
     """A bump onto the farmer dispatches the rumor-vendor flow and
-    emits a MessageEvent with the next overland rumour."""
+    emits a MessageEvent with the next overland rumour.
+
+    After the sub-hex FARM unification (M3), the farmer lives
+    inside the farmhouse's ground floor — the dispatcher lands
+    the player on the surface (the field) and the farmer is one
+    door away. The test swaps the active level to the farmhouse
+    interior so the bump can resolve in place without simulating
+    a door traversal."""
     import asyncio
 
     from nhc.core.actions import BumpAction
@@ -1392,9 +1403,15 @@ def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
             SiteTier.MEDIUM, Biome.GREENLANDS,
         ),
     )
+    # Sub-hex FARM now returns a farm Site whose surface (the
+    # field) is the active level; the farmer NPC is placed inside
+    # the farmhouse's ground floor. Swap the active level to the
+    # farmhouse so the bump resolves in one step.
+    farmhouse_ground = game._active_site.buildings[0].ground
+    game.level = farmhouse_ground
     farmers = [
         (eid, pos) for eid, pos in game.world.query("Position")
-        if pos.level_id == game.level.id
+        if pos.level_id == farmhouse_ground.id
         and game.world.has_component(eid, "RumorVendor")
     ]
     assert len(farmers) == 1
@@ -1403,6 +1420,7 @@ def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
     player_pos = game.world.get_component(game.player_id, "Position")
     player_pos.x = fpos.x - 1
     player_pos.y = fpos.y
+    player_pos.level_id = farmhouse_ground.id
     bump = BumpAction(
         actor=game.player_id, dx=1, dy=0,
         hex_world=game.hex_world,

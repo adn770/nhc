@@ -75,6 +75,7 @@ from nhc.entities.components import (
     ShopInventory,
     Stats,
     StatusEffect,
+    SubHexStableId,
 )
 from nhc.core.actions._hex_movement import MoveHexAction
 from nhc.entities.registry import EntityRegistry
@@ -712,7 +713,7 @@ class Game:
     ) -> bool:
         """Enter a family-generated sub-hex site at ``sub`` of ``macro``.
 
-        Routes the six new family generators (wayside, sacred,
+        Routes the family generators (wayside, sacred,
         inhabited_settlement, animal_den, natural_curiosity,
         undead) through the sub-hex floor cache. The level is
         generated from a per-sub-hex seed and cached under a
@@ -721,7 +722,15 @@ class Game:
         Sets ``_active_sub_hex`` so ``_cache_key`` routes
         subsequent lookups to the sub-hex namespace; the overland
         day clock stays frozen for the duration of the visit.
+
+        FARM minor is handled via a dedicated unified-assembler
+        path (:meth:`_enter_sub_hex_farm`) that hands off to
+        :func:`nhc.sites.farm.assemble_farm` with
+        ``tier=SiteTier.SMALL`` so the sub-hex and macro farm share
+        the same field + garden surface and a real farmhouse
+        building.
         """
+        from nhc.hexcrawl.model import MinorFeatureType
         from nhc.hexcrawl.seed import dungeon_seed
         from nhc.hexcrawl.sub_hex_sites import (
             SiteTier,
@@ -732,6 +741,12 @@ class Game:
             generate_undead_site,
             generate_wayside_site,
         )
+
+        if (
+            family == "inhabited_settlement"
+            and feature is MinorFeatureType.FARM
+        ):
+            return await self._enter_sub_hex_farm(macro, sub, biome)
 
         family_dispatch = {
             "wayside": generate_wayside_site,
@@ -815,6 +830,113 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
+
+    async def _enter_sub_hex_farm(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        biome,
+    ) -> bool:
+        """Enter a sub-hex FARM through the unified farm assembler.
+
+        Routes minor-feature FARMs onto
+        :func:`nhc.sites.farm.assemble_farm` at ``tier=SMALL``.
+        Mirrors the walled-site dispatch (surface entry +
+        ``_active_site``) but keys the floor cache under the
+        ``_active_sub_hex`` slot so entries from different
+        sub-hexes don't collide. A single farmer NPC is placed on
+        a safe interior tile of the farmhouse; ``_active_sub_hex``
+        lets :meth:`_leave_site_narration_key` pick the
+        ``leave_site.exit_farm`` line and restores the entry
+        sub-hex on exit.
+
+        The sub-hex mutation cache (``_sub_hex_cache``) is not
+        used here — farm mutations share ``_floor_cache`` with
+        the macro farm, which is the plan's explicit milestone-3
+        split. Unification lands in M5.
+        """
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import SiteTier
+        from nhc.sites.farm import assemble_farm
+
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_descent_building = None
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+        if cache_key in self._floor_cache:
+            level, _ = self._floor_cache[cache_key]
+            self.level = level
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
+            self._place_player_on_surface()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, macro, "bespoke:farm:small", sub=sub,
+        )
+        site = assemble_farm(
+            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_farm",
+            random.Random(seed),
+            tier=SiteTier.SMALL,
+        )
+        self.level = site.surface
+        self._active_site = site
+
+        self._floor_cache[cache_key] = (self.level, {})
+        for bi, b in enumerate(site.buildings):
+            for fi, floor in enumerate(b.floors):
+                key = (
+                    "sub_b", macro.q, macro.r, sub.q, sub.r, bi, fi,
+                )
+                self._floor_cache[key] = (floor, {})
+        self._site_cache[cache_key] = site
+
+        self._place_sub_hex_farmer(site)
+        self._place_player_on_surface()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    def _place_sub_hex_farmer(self, site) -> None:
+        """Spawn the farmer NPC on a safe interior tile of the
+        farmhouse. Picks the FLOOR tile nearest to the farmhouse
+        centre that has no feature (no door, no stair)."""
+        farmhouse = site.buildings[0]
+        ground = farmhouse.ground
+        cx = farmhouse.base_rect.x + farmhouse.base_rect.width // 2
+        cy = farmhouse.base_rect.y + farmhouse.base_rect.height // 2
+        candidates: list[tuple[int, int]] = []
+        for y in range(ground.height):
+            for x in range(ground.width):
+                tile = ground.tile_at(x, y)
+                if tile is None or tile.terrain != Terrain.FLOOR:
+                    continue
+                if tile.feature is not None:
+                    continue
+                candidates.append((x, y))
+        if not candidates:
+            return
+        candidates.sort(
+            key=lambda xy: abs(xy[0] - cx) + abs(xy[1] - cy),
+        )
+        fx, fy = candidates[0]
+        try:
+            components = EntityRegistry.get_creature("farmer")
+        except KeyError:
+            return
+        components["BlocksMovement"] = BlocksMovement()
+        components["Position"] = Position(
+            x=fx, y=fy, level_id=ground.id,
+        )
+        components["SubHexStableId"] = SubHexStableId(
+            stable_id=f"farmer_{fx}_{fy}",
+        )
+        self.world.create_entity(components)
 
     def _purge_entities_on_level(self, level_id: str) -> None:
         """Destroy every ECS entity whose Position sits on ``level_id``.

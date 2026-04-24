@@ -89,6 +89,91 @@ class TestSmallFarm:
         assert gardens >= 1
 
 
+class TestSmallFarmFarmhouse:
+    """The SMALL farm renders a real farmhouse: walled interior, a
+    single door_closed on the perimeter, and a matching surface door
+    painted by :func:`paint_surface_doors`. These replace the old
+    ``_stamp_farmhouse`` behaviour from the sub-hex family generator.
+    """
+
+    def test_farmhouse_ground_has_wall_perimeter(self):
+        site = assemble_farm(
+            "f1", random.Random(1), tier=SiteTier.SMALL,
+        )
+        ground = site.buildings[0].ground
+        wall_count = sum(
+            1 for row in ground.tiles for t in row
+            if t.terrain == Terrain.WALL
+        )
+        assert wall_count > 0
+
+    def test_farmhouse_ground_has_one_entry_door(self):
+        """Exactly one ``door_closed`` sits on the farmhouse
+        perimeter — the surface entry."""
+        site = assemble_farm(
+            "f1", random.Random(1), tier=SiteTier.SMALL,
+        )
+        farmhouse = site.buildings[0]
+        ground = farmhouse.ground
+        perim = farmhouse.shared_perimeter()
+        perim_doors = [
+            (x, y) for y, row in enumerate(ground.tiles)
+            for x, t in enumerate(row)
+            if t.feature == "door_closed" and (x, y) in perim
+        ]
+        assert len(perim_doors) == 1
+
+    def test_farmhouse_door_sits_next_to_a_wall(self):
+        """The door_closed tile has at least one WALL neighbour on
+        the ground — otherwise it is a floating door."""
+        site = assemble_farm(
+            "f1", random.Random(1), tier=SiteTier.SMALL,
+        )
+        ground = site.buildings[0].ground
+        doors = [
+            (x, y) for y, row in enumerate(ground.tiles)
+            for x, t in enumerate(row)
+            if t.feature == "door_closed"
+        ]
+        assert doors
+        dx, dy = doors[0]
+        neighbours = [
+            ground.tile_at(dx + ox, dy + oy)
+            for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        ]
+        wall_neighbours = [
+            t for t in neighbours
+            if t is not None and t.terrain == Terrain.WALL
+        ]
+        assert wall_neighbours
+
+
+class TestSmallFarmSurfaceDoor:
+    """``paint_surface_doors`` stamps a ``door_closed`` on the
+    surface side of the farmhouse so bumping it transitions the
+    player into the farmhouse interior."""
+
+    def test_surface_has_at_least_one_door_closed(self):
+        site = assemble_farm(
+            "f1", random.Random(1), tier=SiteTier.SMALL,
+        )
+        doors = [
+            (x, y) for y, row in enumerate(site.surface.tiles)
+            for x, t in enumerate(row) if t.feature == "door_closed"
+        ]
+        assert doors, "surface must carry the building door"
+
+    def test_surface_door_is_registered_in_building_doors(self):
+        site = assemble_farm(
+            "f1", random.Random(1), tier=SiteTier.SMALL,
+        )
+        doors = [
+            (x, y) for y, row in enumerate(site.surface.tiles)
+            for x, t in enumerate(row) if t.feature == "door_closed"
+        ]
+        assert doors[0] in site.building_doors
+
+
 class TestMediumFarmUnchanged:
     def test_default_tier_is_medium(self):
         """Calling without ``tier`` keeps the existing macro farm."""
