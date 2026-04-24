@@ -23,5 +23,5 @@ def create_orchardist() -> dict:
         ),
         "Health": Health(current=8, maximum=8),
         "AI": AI(behavior="idle", morale=5, faction="human"),
-        "RumorVendor": RumorVendor(),
+        "RumorVendor": RumorVendor(chatter_table="orchardist.chatter"),
     }

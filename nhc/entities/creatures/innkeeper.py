@@ -23,5 +23,5 @@ def create_innkeeper() -> dict:
         ),
         "Health": Health(current=9, maximum=9),
         "AI": AI(behavior="idle", morale=4, faction="human"),
-        "RumorVendor": RumorVendor(),
+        "RumorVendor": RumorVendor(chatter_table="innkeeper.chatter"),
     }

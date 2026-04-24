@@ -1,0 +1,43 @@
+id: farmer.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: crops_doing_well
+    text: >-
+      "Els conreus aniran bé enguany, si aguanten les pluges,"
+      diu el pagès, mirant el cel amb els ulls mig closos.
+  - id: hen_stubborn
+    text: >-
+      "La gallina vella encara no ha post avui. Tossuda."
+  - id: need_rain
+    text: >-
+      "Ens aniria bé una bona pluja. La terra és seca
+      dos dits avall," diu el pagès, tocant el sòl amb el peu.
+  - id: neighbour_wolves
+    text: >-
+      "El veí va veure llops prop del límit del bosc fa una
+      setmana. Des de llavors tanca els gossos."
+  - id: back_ache
+    text: >-
+      "Ai, l'esquena." El pagès s'estira amb una ganyota.
+      "El camp no es llaura sol."
+  - id: goat_escaped
+    text: >-
+      "Vaig perdre una cabra cap als turons. Si la trobes,
+      té una orella rasgada."
+  - id: market_day
+    text: >-
+      "El mercat és d'aquí tres dies, si els carros hi arriben."
+  - id: tired_traveller
+    text: >-
+      "Sembles cansat," diu el pagès. "Seu una estona abans
+      de seguir."
+  - id: ploughing_time
+    text: >-
+      "Aviat tocarà llaurar. La terra ja gairebé està a punt."
+  - id: seasons_short
+    text: >-
+      "Les temporades em semblen més curtes cada any,"
+      sospira el pagès. "Em faig vell."

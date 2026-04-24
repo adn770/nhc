@@ -1,0 +1,41 @@
+id: campsite.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: stoking_fire
+    text: >-
+      El viatger atia el foc, mirant pujar les espurnes.
+  - id: long_road
+    text: >-
+      "Camí llarg rere meu," diu el viatger.
+      "Més llarg encara al davant, segurament."
+  - id: where_from
+    text: >-
+      "D'on vens, foraster?" pregunta el viatger, i tot seguit
+      ho descarta. "Tant se val."
+  - id: bad_weather_ahead
+    text: >-
+      "Front de tempesta al nord. El vaig veure fa dos dies."
+  - id: cheap_bread
+    text: >-
+      "El pa és més barat tres hexes enllà. Val la caminada."
+  - id: wolves_heard
+    text: >-
+      "Vaig sentir llops anit. No vaig dormir gaire."
+  - id: bandits_warning
+    text: >-
+      "Evita el camí vell d'oest. Els bandits hi han tornat
+      a muntar campament."
+  - id: bedroll_damp
+    text: >-
+      El viatger escorre una màrfega humida. "Sempre igual."
+  - id: shared_fire
+    text: >-
+      "El foc és gratis," diu el viatger, "si tens històries
+      per intercanviar."
+  - id: boot_repair
+    text: >-
+      "He perdut un taló una llegua enrere. Ara el sostinc
+      amb una corda."

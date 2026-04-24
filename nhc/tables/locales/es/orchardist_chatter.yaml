@@ -1,0 +1,43 @@
+id: orchardist.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: inspecting_bark
+    text: >-
+      El hortelano pasa el pulgar por la corteza, buscando
+      podredumbre.
+  - id: late_frost
+    text: >-
+      "Una helada tardía pilló la floración temprana este año.
+      Media cosecha perdida antes de empezar."
+  - id: wasps_greedy
+    text: >-
+      "Las avispas han estado glotonas. Me queda poca fruta."
+  - id: bees_busy
+    text: >-
+      "¿Oyes las abejas? Han hecho horas extras.
+      Buena señal para el año que viene."
+  - id: stolen_pears
+    text: >-
+      "Alguien ha estado llevándose peras de la fila sur.
+      Niños, me figuro."
+  - id: cider_aging
+    text: >-
+      "A la sidra aún le falta un mes. Vuelve entonces."
+  - id: grandmother_planted
+    text: >-
+      "Mi abuela plantó esta fila. Estos árboles la han
+      sobrevivido cuarenta años."
+  - id: pruning_saw
+    text: >-
+      El hortelano deja la sierra de podar. "Día cargado."
+  - id: graft_took
+    text: >-
+      "El injerto que puse en primavera ha prendido.
+      Pequeño milagro."
+  - id: worm_check
+    text: >-
+      "Hay que mirar cada manzana antes de que vaya al carro.
+      Gusanos."

@@ -59,6 +59,11 @@ class RumorVendorInteractAction(Action):
     async def execute(self, world: "World", level: "Level") -> list[Event]:
         from nhc.hexcrawl.rumor_pool import consume_rumor
 
+        # Stash for _on_empty_pool / _roll_chatter_for_vendor so
+        # they can read the vendor's chatter_table tag without
+        # threading ``world`` through the hooks.
+        self._world_ref = world
+
         if self.hex_world is None:
             return [MessageEvent(text=t("rumor.none"))]
         rumor = consume_rumor(self.hex_world)
@@ -75,10 +80,55 @@ class RumorVendorInteractAction(Action):
     # -- Subclass hooks -------------------------------------------------
 
     def _on_empty_pool(self) -> list[Event]:
-        """Empty-pool fallback; subclasses override for NPC flavor."""
+        """Empty-pool fallback.
+
+        Emits the neutral "no news today" / "come back later"
+        line, then tacks on a chatter beat rolled from the
+        vendor's ``RumorVendor.chatter_table`` when set. Every
+        NPC factory is expected to stamp a table name, so the
+        farmer talks about crops, the orchardist about frost,
+        etc. A missing table leaves the action quiet after the
+        neutral line — don't steal innkeeper flavour for a
+        vendor that didn't opt in.
+        """
+        events: list[Event] = []
         if self.hex_world and self.hex_world.last_rumor_day > 0:
-            return [MessageEvent(text=t("rumor.come_back_later"))]
-        return [MessageEvent(text=t("rumor.none"))]
+            events.append(MessageEvent(text=t("rumor.come_back_later")))
+        else:
+            events.append(MessageEvent(text=t("rumor.none")))
+        chatter = self._roll_chatter_for_vendor()
+        if chatter:
+            events.append(MessageEvent(text=chatter))
+        return events
+
+    def _roll_chatter_for_vendor(self) -> str | None:
+        """Roll an ephemeral chatter line from the vendor's table."""
+        table_id = self._vendor_chatter_table()
+        if not table_id:
+            return None
+        try:
+            from nhc.i18n import current_lang
+            from nhc.tables import roll_ephemeral
+
+            result = roll_ephemeral(table_id, lang=current_lang())
+            return result.text
+        except Exception:
+            return None
+
+    def _vendor_chatter_table(self) -> str | None:
+        """Pull the chatter_table tag off the vendor component.
+
+        ``_on_empty_pool`` is called inside ``execute`` so the
+        World instance is not on ``self``; look the vendor up via
+        the cached world reference stashed in ``execute``.
+        """
+        world = getattr(self, "_world_ref", None)
+        if world is None:
+            return None
+        vendor = world.get_component(self.vendor_id, "RumorVendor")
+        if vendor is None:
+            return None
+        return getattr(vendor, "chatter_table", None)
 
     def _after_rumor(self, rumor) -> list[Event]:
         """Optional reaction tacked onto the dispensed rumour."""

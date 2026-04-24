@@ -1,0 +1,41 @@
+id: campsite.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: stoking_fire
+    text: >-
+      El viajero aviva el fuego, mirando subir las chispas.
+  - id: long_road
+    text: >-
+      "Camino largo a mi espalda," dice el viajero.
+      "Más largo aún por delante, probablemente."
+  - id: where_from
+    text: >-
+      "¿De dónde vienes, forastero?" pregunta el viajero,
+      y enseguida lo descarta. "Da igual."
+  - id: bad_weather_ahead
+    text: >-
+      "Frente de tormenta al norte. Lo vi hace dos días."
+  - id: cheap_bread
+    text: >-
+      "El pan es más barato tres hexes allá. Vale la caminata."
+  - id: wolves_heard
+    text: >-
+      "Oí lobos anoche. No dormí mucho."
+  - id: bandits_warning
+    text: >-
+      "Evita el camino viejo del oeste. Los bandidos han
+      vuelto a acampar allí."
+  - id: bedroll_damp
+    text: >-
+      El viajero escurre una manta húmeda. "Siempre igual."
+  - id: shared_fire
+    text: >-
+      "El fuego es gratis," dice el viajero, "si tienes
+      historias para intercambiar."
+  - id: boot_repair
+    text: >-
+      "Perdí un tacón una legua atrás. De momento se
+      aguanta con cordel."

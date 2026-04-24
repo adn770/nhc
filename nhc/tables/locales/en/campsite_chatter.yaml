@@ -1,0 +1,41 @@
+id: campsite.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: stoking_fire
+    text: >-
+      The traveller stokes the fire, watching the sparks climb.
+  - id: long_road
+    text: >-
+      "Long road behind me," the traveller says.
+      "Longer ahead, probably."
+  - id: where_from
+    text: >-
+      "Where from, stranger?" the traveller asks, then waves
+      the question off. "Doesn't matter."
+  - id: bad_weather_ahead
+    text: >-
+      "Storm front to the north. Saw it two days back."
+  - id: cheap_bread
+    text: >-
+      "Bread's cheaper three hexes over. Worth the walk."
+  - id: wolves_heard
+    text: >-
+      "Heard wolves last night. Didn't sleep much."
+  - id: bandits_warning
+    text: >-
+      "Avoid the old road west. Bandits set up there again."
+  - id: bedroll_damp
+    text: >-
+      The traveller wrings out a damp bedroll.
+      "Always the way."
+  - id: shared_fire
+    text: >-
+      "Fire's free," the traveller says, "if you've got
+      stories to trade."
+  - id: boot_repair
+    text: >-
+      "Lost a bootheel a league back. Holding it with twine
+      for now."

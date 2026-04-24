@@ -1,0 +1,46 @@
+id: orchardist.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: inspecting_bark
+    text: >-
+      The orchardist runs a thumb over the bark, checking
+      for rot.
+  - id: late_frost
+    text: >-
+      "A late frost caught the early blossom this year.
+      Half the crop gone before it started."
+  - id: wasps_greedy
+    text: >-
+      "The wasps have been greedy. Not much fruit left
+      for me."
+  - id: bees_busy
+    text: >-
+      "Hear the bees? They've been working overtime.
+      Good sign for next season."
+  - id: stolen_pears
+    text: >-
+      "Someone's been taking pears from the south row.
+      Children, I'd guess."
+  - id: cider_aging
+    text: >-
+      "The cider's still a month from drinking.
+      Come back then."
+  - id: grandmother_planted
+    text: >-
+      "My grandmother planted this row. Outlived her by
+      forty years, these trees."
+  - id: pruning_saw
+    text: >-
+      The orchardist sets down the pruning saw.
+      "Busy day."
+  - id: graft_took
+    text: >-
+      "The graft I put in last spring actually took.
+      Small miracle."
+  - id: worm_check
+    text: >-
+      "Gotta check every apple before it goes in the cart.
+      Worms."

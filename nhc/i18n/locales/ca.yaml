@@ -1593,12 +1593,10 @@ action:
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   none: >-
-    El taverner arronsa les espatlles. "Avui no hi ha novetats,
-    viatger."
+    S'arronsa d'espatlles. "Avui no hi ha novetats, viatger."
   come_back_later: >-
-    El taverner neteja un gerra. "Ja t'he dit tot el que sé.
-    Torna d'aquí uns dies -- les caravanes haurien de dur
-    notícies fresques."
+    "Ja t'he dit tot el que sé. Torna d'aquí uns dies --
+    les caravanes haurien de dur notícies fresques."
 
 
 # ── Henchman UI strings ────────────────────────────────────────────────

@@ -1,27 +1,26 @@
-"""InnkeeperInteractAction — overland rumor exchange."""
+"""InnkeeperInteractAction — thin back-compat shim.
+
+Chatter rolling now lives on :class:`RumorVendorInteractAction`,
+driven by each vendor's ``RumorVendor.chatter_table`` tag.
+:class:`InnkeeperInteractAction` stays around because
+:class:`BumpAction` and the existing test suite dispatch by
+``isinstance(resolved, InnkeeperInteractAction)``. The subclass
+preserves the historical ``innkeeper_id`` attribute so those
+callers keep working.
+"""
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 from nhc.core.actions._rumor_vendor import RumorVendorInteractAction
-from nhc.core.events import Event, MessageEvent
 
 if TYPE_CHECKING:
     from nhc.hexcrawl.model import HexWorld
 
-logger = logging.getLogger(__name__)
-
 
 class InnkeeperInteractAction(RumorVendorInteractAction):
-    """Bump an innkeeper and hear a rumor from the overland pool.
-
-    Inherits the generic rumour-draw flow from
-    :class:`RumorVendorInteractAction` and layers in a tavern-
-    chatter line on the empty-pool fallback so the innkeeper feels
-    alive even when the pool has dried up.
-    """
+    """Bump an innkeeper and hear a rumor from the overland pool."""
 
     def __init__(
         self,
@@ -36,23 +35,3 @@ class InnkeeperInteractAction(RumorVendorInteractAction):
         # Preserve the historical attribute name; existing test
         # suites read ``.innkeeper_id`` off the action instance.
         self.innkeeper_id = innkeeper_id
-
-    def _on_empty_pool(self) -> list[Event]:
-        events = super()._on_empty_pool()
-        chatter = self._roll_chatter()
-        if chatter:
-            events.append(MessageEvent(text=chatter))
-        return events
-
-    def _roll_chatter(self) -> str | None:
-        """Roll an ephemeral chatter line from the innkeeper."""
-        try:
-            from nhc.i18n import current_lang
-            from nhc.tables import roll_ephemeral
-
-            result = roll_ephemeral(
-                "innkeeper.chatter", lang=current_lang(),
-            )
-            return result.text
-        except Exception:
-            return None

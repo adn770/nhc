@@ -1523,11 +1523,10 @@ action:
 # ── Rumor UI strings ───────────────────────────────────────────────────
 rumor:
   none: >-
-    El posadero se encoge de hombros. "Nada nuevo hoy, viajero."
+    Se encoge de hombros. "Nada nuevo hoy, viajero."
   come_back_later: >-
-    El posadero limpia una jarra. "Ya te lo he contado todo.
-    Vuelve en unos días -- las caravanas deberían traer
-    noticias frescas."
+    "Ya te lo he contado todo. Vuelve en unos días --
+    las caravanas deberían traer noticias frescas."
 
 
 # ── Henchman UI strings ────────────────────────────────────────────────

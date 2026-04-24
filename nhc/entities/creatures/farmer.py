@@ -23,5 +23,5 @@ def create_farmer() -> dict:
         ),
         "Health": Health(current=8, maximum=8),
         "AI": AI(behavior="idle", morale=5, faction="human"),
-        "RumorVendor": RumorVendor(),
+        "RumorVendor": RumorVendor(chatter_table="farmer.chatter"),
     }

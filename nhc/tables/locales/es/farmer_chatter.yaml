@@ -1,0 +1,43 @@
+id: farmer.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: crops_doing_well
+    text: >-
+      "Las cosechas irán bien este año, si aguantan las lluvias,"
+      dice el campesino, entrecerrando los ojos hacia el cielo.
+  - id: hen_stubborn
+    text: >-
+      "La gallina vieja aún no ha puesto hoy. Terca."
+  - id: need_rain
+    text: >-
+      "Nos vendría bien una buena lluvia. El suelo está seco
+      dos dedos abajo," dice el campesino, tanteando la tierra.
+  - id: neighbour_wolves
+    text: >-
+      "El vecino vio lobos cerca del límite del bosque la semana
+      pasada. Desde entonces encierra los perros."
+  - id: back_ache
+    text: >-
+      "Ay, la espalda." El campesino se endereza con una mueca.
+      "El campo no se ara solo."
+  - id: goat_escaped
+    text: >-
+      "Perdí una cabra por los cerros. Si la encuentras,
+      tiene la oreja mellada."
+  - id: market_day
+    text: >-
+      "El mercado es en tres días, si los carros llegan."
+  - id: tired_traveller
+    text: >-
+      "Pareces cansado," dice el campesino. "Siéntate un rato
+      antes de seguir."
+  - id: ploughing_time
+    text: >-
+      "Pronto tocará arar. La tierra casi está lista."
+  - id: seasons_short
+    text: >-
+      "Las estaciones me parecen más cortas cada año,"
+      suspira el campesino. "Me hago viejo."

@@ -1,0 +1,44 @@
+id: farmer.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: crops_doing_well
+    text: >-
+      "The crops will be fine this year, if the rains hold,"
+      the farmer says, squinting at the sky.
+  - id: hen_stubborn
+    text: >-
+      "That old hen still hasn't laid today.
+      Stubborn bird."
+  - id: need_rain
+    text: >-
+      "We could use a good rain. Soil's dry two fingers down,"
+      the farmer says, toeing the earth.
+  - id: neighbour_wolves
+    text: >-
+      "My neighbour saw wolves near the treeline last week.
+      Kept the dogs in ever since."
+  - id: back_ache
+    text: >-
+      "Ach, my back." The farmer straightens with a grimace.
+      "The field doesn't plough itself."
+  - id: goat_escaped
+    text: >-
+      "Lost a goat to the hills. If you find her,
+      she's got a nicked ear."
+  - id: market_day
+    text: >-
+      "Market day's in three, if the carts get through."
+  - id: tired_traveller
+    text: >-
+      "You look tired," the farmer says. "Sit a while
+      before you head on."
+  - id: ploughing_time
+    text: >-
+      "Ploughing's near. The ground's almost ready."
+  - id: seasons_short
+    text: >-
+      "Seasons feel shorter every year," the farmer sighs.
+      "Must be getting old."

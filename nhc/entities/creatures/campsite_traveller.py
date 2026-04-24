@@ -23,5 +23,5 @@ def create_campsite_traveller() -> dict:
         ),
         "Health": Health(current=7, maximum=7),
         "AI": AI(behavior="idle", morale=4, faction="human"),
-        "RumorVendor": RumorVendor(),
+        "RumorVendor": RumorVendor(chatter_table="campsite.chatter"),
     }

@@ -1,0 +1,41 @@
+id: orchardist.chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+entries:
+  - id: inspecting_bark
+    text: >-
+      L'hortolà passa el dit per l'escorça, buscant podridura.
+  - id: late_frost
+    text: >-
+      "Una gelada tardana va tocar la florida primerenca enguany.
+      Mitja collita perduda abans de començar."
+  - id: wasps_greedy
+    text: >-
+      "Les vespes han estat llamineres. Em queda poc fruit."
+  - id: bees_busy
+    text: >-
+      "Sents les abelles? Han fet extres.
+      Bon senyal per l'any vinent."
+  - id: stolen_pears
+    text: >-
+      "Algú ha estat prenent peres de la fila sud.
+      Mainada, segurament."
+  - id: cider_aging
+    text: >-
+      "A la sidra encara li falta un mes. Torna llavors."
+  - id: grandmother_planted
+    text: >-
+      "La meva àvia va plantar aquesta fila. Aquests arbres
+      l'han sobreviscut quaranta anys."
+  - id: pruning_saw
+    text: >-
+      L'hortolà deixa la serra de podar. "Dia carregat."
+  - id: graft_took
+    text: >-
+      "L'empelt que vaig fer la primavera ha agafat.
+      Petit miracle."
+  - id: worm_check
+    text: >-
+      "Cal mirar cada poma abans que vagi al carro. Cucs."

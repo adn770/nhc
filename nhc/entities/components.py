@@ -109,13 +109,22 @@ class TempleServices:
 class RumorVendor:
     """Marker component for NPCs who dispense overland rumors.
 
-    Present on innkeepers in settlement inn rooms; :class:`BumpAction`
-    dispatches an :class:`InnkeeperInteractAction` when the player
-    bumps a RumorVendor. The action side consults the active
-    :class:`HexWorld` (not stored here; supplied by the caller)
-    because rumors are overland-scope state, not per-entity.
+    Present on innkeepers in settlement inn rooms and on family
+    sub-hex NPCs (farmer, orchardist, campsite traveller).
+    :class:`BumpAction` dispatches an :class:`InnkeeperInteractAction`
+    when the player bumps a RumorVendor. The action side consults
+    the active :class:`HexWorld` (not stored here; supplied by the
+    caller) because rumors are overland-scope state, not per-entity.
+
+    ``chatter_table`` is the id of the ephemeral table the empty-
+    pool fallback rolls from — e.g. ``"farmer.chatter"`` for a
+    farmer, ``"innkeeper.chatter"`` for an innkeeper. ``None``
+    keeps the action on a neutral "no news today" line; every
+    NPC type that carries RumorVendor should stamp its own table
+    name so the flavour matches the role.
     """
-    pass
+
+    chatter_table: str | None = None
 
 
 @dataclass

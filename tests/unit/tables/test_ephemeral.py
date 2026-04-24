@@ -62,7 +62,10 @@ async def test_innkeeper_chatter_fires_on_visit() -> None:
     world.add_component(pid, "Stats", Stats())
     inn_id = world.create_entity()
     world.add_component(inn_id, "Position", Position(x=1, y=0))
-    world.add_component(inn_id, "RumorVendor", RumorVendor())
+    world.add_component(
+        inn_id, "RumorVendor",
+        RumorVendor(chatter_table="innkeeper.chatter"),
+    )
 
     hw = HexWorld(pack_id="test", seed=1, width=3, height=3)
     hw.set_cell(HexCell(
