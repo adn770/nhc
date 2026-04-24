@@ -492,19 +492,21 @@ def test_animal_den_medium_tier() -> None:
 
 
 def test_natural_curiosity_small_tier() -> None:
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_natural_curiosity_site,
-    )
+    """Natural curiosities now route through ``assemble_clearing``
+    (retired ``generate_natural_curiosity_site`` in M4b of
+    sites-unification)."""
+    import random
 
-    site = generate_natural_curiosity_site(
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.clearing import assemble_clearing
+
+    site = assemble_clearing(
+        "c", random.Random(1),
         feature=MinorFeatureType.HERB_PATCH,
-        biome=Biome.FOREST,
-        seed=1,
         tier=SiteTier.SMALL,
     )
     w, h = _tier_dims("small")
-    assert (site.level.width, site.level.height) == (w, h)
+    assert (site.surface.width, site.surface.height) == (w, h)
 
 
 def test_undead_site_medium_tier() -> None:

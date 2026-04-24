@@ -736,7 +736,6 @@ class Game:
             SiteTier,
             generate_animal_den_site,
             generate_inhabited_settlement_site,
-            generate_natural_curiosity_site,
             generate_sacred_site,
             generate_undead_site,
         )
@@ -752,13 +751,17 @@ class Game:
                 macro, sub, feature, biome,
             )
 
+        if family == "natural_curiosity":
+            return await self._enter_sub_hex_clearing(
+                macro, sub, feature, biome,
+            )
+
         family_dispatch = {
             "sacred": generate_sacred_site,
             "inhabited_settlement": (
                 generate_inhabited_settlement_site
             ),
             "animal_den": generate_animal_den_site,
-            "natural_curiosity": generate_natural_curiosity_site,
             "undead": generate_undead_site,
         }
         generator = family_dispatch.get(family)
@@ -1009,6 +1012,102 @@ class Game:
             feature_tile=feature_xy,
             population=shim_population,
         )
+        populate_sub_hex_site(
+            self.world, shim, mutations=persisted_mutations,
+        )
+        self._place_player_on_sub_hex_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    async def _enter_sub_hex_clearing(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        feature,
+        biome,
+    ) -> bool:
+        """Enter a sub-hex natural curiosity (MUSHROOM_RING /
+        HERB_PATCH / HOLLOW_LOG / BONE_PILE) through the unified
+        clearing assembler. No populator entity is spawned — the
+        centrepiece is just a tile tag the BumpAction router
+        reads."""
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SiteTier,
+            SubHexPopulation,
+            SubHexSite,
+        )
+        from nhc.sites.clearing import assemble_clearing
+
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_descent_building = None
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+
+        self._ensure_sub_hex_cache()
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
+            self._place_player_on_sub_hex_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, macro, "bespoke:clearing", sub=sub,
+        )
+        site = assemble_clearing(
+            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_clearing",
+            random.Random(seed),
+            feature=feature,
+            tier=SiteTier.SMALL,
+        )
+        self.level = site.surface
+        self._active_site = site
+
+        persisted_mutations: dict = {}
+        if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._sub_hex_cache.store(
+                cache_key, self.level, mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
+        self._site_cache[cache_key] = site
+
+        self._sub_hex_entry_tile = (
+            site.surface.width // 2, site.surface.height - 2,
+        )
+
+        self._purge_entities_on_level(self.level.id)
+        # No populator entity for clearings yet — the empty shim
+        # still drives mutation replay consistently with the other
+        # family dispatchers.
+        shim = SubHexSite(
+            level=site.surface,
+            entry_tile=self._sub_hex_entry_tile,
+            feature_tile=self._find_feature_tile_on(
+                site.surface,
+                ("mushrooms", "herbs", "hollow_log", "bones"),
+            ),
+            population=SubHexPopulation(),
+        )
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
+
         populate_sub_hex_site(
             self.world, shim, mutations=persisted_mutations,
         )
