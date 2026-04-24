@@ -1711,7 +1711,11 @@ class Game:
         Level and place the player on ``(sx, sy)``.
 
         Saves entities of the outgoing building level and restores
-        (or spawns) surface entities.
+        (or spawns) surface entities. Re-points the depth-keyed
+        floor cache at the surface (undoing the repoint
+        :meth:`_swap_to_building` did on the way in) so that a
+        future warm-cache re-entry to the site lands on the
+        surface rather than the last building the player was in.
         """
         if self._active_site is None:
             return
@@ -1722,6 +1726,17 @@ class Game:
         )
         self._stash_current_level_entities()
         self.level = self._active_site.surface
+        # Restore the depth-1 cache slot to the surface. When the
+        # player swapped into a building, ``_swap_to_building``
+        # overwrote this slot with the building's ground floor
+        # so stair actions would find sibling floors. Now that
+        # they're back on the surface, the next ``_enter_walled_site``
+        # / ``_enter_multi_building_site`` cache-hit path must
+        # find the surface there, not a stale building floor.
+        # The engine stamps the surface at ``_cache_key(1)``
+        # (ground depth) even though the surface Level carries
+        # ``depth=0`` -- use the same key.
+        self._floor_cache[self._cache_key(1)] = (self.level, {})
         pos = self.world.get_component(self.player_id, "Position")
         if pos is not None:
             pos.x = sx

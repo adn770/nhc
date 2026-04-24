@@ -212,6 +212,91 @@ async def test_reentering_walled_site_keeps_site_classifier(
 
 
 @pytest.mark.asyncio
+async def test_walled_site_reentry_after_building_visit_lands_on_surface(
+    tmp_path,
+) -> None:
+    """Regression: re-entering a town after visiting one of its
+    buildings must put the player back on the *surface*, not
+    inside the last building.
+
+    The floor cache's depth slot is shared between the site
+    surface and whichever building the player most recently
+    swapped into. ``_swap_to_building`` rewrites
+    ``_floor_cache[_cache_key(1)]`` to point at the new
+    building's ground floor so DescendStairsAction /
+    AscendStairsAction find the right floor. But nobody was
+    restoring the slot on the way out: ``_swap_to_site_surface``
+    moved ``self.level`` back to the surface while leaving the
+    depth-1 cache entry pointing at the building. A subsequent
+    ``_exit_to_overland_sync`` + ``enter_hex_feature`` then hit
+    the poisoned cache and dropped the player inside the
+    building they'd just left.
+
+    Production debug bundle (2026-04-24): player enters city ->
+    enters building b8 -> exits to surface -> leaves site ->
+    re-enters city. The second entry's floor-change log line
+    reads ``level=site_9_1_b8_f0`` (the building) with
+    ``state_structure``, not ``site_9_1_surface``/``state_site``.
+    This test drives the same sequence and asserts the second
+    entry lands on the surface.
+    """
+    g = _make_game(tmp_path)
+    start = g.hex_player_position
+    assert g.hex_world.exploring_hex is not None
+    _attach_keep(g, start)
+
+    ok = await g.enter_hex_feature()
+    assert ok
+    assert g.current_view() == "site"
+    surface = g._active_site.surface
+    assert surface is not None
+
+    # Walk into the first registered building via its registered
+    # interior tile. This is what _maybe_traverse_building_door
+    # does on a real bump through a surface door; we call the
+    # helper directly so the test doesn't depend on door tiles.
+    assert g._active_site.building_doors, (
+        "fixture precondition: the keep must register at least "
+        "one surface<->building door so _swap_to_building has a "
+        "target tile"
+    )
+    _surface_door, (bid, bx, by) = next(
+        iter(g._active_site.building_doors.items()),
+    )
+    building = next(
+        b for b in g._active_site.buildings if b.id == bid
+    )
+    g._swap_to_building(building, bx, by)
+    assert g.current_view() == "structure"
+
+    # Pop back to the surface. This is what the hook normally
+    # fires when the player bumps through a door from inside.
+    _swap_target = next(iter(g._active_site.building_doors))
+    g._swap_to_site_surface(*_swap_target)
+    assert g.current_view() == "site"
+
+    # Leave the site entirely, then re-enter the same hex.
+    g._exit_to_overland_sync()
+    assert g._active_site is None
+    assert g.current_view() == "flower"
+
+    ok2 = await g.enter_hex_feature()
+    assert ok2
+    # The bug: before the fix this landed on the building floor
+    # because _floor_cache[_cache_key(1)] still held it from
+    # the earlier _swap_to_building call.
+    assert g.current_view() == "site", (
+        "re-entry after a building visit must restore the site "
+        "surface, not the last building the player was in"
+    )
+    assert g.level is g._active_site.surface, (
+        "self.level should point at the Site's surface object; "
+        "if it points at a building floor the floor cache has "
+        "leaked between visits"
+    )
+
+
+@pytest.mark.asyncio
 async def test_leave_site_intent_returns_player_to_flower(
     tmp_path,
 ) -> None:

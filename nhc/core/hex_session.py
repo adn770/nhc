@@ -303,8 +303,19 @@ class HexSession:
             )
             if cell and cell.flower:
                 from nhc.hexcrawl._flowers import entry_sub_hex_for_edge
-                edge = game.hex_world.last_entry_edge.get(coord)
-                entry_sub = entry_sub_hex_for_edge(edge)
+                # Prefer the sub-hex the player was on when they
+                # last exited this hex's flower. Falls back to the
+                # default entry-edge sub-hex on first entry (or
+                # when the stash was cleared by some other path).
+                # Without this preference the round-trip flower ->
+                # hex -> flower snaps the player back to the
+                # center sub-hex instead of where they left.
+                entry_sub = game.hex_world.last_sub_hex_by_macro.get(
+                    coord,
+                )
+                if entry_sub is None:
+                    edge = game.hex_world.last_entry_edge.get(coord)
+                    entry_sub = entry_sub_hex_for_edge(edge)
                 game.hex_world.enter_flower(coord, entry_sub)
                 self.renderer.add_message("You begin exploring.")
                 return "moved"

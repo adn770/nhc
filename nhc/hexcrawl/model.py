@@ -372,6 +372,14 @@ class HexWorld:
     last_entry_edge: dict[HexCoord, int] = field(
         default_factory=dict,
     )
+    # Sub-hex the player was last standing on in each macro
+    # hex's flower, stashed on ``exit_flower`` and consulted by
+    # ``hex_explore`` to restore position on re-entry. Without
+    # this, the flower -> hex -> flower round-trip snapped the
+    # player to the default entry sub-hex.
+    last_sub_hex_by_macro: dict[HexCoord, HexCoord] = field(
+        default_factory=dict,
+    )
 
     # ----- cells -----
 
@@ -431,7 +439,19 @@ class HexWorld:
         self.last_entry_edge[target] = edge
 
     def exit_flower(self) -> None:
-        """Leave the current hex flower back to the macro map."""
+        """Leave the current hex flower back to the macro map.
+
+        Stashes the player's sub-hex position into
+        ``last_sub_hex_by_macro`` before clearing the pointers so
+        ``hex_explore`` can put them back where they were on
+        re-entry. No-op for the stash when there was nothing to
+        record (pointers already cleared).
+        """
+        if (self.exploring_hex is not None
+                and self.exploring_sub_hex is not None):
+            self.last_sub_hex_by_macro[self.exploring_hex] = (
+                self.exploring_sub_hex
+            )
         self.exploring_hex = None
         self.exploring_sub_hex = None
 
