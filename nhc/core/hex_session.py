@@ -283,7 +283,7 @@ class HexSession:
             target = HexCoord(origin.q + int(dq), origin.r + int(dr))
             ok = await self.apply_hex_step(target)
             if not ok:
-                self.renderer.add_message("You can't go that way.")
+                self.renderer.add_message(t("hex.msg.cant_go_that_way"))
             else:
                 # Overland travel ticks hunger the same way a
                 # dungeon turn does (game_ticks.tick_hunger). The
@@ -386,11 +386,11 @@ class HexSession:
                     game.hex_world.visit(new_macro)
                     game.hex_player_position = new_macro
                     self.renderer.add_message(
-                        "You leave the area.",
+                        t("hex.msg.leave_area"),
                     )
                 else:
                     self.renderer.add_message(
-                        "You can't go that way.",
+                        t("hex.msg.cant_go_that_way"),
                     )
                 return "moved"
 
@@ -401,7 +401,7 @@ class HexSession:
                 hex_world=game.hex_world,
             )
             if not action.validate_sync():
-                self.renderer.add_message("You can't go that way.")
+                self.renderer.add_message(t("hex.msg.cant_go_that_way"))
                 return "ignored"
             action.execute_sync()
             game._tick_hunger()
@@ -413,7 +413,7 @@ class HexSession:
 
         if intent == "flower_exit":
             game.hex_world.exit_flower()
-            self.renderer.add_message("You return to the overland.")
+            self.renderer.add_message(t("hex.msg.return_overland"))
             return "moved"
 
         if intent == "flower_search":
@@ -485,27 +485,30 @@ class HexSession:
                 or sub is None
             ):
                 self.renderer.add_message(
-                    "There is nothing to enter here.",
+                    t("hex.msg.nothing_to_enter"),
                 )
                 return "ignored"
             sub_cell = cell.flower.cells.get(sub)
             if sub_cell is None:
                 self.renderer.add_message(
-                    "There is nothing to enter here.",
+                    t("hex.msg.nothing_to_enter"),
                 )
                 return "ignored"
 
             resolved = resolve_sub_hex_entry(sub_cell)
             if resolved is None:
                 self.renderer.add_message(
-                    "There is nothing to enter here.",
+                    t("hex.msg.nothing_to_enter"),
                 )
                 return "ignored"
 
             if resolved[0] == "non-enterable":
                 reason = resolved[1]
                 self.renderer.add_message(
-                    f"The {reason} blocks your way.",
+                    t(
+                        "hex.msg.blocks_way",
+                        feature=t(f"hex.feature.{reason}"),
+                    ),
                 )
                 return "ignored"
 
@@ -517,13 +520,16 @@ class HexSession:
                 # today only the feature_cell carries the ref.
                 ok = await game.enter_hex_feature()
                 if ok:
-                    feature = cell.feature.value
+                    feature_key = cell.feature.value
                     self.renderer.add_message(
-                        f"You enter the {feature}.",
+                        t(
+                            "hex.msg.enter_feature",
+                            feature=t(f"hex.feature.{feature_key}"),
+                        ),
                     )
                 else:
                     self.renderer.add_message(
-                        "There is nothing to enter here.",
+                        t("hex.msg.nothing_to_enter"),
                     )
                 return "entered" if ok else "ignored"
 
@@ -542,16 +548,19 @@ class HexSession:
                 )
                 if ok:
                     self.renderer.add_message(
-                        f"You enter the {feature.value}.",
+                        t(
+                            "hex.msg.enter_feature",
+                            feature=t(f"hex.minor.{feature.value}"),
+                        ),
                     )
                 else:
                     self.renderer.add_message(
-                        "There is nothing to enter here.",
+                        t("hex.msg.nothing_to_enter"),
                     )
                 return "entered" if ok else "ignored"
 
             self.renderer.add_message(
-                "There is nothing to enter here.",
+                t("hex.msg.nothing_to_enter"),
             )
             return "ignored"
 

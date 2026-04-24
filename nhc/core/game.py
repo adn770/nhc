@@ -3285,7 +3285,7 @@ class Game:
                 ok = await self.exit_dungeon_to_hex()
                 if ok:
                     self.renderer.add_message(
-                        "You return to the overland.",
+                        t("hex.msg.return_overland"),
                     )
                 return []
         # Hex-mode exit from inside a dungeon: pop back to the
@@ -3295,7 +3295,7 @@ class Game:
             ok = await self.exit_dungeon_to_hex()
             if ok:
                 self.renderer.add_message(
-                    "You return to the overland.",
+                    t("hex.msg.return_overland"),
                 )
             return []
         # Leave-site intent (Shift-L on the site surface toolbar).
@@ -3312,7 +3312,7 @@ class Game:
             ok = await self.exit_dungeon_to_hex()
             if ok:
                 self.renderer.add_message(
-                    "You leave the area.",
+                    t("hex.msg.leave_area"),
                 )
             return []
         # Panic-flee: works from anywhere in the crawl, costs 1d6
@@ -3322,7 +3322,7 @@ class Game:
             ok = await self.panic_flee()
             if ok:
                 self.renderer.add_message(
-                    "You bail out in a panic.",
+                    t("hex.msg.panic_flee"),
                 )
             return []
         logger.debug("Input: intent=%s data=%s", intent, data)
