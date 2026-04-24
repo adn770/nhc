@@ -14,6 +14,7 @@ import random
 import pytest
 
 from nhc.dungeon.model import LShape, RectShape, SurfaceType, Terrain
+from nhc.hexcrawl.sub_hex_sites import SiteTier
 from nhc.sites._site import Site
 from nhc.sites.farm import (
     FARM_BARN_PROBABILITY,
@@ -144,7 +145,7 @@ class TestFarmDescent:
                 count += 1
         ratio = count / trials
         # Spec says ~10%; allow wide tolerance.
-        assert abs(ratio - FARM_DESCENT_PROBABILITY) < 0.08
+        assert abs(ratio - FARM_DESCENT_PROBABILITY[SiteTier.MEDIUM]) < 0.08
 
     def test_descent_lives_on_farmhouse_only(self):
         """If a barn is present, descent is never on the barn."""
@@ -166,7 +167,7 @@ class TestFarmBarn:
             if len(site.buildings) == 2:
                 count += 1
         ratio = count / trials
-        assert abs(ratio - FARM_BARN_PROBABILITY) < 0.15
+        assert abs(ratio - FARM_BARN_PROBABILITY[SiteTier.MEDIUM]) < 0.15
 
     def test_barn_smaller_than_farmhouse(self):
         """When a barn is present, it is not larger than the farmhouse."""

@@ -4,7 +4,8 @@ See ``design/building_generator.md`` section 5.2. A farm is 1-2
 small wood-interior buildings (farmhouse + optional barn)
 surrounded by a large FIELD region, with a few GARDEN tiles in a
 ring around the farmhouse. No enclosure. Rare descent (~10%,
-farmhouse only).
+farmhouse only) at MEDIUM tier; SMALL tier (sub-hex minor
+feature) drops the barn and the descent.
 """
 
 from __future__ import annotations
@@ -21,24 +22,49 @@ from nhc.dungeon.model import (
     Level, LShape, Rect, RectShape, RoomShape, SurfaceType,
     Terrain, Tile,
 )
+from nhc.hexcrawl.model import DungeonRef
+from nhc.hexcrawl.sub_hex_sites import SiteTier
 from nhc.sites._site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
-from nhc.hexcrawl.model import DungeonRef
 
 
-# ── Farm tunable constants ───────────────────────────────────
+# ── Farm tunable constants (tier-indexed) ────────────────────
 
-FARM_SURFACE_WIDTH = 30
-FARM_SURFACE_HEIGHT = 22
-FARM_FARMHOUSE_POS = (5, 4)
-FARM_FARMHOUSE_SIZE = (8, 7)
-FARM_BARN_POS = (18, 10)
-FARM_BARN_SIZE = (6, 6)
+FARM_SURFACE_WIDTH: dict[SiteTier, int] = {
+    SiteTier.SMALL: 15,
+    SiteTier.MEDIUM: 30,
+}
+FARM_SURFACE_HEIGHT: dict[SiteTier, int] = {
+    SiteTier.SMALL: 10,
+    SiteTier.MEDIUM: 22,
+}
+FARM_FARMHOUSE_POS: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.SMALL: (4, 2),
+    SiteTier.MEDIUM: (5, 4),
+}
+FARM_FARMHOUSE_SIZE: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.SMALL: (7, 6),
+    SiteTier.MEDIUM: (8, 7),
+}
+FARM_BARN_POS: dict[SiteTier, tuple[int, int] | None] = {
+    SiteTier.SMALL: None,
+    SiteTier.MEDIUM: (18, 10),
+}
+FARM_BARN_SIZE: dict[SiteTier, tuple[int, int] | None] = {
+    SiteTier.SMALL: None,
+    SiteTier.MEDIUM: (6, 6),
+}
+FARM_BARN_PROBABILITY: dict[SiteTier, float] = {
+    SiteTier.SMALL: 0.0,
+    SiteTier.MEDIUM: 0.5,
+}
+FARM_DESCENT_PROBABILITY: dict[SiteTier, float] = {
+    SiteTier.SMALL: 0.0,
+    SiteTier.MEDIUM: 0.1,
+}
 FARM_FLOOR_COUNT_RANGE = (1, 2)
-FARM_BARN_PROBABILITY = 0.5
-FARM_DESCENT_PROBABILITY = 0.1
 FARM_DESCENT_TEMPLATE = "procedural:crypt"
 FARM_GARDEN_RING = 1  # tiles of garden around farmhouse perimeter
 FARM_SHAPE_POOL = ("rect", "lshape")
@@ -46,21 +72,26 @@ FARM_SHAPE_POOL = ("rect", "lshape")
 
 def assemble_farm(
     site_id: str, rng: random.Random,
+    *, tier: SiteTier = SiteTier.MEDIUM,
 ) -> Site:
     """Assemble a farm site.
 
     Returns a :class:`Site` with one farmhouse building and an
     optional barn, a FIELD-dominated surface level, and a
-    GARDEN ring around the farmhouse. No enclosure.
+    GARDEN ring around the farmhouse. No enclosure. ``tier``
+    selects the footprint — ``SMALL`` drops the barn and the
+    descent; ``MEDIUM`` keeps the macro-feature defaults.
     """
+    farmhouse_pos = FARM_FARMHOUSE_POS[tier]
+    farmhouse_size = FARM_FARMHOUSE_SIZE[tier]
     farmhouse_rect = Rect(
-        FARM_FARMHOUSE_POS[0], FARM_FARMHOUSE_POS[1],
-        FARM_FARMHOUSE_SIZE[0], FARM_FARMHOUSE_SIZE[1],
+        farmhouse_pos[0], farmhouse_pos[1],
+        farmhouse_size[0], farmhouse_size[1],
     )
     farmhouse_shape = _pick_shape(rng)
     farmhouse_floors = rng.randint(*FARM_FLOOR_COUNT_RANGE)
     farmhouse_descent: DungeonRef | None = None
-    if rng.random() < FARM_DESCENT_PROBABILITY:
+    if rng.random() < FARM_DESCENT_PROBABILITY[tier]:
         farmhouse_descent = DungeonRef(template=FARM_DESCENT_TEMPLATE)
     farmhouse = _build_farm_building(
         f"{site_id}_farmhouse", farmhouse_shape, farmhouse_rect,
@@ -68,10 +99,16 @@ def assemble_farm(
     )
 
     buildings = [farmhouse]
-    if rng.random() < FARM_BARN_PROBABILITY:
+    barn_pos = FARM_BARN_POS[tier]
+    barn_size = FARM_BARN_SIZE[tier]
+    if (
+        barn_pos is not None
+        and barn_size is not None
+        and rng.random() < FARM_BARN_PROBABILITY[tier]
+    ):
         barn_rect = Rect(
-            FARM_BARN_POS[0], FARM_BARN_POS[1],
-            FARM_BARN_SIZE[0], FARM_BARN_SIZE[1],
+            barn_pos[0], barn_pos[1],
+            barn_size[0], barn_size[1],
         )
         barn_shape = RectShape()  # barns are always rect
         barn_floors = rng.randint(1, 2)
@@ -82,7 +119,7 @@ def assemble_farm(
         buildings.append(barn)
 
     surface = _build_farm_surface(
-        f"{site_id}_surface", buildings, farmhouse,
+        f"{site_id}_surface", buildings, farmhouse, tier,
     )
 
     site = Site(
@@ -225,11 +262,11 @@ def _find_entry_doors(
 
 def _build_farm_surface(
     surface_id: str, buildings: list[Building],
-    farmhouse: Building,
+    farmhouse: Building, tier: SiteTier,
 ) -> Level:
     surface = Level.create_empty(
         surface_id, surface_id, 0,
-        FARM_SURFACE_WIDTH, FARM_SURFACE_HEIGHT,
+        FARM_SURFACE_WIDTH[tier], FARM_SURFACE_HEIGHT[tier],
     )
     # Collect all footprint tiles across buildings. The old code
     # also blocked a 1-tile buffer ring; dropped so fields reach
