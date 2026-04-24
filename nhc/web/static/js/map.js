@@ -51,15 +51,20 @@ const GameMap = {
   playerY: 0,
   _zoomLevel: 2,  // mirror of _zoomByView[_activeView]; read by UI
   _zoomSteps: [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0],
-  // Per-view zoom memory. Key: "hex" | "flower" | "map".
-  // "map" covers dungeon / site surface / site building (they all
-  // share map-container). A view is absent from the map until
-  // either the user explicitly zooms or the view's auto-fit runs
-  // for the first time in this browser. Persisted to localStorage
-  // so the player's zoom choice survives reloads.
-  _activeView: "map",
+  // Per-view zoom memory. One entry per canonical view:
+  // "hex" | "flower" | "site" | "structure" | "dungeon".
+  // See design/views.md for the five-view model. "site",
+  // "structure" and "dungeon" share the #map-container element
+  // but remain distinct views so each can remember its own zoom
+  // and drive its own toolbar. A view is absent from the map
+  // until either the user explicitly zooms while in that view
+  // or the view's auto-fit runs for the first time in this
+  // browser. Persisted to localStorage; key is bumped when the
+  // view set changes so stale indices can't leak through.
+  _activeView: "dungeon",
   _zoomByView: {},
-  _ZOOM_STORAGE_KEY: "nhc.zoom.byView.v1",
+  _ZOOM_STORAGE_KEY: "nhc.zoom.byView.v2",
+  _VALID_VIEWS: ["hex", "flower", "site", "structure", "dungeon"],
   _glowAnimId: null,  // requestAnimationFrame ID for detected glow
 
   init() {
@@ -130,7 +135,7 @@ const GameMap = {
     }
     if (!parsed || typeof parsed !== "object") return;
     const maxIdx = this._zoomSteps.length - 1;
-    for (const key of ["hex", "flower", "map"]) {
+    for (const key of this._VALID_VIEWS) {
       const v = parsed[key];
       if (Number.isInteger(v) && v >= 0 && v <= maxIdx) {
         this._zoomByView[key] = v;
@@ -152,19 +157,25 @@ const GameMap = {
 
   /**
    * Return the DOM container element that hosts the given view's
-   * rendered content, or null if the container is missing.
+   * rendered content, or null if the container is missing. The
+   * three tile-layer views (site / structure / dungeon) all ride
+   * on #map-container -- they remain distinct *views* but reuse
+   * one *element*.
    */
   _containerForView(view) {
     const id = view === "hex" ? "hex-container"
       : view === "flower" ? "flower-container"
-      : "map-container";
+      : "map-container";  // site / structure / dungeon
     return document.getElementById(id);
   },
 
-  /** Transform-origin convention per view. Keeps hex/flower
-   * horizontally centered and the dungeon map anchored at 0,0. */
+  /** Transform-origin convention per view. Hex + flower use
+   * center-top for horizontal centering; the three tile-layer
+   * views anchor at 0,0 so the floor SVG aligns with the
+   * dungeon canvases. */
   _originForView(view) {
-    return view === "map" ? "0 0" : "center top";
+    return (view === "hex" || view === "flower")
+      ? "center top" : "0 0";
   },
 
   /** Apply the scale corresponding to zoom level ``idx`` to the
@@ -186,7 +197,7 @@ const GameMap = {
    * view's own auto-fit decide the initial value.
    */
   setActiveView(view) {
-    if (view !== "hex" && view !== "flower" && view !== "map") return;
+    if (!this._VALID_VIEWS.includes(view)) return;
     this._activeView = view;
     if (view in this._zoomByView) {
       const idx = this._zoomByView[view];

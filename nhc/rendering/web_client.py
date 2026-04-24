@@ -1520,8 +1520,18 @@ class WebClient(GameClient):
         ]
         self._last_walk = current_walk
 
+        # Pick the specific tile-layer view so the client routes
+        # the frame to the right handler (site surface, building
+        # interior, or dungeon). See design/views.md for the full
+        # five-view model. A missing game reference -- shouldn't
+        # happen in practice but the renderer is built with no
+        # hard dependency on Game -- falls back to "state_dungeon"
+        # as the safest combat-capable default.
+        view_type = "state_dungeon"
+        if hasattr(self, "_hex_game") and self._hex_game is not None:
+            view_type = f"state_{self._hex_game.current_view()}"
         state_msg: dict = {
-            "type": "state",
+            "type": view_type,
             "entities": entities,
             "doors": doors,
             "turn": turn,

@@ -61,6 +61,10 @@ class TestWebClientMessages:
 
 class TestWebClientRender:
     def test_render_queues_state_and_stats(self, client):
+        """With no game reference attached, render() falls back to
+        the ``state_dungeon`` frame (the safest combat-capable
+        default). Production paths always attach ``_hex_game``
+        first; the view-dispatch tests below cover that case."""
         world = MagicMock()
         world._entities = []
         world.get_component = MagicMock(return_value=None)
@@ -72,9 +76,9 @@ class TestWebClientRender:
         client.render(world, level, player_id=1, turn=5)
         msgs = _drain_queue(client)
         types = [m["type"] for m in msgs]
-        assert "state" in types
+        assert "state_dungeon" in types
         assert "stats" in types
-        state = next(m for m in msgs if m["type"] == "state")
+        state = next(m for m in msgs if m["type"] == "state_dungeon")
         assert state["turn"] == 5
         # First render sends stats_init (static) + stats (dynamic)
         assert "stats_init" in types
@@ -82,6 +86,52 @@ class TestWebClientRender:
         assert "char_name" in stats_init
         stats = next(m for m in msgs if m["type"] == "stats")
         assert "hp" in stats
+
+
+class TestWebClientStateDispatch:
+    """``render()`` picks the state message type via the game's
+    :func:`Game.current_view` classifier. See ``design/views.md``
+    for the five-view model and the wire protocol."""
+
+    def _mock_world_and_level(self):
+        world = MagicMock()
+        world._entities = []
+        world.get_component = MagicMock(return_value=None)
+        level = MagicMock()
+        level.height = 0
+        level.width = 0
+        level.depth = 1
+        level.name = "Test"
+        return world, level
+
+    def _stub_game(self, view: str):
+        """Return an object with a ``.current_view()`` method that
+        pins the classifier result. WebClient.render only reads
+        that method on its ``_hex_game`` attribute."""
+        stub = MagicMock()
+        stub.current_view = MagicMock(return_value=view)
+        return stub
+
+    @pytest.mark.parametrize(
+        "view, expected_type",
+        [
+            ("site", "state_site"),
+            ("structure", "state_structure"),
+            ("dungeon", "state_dungeon"),
+        ],
+    )
+    def test_render_emits_view_specific_type(
+        self, client, view, expected_type,
+    ):
+        world, level = self._mock_world_and_level()
+        client._hex_game = self._stub_game(view)
+        client.render(world, level, player_id=1, turn=5)
+        msgs = _drain_queue(client)
+        types = [m["type"] for m in msgs]
+        assert expected_type in types
+        # And no generic "state" frame leaks through -- the
+        # client-side dispatch only listens on the split names.
+        assert "state" not in types
 
 
 class TestWebClientEndScreen:

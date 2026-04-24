@@ -2901,6 +2901,12 @@ class Game:
                     self.turn += 1
                 continue
 
+            # The web renderer reads current_view() on the game
+            # to pick the state_* message type (see
+            # design/views.md). Make sure it has a back-reference
+            # before the tile-layer render fires, mirroring the
+            # hex / flower branches above.
+            self.renderer._hex_game = self
             self.renderer.render(
                 self.world, self.level, self.player_id, self.turn,
             )

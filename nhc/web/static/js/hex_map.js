@@ -1059,16 +1059,26 @@ function _showHexOverland() {
   if (typeof Input !== "undefined") Input.setToolbarMode("hex");
 }
 
-function _showDungeonView() {
+/**
+ * Show the shared #map-container element and mark it as
+ * hosting the given tile-layer view: "site", "structure" or
+ * "dungeon". The three views share DOM but remain distinct in
+ * GameMap / Input (per-view zoom memory, per-view toolbar). See
+ * design/views.md.
+ */
+function _showMapView(view) {
   const mapContainer = document.getElementById("map-container");
   if (mapContainer) mapContainer.classList.remove("hidden");
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.add("hidden");
-  // Also hide the flower container — entering a dungeon from
-  // flower mode must dismiss the flower view.
+  // Also hide the flower container — entering a site / building
+  // / dungeon from flower mode must dismiss the flower view.
   const flowerContainer = document.getElementById("flower-container");
   if (flowerContainer) flowerContainer.classList.add("hidden");
-  if (typeof GameMap !== "undefined") GameMap.setActiveView("map");
+  if (typeof GameMap !== "undefined") GameMap.setActiveView(view);
+  // Toolbar mode splits into per-view sets in a later phase;
+  // today all three views share the "dungeon" toolbar so the
+  // behaviour doesn't change mid-refactor.
   if (typeof Input !== "undefined") Input.setToolbarMode("dungeon");
 }
 
@@ -1094,28 +1104,28 @@ if (typeof WS !== "undefined") {
       NHC.hideLoading();
     }
   });
-  // When the dungeon sends its own state, the player is inside a
-  // dungeon; hex-movement keys should NOT fire (dungeon keybinds
-  // would collide) and the SVG + dungeon canvases must be visible.
-  const _showDungeonAndLockHex = () => {
+  // When a tile-layer state frame arrives the player is inside
+  // a site / structure / dungeon; hex-movement keys must NOT
+  // fire (their bindings would collide with dungeon keys) and
+  // the map-container element must be visible. The three views
+  // share this transition so one helper handles all of them,
+  // parameterised by the target view name.
+  const _showMapAndLockHex = (view) => {
     setHexInputActive(false);
     /* eslint-disable no-undef */
     if (typeof FlowerInputActive !== "undefined") {
       FlowerInputActive = false;
     }
     /* eslint-enable no-undef */
-    _showDungeonView();
-    // Dungeon / site / building all share the "map" view -- their
-    // zoom preference lives under that key and is restored by
-    // _showDungeonView -> GameMap.setActiveView("map"). Default
-    // for a fresh player is 1.0x, but once the user zooms we
-    // honour that choice (previously we clobbered it back to 1x
-    // on every dungeon entry).
+    _showMapView(view);
+    // First-entry default for each tile-layer view is 1.0x.
+    // Once the user zooms, the choice is remembered per view
+    // (site / structure / dungeon each carry their own index).
     if (typeof GameMap !== "undefined"
-        && !("map" in GameMap._zoomByView)) {
+        && !(view in GameMap._zoomByView)) {
       const idx = GameMap._zoomSteps.indexOf(1.0);
-      if (idx >= 0) GameMap._recordAutoFit("map", idx);
-      GameMap._applyScaleToContainer("map", idx);
+      if (idx >= 0) GameMap._recordAutoFit(view, idx);
+      GameMap._applyScaleToContainer(view, idx);
       if (typeof Input !== "undefined") Input._updateZoomLabel();
     }
     // Re-arm the static draw + scroll for the next time the
@@ -1125,8 +1135,9 @@ if (typeof WS !== "undefined") {
     HexMap._staticDrawn = false;
     HexMap._punchedHexes.clear();
   };
-  WS.on("state_dungeon", _showDungeonAndLockHex);
-  WS.on("state", _showDungeonAndLockHex);
+  WS.on("state_site",      () => _showMapAndLockHex("site"));
+  WS.on("state_structure", () => _showMapAndLockHex("structure"));
+  WS.on("state_dungeon",   () => _showMapAndLockHex("dungeon"));
 
   // Click on the player glyph in hex map → enter exploration.
   const _hexContainer = document.getElementById("hex-container");
