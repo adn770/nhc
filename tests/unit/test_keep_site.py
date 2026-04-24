@@ -14,8 +14,8 @@ import random
 import pytest
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.dungeon.site import Enclosure, Site
-from nhc.dungeon.sites.keep import (
+from nhc.sites._site import Enclosure, Site
+from nhc.sites.keep import (
     KEEP_DESCENT_PROBABILITY,
     KEEP_MAIN_BUILDING_COUNT_RANGE,
     KEEP_SPARSE_BUILDING_COUNT_RANGE,

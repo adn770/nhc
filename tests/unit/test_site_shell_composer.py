@@ -1,4 +1,4 @@
-"""Tests for ``nhc/dungeon/sites/_shell.py``.
+"""Tests for ``nhc/sites/_shell.py``.
 
 ``compose_shell()`` centralizes the perimeter-wall stamping that
 was previously inlined in every ``_build_*_floor()``. M1 is a
@@ -11,7 +11,7 @@ from __future__ import annotations
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, Terrain, Tile,
 )
-from nhc.dungeon.sites._shell import compose_shell
+from nhc.sites._shell import compose_shell
 
 
 def _empty_level(w: int, h: int) -> Level:

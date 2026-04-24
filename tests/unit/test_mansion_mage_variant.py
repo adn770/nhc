@@ -12,7 +12,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.model import OctagonShape
-from nhc.dungeon.sites.mansion import assemble_mansion
+from nhc.sites.mansion import assemble_mansion
 
 
 class TestMageMansionHasAttachedTower:

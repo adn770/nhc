@@ -30,7 +30,7 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.svg import render_floor_svg
 
 if TYPE_CHECKING:
-    from nhc.dungeon.site import Site
+    from nhc.sites._site import Site
 
 
 # Kinds whose enclosure geometry is currently well-defined in

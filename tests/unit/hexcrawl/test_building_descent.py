@@ -77,7 +77,7 @@ def _force_tower_with_descent(g: Game) -> None:
     descent; fallback fails the test."""
     import random as _random
 
-    from nhc.dungeon.sites.tower import assemble_tower
+    from nhc.sites.tower import assemble_tower
     from nhc.hexcrawl.model import DungeonRef as DRef
 
     for seed in range(500):

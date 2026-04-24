@@ -19,7 +19,7 @@ import random
 import pytest
 
 from nhc.core.game import Game
-from nhc.dungeon.sites.keep import assemble_keep
+from nhc.sites.keep import assemble_keep
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode

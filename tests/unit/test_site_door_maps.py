@@ -15,11 +15,11 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.model import Terrain
-from nhc.dungeon.sites.farm import assemble_farm
-from nhc.dungeon.sites.keep import assemble_keep
-from nhc.dungeon.sites.mansion import assemble_mansion
-from nhc.dungeon.sites.tower import assemble_tower
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites.farm import assemble_farm
+from nhc.sites.keep import assemble_keep
+from nhc.sites.mansion import assemble_mansion
+from nhc.sites.tower import assemble_tower
+from nhc.sites.town import assemble_town
 
 
 def _adjacent(a: tuple[int, int], b: tuple[int, int]) -> bool:

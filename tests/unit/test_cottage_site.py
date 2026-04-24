@@ -10,7 +10,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.dungeon.sites.cottage import assemble_cottage
+from nhc.sites.cottage import assemble_cottage
 from nhc.hexcrawl.model import Biome
 
 

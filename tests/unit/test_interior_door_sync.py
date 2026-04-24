@@ -20,7 +20,7 @@ from nhc.core.events import DoorClosed
 from nhc.core.game_ticks import DOOR_CLOSE_TURNS, tick_doors
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import Level, Rect, RectShape, Terrain, Tile
-from nhc.dungeon.site import InteriorDoorLink, Site
+from nhc.sites._site import InteriorDoorLink, Site
 from nhc.entities.components import Position
 from nhc.i18n import init
 

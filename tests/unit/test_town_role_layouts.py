@@ -15,7 +15,7 @@ import random
 import pytest
 
 from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
-from nhc.dungeon.sites.town import (
+from nhc.sites.town import (
     SERVICE_ROLES_WITH_NPCS,
     SERVICE_ROLES_RESERVED,
     assemble_town,

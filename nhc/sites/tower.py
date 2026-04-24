@@ -22,7 +22,7 @@ from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RectShape, RoomShape,
     Terrain,
 )
-from nhc.dungeon.site import Site, outside_neighbour, stamp_building_door
+from nhc.sites._site import Site, outside_neighbour, stamp_building_door
 from nhc.hexcrawl.model import Biome, DungeonRef
 
 

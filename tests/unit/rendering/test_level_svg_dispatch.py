@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.dungeon.site import assemble_site
+from nhc.sites._site import assemble_site
 from nhc.rendering._building_walls import (
     BRICK_FILL, STONE_FILL,
 )

@@ -17,7 +17,7 @@ from nhc.dungeon.model import (
     LevelMetadata,
     Terrain,
 )
-from nhc.dungeon.site import assemble_site
+from nhc.sites._site import assemble_site
 from nhc.rendering.svg import render_floor_svg
 
 

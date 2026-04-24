@@ -294,23 +294,23 @@ def assemble_site(
     # Deferred imports keep this module cheap to import and avoid
     # circular references back to Building / Level helpers.
     if kind == "tower":
-        from nhc.dungeon.sites.tower import assemble_tower
+        from nhc.sites.tower import assemble_tower
         site = assemble_tower(
             site_id, rng, biome=biome, mage_variant=mage_variant,
         )
     elif kind == "farm":
-        from nhc.dungeon.sites.farm import assemble_farm
+        from nhc.sites.farm import assemble_farm
         site = assemble_farm(site_id, rng)
     elif kind == "mansion":
-        from nhc.dungeon.sites.mansion import assemble_mansion
+        from nhc.sites.mansion import assemble_mansion
         site = assemble_mansion(
             site_id, rng, mage_variant=mage_variant,
         )
     elif kind == "keep":
-        from nhc.dungeon.sites.keep import assemble_keep
+        from nhc.sites.keep import assemble_keep
         site = assemble_keep(site_id, rng)
     elif kind == "town":
-        from nhc.dungeon.sites.town import assemble_town
+        from nhc.sites.town import assemble_town
         kwargs: dict = {}
         if size_class is not None:
             kwargs["size_class"] = size_class
@@ -318,16 +318,16 @@ def assemble_site(
             kwargs["biome"] = biome
         site = assemble_town(site_id, rng, **kwargs)
     elif kind == "temple":
-        from nhc.dungeon.sites.temple import assemble_temple
+        from nhc.sites.temple import assemble_temple
         site = assemble_temple(site_id, rng, biome=biome)
     elif kind == "cottage":
-        from nhc.dungeon.sites.cottage import assemble_cottage
+        from nhc.sites.cottage import assemble_cottage
         site = assemble_cottage(site_id, rng, biome=biome)
     elif kind == "ruin":
-        from nhc.dungeon.sites.ruin import assemble_ruin
+        from nhc.sites.ruin import assemble_ruin
         site = assemble_ruin(site_id, rng, biome=biome)
     elif kind == "mage_residence":
-        from nhc.dungeon.sites.mage_residence import (
+        from nhc.sites.mage_residence import (
             assemble_mage_residence,
         )
         site = assemble_mage_residence(site_id, rng)

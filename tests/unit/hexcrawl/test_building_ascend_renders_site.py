@@ -18,7 +18,7 @@ from nhc.dungeon.building import Building, StairLink
 from nhc.dungeon.model import (
     Level, LevelMetadata, Rect, RectShape, Terrain, Tile,
 )
-from nhc.dungeon.site import Site
+from nhc.sites._site import Site
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.mode import Difficulty, WorldType

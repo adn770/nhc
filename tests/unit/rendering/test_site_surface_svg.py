@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from nhc.dungeon.site import assemble_site
+from nhc.sites._site import assemble_site
 from nhc.rendering.site_svg import render_site_surface_svg
 
 
@@ -53,7 +53,7 @@ def _assert_svg_matches_golden(got: str, golden_path: Path) -> None:
         f"got    : {got_snip!r}\n"
         f"golden : {golden_snip!r}\n"
         f"Regenerate: .venv/bin/python -c 'import random; "
-        f"from nhc.dungeon.site import assemble_site; "
+        f"from nhc.sites._site import assemble_site; "
         f"from nhc.rendering.site_svg import render_site_surface_svg; "
         f"seed=7; "
         f'site=assemble_site("town", f"town_seed{{seed}}", '

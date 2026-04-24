@@ -22,7 +22,7 @@ import random
 import pytest
 
 from nhc.core.game import Game
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites.town import assemble_town
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode

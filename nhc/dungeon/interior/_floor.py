@@ -20,7 +20,7 @@ from nhc.dungeon.interior.sector import SectorPartitioner
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
 from nhc.dungeon.interior.temple import TemplePartitioner
 from nhc.dungeon.model import Level, Rect, RoomShape, Terrain, Tile
-from nhc.dungeon.sites._shell import compose_shell
+from nhc.sites._shell import compose_shell
 
 
 def resolve_partitioner(spec: ArchetypeSpec) -> Partitioner:

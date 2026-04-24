@@ -14,8 +14,8 @@ import random
 
 import pytest
 
-from nhc.dungeon.site import Site
-from nhc.dungeon.sites.town import (
+from nhc.sites._site import Site
+from nhc.sites.town import (
     SERVICE_ROLES_WITH_NPCS,
     _SIZE_CLASSES,
     assemble_town,

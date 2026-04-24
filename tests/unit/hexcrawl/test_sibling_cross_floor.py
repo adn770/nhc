@@ -76,7 +76,7 @@ class TestBuildingGroundFloorStairGlyphs:
         ``depth + 1`` for the cache."""
         import random
 
-        from nhc.dungeon.sites.mansion import assemble_mansion
+        from nhc.sites.mansion import assemble_mansion
         for seed in range(30):
             site = assemble_mansion("m1", random.Random(seed))
             for b in site.buildings:
@@ -94,7 +94,7 @@ class TestBuildingGroundFloorStairGlyphs:
     def test_farm_floor0_has_stairs_up(self):
         import random
 
-        from nhc.dungeon.sites.farm import assemble_farm
+        from nhc.sites.farm import assemble_farm
         for seed in range(50):
             site = assemble_farm("f1", random.Random(seed))
             for b in site.buildings:
@@ -112,7 +112,7 @@ class TestBuildingGroundFloorStairGlyphs:
     def test_keep_floor0_has_stairs_up(self):
         import random
 
-        from nhc.dungeon.sites.keep import assemble_keep
+        from nhc.sites.keep import assemble_keep
         for seed in range(30):
             site = assemble_keep("k1", random.Random(seed))
             for b in site.buildings:

@@ -14,8 +14,8 @@ import random
 import pytest
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.dungeon.site import Site
-from nhc.dungeon.sites.mansion import (
+from nhc.sites._site import Site
+from nhc.sites.mansion import (
     MANSION_BUILDING_COUNT_RANGE,
     MANSION_DESCENT_PROBABILITY,
     assemble_mansion,

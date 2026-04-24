@@ -239,7 +239,7 @@ def _compute_door_sides(level: Level) -> None:
     did not already set it.
 
     Site assemblers that place building-entry doors go through
-    :func:`nhc.dungeon.site.stamp_building_door` which records
+    :func:`nhc.sites._site.stamp_building_door` which records
     ``door_side`` explicitly -- the right wall from the same
     :func:`outside_neighbour` call that drives the surface-side
     door placement. This function keeps the BSP dungeon path

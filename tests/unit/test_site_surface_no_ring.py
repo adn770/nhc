@@ -21,7 +21,7 @@ import random
 import pytest
 
 from nhc.dungeon.model import Terrain
-from nhc.dungeon.site import assemble_site
+from nhc.sites._site import assemble_site
 
 
 _SITE_KINDS_WITH_BUILDINGS = (

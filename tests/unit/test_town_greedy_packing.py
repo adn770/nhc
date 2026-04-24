@@ -13,7 +13,7 @@ import random
 
 import pytest
 
-from nhc.dungeon.sites.town import _SIZE_CLASSES, assemble_town
+from nhc.sites.town import _SIZE_CLASSES, assemble_town
 
 
 def _rects_overlap(a, b) -> bool:

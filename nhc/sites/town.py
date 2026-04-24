@@ -47,12 +47,12 @@ from nhc.dungeon.model import (
 from nhc.dungeon.room_types import (
     SHOP_STOCK, TEMPLE_SERVICES_DEFAULT, TEMPLE_STOCK_DEFAULT,
 )
-from nhc.dungeon.site import (
+from nhc.sites._site import (
     Enclosure, InteriorDoorLink, Site, outside_neighbour,
     paint_surface_doors, stamp_building_door,
     stamp_building_door_on_floor,
 )
-from nhc.dungeon.sites._placement import (
+from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
 )
 from nhc.hexcrawl.model import Biome, DungeonRef

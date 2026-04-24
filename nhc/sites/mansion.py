@@ -21,7 +21,7 @@ from nhc.dungeon.model import (
     Level, LShape, OctagonShape, Rect, RectShape, RoomShape,
     SurfaceType, Terrain, Tile,
 )
-from nhc.dungeon.site import (
+from nhc.sites._site import (
     InteriorDoorLink, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
@@ -204,7 +204,7 @@ def _stamp_mage_teleporters(
 ) -> None:
     """Stamp one teleporter pair on each floor of the mage tower.
 
-    Mirrors ``nhc.dungeon.sites.tower._stamp_mage_teleporters`` —
+    Mirrors ``nhc.sites.tower._stamp_mage_teleporters`` —
     inlined here to keep the mansion assembler self-contained
     without reaching across site-kind modules.
     """

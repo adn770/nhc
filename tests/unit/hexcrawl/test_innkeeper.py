@@ -58,7 +58,7 @@ def test_town_site_places_innkeeper_in_inn_building() -> None:
     ground floor."""
     import random
 
-    from nhc.dungeon.sites.town import assemble_town
+    from nhc.sites.town import assemble_town
 
     site = assemble_town(
         "t1", random.Random(1), size_class="village",

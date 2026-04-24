@@ -13,7 +13,7 @@ import random
 
 import pytest
 
-from nhc.dungeon.sites.mage_residence import assemble_mage_residence
+from nhc.sites.mage_residence import assemble_mage_residence
 
 
 def _stair_tiles_per_floor(

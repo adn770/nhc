@@ -14,8 +14,8 @@ import re
 
 import pytest
 
-from nhc.dungeon.sites.mansion import assemble_mansion
-from nhc.dungeon.sites.tower import assemble_tower
+from nhc.sites.mansion import assemble_mansion
+from nhc.sites.tower import assemble_tower
 from nhc.rendering._building_walls import (
     BRICK_FILL,
     MASONRY_WALL_THICKNESS,
@@ -245,7 +245,7 @@ class TestBuildingFloorsSkipBonesAndSkulls:
         seeds. Keep buildings are stone-interior, so they would
         otherwise hit the full thematic-detail path. None of them
         should emit a bones or skulls group."""
-        from nhc.dungeon.sites.keep import assemble_keep
+        from nhc.sites.keep import assemble_keep
         for seed in range(30):
             site = assemble_keep("k", random.Random(seed))
             for bi, b in enumerate(site.buildings):
@@ -263,7 +263,7 @@ class TestBuildingFloorsSkipBonesAndSkulls:
     def test_no_floor_stones_across_many_keep_floors(self):
         """Stone keep floors also skip the dungeon-style floor
         stone ellipses (FLOOR_STONE_FILL)."""
-        from nhc.dungeon.sites.keep import assemble_keep
+        from nhc.sites.keep import assemble_keep
         from nhc.rendering._svg_helpers import FLOOR_STONE_FILL
         for seed in range(30):
             site = assemble_keep("k", random.Random(seed))
@@ -286,7 +286,7 @@ class TestLShapeBuildingFloorFilled:
         None for LShape, so the interior showed through as page
         background with only the door's white rect standing out."""
         from nhc.dungeon.model import LShape
-        from nhc.dungeon.sites.town import assemble_town
+        from nhc.sites.town import assemble_town
         from nhc.rendering._svg_helpers import FLOOR_COLOR
         for seed in range(50):
             site = assemble_town("t", random.Random(seed))

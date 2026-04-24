@@ -14,7 +14,7 @@ import random
 import pytest
 
 from nhc.dungeon.model import OctagonShape, RectShape, SurfaceType, Terrain
-from nhc.dungeon.sites.temple import assemble_temple
+from nhc.sites.temple import assemble_temple
 from nhc.hexcrawl.model import Biome
 
 

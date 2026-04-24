@@ -674,7 +674,7 @@ def generate_settlements(outdir: Path, seeds: list[int]) -> None:
     carrying the labelled NPCs.
     """
     import random as rand_mod
-    from nhc.dungeon.sites.town import assemble_town
+    from nhc.sites.town import assemble_town
 
     sdir = outdir / "settlements"
     sdir.mkdir(parents=True, exist_ok=True)
@@ -1083,7 +1083,7 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
       <kind>_seed<N>_b<bi>_f<fi>.svg -- each building floor
     """
     import random as rand_mod
-    from nhc.dungeon.site import SITE_KINDS, assemble_site
+    from nhc.sites._site import SITE_KINDS, assemble_site
     from nhc.rendering.building import render_building_floor_svg
 
     bdir = outdir / "building_sites"

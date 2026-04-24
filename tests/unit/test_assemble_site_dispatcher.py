@@ -10,7 +10,7 @@ import random
 
 import pytest
 
-from nhc.dungeon.site import Site, assemble_site
+from nhc.sites._site import Site, assemble_site
 
 
 class TestAssembleSiteDispatcher:

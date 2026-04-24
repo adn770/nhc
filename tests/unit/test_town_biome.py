@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import random
 
-from nhc.dungeon.site import assemble_site
-from nhc.dungeon.sites.town import (
+from nhc.sites._site import assemble_site
+from nhc.sites.town import (
     TOWN_WOOD_BUILDING_PROBABILITY,
     assemble_town,
 )

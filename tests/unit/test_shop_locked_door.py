@@ -10,7 +10,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites.town import assemble_town
 
 
 def _doors_by_kind(site) -> dict[str, dict[str, int]]:

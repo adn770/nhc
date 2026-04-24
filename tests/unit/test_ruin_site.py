@@ -13,7 +13,7 @@ import random
 import pytest
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.dungeon.sites.ruin import (
+from nhc.sites.ruin import (
     RUIN_BUILDING_COUNT_RANGE,
     RUIN_DESCENT_FLOORS,
     RUIN_DESCENT_TEMPLATE,

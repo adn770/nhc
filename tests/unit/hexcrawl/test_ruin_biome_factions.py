@@ -16,7 +16,7 @@ import pytest
 
 from nhc.core.game import Game
 from nhc.dungeon.populator import FACTION_POOLS
-from nhc.dungeon.sites.ruin import assemble_ruin
+from nhc.sites.ruin import assemble_ruin
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.mode import Difficulty, WorldType, GameMode
@@ -179,7 +179,7 @@ class TestRuinSurfaceUsesFaction:
                 random.Random(7), biome=biome,
             )
             site.surface.metadata.faction = faction
-            from nhc.dungeon.sites.ruin import _populate_ruin_surface
+            from nhc.sites.ruin import _populate_ruin_surface
             # Clear any pre-populated entities from assembly and
             # rerun with faction applied.
             site.surface.entities = []
@@ -203,7 +203,7 @@ class TestRuinSurfaceUsesFaction:
         DungeonRef), the populator keeps using CREATURE_POOLS[1]
         so legacy tests stay green."""
         from nhc.dungeon.populator import CREATURE_POOLS
-        from nhc.dungeon.sites.ruin import _populate_ruin_surface
+        from nhc.sites.ruin import _populate_ruin_surface
         site = assemble_ruin(
             "ruin_nofac", random.Random(1), biome=Biome.FOREST,
         )

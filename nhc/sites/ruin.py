@@ -35,7 +35,7 @@ from nhc.dungeon.model import EntityPlacement
 from nhc.dungeon.populator import (
     CREATURE_POOLS, ENCOUNTER_GROUPS, FACTION_POOLS,
 )
-from nhc.dungeon.site import (
+from nhc.sites._site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )

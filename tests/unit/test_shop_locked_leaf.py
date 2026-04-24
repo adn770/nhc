@@ -4,7 +4,7 @@ Shops route through RectBSPPartitioner in doorway mode (via C3),
 so a shop floor has ≥ 3 rooms (BSP leaves). The locked-door rule
 says: lock the door that leads into the smallest leaf, with a
 deterministic tie-break on equal areas. That picker lives in
-:func:`nhc.dungeon.sites._placement.smallest_leaf_door` and is
+:func:`nhc.sites._placement.smallest_leaf_door` and is
 called from ``_lock_shop_doors``.
 """
 
@@ -18,8 +18,8 @@ from nhc.dungeon.building import Building
 from nhc.dungeon.model import (
     Level, Rect, RectShape, Room, Terrain, Tile,
 )
-from nhc.dungeon.sites._placement import smallest_leaf_door
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites._placement import smallest_leaf_door
+from nhc.sites.town import assemble_town
 
 
 def _make_shop_fixture() -> tuple[Level, Building]:

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites.town import assemble_town
 
 
 def _row_pairs(site):

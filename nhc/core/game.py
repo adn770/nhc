@@ -1079,7 +1079,7 @@ class Game:
         the template pipeline so re-entry restores the same Level
         instance.
         """
-        from nhc.dungeon.site import assemble_site
+        from nhc.sites._site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
 
         cell = self.hex_world.get_cell(coord)
@@ -1142,7 +1142,7 @@ class Game:
         them without re-running the assembler. The assembled Site
         is parked on :attr:`_active_site` as an O(1) handle.
         """
-        from nhc.dungeon.site import assemble_site
+        from nhc.sites._site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
 
         cell = self.hex_world.get_cell(coord)
@@ -1207,7 +1207,7 @@ class Game:
         future door-based transition can find the interior
         without re-running the assembler.
         """
-        from nhc.dungeon.site import assemble_site
+        from nhc.sites._site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
 
         cell = self.hex_world.get_cell(coord)
@@ -3935,7 +3935,7 @@ class Game:
                 # Ruin Floor 3 (depth == RUIN_DESCENT_FLOORS + 1)
                 # gets a boss room seeded from FACTION_LEADERS.
                 from nhc.dungeon.populator import assign_ruin_boss_room
-                from nhc.dungeon.sites.ruin import RUIN_DESCENT_FLOORS
+                from nhc.sites.ruin import RUIN_DESCENT_FLOORS
                 if (template == "procedural:ruin"
                         and surface_faction
                         and new_depth == RUIN_DESCENT_FLOORS + 1):

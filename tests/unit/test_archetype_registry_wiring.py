@@ -15,13 +15,13 @@ import pytest
 
 from nhc.dungeon.interior._floor import resolve_partitioner
 from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
-from nhc.dungeon.sites.cottage import assemble_cottage
-from nhc.dungeon.sites.farm import assemble_farm
-from nhc.dungeon.sites.keep import assemble_keep
-from nhc.dungeon.sites.mansion import assemble_mansion
-from nhc.dungeon.sites.ruin import assemble_ruin
-from nhc.dungeon.sites.temple import assemble_temple
-from nhc.dungeon.sites.tower import assemble_tower
+from nhc.sites.cottage import assemble_cottage
+from nhc.sites.farm import assemble_farm
+from nhc.sites.keep import assemble_keep
+from nhc.sites.mansion import assemble_mansion
+from nhc.sites.ruin import assemble_ruin
+from nhc.sites.temple import assemble_temple
+from nhc.sites.tower import assemble_tower
 
 
 SITE_ASSEMBLERS: list[tuple[str, object]] = [

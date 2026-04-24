@@ -12,9 +12,9 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.model import CircleShape, OctagonShape
-from nhc.dungeon.site import Site
-from nhc.dungeon.sites.mage_residence import assemble_mage_residence
-from nhc.dungeon.sites.tower import assemble_tower
+from nhc.sites._site import Site
+from nhc.sites.mage_residence import assemble_mage_residence
+from nhc.sites.tower import assemble_tower
 
 
 class TestMageResidenceBasics:

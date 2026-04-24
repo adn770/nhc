@@ -33,7 +33,7 @@ from nhc.dungeon.model import (
 from nhc.dungeon.room_types import (
     TEMPLE_SERVICES_DEFAULT, TEMPLE_STOCK_DEFAULT,
 )
-from nhc.dungeon.site import (
+from nhc.sites._site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )

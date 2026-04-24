@@ -225,7 +225,7 @@ def _sync_linked_door(game: Game, x: int, y: int) -> None:
     bid = getattr(game.level, "building_id", None)
     if bid is None:
         return
-    from nhc.dungeon.site import sync_linked_door_state
+    from nhc.sites._site import sync_linked_door_state
     sync_linked_door_state(site, bid, (x, y))
 
 

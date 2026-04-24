@@ -12,7 +12,7 @@ from __future__ import annotations
 from nhc.dungeon.model import (
     Level, Rect, RectShape, Room, Terrain, Tile,
 )
-from nhc.dungeon.sites._placement import safe_floor_near
+from nhc.sites._placement import safe_floor_near
 
 
 def _make_level(

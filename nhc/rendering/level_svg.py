@@ -20,7 +20,7 @@ from nhc.rendering.svg import render_floor_svg
 
 if TYPE_CHECKING:
     from nhc.dungeon.model import Level
-    from nhc.dungeon.site import Site
+    from nhc.sites._site import Site
 
 
 logger = logging.getLogger(__name__)

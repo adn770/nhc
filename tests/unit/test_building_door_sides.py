@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.dungeon.site import assemble_site
+from nhc.sites._site import assemble_site
 
 
 VALID_SIDES = {"north", "south", "east", "west"}
@@ -95,7 +95,7 @@ def test_side_matches_outside_neighbour_direction():
     physical wall from their respective sides. No heuristic
     involved -- this test pins the precise invariant across
     every site kind."""
-    from nhc.dungeon.site import outside_neighbour
+    from nhc.sites._site import outside_neighbour
     _EXPECTED = {
         (0, -1): "north", (0, 1): "south",
         (1, 0): "east", (-1, 0): "west",

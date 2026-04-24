@@ -16,9 +16,9 @@ from nhc.dungeon.building import Building
 from nhc.dungeon.model import (
     CircleShape, LShape, OctagonShape, RectShape, Rect,
 )
-from nhc.dungeon.site import Site
-from nhc.dungeon.sites.tower import assemble_tower
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites._site import Site
+from nhc.sites.tower import assemble_tower
+from nhc.sites.town import assemble_town
 from nhc.rendering._roofs import (
     building_roof_fragments,
     _roof_mode,

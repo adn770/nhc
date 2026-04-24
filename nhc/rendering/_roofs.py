@@ -33,7 +33,7 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 
 if TYPE_CHECKING:
     from nhc.dungeon.building import Building
-    from nhc.dungeon.site import Site
+    from nhc.sites._site import Site
 
 
 # Base roof tints. Each is the mid-sunlit shade; shadow side uses

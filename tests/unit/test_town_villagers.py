@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from nhc.dungeon.sites.town import (
+from nhc.sites.town import (
     TOWN_PICKPOCKET_COUNT, TOWN_VILLAGER_COUNT, assemble_town,
 )
 

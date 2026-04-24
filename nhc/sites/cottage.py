@@ -19,7 +19,7 @@ from nhc.dungeon.model import (
     EntityPlacement, Level, Rect, RectShape, RoomShape,
     SurfaceType, Terrain, Tile,
 )
-from nhc.dungeon.site import (
+from nhc.sites._site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )

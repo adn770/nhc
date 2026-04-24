@@ -16,8 +16,8 @@ import pytest
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, RectShape, Terrain,
 )
-from nhc.dungeon.site import Enclosure, Site
-from nhc.dungeon.sites.tower import (
+from nhc.sites._site import Enclosure, Site
+from nhc.sites.tower import (
     TOWER_DESCENT_PROBABILITY,
     TOWER_FLOOR_COUNT_RANGE,
     assemble_tower,

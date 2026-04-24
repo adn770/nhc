@@ -13,8 +13,8 @@ import random
 import pytest
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.dungeon.site import Enclosure, Site
-from nhc.dungeon.sites.town import (
+from nhc.sites._site import Enclosure, Site
+from nhc.sites.town import (
     TOWN_DESCENT_PROBABILITY,
     _SIZE_CLASSES,
     assemble_town,

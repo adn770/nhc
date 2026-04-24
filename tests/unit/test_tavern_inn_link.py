@@ -14,14 +14,14 @@ import random
 import pytest
 
 from nhc.dungeon.interior.registry import SHARED_DOOR_PAIRS
-from nhc.dungeon.site import InteriorDoorLink
-from nhc.dungeon.sites._shell import compose_shell
-from nhc.dungeon.sites.town import assemble_town
+from nhc.sites._site import InteriorDoorLink
+from nhc.sites._shell import compose_shell
+from nhc.sites.town import assemble_town
 from nhc.dungeon.model import Level, Terrain
 
 
 def _role_of(building) -> str:
-    from nhc.dungeon.sites.town import (
+    from nhc.sites.town import (
         SERVICE_ROLES_WITH_NPCS, SERVICE_ROLES_RESERVED,
     )
     known = SERVICE_ROLES_WITH_NPCS + SERVICE_ROLES_RESERVED

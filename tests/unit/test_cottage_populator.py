@@ -20,7 +20,7 @@ import random
 
 import pytest
 
-from nhc.dungeon.sites.cottage import (
+from nhc.sites.cottage import (
     COTTAGE_CONTENT_WEIGHTS, assemble_cottage,
 )
 from nhc.entities.registry import EntityRegistry

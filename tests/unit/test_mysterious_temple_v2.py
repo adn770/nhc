@@ -19,7 +19,7 @@ import random
 
 import pytest
 
-from nhc.dungeon.sites.temple import assemble_temple
+from nhc.sites.temple import assemble_temple
 from nhc.entities.registry import EntityRegistry
 from nhc.hexcrawl.model import Biome
 from nhc.i18n import init as i18n_init

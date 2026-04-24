@@ -15,8 +15,8 @@ import random
 
 import pytest
 
-from nhc.dungeon.site import assemble_site
-from nhc.dungeon.sites.tower import (
+from nhc.sites._site import assemble_site
+from nhc.sites.tower import (
     TOWER_FLOOR_COUNT_RANGE, assemble_tower,
 )
 from nhc.hexcrawl.model import Biome

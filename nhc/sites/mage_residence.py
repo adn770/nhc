@@ -20,7 +20,7 @@ from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RoomShape, Terrain,
 )
-from nhc.dungeon.site import Site, outside_neighbour, stamp_building_door
+from nhc.sites._site import Site, outside_neighbour, stamp_building_door
 from nhc.hexcrawl.model import DungeonRef
 
 

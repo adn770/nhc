@@ -13,10 +13,10 @@ import random
 
 from nhc.dungeon.building import Building
 from nhc.dungeon.model import Level, Rect, RectShape, Terrain, Tile
-from nhc.dungeon.site import (
+from nhc.sites._site import (
     InteriorDoorLink, Site, sync_linked_door_state,
 )
-from nhc.dungeon.sites.mansion import assemble_mansion
+from nhc.sites.mansion import assemble_mansion
 
 
 def _tiny_building(building_id: str, x0: int) -> Building:

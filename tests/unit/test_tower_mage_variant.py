@@ -11,7 +11,7 @@ from __future__ import annotations
 import random
 
 from nhc.dungeon.model import OctagonShape
-from nhc.dungeon.sites.tower import assemble_tower
+from nhc.sites.tower import assemble_tower
 
 
 class TestMageTowerShape:
