@@ -7,11 +7,12 @@ well with a single interior division.
 
 from __future__ import annotations
 
+from nhc.dungeon.interior.lshape import LShapePartitioner
 from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
-from nhc.dungeon.model import Rect, RectShape, Room, canonicalize
+from nhc.dungeon.model import LShape, Rect, RectShape, Room, canonicalize
 
 
 class DividedPartitioner:
@@ -27,6 +28,13 @@ class DividedPartitioner:
             assert tile in floor_tiles, (
                 f"required_walkable tile {tile} outside shape"
             )
+
+        # LShape footprints need a split at the L's inner corner;
+        # an axis-aligned split on the bounding rect can route the
+        # door through the notch. Delegate to LShapePartitioner
+        # which already targets the inner-corner junction.
+        if isinstance(cfg.shape, LShape):
+            return LShapePartitioner().plan(cfg)
 
         result = self._try_split(cfg)
         if result is not None:
