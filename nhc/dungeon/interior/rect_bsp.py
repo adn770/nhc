@@ -20,7 +20,9 @@ from nhc.dungeon.interior.protocol import (
     InteriorDoor, LayoutPlan, PartitionerConfig,
 )
 from nhc.dungeon.interior.single_room import SingleRoomPartitioner
-from nhc.dungeon.model import Rect, RectShape, Room, canonicalize
+from nhc.dungeon.model import (
+    LShape, Rect, RectShape, Room, canonicalize,
+)
 
 
 @dataclass
@@ -59,9 +61,166 @@ class RectBSPPartitioner:
             assert tile in floor_tiles, (
                 f"required_walkable tile {tile} outside shape"
             )
+        if isinstance(cfg.shape, LShape):
+            return self._plan_lshape(cfg)
         if self.mode == "corridor":
             return self._plan_corridor(cfg)
         return self._plan_doorway(cfg)
+
+    def _plan_lshape(self, cfg: PartitionerConfig) -> LayoutPlan:
+        """Partition an L-shape as two arms, then BSP each arm.
+
+        Rect-BSP naïvely splits the bounding rect, so an L-shape
+        used to leak leaves and doors into the notch; after the
+        shell stamps walls those doors became stranded FLOOR
+        tiles and whole rooms (including the stairs) were
+        unreachable. Splitting at the L's inner corner first
+        guarantees every leaf and door stays inside the footprint.
+        """
+        shape = cfg.shape
+        assert isinstance(shape, LShape)
+        rect = cfg.footprint
+        notch = shape._notch_rect(rect)
+        arms = self._lshape_arms(rect, notch, shape.corner)
+        if arms is None:
+            return SingleRoomPartitioner().plan(cfg)
+        arm_a, arm_b, edge_xs, edge_y = arms
+        min_room = cfg.min_room
+        if (
+            arm_a.width < min_room or arm_a.height < min_room
+            or arm_b.width < min_room or arm_b.height < min_room
+        ):
+            return SingleRoomPartitioner().plan(cfg)
+
+        junction_door = self._pick_junction_door(
+            edge_xs, edge_y, cfg.rng, cfg.required_walkable,
+        )
+        if junction_door is None:
+            return SingleRoomPartitioner().plan(cfg)
+
+        target = cfg.rng.randint(3, 5)
+        area_a = arm_a.width * arm_a.height
+        area_b = arm_b.width * arm_b.height
+        target_a = max(1, round(target * area_a / (area_a + area_b)))
+        target_b = max(1, target - target_a)
+
+        req_a = frozenset(
+            t for t in cfg.required_walkable
+            if (arm_a.x <= t[0] < arm_a.x2
+                and arm_a.y <= t[1] < arm_a.y2)
+        )
+        req_b = frozenset(
+            t for t in cfg.required_walkable
+            if (arm_b.x <= t[0] < arm_b.x2
+                and arm_b.y <= t[1] < arm_b.y2)
+        )
+
+        tree_a = self._build_tree_to_target(
+            arm_a, min_room, cfg.rng, req_a, target_a,
+        )
+        tree_b = self._build_tree_to_target(
+            arm_b, min_room, cfg.rng, req_b, target_b,
+        )
+        leaves = (
+            self._leaves_grown(tree_a) + self._leaves_grown(tree_b)
+        )
+
+        edges = (
+            self._collect_edges(tree_a)
+            | self._collect_edges(tree_b)
+            | {canonicalize(x, edge_y, "north") for x in edge_xs}
+        )
+        doors = (
+            self._place_edge_doors(tree_a, cfg)
+            + self._place_edge_doors(tree_b, cfg)
+            + [junction_door]
+        )
+
+        rooms = [
+            Room(
+                id=f"{cfg.archetype}_f{cfg.floor_index}_r{i}",
+                rect=leaf,
+                shape=RectShape(),
+                tags=[],
+            )
+            for i, leaf in enumerate(leaves)
+        ]
+        return LayoutPlan(
+            rooms=rooms,
+            interior_edges=edges,
+            doors=doors,
+        )
+
+    def _lshape_arms(
+        self, rect: Rect, notch: Rect, corner: str,
+    ) -> tuple[Rect, Rect, range, int] | None:
+        """Return ``(arm_a, arm_b, edge_xs, edge_y)`` for the L.
+
+        Mirrors :class:`LShapePartitioner`'s geometry; the junction
+        edge is always horizontal — ``(x, edge_y, "north")`` for
+        ``x in edge_xs``.
+        """
+        if corner == "nw":
+            arm_a = Rect(
+                notch.x2, rect.y,
+                rect.x2 - notch.x2, notch.height,
+            )
+            arm_b = Rect(
+                rect.x, notch.y2,
+                rect.width, rect.y2 - notch.y2,
+            )
+            return arm_a, arm_b, range(notch.x2, rect.x2), notch.y2
+        if corner == "ne":
+            arm_a = Rect(
+                rect.x, rect.y,
+                notch.x - rect.x, notch.height,
+            )
+            arm_b = Rect(
+                rect.x, notch.y2,
+                rect.width, rect.y2 - notch.y2,
+            )
+            return arm_a, arm_b, range(rect.x, notch.x), notch.y2
+        if corner == "sw":
+            arm_a = Rect(
+                rect.x, rect.y,
+                rect.width, notch.y - rect.y,
+            )
+            arm_b = Rect(
+                notch.x2, notch.y,
+                rect.x2 - notch.x2, notch.height,
+            )
+            return arm_a, arm_b, range(notch.x2, rect.x2), notch.y
+        if corner == "se":
+            arm_a = Rect(
+                rect.x, rect.y,
+                rect.width, notch.y - rect.y,
+            )
+            arm_b = Rect(
+                rect.x, notch.y,
+                notch.x - rect.x, notch.height,
+            )
+            return arm_a, arm_b, range(rect.x, notch.x), notch.y
+        return None
+
+    def _pick_junction_door(
+        self, edge_xs: range, edge_y: int,
+        rng: random.Random,
+        required: frozenset[tuple[int, int]],
+    ) -> InteriorDoor | None:
+        xs = list(edge_xs)
+        if len(xs) < 3:
+            return None
+        interior = xs[1:-1]
+        candidates = [
+            (x, edge_y) for x in interior
+            if (x, edge_y) not in required
+        ]
+        if not candidates:
+            return None
+        x, y = rng.choice(candidates)
+        return InteriorDoor(
+            x=x, y=y, side="north", feature="door_closed",
+        )
 
     def _plan_doorway(self, cfg: PartitionerConfig) -> LayoutPlan:
         target = cfg.rng.randint(3, 5)
