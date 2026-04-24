@@ -1045,6 +1045,12 @@ document.addEventListener("keydown", hexKeyHandler);
 function _showHexOverland() {
   const mapContainer = document.getElementById("map-container");
   if (mapContainer) mapContainer.classList.add("hidden");
+  // Flower container must also be dismissed -- the flower->hex
+  // transition (Shift-L from flower) reaches this helper and
+  // without this line the flower stays stacked on top of hex,
+  // so the player sees no change and thinks L did nothing.
+  const flowerContainer = document.getElementById("flower-container");
+  if (flowerContainer) flowerContainer.classList.add("hidden");
   const hexContainer = document.getElementById("hex-container");
   if (hexContainer) hexContainer.classList.remove("hidden");
   if (typeof GameMap !== "undefined") GameMap.setActiveView("hex");
