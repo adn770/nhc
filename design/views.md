@@ -15,7 +15,7 @@ looking at right now?" should funnel through
 |------|---------------|-----------------------|
 | `hex` | the overland hex crawl map | macro hex movement, day-clock ticks, `hex_explore`, `hex_rest` |
 | `flower` | the 7-hex sub-hex "flower" around a macro hex | `hex_enter`, `flower_search`, `flower_forage`, `flower_rest`, `flower_exit` |
-| `site` | the outdoor layer of a named location (town, keep, farm, mansion, ruin, mage residence) | npc encounters, site-edge exit, `flower_exit` (via **L**), building entry doors |
+| `site` | the outdoor layer of a named location (town, keep, farm, mansion, ruin, mage residence) *or* a family sub-hex site (sacred shrine, wayside well, inhabited settlement, animal den, natural curiosity, undead) | npc encounters, site-edge exit, `flower_exit` (via **L**), building entry doors |
 | `structure` | the interior of a building on a site | shop / temple / inn interactions, stairs up / down, cross-building interior doors |
 | `dungeon` | a procedural underground level (standalone or descent from a site) | combat, stairs, dig, traps, item pickups |
 
@@ -38,7 +38,10 @@ Implemented by :func:`Game.current_view`. Applied in order:
 3. If ``level.building_id`` is not ``None`` → **`structure`**.
 4. If :attr:`_active_site` is not ``None`` and ``level`` is the
    site surface → **`site`**.
-5. Otherwise → **`dungeon`** (covers both procedural dungeons
+5. If :attr:`_active_sub_hex` is not ``None`` → **`site`**
+   (family sub-hex sites enter from the flower and leave with
+   **L**, same contract as bespoke sites).
+6. Otherwise → **`dungeon`** (covers both procedural dungeons
    reached from a building's descent and standalone
    dungeon-only-mode levels).
 

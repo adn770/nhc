@@ -467,7 +467,12 @@ class Game:
            from a site or a standalone dungeon.
         4. ``_active_site is not None`` and the current level is
            the site's surface: ``site``.
-        5. Everything else: ``dungeon`` (covers both standalone
+        5. ``_active_sub_hex is not None``: family sub-hex sites
+           (sacred shrine, wayside well, inhabited settlement,
+           animal den, natural curiosity, undead) classify as
+           ``site`` too — they're a single outdoor layer the
+           player enters from the flower and leaves with L.
+        6. Everything else: ``dungeon`` (covers both standalone
            dungeon-mode levels and descents routed through a
            site's building stairs).
         """
@@ -482,6 +487,8 @@ class Game:
             return "structure"
         site = getattr(self, "_active_site", None)
         if site is not None and self.level is site.surface:
+            return "site"
+        if getattr(self, "_active_sub_hex", None) is not None:
             return "site"
         return "dungeon"
 

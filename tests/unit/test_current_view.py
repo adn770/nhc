@@ -60,6 +60,7 @@ def _game_shell() -> Game:
     g.hex_world = None
     g.level = None
     g._active_site = None
+    g._active_sub_hex = None
     return g
 
 
@@ -128,6 +129,24 @@ def test_building_floor_returns_structure() -> None:
     g.level = building_floor
     g._active_site = _StubSite(surface=surface)
     assert g.current_view() == "structure"
+
+
+def test_sub_hex_family_site_returns_site() -> None:
+    """Family sub-hex sites (sacred shrine, wayside well, etc.)
+    set ``_active_sub_hex`` but leave ``_active_site`` at ``None``.
+    They are still "outdoor layer of a named location" per the
+    design, so the classifier reports ``site`` -- otherwise L
+    (leave_site) is dropped by the client-side input gate and the
+    player is stranded on the sub-hex Level.
+    """
+    from nhc.hexcrawl.mode import WorldType
+
+    sub_level = _floor_level(level_id="sub_sacred_42", depth=1)
+    g = _game_shell()
+    g.world_type = WorldType.HEXCRAWL
+    g.level = sub_level
+    g._active_sub_hex = HexCoord(0, 0)
+    assert g.current_view() == "site"
 
 
 def test_standalone_dungeon_returns_dungeon() -> None:
