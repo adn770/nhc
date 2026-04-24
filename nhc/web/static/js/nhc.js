@@ -45,8 +45,16 @@ const NHC = {
     // Show "Continue" button if a save exists
     this.checkSave();
 
-    // Wire up WebSocket message handlers
-    WS.on("state", (msg) => {
+    // Wire up WebSocket message handlers. The per-tick entity /
+    // FOV / doors payload is identical across the three tile-
+    // layer views (site / structure / dungeon) -- only the
+    // message *type* differs so the view-switch handlers in
+    // hex_map.js can route the first frame after a view
+    // transition to the right toolbar + zoom memory. See
+    // design/views.md for the five-view wire protocol. The
+    // state_hex / state_flower payloads are handled by their
+    // own modules (hex_map.js / hex_flower.js).
+    const _applyTileStateFrame = (msg) => {
       console.log("[state] entities:", msg.entities.length,
                   "doors:", (msg.doors || []).length,
                   "fov:", (msg.fov || []).length,
@@ -66,7 +74,10 @@ const NHC = {
         NHC.waitingForFloor = false;
         NHC.hideLoading();
       }
-    });
+    };
+    WS.on("state_site", _applyTileStateFrame);
+    WS.on("state_structure", _applyTileStateFrame);
+    WS.on("state_dungeon", _applyTileStateFrame);
 
     WS.on("message", (msg) => {
       console.log("message:", msg.text);
