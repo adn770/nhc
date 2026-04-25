@@ -1,16 +1,33 @@
 #!/usr/bin/env python3
-"""Generate sample SVG dungeon maps for visual inspection.
+"""Generate sample SVG maps for visual inspection.
 
 Usage:
     python -m tests.samples.generate_svg [--outdir DIR] [--seeds S1,S2,...]
     python -m tests.samples.generate_svg --seeds 32244540 --shape-variety 0.3
+    python -m tests.samples.generate_svg --sites-only --seeds 7
+    python -m tests.samples.generate_svg --buildings-only --seeds 7
 
-Outputs SVGs at three shape_variety levels (0.0, 0.5, 1.0) for each
-seed.  When --shape-variety is given, only that exact level is
-generated (filename uses the numeric value).  Each room is overlaid
-with its index number and generation details (shape, bounding rect
-dimensions) for easy reference when discussing rendering glitches.
-Files land in debug/ by default.
+Default run (no flags) produces a complete catalog under
+``debug/``:
+
+* BSP shape-variety samples (0.0 / 0.5 / 1.0 sweep, or one exact
+  level via ``--shape-variety``) with room / door / corridor /
+  feature labels overlaid.
+* Structural template samples (tower / crypt / mine).
+* Underworld biome samples (cave / fungal_cavern / lava_chamber /
+  underground_lake).
+* Settlement size classes (hamlet / village / town / city).
+* Building wall + enclosure + surface reference sheets.
+* Macro site samples -- one surface SVG plus per-floor SVGs for
+  each kind in :data:`nhc.sites._site.SITE_KINDS` (tower, farm,
+  mansion, keep, town, temple, cottage, ruin, mage_residence).
+* Sub-hex site samples -- one surface SVG per
+  centerpiece variant for wayside / clearing / sacred / den /
+  graveyard / campsite / orchard.
+
+``--sites-only`` skips the references / dungeons / settlements
+and produces only macro + sub-hex site samples for fast graphical
+iteration.
 """
 
 from __future__ import annotations
@@ -304,6 +321,80 @@ def _inject_corridor_labels(svg_text: str, level) -> str:
         txt.set("font-weight", "bold")
         txt.set("fill", "#2e5a2e")
         txt.text = label
+
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
+_FEATURE_MARKER_SKIP = {
+    "door_closed", "door_open", "door_secret", "door_locked",
+    "stairs_up", "stairs_down",
+}
+_FEATURE_LABEL_BG = "rgba(255,235,200,0.92)"
+_FEATURE_LABEL_BORDER = "#a0651e"
+_FEATURE_LABEL_FILL = "#7a3e00"
+
+
+def _inject_feature_markers(svg_text: str, level) -> str:
+    """Pin a small label on each non-door / non-stairs feature tile.
+
+    Surface features such as ``well``, ``shrine``, ``campfire``, or
+    ``tomb_entrance`` carry no glyph in ``render_floor_svg`` (they
+    are spawned as ECS entities at runtime). For visual debugging
+    we want to see where the centerpiece sits, so this overlay
+    drops a labelled marker on each one.
+    """
+    ns = "http://www.w3.org/2000/svg"
+    ET.register_namespace("", ns)
+    root = ET.fromstring(svg_text)
+
+    grp = ET.SubElement(root, f"{{{ns}}}g")
+    grp.set("id", "feature-markers")
+
+    for y, row in enumerate(level.tiles):
+        for x, tile in enumerate(row):
+            feat = tile.feature
+            if not feat or feat in _FEATURE_MARKER_SKIP:
+                continue
+            cx = PADDING + (x + 0.5) * CELL
+            cy = PADDING + (y + 0.5) * CELL
+
+            # Crosshair on the tile centre
+            for (dx0, dy0, dx1, dy1) in (
+                (-5, 0, 5, 0), (0, -5, 0, 5),
+            ):
+                line = ET.SubElement(grp, f"{{{ns}}}line")
+                line.set("x1", f"{cx + dx0:.1f}")
+                line.set("y1", f"{cy + dy0:.1f}")
+                line.set("x2", f"{cx + dx1:.1f}")
+                line.set("y2", f"{cy + dy1:.1f}")
+                line.set("stroke", _FEATURE_LABEL_BORDER)
+                line.set("stroke-width", "1.2")
+
+            text = feat
+            char_w = 5.6
+            font_size = 9
+            pill_w = max(28.0, len(text) * char_w + 10)
+            pill_h = font_size + 6
+
+            bg = ET.SubElement(grp, f"{{{ns}}}rect")
+            bg.set("x", f"{cx - pill_w / 2:.1f}")
+            bg.set("y", f"{cy - pill_h - 6:.1f}")
+            bg.set("width", f"{pill_w:.1f}")
+            bg.set("height", f"{pill_h:.1f}")
+            bg.set("rx", "3")
+            bg.set("fill", _FEATURE_LABEL_BG)
+            bg.set("stroke", _FEATURE_LABEL_BORDER)
+            bg.set("stroke-width", "0.5")
+
+            txt = ET.SubElement(grp, f"{{{ns}}}text")
+            txt.set("x", f"{cx:.1f}")
+            txt.set("y", f"{cy - 8:.1f}")
+            txt.set("text-anchor", "middle")
+            txt.set("font-family", LABEL_FONT)
+            txt.set("font-size", f"{font_size}")
+            txt.set("font-weight", "bold")
+            txt.set("fill", _FEATURE_LABEL_FILL)
+            txt.text = text
 
     return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
@@ -618,6 +709,7 @@ def _render_and_save(
         svg = _inject_room_labels(svg, level)
         svg = _inject_door_labels(svg, level)
         svg = _inject_corridor_labels(svg, level)
+        svg = _inject_feature_markers(svg, level)
     base.with_suffix(".svg").write_text(svg)
 
     tags = {}
@@ -1075,6 +1167,226 @@ def _enclosure_fragments_for_site(site, seed: int) -> list[str]:
     return []
 
 
+def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
+    """Side-by-side comparison sheet: wells (1x1) and fountains
+    (2x2), circle + square variants of each.
+
+    All four decorations bypass the site assemblers -- this is a
+    synthetic level with hand-stamped feature tags so we can
+    eyeball the rendering primitives in isolation. Useful when
+    iterating on the stone / water / pedestal styling without
+    waiting on the wayside assembler to roll the right seed.
+    """
+    from nhc.dungeon.model import (
+        Level, Rect, Room, SurfaceType, Terrain, Tile,
+    )
+
+    wdir = outdir / "well_demo"
+    wdir.mkdir(parents=True, exist_ok=True)
+
+    # Layout: 24 x 12. Top row (y=3) for wells; bottom area
+    # (y=7..8) for fountains -- fountain anchors at top-left of
+    # the 2x2 footprint so its centre lands at (anchor+1, anchor+1).
+    width, height = 24, 12
+    for seed in seeds:
+        level = Level.create_empty(
+            "well_fountain_demo", "Wells + fountains", 1, width, height,
+        )
+        for y in range(height):
+            for x in range(width):
+                level.tiles[y][x] = Tile(
+                    terrain=Terrain.FLOOR,
+                    surface_type=SurfaceType.FIELD,
+                )
+        level.rooms = [Room(id="r0", rect=Rect(0, 0, width, height))]
+
+        well_circle = (4, 3)
+        well_square = (11, 3)
+        fountain_circle = (3, 7)   # spans (3,7)..(4,8)
+        fountain_square = (10, 7)  # spans (10,7)..(11,8)
+
+        level.tiles[well_circle[1]][well_circle[0]].feature = "well"
+        level.tiles[well_square[1]][well_square[0]].feature = (
+            "well_square"
+        )
+        level.tiles[fountain_circle[1]][fountain_circle[0]].feature = (
+            "fountain"
+        )
+        level.tiles[fountain_square[1]][fountain_square[0]].feature = (
+            "fountain_square"
+        )
+
+        svg = render_floor_svg(level, seed=seed)
+        svg = _inject_room_labels(svg, level)
+        svg = _inject_feature_markers(svg, level)
+        info = [
+            f"Wells + fountains comparison | seed={seed}",
+            f"Top    L: well @ {well_circle} (circle keystones, 1x1)",
+            f"Top    R: well_square @ {well_square} "
+            "(perimeter stones, 1x1)",
+            f"Bottom L: fountain @ {fountain_circle} "
+            "(2x2, central pedestal + spout)",
+            f"Bottom R: fountain_square @ {fountain_square} "
+            "(2x2 square pool + pedestal)",
+        ]
+        svg = _inject_info_panel(svg, info)
+        base = wdir / f"well_fountain_demo_seed{seed}"
+        base.with_suffix(".svg").write_text(svg)
+        print(f"  {base.with_suffix('.svg').name}")
+
+
+# ── Sub-hex site samples ───────────────────────────────────────────
+#
+# The dispatcher (``nhc.sites._site.assemble_site``) only knows about
+# the structured macro kinds. Sub-hex sites (wayside, clearing,
+# sacred, den, graveyard, campsite, orchard) are called directly
+# with a feature kwarg from the hexcrawl model. The variant list
+# below picks one entry per visually-distinct centerpiece so a
+# single sample run captures every surface flavour the player can
+# walk into from the flower view.
+
+# The hexcrawl enums (Biome, HexFeatureType, MinorFeatureType) are
+# resolved lazily inside ``_build_sub_hex_specs`` to keep this
+# module's top-level import cheap and avoid pulling the full
+# hexcrawl model when callers only want the building-wall demos.
+def _build_sub_hex_specs() -> list[tuple[str, str, dict]]:
+    """Lazily resolve the feature/biome kwargs for every sub-hex
+    sample. Returns ``(kind, label, assemble_kwargs)`` tuples."""
+    from nhc.hexcrawl.model import Biome, HexFeatureType, MinorFeatureType
+
+    return [
+        ("wayside",   "well",          {
+            "feature": MinorFeatureType.WELL,
+        }),
+        ("wayside",   "signpost",      {
+            "feature": MinorFeatureType.SIGNPOST,
+        }),
+        ("clearing",  "mushroom_ring", {
+            "feature": MinorFeatureType.MUSHROOM_RING,
+        }),
+        ("clearing",  "herb_patch",    {
+            "feature": MinorFeatureType.HERB_PATCH,
+        }),
+        ("clearing",  "hollow_log",    {
+            "feature": MinorFeatureType.HOLLOW_LOG,
+        }),
+        ("clearing",  "bone_pile",     {
+            "feature": MinorFeatureType.BONE_PILE,
+        }),
+        ("sacred",    "shrine",        {
+            "feature": MinorFeatureType.SHRINE,
+        }),
+        ("sacred",    "standing_stone", {
+            "feature": MinorFeatureType.STANDING_STONE,
+        }),
+        ("sacred",    "cairn",         {
+            "feature": MinorFeatureType.CAIRN,
+        }),
+        ("sacred",    "crystals",      {
+            "feature": HexFeatureType.CRYSTALS,
+        }),
+        ("sacred",    "stones",        {
+            "feature": HexFeatureType.STONES,
+        }),
+        ("sacred",    "wonder",        {
+            "feature": HexFeatureType.WONDER,
+        }),
+        ("sacred",    "portal",        {
+            "feature": HexFeatureType.PORTAL,
+        }),
+        ("den",       "forest",        {
+            "feature": MinorFeatureType.ANIMAL_DEN,
+            "biome": Biome.FOREST,
+        }),
+        ("den",       "mountain",      {
+            "feature": MinorFeatureType.LAIR,
+            "biome": Biome.MOUNTAIN,
+        }),
+        ("graveyard", "default",       {}),
+        ("campsite",  "default",       {}),
+        ("orchard",   "default",       {}),
+    ]
+
+
+_SUB_HEX_DISPATCH: dict[str, str] = {
+    "wayside":   "nhc.sites.wayside.assemble_wayside",
+    "clearing":  "nhc.sites.clearing.assemble_clearing",
+    "sacred":    "nhc.sites.sacred.assemble_sacred",
+    "den":       "nhc.sites.den.assemble_den",
+    "graveyard": "nhc.sites.graveyard.assemble_graveyard",
+    "campsite":  "nhc.sites.campsite.assemble_campsite",
+    "orchard":   "nhc.sites.orchard.assemble_orchard",
+}
+
+
+def _resolve_sub_hex_assembler(kind: str):
+    mod_path, _, fn_name = _SUB_HEX_DISPATCH[kind].rpartition(".")
+    import importlib
+    return getattr(importlib.import_module(mod_path), fn_name)
+
+
+def generate_sub_hex_sites(outdir: Path, seeds: list[int]) -> None:
+    """Render every sub-hex site variant for each seed.
+
+    Output layout: ``<outdir>/sub_hex_sites/<kind>_<label>_seed<N>.svg``.
+    Sub-hex sites have no buildings -- the surface is the whole
+    interactable level -- so each entry is a single SVG with
+    info panel + room/door/corridor/feature labels.
+    """
+    import random as rand_mod
+    from nhc.rendering._doors_svg import door_overlay_fragments
+
+    sdir = outdir / "sub_hex_sites"
+    sdir.mkdir(parents=True, exist_ok=True)
+
+    specs = _build_sub_hex_specs()
+    for seed in seeds:
+        for kind, label, kwargs in specs:
+            assembler = _resolve_sub_hex_assembler(kind)
+            site_id = f"{kind}_{label}_s{seed}"
+            site = assembler(
+                site_id, rand_mod.Random(seed), **kwargs,
+            )
+            svg = render_floor_svg(site.surface, seed=seed)
+            door_frags = door_overlay_fragments(
+                site.surface, seed=seed,
+            )
+            if door_frags:
+                svg = svg.replace(
+                    "</svg>", "".join(door_frags) + "</svg>",
+                )
+            svg = _inject_room_labels(svg, site.surface)
+            svg = _inject_door_labels(svg, site.surface)
+            svg = _inject_corridor_labels(svg, site.surface)
+            svg = _inject_feature_markers(svg, site.surface)
+
+            feature_arg = kwargs.get("feature")
+            biome_arg = kwargs.get("biome")
+            info = [
+                f"Sub-hex site: {kind} | label: {label} | "
+                f"seed={seed}",
+                f"Surface: {site.surface.width}x"
+                f"{site.surface.height} tiles",
+                f"Feature kwarg: "
+                + (
+                    f"{type(feature_arg).__name__}."
+                    f"{feature_arg.name}"
+                    if feature_arg is not None else "(default)"
+                ),
+                f"Biome kwarg: "
+                + (
+                    f"{biome_arg.name}"
+                    if biome_arg is not None else "(default)"
+                ),
+                "No buildings; centerpiece marked by overlay.",
+            ]
+            svg = _inject_info_panel(svg, info)
+
+            base = sdir / f"{kind}_{label}_seed{seed}"
+            base.with_suffix(".svg").write_text(svg)
+            print(f"  {base.with_suffix('.svg').name}")
+
+
 def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
     """Render every site kind for each seed.
 
@@ -1222,12 +1534,29 @@ def main(argv: list[str] | None = None) -> None:
             "(walls, enclosures, surfaces, sites)"
         ),
     )
+    parser.add_argument(
+        "--sites-only", action="store_true",
+        help=(
+            "only generate per-site samples (macro + sub-hex). "
+            "Skips wall / enclosure / surface references for "
+            "fast graphical iteration."
+        ),
+    )
     args = parser.parse_args(argv)
 
     seeds = (
         [int(s) for s in args.seeds.split(",")]
         if args.seeds else DEFAULT_SEEDS
     )
+
+    if args.sites_only:
+        print("── Building site samples (macro) ──")
+        generate_building_sites(args.outdir, seeds)
+        print("\n── Sub-hex site samples ──")
+        generate_sub_hex_sites(args.outdir, seeds)
+        print("\n── Wells + fountains demo ──")
+        generate_well_demo(args.outdir, seeds)
+        return
 
     if args.buildings_only:
         print("── Building wall references ──")
@@ -1236,8 +1565,10 @@ def main(argv: list[str] | None = None) -> None:
         generate_enclosure_demos(args.outdir)
         print("\n── Surface references ──")
         generate_surface_samples(args.outdir)
-        print("\n── Building site samples ──")
+        print("\n── Building site samples (macro) ──")
         generate_building_sites(args.outdir, seeds)
+        print("\n── Sub-hex site samples ──")
+        generate_sub_hex_sites(args.outdir, seeds)
         return
 
     if not args.templates_only:
@@ -1261,8 +1592,12 @@ def main(argv: list[str] | None = None) -> None:
     generate_enclosure_demos(args.outdir)
     print("\n── Surface references ──")
     generate_surface_samples(args.outdir)
-    print("\n── Building site samples ──")
+    print("\n── Building site samples (macro) ──")
     generate_building_sites(args.outdir, seeds)
+    print("\n── Sub-hex site samples ──")
+    generate_sub_hex_sites(args.outdir, seeds)
+    print("\n── Wells + fountains demo ──")
+    generate_well_demo(args.outdir, seeds)
 
 
 if __name__ == "__main__":

@@ -152,6 +152,13 @@ def render_floor_svg(
     # Layer 7: Stairs
     _render_stairs(svg, level)
 
+    # Layer 8: Surface-feature decorations (wells, fountains, ...).
+    # Painted last so the stones / waterline sit above tile fills
+    # and cobblestone seams, mirroring the order entities are
+    # composited on top of the SVG by the web client.
+    svg.extend(render_well_features(level))
+    svg.extend(render_fountain_features(level))
+
     svg.append("</g>")
     svg.append("</svg>")
     return "\n".join(svg)
@@ -357,5 +364,9 @@ from nhc.rendering._walls_floors import (  # noqa: E402
     _render_walls_and_floors,
 )
 from nhc.rendering._stairs_svg import _render_stairs  # noqa: E402
+from nhc.rendering._features_svg import (  # noqa: E402
+    render_fountain_features,
+    render_well_features,
+)
 
 
