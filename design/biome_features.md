@@ -511,10 +511,11 @@ surface ring style differs.
 **Migration note:** the existing `procedural:ruin` template is
 **kept** (not deleted like `procedural:keep` was) because it now
 drives every descent floor. What changes is that single-floor
-ruin hexes — the legacy `enter_hex_feature` fallthrough that
-generated one BSP dungeon — route through the site assembler
-instead. Tests that exercised `template="procedural:ruin"` via
-direct `generate_level` calls stay valid (the template still
+ruin hexes — the legacy fall-through that generated one BSP
+dungeon — route through the site assembler instead, via the
+unified `Game.enter_site(kind="ruin", tier=TINY, …)` dispatcher
+introduced in M6c. Tests that exercised `template="procedural:ruin"`
+via direct `generate_level` calls stay valid (the template still
 produces a level); tests that entered a ruin hex and expected a
 flat single-level dungeon need rewriting.
 

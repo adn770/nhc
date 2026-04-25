@@ -427,29 +427,43 @@ name.
 
 ### Call-site changes
 
-- `nhc/hexcrawl/_features.py` (`enter_hex_feature`): when a
-  hex has `kind in {TOWER, FARM, MANSION, KEEP, TOWN}`,
-  route to `assemble_site()` and cache the returned `Site`.
-  Other kinds (DUNGEON, CAVE) keep using the existing
-  pipeline unchanged.
-
-### FARM placement policy
-
-`FARM` is promoted to a first-class `HexFeatureType` so the
-farm assembler drives hex-level entry the same way Tower,
-Mansion, Keep, and Town do. The pre-existing
-`MinorFeatureType.FARM` is kept for sub-hex farmstead dressing
-(a flavour message when the player finds a roadside farm inside
-a flower) -- the two uses don't conflict because one lives on
-`HexCell.feature` and the other on `SubHexCell.minor_feature`.
-Reason: building a separate "enter minor feature" path for a
-single kind would duplicate the `enter_hex_feature` pipeline
-without adding anything the major-feature route can't.
+- `nhc/core/sub_hex_entry.py::resolve_sub_hex_entry` returns
+  `("site", kind, tier)` for every site (sub-hex or macro
+  except cave / hole). The dispatcher in
+  `nhc/core/hex_session.py` routes that tuple through
+  `Game.enter_site(macro, sub, kind, tier, …)`, which switches
+  on `kind` to call the right per-kind helper. Cave / hole
+  features get `("dungeon", template)` and route through
+  `Game.enter_dungeon` instead — they are not sites.
+- `Game.enter_site` handles every kind in one place: sub-hex
+  families flow through `_enter_sub_hex_assembled`; macro kinds
+  flow through `_enter_walled_site` / `_enter_tower_site` /
+  `_enter_mansion_site` / `_enter_farm_site`.
 - `nhc/core/game.py`: movement handlers already consume
   `Level`; the new code routes the active `Level` from
   `Site.surface` by default, switching to
   `Building.floors[i]` when the player steps onto a door or
   stair of a Building.
+
+### FARM placement policy
+
+`FARM` exists at *two* tiers under the unified scheme:
+
+- **TINY (sub-hex)** -- `MinorFeatureType.FARM` on a sub-hex
+  cell, 15×10 cramped farmhouse, no barn, no descent. Resolver
+  returns `("site", "farm", SiteTier.TINY)`; dispatcher routes
+  to `_enter_sub_hex_farm`.
+- **SMALL (macro)** -- `HexFeatureType.FARM` on the macro hex,
+  30×22 farmhouse + optional barn + occasional cellar descent.
+  Resolver returns `("site", "farm", SiteTier.SMALL)`; dispatcher
+  routes to `_enter_farm_site` (the macro pipeline).
+
+Both share the same `assemble_farm` assembler in
+`nhc/sites/farm.py`, parameterised by `tier`. Earlier drafts
+proposed a "promotion to first-class macro feature" with
+sub-hex FARM as flavour-only; the unified scheme keeps both
+runtime entries — the player walks into either depending on
+which tile they bump.
 
 ---
 

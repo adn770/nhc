@@ -277,6 +277,29 @@ corridor connections between caverns.
 Hand-authored YAML levels can be loaded via `dungeon/loader.py` for
 scripted floors or tutorials.
 
+### Sites (the surface layer)
+
+Sites are the player-walkable surfaces reached from the flower
+view -- towns, keeps, mansions, towers, mage residences,
+temples, cottages, ruins, farms, plus the sub-hex variants
+(wayside, clearing, sacred, den, graveyard, campsite, orchard).
+Caves and holes bypass the surface and route directly into the
+dungeon system above.
+
+A site is a `Site` dataclass with a surface `Level` and 0..N
+`Building`s; the assemblers live under `nhc/sites/`. One
+dispatcher (`Game.enter_site(macro, sub, kind, tier, …)`)
+handles every site kind; one cache (`SiteCacheManager`,
+LRU + on-disk mutation persistence) holds every site surface.
+Macro hex features are a *visual summary* of whichever site
+sits at the flower's feature_cell.
+
+See `design/sites.md` for the full design (tier scheme,
+dispatcher pipeline, cache contract, mutation handlers, data
+model). Building primitives, per-kind assembler details, and
+the SVG rendering shape live in `design/building_generator.md`.
+Per-biome content variants live in `design/biome_features.md`.
+
 ---
 
 ## 6. Entity System

@@ -15,7 +15,7 @@ looking at right now?" should funnel through
 |------|---------------|-----------------------|
 | `hex` | the overland hex crawl map | macro hex movement, day-clock ticks, `hex_explore`, `hex_rest` |
 | `flower` | the 7-hex sub-hex "flower" around a macro hex | `hex_enter`, `flower_search`, `flower_forage`, `flower_rest`, `flower_exit` |
-| `site` | the outdoor layer of a named location (town, keep, farm, mansion, ruin, mage residence) *or* a family sub-hex site (sacred shrine, wayside well, inhabited settlement, animal den, natural curiosity, undead) | npc encounters, site-edge exit, `flower_exit` (via **L**), building entry doors |
+| `site` | the outdoor layer of a named location reached from the flower — town, keep, mansion, tower, mage_residence, temple, cottage, ruin, farm, plus the sub-hex variants (wayside well/signpost, clearing, sacred shrine/cairn, animal den, graveyard, campsite, orchard, sub-hex farm) | npc encounters, site-edge exit, `flower_exit` (via **L**), building entry doors |
 | `structure` | the interior of a building on a site | shop / temple / inn interactions, stairs up / down, cross-building interior doors |
 | `dungeon` | a procedural underground level (standalone or descent from a site) | combat, stairs, dig, traps, item pickups |
 
@@ -37,11 +37,11 @@ Implemented by :func:`Game.current_view`. Applied in order:
 2. If :attr:`level` is ``None`` (dungeon-only game) → **`hex`**.
 3. If ``level.building_id`` is not ``None`` → **`structure`**.
 4. If :attr:`_active_site` is not ``None`` and ``level`` is the
-   site surface → **`site`**.
-5. If :attr:`_active_sub_hex` is not ``None`` → **`site`**
-   (family sub-hex sites enter from the flower and leave with
-   **L**, same contract as bespoke sites).
-6. Otherwise → **`dungeon`** (covers both procedural dungeons
+   site surface → **`site`**. M5 collapsed the unified site
+   path (every site, sub-hex or macro, parks itself on
+   ``_active_site``) so the classifier no longer needs a
+   separate sub-hex branch.
+5. Otherwise → **`dungeon`** (covers both procedural dungeons
    reached from a building's descent and standalone
    dungeon-only-mode levels).
 
@@ -130,3 +130,6 @@ table.
   ``nhc/web/static/js/map.js``.
 - Per-view zoom memory: ``GameMap._zoomByView`` (persisted to
   ``localStorage`` key ``nhc.zoom.byView.v2``).
+- Sites subsystem (the substance behind the ``site`` view):
+  see ``design/sites.md`` for the unified dispatcher, tier
+  scheme, and cache contract.

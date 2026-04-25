@@ -151,3 +151,5 @@ The player-facing view hierarchy (hex / flower / site /
 structure / dungeon) is formalised in `design/views.md`; when
 branching on "which view is the player in?" route through
 `Game.current_view()` rather than re-deriving the answer.
+The unified site subsystem (every flower feature → walled
+surface site, dispatcher + cache shape) is in `design/sites.md`.
