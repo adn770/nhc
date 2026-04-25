@@ -436,24 +436,31 @@ def test_wayside_signpost_has_signpost_feature() -> None:
 
 
 def test_sacred_site_medium_tier() -> None:
-    from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_sacred_site,
-    )
+    """Sacred sites now route through ``assemble_sacred`` (retired
+    ``generate_sacred_site`` in M4d of sites-unification)."""
+    import random
 
-    site = generate_sacred_site(
+    from nhc.dungeon.model import Terrain
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.sacred import assemble_sacred
+
+    site = assemble_sacred(
+        "s", random.Random(42),
         feature=MinorFeatureType.SHRINE,
-        biome=Biome.GREENLANDS,
-        seed=42,
         tier=SiteTier.MEDIUM,
     )
     w, h = _tier_dims("medium")
-    assert (site.level.width, site.level.height) == (w, h)
-    # Entry tile walkable.
-    ex, ey = site.entry_tile
-    entry = site.level.tile_at(ex, ey)
-    assert entry is not None and entry.terrain is Terrain.FLOOR
+    assert (site.surface.width, site.surface.height) == (w, h)
+    # The shrine tile sits on a walkable floor.
+    flagged = [
+        (x, y) for y in range(site.surface.height)
+        for x in range(site.surface.width)
+        if (t := site.surface.tile_at(x, y)) and t.feature == "shrine"
+    ]
+    assert flagged
+    sx, sy = flagged[0]
+    tile = site.surface.tile_at(sx, sy)
+    assert tile is not None and tile.terrain is Terrain.FLOOR
 
 
 def test_inhabited_settlement_rejects_farm_feature() -> None:
@@ -915,10 +922,10 @@ def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
     """Wiring check: entering a family site whose generator emits a
     creature pops it into the ECS world with a level-scoped Position.
 
-    Uses the sacred family (SHRINE) after the wayside unification
-    retired ``generate_wayside_site``. The populator is shared
-    across every family-SubHexSite, so the sacred monkey-patch
-    exercises the same plumbing."""
+    Uses the inhabited_settlement family (CAMPSITE) after wayside
+    and sacred were retired (M4a, M4d). The populator is shared
+    across every family-SubHexSite, so any remaining family
+    monkey-patch exercises the same plumbing."""
     import asyncio
 
     from nhc.hexcrawl.sub_hex_sites import (
@@ -928,8 +935,10 @@ def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
     )
     import nhc.hexcrawl.sub_hex_sites as sites_mod
 
-    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SHRINE)
-    real = sites_mod.generate_sacred_site
+    game, macro, sub = _flower_fixture(
+        tmp_path, MinorFeatureType.CAMPSITE,
+    )
+    real = sites_mod.generate_inhabited_settlement_site
 
     def fake_generator(*, feature, biome, seed, tier):
         site = real(
@@ -945,16 +954,17 @@ def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
             ),
         )
 
-    sites_mod.generate_sacred_site = fake_generator
+    sites_mod.generate_inhabited_settlement_site = fake_generator
     try:
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub, "sacred", MinorFeatureType.SHRINE,
+                macro, sub, "inhabited_settlement",
+                MinorFeatureType.CAMPSITE,
                 SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
     finally:
-        sites_mod.generate_sacred_site = real
+        sites_mod.generate_inhabited_settlement_site = real
 
     # One goblin should now live on the site level.
     goblins = [
@@ -2028,9 +2038,10 @@ def test_replay_looted_removes_item(tmp_path) -> None:
     """Loot an item at (4, 2), evict, re-enter — the populator must
     skip the placement at that tile.
 
-    Switched from wayside to the sacred family after M4a retired
-    ``generate_wayside_site``; the populator's replay logic is
-    shared, so any family-SubHexSite path exercises it."""
+    Switched from wayside → sacred → inhabited_settlement as
+    successive M4 milestones retired the prior family generator.
+    The populator's replay logic is shared, so any remaining
+    family-SubHexSite path exercises it."""
     import asyncio
 
     from nhc.hexcrawl.sub_hex_sites import (
@@ -2040,7 +2051,7 @@ def test_replay_looted_removes_item(tmp_path) -> None:
 
     EntityRegistry.discover_all()
     game, macro, sub_a = _flower_fixture(
-        tmp_path, MinorFeatureType.SHRINE,
+        tmp_path, MinorFeatureType.CAMPSITE,
     )
     cell = game.hex_world.get_cell(macro)
     sub_b = next(
@@ -2052,7 +2063,7 @@ def test_replay_looted_removes_item(tmp_path) -> None:
 
     import nhc.hexcrawl.sub_hex_sites as sites_mod
 
-    real = sites_mod.generate_sacred_site
+    real = sites_mod.generate_inhabited_settlement_site
     sample_item = sorted(EntityRegistry.list_items())[0]
 
     def fake(*, feature, biome, seed, tier):
@@ -2070,11 +2081,12 @@ def test_replay_looted_removes_item(tmp_path) -> None:
             ),
         )
 
-    sites_mod.generate_sacred_site = fake
+    sites_mod.generate_inhabited_settlement_site = fake
     try:
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                macro, sub_a, "inhabited_settlement",
+                MinorFeatureType.CAMPSITE,
                 SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
@@ -2087,7 +2099,8 @@ def test_replay_looted_removes_item(tmp_path) -> None:
         _force_eviction(game, macro, sub_a, sub_b, tmp_path)
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                macro, sub_a, "inhabited_settlement",
+                MinorFeatureType.CAMPSITE,
                 SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
@@ -2099,13 +2112,13 @@ def test_replay_looted_removes_item(tmp_path) -> None:
             "looted tile should not re-spawn the item on re-entry"
         )
     finally:
-        sites_mod.generate_sacred_site = real
+        sites_mod.generate_inhabited_settlement_site = real
 
 
 def test_replay_killed_skips_creature(tmp_path) -> None:
     """Kill a creature at (3, 3), evict, re-enter — the populator
-    skips it via the stable-id record. Sacred family stands in
-    for the retired wayside generator."""
+    skips it via the stable-id record. Inhabited settlement
+    (CAMPSITE) stands in after the wayside / sacred retirements."""
     import asyncio
 
     from nhc.core.sub_hex_populator import populate_sub_hex_site  # noqa
@@ -2115,7 +2128,7 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
     import nhc.hexcrawl.sub_hex_sites as sites_mod
 
     game, macro, sub_a = _flower_fixture(
-        tmp_path, MinorFeatureType.SHRINE,
+        tmp_path, MinorFeatureType.CAMPSITE,
     )
     cell = game.hex_world.get_cell(macro)
     sub_b = next(
@@ -2125,7 +2138,7 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
         and sc.major_feature is HexFeatureType.NONE
     )
 
-    real = sites_mod.generate_sacred_site
+    real = sites_mod.generate_inhabited_settlement_site
 
     def fake(*, feature, biome, seed, tier):
         site = real(
@@ -2140,11 +2153,12 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
             ),
         )
 
-    sites_mod.generate_sacred_site = fake
+    sites_mod.generate_inhabited_settlement_site = fake
     try:
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                macro, sub_a, "inhabited_settlement",
+                MinorFeatureType.CAMPSITE,
                 SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
@@ -2158,7 +2172,8 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
         _force_eviction(game, macro, sub_a, sub_b, tmp_path)
         asyncio.run(
             game.enter_sub_hex_family_site(
-                macro, sub_a, "sacred", MinorFeatureType.SHRINE,
+                macro, sub_a, "inhabited_settlement",
+                MinorFeatureType.CAMPSITE,
                 SiteTier.MEDIUM, Biome.GREENLANDS,
             ),
         )
@@ -2171,7 +2186,7 @@ def test_replay_killed_skips_creature(tmp_path) -> None:
             "killed creature must not re-spawn on re-entry"
         )
     finally:
-        sites_mod.generate_sacred_site = real
+        sites_mod.generate_inhabited_settlement_site = real
 
 
 def test_replay_doors_restores_open_state(tmp_path) -> None:
@@ -2603,20 +2618,21 @@ def test_flower_welcome_message_mentions_x_and_L(tmp_path) -> None:
 
 def test_family_generators_are_deterministic() -> None:
     """Same seed → identical level tile grid. Exercises the
-    sacred family generator (the wayside generator was retired in
-    M4a of sites-unification; wayside determinism is pinned
-    separately in ``tests/unit/sites/test_wayside.py``)."""
+    inhabited_settlement family generator (still alive for
+    CAMPSITE / ORCHARD until M4f); wayside / clearing / den /
+    sacred determinism is pinned in their unit suites under
+    ``tests/unit/sites/``."""
     from nhc.hexcrawl.sub_hex_sites import (
         SiteTier,
-        generate_sacred_site,
+        generate_inhabited_settlement_site,
     )
 
-    s1 = generate_sacred_site(
-        feature=MinorFeatureType.SHRINE, biome=Biome.GREENLANDS,
+    s1 = generate_inhabited_settlement_site(
+        feature=MinorFeatureType.CAMPSITE, biome=Biome.GREENLANDS,
         seed=1234, tier=SiteTier.MEDIUM,
     )
-    s2 = generate_sacred_site(
-        feature=MinorFeatureType.SHRINE, biome=Biome.GREENLANDS,
+    s2 = generate_inhabited_settlement_site(
+        feature=MinorFeatureType.CAMPSITE, biome=Biome.GREENLANDS,
         seed=1234, tier=SiteTier.MEDIUM,
     )
     # Compare the full tile grid (terrain + feature).

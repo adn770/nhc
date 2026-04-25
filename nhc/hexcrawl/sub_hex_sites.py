@@ -184,49 +184,12 @@ def _tag_feature(
 
 
 # ---------------------------------------------------------------------------
-# Family: sacred site — medium tier
+# Family: sacred site — retired
 # ---------------------------------------------------------------------------
-
-
-_SACRED_TAGS: dict[MinorFeatureType, str] = {
-    MinorFeatureType.SHRINE: "shrine",
-    MinorFeatureType.STANDING_STONE: "monolith",
-    MinorFeatureType.CAIRN: "cairn",
-}
-
-_SACRED_HEX_TAGS: dict[HexFeatureType, str] = {
-    HexFeatureType.CRYSTALS: "crystals",
-    HexFeatureType.STONES: "monolith",
-    HexFeatureType.WONDER: "wonder",
-    HexFeatureType.PORTAL: "portal",
-}
-
-
-def generate_sacred_site(
-    *,
-    feature: "HexFeatureType | MinorFeatureType",
-    biome: Biome,
-    seed: int,
-    tier: SiteTier,
-) -> SubHexSite:
-    """A plaza with an altar / monolith centrepiece."""
-    width, height = SITE_TIER_DIMS[tier]
-    rng = random.Random(seed)
-    level = _make_enclosed_level(
-        width=width, height=height,
-        level_id=f"sub_sacred_{seed}",
-        name="sacred", theme="sacred",
-    )
-    center = _central_feature_tile(width, height, rng)
-    tag = _SACRED_HEX_TAGS.get(feature) if isinstance(feature, HexFeatureType) else None
-    if tag is None:
-        tag = _SACRED_TAGS.get(feature, "shrine")
-    _tag_feature(level, center, tag)
-    return SubHexSite(
-        level=level,
-        entry_tile=_south_gate_entry(width, height),
-        feature_tile=center,
-    )
+#
+# Sacred sites now route through
+# :func:`nhc.sites.sacred.assemble_sacred` and
+# :meth:`Game._enter_sub_hex_sacred` (milestone 4d).
 
 
 # ---------------------------------------------------------------------------
