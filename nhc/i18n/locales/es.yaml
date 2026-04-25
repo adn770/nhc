@@ -1297,6 +1297,13 @@ creature:
       Un trabajador del campo con sombrero de paja, siempre
       dispuesto a compartir los últimos chismes de los hexágonos
       vecinos apoyado en un poste de la cerca.
+  farmhand:
+    name: "Jornalero"
+    gender: "m"
+    short: "un jornalero callado"
+    long: >-
+      Un trabajador del campo agachado entre los surcos, con los
+      ojos en la tierra y lejos de los chismes de los forasteros.
   campsite_traveller:
     name: "Viajero"
     gender: "m"

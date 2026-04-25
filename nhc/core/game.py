@@ -113,6 +113,30 @@ FOV_RADIUS = 5
 # disc. Flagged by ``LevelMetadata.prerevealed``.
 FOV_RADIUS_SURFACE = 12
 
+# Canonical macro-tier per site kind. Kept as a flat ``str → SiteTier``
+# map so macro entry methods (``_enter_walled_site`` /
+# ``_enter_multi_building_site`` / ``_enter_tower_site``) can pick the
+# right SITE_POPULATION spec without going through the resolver. Mirrors
+# :data:`_MACRO_TIER` in :mod:`nhc.core.sub_hex_entry`, just keyed on
+# the kind string instead of :class:`HexFeatureType`.
+def _build_macro_kind_tier() -> dict:
+    from nhc.sites._types import SiteTier
+    return {
+        "keep": SiteTier.MEDIUM,
+        "tower": SiteTier.TINY,
+        "mansion": SiteTier.MEDIUM,
+        "farm": SiteTier.SMALL,
+        "cottage": SiteTier.TINY,
+        "temple": SiteTier.SMALL,
+        "ruin": SiteTier.TINY,
+        "town": SiteTier.HUGE,
+        "graveyard": SiteTier.SMALL,
+        "sacred": SiteTier.SMALL,
+    }
+
+
+_MACRO_KIND_TIER = _build_macro_kind_tier()
+
 
 def _fov_radius_for_level(level) -> int:
     """Return the sight radius appropriate for *level*.
@@ -1068,7 +1092,11 @@ class Game:
                 self._floor_cache[key] = (floor, {})
         self._site_cache[cache_key] = site
 
-        self._place_sub_hex_farmer(site)
+        self._populate_site_from_table(
+            site, "farm", SiteTier.TINY,
+            random.Random(seed ^ 0xA1B2),
+            mutations=persisted_mutations,
+        )
         self._place_player_on_surface()
         self._update_fov()
         self._notify_floor_change(depth)
@@ -1270,41 +1298,44 @@ class Game:
             return "rumor_sign"
         return None
 
-    def _place_sub_hex_farmer(self, site) -> None:
-        """Spawn the farmer NPC on a safe interior tile of the
-        farmhouse. Picks the FLOOR tile nearest to the farmhouse
-        centre that has no feature (no door, no stair)."""
-        farmhouse = site.buildings[0]
-        ground = farmhouse.ground
-        cx = farmhouse.base_rect.x + farmhouse.base_rect.width // 2
-        cy = farmhouse.base_rect.y + farmhouse.base_rect.height // 2
-        candidates: list[tuple[int, int]] = []
-        for y in range(ground.height):
-            for x in range(ground.width):
-                tile = ground.tile_at(x, y)
-                if tile is None or tile.terrain != Terrain.FLOOR:
-                    continue
-                if tile.feature is not None:
-                    continue
-                candidates.append((x, y))
-        if not candidates:
+    def _populate_site_from_table(
+        self, site, kind: str, tier, rng,
+        *, mutations: "dict | None" = None,
+    ) -> None:
+        """Resolve and spawn the SITE_POPULATION entries for ``kind``.
+
+        No-op when ``site`` is ``None`` (cache hit, entities already
+        live in the world) or when ``(kind, tier)`` is absent from
+        the table (sites that haven't been migrated to the unified
+        population system yet, or kinds that intentionally have no
+        NPCs). Mutation-replay aware: a placement whose stable id
+        is in ``mutations["killed"]`` stays unspawned across cache
+        eviction so a dead farmer does not respawn on re-entry.
+        """
+        if site is None:
             return
-        candidates.sort(
-            key=lambda xy: abs(xy[0] - cx) + abs(xy[1] - cy),
+        from nhc.sites._population import (
+            populate_site_placements, resolve_site_population,
         )
-        fx, fy = candidates[0]
-        try:
-            components = EntityRegistry.get_creature("farmer")
-        except KeyError:
+        placements = resolve_site_population(site, kind, tier, rng)
+        if not placements:
             return
-        components["BlocksMovement"] = BlocksMovement()
-        components["Position"] = Position(
-            x=fx, y=fy, level_id=ground.id,
+        populate_site_placements(
+            self.world, placements, mutations=mutations,
         )
-        components["SubHexStableId"] = SubHexStableId(
-            stable_id=f"farmer_{fx}_{fy}",
-        )
-        self.world.create_entity(components)
+
+    @staticmethod
+    def _macro_tier_for_kind(kind: str):
+        """Canonical macro-tier for ``kind``.
+
+        Mirrors :data:`_MACRO_TIER` in :mod:`nhc.core.sub_hex_entry`
+        but keyed on the kind string used by macro entry methods so
+        direct ``enter_hex_feature`` callers (legacy path) still
+        pick the right population spec without going through the
+        resolver.
+        """
+        from nhc.sites._types import SiteTier
+        return _MACRO_KIND_TIER.get(kind, SiteTier.SMALL)
 
     def _purge_entities_on_level(self, level_id: str) -> None:
         """Destroy every ECS entity whose Position sits on ``level_id``.
@@ -1739,6 +1770,11 @@ class Game:
         # Stash the Site so warm-cache re-entries (above) can
         # restore it without rebuilding. See _site_cache docstring.
         self._site_cache[cache_key] = site
+        self._populate_site_from_table(
+            site, kind, self._macro_tier_for_kind(kind),
+            random.Random(seed ^ 0xC3D4),
+            mutations=persisted_mutations,
+        )
         self._place_player_on_building_entry()
         self._update_fov()
         self._notify_floor_change(depth)

@@ -1369,6 +1369,13 @@ creature:
       Un camperol fort amb barret de palla, sempre disposat a
       compartir les darreres tafaneries dels hexàgons veïns mentre
       s'arrecera al pal d'un tancat.
+  farmhand:
+    name: "jornaler"
+    gender: "m"
+    short: "un jornaler callat"
+    long: >-
+      Un treballador del camp ajupit entre els solcs, amb els ulls
+      a la terra i lluny dels tafaners de pas.
   campsite_traveller:
     name: "caminant"
     gender: "m"

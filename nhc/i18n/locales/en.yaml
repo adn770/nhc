@@ -1267,6 +1267,12 @@ creature:
       A sturdy farmhand in a straw hat, always ready to share the
       latest gossip from the neighbouring hexes while leaning on a
       fencepost.
+  farmhand:
+    name: "Farmhand"
+    short: "a quiet farmhand"
+    long: >-
+      A field-worker bent over the rows, keeping eyes on the soil
+      and out of every passing stranger's business.
   campsite_traveller:
     name: "Traveller"
     short: "a wayworn traveller"
