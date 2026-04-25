@@ -356,44 +356,12 @@ def _scatter_orchard_trees(
 
 
 # ---------------------------------------------------------------------------
-# Family: animal den (lair, nest, burrow, animal_den)
+# Family: animal den (lair, nest, burrow, animal_den) — retired
 # ---------------------------------------------------------------------------
-
-
-def generate_animal_den_site(
-    *,
-    feature: "HexFeatureType | MinorFeatureType",
-    biome: Biome,
-    seed: int,
-    tier: SiteTier,
-) -> SubHexSite:
-    """A cave-mouth lair. Creature pool scales with biome + feature."""
-    width, height = SITE_TIER_DIMS[tier]
-    rng = random.Random(seed)
-    level = _make_enclosed_level(
-        width=width, height=height,
-        level_id=f"sub_den_{seed}",
-        name="animal_den", theme="den",
-    )
-    center = _central_feature_tile(width, height, rng)
-    _tag_feature(level, center, "den_mouth")
-    return SubHexSite(
-        level=level,
-        entry_tile=_south_gate_entry(width, height),
-        feature_tile=center,
-        faction=_biome_creature_faction(biome),
-    )
-
-
-def _biome_creature_faction(biome: Biome) -> str | None:
-    """Default creature faction for an animal-den level."""
-    if biome in (Biome.DEADLANDS, Biome.SWAMP, Biome.MARSH):
-        return "undead"
-    if biome is Biome.FOREST:
-        return "forest_beasts"
-    if biome is Biome.MOUNTAIN:
-        return "mountain_beasts"
-    return "beasts"
+#
+# Dens now route through :func:`nhc.sites.den.assemble_den` and
+# :meth:`Game._enter_sub_hex_den` (milestone 4c). The biome →
+# faction mapping moved alongside the assembler.
 
 
 # ---------------------------------------------------------------------------

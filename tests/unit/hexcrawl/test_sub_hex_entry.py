@@ -476,19 +476,21 @@ def test_inhabited_settlement_rejects_farm_feature() -> None:
 
 
 def test_animal_den_medium_tier() -> None:
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_animal_den_site,
-    )
+    """Dens now route through ``assemble_den`` (retired
+    ``generate_animal_den_site`` in M4c of sites-unification)."""
+    import random
 
-    site = generate_animal_den_site(
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.den import assemble_den
+
+    site = assemble_den(
+        "d", random.Random(1),
         feature=MinorFeatureType.LAIR,
         biome=Biome.FOREST,
-        seed=1,
         tier=SiteTier.MEDIUM,
     )
     w, h = _tier_dims("medium")
-    assert (site.level.width, site.level.height) == (w, h)
+    assert (site.surface.width, site.surface.height) == (w, h)
 
 
 def test_natural_curiosity_small_tier() -> None:

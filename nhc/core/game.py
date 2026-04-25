@@ -734,7 +734,6 @@ class Game:
         from nhc.hexcrawl.seed import dungeon_seed
         from nhc.hexcrawl.sub_hex_sites import (
             SiteTier,
-            generate_animal_den_site,
             generate_inhabited_settlement_site,
             generate_sacred_site,
             generate_undead_site,
@@ -756,12 +755,16 @@ class Game:
                 macro, sub, feature, biome,
             )
 
+        if family == "animal_den":
+            return await self._enter_sub_hex_den(
+                macro, sub, feature, biome,
+            )
+
         family_dispatch = {
             "sacred": generate_sacred_site,
             "inhabited_settlement": (
                 generate_inhabited_settlement_site
             ),
-            "animal_den": generate_animal_den_site,
             "undead": generate_undead_site,
         }
         generator = family_dispatch.get(family)
@@ -1103,6 +1106,100 @@ class Game:
             feature_tile=self._find_feature_tile_on(
                 site.surface,
                 ("mushrooms", "herbs", "hollow_log", "bones"),
+            ),
+            population=SubHexPopulation(),
+        )
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
+
+        populate_sub_hex_site(
+            self.world, shim, mutations=persisted_mutations,
+        )
+        self._place_player_on_sub_hex_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    async def _enter_sub_hex_den(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        feature,
+        biome,
+    ) -> bool:
+        """Enter a sub-hex animal den (ANIMAL_DEN / LAIR / NEST /
+        BURROW) through the unified den assembler. The cave-mouth
+        tile's ``den_mouth`` tag is what the BumpAction router
+        dispatches on; creatures spawn via the overland encounter
+        system keyed off the surface level's ``faction`` metadata,
+        which the assembler seeds from the biome."""
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SiteTier,
+            SubHexPopulation,
+            SubHexSite,
+        )
+        from nhc.sites.den import assemble_den
+
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_descent_building = None
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+
+        self._ensure_sub_hex_cache()
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
+            self._place_player_on_sub_hex_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, macro, "bespoke:den", sub=sub,
+        )
+        site = assemble_den(
+            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_den",
+            random.Random(seed),
+            feature=feature,
+            biome=biome,
+            tier=SiteTier.MEDIUM,
+        )
+        self.level = site.surface
+        self._active_site = site
+
+        persisted_mutations: dict = {}
+        if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._sub_hex_cache.store(
+                cache_key, self.level, mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
+        self._site_cache[cache_key] = site
+
+        self._sub_hex_entry_tile = (
+            site.surface.width // 2, site.surface.height - 2,
+        )
+
+        self._purge_entities_on_level(self.level.id)
+        shim = SubHexSite(
+            level=site.surface,
+            entry_tile=self._sub_hex_entry_tile,
+            feature_tile=self._find_feature_tile_on(
+                site.surface, ("den_mouth",),
             ),
             population=SubHexPopulation(),
         )
