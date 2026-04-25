@@ -12,7 +12,7 @@ import random
 
 from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.hexcrawl.model import MinorFeatureType
-from nhc.hexcrawl.sub_hex_sites import SITE_TIER_DIMS, SiteTier
+from nhc.sites._types import SITE_TIER_DIMS, SiteTier
 from nhc.sites._site import Site
 from nhc.sites.clearing import assemble_clearing
 

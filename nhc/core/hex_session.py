@@ -475,7 +475,7 @@ class HexSession:
             # cell. Each sub-hex with a feature is independently
             # enterable; the old "feature_cell gate" is gone.
             from nhc.core.sub_hex_entry import resolve_sub_hex_entry
-            from nhc.hexcrawl.sub_hex_sites import SiteTier
+            from nhc.sites._types import SiteTier
 
             macro = game.hex_world.exploring_hex
             sub = game.hex_world.exploring_sub_hex

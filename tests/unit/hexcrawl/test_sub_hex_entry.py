@@ -228,7 +228,7 @@ def test_sub_hex_cache_key_shape() -> None:
     game._active_cave_cluster = None
     game._active_descent_building = None
     game._active_site = None
-    game._active_sub_hex = HexCoord(-1, 0)
+    game._active_site_sub = HexCoord(-1, 0)
 
     key = game._cache_key(1)
     assert key == ("sub", 3, 4, -1, 0, 1)
@@ -247,15 +247,15 @@ def test_sub_hex_cache_key_distinct_per_sub() -> None:
     game._active_descent_building = None
     game._active_site = None
 
-    game._active_sub_hex = HexCoord(-1, 0)
+    game._active_site_sub = HexCoord(-1, 0)
     key_a = game._cache_key(1)
-    game._active_sub_hex = HexCoord(1, 1)
+    game._active_site_sub = HexCoord(1, 1)
     key_b = game._cache_key(1)
     assert key_a != key_b
 
 
 def test_sub_hex_cache_key_does_not_affect_macro_keys() -> None:
-    """When _active_sub_hex is None the macro-keyed path is unchanged."""
+    """When _active_site_sub is None the macro-keyed path is unchanged."""
     from nhc.core.game import Game
     from nhc.hexcrawl.mode import WorldType
 
@@ -265,7 +265,7 @@ def test_sub_hex_cache_key_does_not_affect_macro_keys() -> None:
     game._active_cave_cluster = None
     game._active_descent_building = None
     game._active_site = None
-    game._active_sub_hex = None
+    game._active_site_sub = None
 
     key = game._cache_key(1)
     assert key == (3, 4, 1)
@@ -378,7 +378,7 @@ def test_sub_hex_cache_load_mutations_missing_returns_empty(tmp_path) -> None:
 
 
 def _tier_dims(tier: str) -> tuple[int, int]:
-    from nhc.hexcrawl.sub_hex_sites import SITE_TIER_DIMS, SiteTier
+    from nhc.sites._types import SITE_TIER_DIMS, SiteTier
 
     return SITE_TIER_DIMS[SiteTier(tier)]
 
@@ -392,7 +392,7 @@ def test_wayside_well_small_tier_has_well_feature() -> None:
     import random
 
     from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.wayside import assemble_wayside
 
     site = assemble_wayside(
@@ -418,7 +418,7 @@ def test_wayside_well_small_tier_has_well_feature() -> None:
 def test_wayside_signpost_has_signpost_feature() -> None:
     import random
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.wayside import assemble_wayside
 
     site = assemble_wayside(
@@ -441,7 +441,7 @@ def test_sacred_site_medium_tier() -> None:
     import random
 
     from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.sacred import assemble_sacred
 
     site = assemble_sacred(
@@ -471,7 +471,7 @@ def test_inhabited_settlement_routes_farm_through_unified_assembler(
     produces a Site whose kind is ``"farm"``."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(
         tmp_path, MinorFeatureType.FARM,
@@ -493,7 +493,7 @@ def test_animal_den_medium_tier() -> None:
     ``generate_animal_den_site`` in M4c of sites-unification)."""
     import random
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.den import assemble_den
 
     site = assemble_den(
@@ -512,7 +512,7 @@ def test_natural_curiosity_small_tier() -> None:
     sites-unification)."""
     import random
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.clearing import assemble_clearing
 
     site = assemble_clearing(
@@ -529,7 +529,7 @@ def test_undead_site_medium_tier() -> None:
     ``generate_undead_site`` in M4e of sites-unification)."""
     import random
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.graveyard import assemble_graveyard
 
     site = assemble_graveyard(
@@ -749,7 +749,7 @@ def _flower_fixture(tmp_path, feature: MinorFeatureType):
 def test_enter_sub_hex_family_site_wayside_well(tmp_path) -> None:
     """Entering a WELL sub-hex produces a small wayside Level and
     stores it in the floor cache under the sub-hex key."""
-    from nhc.hexcrawl.sub_hex_sites import SITE_TIER_DIMS, SiteTier
+    from nhc.sites._types import SITE_TIER_DIMS, SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     import asyncio
@@ -764,7 +764,7 @@ def test_enter_sub_hex_family_site_wayside_well(tmp_path) -> None:
     w, h = SITE_TIER_DIMS[SiteTier.SMALL]
     assert game.level is not None
     assert (game.level.width, game.level.height) == (w, h)
-    assert game._active_sub_hex == sub
+    assert game._active_site_sub == sub
 
     # Cache key is the sub-hex namespace, keyed off the macro + sub
     # coords. Sub-hex keys live in the SubHexCacheManager (C1); the
@@ -777,7 +777,7 @@ def test_enter_sub_hex_family_site_wayside_well(tmp_path) -> None:
 
 
 def test_enter_sub_hex_family_site_unknown_family(tmp_path) -> None:
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     import asyncio
@@ -793,7 +793,7 @@ def test_enter_sub_hex_family_site_unknown_family(tmp_path) -> None:
 
 def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
     """Second call with the same (macro, sub) returns the cached level."""
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     import asyncio
@@ -805,8 +805,8 @@ def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
         ),
     )
     first = game.level
-    # Leave the site (clear _active_sub_hex) and re-enter.
-    game._active_sub_hex = None
+    # Leave the site (clear _active_site_sub) and re-enter.
+    game._active_site_sub = None
     asyncio.run(
         game.enter_sub_hex_family_site(
             macro, sub, "wayside", MinorFeatureType.WELL,
@@ -814,6 +814,84 @@ def test_enter_sub_hex_family_site_cache_hit_reuses_level(tmp_path) -> None:
         ),
     )
     assert game.level is first
+
+
+# ---------------------------------------------------------------------------
+# M5: Game.enter_site -- the unified public dispatcher
+# ---------------------------------------------------------------------------
+
+
+def test_enter_site_wayside_drives_unified_helper(tmp_path) -> None:
+    """``Game.enter_site(kind="wayside", ...)`` is the M5 public
+    entry point. Calling it directly (without the legacy
+    ``enter_sub_hex_family_site`` shim) parks the assembled site
+    on ``_active_site``, sets ``_active_site_sub`` to the sub
+    coord, and the level lands on the SubHexCacheManager."""
+    from nhc.sites._types import SITE_TIER_DIMS, SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    import asyncio
+
+    ok = asyncio.run(
+        game.enter_site(
+            macro, sub, "wayside", SiteTier.SMALL,
+            feature=MinorFeatureType.WELL,
+            biome=Biome.GREENLANDS,
+        ),
+    )
+    assert ok is True
+    w, h = SITE_TIER_DIMS[SiteTier.SMALL]
+    assert (game.level.width, game.level.height) == (w, h)
+    # M5 invariant: every site entry parks the assembled Site on
+    # _active_site, including sub-hex families.
+    assert game._active_site is not None
+    assert game._active_site.kind == "wayside"
+    assert game._active_site_sub == sub
+    assert game.current_view() == "site"
+
+
+def test_enter_site_unknown_kind_returns_false(tmp_path) -> None:
+    """Unknown kinds are a no-op (caller emits "nothing to enter")."""
+    from nhc.sites._types import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    import asyncio
+
+    ok = asyncio.run(
+        game.enter_site(
+            macro, sub, "definitely_not_a_kind", SiteTier.SMALL,
+            feature=MinorFeatureType.WELL,
+            biome=Biome.GREENLANDS,
+        ),
+    )
+    assert ok is False
+    # No state mutated on a failed dispatch.
+    assert game._active_site is None
+    assert game._active_site_sub is None
+
+
+def test_enter_sub_hex_family_site_delegates_to_enter_site(tmp_path) -> None:
+    """The legacy ``enter_sub_hex_family_site(family, feature, ...)``
+    is now a thin shim over ``enter_site(kind, ...)``. Calling it
+    must still produce the same end-state -- assembled Site on
+    ``_active_site``, sub coord on ``_active_site_sub`` -- so the
+    pile of existing tests + the hex_session caller stay valid
+    without churn."""
+    from nhc.sites._types import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
+    import asyncio
+
+    ok = asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "wayside", MinorFeatureType.WELL,
+            SiteTier.SMALL, Biome.GREENLANDS,
+        ),
+    )
+    assert ok is True
+    assert game._active_site is not None
+    assert game._active_site.kind == "wayside"
+    assert game._active_site_sub == sub
 
 
 # ---------------------------------------------------------------------------
@@ -825,7 +903,7 @@ def test_sub_hex_population_is_typed() -> None:
     """``SubHexSite.population`` is a typed dataclass, not an untyped
     dict, so generators can rely on field names instead of string
     lookups."""
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+    from nhc.sites._types import SubHexPopulation, SubHexSite
 
     pop = SubHexPopulation()
     assert pop.creatures == []
@@ -849,7 +927,7 @@ def test_populate_sub_hex_spawns_creatures(tmp_path) -> None:
     from nhc.core.sub_hex_populator import populate_sub_hex_site
     from nhc.dungeon.model import Level
     from nhc.entities.registry import EntityRegistry
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+    from nhc.sites._types import SubHexPopulation, SubHexSite
     from nhc.i18n import init as i18n_init
 
     i18n_init("en")
@@ -882,7 +960,7 @@ def test_populate_sub_hex_empty_is_noop(tmp_path) -> None:
     from nhc.core.ecs import World
     from nhc.core.sub_hex_populator import populate_sub_hex_site
     from nhc.dungeon.model import Level
-    from nhc.hexcrawl.sub_hex_sites import SubHexSite
+    from nhc.sites._types import SubHexSite
 
     level = Level.create_empty(
         id="sub_empty", name="e", depth=1, width=5, height=5,
@@ -900,7 +978,7 @@ def test_populate_sub_hex_spawns_items(tmp_path) -> None:
     from nhc.core.sub_hex_populator import populate_sub_hex_site
     from nhc.dungeon.model import Level
     from nhc.entities.registry import EntityRegistry
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+    from nhc.sites._types import SubHexPopulation, SubHexSite
     from nhc.i18n import init as i18n_init
 
     i18n_init("en")
@@ -933,7 +1011,7 @@ def _hand_built_sub_hex_site(level_id: str = "test_subhex"):
     populator + replay tests build their own SubHexSite scaffolding
     rather than monkey-patch a generator that no longer exists."""
     from nhc.dungeon.model import Level, Terrain
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
+    from nhc.sites._types import SubHexPopulation, SubHexSite
 
     level = Level.create_empty(
         id=level_id, name=level_id, depth=1, width=10, height=10,
@@ -972,7 +1050,7 @@ def test_populate_sub_hex_site_spawns_creature_on_level() -> None:
     "Inhabited settlement is the LAST family monkey-patch host"
     note), so this exercises the populator directly."""
     from nhc.core.sub_hex_populator import populate_sub_hex_site
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation
+    from nhc.sites._types import SubHexPopulation
 
     site = _hand_built_sub_hex_site()
     site.population = SubHexPopulation(
@@ -1025,7 +1103,7 @@ def test_signpost_wayside_populates_rumor_sign(tmp_path) -> None:
     by the family generator's population list."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
     asyncio.run(
@@ -1053,7 +1131,7 @@ def test_sign_read_action_dispenses_rumor(tmp_path) -> None:
 
     from nhc.core.actions._sign import SignReadAction
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
     _make_rumor(game.hex_world, text="A caravan passed last week.")
@@ -1086,7 +1164,7 @@ def test_sign_read_action_no_rumor_emits_no_news(tmp_path) -> None:
 
     from nhc.core.actions._sign import SignReadAction
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.i18n import t
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
@@ -1157,7 +1235,7 @@ def test_well_wayside_populates_well_drink(tmp_path) -> None:
     dispatcher rather than the family generator's population list."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1184,7 +1262,7 @@ def test_well_interact_heals_one_hp(tmp_path) -> None:
     import random
 
     from nhc.core.actions._well import WellInteractAction
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1218,7 +1296,7 @@ def test_well_interact_no_heal_at_full_hp(tmp_path) -> None:
 
     from nhc.core.actions._well import WellInteractAction
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1258,7 +1336,7 @@ def test_well_interact_surfaces_rumor_on_low_roll(tmp_path) -> None:
 
     from nhc.core.actions._well import WellInteractAction
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1294,7 +1372,7 @@ def test_well_interact_silent_on_high_roll(tmp_path) -> None:
 
     from nhc.core.actions._well import WellInteractAction
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1380,7 +1458,7 @@ def test_inhabited_settlement_populates_matching_npc(tmp_path) -> None:
     farmer rumor-vendor flow."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     mapping = {
         MinorFeatureType.CAMPSITE: "campsite_traveller",
@@ -1437,7 +1515,7 @@ def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
         RumorVendorInteractAction,
     )
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.FARM)
     _make_rumor(game.hex_world, text="The miller's dog has gone missing.")
@@ -1600,7 +1678,7 @@ def test_signpost_reads_wilderness_rumor_when_isolated(tmp_path) -> None:
 
     from nhc.core.actions._sign import SignReadAction
     from nhc.core.events import MessageEvent
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
     _strip_settlements(game, macro)
@@ -1648,7 +1726,7 @@ def test_signpost_near_settlement_does_not_seed_wilderness(
     from nhc.core.actions._sign import SignReadAction
     from nhc.core.events import MessageEvent
     from nhc.hexcrawl.model import HexFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.i18n import t
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.SIGNPOST)
@@ -1690,7 +1768,7 @@ def test_family_entry_populates_sub_hex_cache(tmp_path) -> None:
     SubHexCacheManager, not the legacy ``_floor_cache``."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1710,7 +1788,7 @@ def test_family_entry_reuses_cached_level_from_manager(tmp_path) -> None:
     """Cache-hit path returns the same Level instance from the manager."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1720,7 +1798,7 @@ def test_family_entry_reuses_cached_level_from_manager(tmp_path) -> None:
         ),
     )
     first = game.level
-    game._active_sub_hex = None
+    game._active_site_sub = None
     asyncio.run(
         game.enter_sub_hex_family_site(
             macro, sub, "wayside", MinorFeatureType.WELL,
@@ -1736,7 +1814,7 @@ def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
     import asyncio
 
     from nhc.core.sub_hex_cache import SubHexCacheManager
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     # Pick a second non-feature sub-hex to stamp another minor onto.
@@ -1764,7 +1842,7 @@ def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
     assert game._sub_hex_cache.has(key_a)
 
     # Leave sub_a and enter sub_b; this should evict sub_a.
-    game._active_sub_hex = None
+    game._active_site_sub = None
     asyncio.run(
         game.enter_sub_hex_family_site(
             macro, sub_b, "wayside", MinorFeatureType.SIGNPOST,
@@ -1783,7 +1861,7 @@ def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
     import asyncio
 
     from nhc.core.sub_hex_cache import SubHexCacheManager
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     cell = game.hex_world.get_cell(macro)
@@ -1804,14 +1882,14 @@ def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
         ),
     )
     original_level = game.level
-    game._active_sub_hex = None
+    game._active_site_sub = None
     asyncio.run(
         game.enter_sub_hex_family_site(
             macro, sub_b, "wayside", MinorFeatureType.SIGNPOST,
             SiteTier.SMALL, Biome.GREENLANDS,
         ),
     )
-    game._active_sub_hex = None
+    game._active_site_sub = None
     asyncio.run(
         game.enter_sub_hex_family_site(
             macro, sub_a, "wayside", MinorFeatureType.WELL,
@@ -1833,7 +1911,7 @@ def _active_sub_hex_mutations(game) -> dict:
     """Helper: read the mutation dict for the currently active sub-hex
     cache entry straight from the manager."""
     macro = game.hex_world.exploring_hex
-    sub = game._active_sub_hex
+    sub = game._active_site_sub
     key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
     entry = game._sub_hex_cache._entries.get(key)
     assert entry is not None
@@ -1858,7 +1936,7 @@ def test_item_pickup_appends_looted_tile(tmp_path) -> None:
     from nhc.core.events import ItemPickedUp
     from nhc.entities.components import Position
     from nhc.entities.registry import EntityRegistry
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     EntityRegistry.discover_all()
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
@@ -1887,7 +1965,7 @@ def test_creature_died_appends_killed(tmp_path) -> None:
     import asyncio
 
     from nhc.core.events import CreatureDied
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1910,7 +1988,7 @@ def test_door_opened_records_door_state(tmp_path) -> None:
     import asyncio
 
     from nhc.core.events import DoorOpened
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1934,7 +2012,7 @@ def test_terrain_changed_records_dug_tile(tmp_path) -> None:
     import asyncio
 
     from nhc.core.events import TerrainChanged
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -1959,8 +2037,8 @@ def test_mutation_handlers_no_op_outside_sub_hex(tmp_path) -> None:
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     # Never entered a sub-hex family site — manager is lazy and
-    # _active_sub_hex is still None.
-    assert game._active_sub_hex is None
+    # _active_site_sub is still None.
+    assert game._active_site_sub is None
     asyncio.run(
         game.event_bus.emit(CreatureDied(entity=1, cause="x")),
     )
@@ -1968,7 +2046,7 @@ def test_mutation_handlers_no_op_outside_sub_hex(tmp_path) -> None:
         game.event_bus.emit(DoorOpened(entity=1, x=0, y=0)),
     )
     # No exception raised; the handlers short-circuited.
-    assert game._active_sub_hex is None
+    assert game._active_site_sub is None
 
 
 def test_dig_action_emits_terrain_changed(tmp_path) -> None:
@@ -2036,7 +2114,7 @@ def _force_eviction(game, macro, sub_a, sub_b, tmp_path) -> None:
     import asyncio
 
     from nhc.core.sub_hex_cache import SubHexCacheManager
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     # Replace the manager with a 1-slot version that preserves any
     # already-recorded mutations on sub_a.
@@ -2076,7 +2154,7 @@ def test_populator_replay_looted_skips_item() -> None:
     test after M4f retired the last family generator."""
     from nhc.core.sub_hex_populator import populate_sub_hex_site
     from nhc.entities.registry import EntityRegistry
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation
+    from nhc.sites._types import SubHexPopulation
 
     EntityRegistry.discover_all()
     sample_item = sorted(EntityRegistry.list_items())[0]
@@ -2113,7 +2191,7 @@ def test_populator_replay_killed_skips_creature() -> None:
     creature whose stable id is in the killed set is skipped on a
     replay pass."""
     from nhc.core.sub_hex_populator import populate_sub_hex_site
-    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation
+    from nhc.sites._types import SubHexPopulation
 
     site = _hand_built_sub_hex_site()
     site.population = SubHexPopulation(
@@ -2148,7 +2226,7 @@ def test_replay_doors_restores_open_state(tmp_path) -> None:
     on re-entry."""
     import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     cell = game.hex_world.get_cell(macro)
@@ -2185,7 +2263,7 @@ def test_replay_terrain_restores_dug(tmp_path) -> None:
     import asyncio
 
     from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     cell = game.hex_world.get_cell(macro)
@@ -2271,7 +2349,7 @@ def test_autosave_triggers_gc_old_records(tmp_path) -> None:
     import asyncio
 
     from nhc.core.autosave import autosave as autosave_fn
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     asyncio.run(
@@ -2315,7 +2393,7 @@ def test_undead_site_populates_undead_creatures(tmp_path) -> None:
     ``generate_undead_site`` legacy after M4e sites-unification."""
     import random
 
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.graveyard import (
         UNDEAD_POOL_BY_TIER,
         assemble_graveyard,
@@ -2343,7 +2421,7 @@ def test_undead_site_places_creatures_on_floor_tiles() -> None:
     import random
 
     from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.sites.graveyard import (
         assemble_graveyard,
         pick_undead_population,
@@ -2463,11 +2541,11 @@ def test_hole_flower_entry_lands_on_cave_floor(tmp_path) -> None:
     resolved = resolve_sub_hex_entry(sub_cell)
     assert resolved == ("bespoke", "cave")
     # Loading the feature through the macro pipeline must succeed
-    # and leave _active_sub_hex cleared (that marker is family-only).
+    # and leave _active_site_sub cleared (that marker is family-only).
     ok = asyncio.run(game.enter_hex_feature())
     assert ok is True
     assert game.level is not None
-    assert game._active_sub_hex is None
+    assert game._active_site_sub is None
 
 
 # ---------------------------------------------------------------------------
@@ -2484,7 +2562,7 @@ def test_sub_hex_family_visit_does_not_advance_day_clock(tmp_path) -> None:
     import asyncio
 
     from nhc.core.events import LeaveSiteRequested
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     day0 = game.hex_world.day

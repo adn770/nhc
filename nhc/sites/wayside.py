@@ -7,9 +7,9 @@ sub-hex stays enterable. No buildings and no enclosure — the
 walled perimeter is part of the surface Level itself rather than
 a :class:`Enclosure`, matching the family generator's behaviour.
 
-The family generator in ``nhc/hexcrawl/sub_hex_sites.py`` is being
-retired onto this assembler (see ``nhc_sites_unification_plan.md``
-milestone 4a).
+Wired through ``Game._enter_sub_hex_assembled`` from the unified
+sub-hex dispatcher (see ``nhc_sites_unification_plan.md`` milestone
+5).
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import random
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.hexcrawl.model import HexFeatureType, MinorFeatureType
-from nhc.hexcrawl.sub_hex_sites import SITE_TIER_DIMS, SiteTier
+from nhc.sites._types import SITE_TIER_DIMS, SiteTier
 from nhc.sites._site import Site
 
 

@@ -379,7 +379,7 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         # dispatcher set, otherwise reconnect snaps them back to
         # the macro hex / feature_cell because current_view and
         # the leave-site flow read these directly.
-        "active_sub_hex": getattr(game, "_active_sub_hex", None),
+        "active_site_sub": getattr(game, "_active_site_sub", None),
         "active_site": getattr(game, "_active_site", None),
         "active_descent_building": getattr(
             game, "_active_descent_building", None,
@@ -461,7 +461,13 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     # In-site dispatcher state -- absent on pre-fix payloads so
     # callers fall back to the new-Game defaults (None / empty),
     # which means an old save made outside any site restores fine.
-    game._active_sub_hex = payload.get("active_sub_hex")
+    # ``active_site_sub`` is the M5 key; pre-M5 payloads used
+    # ``active_sub_hex`` for the same data. Read either so a
+    # mid-site disconnect on an old build can reconnect cleanly.
+    game._active_site_sub = payload.get(
+        "active_site_sub",
+        payload.get("active_sub_hex"),
+    )
     game._active_site = payload.get("active_site")
     game._active_descent_building = payload.get(
         "active_descent_building",

@@ -60,7 +60,7 @@ def _game_shell() -> Game:
     g.hex_world = None
     g.level = None
     g._active_site = None
-    g._active_sub_hex = None
+    g._active_site_sub = None
     return g
 
 
@@ -132,12 +132,13 @@ def test_building_floor_returns_structure() -> None:
 
 
 def test_sub_hex_family_site_returns_site() -> None:
-    """Family sub-hex sites (sacred shrine, wayside well, etc.)
-    set ``_active_sub_hex`` but leave ``_active_site`` at ``None``.
-    They are still "outdoor layer of a named location" per the
-    design, so the classifier reports ``site`` -- otherwise L
-    (leave_site) is dropped by the client-side input gate and the
-    player is stranded on the sub-hex Level.
+    """Sub-hex family sites (sacred shrine, wayside well, etc.)
+    park their assembled :class:`Site` on ``_active_site`` since
+    the M5 dispatcher collapse, so the classifier reports
+    ``site`` via the same branch the macro / walled-site path
+    uses. (Pre-M5 the family path left ``_active_site = None`` and
+    only ``_active_site_sub`` was set; the M5 invariant is that
+    every site entry -- macro or sub-hex -- sets both.)
     """
     from nhc.hexcrawl.mode import WorldType
 
@@ -145,7 +146,8 @@ def test_sub_hex_family_site_returns_site() -> None:
     g = _game_shell()
     g.world_type = WorldType.HEXCRAWL
     g.level = sub_level
-    g._active_sub_hex = HexCoord(0, 0)
+    g._active_site = _StubSite(surface=sub_level)
+    g._active_site_sub = HexCoord(0, 0)
     assert g.current_view() == "site"
 
 

@@ -416,7 +416,7 @@ class Game:
         # floor under the ("sub", ...) namespace and the leave-site
         # mechanic can restore ``exploring_sub_hex`` to where the
         # player entered from. Cleared on exit to the flower.
-        self._active_sub_hex: "HexCoord | None" = None
+        self._active_site_sub: "HexCoord | None" = None
         # Sub-hex floor cache with bounded LRU eviction + mutation
         # persistence. Lazy — built on first sub-hex entry once we
         # know the player id / save dir. See nhc.core.sub_hex_cache.
@@ -491,13 +491,13 @@ class Game:
            is ``structure``, regardless of whether it was reached
            from a site or a standalone dungeon.
         4. ``_active_site is not None`` and the current level is
-           the site's surface: ``site``.
-        5. ``_active_sub_hex is not None``: family sub-hex sites
-           (sacred shrine, wayside well, inhabited settlement,
-           animal den, natural curiosity, undead) classify as
-           ``site`` too — they're a single outdoor layer the
-           player enters from the flower and leaves with L.
-        6. Everything else: ``dungeon`` (covers both standalone
+           the site's surface: ``site``. Walled macro sites (town,
+           keep, mansion, farm, ...) and unified sub-hex family
+           sites (wayside, clearing, sacred, den, graveyard,
+           campsite, orchard, sub-hex farm) all land here -- M5
+           collapsed the family path onto ``_active_site`` so the
+           classifier no longer needs a separate "sub-hex" branch.
+        5. Everything else: ``dungeon`` (covers both standalone
            dungeon-mode levels and descents routed through a
            site's building stairs).
         """
@@ -512,8 +512,6 @@ class Game:
             return "structure"
         site = getattr(self, "_active_site", None)
         if site is not None and self.level is site.surface:
-            return "site"
-        if getattr(self, "_active_sub_hex", None) is not None:
             return "site"
         return "dungeon"
 
@@ -567,9 +565,9 @@ class Game:
         is not yet set (pre-initialize or test setup).
         """
         if self.world_type is WorldType.HEXCRAWL and self.hex_player_position is not None:
-            if self._active_sub_hex is not None:
+            if self._active_site_sub is not None:
                 coord = self.hex_player_position
-                sub = self._active_sub_hex
+                sub = self._active_site_sub
                 return (
                     "sub", coord.q, coord.r, sub.q, sub.r, depth,
                 )
@@ -726,6 +724,149 @@ class Game:
         self._notify_floor_change(depth)
         return True
 
+    async def enter_site(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        kind: str,
+        tier,
+        *,
+        feature=None,
+        biome=None,
+    ) -> bool:
+        """Unified entry point for sub-hex sites.
+
+        Replaces the seven per-family ``_enter_sub_hex_*``
+        dispatchers with one switch on ``kind`` that drives the
+        per-kind :func:`assemble_*` and a small shared helper.
+        Farm minor keeps its own path -- it is the only kind with
+        buildings + a multi-floor cache, and the cache merge is
+        tracked separately as a follow-up milestone.
+
+        Recognised kinds: ``farm``, ``wayside``, ``clearing``,
+        ``sacred``, ``den``, ``graveyard``, ``campsite``,
+        ``orchard``. Unknown kinds return ``False`` so the caller
+        can emit "nothing to enter".
+        """
+        if kind == "farm":
+            return await self._enter_sub_hex_farm(macro, sub, biome)
+
+        if kind == "wayside":
+            from nhc.sites.wayside import assemble_wayside
+
+            def _populate(rng, site, feature_xy):
+                from nhc.sites._types import SubHexPopulation
+
+                pop = SubHexPopulation()
+                if feature_xy is None:
+                    return pop
+                entity_id = self._wayside_feature_entity_for(feature)
+                if entity_id is not None:
+                    pop.features.append((entity_id, feature_xy))
+                return pop
+
+            return await self._enter_sub_hex_assembled(
+                macro, sub,
+                kind="wayside",
+                seed_template="bespoke:wayside",
+                site_id_suffix="wayside",
+                assemble=lambda site_id, rng: assemble_wayside(
+                    site_id, rng, feature=feature, tier=tier,
+                ),
+                feature_tags=("well", "signpost", "landmark"),
+                build_population=_populate,
+            )
+
+        if kind == "clearing":
+            from nhc.sites.clearing import assemble_clearing
+
+            return await self._enter_sub_hex_assembled(
+                macro, sub,
+                kind="clearing",
+                seed_template="bespoke:clearing",
+                site_id_suffix="clearing",
+                assemble=lambda site_id, rng: assemble_clearing(
+                    site_id, rng, feature=feature, tier=tier,
+                ),
+                feature_tags=(
+                    "mushrooms", "herbs", "hollow_log", "bones",
+                ),
+            )
+
+        if kind == "sacred":
+            from nhc.sites.sacred import assemble_sacred
+
+            return await self._enter_sub_hex_assembled(
+                macro, sub,
+                kind="sacred",
+                seed_template="bespoke:sacred",
+                site_id_suffix="sacred",
+                assemble=lambda site_id, rng: assemble_sacred(
+                    site_id, rng, feature=feature, tier=tier,
+                ),
+                feature_tags=(
+                    "shrine", "monolith", "cairn",
+                    "crystals", "wonder", "portal",
+                ),
+            )
+
+        if kind == "den":
+            from nhc.sites.den import assemble_den
+
+            return await self._enter_sub_hex_assembled(
+                macro, sub,
+                kind="den",
+                seed_template="bespoke:den",
+                site_id_suffix="den",
+                assemble=lambda site_id, rng: assemble_den(
+                    site_id, rng,
+                    feature=feature, biome=biome, tier=tier,
+                ),
+                feature_tags=("den_mouth",),
+            )
+
+        if kind == "graveyard":
+            from nhc.sites.graveyard import (
+                assemble_graveyard,
+                pick_undead_population,
+            )
+
+            def _populate(rng, site, feature_xy):
+                from nhc.sites._types import SubHexPopulation
+
+                entry = (
+                    site.surface.width // 2,
+                    site.surface.height - 2,
+                )
+                reserved: set[tuple[int, int]] = {entry}
+                if feature_xy is not None:
+                    reserved.add(feature_xy)
+                creatures = pick_undead_population(
+                    site.surface, rng, tier, exclude=reserved,
+                )
+                return SubHexPopulation(creatures=creatures)
+
+            return await self._enter_sub_hex_assembled(
+                macro, sub,
+                kind="graveyard",
+                seed_template="bespoke:graveyard",
+                site_id_suffix="graveyard",
+                assemble=lambda site_id, rng: assemble_graveyard(
+                    site_id, rng,
+                    feature=HexFeatureType.GRAVEYARD, tier=tier,
+                ),
+                feature_tags=("tomb_entrance",),
+                build_population=_populate,
+                faction="undead",
+            )
+
+        if kind in ("campsite", "orchard"):
+            return await self._enter_sub_hex_settlement(
+                macro, sub, kind=kind,
+            )
+
+        return False
+
     async def enter_sub_hex_family_site(
         self,
         macro: "HexCoord",
@@ -735,59 +876,41 @@ class Game:
         tier,
         biome,
     ) -> bool:
-        """Enter a family-generated sub-hex site at ``sub`` of ``macro``.
+        """Translate a family-resolver tuple into ``enter_site``.
 
-        Every family routes through a per-family ``_enter_sub_hex_*``
-        method that drives the unified ``Site`` assembler in
-        ``nhc/sites/`` and the sub-hex floor + mutation cache.
-        Unknown families return ``False`` so the caller can emit the
-        "nothing to enter" message.
-
-        Sets ``_active_sub_hex`` so ``_cache_key`` routes subsequent
-        lookups to the sub-hex namespace; the overland day clock
-        stays frozen for the duration of the visit.
+        Back-compat shim: the resolver still emits
+        ``("family", family, feature)`` so callers (and the
+        existing test suite) keep using this method. The body
+        translates the family + feature tag pair into the unified
+        ``kind`` the dispatcher consumes; per-kind branches all
+        live on :meth:`enter_site`.
         """
         from nhc.hexcrawl.model import MinorFeatureType
 
         if family == "inhabited_settlement":
             if feature is MinorFeatureType.FARM:
-                return await self._enter_sub_hex_farm(macro, sub, biome)
-            if feature is MinorFeatureType.CAMPSITE:
-                return await self._enter_sub_hex_campsite(
-                    macro, sub, biome,
-                )
-            if feature is MinorFeatureType.ORCHARD:
-                return await self._enter_sub_hex_orchard(
-                    macro, sub, biome,
-                )
+                kind = "farm"
+            elif feature is MinorFeatureType.CAMPSITE:
+                kind = "campsite"
+            elif feature is MinorFeatureType.ORCHARD:
+                kind = "orchard"
+            else:
+                return False
+        elif family == "natural_curiosity":
+            kind = "clearing"
+        elif family == "animal_den":
+            kind = "den"
+        elif family == "undead":
+            kind = "graveyard"
+        elif family in ("wayside", "sacred"):
+            kind = family
+        else:
             return False
 
-        if family == "wayside":
-            return await self._enter_sub_hex_wayside(
-                macro, sub, feature, biome,
-            )
-
-        if family == "natural_curiosity":
-            return await self._enter_sub_hex_clearing(
-                macro, sub, feature, biome,
-            )
-
-        if family == "animal_den":
-            return await self._enter_sub_hex_den(
-                macro, sub, feature, biome,
-            )
-
-        if family == "sacred":
-            return await self._enter_sub_hex_sacred(
-                macro, sub, feature, biome,
-            )
-
-        if family == "undead":
-            return await self._enter_sub_hex_graveyard(
-                macro, sub, tier, biome,
-            )
-
-        return False
+        return await self.enter_site(
+            macro, sub, kind, tier,
+            feature=feature, biome=biome,
+        )
 
     async def _enter_sub_hex_farm(
         self,
@@ -801,9 +924,9 @@ class Game:
         :func:`nhc.sites.farm.assemble_farm` at ``tier=SMALL``.
         Mirrors the walled-site dispatch (surface entry +
         ``_active_site``) but keys the floor cache under the
-        ``_active_sub_hex`` slot so entries from different
+        ``_active_site_sub`` slot so entries from different
         sub-hexes don't collide. A single farmer NPC is placed on
-        a safe interior tile of the farmhouse; ``_active_sub_hex``
+        a safe interior tile of the farmhouse; ``_active_site_sub``
         lets :meth:`_leave_site_narration_key` pick the
         ``leave_site.exit_farm`` line and restores the entry
         sub-hex on exit.
@@ -814,10 +937,10 @@ class Game:
         split. Unification lands in M5.
         """
         from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import SiteTier
+        from nhc.sites._types import SiteTier
         from nhc.sites.farm import assemble_farm
 
-        self._active_sub_hex = sub
+        self._active_site_sub = sub
         self._active_cave_cluster = None
         self._active_descent_building = None
 
@@ -860,33 +983,40 @@ class Game:
         self._notify_floor_change(depth)
         return True
 
-    async def _enter_sub_hex_wayside(
+    async def _enter_sub_hex_assembled(
         self,
         macro: "HexCoord",
         sub: "HexCoord",
-        feature,
-        biome,
+        *,
+        kind: str,
+        seed_template: str,
+        site_id_suffix: str,
+        assemble,
+        feature_tags: tuple[str, ...],
+        build_population=None,
+        faction: str | None = None,
     ) -> bool:
-        """Enter a sub-hex WELL / SIGNPOST through the unified
-        wayside assembler.
+        """Shared body for no-building sub-hex family entries.
 
-        Tiny, no-building site: the surface Level carries a single
-        ``well`` / ``signpost`` / ``landmark`` feature tag and the
-        dispatcher spawns the companion entity (``well_drink`` or
-        ``rumor_sign``) on the tagged tile. Uses the sub-hex
-        cache manager (``_sub_hex_cache``) so killed / looted /
-        door-state mutations survive cache evictions, mirroring
-        the family-site path that preceded this assembler.
+        Drives the cache-hit / fresh-assemble / mutation-replay /
+        populate / place-player flow common to wayside, clearing,
+        sacred, den, graveyard, campsite, and orchard. Per-kind
+        details (assembler call, feature tile tag, populator
+        wiring) come in via the ``assemble``, ``feature_tags`` and
+        ``build_population`` closures so the caller does not have
+        to duplicate the boilerplate.
+
+        ``assemble`` receives ``(site_id, rng)`` and returns the
+        assembled :class:`Site`. ``build_population`` receives
+        ``(rng, site, feature_xy)`` and returns the
+        :class:`SubHexPopulation` the populator will spawn;
+        omitted means an empty population.
         """
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
         from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SiteTier,
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.wayside import assemble_wayside
+        from nhc.sites._types import SubHexPopulation, SubHexSite
 
-        self._active_sub_hex = sub
+        self._active_site_sub = sub
         self._active_cave_cluster = None
         self._active_descent_building = None
 
@@ -909,17 +1039,25 @@ class Game:
             return True
 
         seed = dungeon_seed(
-            self.seed or 0, macro, "bespoke:wayside", sub=sub,
+            self.seed or 0, macro, seed_template, sub=sub,
         )
-        site = assemble_wayside(
-            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_wayside",
-            random.Random(seed),
-            feature=feature,
-            tier=SiteTier.SMALL,
+        rng = random.Random(seed)
+        site = assemble(
+            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_{site_id_suffix}",
+            rng,
         )
         self.level = site.surface
         self._active_site = site
-        if (self.level and self.level.metadata and site.id):
+        # Wayside-style families clear the inherited biome faction
+        # so populator-spawned creatures aren't tinted by overland
+        # encounter rules. Den / graveyard pass an explicit faction
+        # via the ``faction`` kwarg and keep their level metadata.
+        if (
+            faction is None
+            and self.level is not None
+            and self.level.metadata is not None
+            and getattr(site, "id", None)
+        ):
             self.level.metadata.faction = None
 
         persisted_mutations: dict = {}
@@ -931,38 +1069,34 @@ class Game:
                 self.level, persisted_mutations,
             )
             self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
+                cache_key, self.level,
+                mutations=persisted_mutations,
             )
         else:
             self._floor_cache[cache_key] = (self.level, {})
         self._site_cache[cache_key] = site
 
-        self._sub_hex_entry_tile = (
+        entry_tile = (
             site.surface.width // 2, site.surface.height - 2,
         )
+        self._sub_hex_entry_tile = entry_tile
 
-        # Reuse the existing populator by synthesising a SubHexSite
-        # envelope from the Site's surface + the wayside feature
-        # entity -- avoids duplicating the looted / killed
-        # mutation-replay logic here.
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
+        feature_xy = (
+            self._find_feature_tile_on(site.surface, feature_tags)
+            if feature_tags else None
+        )
+        if build_population is not None:
+            population = build_population(rng, site, feature_xy)
+        else:
+            population = SubHexPopulation()
 
         self._purge_entities_on_level(self.level.id)
-        shim_population = SubHexPopulation()
-        feature_xy = self._find_feature_tile_on(
-            site.surface, ("well", "signpost", "landmark"),
-        )
-        if feature_xy is not None:
-            entity_id = self._wayside_feature_entity_for(feature)
-            if entity_id is not None:
-                shim_population.features.append(
-                    (entity_id, feature_xy),
-                )
         shim = SubHexSite(
             level=site.surface,
-            entry_tile=self._sub_hex_entry_tile,
+            entry_tile=entry_tile,
             feature_tile=feature_xy,
-            population=shim_population,
+            faction=faction,
+            population=population,
         )
         populate_sub_hex_site(
             self.world, shim, mutations=persisted_mutations,
@@ -971,557 +1105,55 @@ class Game:
         self._update_fov()
         self._notify_floor_change(depth)
         return True
-
-    async def _enter_sub_hex_clearing(
-        self,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        feature,
-        biome,
-    ) -> bool:
-        """Enter a sub-hex natural curiosity (MUSHROOM_RING /
-        HERB_PATCH / HOLLOW_LOG / BONE_PILE) through the unified
-        clearing assembler. No populator entity is spawned — the
-        centrepiece is just a tile tag the BumpAction router
-        reads."""
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SiteTier,
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.clearing import assemble_clearing
-
-        self._active_sub_hex = sub
-        self._active_cave_cluster = None
-        self._active_descent_building = None
-
-        depth = 1
-        cache_key = self._cache_key(depth)
-
-        self._ensure_sub_hex_cache()
-        cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
-        )
-        if cached is not None:
-            self.level = cached
-            cached_site = self._site_cache.get(cache_key)
-            if cached_site is not None:
-                self._active_site = cached_site
-            self._place_player_on_sub_hex_entry()
-            self._update_fov()
-            self._notify_floor_change(depth)
-            return True
-
-        seed = dungeon_seed(
-            self.seed or 0, macro, "bespoke:clearing", sub=sub,
-        )
-        site = assemble_clearing(
-            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_clearing",
-            random.Random(seed),
-            feature=feature,
-            tier=SiteTier.SMALL,
-        )
-        self.level = site.surface
-        self._active_site = site
-
-        persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
-                cache_key,
-            )
-            self._apply_sub_hex_mutations_to_level(
-                self.level, persisted_mutations,
-            )
-            self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
-            )
-        else:
-            self._floor_cache[cache_key] = (self.level, {})
-        self._site_cache[cache_key] = site
-
-        self._sub_hex_entry_tile = (
-            site.surface.width // 2, site.surface.height - 2,
-        )
-
-        self._purge_entities_on_level(self.level.id)
-        # No populator entity for clearings yet — the empty shim
-        # still drives mutation replay consistently with the other
-        # family dispatchers.
-        shim = SubHexSite(
-            level=site.surface,
-            entry_tile=self._sub_hex_entry_tile,
-            feature_tile=self._find_feature_tile_on(
-                site.surface,
-                ("mushrooms", "herbs", "hollow_log", "bones"),
-            ),
-            population=SubHexPopulation(),
-        )
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
-
-        populate_sub_hex_site(
-            self.world, shim, mutations=persisted_mutations,
-        )
-        self._place_player_on_sub_hex_entry()
-        self._update_fov()
-        self._notify_floor_change(depth)
-        return True
-
-    async def _enter_sub_hex_sacred(
-        self,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        feature,
-        biome,
-    ) -> bool:
-        """Enter a sub-hex sacred site (SHRINE / STANDING_STONE /
-        CAIRN minor or CRYSTALS / STONES / WONDER / PORTAL major)
-        through the unified sacred assembler. The centrepiece is
-        a passive tile tag; no companion entity is spawned."""
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SiteTier,
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.sacred import assemble_sacred
-
-        self._active_sub_hex = sub
-        self._active_cave_cluster = None
-        self._active_descent_building = None
-
-        depth = 1
-        cache_key = self._cache_key(depth)
-
-        self._ensure_sub_hex_cache()
-        cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
-        )
-        if cached is not None:
-            self.level = cached
-            cached_site = self._site_cache.get(cache_key)
-            if cached_site is not None:
-                self._active_site = cached_site
-            self._place_player_on_sub_hex_entry()
-            self._update_fov()
-            self._notify_floor_change(depth)
-            return True
-
-        seed = dungeon_seed(
-            self.seed or 0, macro, "bespoke:sacred", sub=sub,
-        )
-        site = assemble_sacred(
-            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_sacred",
-            random.Random(seed),
-            feature=feature,
-            tier=SiteTier.MEDIUM,
-        )
-        self.level = site.surface
-        self._active_site = site
-
-        persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
-                cache_key,
-            )
-            self._apply_sub_hex_mutations_to_level(
-                self.level, persisted_mutations,
-            )
-            self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
-            )
-        else:
-            self._floor_cache[cache_key] = (self.level, {})
-        self._site_cache[cache_key] = site
-
-        self._sub_hex_entry_tile = (
-            site.surface.width // 2, site.surface.height - 2,
-        )
-
-        self._purge_entities_on_level(self.level.id)
-        shim = SubHexSite(
-            level=site.surface,
-            entry_tile=self._sub_hex_entry_tile,
-            feature_tile=self._find_feature_tile_on(
-                site.surface,
-                ("shrine", "monolith", "cairn",
-                 "crystals", "wonder", "portal"),
-            ),
-            population=SubHexPopulation(),
-        )
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
-
-        populate_sub_hex_site(
-            self.world, shim, mutations=persisted_mutations,
-        )
-        self._place_player_on_sub_hex_entry()
-        self._update_fov()
-        self._notify_floor_change(depth)
-        return True
-
-    async def _enter_sub_hex_campsite(
-        self,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        biome,
-    ) -> bool:
-        """Enter a sub-hex CAMPSITE through the unified campsite
-        assembler. The dispatcher places a ``campsite_traveller``
-        NPC on the tile south of the campfire so the player can
-        bump them for the rumor-vendor flow."""
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.campsite import assemble_campsite
-
-        return await self._enter_sub_hex_settlement(
-            macro=macro, sub=sub,
-            template_key="bespoke:campsite",
-            site_id_suffix="campsite",
-            assembler=assemble_campsite,
-            feature_tags=("campfire",),
-            npc_id="campsite_traveller",
-            SubHexPopulation=SubHexPopulation,
-            SubHexSite=SubHexSite,
-            dungeon_seed=dungeon_seed,
-        )
-
-    async def _enter_sub_hex_orchard(
-        self,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        biome,
-    ) -> bool:
-        """Enter a sub-hex ORCHARD through the unified orchard
-        assembler. The dispatcher places an ``orchardist`` NPC on
-        the tile south of the central tree so the player can bump
-        them for the rumor-vendor flow."""
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.orchard import assemble_orchard
-
-        return await self._enter_sub_hex_settlement(
-            macro=macro, sub=sub,
-            template_key="bespoke:orchard",
-            site_id_suffix="orchard",
-            assembler=assemble_orchard,
-            feature_tags=("tree",),
-            npc_id="orchardist",
-            SubHexPopulation=SubHexPopulation,
-            SubHexSite=SubHexSite,
-            dungeon_seed=dungeon_seed,
-        )
 
     async def _enter_sub_hex_settlement(
         self,
+        macro: "HexCoord",
+        sub: "HexCoord",
         *,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        template_key: str,
-        site_id_suffix: str,
-        assembler,
-        feature_tags: tuple[str, ...],
-        npc_id: str,
-        SubHexPopulation,
-        SubHexSite,
-        dungeon_seed,
+        kind: str,
     ) -> bool:
-        """Shared body for campsite + orchard dispatchers.
+        """Shared body for the campsite + orchard kinds.
 
-        Stamps the surface via ``assembler``, finds the centerpiece
-        via ``feature_tags`` and places ``npc_id`` on the tile
-        immediately south of it (falls back to the centerpiece
-        itself when the south tile is off the walkable interior --
-        only happens on degenerate tier dims). Mutation replay,
-        sub-hex cache, and populator wiring follow the same pattern
-        as every other unified family dispatcher.
+        Both stamp a generator-decided centerpiece (campfire /
+        central tree) and place a single rumor-vendor NPC on the
+        tile immediately south of it. The two diverge only on the
+        assembler, the feature tag, and the NPC id.
         """
-        self._active_sub_hex = sub
-        self._active_cave_cluster = None
-        self._active_descent_building = None
+        from nhc.sites._types import SubHexPopulation
 
-        depth = 1
-        cache_key = self._cache_key(depth)
+        if kind == "campsite":
+            from nhc.sites.campsite import assemble_campsite as _asm
 
-        self._ensure_sub_hex_cache()
-        cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
-        )
-        if cached is not None:
-            self.level = cached
-            cached_site = self._site_cache.get(cache_key)
-            if cached_site is not None:
-                self._active_site = cached_site
-            self._place_player_on_sub_hex_entry()
-            self._update_fov()
-            self._notify_floor_change(depth)
-            return True
-
-        seed = dungeon_seed(
-            self.seed or 0, macro, template_key, sub=sub,
-        )
-        site = assembler(
-            (
-                f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}"
-                f"_{site_id_suffix}"
-            ),
-            random.Random(seed),
-        )
-        self.level = site.surface
-        self._active_site = site
-
-        persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
-                cache_key,
-            )
-            self._apply_sub_hex_mutations_to_level(
-                self.level, persisted_mutations,
-            )
-            self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
-            )
+            feature_tags = ("campfire",)
+            npc_id = "campsite_traveller"
+            seed_template = "bespoke:campsite"
         else:
-            self._floor_cache[cache_key] = (self.level, {})
-        self._site_cache[cache_key] = site
+            from nhc.sites.orchard import assemble_orchard as _asm
 
-        entry_tile = (
-            site.surface.width // 2, site.surface.height - 2,
-        )
-        self._sub_hex_entry_tile = entry_tile
+            feature_tags = ("tree",)
+            npc_id = "orchardist"
+            seed_template = "bespoke:orchard"
 
-        feature_xy = self._find_feature_tile_on(
-            site.surface, feature_tags,
-        )
-        npc_xy = _pick_settlement_npc_tile(site.surface, feature_xy)
-        population = SubHexPopulation()
-        if npc_xy is not None:
-            population.npcs.append((npc_id, npc_xy))
-
-        self._purge_entities_on_level(self.level.id)
-        shim = SubHexSite(
-            level=site.surface,
-            entry_tile=entry_tile,
-            feature_tile=feature_xy,
-            population=population,
-        )
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
-
-        populate_sub_hex_site(
-            self.world, shim, mutations=persisted_mutations,
-        )
-        self._place_player_on_sub_hex_entry()
-        self._update_fov()
-        self._notify_floor_change(depth)
-        return True
-
-    async def _enter_sub_hex_graveyard(
-        self,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        tier,
-        biome,
-    ) -> bool:
-        """Enter a sub-hex GRAVEYARD through the unified graveyard
-        assembler. Stamps a ``tomb_entrance`` centrepiece and seeds
-        a tier-scaled undead garrison via the populator (so the
-        same graveyard reroll's the same corpses on re-entry, and
-        looted/killed mutations replay cleanly through the sub-hex
-        cache like every other unified family)."""
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.graveyard import (
-            assemble_graveyard,
-            pick_undead_population,
-        )
-
-        self._active_sub_hex = sub
-        self._active_cave_cluster = None
-        self._active_descent_building = None
-
-        depth = 1
-        cache_key = self._cache_key(depth)
-
-        self._ensure_sub_hex_cache()
-        cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
-        )
-        if cached is not None:
-            self.level = cached
-            cached_site = self._site_cache.get(cache_key)
-            if cached_site is not None:
-                self._active_site = cached_site
-            self._place_player_on_sub_hex_entry()
-            self._update_fov()
-            self._notify_floor_change(depth)
-            return True
-
-        seed = dungeon_seed(
-            self.seed or 0, macro, "bespoke:graveyard", sub=sub,
-        )
-        rng = random.Random(seed)
-        site = assemble_graveyard(
-            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_graveyard",
-            rng,
-            feature=HexFeatureType.GRAVEYARD,
-            tier=tier,
-        )
-        self.level = site.surface
-        self._active_site = site
-
-        persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
-                cache_key,
+        def _populate(rng, site, feature_xy):
+            pop = SubHexPopulation()
+            npc_xy = _pick_settlement_npc_tile(
+                site.surface, feature_xy,
             )
-            self._apply_sub_hex_mutations_to_level(
-                self.level, persisted_mutations,
-            )
-            self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
-            )
-        else:
-            self._floor_cache[cache_key] = (self.level, {})
-        self._site_cache[cache_key] = site
+            if npc_xy is not None:
+                pop.npcs.append((npc_id, npc_xy))
+            return pop
 
-        entry_tile = (
-            site.surface.width // 2, site.surface.height - 2,
-        )
-        self._sub_hex_entry_tile = entry_tile
-
-        feature_xy = self._find_feature_tile_on(
-            site.surface, ("tomb_entrance",),
-        )
-        reserved: set[tuple[int, int]] = {entry_tile}
-        if feature_xy is not None:
-            reserved.add(feature_xy)
-        creatures = pick_undead_population(
-            site.surface, rng, tier, exclude=reserved,
+        return await self._enter_sub_hex_assembled(
+            macro, sub,
+            kind=kind,
+            seed_template=seed_template,
+            site_id_suffix=kind,
+            assemble=lambda site_id, rng: _asm(site_id, rng),
+            feature_tags=feature_tags,
+            build_population=_populate,
         )
 
-        self._purge_entities_on_level(self.level.id)
-        shim = SubHexSite(
-            level=site.surface,
-            entry_tile=entry_tile,
-            feature_tile=feature_xy,
-            faction="undead",
-            population=SubHexPopulation(creatures=creatures),
-        )
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
-
-        populate_sub_hex_site(
-            self.world, shim, mutations=persisted_mutations,
-        )
-        self._place_player_on_sub_hex_entry()
-        self._update_fov()
-        self._notify_floor_change(depth)
-        return True
-
-    async def _enter_sub_hex_den(
-        self,
-        macro: "HexCoord",
-        sub: "HexCoord",
-        feature,
-        biome,
-    ) -> bool:
-        """Enter a sub-hex animal den (ANIMAL_DEN / LAIR / NEST /
-        BURROW) through the unified den assembler. The cave-mouth
-        tile's ``den_mouth`` tag is what the BumpAction router
-        dispatches on; creatures spawn via the overland encounter
-        system keyed off the surface level's ``faction`` metadata,
-        which the assembler seeds from the biome."""
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SiteTier,
-            SubHexPopulation,
-            SubHexSite,
-        )
-        from nhc.sites.den import assemble_den
-
-        self._active_sub_hex = sub
-        self._active_cave_cluster = None
-        self._active_descent_building = None
-
-        depth = 1
-        cache_key = self._cache_key(depth)
-
-        self._ensure_sub_hex_cache()
-        cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
-        )
-        if cached is not None:
-            self.level = cached
-            cached_site = self._site_cache.get(cache_key)
-            if cached_site is not None:
-                self._active_site = cached_site
-            self._place_player_on_sub_hex_entry()
-            self._update_fov()
-            self._notify_floor_change(depth)
-            return True
-
-        seed = dungeon_seed(
-            self.seed or 0, macro, "bespoke:den", sub=sub,
-        )
-        site = assemble_den(
-            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_den",
-            random.Random(seed),
-            feature=feature,
-            biome=biome,
-            tier=SiteTier.MEDIUM,
-        )
-        self.level = site.surface
-        self._active_site = site
-
-        persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
-                cache_key,
-            )
-            self._apply_sub_hex_mutations_to_level(
-                self.level, persisted_mutations,
-            )
-            self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
-            )
-        else:
-            self._floor_cache[cache_key] = (self.level, {})
-        self._site_cache[cache_key] = site
-
-        self._sub_hex_entry_tile = (
-            site.surface.width // 2, site.surface.height - 2,
-        )
-
-        self._purge_entities_on_level(self.level.id)
-        shim = SubHexSite(
-            level=site.surface,
-            entry_tile=self._sub_hex_entry_tile,
-            feature_tile=self._find_feature_tile_on(
-                site.surface, ("den_mouth",),
-            ),
-            population=SubHexPopulation(),
-        )
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
-
-        populate_sub_hex_site(
-            self.world, shim, mutations=persisted_mutations,
-        )
-        self._place_player_on_sub_hex_entry()
-        self._update_fov()
-        self._notify_floor_change(depth)
-        return True
 
     @staticmethod
     def _find_feature_tile_on(level, tags: tuple[str, ...]):
@@ -2781,44 +2413,24 @@ class Game:
     def _is_site_edge_exit(self, dx: int, dy: int) -> bool:
         """Return True when a move of ``(dx, dy)`` from the
         player's current tile steps off the edge of an active
-        Site surface, whether walled (keep / town / farm) or a
-        sub-hex family site.
+        Site surface (walled macro or unified sub-hex family).
 
         Used by :meth:`_intent_to_action` to route an off-map
         move into :class:`LeaveSiteAction` rather than a regular
-        bump. Surface identification:
-
-        * Walled sites expose ``_active_site`` with a ``surface``
-          Level; the player is on the surface when
-          ``level.id == _active_site.surface.id``.
-        * Sub-hex family sites assign ``self.level`` directly and
-          mark ``_active_sub_hex``; they run at ``depth == 1``
-          without ``building_id``.
-
-        Building interiors (``level.building_id`` is set) are
-        rejected so the player still has to leave through a door
-        when inside a building.
+        bump. After the M5 dispatcher collapse every site -- macro
+        or sub-hex -- parks itself on ``_active_site``, so the
+        check is just "level is the active site's surface and the
+        next tile would step off it". Building interiors
+        (``level.building_id`` is set) are rejected so the player
+        still has to leave through a door when inside a building.
         """
         if self.world_type is not WorldType.HEXCRAWL:
             return False
-        if self.level is None:
+        if self.level is None or self._active_site is None:
             return False
-        if self._active_site is None and self._active_sub_hex is None:
+        if self.level.id != self._active_site.surface.id:
             return False
-        on_walled_surface = (
-            self._active_site is not None
-            and self.level.id == self._active_site.surface.id
-        )
-        on_sub_hex_surface = (
-            self._active_sub_hex is not None
-            and self.level.depth == 1
-            and self.level.building_id is None
-            and (
-                self._active_site is None
-                or self.level.id == self._active_site.surface.id
-            )
-        )
-        if not (on_walled_surface or on_sub_hex_surface):
+        if self.level.building_id is not None:
             return False
         pos = self.world.get_component(self.player_id, "Position")
         if pos is None:
@@ -2840,14 +2452,14 @@ class Game:
         """
         from nhc.hexcrawl.model import MinorFeatureType
 
-        if (self._active_sub_hex is not None
+        if (self._active_site_sub is not None
                 and self.hex_world is not None):
             macro = self.hex_world.exploring_hex
             if macro is not None:
                 cell = self.hex_world.get_cell(macro)
                 if cell is not None and cell.flower is not None:
                     sub_cell = cell.flower.cells.get(
-                        self._active_sub_hex,
+                        self._active_site_sub,
                     )
                     if sub_cell is not None:
                         minor = sub_cell.minor_feature
@@ -2886,12 +2498,12 @@ class Game:
         """Return the ``("sub", ...)`` cache-manager key for the
         currently-active sub-hex family visit, or ``None`` when no
         visit is in progress. Used by the mutation handlers below."""
-        if self._active_sub_hex is None or self.hex_world is None:
+        if self._active_site_sub is None or self.hex_world is None:
             return None
         macro = self.hex_world.exploring_hex
         if macro is None:
             return None
-        sub = self._active_sub_hex
+        sub = self._active_site_sub
         return ("sub", macro.q, macro.r, sub.q, sub.r, 1)
 
     def _append_sub_hex_mutation(
@@ -2933,7 +2545,7 @@ class Game:
     def _on_sub_hex_item_picked(self, event: ItemPickedUp) -> None:
         """Record the tile an item was picked up from so replay on
         re-entry can remove the matching placement."""
-        if self._active_sub_hex is None:
+        if self._active_site_sub is None:
             return
         pos = self.world.get_component(event.entity, "Position")
         if pos is None:
@@ -2952,7 +2564,7 @@ class Game:
         casualties (e.g. adventurers wandered in) fall back to the
         ECS int so the mutation is still unique, though they won't
         match on re-entry (non-populated creatures don't respawn)."""
-        if self._active_sub_hex is None:
+        if self._active_site_sub is None:
             return
         sid_comp = self.world.get_component(
             event.entity, "SubHexStableId",
@@ -2966,7 +2578,7 @@ class Game:
     def _on_sub_hex_door_opened(self, event: DoorOpened) -> None:
         """Record an opened door so re-entry keeps it open rather
         than resetting to closed."""
-        if self._active_sub_hex is None:
+        if self._active_site_sub is None:
             return
         self._set_sub_hex_mutation(
             "doors", f"{event.x},{event.y}", "open",
@@ -2975,7 +2587,7 @@ class Game:
     def _on_sub_hex_terrain_changed(self, event: TerrainChanged) -> None:
         """Record a dug-through wall (U4: skip door tiles, handled by
         the emitter — DigAction only fires for walls/voids)."""
-        if self._active_sub_hex is None:
+        if self._active_site_sub is None:
             return
         self._set_sub_hex_mutation(
             "terrain", f"{event.x},{event.y}", event.kind,
@@ -2992,11 +2604,11 @@ class Game:
         if self.level is None or not self.world_type is WorldType.HEXCRAWL:
             return
         departing_level_id = self.level.id
-        entry_sub_hex = self._active_sub_hex
+        entry_sub_hex = self._active_site_sub
         self.level = None
         self._active_cave_cluster = None
         self._active_site = None
-        self._active_sub_hex = None
+        self._active_site_sub = None
         self._active_descent_building = None
         self._active_descent_return_tile = None
         self._site_level_entities = {}
@@ -4533,7 +4145,7 @@ class Game:
             LeaveSiteRequested, self._on_leave_site_requested,
         )
         # Sub-hex mutation tracking (C2): the handlers below short-
-        # circuit when _active_sub_hex is None, so dungeon runs and
+        # circuit when _active_site_sub is None, so dungeon runs and
         # macro-site visits are untouched.
         self.event_bus.subscribe(
             ItemPickedUp, self._on_sub_hex_item_picked,

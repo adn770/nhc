@@ -332,7 +332,7 @@ async def test_sub_hex_site_edge_exit_detected(tmp_path) -> None:
     also parks a :class:`Site` wrapper on ``_active_site`` so the
     walled-site surface check fires alongside the sub-hex check."""
     from nhc.hexcrawl.model import Biome, MinorFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     g, macro, sub = _sub_hex_fixture(tmp_path, MinorFeatureType.WELL)
     ok = await g.enter_sub_hex_family_site(
@@ -340,7 +340,7 @@ async def test_sub_hex_site_edge_exit_detected(tmp_path) -> None:
         SiteTier.SMALL, Biome.GREENLANDS,
     )
     assert ok is True
-    assert g._active_sub_hex == sub
+    assert g._active_site_sub == sub
     assert g._active_site is not None
     assert g._active_site.kind == "wayside"
     pos = g.world.get_component(g.player_id, "Position")
@@ -356,7 +356,7 @@ async def test_sub_hex_exit_restores_entry_sub_hex(tmp_path) -> None:
     to the sub-coord the player entered from, NOT the feature_cell."""
     from nhc.core.actions import LeaveSiteAction
     from nhc.hexcrawl.model import Biome, MinorFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     g, macro, sub = _sub_hex_fixture(tmp_path, MinorFeatureType.WELL)
     # feature_cell for the flower should differ from ``sub`` (the
@@ -383,7 +383,7 @@ async def test_sub_hex_exit_restores_entry_sub_hex(tmp_path) -> None:
         if isinstance(ev, LeaveSiteRequested):
             await g.event_bus.emit(ev)
     assert g.level is None
-    assert g._active_sub_hex is None
+    assert g._active_site_sub is None
     assert g.hex_world.exploring_sub_hex == sub
 
 
@@ -392,7 +392,7 @@ async def test_sub_hex_re_entry_reuses_cached_level(tmp_path) -> None:
     """After leaving and re-entering, the sub-hex site returns the
     same cached Level instance (no regeneration)."""
     from nhc.hexcrawl.model import Biome, MinorFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     g, macro, sub = _sub_hex_fixture(tmp_path, MinorFeatureType.WELL)
     await g.enter_sub_hex_family_site(
@@ -414,19 +414,19 @@ async def test_sub_hex_re_entry_reuses_cached_level(tmp_path) -> None:
 
 @pytest.mark.asyncio
 async def test_sub_hex_active_sub_hex_cleared_on_exit(tmp_path) -> None:
-    """After the exit fires, ``_active_sub_hex`` is back to None."""
+    """After the exit fires, ``_active_site_sub`` is back to None."""
     from nhc.core.events import LeaveSiteRequested
     from nhc.hexcrawl.model import Biome, MinorFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     g, macro, sub = _sub_hex_fixture(tmp_path, MinorFeatureType.WELL)
     await g.enter_sub_hex_family_site(
         macro, sub, "wayside", MinorFeatureType.WELL,
         SiteTier.SMALL, Biome.GREENLANDS,
     )
-    assert g._active_sub_hex == sub
+    assert g._active_site_sub == sub
     await g.event_bus.emit(LeaveSiteRequested(actor=g.player_id))
-    assert g._active_sub_hex is None
+    assert g._active_site_sub is None
 
 
 # ---------------------------------------------------------------------------
@@ -463,7 +463,7 @@ async def test_leave_wayside_well_uses_exit_well(tmp_path) -> None:
     from nhc.core.actions import LeaveSiteAction
     from nhc.core.events import MessageEvent
     from nhc.hexcrawl.model import MinorFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
     from nhc.i18n import t
 
     g = _make_game(tmp_path)

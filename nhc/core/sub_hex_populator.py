@@ -22,7 +22,7 @@ from nhc.entities.registry import EntityRegistry
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
-    from nhc.hexcrawl.sub_hex_sites import SubHexSite
+    from nhc.sites._types import SubHexSite
 
 logger = logging.getLogger(__name__)
 

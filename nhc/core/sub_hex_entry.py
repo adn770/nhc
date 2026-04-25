@@ -8,7 +8,8 @@ four possible outcomes:
   generator (town, keep, tower, mansion, farm, cottage, ruin,
   temple, cave). Route through the existing macro site pipeline.
 - ``("family", family_name, feature)`` — handled by one of the six
-  family generators in ``nhc/hexcrawl/sub_hex_sites.py``.
+  per-family assemblers in ``nhc/sites/`` (wayside, clearing, den,
+  sacred, graveyard, settlement) via the unified sub-hex dispatcher.
 - ``("non-enterable", reason)`` — lake, river. The caller should
   emit a feature-specific rejection message.
 - ``None`` — the sub-hex is empty; "nothing to enter here."

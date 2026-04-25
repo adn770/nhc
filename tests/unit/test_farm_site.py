@@ -14,7 +14,7 @@ import random
 import pytest
 
 from nhc.dungeon.model import LShape, RectShape, SurfaceType, Terrain
-from nhc.hexcrawl.sub_hex_sites import SiteTier
+from nhc.sites._types import SiteTier
 from nhc.sites._site import Site
 from nhc.sites.farm import (
     FARM_BARN_PROBABILITY,

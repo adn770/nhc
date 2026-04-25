@@ -23,7 +23,7 @@ from nhc.dungeon.model import (
     Terrain, Tile,
 )
 from nhc.hexcrawl.model import DungeonRef
-from nhc.hexcrawl.sub_hex_sites import SiteTier
+from nhc.sites._types import SiteTier
 from nhc.sites._site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,

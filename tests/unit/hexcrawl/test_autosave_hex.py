@@ -169,7 +169,7 @@ async def test_autosave_persists_in_site_state_for_reconnect(
     """A player who disconnects mid-site must reconnect *into* the
     site, not snapped back to the macro / flower view.
 
-    Pre-fix, ``_active_sub_hex`` and ``_active_site`` were missing
+    Pre-fix, ``_active_site_sub`` and ``_active_site`` were missing
     from the autosave payload. After restore the dispatcher state
     looked empty, so ``current_view`` mis-classified the player and
     the next leave-site command landed them on the flower's
@@ -179,7 +179,7 @@ async def test_autosave_persists_in_site_state_for_reconnect(
     sets both fields, so it's the cleanest regression pin."""
     from nhc.core.autosave import autosave, auto_restore
     from nhc.hexcrawl.model import Biome, MinorFeatureType
-    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites._types import SiteTier
 
     g = _make_game(GameMode.HEX_EASY, tmp_path)
     macro, sub = _stamp_minor_on_idle_sub_hex(g, MinorFeatureType.WELL)
@@ -188,7 +188,7 @@ async def test_autosave_persists_in_site_state_for_reconnect(
         SiteTier.SMALL, Biome.GREENLANDS,
     )
     assert ok
-    assert g._active_sub_hex == sub
+    assert g._active_site_sub == sub
     assert g._active_site is not None
     assert g._active_site.kind == "wayside"
     assert g.current_view() == "site"
@@ -204,7 +204,7 @@ async def test_autosave_persists_in_site_state_for_reconnect(
         seed=42,
     )
     assert auto_restore(g2, tmp_path)
-    assert g2._active_sub_hex == sub
+    assert g2._active_site_sub == sub
     assert g2._active_site is not None
     assert g2._active_site.kind == "wayside"
     assert g2.current_view() == "site"
