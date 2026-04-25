@@ -37,9 +37,7 @@ from nhc.dungeon.generators._stairs import (
     build_floors_with_stairs,
 )
 from nhc.dungeon.interior._floor import build_building_floor
-from nhc.dungeon.interior.registry import (
-    ARCHETYPE_CONFIG, SHARED_DOOR_PAIRS,
-)
+from nhc.dungeon.interior.registry import ARCHETYPE_CONFIG
 from nhc.dungeon.model import (
     EntityPlacement, Level, LShape, Rect, RectShape,
     RoomShape, SurfaceType, Terrain, Tile,
@@ -55,6 +53,7 @@ from nhc.sites._site import (
 from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
 )
+from nhc.sites._town_layout import _ClusterPlan, _cluster_pack
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
 
@@ -76,15 +75,6 @@ _TIER_TO_SIZE_CLASS: dict[SiteTier, str] = {
 
 # ── Town tunable constants ───────────────────────────────────
 
-TOWN_ROW_X_START = 6
-TOWN_BUILDING_SPACING = 3                 # row-to-row y-gap (street)
-# Per-pair x-spacing within a row: 0 = touching (paired houses),
-# 1 = narrow passage, 3 = proper street. Weights are street-biased
-# so most adjacent pairs still read as "town with streets", while
-# the occasional touching or alley pair adds variety. Cross-
-# building interior doors fire only for the touching pairs.
-TOWN_BUILDING_SPACING_CHOICES: tuple[int, ...] = (0, 1, 3)
-TOWN_BUILDING_SPACING_WEIGHTS: tuple[float, ...] = (0.2, 0.2, 0.6)
 TOWN_FLOOR_COUNT_RANGE = (1, 2)
 
 TOWN_WOOD_BUILDING_PROBABILITY = 0.65    # rest are stone
@@ -112,7 +102,6 @@ class _TownSizeConfig:
     building_count_range: tuple[int, int]
     surface_width: int
     surface_height: int
-    row_y: tuple[int, int]
     has_palisade: bool
 
 
@@ -159,36 +148,34 @@ def _biome_overrides(biome: Biome | None) -> _BiomeOverrides:
 
 _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
     # Surface sizes grew in C3 to fit variable per-role buildings
-    # (tavern/inn 13-16, temple 14-16, shop 10-12). Old hamlets
-    # sized 36x26 could only host residential (7-9) footprints; the
-    # same sites now need to host 2-3 tall service buildings that
-    # wrap to a second row.
+    # (tavern/inn 13-16, temple 14-16, shop 10-12). The Phase 1
+    # cluster packer adds 1-tile internal buffer + 2-tile inter-
+    # bbox gap (worst case: 4 tiles between buildings of different
+    # clusters); hamlets in particular needed a bump from 48x44 to
+    # 56x52 to fit a [inn, temple] column alongside a solo shop
+    # without dropping a building.
     "hamlet": _TownSizeConfig(
         building_count_range=(3, 4),
-        surface_width=48,
-        surface_height=44,
-        row_y=(4, 15),
+        surface_width=56,
+        surface_height=52,
         has_palisade=False,
     ),
     "village": _TownSizeConfig(
         building_count_range=(5, 7),
         surface_width=72,
         surface_height=58,
-        row_y=(5, 19),
         has_palisade=True,
     ),
     "town": _TownSizeConfig(
         building_count_range=(8, 10),
         surface_width=88,
         surface_height=72,
-        row_y=(6, 23),
         has_palisade=True,
     ),
     "city": _TownSizeConfig(
         building_count_range=(10, 13),
         surface_width=104,
         surface_height=86,
-        row_y=(6, 28),
         has_palisade=True,
     ),
 }
@@ -247,13 +234,17 @@ def assemble_town(
         n_buildings = rng.randint(*config.building_count_range)
 
     # Assign the role of each building BEFORE placement so the
-    # greedy packer can draw a per-role size. The returned list is
-    # role-by-slot, one string per building, with every service
+    # cluster packer can draw a per-role size. The returned list
+    # is role-by-slot, one string per building, with every service
     # role covered first and the rest filled with "residential".
     roles = _roll_role_slots(rng, n_buildings)
     sizes = [_draw_size_for_role(role, rng) for role in roles]
+    cluster_plans = _cluster_pack(
+        roles, sizes, config, size_class, rng,
+    )
     buildings = _place_buildings(
-        site_id, rng, roles, sizes, config, overrides=overrides,
+        site_id, rng, roles, sizes, cluster_plans,
+        overrides=overrides,
     )
     role_assignments: dict[str, str] = {}
     for b, role in zip(buildings, roles):
@@ -298,12 +289,13 @@ def assemble_town(
         enclosure=enclosure,
     )
     site.building_doors.update(door_map)
+    site.cluster_plans = cluster_plans
     paint_surface_doors(site, SurfaceType.STREET)
     _place_service_npcs(buildings, role_assignments, rng)
     _place_surface_adventurers(site, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
     _place_surface_villagers(site, size_class, rng)
-    _connect_cross_building_doors(site, roles)
+    _connect_cross_building_doors(site, cluster_plans)
     return site
 
 
@@ -344,24 +336,32 @@ def _draw_size_for_role(
 def _place_buildings(
     site_id: str, rng: random.Random,
     roles: list[str], sizes: list[tuple[int, int]],
-    config: _TownSizeConfig,
+    cluster_plans: list[_ClusterPlan],
     overrides: _BiomeOverrides | None = None,
 ) -> list[Building]:
-    """Greedy row-pack ``sizes`` across the town surface.
+    """Materialise :class:`Building`s from the cluster packer's
+    output.
 
     ``roles`` and ``sizes`` are parallel lists, one entry per
-    building. Each building's ``(w, h)`` is already drawn from
-    its role's ``ARCHETYPE_CONFIG`` size_range; this helper just
-    runs the greedy row packer and constructs each ``Building``
-    with its role wired through as the archetype.
+    building. ``cluster_plans`` carries the placed cluster bboxes
+    + per-member rects produced by
+    :func:`nhc.sites._town_layout._cluster_pack`. Buildings are
+    indexed by their original input position so service-role
+    assignment, descent rolls and stable building ids stay in
+    register with the role list.
     """
     overrides = overrides or _BiomeOverrides()
-    placements = _greedy_pack(sizes, config, rng)
+    placements_by_index: dict[int, Rect] = {}
+    for plan in cluster_plans:
+        for member in plan.members:
+            placements_by_index[member.index] = member.rect
     buildings: list[Building] = []
-    for i, ((x, y, w, h), role) in enumerate(
-        zip(placements, roles),
-    ):
-        rect = Rect(x, y, w, h)
+    for i, role in enumerate(roles):
+        rect = placements_by_index.get(i)
+        if rect is None:
+            # Cluster packer dropped this member (extremely rare);
+            # skip so the rest of the site still assembles.
+            continue
         shape = _pick_shape_for_role(rng, role)
         n_floors = rng.randint(*TOWN_FLOOR_COUNT_RANGE)
         if overrides.interior_floor is not None:
@@ -380,49 +380,6 @@ def _place_buildings(
         )
         buildings.append(building)
     return buildings
-
-
-def _greedy_pack(
-    sizes: list[tuple[int, int]], config: _TownSizeConfig,
-    rng: random.Random,
-) -> list[tuple[int, int, int, int]]:
-    """Return ``[(x, y, w, h)]`` placements for the given sizes.
-
-    Each adjacent pair within a row draws its x-gap from
-    :data:`TOWN_BUILDING_SPACING_CHOICES`. The first building in a
-    row always starts at ``TOWN_ROW_X_START`` (no leading gap).
-    Wraps to a new row when the cursor would push past
-    ``surface_width - TOWN_ROW_X_START``. Row heights grow from the
-    tallest building placed so far in that row; row-to-row y-gap
-    stays at ``TOWN_BUILDING_SPACING`` (street between rows).
-    """
-    row_x_limit = config.surface_width - TOWN_ROW_X_START
-    placements: list[tuple[int, int, int, int]] = []
-    row_top = config.row_y[0]
-    x_cursor = TOWN_ROW_X_START
-    row_height = 0
-    for w, h in sizes:
-        at_row_start = x_cursor == TOWN_ROW_X_START
-        if at_row_start:
-            spacing = 0
-        else:
-            spacing = rng.choices(
-                TOWN_BUILDING_SPACING_CHOICES,
-                weights=TOWN_BUILDING_SPACING_WEIGHTS,
-            )[0]
-        x_candidate = x_cursor + spacing
-        # Wrap to the next row only when there is already something
-        # on this row — a single oversized building may exceed the
-        # row limit but still has to go somewhere.
-        if not at_row_start and x_candidate + w > row_x_limit:
-            row_top += row_height + TOWN_BUILDING_SPACING
-            x_cursor = TOWN_ROW_X_START
-            row_height = 0
-            x_candidate = x_cursor
-        placements.append((x_candidate, row_top, w, h))
-        x_cursor = x_candidate + w
-        row_height = max(row_height, h)
-    return placements
 
 
 def _pick_shape_for_role(
@@ -865,52 +822,112 @@ def _lock_shop_doors(
 
 
 def _connect_cross_building_doors(
-    site: Site, roles: list[str],
+    site: Site, cluster_plans: list[_ClusterPlan],
 ) -> None:
-    """Add :class:`InteriorDoorLink`s for same-row adjacent pairs
-    whose roles appear in :data:`SHARED_DOOR_PAIRS`.
+    """Add :class:`InteriorDoorLink`s for cluster-internal adjacent
+    pairs whose 50/50 roll is ``True`` (Q8).
 
-    A pair is "adjacent" when the two buildings sit on the same row
-    (overlapping y-range) with no third building's x-range between
-    them. Links land on each floor shared by both buildings
-    (``floor < min(len(A.floors), len(B.floors))``). On each floor
-    the helper stamps ``door_closed`` on mirrored east / west edge
-    tiles and records the pair in :attr:`Site.interior_doors`
-    (ground-floor only, legacy shape) and
-    :attr:`Site.interior_door_links`.
+    Row clusters' adjacent members touch on the east / west edge;
+    column clusters' adjacent members touch on the north / south
+    edge. Each cluster carries the per-pair roll in
+    :attr:`_ClusterPlan.interior_links_rolled` (one entry per
+    adjacent pair, in left-to-right / top-to-bottom order). On
+    success the helper stamps ``door_closed`` on the mirrored
+    perimeter tiles of each shared floor and records the pair in
+    :attr:`Site.interior_doors` (ground-floor only, legacy shape)
+    and :attr:`Site.interior_door_links`.
 
-    Each building floor is its own Level, so the two tiles never
-    share a tile — movement crosses them via the engine's
-    teleport-on-door-step mechanism, same as mansion inter-
-    building doors and surface entry doors.
+    Solo / L-block / courtyard clusters skip this pass entirely;
+    members in those archetypes are siblings sharing surfaces but
+    not interiors.
     """
-    pair_set: set[tuple[str, str]] = set()
-    for a, b in SHARED_DOOR_PAIRS:
-        pair_set.add((a, b))
-        pair_set.add((b, a))
-
     by_id = {b.id: b for b in site.buildings}
-    role_of = dict(zip([b.id for b in site.buildings], roles))
-
-    # Group buildings by row: same y-range (base_rect.y).
-    rows: dict[int, list[Building]] = {}
+    bid_by_index: dict[int, str] = {}
     for b in site.buildings:
-        rows.setdefault(b.base_rect.y, []).append(b)
-    for row in rows.values():
-        row.sort(key=lambda b: b.base_rect.x)
+        # Building ids follow the f"{site_id}_b{i}" pattern; pull
+        # the trailing index back out so we can look up the cluster
+        # member by its input index.
+        try:
+            idx = int(b.id.rsplit("_b", 1)[-1])
+        except ValueError:
+            continue
+        bid_by_index[idx] = b.id
 
-    for row in rows.values():
-        for left, right in zip(row, row[1:]):
-            rl = role_of[left.id]
-            rr = role_of[right.id]
-            if (rl, rr) not in pair_set:
+    for plan in cluster_plans:
+        if plan.kind not in ("row", "column"):
+            continue
+        if len(plan.members) < 2:
+            continue
+        # Sort members by their layout axis so adjacency follows
+        # the same order the layout used.
+        sort_key = (
+            (lambda m: m.rect.x) if plan.kind == "row"
+            else (lambda m: m.rect.y)
+        )
+        ordered = sorted(plan.members, key=sort_key)
+        for pair_idx, (left, right) in enumerate(
+            zip(ordered, ordered[1:]),
+        ):
+            if pair_idx >= len(plan.interior_links_rolled):
+                break
+            if not plan.interior_links_rolled[pair_idx]:
                 continue
-            # Only link buildings whose base rects touch — pairs
-            # with a narrow passage or a full street between them
-            # don't get an interior door.
-            if left.base_rect.x2 != right.base_rect.x:
+            l_bid = bid_by_index.get(left.index)
+            r_bid = bid_by_index.get(right.index)
+            if l_bid is None or r_bid is None:
                 continue
-            _link_pair_per_floor(site, left, right, by_id)
+            l_building = by_id[l_bid]
+            r_building = by_id[r_bid]
+            if plan.kind == "row":
+                _link_pair_per_floor(site, l_building, r_building, by_id)
+            else:
+                _link_pair_per_floor_vertical(
+                    site, l_building, r_building, by_id,
+                )
+
+
+def _link_pair_per_floor_vertical(
+    site: Site, top: Building, bottom: Building,
+    by_id: dict[str, Building],
+) -> None:
+    """Stamp a north/south door pair on each floor shared by both
+    buildings. ``top`` sits directly north of ``bottom``
+    (``top.base_rect.y2 == bottom.base_rect.y``); the door lands on
+    the south edge of ``top`` and the north edge of ``bottom`` at
+    the centre of their horizontally overlapping perimeter
+    columns."""
+    top_south_xs = {
+        x for (x, y) in top.shared_perimeter()
+        if y == top.base_rect.y2 - 1
+    }
+    bottom_north_xs = {
+        x for (x, y) in bottom.shared_perimeter()
+        if y == bottom.base_rect.y
+    }
+    overlap = sorted(top_south_xs & bottom_north_xs)
+    if not overlap:
+        return
+    x = overlap[len(overlap) // 2]
+    ty = top.base_rect.y2 - 1
+    by = bottom.base_rect.y
+
+    shared_floor_count = min(len(top.floors), len(bottom.floors))
+    for floor_idx in range(shared_floor_count):
+        t_tile = top.floors[floor_idx].tiles[ty][x]
+        b_tile = bottom.floors[floor_idx].tiles[by][x]
+        if (t_tile.terrain is not Terrain.FLOOR
+                or b_tile.terrain is not Terrain.FLOOR):
+            continue
+        stamp_building_door_on_floor(top, floor_idx, x, ty)
+        stamp_building_door_on_floor(bottom, floor_idx, x, by)
+        if floor_idx == 0:
+            site.interior_doors[(top.id, x, ty)] = (bottom.id, x, by)
+            site.interior_doors[(bottom.id, x, by)] = (top.id, x, ty)
+        site.interior_door_links.append(InteriorDoorLink(
+            from_building=top.id, to_building=bottom.id,
+            floor=floor_idx,
+            from_tile=(x, ty), to_tile=(x, by),
+        ))
 
 
 def _link_pair_per_floor(

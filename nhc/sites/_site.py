@@ -96,6 +96,11 @@ class Site:
     interior_door_links: list[InteriorDoorLink] = field(
         default_factory=list,
     )
+    # Cluster-pack output (towns only, M-town-redesign Phase 1+).
+    # Phase 2 / 3 / 5 read this to thread streets through the gaps,
+    # bias door placement and reserve the centerpiece patch. Other
+    # site kinds leave it empty.
+    cluster_plans: list = field(default_factory=list)
 
 
 # ── Surface door painter ─────────────────────────────────────

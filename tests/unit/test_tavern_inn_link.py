@@ -1,23 +1,22 @@
-"""Cross-building interior door links in towns (C5).
+"""Cross-building interior door links in towns.
 
-Town assembler detects adjacent buildings whose roles appear in
-``SHARED_DOOR_PAIRS`` and creates one :class:`InteriorDoorLink`
-per shared floor. Links use the mirrored-perimeter teleport
-mechanism (each building floor is its own Level), matching
-mansion's cross-building connection.
+Town's cluster packer (Phase 1) rolls a 50/50 chance of an
+:class:`InteriorDoorLink` per cluster-internal adjacent pair --
+row members touching east/west, column members touching
+north/south. The legacy SHARED_DOOR_PAIRS role whitelist no
+longer gates link creation; cluster archetype + the per-pair coin
+flip do. Links still use the mirrored-perimeter teleport mechanism
+(each building floor is its own Level), matching mansion's
+cross-building connection.
 """
 
 from __future__ import annotations
 
 import random
 
-import pytest
-
-from nhc.dungeon.interior.registry import SHARED_DOOR_PAIRS
-from nhc.sites._site import InteriorDoorLink
 from nhc.sites._shell import compose_shell
 from nhc.sites.town import assemble_town
-from nhc.dungeon.model import Level, Terrain
+from nhc.dungeon.model import Level
 
 
 def _role_of(building) -> str:
@@ -106,28 +105,6 @@ class TestLinkMirrorsInteriorDoors:
                 assert site.interior_doors.get(key_to) == (
                     link.from_building,
                     link.from_tile[0], link.from_tile[1],
-                )
-
-
-class TestLinkedRolesInSharedDoorPairs:
-    """Only role pairs listed in ``SHARED_DOOR_PAIRS`` may link."""
-
-    def test_pairs_are_whitelisted(self) -> None:
-        allowed: set[tuple[str, str]] = set()
-        for a, b in SHARED_DOOR_PAIRS:
-            allowed.add((a, b))
-            allowed.add((b, a))
-        for seed in range(60):
-            site = assemble_town(
-                "t1", random.Random(seed), size_class="village",
-            )
-            by_id = {b.id: b for b in site.buildings}
-            for link in site.interior_door_links:
-                ra = _role_of(by_id[link.from_building])
-                rb = _role_of(by_id[link.to_building])
-                assert (ra, rb) in allowed, (
-                    f"seed={seed}: link role pair ({ra}, {rb}) "
-                    f"not in SHARED_DOOR_PAIRS"
                 )
 
 
