@@ -842,6 +842,7 @@ class Game:
                 ),
                 feature_tags=("well", "signpost", "landmark"),
                 build_population=_populate,
+                tier=tier,
             )
 
         if kind == "clearing":
@@ -858,6 +859,7 @@ class Game:
                 feature_tags=(
                     "mushrooms", "herbs", "hollow_log", "bones",
                 ),
+                tier=tier,
             )
 
         if kind == "sacred":
@@ -875,6 +877,7 @@ class Game:
                     "shrine", "monolith", "cairn",
                     "crystals", "wonder", "portal",
                 ),
+                tier=tier,
             )
 
         if kind == "den":
@@ -890,6 +893,7 @@ class Game:
                     feature=feature, biome=biome, tier=tier,
                 ),
                 feature_tags=("den_mouth",),
+                tier=tier,
             )
 
         if kind == "graveyard":
@@ -925,6 +929,7 @@ class Game:
                 feature_tags=("tomb_entrance",),
                 build_population=_populate,
                 faction="undead",
+                tier=tier,
             )
 
         if kind in ("campsite", "orchard"):
@@ -1114,6 +1119,7 @@ class Game:
         feature_tags: tuple[str, ...],
         build_population=None,
         faction: str | None = None,
+        tier=None,
     ) -> bool:
         """Shared body for no-building sub-hex family entries.
 
@@ -1220,6 +1226,18 @@ class Game:
         populate_sub_hex_site(
             self.world, shim, mutations=persisted_mutations,
         )
+        # M2 unified populator: lay down any SITE_POPULATION specs
+        # for this kind on top of the assembler's own population
+        # (e.g. a pilgrim near a shrine). Reserved keeps the entry
+        # tile clear so the player doesn't land on an NPC.
+        from nhc.sites._types import SiteTier
+        spec_tier = tier if tier is not None else SiteTier.TINY
+        self._populate_site_from_table(
+            site, kind, spec_tier, rng,
+            mutations=persisted_mutations,
+            feature_tile=feature_xy,
+            reserved={entry_tile},
+        )
         self._place_player_on_sub_hex_entry()
         self._update_fov()
         self._notify_floor_change(depth)
@@ -1301,6 +1319,8 @@ class Game:
     def _populate_site_from_table(
         self, site, kind: str, tier, rng,
         *, mutations: "dict | None" = None,
+        feature_tile: "tuple[int, int] | None" = None,
+        reserved: "set[tuple[int, int]] | None" = None,
     ) -> None:
         """Resolve and spawn the SITE_POPULATION entries for ``kind``.
 
@@ -1311,13 +1331,21 @@ class Game:
         NPCs). Mutation-replay aware: a placement whose stable id
         is in ``mutations["killed"]`` stays unspawned across cache
         eviction so a dead farmer does not respawn on re-entry.
+
+        ``feature_tile`` lets the ``near_feature`` placement
+        strategy land an NPC adjacent to the centerpiece (well /
+        shrine / signpost). ``reserved`` excludes specific surface
+        tiles (e.g. the player's entry tile).
         """
         if site is None:
             return
         from nhc.sites._population import (
             populate_site_placements, resolve_site_population,
         )
-        placements = resolve_site_population(site, kind, tier, rng)
+        placements = resolve_site_population(
+            site, kind, tier, rng,
+            reserved=reserved, feature_tile=feature_tile,
+        )
         if not placements:
             return
         populate_site_placements(

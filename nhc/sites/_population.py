@@ -41,6 +41,10 @@ class PopulationEntry:
       buildings[0]'s outside doors
     * ``"on_open_surface"`` — random surface FLOOR tile away from
       any building footprint
+    * ``"near_feature"`` — surface tile adjacent to the centerpiece
+      passed through ``feature_tile`` to the resolver (well /
+      shrine / signpost). No-op when the caller doesn't supply a
+      feature tile.
 
     ``count_min`` / ``count_max`` give an inclusive range; the
     resolver rolls once per entry at site-generation time.
@@ -74,6 +78,27 @@ SITE_POPULATION: dict[tuple[str, SiteTier], list[PopulationEntry]] = {
         PopulationEntry("farmer", "in_building_0", 1, 1),
         PopulationEntry("farmhand", "on_open_surface", 2, 4),
     ],
+    # Shrines / standing stones / cairns: occasional pilgrim
+    # praying at the centerpiece. count_min=0 makes the placement
+    # genuinely rare so most sacred sites remain solitary.
+    ("sacred", SiteTier.TINY): [
+        PopulationEntry("pilgrim", "near_feature", 0, 1),
+    ],
+    ("sacred", SiteTier.SMALL): [
+        PopulationEntry("pilgrim", "near_feature", 0, 1),
+    ],
+    # Wells / signposts on the road: a campsite_traveller stops to
+    # rest, doubling as a rumour vendor at a tiny sub-hex site.
+    ("wayside", SiteTier.TINY): [
+        PopulationEntry(
+            "campsite_traveller", "near_feature", 0, 1,
+        ),
+    ],
+    ("wayside", SiteTier.SMALL): [
+        PopulationEntry(
+            "campsite_traveller", "near_feature", 0, 1,
+        ),
+    ],
 }
 
 
@@ -84,6 +109,7 @@ def resolve_site_population(
     rng: random.Random,
     *,
     reserved: "set[tuple[int, int]] | None" = None,
+    feature_tile: "tuple[int, int] | None" = None,
 ) -> list[Placement]:
     """Roll the ``(kind, tier)`` spec onto concrete tiles.
 
@@ -91,7 +117,9 @@ def resolve_site_population(
     successfully-placed entity. Entries that can't find a free
     tile are silently dropped (a TINY farm with no surface FIELD
     tiles, etc.). The ``reserved`` set holds surface tiles that
-    must not be claimed (e.g. the player's entry tile).
+    must not be claimed (e.g. the player's entry tile);
+    ``feature_tile`` is the centerpiece coord used by the
+    ``near_feature`` placement strategy (well / shrine / signpost).
     """
     entries = SITE_POPULATION.get((kind, tier), [])
     if not entries:
@@ -99,13 +127,17 @@ def resolve_site_population(
 
     placements: list[Placement] = []
     surface_used: set[tuple[int, int]] = set(reserved or set())
+    if feature_tile is not None:
+        surface_used.add(feature_tile)
     building_used: dict[int, set[tuple[int, int]]] = {}
 
     for entry in entries:
         count = rng.randint(entry.count_min, entry.count_max)
         for _ in range(count):
             placement = _pick_tile(
-                site, entry, rng, surface_used, building_used,
+                site, entry, rng,
+                surface_used, building_used,
+                feature_tile=feature_tile,
             )
             if placement is None:
                 continue
@@ -162,6 +194,8 @@ def _pick_tile(
     rng: random.Random,
     surface_used: set[tuple[int, int]],
     building_used: dict[int, set[tuple[int, int]]],
+    *,
+    feature_tile: "tuple[int, int] | None" = None,
 ) -> "Placement | None":
     if entry.placement == "in_building_0":
         if not site.buildings:
@@ -193,6 +227,19 @@ def _pick_tile(
         )
     if entry.placement == "on_open_surface":
         xy = _pick_open_surface_tile(site, rng, surface_used)
+        if xy is None:
+            return None
+        return Placement(
+            entity_id=entry.entity_id,
+            level_id=site.surface.id,
+            x=xy[0], y=xy[1],
+        )
+    if entry.placement == "near_feature":
+        if feature_tile is None:
+            return None
+        xy = _pick_feature_adjacent_tile(
+            site, feature_tile, rng, surface_used,
+        )
         if xy is None:
             return None
         return Placement(
@@ -254,6 +301,34 @@ def _pick_door_adjacent_tile(
             if (ax, ay) in surface_used:
                 continue
             candidates.append((ax, ay))
+    if not candidates:
+        return None
+    pick = rng.choice(candidates)
+    surface_used.add(pick)
+    return pick
+
+
+def _pick_feature_adjacent_tile(
+    site, feature_tile: tuple[int, int],
+    rng: random.Random,
+    surface_used: set[tuple[int, int]],
+) -> "tuple[int, int] | None":
+    """Surface FLOOR tile orthogonally adjacent to ``feature_tile``."""
+    fx, fy = feature_tile
+    surface = site.surface
+    candidates: list[tuple[int, int]] = []
+    for (ax, ay) in (
+        (fx - 1, fy), (fx + 1, fy),
+        (fx, fy - 1), (fx, fy + 1),
+    ):
+        if (ax, ay) in surface_used:
+            continue
+        tile = surface.tile_at(ax, ay)
+        if tile is None or tile.terrain != Terrain.FLOOR:
+            continue
+        if tile.feature is not None:
+            continue
+        candidates.append((ax, ay))
     if not candidates:
         return None
     pick = rng.choice(candidates)

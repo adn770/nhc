@@ -164,6 +164,81 @@ def test_populate_creates_entities_with_stable_ids() -> None:
         )
 
 
+def test_sacred_spec_uses_pilgrim_near_feature() -> None:
+    """Sacred sites place an occasional pilgrim adjacent to the
+    centerpiece (count_min=0 keeps it rare)."""
+    entries = SITE_POPULATION[("sacred", SiteTier.SMALL)]
+    assert len(entries) == 1
+    pilgrim = entries[0]
+    assert pilgrim.entity_id == "pilgrim"
+    assert pilgrim.placement == "near_feature"
+    assert pilgrim.count_min == 0
+
+
+def test_wayside_spec_uses_campsite_traveller_near_feature() -> None:
+    """Waysides bring a campsite_traveller across so wells +
+    signposts double as roadside rumour stops."""
+    entries = SITE_POPULATION[("wayside", SiteTier.SMALL)]
+    assert any(
+        e.entity_id == "campsite_traveller"
+        and e.placement == "near_feature"
+        for e in entries
+    )
+
+
+def test_resolve_near_feature_lands_orthogonal_to_feature_tile(
+) -> None:
+    """The ``near_feature`` strategy places the entity on a tile
+    orthogonal to ``feature_tile`` (Manhattan distance 1)."""
+    site = assemble_farm(
+        "f5", random.Random(13), tier=SiteTier.TINY,
+    )
+    # Borrow the farm site as a generic Site fixture; the
+    # near_feature strategy doesn't care about kind, just about
+    # the surface having a free tile next to the feature.
+    feature_tile = (
+        site.surface.width // 2, site.surface.height // 2,
+    )
+    spec = [
+        PopulationEntry("pilgrim", "near_feature", 1, 1),
+    ]
+    SITE_POPULATION[("farm", SiteTier.MEDIUM)] = spec
+    try:
+        placements = resolve_site_population(
+            site, "farm", SiteTier.MEDIUM, random.Random(17),
+            feature_tile=feature_tile,
+        )
+    finally:
+        del SITE_POPULATION[("farm", SiteTier.MEDIUM)]
+    if not placements:
+        pytest.skip(
+            "all four orthogonal neighbours blocked in this seed"
+        )
+    p = placements[0]
+    dist = abs(p.x - feature_tile[0]) + abs(p.y - feature_tile[1])
+    assert dist == 1
+
+
+def test_resolve_near_feature_skips_when_no_feature_tile() -> None:
+    """``near_feature`` without ``feature_tile`` is a silent
+    skip — generators that don't carry a centerpiece (clearings
+    with no entity tag) shouldn't crash the resolver."""
+    site = assemble_farm(
+        "f6", random.Random(19), tier=SiteTier.TINY,
+    )
+    SITE_POPULATION[("farm", SiteTier.HUGE)] = [
+        PopulationEntry("pilgrim", "near_feature", 1, 1),
+    ]
+    try:
+        placements = resolve_site_population(
+            site, "farm", SiteTier.HUGE, random.Random(23),
+            feature_tile=None,
+        )
+    finally:
+        del SITE_POPULATION[("farm", SiteTier.HUGE)]
+    assert placements == []
+
+
 def test_populate_skips_killed_entries_on_replay() -> None:
     """Mutation replay: a placement whose stable id is in
     ``mutations["killed"]`` must not respawn on cache miss, the

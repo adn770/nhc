@@ -1304,6 +1304,14 @@ creature:
     long: >-
       Un trabajador del campo agachado entre los surcos, con los
       ojos en la tierra y lejos de los chismes de los forasteros.
+  pilgrim:
+    name: "Peregrino"
+    gender: "m"
+    short: "un peregrino devoto"
+    long: >-
+      Un viajero con hábito gris, la cabeza inclinada ante el
+      lugar sagrado, murmurando una oración que ha llevado por
+      muchos caminos.
   campsite_traveller:
     name: "Viajero"
     gender: "m"

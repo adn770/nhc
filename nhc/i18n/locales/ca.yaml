@@ -1376,6 +1376,13 @@ creature:
     long: >-
       Un treballador del camp ajupit entre els solcs, amb els ulls
       a la terra i lluny dels tafaners de pas.
+  pilgrim:
+    name: "pelegrí"
+    gender: "m"
+    short: "un pelegrí devot"
+    long: >-
+      Un viatger amb hàbit gris, el cap inclinat davant el lloc
+      sagrat, mormolant una pregària que ha portat per molts camins.
   campsite_traveller:
     name: "caminant"
     gender: "m"

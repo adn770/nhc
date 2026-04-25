@@ -43,7 +43,7 @@ class TestHumanoidLoot:
             if cid in (
                 "merchant", "adventurer", "priest", "innkeeper",
                 "hermit_priest",
-                "farmer", "farmhand",
+                "farmer", "farmhand", "pilgrim",
                 "campsite_traveller", "orchardist",
                 "villager", "pickpocket",
             ):

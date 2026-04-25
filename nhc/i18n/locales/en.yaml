@@ -1273,6 +1273,12 @@ creature:
     long: >-
       A field-worker bent over the rows, keeping eyes on the soil
       and out of every passing stranger's business.
+  pilgrim:
+    name: "Pilgrim"
+    short: "a devout pilgrim"
+    long: >-
+      A traveller in plain robes, head bowed at the holy site,
+      whispering a prayer they have carried across many roads.
   campsite_traveller:
     name: "Traveller"
     short: "a wayworn traveller"
