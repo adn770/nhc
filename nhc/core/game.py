@@ -3711,6 +3711,17 @@ class Game:
                     haste_move.dx, haste_move.dy, pre_x, pre_y,
                 )
 
+            # Player action dropped the level (LeaveSiteAction /
+            # exit_dungeon_to_hex): advance the turn and let the
+            # next outer-loop iteration route through the hex /
+            # flower branch. Skipping here avoids every downstream
+            # block that reads self.level (door-event tile
+            # lookup, turn ticks, FOV, ...).
+            if self.level is None:
+                self.turn += 1
+                self.world.turn = self.turn
+                continue
+
             # Track when doors were opened (for auto-close) and
             # propagate open/close to any linked door pair so both
             # sides of a cross-building InteriorDoorLink stay in
@@ -4376,7 +4387,18 @@ class Game:
     )
 
     def _apply_turn_ticks(self) -> None:
-        """Run all per-turn status/world ticks in sequence."""
+        """Run all per-turn status/world ticks in sequence.
+
+        No-op when ``self.level`` is None. The same situation as
+        :meth:`_collect_creature_actions`: mid-iteration the
+        player just exited a site / dungeon and the level was
+        dropped, but the run() loop hasn't yet broken to its
+        next iteration to route through the hex / flower branch.
+        Several ticks (``tick_doors``, etc.) reach for
+        ``level.height`` and would crash.
+        """
+        if self.level is None:
+            return
         for tick in self._TURN_TICKS:
             tick(self)
         self._tick_buried_markers()

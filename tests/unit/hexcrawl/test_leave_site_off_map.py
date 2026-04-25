@@ -346,6 +346,38 @@ async def test_leave_site_does_not_crash_ai_turn_with_lingering_npc(
 
 
 @pytest.mark.asyncio
+async def test_leave_site_does_not_crash_turn_ticks(tmp_path) -> None:
+    """Regression for the 2026-04-25 (afternoon) crash: walking
+    off the south edge of a sub-hex farm fired LeaveSiteAction,
+    and the game loop fell through to ``_apply_turn_ticks`` ->
+    ``tick_doors`` which read ``self.level.height`` on a None
+    level. The earlier fix only protected the AI scheduling
+    pass; turn ticks (door auto-close, poison, hunger, etc.)
+    were still reaching for the dropped level.
+
+    Calling _apply_turn_ticks with self.level cleared must be a
+    no-op rather than an AttributeError."""
+    from nhc.core.actions import LeaveSiteAction
+    from nhc.core.events import LeaveSiteRequested
+
+    g = _make_game(tmp_path)
+    _attach_keep_site(g, HexCoord(0, 0))
+    _enter_flower(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    pos = g.world.get_component(g.player_id, "Position")
+    pos.x = 0
+    pos.y = 0
+    action = LeaveSiteAction(actor=g.player_id, dx=-1, dy=0)
+    events = await action.execute(g.world, g.level)
+    for ev in events:
+        if isinstance(ev, LeaveSiteRequested):
+            await g.event_bus.emit(ev)
+    assert g.level is None
+    # Pre-fix this raised AttributeError on tick_doors.
+    g._apply_turn_ticks()
+
+
+@pytest.mark.asyncio
 async def test_leave_site_emits_narration(tmp_path) -> None:
     """The action emits a MessageEvent with ``leave_site.exit``."""
     from nhc.core.events import MessageEvent
