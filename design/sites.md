@@ -191,16 +191,16 @@ user kept separate from the site cache.
 
 ### Mutation handlers
 
-The `_on_sub_hex_*` event handlers on `Game`
-(`_on_sub_hex_creature_died`, `_on_sub_hex_item_picked`,
-`_on_sub_hex_door_opened`, `_on_sub_hex_terrain_changed`)
-record player-induced changes onto the active site's mutation
-dict. They guard on `_active_site_sub is not None` today; M6d-3
-extends the guard to also fire for macro sites once
-`_active_site_macro` is wired up.
+The `_on_site_*` event handlers on `Game`
+(`_on_site_creature_died`, `_on_site_item_picked`,
+`_on_site_door_opened`, `_on_site_terrain_changed`) record
+player-induced changes onto the active site's mutation dict.
+The guard checks `_active_site_sub is None and
+_active_site_macro is None` so a single hook fires for both
+sub-hex and macro sites.
 
 Replay on cache miss runs through
-`_apply_sub_hex_mutations_to_level` (door / terrain) plus the
+`_apply_site_mutations_to_level` (door / terrain) plus the
 populator's mutation-aware re-spawn (looted / killed). The
 populator (`nhc/core/sub_hex_populator.py::populate_sub_hex_site`)
 is shared by every sub-hex assembler; macro entries can adopt

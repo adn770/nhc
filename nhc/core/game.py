@@ -1051,7 +1051,7 @@ class Game:
             persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
-            self._apply_sub_hex_mutations_to_level(
+            self._apply_site_mutations_to_level(
                 self.level, persisted_mutations,
             )
             self._site_cache_manager.store(
@@ -1156,7 +1156,7 @@ class Game:
             persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
-            self._apply_sub_hex_mutations_to_level(
+            self._apply_site_mutations_to_level(
                 self.level, persisted_mutations,
             )
             self._site_cache_manager.store(
@@ -1327,11 +1327,11 @@ class Game:
         for eid in to_destroy:
             self.world.destroy_entity(eid)
 
-    def _apply_sub_hex_mutations_to_level(
+    def _apply_site_mutations_to_level(
         self, level, mutations: dict,
     ) -> None:
         """Replay persisted door / terrain mutations onto a freshly
-        regenerated sub-hex level. Looted items and killed creatures
+        regenerated site level. Looted items and killed creatures
         are filtered inside the populator; this method only touches
         map tiles."""
         doors = mutations.get("doors") or {}
@@ -1622,7 +1622,7 @@ class Game:
             persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
-            self._apply_sub_hex_mutations_to_level(
+            self._apply_site_mutations_to_level(
                 self.level, persisted_mutations,
             )
             self._site_cache_manager.store(
@@ -1717,7 +1717,7 @@ class Game:
             persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
-            self._apply_sub_hex_mutations_to_level(
+            self._apply_site_mutations_to_level(
                 self.level, persisted_mutations,
             )
             self._site_cache_manager.store(
@@ -1828,7 +1828,7 @@ class Game:
             persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
-            self._apply_sub_hex_mutations_to_level(
+            self._apply_site_mutations_to_level(
                 self.level, persisted_mutations,
             )
             self._site_cache_manager.store(
@@ -2665,9 +2665,9 @@ class Game:
         """
         self._exit_to_overland_sync()
 
-    # -- C2: sub-hex mutation tracking ---------------------------------
+    # -- C2: site mutation tracking ------------------------------------
 
-    def _active_sub_hex_cache_key(self) -> "tuple | None":
+    def _active_site_cache_key(self) -> "tuple | None":
         """Return the cache-manager key for the currently-active site
         visit, or ``None`` when no visit is in progress. Used by the
         mutation handlers below.
@@ -2675,7 +2675,6 @@ class Game:
         Returns the ``("sub", ...)`` shape for an active sub-hex
         family visit, the ``("site", ...)`` shape for an active
         macro-tier site, or ``None`` when neither marker is set.
-        Renamed to ``_active_site_cache_key`` in M6d-4.
         """
         if self.hex_world is None:
             return None
@@ -2690,14 +2689,14 @@ class Game:
             return ("site", coord.q, coord.r, 1)
         return None
 
-    def _append_sub_hex_mutation(
+    def _append_site_mutation(
         self, kind: str, value,
     ) -> None:
         """Append ``value`` onto the named mutation list for the
-        current sub-hex cache entry. No-op when no visit is active."""
+        current site cache entry. No-op when no visit is active."""
         if self._site_cache_manager is None:
             return
-        key = self._active_sub_hex_cache_key()
+        key = self._active_site_cache_key()
         if key is None:
             return
         entry = self._site_cache_manager._entries.get(key)
@@ -2708,14 +2707,14 @@ class Game:
         bucket.append(value)
         self._site_cache_manager.update_mutations(key, muts)
 
-    def _set_sub_hex_mutation(
+    def _set_site_mutation(
         self, kind: str, subkey: str, value,
     ) -> None:
         """Set ``mutations[kind][subkey] = value`` for the current
-        sub-hex cache entry. No-op outside a visit."""
+        site cache entry. No-op outside a visit."""
         if self._site_cache_manager is None:
             return
-        key = self._active_sub_hex_cache_key()
+        key = self._active_site_cache_key()
         if key is None:
             return
         entry = self._site_cache_manager._entries.get(key)
@@ -2726,7 +2725,7 @@ class Game:
         bucket[subkey] = value
         self._site_cache_manager.update_mutations(key, muts)
 
-    def _on_sub_hex_item_picked(self, event: ItemPickedUp) -> None:
+    def _on_site_item_picked(self, event: ItemPickedUp) -> None:
         """Record the tile an item was picked up from so replay on
         re-entry can remove the matching placement."""
         if (self._active_site_sub is None
@@ -2735,11 +2734,11 @@ class Game:
         pos = self.world.get_component(event.entity, "Position")
         if pos is None:
             return
-        self._append_sub_hex_mutation(
+        self._append_site_mutation(
             "looted", [pos.x, pos.y],
         )
 
-    def _on_sub_hex_creature_died(self, event: CreatureDied) -> None:
+    def _on_site_creature_died(self, event: CreatureDied) -> None:
         """Record the id of a creature that died inside a site so the
         populator skips it on re-entry.
 
@@ -2759,25 +2758,25 @@ class Game:
             sid_comp.stable_id if sid_comp is not None
             else event.entity
         )
-        self._append_sub_hex_mutation("killed", marker)
+        self._append_site_mutation("killed", marker)
 
-    def _on_sub_hex_door_opened(self, event: DoorOpened) -> None:
+    def _on_site_door_opened(self, event: DoorOpened) -> None:
         """Record an opened door so re-entry keeps it open rather
         than resetting to closed."""
         if (self._active_site_sub is None
                 and self._active_site_macro is None):
             return
-        self._set_sub_hex_mutation(
+        self._set_site_mutation(
             "doors", f"{event.x},{event.y}", "open",
         )
 
-    def _on_sub_hex_terrain_changed(self, event: TerrainChanged) -> None:
+    def _on_site_terrain_changed(self, event: TerrainChanged) -> None:
         """Record a dug-through wall (U4: skip door tiles, handled by
         the emitter — DigAction only fires for walls/voids)."""
         if (self._active_site_sub is None
                 and self._active_site_macro is None):
             return
-        self._set_sub_hex_mutation(
+        self._set_site_mutation(
             "terrain", f"{event.x},{event.y}", event.kind,
         )
 
@@ -4337,16 +4336,16 @@ class Game:
         # circuit when _active_site_sub is None, so dungeon runs and
         # macro-site visits are untouched.
         self.event_bus.subscribe(
-            ItemPickedUp, self._on_sub_hex_item_picked,
+            ItemPickedUp, self._on_site_item_picked,
         )
         self.event_bus.subscribe(
-            CreatureDied, self._on_sub_hex_creature_died,
+            CreatureDied, self._on_site_creature_died,
         )
         self.event_bus.subscribe(
-            DoorOpened, self._on_sub_hex_door_opened,
+            DoorOpened, self._on_site_door_opened,
         )
         self.event_bus.subscribe(
-            TerrainChanged, self._on_sub_hex_terrain_changed,
+            TerrainChanged, self._on_site_terrain_changed,
         )
 
     def _on_level_entered(self, event: LevelEntered) -> None:

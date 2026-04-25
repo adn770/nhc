@@ -2373,7 +2373,7 @@ def test_replay_doors_restores_open_state(tmp_path) -> None:
     tile = game.level.tile_at(3, 3)
     tile.feature = "door_closed"
     # Record the open mutation.
-    game._set_sub_hex_mutation("doors", "3,3", "open")
+    game._set_site_mutation("doors", "3,3", "open")
     _force_eviction(game, macro, sub_a, sub_b, tmp_path)
     asyncio.run(
         game.enter_sub_hex_family_site(
@@ -2426,7 +2426,7 @@ def test_sub_hex_farm_door_mutation_replays(tmp_path) -> None:
     farm_surface = game.level
     tile = farm_surface.tile_at(3, 3)
     tile.feature = "door_closed"
-    game._set_sub_hex_mutation("doors", "3,3", "open")
+    game._set_site_mutation("doors", "3,3", "open")
 
     # Force eviction of the farm by entering a different sub-hex
     # under capacity=1. The farm's mutation record persists to
@@ -2476,7 +2476,7 @@ def test_replay_terrain_restores_dug(tmp_path) -> None:
     # Target a boundary wall tile.
     tile = game.level.tile_at(0, 0)
     assert tile.terrain is Terrain.WALL
-    game._set_sub_hex_mutation("terrain", "0,0", "dug")
+    game._set_site_mutation("terrain", "0,0", "dug")
     _force_eviction(game, macro, sub_a, sub_b, tmp_path)
     asyncio.run(
         game.enter_sub_hex_family_site(

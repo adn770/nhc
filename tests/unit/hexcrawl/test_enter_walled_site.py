@@ -373,7 +373,7 @@ async def test_keep_surface_door_mutation_replays_after_eviction(
     surface = g.level
     tile = surface.tile_at(3, 3)
     tile.feature = "door_closed"
-    g._set_sub_hex_mutation("doors", "3,3", "open")
+    g._set_site_mutation("doors", "3,3", "open")
 
     # Force eviction by replacing manager with a 1-slot version
     # that preserves the just-recorded mutation on coord_a.
