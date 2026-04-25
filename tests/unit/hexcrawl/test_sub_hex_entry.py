@@ -273,9 +273,9 @@ def test_sub_hex_cache_key_does_not_affect_macro_keys() -> None:
 
 def test_sub_hex_cache_lru_evicts_oldest(tmp_path) -> None:
     """After 33 distinct sub-hex inserts the first is evicted."""
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=32, storage_dir=tmp_path, player_id="p1",
     )
     for i in range(33):
@@ -290,9 +290,9 @@ def test_sub_hex_cache_lru_evicts_oldest(tmp_path) -> None:
 
 def test_sub_hex_cache_lru_access_promotes(tmp_path) -> None:
     """Reading a sub-hex entry marks it most-recently-used."""
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=2, storage_dir=tmp_path, player_id="p1",
     )
     k0 = ("sub", 0, 0, 0, 0, 1)
@@ -312,9 +312,9 @@ def test_sub_hex_cache_lru_access_promotes(tmp_path) -> None:
 def test_sub_hex_cache_mutation_persists_on_evict(tmp_path) -> None:
     """On eviction the sparse mutation record is written to disk under
     <storage_dir>/players/<pid>/sub_hex_cache/<macro>_<sub>.json."""
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=1, storage_dir=tmp_path, player_id="p1",
     )
     k0 = ("sub", 8, 3, -1, 0, 1)
@@ -340,9 +340,9 @@ def test_sub_hex_cache_mutation_persists_on_evict(tmp_path) -> None:
 
 def test_sub_hex_cache_mutation_load_and_delete(tmp_path) -> None:
     """load_mutations reads the persisted record then deletes the file."""
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=1, storage_dir=tmp_path, player_id="p1",
     )
     k0 = ("sub", 8, 3, -1, 0, 1)
@@ -364,9 +364,9 @@ def test_sub_hex_cache_mutation_load_and_delete(tmp_path) -> None:
 
 
 def test_sub_hex_cache_load_mutations_missing_returns_empty(tmp_path) -> None:
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=4, storage_dir=tmp_path, player_id="p1",
     )
     assert mgr.load_mutations(("sub", 0, 0, 0, 0, 1)) == {}
@@ -788,12 +788,12 @@ def test_enter_sub_hex_family_site_wayside_well(tmp_path) -> None:
     assert game._active_site_sub == sub
 
     # Cache key is the sub-hex namespace, keyed off the macro + sub
-    # coords. Sub-hex keys live in the SubHexCacheManager (C1); the
+    # coords. Sub-hex keys live in the SiteCacheManager (C1); the
     # legacy ``_floor_cache`` only holds macro-site keys.
     key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
-    assert game._sub_hex_cache is not None
-    assert game._sub_hex_cache.has(key)
-    assert game._sub_hex_cache.get(key) is game.level
+    assert game._site_cache_manager is not None
+    assert game._site_cache_manager.has(key)
+    assert game._site_cache_manager.get(key) is game.level
     assert key not in game._floor_cache
 
 
@@ -847,7 +847,7 @@ def test_enter_site_wayside_drives_unified_helper(tmp_path) -> None:
     entry point. Calling it directly (without the legacy
     ``enter_sub_hex_family_site`` shim) parks the assembled site
     on ``_active_site``, sets ``_active_site_sub`` to the sub
-    coord, and the level lands on the SubHexCacheManager."""
+    coord, and the level lands on the SiteCacheManager."""
     from nhc.sites._types import SITE_TIER_DIMS, SiteTier
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
@@ -1827,13 +1827,13 @@ def test_signpost_near_settlement_does_not_seed_wilderness(
 
 
 # ---------------------------------------------------------------------------
-# C1: route family-site entries through SubHexCacheManager
+# C1: route family-site entries through SiteCacheManager
 # ---------------------------------------------------------------------------
 
 
-def test_family_entry_populates_sub_hex_cache(tmp_path) -> None:
+def test_family_entry_populates_site_cache_manager(tmp_path) -> None:
     """After entering a family site, the sub-hex key lives in the
-    SubHexCacheManager, not the legacy ``_floor_cache``."""
+    SiteCacheManager, not the legacy ``_floor_cache``."""
     import asyncio
 
     from nhc.sites._types import SiteTier
@@ -1846,8 +1846,8 @@ def test_family_entry_populates_sub_hex_cache(tmp_path) -> None:
         ),
     )
     key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
-    assert game._sub_hex_cache is not None
-    assert game._sub_hex_cache.has(key)
+    assert game._site_cache_manager is not None
+    assert game._site_cache_manager.has(key)
     # The sub-hex key must NOT also live in the plain floor cache.
     assert key not in game._floor_cache
 
@@ -1881,7 +1881,7 @@ def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
     distinct sub-hex site evicts the first."""
     import asyncio
 
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
     from nhc.sites._types import SiteTier
 
     game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
@@ -1897,7 +1897,7 @@ def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
 
     # Force a 1-slot manager via a pre-emptive replacement so Game
     # picks it up on first entry.
-    game._sub_hex_cache = SubHexCacheManager(
+    game._site_cache_manager = SiteCacheManager(
         capacity=1, storage_dir=tmp_path, player_id="test",
     )
     asyncio.run(
@@ -1907,7 +1907,7 @@ def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
         ),
     )
     key_a = ("sub", macro.q, macro.r, sub_a.q, sub_a.r, 1)
-    assert game._sub_hex_cache.has(key_a)
+    assert game._site_cache_manager.has(key_a)
 
     # Leave sub_a and enter sub_b; this should evict sub_a.
     game._active_site_sub = None
@@ -1918,8 +1918,8 @@ def test_sub_hex_cache_capacity_evicts_oldest(tmp_path) -> None:
         ),
     )
     key_b = ("sub", macro.q, macro.r, sub_b.q, sub_b.r, 1)
-    assert game._sub_hex_cache.has(key_b)
-    assert not game._sub_hex_cache.has(key_a)
+    assert game._site_cache_manager.has(key_b)
+    assert not game._site_cache_manager.has(key_a)
 
 
 def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
@@ -1928,7 +1928,7 @@ def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
     because the seed is deterministic)."""
     import asyncio
 
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
     from nhc.sites._types import SiteTier
 
     game, macro, sub_a = _flower_fixture(tmp_path, MinorFeatureType.WELL)
@@ -1940,7 +1940,7 @@ def test_re_entry_after_eviction_regenerates_level(tmp_path) -> None:
         and sc.major_feature is HexFeatureType.NONE
     )
     cell.flower.cells[sub_b].minor_feature = MinorFeatureType.SIGNPOST
-    game._sub_hex_cache = SubHexCacheManager(
+    game._site_cache_manager = SiteCacheManager(
         capacity=1, storage_dir=tmp_path, player_id="test",
     )
     asyncio.run(
@@ -1981,7 +1981,7 @@ def _active_sub_hex_mutations(game) -> dict:
     macro = game.hex_world.exploring_hex
     sub = game._active_site_sub
     key = ("sub", macro.q, macro.r, sub.q, sub.r, 1)
-    entry = game._sub_hex_cache._entries.get(key)
+    entry = game._site_cache_manager._entries.get(key)
     assert entry is not None
     return entry["mutations"]
 
@@ -2181,19 +2181,19 @@ def _force_eviction(game, macro, sub_a, sub_b, tmp_path) -> None:
     """
     import asyncio
 
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
     from nhc.sites._types import SiteTier
 
     # Replace the manager with a 1-slot version that preserves any
     # already-recorded mutations on sub_a.
-    prev = game._sub_hex_cache
-    new = SubHexCacheManager(
+    prev = game._site_cache_manager
+    new = SiteCacheManager(
         capacity=1, storage_dir=tmp_path, player_id="test",
     )
     if prev is not None:
         for k, v in prev._entries.items():
             new.store(k, v["level"], mutations=v["mutations"])
-    game._sub_hex_cache = new
+    game._site_cache_manager = new
     # Exit sub_a so the next entry lands us on sub_b.
     from nhc.core.events import LeaveSiteRequested
     asyncio.run(
@@ -2330,7 +2330,7 @@ def test_sub_hex_farm_door_mutation_replays(tmp_path) -> None:
     across LRU eviction. Pre-M5b the farm path lived on
     ``_floor_cache`` (no mutation persistence) so this round-trip
     reset the door to ``door_closed``; M5b folds the farm surface
-    onto :class:`SubHexCacheManager` so every sub-hex entry --
+    onto :class:`SiteCacheManager` so every sub-hex entry --
     farm, wayside, sacred, etc. -- shares the LRU + on-disk
     mutation replay behaviour."""
     import asyncio
@@ -2358,8 +2358,8 @@ def test_sub_hex_farm_door_mutation_replays(tmp_path) -> None:
         ),
     )
     surface_key = ("sub", macro.q, macro.r, sub_farm.q, sub_farm.r, 1)
-    assert game._sub_hex_cache is not None
-    assert game._sub_hex_cache.has(surface_key)
+    assert game._site_cache_manager is not None
+    assert game._site_cache_manager.has(surface_key)
     assert surface_key not in game._floor_cache
 
     # Plant a closed-door tile we can flip and record the open
@@ -2436,14 +2436,14 @@ def test_replay_terrain_restores_dug(tmp_path) -> None:
 
 
 def test_gc_old_records_unlinks_old_files(tmp_path) -> None:
-    """``SubHexCacheManager.gc_old_records`` unlinks files whose mtime
+    """``SiteCacheManager.gc_old_records`` unlinks files whose mtime
     is older than ``max_age_days`` and preserves fresh ones."""
     import os
     import time
 
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=4, storage_dir=tmp_path, player_id="p1",
     )
     cache_dir = tmp_path / "players" / "p1" / "sub_hex_cache"
@@ -2464,9 +2464,9 @@ def test_gc_old_records_unlinks_old_files(tmp_path) -> None:
 def test_gc_old_records_handles_missing_dir(tmp_path) -> None:
     """gc_old_records is a no-op when the cache directory doesn't
     exist yet (first-run path)."""
-    from nhc.core.sub_hex_cache import SubHexCacheManager
+    from nhc.core.site_cache import SiteCacheManager
 
-    mgr = SubHexCacheManager(
+    mgr = SiteCacheManager(
         capacity=4, storage_dir=tmp_path, player_id="never-made",
     )
     # Must not raise.
@@ -2493,8 +2493,8 @@ def test_autosave_triggers_gc_old_records(tmp_path) -> None:
             SiteTier.SMALL, Biome.GREENLANDS,
         ),
     )
-    assert game._sub_hex_cache is not None
-    cache_dir = game._sub_hex_cache._cache_dir()
+    assert game._site_cache_manager is not None
+    cache_dir = game._site_cache_manager._cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
     old_file = cache_dir / "99_99_99_99.json"
     old_file.write_text("{}")

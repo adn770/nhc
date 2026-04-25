@@ -419,8 +419,8 @@ class Game:
         self._active_site_sub: "HexCoord | None" = None
         # Sub-hex floor cache with bounded LRU eviction + mutation
         # persistence. Lazy — built on first sub-hex entry once we
-        # know the player id / save dir. See nhc.core.sub_hex_cache.
-        self._sub_hex_cache = None
+        # know the player id / save dir. See nhc.core.site_cache.
+        self._site_cache_manager = None
         # Set when the player has descended from a building ground
         # floor into that building's descent ``DungeonRef``. Holds
         # the Building the descent originates from and the tile on
@@ -990,7 +990,7 @@ class Game:
         sub-hex on exit.
 
         Since M5b the farm surface lives on the
-        :class:`SubHexCacheManager` LRU + on-disk mutation cache,
+        :class:`SiteCacheManager` LRU + on-disk mutation cache,
         same as every other unified sub-hex family. Building
         floors continue to use ``_floor_cache`` (multi-floor
         cache extension is tracked separately).
@@ -1006,10 +1006,10 @@ class Game:
         depth = 1
         cache_key = self._cache_key(depth)
 
-        self._ensure_sub_hex_cache()
+        self._ensure_site_cache_manager()
         cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
+            self._site_cache_manager.get(cache_key)
+            if self._site_cache_manager is not None else None
         )
         if cached is not None:
             self.level = cached
@@ -1033,14 +1033,14 @@ class Game:
         self._active_site = site
 
         persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
+        if self._site_cache_manager is not None:
+            persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
             self._apply_sub_hex_mutations_to_level(
                 self.level, persisted_mutations,
             )
-            self._sub_hex_cache.store(
+            self._site_cache_manager.store(
                 cache_key, self.level,
                 mutations=persisted_mutations,
             )
@@ -1100,10 +1100,10 @@ class Game:
         depth = 1
         cache_key = self._cache_key(depth)
 
-        self._ensure_sub_hex_cache()
+        self._ensure_site_cache_manager()
         cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
+            self._site_cache_manager.get(cache_key)
+            if self._site_cache_manager is not None else None
         )
         if cached is not None:
             self.level = cached
@@ -1138,14 +1138,14 @@ class Game:
             self.level.metadata.faction = None
 
         persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
+        if self._site_cache_manager is not None:
+            persisted_mutations = self._site_cache_manager.load_mutations(
                 cache_key,
             )
             self._apply_sub_hex_mutations_to_level(
                 self.level, persisted_mutations,
             )
-            self._sub_hex_cache.store(
+            self._site_cache_manager.store(
                 cache_key, self.level,
                 mutations=persisted_mutations,
             )
@@ -1352,19 +1352,19 @@ class Game:
             tile.surface_type = SurfaceType.CORRIDOR
             tile.dug_wall = True
 
-    def _ensure_sub_hex_cache(self) -> None:
-        """Construct :attr:`_sub_hex_cache` on first family-site entry.
+    def _ensure_site_cache_manager(self) -> None:
+        """Construct :attr:`_site_cache_manager` on first family-site entry.
 
         Only a game with a ``save_dir`` gets a manager — without one
         there is no place to persist evicted mutation records. Pure
         dungeon runs and transient tests stay on the in-memory
         ``_floor_cache`` fallback in ``enter_sub_hex_family_site``.
         """
-        if self._sub_hex_cache is not None or self.save_dir is None:
+        if self._site_cache_manager is not None or self.save_dir is None:
             return
-        from nhc.core.sub_hex_cache import SubHexCacheManager
+        from nhc.core.site_cache import SiteCacheManager
 
-        self._sub_hex_cache = SubHexCacheManager(
+        self._site_cache_manager = SiteCacheManager(
             storage_dir=self.save_dir,
             player_id="game",
         )
@@ -2588,36 +2588,36 @@ class Game:
     ) -> None:
         """Append ``value`` onto the named mutation list for the
         current sub-hex cache entry. No-op when no visit is active."""
-        if self._sub_hex_cache is None:
+        if self._site_cache_manager is None:
             return
         key = self._active_sub_hex_cache_key()
         if key is None:
             return
-        entry = self._sub_hex_cache._entries.get(key)
+        entry = self._site_cache_manager._entries.get(key)
         if entry is None:
             return
         muts = entry["mutations"]
         bucket = muts.setdefault(kind, [])
         bucket.append(value)
-        self._sub_hex_cache.update_mutations(key, muts)
+        self._site_cache_manager.update_mutations(key, muts)
 
     def _set_sub_hex_mutation(
         self, kind: str, subkey: str, value,
     ) -> None:
         """Set ``mutations[kind][subkey] = value`` for the current
         sub-hex cache entry. No-op outside a visit."""
-        if self._sub_hex_cache is None:
+        if self._site_cache_manager is None:
             return
         key = self._active_sub_hex_cache_key()
         if key is None:
             return
-        entry = self._sub_hex_cache._entries.get(key)
+        entry = self._site_cache_manager._entries.get(key)
         if entry is None:
             return
         muts = entry["mutations"]
         bucket = muts.setdefault(kind, {})
         bucket[subkey] = value
-        self._sub_hex_cache.update_mutations(key, muts)
+        self._site_cache_manager.update_mutations(key, muts)
 
     def _on_sub_hex_item_picked(self, event: ItemPickedUp) -> None:
         """Record the tile an item was picked up from so replay on

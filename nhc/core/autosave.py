@@ -310,7 +310,7 @@ def _build_payload(game: "Game") -> dict[str, Any]:
 
     # GC long-dead sub-hex mutation records so the player's
     # on-disk footprint stays proportional to recent activity.
-    sub_cache = getattr(game, "_sub_hex_cache", None)
+    sub_cache = getattr(game, "_site_cache_manager", None)
     if sub_cache is not None:
         try:
             sub_cache.gc_old_records()

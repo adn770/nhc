@@ -1,20 +1,27 @@
-"""Bounded LRU cache for sub-hex sites with sparse mutation persistence.
+"""Bounded LRU cache for site surfaces with sparse mutation persistence.
 
-The flower view's sub-hex entry dispatcher (``nhc/core/hex_session.py``)
-generates a small per-sub-hex map — farm, shrine, well, signpost — on
-first visit and hands the Level back to :class:`~nhc.core.game.Game`'s
-floor cache. With 19 sub-hexes per flower and many macro hexes this
-would grow unbounded, so we keep only the 32 most recently used
-sub-hex levels in memory.
+The flower view's site entry dispatcher (``nhc/core/hex_session.py``)
+generates a per-flower-feature site Level — farm, shrine, well, town,
+keep, etc. — on first visit and hands it to :class:`~nhc.core.game.Game`'s
+cache. With many macro hexes (and 19 sub-hexes per flower) this would
+grow unbounded, so we keep only the 32 most recently used site levels
+in memory.
 
 On eviction we serialise the *player-induced* changes (loot removed,
 creatures killed, door states, terrain mutations) to a JSON file under
-``data_dir/players/<pid>/sub_hex_cache/<macro_q>_<macro_r>_<sub_q>_<sub_r>.json``.
-Re-entering the same sub-hex later regenerates the layout from the
-deterministic seed, applies the persisted mutations, and deletes the
-record file. That keeps the on-disk footprint proportional to "places
-the player actually touched" rather than "places they could have
-touched."
+``data_dir/players/<pid>/sub_hex_cache/<key>.json``. The on-disk
+subdirectory name is ``sub_hex_cache`` for back-compat with pre-M6d
+saves; the manager itself is the unified site cache. Re-entering the
+same site later regenerates the layout from the deterministic seed,
+applies the persisted mutations, and deletes the record file. That
+keeps the on-disk footprint proportional to "places the player
+actually touched" rather than "places they could have touched."
+
+Today this manager only handles sub-hex site keys
+(``("sub", macro_q, macro_r, sub_q, sub_r, depth)``). M6d-2 generalises
+the key + path strategy so macro site keys
+(``("site", q, r, depth)``) and any future site-shaped key can flow
+through the same LRU + mutation pipeline.
 """
 
 from __future__ import annotations
@@ -24,13 +31,20 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
+# Today every key is a sub-hex tuple. M6d-2 will broaden the alias.
 SubHexKey = tuple  # ("sub", macro_q, macro_r, sub_q, sub_r, depth)
 
 DEFAULT_CAPACITY: int = 32
 
 
-class SubHexCacheManager:
-    """LRU + disk-persisted mutation store for sub-hex site floors."""
+class SiteCacheManager:
+    """LRU + disk-persisted mutation store for site surfaces.
+
+    Renamed from ``SubHexCacheManager`` in M6d-1; today it still
+    only serves sub-hex sites. M6d-2 broadens the key/path
+    strategy to also cover macro sites; M6d-3 migrates the macro
+    entry methods onto this manager.
+    """
 
     def __init__(
         self,
