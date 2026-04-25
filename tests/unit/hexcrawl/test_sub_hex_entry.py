@@ -228,6 +228,7 @@ def test_sub_hex_cache_key_shape() -> None:
     game._active_cave_cluster = None
     game._active_descent_building = None
     game._active_site = None
+    game._active_site_macro = None
     game._active_site_sub = HexCoord(-1, 0)
 
     key = game._cache_key(1)
@@ -246,6 +247,7 @@ def test_sub_hex_cache_key_distinct_per_sub() -> None:
     game._active_cave_cluster = None
     game._active_descent_building = None
     game._active_site = None
+    game._active_site_macro = None
 
     game._active_site_sub = HexCoord(-1, 0)
     key_a = game._cache_key(1)
@@ -266,6 +268,7 @@ def test_sub_hex_cache_key_does_not_affect_macro_keys() -> None:
     game._active_descent_building = None
     game._active_site = None
     game._active_site_sub = None
+    game._active_site_macro = None
 
     key = game._cache_key(1)
     assert key == (3, 4, 1)

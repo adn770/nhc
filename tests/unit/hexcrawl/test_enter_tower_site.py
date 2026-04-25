@@ -142,22 +142,30 @@ async def test_unknown_site_kind_falls_through_to_template(
 
 @pytest.mark.asyncio
 async def test_tower_caches_every_floor_by_depth(tmp_path) -> None:
-    """All tower floors land in the floor cache at their depths so
-    the engine's existing descend-stair transition finds them."""
+    """All tower floors land somewhere addressable so the engine's
+    existing descend / ascend transition finds them.
+
+    M6d-3 split: the ground floor (= site surface for a
+    single-building tower) lives on :class:`SiteCacheManager`;
+    upper floors stay on the legacy ``_floor_cache`` under the
+    depth-keyed ``(q, r, depth)`` shape.
+    """
     g = _make_game(tmp_path)
     _attach_tower_site(g, HexCoord(0, 0))
     await g.enter_hex_feature()
     assert g.level is not None
     # Active level is depth=1 (ground). Tower towers have 2-6
-    # floors; every depth from 1..n should be cached.
-    ground_depth = 1
-    cache = g._floor_cache
-    assert g._cache_key(ground_depth) in cache
-    # At least one higher floor is present.
-    higher_keys = [
-        k for k in cache.keys()
-        if k != g._cache_key(ground_depth)
-    ]
+    # floors; ground sits in the manager, every upper floor in
+    # _floor_cache.
+    ground_key = g._cache_key(1)
+    assert ground_key[0] == "site"
+    assert g._site_cache_manager is not None
+    assert g._site_cache_manager.has(ground_key)
+    assert ground_key not in g._floor_cache, (
+        "tower ground belongs on the manager, not _floor_cache"
+    )
+    # At least one upper floor is present in the legacy cache.
+    higher_keys = list(g._floor_cache.keys())
     assert higher_keys, "expected upper floors cached"
 
 

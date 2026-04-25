@@ -417,6 +417,13 @@ class Game:
         # mechanic can restore ``exploring_sub_hex`` to where the
         # player entered from. Cleared on exit to the flower.
         self._active_site_sub: "HexCoord | None" = None
+        # Set when the player enters a macro-tier site (keep, town,
+        # tower, mansion, farm, ...) so ``_cache_key`` routes the
+        # surface under the ("site", ...) namespace served by
+        # :class:`SiteCacheManager`. Building floors keep their own
+        # site-kind-keyed slots in ``_floor_cache``. Cleared on
+        # exit to the overland.
+        self._active_site_macro: "HexCoord | None" = None
         # Sub-hex floor cache with bounded LRU eviction + mutation
         # persistence. Lazy — built on first sub-hex entry once we
         # know the player id / save dir. See nhc.core.site_cache.
@@ -564,6 +571,13 @@ class Game:
         Degrades to the integer-depth key when ``hex_player_position``
         is not yet set (pre-initialize or test setup).
         """
+        # Macro-site surface key: keyed off ``_active_site_macro``
+        # directly so it works even when ``hex_player_position`` is
+        # not set (e.g. tests that call ``_enter_walled_site`` on
+        # an isolated coord without seating the player first).
+        if self._active_site_macro is not None and depth == 1:
+            coord = self._active_site_macro
+            return ("site", coord.q, coord.r, depth)
         if self.world_type is WorldType.HEXCRAWL and self.hex_player_position is not None:
             if self._active_site_sub is not None:
                 coord = self.hex_player_position
@@ -1551,9 +1565,13 @@ class Game:
 
         Places the player on the assembled tower's ground floor at
         the entry-door tile (or a perimeter floor tile if the door
-        is missing). Reuses the same (q, r, depth) floor cache as
-        the template pipeline so re-entry restores the same Level
-        instance.
+        is missing).
+
+        Since M6d-3 the ground floor (= site surface for a
+        single-building tower) lives on
+        :class:`SiteCacheManager`; upper floors stay in
+        ``_floor_cache`` so the engine's existing descend / ascend
+        transition still finds them via the depth-keyed lookup.
         """
         from nhc.sites._site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
@@ -1562,11 +1580,20 @@ class Game:
         if cell is None or cell.dungeon is None:
             return False
 
+        self._active_site_macro = coord
         depth = 1
         cache_key = self._cache_key(depth)
-        if cache_key in self._floor_cache:
-            level, _ = self._floor_cache[cache_key]
-            self.level = level
+
+        self._ensure_site_cache_manager()
+        cached = (
+            self._site_cache_manager.get(cache_key)
+            if self._site_cache_manager is not None else None
+        )
+        if cached is not None:
+            self.level = cached
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
             self._place_player_on_tower_entry()
             self._update_fov()
             self._notify_floor_change(depth)
@@ -1586,12 +1613,30 @@ class Game:
         if (self.level and self.level.metadata
                 and cell.dungeon.faction):
             self.level.metadata.faction = cell.dungeon.faction
+        self._purge_entities_on_level(self.level.id)
         self._spawn_level_entities()
-        # Pre-cache every floor of the tower under (q, r, depth) so
-        # the engine's existing descend/ascend transition finds the
-        # adjacent floor without having to regenerate the building.
+        # Ground floor (= surface) goes to the SiteCacheManager;
+        # upper floors stay on _floor_cache under (q, r, depth).
+        persisted_mutations: dict = {}
+        if self._site_cache_manager is not None:
+            persisted_mutations = self._site_cache_manager.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._site_cache_manager.store(
+                cache_key, self.level,
+                mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
         for i, floor in enumerate(building.floors):
+            if i == 0:
+                continue
             self._floor_cache[self._cache_key(i + 1)] = (floor, {})
+        self._active_site = site
+        self._site_cache[cache_key] = site
         self._place_player_on_tower_entry()
         self._update_fov()
         self._notify_floor_change(depth)
@@ -1610,13 +1655,14 @@ class Game:
     ) -> bool:
         """Land the player on ``site.buildings[0].ground``.
 
-        Caches the first building's floors under the engine's
-        depth-keyed slots so the existing stair-based floor
-        transition works exactly like a tower; every sibling
-        building's every floor is cached under a site-kind-keyed
-        tuple so future cross-building door transitions can find
-        them without re-running the assembler. The assembled Site
-        is parked on :attr:`_active_site` as an O(1) handle.
+        Since M6d-3 the first building's ground floor (= site
+        surface entry point) lives on :class:`SiteCacheManager`;
+        the building's upper floors stay on the engine's
+        depth-keyed ``_floor_cache`` slots so existing stair-based
+        floor transitions still find them. Sibling buildings keep
+        their site-kind-keyed tuples in ``_floor_cache``. The
+        assembled :class:`Site` is parked on :attr:`_active_site`
+        as an O(1) handle.
         """
         from nhc.sites._site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
@@ -1625,11 +1671,17 @@ class Game:
         if cell is None or cell.dungeon is None:
             return False
 
+        self._active_site_macro = coord
         depth = 1
         cache_key = self._cache_key(depth)
-        if cache_key in self._floor_cache:
-            level, _ = self._floor_cache[cache_key]
-            self.level = level
+
+        self._ensure_site_cache_manager()
+        cached = (
+            self._site_cache_manager.get(cache_key)
+            if self._site_cache_manager is not None else None
+        )
+        if cached is not None:
+            self.level = cached
             # Restore the Site wrapper so cross-building door
             # traversal still has a handle after a warm-cache
             # re-entry. Same rationale as _enter_walled_site.
@@ -1655,8 +1707,28 @@ class Game:
         if (self.level and self.level.metadata
                 and cell.dungeon.faction):
             self.level.metadata.faction = cell.dungeon.faction
+        self._purge_entities_on_level(self.level.id)
         self._spawn_level_entities()
+        # First building's ground = surface entry → SiteCacheManager.
+        # Upper floors keep the depth-keyed _floor_cache slot so
+        # stair actions inside the building still find them.
+        persisted_mutations: dict = {}
+        if self._site_cache_manager is not None:
+            persisted_mutations = self._site_cache_manager.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._site_cache_manager.store(
+                cache_key, self.level,
+                mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
         for i, floor in enumerate(first.floors):
+            if i == 0:
+                continue
             self._floor_cache[self._cache_key(i + 1)] = (floor, {})
         for bi in range(1, len(site.buildings)):
             b = site.buildings[bi]
@@ -1682,6 +1754,10 @@ class Game:
         every floor is cached under a site-kind-specific key so a
         future door-based transition can find the interior
         without re-running the assembler.
+
+        Since M6d-3 the surface lives on
+        :class:`SiteCacheManager` (LRU + on-disk mutation cache);
+        building floors stay on the legacy ``_floor_cache``.
         """
         from nhc.sites._site import assemble_site
         from nhc.hexcrawl.seed import dungeon_seed
@@ -1690,11 +1766,17 @@ class Game:
         if cell is None or cell.dungeon is None:
             return False
 
+        self._active_site_macro = coord
         depth = 1
         cache_key = self._cache_key(depth)
-        if cache_key in self._floor_cache:
-            level, _ = self._floor_cache[cache_key]
-            self.level = level
+
+        self._ensure_site_cache_manager()
+        cached = (
+            self._site_cache_manager.get(cache_key)
+            if self._site_cache_manager is not None else None
+        )
+        if cached is not None:
+            self.level = cached
             # Restore the Site wrapper too: building-door
             # traversal and current_view classification both
             # read self._active_site, and without this the
@@ -1736,11 +1818,25 @@ class Game:
                 and cell.dungeon.faction):
             self.level.metadata.faction = cell.dungeon.faction
         self._mark_surface_explored_if_prerevealed()
+        self._purge_entities_on_level(self.level.id)
         self._spawn_level_entities()
-        # Ground-depth cache slot holds the surface so re-entry is
-        # O(1). Buildings go under site-kind-keyed tuples for
-        # future cross-building entry.
-        self._floor_cache[self._cache_key(depth)] = (self.level, {})
+        # Surface lives on the SiteCacheManager (mutation replay
+        # for door / terrain on cache miss). Buildings stay on
+        # ``_floor_cache`` under site-kind-keyed tuples.
+        persisted_mutations: dict = {}
+        if self._site_cache_manager is not None:
+            persisted_mutations = self._site_cache_manager.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._site_cache_manager.store(
+                cache_key, self.level,
+                mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
         for bi, b in enumerate(site.buildings):
             for fi, floor in enumerate(b.floors):
                 key = (kind, coord.q, coord.r, bi, fi)
@@ -2572,16 +2668,27 @@ class Game:
     # -- C2: sub-hex mutation tracking ---------------------------------
 
     def _active_sub_hex_cache_key(self) -> "tuple | None":
-        """Return the ``("sub", ...)`` cache-manager key for the
-        currently-active sub-hex family visit, or ``None`` when no
-        visit is in progress. Used by the mutation handlers below."""
-        if self._active_site_sub is None or self.hex_world is None:
+        """Return the cache-manager key for the currently-active site
+        visit, or ``None`` when no visit is in progress. Used by the
+        mutation handlers below.
+
+        Returns the ``("sub", ...)`` shape for an active sub-hex
+        family visit, the ``("site", ...)`` shape for an active
+        macro-tier site, or ``None`` when neither marker is set.
+        Renamed to ``_active_site_cache_key`` in M6d-4.
+        """
+        if self.hex_world is None:
             return None
-        macro = self.hex_world.exploring_hex
-        if macro is None:
-            return None
-        sub = self._active_site_sub
-        return ("sub", macro.q, macro.r, sub.q, sub.r, 1)
+        if self._active_site_sub is not None:
+            macro = self.hex_world.exploring_hex
+            if macro is None:
+                return None
+            sub = self._active_site_sub
+            return ("sub", macro.q, macro.r, sub.q, sub.r, 1)
+        if self._active_site_macro is not None:
+            coord = self._active_site_macro
+            return ("site", coord.q, coord.r, 1)
+        return None
 
     def _append_sub_hex_mutation(
         self, kind: str, value,
@@ -2622,7 +2729,8 @@ class Game:
     def _on_sub_hex_item_picked(self, event: ItemPickedUp) -> None:
         """Record the tile an item was picked up from so replay on
         re-entry can remove the matching placement."""
-        if self._active_site_sub is None:
+        if (self._active_site_sub is None
+                and self._active_site_macro is None):
             return
         pos = self.world.get_component(event.entity, "Position")
         if pos is None:
@@ -2632,8 +2740,8 @@ class Game:
         )
 
     def _on_sub_hex_creature_died(self, event: CreatureDied) -> None:
-        """Record the id of a creature that died inside a sub-hex
-        site so the populator skips it on re-entry.
+        """Record the id of a creature that died inside a site so the
+        populator skips it on re-entry.
 
         Populator-spawned entities carry a ``SubHexStableId``
         component; record that stable id so the mutation survives
@@ -2641,7 +2749,8 @@ class Game:
         casualties (e.g. adventurers wandered in) fall back to the
         ECS int so the mutation is still unique, though they won't
         match on re-entry (non-populated creatures don't respawn)."""
-        if self._active_site_sub is None:
+        if (self._active_site_sub is None
+                and self._active_site_macro is None):
             return
         sid_comp = self.world.get_component(
             event.entity, "SubHexStableId",
@@ -2655,7 +2764,8 @@ class Game:
     def _on_sub_hex_door_opened(self, event: DoorOpened) -> None:
         """Record an opened door so re-entry keeps it open rather
         than resetting to closed."""
-        if self._active_site_sub is None:
+        if (self._active_site_sub is None
+                and self._active_site_macro is None):
             return
         self._set_sub_hex_mutation(
             "doors", f"{event.x},{event.y}", "open",
@@ -2664,7 +2774,8 @@ class Game:
     def _on_sub_hex_terrain_changed(self, event: TerrainChanged) -> None:
         """Record a dug-through wall (U4: skip door tiles, handled by
         the emitter — DigAction only fires for walls/voids)."""
-        if self._active_site_sub is None:
+        if (self._active_site_sub is None
+                and self._active_site_macro is None):
             return
         self._set_sub_hex_mutation(
             "terrain", f"{event.x},{event.y}", event.kind,
@@ -2686,6 +2797,7 @@ class Game:
         self._active_cave_cluster = None
         self._active_site = None
         self._active_site_sub = None
+        self._active_site_macro = None
         self._active_descent_building = None
         self._active_descent_return_tile = None
         self._site_level_entities = {}

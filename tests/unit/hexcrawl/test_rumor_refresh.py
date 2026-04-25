@@ -103,6 +103,8 @@ async def test_revisit_after_cooldown_adds_new_rumors(tmp_path) -> None:
     g.hex_world.advance_clock(12)
     # Re-enter: fresh rumors append (unconsumed ones survive).
     g._floor_cache.clear()
+    if g._site_cache_manager is not None:
+        g._site_cache_manager._entries.clear()
     await g.enter_hex_feature()
     assert len(g.hex_world.active_rumors) > count_before
     # The first-visit rumors still live in the pool.
@@ -136,6 +138,8 @@ async def test_pre_existing_pool_does_not_block_cooldown_refresh(
     # Age past cooldown and re-enter.
     g.hex_world.advance_clock(12)
     g._floor_cache.clear()
+    if g._site_cache_manager is not None:
+        g._site_cache_manager._entries.clear()
     await g.enter_hex_feature()
     assert preset in g.hex_world.active_rumors
     # Fresh ones got added.

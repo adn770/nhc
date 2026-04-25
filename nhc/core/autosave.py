@@ -380,6 +380,9 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         # the macro hex / feature_cell because current_view and
         # the leave-site flow read these directly.
         "active_site_sub": getattr(game, "_active_site_sub", None),
+        "active_site_macro": getattr(
+            game, "_active_site_macro", None,
+        ),
         "active_site": getattr(game, "_active_site", None),
         "active_descent_building": getattr(
             game, "_active_descent_building", None,
@@ -468,6 +471,10 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
         "active_site_sub",
         payload.get("active_sub_hex"),
     )
+    # M6d-3: ``_active_site_macro`` joins the dispatcher state.
+    # Absent on pre-M6d-3 payloads — those couldn't have a macro
+    # site cached on the manager either, so ``None`` is correct.
+    game._active_site_macro = payload.get("active_site_macro")
     game._active_site = payload.get("active_site")
     game._active_descent_building = payload.get(
         "active_descent_building",

@@ -102,24 +102,32 @@ async def test_mansion_site_places_player_on_entry(tmp_path) -> None:
 async def test_mansion_caches_all_buildings_ground_floors(
     tmp_path,
 ) -> None:
-    """Every mansion building's floors land in the floor cache.
+    """Every mansion building's floors land somewhere addressable.
 
     Mansions have 2-4 buildings of 1-2 floors each. Every floor
     should be cached so any future door-based transition can find
     the target level without re-running the assembler.
+
+    M6d-3 split: the first building's ground floor (= site
+    surface entry) lives on :class:`SiteCacheManager`; sibling
+    buildings and upper floors stay on the legacy
+    ``_floor_cache`` under building-keyed tuples.
     """
     g = _make_game(tmp_path)
     _attach_mansion_site(g, HexCoord(0, 0))
     await g.enter_hex_feature()
+    surface_key = g._cache_key(1)
+    assert surface_key[0] == "site"
+    assert g._site_cache_manager is not None
+    assert g._site_cache_manager.has(surface_key)
     cache = g._floor_cache
-    # Ground level (depth 1) is always cached.
-    assert g._cache_key(1) in cache
-    # At least one other cache entry for an adjacent building or a
-    # higher floor.
-    extra_keys = [k for k in cache if k != g._cache_key(1)]
-    assert extra_keys, "expected more than just the ground cache slot"
-    # Every cached Level must carry the back-reference set by the
-    # assembler.
+    # _floor_cache must carry sibling buildings / upper floors.
+    assert cache, "expected building floors in _floor_cache"
+    assert surface_key not in cache, (
+        "mansion surface belongs on the manager, not _floor_cache"
+    )
+    # Every level still in _floor_cache must carry the assembler's
+    # building back-reference (only building floors live there now).
     for _, (level, _) in cache.items():
         assert level.building_id is not None
         assert level.floor_index is not None

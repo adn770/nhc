@@ -328,3 +328,78 @@ async def test_svg_cache_keyed_by_level_id_not_depth(tmp_path) -> None:
     ), (
         "floor_svg body must reflect the new (interior) Level's id"
     )
+
+
+@pytest.mark.asyncio
+async def test_keep_surface_lives_on_site_cache_manager(tmp_path) -> None:
+    """The macro keep surface lands on :class:`SiteCacheManager`
+    rather than the legacy ``_floor_cache``. M6d-3 invariant: every
+    site surface (macro and sub-hex) shares the LRU + on-disk
+    mutation pipeline."""
+    g = _make_game(tmp_path)
+    coord = HexCoord(0, 0)
+    _attach_keep_site(g, coord)
+    await g.enter_hex_feature()
+    surface_key = ("site", coord.q, coord.r, 1)
+    assert g._site_cache_manager is not None
+    assert g._site_cache_manager.has(surface_key)
+    assert surface_key not in g._floor_cache, (
+        "keep surface should live on SiteCacheManager only; the "
+        "legacy floor cache slot must stay free of the surface"
+    )
+
+
+@pytest.mark.asyncio
+async def test_keep_surface_door_mutation_replays_after_eviction(
+    tmp_path,
+) -> None:
+    """A door-open mutation on a macro keep surface persists across
+    LRU eviction. Pre-M6d-3 the macro surface lived on
+    ``_floor_cache`` (no mutation persistence) so this round-trip
+    reset the door to ``door_closed``; M6d-3 folds the macro
+    surface onto :class:`SiteCacheManager` so every site -- macro
+    and sub-hex -- shares the LRU + on-disk mutation replay path."""
+    from nhc.core.site_cache import SiteCacheManager
+    g = _make_game(tmp_path)
+    coord_a = HexCoord(0, 0)
+    coord_b = HexCoord(2, 0)
+    _attach_keep_site(g, coord_a)
+    await g.enter_hex_feature()
+
+    surface_key = ("site", coord_a.q, coord_a.r, 1)
+    assert g._site_cache_manager is not None
+    assert g._site_cache_manager.has(surface_key)
+
+    surface = g.level
+    tile = surface.tile_at(3, 3)
+    tile.feature = "door_closed"
+    g._set_sub_hex_mutation("doors", "3,3", "open")
+
+    # Force eviction by replacing manager with a 1-slot version
+    # that preserves the just-recorded mutation on coord_a.
+    new_mgr = SiteCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="game",
+    )
+    for k, v in g._site_cache_manager._entries.items():
+        new_mgr.store(k, v["level"], mutations=v["mutations"])
+    g._site_cache_manager = new_mgr
+
+    # Exit the keep, then enter a different keep so coord_a evicts
+    # to disk (capacity=1).
+    await g.exit_dungeon_to_hex()
+    _attach_keep_site(g, coord_b)
+    await g.enter_hex_feature()
+
+    # Re-enter the original keep; cache miss, fresh assemble, then
+    # the persisted mutation replays.
+    await g.exit_dungeon_to_hex()
+    _attach_keep_site(g, coord_a)
+    await g.enter_hex_feature()
+
+    assert g.level is not surface, (
+        "post-eviction re-entry should produce a freshly "
+        "assembled surface"
+    )
+    assert g.level.tile_at(3, 3).feature == "door_open", (
+        "the door-open mutation must replay after eviction"
+    )
