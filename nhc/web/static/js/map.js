@@ -190,21 +190,28 @@ const GameMap = {
   },
 
   /**
-   * Declare which view is now active. When a saved zoom exists
-   * for that view, apply it immediately and update the toolbar
-   * label; the view's first-entry auto-fit will then no-op. When
-   * no saved zoom exists, leave _zoomLevel untouched and let the
-   * view's own auto-fit decide the initial value.
+   * Declare which view is now active.
+   *
+   * Sets _zoomLevel to either the view's remembered zoom (if any)
+   * or the 1.0x default, then applies that scale to the new
+   * view's container and resyncs the toolbar label. The default
+   * fallback prevents _zoomLevel from carrying over stale values
+   * from the previous view (e.g. hex's auto-fit 2.5x leaking into
+   * the flower toolbar before the flower's own auto-fit resolves);
+   * for views with auto-fit (hex, flower) the recorded fit value
+   * overwrites this default in the same render() pass, so the
+   * 1.0x is at most a one-frame transient.
    */
   setActiveView(view) {
     if (!this._VALID_VIEWS.includes(view)) return;
     this._activeView = view;
-    if (view in this._zoomByView) {
-      const idx = this._zoomByView[view];
-      this._zoomLevel = idx;
-      this._applyScaleToContainer(view, idx);
-      if (typeof Input !== "undefined") Input._updateZoomLabel();
-    }
+    const defaultIdx = this._zoomSteps.indexOf(1.0);
+    const idx = (view in this._zoomByView)
+      ? this._zoomByView[view]
+      : (defaultIdx >= 0 ? defaultIdx : 0);
+    this._zoomLevel = idx;
+    this._applyScaleToContainer(view, idx);
+    if (typeof Input !== "undefined") Input._updateZoomLabel();
   },
 
   /**
