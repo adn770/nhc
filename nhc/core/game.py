@@ -2214,6 +2214,42 @@ class Game:
             if eid not in keep_ids:
                 self.world.destroy_entity(eid)
 
+    def _collect_non_party_entities_on(
+        self, level_id: str,
+    ) -> dict[int, dict[str, object]]:
+        """Snapshot non-party entities whose Position is on
+        ``level_id``. Sibling-level NPCs (the farmer parked
+        inside the farmhouse while the player walks the surface)
+        stay untouched."""
+        keep_ids = self._party_keep_ids()
+        data: dict[int, dict[str, object]] = {}
+        for eid in list(self.world._entities):
+            if eid in keep_ids:
+                continue
+            pos = self.world.get_component(eid, "Position")
+            if pos is None or pos.level_id != level_id:
+                continue
+            comps: dict[str, object] = {}
+            for comp_type, store in self.world._components.items():
+                if eid in store:
+                    comps[comp_type] = store[eid]
+            if comps:
+                data[eid] = comps
+        return data
+
+    def _destroy_non_party_entities_on(self, level_id: str) -> None:
+        """Destroy non-party entities whose Position is on
+        ``level_id``. Counterpart to
+        :meth:`_collect_non_party_entities_on`."""
+        keep_ids = self._party_keep_ids()
+        for eid in list(self.world._entities):
+            if eid in keep_ids:
+                continue
+            pos = self.world.get_component(eid, "Position")
+            if pos is None or pos.level_id != level_id:
+                continue
+            self.world.destroy_entity(eid)
+
     def _restore_entities(
         self, data: dict[int, dict[str, object]],
     ) -> None:
@@ -2397,14 +2433,20 @@ class Game:
 
         Stores under ``self._site_level_entities[level.id]`` so
         ``_restore_or_spawn_level_entities`` can rehydrate them
-        when the player swaps back to the same level.
+        when the player swaps back to the same level. Only
+        entities whose ``Position.level_id`` matches the outgoing
+        level are stashed and destroyed -- NPCs parked on a
+        sibling building's floor (sub-hex farmer in the farmhouse
+        while the player walks the field surface, etc.) must
+        survive the swap untouched.
         """
         if self.level is None:
             return
-        self._site_level_entities[self.level.id] = (
-            self._collect_non_party_entities()
+        leaving_id = self.level.id
+        self._site_level_entities[leaving_id] = (
+            self._collect_non_party_entities_on(leaving_id)
         )
-        self._destroy_non_party_entities()
+        self._destroy_non_party_entities_on(leaving_id)
 
     def _restore_or_spawn_level_entities(self) -> None:
         """Rehydrate stashed entities for the current level, or

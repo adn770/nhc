@@ -1625,6 +1625,66 @@ def test_inhabited_settlement_populates_matching_npc(tmp_path) -> None:
         )
 
 
+def test_swap_to_farmhouse_preserves_farmer_inside(tmp_path) -> None:
+    """Production bug 2026-04-25: swap-to-building destroyed the
+    farmer NPC parked inside the farmhouse along with the surface
+    farmhand because ``_stash_current_level_entities`` collected
+    *every* non-party entity, not just those on the level being
+    left. The farmhouse spawn pass then had nothing to recreate
+    (the farm assembler doesn't pre-stamp NPCs — they come from
+    the SITE_POPULATION table), leaving the player staring at an
+    empty interior.
+
+    The fix scopes the stash + destroy to entities whose Position
+    sits on the outgoing level. Other-level NPCs stay alive in
+    the world."""
+    import asyncio
+
+    from nhc.sites._types import SiteTier
+
+    game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.FARM)
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "inhabited_settlement", MinorFeatureType.FARM,
+            SiteTier.MEDIUM, Biome.GREENLANDS,
+        ),
+    )
+    farmhouse = game._active_site.buildings[0]
+    farmhouse_id = farmhouse.ground.id
+
+    farmers_before = [
+        eid for eid, pos in game.world.query("Position")
+        if pos.level_id == farmhouse_id
+        and game.world.has_component(eid, "RumorVendor")
+    ]
+    assert len(farmers_before) == 1, (
+        "fixture precondition: farmer placed inside farmhouse"
+    )
+
+    # Door-bump into the farmhouse: same code path as the
+    # production swap.
+    interior_tile = next(
+        (x, y) for y in range(farmhouse.ground.height)
+        for x in range(farmhouse.ground.width)
+        if (t := farmhouse.ground.tile_at(x, y)) is not None
+        and t.terrain.name == "FLOOR" and t.feature is None
+    )
+    game._swap_to_building(farmhouse, *interior_tile)
+
+    farmers_after = [
+        eid for eid, pos in game.world.query("Position")
+        if pos.level_id == farmhouse_id
+        and game.world.has_component(eid, "RumorVendor")
+    ]
+    assert len(farmers_after) == 1, (
+        "swap-to-building destroyed the farmer; the player would "
+        "see an empty farmhouse"
+    )
+    assert farmers_after[0] == farmers_before[0], (
+        "farmer should be the same ECS entity, not a respawn"
+    )
+
+
 def test_farmer_bump_dispenses_rumor(tmp_path) -> None:
     """A bump onto the farmer dispatches the rumor-vendor flow and
     emits a MessageEvent with the next overland rumour.
