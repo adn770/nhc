@@ -373,6 +373,27 @@ def _build_payload(game: "Game") -> dict[str, Any]:
         # mid-prompt so the player doesn't lose the choice they
         # were about to make.
         "pending_encounter": getattr(game, "pending_encounter", None),
+        # In-site dispatcher state. A player mid-site (sub-hex
+        # family, walled macro site, building descent, cave
+        # cluster) needs every active marker that the entry
+        # dispatcher set, otherwise reconnect snaps them back to
+        # the macro hex / feature_cell because current_view and
+        # the leave-site flow read these directly.
+        "active_sub_hex": getattr(game, "_active_sub_hex", None),
+        "active_site": getattr(game, "_active_site", None),
+        "active_descent_building": getattr(
+            game, "_active_descent_building", None,
+        ),
+        "active_descent_return_tile": getattr(
+            game, "_active_descent_return_tile", None,
+        ),
+        "active_cave_cluster": getattr(
+            game, "_active_cave_cluster", None,
+        ),
+        "sub_hex_entry_tile": getattr(
+            game, "_sub_hex_entry_tile", None,
+        ),
+        "site_cache": dict(getattr(game, "_site_cache", {}) or {}),
     }
 
 
@@ -436,6 +457,21 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     game.hex_world = payload.get("hex_world")
     game.hex_player_position = payload.get("hex_player_position")
     game.pending_encounter = payload.get("pending_encounter")
+
+    # In-site dispatcher state -- absent on pre-fix payloads so
+    # callers fall back to the new-Game defaults (None / empty),
+    # which means an old save made outside any site restores fine.
+    game._active_sub_hex = payload.get("active_sub_hex")
+    game._active_site = payload.get("active_site")
+    game._active_descent_building = payload.get(
+        "active_descent_building",
+    )
+    game._active_descent_return_tile = payload.get(
+        "active_descent_return_tile",
+    )
+    game._active_cave_cluster = payload.get("active_cave_cluster")
+    game._sub_hex_entry_tile = payload.get("sub_hex_entry_tile")
+    game._site_cache = payload.get("site_cache", {})
 
     # Resubscribe event handlers (they're method refs, not persisted)
     game.event_bus.subscribe(MessageEvent, game._on_message)
