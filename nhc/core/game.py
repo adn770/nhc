@@ -3634,47 +3634,7 @@ class Game:
             self.world.turn = self.turn
 
             # Process creature turns (visible creatures + henchmen)
-            creature_actions = []
-            for eid, ai, cpos in self.world.query("AI", "Position"):
-                if cpos is None:
-                    continue
-                # Hired henchmen always act; others only if visible
-                hench = self.world.get_component(eid, "Henchman")
-                is_active_henchman = (
-                    hench and hench.hired
-                    and hench.owner == self.player_id
-                )
-                if is_active_henchman:
-                    # Call for help when HP < 1/3
-                    h_health = self.world.get_component(
-                        eid, "Health",
-                    )
-                    if (h_health
-                            and h_health.current
-                            < h_health.maximum // 3
-                            and not hench.called_for_help):
-                        hench.called_for_help = True
-                        h_desc = self.world.get_component(
-                            eid, "Description",
-                        )
-                        h_name = h_desc.name if h_desc else "Henchman"
-                        self.renderer.add_message(
-                            t("henchman.call_for_help",
-                              name=h_name),
-                        )
-                    elif (h_health
-                          and h_health.current
-                          >= h_health.maximum // 3):
-                        hench.called_for_help = False
-                else:
-                    tile = self.level.tile_at(cpos.x, cpos.y)
-                    if not tile or not tile.visible:
-                        continue
-                ai_action = decide_action(
-                    eid, self.world, self.level, self.player_id,
-                )
-                if ai_action:
-                    creature_actions.append((ai_action, eid if is_active_henchman else None))
+            creature_actions = await self._collect_creature_actions()
 
             creature_events = []
             for ca, bonus_eid in creature_actions:
@@ -3761,6 +3721,70 @@ class Game:
             # Autosave periodically (every 10 turns, non-blocking)
             if self.turn % 10 == 0:
                 _autosave(self, self.save_dir, blocking=False)
+
+    async def _collect_creature_actions(self) -> list:
+        """Schedule AI turns for the current level.
+
+        Returns ``(action, bonus_henchman_eid_or_None)`` tuples for
+        every hired henchman and every visible non-henchman
+        creature on :attr:`level`. Returns an empty list when
+        ``self.level`` is ``None`` — that happens within the same
+        loop iteration as a :class:`LeaveSiteAction` /
+        :meth:`exit_dungeon_to_hex`, where the player has just
+        dropped to the overland but lingering NPCs (the sub-hex
+        farmer, the town merchant, etc.) are still in the ECS
+        world. The next outer-loop iteration routes through the
+        flower / hex branch and the lingering NPCs stay dormant
+        until the player re-enters their level. Pre-fix this
+        method's body iterated unconditionally and crashed on
+        ``self.level.tile_at`` (production repro 2026-04-25,
+        sub-hex farm edge exit with the farmer parked in the
+        farmhouse building).
+        """
+        if self.level is None:
+            return []
+        creature_actions: list = []
+        for eid, ai, cpos in self.world.query("AI", "Position"):
+            if cpos is None:
+                continue
+            # Hired henchmen always act; others only if visible
+            hench = self.world.get_component(eid, "Henchman")
+            is_active_henchman = (
+                hench and hench.hired
+                and hench.owner == self.player_id
+            )
+            if is_active_henchman:
+                # Call for help when HP < 1/3
+                h_health = self.world.get_component(eid, "Health")
+                if (h_health
+                        and h_health.current
+                        < h_health.maximum // 3
+                        and not hench.called_for_help):
+                    hench.called_for_help = True
+                    h_desc = self.world.get_component(
+                        eid, "Description",
+                    )
+                    h_name = h_desc.name if h_desc else "Henchman"
+                    self.renderer.add_message(
+                        t("henchman.call_for_help", name=h_name),
+                    )
+                elif (h_health
+                      and h_health.current
+                      >= h_health.maximum // 3):
+                    hench.called_for_help = False
+            else:
+                tile = self.level.tile_at(cpos.x, cpos.y)
+                if not tile or not tile.visible:
+                    continue
+            ai_action = decide_action(
+                eid, self.world, self.level, self.player_id,
+            )
+            if ai_action:
+                creature_actions.append(
+                    (ai_action,
+                     eid if is_active_henchman else None),
+                )
+        return creature_actions
 
     async def _resolve(self, action: "Action") -> list:
         """Validate and execute an action, emitting events."""

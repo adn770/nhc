@@ -280,6 +280,72 @@ async def test_off_map_move_exits_walled_site_to_flower(tmp_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_leave_site_does_not_crash_ai_turn_with_lingering_npc(
+    tmp_path,
+) -> None:
+    """Regression for the production crash on 2026-04-25:
+    walking off the south edge of a sub-hex farm fired
+    LeaveSiteAction (clearing self.level mid-iteration), then the
+    same-turn AI scheduling loop crashed with AttributeError on
+    ``self.level.tile_at`` because the farmer NPC is still in the
+    ECS world (parked on the farmhouse building floor, not the
+    farm surface).
+
+    The fix gates the creature-turn scheduling on
+    ``self.level is not None`` so a same-turn exit short-circuits
+    cleanly and the next outer-loop iteration routes through the
+    flower / hex branch.
+    """
+    from nhc.core.actions import LeaveSiteAction
+    from nhc.entities.components import (
+        AI, Description, Health, Position, Renderable, Stats,
+    )
+
+    g = _make_game(tmp_path)
+    _attach_keep_site(g, HexCoord(0, 0))
+    _enter_flower(g, HexCoord(0, 0))
+    await g.enter_hex_feature()
+    # Stand-in for the lingering sub-hex NPC (farmer / merchant /
+    # priest). Lives on a different level than the active site
+    # surface, so it survives self.level being cleared.
+    g.world.create_entity({
+        "AI": AI(
+            behavior="aggressive_melee", morale=5,
+            faction="neutral",
+        ),
+        "Position": Position(
+            x=0, y=0, level_id="some_other_level",
+        ),
+        "Renderable": Renderable(
+            glyph="N", color="white", render_order=2,
+        ),
+        "Stats": Stats(strength=1, dexterity=1),
+        "Health": Health(current=4, maximum=4),
+        "Description": Description(name="lingering_npc"),
+    })
+    pos = g.world.get_component(g.player_id, "Position")
+    pos.x = 0
+    pos.y = 0
+    action = LeaveSiteAction(actor=g.player_id, dx=-1, dy=0)
+    events = await action.execute(g.world, g.level)
+    # Dispatch the LeaveSiteRequested event the action emitted —
+    # _exit_to_overland_sync is the subscriber that clears self.level.
+    from nhc.core.events import LeaveSiteRequested
+    for ev in events:
+        if isinstance(ev, LeaveSiteRequested):
+            await g.event_bus.emit(ev)
+    assert g.level is None
+    # Simulate the same-turn creature scheduling pass. Pre-fix
+    # this raised AttributeError on the lingering NPC; post-fix
+    # it returns an empty action list.
+    actions = await g._collect_creature_actions()
+    assert actions == [], (
+        "with self.level cleared by LeaveSiteAction, no AI "
+        "creatures should be scheduled this turn"
+    )
+
+
+@pytest.mark.asyncio
 async def test_leave_site_emits_narration(tmp_path) -> None:
     """The action emits a MessageEvent with ``leave_site.exit``."""
     from nhc.core.events import MessageEvent
