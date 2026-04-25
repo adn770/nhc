@@ -219,6 +219,57 @@ def test_resolve_near_feature_lands_orthogonal_to_feature_tile(
     assert dist == 1
 
 
+def test_mansion_spec_has_noble_and_servant() -> None:
+    """A mansion places one noble inside buildings[0] (main hall)
+    plus an occasional villager (servant) on the garden surface."""
+    entries = SITE_POPULATION[("mansion", SiteTier.MEDIUM)]
+    placements = {e.entity_id: e for e in entries}
+    assert placements["noble"].placement == "in_building_0"
+    assert placements["noble"].count_min == 1
+    assert placements["villager"].placement == "on_open_surface"
+    assert placements["villager"].count_min == 0
+
+
+def test_tower_spec_has_resident_hermit() -> None:
+    """A tower (mage variant or regular) keeps a single hermit /
+    scholar on the ground floor."""
+    entries = SITE_POPULATION[("tower", SiteTier.TINY)]
+    assert len(entries) == 1
+    assert entries[0].entity_id == "hermit"
+    assert entries[0].placement == "in_building_0"
+    assert entries[0].count_min == 1
+
+
+def test_resolve_mansion_lands_noble_inside_first_building() -> None:
+    """The mansion noble lands on the first building's ground
+    floor, not on the surrounding garden surface."""
+    from nhc.sites._site import assemble_site
+    site = assemble_site(
+        "mansion", "m1", random.Random(31),
+    )
+    placements = resolve_site_population(
+        site, "mansion", SiteTier.MEDIUM, random.Random(33),
+    )
+    nobles = [p for p in placements if p.entity_id == "noble"]
+    assert nobles, "expected at least one noble"
+    assert nobles[0].level_id == site.buildings[0].ground.id
+
+
+def test_resolve_tower_lands_hermit_inside_tower() -> None:
+    """The tower hermit lands on the tower's ground floor (= the
+    first building's ground level for the single-building site)."""
+    from nhc.sites._site import assemble_site
+    site = assemble_site(
+        "tower", "t1", random.Random(41),
+    )
+    placements = resolve_site_population(
+        site, "tower", SiteTier.TINY, random.Random(43),
+    )
+    hermits = [p for p in placements if p.entity_id == "hermit"]
+    assert hermits, "expected at least one hermit"
+    assert hermits[0].level_id == site.buildings[0].ground.id
+
+
 def test_resolve_near_feature_skips_when_no_feature_tile() -> None:
     """``near_feature`` without ``feature_tile`` is a silent
     skip — generators that don't carry a centerpiece (clearings

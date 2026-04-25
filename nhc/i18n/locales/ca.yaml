@@ -1383,6 +1383,13 @@ creature:
     long: >-
       Un viatger amb hàbit gris, el cap inclinat davant el lloc
       sagrat, mormolant una pregària que ha portat per molts camins.
+  noble:
+    name: "noble"
+    gender: "m"
+    short: "un noble altiu"
+    long: >-
+      Senyor terratinent amb roba fina, mira cada visitant per damunt
+      del nas. Aquí la cortesia val més que el diner.
   campsite_traveller:
     name: "caminant"
     gender: "m"

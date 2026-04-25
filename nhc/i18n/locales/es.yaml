@@ -1312,6 +1312,13 @@ creature:
       Un viajero con hábito gris, la cabeza inclinada ante el
       lugar sagrado, murmurando una oración que ha llevado por
       muchos caminos.
+  noble:
+    name: "Noble"
+    gender: "m"
+    short: "un noble altanero"
+    long: >-
+      Señor terrateniente con ropajes finos, observa a cada visitante
+      por encima del hombro. Aquí la cortesía vale más que el dinero.
   campsite_traveller:
     name: "Viajero"
     gender: "m"

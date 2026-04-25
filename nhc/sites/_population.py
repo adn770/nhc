@@ -99,6 +99,22 @@ SITE_POPULATION: dict[tuple[str, SiteTier], list[PopulationEntry]] = {
             "campsite_traveller", "near_feature", 0, 1,
         ),
     ],
+    # Mansion: the lord stays in the main hall (buildings[0]); a
+    # household servant tends the garden surface around the
+    # estate. Buildings 1+ stay empty for now -- can extend with
+    # cook / valet specs once the placement strategy supports
+    # in_building_n.
+    ("mansion", SiteTier.MEDIUM): [
+        PopulationEntry("noble", "in_building_0", 1, 1),
+        PopulationEntry("villager", "on_open_surface", 0, 1),
+    ],
+    # Tower: a hermit / scholar lives on the ground floor. Mage
+    # towers and regular towers share the spec for now -- the
+    # mage_variant flag is internal to the assembler and doesn't
+    # leak into the kind name.
+    ("tower", SiteTier.TINY): [
+        PopulationEntry("hermit", "in_building_0", 1, 1),
+    ],
 }
 
 
