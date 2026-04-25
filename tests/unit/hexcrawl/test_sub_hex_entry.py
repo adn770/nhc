@@ -2257,6 +2257,73 @@ def test_replay_doors_restores_open_state(tmp_path) -> None:
     assert game.level.tile_at(3, 3).feature == "door_open"
 
 
+def test_sub_hex_farm_door_mutation_replays(tmp_path) -> None:
+    """A door-open mutation on a sub-hex farm surface persists
+    across LRU eviction. Pre-M5b the farm path lived on
+    ``_floor_cache`` (no mutation persistence) so this round-trip
+    reset the door to ``door_closed``; M5b folds the farm surface
+    onto :class:`SubHexCacheManager` so every sub-hex entry --
+    farm, wayside, sacred, etc. -- shares the LRU + on-disk
+    mutation replay behaviour."""
+    import asyncio
+
+    from nhc.sites._types import SiteTier
+
+    game, macro, sub_farm = _flower_fixture(
+        tmp_path, MinorFeatureType.FARM,
+    )
+    cell = game.hex_world.get_cell(macro)
+    sub_other = next(
+        c for c, sc in cell.flower.cells.items()
+        if c != sub_farm
+        and sc.minor_feature is MinorFeatureType.NONE
+        and sc.major_feature is HexFeatureType.NONE
+    )
+
+    # Enter the farm and verify the surface lives on the LRU
+    # manager, not on _floor_cache (the post-M5b invariant).
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_farm, "inhabited_settlement",
+            MinorFeatureType.FARM,
+            SiteTier.MEDIUM, Biome.GREENLANDS,
+        ),
+    )
+    surface_key = ("sub", macro.q, macro.r, sub_farm.q, sub_farm.r, 1)
+    assert game._sub_hex_cache is not None
+    assert game._sub_hex_cache.has(surface_key)
+    assert surface_key not in game._floor_cache
+
+    # Plant a closed-door tile we can flip and record the open
+    # mutation.
+    farm_surface = game.level
+    tile = farm_surface.tile_at(3, 3)
+    tile.feature = "door_closed"
+    game._set_sub_hex_mutation("doors", "3,3", "open")
+
+    # Force eviction of the farm by entering a different sub-hex
+    # under capacity=1. The farm's mutation record persists to
+    # disk on eviction.
+    _force_eviction(game, macro, sub_farm, sub_other, tmp_path)
+
+    # Re-enter the farm; cache miss, fresh assemble, mutation
+    # replay.
+    asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub_farm, "inhabited_settlement",
+            MinorFeatureType.FARM,
+            SiteTier.MEDIUM, Biome.GREENLANDS,
+        ),
+    )
+    assert game.level is not farm_surface, (
+        "post-eviction re-entry should produce a freshly "
+        "assembled surface"
+    )
+    assert game.level.tile_at(3, 3).feature == "door_open", (
+        "the door-open mutation must replay after eviction"
+    )
+
+
 def test_replay_terrain_restores_dug(tmp_path) -> None:
     """A dug wall persists across eviction — the tile comes back as
     floor with dug_wall True."""

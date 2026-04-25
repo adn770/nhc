@@ -923,7 +923,7 @@ class Game:
         Routes minor-feature FARMs onto
         :func:`nhc.sites.farm.assemble_farm` at ``tier=SMALL``.
         Mirrors the walled-site dispatch (surface entry +
-        ``_active_site``) but keys the floor cache under the
+        ``_active_site``) but keys the surface under the
         ``_active_site_sub`` slot so entries from different
         sub-hexes don't collide. A single farmer NPC is placed on
         a safe interior tile of the farmhouse; ``_active_site_sub``
@@ -931,10 +931,11 @@ class Game:
         ``leave_site.exit_farm`` line and restores the entry
         sub-hex on exit.
 
-        The sub-hex mutation cache (``_sub_hex_cache``) is not
-        used here — farm mutations share ``_floor_cache`` with
-        the macro farm, which is the plan's explicit milestone-3
-        split. Unification lands in M5.
+        Since M5b the farm surface lives on the
+        :class:`SubHexCacheManager` LRU + on-disk mutation cache,
+        same as every other unified sub-hex family. Building
+        floors continue to use ``_floor_cache`` (multi-floor
+        cache extension is tracked separately).
         """
         from nhc.hexcrawl.seed import dungeon_seed
         from nhc.sites._types import SiteTier
@@ -946,9 +947,14 @@ class Game:
 
         depth = 1
         cache_key = self._cache_key(depth)
-        if cache_key in self._floor_cache:
-            level, _ = self._floor_cache[cache_key]
-            self.level = level
+
+        self._ensure_sub_hex_cache()
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
             cached_site = self._site_cache.get(cache_key)
             if cached_site is not None:
                 self._active_site = cached_site
@@ -968,7 +974,20 @@ class Game:
         self.level = site.surface
         self._active_site = site
 
-        self._floor_cache[cache_key] = (self.level, {})
+        persisted_mutations: dict = {}
+        if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._sub_hex_cache.store(
+                cache_key, self.level,
+                mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
         for bi, b in enumerate(site.buildings):
             for fi, floor in enumerate(b.floors):
                 key = (
