@@ -1,7 +1,12 @@
-"""Noble — landed gentry residing in a mansion or estate."""
+"""Noble — landed gentry residing in a mansion or estate.
+
+Wandering errand AI keeps them pacing the main hall rather
+than rooted to a single tile; the populator stamps anchor_x /
+anchor_y so they stay near where the spec dropped them.
+"""
 
 from nhc.entities.components import (
-    AI, Health, Renderable, Stats,
+    AI, Errand, Health, Renderable, Stats,
 )
 from nhc.entities.registry import EntityRegistry, creature_desc
 
@@ -18,5 +23,6 @@ def create_noble() -> dict:
             intelligence=2, wisdom=2, charisma=3,
         ),
         "Health": Health(current=6, maximum=6),
-        "AI": AI(behavior="idle", morale=2, faction="human"),
+        "AI": AI(behavior="errand", morale=2, faction="human"),
+        "Errand": Errand(anchor_weight=0.7),
     }

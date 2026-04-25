@@ -290,6 +290,38 @@ def test_resolve_near_feature_skips_when_no_feature_tile() -> None:
     assert placements == []
 
 
+def test_wandering_npc_gets_errand_anchored_at_spawn() -> None:
+    """Wandering NPCs (farmer / farmhand / noble carry Errand
+    + ``behavior="errand"``) anchor at their spawn tile so they
+    stay near where they were placed instead of drifting across
+    the whole site."""
+    site = assemble_farm(
+        "fw1", random.Random(101), tier=SiteTier.TINY,
+    )
+    placements = resolve_site_population(
+        site, "farm", SiteTier.TINY, random.Random(103),
+    )
+    assert placements
+    world = _make_world()
+    eids = populate_site_placements(world, placements)
+    by_eid = dict(zip(eids, placements))
+    for eid, placement in by_eid.items():
+        ai = world.get_component(eid, "AI")
+        if ai is None or ai.behavior != "errand":
+            continue
+        errand = world.get_component(eid, "Errand")
+        assert errand is not None, (
+            f"errand AI {placement.entity_id} must carry an "
+            f"Errand component"
+        )
+        assert errand.anchor_x == placement.x, placement.entity_id
+        assert errand.anchor_y == placement.y, placement.entity_id
+        assert errand.anchor_weight > 0.0, (
+            "anchor_weight must be > 0 so the destination picker "
+            "actually biases toward the spawn tile"
+        )
+
+
 def test_populate_skips_killed_entries_on_replay() -> None:
     """Mutation replay: a placement whose stable id is in
     ``mutations["killed"]`` must not respawn on cache miss, the

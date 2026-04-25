@@ -197,6 +197,15 @@ def populate_site_placements(
             x=p.x, y=p.y, level_id=p.level_id,
         )
         comps["SubHexStableId"] = SubHexStableId(stable_id=sid)
+        # Wandering NPCs (errand AI) anchor at the spawn tile so
+        # they stay near where the population spec dropped them
+        # instead of drifting across the whole farm field /
+        # mansion garden / town square. Idle NPCs (no Errand
+        # component) skip this branch and stay rooted.
+        errand = comps.get("Errand")
+        if errand is not None:
+            errand.anchor_x = p.x
+            errand.anchor_y = p.y
         spawned.append(world.create_entity(comps))
     return spawned
 

@@ -1,13 +1,15 @@
 """Farmhand — silent farm-worker NPC on the surface fields.
 
 The farmer (rumour vendor) lives inside the farmhouse; farmhands
-work the surrounding fields. Idle behaviour, no rumours — they
-are population dressing that makes a farm read as a working
-place rather than an empty plot.
+work the surrounding fields. Wandering errand AI keeps them
+moving between rows of crops near the spawn tile rather than
+freezing in place — populate_site_placements stamps anchor_x /
+anchor_y at spawn time so they don't drift across the whole
+field.
 """
 
 from nhc.entities.components import (
-    AI, Health, Renderable, Stats,
+    AI, Errand, Health, Renderable, Stats,
 )
 from nhc.entities.registry import EntityRegistry, creature_desc
 
@@ -24,5 +26,6 @@ def create_farmhand() -> dict:
             intelligence=0, wisdom=1, charisma=0,
         ),
         "Health": Health(current=6, maximum=6),
-        "AI": AI(behavior="idle", morale=4, faction="human"),
+        "AI": AI(behavior="errand", morale=4, faction="human"),
+        "Errand": Errand(anchor_weight=0.7),
     }
