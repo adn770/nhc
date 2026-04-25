@@ -372,6 +372,62 @@ def test_sub_hex_cache_load_mutations_missing_returns_empty(tmp_path) -> None:
     assert mgr.load_mutations(("sub", 0, 0, 0, 0, 1)) == {}
 
 
+def test_site_cache_macro_key_round_trip(tmp_path) -> None:
+    """M6d-2: SiteCacheManager handles the macro
+    ``("site", q, r, depth)`` key shape alongside the existing
+    sub-hex tuple. Stored under a ``site_<q>_<r>.json`` filename
+    so the two shapes can co-exist in the same directory.
+    """
+    from nhc.core.site_cache import SiteCacheManager
+
+    mgr = SiteCacheManager(
+        capacity=2, storage_dir=tmp_path, player_id="p1",
+    )
+    macro_key = ("site", 4, 7, 1)
+    sub_key = ("sub", 4, 7, 0, 1, 1)
+    mgr.store(
+        macro_key, _fake_level("M"),
+        mutations={"doors": {"5,3": "open"}},
+    )
+    mgr.store(sub_key, _fake_level("S"), mutations={})
+
+    # Force eviction of the macro entry by exceeding capacity.
+    mgr.store(("sub", 4, 7, 0, 2, 1), _fake_level("S2"), mutations={})
+
+    macro_path = (
+        tmp_path / "players" / "p1" / "sub_hex_cache"
+        / "site_4_7.json"
+    )
+    assert macro_path.exists(), (
+        "macro site mutation record must land on a site_<q>_<r> "
+        "filename so it does not collide with sub-hex records"
+    )
+    loaded = mgr.load_mutations(macro_key)
+    assert loaded == {"doors": {"5,3": "open"}}
+    assert not macro_path.exists()
+
+
+def test_site_cache_unknown_key_shape_raises(tmp_path) -> None:
+    """The manager rejects an unrecognised key shape -- guards
+    against callers that quietly pass through legacy floor-cache
+    tuples (e.g. ``(q, r, depth)``) without the discriminator."""
+    from nhc.core.site_cache import SiteCacheManager
+
+    mgr = SiteCacheManager(
+        capacity=1, storage_dir=tmp_path, player_id="p1",
+    )
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        mgr.store(
+            (4, 7, 1), _fake_level("L"),
+            mutations={"doors": {"0,0": "open"}},
+        )
+        # Trigger eviction so _persist_mutations -> _path_for fires.
+        mgr.store(
+            ("sub", 0, 0, 0, 0, 1), _fake_level("L2"), mutations={},
+        )
+
+
 # ---------------------------------------------------------------------------
 # M3: family-based sub-hex site generators
 # ---------------------------------------------------------------------------

@@ -31,8 +31,11 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-# Today every key is a sub-hex tuple. M6d-2 will broaden the alias.
-SubHexKey = tuple  # ("sub", macro_q, macro_r, sub_q, sub_r, depth)
+# Two key shapes after M6d-2:
+#   ("sub",  macro_q, macro_r, sub_q, sub_r, depth)  -- sub-hex sites
+#   ("site", q, r, depth)                            -- macro sites
+# The on-disk path strategy (``_path_for``) dispatches on key[0].
+SiteKey = tuple
 
 DEFAULT_CAPACITY: int = 32
 
@@ -59,7 +62,7 @@ class SiteCacheManager:
         # OrderedDict preserves insertion order; we promote on access
         # with ``move_to_end`` and evict ``popitem(last=False)`` to
         # drop the oldest entry.
-        self._entries: "OrderedDict[SubHexKey, dict[str, Any]]" = (
+        self._entries: "OrderedDict[SiteKey, dict[str, Any]]" = (
             OrderedDict()
         )
 
@@ -71,16 +74,29 @@ class SiteCacheManager:
             / "sub_hex_cache"
         )
 
-    def _path_for(self, key: SubHexKey) -> Path:
-        _, mq, mr, sq, sr, _depth = key
-        return self._cache_dir() / f"{mq}_{mr}_{sq}_{sr}.json"
+    def _path_for(self, key: SiteKey) -> Path:
+        """On-disk filename for *key*.
+
+        Sub-hex keys keep their pre-M6d filename
+        (``{mq}_{mr}_{sq}_{sr}.json``) so old mutation records
+        on disk still load. Macro site keys land under a
+        ``site_{q}_{r}.json`` name -- the prefix disambiguates
+        the two key shapes living in the same directory.
+        """
+        if key[0] == "sub":
+            _, mq, mr, sq, sr, _depth = key
+            return self._cache_dir() / f"{mq}_{mr}_{sq}_{sr}.json"
+        if key[0] == "site":
+            _, q, r, _depth = key
+            return self._cache_dir() / f"site_{q}_{r}.json"
+        raise ValueError(f"unknown site cache key shape: {key!r}")
 
     # -- core cache API ---------------------------------------------
 
-    def has(self, key: SubHexKey) -> bool:
+    def has(self, key: SiteKey) -> bool:
         return key in self._entries
 
-    def get(self, key: SubHexKey) -> Any | None:
+    def get(self, key: SiteKey) -> Any | None:
         """Return the cached level (promoting to MRU) or ``None``."""
         entry = self._entries.get(key)
         if entry is None:
@@ -90,7 +106,7 @@ class SiteCacheManager:
 
     def store(
         self,
-        key: SubHexKey,
+        key: SiteKey,
         level: Any,
         *,
         mutations: dict[str, Any] | None = None,
@@ -113,7 +129,7 @@ class SiteCacheManager:
             self._persist_mutations(oldest_key, oldest_entry["mutations"])
 
     def update_mutations(
-        self, key: SubHexKey, mutations: dict[str, Any],
+        self, key: SiteKey, mutations: dict[str, Any],
     ) -> None:
         """Overwrite the mutation record attached to a cached level."""
         entry = self._entries.get(key)
@@ -125,7 +141,7 @@ class SiteCacheManager:
     # -- mutation persistence --------------------------------------
 
     def _persist_mutations(
-        self, key: SubHexKey, mutations: dict[str, Any],
+        self, key: SiteKey, mutations: dict[str, Any],
     ) -> None:
         """Write the sparse mutation record to disk on eviction.
 
@@ -134,14 +150,16 @@ class SiteCacheManager:
         """
         if not mutations:
             return
-        _, mq, mr, sq, sr, _depth = key
         path = self._path_for(key)
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "macro": [mq, mr],
-            "sub": [sq, sr],
-            "mutations": mutations,
-        }
+        payload: dict[str, Any] = {"mutations": mutations}
+        if key[0] == "sub":
+            _, mq, mr, sq, sr, _depth = key
+            payload["macro"] = [mq, mr]
+            payload["sub"] = [sq, sr]
+        elif key[0] == "site":
+            _, q, r, _depth = key
+            payload["macro"] = [q, r]
         path.write_text(json.dumps(payload))
 
     def gc_old_records(self, *, max_age_days: int = 90) -> int:
@@ -172,7 +190,7 @@ class SiteCacheManager:
                 pass
         return unlinked
 
-    def load_mutations(self, key: SubHexKey) -> dict[str, Any]:
+    def load_mutations(self, key: SiteKey) -> dict[str, Any]:
         """Load and delete the persisted mutation record for *key*.
 
         Returns an empty dict when no record exists. The file is
