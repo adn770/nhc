@@ -519,19 +519,20 @@ def test_natural_curiosity_small_tier() -> None:
 
 
 def test_undead_site_medium_tier() -> None:
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_undead_site,
-    )
+    """Graveyards now route through ``assemble_graveyard`` (retired
+    ``generate_undead_site`` in M4e of sites-unification)."""
+    import random
 
-    site = generate_undead_site(
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.graveyard import assemble_graveyard
+
+    site = assemble_graveyard(
+        "g", random.Random(1),
         feature=HexFeatureType.GRAVEYARD,
-        biome=Biome.DEADLANDS,
-        seed=1,
         tier=SiteTier.MEDIUM,
     )
     w, h = _tier_dims("medium")
-    assert (site.level.width, site.level.height) == (w, h)
+    assert (site.surface.width, site.surface.height) == (w, h)
 
 
 # ---------------------------------------------------------------------------
@@ -2356,38 +2357,55 @@ def test_undead_pool_has_core_creatures() -> None:
 
 
 def test_undead_site_populates_undead_creatures(tmp_path) -> None:
-    """generate_undead_site stamps 2+ undead creatures in population."""
-    from nhc.hexcrawl.model import Biome
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, generate_undead_site,
+    """``pick_undead_population`` stamps 2+ undead creatures, all
+    drawn from the tier pool. Replaces the
+    ``generate_undead_site`` legacy after M4e sites-unification."""
+    import random
+
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.graveyard import (
+        UNDEAD_POOL_BY_TIER,
+        assemble_graveyard,
+        pick_undead_population,
     )
 
-    site = generate_undead_site(
-        feature=None, biome=Biome.DEADLANDS, seed=42,
+    site = assemble_graveyard(
+        "g", random.Random(42),
+        feature=HexFeatureType.GRAVEYARD,
         tier=SiteTier.MEDIUM,
     )
-    creatures = [eid for eid, _ in site.population.creatures]
+    placements = pick_undead_population(
+        site.surface, random.Random(42), SiteTier.MEDIUM,
+    )
+    creatures = [cid for cid, _ in placements]
     assert creatures, "undead site must populate at least one creature"
-    undead_pool = {"skeleton", "zombie", "ghoul", "wraith"}
-    assert all(c in undead_pool for c in creatures), (
-        f"creatures must come from the undead pool, got {creatures}"
+    pool = set(UNDEAD_POOL_BY_TIER[SiteTier.MEDIUM])
+    assert all(c in pool for c in creatures), (
+        f"creatures must come from the MEDIUM pool, got {creatures}"
     )
 
 
 def test_undead_site_places_creatures_on_floor_tiles() -> None:
     """Every spawned creature lands on a walkable (non-wall) tile."""
+    import random
+
     from nhc.dungeon.model import Terrain
-    from nhc.hexcrawl.model import Biome
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, generate_undead_site,
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+    from nhc.sites.graveyard import (
+        assemble_graveyard,
+        pick_undead_population,
     )
 
-    site = generate_undead_site(
-        feature=None, biome=Biome.DEADLANDS, seed=123,
+    site = assemble_graveyard(
+        "g", random.Random(123),
+        feature=HexFeatureType.GRAVEYARD,
         tier=SiteTier.MEDIUM,
     )
-    for _, (x, y) in site.population.creatures:
-        tile = site.level.tile_at(x, y)
+    placements = pick_undead_population(
+        site.surface, random.Random(123), SiteTier.MEDIUM,
+    )
+    for _, (x, y) in placements:
+        tile = site.surface.tile_at(x, y)
         assert tile is not None
         assert tile.terrain is Terrain.FLOOR, (
             f"undead creature at ({x},{y}) must land on FLOOR, "

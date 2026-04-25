@@ -735,7 +735,6 @@ class Game:
         from nhc.hexcrawl.sub_hex_sites import (
             SiteTier,
             generate_inhabited_settlement_site,
-            generate_undead_site,
         )
 
         if (
@@ -764,11 +763,15 @@ class Game:
                 macro, sub, feature, biome,
             )
 
+        if family == "undead":
+            return await self._enter_sub_hex_graveyard(
+                macro, sub, tier, biome,
+            )
+
         family_dispatch = {
             "inhabited_settlement": (
                 generate_inhabited_settlement_site
             ),
-            "undead": generate_undead_site,
         }
         generator = family_dispatch.get(family)
         if generator is None:
@@ -1204,6 +1207,112 @@ class Game:
                  "crystals", "wonder", "portal"),
             ),
             population=SubHexPopulation(),
+        )
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
+
+        populate_sub_hex_site(
+            self.world, shim, mutations=persisted_mutations,
+        )
+        self._place_player_on_sub_hex_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    async def _enter_sub_hex_graveyard(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        tier,
+        biome,
+    ) -> bool:
+        """Enter a sub-hex GRAVEYARD through the unified graveyard
+        assembler. Stamps a ``tomb_entrance`` centrepiece and seeds
+        a tier-scaled undead garrison via the populator (so the
+        same graveyard reroll's the same corpses on re-entry, and
+        looted/killed mutations replay cleanly through the sub-hex
+        cache like every other unified family)."""
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SubHexPopulation,
+            SubHexSite,
+        )
+        from nhc.sites.graveyard import (
+            assemble_graveyard,
+            pick_undead_population,
+        )
+
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_descent_building = None
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+
+        self._ensure_sub_hex_cache()
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
+            self._place_player_on_sub_hex_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, macro, "bespoke:graveyard", sub=sub,
+        )
+        rng = random.Random(seed)
+        site = assemble_graveyard(
+            f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_graveyard",
+            rng,
+            feature=HexFeatureType.GRAVEYARD,
+            tier=tier,
+        )
+        self.level = site.surface
+        self._active_site = site
+
+        persisted_mutations: dict = {}
+        if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._sub_hex_cache.store(
+                cache_key, self.level, mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
+        self._site_cache[cache_key] = site
+
+        entry_tile = (
+            site.surface.width // 2, site.surface.height - 2,
+        )
+        self._sub_hex_entry_tile = entry_tile
+
+        feature_xy = self._find_feature_tile_on(
+            site.surface, ("tomb_entrance",),
+        )
+        reserved: set[tuple[int, int]] = {entry_tile}
+        if feature_xy is not None:
+            reserved.add(feature_xy)
+        creatures = pick_undead_population(
+            site.surface, rng, tier, exclude=reserved,
+        )
+
+        self._purge_entities_on_level(self.level.id)
+        shim = SubHexSite(
+            level=site.surface,
+            entry_tile=entry_tile,
+            feature_tile=feature_xy,
+            faction="undead",
+            population=SubHexPopulation(creatures=creatures),
         )
         from nhc.core.sub_hex_populator import populate_sub_hex_site
 

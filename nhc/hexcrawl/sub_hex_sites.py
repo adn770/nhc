@@ -338,81 +338,12 @@ def _scatter_orchard_trees(
 
 
 # ---------------------------------------------------------------------------
-# Family: undead (graveyard)
+# Family: undead (graveyard) — retired
 # ---------------------------------------------------------------------------
-
-
-_UNDEAD_POOL_BY_TIER: dict[SiteTier, list[str]] = {
-    # Lighter tier leans on the less-dangerous casualties; bigger
-    # graveyards add ghouls and eventually wraiths.
-    SiteTier.SMALL: ["skeleton", "zombie"],
-    SiteTier.MEDIUM: ["skeleton", "zombie", "ghoul"],
-    SiteTier.LARGE: ["skeleton", "zombie", "ghoul", "wraith"],
-}
-
-
-def _sample_floor_tiles(
-    level: Level, rng: random.Random, count: int,
-    *, exclude: set[tuple[int, int]] | None = None,
-) -> list[tuple[int, int]]:
-    """Pick ``count`` random walkable floor tiles, skipping excluded."""
-    exclude = exclude or set()
-    floors = [
-        (x, y)
-        for y, row in enumerate(level.tiles)
-        for x, tile in enumerate(row)
-        if tile.terrain is Terrain.FLOOR and (x, y) not in exclude
-    ]
-    if not floors:
-        return []
-    rng.shuffle(floors)
-    return floors[:count]
-
-
-def generate_undead_site(
-    *,
-    feature: "HexFeatureType | MinorFeatureType",
-    biome: Biome,
-    seed: int,
-    tier: SiteTier,
-) -> SubHexSite:
-    """Stone-walled graveyard with a tomb-entrance centrepiece and a
-    small undead garrison scaled by tier.
-
-    Population is seeded deterministically off the site seed so the
-    same graveyard reroll's the same corpses each time. Bigger tiers
-    add ghouls and wraiths on top of the skeleton / zombie baseline.
-    """
-    width, height = SITE_TIER_DIMS[tier]
-    rng = random.Random(seed)
-    level = _make_enclosed_level(
-        width=width, height=height,
-        level_id=f"sub_undead_{seed}",
-        name="graveyard", theme="crypt",
-    )
-    center = _central_feature_tile(width, height, rng)
-    _tag_feature(level, center, "tomb_entrance")
-
-    population = SubHexPopulation()
-    pool = _UNDEAD_POOL_BY_TIER[tier]
-    pop_count = {
-        SiteTier.SMALL: 2,
-        SiteTier.MEDIUM: 3,
-        SiteTier.LARGE: 5,
-    }[tier]
-    entry_tile = _south_gate_entry(width, height)
-    tiles = _sample_floor_tiles(
-        level, rng, pop_count,
-        exclude={center, entry_tile},
-    )
-    for xy in tiles:
-        creature_id = rng.choice(pool)
-        population.creatures.append((creature_id, xy))
-
-    return SubHexSite(
-        level=level,
-        entry_tile=entry_tile,
-        feature_tile=center,
-        faction="undead",
-        population=population,
-    )
+#
+# Graveyards now route through
+# :func:`nhc.sites.graveyard.assemble_graveyard` and
+# :meth:`Game._enter_sub_hex_graveyard` (milestone 4e). The
+# tier-scaled undead pool moved alongside the assembler as
+# ``UNDEAD_POOL_BY_TIER`` / ``UNDEAD_COUNT_BY_TIER`` and
+# ``pick_undead_population``.
