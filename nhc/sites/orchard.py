@@ -29,7 +29,7 @@ def assemble_orchard(
     feature: "HexFeatureType | MinorFeatureType" = (
         MinorFeatureType.ORCHARD
     ),
-    tier: SiteTier = SiteTier.MEDIUM,
+    tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble an orchard site."""
     del feature  # one shape today; kwarg kept for assembler-API parity

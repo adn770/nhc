@@ -535,13 +535,15 @@ class HexSession:
 
             if resolved[0] == "family":
                 _, family, feature = resolved
-                # Family tier: small for wayside / natural
-                # curiosity, medium for everyone else. Large tier
-                # is reserved for bespoke-only macros per the plan.
+                # Family tier: TINY for wayside / natural
+                # curiosity (single-feature minor sites), SMALL
+                # for everyone else (sacred / den / settlement /
+                # graveyard / etc.). MEDIUM and up are reserved
+                # for macro-scale sites tier-ised in M6b.
                 if family in ("wayside", "natural_curiosity"):
-                    tier = SiteTier.SMALL
+                    tier = SiteTier.TINY
                 else:
-                    tier = SiteTier.MEDIUM
+                    tier = SiteTier.SMALL
                 ok = await game.enter_sub_hex_family_site(
                     macro, sub, family, feature, tier,
                     sub_cell.biome,

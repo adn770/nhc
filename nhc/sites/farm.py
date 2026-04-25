@@ -33,36 +33,36 @@ from nhc.sites._site import (
 # ── Farm tunable constants (tier-indexed) ────────────────────
 
 FARM_SURFACE_WIDTH: dict[SiteTier, int] = {
-    SiteTier.SMALL: 15,
-    SiteTier.MEDIUM: 30,
+    SiteTier.TINY: 15,
+    SiteTier.SMALL: 30,
 }
 FARM_SURFACE_HEIGHT: dict[SiteTier, int] = {
-    SiteTier.SMALL: 10,
-    SiteTier.MEDIUM: 22,
+    SiteTier.TINY: 10,
+    SiteTier.SMALL: 22,
 }
 FARM_FARMHOUSE_POS: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.SMALL: (4, 2),
-    SiteTier.MEDIUM: (5, 4),
+    SiteTier.TINY: (4, 2),
+    SiteTier.SMALL: (5, 4),
 }
 FARM_FARMHOUSE_SIZE: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.SMALL: (7, 6),
-    SiteTier.MEDIUM: (8, 7),
+    SiteTier.TINY: (7, 6),
+    SiteTier.SMALL: (8, 7),
 }
 FARM_BARN_POS: dict[SiteTier, tuple[int, int] | None] = {
-    SiteTier.SMALL: None,
-    SiteTier.MEDIUM: (18, 10),
+    SiteTier.TINY: None,
+    SiteTier.SMALL: (18, 10),
 }
 FARM_BARN_SIZE: dict[SiteTier, tuple[int, int] | None] = {
-    SiteTier.SMALL: None,
-    SiteTier.MEDIUM: (6, 6),
+    SiteTier.TINY: None,
+    SiteTier.SMALL: (6, 6),
 }
 FARM_BARN_PROBABILITY: dict[SiteTier, float] = {
-    SiteTier.SMALL: 0.0,
-    SiteTier.MEDIUM: 0.5,
+    SiteTier.TINY: 0.0,
+    SiteTier.SMALL: 0.5,
 }
 FARM_DESCENT_PROBABILITY: dict[SiteTier, float] = {
-    SiteTier.SMALL: 0.0,
-    SiteTier.MEDIUM: 0.1,
+    SiteTier.TINY: 0.0,
+    SiteTier.SMALL: 0.1,
 }
 FARM_FLOOR_COUNT_RANGE = (1, 2)
 FARM_DESCENT_TEMPLATE = "procedural:crypt"
@@ -72,15 +72,16 @@ FARM_SHAPE_POOL = ("rect", "lshape")
 
 def assemble_farm(
     site_id: str, rng: random.Random,
-    *, tier: SiteTier = SiteTier.MEDIUM,
+    *, tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble a farm site.
 
     Returns a :class:`Site` with one farmhouse building and an
     optional barn, a FIELD-dominated surface level, and a
     GARDEN ring around the farmhouse. No enclosure. ``tier``
-    selects the footprint — ``SMALL`` drops the barn and the
-    descent; ``MEDIUM`` keeps the macro-feature defaults.
+    selects the footprint — ``TINY`` drops the barn and the
+    descent; ``SMALL`` keeps the macro-feature defaults
+    (optional barn + occasional descent).
     """
     farmhouse_pos = FARM_FARMHOUSE_POS[tier]
     farmhouse_size = FARM_FARMHOUSE_SIZE[tier]

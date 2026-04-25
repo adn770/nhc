@@ -15,17 +15,40 @@ from nhc.dungeon.model import Level
 
 
 class SiteTier(Enum):
-    """Thematic weight of a sub-hex site, sets the map footprint."""
+    """Thematic weight of a site, sets the map footprint.
 
+    Five-step scale spanning the unified site system after M6a:
+
+    * ``TINY`` -- single-feature sub-hex sites (wayside well /
+      signpost / clearing centerpiece).
+    * ``SMALL`` -- regular sub-hex sites with a centerpiece on a
+      walled field (sacred, animal den, graveyard, campsite,
+      orchard, sub-hex farm).
+    * ``MEDIUM`` -- smallest macro sites (hamlet, cottage, ruin,
+      mage_residence) and oversized sub-hex variants.
+    * ``LARGE`` -- mid-tier macros (village, keep, mansion, tower,
+      temple).
+    * ``HUGE`` -- top-tier settlements (town, city).
+
+    Values map to the canonical footprint via :data:`SITE_TIER_DIMS`;
+    individual assemblers may override with their own per-tier
+    tables when they have buildings or other size-driven detail
+    (see :mod:`nhc.sites.farm`, :mod:`nhc.sites.town`).
+    """
+
+    TINY = "tiny"
     SMALL = "small"
     MEDIUM = "medium"
     LARGE = "large"
+    HUGE = "huge"
 
 
 SITE_TIER_DIMS: dict[SiteTier, tuple[int, int]] = {
-    SiteTier.SMALL: (15, 10),
-    SiteTier.MEDIUM: (30, 20),
-    SiteTier.LARGE: (50, 30),
+    SiteTier.TINY: (15, 10),
+    SiteTier.SMALL: (30, 22),
+    SiteTier.MEDIUM: (48, 44),
+    SiteTier.LARGE: (72, 58),
+    SiteTier.HUGE: (104, 86),
 }
 
 

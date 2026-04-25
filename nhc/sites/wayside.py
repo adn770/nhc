@@ -32,7 +32,7 @@ def assemble_wayside(
     site_id: str, rng: random.Random,
     *,
     feature: "HexFeatureType | MinorFeatureType",
-    tier: SiteTier = SiteTier.SMALL,
+    tier: SiteTier = SiteTier.TINY,
 ) -> Site:
     """Assemble a wayside site.
 

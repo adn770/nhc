@@ -26,7 +26,7 @@ def assemble_den(
     *,
     feature: "HexFeatureType | MinorFeatureType",
     biome: Biome,
-    tier: SiteTier = SiteTier.MEDIUM,
+    tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble an animal-den site."""
     width, height = SITE_TIER_DIMS[tier]

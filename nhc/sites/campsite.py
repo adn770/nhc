@@ -25,7 +25,7 @@ def assemble_campsite(
     feature: "HexFeatureType | MinorFeatureType" = (
         MinorFeatureType.CAMPSITE
     ),
-    tier: SiteTier = SiteTier.MEDIUM,
+    tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble a campsite site."""
     del feature  # one shape today; kwarg kept for assembler-API parity

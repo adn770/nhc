@@ -969,7 +969,7 @@ class Game:
         site = assemble_farm(
             f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}_farm",
             random.Random(seed),
-            tier=SiteTier.SMALL,
+            tier=SiteTier.TINY,
         )
         self.level = site.surface
         self._active_site = site

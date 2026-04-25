@@ -33,7 +33,7 @@ def assemble_clearing(
     site_id: str, rng: random.Random,
     *,
     feature: "HexFeatureType | MinorFeatureType",
-    tier: SiteTier = SiteTier.SMALL,
+    tier: SiteTier = SiteTier.TINY,
 ) -> Site:
     """Assemble a clearing site."""
     width, height = SITE_TIER_DIMS[tier]

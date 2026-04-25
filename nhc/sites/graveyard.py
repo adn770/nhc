@@ -22,16 +22,20 @@ from nhc.sites._site import Site
 # Lighter tiers lean on the less-dangerous casualties; bigger
 # graveyards add ghouls and eventually wraiths.
 UNDEAD_POOL_BY_TIER: dict[SiteTier, list[str]] = {
+    SiteTier.TINY: ["skeleton"],
     SiteTier.SMALL: ["skeleton", "zombie"],
     SiteTier.MEDIUM: ["skeleton", "zombie", "ghoul"],
     SiteTier.LARGE: ["skeleton", "zombie", "ghoul", "wraith"],
+    SiteTier.HUGE: ["skeleton", "zombie", "ghoul", "wraith"],
 }
 
 
 UNDEAD_COUNT_BY_TIER: dict[SiteTier, int] = {
+    SiteTier.TINY: 1,
     SiteTier.SMALL: 2,
     SiteTier.MEDIUM: 3,
     SiteTier.LARGE: 5,
+    SiteTier.HUGE: 8,
 }
 
 
@@ -41,7 +45,7 @@ def assemble_graveyard(
     feature: "HexFeatureType | MinorFeatureType" = (
         HexFeatureType.GRAVEYARD
     ),
-    tier: SiteTier = SiteTier.MEDIUM,
+    tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble a graveyard site."""
     del feature  # one shape today; kwarg kept for assembler-API parity

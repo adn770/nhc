@@ -40,7 +40,7 @@ def assemble_sacred(
     site_id: str, rng: random.Random,
     *,
     feature: "HexFeatureType | MinorFeatureType",
-    tier: SiteTier = SiteTier.MEDIUM,
+    tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble a sacred site."""
     width, height = SITE_TIER_DIMS[tier]
