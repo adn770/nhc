@@ -1909,6 +1909,15 @@ class Game:
         # Stash the Site so warm-cache re-entries (above) can
         # restore it without rebuilding. See _site_cache docstring.
         self._site_cache[cache_key] = site
+        # Walled sites that opted into SITE_POPULATION (cottage
+        # so far) drop their containers / extra NPCs here on top
+        # of the assembler's pre-stamped contents. Kinds without
+        # an entry are a silent no-op.
+        self._populate_site_from_table(
+            site, kind, self._macro_tier_for_kind(kind),
+            random.Random(seed ^ 0xB1A2),
+            mutations=persisted_mutations,
+        )
         self._place_player_on_surface()
         self._place_expedition_henchmen(is_settlement=is_settlement)
         self._update_fov()

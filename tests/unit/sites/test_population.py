@@ -234,10 +234,11 @@ def test_tower_spec_has_resident_hermit() -> None:
     """A tower (mage variant or regular) keeps a single hermit /
     scholar on the ground floor."""
     entries = SITE_POPULATION[("tower", SiteTier.TINY)]
-    assert len(entries) == 1
-    assert entries[0].entity_id == "hermit"
-    assert entries[0].placement == "in_building_0"
-    assert entries[0].count_min == 1
+    creatures = [e for e in entries if e.kind == "creature"]
+    assert len(creatures) == 1
+    assert creatures[0].entity_id == "hermit"
+    assert creatures[0].placement == "in_building_0"
+    assert creatures[0].count_min == 1
 
 
 def test_resolve_mansion_lands_noble_inside_first_building() -> None:
@@ -288,6 +289,58 @@ def test_resolve_near_feature_skips_when_no_feature_tile() -> None:
     finally:
         del SITE_POPULATION[("farm", SiteTier.HUGE)]
     assert placements == []
+
+
+def test_farm_spec_includes_food_containers() -> None:
+    """Farms (TINY + SMALL) sprinkle barrel + crate inside the
+    farmhouse so the player can ransack the pantry like a
+    dungeon room."""
+    for tier in (SiteTier.TINY, SiteTier.SMALL):
+        entries = SITE_POPULATION[("farm", tier)]
+        feature_entries = [
+            e for e in entries if e.kind == "feature"
+        ]
+        ids = {e.entity_id for e in feature_entries}
+        assert "barrel" in ids, tier
+        for e in feature_entries:
+            assert e.placement == "in_building_0", (
+                f"{tier}: containers belong inside the farmhouse, "
+                f"not on the field"
+            )
+
+
+def test_populate_spawns_features_with_loot_table() -> None:
+    """Feature placements (kind='feature') resolve through
+    EntityRegistry.get_feature so the entity carries the
+    factory's LootTable -- ransackable by the existing item /
+    container interaction flow."""
+    site = assemble_farm(
+        "fc1", random.Random(202), tier=SiteTier.TINY,
+    )
+    placements = resolve_site_population(
+        site, "farm", SiteTier.TINY, random.Random(204),
+    )
+    feature_placements = [p for p in placements if p.kind == "feature"]
+    assert feature_placements, "expected feature placements on a TINY farm"
+
+    world = _make_world()
+    populate_site_placements(world, placements)
+    barrels_in_world = [
+        eid for eid, _ in world.query("LootTable")
+        if (desc := world.get_component(eid, "Description"))
+        and desc.name in ("Barrel", "Crate", "Chest")
+    ]
+    assert barrels_in_world, (
+        "spawned features must carry their factory LootTable"
+    )
+
+
+def test_cottage_spec_includes_pantry() -> None:
+    """Even an abandoned cottage has the previous tenant's
+    cupboard left to scavenge."""
+    entries = SITE_POPULATION[("cottage", SiteTier.TINY)]
+    ids = {e.entity_id for e in entries}
+    assert "barrel" in ids
 
 
 def test_wandering_npc_gets_errand_anchored_at_spawn() -> None:

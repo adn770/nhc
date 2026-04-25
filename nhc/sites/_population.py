@@ -46,6 +46,11 @@ class PopulationEntry:
       shrine / signpost). No-op when the caller doesn't supply a
       feature tile.
 
+    ``kind`` selects the registry the populator pulls components
+    from: ``"creature"`` for NPCs (default) or ``"feature"`` for
+    inert objects like barrels and crates that the player can
+    interact with.
+
     ``count_min`` / ``count_max`` give an inclusive range; the
     resolver rolls once per entry at site-generation time.
     """
@@ -54,6 +59,7 @@ class PopulationEntry:
     placement: str
     count_min: int = 1
     count_max: int = 1
+    kind: str = "creature"
 
 
 @dataclass(frozen=True)
@@ -64,6 +70,7 @@ class Placement:
     level_id: str
     x: int
     y: int
+    kind: str = "creature"
 
 
 # (kind, tier) -> [PopulationEntry, ...]. Kinds not in this table
@@ -73,10 +80,25 @@ SITE_POPULATION: dict[tuple[str, SiteTier], list[PopulationEntry]] = {
     ("farm", SiteTier.TINY): [
         PopulationEntry("farmer", "in_building_0", 1, 1),
         PopulationEntry("farmhand", "on_open_surface", 1, 2),
+        # Pantry-stocked farmhouse: a barrel of preserves and a
+        # food crate by the wall. Loot tables come from the
+        # feature factories in nhc/entities/features/.
+        PopulationEntry(
+            "barrel", "in_building_0", 1, 1, kind="feature",
+        ),
+        PopulationEntry(
+            "crate", "in_building_0", 0, 1, kind="feature",
+        ),
     ],
     ("farm", SiteTier.SMALL): [
         PopulationEntry("farmer", "in_building_0", 1, 1),
         PopulationEntry("farmhand", "on_open_surface", 2, 4),
+        PopulationEntry(
+            "barrel", "in_building_0", 1, 2, kind="feature",
+        ),
+        PopulationEntry(
+            "crate", "in_building_0", 1, 2, kind="feature",
+        ),
     ],
     # Shrines / standing stones / cairns: occasional pilgrim
     # praying at the centerpiece. count_min=0 makes the placement
@@ -101,19 +123,39 @@ SITE_POPULATION: dict[tuple[str, SiteTier], list[PopulationEntry]] = {
     ],
     # Mansion: the lord stays in the main hall (buildings[0]); a
     # household servant tends the garden surface around the
-    # estate. Buildings 1+ stay empty for now -- can extend with
-    # cook / valet specs once the placement strategy supports
-    # in_building_n.
+    # estate. Pantry stock lines the main hall walls.
     ("mansion", SiteTier.MEDIUM): [
         PopulationEntry("noble", "in_building_0", 1, 1),
         PopulationEntry("villager", "on_open_surface", 0, 1),
+        PopulationEntry(
+            "crate", "in_building_0", 1, 2, kind="feature",
+        ),
+        PopulationEntry(
+            "barrel", "in_building_0", 0, 1, kind="feature",
+        ),
     ],
     # Tower: a hermit / scholar lives on the ground floor. Mage
     # towers and regular towers share the spec for now -- the
     # mage_variant flag is internal to the assembler and doesn't
-    # leak into the kind name.
+    # leak into the kind name. A single barrel of provisions
+    # gives the tower a lived-in feel.
     ("tower", SiteTier.TINY): [
         PopulationEntry("hermit", "in_building_0", 1, 1),
+        PopulationEntry(
+            "barrel", "in_building_0", 0, 1, kind="feature",
+        ),
+    ],
+    # Cottage: hermit (or witch / abandoned) is rolled by the
+    # cottage assembler itself; SITE_POPULATION just sprinkles
+    # the pantry. Even an abandoned cottage has the previous
+    # tenant's cupboard left to scavenge.
+    ("cottage", SiteTier.TINY): [
+        PopulationEntry(
+            "barrel", "in_building_0", 1, 1, kind="feature",
+        ),
+        PopulationEntry(
+            "crate", "in_building_0", 0, 1, kind="feature",
+        ),
     ],
 }
 
@@ -189,10 +231,18 @@ def populate_site_placements(
         if sid in killed:
             continue
         try:
-            comps = EntityRegistry.get_creature(p.entity_id)
+            if p.kind == "feature":
+                comps = EntityRegistry.get_feature(p.entity_id)
+            else:
+                comps = EntityRegistry.get_creature(p.entity_id)
         except KeyError:
             continue
-        comps["BlocksMovement"] = BlocksMovement()
+        if p.kind != "feature":
+            # Creatures default to BlocksMovement; features
+            # declare BlocksMovement themselves when they want it
+            # (chest / barrel / crate already do, signposts /
+            # rumor signs leave it off).
+            comps["BlocksMovement"] = BlocksMovement()
         comps["Position"] = Position(
             x=p.x, y=p.y, level_id=p.level_id,
         )
@@ -201,7 +251,8 @@ def populate_site_placements(
         # they stay near where the population spec dropped them
         # instead of drifting across the whole farm field /
         # mansion garden / town square. Idle NPCs (no Errand
-        # component) skip this branch and stay rooted.
+        # component) skip this branch and stay rooted; features
+        # never carry Errand.
         errand = comps.get("Errand")
         if errand is not None:
             errand.anchor_x = p.x
@@ -235,6 +286,7 @@ def _pick_tile(
             entity_id=entry.entity_id,
             level_id=building.ground.id,
             x=xy[0], y=xy[1],
+            kind=entry.kind,
         )
     if entry.placement == "near_building_0_door":
         if not site.buildings:
@@ -249,6 +301,7 @@ def _pick_tile(
             entity_id=entry.entity_id,
             level_id=site.surface.id,
             x=xy[0], y=xy[1],
+            kind=entry.kind,
         )
     if entry.placement == "on_open_surface":
         xy = _pick_open_surface_tile(site, rng, surface_used)
@@ -258,6 +311,7 @@ def _pick_tile(
             entity_id=entry.entity_id,
             level_id=site.surface.id,
             x=xy[0], y=xy[1],
+            kind=entry.kind,
         )
     if entry.placement == "near_feature":
         if feature_tile is None:
@@ -271,6 +325,7 @@ def _pick_tile(
             entity_id=entry.entity_id,
             level_id=site.surface.id,
             x=xy[0], y=xy[1],
+            kind=entry.kind,
         )
     return None
 
