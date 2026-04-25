@@ -1116,16 +1116,12 @@ if (typeof WS !== "undefined") {
     }
     /* eslint-enable no-undef */
     _showMapView(view);
-    // First-entry default for each tile-layer view is 1.0x.
-    // Once the user zooms, the choice is remembered per view
-    // (site / structure / dungeon each carry their own index).
-    if (typeof GameMap !== "undefined"
-        && !(view in GameMap._zoomByView)) {
-      const idx = GameMap._zoomSteps.indexOf(1.0);
-      if (idx >= 0) GameMap._recordAutoFit(view, idx);
-      GameMap._applyScaleToContainer(view, idx);
-      if (typeof Input !== "undefined") Input._updateZoomLabel();
-    }
+    // The auto-fit + scale apply happen later, after the floor
+    // SVG arrives and GameMap.setFloorSVG learns the map's
+    // pixel dimensions (see _autoFitMapView in map.js). Site +
+    // structure share a zoom slot via _ZOOM_GROUPS, so the
+    // surface fit also pre-stamps the zoom for any building
+    // the player walks into.
     // Re-arm the static draw + scroll for the next time the
     // overland view comes back (canvas may have been resized
     // or cleared by the dungeon renderer).

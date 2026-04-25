@@ -65,6 +65,12 @@ const GameMap = {
   _zoomByView: {},
   _ZOOM_STORAGE_KEY: "nhc.zoom.byView.v2",
   _VALID_VIEWS: ["hex", "flower", "site", "structure", "dungeon"],
+  // Storage groups -- views that share a zoom slot. Site +
+  // structure (the building interior accessed by walking
+  // through a door from the site surface) deliberately share
+  // so the player gets no zoom flicker when crossing into a
+  // building. Hex / flower / dungeon each keep their own slot.
+  _ZOOM_GROUPS: { site: "site", structure: "site" },
   _glowAnimId: null,  // requestAnimationFrame ID for detected glow
 
   init() {
@@ -135,12 +141,24 @@ const GameMap = {
     }
     if (!parsed || typeof parsed !== "object") return;
     const maxIdx = this._zoomSteps.length - 1;
-    for (const key of this._VALID_VIEWS) {
+    // Accept any group key plus the legacy per-view keys (so a
+    // payload from before the site/structure merge still loads).
+    const validKeys = new Set([
+      ...this._VALID_VIEWS,
+      ...Object.values(this._ZOOM_GROUPS),
+    ]);
+    for (const key of validKeys) {
       const v = parsed[key];
       if (Number.isInteger(v) && v >= 0 && v <= maxIdx) {
         this._zoomByView[key] = v;
       }
     }
+  },
+
+  /** Storage-group key for ``view``. Views that don't appear in
+   * ``_ZOOM_GROUPS`` map to themselves. */
+  _zoomGroupForView(view) {
+    return this._ZOOM_GROUPS[view] || view;
   },
 
   /** Persist _zoomByView to localStorage. Best-effort. */
@@ -206,8 +224,9 @@ const GameMap = {
     if (!this._VALID_VIEWS.includes(view)) return;
     this._activeView = view;
     const defaultIdx = this._zoomSteps.indexOf(1.0);
-    const idx = (view in this._zoomByView)
-      ? this._zoomByView[view]
+    const groupKey = this._zoomGroupForView(view);
+    const idx = (groupKey in this._zoomByView)
+      ? this._zoomByView[groupKey]
       : (defaultIdx >= 0 ? defaultIdx : 0);
     this._zoomLevel = idx;
     this._applyScaleToContainer(view, idx);
@@ -217,12 +236,43 @@ const GameMap = {
   /**
    * Record the initial zoom chosen by a view's auto-fit so later
    * entries to the same view skip re-fitting and restore this
-   * value instead. Called by HexMap / HexFlower auto-fit helpers.
+   * value instead. Called by HexMap / HexFlower auto-fit helpers
+   * and by :meth:`_autoFitMapView`.
    */
   _recordAutoFit(view, idx) {
-    this._zoomByView[view] = idx;
+    this._zoomByView[this._zoomGroupForView(view)] = idx;
     this._zoomLevel = idx;
     this._saveZoomPrefs();
+  },
+
+  /**
+   * Pick the largest zoom step where the floor SVG fits the
+   * visible map-zone, then record + apply it. Returns the chosen
+   * index (or null when prerequisites aren't satisfied).
+   *
+   * Callable on site / structure / dungeon -- the active view's
+   * group decides the storage slot, so a site auto-fit also
+   * pre-stamps the zoom for any structure entered through the
+   * site's doors.
+   */
+  _autoFitMapView(view) {
+    const zone = document.getElementById("map-zone");
+    if (!zone || !this.mapW || !this.mapH) return null;
+    const zw = zone.clientWidth;
+    const zh = zone.clientHeight;
+    if (zw <= 0 || zh <= 0) return null;
+    // Cap at 4.0x so a tiny TINY-tier surface doesn't pixel-art
+    // itself across the whole viewport.
+    const fitScale = Math.min(zw / this.mapW, zh / this.mapH, 4.0);
+    const steps = this._zoomSteps;
+    let best = 0;
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i] <= fitScale + 0.01) best = i;
+    }
+    this._recordAutoFit(view, best);
+    this._applyScaleToContainer(view, best);
+    if (typeof Input !== "undefined") Input._updateZoomLabel();
+    return best;
   },
 
   setFloorSVG(svgString) {
@@ -263,6 +313,26 @@ const GameMap = {
       console.log("Floor SVG set:", w, "x", h,
                    "canvas:", this.canvas.width, this.canvas.height,
                    "fog:", this.fogCanvas?.width, this.fogCanvas?.height);
+      // Auto-fit on first entry to a tile-layer view (site /
+      // structure / dungeon). The site + structure share a
+      // storage slot via _ZOOM_GROUPS, so the surface fit also
+      // pre-stamps the zoom for any building the player walks
+      // into. Once the user zooms manually the saved value
+      // takes over and the auto-fit becomes a no-op.
+      const view = this._activeView;
+      if (view === "site" || view === "structure"
+          || view === "dungeon") {
+        const groupKey = this._zoomGroupForView(view);
+        if (!(groupKey in this._zoomByView)) {
+          // The map-zone may not have its final clientWidth /
+          // clientHeight until the browser lays out the just-
+          // installed SVG; defer to the next frame so the
+          // measurement reflects the post-mount state.
+          requestAnimationFrame(() => {
+            this._autoFitMapView(view);
+          });
+        }
+      }
     } else {
       console.warn("No <svg> found in floor SVG string");
     }
@@ -466,7 +536,7 @@ const GameMap = {
       this._zoomSteps.length - 1, cur + dir));
     if (newLevel === cur) return;
     this._zoomLevel = newLevel;
-    this._zoomByView[this._activeView] = newLevel;
+    this._zoomByView[this._zoomGroupForView(this._activeView)] = newLevel;
     this._saveZoomPrefs();
     this._applyScaleToContainer(this._activeView, newLevel);
     // Centre on the player in the active view.
