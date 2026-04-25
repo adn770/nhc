@@ -297,6 +297,12 @@ def _build_farm_surface(
                 if dist == FARM_GARDEN_RING + 1:
                     garden_tiles.add((ax, ay))
 
+    # The farm surface is an outdoor place — match the keep / town
+    # / cottage / orchard convention so the renderer skips the
+    # dungeon hatching and the client ships it prerevealed (entity
+    # visibility still gates on FOV).
+    surface.metadata.theme = "farm"
+    surface.metadata.prerevealed = True
     # Fill surface: FIELD everywhere open, GARDEN in the ring.
     for y in range(surface.height):
         for x in range(surface.width):

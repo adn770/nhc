@@ -93,6 +93,21 @@ class TestTinyFarm:
         gardens = _count_surface(site, SurfaceType.GARDEN)
         assert gardens >= 1
 
+    def test_surface_metadata_is_outdoor_and_prerevealed(self):
+        """Production bug 2026-04-25: the farm surface rendered with
+        the dungeon theme (hatched walls, dark fog) and full fog of
+        war because :func:`assemble_farm` skipped the metadata
+        bookkeeping every other site assembler does. The TINY (and
+        every other tier) farm surface is an outdoor place — set
+        ``theme="farm"`` and ``prerevealed=True`` so the renderer
+        treats it like the cottage / orchard / town surfaces."""
+        for tier in (SiteTier.TINY, SiteTier.SMALL):
+            site = assemble_farm(
+                "f1", random.Random(1), tier=tier,
+            )
+            assert site.surface.metadata.theme == "farm", tier
+            assert site.surface.metadata.prerevealed is True, tier
+
 
 class TestTinyFarmFarmhouse:
     """The TINY farm renders a real farmhouse: walled interior, a
