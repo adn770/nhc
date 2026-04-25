@@ -4,14 +4,17 @@ Used by the flower view's ``hex_enter`` handler to decide how to
 enter the sub-hex the player is currently standing on. There are
 four possible outcomes:
 
-- ``("bespoke", site_kind)`` — the feature has a hand-tuned macro
-  generator (town, keep, tower, mansion, farm, cottage, ruin,
-  temple, cave). Route through the existing macro site pipeline.
-- ``("family", family_name, feature)`` — handled by one of the six
-  per-family assemblers in ``nhc/sites/`` (wayside, clearing, den,
-  sacred, graveyard, settlement) via the unified sub-hex dispatcher.
-- ``("non-enterable", reason)`` — lake, river. The caller should
-  emit a feature-specific rejection message.
+- ``("site", kind, tier)`` — every flower feature that produces
+  a surface site (towns, keeps, mansions, towers, farms, cottages,
+  ruins, temples, mage_residences, plus the sub-hex families
+  wayside / clearing / sacred / den / graveyard / campsite /
+  orchard). The caller routes through ``Game.enter_site``.
+- ``("dungeon", template)`` — cave / hole. No surface site; the
+  caller routes straight into the cellular dungeon system via
+  ``Game.enter_dungeon``. Cave clusters share Floor 2 the same
+  way they did before unification.
+- ``("non-enterable", reason)`` — lake, river. Emit a
+  feature-specific rejection message.
 - ``None`` — the sub-hex is empty; "nothing to enter here."
 """
 
@@ -22,12 +25,28 @@ from nhc.hexcrawl.model import (
     MinorFeatureType,
     SubHexCell,
 )
+from nhc.sites._types import SiteTier
 
 
-# Macro features with hand-tuned bespoke generators. ``site_kind``
-# is the string the existing macro pipeline passes to
-# ``Game._enter_walled_site`` / sibling methods.
-_BESPOKE_MAJOR: dict[HexFeatureType, str] = {
+_NON_ENTERABLE_MAJOR: dict[HexFeatureType, str] = {
+    HexFeatureType.LAKE: "lake",
+    HexFeatureType.RIVER: "river",
+}
+
+# Cave / hole features dispatch to the dungeon system directly --
+# no surface site (Q1 of the convergence plan). Template strings
+# match the ones the dungeon path already keys off of.
+_DUNGEON_MAJOR: dict[HexFeatureType, str] = {
+    HexFeatureType.CAVE: "procedural:cave",
+    HexFeatureType.HOLE: "procedural:cave",
+}
+
+# Macro features that produce a surface site. The ``kind`` value
+# is the string the unified ``Game.enter_site`` switches on; the
+# tier is the assembler's preferred footprint. Towns derive their
+# tier from ``cell.dungeon.size_class`` so the four-step
+# hamlet/village/town/city scale survives intact.
+_MACRO_KIND: dict[HexFeatureType, str] = {
     HexFeatureType.CITY: "town",
     HexFeatureType.VILLAGE: "town",
     HexFeatureType.COMMUNITY: "town",
@@ -38,48 +57,80 @@ _BESPOKE_MAJOR: dict[HexFeatureType, str] = {
     HexFeatureType.COTTAGE: "cottage",
     HexFeatureType.TEMPLE: "temple",
     HexFeatureType.RUIN: "ruin",
-    HexFeatureType.CAVE: "cave",
-    HexFeatureType.HOLE: "cave",
-}
-
-_NON_ENTERABLE_MAJOR: dict[HexFeatureType, str] = {
-    HexFeatureType.LAKE: "lake",
-    HexFeatureType.RIVER: "river",
-}
-
-# Major features that route through a family generator (no bespoke
-# path). ``graveyard`` is handled by the new Undead family;
-# ``crystals/stones/wonder/portal`` by Sacred.
-_FAMILY_MAJOR: dict[HexFeatureType, str] = {
-    HexFeatureType.GRAVEYARD: "undead",
+    HexFeatureType.GRAVEYARD: "graveyard",
     HexFeatureType.CRYSTALS: "sacred",
     HexFeatureType.STONES: "sacred",
     HexFeatureType.WONDER: "sacred",
     HexFeatureType.PORTAL: "sacred",
 }
 
-_FAMILY_MINOR: dict[MinorFeatureType, str] = {
-    # Wayside
+_MACRO_TIER: dict[HexFeatureType, SiteTier] = {
+    HexFeatureType.KEEP: SiteTier.MEDIUM,
+    HexFeatureType.TOWER: SiteTier.TINY,
+    HexFeatureType.MANSION: SiteTier.MEDIUM,
+    HexFeatureType.FARM: SiteTier.SMALL,
+    HexFeatureType.COTTAGE: SiteTier.TINY,
+    HexFeatureType.TEMPLE: SiteTier.SMALL,
+    HexFeatureType.RUIN: SiteTier.TINY,
+    HexFeatureType.GRAVEYARD: SiteTier.SMALL,
+    HexFeatureType.CRYSTALS: SiteTier.SMALL,
+    HexFeatureType.STONES: SiteTier.SMALL,
+    HexFeatureType.WONDER: SiteTier.SMALL,
+    HexFeatureType.PORTAL: SiteTier.SMALL,
+}
+
+# Town size_class -> tier. The middle "town" size_class collapses
+# onto HUGE (alongside city); the dispatcher continues to read
+# size_class directly when it routes to ``assemble_town`` so the
+# "town" gameplay variant is still reachable.
+_TOWN_SIZE_CLASS_TO_TIER: dict[str, SiteTier] = {
+    "hamlet": SiteTier.MEDIUM,
+    "village": SiteTier.LARGE,
+    "town": SiteTier.HUGE,
+    "city": SiteTier.HUGE,
+}
+
+_MINOR_KIND: dict[MinorFeatureType, str] = {
+    # Wayside (TINY centerpiece)
     MinorFeatureType.WELL: "wayside",
     MinorFeatureType.SIGNPOST: "wayside",
-    # Sacred
+    # Sacred (SMALL plaza)
     MinorFeatureType.SHRINE: "sacred",
     MinorFeatureType.STANDING_STONE: "sacred",
     MinorFeatureType.CAIRN: "sacred",
-    # Inhabited settlement
-    MinorFeatureType.FARM: "inhabited_settlement",
-    MinorFeatureType.CAMPSITE: "inhabited_settlement",
-    MinorFeatureType.ORCHARD: "inhabited_settlement",
-    # Natural curiosity
-    MinorFeatureType.MUSHROOM_RING: "natural_curiosity",
-    MinorFeatureType.HERB_PATCH: "natural_curiosity",
-    MinorFeatureType.HOLLOW_LOG: "natural_curiosity",
-    MinorFeatureType.BONE_PILE: "natural_curiosity",
-    # Animal den
-    MinorFeatureType.ANIMAL_DEN: "animal_den",
-    MinorFeatureType.LAIR: "animal_den",
-    MinorFeatureType.NEST: "animal_den",
-    MinorFeatureType.BURROW: "animal_den",
+    # Settlement (TINY farm; SMALL campsite/orchard)
+    MinorFeatureType.FARM: "farm",
+    MinorFeatureType.CAMPSITE: "campsite",
+    MinorFeatureType.ORCHARD: "orchard",
+    # Natural curiosity (TINY clearing)
+    MinorFeatureType.MUSHROOM_RING: "clearing",
+    MinorFeatureType.HERB_PATCH: "clearing",
+    MinorFeatureType.HOLLOW_LOG: "clearing",
+    MinorFeatureType.BONE_PILE: "clearing",
+    # Animal den (SMALL den-mouth + walled field)
+    MinorFeatureType.ANIMAL_DEN: "den",
+    MinorFeatureType.LAIR: "den",
+    MinorFeatureType.NEST: "den",
+    MinorFeatureType.BURROW: "den",
+}
+
+_MINOR_TIER: dict[MinorFeatureType, SiteTier] = {
+    MinorFeatureType.WELL: SiteTier.TINY,
+    MinorFeatureType.SIGNPOST: SiteTier.TINY,
+    MinorFeatureType.SHRINE: SiteTier.SMALL,
+    MinorFeatureType.STANDING_STONE: SiteTier.SMALL,
+    MinorFeatureType.CAIRN: SiteTier.SMALL,
+    MinorFeatureType.FARM: SiteTier.TINY,
+    MinorFeatureType.CAMPSITE: SiteTier.SMALL,
+    MinorFeatureType.ORCHARD: SiteTier.SMALL,
+    MinorFeatureType.MUSHROOM_RING: SiteTier.TINY,
+    MinorFeatureType.HERB_PATCH: SiteTier.TINY,
+    MinorFeatureType.HOLLOW_LOG: SiteTier.TINY,
+    MinorFeatureType.BONE_PILE: SiteTier.TINY,
+    MinorFeatureType.ANIMAL_DEN: SiteTier.SMALL,
+    MinorFeatureType.LAIR: SiteTier.SMALL,
+    MinorFeatureType.NEST: SiteTier.SMALL,
+    MinorFeatureType.BURROW: SiteTier.SMALL,
 }
 
 
@@ -93,19 +144,31 @@ def resolve_sub_hex_entry(
     if major in _NON_ENTERABLE_MAJOR:
         return ("non-enterable", _NON_ENTERABLE_MAJOR[major])
 
-    if major in _BESPOKE_MAJOR:
-        # The ref on the sub-hex tells the pipeline the site_kind,
-        # but we keep the resolver a pure function of major so the
-        # dispatcher doesn't need a dungeon to dispatch.
-        site_kind = _BESPOKE_MAJOR[major]
+    if major in _DUNGEON_MAJOR:
+        return ("dungeon", _DUNGEON_MAJOR[major])
+
+    if major in _MACRO_KIND:
+        kind = _MACRO_KIND[major]
+        # The DungeonRef on the feature_cell still carries the
+        # generator-stamped site_kind for back-compat (e.g. the
+        # macro pipeline overrides "town" with the specific site
+        # kind for hub cities). When set, it wins.
         if sub_cell.dungeon is not None and sub_cell.dungeon.site_kind:
-            site_kind = sub_cell.dungeon.site_kind
-        return ("bespoke", site_kind)
+            kind = sub_cell.dungeon.site_kind
+        if kind == "town":
+            size_class: str | None = None
+            if sub_cell.dungeon is not None:
+                size_class = sub_cell.dungeon.size_class
+            tier = _TOWN_SIZE_CLASS_TO_TIER.get(
+                size_class or "village", SiteTier.LARGE,
+            )
+        else:
+            tier = _MACRO_TIER.get(major, SiteTier.SMALL)
+        return ("site", kind, tier)
 
-    if major in _FAMILY_MAJOR:
-        return ("family", _FAMILY_MAJOR[major], major)
-
-    if minor in _FAMILY_MINOR:
-        return ("family", _FAMILY_MINOR[minor], minor)
+    if minor in _MINOR_KIND:
+        kind = _MINOR_KIND[minor]
+        tier = _MINOR_TIER.get(minor, SiteTier.SMALL)
+        return ("site", kind, tier)
 
     return None

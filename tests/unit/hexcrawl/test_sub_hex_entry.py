@@ -558,9 +558,12 @@ def _sub_cell(*, major=HexFeatureType.NONE, minor=None, dungeon=None):
     )
 
 
-def test_resolve_entry_bespoke_town() -> None:
-    """A feature_cell sub-hex with a town DungeonRef resolves to bespoke."""
+def test_resolve_entry_macro_town() -> None:
+    """A feature_cell sub-hex with a town DungeonRef resolves to a
+    site entry, with the kind matching the size_class-aware
+    site_kind override and the tier derived from size_class."""
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(
         major=HexFeatureType.CITY,
@@ -569,13 +572,15 @@ def test_resolve_entry_bespoke_town() -> None:
             site_kind="town", size_class="city",
         ),
     )
-    kind, payload = resolve_sub_hex_entry(sub)
-    assert kind == "bespoke"
-    assert payload == "town"
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "town"
+    assert tier is SiteTier.HUGE
 
 
-def test_resolve_entry_bespoke_tower() -> None:
+def test_resolve_entry_macro_tower() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(
         major=HexFeatureType.TOWER,
@@ -583,87 +588,103 @@ def test_resolve_entry_bespoke_tower() -> None:
             template="procedural:tower", depth=1, site_kind="tower",
         ),
     )
-    kind, payload = resolve_sub_hex_entry(sub)
-    assert kind == "bespoke"
-    assert payload == "tower"
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "tower"
+    assert tier is SiteTier.TINY
 
 
-def test_resolve_entry_bespoke_cave() -> None:
+def test_resolve_entry_dungeon_cave() -> None:
+    """Caves dispatch to the dungeon path, not the site path."""
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
 
     sub = _sub_cell(
         major=HexFeatureType.CAVE,
         dungeon=DungeonRef(template="procedural:cave", depth=1),
     )
-    kind, payload = resolve_sub_hex_entry(sub)
-    assert kind == "bespoke"
-    assert payload == "cave"
+    route, template = resolve_sub_hex_entry(sub)
+    assert route == "dungeon"
+    assert template == "procedural:cave"
 
 
-def test_resolve_entry_family_wayside_well() -> None:
+def test_resolve_entry_minor_wayside_well() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.WELL)
-    kind, family, feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "wayside"
-    assert feature is MinorFeatureType.WELL
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "wayside"
+    assert tier is SiteTier.TINY
 
 
-def test_resolve_entry_family_wayside_signpost() -> None:
+def test_resolve_entry_minor_wayside_signpost() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.SIGNPOST)
-    kind, family, feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "wayside"
-    assert feature is MinorFeatureType.SIGNPOST
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "wayside"
+    assert tier is SiteTier.TINY
 
 
-def test_resolve_entry_family_inhabited_farm() -> None:
+def test_resolve_entry_minor_farm() -> None:
+    """Sub-hex farm minor resolves to the ``farm`` kind at the
+    TINY tier (the cramped 15x10 footprint), distinct from the
+    macro farm which sits at SMALL."""
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.FARM)
-    kind, family, feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "inhabited_settlement"
-    assert feature is MinorFeatureType.FARM
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "farm"
+    assert tier is SiteTier.TINY
 
 
-def test_resolve_entry_family_sacred_shrine() -> None:
+def test_resolve_entry_minor_sacred_shrine() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.SHRINE)
-    kind, family, _feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "sacred"
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "sacred"
+    assert tier is SiteTier.SMALL
 
 
-def test_resolve_entry_family_animal_den() -> None:
+def test_resolve_entry_minor_animal_den() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.LAIR)
-    kind, family, _feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "animal_den"
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "den"
+    assert tier is SiteTier.SMALL
 
 
-def test_resolve_entry_family_curiosity_mushrooms() -> None:
+def test_resolve_entry_minor_clearing_mushrooms() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.MUSHROOM_RING)
-    kind, family, _feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "natural_curiosity"
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "clearing"
+    assert tier is SiteTier.TINY
 
 
-def test_resolve_entry_family_undead_graveyard() -> None:
+def test_resolve_entry_macro_graveyard() -> None:
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(major=HexFeatureType.GRAVEYARD)
-    kind, family, _feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "undead"
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "graveyard"
+    assert tier is SiteTier.SMALL
 
 
 def test_resolve_entry_non_enterable_lake() -> None:
@@ -867,6 +888,53 @@ def test_enter_site_unknown_kind_returns_false(tmp_path) -> None:
     assert ok is False
     # No state mutated on a failed dispatch.
     assert game._active_site is None
+    assert game._active_site_sub is None
+
+
+def test_enter_site_macro_keep_routes_to_walled_site(tmp_path) -> None:
+    """``Game.enter_site(kind='keep', tier=MEDIUM, ...)`` routes
+    through the existing macro walled-site pipeline. The unified
+    dispatcher accepts macro kinds without forcing them through
+    the sub-hex helper -- that's the M6c contract."""
+    import asyncio
+
+    from nhc.hexcrawl.coords import HexCoord
+    from nhc.hexcrawl.model import (
+        DungeonRef, HexFeatureType,
+    )
+    from nhc.sites._types import SiteTier
+
+    game, macro, sub_other = _flower_fixture(
+        tmp_path, MinorFeatureType.WELL,
+    )
+    # Stamp KEEP onto the macro's feature_cell sub-hex AND the
+    # macro cell itself so the underlying _enter_walled_site (which
+    # still reads cell.dungeon) can find a DungeonRef.
+    cell = game.hex_world.get_cell(macro)
+    feature_cell = next(iter(cell.flower.cells))
+    sub_cell = cell.flower.cells[feature_cell]
+    sub_cell.major_feature = HexFeatureType.KEEP
+    sub_cell.minor_feature = MinorFeatureType.NONE
+    sub_cell.dungeon = DungeonRef(
+        template="procedural:keep", depth=1, site_kind="keep",
+    )
+    cell.feature = HexFeatureType.KEEP
+    cell.dungeon = DungeonRef(
+        template="procedural:keep", depth=1, site_kind="keep",
+    )
+
+    ok = asyncio.run(
+        game.enter_site(
+            macro, feature_cell, "keep", SiteTier.MEDIUM,
+            biome=cell.biome,
+        ),
+    )
+    assert ok is True
+    assert game._active_site is not None
+    assert game._active_site.kind == "keep"
+    # Macro entries leave _active_site_sub None so the legacy
+    # (q, r, depth) cache namespace stays intact (M6d cleans
+    # this up).
     assert game._active_site_sub is None
 
 
@@ -2539,34 +2607,36 @@ def test_undead_locale_round_trip() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_hole_macro_routes_to_cave_bespoke() -> None:
-    """A HOLE major sub-cell resolves to the cave bespoke pipeline."""
+def test_resolve_hole_routes_to_dungeon() -> None:
+    """A HOLE major sub-cell resolves to the dungeon pipeline."""
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
 
     sub = _sub_cell(
         major=HexFeatureType.HOLE,
         dungeon=DungeonRef(template="procedural:cave", depth=1),
     )
-    kind, payload = resolve_sub_hex_entry(sub)
-    assert kind == "bespoke"
-    assert payload == "cave"
+    route, template = resolve_sub_hex_entry(sub)
+    assert route == "dungeon"
+    assert template == "procedural:cave"
 
 
-def test_resolve_lair_minor_routes_to_animal_den_family() -> None:
-    """A LAIR minor sub-cell resolves to the animal_den family."""
+def test_resolve_lair_minor_routes_to_den_site() -> None:
+    """A LAIR minor sub-cell resolves to the ``den`` site kind."""
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
+    from nhc.sites._types import SiteTier
 
     sub = _sub_cell(minor=MinorFeatureType.LAIR)
-    kind, family, feature = resolve_sub_hex_entry(sub)
-    assert kind == "family"
-    assert family == "animal_den"
-    assert feature is MinorFeatureType.LAIR
+    route, kind, tier = resolve_sub_hex_entry(sub)
+    assert route == "site"
+    assert kind == "den"
+    assert tier is SiteTier.SMALL
 
 
 def test_resolve_hole_and_lair_are_distinct() -> None:
     """Regression: HOLE and LAIR must not collide on a single route —
-    the sub-hex entry plan (D6) calls for them to split between the
-    bespoke cave pipeline and the animal_den family generator."""
+    HOLE goes to the dungeon system (no surface site, straight to
+    Floor 1) while LAIR is a ``den`` site with a ``den_mouth``
+    centerpiece on a walled FIELD clearing."""
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
 
     hole_sub = _sub_cell(
@@ -2577,13 +2647,13 @@ def test_resolve_hole_and_lair_are_distinct() -> None:
     hole_route = resolve_sub_hex_entry(hole_sub)
     lair_route = resolve_sub_hex_entry(lair_sub)
     assert hole_route != lair_route
-    assert hole_route[0] == "bespoke"
-    assert lair_route[0] == "family"
+    assert hole_route[0] == "dungeon"
+    assert lair_route[0] == "site"
 
 
 def test_hole_flower_entry_lands_on_cave_floor(tmp_path) -> None:
     """End-to-end: entering a HOLE sub-hex lands the player on a
-    cave floor via the bespoke pipeline, not an animal_den family."""
+    cave floor via the dungeon pipeline, not a den site."""
     import asyncio
 
     from nhc.core.sub_hex_entry import resolve_sub_hex_entry
@@ -2591,7 +2661,7 @@ def test_hole_flower_entry_lands_on_cave_floor(tmp_path) -> None:
 
     game, macro, sub = _flower_fixture(tmp_path, MinorFeatureType.WELL)
     # Stamp HOLE on the sub-cell the player is standing on AND the
-    # macro cell itself, because enter_hex_feature reads the macro
+    # macro cell itself, because enter_dungeon reads the macro
     # DungeonRef.
     cell = game.hex_world.get_cell(macro)
     sub_cell = cell.flower.cells[sub]
@@ -2604,12 +2674,12 @@ def test_hole_flower_entry_lands_on_cave_floor(tmp_path) -> None:
     cell.dungeon = DungeonRef(
         template="procedural:cave", depth=1,
     )
-    # The resolver must pick the bespoke cave route for HOLE.
+    # The resolver must pick the dungeon route for HOLE.
     resolved = resolve_sub_hex_entry(sub_cell)
-    assert resolved == ("bespoke", "cave")
-    # Loading the feature through the macro pipeline must succeed
-    # and leave _active_site_sub cleared (that marker is family-only).
-    ok = asyncio.run(game.enter_hex_feature())
+    assert resolved == ("dungeon", "procedural:cave")
+    # Loading the feature through the dungeon pipeline must succeed
+    # and leave _active_site_sub cleared (sub-hex marker only).
+    ok = asyncio.run(game.enter_dungeon())
     assert ok is True
     assert game.level is not None
     assert game._active_site_sub is None

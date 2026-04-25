@@ -475,7 +475,7 @@ class HexSession:
             # cell. Each sub-hex with a feature is independently
             # enterable; the old "feature_cell gate" is gone.
             from nhc.core.sub_hex_entry import resolve_sub_hex_entry
-            from nhc.sites._types import SiteTier
+            from nhc.hexcrawl.model import HexFeatureType, MinorFeatureType
 
             macro = game.hex_world.exploring_hex
             sub = game.hex_world.exploring_sub_hex
@@ -512,19 +512,32 @@ class HexSession:
                 )
                 return "ignored"
 
-            if resolved[0] == "bespoke":
-                # Existing macro pipeline reads ``hex_player_position``
-                # and the macro cell's DungeonRef. The sub-hex's
-                # folded DungeonRef means even non-feature_cell
-                # sub-hexes could in principle dispatch here, but
-                # today only the feature_cell carries the ref.
-                ok = await game.enter_hex_feature()
+            def _enter_message_key() -> str:
+                """Pick the locale key for the enter-feature
+                narration. Macro features key off the macro cell's
+                feature; minor features key off the sub-hex's minor
+                feature."""
+                minor = sub_cell.minor_feature
+                if minor is not MinorFeatureType.NONE:
+                    return f"hex.minor.{minor.value}"
+                if cell.feature is not HexFeatureType.NONE:
+                    return f"hex.feature.{cell.feature.value}"
+                major = sub_cell.major_feature
+                if major is not HexFeatureType.NONE:
+                    return f"hex.feature.{major.value}"
+                return "hex.feature.unknown"
+
+            if resolved[0] == "dungeon":
+                # Caves and holes bypass the surface site layer
+                # entirely (Q1 of the convergence plan). The
+                # dungeon path generates a procedural Floor 1
+                # directly off the macro hex's DungeonRef.
+                ok = await game.enter_dungeon()
                 if ok:
-                    feature_key = cell.feature.value
                     self.renderer.add_message(
                         t(
                             "hex.msg.enter_feature",
-                            feature=t(f"hex.feature.{feature_key}"),
+                            feature=t(_enter_message_key()),
                         ),
                     )
                 else:
@@ -533,26 +546,22 @@ class HexSession:
                     )
                 return "entered" if ok else "ignored"
 
-            if resolved[0] == "family":
-                _, family, feature = resolved
-                # Family tier: TINY for wayside / natural
-                # curiosity (single-feature minor sites), SMALL
-                # for everyone else (sacred / den / settlement /
-                # graveyard / etc.). MEDIUM and up are reserved
-                # for macro-scale sites tier-ised in M6b.
-                if family in ("wayside", "natural_curiosity"):
-                    tier = SiteTier.TINY
-                else:
-                    tier = SiteTier.SMALL
-                ok = await game.enter_sub_hex_family_site(
-                    macro, sub, family, feature, tier,
-                    sub_cell.biome,
+            if resolved[0] == "site":
+                _, kind, tier = resolved
+                feature = (
+                    sub_cell.minor_feature
+                    if sub_cell.minor_feature is not MinorFeatureType.NONE
+                    else sub_cell.major_feature
+                )
+                ok = await game.enter_site(
+                    macro, sub, kind, tier,
+                    feature=feature, biome=sub_cell.biome,
                 )
                 if ok:
                     self.renderer.add_message(
                         t(
                             "hex.msg.enter_feature",
-                            feature=t(f"hex.minor.{feature.value}"),
+                            feature=t(_enter_message_key()),
                         ),
                     )
                 else:

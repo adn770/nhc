@@ -595,6 +595,20 @@ class Game:
             )
         return depth
 
+    async def enter_dungeon(self) -> bool:
+        """Enter the cellular dungeon attached to the player's hex.
+
+        After M6c this is the dungeon-only counterpart to
+        :meth:`enter_site`: the unified resolver in
+        ``sub_hex_entry`` routes ``CAVE`` / ``HOLE`` features here
+        and every other site through ``enter_site``. The body
+        delegates to :meth:`enter_hex_feature`, which still
+        handles the cave / hole path correctly; the macro routing
+        inside that method is dead code that lands on the cleanup
+        list for a follow-up milestone.
+        """
+        return await self.enter_hex_feature()
+
     async def enter_hex_feature(self) -> bool:
         """Enter the dungeon attached to the player's current hex.
 
@@ -606,6 +620,12 @@ class Game:
         (intentionally — dungeon time is "out of band"). Floor cache
         is keyed by ``(q, r, depth)`` so re-entering the same hex
         after exiting hands back the same Level instance.
+
+        After M6c the production dispatcher in ``hex_session.py``
+        calls :meth:`enter_dungeon` for caves and :meth:`enter_site`
+        for every other feature; this method retains its macro
+        routing branches for direct test invocation but they are
+        no longer reachable through the regular gameplay flow.
         """
         if not self.world_type is WorldType.HEXCRAWL or self.hex_world is None:
             return False
@@ -734,21 +754,30 @@ class Game:
         feature=None,
         biome=None,
     ) -> bool:
-        """Unified entry point for sub-hex sites.
+        """Unified entry point for every flower-feature site.
 
-        Replaces the seven per-family ``_enter_sub_hex_*``
-        dispatchers with one switch on ``kind`` that drives the
-        per-kind :func:`assemble_*` and a small shared helper.
-        Farm minor keeps its own path -- it is the only kind with
-        buildings + a multi-floor cache, and the cache merge is
-        tracked separately as a follow-up milestone.
+        Switches on ``kind`` to route through the right per-kind
+        assembler. Sub-hex tiers (TINY / SMALL) flow through the
+        ``_enter_sub_hex_*`` helpers and the LRU + mutation cache;
+        macro tiers (MEDIUM / LARGE / HUGE) flow through the
+        legacy ``_enter_*_site`` helpers and ``_floor_cache``.
+        Caves and holes are not sites -- the caller routes them
+        through :meth:`enter_dungeon` instead.
 
-        Recognised kinds: ``farm``, ``wayside``, ``clearing``,
-        ``sacred``, ``den``, ``graveyard``, ``campsite``,
-        ``orchard``. Unknown kinds return ``False`` so the caller
-        can emit "nothing to enter".
+        Recognised kinds: sub-hex families (``wayside``,
+        ``clearing``, ``sacred``, ``den``, ``graveyard``,
+        ``campsite``, ``orchard``) and macro kinds (``farm``,
+        ``tower``, ``mansion``, ``keep``, ``town``, ``temple``,
+        ``cottage``, ``ruin``). Unknown kinds return ``False`` so
+        the caller can emit "nothing to enter".
+
+        ``farm`` is the one ambiguous kind: TINY routes to the
+        sub-hex farm dispatcher, anything else routes to the
+        macro farm pipeline.
         """
-        if kind == "farm":
+        from nhc.sites._types import SiteTier
+
+        if kind == "farm" and tier is SiteTier.TINY:
             return await self._enter_sub_hex_farm(macro, sub, biome)
 
         if kind == "wayside":
@@ -865,6 +894,30 @@ class Game:
                 macro, sub, kind=kind,
             )
 
+        # Macro-tier site entries (M6c). The legacy
+        # ``enter_hex_feature`` dispatched these by reading
+        # ``cell.dungeon.site_kind`` directly off the macro hex;
+        # the unified dispatcher routes the same per-kind helpers
+        # off the resolver-derived ``kind`` instead. Tier comes
+        # from the resolver too -- assembler validates it.
+        # ``_active_site_sub`` stays None for macro entries so
+        # ``_cache_key`` keeps the existing ``(q, r, depth)``
+        # namespace; the cache merge is M6d's problem.
+        if kind == "tower":
+            self._active_cave_cluster = None
+            return await self._enter_tower_site(macro)
+        if kind == "mansion":
+            self._active_cave_cluster = None
+            return await self._enter_mansion_site(macro)
+        if kind == "farm":
+            # The sub-hex farm at TINY went through the unified
+            # helper above; macro farm at SMALL+ comes here.
+            self._active_cave_cluster = None
+            return await self._enter_farm_site(macro)
+        if kind in ("keep", "town", "temple", "cottage", "ruin"):
+            self._active_cave_cluster = None
+            return await self._enter_walled_site(macro, kind)
+
         return False
 
     async def enter_sub_hex_family_site(
@@ -876,20 +929,25 @@ class Game:
         tier,
         biome,
     ) -> bool:
-        """Translate a family-resolver tuple into ``enter_site``.
+        """Translate a legacy family-route call into ``enter_site``.
 
-        Back-compat shim: the resolver still emits
-        ``("family", family, feature)`` so callers (and the
-        existing test suite) keep using this method. The body
-        translates the family + feature tag pair into the unified
-        ``kind`` the dispatcher consumes; per-kind branches all
-        live on :meth:`enter_site`.
+        Back-compat shim for tests written against the M5 shape;
+        the M6c resolver no longer emits the
+        ``("family", family, feature)`` tuple, so this method is
+        only reachable from direct test invocation. The body
+        translates the family + feature pair into the unified
+        ``kind`` and forces the canonical sub-hex tier per family
+        (the caller's ``tier`` argument is ignored when the
+        chosen kind has a fixed sub-hex footprint -- e.g. farm
+        always lands on TINY here, never the macro SMALL).
         """
         from nhc.hexcrawl.model import MinorFeatureType
+        from nhc.sites._types import SiteTier
 
         if family == "inhabited_settlement":
             if feature is MinorFeatureType.FARM:
                 kind = "farm"
+                tier = SiteTier.TINY
             elif feature is MinorFeatureType.CAMPSITE:
                 kind = "campsite"
             elif feature is MinorFeatureType.ORCHARD:
