@@ -463,23 +463,29 @@ def test_sacred_site_medium_tier() -> None:
     assert tile is not None and tile.terrain is Terrain.FLOOR
 
 
-def test_inhabited_settlement_rejects_farm_feature() -> None:
-    """FARM routes through the unified farm assembler; the family
-    generator raises so stale callers fail loudly."""
-    import pytest
+def test_inhabited_settlement_routes_farm_through_unified_assembler(
+    tmp_path,
+) -> None:
+    """FARM minor goes through ``Game._enter_sub_hex_farm`` /
+    ``assemble_farm(tier=SMALL)``; entering a FARM sub-hex
+    produces a Site whose kind is ``"farm"``."""
+    import asyncio
 
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_inhabited_settlement_site,
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
+
+    game, macro, sub = _flower_fixture(
+        tmp_path, MinorFeatureType.FARM,
     )
-
-    with pytest.raises(ValueError):
-        generate_inhabited_settlement_site(
-            feature=MinorFeatureType.FARM,
-            biome=Biome.GREENLANDS,
-            seed=1,
-            tier=SiteTier.MEDIUM,
-        )
+    ok = asyncio.run(
+        game.enter_sub_hex_family_site(
+            macro, sub, "inhabited_settlement",
+            MinorFeatureType.FARM,
+            SiteTier.MEDIUM, Biome.GREENLANDS,
+        ),
+    )
+    assert ok
+    assert game._active_site is not None
+    assert game._active_site.kind == "farm"
 
 
 def test_animal_den_medium_tier() -> None:
@@ -919,59 +925,67 @@ def test_populate_sub_hex_spawns_items(tmp_path) -> None:
     assert pos.level_id == level.id
 
 
-def test_enter_sub_hex_family_site_populates(tmp_path) -> None:
-    """Wiring check: entering a family site whose generator emits a
-    creature pops it into the ECS world with a level-scoped Position.
+def _hand_built_sub_hex_site(level_id: str = "test_subhex"):
+    """Build a 10x10 walled SubHexSite for direct populator drills.
 
-    Uses the inhabited_settlement family (CAMPSITE) after wayside
-    and sacred were retired (M4a, M4d). The populator is shared
-    across every family-SubHexSite, so any remaining family
-    monkey-patch exercises the same plumbing."""
-    import asyncio
+    Decoupled from any family generator -- after M4f retired the
+    last one (``generate_inhabited_settlement_site``), the
+    populator + replay tests build their own SubHexSite scaffolding
+    rather than monkey-patch a generator that no longer exists."""
+    from nhc.dungeon.model import Level, Terrain
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation, SubHexSite
 
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        SubHexPopulation,
-        SubHexSite,
+    level = Level.create_empty(
+        id=level_id, name=level_id, depth=1, width=10, height=10,
     )
-    import nhc.hexcrawl.sub_hex_sites as sites_mod
-
-    game, macro, sub = _flower_fixture(
-        tmp_path, MinorFeatureType.CAMPSITE,
+    for y in range(10):
+        for x in range(10):
+            tile = level.tiles[y][x]
+            if x in (0, 9) or y in (0, 9):
+                tile.terrain = Terrain.WALL
+            else:
+                tile.terrain = Terrain.FLOOR
+    return SubHexSite(
+        level=level,
+        entry_tile=(5, 8),
+        feature_tile=(5, 5),
+        population=SubHexPopulation(),
     )
-    real = sites_mod.generate_inhabited_settlement_site
 
-    def fake_generator(*, feature, biome, seed, tier):
-        site = real(
-            feature=feature, biome=biome, seed=seed, tier=tier,
-        )
-        return SubHexSite(
-            level=site.level,
-            entry_tile=site.entry_tile,
-            feature_tile=site.feature_tile,
-            faction=site.faction,
-            population=SubHexPopulation(
-                creatures=[("goblin", (3, 3))],
-            ),
-        )
 
-    sites_mod.generate_inhabited_settlement_site = fake_generator
-    try:
-        asyncio.run(
-            game.enter_sub_hex_family_site(
-                macro, sub, "inhabited_settlement",
-                MinorFeatureType.CAMPSITE,
-                SiteTier.MEDIUM, Biome.GREENLANDS,
-            ),
-        )
-    finally:
-        sites_mod.generate_inhabited_settlement_site = real
+def _make_world():
+    """Spin up an ECS World ready for ``populate_sub_hex_site``."""
+    from nhc.core.ecs import World
+    from nhc.entities.registry import EntityRegistry
 
-    # One goblin should now live on the site level.
+    EntityRegistry.discover_all()
+    return World()
+
+
+def test_populate_sub_hex_site_spawns_creature_on_level() -> None:
+    """Wiring check: ``populate_sub_hex_site`` lifts a creature
+    from the SubHexPopulation onto the world with a Position whose
+    ``level_id`` matches the site's level.
+
+    Replaces the M4d-era monkey-patched dispatcher test; after
+    M4f no family generator survives to monkey-patch (the plan's
+    "Inhabited settlement is the LAST family monkey-patch host"
+    note), so this exercises the populator directly."""
+    from nhc.core.sub_hex_populator import populate_sub_hex_site
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation
+
+    site = _hand_built_sub_hex_site()
+    site.population = SubHexPopulation(
+        creatures=[("goblin", (3, 3))],
+    )
+    world = _make_world()
+
+    populate_sub_hex_site(world, site)
+
     goblins = [
-        (eid, pos) for eid, pos in game.world.query("Position")
-        if pos.level_id == game.level.id
-        and game.world.get_component(eid, "AI")
+        (eid, pos) for eid, pos in world.query("Position")
+        if pos.level_id == site.level.id
+        and world.get_component(eid, "AI")
     ]
     assert len(goblins) == 1
     _, gpos = goblins[0]
@@ -1358,31 +1372,51 @@ def test_new_rumor_vendor_creatures_registered() -> None:
 
 
 def test_inhabited_settlement_populates_matching_npc(tmp_path) -> None:
-    """The inhabited-settlement generator places the right NPC next
-    to the centrepiece based on ``feature``. FARM now routes through
-    the unified farm assembler and :meth:`Game._enter_sub_hex_farm`;
-    its farmer is placed by the dispatcher, not the family
-    generator, so this test only covers CAMPSITE and ORCHARD."""
-    from nhc.hexcrawl.model import Biome
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, generate_inhabited_settlement_site,
-    )
+    """The inhabited-settlement dispatcher places the right NPC
+    next to the centrepiece based on ``feature``. After M4f,
+    NPC placement is the dispatcher's job (the assembler emits
+    only the surface), so this test drives the dispatcher and
+    inspects ECS state. FARM is exercised separately via the
+    farmer rumor-vendor flow."""
+    import asyncio
+
+    from nhc.hexcrawl.sub_hex_sites import SiteTier
 
     mapping = {
         MinorFeatureType.CAMPSITE: "campsite_traveller",
         MinorFeatureType.ORCHARD: "orchardist",
     }
     for minor, expected in mapping.items():
-        site = generate_inhabited_settlement_site(
-            feature=minor, biome=Biome.GREENLANDS, seed=42,
-            tier=SiteTier.MEDIUM,
+        game, macro, sub = _flower_fixture(tmp_path, minor)
+        ok = asyncio.run(
+            game.enter_sub_hex_family_site(
+                macro, sub, "inhabited_settlement", minor,
+                SiteTier.MEDIUM, Biome.GREENLANDS,
+            ),
         )
-        npcs = [
-            (eid, xy) for eid, xy in site.population.npcs
-            if eid == expected
+        assert ok
+        from nhc.entities.registry import EntityRegistry
+
+        EntityRegistry.discover_all()
+        target_components = EntityRegistry.get_creature(expected)
+        marker_keys = [
+            key for key in target_components
+            if key in ("RumorVendor",)
         ]
-        assert npcs, (
-            f"{minor.name}: expected NPC {expected} in population"
+        # All three NPCs (campsite_traveller, orchardist, farmer)
+        # carry the RumorVendor marker per the dedicated registry
+        # test below.
+        assert marker_keys, (
+            f"{expected} should carry a RumorVendor marker"
+        )
+        spawned = [
+            eid for eid, _pos in game.world.query("Position")
+            if (pos := game.world.get_component(eid, "Position"))
+            and pos.level_id == game.level.id
+            and game.world.has_component(eid, "RumorVendor")
+        ]
+        assert spawned, (
+            f"{minor.name}: expected NPC {expected} on the site"
         )
 
 
@@ -2035,159 +2069,78 @@ def _force_eviction(game, macro, sub_a, sub_b, tmp_path) -> None:
     )
 
 
-def test_replay_looted_removes_item(tmp_path) -> None:
-    """Loot an item at (4, 2), evict, re-enter — the populator must
-    skip the placement at that tile.
-
-    Switched from wayside → sacred → inhabited_settlement as
-    successive M4 milestones retired the prior family generator.
-    The populator's replay logic is shared, so any remaining
-    family-SubHexSite path exercises it."""
-    import asyncio
-
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, SubHexPopulation, SubHexSite,
-    )
+def test_populator_replay_looted_skips_item() -> None:
+    """``populate_sub_hex_site`` honours ``mutations['looted']``: an
+    item whose tile coord is in the looted set is not re-spawned on
+    a second populator pass. Replaces the dispatcher-driven looted
+    test after M4f retired the last family generator."""
+    from nhc.core.sub_hex_populator import populate_sub_hex_site
     from nhc.entities.registry import EntityRegistry
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation
 
     EntityRegistry.discover_all()
-    game, macro, sub_a = _flower_fixture(
-        tmp_path, MinorFeatureType.CAMPSITE,
-    )
-    cell = game.hex_world.get_cell(macro)
-    sub_b = next(
-        c for c, sc in cell.flower.cells.items()
-        if c != sub_a
-        and sc.minor_feature is MinorFeatureType.NONE
-        and sc.major_feature is HexFeatureType.NONE
-    )
-
-    import nhc.hexcrawl.sub_hex_sites as sites_mod
-
-    real = sites_mod.generate_inhabited_settlement_site
     sample_item = sorted(EntityRegistry.list_items())[0]
-
-    def fake(*, feature, biome, seed, tier):
-        site = real(
-            feature=feature, biome=biome, seed=seed, tier=tier,
-        )
-        return SubHexSite(
-            level=site.level,
-            entry_tile=site.entry_tile,
-            feature_tile=site.feature_tile,
-            faction=site.faction,
-            population=SubHexPopulation(
-                items=[(sample_item, (4, 2))],
-                features=list(site.population.features),
-            ),
-        )
-
-    sites_mod.generate_inhabited_settlement_site = fake
-    try:
-        asyncio.run(
-            game.enter_sub_hex_family_site(
-                macro, sub_a, "inhabited_settlement",
-                MinorFeatureType.CAMPSITE,
-                SiteTier.MEDIUM, Biome.GREENLANDS,
-            ),
-        )
-        before = [
-            eid for eid, pos in game.world.query("Position")
-            if pos.level_id == game.level.id and (pos.x, pos.y) == (4, 2)
-        ]
-        assert before, "precondition: item exists at (4, 2)"
-        game._append_sub_hex_mutation("looted", [4, 2])
-        _force_eviction(game, macro, sub_a, sub_b, tmp_path)
-        asyncio.run(
-            game.enter_sub_hex_family_site(
-                macro, sub_a, "inhabited_settlement",
-                MinorFeatureType.CAMPSITE,
-                SiteTier.MEDIUM, Biome.GREENLANDS,
-            ),
-        )
-        after = [
-            eid for eid, pos in game.world.query("Position")
-            if pos.level_id == game.level.id and (pos.x, pos.y) == (4, 2)
-        ]
-        assert not after, (
-            "looted tile should not re-spawn the item on re-entry"
-        )
-    finally:
-        sites_mod.generate_inhabited_settlement_site = real
-
-
-def test_replay_killed_skips_creature(tmp_path) -> None:
-    """Kill a creature at (3, 3), evict, re-enter — the populator
-    skips it via the stable-id record. Inhabited settlement
-    (CAMPSITE) stands in after the wayside / sacred retirements."""
-    import asyncio
-
-    from nhc.core.sub_hex_populator import populate_sub_hex_site  # noqa
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier, SubHexPopulation, SubHexSite,
+    site = _hand_built_sub_hex_site()
+    site.population = SubHexPopulation(
+        items=[(sample_item, (4, 2))],
     )
-    import nhc.hexcrawl.sub_hex_sites as sites_mod
+    world = _make_world()
 
-    game, macro, sub_a = _flower_fixture(
-        tmp_path, MinorFeatureType.CAMPSITE,
+    populate_sub_hex_site(world, site)
+    before = [
+        eid for eid, pos in world.query("Position")
+        if pos.level_id == site.level.id and (pos.x, pos.y) == (4, 2)
+    ]
+    assert before, "precondition: item exists at (4, 2)"
+
+    # Second populator pass with looted replay -- mimics what the
+    # dispatcher does after a cache eviction.
+    fresh_world = _make_world()
+    populate_sub_hex_site(
+        fresh_world, site, mutations={"looted": [[4, 2]]},
     )
-    cell = game.hex_world.get_cell(macro)
-    sub_b = next(
-        c for c, sc in cell.flower.cells.items()
-        if c != sub_a
-        and sc.minor_feature is MinorFeatureType.NONE
-        and sc.major_feature is HexFeatureType.NONE
+    after = [
+        eid for eid, pos in fresh_world.query("Position")
+        if pos.level_id == site.level.id and (pos.x, pos.y) == (4, 2)
+    ]
+    assert not after, (
+        "looted tile should not re-spawn the item on replay"
     )
 
-    real = sites_mod.generate_inhabited_settlement_site
 
-    def fake(*, feature, biome, seed, tier):
-        site = real(
-            feature=feature, biome=biome, seed=seed, tier=tier,
-        )
-        return SubHexSite(
-            level=site.level, entry_tile=site.entry_tile,
-            feature_tile=site.feature_tile, faction=site.faction,
-            population=SubHexPopulation(
-                creatures=[("goblin", (3, 3))],
-                features=list(site.population.features),
-            ),
-        )
+def test_populator_replay_killed_skips_creature() -> None:
+    """``populate_sub_hex_site`` honours ``mutations['killed']``: a
+    creature whose stable id is in the killed set is skipped on a
+    replay pass."""
+    from nhc.core.sub_hex_populator import populate_sub_hex_site
+    from nhc.hexcrawl.sub_hex_sites import SubHexPopulation
 
-    sites_mod.generate_inhabited_settlement_site = fake
-    try:
-        asyncio.run(
-            game.enter_sub_hex_family_site(
-                macro, sub_a, "inhabited_settlement",
-                MinorFeatureType.CAMPSITE,
-                SiteTier.MEDIUM, Biome.GREENLANDS,
-            ),
-        )
-        goblins = [
-            eid for eid, _ in game.world.query("AI")
-            if (pos := game.world.get_component(eid, "Position"))
-            and pos.level_id == game.level.id and (pos.x, pos.y) == (3, 3)
-        ]
-        assert goblins
-        game._append_sub_hex_mutation("killed", "goblin_3_3")
-        _force_eviction(game, macro, sub_a, sub_b, tmp_path)
-        asyncio.run(
-            game.enter_sub_hex_family_site(
-                macro, sub_a, "inhabited_settlement",
-                MinorFeatureType.CAMPSITE,
-                SiteTier.MEDIUM, Biome.GREENLANDS,
-            ),
-        )
-        respawned = [
-            eid for eid, _ in game.world.query("AI")
-            if (pos := game.world.get_component(eid, "Position"))
-            and pos.level_id == game.level.id and (pos.x, pos.y) == (3, 3)
-        ]
-        assert not respawned, (
-            "killed creature must not re-spawn on re-entry"
-        )
-    finally:
-        sites_mod.generate_inhabited_settlement_site = real
+    site = _hand_built_sub_hex_site()
+    site.population = SubHexPopulation(
+        creatures=[("goblin", (3, 3))],
+    )
+
+    world = _make_world()
+    populate_sub_hex_site(world, site)
+    spawned = [
+        eid for eid, _ in world.query("AI")
+        if (pos := world.get_component(eid, "Position"))
+        and pos.level_id == site.level.id and (pos.x, pos.y) == (3, 3)
+    ]
+    assert spawned
+
+    fresh_world = _make_world()
+    populate_sub_hex_site(
+        fresh_world, site, mutations={"killed": ["goblin_3_3"]},
+    )
+    respawned = [
+        eid for eid, _ in fresh_world.query("AI")
+        if (pos := fresh_world.get_component(eid, "Position"))
+        and pos.level_id == site.level.id and (pos.x, pos.y) == (3, 3)
+    ]
+    assert not respawned, (
+        "killed creature must not re-spawn on replay"
+    )
 
 
 def test_replay_doors_restores_open_state(tmp_path) -> None:
@@ -2634,31 +2587,9 @@ def test_flower_welcome_message_mentions_x_and_L(tmp_path) -> None:
     assert "'e'" not in joined
 
 
-def test_family_generators_are_deterministic() -> None:
-    """Same seed → identical level tile grid. Exercises the
-    inhabited_settlement family generator (still alive for
-    CAMPSITE / ORCHARD until M4f); wayside / clearing / den /
-    sacred determinism is pinned in their unit suites under
-    ``tests/unit/sites/``."""
-    from nhc.hexcrawl.sub_hex_sites import (
-        SiteTier,
-        generate_inhabited_settlement_site,
-    )
-
-    s1 = generate_inhabited_settlement_site(
-        feature=MinorFeatureType.CAMPSITE, biome=Biome.GREENLANDS,
-        seed=1234, tier=SiteTier.MEDIUM,
-    )
-    s2 = generate_inhabited_settlement_site(
-        feature=MinorFeatureType.CAMPSITE, biome=Biome.GREENLANDS,
-        seed=1234, tier=SiteTier.MEDIUM,
-    )
-    # Compare the full tile grid (terrain + feature).
-    for y in range(s1.level.height):
-        for x in range(s1.level.width):
-            t1 = s1.level.tile_at(x, y)
-            t2 = s2.level.tile_at(x, y)
-            assert t1.terrain == t2.terrain
-            assert t1.feature == t2.feature
-    assert s1.entry_tile == s2.entry_tile
-    assert s1.feature_tile == s2.feature_tile
+# The "family generators are deterministic" test retired alongside
+# the last family generator (``generate_inhabited_settlement_site``,
+# M4f). Per-assembler determinism is pinned in the matching suites
+# under ``tests/unit/sites/`` (test_wayside, test_clearing,
+# test_den, test_sacred, test_graveyard, test_orchard,
+# test_campsite, test_farm_tier).

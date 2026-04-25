@@ -225,6 +225,30 @@ _DOOR_SIDE_CROSS_DIR: dict[str, tuple[int, int]] = {
 }
 
 
+def _pick_settlement_npc_tile(
+    surface, feature_xy: "tuple[int, int] | None",
+) -> "tuple[int, int] | None":
+    """Return the tile immediately south of ``feature_xy`` if it is
+    a walkable interior tile; fall back to ``feature_xy`` otherwise.
+
+    Used by the campsite + orchard dispatchers to drop the NPC next
+    to the centerpiece (campfire / central tree) so a player can
+    bump them in one step."""
+    if feature_xy is None:
+        return None
+    cx, cy = feature_xy
+    ny = cy + 1
+    if 0 < ny < surface.height - 1 and 0 < cx < surface.width - 1:
+        candidate = surface.tile_at(cx, ny)
+        if (
+            candidate is not None
+            and candidate.terrain is Terrain.FLOOR
+            and candidate.feature in (None, "")
+        ):
+            return (cx, ny)
+    return feature_xy
+
+
 def _has_visible_floor_neighbor(
     x: int, y: int, visible: set[tuple[int, int]],
     level: "Level", exclude: tuple[int, int] | None = None,
@@ -713,35 +737,30 @@ class Game:
     ) -> bool:
         """Enter a family-generated sub-hex site at ``sub`` of ``macro``.
 
-        Routes the family generators (wayside, sacred,
-        inhabited_settlement, animal_den, natural_curiosity,
-        undead) through the sub-hex floor cache. The level is
-        generated from a per-sub-hex seed and cached under a
-        ("sub", mq, mr, sq, sr, depth) key so re-entry is O(1).
+        Every family routes through a per-family ``_enter_sub_hex_*``
+        method that drives the unified ``Site`` assembler in
+        ``nhc/sites/`` and the sub-hex floor + mutation cache.
+        Unknown families return ``False`` so the caller can emit the
+        "nothing to enter" message.
 
-        Sets ``_active_sub_hex`` so ``_cache_key`` routes
-        subsequent lookups to the sub-hex namespace; the overland
-        day clock stays frozen for the duration of the visit.
-
-        FARM minor is handled via a dedicated unified-assembler
-        path (:meth:`_enter_sub_hex_farm`) that hands off to
-        :func:`nhc.sites.farm.assemble_farm` with
-        ``tier=SiteTier.SMALL`` so the sub-hex and macro farm share
-        the same field + garden surface and a real farmhouse
-        building.
+        Sets ``_active_sub_hex`` so ``_cache_key`` routes subsequent
+        lookups to the sub-hex namespace; the overland day clock
+        stays frozen for the duration of the visit.
         """
         from nhc.hexcrawl.model import MinorFeatureType
-        from nhc.hexcrawl.seed import dungeon_seed
-        from nhc.hexcrawl.sub_hex_sites import (
-            SiteTier,
-            generate_inhabited_settlement_site,
-        )
 
-        if (
-            family == "inhabited_settlement"
-            and feature is MinorFeatureType.FARM
-        ):
-            return await self._enter_sub_hex_farm(macro, sub, biome)
+        if family == "inhabited_settlement":
+            if feature is MinorFeatureType.FARM:
+                return await self._enter_sub_hex_farm(macro, sub, biome)
+            if feature is MinorFeatureType.CAMPSITE:
+                return await self._enter_sub_hex_campsite(
+                    macro, sub, biome,
+                )
+            if feature is MinorFeatureType.ORCHARD:
+                return await self._enter_sub_hex_orchard(
+                    macro, sub, biome,
+                )
+            return False
 
         if family == "wayside":
             return await self._enter_sub_hex_wayside(
@@ -768,83 +787,7 @@ class Game:
                 macro, sub, tier, biome,
             )
 
-        family_dispatch = {
-            "inhabited_settlement": (
-                generate_inhabited_settlement_site
-            ),
-        }
-        generator = family_dispatch.get(family)
-        if generator is None:
-            return False
-
-        self._active_sub_hex = sub
-        self._active_cave_cluster = None
-        self._active_site = None
-        self._active_descent_building = None
-        depth = 1
-        cache_key = self._cache_key(depth)
-
-        # Lazy-init the sub-hex LRU / mutation cache on first family
-        # entry so pure-dungeon runs never pay for the scaffolding.
-        self._ensure_sub_hex_cache()
-
-        cached = (
-            self._sub_hex_cache.get(cache_key)
-            if self._sub_hex_cache is not None else None
-        )
-        if cached is not None:
-            self.level = cached
-            self._place_player_on_sub_hex_entry()
-            self._update_fov()
-            self._notify_floor_change(depth)
-            return True
-
-        base_template = f"family:{family}"
-        seed = dungeon_seed(
-            self.seed or 0, macro, base_template, sub=sub,
-        )
-        site = generator(
-            feature=feature, biome=biome, seed=seed, tier=tier,
-        )
-        self.level = site.level
-        if (self.level and self.level.metadata and site.faction):
-            self.level.metadata.faction = site.faction
-        # Load persisted mutations from a previous eviction and
-        # replay them onto the regenerated level before the populator
-        # runs (so looted items / killed creatures are filtered out
-        # of the population walk).
-        persisted_mutations: dict = {}
-        if self._sub_hex_cache is not None:
-            persisted_mutations = self._sub_hex_cache.load_mutations(
-                cache_key,
-            )
-            self._apply_sub_hex_mutations_to_level(
-                self.level, persisted_mutations,
-            )
-            self._sub_hex_cache.store(
-                cache_key, self.level, mutations=persisted_mutations,
-            )
-        else:
-            # Test paths without a save_dir still need the Level
-            # addressable for the re-entry cache-hit path.
-            self._floor_cache[cache_key] = (self.level, {})
-        self._sub_hex_entry_tile = site.entry_tile
-        # Purge stale ECS entities tied to this level_id before the
-        # populator runs. Regeneration reuses the same deterministic
-        # level.id, so entities from an earlier visit (items, NPCs,
-        # creatures) would otherwise double up with the fresh
-        # population walk. The player and hired henchmen live on
-        # their own level_id ("overland") after the exit so they
-        # aren't touched here.
-        self._purge_entities_on_level(self.level.id)
-        from nhc.core.sub_hex_populator import populate_sub_hex_site
-        populate_sub_hex_site(
-            self.world, site, mutations=persisted_mutations,
-        )
-        self._place_player_on_sub_hex_entry()
-        self._update_fov()
-        self._notify_floor_change(depth)
-        return True
+        return False
 
     async def _enter_sub_hex_farm(
         self,
@@ -1207,6 +1150,168 @@ class Game:
                  "crystals", "wonder", "portal"),
             ),
             population=SubHexPopulation(),
+        )
+        from nhc.core.sub_hex_populator import populate_sub_hex_site
+
+        populate_sub_hex_site(
+            self.world, shim, mutations=persisted_mutations,
+        )
+        self._place_player_on_sub_hex_entry()
+        self._update_fov()
+        self._notify_floor_change(depth)
+        return True
+
+    async def _enter_sub_hex_campsite(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        biome,
+    ) -> bool:
+        """Enter a sub-hex CAMPSITE through the unified campsite
+        assembler. The dispatcher places a ``campsite_traveller``
+        NPC on the tile south of the campfire so the player can
+        bump them for the rumor-vendor flow."""
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SubHexPopulation,
+            SubHexSite,
+        )
+        from nhc.sites.campsite import assemble_campsite
+
+        return await self._enter_sub_hex_settlement(
+            macro=macro, sub=sub,
+            template_key="bespoke:campsite",
+            site_id_suffix="campsite",
+            assembler=assemble_campsite,
+            feature_tags=("campfire",),
+            npc_id="campsite_traveller",
+            SubHexPopulation=SubHexPopulation,
+            SubHexSite=SubHexSite,
+            dungeon_seed=dungeon_seed,
+        )
+
+    async def _enter_sub_hex_orchard(
+        self,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        biome,
+    ) -> bool:
+        """Enter a sub-hex ORCHARD through the unified orchard
+        assembler. The dispatcher places an ``orchardist`` NPC on
+        the tile south of the central tree so the player can bump
+        them for the rumor-vendor flow."""
+        from nhc.hexcrawl.seed import dungeon_seed
+        from nhc.hexcrawl.sub_hex_sites import (
+            SubHexPopulation,
+            SubHexSite,
+        )
+        from nhc.sites.orchard import assemble_orchard
+
+        return await self._enter_sub_hex_settlement(
+            macro=macro, sub=sub,
+            template_key="bespoke:orchard",
+            site_id_suffix="orchard",
+            assembler=assemble_orchard,
+            feature_tags=("tree",),
+            npc_id="orchardist",
+            SubHexPopulation=SubHexPopulation,
+            SubHexSite=SubHexSite,
+            dungeon_seed=dungeon_seed,
+        )
+
+    async def _enter_sub_hex_settlement(
+        self,
+        *,
+        macro: "HexCoord",
+        sub: "HexCoord",
+        template_key: str,
+        site_id_suffix: str,
+        assembler,
+        feature_tags: tuple[str, ...],
+        npc_id: str,
+        SubHexPopulation,
+        SubHexSite,
+        dungeon_seed,
+    ) -> bool:
+        """Shared body for campsite + orchard dispatchers.
+
+        Stamps the surface via ``assembler``, finds the centerpiece
+        via ``feature_tags`` and places ``npc_id`` on the tile
+        immediately south of it (falls back to the centerpiece
+        itself when the south tile is off the walkable interior --
+        only happens on degenerate tier dims). Mutation replay,
+        sub-hex cache, and populator wiring follow the same pattern
+        as every other unified family dispatcher.
+        """
+        self._active_sub_hex = sub
+        self._active_cave_cluster = None
+        self._active_descent_building = None
+
+        depth = 1
+        cache_key = self._cache_key(depth)
+
+        self._ensure_sub_hex_cache()
+        cached = (
+            self._sub_hex_cache.get(cache_key)
+            if self._sub_hex_cache is not None else None
+        )
+        if cached is not None:
+            self.level = cached
+            cached_site = self._site_cache.get(cache_key)
+            if cached_site is not None:
+                self._active_site = cached_site
+            self._place_player_on_sub_hex_entry()
+            self._update_fov()
+            self._notify_floor_change(depth)
+            return True
+
+        seed = dungeon_seed(
+            self.seed or 0, macro, template_key, sub=sub,
+        )
+        site = assembler(
+            (
+                f"sub_{macro.q}_{macro.r}_{sub.q}_{sub.r}"
+                f"_{site_id_suffix}"
+            ),
+            random.Random(seed),
+        )
+        self.level = site.surface
+        self._active_site = site
+
+        persisted_mutations: dict = {}
+        if self._sub_hex_cache is not None:
+            persisted_mutations = self._sub_hex_cache.load_mutations(
+                cache_key,
+            )
+            self._apply_sub_hex_mutations_to_level(
+                self.level, persisted_mutations,
+            )
+            self._sub_hex_cache.store(
+                cache_key, self.level, mutations=persisted_mutations,
+            )
+        else:
+            self._floor_cache[cache_key] = (self.level, {})
+        self._site_cache[cache_key] = site
+
+        entry_tile = (
+            site.surface.width // 2, site.surface.height - 2,
+        )
+        self._sub_hex_entry_tile = entry_tile
+
+        feature_xy = self._find_feature_tile_on(
+            site.surface, feature_tags,
+        )
+        npc_xy = _pick_settlement_npc_tile(site.surface, feature_xy)
+        population = SubHexPopulation()
+        if npc_xy is not None:
+            population.npcs.append((npc_id, npc_xy))
+
+        self._purge_entities_on_level(self.level.id)
+        shim = SubHexSite(
+            level=site.surface,
+            entry_tile=entry_tile,
+            feature_tile=feature_xy,
+            population=population,
         )
         from nhc.core.sub_hex_populator import populate_sub_hex_site
 

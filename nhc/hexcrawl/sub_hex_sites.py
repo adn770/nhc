@@ -102,220 +102,27 @@ class SubHexSite:
 
 
 # ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
-
-def _make_enclosed_level(
-    *,
-    width: int,
-    height: int,
-    level_id: str,
-    name: str,
-    theme: str,
-) -> Level:
-    """Build a Level with a walkable interior and a wall perimeter.
-
-    Sub-hex sites are deliberately small and unfussy: a filled
-    rectangle with a 1-tile wall border so the player can't walk
-    off the map by accident (leave-site uses the overland exit
-    mechanic instead — see `nhc_leave_site_plan.md`).
-    """
-    level = Level.create_empty(
-        id=level_id, name=name, depth=1,
-        width=width, height=height,
-    )
-    level.metadata.theme = theme
-    level.metadata.prerevealed = True
-    for y in range(height):
-        for x in range(width):
-            tile = level.tiles[y][x]
-            if x == 0 or y == 0 or x == width - 1 or y == height - 1:
-                tile.terrain = Terrain.WALL
-            else:
-                tile.terrain = Terrain.FLOOR
-    return level
-
-
-def _south_gate_entry(width: int, height: int) -> tuple[int, int]:
-    """Put the player on the walkable tile just inside the south edge.
-
-    Sub-hex sites are reached from the overland, so the canonical
-    front door is a gap in the south wall. Uniform across families
-    so player muscle memory carries over.
-    """
-    return (width // 2, height - 2)
-
-
-def _central_feature_tile(
-    width: int, height: int, rng: random.Random,
-) -> tuple[int, int]:
-    """Pick a walkable tile near the centre for the centrepiece.
-
-    Adds a small jitter so repeated visits to similar features in
-    the same flower don't all stamp the exact centre of the map.
-    """
-    cx, cy = width // 2, height // 2
-    jitter_x = rng.randint(-1, 1)
-    jitter_y = rng.randint(-1, 1)
-    return (cx + jitter_x, cy + jitter_y)
-
-
-def _tag_feature(
-    level: Level, coord: tuple[int, int], feature: str,
-) -> None:
-    """Stamp ``feature`` onto the tile at ``coord`` (and make it walkable)."""
-    x, y = coord
-    tile = level.tile_at(x, y)
-    if tile is None:
-        return
-    tile.terrain = Terrain.FLOOR
-    tile.feature = feature
-
-
-# ---------------------------------------------------------------------------
-# Family: wayside (well, signpost) — retired
+# Family generators -- all retired
 # ---------------------------------------------------------------------------
 #
-# Waysides now route through :func:`nhc.sites.wayside.assemble_wayside`
-# and :meth:`Game._enter_sub_hex_wayside`. The family generator was
-# deleted in the sites-unification milestone 4a; keep this header
-# as a breadcrumb so grep for "wayside" still lands here.
-
-
-# ---------------------------------------------------------------------------
-# Family: sacred site — retired
-# ---------------------------------------------------------------------------
+# Every family generator that used to live here now routes through
+# a per-family assembler under ``nhc/sites/`` and a corresponding
+# ``Game._enter_sub_hex_<family>`` dispatcher:
 #
-# Sacred sites now route through
-# :func:`nhc.sites.sacred.assemble_sacred` and
-# :meth:`Game._enter_sub_hex_sacred` (milestone 4d).
-
-
-# ---------------------------------------------------------------------------
-# Family: inhabited settlement (farm minor, campsite, orchard)
-# ---------------------------------------------------------------------------
-
-
-_INHABITED_TAGS: dict[MinorFeatureType, str] = {
-    MinorFeatureType.CAMPSITE: "campfire",
-    MinorFeatureType.ORCHARD: "tree",
-}
-
-_INHABITED_NPCS: dict[MinorFeatureType, str] = {
-    MinorFeatureType.CAMPSITE: "campsite_traveller",
-    MinorFeatureType.ORCHARD: "orchardist",
-}
-
-
-def _adjacent_walkable(
-    width: int, height: int, center: tuple[int, int],
-) -> tuple[int, int]:
-    """Pick the tile immediately south of ``center`` (inside the
-    walkable interior) for the NPC. Falls back to ``center`` when
-    that lands on the wall border, which only happens on degenerate
-    centre picks inside tiny tiers."""
-    cx, cy = center
-    ny = cy + 1
-    if 0 < ny < height - 1 and 0 < cx < width - 1:
-        return (cx, ny)
-    return center
-
-
-def generate_inhabited_settlement_site(
-    *,
-    feature: "HexFeatureType | MinorFeatureType",
-    biome: Biome,
-    seed: int,
-    tier: SiteTier,
-) -> SubHexSite:
-    """A minor campsite / orchard, medium footprint.
-
-    ORCHARD scatters several tree tiles in a rough grid around the
-    orchardist. CAMPSITE stays an open clearing with a campfire
-    tile — sitting down under the sky is the whole point. FARM
-    used to share this path but now routes through the unified
-    farm assembler (see :func:`nhc.sites.farm.assemble_farm` and
-    :meth:`Game._enter_sub_hex_farm`); the generator rejects FARM
-    so stale callers are caught loudly rather than silently
-    producing a bare rectangle.
-    """
-    if feature is MinorFeatureType.FARM:
-        raise ValueError(
-            "FARM no longer routes through "
-            "generate_inhabited_settlement_site — use "
-            "nhc.sites.farm.assemble_farm(tier=SiteTier.SMALL).",
-        )
-    width, height = SITE_TIER_DIMS[tier]
-    rng = random.Random(seed)
-    level = _make_enclosed_level(
-        width=width, height=height,
-        level_id=f"sub_inhabited_{seed}",
-        name="settlement", theme="settlement",
-    )
-    population = SubHexPopulation()
-
-    if feature is MinorFeatureType.ORCHARD:
-        center = _central_feature_tile(width, height, rng)
-        _tag_feature(level, center, "tree")
-        _scatter_orchard_trees(level, center, rng)
-        population.npcs.append(
-            ("orchardist", _adjacent_walkable(width, height, center)),
-        )
-        feature_tile = center
-    else:
-        # CAMPSITE and any HexFeatureType fallback (unused today
-        # — no macro feature routes here — but keeps the function
-        # total over the union type).
-        center = _central_feature_tile(width, height, rng)
-        tag = (
-            _INHABITED_TAGS.get(feature, "campfire")
-            if isinstance(feature, MinorFeatureType)
-            else "campfire"
-        )
-        _tag_feature(level, center, tag)
-        if isinstance(feature, MinorFeatureType):
-            npc_id = _INHABITED_NPCS.get(feature)
-            if npc_id is not None:
-                population.npcs.append(
-                    (npc_id, _adjacent_walkable(width, height, center)),
-                )
-        feature_tile = center
-
-    return SubHexSite(
-        level=level,
-        entry_tile=_south_gate_entry(width, height),
-        feature_tile=feature_tile,
-        population=population,
-    )
-
-
-def _scatter_orchard_trees(
-    level: Level, center: tuple[int, int], rng: random.Random,
-) -> None:
-    """Stamp a rough 3×3 grid of trees around ``center``.
-
-    The grid stride is ~3 tiles so the rows read as planted,
-    not random forest. The centre tile is already tagged
-    (``tree``) by the caller; this fills the other eight grid
-    slots, skipping any that fall on the perimeter or overlap
-    a non-FLOOR tile the generator may add later.
-    """
-    cx, cy = center
-    stride = 3
-    jitter = lambda: rng.randint(-1, 1)                    # noqa: E731
-    for dy in (-1, 0, 1):
-        for dx in (-1, 0, 1):
-            if dx == 0 and dy == 0:
-                continue
-            tx = cx + dx * stride + jitter()
-            ty = cy + dy * stride + jitter()
-            tile = level.tile_at(tx, ty)
-            if tile is None or tile.terrain is not Terrain.FLOOR:
-                continue
-            if tile.feature:
-                continue
-            tile.feature = "tree"
+# - wayside  -> :func:`nhc.sites.wayside.assemble_wayside`     (M4a)
+# - clearing -> :func:`nhc.sites.clearing.assemble_clearing`   (M4b)
+# - den      -> :func:`nhc.sites.den.assemble_den`             (M4c)
+# - sacred   -> :func:`nhc.sites.sacred.assemble_sacred`       (M4d)
+# - graveyard-> :func:`nhc.sites.graveyard.assemble_graveyard` (M4e)
+# - campsite -> :func:`nhc.sites.campsite.assemble_campsite`   (M4f)
+# - orchard  -> :func:`nhc.sites.orchard.assemble_orchard`     (M4f)
+#
+# FARM (minor) routes through :func:`nhc.sites.farm.assemble_farm`
+# at ``tier=SMALL``. After milestone 4f this module only carries the
+# shared types (``SiteTier``, ``SubHexPopulation``, ``SubHexSite``,
+# ``SITE_TIER_DIMS``) used by the assemblers and dispatchers; M5
+# folds those into ``nhc/sites/_types.py`` once the dispatcher
+# unification lands.
 
 
 # ---------------------------------------------------------------------------
