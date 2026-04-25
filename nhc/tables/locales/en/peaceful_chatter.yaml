@@ -1,0 +1,77 @@
+id: combat.peaceful_chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+# Drawn when the player picks "Talk" on the peaceful-attack
+# confirmation dialog. Lines are deliberately generic so any
+# NPC -- farmer, villager, pilgrim, traveller -- can deliver
+# them. A handful of tones (friendly, weary, gossipy, gruff,
+# wary) keeps a session's encounters from blurring into a
+# single voice.
+
+entries:
+  - id: peace_friend
+    text: '"Peace, friend. No quarrel here."'
+  - id: mind_blade
+    text: '"Mind that blade — the inn''s just down the road."'
+  - id: looking_market
+    text: '"Looking for the market? Two roads east."'
+  - id: strange_weather
+    text: '"Strange weather we''ve been having."'
+  - id: trouble_ruins
+    text: '"Heard there''s trouble out by the old ruins."'
+  - id: not_seen_face
+    text: '"Not seen a face like yours in weeks."'
+  - id: walk_with_stories
+    text: '"You walk like someone with stories."'
+  - id: dogs_next_farm
+    text: '"Mind the dogs at the next farm — they bark loud."'
+  - id: wood_hard
+    text: '"Wood''s been hard to come by this winter."'
+  - id: pass_gentle
+    text: '"Pass through gentle, traveller."'
+  - id: dont_see_strangers
+    text: '"We don''t see many strangers here."'
+  - id: road_washed_out
+    text: '"You from the east? They say the road''s washed out."'
+  - id: tax_collectors
+    text: '"Tax collectors came through last week. Foul lot."'
+  - id: goblins_in_hills
+    text: '"Goblins in the hills. Always goblins in the hills."'
+  - id: bread_baking
+    text: '"I''d offer you bread, but the loaves are baking still."'
+  - id: noise_old_well
+    text: '"Strange noise from the old well last night. Probably nothing."'
+  - id: rain_coming
+    text: '"Rain''s coming. You can smell it on the wind."'
+  - id: stray_cat
+    text: '"If you find a stray cat, she''s mine. White paws."'
+  - id: long_road_boots
+    text: '"Long road behind you, by the look of those boots."'
+  - id: kettle_on
+    text: '"There''s a kettle on, if you''ve a mind to wait."'
+  - id: dont_trust_priest
+    text: '"Don''t trust the priest in the next village — too smooth a tongue."'
+  - id: lord_raised_toll
+    text: '"Heard the lord raised the toll on the river crossing."'
+  - id: sleep_one_eye
+    text: '"Sleep with one eye open round here, traveller."'
+  - id: brother_gone
+    text: '"Brother''s been gone a fortnight. Hope he''s well."'
+  - id: fields_dry
+    text: '"Fields are drier than they should be for this season."'
+  - id: smith_two_doors
+    text: '"You''ll find the smith two doors down. Surly, but honest."'
+  - id: wolves_howling
+    text: '"Wolves howling closer to the village every night."'
+  - id: peddler_owes
+    text: '"If you see a peddler with a red wagon, he owes me money."'
+  - id: something_woods
+    text: '"Old folk say there''s something in the woods. I don''t ask."'
+  - id: bread_stale
+    text: '"Bread''s stale, beer''s flat, but the company''s honest."'
+  - id: move_along
+    text: '"Peace, friend. Move along."'
+  - id: lights_in_sky
+    text: '"Saw lights in the sky three nights running. Nobody''s saying what."'

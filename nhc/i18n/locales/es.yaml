@@ -182,9 +182,9 @@ gem_appearance:
 
 # ── Combat ────────────────────────────────────────────────────────────
 combat:
-  confirm_prompt: "¿Atacar a {name} de verdad?"
+  confirm_prompt: "¿Acercarte a {name}?"
+  confirm_talk: "Hablar"
   confirm_attack: "Atacar"
-  confirm_cancel: "Detén la mano"
   hit: "{attacker} golpea a {target} por {damage} de daño."
   miss: "{attacker} falla a {target}."
   slain: "¡{target} ha sido abatido!"

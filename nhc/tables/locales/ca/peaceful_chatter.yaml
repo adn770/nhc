@@ -1,0 +1,74 @@
+id: combat.peaceful_chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+# Drawn when the player picks "Parlar" on the peaceful-attack
+# confirmation dialog. Lines are deliberately generic so any
+# NPC -- pagès, vilatà, pelegrí, caminant -- can deliver them.
+
+entries:
+  - id: peace_friend
+    text: '"Pau, amic. No vull baralles aquí."'
+  - id: mind_blade
+    text: '"Compte amb aquesta arma — la posada és camí avall."'
+  - id: looking_market
+    text: '"Cerques el mercat? Dos camins a l''est."'
+  - id: strange_weather
+    text: '"Quin temps tan estrany que tenim."'
+  - id: trouble_ruins
+    text: '"He sentit dir que hi ha problemes per les ruïnes velles."'
+  - id: not_seen_face
+    text: '"Fa setmanes que no veig una cara com la teva."'
+  - id: walk_with_stories
+    text: '"Camines com algú amb històries per explicar."'
+  - id: dogs_next_farm
+    text: '"Compte amb els gossos de la propera masia — borden fort."'
+  - id: wood_hard
+    text: '"La llenya ha sigut difícil de trobar aquest hivern."'
+  - id: pass_gentle
+    text: '"Passa amb cura, viatger."'
+  - id: dont_see_strangers
+    text: '"Aquí no veiem gaire forasters."'
+  - id: road_washed_out
+    text: '"Vens de l''est? Diuen que el camí està desfet."'
+  - id: tax_collectors
+    text: '"Els recaptadors van passar la setmana passada. Mala gent."'
+  - id: goblins_in_hills
+    text: '"Hi ha goblins a les muntanyes. Sempre n''hi ha."'
+  - id: bread_baking
+    text: '"T''oferiria pa, però els pans encara couen."'
+  - id: noise_old_well
+    text: '"Soroll estrany al vell pou ahir nit. Segur que no és res."'
+  - id: rain_coming
+    text: '"Ve pluja. Es nota al vent."'
+  - id: stray_cat
+    text: '"Si trobes una gata perduda, és meva. Té les potes blanques."'
+  - id: long_road_boots
+    text: '"Llarg camí t''has fet, a jutjar per les botes."'
+  - id: kettle_on
+    text: '"Hi ha un pot al foc, si vols esperar."'
+  - id: dont_trust_priest
+    text: '"No et fiïs del rector del proper poble — té la llengua massa fina."'
+  - id: lord_raised_toll
+    text: '"Diuen que el senyor ha apujat el peatge del pont."'
+  - id: sleep_one_eye
+    text: '"Per aquí, amic, dorm amb un ull obert."'
+  - id: brother_gone
+    text: '"Fa quinze dies que el meu germà va marxar. Espero que estigui bé."'
+  - id: fields_dry
+    text: '"Els camps són més secs del que haurien de ser per aquesta època."'
+  - id: smith_two_doors
+    text: '"Trobaràs el ferrer dues portes més enllà. Sec, però honrat."'
+  - id: wolves_howling
+    text: '"Els llops s''acosten cada nit més al poble."'
+  - id: peddler_owes
+    text: '"Si veus un quincallaire amb el carro vermell, em deu diners."'
+  - id: something_woods
+    text: '"Els vells diuen que hi ha alguna cosa al bosc. Jo no pregunto."'
+  - id: bread_stale
+    text: '"El pa és sec, la cervesa plana, però la companyia és honrada."'
+  - id: move_along
+    text: '"Pau, amic. Continua el teu camí."'
+  - id: lights_in_sky
+    text: '"He vist llums al cel tres nits seguides. Ningú diu res."'

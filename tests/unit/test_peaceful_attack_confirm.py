@@ -1,11 +1,13 @@
 """Tests for the peaceful-attack confirmation prompt.
 
 The first melee bump the player directs at a peaceful NPC opens a
-confirmation dialog. On confirm the target is tagged ``CombatEngaged``
-and combat proceeds; on cancel the bump becomes a ``WaitAction`` so
-the turn still ticks (monsters move, clocks advance) but no damage
-lands. Subsequent strikes on the same ``CombatEngaged`` target skip
-the prompt — once a fight has started, it flows freely.
+confirmation dialog. The dialog offers two options -- "Talk"
+(default, listed first) which rolls a peaceful chatter line and
+returns a ``HoldAction`` so the turn ticks, and "Attack" which
+tags the target ``CombatEngaged`` and lets the original bump
+resolve into a melee strike. Subsequent bumps on the same
+``CombatEngaged`` target skip the prompt -- once a fight has
+started, it flows freely.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from unittest.mock import patch
 import pytest
 
 from nhc.core.actions import (
-    BumpAction, MeleeAttackAction, MoveAction, WaitAction,
+    BumpAction, HoldAction, MeleeAttackAction, MoveAction,
 )
 from nhc.core.actions._confirm import confirm_peaceful_attack
 from nhc.core.ecs import World
@@ -101,7 +103,7 @@ class _Prompt:
 
 
 class TestPromptTriggers:
-    def test_peaceful_non_engaged_triggers_prompt(self):
+    def test_attack_choice_engages_target(self):
         i18n_init("en")
         set_seed(42)
         world = World()
@@ -109,18 +111,21 @@ class TestPromptTriggers:
         pid = _make_player(world, 5, 5)
         vid = _make_villager(world, 6, 5)
         action = BumpAction(actor=pid, dx=1, dy=0)
-        prompt = _Prompt(choice=0)  # confirm
+        prompt = _Prompt(choice=1)  # attack
 
         result = confirm_peaceful_attack(world, level, action, prompt)
 
         assert len(prompt.calls) == 1
-        # Confirmed: the original BumpAction is returned (so the
-        # normal resolve → MeleeAttackAction path runs next).
+        # Attack chosen: the original BumpAction is returned so the
+        # normal resolve → MeleeAttackAction path runs next.
         assert result is action
         # Target tagged engaged.
         assert world.has_component(vid, "CombatEngaged")
 
-    def test_cancel_returns_wait_and_leaves_target_untagged(self):
+    def test_talk_choice_returns_hold_with_chatter(self):
+        """Talk is the new default (option 0): roll a peaceful
+        chatter line and return a HoldAction so the turn ticks
+        without dealing damage. Target stays untagged."""
         i18n_init("en")
         set_seed(42)
         world = World()
@@ -128,13 +133,37 @@ class TestPromptTriggers:
         pid = _make_player(world, 5, 5)
         vid = _make_villager(world, 6, 5)
         action = BumpAction(actor=pid, dx=1, dy=0)
-        prompt = _Prompt(choice=1)  # cancel
+        prompt = _Prompt(choice=0)  # talk
 
         result = confirm_peaceful_attack(world, level, action, prompt)
 
-        assert isinstance(result, WaitAction)
+        assert isinstance(result, HoldAction)
         assert result.actor == pid
+        assert result.message_text, (
+            "talk choice should produce a non-empty chatter line"
+        )
         assert not world.has_component(vid, "CombatEngaged")
+
+    def test_dialog_lists_talk_first(self):
+        """The menu order is talk (0) then attack (1) so an
+        accidental Enter on the dialog is non-violent by default."""
+        i18n_init("en")
+        set_seed(42)
+        world = World()
+        level = _street_level()
+        pid = _make_player(world, 5, 5)
+        _make_villager(world, 6, 5)
+        action = BumpAction(actor=pid, dx=1, dy=0)
+        prompt = _Prompt(choice=0)
+
+        confirm_peaceful_attack(world, level, action, prompt)
+
+        assert len(prompt.calls) == 1
+        _title, items = prompt.calls[0]
+        ids = [idx for idx, _label in items]
+        labels = [label for _idx, label in items]
+        assert ids == [0, 1]
+        assert labels == ["Talk", "Attack"]
 
     def test_engaged_target_skips_prompt(self):
         i18n_init("en")
@@ -160,7 +189,7 @@ class TestPromptTriggers:
         pid = _make_player(world, 5, 5)
         _make_hostile(world, 6, 5)
         action = BumpAction(actor=pid, dx=1, dy=0)
-        prompt = _Prompt(choice=1)  # would cancel if asked
+        prompt = _Prompt(choice=0)  # would talk if asked
 
         result = confirm_peaceful_attack(world, level, action, prompt)
 
@@ -175,7 +204,7 @@ class TestPromptTriggers:
         level = _street_level()
         pid = _make_player(world, 5, 5)
         action = MoveAction(actor=pid, dx=1, dy=0)
-        prompt = _Prompt(choice=1)
+        prompt = _Prompt(choice=0)
 
         result = confirm_peaceful_attack(world, level, action, prompt)
 
@@ -190,7 +219,7 @@ class TestPromptTriggers:
         level = _street_level()
         pid = _make_player(world, 5, 5)
         action = BumpAction(actor=pid, dx=1, dy=0)
-        prompt = _Prompt(choice=1)
+        prompt = _Prompt(choice=0)
 
         result = confirm_peaceful_attack(world, level, action, prompt)
 
@@ -246,6 +275,23 @@ class TestMeleeAttackTagsEngaged:
         await action.execute(world, level)
 
         assert world.has_component(vid, "CombatEngaged")
+
+
+class TestPeacefulChatterTable:
+    """The talk option draws from ``combat.peaceful_chatter`` --
+    every locale must ship enough lines to keep encounters from
+    blurring together."""
+
+    def test_table_loads_in_each_locale_with_at_least_30_entries(self):
+        from nhc.tables.registry import TableRegistry
+
+        for lang in ("en", "ca", "es"):
+            registry = TableRegistry.get_or_load(lang)
+            table = registry._get_table("combat.peaceful_chatter")
+            assert len(table.entries) >= 30, (
+                f"{lang}: expected >=30 chatter lines, "
+                f"got {len(table.entries)}"
+            )
 
 
 class TestThiefFleeTagsEngaged:

@@ -3,12 +3,16 @@
 A single helper that intercepts a ``BumpAction`` before it reaches
 the main resolver. If the bump would melee-strike a peaceful NPC
 that isn't yet engaged in combat with the player, the caller is
-asked (via the ``prompt_fn`` hook) to confirm. On confirm the
-target is tagged :class:`CombatEngaged` and the original action is
-returned untouched, so the resolver's ``MeleeAttackAction`` path
-runs as usual. On cancel a :class:`WaitAction` is returned — the
-player pauses to rest, but the turn still ticks so monsters move
-and clocks advance.
+asked (via the ``prompt_fn`` hook) to confirm. The dialog now
+offers two options:
+
+* **Talk** (default, listed first) — rolls a flavor line from the
+  ``combat.peaceful_chatter`` table and returns a :class:`HoldAction`
+  that prints the line and ticks the turn so monsters move and
+  clocks advance.
+* **Attack** — tags the target :class:`CombatEngaged` and returns
+  the original action untouched so the resolver's
+  :class:`MeleeAttackAction` path runs as usual.
 
 Exposing this as a free function (rather than inlining into the
 game loop) keeps it unit-testable without spinning up a full
@@ -17,9 +21,10 @@ game loop) keeps it unit-testable without spinning up a full
 
 from __future__ import annotations
 
+import logging
 from typing import Callable, TYPE_CHECKING
 
-from nhc.core.actions._base import Action, WaitAction
+from nhc.core.actions._base import Action, HoldAction
 from nhc.core.actions._helpers import _entity_name
 from nhc.core.actions._movement import BumpAction
 from nhc.core.actions._combat import MeleeAttackAction
@@ -30,8 +35,34 @@ if TYPE_CHECKING:
     from nhc.core.ecs import World
     from nhc.dungeon.model import Level
 
+logger = logging.getLogger(__name__)
+
 
 PromptFn = Callable[[str, list[tuple[int, str]]], "int | None"]
+
+
+def _roll_peaceful_chatter() -> str | None:
+    """Pull one ephemeral line from ``combat.peaceful_chatter``.
+
+    Returns ``None`` when the table fails to load (missing locale,
+    parse error, etc.) so the caller can degrade gracefully to a
+    quiet HoldAction rather than crashing the turn.
+    """
+    try:
+        from nhc.i18n import current_lang
+        from nhc.tables import roll_ephemeral
+
+        result = roll_ephemeral(
+            "combat.peaceful_chatter", lang=current_lang(),
+        )
+        return result.text
+    except Exception:  # noqa: BLE001 - chatter is best-effort flavor
+        logger.debug(
+            "combat.peaceful_chatter roll failed; "
+            "falling back to a silent HoldAction",
+            exc_info=True,
+        )
+        return None
 
 
 def confirm_peaceful_attack(
@@ -40,7 +71,7 @@ def confirm_peaceful_attack(
     action: Action,
     prompt_fn: PromptFn | None,
 ) -> Action:
-    """Return ``action`` (possibly after confirming) or a WaitAction.
+    """Return ``action`` (after confirming) or a HoldAction with chatter.
 
     Non-``BumpAction`` inputs pass through untouched. A bump that
     pre-resolves to anything other than a melee strike (move, open
@@ -78,12 +109,16 @@ def confirm_peaceful_attack(
     choice = prompt_fn(
         t("combat.confirm_prompt", name=target_name),
         [
-            (0, t("combat.confirm_attack")),
-            (1, t("combat.confirm_cancel")),
+            (0, t("combat.confirm_talk")),
+            (1, t("combat.confirm_attack")),
         ],
     )
-    if choice == 0:
+    if choice == 1:
         world.add_component(target, "CombatEngaged", CombatEngaged())
         return action
 
-    return WaitAction(actor=action.actor)
+    # Talk (and fall-through for cancel / unknown choice): roll a
+    # flavor line and return a HoldAction so the turn ticks while
+    # the line is delivered through the standard message bus.
+    chatter = _roll_peaceful_chatter() or ""
+    return HoldAction(actor=action.actor, message_text=chatter)

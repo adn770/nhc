@@ -1,0 +1,75 @@
+id: combat.peaceful_chatter
+kind: flavor
+lifetime: ephemeral
+shared_structure: true
+
+# Drawn when the player picks "Hablar" on the peaceful-attack
+# confirmation dialog. Lines are deliberately generic so any
+# NPC -- granjero, aldeano, peregrino, viajero -- can deliver
+# them.
+
+entries:
+  - id: peace_friend
+    text: '"Paz, amigo. Aquí no hay pleito."'
+  - id: mind_blade
+    text: '"Cuidado con esa hoja — la posada está calle abajo."'
+  - id: looking_market
+    text: '"¿Buscas el mercado? Dos caminos al este."'
+  - id: strange_weather
+    text: '"Vaya tiempo más raro tenemos."'
+  - id: trouble_ruins
+    text: '"Dicen que hay problemas por las viejas ruinas."'
+  - id: not_seen_face
+    text: '"Hace semanas que no veo una cara como la tuya."'
+  - id: walk_with_stories
+    text: '"Caminas como alguien con historias que contar."'
+  - id: dogs_next_farm
+    text: '"Cuidado con los perros de la próxima granja — ladran fuerte."'
+  - id: wood_hard
+    text: '"La leña ha escaseado este invierno."'
+  - id: pass_gentle
+    text: '"Pasa con calma, viajero."'
+  - id: dont_see_strangers
+    text: '"Aquí no vemos muchos forasteros."'
+  - id: road_washed_out
+    text: '"¿Vienes del este? Dicen que el camino está deshecho."'
+  - id: tax_collectors
+    text: '"Los recaudadores vinieron la semana pasada. Mala gente."'
+  - id: goblins_in_hills
+    text: '"Goblins en las colinas. Siempre goblins en las colinas."'
+  - id: bread_baking
+    text: '"Te ofrecería pan, pero los panes aún se hornean."'
+  - id: noise_old_well
+    text: '"Ruido extraño en el viejo pozo anoche. No será nada."'
+  - id: rain_coming
+    text: '"Viene lluvia. Se huele en el viento."'
+  - id: stray_cat
+    text: '"Si encuentras una gata perdida, es mía. Patas blancas."'
+  - id: long_road_boots
+    text: '"Largo camino llevas, a juzgar por las botas."'
+  - id: kettle_on
+    text: '"Hay puchero al fuego, si quieres esperar."'
+  - id: dont_trust_priest
+    text: '"No te fíes del cura del próximo pueblo — tiene la lengua demasiado fina."'
+  - id: lord_raised_toll
+    text: '"Dicen que el señor subió el peaje del puente."'
+  - id: sleep_one_eye
+    text: '"Por aquí, amigo, duerme con un ojo abierto."'
+  - id: brother_gone
+    text: '"Hace quince días que se fue mi hermano. Espero que esté bien."'
+  - id: fields_dry
+    text: '"Los campos están más secos de lo que deberían para esta época."'
+  - id: smith_two_doors
+    text: '"Hallarás al herrero dos puertas más allá. Seco, pero honrado."'
+  - id: wolves_howling
+    text: '"Los lobos se acercan cada noche más al pueblo."'
+  - id: peddler_owes
+    text: '"Si ves a un buhonero con el carro rojo, me debe dinero."'
+  - id: something_woods
+    text: '"Los viejos dicen que hay algo en el bosque. Yo no pregunto."'
+  - id: bread_stale
+    text: '"El pan está duro, la cerveza floja, pero la compañía es honrada."'
+  - id: move_along
+    text: '"Paz, amigo. Sigue tu camino."'
+  - id: lights_in_sky
+    text: '"Vi luces en el cielo tres noches seguidas. Nadie dice nada."'
