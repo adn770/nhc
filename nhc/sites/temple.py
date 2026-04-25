@@ -37,13 +37,20 @@ from nhc.sites._site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome
 
 
 # ── Temple tunable constants ─────────────────────────────────
 
-TEMPLE_SURFACE_WIDTH = 22
-TEMPLE_SURFACE_HEIGHT = 18
+# Per-kind tier table. M6b only supports the default tier
+# (SMALL); future tiers can grow when gameplay calls for it.
+TEMPLE_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.SMALL: (22, 18),
+}
+
+TEMPLE_SURFACE_WIDTH = TEMPLE_DIMS_BY_TIER[SiteTier.SMALL][0]
+TEMPLE_SURFACE_HEIGHT = TEMPLE_DIMS_BY_TIER[SiteTier.SMALL][1]
 TEMPLE_BUILDING_POS = (7, 5)
 TEMPLE_BUILDING_SIZE = (8, 8)
 TEMPLE_GARDEN_RING = 1
@@ -53,13 +60,21 @@ TEMPLE_MYSTERIOUS_DROP_RANGE = (2, 4)
 def assemble_temple(
     site_id: str, rng: random.Random,
     biome: Biome | None = None,
+    *, tier: SiteTier = SiteTier.SMALL,
 ) -> Site:
     """Assemble a temple site.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``SMALL`` is supported.
 
     ``biome`` selects the variant (see module docstring). ``None``
     defaults to the forest layout so legacy call sites without a
     biome still produce a reasonable temple.
     """
+    if tier is not SiteTier.SMALL:
+        raise ValueError(
+            f"temple only supports SiteTier.SMALL; got {tier!r}",
+        )
     if biome is None:
         biome = Biome.FOREST
 

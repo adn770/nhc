@@ -25,13 +25,20 @@ from nhc.sites._site import (
     InteriorDoorLink, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import DungeonRef
 
 
 # ── Mansion tunable constants ────────────────────────────────
 
-MANSION_SURFACE_WIDTH = 40
-MANSION_SURFACE_HEIGHT = 18
+# Per-kind tier table. M6b only supports the default tier
+# (MEDIUM); future tiers grow when gameplay calls for it.
+MANSION_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.MEDIUM: (40, 18),
+}
+
+MANSION_SURFACE_WIDTH = MANSION_DIMS_BY_TIER[SiteTier.MEDIUM][0]
+MANSION_SURFACE_HEIGHT = MANSION_DIMS_BY_TIER[SiteTier.MEDIUM][1]
 MANSION_BUILDING_COUNT_RANGE = (2, 4)
 MANSION_BUILDING_WIDTH_RANGE = (6, 8)
 MANSION_BUILDING_HEIGHT = 7
@@ -51,8 +58,12 @@ MAGE_TOWER_GAP = 2  # tiles of garden between mansion and tower
 def assemble_mansion(
     site_id: str, rng: random.Random,
     mage_variant: bool = False,
+    *, tier: SiteTier = SiteTier.MEDIUM,
 ) -> Site:
     """Assemble a mansion site.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``MEDIUM`` is supported.
 
     When ``mage_variant`` is True, after the ordinary 2-4 mansion
     buildings are placed an extra octagonal tower building is
@@ -60,6 +71,10 @@ def assemble_mansion(
     door and carrying teleporter pads on each interior floor — the
     resident mage's workshop.
     """
+    if tier is not SiteTier.MEDIUM:
+        raise ValueError(
+            f"mansion only supports SiteTier.MEDIUM; got {tier!r}",
+        )
     n_buildings = rng.randint(*MANSION_BUILDING_COUNT_RANGE)
     buildings: list[Building] = []
     x_cursor = MANSION_BUILDING_X_START

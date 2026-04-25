@@ -23,6 +23,7 @@ from nhc.dungeon.model import (
     Terrain,
 )
 from nhc.sites._site import Site, outside_neighbour, stamp_building_door
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
 
 
@@ -39,6 +40,7 @@ def assemble_tower(
     site_id: str, rng: random.Random,
     biome: Biome | None = None,
     mage_variant: bool = False,
+    *, tier: SiteTier = SiteTier.TINY,
 ) -> Site:
     """Assemble a tower site from ``rng``.
 
@@ -60,7 +62,16 @@ def assemble_tower(
     and every interior floor receives one teleporter pair — the
     mage's wayfinding trick. Mage towers keep biome-driven
     material overrides so a mountain mage tower stays stone.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``TINY`` is supported -- the
+    tower's surface dim is computed from the building's base rect,
+    not from a fixed footprint table.
     """
+    if tier is not SiteTier.TINY:
+        raise ValueError(
+            f"tower only supports SiteTier.TINY; got {tier!r}",
+        )
     if mage_variant:
         shape_key = "octagon"
     else:

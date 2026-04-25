@@ -31,13 +31,20 @@ from nhc.sites._site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import DungeonRef
 
 
 # ── Keep tunable constants ───────────────────────────────────
 
-KEEP_SURFACE_WIDTH = 46
-KEEP_SURFACE_HEIGHT = 36
+# Per-kind tier table. M6b only supports the default tier
+# (MEDIUM); future tiers grow when gameplay calls for it.
+KEEP_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.MEDIUM: (46, 36),
+}
+
+KEEP_SURFACE_WIDTH = KEEP_DIMS_BY_TIER[SiteTier.MEDIUM][0]
+KEEP_SURFACE_HEIGHT = KEEP_DIMS_BY_TIER[SiteTier.MEDIUM][1]
 
 # biome-features v2 M12: the inhabited half of the keep↔ruin pair.
 # 2-4 guards scatter across the courtyard; one quartermaster sits
@@ -71,8 +78,17 @@ KEEP_SPARSE_SHAPE = "rect"           # sparse = always small rect
 
 def assemble_keep(
     site_id: str, rng: random.Random,
+    *, tier: SiteTier = SiteTier.MEDIUM,
 ) -> Site:
-    """Assemble a keep site."""
+    """Assemble a keep site.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``MEDIUM`` is supported.
+    """
+    if tier is not SiteTier.MEDIUM:
+        raise ValueError(
+            f"keep only supports SiteTier.MEDIUM; got {tier!r}",
+        )
     main_count = rng.randint(*KEEP_MAIN_BUILDING_COUNT_RANGE)
     sparse_count = rng.randint(*KEEP_SPARSE_BUILDING_COUNT_RANGE)
 

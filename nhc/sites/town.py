@@ -55,7 +55,23 @@ from nhc.sites._site import (
 from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
 )
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
+
+
+# Size_class <-> SiteTier mapping. Towns historically used a 4-step
+# size_class scale (hamlet / village / town / city). The unified
+# tier scheme has 3 tiers in the macro range; the four sizes
+# collapse to MEDIUM (hamlet) / LARGE (village) / HUGE (town /
+# city). The "town" middle size remains addressable by passing
+# ``size_class="town"`` directly so the existing generator pool
+# stays intact; the dispatcher in M6c will use the tier mapping
+# (and ``city`` becomes the default at HUGE).
+_TIER_TO_SIZE_CLASS: dict[SiteTier, str] = {
+    SiteTier.MEDIUM: "hamlet",
+    SiteTier.LARGE: "village",
+    SiteTier.HUGE: "city",
+}
 
 
 # ── Town tunable constants ───────────────────────────────────
@@ -181,14 +197,21 @@ _SIZE_CLASSES: dict[str, _TownSizeConfig] = {
 def assemble_town(
     site_id: str,
     rng: random.Random,
-    size_class: str = "village",
+    size_class: str | None = None,
     biome: Biome | None = None,
+    *, tier: SiteTier | None = None,
 ) -> Site:
     """Assemble a town site.
 
     ``size_class`` must be one of ``hamlet``, ``village``,
-    ``town`` or ``city``. Defaults to ``village`` so legacy
-    call sites and tests remain unchanged.
+    ``town`` or ``city``. ``None`` (the default) falls back to
+    ``tier`` if it is set, otherwise ``"village"``.
+
+    ``tier`` is the unified ``Game.enter_site`` dispatcher
+    parameter (M6b). MEDIUM / LARGE / HUGE map to hamlet /
+    village / city respectively; the in-between ``town`` size is
+    still reachable via ``size_class="town"``. Passing both
+    ``size_class`` and ``tier`` is fine; ``size_class`` wins.
 
     ``biome`` is an optional :class:`Biome` that lets the
     assembler tweak its defaults via :data:`_BIOME_OVERRIDES`
@@ -199,6 +222,16 @@ def assemble_town(
     surface ambient marker the frontend can raise a tile for.
     All other biomes fall through to the unmodified defaults.
     """
+    if size_class is None:
+        if tier is not None:
+            if tier not in _TIER_TO_SIZE_CLASS:
+                raise ValueError(
+                    f"town only supports MEDIUM / LARGE / HUGE "
+                    f"tiers; got {tier!r}",
+                )
+            size_class = _TIER_TO_SIZE_CLASS[tier]
+        else:
+            size_class = "village"
     if size_class not in _SIZE_CLASSES:
         raise ValueError(f"unknown town size_class: {size_class!r}")
     config = _SIZE_CLASSES[size_class]

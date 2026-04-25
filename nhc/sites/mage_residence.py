@@ -21,6 +21,7 @@ from nhc.dungeon.model import (
     CircleShape, Level, OctagonShape, Rect, RoomShape, Terrain,
 )
 from nhc.sites._site import Site, outside_neighbour, stamp_building_door
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import DungeonRef
 
 
@@ -33,6 +34,7 @@ MAGE_SHAPE_POOL = ("octagon", "circle")
 
 def assemble_mage_residence(
     site_id: str, rng: random.Random,
+    *, tier: SiteTier = SiteTier.TINY,
 ) -> Site:
     """Assemble a mage-residence site.
 
@@ -40,7 +42,15 @@ def assemble_mage_residence(
     floors are partitioned by the enriched SectorPartitioner, so
     the "main" sector rotates per floor and one door drops on
     alternating floors — the layout reads as a spiral tower.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``TINY`` is supported -- the
+    surface dim is computed from the building's base rect.
     """
+    if tier is not SiteTier.TINY:
+        raise ValueError(
+            f"mage_residence only supports SiteTier.TINY; got {tier!r}",
+        )
     spec = ARCHETYPE_CONFIG["mage_residence"]
     shape_key = rng.choice(MAGE_SHAPE_POOL)
     size = rng.randint(*MAGE_SIZE_RANGE)

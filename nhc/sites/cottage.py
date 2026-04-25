@@ -23,13 +23,21 @@ from nhc.sites._site import (
     Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome
 
 
 # ── Cottage tunable constants ────────────────────────────────
 
-COTTAGE_SURFACE_WIDTH = 14
-COTTAGE_SURFACE_HEIGHT = 12
+# Per-kind tier table. M6b only defines the default tier
+# (TINY) so the dispatcher can pass ``tier`` uniformly; further
+# tier entries grow as gameplay calls for it.
+COTTAGE_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.TINY: (14, 12),
+}
+
+COTTAGE_SURFACE_WIDTH = COTTAGE_DIMS_BY_TIER[SiteTier.TINY][0]
+COTTAGE_SURFACE_HEIGHT = COTTAGE_DIMS_BY_TIER[SiteTier.TINY][1]
 COTTAGE_BUILDING_POS = (4, 3)
 COTTAGE_BUILDING_SIZE = (5, 5)
 COTTAGE_GARDEN_RING = 1
@@ -48,6 +56,7 @@ COTTAGE_CONTENT_WEIGHTS: list[tuple[str, float]] = [
 def assemble_cottage(
     site_id: str, rng: random.Random,
     biome: Biome | None = None,
+    *, tier: SiteTier = SiteTier.TINY,
 ) -> Site:
     """Assemble a cottage site.
 
@@ -55,8 +64,16 @@ def assemble_cottage(
     site assemblers; cottages are forest-only in v1 so the
     parameter is ignored for now. TODO (v2): branch on biome for
     mountain / swamp cottages once content supports them.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``TINY`` is supported -- the
+    14x12 cottage footprint is intrinsic to the kind.
     """
     del biome  # unused in v1
+    if tier is not SiteTier.TINY:
+        raise ValueError(
+            f"cottage only supports SiteTier.TINY; got {tier!r}",
+        )
 
     base_rect = Rect(
         COTTAGE_BUILDING_POS[0], COTTAGE_BUILDING_POS[1],

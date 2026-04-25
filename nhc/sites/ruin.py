@@ -39,6 +39,7 @@ from nhc.sites._site import (
     Enclosure, Site, outside_neighbour, paint_surface_doors,
     stamp_building_door,
 )
+from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
 
 
@@ -53,8 +54,14 @@ RUIN_ENCLOSURE_KIND = "fortification"  # stone reads as ancient;
 RUIN_DESCENT_FLOORS = 3
 RUIN_DESCENT_TEMPLATE = "procedural:ruin"
 
-RUIN_SURFACE_WIDTH = 18
-RUIN_SURFACE_HEIGHT = 14
+# Per-kind tier table. M6b only supports the default tier
+# (TINY); future tiers can grow when gameplay calls for it.
+RUIN_DIMS_BY_TIER: dict[SiteTier, tuple[int, int]] = {
+    SiteTier.TINY: (18, 14),
+}
+
+RUIN_SURFACE_WIDTH = RUIN_DIMS_BY_TIER[SiteTier.TINY][0]
+RUIN_SURFACE_HEIGHT = RUIN_DIMS_BY_TIER[SiteTier.TINY][1]
 RUIN_BUILDING_POS = (6, 4)
 RUIN_BUILDING_SIZE = (7, 6)
 RUIN_ENCLOSURE_PADDING = 3
@@ -65,8 +72,12 @@ RUIN_PARTIAL_WALL_DROP_RANGE = (2, 4)
 def assemble_ruin(
     site_id: str, rng: random.Random,
     biome: Biome | None = None,
+    *, tier: SiteTier = SiteTier.TINY,
 ) -> Site:
     """Assemble a ruin site.
+
+    ``tier`` is accepted for the unified ``Game.enter_site``
+    dispatcher API (M6b). Today only ``TINY`` is supported.
 
     ``biome`` controls only the surface ring flavour:
 
@@ -79,6 +90,10 @@ def assemble_ruin(
     descent depth, and faction pool (v1). Only the surface ring
     differs.
     """
+    if tier is not SiteTier.TINY:
+        raise ValueError(
+            f"ruin only supports SiteTier.TINY; got {tier!r}",
+        )
     if biome is None:
         biome = Biome.FOREST
 
