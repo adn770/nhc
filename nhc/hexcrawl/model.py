@@ -249,21 +249,103 @@ class HexFlower:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
+@dataclass(init=False)
 class HexCell:
-    """A single hex on the overland map."""
+    """A single hex on the overland map.
+
+    ``feature`` and ``dungeon`` are exposed as properties (M6e):
+    when a :class:`HexFlower` is attached, both derive from the
+    flower's ``feature_cell`` sub-hex so the flower is the single
+    source of truth. Generators that run before flower assembly
+    (or callers that never build a flower) keep the legacy
+    behaviour because the property setter writes through to the
+    underlying ``_feature`` / ``_dungeon`` field too, and the
+    getter falls back when the flower is missing.
+    """
 
     coord: HexCoord
     biome: Biome
-    feature: HexFeatureType = HexFeatureType.NONE
     name_key: str | None = None
     desc_key: str | None = None
-    dungeon: DungeonRef | None = None
     elevation: float = 0.0
     edges: list[EdgeSegment] = field(default_factory=list)
     flower: HexFlower | None = None
     tile_slot: int = 0
     dressing: dict[str, str] = field(default_factory=dict)
+    _feature: HexFeatureType = field(
+        default=HexFeatureType.NONE, repr=False,
+    )
+    _dungeon: DungeonRef | None = field(default=None, repr=False)
+
+    def __init__(
+        self,
+        coord: HexCoord,
+        biome: Biome,
+        feature: HexFeatureType = HexFeatureType.NONE,
+        name_key: str | None = None,
+        desc_key: str | None = None,
+        dungeon: "DungeonRef | None" = None,
+        elevation: float = 0.0,
+        edges: "list[EdgeSegment] | None" = None,
+        flower: "HexFlower | None" = None,
+        tile_slot: int = 0,
+        dressing: "dict[str, str] | None" = None,
+    ) -> None:
+        self.coord = coord
+        self.biome = biome
+        self.name_key = name_key
+        self.desc_key = desc_key
+        self.elevation = elevation
+        self.edges = edges if edges is not None else []
+        self.flower = flower
+        self.tile_slot = tile_slot
+        self.dressing = dressing if dressing is not None else {}
+        self._feature = feature
+        self._dungeon = dungeon
+        # If the caller already attached a flower, propagate the
+        # initial feature / dungeon onto its feature_cell so reads
+        # through the property agree with the constructor args.
+        if flower is not None and flower.feature_cell is not None:
+            sub = flower.cells.get(flower.feature_cell)
+            if sub is not None:
+                if feature is not HexFeatureType.NONE:
+                    sub.major_feature = feature
+                if dungeon is not None:
+                    sub.dungeon = dungeon
+
+    def _feature_cell_sub(self) -> "SubHexCell | None":
+        flower = self.flower
+        if flower is None or flower.feature_cell is None:
+            return None
+        return flower.cells.get(flower.feature_cell)
+
+    @property
+    def feature(self) -> HexFeatureType:
+        sub = self._feature_cell_sub()
+        if sub is not None:
+            return sub.major_feature
+        return self._feature
+
+    @feature.setter
+    def feature(self, value: HexFeatureType) -> None:
+        self._feature = value
+        sub = self._feature_cell_sub()
+        if sub is not None:
+            sub.major_feature = value
+
+    @property
+    def dungeon(self) -> "DungeonRef | None":
+        sub = self._feature_cell_sub()
+        if sub is not None:
+            return sub.dungeon
+        return self._dungeon
+
+    @dungeon.setter
+    def dungeon(self, value: "DungeonRef | None") -> None:
+        self._dungeon = value
+        sub = self._feature_cell_sub()
+        if sub is not None:
+            sub.dungeon = value
 
 
 @dataclass(frozen=True)

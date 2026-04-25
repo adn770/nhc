@@ -251,3 +251,91 @@ def test_water_no_minor_features() -> None:
     )
     for cell in cells.values():
         assert cell.minor_feature is MinorFeatureType.NONE
+
+
+# ---------------------------------------------------------------------------
+# M6e: macro feature derives from the flower's feature_cell
+# ---------------------------------------------------------------------------
+
+
+def test_macro_feature_derives_from_flower_feature_cell() -> None:
+    """After M6e, ``HexCell.feature`` and ``HexCell.dungeon`` are
+    properties that read from ``flower.cells[feature_cell]``. The
+    flower is the source of truth; mutating the feature_cell
+    sub-hex changes what the macro reports."""
+    from nhc.hexcrawl.model import (
+        DungeonRef, HexCell, HexFlower, SubHexCell,
+    )
+
+    parent = HexCell(
+        coord=HexCoord(0, 0),
+        biome=Biome.FOREST,
+        feature=HexFeatureType.CITY,
+        dungeon=DungeonRef(
+            template="procedural:settlement",
+            site_kind="town", size_class="village",
+        ),
+    )
+    sub_cells = {c: SubHexCell(coord=c, biome=Biome.FOREST)
+                 for c in FLOWER_COORDS}
+    fc = HexCoord(0, 0)
+    sub_cells[fc].major_feature = HexFeatureType.CITY
+    sub_cells[fc].dungeon = DungeonRef(
+        template="procedural:settlement",
+        site_kind="town", size_class="village",
+    )
+    parent.flower = HexFlower(
+        parent_coord=parent.coord,
+        cells=sub_cells,
+        feature_cell=fc,
+    )
+    # Property reads derive from the feature_cell sub-hex.
+    assert parent.feature is HexFeatureType.CITY
+    assert parent.dungeon is sub_cells[fc].dungeon
+
+    # Mutating the sub-cell propagates to the macro property.
+    sub_cells[fc].major_feature = HexFeatureType.RUIN
+    assert parent.feature is HexFeatureType.RUIN
+    sub_cells[fc].dungeon = None
+    assert parent.dungeon is None
+
+
+def test_macro_feature_setter_propagates_to_feature_cell() -> None:
+    """Writing to ``HexCell.feature`` / ``HexCell.dungeon`` after
+    the flower exists propagates to the feature_cell sub-hex so
+    later reads through either path agree."""
+    from nhc.hexcrawl.model import (
+        DungeonRef, HexCell, HexFlower, SubHexCell,
+    )
+
+    parent = HexCell(coord=HexCoord(0, 0), biome=Biome.FOREST)
+    sub_cells = {c: SubHexCell(coord=c, biome=Biome.FOREST)
+                 for c in FLOWER_COORDS}
+    fc = HexCoord(0, 0)
+    parent.flower = HexFlower(
+        parent_coord=parent.coord,
+        cells=sub_cells,
+        feature_cell=fc,
+    )
+    parent.feature = HexFeatureType.KEEP
+    parent.dungeon = DungeonRef(
+        template="procedural:keep", site_kind="keep",
+    )
+    # Setter wrote through to the feature_cell sub-hex.
+    assert sub_cells[fc].major_feature is HexFeatureType.KEEP
+    assert sub_cells[fc].dungeon is parent.dungeon
+
+
+def test_macro_feature_falls_back_when_flower_is_none() -> None:
+    """A bare ``HexCell`` (no flower yet) keeps the legacy
+    behaviour: setter / getter round-trip through the underlying
+    private field. Lets generators that run before flower assembly
+    still write features the way they always have."""
+    from nhc.hexcrawl.model import DungeonRef, HexCell
+
+    cell = HexCell(coord=HexCoord(1, 1), biome=Biome.FOREST)
+    cell.feature = HexFeatureType.CAVE
+    cell.dungeon = DungeonRef(template="procedural:cave")
+    assert cell.feature is HexFeatureType.CAVE
+    assert cell.dungeon is not None
+    assert cell.dungeon.template == "procedural:cave"
