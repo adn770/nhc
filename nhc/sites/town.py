@@ -121,41 +121,58 @@ class _CenterpieceSpec:
     """Per-size landmark on a reserved patch (Q3, Q18).
 
     ``feature_dim`` is the feature footprint (1 for well, 2 for
-    fountain). ``patch_dim`` is the reserved patch (3x3 for
-    hamlet/village, 4x4 for town/city). ``feature_circle`` and
-    ``feature_square`` are the feature tags for the two biome-
-    driven variants.
+    fountain, 3 for the city 3x3 fountains). ``patch_dim`` is
+    the reserved patch (3x3 for hamlet / village, 4x4 for town,
+    5x5 for city). ``feature_circle`` / ``feature_square`` /
+    ``feature_cross`` are the biome-driven variants.
+
+    ``feature_cross`` is optional -- only the city spec carries
+    the cross variant today (the smaller wells / 2x2 fountains
+    have no plus-shaped equivalent). When unset and a biome
+    routes to ``"cross"``, the dispatcher falls back to the
+    circle variant.
     """
 
     feature_dim: int
     patch_dim: int
     feature_circle: str
     feature_square: str
+    feature_cross: str | None = None
 
 
 _CENTERPIECE_PER_SIZE: dict[str, _CenterpieceSpec] = {
     "hamlet": _CenterpieceSpec(1, 3, "well", "well_square"),
     "village": _CenterpieceSpec(1, 3, "well", "well_square"),
     "town": _CenterpieceSpec(2, 4, "fountain", "fountain_square"),
-    "city": _CenterpieceSpec(2, 4, "fountain", "fountain_square"),
+    "city": _CenterpieceSpec(
+        3, 5,
+        "fountain_large",
+        "fountain_large_square",
+        feature_cross="fountain_cross",
+    ),
 }
 
 
 _BIOME_CENTERPIECE_SHAPE: dict[Biome, str] = {
+    # Stone-masonry biomes -> square plinths.
     Biome.MOUNTAIN: "square",
     Biome.ICELANDS: "square",
     Biome.DRYLANDS: "square",
     Biome.SANDLANDS: "square",
-    Biome.MARSH: "circle",
+    # Decay / mystical biomes get the elaborate plus shape on
+    # cities (city_spec carries feature_cross). Smaller settle-
+    # ments fall back to the circle variant.
+    Biome.DEADLANDS: "cross",
+    Biome.SWAMP: "cross",
+    Biome.MARSH: "cross",
+    # Lush / temperate biomes -> rounded plinths.
     Biome.FOREST: "circle",
     Biome.GREENLANDS: "circle",
     Biome.HILLS: "circle",
-    Biome.SWAMP: "circle",
-    Biome.DEADLANDS: "circle",
 }
 """Q12: biome -> centerpiece shape variant. Stone-masonry biomes
- (mountain / icelands / drylands / sandlands) get a square
- well / fountain; the rest land the rounded variant. Default
+ get the square variant; decay / mystical biomes get the cross
+ (city only); lush biomes get the rounded variant. Default
  ``"circle"`` covers ``biome=None`` and any unmapped biome."""
 
 
@@ -167,6 +184,8 @@ def _centerpiece_feature_tag(
     shape = _BIOME_CENTERPIECE_SHAPE.get(biome, "circle")
     if shape == "square":
         return spec.feature_square
+    if shape == "cross" and spec.feature_cross is not None:
+        return spec.feature_cross
     return spec.feature_circle
 
 TOWN_WOOD_BUILDING_PROBABILITY = 0.65    # rest are stone

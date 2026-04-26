@@ -34,7 +34,10 @@ def _feature_tiles(site, feature: str) -> list[tuple[int, int]]:
 
 def _any_centerpiece(site) -> tuple[str, tuple[int, int]] | None:
     for feature in (
-        "well", "well_square", "fountain", "fountain_square",
+        "well", "well_square",
+        "fountain", "fountain_square",
+        "fountain_large", "fountain_large_square",
+        "fountain_cross",
     ):
         tiles = _feature_tiles(site, feature)
         if tiles:
@@ -50,7 +53,10 @@ class TestCenterpieceExistsPerSize:
         ("hamlet", ("well", "well_square")),
         ("village", ("well", "well_square")),
         ("town", ("fountain", "fountain_square")),
-        ("city", ("fountain", "fountain_square")),
+        ("city", (
+            "fountain_large", "fountain_large_square",
+            "fountain_cross",
+        )),
     ])
     def test_centerpiece_feature_kind_matches_size(
         self, size_class, expected,
@@ -130,7 +136,7 @@ class TestCenterpiecePatchSurface:
         ("hamlet", 3, 1),
         ("village", 3, 1),
         ("town", 4, 2),
-        ("city", 4, 2),
+        ("city", 5, 3),
     ])
     def test_patch_is_floor_and_street(
         self, size_class, patch_dim, feature_dim,
@@ -221,9 +227,13 @@ class TestBiomeShape:
         )
 
     @pytest.mark.parametrize("biome,expected", [
-        (Biome.MOUNTAIN, "fountain_square"),
-        (Biome.MARSH, "fountain"),
-        (Biome.GREENLANDS, "fountain"),
+        (Biome.MOUNTAIN, "fountain_large_square"),
+        (Biome.DRYLANDS, "fountain_large_square"),
+        (Biome.MARSH, "fountain_cross"),
+        (Biome.SWAMP, "fountain_cross"),
+        (Biome.DEADLANDS, "fountain_cross"),
+        (Biome.GREENLANDS, "fountain_large"),
+        (Biome.FOREST, "fountain_large"),
     ])
     def test_city_centerpiece_shape_per_biome(
         self, biome, expected,
