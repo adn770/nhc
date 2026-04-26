@@ -297,6 +297,7 @@ def _build_keep_building(
     )
     for f in floors:
         f.interior_floor = "stone"
+        _stamp_paved_floor(f)
     building = Building(
         id=building_id,
         base_shape=base_shape,
@@ -330,6 +331,26 @@ def _build_keep_floor(
         tags=["keep_interior"],
         required_walkable=required_walkable,
     )
+
+
+def _stamp_paved_floor(level: Level) -> None:
+    """Tag every interior FLOOR tile as ``SurfaceType.PAVED``.
+
+    Keeps the building's ``interior_floor`` as ``"stone"`` -- the
+    masonry-coloured floor fill stays the same. The PAVED tag layers
+    a cobblestone overlay on top via the unified TileDecorator
+    pipeline (see ``rendering_refactor_plan.md`` Phase 2).
+    """
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain is not Terrain.FLOOR:
+                continue
+            # Don't overwrite CORRIDOR / TRACK / etc.; PAVED only
+            # applies to plain interior FLOOR tiles.
+            if tile.surface_type is not SurfaceType.NONE:
+                continue
+            tile.surface_type = SurfaceType.PAVED
 
 
 def _place_entry_door(

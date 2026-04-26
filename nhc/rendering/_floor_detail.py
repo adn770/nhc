@@ -11,6 +11,7 @@ import random
 import sys
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain
+from nhc.rendering._decorators import TileDecorator
 from nhc.rendering._svg_helpers import (
     CELL,
     FLOOR_STONE_FILL,
@@ -696,8 +697,12 @@ def _render_floor_detail(
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
         _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
 
-    # Street cobblestone detail — rendered on SurfaceType.STREET tiles
-    _render_street_cobblestone(svg, level, rng)
+    # Cobblestone overlay — STREET (town surfaces) + PAVED (keep
+    # interiors), via the unified TileDecorator pipeline.
+    from nhc.rendering._decorators import walk_and_paint
+    svg.extend(walk_and_paint(
+        ctx, [COBBLESTONE, COBBLE_STONE], layer_name="floor_detail",
+    ))
 
     # Field and garden surface detail — rendered on surface_type tiles
     _render_field_surface(svg, level, rng)
@@ -710,47 +715,38 @@ def _render_floor_detail(
     _render_ore_deposits(svg, level, rng)
 
 
-# ── Street cobblestone ───────────────────────────────────────
+# ── Cobblestone (STREET + PAVED) ─────────────────────────────
 
 _COBBLE_STROKE = "#8A7A6A"
 _COBBLE_FILL = "#E8DFD0"
 _STONE_FILL = "#C8BEB0"
 _STONE_STROKE = "#9A8A7A"
 
+_COBBLESTONE_SURFACES = (SurfaceType.STREET, SurfaceType.PAVED)
 
-def _render_street_cobblestone(
-    svg: list[str], level: "Level", rng: random.Random,
-) -> None:
-    """Draw cobblestone pattern on street tiles.
 
-    Each tile gets a grid of irregular small rectangles to
-    suggest cobblestones, with occasional small stone
-    decorations on top.
+def _is_cobble_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].surface_type in _COBBLESTONE_SURFACES
+
+
+def _cobblestone_paint(args) -> list[str]:
+    """Paint the 3x3 cobblestone grid for one tile.
+
+    Decorator entry point for :data:`COBBLESTONE`. Forwards to the
+    geometry helper :func:`_cobblestone_tile`.
     """
     cobbles: list[str] = []
+    _cobblestone_tile(args.rng, args.px, args.py, cobbles)
+    return cobbles
+
+
+def _cobble_stone_paint(args) -> list[str]:
+    """Paint an occasional decorative stone on a cobble tile."""
+    if args.rng.random() >= 0.12:
+        return []
     stones: list[str] = []
-
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.surface_type != SurfaceType.STREET:
-                continue
-            px, py = x * CELL, y * CELL
-            _cobblestone_tile(rng, px, py, cobbles)
-            if rng.random() < 0.12:
-                _street_stone(rng, px, py, stones)
-
-    if cobbles:
-        svg.append(
-            f'<g opacity="0.35" fill="none" '
-            f'stroke="{_COBBLE_STROKE}" '
-            f'stroke-width="0.4">'
-            f'{"".join(cobbles)}</g>'
-        )
-    if stones:
-        svg.append(
-            f'<g opacity="0.5">{"".join(stones)}</g>'
-        )
+    _cobble_stone(args.rng, args.px, args.py, stones)
+    return stones
 
 
 def _cobblestone_tile(
@@ -781,11 +777,11 @@ def _cobblestone_tile(
                 )
 
 
-def _street_stone(
+def _cobble_stone(
     rng: random.Random, px: float, py: float,
     stones: list[str],
 ) -> None:
-    """Place a small decorative stone on a street tile."""
+    """Place a small decorative stone on a cobble tile."""
     cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
     cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
     rx = rng.uniform(1.5, 3.0)
@@ -798,6 +794,31 @@ def _street_stone(
         f'fill="{_STONE_FILL}" stroke="{_STONE_STROKE}" '
         f'stroke-width="0.5"/>'
     )
+
+
+# Decorators (Phase 2). Both fire on STREET (town surfaces) and
+# PAVED (keep / castle interior floors). The two are split so each
+# can wrap its fragments in its own SVG group with the right
+# opacity / stroke style.
+COBBLESTONE = TileDecorator(
+    name="cobblestone",
+    layer="floor_detail",
+    predicate=_is_cobble_tile,
+    paint=_cobblestone_paint,
+    group_open=(
+        f'<g opacity="0.35" fill="none" '
+        f'stroke="{_COBBLE_STROKE}" stroke-width="0.4">'
+    ),
+    z_order=10,
+)
+COBBLE_STONE = TileDecorator(
+    name="cobble_stone",
+    layer="floor_detail",
+    predicate=_is_cobble_tile,
+    paint=_cobble_stone_paint,
+    group_open='<g opacity="0.5">',
+    z_order=11,
+)
 
 
 # ── Field and garden surfaces (tunable constants) ─────────────

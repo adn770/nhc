@@ -32,6 +32,11 @@ class SurfaceType(Enum):
     GARDEN = "garden"
     PALISADE = "palisade"
     FORTIFICATION = "fortification"
+    # Paved interior floor — keep / castle ground floors stamp this
+    # over Terrain.FLOOR so the cobblestone decorator overlays the
+    # stone-floor detail without rebranding the building's
+    # ``interior_floor``. See ``rendering_refactor_plan.md`` Phase 2.
+    PAVED = "paved"
 
 
 @dataclass
