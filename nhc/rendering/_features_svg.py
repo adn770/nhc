@@ -977,6 +977,133 @@ _TREE_DISPATCH = {
 }
 
 
+# ── Bush (M3: small foliage decorator) ───────────────────────
+#
+# Smaller pom-pom canopy with no trunk. Canopy radius + jitter
+# stays strictly below ``0.5 * CELL`` so the silhouette never
+# crosses the tile boundary -- the M4 placement pass can then
+# sit bushes 4-adjacent to building footprints without bleeding
+# canopy onto roofs (the differentiator from trees, which keep
+# a one-tile clearance for canopy / roof overlap).
+
+BUSH_CANOPY_FILL = "#7A9560"
+"""Lighter than :data:`TREE_CANOPY_FILL` so bushes read as
+shorter foliage."""
+
+BUSH_CANOPY_STROKE = "#3F5237"
+
+BUSH_CANOPY_STROKE_WIDTH = 1.0
+
+BUSH_CANOPY_STROKE_ALPHA = 0.78
+
+BUSH_CANOPY_RADIUS = 0.32 * CELL
+
+BUSH_CANOPY_JITTER_LOBES = 6
+
+BUSH_CANOPY_JITTER_RANGE = 0.10 * CELL
+
+BUSH_CANOPY_HIGHLIGHT_RADIUS = 0.18 * CELL
+
+BUSH_CANOPY_HIGHLIGHT_LOBES = 5
+
+BUSH_CANOPY_HIGHLIGHT_OFFSET = -0.07 * CELL
+
+BUSH_HIGHLIGHT_LIGHT_BOOST = 0.12
+
+BUSH_HUE_JITTER_DEG = 6.0
+BUSH_SAT_JITTER = 0.05
+BUSH_LIGHT_JITTER = 0.04
+
+# Distinct salts so bush hue jitter doesn't mirror tree jitter
+# at the same tile.
+_BUSH_HUE_SALT = 7019
+_BUSH_SAT_SALT = 8053
+_BUSH_LIGHT_SALT = 9091
+_BUSH_CANOPY_SHAPE_SALT = 11117
+_BUSH_HIGHLIGHT_SHAPE_SALT = 12119
+
+
+def _bush_fill_jitter(tx: int, ty: int) -> str:
+    dh = _hash_norm(tx, ty, _BUSH_HUE_SALT) * BUSH_HUE_JITTER_DEG
+    ds = _hash_norm(tx, ty, _BUSH_SAT_SALT) * BUSH_SAT_JITTER
+    dl = _hash_norm(tx, ty, _BUSH_LIGHT_SALT) * BUSH_LIGHT_JITTER
+    return _shift_color(
+        BUSH_CANOPY_FILL, hue_deg=dh, sat=ds, light=dl,
+    )
+
+
+def _bush_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    return _polygon_path(
+        cx, cy,
+        BUSH_CANOPY_RADIUS,
+        BUSH_CANOPY_JITTER_LOBES,
+        tx=tx, ty=ty,
+        salt=_BUSH_CANOPY_SHAPE_SALT,
+        jitter_range=BUSH_CANOPY_JITTER_RANGE,
+    )
+
+
+def _bush_highlight_path(
+    cx: float, cy: float, tx: int, ty: int,
+) -> str:
+    hcx = cx + BUSH_CANOPY_HIGHLIGHT_OFFSET
+    hcy = cy + BUSH_CANOPY_HIGHLIGHT_OFFSET
+    return _polygon_path(
+        hcx, hcy,
+        BUSH_CANOPY_HIGHLIGHT_RADIUS,
+        BUSH_CANOPY_HIGHLIGHT_LOBES,
+        tx=tx, ty=ty,
+        salt=_BUSH_HIGHLIGHT_SHAPE_SALT,
+        jitter_range=BUSH_CANOPY_JITTER_RANGE * 0.5,
+    )
+
+
+def _bush_fragment_for_tile(tx: int, ty: int) -> str:
+    """SVG ``<g>`` fragment for a single bush at tile ``(tx, ty)``.
+
+    Composition (back to front):
+
+    * Canopy polygon with deterministic per-tile hue jitter.
+    * Lighter highlight polygon offset upper-left.
+    * Low-alpha silhouette stroke (re-uses the canopy ``d``).
+
+    No trunk -- bushes don't need one to read as shrubs and a
+    visible trunk would blur the read at this canopy size."""
+    cx = (tx + 0.5) * CELL
+    cy = (ty + 0.5) * CELL
+    canopy_d = _bush_canopy_path(cx, cy, tx, ty)
+    highlight_d = _bush_highlight_path(cx, cy, tx, ty)
+    canopy_fill = _bush_fill_jitter(tx, ty)
+    highlight_fill = _shift_color(
+        canopy_fill, light=BUSH_HIGHLIGHT_LIGHT_BOOST,
+    )
+    parts = [
+        f'<g id="bush-{tx}-{ty}" class="bush-feature">',
+        (
+            f'<path class="bush-canopy" d="{canopy_d}" '
+            f'fill="{canopy_fill}" stroke="none"/>'
+        ),
+        (
+            f'<path class="bush-canopy-highlight" '
+            f'd="{highlight_d}" '
+            f'fill="{highlight_fill}" stroke="none"/>'
+        ),
+        (
+            f'<path class="bush-silhouette" d="{canopy_d}" '
+            f'fill="none" stroke="{BUSH_CANOPY_STROKE}" '
+            f'stroke-width="{BUSH_CANOPY_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{BUSH_CANOPY_STROKE_ALPHA:.2f}"/>'
+        ),
+        '</g>',
+    ]
+    return "".join(parts)
+
+
+_BUSH_DISPATCH = {
+    "bush": _bush_fragment_for_tile,
+}
+
+
 # ── Phase 5: TileDecorator wrappers ───────────────────────────
 #
 # Each surface feature renders identically regardless of floor
@@ -1041,6 +1168,13 @@ TREE_FEATURE = TileDecorator(
     paint=_tree_paint_decorator,
     z_order=30,
 )
+BUSH_FEATURE = TileDecorator(
+    name="bush_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("bush"),
+    paint=_feature_paint(_bush_fragment_for_tile),
+    z_order=31,
+)
 
 
 def render_fountain_features(level: Level) -> list[str]:
@@ -1074,6 +1208,22 @@ def render_well_features(level: Level) -> list[str]:
     for y, row in enumerate(level.tiles):
         for x, tile in enumerate(row):
             fn = _WELL_DISPATCH.get(tile.feature)
+            if fn is not None:
+                out.append(fn(x, y))
+    return out
+
+
+def render_bush_features(level: Level) -> list[str]:
+    """SVG fragments for every bush tile on ``level``.
+
+    Mirrors :func:`render_tree_features` but with no grove
+    merging -- bushes stay per-tile so neighbour-bias clusters
+    read as a row of distinct shrubs rather than one fused mass.
+    """
+    out: list[str] = []
+    for y, row in enumerate(level.tiles):
+        for x, tile in enumerate(row):
+            fn = _BUSH_DISPATCH.get(tile.feature)
             if fn is not None:
                 out.append(fn(x, y))
     return out

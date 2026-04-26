@@ -11,8 +11,8 @@ from typing import Iterable
 
 from nhc.rendering._decorators import TileDecorator
 from nhc.rendering._features_svg import (
-    FOUNTAIN_FEATURE, FOUNTAIN_SQUARE_FEATURE, TREE_FEATURE,
-    WELL_FEATURE, WELL_SQUARE_FEATURE,
+    BUSH_FEATURE, FOUNTAIN_FEATURE, FOUNTAIN_SQUARE_FEATURE,
+    TREE_FEATURE, WELL_FEATURE, WELL_SQUARE_FEATURE,
 )
 from nhc.rendering._pipeline import (
     Layer, TileWalkLayer, make_tile_walk_layer,
@@ -119,6 +119,7 @@ _SURFACE_FEATURE_DECORATORS: tuple[TileDecorator, ...] = (
     FOUNTAIN_FEATURE,
     FOUNTAIN_SQUARE_FEATURE,
     TREE_FEATURE,
+    BUSH_FEATURE,
 )
 
 

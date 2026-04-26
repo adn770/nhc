@@ -73,6 +73,44 @@ class TestTreePortability:
         assert 'class="tree-feature"' in svg
 
 
+# ── Bushes on every floor kind ────────────────────────────────
+
+
+class TestBushPortability:
+    def test_bush_paints_on_dungeon(self) -> None:
+        level = _floor_grid(6, 6)
+        level.tiles[3][3].feature = "bush"
+        svg = render_floor_svg(level)
+        assert "bush-canopy" in svg
+
+    def test_bush_paints_on_building_interior(self) -> None:
+        level = _floor_grid(6, 6)
+        level.building_id = "b1"
+        level.tiles[3][3].feature = "bush"
+        svg = render_floor_svg(level)
+        assert "bush-canopy" in svg
+
+    def test_bush_paints_on_surface(self) -> None:
+        level = _floor_grid(6, 6)
+        level.metadata.prerevealed = True
+        level.tiles[3][3].feature = "bush"
+        svg = render_floor_svg(level)
+        assert "bush-canopy" in svg
+
+    def test_bush_paints_on_cave(self) -> None:
+        level = _floor_grid(6, 6)
+        level.rooms = [Room(
+            id="cave1",
+            rect=Rect(0, 0, 6, 6),
+            shape=CaveShape(tiles={
+                (x, y) for y in range(6) for x in range(6)
+            }),
+        )]
+        level.tiles[3][3].feature = "bush"
+        svg = render_floor_svg(level, seed=11)
+        assert "bush-canopy" in svg
+
+
 # ── Water on every floor kind ─────────────────────────────────
 
 
