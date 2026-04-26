@@ -564,6 +564,7 @@ def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
     dungeon_poly=None,
     building_polygon: list[tuple[float, float]] | None = None,
+    ctx=None,
 ) -> None:
     """Scatter cracks, stones, scratches, and thematic details.
 
@@ -576,15 +577,25 @@ def _render_floor_detail(
     ``building_polygon`` (when set) extends the wood-floor fill to
     the building's outer outline (octagon chamfer / circle curve)
     instead of the rect-aligned tile boundaries.
+
+    ``ctx`` is the frozen :class:`RenderContext` the orchestrator
+    builds once. It centralises the floor-kind / interior-finish /
+    macabre-detail decisions previously rederived here. Optional so
+    direct callers (older tests) keep working — when ``None`` the
+    function falls back to lazily building a context from ``level``.
     """
+    if ctx is None:
+        from nhc.rendering._render_context import build_render_context
+        ctx = build_render_context(level, seed=seed)
+
     rng = random.Random(seed + 99)
-    if getattr(level, "interior_floor", "stone") == "wood":
+    if ctx.interior_finish == "wood":
         _render_wood_floor(
             svg, level, rng, dungeon_poly,
             building_polygon=building_polygon,
         )
         return
-    theme = level.metadata.theme if level.metadata else "dungeon"
+    theme = ctx.theme
     scale = _DETAIL_SCALE.get(theme, 1.0)
     probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
     room_cracks: list[str] = []
@@ -649,8 +660,10 @@ def _render_floor_detail(
 
     # Building floors are inhabited architecture -- no bones,
     # skulls, or scattered floor stones. Webs are kept (a dusty
-    # room is plausible).
-    if getattr(level, "building_id", None) is not None:
+    # room is plausible). The macabre-detail flag rolls
+    # ``floor_kind == "building"`` into the ``RenderContext``, so
+    # this stays a one-line gate even after future biome variants.
+    if not ctx.macabre_detail:
         room_bones = []
         room_skulls = []
         room_stones = []

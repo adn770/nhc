@@ -18,6 +18,7 @@ import noise as _noise
 from shapely.geometry import LineString
 
 from nhc.dungeon.generators.cellular import CaveShape
+from nhc.rendering._render_context import build_render_context
 from nhc.rendering._svg_helpers import (
     BG,
     CAVE_FLOOR_COLOR,
@@ -109,29 +110,27 @@ def render_floor_svg(
     svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
     svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
-    # Build the unified cave region geometry once: the SVG wall
-    # path, the matching jittered wall polygon (clip/fill), and
-    # the set of cave-region tiles.  Computed here so the polygon
-    # can feed both the dungeon clip (hatching, grid, detail) and
-    # the floor/wall renderer.
-    cave_rng = random.Random(seed + 0x5A17E5)
-    cave_wall_path, cave_wall_poly, cave_tiles = (
-        _build_cave_wall_geometry(level, cave_rng)
+    # Build the frozen render context once. It carries the cave +
+    # dungeon polygon geometry (so they're computed exactly once)
+    # and the resolved feature flags (shadows, hatching, ...) so
+    # downstream layers no longer redo ``getattr(level,
+    # "building_id", None)`` and ``level.metadata.prerevealed``
+    # checks scattered across the renderer.
+    ctx = build_render_context(
+        level,
+        seed=seed,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        building_footprint=building_footprint,
+        building_polygon=building_polygon,
     )
-
-    # Build dungeon polygon once — used for hatching and grid clips
-    dungeon_poly = _build_dungeon_polygon(
-        level, cave_wall_poly=cave_wall_poly,
-        cave_tiles=cave_tiles,
-    )
-
-    # Building floors live inside a building and look like interior
-    # architecture -- no underground shadow halo or cross-hatch
-    # darkness belongs on them.
-    is_building = getattr(level, "building_id", None) is not None
+    cave_wall_path = ctx.cave_wall_path
+    cave_wall_poly = ctx.cave_wall_poly
+    cave_tiles = ctx.cave_tiles
+    dungeon_poly = ctx.dungeon_poly
 
     # Layer 1: Shadows (rooms + corridors)
-    if not is_building:
+    if ctx.shadows_enabled:
         _render_room_shadows(svg, level)
         _render_corridor_shadows(svg, level)
 
@@ -139,10 +138,7 @@ def render_floor_svg(
     # polygon, corridors hatched one tile on each side).
     # Prerevealed surfaces (site courtyards) and building interiors
     # skip hatching -- they read as open daylight / enclosed rooms.
-    prerevealed = bool(
-        level.metadata and level.metadata.prerevealed
-    )
-    if not prerevealed and not is_building:
+    if ctx.hatching_enabled:
         _render_hatching(svg, level, seed, dungeon_poly,
                          hatch_distance=hatch_distance,
                          cave_wall_poly=cave_wall_poly)
@@ -167,6 +163,7 @@ def render_floor_svg(
     _render_floor_detail(
         svg, level, seed, dungeon_poly,
         building_polygon=building_polygon,
+        ctx=ctx,
     )
 
     # Layer 6: Terrain detail (wavy lines, grass strokes, etc.)
