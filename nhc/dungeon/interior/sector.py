@@ -128,31 +128,30 @@ class SectorPartitioner:
         self, axis: str, cx: int, cy: int, rect: Rect,
         floor_tiles: set[tuple[int, int]],
     ) -> set[tuple[int, int, str]]:
-        """Canonical edges along the split line(s), clipped to the
-        footprint.
+        """Canonical edges along the split line(s).
 
-        A partition edge is added when at least one adjacent tile
-        is floor. When both are floor the edge is the partition
-        wall between two rooms; when only one is floor the edge
-        sits at the building rim (where the partition meets the
-        curved exterior wall). This keeps the bar visually
-        connected to the outer wall on circular footprints --
-        previously the equator-tile pairs (one floor, one void)
-        were skipped, leaving a one-tile gap between the interior
-        partition and the rim."""
+        Every cell in the rect range gets a partition edge at the
+        split, regardless of whether the adjacent tiles are floor.
+        Inside the floor area the edge separates two rooms; in
+        the rim / corner void it extends the wall stroke until it
+        meets the curved exterior wall. The exterior outline is
+        drawn on top of the partition extension by a separate
+        pass, so the visible result is a clean T-junction at the
+        rim rather than a one-tile-short gap.
+
+        Restricting the partition to floor-pair tiles (the older
+        behaviour) leaves a visible gap on circular footprints
+        whose equator tiles fall just outside the rim radius
+        (e.g. an even-diameter circle where (rect.x, cy) and
+        (rect.x, cy-1) are both void)."""
+        del floor_tiles  # ignored; full-range edges handle rim
         edges: set[tuple[int, int, str]] = set()
         if axis in ("vert", "cross"):
             for y in range(rect.y, rect.y2):
-                left_floor = (cx - 1, y) in floor_tiles
-                right_floor = (cx, y) in floor_tiles
-                if left_floor or right_floor:
-                    edges.add(canonicalize(cx, y, "west"))
+                edges.add(canonicalize(cx, y, "west"))
         if axis in ("horiz", "cross"):
             for x in range(rect.x, rect.x2):
-                up_floor = (x, cy - 1) in floor_tiles
-                down_floor = (x, cy) in floor_tiles
-                if up_floor or down_floor:
-                    edges.add(canonicalize(x, cy, "north"))
+                edges.add(canonicalize(x, cy, "north"))
         return edges
 
     def _build_doors(

@@ -69,29 +69,47 @@ class TestSectorEdgesSimple:
             f"sector produced unexpected room counts: {counts}"
         )
 
-    def test_edges_touch_at_least_one_floor_tile(self) -> None:
-        """Every canonical edge has at least one adjacent floor
-        tile. Edges with one void side land at the building rim,
-        where the partition meets the curved exterior wall (the
-        reason a circular tower's bar-style interior wall now
-        extends across the full diameter rather than stopping
-        a tile short on each side)."""
+    def test_edges_span_full_rect_at_split(self) -> None:
+        """Partition edges cover the full rect range along the
+        split axis (regardless of floor / void on either side)
+        so the wall stroke extends to the curved exterior, then
+        the exterior wall outline overlays it cleanly. Without
+        the full extension, even-diameter circular floors leave
+        a visible gap at the equator where the rim curves
+        between two void tiles."""
         rect = Rect(1, 1, 11, 11)
         for seed in range(10):
             plan = SectorPartitioner(mode="simple").plan(
                 _cfg(rect, CircleShape(), seed=seed),
             )
-            foot = CircleShape().floor_tiles(rect)
-            for (x, y, side) in plan.interior_edges:
-                if side == "north":
-                    a, b = (x, y - 1), (x, y)
-                else:  # west
-                    a, b = (x - 1, y), (x, y)
-                assert a in foot or b in foot, (
-                    f"seed={seed}: edge {(x, y, side)} sits in "
-                    f"void on both sides "
-                    f"(a={a} in={a in foot}, b={b} in={b in foot})"
+            norths = {
+                (x, y) for (x, y, side) in plan.interior_edges
+                if side == "north"
+            }
+            wests = {
+                (x, y) for (x, y, side) in plan.interior_edges
+                if side == "west"
+            }
+            if norths:
+                ys = {y for (_, y) in norths}
+                assert len(ys) == 1
+                row_y = ys.pop()
+                row_xs = {x for (x, _) in norths}
+                assert row_xs == set(range(rect.x, rect.x2)), (
+                    f"seed={seed}: north partition does not span "
+                    f"full rect width: {sorted(row_xs)}"
                 )
+                del row_y
+            if wests:
+                xs = {x for (x, _) in wests}
+                assert len(xs) == 1
+                col_x = xs.pop()
+                col_ys = {y for (_, y) in wests}
+                assert col_ys == set(range(rect.y, rect.y2)), (
+                    f"seed={seed}: west partition does not span "
+                    f"full rect height: {sorted(col_ys)}"
+                )
+                del col_x
 
     def test_doors_target_canonical_edges(self) -> None:
         rect = Rect(1, 1, 11, 11)
