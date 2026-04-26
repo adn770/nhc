@@ -147,6 +147,43 @@ def outside_neighbour(
     return None
 
 
+def is_clipped_corner_tile(
+    building: Building, bx: int, by: int,
+) -> bool:
+    """Detect tiles that sit at the diagonal "chamfer step" of
+    an octagonal building (or any shape whose floor footprint
+    drops a corner inside its own bounding rect).
+
+    Returns True when *every* exterior 4-neighbour of
+    ``(bx, by)`` lies INSIDE the building's bounding rect but
+    OUTSIDE the floor footprint -- i.e. the tile sits on a
+    diagonal step where two perpendicular sides face clipped
+    void rather than the surface.
+
+    Tiles whose exterior neighbours include at least one
+    out-of-bbox direction (the "true exterior") are not flagged:
+    they sit on a flat or near-flat side of the building and the
+    door-side direction is unambiguous. Rectangular buildings
+    never trigger this check (all bbox cells are floor).
+
+    Used by ``_place_entry_door`` to reject tiles whose outward-
+    facing direction would land inside the masonry chamfer.
+    """
+    rect = building.base_rect
+    footprint = building.base_shape.floor_tiles(rect)
+    has_clipped = False
+    has_out_of_bbox = False
+    for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        nx, ny = bx + dx, by + dy
+        if (nx, ny) in footprint:
+            continue
+        if (rect.x <= nx < rect.x2 and rect.y <= ny < rect.y2):
+            has_clipped = True
+        else:
+            has_out_of_bbox = True
+    return has_clipped and not has_out_of_bbox
+
+
 def stamp_building_door(
     building: Building, bx: int, by: int,
     feature: str = "door_closed",

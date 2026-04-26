@@ -60,7 +60,22 @@ def render_building_floor_svg(
             f"[0, {len(building.floors)})"
         )
     level = building.floors[floor_index]
-    base = render_floor_svg(level, seed=seed)
+    footprint = building.base_shape.floor_tiles(building.base_rect)
+    # render_floor_svg lays its content inside a
+    # <g transform="translate(PADDING, PADDING)">; pass the outer
+    # building polygon in level-local pixel coords (PADDING
+    # subtracted) so the wood-floor clip doesn't double the
+    # offset.
+    perimeter = _perimeter_polygon(building)
+    if perimeter is not None:
+        polygon = [(x - PADDING, y - PADDING) for x, y in perimeter]
+    else:
+        polygon = None
+    base = render_floor_svg(
+        level, seed=seed,
+        building_footprint=footprint,
+        building_polygon=polygon,
+    )
     if building.wall_material == "dungeon":
         return base
     polygon = _perimeter_polygon(building)

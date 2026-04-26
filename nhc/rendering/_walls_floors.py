@@ -25,6 +25,7 @@ def _render_walls_and_floors(
     cave_wall_path: str | None = None,
     cave_wall_poly=None,
     cave_tiles: set[tuple[int, int]] | None = None,
+    building_footprint: set[tuple[int, int]] | None = None,
 ) -> None:
     """Render walls and floor fills in one pass.
 
@@ -40,6 +41,12 @@ def _render_walls_and_floors(
     jittered polygon, so the wall silhouette and the floor fill
     are pixel-aligned — mirroring the strategy used for circular
     rooms where the circle polygon is both clip and fill.
+
+    ``building_footprint`` is the set of tiles INSIDE the
+    Building's shape (octagon / circle / ...). When supplied, the
+    tile-edge wall pass skips segments where the void neighbour
+    lies OUTSIDE the footprint -- those chamfer steps are owned
+    by the diagonal masonry renderer.
     """
 
     _STROKE_STYLE = (
@@ -156,6 +163,17 @@ def _render_walls_and_floors(
     def _walkable(x: int, y: int) -> bool:
         return _is_floor(level, x, y) or _is_door(level, x, y)
 
+    def _draw_wall_to(nx: int, ny: int) -> bool:
+        """Decide whether a tile-edge wall should be stamped
+        between a walkable source tile and its non-walkable
+        neighbour ``(nx, ny)``. When a building footprint is
+        supplied, neighbours OUTSIDE the footprint are owned by
+        the diagonal masonry renderer and the floor SVG must
+        not double-paint them."""
+        if building_footprint is None:
+            return True
+        return (nx, ny) in building_footprint
+
     for y in range(level.height):
         for x in range(level.width):
             if not _walkable(x, y):
@@ -189,14 +207,18 @@ def _render_walls_and_floors(
                 continue
 
             px, py = x * CELL, y * CELL
-            if not _walkable(x, y - 1):
+            if (not _walkable(x, y - 1)
+                    and _draw_wall_to(x, y - 1)):
                 segments.append(f'M{px},{py} L{px + CELL},{py}')
-            if not _walkable(x, y + 1):
+            if (not _walkable(x, y + 1)
+                    and _draw_wall_to(x, y + 1)):
                 segments.append(
                     f'M{px},{py + CELL} L{px + CELL},{py + CELL}')
-            if not _walkable(x - 1, y):
+            if (not _walkable(x - 1, y)
+                    and _draw_wall_to(x - 1, y)):
                 segments.append(f'M{px},{py} L{px},{py + CELL}')
-            if not _walkable(x + 1, y):
+            if (not _walkable(x + 1, y)
+                    and _draw_wall_to(x + 1, y)):
                 segments.append(
                     f'M{px + CELL},{py} L{px + CELL},{py + CELL}')
 

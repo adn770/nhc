@@ -64,6 +64,8 @@ from nhc.rendering._room_outlines import (  # noqa: E402
 
 def render_floor_svg(
     level: "Level", seed: int = 0, hatch_distance: float = 2.0,
+    building_footprint: set[tuple[int, int]] | None = None,
+    building_polygon: list[tuple[float, float]] | None = None,
 ) -> str:
     """Generate a Dyson-style SVG for a dungeon floor.
 
@@ -75,6 +77,23 @@ def render_floor_svg(
     Cave levels always use at least 2 tiles of hatch extent — the
     wider grey halo is a defining feature of the Dyson cavern style
     and matters more than render-time savings at that theme.
+
+    *building_footprint* is the set of tiles that lie INSIDE the
+    enclosing Building's shape (octagon, circle, ...). When set,
+    the wall pass skips tile-edge segments where the void
+    neighbour sits OUTSIDE the footprint -- those chamfer steps
+    are owned by the diagonal masonry renderer in
+    :mod:`nhc.rendering._building_walls`. Pass ``None`` (or omit)
+    when rendering a non-building level (dungeon floor, town
+    surface, ...) and the legacy "all tile-edge walls" pass
+    runs unchanged.
+
+    *building_polygon* is the pixel-space outer outline of the
+    enclosing Building (level-local coords, no PADDING). When
+    set, the wood-floor renderer clips its fill to this polygon
+    instead of stopping at the rect-aligned tile boundaries, so
+    a wooden tower's planks visually reach the chamfer diagonal
+    rather than the bbox edge.
     """
     if any(isinstance(r.shape, CaveShape) for r in level.rooms):
         hatch_distance = max(hatch_distance, 2.0)
@@ -135,6 +154,7 @@ def render_floor_svg(
         cave_wall_path=cave_wall_path,
         cave_wall_poly=cave_wall_poly,
         cave_tiles=cave_tiles,
+        building_footprint=building_footprint,
     )
 
     # Layer 3.5: Terrain tints + room-type hints
@@ -144,7 +164,10 @@ def render_floor_svg(
     _render_floor_grid(svg, level, dungeon_poly)
 
     # Layer 5: Floor detail (clipped to interior of dungeon polygon)
-    _render_floor_detail(svg, level, seed, dungeon_poly)
+    _render_floor_detail(
+        svg, level, seed, dungeon_poly,
+        building_polygon=building_polygon,
+    )
 
     # Layer 6: Terrain detail (wavy lines, grass strokes, etc.)
     _render_terrain_detail(svg, level, seed, dungeon_poly)

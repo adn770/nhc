@@ -28,8 +28,8 @@ from nhc.dungeon.model import (
     RoomShape, SurfaceType, Terrain, Tile,
 )
 from nhc.sites._site import (
-    Enclosure, Site, outside_neighbour, paint_surface_doors,
-    stamp_building_door,
+    Enclosure, Site, is_clipped_corner_tile, outside_neighbour,
+    paint_surface_doors, stamp_building_door,
 )
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import DungeonRef
@@ -349,6 +349,11 @@ def _place_entry_door(
     for (px, py) in perim:
         tile = ground.tiles[py][px]
         if tile.feature is not None:
+            continue
+        # Reject chamfer steps -- octagon and circle keeps put
+        # diagonal masonry there, where a tile-aligned door reads
+        # ambiguously (two perpendicular sides face exterior).
+        if is_clipped_corner_tile(building, px, py):
             continue
         has_wall = False
         for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:

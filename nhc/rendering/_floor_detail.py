@@ -563,6 +563,7 @@ def _render_floor_grid(
 def _render_floor_detail(
     svg: list[str], level: "Level", seed: int,
     dungeon_poly=None,
+    building_polygon: list[tuple[float, float]] | None = None,
 ) -> None:
     """Scatter cracks, stones, scratches, and thematic details.
 
@@ -571,10 +572,17 @@ def _render_floor_detail(
     Thematic details (webs, bones, skulls) added based on theme.
     Wood Building floors short-circuit to a dedicated plank renderer
     that skips cracks, scratches, and the surface-type passes.
+
+    ``building_polygon`` (when set) extends the wood-floor fill to
+    the building's outer outline (octagon chamfer / circle curve)
+    instead of the rect-aligned tile boundaries.
     """
     rng = random.Random(seed + 99)
     if getattr(level, "interior_floor", "stone") == "wood":
-        _render_wood_floor(svg, level, rng, dungeon_poly)
+        _render_wood_floor(
+            svg, level, rng, dungeon_poly,
+            building_polygon=building_polygon,
+        )
         return
     theme = level.metadata.theme if level.metadata else "dungeon"
     scale = _DETAIL_SCALE.get(theme, 1.0)
@@ -915,6 +923,7 @@ WOOD_GRAIN_LINES_PER_STRIP = 2
 def _render_wood_floor(
     svg: list[str], level: "Level", rng: random.Random,
     dungeon_poly=None,
+    building_polygon: list[tuple[float, float]] | None = None,
 ) -> None:
     """Wood plank fill and parquet seams for Building interior floors.
 
@@ -928,6 +937,12 @@ def _render_wood_floor(
 
     When ``dungeon_poly`` is supplied, the seam group is clipped
     to the dungeon interior so plank ends don't bleed onto walls.
+
+    When ``building_polygon`` is supplied (octagon / circle
+    buildings), the wood fill stretches to the building's outer
+    outline rather than stopping at the rect-aligned tile
+    boundaries -- the planks visually reach the chamfer diagonal
+    or curved wall the masonry renderer paints.
     """
     # Emit the clip first (if any) so per-tile fills AND the
     # grain / seam overlays share it. Non-orthogonal footprints
@@ -938,24 +953,49 @@ def _render_wood_floor(
         _dungeon_interior_clip(svg, dungeon_poly, "wood-interior-clip")
         clip_attr = ' clip-path="url(#wood-interior-clip)"'
 
-    fills: list[str] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            if level.tiles[y][x].terrain != Terrain.FLOOR:
-                continue
-            px, py = x * CELL, y * CELL
-            fills.append(
-                f'<rect x="{px}" y="{py}" '
-                f'width="{CELL}" height="{CELL}" '
-                f'fill="{WOOD_FLOOR_FILL}"/>'
-            )
-    if fills:
-        if clip_attr:
-            svg.append(f"<g{clip_attr}>")
-            svg.append("".join(fills))
-            svg.append("</g>")
-        else:
-            svg.append("".join(fills))
+    if building_polygon is not None:
+        poly_points = " ".join(
+            f"{x:.1f},{y:.1f}" for x, y in building_polygon
+        )
+        svg.append(
+            '<defs><clipPath id="wood-bldg-clip">'
+            f'<polygon points="{poly_points}"/>'
+            '</clipPath></defs>'
+        )
+        xs = [p[0] for p in building_polygon]
+        ys = [p[1] for p in building_polygon]
+        bx, by = min(xs), min(ys)
+        bw = max(xs) - bx
+        bh = max(ys) - by
+        svg.append(
+            f'<rect x="{bx:.1f}" y="{by:.1f}" '
+            f'width="{bw:.1f}" height="{bh:.1f}" '
+            f'fill="{WOOD_FLOOR_FILL}" '
+            'clip-path="url(#wood-bldg-clip)"/>'
+        )
+        # The building polygon already covers the entire wood
+        # area (including chamfer slivers); skip the per-tile
+        # fills below, which would only redundantly stamp under
+        # what we just painted.
+    else:
+        fills: list[str] = []
+        for y in range(level.height):
+            for x in range(level.width):
+                if level.tiles[y][x].terrain != Terrain.FLOOR:
+                    continue
+                px, py = x * CELL, y * CELL
+                fills.append(
+                    f'<rect x="{px}" y="{py}" '
+                    f'width="{CELL}" height="{CELL}" '
+                    f'fill="{WOOD_FLOOR_FILL}"/>'
+                )
+        if fills:
+            if clip_attr:
+                svg.append(f"<g{clip_attr}>")
+                svg.append("".join(fills))
+                svg.append("</g>")
+            else:
+                svg.append("".join(fills))
 
     if not level.rooms:
         return
