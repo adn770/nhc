@@ -17,7 +17,7 @@ from nhc.rendering._features_svg import (
     TREE_CANOPY_FILL,
     TREE_CANOPY_RADIUS,
     TREE_CANOPY_SHADOW_FILL,
-    TREE_CANOPY_SHADOW_RADIUS,
+    TREE_VOLUME_MARK_COUNT,
     render_tree_features,
 )
 from nhc.rendering._svg_helpers import CELL
@@ -166,7 +166,7 @@ class TestFloorSvgIntegration:
         assert "tree-trunk" in svg
 
 
-# ── 5. M1 highlight layer ─────────────────────────────────────
+# ── 5. Volume marks (interior leaf-cluster shadows) ──────────
 
 
 def _extract_all_attrs(
@@ -177,120 +177,98 @@ def _extract_all_attrs(
     return re.findall(pattern, svg)
 
 
-class TestTreeHighlight:
-    def test_fragment_has_highlight_class(self):
+class TestTreeVolumeMarks:
+    def test_fragment_has_volume_class(self):
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        assert "tree-canopy-highlight" in svg, (
-            "M1 layered tree should carry a highlight class"
+        assert "tree-volume" in svg, (
+            "tree fragment should carry inner volume marks"
         )
 
-    def test_highlight_is_two_concentric_strokes(self):
-        """Highlight is rendered as 2 concentric polygons drawn
-        as discontinuous strokes (no fill), not as one filled
-        crescent."""
+    def test_volume_mark_count_matches_constant(self):
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        ds = _extract_all_attrs(svg, "tree-canopy-highlight", "d")
-        assert len(ds) == 2, (
-            f"expected 2 concentric highlight strokes, got {len(ds)}"
+        count = svg.count('class="tree-volume"')
+        assert count == TREE_VOLUME_MARK_COUNT, (
+            f"expected {TREE_VOLUME_MARK_COUNT} volume marks, "
+            f"got {count}"
         )
 
-    def test_highlight_strokes_are_fill_none(self):
+    def test_volume_marks_are_fill_none(self):
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        fills = _extract_all_attrs(
-            svg, "tree-canopy-highlight", "fill",
-        )
-        assert fills, "no highlight elements found"
+        fills = _extract_all_attrs(svg, "tree-volume", "fill")
+        assert fills
         for fill in fills:
             assert fill == "none", (
-                f"highlight should be stroke-only, got fill={fill!r}"
+                f"volume marks must be stroke-only, got "
+                f"fill={fill!r}"
             )
 
-    def test_highlight_strokes_use_dasharray(self):
-        """Discontinuous strokes mean every highlight path
-        carries a ``stroke-dasharray`` attribute."""
+    def test_volume_marks_use_dasharray(self):
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
         dashes = _extract_all_attrs(
-            svg, "tree-canopy-highlight", "stroke-dasharray",
+            svg, "tree-volume", "stroke-dasharray",
         )
-        assert len(dashes) == 2, (
-            f"expected dash pattern on every highlight stroke, "
-            f"got {len(dashes)}"
-        )
+        assert len(dashes) == TREE_VOLUME_MARK_COUNT
 
-    def test_highlight_offset_is_upper_left(self):
-        """Both highlight polygon centroids sit up-and-left of
-        the canopy centre."""
+    def test_volume_marks_use_arc_path(self):
+        """Volume marks are arcs (``A`` command in d-string),
+        not closed polygons. Discontinuous by construction."""
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        ds = _extract_all_attrs(svg, "tree-canopy-highlight", "d")
+        ds = _extract_all_attrs(svg, "tree-volume", "d")
+        assert ds
+        for d in ds:
+            assert " A" in d or "A" in d.split("M")[1], (
+                f"volume mark should contain an arc command, "
+                f"got d={d!r}"
+            )
+            assert "Z" not in d, (
+                f"volume mark must be open, got d={d!r}"
+            )
+
+    def test_volume_marks_inside_canopy_area(self):
+        """Each mark's start/end points must sit inside the
+        outer canopy footprint."""
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        ds = _extract_all_attrs(svg, "tree-volume", "d")
         cx = 4.5 * CELL
         cy = 4.5 * CELL
+        # Outer extent of canopy = cluster + lobe radii
+        # (~0.62 cell). Slack for jitter overhead.
+        max_radius = 0.75 * CELL
         for d in ds:
-            coords = [
-                (float(x), float(y))
-                for x, y in re.findall(
-                    r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
-                )
-            ]
+            coords = re.findall(
+                r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
+            )
             assert coords
-            ax = sum(x for x, _ in coords) / len(coords)
-            ay = sum(y for _, y in coords) / len(coords)
-            assert ax < cx, (
-                f"highlight centroid x {ax:.2f} not left of "
-                f"canopy centre {cx:.2f}"
-            )
-            assert ay < cy, (
-                f"highlight centroid y {ay:.2f} not above "
-                f"canopy centre {cy:.2f}"
-            )
-
-    def test_highlight_strokes_are_concentric(self):
-        """The two highlights share a common centroid (within a
-        small epsilon) -- otherwise they wouldn't read as
-        concentric rings of light."""
-        level = _level_with_features([(4, 4, "tree")])
-        svg = render_tree_features(level)[0]
-        ds = _extract_all_attrs(svg, "tree-canopy-highlight", "d")
-        assert len(ds) == 2
-        centroids = []
-        for d in ds:
-            coords = [
-                (float(x), float(y))
-                for x, y in re.findall(
-                    r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
+            for sx, sy in coords:
+                px, py = float(sx), float(sy)
+                dist = ((px - cx) ** 2 + (py - cy) ** 2) ** 0.5
+                assert dist < max_radius, (
+                    f"volume mark point ({px:.2f},{py:.2f}) at "
+                    f"distance {dist:.2f} exceeds canopy area "
+                    f"{max_radius:.2f}"
                 )
-            ]
-            ax = sum(x for x, _ in coords) / len(coords)
-            ay = sum(y for _, y in coords) / len(coords)
-            centroids.append((ax, ay))
-        dx = abs(centroids[0][0] - centroids[1][0])
-        dy = abs(centroids[0][1] - centroids[1][1])
-        assert dx < 4.0 and dy < 4.0, (
-            f"highlight centroids drift too far apart "
-            f"(dx={dx:.2f}, dy={dy:.2f}); expected concentric"
-        )
 
-    def test_highlight_stroke_lighter_than_canopy(self):
-        """Stroke colour is lighter than the canopy fill so the
-        highlight reads as a light reflection rather than a
-        contrasting outline."""
+    def test_volume_marks_use_silhouette_stroke(self):
+        """Volume strokes use the silhouette stroke colour
+        (darker than canopy fill) so they read as inner shadow,
+        not light."""
+        from nhc.rendering._features_svg import (
+            TREE_CANOPY_STROKE,
+        )
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        canopy_fill = _extract_canopy_fill(svg)
-        strokes = _extract_all_attrs(
-            svg, "tree-canopy-highlight", "stroke",
-        )
-        assert strokes, "no highlight strokes found"
-        _, l_canopy, _ = _hex_to_hls(canopy_fill)
+        strokes = _extract_all_attrs(svg, "tree-volume", "stroke")
+        assert strokes
         for stroke in strokes:
-            _, l_stroke, _ = _hex_to_hls(stroke)
-            assert l_stroke > l_canopy, (
-                f"highlight stroke L {l_stroke:.3f} not greater "
-                f"than canopy L {l_canopy:.3f}"
+            assert stroke == TREE_CANOPY_STROKE, (
+                f"volume stroke should be {TREE_CANOPY_STROKE}, "
+                f"got {stroke}"
             )
 
 
@@ -344,12 +322,19 @@ class TestTreeShadow:
             f"shadow fill {TREE_CANOPY_SHADOW_FILL!r} missing"
         )
 
-    def test_shadow_radius_strictly_larger_than_canopy(self):
-        # Constants alone make this assertion --
-        # shadow geometry uses TREE_CANOPY_SHADOW_RADIUS.
-        assert TREE_CANOPY_SHADOW_RADIUS > TREE_CANOPY_RADIUS, (
-            f"shadow radius {TREE_CANOPY_SHADOW_RADIUS} must be "
-            f"strictly larger than canopy {TREE_CANOPY_RADIUS}"
+    def test_shadow_lobe_radius_larger_than_canopy_lobe(self):
+        """Shadow lobes are sized larger than canopy lobes so the
+        shadow peeks out around the silhouette."""
+        from nhc.rendering._features_svg import (
+            TREE_CANOPY_LOBE_RADIUS,
+            TREE_CANOPY_SHADOW_LOBE_RADIUS,
+        )
+        assert (
+            TREE_CANOPY_SHADOW_LOBE_RADIUS > TREE_CANOPY_LOBE_RADIUS
+        ), (
+            f"shadow lobe radius "
+            f"{TREE_CANOPY_SHADOW_LOBE_RADIUS} must be greater "
+            f"than canopy lobe radius {TREE_CANOPY_LOBE_RADIUS}"
         )
 
 

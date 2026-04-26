@@ -165,10 +165,14 @@ def test_fountain_outer_radius_spans_almost_two_tiles():
     assert 0.85 * CELL <= FOUNTAIN_OUTER_RADIUS <= 1.0 * CELL
 
 
-# ── Water highlight: concentric discontinuous strokes ─────────
+# ── Water movement: irregular ripple strokes ─────────────────
 
 
 import re as _re_water
+
+from nhc.rendering._features_svg import (
+    WATER_MOVEMENT_MARK_COUNT,
+)
 
 
 def _all_attrs(svg: str, cls: str, attr: str) -> list[str]:
@@ -178,56 +182,56 @@ def _all_attrs(svg: str, cls: str, attr: str) -> list[str]:
     return _re_water.findall(pattern, svg)
 
 
-class TestFountainCircleWaterHighlight:
-    def test_two_concentric_highlight_strokes(self):
+class TestFountainCircleWaterMovement:
+    def test_movement_mark_count(self):
         text = "".join(
             render_fountain_features(
                 _level_with_fountain((4, 4), "fountain"),
             ),
         )
-        count = text.count('class="fountain-water-highlight"')
-        assert count == 2
+        count = text.count('class="fountain-water-movement"')
+        assert count == WATER_MOVEMENT_MARK_COUNT
 
-    def test_highlights_are_fill_none(self):
+    def test_marks_are_fill_none(self):
         text = "".join(
             render_fountain_features(
                 _level_with_fountain((4, 4), "fountain"),
             ),
         )
-        fills = _all_attrs(text, "fountain-water-highlight", "fill")
+        fills = _all_attrs(text, "fountain-water-movement", "fill")
         assert fills
         for fill in fills:
             assert fill == "none"
 
-    def test_highlights_use_dasharray(self):
+    def test_marks_use_dasharray(self):
         text = "".join(
             render_fountain_features(
                 _level_with_fountain((4, 4), "fountain"),
             ),
         )
         dashes = _all_attrs(
-            text, "fountain-water-highlight", "stroke-dasharray",
+            text, "fountain-water-movement", "stroke-dasharray",
         )
-        assert len(dashes) == 2
+        assert len(dashes) == WATER_MOVEMENT_MARK_COUNT
 
 
-class TestFountainSquareWaterHighlight:
-    def test_two_concentric_highlight_strokes(self):
+class TestFountainSquareWaterMovement:
+    def test_movement_mark_count(self):
         text = "".join(
             render_fountain_features(
                 _level_with_fountain((4, 4), "fountain_square"),
             ),
         )
-        count = text.count('class="fountain-water-highlight"')
-        assert count == 2
+        count = text.count('class="fountain-water-movement"')
+        assert count == WATER_MOVEMENT_MARK_COUNT
 
-    def test_highlights_are_fill_none(self):
+    def test_marks_are_fill_none(self):
         text = "".join(
             render_fountain_features(
                 _level_with_fountain((4, 4), "fountain_square"),
             ),
         )
-        fills = _all_attrs(text, "fountain-water-highlight", "fill")
+        fills = _all_attrs(text, "fountain-water-movement", "fill")
         assert fills
         for fill in fills:
             assert fill == "none"

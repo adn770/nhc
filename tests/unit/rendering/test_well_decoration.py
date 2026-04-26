@@ -194,10 +194,14 @@ def test_floor_svg_paints_square_well():
     assert 'class="well-stone"' in svg
 
 
-# ── Water highlight: concentric discontinuous strokes ─────────
+# ── Water movement: irregular ripple strokes ─────────────────
 
 
 import re as _re_water
+
+from nhc.rendering._features_svg import (
+    WATER_MOVEMENT_MARK_COUNT,
+)
 
 
 def _all_attrs(svg: str, cls: str, attr: str) -> list[str]:
@@ -207,60 +211,64 @@ def _all_attrs(svg: str, cls: str, attr: str) -> list[str]:
     return _re_water.findall(pattern, svg)
 
 
-class TestWaterHighlightCircle:
-    def test_circle_well_emits_two_concentric_strokes(self):
+class TestWaterMovementCircle:
+    def test_circle_well_emits_movement_marks(self):
         text = "".join(render_well_features(_level_with_well((4, 4))))
-        ds = _all_attrs(text, "well-water-highlight", "d") + (
-            _all_attrs(text, "well-water-highlight", "r")
-        )
-        # Two highlight elements in total (path or circle).
-        count = (
-            text.count('class="well-water-highlight"')
-        )
-        assert count == 2, (
-            f"expected 2 concentric highlight strokes, got {count}"
-        )
+        count = text.count('class="well-water-movement"')
+        assert count == WATER_MOVEMENT_MARK_COUNT
 
-    def test_circle_well_highlights_are_fill_none(self):
+    def test_circle_well_marks_are_fill_none(self):
         text = "".join(render_well_features(_level_with_well((4, 4))))
-        fills = _all_attrs(text, "well-water-highlight", "fill")
+        fills = _all_attrs(text, "well-water-movement", "fill")
         assert fills
         for fill in fills:
             assert fill == "none", (
-                f"well water highlight should be stroke-only, "
+                f"water movement marks should be stroke-only, "
                 f"got fill={fill!r}"
             )
 
-    def test_circle_well_highlights_use_dasharray(self):
+    def test_circle_well_marks_use_dasharray(self):
         text = "".join(render_well_features(_level_with_well((4, 4))))
         dashes = _all_attrs(
-            text, "well-water-highlight", "stroke-dasharray",
+            text, "well-water-movement", "stroke-dasharray",
         )
-        assert len(dashes) == 2
+        assert len(dashes) == WATER_MOVEMENT_MARK_COUNT
+
+    def test_circle_well_marks_are_open_arcs(self):
+        text = "".join(render_well_features(_level_with_well((4, 4))))
+        ds = _all_attrs(text, "well-water-movement", "d")
+        assert ds
+        for d in ds:
+            assert "A" in d, (
+                f"movement mark should contain an arc: {d!r}"
+            )
+            assert "Z" not in d, (
+                f"movement mark must be open: {d!r}"
+            )
 
 
-class TestWaterHighlightSquare:
-    def test_square_well_emits_two_concentric_strokes(self):
+class TestWaterMovementSquare:
+    def test_square_well_emits_movement_marks(self):
         text = "".join(
             render_well_features(_level_with_square_well((4, 4))),
         )
-        count = text.count('class="well-water-highlight"')
-        assert count == 2
+        count = text.count('class="well-water-movement"')
+        assert count == WATER_MOVEMENT_MARK_COUNT
 
-    def test_square_well_highlights_are_fill_none(self):
+    def test_square_well_marks_are_fill_none(self):
         text = "".join(
             render_well_features(_level_with_square_well((4, 4))),
         )
-        fills = _all_attrs(text, "well-water-highlight", "fill")
+        fills = _all_attrs(text, "well-water-movement", "fill")
         assert fills
         for fill in fills:
             assert fill == "none"
 
-    def test_square_well_highlights_use_dasharray(self):
+    def test_square_well_marks_use_dasharray(self):
         text = "".join(
             render_well_features(_level_with_square_well((4, 4))),
         )
         dashes = _all_attrs(
-            text, "well-water-highlight", "stroke-dasharray",
+            text, "well-water-movement", "stroke-dasharray",
         )
-        assert len(dashes) == 2
+        assert len(dashes) == WATER_MOVEMENT_MARK_COUNT

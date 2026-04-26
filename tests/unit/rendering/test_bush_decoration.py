@@ -18,8 +18,9 @@ import re
 from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.rendering._features_svg import (
     BUSH_CANOPY_FILL,
+    BUSH_CANOPY_MAX_EXTENT,
     BUSH_CANOPY_RADIUS,
-    BUSH_CANOPY_JITTER_RANGE,
+    BUSH_VOLUME_MARK_COUNT,
     render_bush_features,
 )
 from nhc.rendering._svg_helpers import CELL
@@ -128,59 +129,43 @@ def _extract_all_attrs(
     return re.findall(pattern, svg)
 
 
-class TestBushHighlight:
-    def test_highlight_is_two_concentric_strokes(self) -> None:
+class TestBushVolumeMarks:
+    def test_fragment_has_volume_class(self) -> None:
         level = _level_with_features([(4, 4, "bush")])
         svg = render_bush_features(level)[0]
-        ds = _extract_all_attrs(svg, "bush-canopy-highlight", "d")
-        assert len(ds) == 2, (
-            f"expected 2 concentric highlight strokes, got {len(ds)}"
-        )
+        assert "bush-volume" in svg
 
-    def test_highlight_strokes_are_fill_none(self) -> None:
+    def test_volume_mark_count_matches_constant(self) -> None:
         level = _level_with_features([(4, 4, "bush")])
         svg = render_bush_features(level)[0]
-        fills = _extract_all_attrs(
-            svg, "bush-canopy-highlight", "fill",
-        )
+        count = svg.count('class="bush-volume"')
+        assert count == BUSH_VOLUME_MARK_COUNT
+
+    def test_volume_marks_are_fill_none(self) -> None:
+        level = _level_with_features([(4, 4, "bush")])
+        svg = render_bush_features(level)[0]
+        fills = _extract_all_attrs(svg, "bush-volume", "fill")
         assert fills
         for fill in fills:
-            assert fill == "none", (
-                f"bush highlight should be stroke-only, got "
-                f"fill={fill!r}"
-            )
+            assert fill == "none"
 
-    def test_highlight_strokes_use_dasharray(self) -> None:
+    def test_volume_marks_use_dasharray(self) -> None:
         level = _level_with_features([(4, 4, "bush")])
         svg = render_bush_features(level)[0]
         dashes = _extract_all_attrs(
-            svg, "bush-canopy-highlight", "stroke-dasharray",
+            svg, "bush-volume", "stroke-dasharray",
         )
-        assert len(dashes) == 2
+        assert len(dashes) == BUSH_VOLUME_MARK_COUNT
 
-    def test_highlight_offset_upper_left(self) -> None:
+    def test_volume_marks_use_arc_path(self) -> None:
         level = _level_with_features([(4, 4, "bush")])
         svg = render_bush_features(level)[0]
-        ds = _extract_all_attrs(svg, "bush-canopy-highlight", "d")
-        cx = 4.5 * CELL
-        cy = 4.5 * CELL
+        ds = _extract_all_attrs(svg, "bush-volume", "d")
+        assert ds
         for d in ds:
-            coords = [
-                (float(x), float(y))
-                for x, y in re.findall(
-                    r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
-                )
-            ]
-            assert coords
-            ax = sum(x for x, _ in coords) / len(coords)
-            ay = sum(y for _, y in coords) / len(coords)
-            assert ax < cx, (
-                f"highlight centroid x {ax:.2f} not left of "
-                f"canopy centre {cx:.2f}"
-            )
-            assert ay < cy, (
-                f"highlight centroid y {ay:.2f} not above "
-                f"canopy centre {cy:.2f}"
+            assert "A" in d, f"volume mark should be an arc: {d!r}"
+            assert "Z" not in d, (
+                f"volume mark must be open: {d!r}"
             )
 
 
@@ -208,19 +193,15 @@ class TestPerBushHueJitter:
 
 class TestBushCanopyStaysWithinTile:
     def test_every_polygon_point_inside_tile(self) -> None:
-        """``radius + jitter`` must stay below ``0.5 * CELL`` so a
-        bush placed 4-adjacent to a building footprint doesn't
-        leak canopy onto the roof. Belt + braces: parse the path
-        and verify."""
-        # Sanity check: constants are tuned so radius + jitter
-        # < 0.5 * CELL.
-        assert (
-            BUSH_CANOPY_RADIUS + BUSH_CANOPY_JITTER_RANGE
-            < 0.5 * CELL
-        ), (
-            f"bush canopy may leak: "
-            f"r={BUSH_CANOPY_RADIUS}, j={BUSH_CANOPY_JITTER_RANGE}, "
-            f"half-cell={0.5 * CELL}"
+        """The bush silhouette must stay strictly inside its own
+        tile so a bush placed 4-adjacent to a building footprint
+        never bleeds onto the roof (M3 contract). Belt + braces:
+        parse the path and verify."""
+        # Sanity check: per-constant max extent < 0.5 * CELL.
+        assert BUSH_CANOPY_MAX_EXTENT < 0.5 * CELL, (
+            f"bush canopy may leak: max extent "
+            f"{BUSH_CANOPY_MAX_EXTENT:.2f} >= half-cell "
+            f"{0.5 * CELL:.2f}"
         )
         for tx in range(2, 8):
             for ty in range(2, 8):

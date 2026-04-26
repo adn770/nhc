@@ -46,59 +46,70 @@ WELL_HIGHLIGHT_FILL = "rgba(255,255,255,0.18)"
 """Legacy soft-fill colour. No longer used; kept exported so
  callers / tests that still reference the constant compile."""
 
-# Water highlight (M3 follow-up): concentric discontinuous
-# strokes replace the legacy soft-white crescent. Drawn on the
-# upper-left of the water disc to suggest light reflection
-# without an opaque bright patch -- reads like a hand-drawn
-# cartographer glint.
-WATER_HIGHLIGHT_STROKE = "#FFFFFF"
-WATER_HIGHLIGHT_STROKE_WIDTH = 0.9
-WATER_HIGHLIGHT_STROKE_ALPHA_OUTER = 0.7
-WATER_HIGHLIGHT_STROKE_ALPHA_INNER = 0.55
-WATER_HIGHLIGHT_DASH_OUTER = "3 3"
-WATER_HIGHLIGHT_DASH_INNER = "2 3"
-WATER_HIGHLIGHT_OUTER_R_FACTOR = 0.62
-"""Outer ring radius as a fraction of the water disc radius."""
-WATER_HIGHLIGHT_INNER_R_FACTOR = 0.36
-WATER_HIGHLIGHT_OFFSET_X_FACTOR = -0.30
-"""Highlight centre x-offset as a fraction of the water radius
-(negative = up-left)."""
-WATER_HIGHLIGHT_OFFSET_Y_FACTOR = -0.32
+# Water movement: irregular short curved strokes scattered inside
+# the water disc representing surface ripples / motion. Replaces
+# the older concentric "light glint" rings -- maps in
+# docs/maps/Legend2.jpg show water bodies with wavy lines, not
+# light bands, and the cartographer style is closer to "stream"
+# / "pool" markings than to a metallic sheen.
+WATER_MOVEMENT_STROKE = "#FFFFFF"
+"""White ripples read clearly against the dark blue water disc."""
+
+WATER_MOVEMENT_STROKE_WIDTH = 0.9
+WATER_MOVEMENT_STROKE_ALPHA = 0.65
+WATER_MOVEMENT_DASH = "2 2"
+WATER_MOVEMENT_MARK_COUNT = 4
+WATER_MOVEMENT_AREA_FACTOR = 0.55
+"""Marks scatter inside this fraction of the water radius -- keeps
+ripples away from the rim where the keystone gap reads."""
+WATER_MOVEMENT_RADIUS_MIN_FACTOR = 0.18
+WATER_MOVEMENT_RADIUS_MAX_FACTOR = 0.34
+WATER_MOVEMENT_SWEEP_MIN = 0.5
+"""Min sweep length in radians (~30 deg)."""
+WATER_MOVEMENT_SWEEP_MAX = 1.4
+"""Max sweep length in radians (~80 deg)."""
+
+_WATER_MOVEMENT_SALT = 22013
 
 
-def _water_highlight_fragments(
+def _water_movement_fragments(
     cx: float, cy: float, water_radius: float, *,
-    cls: str = "well-water-highlight",
+    tx: int, ty: int,
+    cls: str = "well-water-movement",
 ) -> list[str]:
-    """Two concentric ``<circle>`` fragments at the upper-left of
-    a water disc, drawn with discontinuous strokes (no fill).
+    """Short irregular arc strokes scattered inside the water disc.
 
-    Caller passes the water disc centre + radius; the highlight
-    sits inside the disc on the upper-left so the eye reads it
-    as light reflecting off the curved water surface."""
-    hcx = cx + water_radius * WATER_HIGHLIGHT_OFFSET_X_FACTOR
-    hcy = cy + water_radius * WATER_HIGHLIGHT_OFFSET_Y_FACTOR
-    r_outer = water_radius * WATER_HIGHLIGHT_OUTER_R_FACTOR
-    r_inner = water_radius * WATER_HIGHLIGHT_INNER_R_FACTOR
+    Suggests surface ripples / movement (cartographer style)
+    rather than a single light glint. Determined by ``(tx, ty)``
+    so the same well always paints the same ripples.
+
+    Note: ``_scatter_volume_marks`` and friends are defined later
+    in this module; Python resolves the names at call time, so
+    placement is fine."""
+    paths = _scatter_volume_marks(
+        cx=cx, cy=cy,
+        tx=tx, ty=ty, salt=_WATER_MOVEMENT_SALT,
+        n_marks=WATER_MOVEMENT_MARK_COUNT,
+        area_radius=water_radius * WATER_MOVEMENT_AREA_FACTOR,
+        mark_radius_min=(
+            water_radius * WATER_MOVEMENT_RADIUS_MIN_FACTOR
+        ),
+        mark_radius_max=(
+            water_radius * WATER_MOVEMENT_RADIUS_MAX_FACTOR
+        ),
+        sweep_min=WATER_MOVEMENT_SWEEP_MIN,
+        sweep_max=WATER_MOVEMENT_SWEEP_MAX,
+    )
     return [
         (
-            f'<circle class="{cls}" '
-            f'cx="{hcx:.2f}" cy="{hcy:.2f}" r="{r_outer:.2f}" '
-            f'fill="none" stroke="{WATER_HIGHLIGHT_STROKE}" '
-            f'stroke-width="{WATER_HIGHLIGHT_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{WATER_HIGHLIGHT_STROKE_ALPHA_OUTER:.2f}" '
-            f'stroke-dasharray="{WATER_HIGHLIGHT_DASH_OUTER}" '
+            f'<path class="{cls}" d="{d}" '
+            f'fill="none" stroke="{WATER_MOVEMENT_STROKE}" '
+            f'stroke-width="{WATER_MOVEMENT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{WATER_MOVEMENT_STROKE_ALPHA:.2f}" '
+            f'stroke-dasharray="{WATER_MOVEMENT_DASH}" '
             f'stroke-linecap="round"/>'
-        ),
-        (
-            f'<circle class="{cls}" '
-            f'cx="{hcx:.2f}" cy="{hcy:.2f}" r="{r_inner:.2f}" '
-            f'fill="none" stroke="{WATER_HIGHLIGHT_STROKE}" '
-            f'stroke-width="{WATER_HIGHLIGHT_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{WATER_HIGHLIGHT_STROKE_ALPHA_INNER:.2f}" '
-            f'stroke-dasharray="{WATER_HIGHLIGHT_DASH_INNER}" '
-            f'stroke-linecap="round"/>'
-        ),
+        )
+        for d in paths
     ]
 
 # Square well geometry. Outer / inner / water radii are reused
@@ -255,12 +266,13 @@ def _well_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    # Concentric discontinuous-stroke highlight on the upper-left
-    # of the water disc -- reads like a cartographer's hand-drawn
-    # light glint instead of a soft opaque crescent.
-    parts.extend(_water_highlight_fragments(
+    # Surface ripples (irregular discontinuous arcs) scattered
+    # across the water disc -- reads as movement / motion in the
+    # cartographer style, not as a single light glint.
+    parts.extend(_water_movement_fragments(
         cx, cy, WELL_WATER_RADIUS,
-        cls="well-water-highlight",
+        tx=tx, ty=ty,
+        cls="well-water-movement",
     ))
 
     parts.append('</g>')
@@ -355,8 +367,9 @@ def _square_well_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    parts.extend(_water_highlight_fragments(
-        cx, cy, water, cls="well-water-highlight",
+    parts.extend(_water_movement_fragments(
+        cx, cy, water, tx=tx, ty=ty,
+        cls="well-water-movement",
     ))
 
     parts.append('</g>')
@@ -418,9 +431,10 @@ def _circle_fountain_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    parts.extend(_water_highlight_fragments(
+    parts.extend(_water_movement_fragments(
         cx, cy, FOUNTAIN_WATER_RADIUS,
-        cls="fountain-water-highlight",
+        tx=tx, ty=ty,
+        cls="fountain-water-movement",
     ))
 
     # Pedestal: stone disc + spout opening on top.
@@ -524,8 +538,9 @@ def _square_fountain_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    parts.extend(_water_highlight_fragments(
-        cx, cy, water, cls="fountain-water-highlight",
+    parts.extend(_water_movement_fragments(
+        cx, cy, water, tx=tx, ty=ty,
+        cls="fountain-water-movement",
     ))
 
     pedestal = FOUNTAIN_PEDESTAL_OUTER_RADIUS
@@ -586,48 +601,70 @@ TREE_CANOPY_STROKE_ALPHA = 0.78
 """Silhouette stroke alpha; a low-alpha rim instead of a hard
  outline so adjacent canopies blend rather than stamp."""
 
-TREE_CANOPY_RADIUS = 0.7 * CELL
+# Cartographer-style canopy: a "broccoli head" silhouette built
+# by unioning N small overlapping circles (lobes). Each lobe is
+# placed around the tile centre with deterministic per-tile
+# angle / offset / radius jitter so adjacent canopies look
+# distinct rather than tiled. The union outline reads as a
+# multi-lobed cloud, mirroring the Mike Schley / Dyson Logos
+# tree style in docs/maps.
 
-TREE_CANOPY_JITTER_LOBES = 10
-"""Number of radial points sampled around the canopy outline.
- Each lobe gets a +/- jitter so the silhouette breaks the clean
- circle into something foliage-shaped."""
+TREE_CANOPY_RADIUS = 0.66 * CELL
+"""Approximate outer extent of a single canopy. Used by
+:func:`_tree_canopy_polygon` to size the lobe cluster and by the
+M2 grove union when picking the fallback radius."""
 
-TREE_CANOPY_JITTER_RANGE = 0.22 * CELL
+TREE_CANOPY_LOBE_COUNT = 6
+TREE_CANOPY_LOBE_RADIUS = 0.32 * CELL
+"""Each lobe's base radius (overlap creates the puffy outline)."""
+
+TREE_CANOPY_CLUSTER_RADIUS = 0.30 * CELL
+"""Distance from canopy centre to the centre of each lobe."""
+
+TREE_CANOPY_LOBE_RADIUS_JITTER = 0.20
+"""+/- multiplier on lobe radius (per-tile, per-lobe)."""
+
+TREE_CANOPY_LOBE_OFFSET_JITTER = 0.30
+"""+/- multiplier on lobe offset distance from centre."""
+
+TREE_CANOPY_LOBE_ANGLE_JITTER = 0.35
+"""+/- radians on lobe angular position."""
 
 TREE_CANOPY_SHADOW_FILL = "#2F4527"
 """Darker green sitting behind the canopy to give the silhouette
  visual weight."""
 
-TREE_CANOPY_SHADOW_RADIUS = 0.78 * CELL
+TREE_CANOPY_SHADOW_LOBE_RADIUS = 0.36 * CELL
+"""Shadow uses larger lobes than the canopy so the silhouette
+peeks out as a darker rim."""
 
-TREE_CANOPY_SHADOW_LOBES = 12
+TREE_CANOPY_SHADOW_OFFSET = 0.05 * CELL
+"""Offset (down-right) for the shadow lobe centres -- the
+classic cartographer drop-shadow on the lower-right face."""
 
-TREE_CANOPY_HIGHLIGHT_RADIUS = 0.42 * CELL
-"""Outer concentric highlight stroke radius. Inner ring sits at
- :data:`TREE_CANOPY_HIGHLIGHT_INNER_RADIUS`."""
+# Volume marks: short irregular arc strokes inside the canopy
+# representing leaf-cluster shadows (where one foliage clump
+# meets the next). Drawn in the silhouette stroke colour (darker
+# than the canopy fill) so they read as inner shadow / volume
+# rather than as light glints. Discontinuous by construction
+# (each is a partial-circle arc, not a closed loop) plus an
+# extra ``stroke-dasharray`` to break each arc further.
 
-TREE_CANOPY_HIGHLIGHT_INNER_RADIUS = 0.26 * CELL
+TREE_VOLUME_MARK_COUNT = 6
+TREE_VOLUME_MARK_AREA_RADIUS = 0.45 * CELL
+"""Radius around tile centre within which volume marks scatter."""
 
-TREE_CANOPY_HIGHLIGHT_LOBES = 6
+TREE_VOLUME_MARK_RADIUS_MIN = 0.07 * CELL
+TREE_VOLUME_MARK_RADIUS_MAX = 0.13 * CELL
 
-TREE_CANOPY_HIGHLIGHT_OFFSET = -0.18 * CELL
-"""Highlight polygon shifts up-and-left by this much so the lit
- face reads as catching the upper-left light."""
+TREE_VOLUME_MARK_SWEEP_MIN = 0.7
+"""Min arc sweep length in radians (~40 deg)."""
+TREE_VOLUME_MARK_SWEEP_MAX = 1.8
+"""Max arc sweep length in radians (~103 deg)."""
 
-TREE_HIGHLIGHT_LIGHT_BOOST = 0.18
-"""Lightness shift (HLS L channel) applied to the canopy fill to
- derive the highlight stroke colour. Larger boost than the old
- fill-based highlight so the discontinuous strokes still read
- against the canopy at low alpha."""
-
-TREE_HIGHLIGHT_STROKE_WIDTH = 0.9
-
-TREE_HIGHLIGHT_STROKE_ALPHA_OUTER = 0.65
-TREE_HIGHLIGHT_STROKE_ALPHA_INNER = 0.5
-
-TREE_HIGHLIGHT_DASH_OUTER = "4 3"
-TREE_HIGHLIGHT_DASH_INNER = "3 3"
+TREE_VOLUME_STROKE_WIDTH = 0.8
+TREE_VOLUME_STROKE_ALPHA = 0.55
+TREE_VOLUME_DASH = "2 2"
 
 TREE_HUE_JITTER_DEG = 6.0
 TREE_SAT_JITTER = 0.05
@@ -654,10 +691,15 @@ def _hash_norm(tx: int, ty: int, salt: int) -> float:
     return (h / 0xFFFFFFFF) * 2.0 - 1.0
 
 
-def _tree_canopy_jitter(tx: int, ty: int, lobe: int) -> float:
-    """Deterministic per-tile, per-lobe canopy radius jitter in
-    ``[-TREE_CANOPY_JITTER_RANGE, +TREE_CANOPY_JITTER_RANGE]``."""
-    return _hash_norm(tx, ty, lobe) * TREE_CANOPY_JITTER_RANGE
+def _hash_unit(tx: int, ty: int, salt: int) -> float:
+    """Deterministic hash mapping ``(tx, ty, salt)`` to ``[0, 1]``.
+
+    Distinct from :func:`_hash_norm` (which returns ``[-1, 1]``).
+    Used when we want a positive-only random factor (e.g.,
+    picking a length within ``[min, max]``)."""
+    h = (tx * 73856093) ^ (ty * 19349663) ^ (salt * 83492791)
+    h = (h ^ (h >> 13)) & 0xFFFFFFFF
+    return h / 0xFFFFFFFF
 
 
 def _hex_to_rgb01(hex_str: str) -> tuple[float, float, float]:
@@ -715,123 +757,223 @@ def _canopy_fill_jitter(tx: int, ty: int) -> str:
     )
 
 
-def _polygon_path(
-    cx: float,
-    cy: float,
-    radius: float,
-    lobes: int,
-    *,
-    tx: int,
-    ty: int,
-    salt: int,
-    jitter_range: float,
-) -> str:
-    """Return a closed SVG ``d`` string for a jittered polygon
-    with ``lobes`` radial samples around ``(cx, cy)``.
+def _lobe_circles(
+    cx: float, cy: float, *,
+    tx: int, ty: int, salt: int,
+    n_lobes: int,
+    lobe_radius: float,
+    cluster_radius: float,
+    radius_jitter: float = 0.20,
+    offset_jitter: float = 0.30,
+    angle_jitter: float = 0.35,
+) -> list[tuple[float, float, float]]:
+    """Deterministic per-tile list of ``(lcx, lcy, lr)`` lobe
+    circles arranged in a cluster around ``(cx, cy)``.
 
-    Each lobe's radius is shifted by a deterministic per-tile,
-    per-salt, per-lobe value in
-    ``[-jitter_range, +jitter_range]`` so adjacent tiles produce
-    visibly different silhouettes."""
-    step = (2 * math.pi) / lobes
-    points: list[tuple[float, float]] = []
-    for lobe in range(lobes):
-        angle = lobe * step
-        # Combine salt + lobe into a single hash input so different
-        # salts (canopy / shadow / highlight) decorrelate.
-        r = radius + _hash_norm(
-            tx, ty, salt * 31 + lobe,
-        ) * jitter_range
-        points.append((
-            cx + math.cos(angle) * r,
-            cy + math.sin(angle) * r,
+    ``n_lobes`` circles are placed roughly evenly on a ring of
+    radius ``cluster_radius`` then perturbed in angle / offset /
+    radius. Unioning them produces the puffy multi-lobed
+    cartographer silhouette."""
+    step = (2 * math.pi) / n_lobes
+    out: list[tuple[float, float, float]] = []
+    for i in range(n_lobes):
+        a_jit = _hash_norm(tx, ty, salt + i * 7) * angle_jitter
+        o_jit = 1.0 + _hash_norm(
+            tx, ty, salt + i * 11 + 1,
+        ) * offset_jitter
+        r_jit = 1.0 + _hash_norm(
+            tx, ty, salt + i * 13 + 2,
+        ) * radius_jitter
+        ang = i * step + a_jit
+        offs = cluster_radius * o_jit
+        lr = lobe_radius * r_jit
+        out.append((
+            cx + math.cos(ang) * offs,
+            cy + math.sin(ang) * offs,
+            lr,
         ))
-    cmds: list[str] = []
-    for i, (px, py) in enumerate(points):
-        cmd = "M" if i == 0 else "L"
-        cmds.append(f"{cmd}{px:.2f},{py:.2f}")
-    cmds.append("Z")
-    return " ".join(cmds)
+    return out
+
+
+def _polygon_to_svg_path(geom) -> str:
+    """Convert a Shapely Polygon / MultiPolygon to an SVG ``d``
+    string. Each exterior ring + interior hole becomes its own
+    closed sub-path; ``fill-rule="evenodd"`` is the responsibility
+    of the caller's ``<path>`` attributes."""
+    geoms = (
+        list(geom.geoms) if hasattr(geom, "geoms") else [geom]
+    )
+    parts: list[str] = []
+    for poly in geoms:
+        rings = [list(poly.exterior.coords)]
+        for hole in poly.interiors:
+            rings.append(list(hole.coords))
+        for coords in rings:
+            if not coords:
+                continue
+            parts.append(
+                f"M{coords[0][0]:.2f},{coords[0][1]:.2f}"
+            )
+            for x, y in coords[1:]:
+                parts.append(f"L{x:.2f},{y:.2f}")
+            parts.append("Z")
+    return " ".join(parts)
+
+
+def _union_path_from_lobes(
+    lobes: list[tuple[float, float, float]],
+) -> str:
+    """Shapely-union the lobe circles and return an SVG ``d``."""
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+    polys = [Point(c[0], c[1]).buffer(c[2]) for c in lobes]
+    return _polygon_to_svg_path(unary_union(polys))
+
+
+def _tree_canopy_lobes(
+    cx: float, cy: float, tx: int, ty: int,
+) -> list[tuple[float, float, float]]:
+    return _lobe_circles(
+        cx, cy,
+        tx=tx, ty=ty, salt=4001,
+        n_lobes=TREE_CANOPY_LOBE_COUNT,
+        lobe_radius=TREE_CANOPY_LOBE_RADIUS,
+        cluster_radius=TREE_CANOPY_CLUSTER_RADIUS,
+        radius_jitter=TREE_CANOPY_LOBE_RADIUS_JITTER,
+        offset_jitter=TREE_CANOPY_LOBE_OFFSET_JITTER,
+        angle_jitter=TREE_CANOPY_LOBE_ANGLE_JITTER,
+    )
+
+
+def _tree_shadow_lobes(
+    cx: float, cy: float, tx: int, ty: int,
+) -> list[tuple[float, float, float]]:
+    """Shadow lobes mirror the canopy positions but use a larger
+    radius and a small down-right offset so the shadow peeks out
+    on the lower-right face."""
+    return _lobe_circles(
+        cx + TREE_CANOPY_SHADOW_OFFSET,
+        cy + TREE_CANOPY_SHADOW_OFFSET,
+        tx=tx, ty=ty, salt=5003,
+        n_lobes=TREE_CANOPY_LOBE_COUNT,
+        lobe_radius=TREE_CANOPY_SHADOW_LOBE_RADIUS,
+        cluster_radius=TREE_CANOPY_CLUSTER_RADIUS,
+        radius_jitter=TREE_CANOPY_LOBE_RADIUS_JITTER,
+        offset_jitter=TREE_CANOPY_LOBE_OFFSET_JITTER,
+        angle_jitter=TREE_CANOPY_LOBE_ANGLE_JITTER,
+    )
 
 
 def _tree_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
-    """Canopy polygon ``d`` for tile ``(tx, ty)``."""
-    return _polygon_path(
-        cx, cy,
-        TREE_CANOPY_RADIUS,
-        TREE_CANOPY_JITTER_LOBES,
-        tx=tx, ty=ty,
-        salt=4001,
-        jitter_range=TREE_CANOPY_JITTER_RANGE,
+    """Canopy outline ``d`` -- shapely union of lobe circles."""
+    return _union_path_from_lobes(
+        _tree_canopy_lobes(cx, cy, tx, ty),
     )
 
 
 def _tree_shadow_path(cx: float, cy: float, tx: int, ty: int) -> str:
-    """Shadow polygon ``d`` for tile ``(tx, ty)``."""
-    return _polygon_path(
-        cx, cy,
-        TREE_CANOPY_SHADOW_RADIUS,
-        TREE_CANOPY_SHADOW_LOBES,
-        tx=tx, ty=ty,
-        salt=5003,
-        jitter_range=TREE_CANOPY_JITTER_RANGE,
+    """Shadow outline ``d`` -- shapely union of larger lobes."""
+    return _union_path_from_lobes(
+        _tree_shadow_lobes(cx, cy, tx, ty),
     )
 
 
-def _tree_highlight_paths(
-    cx: float, cy: float, tx: int, ty: int,
-) -> tuple[str, str]:
-    """Outer + inner concentric highlight ``d`` strings.
+def _arc_path(
+    cx: float, cy: float, r: float, a0: float, a1: float,
+) -> str:
+    """Open arc segment from angle ``a0`` to ``a1`` (radians).
 
-    Both polygons share the same up-and-left offset centre so
-    they read as concentric rings of light reflection on the
-    upper-left face of the canopy. Drawn as discontinuous
-    strokes (no fill) by the caller -- the caller stamps each
-    ring with its own ``stroke-dasharray`` so the rings break
-    rather than form closed outlines."""
-    hcx = cx + TREE_CANOPY_HIGHLIGHT_OFFSET
-    hcy = cy + TREE_CANOPY_HIGHLIGHT_OFFSET
-    outer = _polygon_path(
-        hcx, hcy,
-        TREE_CANOPY_HIGHLIGHT_RADIUS,
-        TREE_CANOPY_HIGHLIGHT_LOBES,
-        tx=tx, ty=ty,
-        salt=6007,
-        jitter_range=TREE_CANOPY_JITTER_RANGE * 0.5,
+    Returns a non-closing ``d`` string (no ``Z``) so the stroke
+    reads as a curved line rather than a closed shape."""
+    sx = cx + math.cos(a0) * r
+    sy = cy + math.sin(a0) * r
+    ex = cx + math.cos(a1) * r
+    ey = cy + math.sin(a1) * r
+    sweep_len = a1 - a0
+    large_arc = 1 if abs(sweep_len) > math.pi else 0
+    sweep_dir = 1 if sweep_len >= 0 else 0
+    return (
+        f"M{sx:.2f},{sy:.2f} "
+        f"A{r:.2f},{r:.2f} 0 {large_arc} {sweep_dir} "
+        f"{ex:.2f},{ey:.2f}"
     )
-    inner = _polygon_path(
-        hcx, hcy,
-        TREE_CANOPY_HIGHLIGHT_INNER_RADIUS,
-        TREE_CANOPY_HIGHLIGHT_LOBES,
-        tx=tx, ty=ty,
-        salt=6011,
-        jitter_range=TREE_CANOPY_JITTER_RANGE * 0.35,
-    )
-    return outer, inner
 
 
-def _tree_highlight_fragments(
-    outer_d: str, inner_d: str, stroke_color: str,
+def _scatter_volume_marks(
+    *, cx: float, cy: float,
+    tx: int, ty: int, salt: int,
+    n_marks: int,
+    area_radius: float,
+    mark_radius_min: float,
+    mark_radius_max: float,
+    sweep_min: float,
+    sweep_max: float,
 ) -> list[str]:
-    """Two concentric ``<path class="tree-canopy-highlight">``
-    fragments, both ``fill="none"`` with discontinuous strokes."""
+    """Generate ``n_marks`` short irregular arcs scattered inside
+    the area around ``(cx, cy)``. Each mark's centre, radius,
+    sweep start and sweep length are deterministically derived
+    from ``(tx, ty, salt)``.
+
+    Returns SVG ``d`` strings; the caller wraps each in a
+    ``<path>`` with the desired stroke style."""
+    out: list[str] = []
+    for i in range(n_marks):
+        # Position inside area circle (use sqrt to avoid centre
+        # bias).
+        u = _hash_unit(tx, ty, salt + i * 17 + 3)
+        ang = _hash_norm(
+            tx, ty, salt + i * 19 + 5,
+        ) * math.pi  # [-pi, pi]
+        r_pos = area_radius * math.sqrt(u)
+        mx = cx + math.cos(ang) * r_pos
+        my = cy + math.sin(ang) * r_pos
+        # Mark radius
+        u_r = _hash_unit(tx, ty, salt + i * 23 + 7)
+        mr = mark_radius_min + (
+            mark_radius_max - mark_radius_min
+        ) * u_r
+        # Sweep start + length
+        sweep_start = _hash_norm(
+            tx, ty, salt + i * 29 + 11,
+        ) * math.pi
+        u_sw = _hash_unit(tx, ty, salt + i * 31 + 13)
+        sweep_len = sweep_min + (sweep_max - sweep_min) * u_sw
+        out.append(_arc_path(
+            mx, my, mr,
+            sweep_start, sweep_start + sweep_len,
+        ))
+    return out
+
+
+def _tree_volume_fragments(
+    cx: float, cy: float, tx: int, ty: int, stroke_color: str,
+    *, salt: int = 7011,
+) -> list[str]:
+    """Volume-mark fragments for one tree at ``(cx, cy)``.
+
+    Short irregular arcs scattered inside the canopy in the
+    silhouette stroke colour, suggesting where leaf clusters
+    meet (inner shadow / volume cue, not light)."""
+    paths = _scatter_volume_marks(
+        cx=cx, cy=cy,
+        tx=tx, ty=ty, salt=salt,
+        n_marks=TREE_VOLUME_MARK_COUNT,
+        area_radius=TREE_VOLUME_MARK_AREA_RADIUS,
+        mark_radius_min=TREE_VOLUME_MARK_RADIUS_MIN,
+        mark_radius_max=TREE_VOLUME_MARK_RADIUS_MAX,
+        sweep_min=TREE_VOLUME_MARK_SWEEP_MIN,
+        sweep_max=TREE_VOLUME_MARK_SWEEP_MAX,
+    )
     return [
         (
-            f'<path class="tree-canopy-highlight" d="{outer_d}" '
+            f'<path class="tree-volume" d="{d}" '
             f'fill="none" stroke="{stroke_color}" '
-            f'stroke-width="{TREE_HIGHLIGHT_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{TREE_HIGHLIGHT_STROKE_ALPHA_OUTER:.2f}" '
-            f'stroke-dasharray="{TREE_HIGHLIGHT_DASH_OUTER}" '
+            f'stroke-width="{TREE_VOLUME_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{TREE_VOLUME_STROKE_ALPHA:.2f}" '
+            f'stroke-dasharray="{TREE_VOLUME_DASH}" '
             f'stroke-linecap="round"/>'
-        ),
-        (
-            f'<path class="tree-canopy-highlight" d="{inner_d}" '
-            f'fill="none" stroke="{stroke_color}" '
-            f'stroke-width="{TREE_HIGHLIGHT_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{TREE_HIGHLIGHT_STROKE_ALPHA_INNER:.2f}" '
-            f'stroke-dasharray="{TREE_HIGHLIGHT_DASH_INNER}" '
-            f'stroke-linecap="round"/>'
-        ),
+        )
+        for d in paths
     ]
 
 
@@ -841,15 +983,17 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     Composition (back to front):
 
     * Brown trunk dot anchored slightly below the canopy centre.
-    * Darker shadow polygon (wider radius) sitting behind the
-      canopy and giving the silhouette weight.
-    * Soft green canopy polygon with deterministic per-tile hue /
-      sat / light jitter so adjacent trees in a grove read as
-      distinct silhouettes rather than a tiled pattern.
-    * Lighter highlight polygon (smaller radius, offset
-      upper-left) for the lit upper face of the canopy.
-    * Low-alpha silhouette stroke (re-uses the canopy ``d``) so
-      the canopy edge reads without a hard outline.
+    * Multi-lobed shadow silhouette (shapely union of larger
+      lobes, offset down-right) sitting behind the canopy.
+    * Multi-lobed canopy silhouette (shapely union of small
+      overlapping circles -- a "broccoli head") with per-tile
+      hue / sat / light jitter so adjacent canopies read as
+      distinct.
+    * Volume marks: short irregular arc strokes scattered inside
+      the canopy in the silhouette stroke colour, suggesting
+      where leaf clusters meet (inner shadow / volume cue).
+    * Low-alpha silhouette stroke (re-uses the canopy ``d``)
+      tracing the bumpy outline.
     """
     cx = (tx + 0.5) * CELL
     cy = (ty + 0.5) * CELL
@@ -857,11 +1001,7 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     trunk_cy = cy + TREE_TRUNK_OFFSET_Y
     canopy_d = _tree_canopy_path(cx, cy, tx, ty)
     shadow_d = _tree_shadow_path(cx, cy, tx, ty)
-    outer_d, inner_d = _tree_highlight_paths(cx, cy, tx, ty)
     canopy_fill = _canopy_fill_jitter(tx, ty)
-    highlight_stroke = _shift_color(
-        canopy_fill, light=TREE_HIGHLIGHT_LIGHT_BOOST,
-    )
     parts = [
         f'<g id="tree-{tx}-{ty}" class="tree-feature">',
         (
@@ -880,8 +1020,8 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
             f'fill="{canopy_fill}" stroke="none"/>'
         ),
     ]
-    parts.extend(_tree_highlight_fragments(
-        outer_d, inner_d, highlight_stroke,
+    parts.extend(_tree_volume_fragments(
+        cx, cy, tx, ty, TREE_CANOPY_STROKE,
     ))
     parts.extend([
         (
@@ -955,41 +1095,17 @@ def _grove_for_tile(
     return None
 
 
-def _polygon_to_svg_path(geom) -> str:
-    """Convert a Shapely Polygon / MultiPolygon to an SVG ``d``
-    string. Each exterior ring + interior hole becomes its own
-    closed sub-path; ``fill-rule="evenodd"`` is responsibility of
-    the caller's ``<path>`` attributes."""
-    geoms = (
-        list(geom.geoms) if hasattr(geom, "geoms") else [geom]
-    )
-    parts: list[str] = []
-    for poly in geoms:
-        rings = [list(poly.exterior.coords)]
-        for hole in poly.interiors:
-            rings.append(list(hole.coords))
-        for coords in rings:
-            if not coords:
-                continue
-            parts.append(
-                f"M{coords[0][0]:.2f},{coords[0][1]:.2f}"
-            )
-            for x, y in coords[1:]:
-                parts.append(f"L{x:.2f},{y:.2f}")
-            parts.append("Z")
-    return " ".join(parts)
-
-
 def _grove_union_fragment(
     grove: frozenset[tuple[int, int]],
 ) -> str:
     """One ``<g class='tree-grove'>`` fragment representing the
-    union of every canopy in ``grove``.
+    union of every per-tree lobe cluster in ``grove``.
 
     Layered identically to :func:`_tree_fragment_for_tile`:
-    shadow union -> canopy union -> highlight union -> low-alpha
-    silhouette stroke. Trunks are dropped -- a fused grove reads
-    as merged foliage rather than as a row of distinct trunks.
+    shadow union -> canopy union -> volume marks (one set per
+    tile in the grove) -> low-alpha silhouette stroke. Trunks
+    are dropped -- a fused grove reads as merged foliage rather
+    than as a row of distinct trunks.
 
     Per-grove hue jitter seeds from ``min(grove)`` so adding /
     removing one tree nudges the colour rather than flipping it
@@ -1000,40 +1116,20 @@ def _grove_union_fragment(
     anchor = min(grove)
     canopy_polys = []
     shadow_polys = []
-    highlight_outer_polys = []
-    highlight_inner_polys = []
     for tx, ty in grove:
         cx = (tx + 0.5) * CELL
         cy = (ty + 0.5) * CELL
-        canopy_polys.append(
-            Point(cx, cy).buffer(TREE_CANOPY_RADIUS),
-        )
-        shadow_polys.append(
-            Point(cx, cy).buffer(TREE_CANOPY_SHADOW_RADIUS),
-        )
-        hcx = cx + TREE_CANOPY_HIGHLIGHT_OFFSET
-        hcy = cy + TREE_CANOPY_HIGHLIGHT_OFFSET
-        highlight_outer_polys.append(
-            Point(hcx, hcy).buffer(TREE_CANOPY_HIGHLIGHT_RADIUS),
-        )
-        highlight_inner_polys.append(
-            Point(hcx, hcy).buffer(
-                TREE_CANOPY_HIGHLIGHT_INNER_RADIUS,
-            ),
-        )
+        # Use the same per-tile lobe cluster so the grove silhouette
+        # has the same bumpy character as a row of single trees,
+        # then unions across all tiles.
+        for lcx, lcy, lr in _tree_canopy_lobes(cx, cy, tx, ty):
+            canopy_polys.append(Point(lcx, lcy).buffer(lr))
+        for lcx, lcy, lr in _tree_shadow_lobes(cx, cy, tx, ty):
+            shadow_polys.append(Point(lcx, lcy).buffer(lr))
     canopy_d = _polygon_to_svg_path(unary_union(canopy_polys))
     shadow_d = _polygon_to_svg_path(unary_union(shadow_polys))
-    outer_d = _polygon_to_svg_path(
-        unary_union(highlight_outer_polys),
-    )
-    inner_d = _polygon_to_svg_path(
-        unary_union(highlight_inner_polys),
-    )
 
     canopy_fill = _canopy_fill_jitter(*anchor)
-    highlight_stroke = _shift_color(
-        canopy_fill, light=TREE_HIGHLIGHT_LIGHT_BOOST,
-    )
     parts = [
         f'<g id="tree-grove-{anchor[0]}-{anchor[1]}" '
         'class="tree-grove">',
@@ -1046,9 +1142,15 @@ def _grove_union_fragment(
             f'fill="{canopy_fill}" stroke="none"/>'
         ),
     ]
-    parts.extend(_tree_highlight_fragments(
-        outer_d, inner_d, highlight_stroke,
-    ))
+    # Volume marks: emit one set per tile in the grove so the
+    # union surface stays evenly speckled regardless of grove
+    # shape.
+    for tx, ty in sorted(grove):
+        cx = (tx + 0.5) * CELL
+        cy = (ty + 0.5) * CELL
+        parts.extend(_tree_volume_fragments(
+            cx, cy, tx, ty, TREE_CANOPY_STROKE,
+        ))
     parts.extend([
         (
             f'<path class="tree-silhouette" d="{canopy_d}" '
@@ -1100,32 +1202,49 @@ BUSH_CANOPY_STROKE_WIDTH = 1.0
 BUSH_CANOPY_STROKE_ALPHA = 0.78
 
 BUSH_CANOPY_RADIUS = 0.32 * CELL
+"""Approximate outer extent of a bush silhouette. Used to size
+the lobe cluster and as a sanity bound for tile-clearance tests."""
 
-BUSH_CANOPY_JITTER_LOBES = 6
+BUSH_CANOPY_LOBE_COUNT = 3
+"""Fewer lobes than a tree -- a bush is small enough that 3-4
+bumps already read as multi-lobed."""
 
-BUSH_CANOPY_JITTER_RANGE = 0.10 * CELL
+BUSH_CANOPY_LOBE_RADIUS = 0.16 * CELL
+BUSH_CANOPY_CLUSTER_RADIUS = 0.10 * CELL
 
-BUSH_CANOPY_HIGHLIGHT_RADIUS = 0.18 * CELL
-"""Outer concentric highlight stroke radius."""
+BUSH_CANOPY_LOBE_RADIUS_JITTER = 0.18
+BUSH_CANOPY_LOBE_OFFSET_JITTER = 0.30
+BUSH_CANOPY_LOBE_ANGLE_JITTER = 0.40
 
-BUSH_CANOPY_HIGHLIGHT_INNER_RADIUS = 0.10 * CELL
+BUSH_CANOPY_SHADOW_FILL = "#3F5237"
+"""Shadow lobes for the bush silhouette -- darker than the
+canopy fill (mirrors the tree shadow but smaller)."""
 
-BUSH_CANOPY_HIGHLIGHT_LOBES = 5
+BUSH_CANOPY_SHADOW_LOBE_RADIUS = 0.18 * CELL
+BUSH_CANOPY_SHADOW_OFFSET = 0.03 * CELL
 
-BUSH_CANOPY_HIGHLIGHT_OFFSET = -0.07 * CELL
+# Volume marks for bushes: fewer + smaller than tree marks.
+BUSH_VOLUME_MARK_COUNT = 2
+BUSH_VOLUME_MARK_AREA_RADIUS = 0.14 * CELL
+BUSH_VOLUME_MARK_RADIUS_MIN = 0.04 * CELL
+BUSH_VOLUME_MARK_RADIUS_MAX = 0.07 * CELL
+BUSH_VOLUME_MARK_SWEEP_MIN = 0.6
+BUSH_VOLUME_MARK_SWEEP_MAX = 1.5
+BUSH_VOLUME_STROKE_WIDTH = 0.6
+BUSH_VOLUME_STROKE_ALPHA = 0.55
+BUSH_VOLUME_DASH = "1.5 1.5"
 
-BUSH_HIGHLIGHT_LIGHT_BOOST = 0.18
-"""Lightness shift on the canopy fill to derive the highlight
- stroke colour. Larger boost than the old fill-based highlight
- so the discontinuous strokes still read at low alpha."""
-
-BUSH_HIGHLIGHT_STROKE_WIDTH = 0.7
-
-BUSH_HIGHLIGHT_STROKE_ALPHA_OUTER = 0.65
-BUSH_HIGHLIGHT_STROKE_ALPHA_INNER = 0.5
-
-BUSH_HIGHLIGHT_DASH_OUTER = "3 2"
-BUSH_HIGHLIGHT_DASH_INNER = "2 2"
+# Compatibility floor: max possible extent of any bush point
+# from its tile centre (cluster + lobe + jitter slack). Used by
+# the tile-clearance test as the strict upper bound.
+BUSH_CANOPY_MAX_EXTENT = (
+    BUSH_CANOPY_CLUSTER_RADIUS
+    + BUSH_CANOPY_LOBE_RADIUS
+    * (1.0 + BUSH_CANOPY_LOBE_RADIUS_JITTER)
+)
+"""Cluster offset + maximum jittered lobe radius. Must stay
+strictly below 0.5 * CELL so a bush placed 4-adjacent to a
+building footprint never bleeds onto the roof (M3 contract)."""
 
 BUSH_HUE_JITTER_DEG = 6.0
 BUSH_SAT_JITTER = 0.05
@@ -1137,7 +1256,8 @@ _BUSH_HUE_SALT = 7019
 _BUSH_SAT_SALT = 8053
 _BUSH_LIGHT_SALT = 9091
 _BUSH_CANOPY_SHAPE_SALT = 11117
-_BUSH_HIGHLIGHT_SHAPE_SALT = 12119
+_BUSH_SHADOW_SHAPE_SALT = 11201
+_BUSH_VOLUME_SALT = 12119
 
 
 def _bush_fill_jitter(tx: int, ty: int) -> str:
@@ -1149,40 +1269,73 @@ def _bush_fill_jitter(tx: int, ty: int) -> str:
     )
 
 
-def _bush_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
-    return _polygon_path(
-        cx, cy,
-        BUSH_CANOPY_RADIUS,
-        BUSH_CANOPY_JITTER_LOBES,
-        tx=tx, ty=ty,
-        salt=_BUSH_CANOPY_SHAPE_SALT,
-        jitter_range=BUSH_CANOPY_JITTER_RANGE,
-    )
-
-
-def _bush_highlight_paths(
+def _bush_canopy_lobes(
     cx: float, cy: float, tx: int, ty: int,
-) -> tuple[str, str]:
-    """Outer + inner concentric highlight ``d`` strings."""
-    hcx = cx + BUSH_CANOPY_HIGHLIGHT_OFFSET
-    hcy = cy + BUSH_CANOPY_HIGHLIGHT_OFFSET
-    outer = _polygon_path(
-        hcx, hcy,
-        BUSH_CANOPY_HIGHLIGHT_RADIUS,
-        BUSH_CANOPY_HIGHLIGHT_LOBES,
-        tx=tx, ty=ty,
-        salt=_BUSH_HIGHLIGHT_SHAPE_SALT,
-        jitter_range=BUSH_CANOPY_JITTER_RANGE * 0.5,
+) -> list[tuple[float, float, float]]:
+    return _lobe_circles(
+        cx, cy,
+        tx=tx, ty=ty, salt=_BUSH_CANOPY_SHAPE_SALT,
+        n_lobes=BUSH_CANOPY_LOBE_COUNT,
+        lobe_radius=BUSH_CANOPY_LOBE_RADIUS,
+        cluster_radius=BUSH_CANOPY_CLUSTER_RADIUS,
+        radius_jitter=BUSH_CANOPY_LOBE_RADIUS_JITTER,
+        offset_jitter=BUSH_CANOPY_LOBE_OFFSET_JITTER,
+        angle_jitter=BUSH_CANOPY_LOBE_ANGLE_JITTER,
     )
-    inner = _polygon_path(
-        hcx, hcy,
-        BUSH_CANOPY_HIGHLIGHT_INNER_RADIUS,
-        BUSH_CANOPY_HIGHLIGHT_LOBES,
-        tx=tx, ty=ty,
-        salt=_BUSH_HIGHLIGHT_SHAPE_SALT + 4,
-        jitter_range=BUSH_CANOPY_JITTER_RANGE * 0.35,
+
+
+def _bush_shadow_lobes(
+    cx: float, cy: float, tx: int, ty: int,
+) -> list[tuple[float, float, float]]:
+    return _lobe_circles(
+        cx + BUSH_CANOPY_SHADOW_OFFSET,
+        cy + BUSH_CANOPY_SHADOW_OFFSET,
+        tx=tx, ty=ty, salt=_BUSH_SHADOW_SHAPE_SALT,
+        n_lobes=BUSH_CANOPY_LOBE_COUNT,
+        lobe_radius=BUSH_CANOPY_SHADOW_LOBE_RADIUS,
+        cluster_radius=BUSH_CANOPY_CLUSTER_RADIUS,
+        radius_jitter=BUSH_CANOPY_LOBE_RADIUS_JITTER,
+        offset_jitter=BUSH_CANOPY_LOBE_OFFSET_JITTER,
+        angle_jitter=BUSH_CANOPY_LOBE_ANGLE_JITTER,
     )
-    return outer, inner
+
+
+def _bush_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    return _union_path_from_lobes(
+        _bush_canopy_lobes(cx, cy, tx, ty),
+    )
+
+
+def _bush_shadow_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    return _union_path_from_lobes(
+        _bush_shadow_lobes(cx, cy, tx, ty),
+    )
+
+
+def _bush_volume_fragments(
+    cx: float, cy: float, tx: int, ty: int, stroke_color: str,
+) -> list[str]:
+    paths = _scatter_volume_marks(
+        cx=cx, cy=cy,
+        tx=tx, ty=ty, salt=_BUSH_VOLUME_SALT,
+        n_marks=BUSH_VOLUME_MARK_COUNT,
+        area_radius=BUSH_VOLUME_MARK_AREA_RADIUS,
+        mark_radius_min=BUSH_VOLUME_MARK_RADIUS_MIN,
+        mark_radius_max=BUSH_VOLUME_MARK_RADIUS_MAX,
+        sweep_min=BUSH_VOLUME_MARK_SWEEP_MIN,
+        sweep_max=BUSH_VOLUME_MARK_SWEEP_MAX,
+    )
+    return [
+        (
+            f'<path class="bush-volume" d="{d}" '
+            f'fill="none" stroke="{stroke_color}" '
+            f'stroke-width="{BUSH_VOLUME_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{BUSH_VOLUME_STROKE_ALPHA:.2f}" '
+            f'stroke-dasharray="{BUSH_VOLUME_DASH}" '
+            f'stroke-linecap="round"/>'
+        )
+        for d in paths
+    ]
 
 
 def _bush_fragment_for_tile(tx: int, ty: int) -> str:
@@ -1190,45 +1343,35 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
 
     Composition (back to front):
 
-    * Canopy polygon with deterministic per-tile hue jitter.
-    * Two concentric discontinuous-stroke highlights offset
-      upper-left for a hand-drawn light glint.
-    * Low-alpha silhouette stroke (re-uses the canopy ``d``).
+    * Multi-lobed shadow silhouette (smaller / fewer lobes than
+      a tree, offset down-right) for visual weight.
+    * Multi-lobed canopy silhouette (3 small overlapping lobes).
+    * Volume marks: short irregular arcs scattered inside in the
+      silhouette stroke colour.
+    * Low-alpha silhouette stroke tracing the canopy outline.
 
-    No trunk -- bushes don't need one to read as shrubs and a
-    visible trunk would blur the read at this canopy size."""
+    No trunk -- bushes are small enough that the silhouette
+    alone reads as a shrub."""
     cx = (tx + 0.5) * CELL
     cy = (ty + 0.5) * CELL
     canopy_d = _bush_canopy_path(cx, cy, tx, ty)
-    outer_d, inner_d = _bush_highlight_paths(cx, cy, tx, ty)
+    shadow_d = _bush_shadow_path(cx, cy, tx, ty)
     canopy_fill = _bush_fill_jitter(tx, ty)
-    highlight_stroke = _shift_color(
-        canopy_fill, light=BUSH_HIGHLIGHT_LIGHT_BOOST,
-    )
     parts = [
         f'<g id="bush-{tx}-{ty}" class="bush-feature">',
+        (
+            f'<path class="bush-canopy-shadow" d="{shadow_d}" '
+            f'fill="{BUSH_CANOPY_SHADOW_FILL}" stroke="none"/>'
+        ),
         (
             f'<path class="bush-canopy" d="{canopy_d}" '
             f'fill="{canopy_fill}" stroke="none"/>'
         ),
-        (
-            f'<path class="bush-canopy-highlight" '
-            f'd="{outer_d}" '
-            f'fill="none" stroke="{highlight_stroke}" '
-            f'stroke-width="{BUSH_HIGHLIGHT_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{BUSH_HIGHLIGHT_STROKE_ALPHA_OUTER:.2f}" '
-            f'stroke-dasharray="{BUSH_HIGHLIGHT_DASH_OUTER}" '
-            f'stroke-linecap="round"/>'
-        ),
-        (
-            f'<path class="bush-canopy-highlight" '
-            f'd="{inner_d}" '
-            f'fill="none" stroke="{highlight_stroke}" '
-            f'stroke-width="{BUSH_HIGHLIGHT_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{BUSH_HIGHLIGHT_STROKE_ALPHA_INNER:.2f}" '
-            f'stroke-dasharray="{BUSH_HIGHLIGHT_DASH_INNER}" '
-            f'stroke-linecap="round"/>'
-        ),
+    ]
+    parts.extend(_bush_volume_fragments(
+        cx, cy, tx, ty, BUSH_CANOPY_STROKE,
+    ))
+    parts.extend([
         (
             f'<path class="bush-silhouette" d="{canopy_d}" '
             f'fill="none" stroke="{BUSH_CANOPY_STROKE}" '
@@ -1236,7 +1379,7 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
             f'stroke-opacity="{BUSH_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
         '</g>',
-    ]
+    ])
     return "".join(parts)
 
 
