@@ -633,15 +633,19 @@ def _render_floor_detail(
                 continue
             if tile.feature in ("stairs_up", "stairs_down"):
                 continue
-            # Outdoor surfaces (STREET / FIELD / GARDEN) have
-            # their own per-tile renderers -- cobblestone, field
-            # stones, garden lines. Skip the indoor pass here so
-            # town / keep / farm surfaces don't pick up bones,
-            # skulls, floor stones, scratches, or cracks.
+            # Outdoor surfaces (STREET / FIELD / GARDEN /
+            # HERRINGBONE plaza) have their own per-tile decorators.
+            # Skip the indoor pass here so town / keep / farm
+            # surfaces don't pick up bones, skulls, floor stones,
+            # scratches, or cracks. Interior cobble variants
+            # (PAVED / BRICK / FLAGSTONE) intentionally keep the
+            # indoor-stone detail so the decorative pattern reads
+            # as an overlay on the building's stone floor.
             if tile.surface_type in (
                 SurfaceType.STREET,
                 SurfaceType.FIELD,
                 SurfaceType.GARDEN,
+                SurfaceType.HERRINGBONE,
             ):
                 continue
             is_cor = (tile.surface_type == SurfaceType.CORRIDOR
@@ -707,6 +711,7 @@ def _render_floor_detail(
         ctx,
         [
             COBBLESTONE, COBBLE_STONE,
+            BRICK, FLAGSTONE, HERRINGBONE,
             FIELD_STONE,
             GARDEN_LINE,
             CART_TRACK_RAILS, CART_TRACK_TIES,
@@ -819,6 +824,194 @@ COBBLE_STONE = TileDecorator(
     paint=_cobble_stone_paint,
     group_open='<g opacity="0.5">',
     z_order=11,
+)
+
+
+# ── Cobblestone variants ─────────────────────────────────────
+#
+# Three decorative cousins of the COBBLESTONE pattern. Each fires
+# on its own SurfaceType tag so a site assembler can pick the
+# pattern that fits the building / plaza role. They share the
+# COBBLESTONE wrapping shape (opacity-0.35 stroked group) but use
+# distinct strokes + per-tile geometry:
+#
+#   BRICK        running-bond rectangles (wider than tall)
+#   FLAGSTONE    irregular polygon plates with thin gaps
+#   HERRINGBONE  paired rectangles rotated +/-45 degrees
+#
+# Adding a new variant is one stroke constant + one paint helper
+# + one ``TileDecorator`` constant + one assembler stamp.
+
+BRICK_STROKE = "#A05530"   # warm red-brown, classic fired brick
+FLAGSTONE_STROKE = "#6A6055"  # cool grey-brown, slate / quarried stone
+HERRINGBONE_STROKE = "#9A6540"  # mid-brown, between brick + cobblestone
+
+
+def _is_brick_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].surface_type is SurfaceType.BRICK
+
+
+def _is_flagstone_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].surface_type is SurfaceType.FLAGSTONE
+
+
+def _is_herringbone_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].surface_type is SurfaceType.HERRINGBONE
+
+
+def _brick_paint(args) -> list[str]:
+    """Running-bond brick layout for one tile.
+
+    4 rows of 2 bricks each (brick aspect ratio ~2:1). Even rows
+    align with the tile edge; odd rows offset by half a brick so
+    the courses interlock visually. Per-brick jitter keeps the
+    look hand-drawn rather than CAD-perfect.
+    """
+    rng = args.rng
+    px, py = args.px, args.py
+    bw = CELL / 2
+    bh = CELL / 4
+    bricks: list[str] = []
+    for row in range(4):
+        offset = bw / 2 if row % 2 == 1 else 0.0
+        # Each row paints the half-brick at the left edge (when
+        # offset) plus the two full bricks; offsetting back keeps
+        # the row tilable across adjacent BRICK tiles.
+        for col in range(3 if offset else 2):
+            x0 = px + col * bw - offset
+            y0 = py + row * bh
+            jx = rng.uniform(-bw * 0.06, bw * 0.06)
+            jy = rng.uniform(-bh * 0.06, bh * 0.06)
+            jw = rng.uniform(-bw * 0.06, bw * 0.06)
+            jh = rng.uniform(-bh * 0.06, bh * 0.06)
+            bx = x0 + jx + 0.5
+            by = y0 + jy + 0.5
+            bw_jit = bw + jw - 1.0
+            bh_jit = bh + jh - 1.0
+            # Clip the rect to the tile bounds so the half-brick at
+            # the left edge of an odd row doesn't leak out.
+            if bx < px:
+                bw_jit -= (px - bx)
+                bx = px
+            if bx + bw_jit > px + CELL:
+                bw_jit = px + CELL - bx
+            if bw_jit > 1.5 and bh_jit > 1.5:
+                bricks.append(
+                    f'<rect x="{bx:.1f}" y="{by:.1f}" '
+                    f'width="{bw_jit:.1f}" '
+                    f'height="{bh_jit:.1f}" rx="0.5"/>'
+                )
+    return bricks
+
+
+def _flagstone_paint(args) -> list[str]:
+    """Four irregular polygon plates per tile.
+
+    Divides the tile into 2x2 quadrants, then inside each quadrant
+    draws a jittered pentagon whose corners avoid the quadrant
+    boundary -- the implicit gap between adjacent pentagons reads
+    as the mortar line between paving stones.
+    """
+    rng = args.rng
+    px, py = args.px, args.py
+    half = CELL / 2
+    inset = half * 0.08  # mortar gap from quadrant boundary
+    plates: list[str] = []
+    for qy in range(2):
+        for qx in range(2):
+            cx = px + qx * half
+            cy = py + qy * half
+            # Five corner points: TL, T, TR, BR, BL with jitter.
+            jitter = lambda: rng.uniform(-half * 0.07, half * 0.07)
+            pts = [
+                (cx + inset + jitter(), cy + inset + jitter()),
+                (
+                    cx + half * 0.5 + jitter(),
+                    cy + inset * 0.5 + jitter(),
+                ),
+                (
+                    cx + half - inset + jitter(),
+                    cy + inset + jitter(),
+                ),
+                (
+                    cx + half - inset + jitter(),
+                    cy + half - inset + jitter(),
+                ),
+                (
+                    cx + inset + jitter(),
+                    cy + half - inset + jitter(),
+                ),
+            ]
+            polygon = " ".join(
+                f"{x:.1f},{y:.1f}" for x, y in pts
+            )
+            plates.append(f'<polygon points="{polygon}"/>')
+    return plates
+
+
+def _herringbone_paint(args) -> list[str]:
+    """One herringbone L-pair per tile.
+
+    A 1:3-ratio brick rotated +45 degrees flanked by another
+    rotated -45 degrees forms the canonical herringbone L. Drawn
+    as two rotated rects via SVG transform attributes so the
+    angles stay crisp.
+    """
+    px, py = args.px, args.py
+    bw = CELL * 0.7   # brick long side
+    bh = CELL * 0.22  # brick short side
+    cx = px + CELL / 2
+    cy = py + CELL / 2
+    # Upper-left brick angled at -45, lower-right at +45 so the
+    # pair forms an L; adjacent tiles complete the herringbone.
+    bricks: list[str] = []
+    for sign, ox, oy in (
+        (-45, -CELL * 0.18, -CELL * 0.18),
+        (45, CELL * 0.18, CELL * 0.18),
+    ):
+        bx = cx + ox - bw / 2
+        by = cy + oy - bh / 2
+        bricks.append(
+            f'<rect x="{bx:.1f}" y="{by:.1f}" '
+            f'width="{bw:.1f}" height="{bh:.1f}" rx="0.4" '
+            f'transform="rotate({sign},{cx + ox:.1f},'
+            f'{cy + oy:.1f})"/>'
+        )
+    return bricks
+
+
+BRICK = TileDecorator(
+    name="brick",
+    layer="floor_detail",
+    predicate=_is_brick_tile,
+    paint=_brick_paint,
+    group_open=(
+        f'<g opacity="0.35" fill="none" '
+        f'stroke="{BRICK_STROKE}" stroke-width="0.4">'
+    ),
+    z_order=12,
+)
+FLAGSTONE = TileDecorator(
+    name="flagstone",
+    layer="floor_detail",
+    predicate=_is_flagstone_tile,
+    paint=_flagstone_paint,
+    group_open=(
+        f'<g opacity="0.35" fill="none" '
+        f'stroke="{FLAGSTONE_STROKE}" stroke-width="0.4">'
+    ),
+    z_order=13,
+)
+HERRINGBONE = TileDecorator(
+    name="herringbone",
+    layer="floor_detail",
+    predicate=_is_herringbone_tile,
+    paint=_herringbone_paint,
+    group_open=(
+        f'<g opacity="0.35" fill="none" '
+        f'stroke="{HERRINGBONE_STROKE}" stroke-width="0.4">'
+    ),
+    z_order=14,
 )
 
 

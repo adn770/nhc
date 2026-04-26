@@ -198,6 +198,8 @@ def _build_mage_tower(
     )
     for idx, level in enumerate(floors):
         level.interior_floor = "stone" if idx == 0 else "wood"
+        if idx == 0:
+            _stamp_brick_floor(level)
     building = Building(
         id=building_id,
         base_shape=base_shape,
@@ -279,6 +281,8 @@ def _build_mansion_building(
     # Ground stone, upper wood.
     for idx, level in enumerate(floors):
         level.interior_floor = "stone" if idx == 0 else "wood"
+        if idx == 0:
+            _stamp_brick_floor(level)
 
     building = Building(
         id=building_id,
@@ -437,3 +441,22 @@ def _build_mansion_surface(
                 surface_type=SurfaceType.GARDEN,
             )
     return surface
+
+
+def _stamp_brick_floor(level: Level) -> None:
+    """Tag every interior FLOOR tile as ``SurfaceType.BRICK``.
+
+    Mansion ground floors are stone-floored noble residences; the
+    BRICK overlay reads as warm fired-brick paving over the stone
+    fill. Skips tiles that already carry a non-NONE surface_type
+    (CORRIDOR / TRACK / etc.) so the brick pattern only paints
+    plain interior FLOOR tiles.
+    """
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain is not Terrain.FLOOR:
+                continue
+            if tile.surface_type is not SurfaceType.NONE:
+                continue
+            tile.surface_type = SurfaceType.BRICK

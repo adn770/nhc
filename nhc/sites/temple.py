@@ -158,6 +158,7 @@ def _build_temple_building(
         ),
     )
     floors[0].interior_floor = "stone"
+    _stamp_flagstone_floor(floors[0])
     building = Building(
         id=building_id,
         base_shape=shape,
@@ -383,3 +384,21 @@ def _build_temple_surface(
                 )
             surface.tiles[y][x] = tile
     return surface
+
+
+def _stamp_flagstone_floor(level: Level) -> None:
+    """Tag every interior FLOOR tile as ``SurfaceType.FLAGSTONE``.
+
+    Temple ground floors render as quarried slate plates over the
+    stone fill, reading as a sacred-space variant of the cobble
+    pattern. Skips tiles that already carry a non-NONE surface_type
+    so the pattern only paints on plain interior FLOOR tiles.
+    """
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain is not Terrain.FLOOR:
+                continue
+            if tile.surface_type is not SurfaceType.NONE:
+                continue
+            tile.surface_type = SurfaceType.FLAGSTONE

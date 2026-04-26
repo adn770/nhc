@@ -37,6 +37,14 @@ class SurfaceType(Enum):
     # stone-floor detail without rebranding the building's
     # ``interior_floor``. See ``rendering_refactor_plan.md`` Phase 2.
     PAVED = "paved"
+    # Decorative cobblestone variants. Each is a separate tag so a
+    # site can pick the pattern that fits its narrative role:
+    # mansions stamp BRICK on stone ground floors, temples stamp
+    # FLAGSTONE, town plazas stamp HERRINGBONE on the centerpiece
+    # patch. Each maps to one TileDecorator with its own paint.
+    BRICK = "brick"
+    FLAGSTONE = "flagstone"
+    HERRINGBONE = "herringbone"
 
 
 @dataclass
