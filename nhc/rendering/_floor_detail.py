@@ -710,7 +710,7 @@ def _render_floor_detail(
         ctx,
         [
             COBBLESTONE, COBBLE_STONE,
-            BRICK, FLAGSTONE, OPUS_RETICULATUM,
+            BRICK, FLAGSTONE, OPUS_ROMANO,
             FIELD_STONE,
             GARDEN_LINE,
             CART_TRACK_RAILS, CART_TRACK_TIES,
@@ -834,24 +834,47 @@ COBBLE_STONE = TileDecorator(
 # COBBLESTONE wrapping shape (opacity-0.35 stroked group) but use
 # distinct strokes + per-tile geometry:
 #
-#   BRICK              running-bond rectangles (wider than tall)
-#   FLAGSTONE          irregular polygon plates with thin gaps
-#   OPUS_RETICULATUM   classical Roman diamond-net (45-deg grid
-#                      of square stones forming a continuous net
-#                      across tile boundaries)
+#   BRICK         running-bond rectangles (wider than tall)
+#   FLAGSTONE     irregular polygon plates with thin gaps
+#   OPUS_ROMANO   classical Roman / Versailles 4-stone tiling --
+#                 each tile is divided into a 6x6 subsquare grid
+#                 partitioned into a 4x4 large square, a 2x2
+#                 small square, a 2x4 vertical rect, and a 4x2
+#                 horizontal rect.
 #
 # Adding a new variant is one stroke constant + one paint helper
 # + one ``TileDecorator`` constant + one assembler stamp.
 
 BRICK_STROKE = "#A05530"   # warm red-brown, classic fired brick
 FLAGSTONE_STROKE = "#6A6055"  # cool grey-brown, slate / quarried stone
-OPUS_RETICULATUM_STROKE = "#7A5A3A"
-"""Warm grey-brown for the diamond-net mortar lines."""
+OPUS_ROMANO_STROKE = "#7A5A3A"
+"""Warm grey-brown for the opus-romano mortar lines."""
 
-OPUS_RETICULATUM_DIAMOND_DIAGONAL_PX = 4.0
-"""Half-diagonal of each diamond stone (centre-to-vertex). Each
-diamond's full diagonal is ``2 * 4 = 8 px``, so 4 diamonds tile
-across a 32-px CELL (16 per tile in the 4x4 grid)."""
+OPUS_ROMANO_SUBDIVISIONS = 6
+"""Each tile is divided into this many subsquares per axis. Four
+stones group these subsquares into the classical Roman tiling:
+one 4x4 square, one 2x2 square, one 2x4 vertical rectangle, and
+one 4x2 horizontal rectangle (16 + 4 + 8 + 8 = 36 = 6x6)."""
+
+OPUS_ROMANO_MORTAR_INSET_PX = 0.5
+"""Inset on every side of every stone, leaving a hairline mortar
+gap between adjacent stones."""
+
+# Base 4-stone arrangement on a 6x6 subsquare grid.
+# (sub_x, sub_y, sub_w, sub_h) -- top-left corner + dimensions
+# in subsquare units. The tiling is:
+#   A A A A B B
+#   A A A A B B    A = 4x4 large square
+#   A A A A B B    B = 2x4 vertical rectangle
+#   A A A A B B    C = 2x2 small square
+#   C C D D D D    D = 4x2 horizontal rectangle
+#   C C D D D D
+_OPUS_ROMANO_STONES: tuple[tuple[int, int, int, int], ...] = (
+    (0, 0, 4, 4),  # A: 4x4 large square (top-left)
+    (4, 0, 2, 4),  # B: 2x4 vertical rect (top-right)
+    (0, 4, 2, 2),  # C: 2x2 small square (bottom-left)
+    (2, 4, 4, 2),  # D: 4x2 horizontal rect (bottom)
+)
 
 
 def _is_brick_tile(level: "Level", x: int, y: int) -> bool:
@@ -862,12 +885,12 @@ def _is_flagstone_tile(level: "Level", x: int, y: int) -> bool:
     return level.tiles[y][x].surface_type is SurfaceType.FLAGSTONE
 
 
-def _is_opus_reticulatum_tile(
+def _is_opus_romano_tile(
     level: "Level", x: int, y: int,
 ) -> bool:
     return (
         level.tiles[y][x].surface_type
-        is SurfaceType.OPUS_RETICULATUM
+        is SurfaceType.OPUS_ROMANO
     )
 
 
@@ -961,38 +984,51 @@ def _flagstone_paint(args) -> list[str]:
     return plates
 
 
-def _opus_reticulatum_paint(args) -> list[str]:
-    """Diamond-net pattern for one tile (Opus Reticulatum).
+def _rotate_stone_in_grid(
+    sx: int, sy: int, sw: int, sh: int,
+    n_quarter: int, side: int = OPUS_ROMANO_SUBDIVISIONS,
+) -> tuple[int, int, int, int]:
+    """Rotate a (sx, sy, sw, sh) stone 90deg clockwise n times
+    inside a ``side x side`` subsquare grid. The rotation pivots
+    around the grid centre so the stone stays inside."""
+    for _ in range(n_quarter % 4):
+        sx, sy, sw, sh = side - sy - sh, sx, sh, sw
+    return sx, sy, sw, sh
 
-    Each tile contains a 4x4 grid of diamond stones at a fixed
-    half-diagonal of :data:`OPUS_RETICULATUM_DIAMOND_DIAGONAL_PX`.
-    The diamonds are positioned so the pattern tiles continuously
-    across cell boundaries -- a tile's east-edge diamond shares
-    its vertex with the neighbouring tile's west-edge diamond,
-    forming the classical Roman 'net' (reticulum).
 
-    Stroke-only; the wrapping group sets opacity / colour.
-    """
+def _opus_romano_paint(args) -> list[str]:
+    """Classical Roman / Versailles 4-stone tiling for one tile.
+
+    Each tile is divided into a 6x6 subsquare grid; four stones
+    partition the grid:
+
+    * one 4x4 large square,
+    * one 2x4 vertical rectangle,
+    * one 2x2 small square,
+    * one 4x2 horizontal rectangle.
+
+    The base arrangement rotates per-tile so adjacent tiles
+    don't read as a stripe -- 4 quarter-turns are picked
+    deterministically from the tile coordinates. Stroke-only;
+    the wrapping group sets opacity / colour."""
     px, py = args.px, args.py
-    half = OPUS_RETICULATUM_DIAMOND_DIAGONAL_PX
-    full = 2 * half
-    diamonds: list[str] = []
-    # Centres on a uniform grid aligned to the tile origin so
-    # the pattern phase repeats per tile. Each diamond has its
-    # vertex at (cx, cy +/- half) and (cx +/- half, cy).
-    n_axis = int(round(CELL / full))
-    for j in range(n_axis):
-        for i in range(n_axis):
-            cx = px + (i + 0.5) * full
-            cy = py + (j + 0.5) * full
-            d = (
-                f"M{cx:.1f},{cy - half:.1f} "
-                f"L{cx + half:.1f},{cy:.1f} "
-                f"L{cx:.1f},{cy + half:.1f} "
-                f"L{cx - half:.1f},{cy:.1f} Z"
-            )
-            diamonds.append(f'<path d="{d}"/>')
-    return diamonds
+    sub = CELL / OPUS_ROMANO_SUBDIVISIONS
+    inset = OPUS_ROMANO_MORTAR_INSET_PX
+    rotation = (args.x * 7 + args.y * 13) % 4
+    rects: list[str] = []
+    for sx, sy, sw, sh in _OPUS_ROMANO_STONES:
+        sx, sy, sw, sh = _rotate_stone_in_grid(
+            sx, sy, sw, sh, rotation,
+        )
+        x = px + sx * sub + inset
+        y = py + sy * sub + inset
+        w = sw * sub - 2 * inset
+        h = sh * sub - 2 * inset
+        rects.append(
+            f'<rect x="{x:.2f}" y="{y:.2f}" '
+            f'width="{w:.2f}" height="{h:.2f}" rx="0.4"/>'
+        )
+    return rects
 
 
 BRICK = TileDecorator(
@@ -1017,14 +1053,14 @@ FLAGSTONE = TileDecorator(
     ),
     z_order=13,
 )
-OPUS_RETICULATUM = TileDecorator(
-    name="opus_reticulatum",
+OPUS_ROMANO = TileDecorator(
+    name="opus_romano",
     layer="floor_detail",
-    predicate=_is_opus_reticulatum_tile,
-    paint=_opus_reticulatum_paint,
+    predicate=_is_opus_romano_tile,
+    paint=_opus_romano_paint,
     group_open=(
         f'<g opacity="0.45" fill="none" '
-        f'stroke="{OPUS_RETICULATUM_STROKE}" stroke-width="0.4">'
+        f'stroke="{OPUS_ROMANO_STROKE}" stroke-width="0.5">'
     ),
     z_order=14,
 )

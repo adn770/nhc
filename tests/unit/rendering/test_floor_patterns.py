@@ -1,4 +1,4 @@
-"""Variations of cobblestone: brick, flagstone, opus reticulatum.
+"""Variations of cobblestone: brick, flagstone, opus romano.
 
 Each pattern is its own ``SurfaceType`` + ``TileDecorator`` and
 fires on tiles that carry the matching tag, regardless of floor
@@ -19,8 +19,8 @@ from nhc.rendering._floor_detail import (
     BRICK_STROKE,
     FLAGSTONE,
     FLAGSTONE_STROKE,
-    OPUS_RETICULATUM,
-    OPUS_RETICULATUM_STROKE,
+    OPUS_ROMANO,
+    OPUS_ROMANO_STROKE,
 )
 from nhc.rendering._render_context import build_render_context
 from nhc.rendering.svg import render_floor_svg
@@ -42,10 +42,10 @@ class TestSurfaceTypeEnumValues:
     def test_flagstone_value(self) -> None:
         assert SurfaceType("flagstone") is SurfaceType.FLAGSTONE
 
-    def test_opus_reticulatum_value(self) -> None:
+    def test_opus_romano_value(self) -> None:
         assert (
-            SurfaceType("opus_reticulatum")
-            is SurfaceType.OPUS_RETICULATUM
+            SurfaceType("opus_romano")
+            is SurfaceType.OPUS_ROMANO
         )
 
 
@@ -87,39 +87,39 @@ class TestFlagstoneDecorator:
         assert out == []
 
 
-class TestOpusReticulatumDecorator:
-    def test_fires_on_opus_reticulatum_tile(self) -> None:
+class TestOpusRomanoDecorator:
+    def test_fires_on_opus_romano_tile(self) -> None:
         level = _grid(4, 4)
         level.tiles[1][1].surface_type = (
-            SurfaceType.OPUS_RETICULATUM
+            SurfaceType.OPUS_ROMANO
         )
         ctx = build_render_context(level, seed=0)
-        out = walk_and_paint(ctx, [OPUS_RETICULATUM])
+        out = walk_and_paint(ctx, [OPUS_ROMANO])
         assert any(
-            OPUS_RETICULATUM_STROKE in line for line in out
+            OPUS_ROMANO_STROKE in line for line in out
         )
 
     def test_does_not_fire_on_flagstone(self) -> None:
         level = _grid(4, 4)
         level.tiles[1][1].surface_type = SurfaceType.FLAGSTONE
         ctx = build_render_context(level, seed=0)
-        out = walk_and_paint(ctx, [OPUS_RETICULATUM])
+        out = walk_and_paint(ctx, [OPUS_ROMANO])
         assert out == []
 
-    def test_emits_diamond_paths(self) -> None:
-        """Opus reticulatum paint emits closed diamond paths --
-        a 4x4 grid per tile of half-diagonal 8 px."""
+    def test_emits_four_stones_per_tile(self) -> None:
+        """Opus Romano paints four stones per tile: one 4x4
+        large square, one 2x4 vertical rectangle, one 2x2 small
+        square, one 4x2 horizontal rectangle."""
         level = _grid(4, 4)
         level.tiles[1][1].surface_type = (
-            SurfaceType.OPUS_RETICULATUM
+            SurfaceType.OPUS_ROMANO
         )
         ctx = build_render_context(level, seed=0)
-        out = walk_and_paint(ctx, [OPUS_RETICULATUM])
+        out = walk_and_paint(ctx, [OPUS_ROMANO])
         text = "".join(out)
-        # 4x4 = 16 diamonds per tile.
-        assert text.count("<path") == 16, (
-            f"expected 16 diamonds per tile, got "
-            f"{text.count('<path')}"
+        assert text.count("<rect") == 4, (
+            f"expected 4 stones per tile, got "
+            f"{text.count('<rect')}"
         )
 
 
@@ -140,13 +140,13 @@ class TestEndToEndIntegration:
         svg = render_floor_svg(level, seed=0)
         assert FLAGSTONE_STROKE in svg
 
-    def test_opus_reticulatum_through_render_floor_svg(self) -> None:
+    def test_opus_romano_through_render_floor_svg(self) -> None:
         level = _grid(4, 4)
         level.tiles[2][2].surface_type = (
-            SurfaceType.OPUS_RETICULATUM
+            SurfaceType.OPUS_ROMANO
         )
         svg = render_floor_svg(level, seed=0)
-        assert OPUS_RETICULATUM_STROKE in svg
+        assert OPUS_ROMANO_STROKE in svg
 
 
 class TestPortability:
@@ -168,13 +168,13 @@ class TestPortability:
         svg = render_floor_svg(level, seed=0)
         assert FLAGSTONE_STROKE in svg
 
-    def test_opus_reticulatum_paints_on_dungeon(self) -> None:
+    def test_opus_romano_paints_on_dungeon(self) -> None:
         level = _grid(6, 6)
         level.tiles[3][3].surface_type = (
-            SurfaceType.OPUS_RETICULATUM
+            SurfaceType.OPUS_ROMANO
         )
         svg = render_floor_svg(level, seed=0)
-        assert OPUS_RETICULATUM_STROKE in svg
+        assert OPUS_ROMANO_STROKE in svg
 
 
 class TestSiteAssemblerHooks:

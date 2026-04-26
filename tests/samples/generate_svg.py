@@ -1190,11 +1190,12 @@ def _make_floor_variants_level(width: int = 44, height: int = 28):
     """Hand-built level showing every floor pattern variant.
 
     Top band: four cobblestone-family patches side by side --
-    STREET, BRICK, FLAGSTONE, OPUS_RETICULATUM -- so the stones /
+    STREET, BRICK, FLAGSTONE, OPUS_ROMANO -- so the stones /
     fills / strokes can be eyeballed at the same lighting and
     zoom level. Each patch is 9x7 tiles, big enough that the
-    Opus Reticulatum diamond grid (4 diamonds per tile -> 36
-    diamonds across the patch width) reads clearly.
+    Opus Romano 4-stone arrangement (one 4x4 + 2x2 + 2x4 + 4x2
+    on a 6x6 subsquare grid per tile, rotated per tile to break
+    the visible repeat) reads clearly.
     """
     from nhc.dungeon.model import (
         Level, Rect, Room, RectShape, SurfaceType, Terrain, Tile,
@@ -1215,7 +1216,7 @@ def _make_floor_variants_level(width: int = 44, height: int = 28):
         ("STREET",           SurfaceType.STREET),
         ("BRICK",            SurfaceType.BRICK),
         ("FLAGSTONE",        SurfaceType.FLAGSTONE),
-        ("OPUS_RETICULATUM", SurfaceType.OPUS_RETICULATUM),
+        ("OPUS_ROMANO", SurfaceType.OPUS_ROMANO),
     )
     patch_w, patch_h = 9, 7
     gap = 1
@@ -1238,11 +1239,11 @@ def generate_floor_variants_demo(
     Three SVGs per seed:
 
     * ``floor_cobblestone_variants_seed<N>.svg`` -- STREET /
-      BRICK / FLAGSTONE / OPUS_RETICULATUM patches side by side
+      BRICK / FLAGSTONE / OPUS_ROMANO patches side by side
       on a stone interior, with a label pill anchored on each
       patch.
-    * ``floor_opus_reticulatum_seed<N>.svg`` -- a dedicated
-      large patch of OPUS_RETICULATUM so the diamond-net pattern
+    * ``floor_opus_romano_seed<N>.svg`` -- a dedicated large
+      patch of OPUS_ROMANO so the 4-stone Roman arrangement
       can be eyeballed at full clarity (the cobblestone-family
       sheet shrinks each variant for a 4-up comparison).
     * ``floor_wood_vs_stone_seed<N>.svg`` -- two large interior
@@ -1286,12 +1287,14 @@ def generate_floor_variants_demo(
         svg = svg.replace("</svg>", "".join(label_frags) + "</svg>")
         info = [
             f"Cobblestone family | seed={seed}",
-            "L->R: STREET, BRICK, FLAGSTONE, OPUS_RETICULATUM",
-            "  STREET             cobblestone (Dyson-style)",
-            "  BRICK              running-bond rectangles",
-            "  FLAGSTONE          irregular polygon plates",
-            "  OPUS_RETICULATUM   Roman diamond-net (4x4 per",
-            "                     tile, mortar at #7A5A3A)",
+            "L->R: STREET, BRICK, FLAGSTONE, OPUS_ROMANO",
+            "  STREET        cobblestone (Dyson-style)",
+            "  BRICK         running-bond rectangles",
+            "  FLAGSTONE     irregular polygon plates",
+            "  OPUS_ROMANO   Versailles 4-stone tiling: 6x6",
+            "                subsquare grid grouped into one",
+            "                4x4 + 2x4 + 2x2 + 4x2 stones,",
+            "                rotated per tile for variety.",
             "All four share the cobblestone wrapping group;",
             "decorators differ in stone shape + stroke colour.",
         ]
@@ -1301,15 +1304,15 @@ def generate_floor_variants_demo(
             f"  {fdir}/floor_cobblestone_variants_seed{seed}.svg"
         )
 
-        # ── Dedicated OPUS_RETICULATUM close-up ──────────────
-        # Single large patch so the diamond-net pattern reads
-        # at full clarity. 16x12 tiles at the centre of a 20x16
-        # canvas with stone-floor margin -- mirrors the cobble
-        # demo's framing but devoted to one variant.
+        # ── Dedicated OPUS_ROMANO close-up ──────────────
+        # Single large patch so the 4-stone Roman arrangement
+        # reads at full clarity. 16x12 tiles at the centre of
+        # a 20x16 canvas with stone-floor margin -- mirrors the
+        # cobble demo's framing but devoted to one variant.
         from nhc.dungeon.model import SurfaceType as _ST
         opus_w, opus_h = 20, 16
         opus_level = Level.create_empty(
-            "opus_demo", "Opus Reticulatum", 1, opus_w, opus_h,
+            "opus_demo", "Opus Romano", 1, opus_w, opus_h,
         )
         for y in range(opus_h):
             for x in range(opus_w):
@@ -1329,7 +1332,7 @@ def generate_floor_variants_demo(
                 tile = opus_level.tiles[
                     patch_y0 + dy
                 ][patch_x0 + dx]
-                tile.surface_type = _ST.OPUS_RETICULATUM
+                tile.surface_type = _ST.OPUS_ROMANO
         svg = render_floor_svg(opus_level, seed=seed)
         # Single label below the patch.
         label_cx = (
@@ -1340,7 +1343,7 @@ def generate_floor_variants_demo(
         )
         char_w = 5.8
         font_size = 11
-        pill_text = "OPUS_RETICULATUM"
+        pill_text = "OPUS_ROMANO"
         pill_w = len(pill_text) * char_w + 16
         pill_h = font_size + 8
         label = (
@@ -1357,22 +1360,25 @@ def generate_floor_variants_demo(
         )
         svg = svg.replace("</svg>", label + "</svg>")
         opus_info = [
-            f"Opus Reticulatum close-up | seed={seed}",
-            "Roman diamond-net paving (reticulum = net).",
-            f"Patch: {opus_patch_w}x{opus_patch_h} tiles "
-            f"({opus_patch_w * 4}x{opus_patch_h * 4} diamonds).",
-            "Each diamond: half-diagonal 4 px, full 8 px,",
-            "side ~5.7 px. Stones tile continuously across",
-            "tile boundaries to form the eponymous net.",
+            f"Opus Romano close-up | seed={seed}",
+            "Classical Roman / Versailles 4-stone tiling.",
+            "Each tile is divided into a 6x6 subsquare grid",
+            "partitioned into 4 stones:",
+            "  4x4 large square + 2x4 vertical rect",
+            "  2x2 small square + 4x2 horizontal rect",
+            "Per-tile rotation (4 quarter-turns, deterministic",
+            "on (tx, ty)) breaks the visible repeat.",
+            f"Patch: {opus_patch_w}x{opus_patch_h} tiles, ",
+            f"      {opus_patch_w * opus_patch_h * 4} stones.",
             "Stroke: #7A5A3A @ opacity 0.45.",
         ]
         svg = _inject_info_panel(svg, opus_info)
         (
             fdir
-            / f"floor_opus_reticulatum_seed{seed}.svg"
+            / f"floor_opus_romano_seed{seed}.svg"
         ).write_text(svg)
         print(
-            f"  {fdir}/floor_opus_reticulatum_seed{seed}.svg"
+            f"  {fdir}/floor_opus_romano_seed{seed}.svg"
         )
 
         # Two-room wood vs stone comparison. Each room is its own
