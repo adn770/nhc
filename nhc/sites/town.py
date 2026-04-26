@@ -54,6 +54,10 @@ from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
 )
 from nhc.sites._town_layout import _ClusterPlan, _cluster_pack
+from nhc.sites._town_streets import (
+    compute_town_street_network, gates_y_for_cluster_set,
+    paint_surface,
+)
 from nhc.sites._types import SiteTier
 from nhc.hexcrawl.model import Biome, DungeonRef
 
@@ -272,11 +276,14 @@ def assemble_town(
     # Mountain lodges read best without a palisade; everything else
     # inherits the size-class default.
     if config.has_palisade and not overrides.suppress_palisade:
-        enclosure = _build_palisade(buildings, config, rng)
+        enclosure = _build_palisade(
+            buildings, cluster_plans, config, rng,
+        )
     else:
         enclosure = None
     surface = _build_town_surface(
-        f"{site_id}_surface", buildings, enclosure, config,
+        f"{site_id}_surface", buildings, enclosure,
+        cluster_plans, size_class, config,
     )
     if overrides.ambient is not None:
         surface.metadata.ambient = overrides.ambient
@@ -508,42 +515,24 @@ def _place_entry_door(
     return (dx, dy)
 
 
-def _main_street_y(buildings: list[Building]) -> int:
-    """Return a y coordinate sitting in the widest gap between
-    building rows, used as the main-street / gate y.
-
-    Falls back to the midpoint of the building bounding box when
-    every y is occupied by at least one building.
-    """
-    if not buildings:
-        return 0
-    occupied: set[int] = set()
-    for b in buildings:
-        for y in range(b.base_rect.y, b.base_rect.y2):
-            occupied.add(y)
-    min_y = min(b.base_rect.y for b in buildings)
-    max_y = max(b.base_rect.y2 for b in buildings) - 1
-    best_len = 0
-    best_mid = (min_y + max_y) // 2
-    cur_start: int | None = None
-    for y in range(min_y, max_y + 2):
-        if y not in occupied and y <= max_y:
-            if cur_start is None:
-                cur_start = y
-        else:
-            if cur_start is not None:
-                run_len = y - cur_start
-                if run_len > best_len:
-                    best_len = run_len
-                    best_mid = (cur_start + y - 1) // 2
-                cur_start = None
-    return best_mid
-
-
 def _build_palisade(
-    buildings: list[Building], config: _TownSizeConfig,
+    buildings: list[Building],
+    cluster_plans: list[_ClusterPlan],
+    config: _TownSizeConfig,
     rng: random.Random,
 ) -> Enclosure:
+    """Wrap the buildings in a palisade and place gates at the
+    cluster-bbox-set y-midpoint (Q14).
+
+    The polygon expands the building bounding box by
+    ``TOWN_PALISADE_PADDING`` tiles. Gate count is drawn from
+    :data:`TOWN_GATE_COUNT_RANGE`; with two gates, both share the
+    same y-midpoint of the cluster-bbox set so the main spine
+    routes east-west through the inhabited band. With one gate
+    the y-midpoint of the cluster-bbox set still reflects the
+    cluster ring, and the side (east / west) is shuffled so the
+    same seed flips access points.
+    """
     xs: list[int] = []
     ys: list[int] = []
     for b in buildings:
@@ -560,20 +549,15 @@ def _build_palisade(
         (max_x, max_y),
         (min_x, max_y),
     ]
-    # Palisade gates sit on the east / west edges at the main
-    # street's y-centre so the road runs straight through the
-    # town -- not at random midpoints of a random edge. With
-    # greedy row packing, the gate sits in the biggest vertical
-    # gap between building rows so variable building heights don't
-    # push the street inside a building.
-    gate_y = _main_street_y(buildings)
     gate_count = rng.randint(*TOWN_GATE_COUNT_RANGE)
+    gate_ys = gates_y_for_cluster_set(cluster_plans, gate_count)
     sides = ["west", "east"]
     rng.shuffle(sides)
     gates: list[tuple[int, int, int]] = []
-    for i in range(gate_count):
-        gx = min_x if sides[i] == "west" else max_x
-        gates.append((gx, gate_y, TOWN_GATE_LENGTH_TILES))
+    for i, gy in enumerate(gate_ys):
+        side = sides[i % len(sides)]
+        gx = min_x if side == "west" else max_x
+        gates.append((gx, gy, TOWN_GATE_LENGTH_TILES))
     return Enclosure(
         kind="palisade", polygon=polygon, gates=gates,
     )
@@ -581,8 +565,20 @@ def _build_palisade(
 
 def _build_town_surface(
     surface_id: str, buildings: list[Building],
-    enclosure: Enclosure | None, config: _TownSizeConfig,
+    enclosure: Enclosure | None,
+    cluster_plans: list[_ClusterPlan],
+    size_class: str,
+    config: _TownSizeConfig,
 ) -> Level:
+    """Route the street network and stamp STREET / GARDEN / FIELD
+    tiles across the walkable area.
+
+    Phase 2 replaces the legacy "every walkable tile is STREET"
+    fill with a tagged graph: routed STREET paths thread between
+    cluster bboxes, GARDEN tiles cover cluster-internal walkable
+    patches and FIELD tiles cover the periphery. See
+    :mod:`nhc.sites._town_streets` for the routing details.
+    """
     surface = Level.create_empty(
         surface_id, surface_id, 0,
         config.surface_width, config.surface_height,
@@ -590,45 +586,16 @@ def _build_town_surface(
     surface.metadata.theme = "town"
     surface.metadata.ambient = "town"
     surface.metadata.prerevealed = True
-    # Only the building footprints themselves are blocked from the
-    # walkable surface -- no 1-tile buffer ring. The ring used to
-    # seal the concave notch of L-shaped buildings, stranding any
-    # door placed in it; the SVG wall mask handles the visual
-    # separation between street and building without a ring.
     blocked: set[tuple[int, int]] = set()
     for b in buildings:
         blocked |= b.base_shape.floor_tiles(b.base_rect)
 
-    if enclosure is not None:
-        xs = [p[0] for p in enclosure.polygon]
-        ys = [p[1] for p in enclosure.polygon]
-        min_x, max_x = min(xs), max(xs)
-        min_y, max_y = min(ys), max(ys)
-        # Enclosure polygon sits at tile boundaries: vertex (x, y)
-        # aligns with the top-left corner of tile (x, y). A tile
-        # at (tx, ty) is inside the polygon only when tx+1 <= max_x
-        # and ty+1 <= max_y, so the STREET fill stops one row short
-        # of max_x / max_y -- otherwise tiles at max_x or max_y
-        # would sit outside the palisade and read as "one tile
-        # off".
-        y_start = max(0, min_y)
-        y_end = min(surface.height, max_y)
-        x_start = max(0, min_x)
-        x_end = min(surface.width, max_x)
-    else:
-        # Hamlets have no palisade; the walkable area is the
-        # whole surface minus building footprints.
-        y_start, y_end = 0, surface.height
-        x_start, x_end = 0, surface.width
-
-    for y in range(y_start, y_end):
-        for x in range(x_start, x_end):
-            if (x, y) in blocked:
-                continue
-            surface.tiles[y][x] = Tile(
-                terrain=Terrain.FLOOR,
-                surface_type=SurfaceType.STREET,
-            )
+    _, classification = compute_town_street_network(
+        cluster_plans, enclosure,
+        config.surface_width, config.surface_height,
+        blocked, size_class,
+    )
+    paint_surface(surface, classification)
     return surface
 
 
@@ -756,14 +723,26 @@ def _place_surface_adventurers(
         )
 
 
+_OUTDOOR_SURFACE_TYPES = (
+    SurfaceType.STREET, SurfaceType.GARDEN, SurfaceType.FIELD,
+)
+
+
 def _nearest_street_tile_near(
     surface: Level, cx: int, cy: int,
     occupied: set[tuple[int, int]],
 ) -> tuple[int, int] | None:
-    """Pick a walkable, feature-free STREET tile within 3 chebyshev
-    of ``(cx, cy)`` and not in ``occupied``."""
-    best: tuple[int, int] | None = None
-    best_d = 10 ** 9
+    """Pick a walkable, feature-free outdoor tile within 3
+    Chebyshev of ``(cx, cy)`` and not in ``occupied``.
+
+    STREET tiles are preferred; GARDEN / FIELD tiles fall back when
+    no STREET tile is close enough. Phase 3's door bias keeps inn
+    doors facing STREET so the preference path stays the common
+    case after that phase lands.
+    """
+    best_by_priority: dict[
+        SurfaceType, tuple[int, int, tuple[int, int]] | None,
+    ] = {st: None for st in _OUTDOOR_SURFACE_TYPES}
     for y in range(
         max(0, cy - 3), min(surface.height, cy + 4),
     ):
@@ -776,17 +755,21 @@ def _nearest_street_tile_near(
             if (x, y) in occupied:
                 continue
             tile = row[x]
-            if tile.surface_type != SurfaceType.STREET:
+            if tile.surface_type not in _OUTDOOR_SURFACE_TYPES:
                 continue
             if not tile.walkable:
                 continue
             if tile.feature is not None:
                 continue
             d = max(abs(x - cx), abs(y - cy))
-            if d < best_d:
-                best_d = d
-                best = (x, y)
-    return best
+            entry = best_by_priority[tile.surface_type]
+            if entry is None or d < entry[0]:
+                best_by_priority[tile.surface_type] = (d, 0, (x, y))
+    for st in _OUTDOOR_SURFACE_TYPES:
+        entry = best_by_priority[st]
+        if entry is not None:
+            return entry[2]
+    return None
 
 
 def _lock_shop_doors(
