@@ -87,7 +87,14 @@ def _water_detail(
     rng: random.Random, px: float, py: float,
     ink: str, opacity: float,
 ) -> list[str]:
-    """Wavy horizontal lines for a water tile."""
+    """Wavy horizontal lines for a water tile.
+
+    ``stroke`` and ``stroke-linecap`` are inherited from the
+    parent ``<g>`` group (see :func:`_terrain_group_open`); only
+    the per-element variance (``stroke-width`` for waves, no
+    extra attrs for the ripple) ships per element.
+    """
+    del ink, opacity  # inherited from parent <g>
     elements: list[str] = []
     n_waves = rng.randint(2, 3)
     for i in range(n_waves):
@@ -102,8 +109,7 @@ def _water_detail(
         sw = rng.uniform(0.4, 0.8)
         elements.append(
             f'<path d="{" ".join(segs)}" fill="none" '
-            f'stroke="{ink}" stroke-width="{sw:.1f}" '
-            f'stroke-linecap="round"/>'
+            f'stroke-width="{sw:.1f}"/>'
         )
     if rng.random() < 0.10:
         cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
@@ -111,7 +117,7 @@ def _water_detail(
         r = rng.uniform(CELL * 0.06, CELL * 0.12)
         elements.append(
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
-            f'fill="none" stroke="{ink}" stroke-width="0.4"/>'
+            f'fill="none" stroke-width="0.4"/>'
         )
     return elements
 
@@ -120,7 +126,11 @@ def _grass_detail(
     rng: random.Random, px: float, py: float,
     ink: str, opacity: float,
 ) -> list[str]:
-    """Short upward strokes for a grass tile."""
+    """Short upward strokes for a grass tile.
+
+    Stroke colour and linecap are inherited from the parent
+    ``<g>`` group (see :func:`_water_detail`)."""
+    del ink, opacity  # inherited from parent <g>
     elements: list[str] = []
     n_blades = rng.randint(3, 6)
     for _ in range(n_blades):
@@ -134,8 +144,7 @@ def _grass_detail(
         elements.append(
             f'<line x1="{bx:.1f}" y1="{by:.1f}" '
             f'x2="{tx:.1f}" y2="{ty:.1f}" '
-            f'stroke="{ink}" stroke-width="{sw:.1f}" '
-            f'stroke-linecap="round"/>'
+            f'stroke-width="{sw:.1f}"/>'
         )
     if rng.random() < 0.15:
         cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
@@ -146,8 +155,7 @@ def _grass_detail(
             elements.append(
                 f'<line x1="{cx + dx:.1f}" y1="{cy:.1f}" '
                 f'x2="{cx + dx * 0.3:.1f}" y2="{cy - h:.1f}" '
-                f'stroke="{ink}" stroke-width="0.6" '
-                f'stroke-linecap="round"/>'
+                f'stroke-width="0.6"/>'
             )
     return elements
 
@@ -156,7 +164,12 @@ def _lava_detail(
     rng: random.Random, px: float, py: float,
     ink: str, opacity: float,
 ) -> list[str]:
-    """Crack lines and ember dots for a lava tile."""
+    """Crack lines and ember dots for a lava tile.
+
+    Stroke colour and linecap are inherited; ember dots use the
+    same colour explicitly via ``fill`` since they aren't
+    stroked."""
+    del opacity  # inherited from parent <g>
     elements: list[str] = []
     n_cracks = rng.randint(1, 2)
     for _ in range(n_cracks):
@@ -168,16 +181,17 @@ def _lava_detail(
         elements.append(
             f'<line x1="{x0:.1f}" y1="{y0:.1f}" '
             f'x2="{x1:.1f}" y2="{y1:.1f}" '
-            f'stroke="{ink}" stroke-width="{sw:.1f}" '
-            f'stroke-linecap="round"/>'
+            f'stroke-width="{sw:.1f}"/>'
         )
     if rng.random() < 0.20:
         cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
         cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
         r = rng.uniform(CELL * 0.04, CELL * 0.08)
+        # The ember is a filled dot, not a stroke -- keep ink and
+        # the small per-dot opacity local.
         elements.append(
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
-            f'fill="{ink}" opacity="0.4"/>'
+            f'fill="{ink}" stroke="none" opacity="0.4"/>'
         )
     return elements
 
@@ -187,6 +201,7 @@ def _chasm_detail(
     ink: str, opacity: float,
 ) -> list[str]:
     """Diagonal hatch lines for a chasm tile."""
+    del ink, opacity  # inherited from parent <g>
     elements: list[str] = []
     n_lines = rng.randint(2, 3)
     for i in range(n_lines):
@@ -200,8 +215,7 @@ def _chasm_detail(
         elements.append(
             f'<line x1="{x0:.1f}" y1="{y0:.1f}" '
             f'x2="{x1:.1f}" y2="{y1:.1f}" '
-            f'stroke="{ink}" stroke-width="{sw:.1f}" '
-            f'stroke-linecap="round"/>'
+            f'stroke-width="{sw:.1f}"/>'
         )
     return elements
 
@@ -244,11 +258,13 @@ def _terrain_predicate(terrain: Terrain):
 def _terrain_group_open(terrain: Terrain) -> str:
     """Return the wrapping group for a terrain detail decorator.
 
-    The opacity comes from the *dungeon* theme's palette so the
-    ``<g>`` opacity matches the legacy behaviour byte-for-byte
-    when no theme override applies. Per-theme opacities still
-    show through because the per-fragment strokes carry their own
-    palette-derived ink colour.
+    Both ``opacity`` and the shared ``stroke`` / ``stroke-linecap``
+    come from the *dungeon* theme's palette so the ``<g>``
+    matches the legacy emission for any level whose theme falls
+    back to the dungeon palette (every site surface today). With
+    stroke baked into the group the per-element ``stroke=...
+    stroke-linecap=round`` attributes drop, shaving ~40 bytes off
+    every grass blade / water wave / chasm line / lava crack.
     """
     palette = get_palette("dungeon")
     style = {
@@ -258,7 +274,10 @@ def _terrain_group_open(terrain: Terrain) -> str:
         Terrain.CHASM: palette.chasm,
     }[terrain]
     cls = _TERRAIN_CLASS[terrain]
-    return f'<g class="{cls}" opacity="{style.detail_opacity}">'
+    return (
+        f'<g class="{cls}" opacity="{style.detail_opacity}" '
+        f'stroke="{style.detail_ink}" stroke-linecap="round">'
+    )
 
 
 _TERRAIN_CLASS = {
