@@ -1186,17 +1186,15 @@ def _enclosure_fragments_for_site(site, seed: int) -> list[str]:
     return []
 
 
-def _make_floor_variants_level(width: int = 36, height: int = 26):
+def _make_floor_variants_level(width: int = 44, height: int = 28):
     """Hand-built level showing every floor pattern variant.
 
-    Two horizontal bands:
-
-    * Top band (y=2..7): three cobblestone-family patches side
-      by side -- STREET, BRICK, FLAGSTONE -- so the stones /
-      fills / strokes can be eyeballed at the same lighting.
-    * Bottom band (y=12..18): two large interior patches showing
-      stone-on-FLOOR floor detail (cracks / stones / scratches)
-      versus the WOOD floor decorator (parquet planks + grain).
+    Top band: four cobblestone-family patches side by side --
+    STREET, BRICK, FLAGSTONE, OPUS_RETICULATUM -- so the stones /
+    fills / strokes can be eyeballed at the same lighting and
+    zoom level. Each patch is 9x7 tiles, big enough that the
+    Opus Reticulatum diamond grid (4 diamonds per tile -> 36
+    diamonds across the patch width) reads clearly.
     """
     from nhc.dungeon.model import (
         Level, Rect, Room, RectShape, SurfaceType, Terrain, Tile,
@@ -1214,12 +1212,12 @@ def _make_floor_variants_level(width: int = 36, height: int = 26):
     )]
 
     cobble_specs = (
-        ("STREET",       SurfaceType.STREET),
-        ("BRICK",        SurfaceType.BRICK),
-        ("FLAGSTONE",    SurfaceType.FLAGSTONE),
-        ("OPUS RETICUL", SurfaceType.OPUS_RETICULATUM),
+        ("STREET",           SurfaceType.STREET),
+        ("BRICK",            SurfaceType.BRICK),
+        ("FLAGSTONE",        SurfaceType.FLAGSTONE),
+        ("OPUS_RETICULATUM", SurfaceType.OPUS_RETICULATUM),
     )
-    patch_w, patch_h = 7, 5
+    patch_w, patch_h = 9, 7
     gap = 1
     for i, (_label, st) in enumerate(cobble_specs):
         x0 = 1 + i * (patch_w + gap)
@@ -1237,11 +1235,16 @@ def generate_floor_variants_demo(
 ) -> None:
     """Floor pattern reference: cobblestone family + wood / stone.
 
-    Two SVGs per seed:
+    Three SVGs per seed:
 
-    * ``floor_cobblestone_variants_seed<N>.svg`` -- STREET / BRICK
-      / FLAGSTONE patches side by side on a stone interior, with
-      a label pill anchored on each patch.
+    * ``floor_cobblestone_variants_seed<N>.svg`` -- STREET /
+      BRICK / FLAGSTONE / OPUS_RETICULATUM patches side by side
+      on a stone interior, with a label pill anchored on each
+      patch.
+    * ``floor_opus_reticulatum_seed<N>.svg`` -- a dedicated
+      large patch of OPUS_RETICULATUM so the diamond-net pattern
+      can be eyeballed at full clarity (the cobblestone-family
+      sheet shrinks each variant for a 4-up comparison).
     * ``floor_wood_vs_stone_seed<N>.svg`` -- two large interior
       rooms (stone vs wood) so the floor-detail decorators can be
       compared on the same seed.
@@ -1283,16 +1286,93 @@ def generate_floor_variants_demo(
         svg = svg.replace("</svg>", "".join(label_frags) + "</svg>")
         info = [
             f"Cobblestone family | seed={seed}",
-            "L->R: STREET, BRICK, FLAGSTONE, OPUS RETICULATUM",
-            "All patches share the cobblestone wrapping group;",
+            "L->R: STREET, BRICK, FLAGSTONE, OPUS_RETICULATUM",
+            "  STREET             cobblestone (Dyson-style)",
+            "  BRICK              running-bond rectangles",
+            "  FLAGSTONE          irregular polygon plates",
+            "  OPUS_RETICULATUM   Roman diamond-net (4x4 per",
+            "                     tile, mortar at #7A5A3A)",
+            "All four share the cobblestone wrapping group;",
             "decorators differ in stone shape + stroke colour.",
-            "Empty FLOOR margins paint stone-floor cracks +",
-            "scratches via the floor-detail decorator.",
         ]
         svg = _inject_info_panel(svg, info)
         (fdir / f"floor_cobblestone_variants_seed{seed}.svg").write_text(svg)
         print(
             f"  {fdir}/floor_cobblestone_variants_seed{seed}.svg"
+        )
+
+        # ── Dedicated OPUS_RETICULATUM close-up ──────────────
+        # Single large patch so the diamond-net pattern reads
+        # at full clarity. 16x12 tiles at the centre of a 20x16
+        # canvas with stone-floor margin -- mirrors the cobble
+        # demo's framing but devoted to one variant.
+        from nhc.dungeon.model import SurfaceType as _ST
+        opus_w, opus_h = 20, 16
+        opus_level = Level.create_empty(
+            "opus_demo", "Opus Reticulatum", 1, opus_w, opus_h,
+        )
+        for y in range(opus_h):
+            for x in range(opus_w):
+                opus_level.tiles[y][x] = Tile(
+                    terrain=Terrain.FLOOR,
+                )
+        opus_level.rooms = [Room(
+            id="opus_demo", rect=Rect(0, 0, opus_w, opus_h),
+            shape=RectShape(),
+        )]
+        opus_level.interior_floor = "stone"
+        # Centre patch.
+        patch_x0, patch_y0 = 2, 2
+        opus_patch_w, opus_patch_h = 16, 12
+        for dy in range(opus_patch_h):
+            for dx in range(opus_patch_w):
+                tile = opus_level.tiles[
+                    patch_y0 + dy
+                ][patch_x0 + dx]
+                tile.surface_type = _ST.OPUS_RETICULATUM
+        svg = render_floor_svg(opus_level, seed=seed)
+        # Single label below the patch.
+        label_cx = (
+            PADDING + (patch_x0 + opus_patch_w / 2) * CELL
+        )
+        label_cy = (
+            PADDING + (patch_y0 + opus_patch_h + 0.6) * CELL
+        )
+        char_w = 5.8
+        font_size = 11
+        pill_text = "OPUS_RETICULATUM"
+        pill_w = len(pill_text) * char_w + 16
+        pill_h = font_size + 8
+        label = (
+            f'<rect x="{label_cx - pill_w / 2:.1f}" '
+            f'y="{label_cy - pill_h / 2:.1f}" '
+            f'width="{pill_w:.1f}" height="{pill_h:.1f}" '
+            f'rx="3" fill="rgba(255,255,240,0.92)" '
+            f'stroke="#a0651e" stroke-width="0.5"/>'
+            f'<text x="{label_cx:.1f}" '
+            f'y="{label_cy + 3:.1f}" '
+            f'font-family="monospace" font-size="{font_size}" '
+            f'font-weight="bold" text-anchor="middle" '
+            f'fill="#7a3e00">{pill_text}</text>'
+        )
+        svg = svg.replace("</svg>", label + "</svg>")
+        opus_info = [
+            f"Opus Reticulatum close-up | seed={seed}",
+            "Roman diamond-net paving (reticulum = net).",
+            f"Patch: {opus_patch_w}x{opus_patch_h} tiles "
+            f"({opus_patch_w * 4}x{opus_patch_h * 4} diamonds).",
+            "Each diamond: half-diagonal 4 px, full 8 px,",
+            "side ~5.7 px. Stones tile continuously across",
+            "tile boundaries to form the eponymous net.",
+            "Stroke: #7A5A3A @ opacity 0.45.",
+        ]
+        svg = _inject_info_panel(svg, opus_info)
+        (
+            fdir
+            / f"floor_opus_reticulatum_seed{seed}.svg"
+        ).write_text(svg)
+        print(
+            f"  {fdir}/floor_opus_reticulatum_seed{seed}.svg"
         )
 
         # Two-room wood vs stone comparison. Each room is its own
