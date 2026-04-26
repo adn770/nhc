@@ -53,7 +53,9 @@ from nhc.sites._site import (
 from nhc.sites._placement import (
     safe_floor_near, smallest_leaf_door,
 )
-from nhc.sites._town_layout import _ClusterPlan, _cluster_pack
+from nhc.sites._town_layout import (
+    _ClusterMember, _ClusterPlan, _cluster_pack,
+)
 from nhc.sites._town_streets import (
     compute_town_street_network, gates_y_for_cluster_set,
     paint_surface,
@@ -257,22 +259,6 @@ def assemble_town(
         role_assignments[b.id] = role
         b.floors[0].rooms[0].tags.append(role)
 
-    combined_footprints: set[tuple[int, int]] = set()
-    for b in buildings:
-        combined_footprints |= b.base_shape.floor_tiles(b.base_rect)
-    door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
-    for b in buildings:
-        own = b.base_shape.floor_tiles(b.base_rect)
-        others = combined_footprints - own
-        door_xy = _place_entry_door(b, rng, blocked=others)
-        if door_xy is not None:
-            neighbour = outside_neighbour(b, *door_xy)
-            if neighbour is not None:
-                door_map[neighbour] = (
-                    b.id, door_xy[0], door_xy[1],
-                )
-        b.validate()
-
     # Mountain lodges read best without a palisade; everything else
     # inherits the size-class default.
     if config.has_palisade and not overrides.suppress_palisade:
@@ -287,6 +273,43 @@ def assemble_town(
     )
     if overrides.ambient is not None:
         surface.metadata.ambient = overrides.ambient
+
+    # Phase 3: door placement runs AFTER the surface paints so the
+    # candidate's outside-neighbour `surface_type` is meaningful.
+    # This re-orders the legacy roles -> buildings -> doors flow to
+    # roles -> buildings -> surface -> doors.
+    combined_footprints: set[tuple[int, int]] = set()
+    for b in buildings:
+        combined_footprints |= b.base_shape.floor_tiles(b.base_rect)
+    door_map: dict[tuple[int, int], tuple[str, int, int]] = {}
+    for plan in cluster_plans:
+        for member in plan.members:
+            building = next(
+                (
+                    b for b in buildings
+                    if b.id.endswith(f"_b{member.index}")
+                ),
+                None,
+            )
+            if building is None:
+                continue
+            own = building.base_shape.floor_tiles(
+                building.base_rect,
+            )
+            others = combined_footprints - own
+            door_xy = _place_entry_door(
+                building, rng, blocked=others,
+                surface=surface, plan=plan, member=member,
+            )
+            if door_xy is not None:
+                neighbour = outside_neighbour(
+                    building, *door_xy,
+                )
+                if neighbour is not None:
+                    door_map[neighbour] = (
+                        building.id, door_xy[0], door_xy[1],
+                    )
+            building.validate()
 
     site = Site(
         id=site_id,
@@ -473,23 +496,90 @@ def _build_town_floor(
     )
 
 
+_DOOR_PRIORITY_DEFAULT: tuple[SurfaceType, ...] = (
+    SurfaceType.STREET, SurfaceType.GARDEN, SurfaceType.FIELD,
+)
+_DOOR_PRIORITY_GARDEN_FIRST: tuple[SurfaceType, ...] = (
+    SurfaceType.GARDEN, SurfaceType.STREET, SurfaceType.FIELD,
+)
+
+
+def _door_priority(
+    plan: "_ClusterPlan | None",
+    member: "_ClusterMember | None",
+) -> tuple[SurfaceType, ...]:
+    """Per-archetype priority for door surface_type selection (Q15).
+
+    L-block elbow + courtyard east/west buildings prefer GARDEN;
+    every other archetype prefers STREET. ``plan`` and ``member``
+    are ``None`` for non-cluster contexts (returns the default
+    STREET-first priority).
+    """
+    if plan is None or member is None:
+        return _DOOR_PRIORITY_DEFAULT
+    if plan.kind == "l_block":
+        # `_layout_l_block` puts the elbow at members[0].
+        if plan.members and plan.members[0].index == member.index:
+            return _DOOR_PRIORITY_GARDEN_FIRST
+        return _DOOR_PRIORITY_DEFAULT
+    if plan.kind == "courtyard":
+        # `_layout_courtyard` returns members in N, E, S, W order.
+        # N (idx 0) and S (idx 2) face STREET; E (idx 1) and W
+        # (idx 3) face GARDEN.
+        if not plan.members:
+            return _DOOR_PRIORITY_DEFAULT
+        position = next(
+            (
+                i for i, m in enumerate(plan.members)
+                if m.index == member.index
+            ),
+            None,
+        )
+        if position in (1, 3):
+            return _DOOR_PRIORITY_GARDEN_FIRST
+        return _DOOR_PRIORITY_DEFAULT
+    return _DOOR_PRIORITY_DEFAULT
+
+
 def _place_entry_door(
     building: Building, rng: random.Random,
     blocked: set[tuple[int, int]] | None = None,
+    surface: Level | None = None,
+    plan: "_ClusterPlan | None" = None,
+    member: "_ClusterMember | None" = None,
 ) -> tuple[int, int] | None:
     """Pick a perimeter tile to stamp as the entry door.
 
     ``blocked`` carries the combined footprints of every OTHER
-    building in the site. A candidate is rejected when its
-    outside-neighbour (the surface tile the door opens onto) is in
-    ``blocked`` -- that would place the surface door inside another
-    building's footprint, where no walkable street tile exists.
-    This is what used to strand doors at L-shape inner corners.
+    building in the site. ``surface`` and ``plan`` enable the
+    Phase 3 street bias: candidates are bucketed by their outside-
+    neighbour's surface_type, and the first non-empty bucket wins
+    (priority order from :func:`_door_priority` -- STREET-first
+    by default, GARDEN-first for L-block elbow + courtyard side
+    buildings per Q15). Within a bucket the helper picks the tile
+    closest to the cluster centroid so doors face into the network
+    rather than off the back of the cluster.
     """
     blocked = blocked or set()
     ground = building.ground
     perim = building.shared_perimeter()
-    candidates: list[tuple[int, int]] = []
+    priority = _door_priority(plan, member)
+    bucketed: dict[
+        SurfaceType | None, list[tuple[int, int, tuple[int, int]]],
+    ] = {st: [] for st in priority}
+    bucketed[None] = []  # surface_type unset / outside palisade
+    centroid: tuple[int, int] = (
+        building.base_rect.x + building.base_rect.width // 2,
+        building.base_rect.y + building.base_rect.height // 2,
+    )
+    if plan is not None and plan.members:
+        cx = sum(
+            m.rect.x + m.rect.width // 2 for m in plan.members
+        ) // len(plan.members)
+        cy = sum(
+            m.rect.y + m.rect.height // 2 for m in plan.members
+        ) // len(plan.members)
+        centroid = (cx, cy)
     for (px, py) in perim:
         tile = ground.tiles[py][px]
         if tile.feature is not None:
@@ -507,10 +597,40 @@ def _place_entry_door(
         nb = outside_neighbour(building, px, py)
         if nb is None or nb in blocked:
             continue
-        candidates.append((px, py))
-    if not candidates:
+        if surface is not None and surface.in_bounds(*nb):
+            nb_tile = surface.tiles[nb[1]][nb[0]]
+            nb_st = nb_tile.surface_type
+            if nb_tile.terrain != Terrain.FLOOR:
+                # Outside the palisade or on a building edge --
+                # the surface tile is still VOID. Skip; the
+                # door must face a walkable surface tile.
+                continue
+        else:
+            nb_st = None
+        dist = (
+            abs(nb[0] - centroid[0]) + abs(nb[1] - centroid[1])
+        )
+        bucketed.setdefault(nb_st, []).append((dist, px, (px, py)))
+
+    chosen: tuple[int, int] | None = None
+    for st in priority:
+        bucket = bucketed.get(st)
+        if not bucket:
+            continue
+        bucket.sort()
+        chosen = bucket[0][2]
+        break
+    if chosen is None:
+        # Fall back to any unprioritised bucket.
+        for st, bucket in bucketed.items():
+            if not bucket:
+                continue
+            bucket.sort()
+            chosen = bucket[0][2]
+            break
+    if chosen is None:
         return None
-    dx, dy = rng.choice(sorted(candidates))
+    dx, dy = chosen
     stamp_building_door(building, dx, dy)
     return (dx, dy)
 

@@ -196,23 +196,30 @@ def paint_surface_doors(
 ) -> None:
     """Paint surface-side door tiles for every building entry.
 
-    For each ``(sx, sy)`` in ``site.building_doors``, replace the
-    surface tile at that coord with a walkable ``FLOOR`` + closed
-    door. The surface door lives one tile outside the building's
-    footprint so it sits naturally on the walkable outdoor area
-    and carries the site's ``default_surface`` type (STREET for
-    keep/town, GARDEN for mansion, FIELD for farm). Coordinates
-    outside the surface bounds are skipped, which lets tower
-    sites (tiny framing surface) call this without error.
+    For each ``(sx, sy)`` in ``site.building_doors``, stamp the
+    surface tile at that coord as a walkable ``FLOOR`` + closed
+    door. When the existing tile already carries a
+    ``surface_type`` (the post-Phase-2 town surface tags STREET /
+    GARDEN / FIELD per tile), that type is preserved so the door
+    visually reads as part of its surrounding surface. Otherwise
+    the helper falls back to ``default_surface`` -- the legacy
+    "always-STREET / always-GARDEN / always-FIELD" behaviour for
+    sites whose surface is uniform.
     """
     surface = site.surface
     for (sx, sy), (_bid, bx, by) in site.building_doors.items():
         if not surface.in_bounds(sx, sy):
             continue
+        existing = surface.tiles[sy][sx]
+        if (existing.terrain == Terrain.FLOOR
+                and existing.surface_type is not None):
+            surface_type = existing.surface_type
+        else:
+            surface_type = default_surface
         surface.tiles[sy][sx] = Tile(
             terrain=Terrain.FLOOR,
             feature="door_closed",
-            surface_type=default_surface,
+            surface_type=surface_type,
             door_side=_compass(bx - sx, by - sy),
         )
 
