@@ -272,39 +272,47 @@ class TestTreeVolumeMarks:
             )
 
 
-# ── 6. M1 silhouette stroke ──────────────────────────────────
+# ── 6. Canopy carries the silhouette stroke ──────────────────
 
 
-class TestTreeStrokePass:
-    def test_silhouette_polygon_is_fill_none(self):
+class TestTreeCanopyStroke:
+    """The silhouette stroke is folded into the canopy ``<path>``
+    so the same ``d`` isn't emitted twice. The visible properties
+    (low-alpha outline tracing the bumpy canopy) still have to be
+    on the canopy element."""
+
+    def test_canopy_carries_partial_alpha_stroke(self):
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        # The silhouette pass must carry fill="none".
         m = re.search(
-            r'class="tree-silhouette"[^/]*fill="([^"]+)"', svg,
-        )
-        assert m, f"tree-silhouette path missing in: {svg[:200]}"
-        assert m.group(1) == "none", (
-            f"silhouette fill should be 'none', got {m.group(1)!r}"
-        )
-
-    def test_silhouette_stroke_alpha_present(self):
-        level = _level_with_features([(4, 4, "tree")])
-        svg = render_tree_features(level)[0]
-        # stroke-opacity attribute on silhouette path.
-        m = re.search(
-            r'class="tree-silhouette"[^/]*'
+            r'class="tree-canopy"[^/]*'
             r'stroke-opacity="([^"]+)"',
             svg,
         )
         assert m, (
-            f"tree-silhouette stroke-opacity missing in: "
-            f"{svg[:200]}"
+            f"tree-canopy stroke-opacity missing in: {svg[:200]}"
         )
         alpha = float(m.group(1))
         assert 0.0 < alpha < 1.0, (
-            f"silhouette stroke-opacity should be partial alpha, "
+            f"canopy stroke-opacity should be partial alpha, "
             f"got {alpha}"
+        )
+
+    def test_canopy_d_emitted_once_per_tree(self):
+        """Before the merge the canopy ``d`` shipped on two
+        separate paths (canopy fill + silhouette stroke). Make
+        sure it now appears exactly once."""
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        # The canopy ``d`` is the largest unique d in the fragment.
+        ds = re.findall(r'd="([^"]+)"', svg)
+        # shadow d + canopy d + N volume mark d's. The canopy d
+        # must not be duplicated.
+        from collections import Counter
+        counts = Counter(ds)
+        assert all(c == 1 for c in counts.values()), (
+            f"duplicate d= attribute in tree fragment: "
+            f"{[d for d, c in counts.items() if c > 1]}"
         )
 
 

@@ -1341,7 +1341,13 @@ def _polygon_to_svg_path(geom) -> str:
     """Convert a Shapely Polygon / MultiPolygon to an SVG ``d``
     string. Each exterior ring + interior hole becomes its own
     closed sub-path; ``fill-rule="evenodd"`` is the responsibility
-    of the caller's ``<path>`` attributes."""
+    of the caller's ``<path>`` attributes.
+
+    Coordinates are emitted at ``.1f`` precision -- one tenth of a
+    pixel is well below the 32-pixel tile size, and shaving the
+    second decimal off every vertex saves roughly one byte per
+    coordinate (~14% off vegetation canopy paths).
+    """
     geoms = (
         list(geom.geoms) if hasattr(geom, "geoms") else [geom]
     )
@@ -1354,10 +1360,10 @@ def _polygon_to_svg_path(geom) -> str:
             if not coords:
                 continue
             parts.append(
-                f"M{coords[0][0]:.2f},{coords[0][1]:.2f}"
+                f"M{coords[0][0]:.1f},{coords[0][1]:.1f}"
             )
             for x, y in coords[1:]:
-                parts.append(f"L{x:.2f},{y:.2f}")
+                parts.append(f"L{x:.1f},{y:.1f}")
             parts.append("Z")
     return " ".join(parts)
 
@@ -1468,9 +1474,9 @@ def _arc_path(
     large_arc = 1 if abs(sweep_len) > math.pi else 0
     sweep_dir = 1 if sweep_len >= 0 else 0
     return (
-        f"M{sx:.2f},{sy:.2f} "
-        f"A{r:.2f},{r:.2f} 0 {large_arc} {sweep_dir} "
-        f"{ex:.2f},{ey:.2f}"
+        f"M{sx:.1f},{sy:.1f} "
+        f"A{r:.1f},{r:.1f} 0 {large_arc} {sweep_dir} "
+        f"{ex:.1f},{ey:.1f}"
     )
 
 
@@ -1560,15 +1566,20 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     * Brown trunk dot anchored slightly below the canopy centre.
     * Multi-lobed shadow silhouette (shapely union of larger
       lobes, offset down-right) sitting behind the canopy.
-    * Multi-lobed canopy silhouette (shapely union of small
-      overlapping circles -- a "broccoli head") with per-tile
-      hue / sat / light jitter so adjacent canopies read as
-      distinct.
+    * Multi-lobed canopy: one ``<path>`` carrying both the per-
+      tile hue-jittered fill and the low-alpha silhouette stroke
+      that traces the bumpy outline. Originally two separate
+      paths re-using the same ``d``; merging halves the canopy
+      bytes (the ``d`` string is 80% of each path).
     * Volume marks: short irregular arc strokes scattered inside
       the canopy in the silhouette stroke colour, suggesting
       where leaf clusters meet (inner shadow / volume cue).
-    * Low-alpha silhouette stroke (re-uses the canopy ``d``)
-      tracing the bumpy outline.
+
+    The volume marks render after the canopy path so they sit on
+    top of the fill. The silhouette stroke and the volume marks
+    don't intersect geometrically (the stroke is on the canopy
+    boundary, the marks are interior), so merging the silhouette
+    into the fill path doesn't change the visible image.
     """
     dx, dy = _tree_center_offset(tx, ty)
     cx = (tx + 0.5) * CELL + dx
@@ -1581,11 +1592,11 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     parts = [
         f'<g id="tree-{tx}-{ty}" class="tree-feature">',
         (
-            f'<circle class="tree-trunk" cx="{trunk_cx:.2f}" '
-            f'cy="{trunk_cy:.2f}" r="{TREE_TRUNK_RADIUS:.2f}" '
+            f'<circle class="tree-trunk" cx="{trunk_cx:.1f}" '
+            f'cy="{trunk_cy:.1f}" r="{TREE_TRUNK_RADIUS:.1f}" '
             f'fill="{TREE_TRUNK_FILL}" '
             f'stroke="{TREE_TRUNK_STROKE}" '
-            f'stroke-width="{TREE_TRUNK_STROKE_WIDTH:.2f}"/>'
+            f'stroke-width="{TREE_TRUNK_STROKE_WIDTH:.1f}"/>'
         ),
         (
             f'<path class="tree-canopy-shadow" d="{shadow_d}" '
@@ -1593,21 +1604,16 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
         ),
         (
             f'<path class="tree-canopy" d="{canopy_d}" '
-            f'fill="{canopy_fill}" stroke="none"/>'
+            f'fill="{canopy_fill}" '
+            f'stroke="{TREE_CANOPY_STROKE}" '
+            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.1f}" '
+            f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
     ]
     parts.extend(_tree_volume_fragments(
         cx, cy, tx, ty, TREE_CANOPY_STROKE,
     ))
-    parts.extend([
-        (
-            f'<path class="tree-silhouette" d="{canopy_d}" '
-            f'fill="none" stroke="{TREE_CANOPY_STROKE}" '
-            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
-        ),
-        '</g>',
-    ])
+    parts.append('</g>')
     return "".join(parts)
 
 
@@ -1707,6 +1713,8 @@ def _grove_union_fragment(
     shadow_d = _polygon_to_svg_path(unary_union(shadow_polys))
 
     canopy_fill = _canopy_fill_jitter(*anchor)
+    # See _tree_fragment_for_tile: the canopy fill and silhouette
+    # stroke share the same ``d`` so they merge into one <path>.
     parts = [
         f'<g id="tree-grove-{anchor[0]}-{anchor[1]}" '
         'class="tree-grove">',
@@ -1716,7 +1724,10 @@ def _grove_union_fragment(
         ),
         (
             f'<path class="tree-canopy" d="{canopy_d}" '
-            f'fill="{canopy_fill}" stroke="none"/>'
+            f'fill="{canopy_fill}" '
+            f'stroke="{TREE_CANOPY_STROKE}" '
+            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.1f}" '
+            f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
     ]
     # Volume marks: emit one set per tile in the grove so the
@@ -1729,15 +1740,7 @@ def _grove_union_fragment(
         parts.extend(_tree_volume_fragments(
             cx, cy, tx, ty, TREE_CANOPY_STROKE,
         ))
-    parts.extend([
-        (
-            f'<path class="tree-silhouette" d="{canopy_d}" '
-            f'fill="none" stroke="{TREE_CANOPY_STROKE}" '
-            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
-        ),
-        '</g>',
-    ])
+    parts.append('</g>')
     return "".join(parts)
 
 
@@ -1977,6 +1980,9 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
     canopy_d = _bush_canopy_path(cx, cy, tx, ty)
     shadow_d = _bush_shadow_path(cx, cy, tx, ty)
     canopy_fill = _bush_fill_jitter(tx, ty)
+    # Canopy carries both fill and silhouette stroke; volume marks
+    # render on top. See _tree_fragment_for_tile for why the merged
+    # path is visually equivalent to the prior two-path layout.
     parts = [
         f'<g id="bush-{tx}-{ty}" class="bush-feature">',
         (
@@ -1985,21 +1991,16 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
         ),
         (
             f'<path class="bush-canopy" d="{canopy_d}" '
-            f'fill="{canopy_fill}" stroke="none"/>'
+            f'fill="{canopy_fill}" '
+            f'stroke="{BUSH_CANOPY_STROKE}" '
+            f'stroke-width="{BUSH_CANOPY_STROKE_WIDTH:.1f}" '
+            f'stroke-opacity="{BUSH_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
     ]
     parts.extend(_bush_volume_fragments(
         cx, cy, tx, ty, BUSH_CANOPY_STROKE,
     ))
-    parts.extend([
-        (
-            f'<path class="bush-silhouette" d="{canopy_d}" '
-            f'fill="none" stroke="{BUSH_CANOPY_STROKE}" '
-            f'stroke-width="{BUSH_CANOPY_STROKE_WIDTH:.2f}" '
-            f'stroke-opacity="{BUSH_CANOPY_STROKE_ALPHA:.2f}"/>'
-        ),
-        '</g>',
-    ])
+    parts.append('</g>')
     return "".join(parts)
 
 
