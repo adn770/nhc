@@ -42,6 +42,14 @@ COTTAGE_BUILDING_POS = (4, 3)
 COTTAGE_BUILDING_SIZE = (5, 5)
 COTTAGE_GARDEN_RING = 1
 
+# Phase 4b (M5) vegetation. Cottages are small, so densities are
+# lower than the town tables -- a sparser scatter feels right at
+# this footprint. Trees keep the canopy / roof clearance; bushes
+# stay off the curated GARDEN ring.
+COTTAGE_TREE_DENSITY = 0.06
+COTTAGE_BUSH_DENSITY = 0.10
+COTTAGE_BUSH_NEIGHBOUR_BIAS_MULT = 2.5
+
 # design/biome_features.md §8: three-bucket occupant roll applied
 # on cottage assembly. The friendly hermit is the headline
 # outcome; the hostile witch adds combat variety; abandoned
@@ -111,7 +119,90 @@ def assemble_cottage(
     )
     site.building_doors.update(door_map)
     paint_surface_doors(site, SurfaceType.GARDEN)
+    _scatter_cottage_trees(site, rng)
+    _scatter_cottage_bushes(site, rng)
     return site
+
+
+def _scatter_cottage_trees(
+    site: Site, rng: random.Random,
+) -> None:
+    """Scatter ``tree`` features across FIELD periphery.
+
+    Predicate: FIELD tile, no existing feature, not 4-adjacent
+    to the cottage footprint (canopies stay clear of the roof).
+    """
+    surface = site.surface
+    footprints: set[tuple[int, int]] = set()
+    for b in site.buildings:
+        footprints |= b.base_shape.floor_tiles(b.base_rect)
+    door_ring: set[tuple[int, int]] = set()
+    for sx, sy in site.building_doors:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            door_ring.add((sx + dx, sy + dy))
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain is not Terrain.GRASS:
+                continue
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in door_ring:
+                continue
+            blocked = False
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                if (x + dx, y + dy) in footprints:
+                    blocked = True
+                    break
+            if blocked:
+                continue
+            if rng.random() < COTTAGE_TREE_DENSITY:
+                tile.feature = "tree"
+
+
+def _scatter_cottage_bushes(
+    site: Site, rng: random.Random,
+) -> None:
+    """Scatter ``bush`` features across remaining FIELD tiles.
+
+    Predicate: FIELD tile, no existing feature, not in the door
+    4-ring. The GARDEN ring is excluded by the FIELD-only check
+    (bushes stay off curated planting per cottage design).
+    Footprint adjacency is NOT excluded -- the bush canopy stays
+    inside its own tile (M3) so it never bleeds onto the roof.
+    Neighbour-bias mirrors the town pass at the same multiplier.
+    """
+    surface = site.surface
+    door_ring: set[tuple[int, int]] = set()
+    for sx, sy in site.building_doors:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            door_ring.add((sx + dx, sy + dy))
+
+    bush_set: set[tuple[int, int]] = set()
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain is not Terrain.GRASS:
+                continue
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in door_ring:
+                continue
+            has_bush_nb = (
+                (x - 1, y) in bush_set
+                or (x, y - 1) in bush_set
+            )
+            prob = (
+                COTTAGE_BUSH_DENSITY
+                * COTTAGE_BUSH_NEIGHBOUR_BIAS_MULT
+                if has_bush_nb
+                else COTTAGE_BUSH_DENSITY
+            )
+            if rng.random() < prob:
+                tile.feature = "bush"
+                bush_set.add((x, y))
 
 
 def _build_cottage_building(
