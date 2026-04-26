@@ -83,9 +83,11 @@ class TestRenderLayersOrchestrator:
             is_active=lambda ctx: True,
             paint=lambda ctx: ["<one/>", "<two/>"],
         )
-        assert render_layers(self._ctx(), [layer]) == [
-            "<one/>", "<two/>",
-        ]
+        out = render_layers(self._ctx(), [layer])
+        # Each active layer is prefixed by a stats comment so a
+        # rendered SVG is self-describing for size analysis.
+        assert out[0].startswith("<!-- layer.always:")
+        assert out[1:] == ["<one/>", "<two/>"]
 
     def test_layers_emit_in_order(self) -> None:
         a = Layer(
@@ -97,4 +99,78 @@ class TestRenderLayersOrchestrator:
             paint=lambda ctx: ["<b/>"],
         )
         # Pass in registration order; render_layers sorts.
-        assert render_layers(self._ctx(), [a, b]) == ["<b/>", "<a/>"]
+        out = render_layers(self._ctx(), [a, b])
+        # Strip the per-layer stats comments to check ordering.
+        non_comments = [s for s in out if not s.startswith("<!--")]
+        assert non_comments == ["<b/>", "<a/>"]
+
+
+class TestRenderLayersInstrumentation:
+    """Per-layer size + element-count instrumentation.
+
+    The annotation comments and the matching DEBUG log line let
+    us profile the rendered SVG without re-instrumenting the
+    pipeline -- e.g. trace down the layer responsible for the
+    multi-MB town surface output.
+    """
+
+    def _ctx(self):
+        level = Level.create_empty("L", "L", 0, 3, 3)
+        for y in range(3):
+            for x in range(3):
+                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        return build_render_context(level, seed=0)
+
+    def test_stats_comment_carries_byte_size_and_element_count(
+        self,
+    ) -> None:
+        layer = Layer(
+            name="probe",
+            order=10,
+            is_active=lambda ctx: True,
+            paint=lambda ctx: [
+                '<rect x="0" y="0"/>',
+                '<g><circle/><line/></g>',
+            ],
+        )
+        out = render_layers(self._ctx(), [layer])
+        assert out[0].startswith("<!-- layer.probe:")
+        # 4 opening tags: rect, g, circle, line. Bytes = 39.
+        joined = "".join(out[1:])
+        assert "4 elements" in out[0]
+        assert f"{len(joined)} bytes" in out[0]
+
+    def test_inactive_layer_emits_no_stats_comment(self) -> None:
+        layer = Layer(
+            name="off",
+            order=10,
+            is_active=lambda ctx: False,
+            paint=lambda ctx: ["<x/>"],
+        )
+        assert render_layers(self._ctx(), [layer]) == []
+
+    def test_render_layers_logs_per_layer_breakdown(
+        self, caplog,
+    ) -> None:
+        import logging
+        a = Layer(
+            name="a", order=10, is_active=lambda ctx: True,
+            paint=lambda ctx: ['<rect/>'],
+        )
+        b = Layer(
+            name="b", order=20, is_active=lambda ctx: True,
+            paint=lambda ctx: ['<g/>', '<g/>'],
+        )
+        with caplog.at_level(
+            logging.DEBUG, logger="nhc.rendering._pipeline",
+        ):
+            render_layers(self._ctx(), [a, b])
+        msgs = [r.getMessage() for r in caplog.records]
+        # Single summary line carrying every layer's name + bytes.
+        summary = next(
+            (m for m in msgs if "render_layers" in m),
+            None,
+        )
+        assert summary is not None, msgs
+        assert "a=" in summary and "b=" in summary
+        assert "total=" in summary

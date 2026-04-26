@@ -19,6 +19,8 @@ pipeline so the in-game view catches up to the sample tooling.
 
 from __future__ import annotations
 
+import logging
+import re
 from typing import TYPE_CHECKING
 
 from nhc.rendering._enclosures import (
@@ -31,6 +33,30 @@ from nhc.rendering.svg import render_floor_svg
 
 if TYPE_CHECKING:
     from nhc.sites._site import Site
+
+
+logger = logging.getLogger(__name__)
+
+_OPEN_TAG = re.compile(r"<[a-zA-Z]")
+
+
+def _stats_comment(name: str, fragments: list[str]) -> tuple[str, int, int]:
+    """Return ``(comment, n_elements, n_bytes)`` for ``fragments``.
+
+    Mirrors the layer-stats comment emitted by
+    :func:`nhc.rendering._pipeline.render_layers` so the site
+    overlays read the same way as the floor layers in a captured
+    SVG.
+    """
+    joined = "".join(fragments)
+    n_elements = len(_OPEN_TAG.findall(joined))
+    n_bytes = len(joined)
+    return (
+        f"<!-- layer.{name}: {n_elements} elements, "
+        f"{n_bytes} bytes -->",
+        n_elements,
+        n_bytes,
+    )
 
 
 # Kinds whose enclosure geometry is currently well-defined in
@@ -101,11 +127,38 @@ def render_site_surface_svg(
     """Return the web-ready SVG for ``site.surface`` with roofs
     and (for ``town`` / ``keep``) an enclosure ring composed on
     top of the floor layer. Doors are not drawn -- the web client
-    renders them from ``Tile.door_side`` metadata."""
+    renders them from ``Tile.door_side`` metadata.
+
+    Both the roof and enclosure passes carry the same stats-
+    comment annotation as the floor layers (see
+    :func:`nhc.rendering._pipeline.render_layers`) so a captured
+    site SVG reports the size of every contributing pass inline.
+    """
     base = render_floor_svg(site.surface, seed=seed)
+    roof_frags = list(building_roof_fragments(site, seed))
+    encl_frags = list(_enclosure_fragments(site, seed))
     overlay_parts: list[str] = []
-    overlay_parts.extend(building_roof_fragments(site, seed))
-    overlay_parts.extend(_enclosure_fragments(site, seed))
+    breakdown: list[tuple[str, int, int]] = []
+    if roof_frags:
+        comment, n_el, n_bytes = _stats_comment("roofs", roof_frags)
+        overlay_parts.append(comment)
+        overlay_parts.extend(roof_frags)
+        breakdown.append(("roofs", n_el, n_bytes))
+    if encl_frags:
+        comment, n_el, n_bytes = _stats_comment(
+            "enclosure", encl_frags,
+        )
+        overlay_parts.append(comment)
+        overlay_parts.extend(encl_frags)
+        breakdown.append(("enclosure", n_el, n_bytes))
+    if breakdown and logger.isEnabledFor(logging.DEBUG):
+        per = " ".join(
+            f"{name}={b}b/{n}el" for name, n, b in breakdown
+        )
+        logger.debug(
+            "render_site_surface_svg: site=%s overlays [%s]",
+            site.kind, per,
+        )
     if not overlay_parts:
         return base
     return base.replace("</svg>", "".join(overlay_parts) + "</svg>")

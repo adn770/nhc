@@ -33,11 +33,18 @@ Extension recipe:
 
 from __future__ import annotations
 
+import logging
+import re
 from dataclasses import dataclass, field
 from typing import Callable, Iterable
 
 from nhc.rendering._decorators import TileDecorator, walk_and_paint
 from nhc.rendering._render_context import RenderContext
+
+
+logger = logging.getLogger(__name__)
+
+_OPEN_TAG = re.compile(r"<[a-zA-Z]")
 
 
 @dataclass(frozen=True)
@@ -117,13 +124,42 @@ def render_layers(
 
     Returned as a flat list of SVG fragment strings the
     orchestrator concatenates with ``"\\n".join(...)``.
+
+    Each active layer's fragments are prefixed by a stats
+    comment of the form
+    ``<!-- layer.NAME: N elements, M bytes -->`` so the rendered
+    SVG is self-describing for size analysis. A summary line at
+    DEBUG level (logger ``nhc.rendering._pipeline``) lists the
+    breakdown for every render so log scrapes can profile what
+    the floor is spending bytes on.
     """
     sorted_layers = sorted(
         enumerate(layers), key=lambda pair: (pair[1].order, pair[0]),
     )
     out: list[str] = []
+    breakdown: list[tuple[str, int, int]] = []
     for _, layer in sorted_layers:
         if not layer.is_active(ctx):
             continue
-        out.extend(layer.paint(ctx))
+        layer_frags = list(layer.paint(ctx))
+        joined = "".join(layer_frags)
+        n_elements = len(_OPEN_TAG.findall(joined))
+        n_bytes = len(joined)
+        breakdown.append((layer.name, n_elements, n_bytes))
+        out.append(
+            f"<!-- layer.{layer.name}: {n_elements} elements, "
+            f"{n_bytes} bytes -->"
+        )
+        out.extend(layer_frags)
+    if logger.isEnabledFor(logging.DEBUG):
+        total_bytes = sum(b for _, _, b in breakdown)
+        total_elements = sum(n for _, n, _ in breakdown)
+        per_layer = " ".join(
+            f"{name}={b}b/{n}el"
+            for name, n, b in breakdown
+        )
+        logger.debug(
+            "render_layers: total=%db/%del [%s]",
+            total_bytes, total_elements, per_layer,
+        )
     return out
