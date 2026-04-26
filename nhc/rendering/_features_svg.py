@@ -803,6 +803,175 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     return "".join(parts)
 
 
+# ── Tree grove merging (M2) ──────────────────────────────────
+#
+# Adjacent trees (4-adjacency) form a connected component;
+# components of size >= 3 collapse into a single Shapely-unioned
+# silhouette so the canopies fuse into one organic mass like the
+# cartographer maps. Singles + pairs keep the per-tile path so
+# the visual weight of two distinct trunks reads.
+
+
+def _connected_tree_groves(level) -> list[frozenset[tuple[int, int]]]:
+    """4-adjacency BFS over ``tile.feature == "tree"``.
+
+    Returns one frozenset of ``(tx, ty)`` tuples per connected
+    grove. Diagonal-only neighbours stay separate."""
+    height = level.height
+    width = level.width
+    visited: list[list[bool]] = [
+        [False] * width for _ in range(height)
+    ]
+    groves: list[frozenset[tuple[int, int]]] = []
+    for sy in range(height):
+        for sx in range(width):
+            if visited[sy][sx]:
+                continue
+            if level.tiles[sy][sx].feature != "tree":
+                continue
+            grove: set[tuple[int, int]] = set()
+            stack: list[tuple[int, int]] = [(sx, sy)]
+            while stack:
+                cx, cy = stack.pop()
+                if cx < 0 or cy < 0 or cx >= width or cy >= height:
+                    continue
+                if visited[cy][cx]:
+                    continue
+                if level.tiles[cy][cx].feature != "tree":
+                    continue
+                visited[cy][cx] = True
+                grove.add((cx, cy))
+                stack.append((cx + 1, cy))
+                stack.append((cx - 1, cy))
+                stack.append((cx, cy + 1))
+                stack.append((cx, cy - 1))
+            if grove:
+                groves.append(frozenset(grove))
+    return groves
+
+
+def _grove_for_tile(
+    level, tx: int, ty: int,
+) -> frozenset[tuple[int, int]] | None:
+    """Return the grove containing ``(tx, ty)`` or ``None`` if
+    the tile isn't a tree (or the level is missing)."""
+    if level is None:
+        return None
+    for grove in _connected_tree_groves(level):
+        if (tx, ty) in grove:
+            return grove
+    return None
+
+
+def _polygon_to_svg_path(geom) -> str:
+    """Convert a Shapely Polygon / MultiPolygon to an SVG ``d``
+    string. Each exterior ring + interior hole becomes its own
+    closed sub-path; ``fill-rule="evenodd"`` is responsibility of
+    the caller's ``<path>`` attributes."""
+    geoms = (
+        list(geom.geoms) if hasattr(geom, "geoms") else [geom]
+    )
+    parts: list[str] = []
+    for poly in geoms:
+        rings = [list(poly.exterior.coords)]
+        for hole in poly.interiors:
+            rings.append(list(hole.coords))
+        for coords in rings:
+            if not coords:
+                continue
+            parts.append(
+                f"M{coords[0][0]:.2f},{coords[0][1]:.2f}"
+            )
+            for x, y in coords[1:]:
+                parts.append(f"L{x:.2f},{y:.2f}")
+            parts.append("Z")
+    return " ".join(parts)
+
+
+def _grove_union_fragment(
+    grove: frozenset[tuple[int, int]],
+) -> str:
+    """One ``<g class='tree-grove'>`` fragment representing the
+    union of every canopy in ``grove``.
+
+    Layered identically to :func:`_tree_fragment_for_tile`:
+    shadow union -> canopy union -> highlight union -> low-alpha
+    silhouette stroke. Trunks are dropped -- a fused grove reads
+    as merged foliage rather than as a row of distinct trunks.
+
+    Per-grove hue jitter seeds from ``min(grove)`` so adding /
+    removing one tree nudges the colour rather than flipping it
+    across the whole silhouette."""
+    from shapely.geometry import Point  # local import: hot path
+    from shapely.ops import unary_union
+
+    anchor = min(grove)
+    canopy_polys = []
+    shadow_polys = []
+    highlight_polys = []
+    for tx, ty in grove:
+        cx = (tx + 0.5) * CELL
+        cy = (ty + 0.5) * CELL
+        canopy_polys.append(
+            Point(cx, cy).buffer(TREE_CANOPY_RADIUS),
+        )
+        shadow_polys.append(
+            Point(cx, cy).buffer(TREE_CANOPY_SHADOW_RADIUS),
+        )
+        hcx = cx + TREE_CANOPY_HIGHLIGHT_OFFSET
+        hcy = cy + TREE_CANOPY_HIGHLIGHT_OFFSET
+        highlight_polys.append(
+            Point(hcx, hcy).buffer(TREE_CANOPY_HIGHLIGHT_RADIUS),
+        )
+    canopy_d = _polygon_to_svg_path(unary_union(canopy_polys))
+    shadow_d = _polygon_to_svg_path(unary_union(shadow_polys))
+    highlight_d = _polygon_to_svg_path(unary_union(highlight_polys))
+
+    canopy_fill = _canopy_fill_jitter(*anchor)
+    highlight_fill = _shift_color(
+        canopy_fill, light=TREE_HIGHLIGHT_LIGHT_BOOST,
+    )
+    parts = [
+        f'<g id="tree-grove-{anchor[0]}-{anchor[1]}" '
+        'class="tree-grove">',
+        (
+            f'<path class="tree-canopy-shadow" d="{shadow_d}" '
+            f'fill="{TREE_CANOPY_SHADOW_FILL}" stroke="none"/>'
+        ),
+        (
+            f'<path class="tree-canopy" d="{canopy_d}" '
+            f'fill="{canopy_fill}" stroke="none"/>'
+        ),
+        (
+            f'<path class="tree-canopy-highlight" '
+            f'd="{highlight_d}" '
+            f'fill="{highlight_fill}" stroke="none"/>'
+        ),
+        (
+            f'<path class="tree-silhouette" d="{canopy_d}" '
+            f'fill="none" stroke="{TREE_CANOPY_STROKE}" '
+            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
+        ),
+        '</g>',
+    ]
+    return "".join(parts)
+
+
+def _tree_paint_for_tile(
+    level, tx: int, ty: int,
+) -> str | None:
+    """Tree paint dispatcher: per-tile fragment for groves of
+    size <= 2; one grove fragment at ``min(grove)`` for groves
+    of size >= 3 (other tiles return ``None``)."""
+    grove = _grove_for_tile(level, tx, ty)
+    if grove is None or len(grove) <= 2:
+        return _tree_fragment_for_tile(tx, ty)
+    if (tx, ty) != min(grove):
+        return None
+    return _grove_union_fragment(grove)
+
+
 _TREE_DISPATCH = {
     "tree": _tree_fragment_for_tile,
 }
@@ -858,11 +1027,18 @@ FOUNTAIN_SQUARE_FEATURE = TileDecorator(
     paint=_feature_paint(_square_fountain_fragment_for_tile),
     z_order=21,
 )
+def _tree_paint_decorator(args):
+    fragment = _tree_paint_for_tile(args.ctx.level, args.x, args.y)
+    if fragment is None:
+        return []
+    return [fragment]
+
+
 TREE_FEATURE = TileDecorator(
     name="tree_feature",
     layer="surface_features",
     predicate=_feature_predicate("tree"),
-    paint=_feature_paint(_tree_fragment_for_tile),
+    paint=_tree_paint_decorator,
     z_order=30,
 )
 
@@ -904,18 +1080,19 @@ def render_well_features(level: Level) -> list[str]:
 
 
 def render_tree_features(level: Level) -> list[str]:
-    """SVG fragments for every tree tile on ``level``.
+    """SVG fragments for every tree on ``level``.
 
-    Dispatches on ``Tile.feature`` -- ``"tree"`` paints the
-    Phase 4b canopy + trunk decoration. Returns ``[]`` when the
-    level has no tree tiles. Single-canopy palette today (Q4);
-    biome variants (drylands ochre, icelands frosted, marsh
-    teal) follow when trees are visible in-context.
+    Routes through :func:`_tree_paint_for_tile` so groves of 3+
+    4-adjacent trees collapse into a single Shapely-unioned
+    silhouette anchored at the lowest ``(tx, ty)``; smaller
+    groves keep the per-tile shadow / canopy / highlight stack.
     """
     out: list[str] = []
     for y, row in enumerate(level.tiles):
         for x, tile in enumerate(row):
-            fn = _TREE_DISPATCH.get(tile.feature)
-            if fn is not None:
-                out.append(fn(x, y))
+            if tile.feature != "tree":
+                continue
+            fragment = _tree_paint_for_tile(level, x, y)
+            if fragment is not None:
+                out.append(fragment)
     return out
