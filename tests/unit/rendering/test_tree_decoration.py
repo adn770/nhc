@@ -9,11 +9,45 @@ any entity is overlaid client-side. See
 
 from __future__ import annotations
 
+import colorsys
+import re
+
 from nhc.dungeon.model import Level, SurfaceType, Terrain, Tile
 from nhc.rendering._features_svg import (
-    TREE_CANOPY_FILL, render_tree_features,
+    TREE_CANOPY_FILL,
+    TREE_CANOPY_RADIUS,
+    TREE_CANOPY_SHADOW_FILL,
+    TREE_CANOPY_SHADOW_RADIUS,
+    render_tree_features,
 )
+from nhc.rendering._svg_helpers import CELL
 from nhc.rendering.svg import render_floor_svg
+
+
+def _hex_to_hls(hex_str: str) -> tuple[float, float, float]:
+    """Parse ``#RRGGBB`` into HLS triplet in ``[0, 1]``."""
+    s = hex_str.lstrip("#")
+    r = int(s[0:2], 16) / 255.0
+    g = int(s[2:4], 16) / 255.0
+    b = int(s[4:6], 16) / 255.0
+    return colorsys.rgb_to_hls(r, g, b)
+
+
+def _extract_canopy_fill(svg: str) -> str:
+    """Return the fill="..." colour on the ``tree-canopy`` path."""
+    m = re.search(
+        r'class="tree-canopy"[^/]*fill="([^"]+)"', svg,
+    )
+    assert m, f"tree-canopy not found in: {svg[:200]}"
+    return m.group(1)
+
+
+def _extract_attr(svg: str, cls: str, attr: str) -> str:
+    """Return ``attr="..."`` from the element matching ``class=cls``."""
+    pattern = rf'class="{re.escape(cls)}"[^/]*{attr}="([^"]+)"'
+    m = re.search(pattern, svg)
+    assert m, f"missing {attr} on class={cls!r} in: {svg[:200]}"
+    return m.group(1)
 
 
 def _level_with_features(
@@ -82,11 +116,20 @@ class TestTreeFragmentShape:
         )
 
     def test_canopy_uses_field_tinted_fill(self):
+        """Canopy fill is in the green family rather than equal
+        to a literal hex (M1 introduces per-tile hue jitter)."""
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        assert TREE_CANOPY_FILL in svg, (
-            f"canopy fragment missing canopy fill "
-            f"{TREE_CANOPY_FILL!r}"
+        fill = _extract_canopy_fill(svg)
+        h, l, s = _hex_to_hls(fill)
+        # Hue ~ 90deg (green family); Lightness 25-60%.
+        hue_deg = h * 360.0
+        light_pct = l * 100.0
+        assert 70.0 <= hue_deg <= 110.0, (
+            f"canopy fill hue out of green band: {hue_deg:.1f}deg"
+        )
+        assert 25.0 <= light_pct <= 60.0, (
+            f"canopy fill lightness out of band: {light_pct:.1f}%"
         )
 
 
@@ -121,3 +164,167 @@ class TestFloorSvgIntegration:
         svg = render_floor_svg(level, seed=7)
         assert "tree-canopy" in svg
         assert "tree-trunk" in svg
+
+
+# ── 5. M1 highlight layer ─────────────────────────────────────
+
+
+class TestTreeHighlight:
+    def test_fragment_has_highlight_class(self):
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        assert "tree-canopy-highlight" in svg, (
+            "M1 layered tree should carry a highlight class"
+        )
+
+    def test_highlight_offset_is_upper_left(self):
+        """Highlight polygon's centroid sits up-and-left of the
+        canopy centre. We approximate centroid by the average of
+        the polygon points in its ``d`` string."""
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        d = _extract_attr(svg, "tree-canopy-highlight", "d")
+        coords = [
+            (float(x), float(y))
+            for x, y in re.findall(
+                r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
+            )
+        ]
+        assert coords, f"no coordinates parsed from d={d!r}"
+        ax = sum(x for x, _ in coords) / len(coords)
+        ay = sum(y for _, y in coords) / len(coords)
+        # Tile (4, 4) centre = (4.5, 4.5) * CELL.
+        cx = 4.5 * CELL
+        cy = 4.5 * CELL
+        assert ax < cx, (
+            f"highlight centroid x {ax:.2f} not left of canopy "
+            f"centre {cx:.2f}"
+        )
+        assert ay < cy, (
+            f"highlight centroid y {ay:.2f} not above canopy "
+            f"centre {cy:.2f}"
+        )
+
+    def test_highlight_lighter_than_canopy(self):
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        canopy_fill = _extract_canopy_fill(svg)
+        highlight_fill = _extract_attr(
+            svg, "tree-canopy-highlight", "fill",
+        )
+        _, l_canopy, _ = _hex_to_hls(canopy_fill)
+        _, l_highlight, _ = _hex_to_hls(highlight_fill)
+        assert l_highlight > l_canopy, (
+            f"highlight lightness {l_highlight:.3f} not greater "
+            f"than canopy {l_canopy:.3f}"
+        )
+
+
+# ── 6. M1 silhouette stroke ──────────────────────────────────
+
+
+class TestTreeStrokePass:
+    def test_silhouette_polygon_is_fill_none(self):
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        # The silhouette pass must carry fill="none".
+        m = re.search(
+            r'class="tree-silhouette"[^/]*fill="([^"]+)"', svg,
+        )
+        assert m, f"tree-silhouette path missing in: {svg[:200]}"
+        assert m.group(1) == "none", (
+            f"silhouette fill should be 'none', got {m.group(1)!r}"
+        )
+
+    def test_silhouette_stroke_alpha_present(self):
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        # stroke-opacity attribute on silhouette path.
+        m = re.search(
+            r'class="tree-silhouette"[^/]*'
+            r'stroke-opacity="([^"]+)"',
+            svg,
+        )
+        assert m, (
+            f"tree-silhouette stroke-opacity missing in: "
+            f"{svg[:200]}"
+        )
+        alpha = float(m.group(1))
+        assert 0.0 < alpha < 1.0, (
+            f"silhouette stroke-opacity should be partial alpha, "
+            f"got {alpha}"
+        )
+
+
+# ── 7. M1 shadow polygon ─────────────────────────────────────
+
+
+class TestTreeShadow:
+    def test_shadow_polygon_present(self):
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        assert "tree-canopy-shadow" in svg, (
+            "M1 layered tree should carry a shadow class"
+        )
+        assert TREE_CANOPY_SHADOW_FILL in svg, (
+            f"shadow fill {TREE_CANOPY_SHADOW_FILL!r} missing"
+        )
+
+    def test_shadow_radius_strictly_larger_than_canopy(self):
+        # Constants alone make this assertion --
+        # shadow geometry uses TREE_CANOPY_SHADOW_RADIUS.
+        assert TREE_CANOPY_SHADOW_RADIUS > TREE_CANOPY_RADIUS, (
+            f"shadow radius {TREE_CANOPY_SHADOW_RADIUS} must be "
+            f"strictly larger than canopy {TREE_CANOPY_RADIUS}"
+        )
+
+
+# ── 8. M1 per-tile hue jitter ────────────────────────────────
+
+
+class TestPerTreeHueJitter:
+    def test_two_distinct_tiles_have_different_canopy_fills(self):
+        a = render_tree_features(
+            _level_with_features([(4, 4, "tree")]),
+        )[0]
+        b = render_tree_features(
+            _level_with_features([(7, 4, "tree")]),
+        )[0]
+        fill_a = _extract_canopy_fill(a)
+        fill_b = _extract_canopy_fill(b)
+        assert fill_a != fill_b, (
+            f"adjacent trees should have different jittered fills "
+            f"(both = {fill_a})"
+        )
+
+    def test_canopy_fill_is_deterministic_per_tile(self):
+        a = render_tree_features(
+            _level_with_features([(4, 4, "tree")]),
+        )[0]
+        b = render_tree_features(
+            _level_with_features([(4, 4, "tree")]),
+        )[0]
+        assert _extract_canopy_fill(a) == _extract_canopy_fill(b)
+
+    def test_canopy_fill_distance_within_threshold(self):
+        """Per-tile jitter is bounded -- assert every fill in a
+        small grid stays within hue +/-10deg, lightness +/-8% of
+        the base ``TREE_CANOPY_FILL``."""
+        h0, l0, _ = _hex_to_hls(TREE_CANOPY_FILL)
+        for tx in range(2, 8):
+            for ty in range(2, 8):
+                level = _level_with_features([(tx, ty, "tree")])
+                svg = render_tree_features(level)[0]
+                fill = _extract_canopy_fill(svg)
+                h, l, _ = _hex_to_hls(fill)
+                # Hue distance on the circle.
+                dh = abs((h - h0 + 0.5) % 1.0 - 0.5) * 360.0
+                dl = abs(l - l0) * 100.0
+                assert dh <= 10.0, (
+                    f"tile ({tx},{ty}) hue drift {dh:.1f}deg "
+                    f"exceeds +/-10deg from base"
+                )
+                assert dl <= 8.0, (
+                    f"tile ({tx},{ty}) lightness drift {dl:.1f}% "
+                    f"exceeds +/-8% from base"
+                )

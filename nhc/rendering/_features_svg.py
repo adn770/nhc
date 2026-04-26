@@ -17,6 +17,7 @@ centralised.
 
 from __future__ import annotations
 
+import colorsys
 import math
 
 from nhc.dungeon.model import Level
@@ -542,14 +543,42 @@ TREE_CANOPY_STROKE = "#3F5237"
 
 TREE_CANOPY_STROKE_WIDTH = 1.2
 
+TREE_CANOPY_STROKE_ALPHA = 0.78
+"""Silhouette stroke alpha; a low-alpha rim instead of a hard
+ outline so adjacent canopies blend rather than stamp."""
+
 TREE_CANOPY_RADIUS = 0.7 * CELL
 
-TREE_CANOPY_JITTER_LOBES = 8
+TREE_CANOPY_JITTER_LOBES = 10
 """Number of radial points sampled around the canopy outline.
  Each lobe gets a +/- jitter so the silhouette breaks the clean
  circle into something foliage-shaped."""
 
-TREE_CANOPY_JITTER_RANGE = 0.18 * CELL
+TREE_CANOPY_JITTER_RANGE = 0.22 * CELL
+
+TREE_CANOPY_SHADOW_FILL = "#2F4527"
+"""Darker green sitting behind the canopy to give the silhouette
+ visual weight."""
+
+TREE_CANOPY_SHADOW_RADIUS = 0.78 * CELL
+
+TREE_CANOPY_SHADOW_LOBES = 12
+
+TREE_CANOPY_HIGHLIGHT_RADIUS = 0.42 * CELL
+
+TREE_CANOPY_HIGHLIGHT_LOBES = 6
+
+TREE_CANOPY_HIGHLIGHT_OFFSET = -0.18 * CELL
+"""Highlight polygon shifts up-and-left by this much so the lit
+ face reads as catching the upper-left light."""
+
+TREE_HIGHLIGHT_LIGHT_BOOST = 0.12
+"""Lightness shift (HLS L channel) applied to the canopy fill to
+ derive the highlight fill."""
+
+TREE_HUE_JITTER_DEG = 6.0
+TREE_SAT_JITTER = 0.05
+TREE_LIGHT_JITTER = 0.04
 
 TREE_TRUNK_FILL = "#4A3320"
 TREE_TRUNK_STROKE = INK
@@ -560,41 +589,110 @@ TREE_TRUNK_OFFSET_Y = 0.32 * CELL
  tree reads as standing on the tile rather than floating."""
 
 
-def _tree_canopy_jitter(tx: int, ty: int, lobe: int) -> float:
-    """Deterministic per-tile, per-lobe jitter in
-    ``[-TREE_CANOPY_JITTER_RANGE, +TREE_CANOPY_JITTER_RANGE]``.
+def _hash_norm(tx: int, ty: int, salt: int) -> float:
+    """Deterministic hash mapping ``(tx, ty, salt)`` to ``[-1, 1]``.
 
-    Hash combines the tile coords with the lobe index so two
-    adjacent trees have visibly different silhouettes (otherwise
-    a grove of identical canopies looks tiled). No external RNG
-    is consumed -- the hash drives the jitter, keeping the
-    renderer pure.
+    Knuth-style multiply-and-xor; same shape as the original
+    ``_tree_canopy_jitter`` but factored so highlight, shadow,
+    hue, and bush layers can each pick a unique salt.
     """
-    h = (tx * 73856093) ^ (ty * 19349663) ^ (lobe * 83492791)
+    h = (tx * 73856093) ^ (ty * 19349663) ^ (salt * 83492791)
     h = (h ^ (h >> 13)) & 0xFFFFFFFF
-    # Map to [-1, 1] then scale.
-    norm = (h / 0xFFFFFFFF) * 2.0 - 1.0
-    return norm * TREE_CANOPY_JITTER_RANGE
+    return (h / 0xFFFFFFFF) * 2.0 - 1.0
 
 
-def _tree_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
-    """Build the canopy polygon as an SVG ``d`` string.
+def _tree_canopy_jitter(tx: int, ty: int, lobe: int) -> float:
+    """Deterministic per-tile, per-lobe canopy radius jitter in
+    ``[-TREE_CANOPY_JITTER_RANGE, +TREE_CANOPY_JITTER_RANGE]``."""
+    return _hash_norm(tx, ty, lobe) * TREE_CANOPY_JITTER_RANGE
 
-    Sample ``TREE_CANOPY_JITTER_LOBES`` points around the canopy
-    centre at evenly-spaced angles, with each radius jittered
-    deterministically. Returns a closed cubic-free path so the
-    silhouette reads as foliage rather than a clean circle.
+
+def _hex_to_rgb01(hex_str: str) -> tuple[float, float, float]:
+    s = hex_str.lstrip("#")
+    return (
+        int(s[0:2], 16) / 255.0,
+        int(s[2:4], 16) / 255.0,
+        int(s[4:6], 16) / 255.0,
+    )
+
+
+def _rgb01_to_hex(r: float, g: float, b: float) -> str:
+    r = max(0.0, min(1.0, r))
+    g = max(0.0, min(1.0, g))
+    b = max(0.0, min(1.0, b))
+    return f"#{int(round(r * 255)):02X}{int(round(g * 255)):02X}{int(round(b * 255)):02X}"
+
+
+def _shift_color(
+    base_hex: str,
+    *,
+    hue_deg: float = 0.0,
+    sat: float = 0.0,
+    light: float = 0.0,
+) -> str:
+    """Return ``base_hex`` shifted in HLS space by the given deltas.
+
+    ``hue_deg`` is in degrees (full circle = 360); ``sat`` and
+    ``light`` are absolute deltas on the HLS [0, 1] range.
     """
-    step = (2 * math.pi) / TREE_CANOPY_JITTER_LOBES
+    r, g, b = _hex_to_rgb01(base_hex)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    h = (h + hue_deg / 360.0) % 1.0
+    s = max(0.0, min(1.0, s + sat))
+    l = max(0.0, min(1.0, l + light))
+    rr, gg, bb = colorsys.hls_to_rgb(h, l, s)
+    return _rgb01_to_hex(rr, gg, bb)
+
+
+# Salts: keep distinct integers per channel so hue / sat / light
+# don't collapse to the same hash output for a given tile.
+_HUE_SALT = 1009
+_SAT_SALT = 2017
+_LIGHT_SALT = 3041
+
+
+def _canopy_fill_jitter(tx: int, ty: int) -> str:
+    """Per-tile jittered canopy fill derived from
+    :data:`TREE_CANOPY_FILL`."""
+    dh = _hash_norm(tx, ty, _HUE_SALT) * TREE_HUE_JITTER_DEG
+    ds = _hash_norm(tx, ty, _SAT_SALT) * TREE_SAT_JITTER
+    dl = _hash_norm(tx, ty, _LIGHT_SALT) * TREE_LIGHT_JITTER
+    return _shift_color(
+        TREE_CANOPY_FILL, hue_deg=dh, sat=ds, light=dl,
+    )
+
+
+def _polygon_path(
+    cx: float,
+    cy: float,
+    radius: float,
+    lobes: int,
+    *,
+    tx: int,
+    ty: int,
+    salt: int,
+    jitter_range: float,
+) -> str:
+    """Return a closed SVG ``d`` string for a jittered polygon
+    with ``lobes`` radial samples around ``(cx, cy)``.
+
+    Each lobe's radius is shifted by a deterministic per-tile,
+    per-salt, per-lobe value in
+    ``[-jitter_range, +jitter_range]`` so adjacent tiles produce
+    visibly different silhouettes."""
+    step = (2 * math.pi) / lobes
     points: list[tuple[float, float]] = []
-    for lobe in range(TREE_CANOPY_JITTER_LOBES):
+    for lobe in range(lobes):
         angle = lobe * step
-        radius = TREE_CANOPY_RADIUS + _tree_canopy_jitter(
-            tx, ty, lobe,
-        )
-        px = cx + math.cos(angle) * radius
-        py = cy + math.sin(angle) * radius
-        points.append((px, py))
+        # Combine salt + lobe into a single hash input so different
+        # salts (canopy / shadow / highlight) decorrelate.
+        r = radius + _hash_norm(
+            tx, ty, salt * 31 + lobe,
+        ) * jitter_range
+        points.append((
+            cx + math.cos(angle) * r,
+            cy + math.sin(angle) * r,
+        ))
     cmds: list[str] = []
     for i, (px, py) in enumerate(points):
         cmd = "M" if i == 0 else "L"
@@ -603,21 +701,75 @@ def _tree_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
     return " ".join(cmds)
 
 
+def _tree_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    """Canopy polygon ``d`` for tile ``(tx, ty)``."""
+    return _polygon_path(
+        cx, cy,
+        TREE_CANOPY_RADIUS,
+        TREE_CANOPY_JITTER_LOBES,
+        tx=tx, ty=ty,
+        salt=4001,
+        jitter_range=TREE_CANOPY_JITTER_RANGE,
+    )
+
+
+def _tree_shadow_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    """Shadow polygon ``d`` for tile ``(tx, ty)``."""
+    return _polygon_path(
+        cx, cy,
+        TREE_CANOPY_SHADOW_RADIUS,
+        TREE_CANOPY_SHADOW_LOBES,
+        tx=tx, ty=ty,
+        salt=5003,
+        jitter_range=TREE_CANOPY_JITTER_RANGE,
+    )
+
+
+def _tree_highlight_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    """Highlight polygon ``d`` for tile ``(tx, ty)``.
+
+    Centre is shifted up-and-left by
+    :data:`TREE_CANOPY_HIGHLIGHT_OFFSET` so the lit face reads as
+    catching the upper-left light source."""
+    hcx = cx + TREE_CANOPY_HIGHLIGHT_OFFSET
+    hcy = cy + TREE_CANOPY_HIGHLIGHT_OFFSET
+    return _polygon_path(
+        hcx, hcy,
+        TREE_CANOPY_HIGHLIGHT_RADIUS,
+        TREE_CANOPY_HIGHLIGHT_LOBES,
+        tx=tx, ty=ty,
+        salt=6007,
+        jitter_range=TREE_CANOPY_JITTER_RANGE * 0.5,
+    )
+
+
 def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     """SVG ``<g>`` fragment for a single tree at tile ``(tx, ty)``.
 
     Composition (back to front):
 
     * Brown trunk dot anchored slightly below the canopy centre.
-    * Soft green canopy polygon with deterministic jitter so
-      adjacent trees in a grove read as distinct silhouettes
-      rather than a tiled pattern.
+    * Darker shadow polygon (wider radius) sitting behind the
+      canopy and giving the silhouette weight.
+    * Soft green canopy polygon with deterministic per-tile hue /
+      sat / light jitter so adjacent trees in a grove read as
+      distinct silhouettes rather than a tiled pattern.
+    * Lighter highlight polygon (smaller radius, offset
+      upper-left) for the lit upper face of the canopy.
+    * Low-alpha silhouette stroke (re-uses the canopy ``d``) so
+      the canopy edge reads without a hard outline.
     """
     cx = (tx + 0.5) * CELL
     cy = (ty + 0.5) * CELL
     trunk_cx = cx
     trunk_cy = cy + TREE_TRUNK_OFFSET_Y
     canopy_d = _tree_canopy_path(cx, cy, tx, ty)
+    shadow_d = _tree_shadow_path(cx, cy, tx, ty)
+    highlight_d = _tree_highlight_path(cx, cy, tx, ty)
+    canopy_fill = _canopy_fill_jitter(tx, ty)
+    highlight_fill = _shift_color(
+        canopy_fill, light=TREE_HIGHLIGHT_LIGHT_BOOST,
+    )
     parts = [
         f'<g id="tree-{tx}-{ty}" class="tree-feature">',
         (
@@ -628,10 +780,23 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
             f'stroke-width="{TREE_TRUNK_STROKE_WIDTH:.2f}"/>'
         ),
         (
+            f'<path class="tree-canopy-shadow" d="{shadow_d}" '
+            f'fill="{TREE_CANOPY_SHADOW_FILL}" stroke="none"/>'
+        ),
+        (
             f'<path class="tree-canopy" d="{canopy_d}" '
-            f'fill="{TREE_CANOPY_FILL}" '
-            f'stroke="{TREE_CANOPY_STROKE}" '
-            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.2f}"/>'
+            f'fill="{canopy_fill}" stroke="none"/>'
+        ),
+        (
+            f'<path class="tree-canopy-highlight" '
+            f'd="{highlight_d}" '
+            f'fill="{highlight_fill}" stroke="none"/>'
+        ),
+        (
+            f'<path class="tree-silhouette" d="{canopy_d}" '
+            f'fill="none" stroke="{TREE_CANOPY_STROKE}" '
+            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
         '</g>',
     ]
