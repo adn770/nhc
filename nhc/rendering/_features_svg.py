@@ -1139,15 +1139,22 @@ TREE_CANOPY_RADIUS = 0.66 * CELL
 :func:`_tree_canopy_polygon` to size the lobe cluster and by the
 M2 grove union when picking the fallback radius."""
 
-TREE_CANOPY_LOBE_COUNT = 6
+TREE_CANOPY_LOBE_COUNT_CHOICES = (6, 7)
+"""Lobe count is picked randomly per tile from this tuple --
+6 or 7 lobes give a slightly different puff silhouette."""
+
 TREE_CANOPY_LOBE_RADIUS = 0.32 * CELL
 """Each lobe's base radius (overlap creates the puffy outline)."""
 
 TREE_CANOPY_CLUSTER_RADIUS = 0.30 * CELL
-"""Distance from canopy centre to the centre of each lobe."""
+"""Base distance from canopy centre to the centre of each lobe."""
+
+TREE_CANOPY_CLUSTER_RADIUS_JITTER = 0.18
+"""+/- multiplier on the per-tile cluster radius. Some canopies
+extend further out of the tile, others sit tighter."""
 
 TREE_CANOPY_LOBE_RADIUS_JITTER = 0.20
-"""+/- multiplier on lobe radius (per-tile, per-lobe)."""
+"""+/- multiplier on individual lobe radius (per-tile, per-lobe)."""
 
 TREE_CANOPY_LOBE_OFFSET_JITTER = 0.30
 """+/- multiplier on lobe offset distance from centre."""
@@ -1221,9 +1228,14 @@ def _hash_unit(tx: int, ty: int, salt: int) -> float:
 
     Distinct from :func:`_hash_norm` (which returns ``[-1, 1]``).
     Used when we want a positive-only random factor (e.g.,
-    picking a length within ``[min, max]``)."""
+    picking a length within ``[min, max]``).
+
+    Two-stage xor-shift mix so the output is well-distributed
+    across the unit interval -- a single-stage mix collapses
+    most outputs into the lower half for some salt values."""
     h = (tx * 73856093) ^ (ty * 19349663) ^ (salt * 83492791)
     h = (h ^ (h >> 13)) & 0xFFFFFFFF
+    h = ((h * 2654435761) ^ (h >> 16)) & 0xFFFFFFFF
     return h / 0xFFFFFFFF
 
 
@@ -1355,15 +1367,37 @@ def _union_path_from_lobes(
     return _polygon_to_svg_path(unary_union(polys))
 
 
+_TREE_LOBE_COUNT_SALT = 8101
+_TREE_CLUSTER_RADIUS_SALT = 8111
+
+
+def _tree_lobe_count(tx: int, ty: int) -> int:
+    """Per-tile pick from :data:`TREE_CANOPY_LOBE_COUNT_CHOICES`.
+    Deterministic on ``(tx, ty)``."""
+    u = _hash_unit(tx, ty, _TREE_LOBE_COUNT_SALT)
+    idx = int(u * len(TREE_CANOPY_LOBE_COUNT_CHOICES))
+    idx = min(idx, len(TREE_CANOPY_LOBE_COUNT_CHOICES) - 1)
+    return TREE_CANOPY_LOBE_COUNT_CHOICES[idx]
+
+
+def _tree_cluster_radius(tx: int, ty: int) -> float:
+    """Per-tile cluster-radius variance so some canopies extend
+    further past the tile boundary than others."""
+    j = _hash_norm(tx, ty, _TREE_CLUSTER_RADIUS_SALT)
+    return TREE_CANOPY_CLUSTER_RADIUS * (
+        1.0 + j * TREE_CANOPY_CLUSTER_RADIUS_JITTER
+    )
+
+
 def _tree_canopy_lobes(
     cx: float, cy: float, tx: int, ty: int,
 ) -> list[tuple[float, float, float]]:
     return _lobe_circles(
         cx, cy,
         tx=tx, ty=ty, salt=4001,
-        n_lobes=TREE_CANOPY_LOBE_COUNT,
+        n_lobes=_tree_lobe_count(tx, ty),
         lobe_radius=TREE_CANOPY_LOBE_RADIUS,
-        cluster_radius=TREE_CANOPY_CLUSTER_RADIUS,
+        cluster_radius=_tree_cluster_radius(tx, ty),
         radius_jitter=TREE_CANOPY_LOBE_RADIUS_JITTER,
         offset_jitter=TREE_CANOPY_LOBE_OFFSET_JITTER,
         angle_jitter=TREE_CANOPY_LOBE_ANGLE_JITTER,
@@ -1380,9 +1414,9 @@ def _tree_shadow_lobes(
         cx + TREE_CANOPY_SHADOW_OFFSET,
         cy + TREE_CANOPY_SHADOW_OFFSET,
         tx=tx, ty=ty, salt=5003,
-        n_lobes=TREE_CANOPY_LOBE_COUNT,
+        n_lobes=_tree_lobe_count(tx, ty),
         lobe_radius=TREE_CANOPY_SHADOW_LOBE_RADIUS,
-        cluster_radius=TREE_CANOPY_CLUSTER_RADIUS,
+        cluster_radius=_tree_cluster_radius(tx, ty),
         radius_jitter=TREE_CANOPY_LOBE_RADIUS_JITTER,
         offset_jitter=TREE_CANOPY_LOBE_OFFSET_JITTER,
         angle_jitter=TREE_CANOPY_LOBE_ANGLE_JITTER,
@@ -1730,12 +1764,16 @@ BUSH_CANOPY_RADIUS = 0.32 * CELL
 """Approximate outer extent of a bush silhouette. Used to size
 the lobe cluster and as a sanity bound for tile-clearance tests."""
 
-BUSH_CANOPY_LOBE_COUNT = 3
-"""Fewer lobes than a tree -- a bush is small enough that 3-4
-bumps already read as multi-lobed."""
+BUSH_CANOPY_LOBE_COUNT_CHOICES = (3, 4)
+"""Per-tile pick: 3 or 4 lobes. Bushes are small enough that
+this binary choice already reads as a varied vocabulary."""
 
 BUSH_CANOPY_LOBE_RADIUS = 0.16 * CELL
 BUSH_CANOPY_CLUSTER_RADIUS = 0.10 * CELL
+
+BUSH_CANOPY_CLUSTER_RADIUS_JITTER = 0.30
+"""+/- multiplier on per-tile cluster radius. Some bushes
+extend a bit further out, others sit tighter."""
 
 BUSH_CANOPY_LOBE_RADIUS_JITTER = 0.18
 BUSH_CANOPY_LOBE_OFFSET_JITTER = 0.30
@@ -1759,17 +1797,18 @@ BUSH_VOLUME_STROKE_WIDTH = 0.6
 BUSH_VOLUME_STROKE_ALPHA = 0.55
 BUSH_VOLUME_DASH = "1.5 1.5"
 
-# Compatibility floor: max possible extent of any bush point
-# from its tile centre (cluster + lobe + jitter slack). Used by
-# the tile-clearance test as the strict upper bound.
+# Worst-case extent of any bush point from its tile centre.
+# Includes per-tile cluster-radius jitter, per-lobe offset
+# jitter, and per-lobe radius jitter -- all stacked. Must stay
+# strictly below 0.5 * CELL so a bush placed 4-adjacent to a
+# building footprint never bleeds onto the roof (M3 contract).
 BUSH_CANOPY_MAX_EXTENT = (
     BUSH_CANOPY_CLUSTER_RADIUS
+    * (1.0 + BUSH_CANOPY_CLUSTER_RADIUS_JITTER)
+    * (1.0 + BUSH_CANOPY_LOBE_OFFSET_JITTER)
     + BUSH_CANOPY_LOBE_RADIUS
     * (1.0 + BUSH_CANOPY_LOBE_RADIUS_JITTER)
 )
-"""Cluster offset + maximum jittered lobe radius. Must stay
-strictly below 0.5 * CELL so a bush placed 4-adjacent to a
-building footprint never bleeds onto the roof (M3 contract)."""
 
 BUSH_HUE_JITTER_DEG = 6.0
 BUSH_SAT_JITTER = 0.05
@@ -1783,6 +1822,8 @@ _BUSH_LIGHT_SALT = 9091
 _BUSH_CANOPY_SHAPE_SALT = 11117
 _BUSH_SHADOW_SHAPE_SALT = 11201
 _BUSH_VOLUME_SALT = 12119
+_BUSH_LOBE_COUNT_SALT = 13127
+_BUSH_CLUSTER_RADIUS_SALT = 13147
 
 
 def _bush_fill_jitter(tx: int, ty: int) -> str:
@@ -1794,15 +1835,32 @@ def _bush_fill_jitter(tx: int, ty: int) -> str:
     )
 
 
+def _bush_lobe_count(tx: int, ty: int) -> int:
+    """Per-tile pick from
+    :data:`BUSH_CANOPY_LOBE_COUNT_CHOICES`."""
+    u = _hash_unit(tx, ty, _BUSH_LOBE_COUNT_SALT)
+    idx = int(u * len(BUSH_CANOPY_LOBE_COUNT_CHOICES))
+    idx = min(idx, len(BUSH_CANOPY_LOBE_COUNT_CHOICES) - 1)
+    return BUSH_CANOPY_LOBE_COUNT_CHOICES[idx]
+
+
+def _bush_cluster_radius(tx: int, ty: int) -> float:
+    """Per-tile cluster-radius variance for bushes."""
+    j = _hash_norm(tx, ty, _BUSH_CLUSTER_RADIUS_SALT)
+    return BUSH_CANOPY_CLUSTER_RADIUS * (
+        1.0 + j * BUSH_CANOPY_CLUSTER_RADIUS_JITTER
+    )
+
+
 def _bush_canopy_lobes(
     cx: float, cy: float, tx: int, ty: int,
 ) -> list[tuple[float, float, float]]:
     return _lobe_circles(
         cx, cy,
         tx=tx, ty=ty, salt=_BUSH_CANOPY_SHAPE_SALT,
-        n_lobes=BUSH_CANOPY_LOBE_COUNT,
+        n_lobes=_bush_lobe_count(tx, ty),
         lobe_radius=BUSH_CANOPY_LOBE_RADIUS,
-        cluster_radius=BUSH_CANOPY_CLUSTER_RADIUS,
+        cluster_radius=_bush_cluster_radius(tx, ty),
         radius_jitter=BUSH_CANOPY_LOBE_RADIUS_JITTER,
         offset_jitter=BUSH_CANOPY_LOBE_OFFSET_JITTER,
         angle_jitter=BUSH_CANOPY_LOBE_ANGLE_JITTER,
@@ -1816,9 +1874,9 @@ def _bush_shadow_lobes(
         cx + BUSH_CANOPY_SHADOW_OFFSET,
         cy + BUSH_CANOPY_SHADOW_OFFSET,
         tx=tx, ty=ty, salt=_BUSH_SHADOW_SHAPE_SALT,
-        n_lobes=BUSH_CANOPY_LOBE_COUNT,
+        n_lobes=_bush_lobe_count(tx, ty),
         lobe_radius=BUSH_CANOPY_SHADOW_LOBE_RADIUS,
-        cluster_radius=BUSH_CANOPY_CLUSTER_RADIUS,
+        cluster_radius=_bush_cluster_radius(tx, ty),
         radius_jitter=BUSH_CANOPY_LOBE_RADIUS_JITTER,
         offset_jitter=BUSH_CANOPY_LOBE_OFFSET_JITTER,
         angle_jitter=BUSH_CANOPY_LOBE_ANGLE_JITTER,
