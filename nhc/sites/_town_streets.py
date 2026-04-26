@@ -396,6 +396,46 @@ def _nearest_neighbour_order(
     return ordered
 
 
+def _centerpiece_anchor(
+    centerpiece_rect: Rect,
+    walkable: set[tuple[int, int]],
+) -> tuple[int, int] | None:
+    """Pick a walkable tile on the centerpiece patch to use as the
+    routing target. Prefers the centre tile; falls back to any
+    walkable patch tile when the centre is blocked (e.g. the
+    feature footprint sits inside the patch and is not yet
+    walkable in the routing graph)."""
+    cx = centerpiece_rect.x + centerpiece_rect.width // 2
+    cy = centerpiece_rect.y + centerpiece_rect.height // 2
+    if (cx, cy) in walkable:
+        return (cx, cy)
+    for y in range(centerpiece_rect.y, centerpiece_rect.y2):
+        for x in range(centerpiece_rect.x, centerpiece_rect.x2):
+            if (x, y) in walkable:
+                return (x, y)
+    return None
+
+
+def _route_centerpiece_branch(
+    centerpiece_rect: Rect,
+    network: set[tuple[int, int]],
+    walkable: set[tuple[int, int]],
+) -> set[tuple[int, int]]:
+    """Route a connector path from the centerpiece patch to the
+    nearest tile in the routed network. Without this, the patch
+    -- stamped as STREET by :func:`_stamp_centerpiece` -- would
+    sit isolated in the grass (Q10's reserved patch is not a
+    routing target by itself, only a forbidden_rect for the
+    cluster packer)."""
+    anchor = _centerpiece_anchor(centerpiece_rect, walkable)
+    if anchor is None or not network:
+        return set()
+    target = _nearest_in(anchor, network)
+    if target is None:
+        return set()
+    return set(_route_path(anchor, target, walkable))
+
+
 def _route_branches(
     plans: list["_ClusterPlan"],
     spine: set[tuple[int, int]],
@@ -502,6 +542,7 @@ def compute_town_street_network(
     surface_w: int, surface_h: int,
     blocked: set[tuple[int, int]],
     size_class: str,
+    centerpiece_rect: Rect | None = None,
 ) -> tuple[set[tuple[int, int]], dict[tuple[int, int], SurfaceType]]:
     """Compute STREET tiles + per-tile surface classification for
     a town surface.
@@ -510,6 +551,12 @@ def compute_town_street_network(
     ``classification`` covers every walkable tile. STREET tiles
     are routed via A*; the remainder are GARDEN (inside a cluster
     bbox) or FIELD (palisade periphery / open surface).
+
+    ``centerpiece_rect`` (when set) is the reserved patch where
+    :func:`nhc.sites.town._stamp_centerpiece` will paint the
+    well / fountain plaza. The router adds a connector path from
+    the patch to the existing network so the landmark is
+    reachable on the street graph.
     """
     if enclosure is not None:
         walkable = _palisade_interior_walkable(
@@ -548,12 +595,22 @@ def compute_town_street_network(
     )
     streets |= branches
 
+    cp_anchor: tuple[int, int] | None = None
+    if centerpiece_rect is not None:
+        cp_anchor = _centerpiece_anchor(centerpiece_rect, walkable)
+        cp_branch = _route_centerpiece_branch(
+            centerpiece_rect, streets, walkable,
+        )
+        streets |= cp_branch
+
     cluster_anchors_set: set[tuple[int, int]] = set()
     for p in cluster_plans:
         a = _cluster_route_anchor(p, walkable)
         if a is not None:
             cluster_anchors_set.add(a)
     anchors = set(gate_anchors) | cluster_anchors_set
+    if cp_anchor is not None:
+        anchors.add(cp_anchor)
     streets = _prune_dead_ends(streets, anchors)
 
     classification = _classify_walkable_tiles(

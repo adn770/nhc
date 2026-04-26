@@ -402,9 +402,11 @@ def assemble_town(
         )
     else:
         enclosure = None
+    cp_rect = forbidden_rects[0] if forbidden_rects else None
     surface = _build_town_surface(
         f"{site_id}_surface", buildings, enclosure,
         cluster_plans, size_class, config,
+        centerpiece_rect=cp_rect,
     )
     if cp_origin is not None and cp_spec is not None:
         _stamp_centerpiece(surface, cp_origin, cp_spec, biome)
@@ -1041,6 +1043,7 @@ def _build_town_surface(
     cluster_plans: list[_ClusterPlan],
     size_class: str,
     config: _TownSizeConfig,
+    centerpiece_rect: Rect | None = None,
 ) -> Level:
     """Route the street network and stamp STREET / GARDEN / FIELD
     tiles across the walkable area.
@@ -1066,6 +1069,7 @@ def _build_town_surface(
         cluster_plans, enclosure,
         config.surface_width, config.surface_height,
         blocked, size_class,
+        centerpiece_rect=centerpiece_rect,
     )
     paint_surface(surface, classification)
     return surface

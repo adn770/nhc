@@ -95,6 +95,76 @@ def _nearest_street(
     return best
 
 
+# ── 1b. Centerpiece patch reachable via streets ───────────────
+
+
+class TestCenterpieceReachability:
+    @pytest.mark.parametrize("size_class", [
+        "hamlet", "village", "town", "city",
+    ])
+    def test_centerpiece_patch_connected_to_street_network(
+        self, size_class,
+    ):
+        """Q10's reserved centerpiece patch is stamped as STREET so
+        the well / fountain plaza reads as cobblestone, but it
+        also has to be *reachable* on the street graph -- a town
+        whose fountain is an isolated paved island in the grass
+        is a routing bug.
+        """
+        from nhc.sites.town import (
+            _CENTERPIECE_PER_SIZE, _SIZE_CLASSES,
+        )
+        spec = _CENTERPIECE_PER_SIZE.get(size_class)
+        for seed in range(20):
+            site = assemble_town(
+                "t1", random.Random(seed), size_class=size_class,
+            )
+            entry = _any_centerpiece(site)
+            if entry is None or spec is None:
+                continue
+            _, (cx, cy) = entry
+            patch = {
+                (cx + dx - (spec.patch_dim - spec.feature_dim) // 2,
+                 cy + dy - (spec.patch_dim - spec.feature_dim) // 2)
+                for dx in range(spec.patch_dim)
+                for dy in range(spec.patch_dim)
+            }
+            streets = _street_tiles(site)
+            # A patch tile that has at least one STREET neighbour
+            # outside the patch -- i.e. a connector exists.
+            connector_found = False
+            for (px, py) in patch:
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nb = (px + dx, py + dy)
+                    if nb in streets and nb not in patch:
+                        connector_found = True
+                        break
+                if connector_found:
+                    break
+            assert connector_found, (
+                f"seed={seed} {size_class}: centerpiece patch "
+                f"around ({cx},{cy}) is isolated -- no STREET tile "
+                f"adjacent to the patch perimeter"
+            )
+
+
+def _any_centerpiece(site):
+    """Inline copy of the centerpiece finder from
+    test_town_centerpiece (kept private to avoid cross-module
+    imports in the test layer)."""
+    for feature in (
+        "well", "well_square",
+        "fountain", "fountain_square",
+        "fountain_large", "fountain_large_square",
+        "fountain_cross",
+    ):
+        for y, row in enumerate(site.surface.tiles):
+            for x, tile in enumerate(row):
+                if tile.feature == feature:
+                    return (feature, (x, y))
+    return None
+
+
 # ── 2. Every cluster touches a street ─────────────────────────
 
 
