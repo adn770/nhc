@@ -59,6 +59,11 @@ class RenderContext:
     macabre_detail: bool        # bones + skulls + scattered floor stones
     interior_finish: str        # "stone" | "wood" | future finishes
 
+    # Hatch distance (in tiles) applied to the dungeon halo. Cave
+    # levels clamp to a minimum of 2.0 so the wider grey ring stays
+    # part of the cavern look.
+    hatch_distance: float = 2.0
+
 
 def _resolve_floor_kind(level: Level) -> FloorKind:
     """Pick the floor kind from level data.
@@ -85,6 +90,7 @@ def build_render_context(
     cave_geometry_builder=None,
     building_footprint: set[tuple[int, int]] | None = None,
     building_polygon: list[tuple[float, float]] | None = None,
+    hatch_distance: float = 2.0,
 ) -> RenderContext:
     """Build a :class:`RenderContext` for a level.
 
@@ -136,6 +142,9 @@ def build_render_context(
 
     interior_finish = getattr(level, "interior_floor", "stone")
 
+    if floor_kind == "cave":
+        hatch_distance = max(hatch_distance, 2.0)
+
     return RenderContext(
         level=level,
         seed=seed,
@@ -161,4 +170,5 @@ def build_render_context(
         atmospherics_enabled=atmospherics_enabled,
         macabre_detail=macabre_detail,
         interior_finish=interior_finish,
+        hatch_distance=hatch_distance,
     )

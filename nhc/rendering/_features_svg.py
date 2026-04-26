@@ -643,6 +643,65 @@ _TREE_DISPATCH = {
 }
 
 
+# ── Phase 5: TileDecorator wrappers ───────────────────────────
+#
+# Each surface feature renders identically regardless of floor
+# kind, so the orchestrator drives them through the unified
+# :func:`walk_and_paint` helper. The dispatch tables above stay
+# as the single source of truth for the per-feature geometry.
+
+from nhc.rendering._decorators import TileDecorator  # noqa: E402
+
+
+def _feature_predicate(feature: str):
+    def pred(level, x, y) -> bool:
+        return level.tiles[y][x].feature == feature
+    return pred
+
+
+def _feature_paint(fragment_fn):
+    def paint(args):
+        return [fragment_fn(args.x, args.y)]
+    return paint
+
+
+WELL_FEATURE = TileDecorator(
+    name="well_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("well"),
+    paint=_feature_paint(_well_fragment_for_tile),
+    z_order=10,
+)
+WELL_SQUARE_FEATURE = TileDecorator(
+    name="well_square_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("well_square"),
+    paint=_feature_paint(_square_well_fragment_for_tile),
+    z_order=11,
+)
+FOUNTAIN_FEATURE = TileDecorator(
+    name="fountain_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("fountain"),
+    paint=_feature_paint(_circle_fountain_fragment_for_tile),
+    z_order=20,
+)
+FOUNTAIN_SQUARE_FEATURE = TileDecorator(
+    name="fountain_square_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("fountain_square"),
+    paint=_feature_paint(_square_fountain_fragment_for_tile),
+    z_order=21,
+)
+TREE_FEATURE = TileDecorator(
+    name="tree_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("tree"),
+    paint=_feature_paint(_tree_fragment_for_tile),
+    z_order=30,
+)
+
+
 def render_fountain_features(level: Level) -> list[str]:
     """SVG fragments for every fountain tile on ``level``.
 

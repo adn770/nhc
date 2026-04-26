@@ -18,6 +18,8 @@ import noise as _noise
 from shapely.geometry import LineString
 
 from nhc.dungeon.generators.cellular import CaveShape
+from nhc.rendering._floor_layers import FLOOR_LAYERS
+from nhc.rendering._pipeline import render_layers
 from nhc.rendering._render_context import build_render_context
 from nhc.rendering._svg_helpers import (
     BG,
@@ -96,26 +98,14 @@ def render_floor_svg(
     a wooden tower's planks visually reach the chamfer diagonal
     rather than the bbox edge.
     """
-    if any(isinstance(r.shape, CaveShape) for r in level.rooms):
-        hatch_distance = max(hatch_distance, 2.0)
     w = level.width * CELL + 2 * PADDING
     h = level.height * CELL + 2 * PADDING
-
-    svg: list[str] = []
-    svg.append(
-        f'<svg width="{w}" height="{h}" '
-        f'viewBox="0 0 {w} {h}" '
-        f'xmlns="http://www.w3.org/2000/svg">'
-    )
-    svg.append(f'<rect width="100%" height="100%" fill="{BG}"/>')
-    svg.append(f'<g transform="translate({PADDING},{PADDING})">')
 
     # Build the frozen render context once. It carries the cave +
     # dungeon polygon geometry (so they're computed exactly once)
     # and the resolved feature flags (shadows, hatching, ...) so
-    # downstream layers no longer redo ``getattr(level,
-    # "building_id", None)`` and ``level.metadata.prerevealed``
-    # checks scattered across the renderer.
+    # the layer registry can drive every pass off a single source
+    # of truth.
     ctx = build_render_context(
         level,
         seed=seed,
@@ -123,64 +113,19 @@ def render_floor_svg(
         dungeon_polygon_builder=_build_dungeon_polygon,
         building_footprint=building_footprint,
         building_polygon=building_polygon,
-    )
-    cave_wall_path = ctx.cave_wall_path
-    cave_wall_poly = ctx.cave_wall_poly
-    cave_tiles = ctx.cave_tiles
-    dungeon_poly = ctx.dungeon_poly
-
-    # Layer 1: Shadows (rooms + corridors)
-    if ctx.shadows_enabled:
-        _render_room_shadows(svg, level)
-        _render_corridor_shadows(svg, level)
-
-    # Layer 2: Hatching (rooms clipped to exterior of dungeon
-    # polygon, corridors hatched one tile on each side).
-    # Prerevealed surfaces (site courtyards) and building interiors
-    # skip hatching -- they read as open daylight / enclosed rooms.
-    if ctx.hatching_enabled:
-        _render_hatching(svg, level, seed, dungeon_poly,
-                         hatch_distance=hatch_distance,
-                         cave_wall_poly=cave_wall_poly)
-        _render_corridor_hatching(svg, level, seed)
-
-    # Layer 3: Walls + floor fills
-    _render_walls_and_floors(
-        svg, level,
-        cave_wall_path=cave_wall_path,
-        cave_wall_poly=cave_wall_poly,
-        cave_tiles=cave_tiles,
-        building_footprint=building_footprint,
+        hatch_distance=hatch_distance,
     )
 
-    # Layer 3.5: Terrain tints + room-type hints
-    _render_terrain_tints(svg, level, dungeon_poly)
-
-    # Layer 4: Floor grid (clipped to interior of dungeon polygon)
-    _render_floor_grid(svg, level, dungeon_poly)
-
-    # Layer 5: Floor detail (clipped to interior of dungeon polygon)
-    _render_floor_detail(
-        svg, level, seed, dungeon_poly,
-        building_polygon=building_polygon,
-        ctx=ctx,
-    )
-
-    # Layer 6: Terrain detail (wavy lines, grass strokes, etc.)
-    _render_terrain_detail(svg, level, seed, dungeon_poly, ctx=ctx)
-
-    # Layer 7: Stairs
-    _render_stairs(svg, level)
-
-    # Layer 8: Surface-feature decorations (wells, fountains,
-    # trees, ...). Painted last so the stones / waterline / canopy
-    # sit above tile fills and cobblestone seams, mirroring the
-    # order entities are composited on top of the SVG by the web
-    # client.
-    svg.extend(render_well_features(level))
-    svg.extend(render_fountain_features(level))
-    svg.extend(render_tree_features(level))
-
+    svg: list[str] = [
+        (
+            f'<svg width="{w}" height="{h}" '
+            f'viewBox="0 0 {w} {h}" '
+            'xmlns="http://www.w3.org/2000/svg">'
+        ),
+        f'<rect width="100%" height="100%" fill="{BG}"/>',
+        f'<g transform="translate({PADDING},{PADDING})">',
+    ]
+    svg.extend(render_layers(ctx, FLOOR_LAYERS))
     svg.append("</g>")
     svg.append("</svg>")
     return "\n".join(svg)
