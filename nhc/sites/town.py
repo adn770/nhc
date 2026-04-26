@@ -95,6 +95,63 @@ TOWN_TREE_DENSITY: dict[str, float] = {
     "city": 0.12,
 }
 
+
+# ── Centerpiece specs (Phase 5) ──────────────────────────────
+
+
+@dataclass(frozen=True)
+class _CenterpieceSpec:
+    """Per-size landmark on a reserved patch (Q3, Q18).
+
+    ``feature_dim`` is the feature footprint (1 for well, 2 for
+    fountain). ``patch_dim`` is the reserved patch (3x3 for
+    hamlet/village, 4x4 for town/city). ``feature_circle`` and
+    ``feature_square`` are the feature tags for the two biome-
+    driven variants.
+    """
+
+    feature_dim: int
+    patch_dim: int
+    feature_circle: str
+    feature_square: str
+
+
+_CENTERPIECE_PER_SIZE: dict[str, _CenterpieceSpec] = {
+    "hamlet": _CenterpieceSpec(1, 3, "well", "well_square"),
+    "village": _CenterpieceSpec(1, 3, "well", "well_square"),
+    "town": _CenterpieceSpec(2, 4, "fountain", "fountain_square"),
+    "city": _CenterpieceSpec(2, 4, "fountain", "fountain_square"),
+}
+
+
+_BIOME_CENTERPIECE_SHAPE: dict[Biome, str] = {
+    Biome.MOUNTAIN: "square",
+    Biome.ICELANDS: "square",
+    Biome.DRYLANDS: "square",
+    Biome.SANDLANDS: "square",
+    Biome.MARSH: "circle",
+    Biome.FOREST: "circle",
+    Biome.GREENLANDS: "circle",
+    Biome.HILLS: "circle",
+    Biome.SWAMP: "circle",
+    Biome.DEADLANDS: "circle",
+}
+"""Q12: biome -> centerpiece shape variant. Stone-masonry biomes
+ (mountain / icelands / drylands / sandlands) get a square
+ well / fountain; the rest land the rounded variant. Default
+ ``"circle"`` covers ``biome=None`` and any unmapped biome."""
+
+
+def _centerpiece_feature_tag(
+    spec: _CenterpieceSpec, biome: Biome | None,
+) -> str:
+    if biome is None:
+        return spec.feature_circle
+    shape = _BIOME_CENTERPIECE_SHAPE.get(biome, "circle")
+    if shape == "square":
+        return spec.feature_square
+    return spec.feature_circle
+
 TOWN_WOOD_BUILDING_PROBABILITY = 0.65    # rest are stone
 TOWN_DESCENT_PROBABILITY = 0.08
 TOWN_DESCENT_TEMPLATE = "procedural:crypt"
@@ -257,8 +314,37 @@ def assemble_town(
     # role covered first and the rest filled with "residential".
     roles = _roll_role_slots(rng, n_buildings)
     sizes = [_draw_size_for_role(role, rng) for role in roles]
+    # Phase 5 two-pass placement: probe-pass packer determines a
+    # rough cluster bbox set; we compute the centerpiece patch
+    # origin and reserve it as a forbidden_rect for the final
+    # cluster pack so clusters arrange around the landmark.
+    probe_plans = _cluster_pack(
+        roles, sizes, config, size_class, rng,
+    )
+    has_palisade = (
+        config.has_palisade and not overrides.suppress_palisade
+    )
+    if has_palisade:
+        gate_sides = ["west", "east"]
+        rng.shuffle(gate_sides)
+    else:
+        gate_sides = []
+    cp_spec = _CENTERPIECE_PER_SIZE.get(size_class)
+    cp_origin: tuple[int, int] | None = None
+    forbidden_rects: list[Rect] = []
+    if cp_spec is not None and probe_plans:
+        cp_origin = _compute_centerpiece_origin(
+            probe_plans, gate_sides, cp_spec, config, rng,
+        )
+        if cp_origin is not None:
+            ox, oy = cp_origin
+            forbidden_rects.append(
+                Rect(ox, oy, cp_spec.patch_dim, cp_spec.patch_dim),
+            )
+
     cluster_plans = _cluster_pack(
         roles, sizes, config, size_class, rng,
+        forbidden_rects=forbidden_rects,
     )
     buildings = _place_buildings(
         site_id, rng, roles, sizes, cluster_plans,
@@ -273,9 +359,10 @@ def assemble_town(
 
     # Mountain lodges read best without a palisade; everything else
     # inherits the size-class default.
-    if config.has_palisade and not overrides.suppress_palisade:
+    if has_palisade:
         enclosure = _build_palisade(
             buildings, cluster_plans, config, rng,
+            sides=gate_sides, extra_rects=forbidden_rects,
         )
     else:
         enclosure = None
@@ -283,6 +370,8 @@ def assemble_town(
         f"{site_id}_surface", buildings, enclosure,
         cluster_plans, size_class, config,
     )
+    if cp_origin is not None and cp_spec is not None:
+        _stamp_centerpiece(surface, cp_origin, cp_spec, biome)
     if overrides.ambient is not None:
         surface.metadata.ambient = overrides.ambient
 
@@ -714,24 +803,30 @@ def _build_palisade(
     cluster_plans: list[_ClusterPlan],
     config: _TownSizeConfig,
     rng: random.Random,
+    sides: list[str] | None = None,
+    extra_rects: list[Rect] | None = None,
 ) -> Enclosure:
     """Wrap the buildings in a palisade and place gates at the
     cluster-bbox-set y-midpoint (Q14).
 
-    The polygon expands the building bounding box by
-    ``TOWN_PALISADE_PADDING`` tiles. Gate count is drawn from
-    :data:`TOWN_GATE_COUNT_RANGE`; with two gates, both share the
-    same y-midpoint of the cluster-bbox set so the main spine
-    routes east-west through the inhabited band. With one gate
-    the y-midpoint of the cluster-bbox set still reflects the
-    cluster ring, and the side (east / west) is shuffled so the
-    same seed flips access points.
+    ``sides`` lets the caller pre-shuffle the gate side order so
+    the centerpiece's nudge direction (Phase 5) and the actual
+    gate placement agree on the dominant gate. Pass ``None`` to
+    have the helper shuffle internally; callers that don't run
+    the Phase 5 probe should leave it ``None``. ``extra_rects``
+    extends the palisade's bbox so the Phase 5 centerpiece patch
+    (which sits outside the cluster envelope when the probe pass
+    nudges it past the final cluster ring) stays inside the
+    walled area.
     """
     xs: list[int] = []
     ys: list[int] = []
     for b in buildings:
         xs.extend([b.base_rect.x, b.base_rect.x2])
         ys.extend([b.base_rect.y, b.base_rect.y2])
+    for r in extra_rects or []:
+        xs.extend([r.x, r.x2])
+        ys.extend([r.y, r.y2])
     pad = TOWN_PALISADE_PADDING
     min_x = min(xs) - pad
     max_x = max(xs) + pad
@@ -745,8 +840,9 @@ def _build_palisade(
     ]
     gate_count = rng.randint(*TOWN_GATE_COUNT_RANGE)
     gate_ys = gates_y_for_cluster_set(cluster_plans, gate_count)
-    sides = ["west", "east"]
-    rng.shuffle(sides)
+    if sides is None:
+        sides = ["west", "east"]
+        rng.shuffle(sides)
     gates: list[tuple[int, int, int]] = []
     for i, gy in enumerate(gate_ys):
         side = sides[i % len(sides)]
@@ -755,6 +851,67 @@ def _build_palisade(
     return Enclosure(
         kind="palisade", polygon=polygon, gates=gates,
     )
+
+
+def _compute_centerpiece_origin(
+    probe_plans: list[_ClusterPlan],
+    gate_sides: list[str],
+    spec: _CenterpieceSpec,
+    config: _TownSizeConfig,
+    rng: random.Random,
+) -> tuple[int, int] | None:
+    """Pick the centerpiece patch's top-left tile (Q10).
+
+    Centroid of the probe-pass cluster bbox set, nudged 1-2 tiles
+    along the centroid -> dominant-gate vector. Snaps to a tile
+    that fits the patch dim and stays inside the surface bounds
+    (with a 1-tile margin from the edges)."""
+    if not probe_plans:
+        return None
+    xs_lo = min(p.bbox.x for p in probe_plans)
+    ys_lo = min(p.bbox.y for p in probe_plans)
+    xs_hi = max(p.bbox.x2 for p in probe_plans)
+    ys_hi = max(p.bbox.y2 for p in probe_plans)
+    cx = (xs_lo + xs_hi) // 2
+    cy = (ys_lo + ys_hi) // 2
+    if gate_sides:
+        nudge = rng.randint(1, 2)
+        if gate_sides[0] == "east":
+            cx += nudge
+        elif gate_sides[0] == "west":
+            cx -= nudge
+    half = spec.patch_dim // 2
+    ox = cx - half
+    oy = cy - half
+    ox = max(1, min(config.surface_width - spec.patch_dim - 1, ox))
+    oy = max(1, min(config.surface_height - spec.patch_dim - 1, oy))
+    return (ox, oy)
+
+
+def _stamp_centerpiece(
+    surface: Level,
+    patch_origin: tuple[int, int],
+    spec: _CenterpieceSpec,
+    biome: Biome | None,
+) -> None:
+    """Stamp the centerpiece patch (cobblestone) and the feature
+    tag (well / well_square / fountain / fountain_square)."""
+    ox, oy = patch_origin
+    feature_tag = _centerpiece_feature_tag(spec, biome)
+    for dx in range(spec.patch_dim):
+        for dy in range(spec.patch_dim):
+            tx, ty = ox + dx, oy + dy
+            if not surface.in_bounds(tx, ty):
+                continue
+            surface.tiles[ty][tx] = Tile(
+                terrain=Terrain.FLOOR,
+                surface_type=SurfaceType.STREET,
+            )
+    feature_offset = (spec.patch_dim - spec.feature_dim) // 2
+    fx = ox + feature_offset
+    fy = oy + feature_offset
+    if surface.in_bounds(fx, fy):
+        surface.tiles[fy][fx].feature = feature_tag
 
 
 def _build_town_surface(

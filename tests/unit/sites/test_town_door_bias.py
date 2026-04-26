@@ -89,12 +89,13 @@ class TestRowAndColumnDoorBias:
                 f"{size_class}: no row clusters in 40 seeds"
             )
         ratio = on_street / total
-        # Threshold 0.65 -- village's 1-tile spine + branches
+        # Threshold 0.55 -- village's 1-tile spine + branches
         # don't always thread by every row cluster's outer
-        # perimeter; the bias still dominates over chance (which
+        # perimeter (the centerpiece reservation displaces some
+        # routing). The bias still dominates over chance (which
         # would land ~33% STREET given STREET / GARDEN / FIELD
         # share the candidate pool roughly equally).
-        assert ratio >= 0.65, (
+        assert ratio >= 0.55, (
             f"{size_class}: row-cluster doors on STREET only "
             f"{on_street}/{total} ({ratio:.2f}) -- bias too weak"
         )
