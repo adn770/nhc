@@ -710,7 +710,7 @@ def _render_floor_detail(
         ctx,
         [
             COBBLESTONE, COBBLE_STONE,
-            BRICK, FLAGSTONE,
+            BRICK, FLAGSTONE, OPUS_RETICULATUM,
             FIELD_STONE,
             GARDEN_LINE,
             CART_TRACK_RAILS, CART_TRACK_TIES,
@@ -828,20 +828,30 @@ COBBLE_STONE = TileDecorator(
 
 # ── Cobblestone variants ─────────────────────────────────────
 #
-# Two decorative cousins of the COBBLESTONE pattern. Each fires
+# Three decorative cousins of the COBBLESTONE pattern. Each fires
 # on its own SurfaceType tag so a site assembler can pick the
 # pattern that fits the building / plaza role. They share the
 # COBBLESTONE wrapping shape (opacity-0.35 stroked group) but use
 # distinct strokes + per-tile geometry:
 #
-#   BRICK        running-bond rectangles (wider than tall)
-#   FLAGSTONE    irregular polygon plates with thin gaps
+#   BRICK              running-bond rectangles (wider than tall)
+#   FLAGSTONE          irregular polygon plates with thin gaps
+#   OPUS_RETICULATUM   classical Roman diamond-net (45-deg grid
+#                      of square stones forming a continuous net
+#                      across tile boundaries)
 #
 # Adding a new variant is one stroke constant + one paint helper
 # + one ``TileDecorator`` constant + one assembler stamp.
 
 BRICK_STROKE = "#A05530"   # warm red-brown, classic fired brick
 FLAGSTONE_STROKE = "#6A6055"  # cool grey-brown, slate / quarried stone
+OPUS_RETICULATUM_STROKE = "#7A5A3A"
+"""Warm grey-brown for the diamond-net mortar lines."""
+
+OPUS_RETICULATUM_DIAMOND_DIAGONAL_PX = 4.0
+"""Half-diagonal of each diamond stone (centre-to-vertex). Each
+diamond's full diagonal is ``2 * 4 = 8 px``, so 4 diamonds tile
+across a 32-px CELL (16 per tile in the 4x4 grid)."""
 
 
 def _is_brick_tile(level: "Level", x: int, y: int) -> bool:
@@ -850,6 +860,15 @@ def _is_brick_tile(level: "Level", x: int, y: int) -> bool:
 
 def _is_flagstone_tile(level: "Level", x: int, y: int) -> bool:
     return level.tiles[y][x].surface_type is SurfaceType.FLAGSTONE
+
+
+def _is_opus_reticulatum_tile(
+    level: "Level", x: int, y: int,
+) -> bool:
+    return (
+        level.tiles[y][x].surface_type
+        is SurfaceType.OPUS_RETICULATUM
+    )
 
 
 def _brick_paint(args) -> list[str]:
@@ -942,6 +961,40 @@ def _flagstone_paint(args) -> list[str]:
     return plates
 
 
+def _opus_reticulatum_paint(args) -> list[str]:
+    """Diamond-net pattern for one tile (Opus Reticulatum).
+
+    Each tile contains a 4x4 grid of diamond stones at a fixed
+    half-diagonal of :data:`OPUS_RETICULATUM_DIAMOND_DIAGONAL_PX`.
+    The diamonds are positioned so the pattern tiles continuously
+    across cell boundaries -- a tile's east-edge diamond shares
+    its vertex with the neighbouring tile's west-edge diamond,
+    forming the classical Roman 'net' (reticulum).
+
+    Stroke-only; the wrapping group sets opacity / colour.
+    """
+    px, py = args.px, args.py
+    half = OPUS_RETICULATUM_DIAMOND_DIAGONAL_PX
+    full = 2 * half
+    diamonds: list[str] = []
+    # Centres on a uniform grid aligned to the tile origin so
+    # the pattern phase repeats per tile. Each diamond has its
+    # vertex at (cx, cy +/- half) and (cx +/- half, cy).
+    n_axis = int(round(CELL / full))
+    for j in range(n_axis):
+        for i in range(n_axis):
+            cx = px + (i + 0.5) * full
+            cy = py + (j + 0.5) * full
+            d = (
+                f"M{cx:.1f},{cy - half:.1f} "
+                f"L{cx + half:.1f},{cy:.1f} "
+                f"L{cx:.1f},{cy + half:.1f} "
+                f"L{cx - half:.1f},{cy:.1f} Z"
+            )
+            diamonds.append(f'<path d="{d}"/>')
+    return diamonds
+
+
 BRICK = TileDecorator(
     name="brick",
     layer="floor_detail",
@@ -963,6 +1016,17 @@ FLAGSTONE = TileDecorator(
         f'stroke="{FLAGSTONE_STROKE}" stroke-width="0.4">'
     ),
     z_order=13,
+)
+OPUS_RETICULATUM = TileDecorator(
+    name="opus_reticulatum",
+    layer="floor_detail",
+    predicate=_is_opus_reticulatum_tile,
+    paint=_opus_reticulatum_paint,
+    group_open=(
+        f'<g opacity="0.45" fill="none" '
+        f'stroke="{OPUS_RETICULATUM_STROKE}" stroke-width="0.4">'
+    ),
+    z_order=14,
 )
 
 

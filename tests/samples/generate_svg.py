@@ -1214,9 +1214,10 @@ def _make_floor_variants_level(width: int = 36, height: int = 26):
     )]
 
     cobble_specs = (
-        ("STREET",    SurfaceType.STREET),
-        ("BRICK",     SurfaceType.BRICK),
-        ("FLAGSTONE", SurfaceType.FLAGSTONE),
+        ("STREET",       SurfaceType.STREET),
+        ("BRICK",        SurfaceType.BRICK),
+        ("FLAGSTONE",    SurfaceType.FLAGSTONE),
+        ("OPUS RETICUL", SurfaceType.OPUS_RETICULATUM),
     )
     patch_w, patch_h = 7, 5
     gap = 1
@@ -1282,7 +1283,7 @@ def generate_floor_variants_demo(
         svg = svg.replace("</svg>", "".join(label_frags) + "</svg>")
         info = [
             f"Cobblestone family | seed={seed}",
-            "L->R: STREET, BRICK, FLAGSTONE",
+            "L->R: STREET, BRICK, FLAGSTONE, OPUS RETICULATUM",
             "All patches share the cobblestone wrapping group;",
             "decorators differ in stone shape + stroke colour.",
             "Empty FLOOR margins paint stone-floor cracks +",

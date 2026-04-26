@@ -41,9 +41,12 @@ class SurfaceType(Enum):
     # site can pick the pattern that fits its narrative role:
     # mansions stamp BRICK on stone ground floors, temples stamp
     # FLAGSTONE, town plazas stamp FLAGSTONE on the centerpiece
-    # patch. Each maps to one TileDecorator with its own paint.
+    # patch, OPUS_RETICULATUM is the classical Roman diamond-net
+    # paving (reserved for grand interiors / forum-like spaces).
+    # Each maps to one TileDecorator with its own paint.
     BRICK = "brick"
     FLAGSTONE = "flagstone"
+    OPUS_RETICULATUM = "opus_reticulatum"
 
 
 @dataclass
