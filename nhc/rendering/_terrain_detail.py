@@ -14,7 +14,7 @@ import random
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain
 from nhc.rendering._decorators import TileDecorator, walk_and_paint
-from nhc.rendering._floor_detail import _TERRAIN_TYPES, _dungeon_interior_clip
+from nhc.rendering._floor_detail import _dungeon_interior_clip
 from nhc.rendering._svg_helpers import CELL
 from nhc.rendering.terrain_palette import ROOM_TYPE_TINTS, get_palette
 
@@ -342,11 +342,3 @@ def _render_terrain_detail(
         tile_bucket=_terrain_tile_bucket,
         room_clip_id="terrain-detail-clip",
     ))
-
-
-_TERRAIN_DETAIL_FN = {
-    Terrain.WATER: _water_detail,
-    Terrain.GRASS: _grass_detail,
-    Terrain.LAVA: _lava_detail,
-    Terrain.CHASM: _chasm_detail,
-}
