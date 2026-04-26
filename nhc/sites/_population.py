@@ -29,6 +29,14 @@ if TYPE_CHECKING:
     from nhc.sites._site import Site
 
 
+# Site surface tile selection accepts any walkable terrain. Phase 3a
+# of the rendering refactor flipped GARDEN tiles to ``Terrain.GRASS``
+# so the theme grass tint paints under the hoe-row overlay; service
+# NPCs etc. still need to stand on those tiles, hence the broadened
+# allow-list (Phase 3b extends this to FIELD tiles).
+_SURFACE_WALKABLE = (Terrain.FLOOR, Terrain.GRASS)
+
+
 @dataclass(frozen=True)
 class PopulationEntry:
     """One entry in a site's population spec.
@@ -374,7 +382,7 @@ def _pick_door_adjacent_tile(
             (dx, dy - 1), (dx, dy + 1),
         ):
             tile = surface.tile_at(ax, ay)
-            if tile is None or tile.terrain != Terrain.FLOOR:
+            if tile is None or tile.terrain not in _SURFACE_WALKABLE:
                 continue
             if tile.feature is not None:
                 continue
@@ -393,7 +401,7 @@ def _pick_feature_adjacent_tile(
     rng: random.Random,
     surface_used: set[tuple[int, int]],
 ) -> "tuple[int, int] | None":
-    """Surface FLOOR tile orthogonally adjacent to ``feature_tile``."""
+    """Surface walkable tile orthogonally adjacent to ``feature_tile``."""
     fx, fy = feature_tile
     surface = site.surface
     candidates: list[tuple[int, int]] = []
@@ -404,7 +412,7 @@ def _pick_feature_adjacent_tile(
         if (ax, ay) in surface_used:
             continue
         tile = surface.tile_at(ax, ay)
-        if tile is None or tile.terrain != Terrain.FLOOR:
+        if tile is None or tile.terrain not in _SURFACE_WALKABLE:
             continue
         if tile.feature is not None:
             continue
@@ -439,7 +447,7 @@ def _pick_open_surface_tile(
             if (x, y) in blocked:
                 continue
             tile = surface.tile_at(x, y)
-            if tile is None or tile.terrain != Terrain.FLOOR:
+            if tile is None or tile.terrain not in _SURFACE_WALKABLE:
                 continue
             if tile.feature is not None:
                 continue

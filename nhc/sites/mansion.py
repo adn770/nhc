@@ -425,13 +425,15 @@ def _build_mansion_surface(
 
     # Every outdoor tile is garden. Mansions sit on continuous
     # manicured grounds -- buildings are the only non-garden
-    # surface.
+    # surface. GARDEN tiles use Terrain.GRASS so the theme grass
+    # tint paints the base look; the GARDEN tag layers a hoe-row
+    # overlay on top via the rendering pipeline.
     for y in range(surface.height):
         for x in range(surface.width):
             if (x, y) in blocked:
                 continue
             surface.tiles[y][x] = Tile(
-                terrain=Terrain.FLOOR,
+                terrain=Terrain.GRASS,
                 surface_type=SurfaceType.GARDEN,
             )
     return surface

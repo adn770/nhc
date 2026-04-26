@@ -29,13 +29,16 @@ _SITE_KINDS_WITH_BUILDINGS = (
 )
 
 
+_SURFACE_WALKABLE = (Terrain.FLOOR, Terrain.GRASS)
+
+
 def _walkable_neighbour_count(surface, x, y) -> int:
     count = 0
     for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
         nx, ny = x + dx, y + dy
         if not surface.in_bounds(nx, ny):
             continue
-        if surface.tiles[ny][nx].terrain == Terrain.FLOOR:
+        if surface.tiles[ny][nx].terrain in _SURFACE_WALKABLE:
             count += 1
     return count
 
@@ -53,9 +56,9 @@ def test_every_surface_door_has_walkable_approach(kind: str) -> None:
             if not site.surface.in_bounds(sx, sy):
                 continue
             tile = site.surface.tiles[sy][sx]
-            assert tile.terrain == Terrain.FLOOR, (
+            assert tile.terrain in _SURFACE_WALKABLE, (
                 f"{kind}/seed {seed}: door of {bid} at "
-                f"({sx},{sy}) is not FLOOR"
+                f"({sx},{sy}) is not walkable"
             )
             assert _walkable_neighbour_count(
                 site.surface, sx, sy,
@@ -102,7 +105,7 @@ def test_no_void_ring_flanks_rect_buildings(kind: str) -> None:
                     if not site.surface.in_bounds(nx, ny):
                         continue
                     tile = site.surface.tiles[ny][nx]
-                    assert tile.terrain == Terrain.FLOOR, (
+                    assert tile.terrain in _SURFACE_WALKABLE, (
                         f"{kind}/seed {seed}: footprint at "
                         f"({x},{y}) has VOID neighbour "
                         f"({nx},{ny}) -- buffer ring still in "

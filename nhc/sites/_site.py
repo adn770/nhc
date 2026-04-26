@@ -248,13 +248,23 @@ def paint_surface_doors(
         if not surface.in_bounds(sx, sy):
             continue
         existing = surface.tiles[sy][sx]
-        if (existing.terrain == Terrain.FLOOR
+        # Phase 3a/3b: GARDEN / FIELD tiles render on Terrain.GRASS
+        # so the theme grass tint paints under the overlay. Treat
+        # FLOOR or GRASS as "this tile is already part of the
+        # painted surface" and preserve its surface_type + terrain.
+        if (existing.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 and existing.surface_type is not None):
             surface_type = existing.surface_type
+            terrain = existing.terrain
         else:
             surface_type = default_surface
+            terrain = (
+                Terrain.GRASS
+                if default_surface is SurfaceType.GARDEN
+                else Terrain.FLOOR
+            )
         surface.tiles[sy][sx] = Tile(
-            terrain=Terrain.FLOOR,
+            terrain=terrain,
             feature="door_closed",
             surface_type=surface_type,
             door_side=_compass(bx - sx, by - sy),

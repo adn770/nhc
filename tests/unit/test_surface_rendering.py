@@ -103,11 +103,15 @@ class TestFieldSurface:
 
 class TestGardenSurface:
     def test_garden_tile_emits_green_tint(self):
-        from nhc.rendering._floor_detail import GARDEN_TINT
+        """Phase 3a moved garden tiles to ``Terrain.GRASS`` so the
+        theme grass tint paints under the hoe-row overlay."""
+        from nhc.rendering.terrain_palette import get_palette
         level = _blank_level()
+        level.tiles[4][4].terrain = Terrain.GRASS
         level.tiles[4][4].surface_type = SurfaceType.GARDEN
         svg = render_floor_svg(level, seed=42)
-        assert GARDEN_TINT in svg
+        grass_tint = get_palette("dungeon").grass.tint
+        assert grass_tint in svg
 
     def test_garden_tile_emits_wobbly_grid(self):
         """Garden uses dungeon-style line detail in its own colour."""
@@ -115,12 +119,14 @@ class TestGardenSurface:
         level = _blank_level(20, 20)
         for y in range(20):
             for x in range(20):
+                level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.GARDEN
         svg = render_floor_svg(level, seed=42)
         assert GARDEN_LINE_STROKE in svg
 
     def test_garden_surface_skips_cobblestones(self):
         level = _blank_level()
+        level.tiles[5][5].terrain = Terrain.GRASS
         level.tiles[5][5].surface_type = SurfaceType.GARDEN
         svg = render_floor_svg(level, seed=42)
         assert "#8A7A6A" not in svg
@@ -132,23 +138,26 @@ class TestGardenSurface:
         level = _blank_level(10, 10)
         for y in range(10):
             for x in range(10):
+                level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.GARDEN
         svg = render_floor_svg(level, seed=42)
         assert FIELD_STONE_FILL not in svg
 
 
 class TestFieldVsGardenPalette:
-    def test_field_and_garden_use_green_family(self):
-        from nhc.rendering._floor_detail import FIELD_TINT, GARDEN_TINT
-        # Both live in the green family; they may match exactly or
-        # differ slightly, but neither should be a grey or brown.
-        for hx in (FIELD_TINT, GARDEN_TINT):
-            assert hx.startswith("#")
-            # crude "green family" check: green channel dominates
-            r, g, b = (
-                int(hx[1:3], 16), int(hx[3:5], 16), int(hx[5:7], 16),
-            )
-            assert g >= r and g >= b
+    def test_field_uses_green_family(self):
+        from nhc.rendering._floor_detail import FIELD_TINT
+        # FIELD_TINT lives in the green family; it may match the
+        # palette grass tint or differ slightly, but should never
+        # be a grey or brown. (GARDEN no longer carries its own
+        # tint constant -- it inherits the palette grass tint.)
+        assert FIELD_TINT.startswith("#")
+        r, g, b = (
+            int(FIELD_TINT[1:3], 16),
+            int(FIELD_TINT[3:5], 16),
+            int(FIELD_TINT[5:7], 16),
+        )
+        assert g >= r and g >= b
 
 
 class TestWoodInteriorFloor:

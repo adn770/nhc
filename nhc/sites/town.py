@@ -704,10 +704,9 @@ def _place_entry_door(
         if surface is not None and surface.in_bounds(*nb):
             nb_tile = surface.tiles[nb[1]][nb[0]]
             nb_st = nb_tile.surface_type
-            if nb_tile.terrain != Terrain.FLOOR:
-                # Outside the palisade or on a building edge --
-                # the surface tile is still VOID. Skip; the
-                # door must face a walkable surface tile.
+            # Doors must face a walkable surface tile -- FLOOR for
+            # STREET / FIELD, GRASS for the Phase 3a GARDEN flip.
+            if nb_tile.terrain not in (Terrain.FLOOR, Terrain.GRASS):
                 continue
         else:
             nb_st = None

@@ -304,14 +304,22 @@ def _build_farm_surface(
     surface.metadata.theme = "farm"
     surface.metadata.prerevealed = True
     # Fill surface: FIELD everywhere open, GARDEN in the ring.
+    # GARDEN tiles render as GRASS terrain so the theme grass tint
+    # + blade strokes paint the base look (Phase 3a of the
+    # rendering refactor).
     for y in range(surface.height):
         for x in range(surface.width):
             if (x, y) in blocked:
                 continue
-            tile = Tile(terrain=Terrain.FLOOR)
             if (x, y) in garden_tiles:
-                tile.surface_type = SurfaceType.GARDEN
+                tile = Tile(
+                    terrain=Terrain.GRASS,
+                    surface_type=SurfaceType.GARDEN,
+                )
             else:
-                tile.surface_type = SurfaceType.FIELD
+                tile = Tile(
+                    terrain=Terrain.FLOOR,
+                    surface_type=SurfaceType.FIELD,
+                )
             surface.tiles[y][x] = tile
     return surface

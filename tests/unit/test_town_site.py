@@ -158,7 +158,7 @@ class TestTownSurface:
             total_segments += d.count("M")
         n_floor = sum(
             1 for row in site.surface.tiles for t in row
-            if t.terrain == Terrain.FLOOR
+            if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
         )
         # Right + bottom edge per tile => 2 segments; each grid
         # segment can contribute up to 2 M commands when
@@ -245,7 +245,7 @@ class TestTownSurfaceReachability:
             if not site.surface.in_bounds(nx, ny):
                 continue
             t = site.surface.tiles[ny][nx]
-            if t.terrain == Terrain.FLOOR:
+            if t.terrain in (Terrain.FLOOR, Terrain.GRASS):
                 count += 1
         return count
 
@@ -260,9 +260,9 @@ class TestTownSurfaceReachability:
                 if not site.surface.in_bounds(sx, sy):
                     continue
                 tile = site.surface.tiles[sy][sx]
-                assert tile.terrain == Terrain.FLOOR, (
+                assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS), (
                     f"seed {seed}: surface door of {bid} at "
-                    f"({sx},{sy}) is not FLOOR"
+                    f"({sx},{sy}) is not walkable"
                 )
                 assert self._walkable_neighbour_count(
                     site, sx, sy,
@@ -310,7 +310,9 @@ class TestTownSurfaceReachability:
                     if not site.surface.in_bounds(nx, ny):
                         continue
                     tile = site.surface.tiles[ny][nx]
-                    assert tile.terrain == Terrain.FLOOR, (
+                    assert tile.terrain in (
+                        Terrain.FLOOR, Terrain.GRASS,
+                    ), (
                         f"building {b.id} footprint at ({x},{y}) "
                         f"has VOID neighbour ({nx},{ny}) inside "
                         "palisade -- buffer ring should be gone"

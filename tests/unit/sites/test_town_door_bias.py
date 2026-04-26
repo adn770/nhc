@@ -218,9 +218,15 @@ class TestDoorPlacementSafety:
                     f"({sx},{sy}) outside surface bounds"
                 )
                 tile = site.surface.tiles[sy][sx]
-                assert tile.terrain == Terrain.FLOOR, (
+                # Phase 3a/3b: GARDEN / FIELD doors render on
+                # Terrain.GRASS so the surface picks up the theme
+                # grass tint. Either FLOOR or GRASS counts as
+                # walkable for door placement.
+                assert tile.terrain in (
+                    Terrain.FLOOR, Terrain.GRASS,
+                ), (
                     f"seed={seed} {size_class}: door of {bid} at "
-                    f"({sx},{sy}) is not FLOOR"
+                    f"({sx},{sy}) is not walkable terrain"
                 )
                 assert tile.surface_type in (
                     SurfaceType.STREET, SurfaceType.GARDEN,

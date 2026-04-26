@@ -995,7 +995,13 @@ def _make_surface_patch_level(
             break
         for dy in range(patch_h):
             for dx in range(patch_w):
-                level.tiles[2 + dy][x0 + dx].surface_type = st
+                tile = level.tiles[2 + dy][x0 + dx]
+                tile.surface_type = st
+                # Phase 3a: GARDEN tiles render on Terrain.GRASS so
+                # the theme grass tint paints under the hoe-row
+                # overlay.
+                if st is SurfaceType.GARDEN:
+                    tile.terrain = Terrain.GRASS
     return level
 
 
@@ -1003,21 +1009,23 @@ def generate_surface_samples(outdir: Path) -> None:
     """Reference sheet with STREET / FIELD / GARDEN / wood patches."""
     from nhc.rendering._floor_detail import (
         FIELD_STONE_FILL, FIELD_TINT, GARDEN_LINE_STROKE,
-        GARDEN_TINT, WOOD_FLOOR_FILL, WOOD_GRAIN_DARK,
+        WOOD_FLOOR_FILL, WOOD_GRAIN_DARK,
         WOOD_GRAIN_LIGHT, WOOD_PLANK_LENGTH_MAX,
         WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
         WOOD_SEAM_STROKE,
     )
+    from nhc.rendering.terrain_palette import get_palette
 
     sdir = outdir / "surface_samples"
     sdir.mkdir(parents=True, exist_ok=True)
 
+    grass_tint = get_palette("dungeon").grass.tint
     stone_info = [
         "Stone interior + surface patch demo",
         "Patches L->R: STREET, FIELD, GARDEN, plain",
         f"FIELD tint: {FIELD_TINT} + stones "
         f"({FIELD_STONE_FILL})",
-        f"GARDEN tint: {GARDEN_TINT} + lines "
+        f"GARDEN: GRASS terrain tint {grass_tint} + hoe-rows "
         f"({GARDEN_LINE_STROKE})",
         "STREET: cobblestone pattern from legacy renderer",
     ]

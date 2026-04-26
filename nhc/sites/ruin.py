@@ -349,13 +349,21 @@ def _build_ruin_surface(
     min_y, max_y = min(ys), max(ys)
 
     default_surface = _default_surface_type(biome)
+    # GARDEN courtyard tiles render as GRASS terrain so the theme
+    # grass tint + blade strokes paint the base look; the GARDEN
+    # tag layers a hoe-row overlay (Phase 3a).
+    base_terrain = (
+        Terrain.GRASS
+        if default_surface is SurfaceType.GARDEN
+        else Terrain.FLOOR
+    )
     filled: list[tuple[int, int]] = []
     for y in range(max(0, min_y), min(surface.height, max_y)):
         for x in range(max(0, min_x), min(surface.width, max_x)):
             if (x, y) in blocked:
                 continue
             tile = Tile(
-                terrain=Terrain.FLOOR,
+                terrain=base_terrain,
                 surface_type=default_surface,
             )
             surface.tiles[y][x] = tile
@@ -447,7 +455,10 @@ def _pick_surface_tile(
             tile = surface.tile_at(x, y)
             if tile is None:
                 continue
-            if tile.terrain is not Terrain.FLOOR:
+            # Phase 3a: GARDEN tiles render on Terrain.GRASS so the
+            # theme grass tint paints under the hoe-row overlay.
+            # Treat both FLOOR and GRASS as walkable for spawning.
+            if tile.terrain not in (Terrain.FLOOR, Terrain.GRASS):
                 continue
             if tile.feature is not None:
                 continue

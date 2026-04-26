@@ -566,10 +566,20 @@ def paint_surface(
     surface: "Level",
     classification: dict[tuple[int, int], SurfaceType],
 ) -> None:
-    """Stamp each classified tile onto ``surface``."""
+    """Stamp each classified tile onto ``surface``.
+
+    GARDEN tiles render as ``Terrain.GRASS`` so the theme grass
+    tint + blade strokes appear; the GARDEN surface_type layers
+    a hoe-row overlay on top via the unified rendering pipeline.
+    """
     for (x, y), kind in classification.items():
         if not surface.in_bounds(x, y):
             continue
+        terrain = (
+            Terrain.GRASS
+            if kind is SurfaceType.GARDEN
+            else Terrain.FLOOR
+        )
         surface.tiles[y][x] = Tile(
-            terrain=Terrain.FLOOR, surface_type=kind,
+            terrain=terrain, surface_type=kind,
         )

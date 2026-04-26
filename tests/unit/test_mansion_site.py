@@ -95,22 +95,24 @@ def _door_tiles(level) -> list[tuple[int, int]]:
 
 class TestMansionSurface:
     def test_garden_fills_every_outdoor_tile(self):
-        """The entire outdoor area (every FLOOR tile outside the
-        building footprints) is GARDEN. No "lawn" NONE tiles."""
+        """The entire outdoor area (every walkable tile outside
+        the building footprints) is GARDEN. Phase 3a moved garden
+        tiles to ``Terrain.GRASS`` so the theme grass tint paints
+        under the hoe-row overlay."""
         from nhc.dungeon.model import Terrain
         site = assemble_mansion("m1", random.Random(1))
-        outdoor_floor = 0
+        outdoor_walkable = 0
         gardens = 0
         for row in site.surface.tiles:
             for t in row:
-                if t.terrain != Terrain.FLOOR:
+                if t.terrain not in (Terrain.FLOOR, Terrain.GRASS):
                     continue
-                outdoor_floor += 1
+                outdoor_walkable += 1
                 if t.surface_type == SurfaceType.GARDEN:
                     gardens += 1
-        assert outdoor_floor > 0
-        assert gardens == outdoor_floor, (
-            f"{outdoor_floor - gardens} FLOOR tiles outside "
+        assert outdoor_walkable > 0
+        assert gardens == outdoor_walkable, (
+            f"{outdoor_walkable - gardens} walkable tiles outside "
             f"the garden fill"
         )
 

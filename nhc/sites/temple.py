@@ -364,10 +364,22 @@ def _build_temple_surface(
         for x in range(surface.width):
             if (x, y) in blocked:
                 continue
-            tile = Tile(terrain=Terrain.FLOOR)
             if (x, y) in garden_tiles:
-                tile.surface_type = SurfaceType.GARDEN
+                # GARDEN -> GRASS terrain so the theme grass tint
+                # paints the base look (Phase 3a).
+                tile = Tile(
+                    terrain=Terrain.GRASS,
+                    surface_type=SurfaceType.GARDEN,
+                )
+            elif default_surface is SurfaceType.GARDEN:
+                tile = Tile(
+                    terrain=Terrain.GRASS,
+                    surface_type=SurfaceType.GARDEN,
+                )
             else:
-                tile.surface_type = default_surface
+                tile = Tile(
+                    terrain=Terrain.FLOOR,
+                    surface_type=default_surface,
+                )
             surface.tiles[y][x] = tile
     return surface

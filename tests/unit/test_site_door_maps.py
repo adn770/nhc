@@ -148,7 +148,7 @@ class TestSurfaceDoorPaint:
             site = assemble_keep("k1", random.Random(seed))
             for (sx, sy) in site.building_doors.keys():
                 tile = site.surface.tiles[sy][sx]
-                assert tile.terrain == Terrain.FLOOR
+                assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
     def test_town_surface_door_tiles_are_floor_with_door(self):
@@ -156,7 +156,7 @@ class TestSurfaceDoorPaint:
             site = assemble_town("t1", random.Random(seed))
             for (sx, sy) in site.building_doors.keys():
                 tile = site.surface.tiles[sy][sx]
-                assert tile.terrain == Terrain.FLOOR
+                assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
     def test_mansion_surface_door_tiles_are_floor_with_door(self):
@@ -166,7 +166,7 @@ class TestSurfaceDoorPaint:
                 if not site.surface.in_bounds(sx, sy):
                     continue
                 tile = site.surface.tiles[sy][sx]
-                assert tile.terrain == Terrain.FLOOR
+                assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
     def test_farm_surface_door_tiles_are_floor_with_door(self):
@@ -176,7 +176,7 @@ class TestSurfaceDoorPaint:
                 if not site.surface.in_bounds(sx, sy):
                     continue
                 tile = site.surface.tiles[sy][sx]
-                assert tile.terrain == Terrain.FLOOR
+                assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
                 assert tile.feature == "door_closed"
 
     def test_surface_door_is_outside_footprint(self):

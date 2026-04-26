@@ -150,16 +150,18 @@ def test_ruin_surface_has_biome_appropriate_floor_tiles(
     site = assemble_ruin(
         f"r_{biome.value}", random.Random(0), biome=biome,
     )
+    # Phase 3a routed GARDEN tiles to Terrain.GRASS for the theme
+    # grass tint; both FLOOR and GRASS count as walkable surface.
     walkable = sum(
         1 for row in site.surface.tiles
-        for t in row if t.terrain is Terrain.FLOOR
+        for t in row
+        if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
     )
     assert walkable > 0
-    # Forest ruins have a GARDEN ring; marsh ruins use FIELD; the
-    # other three biomes use bare FLOOR.
     surface_types = {
         t.surface_type for row in site.surface.tiles
-        for t in row if t.terrain is Terrain.FLOOR
+        for t in row
+        if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
     }
     if biome is Biome.FOREST:
         assert SurfaceType.GARDEN in surface_types
