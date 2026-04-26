@@ -697,30 +697,22 @@ def _render_floor_detail(
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
         _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
 
-    # Cobblestone overlay — STREET (town surfaces) + PAVED (keep
-    # interiors), via the unified TileDecorator pipeline.
+    # Phase 2 / 3a / 3b decorators — cobblestone, garden, field,
+    # cart tracks, ore deposits. All run through the unified
+    # TileDecorator pipeline so adding biome variants is one new
+    # entry per decorator.
     from nhc.rendering._decorators import walk_and_paint
     svg.extend(walk_and_paint(
-        ctx, [COBBLESTONE, COBBLE_STONE], layer_name="floor_detail",
+        ctx,
+        [
+            COBBLESTONE, COBBLE_STONE,
+            FIELD_STONE,
+            GARDEN_LINE,
+            CART_TRACK_RAILS, CART_TRACK_TIES,
+            ORE_DEPOSIT,
+        ],
+        layer_name="floor_detail",
     ))
-
-    # Field surface detail — still uses the legacy loop until
-    # Phase 3b flips it to a decorator.
-    _render_field_surface(svg, level, rng)
-
-    # Garden hoe-row overlay — Phase 3a moved garden tiles to
-    # Terrain.GRASS so the theme tint + blade strokes paint the
-    # base look automatically. The decorator just adds the hoe-row
-    # lines on top.
-    svg.extend(walk_and_paint(
-        ctx, [GARDEN_LINE], layer_name="floor_detail",
-    ))
-
-    # Mine cart tracks — rendered on SurfaceType.TRACK tiles
-    _render_cart_tracks(svg, level)
-
-    # Ore deposits — rendered on wall tiles with ore_deposit feature
-    _render_ore_deposits(svg, level, rng)
 
 
 # ── Cobblestone (STREET + PAVED) ─────────────────────────────
@@ -831,8 +823,12 @@ COBBLE_STONE = TileDecorator(
 
 # ── Field and garden surfaces (tunable constants) ─────────────
 
+# FIELD_TINT is retained for sample-generator info panels and the
+# legacy "green family" sanity test. The Phase 3b grass-overlay
+# pipeline no longer uses it as a fill -- the theme grass tint
+# from ``terrain_palette.get_palette(theme).grass.tint`` paints
+# the base; this constant is the historical hardcoded green.
 FIELD_TINT = "#6B8A56"
-FIELD_TINT_OPACITY = 0.15
 FIELD_STONE_FILL = "#8A9A6A"
 FIELD_STONE_STROKE = "#4A5A3A"
 FIELD_STONE_PROBABILITY = 0.10
@@ -842,36 +838,25 @@ GARDEN_LINE_WIDTH = 0.5
 GARDEN_LINE_PROBABILITY = 0.35
 
 
-def _render_field_surface(
-    svg: list[str], level: "Level", rng: random.Random,
-) -> None:
-    """Draw cultivated-field detail on SurfaceType.FIELD tiles.
+def _is_field_overlay_tile(level: "Level", x: int, y: int) -> bool:
+    """Predicate for the FIELD_STONE decorator.
 
-    Emits a subtle green tint per tile plus sparse stone ellipses
-    at ``FIELD_STONE_PROBABILITY``. No cracks, no scratches.
+    Phase 3b moved field tiles to ``Terrain.GRASS`` so the theme
+    grass tint + blade strokes paint the base look; the decorator
+    only adds the scattered-stone overlay.
     """
-    tints: list[str] = []
-    stones: list[str] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.surface_type != SurfaceType.FIELD:
-                continue
-            px, py = x * CELL, y * CELL
-            tints.append(
-                f'<rect x="{px}" y="{py}" '
-                f'width="{CELL}" height="{CELL}" '
-                f'fill="{FIELD_TINT}" '
-                f'opacity="{FIELD_TINT_OPACITY}"/>'
-            )
-            if rng.random() < FIELD_STONE_PROBABILITY:
-                stones.append(_field_stone(rng, px, py))
-    if tints:
-        svg.append("".join(tints))
-    if stones:
-        svg.append(
-            f'<g opacity="0.8">{"".join(stones)}</g>'
-        )
+    tile = level.tiles[y][x]
+    return (
+        tile.terrain is Terrain.GRASS
+        and tile.surface_type is SurfaceType.FIELD
+    )
+
+
+def _field_stone_paint(args) -> list[str]:
+    """Probabilistic scattered stone for one field tile."""
+    if args.rng.random() >= FIELD_STONE_PROBABILITY:
+        return []
+    return [_field_stone(args.rng, args.px, args.py)]
 
 
 def _field_stone(
@@ -890,6 +875,16 @@ def _field_stone(
         f'stroke="{FIELD_STONE_STROKE}" '
         f'stroke-width="0.5"/>'
     )
+
+
+FIELD_STONE = TileDecorator(
+    name="field_stone",
+    layer="floor_detail",
+    predicate=_is_field_overlay_tile,
+    paint=_field_stone_paint,
+    group_open='<g opacity="0.8">',
+    z_order=15,
+)
 
 
 def _is_garden_overlay_tile(level: "Level", x: int, y: int) -> bool:
@@ -1198,80 +1193,85 @@ _TRACK_RAIL = "#6A5A4A"
 _TRACK_TIE = "#8A7A5A"
 
 
-def _render_cart_tracks(
-    svg: list[str], level: "Level",
-) -> None:
-    """Draw parallel rails plus cross-ties on SurfaceType.TRACK tiles.
+def _is_track_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].surface_type is SurfaceType.TRACK
 
-    Rails run along the dominant corridor direction: tiles with
-    horizontal track neighbours get east-west rails, otherwise
-    north-south. Ties are drawn as short perpendicular lines.
-    """
-    segments: list[str] = []
-    ties: list[str] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.surface_type != SurfaceType.TRACK:
-                continue
-            # Decide orientation from neighbours
-            e = level.tile_at(x + 1, y)
-            w = level.tile_at(x - 1, y)
-            horizontal = (
-                (e is not None
-                 and e.surface_type == SurfaceType.TRACK)
-                or (w is not None
-                    and w.surface_type == SurfaceType.TRACK)
-            )
-            px, py = x * CELL, y * CELL
-            cx, cy = px + CELL / 2, py + CELL / 2
-            if horizontal:
-                # Two horizontal rails, tie every tile
-                y1 = py + CELL * 0.35
-                y2 = py + CELL * 0.65
-                segments.append(
-                    f'<line x1="{px:.1f}" y1="{y1:.1f}" '
-                    f'x2="{px + CELL:.1f}" y2="{y1:.1f}"/>'
-                )
-                segments.append(
-                    f'<line x1="{px:.1f}" y1="{y2:.1f}" '
-                    f'x2="{px + CELL:.1f}" y2="{y2:.1f}"/>'
-                )
-                ties.append(
-                    f'<line x1="{cx:.1f}" y1="{y1 - 1:.1f}" '
-                    f'x2="{cx:.1f}" y2="{y2 + 1:.1f}"/>'
-                )
-            else:
-                # Two vertical rails
-                x1 = px + CELL * 0.35
-                x2 = px + CELL * 0.65
-                segments.append(
-                    f'<line x1="{x1:.1f}" y1="{py:.1f}" '
-                    f'x2="{x1:.1f}" y2="{py + CELL:.1f}"/>'
-                )
-                segments.append(
-                    f'<line x1="{x2:.1f}" y1="{py:.1f}" '
-                    f'x2="{x2:.1f}" y2="{py + CELL:.1f}"/>'
-                )
-                ties.append(
-                    f'<line x1="{x1 - 1:.1f}" y1="{cy:.1f}" '
-                    f'x2="{x2 + 1:.1f}" y2="{cy:.1f}"/>'
-                )
-    if not segments:
-        return
-    svg.append(
+
+def _track_horizontal_at(level: "Level", x: int, y: int) -> bool:
+    """Pick rail orientation for a TRACK tile from its neighbours."""
+    e = level.tile_at(x + 1, y)
+    w = level.tile_at(x - 1, y)
+    return (
+        (e is not None and e.surface_type is SurfaceType.TRACK)
+        or (w is not None and w.surface_type is SurfaceType.TRACK)
+    )
+
+
+def _cart_track_rails_paint(args) -> list[str]:
+    """Two parallel rails for one TRACK tile."""
+    px, py = args.px, args.py
+    if _track_horizontal_at(args.ctx.level, args.x, args.y):
+        y1 = py + CELL * 0.35
+        y2 = py + CELL * 0.65
+        return [
+            f'<line x1="{px:.1f}" y1="{y1:.1f}" '
+            f'x2="{px + CELL:.1f}" y2="{y1:.1f}"/>',
+            f'<line x1="{px:.1f}" y1="{y2:.1f}" '
+            f'x2="{px + CELL:.1f}" y2="{y2:.1f}"/>',
+        ]
+    x1 = px + CELL * 0.35
+    x2 = px + CELL * 0.65
+    return [
+        f'<line x1="{x1:.1f}" y1="{py:.1f}" '
+        f'x2="{x1:.1f}" y2="{py + CELL:.1f}"/>',
+        f'<line x1="{x2:.1f}" y1="{py:.1f}" '
+        f'x2="{x2:.1f}" y2="{py + CELL:.1f}"/>',
+    ]
+
+
+def _cart_track_ties_paint(args) -> list[str]:
+    """One cross-tie for one TRACK tile."""
+    px, py = args.px, args.py
+    cx, cy = px + CELL / 2, py + CELL / 2
+    if _track_horizontal_at(args.ctx.level, args.x, args.y):
+        y1 = py + CELL * 0.35
+        y2 = py + CELL * 0.65
+        return [
+            f'<line x1="{cx:.1f}" y1="{y1 - 1:.1f}" '
+            f'x2="{cx:.1f}" y2="{y2 + 1:.1f}"/>'
+        ]
+    x1 = px + CELL * 0.35
+    x2 = px + CELL * 0.65
+    return [
+        f'<line x1="{x1 - 1:.1f}" y1="{cy:.1f}" '
+        f'x2="{x2 + 1:.1f}" y2="{cy:.1f}"/>'
+    ]
+
+
+CART_TRACK_RAILS = TileDecorator(
+    name="cart_track_rails",
+    layer="floor_detail",
+    predicate=_is_track_tile,
+    paint=_cart_track_rails_paint,
+    group_open=(
         f'<g id="cart-tracks" opacity="0.55" '
         f'stroke="{_TRACK_RAIL}" stroke-width="0.9" '
         f'stroke-linecap="round">'
-        f'{"".join(segments)}</g>'
-    )
-    if ties:
-        svg.append(
-            f'<g id="cart-track-ties" opacity="0.5" '
-            f'stroke="{_TRACK_TIE}" stroke-width="1.4" '
-            f'stroke-linecap="round">'
-            f'{"".join(ties)}</g>'
-        )
+    ),
+    z_order=30,
+)
+CART_TRACK_TIES = TileDecorator(
+    name="cart_track_ties",
+    layer="floor_detail",
+    predicate=_is_track_tile,
+    paint=_cart_track_ties_paint,
+    group_open=(
+        f'<g id="cart-track-ties" opacity="0.5" '
+        f'stroke="{_TRACK_TIE}" stroke-width="1.4" '
+        f'stroke-linecap="round">'
+    ),
+    z_order=31,
+)
 
 
 # ── Ore deposits ─────────────────────────────────────────────
@@ -1280,32 +1280,34 @@ _ORE_FILL = "#D4B14A"
 _ORE_STROKE = "#6A4A1A"
 
 
-def _render_ore_deposits(
-    svg: list[str], level: "Level", rng: random.Random,
-) -> None:
-    """Mark ore_deposit wall tiles with a small diamond glint."""
-    marks: list[str] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.feature != "ore_deposit":
-                continue
-            px, py = x * CELL, y * CELL
-            cx = px + CELL / 2 + rng.uniform(-1.0, 1.0)
-            cy = py + CELL / 2 + rng.uniform(-1.0, 1.0)
-            r = rng.uniform(1.8, 2.6)
-            # Diamond shape
-            marks.append(
-                f'<polygon points="'
-                f'{cx:.1f},{cy - r:.1f} '
-                f'{cx + r:.1f},{cy:.1f} '
-                f'{cx:.1f},{cy + r:.1f} '
-                f'{cx - r:.1f},{cy:.1f}"/>'
-            )
-    if not marks:
-        return
-    svg.append(
+def _is_ore_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].feature == "ore_deposit"
+
+
+def _ore_deposit_paint(args) -> list[str]:
+    """Diamond glint for one ore-deposit wall tile."""
+    rng = args.rng
+    px, py = args.px, args.py
+    cx = px + CELL / 2 + rng.uniform(-1.0, 1.0)
+    cy = py + CELL / 2 + rng.uniform(-1.0, 1.0)
+    r = rng.uniform(1.8, 2.6)
+    return [
+        f'<polygon points="'
+        f'{cx:.1f},{cy - r:.1f} '
+        f'{cx + r:.1f},{cy:.1f} '
+        f'{cx:.1f},{cy + r:.1f} '
+        f'{cx - r:.1f},{cy:.1f}"/>'
+    ]
+
+
+ORE_DEPOSIT = TileDecorator(
+    name="ore_deposit",
+    layer="floor_detail",
+    predicate=_is_ore_tile,
+    paint=_ore_deposit_paint,
+    group_open=(
         f'<g id="ore-deposits" fill="{_ORE_FILL}" '
         f'stroke="{_ORE_STROKE}" stroke-width="0.4">'
-        f'{"".join(marks)}</g>'
-    )
+    ),
+    z_order=40,
+)

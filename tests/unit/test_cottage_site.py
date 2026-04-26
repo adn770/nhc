@@ -71,9 +71,11 @@ def test_assemble_cottage_has_walkable_surface_ring_around_building() -> None:
         "c4", random.Random(0), biome=Biome.FOREST,
     )
     surface = site.surface
+    # Phase 3a/3b: GARDEN + FIELD ride on Terrain.GRASS so
+    # walkable tiles include both FLOOR and GRASS terrain.
     walkable = sum(
-        1 for row in surface.tiles
-        for t in row if t.terrain is Terrain.FLOOR
+        1 for row in surface.tiles for t in row
+        if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
     )
     assert walkable > 0
     # GARDEN ring specifically, per the design doc.

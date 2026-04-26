@@ -40,7 +40,9 @@ def assemble_orchard(
     cx, cy = _pick_feature_tile(width, height, rng)
     center = surface.tile_at(cx, cy)
     if center is not None:
-        center.terrain = Terrain.FLOOR
+        # Phase 3b: FIELD tiles render on Terrain.GRASS so the
+        # theme grass tint paints under the scattered-stone overlay.
+        center.terrain = Terrain.GRASS
         center.feature = "tree"
         center.surface_type = SurfaceType.FIELD
     _scatter_orchard_trees(surface, (cx, cy), rng)
@@ -73,7 +75,8 @@ def _build_orchard_surface(
             if on_border:
                 tile.terrain = Terrain.WALL
             else:
-                tile.terrain = Terrain.FLOOR
+                # FIELD -> GRASS terrain (Phase 3b).
+                tile.terrain = Terrain.GRASS
                 tile.surface_type = SurfaceType.FIELD
     return surface
 
@@ -105,7 +108,9 @@ def _scatter_orchard_trees(
             tx = cx + dx * _TREE_SCATTER_STRIDE + rng.randint(-1, 1)
             ty = cy + dy * _TREE_SCATTER_STRIDE + rng.randint(-1, 1)
             tile = surface.tile_at(tx, ty)
-            if tile is None or tile.terrain is not Terrain.FLOOR:
+            # Phase 3b: orchard surface tiles ride on Terrain.GRASS
+            # so the theme grass tint paints under the canopy.
+            if tile is None or tile.terrain is not Terrain.GRASS:
                 continue
             if tile.feature:
                 continue

@@ -94,13 +94,14 @@ class TestFarmSurface:
     def test_field_dominates_surface(self):
         """Fields cover a large fraction of the surface level."""
         site = assemble_farm("f1", random.Random(1))
-        total_floor = sum(
-            1 for row in site.surface.tiles
-            for t in row if t.terrain == Terrain.FLOOR
+        # Phase 3a/3b: GARDEN + FIELD tiles ride on Terrain.GRASS.
+        total_walkable = sum(
+            1 for row in site.surface.tiles for t in row
+            if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
         )
         field = _surface_count(site, SurfaceType.FIELD)
-        assert total_floor > 0
-        assert field / total_floor > 0.3
+        assert total_walkable > 0
+        assert field / total_walkable > 0.3
 
     def test_garden_ring_exists(self):
         """A few GARDEN tiles surround the farmhouse."""

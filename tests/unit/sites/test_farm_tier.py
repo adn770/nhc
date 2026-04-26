@@ -77,12 +77,13 @@ class TestTinyFarm:
         site = assemble_farm(
             "f1", random.Random(1), tier=SiteTier.TINY,
         )
-        total_floor = sum(
-            1 for row in site.surface.tiles
-            for t in row if t.terrain == Terrain.FLOOR
+        # Phase 3a/3b: walkable tiles ride on FLOOR or GRASS.
+        total_walkable = sum(
+            1 for row in site.surface.tiles for t in row
+            if t.terrain in (Terrain.FLOOR, Terrain.GRASS)
         )
         field = _count_surface(site, SurfaceType.FIELD)
-        assert total_floor > 0
+        assert total_walkable > 0
         assert field > 0
 
     def test_surface_has_garden_ring(self):

@@ -778,6 +778,14 @@ def _scatter_town_vegetation(
 
     for y, row in enumerate(surface.tiles):
         for x, tile in enumerate(row):
+            # Phase 3b: FIELD tiles render on Terrain.GRASS so the
+            # theme grass tint paints under the scattered-stone
+            # overlay. Restrict tree scatter to the GRASS-tagged
+            # FIELD pool to make the "trees grow on grass" intent
+            # explicit (matches today's behavior since every
+            # FIELD tile now carries GRASS terrain).
+            if tile.terrain is not Terrain.GRASS:
+                continue
             if tile.surface_type != SurfaceType.FIELD:
                 continue
             if tile.feature is not None:

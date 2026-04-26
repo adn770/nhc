@@ -568,17 +568,17 @@ def paint_surface(
 ) -> None:
     """Stamp each classified tile onto ``surface``.
 
-    GARDEN tiles render as ``Terrain.GRASS`` so the theme grass
-    tint + blade strokes appear; the GARDEN surface_type layers
-    a hoe-row overlay on top via the unified rendering pipeline.
+    GARDEN and FIELD tiles render as ``Terrain.GRASS`` so the
+    theme grass tint + blade strokes appear; their surface_type
+    tags layer a hoe-row or scattered-stone overlay on top via
+    the unified rendering pipeline.
     """
+    grass_kinds = (SurfaceType.GARDEN, SurfaceType.FIELD)
     for (x, y), kind in classification.items():
         if not surface.in_bounds(x, y):
             continue
         terrain = (
-            Terrain.GRASS
-            if kind is SurfaceType.GARDEN
-            else Terrain.FLOOR
+            Terrain.GRASS if kind in grass_kinds else Terrain.FLOOR
         )
         surface.tiles[y][x] = Tile(
             terrain=terrain, surface_type=kind,

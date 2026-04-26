@@ -285,17 +285,18 @@ def _build_cottage_surface(
         for x in range(surface.width):
             if (x, y) in blocked:
                 continue
+            # GARDEN and FIELD tiles both render on Terrain.GRASS
+            # so the theme grass tint + blade strokes paint the
+            # base look; the surface_type tag layers a hoe-row
+            # (GARDEN) or scattered-stone (FIELD) overlay on top.
             if (x, y) in garden_tiles:
-                # GARDEN tiles render as GRASS terrain so the theme
-                # tint + blade strokes paint the base look; the
-                # garden hoe-row overlay rides on top.
                 tile = Tile(
                     terrain=Terrain.GRASS,
                     surface_type=SurfaceType.GARDEN,
                 )
             else:
                 tile = Tile(
-                    terrain=Terrain.FLOOR,
+                    terrain=Terrain.GRASS,
                     surface_type=SurfaceType.FIELD,
                 )
             surface.tiles[y][x] = tile

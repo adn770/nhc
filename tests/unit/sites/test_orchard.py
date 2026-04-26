@@ -79,10 +79,11 @@ class TestOrchardFeatureTiles:
             feature=MinorFeatureType.ORCHARD,
             tier=SiteTier.MEDIUM,
         )
+        # Phase 3b: orchard tiles ride on Terrain.GRASS.
         for tx, ty in _feature_tiles(site.surface, "tree"):
             tile = site.surface.tile_at(tx, ty)
             assert tile is not None
-            assert tile.terrain == Terrain.FLOOR
+            assert tile.terrain in (Terrain.FLOOR, Terrain.GRASS)
 
 
 class TestOrchardSurface:

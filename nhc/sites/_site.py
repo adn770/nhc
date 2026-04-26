@@ -260,7 +260,9 @@ def paint_surface_doors(
             surface_type = default_surface
             terrain = (
                 Terrain.GRASS
-                if default_surface is SurfaceType.GARDEN
+                if default_surface in (
+                    SurfaceType.GARDEN, SurfaceType.FIELD,
+                )
                 else Terrain.FLOOR
             )
         surface.tiles[sy][sx] = Tile(

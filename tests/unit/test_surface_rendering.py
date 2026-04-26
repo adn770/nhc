@@ -67,17 +67,15 @@ class TestSurfaceTypeStreetRendering:
 
 class TestFieldSurface:
     def test_field_tile_emits_green_tint(self):
-        from nhc.rendering._floor_detail import FIELD_TINT
+        """Phase 3b moved field tiles to ``Terrain.GRASS`` so the
+        theme grass tint paints under the scattered-stone overlay."""
+        from nhc.rendering.terrain_palette import get_palette
         level = _blank_level()
+        level.tiles[4][4].terrain = Terrain.GRASS
         level.tiles[4][4].surface_type = SurfaceType.FIELD
         svg = render_floor_svg(level, seed=42)
-        assert FIELD_TINT in svg
-
-    def test_no_field_no_green(self):
-        from nhc.rendering._floor_detail import FIELD_TINT
-        level = _blank_level()
-        svg = render_floor_svg(level, seed=42)
-        assert FIELD_TINT not in svg
+        grass_tint = get_palette("dungeon").grass.tint
+        assert grass_tint in svg
 
     def test_field_tile_emits_stones(self):
         """Fields are lightly scattered with visible stones."""
@@ -87,6 +85,7 @@ class TestFieldSurface:
         level = _blank_level(20, 20)
         for y in range(20):
             for x in range(20):
+                level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.FIELD
         svg = render_floor_svg(level, seed=42)
         # Over 400 field tiles, the stone probability should produce
@@ -96,6 +95,7 @@ class TestFieldSurface:
     def test_field_surface_skips_cobblestones(self):
         """Field tiles never get the street's cobblestone style."""
         level = _blank_level()
+        level.tiles[5][5].terrain = Terrain.GRASS
         level.tiles[5][5].surface_type = SurfaceType.FIELD
         svg = render_floor_svg(level, seed=42)
         assert "#8A7A6A" not in svg

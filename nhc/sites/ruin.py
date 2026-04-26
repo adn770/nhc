@@ -349,12 +349,13 @@ def _build_ruin_surface(
     min_y, max_y = min(ys), max(ys)
 
     default_surface = _default_surface_type(biome)
-    # GARDEN courtyard tiles render as GRASS terrain so the theme
-    # grass tint + blade strokes paint the base look; the GARDEN
-    # tag layers a hoe-row overlay (Phase 3a).
+    # GARDEN / FIELD courtyard tiles render as GRASS terrain so
+    # the theme grass tint + blade strokes paint the base look;
+    # the surface_type tag layers a hoe-row (GARDEN) or scattered-
+    # stone (FIELD) overlay on top (Phase 3a + 3b).
     base_terrain = (
         Terrain.GRASS
-        if default_surface is SurfaceType.GARDEN
+        if default_surface in (SurfaceType.GARDEN, SurfaceType.FIELD)
         else Terrain.FLOOR
     )
     filled: list[tuple[int, int]] = []
