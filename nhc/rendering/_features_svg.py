@@ -524,6 +524,125 @@ _FOUNTAIN_DISPATCH = {
 }
 
 
+# ── Tree (Phase 4b: town periphery vegetation) ───────────────
+#
+# Single-canopy palette, biome variants deferred (Q4). Canopy
+# radius ~0.7 * CELL gives a medium-sized tree (~1.5 tiles wide)
+# so individual trees still feel substantial and adjacent trees
+# overlap into a dense grove. Phase 4a's scatter excludes tiles
+# 4-adjacent to building footprints so the canopy never bleeds
+# onto a building roof in the SVG render.
+
+TREE_CANOPY_FILL = "#6B8A56"
+"""Soft FIELD-tinted green; blends with the periphery wash."""
+
+TREE_CANOPY_STROKE = "#3F5237"
+"""Darker outline so the canopy reads as foliage on greenscale
+ surfaces."""
+
+TREE_CANOPY_STROKE_WIDTH = 1.2
+
+TREE_CANOPY_RADIUS = 0.7 * CELL
+
+TREE_CANOPY_JITTER_LOBES = 8
+"""Number of radial points sampled around the canopy outline.
+ Each lobe gets a +/- jitter so the silhouette breaks the clean
+ circle into something foliage-shaped."""
+
+TREE_CANOPY_JITTER_RANGE = 0.18 * CELL
+
+TREE_TRUNK_FILL = "#4A3320"
+TREE_TRUNK_STROKE = INK
+TREE_TRUNK_STROKE_WIDTH = 0.9
+TREE_TRUNK_RADIUS = 0.16 * CELL
+TREE_TRUNK_OFFSET_Y = 0.32 * CELL
+"""Trunk dot anchors slightly below the canopy centre so the
+ tree reads as standing on the tile rather than floating."""
+
+
+def _tree_canopy_jitter(tx: int, ty: int, lobe: int) -> float:
+    """Deterministic per-tile, per-lobe jitter in
+    ``[-TREE_CANOPY_JITTER_RANGE, +TREE_CANOPY_JITTER_RANGE]``.
+
+    Hash combines the tile coords with the lobe index so two
+    adjacent trees have visibly different silhouettes (otherwise
+    a grove of identical canopies looks tiled). No external RNG
+    is consumed -- the hash drives the jitter, keeping the
+    renderer pure.
+    """
+    h = (tx * 73856093) ^ (ty * 19349663) ^ (lobe * 83492791)
+    h = (h ^ (h >> 13)) & 0xFFFFFFFF
+    # Map to [-1, 1] then scale.
+    norm = (h / 0xFFFFFFFF) * 2.0 - 1.0
+    return norm * TREE_CANOPY_JITTER_RANGE
+
+
+def _tree_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
+    """Build the canopy polygon as an SVG ``d`` string.
+
+    Sample ``TREE_CANOPY_JITTER_LOBES`` points around the canopy
+    centre at evenly-spaced angles, with each radius jittered
+    deterministically. Returns a closed cubic-free path so the
+    silhouette reads as foliage rather than a clean circle.
+    """
+    step = (2 * math.pi) / TREE_CANOPY_JITTER_LOBES
+    points: list[tuple[float, float]] = []
+    for lobe in range(TREE_CANOPY_JITTER_LOBES):
+        angle = lobe * step
+        radius = TREE_CANOPY_RADIUS + _tree_canopy_jitter(
+            tx, ty, lobe,
+        )
+        px = cx + math.cos(angle) * radius
+        py = cy + math.sin(angle) * radius
+        points.append((px, py))
+    cmds: list[str] = []
+    for i, (px, py) in enumerate(points):
+        cmd = "M" if i == 0 else "L"
+        cmds.append(f"{cmd}{px:.2f},{py:.2f}")
+    cmds.append("Z")
+    return " ".join(cmds)
+
+
+def _tree_fragment_for_tile(tx: int, ty: int) -> str:
+    """SVG ``<g>`` fragment for a single tree at tile ``(tx, ty)``.
+
+    Composition (back to front):
+
+    * Brown trunk dot anchored slightly below the canopy centre.
+    * Soft green canopy polygon with deterministic jitter so
+      adjacent trees in a grove read as distinct silhouettes
+      rather than a tiled pattern.
+    """
+    cx = (tx + 0.5) * CELL
+    cy = (ty + 0.5) * CELL
+    trunk_cx = cx
+    trunk_cy = cy + TREE_TRUNK_OFFSET_Y
+    canopy_d = _tree_canopy_path(cx, cy, tx, ty)
+    parts = [
+        f'<g id="tree-{tx}-{ty}" class="tree-feature">',
+        (
+            f'<circle class="tree-trunk" cx="{trunk_cx:.2f}" '
+            f'cy="{trunk_cy:.2f}" r="{TREE_TRUNK_RADIUS:.2f}" '
+            f'fill="{TREE_TRUNK_FILL}" '
+            f'stroke="{TREE_TRUNK_STROKE}" '
+            f'stroke-width="{TREE_TRUNK_STROKE_WIDTH:.2f}"/>'
+        ),
+        (
+            f'<path class="tree-canopy" d="{canopy_d}" '
+            f'fill="{TREE_CANOPY_FILL}" '
+            f'stroke="{TREE_CANOPY_STROKE}" '
+            f'stroke-width="{TREE_CANOPY_STROKE_WIDTH:.2f}"/>'
+        ),
+        '</g>',
+    ]
+    return "".join(parts)
+
+
+_TREE_DISPATCH = {
+    "tree": _tree_fragment_for_tile,
+}
+
+
 def render_fountain_features(level: Level) -> list[str]:
     """SVG fragments for every fountain tile on ``level``.
 
@@ -555,6 +674,24 @@ def render_well_features(level: Level) -> list[str]:
     for y, row in enumerate(level.tiles):
         for x, tile in enumerate(row):
             fn = _WELL_DISPATCH.get(tile.feature)
+            if fn is not None:
+                out.append(fn(x, y))
+    return out
+
+
+def render_tree_features(level: Level) -> list[str]:
+    """SVG fragments for every tree tile on ``level``.
+
+    Dispatches on ``Tile.feature`` -- ``"tree"`` paints the
+    Phase 4b canopy + trunk decoration. Returns ``[]`` when the
+    level has no tree tiles. Single-canopy palette today (Q4);
+    biome variants (drylands ochre, icelands frosted, marsh
+    teal) follow when trees are visible in-context.
+    """
+    out: list[str] = []
+    for y, row in enumerate(level.tiles):
+        for x, tile in enumerate(row):
+            fn = _TREE_DISPATCH.get(tile.feature)
             if fn is not None:
                 out.append(fn(x, y))
     return out

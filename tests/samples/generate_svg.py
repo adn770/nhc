@@ -1184,10 +1184,13 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
     wdir = outdir / "well_demo"
     wdir.mkdir(parents=True, exist_ok=True)
 
-    # Layout: 24 x 12. Top row (y=3) for wells; bottom area
-    # (y=7..8) for fountains -- fountain anchors at top-left of
-    # the 2x2 footprint so its centre lands at (anchor+1, anchor+1).
-    width, height = 24, 12
+    # Layout: 24 x 16. Top row (y=3) for wells; middle rows (y=7..8)
+    # for fountains; bottom row (y=12) for the Q19 tree row -- one
+    # isolated tree + a small grove of three adjacent trees so the
+    # 0.7-cell canopy overlap is visible. Fountain anchors at the
+    # top-left of the 2x2 footprint so its centre lands at
+    # (anchor+1, anchor+1).
+    width, height = 24, 16
     for seed in seeds:
         level = Level.create_empty(
             "well_fountain_demo", "Wells + fountains", 1, width, height,
@@ -1204,6 +1207,8 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
         well_square = (11, 3)
         fountain_circle = (3, 7)   # spans (3,7)..(4,8)
         fountain_square = (10, 7)  # spans (10,7)..(11,8)
+        tree_solo = (4, 12)
+        tree_grove = [(11, 12), (12, 12), (13, 12), (14, 12)]
 
         level.tiles[well_circle[1]][well_circle[0]].feature = "well"
         level.tiles[well_square[1]][well_square[0]].feature = (
@@ -1215,19 +1220,26 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
         level.tiles[fountain_square[1]][fountain_square[0]].feature = (
             "fountain_square"
         )
+        level.tiles[tree_solo[1]][tree_solo[0]].feature = "tree"
+        for tx, ty in tree_grove:
+            level.tiles[ty][tx].feature = "tree"
 
         svg = render_floor_svg(level, seed=seed)
         svg = _inject_room_labels(svg, level)
         svg = _inject_feature_markers(svg, level)
         info = [
-            f"Wells + fountains comparison | seed={seed}",
+            f"Wells + fountains + trees comparison | seed={seed}",
             f"Top    L: well @ {well_circle} (circle keystones, 1x1)",
             f"Top    R: well_square @ {well_square} "
             "(perimeter stones, 1x1)",
-            f"Bottom L: fountain @ {fountain_circle} "
+            f"Mid    L: fountain @ {fountain_circle} "
             "(2x2, central pedestal + spout)",
-            f"Bottom R: fountain_square @ {fountain_square} "
+            f"Mid    R: fountain_square @ {fountain_square} "
             "(2x2 square pool + pedestal)",
+            f"Bottom L: tree @ {tree_solo} "
+            "(isolated, ~0.7 CELL canopy)",
+            f"Bottom R: tree grove @ {tree_grove[0]}.."
+            f"{tree_grove[-1]} (4 adjacent, overlapping canopy)",
         ]
         svg = _inject_info_panel(svg, info)
         base = wdir / f"well_fountain_demo_seed{seed}"
