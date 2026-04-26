@@ -83,6 +83,18 @@ _TIER_TO_SIZE_CLASS: dict[SiteTier, str] = {
 
 TOWN_FLOOR_COUNT_RANGE = (1, 2)
 
+
+# Phase 4a vegetation tunables. Per-tile probability that a
+# scatter-eligible FIELD tile receives a ``tree`` feature. The
+# density falls as the settlement grows so larger sites stay
+# proportionally dense (more area) but visually sparser per tile.
+TOWN_TREE_DENSITY: dict[str, float] = {
+    "hamlet": 0.20,
+    "village": 0.16,
+    "town": 0.14,
+    "city": 0.12,
+}
+
 TOWN_WOOD_BUILDING_PROBABILITY = 0.65    # rest are stone
 TOWN_DESCENT_PROBABILITY = 0.08
 TOWN_DESCENT_TEMPLATE = "procedural:crypt"
@@ -321,6 +333,9 @@ def assemble_town(
     site.building_doors.update(door_map)
     site.cluster_plans = cluster_plans
     paint_surface_doors(site, SurfaceType.STREET)
+    _scatter_town_vegetation(
+        site, cluster_plans, size_class, rng,
+    )
     _place_service_npcs(buildings, role_assignments, rng)
     _place_surface_adventurers(site, role_assignments, rng)
     _lock_shop_doors(buildings, role_assignments, rng)
@@ -633,6 +648,65 @@ def _place_entry_door(
     dx, dy = chosen
     stamp_building_door(building, dx, dy)
     return (dx, dy)
+
+
+def _scatter_town_vegetation(
+    site: Site,
+    cluster_plans: list[_ClusterPlan],
+    size_class: str,
+    rng: random.Random,
+) -> None:
+    """Scatter ``tree`` features across FIELD periphery tiles.
+
+    Per-tile probability is :data:`TOWN_TREE_DENSITY` for the
+    given size class. Skips tiles already carrying a feature,
+    tiles 4-adjacent to a building footprint (Q16 -- the medium
+    canopy radius would otherwise overlap a building roof in the
+    SVG render), tiles in the door 4-ring and tiles inside any
+    courtyard cluster bbox (Q7 -- courtyards stay shrub-free so
+    they read as paved working yards).
+    """
+    density = TOWN_TREE_DENSITY.get(size_class, 0.0)
+    if density <= 0.0:
+        return
+    surface = site.surface
+    footprints: set[tuple[int, int]] = set()
+    for b in site.buildings:
+        footprints |= b.base_shape.floor_tiles(b.base_rect)
+    door_ring: set[tuple[int, int]] = set()
+    for sx, sy in site.building_doors:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            door_ring.add((sx + dx, sy + dy))
+    courtyard_bboxes = [
+        p.bbox for p in cluster_plans if p.kind == "courtyard"
+    ]
+
+    def _inside_courtyard(x: int, y: int) -> bool:
+        for bbox in courtyard_bboxes:
+            if (bbox.x <= x < bbox.x2
+                    and bbox.y <= y < bbox.y2):
+                return True
+        return False
+
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in door_ring:
+                continue
+            if _inside_courtyard(x, y):
+                continue
+            blocked = False
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                if (x + dx, y + dy) in footprints:
+                    blocked = True
+                    break
+            if blocked:
+                continue
+            if rng.random() < density:
+                tile.feature = "tree"
 
 
 def _build_palisade(
