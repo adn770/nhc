@@ -1162,6 +1162,11 @@ TREE_CANOPY_LOBE_OFFSET_JITTER = 0.30
 TREE_CANOPY_LOBE_ANGLE_JITTER = 0.35
 """+/- radians on lobe angular position."""
 
+TREE_CANOPY_CENTER_OFFSET = 0.18 * CELL
+"""+/- per-tile offset on the canopy centre. Trees no longer
+ sit dead-centre on their tile -- the offset breaks the grid
+ read for clusters of adjacent trees."""
+
 TREE_CANOPY_SHADOW_FILL = "#2F4527"
 """Darker green sitting behind the canopy to give the silhouette
  visual weight."""
@@ -1369,6 +1374,8 @@ def _union_path_from_lobes(
 
 _TREE_LOBE_COUNT_SALT = 8101
 _TREE_CLUSTER_RADIUS_SALT = 8111
+_TREE_CENTER_X_SALT = 8123
+_TREE_CENTER_Y_SALT = 8147
 
 
 def _tree_lobe_count(tx: int, ty: int) -> int:
@@ -1387,6 +1394,15 @@ def _tree_cluster_radius(tx: int, ty: int) -> float:
     return TREE_CANOPY_CLUSTER_RADIUS * (
         1.0 + j * TREE_CANOPY_CLUSTER_RADIUS_JITTER
     )
+
+
+def _tree_center_offset(tx: int, ty: int) -> tuple[float, float]:
+    """Per-tile (dx, dy) offset on the canopy centre. Trees
+    don't sit dead-centre on their tile -- this offset breaks
+    the grid read for clusters of adjacent trees."""
+    dx = _hash_norm(tx, ty, _TREE_CENTER_X_SALT) * TREE_CANOPY_CENTER_OFFSET
+    dy = _hash_norm(tx, ty, _TREE_CENTER_Y_SALT) * TREE_CANOPY_CENTER_OFFSET
+    return dx, dy
 
 
 def _tree_canopy_lobes(
@@ -1554,8 +1570,9 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     * Low-alpha silhouette stroke (re-uses the canopy ``d``)
       tracing the bumpy outline.
     """
-    cx = (tx + 0.5) * CELL
-    cy = (ty + 0.5) * CELL
+    dx, dy = _tree_center_offset(tx, ty)
+    cx = (tx + 0.5) * CELL + dx
+    cy = (ty + 0.5) * CELL + dy
     trunk_cx = cx
     trunk_cy = cy + TREE_TRUNK_OFFSET_Y
     canopy_d = _tree_canopy_path(cx, cy, tx, ty)
@@ -1676,8 +1693,9 @@ def _grove_union_fragment(
     canopy_polys = []
     shadow_polys = []
     for tx, ty in grove:
-        cx = (tx + 0.5) * CELL
-        cy = (ty + 0.5) * CELL
+        dx, dy = _tree_center_offset(tx, ty)
+        cx = (tx + 0.5) * CELL + dx
+        cy = (ty + 0.5) * CELL + dy
         # Use the same per-tile lobe cluster so the grove silhouette
         # has the same bumpy character as a row of single trees,
         # then unions across all tiles.
@@ -1705,8 +1723,9 @@ def _grove_union_fragment(
     # union surface stays evenly speckled regardless of grove
     # shape.
     for tx, ty in sorted(grove):
-        cx = (tx + 0.5) * CELL
-        cy = (ty + 0.5) * CELL
+        dx, dy = _tree_center_offset(tx, ty)
+        cx = (tx + 0.5) * CELL + dx
+        cy = (ty + 0.5) * CELL + dy
         parts.extend(_tree_volume_fragments(
             cx, cy, tx, ty, TREE_CANOPY_STROKE,
         ))
@@ -1779,6 +1798,11 @@ BUSH_CANOPY_LOBE_RADIUS_JITTER = 0.18
 BUSH_CANOPY_LOBE_OFFSET_JITTER = 0.30
 BUSH_CANOPY_LOBE_ANGLE_JITTER = 0.40
 
+BUSH_CANOPY_CENTER_OFFSET = 0.06 * CELL
+"""+/- per-tile offset on the bush centre. Smaller than the
+tree equivalent because bushes have a strict tile-clearance
+contract (the silhouette must stay inside its own tile)."""
+
 BUSH_CANOPY_SHADOW_FILL = "#3F5237"
 """Shadow lobes for the bush silhouette -- darker than the
 canopy fill (mirrors the tree shadow but smaller)."""
@@ -1798,12 +1822,13 @@ BUSH_VOLUME_STROKE_ALPHA = 0.55
 BUSH_VOLUME_DASH = "1.5 1.5"
 
 # Worst-case extent of any bush point from its tile centre.
-# Includes per-tile cluster-radius jitter, per-lobe offset
-# jitter, and per-lobe radius jitter -- all stacked. Must stay
-# strictly below 0.5 * CELL so a bush placed 4-adjacent to a
-# building footprint never bleeds onto the roof (M3 contract).
+# Includes per-tile centre offset, cluster-radius jitter, per-lobe
+# offset jitter, and per-lobe radius jitter -- all stacked. Must
+# stay strictly below 0.5 * CELL so a bush placed 4-adjacent to
+# a building footprint never bleeds onto the roof (M3 contract).
 BUSH_CANOPY_MAX_EXTENT = (
-    BUSH_CANOPY_CLUSTER_RADIUS
+    BUSH_CANOPY_CENTER_OFFSET
+    + BUSH_CANOPY_CLUSTER_RADIUS
     * (1.0 + BUSH_CANOPY_CLUSTER_RADIUS_JITTER)
     * (1.0 + BUSH_CANOPY_LOBE_OFFSET_JITTER)
     + BUSH_CANOPY_LOBE_RADIUS
@@ -1824,6 +1849,8 @@ _BUSH_SHADOW_SHAPE_SALT = 11201
 _BUSH_VOLUME_SALT = 12119
 _BUSH_LOBE_COUNT_SALT = 13127
 _BUSH_CLUSTER_RADIUS_SALT = 13147
+_BUSH_CENTER_X_SALT = 13163
+_BUSH_CENTER_Y_SALT = 13183
 
 
 def _bush_fill_jitter(tx: int, ty: int) -> str:
@@ -1850,6 +1877,15 @@ def _bush_cluster_radius(tx: int, ty: int) -> float:
     return BUSH_CANOPY_CLUSTER_RADIUS * (
         1.0 + j * BUSH_CANOPY_CLUSTER_RADIUS_JITTER
     )
+
+
+def _bush_center_offset(tx: int, ty: int) -> tuple[float, float]:
+    """Per-tile (dx, dy) offset on the bush centre. Smaller
+    than the tree equivalent because bushes have a strict
+    tile-clearance contract."""
+    dx = _hash_norm(tx, ty, _BUSH_CENTER_X_SALT) * BUSH_CANOPY_CENTER_OFFSET
+    dy = _hash_norm(tx, ty, _BUSH_CENTER_Y_SALT) * BUSH_CANOPY_CENTER_OFFSET
+    return dx, dy
 
 
 def _bush_canopy_lobes(
@@ -1935,8 +1971,9 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
 
     No trunk -- bushes are small enough that the silhouette
     alone reads as a shrub."""
-    cx = (tx + 0.5) * CELL
-    cy = (ty + 0.5) * CELL
+    dx, dy = _bush_center_offset(tx, ty)
+    cx = (tx + 0.5) * CELL + dx
+    cy = (ty + 0.5) * CELL + dy
     canopy_d = _bush_canopy_path(cx, cy, tx, ty)
     shadow_d = _bush_shadow_path(cx, cy, tx, ty)
     canopy_fill = _bush_fill_jitter(tx, ty)
