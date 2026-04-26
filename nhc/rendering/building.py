@@ -88,7 +88,15 @@ def render_building_floor_svg(
         else render_stone_wall_run
     )
 
+    # Interior partitions render BEFORE the exterior masonry so
+    # the curved / clipped exterior wall overlays any partition
+    # extension into the rim zone (cleaning up the T-junction
+    # visually for circle / octagon footprints).
     fragments: list[str] = []
+    interior_frags = _render_interior_walls(level, building)
+    if interior_frags:
+        fragments.extend(interior_frags)
+
     n = len(polygon)
     # Extend each edge by half the wall thickness at both ends so
     # adjacent edges overlap at every polygon vertex. This paints
@@ -114,9 +122,6 @@ def render_building_floor_svg(
         fragments.extend(run_renderer(
             ax_ext, ay_ext, bx_ext, by_ext, seed=seed + i,
         ))
-    interior_frags = _render_interior_walls(level, building)
-    if interior_frags:
-        fragments.extend(interior_frags)
     if not fragments:
         return base
     inject = "".join(fragments)
