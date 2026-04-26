@@ -989,14 +989,15 @@ def _stamp_centerpiece(
     spec: _CenterpieceSpec,
     biome: Biome | None,
 ) -> None:
-    """Stamp the centerpiece patch (herringbone-paved plaza) and
+    """Stamp the centerpiece patch (cobblestone-paved plaza) and
     the feature tag (well / well_square / fountain /
     fountain_square).
 
-    The patch carries ``SurfaceType.HERRINGBONE`` so the renderer
-    paints a herringbone brick pattern -- distinct from the
-    surrounding STREET cobblestone -- to mark the civic centre
-    visually."""
+    The patch carries ``SurfaceType.STREET`` -- same cobblestone
+    pattern as the surrounding streets. The fountain or well
+    itself is the visual centerpiece; no separate floor pattern
+    is needed (the dropped HERRINGBONE variant previously played
+    that role)."""
     ox, oy = patch_origin
     feature_tag = _centerpiece_feature_tag(spec, biome)
     for dx in range(spec.patch_dim):
@@ -1006,7 +1007,7 @@ def _stamp_centerpiece(
                 continue
             surface.tiles[ty][tx] = Tile(
                 terrain=Terrain.FLOOR,
-                surface_type=SurfaceType.HERRINGBONE,
+                surface_type=SurfaceType.STREET,
             )
     feature_offset = (spec.patch_dim - spec.feature_dim) // 2
     fx = ox + feature_offset

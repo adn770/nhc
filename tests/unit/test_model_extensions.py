@@ -78,7 +78,7 @@ class TestSurfaceType:
         expected = {
             "none", "corridor", "track", "street",
             "field", "garden", "palisade", "fortification",
-            "paved", "brick", "flagstone", "herringbone",
+            "paved", "brick", "flagstone",
         }
         actual = {s.value for s in SurfaceType}
         assert actual == expected

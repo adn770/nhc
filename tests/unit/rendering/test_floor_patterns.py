@@ -1,4 +1,4 @@
-"""Variations of cobblestone: brick, flagstone, herringbone.
+"""Variations of cobblestone: brick, flagstone.
 
 Each pattern is its own ``SurfaceType`` + ``TileDecorator`` and
 fires on tiles that carry the matching tag, regardless of floor
@@ -19,8 +19,6 @@ from nhc.rendering._floor_detail import (
     BRICK_STROKE,
     FLAGSTONE,
     FLAGSTONE_STROKE,
-    HERRINGBONE,
-    HERRINGBONE_STROKE,
 )
 from nhc.rendering._render_context import build_render_context
 from nhc.rendering.svg import render_floor_svg
@@ -41,9 +39,6 @@ class TestSurfaceTypeEnumValues:
 
     def test_flagstone_value(self) -> None:
         assert SurfaceType("flagstone") is SurfaceType.FLAGSTONE
-
-    def test_herringbone_value(self) -> None:
-        assert SurfaceType("herringbone") is SurfaceType.HERRINGBONE
 
 
 class TestBrickDecorator:
@@ -84,22 +79,6 @@ class TestFlagstoneDecorator:
         assert out == []
 
 
-class TestHerringboneDecorator:
-    def test_fires_on_herringbone_tile(self) -> None:
-        level = _grid(4, 4)
-        level.tiles[1][1].surface_type = SurfaceType.HERRINGBONE
-        ctx = build_render_context(level, seed=0)
-        out = walk_and_paint(ctx, [HERRINGBONE])
-        assert any(HERRINGBONE_STROKE in line for line in out)
-
-    def test_does_not_fire_on_flagstone(self) -> None:
-        level = _grid(4, 4)
-        level.tiles[1][1].surface_type = SurfaceType.FLAGSTONE
-        ctx = build_render_context(level, seed=0)
-        out = walk_and_paint(ctx, [HERRINGBONE])
-        assert out == []
-
-
 class TestEndToEndIntegration:
     """Through ``render_floor_svg``, each pattern's stroke colour
     appears in the final SVG so a future contributor can wire the
@@ -116,12 +95,6 @@ class TestEndToEndIntegration:
         level.tiles[2][2].surface_type = SurfaceType.FLAGSTONE
         svg = render_floor_svg(level, seed=0)
         assert FLAGSTONE_STROKE in svg
-
-    def test_herringbone_through_render_floor_svg(self) -> None:
-        level = _grid(4, 4)
-        level.tiles[2][2].surface_type = SurfaceType.HERRINGBONE
-        svg = render_floor_svg(level, seed=0)
-        assert HERRINGBONE_STROKE in svg
 
 
 class TestPortability:
@@ -142,12 +115,6 @@ class TestPortability:
         level.tiles[3][3].surface_type = SurfaceType.FLAGSTONE
         svg = render_floor_svg(level, seed=0)
         assert FLAGSTONE_STROKE in svg
-
-    def test_herringbone_paints_on_dungeon(self) -> None:
-        level = _grid(6, 6)
-        level.tiles[3][3].surface_type = SurfaceType.HERRINGBONE
-        svg = render_floor_svg(level, seed=0)
-        assert HERRINGBONE_STROKE in svg
 
 
 class TestSiteAssemblerHooks:
@@ -181,15 +148,20 @@ class TestSiteAssemblerHooks:
         )
         assert any_flag, "temple ground floor expected FLAGSTONE tag"
 
-    def test_town_centerpiece_uses_herringbone(self) -> None:
+    def test_town_centerpiece_uses_street(self) -> None:
+        """Town centerpiece patch shares the surrounding STREET
+        cobblestone (HERRINGBONE was dropped, FLAGSTONE is
+        interior-only). The well / fountain centrepiece itself
+        provides the visual focus -- the floor is plain street."""
         from nhc.sites.town import assemble_town
         site = assemble_town("t1", random.Random(7))
-        any_herringbone = any(
+        # At minimum the surface should still have STREET tiles
+        # (the surrounding street network); the centerpiece
+        # patch contributes more.
+        any_street = any(
             site.surface.tiles[y][x].surface_type
-            is SurfaceType.HERRINGBONE
+            is SurfaceType.STREET
             for y in range(site.surface.height)
             for x in range(site.surface.width)
         )
-        assert any_herringbone, (
-            "town centerpiece expected HERRINGBONE tag"
-        )
+        assert any_street

@@ -34,8 +34,8 @@ The catalog also includes:
 * Wells + fountains demo (well / well_square / fountain /
   fountain_square + a tree row + grove for visual reference).
 * Floor variants demo (cobblestone family STREET / BRICK /
-  FLAGSTONE / HERRINGBONE side by side, plus wood vs stone
-  interior comparison).
+  FLAGSTONE side by side, plus wood vs stone interior
+  comparison).
 * Vegetation demo (tree cluster progression 1/2/3/5/10 with
   per-tile vs grove-union split, per-tile hue jitter grid,
   bush layout sampler, combined cartographer-style scene).
@@ -1191,10 +1191,9 @@ def _make_floor_variants_level(width: int = 36, height: int = 26):
 
     Two horizontal bands:
 
-    * Top band (y=2..7): four cobblestone-family patches side by
-      side -- STREET, BRICK, FLAGSTONE, HERRINGBONE -- so the
-      stones / fills / strokes can be eyeballed at the same
-      lighting.
+    * Top band (y=2..7): three cobblestone-family patches side
+      by side -- STREET, BRICK, FLAGSTONE -- so the stones /
+      fills / strokes can be eyeballed at the same lighting.
     * Bottom band (y=12..18): two large interior patches showing
       stone-on-FLOOR floor detail (cracks / stones / scratches)
       versus the WOOD floor decorator (parquet planks + grain).
@@ -1215,10 +1214,9 @@ def _make_floor_variants_level(width: int = 36, height: int = 26):
     )]
 
     cobble_specs = (
-        ("STREET",      SurfaceType.STREET),
-        ("BRICK",       SurfaceType.BRICK),
-        ("FLAGSTONE",   SurfaceType.FLAGSTONE),
-        ("HERRINGBONE", SurfaceType.HERRINGBONE),
+        ("STREET",    SurfaceType.STREET),
+        ("BRICK",     SurfaceType.BRICK),
+        ("FLAGSTONE", SurfaceType.FLAGSTONE),
     )
     patch_w, patch_h = 7, 5
     gap = 1
@@ -1240,9 +1238,9 @@ def generate_floor_variants_demo(
 
     Two SVGs per seed:
 
-    * ``floor_cobblestone_variants_seed<N>.svg`` -- STREET / BRICK /
-      FLAGSTONE / HERRINGBONE patches side by side on a stone
-      interior, with a label pill anchored on each patch.
+    * ``floor_cobblestone_variants_seed<N>.svg`` -- STREET / BRICK
+      / FLAGSTONE patches side by side on a stone interior, with
+      a label pill anchored on each patch.
     * ``floor_wood_vs_stone_seed<N>.svg`` -- two large interior
       rooms (stone vs wood) so the floor-detail decorators can be
       compared on the same seed.
@@ -1284,7 +1282,7 @@ def generate_floor_variants_demo(
         svg = svg.replace("</svg>", "".join(label_frags) + "</svg>")
         info = [
             f"Cobblestone family | seed={seed}",
-            "L->R: STREET, BRICK, FLAGSTONE, HERRINGBONE",
+            "L->R: STREET, BRICK, FLAGSTONE",
             "All patches share the cobblestone wrapping group;",
             "decorators differ in stone shape + stroke colour.",
             "Empty FLOOR margins paint stone-floor cracks +",

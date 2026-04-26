@@ -988,6 +988,60 @@ def _cross_fountain_fragment_for_tile(tx: int, ty: int) -> str:
             stone_class="fountain-keystone",
         ))
 
+    # Inner concave corners (vertices 2, 5, 8, 11 in
+    # _cross_fountain_polygon_pts) leave a depth*depth L-shaped
+    # void where the perpendicular stone strips can't reach.
+    # Stamp a corner stone at each one; the stone sits inside
+    # the polygon with one corner at the concave vertex,
+    # extending in the +polygon-interior direction by ``depth``.
+    # Walking clockwise, the interior at each concave vertex
+    # falls in a different quadrant:
+    #   v2  (+half_w, -half_w)  -> interior is (-x, +y)
+    #   v5  (+half_w, +half_w)  -> interior is (-x, -y)
+    #   v8  (-half_w, +half_w)  -> interior is (+x, -y)
+    #   v11 (-half_w, -half_w)  -> interior is (+x, +y)
+    # We compute each stone's two opposing corners.
+    corner_g = STONE_GAP_PX
+    concave_quadrants = [
+        # (vertex_index, x_offset_sign, y_offset_sign)
+        (2, -1, 1),
+        (5, -1, -1),
+        (8, 1, -1),
+        (11, 1, 1),
+    ]
+    for vidx, sx, sy in concave_quadrants:
+        ox, oy = outer_pts[vidx]
+        # Corner stone: depth x depth square anchored at the
+        # concave vertex, extending into the polygon interior.
+        # Inset by gap on the 2 polygon-facing edges so the
+        # stone joins seamlessly with the adjacent strips.
+        x_min = ox + sx * corner_g if sx > 0 else ox - depth
+        y_min = oy + sy * corner_g if sy > 0 else oy - depth
+        if sx > 0:
+            x_min = ox
+            x_max = ox + depth - corner_g
+        else:
+            x_min = ox - depth + corner_g
+            x_max = ox
+        if sy > 0:
+            y_min = oy
+            y_max = oy + depth - corner_g
+        else:
+            y_min = oy - depth + corner_g
+            y_max = oy
+        d = (
+            f'M{x_min:.2f},{y_min:.2f} '
+            f'L{x_max:.2f},{y_min:.2f} '
+            f'L{x_max:.2f},{y_max:.2f} '
+            f'L{x_min:.2f},{y_max:.2f} Z'
+        )
+        parts.append(
+            f'<path class="fountain-keystone" d="{d}" '
+            f'fill="{FOUNTAIN_STONE_FILL}" '
+            f'stroke="{FOUNTAIN_STONE_STROKE}" '
+            f'stroke-width="{FOUNTAIN_STONE_STROKE_WIDTH:.2f}"/>'
+        )
+
     # Water plus aligned with the tile boundary, inset slightly
     # so the waterline stroke reads inside the rim.
     inset = FOUNTAIN_CROSS_WATER_INSET_PX

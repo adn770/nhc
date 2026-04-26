@@ -40,11 +40,10 @@ class SurfaceType(Enum):
     # Decorative cobblestone variants. Each is a separate tag so a
     # site can pick the pattern that fits its narrative role:
     # mansions stamp BRICK on stone ground floors, temples stamp
-    # FLAGSTONE, town plazas stamp HERRINGBONE on the centerpiece
+    # FLAGSTONE, town plazas stamp FLAGSTONE on the centerpiece
     # patch. Each maps to one TileDecorator with its own paint.
     BRICK = "brick"
     FLAGSTONE = "flagstone"
-    HERRINGBONE = "herringbone"
 
 
 @dataclass

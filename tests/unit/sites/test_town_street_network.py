@@ -22,12 +22,7 @@ from nhc.sites.town import _SIZE_CLASSES, assemble_town
 
 
 def _street_tiles(site) -> set[tuple[int, int]]:
-    # The civic centerpiece carries SurfaceType.HERRINGBONE rather
-    # than STREET so the renderer paints a distinct paved-plaza
-    # pattern; both share the "walkable cobbled surface" semantics
-    # that street BFS relies on, so reachability must traverse
-    # both kinds.
-    walkable = {SurfaceType.STREET, SurfaceType.HERRINGBONE}
+    walkable = {SurfaceType.STREET}
     return {
         (x, y)
         for y, row in enumerate(site.surface.tiles)
@@ -180,12 +175,8 @@ class TestSurfaceClassification:
     def test_every_walkable_floor_tile_has_a_surface_type(
         self, size_class,
     ):
-        # HERRINGBONE is the centerpiece-patch tag -- a paved-plaza
-        # variant of STREET; allow it alongside STREET / GARDEN /
-        # FIELD on the town surface.
         allowed = {
             SurfaceType.STREET, SurfaceType.GARDEN, SurfaceType.FIELD,
-            SurfaceType.HERRINGBONE,
         }
         for seed in range(15):
             site = assemble_town(
