@@ -142,6 +142,9 @@ def walk_and_paint(
     ctx: RenderContext,
     decorators: Iterable[TileDecorator],
     layer_name: str = "",
+    *,
+    tile_bucket: Callable[[Level, int, int], str] | None = None,
+    room_clip_id: str | None = None,
 ) -> list[str]:
     """One row-major walk that dispatches every decorator.
 
@@ -152,6 +155,21 @@ def walk_and_paint(
     Output order is deterministic: decorators are emitted in their
     ``z_order``-then-input order; within a decorator, fragments
     appear in row-major tile order.
+
+    When ``tile_bucket`` is supplied each matching tile is
+    classified into a bucket name (``"room"`` or ``"corridor"`` by
+    convention). Per-decorator fragments are then split by bucket
+    so the emitter can wrap room fragments inside a clip group
+    while corridor fragments stay unclipped -- mirroring the
+    legacy behaviour where dungeon-poly clipping only applies to
+    room-classified detail.
+
+    When ``room_clip_id`` is set and the context carries a non-empty
+    ``dungeon_poly``, the room bucket is wrapped in
+    ``<g clip-path="url(#{room_clip_id})">`` and a matching
+    ``<defs><clipPath/></defs>`` block is emitted before it. This
+    lets the helper own the clip lifecycle so callers don't have to
+    duplicate the ``_dungeon_interior_clip`` boilerplate.
     """
     active = [d for d in decorators if _flags_satisfy(ctx, d)]
     if not active:
@@ -164,9 +182,15 @@ def walk_and_paint(
 
     rngs = {d.name: _seeded_rng(ctx, d.name) for _, d in active_sorted}
 
-    fragments: dict[str, list[str]] = {
-        d.name: [] for _, d in active_sorted
-    }
+    if tile_bucket is None:
+        fragments_any: dict[str, list[str]] = {
+            d.name: [] for _, d in active_sorted
+        }
+    else:
+        fragments_buckets: dict[str, dict[str, list[str]]] = {
+            d.name: {"room": [], "corridor": []}
+            for _, d in active_sorted
+        }
 
     level = ctx.level
     for y in range(level.height):
@@ -184,11 +208,53 @@ def walk_and_paint(
                 produced = dec.paint(args)
                 if produced is None:
                     continue
-                fragments[dec.name].extend(produced)
+                if tile_bucket is None:
+                    fragments_any[dec.name].extend(produced)
+                else:
+                    bucket_name = tile_bucket(level, x, y)
+                    fragments_buckets[dec.name][bucket_name].extend(
+                        produced,
+                    )
 
     out: list[str] = []
+    if tile_bucket is None:
+        for _, dec in active_sorted:
+            frags = fragments_any[dec.name]
+            if not frags:
+                continue
+            if dec.group_open is not None:
+                out.append(dec.group_open)
+            out.extend(frags)
+            if dec.group_open is not None:
+                out.append(dec.group_close)
+        return out
+
+    # Bucketed emission: room first (clipped), corridor after.
+    has_any_room = any(
+        fragments_buckets[d.name]["room"] for _, d in active_sorted
+    )
+    use_clip = (
+        has_any_room
+        and room_clip_id is not None
+        and ctx.dungeon_poly is not None
+        and not ctx.dungeon_poly.is_empty
+    )
+    if use_clip:
+        out.append(_clip_defs(ctx.dungeon_poly, room_clip_id))
+        out.append(f'<g clip-path="url(#{room_clip_id})">')
     for _, dec in active_sorted:
-        frags = fragments[dec.name]
+        frags = fragments_buckets[dec.name]["room"]
+        if not frags:
+            continue
+        if dec.group_open is not None:
+            out.append(dec.group_open)
+        out.extend(frags)
+        if dec.group_open is not None:
+            out.append(dec.group_close)
+    if use_clip:
+        out.append("</g>")
+    for _, dec in active_sorted:
+        frags = fragments_buckets[dec.name]["corridor"]
         if not frags:
             continue
         if dec.group_open is not None:
@@ -197,3 +263,34 @@ def walk_and_paint(
         if dec.group_open is not None:
             out.append(dec.group_close)
     return out
+
+
+def _clip_defs(dungeon_poly, clip_id: str) -> str:
+    """Build a ``<defs><clipPath/></defs>`` block from the
+    dungeon polygon. Mirrors :func:`_dungeon_interior_clip` from
+    ``_floor_detail`` so this module stays free of cross-imports."""
+    geoms = (
+        dungeon_poly.geoms
+        if hasattr(dungeon_poly, "geoms")
+        else [dungeon_poly]
+    )
+    clip_d = ""
+    for geom in geoms:
+        coords = list(geom.exterior.coords)
+        clip_d += f'M{coords[0][0]:.0f},{coords[0][1]:.0f} '
+        clip_d += " ".join(
+            f"L{x:.0f},{y:.0f}" for x, y in coords[1:]
+        )
+        clip_d += " Z "
+        for hole in geom.interiors:
+            h = list(hole.coords)
+            clip_d += f'M{h[0][0]:.0f},{h[0][1]:.0f} '
+            clip_d += " ".join(
+                f"L{x:.0f},{y:.0f}" for x, y in h[1:]
+            )
+            clip_d += " Z "
+    return (
+        f'<defs><clipPath id="{clip_id}">'
+        f'<path d="{clip_d}" fill-rule="evenodd"/>'
+        "</clipPath></defs>"
+    )

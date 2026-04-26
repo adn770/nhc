@@ -167,7 +167,7 @@ def render_floor_svg(
     )
 
     # Layer 6: Terrain detail (wavy lines, grass strokes, etc.)
-    _render_terrain_detail(svg, level, seed, dungeon_poly)
+    _render_terrain_detail(svg, level, seed, dungeon_poly, ctx=ctx)
 
     # Layer 7: Stairs
     _render_stairs(svg, level)

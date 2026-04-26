@@ -1,10 +1,19 @@
-"""Per-terrain detail rendering and terrain tints for SVG dungeons."""
+"""Per-terrain detail rendering and terrain tints for SVG dungeons.
+
+Terrain detail (water waves, grass blades, lava cracks, chasm
+hatching) flows through the unified :class:`TileDecorator`
+pipeline as of Phase 4 of the rendering refactor. The four
+``terrain_*`` decorators below register on the ``terrain_detail``
+layer and split per-tile output into the ``"room"`` / ``"corridor"``
+buckets so room fragments stay clipped to the dungeon polygon.
+"""
 
 from __future__ import annotations
 
 import random
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain
+from nhc.rendering._decorators import TileDecorator, walk_and_paint
 from nhc.rendering._floor_detail import _TERRAIN_TYPES, _dungeon_interior_clip
 from nhc.rendering._svg_helpers import CELL
 from nhc.rendering.terrain_palette import ROOM_TYPE_TINTS, get_palette
@@ -72,7 +81,7 @@ def _render_terrain_tints(
         )
 
 
-# ── Per-terrain detail renderers ────────────────────────────────
+# ── Per-terrain detail painters ─────────────────────────────────
 
 def _water_detail(
     rng: random.Random, px: float, py: float,
@@ -197,12 +206,60 @@ def _chasm_detail(
     return elements
 
 
-_TERRAIN_DETAIL_FN = {
-    Terrain.WATER: _water_detail,
-    Terrain.GRASS: _grass_detail,
-    Terrain.LAVA: _lava_detail,
-    Terrain.CHASM: _chasm_detail,
-}
+# ── Decorator factories ─────────────────────────────────────────
+
+def _terrain_paint(
+    detail_fn,
+    terrain: Terrain,
+):
+    """Build a paint callable that delegates to ``detail_fn``.
+
+    ``detail_fn`` is one of :func:`_water_detail`,
+    :func:`_grass_detail`, :func:`_lava_detail`,
+    :func:`_chasm_detail` -- the same per-tile painters used by the
+    legacy ``_render_terrain_detail`` loop.
+    """
+    def paint(args):
+        theme = args.ctx.theme
+        palette = get_palette(theme)
+        style = {
+            Terrain.WATER: palette.water,
+            Terrain.GRASS: palette.grass,
+            Terrain.LAVA: palette.lava,
+            Terrain.CHASM: palette.chasm,
+        }[terrain]
+        return detail_fn(
+            args.rng, args.px, args.py,
+            style.detail_ink, style.detail_opacity,
+        )
+    return paint
+
+
+def _terrain_predicate(terrain: Terrain):
+    def pred(level: Level, x: int, y: int) -> bool:
+        return level.tiles[y][x].terrain is terrain
+    return pred
+
+
+def _terrain_group_open(terrain: Terrain) -> str:
+    """Return the wrapping group for a terrain detail decorator.
+
+    The opacity comes from the *dungeon* theme's palette so the
+    ``<g>`` opacity matches the legacy behaviour byte-for-byte
+    when no theme override applies. Per-theme opacities still
+    show through because the per-fragment strokes carry their own
+    palette-derived ink colour.
+    """
+    palette = get_palette("dungeon")
+    style = {
+        Terrain.WATER: palette.water,
+        Terrain.GRASS: palette.grass,
+        Terrain.LAVA: palette.lava,
+        Terrain.CHASM: palette.chasm,
+    }[terrain]
+    cls = _TERRAIN_CLASS[terrain]
+    return f'<g class="{cls}" opacity="{style.detail_opacity}">'
+
 
 _TERRAIN_CLASS = {
     Terrain.WATER: "terrain-water",
@@ -212,73 +269,84 @@ _TERRAIN_CLASS = {
 }
 
 
+TERRAIN_WATER = TileDecorator(
+    name="terrain_water",
+    layer="terrain_detail",
+    predicate=_terrain_predicate(Terrain.WATER),
+    paint=_terrain_paint(_water_detail, Terrain.WATER),
+    group_open=_terrain_group_open(Terrain.WATER),
+    z_order=10,
+)
+TERRAIN_GRASS = TileDecorator(
+    name="terrain_grass",
+    layer="terrain_detail",
+    predicate=_terrain_predicate(Terrain.GRASS),
+    paint=_terrain_paint(_grass_detail, Terrain.GRASS),
+    group_open=_terrain_group_open(Terrain.GRASS),
+    z_order=20,
+)
+TERRAIN_LAVA = TileDecorator(
+    name="terrain_lava",
+    layer="terrain_detail",
+    predicate=_terrain_predicate(Terrain.LAVA),
+    paint=_terrain_paint(_lava_detail, Terrain.LAVA),
+    group_open=_terrain_group_open(Terrain.LAVA),
+    z_order=30,
+)
+TERRAIN_CHASM = TileDecorator(
+    name="terrain_chasm",
+    layer="terrain_detail",
+    predicate=_terrain_predicate(Terrain.CHASM),
+    paint=_terrain_paint(_chasm_detail, Terrain.CHASM),
+    group_open=_terrain_group_open(Terrain.CHASM),
+    z_order=40,
+)
+
+
+_TERRAIN_DECORATORS = (
+    TERRAIN_WATER, TERRAIN_GRASS, TERRAIN_LAVA, TERRAIN_CHASM,
+)
+
+
+def _terrain_tile_bucket(level: Level, x: int, y: int) -> str:
+    """Bucket a tile into ``"corridor"`` for SurfaceType.CORRIDOR
+    tiles, ``"room"`` for everything else. Mirrors the
+    classification the legacy ``_render_terrain_detail`` loop used."""
+    if level.tiles[y][x].surface_type is SurfaceType.CORRIDOR:
+        return "corridor"
+    return "room"
+
+
 def _render_terrain_detail(
     svg: list[str], level: Level, seed: int,
     dungeon_poly=None,
+    ctx=None,
 ) -> None:
     """Render terrain-specific hand-drawn marks (wavy lines, etc.).
 
-    Groups output by terrain type with CSS class markers for
-    future canvas-layer targeting.
+    Routes through the unified :func:`walk_and_paint` helper. Room
+    fragments end up clipped to the dungeon polygon; corridor
+    fragments stay unclipped so they reach into the connecting
+    passages.
     """
-    theme = level.metadata.theme if level.metadata else "dungeon"
-    palette = get_palette(theme)
-    terrain_styles = {
-        Terrain.WATER: palette.water,
-        Terrain.GRASS: palette.grass,
-        Terrain.LAVA: palette.lava,
-        Terrain.CHASM: palette.chasm,
-    }
+    if ctx is None:
+        from dataclasses import replace
+        from nhc.rendering._render_context import build_render_context
+        ctx = build_render_context(level, seed=seed)
+        if dungeon_poly is not ctx.dungeon_poly:
+            ctx = replace(ctx, dungeon_poly=dungeon_poly)
+    svg.extend(walk_and_paint(
+        ctx,
+        _TERRAIN_DECORATORS,
+        layer_name="terrain_detail",
+        tile_bucket=_terrain_tile_bucket,
+        room_clip_id="terrain-detail-clip",
+    ))
 
-    rng = random.Random(seed + 200)
 
-    room_els: dict[Terrain, list[str]] = {t: [] for t in _TERRAIN_TYPES}
-    cor_els: dict[Terrain, list[str]] = {t: [] for t in _TERRAIN_TYPES}
-
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            fn = _TERRAIN_DETAIL_FN.get(tile.terrain)
-            if fn is None:
-                continue
-            style = terrain_styles[tile.terrain]
-            px, py = x * CELL, y * CELL
-            els = fn(rng, px, py, style.detail_ink, style.detail_opacity)
-            if tile.surface_type == SurfaceType.CORRIDOR:
-                cor_els[tile.terrain].extend(els)
-            else:
-                room_els[tile.terrain].extend(els)
-
-    has_room = any(room_els[t] for t in _TERRAIN_TYPES)
-    if has_room:
-        if dungeon_poly is not None and not dungeon_poly.is_empty:
-            _dungeon_interior_clip(
-                svg, dungeon_poly, "terrain-detail-clip",
-            )
-            svg.append(
-                '<g clip-path="url(#terrain-detail-clip)">')
-        for terrain_type in _TERRAIN_TYPES:
-            els = room_els[terrain_type]
-            if els:
-                cls = _TERRAIN_CLASS[terrain_type]
-                style = terrain_styles[terrain_type]
-                svg.append(
-                    f'<g class="{cls}" '
-                    f'opacity="{style.detail_opacity}">'
-                )
-                svg.extend(els)
-                svg.append('</g>')
-        if dungeon_poly is not None and not dungeon_poly.is_empty:
-            svg.append('</g>')
-
-    for terrain_type in _TERRAIN_TYPES:
-        els = cor_els[terrain_type]
-        if els:
-            cls = _TERRAIN_CLASS[terrain_type]
-            style = terrain_styles[terrain_type]
-            svg.append(
-                f'<g class="{cls}" '
-                f'opacity="{style.detail_opacity}">'
-            )
-            svg.extend(els)
-            svg.append('</g>')
+_TERRAIN_DETAIL_FN = {
+    Terrain.WATER: _water_detail,
+    Terrain.GRASS: _grass_detail,
+    Terrain.LAVA: _lava_detail,
+    Terrain.CHASM: _chasm_detail,
+}
