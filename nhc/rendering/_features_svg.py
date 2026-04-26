@@ -247,17 +247,32 @@ FOUNTAIN_3X3_SQUARE_WATER_RX_PX = 3.0
 
 # ── Fountain (3x3 cross / plus footprint) ────────────────────
 #
-# Greek-cross outline inscribed in a 3x3 bounding box. Arms are
-# 1 tile wide; total span is 3 tiles each direction. The 4
-# corner tiles of the bounding box are NOT part of the feature
-# footprint -- the renderer paints the plus regardless of which
-# tile carries the feature tag (the renderer anchors on the
-# top-left of the bbox, centre at (tx+1.5, ty+1.5) cells).
-FOUNTAIN_CROSS_ARM_HALF_WIDTH = 0.45 * CELL
-"""Half-width of each cross arm (so an arm is 0.9 cell wide,
-keeping a small breathing room inside the 1-tile arm width)."""
-FOUNTAIN_CROSS_ARM_HALF_LENGTH = 1.42 * CELL
-"""Half-length of each arm from centre to outer end."""
+# Greek-cross outline inscribed in a 3x3 bounding box, with the
+# wall OUTSIDE the 5 plus tiles (mirroring the 1x1 well, whose
+# rim sits past the tile boundary). The inner rim is aligned
+# with the tile boundary -- water fills the 5 plus tiles cleanly
+# -- and the outer rim sits one stone-depth further out so the
+# masonry encroaches on the 4 corner tiles of the 3x3 bbox.
+#
+# The 4 corner tiles of the 3x3 bounding box are NOT part of
+# the feature footprint. The renderer anchors on the top-left
+# tile of the bbox; centre at (tx+1.5, ty+1.5) cells.
+FOUNTAIN_CROSS_INNER_HALF_WIDTH = 0.5 * CELL
+"""Inner rim half-width = tile half-cell; the rim's inner edge
+sits exactly at the arm-tile boundary so the water disc covers
+the full plus footprint."""
+FOUNTAIN_CROSS_INNER_HALF_LENGTH = 1.5 * CELL
+"""Inner rim half-length = 1.5 tiles; the rim's inner edge sits
+exactly at the outer end of each arm."""
+FOUNTAIN_CROSS_OUTER_HALF_WIDTH = (
+    FOUNTAIN_CROSS_INNER_HALF_WIDTH + STONE_DEPTH_PX
+)
+FOUNTAIN_CROSS_OUTER_HALF_LENGTH = (
+    FOUNTAIN_CROSS_INNER_HALF_LENGTH + STONE_DEPTH_PX
+)
+FOUNTAIN_CROSS_WATER_INSET_PX = 1.5
+"""Water plus polygon insets from the inner rim by this much so
+the waterline stroke reads against the rim."""
 FOUNTAIN_CROSS_PEDESTAL_OUTER_RADIUS = 0.26 * CELL
 FOUNTAIN_CROSS_PEDESTAL_INNER_RADIUS = 0.14 * CELL
 
@@ -922,35 +937,48 @@ def _stones_along_segment(
 def _cross_fountain_fragment_for_tile(tx: int, ty: int) -> str:
     """Greek-cross / plus fountain inscribed in a 3x3 footprint.
 
-    Anchored at the top-left tile of the 3x3 bbox; the centre
-    sits at ``(tx + 1.5, ty + 1.5)`` cells. Arms span 1 tile
-    width and 3 tile lengths each direction. Stones march around
-    the 12-vertex perimeter at the unified stone size."""
+    The wall sits OUTSIDE the 5 plus tiles -- the inner rim is
+    aligned with the tile boundary (half_w=0.5, half_l=1.5
+    cells) so the water disc cleanly fills the plus tiles, and
+    the outer rim sits one stone-depth further out so the
+    masonry encroaches on the 4 corner tiles of the 3x3 bbox.
+    This mirrors the 1x1 well, whose outer rim
+    (:data:`WELL_OUTER_RADIUS` = 0.85 cell) extends past the
+    tile boundary at 0.5 cell.
+
+    Anchored at the top-left tile of the 3x3 bbox; centre at
+    ``(tx + 1.5, ty + 1.5)`` cells."""
     cx = (tx + 1.5) * CELL
     cy = (ty + 1.5) * CELL
-    half_w = FOUNTAIN_CROSS_ARM_HALF_WIDTH
-    half_l = FOUNTAIN_CROSS_ARM_HALF_LENGTH
+    inner_half_w = FOUNTAIN_CROSS_INNER_HALF_WIDTH
+    inner_half_l = FOUNTAIN_CROSS_INNER_HALF_LENGTH
+    outer_half_w = FOUNTAIN_CROSS_OUTER_HALF_WIDTH
+    outer_half_l = FOUNTAIN_CROSS_OUTER_HALF_LENGTH
 
     parts: list[str] = [
         f'<g id="fountain-{tx}-{ty}" class="fountain-feature" '
         'stroke-linejoin="round">',
     ]
 
-    # Outer outline: traced over the plus polygon.
-    pts = _cross_fountain_polygon_pts(cx, cy, half_w, half_l)
+    # Outer outline: traced over the OUTER plus polygon. Sits a
+    # stone-depth outside the 5 plus tiles -- the wall is
+    # outside the tiles.
+    outer_pts = _cross_fountain_polygon_pts(
+        cx, cy, outer_half_w, outer_half_l,
+    )
     parts.append(
-        f'<path d="{_polygon_outline_d(pts)}" '
+        f'<path d="{_polygon_outline_d(outer_pts)}" '
         f'fill="none" stroke="{INK}" '
         f'stroke-width="{FOUNTAIN_OUTER_RING_STROKE_WIDTH:.2f}"/>'
     )
 
-    # Stones along each of the 12 segments. Depth is the radial
-    # thickness of the rim stones (same as STONE_DEPTH_PX so
-    # stones stay close to square).
+    # Stones march around the OUTER plus perimeter, growing
+    # inward toward the inner rim. Depth = STONE_DEPTH_PX so
+    # they stop exactly at the tile boundary.
     depth = STONE_DEPTH_PX
-    for i in range(len(pts)):
-        x0, y0 = pts[i]
-        x1, y1 = pts[(i + 1) % len(pts)]
+    for i in range(len(outer_pts)):
+        x0, y0 = outer_pts[i]
+        x1, y1 = outer_pts[(i + 1) % len(outer_pts)]
         parts.extend(_stones_along_segment(
             x0, y0, x1, y1,
             depth=depth, gap_px=STONE_GAP_PX,
@@ -960,9 +988,11 @@ def _cross_fountain_fragment_for_tile(tx: int, ty: int) -> str:
             stone_class="fountain-keystone",
         ))
 
-    # Water: inset the plus polygon inward by depth + 1.5 px.
-    water_half_w = max(2.0, half_w - depth - 1.5)
-    water_half_l = max(2.0, half_l - depth - 1.5)
+    # Water plus aligned with the tile boundary, inset slightly
+    # so the waterline stroke reads inside the rim.
+    inset = FOUNTAIN_CROSS_WATER_INSET_PX
+    water_half_w = inner_half_w - inset
+    water_half_l = inner_half_l - inset
     water_pts = _cross_fountain_polygon_pts(
         cx, cy, water_half_w, water_half_l,
     )
@@ -976,8 +1006,7 @@ def _cross_fountain_fragment_for_tile(tx: int, ty: int) -> str:
 
     # Movement marks scattered inside the central (largest)
     # circular area inscribed in the plus -- radius = the
-    # smaller of water_half_w / water_half_l (the "inner square"
-    # inscribed around the centre).
+    # smaller of water_half_w / water_half_l.
     movement_radius = min(water_half_w, water_half_l)
     parts.extend(_water_movement_fragments(
         cx, cy, movement_radius,
