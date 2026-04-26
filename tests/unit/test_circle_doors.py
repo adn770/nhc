@@ -374,15 +374,20 @@ class TestCircleDiameterFitsRect:
                     )
 
     def test_diameter_fits_min_dimension(self):
-        """Diameter should be <= min(width, height) of the rect."""
+        """Diameter equals min(width, height) of the rect.
+
+        Both odd and even diameters are supported -- odd
+        diameters centre on a tile (single-centre semantics),
+        even diameters centre on a tile boundary (cleaner for
+        partitioning circular buildings since the rim curves
+        inward at the equator)."""
         for w, h in [(4, 4), (5, 5), (6, 6), (7, 7), (8, 8),
                      (5, 7), (7, 5), (4, 6), (6, 4)]:
             rect = Rect(0, 0, w, h)
             d = CircleShape._diameter(rect)
-            assert d <= min(w, h), (
-                f"Rect {w}x{h}: diameter {d} > min({w},{h})"
+            assert d == min(w, h), (
+                f"Rect {w}x{h}: diameter {d} != min({w},{h})"
             )
-            assert d % 2 == 1, f"Rect {w}x{h}: diameter {d} not odd"
 
 
 class TestCircleCardinalWalls:

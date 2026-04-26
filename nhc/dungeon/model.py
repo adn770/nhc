@@ -111,22 +111,20 @@ class RectShape(RoomShape):
 class CircleShape(RoomShape):
     """Circular room — true circle centered in the bounding rect.
 
-    Uses min(width, height) as the diameter, forced to an odd number
-    so there is always a single center tile and clean cardinal points.
-    The circle is centered in the rect; tiles outside remain void.
+    Diameter = min(rect.width, rect.height). Both odd and even
+    diameters are supported: odd-diameter circles centre on a
+    single tile (the equator row passes through the rect's
+    leftmost / rightmost tiles); even-diameter circles centre
+    between tiles (the rim curves slightly inward at the
+    equator, leaving the corner-most tile pairs off the floor).
     """
 
     type_name = "circle"
 
     @staticmethod
     def _diameter(rect: Rect) -> int:
-        """Effective diameter (always odd, fits inside rect).
-
-        Rounded down for even sizes so the circle stays within
-        the bounding rect with room for walls on all sides.
-        """
-        d = min(rect.width, rect.height)
-        return d if d % 2 == 1 else d - 1
+        """Effective diameter (fits inside the bounding rect)."""
+        return min(rect.width, rect.height)
 
     def floor_tiles(self, rect: Rect) -> set[tuple[int, int]]:
         d = self._diameter(rect)

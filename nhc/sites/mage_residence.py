@@ -57,9 +57,17 @@ def assemble_mage_residence(
     spec = ARCHETYPE_CONFIG["mage_residence"]
     shape_key = rng.choice(MAGE_SHAPE_POOL)
     size = rng.randint(*MAGE_SIZE_RANGE)
-    # SectorPartitioner requires odd, square footprint.
-    if size % 2 == 0:
-        size += 1
+    # Circles bias toward EVEN diameter -- the rim curves
+    # inward at the equator on even diameters, so partition
+    # walls meet the curved exterior on the inner rim rather
+    # than the corner-most equator tiles. Octagons keep the
+    # historical odd-diameter convention.
+    if shape_key == "circle":
+        if size % 2 == 1:
+            size += 1
+    else:
+        if size % 2 == 0:
+            size += 1
     base_rect = Rect(1, 1, size, size)
     base_shape: RoomShape = (
         OctagonShape() if shape_key == "octagon" else CircleShape()

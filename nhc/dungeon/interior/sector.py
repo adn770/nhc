@@ -48,9 +48,14 @@ class SectorPartitioner:
             return SingleRoomPartitioner().plan(cfg)
 
         rect = cfg.footprint
-        if rect.width != rect.height or rect.width % 2 == 0:
+        if rect.width != rect.height:
             return SingleRoomPartitioner().plan(cfg)
 
+        # cx / cy is the partition split column / row. For odd
+        # widths it lands on the centre column (which the
+        # right / bottom leaf absorbs); for even widths it lands
+        # on the boundary between the two halves so each leaf
+        # owns half of the floor.
         cx = rect.x + rect.width // 2
         cy = rect.y + rect.height // 2
 
@@ -124,15 +129,29 @@ class SectorPartitioner:
         floor_tiles: set[tuple[int, int]],
     ) -> set[tuple[int, int, str]]:
         """Canonical edges along the split line(s), clipped to the
-        footprint (both adjacent tiles must be floor)."""
+        footprint.
+
+        A partition edge is added when at least one adjacent tile
+        is floor. When both are floor the edge is the partition
+        wall between two rooms; when only one is floor the edge
+        sits at the building rim (where the partition meets the
+        curved exterior wall). This keeps the bar visually
+        connected to the outer wall on circular footprints --
+        previously the equator-tile pairs (one floor, one void)
+        were skipped, leaving a one-tile gap between the interior
+        partition and the rim."""
         edges: set[tuple[int, int, str]] = set()
         if axis in ("vert", "cross"):
             for y in range(rect.y, rect.y2):
-                if (cx - 1, y) in floor_tiles and (cx, y) in floor_tiles:
+                left_floor = (cx - 1, y) in floor_tiles
+                right_floor = (cx, y) in floor_tiles
+                if left_floor or right_floor:
                     edges.add(canonicalize(cx, y, "west"))
         if axis in ("horiz", "cross"):
             for x in range(rect.x, rect.x2):
-                if (x, cy - 1) in floor_tiles and (x, cy) in floor_tiles:
+                up_floor = (x, cy - 1) in floor_tiles
+                down_floor = (x, cy) in floor_tiles
+                if up_floor or down_floor:
                     edges.add(canonicalize(x, cy, "north"))
         return edges
 

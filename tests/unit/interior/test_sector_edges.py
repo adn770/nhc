@@ -69,9 +69,13 @@ class TestSectorEdgesSimple:
             f"sector produced unexpected room counts: {counts}"
         )
 
-    def test_edges_do_not_dangle_over_void(self) -> None:
-        """Every canonical edge sits between two floor tiles —
-        never between VOID and floor."""
+    def test_edges_touch_at_least_one_floor_tile(self) -> None:
+        """Every canonical edge has at least one adjacent floor
+        tile. Edges with one void side land at the building rim,
+        where the partition meets the curved exterior wall (the
+        reason a circular tower's bar-style interior wall now
+        extends across the full diameter rather than stopping
+        a tile short on each side)."""
         rect = Rect(1, 1, 11, 11)
         for seed in range(10):
             plan = SectorPartitioner(mode="simple").plan(
@@ -83,8 +87,9 @@ class TestSectorEdgesSimple:
                     a, b = (x, y - 1), (x, y)
                 else:  # west
                     a, b = (x - 1, y), (x, y)
-                assert a in foot and b in foot, (
-                    f"seed={seed}: edge {(x, y, side)} dangles "
+                assert a in foot or b in foot, (
+                    f"seed={seed}: edge {(x, y, side)} sits in "
+                    f"void on both sides "
                     f"(a={a} in={a in foot}, b={b} in={b in foot})"
                 )
 
