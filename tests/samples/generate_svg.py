@@ -28,6 +28,17 @@ Default run (no flags) produces a complete catalog under
 ``--sites-only`` skips the references / dungeons / settlements
 and produces only macro + sub-hex site samples for fast graphical
 iteration.
+
+The catalog also includes:
+
+* Wells + fountains demo (well / well_square / fountain /
+  fountain_square + a tree row + grove for visual reference).
+* Floor variants demo (cobblestone family STREET / BRICK /
+  FLAGSTONE / HERRINGBONE side by side, plus wood vs stone
+  interior comparison).
+* Vegetation demo (tree cluster progression 1/2/3/5/10 with
+  per-tile vs grove-union split, per-tile hue jitter grid,
+  bush layout sampler, combined cartographer-style scene).
 """
 
 from __future__ import annotations
@@ -1175,6 +1186,442 @@ def _enclosure_fragments_for_site(site, seed: int) -> list[str]:
     return []
 
 
+def _make_floor_variants_level(width: int = 36, height: int = 26):
+    """Hand-built level showing every floor pattern variant.
+
+    Two horizontal bands:
+
+    * Top band (y=2..7): four cobblestone-family patches side by
+      side -- STREET, BRICK, FLAGSTONE, HERRINGBONE -- so the
+      stones / fills / strokes can be eyeballed at the same
+      lighting.
+    * Bottom band (y=12..18): two large interior patches showing
+      stone-on-FLOOR floor detail (cracks / stones / scratches)
+      versus the WOOD floor decorator (parquet planks + grain).
+    """
+    from nhc.dungeon.model import (
+        Level, Rect, Room, RectShape, SurfaceType, Terrain, Tile,
+    )
+
+    level = Level.create_empty(
+        "floor_variants_demo", "Floor variants", 1, width, height,
+    )
+    for y in range(height):
+        for x in range(width):
+            level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+    level.rooms = [Room(
+        id="floor_demo", rect=Rect(0, 0, width, height),
+        shape=RectShape(),
+    )]
+
+    cobble_specs = (
+        ("STREET",      SurfaceType.STREET),
+        ("BRICK",       SurfaceType.BRICK),
+        ("FLAGSTONE",   SurfaceType.FLAGSTONE),
+        ("HERRINGBONE", SurfaceType.HERRINGBONE),
+    )
+    patch_w, patch_h = 7, 5
+    gap = 1
+    for i, (_label, st) in enumerate(cobble_specs):
+        x0 = 1 + i * (patch_w + gap)
+        if x0 + patch_w >= width:
+            break
+        for dy in range(patch_h):
+            for dx in range(patch_w):
+                level.tiles[2 + dy][x0 + dx].surface_type = st
+
+    return level, cobble_specs, patch_w, patch_h, gap
+
+
+def generate_floor_variants_demo(
+    outdir: Path, seeds: list[int],
+) -> None:
+    """Floor pattern reference: cobblestone family + wood / stone.
+
+    Two SVGs per seed:
+
+    * ``floor_cobblestone_variants_seed<N>.svg`` -- STREET / BRICK /
+      FLAGSTONE / HERRINGBONE patches side by side on a stone
+      interior, with a label pill anchored on each patch.
+    * ``floor_wood_vs_stone_seed<N>.svg`` -- two large interior
+      rooms (stone vs wood) so the floor-detail decorators can be
+      compared on the same seed.
+    """
+    from nhc.dungeon.model import (
+        Level, Rect, Room, RectShape, Terrain, Tile,
+    )
+
+    fdir = outdir / "floor_variants"
+    fdir.mkdir(parents=True, exist_ok=True)
+
+    for seed in seeds:
+        level, cobble_specs, patch_w, patch_h, gap = (
+            _make_floor_variants_level()
+        )
+        level.interior_floor = "stone"
+        svg = render_floor_svg(level, seed=seed)
+        # Patch labels.
+        label_frags: list[str] = []
+        for i, (label, _) in enumerate(cobble_specs):
+            x0 = 1 + i * (patch_w + gap)
+            cx = PADDING + (x0 + patch_w / 2) * CELL
+            cy = PADDING + (2 + patch_h + 0.6) * CELL
+            char_w = 5.8
+            font_size = 10
+            pill_w = len(label) * char_w + 14
+            pill_h = font_size + 8
+            label_frags.append(
+                f'<rect x="{cx - pill_w / 2:.1f}" '
+                f'y="{cy - pill_h / 2:.1f}" '
+                f'width="{pill_w:.1f}" height="{pill_h:.1f}" '
+                f'rx="3" fill="rgba(255,255,240,0.92)" '
+                f'stroke="#a0651e" stroke-width="0.5"/>'
+                f'<text x="{cx:.1f}" y="{cy + 3:.1f}" '
+                f'font-family="monospace" font-size="{font_size}" '
+                f'font-weight="bold" text-anchor="middle" '
+                f'fill="#7a3e00">{label}</text>'
+            )
+        svg = svg.replace("</svg>", "".join(label_frags) + "</svg>")
+        info = [
+            f"Cobblestone family | seed={seed}",
+            "L->R: STREET, BRICK, FLAGSTONE, HERRINGBONE",
+            "All patches share the cobblestone wrapping group;",
+            "decorators differ in stone shape + stroke colour.",
+            "Empty FLOOR margins paint stone-floor cracks +",
+            "scratches via the floor-detail decorator.",
+        ]
+        svg = _inject_info_panel(svg, info)
+        (fdir / f"floor_cobblestone_variants_seed{seed}.svg").write_text(svg)
+        print(
+            f"  {fdir}/floor_cobblestone_variants_seed{seed}.svg"
+        )
+
+        # Two-room wood vs stone comparison. Each room is its own
+        # Room so the renderer's per-room interior_floor gate
+        # picks up the material distinction.
+        w, h = 28, 14
+        rooms_level = Level.create_empty(
+            "wood_vs_stone", "Wood vs stone floor", 1, w, h,
+        )
+        for y in range(h):
+            for x in range(w):
+                rooms_level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
+        # Single Room covering the whole grid; the interior_floor
+        # is set on the Level (not per-room) so we render twice
+        # with a manual flip.
+        rooms_level.rooms = [Room(
+            id="all", rect=Rect(0, 0, w, h),
+            shape=RectShape(),
+        )]
+        rooms_level.interior_floor = "stone"
+        stone_svg = render_floor_svg(rooms_level, seed=seed)
+        rooms_level.interior_floor = "wood"
+        wood_svg = render_floor_svg(rooms_level, seed=seed)
+
+        # Side-by-side composite: take stone SVG, append wood SVG
+        # body shifted right by stone_w + 20. Quick + dirty but
+        # the goal is human inspection, not pixel-perfect layout.
+        import re as _re
+        m_stone = _re.search(
+            r'width="(\d+)" height="(\d+)"', stone_svg,
+        )
+        if m_stone is None:
+            continue
+        stone_w = int(m_stone.group(1))
+        stone_h = int(m_stone.group(2))
+        gap_px = 24
+        composite_w = stone_w * 2 + gap_px
+        # Strip xml decl + opening svg from each, rewrap.
+        body_re = _re.compile(
+            r"<svg[^>]*>(.*?)</svg>", _re.DOTALL,
+        )
+        stone_body = body_re.search(stone_svg)
+        wood_body = body_re.search(wood_svg)
+        if stone_body is None or wood_body is None:
+            continue
+        composite_body = (
+            f'<g>{stone_body.group(1)}</g>'
+            f'<g transform="translate({stone_w + gap_px},0)">'
+            f'{wood_body.group(1)}</g>'
+        )
+        composite = (
+            f'<?xml version="1.0" encoding="utf-8"?>\n'
+            f'<svg width="{composite_w}" height="{stone_h}" '
+            f'viewBox="0 0 {composite_w} {stone_h}" '
+            f'xmlns="http://www.w3.org/2000/svg">\n'
+            f'<rect width="100%" height="100%" fill="#F5EDE0"/>\n'
+            f'{composite_body}\n'
+            f'</svg>\n'
+        )
+        # Add divider line + stone / wood headers.
+        divider = (
+            f'<line x1="{stone_w + gap_px / 2}" y1="0" '
+            f'x2="{stone_w + gap_px / 2}" y2="{stone_h}" '
+            f'stroke="#999" stroke-width="1" '
+            f'stroke-dasharray="6 4"/>'
+            f'<text x="{stone_w / 2}" y="22" '
+            f'font-family="monospace" font-size="14" '
+            f'font-weight="bold" text-anchor="middle" '
+            f'fill="#444">STONE INTERIOR</text>'
+            f'<text x="{stone_w + gap_px + stone_w / 2}" y="22" '
+            f'font-family="monospace" font-size="14" '
+            f'font-weight="bold" text-anchor="middle" '
+            f'fill="#444">WOOD INTERIOR</text>'
+        )
+        composite = composite.replace(
+            "</svg>", divider + "</svg>",
+        )
+        info = [
+            f"Wood vs stone interior | seed={seed}",
+            "Same Level rendered twice with interior_floor flip:",
+            "  left  = stone (cracks, ellipse stones, scratches)",
+            "  right = wood  (parquet planks + grain streaks)",
+            "Wood decorator short-circuits the stone-floor passes.",
+        ]
+        composite = _inject_info_panel(composite, info)
+        (fdir / f"floor_wood_vs_stone_seed{seed}.svg").write_text(composite)
+        print(
+            f"  {fdir}/floor_wood_vs_stone_seed{seed}.svg"
+        )
+
+
+def _make_vegetation_level(
+    width: int, height: int, *, surface_type=None,
+):
+    """Empty FIELD-grass level for stamping vegetation features."""
+    from nhc.dungeon.model import (
+        Level, Rect, Room, RectShape, SurfaceType, Terrain, Tile,
+    )
+    if surface_type is None:
+        surface_type = SurfaceType.FIELD
+    level = Level.create_empty(
+        "vegetation_demo", "Vegetation demo", 1, width, height,
+    )
+    for y in range(height):
+        for x in range(width):
+            level.tiles[y][x] = Tile(
+                terrain=Terrain.GRASS,
+                surface_type=surface_type,
+            )
+    level.metadata.prerevealed = True
+    level.rooms = [Room(
+        id="veg", rect=Rect(0, 0, width, height),
+        shape=RectShape(),
+    )]
+    return level
+
+
+def _stamp_feature_run(
+    level, x0: int, y: int, count: int, feature: str,
+) -> list[tuple[int, int]]:
+    out = []
+    for i in range(count):
+        x = x0 + i
+        level.tiles[y][x].feature = feature
+        out.append((x, y))
+    return out
+
+
+def _stamp_feature_block(
+    level, x0: int, y0: int, w: int, h: int, feature: str,
+) -> list[tuple[int, int]]:
+    out = []
+    for dy in range(h):
+        for dx in range(w):
+            level.tiles[y0 + dy][x0 + dx].feature = feature
+            out.append((x0 + dx, y0 + dy))
+    return out
+
+
+def _band_label_fragment(
+    cx: float, cy: float, text: str,
+    *, color_fill: str = "#7a3e00",
+    bg_fill: str = "rgba(255,255,240,0.92)",
+    border: str = "#a0651e",
+    font_size: int = 10,
+) -> str:
+    char_w = 5.8
+    pill_w = len(text) * char_w + 14
+    pill_h = font_size + 8
+    return (
+        f'<rect x="{cx - pill_w / 2:.1f}" '
+        f'y="{cy - pill_h / 2:.1f}" '
+        f'width="{pill_w:.1f}" height="{pill_h:.1f}" '
+        f'rx="3" fill="{bg_fill}" '
+        f'stroke="{border}" stroke-width="0.5"/>'
+        f'<text x="{cx:.1f}" y="{cy + 3:.1f}" '
+        f'font-family="monospace" font-size="{font_size}" '
+        f'font-weight="bold" text-anchor="middle" '
+        f'fill="{color_fill}">{_xml_escape(text)}</text>'
+    )
+
+
+def generate_vegetation_demo(
+    outdir: Path, seeds: list[int],
+) -> None:
+    """Trees + bushes reference SVGs.
+
+    Three SVGs per seed:
+
+    * ``trees_progression_seed<N>.svg`` -- five tree clusters of
+      increasing size (1, 2, 3, 5, 10) so the per-tile / grove
+      union threshold can be eyeballed: groves of 1-2 keep the
+      shadow + canopy + highlight + trunk stack; groves of 3+
+      collapse into a single Shapely-unioned silhouette.
+    * ``trees_jitter_grid_seed<N>.svg`` -- a 6x6 grid of isolated
+      trees (one per tile) showing the per-tile hue / sat /
+      light jitter (+/-6deg H, +/-5% S, +/-4% L). Adjacent tiles
+      look distinct rather than tiled.
+    * ``bushes_neighbour_bias_seed<N>.svg`` -- bush clusters of
+      sizes 1, 2, 5 (row), 9 (block) so the smaller pom-pom +
+      no-trunk + tile-bounded canopy can be eyeballed without
+      the tree silhouette dominating the read.
+    * ``vegetation_combined_seed<N>.svg`` -- a synthetic field
+      with both features mixed: a couple of groves, a scatter of
+      lone trees, and bushes filling the gaps with a row near
+      one edge to show the cartographer-style read.
+    """
+    vdir = outdir / "vegetation"
+    vdir.mkdir(parents=True, exist_ok=True)
+
+    for seed in seeds:
+        # ── Trees: cluster-size progression ──────────────────
+        level = _make_vegetation_level(48, 14)
+        cluster_sizes = [1, 2, 3, 5, 10]
+        cluster_x = [3, 8, 14, 21, 32]
+        for x0, size in zip(cluster_x, cluster_sizes):
+            _stamp_feature_run(level, x0, 6, size, "tree")
+        svg = render_floor_svg(level, seed=seed)
+        # Per-cluster label below each cluster.
+        labels: list[str] = []
+        for x0, size in zip(cluster_x, cluster_sizes):
+            cx = PADDING + (x0 + size / 2) * CELL
+            cy = PADDING + (6 + 1.6) * CELL
+            kind = "grove union" if size >= 3 else "per-tile"
+            labels.append(_band_label_fragment(
+                cx, cy, f"size={size} ({kind})",
+            ))
+        svg = svg.replace("</svg>", "".join(labels) + "</svg>")
+        info = [
+            f"Tree cluster progression | seed={seed}",
+            "Sizes 1, 2, 3, 5, 10 -- per-tile vs grove union.",
+            "Single + pair: shadow / canopy / highlight / silhouette",
+            "  + brown trunk dot.",
+            "3+: Shapely unary_union over canopy circles --",
+            "  one fragment per grove anchored at min(tx,ty),",
+            "  trunks dropped (fused foliage).",
+        ]
+        svg = _inject_info_panel(svg, info)
+        (vdir / f"trees_progression_seed{seed}.svg").write_text(svg)
+        print(f"  {vdir}/trees_progression_seed{seed}.svg")
+
+        # ── Trees: per-tile hue jitter grid ──────────────────
+        # 6x6 grid with 1-tile gaps so canopies never touch and
+        # the grove union never fires (each tree is a size-1
+        # cluster).
+        grid_n = 6
+        gap = 2
+        size = grid_n * gap + 2
+        level = _make_vegetation_level(size, size)
+        for gy in range(grid_n):
+            for gx in range(grid_n):
+                tx = 1 + gx * gap
+                ty = 1 + gy * gap
+                level.tiles[ty][tx].feature = "tree"
+        svg = render_floor_svg(level, seed=seed)
+        info = [
+            f"Per-tile hue jitter grid | seed={seed}",
+            f"{grid_n}x{grid_n} isolated trees on a "
+            f"{gap}-tile lattice.",
+            "Each canopy fill jitters HSL deterministically:",
+            "  +/-6deg H, +/-5% S, +/-4% L per tile.",
+            "Same algorithm produces stable per-grove hue (M2):",
+            "  the hue seeds from min(grove) so adding a 4th",
+            "  tree nudges colour rather than flipping it.",
+        ]
+        svg = _inject_info_panel(svg, info)
+        (vdir / f"trees_jitter_grid_seed{seed}.svg").write_text(svg)
+        print(f"  {vdir}/trees_jitter_grid_seed{seed}.svg")
+
+        # ── Bushes: cluster sizes ───────────────────────────
+        level = _make_vegetation_level(40, 14)
+        bush_layouts: list[tuple[int, int, str, list[tuple[int, int]]]] = []
+        # solo
+        positions = _stamp_feature_run(level, 3, 6, 1, "bush")
+        bush_layouts.append((3, 6, "solo", positions))
+        # pair
+        positions = _stamp_feature_run(level, 6, 6, 2, "bush")
+        bush_layouts.append((6, 6, "pair", positions))
+        # row of 5
+        positions = _stamp_feature_run(level, 11, 6, 5, "bush")
+        bush_layouts.append((11, 6, "row x5", positions))
+        # 3x3 block (9 bushes)
+        positions = _stamp_feature_block(level, 19, 4, 3, 3, "bush")
+        bush_layouts.append((19, 4, "3x3 block", positions))
+        # plus column
+        positions = []
+        positions += _stamp_feature_run(level, 25, 4, 1, "bush")
+        positions += _stamp_feature_run(level, 25, 5, 1, "bush")
+        positions += _stamp_feature_run(level, 25, 6, 1, "bush")
+        positions += _stamp_feature_run(level, 25, 7, 1, "bush")
+        bush_layouts.append((25, 4, "col x4", positions))
+
+        svg = render_floor_svg(level, seed=seed)
+        labels = []
+        for x0, y0, label, _pos in bush_layouts:
+            cx = PADDING + (x0 + 1.0) * CELL
+            cy = PADDING + (y0 + 4.0) * CELL
+            labels.append(_band_label_fragment(cx, cy, label))
+        svg = svg.replace("</svg>", "".join(labels) + "</svg>")
+        info = [
+            f"Bush layouts | seed={seed}",
+            "Solo, pair, row x5, 3x3 block, col x4.",
+            "Bushes stay per-tile (no grove union) so their",
+            "  small silhouettes layer instead of fusing.",
+            "Canopy radius 0.32 cell + jitter 0.10 cell -- the",
+            "  silhouette is bounded inside its own tile so a",
+            "  bush touching a wall never bleeds onto the roof.",
+            "Highlight offset (-0.07, -0.07) cell, lit +12% L.",
+        ]
+        svg = _inject_info_panel(svg, info)
+        (vdir / f"bushes_layouts_seed{seed}.svg").write_text(svg)
+        print(f"  {vdir}/bushes_layouts_seed{seed}.svg")
+
+        # ── Combined cartographer-style scene ────────────────
+        level = _make_vegetation_level(40, 22)
+        # Two groves of 4 (M2 union).
+        _stamp_feature_block(level, 3, 3, 4, 1, "tree")
+        _stamp_feature_block(level, 18, 3, 1, 4, "tree")
+        # A grove of 3 and 5
+        _stamp_feature_block(level, 25, 3, 5, 1, "tree")
+        # Some isolated trees / pairs
+        _stamp_feature_block(level, 4, 12, 1, 1, "tree")
+        _stamp_feature_block(level, 7, 13, 2, 1, "tree")
+        # Bush "hedge" along the bottom
+        _stamp_feature_run(level, 5, 18, 12, "bush")
+        # Bushes with neighbour-bias-style clusters
+        _stamp_feature_block(level, 28, 12, 2, 2, "bush")
+        _stamp_feature_block(level, 32, 14, 2, 2, "bush")
+        _stamp_feature_run(level, 22, 16, 4, "bush")
+        # Sprinkle isolated bushes
+        for (bx, by) in [(11, 8), (15, 11), (35, 5), (3, 16)]:
+            level.tiles[by][bx].feature = "bush"
+
+        svg = render_floor_svg(level, seed=seed)
+        info = [
+            f"Combined vegetation scene | seed={seed}",
+            "Top:  two groves of 4 + one grove of 5 (Shapely",
+            "      unary_union at 3+ adjacency).",
+            "Mid:  a couple of isolated trees + a pair (per-tile).",
+            "Bot:  bush hedge of 12 + neighbour-bias clusters",
+            "      and a sprinkle of solitary shrubs.",
+            "Cartographer-style: trees fuse, bushes accumulate.",
+        ]
+        svg = _inject_info_panel(svg, info)
+        (vdir / f"vegetation_combined_seed{seed}.svg").write_text(svg)
+        print(f"  {vdir}/vegetation_combined_seed{seed}.svg")
+
+
 def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
     """Side-by-side comparison sheet: wells (1x1) and fountains
     (2x2), circle + square variants of each.
@@ -1576,6 +2023,10 @@ def main(argv: list[str] | None = None) -> None:
         generate_sub_hex_sites(args.outdir, seeds)
         print("\n── Wells + fountains demo ──")
         generate_well_demo(args.outdir, seeds)
+        print("\n── Floor variants demo ──")
+        generate_floor_variants_demo(args.outdir, seeds)
+        print("\n── Vegetation demo ──")
+        generate_vegetation_demo(args.outdir, seeds)
         return
 
     if args.buildings_only:
@@ -1585,6 +2036,10 @@ def main(argv: list[str] | None = None) -> None:
         generate_enclosure_demos(args.outdir)
         print("\n── Surface references ──")
         generate_surface_samples(args.outdir)
+        print("\n── Floor variants demo ──")
+        generate_floor_variants_demo(args.outdir, seeds)
+        print("\n── Vegetation demo ──")
+        generate_vegetation_demo(args.outdir, seeds)
         print("\n── Building site samples (macro) ──")
         generate_building_sites(args.outdir, seeds)
         print("\n── Sub-hex site samples ──")
@@ -1618,6 +2073,10 @@ def main(argv: list[str] | None = None) -> None:
     generate_sub_hex_sites(args.outdir, seeds)
     print("\n── Wells + fountains demo ──")
     generate_well_demo(args.outdir, seeds)
+    print("\n── Floor variants demo ──")
+    generate_floor_variants_demo(args.outdir, seeds)
+    print("\n── Vegetation demo ──")
+    generate_vegetation_demo(args.outdir, seeds)
 
 
 if __name__ == "__main__":
