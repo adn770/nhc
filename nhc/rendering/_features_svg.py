@@ -26,15 +26,31 @@ from nhc.rendering._svg_helpers import CELL, INK
 
 # ── Well ──────────────────────────────────────────────────────
 
+# Unified stone sizing -- every well / fountain variant draws
+# stones at the same physical size so the masonry reads
+# consistently across the 1x1, 2x2, 3x3 and cross footprints.
+# Counts are derived from circumference / side length divided by
+# these targets, eliminating the per-variant count constants.
+STONE_SIDE_PX = 11.0
+"""Target stone length along the rim (arc length for circle
+variants, side length for polygon variants)."""
+STONE_DEPTH_PX = 9.0
+"""Target stone radial thickness. Together with STONE_SIDE_PX
+this keeps stones close to square so they read as discrete
+masonry units regardless of feature size."""
+STONE_GAP_PX = 0.4
+"""Hairline gap between stones. Small enough that stones touch
+visually with no daylight gaps; large enough that the seam
+reads."""
+
 # Outer / inner ring radii in tile units. Outer = 0.85 of a tile
 # half-diagonal so the decoration fits comfortably inside the
 # 3x3 tile neighbourhood around the centerpiece without leaking
 # into adjacent rooms or the cobblestone seams.
 WELL_OUTER_RADIUS = 0.85 * CELL
-WELL_INNER_RADIUS = 0.55 * CELL
-WELL_WATER_RADIUS = 0.42 * CELL
-WELL_KEYSTONE_COUNT = 16
-WELL_KEYSTONE_GAP_RAD = math.radians(2.5)
+WELL_INNER_RADIUS = WELL_OUTER_RADIUS - STONE_DEPTH_PX
+WELL_WATER_RADIUS = WELL_INNER_RADIUS - 1.5
+WELL_KEYSTONE_GAP_RAD = math.radians(1.5)
 WELL_STONE_FILL = "#EFE4D2"
 WELL_STONE_STROKE = INK
 WELL_STONE_STROKE_WIDTH = 1.4
@@ -45,6 +61,24 @@ WELL_WATER_STROKE_WIDTH = 1.0
 WELL_HIGHLIGHT_FILL = "rgba(255,255,255,0.18)"
 """Legacy soft-fill colour. No longer used; kept exported so
  callers / tests that still reference the constant compile."""
+
+
+def _circle_keystone_count(outer_radius: float) -> int:
+    """Number of keystones around a circular rim of the given
+    outer radius. Keeps each stone roughly STONE_SIDE_PX long
+    along the arc."""
+    circumference = 2 * math.pi * outer_radius
+    return max(8, round(circumference / STONE_SIDE_PX))
+
+
+def _square_stones_per_side(side_length_px: float) -> int:
+    """Number of stones fitting along a polygon side of the
+    given length. Keeps each stone roughly STONE_SIDE_PX long
+    along the side."""
+    return max(2, round(side_length_px / STONE_SIDE_PX))
+
+
+WELL_KEYSTONE_COUNT = _circle_keystone_count(WELL_OUTER_RADIUS)
 
 # Water movement: irregular short curved strokes scattered inside
 # the water disc representing surface ripples / motion. Replaces
@@ -112,25 +146,27 @@ def _water_movement_fragments(
         for d in paths
     ]
 
-# Square well geometry. Outer / inner / water radii are reused
-# from the circle constants (so a square well sits in the same
-# tile-centred bounding box as the circle variant); the only
-# new dimensions are stone counts and gaps.
+# Square well geometry. Outer / inner / water radii match the
+# circle variant so both shapes occupy the same bounding box.
+# Stone counts are derived from side length so the same physical
+# stone size renders for every variant; tight gaps make the
+# stones touch with only a hairline seam.
 #
-# Layout: top + bottom rows span the full outer width with
-# ``WELL_SQUARE_STONES_PER_LONG_SIDE`` stones each, taking
-# ownership of the corners. Left + right rows span only the
-# inner section (between the top and bottom rows) with
-# ``WELL_SQUARE_STONES_PER_SHORT_SIDE`` stones each, so corners
-# don't double up. Total = 2L + 2S stones.
-WELL_SQUARE_STONES_PER_LONG_SIDE = 4
-WELL_SQUARE_STONES_PER_SHORT_SIDE = 4
+# Layout convention: top + bottom rows span the full outer width
+# (corners owned here); left + right columns span only the inner
+# section between the long rows.
+WELL_SQUARE_STONES_PER_LONG_SIDE = _square_stones_per_side(
+    2 * WELL_OUTER_RADIUS,
+)
+WELL_SQUARE_STONES_PER_SHORT_SIDE = _square_stones_per_side(
+    2 * WELL_OUTER_RADIUS - 2 * STONE_DEPTH_PX,
+)
 WELL_SQUARE_STONE_COUNT = (
     2 * WELL_SQUARE_STONES_PER_LONG_SIDE
     + 2 * WELL_SQUARE_STONES_PER_SHORT_SIDE
 )
-WELL_SQUARE_STONE_GAP_PX = 1.5
-WELL_SQUARE_STONE_RADIUS_PX = 1.6
+WELL_SQUARE_STONE_GAP_PX = STONE_GAP_PX
+WELL_SQUARE_STONE_RADIUS_PX = 1.4
 WELL_SQUARE_OUTER_RX_PX = 3.0
 WELL_SQUARE_WATER_RX_PX = 2.0
 
@@ -141,18 +177,15 @@ WELL_SQUARE_WATER_RX_PX = 2.0
 # up to a 2x2 tile footprint. The top-left tile of the 2x2
 # carries the ``feature`` tag; the decoration is centred on the
 # corner shared by the four tiles -- (tx+1, ty+1) * CELL.
-#
-# Outer radius is sized so the rim spans almost the full 2x2
-# area without bleeding into adjacent tiles. Stone counts are
-# higher than the well's so each individual stone keeps roughly
-# the same visible arc length / edge length as a well stone.
 FOUNTAIN_OUTER_RADIUS = 0.92 * CELL
-FOUNTAIN_INNER_RADIUS = 0.74 * CELL
-FOUNTAIN_WATER_RADIUS = 0.66 * CELL
+FOUNTAIN_INNER_RADIUS = FOUNTAIN_OUTER_RADIUS - STONE_DEPTH_PX
+FOUNTAIN_WATER_RADIUS = FOUNTAIN_INNER_RADIUS - 1.5
 FOUNTAIN_PEDESTAL_OUTER_RADIUS = 0.22 * CELL
 FOUNTAIN_PEDESTAL_INNER_RADIUS = 0.12 * CELL
-FOUNTAIN_KEYSTONE_COUNT = 24
-FOUNTAIN_KEYSTONE_GAP_RAD = math.radians(2.0)
+FOUNTAIN_KEYSTONE_COUNT = _circle_keystone_count(
+    FOUNTAIN_OUTER_RADIUS,
+)
+FOUNTAIN_KEYSTONE_GAP_RAD = math.radians(1.5)
 FOUNTAIN_OUTER_RING_STROKE_WIDTH = 1.8
 FOUNTAIN_PEDESTAL_STROKE_WIDTH = 1.4
 FOUNTAIN_WATER_FILL = WELL_WATER_FILL
@@ -164,17 +197,69 @@ FOUNTAIN_PEDESTAL_FILL = "#D9C9AE"
 FOUNTAIN_SPOUT_FILL = "#7FB6E0"
 FOUNTAIN_HIGHLIGHT_FILL = WELL_HIGHLIGHT_FILL
 
-FOUNTAIN_SQUARE_STONES_PER_LONG_SIDE = 6
-FOUNTAIN_SQUARE_STONES_PER_SHORT_SIDE = 6
+FOUNTAIN_SQUARE_STONES_PER_LONG_SIDE = _square_stones_per_side(
+    2 * FOUNTAIN_OUTER_RADIUS,
+)
+FOUNTAIN_SQUARE_STONES_PER_SHORT_SIDE = _square_stones_per_side(
+    2 * FOUNTAIN_OUTER_RADIUS - 2 * STONE_DEPTH_PX,
+)
 FOUNTAIN_SQUARE_STONE_COUNT = (
     2 * FOUNTAIN_SQUARE_STONES_PER_LONG_SIDE
     + 2 * FOUNTAIN_SQUARE_STONES_PER_SHORT_SIDE
 )
-FOUNTAIN_SQUARE_STONE_GAP_PX = 1.5
-FOUNTAIN_SQUARE_STONE_RADIUS_PX = 1.6
+FOUNTAIN_SQUARE_STONE_GAP_PX = STONE_GAP_PX
+FOUNTAIN_SQUARE_STONE_RADIUS_PX = 1.4
 FOUNTAIN_SQUARE_OUTER_RX_PX = 4.0
 FOUNTAIN_SQUARE_WATER_RX_PX = 2.5
 FOUNTAIN_SQUARE_PEDESTAL_RX_PX = 2.0
+
+
+# ── Fountain (3x3 footprint) ─────────────────────────────────
+#
+# The 3x3 variants centre on the middle tile of a 3-by-3 area
+# (anchor at top-left tile, centre at (tx+1.5, ty+1.5) cells).
+# Outer radius spans almost the full 3x3 footprint without
+# bleeding past it. Stone size matches the well / 2x2 fountain
+# so the masonry reads consistently across all sizes.
+FOUNTAIN_3X3_OUTER_RADIUS = 1.42 * CELL
+FOUNTAIN_3X3_INNER_RADIUS = FOUNTAIN_3X3_OUTER_RADIUS - STONE_DEPTH_PX
+FOUNTAIN_3X3_WATER_RADIUS = FOUNTAIN_3X3_INNER_RADIUS - 1.5
+FOUNTAIN_3X3_PEDESTAL_OUTER_RADIUS = 0.30 * CELL
+FOUNTAIN_3X3_PEDESTAL_INNER_RADIUS = 0.18 * CELL
+FOUNTAIN_3X3_KEYSTONE_COUNT = _circle_keystone_count(
+    FOUNTAIN_3X3_OUTER_RADIUS,
+)
+FOUNTAIN_3X3_KEYSTONE_GAP_RAD = math.radians(1.0)
+
+FOUNTAIN_3X3_SQUARE_STONES_PER_LONG_SIDE = _square_stones_per_side(
+    2 * FOUNTAIN_3X3_OUTER_RADIUS,
+)
+FOUNTAIN_3X3_SQUARE_STONES_PER_SHORT_SIDE = _square_stones_per_side(
+    2 * FOUNTAIN_3X3_OUTER_RADIUS - 2 * STONE_DEPTH_PX,
+)
+FOUNTAIN_3X3_SQUARE_STONE_COUNT = (
+    2 * FOUNTAIN_3X3_SQUARE_STONES_PER_LONG_SIDE
+    + 2 * FOUNTAIN_3X3_SQUARE_STONES_PER_SHORT_SIDE
+)
+FOUNTAIN_3X3_SQUARE_OUTER_RX_PX = 5.0
+FOUNTAIN_3X3_SQUARE_WATER_RX_PX = 3.0
+
+
+# ── Fountain (3x3 cross / plus footprint) ────────────────────
+#
+# Greek-cross outline inscribed in a 3x3 bounding box. Arms are
+# 1 tile wide; total span is 3 tiles each direction. The 4
+# corner tiles of the bounding box are NOT part of the feature
+# footprint -- the renderer paints the plus regardless of which
+# tile carries the feature tag (the renderer anchors on the
+# top-left of the bbox, centre at (tx+1.5, ty+1.5) cells).
+FOUNTAIN_CROSS_ARM_HALF_WIDTH = 0.45 * CELL
+"""Half-width of each cross arm (so an arm is 0.9 cell wide,
+keeping a small breathing room inside the 1-tile arm width)."""
+FOUNTAIN_CROSS_ARM_HALF_LENGTH = 1.42 * CELL
+"""Half-length of each arm from centre to outer end."""
+FOUNTAIN_CROSS_PEDESTAL_OUTER_RADIUS = 0.26 * CELL
+FOUNTAIN_CROSS_PEDESTAL_INNER_RADIUS = 0.14 * CELL
 
 
 def _keystone_path(
@@ -568,6 +653,360 @@ def _square_fountain_fragment_for_tile(tx: int, ty: int) -> str:
     return "".join(parts)
 
 
+# ── Fountain (3x3 footprint) ─────────────────────────────────
+
+
+def _circle_fountain_3x3_fragment_for_tile(
+    tx: int, ty: int,
+) -> str:
+    """Circular 3x3 fountain anchored at the top-left tile of a
+    3-by-3 footprint. Centre at ``(tx + 1.5, ty + 1.5)`` cells."""
+    cx = (tx + 1.5) * CELL
+    cy = (ty + 1.5) * CELL
+
+    parts: list[str] = [
+        f'<g id="fountain-{tx}-{ty}" class="fountain-feature" '
+        'stroke-linejoin="round">',
+    ]
+
+    parts.append(
+        f'<circle cx="{cx:.2f}" cy="{cy:.2f}" '
+        f'r="{FOUNTAIN_3X3_OUTER_RADIUS:.2f}" '
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{FOUNTAIN_OUTER_RING_STROKE_WIDTH:.2f}"/>'
+    )
+
+    n = FOUNTAIN_3X3_KEYSTONE_COUNT
+    step = (2 * math.pi) / n
+    gap = FOUNTAIN_3X3_KEYSTONE_GAP_RAD
+    for i in range(n):
+        a0 = i * step + gap / 2
+        a1 = (i + 1) * step - gap / 2
+        d = _keystone_path(
+            cx, cy,
+            FOUNTAIN_3X3_INNER_RADIUS,
+            FOUNTAIN_3X3_OUTER_RADIUS,
+            a0, a1,
+        )
+        parts.append(
+            f'<path class="fountain-keystone" d="{d}" '
+            f'fill="{FOUNTAIN_STONE_FILL}" '
+            f'stroke="{FOUNTAIN_STONE_STROKE}" '
+            f'stroke-width="{FOUNTAIN_STONE_STROKE_WIDTH:.2f}"/>'
+        )
+
+    parts.append(
+        f'<circle class="fountain-water" '
+        f'cx="{cx:.2f}" cy="{cy:.2f}" '
+        f'r="{FOUNTAIN_3X3_WATER_RADIUS:.2f}" '
+        f'fill="{FOUNTAIN_WATER_FILL}" '
+        f'stroke="{FOUNTAIN_WATER_STROKE}" '
+        f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
+    )
+
+    parts.extend(_water_movement_fragments(
+        cx, cy, FOUNTAIN_3X3_WATER_RADIUS,
+        tx=tx, ty=ty,
+        cls="fountain-water-movement",
+    ))
+
+    # Pedestal: stone disc + spout.
+    parts.append(
+        f'<circle class="fountain-pedestal" '
+        f'cx="{cx:.2f}" cy="{cy:.2f}" '
+        f'r="{FOUNTAIN_3X3_PEDESTAL_OUTER_RADIUS:.2f}" '
+        f'fill="{FOUNTAIN_PEDESTAL_FILL}" '
+        f'stroke="{INK}" '
+        f'stroke-width="{FOUNTAIN_PEDESTAL_STROKE_WIDTH:.2f}"/>'
+    )
+    parts.append(
+        f'<circle class="fountain-spout" '
+        f'cx="{cx:.2f}" cy="{cy:.2f}" '
+        f'r="{FOUNTAIN_3X3_PEDESTAL_INNER_RADIUS:.2f}" '
+        f'fill="{FOUNTAIN_SPOUT_FILL}" '
+        f'stroke="{FOUNTAIN_WATER_STROKE}" '
+        f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
+    )
+
+    parts.append('</g>')
+    return "".join(parts)
+
+
+def _square_fountain_3x3_fragment_for_tile(
+    tx: int, ty: int,
+) -> str:
+    """Square 3x3 fountain anchored at the top-left tile of a
+    3-by-3 footprint."""
+    cx = (tx + 1.5) * CELL
+    cy = (ty + 1.5) * CELL
+    outer = FOUNTAIN_3X3_OUTER_RADIUS
+    inner = FOUNTAIN_3X3_INNER_RADIUS
+    depth = outer - inner
+    gap = STONE_GAP_PX
+
+    parts: list[str] = [
+        f'<g id="fountain-{tx}-{ty}" class="fountain-feature" '
+        'stroke-linejoin="round">',
+    ]
+
+    parts.append(
+        f'<rect x="{cx - outer:.2f}" y="{cy - outer:.2f}" '
+        f'width="{2 * outer:.2f}" height="{2 * outer:.2f}" '
+        f'rx="{FOUNTAIN_3X3_SQUARE_OUTER_RX_PX:.2f}" '
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{FOUNTAIN_OUTER_RING_STROKE_WIDTH:.2f}"/>'
+    )
+
+    long_n = FOUNTAIN_3X3_SQUARE_STONES_PER_LONG_SIDE
+    long_span = 2 * outer
+    long_stone = (long_span - (long_n + 1) * gap) / long_n
+    for i in range(long_n):
+        x0 = cx - outer + gap + i * (long_stone + gap)
+        parts.append(_fountain_stone_rect(
+            x0, cy - outer + gap, long_stone, depth - 2 * gap,
+        ))
+        parts.append(_fountain_stone_rect(
+            x0, cy + inner + gap, long_stone, depth - 2 * gap,
+        ))
+
+    short_n = FOUNTAIN_3X3_SQUARE_STONES_PER_SHORT_SIDE
+    short_span = 2 * inner
+    short_stone = (short_span - (short_n + 1) * gap) / short_n
+    for i in range(short_n):
+        y0 = cy - inner + gap + i * (short_stone + gap)
+        parts.append(_fountain_stone_rect(
+            cx - outer + gap, y0, depth - 2 * gap, short_stone,
+        ))
+        parts.append(_fountain_stone_rect(
+            cx + inner + gap, y0, depth - 2 * gap, short_stone,
+        ))
+
+    water = FOUNTAIN_3X3_WATER_RADIUS
+    parts.append(
+        f'<rect class="fountain-water" '
+        f'x="{cx - water:.2f}" y="{cy - water:.2f}" '
+        f'width="{2 * water:.2f}" height="{2 * water:.2f}" '
+        f'rx="{FOUNTAIN_3X3_SQUARE_WATER_RX_PX:.2f}" '
+        f'fill="{FOUNTAIN_WATER_FILL}" '
+        f'stroke="{FOUNTAIN_WATER_STROKE}" '
+        f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
+    )
+
+    parts.extend(_water_movement_fragments(
+        cx, cy, water, tx=tx, ty=ty,
+        cls="fountain-water-movement",
+    ))
+
+    pedestal = FOUNTAIN_3X3_PEDESTAL_OUTER_RADIUS
+    parts.append(
+        f'<rect class="fountain-pedestal" '
+        f'x="{cx - pedestal:.2f}" y="{cy - pedestal:.2f}" '
+        f'width="{2 * pedestal:.2f}" height="{2 * pedestal:.2f}" '
+        f'rx="{FOUNTAIN_SQUARE_PEDESTAL_RX_PX:.2f}" '
+        f'fill="{FOUNTAIN_PEDESTAL_FILL}" '
+        f'stroke="{INK}" '
+        f'stroke-width="{FOUNTAIN_PEDESTAL_STROKE_WIDTH:.2f}"/>'
+    )
+    spout = FOUNTAIN_3X3_PEDESTAL_INNER_RADIUS
+    parts.append(
+        f'<rect class="fountain-spout" '
+        f'x="{cx - spout:.2f}" y="{cy - spout:.2f}" '
+        f'width="{2 * spout:.2f}" height="{2 * spout:.2f}" '
+        f'rx="{FOUNTAIN_SQUARE_PEDESTAL_RX_PX:.2f}" '
+        f'fill="{FOUNTAIN_SPOUT_FILL}" '
+        f'stroke="{FOUNTAIN_WATER_STROKE}" '
+        f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
+    )
+
+    parts.append('</g>')
+    return "".join(parts)
+
+
+# ── Fountain cross (3x3 plus-shaped footprint) ──────────────
+
+
+def _cross_fountain_polygon_pts(
+    cx: float, cy: float, half_w: float, half_l: float,
+) -> list[tuple[float, float]]:
+    """12 vertices of a Greek-cross / plus polygon centred on
+    ``(cx, cy)``. Vertices listed clockwise so the interior is on
+    the LEFT of each segment in math coords (interior is in the
+    +y direction in SVG, since SVG y points down)."""
+    return [
+        (cx - half_w, cy - half_l),  # 0 top arm top-left
+        (cx + half_w, cy - half_l),  # 1 top arm top-right
+        (cx + half_w, cy - half_w),  # 2 inner ne
+        (cx + half_l, cy - half_w),  # 3 right arm top-right
+        (cx + half_l, cy + half_w),  # 4 right arm bottom-right
+        (cx + half_w, cy + half_w),  # 5 inner se
+        (cx + half_w, cy + half_l),  # 6 bottom arm bottom-right
+        (cx - half_w, cy + half_l),  # 7 bottom arm bottom-left
+        (cx - half_w, cy + half_w),  # 8 inner sw
+        (cx - half_l, cy + half_w),  # 9 left arm bottom-left
+        (cx - half_l, cy - half_w),  # 10 left arm top-left
+        (cx - half_w, cy - half_w),  # 11 inner nw
+    ]
+
+
+def _polygon_outline_d(pts: list[tuple[float, float]]) -> str:
+    """Closed SVG ``d`` string for a polygon."""
+    out = [f"M{pts[0][0]:.2f},{pts[0][1]:.2f}"]
+    for x, y in pts[1:]:
+        out.append(f"L{x:.2f},{y:.2f}")
+    out.append("Z")
+    return " ".join(out)
+
+
+def _stones_along_segment(
+    x0: float, y0: float, x1: float, y1: float,
+    *, depth: float, gap_px: float,
+    fill: str, stroke: str, stroke_width: float,
+    stone_class: str,
+) -> list[str]:
+    """Generate stone <path> rects along the segment from
+    ``(x0, y0)`` to ``(x1, y1)``.
+
+    Each stone is :data:`STONE_SIDE_PX` long along the segment
+    and ``depth`` thick perpendicular to it (the perpendicular
+    points to the LEFT of the segment direction = interior of a
+    clockwise-traversed polygon in SVG coords).
+
+    Number of stones is derived from segment length so the same
+    physical stone size renders for every side."""
+    dx = x1 - x0
+    dy = y1 - y0
+    length = math.hypot(dx, dy)
+    if length <= 0:
+        return []
+    n = max(1, round(length / STONE_SIDE_PX))
+    ux = dx / length
+    uy = dy / length
+    # Inward normal (left of direction): (-uy, ux).
+    nx = -uy
+    ny = ux
+    stone_len = (length - (n + 1) * gap_px) / n
+    if stone_len <= 0:
+        # Fall back: zero gap if too tight.
+        stone_len = length / n
+        gap_px = 0.0
+    out: list[str] = []
+    for i in range(n):
+        s = gap_px + i * (stone_len + gap_px)
+        e = s + stone_len
+        # Outer edge corners (slightly inset from segment ends
+        # by the gap).
+        ax = x0 + s * ux
+        ay = y0 + s * uy
+        bx = x0 + e * ux
+        by = y0 + e * uy
+        # Inner edge corners (offset inward by depth - small gap).
+        inset = max(0.0, depth - gap_px)
+        cxx = bx + inset * nx
+        cyy = by + inset * ny
+        dxx = ax + inset * nx
+        dyy = ay + inset * ny
+        d = (
+            f'M{ax:.2f},{ay:.2f} '
+            f'L{bx:.2f},{by:.2f} '
+            f'L{cxx:.2f},{cyy:.2f} '
+            f'L{dxx:.2f},{dyy:.2f} Z'
+        )
+        out.append(
+            f'<path class="{stone_class}" d="{d}" '
+            f'fill="{fill}" stroke="{stroke}" '
+            f'stroke-width="{stroke_width:.2f}"/>'
+        )
+    return out
+
+
+def _cross_fountain_fragment_for_tile(tx: int, ty: int) -> str:
+    """Greek-cross / plus fountain inscribed in a 3x3 footprint.
+
+    Anchored at the top-left tile of the 3x3 bbox; the centre
+    sits at ``(tx + 1.5, ty + 1.5)`` cells. Arms span 1 tile
+    width and 3 tile lengths each direction. Stones march around
+    the 12-vertex perimeter at the unified stone size."""
+    cx = (tx + 1.5) * CELL
+    cy = (ty + 1.5) * CELL
+    half_w = FOUNTAIN_CROSS_ARM_HALF_WIDTH
+    half_l = FOUNTAIN_CROSS_ARM_HALF_LENGTH
+
+    parts: list[str] = [
+        f'<g id="fountain-{tx}-{ty}" class="fountain-feature" '
+        'stroke-linejoin="round">',
+    ]
+
+    # Outer outline: traced over the plus polygon.
+    pts = _cross_fountain_polygon_pts(cx, cy, half_w, half_l)
+    parts.append(
+        f'<path d="{_polygon_outline_d(pts)}" '
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{FOUNTAIN_OUTER_RING_STROKE_WIDTH:.2f}"/>'
+    )
+
+    # Stones along each of the 12 segments. Depth is the radial
+    # thickness of the rim stones (same as STONE_DEPTH_PX so
+    # stones stay close to square).
+    depth = STONE_DEPTH_PX
+    for i in range(len(pts)):
+        x0, y0 = pts[i]
+        x1, y1 = pts[(i + 1) % len(pts)]
+        parts.extend(_stones_along_segment(
+            x0, y0, x1, y1,
+            depth=depth, gap_px=STONE_GAP_PX,
+            fill=FOUNTAIN_STONE_FILL,
+            stroke=FOUNTAIN_STONE_STROKE,
+            stroke_width=FOUNTAIN_STONE_STROKE_WIDTH,
+            stone_class="fountain-keystone",
+        ))
+
+    # Water: inset the plus polygon inward by depth + 1.5 px.
+    water_half_w = max(2.0, half_w - depth - 1.5)
+    water_half_l = max(2.0, half_l - depth - 1.5)
+    water_pts = _cross_fountain_polygon_pts(
+        cx, cy, water_half_w, water_half_l,
+    )
+    parts.append(
+        f'<path class="fountain-water" '
+        f'd="{_polygon_outline_d(water_pts)}" '
+        f'fill="{FOUNTAIN_WATER_FILL}" '
+        f'stroke="{FOUNTAIN_WATER_STROKE}" '
+        f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
+    )
+
+    # Movement marks scattered inside the central (largest)
+    # circular area inscribed in the plus -- radius = the
+    # smaller of water_half_w / water_half_l (the "inner square"
+    # inscribed around the centre).
+    movement_radius = min(water_half_w, water_half_l)
+    parts.extend(_water_movement_fragments(
+        cx, cy, movement_radius,
+        tx=tx, ty=ty,
+        cls="fountain-water-movement",
+    ))
+
+    # Pedestal at the centre.
+    parts.append(
+        f'<circle class="fountain-pedestal" '
+        f'cx="{cx:.2f}" cy="{cy:.2f}" '
+        f'r="{FOUNTAIN_CROSS_PEDESTAL_OUTER_RADIUS:.2f}" '
+        f'fill="{FOUNTAIN_PEDESTAL_FILL}" '
+        f'stroke="{INK}" '
+        f'stroke-width="{FOUNTAIN_PEDESTAL_STROKE_WIDTH:.2f}"/>'
+    )
+    parts.append(
+        f'<circle class="fountain-spout" '
+        f'cx="{cx:.2f}" cy="{cy:.2f}" '
+        f'r="{FOUNTAIN_CROSS_PEDESTAL_INNER_RADIUS:.2f}" '
+        f'fill="{FOUNTAIN_SPOUT_FILL}" '
+        f'stroke="{FOUNTAIN_WATER_STROKE}" '
+        f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
+    )
+
+    parts.append('</g>')
+    return "".join(parts)
+
+
 _WELL_DISPATCH = {
     "well": _well_fragment_for_tile,
     "well_square": _square_well_fragment_for_tile,
@@ -576,6 +1015,9 @@ _WELL_DISPATCH = {
 _FOUNTAIN_DISPATCH = {
     "fountain": _circle_fountain_fragment_for_tile,
     "fountain_square": _square_fountain_fragment_for_tile,
+    "fountain_large": _circle_fountain_3x3_fragment_for_tile,
+    "fountain_large_square": _square_fountain_3x3_fragment_for_tile,
+    "fountain_cross": _cross_fountain_fragment_for_tile,
 }
 
 
@@ -1438,6 +1880,29 @@ FOUNTAIN_SQUARE_FEATURE = TileDecorator(
     paint=_feature_paint(_square_fountain_fragment_for_tile),
     z_order=21,
 )
+FOUNTAIN_LARGE_FEATURE = TileDecorator(
+    name="fountain_large_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("fountain_large"),
+    paint=_feature_paint(_circle_fountain_3x3_fragment_for_tile),
+    z_order=22,
+)
+FOUNTAIN_LARGE_SQUARE_FEATURE = TileDecorator(
+    name="fountain_large_square_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("fountain_large_square"),
+    paint=_feature_paint(_square_fountain_3x3_fragment_for_tile),
+    z_order=23,
+)
+FOUNTAIN_CROSS_FEATURE = TileDecorator(
+    name="fountain_cross_feature",
+    layer="surface_features",
+    predicate=_feature_predicate("fountain_cross"),
+    paint=_feature_paint(_cross_fountain_fragment_for_tile),
+    z_order=24,
+)
+
+
 def _tree_paint_decorator(args):
     fragment = _tree_paint_for_tile(args.ctx.level, args.x, args.y)
     if fragment is None:

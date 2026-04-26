@@ -235,3 +235,151 @@ class TestFountainSquareWaterMovement:
         assert fills
         for fill in fills:
             assert fill == "none"
+
+
+# ── 3x3 fountain variants + cross ─────────────────────────────
+
+
+from nhc.rendering._features_svg import (
+    FOUNTAIN_3X3_KEYSTONE_COUNT,
+    FOUNTAIN_3X3_OUTER_RADIUS,
+    FOUNTAIN_3X3_SQUARE_STONE_COUNT,
+    STONE_SIDE_PX,
+    WELL_KEYSTONE_COUNT,
+    WELL_OUTER_RADIUS,
+)
+
+
+class TestFountain3x3Circle:
+    def test_emits_one_group(self):
+        level = _level_with_fountain((4, 4), "fountain_large")
+        text = "".join(render_fountain_features(level))
+        assert text.count('id="fountain-4-4"') == 1
+
+    def test_emits_correct_keystone_count(self):
+        level = _level_with_fountain((4, 4), "fountain_large")
+        text = "".join(render_fountain_features(level))
+        assert (
+            text.count('class="fountain-keystone"')
+            == FOUNTAIN_3X3_KEYSTONE_COUNT
+        )
+
+    def test_outer_radius_spans_3x3(self):
+        """Outer radius must cover most of the 3-tile span."""
+        assert 1.3 * CELL <= FOUNTAIN_3X3_OUTER_RADIUS <= 1.5 * CELL
+
+    def test_centre_at_middle_tile(self):
+        """The decoration centres on (anchor + 1.5, anchor + 1.5)
+        so the middle tile's centre. Sample the outer-ring circle
+        attributes to confirm."""
+        import re
+        text = "".join(render_fountain_features(
+            _level_with_fountain((4, 4), "fountain_large"),
+        ))
+        # Outer ring is the first <circle> with fill="none".
+        m = re.search(
+            r'<circle cx="([0-9.]+)" cy="([0-9.]+)" r="[0-9.]+"\s+'
+            r'fill="none"', text,
+        )
+        assert m
+        cx_px, cy_px = float(m.group(1)), float(m.group(2))
+        # Anchor (4, 4) -> centre at (5.5, 5.5) cells.
+        from nhc.rendering._svg_helpers import CELL as _C
+        assert abs(cx_px - 5.5 * _C) < 0.5
+        assert abs(cy_px - 5.5 * _C) < 0.5
+
+
+class TestFountain3x3Square:
+    def test_emits_correct_stone_count(self):
+        level = _level_with_fountain((4, 4), "fountain_large_square")
+        text = "".join(render_fountain_features(level))
+        assert (
+            text.count('class="fountain-stone"')
+            == FOUNTAIN_3X3_SQUARE_STONE_COUNT
+        )
+
+
+class TestFountainCross:
+    def test_emits_one_group(self):
+        level = _level_with_fountain((4, 4), "fountain_cross")
+        text = "".join(render_fountain_features(level))
+        assert text.count('id="fountain-4-4"') == 1
+
+    def test_emits_perimeter_stones(self):
+        """The plus shape has 12 segments. With unified stone
+        size we expect ~3 stones per segment, ~36 total. Allow a
+        modest range to absorb rounding."""
+        level = _level_with_fountain((4, 4), "fountain_cross")
+        text = "".join(render_fountain_features(level))
+        n = text.count('class="fountain-keystone"')
+        assert 24 <= n <= 48, (
+            f"cross perimeter stone count out of range: {n}"
+        )
+
+    def test_water_path_present(self):
+        level = _level_with_fountain((4, 4), "fountain_cross")
+        text = "".join(render_fountain_features(level))
+        assert 'class="fountain-water"' in text
+
+
+# ── Unified stone size sanity ─────────────────────────────────
+
+
+class TestUnifiedStoneSize:
+    def test_well_keystone_arc_close_to_target(self):
+        """Each well keystone occupies ~STONE_SIDE_PX of arc
+        length (within ±25%, since count is rounded to int)."""
+        import math
+        arc = (
+            2 * math.pi * WELL_OUTER_RADIUS / WELL_KEYSTONE_COUNT
+        )
+        assert (
+            STONE_SIDE_PX * 0.75
+            <= arc
+            <= STONE_SIDE_PX * 1.25
+        ), (
+            f"well keystone arc {arc:.2f} px not within 25% of "
+            f"target {STONE_SIDE_PX:.2f}"
+        )
+
+    def test_fountain_keystone_arc_close_to_target(self):
+        import math
+        arc = (
+            2 * math.pi * FOUNTAIN_OUTER_RADIUS
+            / FOUNTAIN_KEYSTONE_COUNT
+        )
+        assert (
+            STONE_SIDE_PX * 0.75
+            <= arc
+            <= STONE_SIDE_PX * 1.25
+        )
+
+    def test_fountain_3x3_keystone_arc_close_to_target(self):
+        import math
+        arc = (
+            2 * math.pi * FOUNTAIN_3X3_OUTER_RADIUS
+            / FOUNTAIN_3X3_KEYSTONE_COUNT
+        )
+        assert (
+            STONE_SIDE_PX * 0.75
+            <= arc
+            <= STONE_SIDE_PX * 1.25
+        )
+
+    def test_keystone_arcs_are_consistent_across_variants(self):
+        """All three circle variants must have arc lengths within
+        ±15% of one another -- the user-facing requirement."""
+        import math
+        arcs = [
+            2 * math.pi * WELL_OUTER_RADIUS / WELL_KEYSTONE_COUNT,
+            2 * math.pi * FOUNTAIN_OUTER_RADIUS
+            / FOUNTAIN_KEYSTONE_COUNT,
+            2 * math.pi * FOUNTAIN_3X3_OUTER_RADIUS
+            / FOUNTAIN_3X3_KEYSTONE_COUNT,
+        ]
+        lo = min(arcs)
+        hi = max(arcs)
+        assert hi <= lo * 1.15, (
+            f"stone arc lengths inconsistent across variants: "
+            f"{arcs}"
+        )

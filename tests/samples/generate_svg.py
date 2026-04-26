@@ -1622,16 +1622,46 @@ def generate_vegetation_demo(
         print(f"  {vdir}/vegetation_combined_seed{seed}.svg")
 
 
-def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
-    """Side-by-side comparison sheet: wells (1x1) and fountains
-    (2x2), circle + square variants of each.
+def _feature_label_fragment(
+    cell_x: float, cell_y: float, text: str,
+    *, color: str = "#7a3e00",
+    bg: str = "rgba(255,255,240,0.92)",
+    border: str = "#a0651e",
+    font_size: int = 9,
+) -> str:
+    """A small pill label centred at a fractional cell position.
 
-    All four decorations bypass the site assemblers -- this is a
+    Use to annotate features without dropping the marker on top
+    of the feature itself."""
+    cx = PADDING + (cell_x + 0.5) * CELL
+    cy = PADDING + (cell_y + 0.5) * CELL
+    char_w = 5.4
+    pill_w = max(40, len(text) * char_w + 12)
+    pill_h = font_size + 7
+    return (
+        f'<rect x="{cx - pill_w / 2:.1f}" '
+        f'y="{cy - pill_h / 2:.1f}" '
+        f'width="{pill_w:.1f}" height="{pill_h:.1f}" '
+        f'rx="3" fill="{bg}" '
+        f'stroke="{border}" stroke-width="0.5"/>'
+        f'<text x="{cx:.1f}" y="{cy + 3:.1f}" '
+        f'font-family="monospace" font-size="{font_size}" '
+        f'font-weight="bold" text-anchor="middle" '
+        f'fill="{color}">{_xml_escape(text)}</text>'
+    )
+
+
+def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
+    """Side-by-side comparison sheet: every well + fountain
+    variant (1x1 well, 1x1 well_square, 2x2 fountain, 2x2
+    fountain_square, 3x3 fountain_large, 3x3 fountain_large_square,
+    3x3 fountain_cross) plus a tree row + grove for vegetation
+    cross-reference.
+
+    All decorations bypass the site assemblers -- this is a
     synthetic level with hand-stamped feature tags so we can
-    eyeball the rendering primitives in isolation. Useful when
-    iterating on the stone / water / pedestal styling without
-    waiting on the wayside assembler to roll the right seed.
-    """
+    eyeball the rendering primitives in isolation, particularly
+    the unified stone size across feature footprints."""
     from nhc.dungeon.model import (
         Level, Rect, Room, SurfaceType, Terrain, Tile,
     )
@@ -1639,16 +1669,43 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
     wdir = outdir / "well_demo"
     wdir.mkdir(parents=True, exist_ok=True)
 
-    # Layout: 24 x 16. Top row (y=3) for wells; middle rows (y=7..8)
-    # for fountains; bottom row (y=12) for the Q19 tree row -- one
-    # isolated tree + a small grove of three adjacent trees so the
-    # 0.7-cell canopy overlap is visible. Fountain anchors at the
-    # top-left of the 2x2 footprint so its centre lands at
-    # (anchor+1, anchor+1).
-    width, height = 24, 16
+    # Layout: 32 x 26. Info panel anchors top-right (out of the
+    # way of all features). Labels sit BELOW each feature so the
+    # central pedestal / spout aren't occluded.
+    #
+    # Anchors:
+    #   y=2..2  wells (1x1):     well @ (3,2),  well_square @ (8,2)
+    #   y=6..7  fountains 2x2:   fountain @ (2,6),  fountain_square @ (8,6)
+    #   y=11..13 3x3 fountains:  fountain_large @ (2,11),
+    #                            fountain_large_square @ (10,11),
+    #                            fountain_cross @ (18,11)
+    #   y=18..18 tree row:       tree solo @ (3,18),
+    #                            tree grove @ (10,18)..(13,18)
+    width, height = 32, 26
+    layouts = [
+        # (anchor_x, anchor_y, feature_tag, label_text,
+        #  label_cell_x, label_cell_y)
+        (3, 2, "well", "well (1x1)", 3, 4),
+        (8, 2, "well_square", "well_square (1x1)", 8, 4),
+        (2, 6, "fountain", "fountain (2x2)", 3, 9),
+        (8, 6, "fountain_square", "fountain_square (2x2)", 9, 9),
+        (2, 11, "fountain_large", "fountain_large (3x3)", 3, 15),
+        (
+            10, 11, "fountain_large_square",
+            "fountain_large_square (3x3)", 11, 15,
+        ),
+        (
+            18, 11, "fountain_cross",
+            "fountain_cross (3x3 plus)", 19, 15,
+        ),
+    ]
+    tree_solo = (3, 19)
+    tree_grove = [(10, 19), (11, 19), (12, 19), (13, 19)]
+
     for seed in seeds:
         level = Level.create_empty(
-            "well_fountain_demo", "Wells + fountains", 1, width, height,
+            "well_fountain_demo", "Wells + fountains",
+            1, width, height,
         )
         for y in range(height):
             for x in range(width):
@@ -1656,47 +1713,48 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
                     terrain=Terrain.FLOOR,
                     surface_type=SurfaceType.FIELD,
                 )
-        level.rooms = [Room(id="r0", rect=Rect(0, 0, width, height))]
-
-        well_circle = (4, 3)
-        well_square = (11, 3)
-        fountain_circle = (3, 7)   # spans (3,7)..(4,8)
-        fountain_square = (10, 7)  # spans (10,7)..(11,8)
-        tree_solo = (4, 12)
-        tree_grove = [(11, 12), (12, 12), (13, 12), (14, 12)]
-
-        level.tiles[well_circle[1]][well_circle[0]].feature = "well"
-        level.tiles[well_square[1]][well_square[0]].feature = (
-            "well_square"
-        )
-        level.tiles[fountain_circle[1]][fountain_circle[0]].feature = (
-            "fountain"
-        )
-        level.tiles[fountain_square[1]][fountain_square[0]].feature = (
-            "fountain_square"
-        )
+        level.rooms = [Room(
+            id="r0", rect=Rect(0, 0, width, height),
+        )]
+        for ax, ay, tag, *_ in layouts:
+            level.tiles[ay][ax].feature = tag
         level.tiles[tree_solo[1]][tree_solo[0]].feature = "tree"
         for tx, ty in tree_grove:
             level.tiles[ty][tx].feature = "tree"
 
         svg = render_floor_svg(level, seed=seed)
-        svg = _inject_room_labels(svg, level)
-        svg = _inject_feature_markers(svg, level)
-        info = [
-            f"Wells + fountains + trees comparison | seed={seed}",
-            f"Top    L: well @ {well_circle} (circle keystones, 1x1)",
-            f"Top    R: well_square @ {well_square} "
-            "(perimeter stones, 1x1)",
-            f"Mid    L: fountain @ {fountain_circle} "
-            "(2x2, central pedestal + spout)",
-            f"Mid    R: fountain_square @ {fountain_square} "
-            "(2x2 square pool + pedestal)",
-            f"Bottom L: tree @ {tree_solo} "
-            "(isolated, ~0.7 CELL canopy)",
-            f"Bottom R: tree grove @ {tree_grove[0]}.."
-            f"{tree_grove[-1]} (4 adjacent, overlapping canopy)",
+
+        # Custom labels below each feature -- avoids the
+        # in-feature pill the generic _inject_feature_markers
+        # would drop on top of multi-tile fountains.
+        labels = [
+            _feature_label_fragment(lx, ly, txt)
+            for (_, _, _, txt, lx, ly) in layouts
         ]
-        svg = _inject_info_panel(svg, info)
+        labels.append(_feature_label_fragment(
+            tree_solo[0], tree_solo[1] + 1.6, "tree (solo)",
+        ))
+        labels.append(_feature_label_fragment(
+            (tree_grove[0][0] + tree_grove[-1][0]) / 2.0,
+            tree_grove[0][1] + 1.6,
+            "tree grove (4)",
+        ))
+        svg = svg.replace("</svg>", "".join(labels) + "</svg>")
+
+        info = [
+            f"Wells + fountains + trees | seed={seed}",
+            "Top   row: 1x1 wells (circle / square)",
+            "2x2   row: 2x2 fountains (circle / square)",
+            "3x3   row: 3x3 fountains (circle / square / cross)",
+            "Tree  row: isolated tree + 4-tile grove",
+            "Stones share a unified physical size (~11 px) so",
+            "the masonry reads consistently across footprints.",
+        ]
+        # Anchor the info panel top-RIGHT so it's clear of
+        # all features (top-left would overlap the well row).
+        info_x = (width * CELL + 2 * PADDING) - 460
+        svg = _inject_info_panel(svg, info, x=info_x, y=8)
+
         base = wdir / f"well_fountain_demo_seed{seed}"
         base.with_suffix(".svg").write_text(svg)
         print(f"  {base.with_suffix('.svg').name}")
