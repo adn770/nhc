@@ -95,6 +95,23 @@ TOWN_TREE_DENSITY: dict[str, float] = {
     "city": 0.12,
 }
 
+# Phase 4b (M4) bush placement. Scatter pass runs after trees and
+# fills remaining FIELD tiles with smaller shrubs. Density tracks
+# tree density (smaller settlements feel lusher, larger sites stay
+# sparser per tile).
+TOWN_BUSH_DENSITY: dict[str, float] = {
+    "hamlet": 0.10,
+    "village": 0.09,
+    "town": 0.08,
+    "city": 0.07,
+}
+
+BUSH_NEIGHBOUR_BIAS_MULT = 2.5
+"""Probability multiplier when an already-iterated 4-neighbour
+(N, W in row-major scan) carries a bush. The bias makes bushes
+"grow toward" each other into 2-3 tile rows that read as hedges
+without explicit hedge logic."""
+
 
 # ── Centerpiece specs (Phase 5) ──────────────────────────────
 
@@ -423,6 +440,9 @@ def assemble_town(
     site.cluster_plans = cluster_plans
     paint_surface_doors(site, SurfaceType.STREET)
     _scatter_town_vegetation(
+        site, cluster_plans, size_class, rng,
+    )
+    _scatter_town_bushes(
         site, cluster_plans, size_class, rng,
     )
     _place_service_npcs(buildings, role_assignments, rng)
@@ -803,6 +823,74 @@ def _scatter_town_vegetation(
                 continue
             if rng.random() < density:
                 tile.feature = "tree"
+
+
+def _scatter_town_bushes(
+    site: Site,
+    cluster_plans: list[_ClusterPlan],
+    size_class: str,
+    rng: random.Random,
+) -> None:
+    """Scatter ``bush`` features across remaining FIELD tiles
+    after the tree pass.
+
+    Per-tile probability is :data:`TOWN_BUSH_DENSITY` for the
+    given size class, multiplied by
+    :data:`BUSH_NEIGHBOUR_BIAS_MULT` when an already-iterated
+    4-neighbour (N, W in row-major scan) already carries a bush.
+    The bias makes bushes "grow toward" each other into 2-3 tile
+    rows that read as hedges without explicit hedge logic.
+
+    Skips tiles already carrying a feature (so trees claimed in
+    the previous pass stay), tiles in the door 4-ring and tiles
+    inside any courtyard cluster bbox (Q7). Bushes ARE allowed
+    4-adjacent to building footprints -- the canopy stays inside
+    its own tile so it never bleeds onto a roof (M3 escape hatch).
+    """
+    density = TOWN_BUSH_DENSITY.get(size_class, 0.0)
+    if density <= 0.0:
+        return
+    surface = site.surface
+    door_ring: set[tuple[int, int]] = set()
+    for sx, sy in site.building_doors:
+        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            door_ring.add((sx + dx, sy + dy))
+    courtyard_bboxes = [
+        p.bbox for p in cluster_plans if p.kind == "courtyard"
+    ]
+
+    def _inside_courtyard(x: int, y: int) -> bool:
+        for bbox in courtyard_bboxes:
+            if (bbox.x <= x < bbox.x2
+                    and bbox.y <= y < bbox.y2):
+                return True
+        return False
+
+    bush_set: set[tuple[int, int]] = set()
+    for y, row in enumerate(surface.tiles):
+        for x, tile in enumerate(row):
+            if tile.terrain is not Terrain.GRASS:
+                continue
+            if tile.surface_type != SurfaceType.FIELD:
+                continue
+            if tile.feature is not None:
+                continue
+            if (x, y) in door_ring:
+                continue
+            if _inside_courtyard(x, y):
+                continue
+            has_bush_nb = (
+                (x - 1, y) in bush_set
+                or (x, y - 1) in bush_set
+            )
+            prob = (
+                density * BUSH_NEIGHBOUR_BIAS_MULT
+                if has_bush_nb
+                else density
+            )
+            if rng.random() < prob:
+                tile.feature = "bush"
+                bush_set.add((x, y))
 
 
 def _build_palisade(
