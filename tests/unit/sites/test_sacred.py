@@ -1,10 +1,11 @@
 """Sacred site assembler.
 
-Single-monument centrepiece on a walled FIELD plaza. Covers the
-SHRINE / STANDING_STONE / CAIRN minor features and the
-CRYSTALS / STONES / WONDER / PORTAL major features under one
-shape; the tier parameter accommodates both minor (SMALL) and
-major (MEDIUM) callers.
+Single-monument centrepiece on a walled FIELD plaza with an
+OPUS_ROMANO paved patch around the centrepiece tile (the
+"sacred approach"). Covers the SHRINE / STANDING_STONE / CAIRN
+minor features and the CRYSTALS / STONES / WONDER / PORTAL
+major features under one shape; the tier parameter accommodates
+both minor (SMALL) and major (MEDIUM) callers.
 """
 
 from __future__ import annotations
@@ -186,3 +187,93 @@ class TestSacredDeterminism:
             _feature_tiles(a.surface, "shrine")
             == _feature_tiles(b.surface, "shrine")
         )
+
+
+# ── Opus Romano plaza around the centrepiece ─────────────────
+
+
+class TestSacredOpusRomanoPlaza:
+    def _opus_tiles(self, surface) -> list[tuple[int, int]]:
+        return [
+            (x, y)
+            for y, row in enumerate(surface.tiles)
+            for x, t in enumerate(row)
+            if t.surface_type == SurfaceType.OPUS_ROMANO
+        ]
+
+    def test_centrepiece_sits_on_opus_romano(self):
+        for seed in range(20):
+            site = assemble_sacred(
+                "s", random.Random(seed),
+                feature=MinorFeatureType.SHRINE,
+                tier=SiteTier.MEDIUM,
+            )
+            shrine = _feature_tiles(site.surface, "shrine")
+            assert len(shrine) == 1
+            tx, ty = shrine[0]
+            tile = site.surface.tiles[ty][tx]
+            assert tile.surface_type == SurfaceType.OPUS_ROMANO
+
+    def test_plaza_is_5x5_around_centrepiece(self):
+        for seed in range(20):
+            site = assemble_sacred(
+                "s", random.Random(seed),
+                feature=MinorFeatureType.SHRINE,
+                tier=SiteTier.MEDIUM,
+            )
+            shrine = _feature_tiles(site.surface, "shrine")
+            assert shrine
+            cx, cy = shrine[0]
+            opus = set(self._opus_tiles(site.surface))
+            # Every tile within +/-2 of the centrepiece (and
+            # not on the wall border) should be OPUS_ROMANO.
+            for dy in range(-2, 3):
+                for dx in range(-2, 3):
+                    tx, ty = cx + dx, cy + dy
+                    if not site.surface.in_bounds(tx, ty):
+                        continue
+                    tile = site.surface.tiles[ty][tx]
+                    if tile.terrain == Terrain.WALL:
+                        continue
+                    assert (tx, ty) in opus, (
+                        f"seed={seed}: tile ({tx},{ty}) at "
+                        f"offset ({dx},{dy}) from centrepiece "
+                        f"({cx},{cy}) is not OPUS_ROMANO"
+                    )
+
+    def test_plaza_does_not_overwrite_walls(self):
+        for seed in range(20):
+            site = assemble_sacred(
+                "s", random.Random(seed),
+                feature=MinorFeatureType.SHRINE,
+                tier=SiteTier.MEDIUM,
+            )
+            for x in range(site.surface.width):
+                for y in (0, site.surface.height - 1):
+                    assert (
+                        site.surface.tiles[y][x].terrain
+                        == Terrain.WALL
+                    )
+            for y in range(site.surface.height):
+                for x in (0, site.surface.width - 1):
+                    assert (
+                        site.surface.tiles[y][x].terrain
+                        == Terrain.WALL
+                    )
+
+    def test_field_still_dominates_the_plaza(self):
+        """Most of the walled interior remains FIELD; only the
+        5x5 centrepiece patch is paved."""
+        site = assemble_sacred(
+            "s", random.Random(1),
+            feature=MinorFeatureType.SHRINE,
+            tier=SiteTier.MEDIUM,
+        )
+        opus_count = len(self._opus_tiles(site.surface))
+        field_count = sum(
+            1 for row in site.surface.tiles for t in row
+            if t.surface_type == SurfaceType.FIELD
+        )
+        # Plaza is at most 5*5 = 25 tiles; FIELD must dominate.
+        assert opus_count <= 25
+        assert field_count > opus_count
