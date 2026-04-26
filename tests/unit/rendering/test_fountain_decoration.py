@@ -163,3 +163,71 @@ def test_fountain_outer_radius_spans_almost_two_tiles():
     sit between 0.85 and 1.0 of CELL so the rim covers most of
     the 2x2 area without bleeding past it."""
     assert 0.85 * CELL <= FOUNTAIN_OUTER_RADIUS <= 1.0 * CELL
+
+
+# ── Water highlight: concentric discontinuous strokes ─────────
+
+
+import re as _re_water
+
+
+def _all_attrs(svg: str, cls: str, attr: str) -> list[str]:
+    pattern = (
+        rf'class="{_re_water.escape(cls)}"[^/]*{attr}="([^"]+)"'
+    )
+    return _re_water.findall(pattern, svg)
+
+
+class TestFountainCircleWaterHighlight:
+    def test_two_concentric_highlight_strokes(self):
+        text = "".join(
+            render_fountain_features(
+                _level_with_fountain((4, 4), "fountain"),
+            ),
+        )
+        count = text.count('class="fountain-water-highlight"')
+        assert count == 2
+
+    def test_highlights_are_fill_none(self):
+        text = "".join(
+            render_fountain_features(
+                _level_with_fountain((4, 4), "fountain"),
+            ),
+        )
+        fills = _all_attrs(text, "fountain-water-highlight", "fill")
+        assert fills
+        for fill in fills:
+            assert fill == "none"
+
+    def test_highlights_use_dasharray(self):
+        text = "".join(
+            render_fountain_features(
+                _level_with_fountain((4, 4), "fountain"),
+            ),
+        )
+        dashes = _all_attrs(
+            text, "fountain-water-highlight", "stroke-dasharray",
+        )
+        assert len(dashes) == 2
+
+
+class TestFountainSquareWaterHighlight:
+    def test_two_concentric_highlight_strokes(self):
+        text = "".join(
+            render_fountain_features(
+                _level_with_fountain((4, 4), "fountain_square"),
+            ),
+        )
+        count = text.count('class="fountain-water-highlight"')
+        assert count == 2
+
+    def test_highlights_are_fill_none(self):
+        text = "".join(
+            render_fountain_features(
+                _level_with_fountain((4, 4), "fountain_square"),
+            ),
+        )
+        fills = _all_attrs(text, "fountain-water-highlight", "fill")
+        assert fills
+        for fill in fills:
+            assert fill == "none"

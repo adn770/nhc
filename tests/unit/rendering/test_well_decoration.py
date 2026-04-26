@@ -192,3 +192,75 @@ def test_floor_svg_paints_square_well():
     assert 'id="well-4-4"' in svg
     assert WELL_WATER_FILL in svg
     assert 'class="well-stone"' in svg
+
+
+# ── Water highlight: concentric discontinuous strokes ─────────
+
+
+import re as _re_water
+
+
+def _all_attrs(svg: str, cls: str, attr: str) -> list[str]:
+    pattern = (
+        rf'class="{_re_water.escape(cls)}"[^/]*{attr}="([^"]+)"'
+    )
+    return _re_water.findall(pattern, svg)
+
+
+class TestWaterHighlightCircle:
+    def test_circle_well_emits_two_concentric_strokes(self):
+        text = "".join(render_well_features(_level_with_well((4, 4))))
+        ds = _all_attrs(text, "well-water-highlight", "d") + (
+            _all_attrs(text, "well-water-highlight", "r")
+        )
+        # Two highlight elements in total (path or circle).
+        count = (
+            text.count('class="well-water-highlight"')
+        )
+        assert count == 2, (
+            f"expected 2 concentric highlight strokes, got {count}"
+        )
+
+    def test_circle_well_highlights_are_fill_none(self):
+        text = "".join(render_well_features(_level_with_well((4, 4))))
+        fills = _all_attrs(text, "well-water-highlight", "fill")
+        assert fills
+        for fill in fills:
+            assert fill == "none", (
+                f"well water highlight should be stroke-only, "
+                f"got fill={fill!r}"
+            )
+
+    def test_circle_well_highlights_use_dasharray(self):
+        text = "".join(render_well_features(_level_with_well((4, 4))))
+        dashes = _all_attrs(
+            text, "well-water-highlight", "stroke-dasharray",
+        )
+        assert len(dashes) == 2
+
+
+class TestWaterHighlightSquare:
+    def test_square_well_emits_two_concentric_strokes(self):
+        text = "".join(
+            render_well_features(_level_with_square_well((4, 4))),
+        )
+        count = text.count('class="well-water-highlight"')
+        assert count == 2
+
+    def test_square_well_highlights_are_fill_none(self):
+        text = "".join(
+            render_well_features(_level_with_square_well((4, 4))),
+        )
+        fills = _all_attrs(text, "well-water-highlight", "fill")
+        assert fills
+        for fill in fills:
+            assert fill == "none"
+
+    def test_square_well_highlights_use_dasharray(self):
+        text = "".join(
+            render_well_features(_level_with_square_well((4, 4))),
+        )
+        dashes = _all_attrs(
+            text, "well-water-highlight", "stroke-dasharray",
+        )
+        assert len(dashes) == 2

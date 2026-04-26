@@ -169,6 +169,14 @@ class TestFloorSvgIntegration:
 # ── 5. M1 highlight layer ─────────────────────────────────────
 
 
+def _extract_all_attrs(
+    svg: str, cls: str, attr: str,
+) -> list[str]:
+    """All ``attr="..."`` values for elements matching class=cls."""
+    pattern = rf'class="{re.escape(cls)}"[^/]*{attr}="([^"]+)"'
+    return re.findall(pattern, svg)
+
+
 class TestTreeHighlight:
     def test_fragment_has_highlight_class(self):
         level = _level_with_features([(4, 4, "tree")])
@@ -177,47 +185,113 @@ class TestTreeHighlight:
             "M1 layered tree should carry a highlight class"
         )
 
-    def test_highlight_offset_is_upper_left(self):
-        """Highlight polygon's centroid sits up-and-left of the
-        canopy centre. We approximate centroid by the average of
-        the polygon points in its ``d`` string."""
+    def test_highlight_is_two_concentric_strokes(self):
+        """Highlight is rendered as 2 concentric polygons drawn
+        as discontinuous strokes (no fill), not as one filled
+        crescent."""
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
-        d = _extract_attr(svg, "tree-canopy-highlight", "d")
-        coords = [
-            (float(x), float(y))
-            for x, y in re.findall(
-                r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
-            )
-        ]
-        assert coords, f"no coordinates parsed from d={d!r}"
-        ax = sum(x for x, _ in coords) / len(coords)
-        ay = sum(y for _, y in coords) / len(coords)
-        # Tile (4, 4) centre = (4.5, 4.5) * CELL.
-        cx = 4.5 * CELL
-        cy = 4.5 * CELL
-        assert ax < cx, (
-            f"highlight centroid x {ax:.2f} not left of canopy "
-            f"centre {cx:.2f}"
-        )
-        assert ay < cy, (
-            f"highlight centroid y {ay:.2f} not above canopy "
-            f"centre {cy:.2f}"
+        ds = _extract_all_attrs(svg, "tree-canopy-highlight", "d")
+        assert len(ds) == 2, (
+            f"expected 2 concentric highlight strokes, got {len(ds)}"
         )
 
-    def test_highlight_lighter_than_canopy(self):
+    def test_highlight_strokes_are_fill_none(self):
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        fills = _extract_all_attrs(
+            svg, "tree-canopy-highlight", "fill",
+        )
+        assert fills, "no highlight elements found"
+        for fill in fills:
+            assert fill == "none", (
+                f"highlight should be stroke-only, got fill={fill!r}"
+            )
+
+    def test_highlight_strokes_use_dasharray(self):
+        """Discontinuous strokes mean every highlight path
+        carries a ``stroke-dasharray`` attribute."""
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        dashes = _extract_all_attrs(
+            svg, "tree-canopy-highlight", "stroke-dasharray",
+        )
+        assert len(dashes) == 2, (
+            f"expected dash pattern on every highlight stroke, "
+            f"got {len(dashes)}"
+        )
+
+    def test_highlight_offset_is_upper_left(self):
+        """Both highlight polygon centroids sit up-and-left of
+        the canopy centre."""
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        ds = _extract_all_attrs(svg, "tree-canopy-highlight", "d")
+        cx = 4.5 * CELL
+        cy = 4.5 * CELL
+        for d in ds:
+            coords = [
+                (float(x), float(y))
+                for x, y in re.findall(
+                    r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
+                )
+            ]
+            assert coords
+            ax = sum(x for x, _ in coords) / len(coords)
+            ay = sum(y for _, y in coords) / len(coords)
+            assert ax < cx, (
+                f"highlight centroid x {ax:.2f} not left of "
+                f"canopy centre {cx:.2f}"
+            )
+            assert ay < cy, (
+                f"highlight centroid y {ay:.2f} not above "
+                f"canopy centre {cy:.2f}"
+            )
+
+    def test_highlight_strokes_are_concentric(self):
+        """The two highlights share a common centroid (within a
+        small epsilon) -- otherwise they wouldn't read as
+        concentric rings of light."""
+        level = _level_with_features([(4, 4, "tree")])
+        svg = render_tree_features(level)[0]
+        ds = _extract_all_attrs(svg, "tree-canopy-highlight", "d")
+        assert len(ds) == 2
+        centroids = []
+        for d in ds:
+            coords = [
+                (float(x), float(y))
+                for x, y in re.findall(
+                    r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
+                )
+            ]
+            ax = sum(x for x, _ in coords) / len(coords)
+            ay = sum(y for _, y in coords) / len(coords)
+            centroids.append((ax, ay))
+        dx = abs(centroids[0][0] - centroids[1][0])
+        dy = abs(centroids[0][1] - centroids[1][1])
+        assert dx < 4.0 and dy < 4.0, (
+            f"highlight centroids drift too far apart "
+            f"(dx={dx:.2f}, dy={dy:.2f}); expected concentric"
+        )
+
+    def test_highlight_stroke_lighter_than_canopy(self):
+        """Stroke colour is lighter than the canopy fill so the
+        highlight reads as a light reflection rather than a
+        contrasting outline."""
         level = _level_with_features([(4, 4, "tree")])
         svg = render_tree_features(level)[0]
         canopy_fill = _extract_canopy_fill(svg)
-        highlight_fill = _extract_attr(
-            svg, "tree-canopy-highlight", "fill",
+        strokes = _extract_all_attrs(
+            svg, "tree-canopy-highlight", "stroke",
         )
+        assert strokes, "no highlight strokes found"
         _, l_canopy, _ = _hex_to_hls(canopy_fill)
-        _, l_highlight, _ = _hex_to_hls(highlight_fill)
-        assert l_highlight > l_canopy, (
-            f"highlight lightness {l_highlight:.3f} not greater "
-            f"than canopy {l_canopy:.3f}"
-        )
+        for stroke in strokes:
+            _, l_stroke, _ = _hex_to_hls(stroke)
+            assert l_stroke > l_canopy, (
+                f"highlight stroke L {l_stroke:.3f} not greater "
+                f"than canopy L {l_canopy:.3f}"
+            )
 
 
 # ── 6. M1 silhouette stroke ──────────────────────────────────

@@ -121,30 +121,67 @@ class TestBushFragmentShape:
         )
 
 
+def _extract_all_attrs(
+    svg: str, cls: str, attr: str,
+) -> list[str]:
+    pattern = rf'class="{re.escape(cls)}"[^/]*{attr}="([^"]+)"'
+    return re.findall(pattern, svg)
+
+
 class TestBushHighlight:
+    def test_highlight_is_two_concentric_strokes(self) -> None:
+        level = _level_with_features([(4, 4, "bush")])
+        svg = render_bush_features(level)[0]
+        ds = _extract_all_attrs(svg, "bush-canopy-highlight", "d")
+        assert len(ds) == 2, (
+            f"expected 2 concentric highlight strokes, got {len(ds)}"
+        )
+
+    def test_highlight_strokes_are_fill_none(self) -> None:
+        level = _level_with_features([(4, 4, "bush")])
+        svg = render_bush_features(level)[0]
+        fills = _extract_all_attrs(
+            svg, "bush-canopy-highlight", "fill",
+        )
+        assert fills
+        for fill in fills:
+            assert fill == "none", (
+                f"bush highlight should be stroke-only, got "
+                f"fill={fill!r}"
+            )
+
+    def test_highlight_strokes_use_dasharray(self) -> None:
+        level = _level_with_features([(4, 4, "bush")])
+        svg = render_bush_features(level)[0]
+        dashes = _extract_all_attrs(
+            svg, "bush-canopy-highlight", "stroke-dasharray",
+        )
+        assert len(dashes) == 2
+
     def test_highlight_offset_upper_left(self) -> None:
         level = _level_with_features([(4, 4, "bush")])
         svg = render_bush_features(level)[0]
-        d = _extract_attr(svg, "bush-canopy-highlight", "d")
-        coords = [
-            (float(x), float(y))
-            for x, y in re.findall(
-                r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
-            )
-        ]
-        assert coords
-        ax = sum(x for x, _ in coords) / len(coords)
-        ay = sum(y for _, y in coords) / len(coords)
+        ds = _extract_all_attrs(svg, "bush-canopy-highlight", "d")
         cx = 4.5 * CELL
         cy = 4.5 * CELL
-        assert ax < cx, (
-            f"highlight centroid x {ax:.2f} not left of "
-            f"canopy centre {cx:.2f}"
-        )
-        assert ay < cy, (
-            f"highlight centroid y {ay:.2f} not above "
-            f"canopy centre {cy:.2f}"
-        )
+        for d in ds:
+            coords = [
+                (float(x), float(y))
+                for x, y in re.findall(
+                    r"[ML](-?\d+\.\d+),(-?\d+\.\d+)", d,
+                )
+            ]
+            assert coords
+            ax = sum(x for x, _ in coords) / len(coords)
+            ay = sum(y for _, y in coords) / len(coords)
+            assert ax < cx, (
+                f"highlight centroid x {ax:.2f} not left of "
+                f"canopy centre {cx:.2f}"
+            )
+            assert ay < cy, (
+                f"highlight centroid y {ay:.2f} not above "
+                f"canopy centre {cy:.2f}"
+            )
 
 
 # ── 3. Per-tile jitter ───────────────────────────────────────

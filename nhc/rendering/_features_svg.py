@@ -43,6 +43,63 @@ WELL_WATER_FILL = "#3F6E9A"
 WELL_WATER_STROKE = "#22466B"
 WELL_WATER_STROKE_WIDTH = 1.0
 WELL_HIGHLIGHT_FILL = "rgba(255,255,255,0.18)"
+"""Legacy soft-fill colour. No longer used; kept exported so
+ callers / tests that still reference the constant compile."""
+
+# Water highlight (M3 follow-up): concentric discontinuous
+# strokes replace the legacy soft-white crescent. Drawn on the
+# upper-left of the water disc to suggest light reflection
+# without an opaque bright patch -- reads like a hand-drawn
+# cartographer glint.
+WATER_HIGHLIGHT_STROKE = "#FFFFFF"
+WATER_HIGHLIGHT_STROKE_WIDTH = 0.9
+WATER_HIGHLIGHT_STROKE_ALPHA_OUTER = 0.7
+WATER_HIGHLIGHT_STROKE_ALPHA_INNER = 0.55
+WATER_HIGHLIGHT_DASH_OUTER = "3 3"
+WATER_HIGHLIGHT_DASH_INNER = "2 3"
+WATER_HIGHLIGHT_OUTER_R_FACTOR = 0.62
+"""Outer ring radius as a fraction of the water disc radius."""
+WATER_HIGHLIGHT_INNER_R_FACTOR = 0.36
+WATER_HIGHLIGHT_OFFSET_X_FACTOR = -0.30
+"""Highlight centre x-offset as a fraction of the water radius
+(negative = up-left)."""
+WATER_HIGHLIGHT_OFFSET_Y_FACTOR = -0.32
+
+
+def _water_highlight_fragments(
+    cx: float, cy: float, water_radius: float, *,
+    cls: str = "well-water-highlight",
+) -> list[str]:
+    """Two concentric ``<circle>`` fragments at the upper-left of
+    a water disc, drawn with discontinuous strokes (no fill).
+
+    Caller passes the water disc centre + radius; the highlight
+    sits inside the disc on the upper-left so the eye reads it
+    as light reflecting off the curved water surface."""
+    hcx = cx + water_radius * WATER_HIGHLIGHT_OFFSET_X_FACTOR
+    hcy = cy + water_radius * WATER_HIGHLIGHT_OFFSET_Y_FACTOR
+    r_outer = water_radius * WATER_HIGHLIGHT_OUTER_R_FACTOR
+    r_inner = water_radius * WATER_HIGHLIGHT_INNER_R_FACTOR
+    return [
+        (
+            f'<circle class="{cls}" '
+            f'cx="{hcx:.2f}" cy="{hcy:.2f}" r="{r_outer:.2f}" '
+            f'fill="none" stroke="{WATER_HIGHLIGHT_STROKE}" '
+            f'stroke-width="{WATER_HIGHLIGHT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{WATER_HIGHLIGHT_STROKE_ALPHA_OUTER:.2f}" '
+            f'stroke-dasharray="{WATER_HIGHLIGHT_DASH_OUTER}" '
+            f'stroke-linecap="round"/>'
+        ),
+        (
+            f'<circle class="{cls}" '
+            f'cx="{hcx:.2f}" cy="{hcy:.2f}" r="{r_inner:.2f}" '
+            f'fill="none" stroke="{WATER_HIGHLIGHT_STROKE}" '
+            f'stroke-width="{WATER_HIGHLIGHT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{WATER_HIGHLIGHT_STROKE_ALPHA_INNER:.2f}" '
+            f'stroke-dasharray="{WATER_HIGHLIGHT_DASH_INNER}" '
+            f'stroke-linecap="round"/>'
+        ),
+    ]
 
 # Square well geometry. Outer / inner / water radii are reused
 # from the circle constants (so a square well sits in the same
@@ -198,16 +255,13 @@ def _well_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    # Crescent highlight on the upper-left of the water for a
-    # subtle hint of wetness; offset by a fraction of the radius.
-    hr = WELL_WATER_RADIUS * 0.78
-    hx = cx - WELL_WATER_RADIUS * 0.18
-    hy = cy - WELL_WATER_RADIUS * 0.22
-    parts.append(
-        f'<circle class="well-water-highlight" '
-        f'cx="{hx:.2f}" cy="{hy:.2f}" r="{hr:.2f}" '
-        f'fill="{WELL_HIGHLIGHT_FILL}" stroke="none"/>'
-    )
+    # Concentric discontinuous-stroke highlight on the upper-left
+    # of the water disc -- reads like a cartographer's hand-drawn
+    # light glint instead of a soft opaque crescent.
+    parts.extend(_water_highlight_fragments(
+        cx, cy, WELL_WATER_RADIUS,
+        cls="well-water-highlight",
+    ))
 
     parts.append('</g>')
     return "".join(parts)
@@ -301,15 +355,9 @@ def _square_well_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    # Crescent highlight nudged toward the upper-left corner.
-    hr = water * 0.78
-    hx = cx - water * 0.18
-    hy = cy - water * 0.22
-    parts.append(
-        f'<circle class="well-water-highlight" '
-        f'cx="{hx:.2f}" cy="{hy:.2f}" r="{hr:.2f}" '
-        f'fill="{WELL_HIGHLIGHT_FILL}" stroke="none"/>'
-    )
+    parts.extend(_water_highlight_fragments(
+        cx, cy, water, cls="well-water-highlight",
+    ))
 
     parts.append('</g>')
     return "".join(parts)
@@ -370,14 +418,10 @@ def _circle_fountain_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    hr = FOUNTAIN_WATER_RADIUS * 0.55
-    hx = cx - FOUNTAIN_WATER_RADIUS * 0.30
-    hy = cy - FOUNTAIN_WATER_RADIUS * 0.32
-    parts.append(
-        f'<circle class="fountain-water-highlight" '
-        f'cx="{hx:.2f}" cy="{hy:.2f}" r="{hr:.2f}" '
-        f'fill="{FOUNTAIN_HIGHLIGHT_FILL}" stroke="none"/>'
-    )
+    parts.extend(_water_highlight_fragments(
+        cx, cy, FOUNTAIN_WATER_RADIUS,
+        cls="fountain-water-highlight",
+    ))
 
     # Pedestal: stone disc + spout opening on top.
     parts.append(
@@ -480,14 +524,9 @@ def _square_fountain_fragment_for_tile(tx: int, ty: int) -> str:
         f'stroke-width="{WELL_WATER_STROKE_WIDTH:.2f}"/>'
     )
 
-    hsize = water * 0.55
-    hx = cx - water * 0.30
-    hy = cy - water * 0.32
-    parts.append(
-        f'<circle class="fountain-water-highlight" '
-        f'cx="{hx:.2f}" cy="{hy:.2f}" r="{hsize:.2f}" '
-        f'fill="{FOUNTAIN_HIGHLIGHT_FILL}" stroke="none"/>'
-    )
+    parts.extend(_water_highlight_fragments(
+        cx, cy, water, cls="fountain-water-highlight",
+    ))
 
     pedestal = FOUNTAIN_PEDESTAL_OUTER_RADIUS
     parts.append(
@@ -565,6 +604,10 @@ TREE_CANOPY_SHADOW_RADIUS = 0.78 * CELL
 TREE_CANOPY_SHADOW_LOBES = 12
 
 TREE_CANOPY_HIGHLIGHT_RADIUS = 0.42 * CELL
+"""Outer concentric highlight stroke radius. Inner ring sits at
+ :data:`TREE_CANOPY_HIGHLIGHT_INNER_RADIUS`."""
+
+TREE_CANOPY_HIGHLIGHT_INNER_RADIUS = 0.26 * CELL
 
 TREE_CANOPY_HIGHLIGHT_LOBES = 6
 
@@ -572,9 +615,19 @@ TREE_CANOPY_HIGHLIGHT_OFFSET = -0.18 * CELL
 """Highlight polygon shifts up-and-left by this much so the lit
  face reads as catching the upper-left light."""
 
-TREE_HIGHLIGHT_LIGHT_BOOST = 0.12
+TREE_HIGHLIGHT_LIGHT_BOOST = 0.18
 """Lightness shift (HLS L channel) applied to the canopy fill to
- derive the highlight fill."""
+ derive the highlight stroke colour. Larger boost than the old
+ fill-based highlight so the discontinuous strokes still read
+ against the canopy at low alpha."""
+
+TREE_HIGHLIGHT_STROKE_WIDTH = 0.9
+
+TREE_HIGHLIGHT_STROKE_ALPHA_OUTER = 0.65
+TREE_HIGHLIGHT_STROKE_ALPHA_INNER = 0.5
+
+TREE_HIGHLIGHT_DASH_OUTER = "4 3"
+TREE_HIGHLIGHT_DASH_INNER = "3 3"
 
 TREE_HUE_JITTER_DEG = 6.0
 TREE_SAT_JITTER = 0.05
@@ -725,15 +778,20 @@ def _tree_shadow_path(cx: float, cy: float, tx: int, ty: int) -> str:
     )
 
 
-def _tree_highlight_path(cx: float, cy: float, tx: int, ty: int) -> str:
-    """Highlight polygon ``d`` for tile ``(tx, ty)``.
+def _tree_highlight_paths(
+    cx: float, cy: float, tx: int, ty: int,
+) -> tuple[str, str]:
+    """Outer + inner concentric highlight ``d`` strings.
 
-    Centre is shifted up-and-left by
-    :data:`TREE_CANOPY_HIGHLIGHT_OFFSET` so the lit face reads as
-    catching the upper-left light source."""
+    Both polygons share the same up-and-left offset centre so
+    they read as concentric rings of light reflection on the
+    upper-left face of the canopy. Drawn as discontinuous
+    strokes (no fill) by the caller -- the caller stamps each
+    ring with its own ``stroke-dasharray`` so the rings break
+    rather than form closed outlines."""
     hcx = cx + TREE_CANOPY_HIGHLIGHT_OFFSET
     hcy = cy + TREE_CANOPY_HIGHLIGHT_OFFSET
-    return _polygon_path(
+    outer = _polygon_path(
         hcx, hcy,
         TREE_CANOPY_HIGHLIGHT_RADIUS,
         TREE_CANOPY_HIGHLIGHT_LOBES,
@@ -741,6 +799,40 @@ def _tree_highlight_path(cx: float, cy: float, tx: int, ty: int) -> str:
         salt=6007,
         jitter_range=TREE_CANOPY_JITTER_RANGE * 0.5,
     )
+    inner = _polygon_path(
+        hcx, hcy,
+        TREE_CANOPY_HIGHLIGHT_INNER_RADIUS,
+        TREE_CANOPY_HIGHLIGHT_LOBES,
+        tx=tx, ty=ty,
+        salt=6011,
+        jitter_range=TREE_CANOPY_JITTER_RANGE * 0.35,
+    )
+    return outer, inner
+
+
+def _tree_highlight_fragments(
+    outer_d: str, inner_d: str, stroke_color: str,
+) -> list[str]:
+    """Two concentric ``<path class="tree-canopy-highlight">``
+    fragments, both ``fill="none"`` with discontinuous strokes."""
+    return [
+        (
+            f'<path class="tree-canopy-highlight" d="{outer_d}" '
+            f'fill="none" stroke="{stroke_color}" '
+            f'stroke-width="{TREE_HIGHLIGHT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{TREE_HIGHLIGHT_STROKE_ALPHA_OUTER:.2f}" '
+            f'stroke-dasharray="{TREE_HIGHLIGHT_DASH_OUTER}" '
+            f'stroke-linecap="round"/>'
+        ),
+        (
+            f'<path class="tree-canopy-highlight" d="{inner_d}" '
+            f'fill="none" stroke="{stroke_color}" '
+            f'stroke-width="{TREE_HIGHLIGHT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{TREE_HIGHLIGHT_STROKE_ALPHA_INNER:.2f}" '
+            f'stroke-dasharray="{TREE_HIGHLIGHT_DASH_INNER}" '
+            f'stroke-linecap="round"/>'
+        ),
+    ]
 
 
 def _tree_fragment_for_tile(tx: int, ty: int) -> str:
@@ -765,9 +857,9 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
     trunk_cy = cy + TREE_TRUNK_OFFSET_Y
     canopy_d = _tree_canopy_path(cx, cy, tx, ty)
     shadow_d = _tree_shadow_path(cx, cy, tx, ty)
-    highlight_d = _tree_highlight_path(cx, cy, tx, ty)
+    outer_d, inner_d = _tree_highlight_paths(cx, cy, tx, ty)
     canopy_fill = _canopy_fill_jitter(tx, ty)
-    highlight_fill = _shift_color(
+    highlight_stroke = _shift_color(
         canopy_fill, light=TREE_HIGHLIGHT_LIGHT_BOOST,
     )
     parts = [
@@ -787,11 +879,11 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
             f'<path class="tree-canopy" d="{canopy_d}" '
             f'fill="{canopy_fill}" stroke="none"/>'
         ),
-        (
-            f'<path class="tree-canopy-highlight" '
-            f'd="{highlight_d}" '
-            f'fill="{highlight_fill}" stroke="none"/>'
-        ),
+    ]
+    parts.extend(_tree_highlight_fragments(
+        outer_d, inner_d, highlight_stroke,
+    ))
+    parts.extend([
         (
             f'<path class="tree-silhouette" d="{canopy_d}" '
             f'fill="none" stroke="{TREE_CANOPY_STROKE}" '
@@ -799,7 +891,7 @@ def _tree_fragment_for_tile(tx: int, ty: int) -> str:
             f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
         '</g>',
-    ]
+    ])
     return "".join(parts)
 
 
@@ -908,7 +1000,8 @@ def _grove_union_fragment(
     anchor = min(grove)
     canopy_polys = []
     shadow_polys = []
-    highlight_polys = []
+    highlight_outer_polys = []
+    highlight_inner_polys = []
     for tx, ty in grove:
         cx = (tx + 0.5) * CELL
         cy = (ty + 0.5) * CELL
@@ -920,15 +1013,25 @@ def _grove_union_fragment(
         )
         hcx = cx + TREE_CANOPY_HIGHLIGHT_OFFSET
         hcy = cy + TREE_CANOPY_HIGHLIGHT_OFFSET
-        highlight_polys.append(
+        highlight_outer_polys.append(
             Point(hcx, hcy).buffer(TREE_CANOPY_HIGHLIGHT_RADIUS),
+        )
+        highlight_inner_polys.append(
+            Point(hcx, hcy).buffer(
+                TREE_CANOPY_HIGHLIGHT_INNER_RADIUS,
+            ),
         )
     canopy_d = _polygon_to_svg_path(unary_union(canopy_polys))
     shadow_d = _polygon_to_svg_path(unary_union(shadow_polys))
-    highlight_d = _polygon_to_svg_path(unary_union(highlight_polys))
+    outer_d = _polygon_to_svg_path(
+        unary_union(highlight_outer_polys),
+    )
+    inner_d = _polygon_to_svg_path(
+        unary_union(highlight_inner_polys),
+    )
 
     canopy_fill = _canopy_fill_jitter(*anchor)
-    highlight_fill = _shift_color(
+    highlight_stroke = _shift_color(
         canopy_fill, light=TREE_HIGHLIGHT_LIGHT_BOOST,
     )
     parts = [
@@ -942,11 +1045,11 @@ def _grove_union_fragment(
             f'<path class="tree-canopy" d="{canopy_d}" '
             f'fill="{canopy_fill}" stroke="none"/>'
         ),
-        (
-            f'<path class="tree-canopy-highlight" '
-            f'd="{highlight_d}" '
-            f'fill="{highlight_fill}" stroke="none"/>'
-        ),
+    ]
+    parts.extend(_tree_highlight_fragments(
+        outer_d, inner_d, highlight_stroke,
+    ))
+    parts.extend([
         (
             f'<path class="tree-silhouette" d="{canopy_d}" '
             f'fill="none" stroke="{TREE_CANOPY_STROKE}" '
@@ -954,7 +1057,7 @@ def _grove_union_fragment(
             f'stroke-opacity="{TREE_CANOPY_STROKE_ALPHA:.2f}"/>'
         ),
         '</g>',
-    ]
+    ])
     return "".join(parts)
 
 
@@ -1003,12 +1106,26 @@ BUSH_CANOPY_JITTER_LOBES = 6
 BUSH_CANOPY_JITTER_RANGE = 0.10 * CELL
 
 BUSH_CANOPY_HIGHLIGHT_RADIUS = 0.18 * CELL
+"""Outer concentric highlight stroke radius."""
+
+BUSH_CANOPY_HIGHLIGHT_INNER_RADIUS = 0.10 * CELL
 
 BUSH_CANOPY_HIGHLIGHT_LOBES = 5
 
 BUSH_CANOPY_HIGHLIGHT_OFFSET = -0.07 * CELL
 
-BUSH_HIGHLIGHT_LIGHT_BOOST = 0.12
+BUSH_HIGHLIGHT_LIGHT_BOOST = 0.18
+"""Lightness shift on the canopy fill to derive the highlight
+ stroke colour. Larger boost than the old fill-based highlight
+ so the discontinuous strokes still read at low alpha."""
+
+BUSH_HIGHLIGHT_STROKE_WIDTH = 0.7
+
+BUSH_HIGHLIGHT_STROKE_ALPHA_OUTER = 0.65
+BUSH_HIGHLIGHT_STROKE_ALPHA_INNER = 0.5
+
+BUSH_HIGHLIGHT_DASH_OUTER = "3 2"
+BUSH_HIGHLIGHT_DASH_INNER = "2 2"
 
 BUSH_HUE_JITTER_DEG = 6.0
 BUSH_SAT_JITTER = 0.05
@@ -1043,12 +1160,13 @@ def _bush_canopy_path(cx: float, cy: float, tx: int, ty: int) -> str:
     )
 
 
-def _bush_highlight_path(
+def _bush_highlight_paths(
     cx: float, cy: float, tx: int, ty: int,
-) -> str:
+) -> tuple[str, str]:
+    """Outer + inner concentric highlight ``d`` strings."""
     hcx = cx + BUSH_CANOPY_HIGHLIGHT_OFFSET
     hcy = cy + BUSH_CANOPY_HIGHLIGHT_OFFSET
-    return _polygon_path(
+    outer = _polygon_path(
         hcx, hcy,
         BUSH_CANOPY_HIGHLIGHT_RADIUS,
         BUSH_CANOPY_HIGHLIGHT_LOBES,
@@ -1056,6 +1174,15 @@ def _bush_highlight_path(
         salt=_BUSH_HIGHLIGHT_SHAPE_SALT,
         jitter_range=BUSH_CANOPY_JITTER_RANGE * 0.5,
     )
+    inner = _polygon_path(
+        hcx, hcy,
+        BUSH_CANOPY_HIGHLIGHT_INNER_RADIUS,
+        BUSH_CANOPY_HIGHLIGHT_LOBES,
+        tx=tx, ty=ty,
+        salt=_BUSH_HIGHLIGHT_SHAPE_SALT + 4,
+        jitter_range=BUSH_CANOPY_JITTER_RANGE * 0.35,
+    )
+    return outer, inner
 
 
 def _bush_fragment_for_tile(tx: int, ty: int) -> str:
@@ -1064,7 +1191,8 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
     Composition (back to front):
 
     * Canopy polygon with deterministic per-tile hue jitter.
-    * Lighter highlight polygon offset upper-left.
+    * Two concentric discontinuous-stroke highlights offset
+      upper-left for a hand-drawn light glint.
     * Low-alpha silhouette stroke (re-uses the canopy ``d``).
 
     No trunk -- bushes don't need one to read as shrubs and a
@@ -1072,9 +1200,9 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
     cx = (tx + 0.5) * CELL
     cy = (ty + 0.5) * CELL
     canopy_d = _bush_canopy_path(cx, cy, tx, ty)
-    highlight_d = _bush_highlight_path(cx, cy, tx, ty)
+    outer_d, inner_d = _bush_highlight_paths(cx, cy, tx, ty)
     canopy_fill = _bush_fill_jitter(tx, ty)
-    highlight_fill = _shift_color(
+    highlight_stroke = _shift_color(
         canopy_fill, light=BUSH_HIGHLIGHT_LIGHT_BOOST,
     )
     parts = [
@@ -1085,8 +1213,21 @@ def _bush_fragment_for_tile(tx: int, ty: int) -> str:
         ),
         (
             f'<path class="bush-canopy-highlight" '
-            f'd="{highlight_d}" '
-            f'fill="{highlight_fill}" stroke="none"/>'
+            f'd="{outer_d}" '
+            f'fill="none" stroke="{highlight_stroke}" '
+            f'stroke-width="{BUSH_HIGHLIGHT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{BUSH_HIGHLIGHT_STROKE_ALPHA_OUTER:.2f}" '
+            f'stroke-dasharray="{BUSH_HIGHLIGHT_DASH_OUTER}" '
+            f'stroke-linecap="round"/>'
+        ),
+        (
+            f'<path class="bush-canopy-highlight" '
+            f'd="{inner_d}" '
+            f'fill="none" stroke="{highlight_stroke}" '
+            f'stroke-width="{BUSH_HIGHLIGHT_STROKE_WIDTH:.2f}" '
+            f'stroke-opacity="{BUSH_HIGHLIGHT_STROKE_ALPHA_INNER:.2f}" '
+            f'stroke-dasharray="{BUSH_HIGHLIGHT_DASH_INNER}" '
+            f'stroke-linecap="round"/>'
         ),
         (
             f'<path class="bush-silhouette" d="{canopy_d}" '
