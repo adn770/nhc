@@ -594,6 +594,7 @@ def _render_floor_detail(
         _render_wood_floor(
             svg, level, rng, dungeon_poly,
             building_polygon=building_polygon,
+            ctx=ctx,
         )
         return
     theme = ctx.theme
@@ -955,10 +956,40 @@ WOOD_GRAIN_OPACITY = 0.35
 WOOD_GRAIN_LINES_PER_STRIP = 2
 
 
+def _is_wood_floor_tile(level: "Level", x: int, y: int) -> bool:
+    return level.tiles[y][x].terrain is Terrain.FLOOR
+
+
+def _wood_floor_fill_paint(args) -> list[str]:
+    """Paint one wood-floor rect for a FLOOR tile."""
+    return [
+        f'<rect x="{args.px:.0f}" y="{args.py:.0f}" '
+        f'width="{CELL}" height="{CELL}" '
+        f'fill="{WOOD_FLOOR_FILL}"/>'
+    ]
+
+
+WOOD_FLOOR_FILL_DECORATOR = TileDecorator(
+    name="wood_floor_fill",
+    layer="floor_detail",
+    predicate=_is_wood_floor_tile,
+    paint=_wood_floor_fill_paint,
+    requires=frozenset({"interior_finish_wood"}),
+    z_order=1,
+)
+
+
+def _wood_floor_room_bucket(level: "Level", x: int, y: int) -> str:
+    """Always return ``"room"`` so the wood-fill decorator routes
+    through the dungeon-poly clip group when present."""
+    return "room"
+
+
 def _render_wood_floor(
     svg: list[str], level: "Level", rng: random.Random,
     dungeon_poly=None,
     building_polygon: list[tuple[float, float]] | None = None,
+    ctx=None,
 ) -> None:
     """Wood plank fill and parquet seams for Building interior floors.
 
@@ -1013,24 +1044,25 @@ def _render_wood_floor(
         # fills below, which would only redundantly stamp under
         # what we just painted.
     else:
-        fills: list[str] = []
-        for y in range(level.height):
-            for x in range(level.width):
-                if level.tiles[y][x].terrain != Terrain.FLOOR:
-                    continue
-                px, py = x * CELL, y * CELL
-                fills.append(
-                    f'<rect x="{px}" y="{py}" '
-                    f'width="{CELL}" height="{CELL}" '
-                    f'fill="{WOOD_FLOOR_FILL}"/>'
-                )
-        if fills:
-            if clip_attr:
-                svg.append(f"<g{clip_attr}>")
-                svg.append("".join(fills))
-                svg.append("</g>")
-            else:
-                svg.append("".join(fills))
+        # Per-tile wood rects flow through the unified
+        # TileDecorator pipeline. The dungeon-poly clip is owned
+        # by ``walk_and_paint`` via ``room_clip_id``; the
+        # ``requires={"interior_finish_wood"}`` flag on the
+        # decorator gates it so a future ``interior_finish="earth"``
+        # bundle can swap in without touching this branch.
+        from nhc.rendering._decorators import walk_and_paint
+        if ctx is None:
+            from nhc.rendering._render_context import (
+                build_render_context,
+            )
+            ctx = build_render_context(level, seed=0)
+        svg.extend(walk_and_paint(
+            ctx,
+            [WOOD_FLOOR_FILL_DECORATOR],
+            layer_name="wood_floor_fill",
+            tile_bucket=_wood_floor_room_bucket,
+            room_clip_id="wood-interior-clip",
+        ))
 
     if not level.rooms:
         return
