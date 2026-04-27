@@ -1004,17 +1004,27 @@ def _draw_floor_detail_from_ir(
 ) -> list[str]:
     """Reproduce ``_render_floor_detail``.
 
-    Wraps the pre-rendered room groups (carried on ``op.roomGroups``)
-    in a dungeon-interior clipPath envelope, then appends
-    ``op.corridorGroups`` unclipped. Phase 1 transitional storage
-    avoids inlining ~200 lines of legacy helpers; Phase 4
-    refactors to per-tile structured ops when porting to Rust.
+    Three modes:
+
+    - ``wood_floor_groups`` non-empty → emit them verbatim and
+      return. The legacy wood-floor short-circuit owns its own
+      clipPath envelope; the IR carries the fragments end-to-end.
+    - Otherwise: room_groups in the dungeon-interior clipPath
+      envelope, then corridor_groups, then decorator_groups
+      (all unclipped). Decorator groups land after corridor
+      groups to mirror the legacy ``_render_floor_detail`` order
+      where ``walk_and_paint(...)`` runs at the bottom.
     """
     op = OpCreator(entry.OpType(), entry.Op())
-    out: list[str] = []
 
+    wood_floor = [_to_str(g) for g in (op.woodFloorGroups or [])]
+    if wood_floor:
+        return wood_floor
+
+    out: list[str] = []
     room_groups = [_to_str(g) for g in (op.roomGroups or [])]
     corridor_groups = [_to_str(g) for g in (op.corridorGroups or [])]
+    decorator_groups = [_to_str(g) for g in (op.decoratorGroups or [])]
 
     if room_groups:
         clip_id = _to_str(op.clipRegion)
@@ -1031,6 +1041,7 @@ def _draw_floor_detail_from_ir(
             out.extend(room_groups)
 
     out.extend(corridor_groups)
+    out.extend(decorator_groups)
     return out
 
 

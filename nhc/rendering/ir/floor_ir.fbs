@@ -305,6 +305,16 @@ table FloorDetailOp {
   room_groups: [string];
   corridor_groups: [string];
   clip_region: string;
+  // Phase 1.l additions: the post-pass decorator pipeline
+  // (cobblestone / brick / flagstone / opus_romano / field_stone /
+  // cart_tracks / ore_deposit) and the wood-floor short-circuit.
+  // Both produce unclipped fragments appended after the corridor
+  // groups; wood_floor replaces the room/corridor passes
+  // entirely (the wood emitter renders its own clipPath envelope).
+  // Phase 4 refactors to per-decorator structured ops when
+  // porting to Rust.
+  decorator_groups: [string];
+  wood_floor_groups: [string];
 }
 
 // Layer 500b — thematic detail (webs, bone piles, skulls).

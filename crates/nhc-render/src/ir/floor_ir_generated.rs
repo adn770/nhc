@@ -4240,6 +4240,8 @@ impl<'a> FloorDetailOp<'a> {
   pub const VT_ROOM_GROUPS: ::flatbuffers::VOffsetT = 10;
   pub const VT_CORRIDOR_GROUPS: ::flatbuffers::VOffsetT = 12;
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 14;
+  pub const VT_DECORATOR_GROUPS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_WOOD_FLOOR_GROUPS: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4252,6 +4254,8 @@ impl<'a> FloorDetailOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorDetailOp<'bldr>> {
     let mut builder = FloorDetailOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.wood_floor_groups { builder.add_wood_floor_groups(x); }
+    if let Some(x) = args.decorator_groups { builder.add_decorator_groups(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.corridor_groups { builder.add_corridor_groups(x); }
     if let Some(x) = args.room_groups { builder.add_room_groups(x); }
@@ -4303,6 +4307,20 @@ impl<'a> FloorDetailOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorDetailOp::VT_CLIP_REGION, None)}
   }
+  #[inline]
+  pub fn decorator_groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FloorDetailOp::VT_DECORATOR_GROUPS, None)}
+  }
+  #[inline]
+  pub fn wood_floor_groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FloorDetailOp::VT_WOOD_FLOOR_GROUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
@@ -4317,6 +4335,8 @@ impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("room_groups", Self::VT_ROOM_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("corridor_groups", Self::VT_CORRIDOR_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("decorator_groups", Self::VT_DECORATOR_GROUPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("wood_floor_groups", Self::VT_WOOD_FLOOR_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -4328,6 +4348,8 @@ pub struct FloorDetailOpArgs<'a> {
     pub room_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub corridor_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub decorator_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub wood_floor_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for FloorDetailOpArgs<'a> {
   #[inline]
@@ -4339,6 +4361,8 @@ impl<'a> Default for FloorDetailOpArgs<'a> {
       room_groups: None,
       corridor_groups: None,
       clip_region: None,
+      decorator_groups: None,
+      wood_floor_groups: None,
     }
   }
 }
@@ -4373,6 +4397,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorDetailOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
+  pub fn add_decorator_groups(&mut self, decorator_groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_DECORATOR_GROUPS, decorator_groups);
+  }
+  #[inline]
+  pub fn add_wood_floor_groups(&mut self, wood_floor_groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_FLOOR_GROUPS, wood_floor_groups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorDetailOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloorDetailOpBuilder {
@@ -4396,6 +4428,8 @@ impl ::core::fmt::Debug for FloorDetailOp<'_> {
       ds.field("room_groups", &self.room_groups());
       ds.field("corridor_groups", &self.corridor_groups());
       ds.field("clip_region", &self.clip_region());
+      ds.field("decorator_groups", &self.decorator_groups());
+      ds.field("wood_floor_groups", &self.wood_floor_groups());
       ds.finish()
   }
 }

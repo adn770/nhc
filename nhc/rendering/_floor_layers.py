@@ -649,30 +649,59 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     the :class:`FloorDetailOp`; the handler reapplies the
     dungeon-interior clipPath envelope around the room bucket.
 
-    Phase 1 transitional — the wood-floor short-circuit and the
-    decorator pipeline (cobblestone / brick / cart-tracks / ore)
-    don't fire on the starter fixtures and are skipped here. They
-    land in follow-up commits when fixtures need them.
+    Phase 1.l extends the emitter to also cover the wood-floor
+    short-circuit (interior_finish == "wood") and the post-pass
+    decorator pipeline (cobblestone / brick / flagstone /
+    opus_romano / field_stone / cart_tracks / ore_deposit).
     """
     import random
 
+    from nhc.rendering._decorators import walk_and_paint
     from nhc.rendering._floor_detail import (
+        BRICK, CART_TRACK_RAILS, CART_TRACK_TIES, COBBLE_STONE,
+        COBBLESTONE, FIELD_STONE, FLAGSTONE,
+        OPUS_ROMANO, ORE_DEPOSIT,
         _DETAIL_SCALE, _THEMATIC_DEFAULT, _THEMATIC_DETAIL_PROBS,
         _emit_detail, _emit_thematic_detail,
-        _tile_detail, _tile_thematic_detail,
+        _render_wood_floor, _tile_detail, _tile_thematic_detail,
     )
     from nhc.rendering.ir._fb import Op
     from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
 
     ctx = builder.ctx
+    seed = ctx.seed
     if ctx.interior_finish == "wood":
-        # Wood-floor short-circuit — none of the starter fixtures
-        # exercise this path. Re-enable when a wood fixture lands.
+        # Wood-floor short-circuit. The legacy renderer takes its
+        # own seeded rng + clip-path envelope, so we just stash
+        # the produced fragments and emit the op early; the
+        # handler's per-bucket dispatch is bypassed.
+        wood_out: list[str] = []
+        building_polygon = (
+            list(ctx.building_polygon)
+            if ctx.building_polygon is not None
+            else None
+        )
+        _render_wood_floor(
+            wood_out, ctx.level, random.Random(seed + 99),
+            ctx.dungeon_poly,
+            building_polygon=building_polygon,
+            ctx=ctx,
+        )
+        if not wood_out:
+            return
+        op = FloorDetailOpT()
+        op.seed = seed + 99
+        op.theme = ctx.theme
+        op.woodFloorGroups = wood_out
+        op.clipRegion = ""
+        entry = OpEntryT()
+        entry.opType = Op.Op.FloorDetailOp
+        entry.op = op
+        builder.add_op(entry)
         return
 
     level = ctx.level
-    seed = ctx.seed
     rng = random.Random(seed + 99)
     theme = ctx.theme
     scale = _DETAIL_SCALE.get(theme, 1.0)
@@ -755,7 +784,19 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
             corridor_groups, cor_webs, cor_bones, cor_skulls,
         )
 
-    if not (room_groups or corridor_groups):
+    decorator_groups = list(walk_and_paint(
+        ctx,
+        [
+            COBBLESTONE, COBBLE_STONE,
+            BRICK, FLAGSTONE, OPUS_ROMANO,
+            FIELD_STONE,
+            CART_TRACK_RAILS, CART_TRACK_TIES,
+            ORE_DEPOSIT,
+        ],
+        layer_name="floor_detail",
+    ))
+
+    if not (room_groups or corridor_groups or decorator_groups):
         return
 
     op = FloorDetailOpT()
@@ -763,6 +804,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     op.theme = theme
     op.roomGroups = room_groups
     op.corridorGroups = corridor_groups
+    op.decoratorGroups = decorator_groups
     op.clipRegion = (
         "dungeon"
         if (

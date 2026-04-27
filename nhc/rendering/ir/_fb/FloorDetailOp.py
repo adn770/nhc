@@ -113,8 +113,48 @@ class FloorDetailOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # FloorDetailOp
+    def DecoratorGroups(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # FloorDetailOp
+    def DecoratorGroupsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorDetailOp
+    def DecoratorGroupsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        return o == 0
+
+    # FloorDetailOp
+    def WoodFloorGroups(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # FloorDetailOp
+    def WoodFloorGroupsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorDetailOp
+    def WoodFloorGroupsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
+        return o == 0
+
 def FloorDetailOpStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(8)
 
 def Start(builder):
     FloorDetailOpStart(builder)
@@ -173,6 +213,30 @@ def FloorDetailOpAddClipRegion(builder, clipRegion):
 def AddClipRegion(builder, clipRegion):
     FloorDetailOpAddClipRegion(builder, clipRegion)
 
+def FloorDetailOpAddDecoratorGroups(builder, decoratorGroups):
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(decoratorGroups), 0)
+
+def AddDecoratorGroups(builder, decoratorGroups):
+    FloorDetailOpAddDecoratorGroups(builder, decoratorGroups)
+
+def FloorDetailOpStartDecoratorGroupsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartDecoratorGroupsVector(builder, numElems):
+    return FloorDetailOpStartDecoratorGroupsVector(builder, numElems)
+
+def FloorDetailOpAddWoodFloorGroups(builder, woodFloorGroups):
+    builder.PrependUOffsetTRelativeSlot(7, flatbuffers.number_types.UOffsetTFlags.py_type(woodFloorGroups), 0)
+
+def AddWoodFloorGroups(builder, woodFloorGroups):
+    FloorDetailOpAddWoodFloorGroups(builder, woodFloorGroups)
+
+def FloorDetailOpStartWoodFloorGroupsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartWoodFloorGroupsVector(builder, numElems):
+    return FloorDetailOpStartWoodFloorGroupsVector(builder, numElems)
+
 def FloorDetailOpEnd(builder):
     return builder.EndObject()
 
@@ -196,6 +260,8 @@ class FloorDetailOpT(object):
         roomGroups = None,
         corridorGroups = None,
         clipRegion = None,
+        decoratorGroups = None,
+        woodFloorGroups = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
@@ -203,6 +269,8 @@ class FloorDetailOpT(object):
         self.roomGroups = roomGroups  # type: Optional[List[Optional[str]]]
         self.corridorGroups = corridorGroups  # type: Optional[List[Optional[str]]]
         self.clipRegion = clipRegion  # type: Optional[str]
+        self.decoratorGroups = decoratorGroups  # type: Optional[List[Optional[str]]]
+        self.woodFloorGroups = woodFloorGroups  # type: Optional[List[Optional[str]]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -244,6 +312,14 @@ class FloorDetailOpT(object):
             for i in range(floorDetailOp.CorridorGroupsLength()):
                 self.corridorGroups.append(floorDetailOp.CorridorGroups(i))
         self.clipRegion = floorDetailOp.ClipRegion()
+        if not floorDetailOp.DecoratorGroupsIsNone():
+            self.decoratorGroups = []
+            for i in range(floorDetailOp.DecoratorGroupsLength()):
+                self.decoratorGroups.append(floorDetailOp.DecoratorGroups(i))
+        if not floorDetailOp.WoodFloorGroupsIsNone():
+            self.woodFloorGroups = []
+            for i in range(floorDetailOp.WoodFloorGroupsLength()):
+                self.woodFloorGroups.append(floorDetailOp.WoodFloorGroups(i))
 
     # FloorDetailOpT
     def Pack(self, builder):
@@ -272,6 +348,22 @@ class FloorDetailOpT(object):
             corridorGroups = builder.EndVector()
         if self.clipRegion is not None:
             clipRegion = builder.CreateString(self.clipRegion)
+        if self.decoratorGroups is not None:
+            decoratorGroupslist = []
+            for i in range(len(self.decoratorGroups)):
+                decoratorGroupslist.append(builder.CreateString(self.decoratorGroups[i]))
+            FloorDetailOpStartDecoratorGroupsVector(builder, len(self.decoratorGroups))
+            for i in reversed(range(len(self.decoratorGroups))):
+                builder.PrependUOffsetTRelative(decoratorGroupslist[i])
+            decoratorGroups = builder.EndVector()
+        if self.woodFloorGroups is not None:
+            woodFloorGroupslist = []
+            for i in range(len(self.woodFloorGroups)):
+                woodFloorGroupslist.append(builder.CreateString(self.woodFloorGroups[i]))
+            FloorDetailOpStartWoodFloorGroupsVector(builder, len(self.woodFloorGroups))
+            for i in reversed(range(len(self.woodFloorGroups))):
+                builder.PrependUOffsetTRelative(woodFloorGroupslist[i])
+            woodFloorGroups = builder.EndVector()
         FloorDetailOpStart(builder)
         if self.tiles is not None:
             FloorDetailOpAddTiles(builder, tiles)
@@ -284,5 +376,9 @@ class FloorDetailOpT(object):
             FloorDetailOpAddCorridorGroups(builder, corridorGroups)
         if self.clipRegion is not None:
             FloorDetailOpAddClipRegion(builder, clipRegion)
+        if self.decoratorGroups is not None:
+            FloorDetailOpAddDecoratorGroups(builder, decoratorGroups)
+        if self.woodFloorGroups is not None:
+            FloorDetailOpAddWoodFloorGroups(builder, woodFloorGroups)
         floorDetailOp = FloorDetailOpEnd(builder)
         return floorDetailOp
