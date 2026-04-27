@@ -35,6 +35,12 @@ from nhc.debug_tools.tools.svg_query import (
     GetSVGRoomWallsTool,
     GetSVGTileElementsTool,
 )
+from nhc.debug_tools.tools.ir_query import (
+    GetIRBufferTool,
+    GetIRDiffTool,
+    GetIROpsTool,
+    GetIRRegionTool,
+)
 
 ALL_TOOL_CLASSES = [
     GetAutosaveInfoTool,
@@ -55,6 +61,11 @@ ALL_TOOL_CLASSES = [
     GetHatchPolygonTool,
     GetSVGTileElementsTool,
     GetSVGRoomWallsTool,
+    # IR query tools (Phase 2.4 of plans/nhc_ir_migration_plan.md).
+    GetIRBufferTool,
+    GetIRRegionTool,
+    GetIROpsTool,
+    GetIRDiffTool,
     # Hex-mode debug tools (M-4.1).
     ShowWorldStateTool,
     RevealAllHexesTool,
