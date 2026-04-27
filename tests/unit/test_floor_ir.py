@@ -5,11 +5,11 @@ a measurable contract: for each fixture under
 ``tests/fixtures/floor_ir/<descriptor>/``, the IR emitter must
 produce a FlatBuffer that byte-equals the committed ``floor.nir``.
 
-**XFAIL until Phase 1 emitter lands.** ``build_floor_ir`` does not
-exist yet; the import fails, the tests xfail with
-``ModuleNotFoundError``. When Phase 1 ships and populates
-``floor.nir`` per fixture, remove the ``pytest.importorskip`` /
-``xfail`` markers and the gate goes live.
+**XFAIL until Phase 1.k lands.** Phase 1.a wires the skeleton
+``build_floor_ir`` and the per-layer commits 1.b–1.j progressively
+populate the IR. The fixtures' ``floor.nir`` files become non-empty
+at 1.k, when ``render_floor_svg`` is rewired and the regenerator is
+re-run; that is when this gate flips live.
 
 The companion test ``test_ir_to_svg.py`` checks the reverse
 direction (IR → SVG byte-equal to legacy). Together they pin down
@@ -22,6 +22,11 @@ from pathlib import Path
 
 import pytest
 
+from tests.fixtures.floor_ir._inputs import (
+    all_descriptors,
+    descriptor_inputs,
+)
+
 
 _FIXTURE_ROOT = (
     Path(__file__).resolve().parents[1]
@@ -30,28 +35,27 @@ _FIXTURE_ROOT = (
 )
 
 
-def _fixture_descriptors() -> list[str]:
-    if not _FIXTURE_ROOT.exists():
-        return []
-    return sorted(p.name for p in _FIXTURE_ROOT.iterdir() if p.is_dir())
-
-
 @pytest.mark.xfail(
-    reason="Phase 1 of plans/nhc_ir_migration_plan.md introduces "
-           "build_floor_ir; until then the .nir fixtures are empty.",
+    reason="Phase 1.k of plans/nhc_ir_migration_plan.md populates "
+           "the .nir fixtures; 1.a–1.j land the emitter behind "
+           "the gate.",
     strict=True,
 )
-@pytest.mark.parametrize("descriptor", _fixture_descriptors())
+@pytest.mark.parametrize("descriptor", all_descriptors())
 def test_floor_ir_buffer_matches_fixture(descriptor: str) -> None:
-    from nhc.rendering.ir_emitter import build_floor_ir  # type: ignore
+    from nhc.rendering.ir_emitter import build_floor_ir
 
+    inputs = descriptor_inputs(descriptor)
     fixture = _FIXTURE_ROOT / descriptor
     expected = (fixture / "floor.nir").read_bytes()
-    assert expected, "fixture .nir is empty — Phase 1 not landed yet"
+    assert expected, "fixture .nir is empty — Phase 1.k not landed yet"
 
-    # The IR emitter API surface lands in Phase 1; this call shape
-    # is the placeholder contract. Update it when the emitter ships.
-    actual = build_floor_ir(descriptor=descriptor)
+    actual = build_floor_ir(
+        inputs.level,
+        seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
 
     assert actual == expected, (
         f"{descriptor}: emitted IR diverges from committed fixture"
