@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 _SCHEMA_MAJOR = 1
-_SCHEMA_MINOR = 3
+_SCHEMA_MINOR = 4
 
 _FILE_IDENTIFIER = b"NIRF"
 
@@ -328,7 +328,10 @@ def emit_floor_detail(builder: FloorIRBuilder) -> None:
 
 
 def emit_terrain_detail(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.h lands TerrainDetailOp emit + handler."""
+    """Phase 1.h: emit TerrainDetailOp with pre-rendered room/corridor
+    groups (water / lava / chasm decorators)."""
+    from nhc.rendering._floor_layers import _emit_terrain_detail_ir
+    _emit_terrain_detail_ir(builder)
 
 
 def emit_stairs(builder: FloorIRBuilder) -> None:

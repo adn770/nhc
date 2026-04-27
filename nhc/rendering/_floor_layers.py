@@ -786,6 +786,101 @@ def _terrain_detail_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the terrain-detail layer.
+
+    Inlines the bucket-collection logic of ``walk_and_paint`` so
+    we get separate room / corridor pre-rendered groups (without
+    the clip envelope, which the handler reapplies). Phase 1
+    transitional — the legacy ``_water_detail`` / ``_lava_detail``
+    / ``_chasm_detail`` painters consume per-decorator seeded RNG
+    streams; reproducing them from a structured tile list would
+    mean porting the painters and the per-decorator seeding into
+    the handler. Phase 4 refactors when the Rust port lands.
+    """
+    from nhc.rendering._decorators import (
+        PaintArgs, _flags_satisfy, _seeded_rng,
+    )
+    from nhc.rendering._svg_helpers import CELL
+    from nhc.rendering._terrain_detail import (
+        _TERRAIN_DECORATORS, _terrain_tile_bucket,
+    )
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.TerrainDetailOp import TerrainDetailOpT
+
+    ctx = builder.ctx
+    level = ctx.level
+
+    active = [d for d in _TERRAIN_DECORATORS if _flags_satisfy(ctx, d)]
+    if not active:
+        return
+
+    active_sorted = sorted(
+        enumerate(active),
+        key=lambda pair: (pair[1].z_order, pair[0]),
+    )
+    rngs = {d.name: _seeded_rng(ctx, d.name) for _, d in active_sorted}
+    fragments: dict[str, dict[str, list[str]]] = {
+        d.name: {"room": [], "corridor": []} for _, d in active_sorted
+    }
+
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            for _, dec in active_sorted:
+                if not dec.predicate(level, x, y):
+                    continue
+                args = PaintArgs(
+                    rng=rngs[dec.name],
+                    x=x, y=y,
+                    px=x * CELL, py=y * CELL,
+                    ctx=ctx, tile=tile,
+                )
+                produced = dec.paint(args)
+                if produced is None:
+                    continue
+                bucket = _terrain_tile_bucket(level, x, y)
+                fragments[dec.name][bucket].extend(produced)
+
+    def _emit_bucket(bucket: str) -> list[str]:
+        out: list[str] = []
+        for _, dec in active_sorted:
+            frags = fragments[dec.name][bucket]
+            if not frags:
+                continue
+            if dec.group_open is not None:
+                out.append(dec.group_open)
+            out.extend(frags)
+            if dec.group_open is not None:
+                out.append(dec.group_close)
+        return out
+
+    room_groups = _emit_bucket("room")
+    corridor_groups = _emit_bucket("corridor")
+
+    if not (room_groups or corridor_groups):
+        return
+
+    op = TerrainDetailOpT()
+    op.seed = ctx.seed + 200
+    op.theme = ctx.theme
+    op.roomGroups = room_groups
+    op.corridorGroups = corridor_groups
+    op.clipRegion = (
+        "dungeon"
+        if (
+            ctx.dungeon_poly is not None
+            and not ctx.dungeon_poly.is_empty
+        )
+        else ""
+    )
+    entry = OpEntryT()
+    entry.opType = Op.Op.TerrainDetailOp
+    entry.op = op
+    builder.add_op(entry)
+
+
 def _stairs_paint(ctx: RenderContext) -> Iterable[str]:
     from nhc.rendering._stairs_svg import _render_stairs
     out: list[str] = []

@@ -66,6 +66,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
     "floor_detail": frozenset({Op.Op.FloorDetailOp}),
+    "terrain_detail": frozenset({Op.Op.TerrainDetailOp}),
 }
 
 
@@ -989,3 +990,40 @@ def _draw_floor_detail_from_ir(
 
 
 _OP_HANDLERS[Op.Op.FloorDetailOp] = _draw_floor_detail_from_ir
+
+
+def _draw_terrain_detail_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Reproduce ``_render_terrain_detail``.
+
+    Wraps room_groups in the ``terrain-detail-clip`` envelope, then
+    appends corridor_groups unclipped. Same shape as 1.g's
+    floor-detail handler — the unified ``walk_and_paint`` pipeline
+    means both layers share the bucketed clipPath structure.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    out: list[str] = []
+
+    room_groups = [_to_str(g) for g in (op.roomGroups or [])]
+    corridor_groups = [_to_str(g) for g in (op.corridorGroups or [])]
+
+    if room_groups:
+        clip_id = _to_str(op.clipRegion)
+        if clip_id:
+            region = _find_region(fir, clip_id.encode())
+            if region is not None:
+                out.append(_dungeon_clip_defs(region.Polygon(), "terrain-detail-clip"))
+                out.append('<g clip-path="url(#terrain-detail-clip)">')
+                out.extend(room_groups)
+                out.append("</g>")
+            else:
+                out.extend(room_groups)
+        else:
+            out.extend(room_groups)
+
+    out.extend(corridor_groups)
+    return out
+
+
+_OP_HANDLERS[Op.Op.TerrainDetailOp] = _draw_terrain_detail_from_ir

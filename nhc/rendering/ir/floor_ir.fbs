@@ -320,6 +320,15 @@ table TerrainDetailOp {
   seed: uint64;            // base_seed + 200
   theme: string;
   clip_region: string;
+  // Phase 1 transitional storage. The legacy renderer routes
+  // through the unified TileDecorator pipeline with per-decorator
+  // seeded RNG; faithfully reproducing it from a structured tile
+  // list would mean inlining `walk_and_paint` plus three
+  // RNG-driven painters into the handler. Pre-rendered <g>
+  // groups per bucket travel here instead. Phase 4 refactors to
+  // structured per-tile ops when the Rust port lands.
+  room_groups: [string];
+  corridor_groups: [string];
 }
 
 // Layer 700 — stairs.

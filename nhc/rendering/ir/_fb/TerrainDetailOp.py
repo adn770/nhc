@@ -73,8 +73,48 @@ class TerrainDetailOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # TerrainDetailOp
+    def RoomGroups(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # TerrainDetailOp
+    def RoomGroupsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # TerrainDetailOp
+    def RoomGroupsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
+
+    # TerrainDetailOp
+    def CorridorGroups(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # TerrainDetailOp
+    def CorridorGroupsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # TerrainDetailOp
+    def CorridorGroupsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        return o == 0
+
 def TerrainDetailOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(6)
 
 def Start(builder):
     TerrainDetailOpStart(builder)
@@ -109,6 +149,30 @@ def TerrainDetailOpAddClipRegion(builder, clipRegion):
 def AddClipRegion(builder, clipRegion):
     TerrainDetailOpAddClipRegion(builder, clipRegion)
 
+def TerrainDetailOpAddRoomGroups(builder, roomGroups):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(roomGroups), 0)
+
+def AddRoomGroups(builder, roomGroups):
+    TerrainDetailOpAddRoomGroups(builder, roomGroups)
+
+def TerrainDetailOpStartRoomGroupsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartRoomGroupsVector(builder, numElems):
+    return TerrainDetailOpStartRoomGroupsVector(builder, numElems)
+
+def TerrainDetailOpAddCorridorGroups(builder, corridorGroups):
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(corridorGroups), 0)
+
+def AddCorridorGroups(builder, corridorGroups):
+    TerrainDetailOpAddCorridorGroups(builder, corridorGroups)
+
+def TerrainDetailOpStartCorridorGroupsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartCorridorGroupsVector(builder, numElems):
+    return TerrainDetailOpStartCorridorGroupsVector(builder, numElems)
+
 def TerrainDetailOpEnd(builder):
     return builder.EndObject()
 
@@ -130,11 +194,15 @@ class TerrainDetailOpT(object):
         seed = 0,
         theme = None,
         clipRegion = None,
+        roomGroups = None,
+        corridorGroups = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TerrainDetailTile.TerrainDetailTileT]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
         self.clipRegion = clipRegion  # type: Optional[str]
+        self.roomGroups = roomGroups  # type: Optional[List[Optional[str]]]
+        self.corridorGroups = corridorGroups  # type: Optional[List[Optional[str]]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -168,6 +236,14 @@ class TerrainDetailOpT(object):
         self.seed = terrainDetailOp.Seed()
         self.theme = terrainDetailOp.Theme()
         self.clipRegion = terrainDetailOp.ClipRegion()
+        if not terrainDetailOp.RoomGroupsIsNone():
+            self.roomGroups = []
+            for i in range(terrainDetailOp.RoomGroupsLength()):
+                self.roomGroups.append(terrainDetailOp.RoomGroups(i))
+        if not terrainDetailOp.CorridorGroupsIsNone():
+            self.corridorGroups = []
+            for i in range(terrainDetailOp.CorridorGroupsLength()):
+                self.corridorGroups.append(terrainDetailOp.CorridorGroups(i))
 
     # TerrainDetailOpT
     def Pack(self, builder):
@@ -180,6 +256,22 @@ class TerrainDetailOpT(object):
             theme = builder.CreateString(self.theme)
         if self.clipRegion is not None:
             clipRegion = builder.CreateString(self.clipRegion)
+        if self.roomGroups is not None:
+            roomGroupslist = []
+            for i in range(len(self.roomGroups)):
+                roomGroupslist.append(builder.CreateString(self.roomGroups[i]))
+            TerrainDetailOpStartRoomGroupsVector(builder, len(self.roomGroups))
+            for i in reversed(range(len(self.roomGroups))):
+                builder.PrependUOffsetTRelative(roomGroupslist[i])
+            roomGroups = builder.EndVector()
+        if self.corridorGroups is not None:
+            corridorGroupslist = []
+            for i in range(len(self.corridorGroups)):
+                corridorGroupslist.append(builder.CreateString(self.corridorGroups[i]))
+            TerrainDetailOpStartCorridorGroupsVector(builder, len(self.corridorGroups))
+            for i in reversed(range(len(self.corridorGroups))):
+                builder.PrependUOffsetTRelative(corridorGroupslist[i])
+            corridorGroups = builder.EndVector()
         TerrainDetailOpStart(builder)
         if self.tiles is not None:
             TerrainDetailOpAddTiles(builder, tiles)
@@ -188,5 +280,9 @@ class TerrainDetailOpT(object):
             TerrainDetailOpAddTheme(builder, theme)
         if self.clipRegion is not None:
             TerrainDetailOpAddClipRegion(builder, clipRegion)
+        if self.roomGroups is not None:
+            TerrainDetailOpAddRoomGroups(builder, roomGroups)
+        if self.corridorGroups is not None:
+            TerrainDetailOpAddCorridorGroups(builder, corridorGroups)
         terrainDetailOp = TerrainDetailOpEnd(builder)
         return terrainDetailOp
