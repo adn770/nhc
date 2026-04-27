@@ -1,0 +1,436 @@
+// NHC Floor IR — FlatBuffers schema.
+//
+// Wire format for the rendering intermediate representation, the
+// pivot point of the multi-runtime architecture documented in
+// design/map_ir.md. One buffer carries everything the renderer
+// needs to draw a single floor (dungeon, cave, building interior,
+// or surface).
+//
+// Three transformer back-ends consume this schema:
+//   1. Python ir_to_svg.py     — cold path, byte-equal parity gate
+//   2. Rust   transform/png.rs — server PNG path (tiny-skia)
+//   3. Rust   transform/canvas.rs (via WASM) — client gameplay path
+//
+// Schema major version is encoded in the file_identifier; minor
+// version is the FloorIR.minor field. Renderers gate on major and
+// ignore unknown union variants for additive (minor) changes —
+// FlatBuffers' default behaviour for vectors of unions.
+//
+// See design/map_ir.md §5 for the schema rationale and §7 for the
+// per-op contract; design/ir_primitives.md (Phase 0.8) is the
+// normative determinism spec — exact RNG / Perlin call sequences
+// per op.
+
+// Namespace mirrors the Python package path of the generated
+// bindings, so flatc's Python output drops cleanly into
+// `nhc/rendering/ir/_fb/` with the right absolute imports between
+// generated files. Rust collapses the multi-segment namespace into
+// a nested `pub mod` chain inside `floor_ir_generated.rs`; the
+// crate's `src/ir/mod.rs` re-exports the leaf types for ergonomic
+// use. TS keeps the namespace tree (the generator emits leaf
+// imports relative to the namespace root); a hand-written
+// `nhc/web/static/js/ir/index.ts` re-exports the deep tree.
+namespace nhc.rendering.ir._fb;
+
+file_identifier "NIRF";   // NHC IR Floor v1
+file_extension "nir";
+
+// ── Geometry primitives ─────────────────────────────────────
+
+struct Vec2 {
+  x: float;
+  y: float;
+}
+
+// One ring inside a Polygon's flat path list. `start` is the
+// index of the first Vec2 in `Polygon.paths`; `count` is the
+// number of points in the ring; `is_hole` flags interior rings
+// for even-odd fill.
+struct PathRange {
+  start: uint32;
+  count: uint32;
+  is_hole: bool;
+}
+
+table Polygon {
+  paths: [Vec2];          // flat point list shared by all rings
+  rings: [PathRange];     // per-ring slices into paths
+}
+
+// Per-tile coordinate, dense. Most op tile lists are just (x, y);
+// the few ops that need a per-tile discriminator (terrain kind,
+// stair direction) get a dedicated tile struct below.
+struct TileCoord {
+  x: int32;
+  y: int32;
+}
+
+// ── Enums ────────────────────────────────────────────────────
+
+enum FloorKind: byte {
+  Dungeon = 0,
+  Cave = 1,
+  Building = 2,
+  Surface = 3,
+}
+
+enum RegionKind: byte {
+  Dungeon = 0,
+  Cave = 1,
+  Room = 2,
+  Building = 3,
+  Site = 4,
+}
+
+enum ShadowKind: byte {
+  Room = 0,
+  Corridor = 1,
+}
+
+// HatchKind.Hole is the interior-hole hatching emitter (currently
+// `_hatching._render_hole_hatching` with `seed + 777`); see audit
+// at debug/floor_ir_emitter_audit.md §7.2.3.
+enum HatchKind: byte {
+  Room = 0,
+  Hole = 1,
+  Corridor = 2,
+}
+
+enum CobblePattern: byte {
+  Cobble = 0,             // 3x3 default cobble grid
+  Brick = 1,              // 4x2 running-bond
+  Flagstone = 2,          // irregular pentagon pack
+  OpusReticulatum = 3,    // diamond-net (a.k.a. opus_romano in code)
+  Herringbone = 4,        // forward-compat; not yet emitted
+  Versailles4 = 5,        // 4-stone Versailles tiling
+}
+
+enum WellShape: byte {
+  Round = 0,
+  Square = 1,
+}
+
+enum FountainShape: byte {
+  Round = 0,
+  Square = 1,
+  LargeRound = 2,
+  LargeSquare = 3,
+  Cross = 4,
+}
+
+enum StairDirection: byte {
+  Up = 0,
+  Down = 1,
+}
+
+// Per-tile terrain identifier used by tint + detail ops. `None`
+// is the absent / non-terrain value.
+enum TerrainKind: byte {
+  None = 0,
+  Water = 1,
+  Lava = 2,
+  Chasm = 3,
+  Grass = 4,
+}
+
+// ── Tagged tile structs ─────────────────────────────────────
+
+// FlatBuffers struct alignment: each is laid out at the alignment
+// of its largest field (4 bytes here, since int32 dominates).
+
+struct TerrainTintTile {
+  x: int32;
+  y: int32;
+  kind: TerrainKind;
+  pad0: uint8 = 0;
+  pad1: uint8 = 0;
+  pad2: uint8 = 0;
+}
+
+struct TerrainDetailTile {
+  x: int32;
+  y: int32;
+  kind: TerrainKind;
+  is_corridor: bool;
+  pad0: uint8 = 0;
+  pad1: uint8 = 0;
+}
+
+struct StairTile {
+  x: int32;
+  y: int32;
+  direction: StairDirection;
+  pad0: uint8 = 0;
+  pad1: uint8 = 0;
+  pad2: uint8 = 0;
+}
+
+// ── Region records ──────────────────────────────────────────
+
+table Region {
+  id: string (key);       // referenced by `region_ref` / `clip_region`
+  kind: RegionKind;
+  polygon: Polygon;
+  shape_tag: string;      // "rect"|"octagon"|"circle"|"pill"|"temple"|"hybrid"|"cave"
+}
+
+table RectRoom {
+  x: int32;
+  y: int32;
+  w: int32;
+  h: int32;
+  region_ref: string;     // optional back-reference to Region
+}
+
+table RoomWash {
+  x: int32;
+  y: int32;
+  w: int32;
+  h: int32;
+  color: string;          // CSS-style hex
+  opacity: float;
+}
+
+table FeatureFlags {
+  shadows_enabled: bool = true;
+  hatching_enabled: bool = true;
+  atmospherics_enabled: bool = true;
+  macabre_detail: bool = false;
+  vegetation_enabled: bool = true;
+  interior_finish: string;   // "" | "wood" | "flagstone" | …
+}
+
+// ── Op tables ───────────────────────────────────────────────
+//
+// Layer order is encoded by op sequence; renderers stream linearly
+// (see design/map_ir.md §6).
+
+// Layer 100 — shadows.
+table ShadowOp {
+  kind: ShadowKind;
+  region_ref: string;     // for Room kind
+  tiles: [TileCoord];     // for Corridor kind
+  dx: float = 3.0;
+  dy: float = 3.0;
+  opacity: float = 0.08;
+}
+
+// Layer 200 — hatching halo + section partitioning.
+table HatchOp {
+  kind: HatchKind;
+  region_out: string;     // exclusion region (e.g. "dungeon")
+  region_in: string;      // hatched region (Room / Hole)
+  tiles: [TileCoord];     // for Corridor kind
+  extent_tiles: float = 2.0;
+  seed: uint64;           // base_seed + 0/7/777 per kind (see audit)
+  stride: float = 0.5;
+  hatch_underlay_color: string;
+}
+
+// Layer 300 — walls and floor fills (deterministic).
+table WallsAndFloorsOp {
+  smooth_room_regions: [string];   // region ids of octagon/circle/pill/temple
+  rect_rooms: [RectRoom];
+  corridor_tiles: [TileCoord];
+  cave_region: string;
+  wall_segments: [string];         // SVG path 'd' fragments — may become structured later
+  floor_color: string;
+  cave_floor_color: string;
+  wall_color: string;
+  wall_width: float = 1.0;
+  building_footprint: [TileCoord];
+}
+
+// Layer 350 — terrain tints + room-type washes (deterministic).
+table TerrainTintOp {
+  tiles: [TerrainTintTile];
+  room_washes: [RoomWash];
+  clip_region: string;
+}
+
+// Layer 400 — wobbly grid (Perlin-displaced).
+table FloorGridOp {
+  clip_region: string;
+  seed: uint64;            // current code uses fixed 41; emitter sets per audit
+  theme: string;
+  scale: float = 1.0;      // _DETAIL_SCALE[theme]
+}
+
+// Layer 500a — floor detail (cracks, scratches, stones, clusters).
+table FloorDetailOp {
+  tiles: [TileCoord];
+  seed: uint64;            // base_seed + 99
+  theme: string;
+}
+
+// Layer 500b — thematic detail (webs, bone piles, skulls).
+table ThematicDetailOp {
+  tiles: [TileCoord];
+  seed: uint64;            // base_seed + 99 (code) — design intent + 199
+  theme: string;
+}
+
+// Layer 600 — terrain detail (water ripples, lava cracks, chasm).
+table TerrainDetailOp {
+  tiles: [TerrainDetailTile];
+  seed: uint64;            // base_seed + 200
+  theme: string;
+  clip_region: string;
+}
+
+// Layer 700 — stairs.
+table StairsOp {
+  stairs: [StairTile];
+  theme: string;
+  fill_color: string;      // active when theme == "cave"
+}
+
+// Layer 500c — cobblestone variants (street tiles).
+table CobblestoneOp {
+  tiles: [TileCoord];
+  seed: uint64;            // base_seed + 333 (decorator pipeline)
+  theme: string;
+  pattern: CobblePattern;
+}
+
+// Layer 500d — wood floor planks (gated on flags.interior_finish).
+table WoodFloorOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+  building_polygon: [Vec2];   // optional clip to chamfer diagonal
+}
+
+// Layer 500e — surface overlays.
+table GardenOverlayOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+}
+
+table FieldOverlayOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+}
+
+table CartTracksOp {
+  tiles: [TileCoord];
+  seed: uint64;
+}
+
+table OreDepositsOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+}
+
+// Layer 800 — vegetation. Groves carry pre-baked Shapely-union
+// polygons for 3+ adjacent trees so the renderer does no Shapely
+// work; per-tree glyphs come from the per-tile seeded rolls.
+table GrovePolygon {
+  polygon: Polygon;
+}
+
+table TreeFeatureOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+  groves: [GrovePolygon];
+}
+
+table BushFeatureOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+}
+
+// Layer 800 — surface fixtures.
+table WellFeatureOp {
+  tiles: [TileCoord];     // anchor (x, y) per fixture
+  shape: WellShape;
+  seed: uint64;
+  theme: string;
+}
+
+table FountainFeatureOp {
+  tiles: [TileCoord];     // anchor (x, y) per fixture
+  shape: FountainShape;
+  seed: uint64;
+  theme: string;
+}
+
+// Escape hatch for new primitives that haven't earned a dedicated
+// table yet. Renderers dispatch on `name` to a registered handler.
+// Promote to a real table once the primitive stabilises (and bump
+// the major version, removing the GenericProceduralOp emission).
+table KV {
+  key: string (key);
+  value: string;
+}
+
+table GenericProceduralOp {
+  name: string;
+  tiles: [TileCoord];
+  seed: uint64;
+  params: [KV];
+}
+
+// ── Op union ────────────────────────────────────────────────
+//
+// Order of variants is part of the schema major version — adding
+// a new variant at the end is a minor (additive) change. Renaming
+// or reordering is a major change. See design/map_ir.md §5.
+//
+// Each op is wrapped in an OpEntry table so the root vector is a
+// vector-of-tables rather than a vector-of-unions. flatc's Python
+// and Rust generators don't yet support vectors of unions
+// directly, but a vector of tables that each *contain* a union is
+// fully supported across every target. The wrapper costs one
+// extra offset per op (4 B) — well below noise.
+
+union Op {
+  ShadowOp,
+  HatchOp,
+  WallsAndFloorsOp,
+  TerrainTintOp,
+  FloorGridOp,
+  FloorDetailOp,
+  ThematicDetailOp,
+  TerrainDetailOp,
+  StairsOp,
+  CobblestoneOp,
+  WoodFloorOp,
+  GardenOverlayOp,
+  FieldOverlayOp,
+  CartTracksOp,
+  OreDepositsOp,
+  TreeFeatureOp,
+  BushFeatureOp,
+  WellFeatureOp,
+  FountainFeatureOp,
+  GenericProceduralOp,
+}
+
+table OpEntry {
+  op: Op;
+}
+
+// ── Root ────────────────────────────────────────────────────
+
+table FloorIR {
+  major: uint32;          // schema major (gates renderers)
+  minor: uint32;          // schema minor (additive)
+  width_tiles: uint32;
+  height_tiles: uint32;
+  cell: uint32 = 32;
+  padding: uint32 = 32;
+  floor_kind: FloorKind;
+  theme: string;          // "dungeon"|"crypt"|"cave"|"sewer"|"castle"|...
+  base_seed: uint64;
+  flags: FeatureFlags;
+  regions: [Region];
+  ops: [OpEntry];
+}
+
+root_type FloorIR;
