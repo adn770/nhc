@@ -113,8 +113,39 @@ buildingFootprintLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+smoothFillSvg(index: number):string
+smoothFillSvg(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+smoothFillSvg(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+smoothFillSvgLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+smoothWallSvg(index: number):string
+smoothWallSvg(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+smoothWallSvg(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+smoothWallSvgLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 26);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+wallExtensionsD():string|null
+wallExtensionsD(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+wallExtensionsD(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 28);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startWallsAndFloorsOp(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(13);
 }
 
 static addSmoothRoomRegions(builder:flatbuffers.Builder, smoothRoomRegionsOffset:flatbuffers.Offset) {
@@ -201,12 +232,48 @@ static startBuildingFootprintVector(builder:flatbuffers.Builder, numElems:number
   builder.startVector(8, numElems, 4);
 }
 
+static addSmoothFillSvg(builder:flatbuffers.Builder, smoothFillSvgOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(10, smoothFillSvgOffset, 0);
+}
+
+static createSmoothFillSvgVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSmoothFillSvgVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addSmoothWallSvg(builder:flatbuffers.Builder, smoothWallSvgOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(11, smoothWallSvgOffset, 0);
+}
+
+static createSmoothWallSvgVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startSmoothWallSvgVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addWallExtensionsD(builder:flatbuffers.Builder, wallExtensionsDOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(12, wallExtensionsDOffset, 0);
+}
+
 static endWallsAndFloorsOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWallsAndFloorsOp(builder:flatbuffers.Builder, smoothRoomRegionsOffset:flatbuffers.Offset, rectRoomsOffset:flatbuffers.Offset, corridorTilesOffset:flatbuffers.Offset, caveRegionOffset:flatbuffers.Offset, wallSegmentsOffset:flatbuffers.Offset, floorColorOffset:flatbuffers.Offset, caveFloorColorOffset:flatbuffers.Offset, wallColorOffset:flatbuffers.Offset, wallWidth:number, buildingFootprintOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWallsAndFloorsOp(builder:flatbuffers.Builder, smoothRoomRegionsOffset:flatbuffers.Offset, rectRoomsOffset:flatbuffers.Offset, corridorTilesOffset:flatbuffers.Offset, caveRegionOffset:flatbuffers.Offset, wallSegmentsOffset:flatbuffers.Offset, floorColorOffset:flatbuffers.Offset, caveFloorColorOffset:flatbuffers.Offset, wallColorOffset:flatbuffers.Offset, wallWidth:number, buildingFootprintOffset:flatbuffers.Offset, smoothFillSvgOffset:flatbuffers.Offset, smoothWallSvgOffset:flatbuffers.Offset, wallExtensionsDOffset:flatbuffers.Offset):flatbuffers.Offset {
   WallsAndFloorsOp.startWallsAndFloorsOp(builder);
   WallsAndFloorsOp.addSmoothRoomRegions(builder, smoothRoomRegionsOffset);
   WallsAndFloorsOp.addRectRooms(builder, rectRoomsOffset);
@@ -218,6 +285,9 @@ static createWallsAndFloorsOp(builder:flatbuffers.Builder, smoothRoomRegionsOffs
   WallsAndFloorsOp.addWallColor(builder, wallColorOffset);
   WallsAndFloorsOp.addWallWidth(builder, wallWidth);
   WallsAndFloorsOp.addBuildingFootprint(builder, buildingFootprintOffset);
+  WallsAndFloorsOp.addSmoothFillSvg(builder, smoothFillSvgOffset);
+  WallsAndFloorsOp.addSmoothWallSvg(builder, smoothWallSvgOffset);
+  WallsAndFloorsOp.addWallExtensionsD(builder, wallExtensionsDOffset);
   return WallsAndFloorsOp.endWallsAndFloorsOp(builder);
 }
 }

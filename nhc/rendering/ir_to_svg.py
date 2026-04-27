@@ -38,7 +38,10 @@ from nhc.rendering._cave_geometry import _smooth_closed_path
 from nhc.rendering._dungeon_polygon import (
     _build_sections, _pick_section_points,
 )
-from nhc.rendering._svg_helpers import BG, CELL, HATCH_UNDERLAY, INK
+from nhc.rendering._svg_helpers import (
+    BG, CAVE_FLOOR_COLOR, CELL, FLOOR_COLOR, HATCH_UNDERLAY, INK,
+    WALL_WIDTH,
+)
 from nhc.rendering.ir._fb import HatchKind, Op, ShadowKind
 from nhc.rendering.ir._fb.FloorIR import FloorIR
 from nhc.rendering.ir._fb.Op import OpCreator
@@ -59,6 +62,7 @@ _OP_HANDLERS: dict[int, Callable[[OpEntry, FloorIR], list[str]]] = {}
 _LAYER_OPS: dict[str, frozenset[int]] = {
     "shadows": frozenset({Op.Op.ShadowOp}),
     "hatching": frozenset({Op.Op.HatchOp}),
+    "walls_and_floors": frozenset({Op.Op.WallsAndFloorsOp}),
 }
 
 
@@ -687,3 +691,83 @@ def _fb_polygon_to_shapely(
 
 
 _OP_HANDLERS[Op.Op.HatchOp] = _draw_hatch_from_ir
+
+
+def _draw_walls_and_floors_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Reproduce ``_render_walls_and_floors``.
+
+    Walks the IR's structured + pre-rendered fields in legacy
+    output order: per-tile corridor / door rects → rect-room rects
+    → smooth fills → cave region (fill + wall) → smooth walls →
+    wall extensions → tile-edge walls. Schema fields for colors and
+    wall_width are reserved for theme variation and ignored here in
+    favour of the legacy constants — keeping the byte-equal contract
+    in one obvious place.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    out: list[str] = []
+    stroke_style = (
+        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
+        f'stroke-linecap="round" stroke-linejoin="round"'
+    )
+
+    for tile in (op.corridorTiles or []):
+        out.append(
+            f'<rect x="{tile.x * CELL}" y="{tile.y * CELL}" '
+            f'width="{CELL}" height="{CELL}" '
+            f'fill="{FLOOR_COLOR}" stroke="none"/>'
+        )
+
+    for rr in (op.rectRooms or []):
+        out.append(
+            f'<rect x="{rr.x * CELL}" y="{rr.y * CELL}" '
+            f'width="{rr.w * CELL}" height="{rr.h * CELL}" '
+            f'fill="{FLOOR_COLOR}" stroke="none"/>'
+        )
+
+    for fill in (op.smoothFillSvg or []):
+        out.append(_to_str(fill))
+
+    cave_path = _to_str(op.caveRegion)
+    if cave_path:
+        out.append(cave_path.replace(
+            "/>",
+            f' fill="{CAVE_FLOOR_COLOR}" stroke="none" '
+            f'fill-rule="evenodd"/>',
+        ))
+        out.append(cave_path.replace(
+            "/>", f' fill="none" {stroke_style}/>',
+        ))
+
+    for wall in (op.smoothWallSvg or []):
+        out.append(_to_str(wall))
+
+    ext_d = _to_str(op.wallExtensionsD)
+    if ext_d:
+        out.append(
+            f'<path d="{ext_d}" fill="none" {stroke_style}/>'
+        )
+
+    if op.wallSegments:
+        segs = [_to_str(s) for s in op.wallSegments]
+        out.append(
+            f'<path d="{" ".join(segs)}" fill="none" '
+            f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+
+    return out
+
+
+def _to_str(value: Any) -> str:
+    """FB strings surface as bytes; decode to str at the boundary."""
+    if value is None:
+        return ""
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).decode("utf-8")
+    return value
+
+
+_OP_HANDLERS[Op.Op.WallsAndFloorsOp] = _draw_walls_and_floors_from_ir

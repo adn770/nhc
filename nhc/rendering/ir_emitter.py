@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 _SCHEMA_MAJOR = 1
-_SCHEMA_MINOR = 0
+_SCHEMA_MINOR = 1
 
 _FILE_IDENTIFIER = b"NIRF"
 
@@ -298,7 +298,11 @@ def emit_hatch(builder: FloorIRBuilder) -> None:
 
 
 def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.d lands WallsAndFloorsOp emit + handler."""
+    """Phase 1.d: emit WallsAndFloorsOp with pre-rendered smooth-room
+    fragments, structured rect rooms / corridor tiles, and combined
+    wall-segment / wall-extension strings."""
+    from nhc.rendering._floor_layers import _emit_walls_and_floors_ir
+    _emit_walls_and_floors_ir(builder)
 
 
 def emit_terrain_tints(builder: FloorIRBuilder) -> None:

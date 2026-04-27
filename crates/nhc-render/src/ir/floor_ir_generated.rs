@@ -3395,6 +3395,9 @@ impl<'a> WallsAndFloorsOp<'a> {
   pub const VT_WALL_COLOR: ::flatbuffers::VOffsetT = 18;
   pub const VT_WALL_WIDTH: ::flatbuffers::VOffsetT = 20;
   pub const VT_BUILDING_FOOTPRINT: ::flatbuffers::VOffsetT = 22;
+  pub const VT_SMOOTH_FILL_SVG: ::flatbuffers::VOffsetT = 24;
+  pub const VT_SMOOTH_WALL_SVG: ::flatbuffers::VOffsetT = 26;
+  pub const VT_WALL_EXTENSIONS_D: ::flatbuffers::VOffsetT = 28;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3406,6 +3409,9 @@ impl<'a> WallsAndFloorsOp<'a> {
     args: &'args WallsAndFloorsOpArgs<'args>
   ) -> ::flatbuffers::WIPOffset<WallsAndFloorsOp<'bldr>> {
     let mut builder = WallsAndFloorsOpBuilder::new(_fbb);
+    if let Some(x) = args.wall_extensions_d { builder.add_wall_extensions_d(x); }
+    if let Some(x) = args.smooth_wall_svg { builder.add_smooth_wall_svg(x); }
+    if let Some(x) = args.smooth_fill_svg { builder.add_smooth_fill_svg(x); }
     if let Some(x) = args.building_footprint { builder.add_building_footprint(x); }
     builder.add_wall_width(args.wall_width);
     if let Some(x) = args.wall_color { builder.add_wall_color(x); }
@@ -3490,6 +3496,27 @@ impl<'a> WallsAndFloorsOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(WallsAndFloorsOp::VT_BUILDING_FOOTPRINT, None)}
   }
+  #[inline]
+  pub fn smooth_fill_svg(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(WallsAndFloorsOp::VT_SMOOTH_FILL_SVG, None)}
+  }
+  #[inline]
+  pub fn smooth_wall_svg(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(WallsAndFloorsOp::VT_SMOOTH_WALL_SVG, None)}
+  }
+  #[inline]
+  pub fn wall_extensions_d(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WallsAndFloorsOp::VT_WALL_EXTENSIONS_D, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WallsAndFloorsOp<'_> {
@@ -3508,6 +3535,9 @@ impl ::flatbuffers::Verifiable for WallsAndFloorsOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("wall_color", Self::VT_WALL_COLOR, false)?
      .visit_field::<f32>("wall_width", Self::VT_WALL_WIDTH, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("building_footprint", Self::VT_BUILDING_FOOTPRINT, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("smooth_fill_svg", Self::VT_SMOOTH_FILL_SVG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("smooth_wall_svg", Self::VT_SMOOTH_WALL_SVG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("wall_extensions_d", Self::VT_WALL_EXTENSIONS_D, false)?
      .finish();
     Ok(())
   }
@@ -3523,6 +3553,9 @@ pub struct WallsAndFloorsOpArgs<'a> {
     pub wall_color: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub wall_width: f32,
     pub building_footprint: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub smooth_fill_svg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub smooth_wall_svg: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub wall_extensions_d: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for WallsAndFloorsOpArgs<'a> {
   #[inline]
@@ -3538,6 +3571,9 @@ impl<'a> Default for WallsAndFloorsOpArgs<'a> {
       wall_color: None,
       wall_width: 1.0,
       building_footprint: None,
+      smooth_fill_svg: None,
+      smooth_wall_svg: None,
+      wall_extensions_d: None,
     }
   }
 }
@@ -3588,6 +3624,18 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WallsAndFloorsOpBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WallsAndFloorsOp::VT_BUILDING_FOOTPRINT, building_footprint);
   }
   #[inline]
+  pub fn add_smooth_fill_svg(&mut self, smooth_fill_svg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WallsAndFloorsOp::VT_SMOOTH_FILL_SVG, smooth_fill_svg);
+  }
+  #[inline]
+  pub fn add_smooth_wall_svg(&mut self, smooth_wall_svg: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WallsAndFloorsOp::VT_SMOOTH_WALL_SVG, smooth_wall_svg);
+  }
+  #[inline]
+  pub fn add_wall_extensions_d(&mut self, wall_extensions_d: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WallsAndFloorsOp::VT_WALL_EXTENSIONS_D, wall_extensions_d);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WallsAndFloorsOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WallsAndFloorsOpBuilder {
@@ -3615,6 +3663,9 @@ impl ::core::fmt::Debug for WallsAndFloorsOp<'_> {
       ds.field("wall_color", &self.wall_color());
       ds.field("wall_width", &self.wall_width());
       ds.field("building_footprint", &self.building_footprint());
+      ds.field("smooth_fill_svg", &self.smooth_fill_svg());
+      ds.field("smooth_wall_svg", &self.smooth_wall_svg());
+      ds.field("wall_extensions_d", &self.wall_extensions_d());
       ds.finish()
   }
 }

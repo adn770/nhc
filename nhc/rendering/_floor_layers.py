@@ -243,6 +243,231 @@ def _walls_and_floors_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the walls + floors layer.
+
+    Deterministic — no RNG, no Perlin. The challenge is data shape:
+    ``_render_walls_and_floors`` calls ``_room_svg_outline`` and
+    ``_outline_with_gaps`` which need the live :class:`Room` and
+    :class:`Level` (per-room openings, shape-specific gap geometry).
+    This emitter pre-renders those into the schema-additive
+    ``smooth_fill_svg`` / ``smooth_wall_svg`` / ``wall_extensions_d``
+    fields on :class:`WallsAndFloorsOp` (Phase 1 transitional —
+    Phase 4 refactors to structured geometry when porting to Rust).
+
+    The handler then walks the IR data in legacy output order:
+    corridor / door rects, rect-room rects, smooth fills, cave
+    region (fill + wall), smooth walls, wall extensions, tile-edge
+    walls.
+    """
+    from nhc.dungeon.generators.cellular import CaveShape
+    from nhc.dungeon.model import RectShape
+    from nhc.rendering._room_outlines import (
+        _outline_with_gaps, _room_svg_outline,
+    )
+    from nhc.rendering._svg_helpers import (
+        CELL, FLOOR_COLOR, INK, WALL_WIDTH,
+        _find_doorless_openings, _is_floor,
+    )
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.RectRoom import RectRoomT
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
+    from nhc.rendering.ir._fb.WallsAndFloorsOp import WallsAndFloorsOpT
+
+    ctx = builder.ctx
+    level = ctx.level
+    cave_tiles: set[tuple[int, int]] = (
+        set(ctx.cave_tiles) if ctx.cave_tiles else set()
+    )
+    cave_wall_path = ctx.cave_wall_path or ""
+    building_footprint = ctx.building_footprint
+
+    cave_region_rooms: set[int] = set()
+    if cave_tiles:
+        for idx, room in enumerate(level.rooms):
+            if isinstance(room.shape, CaveShape):
+                cave_region_rooms.add(idx)
+
+    smooth_room_regions: list[str] = []
+    smooth_fill_svg: list[str] = []
+    smooth_wall_svg: list[str] = []
+    wall_extensions: list[str] = []
+    smooth_tiles: set[tuple[int, int]] = set()
+
+    stroke_style = (
+        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
+        f'stroke-linecap="round" stroke-linejoin="round"'
+    )
+
+    for idx, room in enumerate(level.rooms):
+        if idx in cave_region_rooms:
+            smooth_tiles |= room.floor_tiles()
+            continue
+        outline = _room_svg_outline(room)
+        if not outline:
+            continue
+        openings = _find_doorless_openings(room, level)
+        smooth_room_regions.append(room.id)
+        smooth_fill_svg.append(
+            outline.replace(
+                "/>", f' fill="{FLOOR_COLOR}" stroke="none"/>'
+            )
+        )
+        if openings:
+            gapped, extensions = _outline_with_gaps(
+                room, outline, openings,
+            )
+            wall_extensions.extend(extensions)
+            smooth_wall_svg.append(
+                gapped.replace(
+                    "/>", f' fill="none" {stroke_style}/>'
+                )
+            )
+            for _, _, cx, cy in openings:
+                smooth_tiles.add((cx, cy))
+        else:
+            smooth_wall_svg.append(
+                outline.replace(
+                    "/>", f' fill="none" {stroke_style}/>'
+                )
+            )
+        smooth_tiles |= room.floor_tiles()
+
+    smooth_tiles |= cave_tiles
+
+    corridor_tiles_list: list[TileCoordT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            if (x, y) in cave_tiles:
+                continue
+            tile = level.tiles[y][x]
+            if tile.terrain not in (
+                Terrain.FLOOR, Terrain.WATER,
+                Terrain.GRASS, Terrain.LAVA,
+            ):
+                continue
+            if (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or (tile.feature and "door" in (tile.feature or ""))
+            ):
+                t = TileCoordT()
+                t.x = x
+                t.y = y
+                corridor_tiles_list.append(t)
+
+    rect_rooms_list: list[RectRoomT] = []
+    for room in level.rooms:
+        if isinstance(room.shape, RectShape):
+            r = room.rect
+            rr = RectRoomT()
+            rr.x = r.x
+            rr.y = r.y
+            rr.w = r.width
+            rr.h = r.height
+            rr.regionRef = room.id
+            rect_rooms_list.append(rr)
+
+    segments: list[str] = []
+    if level.rooms:
+        def _walkable(x: int, y: int) -> bool:
+            return _is_floor(level, x, y) or _is_door(level, x, y)
+
+        def _draw_wall_to(nx: int, ny: int) -> bool:
+            if building_footprint is None:
+                return True
+            return (nx, ny) in building_footprint
+
+        for y in range(level.height):
+            for x in range(level.width):
+                if not _walkable(x, y):
+                    continue
+                if (x, y) in smooth_tiles:
+                    px, py = x * CELL, y * CELL
+                    for nx, ny, seg in [
+                        (x, y - 1,
+                         f'M{px},{py} L{px + CELL},{py}'),
+                        (x, y + 1,
+                         f'M{px},{py + CELL} '
+                         f'L{px + CELL},{py + CELL}'),
+                        (x - 1, y,
+                         f'M{px},{py} L{px},{py + CELL}'),
+                        (x + 1, y,
+                         f'M{px + CELL},{py} '
+                         f'L{px + CELL},{py + CELL}'),
+                    ]:
+                        nb = level.tile_at(nx, ny)
+                        if (
+                            nb
+                            and nb.surface_type == SurfaceType.CORRIDOR
+                            and not _walkable(nx, ny)
+                        ):
+                            segments.append(seg)
+                    continue
+                tile = level.tiles[y][x]
+                if tile.surface_type in (
+                    SurfaceType.STREET,
+                    SurfaceType.FIELD,
+                    SurfaceType.GARDEN,
+                ):
+                    continue
+                px, py = x * CELL, y * CELL
+                if (
+                    not _walkable(x, y - 1)
+                    and _draw_wall_to(x, y - 1)
+                ):
+                    segments.append(
+                        f'M{px},{py} L{px + CELL},{py}'
+                    )
+                if (
+                    not _walkable(x, y + 1)
+                    and _draw_wall_to(x, y + 1)
+                ):
+                    segments.append(
+                        f'M{px},{py + CELL} '
+                        f'L{px + CELL},{py + CELL}'
+                    )
+                if (
+                    not _walkable(x - 1, y)
+                    and _draw_wall_to(x - 1, y)
+                ):
+                    segments.append(
+                        f'M{px},{py} L{px},{py + CELL}'
+                    )
+                if (
+                    not _walkable(x + 1, y)
+                    and _draw_wall_to(x + 1, y)
+                ):
+                    segments.append(
+                        f'M{px + CELL},{py} '
+                        f'L{px + CELL},{py + CELL}'
+                    )
+
+    op = WallsAndFloorsOpT()
+    op.smoothRoomRegions = smooth_room_regions
+    op.smoothFillSvg = smooth_fill_svg
+    op.smoothWallSvg = smooth_wall_svg
+    op.rectRooms = rect_rooms_list
+    op.corridorTiles = corridor_tiles_list
+    op.caveRegion = cave_wall_path
+    op.wallSegments = segments
+    op.wallExtensionsD = (
+        " ".join(wall_extensions) if wall_extensions else ""
+    )
+    if building_footprint:
+        op.buildingFootprint = []
+        for tx, ty in sorted(building_footprint):
+            t = TileCoordT()
+            t.x = tx
+            t.y = ty
+            op.buildingFootprint.append(t)
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.WallsAndFloorsOp
+    entry.op = op
+    builder.add_op(entry)
+
+
 def _terrain_tints_paint(ctx: RenderContext) -> Iterable[str]:
     from nhc.rendering._terrain_detail import _render_terrain_tints
     out: list[str] = []

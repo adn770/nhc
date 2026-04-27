@@ -176,8 +176,55 @@ class WallsAndFloorsOp(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
         return o == 0
 
+    # WallsAndFloorsOp
+    def SmoothFillSvg(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # WallsAndFloorsOp
+    def SmoothFillSvgLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # WallsAndFloorsOp
+    def SmoothFillSvgIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        return o == 0
+
+    # WallsAndFloorsOp
+    def SmoothWallSvg(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # WallsAndFloorsOp
+    def SmoothWallSvgLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # WallsAndFloorsOp
+    def SmoothWallSvgIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(26))
+        return o == 0
+
+    # WallsAndFloorsOp
+    def WallExtensionsD(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(28))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def WallsAndFloorsOpStart(builder):
-    builder.StartObject(10)
+    builder.StartObject(13)
 
 def Start(builder):
     WallsAndFloorsOpStart(builder)
@@ -272,6 +319,36 @@ def WallsAndFloorsOpStartBuildingFootprintVector(builder, numElems):
 def StartBuildingFootprintVector(builder, numElems):
     return WallsAndFloorsOpStartBuildingFootprintVector(builder, numElems)
 
+def WallsAndFloorsOpAddSmoothFillSvg(builder, smoothFillSvg):
+    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(smoothFillSvg), 0)
+
+def AddSmoothFillSvg(builder, smoothFillSvg):
+    WallsAndFloorsOpAddSmoothFillSvg(builder, smoothFillSvg)
+
+def WallsAndFloorsOpStartSmoothFillSvgVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartSmoothFillSvgVector(builder, numElems):
+    return WallsAndFloorsOpStartSmoothFillSvgVector(builder, numElems)
+
+def WallsAndFloorsOpAddSmoothWallSvg(builder, smoothWallSvg):
+    builder.PrependUOffsetTRelativeSlot(11, flatbuffers.number_types.UOffsetTFlags.py_type(smoothWallSvg), 0)
+
+def AddSmoothWallSvg(builder, smoothWallSvg):
+    WallsAndFloorsOpAddSmoothWallSvg(builder, smoothWallSvg)
+
+def WallsAndFloorsOpStartSmoothWallSvgVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartSmoothWallSvgVector(builder, numElems):
+    return WallsAndFloorsOpStartSmoothWallSvgVector(builder, numElems)
+
+def WallsAndFloorsOpAddWallExtensionsD(builder, wallExtensionsD):
+    builder.PrependUOffsetTRelativeSlot(12, flatbuffers.number_types.UOffsetTFlags.py_type(wallExtensionsD), 0)
+
+def AddWallExtensionsD(builder, wallExtensionsD):
+    WallsAndFloorsOpAddWallExtensionsD(builder, wallExtensionsD)
+
 def WallsAndFloorsOpEnd(builder):
     return builder.EndObject()
 
@@ -300,6 +377,9 @@ class WallsAndFloorsOpT(object):
         wallColor = None,
         wallWidth = 1.0,
         buildingFootprint = None,
+        smoothFillSvg = None,
+        smoothWallSvg = None,
+        wallExtensionsD = None,
     ):
         self.smoothRoomRegions = smoothRoomRegions  # type: Optional[List[Optional[str]]]
         self.rectRooms = rectRooms  # type: Optional[List[nhc.rendering.ir._fb.RectRoom.RectRoomT]]
@@ -311,6 +391,9 @@ class WallsAndFloorsOpT(object):
         self.wallColor = wallColor  # type: Optional[str]
         self.wallWidth = wallWidth  # type: float
         self.buildingFootprint = buildingFootprint  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
+        self.smoothFillSvg = smoothFillSvg  # type: Optional[List[Optional[str]]]
+        self.smoothWallSvg = smoothWallSvg  # type: Optional[List[Optional[str]]]
+        self.wallExtensionsD = wallExtensionsD  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -370,6 +453,15 @@ class WallsAndFloorsOpT(object):
                 else:
                     tileCoord_ = nhc.rendering.ir._fb.TileCoord.TileCoordT.InitFromObj(wallsAndFloorsOp.BuildingFootprint(i))
                     self.buildingFootprint.append(tileCoord_)
+        if not wallsAndFloorsOp.SmoothFillSvgIsNone():
+            self.smoothFillSvg = []
+            for i in range(wallsAndFloorsOp.SmoothFillSvgLength()):
+                self.smoothFillSvg.append(wallsAndFloorsOp.SmoothFillSvg(i))
+        if not wallsAndFloorsOp.SmoothWallSvgIsNone():
+            self.smoothWallSvg = []
+            for i in range(wallsAndFloorsOp.SmoothWallSvgLength()):
+                self.smoothWallSvg.append(wallsAndFloorsOp.SmoothWallSvg(i))
+        self.wallExtensionsD = wallsAndFloorsOp.WallExtensionsD()
 
     # WallsAndFloorsOpT
     def Pack(self, builder):
@@ -415,6 +507,24 @@ class WallsAndFloorsOpT(object):
             for i in reversed(range(len(self.buildingFootprint))):
                 self.buildingFootprint[i].Pack(builder)
             buildingFootprint = builder.EndVector()
+        if self.smoothFillSvg is not None:
+            smoothFillSvglist = []
+            for i in range(len(self.smoothFillSvg)):
+                smoothFillSvglist.append(builder.CreateString(self.smoothFillSvg[i]))
+            WallsAndFloorsOpStartSmoothFillSvgVector(builder, len(self.smoothFillSvg))
+            for i in reversed(range(len(self.smoothFillSvg))):
+                builder.PrependUOffsetTRelative(smoothFillSvglist[i])
+            smoothFillSvg = builder.EndVector()
+        if self.smoothWallSvg is not None:
+            smoothWallSvglist = []
+            for i in range(len(self.smoothWallSvg)):
+                smoothWallSvglist.append(builder.CreateString(self.smoothWallSvg[i]))
+            WallsAndFloorsOpStartSmoothWallSvgVector(builder, len(self.smoothWallSvg))
+            for i in reversed(range(len(self.smoothWallSvg))):
+                builder.PrependUOffsetTRelative(smoothWallSvglist[i])
+            smoothWallSvg = builder.EndVector()
+        if self.wallExtensionsD is not None:
+            wallExtensionsD = builder.CreateString(self.wallExtensionsD)
         WallsAndFloorsOpStart(builder)
         if self.smoothRoomRegions is not None:
             WallsAndFloorsOpAddSmoothRoomRegions(builder, smoothRoomRegions)
@@ -435,5 +545,11 @@ class WallsAndFloorsOpT(object):
         WallsAndFloorsOpAddWallWidth(builder, self.wallWidth)
         if self.buildingFootprint is not None:
             WallsAndFloorsOpAddBuildingFootprint(builder, buildingFootprint)
+        if self.smoothFillSvg is not None:
+            WallsAndFloorsOpAddSmoothFillSvg(builder, smoothFillSvg)
+        if self.smoothWallSvg is not None:
+            WallsAndFloorsOpAddSmoothWallSvg(builder, smoothWallSvg)
+        if self.wallExtensionsD is not None:
+            WallsAndFloorsOpAddWallExtensionsD(builder, wallExtensionsD)
         wallsAndFloorsOp = WallsAndFloorsOpEnd(builder)
         return wallsAndFloorsOp

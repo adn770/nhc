@@ -239,6 +239,18 @@ table WallsAndFloorsOp {
   wall_color: string;
   wall_width: float = 1.0;
   building_footprint: [TileCoord];
+  // Per-smooth-room pre-rendered SVG, parallel arrays to
+  // smooth_room_regions. Phase 1 transitional storage —
+  // _room_svg_outline / _outline_with_gaps depend on the live
+  // Room + Level objects (per-room openings, shape-specific gap
+  // intersection geometry) that the IR doesn't carry. Phase 4
+  // refactors to structured per-room geometry when porting to
+  // Rust.
+  smooth_fill_svg: [string];
+  smooth_wall_svg: [string];
+  // Combined 'd' string for the wall-extensions <path> element,
+  // empty when no smooth room has a doorless opening.
+  wall_extensions_d: string;
 }
 
 // Layer 350 — terrain tints + room-type washes (deterministic).
