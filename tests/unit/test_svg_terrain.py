@@ -169,10 +169,20 @@ class TestTerrainDetailSVG:
         # detail group marker
         assert "terrain-water" in svg
 
-    def test_grass_tiles_get_stroke_detail(self):
+    def test_grass_tiles_get_only_tint_no_blade_detail(self):
+        """Grass renders as a flat tint -- the per-tile blade
+        strokes were dropping ~half of the terrain_detail layer
+        on every site surface and disappear at zoomed-out reads
+        anyway. Grass tint comes from the terrain_tints layer
+        and stays."""
         level = _make_terrain_level(Terrain.GRASS)
         svg = render_floor_svg(level, seed=42)
-        assert "terrain-grass" in svg
+        assert "terrain-grass" not in svg, (
+            "grass tiles must not emit a terrain-grass detail group"
+        )
+        # Tint still ships on the terrain_tints layer.
+        grass_tint = get_palette("dungeon").grass.tint.lower()
+        assert grass_tint in svg.lower()
 
     def test_floor_tiles_no_terrain_detail(self):
         """Standard FLOOR tiles should not get terrain detail marks."""

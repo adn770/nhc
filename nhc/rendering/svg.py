@@ -321,7 +321,6 @@ from nhc.rendering._floor_detail import (  # noqa: E402
 )
 from nhc.rendering._terrain_detail import (  # noqa: E402
     _chasm_detail,
-    _grass_detail,
     _lava_detail,
     _render_terrain_detail,
     _render_terrain_tints,

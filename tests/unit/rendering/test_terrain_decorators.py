@@ -29,9 +29,12 @@ class TestTerrainDecoratorPortability:
         svg = render_floor_svg(_level_with_one_tile(Terrain.WATER))
         assert 'class="terrain-water"' in svg
 
-    def test_grass_tile_renders_grass_class(self) -> None:
+    def test_grass_tile_emits_no_detail_class(self) -> None:
+        """Grass renders as tint-only; the per-tile blade
+        strokes were removed because they're ~half of
+        terrain_detail and visually noisy on town surfaces."""
         svg = render_floor_svg(_level_with_one_tile(Terrain.GRASS))
-        assert 'class="terrain-grass"' in svg
+        assert 'class="terrain-grass"' not in svg
 
     def test_lava_tile_renders_lava_class(self) -> None:
         svg = render_floor_svg(_level_with_one_tile(Terrain.LAVA))

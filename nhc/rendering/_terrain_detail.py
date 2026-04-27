@@ -122,44 +122,6 @@ def _water_detail(
     return elements
 
 
-def _grass_detail(
-    rng: random.Random, px: float, py: float,
-    ink: str, opacity: float,
-) -> list[str]:
-    """Short upward strokes for a grass tile.
-
-    Stroke colour and linecap are inherited from the parent
-    ``<g>`` group (see :func:`_water_detail`)."""
-    del ink, opacity  # inherited from parent <g>
-    elements: list[str] = []
-    n_blades = rng.randint(3, 6)
-    for _ in range(n_blades):
-        bx = px + rng.uniform(CELL * 0.1, CELL * 0.9)
-        by = py + rng.uniform(CELL * 0.4, CELL * 0.9)
-        h = rng.uniform(CELL * 0.12, CELL * 0.25)
-        angle = rng.uniform(-0.3, 0.3)
-        tx = bx + h * angle
-        ty = by - h
-        sw = rng.uniform(0.4, 0.8)
-        elements.append(
-            f'<line x1="{bx:.1f}" y1="{by:.1f}" '
-            f'x2="{tx:.1f}" y2="{ty:.1f}" '
-            f'stroke-width="{sw:.1f}"/>'
-        )
-    if rng.random() < 0.15:
-        cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
-        cy = py + rng.uniform(CELL * 0.5, CELL * 0.8)
-        for _ in range(3):
-            dx = rng.uniform(-CELL * 0.08, CELL * 0.08)
-            h = rng.uniform(CELL * 0.15, CELL * 0.25)
-            elements.append(
-                f'<line x1="{cx + dx:.1f}" y1="{cy:.1f}" '
-                f'x2="{cx + dx * 0.3:.1f}" y2="{cy - h:.1f}" '
-                f'stroke-width="0.6"/>'
-            )
-    return elements
-
-
 def _lava_detail(
     rng: random.Random, px: float, py: float,
     ink: str, opacity: float,
@@ -269,7 +231,6 @@ def _terrain_group_open(terrain: Terrain) -> str:
     palette = get_palette("dungeon")
     style = {
         Terrain.WATER: palette.water,
-        Terrain.GRASS: palette.grass,
         Terrain.LAVA: palette.lava,
         Terrain.CHASM: palette.chasm,
     }[terrain]
@@ -280,9 +241,11 @@ def _terrain_group_open(terrain: Terrain) -> str:
     )
 
 
+# Grass renders as a flat tint (terrain_tints layer); the
+# per-tile blade strokes were dropped because they accounted for
+# ~half of the terrain_detail layer on every site surface.
 _TERRAIN_CLASS = {
     Terrain.WATER: "terrain-water",
-    Terrain.GRASS: "terrain-grass",
     Terrain.LAVA: "terrain-lava",
     Terrain.CHASM: "terrain-chasm",
 }
@@ -295,14 +258,6 @@ TERRAIN_WATER = TileDecorator(
     paint=_terrain_paint(_water_detail, Terrain.WATER),
     group_open=_terrain_group_open(Terrain.WATER),
     z_order=10,
-)
-TERRAIN_GRASS = TileDecorator(
-    name="terrain_grass",
-    layer="terrain_detail",
-    predicate=_terrain_predicate(Terrain.GRASS),
-    paint=_terrain_paint(_grass_detail, Terrain.GRASS),
-    group_open=_terrain_group_open(Terrain.GRASS),
-    z_order=20,
 )
 TERRAIN_LAVA = TileDecorator(
     name="terrain_lava",
@@ -323,7 +278,7 @@ TERRAIN_CHASM = TileDecorator(
 
 
 _TERRAIN_DECORATORS = (
-    TERRAIN_WATER, TERRAIN_GRASS, TERRAIN_LAVA, TERRAIN_CHASM,
+    TERRAIN_WATER, TERRAIN_LAVA, TERRAIN_CHASM,
 )
 
 
