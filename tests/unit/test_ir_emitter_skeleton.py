@@ -95,16 +95,6 @@ def test_regions_populated_by_emit_regions(emitted) -> None:
         )
 
 
-def test_ops_empty_until_layer_commits_land(emitted) -> None:
-    _, _, fir = emitted
-    # Phase 1.a wires the IR_STAGES skeleton but stubs every layer
-    # stage. 1.b–1.j land ops one layer at a time.
-    assert fir.ops in (None, []), (
-        "ops[] should be empty in 1.a; layer commits 1.b–1.j start "
-        "filling it"
-    )
-
-
 def test_dump_round_trip(emitted) -> None:
     _, buf, _ = emitted
     text = dump(buf)

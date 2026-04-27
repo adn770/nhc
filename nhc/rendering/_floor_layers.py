@@ -3,12 +3,20 @@
 Wraps each existing pass as a :class:`Layer` and bundles them
 into the ordered :data:`FLOOR_LAYERS` tuple. Phase 5 of the
 rendering refactor.
+
+IR emit-siblings (one per layer, named ``_emit_<name>_ir``) live
+alongside the legacy ``_<name>_paint`` helpers. They are wired into
+:data:`nhc.rendering.ir_emitter.IR_STAGES` and write FlatBuffer ops
+that 1.k will route through ``ir_to_svg`` instead of the legacy
+paint helpers. The paint helpers stay until Phase 4 deletes them
+after the Rust ports.
 """
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
+from nhc.dungeon.model import SurfaceType
 from nhc.rendering._decorators import TileDecorator
 from nhc.rendering._features_svg import (
     BUSH_FEATURE, FOUNTAIN_CROSS_FEATURE, FOUNTAIN_FEATURE,
@@ -20,6 +28,10 @@ from nhc.rendering._pipeline import (
     Layer, TileWalkLayer, make_tile_walk_layer,
 )
 from nhc.rendering._render_context import RenderContext
+from nhc.rendering._svg_helpers import _is_door
+
+if TYPE_CHECKING:
+    from nhc.rendering.ir_emitter import FloorIRBuilder
 
 
 # ── Bespoke layer paint wrappers ─────────────────────────────
@@ -33,6 +45,45 @@ def _shadows_paint(ctx: RenderContext) -> Iterable[str]:
     _render_room_shadows(out, ctx.level)
     _render_corridor_shadows(out, ctx.level)
     return out
+
+
+def _emit_shadows_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the shadows layer.
+
+    Phase 1.b.1: emits one aggregated ``ShadowOp(kind=Corridor)``
+    carrying every CORRIDOR-surface tile and every door tile in
+    layer order. The single-op form keeps the IR small and matches
+    the legacy ``_render_corridor_shadows`` traversal order
+    (row-major y, x). Room shadows ship in 1.b.2.
+    """
+    from nhc.rendering.ir._fb import Op, ShadowKind
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.ShadowOp import ShadowOpT
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
+
+    level = builder.ctx.level
+    tiles: list[TileCoordT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if not (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or _is_door(level, x, y)
+            ):
+                continue
+            t = TileCoordT()
+            t.x = x
+            t.y = y
+            tiles.append(t)
+    if not tiles:
+        return
+    op = ShadowOpT()
+    op.kind = ShadowKind.ShadowKind.Corridor
+    op.tiles = tiles
+    entry = OpEntryT()
+    entry.opType = Op.Op.ShadowOp
+    entry.op = op
+    builder.add_op(entry)
 
 
 def _hatching_paint(ctx: RenderContext) -> Iterable[str]:

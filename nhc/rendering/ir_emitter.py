@@ -189,7 +189,9 @@ def emit_regions(builder: FloorIRBuilder) -> None:
 
 
 def emit_shadows(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.b lands ShadowOp emit + handler."""
+    """Phase 1.b.1: emit ShadowOp(Corridor); 1.b.2 adds Room kind."""
+    from nhc.rendering._floor_layers import _emit_shadows_ir
+    _emit_shadows_ir(builder)
 
 
 def emit_hatch(builder: FloorIRBuilder) -> None:
