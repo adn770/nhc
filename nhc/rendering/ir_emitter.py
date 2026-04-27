@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 _SCHEMA_MAJOR = 1
-_SCHEMA_MINOR = 5
+_SCHEMA_MINOR = 6
 
 _FILE_IDENTIFIER = b"NIRF"
 

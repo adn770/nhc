@@ -999,23 +999,33 @@ def _surface_features_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the surface-features layer.
 
-    Phase 1 stub. The starter fixtures (rect dungeon, octagon
-    crypt, cave) have no wells / fountains / trees / bushes, so
-    the legacy output is empty across the parity set; no op is
-    emitted. When a future fixture exercises the layer (e.g. a
-    town surface with vegetation), the emit + handler need to
-    grow — likely via the same passthrough shape as 1.g / 1.h
-    against `WellFeatureOp` / `FountainFeatureOp` / `TreeFeatureOp`
-    / `BushFeatureOp` (or a generic surface-features op via the
-    schema's `GenericProceduralOp` escape hatch).
+    Phase 1 transitional passthrough via
+    :class:`GenericProceduralOp` (name = "surface_features").
+    The legacy ``walk_and_paint`` over WELL / FOUNTAIN / TREE /
+    BUSH decorators produces SVG fragments end-to-end; carrying
+    them as opaque strings on the op keeps the emit small while
+    the four dedicated ops (``WellFeatureOp`` / ``FountainFeatureOp``
+    / ``TreeFeatureOp`` / ``BushFeatureOp``) stay schema-reserved
+    for Phase 4's structured port.
     """
-    if list(_surface_features_paint(builder.ctx)):
-        raise NotImplementedError(
-            "surface_features layer produced output but the IR "
-            "emitter is a stub — extend _emit_surface_features_ir "
-            "and the matching handler before adding fixtures that "
-            "exercise this layer"
-        )
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.GenericProceduralOp import (
+        GenericProceduralOpT,
+    )
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+
+    groups = list(_surface_features_paint(builder.ctx))
+    if not groups:
+        return
+
+    op = GenericProceduralOpT()
+    op.name = "surface_features"
+    op.seed = builder.ctx.seed
+    op.groups = groups
+    entry = OpEntryT()
+    entry.opType = Op.Op.GenericProceduralOp
+    entry.op = op
+    builder.add_op(entry)
 
 
 _SURFACE_FEATURE_DECORATORS: tuple[TileDecorator, ...] = (

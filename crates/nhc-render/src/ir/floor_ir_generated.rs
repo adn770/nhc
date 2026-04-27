@@ -6482,6 +6482,7 @@ impl<'a> GenericProceduralOp<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 6;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
   pub const VT_PARAMS: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6494,6 +6495,7 @@ impl<'a> GenericProceduralOp<'a> {
   ) -> ::flatbuffers::WIPOffset<GenericProceduralOp<'bldr>> {
     let mut builder = GenericProceduralOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.params { builder.add_params(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     if let Some(x) = args.name { builder.add_name(x); }
@@ -6529,6 +6531,13 @@ impl<'a> GenericProceduralOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KV>>>>(GenericProceduralOp::VT_PARAMS, None)}
   }
+  #[inline]
+  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(GenericProceduralOp::VT_GROUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for GenericProceduralOp<'_> {
@@ -6541,6 +6550,7 @@ impl ::flatbuffers::Verifiable for GenericProceduralOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<KV>>>>("params", Self::VT_PARAMS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -6550,6 +6560,7 @@ pub struct GenericProceduralOpArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
     pub seed: u64,
     pub params: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<KV<'a>>>>>,
+    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for GenericProceduralOpArgs<'a> {
   #[inline]
@@ -6559,6 +6570,7 @@ impl<'a> Default for GenericProceduralOpArgs<'a> {
       tiles: None,
       seed: 0,
       params: None,
+      groups: None,
     }
   }
 }
@@ -6585,6 +6597,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GenericProceduralOpBuilder<'a
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GenericProceduralOp::VT_PARAMS, params);
   }
   #[inline]
+  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GenericProceduralOp::VT_GROUPS, groups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GenericProceduralOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GenericProceduralOpBuilder {
@@ -6606,6 +6622,7 @@ impl ::core::fmt::Debug for GenericProceduralOp<'_> {
       ds.field("tiles", &self.tiles());
       ds.field("seed", &self.seed());
       ds.field("params", &self.params());
+      ds.field("groups", &self.groups());
       ds.finish()
   }
 }

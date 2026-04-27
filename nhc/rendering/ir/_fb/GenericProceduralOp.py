@@ -91,8 +91,28 @@ class GenericProceduralOp(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
+    # GenericProceduralOp
+    def Groups(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # GenericProceduralOp
+    def GroupsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # GenericProceduralOp
+    def GroupsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
+
 def GenericProceduralOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     GenericProceduralOpStart(builder)
@@ -133,6 +153,18 @@ def GenericProceduralOpStartParamsVector(builder, numElems):
 def StartParamsVector(builder, numElems):
     return GenericProceduralOpStartParamsVector(builder, numElems)
 
+def GenericProceduralOpAddGroups(builder, groups):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(groups), 0)
+
+def AddGroups(builder, groups):
+    GenericProceduralOpAddGroups(builder, groups)
+
+def GenericProceduralOpStartGroupsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartGroupsVector(builder, numElems):
+    return GenericProceduralOpStartGroupsVector(builder, numElems)
+
 def GenericProceduralOpEnd(builder):
     return builder.EndObject()
 
@@ -155,11 +187,13 @@ class GenericProceduralOpT(object):
         tiles = None,
         seed = 0,
         params = None,
+        groups = None,
     ):
         self.name = name  # type: Optional[str]
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
         self.params = params  # type: Optional[List[nhc.rendering.ir._fb.KV.KVT]]
+        self.groups = groups  # type: Optional[List[Optional[str]]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -200,6 +234,10 @@ class GenericProceduralOpT(object):
                 else:
                     kV_ = nhc.rendering.ir._fb.KV.KVT.InitFromObj(genericProceduralOp.Params(i))
                     self.params.append(kV_)
+        if not genericProceduralOp.GroupsIsNone():
+            self.groups = []
+            for i in range(genericProceduralOp.GroupsLength()):
+                self.groups.append(genericProceduralOp.Groups(i))
 
     # GenericProceduralOpT
     def Pack(self, builder):
@@ -218,6 +256,14 @@ class GenericProceduralOpT(object):
             for i in reversed(range(len(self.params))):
                 builder.PrependUOffsetTRelative(paramslist[i])
             params = builder.EndVector()
+        if self.groups is not None:
+            groupslist = []
+            for i in range(len(self.groups)):
+                groupslist.append(builder.CreateString(self.groups[i]))
+            GenericProceduralOpStartGroupsVector(builder, len(self.groups))
+            for i in reversed(range(len(self.groups))):
+                builder.PrependUOffsetTRelative(groupslist[i])
+            groups = builder.EndVector()
         GenericProceduralOpStart(builder)
         if self.name is not None:
             GenericProceduralOpAddName(builder, name)
@@ -226,5 +272,7 @@ class GenericProceduralOpT(object):
         GenericProceduralOpAddSeed(builder, self.seed)
         if self.params is not None:
             GenericProceduralOpAddParams(builder, params)
+        if self.groups is not None:
+            GenericProceduralOpAddGroups(builder, groups)
         genericProceduralOp = GenericProceduralOpEnd(builder)
         return genericProceduralOp

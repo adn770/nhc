@@ -437,6 +437,13 @@ table GenericProceduralOp {
   tiles: [TileCoord];
   seed: uint64;
   params: [KV];
+  // Phase 1 transitional storage for layer-level passthroughs
+  // that don't yet have structured per-tile ops (e.g. the
+  // surface_features layer's well / fountain / tree / bush
+  // walk_and_paint output). Renderers dispatch on `name` to
+  // route the groups into the right layer slot. Phase 4 deletes
+  // the field as each layer gets its dedicated op.
+  groups: [string];
 }
 
 // ── Op union ────────────────────────────────────────────────

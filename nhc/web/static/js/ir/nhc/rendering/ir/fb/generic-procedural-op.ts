@@ -58,8 +58,20 @@ paramsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+groups(index: number):string
+groups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+groups(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+groupsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startGenericProceduralOp(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addName(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset) {
@@ -94,17 +106,34 @@ static startParamsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addGroups(builder:flatbuffers.Builder, groupsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, groupsOffset, 0);
+}
+
+static createGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGroupsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endGenericProceduralOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createGenericProceduralOp(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset, tilesOffset:flatbuffers.Offset, seed:bigint, paramsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createGenericProceduralOp(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset, tilesOffset:flatbuffers.Offset, seed:bigint, paramsOffset:flatbuffers.Offset, groupsOffset:flatbuffers.Offset):flatbuffers.Offset {
   GenericProceduralOp.startGenericProceduralOp(builder);
   GenericProceduralOp.addName(builder, nameOffset);
   GenericProceduralOp.addTiles(builder, tilesOffset);
   GenericProceduralOp.addSeed(builder, seed);
   GenericProceduralOp.addParams(builder, paramsOffset);
+  GenericProceduralOp.addGroups(builder, groupsOffset);
   return GenericProceduralOp.endGenericProceduralOp(builder);
 }
 }
