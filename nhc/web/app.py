@@ -1109,33 +1109,23 @@ def create_app(
     def game_floor_png(session_id: str, svg_id: str):
         """Floor rasterised to PNG via resvg-py.
 
-        Phase 0.7 of plans/nhc_ir_migration_plan.md. The pipeline
-        is currently `svg → resvg → png` because the IR is empty
-        until Phase 1; once Phase 1 lands we route through
-        `IR → SVG → resvg → PNG`, and Phase 5 swaps in
-        `IR → tiny-skia → PNG` to drop the SVG hop entirely.
+        Phase 2.2 of plans/nhc_ir_migration_plan.md: the IR is now
+        the source of truth. For floors covered by ``build_floor_ir``
+        (plain dungeon today) the pipeline is
+        ``IR → ir_to_svg → resvg → PNG``; the cached composite SVG
+        remains the fallback for building / site-surface floors
+        until those branches gain IR coverage. Phase 5 swaps in
+        ``IR → tiny-skia → PNG`` to drop the SVG hop entirely.
 
         URL shape mirrors the .svg endpoint so the UUID-anchored
         cache contract is identical: the PNG with id X always
-        carries the rasterised pixels of the SVG with id X, and
+        carries the rasterised pixels of the floor with id X, and
         the same Cache-Control: public, max-age=604800 lets Caddy
         + the browser cache aggressively.
         """
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
-        client = session.game.renderer
-        svg_body: str | None = None
-        svg_cache = getattr(session.game, "_svg_cache", None)
-        if svg_cache:
-            for cached_id, cached_svg in svg_cache.values():
-                if cached_id == svg_id:
-                    svg_body = cached_svg
-                    break
-        if svg_body is None and client.floor_svg_id == svg_id:
-            svg_body = client.floor_svg
-        if svg_body is None:
-            return "floor PNG not found", 404
         try:
             import resvg_py
         except ImportError:
@@ -1143,6 +1133,27 @@ def create_app(
             # container builds may lag; fail loudly so the deploy
             # owner sees the gap rather than serving 500s.
             return "resvg-py not installed", 503
+        svg_body: str | None = None
+        buf = _build_floor_ir_for_request(session, svg_id)
+        if buf is not None:
+            from nhc.rendering.ir_to_svg import ir_to_svg
+            svg_body = ir_to_svg(bytes(buf))
+        else:
+            # Fallback: building / site-surface composite SVG that
+            # carries non-IR overlays (brick perimeter, roofs,
+            # enclosure). When their renderers gain IR coverage
+            # this branch goes away.
+            client = session.game.renderer
+            svg_cache = getattr(session.game, "_svg_cache", None)
+            if svg_cache:
+                for cached_id, cached_svg in svg_cache.values():
+                    if cached_id == svg_id:
+                        svg_body = cached_svg
+                        break
+            if svg_body is None and client.floor_svg_id == svg_id:
+                svg_body = client.floor_svg
+        if svg_body is None:
+            return "floor PNG not found", 404
         png_bytes = bytes(resvg_py.svg_to_bytes(svg_string=svg_body))
         resp = make_response(png_bytes)
         resp.headers["Content-Type"] = "image/png"

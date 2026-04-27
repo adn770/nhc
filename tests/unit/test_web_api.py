@@ -933,6 +933,76 @@ class TestFloorIRRoutes:
         assert resp.status_code == 404
 
 
+class TestFloorPngViaIR:
+    """Phase 2.2 of plans/nhc_ir_migration_plan.md.
+
+    The .png route used to rasterise whatever sat in the SVG cache.
+    Phase 2.2 makes the IR the source of truth: for floors covered
+    by ``build_floor_ir`` (plain dungeon, today), the route rebuilds
+    IR -> SVG via ``ir_to_svg`` and rasterises that. The cached
+    composite SVG remains the fallback for building / site-surface
+    floors until those branches gain IR coverage.
+    """
+
+    def _start_dungeon_game(self, c):
+        token, _pid = _register_player(c)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = c.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        return sid, session, session.game.renderer.floor_svg_id
+
+    def test_png_returns_png_bytes(self, client_with_data_dir):
+        sid, _session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.png",
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"] == "image/png"
+        assert resp.get_data()[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_png_uses_ir_not_cached_svg(self, client_with_data_dir):
+        """Mangle the cached SVG; a valid PNG still comes back.
+
+        If the route still rasterised the cache, resvg would be
+        handed `<not-an-svg/>` and would either error or produce
+        garbage. A clean PNG header proves the bytes were dumped
+        from the freshly-built IR via ``ir_to_svg``.
+        """
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        depth = session.game.level.depth
+        session.game._svg_cache[depth] = (svg_id, "<not-an-svg/>")
+        session.game.renderer.floor_svg = "<not-an-svg/>"
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.png",
+        )
+        assert resp.status_code == 200
+        assert resp.get_data()[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_png_404_for_unknown_session(self, client_with_data_dir):
+        resp = client_with_data_dir.get(
+            "/api/game/no-such-sid/floor/no-such-id.png",
+        )
+        assert resp.status_code == 404
+
+    def test_png_404_for_unknown_svg_id(self, client_with_data_dir):
+        sid, _session, _svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/deadbeef.png",
+        )
+        assert resp.status_code == 404
+
+
 class TestQuitSavesGame:
     def test_quit_intent_creates_autosave(self, client_with_data_dir):
         token, pid = _register_player(client_with_data_dir)
