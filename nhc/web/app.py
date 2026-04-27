@@ -1087,6 +1087,24 @@ def create_app(
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
+        # Phase 2.5: ?bare=1 routes through the IR pipeline and
+        # elides the decoration layers (floor_detail /
+        # terrain_detail / surface_features) so /admin debug
+        # visualisation can see the underlying geometry. The cached
+        # composite SVG isn't reusable here — the decorators are
+        # baked in by the time the cache holds the body — so we
+        # rebuild from the IR every request.
+        if request.args.get("bare") == "1":
+            entry = _get_or_build_ir_artefacts(session, svg_id)
+            if entry is None:
+                return "floor SVG not found", 404
+            from nhc.rendering.ir_to_svg import ir_to_svg
+            resp = make_response(ir_to_svg(entry.nir, bare=True))
+            resp.headers["Content-Type"] = "image/svg+xml"
+            # Bare URLs are cacheable: ?bare=1 lives in the URL key
+            # so it doesn't share a cache slot with the composite.
+            resp.headers["Cache-Control"] = "public, max-age=604800"
+            return resp
         client = session.game.renderer
         # Look up the SVG by the UUID baked into the URL. The
         # current-floor shortcut (client.floor_svg) is racy: when

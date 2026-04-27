@@ -1157,6 +1157,65 @@ class TestFloorIRArtefactsDiskWiring:
             encoding="utf-8",
         ) == resp.get_data(as_text=True)
 
+    def test_svg_route_default_returns_composite(
+        self, client_with_data_dir,
+    ):
+        """Phase 2.5 regression guard: with no ``?bare`` flag, the
+        existing route still serves the cached composite SVG."""
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.svg",
+        )
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        # The composite SVG carries every layer comment because the
+        # renderer ran a full pipeline at bootstrap.
+        assert "<!-- layer.floor_detail:" in body
+        assert "<!-- layer.surface_features:" in body
+
+    def test_svg_route_bare_skips_decoration_layers(
+        self, client_with_data_dir,
+    ):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.svg?bare=1",
+        )
+        assert resp.status_code == 200
+        body = resp.get_data(as_text=True)
+        for layer in (
+            "floor_detail", "terrain_detail", "surface_features",
+        ):
+            assert f"<!-- layer.{layer}:" not in body, (
+                f"bare SVG leaked layer.{layer}"
+            )
+        # Structural layers must stay.
+        assert "<!-- layer.walls_and_floors:" in body
+        assert "<!-- layer.stairs:" in body
+        assert resp.headers["Content-Type"] == "image/svg+xml"
+
+    def test_svg_route_bare_404_for_unknown_session(
+        self, client_with_data_dir,
+    ):
+        resp = client_with_data_dir.get(
+            "/api/game/no-such-sid/floor/no-such-id.svg?bare=1",
+        )
+        assert resp.status_code == 404
+
+    def test_svg_route_bare_404_for_unknown_svg_id(
+        self, client_with_data_dir,
+    ):
+        sid, _session, _svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/deadbeef.svg?bare=1",
+        )
+        assert resp.status_code == 404
+
     def test_resume_warms_ir_cache_from_disk(self, client_with_data_dir):
         # Set up the disk cache: start a game, hit .nir to populate
         # both in-memory and disk, autosave + destroy the session,

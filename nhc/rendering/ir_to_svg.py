@@ -109,13 +109,29 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
 }
 
 
-def ir_to_svg(buf: bytes) -> str:
+_BARE_SKIP_LAYERS: frozenset[str] = frozenset({
+    "floor_detail",
+    "terrain_detail",
+    "surface_features",
+})
+
+
+def ir_to_svg(buf: bytes, *, bare: bool = False) -> str:
     """Render a ``FloorIR`` FlatBuffer to its legacy SVG output.
 
     Layers stream in :data:`_LAYER_ORDER` sequence, each prefixed
     by a ``<!-- layer.NAME: N elements, M bytes -->`` comment that
     matches the legacy ``_pipeline.render_layers`` shape — the
     self-describing stats the byte-equal parity gate locks in.
+
+    ``bare=True`` (Phase 2.5 of plans/nhc_ir_migration_plan.md)
+    elides the decoration layers (``floor_detail``,
+    ``terrain_detail``, ``surface_features``) entirely — same
+    "skip layer, skip comment" shape that the inactive-flag path
+    uses for shadows / hatching. Used by the ``?bare=1`` query
+    parameter on the .svg route for /admin debug visualisation,
+    where seeing the underlying geometry matters more than seeing
+    the cobblestone overlay.
     """
     fir = _root_or_raise(buf)
     cell = fir.Cell()
@@ -144,6 +160,8 @@ def ir_to_svg(buf: bytes) -> str:
             inactive.add("shadows")
         if not flags.HatchingEnabled():
             inactive.add("hatching")
+    if bare:
+        inactive |= _BARE_SKIP_LAYERS
     for layer_name in _LAYER_ORDER:
         if layer_name in inactive:
             continue
