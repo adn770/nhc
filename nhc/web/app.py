@@ -752,7 +752,10 @@ def create_app(
         from nhc.core.game import Game
         from nhc.rendering.web_client import WebClient
 
-        client = WebClient(style="classic", lang=session.lang)
+        client = WebClient(
+            style="classic", lang=session.lang,
+            vegetation=config.vegetation,
+        )
         backend = _create_llm_backend()
 
         player_god = config.god_mode
@@ -906,7 +909,10 @@ def create_app(
         from nhc.core.game import Game
         from nhc.rendering.web_client import WebClient
 
-        client = WebClient(style="classic", lang=session.lang)
+        client = WebClient(
+            style="classic", lang=session.lang,
+            vegetation=config.vegetation,
+        )
         backend = _create_llm_backend()
         logger.debug("LLM backend: %s", type(backend).__name__
                       if backend else "None")

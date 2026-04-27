@@ -294,7 +294,10 @@ class TestMultiFloor:
 
 
 class TestSvgCache:
-    def test_svg_cache_preserved(self):
+    def test_svg_cache_persisted_in_payload(self):
+        """The cache is kept in the payload so a future
+        restoration policy could replay it (e.g. tagged with the
+        renderer config). Today it's written but not loaded."""
         game = _make_game()
         game._svg_cache[1] = ("abc123", "<svg>floor1</svg>")
         game._svg_cache[2] = ("def456", "<svg>floor2</svg>")
@@ -303,12 +306,26 @@ class TestSvgCache:
         assert 1 in payload["svg_cache"]
         assert 2 in payload["svg_cache"]
 
+    def test_svg_cache_dropped_on_restore(self):
+        """Resuming an autosave must NOT replay the saved SVG
+        cache: the renderer's vegetation / hatch config can
+        change between runs (config flag, deploy), and serving
+        the cached bytes would mask the change. Re-rendering
+        on first re-visit costs ~1-3 s and is the safe default."""
+        game = _make_game()
+        game._svg_cache[1] = ("abc123", "<svg>floor1</svg>")
+        payload = _build_payload(game)
+
         game2 = FakeGame()
         _restore_payload(game2, payload)
-        assert game2._svg_cache[1] == ("abc123", "<svg>floor1</svg>")
-        assert game2._svg_cache[2] == ("def456", "<svg>floor2</svg>")
+        assert game2._svg_cache == {}, (
+            "restore must drop the SVG cache to avoid stale "
+            "bytes after a renderer-config change"
+        )
 
     def test_svg_cache_missing_in_old_saves(self):
+        """Older saves without an svg_cache key still restore
+        cleanly, with an empty in-memory cache."""
         game = _make_game()
         payload = _build_payload(game)
         del payload["svg_cache"]

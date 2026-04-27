@@ -431,8 +431,13 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     # Floor cache
     game._floor_cache = payload.get("floor_cache", {})
 
-    # SVG cache
-    game._svg_cache = payload.get("svg_cache", {})
+    # SVG cache: deliberately dropped on resume. The cache holds
+    # rendered floor SVGs keyed by level id, and the renderer's
+    # configuration (vegetation, hatch_distance, future toggles)
+    # may differ from the run that produced the cached bytes.
+    # Re-rendering on first re-visit costs ~1-3 s and avoids
+    # serving stale SVGs after a config change or deploy.
+    game._svg_cache = {}
 
     # Identification
     knowledge = ItemKnowledge.__new__(ItemKnowledge)

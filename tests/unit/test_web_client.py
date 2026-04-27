@@ -40,6 +40,15 @@ class TestWebClientInterface:
         wc = WebClient()
         assert wc.style == "classic"
         assert wc.messages == []
+        # Vegetation toggle defaults on; the game-loop floor-
+        # change path reads this attribute (no per-call flag),
+        # so misconfiguring construction silently breaks the
+        # render-time gate.
+        assert wc.vegetation is True
+
+    def test_vegetation_flag_persists_on_construction(self):
+        wc = WebClient(vegetation=False)
+        assert wc.vegetation is False
 
 
 class TestWebClientMessages:
