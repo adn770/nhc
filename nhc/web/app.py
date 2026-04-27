@@ -1794,6 +1794,52 @@ def create_app(
         logger.info("Exported map SVG: %s", path)
         return jsonify({"path": str(path)})
 
+    @app.route("/api/game/<session_id>/export/floor_ir",
+               methods=["POST"])
+    @_player_auth
+    def export_floor_ir(session_id: str):
+        """Export the live floor's IR + canonical dump.
+
+        Phase 2.4.1 of plans/nhc_ir_migration_plan.md: writes
+        ``debug/exports/floor_ir_<ts>.nir`` and ``...<ts>.json`` so
+        the MCP IR-query tools (``get_ir_buffer``, ``get_ir_region``,
+        ``get_ir_ops``, ``get_ir_diff``) can default-discover the
+        latest export without an explicit path. Mirrors
+        ``/export/map_svg`` shape: god-mode-gated, returns the
+        written paths.
+        """
+        session = sessions.get(session_id)
+        if not session or not session.game.god_mode:
+            return jsonify({"error": "not available"}), 404
+        client = session.game.renderer
+        svg_id = client.floor_svg_id
+        if not svg_id:
+            return jsonify({"error": "no live floor"}), 404
+        entry = _get_or_build_ir_artefacts(session, svg_id)
+        if entry is None:
+            return jsonify({
+                "error": "floor not covered by IR pipeline",
+            }), 404
+        if entry.ir_json is None:
+            from nhc.rendering.ir.dump import dump
+            entry.ir_json = dump(entry.nir)
+            _persist_ir_if_live(session, svg_id, entry)
+        from datetime import datetime
+        out = Path("debug/exports")
+        out.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nir_path = out / f"floor_ir_{ts}.nir"
+        json_path = out / f"floor_ir_{ts}.json"
+        nir_path.write_bytes(entry.nir)
+        json_path.write_text(entry.ir_json, encoding="utf-8")
+        logger.info(
+            "Exported floor IR: nir=%s json=%s", nir_path, json_path,
+        )
+        return jsonify({
+            "path_nir": str(nir_path),
+            "path_json": str(json_path),
+        })
+
     @app.route(
         "/api/game/<session_id>/capture_layers", methods=["POST"],
     )

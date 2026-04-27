@@ -1,6 +1,7 @@
 """Tests for the web API endpoints."""
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -1213,6 +1214,55 @@ class TestFloorIRArtefactsDiskWiring:
         )
         resp = client_with_data_dir.get(
             f"/api/game/{sid}/floor/deadbeef.svg?bare=1",
+        )
+        assert resp.status_code == 404
+
+    def test_export_floor_ir_writes_nir_and_json(
+        self, client_with_data_dir, tmp_path, monkeypatch,
+    ):
+        """Phase 2.4.1: god-mode POST writes floor_ir_<ts>.nir +
+        .json into debug/exports/ so the MCP tools can default-
+        discover the latest export without an explicit path."""
+        monkeypatch.chdir(tmp_path)
+        sid, session, _svg_id = self._start_dungeon_game(
+            client_with_data_dir, god_mode=True,
+        )
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/export/floor_ir",
+        )
+        assert resp.status_code == 200
+        payload = resp.get_json()
+        nir_path = Path(payload["path_nir"])
+        json_path = Path(payload["path_json"])
+        assert nir_path.exists()
+        assert json_path.exists()
+        # Bytes round-trip the cached IR — same source as .nir route.
+        assert nir_path.read_bytes()[4:8] == b"NIRF"
+        # JSON dump is canonical and parseable.
+        parsed = json.loads(json_path.read_text(encoding="utf-8"))
+        assert parsed["major"] == 1
+        assert "regions" in parsed
+
+    def test_export_floor_ir_404_for_non_god_mode(
+        self, client_with_data_dir, tmp_path, monkeypatch,
+    ):
+        monkeypatch.chdir(tmp_path)
+        sid, _session, _svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp = client_with_data_dir.post(
+            f"/api/game/{sid}/export/floor_ir",
+        )
+        # Mirrors the other /export/* routes: hide the surface
+        # behind a 404 rather than a 403.
+        assert resp.status_code == 404
+
+    def test_export_floor_ir_404_for_unknown_session(
+        self, client_with_data_dir, tmp_path, monkeypatch,
+    ):
+        monkeypatch.chdir(tmp_path)
+        resp = client_with_data_dir.post(
+            "/api/game/no-such-sid/export/floor_ir",
         )
         assert resp.status_code == 404
 
