@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Iterable
 
-from nhc.dungeon.model import SurfaceType
+from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.rendering._decorators import TileDecorator
 from nhc.rendering._features_svg import (
     BUSH_FEATURE, FOUNTAIN_CROSS_FEATURE, FOUNTAIN_FEATURE,
@@ -123,6 +123,66 @@ def _hatching_paint(ctx: RenderContext) -> Iterable[str]:
     )
     _render_corridor_hatching(out, ctx.level, ctx.seed)
     return out
+
+
+def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the hatching layer.
+
+    1.c.1 emits the Corridor halo only — one
+    ``HatchOp(kind=Corridor)`` carrying every VOID tile that
+    borders a CORRIDOR-surface or door tile. The tile list is
+    sorted (legacy iteration walks ``sorted(hatch_tiles)``) so the
+    handler's ``random.Random(seed + 7)`` stream replays in the
+    same order.
+
+    Room (perimeter) hatching ships in 1.c.2; Hole hatching is
+    out of scope for Phase 1 (see plan §1.c).
+    """
+    from nhc.rendering.ir._fb import HatchKind, Op
+    from nhc.rendering.ir._fb.HatchOp import HatchOpT
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
+
+    level = builder.ctx.level
+    base_seed = builder.ctx.seed
+
+    hatch_tiles: set[tuple[int, int]] = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if not (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or _is_door(level, x, y)
+            ):
+                continue
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                nx, ny = x + dx, y + dy
+                if not level.in_bounds(nx, ny):
+                    continue
+                nb = level.tiles[ny][nx]
+                if (
+                    nb.terrain == Terrain.VOID
+                    and nb.surface_type != SurfaceType.CORRIDOR
+                ):
+                    hatch_tiles.add((nx, ny))
+    if not hatch_tiles:
+        return
+
+    tiles: list[TileCoordT] = []
+    for tx, ty in sorted(hatch_tiles):
+        t = TileCoordT()
+        t.x = tx
+        t.y = ty
+        tiles.append(t)
+
+    op = HatchOpT()
+    op.kind = HatchKind.HatchKind.Corridor
+    op.tiles = tiles
+    op.seed = base_seed + 7
+    entry = OpEntryT()
+    entry.opType = Op.Op.HatchOp
+    entry.op = op
+    builder.add_op(entry)
 
 
 def _walls_and_floors_paint(ctx: RenderContext) -> Iterable[str]:

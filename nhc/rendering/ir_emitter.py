@@ -292,7 +292,9 @@ def emit_shadows(builder: FloorIRBuilder) -> None:
 
 
 def emit_hatch(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.c lands HatchOp emit + handler."""
+    """Phase 1.c.1: emit HatchOp(Corridor); 1.c.2 adds Room kind."""
+    from nhc.rendering._floor_layers import _emit_hatch_ir
+    _emit_hatch_ir(builder)
 
 
 def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
