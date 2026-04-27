@@ -475,6 +475,85 @@ def _terrain_tints_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the terrain-tints layer.
+
+    Deterministic. Walks the level for WATER / GRASS / LAVA / CHASM
+    tiles and emits one ``TerrainTintTile`` per match. Per-room
+    tags are checked against ``ROOM_TYPE_TINTS``; rooms with a
+    matching tag emit one ``RoomWash`` carrying the color + opacity
+    inline (the palette table the legacy looks up isn't available
+    in the IR, so resolved values travel with the op).
+    """
+    from nhc.rendering.terrain_palette import ROOM_TYPE_TINTS
+    from nhc.rendering.ir._fb import Op, TerrainKind
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.RoomWash import RoomWashT
+    from nhc.rendering.ir._fb.TerrainTintOp import TerrainTintOpT
+    from nhc.rendering.ir._fb.TerrainTintTile import TerrainTintTileT
+
+    ctx = builder.ctx
+    level = ctx.level
+
+    _kind_map = {
+        Terrain.WATER: TerrainKind.TerrainKind.Water,
+        Terrain.GRASS: TerrainKind.TerrainKind.Grass,
+        Terrain.LAVA: TerrainKind.TerrainKind.Lava,
+        Terrain.CHASM: TerrainKind.TerrainKind.Chasm,
+    }
+
+    tiles: list[TerrainTintTileT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            kind = _kind_map.get(level.tiles[y][x].terrain)
+            if kind is None:
+                continue
+            t = TerrainTintTileT()
+            t.x = x
+            t.y = y
+            t.kind = kind
+            tiles.append(t)
+
+    washes: list[RoomWashT] = []
+    for room in level.rooms:
+        tint = None
+        for tag in room.tags:
+            if tag in ROOM_TYPE_TINTS:
+                tint = ROOM_TYPE_TINTS[tag]
+                break
+        if tint is None:
+            continue
+        color, opacity = tint
+        r = room.rect
+        w = RoomWashT()
+        w.x = r.x
+        w.y = r.y
+        w.w = r.width
+        w.h = r.height
+        w.color = color
+        w.opacity = opacity
+        washes.append(w)
+
+    if not tiles and not washes:
+        return
+
+    op = TerrainTintOpT()
+    op.tiles = tiles
+    op.roomWashes = washes
+    op.clipRegion = (
+        "dungeon"
+        if (
+            ctx.dungeon_poly is not None
+            and not ctx.dungeon_poly.is_empty
+        )
+        else ""
+    )
+    entry = OpEntryT()
+    entry.opType = Op.Op.TerrainTintOp
+    entry.op = op
+    builder.add_op(entry)
+
+
 def _floor_grid_paint(ctx: RenderContext) -> Iterable[str]:
     from nhc.rendering._floor_detail import _render_floor_grid
     out: list[str] = []

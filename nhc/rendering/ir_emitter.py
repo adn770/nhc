@@ -306,7 +306,10 @@ def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
 
 
 def emit_terrain_tints(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.e lands TerrainTintOp emit + handler."""
+    """Phase 1.e: emit TerrainTintOp (per-tile WATER/GRASS/LAVA/CHASM
+    tints + per-room hint washes, clipped to the dungeon interior)."""
+    from nhc.rendering._floor_layers import _emit_terrain_tints_ir
+    _emit_terrain_tints_ir(builder)
 
 
 def emit_floor_grid(builder: FloorIRBuilder) -> None:

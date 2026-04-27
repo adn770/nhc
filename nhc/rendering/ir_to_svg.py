@@ -42,7 +42,7 @@ from nhc.rendering._svg_helpers import (
     BG, CAVE_FLOOR_COLOR, CELL, FLOOR_COLOR, HATCH_UNDERLAY, INK,
     WALL_WIDTH,
 )
-from nhc.rendering.ir._fb import HatchKind, Op, ShadowKind
+from nhc.rendering.ir._fb import HatchKind, Op, ShadowKind, TerrainKind
 from nhc.rendering.ir._fb.FloorIR import FloorIR
 from nhc.rendering.ir._fb.Op import OpCreator
 from nhc.rendering.ir._fb.OpEntry import OpEntry
@@ -63,6 +63,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "shadows": frozenset({Op.Op.ShadowOp}),
     "hatching": frozenset({Op.Op.HatchOp}),
     "walls_and_floors": frozenset({Op.Op.WallsAndFloorsOp}),
+    "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
 }
 
 
@@ -771,3 +772,103 @@ def _to_str(value: Any) -> str:
 
 
 _OP_HANDLERS[Op.Op.WallsAndFloorsOp] = _draw_walls_and_floors_from_ir
+
+
+def _draw_terrain_tint_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Reproduce ``_render_terrain_tints``.
+
+    Per-tile WATER / GRASS / LAVA / CHASM rects (with the palette
+    tint + opacity for the floor's theme) wrapped in a dungeon-
+    interior clipPath, then per-room hint washes appended after.
+    The IR carries the resolved color + opacity inline on each
+    ``RoomWash`` so the handler doesn't need the room-tag table.
+    Terrain colors come from the palette keyed on ``fir.theme``.
+    """
+    from nhc.dungeon.model import Terrain
+    from nhc.rendering.terrain_palette import get_palette
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    out: list[str] = []
+
+    theme = _to_str(fir.Theme())
+    palette = get_palette(theme)
+    style_by_kind = {
+        TerrainKind.TerrainKind.Water: palette.water,
+        TerrainKind.TerrainKind.Grass: palette.grass,
+        TerrainKind.TerrainKind.Lava: palette.lava,
+        TerrainKind.TerrainKind.Chasm: palette.chasm,
+    }
+
+    tint_rects: list[str] = []
+    for tile in (op.tiles or []):
+        style = style_by_kind.get(tile.kind)
+        if style is None:
+            continue
+        tint_rects.append(
+            f'<rect x="{tile.x * CELL}" y="{tile.y * CELL}" '
+            f'width="{CELL}" height="{CELL}" '
+            f'fill="{style.tint}" opacity="{style.tint_opacity}"/>'
+        )
+
+    clip_id = _to_str(op.clipRegion)
+    if tint_rects:
+        if clip_id:
+            region = _find_region(fir, clip_id.encode())
+            if region is not None:
+                out.append(_dungeon_clip_defs(region.Polygon(), "terrain-clip"))
+                out.append('<g clip-path="url(#terrain-clip)">')
+                out.extend(tint_rects)
+                out.append("</g>")
+            else:
+                out.extend(tint_rects)
+        else:
+            out.extend(tint_rects)
+
+    for w in (op.roomWashes or []):
+        color = _to_str(w.color)
+        # ROOM_TYPE_TINTS values are 2-decimal (0.06 / 0.12 / 0.15
+        # / 0.18); float32 storage would surface them as
+        # "0.05999999865889549". `:.2f` keeps the byte-equal
+        # contract with the legacy Python f-string. If a future
+        # tint table introduces sub-percent precision, switch the
+        # field to `double` in the schema.
+        out.append(
+            f'<rect x="{w.x * CELL}" y="{w.y * CELL}" '
+            f'width="{w.w * CELL}" height="{w.h * CELL}" '
+            f'fill="{color}" opacity="{w.opacity:.2f}"/>'
+        )
+    return out
+
+
+def _dungeon_clip_defs(poly: Any, clip_id: str) -> str:
+    """Build the legacy ``_dungeon_interior_clip`` defs element.
+
+    Walks every ring (exterior + holes) once, M / L / Z encoded
+    with ``:.0f`` formatting, ``fill-rule="evenodd"`` so the holes
+    cut the clipped region. Reused by terrain tints (1.e) and any
+    later layer that needs a dungeon-interior clip.
+    """
+    clip_d = ""
+    for i in range(poly.RingsLength()):
+        ring = poly.Rings(i)
+        start = ring.Start()
+        count = ring.Count()
+        coords = [
+            (poly.Paths(start + j).X(), poly.Paths(start + j).Y())
+            for j in range(count)
+        ]
+        clip_d += f"M{coords[0][0]:.0f},{coords[0][1]:.0f} "
+        clip_d += " ".join(
+            f"L{x:.0f},{y:.0f}" for x, y in coords[1:]
+        )
+        clip_d += " Z "
+    return (
+        f'<defs><clipPath id="{clip_id}">'
+        f'<path d="{clip_d}" fill-rule="evenodd"/>'
+        f'</clipPath></defs>'
+    )
+
+
+_OP_HANDLERS[Op.Op.TerrainTintOp] = _draw_terrain_tint_from_ir
