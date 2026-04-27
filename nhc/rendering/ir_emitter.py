@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 _SCHEMA_MAJOR = 1
-_SCHEMA_MINOR = 2
+_SCHEMA_MINOR = 3
 
 _FILE_IDENTIFIER = b"NIRF"
 
@@ -320,7 +320,11 @@ def emit_floor_grid(builder: FloorIRBuilder) -> None:
 
 
 def emit_floor_detail(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.g lands the eight floor-detail ops."""
+    """Phase 1.g: emit FloorDetailOp with pre-rendered room/corridor
+    groups (Phase 1 transitional; Phase 4 refactors to per-tile
+    structured ops when porting to Rust)."""
+    from nhc.rendering._floor_layers import _emit_floor_detail_ir
+    _emit_floor_detail_ir(builder)
 
 
 def emit_terrain_detail(builder: FloorIRBuilder) -> None:

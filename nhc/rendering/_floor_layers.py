@@ -637,6 +637,146 @@ def _floor_detail_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the floor-detail layer.
+
+    Replicates ``_render_floor_detail``'s per-tile pass against the
+    same ``random.Random(seed + 99)`` stream — splitting
+    ``_tile_detail`` and ``_tile_thematic_detail`` across emit /
+    handler would lose the interleaved RNG ordering. The resulting
+    ``<g>`` groups (cracks / stones / scratches / webs / bones /
+    skulls × room / corridor) are pre-rendered here and stashed on
+    the :class:`FloorDetailOp`; the handler reapplies the
+    dungeon-interior clipPath envelope around the room bucket.
+
+    Phase 1 transitional — the wood-floor short-circuit and the
+    decorator pipeline (cobblestone / brick / cart-tracks / ore)
+    don't fire on the starter fixtures and are skipped here. They
+    land in follow-up commits when fixtures need them.
+    """
+    import random
+
+    from nhc.rendering._floor_detail import (
+        _DETAIL_SCALE, _THEMATIC_DEFAULT, _THEMATIC_DETAIL_PROBS,
+        _emit_detail, _emit_thematic_detail,
+        _tile_detail, _tile_thematic_detail,
+    )
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+
+    ctx = builder.ctx
+    if ctx.interior_finish == "wood":
+        # Wood-floor short-circuit — none of the starter fixtures
+        # exercise this path. Re-enable when a wood fixture lands.
+        return
+
+    level = ctx.level
+    seed = ctx.seed
+    rng = random.Random(seed + 99)
+    theme = ctx.theme
+    scale = _DETAIL_SCALE.get(theme, 1.0)
+    probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
+
+    room_cracks: list[str] = []
+    room_stones: list[str] = []
+    room_scratches: list[str] = []
+    cor_cracks: list[str] = []
+    cor_stones: list[str] = []
+    cor_scratches: list[str] = []
+    room_webs: list[str] = []
+    room_bones: list[str] = []
+    room_skulls: list[str] = []
+    cor_webs: list[str] = []
+    cor_bones: list[str] = []
+    cor_skulls: list[str] = []
+
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain != Terrain.FLOOR:
+                continue
+            if tile.feature in ("stairs_up", "stairs_down"):
+                continue
+            if tile.surface_type in (
+                SurfaceType.STREET,
+                SurfaceType.FIELD,
+                SurfaceType.GARDEN,
+            ):
+                continue
+            is_cor = (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or _is_door(level, x, y)
+            )
+            if is_cor:
+                _tile_detail(
+                    rng, x, y, seed,
+                    cor_cracks, cor_stones, cor_scratches,
+                    detail_scale=scale, theme=theme,
+                )
+                _tile_thematic_detail(
+                    rng, x, y, level, probs,
+                    cor_webs, cor_bones, cor_skulls,
+                )
+            else:
+                _tile_detail(
+                    rng, x, y, seed,
+                    room_cracks, room_stones, room_scratches,
+                    detail_scale=scale, theme=theme,
+                )
+                _tile_thematic_detail(
+                    rng, x, y, level, probs,
+                    room_webs, room_bones, room_skulls,
+                )
+
+    if not ctx.macabre_detail:
+        room_bones, room_skulls, room_stones = [], [], []
+        cor_bones, cor_skulls, cor_stones = [], [], []
+
+    room_groups: list[str] = []
+    if (
+        room_cracks or room_stones or room_scratches
+        or room_webs or room_bones or room_skulls
+    ):
+        _emit_detail(room_groups, room_cracks, room_stones, room_scratches)
+        _emit_thematic_detail(
+            room_groups, room_webs, room_bones, room_skulls,
+        )
+
+    corridor_groups: list[str] = []
+    if (
+        cor_cracks or cor_stones or cor_scratches
+        or cor_webs or cor_bones or cor_skulls
+    ):
+        _emit_detail(
+            corridor_groups, cor_cracks, cor_stones, cor_scratches,
+        )
+        _emit_thematic_detail(
+            corridor_groups, cor_webs, cor_bones, cor_skulls,
+        )
+
+    if not (room_groups or corridor_groups):
+        return
+
+    op = FloorDetailOpT()
+    op.seed = seed + 99
+    op.theme = theme
+    op.roomGroups = room_groups
+    op.corridorGroups = corridor_groups
+    op.clipRegion = (
+        "dungeon"
+        if (
+            ctx.dungeon_poly is not None
+            and not ctx.dungeon_poly.is_empty
+        )
+        else ""
+    )
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorDetailOp
+    entry.op = op
+    builder.add_op(entry)
+
+
 def _terrain_detail_paint(ctx: RenderContext) -> Iterable[str]:
     from nhc.rendering._terrain_detail import _render_terrain_detail
     out: list[str] = []

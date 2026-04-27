@@ -65,6 +65,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "walls_and_floors": frozenset({Op.Op.WallsAndFloorsOp}),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
+    "floor_detail": frozenset({Op.Op.FloorDetailOp}),
 }
 
 
@@ -950,3 +951,41 @@ def _draw_floor_grid_from_ir(
 
 
 _OP_HANDLERS[Op.Op.FloorGridOp] = _draw_floor_grid_from_ir
+
+
+def _draw_floor_detail_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Reproduce ``_render_floor_detail``.
+
+    Wraps the pre-rendered room groups (carried on ``op.roomGroups``)
+    in a dungeon-interior clipPath envelope, then appends
+    ``op.corridorGroups`` unclipped. Phase 1 transitional storage
+    avoids inlining ~200 lines of legacy helpers; Phase 4
+    refactors to per-tile structured ops when porting to Rust.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    out: list[str] = []
+
+    room_groups = [_to_str(g) for g in (op.roomGroups or [])]
+    corridor_groups = [_to_str(g) for g in (op.corridorGroups or [])]
+
+    if room_groups:
+        clip_id = _to_str(op.clipRegion)
+        if clip_id:
+            region = _find_region(fir, clip_id.encode())
+            if region is not None:
+                out.append(_dungeon_clip_defs(region.Polygon(), "detail-clip"))
+                out.append('<g clip-path="url(#detail-clip)">')
+                out.extend(room_groups)
+                out.append("</g>")
+            else:
+                out.extend(room_groups)
+        else:
+            out.extend(room_groups)
+
+    out.extend(corridor_groups)
+    return out
+
+
+_OP_HANDLERS[Op.Op.FloorDetailOp] = _draw_floor_detail_from_ir

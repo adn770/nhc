@@ -294,6 +294,17 @@ table FloorDetailOp {
   tiles: [TileCoord];
   seed: uint64;            // base_seed + 99
   theme: string;
+  // Phase 1 transitional storage. _tile_detail and
+  // _tile_thematic_detail share one rng stream interleaved across
+  // 6 per-tile buckets per side (cracks / stones / scratches /
+  // webs / bones / skulls × room / corridor); reproducing the
+  // exact stream from a structured tile list would mean inlining
+  // ~200 lines of helpers into the handler. Pre-rendered <g>
+  // groups travel here instead. Phase 4 refactors to per-tile
+  // structured ops when the Rust port lands.
+  room_groups: [string];
+  corridor_groups: [string];
+  clip_region: string;
 }
 
 // Layer 500b — thematic detail (webs, bone piles, skulls).

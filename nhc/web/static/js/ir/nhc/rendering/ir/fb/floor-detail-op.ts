@@ -47,8 +47,39 @@ theme(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+roomGroups(index: number):string
+roomGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+roomGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+roomGroupsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+corridorGroups(index: number):string
+corridorGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+corridorGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+corridorGroupsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+clipRegion():string|null
+clipRegion(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+clipRegion(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startFloorDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(6);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -67,16 +98,55 @@ static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
   builder.addFieldOffset(2, themeOffset, 0);
 }
 
+static addRoomGroups(builder:flatbuffers.Builder, roomGroupsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, roomGroupsOffset, 0);
+}
+
+static createRoomGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startRoomGroupsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addCorridorGroups(builder:flatbuffers.Builder, corridorGroupsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, corridorGroupsOffset, 0);
+}
+
+static createCorridorGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCorridorGroupsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
+static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, clipRegionOffset, 0);
+}
+
 static endFloorDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorDetailOp.startFloorDetailOp(builder);
   FloorDetailOp.addTiles(builder, tilesOffset);
   FloorDetailOp.addSeed(builder, seed);
   FloorDetailOp.addTheme(builder, themeOffset);
+  FloorDetailOp.addRoomGroups(builder, roomGroupsOffset);
+  FloorDetailOp.addCorridorGroups(builder, corridorGroupsOffset);
+  FloorDetailOp.addClipRegion(builder, clipRegionOffset);
   return FloorDetailOp.endFloorDetailOp(builder);
 }
 }
