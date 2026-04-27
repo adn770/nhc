@@ -519,12 +519,26 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
 def save_svg_cache(
     floor_svg: str, hatch_svg: str, save_dir: Path | None = None,
 ) -> None:
-    """Cache floor and hatch SVG alongside the autosave."""
+    """Cache floor and hatch SVG alongside the autosave.
+
+    Phase 2.3.1: invalidate any stale IR sidecar in the same
+    directory. The disk IR cache is single-floor (one ``floor.nir``
+    per save_dir); a fresh SVG write means the previous floor's IR
+    no longer matches what's on disk, and a future
+    ``load_ir_artefacts`` would warm the in-memory cache with bytes
+    that don't describe the loaded SVG. Drop the IR sidecar so the
+    next route hit rebuilds and re-persists in lockstep.
+    """
     d, _ = _resolve(save_dir)
     d.mkdir(parents=True, exist_ok=True)
     try:
         (d / "floor.svg").write_text(floor_svg, encoding="utf-8")
         (d / "hatch.svg").write_text(hatch_svg, encoding="utf-8")
+        for sidecar in (
+            "floor.nir", "floor.ir.json", "floor.png",
+            "floor.meta.json",
+        ):
+            _unlink_if_exists(d / sidecar)
         logger.debug("SVG cache saved: floor=%d hatch=%d bytes",
                      len(floor_svg), len(hatch_svg))
     except Exception:

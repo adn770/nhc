@@ -20,7 +20,9 @@ from flask import (
 from flask_sock import Sock
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from nhc.core.autosave import IRArtefacts
+from nhc.core.autosave import (
+    IRArtefacts, load_ir_artefacts, save_ir_artefacts,
+)
 from nhc.web.build_info import get_build_info
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager, player_id_from_token
@@ -817,6 +819,20 @@ def create_app(
                 game._svg_cache[depth] = (
                     client.floor_svg_id, client.floor_svg,
                 )
+                # Phase 2.3.1 disk warm-up: pin a valid on-disk IR
+                # to the freshly-minted svg_id so the .nir / .json
+                # / .png routes short-circuit on first hit instead
+                # of rebuilding from level state. The SVG and IR
+                # stayed in lockstep on disk because save_svg_cache
+                # invalidates the IR sidecar whenever the SVG is
+                # rewritten.
+                ir_entry = load_ir_artefacts(save_dir)
+                if ir_entry is not None:
+                    game._ir_cache[client.floor_svg_id] = ir_entry
+                    logger.info(
+                        "Resume: warmed IR cache from disk for %s",
+                        client.floor_svg_id,
+                    )
 
         logger.info("Resume: restored session %s for player %s (turn=%d)",
                      session.session_id, pid, game.turn)
@@ -1143,6 +1159,7 @@ def create_app(
                 entry.png = bytes(
                     resvg_py.svg_to_bytes(svg_string=svg_body),
                 )
+                _persist_ir_if_live(session, svg_id, entry)
             png_bytes = entry.png
         else:
             # Fallback: building / site-surface composite SVG that
@@ -1168,6 +1185,22 @@ def create_app(
         resp.headers["Content-Type"] = "image/png"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
+
+    def _persist_ir_if_live(session, svg_id: str, entry) -> None:
+        """Write *entry* to the autosave dir when *svg_id* is live.
+
+        Phase 2.3.1 disk wiring: the IR sidecar is single-floor on
+        disk (one ``floor.nir`` per save_dir), so only the floor
+        the renderer is currently serving may persist. Older
+        cached floors share the dir but writing them would
+        overwrite the live floor's snapshot.
+        """
+        if not session.save_dir:
+            return
+        client = session.game.renderer
+        if getattr(client, "floor_svg_id", None) != svg_id:
+            return
+        save_ir_artefacts(entry, session.save_dir)
 
     def _get_or_build_ir_artefacts(session, svg_id: str):
         """Return the cached or freshly-built ``IRArtefacts`` for *svg_id*.
@@ -1222,6 +1255,7 @@ def create_app(
         )
         if ir_cache is not None:
             ir_cache[svg_id] = entry
+        _persist_ir_if_live(session, svg_id, entry)
         return entry
 
     @app.route("/api/game/<session_id>/floor/<svg_id>.nir",
@@ -1266,6 +1300,7 @@ def create_app(
         if entry.ir_json is None:
             from nhc.rendering.ir.dump import dump
             entry.ir_json = dump(entry.nir)
+            _persist_ir_if_live(session, svg_id, entry)
         resp = make_response(entry.ir_json)
         resp.headers["Content-Type"] = "application/json"
         resp.headers["Cache-Control"] = "public, max-age=604800"

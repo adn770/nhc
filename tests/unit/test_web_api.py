@@ -1092,6 +1092,108 @@ class TestFloorIRArtefactsCache:
         assert resp2.get_data() != body1
 
 
+class TestFloorIRArtefactsDiskWiring:
+    """Phase 2.3.1 of plans/nhc_ir_migration_plan.md.
+
+    The in-memory IR cache writes through to ``save_ir_artefacts``
+    so a server restart can warm the cache off disk via
+    ``load_ir_artefacts`` (called from the resume bootstrap).
+    Write-through is gated on the live-floor svg_id — older
+    cached floors share the save_dir but the disk cache is
+    single-floor.
+    """
+
+    def _start_dungeon_game(self, c, *, god_mode=False):
+        token, _pid = _register_player(c)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = c.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        if god_mode:
+            session.game.set_god_mode(True)
+        return sid, session, session.game.renderer.floor_svg_id
+
+    def test_first_nir_writes_to_disk(self, client_with_data_dir):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        save_dir = session.save_dir
+        assert not (save_dir / "floor.nir").exists()
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.nir",
+        )
+        assert resp.status_code == 200
+        assert (save_dir / "floor.nir").exists()
+        assert (save_dir / "floor.meta.json").exists()
+        assert (save_dir / "floor.nir").read_bytes() == resp.get_data()
+
+    def test_first_png_writes_to_disk(self, client_with_data_dir):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        save_dir = session.save_dir
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.png",
+        )
+        assert resp.status_code == 200
+        assert (save_dir / "floor.png").exists()
+        assert (save_dir / "floor.png").read_bytes() == resp.get_data()
+
+    def test_first_json_writes_to_disk(self, client_with_data_dir):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir, god_mode=True,
+        )
+        save_dir = session.save_dir
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.json",
+        )
+        assert resp.status_code == 200
+        assert (save_dir / "floor.ir.json").exists()
+        assert (save_dir / "floor.ir.json").read_text(
+            encoding="utf-8",
+        ) == resp.get_data(as_text=True)
+
+    def test_resume_warms_ir_cache_from_disk(self, client_with_data_dir):
+        # Set up the disk cache: start a game, hit .nir to populate
+        # both in-memory and disk, autosave + destroy the session,
+        # then resume and confirm the warmed-up _ir_cache entry
+        # matches the on-disk bytes.
+        token, _pid = _register_player(client_with_data_dir)
+        resp = client_with_data_dir.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        sid = resp.get_json()["session_id"]
+        sessions = client_with_data_dir.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        save_dir = session.save_dir
+        svg_id = session.game.renderer.floor_svg_id
+        ir_resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.nir",
+        )
+        nir_bytes = ir_resp.get_data()
+        autosave(session.game, save_dir)
+        sessions.destroy(sid)
+
+        resp = client_with_data_dir.post(
+            "/api/game/resume",
+            json={"player_token": token},
+        )
+        assert resp.status_code == 201
+        new_sid = resp.get_json()["session_id"]
+        new_session = sessions.get(new_sid)
+        new_svg_id = new_session.game.renderer.floor_svg_id
+        # The resume flow mints a fresh svg_id; the disk-loaded IR
+        # is pinned to it so subsequent route hits short-circuit.
+        assert new_svg_id in new_session.game._ir_cache
+        warmed = new_session.game._ir_cache[new_svg_id]
+        assert warmed.nir == nir_bytes
+
+
 class TestQuitSavesGame:
     def test_quit_intent_creates_autosave(self, client_with_data_dir):
         token, pid = _register_player(client_with_data_dir)
