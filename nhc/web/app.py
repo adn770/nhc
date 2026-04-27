@@ -20,6 +20,7 @@ from flask import (
 from flask_sock import Sock
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from nhc.web.build_info import get_build_info
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager, player_id_from_token
 
@@ -348,6 +349,7 @@ def create_app(
                 player_world=player_world,
                 player_difficulty=player_difficulty,
                 welcome_labels=_welcome_labels(player_lang),
+                build_info=get_build_info(),
             ))
             _set_auth_cookie(resp, "nhc_token", token)
             return resp
@@ -358,6 +360,7 @@ def create_app(
             player_world="hexcrawl",
             player_difficulty="medium",
             welcome_labels=_welcome_labels(""),
+            build_info=get_build_info(),
         )
 
     @app.route("/health", methods=["GET"])

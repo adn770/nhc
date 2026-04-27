@@ -54,6 +54,11 @@
       <button id="ranking-btn">{{ (welcome_labels or {}).get('ranking_button', 'Ranking') }}</button>
     </div>
     <div id="session-list"></div>
+    {% if build_info %}
+    <div id="build-info" title="Deployed commit and image build time">
+      Build: {{ build_info.sha }} &middot; {{ build_info.time }}
+    </div>
+    {% endif %}
   </div>
 
   <script>

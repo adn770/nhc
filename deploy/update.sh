@@ -55,8 +55,15 @@ if [[ -d nhc/tables ]]; then
 fi
 
 # ── Rebuild app image ─────────────────────────────────────
-info "Building app image..."
-docker build -t "$APP_IMAGE" "$REPO_DIR"
+# Build args feed the welcome-page build-info badge so the
+# running container advertises its commit + build time.
+GIT_SHA="$(git -C "$REPO_DIR" rev-parse --short HEAD)"
+BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+info "Building app image (sha=${GIT_SHA}, time=${BUILD_TIME})..."
+docker build \
+    --build-arg "NHC_GIT_SHA=${GIT_SHA}" \
+    --build-arg "NHC_BUILD_TIME=${BUILD_TIME}" \
+    -t "$APP_IMAGE" "$REPO_DIR"
 ok "App image built."
 
 # ── Restart service ────────────────────────────────────────

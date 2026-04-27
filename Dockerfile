@@ -12,9 +12,17 @@ ENV PYTHONPATH=/app
 # owns all session state (sessions, player registry, WebSocket
 # connections) and fan CPU-bound dungeon generation out to a
 # ProcessPoolExecutor. NHC_GEN_WORKERS sizes that pool. Default 4
-# targets a quad-core SBC like the Orange Pi Zero 3. Override at
-# `docker run` / compose time for larger or smaller hosts.
+# targets a quad-core x86_64 server. Override at `docker run` /
+# compose time for larger or smaller hosts.
 ENV NHC_GEN_WORKERS=4
+
+# Build metadata surfaced on the welcome-page footer for
+# at-a-glance deploy verification. Set by deploy/update.sh via
+# --build-arg; the "dev" sentinel keeps local builds clean.
+ARG NHC_GIT_SHA=dev
+ARG NHC_BUILD_TIME=dev
+ENV NHC_GIT_SHA=$NHC_GIT_SHA
+ENV NHC_BUILD_TIME=$NHC_BUILD_TIME
 
 EXPOSE 8080
 
