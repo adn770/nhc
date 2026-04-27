@@ -3,6 +3,12 @@
 Here is the full end-to-end walkthrough of the web client's map rendering, with the
 dimming pipeline in focus.
 
+> **Scope note.** This document describes the four canvas overlay layers (door / hatch / fog /
+> entity) that compose **above** the floor image. The floor itself is currently a static SVG,
+> and is on a path to become a Canvas paint driven by a FlatBuffers IR — see
+> `design/map_ir.md`. The overlay logic below is **unchanged** by that migration: the same
+> canvas stack composites on top of either an inlined SVG or a Canvas-painted floor.
+
 ## 1. The layer stack
 
 The map is not one image; it is five stacked layers inside `#map-container`, a

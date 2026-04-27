@@ -39,7 +39,7 @@ connections over one OS thread. Pure-Python CPU work, however, does
 not yield to the gevent hub and would starve other greenlets. The
 single biggest CPU-bound task in NHC is dungeon generation (BSP or
 cellular carve + room typing + terrain + populate), which takes a
-few seconds on a small SBC.
+few seconds on the deployment target.
 
 `create_app()` creates a `ProcessPoolExecutor` sized via the
 `NHC_GEN_WORKERS` env var (default `os.cpu_count()`), pinned to the
@@ -69,17 +69,26 @@ per-game call put import I/O on the concurrent-init hot path.
 Procedural dungeon maps in the Dyson Logos style, rendered at
 CELL=32px per grid cell with PADDING=32px border.
 
-Rendering layers, back to front:
+`render_floor_svg` is now a thin shell over `build_render_context`
++ `render_layers(FLOOR_LAYERS)`. The pipeline (Layer / TileDecorator
+/ RenderContext) lives in `_pipeline.py`, `_decorators.py`,
+`_render_context.py`, `_floor_layers.py`. There are nine layers;
+`surface_features` (layer 800) is a `TileWalkLayer` driven by
+decorators (trees, bushes, wells, fountains).
 
-1. Background fill
-2. Room shadows
-3. Corridor shadows
-4. Exterior cross-hatching
-5. Corridor cross-hatching
-6. Walls and floor fills
-7. Floor grid lines
-8. Floor detail (stone patterns)
-9. Stairs
+Rendering layers, back to front (matches `FLOOR_LAYERS`):
+
+1. Background fill (root SVG)
+2. Shadows (room + corridor) — order 100, gated by `shadows_enabled`
+3. Hatching (room + corridor + hole) — order 200, gated by `hatching_enabled`
+4. Walls and floors — order 300
+5. Terrain tints (water/grass/lava/chasm + room-type washes) — order 350
+6. Floor grid (Perlin-displaced) — order 400
+7. Floor detail (cracks, stones, thematic, cobblestone variants, wood, garden/field overlays,
+   cart tracks, ore deposits) — order 500
+8. Terrain detail (water ripples, lava cracks, chasm) — order 600
+9. Stairs — order 700
+10. Surface features (wells x2, fountains x5, trees, bushes via decorators) — order 800
 
 Cross-hatching uses Shapely geometry for proper wall-exterior
 detection. The `hatch_distance` parameter controls how far hatching
@@ -90,6 +99,14 @@ Perlin noise, weighing approximately 100KB.
 
 SVG output is cached on disk after the first render and served with
 a 1-day HTTP cache header.
+
+> **Migration in flight.** SVG emission is moving to a FlatBuffers
+> intermediate representation served as `.nir` to the client (Canvas
+> rendering via WASM) and `.png` to other consumers (server-side via
+> Rust + tiny-skia). See `design/map_ir.md` and
+> `plans/nhc_ir_migration_plan.md`. The legacy `.svg` endpoint stays
+> available for cold paths (export, /admin debug, regression
+> fixtures) post-cutover.
 
 ## 4. Canvas Layers
 
@@ -271,10 +288,18 @@ Features:
 
 | Method | Route | Purpose |
 |--------|-------|---------|
-| GET | `/api/game/<sid>/floor.svg` | Dungeon floor SVG |
+| GET | `/api/game/<sid>/floor.svg` | Dungeon floor SVG (legacy / cold-path) |
+| GET | `/api/game/<sid>/floor.nir` | FlatBuffers floor IR (gameplay hot path post-migration) |
+| GET | `/api/game/<sid>/floor.png` | Server-rasterised floor PNG (image consumers) |
+| GET | `/api/game/<sid>/floor.json` | IR dumped as canonical JSON (debug / god-mode) |
 | GET | `/api/game/<sid>/hatch.svg` | Hatch pattern SVG |
 | GET | `/api/game/<sid>/debug.json` | Debug data |
 | GET | `/api/game/<sid>/labels.json` | Room labels |
+
+The `.nir`, `.png`, and `.json` floor routes are introduced by the
+IR migration (see `design/map_ir.md`). During Phase 1–2 of the
+migration the `.svg` route is the only one consumed by the client;
+the others come online incrementally.
 
 ### Export (god mode only)
 
@@ -291,13 +316,13 @@ endpoints.
 
 ### Docker
 
-- **Dockerfile**: Python 3.12-slim base, single gunicorn gevent
-  worker (`--workers 1 --worker-class gevent`), built-in health
+- **Dockerfile**: Python 3.14-slim base, single gunicorn gthread
+  worker (`--workers 1 --worker-class gthread`), built-in health
   check endpoint. Sets `NHC_GEN_WORKERS=4` as a sensible default
-  for a quad-core SBC; overridable at run time. The single-worker
-  decision is intentional — CPU parallelism comes from the
-  generation pool, not from gunicorn workers, which keeps all
-  session state in one process.
+  for a quad-core x86_64 server; overridable at run time. The
+  single-worker decision is intentional — CPU parallelism comes
+  from the generation pool, not from gunicorn workers, which keeps
+  all session state in one process.
 - **docker-compose.yml**: 3 services:
   - `nhc`: Application container on port 8080. Exposes
     `NHC_GEN_WORKERS` as an overridable env var (default 4).

@@ -1,729 +1,1183 @@
-# Dungeon Map IR — SVG rendering redesign
+# Floor IR — multi-runtime rendering with a canonical Rust core
 
-Design for replacing NHC's direct SVG emission of dungeon floors with a compact
-intermediate representation (IR) plus pluggable transformers: server-side IR→SVG,
-client-side IR→Canvas, optional server-side IR→PNG.
+Design for replacing direct SVG emission of dungeon / building / site floors
+with a compact intermediate representation (IR) plus three pluggable
+transformers: server-side **IR → SVG** (Python), server-side **IR → PNG**
+(Rust), and client-side **IR → Canvas** (Rust compiled to WASM). All three
+share one canonical procedural-primitive core implemented in a Rust crate;
+splitmix64 RNG and Perlin noise live in that crate, so the
+"Python and JS must produce bit-exact RNG output" parity headache goes
+away by construction.
 
-This is a future-facing reference. Implementation is **deferred until
-world-expansion Phase 6** (Caves of Chaos) lands — see `design/world_expansion.md`.
-Doing the IR work after world-expansion primitives settle means the schema is
-designed against the final vocabulary, not a moving target.
+This is a forward-looking reference. The first preparatory work
+(FlatBuffers schema, parity fixtures, Rust crate skeleton, resvg-py
+stepping stone) can land incrementally; full IR cutover is gated by the
+preparatory tasks listed in `plans/nhc_ir_migration_plan.md`.
 
-## Principles
+## 1. Status & vision
 
-- **Structural vs procedural separation.** The IR carries computed geometry
-  (polygons) explicitly. Decorative detail is expressed as seeded procedural
-  commands; the renderer regenerates the detail deterministically.
-- **Bit-exact determinism across runtimes.** Same IR → same pixels in Python
-  and JS. Splitmix64 replaces Python's Mersenne Twister in the rendering
-  subpackage; a matching JS implementation ships with the Canvas renderer.
-- **Pixel-faithful port.** The Canvas renderer reproduces the full Dyson-style
-  look. All ~15 procedural primitives are ported to JS.
-- **Gameplay hot path offloads to client.** After the Canvas renderer ships,
-  the server stops emitting decoration SVG for gameplay requests. IR→SVG stays
-  available for cold paths (export, share, `/admin` debug, tests).
-- **Strict TDD.** Every change is gated by a parity test.
+### Status (2026-04-27)
 
-## Problem
+The rendering refactor that this design depends on is **mostly complete**:
+
+- `nhc/rendering/_render_context.py` — frozen `RenderContext` resolves
+  floor kind (dungeon / cave / building / surface) plus feature flags
+  (shadows, hatching, atmospherics, macabre detail, vegetation,
+  interior-finish) once per render.
+- `nhc/rendering/_pipeline.py` — `Layer`, `TileWalkLayer`, and the
+  `render_layers(ctx, layers)` orchestrator.
+- `nhc/rendering/_decorators.py` — `TileDecorator` contract,
+  `walk_and_paint`, per-decorator seeded RNG.
+- `nhc/rendering/_floor_layers.py` — ordered `FLOOR_LAYERS` registry
+  of nine layers (shadows, hatching, walls_and_floors, terrain_tints,
+  floor_grid, floor_detail, terrain_detail, stairs, surface_features).
+- `nhc/rendering/svg.py` — `render_floor_svg` is now a thin shell
+  around `build_render_context` + `render_layers(FLOOR_LAYERS)`.
+
+The op vocabulary has grown from the original ten-op sketch to roughly
+**thirty primitives** (trees with grove merging, bushes, wells in two
+shapes, fountains in five variants, cobblestone in five variants, wood
+floor as a `TileDecorator` with a `requires` gate, cart tracks, ore
+deposits, GARDEN→GRASS overlay, FIELD overlay, building interior walls,
+masonry runs, roofs, enclosures, doors). The IR schema below covers all
+of them.
+
+### Vision
+
+```
+              ┌──────────────────────────────────────┐
+              │     FloorIR (FlatBuffers binary)     │
+              │   structural regions + procedural    │
+              │      ops + theme + version field     │
+              └────────────────┬─────────────────────┘
+                               │
+              ┌────────────────┼────────────────────┐
+              ▼                ▼                    ▼
+       IR → SVG           IR → PNG             IR → Canvas
+       (Python)           (Rust)               (Rust → WASM)
+       cold paths /       gameplay cache /     gameplay hot
+       export / debug     archival / share     path in browser
+              │                │                    │
+              └─────── shared procedural core ──────┘
+                       Rust crate `nhc-render`:
+                       splitmix64 RNG, Perlin noise,
+                       primitive emitters, tiny-skia
+                       rasterizer
+                          ┌──────────┴──────────┐
+                          ▼                     ▼
+                   PyO3 bindings          wasm-bindgen
+                   (server-side)          (browser-side)
+```
+
+The three transformers and Python all read the same FlatBuffers
+buffer; the procedural primitives have one implementation that runs
+in three embeddings (PyO3 native, WASM, host-Rust).
+
+## 2. Principles
+
+- **One canonical procedural source.** Every primitive — cross-hatch,
+  per-tile rolls, vegetation jitter, cobblestone tiling, fountain
+  shapes — is implemented exactly once, in Rust. Python loses its
+  procedural-emission code over the migration; the JS side never
+  grows one.
+- **Structural vs procedural separation.** Region polygons (rooms,
+  caves, building footprints, dungeon polygon for clipping) carry as
+  baked coordinates because Shapely's union is prohibitive to reproduce
+  client-side. Decoration is `(region_ref, seed, params)`; the renderer
+  regenerates it deterministically.
+- **Python keeps Shapely.** GEOS is already C-fast, the Python wrapper
+  is small overhead, and porting Shapely to Rust is a year's worth of
+  yak-shaving. The crate accepts pre-computed polygons as inputs.
+- **FlatBuffers for the wire.** Schema-versioned, zero-copy on the
+  client, smaller wire than JSON, generates idiomatic bindings for
+  Python, Rust, and TypeScript. Debuggability cost mitigated by a
+  one-shot `ir_to_json.py` dumper for humans.
+- **Bit-exact determinism by construction.** Same IR → same pixels in
+  every embedding. There is no "Python/JS port parity" because there
+  is no Python procedural port and no JS procedural port — only
+  embeddings of the Rust crate.
+- **Phased migration with strict-TDD parity gates.** Every step gates
+  on a parity fixture so the legacy Python emitter and the new
+  Rust-via-PyO3 emitter can coexist while we move from one to the
+  other.
+
+## 3. Problem (revised)
 
 Two pain points motivate the rework:
 
-1. **Payload size.** Per-floor SVG is 60–250 KB (logged at
-   `nhc/rendering/web_client.py:1309`); a separate ~100 KB hatch pattern is
-   fetched once per session. The bulk of a floor's bytes are procedurally
-   generated decoration — Perlin-wobbled grid lines, cross-hatch coordinates,
-   floor stones, cracks, grass blades — baked into long `<path d="...">`
-   attributes.
-2. **Generation speed.** Shapely polygon unions (cave geometry, dungeon
-   polygon) and Python-side procedural detail (wobble paths, floor stones,
-   hatching) run on every floor change.
+1. **Wire size.** Per-floor SVG runs 60–250 KB raw, ~20–70 KB gzipped
+   (`web_client.py:1309`). Most bytes are decoration baked into long
+   `<path d="…">` attributes. Add a tileable hatch SVG (~100 KB,
+   fetched once per session). Target: 3–8 KB gzipped FlatBuffers IR
+   plus a one-time WASM bundle (~150–300 KB after `wasm-opt`,
+   gzip-compressed, served once).
+2. **Server CPU.** Shapely runs regardless (cave union, dungeon
+   polygon, grove merging). Python-side procedural detail (Perlin
+   wobble, floor stones, hatching, fountains, vegetation jitter) is
+   stringification-bound. Moving procedural emission into Rust
+   reclaims that path; on the gameplay route the server only has to
+   assemble the IR (small dataclass+FB serialise) and the client
+   paints. Long-tail goal: 40–60 % drop in per-floor server CPU.
 
-Neither is fixed by IR alone. Shapely still runs regardless. What IR enables is
-**skipping decoration stringification on the gameplay hot path** once the
-client renders it from IR directly. That is where the real server-side speedup
-lands, and it is also what shrinks the wire payload to a few KB.
+A new motivation versus the prior design:
 
-**Zero-cost check before any IR work.** Confirm the Flask endpoint at
-`nhc/web/app.py:996–1009` is gzipped by Caddy/gunicorn. SVG compresses 3–5×
-with gzip alone. If that is off, turning it on is a partial win that coexists
-with everything below.
+3. **Server-side PNG.** Some clients (LLM image-mode tools, archival
+   exports, share-a-map links) want a raster. We currently do not
+   serve PNG. Rust-side rasterisation via `tiny-skia` from the IR is
+   the long-term answer; `resvg-py` over IR→SVG is the cheap stepping
+   stone.
 
-## Decisions
+A **zero-cost check before any IR work** still applies: confirm the
+Flask endpoint at `nhc/web/app.py` is gzipped behind Caddy. SVG
+compresses 3–5× with gzip alone.
+
+## 4. Decisions
 
 | Decision | Choice |
 |---|---|
-| Target scope | Full stack → frontend Canvas (Phases 1–3; Phase 4 PNG deferred) |
-| PRNG strategy | Bit-exact, swap to splitmix64 both sides |
-| Visual fidelity | Pixel-faithful: port all ~15 procedural primitives to JS |
-| SVG role post-Phase-3 | Canvas-only for gameplay; server IR→SVG for cold paths |
-| Canvas first-paint | Monolithic single-pass (matches current SVG behaviour) |
-| Phase 1 parity gate | Byte-equal SVG (drop to visual parity once Phase 2 changes output) |
-| Schedule | After world-expansion Phase 6 |
-| IR format | JSON (debuggable; gzip at HTTP closes the size gap) |
-| IR scope | Dungeon floor rendering only; hex / overland stay on current path |
+| IR wire format | **FlatBuffers** (`.fbs` schema in `nhc/rendering/ir/floor_ir.fbs`) |
+| Canonical procedural source | **Rust crate** `nhc-render` (one impl, two embeddings) |
+| Python integration | **PyO3** native module, distributed as wheel for linux x86_64 (server) and macOS arm64 (dev) |
+| Browser integration | **wasm-bindgen + wasm-pack**, JS glue calls into WASM |
+| Server PNG path | **Long-term: Rust + tiny-skia**; **stepping stone: resvg-py over IR→SVG** |
+| PRNG | **splitmix64** (in Rust; PyO3 + WASM each expose the same wrapper) |
+| Perlin noise | **Ported to Rust** with checked-in fixture vectors; both embeddings call the same impl |
+| SVG role post-cutover | **Cold paths only** (export, /admin debug, regression fixtures) |
+| Phase-1 parity gate | **Byte-equal SVG** between legacy `render_floor_svg` and `ir_to_svg(build_floor_ir(...))` |
+| Determinism guarantee | **Rust-canonical** — three embeddings, one implementation; no cross-runtime port-drift class of bugs |
+| IR scope | **Floor-scoped** (dungeon / cave / building / surface). Site overlays (roofs, enclosures, masonry) compose above the floor IR via the existing `building.py` / `site_svg.py` wrappers |
+| Hex / overland IR | **Out of scope** — separate IR work if needed |
+| Schedule | **Preparatory work starts now** (FB schema, fixture harness, resvg-py PNG); full Rust integration follows incrementally |
 
-## Current state (context)
+## 5. The IR (FlatBuffers)
 
-Phase 0b of the world-expansion plan is complete: `svg.py` is 349 lines with
-ten extracted helper modules that map almost 1:1 onto IR primitives. That
-modularization is a significant accelerator when IR work begins.
+### Why FlatBuffers (not JSON)
 
-Relevant modules under `nhc/rendering/`:
+- **Smaller wire** before gzip (typical 30–50 % reduction for our
+  geometry-heavy IR), comparable after gzip; **zero-copy reads** on
+  the client mean the WASM Canvas renderer never allocates parser
+  state.
+- **Schema discipline by default.** Schema lives in version control
+  alongside generated bindings; backward-compatible additions (new
+  optional fields, new ops appended to a vector) need no client code
+  change.
+- **Cross-language bindings** for Python (`flatbuffers` package),
+  Rust (`flatbuffers` crate), and TypeScript (`flatbuffers` npm) are
+  all first-party.
+- **Debuggability cost** offset by `nhc/rendering/ir/dump.py`, which
+  prints any IR buffer as canonicalised JSON for humans (and for git-
+  reviewable test fixtures).
 
-- `svg.py` — entry point `render_floor_svg(level, seed, hatch_distance)`
-- `_shadows.py`, `_hatching.py`, `_walls_floors.py`, `_terrain_detail.py`,
-  `_floor_detail.py`, `_stairs_svg.py` — layer renderers
-- `_room_outlines.py`, `_cave_geometry.py`, `_dungeon_polygon.py` —
-  structural geometry (Shapely)
-- `_svg_helpers.py` — low-level primitives (`_wobbly_grid_seg`, `_y_scratch`,
-  constants like `CELL=32`, `PADDING=32`, `INK`, `FLOOR_COLOR`)
+### Schema sketch (`nhc/rendering/ir/floor_ir.fbs`)
 
-Web flow: the client fetches the SVG at `/api/game/<sid>/floor/<svg_id>.svg`
-(content-type `image/svg+xml`, 7-day cache), inlines it into DOM via
-`container.innerHTML = svgString` at `nhc/web/static/js/map.js:103`, then
-composites canvas layers (door / hatch / fog / entity) on top. The SVG is a
-static background — there is no SVG DOM manipulation client-side.
+```
+namespace nhc.ir;
 
-## 1. IR design
+// Schema major version is the file's `file_identifier`; minor version
+// is a uint32 field on the root table. Renderers dispatch on major;
+// minor allows additive changes (new optional fields, new op kinds).
+file_identifier "NIRF";          // NHC IR Floor v1
+file_extension "nir";            // .nir file extension
 
-### Two classes of commands
+table Vec2 { x: float; y: float; }
 
-1. **Structural ops.** Concrete geometry computed by Shapely on the server —
-   polygon outlines for rooms, caves, corridors, the dungeon polygon (for
-   clipping), wall segments. Stored as coordinate arrays. These *are* baked
-   because recomputing `shapely.ops.unary_union` in JS is prohibitive. They
-   are small: a 50-room level needs a few KB of polygon data.
-2. **Procedural ops.** Decoration with `(region_ref, seed, params)`. The
-   renderer (Python or JS) reproduces detail deterministically via
-   `nhc.rendering.ir_rng` (splitmix64). Each op carries its own seed derived
-   from `base_seed + op_salt`, matching current salts (`+77` hatching, `+99`
-   detail, `+0x5A17E5` cave jitter, etc.).
-
-### Schema sketch
-
-```json
-{
-  "version": "1.0",
-  "size": {"w": 80, "h": 60, "cell": 32, "padding": 32},
-  "theme": "dungeon",
-  "seed": 42,
-  "regions": {
-    "dungeon": {"type": "polygon", "paths": [...], "holes": [...]},
-    "cave_0":  {"type": "polygon", "paths": [...]},
-    "room_3":  {"type": "polygon", "paths": [...], "shape": "octagon"}
-  },
-  "ops": [
-    {"op": "shadow",         "region": "dungeon", "dx": 2, "dy": 2, "opacity": 0.08},
-    {"op": "hatch",          "region_out": "dungeon", "seed": 119, "extent_tiles": 2.0},
-    {"op": "walls_floors",   "room_regions": ["room_3", ...], "rect_rooms": [...],
-                             "corridor_tiles": [...], "cave_region": "cave_0",
-                             "wall_segments": ["M10,20 L42,20", ...]},
-    {"op": "terrain_tint",   "tiles": [[x, y, "water"], ...]},
-    {"op": "floor_grid",     "clip": "dungeon", "seed": 41, "theme": "dungeon"},
-    {"op": "floor_detail",   "tiles": [...], "seed": 141, "theme": "dungeon"},
-    {"op": "thematic_detail","tiles": [...], "seed": 199, "theme": "dungeon"},
-    {"op": "terrain_detail", "tiles": [...], "seed": 242, "theme": "dungeon"},
-    {"op": "cobblestone",    "tiles": [...], "seed": 333},
-    {"op": "stairs",         "tiles": [[x, y, "up|down"], ...], "theme": "cave"}
-  ]
+table Polygon {
+  paths: [Vec2];   // flat list, separated by Path entries
+  rings: [PathRange];
 }
-```
 
-Themes travel as a parameter on relevant ops — no per-theme op variants.
+struct PathRange { start: uint32; count: uint32; is_hole: bool; }
 
-### IR size budget
-
-Estimated for a typical 80×60 level with ~50 rooms:
-
-| Component | Bytes (raw) |
-|---|---|
-| regions (polygons) | 3–6 KB |
-| shadow / walls_floors / wall_segments | 2–4 KB |
-| hatch (tile sets + seeds) | 1–2 KB |
-| terrain_tint + terrain_detail (tile lists) | 0.5–1.5 KB |
-| floor_grid / floor_detail / thematic_detail | 0.5 KB each |
-| cobblestone / stairs | 0.2 KB each |
-| **Total** | **~8–15 KB raw, ~3–5 KB gzipped** |
-
-Current SVG: 60–250 KB raw, ~20–70 KB gzipped.
-
-### PRNG (splitmix64)
-
-Both runtimes go through a thin `ir_rng` wrapper. Python side replaces current
-`random.Random(seed)` calls inside `nhc/rendering/`. JS side ships a matching
-implementation. Effect on existing seeds: the dungeon *layout* is unchanged
-(that uses separate RNG streams in `nhc/dungeon/` — unaffected), but cosmetic
-detail (grid wobble, stone placement, etc.) shifts for a given seed. Running
-games are safe because SVG caches on disk continue to serve.
-
-Perlin noise (`noise.pnoise2`) gets the same treatment: port a matching JS
-implementation, or bake Perlin-dependent coordinates into structural IR when
-they affect silhouettes (cave jitter — already server-side).
-
-### Hatching pattern
-
-Stays a shared global asset (`/api/hatch.svg`) fetched once per session and
-rasterised into a Canvas `createPattern()` on the client. It is
-seed-independent and identical across floors. No need to port hatch pattern
-generation to JS — the SVG asset plus a one-time rasterisation is simpler and
-equivalent.
-
-## 2. Op schemas
-
-Each op has a JSON shape, a deterministic contract (what is seeded, what
-parameters drive output), and a reference implementation. Units: SVG pixel
-space; `CELL = 32`, `PADDING = 32`.
-
-### Structural regions
-
-```json
-"regions": {
-  "<region_id>": {
-    "type": "polygon",
-    "paths":  [[[x, y], ...], ...],   // one or more closed outer rings
-    "holes":  [[[x, y], ...], ...],   // interior exclusions (cave islands)
-    "shape":  "octagon"               // optional tag for renderer
-  }
+enum RegionKind: byte {
+  Dungeon = 0,
+  Cave = 1,
+  Room = 2,
+  Building = 3,
+  Site = 4,
 }
-```
 
-Producers: `_dungeon_polygon.py::_build_dungeon_polygon`,
-`_cave_geometry.py::_build_cave_wall_geometry`,
-`_room_outlines.py::_room_svg_outline` (shape-aware). The `dungeon`,
-`cave_0..n`, and `room_0..n` regions are always emitted.
-
-### 1. shadow
-
-```json
-{"op": "shadow", "kind": "room|corridor|per-tile",
- "region": "<region_id>", "dx": 3, "dy": 3, "opacity": 0.08}
-```
-
-- `room`: use the room outline polygon, translate by `(dx, dy)`, fill `INK` at
-  `opacity`.
-- `corridor`: per-tile; the op carries `tiles: [[x, y]]`.
-- Reference: `_shadows.py::_room_shadow_svg`, `_render_corridor_shadows`.
-
-### 2. walls_floors
-
-```json
-{"op": "walls_floors",
- "room_regions": ["room_3", ...],            // smooth-shape rooms
- "rect_rooms":   [{"x": 4, "y": 5, "w": 8, "h": 6}, ...],
- "corridor_tiles": [[x, y], ...],
- "cave_region":  "cave_0",
- "wall_segments": ["M10,20 L42,20", ...],   // tile-edge segments
- "fill": "FLOOR_COLOR", "cave_fill": "CAVE_FLOOR_COLOR",
- "wall_color": "INK", "wall_width": 2.0}
-```
-
-- Smooth rooms: filled outline + stroke pass.
-- Rect rooms: filled rect.
-- Corridors: per-tile floor rects.
-- Cave region: filled polygon (from the baked jittered ring) + stroke.
-- Wall segments: a single `<path>` combining every tile-edge wall segment
-  (rect rooms + corridors + non-street tiles).
-- Reference: `_walls_floors.py::_render_walls_and_floors`.
-
-### 3. hatch
-
-```json
-{"op": "hatch", "kind": "room|corridor|hole",
- "region_out": "dungeon",    // area to exclude
- "region_in":  "cave_0",     // area to hatch inside (for holes)
- "extent_tiles": 2.0,
- "seed": 119,
- "stride": 0.5,
- "tiles": [[x, y], ...]       // corridor kind only
+table Region {
+  id: string (key);
+  kind: RegionKind;
+  polygon: Polygon;
+  shape_tag: string;        // "rect"|"octagon"|"circle"|"pill"|"temple"|"hybrid"|"cave"
 }
+
+table TileCoord { x: int; y: int; tag: string; }     // tag for typed buckets
+
+enum FloorKind: byte { Dungeon = 0, Cave = 1, Building = 2, Surface = 3 }
+
+table FeatureFlags {
+  shadows_enabled: bool = true;
+  hatching_enabled: bool = true;
+  atmospherics_enabled: bool = true;
+  macabre_detail: bool = false;
+  vegetation_enabled: bool = true;
+  interior_finish: string;   // "" | "wood" | "flagstone" | …
+}
+
+union Op {
+  ShadowOp,
+  HatchOp,
+  WallsAndFloorsOp,
+  TerrainTintOp,
+  FloorGridOp,
+  FloorDetailOp,
+  TerrainDetailOp,
+  StairsOp,
+  CobblestoneOp,
+  WoodFloorOp,
+  GardenOverlayOp,
+  FieldOverlayOp,
+  CartTracksOp,
+  OreDepositsOp,
+  TreeFeatureOp,
+  BushFeatureOp,
+  WellFeatureOp,
+  FountainFeatureOp,
+  ThematicDetailOp,
+  GenericProceduralOp,    // escape hatch for additive primitives
+}
+
+table FloorIR {
+  major: uint32;          // schema major (gates renderers)
+  minor: uint32;          // schema minor (additive)
+  width_tiles: uint32;
+  height_tiles: uint32;
+  cell: uint32 = 32;
+  padding: uint32 = 32;
+  floor_kind: FloorKind;
+  theme: string;          // "dungeon"|"crypt"|"cave"|"sewer"|"castle"|"forest"|"abyss"|"settlement"|...
+  base_seed: uint64;
+  flags: FeatureFlags;
+  regions: [Region];
+  ops: [Op];
+}
+
+root_type FloorIR;
 ```
 
-- Renderer fills the target region with: grey underlay rect/tile, 0–2 seeded
-  stones per tile, and section-partitioned cross-hatch lines with per-section
-  perpendicular direction and Perlin-jittered stroke.
-- Section boundaries come from `_dungeon_polygon.py::_build_sections` and must
-  be deterministic given the region geometry + seed.
-- Reference: `_hatching.py::_render_hatching`, `_render_corridor_hatching`,
-  `_render_hole_hatching`.
-
-### 4. terrain_tint
-
-```json
-{"op": "terrain_tint",
- "tiles": [[x, y, "water"], ...],
- "room_washes": [{"rect": [x, y, w, h], "color": "#...", "opacity": 0.08}],
- "clip": "dungeon"}
-```
-
-- Per-tile coloured rects clipped to dungeon interior.
-- Room-type washes derived from `room.tags` against `ROOM_TYPE_TINTS`.
-- Reference: `_terrain_detail.py::_render_terrain_tints`.
-
-### 5. terrain_detail
-
-```json
-{"op": "terrain_detail",
- "tiles": [[x, y, "water|grass|lava|chasm", is_corridor], ...],
- "seed": 242,
- "theme": "dungeon",
- "clip": "dungeon"}
-```
-
-Per-tile sub-generators:
-
-- `water`: 2–3 wavy horizontal polylines + 10% chance of ripple circle.
-- `grass`: 3–6 angled blade strokes + 15% chance of tuft cluster.
-- `lava`: 1–2 crack lines + 20% chance of ember dot.
-- `chasm`: 2–3 jittered diagonal lines.
-
-Room tiles clipped to dungeon interior; corridor tiles not clipped. Reference:
-`_terrain_detail.py::_render_terrain_detail` + `_water_detail` / `_grass_detail`
-/ `_lava_detail` / `_chasm_detail`.
-
-### 6. floor_grid
-
-```json
-{"op": "floor_grid",
- "clip": "dungeon",
- "seed": 41,
- "theme": "dungeon",
- "scale": 1.0}
-```
-
-- Wobbly grid: horizontal + vertical lines at `CELL` intervals, displacement
-  via Perlin noise, stroke width `GRID_WIDTH`, opacity 0.7.
-- Per-theme scale: dungeon=1.0, crypt=2.0, cave=2.0, sewer=1.0, castle=0.8,
-  forest=0.6, abyss=1.5 (from `_floor_detail.py::_DETAIL_SCALE`).
-- Reference: `_floor_detail.py::_render_floor_grid`,
-  `_svg_helpers.py::_wobbly_grid_seg`.
-
-### 7. floor_detail
-
-```json
-{"op": "floor_detail",
- "tiles": [[x, y], ...],
- "seed": 141,
- "theme": "dungeon"}
-```
-
-Per-tile rolls produce:
-
-- crack (probability 0.08 dungeon / 0.32 cave, times theme scale): line from a
-  tile corner, two endpoints near the edges.
-- scratch (probability 0.05 / 0.01): stylised Y-mark via
-  `_svg_helpers.py::_y_scratch`.
-- stone (probability 0.06 / 0.10): single ellipse,
-  `_floor_detail.py::_floor_stone`.
-- cluster (probability 0.03 / 0.06): 3 small stones near centre.
-
-Stone colours: `FLOOR_STONE_FILL`, `FLOOR_STONE_STROKE`. Reference:
-`_floor_detail.py::_render_floor_detail`, `_tile_detail`, `_floor_stone`.
-
-### 8. thematic_detail
-
-```json
-{"op": "thematic_detail",
- "tiles": [[x, y], ...],
- "seed": 199,
- "theme": "dungeon"}
-```
-
-- Per-tile rolls produce webs, bone piles, skulls. Probabilities from
-  `_THEMATIC_DETAIL_PROBS` (e.g. crypt = web 0.08, bones 0.10, skull 0.06).
-- Webs placed only in tile corners whose two adjacent neighbours are non-floor
-  (wall corners). Renderer picks a wall corner with `rng.choice`.
-- Bones: 2–3 crossed line+end-circle bones centred randomly.
-- Skulls: small rounded-rect cranium + oval jaw.
-- Reference: `_floor_detail.py::_tile_thematic_detail`, `_web_detail`,
-  `_bone_detail`, `_skull_detail`.
-
-### 9. cobblestone (street tiles)
-
-```json
-{"op": "cobblestone",
- "tiles": [[x, y], ...],
- "seed": 333,
- "theme": "settlement"}
-```
-
-Per-street-tile: pack 6–10 small stones (`_street_stone`) in a soft hex-offset
-pattern. Reference: `_floor_detail.py::_render_street_cobblestone`,
-`_cobblestone_tile`, `_street_stone`.
-
-### 10. stairs
-
-```json
-{"op": "stairs",
- "tiles": [[x, y, "up|down"], ...],
- "theme": "cave"}
-```
-
-- Per stair tile: tapering wedge, 5 step lines, rail stroke 1.5, step stroke
-  1.0. `down` tapers left→right; `up` tapers right→left.
-- `theme == "cave"`: emit a filled polygon (colour `STAIR_FILL = "#E0E0E0"`)
-  beneath the lines so stairs stand out on cave floor.
-- Reference: `_stairs_svg.py::_render_stairs`.
-
-### Layer ordering
-
-Ops are emitted in the same sequence as the current SVG layers so the Phase 1
-byte-equal parity holds:
-
-1. `shadow` (rooms, then corridors)
-2. `hatch` (rooms, holes, then corridors)
-3. `walls_floors`
-4. `terrain_tint`
-5. `floor_grid`
-6. `floor_detail`
-7. `thematic_detail`
-8. `terrain_detail`
-9. `cobblestone`
-10. `stairs`
-
-### Determinism contract
-
-- Every `seed` field is the full seed value (not an offset); the renderer
-  instantiates `ir_rng.from_seed(seed)` directly.
-- The emitter derives op seeds from the base seed as `base + salt`, matching
-  current salts (`+7` corridor hatch, `+77` room hatch, `+99` floor detail,
-  `+199` thematic, `+200` terrain detail, `+0x5A17E5` cave jitter, etc.).
-- The order in which the renderer calls `rng.random()` / `rng.uniform` /
-  `rng.choices` / `rng.randint` inside each op must match between Python and
-  JS. `design/ir_primitives.md` will enumerate the exact call sequence for
-  each primitive when the time comes.
-
-## 3. Phased plan
-
-### Phase 1 — IR emitter behind existing signature
-
-Keep `render_floor_svg(level, seed, hatch_distance) -> str` as the public
-entry point. Internally:
-
-```python
-def render_floor_svg(level, seed=0, hatch_distance=2.0) -> str:
-    ir = build_floor_ir(level, seed, hatch_distance)
-    return ir_to_svg(ir)
-```
-
-Each existing `_render_*` in the ten helper modules grows a sibling
-`_emit_*_ir` that appends IR ops; existing SVG string-building moves into
-`_draw_*_from_ir` dispatched by `ir_to_svg`. Zero behaviour change.
-
-**Gate:** byte-equal parity between old `render_floor_svg` and new
-`ir_to_svg(build_floor_ir(...))` on fixture levels.
-
-### Phase 2 — Procedural ops + IR endpoint
-
-Convert decoration layers (`floor_detail`, `floor_grid`, `hatch`,
-`terrain_detail`, `corridors`) to procedural ops carrying `(region, seed,
-tile_list, theme)`. The IR→SVG transformer still regenerates equivalent SVG
-at serialize time, but via procedural replay through `ir_rng`. Introduce
-`ir_rng.py` (splitmix64) and migrate all rendering-side RNG calls.
-
-Expose `/api/game/<sid>/floor/<id>.ir.json` alongside the existing `.svg`
-endpoint. Extend autosave `save_svg_cache` to cache IR.
-
-**Gate:** IR→SVG output matches a Phase-1 baseline regenerated under the new
-PRNG. Wire-size measurement logged.
-
-### Phase 3 — Frontend IR→Canvas renderer
-
-Ship `nhc/web/static/js/floor_ir_renderer.js` and `ir_rng.js` (+ Perlin
-port). Template swap: `<div id="floor-svg">` → `<canvas id="floor-canvas">`.
-`map.js`: `setFloorSVG` → `setFloorIR`. Canvas fog / hatch / door / entity
-layers are unaffected — they already composite on top, oblivious to how
-floor was drawn.
-
-Rendering is **monolithic**: iterate IR ops linearly, paint each. Same
-latency characteristics as current SVG inlining.
-
-The server changes its emission strategy for the gameplay path: when the
-client fetches `.ir.json`, the server builds IR and returns it without
-calling `ir_to_svg` — skipping all decoration stringification. When the
-client (or an export endpoint, or a test, or admin debug) fetches `.svg`,
-the server goes IR→SVG as normal.
-
-**Gate:** rasterised Canvas output (headless Chromium on fixtures) vs Python
-IR→SVG rasterised via resvg-py, pixel-diff ≤0.5%. Server CPU on a canonical
-floor: expect 40–60% drop vs Phase 1 baseline.
-
-### Phase 4 — Optional server IR→PNG (deferred)
-
-If share-a-map or archival use cases emerge, wire `IR → SVG → resvg-py →
-PNG`. `resvg-py` is a single-binary Rust rasterizer with ARM wheels and
-deterministic output. PNG adds ~28 MB transient memory per raster on the SBC
-(3456×2048×4) — survivable but not free. Skip until actually needed.
-
-## 4. Critical files
-
-**Refactored (Phase 1):**
-
-- `nhc/rendering/svg.py` — `render_floor_svg` becomes a shim.
-- `nhc/rendering/_walls_floors.py`, `_floor_detail.py`, `_hatching.py`,
-  `_terrain_detail.py`, `_shadows.py`, `_stairs_svg.py` — each `_render_*`
-  gets an IR-emitter sibling; string-building moves into `_draw_*_from_ir`.
-- `nhc/rendering/_cave_geometry.py`, `_dungeon_polygon.py`,
-  `_room_outlines.py` — unchanged structurally, but polygon outputs become
-  IR `regions` entries.
-
-**New (Phase 1/2):**
-
-- `nhc/rendering/ir.py` — dataclasses for `FloorIR`, `Region`, `Op` variants;
-  JSON (de)serialisation; version handling.
-- `nhc/rendering/ir_emitter.py` — `build_floor_ir(level, seed, hatch_distance)
-  -> FloorIR`.
-- `nhc/rendering/ir_to_svg.py` — `ir_to_svg(ir) -> str`.
-- `nhc/rendering/ir_rng.py` — deterministic splitmix64 PRNG wrapper.
-- `nhc/web/app.py` — add `/api/game/<sid>/floor/<id>.ir.json` route; extend
-  `save_svg_cache` to cache IR alongside SVG.
-- `design/ir_primitives.md` — normative spec for each procedural primitive
-  (required for Python/JS parity).
-
-**New (Phase 3):**
-
-- `nhc/web/static/js/floor_ir_renderer.js` — canvas IR renderer.
-- `nhc/web/static/js/ir_rng.js` — JS splitmix64 + matching Perlin.
-- `nhc/web/templates/play.html` — swap floor-svg div for floor-canvas.
-- `nhc/web/static/js/map.js` — `setFloorSVG` → `setFloorIR`.
-
-**Unchanged:** `nhc/dungeon/model.py`, all generators, `map.js` door / hatch /
-fog / entity layers.
-
-## 5. MCP debug tool interaction
-
-Existing `get_svg_room_walls`, `get_svg_tile_elements` MCP tools return SVG
-fragments for offline debug. Once IR lands, add parallel `get_ir_region`,
-`get_ir_ops` tools that return IR slices. Keep the SVG-returning tools for
-backward compatibility but document the IR tools as preferred.
-
-## 6. Testing (strict TDD)
-
-1. **`tests/unit/test_floor_ir.py`** — golden IR tests. For fixed
-   `(level, seed)`, assert emitted IR matches a committed JSON fixture under
-   `tests/fixtures/ir/`.
-2. **`tests/unit/test_ir_to_svg.py`** — byte-equal parity test (Phase 1). For
-   the same fixtures, assert `ir_to_svg(ir) == render_floor_svg_legacy(...)`.
-   This is the guardrail that keeps every later change honest.
-3. **`tests/unit/test_ir_rng.py`** — splitmix64 determinism + Python/JS
-   cross-port parity (checked-in expected output vectors).
-4. **`tests/unit/test_ir_canvas_parity.py`** (`slow`, Phase 3) — rasterise IR
-   via Python (`resvg` for IR→SVG→PNG) and via headless Chromium running the
-   JS Canvas renderer; pixel-diff ≤0.5%.
-5. **`tests/unit/test_ir_perf.py`** (`slow`) — p95 budget on `build_floor_ir`
-   and `ir_to_svg` for 5 canonical levels.
-6. **`tests/samples/generate_svg.py`** — extend to emit `.ir.json` alongside
-   `.svg` for visual inspection.
-
-JS-side tests run via headless Chromium under pytest-playwright (or a small
-Node harness) so CI can enforce Python/JS parity without a live browser.
-
-## 7. Verification end-to-end
-
-- **Phase 1 complete:** `.venv/bin/pytest -n auto --dist worksteal -m "not
-  slow"` green with new parity tests. `./server` serves byte-equal SVG.
-- **Phase 2 complete:** `curl /api/.../floor/<id>.ir.json | wc -c` shows
-  target wire size; gzip-over-HTTP further reduces. `ir_to_svg` rasterisation
-  matches post-splitmix64 fixtures.
-- **Phase 3 complete:** load `./server`, play through a dungeon, visual
-  parity with old SVG (spot-check a cave level, an octagon room, a
-  settlement). Network tab shows `.ir.json` fetched, no `.svg` on gameplay
-  path, payload 3–15 KB gzipped. MCP `get_layer_state` inspects the canvas
-  layer correctly.
-- **Performance:** `build_floor_ir` alone vs current `render_floor_svg` p95
-  (expect modestly faster — less string concat). Full win: with client on
-  Canvas path, per-floor server CPU drops 40–60% because decoration is no
-  longer stringified.
-
-## 8. Success metrics
-
-- **SVG path (Phase 1–2):** IR→SVG byte-equal (Phase 1) / semantically equal
-  post-splitmix64 (Phase 2) to legacy.
-- **IR wire size (Phase 2):** p95 `floor.ir.json` < 20 KB; gzipped < 5 KB.
-- **Server speedup (Phase 3):** on gameplay hot path, per-floor render time
-  drops 40–60% (no decoration stringification).
-- **Canvas first-paint (Phase 3):** monolithic paint within ~50 ms on a
-  2020-era laptop; SBC-class clients within ~300 ms.
-
-## 9. Risks
-
-- **PRNG wrapper reach.** Every `random.Random` call in `nhc/rendering/` must
-  route through `ir_rng`. Missing one means Python/JS divergence. Mitigation:
-  a lint rule (ruff ban on `import random` in that subpackage after
-  migration) + dedicated parity tests per primitive.
-- **Perlin noise port drift.** JS Perlin must match Python `noise.pnoise2`
-  output. Mitigation: ship fixture vectors checked in both languages; the
-  parity test is the first JS test written.
-- **World-expansion features added to SVG between now and IR start.**
-  Expected — Phases 2–6 will add new primitives. Mitigation: the IR design
-  allows adding ops without changing existing ones. Each new world-expansion
-  module extracted from `svg.py` keeps the same pattern, so IR extraction
-  remains mechanical when the time comes.
-- **Tests churn on fixture regeneration.** Golden IR fixtures tend to change
-  as primitives evolve. Mitigation: regen script + reviewable diffs; keep
-  fixtures small (one per shape × theme combination, not per-seed matrix).
-- **SVG cache incompatibility post-splitmix64.** Existing disk-cached SVGs
-  were produced under MT19937. Mitigation: bump cache version key so old
-  caches are invalidated, not served alongside new renderers.
-
-## 10. Extensibility patterns
-
-World-expansion will add primitives as Phases 2–6 land: battlements, gate
-rooms, city-wall panels, district boundary strokes, faction sigils,
-biome-specific terrain detail (underworld ooze, Chaos runes). The IR must
-absorb these without forcing rewrites.
+Each `*Op` table carries the parameters its renderer needs; see §7
+for the full op catalogue. Ops appear in the buffer in **layer-order**
+(see §6) so the renderer streams ops linearly with no sort step.
 
 ### Versioning policy
 
-- **Minor bump (`1.x → 1.y`)** — additive changes only: new ops, new
-  optional fields on existing ops, new theme values, new region types. Old
-  renderers ignore unknown ops (with a console warning) and render the rest.
-  Ship freely.
-- **Major bump (`1.x → 2.0`)** — breaking changes: renamed ops, removed
-  fields, changed semantics, changed op ordering. Both transformers (IR→SVG
-  and IR→Canvas) must accept both versions for one release cycle.
-- The `version` field at the top of every IR document is `"major.minor"`
-  (string). Renderers dispatch on major version.
-- Cache keys in `save_svg_cache` include the IR version so old caches
-  invalidate cleanly on version bumps.
+- **Minor bump (1.x → 1.y)** — additive: new op-union variants, new
+  optional fields on existing ops, new theme strings, new region
+  shape tags. Old renderers ignore unknown union members (FlatBuffers
+  semantics) and render the rest. Ship freely.
+- **Major bump (1.x → 2.0)** — breaking: renamed ops, removed fields,
+  changed op semantics, changed layer ordering. Both transformers
+  (Python SVG, Rust PNG, Rust→WASM Canvas) must accept both versions
+  for one release cycle.
+- The buffer's `file_identifier` encodes major version. Major bumps
+  also bump the `.fbs` file's `file_identifier`.
+- `save_svg_cache` cache keys include `(major, minor)` so a version
+  bump invalidates old caches cleanly.
 
-### Adding a new op
+## 6. Layer ordering
 
-Checklist for the world-expansion PR that adds a new primitive:
+The IR carries ops in the same sequence as the legacy SVG layers, so
+Phase 1 byte-equal parity holds and PNG / Canvas renderers can stream
+with no sort step:
 
-1. **Spec first** — append a section to `design/ir_primitives.md` with JSON
-   shape, determinism contract, and reference implementation path. PR does
-   not land without the spec.
-2. **Python emitter** — add `_emit_<name>_ir` alongside the existing
-   `_render_<name>` in the relevant helper module. Register with
-   `ir_emitter.py`.
-3. **IR→SVG transformer** — add `_draw_<name>_from_ir` in `ir_to_svg.py`.
-   For a world-expansion PR that only needs the cold path, this is the
-   minimum viable change.
-4. **IR→Canvas transformer** — add a JS function in `floor_ir_renderer.js`
-   with matching determinism (same rng.* call sequence as Python). Requires
-   a cross-port parity fixture.
-5. **Tests** — golden IR fixture + byte-equal SVG parity + (if new JS
-   support) cross-runtime pixel-diff.
-6. **Minor version bump** unless the op conflicts with existing semantics
-   (rare).
+| Order | Layer name | Op kinds |
+|---|---|---|
+| 100 | shadows | `ShadowOp` (room, corridor) |
+| 200 | hatching | `HatchOp` (room, hole, corridor) |
+| 300 | walls_and_floors | `WallsAndFloorsOp` |
+| 350 | terrain_tints | `TerrainTintOp` |
+| 400 | floor_grid | `FloorGridOp` |
+| 500 | floor_detail | `FloorDetailOp`, `ThematicDetailOp`, `CobblestoneOp`, `WoodFloorOp`, `GardenOverlayOp`, `FieldOverlayOp`, `CartTracksOp`, `OreDepositsOp` |
+| 600 | terrain_detail | `TerrainDetailOp` |
+| 700 | stairs | `StairsOp` |
+| 800 | surface_features | `WellFeatureOp`, `FountainFeatureOp`, `TreeFeatureOp`, `BushFeatureOp` |
 
-### Adding a new theme
+Order numbers preserve gaps of 50 between adjacent layers so future
+primitives can slot in without re-numbering.
 
-Themes travel as a string parameter on ops that accept them (`floor_grid`,
-`floor_detail`, `thematic_detail`, `terrain_detail`, `stairs`, `cobblestone`).
-To add a theme:
+## 7. Op catalogue
 
-1. Add entry to `_DETAIL_SCALE` and `_THEMATIC_DETAIL_PROBS` in
-   `_floor_detail.py` (Python side) and mirror in JS.
-2. Add entry to `get_palette()` in `terrain_palette.py` for terrain colour
-   overrides.
-3. Add fixtures for the new theme × representative shapes combination.
-4. Minor version bump.
+Every op has (a) a FlatBuffers table shape, (b) a deterministic
+contract — what is seeded, what parameters drive output, and the
+exact RNG call sequence — and (c) a reference implementation path. To
+keep this doc readable, the FB tables are summarised; a normative
+spec lives in `design/ir_primitives.md` (a sibling file generated
+from the `.fbs` schema plus per-op call-sequence notes).
 
-Renderers treat unknown themes as `"dungeon"` (default fallback) — this lets
-old clients render new-theme levels without crashing.
+### 7.1 ShadowOp
 
-### Adding a new structural region type
+Renders room and corridor drop-shadows.
 
-Currently `{"type": "polygon", ...}`. If world-expansion needs richer
-structures (e.g. a 3D mine shaft with stratified layers, or a settlement
-district with named sub-regions), extend the region schema:
-
-```json
-"regions": {
-  "district_market": {
-    "type": "district",
-    "outer": [[x, y], ...],
-    "streets": ["street_0", "street_1"],
-    "subregions": ["stall_0", "stall_1", ...]
-  }
+```
+table ShadowOp {
+  kind: ShadowKind;        // Room | Corridor
+  region_ref: string;      // for Room kind (region id)
+  tiles: [TileCoord];      // for Corridor kind (per-tile)
+  dx: float = 3.0;
+  dy: float = 3.0;
+  opacity: float = 0.08;
 }
 ```
 
-Renderers dispatch on `type`. Unknown types fall back to "render as empty
-polygon" so Canvas still paints something plausible.
+Reference: `_shadows.py:_render_room_shadows`,
+`_render_corridor_shadows`. Deterministic — no RNG.
+
+### 7.2 HatchOp
+
+Cross-hatched halo with section partitioning, Perlin-jittered strokes,
+0–2 seeded stones per tile.
+
+```
+table HatchOp {
+  kind: HatchKind;         // Room | Hole | Corridor
+  region_out: string;      // exclusion region (e.g. "dungeon")
+  region_in: string;       // hatched region (for Room/Hole)
+  tiles: [TileCoord];      // for Corridor
+  extent_tiles: float = 2.0;
+  seed: uint64;            // base_seed + 77 (room) | + 7 (corridor) | hole-specific
+  stride: float = 0.5;
+  hatch_underlay_color: string;
+}
+```
+
+Reference: `_hatching.py:_render_hatching`,
+`_render_corridor_hatching`, `_render_hole_hatching`. Section
+partitioning depends on `_dungeon_polygon._build_sections`; the
+section anchor + boundary polygons are baked into the op so the
+renderer does no Shapely work, only stroke generation.
+
+### 7.3 WallsAndFloorsOp
+
+Filled room outlines (smooth-shape rooms), rect-room floor fills,
+corridor floor tiles, cave region (filled polygon + stroke), and the
+combined wall-segment path.
+
+```
+table WallsAndFloorsOp {
+  smooth_room_regions: [string];     // region ids of octagon/circle/pill/temple
+  rect_rooms: [RectRoom];
+  corridor_tiles: [TileCoord];
+  cave_region: string;               // region id, empty if no cave
+  wall_segments: [string];           // SVG path 'd' fragments — could become structured later
+  floor_color: string;
+  cave_floor_color: string;
+  wall_color: string;
+  wall_width: float;
+  building_footprint: [TileCoord];   // optional, gates wall-segment emission near chamfer
+}
+```
+
+Reference: `_walls_floors.py:_render_walls_and_floors`. Deterministic.
+
+### 7.4 TerrainTintOp
+
+Per-tile coloured rect tints (water/grass/lava/chasm) clipped to
+dungeon interior, plus room-type washes.
+
+```
+table TerrainTintOp {
+  tiles: [TerrainTintTile];          // (x, y, terrain_kind)
+  room_washes: [RoomWash];           // (rect, color, opacity)
+  clip_region: string;
+}
+```
+
+Reference: `_terrain_detail.py:_render_terrain_tints`. Deterministic.
+
+### 7.5 FloorGridOp
+
+Wobbly grid (Perlin-displaced) at `cell`-tile spacing, theme-scaled.
+
+```
+table FloorGridOp {
+  clip_region: string;
+  seed: uint64;
+  theme: string;
+  scale: float;            // _DETAIL_SCALE[theme]
+}
+```
+
+Reference: `_floor_detail.py:_render_floor_grid` +
+`_svg_helpers.py:_wobbly_grid_seg`. Per-theme scale: dungeon 1.0,
+crypt 2.0, cave 2.0, sewer 1.0, castle 0.8, forest 0.6, abyss 1.5.
+
+### 7.6 FloorDetailOp
+
+Per-tile cracks, scratches, stones, clusters. Theme-keyed
+probabilities live in `_floor_detail._DETAIL_SCALE`.
+
+```
+table FloorDetailOp {
+  tiles: [TileCoord];
+  seed: uint64;            // base_seed + 99
+  theme: string;
+}
+```
+
+Reference: `_floor_detail.py:_render_floor_detail`, `_tile_detail`,
+`_floor_stone`. Per-tile rolls: crack (0.08 dungeon / 0.32 cave * theme
+scale), scratch (0.05 / 0.01), stone (0.06 / 0.10), cluster (0.03 /
+0.06).
+
+### 7.7 ThematicDetailOp
+
+Per-tile webs, bone piles, skulls. Probabilities in
+`_THEMATIC_DETAIL_PROBS`.
+
+```
+table ThematicDetailOp {
+  tiles: [TileCoord];
+  seed: uint64;            // base_seed + 199
+  theme: string;
+}
+```
+
+Reference: `_floor_detail.py:_tile_thematic_detail`, `_web_detail`,
+`_bone_detail`, `_skull_detail`. Webs prefer wall-corner anchors.
+
+### 7.8 TerrainDetailOp
+
+Per-tile water ripples, lava cracks, chasm hatch. (Grass blade
+emission was dropped — commit `35660d6`; grass shows only the flat
+tint emitted by `TerrainTintOp`.)
+
+```
+table TerrainDetailOp {
+  tiles: [TileCoord];      // (x, y, terrain_kind, is_corridor)
+  seed: uint64;            // base_seed + 200
+  theme: string;
+  clip_region: string;
+}
+```
+
+Reference: `_terrain_detail.py:_render_terrain_detail` +
+`_water_detail`, `_lava_detail`, `_chasm_detail`.
+
+### 7.9 StairsOp
+
+Tapering wedges, per-direction step lines, optional cave fill.
+
+```
+table StairsOp {
+  stairs: [StairTile];     // (x, y, "up"|"down")
+  theme: string;
+  fill_color: string;      // active when theme == "cave"
+}
+```
+
+Reference: `_stairs_svg.py:_render_stairs`. Deterministic shape per
+direction.
+
+### 7.10 CobblestoneOp
+
+Street tiles with a soft hex-offset stone pack. Variants:
+`brick`, `flagstone`, `herringbone`, `opus_reticulatum`,
+`versailles_4stone`.
+
+```
+table CobblestoneOp {
+  tiles: [TileCoord];
+  seed: uint64;            // base_seed + 333
+  theme: string;
+  pattern: CobblePattern;  // Brick | Flagstone | Herringbone | OpusReticulatum | Versailles4
+}
+```
+
+Reference: `_floor_detail.py:_render_street_cobblestone` +
+`_cobblestone_tile` per pattern.
+
+### 7.11 WoodFloorOp
+
+Wood-grain plank fill with a `requires` gate (only emitted when
+`flags.interior_finish == "wood"`). Clipped to `building_polygon`
+when present so planks reach the chamfer diagonal, not the bbox edge.
+
+```
+table WoodFloorOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+  building_polygon: [Vec2];      // optional clip
+}
+```
+
+Reference: `_floor_detail.py:_wood_floor_*`.
+
+### 7.12 GardenOverlayOp / FieldOverlayOp
+
+Surface-tile overlays. Garden tiles render as the GRASS overlay
+(commit `4499326`); FIELD overlays sit on town periphery (commit
+`7dfa0c9`).
+
+```
+table GardenOverlayOp { tiles: [TileCoord]; seed: uint64; theme: string; }
+table FieldOverlayOp  { tiles: [TileCoord]; seed: uint64; theme: string; }
+```
+
+### 7.13 CartTracksOp / OreDepositsOp
+
+Decorator-driven surface markings (commits `7dfa0c9`,
+`b64f03a`).
+
+```
+table CartTracksOp  { tiles: [TileCoord]; seed: uint64; }
+table OreDepositsOp { tiles: [TileCoord]; seed: uint64; theme: string; }
+```
+
+### 7.14 TreeFeatureOp / BushFeatureOp
+
+Cartographer-style vegetation. Trees: layered canopy with per-tile hue
+jitter + grove merging via Shapely union for 3+ adjacent trees (the
+union polygon is baked into the op so the renderer does no Shapely
+work). Bushes: smaller canopy, no trunk.
+
+```
+table TreeFeatureOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+  groves: [GrovePolygon];  // baked union polygons for 3+ adjacent groups
+}
+
+table BushFeatureOp {
+  tiles: [TileCoord];
+  seed: uint64;
+  theme: string;
+}
+```
+
+Reference: `_features_svg.py:TREE_FEATURE`, `BUSH_FEATURE`,
+`_connected_tree_groves`, `_grove_fragment`.
+
+### 7.15 WellFeatureOp / FountainFeatureOp
+
+Wells in two shapes (round, square). Fountains in five variants
+(round, square, large round, large square, cross). All carry per-tile
+seeded rolls for stone shape jitter.
+
+```
+enum WellShape { Round, Square }
+
+table WellFeatureOp {
+  tiles: [TileCoord];
+  shape: WellShape;
+  seed: uint64;
+  theme: string;
+}
+
+enum FountainShape { Round, Square, LargeRound, LargeSquare, Cross }
+
+table FountainFeatureOp {
+  tiles: [TileCoord];
+  shape: FountainShape;
+  seed: uint64;
+  theme: string;
+}
+```
+
+Reference: `_features_svg.py:WELL_FEATURE`, `WELL_SQUARE_FEATURE`,
+`FOUNTAIN_FEATURE`, `FOUNTAIN_SQUARE_FEATURE`,
+`FOUNTAIN_LARGE_FEATURE`, `FOUNTAIN_LARGE_SQUARE_FEATURE`,
+`FOUNTAIN_CROSS_FEATURE`.
+
+### 7.16 GenericProceduralOp (escape hatch)
+
+For new primitives that haven't yet earned their own table. Carries
+`(name: string, tiles, seed, params: [KV])`. Renderers dispatch on
+`name` to a registered handler. Use sparingly — promote to a
+dedicated table once the primitive stabilises.
+
+### 7.17 What the IR does NOT cover
+
+Site / building overlays (composed *above* the floor IR by the
+existing `building.py`, `site_svg.py` wrappers):
+
+- Roofs (`_roofs.py:building_roof_fragments`) — site overlay
+- Enclosures (`_enclosures.py`: palisade, fortification) — site
+  overlay
+- Building exterior masonry (`_building_walls.py`: brick / stone
+  runs) — building overlay
+- Doors (`_doors_svg.py`) — composed by callers as a separate canvas
+  layer in the web client
+
+These compose cleanly above any of the three transformer outputs and
+do not benefit from being in the floor IR (they don't change the
+"floor canvas" rasterisation).
+
+## 8. The Rust crate `nhc-render`
+
+### Module layout
+
+```
+crates/nhc-render/
+├── Cargo.toml
+├── src/
+│   ├── lib.rs              # re-exports
+│   ├── ir.rs               # FB-generated IR + thin wrappers
+│   ├── rng.rs              # splitmix64 wrapper
+│   ├── perlin.rs           # noise port (parity-fixture-tested)
+│   ├── primitives/         # one module per op
+│   │   ├── shadow.rs
+│   │   ├── hatch.rs
+│   │   ├── walls.rs
+│   │   ├── floor_grid.rs
+│   │   ├── floor_detail.rs
+│   │   ├── terrain.rs
+│   │   ├── stairs.rs
+│   │   ├── cobblestone.rs
+│   │   ├── wood_floor.rs
+│   │   ├── vegetation.rs    # tree, bush
+│   │   ├── well.rs
+│   │   └── fountain.rs
+│   ├── transform/          # IR-driven backends
+│   │   ├── png.rs           # tiny-skia rasteriser (host-Rust + PyO3)
+│   │   ├── canvas.rs        # canvas2d command stream (WASM)
+│   │   └── svg.rs           # optional Rust SVG path (parity / fallback)
+│   └── ffi/
+│       ├── pyo3.rs          # Python bindings (cfg = "pyo3")
+│       └── wasm.rs          # wasm-bindgen exports (cfg = "wasm")
+```
+
+### What lives in Rust
+
+- **PRNG**: splitmix64 with a single `Rng::from_seed(seed)` constructor.
+- **Perlin noise**: port of `noise.pnoise2` byte-for-byte, with
+  fixture vectors in `tests/fixtures/perlin/` checked in both Python
+  and Rust.
+- **All procedural primitives** for every op in §7 (except the
+  structural geometry — see "What stays in Python" below).
+- **Three transformer back-ends**:
+  - `png`: drives `tiny-skia` to produce a `Pixmap` (single-binary,
+    no system deps, portable across linux x86_64 and macOS arm64).
+  - `canvas`: emits a stream of canvas2d commands for the JS shim
+    to replay (`fillRect`, `stroke`, `bezierCurveTo`, …) — keeps
+    the JS bridge minimal and avoids per-call WASM↔JS overhead.
+  - `svg` (optional): a Rust SVG emitter for parity testing
+    against the Python emitter. Not strictly necessary for
+    production but useful for diff tests.
+
+### What stays in Python
+
+- **Shapely-driven structural geometry** —
+  `_dungeon_polygon`, `_cave_geometry`, `_room_outlines`. These
+  produce `Polygon` and friends; the IR emitter walks the geometry
+  and bakes coordinate arrays into FB Region tables. Porting Shapely
+  to Rust is not on the critical path; GEOS is already C-fast.
+- **The IR emitter** (`build_floor_ir`) — a Python pipeline of stage
+  functions that walks the `Level` model and emits ops in layer
+  order. Each stage is small and pickle-free; the heavy lifting it
+  delegates is either (a) Shapely (unchanged) or (b) Rust crate
+  primitive emission (when a stage simply needs a list of `(x, y,
+  seed)` to feed to Rust later).
+
+### PyO3 bindings (`ffi/pyo3.rs`)
+
+Exposed as a Python module `nhc_render` (built and shipped as part
+of the Python package). API surface:
+
+```python
+import nhc_render
+
+# Rasterise a FlatBuffers IR buffer to PNG bytes.
+png_bytes = nhc_render.ir_to_png(ir_bytes, scale=1.0)
+
+# Replay an IR buffer through the Rust SVG transformer (parity test).
+svg_str = nhc_render.ir_to_svg(ir_bytes)
+
+# Standalone primitive primitives (used during the migration as the
+# Python emitter migrates each layer one at a time):
+nhc_render.draw_floor_grid(out_buf, region_polygon, seed, theme)
+nhc_render.draw_hatch(out_buf, region_polygon, region_out_polygon,
+                      seed, extent_tiles, stride)
+# … etc, one per primitive
+```
+
+Wheels built via `maturin` for the two supported platforms:
+**linux x86_64** (production server) and **macOS arm64** (Apple
+Silicon dev). Linux aarch64 (single-board ARM) and macOS x86_64
+(Intel Macs) and Windows can wait until somebody asks; the build
+matrix and Cargo features are structured so adding a target is one
+config-line change.
+
+### WASM bindings (`ffi/wasm.rs`)
+
+Exposed via `wasm-bindgen` and packaged with `wasm-pack` as
+`nhc_render_wasm` (npm-installable, vendored into
+`nhc/web/static/wasm/`). API surface:
+
+```js
+import init, { renderIRToCanvas, renderIRToCommands } from
+  "/static/wasm/nhc_render_wasm.js";
+
+await init();   // one-time WASM module load
+
+// Direct path: pass the FB buffer + a Canvas2D context. Rust drives
+// the canvas via the canvas2d command stream and JS is a thin
+// dispatcher.
+renderIRToCanvas(irBuffer, canvasCtx, hatchPattern);
+
+// Alternate path: get the command stream as a typed array, replay in
+// JS at this turn or buffer for later.
+const cmds = renderIRToCommands(irBuffer);
+replay(cmds, canvasCtx, hatchPattern);
+```
+
+The JS shim (~50 lines in `floor_ir_renderer.js`) translates command
+opcodes into Canvas2D calls; everything else is in Rust.
+
+## 9. Three transformer paths
+
+### 9.1 IR → SVG (Python, cold path)
+
+Lives at `nhc/rendering/ir_to_svg.py`. Iterates ops, calls per-op
+`_draw_*_from_ir` helpers that string-build SVG fragments. Used for:
+
+- `/admin` debug visualisation.
+- Test parity gates (every other transformer is checked against
+  the Python SVG output during migration).
+- Export endpoints (`/api/game/<sid>/export/map_svg`).
+- Eventually, a Rust port (`transform/svg.rs`) replaces the Python
+  one as the parity gates close. Until then, the Python emitter is
+  the legacy path that the new code must match.
+
+This transformer must remain Python-only for the duration of the
+migration; it's the reference implementation we diff against.
+
+### 9.2 IR → PNG (Rust via PyO3, server path)
+
+`nhc_render.ir_to_png(ir_bytes, scale)` returns PNG bytes. Used for:
+
+- Cached raster fallback for clients that can't render WASM.
+- Image-mode LLM tools that consume PNG.
+- Share-a-map endpoints.
+
+Two sub-phases:
+
+1. **Stepping stone (no Rust required yet):** `ir_to_svg` →
+   `resvg-py` → PNG. Adds ~5 ms per render, ~28 MB transient memory
+   for an 80×60 floor at 1× scale. Lets us ship PNG
+   delivery before the Rust crate is mature.
+2. **Long-term:** `nhc_render.ir_to_png` direct, no SVG intermediate.
+   `tiny-skia` rasteriser on a `Pixmap`, ~2 ms typical, ~6 MB
+   transient.
+
+### 9.3 IR → Canvas (Rust via WASM, client path)
+
+`renderIRToCanvas(irBuffer, ctx, hatchPattern)` is the gameplay hot
+path. The canvas overlay layers (door / hatch / fog / entity — see
+`design/canvas_rendering.md`) are unchanged; only the floor layer
+moves from "inline an SVG" to "paint via WASM."
+
+Template change: `<div id="floor-svg">` → `<canvas
+id="floor-canvas">`. `map.js`: `setFloorSVG` → `setFloorIR`. No other
+JS layer changes.
+
+## 10. Determinism contract
+
+The promise the IR makes: **the same FB buffer rendered through any
+of the three transformers produces visually identical output.** The
+contract that makes this hold:
+
+1. **Shared procedural source.** Every primitive lives once, in Rust.
+   The Python `ir_to_svg` calls into Rust through PyO3 for procedural
+   primitives (post-migration); the WASM transformer calls the same
+   Rust functions; the PNG transformer calls the same Rust functions.
+   There is no parallel Python or JS implementation.
+2. **PRNG**: `splitmix64`, with all op seeds derived from `base_seed +
+   per-op-salt`. Salts are constants in `crates/nhc-render/src/rng.rs`
+   and listed in §7.
+3. **Perlin**: ported once with checked-in fixture vectors. The
+   parity gate is in `tests/fixtures/perlin/`; both the Python emitter
+   side (which feeds Perlin-dependent silhouette geometry into the IR)
+   and the Rust primitive side use the same impl.
+4. **Op call sequence**: each op's `paint` function calls the RNG /
+   Perlin in a specific order. That order is fixed by the Rust
+   reference and documented in `design/ir_primitives.md`. There are
+   no parallel implementations to drift.
+5. **Float reproducibility**: Rust uses `f32` for procedural geometry
+   (matches SVG floating-point precision) and `f64` only for
+   structural Shapely-derived coordinates. PNG and Canvas use the
+   same fp pipeline so anti-aliasing is identical to the cell.
+
+This is a **strictly stronger guarantee than the previous design.**
+The earlier doc carried the "Python and JS must match bit-for-bit"
+parity worry as a top-3 risk; under the canonical-Rust architecture,
+that class of bug is structurally impossible.
+
+## 11. Endpoint surface
+
+```
+GET /api/game/<sid>/floor/<svg_id>.svg       # legacy, IR→SVG via Python
+GET /api/game/<sid>/floor/<svg_id>.nir       # FlatBuffers IR (binary)
+GET /api/game/<sid>/floor/<svg_id>.png       # IR→PNG via Rust+tiny-skia
+GET /api/game/<sid>/floor/<svg_id>.json      # IR dumped as JSON (debug)
+GET /api/hatch.svg                            # unchanged, shared session asset
+```
+
+The web client switches from `.svg` to `.nir`. The `.png` route
+serves clients that don't run WASM (image-only LLM tools, share-map
+links). The `.svg` route stays available for parity tests, exports,
+and admin debug. The `.json` route is god-mode-gated and lets humans
+read what the IR contains.
+
+## 12. Phased plan
+
+The migration is now eight phases, but the early phases are cheap and
+unlock the rest. **Phases 0 – 3 can run in parallel with feature
+work; the IR → Canvas cutover is the only phase that touches the
+gameplay hot path.**
+
+### Phase 0 — Preparatory (no gameplay change)
+
+- Confirm gzip on the Flask floor endpoint (zero-cost win).
+- Stand up the FB schema file at `nhc/rendering/ir/floor_ir.fbs`,
+  generate Python + Rust + TS bindings.
+- Stand up parity-fixture infrastructure: a `tests/fixtures/floor_ir/`
+  tree with golden FB buffers + JSON dumps for a small set of
+  canonical levels.
+- Stand up the Rust crate skeleton (`crates/nhc-render/`) with no
+  primitives yet — just the FB-generated IR, splitmix64 RNG,
+  PyO3-wheel build, and a CI matrix for {linux x86_64, macos arm64}.
+- Drop in `resvg-py` as the PNG rasterizer for the stepping-stone
+  PNG endpoint. Doesn't need any Rust code yet.
+
+### Phase 1 — IR emitter behind the existing signature
+
+`render_floor_svg(level, seed, hatch_distance, …) -> str` keeps its
+public shape. Internals:
+
+```python
+def render_floor_svg(level, seed=0, hatch_distance=2.0, …) -> str:
+    ir = build_floor_ir(level, seed, hatch_distance, …)
+    return ir_to_svg(ir)   # Python implementation
+```
+
+Each existing `_render_*` paint helper grows a sibling `_emit_*_ir`
+that appends ops; the legacy SVG string-building moves into
+`_draw_*_from_ir` dispatched by `ir_to_svg`. Zero behaviour change.
+
+**Gate:** byte-equal SVG between `render_floor_svg` (legacy path)
+and `ir_to_svg(build_floor_ir(...))` on every fixture in
+`tests/fixtures/floor_ir/`.
+
+### Phase 2 — `.nir` and `.json` endpoints + IR cache
+
+Expose `/api/game/<sid>/floor/<id>.nir` and `.json`. Extend
+`save_svg_cache` to cache IR buffers alongside SVG. No client change
+yet — these endpoints are observable but not consumed.
+
+**Gate:** all three serialised forms (.svg, .nir, .json) round-trip
+to byte-equal SVG.
+
+### Phase 3 — First primitive in Rust
+
+Pick one self-contained primitive — `floor_grid` is a good first
+target (small, no Shapely dependency, exercises Perlin) — and port
+it to Rust. The Python emitter calls `nhc_render.draw_floor_grid(...)`
+via PyO3 instead of doing the work in Python. PNG rasterisation
+still uses `resvg-py`; Canvas doesn't exist yet.
+
+**Gate:** for every fixture, the Python emitter with the Rust
+primitive substituted produces byte-equal SVG to the legacy emitter.
+This proves the splitmix64 RNG and Perlin port match the Python
+reference.
+
+This is the highest-risk phase from a determinism standpoint, so
+Phase 3 ships **one** primitive. Once it's green, subsequent
+primitives follow the same pattern with much lower risk.
+
+### Phase 4 — Procedural primitives migrated to Rust
+
+Iteratively port the rest of the procedural ops in §7 to Rust.
+After each op moves, the Python emitter delegates that op's drawing
+to Rust. The op order can prioritise highest-CPU primitives first
+(hatch, floor_detail) to maximise the per-phase win.
+
+**Gate (per op):** byte-equal SVG fixture parity. Once all are
+green, the Python `_draw_*_from_ir` functions become wrappers around
+Rust calls and can be deleted.
+
+### Phase 5 — IR → PNG via `tiny-skia` (Rust direct)
+
+`nhc_render.ir_to_png(ir_bytes, scale)` replaces the
+`resvg-py`-via-SVG path. Faster, smaller transient memory. The PNG
+endpoint switches over silently.
+
+**Gate:** PNG-vs-PNG diff under `pixelmatch`-equivalent ≤ 0.5 %
+against the `resvg-py` baseline.
+
+### Phase 6 — IR → Canvas via WASM
+
+Build the WASM bundle. Ship `floor_ir_renderer.js` (~50 lines that
+load the WASM module and dispatch canvas2d commands).
+`map.js`: `setFloorSVG` → `setFloorIR`. The other canvas overlays are
+untouched. The server stops emitting `<g>...</g>` strings on the
+gameplay path because the client now requests `.nir` instead of
+`.svg`.
+
+**Gate:** rasterised Canvas output (headless Chromium on the same
+fixtures) matches Python `ir_to_svg` rasterised via `resvg-py`,
+pixel-diff ≤ 0.5 %. Server CPU on a canonical floor: expect ≥ 40 %
+drop vs Phase 0 baseline.
+
+### Phase 7 — Deprecate legacy Python procedural code
+
+With Phases 4 + 6 complete, every procedural primitive lives in
+Rust. The Python `_render_*` paint helpers are now dead weight; they
+get deleted. The IR emitter (`build_floor_ir`) and Shapely-driven
+geometry stay in Python.
+
+A ruff lint rule banning `import random` in `nhc/rendering/` makes
+RNG-drift regressions impossible.
+
+## 13. Critical files
+
+### Existing — modified
+
+- `nhc/rendering/svg.py` — `render_floor_svg` becomes
+  `ir = build_floor_ir(level, ...); return ir_to_svg(ir)`.
+- `nhc/rendering/_render_context.py` — emits `RenderContext` flags
+  into the IR `FeatureFlags` table.
+- `nhc/rendering/_floor_layers.py` — each `*_paint` helper grows an
+  `*_emit_ir` sibling; over Phases 1–4, paint helpers become
+  thin shims that consume IR ops produced by the emit siblings.
+- `nhc/web/app.py` — adds `.nir`, `.png`, `.json` floor routes;
+  extends `save_svg_cache`.
+- `nhc/web/templates/play.html` — Phase 6: `<div id="floor-svg">` →
+  `<canvas id="floor-canvas">`.
+- `nhc/web/static/js/map.js` — Phase 6: `setFloorSVG` → `setFloorIR`.
+
+### New — Python
+
+- `nhc/rendering/ir/floor_ir.fbs` — FlatBuffers schema.
+- `nhc/rendering/ir/__init__.py` — re-exports the generated bindings.
+- `nhc/rendering/ir/dump.py` — IR → canonical-JSON dumper.
+- `nhc/rendering/ir_emitter.py` — `build_floor_ir(level, …) -> bytes`
+  pipeline of stage functions, one per layer.
+- `nhc/rendering/ir_to_svg.py` — Phase-1 reference implementation;
+  becomes a thin wrapper around `nhc_render.ir_to_svg` once
+  `transform/svg.rs` lands.
+
+### New — Rust
+
+- `crates/nhc-render/Cargo.toml` — crate definition with `pyo3` and
+  `wasm` feature gates.
+- `crates/nhc-render/src/*` — see §8 module layout.
+- `pyproject.toml` — `[tool.maturin]` build config.
+- `crates/nhc-render-wasm/` — thin wrapper crate that reuses
+  `nhc-render` with the `wasm` feature; produced as
+  `wasm-pack build --target web`.
+- `nhc/web/static/wasm/nhc_render_wasm{.js,_bg.wasm}` — vendored
+  WASM artifact.
+- `nhc/web/static/js/floor_ir_renderer.js` — JS shim that loads WASM
+  and dispatches canvas2d commands.
+
+### New — design
+
+- `design/ir_primitives.md` — normative per-op spec: FlatBuffers
+  shape, RNG-call sequence, parameters, reference implementation
+  path. Generated from the `.fbs` schema plus per-op notes; used as
+  the determinism reference.
+
+## 14. Testing (strict TDD)
+
+1. **`tests/unit/test_floor_ir.py`** — golden IR tests. For fixed
+   `(level, seed)`, assert `build_floor_ir(...)` matches a
+   committed FB buffer + JSON dump under `tests/fixtures/floor_ir/`.
+2. **`tests/unit/test_ir_to_svg.py`** — byte-equal parity (Phase 1+).
+   `ir_to_svg(ir) == render_floor_svg_legacy(...)`. Survives every
+   later phase as the guardrail.
+3. **`tests/unit/test_ir_rng.py`** — splitmix64 vectors and Perlin
+   vectors checked across Python and Rust (via PyO3) and JS
+   (via WASM headless harness).
+4. **`tests/unit/test_ir_canvas_parity.py`** (`slow`, Phase 6) —
+   rasterise IR via `nhc_render.ir_to_png` and via headless Chromium
+   running the WASM Canvas renderer; pixel-diff ≤ 0.5 %.
+5. **`tests/unit/test_ir_png_parity.py`** (`slow`, Phase 5) —
+   `tiny-skia` PNG vs `resvg-py` PNG, pixel-diff ≤ 0.5 %.
+6. **`tests/unit/test_ir_perf.py`** (`slow`) — p95 budgets on
+   `build_floor_ir`, `ir_to_svg`, `ir_to_png`, WASM Canvas paint.
+7. **`tests/samples/generate_svg.py`** — extend to emit
+   `.svg`, `.nir`, `.json`, `.png` per fixture so visual inspection
+   is one-stop.
+
+WASM tests run via headless Chromium under pytest-playwright (or a
+Node harness) so CI enforces parity without a live browser.
+
+## 15. MCP debug tool interaction
+
+Existing `get_svg_room_walls`, `get_svg_tile_elements` MCP tools
+return SVG fragments. The IR exposes parallel tools that return op
+slices and region polygons:
+
+- `get_ir_region(region_id)` — region polygon + shape tag
+- `get_ir_ops(op_kind=None)` — filtered op list with parameters
+- `get_ir_buffer()` — full FB buffer + JSON dump for offline analysis
+- `get_ir_diff(prev_buf, curr_buf)` — high-level structural diff
+  (which regions changed, which ops added / removed) for debugging
+  IR emission regressions
+
+These land alongside the existing SVG tools in Phase 2. The SVG
+tools stay available for backwards compatibility but are documented
+as cold-path-only post-Phase-7.
+
+## 16. Risks
+
+| Risk | Mitigation |
+|---|---|
+| **WASM bundle size on first load.** Untrimmed Rust WASM can hit 2–3 MB; that's a lot for a roguelike. | `wasm-opt -Oz`, `wasm-snip` to drop unused panic infra, `wee_alloc` instead of default allocator. Target 200–400 KB gzipped. Cached after first load. |
+| **Cross-platform wheel discipline.** Two targets today (linux x86_64 → manylinux_2_34, macOS arm64); easy for a wheel build to silently regress on one. | `cibuildwheel` runs both targets on every PR; smoke import test on each. Tagged releases cut wheels for both. The Docker base is `python:3.14-slim` (Debian bookworm, glibc 2.36) so manylinux_2_34 is the floor. |
+| **`tiny-skia` feature gaps.** No SVG filter primitives, no shadow blur. | Our SVG decoration uses none of these (shadow is alpha rect, not Gaussian blur). Anti-aliased lines + filled polygons + gradients are all `tiny-skia` natives. |
+| **PyO3 ABI breakage between Python versions.** | Build wheels for the supported Python versions (3.10–3.13 currently); `pyo3` abi3 mode pins one wheel per platform. |
+| **WASM↔JS bridge overhead.** Each function call has FFI cost. | Use the canvas2d-command-stream design: one WASM call per render produces a typed-array of commands; JS replays in a tight loop. No per-primitive WASM↔JS hop. |
+| **FlatBuffers schema evolution discipline.** Easy to break compat by reordering fields. | Schema review checklist; minor bumps go through additive-only review; major bumps require both transformers updated in lockstep. |
+| **Determinism regression during Phase 4 migration.** Each op's port could reintroduce a subtle RNG-call-order drift. | Per-op SVG byte-equal parity gate; lint rule banning `random.Random` in `nhc/rendering/` post-migration. |
+| **Disk cache invalidation on schema bumps.** | Cache key includes `(major, minor)`. |
+| **Maturin / wasm-pack build complexity** for contributors. | `make rust-build` and `make wasm-build` Makefile targets; CI handles the matrix; document local setup in `CONTRIBUTING.md`. |
+
+## 17. Success metrics
+
+- **SVG path (Phases 1–4):** IR→SVG byte-equal to legacy
+  `render_floor_svg` on every fixture.
+- **IR wire size (Phase 2):** p95 `floor.nir` < 12 KB raw, < 4 KB
+  gzipped.
+- **PNG path (Phase 5):** server p95 ≤ 12 ms per floor at 1× scale
+  on the deployment target (Intel Broadwell i5-5250U class, 2c/4t,
+  AVX2, 15 GiB RAM); ≤ 60 ms at 2×. A datacenter-class CPU would
+  comfortably halve those numbers — recalibrate if the server is
+  ever upgraded.
+- **Canvas path (Phase 6):** first-paint < 50 ms on a 2020-era laptop
+  (Apple Silicon dev or comparable x86_64).
+- **Server CPU (Phase 6):** per-floor render time on the gameplay
+  hot path drops ≥ 40 % vs Phase 0 baseline (no decoration string
+  emission).
+- **WASM bundle:** < 400 KB gzipped after `wasm-opt -Oz`.
+
+## 18. Extensibility patterns
+
+(Carried over from the prior design — the IR is meant to absorb
+world-expansion primitives without forcing rewrites.)
+
+### Adding a new op
+
+1. **Spec first.** Append a section to `design/ir_primitives.md` —
+   FlatBuffers shape, determinism contract, reference implementation
+   path. PR doesn't land without the spec.
+2. **Schema entry.** Add a new variant to the `Op` union and a new
+   table in `floor_ir.fbs`. Bump minor version.
+3. **Rust primitive.** Implement in `crates/nhc-render/src/primitives/
+   <name>.rs`. Reuse `rng.rs` and `perlin.rs`.
+4. **Python emitter.** Add `_emit_<name>_ir` in the relevant helper
+   module; wire into the `IR_STAGES` pipeline.
+5. **Tests.** Golden IR fixture + SVG byte-equal parity (via Python
+   `_draw_*_from_ir` calling Rust) + PNG parity + Canvas parity.
+
+### Adding a new theme
+
+Themes travel as a string parameter on relevant ops. To add one:
+
+1. Add entry to `_DETAIL_SCALE` and `_THEMATIC_DETAIL_PROBS`
+   (Python emitter tables) and to the matching Rust tables in
+   `primitives/floor_grid.rs`, `primitives/floor_detail.rs`.
+2. Add palette entry to `terrain_palette.py`.
+3. Add fixtures for the new theme × representative shape.
+4. Bump minor version.
+
+Renderers treat unknown themes as `"dungeon"` (default fallback).
 
 ### Adding a new room shape
 
-Room shapes live in `_room_outlines.py` today. To add a new shape (e.g.
-`PentagonShape`):
-
-1. Add the shape class to `nhc/dungeon/model.py`.
-2. Add `_pentagon_vertices` to `_room_outlines.py` and dispatch in
-   `_room_svg_outline`.
-3. The IR emitter automatically produces the new shape's polygon as a
-   `region`; no IR schema change.
-4. The `walls_floors` op handles it via the existing `room_regions`
-   dispatch.
-5. Canvas renderer: if the polygon comes through correctly (it will, since
-   it is just coordinates), no JS change needed.
-
-This is the cleanest extension path — new shapes need *zero* IR schema
-changes because shape is encoded as a polygon in `regions`.
+Shapes encode as polygons in the IR `regions` table — adding a shape
+is **zero-IR-schema-change**. The new shape's vertex generator goes
+in `_room_outlines.py`; the IR emitter automatically bakes the
+polygon coordinates.
 
 ### Hook points in the emitter
 
-`ir_emitter.build_floor_ir()` should be structured as a pipeline of stage
-functions so world-expansion phases can inject new stages:
+`build_floor_ir(level, seed, ...)` is a pipeline:
 
 ```python
-def build_floor_ir(level, seed, hatch_distance):
-    ir = FloorIR(version="1.0", ...)
+def build_floor_ir(level, seed, ...):
+    builder = FloorIRBuilder(level, seed, ...)
     for stage in IR_STAGES:
-        stage(ir, level, seed)
-    return ir
+        stage(builder)
+    return builder.finish()    # returns FB bytes
 
 IR_STAGES = [
-    _emit_regions,        # polygons
-    _emit_shadows,
-    _emit_hatch,
-    _emit_walls_floors,
-    _emit_terrain_tint,
-    _emit_floor_grid,
-    _emit_floor_detail,
-    _emit_thematic_detail,
-    _emit_terrain_detail,
-    _emit_cobblestone,
-    _emit_stairs,
+    emit_regions,
+    emit_shadows,
+    emit_hatch,
+    emit_walls_and_floors,
+    emit_terrain_tints,
+    emit_floor_grid,
+    emit_floor_detail,        # includes thematic, cobblestone, wood, garden, field, cart_tracks, ore_deposits
+    emit_terrain_detail,
+    emit_stairs,
+    emit_surface_features,    # wells, fountains, trees, bushes
 ]
 ```
 
-World-expansion adds new stages by appending (or inserting at the correct
-layer index) in its own PR. Order is preserved for byte-equal parity;
-inserting out of order needs a layer-ordering update and new fixtures.
+World-expansion phases append new stages in their own PRs; layer
+ordering is preserved.
 
 ### Theme-specific variants on existing ops
 
-Some primitives may gain theme-specific rendering (e.g. "altar" rooms get a
-pentagram floor overlay in abyss-theme only). Preferred approach:
-
-- **If shape is the same but parameters differ**, extend the existing op
-  with optional theme-keyed fields. E.g. `{"op": "floor_detail", ...,
-  "overlay": "pentagram"}`.
-- **If it is structurally different**, add a new op (e.g. `{"op":
-  "altar_overlay", "region": "room_9", "pattern": "pentagram"}`).
-
-Prefer new ops over overloaded existing ones when in doubt — determinism
-contracts are harder to preserve on overloaded ops.
+Prefer **new ops** over overloaded existing ones. If the new
+behaviour is structurally distinct (different geometry, different
+RNG sequence), give it its own table. Reserve theme-keyed parameter
+overloading for cosmetic differences (color, scale).
 
 ### Deprecation
 
-To remove an op (e.g. world-expansion replaces `cobblestone` with a richer
-`street` op):
+To remove an op:
 
-1. Add the new op in version `1.x`.
-2. Emitter produces both for one release cycle.
-3. Transformers accept both but log deprecation for the old op.
-4. Remove the old op and bump major version.
-5. Regenerate all fixtures.
+1. Add the replacement op in version `1.x`. Emitter produces both
+   for one release cycle.
+2. Transformers accept both but log deprecation for the old op.
+3. Remove the old op and bump major version.
+4. Regenerate all fixtures.
 
-## 11. Open questions at implementation time
+## 19. Open questions
 
-- Whether to ship Phase 4 (server IR→PNG) at all — likely driven by a future
-  share-a-map / archival feature request, not built speculatively.
-- Whether `ir_to_svg` on the cold path should offer a lossy fast mode for
-  admin debug (skip decoration for faster rendering when humans just need
-  structural view).
-- Fixture granularity: one IR fixture per room shape × theme × seed, or one
-  per shape × theme? Current guess: shape × theme (≈45 fixtures); expand if
-  debugging demands it.
+- **Is `tiny-skia` enough or do we need `skia-safe`?** `tiny-skia` is
+  ~500 KB compiled, has no system deps, and covers our needs (lines,
+  filled polygons, anti-aliasing, gradients, image patterns).
+  `skia-safe` is heavier and links against the full Skia C++ engine.
+  Default to `tiny-skia` until a primitive demands a feature it
+  lacks.
+- **Should IR cover hex / overland?** Out of scope for this design.
+  If hex rendering ever wants the same canonical-Rust treatment, it
+  gets its own IR file (`hex_ir.fbs`) and a separate transformer
+  pipeline. The crate's RNG / Perlin / tiny-skia infrastructure is
+  reusable.
+- **Do we want a "lossy fast mode" on the cold-path SVG?** Skip
+  decoration entirely for `/admin` debug views when humans just need
+  the structural skeleton. Probably yes — a `?bare=1` query param
+  toggles it.
+- **Fixture granularity.** One fixture per shape × theme × seed, or
+  one per shape × theme? Current guess: shape × theme (~45
+  fixtures). Expand if debugging demands.
+- **Browser support floor.** WASM + canvas2d is universal across
+  modern browsers; do we drop IE11? (Yes.) Do we need a non-WASM
+  fallback for ancient Android WebView? (Probably ship the PNG
+  endpoint as the universal fallback and call it good.)
+
+## Cross-references
+
+- `design/canvas_rendering.md` — canvas overlay layers (door / hatch
+  / fog / entity) that compose **above** the floor IR; unchanged by
+  this design.
+- `design/web_client.md` — endpoint surface, gunicorn / gevent
+  concurrency model; new endpoints listed in §11.
+- `design/debug_tools.md` — MCP debug tool surface; new IR-aware
+  tools listed in §15.
+- `design/views.md` — view dispatch; out of scope (the IR is
+  rendered the same regardless of which view contains the canvas).
+- `design/sites.md`, `design/biome_features.md`,
+  `design/dungeon_generator.md`, `design/building_generator.md` —
+  geometry producers; their `Level` outputs feed `build_floor_ir`
+  unchanged.
+- `plans/nhc_ir_migration_plan.md` — preparatory + per-phase TODO
+  list to converge the codebase on this design.

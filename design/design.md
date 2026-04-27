@@ -32,7 +32,7 @@ nhc/
 +-- nhc.py                       # Terminal CLI entry point
 +-- nhc_web.py                   # Web server entry point
 +-- play / server                # Bash launchers (auto-venv)
-+-- Dockerfile                   # Python 3.12-slim container
++-- Dockerfile                   # Python 3.14-slim container
 +-- docker-compose.yml           # nhc + Caddy + DuckDNS
 +-- nhc/
 |   +-- config.py                # 3-tier config (defaults -> ~/.nhcrc -> CLI)
@@ -514,7 +514,7 @@ The admin HTML page provides session monitoring, player management
 
 The production deployment uses Docker Compose with three services:
 
-- **nhc** -- Python 3.12-slim container running gunicorn with gevent
+- **nhc** -- Python 3.14-slim container running gunicorn with gthread
   worker, single worker process, exposed on port 8080
 - **caddy** -- reverse proxy with automatic TLS via Let's Encrypt
 - **duckdns** -- dynamic DNS updater for the public hostname
@@ -527,8 +527,8 @@ Data persists in a `/var/nhc` volume (autosaves, player registry).
 - `NHC_MAX_SESSIONS` -- concurrent session cap (default 8)
 - `NHC_GEN_WORKERS` -- size of the dungeon generation pool
   (default 4 in the Dockerfile and systemd unit, targeting a
-  quad-core SBC; overridable via `docker run --env`, compose
-  environment, or the systemd override file)
+  quad-core x86_64 server; overridable via `docker run --env`,
+  compose environment, or the systemd override file)
 - `NHC_DATA_DIR` -- persistent data directory (default `/var/nhc`)
 - `NHC_EXTERNAL_URL` -- public URL for link generation
 - `DUCKDNS_SUBDOMAIN`, `DUCKDNS_TOKEN` -- dynamic DNS credentials

@@ -233,6 +233,26 @@ explored area, door positions, room and corridor metadata.
 given tile position: floor_fill, wall_segment, shadow, hatch_line,
 and other element types.
 
+### IR Query (tools/ir_query.py — Phase 2 of `design/map_ir.md`)
+
+These tools land alongside the existing SVG ones once the
+FlatBuffers IR is wired in. The SVG tools stay available for
+backwards compatibility but become cold-path-only after the IR
+cutover.
+
+**get_ir_region** -- Returns a region polygon + shape tag for a
+given region id (e.g. `dungeon`, `cave_0`, `room_3`).
+
+**get_ir_ops** -- Returns the op vector with optional filtering by
+op kind (e.g. `hatch`, `floor_detail`, `tree_feature`).
+
+**get_ir_buffer** -- Returns the full FlatBuffers buffer + a
+canonicalised JSON dump for offline analysis.
+
+**get_ir_diff** -- High-level structural diff between two IR
+buffers: which regions changed, which ops were added or removed.
+Useful for catching regressions in IR emission.
+
 ### Autosave Diagnostics (tools/autosave.py)
 
 **get_autosave_info** -- Autosave state diagnostics: seed, turn,

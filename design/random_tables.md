@@ -34,7 +34,7 @@ The subsystem has five capabilities:
   future move to Jinja is a one-file swap plus a mechanical YAML rewrite (§6.5).
 - **Strict TDD.** Every milestone is red-green-refactor; one commit per
   milestone. See §11.
-- **Python 3.10+.** Consistent with the rest of the codebase. The subsystem
+- **Python 3.14+.** Consistent with the rest of the codebase. The subsystem
   uses modern typing (`|` unions, `list[T]`, `dict[K, V]`), dataclasses with
   `match` where appropriate, and decorators for handler registration. No new
   runtime dependencies — `pyyaml` (already present) is the only non-stdlib

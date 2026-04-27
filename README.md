@@ -1,7 +1,7 @@
 # NHC -- Nethack-like Crawler
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-yellow.svg)](https://www.python.org/)
+[![Python 3.14+](https://img.shields.io/badge/Python-3.14%2B-yellow.svg)](https://www.python.org/)
 
 A roguelike dungeon crawler built on the
 [Knave](https://www.drivethrurpg.com/product/250888/Knave) TTRPG ruleset,
@@ -37,7 +37,7 @@ in natural language and an AI Game Master interprets and narrates the results.
 
 ### Prerequisites
 
-- Python 3.10 or newer
+- Python 3.14 or newer
 - (Optional) An LLM backend for typed gameplay mode:
   [Ollama](https://ollama.ai/), MLX, or an Anthropic API key
 
@@ -189,7 +189,7 @@ sudo ./deploy/setup.sh --update   # rebuild image + restart
 
 The script:
 
-1. Builds the Docker image (`nhc-web`: Python 3.12-slim, gunicorn + gevent)
+1. Builds the Docker image (`nhc-web`: Python 3.14-slim, gunicorn + gthread)
 2. Creates the data directory (`/var/nhc`) for persistent saves
 3. Prompts for configuration (auth token, max sessions, optional DuckDNS)
 4. Installs the systemd unit (`deploy/nhc.service`)
