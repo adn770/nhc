@@ -24,13 +24,15 @@ Each handler returns a list of SVG element-line strings that are
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable
 
+from nhc.rendering._cave_geometry import _smooth_closed_path
 from nhc.rendering._svg_helpers import BG, CELL, INK
 from nhc.rendering.ir._fb import Op, ShadowKind
 from nhc.rendering.ir._fb.FloorIR import FloorIR
 from nhc.rendering.ir._fb.Op import OpCreator
 from nhc.rendering.ir._fb.OpEntry import OpEntry
+from nhc.rendering.ir._fb.Region import Region
 
 
 # Maps Op union tag → handler. Layer commits 1.b–1.j each register
@@ -130,14 +132,12 @@ def _dispatch_ops(
 def _draw_shadow_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
     """Reproduce ``_render_room_shadows`` / ``_render_corridor_shadows``.
 
-    1.b.1 lands the Corridor branch; 1.b.2 fills in the Room branch
-    once ``emit_regions`` registers per-room polygons. The schema's
-    ``dx`` / ``dy`` / ``opacity`` defaults (3.0 / 3.0 / 0.08) match
-    the legacy hard-coded constants — the handler ignores the FB
-    fields and uses literals instead, both to dodge the float32
-    round-trip on 0.08 (which would surface as
-    "0.07999999821186066") and to keep parity formatting integer
-    where the legacy renderer's int arithmetic produced integers.
+    The schema's ``dx`` / ``dy`` / ``opacity`` defaults
+    (3.0 / 3.0 / 0.08) match the legacy hard-coded constants — the
+    handler ignores the FB fields and uses literals instead, both
+    to dodge the float32 round-trip on 0.08 (which would surface as
+    "0.07999999821186066") and to keep integer formatting where the
+    legacy renderer's int arithmetic produced integers.
     """
     op = OpCreator(entry.OpType(), entry.Op())
     kind = op.kind
@@ -153,11 +153,94 @@ def _draw_shadow_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
             )
         return out
     if kind == ShadowKind.ShadowKind.Room:
-        raise NotImplementedError(
-            "Room shadows ship in Phase 1.b.2 — extend "
-            "_draw_shadow_from_ir's Room branch then"
-        )
+        return [_draw_room_shadow(op, fir)]
     raise ValueError(f"unknown ShadowKind: {kind}")
+
+
+def _draw_room_shadow(op: Any, fir: FloorIR) -> str:  # type: ignore[name-defined]
+    """Reproduce ``_shadows._room_shadow_svg`` from the IR.
+
+    Dispatches on the referenced region's ``shape_tag`` so the
+    output matches the legacy element form for each supported
+    shape: rect / octagon / cave (plus the cave→rect fallback that
+    :func:`nhc.rendering.ir_emitter._room_region_data` collapses
+    into ``shape_tag == "rect"``).
+    """
+    region = _find_region(fir, op.regionRef)
+    if region is None:
+        raise ValueError(
+            f"ShadowOp(Room) references unknown region "
+            f"{op.regionRef!r}; emit_regions must register one"
+        )
+    shape_tag = region.ShapeTag()
+    coords = _polygon_paths_to_coords(region.Polygon())
+
+    if shape_tag == b"rect":
+        # Rect form bakes the +3 offset into x / y. Coords are
+        # integer-valued (CELL × tile-int) so int() formats cleanly.
+        xs = [int(x) for x, _ in coords]
+        ys = [int(y) for _, y in coords]
+        px, py = min(xs) + 3, min(ys) + 3
+        pw = max(xs) - min(xs)
+        ph = max(ys) - min(ys)
+        return (
+            f'<rect x="{px}" y="{py}" '
+            f'width="{pw}" height="{ph}" '
+            f'fill="{INK}" opacity="0.08"/>'
+        )
+
+    if shape_tag == b"octagon":
+        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+        outline = f'<polygon points="{points}"/>'
+        return _wrap_outline(outline)
+
+    if shape_tag == b"cave":
+        outline = _smooth_closed_path(coords)
+        return _wrap_outline(outline)
+
+    raise NotImplementedError(
+        f"Room shadow handler for shape_tag {shape_tag!r} not "
+        "implemented; the starter fixtures only exercise rect / "
+        "octagon / cave"
+    )
+
+
+def _wrap_outline(outline: str) -> str:
+    """Mirror ``_shadows._room_shadow_svg`` wrap: inject fill +
+    opacity on the outline element, then translate by (3, 3)."""
+    el = outline.replace("/>", f' fill="{INK}" opacity="0.08"/>')
+    return f'<g transform="translate(3,3)">{el}</g>'
+
+
+def _find_region(fir: FloorIR, region_ref: bytes) -> Region | None:
+    """Linear scan of regions[] by id.
+
+    Cheap for the starter fixtures (~20 regions × ~20 room ops per
+    parity test). Revisit with a regions-by-id dict if a fixture
+    grows past a couple hundred regions and the lookup shows up in
+    the fast-suite timing budget.
+    """
+    for j in range(fir.RegionsLength()):
+        region = fir.Regions(j)
+        if region.Id() == region_ref:
+            return region
+    return None
+
+
+def _polygon_paths_to_coords(polygon: Any) -> list[tuple[float, float]]:
+    """Flatten a single-ring FB Polygon into an (x, y) coord list.
+
+    The single-ring assumption matches every region the room shadow
+    handler resolves: ``_room_region_data`` builds rect / octagon /
+    cave polygons via ``_coords_to_polygon`` which always emits one
+    exterior ring with no holes. If a future commit registers
+    multi-ring room regions, this helper will need a rings-aware
+    counterpart.
+    """
+    return [
+        (polygon.Paths(i).X(), polygon.Paths(i).Y())
+        for i in range(polygon.PathsLength())
+    ]
 
 
 _OP_HANDLERS[Op.Op.ShadowOp] = _draw_shadow_from_ir

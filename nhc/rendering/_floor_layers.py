@@ -50,18 +50,43 @@ def _shadows_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_shadows_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the shadows layer.
 
-    Phase 1.b.1: emits one aggregated ``ShadowOp(kind=Corridor)``
-    carrying every CORRIDOR-surface tile and every door tile in
-    layer order. The single-op form keeps the IR small and matches
-    the legacy ``_render_corridor_shadows`` traversal order
-    (row-major y, x). Room shadows ship in 1.b.2.
+    Order matches the legacy ``_shadows_paint`` (room shadows first,
+    then corridor shadows) so ``layer_to_svg(buf, "shadows")``
+    streams op output in the same sequence as the legacy
+    ``_render_room_shadows`` + ``_render_corridor_shadows`` joined
+    output.
+
+    1.b.2 emits one ``ShadowOp(kind=Room, region_ref=room.id)`` per
+    room (the per-room region polygons come from
+    :func:`emit_regions`), then 1.b.1's aggregated
+    ``ShadowOp(kind=Corridor)`` carrying every CORRIDOR-surface tile
+    and door tile. Rooms whose shape isn't yet supported by
+    :func:`_room_region_data` get no region registered and are
+    silently skipped here too — the starter fixtures don't trigger
+    that path.
     """
     from nhc.rendering.ir._fb import Op, ShadowKind
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.ShadowOp import ShadowOpT
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
+    from nhc.rendering.ir_emitter import _room_region_data
 
     level = builder.ctx.level
+
+    # Room shadows — one op per room, in level.rooms order.
+    for room in level.rooms:
+        if _room_region_data(room) is None:
+            continue
+        op = ShadowOpT()
+        op.kind = ShadowKind.ShadowKind.Room
+        op.regionRef = room.id
+        entry = OpEntryT()
+        entry.opType = Op.Op.ShadowOp
+        entry.op = op
+        builder.add_op(entry)
+
+    # Corridor shadows — single aggregated op, row-major traversal
+    # to match the legacy double-loop append order.
     tiles: list[TileCoordT] = []
     for y in range(level.height):
         for x in range(level.width):

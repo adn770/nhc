@@ -26,11 +26,16 @@ from typing import Any, Callable
 
 import flatbuffers
 
-from nhc.rendering._cave_geometry import _build_cave_wall_geometry
+from nhc.dungeon.generators.cellular import CaveShape
+from nhc.dungeon.model import OctagonShape, RectShape
+from nhc.rendering._cave_geometry import (
+    _build_cave_wall_geometry, _trace_cave_boundary_coords,
+)
 from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
 from nhc.rendering._render_context import (
     RenderContext, build_render_context,
 )
+from nhc.rendering._room_outlines import _polygon_vertices
 from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
@@ -160,16 +165,97 @@ def _append_ring(poly: PolygonT, coords: Any, *, is_hole: bool) -> None:
     poly.rings.append(ring)
 
 
+def _coords_to_polygon(
+    coords: list[tuple[float, float]],
+) -> PolygonT:
+    """Pack an explicit coord list into a single-ring FB Polygon.
+
+    Used for room regions whose polygons come from non-Shapely
+    helpers (rect bbox, ``_polygon_vertices`` for octagons,
+    ``_trace_cave_boundary_coords`` for caves). The coord list must
+    not contain a closing duplicate — the cave-room handler in
+    ``ir_to_svg.py`` calls ``_smooth_closed_path`` directly on
+    ``polygon.paths`` and that helper modulo-indexes around the
+    ring; a duplicate first/last point would produce a phantom
+    Bézier segment with zero arc length.
+    """
+    poly = PolygonT()
+    poly.paths = []
+    poly.rings = []
+    _append_ring(poly, coords, is_hole=False)
+    return poly
+
+
+def _room_region_data(
+    room: Any,
+) -> tuple[list[tuple[float, float]], str] | None:
+    """Compute polygon coords + shape_tag for one room's region.
+
+    Mirrors the shape dispatch in
+    ``_room_outlines._room_svg_outline`` /
+    ``_shadows._room_shadow_svg`` so the IR-driven shadow handler
+    reproduces the legacy element form byte-for-byte:
+
+    - Rect rooms (and unsupported-shape fallbacks): polygon is the
+      4-vertex pixel-space bbox, shape_tag is ``"rect"``. The
+      shadow handler emits the simple ``<rect>`` form using the
+      bbox.
+    - Octagon rooms: polygon is the 8 vertices from
+      ``_polygon_vertices``, shape_tag is ``"octagon"``.
+    - Cave rooms with a valid boundary (≥ 4 traced coords):
+      polygon is the pre-smoothing tile-corner coords, shape_tag
+      is ``"cave"``. The handler runs ``_smooth_closed_path``.
+      Caves with degenerate boundaries fall back to ``"rect"`` so
+      the legacy ``_room_shadow_svg`` rect-fallback path matches.
+
+    Returns ``None`` only when the shape isn't yet supported by
+    1.b.2 — Pill / Temple / LShape / Cross / Hybrid / Circle. The
+    starter fixtures don't exercise those, so no parity test
+    triggers this branch; later commits add them when fixtures land.
+    """
+    rect = room.rect
+    px = rect.x * CELL
+    py = rect.y * CELL
+    pw = rect.width * CELL
+    ph = rect.height * CELL
+    bbox = [
+        (float(px), float(py)),
+        (float(px + pw), float(py)),
+        (float(px + pw), float(py + ph)),
+        (float(px), float(py + ph)),
+    ]
+
+    shape = room.shape
+    if isinstance(shape, CaveShape):
+        coords = _trace_cave_boundary_coords(room.floor_tiles())
+        if coords and len(coords) >= 4:
+            return [(float(x), float(y)) for x, y in coords], "cave"
+        # legacy falls back to room.rect — match that
+        return bbox, "rect"
+
+    if isinstance(shape, OctagonShape):
+        verts = _polygon_vertices(shape, rect)
+        return [(float(x), float(y)) for x, y in verts], "octagon"
+
+    if isinstance(shape, RectShape):
+        return bbox, "rect"
+
+    # Pill / Temple / LShape / Cross / Hybrid / Circle — unsupported
+    # in 1.b.2; the starter fixtures don't include them.
+    return None
+
+
 # ── Stages ──────────────────────────────────────────────────────
 
 
 def emit_regions(builder: FloorIRBuilder) -> None:
-    """Register foundation polygon regions ops will reference by id.
+    """Register polygon regions ops reference by id.
 
-    Phase 1.a registers the ``dungeon`` and ``cave`` regions sourced
-    from :class:`RenderContext`. Per-room and per-hole regions land
-    in 1.c when :class:`HatchOp` first needs ``region_in`` /
-    ``region_out`` ids beyond the foundation pair.
+    1.a registered the foundation ``dungeon`` and ``cave`` regions.
+    1.b.2 extends this to one Region per room (id matches
+    ``room.id``) so the Room branch of ``_draw_shadow_from_ir`` can
+    resolve geometry by reference. Hole / corridor regions land in
+    1.c when ``HatchOp.region_in`` / ``region_out`` first need them.
     """
     ctx = builder.ctx
     if ctx.dungeon_poly is not None:
@@ -185,6 +271,17 @@ def emit_regions(builder: FloorIRBuilder) -> None:
             kind=RegionKind.RegionKind.Cave,
             polygon=_shapely_to_polygon(ctx.cave_wall_poly),
             shape_tag="cave",
+        )
+    for room in ctx.level.rooms:
+        data = _room_region_data(room)
+        if data is None:
+            continue
+        coords, shape_tag = data
+        builder.add_region(
+            id=room.id,
+            kind=RegionKind.RegionKind.Room,
+            polygon=_coords_to_polygon(coords),
+            shape_tag=shape_tag,
         )
 
 
