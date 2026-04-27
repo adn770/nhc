@@ -2,6 +2,11 @@
 blessed
 pyyaml
 
+# IR migration: FlatBuffers Python runtime (loaded by FB-generated
+# bindings under nhc/rendering/ir/). The flatc compiler binary is a
+# separate dev tool — see plans/nhc_ir_prereqs_plan.md Appendix A.
+flatbuffers
+
 # Web server (optional — for nhc_web.py)
 flask
 flask-sock

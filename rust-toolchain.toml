@@ -1,0 +1,9 @@
+[toolchain]
+# Pin the Rust channel for reproducible PyO3 wheel + WASM bundle
+# builds across dev (macOS arm64) and CI. Bump deliberately, not
+# opportunistically, with its own commit. See
+# plans/nhc_ir_prereqs_plan.md Appendix A "Toolchain version
+# policy".
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
