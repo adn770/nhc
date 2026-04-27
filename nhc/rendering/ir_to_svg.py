@@ -29,7 +29,9 @@ import random
 
 from typing import Any, Callable
 
-from shapely.geometry import LineString
+from shapely.geometry import (
+    LineString, MultiPolygon, Point, Polygon as ShapelyPolygon,
+)
 
 from nhc.rendering import _perlin as _noise
 from nhc.rendering._cave_geometry import _smooth_closed_path
@@ -270,10 +272,7 @@ def _draw_hatch_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
     if op.kind == HatchKind.HatchKind.Corridor:
         return _draw_hatch_corridor(op)
     if op.kind == HatchKind.HatchKind.Room:
-        raise NotImplementedError(
-            "Room hatching ships in Phase 1.c.2 — extend "
-            "_draw_hatch_from_ir's Room branch then"
-        )
+        return _draw_hatch_room(op, fir)
     if op.kind == HatchKind.HatchKind.Hole:
         # Schema-reserved; the legacy `_render_hole_hatching` is
         # never wired into `_hatching_paint` in Phase 1, so a Hole
@@ -414,6 +413,277 @@ def _draw_hatch_corridor(op: Any) -> list[str]:
     if hatch_stones:
         out.append(f'<g>{"".join(hatch_stones)}</g>')
     return out
+
+
+def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
+    """Reproduce ``_render_hatching`` (perimeter halo).
+
+    The legacy iteration interleaves a 10% RNG-driven skip with
+    rendering, so the rng stream can't be split between emit and
+    handler — the entire walk lives here. The IR provides the
+    floor-tile set (``op.tiles``), the dungeon polygon (region
+    ``op.regionOut``), and ``op.extentTiles`` (= ``hatch_distance``).
+    Cave mode is detected by the presence of a ``cave`` foundation
+    region (``ctx.cave_wall_poly is not None`` in the legacy).
+    """
+    region = _find_region(fir, op.regionOut)
+    if region is None:
+        # Legacy short-circuits when dungeon_poly is empty — emitter
+        # also skips the op then, so an unresolved region_out here
+        # means the IR was hand-crafted; bail to match.
+        return []
+
+    dungeon_poly = _fb_polygon_to_shapely(region.Polygon())
+    if dungeon_poly is None or dungeon_poly.is_empty:
+        return []
+
+    floor_set = {(t.x, t.y) for t in op.tiles}
+    base_distance_limit = op.extentTiles * CELL
+    cave_mode = _find_region(fir, b"cave") is not None
+    width = fir.WidthTiles()
+    height = fir.HeightTiles()
+
+    rng = random.Random(op.seed)
+    min_stroke = 1.0
+    max_stroke = 1.8
+    tile_fills: list[str] = []
+    hatch_lines: list[str] = []
+    hatch_stones: list[str] = []
+
+    boundary = dungeon_poly.boundary
+
+    for gy in range(-1, height + 1):
+        for gx in range(-1, width + 1):
+            if (gx, gy) in floor_set:
+                continue
+
+            # 5x5 floor neighborhood; fall back to polygon distance.
+            min_dist = float("inf")
+            for ddx in range(-2, 3):
+                for ddy in range(-2, 3):
+                    if (gx + ddx, gy + ddy) in floor_set:
+                        d = math.hypot(ddx, ddy) * CELL
+                        if d < min_dist:
+                            min_dist = d
+            if min_dist == float("inf"):
+                center = Point(
+                    (gx + 0.5) * CELL, (gy + 0.5) * CELL,
+                )
+                min_dist = boundary.distance(center)
+            dist = min_dist
+
+            # Caves use a fixed limit; dungeons modulate via Perlin.
+            if not cave_mode:
+                noise_var = (
+                    _noise.pnoise2(gx * 0.3, gy * 0.3, base=50)
+                    * CELL * 0.8
+                )
+                tile_limit = base_distance_limit + noise_var
+            else:
+                tile_limit = base_distance_limit
+            if dist > tile_limit:
+                continue
+
+            # 10% RNG-driven discontinuity. The rng.random() call
+            # only fires when the conditions match — keep this
+            # branch identical to legacy so the stream advances in
+            # lock-step.
+            if (
+                not cave_mode
+                and dist > base_distance_limit * 0.5
+                and rng.random() < 0.10
+            ):
+                continue
+
+            tile_fills.append(
+                f'<rect x="{gx * CELL}" y="{gy * CELL}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{HATCH_UNDERLAY}"/>'
+            )
+
+            n_stones = rng.choices(
+                [0, 1, 2, 3], weights=[0.25, 0.35, 0.25, 0.15]
+            )[0]
+            for _ in range(n_stones):
+                sx = (gx + rng.uniform(0.15, 0.85)) * CELL
+                sy = (gy + rng.uniform(0.15, 0.85)) * CELL
+                rx = rng.uniform(2, CELL * 0.25)
+                ry = rng.uniform(2, CELL * 0.2)
+                angle = rng.uniform(0, 180)
+                sw = rng.uniform(1.2, 2.0)
+                hatch_stones.append(
+                    f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
+                    f'rx="{rx:.1f}" ry="{ry:.1f}" '
+                    f'transform="rotate({angle:.0f},'
+                    f'{sx:.1f},{sy:.1f})" '
+                    f'fill="{HATCH_UNDERLAY}" stroke="#666666" '
+                    f'stroke-width="{sw:.1f}"/>'
+                )
+
+            nr = CELL * 0.1
+            adx = _noise.pnoise2(gx * 0.5, gy * 0.5, base=1) * nr
+            ady = _noise.pnoise2(gx * 0.5, gy * 0.5, base=2) * nr
+            anchor = (
+                (gx + 0.5) * CELL + adx,
+                (gy + 0.5) * CELL + ady,
+            )
+            corners = [
+                (gx * CELL, gy * CELL),
+                ((gx + 1) * CELL, gy * CELL),
+                ((gx + 1) * CELL, (gy + 1) * CELL),
+                (gx * CELL, (gy + 1) * CELL),
+            ]
+            pts = _pick_section_points(corners, anchor, CELL, rng)
+            sections = _build_sections(anchor, pts, corners)
+
+            for i, section in enumerate(sections):
+                if section.is_empty or section.area < 1:
+                    continue
+                if i == 0:
+                    seg_angle = math.atan2(
+                        pts[1][1] - pts[0][1],
+                        pts[1][0] - pts[0][0],
+                    )
+                else:
+                    seg_angle = rng.uniform(0, math.pi)
+
+                bounds = section.bounds
+                diag = math.hypot(
+                    bounds[2] - bounds[0], bounds[3] - bounds[1]
+                )
+                spacing = CELL * 0.20
+                n_lines = max(3, int(diag / spacing))
+
+                for j in range(n_lines):
+                    offset = (j - (n_lines - 1) / 2) * spacing
+                    cx = section.centroid.x
+                    cy = section.centroid.y
+                    perp_x = math.cos(seg_angle + math.pi / 2) * offset
+                    perp_y = math.sin(seg_angle + math.pi / 2) * offset
+                    line = LineString([
+                        (
+                            cx + perp_x - math.cos(seg_angle) * diag,
+                            cy + perp_y - math.sin(seg_angle) * diag,
+                        ),
+                        (
+                            cx + perp_x + math.cos(seg_angle) * diag,
+                            cy + perp_y + math.sin(seg_angle) * diag,
+                        ),
+                    ])
+                    clipped = section.intersection(line)
+                    if (
+                        clipped.is_empty
+                        or not isinstance(clipped, LineString)
+                    ):
+                        continue
+                    p1, p2 = list(clipped.coords)
+                    wb = CELL * 0.03
+                    p1 = (
+                        p1[0] + _noise.pnoise2(
+                            p1[0] * 0.1, p1[1] * 0.1, base=10) * wb,
+                        p1[1] + _noise.pnoise2(
+                            p1[0] * 0.1, p1[1] * 0.1, base=11) * wb,
+                    )
+                    p2 = (
+                        p2[0] + _noise.pnoise2(
+                            p2[0] * 0.1, p2[1] * 0.1, base=12) * wb,
+                        p2[1] + _noise.pnoise2(
+                            p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
+                    )
+                    sw = rng.uniform(min_stroke, max_stroke)
+                    hatch_lines.append(
+                        f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" '
+                        f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
+                        f'stroke="{INK}" stroke-width="{sw:.2f}" '
+                        f'stroke-linecap="round"/>'
+                    )
+
+    if not (tile_fills or hatch_lines or hatch_stones):
+        return []
+
+    # Outer rect + dungeon polygon path produces an evenodd clip
+    # that hatches everything outside the dungeon floor — see the
+    # rationale comment in `_render_hatching`. Holes inside cave
+    # walls flip back to "hatch" by re-including the hole rings.
+    map_w = width * CELL
+    map_h = height * CELL
+    margin = CELL * 2
+    clip_d = (
+        f"M{-margin},{-margin} "
+        f"H{map_w + margin} V{map_h + margin} "
+        f"H{-margin} Z "
+    )
+    poly = region.Polygon()
+    for i in range(poly.RingsLength()):
+        ring = poly.Rings(i)
+        start = ring.Start()
+        count = ring.Count()
+        coords = [
+            (poly.Paths(start + j).X(), poly.Paths(start + j).Y())
+            for j in range(count)
+        ]
+        clip_d += f"M{coords[0][0]:.0f},{coords[0][1]:.0f} "
+        clip_d += " ".join(
+            f"L{x:.0f},{y:.0f}" for x, y in coords[1:]
+        )
+        clip_d += " Z "
+
+    out: list[str] = [
+        f'<defs><clipPath id="hatch-clip">'
+        f'<path d="{clip_d}" clip-rule="evenodd"/>'
+        f'</clipPath></defs>',
+        '<g clip-path="url(#hatch-clip)">',
+    ]
+    if tile_fills:
+        out.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
+    if hatch_lines:
+        out.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
+    if hatch_stones:
+        out.append(f'<g>{"".join(hatch_stones)}</g>')
+    out.append("</g>")
+    return out
+
+
+def _fb_polygon_to_shapely(
+    poly: Any,
+) -> "ShapelyPolygon | MultiPolygon | None":
+    """Rebuild a Shapely polygon from an FB Polygon's rings.
+
+    Used by the Room hatch handler for the boundary-distance
+    fallback when no floor tile sits in the 5×5 neighbourhood. The
+    emitter's :func:`_shapely_to_polygon` stores multi-components as
+    interleaved (exterior, hole, hole, exterior, hole, ...) rings;
+    every non-hole ring opens a new component. Reconstruct as a
+    :class:`ShapelyPolygon` for one component or a
+    :class:`MultiPolygon` for two or more so
+    ``boundary.distance(...)`` matches the legacy across the rect
+    dungeon (multi-component) and cave (single-component) fixtures.
+    """
+    if poly is None or poly.PathsLength() == 0:
+        return None
+    components: list[tuple[list[tuple[float, float]], list]] = []
+    for i in range(poly.RingsLength()):
+        ring = poly.Rings(i)
+        start = ring.Start()
+        count = ring.Count()
+        coords = [
+            (poly.Paths(start + j).X(), poly.Paths(start + j).Y())
+            for j in range(count)
+        ]
+        if ring.IsHole():
+            if not components:
+                continue  # hole without preceding exterior — skip
+            components[-1][1].append(coords)
+        else:
+            components.append((coords, []))
+    if not components:
+        return None
+    if len(components) == 1:
+        exterior, holes = components[0]
+        return ShapelyPolygon(exterior, holes)
+    return MultiPolygon(
+        [ShapelyPolygon(exterior, holes) for exterior, holes in components]
+    )
 
 
 _OP_HANDLERS[Op.Op.HatchOp] = _draw_hatch_from_ir

@@ -128,24 +128,64 @@ def _hatching_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the hatching layer.
 
-    1.c.1 emits the Corridor halo only — one
-    ``HatchOp(kind=Corridor)`` carrying every VOID tile that
-    borders a CORRIDOR-surface or door tile. The tile list is
-    sorted (legacy iteration walks ``sorted(hatch_tiles)``) so the
-    handler's ``random.Random(seed + 7)`` stream replays in the
-    same order.
+    Order matches the legacy ``_hatching_paint`` (room halo first,
+    then corridor halo) so ``layer_to_svg(buf, "hatching")``
+    streams op output in the same sequence as the joined legacy
+    output.
 
-    Room (perimeter) hatching ships in 1.c.2; Hole hatching is
-    out of scope for Phase 1 (see plan §1.c).
+    1.c.2 emits one ``HatchOp(kind=Room)`` carrying the level's
+    floor-tile set as its ``tiles[]`` payload. The Room handler
+    walks the padded grid itself (legacy iteration is interleaved
+    with the 10% RNG-driven skip, so emit-side filtering would
+    split the rng stream and break parity). Floor tiles are the
+    one piece of state the handler can't recover from polygons
+    alone — encoding them inline keeps the handler self-contained.
+
+    1.c.1 emits the Corridor halo as a sorted tile list (handler's
+    rng walks the same order).
+
+    Hole hatching is out of scope for Phase 1: the legacy
+    ``_render_hole_hatching`` is defined but never invoked by
+    ``_hatching_paint``, so emitting ``HatchOp(kind=Hole)`` would
+    diverge from the parity contract.
     """
     from nhc.rendering.ir._fb import HatchKind, Op
     from nhc.rendering.ir._fb.HatchOp import HatchOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
 
-    level = builder.ctx.level
-    base_seed = builder.ctx.seed
+    ctx = builder.ctx
+    level = ctx.level
+    base_seed = ctx.seed
 
+    # ── Room (perimeter) halo ────────────────────────────────
+    # The handler iterates the padded grid; emit just provides the
+    # floor-tile set + dungeon polygon (already in regions[]) +
+    # hatch_distance. Skip the op when the dungeon polygon is empty
+    # — matches `_render_hatching`'s `if dungeon_poly.is_empty:
+    # return` early-exit byte-for-byte.
+    if ctx.dungeon_poly is not None and not ctx.dungeon_poly.is_empty:
+        floor_tiles: list[TileCoordT] = []
+        for ty in range(level.height):
+            for tx in range(level.width):
+                if level.tiles[ty][tx].terrain == Terrain.FLOOR:
+                    t = TileCoordT()
+                    t.x = tx
+                    t.y = ty
+                    floor_tiles.append(t)
+        op = HatchOpT()
+        op.kind = HatchKind.HatchKind.Room
+        op.regionOut = "dungeon"
+        op.regionIn = ""
+        op.tiles = floor_tiles
+        op.seed = base_seed
+        op.extentTiles = ctx.hatch_distance
+        entry = OpEntryT()
+        entry.opType = Op.Op.HatchOp
+        entry.op = op
+        builder.add_op(entry)
+
+    # ── Corridor halo ────────────────────────────────────────
     hatch_tiles: set[tuple[int, int]] = set()
     for y in range(level.height):
         for x in range(level.width):
