@@ -3,6 +3,25 @@ FROM nhc-base:latest
 WORKDIR /app
 COPY . .
 
+# Build + install the nhc-render PyO3 wheel from the bundled
+# crate source. Runs on every app-image rebuild so the wheel
+# always matches the committed Rust + .fbs files.
+#
+# We invoke `maturin build` directly instead of `pip install
+# ./crates/nhc-render` because pip's PEP 517 build isolation
+# installs a fresh maturin into a throwaway venv, which then
+# bootstraps its own Rust via the `puccinialin` helper instead
+# of using the system toolchain at /usr/local/cargo. The bundled
+# Rust install fails reproducibly with "no default linker (cc)
+# was found in your PATH" under the docker-build sandbox.
+# Calling maturin from the base image directly skips that whole
+# detour and uses our pinned 1.95.0 toolchain.
+RUN cd crates/nhc-render \
+    && maturin build --release --interpreter python3.14 \
+        --out /tmp/wheels \
+    && pip install --no-cache-dir --no-deps /tmp/wheels/*.whl \
+    && rm -rf /tmp/wheels target
+
 USER nhc
 
 ENV NHC_DATA_DIR=/var/nhc

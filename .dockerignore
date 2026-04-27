@@ -4,6 +4,8 @@ __pycache__
 *.pyc
 *.egg-info
 debug/
+build/
+target/
 .pytest_cache
 tests/
 .server.pid

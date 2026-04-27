@@ -1,18 +1,43 @@
 FROM python:3.14-slim
 
+# Build dependencies. gcc + libc6-dev stay in the image because
+# the app stage's `pip install ./crates/nhc-render` builds the
+# nhc-render PyO3 wheel from source on every deploy. pkg-config
+# + ca-certificates serve the rustup install + crate dep
+# discovery (openssl-sys, ring, etc., when those land).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl gcc libc6-dev \
+    && apt-get install -y --no-install-recommends \
+        curl build-essential pkg-config ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash -u 1000 nhc
 
+# Rust toolchain for the nhc-render PyO3 + WASM crate. Pinned to
+# the same channel as rust-toolchain.toml at the repo root so the
+# container, dev mac, and CI (when wired) all agree. Bump this
+# `RUST_VERSION` in lockstep with rust-toolchain.toml; the bump is
+# its own commit and triggers a `update.sh --base` rebuild.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+ARG RUST_VERSION=1.95.0
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --default-toolchain $RUST_VERSION \
+                       --profile minimal --no-modify-path \
+    && chmod -R a+rwX $RUSTUP_HOME $CARGO_HOME
+
 WORKDIR /app
 
+# Hand-curated subset of requirements.txt so the base image stays
+# stable across most code changes. Add new deps here when they
+# enter requirements.txt; keep this list in sync. flatbuffers +
+# resvg-py serve the IR migration's Python bindings + Phase 0.7
+# PNG endpoint; maturin builds the nhc-render wheel in the app
+# stage via PEP 517 build-system requirements.
 COPY requirements.txt .
 RUN pip install --no-cache-dir \
-    flask flask-sock shapely gunicorn pyyaml
+    flask flask-sock shapely gunicorn pyyaml \
+    flatbuffers resvg-py maturin
 
 # TTS support (optional — fails gracefully if unavailable)
 RUN pip install --no-cache-dir piper-tts onnxruntime requests || true
-
-RUN apt-get purge -y --auto-remove gcc libc6-dev
