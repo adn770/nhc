@@ -6,7 +6,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 name = "nhc"
 version = "0.1.0"
 description = "Nethack-like Crawler — roguelike with LLM narrative"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "pyyaml",
     "blessed",

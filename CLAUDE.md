@@ -46,7 +46,7 @@ targets the web frontend.
 - **All code in English** — comments, variables, docstrings.
 - **Translations in locale files** — never hardcode
   user-facing strings.
-- **Type hints** — Python 3.10+ style.
+- **Type hints** — Python 3.14+ style.
 - **pytest** as test framework, `pytest-asyncio` for async.
 
 ## Interaction Preferences
