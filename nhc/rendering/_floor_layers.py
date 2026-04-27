@@ -888,6 +888,52 @@ def _stairs_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _emit_stairs_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the stairs layer.
+
+    Deterministic — per-tile up/down stair markers. Walks the
+    level y-major, x-minor (matches legacy
+    ``_render_stairs`` iteration), emits one ``StairTile`` per
+    ``stairs_up`` / ``stairs_down`` feature. The handler renders
+    the tapering wedge + step lines + cave-theme fill polygon.
+    """
+    from nhc.rendering._stairs_svg import STAIR_FILL
+    from nhc.rendering.ir._fb import Op, StairDirection
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.StairsOp import StairsOpT
+    from nhc.rendering.ir._fb.StairTile import StairTileT
+
+    ctx = builder.ctx
+    level = ctx.level
+
+    stairs: list[StairTileT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            feat = level.tiles[y][x].feature
+            if feat not in ("stairs_up", "stairs_down"):
+                continue
+            t = StairTileT()
+            t.x = x
+            t.y = y
+            t.direction = (
+                StairDirection.StairDirection.Down
+                if feat == "stairs_down"
+                else StairDirection.StairDirection.Up
+            )
+            stairs.append(t)
+    if not stairs:
+        return
+
+    op = StairsOpT()
+    op.stairs = stairs
+    op.theme = ctx.theme
+    op.fillColor = STAIR_FILL
+    entry = OpEntryT()
+    entry.opType = Op.Op.StairsOp
+    entry.op = op
+    builder.add_op(entry)
+
+
 # ── Surface features layer (TileWalkLayer) ────────────────────
 
 _SURFACE_FEATURE_DECORATORS: tuple[TileDecorator, ...] = (

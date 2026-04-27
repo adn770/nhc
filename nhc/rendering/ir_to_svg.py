@@ -42,7 +42,9 @@ from nhc.rendering._svg_helpers import (
     BG, CAVE_FLOOR_COLOR, CELL, FLOOR_COLOR, GRID_WIDTH,
     HATCH_UNDERLAY, INK, WALL_WIDTH, _wobbly_grid_seg,
 )
-from nhc.rendering.ir._fb import HatchKind, Op, ShadowKind, TerrainKind
+from nhc.rendering.ir._fb import (
+    HatchKind, Op, ShadowKind, StairDirection, TerrainKind,
+)
 from nhc.rendering.ir._fb.FloorIR import FloorIR
 from nhc.rendering.ir._fb.Op import OpCreator
 from nhc.rendering.ir._fb.OpEntry import OpEntry
@@ -67,6 +69,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
     "floor_detail": frozenset({Op.Op.FloorDetailOp}),
     "terrain_detail": frozenset({Op.Op.TerrainDetailOp}),
+    "stairs": frozenset({Op.Op.StairsOp}),
 }
 
 
@@ -1027,3 +1030,95 @@ def _draw_terrain_detail_from_ir(
 
 
 _OP_HANDLERS[Op.Op.TerrainDetailOp] = _draw_terrain_detail_from_ir
+
+
+def _draw_stairs_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Reproduce ``_render_stairs``.
+
+    Per-stair tapering wedge with parallel step lines, plus a
+    bright fill polygon when the floor's theme is "cave". The
+    legacy renderer iterates ``stairs_up`` and ``stairs_down``
+    tiles in y-major order and emits the same element sequence
+    per stair: cave fill (if cave theme) → top rail → bottom rail
+    → 6 step lines.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    out: list[str] = []
+    theme = _to_str(op.theme)
+    fill_color = _to_str(op.fillColor)
+
+    rail_sw = 1.5
+    step_sw = 1.0
+    n_steps = 5
+    wide_h = CELL * 0.4
+    narrow_h = CELL * 0.1
+
+    for stair in (op.stairs or []):
+        x, y = stair.x, stair.y
+        down = stair.direction == StairDirection.StairDirection.Down
+        px, py = x * CELL, y * CELL
+        m = CELL * 0.1
+        cy = py + CELL / 2
+        left_x = px + m
+        right_x = px + CELL - m
+
+        if theme == "cave":
+            if down:
+                pts = (
+                    f'{left_x:.1f},{cy - wide_h:.1f} '
+                    f'{right_x:.1f},{cy - narrow_h:.1f} '
+                    f'{right_x:.1f},{cy + narrow_h:.1f} '
+                    f'{left_x:.1f},{cy + wide_h:.1f}'
+                )
+            else:
+                pts = (
+                    f'{left_x:.1f},{cy - narrow_h:.1f} '
+                    f'{right_x:.1f},{cy - wide_h:.1f} '
+                    f'{right_x:.1f},{cy + wide_h:.1f} '
+                    f'{left_x:.1f},{cy + narrow_h:.1f}'
+                )
+            out.append(
+                f'<polygon points="{pts}" '
+                f'fill="{fill_color}" stroke="none"/>'
+            )
+
+        if down:
+            top_y0, top_y1 = cy - wide_h, cy - narrow_h
+            bot_y0, bot_y1 = cy + wide_h, cy + narrow_h
+            wide_start, narrow_end = wide_h, narrow_h
+        else:
+            top_y0, top_y1 = cy - narrow_h, cy - wide_h
+            bot_y0, bot_y1 = cy + narrow_h, cy + wide_h
+            wide_start, narrow_end = narrow_h, wide_h
+
+        out.append(
+            f'<line x1="{left_x:.1f}" y1="{top_y0:.1f}" '
+            f'x2="{right_x:.1f}" y2="{top_y1:.1f}" '
+            f'stroke="{INK}" stroke-width="{rail_sw}" '
+            f'stroke-linecap="round"/>'
+        )
+        out.append(
+            f'<line x1="{left_x:.1f}" y1="{bot_y0:.1f}" '
+            f'x2="{right_x:.1f}" y2="{bot_y1:.1f}" '
+            f'stroke="{INK}" stroke-width="{rail_sw}" '
+            f'stroke-linecap="round"/>'
+        )
+
+        span = right_x - left_x
+        for i in range(n_steps + 1):
+            t = i / n_steps
+            sx = left_x + span * t
+            half = wide_start + (narrow_end - wide_start) * t
+            out.append(
+                f'<line x1="{sx:.1f}" y1="{cy - half:.1f}" '
+                f'x2="{sx:.1f}" y2="{cy + half:.1f}" '
+                f'stroke="{INK}" stroke-width="{step_sw}" '
+                f'stroke-linecap="round"/>'
+            )
+
+    return out
+
+
+_OP_HANDLERS[Op.Op.StairsOp] = _draw_stairs_from_ir

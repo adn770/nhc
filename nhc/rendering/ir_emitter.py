@@ -335,7 +335,9 @@ def emit_terrain_detail(builder: FloorIRBuilder) -> None:
 
 
 def emit_stairs(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.i lands StairsOp emit + handler."""
+    """Phase 1.i: emit StairsOp (per-tile up/down stair markers)."""
+    from nhc.rendering._floor_layers import _emit_stairs_ir
+    _emit_stairs_ir(builder)
 
 
 def emit_surface_features(builder: FloorIRBuilder) -> None:
