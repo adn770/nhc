@@ -113,16 +113,19 @@ class TestGardenSurface:
         grass_tint = get_palette("dungeon").grass.tint
         assert grass_tint in svg
 
-    def test_garden_tile_emits_wobbly_grid(self):
-        """Garden uses dungeon-style line detail in its own colour."""
-        from nhc.rendering._floor_detail import GARDEN_LINE_STROKE
+    def test_garden_tile_does_not_emit_hoe_rows(self):
+        """Garden tiles render as a flat green tint -- the previous
+        per-tile hoe-row stroke decorator was removed because at
+        scale the random oblique lines read as scribble noise."""
         level = _blank_level(20, 20)
         for y in range(20):
             for x in range(20):
                 level.tiles[y][x].terrain = Terrain.GRASS
                 level.tiles[y][x].surface_type = SurfaceType.GARDEN
         svg = render_floor_svg(level, seed=42)
-        assert GARDEN_LINE_STROKE in svg
+        # Old GARDEN_LINE_STROKE colour. If it ever reappears the
+        # hoe-row scribble noise has come back.
+        assert "#4A6A3A" not in svg
 
     def test_garden_surface_skips_cobblestones(self):
         level = _blank_level()
@@ -158,6 +161,38 @@ class TestFieldVsGardenPalette:
             int(FIELD_TINT[5:7], 16),
         )
         assert g >= r and g >= b
+
+
+class TestTownGrassTint:
+    """Town theme paints grass / garden tiles in a brighter, more
+    opaque green than the muted dungeon palette so the open-air
+    parts of a town read as lawn rather than washed-out parchment.
+    """
+
+    def test_town_palette_grass_is_brighter_than_dungeon(self):
+        from nhc.rendering.terrain_palette import get_palette
+        town = get_palette("town").grass
+        dungeon = get_palette("dungeon").grass
+
+        def _green(hex_str: str) -> int:
+            return int(hex_str[3:5], 16)
+
+        # Brighter: more vivid hue (higher green channel) and more
+        # opaque so the wash actually reads as green.
+        assert _green(town.tint) > _green(dungeon.tint)
+        assert town.tint_opacity > dungeon.tint_opacity
+
+    def test_town_grass_tile_emits_town_tint(self):
+        from nhc.dungeon.model import LevelMetadata
+        from nhc.rendering.terrain_palette import get_palette
+        level = _blank_level()
+        level.metadata = LevelMetadata(theme="town")
+        level.tiles[4][4].terrain = Terrain.GRASS
+        level.tiles[4][4].surface_type = SurfaceType.FIELD
+        level.tiles[5][5].terrain = Terrain.GRASS
+        level.tiles[5][5].surface_type = SurfaceType.GARDEN
+        svg = render_floor_svg(level, seed=42)
+        assert get_palette("town").grass.tint in svg
 
 
 class TestWoodInteriorFloor:

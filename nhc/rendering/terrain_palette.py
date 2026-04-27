@@ -89,6 +89,16 @@ THEME_PALETTES: dict[str, ThemePalette] = {
         lava=TerrainStyle("#D4816B", 0.10, "#A04030", 0.25),
         chasm=TerrainStyle("#999999", 0.08, "#555555", 0.25),
     ),
+    "town": ThemePalette(
+        # Town surfaces are mostly open ground (lawn + cropland);
+        # the tint must read as bright lawn green rather than the
+        # muted parchment wash other themes use, since fields and
+        # gardens dominate the canvas.
+        water=TerrainStyle("#90C0D0", 0.15, "#5A8A9A", 0.30),
+        grass=TerrainStyle("#88C878", 0.30, "#4A7A4A", 0.35),
+        lava=TerrainStyle("#D4816B", 0.10, "#A04030", 0.25),
+        chasm=TerrainStyle("#999999", 0.10, "#555555", 0.30),
+    ),
     "mine": ThemePalette(
         water=TerrainStyle("#6A8A8A", 0.15, "#4A6868", 0.35),
         grass=TerrainStyle("#6A7A5A", 0.10, "#4A5A3A", 0.28),

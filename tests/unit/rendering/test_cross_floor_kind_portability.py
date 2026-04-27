@@ -169,26 +169,3 @@ class TestCobblestonePortability:
         assert self._COBBLE in svg
 
 
-# ── Garden hoe rows on every floor kind ──────────────────────
-
-
-class TestGardenOverlayPortability:
-    def test_garden_paints_on_dungeon(self) -> None:
-        level = _floor_grid(6, 6)
-        level.tiles[3][3] = Tile(
-            terrain=Terrain.GRASS, surface_type=SurfaceType.GARDEN,
-        )
-        # Force the GARDEN_LINE decorator to fire on at least one
-        # of 16 deterministic seeds (it's probabilistic per tile).
-        for seed in range(16):
-            svg = render_floor_svg(level, seed=seed)
-            from nhc.rendering._floor_detail import GARDEN_LINE_STROKE
-            if GARDEN_LINE_STROKE in svg:
-                return
-        # If none of the 16 seeds rolled a hoe row the probability
-        # constants must have changed -- surface the failure here
-        # so the change is reviewed.
-        raise AssertionError(
-            "GARDEN_LINE never fired across 16 seeds for a single "
-            "garden tile -- inspect GARDEN_LINE_PROBABILITY"
-        )

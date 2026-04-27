@@ -701,10 +701,12 @@ def _render_floor_detail(
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
         _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
 
-    # Phase 2 / 3a / 3b decorators — cobblestone, garden, field,
-    # cart tracks, ore deposits. All run through the unified
+    # Phase 2 / 3a / 3b decorators — cobblestone, field, cart
+    # tracks, ore deposits. All run through the unified
     # TileDecorator pipeline so adding biome variants is one new
-    # entry per decorator.
+    # entry per decorator. Garden tiles render as a flat grass
+    # tint with no per-tile overlay; the old GARDEN_LINE hoe-row
+    # decorator scribbled too much at town scale.
     from nhc.rendering._decorators import walk_and_paint
     svg.extend(walk_and_paint(
         ctx,
@@ -712,7 +714,6 @@ def _render_floor_detail(
             COBBLESTONE, COBBLE_STONE,
             BRICK, FLAGSTONE, OPUS_ROMANO,
             FIELD_STONE,
-            GARDEN_LINE,
             CART_TRACK_RAILS, CART_TRACK_TIES,
             ORE_DEPOSIT,
         ],
@@ -1078,10 +1079,6 @@ FIELD_STONE_FILL = "#8A9A6A"
 FIELD_STONE_STROKE = "#4A5A3A"
 FIELD_STONE_PROBABILITY = 0.10
 
-GARDEN_LINE_STROKE = "#4A6A3A"
-GARDEN_LINE_WIDTH = 0.5
-GARDEN_LINE_PROBABILITY = 0.35
-
 
 def _is_field_overlay_tile(level: "Level", x: int, y: int) -> bool:
     """Predicate for the FIELD_STONE decorator.
@@ -1129,51 +1126,6 @@ FIELD_STONE = TileDecorator(
     paint=_field_stone_paint,
     group_open='<g opacity="0.8">',
     z_order=15,
-)
-
-
-def _is_garden_overlay_tile(level: "Level", x: int, y: int) -> bool:
-    """Predicate for the GARDEN_LINE decorator.
-
-    Phase 3a moved garden tiles to ``Terrain.GRASS`` so the theme
-    grass tint + blade strokes paint the base look. The hoe-row
-    overlay rides on top — fire only on tiles that carry both
-    ``GRASS`` terrain and the ``GARDEN`` surface tag.
-    """
-    tile = level.tiles[y][x]
-    return (
-        tile.terrain is Terrain.GRASS
-        and tile.surface_type is SurfaceType.GARDEN
-    )
-
-
-def _garden_line_paint(args) -> list[str]:
-    """Probabilistic hoe-row line for one garden tile."""
-    if args.rng.random() >= GARDEN_LINE_PROBABILITY:
-        return []
-    return [_garden_line(args.rng, args.px, args.py)]
-
-
-def _garden_line(
-    rng: random.Random, px: float, py: float,
-) -> str:
-    x0 = px + rng.uniform(CELL * 0.15, CELL * 0.4)
-    y0 = py + rng.uniform(CELL * 0.15, CELL * 0.85)
-    x1 = px + rng.uniform(CELL * 0.6, CELL * 0.85)
-    y1 = py + rng.uniform(CELL * 0.15, CELL * 0.85)
-    return f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}"/>'
-
-
-GARDEN_LINE = TileDecorator(
-    name="garden_line",
-    layer="floor_detail",
-    predicate=_is_garden_overlay_tile,
-    paint=_garden_line_paint,
-    group_open=(
-        f'<g fill="none" stroke="{GARDEN_LINE_STROKE}" '
-        f'stroke-width="{GARDEN_LINE_WIDTH}" opacity="0.65">'
-    ),
-    z_order=20,
 )
 
 

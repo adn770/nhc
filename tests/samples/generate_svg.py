@@ -1019,7 +1019,7 @@ def _make_surface_patch_level(
 def generate_surface_samples(outdir: Path) -> None:
     """Reference sheet with STREET / FIELD / GARDEN / wood patches."""
     from nhc.rendering._floor_detail import (
-        FIELD_STONE_FILL, FIELD_TINT, GARDEN_LINE_STROKE,
+        FIELD_STONE_FILL, FIELD_TINT,
         WOOD_FLOOR_FILL, WOOD_GRAIN_DARK,
         WOOD_GRAIN_LIGHT, WOOD_PLANK_LENGTH_MAX,
         WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
@@ -1036,8 +1036,8 @@ def generate_surface_samples(outdir: Path) -> None:
         "Patches L->R: STREET, FIELD, GARDEN, plain",
         f"FIELD tint: {FIELD_TINT} + stones "
         f"({FIELD_STONE_FILL})",
-        f"GARDEN: GRASS terrain tint {grass_tint} + hoe-rows "
-        f"({GARDEN_LINE_STROKE})",
+        f"GARDEN: GRASS terrain tint {grass_tint} (flat tint, "
+        "no per-tile overlay)",
         "STREET: cobblestone pattern from legacy renderer",
     ]
     level = _make_surface_patch_level(w=40, h=12, interior_floor="stone")
