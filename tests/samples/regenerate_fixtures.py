@@ -107,12 +107,19 @@ def _build_level(fx: Fixture):
 def _render_fixture(fx: Fixture) -> tuple[str, bytes, str]:
     """Build the level and return (svg, nir, json) tuple.
 
-    Today only ``svg`` is real. ``nir`` is empty bytes; ``json`` is
-    an empty string. Phase 1 lands the emitter and populates them.
+    Phase 1.k lights up ``nir`` and ``json`` — :func:`build_floor_ir`
+    drives the IR pipeline that ``render_floor_svg`` now routes
+    through, and the canonicalised JSON dump from
+    :mod:`nhc.rendering.ir.dump` makes the buffer git-reviewable.
     """
+    from nhc.rendering.ir.dump import dump
+    from nhc.rendering.ir_emitter import build_floor_ir
+
     level = _build_level(fx)
     svg = render_level_svg(level, seed=fx.seed)
-    return svg, b"", ""
+    nir = build_floor_ir(level, seed=fx.seed)
+    js = dump(nir)
+    return svg, nir, js
 
 
 def _root_dir() -> Path:

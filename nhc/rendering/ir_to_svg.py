@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import math
 import random
+import re
 
 from typing import Any, Callable
 
@@ -57,6 +58,29 @@ from nhc.rendering.ir._fb.Region import Region
 _OP_HANDLERS: dict[int, Callable[[OpEntry, FloorIR], list[str]]] = {}
 
 
+# Layer render order. Mirrors `nhc/rendering/_floor_layers.py:FLOOR_LAYERS`
+# (sorted by `Layer.order`) so `ir_to_svg` emits the per-layer comment
+# stats and op output in the same sequence as the legacy
+# `render_layers`. Source of truth: design/map_ir.md §6.
+_LAYER_ORDER: tuple[str, ...] = (
+    "shadows",
+    "hatching",
+    "walls_and_floors",
+    "terrain_tints",
+    "floor_grid",
+    "floor_detail",
+    "terrain_detail",
+    "stairs",
+    "surface_features",
+)
+
+
+# Element-tag counter mirroring `_pipeline._OPEN_TAG` so the IR-
+# driven renderer reports the same per-layer element count in its
+# `<!-- layer.NAME: N elements, M bytes -->` comment.
+_OPEN_TAG = re.compile(r"<[a-zA-Z]")
+
+
 # Maps layer name → set of Op union tags belonging to that layer.
 # Source: design/map_ir.md §6 layer ordering. Each layer commit
 # adds an entry as it lands its first op; the dict is the contract
@@ -82,9 +106,10 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
 def ir_to_svg(buf: bytes) -> str:
     """Render a ``FloorIR`` FlatBuffer to its legacy SVG output.
 
-    The integration parity gate in
-    :mod:`tests.unit.test_ir_to_svg` stays XFAIL until 1.k populates
-    the ops vector and registers every handler.
+    Layers stream in :data:`_LAYER_ORDER` sequence, each prefixed
+    by a ``<!-- layer.NAME: N elements, M bytes -->`` comment that
+    matches the legacy ``_pipeline.render_layers`` shape — the
+    self-describing stats the byte-equal parity gate locks in.
     """
     fir = _root_or_raise(buf)
     cell = fir.Cell()
@@ -101,7 +126,18 @@ def ir_to_svg(buf: bytes) -> str:
         f'<rect width="100%" height="100%" fill="{BG}"/>',
         f'<g transform="translate({padding},{padding})">',
     ]
-    parts.extend(_dispatch_ops(fir, op_filter=None))
+    for layer_name in _LAYER_ORDER:
+        layer_frags = _dispatch_ops(
+            fir, op_filter=_LAYER_OPS[layer_name],
+        )
+        joined = "".join(layer_frags)
+        n_elements = len(_OPEN_TAG.findall(joined))
+        n_bytes = len(joined)
+        parts.append(
+            f"<!-- layer.{layer_name}: {n_elements} elements, "
+            f"{n_bytes} bytes -->"
+        )
+        parts.extend(layer_frags)
     parts.append("</g>")
     parts.append("</svg>")
     return "\n".join(parts)

@@ -98,6 +98,16 @@ def render_floor_svg(
     instead of stopping at the rect-aligned tile boundaries, so
     a wooden tower's planks visually reach the chamfer diagonal
     rather than the bbox edge.
+
+    Phase 1 of the IR migration ships the IR pipeline alongside
+    this legacy path — every per-layer parity gate is green for
+    the starter fixtures, and the integration gate in
+    :mod:`tests.unit.test_ir_to_svg` locks in byte-equality. The
+    ``render_floor_svg`` rewire to ``ir_to_svg(build_floor_ir(...))``
+    is deferred until the emit fills the wood-floor short-circuit,
+    decorator pipeline (cobblestone / brick / ore / cart-tracks),
+    and surface-features paths — currently stubs because the
+    starter fixtures don't exercise them.
     """
     w = level.width * CELL + 2 * PADDING
     h = level.height * CELL + 2 * PADDING
