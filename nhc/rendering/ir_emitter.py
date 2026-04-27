@@ -341,7 +341,11 @@ def emit_stairs(builder: FloorIRBuilder) -> None:
 
 
 def emit_surface_features(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.j lands the four surface-feature ops."""
+    """Phase 1.j stub — starter fixtures produce no surface features.
+    Future fixtures with wells / fountains / vegetation will need
+    proper emit + handler."""
+    from nhc.rendering._floor_layers import _emit_surface_features_ir
+    _emit_surface_features_ir(builder)
 
 
 # Pipeline order mirrors design/map_ir.md §18 (and §6 layer order).

@@ -936,6 +936,46 @@ def _emit_stairs_ir(builder: "FloorIRBuilder") -> None:
 
 # ── Surface features layer (TileWalkLayer) ────────────────────
 
+
+def _surface_features_paint(ctx: RenderContext) -> Iterable[str]:
+    """Paint helper for the surface-features TileWalkLayer.
+
+    The layer registers via :func:`make_tile_walk_layer` which
+    builds the paint closure inline; this wrapper exists so per-
+    layer parity tests can call ``_surface_features_paint(ctx)``
+    by name, matching the convention the other ``_*_paint``
+    helpers establish.
+    """
+    from nhc.rendering._decorators import walk_and_paint
+    return walk_and_paint(
+        ctx,
+        _SURFACE_FEATURE_DECORATORS,
+        layer_name="surface_features",
+    )
+
+
+def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the surface-features layer.
+
+    Phase 1 stub. The starter fixtures (rect dungeon, octagon
+    crypt, cave) have no wells / fountains / trees / bushes, so
+    the legacy output is empty across the parity set; no op is
+    emitted. When a future fixture exercises the layer (e.g. a
+    town surface with vegetation), the emit + handler need to
+    grow — likely via the same passthrough shape as 1.g / 1.h
+    against `WellFeatureOp` / `FountainFeatureOp` / `TreeFeatureOp`
+    / `BushFeatureOp` (or a generic surface-features op via the
+    schema's `GenericProceduralOp` escape hatch).
+    """
+    if list(_surface_features_paint(builder.ctx)):
+        raise NotImplementedError(
+            "surface_features layer produced output but the IR "
+            "emitter is a stub — extend _emit_surface_features_ir "
+            "and the matching handler before adding fixtures that "
+            "exercise this layer"
+        )
+
+
 _SURFACE_FEATURE_DECORATORS: tuple[TileDecorator, ...] = (
     WELL_FEATURE,
     WELL_SQUARE_FEATURE,

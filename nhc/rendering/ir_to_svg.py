@@ -70,6 +70,12 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "floor_detail": frozenset({Op.Op.FloorDetailOp}),
     "terrain_detail": frozenset({Op.Op.TerrainDetailOp}),
     "stairs": frozenset({Op.Op.StairsOp}),
+    "surface_features": frozenset({
+        Op.Op.WellFeatureOp,
+        Op.Op.FountainFeatureOp,
+        Op.Op.TreeFeatureOp,
+        Op.Op.BushFeatureOp,
+    }),
 }
 
 
