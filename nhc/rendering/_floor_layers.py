@@ -50,21 +50,20 @@ def _shadows_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_shadows_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the shadows layer.
 
-    Order matches the legacy ``_shadows_paint`` (room shadows first,
-    then corridor shadows) so ``layer_to_svg(buf, "shadows")``
-    streams op output in the same sequence as the legacy
-    ``_render_room_shadows`` + ``_render_corridor_shadows`` joined
-    output.
+    Honours the legacy ``layer.is_active`` gate: building floors
+    have ``ctx.shadows_enabled = False`` and skip the layer
+    entirely (no comment, no fragments). The IR matches by
+    returning early so the dispatcher's per-layer loop sees zero
+    ops and ``ir_to_svg`` reads the flag to suppress the comment.
 
-    1.b.2 emits one ``ShadowOp(kind=Room, region_ref=room.id)`` per
-    room (the per-room region polygons come from
-    :func:`emit_regions`), then 1.b.1's aggregated
-    ``ShadowOp(kind=Corridor)`` carrying every CORRIDOR-surface tile
-    and door tile. Rooms whose shape isn't yet supported by
-    :func:`_room_region_data` get no region registered and are
-    silently skipped here too — the starter fixtures don't trigger
-    that path.
+    Order matches the legacy ``_shadows_paint`` (room shadows
+    first, then corridor shadows) so ``layer_to_svg(buf, "shadows")``
+    streams op output in the same sequence as
+    ``_render_room_shadows`` + ``_render_corridor_shadows`` joined.
     """
+    if not builder.ctx.shadows_enabled:
+        return
+
     from nhc.rendering.ir._fb import Op, ShadowKind
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.ShadowOp import ShadowOpT
@@ -128,6 +127,11 @@ def _hatching_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the hatching layer.
 
+    Honours the legacy ``layer.is_active`` gate: building floors
+    and prerevealed surfaces have ``ctx.hatching_enabled = False``
+    and skip the layer entirely. ``ir_to_svg`` reads the flag to
+    suppress the per-layer comment when no ops are present.
+
     Order matches the legacy ``_hatching_paint`` (room halo first,
     then corridor halo) so ``layer_to_svg(buf, "hatching")``
     streams op output in the same sequence as the joined legacy
@@ -149,6 +153,9 @@ def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
     ``_hatching_paint``, so emitting ``HatchOp(kind=Hole)`` would
     diverge from the parity contract.
     """
+    if not builder.ctx.hatching_enabled:
+        return
+
     from nhc.rendering.ir._fb import HatchKind, Op
     from nhc.rendering.ir._fb.HatchOp import HatchOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT

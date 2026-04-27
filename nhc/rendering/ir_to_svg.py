@@ -132,7 +132,21 @@ def ir_to_svg(buf: bytes) -> str:
         f'<rect width="100%" height="100%" fill="{BG}"/>',
         f'<g transform="translate({padding},{padding})">',
     ]
+    flags = fir.Flags()
+    inactive: set[str] = set()
+    if flags is not None:
+        # Shadows + hatching are gated on RenderContext flags in
+        # the legacy `FLOOR_LAYERS`. When inactive, `render_layers`
+        # skips the layer entirely (no comment, no fragments) — the
+        # IR matches by suppressing the comment header here. The
+        # other seven layers default to active.
+        if not flags.ShadowsEnabled():
+            inactive.add("shadows")
+        if not flags.HatchingEnabled():
+            inactive.add("hatching")
     for layer_name in _LAYER_ORDER:
+        if layer_name in inactive:
+            continue
         layer_frags = _dispatch_ops(
             fir, op_filter=_LAYER_OPS[layer_name],
         )

@@ -99,48 +99,26 @@ def render_floor_svg(
     a wooden tower's planks visually reach the chamfer diagonal
     rather than the bbox edge.
 
-    Phase 1 of the IR migration ships the IR pipeline alongside
-    this legacy path — every per-layer parity gate is green for
-    the starter fixtures, and the integration gate in
-    :mod:`tests.unit.test_ir_to_svg` locks in byte-equality. The
-    ``render_floor_svg`` rewire to ``ir_to_svg(build_floor_ir(...))``
-    is deferred until the emit fills the wood-floor short-circuit,
-    decorator pipeline (cobblestone / brick / ore / cart-tracks),
-    and surface-features paths — currently stubs because the
-    starter fixtures don't exercise them.
+    Phase 1.n of the IR migration rewires this entry to route
+    through ``ir_to_svg(build_floor_ir(...))``. Every legacy
+    code path (wood floor, decorator pipeline, surface features,
+    inactive-layer gating) flows through the IR pipeline; the
+    legacy ``_*_paint`` helpers stay alive because the IR emit
+    shells call into them for Phase 1's transitional passthroughs.
+    Phase 4 deletes them after the Rust ports.
     """
-    w = level.width * CELL + 2 * PADDING
-    h = level.height * CELL + 2 * PADDING
+    from nhc.rendering.ir_emitter import build_floor_ir
+    from nhc.rendering.ir_to_svg import ir_to_svg
 
-    # Build the frozen render context once. It carries the cave +
-    # dungeon polygon geometry (so they're computed exactly once)
-    # and the resolved feature flags (shadows, hatching, ...) so
-    # the layer registry can drive every pass off a single source
-    # of truth.
-    ctx = build_render_context(
+    buf = build_floor_ir(
         level,
         seed=seed,
-        cave_geometry_builder=_build_cave_wall_geometry,
-        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=hatch_distance,
         building_footprint=building_footprint,
         building_polygon=building_polygon,
-        hatch_distance=hatch_distance,
         vegetation=vegetation,
     )
-
-    svg: list[str] = [
-        (
-            f'<svg width="{w}" height="{h}" '
-            f'viewBox="0 0 {w} {h}" '
-            'xmlns="http://www.w3.org/2000/svg">'
-        ),
-        f'<rect width="100%" height="100%" fill="{BG}"/>',
-        f'<g transform="translate({PADDING},{PADDING})">',
-    ]
-    svg.extend(render_layers(ctx, FLOOR_LAYERS))
-    svg.append("</g>")
-    svg.append("</svg>")
-    return "\n".join(svg)
+    return ir_to_svg(buf)
 
 
 HATCH_PATCH_SIZE = 16  # tiles per side of the repeating hatch patch
