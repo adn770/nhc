@@ -165,6 +165,21 @@ struct StairTile {
   pad2: uint8 = 0;
 }
 
+// Per-tile classification for the floor-grid handler. The legacy
+// `_render_floor_grid` walks all non-VOID tiles in y-major order
+// and routes each segment to the room-bucket or corridor-bucket
+// based on this flag. The IR carries the same bit so the
+// handler's `random.Random(seed)` stream walks segments in the
+// same order without re-deriving from the level.
+struct FloorGridTile {
+  x: int32;
+  y: int32;
+  is_corridor: bool;
+  pad0: uint8 = 0;
+  pad1: uint8 = 0;
+  pad2: uint8 = 0;
+}
+
 // ── Region records ──────────────────────────────────────────
 
 table Region {
@@ -266,6 +281,12 @@ table FloorGridOp {
   seed: uint64;            // current code uses fixed 41; emitter sets per audit
   theme: string;
   scale: float = 1.0;      // _DETAIL_SCALE[theme]
+  // Pre-classified non-VOID tiles in legacy iteration order
+  // (y-major, x-minor). Handler walks the list, calls
+  // `_wobbly_grid_seg` for each tile's right + bottom edges, and
+  // routes the resulting segment to the room-bucket or
+  // corridor-bucket via `is_corridor`.
+  tiles: [FloorGridTile];
 }
 
 // Layer 500a — floor detail (cracks, scratches, stones, clusters).

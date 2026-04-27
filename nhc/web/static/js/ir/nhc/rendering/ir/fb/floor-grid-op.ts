@@ -4,6 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { FloorGridTile } from '../../../../nhc/rendering/ir/fb/floor-grid-tile.js';
+
+
 export class FloorGridOp {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
@@ -46,8 +49,18 @@ scale():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 1.0;
 }
 
+tiles(index: number, obj?:FloorGridTile):FloorGridTile|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? (obj || new FloorGridTile()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 12, this.bb!) : null;
+}
+
+tilesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startFloorGridOp(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
@@ -66,17 +79,26 @@ static addScale(builder:flatbuffers.Builder, scale:number) {
   builder.addFieldFloat32(3, scale, 1.0);
 }
 
+static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, tilesOffset, 0);
+}
+
+static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(12, numElems, 4);
+}
+
 static endFloorGridOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFloorGridOp(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, scale:number):flatbuffers.Offset {
+static createFloorGridOp(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, scale:number, tilesOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorGridOp.startFloorGridOp(builder);
   FloorGridOp.addClipRegion(builder, clipRegionOffset);
   FloorGridOp.addSeed(builder, seed);
   FloorGridOp.addTheme(builder, themeOffset);
   FloorGridOp.addScale(builder, scale);
+  FloorGridOp.addTiles(builder, tilesOffset);
   return FloorGridOp.endFloorGridOp(builder);
 }
 }

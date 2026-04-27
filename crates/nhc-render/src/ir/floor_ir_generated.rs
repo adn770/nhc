@@ -2176,6 +2176,261 @@ impl<'a> StairTile {
 
 }
 
+// struct FloorGridTile, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct FloorGridTile(pub [u8; 12]);
+impl Default for FloorGridTile { 
+  fn default() -> Self { 
+    Self([0; 12])
+  }
+}
+impl ::core::fmt::Debug for FloorGridTile {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("FloorGridTile")
+      .field("x", &self.x())
+      .field("y", &self.y())
+      .field("is_corridor", &self.is_corridor())
+      .field("pad0", &self.pad0())
+      .field("pad1", &self.pad1())
+      .field("pad2", &self.pad2())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FloorGridTile {}
+impl<'a> ::flatbuffers::Follow<'a> for FloorGridTile {
+  type Inner = &'a FloorGridTile;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a FloorGridTile>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a FloorGridTile {
+  type Inner = &'a FloorGridTile;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<FloorGridTile>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for FloorGridTile {
+    type Output = FloorGridTile;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const FloorGridTile as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FloorGridTile {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> FloorGridTile {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    x: i32,
+    y: i32,
+    is_corridor: bool,
+    pad0: u8,
+    pad1: u8,
+    pad2: u8,
+  ) -> Self {
+    let mut s = Self([0; 12]);
+    s.set_x(x);
+    s.set_y(y);
+    s.set_is_corridor(is_corridor);
+    s.set_pad0(pad0);
+    s.set_pad1(pad1);
+    s.set_pad2(pad2);
+    s
+  }
+
+  pub fn x(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_x(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn y(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_y(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn is_corridor(&self) -> bool {
+    let mut mem = ::core::mem::MaybeUninit::<<bool as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_is_corridor(&mut self, x: bool) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<bool as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pad0(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[9..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pad0(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[9..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pad1(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[10..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pad1(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[10..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pad2(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[11..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pad2(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[11..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
 pub enum PolygonOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -3819,6 +4074,7 @@ impl<'a> FloorGridOp<'a> {
   pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
   pub const VT_SCALE: ::flatbuffers::VOffsetT = 10;
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3831,6 +4087,7 @@ impl<'a> FloorGridOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorGridOp<'bldr>> {
     let mut builder = FloorGridOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.add_scale(args.scale);
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
@@ -3866,6 +4123,13 @@ impl<'a> FloorGridOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(FloorGridOp::VT_SCALE, Some(1.0)).unwrap()}
   }
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, FloorGridTile>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FloorGridTile>>>(FloorGridOp::VT_TILES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorGridOp<'_> {
@@ -3878,6 +4142,7 @@ impl ::flatbuffers::Verifiable for FloorGridOp<'_> {
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<f32>("scale", Self::VT_SCALE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FloorGridTile>>>("tiles", Self::VT_TILES, false)?
      .finish();
     Ok(())
   }
@@ -3887,6 +4152,7 @@ pub struct FloorGridOpArgs<'a> {
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub scale: f32,
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FloorGridTile>>>,
 }
 impl<'a> Default for FloorGridOpArgs<'a> {
   #[inline]
@@ -3896,6 +4162,7 @@ impl<'a> Default for FloorGridOpArgs<'a> {
       seed: 0,
       theme: None,
       scale: 1.0,
+      tiles: None,
     }
   }
 }
@@ -3922,6 +4189,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorGridOpBuilder<'a, 'b, A>
     self.fbb_.push_slot::<f32>(FloorGridOp::VT_SCALE, scale, 1.0);
   }
   #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , FloorGridTile>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorGridOp::VT_TILES, tiles);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorGridOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloorGridOpBuilder {
@@ -3943,6 +4214,7 @@ impl ::core::fmt::Debug for FloorGridOp<'_> {
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
       ds.field("scale", &self.scale());
+      ds.field("tiles", &self.tiles());
       ds.finish()
   }
 }

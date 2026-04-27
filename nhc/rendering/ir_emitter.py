@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 _SCHEMA_MAJOR = 1
-_SCHEMA_MINOR = 1
+_SCHEMA_MINOR = 2
 
 _FILE_IDENTIFIER = b"NIRF"
 
@@ -313,7 +313,10 @@ def emit_terrain_tints(builder: FloorIRBuilder) -> None:
 
 
 def emit_floor_grid(builder: FloorIRBuilder) -> None:
-    """Stub — Phase 1.f lands FloorGridOp emit + handler."""
+    """Phase 1.f: emit FloorGridOp (Perlin-displaced wobbly grid
+    overlay, fixed seed 41 per legacy)."""
+    from nhc.rendering._floor_layers import _emit_floor_grid_ir
+    _emit_floor_grid_ir(builder)
 
 
 def emit_floor_detail(builder: FloorIRBuilder) -> None:

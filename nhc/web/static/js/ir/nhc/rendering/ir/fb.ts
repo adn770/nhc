@@ -10,6 +10,7 @@ export { FeatureFlags } from './fb/feature-flags.js';
 export { FieldOverlayOp } from './fb/field-overlay-op.js';
 export { FloorDetailOp } from './fb/floor-detail-op.js';
 export { FloorGridOp } from './fb/floor-grid-op.js';
+export { FloorGridTile } from './fb/floor-grid-tile.js';
 export { FloorIR } from './fb/floor-ir.js';
 export { FloorKind } from './fb/floor-kind.js';
 export { FountainFeatureOp } from './fb/fountain-feature-op.js';

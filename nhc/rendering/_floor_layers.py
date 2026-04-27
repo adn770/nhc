@@ -561,6 +561,66 @@ def _floor_grid_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _emit_floor_grid_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR ops for the floor-grid layer.
+
+    Walks the level y-major, x-minor (matching the legacy
+    ``_render_floor_grid`` iteration so the handler's
+    ``random.Random(seed)`` stream replays in lock-step) and
+    collects every non-VOID tile with its ``is_corridor`` flag
+    (CORRIDOR surface, door tile, or secret-door feature). The
+    handler decides per-edge whether to drop into the room bucket
+    or corridor bucket from this flag — same routing the legacy
+    does inline.
+    """
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.FloorGridOp import FloorGridOpT
+    from nhc.rendering.ir._fb.FloorGridTile import FloorGridTileT
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+
+    ctx = builder.ctx
+    level = ctx.level
+
+    tiles: list[FloorGridTileT] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain == Terrain.VOID:
+                continue
+            is_cor = (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or _is_door(level, x, y)
+                or tile.feature == "door_secret"
+            )
+            t = FloorGridTileT()
+            t.x = x
+            t.y = y
+            t.isCorridor = is_cor
+            tiles.append(t)
+
+    if not tiles:
+        return
+
+    op = FloorGridOpT()
+    # The fixed `41` seed is the documented code/design discrepancy
+    # in design/ir_primitives.md — Phase 1 honours legacy behaviour.
+    op.seed = 41
+    op.theme = ctx.theme
+    op.tiles = tiles
+    op.clipRegion = (
+        "dungeon"
+        if (
+            ctx.dungeon_poly is not None
+            and not ctx.dungeon_poly.is_empty
+        )
+        else ""
+    )
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorGridOp
+    entry.op = op
+    builder.add_op(entry)
+
+
 def _floor_detail_paint(ctx: RenderContext) -> Iterable[str]:
     from nhc.rendering._floor_detail import _render_floor_detail
     building_polygon = (

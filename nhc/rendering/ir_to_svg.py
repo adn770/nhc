@@ -39,8 +39,8 @@ from nhc.rendering._dungeon_polygon import (
     _build_sections, _pick_section_points,
 )
 from nhc.rendering._svg_helpers import (
-    BG, CAVE_FLOOR_COLOR, CELL, FLOOR_COLOR, HATCH_UNDERLAY, INK,
-    WALL_WIDTH,
+    BG, CAVE_FLOOR_COLOR, CELL, FLOOR_COLOR, GRID_WIDTH,
+    HATCH_UNDERLAY, INK, WALL_WIDTH, _wobbly_grid_seg,
 )
 from nhc.rendering.ir._fb import HatchKind, Op, ShadowKind, TerrainKind
 from nhc.rendering.ir._fb.FloorIR import FloorIR
@@ -64,6 +64,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "hatching": frozenset({Op.Op.HatchOp}),
     "walls_and_floors": frozenset({Op.Op.WallsAndFloorsOp}),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
+    "floor_grid": frozenset({Op.Op.FloorGridOp}),
 }
 
 
@@ -872,3 +873,80 @@ def _dungeon_clip_defs(poly: Any, clip_id: str) -> str:
 
 
 _OP_HANDLERS[Op.Op.TerrainTintOp] = _draw_terrain_tint_from_ir
+
+
+def _draw_floor_grid_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Reproduce ``_render_floor_grid``.
+
+    Walks ``op.tiles`` (already in y-major iteration order from the
+    emitter) and calls ``_wobbly_grid_seg`` for each tile's right
+    and bottom edges with the legacy ``random.Random(seed)``. Each
+    segment goes to the room bucket or corridor bucket based on
+    ``tile.is_corridor``; the room bucket then clips to the
+    dungeon-interior polygon while the corridor bucket emits
+    unclipped.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    rng = random.Random(op.seed)
+    width = fir.WidthTiles()
+    height = fir.HeightTiles()
+
+    room_segments: list[str] = []
+    corridor_segments: list[str] = []
+
+    for tile in (op.tiles or []):
+        x, y = tile.x, tile.y
+        is_cor = tile.isCorridor
+        px, py = x * CELL, y * CELL
+
+        if x + 1 < width:
+            seg = _wobbly_grid_seg(
+                rng, px + CELL, py, px + CELL, py + CELL,
+                x * 0.7, y * 0.7, base=20,
+            )
+            (corridor_segments if is_cor else room_segments).append(seg)
+
+        if y + 1 < height:
+            seg = _wobbly_grid_seg(
+                rng, px, py + CELL, px + CELL, py + CELL,
+                x * 0.3, y * 0.7, base=24,
+            )
+            (corridor_segments if is_cor else room_segments).append(seg)
+
+    style = (
+        f'fill="none" stroke="{INK}" '
+        f'stroke-width="{GRID_WIDTH}" '
+        f'opacity="0.7" stroke-linecap="round"'
+    )
+
+    out: list[str] = []
+    if room_segments:
+        clip_id = _to_str(op.clipRegion)
+        if clip_id:
+            region = _find_region(fir, clip_id.encode())
+            if region is not None:
+                out.append(_dungeon_clip_defs(region.Polygon(), "grid-clip"))
+                out.append(
+                    f'<path d="{" ".join(room_segments)}" '
+                    f'{style} clip-path="url(#grid-clip)"/>'
+                )
+            else:
+                out.append(
+                    f'<path d="{" ".join(room_segments)}" {style}/>'
+                )
+        else:
+            out.append(
+                f'<path d="{" ".join(room_segments)}" {style}/>'
+            )
+
+    if corridor_segments:
+        out.append(
+            f'<path d="{" ".join(corridor_segments)}" {style}/>'
+        )
+
+    return out
+
+
+_OP_HANDLERS[Op.Op.FloorGridOp] = _draw_floor_grid_from_ir
