@@ -7,6 +7,14 @@ pyyaml
 # separate dev tool — see plans/nhc_ir_prereqs_plan.md Appendix A.
 flatbuffers
 
+# IR migration Phase 0.7 stepping stone: SVG → PNG rasterisation
+# for the /api/game/<sid>/floor/<svg_id>.png endpoint. Replaced by
+# tiny-skia (Rust) in Phase 5, which targets p95 ≤ 12 ms per floor
+# vs resvg-py's ~1 s on dev hardware (~3 s expected on the deploy
+# host). Wheel availability confirmed for cp314 macOS arm64 +
+# manylinux_2_17 x86_64 — see debug/resvg_smoke.md.
+resvg-py
+
 # Web server (optional — for nhc_web.py)
 flask
 flask-sock

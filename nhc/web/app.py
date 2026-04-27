@@ -1103,6 +1103,52 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
 
+    @app.route("/api/game/<session_id>/floor/<svg_id>.png",
+               methods=["GET"])
+    @_player_auth
+    def game_floor_png(session_id: str, svg_id: str):
+        """Floor rasterised to PNG via resvg-py.
+
+        Phase 0.7 of plans/nhc_ir_migration_plan.md. The pipeline
+        is currently `svg → resvg → png` because the IR is empty
+        until Phase 1; once Phase 1 lands we route through
+        `IR → SVG → resvg → PNG`, and Phase 5 swaps in
+        `IR → tiny-skia → PNG` to drop the SVG hop entirely.
+
+        URL shape mirrors the .svg endpoint so the UUID-anchored
+        cache contract is identical: the PNG with id X always
+        carries the rasterised pixels of the SVG with id X, and
+        the same Cache-Control: public, max-age=604800 lets Caddy
+        + the browser cache aggressively.
+        """
+        session = sessions.get(session_id)
+        if not session:
+            return "session not found", 404
+        client = session.game.renderer
+        svg_body: str | None = None
+        svg_cache = getattr(session.game, "_svg_cache", None)
+        if svg_cache:
+            for cached_id, cached_svg in svg_cache.values():
+                if cached_id == svg_id:
+                    svg_body = cached_svg
+                    break
+        if svg_body is None and client.floor_svg_id == svg_id:
+            svg_body = client.floor_svg
+        if svg_body is None:
+            return "floor PNG not found", 404
+        try:
+            import resvg_py
+        except ImportError:
+            # resvg-py is in requirements.txt but the production
+            # container builds may lag; fail loudly so the deploy
+            # owner sees the gap rather than serving 500s.
+            return "resvg-py not installed", 503
+        png_bytes = bytes(resvg_py.svg_to_bytes(svg_string=svg_body))
+        resp = make_response(png_bytes)
+        resp.headers["Content-Type"] = "image/png"
+        resp.headers["Cache-Control"] = "public, max-age=604800"
+        return resp
+
     # ── Generation params / regenerate (god mode only) ──────
 
     # ─────────────────────────────────────────────────────────────
