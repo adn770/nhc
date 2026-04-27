@@ -846,6 +846,93 @@ class TestNewGameCleansUp:
         assert "stale-floor" not in floor_svg
 
 
+class TestFloorIRRoutes:
+    """Phase 2.1 of plans/nhc_ir_migration_plan.md.
+
+    The `.nir` and `.json` siblings of the existing
+    `/api/game/<sid>/floor/<svg_id>.svg` route put the IR on the
+    wire so debug tooling can observe it. `.json` is god-mode-gated
+    because the canonical dump leaks engine internals (region ids,
+    rng seeds) that regular players have no business seeing.
+    """
+
+    def _start_dungeon_game(self, c, *, god_mode=False):
+        token, _pid = _register_player(c)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = c.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        if god_mode:
+            session.game.set_god_mode(True)
+        return sid, session.game.renderer.floor_svg_id
+
+    def test_nir_returns_flatbuffer(self, client_with_data_dir):
+        sid, svg_id = self._start_dungeon_game(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.nir",
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"] == "application/octet-stream"
+        body = resp.get_data()
+        # FlatBuffers stamp the file_identifier at offset 4..8.
+        assert body[4:8] == b"NIRF"
+        # The canonical dumper is the round-trip contract.
+        from nhc.rendering.ir.dump import dump
+        text = dump(body)
+        assert '"major"' in text
+        assert '"minor"' in text
+        assert '"regions"' in text
+
+    def test_nir_404_for_unknown_session(self, client_with_data_dir):
+        resp = client_with_data_dir.get(
+            "/api/game/no-such-sid/floor/no-such-id.nir",
+        )
+        assert resp.status_code == 404
+
+    def test_nir_404_for_unknown_svg_id(self, client_with_data_dir):
+        sid, _svg_id = self._start_dungeon_game(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/deadbeef.nir",
+        )
+        assert resp.status_code == 404
+
+    def test_json_dump_for_god_mode(self, client_with_data_dir):
+        sid, svg_id = self._start_dungeon_game(
+            client_with_data_dir, god_mode=True,
+        )
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.json",
+        )
+        assert resp.status_code == 200
+        assert resp.headers["Content-Type"].startswith(
+            "application/json"
+        )
+        payload = json.loads(resp.get_data(as_text=True))
+        assert payload["major"] == 1
+        assert payload["minor"] >= 6
+        assert "regions" in payload
+        assert "ops" in payload
+
+    def test_json_404_when_not_god_mode(self, client_with_data_dir):
+        sid, svg_id = self._start_dungeon_game(client_with_data_dir)
+        resp = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.json",
+        )
+        # Mirrors /debug.json: hide the route's existence rather than
+        # 403-ing — same pattern, same surface.
+        assert resp.status_code == 404
+
+    def test_json_404_for_unknown_session(self, client_with_data_dir):
+        resp = client_with_data_dir.get(
+            "/api/game/no-such-sid/floor/no-such-id.json",
+        )
+        assert resp.status_code == 404
+
+
 class TestQuitSavesGame:
     def test_quit_intent_creates_autosave(self, client_with_data_dir):
         token, pid = _register_player(client_with_data_dir)

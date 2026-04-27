@@ -1149,6 +1149,94 @@ def create_app(
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
 
+    def _build_floor_ir_for_request(session, svg_id: str):
+        """Return the FloorIR FlatBuffer for *svg_id*, or ``None``.
+
+        Phase 2.1 of plans/nhc_ir_migration_plan.md. The ``<svg_id>``
+        URL key validates that the request matches the floor the
+        renderer last produced (live or cached); building / site-
+        surface floors are not yet covered (their composite SVGs
+        wrap an IR-rendered base in non-IR overlays). Phase 2.3
+        moves the IR into the per-floor cache tuple so this helper
+        becomes a cache lookup instead of a rebuild.
+        """
+        if (
+            session is None
+            or session.game is None
+            or session.game.level is None
+        ):
+            return None
+        client = session.game.renderer
+        matched = client.floor_svg_id == svg_id
+        if not matched:
+            svg_cache = getattr(session.game, "_svg_cache", None)
+            if svg_cache:
+                for cached_id, _ in svg_cache.values():
+                    if cached_id == svg_id:
+                        matched = True
+                        break
+        if not matched:
+            return None
+        level = session.game.level
+        site = getattr(session.game, "_active_site", None)
+        if site is not None:
+            if level is getattr(site, "surface", None):
+                return None
+            if getattr(level, "building_id", None) is not None:
+                return None
+        from nhc.rendering.ir_emitter import build_floor_ir
+        return build_floor_ir(
+            level,
+            seed=session.game.seed or 0,
+            hatch_distance=config.hatch_distance,
+            vegetation=config.vegetation,
+        )
+
+    @app.route("/api/game/<session_id>/floor/<svg_id>.nir",
+               methods=["GET"])
+    @_player_auth
+    def game_floor_nir(session_id: str, svg_id: str):
+        """FloorIR FlatBuffer for the floor identified by *svg_id*.
+
+        Same uuid-anchored cache contract as the .svg / .png siblings:
+        the body returned for id X is always the IR for the SVG with
+        id X, so Caddy + the browser can cache aggressively.
+        """
+        session = sessions.get(session_id)
+        if not session:
+            return "session not found", 404
+        buf = _build_floor_ir_for_request(session, svg_id)
+        if buf is None:
+            return "floor IR not found", 404
+        resp = make_response(bytes(buf))
+        resp.headers["Content-Type"] = "application/octet-stream"
+        resp.headers["Cache-Control"] = "public, max-age=604800"
+        return resp
+
+    @app.route("/api/game/<session_id>/floor/<svg_id>.json",
+               methods=["GET"])
+    @_player_auth
+    def game_floor_ir_json(session_id: str, svg_id: str):
+        """Canonicalised JSON dump of the FloorIR — god-mode only.
+
+        Mirrors the /debug.json gating: hide the route's existence
+        from non-god sessions (404, not 403) so the surface looks
+        identical to a non-existent floor id.
+        """
+        session = sessions.get(session_id)
+        if not session:
+            return "session not found", 404
+        if not session.game or not session.game.god_mode:
+            return "floor IR JSON not found", 404
+        buf = _build_floor_ir_for_request(session, svg_id)
+        if buf is None:
+            return "floor IR JSON not found", 404
+        from nhc.rendering.ir.dump import dump
+        resp = make_response(dump(bytes(buf)))
+        resp.headers["Content-Type"] = "application/json"
+        resp.headers["Cache-Control"] = "public, max-age=604800"
+        return resp
+
     # ── Generation params / regenerate (god mode only) ──────
 
     # ─────────────────────────────────────────────────────────────
