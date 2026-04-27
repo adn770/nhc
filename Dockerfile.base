@@ -10,7 +10,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir \
-    flask flask-sock shapely noise gunicorn pyyaml
+    flask flask-sock shapely gunicorn pyyaml
 
 # TTS support (optional — fails gracefully if unavailable)
 RUN pip install --no-cache-dir piper-tts onnxruntime requests || true

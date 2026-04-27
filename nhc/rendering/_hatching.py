@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import random
 
-import noise as _noise
+from nhc.rendering import _perlin as _noise
 from shapely.geometry import LineString, Point, Polygon
 
 from nhc.dungeon.model import Level, SurfaceType, Terrain

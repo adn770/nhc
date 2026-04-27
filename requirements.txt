@@ -6,7 +6,6 @@ pyyaml
 flask
 flask-sock
 shapely
-noise
 gunicorn
 
 # Testing
