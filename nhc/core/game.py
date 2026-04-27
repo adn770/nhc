@@ -28,6 +28,7 @@ from nhc.core.actions import (
     _item_slot_cost,
 )
 from nhc.core.autosave import (
+    IRArtefacts,
     auto_restore,
     autosave as _autosave,
     delete_autosave,
@@ -404,6 +405,13 @@ class Game:
         # depth-keyed cache would serve the wrong SVG to a
         # building interior after the surface got rendered.
         self._svg_cache: dict[str, tuple[str, str]] = {}
+        # svg_id → IRArtefacts (Phase 2.3). Parallel to _svg_cache;
+        # lazy-populated by the .nir / .json / .png web routes when
+        # they first build the IR for a given floor render. The
+        # SVG cache and the IR cache share the svg_id namespace —
+        # one is the SVG body the renderer last produced, the other
+        # is the IR (and its rasterised + canonical-dump children).
+        self._ir_cache: dict[str, IRArtefacts] = {}
         self._prefetch_depth: int | None = None   # depth being/been prefetched
         self._prefetch_result: Level | None = None  # pre-generated level
         self._prefetch_params: GenerationParams | None = None

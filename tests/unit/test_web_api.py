@@ -1003,6 +1003,95 @@ class TestFloorPngViaIR:
         assert resp.status_code == 404
 
 
+class TestFloorIRArtefactsCache:
+    """Phase 2.3 of plans/nhc_ir_migration_plan.md.
+
+    The IR / IR-JSON / PNG hang off ``Game._ir_cache`` keyed by
+    svg_id and lazy-populate on first request. Each test mutates
+    the cached entry to a sentinel; if the route honours the cache
+    the second response equals the sentinel, otherwise it would
+    rebuild from the live level and return the real artefact.
+    """
+
+    def _start_dungeon_game(self, c, *, god_mode=False):
+        token, _pid = _register_player(c)
+        resp = c.post(
+            "/api/game/new",
+            json={"player_token": token, "world": "dungeon"},
+        )
+        assert resp.status_code == 201
+        sid = resp.get_json()["session_id"]
+        sessions = c.application.config["SESSIONS"]
+        session = sessions.get(sid)
+        if god_mode:
+            session.game.set_god_mode(True)
+        return sid, session, session.game.renderer.floor_svg_id
+
+    def test_nir_caches_on_first_request(self, client_with_data_dir):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        # Cold cache: no entry for this svg_id yet.
+        assert svg_id not in session.game._ir_cache
+        # First call populates.
+        resp1 = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.nir",
+        )
+        assert resp1.status_code == 200
+        body1 = resp1.get_data()
+        assert svg_id in session.game._ir_cache
+        # Mutate the entry: a second call must serve this byte
+        # sequence verbatim (cache hit), not rebuild from level.
+        sentinel = b"NIRF" + b"\x00" * 12 + b"sentinel"
+        session.game._ir_cache[svg_id].nir = sentinel
+        resp2 = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.nir",
+        )
+        assert resp2.get_data() == sentinel
+        assert resp2.get_data() != body1
+
+    def test_json_caches_on_first_request(self, client_with_data_dir):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir, god_mode=True,
+        )
+        resp1 = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.json",
+        )
+        assert resp1.status_code == 200
+        text1 = resp1.get_data(as_text=True)
+        entry = session.game._ir_cache[svg_id]
+        assert entry.ir_json is not None
+        # Sentinel proves the second response is served from
+        # ``entry.ir_json`` rather than re-dumped from ``entry.nir``.
+        entry.ir_json = '{"sentinel": true}'
+        resp2 = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.json",
+        )
+        assert resp2.get_data(as_text=True) == '{"sentinel": true}'
+        assert resp2.get_data(as_text=True) != text1
+
+    def test_png_caches_on_first_request(self, client_with_data_dir):
+        sid, session, svg_id = self._start_dungeon_game(
+            client_with_data_dir,
+        )
+        resp1 = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.png",
+        )
+        assert resp1.status_code == 200
+        body1 = resp1.get_data()
+        entry = session.game._ir_cache[svg_id]
+        assert entry.png is not None
+        # Sentinel must appear verbatim on the second call —
+        # rasterising again would discard it.
+        sentinel = b"\x89PNG\r\n\x1a\nsentinel-pixels"
+        entry.png = sentinel
+        resp2 = client_with_data_dir.get(
+            f"/api/game/{sid}/floor/{svg_id}.png",
+        )
+        assert resp2.get_data() == sentinel
+        assert resp2.get_data() != body1
+
+
 class TestQuitSavesGame:
     def test_quit_intent_creates_autosave(self, client_with_data_dir):
         token, pid = _register_player(client_with_data_dir)

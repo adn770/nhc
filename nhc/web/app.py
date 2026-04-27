@@ -20,6 +20,7 @@ from flask import (
 from flask_sock import Sock
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from nhc.core.autosave import IRArtefacts
 from nhc.web.build_info import get_build_info
 from nhc.web.config import WebConfig
 from nhc.web.sessions import SessionManager, player_id_from_token
@@ -1109,12 +1110,12 @@ def create_app(
     def game_floor_png(session_id: str, svg_id: str):
         """Floor rasterised to PNG via resvg-py.
 
-        Phase 2.2 of plans/nhc_ir_migration_plan.md: the IR is now
-        the source of truth. For floors covered by ``build_floor_ir``
-        (plain dungeon today) the pipeline is
-        ``IR → ir_to_svg → resvg → PNG``; the cached composite SVG
-        remains the fallback for building / site-surface floors
-        until those branches gain IR coverage. Phase 5 swaps in
+        Phase 2.2 of plans/nhc_ir_migration_plan.md routed PNGs
+        through the IR pipeline; Phase 2.3 caches the rasterised
+        bytes on the per-floor ``IRArtefacts`` entry so repeat hits
+        skip the resvg pass. The cached composite SVG remains the
+        fallback for building / site-surface floors until those
+        branches gain IR coverage. Phase 5 swaps in
         ``IR → tiny-skia → PNG`` to drop the SVG hop entirely.
 
         URL shape mirrors the .svg endpoint so the UUID-anchored
@@ -1133,17 +1134,23 @@ def create_app(
             # container builds may lag; fail loudly so the deploy
             # owner sees the gap rather than serving 500s.
             return "resvg-py not installed", 503
-        svg_body: str | None = None
-        buf = _build_floor_ir_for_request(session, svg_id)
-        if buf is not None:
-            from nhc.rendering.ir_to_svg import ir_to_svg
-            svg_body = ir_to_svg(bytes(buf))
+        png_bytes: bytes | None = None
+        entry = _get_or_build_ir_artefacts(session, svg_id)
+        if entry is not None:
+            if entry.png is None:
+                from nhc.rendering.ir_to_svg import ir_to_svg
+                svg_body = ir_to_svg(entry.nir)
+                entry.png = bytes(
+                    resvg_py.svg_to_bytes(svg_string=svg_body),
+                )
+            png_bytes = entry.png
         else:
             # Fallback: building / site-surface composite SVG that
             # carries non-IR overlays (brick perimeter, roofs,
             # enclosure). When their renderers gain IR coverage
             # this branch goes away.
             client = session.game.renderer
+            svg_body = None
             svg_cache = getattr(session.game, "_svg_cache", None)
             if svg_cache:
                 for cached_id, cached_svg in svg_cache.values():
@@ -1152,24 +1159,27 @@ def create_app(
                         break
             if svg_body is None and client.floor_svg_id == svg_id:
                 svg_body = client.floor_svg
-        if svg_body is None:
-            return "floor PNG not found", 404
-        png_bytes = bytes(resvg_py.svg_to_bytes(svg_string=svg_body))
+            if svg_body is None:
+                return "floor PNG not found", 404
+            png_bytes = bytes(
+                resvg_py.svg_to_bytes(svg_string=svg_body),
+            )
         resp = make_response(png_bytes)
         resp.headers["Content-Type"] = "image/png"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
 
-    def _build_floor_ir_for_request(session, svg_id: str):
-        """Return the FloorIR FlatBuffer for *svg_id*, or ``None``.
+    def _get_or_build_ir_artefacts(session, svg_id: str):
+        """Return the cached or freshly-built ``IRArtefacts`` for *svg_id*.
 
-        Phase 2.1 of plans/nhc_ir_migration_plan.md. The ``<svg_id>``
-        URL key validates that the request matches the floor the
-        renderer last produced (live or cached); building / site-
-        surface floors are not yet covered (their composite SVGs
-        wrap an IR-rendered base in non-IR overlays). Phase 2.3
-        moves the IR into the per-floor cache tuple so this helper
-        becomes a cache lookup instead of a rebuild.
+        Phase 2.3 of plans/nhc_ir_migration_plan.md: the IR + its
+        canonical JSON dump + its rasterised PNG hang off
+        ``Game._ir_cache`` keyed by svg_id and lazy-populate on
+        first request. The ``<svg_id>`` URL key validates that the
+        request matches the floor the renderer last produced (live
+        or cached); building / site-surface floors stay 404 — their
+        composite SVGs wrap an IR-rendered base in non-IR overlays
+        so a bare IR for those would mislead.
         """
         if (
             session is None
@@ -1177,6 +1187,9 @@ def create_app(
             or session.game.level is None
         ):
             return None
+        ir_cache = getattr(session.game, "_ir_cache", None)
+        if ir_cache is not None and svg_id in ir_cache:
+            return ir_cache[svg_id]
         client = session.game.renderer
         matched = client.floor_svg_id == svg_id
         if not matched:
@@ -1195,13 +1208,21 @@ def create_app(
                 return None
             if getattr(level, "building_id", None) is not None:
                 return None
-        from nhc.rendering.ir_emitter import build_floor_ir
-        return build_floor_ir(
+        from nhc.rendering.ir_emitter import (
+            SCHEMA_MAJOR, SCHEMA_MINOR, build_floor_ir,
+        )
+        nir = bytes(build_floor_ir(
             level,
             seed=session.game.seed or 0,
             hatch_distance=config.hatch_distance,
             vegetation=config.vegetation,
+        ))
+        entry = IRArtefacts(
+            nir=nir, major=SCHEMA_MAJOR, minor=SCHEMA_MINOR,
         )
+        if ir_cache is not None:
+            ir_cache[svg_id] = entry
+        return entry
 
     @app.route("/api/game/<session_id>/floor/<svg_id>.nir",
                methods=["GET"])
@@ -1216,10 +1237,10 @@ def create_app(
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
-        buf = _build_floor_ir_for_request(session, svg_id)
-        if buf is None:
+        entry = _get_or_build_ir_artefacts(session, svg_id)
+        if entry is None:
             return "floor IR not found", 404
-        resp = make_response(bytes(buf))
+        resp = make_response(entry.nir)
         resp.headers["Content-Type"] = "application/octet-stream"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
@@ -1239,11 +1260,13 @@ def create_app(
             return "session not found", 404
         if not session.game or not session.game.god_mode:
             return "floor IR JSON not found", 404
-        buf = _build_floor_ir_for_request(session, svg_id)
-        if buf is None:
+        entry = _get_or_build_ir_artefacts(session, svg_id)
+        if entry is None:
             return "floor IR JSON not found", 404
-        from nhc.rendering.ir.dump import dump
-        resp = make_response(dump(bytes(buf)))
+        if entry.ir_json is None:
+            from nhc.rendering.ir.dump import dump
+            entry.ir_json = dump(entry.nir)
+        resp = make_response(entry.ir_json)
         resp.headers["Content-Type"] = "application/json"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp

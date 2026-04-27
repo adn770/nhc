@@ -15,12 +15,14 @@ saves are rejected by default; set
 from __future__ import annotations
 
 import hmac
+import json
 import logging
 import os
 import pickle
 import secrets
 import threading
 import zlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -439,6 +441,12 @@ def _restore_payload(game: "Game", payload: dict[str, Any]) -> None:
     # serving stale SVGs after a config change or deploy.
     game._svg_cache = {}
 
+    # IR cache: same drop-on-resume policy. The on-disk floor.nir +
+    # floor.meta.json sidecar (load_ir_artefacts) is the resume
+    # warm-up path for IR; the in-memory cache rebuilds lazily as
+    # the .nir / .json / .png routes are hit.
+    game._ir_cache = {}
+
     # Identification
     knowledge = ItemKnowledge.__new__(ItemKnowledge)
     knowledge.identified = payload.get("knowledge_identified", set())
@@ -540,3 +548,136 @@ def load_svg_cache(
         except Exception:
             logger.error("SVG cache load failed", exc_info=True)
     return None
+
+
+# ── IR artefact cache (Phase 2.3) ───────────────────────────
+
+
+@dataclass
+class IRArtefacts:
+    """Per-floor IR-derived artefacts, paired with the schema version
+    that produced them.
+
+    The IR FlatBuffer (``nir``) is the source of truth; ``ir_json``
+    (canonical dump) and ``png`` (rasterised) are derived from it
+    and lazy-populated on the first ``.json`` / ``.png`` route hit.
+    The ``major`` / ``minor`` pair stamps the IR schema version, so
+    ``load_ir_artefacts`` can reject a stale on-disk cache after a
+    schema bump and force the bootstrap to re-render. See the
+    "Schema-evolution discipline" section of
+    plans/nhc_ir_migration_plan.md.
+    """
+
+    nir: bytes
+    major: int
+    minor: int
+    ir_json: str | None = None
+    png: bytes | None = None
+
+
+def save_ir_artefacts(
+    entry: IRArtefacts, save_dir: Path | None = None,
+) -> None:
+    """Persist *entry* alongside the autosave directory.
+
+    Writes ``floor.nir`` (always), plus ``floor.ir.json`` and
+    ``floor.png`` when those derived artefacts are present, and a
+    ``floor.meta.json`` sidecar carrying the schema version pair.
+    A previous ``floor.png`` is unlinked when the new entry has no
+    PNG so a stale rasterisation never ships under a fresh IR.
+    """
+    d, _ = _resolve(save_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    try:
+        (d / "floor.nir").write_bytes(entry.nir)
+        if entry.ir_json is not None:
+            (d / "floor.ir.json").write_text(
+                entry.ir_json, encoding="utf-8",
+            )
+        else:
+            _unlink_if_exists(d / "floor.ir.json")
+        if entry.png is not None:
+            (d / "floor.png").write_bytes(entry.png)
+        else:
+            _unlink_if_exists(d / "floor.png")
+        (d / "floor.meta.json").write_text(
+            json.dumps(
+                {"major": entry.major, "minor": entry.minor},
+            ),
+            encoding="utf-8",
+        )
+        logger.debug(
+            "IR cache saved: nir=%d ir_json=%s png=%s schema=%d.%d",
+            len(entry.nir),
+            len(entry.ir_json) if entry.ir_json is not None else None,
+            len(entry.png) if entry.png is not None else None,
+            entry.major, entry.minor,
+        )
+    except Exception:
+        logger.error("IR cache save failed", exc_info=True)
+
+
+def load_ir_artefacts(
+    save_dir: Path | None = None,
+) -> IRArtefacts | None:
+    """Load IR artefacts persisted by :func:`save_ir_artefacts`.
+
+    Returns ``None`` when any required file is absent, when the meta
+    sidecar is malformed, or when the on-disk schema doesn't match
+    the running ``ir_emitter`` constants — a schema mismatch means
+    the cached buffer was emitted by a different version of the
+    code and may carry ops or fields the running build doesn't
+    handle, so a re-render is the only safe path.
+    """
+    d, _ = _resolve(save_dir)
+    nir_path = d / "floor.nir"
+    meta_path = d / "floor.meta.json"
+    if not (nir_path.exists() and meta_path.exists()):
+        return None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        major = int(meta["major"])
+        minor = int(meta["minor"])
+    except Exception:
+        logger.warning("IR cache meta corrupted at %s", meta_path)
+        return None
+    # Imported here so the autosave module stays importable in
+    # bootstrap contexts where the rendering subsystem isn't ready.
+    from nhc.rendering.ir_emitter import SCHEMA_MAJOR, SCHEMA_MINOR
+    if major != SCHEMA_MAJOR or minor != SCHEMA_MINOR:
+        logger.info(
+            "IR cache schema mismatch: disk=%d.%d running=%d.%d",
+            major, minor, SCHEMA_MAJOR, SCHEMA_MINOR,
+        )
+        return None
+    try:
+        nir = nir_path.read_bytes()
+        ir_json = None
+        ir_json_path = d / "floor.ir.json"
+        if ir_json_path.exists():
+            ir_json = ir_json_path.read_text(encoding="utf-8")
+        png = None
+        png_path = d / "floor.png"
+        if png_path.exists():
+            png = png_path.read_bytes()
+        logger.debug(
+            "IR cache loaded: nir=%d ir_json=%s png=%s schema=%d.%d",
+            len(nir),
+            len(ir_json) if ir_json is not None else None,
+            len(png) if png is not None else None,
+            major, minor,
+        )
+        return IRArtefacts(
+            nir=nir, major=major, minor=minor,
+            ir_json=ir_json, png=png,
+        )
+    except Exception:
+        logger.error("IR cache load failed", exc_info=True)
+        return None
+
+
+def _unlink_if_exists(p: Path) -> None:
+    try:
+        p.unlink()
+    except FileNotFoundError:
+        pass

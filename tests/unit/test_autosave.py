@@ -335,6 +335,89 @@ class TestSvgCache:
         assert game2._svg_cache == {}
 
 
+class TestIRArtefactsDiskCache:
+    """Phase 2.3 of plans/nhc_ir_migration_plan.md.
+
+    The IR / IR-JSON / PNG round-trip alongside the SVG so a server
+    restart on the same player save dir warms the IR caches without
+    re-running ``build_floor_ir``. Schema-version validation lives
+    in ``load_ir_artefacts`` so a Phase 4 schema bump cleanly
+    invalidates stale on-disk artefacts.
+    """
+
+    def _entry(self, *, major=None, minor=None, png=True):
+        from nhc.core.autosave import IRArtefacts
+        from nhc.rendering.ir_emitter import (
+            SCHEMA_MAJOR, SCHEMA_MINOR,
+        )
+        return IRArtefacts(
+            nir=b"NIRF" + b"\x00" * 12 + b"sample-flatbuffer",
+            ir_json='{"major": 1, "minor": 6, "regions": []}',
+            png=b"\x89PNG\r\n\x1a\nfake-pixels" if png else None,
+            major=SCHEMA_MAJOR if major is None else major,
+            minor=SCHEMA_MINOR if minor is None else minor,
+        )
+
+    def test_round_trip(self, tmp_path):
+        from nhc.core.autosave import (
+            save_ir_artefacts, load_ir_artefacts,
+        )
+        original = self._entry()
+        save_ir_artefacts(original, tmp_path)
+        loaded = load_ir_artefacts(tmp_path)
+        assert loaded is not None
+        assert loaded.nir == original.nir
+        assert loaded.ir_json == original.ir_json
+        assert loaded.png == original.png
+        assert loaded.major == original.major
+        assert loaded.minor == original.minor
+
+    def test_load_returns_none_when_missing(self, tmp_path):
+        from nhc.core.autosave import load_ir_artefacts
+        assert load_ir_artefacts(tmp_path) is None
+
+    def test_load_invalidates_on_major_mismatch(self, tmp_path):
+        from nhc.core.autosave import (
+            save_ir_artefacts, load_ir_artefacts,
+        )
+        # Stamp with a major the running code doesn't know about.
+        save_ir_artefacts(self._entry(major=99), tmp_path)
+        # Phase 4's breaking schema bump must NOT serve a stale
+        # buffer to the IR-aware client; treat it as a cache miss
+        # and let the bootstrap re-render.
+        assert load_ir_artefacts(tmp_path) is None
+
+    def test_load_invalidates_on_minor_mismatch(self, tmp_path):
+        from nhc.core.autosave import (
+            save_ir_artefacts, load_ir_artefacts,
+        )
+        # Even an additive minor bump means new ops or fields the
+        # cached artefacts predate. Safer to invalidate; rebuild
+        # cost is bounded.
+        save_ir_artefacts(self._entry(minor=99), tmp_path)
+        assert load_ir_artefacts(tmp_path) is None
+
+    def test_load_returns_none_on_corrupted_meta(self, tmp_path):
+        from nhc.core.autosave import (
+            save_ir_artefacts, load_ir_artefacts,
+        )
+        save_ir_artefacts(self._entry(), tmp_path)
+        (tmp_path / "floor.meta.json").write_text("not json")
+        assert load_ir_artefacts(tmp_path) is None
+
+    def test_round_trip_without_png(self, tmp_path):
+        # PNG is lazy-derived from the IR; the disk cache must
+        # round-trip a None png without writing a stale floor.png.
+        from nhc.core.autosave import (
+            save_ir_artefacts, load_ir_artefacts,
+        )
+        save_ir_artefacts(self._entry(png=False), tmp_path)
+        assert not (tmp_path / "floor.png").exists()
+        loaded = load_ir_artefacts(tmp_path)
+        assert loaded is not None
+        assert loaded.png is None
+
+
 class TestFileOperations:
     def test_has_autosave_false_initially(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
