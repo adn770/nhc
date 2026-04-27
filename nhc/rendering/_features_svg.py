@@ -2094,6 +2094,7 @@ TREE_FEATURE = TileDecorator(
     layer="surface_features",
     predicate=_feature_predicate("tree"),
     paint=_tree_paint_decorator,
+    requires=frozenset({"vegetation_enabled"}),
     z_order=30,
 )
 BUSH_FEATURE = TileDecorator(
@@ -2101,6 +2102,7 @@ BUSH_FEATURE = TileDecorator(
     layer="surface_features",
     predicate=_feature_predicate("bush"),
     paint=_feature_paint(_bush_fragment_for_tile),
+    requires=frozenset({"vegetation_enabled"}),
     z_order=31,
 )
 

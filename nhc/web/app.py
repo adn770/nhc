@@ -802,6 +802,7 @@ def create_app(
                     game.level, site=game._active_site,
                     seed=seed,
                     hatch_distance=config.hatch_distance,
+                    vegetation=config.vegetation,
                 )
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 save_svg_cache(client.floor_svg, _hatch_svg, save_dir)
@@ -995,6 +996,7 @@ def create_app(
                     game.level, site=game._active_site,
                     seed=seed,
                     hatch_distance=config.hatch_distance,
+                    vegetation=config.vegetation,
                 )
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 logger.info("Floor SVG: %s (%d bytes)",
@@ -1405,6 +1407,7 @@ def create_app(
             game.turn, seed=game.seed or 0,
             hatch_distance=config.hatch_distance,
             site=game._active_site,
+            vegetation=config.vegetation,
         )
         game._svg_cache[params.depth] = (
             client.floor_svg_id, client.floor_svg,
@@ -1882,6 +1885,12 @@ def app_factory() -> Flask:
         auth_required=bool(os.environ.get("NHC_AUTH_TOKEN")),
         god_mode=False,
         hatch_distance=float(os.environ.get("NHC_HATCH_DISTANCE", "1.0")),
+        # NHC_VEGETATION=0 disables tree + bush rendering for the
+        # web client. Defaults on; production sets it off via the
+        # systemd unit when we want a leaner static SVG.
+        vegetation=os.environ.get(
+            "NHC_VEGETATION", "1",
+        ).strip().lower() not in ("0", "false", "no", "off"),
         external_url=os.environ.get("NHC_EXTERNAL_URL", ""),
         admin_lan_cidrs=admin_lan_cidrs,
         # gunicorn in production always sits behind Caddy on

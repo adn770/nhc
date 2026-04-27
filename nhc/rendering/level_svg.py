@@ -32,6 +32,7 @@ def render_level_svg(
     *,
     seed: int = 0,
     hatch_distance: float = 2.0,
+    vegetation: bool = True,
 ) -> str:
     """Return the SVG string for ``level``.
 
@@ -41,6 +42,12 @@ def render_level_svg(
     surface, compose roofs + (town/keep) enclosure on top of the
     bare floor SVG. Otherwise fall back to the plain floor
     renderer so dungeon floors keep the same output byte-for-byte.
+
+    ``vegetation=False`` suppresses tree + bush surface
+    decorators across all branches. Used by the web game-mode
+    pipeline where the static SVG only needs the structural
+    floor; sample tooling and golden snapshots keep the default
+    ``True``.
     """
     if site is not None:
         if (
@@ -56,14 +63,17 @@ def render_level_svg(
                     )
                     return render_building_floor_svg(
                         b, level.floor_index, seed=seed,
+                        vegetation=vegetation,
                     )
         if level is site.surface:
             logger.debug(
                 "render-level-svg: branch=site_surface "
-                "level=%s site=%s",
-                level.id, site.kind,
+                "level=%s site=%s vegetation=%s",
+                level.id, site.kind, vegetation,
             )
-            return render_site_surface_svg(site, seed=seed)
+            return render_site_surface_svg(
+                site, seed=seed, vegetation=vegetation,
+            )
     logger.debug(
         "render-level-svg: branch=plain_floor level=%s "
         "has_site=%s building_id=%s floor_index=%s",
@@ -73,4 +83,5 @@ def render_level_svg(
     )
     return render_floor_svg(
         level, seed=seed, hatch_distance=hatch_distance,
+        vegetation=vegetation,
     )

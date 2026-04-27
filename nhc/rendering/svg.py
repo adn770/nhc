@@ -69,6 +69,7 @@ def render_floor_svg(
     level: "Level", seed: int = 0, hatch_distance: float = 2.0,
     building_footprint: set[tuple[int, int]] | None = None,
     building_polygon: list[tuple[float, float]] | None = None,
+    vegetation: bool = True,
 ) -> str:
     """Generate a Dyson-style SVG for a dungeon floor.
 
@@ -114,6 +115,7 @@ def render_floor_svg(
         building_footprint=building_footprint,
         building_polygon=building_polygon,
         hatch_distance=hatch_distance,
+        vegetation=vegetation,
     )
 
     svg: list[str] = [

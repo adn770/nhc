@@ -165,6 +165,21 @@ class TestFloorSvgIntegration:
         assert "tree-canopy" in svg
         assert "tree-trunk" in svg
 
+    def test_vegetation_flag_disables_trees_and_bushes(self):
+        """``vegetation=False`` skips tree + bush decorators so the
+        web client can suppress them in game mode without
+        regenerating the level. Other surface features (fountain,
+        well) keep rendering."""
+        level = _level_with_features([
+            (3, 3, "tree"), (5, 5, "bush"), (7, 7, "fountain"),
+        ])
+        svg = render_floor_svg(level, seed=7, vegetation=False)
+        assert "tree-canopy" not in svg
+        assert "tree-trunk" not in svg
+        assert "bush-canopy" not in svg
+        # The fountain decorator is unrelated and must still fire.
+        assert "fountain" in svg
+
 
 # ── 5. Volume marks (interior leaf-cluster shadows) ──────────
 

@@ -1314,6 +1314,7 @@ class WebClient(GameClient):
         floor_svg_id: str | None = None,
         hatch_distance: float = 2.0,
         site: "object | None" = None,
+        vegetation: bool = True,
     ) -> None:
         """Send new floor SVG to the client.
 
@@ -1348,6 +1349,7 @@ class WebClient(GameClient):
             self.floor_svg = render_level_svg(
                 level, site=site,
                 seed=seed, hatch_distance=hatch_distance,
+                vegetation=vegetation,
             )
             self.floor_svg_id = _uuid.uuid4().hex[:12]
             logger.info(

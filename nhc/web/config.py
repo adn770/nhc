@@ -23,6 +23,11 @@ class WebConfig:
     god_mode: bool = False
     data_dir: Path | None = None
     hatch_distance: float = 2.0
+    # When False, the floor / site SVGs sent to the web client
+    # skip every tree + bush decorator. The static SVG only ships
+    # the structural floor; vegetation comes back via overlays or
+    # the next render pass.
+    vegetation: bool = True
     external_url: str = ""
     # CIDRs allowed to reach /admin.  Empty list → admin is
     # unreachable (fail closed).  Must NOT include loopback or

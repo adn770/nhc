@@ -122,7 +122,7 @@ def _enclosure_fragments(site: "Site", seed: int) -> list[str]:
 
 
 def render_site_surface_svg(
-    site: "Site", seed: int = 0,
+    site: "Site", seed: int = 0, *, vegetation: bool = True,
 ) -> str:
     """Return the web-ready SVG for ``site.surface`` with roofs
     and (for ``town`` / ``keep``) an enclosure ring composed on
@@ -133,8 +133,17 @@ def render_site_surface_svg(
     comment annotation as the floor layers (see
     :func:`nhc.rendering._pipeline.render_layers`) so a captured
     site SVG reports the size of every contributing pass inline.
+
+    ``vegetation=False`` skips the tree + bush surface decorators;
+    use it for the in-game web client where the static SVG only
+    needs to ship the structural floor and animated overlays
+    handle decoration. Sample tooling and golden snapshots keep
+    the default ``True`` so vegetation regression coverage stays
+    intact.
     """
-    base = render_floor_svg(site.surface, seed=seed)
+    base = render_floor_svg(
+        site.surface, seed=seed, vegetation=vegetation,
+    )
     roof_frags = list(building_roof_fragments(site, seed))
     encl_frags = list(_enclosure_fragments(site, seed))
     overlay_parts: list[str] = []
