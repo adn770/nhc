@@ -1,0 +1,54 @@
+# nhc-render — procedural map rendering primitives.
+#
+# Two roles:
+#   1. Server-side Python extension via PyO3 (default features).
+#      Builds a wheel with maturin; `nhc_render` is the import name
+#      from Python.
+#   2. Browser-side WASM bundle via wasm-bindgen + wasm-pack
+#      (`wasm` feature, mutually exclusive with `pyo3` because the
+#      two FFI surfaces both export the same primitive names with
+#      different ABIs).
+#
+# The crate is a workspace member; the workspace root is the repo
+# root, so `cargo build --release -p nhc-render` builds from
+# anywhere inside the tree.
+
+[package]
+name = "nhc-render"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "NHC procedural map rendering primitives (PyO3 + WASM)"
+publish = false
+
+[lib]
+name = "nhc_render"
+# cdylib: the maturin wheel's .so / .pylib / wasm-pack bundle.
+# rlib: enables `cargo test` and downstream Rust consumers.
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["pyo3"]
+# `pyo3` activates the optional pyo3 dependency. The
+# extension-module pyo3 feature is gated separately so `cargo
+# test` (which can't link against libpython on every platform)
+# stays green; maturin enables `extension-module` explicitly via
+# pyproject.toml's `[tool.maturin]` block.
+pyo3 = ["dep:pyo3"]
+extension-module = ["pyo3?/extension-module"]
+wasm = ["dep:wasm-bindgen"]
+
+[dependencies]
+flatbuffers = "25.2"
+
+[dependencies.pyo3]
+version = "0.24"
+optional = true
+features = ["abi3-py37"]
+
+[dependencies.wasm-bindgen]
+version = "0.2"
+optional = true
+
+# Workspace-level profiles live at the repo-root Cargo.toml; cargo
+# warns if a member duplicates them.

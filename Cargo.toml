@@ -1,0 +1,25 @@
+# NHC workspace root.
+#
+# Holds every Rust crate in the project — currently just
+# nhc-render, the procedural map-rendering primitives crate
+# documented in design/map_ir.md and built by IR migration plan
+# Phase 0.3+. Members are globbed so future crates (e.g. a
+# wasm-only thin wrapper in Phase 6) drop in without editing this
+# file.
+#
+# The Rust channel is pinned in rust-toolchain.toml at this same
+# directory; cargo picks it up automatically.
+
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[profile.release]
+# Optimise wheel + WASM size; the rendering primitives are CPU-
+# bound but small, so size > speed pays at the wire layer. Lives
+# at the workspace root because cargo only honours profile keys
+# from the root manifest.
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+strip = true

@@ -1,0 +1,41 @@
+# Maturin packaging for the nhc-render Rust crate.
+#
+# Builds a Python extension wheel that exposes the crate as the
+# `nhc_render` import. abi3-py37 (set in Cargo.toml's pyo3 dep
+# features) makes the wheel forward-compatible across every
+# Python 3.7+ runtime, so we ship one wheel per platform — not
+# one per Python version.
+#
+# Install in editable mode from the repo root:
+#     pip install -e crates/nhc-render
+# `make rust-build` wraps the same call.
+#
+# This pyproject.toml is intentionally separate from the repo-
+# root one (`/pyproject.toml`, setuptools-based) to keep the two
+# build backends from competing. The root project pulls in the
+# extension by adding `nhc-render @ file://./crates/nhc-render`
+# to its dev install once the crate stabilises.
+
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "nhc-render"
+version = "0.1.0"
+description = "NHC procedural map rendering primitives (Rust + PyO3)"
+requires-python = ">=3.7"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+]
+
+[tool.maturin]
+# Enable the crate's `extension-module` feature so pyo3 stops
+# linking against libpython directly (required for portable
+# wheels on macOS and for clean reuse with abi3 stable ABI).
+features = ["extension-module"]
+strip = true

@@ -11,6 +11,10 @@ __pycache__/
 dist/
 build/
 
+# Rust
+target/
+*.pdb
+
 # Debug artifacts
 debug/*
 !debug/.gitkeep
