@@ -4259,6 +4259,7 @@ impl<'a> FloorDetailOp<'a> {
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 14;
   pub const VT_DECORATOR_GROUPS: ::flatbuffers::VOffsetT = 16;
   pub const VT_WOOD_FLOOR_GROUPS: ::flatbuffers::VOffsetT = 18;
+  pub const VT_IS_CORRIDOR: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4271,6 +4272,7 @@ impl<'a> FloorDetailOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorDetailOp<'bldr>> {
     let mut builder = FloorDetailOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.is_corridor { builder.add_is_corridor(x); }
     if let Some(x) = args.wood_floor_groups { builder.add_wood_floor_groups(x); }
     if let Some(x) = args.decorator_groups { builder.add_decorator_groups(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
@@ -4338,6 +4340,13 @@ impl<'a> FloorDetailOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FloorDetailOp::VT_WOOD_FLOOR_GROUPS, None)}
   }
+  #[inline]
+  pub fn is_corridor(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(FloorDetailOp::VT_IS_CORRIDOR, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
@@ -4354,6 +4363,7 @@ impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("decorator_groups", Self::VT_DECORATOR_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("wood_floor_groups", Self::VT_WOOD_FLOOR_GROUPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_corridor", Self::VT_IS_CORRIDOR, false)?
      .finish();
     Ok(())
   }
@@ -4367,6 +4377,7 @@ pub struct FloorDetailOpArgs<'a> {
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub decorator_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub wood_floor_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub is_corridor: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
 }
 impl<'a> Default for FloorDetailOpArgs<'a> {
   #[inline]
@@ -4380,6 +4391,7 @@ impl<'a> Default for FloorDetailOpArgs<'a> {
       clip_region: None,
       decorator_groups: None,
       wood_floor_groups: None,
+      is_corridor: None,
     }
   }
 }
@@ -4422,6 +4434,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorDetailOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_FLOOR_GROUPS, wood_floor_groups);
   }
   #[inline]
+  pub fn add_is_corridor(&mut self, is_corridor: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_IS_CORRIDOR, is_corridor);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorDetailOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloorDetailOpBuilder {
@@ -4447,6 +4463,7 @@ impl ::core::fmt::Debug for FloorDetailOp<'_> {
       ds.field("clip_region", &self.clip_region());
       ds.field("decorator_groups", &self.decorator_groups());
       ds.field("wood_floor_groups", &self.wood_floor_groups());
+      ds.field("is_corridor", &self.is_corridor());
       ds.finish()
   }
 }

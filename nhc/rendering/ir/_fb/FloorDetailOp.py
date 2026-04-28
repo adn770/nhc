@@ -153,8 +153,35 @@ class FloorDetailOp(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         return o == 0
 
+    # FloorDetailOp
+    def IsCorridor(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # FloorDetailOp
+    def IsCorridorAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
+        return 0
+
+    # FloorDetailOp
+    def IsCorridorLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorDetailOp
+    def IsCorridorIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        return o == 0
+
 def FloorDetailOpStart(builder):
-    builder.StartObject(8)
+    builder.StartObject(9)
 
 def Start(builder):
     FloorDetailOpStart(builder)
@@ -237,6 +264,18 @@ def FloorDetailOpStartWoodFloorGroupsVector(builder, numElems):
 def StartWoodFloorGroupsVector(builder, numElems):
     return FloorDetailOpStartWoodFloorGroupsVector(builder, numElems)
 
+def FloorDetailOpAddIsCorridor(builder, isCorridor):
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(isCorridor), 0)
+
+def AddIsCorridor(builder, isCorridor):
+    FloorDetailOpAddIsCorridor(builder, isCorridor)
+
+def FloorDetailOpStartIsCorridorVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+def StartIsCorridorVector(builder, numElems):
+    return FloorDetailOpStartIsCorridorVector(builder, numElems)
+
 def FloorDetailOpEnd(builder):
     return builder.EndObject()
 
@@ -262,6 +301,7 @@ class FloorDetailOpT(object):
         clipRegion = None,
         decoratorGroups = None,
         woodFloorGroups = None,
+        isCorridor = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
@@ -271,6 +311,7 @@ class FloorDetailOpT(object):
         self.clipRegion = clipRegion  # type: Optional[str]
         self.decoratorGroups = decoratorGroups  # type: Optional[List[Optional[str]]]
         self.woodFloorGroups = woodFloorGroups  # type: Optional[List[Optional[str]]]
+        self.isCorridor = isCorridor  # type: Optional[List[bool]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -320,6 +361,13 @@ class FloorDetailOpT(object):
             self.woodFloorGroups = []
             for i in range(floorDetailOp.WoodFloorGroupsLength()):
                 self.woodFloorGroups.append(floorDetailOp.WoodFloorGroups(i))
+        if not floorDetailOp.IsCorridorIsNone():
+            if np is None:
+                self.isCorridor = []
+                for i in range(floorDetailOp.IsCorridorLength()):
+                    self.isCorridor.append(floorDetailOp.IsCorridor(i))
+            else:
+                self.isCorridor = floorDetailOp.IsCorridorAsNumpy()
 
     # FloorDetailOpT
     def Pack(self, builder):
@@ -364,6 +412,14 @@ class FloorDetailOpT(object):
             for i in reversed(range(len(self.woodFloorGroups))):
                 builder.PrependUOffsetTRelative(woodFloorGroupslist[i])
             woodFloorGroups = builder.EndVector()
+        if self.isCorridor is not None:
+            if np is not None and type(self.isCorridor) is np.ndarray:
+                isCorridor = builder.CreateNumpyVector(self.isCorridor)
+            else:
+                FloorDetailOpStartIsCorridorVector(builder, len(self.isCorridor))
+                for i in reversed(range(len(self.isCorridor))):
+                    builder.PrependBool(self.isCorridor[i])
+                isCorridor = builder.EndVector()
         FloorDetailOpStart(builder)
         if self.tiles is not None:
             FloorDetailOpAddTiles(builder, tiles)
@@ -380,5 +436,7 @@ class FloorDetailOpT(object):
             FloorDetailOpAddDecoratorGroups(builder, decoratorGroups)
         if self.woodFloorGroups is not None:
             FloorDetailOpAddWoodFloorGroups(builder, woodFloorGroups)
+        if self.isCorridor is not None:
+            FloorDetailOpAddIsCorridor(builder, isCorridor)
         floorDetailOp = FloorDetailOpEnd(builder)
         return floorDetailOp

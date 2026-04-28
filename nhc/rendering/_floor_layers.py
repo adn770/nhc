@@ -726,6 +726,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     from nhc.rendering.ir._fb import Op
     from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
 
     ctx = builder.ctx
     seed = ctx.seed
@@ -778,6 +779,16 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     cor_bones: list[str] = []
     cor_skulls: list[str] = []
 
+    # Sub-step 3.b candidate walk: pass 1 applies only the
+    # deterministic filters (terrain, stair feature, surface_type)
+    # and the corridor / door classification, then pass 2 below
+    # consumes the shared RNG by walking the candidate list in
+    # the same y-major / x-minor order. Splitting the passes
+    # populates FloorDetailOp.tiles[] + is_corridor[] without
+    # disturbing the RNG-stream invariant that keeps SVG output
+    # byte-equal. The structural-shift mirrors sub-step 1.b's
+    # hatch-room candidate walk.
+    candidates: list[tuple[int, int, bool]] = []
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
@@ -795,26 +806,29 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
                 tile.surface_type == SurfaceType.CORRIDOR
                 or _is_door(level, x, y)
             )
-            if is_cor:
-                _tile_detail(
-                    rng, x, y, seed,
-                    cor_cracks, cor_stones, cor_scratches,
-                    detail_scale=scale, theme=theme,
-                )
-                _tile_thematic_detail(
-                    rng, x, y, level, probs,
-                    cor_webs, cor_bones, cor_skulls,
-                )
-            else:
-                _tile_detail(
-                    rng, x, y, seed,
-                    room_cracks, room_stones, room_scratches,
-                    detail_scale=scale, theme=theme,
-                )
-                _tile_thematic_detail(
-                    rng, x, y, level, probs,
-                    room_webs, room_bones, room_skulls,
-                )
+            candidates.append((x, y, is_cor))
+
+    for x, y, is_cor in candidates:
+        if is_cor:
+            _tile_detail(
+                rng, x, y, seed,
+                cor_cracks, cor_stones, cor_scratches,
+                detail_scale=scale, theme=theme,
+            )
+            _tile_thematic_detail(
+                rng, x, y, level, probs,
+                cor_webs, cor_bones, cor_skulls,
+            )
+        else:
+            _tile_detail(
+                rng, x, y, seed,
+                room_cracks, room_stones, room_scratches,
+                detail_scale=scale, theme=theme,
+            )
+            _tile_thematic_detail(
+                rng, x, y, level, probs,
+                room_webs, room_bones, room_skulls,
+            )
 
     if not ctx.macabre_detail:
         room_bones, room_skulls, room_stones = [], [], []
@@ -860,6 +874,8 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     op = FloorDetailOpT()
     op.seed = seed + 99
     op.theme = theme
+    op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
+    op.isCorridor = [is_cor for _, _, is_cor in candidates]
     op.roomGroups = room_groups
     op.corridorGroups = corridor_groups
     op.decoratorGroups = decorator_groups

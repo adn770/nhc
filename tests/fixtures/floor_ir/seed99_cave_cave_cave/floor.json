@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 1,
-  "minor": 8,
+  "minor": 9,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -19810,7 +19810,1288 @@
       "opType": "FloorDetailOp",
       "op": {
         "__type": "FloorDetailOpT",
-        "tiles": null,
+        "tiles": [
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 16,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 24,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 15,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 16,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 17,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 24,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 15,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 16,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 17,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 24,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 17,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 56,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 32,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 56,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 32,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 33,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 33,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 34,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 3,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 4,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 3,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 4,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 4,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 5,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 48,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 49,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 48,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 42,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 48,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 41,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 42,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 41,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 42,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 32
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 32
+          }
+        ],
         "seed": 198,
         "theme": "cave",
         "roomGroups": [
@@ -19824,7 +21105,8 @@
         "corridorGroups": [],
         "clipRegion": "dungeon",
         "decoratorGroups": [],
-        "woodFloorGroups": null
+        "woodFloorGroups": null,
+        "isCorridor": "array([False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False])"
       }
     },
     {

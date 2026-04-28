@@ -300,6 +300,10 @@ table FloorGridOp {
 
 // Layer 500a — floor detail (cracks, scratches, stones, clusters).
 table FloorDetailOp {
+  // Sub-step 3.b shift: post-filter candidate tiles in legacy
+  // y-major / x-minor iteration order (terrain == FLOOR, not a
+  // stair feature, surface_type not in {STREET, FIELD, GARDEN}).
+  // Empty until 3.b lands.
   tiles: [TileCoord];
   seed: uint64;            // base_seed + 99
   theme: string;
@@ -324,6 +328,15 @@ table FloorDetailOp {
   // porting to Rust.
   decorator_groups: [string];
   wood_floor_groups: [string];
+  // Sub-step 3.b parallel-array addition: per-tile
+  // corridor / door classification, parallel to tiles[]. Mirrors
+  // 1.b's HatchOp.is_outer pattern — the consumer routes the
+  // tile's per-bucket output (cracks / scratches / stones for
+  // step 3, webs / bones / skulls for step 4) to room_groups
+  // when False, corridor_groups when True. Empty until 3.b
+  // populates it; the painter falls back to the level-walk
+  // classification when empty.
+  is_corridor: [bool];
 }
 
 // Layer 500b — thematic detail (webs, bone piles, skulls).
