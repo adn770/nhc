@@ -64,9 +64,31 @@ LAYER_NAMES: tuple[str, ...] = (
 
 
 # Layers without a tiny-skia handler yet — diff is expected to
-# exceed the 0.5 % gate. As each per-primitive commit lands, its
-# layer drops out of this set. ``shadows`` shipped in 5.2.1.
-XFAIL_LAYERS: frozenset[str] = frozenset(LAYER_NAMES) - {"shadows"}
+# exceed the 0.5 % gate. Per-primitive commits drop entries as
+# their handler lands. Tracked at (descriptor, layer) granularity
+# because some primitives ship in more than one commit (e.g.
+# walls_and_floors lands rect/corridor branches in 5.2.2 and the
+# cave + smooth-room SVG passthroughs in 5.5).
+DESCRIPTORS = tuple(d for d in all_descriptors())
+
+# Per-primitive shipping log:
+#   5.2.1 — shadows (every fixture).
+#   5.2.2 — walls_and_floors (rect dungeon only — the cave +
+#           smooth-room + wall_extensions_d SVG passthroughs
+#           wait for 5.5 to land).
+LANDED_PAIRS: frozenset[tuple[str, str]] = frozenset(
+    (descriptor, layer)
+    for descriptor in DESCRIPTORS
+    for layer in ("shadows",)
+) | frozenset({
+    ("seed42_rect_dungeon_dungeon", "walls_and_floors"),
+})
+
+XFAIL_PAIRS: frozenset[tuple[str, str]] = frozenset(
+    (descriptor, layer)
+    for descriptor in DESCRIPTORS
+    for layer in LAYER_NAMES
+) - LANDED_PAIRS
 
 
 # ≤ 0.5 % per the Phase 5 success criteria.
@@ -113,13 +135,14 @@ def emitted(request):
 @pytest.mark.parametrize("layer", LAYER_NAMES)
 def test_layer_parity(emitted, layer: str, request) -> None:
     inputs, buf = emitted
-    if layer in XFAIL_LAYERS:
+    if (inputs.descriptor, layer) in XFAIL_PAIRS:
         request.applymarker(
             pytest.mark.xfail(
                 strict=False,
                 reason=(
-                    f"{layer} not yet ported to tiny-skia "
-                    f"(Phase 5 per-primitive commit drops the marker)"
+                    f"{inputs.descriptor}/{layer} not yet ported to "
+                    f"tiny-skia (Phase 5 per-primitive commit drops "
+                    f"the marker)"
                 ),
             )
         )

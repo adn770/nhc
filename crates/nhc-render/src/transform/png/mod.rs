@@ -24,6 +24,7 @@ use crate::ir::{
 
 // Per-primitive raster handlers — one module per Op kind.
 mod shadow;
+mod walls_and_floors;
 
 /// Background fill — matches `nhc/rendering/_svg_helpers.py:BG`
 /// (`#F5EDE0`, parchment). Both the resvg-py baseline and the
@@ -126,6 +127,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
     HANDLERS.get_or_init(|| {
         let mut m: HashMap<u8, OpHandler> = HashMap::new();
         m.insert(Op::ShadowOp.0, shadow::draw);
+        m.insert(Op::WallsAndFloorsOp.0, walls_and_floors::draw);
         m
     })
 }
