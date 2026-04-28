@@ -66,28 +66,8 @@ class BushFeatureOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-    # BushFeatureOp
-    def Groups(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return ""
-
-    # BushFeatureOp
-    def GroupsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # BushFeatureOp
-    def GroupsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        return o == 0
-
 def BushFeatureOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(3)
 
 def Start(builder):
     BushFeatureOpStart(builder)
@@ -116,18 +96,6 @@ def BushFeatureOpAddTheme(builder, theme):
 def AddTheme(builder, theme):
     BushFeatureOpAddTheme(builder, theme)
 
-def BushFeatureOpAddGroups(builder, groups):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(groups), 0)
-
-def AddGroups(builder, groups):
-    BushFeatureOpAddGroups(builder, groups)
-
-def BushFeatureOpStartGroupsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartGroupsVector(builder, numElems):
-    return BushFeatureOpStartGroupsVector(builder, numElems)
-
 def BushFeatureOpEnd(builder):
     return builder.EndObject()
 
@@ -148,12 +116,10 @@ class BushFeatureOpT(object):
         tiles = None,
         seed = 0,
         theme = None,
-        groups = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
-        self.groups = groups  # type: Optional[List[Optional[str]]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -186,10 +152,6 @@ class BushFeatureOpT(object):
                     self.tiles.append(tileCoord_)
         self.seed = bushFeatureOp.Seed()
         self.theme = bushFeatureOp.Theme()
-        if not bushFeatureOp.GroupsIsNone():
-            self.groups = []
-            for i in range(bushFeatureOp.GroupsLength()):
-                self.groups.append(bushFeatureOp.Groups(i))
 
     # BushFeatureOpT
     def Pack(self, builder):
@@ -200,21 +162,11 @@ class BushFeatureOpT(object):
             tiles = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
-        if self.groups is not None:
-            groupslist = []
-            for i in range(len(self.groups)):
-                groupslist.append(builder.CreateString(self.groups[i]))
-            BushFeatureOpStartGroupsVector(builder, len(self.groups))
-            for i in reversed(range(len(self.groups))):
-                builder.PrependUOffsetTRelative(groupslist[i])
-            groups = builder.EndVector()
         BushFeatureOpStart(builder)
         if self.tiles is not None:
             BushFeatureOpAddTiles(builder, tiles)
         BushFeatureOpAddSeed(builder, self.seed)
         if self.theme is not None:
             BushFeatureOpAddTheme(builder, theme)
-        if self.groups is not None:
-            BushFeatureOpAddGroups(builder, groups)
         bushFeatureOp = BushFeatureOpEnd(builder)
         return bushFeatureOp

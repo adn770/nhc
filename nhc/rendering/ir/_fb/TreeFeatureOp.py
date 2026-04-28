@@ -67,53 +67,8 @@ class TreeFeatureOp(object):
         return None
 
     # TreeFeatureOp
-    def Groves(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            x = self._tab.Vector(o)
-            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
-            x = self._tab.Indirect(x)
-            from nhc.rendering.ir._fb.GrovePolygon import GrovePolygon
-            obj = GrovePolygon()
-            obj.Init(self._tab.Bytes, x)
-            return obj
-        return None
-
-    # TreeFeatureOp
-    def GrovesLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # TreeFeatureOp
-    def GrovesIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
-        return o == 0
-
-    # TreeFeatureOp
-    def Groups(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            a = self._tab.Vector(o)
-            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
-        return ""
-
-    # TreeFeatureOp
-    def GroupsLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        if o != 0:
-            return self._tab.VectorLen(o)
-        return 0
-
-    # TreeFeatureOp
-    def GroupsIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
-        return o == 0
-
-    # TreeFeatureOp
     def GroveTiles(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 8
@@ -125,19 +80,19 @@ class TreeFeatureOp(object):
 
     # TreeFeatureOp
     def GroveTilesLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # TreeFeatureOp
     def GroveTilesIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
     # TreeFeatureOp
     def GroveSizes(self, j):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             a = self._tab.Vector(o)
             return self._tab.Get(flatbuffers.number_types.Uint32Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
@@ -145,25 +100,25 @@ class TreeFeatureOp(object):
 
     # TreeFeatureOp
     def GroveSizesAsNumpy(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint32Flags, o)
         return 0
 
     # TreeFeatureOp
     def GroveSizesLength(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         if o != 0:
             return self._tab.VectorLen(o)
         return 0
 
     # TreeFeatureOp
     def GroveSizesIsNone(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         return o == 0
 
 def TreeFeatureOpStart(builder):
-    builder.StartObject(7)
+    builder.StartObject(5)
 
 def Start(builder):
     TreeFeatureOpStart(builder)
@@ -192,32 +147,8 @@ def TreeFeatureOpAddTheme(builder, theme):
 def AddTheme(builder, theme):
     TreeFeatureOpAddTheme(builder, theme)
 
-def TreeFeatureOpAddGroves(builder, groves):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(groves), 0)
-
-def AddGroves(builder, groves):
-    TreeFeatureOpAddGroves(builder, groves)
-
-def TreeFeatureOpStartGrovesVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartGrovesVector(builder, numElems):
-    return TreeFeatureOpStartGrovesVector(builder, numElems)
-
-def TreeFeatureOpAddGroups(builder, groups):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(groups), 0)
-
-def AddGroups(builder, groups):
-    TreeFeatureOpAddGroups(builder, groups)
-
-def TreeFeatureOpStartGroupsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
-def StartGroupsVector(builder, numElems):
-    return TreeFeatureOpStartGroupsVector(builder, numElems)
-
 def TreeFeatureOpAddGroveTiles(builder, groveTiles):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(groveTiles), 0)
+    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(groveTiles), 0)
 
 def AddGroveTiles(builder, groveTiles):
     TreeFeatureOpAddGroveTiles(builder, groveTiles)
@@ -229,7 +160,7 @@ def StartGroveTilesVector(builder, numElems):
     return TreeFeatureOpStartGroveTilesVector(builder, numElems)
 
 def TreeFeatureOpAddGroveSizes(builder, groveSizes):
-    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(groveSizes), 0)
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(groveSizes), 0)
 
 def AddGroveSizes(builder, groveSizes):
     TreeFeatureOpAddGroveSizes(builder, groveSizes)
@@ -246,7 +177,6 @@ def TreeFeatureOpEnd(builder):
 def End(builder):
     return TreeFeatureOpEnd(builder)
 
-import nhc.rendering.ir._fb.GrovePolygon
 import nhc.rendering.ir._fb.TileCoord
 try:
     from typing import List
@@ -261,16 +191,12 @@ class TreeFeatureOpT(object):
         tiles = None,
         seed = 0,
         theme = None,
-        groves = None,
-        groups = None,
         groveTiles = None,
         groveSizes = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
-        self.groves = groves  # type: Optional[List[nhc.rendering.ir._fb.GrovePolygon.GrovePolygonT]]
-        self.groups = groups  # type: Optional[List[Optional[str]]]
         self.groveTiles = groveTiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.groveSizes = groveSizes  # type: Optional[List[int]]
 
@@ -305,18 +231,6 @@ class TreeFeatureOpT(object):
                     self.tiles.append(tileCoord_)
         self.seed = treeFeatureOp.Seed()
         self.theme = treeFeatureOp.Theme()
-        if not treeFeatureOp.GrovesIsNone():
-            self.groves = []
-            for i in range(treeFeatureOp.GrovesLength()):
-                if treeFeatureOp.Groves(i) is None:
-                    self.groves.append(None)
-                else:
-                    grovePolygon_ = nhc.rendering.ir._fb.GrovePolygon.GrovePolygonT.InitFromObj(treeFeatureOp.Groves(i))
-                    self.groves.append(grovePolygon_)
-        if not treeFeatureOp.GroupsIsNone():
-            self.groups = []
-            for i in range(treeFeatureOp.GroupsLength()):
-                self.groups.append(treeFeatureOp.Groups(i))
         if not treeFeatureOp.GroveTilesIsNone():
             self.groveTiles = []
             for i in range(treeFeatureOp.GroveTilesLength()):
@@ -342,22 +256,6 @@ class TreeFeatureOpT(object):
             tiles = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
-        if self.groves is not None:
-            groveslist = []
-            for i in range(len(self.groves)):
-                groveslist.append(self.groves[i].Pack(builder))
-            TreeFeatureOpStartGrovesVector(builder, len(self.groves))
-            for i in reversed(range(len(self.groves))):
-                builder.PrependUOffsetTRelative(groveslist[i])
-            groves = builder.EndVector()
-        if self.groups is not None:
-            groupslist = []
-            for i in range(len(self.groups)):
-                groupslist.append(builder.CreateString(self.groups[i]))
-            TreeFeatureOpStartGroupsVector(builder, len(self.groups))
-            for i in reversed(range(len(self.groups))):
-                builder.PrependUOffsetTRelative(groupslist[i])
-            groups = builder.EndVector()
         if self.groveTiles is not None:
             TreeFeatureOpStartGroveTilesVector(builder, len(self.groveTiles))
             for i in reversed(range(len(self.groveTiles))):
@@ -377,10 +275,6 @@ class TreeFeatureOpT(object):
         TreeFeatureOpAddSeed(builder, self.seed)
         if self.theme is not None:
             TreeFeatureOpAddTheme(builder, theme)
-        if self.groves is not None:
-            TreeFeatureOpAddGroves(builder, groves)
-        if self.groups is not None:
-            TreeFeatureOpAddGroups(builder, groups)
         if self.groveTiles is not None:
             TreeFeatureOpAddGroveTiles(builder, groveTiles)
         if self.groveSizes is not None:

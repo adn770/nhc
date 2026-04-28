@@ -13,18 +13,12 @@ class Op(object):
     ThematicDetailOp = 7
     TerrainDetailOp = 8
     StairsOp = 9
-    CobblestoneOp = 10
-    WoodFloorOp = 11
-    GardenOverlayOp = 12
-    FieldOverlayOp = 13
-    CartTracksOp = 14
-    OreDepositsOp = 15
-    TreeFeatureOp = 16
-    BushFeatureOp = 17
-    WellFeatureOp = 18
-    FountainFeatureOp = 19
-    GenericProceduralOp = 20
-    DecoratorOp = 21
+    TreeFeatureOp = 10
+    BushFeatureOp = 11
+    WellFeatureOp = 12
+    FountainFeatureOp = 13
+    GenericProceduralOp = 14
+    DecoratorOp = 15
 
 def OpCreator(unionType, table):
     from flatbuffers.table import Table
@@ -57,24 +51,6 @@ def OpCreator(unionType, table):
     if unionType == Op.StairsOp:
         import nhc.rendering.ir._fb.StairsOp
         return nhc.rendering.ir._fb.StairsOp.StairsOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.CobblestoneOp:
-        import nhc.rendering.ir._fb.CobblestoneOp
-        return nhc.rendering.ir._fb.CobblestoneOp.CobblestoneOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.WoodFloorOp:
-        import nhc.rendering.ir._fb.WoodFloorOp
-        return nhc.rendering.ir._fb.WoodFloorOp.WoodFloorOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.GardenOverlayOp:
-        import nhc.rendering.ir._fb.GardenOverlayOp
-        return nhc.rendering.ir._fb.GardenOverlayOp.GardenOverlayOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.FieldOverlayOp:
-        import nhc.rendering.ir._fb.FieldOverlayOp
-        return nhc.rendering.ir._fb.FieldOverlayOp.FieldOverlayOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.CartTracksOp:
-        import nhc.rendering.ir._fb.CartTracksOp
-        return nhc.rendering.ir._fb.CartTracksOp.CartTracksOpT.InitFromBuf(table.Bytes, table.Pos)
-    if unionType == Op.OreDepositsOp:
-        import nhc.rendering.ir._fb.OreDepositsOp
-        return nhc.rendering.ir._fb.OreDepositsOp.OreDepositsOpT.InitFromBuf(table.Bytes, table.Pos)
     if unionType == Op.TreeFeatureOp:
         import nhc.rendering.ir._fb.TreeFeatureOp
         return nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT.InitFromBuf(table.Bytes, table.Pos)

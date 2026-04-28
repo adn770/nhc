@@ -83,12 +83,10 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
     "floor_detail": frozenset({
         Op.Op.FloorDetailOp,
-        # Sub-step 5 (Q2 schema bump B): the structured
-        # decorator pipeline rides in the same layer slot as the
-        # legacy passthrough. Per-variant ports (sub-steps 6–12)
-        # populate ``DecoratorOp``'s vectors one decorator at a
-        # time; the passthrough (``FloorDetailOp.decorator_groups``)
-        # keeps serving rendering until step 12 lands.
+        # The structured decorator pipeline (cobblestone / brick /
+        # flagstone / opus_romano / field_stone / cart_tracks /
+        # ore_deposit) rides in the floor_detail layer slot via
+        # DecoratorOp's per-variant vector tables.
         Op.Op.DecoratorOp,
     }),
     "thematic_detail": frozenset({Op.Op.ThematicDetailOp}),
@@ -683,11 +681,7 @@ def _draw_floor_detail_from_ir(
       (``nhc_render.draw_floor_detail``) plus thematic-detail
       passthrough (``room_groups`` / ``corridor_groups``) under
       the dungeon-interior clipPath envelope on the room side,
-      with ``corridor_groups`` and ``decorator_groups`` appended
-      unclipped. Sub-step 3.e — the structured op carries
-      ``tiles[]`` + ``isCorridor[]`` + ``theme``; the thematic
-      ``<g>`` groups still ride the legacy passthrough until
-      step 4 ports them to ``ThematicDetailOp``.
+      with ``corridor_groups`` appended unclipped.
     """
     import nhc_render
 
@@ -702,7 +696,6 @@ def _draw_floor_detail_from_ir(
     thematic_corridor = [
         _to_str(g) for g in (op.corridorGroups or [])
     ]
-    decorator_groups = [_to_str(g) for g in (op.decoratorGroups or [])]
 
     rust_room: list[str] = []
     rust_corridor: list[str] = []
@@ -741,7 +734,6 @@ def _draw_floor_detail_from_ir(
             out.extend(room_groups)
 
     out.extend(corridor_groups)
-    out.extend(decorator_groups)
     return out
 
 

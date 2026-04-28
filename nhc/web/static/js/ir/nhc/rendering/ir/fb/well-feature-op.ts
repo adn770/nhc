@@ -53,20 +53,8 @@ theme(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-groups(index: number):string
-groups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
-groups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
-}
-
-groupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
 static startWellFeatureOp(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(4);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -89,34 +77,17 @@ static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
   builder.addFieldOffset(3, themeOffset, 0);
 }
 
-static addGroups(builder:flatbuffers.Builder, groupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, groupsOffset, 0);
-}
-
-static createGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startGroupsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
 static endWellFeatureOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createWellFeatureOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, shape:WellShape, seed:bigint, themeOffset:flatbuffers.Offset, groupsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createWellFeatureOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, shape:WellShape, seed:bigint, themeOffset:flatbuffers.Offset):flatbuffers.Offset {
   WellFeatureOp.startWellFeatureOp(builder);
   WellFeatureOp.addTiles(builder, tilesOffset);
   WellFeatureOp.addShape(builder, shape);
   WellFeatureOp.addSeed(builder, seed);
   WellFeatureOp.addTheme(builder, themeOffset);
-  WellFeatureOp.addGroups(builder, groupsOffset);
   return WellFeatureOp.endWellFeatureOp(builder);
 }
 }

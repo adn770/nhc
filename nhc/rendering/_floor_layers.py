@@ -790,11 +790,8 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     theme = ctx.theme
     candidates = _floor_detail_candidates(level)
 
-    # Sub-steps 6-12: all seven decorator types now flow through
-    # the structured DecoratorOp vectors below. The legacy
-    # walk_and_paint decorator pipeline is fully retired for the
-    # floor_detail layer slot — FloorDetailOp.decorator_groups
-    # ships empty and is slated for Phase 7 cleanup.
+    # All seven decorator types flow through the structured
+    # DecoratorOp vectors below.
     cobble_tiles: list[tuple[int, int]] = []
     brick_tiles: list[tuple[int, int]] = []
     flagstone_tiles: list[tuple[int, int]] = []
@@ -1130,21 +1127,13 @@ def _emit_stairs_ir(builder: "FloorIRBuilder") -> None:
 def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the surface-features layer.
 
-    Sub-step 13-prep (transitional schema shift): the legacy
-    ``walk_and_paint`` decorator pipeline is split per feature
-    category — wells (``WELL_FEATURE`` + ``WELL_SQUARE_FEATURE``)
-    feed ``WellFeatureOp.groups``, the five fountain decorators
-    feed ``FountainFeatureOp.groups``, ``TREE_FEATURE`` feeds
-    ``TreeFeatureOp.groups``, and ``BUSH_FEATURE`` feeds
-    ``BushFeatureOp.groups``. The pre-rendered ``<g>`` groups
-    still travel as opaque strings while sub-steps 13–16 land
-    the per-category Rust ports; the dispatcher reads
-    ``op.groups`` verbatim. After step 16 the field drops empty
-    and Phase 7 cleanup removes it. The legacy
-    ``GenericProceduralOp(name="surface_features")`` emit goes
-    away in this commit.
+    Wells (round / square), fountains (five shapes), trees
+    (singletons / pairs / fused groves), and bushes each ship
+    through their dedicated FeatureOp with structured tile
+    coordinates. The Rust handlers own per-shape geometry; the
+    Python emitter only resolves connectivity (tree groves) and
+    splits per shape variant.
     """
-    from nhc.rendering._decorators import walk_and_paint
     from nhc.rendering.ir._fb import FountainShape, Op, WellShape
     from nhc.rendering.ir._fb.BushFeatureOp import BushFeatureOpT
     from nhc.rendering.ir._fb.FountainFeatureOp import (

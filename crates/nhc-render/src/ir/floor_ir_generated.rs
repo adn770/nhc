@@ -839,10 +839,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 21;
+pub const ENUM_MAX_OP: u8 = 15;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 22] = [
+pub const ENUM_VALUES_OP: [Op; 16] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -853,12 +853,6 @@ pub const ENUM_VALUES_OP: [Op; 22] = [
   Op::ThematicDetailOp,
   Op::TerrainDetailOp,
   Op::StairsOp,
-  Op::CobblestoneOp,
-  Op::WoodFloorOp,
-  Op::GardenOverlayOp,
-  Op::FieldOverlayOp,
-  Op::CartTracksOp,
-  Op::OreDepositsOp,
   Op::TreeFeatureOp,
   Op::BushFeatureOp,
   Op::WellFeatureOp,
@@ -882,21 +876,15 @@ impl Op {
   pub const ThematicDetailOp: Self = Self(7);
   pub const TerrainDetailOp: Self = Self(8);
   pub const StairsOp: Self = Self(9);
-  pub const CobblestoneOp: Self = Self(10);
-  pub const WoodFloorOp: Self = Self(11);
-  pub const GardenOverlayOp: Self = Self(12);
-  pub const FieldOverlayOp: Self = Self(13);
-  pub const CartTracksOp: Self = Self(14);
-  pub const OreDepositsOp: Self = Self(15);
-  pub const TreeFeatureOp: Self = Self(16);
-  pub const BushFeatureOp: Self = Self(17);
-  pub const WellFeatureOp: Self = Self(18);
-  pub const FountainFeatureOp: Self = Self(19);
-  pub const GenericProceduralOp: Self = Self(20);
-  pub const DecoratorOp: Self = Self(21);
+  pub const TreeFeatureOp: Self = Self(10);
+  pub const BushFeatureOp: Self = Self(11);
+  pub const WellFeatureOp: Self = Self(12);
+  pub const FountainFeatureOp: Self = Self(13);
+  pub const GenericProceduralOp: Self = Self(14);
+  pub const DecoratorOp: Self = Self(15);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 21;
+  pub const ENUM_MAX: u8 = 15;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -908,12 +896,6 @@ impl Op {
     Self::ThematicDetailOp,
     Self::TerrainDetailOp,
     Self::StairsOp,
-    Self::CobblestoneOp,
-    Self::WoodFloorOp,
-    Self::GardenOverlayOp,
-    Self::FieldOverlayOp,
-    Self::CartTracksOp,
-    Self::OreDepositsOp,
     Self::TreeFeatureOp,
     Self::BushFeatureOp,
     Self::WellFeatureOp,
@@ -934,12 +916,6 @@ impl Op {
       Self::ThematicDetailOp => Some("ThematicDetailOp"),
       Self::TerrainDetailOp => Some("TerrainDetailOp"),
       Self::StairsOp => Some("StairsOp"),
-      Self::CobblestoneOp => Some("CobblestoneOp"),
-      Self::WoodFloorOp => Some("WoodFloorOp"),
-      Self::GardenOverlayOp => Some("GardenOverlayOp"),
-      Self::FieldOverlayOp => Some("FieldOverlayOp"),
-      Self::CartTracksOp => Some("CartTracksOp"),
-      Self::OreDepositsOp => Some("OreDepositsOp"),
       Self::TreeFeatureOp => Some("TreeFeatureOp"),
       Self::BushFeatureOp => Some("BushFeatureOp"),
       Self::WellFeatureOp => Some("WellFeatureOp"),
@@ -5216,9 +5192,8 @@ impl<'a> FloorDetailOp<'a> {
   pub const VT_ROOM_GROUPS: ::flatbuffers::VOffsetT = 10;
   pub const VT_CORRIDOR_GROUPS: ::flatbuffers::VOffsetT = 12;
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 14;
-  pub const VT_DECORATOR_GROUPS: ::flatbuffers::VOffsetT = 16;
-  pub const VT_WOOD_FLOOR_GROUPS: ::flatbuffers::VOffsetT = 18;
-  pub const VT_IS_CORRIDOR: ::flatbuffers::VOffsetT = 20;
+  pub const VT_WOOD_FLOOR_GROUPS: ::flatbuffers::VOffsetT = 16;
+  pub const VT_IS_CORRIDOR: ::flatbuffers::VOffsetT = 18;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5233,7 +5208,6 @@ impl<'a> FloorDetailOp<'a> {
     builder.add_seed(args.seed);
     if let Some(x) = args.is_corridor { builder.add_is_corridor(x); }
     if let Some(x) = args.wood_floor_groups { builder.add_wood_floor_groups(x); }
-    if let Some(x) = args.decorator_groups { builder.add_decorator_groups(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.corridor_groups { builder.add_corridor_groups(x); }
     if let Some(x) = args.room_groups { builder.add_room_groups(x); }
@@ -5286,13 +5260,6 @@ impl<'a> FloorDetailOp<'a> {
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorDetailOp::VT_CLIP_REGION, None)}
   }
   #[inline]
-  pub fn decorator_groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FloorDetailOp::VT_DECORATOR_GROUPS, None)}
-  }
-  #[inline]
   pub fn wood_floor_groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
     // Safety:
     // Created from valid Table for this object
@@ -5320,7 +5287,6 @@ impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("room_groups", Self::VT_ROOM_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("corridor_groups", Self::VT_CORRIDOR_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("decorator_groups", Self::VT_DECORATOR_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("wood_floor_groups", Self::VT_WOOD_FLOOR_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_corridor", Self::VT_IS_CORRIDOR, false)?
      .finish();
@@ -5334,7 +5300,6 @@ pub struct FloorDetailOpArgs<'a> {
     pub room_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub corridor_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub decorator_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub wood_floor_groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub is_corridor: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
 }
@@ -5348,7 +5313,6 @@ impl<'a> Default for FloorDetailOpArgs<'a> {
       room_groups: None,
       corridor_groups: None,
       clip_region: None,
-      decorator_groups: None,
       wood_floor_groups: None,
       is_corridor: None,
     }
@@ -5385,10 +5349,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorDetailOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
-  pub fn add_decorator_groups(&mut self, decorator_groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_DECORATOR_GROUPS, decorator_groups);
-  }
-  #[inline]
   pub fn add_wood_floor_groups(&mut self, wood_floor_groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_FLOOR_GROUPS, wood_floor_groups);
   }
@@ -5420,7 +5380,6 @@ impl ::core::fmt::Debug for FloorDetailOp<'_> {
       ds.field("room_groups", &self.room_groups());
       ds.field("corridor_groups", &self.corridor_groups());
       ds.field("clip_region", &self.clip_region());
-      ds.field("decorator_groups", &self.decorator_groups());
       ds.field("wood_floor_groups", &self.wood_floor_groups());
       ds.field("is_corridor", &self.is_corridor());
       ds.finish()
@@ -5918,899 +5877,6 @@ impl ::core::fmt::Debug for StairsOp<'_> {
       ds.finish()
   }
 }
-pub enum CobblestoneOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct CobblestoneOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for CobblestoneOp<'a> {
-  type Inner = CobblestoneOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> CobblestoneOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_PATTERN: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    CobblestoneOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args CobblestoneOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<CobblestoneOp<'bldr>> {
-    let mut builder = CobblestoneOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.add_pattern(args.pattern);
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CobblestoneOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(CobblestoneOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(CobblestoneOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn pattern(&self) -> CobblePattern {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<CobblePattern>(CobblestoneOp::VT_PATTERN, Some(CobblePattern::Cobble)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for CobblestoneOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<CobblePattern>("pattern", Self::VT_PATTERN, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct CobblestoneOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub pattern: CobblePattern,
-}
-impl<'a> Default for CobblestoneOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    CobblestoneOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-      pattern: CobblePattern::Cobble,
-    }
-  }
-}
-
-pub struct CobblestoneOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CobblestoneOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CobblestoneOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(CobblestoneOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CobblestoneOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_pattern(&mut self, pattern: CobblePattern) {
-    self.fbb_.push_slot::<CobblePattern>(CobblestoneOp::VT_PATTERN, pattern, CobblePattern::Cobble);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CobblestoneOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    CobblestoneOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<CobblestoneOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for CobblestoneOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("CobblestoneOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("pattern", &self.pattern());
-      ds.finish()
-  }
-}
-pub enum WoodFloorOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct WoodFloorOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for WoodFloorOp<'a> {
-  type Inner = WoodFloorOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> WoodFloorOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_BUILDING_POLYGON: ::flatbuffers::VOffsetT = 10;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    WoodFloorOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args WoodFloorOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<WoodFloorOp<'bldr>> {
-    let mut builder = WoodFloorOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.building_polygon { builder.add_building_polygon(x); }
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(WoodFloorOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(WoodFloorOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WoodFloorOp::VT_THEME, None)}
-  }
-  #[inline]
-  pub fn building_polygon(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(WoodFloorOp::VT_BUILDING_POLYGON, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for WoodFloorOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("building_polygon", Self::VT_BUILDING_POLYGON, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct WoodFloorOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub building_polygon: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
-}
-impl<'a> Default for WoodFloorOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    WoodFloorOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-      building_polygon: None,
-    }
-  }
-}
-
-pub struct WoodFloorOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WoodFloorOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WoodFloorOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(WoodFloorOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WoodFloorOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_building_polygon(&mut self, building_polygon: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WoodFloorOp::VT_BUILDING_POLYGON, building_polygon);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WoodFloorOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    WoodFloorOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<WoodFloorOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for WoodFloorOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("WoodFloorOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.field("building_polygon", &self.building_polygon());
-      ds.finish()
-  }
-}
-pub enum GardenOverlayOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct GardenOverlayOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for GardenOverlayOp<'a> {
-  type Inner = GardenOverlayOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> GardenOverlayOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    GardenOverlayOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args GardenOverlayOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<GardenOverlayOp<'bldr>> {
-    let mut builder = GardenOverlayOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(GardenOverlayOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(GardenOverlayOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(GardenOverlayOp::VT_THEME, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for GardenOverlayOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct GardenOverlayOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for GardenOverlayOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    GardenOverlayOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-    }
-  }
-}
-
-pub struct GardenOverlayOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GardenOverlayOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GardenOverlayOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(GardenOverlayOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(GardenOverlayOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GardenOverlayOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    GardenOverlayOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<GardenOverlayOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for GardenOverlayOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("GardenOverlayOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.finish()
-  }
-}
-pub enum FieldOverlayOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct FieldOverlayOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for FieldOverlayOp<'a> {
-  type Inner = FieldOverlayOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> FieldOverlayOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    FieldOverlayOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args FieldOverlayOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<FieldOverlayOp<'bldr>> {
-    let mut builder = FieldOverlayOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FieldOverlayOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(FieldOverlayOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FieldOverlayOp::VT_THEME, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for FieldOverlayOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct FieldOverlayOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for FieldOverlayOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    FieldOverlayOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-    }
-  }
-}
-
-pub struct FieldOverlayOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldOverlayOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FieldOverlayOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(FieldOverlayOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FieldOverlayOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldOverlayOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    FieldOverlayOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<FieldOverlayOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for FieldOverlayOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("FieldOverlayOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.finish()
-  }
-}
-pub enum CartTracksOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct CartTracksOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for CartTracksOp<'a> {
-  type Inner = CartTracksOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> CartTracksOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    CartTracksOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args CartTracksOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<CartTracksOp<'bldr>> {
-    let mut builder = CartTracksOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CartTracksOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(CartTracksOp::VT_SEED, Some(0)).unwrap()}
-  }
-}
-
-impl ::flatbuffers::Verifiable for CartTracksOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct CartTracksOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-}
-impl<'a> Default for CartTracksOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    CartTracksOpArgs {
-      tiles: None,
-      seed: 0,
-    }
-  }
-}
-
-pub struct CartTracksOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CartTracksOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(CartTracksOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CartTracksOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    CartTracksOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<CartTracksOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for CartTracksOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("CartTracksOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.finish()
-  }
-}
-pub enum OreDepositsOpOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct OreDepositsOp<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for OreDepositsOp<'a> {
-  type Inner = OreDepositsOp<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> OreDepositsOp<'a> {
-  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    OreDepositsOp { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args OreDepositsOpArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<OreDepositsOp<'bldr>> {
-    let mut builder = OreDepositsOpBuilder::new(_fbb);
-    builder.add_seed(args.seed);
-    if let Some(x) = args.theme { builder.add_theme(x); }
-    if let Some(x) = args.tiles { builder.add_tiles(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(OreDepositsOp::VT_TILES, None)}
-  }
-  #[inline]
-  pub fn seed(&self) -> u64 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(OreDepositsOp::VT_SEED, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn theme(&self) -> Option<&'a str> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(OreDepositsOp::VT_THEME, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for OreDepositsOp<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
-     .visit_field::<u64>("seed", Self::VT_SEED, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct OreDepositsOpArgs<'a> {
-    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
-    pub seed: u64,
-    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-}
-impl<'a> Default for OreDepositsOpArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    OreDepositsOpArgs {
-      tiles: None,
-      seed: 0,
-      theme: None,
-    }
-  }
-}
-
-pub struct OreDepositsOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OreDepositsOpBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(OreDepositsOp::VT_TILES, tiles);
-  }
-  #[inline]
-  pub fn add_seed(&mut self, seed: u64) {
-    self.fbb_.push_slot::<u64>(OreDepositsOp::VT_SEED, seed, 0);
-  }
-  #[inline]
-  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(OreDepositsOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OreDepositsOpBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    OreDepositsOpBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<OreDepositsOp<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for OreDepositsOp<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("OreDepositsOp");
-      ds.field("tiles", &self.tiles());
-      ds.field("seed", &self.seed());
-      ds.field("theme", &self.theme());
-      ds.finish()
-  }
-}
-pub enum GrovePolygonOffset {}
-#[derive(Copy, Clone, PartialEq)]
-
-pub struct GrovePolygon<'a> {
-  pub _tab: ::flatbuffers::Table<'a>,
-}
-
-impl<'a> ::flatbuffers::Follow<'a> for GrovePolygon<'a> {
-  type Inner = GrovePolygon<'a>;
-  #[inline]
-  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
-  }
-}
-
-impl<'a> GrovePolygon<'a> {
-  pub const VT_POLYGON: ::flatbuffers::VOffsetT = 4;
-
-  #[inline]
-  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
-    GrovePolygon { _tab: table }
-  }
-  #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
-    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args GrovePolygonArgs<'args>
-  ) -> ::flatbuffers::WIPOffset<GrovePolygon<'bldr>> {
-    let mut builder = GrovePolygonBuilder::new(_fbb);
-    if let Some(x) = args.polygon { builder.add_polygon(x); }
-    builder.finish()
-  }
-
-
-  #[inline]
-  pub fn polygon(&self) -> Option<Polygon<'a>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Polygon>>(GrovePolygon::VT_POLYGON, None)}
-  }
-}
-
-impl ::flatbuffers::Verifiable for GrovePolygon<'_> {
-  #[inline]
-  fn run_verifier(
-    v: &mut ::flatbuffers::Verifier, pos: usize
-  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
-    v.visit_table(pos)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<Polygon>>("polygon", Self::VT_POLYGON, false)?
-     .finish();
-    Ok(())
-  }
-}
-pub struct GrovePolygonArgs<'a> {
-    pub polygon: Option<::flatbuffers::WIPOffset<Polygon<'a>>>,
-}
-impl<'a> Default for GrovePolygonArgs<'a> {
-  #[inline]
-  fn default() -> Self {
-    GrovePolygonArgs {
-      polygon: None,
-    }
-  }
-}
-
-pub struct GrovePolygonBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
-  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
-  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
-}
-impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GrovePolygonBuilder<'a, 'b, A> {
-  #[inline]
-  pub fn add_polygon(&mut self, polygon: ::flatbuffers::WIPOffset<Polygon<'b >>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Polygon>>(GrovePolygon::VT_POLYGON, polygon);
-  }
-  #[inline]
-  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GrovePolygonBuilder<'a, 'b, A> {
-    let start = _fbb.start_table();
-    GrovePolygonBuilder {
-      fbb_: _fbb,
-      start_: start,
-    }
-  }
-  #[inline]
-  pub fn finish(self) -> ::flatbuffers::WIPOffset<GrovePolygon<'a>> {
-    let o = self.fbb_.end_table(self.start_);
-    ::flatbuffers::WIPOffset::new(o.value())
-  }
-}
-
-impl ::core::fmt::Debug for GrovePolygon<'_> {
-  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-    let mut ds = f.debug_struct("GrovePolygon");
-      ds.field("polygon", &self.polygon());
-      ds.finish()
-  }
-}
 pub enum TreeFeatureOpOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -6830,10 +5896,8 @@ impl<'a> TreeFeatureOp<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_GROVES: ::flatbuffers::VOffsetT = 10;
-  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
-  pub const VT_GROVE_TILES: ::flatbuffers::VOffsetT = 14;
-  pub const VT_GROVE_SIZES: ::flatbuffers::VOffsetT = 16;
+  pub const VT_GROVE_TILES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GROVE_SIZES: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6848,8 +5912,6 @@ impl<'a> TreeFeatureOp<'a> {
     builder.add_seed(args.seed);
     if let Some(x) = args.grove_sizes { builder.add_grove_sizes(x); }
     if let Some(x) = args.grove_tiles { builder.add_grove_tiles(x); }
-    if let Some(x) = args.groups { builder.add_groups(x); }
-    if let Some(x) = args.groves { builder.add_groves(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.finish()
@@ -6878,20 +5940,6 @@ impl<'a> TreeFeatureOp<'a> {
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TreeFeatureOp::VT_THEME, None)}
   }
   #[inline]
-  pub fn groves(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrovePolygon<'a>>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrovePolygon>>>>(TreeFeatureOp::VT_GROVES, None)}
-  }
-  #[inline]
-  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(TreeFeatureOp::VT_GROUPS, None)}
-  }
-  #[inline]
   pub fn grove_tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
     // Safety:
     // Created from valid Table for this object
@@ -6916,8 +5964,6 @@ impl ::flatbuffers::Verifiable for TreeFeatureOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GrovePolygon>>>>("groves", Self::VT_GROVES, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("grove_tiles", Self::VT_GROVE_TILES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("grove_sizes", Self::VT_GROVE_SIZES, false)?
      .finish();
@@ -6928,8 +5974,6 @@ pub struct TreeFeatureOpArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub groves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrovePolygon<'a>>>>>,
-    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
     pub grove_tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
     pub grove_sizes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
@@ -6940,8 +5984,6 @@ impl<'a> Default for TreeFeatureOpArgs<'a> {
       tiles: None,
       seed: 0,
       theme: None,
-      groves: None,
-      groups: None,
       grove_tiles: None,
       grove_sizes: None,
     }
@@ -6964,14 +6006,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TreeFeatureOpBuilder<'a, 'b, 
   #[inline]
   pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_THEME, theme);
-  }
-  #[inline]
-  pub fn add_groves(&mut self, groves: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<GrovePolygon<'b >>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROVES, groves);
-  }
-  #[inline]
-  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROUPS, groups);
   }
   #[inline]
   pub fn add_grove_tiles(&mut self, grove_tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
@@ -7002,8 +6036,6 @@ impl ::core::fmt::Debug for TreeFeatureOp<'_> {
       ds.field("tiles", &self.tiles());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
-      ds.field("groves", &self.groves());
-      ds.field("groups", &self.groups());
       ds.field("grove_tiles", &self.grove_tiles());
       ds.field("grove_sizes", &self.grove_sizes());
       ds.finish()
@@ -7028,7 +6060,6 @@ impl<'a> BushFeatureOp<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
-  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7041,7 +6072,6 @@ impl<'a> BushFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<BushFeatureOp<'bldr>> {
     let mut builder = BushFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
-    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.finish()
@@ -7069,13 +6099,6 @@ impl<'a> BushFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BushFeatureOp::VT_THEME, None)}
   }
-  #[inline]
-  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(BushFeatureOp::VT_GROUPS, None)}
-  }
 }
 
 impl ::flatbuffers::Verifiable for BushFeatureOp<'_> {
@@ -7087,7 +6110,6 @@ impl ::flatbuffers::Verifiable for BushFeatureOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -7096,7 +6118,6 @@ pub struct BushFeatureOpArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for BushFeatureOpArgs<'a> {
   #[inline]
@@ -7105,7 +6126,6 @@ impl<'a> Default for BushFeatureOpArgs<'a> {
       tiles: None,
       seed: 0,
       theme: None,
-      groups: None,
     }
   }
 }
@@ -7128,10 +6148,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BushFeatureOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BushFeatureOp::VT_THEME, theme);
   }
   #[inline]
-  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BushFeatureOp::VT_GROUPS, groups);
-  }
-  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BushFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BushFeatureOpBuilder {
@@ -7152,7 +6168,6 @@ impl ::core::fmt::Debug for BushFeatureOp<'_> {
       ds.field("tiles", &self.tiles());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
-      ds.field("groups", &self.groups());
       ds.finish()
   }
 }
@@ -7176,7 +6191,6 @@ impl<'a> WellFeatureOp<'a> {
   pub const VT_SHAPE: ::flatbuffers::VOffsetT = 6;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 10;
-  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7189,7 +6203,6 @@ impl<'a> WellFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<WellFeatureOp<'bldr>> {
     let mut builder = WellFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
-    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.add_shape(args.shape);
@@ -7225,13 +6238,6 @@ impl<'a> WellFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellFeatureOp::VT_THEME, None)}
   }
-  #[inline]
-  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(WellFeatureOp::VT_GROUPS, None)}
-  }
 }
 
 impl ::flatbuffers::Verifiable for WellFeatureOp<'_> {
@@ -7244,7 +6250,6 @@ impl ::flatbuffers::Verifiable for WellFeatureOp<'_> {
      .visit_field::<WellShape>("shape", Self::VT_SHAPE, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -7254,7 +6259,6 @@ pub struct WellFeatureOpArgs<'a> {
     pub shape: WellShape,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for WellFeatureOpArgs<'a> {
   #[inline]
@@ -7264,7 +6268,6 @@ impl<'a> Default for WellFeatureOpArgs<'a> {
       shape: WellShape::Round,
       seed: 0,
       theme: None,
-      groups: None,
     }
   }
 }
@@ -7291,10 +6294,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellFeatureOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellFeatureOp::VT_THEME, theme);
   }
   #[inline]
-  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellFeatureOp::VT_GROUPS, groups);
-  }
-  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WellFeatureOpBuilder {
@@ -7316,7 +6315,6 @@ impl ::core::fmt::Debug for WellFeatureOp<'_> {
       ds.field("shape", &self.shape());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
-      ds.field("groups", &self.groups());
       ds.finish()
   }
 }
@@ -7340,7 +6338,6 @@ impl<'a> FountainFeatureOp<'a> {
   pub const VT_SHAPE: ::flatbuffers::VOffsetT = 6;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 10;
-  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7353,7 +6350,6 @@ impl<'a> FountainFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FountainFeatureOp<'bldr>> {
     let mut builder = FountainFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
-    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.add_shape(args.shape);
@@ -7389,13 +6385,6 @@ impl<'a> FountainFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FountainFeatureOp::VT_THEME, None)}
   }
-  #[inline]
-  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FountainFeatureOp::VT_GROUPS, None)}
-  }
 }
 
 impl ::flatbuffers::Verifiable for FountainFeatureOp<'_> {
@@ -7408,7 +6397,6 @@ impl ::flatbuffers::Verifiable for FountainFeatureOp<'_> {
      .visit_field::<FountainShape>("shape", Self::VT_SHAPE, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
-     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -7418,7 +6406,6 @@ pub struct FountainFeatureOpArgs<'a> {
     pub shape: FountainShape,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
-    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for FountainFeatureOpArgs<'a> {
   #[inline]
@@ -7428,7 +6415,6 @@ impl<'a> Default for FountainFeatureOpArgs<'a> {
       shape: FountainShape::Round,
       seed: 0,
       theme: None,
-      groups: None,
     }
   }
 }
@@ -7455,10 +6441,6 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FountainFeatureOpBuilder<'a, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FountainFeatureOp::VT_THEME, theme);
   }
   #[inline]
-  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
-    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FountainFeatureOp::VT_GROUPS, groups);
-  }
-  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FountainFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FountainFeatureOpBuilder {
@@ -7480,7 +6462,6 @@ impl ::core::fmt::Debug for FountainFeatureOp<'_> {
       ds.field("shape", &self.shape());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
-      ds.field("groups", &self.groups());
       ds.finish()
   }
 }
@@ -7958,96 +6939,6 @@ impl<'a> OpEntry<'a> {
 
   #[inline]
   #[allow(non_snake_case)]
-  pub fn op_as_cobblestone_op(&self) -> Option<CobblestoneOp<'a>> {
-    if self.op_type() == Op::CobblestoneOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { CobblestoneOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_wood_floor_op(&self) -> Option<WoodFloorOp<'a>> {
-    if self.op_type() == Op::WoodFloorOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { WoodFloorOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_garden_overlay_op(&self) -> Option<GardenOverlayOp<'a>> {
-    if self.op_type() == Op::GardenOverlayOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { GardenOverlayOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_field_overlay_op(&self) -> Option<FieldOverlayOp<'a>> {
-    if self.op_type() == Op::FieldOverlayOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { FieldOverlayOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_cart_tracks_op(&self) -> Option<CartTracksOp<'a>> {
-    if self.op_type() == Op::CartTracksOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { CartTracksOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
-  pub fn op_as_ore_deposits_op(&self) -> Option<OreDepositsOp<'a>> {
-    if self.op_type() == Op::OreDepositsOp {
-      self.op().map(|t| {
-       // Safety:
-       // Created from a valid Table for this object
-       // Which contains a valid union in this slot
-       unsafe { OreDepositsOp::init_from_table(t) }
-     })
-    } else {
-      None
-    }
-  }
-
-  #[inline]
-  #[allow(non_snake_case)]
   pub fn op_as_tree_feature_op(&self) -> Option<TreeFeatureOp<'a>> {
     if self.op_type() == Op::TreeFeatureOp {
       self.op().map(|t| {
@@ -8155,12 +7046,6 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::ThematicDetailOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ThematicDetailOp>>("Op::ThematicDetailOp", pos),
           Op::TerrainDetailOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TerrainDetailOp>>("Op::TerrainDetailOp", pos),
           Op::StairsOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<StairsOp>>("Op::StairsOp", pos),
-          Op::CobblestoneOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<CobblestoneOp>>("Op::CobblestoneOp", pos),
-          Op::WoodFloorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WoodFloorOp>>("Op::WoodFloorOp", pos),
-          Op::GardenOverlayOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GardenOverlayOp>>("Op::GardenOverlayOp", pos),
-          Op::FieldOverlayOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FieldOverlayOp>>("Op::FieldOverlayOp", pos),
-          Op::CartTracksOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<CartTracksOp>>("Op::CartTracksOp", pos),
-          Op::OreDepositsOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<OreDepositsOp>>("Op::OreDepositsOp", pos),
           Op::TreeFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<TreeFeatureOp>>("Op::TreeFeatureOp", pos),
           Op::BushFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BushFeatureOp>>("Op::BushFeatureOp", pos),
           Op::WellFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WellFeatureOp>>("Op::WellFeatureOp", pos),
@@ -8279,48 +7164,6 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::StairsOp => {
           if let Some(x) = self.op_as_stairs_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::CobblestoneOp => {
-          if let Some(x) = self.op_as_cobblestone_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::WoodFloorOp => {
-          if let Some(x) = self.op_as_wood_floor_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::GardenOverlayOp => {
-          if let Some(x) = self.op_as_garden_overlay_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::FieldOverlayOp => {
-          if let Some(x) = self.op_as_field_overlay_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::CartTracksOp => {
-          if let Some(x) = self.op_as_cart_tracks_op() {
-            ds.field("op", &x)
-          } else {
-            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
-          }
-        },
-        Op::OreDepositsOp => {
-          if let Some(x) = self.op_as_ore_deposits_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")

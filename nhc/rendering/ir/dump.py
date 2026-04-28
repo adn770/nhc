@@ -53,7 +53,7 @@ _ENUM_FIELDS: dict[tuple[str, str], dict[int, str]] = {
     ("RegionT", "kind"): _enum_value_to_name(RegionKind.RegionKind),
     ("ShadowOpT", "kind"): _enum_value_to_name(ShadowKind.ShadowKind),
     ("HatchOpT", "kind"): _enum_value_to_name(HatchKind.HatchKind),
-    ("CobblestoneOpT", "pattern"): _enum_value_to_name(
+    ("CobblestoneVariantT", "pattern"): _enum_value_to_name(
         CobblePattern.CobblePattern
     ),
     ("WellFeatureOpT", "shape"): _enum_value_to_name(WellShape.WellShape),

@@ -70,18 +70,13 @@ def End(builder):
     return OpEntryEnd(builder)
 
 import nhc.rendering.ir._fb.BushFeatureOp
-import nhc.rendering.ir._fb.CartTracksOp
-import nhc.rendering.ir._fb.CobblestoneOp
 import nhc.rendering.ir._fb.DecoratorOp
-import nhc.rendering.ir._fb.FieldOverlayOp
 import nhc.rendering.ir._fb.FloorDetailOp
 import nhc.rendering.ir._fb.FloorGridOp
 import nhc.rendering.ir._fb.FountainFeatureOp
-import nhc.rendering.ir._fb.GardenOverlayOp
 import nhc.rendering.ir._fb.GenericProceduralOp
 import nhc.rendering.ir._fb.HatchOp
 import nhc.rendering.ir._fb.Op
-import nhc.rendering.ir._fb.OreDepositsOp
 import nhc.rendering.ir._fb.ShadowOp
 import nhc.rendering.ir._fb.StairsOp
 import nhc.rendering.ir._fb.TerrainDetailOp
@@ -90,7 +85,6 @@ import nhc.rendering.ir._fb.ThematicDetailOp
 import nhc.rendering.ir._fb.TreeFeatureOp
 import nhc.rendering.ir._fb.WallsAndFloorsOp
 import nhc.rendering.ir._fb.WellFeatureOp
-import nhc.rendering.ir._fb.WoodFloorOp
 try:
     from typing import Union
 except:
@@ -105,7 +99,7 @@ class OpEntryT(object):
         op = None,
     ):
         self.opType = opType  # type: int
-        self.op = op  # type: Union[None, 'nhc.rendering.ir._fb.ShadowOp.ShadowOpT', 'nhc.rendering.ir._fb.HatchOp.HatchOpT', 'nhc.rendering.ir._fb.WallsAndFloorsOp.WallsAndFloorsOpT', 'nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT', 'nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT', 'nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT', 'nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT', 'nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT', 'nhc.rendering.ir._fb.StairsOp.StairsOpT', 'nhc.rendering.ir._fb.CobblestoneOp.CobblestoneOpT', 'nhc.rendering.ir._fb.WoodFloorOp.WoodFloorOpT', 'nhc.rendering.ir._fb.GardenOverlayOp.GardenOverlayOpT', 'nhc.rendering.ir._fb.FieldOverlayOp.FieldOverlayOpT', 'nhc.rendering.ir._fb.CartTracksOp.CartTracksOpT', 'nhc.rendering.ir._fb.OreDepositsOp.OreDepositsOpT', 'nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT', 'nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT', 'nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT', 'nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT', 'nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT', 'nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT']
+        self.op = op  # type: Union[None, 'nhc.rendering.ir._fb.ShadowOp.ShadowOpT', 'nhc.rendering.ir._fb.HatchOp.HatchOpT', 'nhc.rendering.ir._fb.WallsAndFloorsOp.WallsAndFloorsOpT', 'nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT', 'nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT', 'nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT', 'nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT', 'nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT', 'nhc.rendering.ir._fb.StairsOp.StairsOpT', 'nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT', 'nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT', 'nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT', 'nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT', 'nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT', 'nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT']
 
     @classmethod
     def InitFromBuf(cls, buf, pos):

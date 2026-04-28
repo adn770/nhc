@@ -78,47 +78,35 @@ clipRegion(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-decoratorGroups(index: number):string
-decoratorGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
-decoratorGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
-}
-
-decoratorGroupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 16);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
 woodFloorGroups(index: number):string
 woodFloorGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
 woodFloorGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
 }
 
 woodFloorGroupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 18);
+  const offset = this.bb!.__offset(this.bb_pos, 16);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 isCorridor(index: number):boolean|null {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
 }
 
 isCorridorLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
 isCorridorArray():Int8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 20);
+  const offset = this.bb!.__offset(this.bb_pos, 18);
   return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
 static startFloorDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(9);
+  builder.startObject(8);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -173,24 +161,8 @@ static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.O
   builder.addFieldOffset(5, clipRegionOffset, 0);
 }
 
-static addDecoratorGroups(builder:flatbuffers.Builder, decoratorGroupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(6, decoratorGroupsOffset, 0);
-}
-
-static createDecoratorGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startDecoratorGroupsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
 static addWoodFloorGroups(builder:flatbuffers.Builder, woodFloorGroupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(7, woodFloorGroupsOffset, 0);
+  builder.addFieldOffset(6, woodFloorGroupsOffset, 0);
 }
 
 static createWoodFloorGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
@@ -206,7 +178,7 @@ static startWoodFloorGroupsVector(builder:flatbuffers.Builder, numElems:number) 
 }
 
 static addIsCorridor(builder:flatbuffers.Builder, isCorridorOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(8, isCorridorOffset, 0);
+  builder.addFieldOffset(7, isCorridorOffset, 0);
 }
 
 static createIsCorridorVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
@@ -226,7 +198,7 @@ static endFloorDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, decoratorGroupsOffset:flatbuffers.Offset, woodFloorGroupsOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, woodFloorGroupsOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorDetailOp.startFloorDetailOp(builder);
   FloorDetailOp.addTiles(builder, tilesOffset);
   FloorDetailOp.addSeed(builder, seed);
@@ -234,7 +206,6 @@ static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.
   FloorDetailOp.addRoomGroups(builder, roomGroupsOffset);
   FloorDetailOp.addCorridorGroups(builder, corridorGroupsOffset);
   FloorDetailOp.addClipRegion(builder, clipRegionOffset);
-  FloorDetailOp.addDecoratorGroups(builder, decoratorGroupsOffset);
   FloorDetailOp.addWoodFloorGroups(builder, woodFloorGroupsOffset);
   FloorDetailOp.addIsCorridor(builder, isCorridorOffset);
   return FloorDetailOp.endFloorDetailOp(builder);

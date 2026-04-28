@@ -913,8 +913,8 @@ class TestFloorIRRoutes:
             "application/json"
         )
         payload = json.loads(resp.get_data(as_text=True))
-        assert payload["major"] == 1
-        assert payload["minor"] >= 6
+        assert payload["major"] == 2
+        assert payload["minor"] >= 0
         assert "regions" in payload
         assert "ops" in payload
 
@@ -1240,7 +1240,7 @@ class TestFloorIRArtefactsDiskWiring:
         assert nir_path.read_bytes()[4:8] == b"NIRF"
         # JSON dump is canonical and parseable.
         parsed = json.loads(json_path.read_text(encoding="utf-8"))
-        assert parsed["major"] == 1
+        assert parsed["major"] == 2
         assert "regions" in parsed
 
     def test_export_floor_ir_404_for_non_god_mode(

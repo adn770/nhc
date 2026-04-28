@@ -394,15 +394,10 @@ table FloorDetailOp {
   room_groups: [string];
   corridor_groups: [string];
   clip_region: string;
-  // Phase 1.l additions: the post-pass decorator pipeline
-  // (cobblestone / brick / flagstone / opus_romano / field_stone /
-  // cart_tracks / ore_deposit) and the wood-floor short-circuit.
-  // Both produce unclipped fragments appended after the corridor
-  // groups; wood_floor replaces the room/corridor passes
-  // entirely (the wood emitter renders its own clipPath envelope).
-  // Phase 4 refactors to per-decorator structured ops when
-  // porting to Rust.
-  decorator_groups: [string];
+  // Phase 1.l addition: the wood-floor short-circuit. When
+  // populated, wood_floor_groups replaces the room/corridor
+  // passes entirely (the wood emitter renders its own clipPath
+  // envelope). Pending the wood-floor Rust port.
   wood_floor_groups: [string];
   // Sub-step 3.b parallel-array addition: per-tile
   // corridor / door classification, parallel to tiles[]. Mirrors
@@ -465,76 +460,24 @@ table StairsOp {
   fill_color: string;      // active when theme == "cave"
 }
 
-// Layer 500c — cobblestone variants (street tiles).
-table CobblestoneOp {
-  tiles: [TileCoord];
-  seed: uint64;            // base_seed + 333 (decorator pipeline)
-  theme: string;
-  pattern: CobblePattern;
-}
-
-// Layer 500d — wood floor planks (gated on flags.interior_finish).
-table WoodFloorOp {
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-  building_polygon: [Vec2];   // optional clip to chamfer diagonal
-}
-
-// Layer 500e — surface overlays.
-table GardenOverlayOp {
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-}
-
-table FieldOverlayOp {
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-}
-
-table CartTracksOp {
-  tiles: [TileCoord];
-  seed: uint64;
-}
-
-table OreDepositsOp {
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-}
-
-// Layer 800 — vegetation. Groves carry pre-baked Shapely-union
-// polygons for 3+ adjacent trees so the renderer does no Shapely
-// work; per-tree glyphs come from the per-tile seeded rolls.
-table GrovePolygon {
-  polygon: Polygon;
-}
-
+// Layer 800 — vegetation. Tree groves of size ≥ 3 fuse Rust-side
+// via the geo crate's polygon union; per-tree glyphs come from
+// the per-tile seeded rolls.
 table TreeFeatureOp {
-  // Sub-step 15: tiles[] carries free trees (singletons +
-  // pair-tiles, each painted as an individual tree). Groves of
-  // size ≥ 3 ship via the parallel grove_tiles + grove_sizes
-  // arrays below — one fused fragment per grove, computed
-  // Rust-side via the geo crate's polygon union.
+  // tiles[] carries free trees (singletons + pair-tiles, each
+  // painted as an individual tree). Groves of size ≥ 3 ship via
+  // the parallel grove_tiles + grove_sizes arrays below — one
+  // fused fragment per grove, computed Rust-side via the geo
+  // crate's polygon union.
   tiles: [TileCoord];
   seed: uint64;
   theme: string;
-  // Pre-Phase-4 reserved for grove silhouettes; sub-step 15
-  // doesn't populate it (the union is computed Rust-side from
-  // grove_tiles below). Slated for removal at Phase 7 cleanup.
-  groves: [GrovePolygon];
-  // Sub-step 13-prep transitional storage. Pre-rendered <g>
-  // groups travel here while the per-tile structured port
-  // lands at sub-step 15. Drops empty after the Rust port.
-  groups: [string];
-  // Sub-step 15 grove encoding. Flat list of (tx, ty) tiles
-  // belonging to groves of size ≥ 3, partitioned by
-  // grove_sizes (sum(grove_sizes) == len(grove_tiles)). Each
-  // grove paints as one fused canopy + shadow fragment with
-  // no trunks; the Rust port unions all canopy lobes across
-  // the grove via the geo crate.
+  // Grove encoding: flat list of (tx, ty) tiles belonging to
+  // groves of size ≥ 3, partitioned by grove_sizes
+  // (sum(grove_sizes) == len(grove_tiles)). Each grove paints
+  // as one fused canopy + shadow fragment with no trunks; the
+  // Rust port unions all canopy lobes across the grove via the
+  // geo crate.
   grove_tiles: [TileCoord];
   grove_sizes: [uint32];
 }
@@ -543,8 +486,6 @@ table BushFeatureOp {
   tiles: [TileCoord];
   seed: uint64;
   theme: string;
-  // Sub-step 13-prep transitional storage; ports at sub-step 16.
-  groups: [string];
 }
 
 // Layer 800 — surface fixtures.
@@ -553,8 +494,6 @@ table WellFeatureOp {
   shape: WellShape;
   seed: uint64;
   theme: string;
-  // Sub-step 13-prep transitional storage; ports at sub-step 13.
-  groups: [string];
 }
 
 table FountainFeatureOp {
@@ -562,8 +501,6 @@ table FountainFeatureOp {
   shape: FountainShape;
   seed: uint64;
   theme: string;
-  // Sub-step 13-prep transitional storage; ports at sub-step 14.
-  groups: [string];
 }
 
 // Escape hatch for new primitives that haven't earned a dedicated
@@ -602,6 +539,14 @@ table GenericProceduralOp {
 // fully supported across every target. The wrapper costs one
 // extra offset per op (4 B) — well below noise.
 
+// Major version 2.0 (Phase 7 cleanup) removed six reserved
+// variants that were never emitted: CobblestoneOp / WoodFloorOp /
+// GardenOverlayOp / FieldOverlayOp / CartTracksOp / OreDepositsOp.
+// The decorator pipeline ships through DecoratorOp's per-variant
+// vector tables; surface features ship through the four per-shape
+// FeatureOps. GenericProceduralOp stays as a deliberate escape
+// hatch for future named primitives that haven't earned a
+// dedicated table yet.
 union Op {
   ShadowOp,
   HatchOp,
@@ -612,12 +557,6 @@ union Op {
   ThematicDetailOp,
   TerrainDetailOp,
   StairsOp,
-  CobblestoneOp,
-  WoodFloorOp,
-  GardenOverlayOp,
-  FieldOverlayOp,
-  CartTracksOp,
-  OreDepositsOp,
   TreeFeatureOp,
   BushFeatureOp,
   WellFeatureOp,

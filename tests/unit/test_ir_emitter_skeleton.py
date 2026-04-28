@@ -50,9 +50,9 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
     )
 
 
-def test_schema_major_is_one(emitted) -> None:
+def test_schema_major_is_two(emitted) -> None:
     _, _, fir = emitted
-    assert fir.major == 1
+    assert fir.major == 2
     # Minor bumps as later commits add additive schema fields; the
     # sentinel pins major only.
     assert fir.minor >= 0
