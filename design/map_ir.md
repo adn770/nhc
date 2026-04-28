@@ -16,31 +16,43 @@ preparatory tasks listed in `plans/nhc_ir_migration_plan.md`.
 
 ## 1. Status & vision
 
-### Status (2026-04-27)
+### Status (2026-04-28)
 
-The rendering refactor that this design depends on is **mostly complete**:
+The IR migration shipped through Phase 7. Schema is at major
+version **2.0** (Phase 7 cleanup retired the unused reserved
+op-union variants and the empty Phase-1 transitional fields).
 
 - `nhc/rendering/_render_context.py` — frozen `RenderContext` resolves
   floor kind (dungeon / cave / building / surface) plus feature flags
   (shadows, hatching, atmospherics, macabre detail, vegetation,
   interior-finish) once per render.
-- `nhc/rendering/_pipeline.py` — `Layer`, `TileWalkLayer`, and the
-  `render_layers(ctx, layers)` orchestrator.
-- `nhc/rendering/_decorators.py` — `TileDecorator` contract,
-  `walk_and_paint`, per-decorator seeded RNG.
-- `nhc/rendering/_floor_layers.py` — ordered `FLOOR_LAYERS` registry
-  of nine layers (shadows, hatching, walls_and_floors, terrain_tints,
-  floor_grid, floor_detail, terrain_detail, stairs, surface_features).
+- `nhc/rendering/ir_emitter.py` — Python emitter that builds a
+  `FloorIR` FlatBuffer from a `Level` + `RenderContext`. The IR
+  carries one op per layer; per-layer `_emit_*_ir` helpers in
+  `_floor_layers.py` route per-shape data into structured ops.
+- `nhc/rendering/ir_to_svg.py` — Python transformer; calls into the
+  Rust crate `nhc-render` (PyO3) for the per-op procedural geometry
+  and wraps the output in clip-path / dungeon-poly envelopes.
 - `nhc/rendering/svg.py` — `render_floor_svg` is now a thin shell
-  around `build_render_context` + `render_layers(FLOOR_LAYERS)`.
+  around `ir_to_svg(build_floor_ir(...))`.
+- `crates/nhc-render/` — Rust core for procedural rendering
+  (splitmix64 RNG, Perlin noise, per-primitive emitters). Exposed
+  to Python via PyO3 (`nhc_render` wheel) and slated for WASM
+  exposure in Phase 6.
+- `nhc/rendering/_decorators.py` — `TileDecorator` contract +
+  `walk_and_paint`. Two live callers remain (terrain-detail
+  decorators + the wood-floor short-circuit); both pending their
+  Rust ports. Slated for deletion when the last legacy procedural
+  pipeline ports.
 
-The op vocabulary has grown from the original ten-op sketch to roughly
-**thirty primitives** (trees with grove merging, bushes, wells in two
-shapes, fountains in five variants, cobblestone in five variants, wood
-floor as a `TileDecorator` with a `requires` gate, cart tracks, ore
-deposits, GARDEN→GRASS overlay, FIELD overlay, building interior walls,
-masonry runs, roofs, enclosures, doors). The IR schema below covers all
-of them.
+The op vocabulary covers shadows, hatching, walls/floors, terrain
+tints + detail, floor grid, floor detail (cracks / scratches /
+stones), thematic detail (webs / bones / skulls), stairs, the
+seven decorator variants (cobblestone / brick / flagstone /
+opus_romano / field_stone / cart_tracks / ore_deposit) flowing
+through `DecoratorOp`'s per-variant tables, plus the four surface
+features (well / fountain / tree / bush). Total: 14 op-union
+variants + a `GenericProceduralOp` escape hatch.
 
 ### Vision
 
@@ -263,18 +275,23 @@ for the full op catalogue. Ops appear in the buffer in **layer-order**
 
 ### Versioning policy
 
-- **Minor bump (1.x → 1.y)** — additive: new op-union variants, new
+Schema is currently at **major version 2.0** — Phase 7 cleanup
+removed the empty Phase-1 transitional fields and the never-emitted
+reserved op-union variants. Future evolution:
+
+- **Minor bump (2.x → 2.y)** — additive: new op-union variants, new
   optional fields on existing ops, new theme strings, new region
   shape tags. Old renderers ignore unknown union members (FlatBuffers
   semantics) and render the rest. Ship freely.
-- **Major bump (1.x → 2.0)** — breaking: renamed ops, removed fields,
+- **Major bump (2.x → 3.0)** — breaking: renamed ops, removed fields,
   changed op semantics, changed layer ordering. Both transformers
   (Python SVG, Rust PNG, Rust→WASM Canvas) must accept both versions
   for one release cycle.
 - The buffer's `file_identifier` encodes major version. Major bumps
   also bump the `.fbs` file's `file_identifier`.
-- `save_svg_cache` cache keys include `(major, minor)` so a version
-  bump invalidates old caches cleanly.
+- The floor-artefact disk cache (`nhc/core/autosave.py`) gates on
+  the `(major, minor)` pair so version bumps auto-invalidate stale
+  caches at load time.
 
 ## 6. Layer ordering
 
@@ -289,7 +306,7 @@ with no sort step:
 | 300 | walls_and_floors | `WallsAndFloorsOp` |
 | 350 | terrain_tints | `TerrainTintOp` |
 | 400 | floor_grid | `FloorGridOp` |
-| 500 | floor_detail | `FloorDetailOp`, `ThematicDetailOp`, `CobblestoneOp`, `WoodFloorOp`, `GardenOverlayOp`, `FieldOverlayOp`, `CartTracksOp`, `OreDepositsOp` |
+| 500 | floor_detail | `FloorDetailOp`, `ThematicDetailOp`, `DecoratorOp` (cobblestone / brick / flagstone / opus_romano / field_stone / cart_tracks / ore_deposit per-variant tables) |
 | 600 | terrain_detail | `TerrainDetailOp` |
 | 700 | stairs | `StairsOp` |
 | 800 | surface_features | `WellFeatureOp`, `FountainFeatureOp`, `TreeFeatureOp`, `BushFeatureOp` |
@@ -416,10 +433,14 @@ table FloorDetailOp {
 }
 ```
 
-Reference: `_floor_detail.py:_render_floor_detail`, `_tile_detail`,
-`_floor_stone`. Per-tile rolls: crack (0.08 dungeon / 0.32 cave * theme
-scale), scratch (0.05 / 0.01), stone (0.06 / 0.10), cluster (0.03 /
-0.06).
+Reference: Rust port at `crates/nhc-render/src/primitives/floor_detail.rs`
+(invoked via `nhc_render.draw_floor_detail`). Per-tile rolls: crack
+(0.08 dungeon / 0.32 cave × theme scale), scratch (0.05 / 0.01),
+stone (0.06 / 0.10), cluster (0.03 / 0.06). The Python emitter
+(`_floor_layers.py:_emit_floor_detail_ir`) ships the candidate
+tile list + per-tile corridor classification; the wood-floor
+short-circuit ships pre-rendered `<g>` groups via
+`FloorDetailOp.wood_floor_groups` until the wood-floor port lands.
 
 ### 7.7 ThematicDetailOp
 
@@ -434,8 +455,12 @@ table ThematicDetailOp {
 }
 ```
 
-Reference: `_floor_detail.py:_tile_thematic_detail`, `_web_detail`,
-`_bone_detail`, `_skull_detail`. Webs prefer wall-corner anchors.
+Reference: Rust port at `crates/nhc-render/src/primitives/thematic_detail.rs`
+(invoked via `nhc_render.draw_thematic_detail`). Webs prefer
+wall-corner anchors; the Python emitter
+(`_floor_layers.py:_emit_thematic_detail_ir`) pre-resolves the
+per-tile wall-corner bitmap so the consumer doesn't need level
+access.
 
 ### 7.8 TerrainDetailOp
 
@@ -470,75 +495,55 @@ table StairsOp {
 Reference: `_stairs_svg.py:_render_stairs`. Deterministic shape per
 direction.
 
-### 7.10 CobblestoneOp
+### 7.10 DecoratorOp
 
-Street tiles with a soft hex-offset stone pack. Variants:
-`brick`, `flagstone`, `herringbone`, `opus_reticulatum`,
-`versailles_4stone`.
+The seven legacy decorator types — cobblestone (with five
+sub-patterns), brick, flagstone, opus_romano, field_stone,
+cart_tracks, ore_deposit — ride through one `DecoratorOp` per
+floor with seven parallel variant-table vectors:
 
 ```
-table CobblestoneOp {
-  tiles: [TileCoord];
+table DecoratorOp {
+  cobblestone: [CobblestoneVariant];
+  brick: [BrickVariant];
+  flagstone: [FlagstoneVariant];
+  opus_romano: [OpusRomanoVariant];
+  field_stone: [FieldStoneVariant];
+  cart_tracks: [CartTracksVariant];
+  ore_deposit: [OreDepositVariant];
   seed: uint64;            // base_seed + 333
   theme: string;
-  pattern: CobblePattern;  // Brick | Flagstone | Herringbone | OpusReticulatum | Versailles4
+  clip_region: string;     // dungeon clip when applicable
 }
 ```
 
-Reference: `_floor_detail.py:_render_street_cobblestone` +
-`_cobblestone_tile` per pattern.
+Each variant table carries `tiles: [TileCoord]` plus its own
+shape-specific fields (e.g. `CobblestoneVariant.pattern` for the
+five cobble sub-patterns; `CartTracksVariant.is_horizontal[]` for
+the rail orientation derived by the emitter from neighbour tiles).
 
-### 7.11 WoodFloorOp
+Reference: Rust ports under `crates/nhc-render/src/primitives/`
+(one file per decorator); Python emitter populates the variant
+vectors in `_floor_layers.py:_emit_floor_detail_ir`.
 
-Wood-grain plank fill with a `requires` gate (only emitted when
-`flags.interior_finish == "wood"`). Clipped to `building_polygon`
-when present so planks reach the chamfer diagonal, not the bbox edge.
+### 7.11 TreeFeatureOp / BushFeatureOp
 
-```
-table WoodFloorOp {
-  tiles: [TileCoord];
-  seed: uint64;
-  theme: string;
-  building_polygon: [Vec2];      // optional clip
-}
-```
-
-Reference: `_floor_detail.py:_wood_floor_*`.
-
-### 7.12 GardenOverlayOp / FieldOverlayOp
-
-Surface-tile overlays. Garden tiles render as the GRASS overlay
-(commit `4499326`); FIELD overlays sit on town periphery (commit
-`7dfa0c9`).
-
-```
-table GardenOverlayOp { tiles: [TileCoord]; seed: uint64; theme: string; }
-table FieldOverlayOp  { tiles: [TileCoord]; seed: uint64; theme: string; }
-```
-
-### 7.13 CartTracksOp / OreDepositsOp
-
-Decorator-driven surface markings (commits `7dfa0c9`,
-`b64f03a`).
-
-```
-table CartTracksOp  { tiles: [TileCoord]; seed: uint64; }
-table OreDepositsOp { tiles: [TileCoord]; seed: uint64; theme: string; }
-```
-
-### 7.14 TreeFeatureOp / BushFeatureOp
-
-Cartographer-style vegetation. Trees: layered canopy with per-tile hue
-jitter + grove merging via Shapely union for 3+ adjacent trees (the
-union polygon is baked into the op so the renderer does no Shapely
-work). Bushes: smaller canopy, no trunk.
+Cartographer-style vegetation. Trees: layered canopy with per-tile
+hue jitter. Groves of 3+ 4-adjacent trees fuse into a single canopy
+silhouette via the Rust crate's `geo::BooleanOps` polygon union;
+free trees (singletons / pairs) render per-tile. Bushes: smaller
+multi-lobe canopy, no trunk.
 
 ```
 table TreeFeatureOp {
-  tiles: [TileCoord];
+  tiles: [TileCoord];        // free trees (size <= 2)
   seed: uint64;
   theme: string;
-  groves: [GrovePolygon];  // baked union polygons for 3+ adjacent groups
+  // Groves of size >= 3: flat list of (tx, ty) tuples partitioned
+  // by grove_sizes (sum(grove_sizes) == len(grove_tiles)). Each
+  // grove fuses Rust-side via geo::BooleanOps.
+  grove_tiles: [TileCoord];
+  grove_sizes: [uint32];
 }
 
 table BushFeatureOp {
@@ -548,10 +553,13 @@ table BushFeatureOp {
 }
 ```
 
-Reference: `_features_svg.py:TREE_FEATURE`, `BUSH_FEATURE`,
-`_connected_tree_groves`, `_grove_fragment`.
+Reference: Rust ports at `crates/nhc-render/src/primitives/tree.rs`
+and `bush.rs`. The Python emitter
+(`_floor_layers.py:_emit_surface_features_ir`) calls
+`_features_svg._connected_tree_groves` to BFS-walk tree connectivity
+and split free trees from groves.
 
-### 7.15 WellFeatureOp / FountainFeatureOp
+### 7.12 WellFeatureOp / FountainFeatureOp
 
 Wells in two shapes (round, square). Fountains in five variants
 (round, square, large round, large square, cross). All carry per-tile
@@ -577,19 +585,20 @@ table FountainFeatureOp {
 }
 ```
 
-Reference: `_features_svg.py:WELL_FEATURE`, `WELL_SQUARE_FEATURE`,
-`FOUNTAIN_FEATURE`, `FOUNTAIN_SQUARE_FEATURE`,
-`FOUNTAIN_LARGE_FEATURE`, `FOUNTAIN_LARGE_SQUARE_FEATURE`,
-`FOUNTAIN_CROSS_FEATURE`.
+Reference: Rust ports at `crates/nhc-render/src/primitives/well.rs`
+and `fountain.rs`. Each fountain shape variant has its own
+emission function; the Python emitter
+(`_floor_layers.py:_emit_surface_features_ir`) splits anchor
+tiles per `Tile.feature` value into one op per shape.
 
-### 7.16 GenericProceduralOp (escape hatch)
+### 7.13 GenericProceduralOp (escape hatch)
 
 For new primitives that haven't yet earned their own table. Carries
 `(name: string, tiles, seed, params: [KV])`. Renderers dispatch on
 `name` to a registered handler. Use sparingly — promote to a
 dedicated table once the primitive stabilises.
 
-### 7.17 What the IR does NOT cover
+### 7.14 What the IR does NOT cover
 
 Site / building overlays (composed *above* the floor IR by the
 existing `building.py`, `site_svg.py` wrappers):

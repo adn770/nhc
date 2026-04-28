@@ -132,6 +132,84 @@ The two specific contributor checklists worth surfacing here:
 - For a major bump, are both transformers (Python emitter + Rust IR-to-SVG/PNG)
   updated in the same PR?
 - The cache key includes `(major, minor)`, so version bumps auto-invalidate caches.
+- After editing the schema, regenerate Python / Rust / TS bindings via
+  `make ir-bindings`. The output is tracked in git — commit the regenerated
+  files alongside the schema edit.
+
+## Building the Rust crate locally
+
+The procedural rendering primitives live in `crates/nhc-render/`. Two
+build artefacts:
+
+- **PyO3 wheel** (`make rust-build`) — installed editable into `.venv` via
+  `maturin develop`. The Python side imports the resulting module as
+  `nhc_render` (`import nhc_render`); see
+  `nhc/rendering/ir_to_svg.py` for the call sites. Rebuild the wheel after
+  any change under `crates/nhc-render/src/`.
+- **Cargo unit tests** (`make rust-test` or
+  `cargo test -p nhc-render --lib --release`) — pure-Rust tests for each
+  primitive's RNG / Perlin contract.
+
+The matching server build lane (Docker base image + app image) is
+[deploy/setup.sh](deploy/setup.sh) and `bash deploy/update.sh --base`;
+the cross-arch determinism contract (linux x86_64 reproduces the dev-mac
+splitmix64 vector) is verified in `tests/unit/test_nhc_render_extension.py`.
+
+## Adding a new procedural primitive
+
+The canonical Rust core owns every per-tile RNG / geometry contract.
+Adding a new primitive is a four-step recipe:
+
+1. **Schema** — extend `nhc/rendering/ir/floor_ir.fbs` with a new op
+   table (or a new variant on an existing op union). Bump
+   `SCHEMA_MINOR` in `nhc/rendering/ir_emitter.py` for additive
+   changes; major-bump only if you are removing fields. Run
+   `make ir-bindings` and commit the regenerated Python / Rust / TS
+   bindings.
+2. **Rust port** — drop a new file under
+   `crates/nhc-render/src/primitives/`, mirroring the structure of
+   the existing primitives (e.g. `well.rs`, `tree.rs`). Re-export the
+   PyO3 entry point from `crates/nhc-render/src/ffi/pyo3.rs`. Add
+   inline `cargo test` cases that pin the deterministic call sequence
+   independent of the Python harness. The methodology and pitfalls
+   are normative in
+   [`design/ir_primitives.md`](design/ir_primitives.md) §7.
+3. **Python emitter** — populate the new op in the relevant
+   `_emit_*_ir` helper in `nhc/rendering/_floor_layers.py`. Resolve
+   any level-walk classification (corridor / surface_type / feature)
+   in Python so the Rust handler stays purely geometric.
+4. **Dispatcher** — register a handler in
+   `nhc/rendering/ir_to_svg.py` (`_OP_HANDLERS[Op.Op.MyOp] =
+   _draw_my_op_from_ir`) that calls the PyO3 entry point and wraps
+   the output in any clip-path / dungeon-poly envelopes the layer
+   needs. Update `_LAYER_OPS` so `layer_to_svg(buf, layer="...")`
+   resolves to the new op type.
+
+Tests: add a structural-invariants gate at
+`tests/unit/test_emit_<primitive>_invariants.py` (synthetic-level
+sanity checks — element counts, bbox bounds, NaN/Inf, byte-equal
+re-render). Once a fixture covers the primitive, the snapshot lock
+in `tests/fixtures/floor_ir/<descriptor>/` plus the floor-IR drift
+gate (`tests/unit/test_floor_ir_fixture_drift.py`) provides full
+regression coverage.
+
+## Regenerating the WASM bundle (Phase 6)
+
+The browser-side rendering path (Phase 6 of the IR plan) compiles
+`crates/nhc-render/` to WebAssembly via `wasm-pack`. The bundle is
+slated for `make wasm-build` once Phase 6 lands; today this target is
+unimplemented (Phase 5 is server-side PNG rendering via `tiny-skia`).
+
+When Phase 6 ships, the recipe will be:
+
+```sh
+make wasm-build       # wasm-pack build --target web --release
+                      # then wasm-opt -Oz on the output .wasm
+```
+
+The resulting `.wasm` + JS glue gets vendored into
+`nhc/web/static/js/nhc_render/` and loaded by the web client at
+runtime.
 
 ## Toolchain version policy
 
