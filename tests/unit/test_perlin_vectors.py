@@ -11,10 +11,11 @@ Two layers of assertion:
    committed fixture and either the shim or the fixture is wrong;
    investigate before regenerating.
 
-2. Rust — ``nhc_render.perlin2`` must produce the same values
-   once the Phase 3 port lands. **XFAIL until then.** When the
-   port ships, remove the ``importorskip`` / ``xfail`` markers
-   and the cross-language gate goes live.
+2. Rust — ``nhc_render.perlin2`` reproduces the same values
+   bit-for-bit. The Phase 3 port at
+   ``crates/nhc-render/src/perlin.rs`` makes this gate live; any
+   future change to either side that drifts the output trips this
+   test before the byte-equal SVG fixtures notice.
 
 Together these tests are what protects the Phase 4 byte-equal
 parity gates: any procedural primitive that uses Perlin reads
@@ -62,22 +63,21 @@ def test_python_perlin_shim_matches_fixture() -> None:
     )
 
 
-@pytest.mark.xfail(
-    reason="Phase 3 of plans/nhc_ir_migration_plan.md ports "
-           "perlin to Rust; until then nhc_render.perlin2 is "
-           "an `unimplemented!` skeleton.",
-    strict=True,
-)
 def test_rust_perlin_matches_fixture() -> None:
     nhc_render = pytest.importorskip("nhc_render")
     drifts: list[str] = []
     for entry in _vectors():
         got = nhc_render.perlin2(entry["x"], entry["y"], entry["base"])
-        # Allow ulp-tolerant equality once the Rust port lands;
-        # for now, exact match is the contract.
         if got != entry["value"]:
             drifts.append(
                 f"x={entry['x']} y={entry['y']} base={entry['base']}: "
                 f"rust={got!r}, fixture={entry['value']!r}"
             )
-    assert not drifts, "\n".join(drifts[:10])
+    assert not drifts, (
+        "Rust Perlin port drifted from the committed fixture. "
+        "If this is intentional, regenerate with "
+        "`python -m tests.samples.regenerate_perlin_vectors` and "
+        "commit the JSON. Drifts:\n"
+        + "\n".join(f"  - {d}" for d in drifts[:5])
+        + (f"\n  ... and {len(drifts) - 5} more" if len(drifts) > 5 else "")
+    )
