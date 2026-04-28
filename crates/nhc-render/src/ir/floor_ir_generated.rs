@@ -6832,6 +6832,8 @@ impl<'a> TreeFeatureOp<'a> {
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
   pub const VT_GROVES: ::flatbuffers::VOffsetT = 10;
   pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
+  pub const VT_GROVE_TILES: ::flatbuffers::VOffsetT = 14;
+  pub const VT_GROVE_SIZES: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6844,6 +6846,8 @@ impl<'a> TreeFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<TreeFeatureOp<'bldr>> {
     let mut builder = TreeFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.grove_sizes { builder.add_grove_sizes(x); }
+    if let Some(x) = args.grove_tiles { builder.add_grove_tiles(x); }
     if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.groves { builder.add_groves(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
@@ -6887,6 +6891,20 @@ impl<'a> TreeFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(TreeFeatureOp::VT_GROUPS, None)}
   }
+  #[inline]
+  pub fn grove_tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(TreeFeatureOp::VT_GROVE_TILES, None)}
+  }
+  #[inline]
+  pub fn grove_sizes(&self) -> Option<::flatbuffers::Vector<'a, u32>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u32>>>(TreeFeatureOp::VT_GROVE_SIZES, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TreeFeatureOp<'_> {
@@ -6900,6 +6918,8 @@ impl ::flatbuffers::Verifiable for TreeFeatureOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GrovePolygon>>>>("groves", Self::VT_GROVES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("grove_tiles", Self::VT_GROVE_TILES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u32>>>("grove_sizes", Self::VT_GROVE_SIZES, false)?
      .finish();
     Ok(())
   }
@@ -6910,6 +6930,8 @@ pub struct TreeFeatureOpArgs<'a> {
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub groves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrovePolygon<'a>>>>>,
     pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
+    pub grove_tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub grove_sizes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u32>>>,
 }
 impl<'a> Default for TreeFeatureOpArgs<'a> {
   #[inline]
@@ -6920,6 +6942,8 @@ impl<'a> Default for TreeFeatureOpArgs<'a> {
       theme: None,
       groves: None,
       groups: None,
+      grove_tiles: None,
+      grove_sizes: None,
     }
   }
 }
@@ -6950,6 +6974,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TreeFeatureOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROUPS, groups);
   }
   #[inline]
+  pub fn add_grove_tiles(&mut self, grove_tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROVE_TILES, grove_tiles);
+  }
+  #[inline]
+  pub fn add_grove_sizes(&mut self, grove_sizes: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u32>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROVE_SIZES, grove_sizes);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TreeFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TreeFeatureOpBuilder {
@@ -6972,6 +7004,8 @@ impl ::core::fmt::Debug for TreeFeatureOp<'_> {
       ds.field("theme", &self.theme());
       ds.field("groves", &self.groves());
       ds.field("groups", &self.groups());
+      ds.field("grove_tiles", &self.grove_tiles());
+      ds.field("grove_sizes", &self.grove_sizes());
       ds.finish()
   }
 }

@@ -251,6 +251,22 @@ fn draw_ore_deposit(
     primitives::ore_deposit::draw_ore_deposit(&tiles, seed)
 }
 
+/// Tree surface feature — Phase 4 sub-step 15.
+///
+/// `free_trees` is the singletons / pair-tree tile list (each
+/// painted as an individual tree with trunk + canopy).
+/// `groves` is the list of groves of size ≥ 3 (each painted as
+/// one fused fragment without trunks). Grove detection is
+/// computed Python-side. Returns one fragment per free tree +
+/// one fragment per grove.
+#[pyfunction]
+fn draw_tree(
+    free_trees: Vec<(i32, i32)>,
+    groves: Vec<Vec<(i32, i32)>>,
+) -> Vec<String> {
+    primitives::tree::draw_tree(&free_trees, &groves)
+}
+
 /// Bush surface feature — Phase 4 sub-step 16.
 ///
 /// Multi-lobe canopy + shadow with HLS-jittered fill colour.
@@ -394,5 +410,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_well, m)?)?;
     m.add_function(wrap_pyfunction!(draw_fountain, m)?)?;
     m.add_function(wrap_pyfunction!(draw_bush, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_tree, m)?)?;
     Ok(())
 }

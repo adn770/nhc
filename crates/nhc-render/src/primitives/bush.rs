@@ -129,6 +129,12 @@ fn center_offset(tx: i32, ty: i32) -> (f64, f64) {
 /// Union the lobe circles via geo's BooleanOps and format the
 /// result as an SVG ``d`` string. Mirrors
 /// ``_union_path_from_lobes`` + ``_polygon_to_svg_path``.
+pub(crate) fn union_path_from_lobes_pub(
+    lobes: &[(f64, f64, f64)],
+) -> String {
+    union_path_from_lobes(lobes)
+}
+
 fn union_path_from_lobes(lobes: &[(f64, f64, f64)]) -> String {
     if lobes.is_empty() {
         return String::new();
@@ -171,6 +177,12 @@ fn fill_jitter(tx: i32, ty: i32) -> String {
     let ds = well::hash_norm(tx, ty, BUSH_SAT_SALT) * BUSH_SAT_JITTER;
     let dl = well::hash_norm(tx, ty, BUSH_LIGHT_SALT) * BUSH_LIGHT_JITTER;
     shift_color(BUSH_CANOPY_FILL, dh, ds, dl)
+}
+
+pub(crate) fn shift_color_pub(
+    base_hex: &str, hue_deg: f64, sat: f64, light: f64,
+) -> String {
+    shift_color(base_hex, hue_deg, sat, light)
 }
 
 /// HLS color shift — mirrors Python's ``colorsys.rgb_to_hls`` /

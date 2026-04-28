@@ -513,14 +513,30 @@ table GrovePolygon {
 }
 
 table TreeFeatureOp {
+  // Sub-step 15: tiles[] carries free trees (singletons +
+  // pair-tiles, each painted as an individual tree). Groves of
+  // size ≥ 3 ship via the parallel grove_tiles + grove_sizes
+  // arrays below — one fused fragment per grove, computed
+  // Rust-side via the geo crate's polygon union.
   tiles: [TileCoord];
   seed: uint64;
   theme: string;
+  // Pre-Phase-4 reserved for grove silhouettes; sub-step 15
+  // doesn't populate it (the union is computed Rust-side from
+  // grove_tiles below). Slated for removal at Phase 7 cleanup.
   groves: [GrovePolygon];
   // Sub-step 13-prep transitional storage. Pre-rendered <g>
   // groups travel here while the per-tile structured port
   // lands at sub-step 15. Drops empty after the Rust port.
   groups: [string];
+  // Sub-step 15 grove encoding. Flat list of (tx, ty) tiles
+  // belonging to groves of size ≥ 3, partitioned by
+  // grove_sizes (sum(grove_sizes) == len(grove_tiles)). Each
+  // grove paints as one fused canopy + shadow fragment with
+  // no trunks; the Rust port unions all canopy lobes across
+  // the grove via the geo crate.
+  grove_tiles: [TileCoord];
+  grove_sizes: [uint32];
 }
 
 table BushFeatureOp {

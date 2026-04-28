@@ -1236,9 +1236,23 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
                 fountain_large_square.append((x, y))
             elif feature == "fountain_cross":
                 fountain_cross.append((x, y))
-    tree_groups = list(walk_and_paint(
-        ctx, [TREE_FEATURE], layer_name="surface_features",
-    ))
+    # Sub-step 15: compute tree groves (4-adjacency BFS over
+    # ``tile.feature == "tree"``) Python-side and split into
+    # singletons / pairs (size ≤ 2 → free trees, painted
+    # individually) and groves (size ≥ 3 → one fused fragment
+    # per grove). The Rust port reads both lists.
+    free_tree_tiles: list[tuple[int, int]] = []
+    tree_groves: list[list[tuple[int, int]]] = []
+    if ctx.vegetation_enabled:
+        from nhc.rendering._features_svg import (
+            _connected_tree_groves,
+        )
+        for grove in _connected_tree_groves(level):
+            tiles = sorted(grove)
+            if len(tiles) <= 2:
+                free_tree_tiles.extend(tiles)
+            else:
+                tree_groves.append(tiles)
     # Sub-step 16: bush tiles flow through the structured
     # BushFeatureOp; the legacy walk_and_paint passthrough is
     # gone for bushes. The vegetation_enabled context flag still
@@ -1285,11 +1299,21 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
         entry.opType = Op.Op.FountainFeatureOp
         entry.op = op
         builder.add_op(entry)
-    if tree_groups:
+    if free_tree_tiles or tree_groves:
         op = TreeFeatureOpT()
         op.seed = seed
         op.theme = theme
-        op.groups = tree_groups
+        op.tiles = [TileCoordT(x=x, y=y) for x, y in free_tree_tiles]
+        # Flatten groves into (grove_tiles, grove_sizes).
+        flat_grove_tiles: list[tuple[int, int]] = []
+        grove_sizes: list[int] = []
+        for grove in tree_groves:
+            flat_grove_tiles.extend(grove)
+            grove_sizes.append(len(grove))
+        op.groveTiles = [
+            TileCoordT(x=x, y=y) for x, y in flat_grove_tiles
+        ]
+        op.groveSizes = grove_sizes
         entry = OpEntryT()
         entry.opType = Op.Op.TreeFeatureOp
         entry.op = op

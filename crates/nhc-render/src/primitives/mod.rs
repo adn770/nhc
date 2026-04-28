@@ -26,6 +26,7 @@ pub mod floor_detail;
 pub mod fountain;
 pub mod opus_romano;
 pub mod ore_deposit;
+pub mod tree;
 pub mod well;
 pub mod floor_grid;
 pub mod hatch;

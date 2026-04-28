@@ -70,8 +70,33 @@ groupsLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+groveTiles(index: number, obj?:TileCoord):TileCoord|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? (obj || new TileCoord()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+groveTilesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+groveSizes(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.readUint32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
+}
+
+groveSizesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+groveSizesArray():Uint32Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? new Uint32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startTreeFeatureOp(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(7);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -122,18 +147,49 @@ static startGroupsVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addGroveTiles(builder:flatbuffers.Builder, groveTilesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, groveTilesOffset, 0);
+}
+
+static startGroveTilesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addGroveSizes(builder:flatbuffers.Builder, groveSizesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, groveSizesOffset, 0);
+}
+
+static createGroveSizesVector(builder:flatbuffers.Builder, data:number[]|Uint32Array):flatbuffers.Offset;
+/**
+ * @deprecated This Uint8Array overload will be removed in the future.
+ */
+static createGroveSizesVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset;
+static createGroveSizesVector(builder:flatbuffers.Builder, data:number[]|Uint32Array|Uint8Array):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt32(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGroveSizesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endTreeFeatureOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTreeFeatureOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, grovesOffset:flatbuffers.Offset, groupsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTreeFeatureOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, grovesOffset:flatbuffers.Offset, groupsOffset:flatbuffers.Offset, groveTilesOffset:flatbuffers.Offset, groveSizesOffset:flatbuffers.Offset):flatbuffers.Offset {
   TreeFeatureOp.startTreeFeatureOp(builder);
   TreeFeatureOp.addTiles(builder, tilesOffset);
   TreeFeatureOp.addSeed(builder, seed);
   TreeFeatureOp.addTheme(builder, themeOffset);
   TreeFeatureOp.addGroves(builder, grovesOffset);
   TreeFeatureOp.addGroups(builder, groupsOffset);
+  TreeFeatureOp.addGroveTiles(builder, groveTilesOffset);
+  TreeFeatureOp.addGroveSizes(builder, groveSizesOffset);
   return TreeFeatureOp.endTreeFeatureOp(builder);
 }
 }
