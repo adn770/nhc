@@ -6,18 +6,12 @@
 //! (`width_tiles * cell + 2 * padding`, same for height), and
 //! rasterises into a `tiny-skia::Pixmap`.
 //!
-//! **Phase 5.1.1** — raster envelope + per-layer dispatch in
-//! place. The pixmap is filled with the legacy `BG` parchment
-//! tone (`#F5EDE0`) and a `RasterCtx` carrying the active
-//! `tiny-skia::Transform` (scale + `translate(padding, padding)`)
-//! is built so per-primitive commits compose against a stable
-//! drawing surface. Op handlers are registered through
-//! `OpHandler` slots; the per-primitive 5.2 / 5.3 / 5.4
-//! commits each register exactly one entry.
+//! **5.1** locked the FFI shape (`ir_to_png(ir_bytes,
+//! scale=1.0, layer=None) -> bytes`); **5.1.1** added the BG
+//! envelope + parity harness; per-primitive 5.2 / 5.3 / 5.4
+//! commits register handlers in `op_handlers()` one at a time.
 //!
-//! **Phase 5.1 was the FFI-shape stub** — the function returns
-//! a BG-only pixmap encoded as PNG; the per-primitive commits
-//! land actual draw calls without changing the signature.
+//! Live handlers: `ShadowOp` (5.2.1).
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -27,6 +21,9 @@ use tiny_skia::{Color, Pixmap, Transform};
 use crate::ir::{
     floor_ir_buffer_has_identifier, root_as_floor_ir, FloorIR, Op, OpEntry,
 };
+
+// Per-primitive raster handlers — one module per Op kind.
+mod shadow;
 
 /// Background fill — matches `nhc/rendering/_svg_helpers.py:BG`
 /// (`#F5EDE0`, parchment). Both the resvg-py baseline and the
@@ -126,7 +123,11 @@ fn layer_ops() -> &'static HashMap<&'static str, &'static [Op]> {
 /// commits append entries.
 fn op_handlers() -> &'static HashMap<u8, OpHandler> {
     static HANDLERS: OnceLock<HashMap<u8, OpHandler>> = OnceLock::new();
-    HANDLERS.get_or_init(HashMap::new)
+    HANDLERS.get_or_init(|| {
+        let mut m: HashMap<u8, OpHandler> = HashMap::new();
+        m.insert(Op::ShadowOp.0, shadow::draw);
+        m
+    })
 }
 
 /// Render a `FloorIR` buffer to a PNG byte stream.

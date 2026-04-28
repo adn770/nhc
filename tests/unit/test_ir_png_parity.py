@@ -65,8 +65,8 @@ LAYER_NAMES: tuple[str, ...] = (
 
 # Layers without a tiny-skia handler yet — diff is expected to
 # exceed the 0.5 % gate. As each per-primitive commit lands, its
-# layer drops out of this set.
-XFAIL_LAYERS: frozenset[str] = frozenset(LAYER_NAMES)
+# layer drops out of this set. ``shadows`` shipped in 5.2.1.
+XFAIL_LAYERS: frozenset[str] = frozenset(LAYER_NAMES) - {"shadows"}
 
 
 # ≤ 0.5 % per the Phase 5 success criteria.
