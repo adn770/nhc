@@ -229,6 +229,19 @@ fn draw_field_stone(
     primitives::field_stone::draw_field_stone(&tiles, seed)
 }
 
+/// Cart-tracks decorator — Phase 4 sub-step 11.
+///
+/// Two parallel rails + one cross-tie per TRACK tile, with
+/// per-tile horizontal / vertical orientation pre-resolved by
+/// the emitter. Returns up to two ``<g>`` envelopes (rails +
+/// ties).
+#[pyfunction]
+fn draw_cart_tracks(
+    tiles: Vec<(i32, i32, bool)>, seed: u64,
+) -> Vec<String> {
+    primitives::cart_tracks::draw_cart_tracks(&tiles, seed)
+}
+
 /// Brick decorator — Phase 4 sub-step 7.
 ///
 /// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
@@ -332,5 +345,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_flagstone, m)?)?;
     m.add_function(wrap_pyfunction!(draw_opus_romano, m)?)?;
     m.add_function(wrap_pyfunction!(draw_field_stone, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_cart_tracks, m)?)?;
     Ok(())
 }

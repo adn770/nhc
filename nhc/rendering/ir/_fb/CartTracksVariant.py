@@ -52,8 +52,35 @@ class CartTracksVariant(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         return o == 0
 
+    # CartTracksVariant
+    def IsHorizontal(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # CartTracksVariant
+    def IsHorizontalAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
+        return 0
+
+    # CartTracksVariant
+    def IsHorizontalLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # CartTracksVariant
+    def IsHorizontalIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
 def CartTracksVariantStart(builder):
-    builder.StartObject(1)
+    builder.StartObject(2)
 
 def Start(builder):
     CartTracksVariantStart(builder)
@@ -69,6 +96,18 @@ def CartTracksVariantStartTilesVector(builder, numElems):
 
 def StartTilesVector(builder, numElems):
     return CartTracksVariantStartTilesVector(builder, numElems)
+
+def CartTracksVariantAddIsHorizontal(builder, isHorizontal):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(isHorizontal), 0)
+
+def AddIsHorizontal(builder, isHorizontal):
+    CartTracksVariantAddIsHorizontal(builder, isHorizontal)
+
+def CartTracksVariantStartIsHorizontalVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+def StartIsHorizontalVector(builder, numElems):
+    return CartTracksVariantStartIsHorizontalVector(builder, numElems)
 
 def CartTracksVariantEnd(builder):
     return builder.EndObject()
@@ -88,8 +127,10 @@ class CartTracksVariantT(object):
     def __init__(
         self,
         tiles = None,
+        isHorizontal = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
+        self.isHorizontal = isHorizontal  # type: Optional[List[bool]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -120,6 +161,13 @@ class CartTracksVariantT(object):
                 else:
                     tileCoord_ = nhc.rendering.ir._fb.TileCoord.TileCoordT.InitFromObj(cartTracksVariant.Tiles(i))
                     self.tiles.append(tileCoord_)
+        if not cartTracksVariant.IsHorizontalIsNone():
+            if np is None:
+                self.isHorizontal = []
+                for i in range(cartTracksVariant.IsHorizontalLength()):
+                    self.isHorizontal.append(cartTracksVariant.IsHorizontal(i))
+            else:
+                self.isHorizontal = cartTracksVariant.IsHorizontalAsNumpy()
 
     # CartTracksVariantT
     def Pack(self, builder):
@@ -128,8 +176,18 @@ class CartTracksVariantT(object):
             for i in reversed(range(len(self.tiles))):
                 self.tiles[i].Pack(builder)
             tiles = builder.EndVector()
+        if self.isHorizontal is not None:
+            if np is not None and type(self.isHorizontal) is np.ndarray:
+                isHorizontal = builder.CreateNumpyVector(self.isHorizontal)
+            else:
+                CartTracksVariantStartIsHorizontalVector(builder, len(self.isHorizontal))
+                for i in reversed(range(len(self.isHorizontal))):
+                    builder.PrependBool(self.isHorizontal[i])
+                isHorizontal = builder.EndVector()
         CartTracksVariantStart(builder)
         if self.tiles is not None:
             CartTracksVariantAddTiles(builder, tiles)
+        if self.isHorizontal is not None:
+            CartTracksVariantAddIsHorizontal(builder, isHorizontal)
         cartTracksVariant = CartTracksVariantEnd(builder)
         return cartTracksVariant

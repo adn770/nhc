@@ -35,8 +35,23 @@ tilesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+isHorizontal(index: number):boolean|null {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
+}
+
+isHorizontalLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+isHorizontalArray():Int8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startCartTracksVariant(builder:flatbuffers.Builder) {
-  builder.startObject(1);
+  builder.startObject(2);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -47,14 +62,31 @@ static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(8, numElems, 4);
 }
 
+static addIsHorizontal(builder:flatbuffers.Builder, isHorizontalOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, isHorizontalOffset, 0);
+}
+
+static createIsHorizontalVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
+  builder.startVector(1, data.length, 1);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt8(+data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startIsHorizontalVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(1, numElems, 1);
+}
+
 static endCartTracksVariant(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createCartTracksVariant(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createCartTracksVariant(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isHorizontalOffset:flatbuffers.Offset):flatbuffers.Offset {
   CartTracksVariant.startCartTracksVariant(builder);
   CartTracksVariant.addTiles(builder, tilesOffset);
+  CartTracksVariant.addIsHorizontal(builder, isHorizontalOffset);
   return CartTracksVariant.endCartTracksVariant(builder);
 }
 }

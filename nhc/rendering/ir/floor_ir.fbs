@@ -348,6 +348,13 @@ table FieldStoneVariant {
 
 table CartTracksVariant {
   tiles: [TileCoord];
+  // Sub-step 11 parallel-array addition. The legacy
+  // ``_track_horizontal_at`` neighbour walk picks rail
+  // orientation per TRACK tile by looking at the east / west
+  // neighbours (TRACK on either side ⇒ horizontal, otherwise
+  // vertical). The emitter resolves this so the consumer
+  // doesn't need level access.
+  is_horizontal: [bool];
 }
 
 table OreDepositVariant {

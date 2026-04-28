@@ -923,6 +923,24 @@ def _draw_decorator_from_ir(
         tiles = [(t.x, t.y) for t in v_tiles]
         out.extend(nhc_render.draw_field_stone(tiles, seed))
 
+    cart_variants = (
+        op.cartTracks if op.cartTracks is not None else []
+    )
+    for variant in cart_variants:
+        v_tiles = variant.tiles or []
+        v_horiz = (
+            variant.isHorizontal
+            if variant.isHorizontal is not None
+            else []
+        )
+        if not v_tiles:
+            continue
+        tiles = [
+            (t.x, t.y, bool(v_horiz[i]))
+            for i, t in enumerate(v_tiles)
+        ]
+        out.extend(nhc_render.draw_cart_tracks(tiles, seed))
+
     return out
 
 

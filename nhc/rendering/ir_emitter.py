@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 1
-SCHEMA_MINOR = 11
+SCHEMA_MINOR = 12
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
