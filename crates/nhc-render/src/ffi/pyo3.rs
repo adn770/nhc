@@ -197,6 +197,29 @@ fn draw_floor_detail(
     )
 }
 
+/// Thematic-detail layer — Phase 4 sub-step 4.d.
+///
+/// Returns `(room_groups, corridor_groups)`: two lists of `<g>`
+/// envelope strings (`detail-webs` / `detail-bones` /
+/// `detail-skulls` in legacy emit order). The dispatcher at
+/// `ir_to_svg.py:_draw_thematic_detail_from_ir` splats them
+/// into the layer fragment. `tiles` is the IR's candidate set
+/// from sub-step 4.b: `(x, y, is_corridor, wall_corners)`
+/// quadruples where `wall_corners` is the 4-bit
+/// `TL/TR/BL/BR` bitmap produced emit-side. `seed` already
+/// includes the legacy `+199` offset.
+#[pyfunction]
+fn draw_thematic_detail(
+    tiles: Vec<(i32, i32, bool, u8)>,
+    seed: u64,
+    theme: &str,
+    macabre: bool,
+) -> (Vec<String>, Vec<String>) {
+    primitives::thematic_detail::draw_thematic_detail(
+        &tiles, seed, theme, macabre,
+    )
+}
+
 /// Walls + floors layer — partial port. Structural geometry
 /// (smooth-room outlines, cave region paths, wall extension
 /// computations) stays Python-side and travels in via the
@@ -246,5 +269,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_hatch_corridor, m)?)?;
     m.add_function(wrap_pyfunction!(draw_hatch_room, m)?)?;
     m.add_function(wrap_pyfunction!(draw_floor_detail, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_thematic_detail, m)?)?;
     Ok(())
 }
