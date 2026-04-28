@@ -251,6 +251,18 @@ fn draw_ore_deposit(
     primitives::ore_deposit::draw_ore_deposit(&tiles, seed)
 }
 
+/// Fountain surface feature — Phase 4 sub-step 14.
+///
+/// `shape` matches the FB FountainShape enum:
+/// 0 = Round (2x2), 1 = Square (2x2),
+/// 2 = LargeRound (3x3), 3 = LargeSquare (3x3),
+/// 4 = Cross (3x3 plus). Returns one ``<g>`` envelope per
+/// tile, byte-equal to the legacy Python painters.
+#[pyfunction]
+fn draw_fountain(tiles: Vec<(i32, i32)>, shape: u8) -> Vec<String> {
+    primitives::fountain::draw_fountain(&tiles, shape)
+}
+
 /// Well surface feature — Phase 4 sub-step 13.
 ///
 /// `shape` selects the variant: 0 = Round (16 keystone arcs +
@@ -369,5 +381,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_cart_tracks, m)?)?;
     m.add_function(wrap_pyfunction!(draw_ore_deposit, m)?)?;
     m.add_function(wrap_pyfunction!(draw_well, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_fountain, m)?)?;
     Ok(())
 }

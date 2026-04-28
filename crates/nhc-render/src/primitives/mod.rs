@@ -22,6 +22,7 @@ pub mod cobblestone;
 pub mod field_stone;
 pub mod flagstone;
 pub mod floor_detail;
+pub mod fountain;
 pub mod opus_romano;
 pub mod ore_deposit;
 pub mod well;

@@ -1187,7 +1187,7 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
     away in this commit.
     """
     from nhc.rendering._decorators import walk_and_paint
-    from nhc.rendering.ir._fb import Op, WellShape
+    from nhc.rendering.ir._fb import FountainShape, Op, WellShape
     from nhc.rendering.ir._fb.BushFeatureOp import BushFeatureOpT
     from nhc.rendering.ir._fb.FountainFeatureOp import (
         FountainFeatureOpT,
@@ -1216,15 +1216,26 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
             elif feature == "well_square":
                 well_square_tiles.append((x, y))
 
-    fountain_groups = list(walk_and_paint(
-        ctx,
-        [
-            FOUNTAIN_FEATURE, FOUNTAIN_SQUARE_FEATURE,
-            FOUNTAIN_LARGE_FEATURE, FOUNTAIN_LARGE_SQUARE_FEATURE,
-            FOUNTAIN_CROSS_FEATURE,
-        ],
-        layer_name="surface_features",
-    ))
+    # Sub-step 14: fountain tiles split per shape variant.
+    # Each FountainFeatureOp carries one shape (FountainShape enum).
+    fountain_round: list[tuple[int, int]] = []
+    fountain_square: list[tuple[int, int]] = []
+    fountain_large_round: list[tuple[int, int]] = []
+    fountain_large_square: list[tuple[int, int]] = []
+    fountain_cross: list[tuple[int, int]] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            feature = level.tiles[y][x].feature
+            if feature == "fountain":
+                fountain_round.append((x, y))
+            elif feature == "fountain_square":
+                fountain_square.append((x, y))
+            elif feature == "fountain_large":
+                fountain_large_round.append((x, y))
+            elif feature == "fountain_large_square":
+                fountain_large_square.append((x, y))
+            elif feature == "fountain_cross":
+                fountain_cross.append((x, y))
     tree_groups = list(walk_and_paint(
         ctx, [TREE_FEATURE], layer_name="surface_features",
     ))
@@ -1247,11 +1258,21 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
         entry.opType = Op.Op.WellFeatureOp
         entry.op = op
         builder.add_op(entry)
-    if fountain_groups:
+
+    for shape_kind, shape_tiles in (
+        (FountainShape.FountainShape.Round, fountain_round),
+        (FountainShape.FountainShape.Square, fountain_square),
+        (FountainShape.FountainShape.LargeRound, fountain_large_round),
+        (FountainShape.FountainShape.LargeSquare, fountain_large_square),
+        (FountainShape.FountainShape.Cross, fountain_cross),
+    ):
+        if not shape_tiles:
+            continue
         op = FountainFeatureOpT()
         op.seed = seed
         op.theme = theme
-        op.groups = fountain_groups
+        op.shape = shape_kind
+        op.tiles = [TileCoordT(x=x, y=y) for x, y in shape_tiles]
         entry = OpEntryT()
         entry.opType = Op.Op.FountainFeatureOp
         entry.op = op

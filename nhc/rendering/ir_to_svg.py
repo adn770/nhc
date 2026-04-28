@@ -1041,7 +1041,26 @@ def _draw_well_from_ir(
     return [_to_str(g) for g in (op.groups or [])]
 
 
+def _draw_fountain_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Fountain surface feature — Phase 4 sub-step 14.
+
+    Reads ``op.tiles[]`` + ``op.shape`` and dispatches to the
+    Rust port. Falls back to ``op.groups`` for legacy IR buffers.
+    """
+    del fir
+    import nhc_render
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    op_tiles = op.tiles if op.tiles is not None else []
+    if len(op_tiles) > 0:
+        tiles = [(t.x, t.y) for t in op_tiles]
+        return nhc_render.draw_fountain(tiles, int(op.shape))
+    return [_to_str(g) for g in (op.groups or [])]
+
+
 _OP_HANDLERS[Op.Op.WellFeatureOp] = _draw_well_from_ir
-_OP_HANDLERS[Op.Op.FountainFeatureOp] = _draw_feature_groups
+_OP_HANDLERS[Op.Op.FountainFeatureOp] = _draw_fountain_from_ir
 _OP_HANDLERS[Op.Op.TreeFeatureOp] = _draw_feature_groups
 _OP_HANDLERS[Op.Op.BushFeatureOp] = _draw_feature_groups

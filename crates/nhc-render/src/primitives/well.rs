@@ -19,8 +19,8 @@ const CELL: f64 = 32.0;
 const INK: &str = "#000000";
 
 const STONE_DEPTH_PX: f64 = 9.0;
-const STONE_GAP_PX: f64 = 0.4;
-const STONE_SIDE_PX: f64 = 11.0;
+pub(crate) const STONE_GAP_PX: f64 = 0.4;
+pub(crate) const STONE_SIDE_PX: f64 = 11.0;
 
 const WELL_OUTER_RADIUS: f64 = 0.85 * CELL;
 const WELL_INNER_RADIUS: f64 = WELL_OUTER_RADIUS - STONE_DEPTH_PX;
@@ -54,7 +54,7 @@ const WATER_MOVEMENT_SALT: i32 = 22013;
 /// Knuth multiply-and-xor + 32-bit mask on the wrapping integer
 /// product. Python's int is arbitrary-precision but the operands
 /// stay well within i64 for the (tx, ty) ranges used here.
-fn hash_norm(tx: i32, ty: i32, salt: i32) -> f64 {
+pub(crate) fn hash_norm(tx: i32, ty: i32, salt: i32) -> f64 {
     let a = (tx as i64).wrapping_mul(73856093);
     let b = (ty as i64).wrapping_mul(19349663);
     let c = (salt as i64).wrapping_mul(83492791);
@@ -64,7 +64,7 @@ fn hash_norm(tx: i32, ty: i32, salt: i32) -> f64 {
 }
 
 /// 2D hash → ``[0, 1]``. Mirrors ``_hash_unit``.
-fn hash_unit(tx: i32, ty: i32, salt: i32) -> f64 {
+pub(crate) fn hash_unit(tx: i32, ty: i32, salt: i32) -> f64 {
     let a = (tx as i64).wrapping_mul(73856093);
     let b = (ty as i64).wrapping_mul(19349663);
     let c = (salt as i64).wrapping_mul(83492791);
@@ -74,20 +74,20 @@ fn hash_unit(tx: i32, ty: i32, salt: i32) -> f64 {
     h as f64 / 0xFFFF_FFFF_u32 as f64
 }
 
-fn keystone_count(outer_radius: f64) -> i32 {
+pub(crate) fn keystone_count(outer_radius: f64) -> i32 {
     let circumference = 2.0 * PI * outer_radius;
     let n = (circumference / STONE_SIDE_PX).round() as i32;
     n.max(8)
 }
 
-fn square_stones_per_side(side_len: f64) -> i32 {
+pub(crate) fn square_stones_per_side(side_len: f64) -> i32 {
     let n = (side_len / STONE_SIDE_PX).round() as i32;
     n.max(2)
 }
 
 /// Open arc segment from ``a0`` → ``a1`` (radians). Mirrors
 /// ``_arc_path``.
-fn arc_path(cx: f64, cy: f64, r: f64, a0: f64, a1: f64) -> String {
+pub(crate) fn arc_path(cx: f64, cy: f64, r: f64, a0: f64, a1: f64) -> String {
     let sx = cx + a0.cos() * r;
     let sy = cy + a0.sin() * r;
     let ex = cx + a1.cos() * r;
@@ -103,7 +103,7 @@ fn arc_path(cx: f64, cy: f64, r: f64, a0: f64, a1: f64) -> String {
 
 /// Keystone wedge between two angles on inner / outer radii.
 /// Mirrors ``_keystone_path``.
-fn keystone_path(
+pub(crate) fn keystone_path(
     cx: f64, cy: f64, inner_r: f64, outer_r: f64, a0: f64, a1: f64,
 ) -> String {
     let ox0 = cx + a0.cos() * outer_r;
@@ -151,7 +151,7 @@ fn scatter_volume_marks(
     out
 }
 
-fn water_movement_fragments(
+pub(crate) fn water_movement_fragments(
     cx: f64, cy: f64, water_radius: f64, tx: i32, ty: i32, cls: &str,
 ) -> Vec<String> {
     let paths = scatter_volume_marks(
