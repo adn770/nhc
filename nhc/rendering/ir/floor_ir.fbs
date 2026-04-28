@@ -517,12 +517,18 @@ table TreeFeatureOp {
   seed: uint64;
   theme: string;
   groves: [GrovePolygon];
+  // Sub-step 13-prep transitional storage. Pre-rendered <g>
+  // groups travel here while the per-tile structured port
+  // lands at sub-step 15. Drops empty after the Rust port.
+  groups: [string];
 }
 
 table BushFeatureOp {
   tiles: [TileCoord];
   seed: uint64;
   theme: string;
+  // Sub-step 13-prep transitional storage; ports at sub-step 16.
+  groups: [string];
 }
 
 // Layer 800 — surface fixtures.
@@ -531,6 +537,8 @@ table WellFeatureOp {
   shape: WellShape;
   seed: uint64;
   theme: string;
+  // Sub-step 13-prep transitional storage; ports at sub-step 13.
+  groups: [string];
 }
 
 table FountainFeatureOp {
@@ -538,6 +546,8 @@ table FountainFeatureOp {
   shape: FountainShape;
   seed: uint64;
   theme: string;
+  // Sub-step 13-prep transitional storage; ports at sub-step 14.
+  groups: [string];
 }
 
 // Escape hatch for new primitives that haven't earned a dedicated

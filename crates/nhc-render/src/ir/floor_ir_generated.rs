@@ -6831,6 +6831,7 @@ impl<'a> TreeFeatureOp<'a> {
   pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
   pub const VT_GROVES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6843,6 +6844,7 @@ impl<'a> TreeFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<TreeFeatureOp<'bldr>> {
     let mut builder = TreeFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.groves { builder.add_groves(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
@@ -6878,6 +6880,13 @@ impl<'a> TreeFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrovePolygon>>>>(TreeFeatureOp::VT_GROVES, None)}
   }
+  #[inline]
+  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(TreeFeatureOp::VT_GROUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TreeFeatureOp<'_> {
@@ -6890,6 +6899,7 @@ impl ::flatbuffers::Verifiable for TreeFeatureOp<'_> {
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<GrovePolygon>>>>("groves", Self::VT_GROVES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -6899,6 +6909,7 @@ pub struct TreeFeatureOpArgs<'a> {
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub groves: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<GrovePolygon<'a>>>>>,
+    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for TreeFeatureOpArgs<'a> {
   #[inline]
@@ -6908,6 +6919,7 @@ impl<'a> Default for TreeFeatureOpArgs<'a> {
       seed: 0,
       theme: None,
       groves: None,
+      groups: None,
     }
   }
 }
@@ -6934,6 +6946,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TreeFeatureOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROVES, groves);
   }
   #[inline]
+  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TreeFeatureOp::VT_GROUPS, groups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TreeFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TreeFeatureOpBuilder {
@@ -6955,6 +6971,7 @@ impl ::core::fmt::Debug for TreeFeatureOp<'_> {
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
       ds.field("groves", &self.groves());
+      ds.field("groups", &self.groups());
       ds.finish()
   }
 }
@@ -6977,6 +6994,7 @@ impl<'a> BushFeatureOp<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6989,6 +7007,7 @@ impl<'a> BushFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<BushFeatureOp<'bldr>> {
     let mut builder = BushFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.finish()
@@ -7016,6 +7035,13 @@ impl<'a> BushFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BushFeatureOp::VT_THEME, None)}
   }
+  #[inline]
+  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(BushFeatureOp::VT_GROUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for BushFeatureOp<'_> {
@@ -7027,6 +7053,7 @@ impl ::flatbuffers::Verifiable for BushFeatureOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -7035,6 +7062,7 @@ pub struct BushFeatureOpArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for BushFeatureOpArgs<'a> {
   #[inline]
@@ -7043,6 +7071,7 @@ impl<'a> Default for BushFeatureOpArgs<'a> {
       tiles: None,
       seed: 0,
       theme: None,
+      groups: None,
     }
   }
 }
@@ -7065,6 +7094,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BushFeatureOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BushFeatureOp::VT_THEME, theme);
   }
   #[inline]
+  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BushFeatureOp::VT_GROUPS, groups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BushFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BushFeatureOpBuilder {
@@ -7085,6 +7118,7 @@ impl ::core::fmt::Debug for BushFeatureOp<'_> {
       ds.field("tiles", &self.tiles());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
+      ds.field("groups", &self.groups());
       ds.finish()
   }
 }
@@ -7108,6 +7142,7 @@ impl<'a> WellFeatureOp<'a> {
   pub const VT_SHAPE: ::flatbuffers::VOffsetT = 6;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7120,6 +7155,7 @@ impl<'a> WellFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<WellFeatureOp<'bldr>> {
     let mut builder = WellFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.add_shape(args.shape);
@@ -7155,6 +7191,13 @@ impl<'a> WellFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(WellFeatureOp::VT_THEME, None)}
   }
+  #[inline]
+  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(WellFeatureOp::VT_GROUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for WellFeatureOp<'_> {
@@ -7167,6 +7210,7 @@ impl ::flatbuffers::Verifiable for WellFeatureOp<'_> {
      .visit_field::<WellShape>("shape", Self::VT_SHAPE, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -7176,6 +7220,7 @@ pub struct WellFeatureOpArgs<'a> {
     pub shape: WellShape,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for WellFeatureOpArgs<'a> {
   #[inline]
@@ -7185,6 +7230,7 @@ impl<'a> Default for WellFeatureOpArgs<'a> {
       shape: WellShape::Round,
       seed: 0,
       theme: None,
+      groups: None,
     }
   }
 }
@@ -7211,6 +7257,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> WellFeatureOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellFeatureOp::VT_THEME, theme);
   }
   #[inline]
+  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(WellFeatureOp::VT_GROUPS, groups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> WellFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     WellFeatureOpBuilder {
@@ -7232,6 +7282,7 @@ impl ::core::fmt::Debug for WellFeatureOp<'_> {
       ds.field("shape", &self.shape());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
+      ds.field("groups", &self.groups());
       ds.finish()
   }
 }
@@ -7255,6 +7306,7 @@ impl<'a> FountainFeatureOp<'a> {
   pub const VT_SHAPE: ::flatbuffers::VOffsetT = 6;
   pub const VT_SEED: ::flatbuffers::VOffsetT = 8;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 10;
+  pub const VT_GROUPS: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7267,6 +7319,7 @@ impl<'a> FountainFeatureOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FountainFeatureOp<'bldr>> {
     let mut builder = FountainFeatureOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.groups { builder.add_groups(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.add_shape(args.shape);
@@ -7302,6 +7355,13 @@ impl<'a> FountainFeatureOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FountainFeatureOp::VT_THEME, None)}
   }
+  #[inline]
+  pub fn groups(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>(FountainFeatureOp::VT_GROUPS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FountainFeatureOp<'_> {
@@ -7314,6 +7374,7 @@ impl ::flatbuffers::Verifiable for FountainFeatureOp<'_> {
      .visit_field::<FountainShape>("shape", Self::VT_SHAPE, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<&'_ str>>>>("groups", Self::VT_GROUPS, false)?
      .finish();
     Ok(())
   }
@@ -7323,6 +7384,7 @@ pub struct FountainFeatureOpArgs<'a> {
     pub shape: FountainShape,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub groups: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<&'a str>>>>,
 }
 impl<'a> Default for FountainFeatureOpArgs<'a> {
   #[inline]
@@ -7332,6 +7394,7 @@ impl<'a> Default for FountainFeatureOpArgs<'a> {
       shape: FountainShape::Round,
       seed: 0,
       theme: None,
+      groups: None,
     }
   }
 }
@@ -7358,6 +7421,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FountainFeatureOpBuilder<'a, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FountainFeatureOp::VT_THEME, theme);
   }
   #[inline]
+  pub fn add_groups(&mut self, groups: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<&'b  str>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FountainFeatureOp::VT_GROUPS, groups);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FountainFeatureOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FountainFeatureOpBuilder {
@@ -7379,6 +7446,7 @@ impl ::core::fmt::Debug for FountainFeatureOp<'_> {
       ds.field("shape", &self.shape());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
+      ds.field("groups", &self.groups());
       ds.finish()
   }
 }

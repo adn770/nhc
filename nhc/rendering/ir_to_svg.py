@@ -1001,3 +1001,29 @@ def _draw_generic_procedural_from_ir(
 
 
 _OP_HANDLERS[Op.Op.GenericProceduralOp] = _draw_generic_procedural_from_ir
+
+
+def _draw_feature_groups(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Generic groups-passthrough handler shared by the four
+    surface-feature ops (``WellFeatureOp`` / ``FountainFeatureOp``
+    / ``TreeFeatureOp`` / ``BushFeatureOp``).
+
+    Sub-step 13-prep transitional shape: the legacy decorator
+    pipeline split per category emits pre-rendered ``<g>`` groups
+    into ``op.groups``. The per-category Rust ports at sub-steps
+    13–16 replace this with per-tile structured payloads (the
+    ``tiles[]`` / ``shape`` / ``groves[]`` fields already in the
+    schema) and the handler grows to call into Rust. Until then
+    the field carries the strings end-to-end.
+    """
+    del fir
+    op = OpCreator(entry.OpType(), entry.Op())
+    return [_to_str(g) for g in (op.groups or [])]
+
+
+_OP_HANDLERS[Op.Op.WellFeatureOp] = _draw_feature_groups
+_OP_HANDLERS[Op.Op.FountainFeatureOp] = _draw_feature_groups
+_OP_HANDLERS[Op.Op.TreeFeatureOp] = _draw_feature_groups
+_OP_HANDLERS[Op.Op.BushFeatureOp] = _draw_feature_groups

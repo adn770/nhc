@@ -1172,33 +1172,90 @@ def _surface_features_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the surface-features layer.
 
-    Phase 1 transitional passthrough via
-    :class:`GenericProceduralOp` (name = "surface_features").
-    The legacy ``walk_and_paint`` over WELL / FOUNTAIN / TREE /
-    BUSH decorators produces SVG fragments end-to-end; carrying
-    them as opaque strings on the op keeps the emit small while
-    the four dedicated ops (``WellFeatureOp`` / ``FountainFeatureOp``
-    / ``TreeFeatureOp`` / ``BushFeatureOp``) stay schema-reserved
-    for Phase 4's structured port.
+    Sub-step 13-prep (transitional schema shift): the legacy
+    ``walk_and_paint`` decorator pipeline is split per feature
+    category — wells (``WELL_FEATURE`` + ``WELL_SQUARE_FEATURE``)
+    feed ``WellFeatureOp.groups``, the five fountain decorators
+    feed ``FountainFeatureOp.groups``, ``TREE_FEATURE`` feeds
+    ``TreeFeatureOp.groups``, and ``BUSH_FEATURE`` feeds
+    ``BushFeatureOp.groups``. The pre-rendered ``<g>`` groups
+    still travel as opaque strings while sub-steps 13–16 land
+    the per-category Rust ports; the dispatcher reads
+    ``op.groups`` verbatim. After step 16 the field drops empty
+    and Phase 7 cleanup removes it. The legacy
+    ``GenericProceduralOp(name="surface_features")`` emit goes
+    away in this commit.
     """
+    from nhc.rendering._decorators import walk_and_paint
     from nhc.rendering.ir._fb import Op
-    from nhc.rendering.ir._fb.GenericProceduralOp import (
-        GenericProceduralOpT,
+    from nhc.rendering.ir._fb.BushFeatureOp import BushFeatureOpT
+    from nhc.rendering.ir._fb.FountainFeatureOp import (
+        FountainFeatureOpT,
     )
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.TreeFeatureOp import TreeFeatureOpT
+    from nhc.rendering.ir._fb.WellFeatureOp import WellFeatureOpT
 
-    groups = list(_surface_features_paint(builder.ctx))
-    if not groups:
-        return
+    ctx = builder.ctx
+    seed = ctx.seed
+    theme = ctx.theme
 
-    op = GenericProceduralOpT()
-    op.name = "surface_features"
-    op.seed = builder.ctx.seed
-    op.groups = groups
-    entry = OpEntryT()
-    entry.opType = Op.Op.GenericProceduralOp
-    entry.op = op
-    builder.add_op(entry)
+    well_groups = list(walk_and_paint(
+        ctx, [WELL_FEATURE, WELL_SQUARE_FEATURE],
+        layer_name="surface_features",
+    ))
+    fountain_groups = list(walk_and_paint(
+        ctx,
+        [
+            FOUNTAIN_FEATURE, FOUNTAIN_SQUARE_FEATURE,
+            FOUNTAIN_LARGE_FEATURE, FOUNTAIN_LARGE_SQUARE_FEATURE,
+            FOUNTAIN_CROSS_FEATURE,
+        ],
+        layer_name="surface_features",
+    ))
+    tree_groups = list(walk_and_paint(
+        ctx, [TREE_FEATURE], layer_name="surface_features",
+    ))
+    bush_groups = list(walk_and_paint(
+        ctx, [BUSH_FEATURE], layer_name="surface_features",
+    ))
+
+    if well_groups:
+        op = WellFeatureOpT()
+        op.seed = seed
+        op.theme = theme
+        op.groups = well_groups
+        entry = OpEntryT()
+        entry.opType = Op.Op.WellFeatureOp
+        entry.op = op
+        builder.add_op(entry)
+    if fountain_groups:
+        op = FountainFeatureOpT()
+        op.seed = seed
+        op.theme = theme
+        op.groups = fountain_groups
+        entry = OpEntryT()
+        entry.opType = Op.Op.FountainFeatureOp
+        entry.op = op
+        builder.add_op(entry)
+    if tree_groups:
+        op = TreeFeatureOpT()
+        op.seed = seed
+        op.theme = theme
+        op.groups = tree_groups
+        entry = OpEntryT()
+        entry.opType = Op.Op.TreeFeatureOp
+        entry.op = op
+        builder.add_op(entry)
+    if bush_groups:
+        op = BushFeatureOpT()
+        op.seed = seed
+        op.theme = theme
+        op.groups = bush_groups
+        entry = OpEntryT()
+        entry.opType = Op.Op.BushFeatureOp
+        entry.op = op
+        builder.add_op(entry)
 
 
 _SURFACE_FEATURE_DECORATORS: tuple[TileDecorator, ...] = (

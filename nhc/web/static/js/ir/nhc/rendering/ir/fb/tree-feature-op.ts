@@ -58,8 +58,20 @@ grovesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+groups(index: number):string
+groups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
+groups(index: number,optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
+}
+
+groupsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startTreeFeatureOp(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -94,17 +106,34 @@ static startGrovesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(4, numElems, 4);
 }
 
+static addGroups(builder:flatbuffers.Builder, groupsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, groupsOffset, 0);
+}
+
+static createGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startGroupsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endTreeFeatureOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTreeFeatureOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, grovesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTreeFeatureOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, grovesOffset:flatbuffers.Offset, groupsOffset:flatbuffers.Offset):flatbuffers.Offset {
   TreeFeatureOp.startTreeFeatureOp(builder);
   TreeFeatureOp.addTiles(builder, tilesOffset);
   TreeFeatureOp.addSeed(builder, seed);
   TreeFeatureOp.addTheme(builder, themeOffset);
   TreeFeatureOp.addGroves(builder, grovesOffset);
+  TreeFeatureOp.addGroups(builder, groupsOffset);
   return TreeFeatureOp.endTreeFeatureOp(builder);
 }
 }

@@ -73,8 +73,28 @@ class WellFeatureOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # WellFeatureOp
+    def Groups(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.String(a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 4))
+        return ""
+
+    # WellFeatureOp
+    def GroupsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # WellFeatureOp
+    def GroupsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        return o == 0
+
 def WellFeatureOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     WellFeatureOpStart(builder)
@@ -109,6 +129,18 @@ def WellFeatureOpAddTheme(builder, theme):
 def AddTheme(builder, theme):
     WellFeatureOpAddTheme(builder, theme)
 
+def WellFeatureOpAddGroups(builder, groups):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(groups), 0)
+
+def AddGroups(builder, groups):
+    WellFeatureOpAddGroups(builder, groups)
+
+def WellFeatureOpStartGroupsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartGroupsVector(builder, numElems):
+    return WellFeatureOpStartGroupsVector(builder, numElems)
+
 def WellFeatureOpEnd(builder):
     return builder.EndObject()
 
@@ -130,11 +162,13 @@ class WellFeatureOpT(object):
         shape = 0,
         seed = 0,
         theme = None,
+        groups = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.shape = shape  # type: int
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
+        self.groups = groups  # type: Optional[List[Optional[str]]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -168,6 +202,10 @@ class WellFeatureOpT(object):
         self.shape = wellFeatureOp.Shape()
         self.seed = wellFeatureOp.Seed()
         self.theme = wellFeatureOp.Theme()
+        if not wellFeatureOp.GroupsIsNone():
+            self.groups = []
+            for i in range(wellFeatureOp.GroupsLength()):
+                self.groups.append(wellFeatureOp.Groups(i))
 
     # WellFeatureOpT
     def Pack(self, builder):
@@ -178,6 +216,14 @@ class WellFeatureOpT(object):
             tiles = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
+        if self.groups is not None:
+            groupslist = []
+            for i in range(len(self.groups)):
+                groupslist.append(builder.CreateString(self.groups[i]))
+            WellFeatureOpStartGroupsVector(builder, len(self.groups))
+            for i in reversed(range(len(self.groups))):
+                builder.PrependUOffsetTRelative(groupslist[i])
+            groups = builder.EndVector()
         WellFeatureOpStart(builder)
         if self.tiles is not None:
             WellFeatureOpAddTiles(builder, tiles)
@@ -185,5 +231,7 @@ class WellFeatureOpT(object):
         WellFeatureOpAddSeed(builder, self.seed)
         if self.theme is not None:
             WellFeatureOpAddTheme(builder, theme)
+        if self.groups is not None:
+            WellFeatureOpAddGroups(builder, groups)
         wellFeatureOp = WellFeatureOpEnd(builder)
         return wellFeatureOp
