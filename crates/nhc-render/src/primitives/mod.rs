@@ -24,6 +24,7 @@ pub mod flagstone;
 pub mod floor_detail;
 pub mod opus_romano;
 pub mod ore_deposit;
+pub mod well;
 pub mod floor_grid;
 pub mod hatch;
 pub mod shadow;

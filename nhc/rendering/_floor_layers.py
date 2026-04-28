@@ -1187,23 +1187,35 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
     away in this commit.
     """
     from nhc.rendering._decorators import walk_and_paint
-    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb import Op, WellShape
     from nhc.rendering.ir._fb.BushFeatureOp import BushFeatureOpT
     from nhc.rendering.ir._fb.FountainFeatureOp import (
         FountainFeatureOpT,
     )
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
     from nhc.rendering.ir._fb.TreeFeatureOp import TreeFeatureOpT
     from nhc.rendering.ir._fb.WellFeatureOp import WellFeatureOpT
 
     ctx = builder.ctx
     seed = ctx.seed
     theme = ctx.theme
+    level = ctx.level
 
-    well_groups = list(walk_and_paint(
-        ctx, [WELL_FEATURE, WELL_SQUARE_FEATURE],
-        layer_name="surface_features",
-    ))
+    # Sub-step 13: walk well tiles per shape and emit one
+    # WellFeatureOp per shape variant. The Rust port reads
+    # op.tiles[] + op.shape; the legacy walk_and_paint pipeline
+    # is no longer invoked for wells.
+    well_round_tiles: list[tuple[int, int]] = []
+    well_square_tiles: list[tuple[int, int]] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            feature = level.tiles[y][x].feature
+            if feature == "well":
+                well_round_tiles.append((x, y))
+            elif feature == "well_square":
+                well_square_tiles.append((x, y))
+
     fountain_groups = list(walk_and_paint(
         ctx,
         [
@@ -1220,11 +1232,17 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
         ctx, [BUSH_FEATURE], layer_name="surface_features",
     ))
 
-    if well_groups:
+    for shape_kind, shape_tiles in (
+        (WellShape.WellShape.Round, well_round_tiles),
+        (WellShape.WellShape.Square, well_square_tiles),
+    ):
+        if not shape_tiles:
+            continue
         op = WellFeatureOpT()
         op.seed = seed
         op.theme = theme
-        op.groups = well_groups
+        op.shape = shape_kind
+        op.tiles = [TileCoordT(x=x, y=y) for x, y in shape_tiles]
         entry = OpEntryT()
         entry.opType = Op.Op.WellFeatureOp
         entry.op = op

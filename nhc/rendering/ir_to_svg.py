@@ -1006,24 +1006,42 @@ _OP_HANDLERS[Op.Op.GenericProceduralOp] = _draw_generic_procedural_from_ir
 def _draw_feature_groups(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Generic groups-passthrough handler shared by the four
-    surface-feature ops (``WellFeatureOp`` / ``FountainFeatureOp``
-    / ``TreeFeatureOp`` / ``BushFeatureOp``).
+    """Generic groups-passthrough handler used by surface-feature
+    ops that haven't ported their per-tile painter to Rust yet
+    (fountain / tree / bush — sub-steps 14-16).
 
-    Sub-step 13-prep transitional shape: the legacy decorator
-    pipeline split per category emits pre-rendered ``<g>`` groups
-    into ``op.groups``. The per-category Rust ports at sub-steps
-    13–16 replace this with per-tile structured payloads (the
-    ``tiles[]`` / ``shape`` / ``groves[]`` fields already in the
-    schema) and the handler grows to call into Rust. Until then
-    the field carries the strings end-to-end.
+    The op carries pre-rendered ``<g>`` strings in ``op.groups``;
+    the handler emits them verbatim. Each feature's Rust port
+    swaps this for a structured-tile dispatch arm.
     """
     del fir
     op = OpCreator(entry.OpType(), entry.Op())
     return [_to_str(g) for g in (op.groups or [])]
 
 
-_OP_HANDLERS[Op.Op.WellFeatureOp] = _draw_feature_groups
+def _draw_well_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Well surface feature — Phase 4 sub-step 13.
+
+    Reads ``op.tiles[]`` + ``op.shape`` and dispatches to the
+    Rust port at ``nhc_render.draw_well``. Falls back to the
+    transitional ``op.groups`` passthrough when the structured
+    fields are empty (e.g. for fixtures emitted before the port
+    landed).
+    """
+    del fir
+    import nhc_render
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    op_tiles = op.tiles if op.tiles is not None else []
+    if len(op_tiles) > 0:
+        tiles = [(t.x, t.y) for t in op_tiles]
+        return nhc_render.draw_well(tiles, int(op.shape))
+    return [_to_str(g) for g in (op.groups or [])]
+
+
+_OP_HANDLERS[Op.Op.WellFeatureOp] = _draw_well_from_ir
 _OP_HANDLERS[Op.Op.FountainFeatureOp] = _draw_feature_groups
 _OP_HANDLERS[Op.Op.TreeFeatureOp] = _draw_feature_groups
 _OP_HANDLERS[Op.Op.BushFeatureOp] = _draw_feature_groups

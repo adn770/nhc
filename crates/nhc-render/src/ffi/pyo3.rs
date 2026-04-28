@@ -251,6 +251,18 @@ fn draw_ore_deposit(
     primitives::ore_deposit::draw_ore_deposit(&tiles, seed)
 }
 
+/// Well surface feature — Phase 4 sub-step 13.
+///
+/// `shape` selects the variant: 0 = Round (16 keystone arcs +
+/// circular water disc), 1 = Square (rectangular rim + square
+/// pool). Returns one ``<g>`` envelope per tile, byte-equal to
+/// the legacy Python painter (``_well_fragment_for_tile`` /
+/// ``_square_well_fragment_for_tile``).
+#[pyfunction]
+fn draw_well(tiles: Vec<(i32, i32)>, shape: u8) -> Vec<String> {
+    primitives::well::draw_well(&tiles, shape)
+}
+
 /// Brick decorator — Phase 4 sub-step 7.
 ///
 /// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
@@ -356,5 +368,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_field_stone, m)?)?;
     m.add_function(wrap_pyfunction!(draw_cart_tracks, m)?)?;
     m.add_function(wrap_pyfunction!(draw_ore_deposit, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_well, m)?)?;
     Ok(())
 }
