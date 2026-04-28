@@ -142,6 +142,37 @@ fn draw_stairs(
     primitives::stairs::draw_stairs(&stairs, theme, fill_color)
 }
 
+/// Walls + floors layer — partial port. Structural geometry
+/// (smooth-room outlines, cave region paths, wall extension
+/// computations) stays Python-side and travels in via the
+/// pre-rendered SVG fragment strings; only the stroke-emission
+/// envelope (rect emission, the `/>`-replacement injection of
+/// fill/stroke attributes around the cave region) lives here.
+///
+/// See `crates/nhc-render/src/primitives/walls_and_floors.rs`
+/// for the per-input contract.
+#[pyfunction]
+#[allow(clippy::too_many_arguments)]
+fn draw_walls_and_floors(
+    corridor_tiles: Vec<(i32, i32)>,
+    rect_rooms: Vec<(i32, i32, i32, i32)>,
+    smooth_fills: Vec<String>,
+    cave_region: &str,
+    smooth_walls: Vec<String>,
+    wall_extensions_d: &str,
+    wall_segments: Vec<String>,
+) -> Vec<String> {
+    primitives::walls_and_floors::draw_walls_and_floors(
+        &corridor_tiles,
+        &rect_rooms,
+        &smooth_fills,
+        cave_region,
+        &smooth_walls,
+        wall_extensions_d,
+        &wall_segments,
+    )
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -156,5 +187,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_room_shadow_octagon, m)?)?;
     m.add_function(wrap_pyfunction!(draw_room_shadow_cave, m)?)?;
     m.add_function(wrap_pyfunction!(draw_stairs, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_walls_and_floors, m)?)?;
     Ok(())
 }

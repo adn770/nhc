@@ -146,11 +146,18 @@ cave region + combined wall-segment path. **No RNG, no Perlin.**
 Structural geometry passes through unchanged.
 
 - **Reference (Python):** `nhc/rendering/_walls_floors.py` —
-  `_render_walls_and_floors`.
-- **Reference (Rust):** TBD —
-  `crates/nhc-render/src/primitives/walls.rs` (Phase 4 — only
-  stroke emission ports; structural geometry stays in Python
-  per `map_ir.md` §8).
+  `_render_walls_and_floors`. Phase 4.4 left the helper in
+  place but unused on the IR path; Phase 7 deletes it.
+- **Reference (Rust):** Phase 4.4, **live** —
+  `crates/nhc-render/src/primitives/walls_and_floors.rs`.
+  Partial port per `map_ir.md` §8: structural geometry
+  (smooth-room outlines, cave region path, wall extension
+  data) is computed Python-side during emission and travels
+  into Rust as pre-rendered SVG fragment strings. The Rust
+  function owns the rect emission for corridor / rect-room
+  tiles and the two `/>`-replacement wraps around the cave
+  region (fill + stroke). `WALL_WIDTH = "5.0"` is encoded as
+  `&str` to match the legacy bare `{}` formatter contract.
 - **Seed:** none.
 - **Perlin:** none.
 - **SVG shape:**

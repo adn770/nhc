@@ -758,67 +758,35 @@ def _draw_walls_and_floors_from_ir(
 ) -> list[str]:
     """Reproduce ``_render_walls_and_floors``.
 
-    Walks the IR's structured + pre-rendered fields in legacy
-    output order: per-tile corridor / door rects → rect-room rects
-    → smooth fills → cave region (fill + wall) → smooth walls →
-    wall extensions → tile-edge walls. Schema fields for colors and
-    wall_width are reserved for theme variation and ignored here in
-    favour of the legacy constants — keeping the byte-equal contract
-    in one obvious place.
+    Phase 4.4 — partial port. Structural geometry (smooth-room
+    outlines, cave region path, wall extension data) is computed
+    Python-side during emission and travels into Rust as
+    pre-rendered SVG fragment strings; only the stroke-emission
+    envelope (rect emission for corridor tiles + rect rooms, and
+    the two ``/>``-replacement wraps around the cave region) lives
+    in ``crates/nhc-render/src/primitives/walls_and_floors.rs``.
     """
+    import nhc_render
+
     op = OpCreator(entry.OpType(), entry.Op())
-    out: list[str] = []
-    stroke_style = (
-        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-        f'stroke-linecap="round" stroke-linejoin="round"'
+    corridor_tiles = [
+        (t.x, t.y) for t in (op.corridorTiles or [])
+    ]
+    rect_rooms = [
+        (rr.x, rr.y, rr.w, rr.h) for rr in (op.rectRooms or [])
+    ]
+    smooth_fills = [_to_str(s) for s in (op.smoothFillSvg or [])]
+    smooth_walls = [_to_str(s) for s in (op.smoothWallSvg or [])]
+    wall_segments = [_to_str(s) for s in (op.wallSegments or [])]
+    return nhc_render.draw_walls_and_floors(
+        corridor_tiles,
+        rect_rooms,
+        smooth_fills,
+        _to_str(op.caveRegion),
+        smooth_walls,
+        _to_str(op.wallExtensionsD),
+        wall_segments,
     )
-
-    for tile in (op.corridorTiles or []):
-        out.append(
-            f'<rect x="{tile.x * CELL}" y="{tile.y * CELL}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{FLOOR_COLOR}" stroke="none"/>'
-        )
-
-    for rr in (op.rectRooms or []):
-        out.append(
-            f'<rect x="{rr.x * CELL}" y="{rr.y * CELL}" '
-            f'width="{rr.w * CELL}" height="{rr.h * CELL}" '
-            f'fill="{FLOOR_COLOR}" stroke="none"/>'
-        )
-
-    for fill in (op.smoothFillSvg or []):
-        out.append(_to_str(fill))
-
-    cave_path = _to_str(op.caveRegion)
-    if cave_path:
-        out.append(cave_path.replace(
-            "/>",
-            f' fill="{CAVE_FLOOR_COLOR}" stroke="none" '
-            f'fill-rule="evenodd"/>',
-        ))
-        out.append(cave_path.replace(
-            "/>", f' fill="none" {stroke_style}/>',
-        ))
-
-    for wall in (op.smoothWallSvg or []):
-        out.append(_to_str(wall))
-
-    ext_d = _to_str(op.wallExtensionsD)
-    if ext_d:
-        out.append(
-            f'<path d="{ext_d}" fill="none" {stroke_style}/>'
-        )
-
-    if op.wallSegments:
-        segs = [_to_str(s) for s in op.wallSegments]
-        out.append(
-            f'<path d="{" ".join(segs)}" fill="none" '
-            f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-            f'stroke-linecap="round" stroke-linejoin="round"/>'
-        )
-
-    return out
 
 
 def _to_str(value: Any) -> str:
