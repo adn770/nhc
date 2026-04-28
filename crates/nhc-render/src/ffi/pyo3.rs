@@ -175,6 +175,28 @@ fn draw_hatch_room(
     primitives::hatch::draw_hatch_room(&tiles, &is_outer, seed)
 }
 
+/// Floor-detail layer — Phase 4 sub-step 3.d.
+///
+/// Returns `(room_groups, corridor_groups)`: two lists of `<g>`
+/// envelope strings (cracks / scratches / stones, in legacy
+/// emit order). The dispatcher at
+/// `ir_to_svg.py:_draw_floor_detail_from_ir` splats them into
+/// the layer fragment. `tiles` is the IR's post-filter candidate
+/// set produced emit-side at sub-step 3.b: `(x, y, is_corridor)`
+/// triples in y-major / x-minor order. `seed` already includes
+/// the legacy `+99` offset.
+#[pyfunction]
+fn draw_floor_detail(
+    tiles: Vec<(i32, i32, bool)>,
+    seed: u64,
+    theme: &str,
+    macabre: bool,
+) -> (Vec<String>, Vec<String>) {
+    primitives::floor_detail::draw_floor_detail(
+        &tiles, seed, theme, macabre,
+    )
+}
+
 /// Walls + floors layer — partial port. Structural geometry
 /// (smooth-room outlines, cave region paths, wall extension
 /// computations) stays Python-side and travels in via the
@@ -223,5 +245,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_walls_and_floors, m)?)?;
     m.add_function(wrap_pyfunction!(draw_hatch_corridor, m)?)?;
     m.add_function(wrap_pyfunction!(draw_hatch_room, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_floor_detail, m)?)?;
     Ok(())
 }
