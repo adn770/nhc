@@ -242,6 +242,15 @@ fn draw_cart_tracks(
     primitives::cart_tracks::draw_cart_tracks(&tiles, seed)
 }
 
+/// Ore-deposit decorator — Phase 4 sub-step 12. One diamond
+/// glint per ore-deposit wall tile.
+#[pyfunction]
+fn draw_ore_deposit(
+    tiles: Vec<(i32, i32)>, seed: u64,
+) -> Vec<String> {
+    primitives::ore_deposit::draw_ore_deposit(&tiles, seed)
+}
+
 /// Brick decorator — Phase 4 sub-step 7.
 ///
 /// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
@@ -346,5 +355,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_opus_romano, m)?)?;
     m.add_function(wrap_pyfunction!(draw_field_stone, m)?)?;
     m.add_function(wrap_pyfunction!(draw_cart_tracks, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_ore_deposit, m)?)?;
     Ok(())
 }

@@ -748,12 +748,10 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     """
     import random
 
-    from nhc.rendering._decorators import walk_and_paint
     from nhc.rendering._floor_detail import (
-        ORE_DEPOSIT,
         _is_brick_tile, _is_cobble_tile,
         _is_field_overlay_tile, _is_flagstone_tile,
-        _is_opus_romano_tile, _is_track_tile,
+        _is_opus_romano_tile, _is_ore_tile, _is_track_tile,
         _render_wood_floor, _track_horizontal_at,
     )
     from nhc.rendering.ir._fb import CobblePattern, Op
@@ -775,6 +773,9 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.OpusRomanoVariant import (
         OpusRomanoVariantT,
+    )
+    from nhc.rendering.ir._fb.OreDepositVariant import (
+        OreDepositVariantT,
     )
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
 
@@ -814,22 +815,18 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     theme = ctx.theme
     candidates = _floor_detail_candidates(level)
 
-    # Sub-steps 6-11: cobblestone / brick / flagstone /
-    # opus_romano / field_stone / cart_tracks move to the
-    # structured DecoratorOp vectors below; the legacy
-    # walk_and_paint pipeline now skips them. ORE_DEPOSIT
-    # stays on the legacy passthrough until its port lands at
-    # sub-step 12.
-    decorator_groups = list(walk_and_paint(
-        ctx, [ORE_DEPOSIT], layer_name="floor_detail",
-    ))
-
+    # Sub-steps 6-12: all seven decorator types now flow through
+    # the structured DecoratorOp vectors below. The legacy
+    # walk_and_paint decorator pipeline is fully retired for the
+    # floor_detail layer slot — FloorDetailOp.decorator_groups
+    # ships empty and is slated for Phase 7 cleanup.
     cobble_tiles: list[tuple[int, int]] = []
     brick_tiles: list[tuple[int, int]] = []
     flagstone_tiles: list[tuple[int, int]] = []
     opus_romano_tiles: list[tuple[int, int]] = []
     field_stone_tiles: list[tuple[int, int]] = []
     track_tiles: list[tuple[int, int, bool]] = []
+    ore_tiles: list[tuple[int, int]] = []
     for y in range(level.height):
         for x in range(level.width):
             if _is_cobble_tile(level, x, y):
@@ -846,38 +843,42 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
                 track_tiles.append(
                     (x, y, _track_horizontal_at(level, x, y)),
                 )
+            if _is_ore_tile(level, x, y):
+                ore_tiles.append((x, y))
 
     if not (
-        candidates or decorator_groups
+        candidates
         or cobble_tiles or brick_tiles
         or flagstone_tiles or opus_romano_tiles
         or field_stone_tiles or track_tiles
+        or ore_tiles
     ):
         return
 
-    op = FloorDetailOpT()
-    op.seed = seed + 99
-    op.theme = theme
-    op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
-    op.isCorridor = [is_cor for _, _, is_cor in candidates]
-    op.decoratorGroups = decorator_groups
-    op.clipRegion = (
-        "dungeon"
-        if (
-            ctx.dungeon_poly is not None
-            and not ctx.dungeon_poly.is_empty
+    if candidates:
+        op = FloorDetailOpT()
+        op.seed = seed + 99
+        op.theme = theme
+        op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
+        op.isCorridor = [is_cor for _, _, is_cor in candidates]
+        op.clipRegion = (
+            "dungeon"
+            if (
+                ctx.dungeon_poly is not None
+                and not ctx.dungeon_poly.is_empty
+            )
+            else ""
         )
-        else ""
-    )
-    entry = OpEntryT()
-    entry.opType = Op.Op.FloorDetailOp
-    entry.op = op
-    builder.add_op(entry)
+        entry = OpEntryT()
+        entry.opType = Op.Op.FloorDetailOp
+        entry.op = op
+        builder.add_op(entry)
 
     if (
         cobble_tiles or brick_tiles
         or flagstone_tiles or opus_romano_tiles
         or field_stone_tiles or track_tiles
+        or ore_tiles
     ):
         deco_op = DecoratorOpT()
         deco_op.seed = seed + 333
@@ -910,6 +911,10 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
                     TileCoordT(x=x, y=y) for x, y, _ in track_tiles
                 ],
                 isHorizontal=[h for _, _, h in track_tiles],
+            )]
+        if ore_tiles:
+            deco_op.oreDeposit = [OreDepositVariantT(
+                tiles=[TileCoordT(x=x, y=y) for x, y in ore_tiles],
             )]
         deco_entry = OpEntryT()
         deco_entry.opType = Op.Op.DecoratorOp

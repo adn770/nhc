@@ -941,6 +941,16 @@ def _draw_decorator_from_ir(
         ]
         out.extend(nhc_render.draw_cart_tracks(tiles, seed))
 
+    ore_variants = (
+        op.oreDeposit if op.oreDeposit is not None else []
+    )
+    for variant in ore_variants:
+        v_tiles = variant.tiles or []
+        if not v_tiles:
+            continue
+        tiles = [(t.x, t.y) for t in v_tiles]
+        out.extend(nhc_render.draw_ore_deposit(tiles, seed))
+
     return out
 
 
