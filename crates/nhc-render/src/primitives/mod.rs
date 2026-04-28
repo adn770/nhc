@@ -17,6 +17,7 @@
 //! `plans/nhc_ir_migration_plan.md` Phase 4.
 
 pub mod brick;
+pub mod bush;
 pub mod cart_tracks;
 pub mod cobblestone;
 pub mod field_stone;

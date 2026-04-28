@@ -1239,9 +1239,17 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
     tree_groups = list(walk_and_paint(
         ctx, [TREE_FEATURE], layer_name="surface_features",
     ))
-    bush_groups = list(walk_and_paint(
-        ctx, [BUSH_FEATURE], layer_name="surface_features",
-    ))
+    # Sub-step 16: bush tiles flow through the structured
+    # BushFeatureOp; the legacy walk_and_paint passthrough is
+    # gone for bushes. The vegetation_enabled context flag still
+    # gates emission, mirroring the legacy ``requires=
+    # frozenset({"vegetation_enabled"})`` on BUSH_FEATURE.
+    bush_tiles: list[tuple[int, int]] = []
+    if ctx.vegetation_enabled:
+        for y in range(level.height):
+            for x in range(level.width):
+                if level.tiles[y][x].feature == "bush":
+                    bush_tiles.append((x, y))
 
     for shape_kind, shape_tiles in (
         (WellShape.WellShape.Round, well_round_tiles),
@@ -1286,11 +1294,11 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
         entry.opType = Op.Op.TreeFeatureOp
         entry.op = op
         builder.add_op(entry)
-    if bush_groups:
+    if bush_tiles:
         op = BushFeatureOpT()
         op.seed = seed
         op.theme = theme
-        op.groups = bush_groups
+        op.tiles = [TileCoordT(x=x, y=y) for x, y in bush_tiles]
         entry = OpEntryT()
         entry.opType = Op.Op.BushFeatureOp
         entry.op = op

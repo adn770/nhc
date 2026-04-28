@@ -251,6 +251,17 @@ fn draw_ore_deposit(
     primitives::ore_deposit::draw_ore_deposit(&tiles, seed)
 }
 
+/// Bush surface feature — Phase 4 sub-step 16.
+///
+/// Multi-lobe canopy + shadow with HLS-jittered fill colour.
+/// Lobe-circle union via the `geo` crate's BooleanOps under the
+/// relaxed parity gate (vertex ordering / numerical precision
+/// differs from Shapely; structural-invariants gate accepted).
+#[pyfunction]
+fn draw_bush(tiles: Vec<(i32, i32)>) -> Vec<String> {
+    primitives::bush::draw_bush(&tiles)
+}
+
 /// Fountain surface feature — Phase 4 sub-step 14.
 ///
 /// `shape` matches the FB FountainShape enum:
@@ -382,5 +393,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_ore_deposit, m)?)?;
     m.add_function(wrap_pyfunction!(draw_well, m)?)?;
     m.add_function(wrap_pyfunction!(draw_fountain, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_bush, m)?)?;
     Ok(())
 }
