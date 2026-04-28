@@ -76,10 +76,11 @@ DESCRIPTORS = tuple(d for d in all_descriptors())
 #   5.2.2 — walls_and_floors (rect dungeon only — the cave +
 #           smooth-room + wall_extensions_d SVG passthroughs
 #           wait for 5.5 to land).
+#   5.2.3 — terrain_tints (every fixture).
 LANDED_PAIRS: frozenset[tuple[str, str]] = frozenset(
     (descriptor, layer)
     for descriptor in DESCRIPTORS
-    for layer in ("shadows",)
+    for layer in ("shadows", "terrain_tints")
 ) | frozenset({
     ("seed42_rect_dungeon_dungeon", "walls_and_floors"),
 })

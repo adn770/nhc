@@ -24,6 +24,7 @@ use crate::ir::{
 
 // Per-primitive raster handlers — one module per Op kind.
 mod shadow;
+mod terrain_tints;
 mod walls_and_floors;
 
 /// Background fill — matches `nhc/rendering/_svg_helpers.py:BG`
@@ -128,6 +129,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         let mut m: HashMap<u8, OpHandler> = HashMap::new();
         m.insert(Op::ShadowOp.0, shadow::draw);
         m.insert(Op::WallsAndFloorsOp.0, walls_and_floors::draw);
+        m.insert(Op::TerrainTintOp.0, terrain_tints::draw);
         m
     })
 }
