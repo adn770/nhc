@@ -208,6 +208,16 @@ fn draw_flagstone(tiles: Vec<(i32, i32)>, seed: u64) -> Vec<String> {
     primitives::flagstone::draw_flagstone(&tiles, seed)
 }
 
+/// Opus-romano decorator — Phase 4 sub-step 9.
+///
+/// 4-stone Versailles tiling per tile (one 4×4 square, one 2×4
+/// vertical, one 2×2 small, one 4×2 horizontal), with a per-
+/// tile coordinate-derived rotation. RNG-free.
+#[pyfunction]
+fn draw_opus_romano(tiles: Vec<(i32, i32)>, seed: u64) -> Vec<String> {
+    primitives::opus_romano::draw_opus_romano(&tiles, seed)
+}
+
 /// Brick decorator — Phase 4 sub-step 7.
 ///
 /// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
@@ -309,5 +319,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_cobblestone, m)?)?;
     m.add_function(wrap_pyfunction!(draw_brick, m)?)?;
     m.add_function(wrap_pyfunction!(draw_flagstone, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_opus_romano, m)?)?;
     Ok(())
 }

@@ -20,6 +20,7 @@ pub mod brick;
 pub mod cobblestone;
 pub mod flagstone;
 pub mod floor_detail;
+pub mod opus_romano;
 pub mod floor_grid;
 pub mod hatch;
 pub mod shadow;
