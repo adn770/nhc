@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 1,
-  "minor": 9,
+  "minor": 10,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -21094,16 +21094,1306 @@
         ],
         "seed": 198,
         "theme": "cave",
-        "roomGroups": [
-          "<g class=\"detail-webs\"><path d=\"M1792.0,256.0 L1768.7,258.7 M1792.0,256.0 L1773.4,270.2 M1792.0,256.0 L1785.6,278.5 M1782.7,257.1 Q1782.7,259.4 1784.5,261.7 M1784.5,261.7 Q1787.8,264.0 1789.4,265.0 M1775.7,257.9 Q1778.3,261.2 1779.0,265.9 M1779.0,265.9 Q1784.7,268.1 1787.5,271.8\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.5\" stroke-linecap=\"round\" opacity=\"0.35\"/><path d=\"M1024.0,384.0 L1042.6,377.4 M1024.0,384.0 L1037.5,369.7 M1024.0,384.0 L1024.9,364.3 M1031.4,381.4 Q1030.1,379.4 1029.4,378.3 M1029.4,378.3 Q1026.1,376.9 1024.4,376.1 M1037.0,379.4 Q1036.7,375.9 1033.5,374.0 M1033.5,374.0 Q1029.1,373.1 1024.6,370.2\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.4\" stroke-linecap=\"round\" opacity=\"0.35\"/><path d=\"M96.0,608.0 L115.1,612.6 M96.0,608.0 L109.2,622.5 M96.0,608.0 L102.4,626.5 M103.6,609.8 Q101.4,610.4 101.3,613.8 M101.3,613.8 Q101.1,614.7 98.6,615.4 M109.3,611.2 Q106.8,614.4 105.3,618.1 M105.3,618.1 Q104.0,620.6 100.5,621.0\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.4\" stroke-linecap=\"round\" opacity=\"0.35\"/><path d=\"M1376.0,864.0 L1389.5,876.3 M1376.0,864.0 L1388.7,877.2 M1376.0,864.0 L1378.2,882.2 M1376.0,864.0 L1377.9,882.2 M1381.4,868.9 Q1380.7,870.3 1381.1,869.3 M1381.1,869.3 Q1379.9,871.2 1376.9,871.3 M1376.9,871.3 Q1376.9,870.7 1376.7,871.3 M1385.5,872.6 Q1384.3,871.8 1384.9,873.2 M1384.9,873.2 Q1380.4,873.6 1377.5,876.7 M1377.5,876.7 Q1376.9,877.3 1377.3,876.7\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.5\" stroke-linecap=\"round\" opacity=\"0.35\"/><path d=\"M1568.0,960.0 L1542.4,951.9 M1568.0,960.0 L1543.6,948.6 M1568.0,960.0 L1547.8,942.2 M1568.0,960.0 L1555.3,936.3 M1557.7,956.8 Q1558.9,957.0 1558.3,955.5 M1558.3,955.5 Q1558.5,953.1 1559.9,952.9 M1559.9,952.9 Q1561.8,951.9 1562.9,950.5 M1550.1,954.3 Q1549.1,953.8 1551.0,952.0 M1551.0,952.0 Q1551.6,949.4 1553.9,947.6 M1553.9,947.6 Q1557.8,945.9 1559.1,943.4\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.6\" stroke-linecap=\"round\" opacity=\"0.35\"/></g>",
-          "<g class=\"detail-bones\"><g opacity=\"0.4\"><line x1=\"1715.6\" y1=\"146.9\" x2=\"1708.5\" y2=\"151.2\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1715.6\" cy=\"146.9\" rx=\"1.2\" ry=\"1.2\" fill=\"#000000\"/><ellipse cx=\"1708.5\" cy=\"151.2\" rx=\"1.2\" ry=\"1.2\" fill=\"#000000\"/><line x1=\"1705.9\" y1=\"149.8\" x2=\"1714.4\" y2=\"153.9\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1705.9\" cy=\"149.8\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><ellipse cx=\"1714.4\" cy=\"153.9\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><line x1=\"1709.5\" y1=\"146.7\" x2=\"1710.3\" y2=\"155.2\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1709.5\" cy=\"146.7\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><ellipse cx=\"1710.3\" cy=\"155.2\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1748.4\" y1=\"240.4\" x2=\"1747.7\" y2=\"250.1\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1748.4\" cy=\"240.4\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><ellipse cx=\"1747.7\" cy=\"250.1\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><line x1=\"1747.0\" y1=\"242.4\" x2=\"1752.3\" y2=\"246.3\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1747.0\" cy=\"242.4\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/><ellipse cx=\"1752.3\" cy=\"246.3\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/><line x1=\"1745.5\" y1=\"243.4\" x2=\"1750.8\" y2=\"249.6\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1745.5\" cy=\"243.4\" rx=\"1.6\" ry=\"1.6\" fill=\"#000000\"/><ellipse cx=\"1750.8\" cy=\"249.6\" rx=\"1.6\" ry=\"1.6\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1196.9\" y1=\"458.1\" x2=\"1205.4\" y2=\"464.0\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1196.9\" cy=\"458.1\" rx=\"1.6\" ry=\"1.6\" fill=\"#000000\"/><ellipse cx=\"1205.4\" cy=\"464.0\" rx=\"1.6\" ry=\"1.6\" fill=\"#000000\"/><line x1=\"1200.3\" y1=\"460.4\" x2=\"1205.5\" y2=\"465.0\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1200.3\" cy=\"460.4\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><ellipse cx=\"1205.5\" cy=\"465.0\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1618.7\" y1=\"681.9\" x2=\"1626.1\" y2=\"688.2\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1618.7\" cy=\"681.9\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><ellipse cx=\"1626.1\" cy=\"688.2\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><line x1=\"1617.9\" y1=\"678.7\" x2=\"1627.5\" y2=\"684.4\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1617.9\" cy=\"678.7\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/><ellipse cx=\"1627.5\" cy=\"684.4\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/><line x1=\"1619.6\" y1=\"681.2\" x2=\"1621.2\" y2=\"690.5\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1619.6\" cy=\"681.2\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/><ellipse cx=\"1621.2\" cy=\"690.5\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"309.5\" y1=\"839.3\" x2=\"307.5\" y2=\"847.0\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"309.5\" cy=\"839.3\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><ellipse cx=\"307.5\" cy=\"847.0\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><line x1=\"307.6\" y1=\"838.9\" x2=\"309.4\" y2=\"846.7\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"307.6\" cy=\"838.9\" rx=\"1.6\" ry=\"1.6\" fill=\"#000000\"/><ellipse cx=\"309.4\" cy=\"846.7\" rx=\"1.6\" ry=\"1.6\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1509.7\" y1=\"851.8\" x2=\"1520.3\" y2=\"852.1\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1509.7\" cy=\"851.8\" rx=\"1.2\" ry=\"1.2\" fill=\"#000000\"/><ellipse cx=\"1520.3\" cy=\"852.1\" rx=\"1.2\" ry=\"1.2\" fill=\"#000000\"/><line x1=\"1518.2\" y1=\"855.2\" x2=\"1510.5\" y2=\"855.3\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1518.2\" cy=\"855.2\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><ellipse cx=\"1510.5\" cy=\"855.3\" rx=\"1.4\" ry=\"1.4\" fill=\"#000000\"/><line x1=\"1511.0\" y1=\"855.4\" x2=\"1518.1\" y2=\"855.6\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1511.0\" cy=\"855.4\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/><ellipse cx=\"1518.1\" cy=\"855.6\" rx=\"1.8\" ry=\"1.8\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1394.8\" y1=\"936.0\" x2=\"1392.7\" y2=\"945.1\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1394.8\" cy=\"936.0\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><ellipse cx=\"1392.7\" cy=\"945.1\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><line x1=\"1390.8\" y1=\"937.5\" x2=\"1395.4\" y2=\"943.4\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1390.8\" cy=\"937.5\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><ellipse cx=\"1395.4\" cy=\"943.4\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1461.1\" y1=\"942.1\" x2=\"1454.9\" y2=\"948.5\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1461.1\" cy=\"942.1\" rx=\"1.7\" ry=\"1.7\" fill=\"#000000\"/><ellipse cx=\"1454.9\" cy=\"948.5\" rx=\"1.7\" ry=\"1.7\" fill=\"#000000\"/><line x1=\"1460.3\" y1=\"942.7\" x2=\"1460.7\" y2=\"950.2\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1460.3\" cy=\"942.7\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/><ellipse cx=\"1460.7\" cy=\"950.2\" rx=\"1.5\" ry=\"1.5\" fill=\"#000000\"/></g><g opacity=\"0.4\"><line x1=\"1423.9\" y1=\"1007.8\" x2=\"1417.5\" y2=\"1011.2\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1423.9\" cy=\"1007.8\" rx=\"1.7\" ry=\"1.7\" fill=\"#000000\"/><ellipse cx=\"1417.5\" cy=\"1011.2\" rx=\"1.7\" ry=\"1.7\" fill=\"#000000\"/><line x1=\"1426.1\" y1=\"1008.9\" x2=\"1419.5\" y2=\"1010.4\" stroke=\"#000000\" stroke-width=\"1.2\" stroke-linecap=\"round\"/><ellipse cx=\"1426.1\" cy=\"1008.9\" rx=\"1.7\" ry=\"1.7\" fill=\"#000000\"/><ellipse cx=\"1419.5\" cy=\"1010.4\" rx=\"1.7\" ry=\"1.7\" fill=\"#000000\"/></g></g>",
-          "<g class=\"detail-skulls\"><g transform=\"translate(1046.1,334.9) rotate(20)\" opacity=\"0.45\"><path d=\"M-4.6,2.1 C-5.4,-1.2 -3.2,-5.9 0,-5.9 C3.2,-5.9 5.4,-1.2 4.6,2.1 L2.9,3.3 L-2.9,3.3 Z\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.7\"/><ellipse cx=\"-2.2\" cy=\"-0.3\" rx=\"1.4\" ry=\"1.0\" fill=\"#000000\"/><ellipse cx=\"2.2\" cy=\"-0.3\" rx=\"1.4\" ry=\"1.0\" fill=\"#000000\"/><path d=\"M0,1.2 L-1.0,2.4 L1.0,2.4 Z\" fill=\"#000000\"/><line x1=\"-2.2\" y1=\"4.2\" x2=\"2.2\" y2=\"4.2\" stroke=\"#000000\" stroke-width=\"0.4\" stroke-dasharray=\"1.2,0.8\"/><path d=\"M-3.1,3.7 C-3.1,5.4 -1.0,6.5 0,6.5 C1.0,6.5 3.1,5.4 3.1,3.7\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.7\"/></g><g transform=\"translate(302.2,597.6) rotate(-16)\" opacity=\"0.45\"><path d=\"M-3.1,1.4 C-3.7,-0.8 -2.2,-4.1 0,-4.1 C2.2,-4.1 3.7,-0.8 3.1,1.4 L2.0,2.3 L-2.0,2.3 Z\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.7\"/><ellipse cx=\"-1.6\" cy=\"-0.2\" rx=\"1.0\" ry=\"0.7\" fill=\"#000000\"/><ellipse cx=\"1.6\" cy=\"-0.2\" rx=\"1.0\" ry=\"0.7\" fill=\"#000000\"/><path d=\"M0,0.8 L-0.7,1.6 L0.7,1.6 Z\" fill=\"#000000\"/><line x1=\"-1.5\" y1=\"2.9\" x2=\"1.5\" y2=\"2.9\" stroke=\"#000000\" stroke-width=\"0.4\" stroke-dasharray=\"1.2,0.8\"/><path d=\"M-2.1,2.6 C-2.1,3.7 -0.7,4.5 0,4.5 C0.7,4.5 2.1,3.7 2.1,2.6\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.7\"/></g><g transform=\"translate(1395.1,941.6) rotate(8)\" opacity=\"0.45\"><path d=\"M-3.7,1.7 C-4.3,-1.0 -2.6,-4.8 0,-4.8 C2.6,-4.8 4.3,-1.0 3.7,1.7 L2.4,2.6 L-2.4,2.6 Z\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.7\"/><ellipse cx=\"-1.8\" cy=\"-0.2\" rx=\"1.1\" ry=\"0.8\" fill=\"#000000\"/><ellipse cx=\"1.8\" cy=\"-0.2\" rx=\"1.1\" ry=\"0.8\" fill=\"#000000\"/><path d=\"M0,1.0 L-0.8,1.9 L0.8,1.9 Z\" fill=\"#000000\"/><line x1=\"-1.8\" y1=\"3.4\" x2=\"1.8\" y2=\"3.4\" stroke=\"#000000\" stroke-width=\"0.4\" stroke-dasharray=\"1.2,0.8\"/><path d=\"M-2.5,3.0 C-2.5,4.3 -0.8,5.3 0,5.3 C0.8,5.3 2.5,4.3 2.5,3.0\" fill=\"none\" stroke=\"#000000\" stroke-width=\"0.7\"/></g></g>"
-        ],
-        "corridorGroups": [],
+        "roomGroups": null,
+        "corridorGroups": null,
         "clipRegion": "dungeon",
         "decoratorGroups": [],
         "woodFloorGroups": null,
         "isCorridor": "array([False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False])"
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ThematicDetailOp",
+      "op": {
+        "__type": "ThematicDetailOpT",
+        "tiles": [
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 2
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 3
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 4
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 5
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 16,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 24,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 6
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 15,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 16,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 17,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 24,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 52,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 7
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 15,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 16,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 17,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 24,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 8
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 17,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 53,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 56,
+            "y": 9
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 32,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 56,
+            "y": 10
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 32,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 33,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 54,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 55,
+            "y": 11
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 33,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 34,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 12
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 13
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 14
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 15
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 16
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 17
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 23,
+            "y": 18
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 3,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 4,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 13,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 22,
+            "y": 19
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 3,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 4,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 14,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 51,
+            "y": 20
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 4,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 5,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 21
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 18,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 19,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 20,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 21,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 22
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 48,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 49,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 50,
+            "y": 23
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 12,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 24
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 6,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 11,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 25
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 7,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 10,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 26
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 8,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 9,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 27
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 48,
+            "y": 28
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 42,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 48,
+            "y": 29
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 36,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 37,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 41,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 42,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 47,
+            "y": 30
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 35,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 38,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 41,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 42,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 43,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 44,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 45,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 46,
+            "y": 31
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 39,
+            "y": 32
+          },
+          {
+            "__type": "TileCoordT",
+            "x": 40,
+            "y": 32
+          }
+        ],
+        "isCorridor": "array([False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False])",
+        "wallCorners": "array([ 1,  0,  2,  1,  2,  1,  0,  0,  0,  2,  1,  0,  0,  0,  0,  0,  8,\n        1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  0,  0,  0,\n        0,  0,  1,  0,  0,  1,  0,  0,  2,  0,  0,  0,  1,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  2,  1,  0,  0,  0,  0,  0,  0,  8,\n        0,  0,  0,  2,  1,  0,  0,  0,  0,  0,  0,  0,  0,  8,  4,  0,  0,\n        0,  8,  4,  0,  0,  8,  4,  0,  0,  0,  4,  0,  0,  0,  0,  4,  2,\n        0,  0,  4,  0,  0,  0,  0,  1,  0,  2,  0,  0,  2,  4,  0,  8,  0,\n        0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,\n        4,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  4,  0,  0,  8,  1,  0,\n        4,  0,  0,  8,  4,  0, 12,  0,  1,  0,  4,  0,  0,  0,  0,  4,  0,\n        0,  8,  0,  0,  0,  0,  0,  0,  0,  2,  1,  0,  0,  8,  0,  0,  0,\n        0,  0,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,  4,  0,  0,  0,  1,\n        0,  0,  0,  4,  8,  1,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,\n        2,  0,  0,  1,  0,  0,  0,  0,  0,  8,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  8,  4,  0,  0,  0,  0,  0,  0,  0,  0,  8,  4,\n        8], dtype=uint8)",
+        "seed": 298,
+        "theme": "cave",
+        "clipRegion": "dungeon"
       }
     },
     {

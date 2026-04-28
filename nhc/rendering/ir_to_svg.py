@@ -58,6 +58,7 @@ _LAYER_ORDER: tuple[str, ...] = (
     "terrain_tints",
     "floor_grid",
     "floor_detail",
+    "thematic_detail",
     "terrain_detail",
     "stairs",
     "surface_features",
@@ -741,20 +742,131 @@ _OP_HANDLERS[Op.Op.FloorDetailOp] = _draw_floor_detail_from_ir
 def _draw_thematic_detail_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Empty-arm stub for ``ThematicDetailOp`` — plan §8 step 2.
+    """Reproduce the thematic-detail layer (webs / bones / skulls).
 
-    The thematic-detail port (webs / bone piles / skulls) lands at
-    step 4. Until then the thematic detail keeps flowing through
-    ``FloorDetailOp.room_groups`` / ``FloorDetailOp.corridor_groups``
-    (the legacy interleaved passthrough), so this handler must
-    produce nothing — emitting fragments here on top of the
-    passthrough would double-draw the layer. ``ThematicDetailOp``
-    is wired into ``_OP_HANDLERS`` so the dispatcher's "no
-    handler" guard doesn't fire if a hand-crafted IR ships the
-    op type ahead of the emitter.
+    Sub-step 4.b drives the painter from the IR — walks
+    ``op.tiles[]`` against ``random.Random(op.seed)``, gates each
+    fragment by the per-theme probability table, and resolves
+    web placement via the pre-resolved per-tile ``wall_corners[]``
+    bitmap (legacy ``_tile_thematic_detail`` checked
+    ``_is_floor`` against the four neighbours; the emitter
+    lifts that check so this dispatcher doesn't need level
+    access). Sub-step 4.e replaces the Python painter calls
+    with ``nhc_render.draw_thematic_detail`` under the relaxed
+    parity gate.
     """
-    del entry, fir
-    return []
+    import random
+
+    from nhc.rendering._floor_detail import (
+        _THEMATIC_DEFAULT, _THEMATIC_DETAIL_PROBS,
+        _bone_detail, _skull_detail, _web_detail,
+    )
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    op_tiles = op.tiles if op.tiles is not None else []
+    if len(op_tiles) == 0:
+        return []
+
+    op_is_corridor = (
+        op.isCorridor if op.isCorridor is not None else []
+    )
+    op_wall_corners = (
+        op.wallCorners if op.wallCorners is not None else []
+    )
+    theme = _to_str(op.theme)
+    probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
+    flags = fir.Flags()
+    macabre = (
+        bool(flags.MacabreDetail()) if flags is not None else True
+    )
+    rng = random.Random(int(op.seed))
+
+    room_webs: list[str] = []
+    room_bones: list[str] = []
+    room_skulls: list[str] = []
+    cor_webs: list[str] = []
+    cor_bones: list[str] = []
+    cor_skulls: list[str] = []
+
+    for i, t in enumerate(op_tiles):
+        x, y = t.x, t.y
+        is_cor = bool(op_is_corridor[i])
+        bits = int(op_wall_corners[i]) if i < len(op_wall_corners) else 0
+        px, py = x * CELL, y * CELL
+        webs = cor_webs if is_cor else room_webs
+        bones = cor_bones if is_cor else room_bones
+        skulls = cor_skulls if is_cor else room_skulls
+
+        if rng.random() < probs.get("web", 0):
+            wall_corners: list[int] = []
+            if bits & 0x01:
+                wall_corners.append(0)
+            if bits & 0x02:
+                wall_corners.append(1)
+            if bits & 0x04:
+                wall_corners.append(2)
+            if bits & 0x08:
+                wall_corners.append(3)
+            if wall_corners:
+                corner = rng.choice(wall_corners)
+                webs.append(_web_detail(rng, px, py, corner))
+
+        if rng.random() < probs.get("bones", 0):
+            bones.append(_bone_detail(rng, px, py))
+
+        if rng.random() < probs.get("skull", 0):
+            skulls.append(_skull_detail(rng, px, py))
+
+    if not macabre:
+        room_bones, room_skulls = [], []
+        cor_bones, cor_skulls = [], []
+
+    out: list[str] = []
+    room_groups: list[str] = []
+    if room_webs:
+        room_groups.append(
+            f'<g class="detail-webs">{"".join(room_webs)}</g>'
+        )
+    if room_bones:
+        room_groups.append(
+            f'<g class="detail-bones">{"".join(room_bones)}</g>'
+        )
+    if room_skulls:
+        room_groups.append(
+            f'<g class="detail-skulls">{"".join(room_skulls)}</g>'
+        )
+    corridor_groups: list[str] = []
+    if cor_webs:
+        corridor_groups.append(
+            f'<g class="detail-webs">{"".join(cor_webs)}</g>'
+        )
+    if cor_bones:
+        corridor_groups.append(
+            f'<g class="detail-bones">{"".join(cor_bones)}</g>'
+        )
+    if cor_skulls:
+        corridor_groups.append(
+            f'<g class="detail-skulls">{"".join(cor_skulls)}</g>'
+        )
+
+    if room_groups:
+        clip_id = _to_str(op.clipRegion)
+        if clip_id:
+            region = _find_region(fir, clip_id.encode())
+            if region is not None:
+                out.append(
+                    _dungeon_clip_defs(region.Polygon(), "thematic-clip")
+                )
+                out.append('<g clip-path="url(#thematic-clip)">')
+                out.extend(room_groups)
+                out.append("</g>")
+            else:
+                out.extend(room_groups)
+        else:
+            out.extend(room_groups)
+
+    out.extend(corridor_groups)
+    return out
 
 
 _OP_HANDLERS[Op.Op.ThematicDetailOp] = _draw_thematic_detail_from_ir

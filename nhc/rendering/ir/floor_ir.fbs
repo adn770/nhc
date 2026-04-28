@@ -341,9 +341,28 @@ table FloorDetailOp {
 
 // Layer 500b — thematic detail (webs, bone piles, skulls).
 table ThematicDetailOp {
+  // Floor tiles in the IR's y-major / x-minor order — same
+  // candidate set the floor-detail layer walks in step 3, but
+  // limited to the subset where the thematic painters can fire
+  // (any floor tile, with the per-tile probability gates for
+  // webs / bones / skulls applied by the consumer).
   tiles: [TileCoord];
-  seed: uint64;            // base_seed + 99 (code) — design intent + 199
+  // Sub-step 4.b RNG split. Matches FloorDetailOp.is_corridor
+  // semantics: routes the per-tile output to the room bucket
+  // (False) or the corridor bucket (True). Empty until 4.b
+  // populates it.
+  is_corridor: [bool];
+  // Sub-step 4.b parallel-array addition: per-tile wall-corner
+  // bitmap, parallel to tiles[]. Webs only paint in corners
+  // adjacent to walls on both sides; the emitter pre-resolves
+  // the level-walk ``_is_floor`` checks so the consumer doesn't
+  // need level access. Bit layout (LSB first): 0x01 TL, 0x02
+  // TR, 0x04 BL, 0x08 BR. Empty (or zero entries) until 4.b
+  // populates it.
+  wall_corners: [ubyte];
+  seed: uint64;            // base_seed + 199 (sub-step 3.e split)
   theme: string;
+  clip_region: string;     // dungeon clip; same shape as FloorDetailOp
 }
 
 // Layer 600 — terrain detail (water ripples, lava cracks, chasm).

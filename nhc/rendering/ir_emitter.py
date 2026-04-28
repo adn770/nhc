@@ -50,7 +50,7 @@ from nhc.rendering.ir._fb.Vec2 import Vec2T
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 1
-SCHEMA_MINOR = 9
+SCHEMA_MINOR = 10
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
@@ -332,6 +332,15 @@ def emit_floor_detail(builder: FloorIRBuilder) -> None:
     _emit_floor_detail_ir(builder)
 
 
+def emit_thematic_detail(builder: FloorIRBuilder) -> None:
+    """Phase 4 sub-step 4.b: emit ThematicDetailOp with the
+    floor-tile candidate set + per-tile wall-corner bitmap. The
+    dispatcher drives the painter from the IR (Python today,
+    Rust at sub-step 4.e)."""
+    from nhc.rendering._floor_layers import _emit_thematic_detail_ir
+    _emit_thematic_detail_ir(builder)
+
+
 def emit_terrain_detail(builder: FloorIRBuilder) -> None:
     """Phase 1.h: emit TerrainDetailOp with pre-rendered room/corridor
     groups (water / lava / chasm decorators)."""
@@ -364,6 +373,7 @@ IR_STAGES: tuple[Callable[[FloorIRBuilder], None], ...] = (
     emit_terrain_tints,
     emit_floor_grid,
     emit_floor_detail,
+    emit_thematic_detail,
     emit_terrain_detail,
     emit_stairs,
     emit_surface_features,

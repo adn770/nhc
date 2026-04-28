@@ -4484,8 +4484,11 @@ impl<'a> ::flatbuffers::Follow<'a> for ThematicDetailOp<'a> {
 
 impl<'a> ThematicDetailOp<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
-  pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
-  pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
+  pub const VT_IS_CORRIDOR: ::flatbuffers::VOffsetT = 6;
+  pub const VT_WALL_CORNERS: ::flatbuffers::VOffsetT = 8;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_THEME: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4498,7 +4501,10 @@ impl<'a> ThematicDetailOp<'a> {
   ) -> ::flatbuffers::WIPOffset<ThematicDetailOp<'bldr>> {
     let mut builder = ThematicDetailOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
+    if let Some(x) = args.wall_corners { builder.add_wall_corners(x); }
+    if let Some(x) = args.is_corridor { builder.add_is_corridor(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.finish()
   }
@@ -4510,6 +4516,20 @@ impl<'a> ThematicDetailOp<'a> {
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(ThematicDetailOp::VT_TILES, None)}
+  }
+  #[inline]
+  pub fn is_corridor(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(ThematicDetailOp::VT_IS_CORRIDOR, None)}
+  }
+  #[inline]
+  pub fn wall_corners(&self) -> Option<::flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, u8>>>(ThematicDetailOp::VT_WALL_CORNERS, None)}
   }
   #[inline]
   pub fn seed(&self) -> u64 {
@@ -4525,6 +4545,13 @@ impl<'a> ThematicDetailOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ThematicDetailOp::VT_THEME, None)}
   }
+  #[inline]
+  pub fn clip_region(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ThematicDetailOp::VT_CLIP_REGION, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ThematicDetailOp<'_> {
@@ -4534,24 +4561,33 @@ impl ::flatbuffers::Verifiable for ThematicDetailOp<'_> {
   ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_corridor", Self::VT_IS_CORRIDOR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, u8>>>("wall_corners", Self::VT_WALL_CORNERS, false)?
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
      .finish();
     Ok(())
   }
 }
 pub struct ThematicDetailOpArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub is_corridor: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
+    pub wall_corners: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, u8>>>,
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for ThematicDetailOpArgs<'a> {
   #[inline]
   fn default() -> Self {
     ThematicDetailOpArgs {
       tiles: None,
+      is_corridor: None,
+      wall_corners: None,
       seed: 0,
       theme: None,
+      clip_region: None,
     }
   }
 }
@@ -4566,12 +4602,24 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ThematicDetailOpBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_TILES, tiles);
   }
   #[inline]
+  pub fn add_is_corridor(&mut self, is_corridor: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_IS_CORRIDOR, is_corridor);
+  }
+  #[inline]
+  pub fn add_wall_corners(&mut self, wall_corners: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_WALL_CORNERS, wall_corners);
+  }
+  #[inline]
   pub fn add_seed(&mut self, seed: u64) {
     self.fbb_.push_slot::<u64>(ThematicDetailOp::VT_SEED, seed, 0);
   }
   #[inline]
   pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_THEME, theme);
+  }
+  #[inline]
+  pub fn add_clip_region(&mut self, clip_region: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ThematicDetailOpBuilder<'a, 'b, A> {
@@ -4592,8 +4640,11 @@ impl ::core::fmt::Debug for ThematicDetailOp<'_> {
   fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
     let mut ds = f.debug_struct("ThematicDetailOp");
       ds.field("tiles", &self.tiles());
+      ds.field("is_corridor", &self.is_corridor());
+      ds.field("wall_corners", &self.wall_corners());
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
+      ds.field("clip_region", &self.clip_region());
       ds.finish()
   }
 }

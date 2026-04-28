@@ -67,10 +67,14 @@ _FIXTURE_ROOT = (
 # (lines + ellipses + paths). Pooling avoids over-tightening on
 # the per-kind splits, which shift differently when the
 # floor-detail / thematic-detail RNGs separate.
+#
+# Sub-step 4.b shrunk the floor_detail layer: thematic content
+# (webs / bones / skulls) moved to the new thematic_detail layer,
+# so these baselines re-measure the floor-detail-only output.
 _ELEMENT_BASELINES = {
-    "seed42_rect_dungeon_dungeon": 403,   # 113 lines + 219 ellipses + 71 paths
-    "seed7_octagon_crypt_dungeon": 977,   # 269 lines + 524 ellipses + 184 paths
-    "seed99_cave_cave_cave": 426,         # 204 lines + 203 ellipses + 19 paths
+    "seed42_rect_dungeon_dungeon": 234,   # 55 lines + 144 ellipses + 35 paths
+    "seed7_octagon_crypt_dungeon": 380,   # 115 lines + 191 ellipses + 74 paths
+    "seed99_cave_cave_cave": 306,         # 156 lines + 145 ellipses + 5 paths
 }
 
 _ELEMENT_TOLERANCE = 0.35

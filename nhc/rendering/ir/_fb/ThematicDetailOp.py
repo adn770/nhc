@@ -53,21 +53,82 @@ class ThematicDetailOp(object):
         return o == 0
 
     # ThematicDetailOp
-    def Seed(self):
+    def IsCorridor(self, j):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # ThematicDetailOp
+    def IsCorridorAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
+        return 0
+
+    # ThematicDetailOp
+    def IsCorridorLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # ThematicDetailOp
+    def IsCorridorIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(6))
+        return o == 0
+
+    # ThematicDetailOp
+    def WallCorners(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.Uint8Flags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # ThematicDetailOp
+    def WallCornersAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.Uint8Flags, o)
+        return 0
+
+    # ThematicDetailOp
+    def WallCornersLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # ThematicDetailOp
+    def WallCornersIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        return o == 0
+
+    # ThematicDetailOp
+    def Seed(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
         return 0
 
     # ThematicDetailOp
     def Theme(self):
-        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
+    # ThematicDetailOp
+    def ClipRegion(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         if o != 0:
             return self._tab.String(o + self._tab.Pos)
         return None
 
 def ThematicDetailOpStart(builder):
-    builder.StartObject(3)
+    builder.StartObject(6)
 
 def Start(builder):
     ThematicDetailOpStart(builder)
@@ -84,17 +145,47 @@ def ThematicDetailOpStartTilesVector(builder, numElems):
 def StartTilesVector(builder, numElems):
     return ThematicDetailOpStartTilesVector(builder, numElems)
 
+def ThematicDetailOpAddIsCorridor(builder, isCorridor):
+    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(isCorridor), 0)
+
+def AddIsCorridor(builder, isCorridor):
+    ThematicDetailOpAddIsCorridor(builder, isCorridor)
+
+def ThematicDetailOpStartIsCorridorVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+def StartIsCorridorVector(builder, numElems):
+    return ThematicDetailOpStartIsCorridorVector(builder, numElems)
+
+def ThematicDetailOpAddWallCorners(builder, wallCorners):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(wallCorners), 0)
+
+def AddWallCorners(builder, wallCorners):
+    ThematicDetailOpAddWallCorners(builder, wallCorners)
+
+def ThematicDetailOpStartWallCornersVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+def StartWallCornersVector(builder, numElems):
+    return ThematicDetailOpStartWallCornersVector(builder, numElems)
+
 def ThematicDetailOpAddSeed(builder, seed):
-    builder.PrependUint64Slot(1, seed, 0)
+    builder.PrependUint64Slot(3, seed, 0)
 
 def AddSeed(builder, seed):
     ThematicDetailOpAddSeed(builder, seed)
 
 def ThematicDetailOpAddTheme(builder, theme):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(theme), 0)
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(theme), 0)
 
 def AddTheme(builder, theme):
     ThematicDetailOpAddTheme(builder, theme)
+
+def ThematicDetailOpAddClipRegion(builder, clipRegion):
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(clipRegion), 0)
+
+def AddClipRegion(builder, clipRegion):
+    ThematicDetailOpAddClipRegion(builder, clipRegion)
 
 def ThematicDetailOpEnd(builder):
     return builder.EndObject()
@@ -114,12 +205,18 @@ class ThematicDetailOpT(object):
     def __init__(
         self,
         tiles = None,
+        isCorridor = None,
+        wallCorners = None,
         seed = 0,
         theme = None,
+        clipRegion = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
+        self.isCorridor = isCorridor  # type: Optional[List[bool]]
+        self.wallCorners = wallCorners  # type: Optional[List[int]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
+        self.clipRegion = clipRegion  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -150,8 +247,23 @@ class ThematicDetailOpT(object):
                 else:
                     tileCoord_ = nhc.rendering.ir._fb.TileCoord.TileCoordT.InitFromObj(thematicDetailOp.Tiles(i))
                     self.tiles.append(tileCoord_)
+        if not thematicDetailOp.IsCorridorIsNone():
+            if np is None:
+                self.isCorridor = []
+                for i in range(thematicDetailOp.IsCorridorLength()):
+                    self.isCorridor.append(thematicDetailOp.IsCorridor(i))
+            else:
+                self.isCorridor = thematicDetailOp.IsCorridorAsNumpy()
+        if not thematicDetailOp.WallCornersIsNone():
+            if np is None:
+                self.wallCorners = []
+                for i in range(thematicDetailOp.WallCornersLength()):
+                    self.wallCorners.append(thematicDetailOp.WallCorners(i))
+            else:
+                self.wallCorners = thematicDetailOp.WallCornersAsNumpy()
         self.seed = thematicDetailOp.Seed()
         self.theme = thematicDetailOp.Theme()
+        self.clipRegion = thematicDetailOp.ClipRegion()
 
     # ThematicDetailOpT
     def Pack(self, builder):
@@ -160,13 +272,37 @@ class ThematicDetailOpT(object):
             for i in reversed(range(len(self.tiles))):
                 self.tiles[i].Pack(builder)
             tiles = builder.EndVector()
+        if self.isCorridor is not None:
+            if np is not None and type(self.isCorridor) is np.ndarray:
+                isCorridor = builder.CreateNumpyVector(self.isCorridor)
+            else:
+                ThematicDetailOpStartIsCorridorVector(builder, len(self.isCorridor))
+                for i in reversed(range(len(self.isCorridor))):
+                    builder.PrependBool(self.isCorridor[i])
+                isCorridor = builder.EndVector()
+        if self.wallCorners is not None:
+            if np is not None and type(self.wallCorners) is np.ndarray:
+                wallCorners = builder.CreateNumpyVector(self.wallCorners)
+            else:
+                ThematicDetailOpStartWallCornersVector(builder, len(self.wallCorners))
+                for i in reversed(range(len(self.wallCorners))):
+                    builder.PrependUint8(self.wallCorners[i])
+                wallCorners = builder.EndVector()
         if self.theme is not None:
             theme = builder.CreateString(self.theme)
+        if self.clipRegion is not None:
+            clipRegion = builder.CreateString(self.clipRegion)
         ThematicDetailOpStart(builder)
         if self.tiles is not None:
             ThematicDetailOpAddTiles(builder, tiles)
+        if self.isCorridor is not None:
+            ThematicDetailOpAddIsCorridor(builder, isCorridor)
+        if self.wallCorners is not None:
+            ThematicDetailOpAddWallCorners(builder, wallCorners)
         ThematicDetailOpAddSeed(builder, self.seed)
         if self.theme is not None:
             ThematicDetailOpAddTheme(builder, theme)
+        if self.clipRegion is not None:
+            ThematicDetailOpAddClipRegion(builder, clipRegion)
         thematicDetailOp = ThematicDetailOpEnd(builder)
         return thematicDetailOp

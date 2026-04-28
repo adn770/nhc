@@ -35,20 +35,57 @@ tilesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
-seed():bigint {
+isCorridor(index: number):boolean|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
+}
+
+isCorridorLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+isCorridorArray():Int8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 6);
+  return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
+wallCorners(index: number):number|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.readUint8(this.bb!.__vector(this.bb_pos + offset) + index) : 0;
+}
+
+wallCornersLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+wallCornersArray():Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? new Uint8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
+seed():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
 theme():string|null
 theme(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
 theme(optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 8);
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+clipRegion():string|null
+clipRegion(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+clipRegion(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
 static startThematicDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(6);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -59,12 +96,48 @@ static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(8, numElems, 4);
 }
 
+static addIsCorridor(builder:flatbuffers.Builder, isCorridorOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(1, isCorridorOffset, 0);
+}
+
+static createIsCorridorVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
+  builder.startVector(1, data.length, 1);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt8(+data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startIsCorridorVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(1, numElems, 1);
+}
+
+static addWallCorners(builder:flatbuffers.Builder, wallCornersOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, wallCornersOffset, 0);
+}
+
+static createWallCornersVector(builder:flatbuffers.Builder, data:number[]|Uint8Array):flatbuffers.Offset {
+  builder.startVector(1, data.length, 1);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt8(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startWallCornersVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(1, numElems, 1);
+}
+
 static addSeed(builder:flatbuffers.Builder, seed:bigint) {
-  builder.addFieldInt64(1, seed, BigInt('0'));
+  builder.addFieldInt64(3, seed, BigInt('0'));
 }
 
 static addTheme(builder:flatbuffers.Builder, themeOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(2, themeOffset, 0);
+  builder.addFieldOffset(4, themeOffset, 0);
+}
+
+static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, clipRegionOffset, 0);
 }
 
 static endThematicDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
@@ -72,11 +145,14 @@ static endThematicDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, wallCornersOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset):flatbuffers.Offset {
   ThematicDetailOp.startThematicDetailOp(builder);
   ThematicDetailOp.addTiles(builder, tilesOffset);
+  ThematicDetailOp.addIsCorridor(builder, isCorridorOffset);
+  ThematicDetailOp.addWallCorners(builder, wallCornersOffset);
   ThematicDetailOp.addSeed(builder, seed);
   ThematicDetailOp.addTheme(builder, themeOffset);
+  ThematicDetailOp.addClipRegion(builder, clipRegionOffset);
   return ThematicDetailOp.endThematicDetailOp(builder);
 }
 }

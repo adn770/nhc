@@ -695,21 +695,51 @@ def _floor_detail_paint(ctx: RenderContext) -> Iterable[str]:
     return out
 
 
+def _floor_detail_candidates(
+    level,
+) -> list[tuple[int, int, bool]]:
+    """Walk the level once and return the floor-detail candidate
+    set: floor tiles that are not stair features and not on a
+    STREET / FIELD / GARDEN surface, with a per-tile corridor /
+    door classification. Used by both
+    :func:`_emit_floor_detail_ir` (sub-step 3.b) and
+    :func:`_emit_thematic_detail_ir` (sub-step 4.b) so the two
+    ops walk identical tile sets in the same y-major / x-minor
+    order.
+    """
+    candidates: list[tuple[int, int, bool]] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            tile = level.tiles[y][x]
+            if tile.terrain != Terrain.FLOOR:
+                continue
+            if tile.feature in ("stairs_up", "stairs_down"):
+                continue
+            if tile.surface_type in (
+                SurfaceType.STREET,
+                SurfaceType.FIELD,
+                SurfaceType.GARDEN,
+            ):
+                continue
+            is_cor = (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or _is_door(level, x, y)
+            )
+            candidates.append((x, y, is_cor))
+    return candidates
+
+
 def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the floor-detail layer.
 
-    Sub-step 3.e splits the layer's responsibilities. The
-    floor-detail-proper portion (cracks / scratches / stones)
-    no longer runs here — the dispatcher reaches into Rust at
-    render time via ``op.tiles[]`` + ``op.isCorridor[]`` +
-    ``op.theme`` (populated below). The thematic-detail portion
-    (webs / bones / skulls) still runs Python-side until
-    step 4 lands its own ``ThematicDetailOp`` port; it now uses
-    its own ``random.Random(seed + 199)`` stream so the two
-    primitives are RNG-independent. The pre-rendered thematic
-    ``<g>`` groups travel through ``room_groups`` /
-    ``corridor_groups`` (the legacy passthrough fields, which
-    drop empty after step 4).
+    Sub-step 3.e migrated the floor-detail-proper painters
+    (cracks / scratches / stones) to Rust; the dispatcher
+    reaches the port via ``op.tiles[]`` + ``op.isCorridor[]`` +
+    ``op.theme``. Sub-step 4.b moves the thematic-detail
+    portion (webs / bones / skulls) to its own
+    ``ThematicDetailOp`` (see :func:`_emit_thematic_detail_ir`),
+    so this emitter only ships floor-detail data and the
+    decorator / wood-floor passthroughs.
 
     Phase 1.l extends the emitter to also cover the wood-floor
     short-circuit (interior_finish == "wood") and the post-pass
@@ -723,9 +753,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         BRICK, CART_TRACK_RAILS, CART_TRACK_TIES, COBBLE_STONE,
         COBBLESTONE, FIELD_STONE, FLAGSTONE,
         OPUS_ROMANO, ORE_DEPOSIT,
-        _THEMATIC_DEFAULT, _THEMATIC_DETAIL_PROBS,
-        _emit_thematic_detail, _render_wood_floor,
-        _tile_thematic_detail,
+        _render_wood_floor,
     )
     from nhc.rendering.ir._fb import Op
     from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
@@ -766,82 +794,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
 
     level = ctx.level
     theme = ctx.theme
-    probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
-
-    # Sub-step 3.e RNG split. Step 3 ports the floor-detail-proper
-    # painters (cracks / scratches / stones) to Rust, which the
-    # dispatcher reaches via op.tiles[] + op.isCorridor[] +
-    # op.theme. The thematic painters (webs / bones / skulls)
-    # stay Python-side until step 4 and now run on their own
-    # ``random.Random(seed + 199)`` stream — the schema-comment
-    # design intent on ThematicDetailOp.seed. Splitting the
-    # streams is what trips the relaxed parity gate; the byte-
-    # equal contract is replaced by structural invariants and a
-    # snapshot lock against the Rust output.
-    thematic_rng = random.Random(seed + 199)
-
-    room_webs: list[str] = []
-    room_bones: list[str] = []
-    room_skulls: list[str] = []
-    cor_webs: list[str] = []
-    cor_bones: list[str] = []
-    cor_skulls: list[str] = []
-
-    # Sub-step 3.b candidate walk: deterministic filters
-    # (terrain, stair feature, surface_type) and the corridor /
-    # door classification produce the IR's tile list. Sub-step
-    # 3.e adds the thematic painter pass that walks the same
-    # list in y-major / x-minor order against ``thematic_rng``;
-    # the floor-detail painters are no longer invoked here
-    # (the dispatcher calls into ``nhc_render.draw_floor_detail``
-    # at render time using ``op.tiles[]`` + ``op.isCorridor[]``).
-    candidates: list[tuple[int, int, bool]] = []
-    for y in range(level.height):
-        for x in range(level.width):
-            tile = level.tiles[y][x]
-            if tile.terrain != Terrain.FLOOR:
-                continue
-            if tile.feature in ("stairs_up", "stairs_down"):
-                continue
-            if tile.surface_type in (
-                SurfaceType.STREET,
-                SurfaceType.FIELD,
-                SurfaceType.GARDEN,
-            ):
-                continue
-            is_cor = (
-                tile.surface_type == SurfaceType.CORRIDOR
-                or _is_door(level, x, y)
-            )
-            candidates.append((x, y, is_cor))
-
-    for x, y, is_cor in candidates:
-        if is_cor:
-            _tile_thematic_detail(
-                thematic_rng, x, y, level, probs,
-                cor_webs, cor_bones, cor_skulls,
-            )
-        else:
-            _tile_thematic_detail(
-                thematic_rng, x, y, level, probs,
-                room_webs, room_bones, room_skulls,
-            )
-
-    if not ctx.macabre_detail:
-        room_bones, room_skulls = [], []
-        cor_bones, cor_skulls = [], []
-
-    room_groups: list[str] = []
-    if room_webs or room_bones or room_skulls:
-        _emit_thematic_detail(
-            room_groups, room_webs, room_bones, room_skulls,
-        )
-
-    corridor_groups: list[str] = []
-    if cor_webs or cor_bones or cor_skulls:
-        _emit_thematic_detail(
-            corridor_groups, cor_webs, cor_bones, cor_skulls,
-        )
+    candidates = _floor_detail_candidates(level)
 
     decorator_groups = list(walk_and_paint(
         ctx,
@@ -855,7 +808,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         layer_name="floor_detail",
     ))
 
-    if not (room_groups or corridor_groups or decorator_groups):
+    if not (candidates or decorator_groups):
         return
 
     op = FloorDetailOpT()
@@ -863,8 +816,6 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     op.theme = theme
     op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
     op.isCorridor = [is_cor for _, _, is_cor in candidates]
-    op.roomGroups = room_groups
-    op.corridorGroups = corridor_groups
     op.decoratorGroups = decorator_groups
     op.clipRegion = (
         "dungeon"
@@ -876,6 +827,76 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     )
     entry = OpEntryT()
     entry.opType = Op.Op.FloorDetailOp
+    entry.op = op
+    builder.add_op(entry)
+
+
+def _emit_thematic_detail_ir(builder: "FloorIRBuilder") -> None:
+    """Emit the IR op for the thematic-detail layer.
+
+    Sub-step 4.b splits webs / bones / skulls off the
+    floor-detail layer's passthrough and gives them their own
+    ``ThematicDetailOp``. The emitter walks the same candidate
+    set as :func:`_emit_floor_detail_ir` (so the two ops align
+    tile-for-tile) but additionally pre-resolves the per-tile
+    wall-corner bitmap that the painter needs for web placement
+    (legacy ``_tile_thematic_detail`` calls ``_is_floor`` against
+    the four neighbours; we lift those checks to the emitter so
+    the consumer doesn't need level access). The dispatcher
+    drives the painter from the IR, Python-side at this commit
+    and Rust-side at sub-step 4.e.
+    """
+    from nhc.rendering._svg_helpers import _is_floor
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.ThematicDetailOp import (
+        ThematicDetailOpT,
+    )
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
+
+    ctx = builder.ctx
+    level = ctx.level
+    if ctx.interior_finish == "wood":
+        # Wood-floor short-circuit. Thematic painters never run
+        # on wood floors today; mirror that by emitting nothing.
+        return
+
+    candidates = _floor_detail_candidates(level)
+    if not candidates:
+        return
+
+    wall_corners: list[int] = []
+    for x, y, _ in candidates:
+        bits = 0
+        # 0x01 TL, 0x02 TR, 0x04 BL, 0x08 BR.
+        # A corner is wall-adjacent when both adjacent neighbours
+        # are non-floor (legacy ``_tile_thematic_detail`` shape).
+        if not _is_floor(level, x, y - 1) and not _is_floor(level, x - 1, y):
+            bits |= 0x01
+        if not _is_floor(level, x, y - 1) and not _is_floor(level, x + 1, y):
+            bits |= 0x02
+        if not _is_floor(level, x, y + 1) and not _is_floor(level, x - 1, y):
+            bits |= 0x04
+        if not _is_floor(level, x, y + 1) and not _is_floor(level, x + 1, y):
+            bits |= 0x08
+        wall_corners.append(bits)
+
+    op = ThematicDetailOpT()
+    op.seed = ctx.seed + 199
+    op.theme = ctx.theme
+    op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
+    op.isCorridor = [is_cor for _, _, is_cor in candidates]
+    op.wallCorners = wall_corners
+    op.clipRegion = (
+        "dungeon"
+        if (
+            ctx.dungeon_poly is not None
+            and not ctx.dungeon_poly.is_empty
+        )
+        else ""
+    )
+    entry = OpEntryT()
+    entry.opType = Op.Op.ThematicDetailOp
     entry.op = op
     builder.add_op(entry)
 
