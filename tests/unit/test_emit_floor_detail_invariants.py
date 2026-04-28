@@ -191,3 +191,33 @@ def test_deterministic(descriptor: str) -> None:
         f"{descriptor}: floor_detail layer is not deterministic "
         f"(diff at byte {next((i for i, (a, b) in enumerate(zip(svg_a, svg_b)) if a != b), -1)})"
     )
+
+
+@pytest.mark.parametrize("descriptor", all_descriptors())
+def test_floor_detail_snapshot_matches_fixture(descriptor: str) -> None:
+    """Sub-step 3.f — byte-equal snapshot lock against the Rust port.
+
+    Pairs with the structural invariants above: the invariants pin
+    *what* the layer must produce (well-formed XML, sane element
+    counts, deterministic), the snapshot pins *exactly* what it
+    produces. Drift on either the emitter (3.b candidate walk +
+    3.e RNG split) or the Rust impl (3.d painters) trips this
+    gate first.
+
+    The fixture lives at
+    ``tests/fixtures/floor_ir/<descriptor>/floor_detail.svg`` and
+    is refreshed via ``python -m tests.samples.regenerate_fixtures``.
+    """
+    inputs = descriptor_inputs(descriptor)
+    actual = layer_to_svg(_build_buf(inputs), layer="floor_detail")
+    fixture = _FIXTURE_ROOT / descriptor / "floor_detail.svg"
+    assert fixture.exists(), (
+        f"{descriptor}: floor_detail.svg fixture missing — re-run "
+        f"`python -m tests.samples.regenerate_fixtures`"
+    )
+    expected = fixture.read_text()
+    assert actual == expected, (
+        f"{descriptor}: floor_detail layer drifts from snapshot. "
+        f"If this drift is intentional, refresh fixtures via "
+        f"`python -m tests.samples.regenerate_fixtures`."
+    )

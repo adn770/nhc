@@ -698,14 +698,18 @@ def _floor_detail_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the floor-detail layer.
 
-    Replicates ``_render_floor_detail``'s per-tile pass against the
-    same ``random.Random(seed + 99)`` stream — splitting
-    ``_tile_detail`` and ``_tile_thematic_detail`` across emit /
-    handler would lose the interleaved RNG ordering. The resulting
-    ``<g>`` groups (cracks / stones / scratches / webs / bones /
-    skulls × room / corridor) are pre-rendered here and stashed on
-    the :class:`FloorDetailOp`; the handler reapplies the
-    dungeon-interior clipPath envelope around the room bucket.
+    Sub-step 3.e splits the layer's responsibilities. The
+    floor-detail-proper portion (cracks / scratches / stones)
+    no longer runs here — the dispatcher reaches into Rust at
+    render time via ``op.tiles[]`` + ``op.isCorridor[]`` +
+    ``op.theme`` (populated below). The thematic-detail portion
+    (webs / bones / skulls) still runs Python-side until
+    step 4 lands its own ``ThematicDetailOp`` port; it now uses
+    its own ``random.Random(seed + 199)`` stream so the two
+    primitives are RNG-independent. The pre-rendered thematic
+    ``<g>`` groups travel through ``room_groups`` /
+    ``corridor_groups`` (the legacy passthrough fields, which
+    drop empty after step 4).
 
     Phase 1.l extends the emitter to also cover the wood-floor
     short-circuit (interior_finish == "wood") and the post-pass
@@ -719,9 +723,9 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         BRICK, CART_TRACK_RAILS, CART_TRACK_TIES, COBBLE_STONE,
         COBBLESTONE, FIELD_STONE, FLAGSTONE,
         OPUS_ROMANO, ORE_DEPOSIT,
-        _DETAIL_SCALE, _THEMATIC_DEFAULT, _THEMATIC_DETAIL_PROBS,
-        _emit_detail, _emit_thematic_detail,
-        _render_wood_floor, _tile_detail, _tile_thematic_detail,
+        _THEMATIC_DEFAULT, _THEMATIC_DETAIL_PROBS,
+        _emit_thematic_detail, _render_wood_floor,
+        _tile_thematic_detail,
     )
     from nhc.rendering.ir._fb import Op
     from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
@@ -761,17 +765,21 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         return
 
     level = ctx.level
-    rng = random.Random(seed + 99)
     theme = ctx.theme
-    scale = _DETAIL_SCALE.get(theme, 1.0)
     probs = _THEMATIC_DETAIL_PROBS.get(theme, _THEMATIC_DEFAULT)
 
-    room_cracks: list[str] = []
-    room_stones: list[str] = []
-    room_scratches: list[str] = []
-    cor_cracks: list[str] = []
-    cor_stones: list[str] = []
-    cor_scratches: list[str] = []
+    # Sub-step 3.e RNG split. Step 3 ports the floor-detail-proper
+    # painters (cracks / scratches / stones) to Rust, which the
+    # dispatcher reaches via op.tiles[] + op.isCorridor[] +
+    # op.theme. The thematic painters (webs / bones / skulls)
+    # stay Python-side until step 4 and now run on their own
+    # ``random.Random(seed + 199)`` stream — the schema-comment
+    # design intent on ThematicDetailOp.seed. Splitting the
+    # streams is what trips the relaxed parity gate; the byte-
+    # equal contract is replaced by structural invariants and a
+    # snapshot lock against the Rust output.
+    thematic_rng = random.Random(seed + 199)
+
     room_webs: list[str] = []
     room_bones: list[str] = []
     room_skulls: list[str] = []
@@ -779,15 +787,14 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     cor_bones: list[str] = []
     cor_skulls: list[str] = []
 
-    # Sub-step 3.b candidate walk: pass 1 applies only the
-    # deterministic filters (terrain, stair feature, surface_type)
-    # and the corridor / door classification, then pass 2 below
-    # consumes the shared RNG by walking the candidate list in
-    # the same y-major / x-minor order. Splitting the passes
-    # populates FloorDetailOp.tiles[] + is_corridor[] without
-    # disturbing the RNG-stream invariant that keeps SVG output
-    # byte-equal. The structural-shift mirrors sub-step 1.b's
-    # hatch-room candidate walk.
+    # Sub-step 3.b candidate walk: deterministic filters
+    # (terrain, stair feature, surface_type) and the corridor /
+    # door classification produce the IR's tile list. Sub-step
+    # 3.e adds the thematic painter pass that walks the same
+    # list in y-major / x-minor order against ``thematic_rng``;
+    # the floor-detail painters are no longer invoked here
+    # (the dispatcher calls into ``nhc_render.draw_floor_detail``
+    # at render time using ``op.tiles[]`` + ``op.isCorridor[]``).
     candidates: list[tuple[int, int, bool]] = []
     for y in range(level.height):
         for x in range(level.width):
@@ -810,48 +817,28 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
 
     for x, y, is_cor in candidates:
         if is_cor:
-            _tile_detail(
-                rng, x, y, seed,
-                cor_cracks, cor_stones, cor_scratches,
-                detail_scale=scale, theme=theme,
-            )
             _tile_thematic_detail(
-                rng, x, y, level, probs,
+                thematic_rng, x, y, level, probs,
                 cor_webs, cor_bones, cor_skulls,
             )
         else:
-            _tile_detail(
-                rng, x, y, seed,
-                room_cracks, room_stones, room_scratches,
-                detail_scale=scale, theme=theme,
-            )
             _tile_thematic_detail(
-                rng, x, y, level, probs,
+                thematic_rng, x, y, level, probs,
                 room_webs, room_bones, room_skulls,
             )
 
     if not ctx.macabre_detail:
-        room_bones, room_skulls, room_stones = [], [], []
-        cor_bones, cor_skulls, cor_stones = [], [], []
+        room_bones, room_skulls = [], []
+        cor_bones, cor_skulls = [], []
 
     room_groups: list[str] = []
-    if (
-        room_cracks or room_stones or room_scratches
-        or room_webs or room_bones or room_skulls
-    ):
-        _emit_detail(room_groups, room_cracks, room_stones, room_scratches)
+    if room_webs or room_bones or room_skulls:
         _emit_thematic_detail(
             room_groups, room_webs, room_bones, room_skulls,
         )
 
     corridor_groups: list[str] = []
-    if (
-        cor_cracks or cor_stones or cor_scratches
-        or cor_webs or cor_bones or cor_skulls
-    ):
-        _emit_detail(
-            corridor_groups, cor_cracks, cor_stones, cor_scratches,
-        )
+    if cor_webs or cor_bones or cor_skulls:
         _emit_thematic_detail(
             corridor_groups, cor_webs, cor_bones, cor_skulls,
         )

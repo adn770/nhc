@@ -669,12 +669,18 @@ def _draw_floor_detail_from_ir(
     - ``wood_floor_groups`` non-empty → emit them verbatim and
       return. The legacy wood-floor short-circuit owns its own
       clipPath envelope; the IR carries the fragments end-to-end.
-    - Otherwise: room_groups in the dungeon-interior clipPath
-      envelope, then corridor_groups, then decorator_groups
-      (all unclipped). Decorator groups land after corridor
-      groups to mirror the legacy ``_render_floor_detail`` order
-      where ``walk_and_paint(...)`` runs at the bottom.
+    - Otherwise: floor-detail-proper from Rust
+      (``nhc_render.draw_floor_detail``) plus thematic-detail
+      passthrough (``room_groups`` / ``corridor_groups``) under
+      the dungeon-interior clipPath envelope on the room side,
+      with ``corridor_groups`` and ``decorator_groups`` appended
+      unclipped. Sub-step 3.e — the structured op carries
+      ``tiles[]`` + ``isCorridor[]`` + ``theme``; the thematic
+      ``<g>`` groups still ride the legacy passthrough until
+      step 4 ports them to ``ThematicDetailOp``.
     """
+    import nhc_render
+
     op = OpCreator(entry.OpType(), entry.Op())
 
     wood_floor = [_to_str(g) for g in (op.woodFloorGroups or [])]
@@ -682,9 +688,33 @@ def _draw_floor_detail_from_ir(
         return wood_floor
 
     out: list[str] = []
-    room_groups = [_to_str(g) for g in (op.roomGroups or [])]
-    corridor_groups = [_to_str(g) for g in (op.corridorGroups or [])]
+    thematic_room = [_to_str(g) for g in (op.roomGroups or [])]
+    thematic_corridor = [
+        _to_str(g) for g in (op.corridorGroups or [])
+    ]
     decorator_groups = [_to_str(g) for g in (op.decoratorGroups or [])]
+
+    rust_room: list[str] = []
+    rust_corridor: list[str] = []
+    op_tiles = op.tiles if op.tiles is not None else []
+    op_is_corridor = (
+        op.isCorridor if op.isCorridor is not None else []
+    )
+    if len(op_tiles) > 0:
+        tiles = [
+            (t.x, t.y, bool(op_is_corridor[i]))
+            for i, t in enumerate(op_tiles)
+        ]
+        flags = fir.Flags()
+        macabre = (
+            bool(flags.MacabreDetail()) if flags is not None else True
+        )
+        rust_room, rust_corridor = nhc_render.draw_floor_detail(
+            tiles, int(op.seed), _to_str(op.theme), macabre,
+        )
+
+    room_groups = rust_room + thematic_room
+    corridor_groups = rust_corridor + thematic_corridor
 
     if room_groups:
         clip_id = _to_str(op.clipRegion)

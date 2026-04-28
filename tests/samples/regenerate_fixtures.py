@@ -104,8 +104,11 @@ def _build_level(fx: Fixture):
     return generate_level(params)
 
 
-def _render_fixture(fx: Fixture) -> tuple[str, bytes, str, str]:
-    """Build the level and return (svg, nir, json, hatch_svg) tuple.
+def _render_fixture(
+    fx: Fixture,
+) -> tuple[str, bytes, str, str, str]:
+    """Build the level and return (svg, nir, json, hatch_svg,
+    floor_detail_svg) tuple.
 
     Phase 1.k lights up ``nir`` and ``json`` — :func:`build_floor_ir`
     drives the IR pipeline that ``render_floor_svg`` now routes
@@ -115,7 +118,8 @@ def _render_fixture(fx: Fixture) -> tuple[str, bytes, str, str]:
     Phase 4 sub-step 1.f adds the per-layer ``hatch.svg`` snapshot
     — the relaxed parity gate replaces byte-equal-with-legacy with
     structural invariants + a byte-equal snapshot lock against the
-    Rust output.
+    Rust output. Sub-step 3.f extends the same shape to
+    ``floor_detail.svg``.
     """
     from nhc.rendering.ir.dump import dump
     from nhc.rendering.ir_emitter import build_floor_ir
@@ -126,7 +130,8 @@ def _render_fixture(fx: Fixture) -> tuple[str, bytes, str, str]:
     nir = build_floor_ir(level, seed=fx.seed)
     js = dump(nir)
     hatch_svg = layer_to_svg(nir, layer="hatching")
-    return svg, nir, js, hatch_svg
+    floor_detail_svg = layer_to_svg(nir, layer="floor_detail")
+    return svg, nir, js, hatch_svg, floor_detail_svg
 
 
 def _root_dir() -> Path:
@@ -134,18 +139,19 @@ def _root_dir() -> Path:
 
 
 def _write_fixture(fx: Fixture, root: Path) -> None:
-    svg, nir, js, hatch_svg = _render_fixture(fx)
+    svg, nir, js, hatch_svg, floor_detail_svg = _render_fixture(fx)
     out = root / fx.descriptor
     out.mkdir(parents=True, exist_ok=True)
     (out / "floor.svg").write_text(svg)
     (out / "floor.nir").write_bytes(nir)
     (out / "floor.json").write_text(js)
     (out / "hatch.svg").write_text(hatch_svg)
+    (out / "floor_detail.svg").write_text(floor_detail_svg)
 
 
 def _check_fixture(fx: Fixture, root: Path) -> list[str]:
     """Return a list of diff messages for any drift; empty if clean."""
-    svg, nir, js, hatch_svg = _render_fixture(fx)
+    svg, nir, js, hatch_svg, floor_detail_svg = _render_fixture(fx)
     out = root / fx.descriptor
     drifts: list[str] = []
     svg_path = out / "floor.svg"
@@ -168,6 +174,11 @@ def _check_fixture(fx: Fixture, root: Path) -> list[str]:
         drifts.append(f"{fx.descriptor}: hatch.svg missing")
     elif hatch_path.read_text() != hatch_svg:
         drifts.append(f"{fx.descriptor}: hatch.svg drift")
+    fd_path = out / "floor_detail.svg"
+    if not fd_path.exists():
+        drifts.append(f"{fx.descriptor}: floor_detail.svg missing")
+    elif fd_path.read_text() != floor_detail_svg:
+        drifts.append(f"{fx.descriptor}: floor_detail.svg drift")
     return drifts
 
 
