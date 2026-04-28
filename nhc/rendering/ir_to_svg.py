@@ -859,23 +859,33 @@ _OP_HANDLERS[Op.Op.TerrainDetailOp] = _draw_terrain_detail_from_ir
 def _draw_decorator_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Empty-arm stub for ``DecoratorOp`` — plan §8 step 5.
+    """Render the structured decorator pipeline (``DecoratorOp``).
 
-    Sub-step 5 (schema bump B) lands ``DecoratorOp`` and its
-    seven per-decorator vector fields (cobblestone / brick /
-    flagstone / opus_romano / field_stone / cart_tracks /
-    ore_deposit). Each variant ports at sub-steps 6–12; until
-    then the legacy decorator pipeline keeps flowing through
-    ``FloorDetailOp.decorator_groups`` (the passthrough), so
-    this handler must produce nothing — emitting fragments here
-    on top of the passthrough would double-draw the layer.
-    ``DecoratorOp`` is wired into ``_OP_HANDLERS`` so the
-    dispatcher's "no handler" guard doesn't fire if a hand-
-    crafted IR ships the op type ahead of the per-variant
-    ports.
+    Sub-step 6 promotes the empty-arm stub from step 5 into a
+    real handler that walks the per-variant vectors and routes
+    each to its Rust port. Cobblestone is wired here; the
+    remaining six variants land at sub-steps 7–12 (each port
+    plugs in additional per-vector dispatch). Until then the
+    other variants' fragments still ride through
+    ``FloorDetailOp.decorator_groups`` (the passthrough) and
+    the dispatcher must not double-draw them.
     """
-    del entry, fir
-    return []
+    del fir
+    import nhc_render
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    out: list[str] = []
+    seed = int(op.seed)
+
+    cobble_variants = op.cobblestone if op.cobblestone is not None else []
+    for variant in cobble_variants:
+        v_tiles = variant.tiles or []
+        if not v_tiles:
+            continue
+        tiles = [(t.x, t.y) for t in v_tiles]
+        out.extend(nhc_render.draw_cobblestone(tiles, seed))
+
+    return out
 
 
 _OP_HANDLERS[Op.Op.DecoratorOp] = _draw_decorator_from_ir

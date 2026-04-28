@@ -750,12 +750,15 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
 
     from nhc.rendering._decorators import walk_and_paint
     from nhc.rendering._floor_detail import (
-        BRICK, CART_TRACK_RAILS, CART_TRACK_TIES, COBBLE_STONE,
-        COBBLESTONE, FIELD_STONE, FLAGSTONE,
-        OPUS_ROMANO, ORE_DEPOSIT,
-        _render_wood_floor,
+        BRICK, CART_TRACK_RAILS, CART_TRACK_TIES,
+        FIELD_STONE, FLAGSTONE, OPUS_ROMANO, ORE_DEPOSIT,
+        _is_cobble_tile, _render_wood_floor,
     )
-    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb import CobblePattern, Op
+    from nhc.rendering.ir._fb.CobblestoneVariant import (
+        CobblestoneVariantT,
+    )
+    from nhc.rendering.ir._fb.DecoratorOp import DecoratorOpT
     from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
@@ -796,10 +799,14 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     theme = ctx.theme
     candidates = _floor_detail_candidates(level)
 
+    # Sub-step 6: COBBLESTONE / COBBLE_STONE move to the
+    # structured DecoratorOp.cobblestone[] vector below; the
+    # legacy walk_and_paint pipeline now skips both. The
+    # remaining six decorators stay on the legacy passthrough
+    # until their per-variant ports land at sub-steps 7–12.
     decorator_groups = list(walk_and_paint(
         ctx,
         [
-            COBBLESTONE, COBBLE_STONE,
             BRICK, FLAGSTONE, OPUS_ROMANO,
             FIELD_STONE,
             CART_TRACK_RAILS, CART_TRACK_TIES,
@@ -808,7 +815,13 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         layer_name="floor_detail",
     ))
 
-    if not (candidates or decorator_groups):
+    cobble_tiles: list[tuple[int, int]] = []
+    for y in range(level.height):
+        for x in range(level.width):
+            if _is_cobble_tile(level, x, y):
+                cobble_tiles.append((x, y))
+
+    if not (candidates or decorator_groups or cobble_tiles):
         return
 
     op = FloorDetailOpT()
@@ -829,6 +842,21 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     entry.opType = Op.Op.FloorDetailOp
     entry.op = op
     builder.add_op(entry)
+
+    if cobble_tiles:
+        cobble_variant = CobblestoneVariantT(
+            tiles=[TileCoordT(x=x, y=y) for x, y in cobble_tiles],
+            pattern=CobblePattern.CobblePattern.Cobble,
+        )
+        deco_op = DecoratorOpT()
+        deco_op.cobblestone = [cobble_variant]
+        deco_op.seed = seed + 333
+        deco_op.theme = theme
+        deco_op.clipRegion = ""
+        deco_entry = OpEntryT()
+        deco_entry.opType = Op.Op.DecoratorOp
+        deco_entry.op = deco_op
+        builder.add_op(deco_entry)
 
 
 def _emit_thematic_detail_ir(builder: "FloorIRBuilder") -> None:

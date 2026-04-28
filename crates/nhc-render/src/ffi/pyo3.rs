@@ -197,6 +197,21 @@ fn draw_floor_detail(
     )
 }
 
+/// Cobblestone decorator — Phase 4 sub-step 6.
+///
+/// Returns a list of `<g>` envelope strings: the cobblestone
+/// grid (3×3 jittered rects per tile, opacity 0.35) and an
+/// optional cobble-stone group (opacity 0.5 ellipses, 12 % per
+/// tile). The dispatcher at
+/// `ir_to_svg.py:_draw_decorator_from_ir` splats them into the
+/// floor_detail layer fragment. `tiles` is the cobble-tile list
+/// produced emit-side at the cobble candidate walk; `seed`
+/// already includes the legacy `+333` decorator-pipeline offset.
+#[pyfunction]
+fn draw_cobblestone(tiles: Vec<(i32, i32)>, seed: u64) -> Vec<String> {
+    primitives::cobblestone::draw_cobblestone(&tiles, seed)
+}
+
 /// Thematic-detail layer — Phase 4 sub-step 4.d.
 ///
 /// Returns `(room_groups, corridor_groups)`: two lists of `<g>`
@@ -270,5 +285,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_hatch_room, m)?)?;
     m.add_function(wrap_pyfunction!(draw_floor_detail, m)?)?;
     m.add_function(wrap_pyfunction!(draw_thematic_detail, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_cobblestone, m)?)?;
     Ok(())
 }
