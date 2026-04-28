@@ -865,14 +865,16 @@ def _draw_terrain_tint_from_ir(
 ) -> list[str]:
     """Reproduce ``_render_terrain_tints``.
 
-    Per-tile WATER / GRASS / LAVA / CHASM rects (with the palette
-    tint + opacity for the floor's theme) wrapped in a dungeon-
-    interior clipPath, then per-room hint washes appended after.
-    The IR carries the resolved color + opacity inline on each
-    ``RoomWash`` so the handler doesn't need the room-tag table.
-    Terrain colors come from the palette keyed on ``fir.theme``.
+    Phase 4.1 — the per-tile tint rect emission and the per-room
+    wash emission live in
+    ``crates/nhc-render/src/primitives/terrain_tints.rs`` and are
+    reached via ``nhc_render.draw_terrain_tints``. The Python
+    side resolves the palette from ``fir.theme`` (display data,
+    stays Python-side) and owns the dungeon-interior clip
+    envelope (the IR's region polygon stays Python-side too —
+    only the layer's RNG-free string emission moved to Rust).
     """
-    from nhc.dungeon.model import Terrain
+    import nhc_render
     from nhc.rendering.terrain_palette import get_palette
 
     op = OpCreator(entry.OpType(), entry.Op())
@@ -880,23 +882,30 @@ def _draw_terrain_tint_from_ir(
 
     theme = _to_str(fir.Theme())
     palette = get_palette(theme)
-    style_by_kind = {
-        TerrainKind.TerrainKind.Water: palette.water,
-        TerrainKind.TerrainKind.Grass: palette.grass,
-        TerrainKind.TerrainKind.Lava: palette.lava,
-        TerrainKind.TerrainKind.Chasm: palette.chasm,
+    # Discriminant-keyed palette (matches `TerrainKind` in
+    # `floor_ir.fbs`: Water=1, Lava=2, Chasm=3, Grass=4; None=0
+    # is the schema sentinel and never appears in emitted tiles).
+    palette_map = {
+        TerrainKind.TerrainKind.Water: (
+            palette.water.tint, palette.water.tint_opacity),
+        TerrainKind.TerrainKind.Lava: (
+            palette.lava.tint, palette.lava.tint_opacity),
+        TerrainKind.TerrainKind.Chasm: (
+            palette.chasm.tint, palette.chasm.tint_opacity),
+        TerrainKind.TerrainKind.Grass: (
+            palette.grass.tint, palette.grass.tint_opacity),
     }
-
-    tint_rects: list[str] = []
-    for tile in (op.tiles or []):
-        style = style_by_kind.get(tile.kind)
-        if style is None:
-            continue
-        tint_rects.append(
-            f'<rect x="{tile.x * CELL}" y="{tile.y * CELL}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{style.tint}" opacity="{style.tint_opacity}"/>'
-        )
+    tiles = [
+        (tile.x, tile.y, int(tile.kind))
+        for tile in (op.tiles or [])
+    ]
+    washes = [
+        (w.x, w.y, w.w, w.h, _to_str(w.color), float(w.opacity))
+        for w in (op.roomWashes or [])
+    ]
+    tint_rects, wash_rects = nhc_render.draw_terrain_tints(
+        tiles, palette_map, washes,
+    )
 
     clip_id = _to_str(op.clipRegion)
     if tint_rects:
@@ -912,19 +921,7 @@ def _draw_terrain_tint_from_ir(
         else:
             out.extend(tint_rects)
 
-    for w in (op.roomWashes or []):
-        color = _to_str(w.color)
-        # ROOM_TYPE_TINTS values are 2-decimal (0.06 / 0.12 / 0.15
-        # / 0.18); float32 storage would surface them as
-        # "0.05999999865889549". `:.2f` keeps the byte-equal
-        # contract with the legacy Python f-string. If a future
-        # tint table introduces sub-percent precision, switch the
-        # field to `double` in the schema.
-        out.append(
-            f'<rect x="{w.x * CELL}" y="{w.y * CELL}" '
-            f'width="{w.w * CELL}" height="{w.h * CELL}" '
-            f'fill="{color}" opacity="{w.opacity:.2f}"/>'
-        )
+    out.extend(wash_rects)
     return out
 
 

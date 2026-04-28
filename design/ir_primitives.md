@@ -163,10 +163,15 @@ Layer 350. Per-tile colour rect tints (water/grass/lava/chasm) +
 room-type washes. **No RNG, no Perlin.**
 
 - **Reference (Python):** `nhc/rendering/_terrain_detail.py` —
-  `_render_terrain_tints`.
-- **Reference (Rust):** TBD —
-  `crates/nhc-render/src/primitives/terrain.rs` (Phase 4, with
-  `TerrainDetailOp`).
+  `_render_terrain_tints`. Phase 4.1 left the helper in place
+  but unused on the IR path; Phase 7 deletes it.
+- **Reference (Rust):** Phase 4.1, **live** —
+  `crates/nhc-render/src/primitives/terrain_tints.rs`. The
+  Python handler at `ir_to_svg.py:_draw_terrain_tint_from_ir`
+  resolves the palette from `fir.theme` (display data, stays
+  Python-side) and owns the dungeon-interior clip envelope;
+  the Rust function returns formatted `<rect>` strings for the
+  per-tile tints and the per-room washes.
 - **Seed:** none.
 - **Perlin:** none.
 - **SVG shape:**

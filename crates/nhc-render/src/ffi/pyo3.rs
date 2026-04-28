@@ -4,11 +4,14 @@
 //! `nhc_render`. Module surface grows primitive-by-primitive per
 //! `plans/nhc_ir_migration_plan.md` Phase 3+. Today:
 //! `splitmix64_next` (Phase 0.3 sentinel), `perlin2` (Phase 3
-//! cross-language gate), and `draw_floor_grid` (Phase 3 canary
-//! primitive).
+//! cross-language gate), `draw_floor_grid` (Phase 3 canary
+//! primitive), and `draw_terrain_tints` (Phase 4.1 first
+//! deterministic primitive).
 //!
 //! Only compiled when the `pyo3` feature is on — disabled for
 //! WASM builds and for `cargo test`-without-features.
+
+use std::collections::HashMap;
 
 use pyo3::prelude::*;
 
@@ -65,6 +68,32 @@ fn draw_floor_grid(
     )
 }
 
+/// Terrain-tints layer — Phase 4.1, first deterministic Phase 4
+/// port.
+///
+/// Returns `(tint_rects, wash_rects)`: two lists of formatted
+/// `<rect>` strings. The Python handler at
+/// `ir_to_svg.py:_draw_terrain_tint_from_ir` stitches them into
+/// the layer fragment, wrapping `tint_rects` in the dungeon-
+/// interior clip envelope when the IR carries one.
+///
+/// The palette is resolved Python-side (the colour table at
+/// `nhc/rendering/terrain_palette.py` is display data, not
+/// procedural logic) and crossed via the four `(tint, opacity)`
+/// pairs in the schema's enum order (`Water`, `Grass`, `Lava`,
+/// `Chasm`). The byte-equal parity gate lives at
+/// `tests/unit/test_emit_terrain_tints_parity.py`.
+#[pyfunction]
+fn draw_terrain_tints(
+    tiles: Vec<(i32, i32, u8)>,
+    palette: HashMap<u8, (String, f64)>,
+    washes: Vec<(i32, i32, i32, i32, String, f64)>,
+) -> (Vec<String>, Vec<String>) {
+    primitives::terrain_tints::draw_terrain_tints(
+        &tiles, &palette, &washes,
+    )
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -73,5 +102,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(splitmix64_next, m)?)?;
     m.add_function(wrap_pyfunction!(perlin2, m)?)?;
     m.add_function(wrap_pyfunction!(draw_floor_grid, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_terrain_tints, m)?)?;
     Ok(())
 }
