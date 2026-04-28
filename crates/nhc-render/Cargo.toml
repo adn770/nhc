@@ -49,6 +49,11 @@ flatbuffers = "25.2"
 geo = "0.28"
 rand = "0.8"
 rand_pcg = "0.3"
+# Phase 5.1: `tiny-skia` drives the IR → PNG raster path. Default
+# features include `png-format`, which pulls in `png` for
+# `Pixmap::encode_png()` — that's the only sink the transform
+# needs, so we lean on it rather than a separate encoder dep.
+tiny-skia = "0.11"
 
 [dependencies.pyo3]
 version = "0.24"

@@ -10,6 +10,8 @@
 //! - `canvas.rs` — emits a typed-array stream of canvas2d
 //!   opcodes for the WASM Phase 6 client renderer.
 //!
-//! **Empty until Phase 5.** The module exists so primitive
-//! submodules can be written against a stable trait surface from
-//! the start.
+//! Phase 5.1 lands the `png` submodule with a stub that resolves
+//! the canvas dimensions and returns an empty PNG; later sub-
+//! phases populate the pixmap primitive-by-primitive.
+
+pub mod png;

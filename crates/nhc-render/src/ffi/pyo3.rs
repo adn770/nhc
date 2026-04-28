@@ -16,10 +16,12 @@
 use std::collections::HashMap;
 
 use pyo3::prelude::*;
+use pyo3::exceptions::PyValueError;
 
 use crate::perlin;
 use crate::primitives;
 use crate::rng::SplitMix64;
+use crate::transform::png as transform_png;
 
 /// Pull the next splitmix64 output for a given seed.
 ///
@@ -381,6 +383,22 @@ fn draw_walls_and_floors(
     )
 }
 
+/// IR → PNG raster — Phase 5.1 stub.
+///
+/// Reads a `FloorIR` FlatBuffer and returns the rasterised PNG
+/// bytes. `scale` multiplies the SVG-equivalent canvas size; the
+/// `.png` web endpoint passes 1.0 to match the legacy `resvg-py`
+/// rendering. The current implementation produces an empty
+/// (transparent) pixmap at the correct dimensions; later Phase 5
+/// sub-commits populate it primitive-by-primitive without
+/// changing this signature.
+#[pyfunction]
+#[pyo3(signature = (ir_bytes, scale = 1.0))]
+fn ir_to_png(ir_bytes: &[u8], scale: f32) -> PyResult<Vec<u8>> {
+    transform_png::floor_ir_to_png(ir_bytes, scale)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -411,5 +429,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_fountain, m)?)?;
     m.add_function(wrap_pyfunction!(draw_bush, m)?)?;
     m.add_function(wrap_pyfunction!(draw_tree, m)?)?;
+    m.add_function(wrap_pyfunction!(ir_to_png, m)?)?;
     Ok(())
 }
