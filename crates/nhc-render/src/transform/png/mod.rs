@@ -25,9 +25,11 @@ use crate::ir::{
 // Shared infrastructure consumed by per-primitive handlers.
 mod path_parser;
 mod polygon_path;
+mod svg_attr;
 
 // Per-primitive raster handlers — one module per Op kind.
 mod floor_grid;
+mod hatch;
 mod shadow;
 mod stairs;
 mod terrain_tints;
@@ -138,6 +140,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::TerrainTintOp.0, terrain_tints::draw);
         m.insert(Op::FloorGridOp.0, floor_grid::draw);
         m.insert(Op::StairsOp.0, stairs::draw);
+        m.insert(Op::HatchOp.0, hatch::draw);
         m
     })
 }
