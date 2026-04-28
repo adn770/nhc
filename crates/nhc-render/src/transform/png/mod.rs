@@ -29,6 +29,7 @@ mod polygon_path;
 // Per-primitive raster handlers — one module per Op kind.
 mod floor_grid;
 mod shadow;
+mod stairs;
 mod terrain_tints;
 mod walls_and_floors;
 
@@ -136,6 +137,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::WallsAndFloorsOp.0, walls_and_floors::draw);
         m.insert(Op::TerrainTintOp.0, terrain_tints::draw);
         m.insert(Op::FloorGridOp.0, floor_grid::draw);
+        m.insert(Op::StairsOp.0, stairs::draw);
         m
     })
 }
