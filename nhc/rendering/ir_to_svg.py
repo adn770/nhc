@@ -24,18 +24,10 @@ Each handler returns a list of SVG element-line strings that are
 
 from __future__ import annotations
 
-import math
-import random
 import re
 
 from typing import Any, Callable
 
-from shapely.geometry import LineString
-
-from nhc.rendering import _perlin as _noise
-from nhc.rendering._dungeon_polygon import (
-    _build_sections, _pick_section_points,
-)
 from nhc.rendering._svg_helpers import (
     BG, CAVE_FLOOR_COLOR, CELL, FLOOR_COLOR, GRID_WIDTH,
     HATCH_UNDERLAY, INK, WALL_WIDTH, _wobbly_grid_seg,
@@ -321,14 +313,14 @@ _OP_HANDLERS[Op.Op.ShadowOp] = _draw_shadow_from_ir
 
 
 def _draw_hatch_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
-    """Reproduce ``_render_hatching`` / ``_render_corridor_hatching``.
+    """Dispatch to the corridor / room / hole hatch handler.
 
-    1.c.1 ships the Corridor branch — replays the per-tile RNG and
-    Perlin sequence in ``design/ir_primitives.md`` §7.2 order, with
-    the tile list pre-sorted by the emitter so
-    ``random.Random(op.seed)`` walks each tile's stones, section
-    partitioning, and stroke wobble in the legacy order. The Room
-    branch lands in 1.c.2.
+    Sub-step 1.e (plan §8) routes Corridor + Room through the Rust
+    `nhc_render.draw_hatch_*` entry points; the relaxed parity gate
+    (1.a invariants + 1.f snapshot lock) replaces the legacy
+    byte-equal contract for these branches. Hole stays schema-
+    reserved — the emitter never produces it under the Phase 1
+    contract.
     """
     op = OpCreator(entry.OpType(), entry.Op())
     if op.kind == HatchKind.HatchKind.Corridor:
@@ -347,126 +339,25 @@ def _draw_hatch_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
 
 
 def _draw_hatch_corridor(op: Any) -> list[str]:
-    """Per-tile fill / stones / Perlin-anchored hatch lines.
+    """Corridor halo — Phase 4 sub-step 1.e: delegate to Rust.
 
-    Mirrors ``_render_corridor_hatching`` line-for-line but drives
-    the iteration off ``op.tiles`` (pre-sorted by the emitter)
-    instead of recomputing the tile set. The three output groups
-    (fill, lines, stones) are returned as separate strings so the
-    layer-level ``\\n`` join matches the legacy ``svg.append`` pattern.
+    The Rust impl
+    (``crates/nhc-render/src/primitives/hatch.rs::draw_hatch_corridor``)
+    owns the per-tile painting (stone scatter, section
+    partitioning, Perlin-wobbled strokes); this handler wraps the
+    three returned fragment buckets in the legacy
+    ``<g opacity="...">`` envelopes. The relaxed parity gate
+    (sub-step 1.a invariants + 1.f snapshot lock) is the contract
+    going forward — byte-equal-with-legacy is dropped.
     """
-    rng = random.Random(op.seed)
-    min_stroke = 1.0
-    max_stroke = 1.8
-    tile_fills: list[str] = []
-    hatch_lines: list[str] = []
-    hatch_stones: list[str] = []
+    import nhc_render
 
-    for tile in op.tiles:
-        gx, gy = tile.x, tile.y
-        tile_fills.append(
-            f'<rect x="{gx * CELL}" y="{gy * CELL}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{HATCH_UNDERLAY}"/>'
-        )
-
-        n_stones = rng.choices([0, 1, 2], weights=[0.5, 0.35, 0.15])[0]
-        for _ in range(n_stones):
-            sx = (gx + rng.uniform(0.15, 0.85)) * CELL
-            sy = (gy + rng.uniform(0.15, 0.85)) * CELL
-            rx = rng.uniform(2, CELL * 0.25)
-            ry = rng.uniform(2, CELL * 0.2)
-            angle = rng.uniform(0, 180)
-            sw = rng.uniform(1.2, 2.0)
-            hatch_stones.append(
-                f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
-                f'rx="{rx:.1f}" ry="{ry:.1f}" '
-                f'transform="rotate({angle:.0f},'
-                f'{sx:.1f},{sy:.1f})" '
-                f'fill="{HATCH_UNDERLAY}" stroke="#666666" '
-                f'stroke-width="{sw:.1f}"/>'
-            )
-
-        nr = CELL * 0.1
-        adx = _noise.pnoise2(gx * 0.5, gy * 0.5, base=1) * nr
-        ady = _noise.pnoise2(gx * 0.5, gy * 0.5, base=2) * nr
-        anchor = (
-            (gx + 0.5) * CELL + adx,
-            (gy + 0.5) * CELL + ady,
-        )
-        corners = [
-            (gx * CELL, gy * CELL),
-            ((gx + 1) * CELL, gy * CELL),
-            ((gx + 1) * CELL, (gy + 1) * CELL),
-            (gx * CELL, (gy + 1) * CELL),
-        ]
-        pts = _pick_section_points(corners, anchor, CELL, rng)
-        sections = _build_sections(anchor, pts, corners)
-
-        for i, section in enumerate(sections):
-            if section.is_empty or section.area < 1:
-                continue
-            if i == 0:
-                seg_angle = math.atan2(
-                    pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]
-                )
-            else:
-                seg_angle = rng.uniform(0, math.pi)
-
-            bounds = section.bounds
-            diag = math.hypot(
-                bounds[2] - bounds[0], bounds[3] - bounds[1]
-            )
-            spacing = CELL * 0.20
-            n_lines = max(3, int(diag / spacing))
-
-            for j in range(n_lines):
-                offset = (j - (n_lines - 1) / 2) * spacing
-                scx = section.centroid.x
-                scy = section.centroid.y
-                perp_x = math.cos(seg_angle + math.pi / 2) * offset
-                perp_y = math.sin(seg_angle + math.pi / 2) * offset
-                line = LineString([
-                    (
-                        scx + perp_x - math.cos(seg_angle) * diag,
-                        scy + perp_y - math.sin(seg_angle) * diag,
-                    ),
-                    (
-                        scx + perp_x + math.cos(seg_angle) * diag,
-                        scy + perp_y + math.sin(seg_angle) * diag,
-                    ),
-                ])
-                clipped = section.intersection(line)
-                if (
-                    clipped.is_empty
-                    or not isinstance(clipped, LineString)
-                ):
-                    continue
-                p1, p2 = list(clipped.coords)
-                wb = CELL * 0.03
-                p1 = (
-                    p1[0] + _noise.pnoise2(
-                        p1[0] * 0.1, p1[1] * 0.1, base=10) * wb,
-                    p1[1] + _noise.pnoise2(
-                        p1[0] * 0.1, p1[1] * 0.1, base=11) * wb,
-                )
-                p2 = (
-                    p2[0] + _noise.pnoise2(
-                        p2[0] * 0.1, p2[1] * 0.1, base=12) * wb,
-                    p2[1] + _noise.pnoise2(
-                        p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
-                )
-                lsw = rng.uniform(min_stroke, max_stroke)
-                hatch_lines.append(
-                    f'<line x1="{p1[0]:.1f}" '
-                    f'y1="{p1[1]:.1f}" '
-                    f'x2="{p2[0]:.1f}" '
-                    f'y2="{p2[1]:.1f}" '
-                    f'stroke="{INK}" '
-                    f'stroke-width="{lsw:.2f}" '
-                    f'stroke-linecap="round"/>'
-                )
-
+    tiles = [(t.x, t.y) for t in op.tiles]
+    if not tiles:
+        return []
+    tile_fills, hatch_lines, hatch_stones = (
+        nhc_render.draw_hatch_corridor(tiles, op.seed)
+    )
     out: list[str] = []
     if tile_fills:
         out.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
@@ -478,159 +369,41 @@ def _draw_hatch_corridor(op: Any) -> list[str]:
 
 
 def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
-    """Reproduce ``_render_hatching`` (perimeter halo).
+    """Room halo — Phase 4 sub-step 1.e: delegate to Rust.
 
-    Sub-step 1.b (Boundary B, plan §8) shifts the deterministic
-    candidate-walk + Perlin distance filter to the emitter; this
-    handler iterates the pre-filtered candidate tiles in row-major
-    order and applies only the RNG-driven 10 % skip plus the
-    painting passes (stone scatter, section partitioning, Perlin-
-    wobbled strokes). ``op.is_outer[i]`` carries the
-    ``dist > base_distance_limit*0.5`` flag — already cave-aware
-    (False in cave mode) — so the gate condenses to
-    ``is_outer[i] and rng.random() < 0.10``. The RNG stream order
-    is preserved against the legacy gate; only the source of the
-    candidate walk moved.
+    Sub-step 1.b shifted the candidate walk + Perlin distance
+    filter to the emitter; sub-step 1.d ported the painting
+    passes to Rust
+    (``crates/nhc-render/src/primitives/hatch.rs::draw_hatch_room``).
+    This handler resolves the dungeon-region polygon for the
+    clipPath envelope, calls into Rust for the three SVG fragment
+    buckets, and wraps the result. The clipPath construction
+    stays Python-side because it depends on the IR's
+    ``op.regionOut`` polygon directly — exposing the FB Polygon
+    walker through PyO3 would buy nothing under the relaxed
+    parity gate. The Hole kind is unreachable at the dispatcher
+    level; this branch only handles Room.
     """
+    import nhc_render
+
     region = _find_region(fir, op.regionOut)
     if region is None:
-        # Legacy short-circuits when dungeon_poly is empty — emitter
-        # also skips the op then, so an unresolved region_out here
-        # means the IR was hand-crafted; bail to match.
         return []
-    if not op.tiles:
+    tiles = [(t.x, t.y) for t in op.tiles]
+    if not tiles:
         return []
 
-    width = fir.WidthTiles()
-    height = fir.HeightTiles()
-    rng = random.Random(op.seed)
-    min_stroke = 1.0
-    max_stroke = 1.8
-    tile_fills: list[str] = []
-    hatch_lines: list[str] = []
-    hatch_stones: list[str] = []
-    # ``isOuter`` may be a list or a numpy array depending on the
-    # FlatBuffers Python codegen path; index without truth-testing
-    # the container.
-    is_outer = op.isOuter
+    is_outer_raw = op.isOuter
+    if is_outer_raw is None:
+        is_outer = [False] * len(tiles)
+    else:
+        # ``isOuter`` may surface as a numpy array; normalise to a
+        # list[bool] for the PyO3 boundary.
+        is_outer = [bool(b) for b in is_outer_raw]
 
-    for i, tile in enumerate(op.tiles):
-        gx, gy = tile.x, tile.y
-
-        # 10% RNG-driven discontinuity. ``is_outer`` already
-        # encodes ``not cave_mode and dist > base_distance_limit*0.5``,
-        # so the rng.random() call fires in the same lock-step as
-        # the legacy walk.
-        if (
-            is_outer is not None
-            and is_outer[i]
-            and rng.random() < 0.10
-        ):
-            continue
-
-        tile_fills.append(
-            f'<rect x="{gx * CELL}" y="{gy * CELL}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{HATCH_UNDERLAY}"/>'
-        )
-
-        n_stones = rng.choices(
-            [0, 1, 2, 3], weights=[0.25, 0.35, 0.25, 0.15]
-        )[0]
-        for _ in range(n_stones):
-            sx = (gx + rng.uniform(0.15, 0.85)) * CELL
-            sy = (gy + rng.uniform(0.15, 0.85)) * CELL
-            rx = rng.uniform(2, CELL * 0.25)
-            ry = rng.uniform(2, CELL * 0.2)
-            angle = rng.uniform(0, 180)
-            sw = rng.uniform(1.2, 2.0)
-            hatch_stones.append(
-                f'<ellipse cx="{sx:.1f}" cy="{sy:.1f}" '
-                f'rx="{rx:.1f}" ry="{ry:.1f}" '
-                f'transform="rotate({angle:.0f},'
-                f'{sx:.1f},{sy:.1f})" '
-                f'fill="{HATCH_UNDERLAY}" stroke="#666666" '
-                f'stroke-width="{sw:.1f}"/>'
-            )
-
-        nr = CELL * 0.1
-        adx = _noise.pnoise2(gx * 0.5, gy * 0.5, base=1) * nr
-        ady = _noise.pnoise2(gx * 0.5, gy * 0.5, base=2) * nr
-        anchor = (
-            (gx + 0.5) * CELL + adx,
-            (gy + 0.5) * CELL + ady,
-        )
-        corners = [
-            (gx * CELL, gy * CELL),
-            ((gx + 1) * CELL, gy * CELL),
-            ((gx + 1) * CELL, (gy + 1) * CELL),
-            (gx * CELL, (gy + 1) * CELL),
-        ]
-        pts = _pick_section_points(corners, anchor, CELL, rng)
-        sections = _build_sections(anchor, pts, corners)
-
-        for sec_i, section in enumerate(sections):
-            if section.is_empty or section.area < 1:
-                continue
-            if sec_i == 0:
-                seg_angle = math.atan2(
-                    pts[1][1] - pts[0][1],
-                    pts[1][0] - pts[0][0],
-                )
-            else:
-                seg_angle = rng.uniform(0, math.pi)
-
-            bounds = section.bounds
-            diag = math.hypot(
-                bounds[2] - bounds[0], bounds[3] - bounds[1]
-            )
-            spacing = CELL * 0.20
-            n_lines = max(3, int(diag / spacing))
-
-            for j in range(n_lines):
-                offset = (j - (n_lines - 1) / 2) * spacing
-                cx = section.centroid.x
-                cy = section.centroid.y
-                perp_x = math.cos(seg_angle + math.pi / 2) * offset
-                perp_y = math.sin(seg_angle + math.pi / 2) * offset
-                line = LineString([
-                    (
-                        cx + perp_x - math.cos(seg_angle) * diag,
-                        cy + perp_y - math.sin(seg_angle) * diag,
-                    ),
-                    (
-                        cx + perp_x + math.cos(seg_angle) * diag,
-                        cy + perp_y + math.sin(seg_angle) * diag,
-                    ),
-                ])
-                clipped = section.intersection(line)
-                if (
-                    clipped.is_empty
-                    or not isinstance(clipped, LineString)
-                ):
-                    continue
-                p1, p2 = list(clipped.coords)
-                wb = CELL * 0.03
-                p1 = (
-                    p1[0] + _noise.pnoise2(
-                        p1[0] * 0.1, p1[1] * 0.1, base=10) * wb,
-                    p1[1] + _noise.pnoise2(
-                        p1[0] * 0.1, p1[1] * 0.1, base=11) * wb,
-                )
-                p2 = (
-                    p2[0] + _noise.pnoise2(
-                        p2[0] * 0.1, p2[1] * 0.1, base=12) * wb,
-                    p2[1] + _noise.pnoise2(
-                        p2[0] * 0.1, p2[1] * 0.1, base=13) * wb,
-                )
-                sw = rng.uniform(min_stroke, max_stroke)
-                hatch_lines.append(
-                    f'<line x1="{p1[0]:.1f}" y1="{p1[1]:.1f}" '
-                    f'x2="{p2[0]:.1f}" y2="{p2[1]:.1f}" '
-                    f'stroke="{INK}" stroke-width="{sw:.2f}" '
-                    f'stroke-linecap="round"/>'
-                )
-
+    tile_fills, hatch_lines, hatch_stones = (
+        nhc_render.draw_hatch_room(tiles, is_outer, op.seed)
+    )
     if not (tile_fills or hatch_lines or hatch_stones):
         return []
 
@@ -638,6 +411,8 @@ def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
     # that hatches everything outside the dungeon floor — see the
     # rationale comment in `_render_hatching`. Holes inside cave
     # walls flip back to "hatch" by re-including the hole rings.
+    width = fir.WidthTiles()
+    height = fir.HeightTiles()
     map_w = width * CELL
     map_h = height * CELL
     margin = CELL * 2

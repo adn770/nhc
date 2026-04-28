@@ -27,6 +27,7 @@ from __future__ import annotations
 import math
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 
 import pytest
 
@@ -36,6 +37,11 @@ from nhc.rendering.ir_to_svg import layer_to_svg
 from tests.fixtures.floor_ir._inputs import (
     all_descriptors,
     descriptor_inputs,
+)
+
+
+_FIXTURE_ROOT = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "floor_ir"
 )
 
 
@@ -151,4 +157,33 @@ def test_deterministic(descriptor: str) -> None:
     assert svg_a == svg_b, (
         f"{descriptor}: hatching layer is not deterministic "
         f"(diff at byte {next((i for i, (a, b) in enumerate(zip(svg_a, svg_b)) if a != b), -1)})"
+    )
+
+
+@pytest.mark.parametrize("descriptor", all_descriptors())
+def test_hatch_snapshot_matches_fixture(descriptor: str) -> None:
+    """Sub-step 1.f — byte-equal snapshot lock against the Rust port.
+
+    Pairs with the structural invariants above: the invariants pin
+    *what* the layer must produce (well-formed XML, sane stroke
+    counts, deterministic), the snapshot pins *exactly* what it
+    produces. Drift on either the emitter (1.b candidate walk) or
+    the Rust impl (1.d painting) trips this gate first.
+
+    The fixture lives at
+    ``tests/fixtures/floor_ir/<descriptor>/hatch.svg`` and is
+    refreshed via ``python -m tests.samples.regenerate_fixtures``.
+    """
+    inputs = descriptor_inputs(descriptor)
+    actual = layer_to_svg(_build_buf(inputs), layer="hatching")
+    fixture = _FIXTURE_ROOT / descriptor / "hatch.svg"
+    assert fixture.exists(), (
+        f"{descriptor}: hatch.svg fixture missing — re-run "
+        f"`python -m tests.samples.regenerate_fixtures`"
+    )
+    expected = fixture.read_text()
+    assert actual == expected, (
+        f"{descriptor}: hatching layer drifts from snapshot. "
+        f"If this drift is intentional, refresh fixtures via "
+        f"`python -m tests.samples.regenerate_fixtures`."
     )
