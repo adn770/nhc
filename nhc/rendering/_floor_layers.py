@@ -670,22 +670,6 @@ def _emit_floor_grid_ir(builder: "FloorIRBuilder") -> None:
     builder.add_op(entry)
 
 
-def _floor_detail_paint(ctx: RenderContext) -> Iterable[str]:
-    from nhc.rendering._floor_detail import _render_floor_detail
-    building_polygon = (
-        list(ctx.building_polygon)
-        if ctx.building_polygon is not None
-        else None
-    )
-    out: list[str] = []
-    _render_floor_detail(
-        out, ctx.level, ctx.seed, ctx.dungeon_poly,
-        building_polygon=building_polygon,
-        ctx=ctx,
-    )
-    return out
-
-
 def _floor_detail_candidates(
     level,
 ) -> list[tuple[int, int, bool]]:
@@ -1344,12 +1328,6 @@ FLOOR_LAYERS: tuple[Layer, ...] = (
         order=400,
         is_active=lambda ctx: True,
         paint=_floor_grid_paint,
-    ),
-    Layer(
-        name="floor_detail",
-        order=500,
-        is_active=lambda ctx: True,
-        paint=_floor_detail_paint,
     ),
     Layer(
         name="terrain_detail",

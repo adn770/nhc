@@ -293,21 +293,8 @@ from nhc.rendering._hatching import (  # noqa: E402
 )
 
 from nhc.rendering._floor_detail import (  # noqa: E402
-    _DETAIL_SCALE,
-    _TERRAIN_TYPES,
-    _THEMATIC_DEFAULT,
-    _THEMATIC_DETAIL_PROBS,
-    _bone_detail,
     _dungeon_interior_clip,
-    _emit_detail,
-    _emit_thematic_detail,
-    _floor_stone,
-    _render_floor_detail,
     _render_floor_grid,
-    _skull_detail,
-    _tile_detail,
-    _tile_thematic_detail,
-    _web_detail,
 )
 from nhc.rendering._terrain_detail import (  # noqa: E402
     _chasm_detail,

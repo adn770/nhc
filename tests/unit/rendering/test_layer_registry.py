@@ -38,7 +38,7 @@ class TestRegistryShape:
         names = {layer.name for layer in FLOOR_LAYERS}
         assert {
             "shadows", "hatching", "walls_and_floors",
-            "terrain_tints", "floor_grid", "floor_detail",
+            "terrain_tints", "floor_grid",
             "terrain_detail", "stairs",
         } <= names
 

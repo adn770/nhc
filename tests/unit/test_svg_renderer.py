@@ -1,7 +1,6 @@
 """Tests for the SVG floor renderer."""
 
 import re
-from unittest.mock import patch
 
 from shapely.geometry import Point, box
 
@@ -10,7 +9,7 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering.svg import (
     CELL, FLOOR_STONE_FILL, PADDING,
-    _render_floor_detail, _render_floor_grid, _room_shapely_polygon,
+    _render_floor_grid, _room_shapely_polygon,
     render_floor_svg,
 )
 
@@ -229,30 +228,6 @@ class TestSVGOutput:
                 break
         assert found, "No Y-scratch found in any seed"
 
-    def test_cracks_and_scratches_mutually_exclusive(self):
-        """A tile never has both a crack and a Y-scratch."""
-        level = Level.create_empty("t", "T", depth=1,
-                                   width=30, height=30)
-        for y in range(1, 29):
-            for x in range(1, 29):
-                level.tiles[y][x] = Tile(terrain=Terrain.FLOOR)
-        level.rooms.append(Room(id="r", rect=Rect(1, 1, 28, 28)))
-        # Run many seeds; check that the scratch count never exceeds
-        # total tiles minus crack count (a rough structural check).
-        # The real guarantee is in the code logic (elif), but we can
-        # verify by checking both appear but the total detail count
-        # (cracks + scratches) never exceeds tile count.
-        for seed in [0, 7, 42]:
-            svg_parts: list[str] = []
-            _render_floor_detail(svg_parts, level, seed)
-            joined = "".join(svg_parts)
-            crack_count = joined.count("<polygon")
-            scratch_count = joined.count("y-scratch")
-            # With ~784 tiles and low chances, both should appear
-            # but never on the same tile — total can't exceed 784
-            assert crack_count + scratch_count <= 784
-
-
 class TestRoomShapelyPolygon:
     """_room_shapely_polygon must return a polygon for every room type,
     covering the full wall-path area (bounding rect for rect rooms,
@@ -345,53 +320,6 @@ class TestGridAndDetailOnWallTiles:
         assert seg_count >= min_expected, (
             f"Grid produced {seg_count} segments, expected >= "
             f"{min_expected} (all tiles in room rect processed)")
-
-    def test_detail_only_processes_floor_tiles(self):
-        """_render_floor_detail only generates detail on FLOOR
-        tiles. WALL and VOID tiles are skipped outright now --
-        the old all-tiles-then-clip strategy leaked spurious
-        detail onto surface levels that have no rooms (and so no
-        dungeon polygon to clip against)."""
-        level = self._make_walled_level()
-        called_coords: list[tuple[int, int]] = []
-        original = __import__(
-            'nhc.rendering.svg', fromlist=['_tile_detail']
-        )._tile_detail
-
-        def tracking_tile_detail(rng, x, y, seed, *args, **kwargs):
-            called_coords.append((x, y))
-            return original(rng, x, y, seed, *args, **kwargs)
-
-        with patch('nhc.rendering.svg._tile_detail',
-                   side_effect=tracking_tile_detail):
-            _render_floor_detail([], level, 42)
-
-        r = level.rooms[0].rect
-        floor_coords = {
-            (x, y)
-            for y in range(r.y, r.y2)
-            for x in range(r.x, r.x2)
-            if level.tiles[y][x].terrain == Terrain.FLOOR
-        }
-        wall_coords = {
-            (x, y)
-            for y in range(r.y, r.y2)
-            for x in range(r.x, r.x2)
-            if level.tiles[y][x].terrain == Terrain.WALL
-        }
-        called_set = set(called_coords)
-        # Every FLOOR tile got the detail call
-        assert floor_coords <= called_set, (
-            f"missing FLOOR tiles: "
-            f"{sorted(floor_coords - called_set)[:5]}..."
-        )
-        # No WALL tile got the detail call
-        leaked = wall_coords & called_set
-        assert not leaked, (
-            f"_tile_detail was called on WALL tiles: "
-            f"{sorted(leaked)[:5]}..."
-        )
-
 
 class TestSecretDoorGridRouting:
     """Secret doors sit on the wall line between rooms, outside
