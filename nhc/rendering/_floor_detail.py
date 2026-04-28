@@ -701,32 +701,8 @@ def _render_floor_detail(
         _emit_detail(svg, cor_cracks, cor_stones, cor_scratches)
         _emit_thematic_detail(svg, cor_webs, cor_bones, cor_skulls)
 
-    # Phase 2 / 3a / 3b decorators — cobblestone, field, cart
-    # tracks, ore deposits. All run through the unified
-    # TileDecorator pipeline so adding biome variants is one new
-    # entry per decorator. Garden tiles render as a flat grass
-    # tint with no per-tile overlay; the old GARDEN_LINE hoe-row
-    # decorator scribbled too much at town scale.
-    from nhc.rendering._decorators import walk_and_paint
-    svg.extend(walk_and_paint(
-        ctx,
-        [
-            COBBLESTONE, COBBLE_STONE,
-            BRICK, FLAGSTONE, OPUS_ROMANO,
-            FIELD_STONE,
-            CART_TRACK_RAILS, CART_TRACK_TIES,
-            ORE_DEPOSIT,
-        ],
-        layer_name="floor_detail",
-    ))
-
 
 # ── Cobblestone (STREET + PAVED) ─────────────────────────────
-
-_COBBLE_STROKE = "#8A7A6A"
-_COBBLE_FILL = "#E8DFD0"
-_STONE_FILL = "#C8BEB0"
-_STONE_STROKE = "#9A8A7A"
 
 _COBBLESTONE_SURFACES = (SurfaceType.STREET, SurfaceType.PAVED)
 
@@ -735,147 +711,7 @@ def _is_cobble_tile(level: "Level", x: int, y: int) -> bool:
     return level.tiles[y][x].surface_type in _COBBLESTONE_SURFACES
 
 
-def _cobblestone_paint(args) -> list[str]:
-    """Paint the 3x3 cobblestone grid for one tile.
-
-    Decorator entry point for :data:`COBBLESTONE`. Forwards to the
-    geometry helper :func:`_cobblestone_tile`.
-    """
-    cobbles: list[str] = []
-    _cobblestone_tile(args.rng, args.px, args.py, cobbles)
-    return cobbles
-
-
-def _cobble_stone_paint(args) -> list[str]:
-    """Paint an occasional decorative stone on a cobble tile."""
-    if args.rng.random() >= 0.12:
-        return []
-    stones: list[str] = []
-    _cobble_stone(args.rng, args.px, args.py, stones)
-    return stones
-
-
-def _cobblestone_tile(
-    rng: random.Random, px: float, py: float,
-    cobbles: list[str],
-) -> None:
-    """Draw a grid of irregular small rectangles for one tile."""
-    # 3x3 cobblestone grid within the tile
-    cols, rows = 3, 3
-    cw = CELL / cols
-    ch = CELL / rows
-    for row in range(rows):
-        for col in range(cols):
-            # Jitter position and size for irregularity
-            jx = rng.uniform(-cw * 0.1, cw * 0.1)
-            jy = rng.uniform(-ch * 0.1, ch * 0.1)
-            jw = rng.uniform(-cw * 0.08, cw * 0.08)
-            jh = rng.uniform(-ch * 0.08, ch * 0.08)
-            cx = px + col * cw + jx + 0.5
-            cy = py + row * ch + jy + 0.5
-            sw = cw + jw - 1.0
-            sh = ch + jh - 1.0
-            if sw > 2 and sh > 2:
-                cobbles.append(
-                    f'<rect x="{cx:.1f}" y="{cy:.1f}" '
-                    f'width="{sw:.1f}" height="{sh:.1f}" '
-                    f'rx="1"/>'
-                )
-
-
-def _cobble_stone(
-    rng: random.Random, px: float, py: float,
-    stones: list[str],
-) -> None:
-    """Place a small decorative stone on a cobble tile."""
-    cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
-    cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
-    rx = rng.uniform(1.5, 3.0)
-    ry = rng.uniform(1.0, 2.5)
-    angle = rng.uniform(0, 180)
-    stones.append(
-        f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
-        f'rx="{rx:.1f}" ry="{ry:.1f}" '
-        f'transform="rotate({angle:.0f},{cx:.1f},{cy:.1f})" '
-        f'fill="{_STONE_FILL}" stroke="{_STONE_STROKE}" '
-        f'stroke-width="0.5"/>'
-    )
-
-
-# Decorators (Phase 2). Both fire on STREET (town surfaces) and
-# PAVED (keep / castle interior floors). The two are split so each
-# can wrap its fragments in its own SVG group with the right
-# opacity / stroke style.
-COBBLESTONE = TileDecorator(
-    name="cobblestone",
-    layer="floor_detail",
-    predicate=_is_cobble_tile,
-    paint=_cobblestone_paint,
-    group_open=(
-        f'<g opacity="0.35" fill="none" '
-        f'stroke="{_COBBLE_STROKE}" stroke-width="0.4">'
-    ),
-    z_order=10,
-)
-COBBLE_STONE = TileDecorator(
-    name="cobble_stone",
-    layer="floor_detail",
-    predicate=_is_cobble_tile,
-    paint=_cobble_stone_paint,
-    group_open='<g opacity="0.5">',
-    z_order=11,
-)
-
-
 # ── Cobblestone variants ─────────────────────────────────────
-#
-# Three decorative cousins of the COBBLESTONE pattern. Each fires
-# on its own SurfaceType tag so a site assembler can pick the
-# pattern that fits the building / plaza role. They share the
-# COBBLESTONE wrapping shape (opacity-0.35 stroked group) but use
-# distinct strokes + per-tile geometry:
-#
-#   BRICK         running-bond rectangles (wider than tall)
-#   FLAGSTONE     irregular polygon plates with thin gaps
-#   OPUS_ROMANO   classical Roman / Versailles 4-stone tiling --
-#                 each tile is divided into a 6x6 subsquare grid
-#                 partitioned into a 4x4 large square, a 2x2
-#                 small square, a 2x4 vertical rect, and a 4x2
-#                 horizontal rect.
-#
-# Adding a new variant is one stroke constant + one paint helper
-# + one ``TileDecorator`` constant + one assembler stamp.
-
-BRICK_STROKE = "#A05530"   # warm red-brown, classic fired brick
-FLAGSTONE_STROKE = "#6A6055"  # cool grey-brown, slate / quarried stone
-OPUS_ROMANO_STROKE = "#7A5A3A"
-"""Warm grey-brown for the opus-romano mortar lines."""
-
-OPUS_ROMANO_SUBDIVISIONS = 6
-"""Each tile is divided into this many subsquares per axis. Four
-stones group these subsquares into the classical Roman tiling:
-one 4x4 square, one 2x2 square, one 2x4 vertical rectangle, and
-one 4x2 horizontal rectangle (16 + 4 + 8 + 8 = 36 = 6x6)."""
-
-OPUS_ROMANO_MORTAR_INSET_PX = 0.5
-"""Inset on every side of every stone, leaving a hairline mortar
-gap between adjacent stones."""
-
-# Base 4-stone arrangement on a 6x6 subsquare grid.
-# (sub_x, sub_y, sub_w, sub_h) -- top-left corner + dimensions
-# in subsquare units. The tiling is:
-#   A A A A B B
-#   A A A A B B    A = 4x4 large square
-#   A A A A B B    B = 2x4 vertical rectangle
-#   A A A A B B    C = 2x2 small square
-#   C C D D D D    D = 4x2 horizontal rectangle
-#   C C D D D D
-_OPUS_ROMANO_STONES: tuple[tuple[int, int, int, int], ...] = (
-    (0, 0, 4, 4),  # A: 4x4 large square (top-left)
-    (4, 0, 2, 4),  # B: 2x4 vertical rect (top-right)
-    (0, 4, 2, 2),  # C: 2x2 small square (bottom-left)
-    (2, 4, 4, 2),  # D: 4x2 horizontal rect (bottom)
-)
 
 
 def _is_brick_tile(level: "Level", x: int, y: int) -> bool:
@@ -895,178 +731,6 @@ def _is_opus_romano_tile(
     )
 
 
-def _brick_paint(args) -> list[str]:
-    """Running-bond brick layout for one tile.
-
-    4 rows of 2 bricks each (brick aspect ratio ~2:1). Even rows
-    align with the tile edge; odd rows offset by half a brick so
-    the courses interlock visually. Per-brick jitter keeps the
-    look hand-drawn rather than CAD-perfect.
-    """
-    rng = args.rng
-    px, py = args.px, args.py
-    bw = CELL / 2
-    bh = CELL / 4
-    bricks: list[str] = []
-    for row in range(4):
-        offset = bw / 2 if row % 2 == 1 else 0.0
-        # Each row paints the half-brick at the left edge (when
-        # offset) plus the two full bricks; offsetting back keeps
-        # the row tilable across adjacent BRICK tiles.
-        for col in range(3 if offset else 2):
-            x0 = px + col * bw - offset
-            y0 = py + row * bh
-            jx = rng.uniform(-bw * 0.06, bw * 0.06)
-            jy = rng.uniform(-bh * 0.06, bh * 0.06)
-            jw = rng.uniform(-bw * 0.06, bw * 0.06)
-            jh = rng.uniform(-bh * 0.06, bh * 0.06)
-            bx = x0 + jx + 0.5
-            by = y0 + jy + 0.5
-            bw_jit = bw + jw - 1.0
-            bh_jit = bh + jh - 1.0
-            # Clip the rect to the tile bounds so the half-brick at
-            # the left edge of an odd row doesn't leak out.
-            if bx < px:
-                bw_jit -= (px - bx)
-                bx = px
-            if bx + bw_jit > px + CELL:
-                bw_jit = px + CELL - bx
-            if bw_jit > 1.5 and bh_jit > 1.5:
-                bricks.append(
-                    f'<rect x="{bx:.1f}" y="{by:.1f}" '
-                    f'width="{bw_jit:.1f}" '
-                    f'height="{bh_jit:.1f}" rx="0.5"/>'
-                )
-    return bricks
-
-
-def _flagstone_paint(args) -> list[str]:
-    """Four irregular polygon plates per tile.
-
-    Divides the tile into 2x2 quadrants, then inside each quadrant
-    draws a jittered pentagon whose corners avoid the quadrant
-    boundary -- the implicit gap between adjacent pentagons reads
-    as the mortar line between paving stones.
-    """
-    rng = args.rng
-    px, py = args.px, args.py
-    half = CELL / 2
-    inset = half * 0.08  # mortar gap from quadrant boundary
-    plates: list[str] = []
-    for qy in range(2):
-        for qx in range(2):
-            cx = px + qx * half
-            cy = py + qy * half
-            # Five corner points: TL, T, TR, BR, BL with jitter.
-            jitter = lambda: rng.uniform(-half * 0.07, half * 0.07)
-            pts = [
-                (cx + inset + jitter(), cy + inset + jitter()),
-                (
-                    cx + half * 0.5 + jitter(),
-                    cy + inset * 0.5 + jitter(),
-                ),
-                (
-                    cx + half - inset + jitter(),
-                    cy + inset + jitter(),
-                ),
-                (
-                    cx + half - inset + jitter(),
-                    cy + half - inset + jitter(),
-                ),
-                (
-                    cx + inset + jitter(),
-                    cy + half - inset + jitter(),
-                ),
-            ]
-            polygon = " ".join(
-                f"{x:.1f},{y:.1f}" for x, y in pts
-            )
-            plates.append(f'<polygon points="{polygon}"/>')
-    return plates
-
-
-def _rotate_stone_in_grid(
-    sx: int, sy: int, sw: int, sh: int,
-    n_quarter: int, side: int = OPUS_ROMANO_SUBDIVISIONS,
-) -> tuple[int, int, int, int]:
-    """Rotate a (sx, sy, sw, sh) stone 90deg clockwise n times
-    inside a ``side x side`` subsquare grid. The rotation pivots
-    around the grid centre so the stone stays inside."""
-    for _ in range(n_quarter % 4):
-        sx, sy, sw, sh = side - sy - sh, sx, sh, sw
-    return sx, sy, sw, sh
-
-
-def _opus_romano_paint(args) -> list[str]:
-    """Classical Roman / Versailles 4-stone tiling for one tile.
-
-    Each tile is divided into a 6x6 subsquare grid; four stones
-    partition the grid:
-
-    * one 4x4 large square,
-    * one 2x4 vertical rectangle,
-    * one 2x2 small square,
-    * one 4x2 horizontal rectangle.
-
-    The base arrangement rotates per-tile so adjacent tiles
-    don't read as a stripe -- 4 quarter-turns are picked
-    deterministically from the tile coordinates. Stroke-only;
-    the wrapping group sets opacity / colour."""
-    px, py = args.px, args.py
-    sub = CELL / OPUS_ROMANO_SUBDIVISIONS
-    inset = OPUS_ROMANO_MORTAR_INSET_PX
-    rotation = (args.x * 7 + args.y * 13) % 4
-    rects: list[str] = []
-    for sx, sy, sw, sh in _OPUS_ROMANO_STONES:
-        sx, sy, sw, sh = _rotate_stone_in_grid(
-            sx, sy, sw, sh, rotation,
-        )
-        x = px + sx * sub + inset
-        y = py + sy * sub + inset
-        w = sw * sub - 2 * inset
-        h = sh * sub - 2 * inset
-        rects.append(
-            f'<rect x="{x:.2f}" y="{y:.2f}" '
-            f'width="{w:.2f}" height="{h:.2f}" rx="0.4"/>'
-        )
-    return rects
-
-
-BRICK = TileDecorator(
-    name="brick",
-    layer="floor_detail",
-    predicate=_is_brick_tile,
-    paint=_brick_paint,
-    group_open=(
-        f'<g opacity="0.35" fill="none" '
-        f'stroke="{BRICK_STROKE}" stroke-width="0.4">'
-    ),
-    z_order=12,
-)
-FLAGSTONE = TileDecorator(
-    name="flagstone",
-    layer="floor_detail",
-    predicate=_is_flagstone_tile,
-    paint=_flagstone_paint,
-    group_open=(
-        f'<g opacity="0.35" fill="none" '
-        f'stroke="{FLAGSTONE_STROKE}" stroke-width="0.4">'
-    ),
-    z_order=13,
-)
-OPUS_ROMANO = TileDecorator(
-    name="opus_romano",
-    layer="floor_detail",
-    predicate=_is_opus_romano_tile,
-    paint=_opus_romano_paint,
-    group_open=(
-        f'<g opacity="0.45" fill="none" '
-        f'stroke="{OPUS_ROMANO_STROKE}" stroke-width="0.5">'
-    ),
-    z_order=14,
-)
-
-
 # ── Field and garden surfaces (tunable constants) ─────────────
 
 # FIELD_TINT is retained for sample-generator info panels and the
@@ -1077,11 +741,10 @@ OPUS_ROMANO = TileDecorator(
 FIELD_TINT = "#6B8A56"
 FIELD_STONE_FILL = "#8A9A6A"
 FIELD_STONE_STROKE = "#4A5A3A"
-FIELD_STONE_PROBABILITY = 0.10
 
 
 def _is_field_overlay_tile(level: "Level", x: int, y: int) -> bool:
-    """Predicate for the FIELD_STONE decorator.
+    """Predicate for the field-stone decorator IR op.
 
     Phase 3b moved field tiles to ``Terrain.GRASS`` so the theme
     grass tint + blade strokes paint the base look; the decorator
@@ -1092,41 +755,6 @@ def _is_field_overlay_tile(level: "Level", x: int, y: int) -> bool:
         tile.terrain is Terrain.GRASS
         and tile.surface_type is SurfaceType.FIELD
     )
-
-
-def _field_stone_paint(args) -> list[str]:
-    """Probabilistic scattered stone for one field tile."""
-    if args.rng.random() >= FIELD_STONE_PROBABILITY:
-        return []
-    return [_field_stone(args.rng, args.px, args.py)]
-
-
-def _field_stone(
-    rng: random.Random, px: float, py: float,
-) -> str:
-    cx = px + rng.uniform(CELL * 0.2, CELL * 0.8)
-    cy = py + rng.uniform(CELL * 0.2, CELL * 0.8)
-    rx = rng.uniform(1.5, 2.8)
-    ry = rng.uniform(1.2, 2.2)
-    angle = rng.uniform(0, 180)
-    return (
-        f'<ellipse cx="{cx:.1f}" cy="{cy:.1f}" '
-        f'rx="{rx:.1f}" ry="{ry:.1f}" '
-        f'transform="rotate({angle:.0f},{cx:.1f},{cy:.1f})" '
-        f'fill="{FIELD_STONE_FILL}" '
-        f'stroke="{FIELD_STONE_STROKE}" '
-        f'stroke-width="0.5"/>'
-    )
-
-
-FIELD_STONE = TileDecorator(
-    name="field_stone",
-    layer="floor_detail",
-    predicate=_is_field_overlay_tile,
-    paint=_field_stone_paint,
-    group_open='<g opacity="0.8">',
-    z_order=15,
-)
 
 
 # ── Wood interior floors (tunable constants) ──────────────────
@@ -1417,9 +1045,6 @@ def _parquet_seams_for_room(
 
 # ── Mine cart tracks ─────────────────────────────────────────
 
-_TRACK_RAIL = "#6A5A4A"
-_TRACK_TIE = "#8A7A5A"
-
 
 def _is_track_tile(level: "Level", x: int, y: int) -> bool:
     return level.tiles[y][x].surface_type is SurfaceType.TRACK
@@ -1435,107 +1060,8 @@ def _track_horizontal_at(level: "Level", x: int, y: int) -> bool:
     )
 
 
-def _cart_track_rails_paint(args) -> list[str]:
-    """Two parallel rails for one TRACK tile."""
-    px, py = args.px, args.py
-    if _track_horizontal_at(args.ctx.level, args.x, args.y):
-        y1 = py + CELL * 0.35
-        y2 = py + CELL * 0.65
-        return [
-            f'<line x1="{px:.1f}" y1="{y1:.1f}" '
-            f'x2="{px + CELL:.1f}" y2="{y1:.1f}"/>',
-            f'<line x1="{px:.1f}" y1="{y2:.1f}" '
-            f'x2="{px + CELL:.1f}" y2="{y2:.1f}"/>',
-        ]
-    x1 = px + CELL * 0.35
-    x2 = px + CELL * 0.65
-    return [
-        f'<line x1="{x1:.1f}" y1="{py:.1f}" '
-        f'x2="{x1:.1f}" y2="{py + CELL:.1f}"/>',
-        f'<line x1="{x2:.1f}" y1="{py:.1f}" '
-        f'x2="{x2:.1f}" y2="{py + CELL:.1f}"/>',
-    ]
-
-
-def _cart_track_ties_paint(args) -> list[str]:
-    """One cross-tie for one TRACK tile."""
-    px, py = args.px, args.py
-    cx, cy = px + CELL / 2, py + CELL / 2
-    if _track_horizontal_at(args.ctx.level, args.x, args.y):
-        y1 = py + CELL * 0.35
-        y2 = py + CELL * 0.65
-        return [
-            f'<line x1="{cx:.1f}" y1="{y1 - 1:.1f}" '
-            f'x2="{cx:.1f}" y2="{y2 + 1:.1f}"/>'
-        ]
-    x1 = px + CELL * 0.35
-    x2 = px + CELL * 0.65
-    return [
-        f'<line x1="{x1 - 1:.1f}" y1="{cy:.1f}" '
-        f'x2="{x2 + 1:.1f}" y2="{cy:.1f}"/>'
-    ]
-
-
-CART_TRACK_RAILS = TileDecorator(
-    name="cart_track_rails",
-    layer="floor_detail",
-    predicate=_is_track_tile,
-    paint=_cart_track_rails_paint,
-    group_open=(
-        f'<g id="cart-tracks" opacity="0.55" '
-        f'stroke="{_TRACK_RAIL}" stroke-width="0.9" '
-        f'stroke-linecap="round">'
-    ),
-    z_order=30,
-)
-CART_TRACK_TIES = TileDecorator(
-    name="cart_track_ties",
-    layer="floor_detail",
-    predicate=_is_track_tile,
-    paint=_cart_track_ties_paint,
-    group_open=(
-        f'<g id="cart-track-ties" opacity="0.5" '
-        f'stroke="{_TRACK_TIE}" stroke-width="1.4" '
-        f'stroke-linecap="round">'
-    ),
-    z_order=31,
-)
-
-
 # ── Ore deposits ─────────────────────────────────────────────
-
-_ORE_FILL = "#D4B14A"
-_ORE_STROKE = "#6A4A1A"
 
 
 def _is_ore_tile(level: "Level", x: int, y: int) -> bool:
     return level.tiles[y][x].feature == "ore_deposit"
-
-
-def _ore_deposit_paint(args) -> list[str]:
-    """Diamond glint for one ore-deposit wall tile."""
-    rng = args.rng
-    px, py = args.px, args.py
-    cx = px + CELL / 2 + rng.uniform(-1.0, 1.0)
-    cy = py + CELL / 2 + rng.uniform(-1.0, 1.0)
-    r = rng.uniform(1.8, 2.6)
-    return [
-        f'<polygon points="'
-        f'{cx:.1f},{cy - r:.1f} '
-        f'{cx + r:.1f},{cy:.1f} '
-        f'{cx:.1f},{cy + r:.1f} '
-        f'{cx - r:.1f},{cy:.1f}"/>'
-    ]
-
-
-ORE_DEPOSIT = TileDecorator(
-    name="ore_deposit",
-    layer="floor_detail",
-    predicate=_is_ore_tile,
-    paint=_ore_deposit_paint,
-    group_open=(
-        f'<g id="ore-deposits" fill="{_ORE_FILL}" '
-        f'stroke="{_ORE_STROKE}" stroke-width="0.4">'
-    ),
-    z_order=40,
-)
