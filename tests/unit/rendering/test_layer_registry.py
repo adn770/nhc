@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from nhc.dungeon.model import Level, Terrain, Tile
 from nhc.rendering._floor_layers import FLOOR_LAYERS
-from nhc.rendering._pipeline import (
-    Layer, TileWalkLayer, render_layers,
-)
+from nhc.rendering._pipeline import Layer, render_layers
 from nhc.rendering._render_context import build_render_context
 
 
@@ -41,18 +39,8 @@ class TestRegistryShape:
         assert {
             "shadows", "hatching", "walls_and_floors",
             "terrain_tints", "floor_grid", "floor_detail",
-            "terrain_detail", "stairs", "surface_features",
+            "terrain_detail", "stairs",
         } <= names
-
-    def test_surface_features_is_a_tile_walk_layer(self) -> None:
-        sf = next(
-            layer for layer in FLOOR_LAYERS
-            if layer.name == "surface_features"
-        )
-        assert isinstance(sf, TileWalkLayer)
-        # 5 decorators today: well, well_square, fountain,
-        # fountain_square, tree.
-        assert len(sf.decorators) >= 5
 
 
 class TestRenderLayersOrchestrator:

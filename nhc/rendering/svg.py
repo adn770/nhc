@@ -320,10 +320,5 @@ from nhc.rendering._walls_floors import (  # noqa: E402
     _render_walls_and_floors,
 )
 from nhc.rendering._stairs_svg import _render_stairs  # noqa: E402
-from nhc.rendering._features_svg import (  # noqa: E402
-    render_fountain_features,
-    render_tree_features,
-    render_well_features,
-)
 
 

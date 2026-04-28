@@ -17,16 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable
 
 from nhc.dungeon.model import SurfaceType, Terrain
-from nhc.rendering._decorators import TileDecorator
-from nhc.rendering._features_svg import (
-    BUSH_FEATURE, FOUNTAIN_CROSS_FEATURE, FOUNTAIN_FEATURE,
-    FOUNTAIN_LARGE_FEATURE, FOUNTAIN_LARGE_SQUARE_FEATURE,
-    FOUNTAIN_SQUARE_FEATURE, TREE_FEATURE, WELL_FEATURE,
-    WELL_SQUARE_FEATURE,
-)
-from nhc.rendering._pipeline import (
-    Layer, TileWalkLayer, make_tile_walk_layer,
-)
+from nhc.rendering._pipeline import Layer
 from nhc.rendering._render_context import RenderContext
 from nhc.rendering._svg_helpers import _is_door
 
@@ -1149,24 +1140,7 @@ def _emit_stairs_ir(builder: "FloorIRBuilder") -> None:
     builder.add_op(entry)
 
 
-# ── Surface features layer (TileWalkLayer) ────────────────────
-
-
-def _surface_features_paint(ctx: RenderContext) -> Iterable[str]:
-    """Paint helper for the surface-features TileWalkLayer.
-
-    The layer registers via :func:`make_tile_walk_layer` which
-    builds the paint closure inline; this wrapper exists so per-
-    layer parity tests can call ``_surface_features_paint(ctx)``
-    by name, matching the convention the other ``_*_paint``
-    helpers establish.
-    """
-    from nhc.rendering._decorators import walk_and_paint
-    return walk_and_paint(
-        ctx,
-        _SURFACE_FEATURE_DECORATORS,
-        layer_name="surface_features",
-    )
+# ── Surface features layer (IR emitter) ───────────────────────
 
 
 def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
@@ -1329,26 +1303,15 @@ def _emit_surface_features_ir(builder: "FloorIRBuilder") -> None:
         builder.add_op(entry)
 
 
-_SURFACE_FEATURE_DECORATORS: tuple[TileDecorator, ...] = (
-    WELL_FEATURE,
-    WELL_SQUARE_FEATURE,
-    FOUNTAIN_FEATURE,
-    FOUNTAIN_SQUARE_FEATURE,
-    FOUNTAIN_LARGE_FEATURE,
-    FOUNTAIN_LARGE_SQUARE_FEATURE,
-    FOUNTAIN_CROSS_FEATURE,
-    TREE_FEATURE,
-    BUSH_FEATURE,
-)
-
-
 # ── Layer registry ────────────────────────────────────────────
 #
 # Order numbers preserve the legacy pass order: shadows=100,
 # hatching=200, walls=300, terrain_tints=350, grid=400,
-# floor_detail=500, terrain_detail=600, stairs=700,
-# surface_features=800. Gaps of 100 leave room to slot future
-# passes between existing ones.
+# floor_detail=500, terrain_detail=600, stairs=700.
+# Gaps of 100 leave room to slot future passes between existing
+# ones. The legacy surface_features TileWalkLayer was retired in
+# Phase 7; the IR emitter now ships WellFeatureOp /
+# FountainFeatureOp / TreeFeatureOp / BushFeatureOp directly.
 
 
 FLOOR_LAYERS: tuple[Layer, ...] = (
@@ -1399,10 +1362,5 @@ FLOOR_LAYERS: tuple[Layer, ...] = (
         order=700,
         is_active=lambda ctx: True,
         paint=_stairs_paint,
-    ),
-    make_tile_walk_layer(
-        name="surface_features",
-        order=800,
-        decorators=_SURFACE_FEATURE_DECORATORS,
     ),
 )
