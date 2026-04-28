@@ -885,6 +885,14 @@ def _draw_decorator_from_ir(
         tiles = [(t.x, t.y) for t in v_tiles]
         out.extend(nhc_render.draw_cobblestone(tiles, seed))
 
+    brick_variants = op.brick if op.brick is not None else []
+    for variant in brick_variants:
+        v_tiles = variant.tiles or []
+        if not v_tiles:
+            continue
+        tiles = [(t.x, t.y) for t in v_tiles]
+        out.extend(nhc_render.draw_brick(tiles, seed))
+
     return out
 
 

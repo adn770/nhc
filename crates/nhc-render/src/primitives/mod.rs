@@ -16,6 +16,7 @@
 //! (`hatch`, `floor_detail`, …) per
 //! `plans/nhc_ir_migration_plan.md` Phase 4.
 
+pub mod brick;
 pub mod cobblestone;
 pub mod floor_detail;
 pub mod floor_grid;

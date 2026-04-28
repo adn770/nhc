@@ -197,6 +197,16 @@ fn draw_floor_detail(
     )
 }
 
+/// Brick decorator — Phase 4 sub-step 7.
+///
+/// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
+/// brick-red stroke. `tiles` is the BRICK-surface tile list;
+/// `seed` already includes the `+333` decorator offset.
+#[pyfunction]
+fn draw_brick(tiles: Vec<(i32, i32)>, seed: u64) -> Vec<String> {
+    primitives::brick::draw_brick(&tiles, seed)
+}
+
 /// Cobblestone decorator — Phase 4 sub-step 6.
 ///
 /// Returns a list of `<g>` envelope strings: the cobblestone
@@ -286,5 +296,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_floor_detail, m)?)?;
     m.add_function(wrap_pyfunction!(draw_thematic_detail, m)?)?;
     m.add_function(wrap_pyfunction!(draw_cobblestone, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_brick, m)?)?;
     Ok(())
 }
