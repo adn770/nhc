@@ -81,6 +81,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
     "floor_detail": frozenset({Op.Op.FloorDetailOp}),
+    "thematic_detail": frozenset({Op.Op.ThematicDetailOp}),
     "terrain_detail": frozenset({Op.Op.TerrainDetailOp}),
     "stairs": frozenset({Op.Op.StairsOp}),
     "surface_features": frozenset({
@@ -100,6 +101,7 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
 
 _BARE_SKIP_LAYERS: frozenset[str] = frozenset({
     "floor_detail",
+    "thematic_detail",
     "terrain_detail",
     "surface_features",
 })
@@ -704,6 +706,28 @@ def _draw_floor_detail_from_ir(
 
 
 _OP_HANDLERS[Op.Op.FloorDetailOp] = _draw_floor_detail_from_ir
+
+
+def _draw_thematic_detail_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Empty-arm stub for ``ThematicDetailOp`` — plan §8 step 2.
+
+    The thematic-detail port (webs / bone piles / skulls) lands at
+    step 4. Until then the thematic detail keeps flowing through
+    ``FloorDetailOp.room_groups`` / ``FloorDetailOp.corridor_groups``
+    (the legacy interleaved passthrough), so this handler must
+    produce nothing — emitting fragments here on top of the
+    passthrough would double-draw the layer. ``ThematicDetailOp``
+    is wired into ``_OP_HANDLERS`` so the dispatcher's "no
+    handler" guard doesn't fire if a hand-crafted IR ships the
+    op type ahead of the emitter.
+    """
+    del entry, fir
+    return []
+
+
+_OP_HANDLERS[Op.Op.ThematicDetailOp] = _draw_thematic_detail_from_ir
 
 
 def _draw_terrain_detail_from_ir(
