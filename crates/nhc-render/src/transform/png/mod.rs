@@ -22,7 +22,12 @@ use crate::ir::{
     floor_ir_buffer_has_identifier, root_as_floor_ir, FloorIR, Op, OpEntry,
 };
 
+// Shared infrastructure consumed by per-primitive handlers.
+mod path_parser;
+mod polygon_path;
+
 // Per-primitive raster handlers — one module per Op kind.
+mod floor_grid;
 mod shadow;
 mod terrain_tints;
 mod walls_and_floors;
@@ -130,6 +135,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::ShadowOp.0, shadow::draw);
         m.insert(Op::WallsAndFloorsOp.0, walls_and_floors::draw);
         m.insert(Op::TerrainTintOp.0, terrain_tints::draw);
+        m.insert(Op::FloorGridOp.0, floor_grid::draw);
         m
     })
 }

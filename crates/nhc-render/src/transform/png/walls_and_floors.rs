@@ -26,6 +26,7 @@ use tiny_skia::{
 
 use crate::ir::{FloorIR, OpEntry, WallsAndFloorsOp};
 
+use super::path_parser::parse_xy;
 use super::RasterCtx;
 
 const CELL: f32 = 32.0;
@@ -141,19 +142,11 @@ fn draw_wall_segments(op: &WallsAndFloorsOp<'_>, ctx: &mut RasterCtx<'_>) {
 /// move/line ops so the raster shape matches the SVG byte-for-
 /// byte stroke trail.
 fn parse_segment(s: &str) -> Option<((f32, f32), (f32, f32))> {
-    let s = s.trim();
-    let s = s.strip_prefix('M')?;
+    let s = s.trim().strip_prefix('M')?;
     let mid = s.find(" L")?;
     let p1 = parse_xy(s[..mid].trim())?;
     let p2 = parse_xy(s[mid + 2..].trim())?;
     Some((p1, p2))
-}
-
-fn parse_xy(s: &str) -> Option<(f32, f32)> {
-    let comma = s.find(',')?;
-    let x: f32 = s[..comma].trim().parse().ok()?;
-    let y: f32 = s[comma + 1..].trim().parse().ok()?;
-    Some((x, y))
 }
 
 // Suppress dead-code on the imports that future sub-phases
@@ -163,17 +156,7 @@ const _UNUSED_FILL_RULE: FillRule = FillRule::Winding;
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_segment, parse_xy};
-
-    #[test]
-    fn parse_xy_handles_integer_coords() {
-        assert_eq!(parse_xy("32,64"), Some((32.0, 64.0)));
-    }
-
-    #[test]
-    fn parse_xy_handles_decimal_coords() {
-        assert_eq!(parse_xy("12.5,7.25"), Some((12.5, 7.25)));
-    }
+    use super::parse_segment;
 
     #[test]
     fn parse_segment_handles_legacy_format() {

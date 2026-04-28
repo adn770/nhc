@@ -16,12 +16,11 @@
 //! tint_opacity)` pairs travel with the rasteriser; `detail_ink`
 //! belongs to the terrain-detail layer.
 
-use tiny_skia::{
-    Color, FillRule, Mask, Paint, PathBuilder, Rect, Transform,
-};
+use tiny_skia::{Color, FillRule, Mask, Paint, Rect, Transform};
 
-use crate::ir::{FloorIR, OpEntry, Polygon, TerrainKind, TerrainTintOp};
+use crate::ir::{FloorIR, OpEntry, TerrainKind, TerrainTintOp};
 
+use super::polygon_path::build_polygon_path;
 use super::RasterCtx;
 
 const CELL: f32 = 32.0;
@@ -247,31 +246,6 @@ fn build_clip_mask(
     let mut mask = Mask::new(w, h)?;
     mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
     Some(mask)
-}
-
-fn build_polygon_path(polygon: &Polygon<'_>) -> Option<tiny_skia::Path> {
-    let paths = polygon.paths()?;
-    let rings = polygon.rings()?;
-    let mut pb = PathBuilder::new();
-    for ring in rings.iter() {
-        let start = ring.start() as usize;
-        let count = ring.count() as usize;
-        if count < 2 {
-            continue;
-        }
-        for j in 0..count {
-            let v = paths.get(start + j);
-            let x = v.x();
-            let y = v.y();
-            if j == 0 {
-                pb.move_to(x, y);
-            } else {
-                pb.line_to(x, y);
-            }
-        }
-        pb.close();
-    }
-    pb.finish()
 }
 
 // Suppress dead-code on Transform import — used by tests + future
