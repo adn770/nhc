@@ -360,10 +360,17 @@ Layer 700. Tapering wedges + per-direction step lines + optional
 cave fill (when `theme == "cave"`). **No RNG, no Perlin.**
 
 - **Reference (Python):** `nhc/rendering/_stairs_svg.py` —
-  `_render_stairs`.
-- **Reference (Rust):** TBD —
-  `crates/nhc-render/src/primitives/stairs.rs` (Phase 4 —
-  small port).
+  `_render_stairs`. Phase 4.3 left the helper in place but
+  unused on the IR path; Phase 7 deletes it.
+- **Reference (Rust):** Phase 4.3, **live** —
+  `crates/nhc-render/src/primitives/stairs.rs`. Single entry
+  point `draw_stairs(stairs, theme, fill_color)` returns the
+  per-stair element list; the Python handler at
+  `ir_to_svg.py:_draw_stairs_from_ir` just unpacks the IR's
+  stair list and forwards. Stroke-width values are kept as
+  `&str` constants (`"1.0"` and `"1.5"`) because the legacy
+  formats them with bare `{}` and Rust's `{}` strips the
+  trailing zero on `1.0` — caught on first parity run.
 - **Seed:** none.
 - **Perlin:** none.
 - **SVG shape:**

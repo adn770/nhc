@@ -127,6 +127,21 @@ fn draw_room_shadow_cave(coords: Vec<(f64, f64)>) -> String {
     primitives::shadow::draw_room_shadow_cave(&coords)
 }
 
+/// Stairs layer — per-stair tapering wedge + step lines, with an
+/// optional cave-theme fill polygon when `theme == "cave"`.
+///
+/// Returns one SVG element per polygon / line in the legacy emit
+/// order: cave-fill (if theme matches) → top rail → bottom rail
+/// → 6 step lines. Eight or nine elements per stair total.
+#[pyfunction]
+fn draw_stairs(
+    stairs: Vec<(i32, i32, u8)>,
+    theme: &str,
+    fill_color: &str,
+) -> Vec<String> {
+    primitives::stairs::draw_stairs(&stairs, theme, fill_color)
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -140,5 +155,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_room_shadow_rect, m)?)?;
     m.add_function(wrap_pyfunction!(draw_room_shadow_octagon, m)?)?;
     m.add_function(wrap_pyfunction!(draw_room_shadow_cave, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_stairs, m)?)?;
     Ok(())
 }

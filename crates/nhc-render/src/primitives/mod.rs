@@ -18,4 +18,5 @@
 
 pub mod floor_grid;
 pub mod shadow;
+pub mod stairs;
 pub mod terrain_tints;
