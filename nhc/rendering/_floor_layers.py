@@ -751,8 +751,9 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     from nhc.rendering._decorators import walk_and_paint
     from nhc.rendering._floor_detail import (
         CART_TRACK_RAILS, CART_TRACK_TIES,
-        FIELD_STONE, FLAGSTONE, OPUS_ROMANO, ORE_DEPOSIT,
-        _is_brick_tile, _is_cobble_tile, _render_wood_floor,
+        FIELD_STONE, OPUS_ROMANO, ORE_DEPOSIT,
+        _is_brick_tile, _is_cobble_tile, _is_flagstone_tile,
+        _render_wood_floor,
     )
     from nhc.rendering.ir._fb import CobblePattern, Op
     from nhc.rendering.ir._fb.BrickVariant import BrickVariantT
@@ -760,6 +761,9 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         CobblestoneVariantT,
     )
     from nhc.rendering.ir._fb.DecoratorOp import DecoratorOpT
+    from nhc.rendering.ir._fb.FlagstoneVariant import (
+        FlagstoneVariantT,
+    )
     from nhc.rendering.ir._fb.FloorDetailOp import FloorDetailOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
@@ -800,15 +804,15 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     theme = ctx.theme
     candidates = _floor_detail_candidates(level)
 
-    # Sub-steps 6-7: COBBLESTONE / COBBLE_STONE / BRICK move to
-    # the structured DecoratorOp vectors below; the legacy
-    # walk_and_paint pipeline now skips them. The remaining
-    # decorators stay on the legacy passthrough until their
-    # per-variant ports land at sub-steps 8-12.
+    # Sub-steps 6-8: COBBLESTONE / COBBLE_STONE / BRICK /
+    # FLAGSTONE move to the structured DecoratorOp vectors
+    # below; the legacy walk_and_paint pipeline now skips them.
+    # The remaining decorators stay on the legacy passthrough
+    # until their per-variant ports land at sub-steps 9-12.
     decorator_groups = list(walk_and_paint(
         ctx,
         [
-            FLAGSTONE, OPUS_ROMANO,
+            OPUS_ROMANO,
             FIELD_STONE,
             CART_TRACK_RAILS, CART_TRACK_TIES,
             ORE_DEPOSIT,
@@ -818,15 +822,19 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
 
     cobble_tiles: list[tuple[int, int]] = []
     brick_tiles: list[tuple[int, int]] = []
+    flagstone_tiles: list[tuple[int, int]] = []
     for y in range(level.height):
         for x in range(level.width):
             if _is_cobble_tile(level, x, y):
                 cobble_tiles.append((x, y))
             if _is_brick_tile(level, x, y):
                 brick_tiles.append((x, y))
+            if _is_flagstone_tile(level, x, y):
+                flagstone_tiles.append((x, y))
 
     if not (
-        candidates or decorator_groups or cobble_tiles or brick_tiles
+        candidates or decorator_groups
+        or cobble_tiles or brick_tiles or flagstone_tiles
     ):
         return
 
@@ -849,7 +857,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     entry.op = op
     builder.add_op(entry)
 
-    if cobble_tiles or brick_tiles:
+    if cobble_tiles or brick_tiles or flagstone_tiles:
         deco_op = DecoratorOpT()
         deco_op.seed = seed + 333
         deco_op.theme = theme
@@ -862,6 +870,10 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         if brick_tiles:
             deco_op.brick = [BrickVariantT(
                 tiles=[TileCoordT(x=x, y=y) for x, y in brick_tiles],
+            )]
+        if flagstone_tiles:
+            deco_op.flagstone = [FlagstoneVariantT(
+                tiles=[TileCoordT(x=x, y=y) for x, y in flagstone_tiles],
             )]
         deco_entry = OpEntryT()
         deco_entry.opType = Op.Op.DecoratorOp

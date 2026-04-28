@@ -197,6 +197,17 @@ fn draw_floor_detail(
     )
 }
 
+/// Flagstone decorator — Phase 4 sub-step 8.
+///
+/// 4 irregular pentagon plates per tile, ``<g>`` opacity 0.35
+/// with grey-brown stroke. `tiles` is the FLAGSTONE-surface
+/// tile list; `seed` already includes the `+333` decorator
+/// offset.
+#[pyfunction]
+fn draw_flagstone(tiles: Vec<(i32, i32)>, seed: u64) -> Vec<String> {
+    primitives::flagstone::draw_flagstone(&tiles, seed)
+}
+
 /// Brick decorator — Phase 4 sub-step 7.
 ///
 /// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
@@ -297,5 +308,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_thematic_detail, m)?)?;
     m.add_function(wrap_pyfunction!(draw_cobblestone, m)?)?;
     m.add_function(wrap_pyfunction!(draw_brick, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_flagstone, m)?)?;
     Ok(())
 }
