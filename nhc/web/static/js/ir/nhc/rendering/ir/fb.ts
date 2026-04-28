@@ -2,12 +2,18 @@
 
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
+export { BrickVariant } from './fb/brick-variant.js';
 export { BushFeatureOp } from './fb/bush-feature-op.js';
 export { CartTracksOp } from './fb/cart-tracks-op.js';
+export { CartTracksVariant } from './fb/cart-tracks-variant.js';
 export { CobblePattern } from './fb/cobble-pattern.js';
 export { CobblestoneOp } from './fb/cobblestone-op.js';
+export { CobblestoneVariant } from './fb/cobblestone-variant.js';
+export { DecoratorOp } from './fb/decorator-op.js';
 export { FeatureFlags } from './fb/feature-flags.js';
 export { FieldOverlayOp } from './fb/field-overlay-op.js';
+export { FieldStoneVariant } from './fb/field-stone-variant.js';
+export { FlagstoneVariant } from './fb/flagstone-variant.js';
 export { FloorDetailOp } from './fb/floor-detail-op.js';
 export { FloorGridOp } from './fb/floor-grid-op.js';
 export { FloorGridTile } from './fb/floor-grid-tile.js';
@@ -23,6 +29,8 @@ export { HatchOp } from './fb/hatch-op.js';
 export { KV } from './fb/kv.js';
 export { Op } from './fb/op.js';
 export { OpEntry } from './fb/op-entry.js';
+export { OpusRomanoVariant } from './fb/opus-romano-variant.js';
+export { OreDepositVariant } from './fb/ore-deposit-variant.js';
 export { OreDepositsOp } from './fb/ore-deposits-op.js';
 export { PathRange } from './fb/path-range.js';
 export { Polygon } from './fb/polygon.js';

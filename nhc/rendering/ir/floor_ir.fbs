@@ -298,6 +298,75 @@ table FloorGridOp {
   tiles: [FloorGridTile];
 }
 
+// ── Layer 500c — decorator pipeline (sub-step 5, Q2) ──────────
+//
+// The seven legacy decorator types (cobblestone, brick, flagstone,
+// opus_romano, field_stone, cart_tracks, ore_deposit) ride
+// through ``FloorDetailOp.decorator_groups`` as pre-rendered SVG
+// strings today. Sub-step 5 (schema bump B) lands the structured
+// shape: one ``DecoratorOp`` carries seven parallel variant
+// vectors, one per decorator type. Q2's locked design called for
+// a ``union DecoratorVariant`` of seven variant tables, but
+// flatc's Python target doesn't yet support vectors-of-unions —
+// so we use 7 explicit per-decorator vectors instead. The Python
+// generator handles vectors-of-tables cleanly. Each variant
+// table stays minimal at this commit (just ``tiles[]``, plus
+// ``CobblestoneVariant``'s pre-existing pattern enum); each
+// per-variant port at sub-steps 6–12 grows the variant's fields
+// as needed (additive minor bumps per Q6).
+//
+// The dispatcher arm at sub-step 5 is a no-op stub (returns []);
+// the passthrough at ``FloorDetailOp.decorator_groups`` still
+// serves rendering until each variant's port lands. After step
+// 12 the passthrough drops empty and Phase 7 cleanup deletes it.
+//
+// ``DecoratorOp`` lives in the floor_detail layer slot because
+// the legacy ``walk_and_paint`` pipeline emits its fragments
+// alongside floor-detail-proper output (clip-aware, post-pass).
+// ``_LAYER_OPS["floor_detail"]`` gains the op tag at sub-step 5.
+
+table CobblestoneVariant {
+  tiles: [TileCoord];
+  pattern: CobblePattern;
+}
+
+table BrickVariant {
+  tiles: [TileCoord];
+}
+
+table FlagstoneVariant {
+  tiles: [TileCoord];
+}
+
+table OpusRomanoVariant {
+  tiles: [TileCoord];
+}
+
+table FieldStoneVariant {
+  tiles: [TileCoord];
+}
+
+table CartTracksVariant {
+  tiles: [TileCoord];
+}
+
+table OreDepositVariant {
+  tiles: [TileCoord];
+}
+
+table DecoratorOp {
+  cobblestone: [CobblestoneVariant];
+  brick: [BrickVariant];
+  flagstone: [FlagstoneVariant];
+  opus_romano: [OpusRomanoVariant];
+  field_stone: [FieldStoneVariant];
+  cart_tracks: [CartTracksVariant];
+  ore_deposit: [OreDepositVariant];
+  seed: uint64;            // base_seed + 333 (decorator pipeline)
+  theme: string;
+  clip_region: string;     // dungeon clip when applicable
+}
+
 // Layer 500a — floor detail (cracks, scratches, stones, clusters).
 table FloorDetailOp {
   // Sub-step 3.b shift: post-filter candidate tiles in legacy
@@ -521,6 +590,7 @@ union Op {
   WellFeatureOp,
   FountainFeatureOp,
   GenericProceduralOp,
+  DecoratorOp,
 }
 
 table OpEntry {

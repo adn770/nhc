@@ -5,6 +5,7 @@
 import { BushFeatureOp } from '../../../../nhc/rendering/ir/fb/bush-feature-op.js';
 import { CartTracksOp } from '../../../../nhc/rendering/ir/fb/cart-tracks-op.js';
 import { CobblestoneOp } from '../../../../nhc/rendering/ir/fb/cobblestone-op.js';
+import { DecoratorOp } from '../../../../nhc/rendering/ir/fb/decorator-op.js';
 import { FieldOverlayOp } from '../../../../nhc/rendering/ir/fb/field-overlay-op.js';
 import { FloorDetailOp } from '../../../../nhc/rendering/ir/fb/floor-detail-op.js';
 import { FloorGridOp } from '../../../../nhc/rendering/ir/fb/floor-grid-op.js';
@@ -45,13 +46,14 @@ export enum Op {
   BushFeatureOp = 17,
   WellFeatureOp = 18,
   FountainFeatureOp = 19,
-  GenericProceduralOp = 20
+  GenericProceduralOp = 20,
+  DecoratorOp = 21
 }
 
 export function unionToOp(
   type: Op,
-  accessor: (obj:BushFeatureOp|CartTracksOp|CobblestoneOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp) => BushFeatureOp|CartTracksOp|CobblestoneOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null
-): BushFeatureOp|CartTracksOp|CobblestoneOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null {
+  accessor: (obj:BushFeatureOp|CartTracksOp|CobblestoneOp|DecoratorOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp) => BushFeatureOp|CartTracksOp|CobblestoneOp|DecoratorOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null
+): BushFeatureOp|CartTracksOp|CobblestoneOp|DecoratorOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null {
   switch(Op[type]) {
     case 'NONE': return null; 
     case 'ShadowOp': return accessor(new ShadowOp())! as ShadowOp;
@@ -74,15 +76,16 @@ export function unionToOp(
     case 'WellFeatureOp': return accessor(new WellFeatureOp())! as WellFeatureOp;
     case 'FountainFeatureOp': return accessor(new FountainFeatureOp())! as FountainFeatureOp;
     case 'GenericProceduralOp': return accessor(new GenericProceduralOp())! as GenericProceduralOp;
+    case 'DecoratorOp': return accessor(new DecoratorOp())! as DecoratorOp;
     default: return null;
   }
 }
 
 export function unionListToOp(
   type: Op, 
-  accessor: (index: number, obj:BushFeatureOp|CartTracksOp|CobblestoneOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp) => BushFeatureOp|CartTracksOp|CobblestoneOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null, 
+  accessor: (index: number, obj:BushFeatureOp|CartTracksOp|CobblestoneOp|DecoratorOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp) => BushFeatureOp|CartTracksOp|CobblestoneOp|DecoratorOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null, 
   index: number
-): BushFeatureOp|CartTracksOp|CobblestoneOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null {
+): BushFeatureOp|CartTracksOp|CobblestoneOp|DecoratorOp|FieldOverlayOp|FloorDetailOp|FloorGridOp|FountainFeatureOp|GardenOverlayOp|GenericProceduralOp|HatchOp|OreDepositsOp|ShadowOp|StairsOp|TerrainDetailOp|TerrainTintOp|ThematicDetailOp|TreeFeatureOp|WallsAndFloorsOp|WellFeatureOp|WoodFloorOp|null {
   switch(Op[type]) {
     case 'NONE': return null; 
     case 'ShadowOp': return accessor(index, new ShadowOp())! as ShadowOp;
@@ -105,6 +108,7 @@ export function unionListToOp(
     case 'WellFeatureOp': return accessor(index, new WellFeatureOp())! as WellFeatureOp;
     case 'FountainFeatureOp': return accessor(index, new FountainFeatureOp())! as FountainFeatureOp;
     case 'GenericProceduralOp': return accessor(index, new GenericProceduralOp())! as GenericProceduralOp;
+    case 'DecoratorOp': return accessor(index, new DecoratorOp())! as DecoratorOp;
     default: return null;
   }
 }

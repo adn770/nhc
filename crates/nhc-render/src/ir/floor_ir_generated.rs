@@ -839,10 +839,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 20;
+pub const ENUM_MAX_OP: u8 = 21;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 21] = [
+pub const ENUM_VALUES_OP: [Op; 22] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -864,6 +864,7 @@ pub const ENUM_VALUES_OP: [Op; 21] = [
   Op::WellFeatureOp,
   Op::FountainFeatureOp,
   Op::GenericProceduralOp,
+  Op::DecoratorOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -892,9 +893,10 @@ impl Op {
   pub const WellFeatureOp: Self = Self(18);
   pub const FountainFeatureOp: Self = Self(19);
   pub const GenericProceduralOp: Self = Self(20);
+  pub const DecoratorOp: Self = Self(21);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 20;
+  pub const ENUM_MAX: u8 = 21;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -917,6 +919,7 @@ impl Op {
     Self::WellFeatureOp,
     Self::FountainFeatureOp,
     Self::GenericProceduralOp,
+    Self::DecoratorOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -942,6 +945,7 @@ impl Op {
       Self::WellFeatureOp => Some("WellFeatureOp"),
       Self::FountainFeatureOp => Some("FountainFeatureOp"),
       Self::GenericProceduralOp => Some("GenericProceduralOp"),
+      Self::DecoratorOp => Some("DecoratorOp"),
       _ => None,
     }
   }
@@ -4235,6 +4239,944 @@ impl ::core::fmt::Debug for FloorGridOp<'_> {
       ds.finish()
   }
 }
+pub enum CobblestoneVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CobblestoneVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CobblestoneVariant<'a> {
+  type Inner = CobblestoneVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CobblestoneVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_PATTERN: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CobblestoneVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CobblestoneVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CobblestoneVariant<'bldr>> {
+    let mut builder = CobblestoneVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.add_pattern(args.pattern);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CobblestoneVariant::VT_TILES, None)}
+  }
+  #[inline]
+  pub fn pattern(&self) -> CobblePattern {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CobblePattern>(CobblestoneVariant::VT_PATTERN, Some(CobblePattern::Cobble)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CobblestoneVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<CobblePattern>("pattern", Self::VT_PATTERN, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CobblestoneVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub pattern: CobblePattern,
+}
+impl<'a> Default for CobblestoneVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CobblestoneVariantArgs {
+      tiles: None,
+      pattern: CobblePattern::Cobble,
+    }
+  }
+}
+
+pub struct CobblestoneVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CobblestoneVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CobblestoneVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_pattern(&mut self, pattern: CobblePattern) {
+    self.fbb_.push_slot::<CobblePattern>(CobblestoneVariant::VT_PATTERN, pattern, CobblePattern::Cobble);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CobblestoneVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CobblestoneVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CobblestoneVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CobblestoneVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CobblestoneVariant");
+      ds.field("tiles", &self.tiles());
+      ds.field("pattern", &self.pattern());
+      ds.finish()
+  }
+}
+pub enum BrickVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BrickVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BrickVariant<'a> {
+  type Inner = BrickVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BrickVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BrickVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BrickVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BrickVariant<'bldr>> {
+    let mut builder = BrickVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(BrickVariant::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BrickVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BrickVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+}
+impl<'a> Default for BrickVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BrickVariantArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct BrickVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BrickVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BrickVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BrickVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BrickVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BrickVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BrickVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BrickVariant");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum FlagstoneVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FlagstoneVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FlagstoneVariant<'a> {
+  type Inner = FlagstoneVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FlagstoneVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FlagstoneVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FlagstoneVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FlagstoneVariant<'bldr>> {
+    let mut builder = FlagstoneVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FlagstoneVariant::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FlagstoneVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FlagstoneVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+}
+impl<'a> Default for FlagstoneVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FlagstoneVariantArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct FlagstoneVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FlagstoneVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FlagstoneVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FlagstoneVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FlagstoneVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FlagstoneVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FlagstoneVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FlagstoneVariant");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum OpusRomanoVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct OpusRomanoVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for OpusRomanoVariant<'a> {
+  type Inner = OpusRomanoVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> OpusRomanoVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    OpusRomanoVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args OpusRomanoVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<OpusRomanoVariant<'bldr>> {
+    let mut builder = OpusRomanoVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(OpusRomanoVariant::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for OpusRomanoVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct OpusRomanoVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+}
+impl<'a> Default for OpusRomanoVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    OpusRomanoVariantArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct OpusRomanoVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OpusRomanoVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(OpusRomanoVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OpusRomanoVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    OpusRomanoVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<OpusRomanoVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for OpusRomanoVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("OpusRomanoVariant");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum FieldStoneVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FieldStoneVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FieldStoneVariant<'a> {
+  type Inner = FieldStoneVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FieldStoneVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FieldStoneVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FieldStoneVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FieldStoneVariant<'bldr>> {
+    let mut builder = FieldStoneVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(FieldStoneVariant::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FieldStoneVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FieldStoneVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+}
+impl<'a> Default for FieldStoneVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FieldStoneVariantArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct FieldStoneVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FieldStoneVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FieldStoneVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FieldStoneVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FieldStoneVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FieldStoneVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FieldStoneVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FieldStoneVariant");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum CartTracksVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CartTracksVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CartTracksVariant<'a> {
+  type Inner = CartTracksVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CartTracksVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CartTracksVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CartTracksVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CartTracksVariant<'bldr>> {
+    let mut builder = CartTracksVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CartTracksVariant::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CartTracksVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CartTracksVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+}
+impl<'a> Default for CartTracksVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CartTracksVariantArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct CartTracksVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CartTracksVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CartTracksVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CartTracksVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CartTracksVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CartTracksVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CartTracksVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CartTracksVariant");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum OreDepositVariantOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct OreDepositVariant<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for OreDepositVariant<'a> {
+  type Inner = OreDepositVariant<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> OreDepositVariant<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    OreDepositVariant { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args OreDepositVariantArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<OreDepositVariant<'bldr>> {
+    let mut builder = OreDepositVariantBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(OreDepositVariant::VT_TILES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for OreDepositVariant<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct OreDepositVariantArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+}
+impl<'a> Default for OreDepositVariantArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    OreDepositVariantArgs {
+      tiles: None,
+    }
+  }
+}
+
+pub struct OreDepositVariantBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OreDepositVariantBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(OreDepositVariant::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OreDepositVariantBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    OreDepositVariantBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<OreDepositVariant<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for OreDepositVariant<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("OreDepositVariant");
+      ds.field("tiles", &self.tiles());
+      ds.finish()
+  }
+}
+pub enum DecoratorOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct DecoratorOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for DecoratorOp<'a> {
+  type Inner = DecoratorOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> DecoratorOp<'a> {
+  pub const VT_COBBLESTONE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_BRICK: ::flatbuffers::VOffsetT = 6;
+  pub const VT_FLAGSTONE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_OPUS_ROMANO: ::flatbuffers::VOffsetT = 10;
+  pub const VT_FIELD_STONE: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CART_TRACKS: ::flatbuffers::VOffsetT = 14;
+  pub const VT_ORE_DEPOSIT: ::flatbuffers::VOffsetT = 16;
+  pub const VT_SEED: ::flatbuffers::VOffsetT = 18;
+  pub const VT_THEME: ::flatbuffers::VOffsetT = 20;
+  pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 22;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    DecoratorOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args DecoratorOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<DecoratorOp<'bldr>> {
+    let mut builder = DecoratorOpBuilder::new(_fbb);
+    builder.add_seed(args.seed);
+    if let Some(x) = args.clip_region { builder.add_clip_region(x); }
+    if let Some(x) = args.theme { builder.add_theme(x); }
+    if let Some(x) = args.ore_deposit { builder.add_ore_deposit(x); }
+    if let Some(x) = args.cart_tracks { builder.add_cart_tracks(x); }
+    if let Some(x) = args.field_stone { builder.add_field_stone(x); }
+    if let Some(x) = args.opus_romano { builder.add_opus_romano(x); }
+    if let Some(x) = args.flagstone { builder.add_flagstone(x); }
+    if let Some(x) = args.brick { builder.add_brick(x); }
+    if let Some(x) = args.cobblestone { builder.add_cobblestone(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn cobblestone(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CobblestoneVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CobblestoneVariant>>>>(DecoratorOp::VT_COBBLESTONE, None)}
+  }
+  #[inline]
+  pub fn brick(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BrickVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BrickVariant>>>>(DecoratorOp::VT_BRICK, None)}
+  }
+  #[inline]
+  pub fn flagstone(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FlagstoneVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FlagstoneVariant>>>>(DecoratorOp::VT_FLAGSTONE, None)}
+  }
+  #[inline]
+  pub fn opus_romano(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant>>>>(DecoratorOp::VT_OPUS_ROMANO, None)}
+  }
+  #[inline]
+  pub fn field_stone(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FieldStoneVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FieldStoneVariant>>>>(DecoratorOp::VT_FIELD_STONE, None)}
+  }
+  #[inline]
+  pub fn cart_tracks(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CartTracksVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CartTracksVariant>>>>(DecoratorOp::VT_CART_TRACKS, None)}
+  }
+  #[inline]
+  pub fn ore_deposit(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OreDepositVariant<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OreDepositVariant>>>>(DecoratorOp::VT_ORE_DEPOSIT, None)}
+  }
+  #[inline]
+  pub fn seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(DecoratorOp::VT_SEED, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn theme(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DecoratorOp::VT_THEME, None)}
+  }
+  #[inline]
+  pub fn clip_region(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DecoratorOp::VT_CLIP_REGION, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for DecoratorOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CobblestoneVariant>>>>("cobblestone", Self::VT_COBBLESTONE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<BrickVariant>>>>("brick", Self::VT_BRICK, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FlagstoneVariant>>>>("flagstone", Self::VT_FLAGSTONE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant>>>>("opus_romano", Self::VT_OPUS_ROMANO, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<FieldStoneVariant>>>>("field_stone", Self::VT_FIELD_STONE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<CartTracksVariant>>>>("cart_tracks", Self::VT_CART_TRACKS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<OreDepositVariant>>>>("ore_deposit", Self::VT_ORE_DEPOSIT, false)?
+     .visit_field::<u64>("seed", Self::VT_SEED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct DecoratorOpArgs<'a> {
+    pub cobblestone: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CobblestoneVariant<'a>>>>>,
+    pub brick: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<BrickVariant<'a>>>>>,
+    pub flagstone: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FlagstoneVariant<'a>>>>>,
+    pub opus_romano: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OpusRomanoVariant<'a>>>>>,
+    pub field_stone: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<FieldStoneVariant<'a>>>>>,
+    pub cart_tracks: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<CartTracksVariant<'a>>>>>,
+    pub ore_deposit: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<OreDepositVariant<'a>>>>>,
+    pub seed: u64,
+    pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for DecoratorOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    DecoratorOpArgs {
+      cobblestone: None,
+      brick: None,
+      flagstone: None,
+      opus_romano: None,
+      field_stone: None,
+      cart_tracks: None,
+      ore_deposit: None,
+      seed: 0,
+      theme: None,
+      clip_region: None,
+    }
+  }
+}
+
+pub struct DecoratorOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DecoratorOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_cobblestone(&mut self, cobblestone: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CobblestoneVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_COBBLESTONE, cobblestone);
+  }
+  #[inline]
+  pub fn add_brick(&mut self, brick: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<BrickVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_BRICK, brick);
+  }
+  #[inline]
+  pub fn add_flagstone(&mut self, flagstone: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FlagstoneVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_FLAGSTONE, flagstone);
+  }
+  #[inline]
+  pub fn add_opus_romano(&mut self, opus_romano: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<OpusRomanoVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_OPUS_ROMANO, opus_romano);
+  }
+  #[inline]
+  pub fn add_field_stone(&mut self, field_stone: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<FieldStoneVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_FIELD_STONE, field_stone);
+  }
+  #[inline]
+  pub fn add_cart_tracks(&mut self, cart_tracks: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<CartTracksVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_CART_TRACKS, cart_tracks);
+  }
+  #[inline]
+  pub fn add_ore_deposit(&mut self, ore_deposit: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<OreDepositVariant<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_ORE_DEPOSIT, ore_deposit);
+  }
+  #[inline]
+  pub fn add_seed(&mut self, seed: u64) {
+    self.fbb_.push_slot::<u64>(DecoratorOp::VT_SEED, seed, 0);
+  }
+  #[inline]
+  pub fn add_theme(&mut self, theme: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_THEME, theme);
+  }
+  #[inline]
+  pub fn add_clip_region(&mut self, clip_region: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_CLIP_REGION, clip_region);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DecoratorOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    DecoratorOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<DecoratorOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for DecoratorOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("DecoratorOp");
+      ds.field("cobblestone", &self.cobblestone());
+      ds.field("brick", &self.brick());
+      ds.field("flagstone", &self.flagstone());
+      ds.field("opus_romano", &self.opus_romano());
+      ds.field("field_stone", &self.field_stone());
+      ds.field("cart_tracks", &self.cart_tracks());
+      ds.field("ore_deposit", &self.ore_deposit());
+      ds.field("seed", &self.seed());
+      ds.field("theme", &self.theme());
+      ds.field("clip_region", &self.clip_region());
+      ds.finish()
+  }
+}
 pub enum FloorDetailOpOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -7060,6 +8002,21 @@ impl<'a> OpEntry<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_decorator_op(&self) -> Option<DecoratorOp<'a>> {
+    if self.op_type() == Op::DecoratorOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { DecoratorOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for OpEntry<'_> {
@@ -7090,6 +8047,7 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::WellFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<WellFeatureOp>>("Op::WellFeatureOp", pos),
           Op::FountainFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FountainFeatureOp>>("Op::FountainFeatureOp", pos),
           Op::GenericProceduralOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GenericProceduralOp>>("Op::GenericProceduralOp", pos),
+          Op::DecoratorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<DecoratorOp>>("Op::DecoratorOp", pos),
           _ => Ok(()),
         }
      })?
@@ -7279,6 +8237,13 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::GenericProceduralOp => {
           if let Some(x) = self.op_as_generic_procedural_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::DecoratorOp => {
+          if let Some(x) = self.op_as_decorator_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")

@@ -81,7 +81,16 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "walls_and_floors": frozenset({Op.Op.WallsAndFloorsOp}),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
-    "floor_detail": frozenset({Op.Op.FloorDetailOp}),
+    "floor_detail": frozenset({
+        Op.Op.FloorDetailOp,
+        # Sub-step 5 (Q2 schema bump B): the structured
+        # decorator pipeline rides in the same layer slot as the
+        # legacy passthrough. Per-variant ports (sub-steps 6–12)
+        # populate ``DecoratorOp``'s vectors one decorator at a
+        # time; the passthrough (``FloorDetailOp.decorator_groups``)
+        # keeps serving rendering until step 12 lands.
+        Op.Op.DecoratorOp,
+    }),
     "thematic_detail": frozenset({Op.Op.ThematicDetailOp}),
     "terrain_detail": frozenset({Op.Op.TerrainDetailOp}),
     "stairs": frozenset({Op.Op.StairsOp}),
@@ -845,6 +854,31 @@ def _draw_terrain_detail_from_ir(
 
 
 _OP_HANDLERS[Op.Op.TerrainDetailOp] = _draw_terrain_detail_from_ir
+
+
+def _draw_decorator_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Empty-arm stub for ``DecoratorOp`` — plan §8 step 5.
+
+    Sub-step 5 (schema bump B) lands ``DecoratorOp`` and its
+    seven per-decorator vector fields (cobblestone / brick /
+    flagstone / opus_romano / field_stone / cart_tracks /
+    ore_deposit). Each variant ports at sub-steps 6–12; until
+    then the legacy decorator pipeline keeps flowing through
+    ``FloorDetailOp.decorator_groups`` (the passthrough), so
+    this handler must produce nothing — emitting fragments here
+    on top of the passthrough would double-draw the layer.
+    ``DecoratorOp`` is wired into ``_OP_HANDLERS`` so the
+    dispatcher's "no handler" guard doesn't fire if a hand-
+    crafted IR ships the op type ahead of the per-variant
+    ports.
+    """
+    del entry, fir
+    return []
+
+
+_OP_HANDLERS[Op.Op.DecoratorOp] = _draw_decorator_from_ir
 
 
 def _draw_stairs_from_ir(

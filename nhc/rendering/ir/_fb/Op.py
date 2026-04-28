@@ -24,6 +24,7 @@ class Op(object):
     WellFeatureOp = 18
     FountainFeatureOp = 19
     GenericProceduralOp = 20
+    DecoratorOp = 21
 
 def OpCreator(unionType, table):
     from flatbuffers.table import Table
@@ -89,4 +90,7 @@ def OpCreator(unionType, table):
     if unionType == Op.GenericProceduralOp:
         import nhc.rendering.ir._fb.GenericProceduralOp
         return nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT.InitFromBuf(table.Bytes, table.Pos)
+    if unionType == Op.DecoratorOp:
+        import nhc.rendering.ir._fb.DecoratorOp
+        return nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT.InitFromBuf(table.Bytes, table.Pos)
     return None
