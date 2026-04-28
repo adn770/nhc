@@ -18,6 +18,7 @@
 pub mod ir;
 pub mod perlin;
 pub mod primitives;
+pub mod python_random;
 pub mod rng;
 pub mod transform;
 

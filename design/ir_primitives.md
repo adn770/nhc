@@ -184,14 +184,22 @@ Layer 400. Wobbly grid (Perlin-displaced) at `cell`-tile spacing.
 
 - **Reference (Python):** `nhc/rendering/_floor_detail.py:
   _render_floor_grid`, helper at
-  `nhc/rendering/_svg_helpers.py:_wobbly_grid_seg`.
-- **Reference (Rust):** Phase 3 canary —
-  `crates/nhc-render/src/primitives/floor_grid.rs`.
+  `nhc/rendering/_svg_helpers.py:_wobbly_grid_seg`. Phase 3 left
+  the helpers in place but unused on the IR path; Phase 4 / 7
+  delete them.
+- **Reference (Rust):** Phase 3 canary, **live** —
+  `crates/nhc-render/src/primitives/floor_grid.rs`. The Python
+  handler at `ir_to_svg.py:_draw_floor_grid_from_ir` calls into
+  `nhc_render.draw_floor_grid` and only owns the SVG envelope
+  (clip-path defs, `<path>` wrapping); the RNG-sensitive segment
+  generator is Rust.
 - **Seed:** `random.Random(41)` — **fixed constant, NOT
   base_seed-derived.** The IR emitter (Phase 1) sets
   `FloorGridOp.seed = 41` to keep parity with this. Future
   cleanup can promote to `base_seed + N` once a major schema
-  bump is on the table.
+  bump is on the table. Rust uses `python_random::PyRandom` (a
+  byte-compat reproduction of CPython's `random.Random`) so the
+  MT19937 stream replays identically.
 - **First three RNG calls (per segment, via `_wobbly_grid_seg`):**
   1. `rng.randint(1, n_sub - 1)` — sub-segment break.
   2. `rng.random() < 0.25` — break-vs-continue gate.
@@ -199,8 +207,11 @@ Layer 400. Wobbly grid (Perlin-displaced) at `cell`-tile spacing.
 - **Perlin:**
   - `pnoise2(noise_x + t * 0.5, noise_y, base=20)` — right-edge
     grid wobble (or `base=24` for bottom edge).
-  - `pnoise2(noise_x + t * 0.5, noise_y, base=base+4)` — second
-    Perlin sample, paired with the first.
+  - `pnoise2(noise_x + t * 0.5, noise_y, base=base+4)` —
+    Python computes this companion sample and then overwrites it
+    in both branches. Perlin is pure, so the Rust port omits the
+    discarded sample without affecting output. If a Phase 4
+    cleanup ever uses the second sample, this contract changes.
 - **SVG shape:**
 
   ```xml
@@ -639,3 +650,126 @@ bump.
    `_decorators.py:walk_and_paint`. Promoting offsets to explicit
    per-op constants would help readability — defer to the Rust
    port.
+
+---
+
+## 7. Rust port methodology — Phase 3+ recipe
+
+The Phase 3 canary (`floor_grid`) settled the per-primitive
+shape that Phase 4 follows verbatim. The bar each port has to
+clear is **byte-equal SVG output across every committed
+parity fixture** — there is no ULP tolerance, no "close enough"
+mode, no parity-gate relaxation. The recipe:
+
+### 7.1 Pre-flight: own the determinism contract first
+
+Before any Rust file is touched, the relevant entries in §2 / §3
+/ §4 / §5 of this document must be honest. If a discrepancy is
+discovered while reading the Python source, file it under §6
+and reconcile *before* porting — porting against an inaccurate
+contract bakes the inaccuracy into the canonical Rust source.
+
+For each primitive about to port, audit:
+
+- Every `random.Random(...)` call site reachable from the Python
+  helper. The seed source (`base_seed + N`, fixed constant, or
+  derived) and the per-call sequence both go in §2. The first
+  three calls are the load-bearing summary; later calls fall
+  out from "same order as the loop".
+- Every `pnoise2(...)` call site. The base value is the
+  determinism handle; document it in §4.
+- Every f-string in the SVG output. `:.1f` / `:.2f` / `:.3f` —
+  Rust's `{:.N}` matches Python's `:.N` for IEEE 754 f64
+  on every input the rendering pipeline produces, but if a
+  primitive uses a custom formatter (the `:.3f`-with-trailing-
+  zero-trim convention in §5), the Rust port has to replicate it.
+
+### 7.2 RNG ownership — port `random.Random` to Rust, never bridge
+
+The legacy primitives drive `random.Random(seed)` directly. The
+Rust ports use `python_random::PyRandom` (in
+`crates/nhc-render/src/python_random.rs`) — a byte-compat
+reproduction of CPython's `random.Random` covering only the
+methods the procedural primitives reach (`random()`,
+`randint()`, `getrandbits()`). Anything else is intentionally
+absent so the `import random` ban that lands at the end of
+Phase 4 doesn't sneak back in through this struct.
+
+**Do not** pass rng-derived values from Python into Rust as
+parameters — that defeats the point of porting and leaves Python
+holding the determinism contract. The PyO3 boundary should
+take only IR data (tile lists, seeds, polygons); the primitive
+materialises a fresh RNG inside Rust.
+
+The MT19937 + seed-from-int + `random()` mantissa construction
+is locked down by inline `cargo test` vectors against
+`random.Random(<seed>)` outputs from CPython 3.14 (see the test
+block in `python_random.rs`). When porting a primitive that
+uses a different seed, capture three vectors (`getrandbits(32)`,
+`random()`, `randint(...)`) from CPython and add an inline test
+— `cargo test` then catches a determinism break before the
+maturin wheel rebuilds.
+
+### 7.3 Perlin — `pnoise2` is the cross-language gate
+
+Phase 3.1 already established this: the Rust Perlin lives at
+`crates/nhc-render/src/perlin.rs` with `f64` throughout (Python
+`float` is f64; the test-fixture asserts exact equality).
+Per-primitive ports just call `crate::perlin::pnoise2` — there
+is no per-primitive Perlin. If a port needs a feature `pnoise2`
+doesn't have (3D, octaves, …), extend the shared module.
+
+### 7.4 Primitive shape
+
+Each primitive lives at `crates/nhc-render/src/primitives/<op>.rs`
+and exposes one or two functions:
+
+- A *layer-level driver* (e.g. `draw_floor_grid`) that owns the
+  RNG, walks the IR's pre-classified data, and returns the
+  SVG-fragment data the Python handler needs.
+- One or more *helpers* mirroring the legacy `_<thing>` helpers
+  (e.g. `wobbly_grid_seg`). Helpers stay private — the FFI shim
+  only exposes drivers.
+
+The PyO3 shim in `ffi/pyo3.rs` is a one-liner per primitive:
+unwrap the Python tuple, call the driver, return the result.
+Any logic in the shim is wrong — the shim is a thin marshaller.
+
+### 7.5 What stays Python-side
+
+The plan's Phase 3 sketch named `dungeon_polygon` and `theme` as
+parameters; in practice neither is RNG-sensitive and both stay
+Python-side:
+
+- **Clip envelopes** (`<defs><clipPath>...`) read the IR's
+  region polygon and emit deterministic SVG. The Python handler
+  owns these — moving them to Rust adds an FFI hop without
+  buying determinism (they were already deterministic).
+- **`<path>` element wrapping** — `fill="none" stroke="..."` etc.
+  Keep these in Python until Phase 5 routes the whole layer
+  through `tiny-skia` and the SVG envelope disappears.
+
+Rule of thumb: if the bytes don't change with `random.Random()`
+or `pnoise2()` output, they don't need to be in Rust today.
+
+### 7.6 Parity gate — never relax
+
+The per-layer parity test (e.g.
+`tests/unit/test_emit_floor_grid_parity.py`) is the contract.
+When a port goes red:
+
+1. Diff the legacy and IR-emitted SVG fragments. The first
+   divergent byte tells you which segment / sub-segment / value
+   misses.
+2. Walk the RNG / Perlin / formatter call sequence for that
+   segment. The bug is almost always a missing call (Perlin
+   sample skipped where the legacy had one), an off-by-one
+   loop bound, or a formatter mismatch (`:.1f` rounding edge
+   case at a half-bit boundary).
+3. Fix the Rust port. **Do not** edit the parity gate, regenerate
+   fixtures, or add a tolerance — every escape hatch buys today's
+   primitive a green CI but blocks every later primitive that
+   builds on the same RNG / Perlin contract.
+
+Phase 3's canary (`floor_grid`) shipped without ever needing to
+revisit the gate; expect Phase 4 ports to clear the same bar.

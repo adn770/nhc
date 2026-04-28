@@ -2,8 +2,10 @@
 //!
 //! Exposes the Rust crate as a Python extension module named
 //! `nhc_render`. Module surface grows primitive-by-primitive per
-//! `plans/nhc_ir_migration_plan.md` Phase 3+. Today: `splitmix64_next`
-//! (Phase 0.3 sentinel) and `perlin2` (Phase 3 cross-language gate).
+//! `plans/nhc_ir_migration_plan.md` Phase 3+. Today:
+//! `splitmix64_next` (Phase 0.3 sentinel), `perlin2` (Phase 3
+//! cross-language gate), and `draw_floor_grid` (Phase 3 canary
+//! primitive).
 //!
 //! Only compiled when the `pyo3` feature is on — disabled for
 //! WASM builds and for `cargo test`-without-features.
@@ -11,6 +13,7 @@
 use pyo3::prelude::*;
 
 use crate::perlin;
+use crate::primitives;
 use crate::rng::SplitMix64;
 
 /// Pull the next splitmix64 output for a given seed.
@@ -34,6 +37,34 @@ fn perlin2(x: f64, y: f64, base: i32) -> f64 {
     perlin::pnoise2(x, y, base)
 }
 
+/// Floor-grid layer — Phase 3 canary primitive.
+///
+/// Returns `(room_d, corridor_d)`: the joined `d=` attribute
+/// strings for the two `<path>` buckets. The Python handler at
+/// `nhc/rendering/ir_to_svg.py:_draw_floor_grid_from_ir` wraps
+/// these in `<path>` elements and adds the dungeon-interior clip
+/// envelope when the IR's `clip_region` resolves.
+///
+/// `tiles` is a list of `(x, y, is_corridor)` triples in the IR's
+/// y-major iteration order. The byte-equal parity gate lives at
+/// `tests/unit/test_emit_floor_grid_parity.py` — drift on either
+/// the Rust or Python side fails it before any SVG fixture
+/// notices.
+#[pyfunction]
+fn draw_floor_grid(
+    width_tiles: i32,
+    height_tiles: i32,
+    tiles: Vec<(i32, i32, bool)>,
+    seed: u64,
+) -> (String, String) {
+    primitives::floor_grid::draw_floor_grid(
+        width_tiles,
+        height_tiles,
+        &tiles,
+        seed,
+    )
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -41,5 +72,6 @@ fn perlin2(x: f64, y: f64, base: i32) -> f64 {
 fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(splitmix64_next, m)?)?;
     m.add_function(wrap_pyfunction!(perlin2, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_floor_grid, m)?)?;
     Ok(())
 }

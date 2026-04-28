@@ -12,7 +12,8 @@
 //! - Output is either an SVG path-fragment list (Phase 1 parity
 //!   path) or a typed-array opcode stream (Phase 5+ PNG / Canvas).
 //!
-//! **Empty until Phase 3.** Submodules drop in primitive-by-
-//! primitive per the order in `plans/nhc_ir_migration_plan.md`
-//! Phase 4. `floor_grid` is the canary in Phase 3, then heaviest-
-//! first (`hatch`, `floor_detail`, …).
+//! **`floor_grid` is the Phase 3 canary**, then heaviest-first
+//! (`hatch`, `floor_detail`, …) per
+//! `plans/nhc_ir_migration_plan.md` Phase 4.
+
+pub mod floor_grid;
