@@ -142,6 +142,39 @@ fn draw_stairs(
     primitives::stairs::draw_stairs(&stairs, theme, fill_color)
 }
 
+/// Hatch corridor halo — Phase 4 sub-step 1.d.
+///
+/// Returns `(tile_fills, hatch_lines, hatch_stones)`: three SVG
+/// fragment buckets the Python handler at
+/// `ir_to_svg.py:_draw_hatch_corridor` wraps in the legacy
+/// `<g opacity="...">` envelopes. `tiles` is the IR's pre-sorted
+/// halo tile list; `seed` already includes the legacy `+7`
+/// offset (set on emit at `_floor_layers.py:_emit_hatch_ir`).
+#[pyfunction]
+fn draw_hatch_corridor(
+    tiles: Vec<(i32, i32)>,
+    seed: u64,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    primitives::hatch::draw_hatch_corridor(&tiles, seed)
+}
+
+/// Hatch room halo — Phase 4 sub-step 1.d.
+///
+/// Returns `(tile_fills, hatch_lines, hatch_stones)`. `tiles` is
+/// the candidate set produced emit-side at sub-step 1.b (post-
+/// Perlin distance filter, row-major); `is_outer` runs parallel
+/// to it (cave-aware `dist > base_distance_limit*0.5` flag) and
+/// gates the 10 % RNG skip Rust-side so the consumer doesn't
+/// reconstruct dist.
+#[pyfunction]
+fn draw_hatch_room(
+    tiles: Vec<(i32, i32)>,
+    is_outer: Vec<bool>,
+    seed: u64,
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    primitives::hatch::draw_hatch_room(&tiles, &is_outer, seed)
+}
+
 /// Walls + floors layer — partial port. Structural geometry
 /// (smooth-room outlines, cave region paths, wall extension
 /// computations) stays Python-side and travels in via the
@@ -188,5 +221,7 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_room_shadow_cave, m)?)?;
     m.add_function(wrap_pyfunction!(draw_stairs, m)?)?;
     m.add_function(wrap_pyfunction!(draw_walls_and_floors, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_hatch_corridor, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_hatch_room, m)?)?;
     Ok(())
 }
