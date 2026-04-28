@@ -5,8 +5,10 @@
 //! `plans/nhc_ir_migration_plan.md` Phase 3+. Today:
 //! `splitmix64_next` (Phase 0.3 sentinel), `perlin2` (Phase 3
 //! cross-language gate), `draw_floor_grid` (Phase 3 canary
-//! primitive), and `draw_terrain_tints` (Phase 4.1 first
-//! deterministic primitive).
+//! primitive), `draw_terrain_tints` (Phase 4.1 first
+//! deterministic primitive), and the shadow family
+//! (`draw_corridor_shadows` + `draw_room_shadow_{rect,octagon,
+//! cave}`, Phase 4.2).
 //!
 //! Only compiled when the `pyo3` feature is on — disabled for
 //! WASM builds and for `cargo test`-without-features.
@@ -94,6 +96,37 @@ fn draw_terrain_tints(
     )
 }
 
+/// Per-tile corridor shadow rects.
+///
+/// Returns a list of `<rect>` strings — one per tile, with the
+/// `+3` offset and `0.08` opacity baked in. The Python handler
+/// at `ir_to_svg.py:_draw_shadow_from_ir` walks the IR's
+/// `op.tiles` and crosses the FFI boundary with a flat list.
+#[pyfunction]
+fn draw_corridor_shadows(tiles: Vec<(i32, i32)>) -> Vec<String> {
+    primitives::shadow::draw_corridor_shadows(&tiles)
+}
+
+/// Rect-shape room shadow — single `<rect>` with bbox baked in.
+#[pyfunction]
+fn draw_room_shadow_rect(coords: Vec<(f64, f64)>) -> String {
+    primitives::shadow::draw_room_shadow_rect(&coords)
+}
+
+/// Octagon-shape room shadow — `<polygon>` wrapped in
+/// `<g transform="translate(3,3)">`.
+#[pyfunction]
+fn draw_room_shadow_octagon(coords: Vec<(f64, f64)>) -> String {
+    primitives::shadow::draw_room_shadow_octagon(&coords)
+}
+
+/// Cave-shape room shadow — Catmull-Rom-smoothed `<path>`
+/// wrapped in `<g transform="translate(3,3)">`.
+#[pyfunction]
+fn draw_room_shadow_cave(coords: Vec<(f64, f64)>) -> String {
+    primitives::shadow::draw_room_shadow_cave(&coords)
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -103,5 +136,9 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(perlin2, m)?)?;
     m.add_function(wrap_pyfunction!(draw_floor_grid, m)?)?;
     m.add_function(wrap_pyfunction!(draw_terrain_tints, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_corridor_shadows, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_room_shadow_rect, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_room_shadow_octagon, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_room_shadow_cave, m)?)?;
     Ok(())
 }

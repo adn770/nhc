@@ -65,8 +65,16 @@ tiles. **No RNG, no Perlin.** Pure geometry pass.
 
 - **Reference (Python):** `nhc/rendering/_shadows.py` —
   `_room_shadow_svg(room)`, `_render_corridor_shadows(svg, level)`.
-- **Reference (Rust):** TBD —
-  `crates/nhc-render/src/primitives/shadow.rs` (Phase 4).
+  Phase 4.2 left the helpers in place but unused on the IR path;
+  Phase 7 deletes them.
+- **Reference (Rust):** Phase 4.2, **live** —
+  `crates/nhc-render/src/primitives/shadow.rs`. Four entry points
+  (`draw_corridor_shadows` + `draw_room_shadow_{rect,octagon,cave}`)
+  cover the per-shape dispatch the Python handler at
+  `ir_to_svg.py:_draw_shadow_from_ir` performs. The cave path
+  goes through `crate::geometry::smooth_closed_path` (centripetal
+  Catmull-Rom → cubic Bézier, byte-equal port of
+  `_cave_geometry._smooth_closed_path`).
 - **Seed:** none.
 - **Perlin:** none.
 - **SVG shape:**

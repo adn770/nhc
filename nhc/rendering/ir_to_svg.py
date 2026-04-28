@@ -35,7 +35,6 @@ from shapely.geometry import (
 )
 
 from nhc.rendering import _perlin as _noise
-from nhc.rendering._cave_geometry import _smooth_closed_path
 from nhc.rendering._dungeon_polygon import (
     _build_sections, _pick_section_points,
 )
@@ -235,26 +234,21 @@ def _dispatch_ops(
 def _draw_shadow_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
     """Reproduce ``_render_room_shadows`` / ``_render_corridor_shadows``.
 
-    The schema's ``dx`` / ``dy`` / ``opacity`` defaults
-    (3.0 / 3.0 / 0.08) match the legacy hard-coded constants — the
-    handler ignores the FB fields and uses literals instead, both
-    to dodge the float32 round-trip on 0.08 (which would surface as
-    "0.07999999821186066") and to keep integer formatting where the
-    legacy renderer's int arithmetic produced integers.
+    Phase 4.2 — the per-tile corridor rects and the per-shape
+    room shadows live in
+    ``crates/nhc-render/src/primitives/shadow.rs`` and are reached
+    via the four ``nhc_render.draw_*_shadow*`` functions. The Python
+    side resolves the room region's shape_tag from the IR and
+    dispatches; the legacy 0.08-opacity / +3-offset / #000000-ink
+    constants are baked into the Rust side.
     """
+    import nhc_render
+
     op = OpCreator(entry.OpType(), entry.Op())
     kind = op.kind
     if kind == ShadowKind.ShadowKind.Corridor:
-        out: list[str] = []
-        for tile in op.tiles:
-            px = tile.x * CELL + 3
-            py = tile.y * CELL + 3
-            out.append(
-                f'<rect x="{px}" y="{py}" '
-                f'width="{CELL}" height="{CELL}" '
-                f'fill="{INK}" opacity="0.08"/>'
-            )
-        return out
+        tiles = [(t.x, t.y) for t in op.tiles]
+        return nhc_render.draw_corridor_shadows(tiles)
     if kind == ShadowKind.ShadowKind.Room:
         return [_draw_room_shadow(op, fir)]
     raise ValueError(f"unknown ShadowKind: {kind}")
@@ -263,12 +257,14 @@ def _draw_shadow_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
 def _draw_room_shadow(op: Any, fir: FloorIR) -> str:  # type: ignore[name-defined]
     """Reproduce ``_shadows._room_shadow_svg`` from the IR.
 
-    Dispatches on the referenced region's ``shape_tag`` so the
-    output matches the legacy element form for each supported
-    shape: rect / octagon / cave (plus the cave→rect fallback that
+    Dispatches on the referenced region's ``shape_tag`` and routes
+    to the matching Rust primitive (rect / octagon / cave). The
+    cave→rect fallback that
     :func:`nhc.rendering.ir_emitter._room_region_data` collapses
-    into ``shape_tag == "rect"``).
+    into ``shape_tag == "rect"`` is handled by the rect branch.
     """
+    import nhc_render
+
     region = _find_region(fir, op.regionRef)
     if region is None:
         raise ValueError(
@@ -279,40 +275,17 @@ def _draw_room_shadow(op: Any, fir: FloorIR) -> str:  # type: ignore[name-define
     coords = _polygon_paths_to_coords(region.Polygon())
 
     if shape_tag == b"rect":
-        # Rect form bakes the +3 offset into x / y. Coords are
-        # integer-valued (CELL × tile-int) so int() formats cleanly.
-        xs = [int(x) for x, _ in coords]
-        ys = [int(y) for _, y in coords]
-        px, py = min(xs) + 3, min(ys) + 3
-        pw = max(xs) - min(xs)
-        ph = max(ys) - min(ys)
-        return (
-            f'<rect x="{px}" y="{py}" '
-            f'width="{pw}" height="{ph}" '
-            f'fill="{INK}" opacity="0.08"/>'
-        )
-
+        return nhc_render.draw_room_shadow_rect(coords)
     if shape_tag == b"octagon":
-        points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
-        outline = f'<polygon points="{points}"/>'
-        return _wrap_outline(outline)
-
+        return nhc_render.draw_room_shadow_octagon(coords)
     if shape_tag == b"cave":
-        outline = _smooth_closed_path(coords)
-        return _wrap_outline(outline)
+        return nhc_render.draw_room_shadow_cave(coords)
 
     raise NotImplementedError(
         f"Room shadow handler for shape_tag {shape_tag!r} not "
         "implemented; the starter fixtures only exercise rect / "
         "octagon / cave"
     )
-
-
-def _wrap_outline(outline: str) -> str:
-    """Mirror ``_shadows._room_shadow_svg`` wrap: inject fill +
-    opacity on the outline element, then translate by (3, 3)."""
-    el = outline.replace("/>", f' fill="{INK}" opacity="0.08"/>')
-    return f'<g transform="translate(3,3)">{el}</g>'
 
 
 def _find_region(fir: FloorIR, region_ref: bytes) -> Region | None:

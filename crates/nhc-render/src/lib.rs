@@ -15,6 +15,7 @@
 //! `plans/nhc_ir_migration_plan.md` Phase 4 for the per-primitive
 //! port roadmap.
 
+pub mod geometry;
 pub mod ir;
 pub mod perlin;
 pub mod primitives;

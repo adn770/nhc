@@ -17,4 +17,5 @@
 //! `plans/nhc_ir_migration_plan.md` Phase 4.
 
 pub mod floor_grid;
+pub mod shadow;
 pub mod terrain_tints;
