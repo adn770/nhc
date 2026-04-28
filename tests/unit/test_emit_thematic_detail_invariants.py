@@ -169,3 +169,35 @@ def test_deterministic(descriptor: str) -> None:
     assert svg_a == svg_b, (
         f"{descriptor}: thematic_detail layer is not deterministic"
     )
+
+
+@pytest.mark.parametrize("descriptor", all_descriptors())
+def test_thematic_detail_snapshot_matches_fixture(
+    descriptor: str,
+) -> None:
+    """Sub-step 4.f — byte-equal snapshot lock against the Rust port.
+
+    Pairs with the structural invariants above: the invariants
+    pin *what* the layer must produce; the snapshot pins
+    *exactly* what it produces. Drift on either the emitter
+    (4.b candidate walk + wall_corners bitmap) or the Rust impl
+    (4.d painters) trips this gate first.
+
+    The fixture lives at
+    ``tests/fixtures/floor_ir/<descriptor>/thematic_detail.svg``
+    and is refreshed via
+    ``python -m tests.samples.regenerate_fixtures``.
+    """
+    inputs = descriptor_inputs(descriptor)
+    actual = layer_to_svg(_build_buf(inputs), layer="thematic_detail")
+    fixture = _FIXTURE_ROOT / descriptor / "thematic_detail.svg"
+    assert fixture.exists(), (
+        f"{descriptor}: thematic_detail.svg fixture missing — "
+        f"re-run `python -m tests.samples.regenerate_fixtures`"
+    )
+    expected = fixture.read_text()
+    assert actual == expected, (
+        f"{descriptor}: thematic_detail layer drifts from snapshot. "
+        f"If this drift is intentional, refresh fixtures via "
+        f"`python -m tests.samples.regenerate_fixtures`."
+    )
