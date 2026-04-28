@@ -1,17 +1,16 @@
-"""Skeleton sentinel for the Phase 5.1 IR → PNG stub.
+"""Skeleton sentinel for the Phase 5.1 / 5.1.1 IR → PNG path.
 
-Pins the FFI shape locked in
-``plans/nhc_ir_migration_plan.md`` Phase 5.1: the
-``nhc_render.ir_to_png(ir_bytes, scale=1.0) -> bytes`` function
-exists, returns valid PNG bytes (magic header), sizes the canvas
-to match the legacy SVG sizing rule
-(``width_tiles * cell + 2 * padding``), and honours the ``scale``
-multiplier. The pixmap content is intentionally empty
-(transparent) at this commit; later Phase 5 sub-commits populate
-it primitive-by-primitive without changing this sentinel.
+Pins the FFI shape locked in ``plans/nhc_ir_migration_plan.md``:
+``nhc_render.ir_to_png(ir_bytes, scale=1.0, layer=None) ->
+bytes`` exists, returns valid PNG bytes, sizes the canvas to
+match the legacy SVG rule (``width_tiles * cell + 2 * padding``),
+honours the ``scale`` multiplier, and accepts layer names from
+``ir_to_svg.py``'s ``_LAYER_OPS``. The per-primitive 5.2 / 5.3 /
+5.4 commits fill in the pixmap content without changing this
+sentinel.
 
 Goes green at 5.1 and stays green through the rest of Phase 5 —
-the parity gate (Phase 5.7) lives in its own file.
+the per-layer parity gate lives in ``test_ir_png_parity.py``.
 """
 
 from __future__ import annotations
@@ -60,7 +59,7 @@ def test_function_is_exposed() -> None:
 
 def test_returns_valid_png_bytes(emitted) -> None:
     _, buf = emitted
-    png = nhc_render.ir_to_png(bytes(buf), 1.0)
+    png = nhc_render.ir_to_png(bytes(buf), 1.0, None)
     assert isinstance(png, (bytes, bytearray))
     assert png[:8] == PNG_SIG, "PNG signature missing"
 
@@ -74,7 +73,7 @@ def test_canvas_matches_svg_sizing_rule(emitted) -> None:
     starter fixtures actually carry.
     """
     inputs, buf = emitted
-    png = nhc_render.ir_to_png(bytes(buf), 1.0)
+    png = nhc_render.ir_to_png(bytes(buf), 1.0, None)
     w, h = struct.unpack(">II", png[16:24])
     expected_w = inputs.level.width * 32 + 2 * 32
     expected_h = inputs.level.height * 32 + 2 * 32
@@ -84,7 +83,7 @@ def test_canvas_matches_svg_sizing_rule(emitted) -> None:
 
 def test_scale_factor_multiplies_canvas(emitted) -> None:
     inputs, buf = emitted
-    png = nhc_render.ir_to_png(bytes(buf), 2.0)
+    png = nhc_render.ir_to_png(bytes(buf), 2.0, None)
     w, h = struct.unpack(">II", png[16:24])
     assert w == 2 * (inputs.level.width * 32 + 2 * 32)
     assert h == 2 * (inputs.level.height * 32 + 2 * 32)
@@ -92,4 +91,32 @@ def test_scale_factor_multiplies_canvas(emitted) -> None:
 
 def test_rejects_buffer_without_identifier() -> None:
     with pytest.raises(ValueError):
-        nhc_render.ir_to_png(b"\x00" * 16, 1.0)
+        nhc_render.ir_to_png(b"\x00" * 16, 1.0, None)
+
+
+@pytest.mark.parametrize("layer", [
+    "shadows",
+    "hatching",
+    "walls_and_floors",
+    "terrain_tints",
+    "floor_grid",
+    "floor_detail",
+    "thematic_detail",
+    "terrain_detail",
+    "stairs",
+    "surface_features",
+])
+def test_layer_filter_accepts_known_names(emitted, layer: str) -> None:
+    """Every layer name in ``ir_to_svg``'s ``_LAYER_OPS`` resolves
+    without error. Catches drift between the Rust mirror and the
+    Python source of truth.
+    """
+    _, buf = emitted
+    png = nhc_render.ir_to_png(bytes(buf), 1.0, layer)
+    assert png[:8] == PNG_SIG
+
+
+def test_layer_filter_rejects_unknown(emitted) -> None:
+    _, buf = emitted
+    with pytest.raises(ValueError):
+        nhc_render.ir_to_png(bytes(buf), 1.0, "not-a-layer")

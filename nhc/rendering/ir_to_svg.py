@@ -198,6 +198,39 @@ def layer_to_svg(buf: bytes, *, layer: str) -> str:
     return "\n".join(_dispatch_ops(fir, op_filter=_LAYER_OPS[layer]))
 
 
+def layer_to_svg_full(buf: bytes, *, layer: str) -> str:
+    """Render ``layer`` wrapped in the standard SVG envelope.
+
+    The envelope is the same one ``ir_to_svg`` writes:
+    ``<svg viewBox=...>``, the ``BG`` background rect, and a
+    ``<g transform="translate(padding,padding)">`` group around
+    the per-layer fragments. Used by the Phase 5 PNG parity
+    harness — feeding the result into ``resvg-py`` produces the
+    baseline that ``nhc_render.ir_to_png(buf, layer=...)`` is
+    measured against.
+    """
+    if layer not in _LAYER_OPS:
+        raise KeyError(
+            f"unknown layer: {layer!r}; known layers: "
+            f"{sorted(_LAYER_OPS)}"
+        )
+    fir = _root_or_raise(buf)
+    cell = fir.Cell()
+    padding = fir.Padding()
+    w = fir.WidthTiles() * cell + 2 * padding
+    h = fir.HeightTiles() * cell + 2 * padding
+    body = "\n".join(_dispatch_ops(fir, op_filter=_LAYER_OPS[layer]))
+    return (
+        f'<svg width="{w}" height="{h}" '
+        f'viewBox="0 0 {w} {h}" '
+        'xmlns="http://www.w3.org/2000/svg">'
+        f'<rect width="100%" height="100%" fill="{BG}"/>'
+        f'<g transform="translate({padding},{padding})">'
+        f'{body}'
+        '</g></svg>'
+    )
+
+
 def _root_or_raise(buf: bytes) -> FloorIR:
     if not FloorIR.FloorIRBufferHasIdentifier(buf, 0):
         raise ValueError(

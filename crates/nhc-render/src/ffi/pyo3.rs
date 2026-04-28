@@ -383,19 +383,25 @@ fn draw_walls_and_floors(
     )
 }
 
-/// IR → PNG raster — Phase 5.1 stub.
+/// IR → PNG raster — Phase 5.1.1 envelope.
 ///
 /// Reads a `FloorIR` FlatBuffer and returns the rasterised PNG
 /// bytes. `scale` multiplies the SVG-equivalent canvas size; the
 /// `.png` web endpoint passes 1.0 to match the legacy `resvg-py`
-/// rendering. The current implementation produces an empty
-/// (transparent) pixmap at the correct dimensions; later Phase 5
-/// sub-commits populate it primitive-by-primitive without
-/// changing this signature.
+/// rendering. `layer` (when not None) dispatches a single named
+/// layer — the parity harness in `tests/unit/test_ir_png_parity.py`
+/// uses this to gate per-primitive 5.2 / 5.3 / 5.4 commits one
+/// layer at a time. Phase 5.1.1 paints the BG envelope; per-
+/// primitive commits add op handlers without changing the
+/// signature.
 #[pyfunction]
-#[pyo3(signature = (ir_bytes, scale = 1.0))]
-fn ir_to_png(ir_bytes: &[u8], scale: f32) -> PyResult<Vec<u8>> {
-    transform_png::floor_ir_to_png(ir_bytes, scale)
+#[pyo3(signature = (ir_bytes, scale = 1.0, layer = None))]
+fn ir_to_png(
+    ir_bytes: &[u8],
+    scale: f32,
+    layer: Option<&str>,
+) -> PyResult<Vec<u8>> {
+    transform_png::floor_ir_to_png(ir_bytes, scale, layer)
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
