@@ -18,6 +18,7 @@
 
 pub mod brick;
 pub mod cobblestone;
+pub mod field_stone;
 pub mod flagstone;
 pub mod floor_detail;
 pub mod opus_romano;

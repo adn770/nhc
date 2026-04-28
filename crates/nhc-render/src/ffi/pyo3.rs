@@ -218,6 +218,17 @@ fn draw_opus_romano(tiles: Vec<(i32, i32)>, seed: u64) -> Vec<String> {
     primitives::opus_romano::draw_opus_romano(&tiles, seed)
 }
 
+/// Field-stone decorator — Phase 4 sub-step 10.
+///
+/// 10 % per-tile probabilistic single ellipse (green stone)
+/// for FIELD-surface GRASS tiles.
+#[pyfunction]
+fn draw_field_stone(
+    tiles: Vec<(i32, i32)>, seed: u64,
+) -> Vec<String> {
+    primitives::field_stone::draw_field_stone(&tiles, seed)
+}
+
 /// Brick decorator — Phase 4 sub-step 7.
 ///
 /// 4×2 running-bond brick layout, ``<g>`` opacity 0.35 with
@@ -320,5 +331,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_brick, m)?)?;
     m.add_function(wrap_pyfunction!(draw_flagstone, m)?)?;
     m.add_function(wrap_pyfunction!(draw_opus_romano, m)?)?;
+    m.add_function(wrap_pyfunction!(draw_field_stone, m)?)?;
     Ok(())
 }

@@ -913,6 +913,16 @@ def _draw_decorator_from_ir(
         tiles = [(t.x, t.y) for t in v_tiles]
         out.extend(nhc_render.draw_opus_romano(tiles, seed))
 
+    field_variants = (
+        op.fieldStone if op.fieldStone is not None else []
+    )
+    for variant in field_variants:
+        v_tiles = variant.tiles or []
+        if not v_tiles:
+            continue
+        tiles = [(t.x, t.y) for t in v_tiles]
+        out.extend(nhc_render.draw_field_stone(tiles, seed))
+
     return out
 
 
