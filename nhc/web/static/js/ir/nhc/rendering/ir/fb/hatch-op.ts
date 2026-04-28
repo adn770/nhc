@@ -77,8 +77,23 @@ hatchUnderlayColor(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+isOuter(index: number):boolean|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? !!this.bb!.readInt8(this.bb!.__vector(this.bb_pos + offset) + index) : false;
+}
+
+isOuterLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+isOuterArray():Int8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
+}
+
 static startHatchOp(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(9);
 }
 
 static addKind(builder:flatbuffers.Builder, kind:HatchKind) {
@@ -117,12 +132,28 @@ static addHatchUnderlayColor(builder:flatbuffers.Builder, hatchUnderlayColorOffs
   builder.addFieldOffset(7, hatchUnderlayColorOffset, 0);
 }
 
+static addIsOuter(builder:flatbuffers.Builder, isOuterOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, isOuterOffset, 0);
+}
+
+static createIsOuterVector(builder:flatbuffers.Builder, data:boolean[]):flatbuffers.Offset {
+  builder.startVector(1, data.length, 1);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addInt8(+data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startIsOuterVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(1, numElems, 1);
+}
+
 static endHatchOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createHatchOp(builder:flatbuffers.Builder, kind:HatchKind, regionOutOffset:flatbuffers.Offset, regionInOffset:flatbuffers.Offset, tilesOffset:flatbuffers.Offset, extentTiles:number, seed:bigint, stride:number, hatchUnderlayColorOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createHatchOp(builder:flatbuffers.Builder, kind:HatchKind, regionOutOffset:flatbuffers.Offset, regionInOffset:flatbuffers.Offset, tilesOffset:flatbuffers.Offset, extentTiles:number, seed:bigint, stride:number, hatchUnderlayColorOffset:flatbuffers.Offset, isOuterOffset:flatbuffers.Offset):flatbuffers.Offset {
   HatchOp.startHatchOp(builder);
   HatchOp.addKind(builder, kind);
   HatchOp.addRegionOut(builder, regionOutOffset);
@@ -132,6 +163,7 @@ static createHatchOp(builder:flatbuffers.Builder, kind:HatchKind, regionOutOffse
   HatchOp.addSeed(builder, seed);
   HatchOp.addStride(builder, stride);
   HatchOp.addHatchUnderlayColor(builder, hatchUnderlayColorOffset);
+  HatchOp.addIsOuter(builder, isOuterOffset);
   return HatchOp.endHatchOp(builder);
 }
 }

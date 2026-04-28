@@ -101,8 +101,35 @@ class HatchOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # HatchOp
+    def IsOuter(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            a = self._tab.Vector(o)
+            return self._tab.Get(flatbuffers.number_types.BoolFlags, a + flatbuffers.number_types.UOffsetTFlags.py_type(j * 1))
+        return 0
+
+    # HatchOp
+    def IsOuterAsNumpy(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.GetVectorAsNumpy(flatbuffers.number_types.BoolFlags, o)
+        return 0
+
+    # HatchOp
+    def IsOuterLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # HatchOp
+    def IsOuterIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        return o == 0
+
 def HatchOpStart(builder):
-    builder.StartObject(8)
+    builder.StartObject(9)
 
 def Start(builder):
     HatchOpStart(builder)
@@ -161,6 +188,18 @@ def HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor):
 def AddHatchUnderlayColor(builder, hatchUnderlayColor):
     HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor)
 
+def HatchOpAddIsOuter(builder, isOuter):
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(isOuter), 0)
+
+def AddIsOuter(builder, isOuter):
+    HatchOpAddIsOuter(builder, isOuter)
+
+def HatchOpStartIsOuterVector(builder, numElems):
+    return builder.StartVector(1, numElems, 1)
+
+def StartIsOuterVector(builder, numElems):
+    return HatchOpStartIsOuterVector(builder, numElems)
+
 def HatchOpEnd(builder):
     return builder.EndObject()
 
@@ -186,6 +225,7 @@ class HatchOpT(object):
         seed = 0,
         stride = 0.5,
         hatchUnderlayColor = None,
+        isOuter = None,
     ):
         self.kind = kind  # type: int
         self.regionOut = regionOut  # type: Optional[str]
@@ -195,6 +235,7 @@ class HatchOpT(object):
         self.seed = seed  # type: int
         self.stride = stride  # type: float
         self.hatchUnderlayColor = hatchUnderlayColor  # type: Optional[str]
+        self.isOuter = isOuter  # type: Optional[List[bool]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -232,6 +273,13 @@ class HatchOpT(object):
         self.seed = hatchOp.Seed()
         self.stride = hatchOp.Stride()
         self.hatchUnderlayColor = hatchOp.HatchUnderlayColor()
+        if not hatchOp.IsOuterIsNone():
+            if np is None:
+                self.isOuter = []
+                for i in range(hatchOp.IsOuterLength()):
+                    self.isOuter.append(hatchOp.IsOuter(i))
+            else:
+                self.isOuter = hatchOp.IsOuterAsNumpy()
 
     # HatchOpT
     def Pack(self, builder):
@@ -246,6 +294,14 @@ class HatchOpT(object):
             tiles = builder.EndVector()
         if self.hatchUnderlayColor is not None:
             hatchUnderlayColor = builder.CreateString(self.hatchUnderlayColor)
+        if self.isOuter is not None:
+            if np is not None and type(self.isOuter) is np.ndarray:
+                isOuter = builder.CreateNumpyVector(self.isOuter)
+            else:
+                HatchOpStartIsOuterVector(builder, len(self.isOuter))
+                for i in reversed(range(len(self.isOuter))):
+                    builder.PrependBool(self.isOuter[i])
+                isOuter = builder.EndVector()
         HatchOpStart(builder)
         HatchOpAddKind(builder, self.kind)
         if self.regionOut is not None:
@@ -259,5 +315,7 @@ class HatchOpT(object):
         HatchOpAddStride(builder, self.stride)
         if self.hatchUnderlayColor is not None:
             HatchOpAddHatchUnderlayColor(builder, hatchUnderlayColor)
+        if self.isOuter is not None:
+            HatchOpAddIsOuter(builder, isOuter)
         hatchOp = HatchOpEnd(builder)
         return hatchOp

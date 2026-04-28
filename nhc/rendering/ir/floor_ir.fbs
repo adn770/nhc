@@ -235,11 +235,20 @@ table HatchOp {
   kind: HatchKind;
   region_out: string;     // exclusion region (e.g. "dungeon")
   region_in: string;      // hatched region (Room / Hole)
-  tiles: [TileCoord];     // for Corridor kind
+  tiles: [TileCoord];     // Corridor: halo tiles. Room: candidate
+                          // tiles (post-Perlin distance filter,
+                          // row-major y-major/x-minor; the consumer
+                          // applies the 10 % RNG skip).
   extent_tiles: float = 2.0;
   seed: uint64;           // base_seed + 0/7/777 per kind (see audit)
   stride: float = 0.5;
   hatch_underlay_color: string;
+  is_outer: [bool];       // Room: parallel to tiles[]; flags
+                          // dist > base_distance_limit*0.5 so the
+                          // consumer can gate the 10 % skip without
+                          // reconstructing dist. Always False in
+                          // cave mode (no skip applies). Empty for
+                          // Corridor kind.
 }
 
 // Layer 300 — walls and floor fills (deterministic).

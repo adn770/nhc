@@ -3433,6 +3433,7 @@ impl<'a> HatchOp<'a> {
   pub const VT_SEED: ::flatbuffers::VOffsetT = 14;
   pub const VT_STRIDE: ::flatbuffers::VOffsetT = 16;
   pub const VT_HATCH_UNDERLAY_COLOR: ::flatbuffers::VOffsetT = 18;
+  pub const VT_IS_OUTER: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -3445,6 +3446,7 @@ impl<'a> HatchOp<'a> {
   ) -> ::flatbuffers::WIPOffset<HatchOp<'bldr>> {
     let mut builder = HatchOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.is_outer { builder.add_is_outer(x); }
     if let Some(x) = args.hatch_underlay_color { builder.add_hatch_underlay_color(x); }
     builder.add_stride(args.stride);
     builder.add_extent_tiles(args.extent_tiles);
@@ -3512,6 +3514,13 @@ impl<'a> HatchOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(HatchOp::VT_HATCH_UNDERLAY_COLOR, None)}
   }
+  #[inline]
+  pub fn is_outer(&self) -> Option<::flatbuffers::Vector<'a, bool>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, bool>>>(HatchOp::VT_IS_OUTER, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for HatchOp<'_> {
@@ -3528,6 +3537,7 @@ impl ::flatbuffers::Verifiable for HatchOp<'_> {
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<f32>("stride", Self::VT_STRIDE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("hatch_underlay_color", Self::VT_HATCH_UNDERLAY_COLOR, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, bool>>>("is_outer", Self::VT_IS_OUTER, false)?
      .finish();
     Ok(())
   }
@@ -3541,6 +3551,7 @@ pub struct HatchOpArgs<'a> {
     pub seed: u64,
     pub stride: f32,
     pub hatch_underlay_color: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub is_outer: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, bool>>>,
 }
 impl<'a> Default for HatchOpArgs<'a> {
   #[inline]
@@ -3554,6 +3565,7 @@ impl<'a> Default for HatchOpArgs<'a> {
       seed: 0,
       stride: 0.5,
       hatch_underlay_color: None,
+      is_outer: None,
     }
   }
 }
@@ -3596,6 +3608,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> HatchOpBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_HATCH_UNDERLAY_COLOR, hatch_underlay_color);
   }
   #[inline]
+  pub fn add_is_outer(&mut self, is_outer: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , bool>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(HatchOp::VT_IS_OUTER, is_outer);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> HatchOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     HatchOpBuilder {
@@ -3621,6 +3637,7 @@ impl ::core::fmt::Debug for HatchOp<'_> {
       ds.field("seed", &self.seed());
       ds.field("stride", &self.stride());
       ds.field("hatch_underlay_color", &self.hatch_underlay_color());
+      ds.field("is_outer", &self.is_outer());
       ds.finish()
   }
 }

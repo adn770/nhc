@@ -137,13 +137,17 @@ def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
     streams op output in the same sequence as the joined legacy
     output.
 
-    1.c.2 emits one ``HatchOp(kind=Room)`` carrying the level's
-    floor-tile set as its ``tiles[]`` payload. The Room handler
-    walks the padded grid itself (legacy iteration is interleaved
-    with the 10% RNG-driven skip, so emit-side filtering would
-    split the rng stream and break parity). Floor tiles are the
-    one piece of state the handler can't recover from polygons
-    alone — encoding them inline keeps the handler self-contained.
+    Sub-step 1.b (Boundary B, plan §8) flips the Room payload:
+    ``tiles[]`` now holds the **candidate hatch tiles** in row-major
+    order (y outer, x inner over ``range(-1, h+1) × range(-1, w+1)``,
+    skipping floor tiles and tiles that fail the Perlin distance
+    filter), and a parallel ``is_outer[]`` bit array flags
+    ``dist > base_distance_limit * 0.5`` so the consumer can apply
+    the 10 % RNG skip without reconstructing dist. ``is_outer`` is
+    all-False in cave mode (the legacy skip is gated on
+    ``cave_wall_poly is None``). The deterministic prefix that
+    used to live in the handler now lives here; the consumer just
+    iterates and rolls RNG.
 
     1.c.1 emits the Corridor halo as a sorted tile list (handler's
     rng walks the same order).
@@ -156,6 +160,12 @@ def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
     if not builder.ctx.hatching_enabled:
         return
 
+    import math
+
+    from shapely.geometry import Point
+
+    from nhc.rendering import _perlin as _noise
+    from nhc.rendering._svg_helpers import CELL
     from nhc.rendering.ir._fb import HatchKind, Op
     from nhc.rendering.ir._fb.HatchOp import HatchOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
@@ -166,25 +176,66 @@ def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
     base_seed = ctx.seed
 
     # ── Room (perimeter) halo ────────────────────────────────
-    # The handler iterates the padded grid; emit just provides the
-    # floor-tile set + dungeon polygon (already in regions[]) +
-    # hatch_distance. Skip the op when the dungeon polygon is empty
-    # — matches `_render_hatching`'s `if dungeon_poly.is_empty:
-    # return` early-exit byte-for-byte.
+    # Sub-step 1.b: walk the candidate space and apply the Perlin
+    # distance filter here so the consumer (Python handler today,
+    # Rust handler post-port) just iterates and rolls RNG. Skip the
+    # op when the dungeon polygon is empty — matches the legacy
+    # `_render_hatching` `if dungeon_poly.is_empty: return`.
     if ctx.dungeon_poly is not None and not ctx.dungeon_poly.is_empty:
-        floor_tiles: list[TileCoordT] = []
+        cave_mode = ctx.cave_wall_poly is not None
+        boundary = ctx.dungeon_poly.boundary
+        base_distance_limit = ctx.hatch_distance * CELL
+
+        floor_set: set[tuple[int, int]] = set()
         for ty in range(level.height):
             for tx in range(level.width):
                 if level.tiles[ty][tx].terrain == Terrain.FLOOR:
-                    t = TileCoordT()
-                    t.x = tx
-                    t.y = ty
-                    floor_tiles.append(t)
+                    floor_set.add((tx, ty))
+
+        candidate_tiles: list[TileCoordT] = []
+        is_outer: list[bool] = []
+        for gy in range(-1, level.height + 1):
+            for gx in range(-1, level.width + 1):
+                if (gx, gy) in floor_set:
+                    continue
+                min_dist = float("inf")
+                for ddx in range(-2, 3):
+                    for ddy in range(-2, 3):
+                        if (gx + ddx, gy + ddy) in floor_set:
+                            d = math.hypot(ddx, ddy) * CELL
+                            if d < min_dist:
+                                min_dist = d
+                if min_dist == float("inf"):
+                    center = Point(
+                        (gx + 0.5) * CELL, (gy + 0.5) * CELL,
+                    )
+                    min_dist = boundary.distance(center)
+                dist = min_dist
+                if not cave_mode:
+                    noise_var = (
+                        _noise.pnoise2(gx * 0.3, gy * 0.3, base=50)
+                        * CELL * 0.8
+                    )
+                    tile_limit = base_distance_limit + noise_var
+                else:
+                    tile_limit = base_distance_limit
+                if dist > tile_limit:
+                    continue
+                t = TileCoordT()
+                t.x = gx
+                t.y = gy
+                candidate_tiles.append(t)
+                is_outer.append(
+                    (not cave_mode)
+                    and dist > base_distance_limit * 0.5
+                )
+
         op = HatchOpT()
         op.kind = HatchKind.HatchKind.Room
         op.regionOut = "dungeon"
         op.regionIn = ""
-        op.tiles = floor_tiles
+        op.tiles = candidate_tiles
+        op.isOuter = is_outer
         op.seed = base_seed
         op.extentTiles = ctx.hatch_distance
         entry = OpEntryT()
