@@ -1,21 +1,36 @@
 """Per-tile painter contract for the SVG floor pipeline.
 
-Phase 2 of the rendering refactor. A :class:`TileDecorator` packs
-the four pieces every per-tile renderer used to reimplement: a
-predicate that decides which tiles match, a paint callable that
-emits SVG fragments, optional ``requires`` / ``forbids`` flag gates
-against the :class:`RenderContext`, and a group wrapper to emit
-once when at least one fragment was produced.
+A :class:`TileDecorator` packs the four pieces every per-tile
+renderer used to reimplement: a predicate that decides which tiles
+match, a paint callable that emits SVG fragments, optional
+``requires`` / ``forbids`` flag gates against the
+:class:`RenderContext`, and a group wrapper to emit once when at
+least one fragment was produced.
 
 :func:`walk_and_paint` does one row-major tile walk per call,
 dispatches each matching decorator, and emits its group only when
-the decorator produced fragments. This collapses the half-dozen
-near-identical loops in the renderer (``_render_street_cobblestone``,
-``_render_field_surface``, ``_render_garden_surface``,
-``_render_cart_tracks``, ``_render_ore_deposits``, ...) into one.
+the decorator produced fragments.
 
-See ``rendering_refactor_plan.md`` for the migration list and the
-roadmap for biome / theme variants.
+After Phase 7 of the IR migration the surviving live callers are:
+
+* ``nhc.rendering._terrain_detail._render_terrain_detail`` —
+  ``TERRAIN_WATER`` / ``TERRAIN_LAVA`` / ``TERRAIN_CHASM`` flow
+  through ``walk_and_paint``. Slated for the terrain-detail Rust
+  port (out of Phase 7 scope).
+* ``nhc.rendering._floor_detail._render_wood_floor`` — the wood-
+  floor short-circuit drives a single ``WOOD_FLOOR_FILL_DECORATOR``
+  through ``walk_and_paint`` to honour the dungeon-poly clip.
+  Slated for the wood-floor Rust port.
+* ``nhc.rendering._pipeline.make_tile_walk_layer`` — factory
+  closure. No live callers after Phase 7 retired the
+  ``surface_features`` TileWalkLayer entry; orphaned alongside
+  ``TileWalkLayer`` itself, both pending a follow-up cleanup once
+  the terrain-detail and wood-floor ports finish.
+
+TODO: delete this module entirely once the terrain-detail and
+wood-floor pipelines flip to the Rust handlers (then ``walk_and_paint``,
+``TileDecorator``, ``PaintArgs``, ``Bucket`` all become dead code
+together).
 """
 
 from __future__ import annotations
