@@ -21,16 +21,21 @@ from nhc.rendering.ir._fb import RegionKind
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
 from nhc.rendering.ir._fb.GateStyle import GateStyle
+from nhc.rendering.ir._fb.InteriorWallMaterial import InteriorWallMaterial
 from nhc.rendering.ir._fb.RoofStyle import RoofStyle
+from nhc.rendering.ir._fb.TileCorner import TileCorner
+from nhc.rendering.ir._fb.WallMaterial import WallMaterial
 from nhc.rendering.ir_emitter import (
     FloorIRBuilder,
     _building_footprint_polygon_px,
     _CIRCLE_FOOTPRINT_VERTICES,
     _ROOF_TINTS,
+    _coalesced_interior_edges,
     _collect_building_footprint_mask,
     _point_in_polygon,
     emit_building_regions,
     emit_building_roofs,
+    emit_building_walls,
     emit_site_enclosure,
     emit_site_region,
 )
@@ -590,3 +595,245 @@ class TestEnclosureIRToSvg:
         clean_e2 = _circles_on_edge_2(svg_clean)
         gated_e2 = _circles_on_edge_2(svg_gated)
         assert clean_e2 == gated_e2 and clean_e2  # non-empty + identical
+
+
+# ── 8.3b: emit_building_walls + Building wall IR→SVG ───────────
+
+
+@dataclass
+class _StubTile:
+    feature: str = ""
+    door_side: str | None = None
+
+
+@dataclass
+class _StubLevelWithEdges:
+    width: int = 32
+    height: int = 32
+    interior_edges: list[tuple[int, int, str]] = (
+        None  # type: ignore[assignment]
+    )
+
+    def __post_init__(self) -> None:
+        if self.interior_edges is None:
+            self.interior_edges = []
+
+    def tile_at(self, x: int, y: int) -> _StubTile | None:
+        return None
+
+
+@dataclass
+class _StubBuildingForWalls:
+    base_shape: object
+    base_rect: Rect
+    wall_material: str = "brick"
+    interior_wall_material: str = "stone"
+
+
+class TestCoalescedInteriorEdges:
+    def test_empty_level_returns_empty(self) -> None:
+        level = _StubLevelWithEdges(interior_edges=[])
+        assert _coalesced_interior_edges(level) == []
+
+    def test_north_run_collapses_to_one_edge(self) -> None:
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 5, "north"),
+            (4, 5, "north"),
+            (5, 5, "north"),
+        ])
+        edges = _coalesced_interior_edges(level)
+        assert len(edges) == 1
+        ax, ay, ac, bx, by, bc = edges[0]
+        assert (ax, ay) == (3, 5)
+        assert ac == TileCorner.NW
+        assert bc == TileCorner.NE
+        # bx is the rightmost tile in the run (5 in this case).
+        assert (bx, by) == (5, 5)
+
+    def test_west_run_collapses_to_one_edge(self) -> None:
+        level = _StubLevelWithEdges(interior_edges=[
+            (2, 1, "west"),
+            (2, 2, "west"),
+            (2, 3, "west"),
+        ])
+        edges = _coalesced_interior_edges(level)
+        assert len(edges) == 1
+        ax, ay, ac, bx, by, bc = edges[0]
+        assert (ax, ay) == (2, 1)
+        assert ac == TileCorner.NW
+        assert bc == TileCorner.SW
+        assert (bx, by) == (2, 3)
+
+    def test_disjoint_runs_emit_separately(self) -> None:
+        level = _StubLevelWithEdges(interior_edges=[
+            (1, 0, "north"), (2, 0, "north"),
+            (5, 0, "north"),  # disjoint from 1-2
+        ])
+        edges = _coalesced_interior_edges(level)
+        assert len(edges) == 2
+
+
+class TestEmitBuildingWalls:
+    def _builder(self) -> FloorIRBuilder:
+        return FloorIRBuilder(
+            _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
+        )
+
+    def test_brick_emits_exterior_plus_interior(self) -> None:
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(2, 2, 6, 6),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=42, building_index=0,
+        )
+        # 1 exterior + 1 interior op = 2.
+        assert len(builder.ops) == 2
+        ext = builder.ops[0].op
+        assert ext.regionRef == "building.0"
+        assert ext.material == WallMaterial.Brick
+        # rng_seed = base_seed + 0xBE71 + i.
+        assert ext.rngSeed == (42 + 0xBE71 + 0) & 0xFFFFFFFFFFFFFFFF
+        intr = builder.ops[1].op
+        assert intr.regionRef == "building.0"
+        assert intr.material == InteriorWallMaterial.Stone
+
+    def test_dungeon_material_skips_exterior(self) -> None:
+        """Buildings tagged `wall_material == "dungeon"` flow
+        through the existing WallsAndFloorsOp pass instead of
+        emitting a BuildingExteriorWallOp."""
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 4, 4),
+            wall_material="dungeon",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+        # Only the interior op fires.
+        assert len(builder.ops) == 1
+        op = builder.ops[0].op
+        assert op.regionRef == "building.0"
+
+    def test_interior_edges_threaded_to_op(self) -> None:
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(), base_rect=Rect(0, 0, 8, 8),
+            interior_wall_material="wood",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 4, "north"), (4, 4, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        intr = builder.ops[1].op
+        assert intr.material == InteriorWallMaterial.Wood
+        assert len(intr.edges) == 1
+        e = intr.edges[0]
+        assert (e.ax, e.ay) == (3, 4)
+        assert e.aCorner == TileCorner.NW
+        assert e.bCorner == TileCorner.NE
+
+
+class TestBuildingWallIRToSvg:
+    def _build_buf(
+        self,
+        wall_material: str = "brick",
+        interior_wall_material: str = "stone",
+        interior_edges: list[tuple[int, int, str]] | None = None,
+        shape=None,
+        rect: Rect | None = None,
+        seed: int = 42,
+    ) -> bytes:
+        builder = FloorIRBuilder(
+            _StubCtx(level=_StubLevel(width=20, height=20))  # type: ignore[arg-type]
+        )
+        b = _StubBuildingForWalls(
+            base_shape=shape or RectShape(),
+            base_rect=rect or Rect(2, 2, 8, 6),
+            wall_material=wall_material,
+            interior_wall_material=interior_wall_material,
+        )
+        emit_building_regions(builder, [b])
+        level = _StubLevelWithEdges(
+            interior_edges=interior_edges or [],
+        )
+        emit_building_walls(
+            builder, b, level, base_seed=seed, building_index=0,
+        )
+        return builder.finish()
+
+    def test_brick_svg_uses_brick_palette(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(wall_material="brick"))
+        # Brick fill / seam show up in the masonry rects.
+        assert 'fill="#B4695A"' in svg
+        assert 'stroke="#6A3A2A"' in svg
+
+    def test_stone_svg_uses_stone_palette(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(wall_material="stone"))
+        assert 'fill="#9A8E80"' in svg
+        assert 'stroke="#4A3E35"' in svg
+
+    def test_octagon_emits_diagonal_runs(self) -> None:
+        """Octagon polygon → diagonal edges → masonry rects with
+        rotate(...) transforms."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(
+            wall_material="brick",
+            shape=OctagonShape(),
+            rect=Rect(2, 2, 9, 9),
+        ))
+        assert "rotate(" in svg
+
+    def test_circle_emits_diagonal_runs(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(
+            wall_material="brick",
+            shape=CircleShape(),
+            rect=Rect(2, 2, 8, 8),
+        ))
+        assert "rotate(" in svg
+
+    def test_interior_walls_paint_lines_in_material_color(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(
+            interior_wall_material="wood",
+            interior_edges=[(3, 4, "north"), (4, 4, "north")],
+        ))
+        # Wood interior wall colour appears on at least one <line>.
+        assert 'stroke="#7a4e2c"' in svg
+        assert "<line" in svg
+
+    def test_no_interior_edges_emits_no_lines(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(interior_edges=[]))
+        # No interior-wall <line> elements; masonry uses <rect>.
+        assert "<line" not in svg
+
+    def test_deterministic_per_seed(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        a = ir_to_svg(self._build_buf(seed=99))
+        b = ir_to_svg(self._build_buf(seed=99))
+        assert a == b
+        c = ir_to_svg(self._build_buf(seed=100))
+        assert a != c
+
+    def test_dungeon_material_paints_no_exterior(self) -> None:
+        """Dungeon-material buildings emit a single
+        BuildingInteriorWallOp; no masonry rects show up."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        svg = ir_to_svg(self._build_buf(wall_material="dungeon"))
+        # No brick/stone palette markers.
+        assert 'fill="#B4695A"' not in svg
+        assert 'fill="#9A8E80"' not in svg

@@ -42,18 +42,28 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
+from nhc.rendering.ir._fb.BuildingExteriorWallOp import (
+    BuildingExteriorWallOpT,
+)
+from nhc.rendering.ir._fb.BuildingInteriorWallOp import (
+    BuildingInteriorWallOpT,
+)
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.EnclosureOp import EnclosureOpT
 from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
 from nhc.rendering.ir._fb.Gate import GateT
 from nhc.rendering.ir._fb.GateStyle import GateStyle
+from nhc.rendering.ir._fb.InteriorEdge import InteriorEdgeT
+from nhc.rendering.ir._fb.InteriorWallMaterial import InteriorWallMaterial
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PathRange import PathRangeT
 from nhc.rendering.ir._fb.Polygon import PolygonT
 from nhc.rendering.ir._fb.Region import RegionT
 from nhc.rendering.ir._fb.RoofOp import RoofOpT
 from nhc.rendering.ir._fb.RoofStyle import RoofStyle
+from nhc.rendering.ir._fb.TileCorner import TileCorner
 from nhc.rendering.ir._fb.Vec2 import Vec2T
+from nhc.rendering.ir._fb.WallMaterial import WallMaterial
 
 
 # Schema version stamped on every emitted buffer. Bumped per the
@@ -516,6 +526,183 @@ def emit_site_enclosure(
     entry.opType = 17  # Op.EnclosureOp
     entry.op = op
     builder.add_op(entry)
+
+
+# ── Phase 8.3: Building wall ops ───────────────────────────────
+
+
+_DOOR_SUPPRESSING_FEATURES = frozenset({
+    "door_open", "door_closed", "door_locked",
+})
+
+_WALL_MATERIAL_MAP: dict[str, int] = {
+    "brick": WallMaterial.Brick,
+    "stone": WallMaterial.Stone,
+}
+
+_INTERIOR_WALL_MATERIAL_MAP: dict[str, int] = {
+    "stone": InteriorWallMaterial.Stone,
+    "brick": InteriorWallMaterial.Brick,
+    "wood": InteriorWallMaterial.Wood,
+}
+
+
+def _coalesce_north_edges(
+    norths: set[tuple[int, int]],
+) -> list[tuple[int, int, int, int]]:
+    """Merge consecutive north edges at the same y into one span.
+
+    Mirrors building.py:_coalesce_north_edges. Output runs are
+    ``(x0, y, end + 1, y)`` in tile-boundary coords.
+    """
+    runs: list[tuple[int, int, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for (x, y) in sorted(norths):
+        if (x, y) in seen:
+            continue
+        end = x
+        while (end + 1, y) in norths:
+            end += 1
+        for ix in range(x, end + 1):
+            seen.add((ix, y))
+        runs.append((x, y, end + 1, y))
+    return runs
+
+
+def _coalesce_west_edges(
+    wests: set[tuple[int, int]],
+) -> list[tuple[int, int, int, int]]:
+    """Merge consecutive west edges at the same x into one span."""
+    runs: list[tuple[int, int, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for (x, y) in sorted(wests):
+        if (x, y) in seen:
+            continue
+        end = y
+        while (x, end + 1) in wests:
+            end += 1
+        for iy in range(y, end + 1):
+            seen.add((x, iy))
+        runs.append((x, y, x, end + 1))
+    return runs
+
+
+def _edge_has_visible_door(
+    level: Any, edge_x: int, edge_y: int, edge_side: str,
+) -> bool:
+    """Door-suppression filter mirroring building.py:_edge_has_visible_door."""
+    from nhc.dungeon.model import canonicalize
+    if edge_side == "north":
+        candidates = [(edge_x, edge_y - 1), (edge_x, edge_y)]
+    elif edge_side == "west":
+        candidates = [(edge_x - 1, edge_y), (edge_x, edge_y)]
+    else:
+        return False
+    for (tx, ty) in candidates:
+        tile = level.tile_at(tx, ty)
+        if tile is None:
+            continue
+        if tile.feature not in _DOOR_SUPPRESSING_FEATURES:
+            continue
+        if not tile.door_side:
+            continue
+        target = canonicalize(tx, ty, tile.door_side)
+        if target == (edge_x, edge_y, edge_side):
+            return True
+    return False
+
+
+def _coalesced_interior_edges(
+    level: Any,
+) -> list[tuple[int, int, int, int, int, int]]:
+    """Returns coalesced + door-filtered interior edges as
+    ``(ax, ay, a_corner, bx, by, b_corner)`` int tuples.
+
+    North edges run from the tile's NW corner to the next tile's
+    NE corner; west edges from the tile's NW to SW. The
+    a_corner / b_corner enum values are the FB ``TileCorner`` ints.
+    """
+    if not getattr(level, "interior_edges", None):
+        return []
+    norths: set[tuple[int, int]] = set()
+    wests: set[tuple[int, int]] = set()
+    for (x, y, side) in level.interior_edges:
+        if _edge_has_visible_door(level, x, y, side):
+            continue
+        if side == "north":
+            norths.add((x, y))
+        elif side == "west":
+            wests.add((x, y))
+    out: list[tuple[int, int, int, int, int, int]] = []
+    for (ax, ay, bx, by) in _coalesce_north_edges(norths):
+        # NW -> NE: (ax + 0, ay + 0) to (bx - 1 + 1, ay + 0).
+        out.append(
+            (ax, ay, TileCorner.NW, bx - 1, ay, TileCorner.NE),
+        )
+    for (ax, ay, bx, by) in _coalesce_west_edges(wests):
+        # NW -> SW: (ax + 0, ay + 0) to (ax + 0, by - 1 + 1).
+        out.append(
+            (ax, ay, TileCorner.NW, ax, by - 1, TileCorner.SW),
+        )
+    return out
+
+
+def emit_building_walls(
+    builder: FloorIRBuilder,
+    building: Any,
+    level: Any,
+    *,
+    base_seed: int,
+    building_index: int = 0,
+) -> None:
+    """Emit BuildingExterior + BuildingInteriorWallOps for one Building floor.
+
+    Skips ``BuildingExteriorWallOp`` when ``wall_material ==
+    "dungeon"`` so the existing WallsAndFloorsOp dungeon-wall pass
+    keeps painting them. Always emits ``BuildingInteriorWallOp``
+    (possibly with empty edges so the rasteriser dispatch table
+    still sees one op per building).
+
+    Pre-condition: a ``Region(kind=Building, id="building.<i>")``
+    must already be on ``builder.regions`` (typically via
+    :func:`emit_building_regions`).
+    """
+    region_id = f"building.{building_index}"
+    wall_material = building.wall_material
+    if wall_material != "dungeon":
+        material_int = _WALL_MATERIAL_MAP.get(
+            wall_material, WallMaterial.Brick,
+        )
+        ext_op = BuildingExteriorWallOpT(
+            regionRef=region_id,
+            material=material_int,
+            rngSeed=(base_seed + 0xBE71 + building_index) & _SM64_MASK,
+        )
+        ext_entry = OpEntryT()
+        ext_entry.opType = 18  # Op.BuildingExteriorWallOp
+        ext_entry.op = ext_op
+        builder.add_op(ext_entry)
+    # Interior partitions always emit (rasteriser handles empty list).
+    interior_material = _INTERIOR_WALL_MATERIAL_MAP.get(
+        getattr(building, "interior_wall_material", "stone"),
+        InteriorWallMaterial.Stone,
+    )
+    edges = _coalesced_interior_edges(level)
+    int_op = BuildingInteriorWallOpT(
+        regionRef=region_id,
+        material=interior_material,
+        edges=[
+            InteriorEdgeT(
+                ax=ax, ay=ay, aCorner=a_corner,
+                bx=bx, by=by, bCorner=b_corner,
+            )
+            for (ax, ay, a_corner, bx, by, b_corner) in edges
+        ],
+    )
+    int_entry = OpEntryT()
+    int_entry.opType = 19  # Op.BuildingInteriorWallOp
+    int_entry.op = int_op
+    builder.add_op(int_entry)
 
 
 def emit_building_regions(

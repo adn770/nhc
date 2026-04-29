@@ -89,6 +89,13 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
         # the per-building RoofOps so the enclosure perimeter
         # overlays roof corners but stays beneath atmospherics.
         Op.Op.EnclosureOp,
+        # Phase 8.3: per-building wall primitives. Building IRs
+        # emit BuildingInteriorWallOp before BuildingExteriorWallOp
+        # so the curved exterior masonry overlays any partition
+        # extension into the rim zone (cleans up T-junctions for
+        # circle / octagon footprints).
+        Op.Op.BuildingExteriorWallOp,
+        Op.Op.BuildingInteriorWallOp,
     }),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
@@ -1758,3 +1765,247 @@ def _draw_enclosure_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
 
 
 _OP_HANDLERS[Op.Op.EnclosureOp] = _draw_enclosure_from_ir
+
+
+# ── BuildingExteriorWallOp + BuildingInteriorWallOp (Phase 8.3) ─
+#
+# Constants mirror nhc/rendering/_building_walls.py + building.py
+# value-for-value (palette, dimensions, edge-extension trick).
+# Both rasterisers walk the same splitmix64 stream — the Rust
+# port at crates/nhc-render/src/transform/png/building_*.rs
+# lands at 8.3c.
+
+
+_MASONRY_STRIP_COUNT = 2
+_MASONRY_MEAN_WIDTH = 12.0
+_MASONRY_WIDTH_LOW = 0.9
+_MASONRY_WIDTH_HIGH = 1.1
+_MASONRY_CORNER_RADIUS = 1.2
+_MASONRY_STROKE_WIDTH = 1.0
+_MASONRY_WALL_THICKNESS = 8.0
+_MASONRY_STRIP_OFFSETS = (0.0, _MASONRY_MEAN_WIDTH / 2)
+
+_BRICK_FILL = "#B4695A"
+_BRICK_SEAM = "#6A3A2A"
+_STONE_FILL = "#9A8E80"
+_STONE_SEAM = "#4A3E35"
+
+_INTERIOR_WALL_COLORS: dict[int, str] = {
+    # InteriorWallMaterial: Stone=0, Brick=1, Wood=2.
+    0: "#707070",
+    1: "#c4651d",
+    2: "#7a4e2c",
+}
+_INTERIOR_WALL_STROKE_WIDTH = CELL * 0.25
+
+
+def _masonry_palette(material: int) -> tuple[str, str]:
+    """``WallMaterial`` int -> (fill, seam) hex strings."""
+    from nhc.rendering.ir._fb.WallMaterial import WallMaterial
+    if material == WallMaterial.Brick:
+        return (_BRICK_FILL, _BRICK_SEAM)
+    return (_STONE_FILL, _STONE_SEAM)
+
+
+def _masonry_ortho_rect(
+    horizontal: bool, run_start: float, perp: float,
+    pos: float, width: float, strip_thick: float,
+    fill: str, stroke: str,
+) -> str:
+    if horizontal:
+        x = run_start + pos
+        y = perp
+        w = width
+        h = strip_thick
+    else:
+        x = perp
+        y = run_start + pos
+        w = strip_thick
+        h = width
+    return (
+        f'<rect x="{x:.1f}" y="{y:.1f}" '
+        f'width="{w:.1f}" height="{h:.1f}" '
+        f'rx="{_MASONRY_CORNER_RADIUS}" '
+        f'ry="{_MASONRY_CORNER_RADIUS}" '
+        f'fill="{fill}" stroke="{stroke}" '
+        f'stroke-width="{_MASONRY_STROKE_WIDTH}"/>'
+    )
+
+
+def _masonry_diagonal_rect(
+    pos: float, perp: float, width: float, strip_thick: float,
+    x0: float, y0: float, angle_deg: float,
+    fill: str, stroke: str,
+) -> str:
+    return (
+        f'<rect x="{pos:.1f}" y="{perp:.1f}" '
+        f'width="{width:.1f}" height="{strip_thick:.1f}" '
+        f'rx="{_MASONRY_CORNER_RADIUS}" '
+        f'ry="{_MASONRY_CORNER_RADIUS}" '
+        f'fill="{fill}" stroke="{stroke}" '
+        f'stroke-width="{_MASONRY_STROKE_WIDTH}" '
+        f'transform="translate({x0:.1f} {y0:.1f}) '
+        f'rotate({angle_deg:.2f})"/>'
+    )
+
+
+def _render_masonry_wall_run(
+    x0: float, y0: float, x1: float, y1: float,
+    *, rng: _SplitMix64, fill: str, stroke: str,
+) -> list[str]:
+    """Two-strip running-bond chain along a wall centerline.
+
+    Mirrors nhc/rendering/_building_walls._render_masonry_wall_run
+    but uses splitmix64 instead of random.Random.
+    """
+    import math
+    if x0 == x1 and y0 == y1:
+        return []
+    horizontal = y0 == y1
+    vertical = x0 == x1
+    strip_thick = _MASONRY_WALL_THICKNESS / _MASONRY_STRIP_COUNT
+    out: list[str] = []
+    if horizontal or vertical:
+        run_len = abs(x1 - x0) if horizontal else abs(y1 - y0)
+        run_start = min(x0, x1) if horizontal else min(y0, y1)
+        perp_start = (y0 if horizontal else x0) - _MASONRY_WALL_THICKNESS / 2
+        for idx in range(_MASONRY_STRIP_COUNT):
+            perp = perp_start + idx * strip_thick
+            pos = max(0.0, _MASONRY_STRIP_OFFSETS[idx])
+            while pos < run_len:
+                width = _MASONRY_MEAN_WIDTH * rng.uniform(
+                    _MASONRY_WIDTH_LOW, _MASONRY_WIDTH_HIGH,
+                )
+                width = min(width, run_len - pos)
+                out.append(_masonry_ortho_rect(
+                    horizontal, run_start, perp,
+                    pos, width, strip_thick, fill, stroke,
+                ))
+                pos += width
+        return out
+    # Diagonal run.
+    dx = x1 - x0
+    dy = y1 - y0
+    run_len = math.hypot(dx, dy)
+    angle_deg = math.degrees(math.atan2(dy, dx))
+    for idx in range(_MASONRY_STRIP_COUNT):
+        perp = -_MASONRY_WALL_THICKNESS / 2 + idx * strip_thick
+        pos = max(0.0, _MASONRY_STRIP_OFFSETS[idx])
+        while pos < run_len:
+            width = _MASONRY_MEAN_WIDTH * rng.uniform(
+                _MASONRY_WIDTH_LOW, _MASONRY_WIDTH_HIGH,
+            )
+            width = min(width, run_len - pos)
+            out.append(_masonry_diagonal_rect(
+                pos, perp, width, strip_thick,
+                x0, y0, angle_deg, fill, stroke,
+            ))
+            pos += width
+    return out
+
+
+def _draw_building_exterior_wall_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Phase 8.3: per-building masonry perimeter pass.
+
+    Resolves region_ref, walks polygon edges, and emits a 2-strip
+    running-bond chain along each. Adjacent edges overlap by half
+    the wall thickness at every vertex so the corner square paints
+    fully (mirrors building.py:113-130).
+    """
+    import math
+    op = OpCreator(entry.OpType(), entry.Op())
+    region_ref = _to_str(op.regionRef)
+    region = _find_region(fir, op.regionRef)
+    if region is None:
+        raise ValueError(
+            f"BuildingExteriorWallOp references unknown region "
+            f"{region_ref!r}"
+        )
+    polygon_paths = region.Polygon()
+    if polygon_paths is None or polygon_paths.PathsLength() < 3:
+        return []
+    polygon: list[tuple[float, float]] = [
+        (polygon_paths.Paths(i).X(), polygon_paths.Paths(i).Y())
+        for i in range(polygon_paths.PathsLength())
+    ]
+    fill, stroke = _masonry_palette(int(op.material))
+    rng_seed = int(op.rngSeed)
+    ext = _MASONRY_WALL_THICKNESS / 2
+    out: list[str] = []
+    n = len(polygon)
+    for i in range(n):
+        ax, ay = polygon[i]
+        bx, by = polygon[(i + 1) % n]
+        dx = bx - ax
+        dy = by - ay
+        length = math.hypot(dx, dy)
+        if length < 1e-6:
+            continue
+        ux = dx / length
+        uy = dy / length
+        ax_ext = ax - ux * ext
+        ay_ext = ay - uy * ext
+        bx_ext = bx + ux * ext
+        by_ext = by + uy * ext
+        edge_rng = _SplitMix64(rng_seed + i)
+        out.extend(_render_masonry_wall_run(
+            ax_ext, ay_ext, bx_ext, by_ext,
+            rng=edge_rng, fill=fill, stroke=stroke,
+        ))
+    return out
+
+
+_OP_HANDLERS[Op.Op.BuildingExteriorWallOp] = (
+    _draw_building_exterior_wall_from_ir
+)
+
+
+def _tile_corner_delta(corner: int) -> tuple[int, int]:
+    """``TileCorner`` int -> (Δx, Δy)."""
+    from nhc.rendering.ir._fb.TileCorner import TileCorner
+    if corner == TileCorner.NW:
+        return (0, 0)
+    if corner == TileCorner.NE:
+        return (1, 0)
+    if corner == TileCorner.SE:
+        return (1, 1)
+    return (0, 1)  # SW
+
+
+def _draw_building_interior_wall_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Phase 8.3: per-building partition lines.
+
+    InteriorEdge endpoints are corner-grid vertices `(tile + Δ)`.
+    The op carries the pre-coalesced + door-suppression-filtered
+    edge list — the rasteriser is a thin per-edge stroke pass.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    edges = op.edges or []
+    if not edges:
+        return []
+    color = _INTERIOR_WALL_COLORS.get(int(op.material), _INTERIOR_WALL_COLORS[0])
+    out: list[str] = []
+    for edge in edges:
+        adx, ady = _tile_corner_delta(int(edge.aCorner))
+        bdx, bdy = _tile_corner_delta(int(edge.bCorner))
+        px0 = (edge.ax + adx) * CELL
+        py0 = (edge.ay + ady) * CELL
+        px1 = (edge.bx + bdx) * CELL
+        py1 = (edge.by + bdy) * CELL
+        out.append(
+            f'<line x1="{px0}" y1="{py0}" '
+            f'x2="{px1}" y2="{py1}" '
+            f'stroke="{color}" '
+            f'stroke-width="{_INTERIOR_WALL_STROKE_WIDTH}" '
+            f'stroke-linecap="round"/>'
+        )
+    return out
+
+
+_OP_HANDLERS[Op.Op.BuildingInteriorWallOp] = (
+    _draw_building_interior_wall_from_ir
+)
