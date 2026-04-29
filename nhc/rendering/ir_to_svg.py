@@ -84,6 +84,11 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
         # site IRs emit RoofOps after WallsAndFloorsOp so the roof
         # paints over the floor — see design/map_ir.md §6.1.
         Op.Op.RoofOp,
+        # Phase 8.2: site enclosure primitive (palisade /
+        # fortification). Site IRs emit one EnclosureOp after
+        # the per-building RoofOps so the enclosure perimeter
+        # overlays roof corners but stays beneath atmospherics.
+        Op.Op.EnclosureOp,
     }),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
@@ -1421,3 +1426,335 @@ def _draw_roof_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
 
 
 _OP_HANDLERS[Op.Op.RoofOp] = _draw_roof_from_ir
+
+
+# ── EnclosureOp (Phase 8.2) ─────────────────────────────────────
+#
+# Site-level palisade ring or fortification battlement. Reads the
+# closed polygon, walks its edges (cut by per-edge gate spans into
+# open sub-polylines), and dispatches each sub-segment on
+# EnclosureStyle. Per-edge palisade RNG seeds derive from
+# `rng_seed + edge_idx` so adding / removing a gate on edge X
+# doesn't shift state on other edges. Both rasterisers walk the
+# same splitmix64 stream — the Rust port at
+# crates/nhc-render/src/transform/png/enclosure.rs lands at 8.2c.
+#
+# Constants mirror nhc/rendering/_enclosures.py value-for-value
+# (palette + dimensions). The legacy module stays alive until the
+# site-surface IR wiring at Phase 8.4 obsoletes it.
+
+
+# Fortification (battlement) constants.
+_ENC_FORTIF_STROKE = "#1A1A1A"
+_ENC_FORTIF_STROKE_WIDTH = 0.8
+_ENC_FORTIF_MERLON_FILL = "#D8D8D8"
+_ENC_FORTIF_CRENEL_FILL = "#000000"
+_ENC_FORTIF_CORNER_FILL = "#000000"
+_ENC_FORTIF_SIZE = 8.0
+_ENC_FORTIF_RATIO = 1.4142135623730951  # sqrt(2) — DIN A
+_ENC_FORTIF_CORNER_SCALE = 3.0
+
+
+# Palisade constants.
+_ENC_PALI_FILL = "#8A5A2A"
+_ENC_PALI_STROKE = "#4A2E1A"
+_ENC_PALI_STROKE_WIDTH = 1.5
+_ENC_PALI_RADIUS_MIN = 3.0
+_ENC_PALI_RADIUS_MAX = 4.0
+_ENC_PALI_RADIUS_JITTER = 0.3
+_ENC_PALI_CIRCLE_STEP = 9.0
+_ENC_PALI_DOOR_LENGTH_PX = 64.0
+
+
+def _enc_corner_inset() -> float:
+    return _ENC_FORTIF_SIZE / 2.0
+
+
+def _enc_merge_cuts(
+    cuts: list[tuple[float, float]],
+) -> list[tuple[float, float]]:
+    if not cuts:
+        return []
+    cuts = sorted(cuts)
+    merged = [cuts[0]]
+    for lo, hi in cuts[1:]:
+        plo, phi = merged[-1]
+        if lo <= phi:
+            merged[-1] = (plo, max(phi, hi))
+        else:
+            merged.append((lo, hi))
+    return merged
+
+
+def _enc_subsegments(
+    a: tuple[float, float], b: tuple[float, float],
+    cuts: list[tuple[float, float]],
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    ax, ay = a
+    bx, by = b
+
+    def _at(t: float) -> tuple[float, float]:
+        return (ax + (bx - ax) * t, ay + (by - ay) * t)
+
+    if not cuts:
+        return [(a, b)]
+    out: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    prev = 0.0
+    for lo, hi in cuts:
+        if lo > prev:
+            out.append((_at(prev), _at(lo)))
+        prev = hi
+    if prev < 1.0:
+        out.append((_at(prev), _at(1.0)))
+    return out
+
+
+def _enc_fortification_rect(
+    cx: float, cy: float, w: float, h: float, fill: str,
+) -> str:
+    return (
+        f'<rect x="{cx - w / 2:.1f}" y="{cy - h / 2:.1f}" '
+        f'width="{w:.1f}" height="{h:.1f}" '
+        f'fill="{fill}" '
+        f'stroke="{_ENC_FORTIF_STROKE}" '
+        f'stroke-width="{_ENC_FORTIF_STROKE_WIDTH}"/>'
+    )
+
+
+def _enc_centered_fortification_chain(
+    a: tuple[float, float], b: tuple[float, float],
+) -> list[str]:
+    """``C M C M ... C`` chain inside a horizontal / vertical sub-segment."""
+    import math
+    ax, ay = a
+    bx, by = b
+    dx = bx - ax
+    dy = by - ay
+    seg_len = math.hypot(dx, dy)
+    if seg_len < 1e-6:
+        return []
+    horizontal = abs(dy) < 1e-6 and abs(dx) > 1e-6
+    vertical = abs(dx) < 1e-6 and abs(dy) > 1e-6
+    if not (horizontal or vertical):
+        return []
+    size = _ENC_FORTIF_SIZE
+    rect_len = size * _ENC_FORTIF_RATIO
+    k = int((seg_len + size) / (rect_len + size))
+    if k < 1:
+        return []
+    used = k * rect_len + (k - 1) * size
+    offset = (seg_len - used) / 2.0
+    ux = dx / seg_len
+    uy = dy / seg_len
+    out: list[str] = []
+    pos = offset
+    alternate = 1  # start with crenel
+    for _ in range(2 * k - 1):
+        length = size if alternate == 0 else rect_len
+        cx = ax + ux * (pos + length / 2.0)
+        cy = ay + uy * (pos + length / 2.0)
+        if horizontal:
+            shape_w, shape_h = length, size
+        else:
+            shape_w, shape_h = size, length
+        fill = (
+            _ENC_FORTIF_MERLON_FILL if alternate == 0
+            else _ENC_FORTIF_CRENEL_FILL
+        )
+        out.append(_enc_fortification_rect(cx, cy, shape_w, shape_h, fill))
+        pos += length
+        alternate = 1 - alternate
+    return out
+
+
+def _enc_corner_shape(
+    x: float, y: float, corner_style: int,
+) -> str:
+    """Per-vertex corner block. corner_style is the raw FB enum int."""
+    from nhc.rendering.ir._fb.CornerStyle import CornerStyle
+    size = _ENC_FORTIF_SIZE * _ENC_FORTIF_CORNER_SCALE
+    half = size / 2.0
+    if corner_style == CornerStyle.Diamond:
+        return (
+            f'<rect x="{x - half:.1f}" y="{y - half:.1f}" '
+            f'width="{size:.1f}" height="{size:.1f}" '
+            f'fill="{_ENC_FORTIF_CORNER_FILL}" '
+            f'stroke="{_ENC_FORTIF_STROKE}" '
+            f'stroke-width="{_ENC_FORTIF_STROKE_WIDTH}" '
+            f'transform="rotate(45 {x:.1f} {y:.1f})"/>'
+        )
+    # Merlon (and Tower fallback): axis-aligned black square.
+    return _enc_fortification_rect(
+        x, y, size, size, _ENC_FORTIF_CORNER_FILL,
+    )
+
+
+def _enc_palisade_circles(
+    points: list[tuple[float, float]], rng: _SplitMix64,
+) -> list[str]:
+    import math
+    if len(points) < 2:
+        return []
+    out: list[str] = []
+    carry = 0.0
+    for i in range(len(points) - 1):
+        ax, ay = points[i]
+        bx, by = points[i + 1]
+        dx, dy = bx - ax, by - ay
+        seg_len = math.hypot(dx, dy)
+        if seg_len < 1e-6:
+            continue
+        ux, uy = dx / seg_len, dy / seg_len
+        t = carry
+        while t < seg_len:
+            cx = ax + ux * t
+            cy = ay + uy * t
+            base_r = rng.uniform(_ENC_PALI_RADIUS_MIN, _ENC_PALI_RADIUS_MAX)
+            jitter = rng.uniform(
+                -_ENC_PALI_RADIUS_JITTER, _ENC_PALI_RADIUS_JITTER,
+            )
+            r = max(0.1, base_r + jitter)
+            out.append(
+                f'<circle cx="{cx:.1f}" cy="{cy:.1f}" '
+                f'r="{r:.1f}" '
+                f'fill="{_ENC_PALI_FILL}" '
+                f'stroke="{_ENC_PALI_STROKE}" '
+                f'stroke-width="{_ENC_PALI_STROKE_WIDTH}"/>'
+            )
+            t += _ENC_PALI_CIRCLE_STEP
+        carry = max(0.0, t - seg_len)
+    return out
+
+
+def _enc_palisade_door_rect(
+    a: tuple[float, float], b: tuple[float, float], t_center: float,
+) -> str:
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    cx = ax + dx * t_center
+    cy = ay + dy * t_center
+    horizontal = abs(dy) < 1e-6
+    thickness = 2.0 * _ENC_PALI_RADIUS_MAX
+    if horizontal:
+        x = cx - _ENC_PALI_DOOR_LENGTH_PX / 2
+        y = cy - thickness / 2
+        w, h = _ENC_PALI_DOOR_LENGTH_PX, thickness
+    else:
+        x = cx - thickness / 2
+        y = cy - _ENC_PALI_DOOR_LENGTH_PX / 2
+        w, h = thickness, _ENC_PALI_DOOR_LENGTH_PX
+    return (
+        f'<rect x="{x:.1f}" y="{y:.1f}" '
+        f'width="{w:.1f}" height="{h:.1f}" '
+        f'fill="{_ENC_PALI_FILL}" '
+        f'stroke="{_ENC_PALI_STROKE}" '
+        f'stroke-width="{_ENC_PALI_STROKE_WIDTH}"/>'
+    )
+
+
+def _draw_enclosure_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
+    """Phase 8.2: site palisade or fortification ring.
+
+    Walks the closed polygon, applies per-edge gate cuts, and
+    dispatches each open sub-segment on EnclosureStyle. Per-edge
+    palisade RNG state is `splitmix64(rng_seed + edge_idx)` so a
+    gate edit on edge X leaves other edges' circle layouts pinned.
+    """
+    import math
+    from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    poly = op.polygon
+    if poly is None or not poly.paths:
+        return []
+    polygon: list[tuple[float, float]] = [
+        (v.x, v.y) for v in poly.paths
+    ]
+    n = len(polygon)
+    if n < 3:
+        return []
+
+    # Group gates by edge.
+    by_edge: dict[int, list[tuple[float, float]]] = {}
+    midpoints: dict[int, list[tuple[float, float]]] = {}
+    for g in (op.gates or []):
+        edge_idx = int(g.edgeIdx)
+        if not 0 <= edge_idx < n:
+            continue
+        a = polygon[edge_idx]
+        b = polygon[(edge_idx + 1) % n]
+        edge_len = math.hypot(b[0] - a[0], b[1] - a[1])
+        if edge_len < 1e-6:
+            continue
+        half_t = float(g.halfPx) / edge_len
+        lo = max(0.0, float(g.tCenter) - half_t)
+        hi = min(1.0, float(g.tCenter) + half_t)
+        if hi > lo:
+            by_edge.setdefault(edge_idx, []).append((lo, hi))
+            midpoints.setdefault(edge_idx, []).append(
+                (float(g.tCenter), float(g.halfPx)),
+            )
+
+    style = int(op.style)
+    rng_seed = int(op.rngSeed)
+    out: list[str] = []
+
+    if style == EnclosureStyle.Palisade:
+        for i in range(n):
+            a = polygon[i]
+            b = polygon[(i + 1) % n]
+            cuts = _enc_merge_cuts(by_edge.get(i, []))
+            subs = _enc_subsegments(a, b, cuts)
+            edge_rng = _SplitMix64(rng_seed + i)
+            for (sa, sb) in subs:
+                out.extend(_enc_palisade_circles(
+                    [sa, sb], edge_rng,
+                ))
+            for t_center, _ in midpoints.get(i, []):
+                out.append(_enc_palisade_door_rect(a, b, t_center))
+        return out
+
+    # Fortification: edges inset, centered chains, corner blocks
+    # last so they sit on top.
+    inset = _enc_corner_inset()
+    for i in range(n):
+        a = polygon[i]
+        b = polygon[(i + 1) % n]
+        edge_len = math.hypot(b[0] - a[0], b[1] - a[1])
+        if edge_len <= 2 * inset + 1e-6:
+            continue
+        ux = (b[0] - a[0]) / edge_len
+        uy = (b[1] - a[1]) / edge_len
+        a_in = (a[0] + ux * inset, a[1] + uy * inset)
+        b_in = (b[0] - ux * inset, b[1] - uy * inset)
+        cuts = _enc_merge_cuts(by_edge.get(i, []))
+        t_inset = inset / edge_len
+        denom = 1.0 - 2.0 * t_inset
+        inset_cuts: list[tuple[float, float]] = []
+        if denom > 1e-9:
+            for lo, hi in cuts:
+                new_lo = max(0.0, (lo - t_inset) / denom)
+                new_hi = min(1.0, (hi - t_inset) / denom)
+                if new_hi > new_lo:
+                    inset_cuts.append((new_lo, new_hi))
+        subs = _enc_subsegments(a_in, b_in, inset_cuts)
+        for (sa, sb) in subs:
+            out.extend(_enc_centered_fortification_chain(sa, sb))
+
+    # Wood gate visuals (legacy fortification drew nothing here;
+    # design/map_ir.md §7.15 makes gates a first-class concept and
+    # always paints their rect).
+    for i in range(n):
+        a = polygon[i]
+        b = polygon[(i + 1) % n]
+        for t_center, _ in midpoints.get(i, []):
+            out.append(_enc_palisade_door_rect(a, b, t_center))
+
+    corner_style = int(op.cornerStyle)
+    for (x, y) in polygon:
+        out.append(_enc_corner_shape(x, y, corner_style))
+    return out
+
+
+_OP_HANDLERS[Op.Op.EnclosureOp] = _draw_enclosure_from_ir

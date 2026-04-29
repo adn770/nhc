@@ -18,6 +18,9 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import RegionKind
+from nhc.rendering.ir._fb.CornerStyle import CornerStyle
+from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+from nhc.rendering.ir._fb.GateStyle import GateStyle
 from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 from nhc.rendering.ir_emitter import (
     FloorIRBuilder,
@@ -28,6 +31,7 @@ from nhc.rendering.ir_emitter import (
     _point_in_polygon,
     emit_building_regions,
     emit_building_roofs,
+    emit_site_enclosure,
     emit_site_region,
 )
 
@@ -397,8 +401,8 @@ class TestRoofIRToSvg:
         contract violation — the handler must error, not paint
         nothing silently."""
         from nhc.rendering.ir._fb.OpEntry import OpEntryT
-        from nhc.rendering.ir._fb.RoofOp import RoofOpT
-        from nhc.rendering.ir._fb.RoofStyle import RoofStyle
+        from nhc.rendering.ir._fb.RoofOp import RoofOpT  # noqa: F401
+        from nhc.rendering.ir._fb.RoofStyle import RoofStyle  # noqa: F401
         from nhc.rendering.ir_to_svg import ir_to_svg
         builder = FloorIRBuilder(
             _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
@@ -417,3 +421,172 @@ class TestRoofIRToSvg:
         buf = builder.finish()
         with pytest.raises(ValueError, match="unknown region"):
             ir_to_svg(buf)
+
+
+# ── 8.2b: emit_site_enclosure + EnclosureOp IR→SVG ─────────────
+
+
+class TestEmitSiteEnclosure:
+    def _builder(self) -> FloorIRBuilder:
+        return FloorIRBuilder(
+            _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
+        )
+
+    def test_palisade_no_gates_emits_one_op(self) -> None:
+        builder = self._builder()
+        # 4×4 tile rect at (2, 2).
+        emit_site_enclosure(
+            builder,
+            polygon_tiles=[(2, 2), (6, 2), (6, 6), (2, 6)],
+            style=EnclosureStyle.Palisade,
+            gates=None,
+            base_seed=42,
+        )
+        assert len(builder.ops) == 1
+        op = builder.ops[0].op
+        assert op.style == EnclosureStyle.Palisade
+        assert op.cornerStyle == CornerStyle.Merlon
+        # rng_seed = base_seed + 0xE101 (per design §10).
+        assert op.rngSeed == (42 + 0xE101) & 0xFFFFFFFFFFFFFFFF
+        # Polygon has 4 vertices in pixel coords.
+        assert len(op.polygon.paths) == 4
+        # No gates → empty list (or None, depending on builder).
+        assert not op.gates
+
+    def test_fortification_with_gate_emits_gate_entry(self) -> None:
+        builder = self._builder()
+        emit_site_enclosure(
+            builder,
+            polygon_tiles=[(0, 0), (8, 0), (8, 8), (0, 8)],
+            style=EnclosureStyle.Fortification,
+            gates=[(0, 0.5, 32.0)],  # one gate centered on edge 0
+            base_seed=7,
+            corner_style=CornerStyle.Diamond,
+        )
+        op = builder.ops[0].op
+        assert op.style == EnclosureStyle.Fortification
+        assert op.cornerStyle == CornerStyle.Diamond
+        assert len(op.gates) == 1
+        assert op.gates[0].edgeIdx == 0
+        assert op.gates[0].tCenter == pytest.approx(0.5)
+        assert op.gates[0].halfPx == pytest.approx(32.0)
+        assert op.gates[0].style == GateStyle.Wood
+
+    def test_too_few_vertices_no_op(self) -> None:
+        builder = self._builder()
+        emit_site_enclosure(
+            builder,
+            polygon_tiles=[(0, 0), (1, 0)],  # 2 verts — degenerate
+            style=EnclosureStyle.Palisade,
+            base_seed=0,
+        )
+        assert builder.ops == []
+
+
+class TestEnclosureIRToSvg:
+    def _build_buf(
+        self,
+        style: int = EnclosureStyle.Palisade,
+        gates: list[tuple[int, float, float]] | None = None,
+        corner_style: int = CornerStyle.Merlon,
+        seed: int = 7,
+    ) -> bytes:
+        builder = FloorIRBuilder(
+            _StubCtx(level=_StubLevel(width=20, height=20))  # type: ignore[arg-type]
+        )
+        emit_site_region(builder, (0, 0, 20, 20))
+        emit_site_enclosure(
+            builder,
+            polygon_tiles=[(2, 2), (16, 2), (16, 12), (2, 12)],
+            style=style,
+            gates=gates,
+            base_seed=seed,
+            corner_style=corner_style,
+        )
+        return builder.finish()
+
+    def test_palisade_svg_contains_circles(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(style=EnclosureStyle.Palisade)
+        svg = ir_to_svg(buf)
+        assert "<!-- layer.structural:" in svg
+        # Palisade fill colour appears on every circle.
+        assert 'fill="#8A5A2A"' in svg
+        # Circles, not battlement rects.
+        assert "<circle" in svg
+
+    def test_fortification_svg_contains_battlements(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(style=EnclosureStyle.Fortification)
+        svg = ir_to_svg(buf)
+        # Crenel fill (black) and merlon fill (soft grey).
+        assert 'fill="#D8D8D8"' in svg
+        assert 'fill="#000000"' in svg
+        # No palisade circles.
+        assert 'fill="#8A5A2A"' not in svg
+
+    def test_palisade_with_gate_emits_door_rect(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(
+            style=EnclosureStyle.Palisade,
+            gates=[(0, 0.5, 32.0)],
+        )
+        svg = ir_to_svg(buf)
+        # Door rect width = PALISADE_DOOR_LENGTH_PX = 64.0.
+        assert 'width="64.0"' in svg
+
+    def test_fortification_diamond_corner_rotation(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(
+            style=EnclosureStyle.Fortification,
+            corner_style=CornerStyle.Diamond,
+        )
+        svg = ir_to_svg(buf)
+        # Diamond corner uses rotate(45 ...).
+        assert "rotate(45" in svg
+
+    def test_fortification_merlon_corner_no_rotation(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(
+            style=EnclosureStyle.Fortification,
+            corner_style=CornerStyle.Merlon,
+        )
+        svg = ir_to_svg(buf)
+        assert "rotate(45" not in svg
+
+    def test_palisade_is_deterministic_per_seed(self) -> None:
+        """Per-edge splitmix64(rng_seed + edge_idx) — same seed
+        produces identical SVG, different seeds diverge."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        a = ir_to_svg(self._build_buf(seed=99))
+        b = ir_to_svg(self._build_buf(seed=99))
+        assert a == b
+        c = ir_to_svg(self._build_buf(seed=100))
+        assert a != c
+
+    def test_per_edge_seed_isolation(self) -> None:
+        """Adding a gate on one edge must NOT shift circle layout
+        on other edges — per-edge palisade seeds are
+        ``rng_seed + edge_idx``."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf_clean = self._build_buf(
+            style=EnclosureStyle.Palisade, gates=None,
+        )
+        buf_gated = self._build_buf(
+            style=EnclosureStyle.Palisade,
+            gates=[(0, 0.5, 32.0)],
+        )
+        svg_clean = ir_to_svg(buf_clean)
+        svg_gated = ir_to_svg(buf_gated)
+
+        def _circles_on_edge_2(svg: str) -> list[str]:
+            # Edge 2 runs along y == 12*CELL+PADDING == 416.
+            # That's the bottom side of the rect; circles there
+            # all carry cy="416.0".
+            return [
+                line for line in svg.split('<')
+                if line.startswith('circle ') and 'cy="416.0"' in line
+            ]
+        clean_e2 = _circles_on_edge_2(svg_clean)
+        gated_e2 = _circles_on_edge_2(svg_gated)
+        assert clean_e2 == gated_e2 and clean_e2  # non-empty + identical

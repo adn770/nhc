@@ -42,6 +42,11 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
+from nhc.rendering.ir._fb.CornerStyle import CornerStyle
+from nhc.rendering.ir._fb.EnclosureOp import EnclosureOpT
+from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+from nhc.rendering.ir._fb.Gate import GateT
+from nhc.rendering.ir._fb.GateStyle import GateStyle
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PathRange import PathRangeT
 from nhc.rendering.ir._fb.Polygon import PolygonT
@@ -456,6 +461,61 @@ def emit_building_roofs(
                            # decoupled from a circular Op import.
         entry.op = op
         builder.add_op(entry)
+
+
+def emit_site_enclosure(
+    builder: FloorIRBuilder,
+    polygon_tiles: list[tuple[float, float]],
+    *,
+    style: int,
+    gates: list[tuple[int, float, float]] | None = None,
+    base_seed: int,
+    corner_style: int = CornerStyle.Merlon,
+    gate_style: int = GateStyle.Wood,
+) -> None:
+    """Emit one ``EnclosureOp`` for a site's enclosure ring.
+
+    ``polygon_tiles`` is the closed enclosure polygon in *tile*
+    coords (no closing duplicate); the helper translates to pixel
+    space at emit time (PADDING + tile * CELL).
+
+    ``gates`` is a list of ``(edge_idx, t_center, half_px)`` triples
+    matching the legacy ``site.enclosure.gates`` shape.
+    ``base_seed`` is the floor's base RNG seed; per design/map_ir.md
+    §10 the EnclosureOp salt is ``+ 0xE101`` (per-edge palisade
+    streams seed at ``rng_seed + edge_idx``).
+
+    No ``Region(kind=Site)`` registration is required for the
+    enclosure to render — the polygon travels with the op — but
+    callers typically call :func:`emit_site_region` first so other
+    ops (roofs, gates) can reference the surface bounds.
+    """
+    if len(polygon_tiles) < 3:
+        return
+    coords_px = [
+        (float(PADDING + x * CELL), float(PADDING + y * CELL))
+        for x, y in polygon_tiles
+    ]
+    polygon = _coords_to_polygon(coords_px)
+    op = EnclosureOpT(
+        polygon=polygon,
+        style=style,
+        cornerStyle=corner_style,
+        gates=[
+            GateT(
+                edgeIdx=edge_idx,
+                tCenter=t_center,
+                halfPx=half_px,
+                style=gate_style,
+            )
+            for (edge_idx, t_center, half_px) in (gates or [])
+        ],
+        rngSeed=(base_seed + 0xE101) & _SM64_MASK,
+    )
+    entry = OpEntryT()
+    entry.opType = 17  # Op.EnclosureOp
+    entry.op = op
+    builder.add_op(entry)
 
 
 def emit_building_regions(
