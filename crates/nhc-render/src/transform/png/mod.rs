@@ -38,6 +38,7 @@ mod shadow;
 mod stairs;
 mod terrain_tints;
 mod thematic_detail;
+mod tree;
 mod walls_and_floors;
 mod well;
 
@@ -152,6 +153,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::DecoratorOp.0, decorator::draw);
         m.insert(Op::WellFeatureOp.0, well::draw);
         m.insert(Op::FountainFeatureOp.0, fountain::draw);
+        m.insert(Op::TreeFeatureOp.0, tree::draw);
         m
     })
 }
