@@ -829,6 +829,262 @@ impl<'a> ::flatbuffers::Verifiable for RoofStyle {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_ENCLOSURE_STYLE: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_ENCLOSURE_STYLE: i8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_ENCLOSURE_STYLE: [EnclosureStyle; 2] = [
+  EnclosureStyle::Palisade,
+  EnclosureStyle::Fortification,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct EnclosureStyle(pub i8);
+#[allow(non_upper_case_globals)]
+impl EnclosureStyle {
+  pub const Palisade: Self = Self(0);
+  pub const Fortification: Self = Self(1);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Palisade,
+    Self::Fortification,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Palisade => Some("Palisade"),
+      Self::Fortification => Some("Fortification"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for EnclosureStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for EnclosureStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for EnclosureStyle {
+    type Output = EnclosureStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for EnclosureStyle {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for EnclosureStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for EnclosureStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_CORNER_STYLE: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_CORNER_STYLE: i8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_CORNER_STYLE: [CornerStyle; 3] = [
+  CornerStyle::Merlon,
+  CornerStyle::Diamond,
+  CornerStyle::Tower,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct CornerStyle(pub i8);
+#[allow(non_upper_case_globals)]
+impl CornerStyle {
+  pub const Merlon: Self = Self(0);
+  pub const Diamond: Self = Self(1);
+  pub const Tower: Self = Self(2);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Merlon,
+    Self::Diamond,
+    Self::Tower,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Merlon => Some("Merlon"),
+      Self::Diamond => Some("Diamond"),
+      Self::Tower => Some("Tower"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for CornerStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for CornerStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for CornerStyle {
+    type Output = CornerStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for CornerStyle {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for CornerStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for CornerStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_GATE_STYLE: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_GATE_STYLE: i8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_GATE_STYLE: [GateStyle; 2] = [
+  GateStyle::Wood,
+  GateStyle::Portcullis,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct GateStyle(pub i8);
+#[allow(non_upper_case_globals)]
+impl GateStyle {
+  pub const Wood: Self = Self(0);
+  pub const Portcullis: Self = Self(1);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Wood,
+    Self::Portcullis,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Wood => Some("Wood"),
+      Self::Portcullis => Some("Portcullis"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for GateStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for GateStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for GateStyle {
+    type Output = GateStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for GateStyle {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for GateStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for GateStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TERRAIN_KIND: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_TERRAIN_KIND: i8 = 4;
@@ -927,10 +1183,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 16;
+pub const ENUM_MAX_OP: u8 = 17;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 17] = [
+pub const ENUM_VALUES_OP: [Op; 18] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -948,6 +1204,7 @@ pub const ENUM_VALUES_OP: [Op; 17] = [
   Op::GenericProceduralOp,
   Op::DecoratorOp,
   Op::RoofOp,
+  Op::EnclosureOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -972,9 +1229,10 @@ impl Op {
   pub const GenericProceduralOp: Self = Self(14);
   pub const DecoratorOp: Self = Self(15);
   pub const RoofOp: Self = Self(16);
+  pub const EnclosureOp: Self = Self(17);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 16;
+  pub const ENUM_MAX: u8 = 17;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -993,6 +1251,7 @@ impl Op {
     Self::GenericProceduralOp,
     Self::DecoratorOp,
     Self::RoofOp,
+    Self::EnclosureOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1014,6 +1273,7 @@ impl Op {
       Self::GenericProceduralOp => Some("GenericProceduralOp"),
       Self::DecoratorOp => Some("DecoratorOp"),
       Self::RoofOp => Some("RoofOp"),
+      Self::EnclosureOp => Some("EnclosureOp"),
       _ => None,
     }
   }
@@ -6992,6 +7252,317 @@ impl ::core::fmt::Debug for RoofOp<'_> {
       ds.finish()
   }
 }
+pub enum GateOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Gate<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Gate<'a> {
+  type Inner = Gate<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Gate<'a> {
+  pub const VT_EDGE_IDX: ::flatbuffers::VOffsetT = 4;
+  pub const VT_T_CENTER: ::flatbuffers::VOffsetT = 6;
+  pub const VT_HALF_PX: ::flatbuffers::VOffsetT = 8;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Gate { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GateArgs
+  ) -> ::flatbuffers::WIPOffset<Gate<'bldr>> {
+    let mut builder = GateBuilder::new(_fbb);
+    builder.add_half_px(args.half_px);
+    builder.add_t_center(args.t_center);
+    builder.add_edge_idx(args.edge_idx);
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn edge_idx(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(Gate::VT_EDGE_IDX, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn t_center(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Gate::VT_T_CENTER, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn half_px(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Gate::VT_HALF_PX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn style(&self) -> GateStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<GateStyle>(Gate::VT_STYLE, Some(GateStyle::Wood)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Gate<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<u32>("edge_idx", Self::VT_EDGE_IDX, false)?
+     .visit_field::<f32>("t_center", Self::VT_T_CENTER, false)?
+     .visit_field::<f32>("half_px", Self::VT_HALF_PX, false)?
+     .visit_field::<GateStyle>("style", Self::VT_STYLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GateArgs {
+    pub edge_idx: u32,
+    pub t_center: f32,
+    pub half_px: f32,
+    pub style: GateStyle,
+}
+impl<'a> Default for GateArgs {
+  #[inline]
+  fn default() -> Self {
+    GateArgs {
+      edge_idx: 0,
+      t_center: 0.0,
+      half_px: 0.0,
+      style: GateStyle::Wood,
+    }
+  }
+}
+
+pub struct GateBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> GateBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_edge_idx(&mut self, edge_idx: u32) {
+    self.fbb_.push_slot::<u32>(Gate::VT_EDGE_IDX, edge_idx, 0);
+  }
+  #[inline]
+  pub fn add_t_center(&mut self, t_center: f32) {
+    self.fbb_.push_slot::<f32>(Gate::VT_T_CENTER, t_center, 0.0);
+  }
+  #[inline]
+  pub fn add_half_px(&mut self, half_px: f32) {
+    self.fbb_.push_slot::<f32>(Gate::VT_HALF_PX, half_px, 0.0);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: GateStyle) {
+    self.fbb_.push_slot::<GateStyle>(Gate::VT_STYLE, style, GateStyle::Wood);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> GateBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GateBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Gate<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Gate<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Gate");
+      ds.field("edge_idx", &self.edge_idx());
+      ds.field("t_center", &self.t_center());
+      ds.field("half_px", &self.half_px());
+      ds.field("style", &self.style());
+      ds.finish()
+  }
+}
+pub enum EnclosureOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct EnclosureOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for EnclosureOp<'a> {
+  type Inner = EnclosureOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> EnclosureOp<'a> {
+  pub const VT_POLYGON: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_GATES: ::flatbuffers::VOffsetT = 10;
+  pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    EnclosureOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args EnclosureOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<EnclosureOp<'bldr>> {
+    let mut builder = EnclosureOpBuilder::new(_fbb);
+    builder.add_rng_seed(args.rng_seed);
+    if let Some(x) = args.gates { builder.add_gates(x); }
+    if let Some(x) = args.polygon { builder.add_polygon(x); }
+    builder.add_corner_style(args.corner_style);
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn polygon(&self) -> Option<Polygon<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Polygon>>(EnclosureOp::VT_POLYGON, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> EnclosureStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<EnclosureStyle>(EnclosureOp::VT_STYLE, Some(EnclosureStyle::Palisade)).unwrap()}
+  }
+  #[inline]
+  pub fn corner_style(&self) -> CornerStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CornerStyle>(EnclosureOp::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
+  }
+  #[inline]
+  pub fn gates(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Gate<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Gate>>>>(EnclosureOp::VT_GATES, None)}
+  }
+  #[inline]
+  pub fn rng_seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(EnclosureOp::VT_RNG_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for EnclosureOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Polygon>>("polygon", Self::VT_POLYGON, false)?
+     .visit_field::<EnclosureStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Gate>>>>("gates", Self::VT_GATES, false)?
+     .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct EnclosureOpArgs<'a> {
+    pub polygon: Option<::flatbuffers::WIPOffset<Polygon<'a>>>,
+    pub style: EnclosureStyle,
+    pub corner_style: CornerStyle,
+    pub gates: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Gate<'a>>>>>,
+    pub rng_seed: u64,
+}
+impl<'a> Default for EnclosureOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    EnclosureOpArgs {
+      polygon: None,
+      style: EnclosureStyle::Palisade,
+      corner_style: CornerStyle::Merlon,
+      gates: None,
+      rng_seed: 0,
+    }
+  }
+}
+
+pub struct EnclosureOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> EnclosureOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_polygon(&mut self, polygon: ::flatbuffers::WIPOffset<Polygon<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Polygon>>(EnclosureOp::VT_POLYGON, polygon);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: EnclosureStyle) {
+    self.fbb_.push_slot::<EnclosureStyle>(EnclosureOp::VT_STYLE, style, EnclosureStyle::Palisade);
+  }
+  #[inline]
+  pub fn add_corner_style(&mut self, corner_style: CornerStyle) {
+    self.fbb_.push_slot::<CornerStyle>(EnclosureOp::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
+  }
+  #[inline]
+  pub fn add_gates(&mut self, gates: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Gate<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(EnclosureOp::VT_GATES, gates);
+  }
+  #[inline]
+  pub fn add_rng_seed(&mut self, rng_seed: u64) {
+    self.fbb_.push_slot::<u64>(EnclosureOp::VT_RNG_SEED, rng_seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> EnclosureOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    EnclosureOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<EnclosureOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for EnclosureOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("EnclosureOp");
+      ds.field("polygon", &self.polygon());
+      ds.field("style", &self.style());
+      ds.field("corner_style", &self.corner_style());
+      ds.field("gates", &self.gates());
+      ds.field("rng_seed", &self.rng_seed());
+      ds.finish()
+  }
+}
 pub enum OpEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -7281,6 +7852,21 @@ impl<'a> OpEntry<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_enclosure_op(&self) -> Option<EnclosureOp<'a>> {
+    if self.op_type() == Op::EnclosureOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { EnclosureOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for OpEntry<'_> {
@@ -7307,6 +7893,7 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::GenericProceduralOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GenericProceduralOp>>("Op::GenericProceduralOp", pos),
           Op::DecoratorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<DecoratorOp>>("Op::DecoratorOp", pos),
           Op::RoofOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RoofOp>>("Op::RoofOp", pos),
+          Op::EnclosureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<EnclosureOp>>("Op::EnclosureOp", pos),
           _ => Ok(()),
         }
      })?
@@ -7468,6 +8055,13 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::RoofOp => {
           if let Some(x) = self.op_as_roof_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::EnclosureOp => {
+          if let Some(x) = self.op_as_enclosure_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")

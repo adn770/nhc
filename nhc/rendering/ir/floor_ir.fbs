@@ -135,6 +135,33 @@ enum RoofStyle: byte {
   WitchHat = 2,
 }
 
+// Phase 8.2 — Site enclosure. Palisade is the wood-stake ring used
+// by towns; Fortification is the merlon / crenel battlement used
+// by keeps. Adds visual variety per design/building_generator.md
+// §7.2.
+enum EnclosureStyle: byte {
+  Palisade = 0,
+  Fortification = 1,
+}
+
+// Phase 8.2 — Corner block geometry on Fortification enclosures
+// only. Merlon is today's default (axis-aligned black square);
+// Diamond rotates 45°; Tower is forward-compat. Palisade ignores
+// this enum entirely.
+enum CornerStyle: byte {
+  Merlon = 0,
+  Diamond = 1,
+  Tower = 2,
+}
+
+// Phase 8.2 — Gate visual style. Wood is today's default (brown
+// filled rect at the gate position); Portcullis is forward-compat
+// and falls back to Wood at render time.
+enum GateStyle: byte {
+  Wood = 0,
+  Portcullis = 1,
+}
+
 // Per-tile terrain identifier used by tint + detail ops. `None`
 // is the absent / non-terrain value.
 enum TerrainKind: byte {
@@ -554,6 +581,38 @@ table RoofOp {
   rng_seed: uint64;       // base_seed + 0xCAFE + building_index
 }
 
+// Phase 8.2 — Gate cut-out on an enclosure polygon edge. Multiple
+// gates per edge are allowed (sorted by `t_center`); the
+// rasteriser cuts the edge at each gate to produce open
+// sub-polylines, then strokes the enclosure decoration along the
+// sub-segments. The gate visual itself paints in `style`.
+table Gate {
+  edge_idx: uint32;       // 0-based index into polygon edges
+  t_center: float;        // 0..1 along the edge (0 at vertex i)
+  half_px: float;         // half-width of the gate cut-out (px)
+  style: GateStyle = Wood;
+}
+
+// Phase 8.2 — Site enclosure: palisade ring or fortification
+// battlement. Joins the `structural` layer; per
+// design/map_ir.md §6.1 paint order on Site IRs is
+// `WallsAndFloorsOp -> RoofOp -> EnclosureOp` so the enclosure
+// perimeter visually overlays the roof corners but sits beneath
+// any later atmospherics. The `polygon` is the enclosure ring in
+// pixel coords; `gates` cut the ring into open polylines.
+// `corner_style` only matters for Fortification (Palisade ignores
+// corner blocks entirely). `rng_seed` is `base_seed + 0xE101`
+// per the design §10 RNG salt list; per-edge palisade streams
+// are seeded `rng_seed + edge_idx` so adding / removing a gate
+// on edge X doesn't shift RNG state on other edges.
+table EnclosureOp {
+  polygon: Polygon;
+  style: EnclosureStyle;
+  corner_style: CornerStyle = Merlon;
+  gates: [Gate];
+  rng_seed: uint64;
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
@@ -592,6 +651,7 @@ union Op {
   GenericProceduralOp,
   DecoratorOp,
   RoofOp,
+  EnclosureOp,
 }
 
 table OpEntry {

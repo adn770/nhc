@@ -71,6 +71,7 @@ def End(builder):
 
 import nhc.rendering.ir._fb.BushFeatureOp
 import nhc.rendering.ir._fb.DecoratorOp
+import nhc.rendering.ir._fb.EnclosureOp
 import nhc.rendering.ir._fb.FloorDetailOp
 import nhc.rendering.ir._fb.FloorGridOp
 import nhc.rendering.ir._fb.FountainFeatureOp
@@ -100,7 +101,7 @@ class OpEntryT(object):
         op = None,
     ):
         self.opType = opType  # type: int
-        self.op = op  # type: Union[None, 'nhc.rendering.ir._fb.ShadowOp.ShadowOpT', 'nhc.rendering.ir._fb.HatchOp.HatchOpT', 'nhc.rendering.ir._fb.WallsAndFloorsOp.WallsAndFloorsOpT', 'nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT', 'nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT', 'nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT', 'nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT', 'nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT', 'nhc.rendering.ir._fb.StairsOp.StairsOpT', 'nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT', 'nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT', 'nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT', 'nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT', 'nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT', 'nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT', 'nhc.rendering.ir._fb.RoofOp.RoofOpT']
+        self.op = op  # type: Union[None, 'nhc.rendering.ir._fb.ShadowOp.ShadowOpT', 'nhc.rendering.ir._fb.HatchOp.HatchOpT', 'nhc.rendering.ir._fb.WallsAndFloorsOp.WallsAndFloorsOpT', 'nhc.rendering.ir._fb.TerrainTintOp.TerrainTintOpT', 'nhc.rendering.ir._fb.FloorGridOp.FloorGridOpT', 'nhc.rendering.ir._fb.FloorDetailOp.FloorDetailOpT', 'nhc.rendering.ir._fb.ThematicDetailOp.ThematicDetailOpT', 'nhc.rendering.ir._fb.TerrainDetailOp.TerrainDetailOpT', 'nhc.rendering.ir._fb.StairsOp.StairsOpT', 'nhc.rendering.ir._fb.TreeFeatureOp.TreeFeatureOpT', 'nhc.rendering.ir._fb.BushFeatureOp.BushFeatureOpT', 'nhc.rendering.ir._fb.WellFeatureOp.WellFeatureOpT', 'nhc.rendering.ir._fb.FountainFeatureOp.FountainFeatureOpT', 'nhc.rendering.ir._fb.GenericProceduralOp.GenericProceduralOpT', 'nhc.rendering.ir._fb.DecoratorOp.DecoratorOpT', 'nhc.rendering.ir._fb.RoofOp.RoofOpT', 'nhc.rendering.ir._fb.EnclosureOp.EnclosureOpT']
 
     @classmethod
     def InitFromBuf(cls, buf, pos):

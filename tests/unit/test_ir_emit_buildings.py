@@ -320,13 +320,14 @@ class TestRoofIRToSvg:
         emit_building_roofs(builder, [b], base_seed=seed)
         return builder.finish()
 
-    def test_buf_round_trips_with_roofop_at_minor_1(self) -> None:
+    def test_buf_round_trips_with_roofop(self) -> None:
         from nhc.rendering.ir._fb.FloorIR import FloorIR
         from nhc.rendering.ir._fb.Op import Op as OpEnum
         buf = self._build_buf()
         fir = FloorIR.GetRootAs(buf, 0)
         assert fir.Major() == 2
-        assert fir.Minor() == 1
+        # RoofOp landed at MINOR=1; later additive bumps must keep it.
+        assert fir.Minor() >= 1
         # 1 Site region + 1 Building region.
         assert fir.RegionsLength() == 2
         # 1 RoofOp.
