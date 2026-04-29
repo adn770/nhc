@@ -9,6 +9,7 @@
 //! Live variants:
 //!
 //! - 5.4.1 Cobblestone — 3×3 jittered grid + 12 % stones.
+//! - 5.4.2 Brick — 4×2 running-bond layout per tile.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
 use crate::primitives;
@@ -28,6 +29,7 @@ pub(super) fn draw(
     let seed = op.seed();
 
     draw_cobblestone(&op, seed, ctx);
+    draw_brick(&op, seed, ctx);
 }
 
 fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
@@ -44,6 +46,24 @@ fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
             continue;
         }
         let frags = primitives::cobblestone::draw_cobblestone(&tiles, seed);
+        paint_fragments(&frags, 1.0, None, ctx);
+    }
+}
+
+fn draw_brick(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+    let variants = match op.brick() {
+        Some(v) => v,
+        None => return,
+    };
+    for variant in variants.iter() {
+        let tiles: Vec<(i32, i32)> = variant
+            .tiles()
+            .map(|t| t.iter().map(|c| (c.x(), c.y())).collect())
+            .unwrap_or_default();
+        if tiles.is_empty() {
+            continue;
+        }
+        let frags = primitives::brick::draw_brick(&tiles, seed);
         paint_fragments(&frags, 1.0, None, ctx);
     }
 }
