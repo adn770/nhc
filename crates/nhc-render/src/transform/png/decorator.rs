@@ -13,6 +13,7 @@
 //! - 5.4.3 Flagstone — 4 irregular pentagon plates per tile.
 //! - 5.4.4 Opus Romano — 4-stone Versailles tiling, RNG-free.
 //! - 5.4.5 Field Stone — 10 % per-tile probabilistic ellipse.
+//! - 5.4.6 Cart Tracks — paired rails + cross-tie per tile.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
 use crate::primitives;
@@ -36,6 +37,7 @@ pub(super) fn draw(
     draw_flagstone(&op, seed, ctx);
     draw_opus_romano(&op, seed, ctx);
     draw_field_stone(&op, seed, ctx);
+    draw_cart_tracks(&op, seed, ctx);
 }
 
 fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
@@ -124,6 +126,33 @@ fn draw_field_stone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
             continue;
         }
         let frags = primitives::field_stone::draw_field_stone(&tiles, seed);
+        paint_fragments(&frags, 1.0, None, ctx);
+    }
+}
+
+fn draw_cart_tracks(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+    let variants = match op.cart_tracks() {
+        Some(v) => v,
+        None => return,
+    };
+    for variant in variants.iter() {
+        let tiles_v = match variant.tiles() {
+            Some(t) => t,
+            None => continue,
+        };
+        let horiz = variant.is_horizontal();
+        let tiles: Vec<(i32, i32, bool)> = tiles_v
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let h = horiz.as_ref().map(|v| v.get(i)).unwrap_or(false);
+                (c.x(), c.y(), h)
+            })
+            .collect();
+        if tiles.is_empty() {
+            continue;
+        }
+        let frags = primitives::cart_tracks::draw_cart_tracks(&tiles, seed);
         paint_fragments(&frags, 1.0, None, ctx);
     }
 }
