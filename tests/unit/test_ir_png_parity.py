@@ -25,7 +25,7 @@ import pytest
 
 from PIL import Image
 
-from nhc.rendering.ir_to_svg import layer_to_svg_full
+from nhc.rendering.ir_to_svg import ir_to_svg, layer_to_svg_full
 
 from tests.fixtures.floor_ir._inputs import (
     all_descriptors,
@@ -181,4 +181,34 @@ def test_layer_parity(emitted, layer: str, request) -> None:
     assert diff <= PARITY_THRESHOLD, (
         f"{inputs.descriptor} / {layer}: {diff:.4%} differs "
         f"(threshold {PARITY_THRESHOLD:.2%})"
+    )
+
+
+# Whole-floor threshold accumulates the per-layer subpixel
+# variance — every layer that strokes anti-aliased outlines
+# contributes a few pixels at the SVG / tiny-skia rasteriser
+# boundary, and `<g opacity>` overlaps add a per-stack delta on
+# top. Empirical fixture diffs at HEAD: seed42 ~0.56 %, seed7
+# ~0.87 %, seed99 ~0.89 %. 1.0 % keeps a small headroom for the
+# layer-stacking order regression test without admitting visual
+# divergence; a future commit that adds offscreen-buffer
+# compositing for `<g opacity>` brings these back under 0.5 %.
+WHOLE_FLOOR_THRESHOLD: float = 0.010
+
+
+def test_whole_floor_parity(emitted) -> None:
+    """Phase 5.7 — full ir_to_png output vs resvg-py rendering of
+    the same buffer's full composition. Caps the per-layer gates
+    at the floor level so a regression in any single layer
+    bisects to the layer-specific test, while drift in the
+    layer-stacking order surfaces only here.
+    """
+    inputs, buf = emitted
+    actual = nhc_render.ir_to_png(buf, 1.0, None)
+    baseline_svg = ir_to_svg(buf)
+    baseline = bytes(resvg_py.svg_to_bytes(svg_string=baseline_svg))
+    diff = _diff_fraction(_decode(actual), _decode(baseline))
+    assert diff <= WHOLE_FLOOR_THRESHOLD, (
+        f"{inputs.descriptor}: whole-floor diff {diff:.4%} "
+        f"(threshold {WHOLE_FLOOR_THRESHOLD:.2%})"
     )
