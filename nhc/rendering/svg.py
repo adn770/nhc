@@ -18,8 +18,6 @@ from nhc.rendering import _perlin as _noise
 from shapely.geometry import LineString
 
 from nhc.dungeon.generators.cellular import CaveShape
-from nhc.rendering._floor_layers import FLOOR_LAYERS
-from nhc.rendering._pipeline import render_layers
 from nhc.rendering._render_context import build_render_context
 from nhc.rendering._svg_helpers import (
     BG,
@@ -292,20 +290,5 @@ from nhc.rendering._hatching import (  # noqa: E402
     _render_hole_hatching,
 )
 
-from nhc.rendering._floor_detail import (  # noqa: E402
-    _dungeon_interior_clip,
-    _render_floor_grid,
-)
-from nhc.rendering._terrain_detail import (  # noqa: E402
-    _chasm_detail,
-    _lava_detail,
-    _render_terrain_detail,
-    _render_terrain_tints,
-    _water_detail,
-)
-from nhc.rendering._walls_floors import (  # noqa: E402
-    _render_walls_and_floors,
-)
-from nhc.rendering._stairs_svg import _render_stairs  # noqa: E402
 
 

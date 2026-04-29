@@ -1,19 +1,22 @@
-"""Per-terrain detail rendering and terrain tints for SVG dungeons.
+"""Per-terrain detail painters used by the IR-to-SVG pipeline.
 
-Terrain detail (water waves, grass blades, lava cracks, chasm
-hatching) flows through the unified :class:`TileDecorator`
-pipeline as of Phase 4 of the rendering refactor. The four
-``terrain_*`` decorators below register on the ``terrain_detail``
-layer and split per-tile output into the ``"room"`` / ``"corridor"``
-buckets so room fragments stay clipped to the dungeon polygon.
+Holds the per-tile water / lava / chasm painter functions
+``ir_to_svg._draw_terrain_detail_from_ir`` consumes (Phase 9.1
+retired the legacy ``walk_and_paint`` driver these used to flow
+through), plus ``_render_terrain_tints`` which the legacy SVG
+shim still calls indirectly through Phase 1 transitional ports.
+
+The painters are pure functions of ``(rng, px, py, ink, opacity)``
+so callers own the RNG seeding (per-decorator deterministic RNG
+keyed by decorator name lives in
+``ir_to_svg._terrain_detail_seeded_rng``).
 """
 
 from __future__ import annotations
 
 import random
 
-from nhc.dungeon.model import Level, SurfaceType, Terrain
-from nhc.rendering._decorators import TileDecorator, walk_and_paint
+from nhc.dungeon.model import Level, Terrain
 from nhc.rendering._floor_detail import _dungeon_interior_clip
 from nhc.rendering._svg_helpers import CELL
 from nhc.rendering.terrain_palette import ROOM_TYPE_TINTS, get_palette
@@ -90,9 +93,8 @@ def _water_detail(
     """Wavy horizontal lines for a water tile.
 
     ``stroke`` and ``stroke-linecap`` are inherited from the
-    parent ``<g>`` group (see :func:`_terrain_group_open`); only
-    the per-element variance (``stroke-width`` for waves, no
-    extra attrs for the ripple) ships per element.
+    parent ``<g>`` group (the from-IR painter emits the wrapper);
+    only the per-element variance ships per element.
     """
     del ink, opacity  # inherited from parent <g>
     elements: list[str] = []
@@ -129,8 +131,9 @@ def _lava_detail(
     """Crack lines and ember dots for a lava tile.
 
     Stroke colour and linecap are inherited; ember dots use the
-    same colour explicitly via ``fill`` since they aren't
-    stroked."""
+    theme-specific ``ink`` colour explicitly via ``fill`` since
+    they aren't stroked.
+    """
     del opacity  # inherited from parent <g>
     elements: list[str] = []
     n_cracks = rng.randint(1, 2)
@@ -149,8 +152,6 @@ def _lava_detail(
         cx = px + rng.uniform(CELL * 0.3, CELL * 0.7)
         cy = py + rng.uniform(CELL * 0.3, CELL * 0.7)
         r = rng.uniform(CELL * 0.04, CELL * 0.08)
-        # The ember is a filled dot, not a stroke -- keep ink and
-        # the small per-dot opacity local.
         elements.append(
             f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
             f'fill="{ink}" stroke="none" opacity="0.4"/>'
@@ -180,139 +181,3 @@ def _chasm_detail(
             f'stroke-width="{sw:.1f}"/>'
         )
     return elements
-
-
-# ── Decorator factories ─────────────────────────────────────────
-
-def _terrain_paint(
-    detail_fn,
-    terrain: Terrain,
-):
-    """Build a paint callable that delegates to ``detail_fn``.
-
-    ``detail_fn`` is one of :func:`_water_detail`,
-    :func:`_grass_detail`, :func:`_lava_detail`,
-    :func:`_chasm_detail` -- the same per-tile painters used by the
-    legacy ``_render_terrain_detail`` loop.
-    """
-    def paint(args):
-        theme = args.ctx.theme
-        palette = get_palette(theme)
-        style = {
-            Terrain.WATER: palette.water,
-            Terrain.GRASS: palette.grass,
-            Terrain.LAVA: palette.lava,
-            Terrain.CHASM: palette.chasm,
-        }[terrain]
-        return detail_fn(
-            args.rng, args.px, args.py,
-            style.detail_ink, style.detail_opacity,
-        )
-    return paint
-
-
-def _terrain_predicate(terrain: Terrain):
-    def pred(level: Level, x: int, y: int) -> bool:
-        return level.tiles[y][x].terrain is terrain
-    return pred
-
-
-def _terrain_group_open(terrain: Terrain) -> str:
-    """Return the wrapping group for a terrain detail decorator.
-
-    Both ``opacity`` and the shared ``stroke`` / ``stroke-linecap``
-    come from the *dungeon* theme's palette so the ``<g>``
-    matches the legacy emission for any level whose theme falls
-    back to the dungeon palette (every site surface today). With
-    stroke baked into the group the per-element ``stroke=...
-    stroke-linecap=round`` attributes drop, shaving ~40 bytes off
-    every grass blade / water wave / chasm line / lava crack.
-    """
-    palette = get_palette("dungeon")
-    style = {
-        Terrain.WATER: palette.water,
-        Terrain.LAVA: palette.lava,
-        Terrain.CHASM: palette.chasm,
-    }[terrain]
-    cls = _TERRAIN_CLASS[terrain]
-    return (
-        f'<g class="{cls}" opacity="{style.detail_opacity}" '
-        f'stroke="{style.detail_ink}" stroke-linecap="round">'
-    )
-
-
-# Grass renders as a flat tint (terrain_tints layer); the
-# per-tile blade strokes were dropped because they accounted for
-# ~half of the terrain_detail layer on every site surface.
-_TERRAIN_CLASS = {
-    Terrain.WATER: "terrain-water",
-    Terrain.LAVA: "terrain-lava",
-    Terrain.CHASM: "terrain-chasm",
-}
-
-
-TERRAIN_WATER = TileDecorator(
-    name="terrain_water",
-    layer="terrain_detail",
-    predicate=_terrain_predicate(Terrain.WATER),
-    paint=_terrain_paint(_water_detail, Terrain.WATER),
-    group_open=_terrain_group_open(Terrain.WATER),
-    z_order=10,
-)
-TERRAIN_LAVA = TileDecorator(
-    name="terrain_lava",
-    layer="terrain_detail",
-    predicate=_terrain_predicate(Terrain.LAVA),
-    paint=_terrain_paint(_lava_detail, Terrain.LAVA),
-    group_open=_terrain_group_open(Terrain.LAVA),
-    z_order=30,
-)
-TERRAIN_CHASM = TileDecorator(
-    name="terrain_chasm",
-    layer="terrain_detail",
-    predicate=_terrain_predicate(Terrain.CHASM),
-    paint=_terrain_paint(_chasm_detail, Terrain.CHASM),
-    group_open=_terrain_group_open(Terrain.CHASM),
-    z_order=40,
-)
-
-
-_TERRAIN_DECORATORS = (
-    TERRAIN_WATER, TERRAIN_LAVA, TERRAIN_CHASM,
-)
-
-
-def _terrain_tile_bucket(level: Level, x: int, y: int) -> str:
-    """Bucket a tile into ``"corridor"`` for SurfaceType.CORRIDOR
-    tiles, ``"room"`` for everything else. Mirrors the
-    classification the legacy ``_render_terrain_detail`` loop used."""
-    if level.tiles[y][x].surface_type is SurfaceType.CORRIDOR:
-        return "corridor"
-    return "room"
-
-
-def _render_terrain_detail(
-    svg: list[str], level: Level, seed: int,
-    dungeon_poly=None,
-    ctx=None,
-) -> None:
-    """Render terrain-specific hand-drawn marks (wavy lines, etc.).
-
-    Routes through the unified :func:`walk_and_paint` helper. Room
-    fragments end up clipped to the dungeon polygon; corridor
-    fragments stay unclipped so they reach into the connecting
-    passages.
-    """
-    if ctx is None:
-        from dataclasses import replace
-        from nhc.rendering._render_context import build_render_context
-        ctx = build_render_context(level, seed=seed)
-        if dungeon_poly is not ctx.dungeon_poly:
-            ctx = replace(ctx, dungeon_poly=dungeon_poly)
-    svg.extend(walk_and_paint(
-        ctx,
-        _TERRAIN_DECORATORS,
-        layer_name="terrain_detail",
-        tile_bucket=_terrain_tile_bucket,
-        room_clip_id="terrain-detail-clip",
-    ))

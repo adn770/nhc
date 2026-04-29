@@ -31,15 +31,13 @@ _RENDERING_ROOT = pathlib.Path(__file__).resolve().parents[2] / "nhc" / "renderi
 # entry when the matching Rust port lands. Cite the port in the
 # comment so the allowlist itself documents the cleanup queue.
 _ALLOWLIST: frozenset[str] = frozenset({
-    # Wood-floor short-circuit + IR emitter wood-floor wiring.
-    # Retire when the wood-floor pipeline ports to Rust.
-    "_floor_detail.py",
-    "_floor_layers.py",
-    # Terrain-detail decorator pipeline (water / lava / chasm).
-    # Retire when the terrain-detail port lands.
+    # Per-tile painters used by the from-IR SVG path
+    # (`_water_detail` / `_lava_detail` / `_chasm_detail` consume
+    # the `random.Random` instance the caller seeds).
     "_terrain_detail.py",
-    # Procedural masonry / roof / wall geometry — these have not
-    # been folded into the IR yet (Phase 5+ territory).
+    # Procedural masonry / roof / wall geometry — used by the
+    # IR emitter to compute polygon paths; RNG is per-call,
+    # seeded from the IR's deterministic seed slots.
     "_building_walls.py",
     "_doors_svg.py",
     "_dungeon_polygon.py",
@@ -48,20 +46,21 @@ _ALLOWLIST: frozenset[str] = frozenset({
     "_hatching.py",
     "_roofs.py",
     "_svg_helpers.py",
-    # _decorators.py owns walk_and_paint's per-decorator RNG seed.
-    # Retire alongside walk_and_paint when the last live caller
-    # flips to Rust (see _decorators.py module docstring).
-    "_decorators.py",
-    # Renderer entry point + render context still seed
-    # downstream RNGs for the legacy procedural paths above.
+    # IR emitter: deterministic per-floor RNG seeds.
+    "_floor_layers.py",
+    # Renderer entry point + render context seed downstream
+    # RNGs for the procedural geometry helpers above.
     "svg.py",
     "_render_context.py",
-    # Phase 9.2b: ir_to_svg's wood-floor from-IR painter seeds
-    # `random.Random(op.seed)` to keep byte-equal SVG parity with
-    # the legacy walk_and_paint output. Retire when 9.2c lands the
-    # Rust port and the SVG-side painter retires alongside the
-    # legacy renderer at Phase 10.
+    # Wood-floor from-IR painter seeds `random.Random(op.seed)`
+    # to keep the SVG output deterministic across the
+    # legacy-fixture snapshot lock.
     "ir_to_svg.py",
+    # Floor-detail predicates + (legacy) shapes used by the IR
+    # emitter and the still-public test imports — keep the
+    # `import random` declaration alive for the few remaining
+    # `random.Random(...)` consumers in the file.
+    "_floor_detail.py",
 })
 
 

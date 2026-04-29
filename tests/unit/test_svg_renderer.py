@@ -7,9 +7,10 @@ from shapely.geometry import Point, box
 from nhc.dungeon.model import (
     Level, Rect, RectShape, Room, SurfaceType, Terrain, Tile,
 )
+from nhc.rendering._dungeon_polygon import _room_shapely_polygon
+from nhc.rendering._floor_detail import _render_floor_grid
 from nhc.rendering.svg import (
     CELL, FLOOR_STONE_FILL, PADDING,
-    _render_floor_grid, _room_shapely_polygon,
     render_floor_svg,
 )
 

@@ -1076,22 +1076,49 @@ def _draw_thematic_detail_from_ir(
 _OP_HANDLERS[Op.Op.ThematicDetailOp] = _draw_thematic_detail_from_ir
 
 
+def _terrain_detail_seeded_rng(seed: int, name: str):
+    """Per-decorator deterministic RNG used by the terrain-detail
+    handler.
+
+    Mirrors the legacy ``_decorators._seeded_rng`` formula
+    (Mersenne Twister keyed by ``(ctx.seed, decorator_name)``) so
+    SVG output stays byte-equal to the historical fixture
+    snapshots in ``tests/fixtures/floor_ir/<descriptor>/floor.svg``.
+    """
+    import random
+    name_seed = sum(
+        (ord(c) * 31 ** i) for i, c in enumerate(name)
+    ) & 0xFFFF_FFFF
+    return random.Random((seed * 1_000_003) ^ name_seed)
+
+
+# Per-terrain-kind metadata for the from-IR painter. Mirrors the
+# (name, z_order, palette) tuple the legacy `_terrain_detail.py`
+# `TileDecorator` instances carried; keeping it inline here lets
+# `ir_to_svg` consume the painters without depending on the
+# legacy decorator infrastructure.
+_TERRAIN_DETAIL_DISPATCH: tuple[tuple[int, str, int, str], ...] = (
+    # (TerrainKind value, decorator name, z_order, css class)
+    (1, "terrain_water", 10, "terrain-water"),
+    (2, "terrain_lava", 30, "terrain-lava"),
+    (3, "terrain_chasm", 40, "terrain-chasm"),
+)
+
+
 def _draw_terrain_detail_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
     """Reproduce ``_render_terrain_detail`` from ``tiles[]``.
 
-    Phase 9.1b: the per-tile water / lava / chasm painters are
-    invoked directly from the structured tile list, mirroring the
-    legacy ``walk_and_paint`` row-major dispatch + room/corridor
+    Drives the per-tile water / lava / chasm painters directly
+    from the structured tile list, mirroring the (now-retired)
+    ``walk_and_paint`` row-major dispatch + room/corridor
     bucketing + dungeon-poly clip envelope. Per-decorator
-    ``_seeded_rng`` keying is preserved (``ctx.seed`` recovered as
-    ``op.seed - 200``) so output stays byte-equal to the legacy
-    SVG path.
+    ``random.Random`` keying matches the
+    ``_terrain_detail_seeded_rng`` formula above so output stays
+    byte-equal to the snapshot fixtures.
     """
-    from nhc.rendering._decorators import _seeded_rng
     from nhc.rendering._terrain_detail import (
-        TERRAIN_CHASM, TERRAIN_LAVA, TERRAIN_WATER,
         _chasm_detail, _lava_detail, _water_detail,
     )
     from nhc.rendering.terrain_palette import get_palette
@@ -1102,38 +1129,29 @@ def _draw_terrain_detail_from_ir(
 
     theme_str = _to_str(op.theme) or "dungeon"
     palette = get_palette(theme_str)
+    dungeon_palette = get_palette("dungeon")
 
-    decorators_by_kind = {
-        int(TerrainKind.TerrainKind.Water): (
-            TERRAIN_WATER, _water_detail, palette.water,
-        ),
-        int(TerrainKind.TerrainKind.Lava): (
-            TERRAIN_LAVA, _lava_detail, palette.lava,
-        ),
-        int(TerrainKind.TerrainKind.Chasm): (
-            TERRAIN_CHASM, _chasm_detail, palette.chasm,
-        ),
+    painter_by_kind = {
+        1: (_water_detail, palette.water, dungeon_palette.water),
+        2: (_lava_detail, palette.lava, dungeon_palette.lava),
+        3: (_chasm_detail, palette.chasm, dungeon_palette.chasm),
     }
 
-    class _SeedShim:
-        def __init__(self, seed: int) -> None:
-            self.seed = seed
-
-    shim = _SeedShim(int(op.seed) - 200)
+    ctx_seed = int(op.seed) - 200
     rngs = {
-        kind: _seeded_rng(shim, dec.name)
-        for kind, (dec, _, _) in decorators_by_kind.items()
+        kind: _terrain_detail_seeded_rng(ctx_seed, name)
+        for kind, name, _, _ in _TERRAIN_DETAIL_DISPATCH
     }
     buckets: dict[int, dict[str, list[str]]] = {
         kind: {"room": [], "corridor": []}
-        for kind in decorators_by_kind
+        for kind, _, _, _ in _TERRAIN_DETAIL_DISPATCH
     }
 
     for tile in op.tiles:
-        info = decorators_by_kind.get(int(tile.kind))
+        info = painter_by_kind.get(int(tile.kind))
         if info is None:
             continue
-        _, painter, style = info
+        painter, style, _ = info
         produced = painter(
             rngs[int(tile.kind)],
             tile.x * CELL, tile.y * CELL,
@@ -1142,22 +1160,36 @@ def _draw_terrain_detail_from_ir(
         bucket = "corridor" if tile.isCorridor else "room"
         buckets[int(tile.kind)][bucket].extend(produced)
 
+    # Emit in z_order ascending. Group-open uses the dungeon-theme
+    # palette to match the legacy `_terrain_group_open`, which
+    # hard-codes the "dungeon" palette regardless of running theme.
     active_in_z = sorted(
-        decorators_by_kind.keys(),
-        key=lambda k: decorators_by_kind[k][0].z_order,
+        _TERRAIN_DETAIL_DISPATCH, key=lambda row: row[2],
     )
 
-    def _emit_group(target: list[str], dec, frags: list[str]) -> None:
+    def _group_open(kind: int, css_class: str) -> str:
+        d_style = painter_by_kind[kind][2]
+        return (
+            f'<g class="{css_class}" '
+            f'opacity="{d_style.detail_opacity}" '
+            f'stroke="{d_style.detail_ink}" '
+            f'stroke-linecap="round">'
+        )
+
+    def _emit_group(
+        target: list[str], kind: int, css_class: str,
+        frags: list[str],
+    ) -> None:
         if not frags:
             return
-        if dec.group_open is not None:
-            target.append(dec.group_open)
+        target.append(_group_open(kind, css_class))
         target.extend(frags)
-        if dec.group_open is not None:
-            target.append(dec.group_close)
+        target.append("</g>")
 
     out: list[str] = []
-    has_any_room = any(buckets[k]["room"] for k in active_in_z)
+    has_any_room = any(
+        buckets[kind]["room"] for kind, _, _, _ in active_in_z
+    )
     clip_id_str = _to_str(op.clipRegion)
     region = (
         _find_region(fir, clip_id_str.encode())
@@ -1171,12 +1203,12 @@ def _draw_terrain_detail_from_ir(
             region.Polygon(), "terrain-detail-clip",
         ))
         out.append('<g clip-path="url(#terrain-detail-clip)">')
-    for k in active_in_z:
-        _emit_group(out, decorators_by_kind[k][0], buckets[k]["room"])
+    for kind, _, _, css_class in active_in_z:
+        _emit_group(out, kind, css_class, buckets[kind]["room"])
     if use_clip:
         out.append("</g>")
-    for k in active_in_z:
-        _emit_group(out, decorators_by_kind[k][0], buckets[k]["corridor"])
+    for kind, _, _, css_class in active_in_z:
+        _emit_group(out, kind, css_class, buckets[kind]["corridor"])
     return out
 
 
