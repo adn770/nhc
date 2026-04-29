@@ -15,3 +15,4 @@
 //! phases populate the pixmap primitive-by-primitive.
 
 pub mod png;
+pub mod svg;

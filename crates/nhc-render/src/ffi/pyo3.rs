@@ -22,6 +22,7 @@ use crate::perlin;
 use crate::primitives;
 use crate::rng::SplitMix64;
 use crate::transform::png as transform_png;
+use crate::transform::svg as transform_svg;
 
 /// Pull the next splitmix64 output for a given seed.
 ///
@@ -405,6 +406,19 @@ fn ir_to_png(
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
+/// SVG → PNG rasteriser — Phase 10.4 cross-rasteriser parity
+/// gate. The parity harness in `tests/unit/test_ir_png_parity.py`
+/// pipes `ir_to_svg(buf)` through this function and compares the
+/// resulting pixels against the reference image, replacing the
+/// legacy `resvg-py` Python wheel. Production code never calls
+/// this — the `.png` endpoint flows straight through
+/// `ir_to_png` from the IR buffer.
+#[pyfunction]
+fn svg_to_png(svg: &str) -> PyResult<Vec<u8>> {
+    transform_svg::svg_to_png(svg)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
 /// PyO3 module entry point. The function name MUST match the
 /// `[lib] name` in Cargo.toml (`nhc_render`) so Python's
 /// import machinery finds it.
@@ -436,5 +450,6 @@ fn nhc_render(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(draw_bush, m)?)?;
     m.add_function(wrap_pyfunction!(draw_tree, m)?)?;
     m.add_function(wrap_pyfunction!(ir_to_png, m)?)?;
+    m.add_function(wrap_pyfunction!(svg_to_png, m)?)?;
     Ok(())
 }

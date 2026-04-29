@@ -19,7 +19,7 @@ codified in ``design/map_ir.md`` §9.4:
    regenerated under ``--regen-reference``. Every rasteriser is
    measured against the same reference — currently tiny-skia
    itself (drift gate) and ``ir_to_svg`` rendered through
-   ``resvg-py`` (the cross-rasteriser-agreement gate). Phase 11
+   ``nhc_render.svg_to_png`` (the cross-rasteriser-agreement gate). Phase 11
    adds the WASM Canvas third side.
 """
 
@@ -50,13 +50,6 @@ nhc_render = pytest.importorskip(
     reason=(
         "nhc_render extension not installed — run `make rust-build` "
         "or `pip install -e crates/nhc-render` first"
-    ),
-)
-resvg_py = pytest.importorskip(
-    "resvg_py",
-    reason=(
-        "resvg-py is the cross-rasteriser parity baseline; install "
-        "with `.venv/bin/pip install -e .[dev]`"
     ),
 )
 
@@ -158,7 +151,7 @@ def test_tiny_skia_psnr_against_reference(emitted) -> None:
 
 
 def test_resvg_of_ir_svg_psnr_against_reference(emitted) -> None:
-    """``resvg-py(ir_to_svg(buf))``: PSNR > 35 dB vs reference.
+    """``nhc_render.svg_to_png(ir_to_svg(buf))``: PSNR > 35 dB vs reference.
 
     The cross-rasteriser-agreement gate. PSNR drift here means
     the IR → SVG path and the IR → PNG path disagree on what the
@@ -167,7 +160,7 @@ def test_resvg_of_ir_svg_psnr_against_reference(emitted) -> None:
     """
     inputs, buf = emitted
     svg = ir_to_svg(buf)
-    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    actual = bytes(nhc_render.svg_to_png(svg))
     reference = (
         _FIXTURE_ROOT / inputs.descriptor / "reference.png"
     ).read_bytes()
@@ -230,7 +223,7 @@ def test_synthetic_roof_tiny_skia_psnr(synthetic_roof_buf) -> None:
 
 
 def test_synthetic_roof_resvg_psnr(synthetic_roof_buf) -> None:
-    """``resvg-py(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
+    """``nhc_render.svg_to_png(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
 
     The cross-rasteriser-agreement gate for the roof primitive.
     The Python ``_draw_roof_from_ir`` (SVG path) and the Rust
@@ -241,7 +234,7 @@ def test_synthetic_roof_resvg_psnr(synthetic_roof_buf) -> None:
     """
     fx, buf = synthetic_roof_buf
     svg = ir_to_svg(buf)
-    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    actual = bytes(nhc_render.svg_to_png(svg))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -319,7 +312,7 @@ def test_synthetic_enclosure_tiny_skia_psnr(
 
 
 def test_synthetic_enclosure_resvg_psnr(synthetic_enclosure_buf) -> None:
-    """``resvg-py(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
+    """``nhc_render.svg_to_png(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
 
     Cross-rasteriser-agreement gate for the enclosure primitive.
     Both Python `_draw_enclosure_from_ir` and Rust
@@ -330,7 +323,7 @@ def test_synthetic_enclosure_resvg_psnr(synthetic_enclosure_buf) -> None:
     """
     fx, buf = synthetic_enclosure_buf
     svg = ir_to_svg(buf)
-    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    actual = bytes(nhc_render.svg_to_png(svg))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -405,7 +398,7 @@ def test_synthetic_building_wall_tiny_skia_psnr(
 def test_synthetic_building_wall_resvg_psnr(
     synthetic_building_wall_buf,
 ) -> None:
-    """``resvg-py(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
+    """``nhc_render.svg_to_png(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
 
     Cross-rasteriser-agreement gate. Both Python
     `_draw_building_exterior_wall_from_ir` and Rust
@@ -415,7 +408,7 @@ def test_synthetic_building_wall_resvg_psnr(
     """
     fx, buf = synthetic_building_wall_buf
     svg = ir_to_svg(buf)
-    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    actual = bytes(nhc_render.svg_to_png(svg))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -497,7 +490,7 @@ def test_site_tiny_skia_psnr(site_buf) -> None:
 
 
 def test_site_resvg_psnr(site_buf) -> None:
-    """``resvg-py(ir_to_svg(buf))``: PSNR > 35 dB vs reference.
+    """``nhc_render.svg_to_png(ir_to_svg(buf))``: PSNR > 35 dB vs reference.
 
     The cross-rasteriser-agreement gate on a real site IR. PSNR
     drift here means the SVG side and the PNG side disagree on
@@ -506,7 +499,7 @@ def test_site_resvg_psnr(site_buf) -> None:
     """
     fx, buf = site_buf
     svg = ir_to_svg(buf)
-    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    actual = bytes(nhc_render.svg_to_png(svg))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()
@@ -574,10 +567,10 @@ def test_building_tiny_skia_psnr(building_buf) -> None:
 
 
 def test_building_resvg_psnr(building_buf) -> None:
-    """``resvg-py(ir_to_svg(buf))``: PSNR > 35 dB vs reference."""
+    """``nhc_render.svg_to_png(ir_to_svg(buf))``: PSNR > 35 dB vs reference."""
     fx, buf = building_buf
     svg = ir_to_svg(buf)
-    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    actual = bytes(nhc_render.svg_to_png(svg))
     reference = (
         _FIXTURE_ROOT / fx.descriptor / "reference.png"
     ).read_bytes()

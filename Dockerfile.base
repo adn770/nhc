@@ -30,14 +30,16 @@ WORKDIR /app
 
 # Hand-curated subset of requirements.txt so the base image stays
 # stable across most code changes. Add new deps here when they
-# enter requirements.txt; keep this list in sync. flatbuffers +
-# resvg-py serve the IR migration's Python bindings + Phase 0.7
-# PNG endpoint; maturin builds the nhc-render wheel in the app
-# stage via PEP 517 build-system requirements.
+# enter requirements.txt; keep this list in sync. flatbuffers
+# carries the IR migration's Python FB bindings; maturin builds
+# the nhc-render wheel in the app stage via PEP 517 build-system
+# requirements. Phase 10.4 dropped the resvg-py wheel — the Rust
+# resvg crate (linked into nhc-render) handles cross-rasteriser
+# parity, so production no longer pulls it in either.
 COPY requirements.txt .
 RUN pip install --no-cache-dir \
     flask flask-sock shapely gunicorn pyyaml \
-    flatbuffers resvg-py maturin
+    flatbuffers maturin
 
 # TTS support (optional — fails gracefully if unavailable)
 RUN pip install --no-cache-dir piper-tts onnxruntime requests || true

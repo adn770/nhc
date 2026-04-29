@@ -23,11 +23,6 @@ dev = [
     "pytest-asyncio",
     "pytest-xdist",
     "maturin",
-    # Parity baseline for tests/unit/test_ir_png_parity.py — Phase 5
-    # dropped resvg-py from production but the per-layer / whole-
-    # floor parity gates still ride on it. Production rebuilds via
-    # requirements.txt won't pull this in.
-    "resvg-py",
 ]
 tts = [
     "piper-tts>=1.3.0",

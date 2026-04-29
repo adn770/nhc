@@ -54,6 +54,14 @@ rand_pcg = "0.3"
 # `Pixmap::encode_png()` — that's the only sink the transform
 # needs, so we lean on it rather than a separate encoder dep.
 tiny-skia = "0.11"
+# Phase 10.4: `resvg` + `usvg` drive the cross-rasteriser parity
+# harness in `tests/unit/test_ir_png_parity.py`. The
+# `nhc_render.svg_to_png` PyO3 export replaces the legacy
+# `resvg-py` Python wheel; production never calls into this path.
+# Pinned to the same minor as tiny-skia downstream so the pixmap
+# types match without an adapter shim.
+resvg = { version = "0.43", default-features = false }
+usvg = { version = "0.43", default-features = false }
 
 [dependencies.pyo3]
 version = "0.24"

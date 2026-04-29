@@ -1,14 +1,11 @@
-"""Tests for the IR Phase 0.7 PNG stepping-stone endpoint.
+"""Tests for the floor PNG endpoint contract.
 
-``GET /api/game/<sid>/floor/<svg_id>.png`` rasterises the cached
-floor SVG via resvg-py. Today the route is a thin
-``svg → resvg → png`` shim; once Phase 1 lands the IR emitter,
-the route routes through the IR; once Phase 5 ships ``tiny-skia``,
-resvg-py is dropped and the route becomes ``IR → tiny-skia → PNG``.
-
-These tests pin the public contract (URL shape, headers, error
-codes) so the later transitions don't accidentally break a client
-caching at the URL level.
+``GET /api/game/<sid>/floor/<svg_id>.png`` returns a PNG body
+rasterised by the Rust tiny-skia path (``nhc_render.ir_to_png``)
+straight from the IR. The Phase 0.7 ``svg → resvg-py → png``
+stepping stone is gone (Phase 10.4); these tests pin the public
+contract — URL shape, headers, error codes — that survives
+across the rasteriser swap.
 """
 
 from __future__ import annotations
@@ -21,11 +18,11 @@ from tests.unit.test_web_api import (   # noqa: F401  (fixture reuse)
 )
 
 
-resvg_py = pytest.importorskip(
-    "resvg_py",
+nhc_render = pytest.importorskip(
+    "nhc_render",
     reason=(
-        "resvg-py not installed — required for the Phase 0.7 PNG "
-        "stepping-stone endpoint; see requirements.txt"
+        "nhc_render extension not installed — run `make rust-build` "
+        "or `pip install -e crates/nhc-render` first"
     ),
 )
 
