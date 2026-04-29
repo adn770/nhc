@@ -195,6 +195,62 @@ _SYNTHETIC_ENCLOSURE_FIXTURES: tuple[SyntheticEnclosureFixture, ...] = (
 )
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class SyntheticBuildingWallFixture:
+    """Synthetic-IR Building wall descriptor for the Phase 8.3
+    PSNR gate. Carries one Building region + one
+    BuildingExteriorWallOp + one BuildingInteriorWallOp."""
+
+    name: str
+    shape: str           # "rect" / "octagon" / "circle"
+    rect: tuple[int, int, int, int]
+    wall_material: str = "brick"
+    interior_wall_material: str = "stone"
+    interior_edges: tuple[tuple[int, int, str], ...] = ()
+    seed: int = 7
+    canvas_tiles: tuple[int, int] = (22, 16)
+
+    @property
+    def descriptor(self) -> str:
+        return f"synthetic_building_wall_{self.name}"
+
+
+_SYNTHETIC_BUILDING_WALL_FIXTURES: tuple[SyntheticBuildingWallFixture, ...] = (
+    # Brick rect — simplest case; orthogonal masonry runs only.
+    SyntheticBuildingWallFixture(
+        name="brick_rect",
+        shape="rect",
+        rect=(4, 3, 12, 8),
+    ),
+    # Stone octagon — exercises the diagonal-run path on the
+    # 45-degree clipped corners.
+    SyntheticBuildingWallFixture(
+        name="stone_octagon",
+        shape="octagon",
+        rect=(5, 2, 10, 10),
+        wall_material="stone",
+    ),
+    # Brick circle — fully diagonal polygon (24-gon).
+    SyntheticBuildingWallFixture(
+        name="brick_circle",
+        shape="circle",
+        rect=(5, 2, 10, 10),
+    ),
+    # Brick rect with interior partition lines — exercises
+    # BuildingInteriorWallOp coalescing + line painting.
+    SyntheticBuildingWallFixture(
+        name="brick_with_interior",
+        shape="rect",
+        rect=(4, 3, 12, 8),
+        interior_edges=(
+            (8, 5, "north"), (9, 5, "north"), (10, 5, "north"),
+            (10, 6, "west"), (10, 7, "west"),
+        ),
+        interior_wall_material="wood",
+    ),
+)
+
+
 _SHAPE_VARIETY: dict[str, float] = {
     "rect": 0.0,
     "octagon": 0.7,
@@ -504,6 +560,127 @@ def _check_synthetic_enclosure_fixture(
     return drifts
 
 
+# ── Synthetic Building wall regen (Phase 8.3c) ─────────────────
+
+
+def _build_synthetic_building_wall_buf(
+    fx: SyntheticBuildingWallFixture,
+) -> bytes:
+    """Hand-build a Building IR with one Building region + the
+    matching exterior + interior wall ops."""
+    from nhc.dungeon.model import (
+        CircleShape, OctagonShape, Rect, RectShape,
+    )
+    from nhc.rendering.ir_emitter import (
+        FloorIRBuilder, emit_building_regions, emit_building_walls,
+    )
+
+    @dataclasses.dataclass
+    class _Level:
+        width: int
+        height: int
+        interior_edges: list[tuple[int, int, str]]
+
+        def tile_at(self, x, y):
+            return None  # no door-suppression in synthetic fixtures
+
+    @dataclasses.dataclass
+    class _Ctx:
+        level: _Level
+        seed: int = 0
+        theme: str = "dungeon"
+        floor_kind: str = "building"
+        shadows_enabled: bool = True
+        hatching_enabled: bool = True
+        atmospherics_enabled: bool = True
+        macabre_detail: bool = False
+        vegetation_enabled: bool = True
+        interior_finish: str = ""
+
+    @dataclasses.dataclass
+    class _Building:
+        base_shape: object
+        base_rect: Rect
+        wall_material: str
+        interior_wall_material: str
+
+    width, height = fx.canvas_tiles
+    level = _Level(
+        width=width, height=height,
+        interior_edges=list(fx.interior_edges),
+    )
+    builder = FloorIRBuilder(_Ctx(level=level))  # type: ignore[arg-type]
+    shape_map = {
+        "rect": RectShape(),
+        "octagon": OctagonShape(),
+        "circle": CircleShape(),
+    }
+    rx, ry, rw, rh = fx.rect
+    b = _Building(
+        base_shape=shape_map[fx.shape],
+        base_rect=Rect(rx, ry, rw, rh),
+        wall_material=fx.wall_material,
+        interior_wall_material=fx.interior_wall_material,
+    )
+    emit_building_regions(builder, [b])
+    emit_building_walls(
+        builder, b, level, base_seed=fx.seed, building_index=0,
+    )
+    return builder.finish()
+
+
+def _render_synthetic_building_wall_fixture(
+    fx: SyntheticBuildingWallFixture,
+) -> tuple[bytes, bytes, str]:
+    import nhc_render
+    from nhc.rendering.ir.structural import dump_structural
+    nir = _build_synthetic_building_wall_buf(fx)
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    structural = dump_structural(nir)
+    return nir, reference_png, structural
+
+
+def _write_synthetic_building_wall_fixture(
+    fx: SyntheticBuildingWallFixture, root: Path, *, regen_reference: bool,
+) -> None:
+    nir, reference_png, structural = (
+        _render_synthetic_building_wall_fixture(fx)
+    )
+    out = root / fx.descriptor
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "floor.nir").write_bytes(nir)
+    (out / "structural.json").write_text(structural)
+    reference_path = out / "reference.png"
+    if regen_reference or not reference_path.exists():
+        reference_path.write_bytes(reference_png)
+
+
+def _check_synthetic_building_wall_fixture(
+    fx: SyntheticBuildingWallFixture, root: Path,
+) -> list[str]:
+    nir, reference_png, structural = (
+        _render_synthetic_building_wall_fixture(fx)
+    )
+    out = root / fx.descriptor
+    drifts: list[str] = []
+    nir_path = out / "floor.nir"
+    if not nir_path.exists():
+        drifts.append(f"{fx.descriptor}: floor.nir missing")
+    elif nir_path.read_bytes() != nir:
+        drifts.append(f"{fx.descriptor}: floor.nir drift")
+    s_path = out / "structural.json"
+    if not s_path.exists():
+        drifts.append(f"{fx.descriptor}: structural.json missing")
+    elif s_path.read_text() != structural:
+        drifts.append(f"{fx.descriptor}: structural.json drift")
+    r_path = out / "reference.png"
+    if not r_path.exists():
+        drifts.append(f"{fx.descriptor}: reference.png missing")
+    elif r_path.read_bytes() != reference_png:
+        drifts.append(f"{fx.descriptor}: reference.png drift")
+    return drifts
+
+
 def _root_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "floor_ir"
 
@@ -602,12 +779,19 @@ def main(argv: list[str]) -> int:
             fx for fx in _SYNTHETIC_ENCLOSURE_FIXTURES
             if args.filter in fx.descriptor
         ]
+        synthetic_walls = [
+            fx for fx in _SYNTHETIC_BUILDING_WALL_FIXTURES
+            if args.filter in fx.descriptor
+        ]
     else:
         selected = list(_FIXTURES)
         synthetic_roofs = list(_SYNTHETIC_ROOF_FIXTURES)
         synthetic_encs = list(_SYNTHETIC_ENCLOSURE_FIXTURES)
+        synthetic_walls = list(_SYNTHETIC_BUILDING_WALL_FIXTURES)
 
-    if not selected and not synthetic_roofs and not synthetic_encs:
+    if not (
+        selected or synthetic_roofs or synthetic_encs or synthetic_walls
+    ):
         print("no fixtures matched filter", file=sys.stderr)
         return 2
 
@@ -621,13 +805,20 @@ def main(argv: list[str]) -> int:
             all_drifts.extend(
                 _check_synthetic_enclosure_fixture(efx, root)
             )
+        for wfx in synthetic_walls:
+            all_drifts.extend(
+                _check_synthetic_building_wall_fixture(wfx, root)
+            )
         if all_drifts:
             print("FIXTURE DRIFT — re-run without --check to update:",
                   file=sys.stderr)
             for line in all_drifts:
                 print(f"  - {line}", file=sys.stderr)
             return 1
-        total = len(selected) + len(synthetic_roofs) + len(synthetic_encs)
+        total = (
+            len(selected) + len(synthetic_roofs)
+            + len(synthetic_encs) + len(synthetic_walls)
+        )
         print(f"ok ({total} fixtures match committed)")
         return 0
 
@@ -644,6 +835,11 @@ def main(argv: list[str]) -> int:
             efx, root, regen_reference=args.regen_reference,
         )
         print(f"wrote {efx.descriptor}")
+    for wfx in synthetic_walls:
+        _write_synthetic_building_wall_fixture(
+            wfx, root, regen_reference=args.regen_reference,
+        )
+        print(f"wrote {wfx.descriptor}")
     return 0
 
 

@@ -1,0 +1,21 @@
+{
+  "layer_element_counts": {
+    "floor_detail": 0,
+    "floor_grid": 0,
+    "hatching": 0,
+    "shadows": 0,
+    "stairs": 0,
+    "structural": 213,
+    "surface_features": 0,
+    "terrain_detail": 0,
+    "terrain_tints": 0,
+    "thematic_detail": 0
+  },
+  "op_counts": {
+    "BuildingExteriorWallOp": 1,
+    "BuildingInteriorWallOp": 1
+  },
+  "region_count": 1,
+  "region_polygon_rings": 1,
+  "region_polygon_vertices": 24
+}

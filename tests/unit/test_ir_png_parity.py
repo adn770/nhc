@@ -356,3 +356,87 @@ def test_synthetic_enclosure_structural_invariants(
         f"  expected: {json.dumps(expected, sort_keys=True)}\n"
         f"  actual:   {json.dumps(actual, sort_keys=True)}"
     )
+
+
+# ── Synthetic-IR Building wall gate (Phase 8.3c) ───────────────
+
+
+_SYNTHETIC_BUILDING_WALL_DESCRIPTORS: tuple[str, ...] = (
+    "synthetic_building_wall_brick_rect",
+    "synthetic_building_wall_stone_octagon",
+    "synthetic_building_wall_brick_circle",
+    "synthetic_building_wall_brick_with_interior",
+)
+
+
+@pytest.fixture(
+    scope="module", params=_SYNTHETIC_BUILDING_WALL_DESCRIPTORS,
+)
+def synthetic_building_wall_buf(request):
+    """Hand-built FloorIR with one Building region + the matching
+    BuildingExteriorWallOp + BuildingInteriorWallOp."""
+    from tests.samples.regenerate_fixtures import (
+        _SYNTHETIC_BUILDING_WALL_FIXTURES,
+        _build_synthetic_building_wall_buf,
+    )
+    fx = next(
+        f for f in _SYNTHETIC_BUILDING_WALL_FIXTURES
+        if f.descriptor == request.param
+    )
+    return fx, _build_synthetic_building_wall_buf(fx)
+
+
+def test_synthetic_building_wall_tiny_skia_psnr(
+    synthetic_building_wall_buf,
+) -> None:
+    """tiny-skia output: PSNR > 40 dB vs the committed reference."""
+    fx, buf = synthetic_building_wall_buf
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: tiny-skia PSNR {db:.2f} dB "
+        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_synthetic_building_wall_resvg_psnr(
+    synthetic_building_wall_buf,
+) -> None:
+    """``resvg-py(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
+
+    Cross-rasteriser-agreement gate. Both Python
+    `_draw_building_exterior_wall_from_ir` and Rust
+    `transform/png/building_exterior_wall.rs` walk splitmix64
+    seeded `rng_seed + edge_idx`; the rounded-rect path uses the
+    same 0.5523 cubic-bezier control distance both ways.
+    """
+    fx, buf = synthetic_building_wall_buf
+    svg = ir_to_svg(buf)
+    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
+        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_synthetic_building_wall_structural_invariants(
+    synthetic_building_wall_buf,
+) -> None:
+    from nhc.rendering.ir.structural import compute_structural
+    fx, buf = synthetic_building_wall_buf
+    expected = json.loads(
+        (_FIXTURE_ROOT / fx.descriptor / "structural.json").read_text()
+    )
+    actual = compute_structural(buf)
+    assert actual == expected, (
+        f"{fx.descriptor}: structural drift\n"
+        f"  expected: {json.dumps(expected, sort_keys=True)}\n"
+        f"  actual:   {json.dumps(actual, sort_keys=True)}"
+    )

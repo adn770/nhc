@@ -29,6 +29,8 @@ mod polygon_path;
 mod svg_attr;
 
 // Per-primitive raster handlers — one module per Op kind.
+mod building_exterior_wall;
+mod building_interior_wall;
 mod bush;
 mod decorator;
 mod enclosure;
@@ -131,7 +133,13 @@ fn layer_ops() -> &'static HashMap<&'static str, &'static [Op]> {
         m.insert("hatching", &[Op::HatchOp]);
         m.insert(
             "structural",
-            &[Op::WallsAndFloorsOp, Op::RoofOp, Op::EnclosureOp],
+            &[
+                Op::WallsAndFloorsOp,
+                Op::RoofOp,
+                Op::EnclosureOp,
+                Op::BuildingExteriorWallOp,
+                Op::BuildingInteriorWallOp,
+            ],
         );
         m.insert("terrain_tints", &[Op::TerrainTintOp]);
         m.insert("floor_grid", &[Op::FloorGridOp]);
@@ -176,6 +184,12 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::GenericProceduralOp.0, generic_procedural::draw);
         m.insert(Op::RoofOp.0, roof::draw);
         m.insert(Op::EnclosureOp.0, enclosure::draw);
+        m.insert(
+            Op::BuildingExteriorWallOp.0, building_exterior_wall::draw,
+        );
+        m.insert(
+            Op::BuildingInteriorWallOp.0, building_interior_wall::draw,
+        );
         m
     })
 }
