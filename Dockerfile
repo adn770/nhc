@@ -35,6 +35,12 @@ ENV PYTHONPATH=/app
 # compose time for larger or smaller hosts.
 ENV NHC_GEN_WORKERS=4
 
+# Floor render mode the gameplay client fetches: "png" | "svg" |
+# "wasm". Default png (server-side tiny-skia rasterisation, ~30 %
+# of the SVG wire size). Override at run time, e.g.:
+#   docker run -e NHC_RENDER_MODE=svg ...
+ENV NHC_RENDER_MODE=png
+
 # Build metadata surfaced on the welcome-page footer for
 # at-a-glance deploy verification. Set by deploy/update.sh via
 # --build-arg; the "dev" sentinel keeps local builds clean.

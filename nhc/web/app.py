@@ -353,6 +353,7 @@ def create_app(
                 player_difficulty=player_difficulty,
                 welcome_labels=_welcome_labels(player_lang),
                 build_info=get_build_info(),
+                render_mode=config.render_mode,
             ))
             _set_auth_cookie(resp, "nhc_token", token)
             return resp
@@ -364,6 +365,7 @@ def create_app(
             player_difficulty="medium",
             welcome_labels=_welcome_labels(""),
             build_info=get_build_info(),
+            render_mode=config.render_mode,
         )
 
     @app.route("/health", methods=["GET"])
@@ -2115,6 +2117,7 @@ def app_factory() -> Flask:
             "NHC_VEGETATION", "1",
         ).strip().lower() not in ("0", "false", "no", "off"),
         external_url=os.environ.get("NHC_EXTERNAL_URL", ""),
+        render_mode=os.environ.get("NHC_RENDER_MODE", "png"),
         admin_lan_cidrs=admin_lan_cidrs,
         # gunicorn in production always sits behind Caddy on
         # loopback — trust one forwarded hop so the LAN allowlist

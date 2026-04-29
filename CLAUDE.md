@@ -17,6 +17,8 @@ BSP dungeon generation, LLM-driven typed gameplay, multilingual
 ./server                         # Local dev, no auth
 ./server --auth                  # Generate token, require auth
 ./server --host 0.0.0.0 --auth  # Expose on network
+./server --render-mode svg       # Serve SVG floors instead of PNG
+                                 # (env: NHC_RENDER_MODE=svg)
 
 # Tests (ALWAYS before committing)
 .venv/bin/pytest -n auto --dist worksteal -m "not slow"

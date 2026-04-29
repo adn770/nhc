@@ -66,6 +66,13 @@ def parse_args() -> argparse.Namespace:
         "--data-dir",
         help="Persistent data directory (env: NHC_DATA_DIR)",
     )
+    parser.add_argument(
+        "--render-mode", choices=("svg", "png", "wasm"),
+        default=os.environ.get("NHC_RENDER_MODE", "png"),
+        help="Floor render mode the gameplay client fetches: "
+             "svg | png | wasm (default: png; "
+             "env: NHC_RENDER_MODE).",
+    )
     # Local dev server launches on the hexcrawl overland by
     # default so `./server` drops the player onto the hex map
     # without explicit CLI overrides. Dungeon-only play still
@@ -101,6 +108,7 @@ def main() -> None:
         shape_variety=args.shape_variety,
         god_mode=args.god,
         data_dir=data_dir,
+        render_mode=args.render_mode,
     )
     app = create_app(config, auth_token=auth_token)
 

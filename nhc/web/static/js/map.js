@@ -289,32 +289,33 @@ const GameMap = {
    */
   async setFloorURL(url) {
     if (!url) return;
-    const pngLoaded = await this._tryLoadFloorPNG(url);
-    if (pngLoaded) return;
-    const svgUrl = this._svgFallbackUrl(url);
-    if (!svgUrl) {
-      console.warn("[setFloorURL] no SVG fallback for:", url);
+    const mode = this._renderMode();
+    if (mode === "svg") {
+      await this._loadFloorSVG(url + ".svg");
       return;
     }
-    console.log("[setFloorURL] PNG unavailable; falling back to SVG:",
-                svgUrl);
-    try {
-      const svgString = await fetch(svgUrl).then(r => {
-        if (!r.ok) throw new Error(`SVG fallback ${r.status}`);
-        return r.text();
-      });
-      this.setFloorSVG(svgString);
-    } catch (err) {
-      console.error("[setFloorURL] SVG fallback failed:", err);
+    if (mode === "wasm") {
+      console.warn("[setFloorURL] wasm render mode not implemented "
+                   + "yet (Phase 11); falling back to png");
     }
+    await this._loadFloorPNG(url + ".png");
   },
 
-  async _tryLoadFloorPNG(url) {
+  _renderMode() {
+    if (this._cachedRenderMode) return this._cachedRenderMode;
+    const meta = document.querySelector('meta[name="render-mode"]');
+    const value = meta ? meta.getAttribute("content") : null;
+    this._cachedRenderMode = value || "png";
+    return this._cachedRenderMode;
+  },
+
+  async _loadFloorPNG(url) {
     try {
       const resp = await fetch(url);
       if (!resp.ok) {
-        console.log("[setFloorURL] PNG fetch returned", resp.status);
-        return false;
+        console.warn("[setFloorURL] PNG fetch returned", resp.status,
+                     "for", url);
+        return;
       }
       const blob = await resp.blob();
       const objUrl = URL.createObjectURL(blob);
@@ -329,12 +330,11 @@ const GameMap = {
         const h = img.naturalHeight;
         if (!w || !h) {
           console.warn("[setFloorURL] PNG decoded with 0 dimensions");
-          return false;
+          return;
         }
         const container = document.getElementById("floor-svg");
         container.replaceChildren(img);
         this._installFloorDimensions(w, h, "PNG");
-        return true;
       } finally {
         // Revoke after decode completes; the <img> keeps an
         // internal reference so the blob is held until the next
@@ -342,15 +342,20 @@ const GameMap = {
         URL.revokeObjectURL(objUrl);
       }
     } catch (err) {
-      console.warn("[setFloorURL] PNG path failed:", err);
-      return false;
+      console.error("[setFloorURL] PNG path failed:", err);
     }
   },
 
-  _svgFallbackUrl(url) {
-    if (typeof url !== "string") return null;
-    if (url.endsWith(".png")) return url.slice(0, -4) + ".svg";
-    return null;
+  async _loadFloorSVG(url) {
+    try {
+      const svgString = await fetch(url).then(r => {
+        if (!r.ok) throw new Error(`SVG fetch ${r.status}`);
+        return r.text();
+      });
+      this.setFloorSVG(svgString);
+    } catch (err) {
+      console.error("[setFloorURL] SVG path failed:", err);
+    }
   },
 
   setFloorSVG(svgString) {

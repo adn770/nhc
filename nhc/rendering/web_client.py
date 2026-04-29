@@ -1384,8 +1384,11 @@ class WebClient(GameClient):
         meta = level.metadata
         self._send({
             "type": "floor",
+            # Phase 10.3: extension-less URL — `setFloorURL` in
+            # map.js appends `.png` / `.svg` / `.nir` based on the
+            # injected `<meta name="render-mode">`.
             "floor_url": (f"{self._base_url}"
-                          f"/floor/{self.floor_svg_id}.png"),
+                          f"/floor/{self.floor_svg_id}"),
             "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,
