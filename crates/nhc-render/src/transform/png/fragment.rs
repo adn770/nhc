@@ -238,10 +238,53 @@ fn paint_element(
         paint_line(elem, opacity, mask, ctx);
     } else if elem.starts_with("<ellipse") {
         paint_ellipse(elem, opacity, mask, ctx);
+    } else if elem.starts_with("<circle") {
+        paint_circle(elem, opacity, mask, ctx);
     } else if elem.starts_with("<polygon") {
         paint_polygon(elem, opacity, mask, ctx);
     } else if elem.starts_with("<path") {
         paint_path(elem, opacity, mask, ctx);
+    }
+}
+
+fn paint_circle(
+    elem: &str,
+    opacity: f32,
+    mask: Option<&Mask>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let cx = extract_f32(elem, "cx").unwrap_or(0.0);
+    let cy = extract_f32(elem, "cy").unwrap_or(0.0);
+    let r = extract_f32(elem, "r").unwrap_or(0.0);
+    if r <= 0.0 {
+        return;
+    }
+    let path = ellipse_path(cx, cy, r, r);
+    if let Some(fill) = extract_attr(elem, "fill") {
+        if fill != "none" {
+            let fill_paint = paint_for(fill, opacity);
+            ctx.pixmap.fill_path(
+                &path,
+                &fill_paint,
+                FillRule::Winding,
+                ctx.transform,
+                mask,
+            );
+        }
+    }
+    if let Some(stroke) = extract_attr(elem, "stroke") {
+        if stroke != "none" {
+            let sw = extract_f32(elem, "stroke-width").unwrap_or(1.0);
+            let stroke_paint = paint_for(stroke, opacity);
+            let stroke_def = stroke_for(elem, sw);
+            ctx.pixmap.stroke_path(
+                &path,
+                &stroke_paint,
+                &stroke_def,
+                ctx.transform,
+                mask,
+            );
+        }
     }
 }
 

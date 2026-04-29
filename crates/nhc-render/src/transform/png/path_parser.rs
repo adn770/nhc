@@ -1,5 +1,5 @@
 //! Tiny SVG-path subset parser — `M x,y`, `L x,y`,
-//! `C c1x,c1y c2x,c2y x,y`, `Z`.
+//! `C c1x,c1y c2x,c2y x,y`, `A rx,ry rot large,sweep x,y`, `Z`.
 //!
 //! The IR's procedural primitives emit pre-formatted SVG path
 //! `d=` strings as the FFI return shape; the PNG handlers parse
@@ -9,8 +9,13 @@
 //! The cave-region wall outline (Phase 5.5) drives the C-curve
 //! support: the legacy emitter writes M/C/Z command sequences
 //! at `:.1` precision per Catmull-Rom subpath, and the
-//! rasteriser replays each one as a `cubic_to`. Other layers
-//! still go through `M / L` only.
+//! rasteriser replays each one as a `cubic_to`. Smooth-wall
+//! outlines for circle rooms (`_room_outlines._circle_with_gaps`)
+//! drive the `A` (elliptical-arc) command — NHC only emits
+//! circular arcs (rx == ry, no x-axis rotation), which we
+//! approximate with ≤90° cubic-bezier segments.
+
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use tiny_skia::PathBuilder;
 
@@ -51,6 +56,27 @@ pub fn parse_path_d(s: &str) -> Option<tiny_skia::Path> {
                     any = true;
                 }
             }
+            Some('A') => {
+                // SVG arc: `A rx,ry rot large,sweep x,y` —
+                // NHC always emits rx == ry with rot == 0.
+                let radii = parse_xy(strip_command(tok, 'A'));
+                let rot = tokens.next().and_then(|t| t.parse::<f32>().ok());
+                let flags = tokens.next().and_then(parse_xy);
+                let endpoint = tokens.next().and_then(parse_xy);
+                if let (
+                    Some((rx, ry)),
+                    Some(_rot),
+                    Some((large_f, sweep_f)),
+                    Some((x, y)),
+                ) = (radii, rot, flags, endpoint)
+                {
+                    let large = large_f >= 0.5;
+                    let sweep = sweep_f >= 0.5;
+                    append_arc(&mut pb, last, rx, ry, large, sweep, x, y);
+                    last = (x, y);
+                    any = true;
+                }
+            }
             Some('Z') | Some('z') => {
                 pb.close();
                 // Spec: after a close, the pen returns to the
@@ -62,17 +88,93 @@ pub fn parse_path_d(s: &str) -> Option<tiny_skia::Path> {
             _ => {}
         }
     }
-    let _ = last; // reserved for future relative-command support
     if !any {
         return None;
     }
     pb.finish()
 }
 
+/// Approximate a circular SVG arc with ≤90° cubic-bezier
+/// segments. NHC's circle-room outlines emit `rx == ry` arcs
+/// with no x-axis rotation, so the elliptical-rotation case
+/// degenerates to plain circular endpoint-to-center geometry.
+/// Falls back to a straight line for degenerate radii or
+/// coincident endpoints.
+fn append_arc(
+    pb: &mut PathBuilder,
+    start: (f32, f32),
+    rx: f32, ry: f32,
+    large: bool, sweep: bool,
+    end_x: f32, end_y: f32,
+) {
+    let (x1, y1) = start;
+    if rx <= 0.0 || ry <= 0.0 {
+        pb.line_to(end_x, end_y);
+        return;
+    }
+    // NHC only emits circular arcs; the smooth-wall path parser
+    // doesn't carry rotation, so we collapse to a circle and use
+    // max(rx, ry) as the radius if the two differ slightly from
+    // float drift.
+    let r = rx.max(ry);
+    let dx = end_x - x1;
+    let dy = end_y - y1;
+    let chord = (dx * dx + dy * dy).sqrt();
+    if chord < 1e-6 {
+        return; // start == end: skip (SVG spec says no arc).
+    }
+    // SVG spec § F.6.6: scale up radius if it can't span the chord.
+    let r = r.max(chord * 0.5);
+    let h_sq = r * r - (chord * 0.5).powi(2);
+    let h = if h_sq > 0.0 { h_sq.sqrt() } else { 0.0 };
+    // Unit perpendicular to chord (tiny-skia y-down coords).
+    let perp_x = -dy / chord;
+    let perp_y = dx / chord;
+    // Centre side: large_arc XOR sweep flips perpendicular sign
+    // (SVG § F.6.5 endpoint-to-center conversion, simplified
+    // for circular case). Our `perp` is the +90° rotation of the
+    // chord direction; the standard formula uses the -90° rotation,
+    // so the sign convention is inverted relative to the spec.
+    let sign = if large == sweep { -1.0 } else { 1.0 };
+    let mid_x = (x1 + end_x) * 0.5;
+    let mid_y = (y1 + end_y) * 0.5;
+    let cx = mid_x + sign * h * perp_x;
+    let cy = mid_y + sign * h * perp_y;
+    // Start / end angles around centre.
+    let a1 = (y1 - cy).atan2(x1 - cx);
+    let a2 = (end_y - cy).atan2(end_x - cx);
+    let mut delta = a2 - a1;
+    if sweep && delta < 0.0 {
+        delta += 2.0 * PI;
+    } else if !sweep && delta > 0.0 {
+        delta -= 2.0 * PI;
+    }
+    // Split into ≤90° segments — the cubic-bezier approximation
+    // error grows quickly past π/2 per segment.
+    let n = ((delta.abs() / FRAC_PI_2).ceil() as usize).max(1);
+    let seg = delta / n as f32;
+    let alpha = (4.0 / 3.0) * (seg * 0.25).tan();
+    for i in 0..n {
+        let a = a1 + seg * i as f32;
+        let b = a1 + seg * (i + 1) as f32;
+        let cos_a = a.cos();
+        let sin_a = a.sin();
+        let cos_b = b.cos();
+        let sin_b = b.sin();
+        let p1x = cx + r * cos_a - r * alpha * sin_a;
+        let p1y = cy + r * sin_a + r * alpha * cos_a;
+        let p2x = cx + r * cos_b + r * alpha * sin_b;
+        let p2y = cy + r * sin_b - r * alpha * cos_b;
+        let p3x = cx + r * cos_b;
+        let p3y = cy + r * sin_b;
+        pb.cubic_to(p1x, p1y, p2x, p2y, p3x, p3y);
+    }
+}
+
 fn command_letter(tok: &str) -> Option<char> {
     let c = tok.chars().next()?;
     match c {
-        'M' | 'L' | 'C' | 'Z' | 'z' => Some(c),
+        'M' | 'L' | 'C' | 'A' | 'Z' | 'z' => Some(c),
         _ => None,
     }
 }
@@ -146,5 +248,44 @@ mod tests {
         let bounds = p.bounds();
         assert!(bounds.width() >= 10.0);
         assert!(bounds.height() >= 20.0);
+    }
+
+    /// Half-circle from a circle-room outline, equivalent to the
+    /// arc fragments `_room_outlines._circle_with_gaps` emits.
+    /// The arc spans 180° around centre (50, 50) with r=50, so
+    /// the resulting path bounds must wrap a 100×50 half-disc.
+    #[test]
+    fn parse_path_d_handles_circular_arc() {
+        // Start at (0,50), arc to (100,50) — top half of circle.
+        let d = "M0.0,50.0 A50.0,50.0 0 0,1 100.0,50.0";
+        let p = parse_path_d(d).unwrap();
+        let b = p.bounds();
+        // Bounds returned by tiny-skia may be the convex hull of
+        // anchors + control points, not the tight curve hull, so
+        // be lenient on height.
+        eprintln!("bounds: x=[{}, {}] y=[{}, {}]",
+                  b.left(), b.right(), b.top(), b.bottom());
+        assert!(b.width() >= 99.0 && b.width() <= 101.0);
+        assert!(b.bottom() >= 49.0 && b.bottom() <= 51.0);
+        assert!(b.top() <= 1.0);
+    }
+
+    /// Multi-subpath gapped arc — mirrors what
+    /// `_circle_with_gaps` actually emits for a circle room with
+    /// corridor openings: M followed by a >90° arc that crosses
+    /// from one quadrant to another. With sweep_flag=1 and
+    /// large=0, the arc takes the smaller path; for vertical
+    /// chord endpoints (0, 16)→(0, -16) and r=20, that's the
+    /// 106° arc through (-8, 0).
+    #[test]
+    fn parse_path_d_splits_arc_above_90deg() {
+        let d = "M0.0,16.0 A20.0,20.0 0 0,1 0.0,-16.0";
+        let p = parse_path_d(d).unwrap();
+        let b = p.bounds();
+        // Apex on the negative-x side (roughly -8); vertical
+        // span covers the chord.
+        assert!(b.left() <= -7.0 && b.left() >= -10.0);
+        assert!(b.bottom() >= 15.0);
+        assert!(b.top() <= -15.0);
     }
 }
