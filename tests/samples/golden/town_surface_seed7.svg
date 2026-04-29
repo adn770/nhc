@@ -8,7 +8,7 @@
 <rect x="771" y="867" width="32" height="32" fill="#000000" opacity="0.08"/>
 <rect x="1507" y="1251" width="32" height="32" fill="#000000" opacity="0.08"/>
 <rect x="1539" y="1251" width="32" height="32" fill="#000000" opacity="0.08"/>
-<!-- layer.walls_and_floors: 6 elements, 454 bytes -->
+<!-- layer.structural: 6 elements, 454 bytes -->
 <rect x="704" y="160" width="32" height="32" fill="#FFFFFF" stroke="none"/>
 <rect x="800" y="160" width="32" height="32" fill="#FFFFFF" stroke="none"/>
 <rect x="672" y="864" width="32" height="32" fill="#FFFFFF" stroke="none"/>

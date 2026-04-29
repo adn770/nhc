@@ -5,11 +5,11 @@
     "hatching": 9366,
     "shadows": 16,
     "stairs": 27,
+    "structural": 2,
     "surface_features": 0,
     "terrain_detail": 471,
     "terrain_tints": 192,
-    "thematic_detail": 108,
-    "walls_and_floors": 2
+    "thematic_detail": 108
   },
   "op_counts": {
     "FloorDetailOp": 1,

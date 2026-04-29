@@ -127,7 +127,7 @@ fn layer_ops() -> &'static HashMap<&'static str, &'static [Op]> {
         let mut m: HashMap<&'static str, &'static [Op]> = HashMap::new();
         m.insert("shadows", &[Op::ShadowOp]);
         m.insert("hatching", &[Op::HatchOp]);
-        m.insert("walls_and_floors", &[Op::WallsAndFloorsOp]);
+        m.insert("structural", &[Op::WallsAndFloorsOp]);
         m.insert("terrain_tints", &[Op::TerrainTintOp]);
         m.insert("floor_grid", &[Op::FloorGridOp]);
         m.insert("floor_detail", &[Op::FloorDetailOp, Op::DecoratorOp]);
@@ -328,7 +328,7 @@ mod tests {
         for layer in [
             "shadows",
             "hatching",
-            "walls_and_floors",
+            "structural",
             "terrain_tints",
             "floor_grid",
             "floor_detail",

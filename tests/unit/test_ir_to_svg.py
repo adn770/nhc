@@ -77,10 +77,10 @@ def test_ir_to_svg_bare_skips_decoration_layers(descriptor: str) -> None:
             f"layer.{layer} comment"
         )
     # The structural layers all stay (cave fixtures still go
-    # through walls_and_floors / floor_grid / stairs even if a
-    # given layer ends up empty).
+    # through structural / floor_grid / stairs even if a given
+    # layer ends up empty).
     for layer in (
-        "walls_and_floors", "floor_grid", "stairs",
+        "structural", "floor_grid", "stairs",
     ):
         assert f"<!-- layer.{layer}:" in bare, (
             f"{descriptor}: bare SVG must keep layer.{layer} "

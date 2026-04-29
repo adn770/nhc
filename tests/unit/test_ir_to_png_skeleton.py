@@ -97,7 +97,7 @@ def test_rejects_buffer_without_identifier() -> None:
 @pytest.mark.parametrize("layer", [
     "shadows",
     "hatching",
-    "walls_and_floors",
+    "structural",
     "terrain_tints",
     "floor_grid",
     "floor_detail",

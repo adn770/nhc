@@ -10,9 +10,13 @@ pair of pre-rendered fragment arrays
 :class:`WallsAndFloorsOp`; Phase 4 refactors them into structured
 geometry when the Rust port lands.
 
-Asserts ``layer_to_svg(buf, "walls_and_floors")`` byte-equals the
+Asserts ``layer_to_svg(buf, "structural")`` byte-equals the
 joined ``_walls_and_floors_paint(ctx)`` output across every
-starter fixture.
+starter fixture. Phase 8.0 renamed the IR-side layer key from
+``walls_and_floors`` to ``structural`` to make room for ``RoofOp``,
+``EnclosureOp``, and the building-wall ops that join the same
+layer; the legacy paint helper keeps the original name so the
+asymmetry is intentional.
 """
 
 from __future__ import annotations
@@ -51,8 +55,8 @@ def test_walls_and_floors_parity(descriptor: str) -> None:
         hatch_distance=inputs.hatch_distance,
         vegetation=inputs.vegetation,
     )
-    actual = layer_to_svg(buf, layer="walls_and_floors")
+    actual = layer_to_svg(buf, layer="structural")
 
     assert actual == legacy, (
-        f"{descriptor}: walls_and_floors IR fragment diverges from legacy"
+        f"{descriptor}: structural IR fragment diverges from legacy"
     )

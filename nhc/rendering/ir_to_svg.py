@@ -54,7 +54,7 @@ _OP_HANDLERS: dict[int, Callable[[OpEntry, FloorIR], list[str]]] = {}
 _LAYER_ORDER: tuple[str, ...] = (
     "shadows",
     "hatching",
-    "walls_and_floors",
+    "structural",
     "terrain_tints",
     "floor_grid",
     "floor_detail",
@@ -78,7 +78,7 @@ _OPEN_TAG = re.compile(r"<[a-zA-Z]")
 _LAYER_OPS: dict[str, frozenset[int]] = {
     "shadows": frozenset({Op.Op.ShadowOp}),
     "hatching": frozenset({Op.Op.HatchOp}),
-    "walls_and_floors": frozenset({Op.Op.WallsAndFloorsOp}),
+    "structural": frozenset({Op.Op.WallsAndFloorsOp}),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
     "floor_detail": frozenset({

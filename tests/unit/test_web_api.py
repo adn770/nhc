@@ -1194,7 +1194,7 @@ class TestFloorIRArtefactsDiskWiring:
                 f"bare SVG leaked layer.{layer}"
             )
         # Structural layers must stay.
-        assert "<!-- layer.walls_and_floors:" in body
+        assert "<!-- layer.structural:" in body
         assert "<!-- layer.stairs:" in body
         assert resp.headers["Content-Type"] == "image/svg+xml"
 
