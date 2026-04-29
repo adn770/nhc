@@ -270,3 +270,89 @@ def test_synthetic_roof_structural_invariants(synthetic_roof_buf) -> None:
         f"  expected: {json.dumps(expected, sort_keys=True)}\n"
         f"  actual:   {json.dumps(actual, sort_keys=True)}"
     )
+
+
+# ── Synthetic-IR enclosure gate (Phase 8.2c) ───────────────────
+
+
+_SYNTHETIC_ENCLOSURE_DESCRIPTORS: tuple[str, ...] = (
+    "synthetic_enclosure_palisade_rect",
+    "synthetic_enclosure_palisade_gated",
+    "synthetic_enclosure_fortification_merlon",
+    "synthetic_enclosure_fortification_diamond_gated",
+)
+
+
+@pytest.fixture(scope="module", params=_SYNTHETIC_ENCLOSURE_DESCRIPTORS)
+def synthetic_enclosure_buf(request):
+    """Hand-built FloorIR buf with one Site region + one EnclosureOp."""
+    from tests.samples.regenerate_fixtures import (
+        _SYNTHETIC_ENCLOSURE_FIXTURES, _build_synthetic_enclosure_buf,
+    )
+    fx = next(
+        f for f in _SYNTHETIC_ENCLOSURE_FIXTURES
+        if f.descriptor == request.param
+    )
+    return fx, _build_synthetic_enclosure_buf(fx)
+
+
+def test_synthetic_enclosure_tiny_skia_psnr(
+    synthetic_enclosure_buf,
+) -> None:
+    """tiny-skia output: PSNR > 40 dB vs the committed reference.
+
+    Drift gate for `transform/png/enclosure.rs`. The reference IS
+    the tiny-skia output of the same IR — committed once via
+    --regen-reference. A drift here means the Rust handler shifted
+    palette / dimensions / RNG / shape from the 8.2c baseline.
+    """
+    fx, buf = synthetic_enclosure_buf
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: tiny-skia PSNR {db:.2f} dB "
+        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_synthetic_enclosure_resvg_psnr(synthetic_enclosure_buf) -> None:
+    """``resvg-py(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
+
+    Cross-rasteriser-agreement gate for the enclosure primitive.
+    Both Python `_draw_enclosure_from_ir` and Rust
+    `transform/png/enclosure.rs` walk splitmix64 streams seeded
+    `rng_seed + edge_idx` per palisade edge; any drift in
+    constants, RNG, palette, gate-cut math, or corner geometry
+    surfaces as a PSNR drop here.
+    """
+    fx, buf = synthetic_enclosure_buf
+    svg = ir_to_svg(buf)
+    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
+        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_synthetic_enclosure_structural_invariants(
+    synthetic_enclosure_buf,
+) -> None:
+    """Snapshot-lock the structural shape against structural.json."""
+    from nhc.rendering.ir.structural import compute_structural
+    fx, buf = synthetic_enclosure_buf
+    expected = json.loads(
+        (_FIXTURE_ROOT / fx.descriptor / "structural.json").read_text()
+    )
+    actual = compute_structural(buf)
+    assert actual == expected, (
+        f"{fx.descriptor}: structural drift\n"
+        f"  expected: {json.dumps(expected, sort_keys=True)}\n"
+        f"  actual:   {json.dumps(actual, sort_keys=True)}"
+    )

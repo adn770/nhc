@@ -139,6 +139,62 @@ _SYNTHETIC_ROOF_FIXTURES: tuple[SyntheticRoofFixture, ...] = (
 )
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class SyntheticEnclosureFixture:
+    """Synthetic-IR EnclosureOp descriptor for the Phase 8.2 PSNR
+    gate. Carries one Site region + one EnclosureOp."""
+
+    name: str
+    style: str          # "palisade" / "fortification"
+    polygon_tiles: tuple[tuple[int, int], ...]
+    gates: tuple[tuple[int, float, float], ...] = ()
+    corner_style: str = "merlon"  # "merlon" | "diamond" | "tower"
+    seed: int = 7
+    canvas_tiles: tuple[int, int] = (22, 16)
+
+    @property
+    def descriptor(self) -> str:
+        return f"synthetic_enclosure_{self.name}"
+
+
+_SYNTHETIC_ENCLOSURE_FIXTURES: tuple[SyntheticEnclosureFixture, ...] = (
+    # Palisade rect (no gates) — simplest case, exercises the
+    # circle-step layout on every edge.
+    SyntheticEnclosureFixture(
+        name="palisade_rect",
+        style="palisade",
+        polygon_tiles=((2, 2), (20, 2), (20, 14), (2, 14)),
+    ),
+    # Palisade with one gate on the top edge — exercises gate
+    # cutting + door rect emission + per-edge seed isolation.
+    SyntheticEnclosureFixture(
+        name="palisade_gated",
+        style="palisade",
+        polygon_tiles=((2, 2), (20, 2), (20, 14), (2, 14)),
+        gates=((0, 0.5, 32.0),),
+    ),
+    # Fortification with merlon corners — exercises the inset
+    # battlement chain on every edge plus the axis-aligned corner
+    # blocks.
+    SyntheticEnclosureFixture(
+        name="fortification_merlon",
+        style="fortification",
+        polygon_tiles=((2, 2), (20, 2), (20, 14), (2, 14)),
+        corner_style="merlon",
+    ),
+    # Fortification with diamond corners + a single gate —
+    # exercises the rotate(45) corner shape and the wood gate
+    # rect inside a fortification ring.
+    SyntheticEnclosureFixture(
+        name="fortification_diamond_gated",
+        style="fortification",
+        polygon_tiles=((2, 2), (20, 2), (20, 14), (2, 14)),
+        gates=((0, 0.5, 32.0),),
+        corner_style="diamond",
+    ),
+)
+
+
 _SHAPE_VARIETY: dict[str, float] = {
     "rect": 0.0,
     "octagon": 0.7,
@@ -343,6 +399,111 @@ def _check_synthetic_fixture(
     return drifts
 
 
+# ── Synthetic enclosure regen (Phase 8.2c) ─────────────────────
+
+
+def _build_synthetic_enclosure_buf(fx: SyntheticEnclosureFixture) -> bytes:
+    """Hand-build a FloorIR buf with one Site + one EnclosureOp."""
+    from nhc.rendering.ir._fb.CornerStyle import CornerStyle
+    from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+    from nhc.rendering.ir_emitter import (
+        FloorIRBuilder, emit_site_enclosure, emit_site_region,
+    )
+
+    @dataclasses.dataclass
+    class _Level:
+        width: int
+        height: int
+
+    @dataclasses.dataclass
+    class _Ctx:
+        level: _Level
+        seed: int = 0
+        theme: str = "dungeon"
+        floor_kind: str = "surface"
+        shadows_enabled: bool = True
+        hatching_enabled: bool = True
+        atmospherics_enabled: bool = True
+        macabre_detail: bool = False
+        vegetation_enabled: bool = True
+        interior_finish: str = ""
+
+    width, height = fx.canvas_tiles
+    builder = FloorIRBuilder(_Ctx(level=_Level(width=width, height=height)))  # type: ignore[arg-type]
+
+    style_map = {
+        "palisade": EnclosureStyle.Palisade,
+        "fortification": EnclosureStyle.Fortification,
+    }
+    corner_map = {
+        "merlon": CornerStyle.Merlon,
+        "diamond": CornerStyle.Diamond,
+        "tower": CornerStyle.Tower,
+    }
+    emit_site_region(builder, (0, 0, width, height))
+    emit_site_enclosure(
+        builder,
+        polygon_tiles=[(float(x), float(y)) for x, y in fx.polygon_tiles],
+        style=style_map[fx.style],
+        gates=list(fx.gates),
+        base_seed=fx.seed,
+        corner_style=corner_map[fx.corner_style],
+    )
+    return builder.finish()
+
+
+def _render_synthetic_enclosure_fixture(
+    fx: SyntheticEnclosureFixture,
+) -> tuple[bytes, bytes, str]:
+    import nhc_render
+    from nhc.rendering.ir.structural import dump_structural
+    nir = _build_synthetic_enclosure_buf(fx)
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    structural = dump_structural(nir)
+    return nir, reference_png, structural
+
+
+def _write_synthetic_enclosure_fixture(
+    fx: SyntheticEnclosureFixture, root: Path, *, regen_reference: bool,
+) -> None:
+    nir, reference_png, structural = (
+        _render_synthetic_enclosure_fixture(fx)
+    )
+    out = root / fx.descriptor
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "floor.nir").write_bytes(nir)
+    (out / "structural.json").write_text(structural)
+    reference_path = out / "reference.png"
+    if regen_reference or not reference_path.exists():
+        reference_path.write_bytes(reference_png)
+
+
+def _check_synthetic_enclosure_fixture(
+    fx: SyntheticEnclosureFixture, root: Path,
+) -> list[str]:
+    nir, reference_png, structural = (
+        _render_synthetic_enclosure_fixture(fx)
+    )
+    out = root / fx.descriptor
+    drifts: list[str] = []
+    nir_path = out / "floor.nir"
+    if not nir_path.exists():
+        drifts.append(f"{fx.descriptor}: floor.nir missing")
+    elif nir_path.read_bytes() != nir:
+        drifts.append(f"{fx.descriptor}: floor.nir drift")
+    s_path = out / "structural.json"
+    if not s_path.exists():
+        drifts.append(f"{fx.descriptor}: structural.json missing")
+    elif s_path.read_text() != structural:
+        drifts.append(f"{fx.descriptor}: structural.json drift")
+    r_path = out / "reference.png"
+    if not r_path.exists():
+        drifts.append(f"{fx.descriptor}: reference.png missing")
+    elif r_path.read_bytes() != reference_png:
+        drifts.append(f"{fx.descriptor}: reference.png drift")
+    return drifts
+
+
 def _root_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "floor_ir"
 
@@ -433,15 +594,20 @@ def main(argv: list[str]) -> int:
 
     if args.filter:
         selected = [fx for fx in _FIXTURES if args.filter in fx.descriptor]
-        synthetic = [
+        synthetic_roofs = [
             fx for fx in _SYNTHETIC_ROOF_FIXTURES
+            if args.filter in fx.descriptor
+        ]
+        synthetic_encs = [
+            fx for fx in _SYNTHETIC_ENCLOSURE_FIXTURES
             if args.filter in fx.descriptor
         ]
     else:
         selected = list(_FIXTURES)
-        synthetic = list(_SYNTHETIC_ROOF_FIXTURES)
+        synthetic_roofs = list(_SYNTHETIC_ROOF_FIXTURES)
+        synthetic_encs = list(_SYNTHETIC_ENCLOSURE_FIXTURES)
 
-    if not selected and not synthetic:
+    if not selected and not synthetic_roofs and not synthetic_encs:
         print("no fixtures matched filter", file=sys.stderr)
         return 2
 
@@ -449,26 +615,35 @@ def main(argv: list[str]) -> int:
         all_drifts: list[str] = []
         for fx in selected:
             all_drifts.extend(_check_fixture(fx, root))
-        for sfx in synthetic:
+        for sfx in synthetic_roofs:
             all_drifts.extend(_check_synthetic_fixture(sfx, root))
+        for efx in synthetic_encs:
+            all_drifts.extend(
+                _check_synthetic_enclosure_fixture(efx, root)
+            )
         if all_drifts:
             print("FIXTURE DRIFT — re-run without --check to update:",
                   file=sys.stderr)
             for line in all_drifts:
                 print(f"  - {line}", file=sys.stderr)
             return 1
-        total = len(selected) + len(synthetic)
+        total = len(selected) + len(synthetic_roofs) + len(synthetic_encs)
         print(f"ok ({total} fixtures match committed)")
         return 0
 
     for fx in selected:
         _write_fixture(fx, root, regen_reference=args.regen_reference)
         print(f"wrote {fx.descriptor}")
-    for sfx in synthetic:
+    for sfx in synthetic_roofs:
         _write_synthetic_fixture(
             sfx, root, regen_reference=args.regen_reference,
         )
         print(f"wrote {sfx.descriptor}")
+    for efx in synthetic_encs:
+        _write_synthetic_enclosure_fixture(
+            efx, root, regen_reference=args.regen_reference,
+        )
+        print(f"wrote {efx.descriptor}")
     return 0
 
 
