@@ -29,6 +29,7 @@ mod polygon_path;
 mod svg_attr;
 
 // Per-primitive raster handlers — one module per Op kind.
+mod decorator;
 mod floor_detail;
 mod floor_grid;
 mod hatch;
@@ -146,6 +147,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::HatchOp.0, hatch::draw);
         m.insert(Op::FloorDetailOp.0, floor_detail::draw);
         m.insert(Op::ThematicDetailOp.0, thematic_detail::draw);
+        m.insert(Op::DecoratorOp.0, decorator::draw);
         m
     })
 }

@@ -1,0 +1,49 @@
+//! DecoratorOp rasterisation — the structured decorator
+//! pipeline the SVG handler at
+//! `_draw_decorator_from_ir` walks. Phase 5.4.x lands per-
+//! variant branches one at a time; the dispatcher routes each
+//! entry through to its `primitives::*::draw_*` Rust port and
+//! the new `fragment::paint_fragments` helper rasterises the
+//! returned `<g>` envelopes.
+//!
+//! Live variants:
+//!
+//! - 5.4.1 Cobblestone — 3×3 jittered grid + 12 % stones.
+
+use crate::ir::{DecoratorOp, FloorIR, OpEntry};
+use crate::primitives;
+
+use super::fragment::paint_fragments;
+use super::RasterCtx;
+
+pub(super) fn draw(
+    entry: &OpEntry<'_>,
+    _fir: &FloorIR<'_>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let op = match entry.op_as_decorator_op() {
+        Some(o) => o,
+        None => return,
+    };
+    let seed = op.seed();
+
+    draw_cobblestone(&op, seed, ctx);
+}
+
+fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+    let variants = match op.cobblestone() {
+        Some(v) => v,
+        None => return,
+    };
+    for variant in variants.iter() {
+        let tiles: Vec<(i32, i32)> = variant
+            .tiles()
+            .map(|t| t.iter().map(|c| (c.x(), c.y())).collect())
+            .unwrap_or_default();
+        if tiles.is_empty() {
+            continue;
+        }
+        let frags = primitives::cobblestone::draw_cobblestone(&tiles, seed);
+        paint_fragments(&frags, 1.0, None, ctx);
+    }
+}
