@@ -70,7 +70,7 @@ from nhc.rendering.ir._fb.WallMaterial import WallMaterial
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 2
-SCHEMA_MINOR = 3
+SCHEMA_MINOR = 4
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.

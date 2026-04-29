@@ -976,14 +976,13 @@ def _terrain_detail_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the terrain-detail layer.
 
-    Inlines the bucket-collection logic of ``walk_and_paint`` so
-    we get separate room / corridor pre-rendered groups (without
-    the clip envelope, which the handler reapplies). Phase 1
-    transitional — the legacy ``_water_detail`` / ``_lava_detail``
-    / ``_chasm_detail`` painters consume per-decorator seeded RNG
-    streams; reproducing them from a structured tile list would
-    mean porting the painters and the per-decorator seeding into
-    the handler. Phase 4 refactors when the Rust port lands.
+    Phase 9.1a transitional shape: the structured ``tiles[]``
+    field carries every WATER / LAVA / CHASM tile (row-major,
+    with corridor flag) so downstream consumers can drive the
+    painters without re-reading the level. The legacy
+    ``room_groups`` / ``corridor_groups`` passthrough still ships
+    in parallel until 9.1b retires it, keeping byte-equal SVG
+    parity through the schema 2.4 cycle.
     """
     from nhc.rendering._decorators import (
         PaintArgs, _flags_satisfy, _seeded_rng,
@@ -995,6 +994,14 @@ def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
     from nhc.rendering.ir._fb import Op
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TerrainDetailOp import TerrainDetailOpT
+    from nhc.rendering.ir._fb.TerrainDetailTile import TerrainDetailTileT
+    from nhc.rendering.ir._fb.TerrainKind import TerrainKind
+
+    terrain_to_kind = {
+        Terrain.WATER: TerrainKind.Water,
+        Terrain.LAVA: TerrainKind.Lava,
+        Terrain.CHASM: TerrainKind.Chasm,
+    }
 
     ctx = builder.ctx
     level = ctx.level
@@ -1011,10 +1018,19 @@ def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
     fragments: dict[str, dict[str, list[str]]] = {
         d.name: {"room": [], "corridor": []} for _, d in active_sorted
     }
+    tiles: list[TerrainDetailTileT] = []
 
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
+            kind = terrain_to_kind.get(tile.terrain)
+            if kind is not None:
+                tiles.append(TerrainDetailTileT(
+                    x=x, y=y, kind=kind,
+                    isCorridor=(
+                        tile.surface_type is SurfaceType.CORRIDOR
+                    ),
+                ))
             for _, dec in active_sorted:
                 if not dec.predicate(level, x, y):
                     continue
@@ -1050,6 +1066,7 @@ def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
         return
 
     op = TerrainDetailOpT()
+    op.tiles = tiles
     op.seed = ctx.seed + 200
     op.theme = ctx.theme
     op.roomGroups = room_groups

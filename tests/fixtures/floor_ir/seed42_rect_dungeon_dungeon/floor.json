@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 2,
-  "minor": 3,
+  "minor": 4,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -27429,7 +27429,323 @@
       "opType": "TerrainDetailOp",
       "op": {
         "__type": "TerrainDetailOpT",
-        "tiles": null,
+        "tiles": [
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 4,
+            "y": 3,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 5,
+            "y": 3,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 6,
+            "y": 3,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 4,
+            "y": 4,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 5,
+            "y": 4,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 6,
+            "y": 4,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 5,
+            "y": 5,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 6,
+            "y": 5,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 7,
+            "y": 5,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 5,
+            "y": 6,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 6,
+            "y": 6,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 7,
+            "y": 6,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 8,
+            "y": 6,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 6,
+            "y": 7,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 7,
+            "y": 7,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 8,
+            "y": 7,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 8,
+            "y": 25,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 29,
+            "y": 26,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 29,
+            "y": 27,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 30,
+            "y": 27,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 29,
+            "y": 28,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 21,
+            "y": 30,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 22,
+            "y": 30,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 52,
+            "y": 31,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 53,
+            "y": 31,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 52,
+            "y": 32,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 53,
+            "y": 32,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 54,
+            "y": 32,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 55,
+            "y": 32,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 52,
+            "y": 33,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 53,
+            "y": 33,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 55,
+            "y": 33,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 53,
+            "y": 34,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 54,
+            "y": 34,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          },
+          {
+            "__type": "TerrainDetailTileT",
+            "x": 55,
+            "y": 34,
+            "kind": "Water",
+            "isCorridor": false,
+            "pad0": 0,
+            "pad1": 0
+          }
+        ],
         "seed": 242,
         "theme": "dungeon",
         "clipRegion": "dungeon",
