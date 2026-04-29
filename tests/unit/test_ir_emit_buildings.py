@@ -79,18 +79,26 @@ class _StubCtx:
 
 
 class TestFootprintPolygon:
+    # Building region polygons follow the same tile-pixel-coord
+    # convention as every other IR primitive: vertices are bare
+    # ``tile * CELL`` values, and PADDING is applied once by the
+    # renderer's outer ``translate(padding, padding)`` group. Baking
+    # PADDING into the polygon (as an earlier revision did) caused
+    # roofs and exterior masonry walls — both of which read this
+    # polygon — to render one tile right and one tile down of the
+    # building floor tiles, since PADDING == CELL == 32.
     def test_rect_returns_4_pixel_corners(self) -> None:
         b = _StubBuilding(RectShape(), Rect(2, 3, 5, 4))
         poly = _building_footprint_polygon_px(b)
         assert len(poly) == 4
-        # Top-left corner.
+        # Top-left corner — bare tile-pixel coords, no PADDING.
         x0, y0 = poly[0]
-        assert x0 == PADDING + 2 * CELL
-        assert y0 == PADDING + 3 * CELL
+        assert x0 == 2 * CELL
+        assert y0 == 3 * CELL
         # Bottom-right corner is the third vertex (CW from top-left).
         x2, y2 = poly[2]
-        assert x2 == PADDING + (2 + 5) * CELL
-        assert y2 == PADDING + (3 + 4) * CELL
+        assert x2 == (2 + 5) * CELL
+        assert y2 == (3 + 4) * CELL
 
     def test_octagon_returns_8_vertices(self) -> None:
         b = _StubBuilding(OctagonShape(), Rect(0, 0, 9, 9))
@@ -107,9 +115,9 @@ class TestFootprintPolygon:
         b = _StubBuilding(CircleShape(), Rect(0, 0, 10, 10))
         poly = _building_footprint_polygon_px(b)
         assert len(poly) == _CIRCLE_FOOTPRINT_VERTICES
-        # Centre at PADDING + (rect_x + width/2) * CELL.
-        cx_expected = PADDING + 5.0 * CELL
-        cy_expected = PADDING + 5.0 * CELL
+        # Centre at (rect_x + width/2) * CELL — no PADDING baked in.
+        cx_expected = 5.0 * CELL
+        cy_expected = 5.0 * CELL
         cx_actual = sum(p[0] for p in poly) / len(poly)
         cy_actual = sum(p[1] for p in poly) / len(poly)
         assert abs(cx_actual - cx_expected) < 1e-6
@@ -586,12 +594,14 @@ class TestEnclosureIRToSvg:
         svg_gated = ir_to_svg(buf_gated)
 
         def _circles_on_edge_2(svg: str) -> list[str]:
-            # Edge 2 runs along y == 12*CELL+PADDING == 416.
-            # That's the bottom side of the rect; circles there
-            # all carry cy="416.0".
+            # Edge 2 runs along y == 12*CELL == 384 in the IR's
+            # bare tile-pixel coords. That's the bottom side of
+            # the rect; circles there all carry cy="384.0". The
+            # outer translate(padding,padding) shifts the rendered
+            # SVG by PADDING but doesn't affect the source coords.
             return [
                 line for line in svg.split('<')
-                if line.startswith('circle ') and 'cy="416.0"' in line
+                if line.startswith('circle ') and 'cy="384.0"' in line
             ]
         clean_e2 = _circles_on_edge_2(svg_clean)
         gated_e2 = _circles_on_edge_2(svg_gated)

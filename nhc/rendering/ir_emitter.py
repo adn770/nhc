@@ -304,8 +304,12 @@ def _building_footprint_polygon_px(
     shape = building.base_shape
     r = building.base_rect
 
+    # Bare tile-pixel coords; the renderer's outer
+    # ``translate(padding, padding)`` adds PADDING once. Baking it
+    # in here would compound with the renderer's translate and
+    # shift roofs / exterior walls by one tile (PADDING == CELL).
     def _tp(tx: float, ty: float) -> tuple[float, float]:
-        return (PADDING + tx * CELL, PADDING + ty * CELL)
+        return (tx * CELL, ty * CELL)
 
     if isinstance(shape, RectShape):
         return [
@@ -362,8 +366,8 @@ def _building_footprint_polygon_px(
         import math
         d = shape._diameter(r)
         radius_px = (d / 2.0) * CELL
-        cx_px = PADDING + (r.x + r.width / 2.0) * CELL
-        cy_px = PADDING + (r.y + r.height / 2.0) * CELL
+        cx_px = (r.x + r.width / 2.0) * CELL
+        cy_px = (r.y + r.height / 2.0) * CELL
         n = _CIRCLE_FOOTPRINT_VERTICES
         return [
             (
@@ -390,8 +394,10 @@ def emit_site_region(
     enclosure / fortification placement at later sub-phases.
     """
     x, y, w, h = site_bounds_tiles
-    px = PADDING + x * CELL
-    py = PADDING + y * CELL
+    # Bare tile-pixel coords; the renderer's outer
+    # ``translate(padding, padding)`` adds PADDING once.
+    px = x * CELL
+    py = y * CELL
     pw = w * CELL
     ph = h * CELL
     coords = [
@@ -492,8 +498,10 @@ def emit_site_enclosure(
     """Emit one ``EnclosureOp`` for a site's enclosure ring.
 
     ``polygon_tiles`` is the closed enclosure polygon in *tile*
-    coords (no closing duplicate); the helper translates to pixel
-    space at emit time (PADDING + tile * CELL).
+    coords (no closing duplicate); the helper translates to bare
+    tile-pixel space at emit time (``tile * CELL``). The renderer's
+    outer ``translate(padding, padding)`` adds PADDING once at
+    paint time.
 
     ``gates`` is a list of ``(edge_idx, t_center, half_px)`` triples
     matching the legacy ``site.enclosure.gates`` shape.
@@ -509,7 +517,7 @@ def emit_site_enclosure(
     if len(polygon_tiles) < 3:
         return
     coords_px = [
-        (float(PADDING + x * CELL), float(PADDING + y * CELL))
+        (float(x * CELL), float(y * CELL))
         for x, y in polygon_tiles
     ]
     polygon = _coords_to_polygon(coords_px)
@@ -786,19 +794,21 @@ def _collect_building_footprint_mask(
         coords = [(v.x, v.y) for v in region.polygon.paths]
         if len(coords) < 3:
             continue
-        # Tile bbox covering the polygon.
+        # Tile bbox covering the polygon. Polygon coords are bare
+        # tile-pixel space (``tile * CELL``); PADDING is applied by
+        # the renderer's outer translate, not stored in the IR.
         min_x_px = min(c[0] for c in coords)
         max_x_px = max(c[0] for c in coords)
         min_y_px = min(c[1] for c in coords)
         max_y_px = max(c[1] for c in coords)
-        x0 = int((min_x_px - PADDING) // CELL)
-        x1 = int((max_x_px - PADDING) // CELL) + 1
-        y0 = int((min_y_px - PADDING) // CELL)
-        y1 = int((max_y_px - PADDING) // CELL) + 1
+        x0 = int(min_x_px // CELL)
+        x1 = int(max_x_px // CELL) + 1
+        y0 = int(min_y_px // CELL)
+        y1 = int(max_y_px // CELL) + 1
         for ty in range(y0, y1 + 1):
             for tx in range(x0, x1 + 1):
-                cx = PADDING + (tx + 0.5) * CELL
-                cy = PADDING + (ty + 0.5) * CELL
+                cx = (tx + 0.5) * CELL
+                cy = (ty + 0.5) * CELL
                 if _point_in_polygon(cx, cy, coords):
                     mask.add((tx, ty))
     return mask
