@@ -679,7 +679,10 @@ class TestEmitBuildingWalls:
             _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
         )
 
-    def test_brick_emits_exterior_plus_interior(self) -> None:
+    def test_brick_emits_interior_then_exterior(self) -> None:
+        """Op-emit order is interior-then-exterior per
+        design/map_ir.md §6.1; the curved exterior masonry
+        overlays partition extensions at the rim."""
         builder = self._builder()
         b = _StubBuildingForWalls(
             base_shape=RectShape(),
@@ -691,16 +694,16 @@ class TestEmitBuildingWalls:
             builder, b, _StubLevelWithEdges(),
             base_seed=42, building_index=0,
         )
-        # 1 exterior + 1 interior op = 2.
+        # 1 interior + 1 exterior op = 2; interior first.
         assert len(builder.ops) == 2
-        ext = builder.ops[0].op
+        intr = builder.ops[0].op
+        assert intr.regionRef == "building.0"
+        assert intr.material == InteriorWallMaterial.Stone
+        ext = builder.ops[1].op
         assert ext.regionRef == "building.0"
         assert ext.material == WallMaterial.Brick
         # rng_seed = base_seed + 0xBE71 + i.
         assert ext.rngSeed == (42 + 0xBE71 + 0) & 0xFFFFFFFFFFFFFFFF
-        intr = builder.ops[1].op
-        assert intr.regionRef == "building.0"
-        assert intr.material == InteriorWallMaterial.Stone
 
     def test_dungeon_material_skips_exterior(self) -> None:
         """Buildings tagged `wall_material == "dungeon"` flow
@@ -735,7 +738,7 @@ class TestEmitBuildingWalls:
         emit_building_walls(
             builder, b, level, base_seed=0, building_index=0,
         )
-        intr = builder.ops[1].op
+        intr = builder.ops[0].op
         assert intr.material == InteriorWallMaterial.Wood
         assert len(intr.edges) == 1
         e = intr.edges[0]

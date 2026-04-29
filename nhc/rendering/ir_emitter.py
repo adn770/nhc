@@ -669,26 +669,19 @@ def emit_building_walls(
     (possibly with empty edges so the rasteriser dispatch table
     still sees one op per building).
 
+    Op-emit order is ``BuildingInteriorWallOp ->
+    BuildingExteriorWallOp`` per design/map_ir.md §6.1. The curved
+    or clipped exterior masonry overlays any partition extension
+    into the rim zone, cleaning up T-junctions for circle /
+    octagon buildings (mirrors ``building.py:97-104``).
+
     Pre-condition: a ``Region(kind=Building, id="building.<i>")``
     must already be on ``builder.regions`` (typically via
     :func:`emit_building_regions`).
     """
     region_id = f"building.{building_index}"
-    wall_material = building.wall_material
-    if wall_material != "dungeon":
-        material_int = _WALL_MATERIAL_MAP.get(
-            wall_material, WallMaterial.Brick,
-        )
-        ext_op = BuildingExteriorWallOpT(
-            regionRef=region_id,
-            material=material_int,
-            rngSeed=(base_seed + 0xBE71 + building_index) & _SM64_MASK,
-        )
-        ext_entry = OpEntryT()
-        ext_entry.opType = 18  # Op.BuildingExteriorWallOp
-        ext_entry.op = ext_op
-        builder.add_op(ext_entry)
-    # Interior partitions always emit (rasteriser handles empty list).
+    # Interior partitions emit first so the exterior masonry
+    # overlays them at the rim — see §6.1 paint order.
     interior_material = _INTERIOR_WALL_MATERIAL_MAP.get(
         getattr(building, "interior_wall_material", "stone"),
         InteriorWallMaterial.Stone,
@@ -709,6 +702,21 @@ def emit_building_walls(
     int_entry.opType = 19  # Op.BuildingInteriorWallOp
     int_entry.op = int_op
     builder.add_op(int_entry)
+    # Exterior masonry pass — skipped for dungeon-walled buildings.
+    wall_material = building.wall_material
+    if wall_material != "dungeon":
+        material_int = _WALL_MATERIAL_MAP.get(
+            wall_material, WallMaterial.Brick,
+        )
+        ext_op = BuildingExteriorWallOpT(
+            regionRef=region_id,
+            material=material_int,
+            rngSeed=(base_seed + 0xBE71 + building_index) & _SM64_MASK,
+        )
+        ext_entry = OpEntryT()
+        ext_entry.opType = 18  # Op.BuildingExteriorWallOp
+        ext_entry.op = ext_op
+        builder.add_op(ext_entry)
 
 
 def emit_building_regions(
