@@ -1085,6 +1085,270 @@ impl<'a> ::flatbuffers::Verifiable for GateStyle {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for GateStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_WALL_MATERIAL: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_WALL_MATERIAL: i8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_WALL_MATERIAL: [WallMaterial; 2] = [
+  WallMaterial::Brick,
+  WallMaterial::Stone,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct WallMaterial(pub i8);
+#[allow(non_upper_case_globals)]
+impl WallMaterial {
+  pub const Brick: Self = Self(0);
+  pub const Stone: Self = Self(1);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Brick,
+    Self::Stone,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Brick => Some("Brick"),
+      Self::Stone => Some("Stone"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for WallMaterial {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for WallMaterial {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for WallMaterial {
+    type Output = WallMaterial;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for WallMaterial {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for WallMaterial {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for WallMaterial {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_INTERIOR_WALL_MATERIAL: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_INTERIOR_WALL_MATERIAL: i8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_INTERIOR_WALL_MATERIAL: [InteriorWallMaterial; 3] = [
+  InteriorWallMaterial::Stone,
+  InteriorWallMaterial::Brick,
+  InteriorWallMaterial::Wood,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct InteriorWallMaterial(pub i8);
+#[allow(non_upper_case_globals)]
+impl InteriorWallMaterial {
+  pub const Stone: Self = Self(0);
+  pub const Brick: Self = Self(1);
+  pub const Wood: Self = Self(2);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Stone,
+    Self::Brick,
+    Self::Wood,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Stone => Some("Stone"),
+      Self::Brick => Some("Brick"),
+      Self::Wood => Some("Wood"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for InteriorWallMaterial {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for InteriorWallMaterial {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for InteriorWallMaterial {
+    type Output = InteriorWallMaterial;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for InteriorWallMaterial {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for InteriorWallMaterial {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for InteriorWallMaterial {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_TILE_CORNER: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_TILE_CORNER: i8 = 3;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_TILE_CORNER: [TileCorner; 4] = [
+  TileCorner::NW,
+  TileCorner::NE,
+  TileCorner::SE,
+  TileCorner::SW,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct TileCorner(pub i8);
+#[allow(non_upper_case_globals)]
+impl TileCorner {
+  pub const NW: Self = Self(0);
+  pub const NE: Self = Self(1);
+  pub const SE: Self = Self(2);
+  pub const SW: Self = Self(3);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 3;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::NW,
+    Self::NE,
+    Self::SE,
+    Self::SW,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::NW => Some("NW"),
+      Self::NE => Some("NE"),
+      Self::SE => Some("SE"),
+      Self::SW => Some("SW"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for TileCorner {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for TileCorner {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for TileCorner {
+    type Output = TileCorner;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for TileCorner {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for TileCorner {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for TileCorner {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TERRAIN_KIND: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_TERRAIN_KIND: i8 = 4;
@@ -1183,10 +1447,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 17;
+pub const ENUM_MAX_OP: u8 = 19;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 18] = [
+pub const ENUM_VALUES_OP: [Op; 20] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -1205,6 +1469,8 @@ pub const ENUM_VALUES_OP: [Op; 18] = [
   Op::DecoratorOp,
   Op::RoofOp,
   Op::EnclosureOp,
+  Op::BuildingExteriorWallOp,
+  Op::BuildingInteriorWallOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1230,9 +1496,11 @@ impl Op {
   pub const DecoratorOp: Self = Self(15);
   pub const RoofOp: Self = Self(16);
   pub const EnclosureOp: Self = Self(17);
+  pub const BuildingExteriorWallOp: Self = Self(18);
+  pub const BuildingInteriorWallOp: Self = Self(19);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 17;
+  pub const ENUM_MAX: u8 = 19;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -1252,6 +1520,8 @@ impl Op {
     Self::DecoratorOp,
     Self::RoofOp,
     Self::EnclosureOp,
+    Self::BuildingExteriorWallOp,
+    Self::BuildingInteriorWallOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1274,6 +1544,8 @@ impl Op {
       Self::DecoratorOp => Some("DecoratorOp"),
       Self::RoofOp => Some("RoofOp"),
       Self::EnclosureOp => Some("EnclosureOp"),
+      Self::BuildingExteriorWallOp => Some("BuildingExteriorWallOp"),
+      Self::BuildingInteriorWallOp => Some("BuildingInteriorWallOp"),
       _ => None,
     }
   }
@@ -2246,6 +2518,325 @@ impl<'a> TerrainDetailTile {
       ::core::ptr::copy_nonoverlapping(
         &x_le as *const _ as *const u8,
         self.0[11..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+}
+
+// struct InteriorEdge, aligned to 4
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq)]
+pub struct InteriorEdge(pub [u8; 24]);
+impl Default for InteriorEdge { 
+  fn default() -> Self { 
+    Self([0; 24])
+  }
+}
+impl ::core::fmt::Debug for InteriorEdge {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    f.debug_struct("InteriorEdge")
+      .field("ax", &self.ax())
+      .field("ay", &self.ay())
+      .field("a_corner", &self.a_corner())
+      .field("bx", &self.bx())
+      .field("by", &self.by())
+      .field("b_corner", &self.b_corner())
+      .field("pad0", &self.pad0())
+      .field("pad1", &self.pad1())
+      .finish()
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for InteriorEdge {}
+impl<'a> ::flatbuffers::Follow<'a> for InteriorEdge {
+  type Inner = &'a InteriorEdge;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { <&'a InteriorEdge>::follow(buf, loc) }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for &'a InteriorEdge {
+  type Inner = &'a InteriorEdge;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    unsafe { ::flatbuffers::follow_cast_ref::<InteriorEdge>(buf, loc) }
+  }
+}
+impl<'b> ::flatbuffers::Push for InteriorEdge {
+    type Output = InteriorEdge;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        let src = unsafe { ::core::slice::from_raw_parts(self as *const InteriorEdge as *const u8, <Self as ::flatbuffers::Push>::size()) };
+        dst.copy_from_slice(src);
+    }
+    #[inline]
+    fn alignment() -> ::flatbuffers::PushAlignment {
+        ::flatbuffers::PushAlignment::new(4)
+    }
+}
+
+impl<'a> ::flatbuffers::Verifiable for InteriorEdge {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.in_buffer::<Self>(pos)
+  }
+}
+
+impl<'a> InteriorEdge {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    ax: i32,
+    ay: i32,
+    a_corner: TileCorner,
+    bx: i32,
+    by: i32,
+    b_corner: TileCorner,
+    pad0: u8,
+    pad1: u8,
+  ) -> Self {
+    let mut s = Self([0; 24]);
+    s.set_ax(ax);
+    s.set_ay(ay);
+    s.set_a_corner(a_corner);
+    s.set_bx(bx);
+    s.set_by(by);
+    s.set_b_corner(b_corner);
+    s.set_pad0(pad0);
+    s.set_pad1(pad1);
+    s
+  }
+
+  pub fn ax(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[0..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_ax(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[0..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn ay(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[4..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_ay(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[4..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn a_corner(&self) -> TileCorner {
+    let mut mem = ::core::mem::MaybeUninit::<<TileCorner as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[8..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<TileCorner as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_a_corner(&mut self, x: TileCorner) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[8..].as_mut_ptr(),
+        ::core::mem::size_of::<<TileCorner as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn bx(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[12..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_bx(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[12..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn by(&self) -> i32 {
+    let mut mem = ::core::mem::MaybeUninit::<<i32 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[16..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_by(&mut self, x: i32) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[16..].as_mut_ptr(),
+        ::core::mem::size_of::<<i32 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn b_corner(&self) -> TileCorner {
+    let mut mem = ::core::mem::MaybeUninit::<<TileCorner as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[20..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<TileCorner as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_b_corner(&mut self, x: TileCorner) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[20..].as_mut_ptr(),
+        ::core::mem::size_of::<<TileCorner as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pad0(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[21..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pad0(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[21..].as_mut_ptr(),
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+    }
+  }
+
+  pub fn pad1(&self) -> u8 {
+    let mut mem = ::core::mem::MaybeUninit::<<u8 as ::flatbuffers::EndianScalar>::Scalar>::uninit();
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    ::flatbuffers::EndianScalar::from_little_endian(unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        self.0[22..].as_ptr(),
+        mem.as_mut_ptr() as *mut u8,
+        ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
+      );
+      mem.assume_init()
+    })
+  }
+
+  pub fn set_pad1(&mut self, x: u8) {
+    let x_le = ::flatbuffers::EndianScalar::to_little_endian(x);
+    // Safety:
+    // Created from a valid Table for this object
+    // Which contains a valid value in this slot
+    unsafe {
+      ::core::ptr::copy_nonoverlapping(
+        &x_le as *const _ as *const u8,
+        self.0[22..].as_mut_ptr(),
         ::core::mem::size_of::<<u8 as ::flatbuffers::EndianScalar>::Scalar>(),
       );
     }
@@ -7563,6 +8154,266 @@ impl ::core::fmt::Debug for EnclosureOp<'_> {
       ds.finish()
   }
 }
+pub enum BuildingExteriorWallOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BuildingExteriorWallOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BuildingExteriorWallOp<'a> {
+  type Inner = BuildingExteriorWallOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BuildingExteriorWallOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MATERIAL: ::flatbuffers::VOffsetT = 6;
+  pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BuildingExteriorWallOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingExteriorWallOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BuildingExteriorWallOp<'bldr>> {
+    let mut builder = BuildingExteriorWallOpBuilder::new(_fbb);
+    builder.add_rng_seed(args.rng_seed);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_material(args.material);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingExteriorWallOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn material(&self) -> WallMaterial {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<WallMaterial>(BuildingExteriorWallOp::VT_MATERIAL, Some(WallMaterial::Brick)).unwrap()}
+  }
+  #[inline]
+  pub fn rng_seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BuildingExteriorWallOp::VT_RNG_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BuildingExteriorWallOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<WallMaterial>("material", Self::VT_MATERIAL, false)?
+     .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingExteriorWallOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub material: WallMaterial,
+    pub rng_seed: u64,
+}
+impl<'a> Default for BuildingExteriorWallOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingExteriorWallOpArgs {
+      region_ref: None,
+      material: WallMaterial::Brick,
+      rng_seed: 0,
+    }
+  }
+}
+
+pub struct BuildingExteriorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingExteriorWallOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingExteriorWallOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_material(&mut self, material: WallMaterial) {
+    self.fbb_.push_slot::<WallMaterial>(BuildingExteriorWallOp::VT_MATERIAL, material, WallMaterial::Brick);
+  }
+  #[inline]
+  pub fn add_rng_seed(&mut self, rng_seed: u64) {
+    self.fbb_.push_slot::<u64>(BuildingExteriorWallOp::VT_RNG_SEED, rng_seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingExteriorWallOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingExteriorWallOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BuildingExteriorWallOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BuildingExteriorWallOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BuildingExteriorWallOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("material", &self.material());
+      ds.field("rng_seed", &self.rng_seed());
+      ds.finish()
+  }
+}
+pub enum BuildingInteriorWallOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct BuildingInteriorWallOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for BuildingInteriorWallOp<'a> {
+  type Inner = BuildingInteriorWallOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> BuildingInteriorWallOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_MATERIAL: ::flatbuffers::VOffsetT = 6;
+  pub const VT_EDGES: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    BuildingInteriorWallOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args BuildingInteriorWallOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<BuildingInteriorWallOp<'bldr>> {
+    let mut builder = BuildingInteriorWallOpBuilder::new(_fbb);
+    if let Some(x) = args.edges { builder.add_edges(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_material(args.material);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(BuildingInteriorWallOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn material(&self) -> InteriorWallMaterial {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<InteriorWallMaterial>(BuildingInteriorWallOp::VT_MATERIAL, Some(InteriorWallMaterial::Stone)).unwrap()}
+  }
+  #[inline]
+  pub fn edges(&self) -> Option<::flatbuffers::Vector<'a, InteriorEdge>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, InteriorEdge>>>(BuildingInteriorWallOp::VT_EDGES, None)}
+  }
+}
+
+impl ::flatbuffers::Verifiable for BuildingInteriorWallOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<InteriorWallMaterial>("material", Self::VT_MATERIAL, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, InteriorEdge>>>("edges", Self::VT_EDGES, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct BuildingInteriorWallOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub material: InteriorWallMaterial,
+    pub edges: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, InteriorEdge>>>,
+}
+impl<'a> Default for BuildingInteriorWallOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    BuildingInteriorWallOpArgs {
+      region_ref: None,
+      material: InteriorWallMaterial::Stone,
+      edges: None,
+    }
+  }
+}
+
+pub struct BuildingInteriorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> BuildingInteriorWallOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInteriorWallOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_material(&mut self, material: InteriorWallMaterial) {
+    self.fbb_.push_slot::<InteriorWallMaterial>(BuildingInteriorWallOp::VT_MATERIAL, material, InteriorWallMaterial::Stone);
+  }
+  #[inline]
+  pub fn add_edges(&mut self, edges: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , InteriorEdge>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(BuildingInteriorWallOp::VT_EDGES, edges);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> BuildingInteriorWallOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    BuildingInteriorWallOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<BuildingInteriorWallOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for BuildingInteriorWallOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("BuildingInteriorWallOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("material", &self.material());
+      ds.field("edges", &self.edges());
+      ds.finish()
+  }
+}
 pub enum OpEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -7867,6 +8718,36 @@ impl<'a> OpEntry<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_building_exterior_wall_op(&self) -> Option<BuildingExteriorWallOp<'a>> {
+    if self.op_type() == Op::BuildingExteriorWallOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { BuildingExteriorWallOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_building_interior_wall_op(&self) -> Option<BuildingInteriorWallOp<'a>> {
+    if self.op_type() == Op::BuildingInteriorWallOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { BuildingInteriorWallOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for OpEntry<'_> {
@@ -7894,6 +8775,8 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::DecoratorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<DecoratorOp>>("Op::DecoratorOp", pos),
           Op::RoofOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RoofOp>>("Op::RoofOp", pos),
           Op::EnclosureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<EnclosureOp>>("Op::EnclosureOp", pos),
+          Op::BuildingExteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BuildingExteriorWallOp>>("Op::BuildingExteriorWallOp", pos),
+          Op::BuildingInteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BuildingInteriorWallOp>>("Op::BuildingInteriorWallOp", pos),
           _ => Ok(()),
         }
      })?
@@ -8062,6 +8945,20 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::EnclosureOp => {
           if let Some(x) = self.op_as_enclosure_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::BuildingExteriorWallOp => {
+          if let Some(x) = self.op_as_building_exterior_wall_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::BuildingInteriorWallOp => {
+          if let Some(x) = self.op_as_building_interior_wall_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")

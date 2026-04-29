@@ -3,6 +3,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, @typescript-eslint/no-non-null-assertion */
 
 export { BrickVariant } from './fb/brick-variant.js';
+export { BuildingExteriorWallOp } from './fb/building-exterior-wall-op.js';
+export { BuildingInteriorWallOp } from './fb/building-interior-wall-op.js';
 export { BushFeatureOp } from './fb/bush-feature-op.js';
 export { CartTracksVariant } from './fb/cart-tracks-variant.js';
 export { CobblePattern } from './fb/cobble-pattern.js';
@@ -26,6 +28,8 @@ export { GateStyle } from './fb/gate-style.js';
 export { GenericProceduralOp } from './fb/generic-procedural-op.js';
 export { HatchKind } from './fb/hatch-kind.js';
 export { HatchOp } from './fb/hatch-op.js';
+export { InteriorEdge } from './fb/interior-edge.js';
+export { InteriorWallMaterial } from './fb/interior-wall-material.js';
 export { KV } from './fb/kv.js';
 export { Op } from './fb/op.js';
 export { OpEntry } from './fb/op-entry.js';
@@ -51,8 +55,10 @@ export { TerrainTintOp } from './fb/terrain-tint-op.js';
 export { TerrainTintTile } from './fb/terrain-tint-tile.js';
 export { ThematicDetailOp } from './fb/thematic-detail-op.js';
 export { TileCoord } from './fb/tile-coord.js';
+export { TileCorner } from './fb/tile-corner.js';
 export { TreeFeatureOp } from './fb/tree-feature-op.js';
 export { Vec2 } from './fb/vec2.js';
+export { WallMaterial } from './fb/wall-material.js';
 export { WallsAndFloorsOp } from './fb/walls-and-floors-op.js';
 export { WellFeatureOp } from './fb/well-feature-op.js';
 export { WellShape } from './fb/well-shape.js';

@@ -162,6 +162,37 @@ enum GateStyle: byte {
   Portcullis = 1,
 }
 
+// Phase 8.3 — Building exterior wall material. Brick / Stone
+// share the masonry running-bond geometry but pick different
+// fill + seam tints. Buildings whose `wall_material == "dungeon"`
+// flow through the existing WallsAndFloorsOp pass instead of
+// emitting a BuildingExteriorWallOp.
+enum WallMaterial: byte {
+  Brick = 0,
+  Stone = 1,
+}
+
+// Phase 8.3 — Building interior wall material. Drives the
+// per-line stroke colour for the partition overlay. Wood / Stone
+// / Brick map to distinct hex tints in the rasteriser.
+enum InteriorWallMaterial: byte {
+  Stone = 0,
+  Brick = 1,
+  Wood = 2,
+}
+
+// Phase 8.3 — Corner of a tile, used to address the corner-grid
+// vertices interior partition lines start / end at. (tile_x +
+// ΔX, tile_y + ΔY) where ΔX / ΔY come from the corner: NW=(0,0),
+// NE=(1,0), SE=(1,1), SW=(0,1). Pixel coord = (tile + Δ) × CELL
+// + PADDING.
+enum TileCorner: byte {
+  NW = 0,
+  NE = 1,
+  SE = 2,
+  SW = 3,
+}
+
 // Per-tile terrain identifier used by tint + detail ops. `None`
 // is the absent / non-terrain value.
 enum TerrainKind: byte {
@@ -191,6 +222,21 @@ struct TerrainDetailTile {
   y: int32;
   kind: TerrainKind;
   is_corridor: bool;
+  pad0: uint8 = 0;
+  pad1: uint8 = 0;
+}
+
+// Phase 8.3 — One coalesced interior partition edge inside a
+// Building. Endpoints are corner-grid vertices addressed as
+// `(tile_x + Δ, tile_y + Δ)`; padded uint8s to keep the struct
+// 16-byte aligned for FlatBuffers.
+struct InteriorEdge {
+  ax: int32;
+  ay: int32;
+  a_corner: TileCorner;
+  bx: int32;
+  by: int32;
+  b_corner: TileCorner;
   pad0: uint8 = 0;
   pad1: uint8 = 0;
 }
@@ -613,6 +659,43 @@ table EnclosureOp {
   rng_seed: uint64;
 }
 
+// Phase 8.3 — Per-building exterior masonry pass. Resolves
+// region_ref to a Region(kind=Building), walks its polygon
+// edges, and renders a 2-strip running-bond chain along each
+// edge. Orthogonal edges paint axis-aligned units; diagonal
+// edges (octagon / circle footprints) paint canonical horizontal
+// units with a per-rect translate+rotate transform. Buildings
+// whose `wall_material == "dungeon"` skip this op entirely —
+// the existing WallsAndFloorsOp dungeon-wall pass handles them.
+// Joined to the `structural` layer; per design/map_ir.md §6.1
+// paint order on Building IRs is `WallsAndFloorsOp ->
+// BuildingInteriorWallOp -> BuildingExteriorWallOp` so the
+// curved exterior masonry overlays any partition extension that
+// reaches into the rim zone (cleans up T-junctions for circle
+// and octagon buildings; mirrors building.py:97-104).
+//
+// `rng_seed = base_seed + 0xBE71 + building_index` per
+// design/map_ir.md §10's salt list; drives the per-stone width
+// jitter inside `_render_masonry_wall_run`.
+table BuildingExteriorWallOp {
+  region_ref: string;
+  material: WallMaterial;
+  rng_seed: uint64;
+}
+
+// Phase 8.3 — Per-building interior partition lines. Each
+// edge runs between two corner-grid vertices addressed as
+// `(tile + Δ)` per :enum:`TileCorner`. The pre-coalesced edge
+// list lives on the op so the rasteriser doesn't repeat the
+// emitter's coalesce pass; door-suppressed edges are filtered
+// at emit time. RNG-free (deterministic line strokes), so no
+// `rng_seed` field.
+table BuildingInteriorWallOp {
+  region_ref: string;
+  material: InteriorWallMaterial;
+  edges: [InteriorEdge];
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
@@ -652,6 +735,8 @@ union Op {
   DecoratorOp,
   RoofOp,
   EnclosureOp,
+  BuildingExteriorWallOp,
+  BuildingInteriorWallOp,
 }
 
 table OpEntry {
