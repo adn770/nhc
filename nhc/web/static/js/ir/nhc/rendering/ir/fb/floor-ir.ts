@@ -29,7 +29,7 @@ static getSizePrefixedRootAsFloorIR(bb:flatbuffers.ByteBuffer, obj?:FloorIR):Flo
 }
 
 static bufferHasIdentifier(bb:flatbuffers.ByteBuffer):boolean {
-  return bb.__has_identifier('NIRF');
+  return bb.__has_identifier('NIR3');
 }
 
 major():number {
@@ -186,11 +186,11 @@ static endFloorIR(builder:flatbuffers.Builder):flatbuffers.Offset {
 }
 
 static finishFloorIRBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
-  builder.finish(offset, 'NIRF');
+  builder.finish(offset, 'NIR3');
 }
 
 static finishSizePrefixedFloorIRBuffer(builder:flatbuffers.Builder, offset:flatbuffers.Offset) {
-  builder.finish(offset, 'NIRF', true);
+  builder.finish(offset, 'NIR3', true);
 }
 
 }

@@ -1,16 +1,19 @@
 //! Floor-detail op rasterisation — Phase 5.3.2 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, with the wood-floor short-
+//! circuit ported in Phase 9.2c.
 //!
-//! Mirrors `_draw_floor_detail_from_ir`. The structured branch
-//! (`tiles` + `is_corridor` + `seed` + `theme` + `macabre`)
-//! flows through `primitives::floor_detail::draw_floor_detail`
-//! to get the cracks / scratches / stones group bundles; the
-//! room-side bundles paint inside a dungeon-interior clip mask
-//! while the corridor side paints unclipped.
+//! Mirrors `_draw_floor_detail_from_ir`. Three modes:
 //!
-//! `wood_floor_groups` defers to Phase 5.5 — the wood-floor
-//! short-circuit owns its own clipPath envelope and sits inside
-//! the SVG passthrough surface that 5.5 covers.
+//! - Wood-floor short-circuit (`wood_tiles` / `wood_rooms` /
+//!   `wood_building_polygon` populated) — dispatch through
+//!   `primitives::wood_floor::draw_wood_floor` and paint with the
+//!   dungeon-poly clip mask applied uniformly.
+//! - Otherwise: floor-detail-proper (`tiles` + `is_corridor` +
+//!   `seed` + `theme` + `macabre`) flows through
+//!   `primitives::floor_detail::draw_floor_detail` to get the
+//!   cracks / scratches / stones bundles; room bundles paint
+//!   inside the dungeon-interior clip mask, corridor bundles
+//!   paint unclipped.
 //!
 //! Thematic passthrough (`room_groups` / `corridor_groups`) is
 //! a Phase 1 transitional artifact. As of schema 2.0 the

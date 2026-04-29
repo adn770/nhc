@@ -757,13 +757,10 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     ctx = builder.ctx
     seed = ctx.seed
     if ctx.interior_finish == "wood":
-        # Wood-floor short-circuit. Phase 9.2c shape: structured
+        # Wood-floor short-circuit. Schema 3.0: structured
         # ``wood_tiles`` / ``wood_building_polygon`` / ``wood_rooms``
         # only; both ir_to_svg and the tiny-skia handler drive the
-        # parquet pattern from these fields. The legacy
-        # ``wood_floor_groups`` passthrough field stays in the FB
-        # schema for one cycle (deleted at the schema 3.0 major
-        # bump per plan §9.3) but no longer ships populated.
+        # parquet pattern from these fields.
         from nhc.rendering.ir._fb.RectRoom import RectRoomT
         from nhc.rendering.ir._fb.TileCoord import TileCoordT
         from nhc.rendering.ir._fb.Vec2 import Vec2T

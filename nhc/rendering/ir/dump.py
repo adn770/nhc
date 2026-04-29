@@ -112,13 +112,13 @@ def dump(buf: bytes) -> str:
     """Return canonicalised JSON for a FloorIR FlatBuffer.
 
     Raises ``ValueError`` if the buffer does not carry the
-    ``NIRF`` file_identifier handshake — a quick guard against
+    ``NIR3`` file_identifier handshake — a quick guard against
     feeding the dumper a binary blob that was not produced by
     ``build_floor_ir`` (or by some past schema major).
     """
     if not FloorIR.FloorIRBufferHasIdentifier(buf, 0):
         raise ValueError(
-            "Buffer does not carry the NIRF file_identifier — is "
+            "Buffer does not carry the NIR3 file_identifier — is "
             "this a Floor IR buffer at the current schema major?"
         )
     root = FloorIR.GetRootAs(buf, 0)

@@ -22,7 +22,7 @@ class FountainFeatureOp(object):
         return cls.GetRootAs(buf, offset)
     @classmethod
     def FountainFeatureOpBufferHasIdentifier(cls, buf, offset, size_prefixed=False):
-        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x46", size_prefixed=size_prefixed)
+        return flatbuffers.util.BufferHasIdentifier(buf, offset, b"\x4E\x49\x52\x33", size_prefixed=size_prefixed)
 
     # FountainFeatureOp
     def Init(self, buf, pos):

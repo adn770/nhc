@@ -7,7 +7,7 @@ it gets to be picky about output stability:
 - Field order matches schema declaration order.
 - Enum int values are translated to their member name strings.
 - Union variants surface as their concrete table type.
-- The ``NIRF`` file_identifier is required; non-IR buffers raise
+- The ``NIR3`` file_identifier is required; non-IR buffers raise
   ``ValueError`` early instead of leaking arbitrary bytes.
 
 These tests pin the public contract; if the schema or generator
@@ -30,7 +30,7 @@ from nhc.rendering.ir._fb import OpEntry as OpEntryMod
 from nhc.rendering.ir.dump import dump
 
 
-def _build_minimal(file_identifier: bytes = b"NIRF") -> bytes:
+def _build_minimal(file_identifier: bytes = b"NIR3") -> bytes:
     b = flatbuffers.Builder(64)
     theme = b.CreateString("dungeon")
     FloorIRMod.Start(b)
@@ -71,7 +71,7 @@ def _build_with_hatch_hole_op() -> bytes:
     FloorIRMod.AddTheme(b, theme)
     FloorIRMod.AddOps(b, ops_vec)
     root = FloorIRMod.End(b)
-    b.Finish(root, file_identifier=b"NIRF")
+    b.Finish(root, file_identifier=b"NIR3")
     return bytes(b.Output())
 
 
@@ -118,5 +118,5 @@ def test_union_variant_dispatch_and_nested_enum() -> None:
 
 def test_rejects_non_nir_buffer() -> None:
     bad = _build_minimal(file_identifier=b"XXXX")
-    with pytest.raises(ValueError, match="NIRF"):
+    with pytest.raises(ValueError, match="NIR3"):
         dump(bad)

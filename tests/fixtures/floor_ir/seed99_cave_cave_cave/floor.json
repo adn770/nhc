@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
-  "major": 2,
-  "minor": 5,
+  "major": 3,
+  "minor": 0,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -21097,7 +21097,6 @@
         "roomGroups": null,
         "corridorGroups": null,
         "clipRegion": "dungeon",
-        "woodFloorGroups": null,
         "isCorridor": "array([False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False])",
         "woodTiles": null,
         "woodBuildingPolygon": null,
@@ -24018,9 +24017,7 @@
         ],
         "seed": 299,
         "theme": "cave",
-        "clipRegion": "dungeon",
-        "roomGroups": null,
-        "corridorGroups": null
+        "clipRegion": "dungeon"
       }
     },
     {

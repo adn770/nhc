@@ -1,7 +1,7 @@
 """Skeleton sentinel for the Phase 1.a IR emitter.
 
 Pins the contract of the foundation commit: ``build_floor_ir`` exists,
-returns a non-empty FlatBuffer carrying the ``NIRF`` identifier,
+returns a non-empty FlatBuffer carrying the ``NIR3`` identifier,
 the metadata fields (major / minor / dimensions / theme / seed /
 flags) match the input level, ``regions[]`` is populated by the
 ``emit_regions`` stage, ``ops[]`` is empty (per-layer commits 1.b–1.j
@@ -45,14 +45,14 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
     _, buf, _ = emitted
     assert buf, "build_floor_ir returned an empty buffer"
     assert FloorIR.FloorIRBufferHasIdentifier(buf, 0), (
-        "emitted buffer is missing the NIRF file_identifier — "
-        "builder.Finish was not called with b'NIRF'"
+        "emitted buffer is missing the NIR3 file_identifier — "
+        "builder.Finish was not called with b'NIR3'"
     )
 
 
-def test_schema_major_is_two(emitted) -> None:
+def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
-    assert fir.major == 2
+    assert fir.major == 3
     # Minor bumps as later commits add additive schema fields; the
     # sentinel pins major only.
     assert fir.minor >= 0

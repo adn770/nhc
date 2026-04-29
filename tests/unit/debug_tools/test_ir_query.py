@@ -29,12 +29,12 @@ async def test_get_ir_buffer_returns_metadata() -> None:
     from nhc.debug_tools.tools.ir_query import GetIRBufferTool
     result = await GetIRBufferTool().execute(path=str(_FIXTURE_RECT))
     assert "error" not in result
-    assert result["major"] == 2
+    assert result["major"] == 3
     assert result["minor"] >= 0
     assert result["region_count"] == 19
     assert result["op_count"] == 28
     assert result["size_bytes"] > 0
-    assert result["file_identifier"] == "NIRF"
+    assert result["file_identifier"] == "NIR3"
     assert "dump" not in result  # off by default
 
 

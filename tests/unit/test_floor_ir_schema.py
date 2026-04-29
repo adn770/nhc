@@ -42,7 +42,7 @@ def test_bindings_importable() -> None:
 def test_round_trip_minimal_buffer() -> None:
     """Build the smallest possible FloorIR buffer and read it back.
 
-    Confirms the file_identifier handshake (``NIRF``) and that
+    Confirms the file_identifier handshake (``NIR3``) and that
     scalar setters / getters round-trip through the wire format.
     """
     from nhc.rendering.ir._fb import FloorIR as FloorIRMod
@@ -57,11 +57,11 @@ def test_round_trip_minimal_buffer() -> None:
     FloorIRMod.AddTheme(builder, theme_offset)
     FloorIRMod.AddBaseSeed(builder, 12345)
     root = FloorIRMod.End(builder)
-    builder.Finish(root, file_identifier=b"NIRF")
+    builder.Finish(root, file_identifier=b"NIR3")
     buf = bytes(builder.Output())
 
     assert FloorIRMod.FloorIR.FloorIRBufferHasIdentifier(buf, 0), (
-        "file_identifier mismatch — NIRF handshake broken"
+        "file_identifier mismatch — NIR3 handshake broken"
     )
 
     ir = FloorIRMod.FloorIR.GetRootAs(buf, 0)

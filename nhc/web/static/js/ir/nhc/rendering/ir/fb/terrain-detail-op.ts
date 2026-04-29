@@ -54,32 +54,8 @@ clipRegion(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
-roomGroups(index: number):string
-roomGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
-roomGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
-}
-
-roomGroupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 12);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
-corridorGroups(index: number):string
-corridorGroups(index: number,optionalEncoding:flatbuffers.Encoding):string|Uint8Array
-corridorGroups(index: number,optionalEncoding?:any):string|Uint8Array|null {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
-  return offset ? this.bb!.__string(this.bb!.__vector(this.bb_pos + offset) + index * 4, optionalEncoding) : null;
-}
-
-corridorGroupsLength():number {
-  const offset = this.bb!.__offset(this.bb_pos, 14);
-  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
-}
-
 static startTerrainDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(4);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -102,51 +78,17 @@ static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.O
   builder.addFieldOffset(3, clipRegionOffset, 0);
 }
 
-static addRoomGroups(builder:flatbuffers.Builder, roomGroupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(4, roomGroupsOffset, 0);
-}
-
-static createRoomGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startRoomGroupsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
-static addCorridorGroups(builder:flatbuffers.Builder, corridorGroupsOffset:flatbuffers.Offset) {
-  builder.addFieldOffset(5, corridorGroupsOffset, 0);
-}
-
-static createCorridorGroupsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
-  builder.startVector(4, data.length, 4);
-  for (let i = data.length - 1; i >= 0; i--) {
-    builder.addOffset(data[i]!);
-  }
-  return builder.endVector();
-}
-
-static startCorridorGroupsVector(builder:flatbuffers.Builder, numElems:number) {
-  builder.startVector(4, numElems, 4);
-}
-
 static endTerrainDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTerrainDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTerrainDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset):flatbuffers.Offset {
   TerrainDetailOp.startTerrainDetailOp(builder);
   TerrainDetailOp.addTiles(builder, tilesOffset);
   TerrainDetailOp.addSeed(builder, seed);
   TerrainDetailOp.addTheme(builder, themeOffset);
   TerrainDetailOp.addClipRegion(builder, clipRegionOffset);
-  TerrainDetailOp.addRoomGroups(builder, roomGroupsOffset);
-  TerrainDetailOp.addCorridorGroups(builder, corridorGroupsOffset);
   return TerrainDetailOp.endTerrainDetailOp(builder);
 }
 }

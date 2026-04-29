@@ -69,15 +69,15 @@ from nhc.rendering.ir._fb.WallMaterial import WallMaterial
 # Schema version stamped on every emitted buffer. Bumped per the
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
-SCHEMA_MAJOR = 2
-SCHEMA_MINOR = 5
+SCHEMA_MAJOR = 3
+SCHEMA_MINOR = 0
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
 _SCHEMA_MAJOR = SCHEMA_MAJOR
 _SCHEMA_MINOR = SCHEMA_MINOR
 
-_FILE_IDENTIFIER = b"NIRF"
+_FILE_IDENTIFIER = b"NIR3"
 
 
 _FLOOR_KIND_MAP: dict[str, int] = {
@@ -92,7 +92,7 @@ class FloorIRBuilder:
     """Object-API wrapper that accumulates regions + ops, then packs.
 
     Stages call :meth:`add_region` / :meth:`add_op`; :meth:`finish`
-    serialises the buffer with the ``NIRF`` file_identifier.
+    serialises the buffer with the ``NIR3`` file_identifier.
 
     Splitting region registration from op emission lets ops reference
     regions by id without ordering constraints inside individual

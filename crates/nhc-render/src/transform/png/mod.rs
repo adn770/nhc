@@ -208,7 +208,7 @@ pub fn floor_ir_to_png(
 ) -> Result<Vec<u8>, PngError> {
     if buf.len() < 8 || !floor_ir_buffer_has_identifier(buf) {
         return Err(PngError::InvalidBuffer(
-            "buffer does not carry the NIRF file_identifier".to_string(),
+            "buffer does not carry the NIR3 file_identifier".to_string(),
         ));
     }
     let layer_filter = if let Some(name) = layer {

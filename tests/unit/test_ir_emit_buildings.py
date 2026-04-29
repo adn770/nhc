@@ -334,9 +334,10 @@ class TestRoofIRToSvg:
         from nhc.rendering.ir._fb.Op import Op as OpEnum
         buf = self._build_buf()
         fir = FloorIR.GetRootAs(buf, 0)
-        assert fir.Major() == 2
-        # RoofOp landed at MINOR=1; later additive bumps must keep it.
-        assert fir.Minor() >= 1
+        assert fir.Major() == 3
+        # RoofOp landed at schema 2.1; the 3.0 major bump resets
+        # MINOR=0 but RoofOp stays the canonical roof primitive.
+        assert fir.Minor() >= 0
         # 1 Site region + 1 Building region.
         assert fir.RegionsLength() == 2
         # 1 RoofOp.

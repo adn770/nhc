@@ -252,7 +252,7 @@ def layer_to_svg_full(buf: bytes, *, layer: str) -> str:
 def _root_or_raise(buf: bytes) -> FloorIR:
     if not FloorIR.FloorIRBufferHasIdentifier(buf, 0):
         raise ValueError(
-            "Buffer does not carry the NIRF file_identifier — is "
+            "Buffer does not carry the NIR3 file_identifier — is "
             "this a FloorIR buffer at the current schema major?"
         )
     return FloorIR.GetRootAs(buf, 0)

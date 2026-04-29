@@ -32,7 +32,7 @@
 // `nhc/web/static/js/ir/index.ts` re-exports the deep tree.
 namespace nhc.rendering.ir._fb;
 
-file_identifier "NIRF";   // NHC IR Floor v1
+file_identifier "NIR3";   // NHC IR Floor — schema major version 3
 file_extension "nir";
 
 // ── Geometry primitives ─────────────────────────────────────
@@ -479,15 +479,10 @@ table FloorDetailOp {
   room_groups: [string];
   corridor_groups: [string];
   clip_region: string;
-  // Phase 1.l addition: the wood-floor short-circuit. When
-  // populated, wood_floor_groups replaces the room/corridor
-  // passes entirely (the wood emitter renders its own clipPath
-  // envelope). Phase 9.2 deprecated this field — `wood_tiles`,
-  // `wood_building_polygon` and `wood_rooms` carry the
-  // structured data the painter consumes. Stays in the schema
-  // for one cycle; deleted at the schema 3.0 major bump
-  // (plan §9.3).
-  wood_floor_groups: [string];
+  // Schema 3.0 (plan §9.3): the legacy `wood_floor_groups`
+  // passthrough field has been deleted. Wood-floor data flows
+  // through the structured `wood_tiles` / `wood_building_polygon`
+  // / `wood_rooms` fields below.
   // Sub-step 3.b parallel-array addition: per-tile
   // corridor / door classification, parallel to tiles[]. Mirrors
   // 1.b's HatchOp.is_outer pattern — the consumer routes the
@@ -547,15 +542,10 @@ table TerrainDetailOp {
   seed: uint64;            // base_seed + 200
   theme: string;
   clip_region: string;
-  // Phase 1 transitional storage. The legacy renderer routes
-  // through the unified TileDecorator pipeline with per-decorator
-  // seeded RNG; faithfully reproducing it from a structured tile
-  // list would mean inlining `walk_and_paint` plus three
-  // RNG-driven painters into the handler. Pre-rendered <g>
-  // groups per bucket travel here instead. Phase 4 refactors to
-  // structured per-tile ops when the Rust port lands.
-  room_groups: [string];
-  corridor_groups: [string];
+  // Schema 3.0 (plan §9.3): the legacy `room_groups` /
+  // `corridor_groups` passthrough fields have been deleted. Both
+  // ir_to_svg and the tiny-skia handler drive water / lava /
+  // chasm output from the structured `tiles[]` field above.
 }
 
 // Layer 700 — stairs.
