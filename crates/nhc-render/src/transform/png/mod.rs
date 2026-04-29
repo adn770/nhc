@@ -32,6 +32,7 @@ mod svg_attr;
 mod decorator;
 mod floor_detail;
 mod floor_grid;
+mod fountain;
 mod hatch;
 mod shadow;
 mod stairs;
@@ -150,6 +151,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::ThematicDetailOp.0, thematic_detail::draw);
         m.insert(Op::DecoratorOp.0, decorator::draw);
         m.insert(Op::WellFeatureOp.0, well::draw);
+        m.insert(Op::FountainFeatureOp.0, fountain::draw);
         m
     })
 }
