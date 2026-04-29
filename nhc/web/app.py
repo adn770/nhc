@@ -1142,15 +1142,15 @@ def create_app(
                methods=["GET"])
     @_player_auth
     def game_floor_png(session_id: str, svg_id: str):
-        """Floor rasterised to PNG via resvg-py.
+        """Floor rasterised to PNG via tiny-skia (Phase 5.6).
 
-        Phase 2.2 of plans/nhc_ir_migration_plan.md routed PNGs
-        through the IR pipeline; Phase 2.3 caches the rasterised
-        bytes on the per-floor ``IRArtefacts`` entry so repeat hits
-        skip the resvg pass. The cached composite SVG remains the
-        fallback for building / site-surface floors until those
-        branches gain IR coverage. Phase 5 swaps in
-        ``IR → tiny-skia → PNG`` to drop the SVG hop entirely.
+        IR-covered floors (the common path) skip the SVG hop
+        entirely: ``IR → nhc_render.ir_to_png → PNG``. Phase 2.3
+        cached the rasterised bytes on ``IRArtefacts`` so repeat
+        hits skip the rasteriser too. Building / site-surface
+        floors that wrap a non-IR composite SVG still fall back
+        to ``resvg-py`` until their renderers gain IR coverage;
+        Phase 5.8 retires the fallback.
 
         URL shape mirrors the .svg endpoint so the UUID-anchored
         cache contract is identical: the PNG with id X always
@@ -1161,29 +1161,26 @@ def create_app(
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
-        try:
-            import resvg_py
-        except ImportError:
-            # resvg-py is in requirements.txt but the production
-            # container builds may lag; fail loudly so the deploy
-            # owner sees the gap rather than serving 500s.
-            return "resvg-py not installed", 503
         png_bytes: bytes | None = None
         entry = _get_or_build_ir_artefacts(session, svg_id)
         if entry is not None:
             if entry.png is None:
-                from nhc.rendering.ir_to_svg import ir_to_svg
-                svg_body = ir_to_svg(entry.nir)
-                entry.png = bytes(
-                    resvg_py.svg_to_bytes(svg_string=svg_body),
-                )
+                try:
+                    import nhc_render
+                except ImportError:
+                    return "nhc_render not installed", 503
+                entry.png = bytes(nhc_render.ir_to_png(entry.nir))
                 _persist_ir_if_live(session, svg_id, entry)
             png_bytes = entry.png
         else:
             # Fallback: building / site-surface composite SVG that
             # carries non-IR overlays (brick perimeter, roofs,
-            # enclosure). When their renderers gain IR coverage
-            # this branch goes away.
+            # enclosure). Phase 5.8 drops resvg-py once the
+            # remaining composite paths gain IR coverage.
+            try:
+                import resvg_py
+            except ImportError:
+                return "resvg-py not installed", 503
             client = session.game.renderer
             svg_body = None
             svg_cache = getattr(session.game, "_svg_cache", None)
