@@ -34,9 +34,11 @@ mod decorator;
 mod floor_detail;
 mod floor_grid;
 mod fountain;
+mod generic_procedural;
 mod hatch;
 mod shadow;
 mod stairs;
+mod terrain_detail;
 mod terrain_tints;
 mod thematic_detail;
 mod tree;
@@ -156,6 +158,8 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::FountainFeatureOp.0, fountain::draw);
         m.insert(Op::TreeFeatureOp.0, tree::draw);
         m.insert(Op::BushFeatureOp.0, bush::draw);
+        m.insert(Op::TerrainDetailOp.0, terrain_detail::draw);
+        m.insert(Op::GenericProceduralOp.0, generic_procedural::draw);
         m
     })
 }

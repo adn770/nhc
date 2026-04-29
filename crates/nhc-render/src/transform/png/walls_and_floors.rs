@@ -1,23 +1,30 @@
-//! Walls + floors op rasterisation — Phase 5.2.2 of
+//! Walls + floors op rasterisation — Phase 5.2.2 + 5.5 of
 //! `plans/nhc_ir_migration_plan.md`.
 //!
-//! Mirrors `_draw_walls_and_floors_from_ir` for the structured
-//! op fields:
+//! Mirrors `_draw_walls_and_floors_from_ir`:
 //!
 //! - `corridor_tiles` → `FLOOR_COLOR` rects at tile coords.
 //! - `rect_rooms` → `FLOOR_COLOR` rects covering each room's
 //!   pixel bbox.
 //! - `wall_segments` → black 5px-wide stroke around corridor
 //!   tile edges. Each entry is a pre-rendered `M{x},{y}
-//!   L{x},{y}` 2-point line; we parse them back into
-//!   `tiny-skia::Path` move/line ops rather than carrying an
-//!   SVG-path parser around.
-//!
-//! The pre-rendered SVG passthroughs (`smooth_fill_svg` /
-//! `smooth_wall_svg` / `cave_region` / `wall_extensions_d`)
-//! stay deferred to Phase 5.5; in this commit they paint
-//! nothing and the per-fixture parity gate stays XFAIL for any
-//! descriptor whose layer carries them.
+//!   L{x},{y}` 2-point line.
+//! - `smooth_fill_svg` → pre-rendered `<polygon>` / `<path>`
+//!   fragments for non-rect rooms (octagon / smooth-rect with
+//!   gaps / …). Each carries `fill="#FFFFFF" stroke="none"`;
+//!   the fragment helper rasterises them as filled shapes.
+//! - `smooth_wall_svg` → same shape, but `fill="none"` +
+//!   `stroke="#000000" stroke-width="5.0" stroke-linecap=round
+//!   stroke-linejoin=round`. The fragment helper handles the
+//!   stroke pass.
+//! - `cave_region` → a single `<path d="..."/>` element wrapping
+//!   the smoothed cave-wall outline (M / C / Z subpaths). The
+//!   legacy emitter wraps it twice — once filled with the cave
+//!   floor colour under `evenodd`, once stroked black with the
+//!   wall width. We replay both passes here.
+//! - `wall_extensions_d` → a bare `d=` string with M / L
+//!   commands. Wrapped in the same black 5px stroke style as
+//!   `smooth_wall_svg`.
 
 use tiny_skia::{
     Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Rect,
@@ -26,7 +33,8 @@ use tiny_skia::{
 
 use crate::ir::{FloorIR, OpEntry, WallsAndFloorsOp};
 
-use super::path_parser::parse_xy;
+use super::fragment::paint_fragment;
+use super::path_parser::{parse_path_d, parse_xy};
 use super::RasterCtx;
 
 const CELL: f32 = 32.0;
@@ -37,6 +45,11 @@ const INK_R: u8 = 0x00;
 const INK_G: u8 = 0x00;
 const INK_B: u8 = 0x00;
 const WALL_WIDTH: f32 = 5.0;
+// Cave floor colour — matches `CAVE_FLOOR_COLOR` in
+// `nhc/rendering/_svg_helpers.py` (#F5EBD8).
+const CAVE_FLOOR_R: u8 = 0xF5;
+const CAVE_FLOOR_G: u8 = 0xEB;
+const CAVE_FLOOR_B: u8 = 0xD8;
 
 fn floor_paint() -> Paint<'static> {
     let mut p = Paint::default();
@@ -70,8 +83,17 @@ pub(super) fn draw(
         Some(o) => o,
         None => return,
     };
+    // Legacy emit order (mirrors primitives::walls_and_floors's
+    // SVG output): corridor + rect-room fills, smooth-room fills,
+    // cave fill, cave stroke, smooth-room walls, wall extensions,
+    // wall segments. Layering matters — fills first, strokes
+    // last so wall outlines sit on top of floor colours.
     draw_corridor_tiles(&op, ctx);
     draw_rect_rooms(&op, ctx);
+    draw_smooth_fragments(&op, ctx);
+    draw_cave_region(&op, ctx);
+    draw_smooth_wall_fragments(&op, ctx);
+    draw_wall_extensions(&op, ctx);
     draw_wall_segments(&op, ctx);
 }
 
@@ -137,6 +159,107 @@ fn draw_wall_segments(op: &WallsAndFloorsOp<'_>, ctx: &mut RasterCtx<'_>) {
         .stroke_path(&path, &paint, &stroke, ctx.transform, None);
 }
 
+fn draw_smooth_fragments(
+    op: &WallsAndFloorsOp<'_>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let frags = match op.smooth_fill_svg() {
+        Some(v) => v,
+        None => return,
+    };
+    for frag in frags.iter() {
+        paint_fragment(frag, 1.0, None, ctx);
+    }
+}
+
+fn draw_smooth_wall_fragments(
+    op: &WallsAndFloorsOp<'_>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let frags = match op.smooth_wall_svg() {
+        Some(v) => v,
+        None => return,
+    };
+    for frag in frags.iter() {
+        paint_fragment(frag, 1.0, None, ctx);
+    }
+}
+
+fn draw_cave_region(
+    op: &WallsAndFloorsOp<'_>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let region = match op.cave_region() {
+        Some(s) if !s.is_empty() => s,
+        _ => return,
+    };
+    let d = match extract_d_from_path(region) {
+        Some(d) => d,
+        None => return,
+    };
+    let path = match parse_path_d(d) {
+        Some(p) => p,
+        None => return,
+    };
+    // Pass 1 — cave-floor fill under EvenOdd (holes carve through).
+    let mut fill = Paint::default();
+    fill.set_color(Color::from_rgba8(
+        CAVE_FLOOR_R,
+        CAVE_FLOOR_G,
+        CAVE_FLOOR_B,
+        0xFF,
+    ));
+    fill.anti_alias = true;
+    ctx.pixmap.fill_path(
+        &path,
+        &fill,
+        FillRule::EvenOdd,
+        ctx.transform,
+        None,
+    );
+    // Pass 2 — black 5px stroke for the wall outline.
+    ctx.pixmap.stroke_path(
+        &path,
+        &wall_paint(),
+        &wall_stroke(),
+        ctx.transform,
+        None,
+    );
+}
+
+fn draw_wall_extensions(
+    op: &WallsAndFloorsOp<'_>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let d = match op.wall_extensions_d() {
+        Some(s) if !s.is_empty() => s,
+        _ => return,
+    };
+    let path = match parse_path_d(d) {
+        Some(p) => p,
+        None => return,
+    };
+    ctx.pixmap.stroke_path(
+        &path,
+        &wall_paint(),
+        &wall_stroke(),
+        ctx.transform,
+        None,
+    );
+}
+
+/// `<path d="..."/>` → the inner d= string. The legacy
+/// `cave_region` rides as a single self-closing `<path>` with
+/// no other attributes; the helper finds the first `d="..."`
+/// pair and returns the contents.
+fn extract_d_from_path(s: &str) -> Option<&str> {
+    let needle = "d=\"";
+    let start = s.find(needle)? + needle.len();
+    let rest = &s[start..];
+    let end = rest.find('"')?;
+    Some(&rest[..end])
+}
+
 /// Parse `"M{x1},{y1} L{x2},{y2}"`. The legacy emitter writes
 /// these one segment at a time; we replay them into tiny-skia
 /// move/line ops so the raster shape matches the SVG byte-for-
@@ -149,14 +272,9 @@ fn parse_segment(s: &str) -> Option<((f32, f32), (f32, f32))> {
     Some((p1, p2))
 }
 
-// Suppress dead-code on the imports that future sub-phases
-// (5.5) will use when smooth/cave/extensions land.
-#[allow(dead_code)]
-const _UNUSED_FILL_RULE: FillRule = FillRule::Winding;
-
 #[cfg(test)]
 mod tests {
-    use super::parse_segment;
+    use super::{extract_d_from_path, parse_segment};
 
     #[test]
     fn parse_segment_handles_legacy_format() {
@@ -174,5 +292,17 @@ mod tests {
     fn parse_segment_rejects_garbage() {
         assert!(parse_segment("not a path").is_none());
         assert!(parse_segment("M0,0").is_none());
+    }
+
+    #[test]
+    fn extract_d_pulls_attribute() {
+        let s = "<path d=\"M0,0 L10,10 Z\"/>";
+        assert_eq!(extract_d_from_path(s), Some("M0,0 L10,10 Z"));
+    }
+
+    #[test]
+    fn extract_d_handles_curve_commands() {
+        let s = "<path d=\"M0,0 C5,0 10,5 10,10 Z\"/>";
+        assert_eq!(extract_d_from_path(s), Some("M0,0 C5,0 10,5 10,10 Z"));
     }
 }

@@ -39,15 +39,17 @@ pub(super) fn draw(
     };
 
     // Wood-floor short-circuit — the legacy emitter ships its
-    // own clipPath envelope and bypasses both the structured
-    // branch and the thematic passthrough. Defer to Phase 5.5;
-    // the parity gate stays XFAIL for fixtures that exercise
-    // this branch.
-    if op
+    // own clipPath envelope alongside the per-tile plank
+    // fragments. Phase 5.5 wires the passthrough through the
+    // shared fragment helper; the wood-floor Rust port (Phase 7
+    // cleanup) retires this branch once the walk_and_paint
+    // pipeline is gone.
+    let wood: Vec<String> = op
         .wood_floor_groups()
-        .map(|v| !v.is_empty())
-        .unwrap_or(false)
-    {
+        .map(|v| v.iter().map(String::from).collect())
+        .unwrap_or_default();
+    if !wood.is_empty() {
+        paint_fragments(&wood, 1.0, None, ctx);
         return;
     }
 

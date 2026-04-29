@@ -82,6 +82,11 @@ DESCRIPTORS = tuple(d for d in all_descriptors())
 #   5.3.1 — hatching (every fixture).
 #   5.3.2 — floor_detail (every fixture).
 #   5.3.3 — thematic_detail (every fixture).
+#   5.5   — walls_and_floors smooth + cave + wall_extensions
+#           passthroughs (seed7 octagon + seed99 cave); plus
+#           the terrain_detail / surface_features passthroughs
+#           via the new TerrainDetailOp + GenericProceduralOp
+#           handlers.
 LANDED_PAIRS: frozenset[tuple[str, str]] = frozenset(
     (descriptor, layer)
     for descriptor in DESCRIPTORS
@@ -93,10 +98,19 @@ LANDED_PAIRS: frozenset[tuple[str, str]] = frozenset(
         "hatching",
         "floor_detail",
         "thematic_detail",
+        "walls_and_floors",
+        "surface_features",
     )
 ) | frozenset({
-    ("seed42_rect_dungeon_dungeon", "walls_and_floors"),
+    ("seed42_rect_dungeon_dungeon", "terrain_detail"),
+    ("seed7_octagon_crypt_dungeon", "terrain_detail"),
 })
+# (seed99, terrain_detail) stays XFAIL — the cave fixture
+# clusters grass / chasm blades densely enough that per-element
+# alpha vs SVG group-opacity offscreen compositing diverges by
+# ~0.66 % (just over the 0.5 % gate). A future commit could
+# add an offscreen-buffer pass for `<g opacity>` wrappers; for
+# Phase 5 the gate stays.
 
 XFAIL_PAIRS: frozenset[tuple[str, str]] = frozenset(
     (descriptor, layer)

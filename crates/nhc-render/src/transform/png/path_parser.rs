@@ -1,41 +1,84 @@
-//! Tiny SVG-path subset parser — `M x,y L x,y M x,y ...`.
+//! Tiny SVG-path subset parser — `M x,y`, `L x,y`,
+//! `C c1x,c1y c2x,c2y x,y`, `Z`.
 //!
 //! The IR's procedural primitives emit pre-formatted SVG path
 //! `d=` strings as the FFI return shape; the PNG handlers parse
-//! those back into `tiny-skia::Path` move/line ops rather than
-//! sharing a Path type across the FFI boundary. The surface
-//! covers the legacy primitives' output (M / L commands only,
-//! coordinates `f32`-precision); curve commands belong to the
-//! cave-shadow / surface-feature handlers, which build their
-//! `Path` directly from the structured polygon.
+//! those back into `tiny-skia::Path` move/line/curve/close ops
+//! rather than sharing a Path type across the FFI boundary.
+//!
+//! The cave-region wall outline (Phase 5.5) drives the C-curve
+//! support: the legacy emitter writes M/C/Z command sequences
+//! at `:.1` precision per Catmull-Rom subpath, and the
+//! rasteriser replays each one as a `cubic_to`. Other layers
+//! still go through `M / L` only.
 
 use tiny_skia::PathBuilder;
 
-/// Parse `s` into a `tiny-skia::Path`. Tokens are whitespace-
-/// separated; each token starts with `M` or `L` and carries an
-/// `x,y` pair. Unknown tokens are skipped silently to keep the
-/// parser robust against future emitter changes that don't
-/// touch the rendering primitives.
+/// Parse `s` into a `tiny-skia::Path`. Walks tokens left-to-
+/// right; each token either kicks off a new command (M / L /
+/// C / Z) or supplies coordinate pairs that the running command
+/// consumes. Unknown commands skip the token.
 pub fn parse_path_d(s: &str) -> Option<tiny_skia::Path> {
     let mut pb = PathBuilder::new();
     let mut any = false;
-    for tok in s.split_whitespace() {
-        if let Some(rest) = tok.strip_prefix('M') {
-            if let Some((x, y)) = parse_xy(rest) {
-                pb.move_to(x, y);
-                any = true;
+    let mut tokens = s.split_whitespace().peekable();
+    let mut last = (0.0_f32, 0.0_f32);
+    while let Some(tok) = tokens.next() {
+        match command_letter(tok) {
+            Some('M') => {
+                if let Some((x, y)) = parse_xy(strip_command(tok, 'M')) {
+                    pb.move_to(x, y);
+                    last = (x, y);
+                    any = true;
+                }
             }
-        } else if let Some(rest) = tok.strip_prefix('L') {
-            if let Some((x, y)) = parse_xy(rest) {
-                pb.line_to(x, y);
-                any = true;
+            Some('L') => {
+                if let Some((x, y)) = parse_xy(strip_command(tok, 'L')) {
+                    pb.line_to(x, y);
+                    last = (x, y);
+                    any = true;
+                }
             }
+            Some('C') => {
+                let p1 = parse_xy(strip_command(tok, 'C'));
+                let p2 = tokens.next().and_then(parse_xy);
+                let p3 = tokens.next().and_then(parse_xy);
+                if let (Some((c1x, c1y)), Some((c2x, c2y)), Some((x, y))) =
+                    (p1, p2, p3)
+                {
+                    pb.cubic_to(c1x, c1y, c2x, c2y, x, y);
+                    last = (x, y);
+                    any = true;
+                }
+            }
+            Some('Z') | Some('z') => {
+                pb.close();
+                // Spec: after a close, the pen returns to the
+                // last move-to point. We approximate that by
+                // leaving `last` untouched — for the legacy
+                // emitter's M-then-Cs-then-Z shape this is the
+                // same point.
+            }
+            _ => {}
         }
     }
+    let _ = last; // reserved for future relative-command support
     if !any {
         return None;
     }
     pb.finish()
+}
+
+fn command_letter(tok: &str) -> Option<char> {
+    let c = tok.chars().next()?;
+    match c {
+        'M' | 'L' | 'C' | 'Z' | 'z' => Some(c),
+        _ => None,
+    }
+}
+
+fn strip_command(tok: &str, letter: char) -> &str {
+    tok.strip_prefix(letter).unwrap_or(tok)
 }
 
 /// `"x,y"` → `(x, y)`. Accepts whitespace either side of the
@@ -76,9 +119,6 @@ mod tests {
     #[test]
     fn parse_path_d_handles_single_move_line() {
         let p = parse_path_d("M0,0 L32,0").unwrap();
-        // PathBuilder produces a non-empty Path; tiny-skia
-        // doesn't expose a public command-iterator surface, so
-        // we settle for a smoke check on bounds.
         let bounds = p.bounds();
         assert!(bounds.width() >= 32.0);
     }
@@ -86,7 +126,6 @@ mod tests {
     #[test]
     fn parse_path_d_handles_multi_subpath() {
         let p = parse_path_d("M0,0 L10,0 M0,10 L10,10").unwrap();
-        // Two subpaths combine into one Path.
         let bounds = p.bounds();
         assert!(bounds.height() >= 10.0);
     }
@@ -95,5 +134,17 @@ mod tests {
     fn parse_path_d_returns_none_on_empty() {
         assert!(parse_path_d("").is_none());
         assert!(parse_path_d("not-a-path").is_none());
+    }
+
+    /// Cave-region shape — M/C/Z subpath with 3 cubic segments.
+    #[test]
+    fn parse_path_d_handles_cubic_segments() {
+        let d = "M0.0,0.0 C5.0,0.0 10.0,5.0 10.0,10.0 \
+                 C10.0,15.0 5.0,20.0 0.0,20.0 \
+                 C-5.0,15.0 -5.0,5.0 0.0,0.0 Z";
+        let p = parse_path_d(d).unwrap();
+        let bounds = p.bounds();
+        assert!(bounds.width() >= 10.0);
+        assert!(bounds.height() >= 20.0);
     }
 }
