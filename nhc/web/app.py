@@ -1087,46 +1087,18 @@ def create_app(
         session = sessions.get(session_id)
         if not session:
             return "session not found", 404
-        # Phase 2.5: ?bare=1 routes through the IR pipeline and
-        # elides the decoration layers (floor_detail /
-        # terrain_detail / surface_features) so /admin debug
-        # visualisation can see the underlying geometry. The cached
-        # composite SVG isn't reusable here — the decorators are
-        # baked in by the time the cache holds the body — so we
-        # rebuild from the IR every request.
-        if request.args.get("bare") == "1":
-            entry = _get_or_build_ir_artefacts(session, svg_id)
-            if entry is None:
-                return "floor SVG not found", 404
-            from nhc.rendering.ir_to_svg import ir_to_svg
-            resp = make_response(ir_to_svg(entry.nir, bare=True))
-            resp.headers["Content-Type"] = "image/svg+xml"
-            # Bare URLs are cacheable: ?bare=1 lives in the URL key
-            # so it doesn't share a cache slot with the composite.
-            resp.headers["Cache-Control"] = "public, max-age=604800"
-            return resp
-        client = session.game.renderer
-        # Look up the SVG by the UUID baked into the URL. The
-        # current-floor shortcut (client.floor_svg) is racy: when
-        # the player bounces in and out of a building, the HTTP
-        # GET can arrive after the engine has already swapped
-        # client.floor_svg to the next level, serving the wrong
-        # body under a Cache-Control response that the browser
-        # will then reuse forever. Iterating the svg_cache keeps
-        # the URL contract honest -- the SVG with id X always
-        # returns the SVG registered as id X.
-        svg_body: str | None = None
-        svg_cache = getattr(session.game, "_svg_cache", None)
-        if svg_cache:
-            for cached_id, cached_svg in svg_cache.values():
-                if cached_id == svg_id:
-                    svg_body = cached_svg
-                    break
-        if svg_body is None and client.floor_svg_id == svg_id:
-            svg_body = client.floor_svg
-        if svg_body is None:
+        # Phase 10.1: every floor SVG ships from the IR pipeline.
+        # `bare=1` strips the decoration layers (floor_detail /
+        # terrain_detail / surface_features) for the /admin debug
+        # visualisation; the default returns the full composite —
+        # byte-equal to the legacy `render_floor_svg` output the
+        # parity harness in `tests/unit/test_ir_to_svg.py` pins.
+        entry = _get_or_build_ir_artefacts(session, svg_id)
+        if entry is None:
             return "floor SVG not found", 404
-        resp = make_response(svg_body)
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        bare = request.args.get("bare") == "1"
+        resp = make_response(ir_to_svg(entry.nir, bare=bare))
         resp.headers["Content-Type"] = "image/svg+xml"
         resp.headers["Cache-Control"] = "public, max-age=604800"
         return resp
