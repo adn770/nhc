@@ -38,6 +38,7 @@ mod stairs;
 mod terrain_tints;
 mod thematic_detail;
 mod walls_and_floors;
+mod well;
 
 /// Background fill — matches `nhc/rendering/_svg_helpers.py:BG`
 /// (`#F5EDE0`, parchment). Both the resvg-py baseline and the
@@ -148,6 +149,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::FloorDetailOp.0, floor_detail::draw);
         m.insert(Op::ThematicDetailOp.0, thematic_detail::draw);
         m.insert(Op::DecoratorOp.0, decorator::draw);
+        m.insert(Op::WellFeatureOp.0, well::draw);
         m
     })
 }
