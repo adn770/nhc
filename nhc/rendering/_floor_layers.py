@@ -976,20 +976,14 @@ def _terrain_detail_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the terrain-detail layer.
 
-    Phase 9.1b transitional shape: the ``ir_to_svg`` painter now
-    drives water / lava / chasm output from the structured
-    ``tiles[]`` field. The legacy ``room_groups`` /
-    ``corridor_groups`` passthrough still ships because the Rust
-    tiny-skia handler keeps consuming the pre-rendered SVG
-    fragments until 9.1c lands the Rust port.
+    Schema 2.4 shape: structured ``tiles[]`` only — both the
+    ``ir_to_svg`` painter (Python) and the tiny-skia handler
+    (Rust) drive water / lava / chasm output from the tile list.
+    The legacy ``room_groups`` / ``corridor_groups`` passthrough
+    fields stay in the FB schema for one cycle (deleted at the
+    schema 3.0 major bump per plan §9.3) but no longer ship
+    populated.
     """
-    from nhc.rendering._decorators import (
-        PaintArgs, _flags_satisfy, _seeded_rng,
-    )
-    from nhc.rendering._svg_helpers import CELL
-    from nhc.rendering._terrain_detail import (
-        _TERRAIN_DECORATORS, _terrain_tile_bucket,
-    )
     from nhc.rendering.ir._fb import Op
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.TerrainDetailOp import TerrainDetailOpT
@@ -1004,72 +998,27 @@ def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
 
     ctx = builder.ctx
     level = ctx.level
-
-    active = [d for d in _TERRAIN_DECORATORS if _flags_satisfy(ctx, d)]
-    if not active:
-        return
-
-    active_sorted = sorted(
-        enumerate(active),
-        key=lambda pair: (pair[1].z_order, pair[0]),
-    )
-    rngs = {d.name: _seeded_rng(ctx, d.name) for _, d in active_sorted}
-    fragments: dict[str, dict[str, list[str]]] = {
-        d.name: {"room": [], "corridor": []} for _, d in active_sorted
-    }
     tiles: list[TerrainDetailTileT] = []
-
     for y in range(level.height):
         for x in range(level.width):
             tile = level.tiles[y][x]
             kind = terrain_to_kind.get(tile.terrain)
-            if kind is not None:
-                tiles.append(TerrainDetailTileT(
-                    x=x, y=y, kind=kind,
-                    isCorridor=(
-                        tile.surface_type is SurfaceType.CORRIDOR
-                    ),
-                ))
-            for _, dec in active_sorted:
-                if not dec.predicate(level, x, y):
-                    continue
-                args = PaintArgs(
-                    rng=rngs[dec.name],
-                    x=x, y=y,
-                    px=x * CELL, py=y * CELL,
-                    ctx=ctx, tile=tile,
-                )
-                produced = dec.paint(args)
-                if produced is None:
-                    continue
-                bucket = _terrain_tile_bucket(level, x, y)
-                fragments[dec.name][bucket].extend(produced)
-
-    def _emit_bucket(bucket: str) -> list[str]:
-        out: list[str] = []
-        for _, dec in active_sorted:
-            frags = fragments[dec.name][bucket]
-            if not frags:
+            if kind is None:
                 continue
-            if dec.group_open is not None:
-                out.append(dec.group_open)
-            out.extend(frags)
-            if dec.group_open is not None:
-                out.append(dec.group_close)
-        return out
+            tiles.append(TerrainDetailTileT(
+                x=x, y=y, kind=kind,
+                isCorridor=(
+                    tile.surface_type is SurfaceType.CORRIDOR
+                ),
+            ))
 
-    room_groups = _emit_bucket("room")
-    corridor_groups = _emit_bucket("corridor")
-
-    if not (room_groups or corridor_groups):
+    if not tiles:
         return
 
     op = TerrainDetailOpT()
     op.tiles = tiles
     op.seed = ctx.seed + 200
     op.theme = ctx.theme
-    op.roomGroups = room_groups
-    op.corridorGroups = corridor_groups
     op.clipRegion = (
         "dungeon"
         if (

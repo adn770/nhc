@@ -32,6 +32,7 @@ pub mod floor_grid;
 pub mod hatch;
 pub mod shadow;
 pub mod stairs;
+pub mod terrain_detail;
 pub mod terrain_tints;
 pub mod thematic_detail;
 pub mod walls_and_floors;
