@@ -1,0 +1,28 @@
+{
+  "layer_element_counts": {
+    "floor_detail": 312,
+    "floor_grid": 4,
+    "hatching": 9366,
+    "shadows": 16,
+    "stairs": 27,
+    "surface_features": 0,
+    "terrain_detail": 471,
+    "terrain_tints": 192,
+    "thematic_detail": 108,
+    "walls_and_floors": 2
+  },
+  "op_counts": {
+    "FloorDetailOp": 1,
+    "FloorGridOp": 1,
+    "HatchOp": 1,
+    "ShadowOp": 8,
+    "StairsOp": 1,
+    "TerrainDetailOp": 1,
+    "TerrainTintOp": 1,
+    "ThematicDetailOp": 1,
+    "WallsAndFloorsOp": 1
+  },
+  "region_count": 10,
+  "region_polygon_rings": 12,
+  "region_polygon_vertices": 1368
+}

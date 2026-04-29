@@ -3,21 +3,37 @@
 
 The fixtures (under ``tests/fixtures/floor_ir/<descriptor>/``)
 are the byte-equal parity gate that protects every transition in
-the IR migration plan up to Phase 7. Each fixture carries:
+the IR migration plan up to Phase 7, plus the cross-rasteriser
+parity contract from Phase 8 onward (``design/map_ir.md`` §9.4).
+Each fixture carries:
 
-- ``floor.svg``  — current legacy ``render_floor_svg`` output;
-                   bit-for-bit reference.
-- ``floor.nir``  — IR FlatBuffer (empty until Phase 1 emitter).
-- ``floor.json`` — canonicalised JSON dump of the IR (empty
-                   until Phase 1; produced by
-                   ``nhc.rendering.ir.dump.dump``).
+- ``floor.svg``        — IR-driven SVG output; bit-for-bit
+                         reference.
+- ``floor.nir``        — IR FlatBuffer.
+- ``floor.json``       — canonicalised JSON dump of the IR.
+- ``hatch.svg``        — per-layer relaxed-gate snapshot lock.
+- ``floor_detail.svg`` — per-layer relaxed-gate snapshot lock.
+- ``thematic_detail.svg`` — per-layer relaxed-gate snapshot lock.
+- ``structural.json``  — IR-level structural-invariants snapshot
+                         (op counts, region counts, layer element
+                         counts) that ``test_ir_png_parity.py``
+                         byte-equal checks.
+- ``reference.png``    — canonical tiny-skia rasterisation of the
+                         IR. Frozen reference for the PSNR > 35 dB
+                         pixel-parity gate. **Only regenerated
+                         under ``--regen-reference``** so an
+                         accidental tiny-skia drift surfaces in
+                         CI as a parity failure, not a quietly
+                         updated fixture.
 
 The descriptor encodes the level construction tuple as
 ``<seed>_<shape>_<theme>_<floor_kind>`` so a regression bisects
 to a specific (shape × theme × floor_kind) cell.
 
 Usage:
-    python -m tests.samples.regenerate_fixtures           # write all
+    python -m tests.samples.regenerate_fixtures           # all but reference.png
+    python -m tests.samples.regenerate_fixtures --regen-reference
+                                                          # also rewrite reference.png
     python -m tests.samples.regenerate_fixtures --check   # CI guard
     python -m tests.samples.regenerate_fixtures -k seed42 # filter
 
@@ -104,11 +120,20 @@ def _build_level(fx: Fixture):
     return generate_level(params)
 
 
-def _render_fixture(
-    fx: Fixture,
-) -> tuple[str, bytes, str, str, str, str]:
-    """Build the level and return (svg, nir, json, hatch_svg,
-    floor_detail_svg, thematic_detail_svg) tuple.
+@dataclasses.dataclass(frozen=True, slots=True)
+class _RenderedFixture:
+    svg: str
+    nir: bytes
+    js: str
+    hatch_svg: str
+    floor_detail_svg: str
+    thematic_detail_svg: str
+    structural: str
+    reference_png: bytes
+
+
+def _render_fixture(fx: Fixture) -> _RenderedFixture:
+    """Build the level and return all six artefacts.
 
     Phase 1.k lights up ``nir`` and ``json`` — :func:`build_floor_ir`
     drives the IR pipeline that ``render_floor_svg`` now routes
@@ -120,76 +145,99 @@ def _render_fixture(
     structural invariants + a byte-equal snapshot lock against the
     Rust output. Sub-step 3.f extends the same shape to
     ``floor_detail.svg``; sub-step 4.f to ``thematic_detail.svg``.
+
+    Phase 8.0 pre-step (`design/map_ir.md` §9.4) adds
+    ``structural.json`` (the IR-level invariants snapshot) and
+    ``reference.png`` (the canonical tiny-skia rasterisation that
+    the PSNR > 35 dB pixel-parity gate measures every rasteriser
+    against).
     """
+    import nhc_render
+
     from nhc.rendering.ir.dump import dump
+    from nhc.rendering.ir.structural import dump_structural
     from nhc.rendering.ir_emitter import build_floor_ir
     from nhc.rendering.ir_to_svg import layer_to_svg
 
     level = _build_level(fx)
     svg = render_level_svg(level, seed=fx.seed)
-    nir = build_floor_ir(level, seed=fx.seed)
+    nir = bytes(build_floor_ir(level, seed=fx.seed))
     js = dump(nir)
     hatch_svg = layer_to_svg(nir, layer="hatching")
     floor_detail_svg = layer_to_svg(nir, layer="floor_detail")
     thematic_detail_svg = layer_to_svg(nir, layer="thematic_detail")
-    return svg, nir, js, hatch_svg, floor_detail_svg, thematic_detail_svg
+    structural = dump_structural(nir)
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    return _RenderedFixture(
+        svg=svg,
+        nir=nir,
+        js=js,
+        hatch_svg=hatch_svg,
+        floor_detail_svg=floor_detail_svg,
+        thematic_detail_svg=thematic_detail_svg,
+        structural=structural,
+        reference_png=reference_png,
+    )
 
 
 def _root_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "floor_ir"
 
 
-def _write_fixture(fx: Fixture, root: Path) -> None:
-    (
-        svg, nir, js, hatch_svg, floor_detail_svg, thematic_detail_svg,
-    ) = _render_fixture(fx)
+def _write_fixture(
+    fx: Fixture, root: Path, *, regen_reference: bool,
+) -> None:
+    """Write every fixture artefact for ``fx`` to its directory.
+
+    ``reference.png`` is rewritten only when ``regen_reference`` is
+    True or when the file is missing — its drift is the rasteriser
+    drift the PSNR gate watches, so silent overwriting would defeat
+    the gate.
+    """
+    rendered = _render_fixture(fx)
     out = root / fx.descriptor
     out.mkdir(parents=True, exist_ok=True)
-    (out / "floor.svg").write_text(svg)
-    (out / "floor.nir").write_bytes(nir)
-    (out / "floor.json").write_text(js)
-    (out / "hatch.svg").write_text(hatch_svg)
-    (out / "floor_detail.svg").write_text(floor_detail_svg)
-    (out / "thematic_detail.svg").write_text(thematic_detail_svg)
+    (out / "floor.svg").write_text(rendered.svg)
+    (out / "floor.nir").write_bytes(rendered.nir)
+    (out / "floor.json").write_text(rendered.js)
+    (out / "hatch.svg").write_text(rendered.hatch_svg)
+    (out / "floor_detail.svg").write_text(rendered.floor_detail_svg)
+    (out / "thematic_detail.svg").write_text(rendered.thematic_detail_svg)
+    (out / "structural.json").write_text(rendered.structural)
+    reference_path = out / "reference.png"
+    if regen_reference or not reference_path.exists():
+        reference_path.write_bytes(rendered.reference_png)
 
 
 def _check_fixture(fx: Fixture, root: Path) -> list[str]:
     """Return a list of diff messages for any drift; empty if clean."""
-    (
-        svg, nir, js, hatch_svg, floor_detail_svg, thematic_detail_svg,
-    ) = _render_fixture(fx)
+    rendered = _render_fixture(fx)
     out = root / fx.descriptor
     drifts: list[str] = []
-    svg_path = out / "floor.svg"
-    if not svg_path.exists():
-        drifts.append(f"{fx.descriptor}: floor.svg missing")
-    elif svg_path.read_text() != svg:
-        drifts.append(f"{fx.descriptor}: floor.svg drift")
-    nir_path = out / "floor.nir"
-    if not nir_path.exists():
-        drifts.append(f"{fx.descriptor}: floor.nir missing")
-    elif nir_path.read_bytes() != nir:
-        drifts.append(f"{fx.descriptor}: floor.nir drift")
-    js_path = out / "floor.json"
-    if not js_path.exists():
-        drifts.append(f"{fx.descriptor}: floor.json missing")
-    elif js_path.read_text() != js:
-        drifts.append(f"{fx.descriptor}: floor.json drift")
-    hatch_path = out / "hatch.svg"
-    if not hatch_path.exists():
-        drifts.append(f"{fx.descriptor}: hatch.svg missing")
-    elif hatch_path.read_text() != hatch_svg:
-        drifts.append(f"{fx.descriptor}: hatch.svg drift")
-    fd_path = out / "floor_detail.svg"
-    if not fd_path.exists():
-        drifts.append(f"{fx.descriptor}: floor_detail.svg missing")
-    elif fd_path.read_text() != floor_detail_svg:
-        drifts.append(f"{fx.descriptor}: floor_detail.svg drift")
-    td_path = out / "thematic_detail.svg"
-    if not td_path.exists():
-        drifts.append(f"{fx.descriptor}: thematic_detail.svg missing")
-    elif td_path.read_text() != thematic_detail_svg:
-        drifts.append(f"{fx.descriptor}: thematic_detail.svg drift")
+    text_artefacts: list[tuple[str, str]] = [
+        ("floor.svg", rendered.svg),
+        ("floor.json", rendered.js),
+        ("hatch.svg", rendered.hatch_svg),
+        ("floor_detail.svg", rendered.floor_detail_svg),
+        ("thematic_detail.svg", rendered.thematic_detail_svg),
+        ("structural.json", rendered.structural),
+    ]
+    for name, expected in text_artefacts:
+        path = out / name
+        if not path.exists():
+            drifts.append(f"{fx.descriptor}: {name} missing")
+        elif path.read_text() != expected:
+            drifts.append(f"{fx.descriptor}: {name} drift")
+    binary_artefacts: list[tuple[str, bytes]] = [
+        ("floor.nir", rendered.nir),
+        ("reference.png", rendered.reference_png),
+    ]
+    for name, expected_bytes in binary_artefacts:
+        path = out / name
+        if not path.exists():
+            drifts.append(f"{fx.descriptor}: {name} missing")
+        elif path.read_bytes() != expected_bytes:
+            drifts.append(f"{fx.descriptor}: {name} drift")
     return drifts
 
 
@@ -200,6 +248,14 @@ def main(argv: list[str]) -> int:
         action="store_true",
         help="Verify committed fixtures match a fresh regeneration; "
              "exit non-zero on drift. Used by CI.",
+    )
+    parser.add_argument(
+        "--regen-reference",
+        action="store_true",
+        help="Force regeneration of reference.png. Default behaviour "
+             "writes reference.png only when missing, so an "
+             "accidental tiny-skia drift surfaces as a PSNR gate "
+             "failure rather than a quietly updated fixture.",
     )
     parser.add_argument(
         "-k",
@@ -235,7 +291,7 @@ def main(argv: list[str]) -> int:
         return 0
 
     for fx in selected:
-        _write_fixture(fx, root)
+        _write_fixture(fx, root, regen_reference=args.regen_reference)
         print(f"wrote {fx.descriptor}")
     return 0
 
