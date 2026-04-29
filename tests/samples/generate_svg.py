@@ -46,17 +46,123 @@ from __future__ import annotations
 import argparse
 import json
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass, field as dc_field
 from pathlib import Path
+
+import nhc_render
 
 from nhc.dungeon.generator import GenerationParams
 from nhc.dungeon.generators.bsp import BSPGenerator
 from nhc.dungeon.model import HybridShape, SurfaceType, Terrain
+from nhc.rendering.ir_emitter import build_floor_ir
+from nhc.rendering.ir_to_svg import ir_to_svg
 from nhc.rendering.svg import (
-    CELL, PADDING, render_floor_svg,
+    CELL, PADDING,
     _room_svg_outline, _find_doorless_openings, _outline_with_gaps,
     _room_shapely_polygon,
 )
 from nhc.utils.rng import set_seed
+
+
+# ── IR-driven render helpers ───────────────────────────────────────
+#
+# The sample generator runs every category through the production
+# IR pipeline so each sample produces the exact bytes the web
+# server emits. ``_floor_pair`` builds the IR once and rasterises
+# to both SVG (via ``ir_to_svg``) and PNG (via the Rust tiny-skia
+# rasteriser). ``_save_pair`` writes the matching ``<base>.svg``
+# and ``<base>.png`` files side by side so visual diffs surface
+# IR bugs that show only in one path.
+
+
+def _floor_pair(
+    level, *, seed: int = 0, **kwargs,
+) -> tuple[bytes, str, bytes]:
+    """Build a FloorIR for ``level`` and rasterise both ways.
+
+    Returns ``(buf, svg_text, png_bytes)``. ``kwargs`` forward to
+    :func:`build_floor_ir` (``site=``, ``building_footprint=``,
+    ``building_polygon=``, ``vegetation=``, ``hatch_distance=``).
+    """
+    buf = build_floor_ir(level, seed=seed, **kwargs)
+    svg = ir_to_svg(buf)
+    png = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    return buf, svg, png
+
+
+def _ir_to_pair(buf: bytes) -> tuple[str, bytes]:
+    """Rasterise an existing IR buffer to both SVG and PNG.
+
+    For synthetic IR fixtures (wall + enclosure reference sheets)
+    that hand-build a buffer rather than going through
+    ``build_floor_ir``.
+    """
+    svg = ir_to_svg(buf)
+    png = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    return svg, png
+
+
+def _save_pair(base: Path, svg: str, png: bytes) -> None:
+    """Write ``<base>.svg`` and ``<base>.png`` side by side."""
+    base.with_suffix(".svg").write_text(svg)
+    base.with_suffix(".png").write_bytes(png)
+
+
+# ── Synthetic-IR scaffolding for wall + enclosure references ───────
+#
+# The standalone wall and enclosure reference sheets live entirely
+# inside the IR pipeline: each one builds a ``FloorIR`` buffer with
+# just enough metadata to drive a single primitive (BuildingWallOp,
+# EnclosureOp), then rasterises it through the same ir_to_svg /
+# ir_to_png path the production server uses. The dataclasses below
+# stand in for ``RenderContext`` / ``Level`` / ``Building`` — they
+# carry only the attributes ``FloorIRBuilder.finish()`` and the
+# building-wall emit helpers actually read.
+
+
+@dataclass
+class _DemoLevel:
+    """Minimal Level stand-in: width/height + interior_edges +
+    a no-op ``tile_at``. Matches the test fixtures'
+    ``_StubLevelWithEdges`` shape so emit_building_walls is happy.
+    """
+
+    width: int = 32
+    height: int = 32
+    interior_edges: list[tuple[int, int, str]] = dc_field(
+        default_factory=list,
+    )
+
+    def tile_at(self, x: int, y: int):
+        return None
+
+
+@dataclass
+class _DemoCtx:
+    """Minimal RenderContext stand-in. Only fields
+    ``FloorIRBuilder.finish`` and ``_build_flags`` consume."""
+
+    level: object
+    seed: int = 0
+    theme: str = "dungeon"
+    floor_kind: str = "surface"
+    shadows_enabled: bool = True
+    hatching_enabled: bool = True
+    atmospherics_enabled: bool = True
+    macabre_detail: bool = False
+    vegetation_enabled: bool = True
+    interior_finish: str = ""
+
+
+@dataclass
+class _DemoBuildingForWalls:
+    """Stand-in for ``nhc.dungeon.building.Building`` carrying just
+    the attributes ``emit_building_walls`` reads."""
+
+    base_shape: object
+    base_rect: object
+    wall_material: str = "brick"
+    interior_wall_material: str = "stone"
 
 
 DEFAULT_SEEDS = [7, 42, 99]
@@ -655,7 +761,9 @@ def generate(outdir: Path, seeds: list[int],
             set_seed(seed)
             params = GenerationParams(seed=seed, shape_variety=variety)
             level = gen.generate(params)
-            svg = render_floor_svg(level, seed=seed)
+            _, svg, png = _floor_pair(level, seed=seed)
+            # Debug overlays only land on the SVG; the PNG is the
+            # raw IR rasteriser output (matches the web .png).
             svg = _inject_tile_coords(svg, level)
             svg = _inject_polygon_overlays(svg, level)
             svg = _inject_room_labels(svg, level)
@@ -663,7 +771,7 @@ def generate(outdir: Path, seeds: list[int],
             svg = _inject_corridor_labels(svg, level)
 
             base = outdir / f"sample_seed{seed}_{label}"
-            base.with_suffix(".svg").write_text(svg)
+            _save_pair(base, svg, png)
 
             level_data = _build_level_json(level, seed, variety)
             base.with_suffix(".json").write_text(
@@ -710,9 +818,11 @@ def _render_and_save(
     level, seed: int, base: Path, label: str,
     inject_labels: bool = True,
 ) -> None:
-    """Render a level to SVG with optional debug labels."""
+    """Render a level through the IR pipeline with optional
+    debug labels. Writes ``<base>.svg`` and ``<base>.png``.
+    """
     from nhc.rendering._doors_svg import door_overlay_fragments
-    svg = render_floor_svg(level, seed=seed)
+    _, svg, png = _floor_pair(level, seed=seed)
     door_frags = door_overlay_fragments(level, seed=seed)
     if door_frags:
         svg = svg.replace("</svg>", "".join(door_frags) + "</svg>")
@@ -721,7 +831,7 @@ def _render_and_save(
         svg = _inject_door_labels(svg, level)
         svg = _inject_corridor_labels(svg, level)
         svg = _inject_feature_markers(svg, level)
-    base.with_suffix(".svg").write_text(svg)
+    _save_pair(base, svg, png)
 
     tags = {}
     for room in level.rooms:
@@ -795,21 +905,6 @@ def generate_settlements(outdir: Path, seeds: list[int]) -> None:
 
 # ── Building generator samples ─────────────────────────────────────
 
-def _svg_frame(
-    width_px: int, height_px: int, body: str, bg: str = "#F5EDE0",
-) -> str:
-    """Minimal standalone SVG frame for wall / enclosure demos."""
-    return (
-        f'<?xml version="1.0" encoding="utf-8"?>\n'
-        f'<svg width="{width_px}" height="{height_px}" '
-        f'viewBox="0 0 {width_px} {height_px}" '
-        f'xmlns="http://www.w3.org/2000/svg">\n'
-        f'<rect width="100%" height="100%" fill="{bg}"/>\n'
-        f'{body}\n'
-        f'</svg>\n'
-    )
-
-
 def _xml_escape(s: str) -> str:
     return (
         s.replace("&", "&amp;")
@@ -858,119 +953,170 @@ def _inject_info_panel(
 
 
 def generate_building_walls(outdir: Path) -> None:
-    """Standalone brick / stone wall-run reference sheets."""
-    from nhc.rendering._building_walls import (
-        BRICK_FILL, BRICK_SEAM,
-        MASONRY_CORNER_RADIUS, MASONRY_MEAN_WIDTH,
-        MASONRY_STRIP_COUNT, MASONRY_WALL_THICKNESS,
-        MASONRY_WIDTH_HIGH, MASONRY_WIDTH_LOW,
-        STONE_FILL, STONE_SEAM,
-        render_brick_wall_run, render_stone_wall_run,
+    """Synthetic-IR wall reference sheets — one per
+    (shape × wall_material) combination.
+
+    Each sample builds a minimal ``FloorIR`` with one
+    ``Region(Building)`` plus one ``BuildingExteriorWallOp`` (and
+    a ``BuildingInteriorWallOp`` if interior partitions are
+    requested). The IR routes through ``ir_to_svg`` and
+    ``ir_to_png`` exactly as it would on the production server,
+    so any drift in the masonry primitive shows up identically
+    here.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, LShape, OctagonShape, Rect, RectShape,
+    )
+    from nhc.rendering.ir_emitter import (
+        FloorIRBuilder, emit_building_regions, emit_building_walls,
     )
 
     wdir = outdir / "building_walls"
     wdir.mkdir(parents=True, exist_ok=True)
 
-    for label, fn, fill, stroke in (
-        ("brick", render_brick_wall_run, BRICK_FILL, BRICK_SEAM),
-        ("stone", render_stone_wall_run, STONE_FILL, STONE_SEAM),
-    ):
-        body: list[str] = []
-        # Three horizontal runs at increasing lengths, stacked with
-        # 40px breathing room. Each run uses a distinct seed so the
-        # stagger visibly differs.
-        for i, length in enumerate((120, 240, 360)):
-            y = 40 + i * 30
-            body.extend(fn(30, y, 30 + length, y, seed=7 + i))
-        # Two short vertical runs at x=420, x=470 to show the
-        # perpendicular path.
-        for i, x in enumerate((420, 480)):
-            body.extend(fn(x, 40, x, 40 + 200, seed=21 + i))
-        info = [
-            f"Building wall material: {label}",
-            f"Strip count: {MASONRY_STRIP_COUNT} "
-            "(running-bond courses)",
-            f"Mean unit width: {MASONRY_MEAN_WIDTH} px "
-            f"(jitter {MASONRY_WIDTH_LOW:.2f}-"
-            f"{MASONRY_WIDTH_HIGH:.2f})",
-            f"Wall thickness: {MASONRY_WALL_THICKNESS} px",
-            f"Corner radius: {MASONRY_CORNER_RADIUS} px",
-            f"Fill: {fill}   Stroke: {stroke}",
-            "Fully filled, no missing overlays",
-        ]
-        svg = _svg_frame(560, 280, "".join(body))
-        svg = _inject_info_panel(svg, info)
-        (wdir / f"{label}_wall_reference.svg").write_text(svg)
-        print(f"  {wdir}/{label}_wall_reference.svg")
+    # (label, shape, rect, level_w, level_h)
+    shape_specs: list[tuple[str, object, object, int, int]] = [
+        ("rect",     RectShape(),       Rect(2, 2, 10, 6),  16, 12),
+        ("octagon",  OctagonShape(),    Rect(2, 2, 9, 9),   14, 14),
+        ("circle",   CircleShape(),     Rect(2, 2, 9, 9),   14, 14),
+        ("l_shape",  LShape(corner="se"), Rect(2, 2, 9, 9), 14, 14),
+    ]
+    materials: list[tuple[str, str]] = [
+        ("brick", "stone"),
+        ("stone", "wood"),
+    ]
+    # Interior partition for the rect demos so the
+    # BuildingInteriorWallOp pass is also visible.
+    interior_edges_for_rect: list[tuple[int, int, str]] = [
+        (5, 2, "north"), (5, 3, "north"),
+        (5, 4, "north"), (5, 5, "north"),
+    ]
+
+    for shape_label, shape, rect, lw, lh in shape_specs:
+        for wall_mat, int_mat in materials:
+            edges = (
+                interior_edges_for_rect if shape_label == "rect"
+                else []
+            )
+            builder = FloorIRBuilder(
+                _DemoCtx(level=_DemoLevel(width=lw, height=lh))
+            )
+            building = _DemoBuildingForWalls(
+                base_shape=shape, base_rect=rect,
+                wall_material=wall_mat,
+                interior_wall_material=int_mat,
+            )
+            emit_building_regions(builder, [building])
+            level = _DemoLevel(
+                width=lw, height=lh, interior_edges=edges,
+            )
+            emit_building_walls(
+                builder, building, level,
+                base_seed=42, building_index=0,
+            )
+            buf = builder.finish()
+            svg, png = _ir_to_pair(buf)
+            info = [
+                f"BuildingExteriorWallOp ({wall_mat}) + "
+                f"BuildingInteriorWallOp ({int_mat})",
+                f"Shape: {shape_label} "
+                f"{rect.width}x{rect.height} tiles",
+                f"Interior partitions: {len(edges)} edge(s)",
+                "IR-only render — same path as web /png endpoint",
+            ]
+            svg = _inject_info_panel(svg, info)
+            base = wdir / (
+                f"{shape_label}_{wall_mat}_reference"
+            )
+            _save_pair(base, svg, png)
+            print(f"  {base.name}.{{svg,png}}")
 
 
 def generate_enclosure_demos(outdir: Path) -> None:
-    """Fortification + palisade reference SVGs on a shared polygon."""
-    from nhc.rendering._enclosures import (
-        FORTIFICATION_CORNER_FILL, FORTIFICATION_CORNER_SCALE,
-        FORTIFICATION_CORNER_STYLES, FORTIFICATION_CRENEL_FILL,
-        FORTIFICATION_MERLON_FILL, FORTIFICATION_RATIO,
-        FORTIFICATION_SIZE, FORTIFICATION_STROKE,
-        FORTIFICATION_STROKE_WIDTH,
-        PALISADE_CIRCLE_STEP, PALISADE_DOOR_LENGTH_PX,
-        PALISADE_FILL, PALISADE_RADIUS_JITTER,
-        PALISADE_RADIUS_MAX, PALISADE_RADIUS_MIN,
-        PALISADE_STROKE,
-        render_fortification_enclosure,
-        render_palisade_enclosure,
+    """Synthetic-IR enclosure reference sheets — one per
+    (style × corner × gates) combination.
+
+    Each sample emits a single ``EnclosureOp`` on a shared
+    rectangular polygon and rasterises through the IR pipeline.
+    Mirrors the synthetic_enclosure_* fixtures in
+    tests/fixtures/floor_ir/.
+    """
+    from nhc.rendering.ir_emitter import (
+        FloorIRBuilder, emit_site_enclosure, emit_site_region,
     )
+    from nhc.rendering.ir._fb.CornerStyle import CornerStyle
+    from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
 
     edir = outdir / "enclosures"
     edir.mkdir(parents=True, exist_ok=True)
 
-    # Shared test polygon: a 320x200 rect with one gate on the
-    # bottom edge and one on the right edge.
-    polygon = [(40, 40), (360, 40), (360, 240), (40, 240)]
-    gates = [
-        (2, 0.5, 40.0),  # bottom edge midpoint, 80px-wide gap
-        (1, 0.5, 30.0),  # right edge midpoint, 60px-wide gap
+    # Shared 14×10 tile polygon. Gates (when present) sit on the
+    # bottom edge midpoint and the right edge midpoint.
+    polygon_tiles: list[tuple[float, float]] = [
+        (2.0, 2.0), (16.0, 2.0), (16.0, 12.0), (2.0, 12.0),
+    ]
+    sample_gates: list[tuple[int, float, float]] = [
+        (2, 0.5, 40.0),  # bottom-edge mid, 80px-wide gap
+        (1, 0.5, 30.0),  # right-edge mid, 60px-wide gap
     ]
 
-    # One fortification reference per corner style so the variants
-    # can be eyeballed side by side.
-    for style in FORTIFICATION_CORNER_STYLES:
-        frags = render_fortification_enclosure(
-            polygon, gates=gates, corner_style=style,
+    # (label, style, corner_style, gates)
+    specs: list[tuple[str, int, int, list | None]] = [
+        (
+            "palisade_no_gates",
+            EnclosureStyle.Palisade, CornerStyle.Merlon, None,
+        ),
+        (
+            "palisade_gated",
+            EnclosureStyle.Palisade, CornerStyle.Merlon,
+            sample_gates,
+        ),
+        (
+            "fortification_merlon",
+            EnclosureStyle.Fortification, CornerStyle.Merlon, None,
+        ),
+        (
+            "fortification_diamond_gated",
+            EnclosureStyle.Fortification, CornerStyle.Diamond,
+            sample_gates,
+        ),
+    ]
+
+    for label, style, corner, gates in specs:
+        builder = FloorIRBuilder(
+            _DemoCtx(level=_DemoLevel(width=20, height=14))
+        )
+        emit_site_region(builder, (0, 0, 20, 14))
+        emit_site_enclosure(
+            builder,
+            polygon_tiles=polygon_tiles,
+            style=style,
+            gates=gates,
+            base_seed=7,
+            corner_style=corner,
+        )
+        buf = builder.finish()
+        svg, png = _ir_to_pair(buf)
+        style_name = (
+            "palisade" if style == EnclosureStyle.Palisade
+            else "fortification"
+        )
+        corner_name = (
+            "merlon" if corner == CornerStyle.Merlon
+            else "diamond"
         )
         info = [
-            f"Fortification wall | corner style: {style}",
-            f"Corner fill: {FORTIFICATION_CORNER_FILL} "
-            f"(scale {FORTIFICATION_CORNER_SCALE}x SIZE)",
-            f"Merlon fill: {FORTIFICATION_MERLON_FILL} "
-            f"(size {FORTIFICATION_SIZE} px)",
-            f"Crenel fill: {FORTIFICATION_CRENEL_FILL} "
-            f"(DIN A {FORTIFICATION_RATIO:.3f})",
-            f"Stroke: {FORTIFICATION_STROKE} @ "
-            f"{FORTIFICATION_STROKE_WIDTH} px",
-            "Polygon: 320x200, gates on bottom + right edges",
-            "Edges inset by SIZE/2; chain centered per edge",
+            f"EnclosureOp | style: {style_name} | "
+            f"corner: {corner_name}",
+            "Polygon: 14×10 tiles "
+            "(2,2)-(16,2)-(16,12)-(2,12)",
+            f"Gates: {len(gates) if gates else 0}",
+            "IR-only render — same path as web /png endpoint",
         ]
-        svg = _svg_frame(400, 280, "".join(frags))
         svg = _inject_info_panel(svg, info)
-        path = edir / f"fortification_{style}_reference.svg"
-        path.write_text(svg)
-        print(f"  {path}")
-
-    palisade = render_palisade_enclosure(polygon, gates=gates, seed=5)
-    palisade_info = [
-        "Palisade enclosure",
-        f"Circle radius: {PALISADE_RADIUS_MIN}-{PALISADE_RADIUS_MAX}"
-        f" px (jitter ±{PALISADE_RADIUS_JITTER})",
-        f"Circle step: {PALISADE_CIRCLE_STEP} px (non-overlap)",
-        f"Fill: {PALISADE_FILL}   Stroke: {PALISADE_STROKE}",
-        f"Door length: {PALISADE_DOOR_LENGTH_PX} px "
-        "(gate rects)",
-        "Polygon: 320x200, gates on bottom + right edges",
-    ]
-    svg = _svg_frame(400, 280, "".join(palisade))
-    svg = _inject_info_panel(svg, palisade_info)
-    (edir / "palisade_reference.svg").write_text(svg)
-    print(f"  {edir}/palisade_reference.svg")
+        base = edir / f"{label}_reference"
+        _save_pair(base, svg, png)
+        print(f"  {base.name}.{{svg,png}}")
 
 
 def _make_surface_patch_level(
@@ -1041,10 +1187,10 @@ def generate_surface_samples(outdir: Path) -> None:
         "STREET: cobblestone pattern from legacy renderer",
     ]
     level = _make_surface_patch_level(w=40, h=12, interior_floor="stone")
-    svg = render_floor_svg(level, seed=42)
+    _, svg, png = _floor_pair(level, seed=42)
     svg = _inject_info_panel(svg, stone_info)
-    (sdir / "surface_stone_reference.svg").write_text(svg)
-    print(f"  {sdir}/surface_stone_reference.svg")
+    _save_pair(sdir / "surface_stone_reference", svg, png)
+    print(f"  {sdir}/surface_stone_reference.{{svg,png}}")
 
     wood_info = [
         "Wood (parquet) interior + surface patch demo",
@@ -1058,132 +1204,10 @@ def generate_surface_samples(outdir: Path) -> None:
         "Wood short-circuits street/field/garden passes",
     ]
     level = _make_surface_patch_level(w=40, h=12, interior_floor="wood")
-    svg = render_floor_svg(level, seed=42)
+    _, svg, png = _floor_pair(level, seed=42)
     svg = _inject_info_panel(svg, wood_info)
-    (sdir / "surface_wood_reference.svg").write_text(svg)
-    print(f"  {sdir}/surface_wood_reference.svg")
-
-
-# Roof geometry lives in nhc.rendering._roofs so the game's SVG
-# pipeline can compose rooftops on site-surface SVGs alongside
-# enclosure and door overlays. The sample generator wraps the
-# production helper with a debug-only label pill per building so
-# visual-inspection SVGs keep their dimensional annotations.
-from nhc.rendering._roofs import (
-    _footprint_polygon_px,
-    _roof_mode,
-    building_roof_fragments,
-)
-
-
-def _building_roof_fragments(site, seed: int) -> list[str]:
-    """Sample-side wrapper: production roof fragments plus the
-    debug pill label per building. Call
-    ``nhc.rendering._roofs.building_roof_fragments`` directly from
-    game / production code paths."""
-    frags = list(building_roof_fragments(site, seed))
-    labels: list[str] = []
-    for i, b in enumerate(site.buildings):
-        polygon = _footprint_polygon_px(b)
-        if polygon is None:
-            continue
-        mode = _roof_mode(b)
-        if mode == "skip":
-            continue
-        r = b.base_rect
-        px = PADDING + r.x * CELL
-        py = PADDING + r.y * CELL
-        pw = r.width * CELL
-        ph = r.height * CELL
-        labels.extend(_building_size_label(
-            i, b, type(b.base_shape).__name__, px, py, pw, ph, mode,
-        ))
-    return frags + labels
-
-
-def _building_size_label(
-    i: int, b, shape_name: str,
-    px: float, py: float, pw: float, ph: float, mode: str,
-) -> list[str]:
-    """A small pill+text overlay at the building's centre showing
-    index, shape, tile dimensions, and roof mode."""
-    cx = px + pw / 2
-    cy = py + ph / 2
-    r = b.base_rect
-    text = f"b{i} {shape_name} {r.width}x{r.height} {mode}"
-    char_w = 5.8
-    font_size = 10
-    pill_w = len(text) * char_w + 14
-    pill_h = font_size + 8
-    return [
-        f'<rect x="{cx - pill_w / 2:.1f}" '
-        f'y="{cy - pill_h / 2:.1f}" '
-        f'width="{pill_w:.1f}" height="{pill_h:.1f}" '
-        f'rx="3" fill="rgba(255,255,240,0.88)" '
-        f'stroke="#333" stroke-width="0.4"/>',
-        f'<text x="{cx:.1f}" y="{cy + 3:.1f}" '
-        f'font-family="monospace" font-size="{font_size}" '
-        f'text-anchor="middle" fill="#111">{text}</text>',
-    ]
-
-
-def _enclosure_fragments_for_site(site, seed: int) -> list[str]:
-    """Convert Site.enclosure (tile-coord polygon + tile gates) into
-    SVG fragments from the enclosure renderers.
-
-    The Enclosure dataclass stores gates as (x, y, length_tiles) in
-    tile space; the renderers expect (edge_index, t_center,
-    half_len_px). This helper projects each gate midpoint onto its
-    nearest polygon edge and emits the parametric form.
-    """
-    from nhc.rendering._enclosures import (
-        render_fortification_enclosure,
-        render_palisade_enclosure,
-    )
-    if site.enclosure is None:
-        return []
-    poly_px = [
-        (PADDING + x * CELL, PADDING + y * CELL)
-        for (x, y) in site.enclosure.polygon
-    ]
-    gates_param: list[tuple[int, float, float]] = []
-    for (gx, gy, length_tiles) in site.enclosure.gates:
-        gx_px = PADDING + gx * CELL
-        gy_px = PADDING + gy * CELL
-        # Pick the edge whose midpoint is nearest the gate point.
-        best_idx = 0
-        best_d = float("inf")
-        best_t = 0.5
-        for i in range(len(poly_px)):
-            ax, ay = poly_px[i]
-            bx, by = poly_px[(i + 1) % len(poly_px)]
-            dx, dy = bx - ax, by - ay
-            seg_len_sq = dx * dx + dy * dy
-            if seg_len_sq == 0:
-                continue
-            t = max(0.0, min(1.0, (
-                (gx_px - ax) * dx + (gy_px - ay) * dy
-            ) / seg_len_sq))
-            px = ax + dx * t
-            py = ay + dy * t
-            d = (px - gx_px) ** 2 + (py - gy_px) ** 2
-            if d < best_d:
-                best_d = d
-                best_idx = i
-                best_t = t
-        gates_param.append(
-            (best_idx, best_t, length_tiles * CELL / 2)
-        )
-
-    if site.enclosure.kind == "fortification":
-        return render_fortification_enclosure(
-            poly_px, gates=gates_param,
-        )
-    if site.enclosure.kind == "palisade":
-        return render_palisade_enclosure(
-            poly_px, gates=gates_param, seed=seed,
-        )
-    return []
+    _save_pair(sdir / "surface_wood_reference", svg, png)
+    print(f"  {sdir}/surface_wood_reference.{{svg,png}}")
 
 
 def _make_floor_variants_level(width: int = 44, height: int = 28):
@@ -1262,7 +1286,7 @@ def generate_floor_variants_demo(
             _make_floor_variants_level()
         )
         level.interior_floor = "stone"
-        svg = render_floor_svg(level, seed=seed)
+        _, svg, png = _floor_pair(level, seed=seed)
         # Patch labels.
         label_frags: list[str] = []
         for i, (label, _) in enumerate(cobble_specs):
@@ -1299,9 +1323,13 @@ def generate_floor_variants_demo(
             "decorators differ in stone shape + stroke colour.",
         ]
         svg = _inject_info_panel(svg, info)
-        (fdir / f"floor_cobblestone_variants_seed{seed}.svg").write_text(svg)
+        _save_pair(
+            fdir / f"floor_cobblestone_variants_seed{seed}",
+            svg, png,
+        )
         print(
-            f"  {fdir}/floor_cobblestone_variants_seed{seed}.svg"
+            f"  {fdir}/floor_cobblestone_variants_seed{seed}"
+            ".{svg,png}"
         )
 
         # ── Dedicated OPUS_ROMANO close-up ──────────────
@@ -1333,7 +1361,7 @@ def generate_floor_variants_demo(
                     patch_y0 + dy
                 ][patch_x0 + dx]
                 tile.surface_type = _ST.OPUS_ROMANO
-        svg = render_floor_svg(opus_level, seed=seed)
+        _, svg, png = _floor_pair(opus_level, seed=seed)
         # Single label below the patch.
         label_cx = (
             PADDING + (patch_x0 + opus_patch_w / 2) * CELL
@@ -1373,12 +1401,9 @@ def generate_floor_variants_demo(
             "Stroke: #7A5A3A @ opacity 0.45.",
         ]
         svg = _inject_info_panel(svg, opus_info)
-        (
-            fdir
-            / f"floor_opus_romano_seed{seed}.svg"
-        ).write_text(svg)
+        _save_pair(fdir / f"floor_opus_romano_seed{seed}", svg, png)
         print(
-            f"  {fdir}/floor_opus_romano_seed{seed}.svg"
+            f"  {fdir}/floor_opus_romano_seed{seed}.{{svg,png}}"
         )
 
         # Two-room wood vs stone comparison. Each room is its own
@@ -1398,76 +1423,31 @@ def generate_floor_variants_demo(
             id="all", rect=Rect(0, 0, w, h),
             shape=RectShape(),
         )]
-        rooms_level.interior_floor = "stone"
-        stone_svg = render_floor_svg(rooms_level, seed=seed)
-        rooms_level.interior_floor = "wood"
-        wood_svg = render_floor_svg(rooms_level, seed=seed)
-
-        # Side-by-side composite: take stone SVG, append wood SVG
-        # body shifted right by stone_w + 20. Quick + dirty but
-        # the goal is human inspection, not pixel-perfect layout.
-        import re as _re
-        m_stone = _re.search(
-            r'width="(\d+)" height="(\d+)"', stone_svg,
-        )
-        if m_stone is None:
-            continue
-        stone_w = int(m_stone.group(1))
-        stone_h = int(m_stone.group(2))
-        gap_px = 24
-        composite_w = stone_w * 2 + gap_px
-        # Strip xml decl + opening svg from each, rewrap.
-        body_re = _re.compile(
-            r"<svg[^>]*>(.*?)</svg>", _re.DOTALL,
-        )
-        stone_body = body_re.search(stone_svg)
-        wood_body = body_re.search(wood_svg)
-        if stone_body is None or wood_body is None:
-            continue
-        composite_body = (
-            f'<g>{stone_body.group(1)}</g>'
-            f'<g transform="translate({stone_w + gap_px},0)">'
-            f'{wood_body.group(1)}</g>'
-        )
-        composite = (
-            f'<?xml version="1.0" encoding="utf-8"?>\n'
-            f'<svg width="{composite_w}" height="{stone_h}" '
-            f'viewBox="0 0 {composite_w} {stone_h}" '
-            f'xmlns="http://www.w3.org/2000/svg">\n'
-            f'<rect width="100%" height="100%" fill="#F5EDE0"/>\n'
-            f'{composite_body}\n'
-            f'</svg>\n'
-        )
-        # Add divider line + stone / wood headers.
-        divider = (
-            f'<line x1="{stone_w + gap_px / 2}" y1="0" '
-            f'x2="{stone_w + gap_px / 2}" y2="{stone_h}" '
-            f'stroke="#999" stroke-width="1" '
-            f'stroke-dasharray="6 4"/>'
-            f'<text x="{stone_w / 2}" y="22" '
-            f'font-family="monospace" font-size="14" '
-            f'font-weight="bold" text-anchor="middle" '
-            f'fill="#444">STONE INTERIOR</text>'
-            f'<text x="{stone_w + gap_px + stone_w / 2}" y="22" '
-            f'font-family="monospace" font-size="14" '
-            f'font-weight="bold" text-anchor="middle" '
-            f'fill="#444">WOOD INTERIOR</text>'
-        )
-        composite = composite.replace(
-            "</svg>", divider + "</svg>",
-        )
-        info = [
-            f"Wood vs stone interior | seed={seed}",
-            "Same Level rendered twice with interior_floor flip:",
-            "  left  = stone (cracks, ellipse stones, scratches)",
-            "  right = wood  (parquet planks + grain streaks)",
-            "Wood decorator short-circuits the stone-floor passes.",
-        ]
-        composite = _inject_info_panel(composite, info)
-        (fdir / f"floor_wood_vs_stone_seed{seed}.svg").write_text(composite)
-        print(
-            f"  {fdir}/floor_wood_vs_stone_seed{seed}.svg"
-        )
+        # Two IR pairs (stone + wood) instead of a side-by-side
+        # composite. The composite was SVG-only chrome that mixed
+        # two IRs into one canvas; the IR pipeline produces one
+        # buffer per level, so emitting two separate pairs keeps
+        # each .svg / .png pair pinned to a single IR for accurate
+        # cross-rasteriser comparison.
+        for material in ("stone", "wood"):
+            rooms_level.interior_floor = material
+            _, svg, png = _floor_pair(rooms_level, seed=seed)
+            info = [
+                f"{material.capitalize()} interior | seed={seed}",
+                "Same Level rendered with interior_floor="
+                f"{material!r}.",
+                (
+                    "Wood decorator short-circuits the stone-floor "
+                    "passes."
+                ) if material == "wood" else (
+                    "Stone interior: cracks, ellipse stones, "
+                    "scratches."
+                ),
+            ]
+            svg = _inject_info_panel(svg, info)
+            base = fdir / f"floor_{material}_interior_seed{seed}"
+            _save_pair(base, svg, png)
+            print(f"  {base}.{{svg,png}}")
 
 
 def _make_vegetation_level(
@@ -1576,7 +1556,7 @@ def generate_vegetation_demo(
         cluster_x = [3, 8, 14, 21, 32]
         for x0, size in zip(cluster_x, cluster_sizes):
             _stamp_feature_run(level, x0, 6, size, "tree")
-        svg = render_floor_svg(level, seed=seed)
+        _, svg, png = _floor_pair(level, seed=seed)
         # Per-cluster label below each cluster.
         labels: list[str] = []
         for x0, size in zip(cluster_x, cluster_sizes):
@@ -1597,8 +1577,8 @@ def generate_vegetation_demo(
             "  trunks dropped (fused foliage).",
         ]
         svg = _inject_info_panel(svg, info)
-        (vdir / f"trees_progression_seed{seed}.svg").write_text(svg)
-        print(f"  {vdir}/trees_progression_seed{seed}.svg")
+        _save_pair(vdir / f"trees_progression_seed{seed}", svg, png)
+        print(f"  {vdir}/trees_progression_seed{seed}.{{svg,png}}")
 
         # ── Trees: per-tile hue jitter grid ──────────────────
         # 6x6 grid with 1-tile gaps so canopies never touch and
@@ -1613,7 +1593,7 @@ def generate_vegetation_demo(
                 tx = 1 + gx * gap
                 ty = 1 + gy * gap
                 level.tiles[ty][tx].feature = "tree"
-        svg = render_floor_svg(level, seed=seed)
+        _, svg, png = _floor_pair(level, seed=seed)
         info = [
             f"Per-tile hue jitter grid | seed={seed}",
             f"{grid_n}x{grid_n} isolated trees on a "
@@ -1625,8 +1605,8 @@ def generate_vegetation_demo(
             "  tree nudges colour rather than flipping it.",
         ]
         svg = _inject_info_panel(svg, info)
-        (vdir / f"trees_jitter_grid_seed{seed}.svg").write_text(svg)
-        print(f"  {vdir}/trees_jitter_grid_seed{seed}.svg")
+        _save_pair(vdir / f"trees_jitter_grid_seed{seed}", svg, png)
+        print(f"  {vdir}/trees_jitter_grid_seed{seed}.{{svg,png}}")
 
         # ── Bushes: cluster sizes ───────────────────────────
         level = _make_vegetation_level(40, 14)
@@ -1651,7 +1631,7 @@ def generate_vegetation_demo(
         positions += _stamp_feature_run(level, 25, 7, 1, "bush")
         bush_layouts.append((25, 4, "col x4", positions))
 
-        svg = render_floor_svg(level, seed=seed)
+        _, svg, png = _floor_pair(level, seed=seed)
         labels = []
         for x0, y0, label, _pos in bush_layouts:
             cx = PADDING + (x0 + 1.0) * CELL
@@ -1669,8 +1649,8 @@ def generate_vegetation_demo(
             "Highlight offset (-0.07, -0.07) cell, lit +12% L.",
         ]
         svg = _inject_info_panel(svg, info)
-        (vdir / f"bushes_layouts_seed{seed}.svg").write_text(svg)
-        print(f"  {vdir}/bushes_layouts_seed{seed}.svg")
+        _save_pair(vdir / f"bushes_layouts_seed{seed}", svg, png)
+        print(f"  {vdir}/bushes_layouts_seed{seed}.{{svg,png}}")
 
         # ── Combined cartographer-style scene ────────────────
         level = _make_vegetation_level(40, 22)
@@ -1692,7 +1672,7 @@ def generate_vegetation_demo(
         for (bx, by) in [(11, 8), (15, 11), (35, 5), (3, 16)]:
             level.tiles[by][bx].feature = "bush"
 
-        svg = render_floor_svg(level, seed=seed)
+        _, svg, png = _floor_pair(level, seed=seed)
         info = [
             f"Combined vegetation scene | seed={seed}",
             "Top:  two groves of 4 + one grove of 5 (Shapely",
@@ -1703,8 +1683,10 @@ def generate_vegetation_demo(
             "Cartographer-style: trees fuse, bushes accumulate.",
         ]
         svg = _inject_info_panel(svg, info)
-        (vdir / f"vegetation_combined_seed{seed}.svg").write_text(svg)
-        print(f"  {vdir}/vegetation_combined_seed{seed}.svg")
+        _save_pair(vdir / f"vegetation_combined_seed{seed}", svg, png)
+        print(
+            f"  {vdir}/vegetation_combined_seed{seed}.{{svg,png}}"
+        )
 
 
 def _feature_label_fragment(
@@ -1807,7 +1789,7 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
         for tx, ty in tree_grove:
             level.tiles[ty][tx].feature = "tree"
 
-        svg = render_floor_svg(level, seed=seed)
+        _, svg, png = _floor_pair(level, seed=seed)
 
         # Custom labels below each feature -- avoids the
         # in-feature pill the generic _inject_feature_markers
@@ -1841,8 +1823,8 @@ def generate_well_demo(outdir: Path, seeds: list[int]) -> None:
         svg = _inject_info_panel(svg, info, x=info_x, y=8)
 
         base = wdir / f"well_fountain_demo_seed{seed}"
-        base.with_suffix(".svg").write_text(svg)
-        print(f"  {base.with_suffix('.svg').name}")
+        _save_pair(base, svg, png)
+        print(f"  {base.name}.{{svg,png}}")
 
 
 # ── Sub-hex site samples ───────────────────────────────────────────
@@ -1957,7 +1939,13 @@ def generate_sub_hex_sites(outdir: Path, seeds: list[int]) -> None:
             site = assembler(
                 site_id, rand_mod.Random(seed), **kwargs,
             )
-            svg = render_floor_svg(site.surface, seed=seed)
+            # Sub-hex sites have no buildings or enclosure; passing
+            # ``site=site`` registers a Site region (informative
+            # only) and keeps the IR shape consistent with macro
+            # site samples.
+            _, svg, png = _floor_pair(
+                site.surface, seed=seed, site=site,
+            )
             door_frags = door_overlay_fragments(
                 site.surface, seed=seed,
             )
@@ -1993,20 +1981,30 @@ def generate_sub_hex_sites(outdir: Path, seeds: list[int]) -> None:
             svg = _inject_info_panel(svg, info)
 
             base = sdir / f"{kind}_{label}_seed{seed}"
-            base.with_suffix(".svg").write_text(svg)
-            print(f"  {base.with_suffix('.svg').name}")
+            _save_pair(base, svg, png)
+            print(f"  {base.name}.{{svg,png}}")
 
 
 def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
-    """Render every site kind for each seed.
+    """Render every site kind for each seed through the IR pipeline.
 
     Per site, per seed:
-      <kind>_seed<N>_surface.svg -- outdoor surface + enclosure
-      <kind>_seed<N>_b<bi>_f<fi>.svg -- each building floor
+      <kind>_seed<N>_surface.{svg,png} -- outdoor surface, roofs
+                                          and enclosure emitted as
+                                          IR ops (RoofOp,
+                                          EnclosureOp).
+      <kind>_seed<N>_b<bi>_f<fi>.{svg,png} -- each building floor,
+                                              walls emitted as IR
+                                              ops (Building*WallOp).
+
+    Routing through ``build_floor_ir(level, site=site)`` matches
+    what the production web server emits — the legacy composite
+    overlay path is gone.
     """
     import random as rand_mod
     from nhc.sites._site import SITE_KINDS, assemble_site
-    from nhc.rendering.building import render_building_floor_svg
+    from nhc.rendering._doors_svg import door_overlay_fragments
+    from nhc.rendering.building import _perimeter_polygon
 
     bdir = outdir / "building_sites"
     bdir.mkdir(parents=True, exist_ok=True)
@@ -2016,25 +2014,19 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
             site = assemble_site(
                 kind, f"{kind}_s{seed}", rand_mod.Random(seed),
             )
-            # Surface level with roof + enclosure + door overlay.
-            # Roofs paint building footprints with gradient
-            # shingles; the enclosure (palisade / fortification)
-            # draws on top of roofs so gates remain visible; the
-            # door overlay is sample-only chrome so the wall edges
-            # read correctly outside the game.
-            from nhc.rendering._doors_svg import door_overlay_fragments
-            surface_svg = render_floor_svg(site.surface, seed=seed)
-            roof_frags = _building_roof_fragments(site, seed)
-            enc_frags = _enclosure_fragments_for_site(site, seed)
-            door_frags = door_overlay_fragments(site.surface, seed=seed)
-            overlay = (
-                "".join(roof_frags)
-                + "".join(enc_frags)
-                + "".join(door_frags)
+            # Surface IR includes RoofOp + EnclosureOp via
+            # emit_site_overlays. Door overlay stays as SVG-only
+            # sample chrome so wall edges read clearly outside
+            # the game; the PNG is the raw IR rasterisation.
+            _, surface_svg, surface_png = _floor_pair(
+                site.surface, seed=seed, site=site,
             )
-            if overlay:
+            door_frags = door_overlay_fragments(
+                site.surface, seed=seed,
+            )
+            if door_frags:
                 surface_svg = surface_svg.replace(
-                    "</svg>", overlay + "</svg>",
+                    "</svg>", "".join(door_frags) + "</svg>",
                 )
             enc_kind = (
                 site.enclosure.kind if site.enclosure else "none"
@@ -2063,15 +2055,34 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
                 f"{site.surface.height} tiles",
             ]
             surface_svg = _inject_info_panel(surface_svg, surface_info)
-            base = bdir / f"{kind}_seed{seed}_surface"
-            base.with_suffix(".svg").write_text(surface_svg)
+            _save_pair(
+                bdir / f"{kind}_seed{seed}_surface",
+                surface_svg, surface_png,
+            )
 
             for bi, building in enumerate(site.buildings):
+                # Mirror render_building_floor_svg's footprint /
+                # polygon prep so the IR's wall pass + wood-floor
+                # clip see the same hints the legacy renderer fed
+                # to render_floor_svg.
+                footprint = building.base_shape.floor_tiles(
+                    building.base_rect,
+                )
+                perimeter = _perimeter_polygon(building)
+                if perimeter is not None:
+                    polygon = [
+                        (x - PADDING, y - PADDING)
+                        for x, y in perimeter
+                    ]
+                else:
+                    polygon = None
                 for fi in range(len(building.floors)):
-                    floor_svg = render_building_floor_svg(
-                        building, fi, seed=seed + fi,
-                    )
                     floor = building.floors[fi]
+                    _, floor_svg, floor_png = _floor_pair(
+                        floor, seed=seed + fi, site=site,
+                        building_footprint=footprint,
+                        building_polygon=polygon,
+                    )
                     floor_info = [
                         f"Site: {kind} | seed={seed}",
                         f"Building b{bi} of {len(site.buildings)-1}"
@@ -2093,12 +2104,9 @@ def generate_building_sites(outdir: Path, seeds: list[int]) -> None:
                     floor_svg = _inject_info_panel(
                         floor_svg, floor_info,
                     )
-                    floor_base = (
-                        bdir
-                        / f"{kind}_seed{seed}_b{bi}_f{fi}"
-                    )
-                    floor_base.with_suffix(".svg").write_text(
-                        floor_svg,
+                    _save_pair(
+                        bdir / f"{kind}_seed{seed}_b{bi}_f{fi}",
+                        floor_svg, floor_png,
                     )
 
             bldg_floor_count = sum(
