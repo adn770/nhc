@@ -31,6 +31,8 @@ export { Polygon } from './fb/polygon.js';
 export { RectRoom } from './fb/rect-room.js';
 export { Region } from './fb/region.js';
 export { RegionKind } from './fb/region-kind.js';
+export { RoofOp } from './fb/roof-op.js';
+export { RoofStyle } from './fb/roof-style.js';
 export { RoomWash } from './fb/room-wash.js';
 export { ShadowKind } from './fb/shadow-kind.js';
 export { ShadowOp } from './fb/shadow-op.js';

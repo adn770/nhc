@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 2,
-  "minor": 0,
+  "minor": 1,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,

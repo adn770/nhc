@@ -741,6 +741,94 @@ impl<'a> ::flatbuffers::Verifiable for StairDirection {
 
 impl ::flatbuffers::SimpleToVerifyInSlice for StairDirection {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_ROOF_STYLE: i8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_ROOF_STYLE: i8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_ROOF_STYLE: [RoofStyle; 3] = [
+  RoofStyle::Simple,
+  RoofStyle::Dome,
+  RoofStyle::WitchHat,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct RoofStyle(pub i8);
+#[allow(non_upper_case_globals)]
+impl RoofStyle {
+  pub const Simple: Self = Self(0);
+  pub const Dome: Self = Self(1);
+  pub const WitchHat: Self = Self(2);
+
+  pub const ENUM_MIN: i8 = 0;
+  pub const ENUM_MAX: i8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Simple,
+    Self::Dome,
+    Self::WitchHat,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Simple => Some("Simple"),
+      Self::Dome => Some("Dome"),
+      Self::WitchHat => Some("WitchHat"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for RoofStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for RoofStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<i8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for RoofStyle {
+    type Output = RoofStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<i8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for RoofStyle {
+  type Scalar = i8;
+  #[inline]
+  fn to_little_endian(self) -> i8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: i8) -> Self {
+    let b = i8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for RoofStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    i8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for RoofStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_TERRAIN_KIND: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_TERRAIN_KIND: i8 = 4;
@@ -839,10 +927,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 15;
+pub const ENUM_MAX_OP: u8 = 16;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 16] = [
+pub const ENUM_VALUES_OP: [Op; 17] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -859,6 +947,7 @@ pub const ENUM_VALUES_OP: [Op; 16] = [
   Op::FountainFeatureOp,
   Op::GenericProceduralOp,
   Op::DecoratorOp,
+  Op::RoofOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -882,9 +971,10 @@ impl Op {
   pub const FountainFeatureOp: Self = Self(13);
   pub const GenericProceduralOp: Self = Self(14);
   pub const DecoratorOp: Self = Self(15);
+  pub const RoofOp: Self = Self(16);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 15;
+  pub const ENUM_MAX: u8 = 16;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -902,6 +992,7 @@ impl Op {
     Self::FountainFeatureOp,
     Self::GenericProceduralOp,
     Self::DecoratorOp,
+    Self::RoofOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -922,6 +1013,7 @@ impl Op {
       Self::FountainFeatureOp => Some("FountainFeatureOp"),
       Self::GenericProceduralOp => Some("GenericProceduralOp"),
       Self::DecoratorOp => Some("DecoratorOp"),
+      Self::RoofOp => Some("RoofOp"),
       _ => None,
     }
   }
@@ -6753,6 +6845,153 @@ impl ::core::fmt::Debug for GenericProceduralOp<'_> {
       ds.finish()
   }
 }
+pub enum RoofOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RoofOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for RoofOp<'a> {
+  type Inner = RoofOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> RoofOp<'a> {
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_TINT: ::flatbuffers::VOffsetT = 8;
+  pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    RoofOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args RoofOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<RoofOp<'bldr>> {
+    let mut builder = RoofOpBuilder::new(_fbb);
+    builder.add_rng_seed(args.rng_seed);
+    if let Some(x) = args.tint { builder.add_tint(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RoofOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> RoofStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<RoofStyle>(RoofOp::VT_STYLE, Some(RoofStyle::Simple)).unwrap()}
+  }
+  #[inline]
+  pub fn tint(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(RoofOp::VT_TINT, None)}
+  }
+  #[inline]
+  pub fn rng_seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoofOp::VT_RNG_SEED, Some(0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for RoofOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<RoofStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("tint", Self::VT_TINT, false)?
+     .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RoofOpArgs<'a> {
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub style: RoofStyle,
+    pub tint: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub rng_seed: u64,
+}
+impl<'a> Default for RoofOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    RoofOpArgs {
+      region_ref: None,
+      style: RoofStyle::Simple,
+      tint: None,
+      rng_seed: 0,
+    }
+  }
+}
+
+pub struct RoofOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RoofOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoofOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: RoofStyle) {
+    self.fbb_.push_slot::<RoofStyle>(RoofOp::VT_STYLE, style, RoofStyle::Simple);
+  }
+  #[inline]
+  pub fn add_tint(&mut self, tint: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(RoofOp::VT_TINT, tint);
+  }
+  #[inline]
+  pub fn add_rng_seed(&mut self, rng_seed: u64) {
+    self.fbb_.push_slot::<u64>(RoofOp::VT_RNG_SEED, rng_seed, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RoofOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    RoofOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<RoofOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for RoofOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("RoofOp");
+      ds.field("region_ref", &self.region_ref());
+      ds.field("style", &self.style());
+      ds.field("tint", &self.tint());
+      ds.field("rng_seed", &self.rng_seed());
+      ds.finish()
+  }
+}
 pub enum OpEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -7027,6 +7266,21 @@ impl<'a> OpEntry<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_roof_op(&self) -> Option<RoofOp<'a>> {
+    if self.op_type() == Op::RoofOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { RoofOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for OpEntry<'_> {
@@ -7052,6 +7306,7 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::FountainFeatureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FountainFeatureOp>>("Op::FountainFeatureOp", pos),
           Op::GenericProceduralOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<GenericProceduralOp>>("Op::GenericProceduralOp", pos),
           Op::DecoratorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<DecoratorOp>>("Op::DecoratorOp", pos),
+          Op::RoofOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<RoofOp>>("Op::RoofOp", pos),
           _ => Ok(()),
         }
      })?
@@ -7206,6 +7461,13 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::DecoratorOp => {
           if let Some(x) = self.op_as_decorator_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::RoofOp => {
+          if let Some(x) = self.op_as_roof_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")

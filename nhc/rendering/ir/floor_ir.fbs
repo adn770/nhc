@@ -123,6 +123,18 @@ enum StairDirection: byte {
   Down = 1,
 }
 
+// Phase 8.1 — Per-building roof strategy. Geometry (gable vs
+// pyramid) is derived from the building footprint's shape_tag at
+// render time, so the style enum carries only the *visual* family.
+// Dome / WitchHat are forward-compat slots for keep / tower
+// rooftops; Phase 8.1 ships Simple only and the Rust handler falls
+// back to Simple for the unknown variants.
+enum RoofStyle: byte {
+  Simple = 0,
+  Dome = 1,
+  WitchHat = 2,
+}
+
 // Per-tile terrain identifier used by tint + detail ops. `None`
 // is the absent / non-terrain value.
 enum TerrainKind: byte {
@@ -526,6 +538,22 @@ table GenericProceduralOp {
   groups: [string];
 }
 
+// Phase 8.1 — Per-building shingle roof on a site surface. Joins
+// the `structural` layer (paint order codified in
+// design/map_ir.md §6.1: roofs paint after walls + floors but
+// before tints / hatching). The handler resolves geometry by
+// looking up `region_ref` in `regions[]` and dispatching on the
+// region's `shape_tag` (rect non-square / L → gable; octagon /
+// square / circle → pyramid on N-gon footprint). Circle buildings
+// no longer skip — they paint a pyramid roof on the polygonised
+// footprint Phase 8.1 emits as part of the Building region.
+table RoofOp {
+  region_ref: string;     // -> Region(kind=Building) lookup
+  style: RoofStyle = Simple;
+  tint: string;           // CSS-style hex; mid-sunlit shade
+  rng_seed: uint64;       // base_seed + 0xCAFE + building_index
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
@@ -563,6 +591,7 @@ union Op {
   FountainFeatureOp,
   GenericProceduralOp,
   DecoratorOp,
+  RoofOp,
 }
 
 table OpEntry {
