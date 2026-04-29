@@ -35,6 +35,7 @@ mod hatch;
 mod shadow;
 mod stairs;
 mod terrain_tints;
+mod thematic_detail;
 mod walls_and_floors;
 
 /// Background fill — matches `nhc/rendering/_svg_helpers.py:BG`
@@ -144,6 +145,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::StairsOp.0, stairs::draw);
         m.insert(Op::HatchOp.0, hatch::draw);
         m.insert(Op::FloorDetailOp.0, floor_detail::draw);
+        m.insert(Op::ThematicDetailOp.0, thematic_detail::draw);
         m
     })
 }
