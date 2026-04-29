@@ -31,7 +31,8 @@ from nhc.hexcrawl.coords import HexCoord
 from nhc.hexcrawl.model import FLOWER_COORDS, HexWorld
 from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
-from nhc.rendering.level_svg import render_level_svg
+from nhc.rendering.ir_emitter import build_floor_ir
+from nhc.rendering.ir_to_svg import ir_to_svg
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -1354,11 +1355,13 @@ class WebClient(GameClient):
             )
         else:
             veg = self.vegetation if vegetation is None else vegetation
-            self.floor_svg = render_level_svg(
-                level, site=site,
-                seed=seed, hatch_distance=hatch_distance,
+            self.floor_svg = ir_to_svg(build_floor_ir(
+                level,
+                seed=seed,
+                hatch_distance=hatch_distance,
                 vegetation=veg,
-            )
+                site=site,
+            ))
             self.floor_svg_id = _uuid.uuid4().hex[:12]
             logger.info(
                 "Floor SVG rendered: id=%s (%d bytes) "

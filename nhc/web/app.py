@@ -805,14 +805,16 @@ def create_app(
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 logger.info("Resume: floor SVG from disk cache")
             elif game.level:
-                from nhc.rendering.level_svg import render_level_svg
+                from nhc.rendering.ir_emitter import build_floor_ir
+                from nhc.rendering.ir_to_svg import ir_to_svg
                 seed = game.seed or 0
-                client.floor_svg = render_level_svg(
-                    game.level, site=game._active_site,
+                client.floor_svg = ir_to_svg(build_floor_ir(
+                    game.level,
                     seed=seed,
                     hatch_distance=config.hatch_distance,
                     vegetation=config.vegetation,
-                )
+                    site=game._active_site,
+                ))
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 save_svg_cache(client.floor_svg, _hatch_svg, save_dir)
             if client.floor_svg and game.level:
@@ -1015,15 +1017,17 @@ def create_app(
                 logger.info("Floor SVG from disk cache: %d bytes",
                             len(client.floor_svg))
             elif game.level:
-                from nhc.rendering.level_svg import render_level_svg
+                from nhc.rendering.ir_emitter import build_floor_ir
+                from nhc.rendering.ir_to_svg import ir_to_svg
                 logger.info("Rendering floor SVG...")
                 seed = game.seed or 0
-                client.floor_svg = render_level_svg(
-                    game.level, site=game._active_site,
+                client.floor_svg = ir_to_svg(build_floor_ir(
+                    game.level,
                     seed=seed,
                     hatch_distance=config.hatch_distance,
                     vegetation=config.vegetation,
-                )
+                    site=game._active_site,
+                ))
                 client.floor_svg_id = _uuid.uuid4().hex[:12]
                 logger.info("Floor SVG: %s (%d bytes)",
                             client.floor_svg_id, len(client.floor_svg))
