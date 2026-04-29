@@ -78,7 +78,13 @@ _OPEN_TAG = re.compile(r"<[a-zA-Z]")
 _LAYER_OPS: dict[str, frozenset[int]] = {
     "shadows": frozenset({Op.Op.ShadowOp}),
     "hatching": frozenset({Op.Op.HatchOp}),
-    "structural": frozenset({Op.Op.WallsAndFloorsOp}),
+    "structural": frozenset({
+        Op.Op.WallsAndFloorsOp,
+        # Phase 8.1: per-building roof primitives. Within `ops[]`,
+        # site IRs emit RoofOps after WallsAndFloorsOp so the roof
+        # paints over the floor — see design/map_ir.md §6.1.
+        Op.Op.RoofOp,
+    }),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
     "floor_detail": frozenset({
@@ -1144,3 +1150,274 @@ _OP_HANDLERS[Op.Op.WellFeatureOp] = _draw_well_from_ir
 _OP_HANDLERS[Op.Op.FountainFeatureOp] = _draw_fountain_from_ir
 _OP_HANDLERS[Op.Op.TreeFeatureOp] = _draw_tree_from_ir
 _OP_HANDLERS[Op.Op.BushFeatureOp] = _draw_bush_from_ir
+
+
+# ── RoofOp (Phase 8.1c.1) ───────────────────────────────────────
+#
+# Per-building shingle roof. The handler resolves region_ref to the
+# matching Region(kind=Building), reads its polygon (pixel coords),
+# picks gable / pyramid mode from shape_tag + bbox aspect, and
+# emits a clip-path-bounded shingle running-bond plus ridge lines.
+#
+# Both rasterisers (this Python SVG path and the future tiny-skia
+# port at crates/nhc-render/src/transform/png/roof.rs in 8.1c.2)
+# walk the same splitmix64 stream seeded with RoofOp.rng_seed so
+# their shingle layouts agree at PSNR > 40 dB. The Phase 8.1c.1
+# Python implementation is the *reference* — the Rust port mirrors
+# it constant-for-constant.
+
+
+_ROOF_GOLDEN_GAMMA: int = 0x9E3779B97F4A7C15
+_ROOF_MIX_C1: int = 0xBF58476D1CE4E5B9
+_ROOF_MIX_C2: int = 0x94D049BB133111EB
+_U64_MASK: int = 0xFFFFFFFFFFFFFFFF
+
+
+_ROOF_SHADOW_FACTOR: float = 0.5
+_ROOF_SHINGLE_WIDTH: float = 14.0
+_ROOF_SHINGLE_HEIGHT: float = 5.0
+_ROOF_SHINGLE_JITTER: float = 2.0
+_ROOF_RIDGE_STROKE: str = "#000000"
+_ROOF_RIDGE_WIDTH: float = 1.5
+_ROOF_SHINGLE_STROKE: str = "#000000"
+_ROOF_SHINGLE_STROKE_OPACITY: float = 0.2
+_ROOF_SHINGLE_STROKE_WIDTH: float = 0.3
+
+
+class _SplitMix64:
+    """Stateful splitmix64 — mirrors crates/nhc-render/src/rng.rs.
+
+    The Rust port at 8.1c.2 will pull from a parallel stream
+    seeded with the same ``RoofOp.rng_seed``. Both sides advance
+    state by ``GOLDEN_GAMMA`` each call before the 3-step mix, so
+    ``next_u64`` outputs match value-for-value.
+    """
+
+    __slots__ = ("_state",)
+
+    def __init__(self, seed: int) -> None:
+        self._state = seed & _U64_MASK
+
+    def next_u64(self) -> int:
+        self._state = (self._state + _ROOF_GOLDEN_GAMMA) & _U64_MASK
+        z = self._state
+        z = ((z ^ (z >> 30)) * _ROOF_MIX_C1) & _U64_MASK
+        z = ((z ^ (z >> 27)) * _ROOF_MIX_C2) & _U64_MASK
+        return z ^ (z >> 31)
+
+    def uniform(self, lo: float, hi: float) -> float:
+        return lo + (hi - lo) * (self.next_u64() / 2 ** 64)
+
+    def choice(self, seq: list) -> Any:
+        return seq[self.next_u64() % len(seq)]
+
+
+def _roof_scale_hex(hx: str, factor: float) -> str:
+    r = min(255, max(0, int(int(hx[1:3], 16) * factor)))
+    g = min(255, max(0, int(int(hx[3:5], 16) * factor)))
+    b = min(255, max(0, int(int(hx[5:7], 16) * factor)))
+    return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def _roof_shade_palette(tint: str, *, sunlit: bool) -> list[str]:
+    if sunlit:
+        factors = (1.15, 1.00, 0.88)
+    else:
+        c = _ROOF_SHADOW_FACTOR
+        factors = (c * 1.15, c, c * 0.88)
+    return [_roof_scale_hex(tint, f) for f in factors]
+
+
+def _roof_shingle_region(
+    x: float, y: float, w: float, h: float,
+    shades: list[str], rng: _SplitMix64,
+) -> list[str]:
+    """Running-bond rows of shingle rects filling a bounding box."""
+    sw = _ROOF_SHINGLE_WIDTH
+    sh = _ROOF_SHINGLE_HEIGHT
+    jitter = _ROOF_SHINGLE_JITTER
+    frags: list[str] = []
+    row = 0
+    cy = y
+    while cy < y + h:
+        sx = x - (sw / 2 if row % 2 else 0)
+        while sx < x + w:
+            sw_j = sw + rng.uniform(-jitter, jitter)
+            shade = rng.choice(shades)
+            frags.append(
+                f'<rect x="{sx:.1f}" y="{cy:.1f}" '
+                f'width="{sw_j:.1f}" height="{sh:.1f}" '
+                f'fill="{shade}" '
+                f'stroke="{_ROOF_SHINGLE_STROKE}" '
+                f'stroke-opacity="{_ROOF_SHINGLE_STROKE_OPACITY}" '
+                f'stroke-width="{_ROOF_SHINGLE_STROKE_WIDTH}"/>'
+            )
+            sx += sw_j
+        cy += sh
+        row += 1
+    return frags
+
+
+def _roof_gable_sides(
+    px: float, py: float, pw: float, ph: float,
+    horizontal: bool,
+    sunlit_shades: list[str], shadow_shades: list[str],
+    rng: _SplitMix64,
+) -> list[str]:
+    frags: list[str] = []
+    if horizontal:
+        frags.extend(_roof_shingle_region(
+            px, py, pw, ph / 2, shadow_shades, rng,
+        ))
+        frags.extend(_roof_shingle_region(
+            px, py + ph / 2, pw, ph / 2, sunlit_shades, rng,
+        ))
+        frags.append(
+            f'<line x1="{px:.1f}" y1="{py + ph / 2:.1f}" '
+            f'x2="{px + pw:.1f}" y2="{py + ph / 2:.1f}" '
+            f'stroke="{_ROOF_RIDGE_STROKE}" '
+            f'stroke-width="{_ROOF_RIDGE_WIDTH}"/>'
+        )
+    else:
+        frags.extend(_roof_shingle_region(
+            px, py, pw / 2, ph, shadow_shades, rng,
+        ))
+        frags.extend(_roof_shingle_region(
+            px + pw / 2, py, pw / 2, ph, sunlit_shades, rng,
+        ))
+        frags.append(
+            f'<line x1="{px + pw / 2:.1f}" y1="{py:.1f}" '
+            f'x2="{px + pw / 2:.1f}" y2="{py + ph:.1f}" '
+            f'stroke="{_ROOF_RIDGE_STROKE}" '
+            f'stroke-width="{_ROOF_RIDGE_WIDTH}"/>'
+        )
+    return frags
+
+
+def _roof_pyramid_sides(
+    polygon: list[tuple[float, float]],
+    sunlit_shades: list[str], shadow_shades: list[str],
+    rng: _SplitMix64,
+) -> list[str]:
+    """N triangles from polygon centre, shaded by edge midpoint
+    direction (north / west = shadow, south / east = sunlit), plus
+    ridges from centre to each polygon vertex."""
+    cx = sum(p[0] for p in polygon) / len(polygon)
+    cy = sum(p[1] for p in polygon) / len(polygon)
+    frags: list[str] = []
+    n = len(polygon)
+    for i in range(n):
+        a = polygon[i]
+        b = polygon[(i + 1) % n]
+        mx = (a[0] + b[0]) / 2
+        my = (a[1] + b[1]) / 2
+        is_shadow = my < cy - 1e-3 or (
+            mx < cx - 1e-3 and my < cy + 1e-3
+        )
+        shades = shadow_shades if is_shadow else sunlit_shades
+        fill = rng.choice(shades)
+        pts = (
+            f"{a[0]:.1f},{a[1]:.1f} "
+            f"{b[0]:.1f},{b[1]:.1f} "
+            f"{cx:.1f},{cy:.1f}"
+        )
+        frags.append(
+            f'<polygon points="{pts}" fill="{fill}" '
+            f'stroke="{_ROOF_SHINGLE_STROKE}" '
+            f'stroke-opacity="{_ROOF_SHINGLE_STROKE_OPACITY}" '
+            f'stroke-width="{_ROOF_SHINGLE_STROKE_WIDTH}"/>'
+        )
+    for (vx, vy) in polygon:
+        frags.append(
+            f'<line x1="{cx:.1f}" y1="{cy:.1f}" '
+            f'x2="{vx:.1f}" y2="{vy:.1f}" '
+            f'stroke="{_ROOF_RIDGE_STROKE}" '
+            f'stroke-width="{_ROOF_RIDGE_WIDTH}"/>'
+        )
+    return frags
+
+
+def _roof_geometry_mode(shape_tag: str, polygon: list[tuple[float, float]]) -> str:
+    """Pick "gable" or "pyramid" from shape_tag + footprint bbox.
+
+    Mirrors design/map_ir.md §7.14:
+    - rect non-square / l_shape_*  → gable
+    - rect square / octagon / circle / fallback → pyramid
+    """
+    if shape_tag.startswith("l_shape"):
+        return "gable"
+    if shape_tag == "rect":
+        xs = [p[0] for p in polygon]
+        ys = [p[1] for p in polygon]
+        w = max(xs) - min(xs)
+        h = max(ys) - min(ys)
+        return "pyramid" if abs(w - h) < 1e-6 else "gable"
+    return "pyramid"  # octagon / circle / unknown
+
+
+def _draw_roof_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
+    """Phase 8.1c.1: per-building shingle roof.
+
+    Reads the referenced ``Region(kind=Building)``, picks geometry
+    from its ``shape_tag`` + polygon bbox, and emits a clip-path-
+    bounded roof body. The Python implementation is the reference;
+    the Rust tiny-skia port at 8.1c.2 mirrors the same RNG +
+    constants so PSNR > 40 dB across both rasterisers.
+    """
+    op = OpCreator(entry.OpType(), entry.Op())
+    region_ref = _to_str(op.regionRef)
+    region = _find_region(fir, op.regionRef)
+    if region is None:
+        raise ValueError(
+            f"RoofOp references unknown region {region_ref!r}; "
+            "emit_regions / emit_building_regions must register it"
+        )
+    shape_tag = _to_str(region.ShapeTag())
+    polygon_paths = region.Polygon()
+    if polygon_paths is None or polygon_paths.PathsLength() < 3:
+        raise ValueError(
+            f"RoofOp region {region_ref!r} polygon is empty or "
+            "degenerate; cannot emit roof"
+        )
+    polygon: list[tuple[float, float]] = []
+    for i in range(polygon_paths.PathsLength()):
+        v = polygon_paths.Paths(i)
+        polygon.append((v.X(), v.Y()))
+
+    tint = _to_str(op.tint) or "#8A7A5A"
+    rng = _SplitMix64(int(op.rngSeed))
+    sunlit_shades = _roof_shade_palette(tint, sunlit=True)
+    shadow_shades = _roof_shade_palette(tint, sunlit=False)
+
+    mode = _roof_geometry_mode(shape_tag, polygon)
+    xs = [p[0] for p in polygon]
+    ys = [p[1] for p in polygon]
+    px, py = min(xs), min(ys)
+    pw, ph = max(xs) - px, max(ys) - py
+
+    body: list[str]
+    if mode == "gable":
+        body = _roof_gable_sides(
+            px, py, pw, ph, pw >= ph,
+            sunlit_shades, shadow_shades, rng,
+        )
+    else:
+        body = _roof_pyramid_sides(
+            polygon, sunlit_shades, shadow_shades, rng,
+        )
+
+    # Clip-path id derives from region_ref so the same Building
+    # always yields the same clipPath id — stable across re-emits.
+    clip_id = f"roof_{region_ref.replace('.', '_')}"
+    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in polygon)
+    return [
+        (
+            f'<defs><clipPath id="{clip_id}">'
+            f'<polygon points="{pts}"/>'
+            f'</clipPath></defs>'
+        ),
+        f'<g clip-path="url(#{clip_id})">{"".join(body)}</g>',
+    ]
+
+
+_OP_HANDLERS[Op.Op.RoofOp] = _draw_roof_from_ir

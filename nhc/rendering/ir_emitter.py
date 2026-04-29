@@ -42,9 +42,12 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
+from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PathRange import PathRangeT
 from nhc.rendering.ir._fb.Polygon import PolygonT
 from nhc.rendering.ir._fb.Region import RegionT
+from nhc.rendering.ir._fb.RoofOp import RoofOpT
+from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 from nhc.rendering.ir._fb.Vec2 import Vec2T
 
 
@@ -382,6 +385,77 @@ def emit_site_region(
         polygon=_coords_to_polygon(coords),
         shape_tag="rect",
     )
+
+
+# Roof tint palette — matches `nhc.rendering._roofs.ROOF_TINTS`.
+# `emit_building_roofs` picks one entry per building from a
+# splitmix64 stream seeded with `RoofOp.rng_seed`, so the SVG
+# handler at `_draw_roof_from_ir` and the Rust PNG port pick the
+# same shade.
+_ROOF_TINTS: tuple[str, ...] = (
+    "#8A8A8A",  # cool gray
+    "#8A7A5A",  # warm tan
+    "#8A5A3A",  # terracotta
+    "#5A5048",  # charcoal
+    "#7A5A3A",  # ochre
+)
+
+
+# splitmix64 constants — duplicated from ir_to_svg._SplitMix64 so
+# the emit-side tint pick stays a single import-cycle-free helper.
+# Both constants tables are unit-tested against the Rust crate's
+# rng.rs in the Phase 0 / Phase 4 cross-language vectors.
+_SM64_GOLDEN = 0x9E3779B97F4A7C15
+_SM64_C1 = 0xBF58476D1CE4E5B9
+_SM64_C2 = 0x94D049BB133111EB
+_SM64_MASK = 0xFFFFFFFFFFFFFFFF
+
+
+def _splitmix64_first(seed: int) -> int:
+    """First u64 from a splitmix64 stream seeded with ``seed``."""
+    state = (seed + _SM64_GOLDEN) & _SM64_MASK
+    z = ((state ^ (state >> 30)) * _SM64_C1) & _SM64_MASK
+    z = ((z ^ (z >> 27)) * _SM64_C2) & _SM64_MASK
+    return z ^ (z >> 31)
+
+
+def emit_building_roofs(
+    builder: FloorIRBuilder, buildings: list[Any], base_seed: int,
+) -> None:
+    """Emit one ``RoofOp`` per entry in ``buildings``.
+
+    Each RoofOp's ``rng_seed = base_seed + 0xCAFE + i`` matches the
+    salt list in design/map_ir.md §10. ``tint`` is picked from
+    :data:`_ROOF_TINTS` via a separate splitmix64 stream seeded
+    with ``rng_seed ^ 0xC0FFEE`` so the rasteriser-side stream
+    (seeded with ``rng_seed``) starts cleanly at the shingle-
+    layout phase — no tint-slot offset for rasterisers to skip.
+
+    ``style`` is :data:`RoofStyle.Simple` for every Phase 8.1
+    building. Dome / WitchHat are forward-compat slots; the Rust
+    handler falls back to Simple at render time.
+
+    Pre-condition: corresponding ``Region(kind=Building, id=
+    "building.<i>")`` entries must already be on ``builder.regions``
+    (typically via :func:`emit_building_regions`).
+    """
+    for i, _ in enumerate(buildings):
+        rng_seed = (base_seed + 0xCAFE + i) & _SM64_MASK
+        tint_seed = (rng_seed ^ 0xC0FFEE) & _SM64_MASK
+        tint = _ROOF_TINTS[
+            _splitmix64_first(tint_seed) % len(_ROOF_TINTS)
+        ]
+        op = RoofOpT(
+            regionRef=f"building.{i}",
+            style=RoofStyle.Simple,
+            tint=tint,
+            rngSeed=rng_seed,
+        )
+        entry = OpEntryT()
+        entry.opType = 16  # Op.RoofOp; explicit so this stays
+                           # decoupled from a circular Op import.
+        entry.op = op
+        builder.add_op(entry)
 
 
 def emit_building_regions(

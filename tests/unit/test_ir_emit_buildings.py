@@ -18,13 +18,16 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import RegionKind
+from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 from nhc.rendering.ir_emitter import (
     FloorIRBuilder,
     _building_footprint_polygon_px,
     _CIRCLE_FOOTPRINT_VERTICES,
+    _ROOF_TINTS,
     _collect_building_footprint_mask,
     _point_in_polygon,
     emit_building_regions,
+    emit_building_roofs,
     emit_site_region,
 )
 
@@ -38,15 +41,23 @@ class _StubBuilding:
 
 
 @dataclass
+class _StubLevel:
+    """Tiny Level stand-in with only the fields ``finish()`` reads."""
+
+    width: int = 32
+    height: int = 32
+
+
+@dataclass
 class _StubCtx:
     """Minimal RenderContext stand-in. Only needs `level` for the
     builder's `finish()` call signature; tests that don't call
     finish never touch it."""
 
-    level: object = None
+    level: _StubLevel | None = None
     seed: int = 0
     theme: str = "dungeon"
-    floor_kind: str = "dungeon"
+    floor_kind: str = "surface"
     shadows_enabled: bool = True
     hatching_enabled: bool = True
     atmospherics_enabled: bool = True
@@ -238,3 +249,170 @@ class TestFootprintMask:
         assert (0, 0) not in mask
         # Centre is well inside.
         assert (4, 4) in mask
+
+
+# ── 8.1c.1: emit_building_roofs + IR→SVG synthetic test ────────
+
+
+class TestEmitBuildingRoofs:
+    def _builder(self) -> FloorIRBuilder:
+        return FloorIRBuilder(_StubCtx(level=_StubLevel()))  # type: ignore[arg-type]
+
+    def test_emits_one_roofop_per_building(self) -> None:
+        builder = self._builder()
+        buildings = [
+            _StubBuilding(RectShape(), Rect(2, 3, 5, 4)),
+            _StubBuilding(OctagonShape(), Rect(10, 10, 9, 9)),
+        ]
+        emit_building_regions(builder, buildings)
+        emit_building_roofs(builder, buildings, base_seed=42)
+        assert len(builder.ops) == 2
+        for i, entry in enumerate(builder.ops):
+            assert entry.op.regionRef == f"building.{i}"
+            assert entry.op.style == RoofStyle.Simple
+            assert entry.op.tint in _ROOF_TINTS
+            # rng_seed = base_seed + 0xCAFE + i.
+            assert entry.op.rngSeed == 42 + 0xCAFE + i
+
+    def test_tint_is_deterministic_per_seed(self) -> None:
+        b = _StubBuilding(RectShape(), Rect(0, 0, 4, 4))
+        a = self._builder()
+        emit_building_regions(a, [b])
+        emit_building_roofs(a, [b], base_seed=1234)
+        c = self._builder()
+        emit_building_regions(c, [b])
+        emit_building_roofs(c, [b], base_seed=1234)
+        assert a.ops[0].op.tint == c.ops[0].op.tint
+
+    def test_empty_buildings_no_op(self) -> None:
+        builder = self._builder()
+        emit_building_roofs(builder, [], base_seed=42)
+        assert builder.ops == []
+
+
+class TestRoofIRToSvg:
+    """Synthetic-IR SVG handler test.
+
+    Hand-builds a FloorIR buf with one Building region + one
+    RoofOp, runs ``ir_to_svg``, and pins the structural shape of
+    the output (clipPath defs, clip-bound group, shingle rects,
+    ridge lines). Phase 8.1c.2 lands the matching tiny-skia handler
+    + a PSNR > 40 dB pixel-parity gate against a committed
+    reference.png; this test is the SVG-side gate.
+    """
+
+    def _build_buf(
+        self,
+        building_rect: Rect = Rect(2, 2, 8, 6),
+        seed: int = 7,
+        shape=None,
+    ) -> bytes:
+        from nhc.rendering.ir_emitter import (
+            FloorIRBuilder, emit_building_regions, emit_building_roofs,
+            emit_site_region,
+        )
+        builder = FloorIRBuilder(
+            _StubCtx(level=_StubLevel(width=20, height=20))  # type: ignore[arg-type]
+        )
+        emit_site_region(builder, (0, 0, 20, 20))
+        b = _StubBuilding(shape or RectShape(), building_rect)
+        emit_building_regions(builder, [b])
+        emit_building_roofs(builder, [b], base_seed=seed)
+        return builder.finish()
+
+    def test_buf_round_trips_with_roofop_at_minor_1(self) -> None:
+        from nhc.rendering.ir._fb.FloorIR import FloorIR
+        from nhc.rendering.ir._fb.Op import Op as OpEnum
+        buf = self._build_buf()
+        fir = FloorIR.GetRootAs(buf, 0)
+        assert fir.Major() == 2
+        assert fir.Minor() == 1
+        # 1 Site region + 1 Building region.
+        assert fir.RegionsLength() == 2
+        # 1 RoofOp.
+        assert fir.OpsLength() == 1
+        assert fir.Ops(0).OpType() == OpEnum.RoofOp
+
+    def test_svg_contains_clip_path_defs_and_group(self) -> None:
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf()
+        svg = ir_to_svg(buf)
+        # Layer comment for the structural layer.
+        assert "<!-- layer.structural:" in svg
+        # ClipPath defs anchored on the building's region_ref.
+        assert '<clipPath id="roof_building_0">' in svg
+        # Group references the same clipPath id.
+        assert 'clip-path="url(#roof_building_0)"' in svg
+
+    def test_rect_non_square_emits_gable(self) -> None:
+        """Wide rect → gable: 2 shingle halves + 1 ridge line."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(building_rect=Rect(0, 0, 10, 4))
+        svg = ir_to_svg(buf)
+        # Gable emits exactly one ridge <line>; pyramid emits N
+        # ridge spokes (N == polygon vertex count).
+        assert svg.count(f'stroke-width="1.5"/>') == 1
+
+    def test_rect_square_emits_pyramid(self) -> None:
+        """Square rect → pyramid: 4 triangles + 4 ridge spokes."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(building_rect=Rect(0, 0, 6, 6))
+        svg = ir_to_svg(buf)
+        # 4 polygon spokes from centre.
+        assert svg.count(f'stroke-width="1.5"/>') == 4
+
+    def test_octagon_emits_pyramid(self) -> None:
+        """Octagon footprint → pyramid: 8 triangles + 8 spokes."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(
+            building_rect=Rect(0, 0, 9, 9), shape=OctagonShape(),
+        )
+        svg = ir_to_svg(buf)
+        assert svg.count(f'stroke-width="1.5"/>') == 8
+
+    def test_circle_emits_pyramid(self) -> None:
+        """Circle footprint → pyramid on the polygonised N-gon —
+        Phase 8.1 drops the legacy Circle-skip branch per
+        design/map_ir.md §7.14."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        buf = self._build_buf(
+            building_rect=Rect(0, 0, 8, 8), shape=CircleShape(),
+        )
+        svg = ir_to_svg(buf)
+        # N spokes == _CIRCLE_FOOTPRINT_VERTICES.
+        assert svg.count(f'stroke-width="1.5"/>') == _CIRCLE_FOOTPRINT_VERTICES
+
+    def test_svg_is_deterministic_per_seed(self) -> None:
+        """Same seed -> identical SVG. Both builds run through the
+        full splitmix64 stream; any drift in the RNG, palette, or
+        layout would surface here."""
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        a = ir_to_svg(self._build_buf(seed=99))
+        b = ir_to_svg(self._build_buf(seed=99))
+        assert a == b
+
+    def test_unknown_region_raises(self) -> None:
+        """A RoofOp pointing at a missing region is an emit-side
+        contract violation — the handler must error, not paint
+        nothing silently."""
+        from nhc.rendering.ir._fb.OpEntry import OpEntryT
+        from nhc.rendering.ir._fb.RoofOp import RoofOpT
+        from nhc.rendering.ir._fb.RoofStyle import RoofStyle
+        from nhc.rendering.ir_to_svg import ir_to_svg
+        builder = FloorIRBuilder(
+            _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
+        )
+        # No regions added; RoofOp references a non-existent id.
+        bad = RoofOpT(
+            regionRef="building.0",
+            style=RoofStyle.Simple,
+            tint="#8A8A8A",
+            rngSeed=1,
+        )
+        entry = OpEntryT()
+        entry.opType = 16
+        entry.op = bad
+        builder.add_op(entry)
+        buf = builder.finish()
+        with pytest.raises(ValueError, match="unknown region"):
+            ir_to_svg(buf)
