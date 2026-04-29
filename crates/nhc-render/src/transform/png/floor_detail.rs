@@ -23,6 +23,9 @@ use tiny_skia::{FillRule, Mask};
 
 use crate::ir::{FloorDetailOp, FloorIR, OpEntry};
 use crate::primitives::floor_detail::draw_floor_detail;
+use crate::primitives::wood_floor::{
+    draw_wood_floor, PolyVertex, WoodRoom,
+};
 
 use super::fragment::paint_fragments;
 use super::polygon_path::build_polygon_path;
@@ -38,18 +41,47 @@ pub(super) fn draw(
         None => return,
     };
 
-    // Wood-floor short-circuit — the legacy emitter ships its
-    // own clipPath envelope alongside the per-tile plank
-    // fragments. Phase 5.5 wires the passthrough through the
-    // shared fragment helper; the wood-floor Rust port (Phase 7
-    // cleanup) retires this branch once the walk_and_paint
-    // pipeline is gone.
-    let wood: Vec<String> = op
-        .wood_floor_groups()
-        .map(|v| v.iter().map(String::from).collect())
+    // Wood-floor short-circuit (Phase 9.2c). When any of the
+    // structured fields is populated, dispatch through the
+    // `wood_floor` primitive and short-circuit the regular
+    // floor-detail flow.
+    let wood_rooms: Vec<WoodRoom> = op
+        .wood_rooms()
+        .map(|v| {
+            v.iter()
+                .map(|r| WoodRoom {
+                    x: r.x(),
+                    y: r.y(),
+                    w: r.w(),
+                    h: r.h(),
+                })
+                .collect()
+        })
         .unwrap_or_default();
-    if !wood.is_empty() {
-        paint_fragments(&wood, 1.0, None, ctx);
+    let wood_tiles: Vec<(i32, i32)> = op
+        .wood_tiles()
+        .map(|v| v.iter().map(|t| (t.x(), t.y())).collect())
+        .unwrap_or_default();
+    let wood_polygon: Vec<PolyVertex> = op
+        .wood_building_polygon()
+        .map(|v| {
+            v.iter()
+                .map(|p| PolyVertex {
+                    x: f64::from(p.x()),
+                    y: f64::from(p.y()),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    if !wood_rooms.is_empty()
+        || !wood_tiles.is_empty()
+        || !wood_polygon.is_empty()
+    {
+        let frags = draw_wood_floor(
+            &wood_tiles, &wood_polygon, &wood_rooms, op.seed(),
+        );
+        let clip_mask = build_clip_mask(&op, fir, ctx);
+        paint_fragments(&frags, 1.0, clip_mask.as_ref(), ctx);
         return;
     }
 

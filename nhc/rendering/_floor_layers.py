@@ -727,7 +727,7 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         _is_brick_tile, _is_cobble_tile,
         _is_field_overlay_tile, _is_flagstone_tile,
         _is_opus_romano_tile, _is_ore_tile, _is_track_tile,
-        _render_wood_floor, _track_horizontal_at,
+        _track_horizontal_at,
     )
     from nhc.rendering.ir._fb import CobblePattern, Op
     from nhc.rendering.ir._fb.BrickVariant import BrickVariantT
@@ -757,35 +757,30 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     ctx = builder.ctx
     seed = ctx.seed
     if ctx.interior_finish == "wood":
-        # Wood-floor short-circuit. Phase 9.2a transitional shape:
-        # ship the structured per-tile / per-room / building-
-        # polygon data the upcoming Rust port consumes, alongside
-        # the legacy ``wood_floor_groups`` SVG passthrough that
-        # keeps the byte-equal output gate green through 9.2a.
+        # Wood-floor short-circuit. Phase 9.2c shape: structured
+        # ``wood_tiles`` / ``wood_building_polygon`` / ``wood_rooms``
+        # only; both ir_to_svg and the tiny-skia handler drive the
+        # parquet pattern from these fields. The legacy
+        # ``wood_floor_groups`` passthrough field stays in the FB
+        # schema for one cycle (deleted at the schema 3.0 major
+        # bump per plan §9.3) but no longer ships populated.
         from nhc.rendering.ir._fb.RectRoom import RectRoomT
         from nhc.rendering.ir._fb.TileCoord import TileCoordT
         from nhc.rendering.ir._fb.Vec2 import Vec2T
 
-        wood_out: list[str] = []
         building_polygon = (
             list(ctx.building_polygon)
             if ctx.building_polygon is not None
             else None
         )
-        _render_wood_floor(
-            wood_out, ctx.level, random.Random(seed + 99),
-            ctx.dungeon_poly,
-            building_polygon=building_polygon,
-            ctx=ctx,
-        )
-        if not wood_out:
-            return
         wood_tiles: list[TileCoordT] = []
         if building_polygon is None:
             for y in range(ctx.level.height):
                 for x in range(ctx.level.width):
                     if ctx.level.tiles[y][x].terrain is Terrain.FLOOR:
                         wood_tiles.append(TileCoordT(x=x, y=y))
+        if not wood_tiles and building_polygon is None:
+            return
         wood_rooms: list[RectRoomT] = []
         for room in ctx.level.rooms:
             r = room.rect
@@ -801,7 +796,6 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         op = FloorDetailOpT()
         op.seed = seed + 99
         op.theme = ctx.theme
-        op.woodFloorGroups = wood_out
         op.woodTiles = wood_tiles
         op.woodBuildingPolygon = wood_polygon
         op.woodRooms = wood_rooms
