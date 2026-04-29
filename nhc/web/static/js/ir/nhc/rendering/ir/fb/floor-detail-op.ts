@@ -4,7 +4,9 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { RectRoom } from '../../../../nhc/rendering/ir/fb/rect-room.js';
 import { TileCoord } from '../../../../nhc/rendering/ir/fb/tile-coord.js';
+import { Vec2 } from '../../../../nhc/rendering/ir/fb/vec2.js';
 
 
 export class FloorDetailOp {
@@ -105,8 +107,38 @@ isCorridorArray():Int8Array|null {
   return offset ? new Int8Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
 }
 
+woodTiles(index: number, obj?:TileCoord):TileCoord|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? (obj || new TileCoord()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+woodTilesLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+woodBuildingPolygon(index: number, obj?:Vec2):Vec2|null {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? (obj || new Vec2()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 8, this.bb!) : null;
+}
+
+woodBuildingPolygonLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 22);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
+woodRooms(index: number, obj?:RectRoom):RectRoom|null {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? (obj || new RectRoom()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+woodRoomsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startFloorDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(11);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -193,12 +225,44 @@ static startIsCorridorVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(1, numElems, 1);
 }
 
+static addWoodTiles(builder:flatbuffers.Builder, woodTilesOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, woodTilesOffset, 0);
+}
+
+static startWoodTilesVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addWoodBuildingPolygon(builder:flatbuffers.Builder, woodBuildingPolygonOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(9, woodBuildingPolygonOffset, 0);
+}
+
+static startWoodBuildingPolygonVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(8, numElems, 4);
+}
+
+static addWoodRooms(builder:flatbuffers.Builder, woodRoomsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(10, woodRoomsOffset, 0);
+}
+
+static createWoodRoomsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startWoodRoomsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endFloorDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, woodFloorGroupsOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, roomGroupsOffset:flatbuffers.Offset, corridorGroupsOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, woodFloorGroupsOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, woodTilesOffset:flatbuffers.Offset, woodBuildingPolygonOffset:flatbuffers.Offset, woodRoomsOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorDetailOp.startFloorDetailOp(builder);
   FloorDetailOp.addTiles(builder, tilesOffset);
   FloorDetailOp.addSeed(builder, seed);
@@ -208,6 +272,9 @@ static createFloorDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.
   FloorDetailOp.addClipRegion(builder, clipRegionOffset);
   FloorDetailOp.addWoodFloorGroups(builder, woodFloorGroupsOffset);
   FloorDetailOp.addIsCorridor(builder, isCorridorOffset);
+  FloorDetailOp.addWoodTiles(builder, woodTilesOffset);
+  FloorDetailOp.addWoodBuildingPolygon(builder, woodBuildingPolygonOffset);
+  FloorDetailOp.addWoodRooms(builder, woodRoomsOffset);
   return FloorDetailOp.endFloorDetailOp(builder);
 }
 }

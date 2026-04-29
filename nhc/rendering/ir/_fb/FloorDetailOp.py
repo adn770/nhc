@@ -160,8 +160,81 @@ class FloorDetailOp(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(18))
         return o == 0
 
+    # FloorDetailOp
+    def WoodTiles(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 8
+            from nhc.rendering.ir._fb.TileCoord import TileCoord
+            obj = TileCoord()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # FloorDetailOp
+    def WoodTilesLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorDetailOp
+    def WoodTilesIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        return o == 0
+
+    # FloorDetailOp
+    def WoodBuildingPolygon(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 8
+            from nhc.rendering.ir._fb.Vec2 import Vec2
+            obj = Vec2()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # FloorDetailOp
+    def WoodBuildingPolygonLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorDetailOp
+    def WoodBuildingPolygonIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
+        return o == 0
+
+    # FloorDetailOp
+    def WoodRooms(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
+            x = self._tab.Indirect(x)
+            from nhc.rendering.ir._fb.RectRoom import RectRoom
+            obj = RectRoom()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # FloorDetailOp
+    def WoodRoomsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # FloorDetailOp
+    def WoodRoomsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        return o == 0
+
 def FloorDetailOpStart(builder):
-    builder.StartObject(8)
+    builder.StartObject(11)
 
 def Start(builder):
     FloorDetailOpStart(builder)
@@ -244,13 +317,51 @@ def FloorDetailOpStartIsCorridorVector(builder, numElems):
 def StartIsCorridorVector(builder, numElems):
     return FloorDetailOpStartIsCorridorVector(builder, numElems)
 
+def FloorDetailOpAddWoodTiles(builder, woodTiles):
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(woodTiles), 0)
+
+def AddWoodTiles(builder, woodTiles):
+    FloorDetailOpAddWoodTiles(builder, woodTiles)
+
+def FloorDetailOpStartWoodTilesVector(builder, numElems):
+    return builder.StartVector(8, numElems, 4)
+
+def StartWoodTilesVector(builder, numElems):
+    return FloorDetailOpStartWoodTilesVector(builder, numElems)
+
+def FloorDetailOpAddWoodBuildingPolygon(builder, woodBuildingPolygon):
+    builder.PrependUOffsetTRelativeSlot(9, flatbuffers.number_types.UOffsetTFlags.py_type(woodBuildingPolygon), 0)
+
+def AddWoodBuildingPolygon(builder, woodBuildingPolygon):
+    FloorDetailOpAddWoodBuildingPolygon(builder, woodBuildingPolygon)
+
+def FloorDetailOpStartWoodBuildingPolygonVector(builder, numElems):
+    return builder.StartVector(8, numElems, 4)
+
+def StartWoodBuildingPolygonVector(builder, numElems):
+    return FloorDetailOpStartWoodBuildingPolygonVector(builder, numElems)
+
+def FloorDetailOpAddWoodRooms(builder, woodRooms):
+    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(woodRooms), 0)
+
+def AddWoodRooms(builder, woodRooms):
+    FloorDetailOpAddWoodRooms(builder, woodRooms)
+
+def FloorDetailOpStartWoodRoomsVector(builder, numElems):
+    return builder.StartVector(4, numElems, 4)
+
+def StartWoodRoomsVector(builder, numElems):
+    return FloorDetailOpStartWoodRoomsVector(builder, numElems)
+
 def FloorDetailOpEnd(builder):
     return builder.EndObject()
 
 def End(builder):
     return FloorDetailOpEnd(builder)
 
+import nhc.rendering.ir._fb.RectRoom
 import nhc.rendering.ir._fb.TileCoord
+import nhc.rendering.ir._fb.Vec2
 try:
     from typing import List
 except:
@@ -269,6 +380,9 @@ class FloorDetailOpT(object):
         clipRegion = None,
         woodFloorGroups = None,
         isCorridor = None,
+        woodTiles = None,
+        woodBuildingPolygon = None,
+        woodRooms = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
@@ -278,6 +392,9 @@ class FloorDetailOpT(object):
         self.clipRegion = clipRegion  # type: Optional[str]
         self.woodFloorGroups = woodFloorGroups  # type: Optional[List[Optional[str]]]
         self.isCorridor = isCorridor  # type: Optional[List[bool]]
+        self.woodTiles = woodTiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
+        self.woodBuildingPolygon = woodBuildingPolygon  # type: Optional[List[nhc.rendering.ir._fb.Vec2.Vec2T]]
+        self.woodRooms = woodRooms  # type: Optional[List[nhc.rendering.ir._fb.RectRoom.RectRoomT]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -330,6 +447,30 @@ class FloorDetailOpT(object):
                     self.isCorridor.append(floorDetailOp.IsCorridor(i))
             else:
                 self.isCorridor = floorDetailOp.IsCorridorAsNumpy()
+        if not floorDetailOp.WoodTilesIsNone():
+            self.woodTiles = []
+            for i in range(floorDetailOp.WoodTilesLength()):
+                if floorDetailOp.WoodTiles(i) is None:
+                    self.woodTiles.append(None)
+                else:
+                    tileCoord_ = nhc.rendering.ir._fb.TileCoord.TileCoordT.InitFromObj(floorDetailOp.WoodTiles(i))
+                    self.woodTiles.append(tileCoord_)
+        if not floorDetailOp.WoodBuildingPolygonIsNone():
+            self.woodBuildingPolygon = []
+            for i in range(floorDetailOp.WoodBuildingPolygonLength()):
+                if floorDetailOp.WoodBuildingPolygon(i) is None:
+                    self.woodBuildingPolygon.append(None)
+                else:
+                    vec2_ = nhc.rendering.ir._fb.Vec2.Vec2T.InitFromObj(floorDetailOp.WoodBuildingPolygon(i))
+                    self.woodBuildingPolygon.append(vec2_)
+        if not floorDetailOp.WoodRoomsIsNone():
+            self.woodRooms = []
+            for i in range(floorDetailOp.WoodRoomsLength()):
+                if floorDetailOp.WoodRooms(i) is None:
+                    self.woodRooms.append(None)
+                else:
+                    rectRoom_ = nhc.rendering.ir._fb.RectRoom.RectRoomT.InitFromObj(floorDetailOp.WoodRooms(i))
+                    self.woodRooms.append(rectRoom_)
 
     # FloorDetailOpT
     def Pack(self, builder):
@@ -374,6 +515,24 @@ class FloorDetailOpT(object):
                 for i in reversed(range(len(self.isCorridor))):
                     builder.PrependBool(self.isCorridor[i])
                 isCorridor = builder.EndVector()
+        if self.woodTiles is not None:
+            FloorDetailOpStartWoodTilesVector(builder, len(self.woodTiles))
+            for i in reversed(range(len(self.woodTiles))):
+                self.woodTiles[i].Pack(builder)
+            woodTiles = builder.EndVector()
+        if self.woodBuildingPolygon is not None:
+            FloorDetailOpStartWoodBuildingPolygonVector(builder, len(self.woodBuildingPolygon))
+            for i in reversed(range(len(self.woodBuildingPolygon))):
+                self.woodBuildingPolygon[i].Pack(builder)
+            woodBuildingPolygon = builder.EndVector()
+        if self.woodRooms is not None:
+            woodRoomslist = []
+            for i in range(len(self.woodRooms)):
+                woodRoomslist.append(self.woodRooms[i].Pack(builder))
+            FloorDetailOpStartWoodRoomsVector(builder, len(self.woodRooms))
+            for i in reversed(range(len(self.woodRooms))):
+                builder.PrependUOffsetTRelative(woodRoomslist[i])
+            woodRooms = builder.EndVector()
         FloorDetailOpStart(builder)
         if self.tiles is not None:
             FloorDetailOpAddTiles(builder, tiles)
@@ -390,5 +549,11 @@ class FloorDetailOpT(object):
             FloorDetailOpAddWoodFloorGroups(builder, woodFloorGroups)
         if self.isCorridor is not None:
             FloorDetailOpAddIsCorridor(builder, isCorridor)
+        if self.woodTiles is not None:
+            FloorDetailOpAddWoodTiles(builder, woodTiles)
+        if self.woodBuildingPolygon is not None:
+            FloorDetailOpAddWoodBuildingPolygon(builder, woodBuildingPolygon)
+        if self.woodRooms is not None:
+            FloorDetailOpAddWoodRooms(builder, woodRooms)
         floorDetailOp = FloorDetailOpEnd(builder)
         return floorDetailOp

@@ -757,10 +757,15 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
     ctx = builder.ctx
     seed = ctx.seed
     if ctx.interior_finish == "wood":
-        # Wood-floor short-circuit. The legacy renderer takes its
-        # own seeded rng + clip-path envelope, so we just stash
-        # the produced fragments and emit the op early; the
-        # handler's per-bucket dispatch is bypassed.
+        # Wood-floor short-circuit. Phase 9.2a transitional shape:
+        # ship the structured per-tile / per-room / building-
+        # polygon data the upcoming Rust port consumes, alongside
+        # the legacy ``wood_floor_groups`` SVG passthrough that
+        # keeps the byte-equal output gate green through 9.2a.
+        from nhc.rendering.ir._fb.RectRoom import RectRoomT
+        from nhc.rendering.ir._fb.TileCoord import TileCoordT
+        from nhc.rendering.ir._fb.Vec2 import Vec2T
+
         wood_out: list[str] = []
         building_polygon = (
             list(ctx.building_polygon)
@@ -775,11 +780,39 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         )
         if not wood_out:
             return
+        wood_tiles: list[TileCoordT] = []
+        if building_polygon is None:
+            for y in range(ctx.level.height):
+                for x in range(ctx.level.width):
+                    if ctx.level.tiles[y][x].terrain is Terrain.FLOOR:
+                        wood_tiles.append(TileCoordT(x=x, y=y))
+        wood_rooms: list[RectRoomT] = []
+        for room in ctx.level.rooms:
+            r = room.rect
+            wood_rooms.append(RectRoomT(
+                x=r.x, y=r.y, w=r.width, h=r.height,
+            ))
+        wood_polygon: list[Vec2T] = []
+        if building_polygon is not None:
+            wood_polygon = [
+                Vec2T(x=float(px), y=float(py))
+                for (px, py) in building_polygon
+            ]
         op = FloorDetailOpT()
         op.seed = seed + 99
         op.theme = ctx.theme
         op.woodFloorGroups = wood_out
-        op.clipRegion = ""
+        op.woodTiles = wood_tiles
+        op.woodBuildingPolygon = wood_polygon
+        op.woodRooms = wood_rooms
+        op.clipRegion = (
+            "dungeon"
+            if (
+                ctx.dungeon_poly is not None
+                and not ctx.dungeon_poly.is_empty
+            )
+            else ""
+        )
         entry = OpEntryT()
         entry.opType = Op.Op.FloorDetailOp
         entry.op = op

@@ -482,7 +482,11 @@ table FloorDetailOp {
   // Phase 1.l addition: the wood-floor short-circuit. When
   // populated, wood_floor_groups replaces the room/corridor
   // passes entirely (the wood emitter renders its own clipPath
-  // envelope). Pending the wood-floor Rust port.
+  // envelope). Phase 9.2 deprecated this field — `wood_tiles`,
+  // `wood_building_polygon` and `wood_rooms` carry the
+  // structured data the painter consumes. Stays in the schema
+  // for one cycle; deleted at the schema 3.0 major bump
+  // (plan §9.3).
   wood_floor_groups: [string];
   // Sub-step 3.b parallel-array addition: per-tile
   // corridor / door classification, parallel to tiles[]. Mirrors
@@ -493,6 +497,22 @@ table FloorDetailOp {
   // populates it; the painter falls back to the level-walk
   // classification when empty.
   is_corridor: [bool];
+  // Phase 9.2 wood-floor structured fields. Populated only when
+  // the wood-floor short-circuit fires (`ctx.interior_finish ==
+  // "wood"`). The non-wood floor-detail path leaves them empty.
+  //
+  // - `wood_tiles` carries every FLOOR tile in row-major order so
+  //   the rect-fill pass can paint the per-tile base colour
+  //   (skipped when `wood_building_polygon` is non-empty — the
+  //   building polygon already covers the whole footprint).
+  // - `wood_building_polygon` is the chamfer / curved-wall outer
+  //   outline for octagon and circle building floors. Empty when
+  //   the floor is rect-shaped.
+  // - `wood_rooms` is the per-room rect list driving the parquet
+  //   plank and grain generators (one strip pattern per room).
+  wood_tiles: [TileCoord];
+  wood_building_polygon: [Vec2];
+  wood_rooms: [RectRoom];
 }
 
 // Layer 500b — thematic detail (webs, bone piles, skulls).
