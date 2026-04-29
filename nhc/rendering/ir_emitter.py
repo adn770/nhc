@@ -27,7 +27,9 @@ from typing import Any, Callable
 import flatbuffers
 
 from nhc.dungeon.generators.cellular import CaveShape
-from nhc.dungeon.model import OctagonShape, RectShape
+from nhc.dungeon.model import (
+    CircleShape, LShape, OctagonShape, RectShape,
+)
 from nhc.rendering._cave_geometry import (
     _build_cave_wall_geometry, _trace_cave_boundary_coords,
 )
@@ -248,6 +250,223 @@ def _room_region_data(
     # Pill / Temple / LShape / Cross / Hybrid / Circle — unsupported
     # in 1.b.2; the starter fixtures don't include them.
     return None
+
+
+# ── Phase 8.1: Site / Building region emit + footprint mask ────
+
+
+# Sample count for the polygonised circle building footprint. 24 is
+# coarse enough to stay cheap (24 polygon vertices, 24 mask scans
+# per axis) and fine enough that the pyramid roof's RoofStyle.Simple
+# render visually approximates a circle. Adjust if shingle running-
+# bond on a 24-gon shows visible facets at fixture scale.
+_CIRCLE_FOOTPRINT_VERTICES: int = 24
+
+
+def _building_footprint_polygon_px(
+    building: Any,
+) -> list[tuple[float, float]]:
+    """Outer footprint polygon for ``building`` in pixel coords.
+
+    Mirrors :func:`nhc.rendering._roofs._footprint_polygon_px` for
+    rect / octagon / L shapes. Phase 8.1 extends to circles
+    (polygonised at :data:`_CIRCLE_FOOTPRINT_VERTICES` samples) so
+    Circle buildings no longer skip — they paint a pyramid roof on
+    the polygonised N-gon footprint per design/map_ir.md §7.14.
+
+    Returns a list of ``(x, y)`` pixel-coord vertices, no closing
+    duplicate.
+    """
+    shape = building.base_shape
+    r = building.base_rect
+
+    def _tp(tx: float, ty: float) -> tuple[float, float]:
+        return (PADDING + tx * CELL, PADDING + ty * CELL)
+
+    if isinstance(shape, RectShape):
+        return [
+            _tp(r.x, r.y), _tp(r.x2, r.y),
+            _tp(r.x2, r.y2), _tp(r.x, r.y2),
+        ]
+    if isinstance(shape, LShape):
+        notch = shape._notch_rect(r)
+        x0, y0, x1, y1 = r.x, r.y, r.x2, r.y2
+        nx0, ny0, nx1, ny1 = (
+            notch.x, notch.y, notch.x2, notch.y2,
+        )
+        if shape.corner == "nw":
+            return [
+                _tp(nx1, y0), _tp(x1, y0),
+                _tp(x1, y1), _tp(x0, y1),
+                _tp(x0, ny1), _tp(nx1, ny1),
+            ]
+        if shape.corner == "ne":
+            return [
+                _tp(x0, y0), _tp(nx0, y0),
+                _tp(nx0, ny1), _tp(x1, ny1),
+                _tp(x1, y1), _tp(x0, y1),
+            ]
+        if shape.corner == "sw":
+            return [
+                _tp(x0, y0), _tp(x1, y0),
+                _tp(x1, y1), _tp(nx1, y1),
+                _tp(nx1, ny0), _tp(x0, ny0),
+            ]
+        # "se"
+        return [
+            _tp(x0, y0), _tp(x1, y0),
+            _tp(x1, ny0), _tp(nx0, ny0),
+            _tp(nx0, y1), _tp(x0, y1),
+        ]
+    if isinstance(shape, OctagonShape):
+        clip = max(1, min(r.width, r.height) // 3)
+        return [
+            _tp(r.x + clip, r.y),
+            _tp(r.x2 - clip, r.y),
+            _tp(r.x2, r.y + clip),
+            _tp(r.x2, r.y2 - clip),
+            _tp(r.x2 - clip, r.y2),
+            _tp(r.x + clip, r.y2),
+            _tp(r.x, r.y2 - clip),
+            _tp(r.x, r.y + clip),
+        ]
+    if isinstance(shape, CircleShape):
+        # Polygonise the inscribed circle at uniformly-spaced angles.
+        # Centre is the rect centre in pixel coords; radius derives
+        # from the same ``_diameter`` helper the tile rasteriser
+        # uses, so the polygon visually wraps the actual floor tiles.
+        import math
+        d = shape._diameter(r)
+        radius_px = (d / 2.0) * CELL
+        cx_px = PADDING + (r.x + r.width / 2.0) * CELL
+        cy_px = PADDING + (r.y + r.height / 2.0) * CELL
+        n = _CIRCLE_FOOTPRINT_VERTICES
+        return [
+            (
+                cx_px + radius_px * math.cos(2 * math.pi * i / n),
+                cy_px + radius_px * math.sin(2 * math.pi * i / n),
+            )
+            for i in range(n)
+        ]
+    raise ValueError(
+        f"unsupported Building base_shape for footprint polygon: "
+        f"{type(shape).__name__}"
+    )
+
+
+def emit_site_region(
+    builder: FloorIRBuilder, site_bounds_tiles: tuple[int, int, int, int],
+) -> None:
+    """Register the ``site`` Region for a surface IR.
+
+    ``site_bounds_tiles`` is ``(x, y, w, h)`` in tile coords. The
+    polygon is the pixel-space rect covering those tiles. id is the
+    constant ``"site"``; ``RoofOp`` references buildings, not the
+    site, so the Site region is purely informative — drives
+    enclosure / fortification placement at later sub-phases.
+    """
+    x, y, w, h = site_bounds_tiles
+    px = PADDING + x * CELL
+    py = PADDING + y * CELL
+    pw = w * CELL
+    ph = h * CELL
+    coords = [
+        (float(px), float(py)),
+        (float(px + pw), float(py)),
+        (float(px + pw), float(py + ph)),
+        (float(px), float(py + ph)),
+    ]
+    builder.add_region(
+        id="site",
+        kind=RegionKind.RegionKind.Site,
+        polygon=_coords_to_polygon(coords),
+        shape_tag="rect",
+    )
+
+
+def emit_building_regions(
+    builder: FloorIRBuilder, buildings: list[Any],
+) -> None:
+    """Register one ``Region(kind=Building)`` per entry in ``buildings``.
+
+    ids are ``"building.<i>"`` so subsequent ``RoofOp`` /
+    ``BuildingExteriorWallOp`` / ``BuildingInteriorWallOp`` entries
+    reference the matching footprint by index. ``shape_tag`` is the
+    base shape's ``type_name`` (``"rect"`` / ``"circle"`` /
+    ``"octagon"`` / ``"l_shape_*"``); the rasteriser dispatches
+    geometry from this string.
+    """
+    for i, b in enumerate(buildings):
+        polygon = _building_footprint_polygon_px(b)
+        coords = [(float(x), float(y)) for x, y in polygon]
+        builder.add_region(
+            id=f"building.{i}",
+            kind=RegionKind.RegionKind.Building,
+            polygon=_coords_to_polygon(coords),
+            shape_tag=b.base_shape.type_name,
+        )
+
+
+def _point_in_polygon(
+    px: float, py: float, polygon: list[tuple[float, float]],
+) -> bool:
+    """Even-odd ray casting. Cheap; allocation-free."""
+    inside = False
+    n = len(polygon)
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > py) != (yj > py)) and (
+            px < (xj - xi) * (py - yi) / (yj - yi + 1e-12) + xi
+        ):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _collect_building_footprint_mask(
+    regions: list[RegionT],
+) -> set[tuple[int, int]]:
+    """Tiles inside any ``Region(kind=Building)`` polygon.
+
+    Used by floor-paint primitives (terrain_tints, floor_grid,
+    floor_detail, terrain_detail, thematic_detail) to skip emit-time
+    tile candidates whose centres fall inside a Building footprint.
+    Roof + building-wall + building-floor ops own those tiles
+    instead — see design/map_ir.md §6 for the layered ownership.
+
+    Walks each Building region's bounding box in tile coords and
+    point-in-polygon-tests each tile centre against the polygon.
+    O(buildings × bbox_tiles); the starter site fixtures top out
+    at ~40 buildings × ~25 tiles each = 1000 tests, well below
+    perceptible.
+    """
+    mask: set[tuple[int, int]] = set()
+    for region in regions:
+        if region.kind != RegionKind.RegionKind.Building:
+            continue
+        if region.polygon is None:
+            continue
+        coords = [(v.x, v.y) for v in region.polygon.paths]
+        if len(coords) < 3:
+            continue
+        # Tile bbox covering the polygon.
+        min_x_px = min(c[0] for c in coords)
+        max_x_px = max(c[0] for c in coords)
+        min_y_px = min(c[1] for c in coords)
+        max_y_px = max(c[1] for c in coords)
+        x0 = int((min_x_px - PADDING) // CELL)
+        x1 = int((max_x_px - PADDING) // CELL) + 1
+        y0 = int((min_y_px - PADDING) // CELL)
+        y1 = int((max_y_px - PADDING) // CELL) + 1
+        for ty in range(y0, y1 + 1):
+            for tx in range(x0, x1 + 1):
+                cx = PADDING + (tx + 0.5) * CELL
+                cy = PADDING + (ty + 0.5) * CELL
+                if _point_in_polygon(cx, cy, coords):
+                    mask.add((tx, ty))
+    return mask
 
 
 # ── Stages ──────────────────────────────────────────────────────
