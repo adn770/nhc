@@ -16,11 +16,15 @@ preparatory tasks listed in `plans/nhc_ir_migration_plan.md`.
 
 ## 1. Status & vision
 
-### Status (2026-04-28)
+### Status (2026-04-29)
 
-The IR migration shipped through Phase 7. Schema is at major
-version **2.0** (Phase 7 cleanup retired the unused reserved
-op-union variants and the empty Phase-1 transitional fields).
+The IR migration shipped through Phase 5 + Phase 7. Schema is at
+major version **2.0** (Phase 7 cleanup retired the unused reserved
+op-union variants and the empty Phase-1 transitional fields). The
+`.png` endpoint is live for dungeon, cave, and dungeon-style
+building floors via Rust + tiny-skia; the web client routes through
+PNG with a transitional SVG fallback for site surfaces and
+composite building floors.
 
 - `nhc/rendering/_render_context.py` — frozen `RenderContext` resolves
   floor kind (dungeon / cave / building / surface) plus feature flags
@@ -38,12 +42,11 @@ op-union variants and the empty Phase-1 transitional fields).
 - `crates/nhc-render/` — Rust core for procedural rendering
   (splitmix64 RNG, Perlin noise, per-primitive emitters). Exposed
   to Python via PyO3 (`nhc_render` wheel) and slated for WASM
-  exposure in Phase 6.
+  exposure in Phase 11.
 - `nhc/rendering/_decorators.py` — `TileDecorator` contract +
   `walk_and_paint`. Two live callers remain (terrain-detail
   decorators + the wood-floor short-circuit); both pending their
-  Rust ports. Slated for deletion when the last legacy procedural
-  pipeline ports.
+  Rust ports in Phase 9. Slated for deletion at Phase 9.3.
 
 The op vocabulary covers shadows, hatching, walls/floors, terrain
 tints + detail, floor grid, floor detail (cracks / scratches /
@@ -51,8 +54,40 @@ stones), thematic detail (webs / bones / skulls), stairs, the
 seven decorator variants (cobblestone / brick / flagstone /
 opus_romano / field_stone / cart_tracks / ore_deposit) flowing
 through `DecoratorOp`'s per-variant tables, plus the four surface
-features (well / fountain / tree / bush). Total: 14 op-union
-variants + a `GenericProceduralOp` escape hatch.
+features (well / fountain / tree / bush). Total: 15 op-union
+variants (counting `GenericProceduralOp` as the escape-hatch slot).
+
+### Forward plan (Phases 8 – 11)
+
+The closing arc of the migration converges every gameplay floor on
+the IR pipeline as the only path that emits visuals, with three
+switchable rasterisers downstream:
+
+- **Phase 8 — structural composites through IR.** Roofs, enclosures
+  (palisade / fortification), gates, and building walls (interior
+  partitions + exterior masonry) move into the IR as new ops in a
+  renamed `structural` layer (was `walls_and_floors`). Site surfaces
+  and composite building floors stop hitting the SVG fallback because
+  every structural shape is now expressible in the IR. Schema bumps
+  2.0 → 2.1 → 2.2 → 2.3 (additive).
+- **Phase 9 — retire the last `walk_and_paint` primitives.**
+  `terrain_detail` and the `wood_floor` short-circuit get Rust ports
+  + structured per-tile data. Schema 2.4 → 2.5 (additive).
+  Phase 9.3 majors to **3.0**, deletes the wood-floor / terrain-detail
+  passthroughs, and retires `_decorators.py` + `walk_and_paint`.
+- **Phase 10 — three switchable IR-driven rasterisers.** The legacy
+  procedural Python emitters (`render_floor_svg`,
+  `render_site_surface_svg`, `render_building_floor_svg`) retire; the
+  `.svg` endpoint rewires to `ir_to_svg(emit_floor(...))`. Render mode
+  is server-side (`NHC_RENDER_MODE` env var); the web client picks
+  the matching endpoint at page load. Cross-rasteriser parity
+  migrates from `resvg-py` pixel-diff to **two-layer parity**:
+  IR-level structural validation + PSNR > 35 dB vs canonical
+  reference image. The Rust `resvg` crate replaces `resvg-py` for
+  SVG-mode pixel comparison.
+- **Phase 11 — IR → Canvas via WASM.** Per the original Phase 6 stub,
+  retargeted to the new slot. Canvas joins as the third switchable
+  mode; the PNG endpoint stays live as one of three options.
 
 ### Vision
 
@@ -154,12 +189,14 @@ compresses 3–5× with gzip alone.
 | Server PNG path | **Long-term: Rust + tiny-skia**; **stepping stone: resvg-py over IR→SVG** |
 | PRNG | **splitmix64** (in Rust; PyO3 + WASM each expose the same wrapper) |
 | Perlin noise | **Ported to Rust** with checked-in fixture vectors; both embeddings call the same impl |
-| SVG role post-cutover | **Cold paths only** (export, /admin debug, regression fixtures) |
-| Phase-1 parity gate | **Byte-equal SVG** between legacy `render_floor_svg` and `ir_to_svg(build_floor_ir(...))` |
+| SVG role post-cutover | **First-class switchable rasteriser** alongside PNG and Canvas. Selected per server instance via `NHC_RENDER_MODE` env var; same IR drives all three |
+| Phase-1 parity gate | **Byte-equal SVG** between legacy `render_floor_svg` and `ir_to_svg(build_floor_ir(...))` (held until Phase 5; converted to PSNR + structural at Phase 10.4) |
+| Cross-rasteriser parity (post-Phase-10) | **Two-layer**: IR-level structural validation + PSNR > 35 dB vs canonical reference image (canonical = tiny-skia PNG of the fixture's IR) |
 | Determinism guarantee | **Rust-canonical** — three embeddings, one implementation; no cross-runtime port-drift class of bugs |
-| IR scope | **Floor-scoped** (dungeon / cave / building / surface). Site overlays (roofs, enclosures, masonry) compose above the floor IR via the existing `building.py` / `site_svg.py` wrappers |
+| IR scope | **Every gameplay floor** (dungeon / cave / building / surface) is fully described by a `FloorIR`. Phase 8 brings site composites (roofs, enclosures, building walls) into the IR; the legacy `building.py` / `site_svg.py` composite emitters retire in Phase 10 |
+| Render mode selection | **Server-side `NHC_RENDER_MODE` env var** (`svg` / `png` / `wasm`); `--render-mode` CLI flag; default `png`. All three endpoints stay alive at all times |
 | Hex / overland IR | **Out of scope** — separate IR work if needed |
-| Schedule | **Preparatory work starts now** (FB schema, fixture harness, resvg-py PNG); full Rust integration follows incrementally |
+| Schedule | **Phase 5 + 7 shipped**; Phase 8 (structural composites) is the active resumption point |
 
 ## 5. The IR (FlatBuffers)
 
@@ -204,20 +241,27 @@ enum RegionKind: byte {
   Dungeon = 0,
   Cave = 1,
   Room = 2,
-  Building = 3,
-  Site = 4,
+  Building = 3,            // emitted per-building from Phase 8.1
+  Site = 4,                // emitted once per site IR from Phase 8.1
 }
 
 table Region {
   id: string (key);
   kind: RegionKind;
   polygon: Polygon;
-  shape_tag: string;        // "rect"|"octagon"|"circle"|"pill"|"temple"|"hybrid"|"cave"
+  shape_tag: string;        // "rect"|"octagon"|"circle"|"pill"|"temple"|"hybrid"|"cave"|"L"
 }
 
 table TileCoord { x: int; y: int; tag: string; }     // tag for typed buckets
 
 enum FloorKind: byte { Dungeon = 0, Cave = 1, Building = 2, Surface = 3 }
+
+enum TileCorner: byte {     // Phase 8.3 — interior wall edge endpoints
+  NW = 0,   // tile (x, y) NW corner = corner-grid (x, y)
+  NE = 1,   // tile (x, y) NE corner = corner-grid (x+1, y)
+  SE = 2,   // tile (x, y) SE corner = corner-grid (x+1, y+1)
+  SW = 3,   // tile (x, y) SW corner = corner-grid (x, y+1)
+}
 
 table FeatureFlags {
   shadows_enabled: bool = true;
@@ -228,6 +272,11 @@ table FeatureFlags {
   interior_finish: string;   // "" | "wood" | "flagstone" | …
 }
 
+// Schema 2.0 (Phase 7 cleanup) removed six reserved variants that
+// were never emitted (CobblestoneOp / WoodFloorOp / GardenOverlayOp /
+// FieldOverlayOp / CartTracksOp / OreDepositsOp). The seven decorator
+// variants ride through DecoratorOp's per-variant vector tables;
+// surface features ship through the four per-shape FeatureOps.
 union Op {
   ShadowOp,
   HatchOp,
@@ -235,20 +284,20 @@ union Op {
   TerrainTintOp,
   FloorGridOp,
   FloorDetailOp,
+  ThematicDetailOp,
   TerrainDetailOp,
   StairsOp,
-  CobblestoneOp,
-  WoodFloorOp,
-  GardenOverlayOp,
-  FieldOverlayOp,
-  CartTracksOp,
-  OreDepositsOp,
   TreeFeatureOp,
   BushFeatureOp,
   WellFeatureOp,
   FountainFeatureOp,
-  ThematicDetailOp,
   GenericProceduralOp,    // escape hatch for additive primitives
+  DecoratorOp,
+  // Phase 8 — structural composites
+  RoofOp,                 // 8.1, schema 2.1
+  EnclosureOp,            // 8.2, schema 2.2
+  BuildingExteriorWallOp, // 8.3, schema 2.3
+  BuildingInteriorWallOp, // 8.3, schema 2.3
 }
 
 table FloorIR {
@@ -284,7 +333,7 @@ reserved op-union variants. Future evolution:
   shape tags. Old renderers ignore unknown union members (FlatBuffers
   semantics) and render the rest. Ship freely.
 - **Major bump (2.x → 3.0)** — breaking: renamed ops, removed fields,
-  changed op semantics, changed layer ordering. Both transformers
+  changed op semantics, changed layer ordering. All three rasterisers
   (Python SVG, Rust PNG, Rust→WASM Canvas) must accept both versions
   for one release cycle.
 - The buffer's `file_identifier` encodes major version. Major bumps
@@ -292,6 +341,17 @@ reserved op-union variants. Future evolution:
 - The floor-artefact disk cache (`nhc/core/autosave.py`) gates on
   the `(major, minor)` pair so version bumps auto-invalidate stale
   caches at load time.
+
+**Phase 8 / 9 / 10 schema bump path**:
+
+| Schema | Phase | Change |
+|---|---|---|
+| 2.1 | 8.1 | Add `RoofOp` + `RoofStyle` enum; emit `Region(kind=Building/Site)` |
+| 2.2 | 8.2 | Add `EnclosureOp` + `EnclosureStyle` + `CornerStyle` + `Gate` + `GateStyle` |
+| 2.3 | 8.3 | Add `BuildingExteriorWallOp` + `BuildingInteriorWallOp` + `WallMaterial` + `InteriorWallMaterial` + `TileCorner` + `InteriorEdge` |
+| 2.4 | 9.1 | Add structured per-tile data fields to `TerrainDetailOp` (legacy passthrough fields stay, deprecated) |
+| 2.5 | 9.2 | Add structured per-room plank data fields to `FloorDetailOp` (legacy `wood_floor_groups` stays, deprecated) |
+| **3.0** | 9.3 | **Major** — delete `TerrainDetailOp.room_groups`, `corridor_groups`, `FloorDetailOp.wood_floor_groups`. The `file_identifier` advances |
 
 ## 6. Layer ordering
 
@@ -303,7 +363,7 @@ with no sort step:
 |---|---|---|
 | 100 | shadows | `ShadowOp` (room, corridor) |
 | 200 | hatching | `HatchOp` (room, hole, corridor) |
-| 300 | walls_and_floors | `WallsAndFloorsOp` |
+| 300 | structural | `WallsAndFloorsOp`, `RoofOp`, `EnclosureOp`, `BuildingExteriorWallOp`, `BuildingInteriorWallOp` (within-layer order in §6.1) |
 | 350 | terrain_tints | `TerrainTintOp` |
 | 400 | floor_grid | `FloorGridOp` |
 | 500 | floor_detail | `FloorDetailOp`, `ThematicDetailOp`, `DecoratorOp` (cobblestone / brick / flagstone / opus_romano / field_stone / cart_tracks / ore_deposit per-variant tables) |
@@ -312,7 +372,43 @@ with no sort step:
 | 800 | surface_features | `WellFeatureOp`, `FountainFeatureOp`, `TreeFeatureOp`, `BushFeatureOp` |
 
 Order numbers preserve gaps of 50 between adjacent layers so future
-primitives can slot in without re-numbering.
+primitives can slot in without re-numbering. The `structural` layer
+was renamed from `walls_and_floors` at Phase 8.0; the rename
+reflects that the layer now carries every primitive that fills the
+structural envelope (walls, floors, roofs, enclosures, building
+masonry).
+
+Floor-paint primitives in layers 350 – 800 honour an emit-time
+**building-footprint exclusion mask** sourced from
+`Region(kind=Building)` polygons: tiles inside any building footprint
+are skipped during emit, leaving the `RoofOp` in the structural
+layer to paint that area. Roofs *replace* floor inside building
+footprints; they do not overlay on top.
+
+### 6.1 Within-`structural` paint order
+
+The `structural` layer holds multiple op kinds depending on IR type.
+Within the layer, ops paint in `ops[]` order; the emitter populates
+`ops[]` according to the per-IR sequence below:
+
+| IR kind | Op sequence within `structural` |
+|---|---|
+| Dungeon | `WallsAndFloorsOp` |
+| Cave | `WallsAndFloorsOp` |
+| Building | `WallsAndFloorsOp` → `BuildingInteriorWallOp` → `BuildingExteriorWallOp` |
+| Site | `WallsAndFloorsOp` → `RoofOp` → `EnclosureOp` |
+
+Rationale:
+
+- **Building**: interior partitions paint first; the curved or
+  clipped exterior masonry then overlays any partition extension into
+  the rim zone, cleaning up T-junctions for circle and octagon
+  buildings (mirrors `building.py:97-104`).
+- **Site**: roofs paint per-building inside their footprints; the
+  enclosure perimeter paints last (above roofs in document order)
+  for byte-equal mirror of the legacy site composition. Visual
+  effect identical when enclosures don't overlap building footprints
+  (always true today).
 
 ## 7. Op catalogue
 
@@ -598,22 +694,190 @@ For new primitives that haven't yet earned their own table. Carries
 `name` to a registered handler. Use sparingly — promote to a
 dedicated table once the primitive stabilises.
 
-### 7.14 What the IR does NOT cover
+### 7.14 RoofOp (Phase 8.1)
 
-Site / building overlays (composed *above* the floor IR by the
-existing `building.py`, `site_svg.py` wrappers):
+Per-building roof primitive. Emitted in the `structural` layer for
+site IRs only. Renders shingled gable / pyramid roofs over each
+building's outer footprint; floor-paint primitives in later layers
+exclude tiles inside the building footprint so the roof replaces
+them rather than overlaying on top.
 
-- Roofs (`_roofs.py:building_roof_fragments`) — site overlay
-- Enclosures (`_enclosures.py`: palisade, fortification) — site
-  overlay
-- Building exterior masonry (`_building_walls.py`: brick / stone
-  runs) — building overlay
-- Doors (`_doors_svg.py`) — composed by callers as a separate canvas
-  layer in the web client
+```
+enum RoofStyle: byte {
+  Simple = 0,          // gable for non-square rect/L; pyramid for octagon/square/circle
+  Dome = 1,            // future — concentric shingle rings on circular buildings
+  WitchHat = 2,        // future — tall pointed cone
+}
 
-These compose cleanly above any of the three transformer outputs and
-do not benefit from being in the floor IR (they don't change the
-"floor canvas" rasterisation).
+table RoofOp {
+  region_ref: string;     // → Building region id
+  style: RoofStyle = Simple;
+  tint: string;           // hex colour chosen at emit-time from ROOF_TINTS
+  rng_seed: uint64;       // shingle layout perturbation
+}
+```
+
+The geometric strategy (gable vs pyramid) is derived at render-time
+from the referenced `Region.shape_tag` and `Region.polygon` bounding
+box (rect non-square or L → gable; octagon, square rect, circle →
+pyramid). `gable_horizontal` is `bbox.w >= bbox.h`. `Dome` and
+`WitchHat` are reserved enum slots; Phase 8.1 falls back to `Simple`
+for any non-`Simple` style.
+
+Reference: `_roofs.py:building_roof_fragments` (legacy);
+`crates/nhc-render/src/transform/png/roof.rs` (Rust port).
+RNG seed = `base_seed + 0xCAFE + building_index`.
+
+### 7.15 EnclosureOp (Phase 8.2)
+
+Site-perimeter enclosure (palisade or fortification). Emitted in the
+`structural` layer for site IRs only.
+
+```
+enum EnclosureStyle: byte {
+  Palisade = 0,
+  Fortification = 1,
+  // Future: Brick, Stone, Hedge, ...
+}
+
+enum CornerStyle: byte {
+  Merlon = 0,         // axis-aligned black square (legacy default)
+  Diamond = 1,        // 45° rotated black square (legacy alt)
+  Tower = 2,          // future — round/towered corner
+  // Future: Round, Octagon, Battlement, ...
+}
+
+enum GateStyle: byte {
+  Wood = 0,           // brown filled rect (legacy palisade door)
+  Portcullis = 1,     // future — black dots crossed with thin line
+  // Future: Iron, Stone, OpenArch, ...
+}
+
+table Gate {
+  edge_idx: uint32;
+  t_center: float;    // 0..1 along edge
+  half_px: float;
+  style: GateStyle = Wood;
+}
+
+table EnclosureOp {
+  polygon: Polygon;
+  style: EnclosureStyle;
+  corner_style: CornerStyle = Merlon;   // fortification-only; ignored by Palisade
+  gates: [Gate];
+  rng_seed: uint64;
+}
+```
+
+Renderer dispatches per-edge on `EnclosureStyle` (palisade circles
+or fortification battlement chain), per-gate on `GateStyle` (wood
+rect or fall-back), per-vertex on `CornerStyle` for fortification
+(merlon / diamond / fall-back). `Gate.style` defaults to `Wood`;
+unknown gate / corner styles fall back to documented defaults
+(Wood / Merlon).
+
+Visual delta vs legacy:
+
+- **Palisade**: byte-equal — same circles + wood gate rects.
+- **Fortification (keep)**: gates now draw wood rects (legacy drew
+  nothing at fortification gate positions). Corners draw `Merlon`
+  by default (matches legacy default). Fortification fixture's
+  golden snapshot updates on Phase 8.2.
+
+Reference: `_enclosures.py:render_palisade_enclosure`,
+`render_fortification_enclosure` (legacy);
+`crates/nhc-render/src/transform/png/enclosure.rs` (Rust port).
+Per-edge RNG seed = `rng_seed + edge_idx`.
+
+### 7.16 BuildingExteriorWallOp (Phase 8.3)
+
+Building exterior masonry — brick or stone running-bond rounded-rect
+chain along the perimeter polygon. Emitted in the `structural` layer
+for building floor IRs only. Buildings with `wall_material ==
+"dungeon"` do not emit this op; the existing `WallsAndFloorsOp`
+dungeon-wall pass handles them.
+
+```
+enum WallMaterial: byte {
+  Brick = 0,
+  Stone = 1,
+  // Future: Wood, Adobe, Timber, Wattle, ...
+}
+
+table BuildingExteriorWallOp {
+  region_ref: string;        // → Building region; perimeter is the source
+  material: WallMaterial;
+  rng_seed: uint64;          // per-stone width jitter
+}
+```
+
+Reference: `_building_walls.py:render_brick_wall_run`,
+`render_stone_wall_run` (legacy);
+`crates/nhc-render/src/transform/png/building_exterior_wall.rs`
+(Rust port). Polygon walked from `Region(kind=Building).polygon`;
+each ortho edge runs through `_render_masonry_wall_run`, each
+non-orthogonal edge through `_render_diagonal_run` for circle /
+octagon footprints.
+
+### 7.17 BuildingInteriorWallOp (Phase 8.3)
+
+Interior partition walls — thin axis-aligned single-line strokes
+between adjacent corner-grid points. Emitted in the `structural`
+layer for building floor IRs only. Interior edges are
+**pre-coalesced and post-door-suppression-filtered at emit-time**:
+canonical `(x, y, side)` triples from `Level.interior_edges`
+become coalesced runs; door-suppressed edges are filtered out so
+door glyphs substitute for the wall stroke.
+
+```
+enum InteriorWallMaterial: byte {
+  Stone = 0,           // legacy default — thin grey line
+  Brick = 1,
+  Wood = 2,
+}
+
+struct InteriorEdge {
+  ax: int32;           // start tile x
+  ay: int32;           // start tile y
+  a_corner: TileCorner;
+  bx: int32;           // end tile x
+  by: int32;
+  b_corner: TileCorner;
+}
+
+table BuildingInteriorWallOp {
+  region_ref: string;
+  material: InteriorWallMaterial;
+  edges: [InteriorEdge];
+}
+```
+
+The endpoint encoding is **explicit `(tile, corner) × 2`** rather
+than implicit corner-grid coords, so the IR is self-documenting
+without external convention. Renderer conversion:
+`(tile.x + ΔX, tile.y + ΔY) × CELL + PADDING` where
+`(ΔX, ΔY) ∈ {NW: (0,0), NE: (1,0), SE: (1,1), SW: (0,1)}`.
+
+Today's emit produces axis-aligned edges only (every edge between
+adjacent corners on the same row or column). The schema does not
+restrict to axis-aligned; future diagonal interior partitions or
+half-tile partitions are expressible without a schema bump.
+
+Reference: `building.py:_render_interior_walls`,
+`_coalesce_north_edges`, `_coalesce_west_edges`, `_edge_line`
+(legacy); `crates/nhc-render/src/transform/png/building_interior_wall.rs`
+(Rust port).
+
+### 7.18 What the IR does NOT cover (post-Phase-10)
+
+- Doors (`_doors_svg.py`) — composed by the web client as a
+  separate canvas overlay layer; door state (open / closed / locked)
+  is dynamic and out-of-IR-scope.
+- Fog of war / visibility — entity-canvas overlay.
+- Entities (creatures, items, player) — entity-canvas overlay.
+- Future: open-state gate animation — entity-canvas overlay paints
+  the open variant; the IR carries the closed-state visual via
+  `Gate.style = Wood` (or `Portcullis` etc).
 
 ## 8. The Rust crate `nhc-render`
 
@@ -623,30 +887,40 @@ do not benefit from being in the floor IR (they don't change the
 crates/nhc-render/
 ├── Cargo.toml
 ├── src/
-│   ├── lib.rs              # re-exports
-│   ├── ir.rs               # FB-generated IR + thin wrappers
-│   ├── rng.rs              # splitmix64 wrapper
-│   ├── perlin.rs           # noise port (parity-fixture-tested)
-│   ├── primitives/         # one module per op
-│   │   ├── shadow.rs
-│   │   ├── hatch.rs
-│   │   ├── walls.rs
-│   │   ├── floor_grid.rs
-│   │   ├── floor_detail.rs
-│   │   ├── terrain.rs
-│   │   ├── stairs.rs
-│   │   ├── cobblestone.rs
-│   │   ├── wood_floor.rs
-│   │   ├── vegetation.rs    # tree, bush
-│   │   ├── well.rs
-│   │   └── fountain.rs
-│   ├── transform/          # IR-driven backends
-│   │   ├── png.rs           # tiny-skia rasteriser (host-Rust + PyO3)
-│   │   ├── canvas.rs        # canvas2d command stream (WASM)
-│   │   └── svg.rs           # optional Rust SVG path (parity / fallback)
+│   ├── lib.rs                              # re-exports
+│   ├── ir.rs                               # FB-generated IR + thin wrappers
+│   ├── rng.rs                              # splitmix64 wrapper
+│   ├── perlin.rs                           # noise port (parity-fixture-tested)
+│   ├── transform/
+│   │   ├── png/                             # tiny-skia rasteriser, one file per op
+│   │   │   ├── mod.rs
+│   │   │   ├── shadow.rs
+│   │   │   ├── hatch.rs
+│   │   │   ├── walls_and_floors.rs
+│   │   │   ├── floor_grid.rs
+│   │   │   ├── terrain_tints.rs
+│   │   │   ├── floor_detail.rs
+│   │   │   ├── thematic_detail.rs
+│   │   │   ├── terrain_detail.rs
+│   │   │   ├── stairs.rs
+│   │   │   ├── decorator.rs
+│   │   │   ├── tree.rs / bush.rs
+│   │   │   ├── well.rs / fountain.rs
+│   │   │   ├── generic_procedural.rs
+│   │   │   ├── fragment.rs / svg_attr.rs / path_parser.rs / polygon_path.rs
+│   │   │   ├── roof.rs                      # Phase 8.1
+│   │   │   ├── enclosure.rs                 # Phase 8.2
+│   │   │   ├── building_exterior_wall.rs    # Phase 8.3
+│   │   │   └── building_interior_wall.rs    # Phase 8.3
+│   │   ├── canvas/                          # canvas2d command stream (WASM, Phase 11)
+│   │   └── svg.rs                           # Rust resvg crate (Phase 10.4 — replaces resvg-py)
 │   └── ffi/
-│       ├── pyo3.rs          # Python bindings (cfg = "pyo3")
-│       └── wasm.rs          # wasm-bindgen exports (cfg = "wasm")
+│       ├── pyo3.rs                          # Python bindings (cfg = "pyo3")
+│       └── wasm.rs                          # wasm-bindgen exports (cfg = "wasm")
+
+crates/nhc-render-wasm/                      # Phase 11 — thin wrapper crate
+├── Cargo.toml
+└── src/lib.rs                               # re-exports nhc-render with `wasm` feature
 ```
 
 ### What lives in Rust
@@ -738,50 +1012,101 @@ opcodes into Canvas2D calls; everything else is in Rust.
 
 ## 9. Three transformer paths
 
-### 9.1 IR → SVG (Python, cold path)
+The three rasterisers are **switchable first-class modes**, not a
+migration ladder. After Phase 8 every gameplay floor produces a
+complete `FloorIR`; each rasteriser is a pure function from IR to
+its output. The active rasteriser is selected per server instance
+via the `NHC_RENDER_MODE` env var (see §11). Performance comparison
+between modes is the design intent: one IR build cost, three
+downstream transforms, head-to-head measurable.
 
-Lives at `nhc/rendering/ir_to_svg.py`. Iterates ops, calls per-op
-`_draw_*_from_ir` helpers that string-build SVG fragments. Used for:
+### 9.1 IR → SVG (Python wrapper, Rust transform from Phase 10.1)
 
-- `/admin` debug visualisation.
-- Test parity gates (every other transformer is checked against
-  the Python SVG output during migration).
+Lives at `nhc/rendering/ir_to_svg.py`. Today (Phase 5) this iterates
+ops and calls per-op `_draw_*_from_ir` helpers that string-build SVG
+fragments. From Phase 10.1, the `.svg` endpoint rewires to
+`ir_to_svg(emit_floor(...))` — same byte-equal SVG output, but
+served from the IR pipeline rather than the legacy
+`render_floor_svg` chain.
+
+Used for:
+
+- The `svg` mode of `NHC_RENDER_MODE` — gameplay floor rendering.
+- `/admin` debug visualisation (`?bare=1` query strips decoration).
 - Export endpoints (`/api/game/<sid>/export/map_svg`).
-- Eventually, a Rust port (`transform/svg.rs`) replaces the Python
-  one as the parity gates close. Until then, the Python emitter is
-  the legacy path that the new code must match.
+- Cross-rasteriser parity (rendered through Rust `resvg` crate to
+  PNG for PSNR comparison vs reference image — see Phase 10.4).
 
-This transformer must remain Python-only for the duration of the
-migration; it's the reference implementation we diff against.
+### 9.2 IR → PNG (Rust via PyO3, tiny-skia)
 
-### 9.2 IR → PNG (Rust via PyO3, server path)
+`nhc_render.ir_to_png(ir_bytes, scale)` returns PNG bytes via
+`tiny-skia` rasteriser on a `Pixmap`. Phase 5 cut over from the
+`resvg-py` stepping stone; production today serves dungeon and cave
+floors through this path. Phase 8 extends coverage to site surfaces
+and composite building floors.
 
-`nhc_render.ir_to_png(ir_bytes, scale)` returns PNG bytes. Used for:
+Used for:
 
-- Cached raster fallback for clients that can't render WASM.
+- The `png` mode of `NHC_RENDER_MODE` (default mode) — gameplay
+  floor rendering.
 - Image-mode LLM tools that consume PNG.
 - Share-a-map endpoints.
+- Canonical reference image for cross-rasteriser parity (the
+  reference for PSNR is the tiny-skia PNG of the fixture's IR).
 
-Two sub-phases:
+### 9.3 IR → Canvas (Rust via WASM, client path) — Phase 11
 
-1. **Stepping stone (no Rust required yet):** `ir_to_svg` →
-   `resvg-py` → PNG. Adds ~5 ms per render, ~28 MB transient memory
-   for an 80×60 floor at 1× scale. Lets us ship PNG
-   delivery before the Rust crate is mature.
-2. **Long-term:** `nhc_render.ir_to_png` direct, no SVG intermediate.
-   `tiny-skia` rasteriser on a `Pixmap`, ~2 ms typical, ~6 MB
-   transient.
+`renderIRToCanvas(irBuffer, ctx, hatchPattern)` is the client-side
+rasteriser. The canvas overlay layers (door / hatch / fog / entity —
+see `design/canvas_rendering.md`) are unchanged; only the floor
+layer moves from "inline an SVG" to "paint via WASM."
 
-### 9.3 IR → Canvas (Rust via WASM, client path)
+Used for:
 
-`renderIRToCanvas(irBuffer, ctx, hatchPattern)` is the gameplay hot
-path. The canvas overlay layers (door / hatch / fog / entity — see
-`design/canvas_rendering.md`) are unchanged; only the floor layer
-moves from "inline an SVG" to "paint via WASM."
+- The `wasm` mode of `NHC_RENDER_MODE` — gameplay floor rendering;
+  server emits raw IR (`.nir`), client paints. Server CPU drops on
+  the gameplay hot path because the server stops rasterising.
 
 Template change: `<div id="floor-svg">` → `<canvas
-id="floor-canvas">`. `map.js`: `setFloorSVG` → `setFloorIR`. No other
-JS layer changes.
+id="floor-canvas">`. `map.js`: `setFloorSVG` → `setFloorIR`.
+
+### 9.4 Cross-rasteriser parity contract
+
+Replaces the previous byte-equal SVG / pixel-diff regime at Phase
+10.4. **Two-layer parity validation**:
+
+1. **IR-level structural validation** (rasteriser-independent).
+   Every parity fixture's IR is regenerated; structural invariants
+   checked: op count by type, element count per layer, region
+   polygon counts, ordering. Catches emit-side regressions before
+   any rasteriser runs. Cheap: a single FlatBuffer parse + counters.
+2. **Pixel-level PSNR vs reference image** (per rasteriser). One
+   canonical reference image per fixture — the tiny-skia PNG of the
+   fixture's IR — frozen at
+   `tests/fixtures/floor_ir/<descriptor>/reference.png`. Each
+   rasteriser's output is PSNR'd against the reference. Default
+   threshold: **PSNR > 35 dB**, tightenable per-`(rasteriser,
+   fixture)` pair if measurements show headroom. Threshold for the
+   `wasm-canvas` mode may be lower (e.g. 30 dB) because Canvas2D AA
+   varies by browser; calibrated when Phase 11 lands.
+
+Reference image lifecycle:
+
+- New fixture lands → reference rendered from the canonical
+  rasteriser (tiny-skia PNG) and committed.
+- Fixture inputs change → reference regenerated via
+  `tests/samples/regenerate_fixtures.py --regen-reference
+  <descriptor>`. Without the explicit flag, the harness errors if
+  the reference would change. Catches accidental drift.
+- Canonical rasteriser changes (tiny-skia upgrade, palette tweak) →
+  explicit reference regeneration step in the migration commit, with
+  a body note explaining the cause.
+
+PSNR is global across the image; localised artifacts can be hidden
+by overall agreement. Mitigation if the metric proves blind in
+practice: add per-region PSNR (split image into 4×4 tiles, take
+min) or SSIM > 0.95 as a secondary gate. Phase 8 ships PSNR-only;
+escalation depends on empirical measurement.
 
 ## 10. Determinism contract
 
@@ -796,7 +1121,14 @@ contract that makes this hold:
    There is no parallel Python or JS implementation.
 2. **PRNG**: `splitmix64`, with all op seeds derived from `base_seed +
    per-op-salt`. Salts are constants in `crates/nhc-render/src/rng.rs`
-   and listed in §7.
+   and listed in §7. Phase 8 ops add the following salts:
+   - `RoofOp.rng_seed = base_seed + 0xCAFE + building_index`
+   - `EnclosureOp.rng_seed = base_seed + 0xE101` (per-edge stream
+     keyed `rng_seed + edge_idx` so adding / removing a gate on edge
+     X doesn't shift RNG state on other edges)
+   - `BuildingExteriorWallOp.rng_seed = base_seed + 0xBE71 +
+     building_index` (per-stone width jitter)
+   - `BuildingInteriorWallOp` is RNG-free (deterministic line strokes).
 3. **Perlin**: ported once with checked-in fixture vectors. The
    parity gate is in `tests/fixtures/perlin/`; both the Python emitter
    side (which feeds Perlin-dependent silhouette geometry into the IR)
@@ -818,25 +1150,58 @@ that class of bug is structurally impossible.
 ## 11. Endpoint surface
 
 ```
-GET /api/game/<sid>/floor/<svg_id>.svg       # legacy, IR→SVG via Python
-GET /api/game/<sid>/floor/<svg_id>.nir       # FlatBuffers IR (binary)
-GET /api/game/<sid>/floor/<svg_id>.png       # IR→PNG via Rust+tiny-skia
+GET /api/game/<sid>/floor/<svg_id>.svg       # IR→SVG (Python today, ir_to_svg(emit_floor) from Phase 10.1)
+GET /api/game/<sid>/floor/<svg_id>.nir       # FlatBuffers IR (binary) — consumed by the wasm-canvas mode client
+GET /api/game/<sid>/floor/<svg_id>.png       # IR→PNG via Rust + tiny-skia
 GET /api/game/<sid>/floor/<svg_id>.json      # IR dumped as JSON (debug)
 GET /api/hatch.svg                            # unchanged, shared session asset
 ```
 
-The web client switches from `.svg` to `.nir`. The `.png` route
-serves clients that don't run WASM (image-only LLM tools, share-map
-links). The `.svg` route stays available for parity tests, exports,
-and admin debug. The `.json` route is god-mode-gated and lets humans
-read what the IR contains.
+**All three rendering endpoints stay alive at all times** — `.svg`,
+`.png`, `.nir` are first-class siblings. Independent endpoints
+matter because (a) different consumers want different formats
+(LLM tools want PNG, browsers want WASM-Canvas, exports want SVG),
+and (b) cross-rasteriser performance comparison requires being able
+to fetch any of them on demand from any server instance.
+
+### Render mode selection (Phase 10.3)
+
+The web client's gameplay floor element fetches **one** of the
+three endpoints. Which one is selected at server-start time via
+`NHC_RENDER_MODE`:
+
+```
+./server --render-mode=svg|png|wasm        # CLI flag
+NHC_RENDER_MODE=png ./server               # env var equivalent
+```
+
+Default: `png`. The Dockerfile sets `ENV NHC_RENDER_MODE=png`
+explicitly; runtime override via `docker run -e
+NHC_RENDER_MODE=svg`. The server reads the env var at app init and
+injects the value into the gameplay page template (e.g.
+`<meta name="render-mode" content="png">`). The client reads the
+injected value once at page load and `setFloorURL` picks the
+matching endpoint extension.
+
+No runtime client-side toggle, no admin UI control, no localStorage
+persistence, no URL-parameter override. The mode is a server
+property; performance comparison is a "stop server → restart with
+different `--render-mode` → measure → repeat" workflow. That
+matches the developer-facing measurement intent and removes a layer
+of client-side complexity.
+
+No fallback: if the configured mode's rasteriser fails on a given
+floor, the floor doesn't render and the failure surfaces. The
+transitional `404 → SVG fallback` branch in `setFloorURL` is
+removed at Phase 10.3 (Phase 8.6 / 8.7 already eliminated the 404
+class by completing IR coverage).
 
 ## 12. Phased plan
 
-The migration is now eight phases, but the early phases are cheap and
-unlock the rest. **Phases 0 – 3 can run in parallel with feature
-work; the IR → Canvas cutover is the only phase that touches the
-gameplay hot path.**
+The migration is twelve phases (0 – 11). Phases 0 – 7 shipped during
+the initial migration arc; Phases 8 – 11 are the closing arc that
+brings every gameplay floor onto the IR pipeline and lights up
+three switchable rasterisers.
 
 ### Phase 0 — Preparatory (no gameplay change)
 
@@ -917,46 +1282,190 @@ endpoint switches over silently.
 **Gate:** PNG-vs-PNG diff under `pixelmatch`-equivalent ≤ 0.5 %
 against the `resvg-py` baseline.
 
-### Phase 6 — IR → Canvas via WASM
+### Phase 6 — Reserved (was the WASM Canvas slot)
 
-Build the WASM bundle. Ship `floor_ir_renderer.js` (~50 lines that
-load the WASM module and dispatch canvas2d commands).
-`map.js`: `setFloorSVG` → `setFloorIR`. The other canvas overlays are
-untouched. The server stops emitting `<g>...</g>` strings on the
-gameplay path because the client now requests `.nir` instead of
-`.svg`.
+Phase 6 was originally the WASM Canvas cutover. It moved to Phase
+11 (after Phase 8's structural composites and Phase 9's procedural
+cleanup) so the WASM port lands against a fully IR-described floor
+set with no SVG-fallback path to maintain.
 
-**Gate:** rasterised Canvas output (headless Chromium on the same
-fixtures) matches Python `ir_to_svg` rasterised via `resvg-py`,
-pixel-diff ≤ 0.5 %. Server CPU on a canonical floor: expect ≥ 40 %
-drop vs Phase 0 baseline.
+### Phase 7 — Deprecate legacy Python procedural code (per-op)
 
-### Phase 7 — Deprecate legacy Python procedural code
-
-With Phases 4 + 6 complete, every procedural primitive lives in
-Rust. The Python `_render_*` paint helpers are now dead weight; they
-get deleted. The IR emitter (`build_floor_ir`) and Shapely-driven
-geometry stay in Python.
+Procedural primitives that have ports in Phases 3 + 4 retire their
+Python paint helpers as the IR-driven path takes over. `_decorators.py`
+and `walk_and_paint` survive the phase because two callers remain
+(terrain-detail decorators + the wood-floor short-circuit); both
+port in Phase 9.
 
 A ruff lint rule banning `import random` in `nhc/rendering/` makes
 RNG-drift regressions impossible.
+
+### Phase 8 — Structural composites through IR
+
+Adds `RoofOp`, `EnclosureOp`, `BuildingExteriorWallOp`, and
+`BuildingInteriorWallOp` to the schema. After Phase 8, every
+gameplay floor (dungeon / cave / building / site) produces a
+complete `FloorIR`; the `.png` endpoint returns 200 for everything;
+the web-client SVG fallback for site surfaces and composite building
+floors becomes unreachable.
+
+Sub-phases:
+
+- **8.0** — Layer rename `walls_and_floors` → `structural`.
+  Mechanical rename of the layer key in `ir_to_svg.py:54-107`,
+  parity harness `LANDED_PAIRS`, Rust dispatch keys, and §6 of this
+  doc. Optionally folded with a pre-Phase-8 conversion of the
+  existing 0.5 % / 0.7 % pixel-diff harness to the PSNR + structural
+  contract from §9.4.
+- **8.1** — `RoofOp` (schema 2.1). New op + `RoofStyle` enum +
+  `RegionKind.Building / Site` emission. Floor primitives gain an
+  emit-time building-footprint exclusion mask sourced from
+  `Region(kind=Building)` polygons. Circular buildings (legacy
+  `Circle → skip`) start receiving Simple-style pyramid roofs on
+  their N-gon footprint. Synthetic-IR test only; existing dungeon
+  fixtures unaffected.
+- **8.2** — `EnclosureOp` (schema 2.2). New op + `EnclosureStyle` +
+  `CornerStyle` + `Gate` table + `GateStyle` enum. Fortification
+  gates gain a Wood gate-rect visual (legacy drew nothing); keep
+  fixture's golden snapshot updates. Site fixture
+  `seed7_town_palisade_surface` lands.
+- **8.3** — `BuildingExteriorWallOp` + `BuildingInteriorWallOp`
+  (schema 2.3). New ops + `WallMaterial` + `InteriorWallMaterial` +
+  `TileCorner` enums + `InteriorEdge` struct. Building fixture
+  `seed7_brick_building_floor0` lands.
+- **8.4** — Site-surface emit-side wiring. `_emit_floor` learns the
+  site context and emits the new ops alongside the existing layer
+  set. The `level is site.surface` short-circuit in
+  `_get_or_build_ir_artefacts` (around `app.py:1228`) drops.
+- **8.5** — Building-floor emit-side wiring. Same shape:
+  `building_id` + `floor_index` flow into emit; the `building_id is
+  not None` short-circuit (around `app.py:1232`) drops.
+  `seed7_town_brick_surface` fixture lands (brick enclosure
+  variant).
+- **8.6** — Codify §6.1 within-`structural` paint order in this
+  doc. No code change; closes the design contract.
+
+**Gate:** PSNR > 35 dB vs reference for every fixture across all
+three rasterisers (Phase 11 modes calibrated when 11 lands).
+Structural validation green for every fixture.
+
+### Phase 9 — Retire walk_and_paint primitives
+
+Last two procedural-Python primitives (terrain-detail decorators +
+wood-floor short-circuit) port to Rust. Deletes the legacy
+walk_and_paint dispatcher and tightens the architectural guard.
+
+- **9.1** — `TerrainDetailOp` Rust port (schema 2.4 additive). Schema
+  gains structured per-tile data fields next to the existing
+  `room_groups` / `corridor_groups` passthroughs (deprecated). Rust
+  port at `terrain_detail.rs` reads structured data; the legacy
+  `walk_and_paint` driver path retires for terrain detail.
+- **9.2** — Wood-floor Rust port (schema 2.5 additive). Schema
+  gains structured per-room plank data fields next to
+  `FloorDetailOp.wood_floor_groups` (deprecated). The
+  `_floor_detail.py` short-circuit branch in the IR emitter folds
+  into the new code.
+- **9.3** — **Major bump 3.0.** Delete `wood_floor_groups`,
+  `room_groups`, `corridor_groups` passthroughs. Delete
+  `_decorators.py` and the `walk_and_paint` dispatcher. Tighten
+  `tests/unit/test_no_import_random_in_rendering.py` to require zero
+  `import random` in `nhc/rendering/`. The floor-artefact disk cache
+  invalidates via the `(major, minor)` gate.
+
+### Phase 10 — Three switchable IR-driven rasterisers
+
+The legacy procedural Python composite emitters retire; the `.svg`
+endpoint rewires through the IR pipeline. Render mode becomes a
+server-side configuration; the parity harness pivots to PSNR +
+structural.
+
+- **10.1** — Rewire `.svg` endpoint to use
+  `ir_to_svg(emit_floor(...))` instead of `render_floor_svg`. Same
+  byte-equal SVG (parity harness already protects this), different
+  code path.
+- **10.2** — Drop `render_level_svg`, `render_site_surface_svg`,
+  `render_building_floor_svg`, `render_floor_svg`. Python rendering
+  surface contracts to `build_floor_ir` → emit FB → choose
+  rasteriser.
+- **10.3** — Server-side env-var render mode. `NHC_RENDER_MODE`
+  with `--render-mode` CLI flag; default `png`. Template injection;
+  `setFloorURL` reads the injected mode. Drop the `404 → SVG`
+  fallback branch.
+- **10.4** — Drop `resvg-py` `.[dev]` extra. Cross-rasteriser parity
+  pivots to structural validation + PSNR > 35 dB vs reference image.
+  The Rust `resvg` crate replaces `resvg-py` for SVG-mode pixel
+  comparison.
+- **10.5** — Update `design/map_ir.md` (this doc) and
+  `CONTRIBUTING.md` to document the three switchable rasterisers as
+  a first-class architectural feature. Mark Phase 10 complete in §1.
+
+### Phase 11 — IR → Canvas via WASM
+
+Per the original Phase 6 ladder. Now safer because every floor is
+fully IR-described and the SVG path is alive as a measurement
+peer.
+
+- New crate `crates/nhc-render-wasm/` reusing `nhc-render` with the
+  `wasm` feature. `wasm-pack build --target web`, `wasm-opt -Oz`,
+  vendor under `nhc/web/static/wasm/`.
+- `nhc/web/static/js/floor_ir_renderer.js` JS shim (~50 lines)
+  loads WASM and dispatches Canvas2D commands.
+- Template change: `<canvas id="floor-canvas">` becomes the
+  gameplay floor element when `NHC_RENDER_MODE=wasm`.
+  `setFloorURL` reads `.nir` instead of `.svg` / `.png` for that
+  mode.
+- Server emits no PNG / SVG on the gameplay hot path when wasm
+  mode is active; expected ≥ 40 % CPU drop vs Phase 0 baseline on
+  that mode.
+
+**Gate:** PSNR > 30 dB (calibrated lower than the 35 dB SVG/PNG
+threshold to absorb browser Canvas2D AA variance) vs reference
+image, headless Chromium per fixture. Server CPU benchmark on the
+gameplay hot path published against Phase 0 baseline.
 
 ## 13. Critical files
 
 ### Existing — modified
 
 - `nhc/rendering/svg.py` — `render_floor_svg` becomes
-  `ir = build_floor_ir(level, ...); return ir_to_svg(ir)`.
+  `ir = build_floor_ir(level, ...); return ir_to_svg(ir)`. Retired at
+  Phase 10.2.
 - `nhc/rendering/_render_context.py` — emits `RenderContext` flags
   into the IR `FeatureFlags` table.
 - `nhc/rendering/_floor_layers.py` — each `*_paint` helper grows an
-  `*_emit_ir` sibling; over Phases 1–4, paint helpers become
-  thin shims that consume IR ops produced by the emit siblings.
+  `*_emit_ir` sibling; over Phases 1–4, paint helpers become thin
+  shims that consume IR ops produced by the emit siblings. Phase 8
+  extends with structural-composite emit helpers.
+- `nhc/rendering/site_svg.py`, `nhc/rendering/building.py` — legacy
+  composite emitters; retired at Phase 10.2 (replaced by emit-side
+  ops in Phase 8.4 / 8.5).
+- `nhc/rendering/ir_to_svg.py` — Phase 8.0 renames the
+  `walls_and_floors` layer key to `structural` in `_LAYER_ORDER` /
+  `_LAYER_OPS`. Phase 8.1 – 8.3 wire the new structural ops into
+  `_LAYER_OPS`.
+- `nhc/rendering/ir_emitter.py` — Phase 8.1 lights up
+  `RegionKind.Building` and `RegionKind.Site` emission in
+  `emit_regions`. Phase 8.4 / 8.5 drop the `level is site.surface`
+  and `building_id is not None` short-circuits in
+  `_get_or_build_ir_artefacts`.
 - `nhc/web/app.py` — adds `.nir`, `.png`, `.json` floor routes;
-  extends `save_svg_cache`.
-- `nhc/web/templates/play.html` — Phase 6: `<div id="floor-svg">` →
-  `<canvas id="floor-canvas">`.
-- `nhc/web/static/js/map.js` — Phase 6: `setFloorSVG` → `setFloorIR`.
+  extends `save_svg_cache`. Phase 10.3 reads `NHC_RENDER_MODE` env
+  var and injects into the gameplay page template.
+- `nhc/web/templates/play.html` — Phase 11: gameplay floor element
+  becomes `<canvas id="floor-canvas">` when render mode is `wasm`.
+  Phase 10.3: receives the `<meta name="render-mode">` tag from
+  server config.
+- `nhc/web/static/js/map.js` — Phase 10.3: `setFloorURL` reads the
+  injected render mode and picks the matching extension; drops the
+  404 → SVG fallback. Phase 11: handles the `wasm` mode via
+  `floor_ir_renderer.js`.
+- `tests/samples/regenerate_fixtures.py` — Phase 8 extends with
+  `SiteFixture` + `BuildingFixture` variants; new fixtures land
+  per Phase 8 sub-phase.
+- `tests/unit/test_ir_png_parity.py` — Phase 8.0 (or pre-8.0
+  standalone) converts to PSNR + structural per §9.4.
+- `crates/Cargo.toml` — workspace profile reserves `opt-level "z" →
+  "3"` flip (~30 % build-time win) as deferred performance headroom.
 
 ### New — Python
 
@@ -993,24 +1502,40 @@ RNG-drift regressions impossible.
 ## 14. Testing (strict TDD)
 
 1. **`tests/unit/test_floor_ir.py`** — golden IR tests. For fixed
-   `(level, seed)`, assert `build_floor_ir(...)` matches a
-   committed FB buffer + JSON dump under `tests/fixtures/floor_ir/`.
-2. **`tests/unit/test_ir_to_svg.py`** — byte-equal parity (Phase 1+).
-   `ir_to_svg(ir) == render_floor_svg_legacy(...)`. Survives every
-   later phase as the guardrail.
+   `(level, seed)`, assert `build_floor_ir(...)` matches a committed
+   FB buffer + JSON dump under `tests/fixtures/floor_ir/`.
+2. **`tests/unit/test_ir_to_svg.py`** — byte-equal parity (Phase 1
+   through Phase 10.3). `ir_to_svg(ir) == render_floor_svg_legacy(...)`
+   on every fixture. Stays as the guardrail until Phase 10.2 deletes
+   the legacy emitters; afterwards the test mutates to check
+   `ir_to_svg(emit_floor(level, seed)) == reference_svg_snapshot`.
 3. **`tests/unit/test_ir_rng.py`** — splitmix64 vectors and Perlin
-   vectors checked across Python and Rust (via PyO3) and JS
-   (via WASM headless harness).
-4. **`tests/unit/test_ir_canvas_parity.py`** (`slow`, Phase 6) —
-   rasterise IR via `nhc_render.ir_to_png` and via headless Chromium
-   running the WASM Canvas renderer; pixel-diff ≤ 0.5 %.
-5. **`tests/unit/test_ir_png_parity.py`** (`slow`, Phase 5) —
-   `tiny-skia` PNG vs `resvg-py` PNG, pixel-diff ≤ 0.5 %.
+   vectors checked across Python and Rust (via PyO3) and JS (via
+   WASM headless harness).
+4. **`tests/unit/test_ir_canvas_parity.py`** (`slow`, Phase 11) —
+   rasterise IR via `nhc_render.ir_to_png` (canonical reference) and
+   via headless Chromium running the WASM Canvas renderer; PSNR > 30
+   dB threshold (Phase 11 calibration).
+5. **`tests/unit/test_ir_png_parity.py`** (`slow`, Phase 5+).
+   Currently 0.5 % per-layer / 0.7 % whole-floor pixel-diff against
+   `resvg-py` baseline. Phase 8.0 (or a dedicated standalone commit)
+   converts to two-layer parity per §9.4: structural validation +
+   PSNR > 35 dB vs canonical reference image. Phase 10.4 drops the
+   `resvg-py` dependency entirely.
 6. **`tests/unit/test_ir_perf.py`** (`slow`) — p95 budgets on
    `build_floor_ir`, `ir_to_svg`, `ir_to_png`, WASM Canvas paint.
-7. **`tests/samples/generate_svg.py`** — extend to emit
-   `.svg`, `.nir`, `.json`, `.png` per fixture so visual inspection
-   is one-stop.
+   Soft target: cold-path p95 < 500 ms across all rasterisers (per
+   §17 success metrics). The workspace `Cargo` profile reserves
+   `opt-level "z" → "3"` (~30 % build-time gain) as deferred
+   headroom.
+7. **`tests/samples/regenerate_fixtures.py`** — IR-fixture
+   regeneration tool; Phase 8 extends with `SiteFixture` +
+   `BuildingFixture` variants alongside the existing dungeon fixture
+   tuple. New fixtures land per Phase 8 sub-phase: palisade town
+   (8.2), brick building (8.3), brick town (8.5).
+8. **`tests/samples/generate_svg.py`** — visual inspection sample
+   tool; renders human-eyeball SVGs for review. Distinct from the
+   parity-harness fixture regenerator.
 
 WASM tests run via headless Chromium under pytest-playwright (or a
 Node harness) so CI enforces parity without a live browser.
@@ -1049,19 +1574,29 @@ as cold-path-only post-Phase-7.
 ## 17. Success metrics
 
 - **SVG path (Phases 1–4):** IR→SVG byte-equal to legacy
-  `render_floor_svg` on every fixture.
+  `render_floor_svg` on every fixture. **Achieved.**
 - **IR wire size (Phase 2):** p95 `floor.nir` < 12 KB raw, < 4 KB
-  gzipped.
+  gzipped. **Achieved.**
 - **PNG path (Phase 5):** server p95 ≤ 12 ms per floor at 1× scale
   on the deployment target (Intel Broadwell i5-5250U class, 2c/4t,
   AVX2, 15 GiB RAM); ≤ 60 ms at 2×. A datacenter-class CPU would
   comfortably halve those numbers — recalibrate if the server is
-  ever upgraded.
-- **Canvas path (Phase 6):** first-paint < 50 ms on a 2020-era laptop
-  (Apple Silicon dev or comparable x86_64).
-- **Server CPU (Phase 6):** per-floor render time on the gameplay
-  hot path drops ≥ 40 % vs Phase 0 baseline (no decoration string
-  emission).
+  ever upgraded. **Achieved (~360 ms p95 cold, ~ms warm on dev).**
+- **Cold-path soft target (Phase 8 onward):** cold-path p95 < 500 ms
+  across all rasterisers. New visual primitives that push p95 past
+  the target should call out the budget impact in their commit body
+  and either fit within budget or spend the workspace `opt-level
+  "z" → "3"` reserve (~30 % build-time win) in the same commit.
+  Soft goal, not a CI gate.
+- **Cross-rasteriser parity (Phase 8 onward):** structural validation
+  + PSNR > 35 dB vs canonical reference image per `(rasteriser,
+  fixture)` pair (canvas mode threshold may be lower; calibrated at
+  Phase 11).
+- **Canvas path (Phase 11):** first-paint < 50 ms on a 2020-era
+  laptop (Apple Silicon dev or comparable x86_64).
+- **Server CPU (Phase 11, wasm mode):** per-floor render time on the
+  gameplay hot path drops ≥ 40 % vs Phase 0 baseline (server stops
+  rasterising on the wasm-mode hot path).
 - **WASM bundle:** < 400 KB gzipped after `wasm-opt -Oz`.
 
 ## 18. Extensibility patterns
@@ -1155,7 +1690,8 @@ To remove an op:
   filled polygons, anti-aliasing, gradients, image patterns).
   `skia-safe` is heavier and links against the full Skia C++ engine.
   Default to `tiny-skia` until a primitive demands a feature it
-  lacks.
+  lacks. **Resolved through Phase 5 — `tiny-skia` shipped as the
+  production rasteriser.**
 - **Should IR cover hex / overland?** Out of scope for this design.
   If hex rendering ever wants the same canonical-Rust treatment, it
   gets its own IR file (`hex_ir.fbs`) and a separate transformer
@@ -1163,15 +1699,28 @@ To remove an op:
   reusable.
 - **Do we want a "lossy fast mode" on the cold-path SVG?** Skip
   decoration entirely for `/admin` debug views when humans just need
-  the structural skeleton. Probably yes — a `?bare=1` query param
-  toggles it.
-- **Fixture granularity.** One fixture per shape × theme × seed, or
-  one per shape × theme? Current guess: shape × theme (~45
-  fixtures). Expand if debugging demands.
+  the structural skeleton. **Resolved — `?bare=1` query parameter
+  ships in `ir_to_svg`.**
+- **Fixture granularity.** Phase 5 settled at three fixtures (rect
+  dungeon, octagon crypt, cave). Phase 8 adds three more (palisade
+  town, brick town, brick building). Expand further if debugging
+  demands.
 - **Browser support floor.** WASM + canvas2d is universal across
-  modern browsers; do we drop IE11? (Yes.) Do we need a non-WASM
-  fallback for ancient Android WebView? (Probably ship the PNG
-  endpoint as the universal fallback and call it good.)
+  modern browsers. With three switchable rasteriser modes, the
+  SVG and PNG modes serve as fallback paths for environments where
+  WASM isn't desired. The server admin picks per deployment.
+- **PSNR blindness to localised artifacts.** Open until empirical
+  data from Phase 8 fixtures arrives. If false negatives appear,
+  add per-region PSNR (4×4 tile min) or SSIM > 0.95 as a
+  secondary gate. Phase 8 ships PSNR-only.
+- **Per-corner enclosure styles.** Today `EnclosureOp.corner_style`
+  is uniform across all polygon vertices. If mixed corners ever
+  matter (towers at cardinals + plain merlons elsewhere), additively
+  add `per_corner_styles: [CornerStyle]` in a later schema bump.
+- **`GenericProceduralOp` fate.** Survives schema 3.0 as the
+  reserved escape-hatch slot. Could retire if no future ops need
+  it, but the cost of keeping a reserved variant is one byte per
+  union tag and zero runtime cost.
 
 ## Cross-references
 
