@@ -718,6 +718,221 @@ def _draw_floor_grid_from_ir(
 _OP_HANDLERS[Op.Op.FloorGridOp] = _draw_floor_grid_from_ir
 
 
+def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
+    """Reproduce ``_render_wood_floor`` from structured fields.
+
+    Phase 9.2b: drives the wood-floor SVG output from
+    ``op.woodTiles`` (per-tile rect fill), ``op.woodBuildingPolygon``
+    (chamfer / curved-wall outline for octagon and circle floors)
+    and ``op.woodRooms`` (per-room rects for the parquet plank +
+    grain generators). Output stays byte-equal to the legacy
+    ``_render_wood_floor`` walk by replaying the same row-major
+    iteration and the ``random.Random(seed)`` draw order on
+    grain (per-strip jittered offsets) followed by seams (per-
+    plank lengths).
+    """
+    import random
+
+    from nhc.rendering._floor_detail import (
+        WOOD_FLOOR_FILL, WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
+        WOOD_GRAIN_LINES_PER_STRIP, WOOD_GRAIN_OPACITY,
+        WOOD_GRAIN_STROKE_WIDTH, WOOD_PLANK_LENGTH_MAX,
+        WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
+        WOOD_SEAM_STROKE, WOOD_SEAM_WIDTH,
+    )
+
+    out: list[str] = []
+    rng = random.Random(int(op.seed))
+
+    clip_id = _to_str(op.clipRegion)
+    region = (
+        _find_region(fir, clip_id.encode()) if clip_id else None
+    )
+    has_dungeon_clip = region is not None
+    clip_attr = (
+        ' clip-path="url(#wood-interior-clip)"'
+        if has_dungeon_clip else ""
+    )
+
+    if has_dungeon_clip:
+        out.append(_dungeon_clip_defs(
+            region.Polygon(), "wood-interior-clip",
+        ))
+
+    polygon = list(op.woodBuildingPolygon or [])
+    if polygon:
+        poly_points = " ".join(
+            f"{p.x:.1f},{p.y:.1f}" for p in polygon
+        )
+        out.append(
+            '<defs><clipPath id="wood-bldg-clip">'
+            f'<polygon points="{poly_points}"/>'
+            '</clipPath></defs>'
+        )
+        xs = [p.x for p in polygon]
+        ys = [p.y for p in polygon]
+        bx, by = min(xs), min(ys)
+        bw = max(xs) - bx
+        bh = max(ys) - by
+        out.append(
+            f'<rect x="{bx:.1f}" y="{by:.1f}" '
+            f'width="{bw:.1f}" height="{bh:.1f}" '
+            f'fill="{WOOD_FLOOR_FILL}" '
+            'clip-path="url(#wood-bldg-clip)"/>'
+        )
+    else:
+        # Per-tile rect fill — mirrors walk_and_paint's emit shape
+        # for the WOOD_FLOOR_FILL_DECORATOR with bucket="room".
+        tiles = list(op.woodTiles or [])
+        if tiles and has_dungeon_clip:
+            # walk_and_paint re-emits its own clip defs even when
+            # the caller already emitted one above; preserve the
+            # legacy duplicate to keep byte-equal SVG parity.
+            out.append(_dungeon_clip_defs(
+                region.Polygon(), "wood-interior-clip",
+            ))
+            out.append('<g clip-path="url(#wood-interior-clip)">')
+        for tile in tiles:
+            px = tile.x * CELL
+            py = tile.y * CELL
+            out.append(
+                f'<rect x="{px:.0f}" y="{py:.0f}" '
+                f'width="{CELL}" height="{CELL}" '
+                f'fill="{WOOD_FLOOR_FILL}"/>'
+            )
+        if tiles and has_dungeon_clip:
+            out.append("</g>")
+
+    rooms = list(op.woodRooms or [])
+    if not rooms:
+        return out
+
+    lines_light: list[str] = []
+    lines_dark: list[str] = []
+    for room in rooms:
+        x0 = room.x * CELL
+        y0 = room.y * CELL
+        x1 = (room.x + room.w) * CELL
+        y1 = (room.y + room.h) * CELL
+        horizontal = room.w >= room.h
+        width = WOOD_PLANK_WIDTH_PX
+
+        if horizontal:
+            y = y0
+            while y < y1:
+                strip_bot = min(y + width, y1)
+                span = strip_bot - y
+                if span <= 0.5:
+                    y += width
+                    continue
+                for i in range(WOOD_GRAIN_LINES_PER_STRIP):
+                    gy = rng.uniform(
+                        y + span * 0.15, strip_bot - span * 0.15,
+                    )
+                    dest = lines_light if i % 2 == 0 else lines_dark
+                    dest.append(
+                        f'<line x1="{x0:.1f}" y1="{gy:.1f}" '
+                        f'x2="{x1:.1f}" y2="{gy:.1f}"/>'
+                    )
+                y += width
+        else:
+            x = x0
+            while x < x1:
+                strip_right = min(x + width, x1)
+                span = strip_right - x
+                if span <= 0.5:
+                    x += width
+                    continue
+                for i in range(WOOD_GRAIN_LINES_PER_STRIP):
+                    gx = rng.uniform(
+                        x + span * 0.15, strip_right - span * 0.15,
+                    )
+                    dest = lines_light if i % 2 == 0 else lines_dark
+                    dest.append(
+                        f'<line x1="{gx:.1f}" y1="{y0:.1f}" '
+                        f'x2="{gx:.1f}" y2="{y1:.1f}"/>'
+                    )
+                x += width
+
+    for colour, group in (
+        (WOOD_GRAIN_LIGHT, lines_light),
+        (WOOD_GRAIN_DARK, lines_dark),
+    ):
+        if not group:
+            continue
+        out.append(
+            f'<g fill="none" stroke="{colour}" '
+            f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
+            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
+        )
+        out.append("".join(group))
+        out.append("</g>")
+
+    seams: list[str] = []
+    for room in rooms:
+        seams.extend(_parquet_seams_from_room_ir(
+            room, rng,
+            WOOD_PLANK_WIDTH_PX,
+            WOOD_PLANK_LENGTH_MIN,
+            WOOD_PLANK_LENGTH_MAX,
+        ))
+    if not seams:
+        return out
+    out.append(
+        f'<g fill="none" stroke="{WOOD_SEAM_STROKE}" '
+        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}>'
+    )
+    out.append("".join(seams))
+    out.append("</g>")
+    return out
+
+
+def _parquet_seams_from_room_ir(
+    room, rng, width: float, length_min: float, length_max: float,
+) -> list[str]:
+    x0 = room.x * CELL
+    y0 = room.y * CELL
+    x1 = (room.x + room.w) * CELL
+    y1 = (room.y + room.h) * CELL
+    horizontal = room.w >= room.h
+    seams: list[str] = []
+    if horizontal:
+        y = y0
+        while y < y1:
+            strip_bot = min(y + width, y1)
+            x_end = x0 + rng.uniform(length_min, length_max)
+            while x_end < x1:
+                seams.append(
+                    f'<line x1="{x_end:.1f}" y1="{y:.1f}" '
+                    f'x2="{x_end:.1f}" y2="{strip_bot:.1f}"/>'
+                )
+                x_end += rng.uniform(length_min, length_max)
+            y += width
+            if y < y1:
+                seams.append(
+                    f'<line x1="{x0:.1f}" y1="{y:.1f}" '
+                    f'x2="{x1:.1f}" y2="{y:.1f}"/>'
+                )
+    else:
+        x = x0
+        while x < x1:
+            strip_right = min(x + width, x1)
+            y_end = y0 + rng.uniform(length_min, length_max)
+            while y_end < y1:
+                seams.append(
+                    f'<line x1="{x:.1f}" y1="{y_end:.1f}" '
+                    f'x2="{strip_right:.1f}" y2="{y_end:.1f}"/>'
+                )
+                y_end += rng.uniform(length_min, length_max)
+            x += width
+            if x < x1:
+                seams.append(
+                    f'<line x1="{x:.1f}" y1="{y0:.1f}" '
+                    f'x2="{x:.1f}" y2="{y1:.1f}"/>'
+                )
+    return seams
+
+
 def _draw_floor_detail_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
@@ -725,9 +940,9 @@ def _draw_floor_detail_from_ir(
 
     Three modes:
 
-    - ``wood_floor_groups`` non-empty → emit them verbatim and
-      return. The legacy wood-floor short-circuit owns its own
-      clipPath envelope; the IR carries the fragments end-to-end.
+    - Wood-floor short-circuit (``wood_tiles`` / ``wood_rooms`` /
+      ``wood_building_polygon`` populated) → drive
+      ``_draw_wood_floor_from_ir`` from the structured fields.
     - Otherwise: floor-detail-proper from Rust
       (``nhc_render.draw_floor_detail``) plus thematic-detail
       passthrough (``room_groups`` / ``corridor_groups``) under
@@ -738,9 +953,8 @@ def _draw_floor_detail_from_ir(
 
     op = OpCreator(entry.OpType(), entry.Op())
 
-    wood_floor = [_to_str(g) for g in (op.woodFloorGroups or [])]
-    if wood_floor:
-        return wood_floor
+    if op.woodTiles or op.woodBuildingPolygon or op.woodRooms:
+        return _draw_wood_floor_from_ir(op, fir)
 
     out: list[str] = []
     thematic_room = [_to_str(g) for g in (op.roomGroups or [])]

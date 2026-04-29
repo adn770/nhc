@@ -56,6 +56,12 @@ _ALLOWLIST: frozenset[str] = frozenset({
     # downstream RNGs for the legacy procedural paths above.
     "svg.py",
     "_render_context.py",
+    # Phase 9.2b: ir_to_svg's wood-floor from-IR painter seeds
+    # `random.Random(op.seed)` to keep byte-equal SVG parity with
+    # the legacy walk_and_paint output. Retire when 9.2c lands the
+    # Rust port and the SVG-side painter retires alongside the
+    # legacy renderer at Phase 10.
+    "ir_to_svg.py",
 })
 
 
