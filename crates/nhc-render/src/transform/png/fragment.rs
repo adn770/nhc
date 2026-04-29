@@ -13,21 +13,54 @@
 //! `path_parser` first.
 
 use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Mask, Paint, PathBuilder,
-    Rect, Stroke,
+    BlendMode, Color, FillRule, FilterQuality, LineCap, LineJoin, Mask,
+    Paint, PathBuilder, PixmapPaint, Rect, Stroke, Transform,
 };
 
 use super::path_parser::parse_path_d;
 use super::svg_attr::{extract_attr, extract_f32};
 use super::RasterCtx;
 
+/// `1.0 - GROUP_OPAQUE_THRESHOLD` is the cutoff below which the
+/// offscreen-buffer pass kicks in. Group wrappers with opacity
+/// at or above this value composite identically to the direct
+/// per-element render, so we skip the alloc + blit overhead.
+const GROUP_OPAQUE_THRESHOLD: f32 = 1.0e-6;
+
+/// SVG attributes that follow the inheritance rules from
+/// [SVG 1.1 §6.2](https://www.w3.org/TR/SVG11/styling.html). The
+/// fragment helper applies these to children when the parent
+/// `<g>` open tag declares them and the child does not — needed
+/// for the terrain-detail walk_and_paint passthrough, whose
+/// open-tag attributes set the stroke colour for hundreds of
+/// per-tile `<path>` children that themselves carry only
+/// `fill="none" stroke-width="…"`.
+const INHERITABLE_ATTRS: &[&str] = &[
+    "stroke",
+    "fill",
+    "stroke-width",
+    "stroke-linecap",
+    "stroke-linejoin",
+];
+
 /// Rasterise one fragment string. The fragment is either:
 ///
-/// - a `<g [class="…"] opacity="X">…</g>` wrapper, in which case
-///   the group's opacity multiplies into `base_opacity` and the
-///   inner element list iterates; or
+/// - a `<g [class="…"] opacity="X">…</g>` wrapper, in which
+///   case the group's children render into the `RasterCtx`'s
+///   scratch pixmap at full alpha, then the scratch blits onto
+///   the main pixmap with `PixmapPaint::opacity = X *
+///   base_opacity`. Phase 5.10 made this the default — earlier
+///   commits multiplied opacity into per-element alpha, which
+///   over-darkened overlapping children vs the SVG spec; the
+///   offscreen pass matches the SVG group-opacity composition
+///   exactly. Fully-opaque (`X >= 1.0`) groups skip the alloc
+///   + blit and render direct.
 /// - a single self-closing element (`<rect/>`, `<line/>`, …),
 ///   handled directly.
+///
+/// In both branches inheritable attributes (`stroke`, `fill`,
+/// stroke caps / joins / width) declared on the parent `<g>`
+/// open tag flow into children that don't override them.
 pub fn paint_fragment(
     frag: &str,
     base_opacity: f32,
@@ -35,32 +68,136 @@ pub fn paint_fragment(
     ctx: &mut RasterCtx<'_>,
 ) {
     let frag = frag.trim();
-    if let Some((inner, group_opacity)) = strip_g_wrapper(frag) {
-        let total = base_opacity * group_opacity;
-        for elem in elements(inner) {
-            paint_element(elem, total, mask, ctx);
-        }
-    } else {
+    let Some((inner, group_opacity, header)) = strip_g_wrapper(frag)
+    else {
         paint_element(frag, base_opacity, mask, ctx);
+        return;
+    };
+    if group_opacity >= 1.0 - GROUP_OPAQUE_THRESHOLD {
+        // Fully opaque group — direct render is equivalent.
+        for elem in elements(inner) {
+            let inherited = inherit_attrs(elem, header);
+            paint_element(&inherited, base_opacity, mask, ctx);
+        }
+        return;
     }
+    paint_offscreen_group(inner, header, base_opacity, group_opacity, mask, ctx);
 }
 
-/// Convenience: walk a list of fragments.
+/// Offscreen-buffer group composition.
+///
+/// 1. Clear the scratch pixmap.
+/// 2. Swap pixmap ↔ scratch so per-element fills land in the
+///    scratch — children at full alpha.
+/// 3. Render every inner element with no clip mask (clip applies
+///    to the group's RESULT, not to children).
+/// 4. Swap back.
+/// 5. Blit scratch onto pixmap with the composed opacity and
+///    the inherited clip mask.
+///
+/// Inheritable attributes from the parent open tag flow into
+/// children that don't override them — same shape as the
+/// fully-opaque branch above.
+///
+/// Nested `<g opacity>` wrappers are NOT supported — the legacy
+/// emitters never nest groups, so the simple non-stacked design
+/// covers every Phase 5 primitive.
+fn paint_offscreen_group(
+    inner: &str,
+    header: &str,
+    base_opacity: f32,
+    group_opacity: f32,
+    mask: Option<&Mask>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    ctx.scratch.fill(Color::TRANSPARENT);
+    std::mem::swap(ctx.pixmap, ctx.scratch);
+    for elem in elements(inner) {
+        let inherited = inherit_attrs(elem, header);
+        paint_element(&inherited, 1.0, None, ctx);
+    }
+    std::mem::swap(ctx.pixmap, ctx.scratch);
+
+    let pp = PixmapPaint {
+        opacity: (base_opacity * group_opacity).clamp(0.0, 1.0),
+        blend_mode: BlendMode::SourceOver,
+        quality: FilterQuality::Nearest,
+    };
+    ctx.pixmap
+        .draw_pixmap(0, 0, ctx.scratch.as_ref(), &pp, Transform::identity(), mask);
+}
+
+/// Walk a list of fragments. Some emit paths (the terrain-detail
+/// walk_and_paint passthrough is the load-bearing case) ship
+/// `<g>` open tags, child elements, and `</g>` close tags as
+/// separate vector entries rather than a single self-contained
+/// string — we accumulate them into a synthetic group string
+/// before dispatching to `paint_fragment` so the same
+/// inheritance + offscreen-buffer paths apply.
 pub fn paint_fragments(
     fragments: &[String],
     base_opacity: f32,
     mask: Option<&Mask>,
     ctx: &mut RasterCtx<'_>,
 ) {
+    let mut buffered: Option<String> = None;
     for frag in fragments {
+        let trimmed = frag.trim();
+        if let Some(buf) = buffered.as_mut() {
+            buf.push_str(frag);
+            if trimmed == "</g>" {
+                let group = buffered.take().unwrap();
+                paint_fragment(&group, base_opacity, mask, ctx);
+            }
+            continue;
+        }
+        if trimmed.starts_with("<g") && !trimmed.contains("</g>") {
+            buffered = Some(frag.clone());
+            continue;
+        }
         paint_fragment(frag, base_opacity, mask, ctx);
+    }
+    // Unmatched open-g (shouldn't happen in valid IR, but guard
+    // against a truncated emit). Pass through as-is so the
+    // single-element dispatch still tries to render whatever
+    // self-closing children the buffer collected.
+    if let Some(buf) = buffered.take() {
+        paint_fragment(&buf, base_opacity, mask, ctx);
     }
 }
 
-/// `<g opacity="X">inner</g>` → `(inner, X)`. Returns `None`
-/// when the wrapper isn't present; non-`<g>` openings are
-/// left to the per-element dispatch.
-fn strip_g_wrapper(s: &str) -> Option<(&str, f32)> {
+/// Inject parent-tag attributes into a child element string when
+/// the child doesn't declare them. Returns the child unchanged
+/// when no inheritance applies (the common case for self-
+/// contained `<g>` envelopes from the structured primitives).
+fn inherit_attrs(child: &str, parent_header: &str) -> String {
+    let close_pos = match child.rfind("/>") {
+        Some(p) => p,
+        None => return child.to_string(),
+    };
+    let mut additions = String::new();
+    for attr in INHERITABLE_ATTRS {
+        if extract_attr(child, attr).is_some() {
+            continue;
+        }
+        if let Some(value) = extract_attr(parent_header, attr) {
+            additions.push_str(&format!(" {attr}=\"{value}\""));
+        }
+    }
+    if additions.is_empty() {
+        return child.to_string();
+    }
+    let mut result = String::with_capacity(child.len() + additions.len());
+    result.push_str(&child[..close_pos]);
+    result.push_str(&additions);
+    result.push_str(&child[close_pos..]);
+    result
+}
+
+/// `<g attrs>inner</g>` → `(inner, opacity, open_tag)`. Returns
+/// `None` when the wrapper isn't self-contained; non-`<g>`
+/// openings are left to the per-element dispatch.
+fn strip_g_wrapper(s: &str) -> Option<(&str, f32, &str)> {
     if !s.starts_with("<g") {
         return None;
     }
@@ -72,7 +209,7 @@ fn strip_g_wrapper(s: &str) -> Option<(&str, f32)> {
     let header = &s[..header_end];
     let inner = &s[header_end..inner_end];
     let opacity = extract_f32(header, "opacity").unwrap_or(1.0);
-    Some((inner, opacity))
+    Some((inner, opacity, header))
 }
 
 /// Iterate self-closing elements inside `s` — split on `/>`.
@@ -409,22 +546,25 @@ fn ellipse_path(cx: f32, cy: f32, rx: f32, ry: f32) -> tiny_skia::Path {
 
 #[cfg(test)]
 mod tests {
-    use super::{elements, strip_g_wrapper};
+    use super::{elements, paint_fragment, strip_g_wrapper, RasterCtx};
+    use tiny_skia::{Pixmap, Transform};
 
     #[test]
     fn strip_g_wrapper_extracts_opacity() {
         let s = "<g opacity=\"0.3\"><rect/></g>";
-        let (inner, op) = strip_g_wrapper(s).unwrap();
+        let (inner, op, header) = strip_g_wrapper(s).unwrap();
         assert_eq!(inner, "<rect/>");
         assert!((op - 0.3).abs() < 1e-6);
+        assert_eq!(header, "<g opacity=\"0.3\">");
     }
 
     #[test]
     fn strip_g_wrapper_handles_class_attr() {
         let s = "<g class=\"y-scratch\" opacity=\"0.45\"><path/></g>";
-        let (inner, op) = strip_g_wrapper(s).unwrap();
+        let (inner, op, header) = strip_g_wrapper(s).unwrap();
         assert_eq!(inner, "<path/>");
         assert!((op - 0.45).abs() < 1e-6);
+        assert!(header.contains("class=\"y-scratch\""));
     }
 
     #[test]
@@ -440,5 +580,160 @@ mod tests {
         assert!(got[0].starts_with("<rect"));
         assert!(got[1].starts_with("<line"));
         assert!(got[2].starts_with("<ellipse"));
+    }
+
+    /// Two overlapping black rects in a `<g opacity="0.5">`
+    /// wrapper. Per-element-alpha (the pre-5.10 behaviour) would
+    /// over-darken the overlap — that pixel would composite as
+    /// `bg * 0.25 + black * 0.75` (each rect lands at 0.5 alpha
+    /// against the running buffer). Offscreen-buffer composition
+    /// (the 5.10 contract) lands each rect into the scratch at
+    /// full alpha (so they overlap with no extra blending), then
+    /// the scratch blits at 0.5 alpha — every pixel of the group
+    /// sees `bg * 0.5 + black * 0.5`.
+    #[test]
+    fn group_opacity_does_not_over_darken_overlap() {
+        let mut pixmap = Pixmap::new(20, 20).unwrap();
+        let mut scratch = Pixmap::new(20, 20).unwrap();
+        // Fill the main pixmap with white (the BG analogue).
+        pixmap.fill(tiny_skia::Color::WHITE);
+        let mut ctx = RasterCtx {
+            pixmap: &mut pixmap,
+            scratch: &mut scratch,
+            transform: Transform::identity(),
+            scale: 1.0,
+        };
+        // Two overlapping black rects under a 0.5-opacity wrapper.
+        let frag = "<g opacity=\"0.5\">\
+            <rect x=\"0\" y=\"0\" width=\"10\" height=\"10\" \
+             fill=\"#000000\"/>\
+            <rect x=\"5\" y=\"5\" width=\"10\" height=\"10\" \
+             fill=\"#000000\"/>\
+            </g>";
+        paint_fragment(frag, 1.0, None, &mut ctx);
+
+        // (7, 7) sits inside both rects (overlap region).
+        let pixel = ctx.pixmap.pixel(7, 7).unwrap();
+        // Expected:  white * 0.5 + black * 0.5 = (127.5, ...).
+        // Tolerate +/- 2 levels of antialiasing rounding noise.
+        assert!(
+            (pixel.red() as i32 - 128).abs() <= 2,
+            "overlap red = {}", pixel.red()
+        );
+        assert!(
+            (pixel.green() as i32 - 128).abs() <= 2,
+            "overlap green = {}", pixel.green()
+        );
+        assert!(
+            (pixel.blue() as i32 - 128).abs() <= 2,
+            "overlap blue = {}", pixel.blue()
+        );
+    }
+
+    /// Children inherit `stroke` from the parent `<g>` open
+    /// tag. Mirrors the terrain-detail walk_and_paint
+    /// passthrough shape — the open tag carries the colour, the
+    /// children carry only `fill="none" stroke-width="…"`.
+    #[test]
+    fn child_inherits_stroke_from_parent_g() {
+        use super::inherit_attrs;
+        let parent = "<g opacity=\"0.5\" stroke=\"#FF0000\" \
+                     stroke-linecap=\"round\">";
+        let child = "<line x1=\"0\" y1=\"0\" x2=\"10\" y2=\"0\" \
+                     stroke-width=\"1\"/>";
+        let inherited = inherit_attrs(child, parent);
+        assert!(
+            inherited.contains("stroke=\"#FF0000\""),
+            "inherited stroke missing: {inherited}"
+        );
+        assert!(
+            inherited.contains("stroke-linecap=\"round\""),
+            "inherited stroke-linecap missing: {inherited}"
+        );
+    }
+
+    /// Inheritance does NOT clobber attrs the child declares.
+    #[test]
+    fn child_attr_overrides_parent() {
+        use super::inherit_attrs;
+        let parent = "<g stroke=\"#FF0000\">";
+        let child = "<line stroke=\"#00FF00\"/>";
+        let inherited = inherit_attrs(child, parent);
+        assert!(
+            inherited.contains("stroke=\"#00FF00\""),
+            "child stroke clobbered: {inherited}"
+        );
+        assert!(
+            !inherited.contains("stroke=\"#FF0000\""),
+            "parent stroke leaked: {inherited}"
+        );
+    }
+
+    /// `paint_fragments` accumulates the multi-entry group
+    /// shape from terrain-detail's walk_and_paint passthrough
+    /// (open-tag fragment, child fragments, close-tag fragment)
+    /// into a single self-contained group, then dispatches
+    /// through the inheritance + offscreen-buffer path.
+    #[test]
+    fn paint_fragments_accumulates_multi_entry_group() {
+        let mut pixmap = Pixmap::new(20, 20).unwrap();
+        let mut scratch = Pixmap::new(20, 20).unwrap();
+        pixmap.fill(tiny_skia::Color::WHITE);
+        let mut ctx = RasterCtx {
+            pixmap: &mut pixmap,
+            scratch: &mut scratch,
+            transform: Transform::identity(),
+            scale: 1.0,
+        };
+        // Terrain-detail walk_and_paint shape: open-g (no
+        // close), several child paths inheriting stroke +
+        // stroke-linecap, then a close-g.
+        let fragments: Vec<String> = vec![
+            "<g opacity=\"0.5\" stroke=\"#000000\" stroke-linecap=\"round\">"
+                .to_string(),
+            "<rect x=\"0\" y=\"0\" width=\"10\" height=\"10\" fill=\"#000000\"/>"
+                .to_string(),
+            "</g>".to_string(),
+        ];
+        super::paint_fragments(&fragments, 1.0, None, &mut ctx);
+
+        let pixel = ctx.pixmap.pixel(5, 5).unwrap();
+        // White * 0.5 + black * 0.5 ≈ 128.
+        assert!(
+            (pixel.red() as i32 - 128).abs() <= 2,
+            "multi-entry group: red = {}",
+            pixel.red()
+        );
+    }
+
+    /// (2, 2) sits inside only the first rect — non-overlap.
+    /// Same expected colour as the overlap pixel: `white * 0.5
+    /// + black * 0.5`. Per-element-alpha would have produced
+    /// the same value here, so the test is a control: when the
+    /// implementation is correct, both pixels land at 128.
+    #[test]
+    fn group_opacity_non_overlap_pixel_matches_overlap() {
+        let mut pixmap = Pixmap::new(20, 20).unwrap();
+        let mut scratch = Pixmap::new(20, 20).unwrap();
+        pixmap.fill(tiny_skia::Color::WHITE);
+        let mut ctx = RasterCtx {
+            pixmap: &mut pixmap,
+            scratch: &mut scratch,
+            transform: Transform::identity(),
+            scale: 1.0,
+        };
+        let frag = "<g opacity=\"0.5\">\
+            <rect x=\"0\" y=\"0\" width=\"10\" height=\"10\" \
+             fill=\"#000000\"/>\
+            <rect x=\"5\" y=\"5\" width=\"10\" height=\"10\" \
+             fill=\"#000000\"/>\
+            </g>";
+        paint_fragment(frag, 1.0, None, &mut ctx);
+
+        let non_overlap = ctx.pixmap.pixel(2, 2).unwrap();
+        let overlap = ctx.pixmap.pixel(7, 7).unwrap();
+        assert_eq!(non_overlap.red(), overlap.red());
+        assert_eq!(non_overlap.green(), overlap.green());
+        assert_eq!(non_overlap.blue(), overlap.blue());
     }
 }

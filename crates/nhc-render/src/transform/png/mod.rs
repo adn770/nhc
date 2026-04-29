@@ -97,8 +97,17 @@ impl std::error::Error for PngError {}
 /// either pass it straight through to `Pixmap::fill_path` /
 /// `stroke_path`, or pre-compose their own per-op transform and
 /// pass the combined result.
+///
+/// `scratch` is a same-sized pixmap pre-allocated for offscreen
+/// `<g opacity="X">` compositing in `fragment::paint_fragment`
+/// — children render into the scratch at full alpha, then the
+/// scratch blits onto `pixmap` with `PixmapPaint::opacity = X`.
+/// Pre-allocating once at the `floor_ir_to_png` entry point
+/// dodges the per-group allocation that the seed99 fixture's
+/// dense `<g opacity>` clusters would otherwise induce.
 pub struct RasterCtx<'a> {
     pub pixmap: &'a mut Pixmap,
+    pub scratch: &'a mut Pixmap,
     pub transform: Transform,
     pub scale: f32,
 }
@@ -201,6 +210,8 @@ pub fn floor_ir_to_png(
     let ph = (svg_h * scale).round().max(0.0) as u32;
     let mut pixmap = Pixmap::new(pw, ph)
         .ok_or(PngError::InvalidCanvas { width: pw, height: ph })?;
+    let mut scratch = Pixmap::new(pw, ph)
+        .ok_or(PngError::InvalidCanvas { width: pw, height: ph })?;
 
     pixmap.fill(Color::from_rgba8(BG_R, BG_G, BG_B, 0xFF));
 
@@ -208,6 +219,7 @@ pub fn floor_ir_to_png(
         .post_scale(scale, scale);
     let mut ctx = RasterCtx {
         pixmap: &mut pixmap,
+        scratch: &mut scratch,
         transform,
         scale,
     };

@@ -87,36 +87,19 @@ DESCRIPTORS = tuple(d for d in all_descriptors())
 #           the terrain_detail / surface_features passthroughs
 #           via the new TerrainDetailOp + GenericProceduralOp
 #           handlers.
+#   5.10  — offscreen-buffer compositing + SVG attr inheritance
+#           for `<g opacity>` wrappers + the multi-entry group
+#           shape (open-tag / children / close-tag). Drops the
+#           last (seed99, terrain_detail) XFAIL — the cave
+#           fixture's dense grass cluster lands at ~0.013 % vs
+#           the 0.5 % gate.
 LANDED_PAIRS: frozenset[tuple[str, str]] = frozenset(
     (descriptor, layer)
     for descriptor in DESCRIPTORS
-    for layer in (
-        "shadows",
-        "terrain_tints",
-        "floor_grid",
-        "stairs",
-        "hatching",
-        "floor_detail",
-        "thematic_detail",
-        "walls_and_floors",
-        "surface_features",
-    )
-) | frozenset({
-    ("seed42_rect_dungeon_dungeon", "terrain_detail"),
-    ("seed7_octagon_crypt_dungeon", "terrain_detail"),
-})
-# (seed99, terrain_detail) stays XFAIL — the cave fixture
-# clusters grass / chasm blades densely enough that per-element
-# alpha vs SVG group-opacity offscreen compositing diverges by
-# ~0.66 % (just over the 0.5 % gate). A future commit could
-# add an offscreen-buffer pass for `<g opacity>` wrappers; for
-# Phase 5 the gate stays.
-
-XFAIL_PAIRS: frozenset[tuple[str, str]] = frozenset(
-    (descriptor, layer)
-    for descriptor in DESCRIPTORS
     for layer in LAYER_NAMES
-) - LANDED_PAIRS
+)
+
+XFAIL_PAIRS: frozenset[tuple[str, str]] = frozenset()
 
 
 # ≤ 0.5 % per the Phase 5 success criteria.
@@ -184,16 +167,17 @@ def test_layer_parity(emitted, layer: str, request) -> None:
     )
 
 
-# Whole-floor threshold accumulates the per-layer subpixel
-# variance — every layer that strokes anti-aliased outlines
-# contributes a few pixels at the SVG / tiny-skia rasteriser
-# boundary, and `<g opacity>` overlaps add a per-stack delta on
-# top. Empirical fixture diffs at HEAD: seed42 ~0.56 %, seed7
-# ~0.87 %, seed99 ~0.89 %. 1.0 % keeps a small headroom for the
-# layer-stacking order regression test without admitting visual
-# divergence; a future commit that adds offscreen-buffer
-# compositing for `<g opacity>` brings these back under 0.5 %.
-WHOLE_FLOOR_THRESHOLD: float = 0.010
+# Whole-floor threshold sits a touch above the per-layer 0.5 %
+# gate to absorb the natural accumulation of subpixel
+# antialiasing variance across the stack. Phase 5.10 closed the
+# SVG group-opacity / per-element-alpha gap that had kept this
+# gate at 1.0 %; the residual variance comes from per-layer
+# stroke / fill anti-alias differences (hatching at ~0.33 % and
+# thematic_detail at ~0.29 % on seed7 alone, additive across
+# the stack). Empirical fixture diffs at HEAD: seed42 ~0.41 %,
+# seed7 ~0.62 %, seed99 ~0.23 %. 0.7 % keeps the headroom
+# without admitting visual divergence.
+WHOLE_FLOOR_THRESHOLD: float = 0.007
 
 
 def test_whole_floor_parity(emitted) -> None:
