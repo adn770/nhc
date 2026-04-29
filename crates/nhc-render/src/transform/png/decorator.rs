@@ -11,6 +11,7 @@
 //! - 5.4.1 Cobblestone — 3×3 jittered grid + 12 % stones.
 //! - 5.4.2 Brick — 4×2 running-bond layout per tile.
 //! - 5.4.3 Flagstone — 4 irregular pentagon plates per tile.
+//! - 5.4.4 Opus Romano — 4-stone Versailles tiling, RNG-free.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
 use crate::primitives;
@@ -32,6 +33,7 @@ pub(super) fn draw(
     draw_cobblestone(&op, seed, ctx);
     draw_brick(&op, seed, ctx);
     draw_flagstone(&op, seed, ctx);
+    draw_opus_romano(&op, seed, ctx);
 }
 
 fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
@@ -84,6 +86,24 @@ fn draw_flagstone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
             continue;
         }
         let frags = primitives::flagstone::draw_flagstone(&tiles, seed);
+        paint_fragments(&frags, 1.0, None, ctx);
+    }
+}
+
+fn draw_opus_romano(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+    let variants = match op.opus_romano() {
+        Some(v) => v,
+        None => return,
+    };
+    for variant in variants.iter() {
+        let tiles: Vec<(i32, i32)> = variant
+            .tiles()
+            .map(|t| t.iter().map(|c| (c.x(), c.y())).collect())
+            .unwrap_or_default();
+        if tiles.is_empty() {
+            continue;
+        }
+        let frags = primitives::opus_romano::draw_opus_romano(&tiles, seed);
         paint_fragments(&frags, 1.0, None, ctx);
     }
 }
