@@ -1226,13 +1226,9 @@ def create_app(
             return None
         level = session.game.level
         site = getattr(session.game, "_active_site", None)
-        if site is not None:
-            # Phase 8.5 (pending): drops the building-floor short-
-            # circuit. Site surfaces shed their short-circuit at
-            # Phase 8.4 — site=site flows into build_floor_ir below
-            # to trigger the emit_site_overlays stage.
-            if getattr(level, "building_id", None) is not None:
-                return None
+        # Phase 8.4 dropped the `level is site.surface` short-circuit;
+        # Phase 8.5 drops the `building_id is not None` branch.
+        # build_floor_ir resolves both via the `site=` param.
         from nhc.rendering.ir_emitter import (
             SCHEMA_MAJOR, SCHEMA_MINOR, build_floor_ir,
         )

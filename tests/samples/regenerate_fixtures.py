@@ -246,6 +246,42 @@ _SITE_FIXTURES: tuple[SiteFixture, ...] = (
 )
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class BuildingFixture:
+    """Phase 8.5 — gameplay building-floor fixture.
+
+    Builds a real :class:`Site` via ``assemble_site`` and picks
+    ``site.buildings[building_index].floors[floor_index]`` as the
+    level. ``build_floor_ir`` with ``site=site`` triggers the
+    emit_building_overlays stage which emits the Building region
+    + interior + exterior wall ops alongside the regular gameplay
+    layers.
+    """
+
+    seed: int
+    site_kind: str          # "town" / "keep" / ...
+    building_index: int
+    floor_index: int = 0
+    name: str = "brick_building_floor0"
+
+    @property
+    def descriptor(self) -> str:
+        return f"seed{self.seed}_{self.name}"
+
+
+_BUILDING_FIXTURES: tuple[BuildingFixture, ...] = (
+    # seed-7 town building 1: brick-walled rect with 2 floors;
+    # ground floor (index 0) carries interior partition lines, so
+    # the fixture exercises both BuildingExteriorWallOp and
+    # BuildingInteriorWallOp.
+    BuildingFixture(
+        seed=7, site_kind="town",
+        building_index=1, floor_index=0,
+        name="brick_building_floor0",
+    ),
+)
+
+
 _SYNTHETIC_BUILDING_WALL_FIXTURES: tuple[SyntheticBuildingWallFixture, ...] = (
     # Brick rect — simplest case; orthogonal masonry runs only.
     SyntheticBuildingWallFixture(
@@ -665,6 +701,79 @@ def _check_site_fixture(fx: SiteFixture, root: Path) -> list[str]:
     return drifts
 
 
+# ── Building gameplay regen (Phase 8.5) ────────────────────────
+
+
+def _build_building_inputs(
+    fx: BuildingFixture,
+):
+    """Return ``(site, level)`` for a BuildingFixture descriptor."""
+    import random
+    from nhc.sites._site import assemble_site
+    site = assemble_site(
+        fx.site_kind, f"{fx.site_kind}_seed{fx.seed}",
+        random.Random(fx.seed),
+    )
+    building = site.buildings[fx.building_index]
+    level = building.floors[fx.floor_index]
+    return site, level
+
+
+def _render_building_fixture(
+    fx: BuildingFixture,
+) -> tuple[bytes, bytes, str]:
+    """Build the building-floor IR + reference PNG + structural."""
+    import nhc_render
+    from nhc.rendering.ir.structural import dump_structural
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    site, level = _build_building_inputs(fx)
+    nir = bytes(build_floor_ir(
+        level,
+        seed=fx.seed,
+        hatch_distance=2.0,
+        site=site,
+    ))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    structural = dump_structural(nir)
+    return nir, reference_png, structural
+
+
+def _write_building_fixture(
+    fx: BuildingFixture, root: Path, *, regen_reference: bool,
+) -> None:
+    nir, reference_png, structural = _render_building_fixture(fx)
+    out = root / fx.descriptor
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "floor.nir").write_bytes(nir)
+    (out / "structural.json").write_text(structural)
+    reference_path = out / "reference.png"
+    if regen_reference or not reference_path.exists():
+        reference_path.write_bytes(reference_png)
+
+
+def _check_building_fixture(fx: BuildingFixture, root: Path) -> list[str]:
+    nir, reference_png, structural = _render_building_fixture(fx)
+    out = root / fx.descriptor
+    drifts: list[str] = []
+    nir_path = out / "floor.nir"
+    if not nir_path.exists():
+        drifts.append(f"{fx.descriptor}: floor.nir missing")
+    elif nir_path.read_bytes() != nir:
+        drifts.append(f"{fx.descriptor}: floor.nir drift")
+    s_path = out / "structural.json"
+    if not s_path.exists():
+        drifts.append(f"{fx.descriptor}: structural.json missing")
+    elif s_path.read_text() != structural:
+        drifts.append(f"{fx.descriptor}: structural.json drift")
+    r_path = out / "reference.png"
+    if not r_path.exists():
+        drifts.append(f"{fx.descriptor}: reference.png missing")
+    elif r_path.read_bytes() != reference_png:
+        drifts.append(f"{fx.descriptor}: reference.png drift")
+    return drifts
+
+
 # ── Synthetic Building wall regen (Phase 8.3c) ─────────────────
 
 
@@ -880,6 +989,10 @@ def main(argv: list[str]) -> int:
             fx for fx in _SITE_FIXTURES
             if args.filter in fx.descriptor
         ]
+        buildings = [
+            fx for fx in _BUILDING_FIXTURES
+            if args.filter in fx.descriptor
+        ]
         synthetic_roofs = [
             fx for fx in _SYNTHETIC_ROOF_FIXTURES
             if args.filter in fx.descriptor
@@ -895,13 +1008,14 @@ def main(argv: list[str]) -> int:
     else:
         selected = list(_FIXTURES)
         sites = list(_SITE_FIXTURES)
+        buildings = list(_BUILDING_FIXTURES)
         synthetic_roofs = list(_SYNTHETIC_ROOF_FIXTURES)
         synthetic_encs = list(_SYNTHETIC_ENCLOSURE_FIXTURES)
         synthetic_walls = list(_SYNTHETIC_BUILDING_WALL_FIXTURES)
 
     if not (
-        selected or sites or synthetic_roofs or synthetic_encs
-        or synthetic_walls
+        selected or sites or buildings or synthetic_roofs
+        or synthetic_encs or synthetic_walls
     ):
         print("no fixtures matched filter", file=sys.stderr)
         return 2
@@ -912,6 +1026,8 @@ def main(argv: list[str]) -> int:
             all_drifts.extend(_check_fixture(fx, root))
         for site_fx in sites:
             all_drifts.extend(_check_site_fixture(site_fx, root))
+        for bfx in buildings:
+            all_drifts.extend(_check_building_fixture(bfx, root))
         for sfx in synthetic_roofs:
             all_drifts.extend(_check_synthetic_fixture(sfx, root))
         for efx in synthetic_encs:
@@ -929,8 +1045,9 @@ def main(argv: list[str]) -> int:
                 print(f"  - {line}", file=sys.stderr)
             return 1
         total = (
-            len(selected) + len(sites) + len(synthetic_roofs)
-            + len(synthetic_encs) + len(synthetic_walls)
+            len(selected) + len(sites) + len(buildings)
+            + len(synthetic_roofs) + len(synthetic_encs)
+            + len(synthetic_walls)
         )
         print(f"ok ({total} fixtures match committed)")
         return 0
@@ -943,6 +1060,11 @@ def main(argv: list[str]) -> int:
             site_fx, root, regen_reference=args.regen_reference,
         )
         print(f"wrote {site_fx.descriptor}")
+    for bfx in buildings:
+        _write_building_fixture(
+            bfx, root, regen_reference=args.regen_reference,
+        )
+        print(f"wrote {bfx.descriptor}")
     for sfx in synthetic_roofs:
         _write_synthetic_fixture(
             sfx, root, regen_reference=args.regen_reference,

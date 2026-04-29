@@ -856,6 +856,52 @@ def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
     _emit_walls_and_floors_ir(builder)
 
 
+def emit_building_overlays(builder: FloorIRBuilder) -> None:
+    """Phase 8.5 — building-floor composite overlays.
+
+    Fires when the level is one of ``site.buildings[i].floors[j]``
+    (resolved by ``level.building_id`` matching a building id). The
+    stage registers the Building's polygon as a Region and emits
+    ``BuildingExteriorWallOp`` + ``BuildingInteriorWallOp`` per
+    design/map_ir.md §6.1's Building paint order
+    (``WallsAndFloorsOp -> BuildingInteriorWallOp ->
+    BuildingExteriorWallOp``).
+
+    Skips silently when there is no site context, when
+    ``level.building_id`` is unset, or when the matching building
+    is not present in ``site.buildings`` — those branches stay on
+    the legacy ``render_building_floor_svg`` path until the rest of
+    the migration retires it.
+    """
+    site = builder.site
+    if site is None:
+        return
+    level = builder.ctx.level
+    building_id = getattr(level, "building_id", None)
+    if building_id is None:
+        return
+    match: tuple[int, Any] | None = None
+    for i, b in enumerate(site.buildings):
+        if b.id == building_id:
+            match = (i, b)
+            break
+    if match is None:
+        return
+    building_index, building = match
+    emit_building_regions(builder, [building])
+    # Patch the freshly added region's id from "building.0" to
+    # "building.<i>" so the BuildingExteriorWallOp's region_ref
+    # (which uses building_index) resolves cleanly when there's a
+    # mismatch between the emit_building_regions iteration index
+    # and the canonical building index in site.buildings.
+    builder.regions[-1].id = f"building.{building_index}"
+    emit_building_walls(
+        builder, building, level,
+        base_seed=builder.ctx.seed,
+        building_index=building_index,
+    )
+
+
 def emit_site_overlays(builder: FloorIRBuilder) -> None:
     """Phase 8.4 — site-surface composite overlays.
 
@@ -877,6 +923,10 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
     if site is None:
         return
     level = builder.ctx.level
+    # Site overlays only fire on the surface itself; building-floor
+    # IRs route through emit_building_overlays instead.
+    if level is not getattr(site, "surface", None):
+        return
     # Site region — pixel-rect bounds.
     emit_site_region(builder, (0, 0, level.width, level.height))
     # Building regions + roofs.
@@ -1011,6 +1061,10 @@ IR_STAGES: tuple[Callable[[FloorIRBuilder], None], ...] = (
     # paint order is WallsAndFloorsOp -> RoofOp -> EnclosureOp on
     # site IRs (no-op for non-site IRs).
     emit_site_overlays,
+    # Phase 8.5: building-floor composite overlays. Same shape as
+    # 8.4 but for level == building.floors[j]; emits Building
+    # region + interior + exterior wall ops.
+    emit_building_overlays,
     emit_terrain_tints,
     emit_floor_grid,
     emit_floor_detail,
@@ -1058,8 +1112,21 @@ def build_floor_ir(
         vegetation=vegetation,
     )
     builder = FloorIRBuilder(ctx)
-    if site is not None and level is getattr(site, "surface", None):
-        builder.site = site
+    # Site context fires either of two emit-overlay stages:
+    #   - emit_site_overlays  when level is site.surface (Phase 8.4)
+    #   - emit_building_overlays when level is one of
+    #     site.buildings[i].floors[j] (Phase 8.5)
+    # Both stages are no-ops when builder.site stays None.
+    if site is not None:
+        is_surface = level is getattr(site, "surface", None)
+        is_building_floor = (
+            getattr(level, "building_id", None) is not None
+            and any(
+                b.id == level.building_id for b in site.buildings
+            )
+        )
+        if is_surface or is_building_floor:
+            builder.site = site
     for stage in IR_STAGES:
         stage(builder)
     return builder.finish()

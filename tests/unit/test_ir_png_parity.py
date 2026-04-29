@@ -529,3 +529,74 @@ def test_site_structural_invariants(site_buf) -> None:
         f"  expected: {json.dumps(expected, sort_keys=True)}\n"
         f"  actual:   {json.dumps(actual, sort_keys=True)}"
     )
+
+
+# ── Gameplay building-floor gate (Phase 8.5) ───────────────────
+
+
+_BUILDING_DESCRIPTORS: tuple[str, ...] = (
+    "seed7_brick_building_floor0",
+)
+
+
+@pytest.fixture(scope="module", params=_BUILDING_DESCRIPTORS)
+def building_buf(request):
+    """Real Building floor IR via ``assemble_site`` + the
+    emit_building_overlays stage. ``site=`` flows through
+    ``build_floor_ir`` so BuildingExteriorWallOp +
+    BuildingInteriorWallOp ship alongside every gameplay layer."""
+    from tests.samples.regenerate_fixtures import (
+        _BUILDING_FIXTURES, _build_building_inputs,
+    )
+    from nhc.rendering.ir_emitter import build_floor_ir
+    fx = next(
+        f for f in _BUILDING_FIXTURES if f.descriptor == request.param
+    )
+    site, level = _build_building_inputs(fx)
+    buf = build_floor_ir(
+        level, seed=fx.seed, hatch_distance=2.0, site=site,
+    )
+    return fx, bytes(buf)
+
+
+def test_building_tiny_skia_psnr(building_buf) -> None:
+    """tiny-skia output: PSNR > 35 dB vs the committed reference."""
+    fx, buf = building_buf
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: tiny-skia PSNR {db:.2f} dB "
+        f"(threshold {PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_building_resvg_psnr(building_buf) -> None:
+    """``resvg-py(ir_to_svg(buf))``: PSNR > 35 dB vs reference."""
+    fx, buf = building_buf
+    svg = ir_to_svg(buf)
+    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
+        f"(threshold {PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_building_structural_invariants(building_buf) -> None:
+    from nhc.rendering.ir.structural import compute_structural
+    fx, buf = building_buf
+    expected = json.loads(
+        (_FIXTURE_ROOT / fx.descriptor / "structural.json").read_text()
+    )
+    actual = compute_structural(buf)
+    assert actual == expected, (
+        f"{fx.descriptor}: structural drift\n"
+        f"  expected: {json.dumps(expected, sort_keys=True)}\n"
+        f"  actual:   {json.dumps(actual, sort_keys=True)}"
+    )
