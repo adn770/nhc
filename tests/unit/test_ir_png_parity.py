@@ -176,3 +176,97 @@ def test_resvg_of_ir_svg_psnr_against_reference(emitted) -> None:
         f"{inputs.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
         f"(threshold {PSNR_THRESHOLD_DB:.1f} dB)"
     )
+
+
+# ── Synthetic-IR roof gate (Phase 8.1c.2) ──────────────────────
+
+
+# Tighter than the cross-rasteriser default (35 dB) per the plan:
+# synthetic IRs paint exactly one Building + one RoofOp on a clean
+# background, so any per-pixel divergence is structural rather
+# than absorbed in compositing noise.
+ROOF_PSNR_THRESHOLD_DB: float = 40.0
+
+
+_SYNTHETIC_ROOF_DESCRIPTORS: tuple[str, ...] = (
+    "synthetic_roof_square_pyramid",
+    "synthetic_roof_wide_gable",
+    "synthetic_roof_octagon",
+    "synthetic_roof_circle",
+)
+
+
+@pytest.fixture(scope="module", params=_SYNTHETIC_ROOF_DESCRIPTORS)
+def synthetic_roof_buf(request):
+    """Hand-built FloorIR buf with one Building region + one RoofOp."""
+    from tests.samples.regenerate_fixtures import (
+        _SYNTHETIC_ROOF_FIXTURES, _build_synthetic_buf,
+    )
+    fx = next(
+        f for f in _SYNTHETIC_ROOF_FIXTURES
+        if f.descriptor == request.param
+    )
+    return fx, _build_synthetic_buf(fx)
+
+
+def test_synthetic_roof_tiny_skia_psnr(synthetic_roof_buf) -> None:
+    """tiny-skia output: PSNR > 40 dB vs the committed reference.
+
+    The synthetic fixture's reference.png IS the tiny-skia output
+    of the same IR — committed once via ``--regen-reference``. A
+    drift here means the Rust roof handler shifted its shingle
+    layout, palette, or geometry from the Phase 8.1c.2 baseline.
+    """
+    fx, buf = synthetic_roof_buf
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: tiny-skia PSNR {db:.2f} dB "
+        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_synthetic_roof_resvg_psnr(synthetic_roof_buf) -> None:
+    """``resvg-py(ir_to_svg(buf))``: PSNR > 40 dB vs reference.
+
+    The cross-rasteriser-agreement gate for the roof primitive.
+    The Python ``_draw_roof_from_ir`` (SVG path) and the Rust
+    ``transform/png/roof.rs`` (tiny-skia path) walk the same
+    splitmix64 stream seeded with ``RoofOp.rng_seed``; any drift
+    in constants, RNG, palette, or layout shows up as a PSNR drop
+    here.
+    """
+    fx, buf = synthetic_roof_buf
+    svg = ir_to_svg(buf)
+    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= ROOF_PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
+        f"(threshold {ROOF_PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_synthetic_roof_structural_invariants(synthetic_roof_buf) -> None:
+    """Snapshot-lock op / region counts against committed structural.json.
+
+    Pinned alongside the rasteriser PSNR gates so an emit-side
+    regression (lost RoofOp, missing Region, polygon shape drift)
+    bisects independently of pixel-level concerns.
+    """
+    from nhc.rendering.ir.structural import compute_structural
+    fx, buf = synthetic_roof_buf
+    expected = json.loads(
+        (_FIXTURE_ROOT / fx.descriptor / "structural.json").read_text()
+    )
+    actual = compute_structural(buf)
+    assert actual == expected, (
+        f"{fx.descriptor}: structural drift\n"
+        f"  expected: {json.dumps(expected, sort_keys=True)}\n"
+        f"  actual:   {json.dumps(actual, sort_keys=True)}"
+    )

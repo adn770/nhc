@@ -83,6 +83,62 @@ _FIXTURES: tuple[Fixture, ...] = (
 )
 
 
+# ── Synthetic roof fixtures (Phase 8.1c.2) ─────────────────────
+#
+# Hand-built FloorIRs exercising the RoofOp dispatch in isolation.
+# Each fixture carries one Site region + one Building region + one
+# RoofOp; no other ops, no existing fixture contamination. Lives
+# alongside the gameplay fixtures under
+# tests/fixtures/floor_ir/<descriptor>/ so the regen + check flow
+# is uniform. Synthetic fixtures only commit floor.nir +
+# reference.png + structural.json (no floor.svg / floor.json /
+# hatch.svg / floor_detail.svg / thematic_detail.svg — those carry
+# no signal for the roof primitive).
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class SyntheticRoofFixture:
+    """One synthetic-IR roof descriptor."""
+
+    name: str          # "square_pyramid" / "wide_gable" / ...
+    shape: str         # "rect" / "octagon" / "circle"
+    rect: tuple[int, int, int, int]   # (x, y, w, h) tile coords
+    seed: int = 7
+    canvas_tiles: tuple[int, int] = (20, 14)
+
+    @property
+    def descriptor(self) -> str:
+        return f"synthetic_roof_{self.name}"
+
+
+_SYNTHETIC_ROOF_FIXTURES: tuple[SyntheticRoofFixture, ...] = (
+    # Square rect → pyramid roof on a 4-vertex polygon.
+    SyntheticRoofFixture(
+        name="square_pyramid",
+        shape="rect",
+        rect=(4, 3, 6, 6),
+    ),
+    # Wide rect → horizontal gable.
+    SyntheticRoofFixture(
+        name="wide_gable",
+        shape="rect",
+        rect=(2, 4, 14, 5),
+    ),
+    # Octagon → pyramid roof on 8-vertex polygon.
+    SyntheticRoofFixture(
+        name="octagon",
+        shape="octagon",
+        rect=(4, 2, 9, 9),
+    ),
+    # Circle → pyramid roof on 24-vertex polygonised footprint.
+    SyntheticRoofFixture(
+        name="circle",
+        shape="circle",
+        rect=(4, 2, 10, 10),
+    ),
+)
+
+
 _SHAPE_VARIETY: dict[str, float] = {
     "rect": 0.0,
     "octagon": 0.7,
@@ -180,6 +236,113 @@ def _render_fixture(fx: Fixture) -> _RenderedFixture:
     )
 
 
+def _build_synthetic_buf(fx: SyntheticRoofFixture) -> bytes:
+    """Hand-build a FloorIR buf with one Building + one RoofOp."""
+    from nhc.dungeon.model import (
+        CircleShape, OctagonShape, Rect, RectShape,
+    )
+    from nhc.rendering.ir_emitter import (
+        FloorIRBuilder,
+        emit_building_regions,
+        emit_building_roofs,
+        emit_site_region,
+    )
+
+    # Stub ctx + level — only the dimensions matter at finish-time.
+    @dataclasses.dataclass
+    class _Level:
+        width: int
+        height: int
+
+    @dataclasses.dataclass
+    class _Ctx:
+        level: _Level
+        seed: int = 0
+        theme: str = "dungeon"
+        floor_kind: str = "surface"
+        shadows_enabled: bool = True
+        hatching_enabled: bool = True
+        atmospherics_enabled: bool = True
+        macabre_detail: bool = False
+        vegetation_enabled: bool = True
+        interior_finish: str = ""
+
+    @dataclasses.dataclass
+    class _Building:
+        base_shape: object
+        base_rect: Rect
+
+    width, height = fx.canvas_tiles
+    ctx = _Ctx(level=_Level(width=width, height=height))
+    builder = FloorIRBuilder(ctx)  # type: ignore[arg-type]
+
+    shape_map = {
+        "rect": RectShape(),
+        "octagon": OctagonShape(),
+        "circle": CircleShape(),
+    }
+    shape_obj = shape_map[fx.shape]
+    rx, ry, rw, rh = fx.rect
+    rect = Rect(rx, ry, rw, rh)
+    building = _Building(base_shape=shape_obj, base_rect=rect)
+
+    emit_site_region(builder, (0, 0, width, height))
+    emit_building_regions(builder, [building])
+    emit_building_roofs(builder, [building], base_seed=fx.seed)
+    return builder.finish()
+
+
+def _render_synthetic_fixture(
+    fx: SyntheticRoofFixture,
+) -> tuple[bytes, bytes, str]:
+    """Build the synthetic IR and return (nir, reference_png, structural)."""
+    import nhc_render
+
+    from nhc.rendering.ir.structural import dump_structural
+
+    nir = _build_synthetic_buf(fx)
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    structural = dump_structural(nir)
+    return nir, reference_png, structural
+
+
+def _write_synthetic_fixture(
+    fx: SyntheticRoofFixture, root: Path, *, regen_reference: bool,
+) -> None:
+    nir, reference_png, structural = _render_synthetic_fixture(fx)
+    out = root / fx.descriptor
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "floor.nir").write_bytes(nir)
+    (out / "structural.json").write_text(structural)
+    reference_path = out / "reference.png"
+    if regen_reference or not reference_path.exists():
+        reference_path.write_bytes(reference_png)
+
+
+def _check_synthetic_fixture(
+    fx: SyntheticRoofFixture, root: Path,
+) -> list[str]:
+    nir, reference_png, structural = _render_synthetic_fixture(fx)
+    out = root / fx.descriptor
+    drifts: list[str] = []
+    nir_path = out / "floor.nir"
+    if not nir_path.exists():
+        drifts.append(f"{fx.descriptor}: floor.nir missing")
+    elif nir_path.read_bytes() != nir:
+        drifts.append(f"{fx.descriptor}: floor.nir drift")
+    s_path = out / "structural.json"
+    if not s_path.exists():
+        drifts.append(f"{fx.descriptor}: structural.json missing")
+    elif s_path.read_text() != structural:
+        drifts.append(f"{fx.descriptor}: structural.json drift")
+    r_path = out / "reference.png"
+    if not r_path.exists():
+        drifts.append(f"{fx.descriptor}: reference.png missing")
+    elif r_path.read_bytes() != reference_png:
+        drifts.append(f"{fx.descriptor}: reference.png drift")
+    return drifts
+
+
 def _root_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "floor_ir"
 
@@ -270,10 +433,15 @@ def main(argv: list[str]) -> int:
 
     if args.filter:
         selected = [fx for fx in _FIXTURES if args.filter in fx.descriptor]
+        synthetic = [
+            fx for fx in _SYNTHETIC_ROOF_FIXTURES
+            if args.filter in fx.descriptor
+        ]
     else:
         selected = list(_FIXTURES)
+        synthetic = list(_SYNTHETIC_ROOF_FIXTURES)
 
-    if not selected:
+    if not selected and not synthetic:
         print("no fixtures matched filter", file=sys.stderr)
         return 2
 
@@ -281,18 +449,26 @@ def main(argv: list[str]) -> int:
         all_drifts: list[str] = []
         for fx in selected:
             all_drifts.extend(_check_fixture(fx, root))
+        for sfx in synthetic:
+            all_drifts.extend(_check_synthetic_fixture(sfx, root))
         if all_drifts:
             print("FIXTURE DRIFT — re-run without --check to update:",
                   file=sys.stderr)
             for line in all_drifts:
                 print(f"  - {line}", file=sys.stderr)
             return 1
-        print(f"ok ({len(selected)} fixtures match committed)")
+        total = len(selected) + len(synthetic)
+        print(f"ok ({total} fixtures match committed)")
         return 0
 
     for fx in selected:
         _write_fixture(fx, root, regen_reference=args.regen_reference)
         print(f"wrote {fx.descriptor}")
+    for sfx in synthetic:
+        _write_synthetic_fixture(
+            sfx, root, regen_reference=args.regen_reference,
+        )
+        print(f"wrote {sfx.descriptor}")
     return 0
 
 
