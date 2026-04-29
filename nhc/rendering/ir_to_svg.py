@@ -865,34 +865,104 @@ _OP_HANDLERS[Op.Op.ThematicDetailOp] = _draw_thematic_detail_from_ir
 def _draw_terrain_detail_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Reproduce ``_render_terrain_detail``.
+    """Reproduce ``_render_terrain_detail`` from ``tiles[]``.
 
-    Wraps room_groups in the ``terrain-detail-clip`` envelope, then
-    appends corridor_groups unclipped. Same shape as 1.g's
-    floor-detail handler — the unified ``walk_and_paint`` pipeline
-    means both layers share the bucketed clipPath structure.
+    Phase 9.1b: the per-tile water / lava / chasm painters are
+    invoked directly from the structured tile list, mirroring the
+    legacy ``walk_and_paint`` row-major dispatch + room/corridor
+    bucketing + dungeon-poly clip envelope. Per-decorator
+    ``_seeded_rng`` keying is preserved (``ctx.seed`` recovered as
+    ``op.seed - 200``) so output stays byte-equal to the legacy
+    SVG path.
     """
+    from nhc.rendering._decorators import _seeded_rng
+    from nhc.rendering._terrain_detail import (
+        TERRAIN_CHASM, TERRAIN_LAVA, TERRAIN_WATER,
+        _chasm_detail, _lava_detail, _water_detail,
+    )
+    from nhc.rendering.terrain_palette import get_palette
+
     op = OpCreator(entry.OpType(), entry.Op())
+    if not op.tiles:
+        return []
+
+    theme_str = _to_str(op.theme) or "dungeon"
+    palette = get_palette(theme_str)
+
+    decorators_by_kind = {
+        int(TerrainKind.TerrainKind.Water): (
+            TERRAIN_WATER, _water_detail, palette.water,
+        ),
+        int(TerrainKind.TerrainKind.Lava): (
+            TERRAIN_LAVA, _lava_detail, palette.lava,
+        ),
+        int(TerrainKind.TerrainKind.Chasm): (
+            TERRAIN_CHASM, _chasm_detail, palette.chasm,
+        ),
+    }
+
+    class _SeedShim:
+        def __init__(self, seed: int) -> None:
+            self.seed = seed
+
+    shim = _SeedShim(int(op.seed) - 200)
+    rngs = {
+        kind: _seeded_rng(shim, dec.name)
+        for kind, (dec, _, _) in decorators_by_kind.items()
+    }
+    buckets: dict[int, dict[str, list[str]]] = {
+        kind: {"room": [], "corridor": []}
+        for kind in decorators_by_kind
+    }
+
+    for tile in op.tiles:
+        info = decorators_by_kind.get(int(tile.kind))
+        if info is None:
+            continue
+        _, painter, style = info
+        produced = painter(
+            rngs[int(tile.kind)],
+            tile.x * CELL, tile.y * CELL,
+            style.detail_ink, style.detail_opacity,
+        )
+        bucket = "corridor" if tile.isCorridor else "room"
+        buckets[int(tile.kind)][bucket].extend(produced)
+
+    active_in_z = sorted(
+        decorators_by_kind.keys(),
+        key=lambda k: decorators_by_kind[k][0].z_order,
+    )
+
+    def _emit_group(target: list[str], dec, frags: list[str]) -> None:
+        if not frags:
+            return
+        if dec.group_open is not None:
+            target.append(dec.group_open)
+        target.extend(frags)
+        if dec.group_open is not None:
+            target.append(dec.group_close)
+
     out: list[str] = []
+    has_any_room = any(buckets[k]["room"] for k in active_in_z)
+    clip_id_str = _to_str(op.clipRegion)
+    region = (
+        _find_region(fir, clip_id_str.encode())
+        if (has_any_room and clip_id_str)
+        else None
+    )
+    use_clip = region is not None
 
-    room_groups = [_to_str(g) for g in (op.roomGroups or [])]
-    corridor_groups = [_to_str(g) for g in (op.corridorGroups or [])]
-
-    if room_groups:
-        clip_id = _to_str(op.clipRegion)
-        if clip_id:
-            region = _find_region(fir, clip_id.encode())
-            if region is not None:
-                out.append(_dungeon_clip_defs(region.Polygon(), "terrain-detail-clip"))
-                out.append('<g clip-path="url(#terrain-detail-clip)">')
-                out.extend(room_groups)
-                out.append("</g>")
-            else:
-                out.extend(room_groups)
-        else:
-            out.extend(room_groups)
-
-    out.extend(corridor_groups)
+    if use_clip:
+        out.append(_dungeon_clip_defs(
+            region.Polygon(), "terrain-detail-clip",
+        ))
+        out.append('<g clip-path="url(#terrain-detail-clip)">')
+    for k in active_in_z:
+        _emit_group(out, decorators_by_kind[k][0], buckets[k]["room"])
+    if use_clip:
+        out.append("</g>")
+    for k in active_in_z:
+        _emit_group(out, decorators_by_kind[k][0], buckets[k]["corridor"])
     return out
 
 

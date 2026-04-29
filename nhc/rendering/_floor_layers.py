@@ -976,13 +976,12 @@ def _terrain_detail_paint(ctx: RenderContext) -> Iterable[str]:
 def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the terrain-detail layer.
 
-    Phase 9.1a transitional shape: the structured ``tiles[]``
-    field carries every WATER / LAVA / CHASM tile (row-major,
-    with corridor flag) so downstream consumers can drive the
-    painters without re-reading the level. The legacy
-    ``room_groups`` / ``corridor_groups`` passthrough still ships
-    in parallel until 9.1b retires it, keeping byte-equal SVG
-    parity through the schema 2.4 cycle.
+    Phase 9.1b transitional shape: the ``ir_to_svg`` painter now
+    drives water / lava / chasm output from the structured
+    ``tiles[]`` field. The legacy ``room_groups`` /
+    ``corridor_groups`` passthrough still ships because the Rust
+    tiny-skia handler keeps consuming the pre-rendered SVG
+    fragments until 9.1c lands the Rust port.
     """
     from nhc.rendering._decorators import (
         PaintArgs, _flags_satisfy, _seeded_rng,
