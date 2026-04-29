@@ -14,6 +14,7 @@
 //! - 5.4.4 Opus Romano — 4-stone Versailles tiling, RNG-free.
 //! - 5.4.5 Field Stone — 10 % per-tile probabilistic ellipse.
 //! - 5.4.6 Cart Tracks — paired rails + cross-tie per tile.
+//! - 5.4.7 Ore Deposit — diamond glint per ore-deposit wall tile.
 
 use crate::ir::{DecoratorOp, FloorIR, OpEntry};
 use crate::primitives;
@@ -38,6 +39,7 @@ pub(super) fn draw(
     draw_opus_romano(&op, seed, ctx);
     draw_field_stone(&op, seed, ctx);
     draw_cart_tracks(&op, seed, ctx);
+    draw_ore_deposit(&op, seed, ctx);
 }
 
 fn draw_cobblestone(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
@@ -153,6 +155,24 @@ fn draw_cart_tracks(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
             continue;
         }
         let frags = primitives::cart_tracks::draw_cart_tracks(&tiles, seed);
+        paint_fragments(&frags, 1.0, None, ctx);
+    }
+}
+
+fn draw_ore_deposit(op: &DecoratorOp<'_>, seed: u64, ctx: &mut RasterCtx<'_>) {
+    let variants = match op.ore_deposit() {
+        Some(v) => v,
+        None => return,
+    };
+    for variant in variants.iter() {
+        let tiles: Vec<(i32, i32)> = variant
+            .tiles()
+            .map(|t| t.iter().map(|c| (c.x(), c.y())).collect())
+            .unwrap_or_default();
+        if tiles.is_empty() {
+            continue;
+        }
+        let frags = primitives::ore_deposit::draw_ore_deposit(&tiles, seed);
         paint_fragments(&frags, 1.0, None, ctx);
     }
 }
