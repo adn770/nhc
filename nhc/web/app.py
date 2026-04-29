@@ -1227,8 +1227,10 @@ def create_app(
         level = session.game.level
         site = getattr(session.game, "_active_site", None)
         if site is not None:
-            if level is getattr(site, "surface", None):
-                return None
+            # Phase 8.5 (pending): drops the building-floor short-
+            # circuit. Site surfaces shed their short-circuit at
+            # Phase 8.4 — site=site flows into build_floor_ir below
+            # to trigger the emit_site_overlays stage.
             if getattr(level, "building_id", None) is not None:
                 return None
         from nhc.rendering.ir_emitter import (
@@ -1239,6 +1241,7 @@ def create_app(
             seed=session.game.seed or 0,
             hatch_distance=config.hatch_distance,
             vegetation=config.vegetation,
+            site=site,
         ))
         entry = IRArtefacts(
             nir=nir, major=SCHEMA_MAJOR, minor=SCHEMA_MINOR,

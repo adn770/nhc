@@ -98,12 +98,18 @@ class FloorIRBuilder:
     regions by id without ordering constraints inside individual
     stages — the emitter walks every stage before any op is laid
     down on the wire.
+
+    ``site`` is set when ``build_floor_ir`` is invoked for a site
+    surface (Phase 8.4); the :func:`emit_site_overlays` stage then
+    emits Site + Building regions, ``RoofOp`` per building, and a
+    single ``EnclosureOp`` when the site has one.
     """
 
     def __init__(self, ctx: RenderContext) -> None:
         self.ctx = ctx
         self.regions: list[RegionT] = []
         self.ops: list[Any] = []  # OpEntryT once 1.b+ start emitting
+        self.site: Any | None = None
 
     def add_region(
         self,
@@ -850,6 +856,96 @@ def emit_walls_and_floors(builder: FloorIRBuilder) -> None:
     _emit_walls_and_floors_ir(builder)
 
 
+def emit_site_overlays(builder: FloorIRBuilder) -> None:
+    """Phase 8.4 — site-surface composite overlays.
+
+    Fires only when :class:`FloorIRBuilder.site` is set (i.e. the
+    caller invoked ``build_floor_ir`` for a site surface and passed
+    ``site=`` through). Emits, in order matching design/map_ir.md
+    §6.1's structural-layer paint sequence:
+
+    1. ``Region(kind=Site)`` covering the surface bounds.
+    2. ``Region(kind=Building)`` per :attr:`Site.buildings` entry.
+    3. ``RoofOp`` per building.
+    4. ``EnclosureOp`` when ``site.enclosure`` is set and the
+       enclosure kind is one we cover (palisade / fortification).
+
+    Runs after ``emit_walls_and_floors`` so the structural-layer
+    op order is `WallsAndFloorsOp → RoofOp → EnclosureOp`.
+    """
+    site = builder.site
+    if site is None:
+        return
+    level = builder.ctx.level
+    # Site region — pixel-rect bounds.
+    emit_site_region(builder, (0, 0, level.width, level.height))
+    # Building regions + roofs.
+    if site.buildings:
+        emit_building_regions(builder, list(site.buildings))
+        emit_building_roofs(
+            builder, list(site.buildings),
+            base_seed=builder.ctx.seed,
+        )
+    # Optional enclosure.
+    enclosure = getattr(site, "enclosure", None)
+    if enclosure is None:
+        return
+    kind = enclosure.kind
+    if kind == "palisade":
+        style_int = EnclosureStyle.Palisade
+    elif kind == "fortification":
+        style_int = EnclosureStyle.Fortification
+    else:
+        # Forward-compat: unknown kind -> skip enclosure rather than
+        # raise. Site SVG handles ruin / cottage / temple by skipping
+        # the enclosure pass; mirror that here.
+        return
+    # Translate (gx, gy, length_tiles) -> (edge_idx, t_center, half_px)
+    # by closest-edge projection — mirrors site_svg.py:_enclosure_fragments.
+    poly_px = [
+        (PADDING + x * CELL, PADDING + y * CELL)
+        for (x, y) in enclosure.polygon
+    ]
+    n = len(poly_px)
+    gates_param: list[tuple[int, float, float]] = []
+    for (gx, gy, length_tiles) in enclosure.gates:
+        gx_px = PADDING + gx * CELL
+        gy_px = PADDING + gy * CELL
+        best_idx = 0
+        best_d = float("inf")
+        best_t = 0.5
+        for i in range(n):
+            ax, ay = poly_px[i]
+            bx, by = poly_px[(i + 1) % n]
+            dx, dy = bx - ax, by - ay
+            seg_len_sq = dx * dx + dy * dy
+            if seg_len_sq == 0:
+                continue
+            t = max(0.0, min(1.0, (
+                (gx_px - ax) * dx + (gy_px - ay) * dy
+            ) / seg_len_sq))
+            px = ax + dx * t
+            py = ay + dy * t
+            d = (px - gx_px) ** 2 + (py - gy_px) ** 2
+            if d < best_d:
+                best_d = d
+                best_idx = i
+                best_t = t
+        gates_param.append(
+            (best_idx, best_t, float(length_tiles) * CELL / 2.0),
+        )
+    emit_site_enclosure(
+        builder,
+        polygon_tiles=[
+            (float(x), float(y)) for (x, y) in enclosure.polygon
+        ],
+        style=style_int,
+        gates=gates_param,
+        base_seed=builder.ctx.seed,
+        corner_style=CornerStyle.Merlon,
+    )
+
+
 def emit_terrain_tints(builder: FloorIRBuilder) -> None:
     """Phase 1.e: emit TerrainTintOp (per-tile WATER/GRASS/LAVA/CHASM
     tints + per-room hint washes, clipped to the dungeon interior)."""
@@ -910,6 +1006,11 @@ IR_STAGES: tuple[Callable[[FloorIRBuilder], None], ...] = (
     emit_shadows,
     emit_hatch,
     emit_walls_and_floors,
+    # Phase 8.4: site-surface composite overlays. Inserts into the
+    # `structural` layer dispatch *after* WallsAndFloorsOp so the
+    # paint order is WallsAndFloorsOp -> RoofOp -> EnclosureOp on
+    # site IRs (no-op for non-site IRs).
+    emit_site_overlays,
     emit_terrain_tints,
     emit_floor_grid,
     emit_floor_detail,
@@ -931,12 +1032,20 @@ def build_floor_ir(
     building_footprint: set[tuple[int, int]] | None = None,
     building_polygon: list[tuple[float, float]] | None = None,
     vegetation: bool = True,
+    site: Any | None = None,
 ) -> bytes:
     """Build a ``FloorIR`` FlatBuffer for ``level``.
 
     Mirrors :func:`nhc.rendering.svg.render_floor_svg` parameter for
     parameter so 1.k can call ``ir_to_svg(build_floor_ir(...))`` as a
     drop-in replacement for the legacy renderer.
+
+    ``site`` (Phase 8.4) wires the site-surface composite overlay
+    pass: when ``level is site.surface`` the emitter registers the
+    Site + per-Building regions and emits the matching ``RoofOp`` /
+    ``EnclosureOp`` ops. Passing a non-matching ``site`` (or
+    ``None``) is a no-op — the gameplay dungeon / cave / building
+    floors ride through unchanged.
     """
     ctx = build_render_context(
         level,
@@ -949,6 +1058,8 @@ def build_floor_ir(
         vegetation=vegetation,
     )
     builder = FloorIRBuilder(ctx)
+    if site is not None and level is getattr(site, "surface", None):
+        builder.site = site
     for stage in IR_STAGES:
         stage(builder)
     return builder.finish()

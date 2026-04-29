@@ -440,3 +440,92 @@ def test_synthetic_building_wall_structural_invariants(
         f"  expected: {json.dumps(expected, sort_keys=True)}\n"
         f"  actual:   {json.dumps(actual, sort_keys=True)}"
     )
+
+
+# ── Gameplay site-surface gate (Phase 8.4) ──────────────────────
+
+
+_SITE_DESCRIPTORS: tuple[str, ...] = (
+    "seed7_town_surface",
+)
+
+
+@pytest.fixture(scope="module", params=_SITE_DESCRIPTORS)
+def site_buf(request):
+    """Real :class:`Site` IR via ``assemble_site`` + the
+    emit_site_overlays stage. Threads ``site=`` through
+    ``build_floor_ir`` so RoofOps + EnclosureOp ship alongside
+    every gameplay layer."""
+    from tests.samples.regenerate_fixtures import (
+        _SITE_FIXTURES, _build_site,
+    )
+    from nhc.rendering.ir_emitter import build_floor_ir
+    fx = next(
+        f for f in _SITE_FIXTURES if f.descriptor == request.param
+    )
+    site = _build_site(fx)
+    buf = build_floor_ir(
+        site.surface,
+        seed=fx.seed,
+        hatch_distance=2.0,
+        vegetation=fx.vegetation,
+        site=site,
+    )
+    return fx, bytes(buf)
+
+
+def test_site_tiny_skia_psnr(site_buf) -> None:
+    """tiny-skia output: PSNR > 35 dB vs the committed reference.
+
+    The gameplay site fixture rasterises the full layer stack
+    (gameplay shadows / hatching / floor / decorators) plus the
+    Phase 8 overlays (RoofOps + EnclosureOp), so the cross-
+    rasteriser threshold is the standard 35 dB rather than the
+    40 dB synthetic-IR threshold (those isolate one primitive at a
+    time on a clean background).
+    """
+    fx, buf = site_buf
+    actual = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: tiny-skia PSNR {db:.2f} dB "
+        f"(threshold {PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_site_resvg_psnr(site_buf) -> None:
+    """``resvg-py(ir_to_svg(buf))``: PSNR > 35 dB vs reference.
+
+    The cross-rasteriser-agreement gate on a real site IR. PSNR
+    drift here means the SVG side and the PNG side disagree on
+    layout for one of the gameplay layers OR for the site overlays
+    — bisects to the relevant op kind.
+    """
+    fx, buf = site_buf
+    svg = ir_to_svg(buf)
+    actual = bytes(resvg_py.svg_to_bytes(svg_string=svg))
+    reference = (
+        _FIXTURE_ROOT / fx.descriptor / "reference.png"
+    ).read_bytes()
+    db = _psnr(_decode(actual), _decode(reference))
+    assert db >= PSNR_THRESHOLD_DB, (
+        f"{fx.descriptor}: resvg-of-ir-svg PSNR {db:.2f} dB "
+        f"(threshold {PSNR_THRESHOLD_DB:.1f} dB)"
+    )
+
+
+def test_site_structural_invariants(site_buf) -> None:
+    from nhc.rendering.ir.structural import compute_structural
+    fx, buf = site_buf
+    expected = json.loads(
+        (_FIXTURE_ROOT / fx.descriptor / "structural.json").read_text()
+    )
+    actual = compute_structural(buf)
+    assert actual == expected, (
+        f"{fx.descriptor}: structural drift\n"
+        f"  expected: {json.dumps(expected, sort_keys=True)}\n"
+        f"  actual:   {json.dumps(actual, sort_keys=True)}"
+    )

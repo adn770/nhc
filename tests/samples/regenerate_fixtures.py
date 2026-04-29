@@ -215,6 +215,37 @@ class SyntheticBuildingWallFixture:
         return f"synthetic_building_wall_{self.name}"
 
 
+@dataclasses.dataclass(frozen=True, slots=True)
+class SiteFixture:
+    """Phase 8.4 — gameplay site-surface fixture.
+
+    Runs ``assemble_site(kind, ..., random.Random(seed))`` to build
+    a real :class:`Site` and threads ``site=site`` into
+    ``build_floor_ir`` so the emit_site_overlays stage produces the
+    Site region, Building regions, RoofOps, and EnclosureOp. The
+    resulting ``reference.png`` is the canonical tiny-skia render
+    that the PSNR > 35 dB cross-rasteriser parity gate measures
+    every rasteriser against.
+    """
+
+    seed: int
+    kind: str    # "town" / "keep" / "cottage" / "ruin" / "temple"
+    vegetation: bool = True
+
+    @property
+    def descriptor(self) -> str:
+        return f"seed{self.seed}_{self.kind}_surface"
+
+
+_SITE_FIXTURES: tuple[SiteFixture, ...] = (
+    # Phase 8.4 lands one starter site fixture: a seed-7 town
+    # surface with palisade enclosure + per-building roofs. Future
+    # sub-phases (8.5 brick-enclosure variant) and Phase 9
+    # decoration ports add more.
+    SiteFixture(seed=7, kind="town"),
+)
+
+
 _SYNTHETIC_BUILDING_WALL_FIXTURES: tuple[SyntheticBuildingWallFixture, ...] = (
     # Brick rect — simplest case; orthogonal masonry runs only.
     SyntheticBuildingWallFixture(
@@ -560,6 +591,80 @@ def _check_synthetic_enclosure_fixture(
     return drifts
 
 
+# ── Site gameplay regen (Phase 8.4) ────────────────────────────
+
+
+def _build_site(fx: SiteFixture):
+    """Assemble a real :class:`Site` for ``fx`` via ``assemble_site``."""
+    import random
+    from nhc.sites._site import assemble_site
+    return assemble_site(
+        fx.kind, f"{fx.kind}_seed{fx.seed}", random.Random(fx.seed),
+    )
+
+
+def _render_site_fixture(fx: SiteFixture) -> tuple[bytes, bytes, str]:
+    """Build the site IR + reference PNG + structural snapshot.
+
+    ``floor.nir`` packs the Site / Building regions, RoofOps, and
+    EnclosureOp on top of the regular gameplay stages. Reference is
+    the canonical tiny-skia render. Floor.svg / per-layer snapshots
+    aren't committed for site fixtures: the IR-driven SVG path
+    ships in 8.4 but the legacy ``render_site_surface_svg`` is the
+    SVG production source until Phase 10.3 retires it.
+    """
+    import nhc_render
+    from nhc.rendering.ir.structural import dump_structural
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    site = _build_site(fx)
+    nir = bytes(build_floor_ir(
+        site.surface,
+        seed=fx.seed,
+        hatch_distance=2.0,
+        vegetation=fx.vegetation,
+        site=site,
+    ))
+    reference_png = bytes(nhc_render.ir_to_png(nir, 1.0, None))
+    structural = dump_structural(nir)
+    return nir, reference_png, structural
+
+
+def _write_site_fixture(
+    fx: SiteFixture, root: Path, *, regen_reference: bool,
+) -> None:
+    nir, reference_png, structural = _render_site_fixture(fx)
+    out = root / fx.descriptor
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "floor.nir").write_bytes(nir)
+    (out / "structural.json").write_text(structural)
+    reference_path = out / "reference.png"
+    if regen_reference or not reference_path.exists():
+        reference_path.write_bytes(reference_png)
+
+
+def _check_site_fixture(fx: SiteFixture, root: Path) -> list[str]:
+    nir, reference_png, structural = _render_site_fixture(fx)
+    out = root / fx.descriptor
+    drifts: list[str] = []
+    nir_path = out / "floor.nir"
+    if not nir_path.exists():
+        drifts.append(f"{fx.descriptor}: floor.nir missing")
+    elif nir_path.read_bytes() != nir:
+        drifts.append(f"{fx.descriptor}: floor.nir drift")
+    s_path = out / "structural.json"
+    if not s_path.exists():
+        drifts.append(f"{fx.descriptor}: structural.json missing")
+    elif s_path.read_text() != structural:
+        drifts.append(f"{fx.descriptor}: structural.json drift")
+    r_path = out / "reference.png"
+    if not r_path.exists():
+        drifts.append(f"{fx.descriptor}: reference.png missing")
+    elif r_path.read_bytes() != reference_png:
+        drifts.append(f"{fx.descriptor}: reference.png drift")
+    return drifts
+
+
 # ── Synthetic Building wall regen (Phase 8.3c) ─────────────────
 
 
@@ -771,6 +876,10 @@ def main(argv: list[str]) -> int:
 
     if args.filter:
         selected = [fx for fx in _FIXTURES if args.filter in fx.descriptor]
+        sites = [
+            fx for fx in _SITE_FIXTURES
+            if args.filter in fx.descriptor
+        ]
         synthetic_roofs = [
             fx for fx in _SYNTHETIC_ROOF_FIXTURES
             if args.filter in fx.descriptor
@@ -785,12 +894,14 @@ def main(argv: list[str]) -> int:
         ]
     else:
         selected = list(_FIXTURES)
+        sites = list(_SITE_FIXTURES)
         synthetic_roofs = list(_SYNTHETIC_ROOF_FIXTURES)
         synthetic_encs = list(_SYNTHETIC_ENCLOSURE_FIXTURES)
         synthetic_walls = list(_SYNTHETIC_BUILDING_WALL_FIXTURES)
 
     if not (
-        selected or synthetic_roofs or synthetic_encs or synthetic_walls
+        selected or sites or synthetic_roofs or synthetic_encs
+        or synthetic_walls
     ):
         print("no fixtures matched filter", file=sys.stderr)
         return 2
@@ -799,6 +910,8 @@ def main(argv: list[str]) -> int:
         all_drifts: list[str] = []
         for fx in selected:
             all_drifts.extend(_check_fixture(fx, root))
+        for site_fx in sites:
+            all_drifts.extend(_check_site_fixture(site_fx, root))
         for sfx in synthetic_roofs:
             all_drifts.extend(_check_synthetic_fixture(sfx, root))
         for efx in synthetic_encs:
@@ -816,7 +929,7 @@ def main(argv: list[str]) -> int:
                 print(f"  - {line}", file=sys.stderr)
             return 1
         total = (
-            len(selected) + len(synthetic_roofs)
+            len(selected) + len(sites) + len(synthetic_roofs)
             + len(synthetic_encs) + len(synthetic_walls)
         )
         print(f"ok ({total} fixtures match committed)")
@@ -825,6 +938,11 @@ def main(argv: list[str]) -> int:
     for fx in selected:
         _write_fixture(fx, root, regen_reference=args.regen_reference)
         print(f"wrote {fx.descriptor}")
+    for site_fx in sites:
+        _write_site_fixture(
+            site_fx, root, regen_reference=args.regen_reference,
+        )
+        print(f"wrote {site_fx.descriptor}")
     for sfx in synthetic_roofs:
         _write_synthetic_fixture(
             sfx, root, regen_reference=args.regen_reference,
