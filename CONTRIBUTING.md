@@ -29,13 +29,33 @@ Skip the rest of this document if you are not touching `nhc/rendering/`, the
 
 ## First-time setup for IR-migration work
 
-The map-rendering subsystem is migrating to a multi-runtime intermediate representation
+The map-rendering subsystem runs on a multi-runtime intermediate representation
 (IR): a FlatBuffers schema is the wire format, a Rust crate (`crates/nhc-render/`)
 holds the canonical procedural primitives, and the same crate cross-compiles to a PyO3
 wheel for the server and a WebAssembly bundle for the browser. The plan is in
 [`plans/nhc_ir_migration_plan.md`](plans/nhc_ir_migration_plan.md); the prerequisites
 plan it depends on is [`plans/nhc_ir_prereqs_plan.md`](plans/nhc_ir_prereqs_plan.md),
 including a longer recipe and version-policy notes in its Appendix A.
+
+### Three switchable rasterisers
+
+Every gameplay floor flows through one IR (`build_floor_ir(level)`); the floor
+renders through one of three downstream rasterisers, picked at server start
+via `--render-mode={svg,png,wasm}` (or the `NHC_RENDER_MODE` env var):
+
+- **png** (default) — `nhc_render.ir_to_png` (Rust + tiny-skia). Smallest wire
+  size; the gameplay client receives a `<img>` source. Deterministic pixels:
+  the reference snapshots in `tests/fixtures/floor_ir/<descriptor>/reference.png`
+  are tiny-skia output frozen via `--regen-reference`.
+- **svg** — `ir_to_svg(buf)` (Python + Rust crate primitives). The gameplay
+  client receives the SVG body and renders it inline. Cross-rasteriser parity
+  is enforced by a PSNR > 35 dB gate against the same reference image, with
+  `nhc_render.svg_to_png` (Rust resvg + usvg) as the SVG-mode pixel-comparison
+  rasteriser.
+- **wasm** — IR → Canvas via WASM. Phase 11 wires the third mode; the JS
+  dispatch in `nhc/web/static/js/map.js` already reads the injected
+  `<meta name="render-mode">` tag and falls back to PNG when the wasm
+  loader is missing.
 
 If you are working on the IR migration (or reviewing a PR that is), you need the Rust
 toolchain plus three system binaries on PATH: `flatc`, `wasm-pack`, and `wasm-opt`.

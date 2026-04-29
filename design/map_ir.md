@@ -18,13 +18,16 @@ preparatory tasks listed in `plans/nhc_ir_migration_plan.md`.
 
 ### Status (2026-04-29)
 
-The IR migration shipped through Phase 5 + Phase 7. Schema is at
-major version **2.0** (Phase 7 cleanup retired the unused reserved
-op-union variants and the empty Phase-1 transitional fields). The
-`.png` endpoint is live for dungeon, cave, and dungeon-style
-building floors via Rust + tiny-skia; the web client routes through
-PNG with a transitional SVG fallback for site surfaces and
-composite building floors.
+The IR migration shipped through **Phase 10.4**. Schema is at
+major version **3.0** (file_identifier `NIR3`; tag
+`ir-schema-3.0`); the procedural-Python rendering pipeline
+retired with Phase 10.2. Both the `.png` and `.svg` endpoints
+serve every gameplay floor — dungeon, cave, surface, and
+building — straight from the IR, picked by the
+`NHC_RENDER_MODE` env var (`png` | `svg`; `wasm` lands in
+Phase 11). Cross-rasteriser parity rides on the Rust `resvg`
+crate via `nhc_render.svg_to_png`; `resvg-py` retired with
+Phase 10.4.
 
 - `nhc/rendering/_render_context.py` — frozen `RenderContext` resolves
   floor kind (dungeon / cave / building / surface) plus feature flags
@@ -37,16 +40,22 @@ composite building floors.
 - `nhc/rendering/ir_to_svg.py` — Python transformer; calls into the
   Rust crate `nhc-render` (PyO3) for the per-op procedural geometry
   and wraps the output in clip-path / dungeon-poly envelopes.
-- `nhc/rendering/svg.py` — `render_floor_svg` is now a thin shell
-  around `ir_to_svg(build_floor_ir(...))`.
+- `nhc/rendering/svg.py` — `render_floor_svg` is a thin shell
+  around `ir_to_svg(build_floor_ir(...))`. The legacy procedural
+  composite emitters (`level_svg.py` / `building.py` /
+  `site_svg.py`) retired in Phase 10.2.
 - `crates/nhc-render/` — Rust core for procedural rendering
-  (splitmix64 RNG, Perlin noise, per-primitive emitters). Exposed
-  to Python via PyO3 (`nhc_render` wheel) and slated for WASM
-  exposure in Phase 11.
-- `nhc/rendering/_decorators.py` — `TileDecorator` contract +
-  `walk_and_paint`. Two live callers remain (terrain-detail
-  decorators + the wood-floor short-circuit); both pending their
-  Rust ports in Phase 9. Slated for deletion at Phase 9.3.
+  (splitmix64 RNG, Perlin noise, per-primitive emitters,
+  `transform/png/` tiny-skia rasteriser, `transform/svg.rs`
+  resvg+usvg shim). Exposed to Python via PyO3 (`nhc_render`
+  wheel) and slated for WASM exposure in Phase 11.
+- `_decorators.py`, `_pipeline.py`, the `_*_paint` helpers in
+  `_floor_layers.py`, `_render_terrain_detail`, and
+  `_render_wood_floor` are gone (Phase 10.2). The architectural
+  guard at `tests/unit/test_no_import_random_in_rendering.py`
+  still keeps `import random` out of the IR-emit shells; the
+  remaining allowlist entries cover the cross-rasteriser SVG
+  painters that need a deterministic Python `random.Random`.
 
 The op vocabulary covers shadows, hatching, walls/floors, terrain
 tints + detail, floor grid, floor detail (cracks / scratches /
@@ -57,37 +66,38 @@ through `DecoratorOp`'s per-variant tables, plus the four surface
 features (well / fountain / tree / bush). Total: 15 op-union
 variants (counting `GenericProceduralOp` as the escape-hatch slot).
 
-### Forward plan (Phases 8 – 11)
+### Phase ladder
 
-The closing arc of the migration converges every gameplay floor on
-the IR pipeline as the only path that emits visuals, with three
-switchable rasterisers downstream:
+Phases 8 – 10 closed the migration. The IR pipeline is the only
+path that emits visuals; render mode is server-side
+(`NHC_RENDER_MODE` env var or `--render-mode` CLI flag); the
+web client picks `.svg` / `.png` / `.nir` at page load via the
+injected `<meta name="render-mode">`.
 
-- **Phase 8 — structural composites through IR.** Roofs, enclosures
-  (palisade / fortification), gates, and building walls (interior
-  partitions + exterior masonry) move into the IR as new ops in a
-  renamed `structural` layer (was `walls_and_floors`). Site surfaces
-  and composite building floors stop hitting the SVG fallback because
-  every structural shape is now expressible in the IR. Schema bumps
-  2.0 → 2.1 → 2.2 → 2.3 (additive).
-- **Phase 9 — retire the last `walk_and_paint` primitives.**
-  `terrain_detail` and the `wood_floor` short-circuit get Rust ports
-  + structured per-tile data. Schema 2.4 → 2.5 (additive).
-  Phase 9.3 majors to **3.0**, deletes the wood-floor / terrain-detail
-  passthroughs, and retires `_decorators.py` + `walk_and_paint`.
-- **Phase 10 — three switchable IR-driven rasterisers.** The legacy
-  procedural Python emitters (`render_floor_svg`,
-  `render_site_surface_svg`, `render_building_floor_svg`) retire; the
-  `.svg` endpoint rewires to `ir_to_svg(emit_floor(...))`. Render mode
-  is server-side (`NHC_RENDER_MODE` env var); the web client picks
-  the matching endpoint at page load. Cross-rasteriser parity
-  migrates from `resvg-py` pixel-diff to **two-layer parity**:
-  IR-level structural validation + PSNR > 35 dB vs canonical
-  reference image. The Rust `resvg` crate replaces `resvg-py` for
-  SVG-mode pixel comparison.
-- **Phase 11 — IR → Canvas via WASM.** Per the original Phase 6 stub,
-  retargeted to the new slot. Canvas joins as the third switchable
-  mode; the PNG endpoint stays live as one of three options.
+- **Phase 8 ✓ — structural composites through IR.** Roofs,
+  enclosures (palisade / fortification), gates, and building
+  walls moved into the IR. The `walls_and_floors` layer renamed
+  to `structural`. Site surfaces and composite building floors
+  stopped hitting the SVG fallback. Schema 2.0 → 2.3 (additive).
+- **Phase 9 ✓ — last `walk_and_paint` primitives retire.**
+  `terrain_detail` and the `wood_floor` short-circuit ported to
+  Rust with structured per-tile data. Schema 2.4 → 2.5
+  (additive). Phase 9.3 bumped to **3.0** and dropped the
+  deprecated passthrough fields (file identifier `NIRF` →
+  `NIR3`; tag `ir-schema-3.0`).
+- **Phase 10 ✓ — three switchable IR-driven rasterisers.**
+  10.1 rewired the `.svg` endpoint through `ir_to_svg`. 10.2
+  dropped the legacy procedural composite emitters along with
+  `_decorators.py` + `walk_and_paint` and the byte-equal parity
+  tests that exercised them (-2029 / +110 LOC). 10.3 wired
+  `--render-mode` / `NHC_RENDER_MODE` end-to-end. 10.4 dropped
+  `resvg-py`; cross-rasteriser parity rides on
+  `nhc_render.svg_to_png` (Rust resvg + usvg). 10.5 is this
+  doc refresh.
+- **Phase 11 — IR → Canvas via WASM.** Canvas joins as the
+  third switchable mode; the PNG and SVG endpoints stay live
+  as the other two. Per the original Phase 6 stub, retargeted
+  to the new slot.
 
 ### Vision
 
