@@ -259,7 +259,8 @@ body {
   display: block;
 }
 
-#floor-svg svg {
+#floor-svg svg,
+#floor-svg img {
   display: block;
 }
 

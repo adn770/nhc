@@ -126,13 +126,14 @@ const NHC = {
       if (msg.theme) GameMap.theme = msg.theme;
       if (msg.feeling) GameMap.feeling = msg.feeling;
       GameMap.prerevealed = !!msg.prerevealed;
-      // Load floor SVG via HTTP
+      // Load floor PNG (or SVG fallback) via HTTP. The server
+      // emits the .png URL by default; on 404 (composite SVGs
+      // without resvg-py installed) the client falls back to the
+      // sibling .svg endpoint and the legacy inline-SVG path.
       if (msg.floor_url) {
-        console.log("[floor] fetching SVG from:", msg.floor_url);
-        const svg = await fetch(msg.floor_url).then(r => r.text());
-        console.log("[floor] SVG loaded:", svg.length, "bytes");
-        GameMap.setFloorSVG(svg);
-        console.log("[floor] after setFloorSVG: mapW=",
+        console.log("[floor] loading from:", msg.floor_url);
+        await GameMap.setFloorURL(msg.floor_url);
+        console.log("[floor] after setFloorURL: mapW=",
                     GameMap.mapW, "mapH=", GameMap.mapH,
                     "canvas=", GameMap.canvas?.width, "x",
                     GameMap.canvas?.height);

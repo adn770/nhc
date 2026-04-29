@@ -1382,7 +1382,7 @@ class WebClient(GameClient):
         self._send({
             "type": "floor",
             "floor_url": (f"{self._base_url}"
-                          f"/floor/{self.floor_svg_id}.svg"),
+                          f"/floor/{self.floor_svg_id}.png"),
             "hatch_url": "/api/hatch.svg",
             "entities": entities,
             "doors": doors,

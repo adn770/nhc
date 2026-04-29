@@ -275,6 +275,84 @@ const GameMap = {
     return best;
   },
 
+  /**
+   * Load a floor from the server. Prefers PNG (the Phase 5
+   * tiny-skia path); falls back to inline SVG when the .png
+   * endpoint returns non-200 — typically composite SVGs from
+   * building / site-surface floors that wrap a non-IR overlay
+   * around an IR base.
+   *
+   * The container `<div id="floor-svg">` keeps its ID even when
+   * it now holds an `<img>` instead of an `<svg>` — the existing
+   * CSS rules + debug toggle key off the container, not the
+   * inner element.
+   */
+  async setFloorURL(url) {
+    if (!url) return;
+    const pngLoaded = await this._tryLoadFloorPNG(url);
+    if (pngLoaded) return;
+    const svgUrl = this._svgFallbackUrl(url);
+    if (!svgUrl) {
+      console.warn("[setFloorURL] no SVG fallback for:", url);
+      return;
+    }
+    console.log("[setFloorURL] PNG unavailable; falling back to SVG:",
+                svgUrl);
+    try {
+      const svgString = await fetch(svgUrl).then(r => {
+        if (!r.ok) throw new Error(`SVG fallback ${r.status}`);
+        return r.text();
+      });
+      this.setFloorSVG(svgString);
+    } catch (err) {
+      console.error("[setFloorURL] SVG fallback failed:", err);
+    }
+  },
+
+  async _tryLoadFloorPNG(url) {
+    try {
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.log("[setFloorURL] PNG fetch returned", resp.status);
+        return false;
+      }
+      const blob = await resp.blob();
+      const objUrl = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        img.id = "floor-img";
+        img.alt = "";
+        img.draggable = false;
+        img.src = objUrl;
+        await img.decode();
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (!w || !h) {
+          console.warn("[setFloorURL] PNG decoded with 0 dimensions");
+          return false;
+        }
+        const container = document.getElementById("floor-svg");
+        container.replaceChildren(img);
+        this._installFloorDimensions(w, h, "PNG");
+        return true;
+      } finally {
+        // Revoke after decode completes; the <img> keeps an
+        // internal reference so the blob is held until the next
+        // setFloorURL replaces it.
+        URL.revokeObjectURL(objUrl);
+      }
+    } catch (err) {
+      console.warn("[setFloorURL] PNG path failed:", err);
+      return false;
+    }
+  },
+
+  _svgFallbackUrl(url) {
+    if (typeof url !== "string") return null;
+    if (url.endsWith(".png")) return url.slice(0, -4) + ".svg";
+    return null;
+  },
+
   setFloorSVG(svgString) {
     const container = document.getElementById("floor-svg");
     const prevSvg = container.querySelector("svg");
@@ -284,57 +362,66 @@ const GameMap = {
                 prevW, "x", prevH, "new length=", svgString.length);
     container.innerHTML = svgString;
     const svg = container.querySelector("svg");
-    if (svg) {
-      const w = parseInt(svg.getAttribute("width"));
-      const h = parseInt(svg.getAttribute("height"));
-      console.log("[setFloorSVG] installed: new=", w, "x", h,
-                  "prerevealed=", this.prerevealed);
-      this.canvas.width = w;
-      this.canvas.height = h;
-      if (this.doorCanvas) {
-        this.doorCanvas.width = w;
-        this.doorCanvas.height = h;
-      }
-      if (this.fogCanvas) {
-        this.fogCanvas.width = w;
-        this.fogCanvas.height = h;
-      }
-      if (this.hatchCanvas) {
-        this.hatchCanvas.width = w;
-        this.hatchCanvas.height = h;
-      }
-      const debugCanvas = document.getElementById("debug-canvas");
-      if (debugCanvas) {
-        debugCanvas.width = w;
-        debugCanvas.height = h;
-      }
-      this.mapW = w;
-      this.mapH = h;
-      console.log("Floor SVG set:", w, "x", h,
-                   "canvas:", this.canvas.width, this.canvas.height,
-                   "fog:", this.fogCanvas?.width, this.fogCanvas?.height);
-      // Auto-fit on first entry to a tile-layer view (site /
-      // structure / dungeon). The site + structure share a
-      // storage slot via _ZOOM_GROUPS, so the surface fit also
-      // pre-stamps the zoom for any building the player walks
-      // into. Once the user zooms manually the saved value
-      // takes over and the auto-fit becomes a no-op.
-      const view = this._activeView;
-      if (view === "site" || view === "structure"
-          || view === "dungeon") {
-        const groupKey = this._zoomGroupForView(view);
-        if (!(groupKey in this._zoomByView)) {
-          // The map-zone may not have its final clientWidth /
-          // clientHeight until the browser lays out the just-
-          // installed SVG; defer to the next frame so the
-          // measurement reflects the post-mount state.
-          requestAnimationFrame(() => {
-            this._autoFitMapView(view);
-          });
-        }
-      }
-    } else {
+    if (!svg) {
       console.warn("No <svg> found in floor SVG string");
+      return;
+    }
+    const w = parseInt(svg.getAttribute("width"));
+    const h = parseInt(svg.getAttribute("height"));
+    this._installFloorDimensions(w, h, "SVG");
+  },
+
+  /**
+   * Common post-install path shared by setFloorURL (PNG branch)
+   * and setFloorSVG: size every overlay canvas to the floor
+   * pixel dimensions and trigger the per-view auto-fit.
+   */
+  _installFloorDimensions(w, h, kind) {
+    console.log(`[setFloor${kind}] installed: new=`, w, "x", h,
+                "prerevealed=", this.prerevealed);
+    this.canvas.width = w;
+    this.canvas.height = h;
+    if (this.doorCanvas) {
+      this.doorCanvas.width = w;
+      this.doorCanvas.height = h;
+    }
+    if (this.fogCanvas) {
+      this.fogCanvas.width = w;
+      this.fogCanvas.height = h;
+    }
+    if (this.hatchCanvas) {
+      this.hatchCanvas.width = w;
+      this.hatchCanvas.height = h;
+    }
+    const debugCanvas = document.getElementById("debug-canvas");
+    if (debugCanvas) {
+      debugCanvas.width = w;
+      debugCanvas.height = h;
+    }
+    this.mapW = w;
+    this.mapH = h;
+    console.log(`Floor ${kind} set:`, w, "x", h,
+                 "canvas:", this.canvas.width, this.canvas.height,
+                 "fog:", this.fogCanvas?.width, this.fogCanvas?.height);
+    // Auto-fit on first entry to a tile-layer view (site /
+    // structure / dungeon). The site + structure share a
+    // storage slot via _ZOOM_GROUPS, so the surface fit also
+    // pre-stamps the zoom for any building the player walks
+    // into. Once the user zooms manually the saved value
+    // takes over and the auto-fit becomes a no-op.
+    const view = this._activeView;
+    if (view === "site" || view === "structure"
+        || view === "dungeon") {
+      const groupKey = this._zoomGroupForView(view);
+      if (!(groupKey in this._zoomByView)) {
+        // The map-zone may not have its final clientWidth /
+        // clientHeight until the browser lays out the just-
+        // installed floor element; defer to the next frame so
+        // the measurement reflects the post-mount state.
+        requestAnimationFrame(() => {
+          this._autoFitMapView(view);
+        });
+      }
     }
   },
 

@@ -463,13 +463,78 @@ const Input = {
     el.textContent = `${scale.toFixed(scale % 1 ? 2 : 1)}x`;
   },
 
+  /** Floor element → data-URL. Branches on tag: <svg> serializes
+   * via XMLSerializer + Blob (legacy SVG fallback path); <img>
+   * is already a raster image and just paints onto a temp
+   * canvas. Returns null when capture fails. */
+  async _floorElementToDataURL(inner) {
+    if (inner.tagName.toLowerCase() === "img") {
+      // PNG path: copy via drawImage onto a same-sized canvas.
+      const w = inner.naturalWidth;
+      const h = inner.naturalHeight;
+      if (!w || !h) return null;
+      const c = document.createElement("canvas");
+      c.width = w;
+      c.height = h;
+      c.getContext("2d").drawImage(inner, 0, 0);
+      return c.toDataURL("image/png");
+    }
+    // SVG path: serialize, blob, decode via Image.
+    const s = new XMLSerializer().serializeToString(inner);
+    const blob = new Blob([s], {type: "image/svg+xml"});
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = url;
+      });
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      return c.toDataURL("image/png");
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  },
+
+  /** Composite-snapshot variant: paint the floor element onto an
+   * existing 2D context at (0, 0, dw, dh). */
+  async _drawFloorElement(cctx, inner, dw, dh) {
+    if (inner.tagName.toLowerCase() === "img") {
+      if (!inner.naturalWidth || !inner.naturalHeight) return;
+      cctx.drawImage(inner, 0, 0, dw, dh);
+      return;
+    }
+    const s = new XMLSerializer().serializeToString(inner);
+    const blob = new Blob([s], {type: "image/svg+xml"});
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = url;
+      });
+      cctx.drawImage(img, 0, 0, dw, dh);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  },
+
   /** Capture all canvas layers as PNGs and upload to the server.
    * Returns the number of layers captured. */
   async _captureAndUploadLayers() {
     const sid = NHC.sessionId;
     if (!sid) return 0;
     const canvases = [
-      { name: "floor_svg",     el: "#floor-svg svg",      svg: true },
+      // Phase 5 cutover: the floor element is either an <svg>
+      // (legacy / SVG fallback) or an <img> (PNG path). The
+      // floor: true flag signals that we resolve the actual
+      // tag at runtime rather than hardcoding the selector.
+      { name: "floor_svg",     el: "#floor-svg",          floor: true },
       { name: "door_canvas",   el: "#door-canvas" },
       { name: "hatch_canvas",  el: "#hatch-canvas" },
       { name: "fog_canvas",    el: "#fog-canvas" },
@@ -487,27 +552,17 @@ const Input = {
       { name: "flower_debug",   el: "#flower-debug-canvas" },
     ];
     const layers = {};
-    for (const {name, el, svg} of canvases) {
-      const target = document.querySelector(el);
-      if (!target) continue;
+    for (const {name, el, floor} of canvases) {
+      const container = document.querySelector(el);
+      if (!container) continue;
       try {
-        if (svg) {
-          const s = new XMLSerializer().serializeToString(target);
-          const blob = new Blob([s], {type: "image/svg+xml"});
-          const url = URL.createObjectURL(blob);
-          const img = await new Promise((resolve, reject) => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.onerror = reject;
-            i.src = url;
-          });
-          const c = document.createElement("canvas");
-          c.width = img.naturalWidth;
-          c.height = img.naturalHeight;
-          c.getContext("2d").drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          layers[name] = c.toDataURL("image/png");
+        if (floor) {
+          const inner = container.querySelector("svg, img");
+          if (!inner) continue;
+          const dataUrl = await this._floorElementToDataURL(inner);
+          if (dataUrl) layers[name] = dataUrl;
         } else {
+          const target = container;
           if (!target.width || !target.height) continue;
           // Export at CSS display size (not internal hi-res).
           const dw = target.clientWidth || target.width;
@@ -559,7 +614,7 @@ const Input = {
         refSel = "#hex-base-canvas";
       } else {
         layerDefs = [
-          {sel: "#floor-svg svg", svg: true},
+          {sel: "#floor-svg", floor: true},
           {sel: "#door-canvas"},
           {sel: "#hatch-canvas"},
           {sel: "#fog-canvas"},
@@ -576,27 +631,23 @@ const Input = {
         comp.width = dw;
         comp.height = dh;
         const cctx = comp.getContext("2d");
-        for (const {sel, svg} of layerDefs) {
+        for (const {sel, floor} of layerDefs) {
+          if (floor) {
+            const container = document.querySelector(sel);
+            if (!container) continue;
+            if (container.style.display === "none") continue;
+            const inner = container.querySelector("svg, img");
+            if (!inner) continue;
+            await this._drawFloorElement(cctx, inner, dw, dh);
+            continue;
+          }
           const src = document.querySelector(sel);
           if (!src) continue;
           // Skip layers hidden by the debug panel.
           if (src.style.display === "none") continue;
-          // Also check the parent for floor-svg visibility.
           if (src.parentElement
               && src.parentElement.style.display === "none") continue;
-          if (svg) {
-            const s = new XMLSerializer().serializeToString(src);
-            const blob = new Blob([s], {type: "image/svg+xml"});
-            const url = URL.createObjectURL(blob);
-            const img = await new Promise((resolve, reject) => {
-              const i = new Image();
-              i.onload = () => resolve(i);
-              i.onerror = reject;
-              i.src = url;
-            });
-            cctx.drawImage(img, 0, 0, dw, dh);
-            URL.revokeObjectURL(url);
-          } else if (src.width && src.height) {
+          if (src.width && src.height) {
             cctx.drawImage(src, 0, 0, dw, dh);
           }
         }

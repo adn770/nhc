@@ -1149,8 +1149,8 @@ def create_app(
         rasterised bytes on ``IRArtefacts`` so repeat hits skip
         the rasteriser too. Phase 5.8 retired the resvg-py
         fallback for non-IR floors — building / site-surface
-        composite SVGs return 404 here until their renderers
-        gain IR coverage.
+        composite SVGs return 404 here and the client falls back
+        to the sibling .svg endpoint and inline-SVG rendering.
 
         URL shape mirrors the .svg endpoint so the UUID-anchored
         cache contract is identical: the PNG with id X always
