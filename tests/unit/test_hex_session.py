@@ -144,6 +144,71 @@ class TestProcessFlowerTurn:
         result = await hs._process_flower_turn()
         assert result == "disconnect"
 
+    @pytest.mark.asyncio
+    async def test_enter_site_message_emitted_before_enter_site_runs(
+        self, monkeypatch,
+    ):
+        """``hex.msg.enter_feature`` must reach the WebSocket before
+        ``Game.enter_site`` begins executing — so that the spot-creature
+        announcements that ``_update_fov`` emits inside ``enter_site``
+        cannot reorder ahead of the entry line on the client.
+        """
+        from nhc.hexcrawl.model import HexFeatureType, MinorFeatureType
+        from nhc.sites._types import SiteTier
+
+        world = World()
+        pid = world.create_entity({"Player": Player(gold=0)})
+        game = _make_game_stub(world, pid)
+
+        macro = HexCoord(0, 0)
+        sub = HexCoord(0, 0)
+        sub_cell = MagicMock()
+        sub_cell.minor_feature = MinorFeatureType.NONE
+        sub_cell.major_feature = HexFeatureType.CITY
+        sub_cell.biome = "greenlands"
+        cell = MagicMock()
+        cell.feature = HexFeatureType.CITY
+        cell.flower = MagicMock()
+        cell.flower.cells = {sub: sub_cell}
+
+        game.hex_world.exploring_hex = macro
+        game.hex_world.exploring_sub_hex = sub
+        game.hex_world.get_cell = MagicMock(return_value=cell)
+        game.renderer.get_input = AsyncMock(
+            return_value=("hex_enter", None),
+        )
+
+        # Capture the messages already emitted at the moment
+        # enter_site is awaited.
+        seen_at_enter_site = []
+
+        async def fake_enter_site(*args, **kwargs):
+            seen_at_enter_site.extend(
+                call.args[0]
+                for call in game.renderer.add_message.call_args_list
+            )
+            return True
+
+        game.enter_site = fake_enter_site
+
+        monkeypatch.setattr(
+            "nhc.core.sub_hex_entry.resolve_sub_hex_entry",
+            lambda c: ("site", "town", SiteTier.MEDIUM),
+        )
+
+        hs = HexSession(game)
+        await hs._process_flower_turn()
+
+        # The entry line must have landed in add_message calls
+        # before enter_site started running.
+        assert any(
+            "enter the" in m or m.startswith("You enter")
+            for m in seen_at_enter_site
+        ), (
+            "enter_feature message should be emitted BEFORE "
+            f"enter_site runs; saw only: {seen_at_enter_site!r}"
+        )
+
 
 # ── Game delegates to HexSession ──────────────────────────────────
 

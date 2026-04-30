@@ -524,20 +524,29 @@ class HexSession:
                     return f"hex.feature.{major.value}"
                 return "hex.feature.unknown"
 
+            # Pre-emit the entry message so it lands in the player's
+            # message panel before ``enter_site`` / ``enter_dungeon``
+            # work begins. ``_update_fov`` runs deep inside the entry
+            # flow and emits ``explore.spot_creature`` for visible
+            # creatures; without this pre-emit the spot lines would
+            # arrive on the WebSocket before the entry line, leaving
+            # the player reading "You spot a villager!" before "You
+            # enter the city." If the entry fails (rare), we still
+            # post the ``nothing_to_enter`` fallback so the message
+            # log self-corrects.
+            enter_msg = t(
+                "hex.msg.enter_feature",
+                feature=t(_enter_message_key()),
+            )
+
             if resolved[0] == "dungeon":
                 # Caves and holes bypass the surface site layer
                 # entirely (Q1 of the convergence plan). The
                 # dungeon path generates a procedural Floor 1
                 # directly off the macro hex's DungeonRef.
+                self.renderer.add_message(enter_msg)
                 ok = await game.enter_dungeon()
-                if ok:
-                    self.renderer.add_message(
-                        t(
-                            "hex.msg.enter_feature",
-                            feature=t(_enter_message_key()),
-                        ),
-                    )
-                else:
+                if not ok:
                     self.renderer.add_message(
                         t("hex.msg.nothing_to_enter"),
                     )
@@ -550,18 +559,12 @@ class HexSession:
                     if sub_cell.minor_feature is not MinorFeatureType.NONE
                     else sub_cell.major_feature
                 )
+                self.renderer.add_message(enter_msg)
                 ok = await game.enter_site(
                     macro, sub, kind, tier,
                     feature=feature, biome=sub_cell.biome,
                 )
-                if ok:
-                    self.renderer.add_message(
-                        t(
-                            "hex.msg.enter_feature",
-                            feature=t(_enter_message_key()),
-                        ),
-                    )
-                else:
+                if not ok:
                     self.renderer.add_message(
                         t("hex.msg.nothing_to_enter"),
                     )
