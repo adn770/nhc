@@ -44,11 +44,26 @@ const DebugPanel = {
     },
     { name: "Hex Layers", buildFn: "_buildHexLayersTab", modes: ["hex"] },
     { name: "Hex Gen",    buildFn: "_buildHexGenTab",    modes: ["hex"] },
+    {
+      name: "Flower Layers", buildFn: "_buildFlowerLayersTab",
+      modes: ["flower"],
+    },
   ],
 
   // Hex layer visibility state (mirrors the dungeon `layers`
   // object for the hex canvas stack + HUD).
   hexLayers: {
+    base: true,
+    fog: true,
+    feature: true,
+    entity: true,
+    debug: true,
+    hud: true,
+  },
+
+  // Flower layer visibility state — same shape as hexLayers
+  // but bound to #flower-*-canvas / #flower-hud elements.
+  flowerLayers: {
     base: true,
     fog: true,
     feature: true,
@@ -1034,6 +1049,39 @@ const DebugPanel = {
       }
     });
     frag.appendChild(stateBtn);
+
+    return frag;
+  },
+
+  // ── Flower Layers tab ───────────────────────────────────────
+  //
+  // Flower view layer toggles — shape matches Hex Layers but
+  // bound to the #flower-*-canvas stack instead. No FOW state
+  // panel since flower view doesn't expose a /api/game/<sid>/flower
+  // endpoint family yet.
+  _buildFlowerLayersTab() {
+    const frag = document.createDocumentFragment();
+    frag.appendChild(this._sectionHeader("Flower Rendering Layers"));
+
+    const flowerCanvases = [
+      { key: "base",    label: "Base Canvas",    el: "#flower-base-canvas" },
+      { key: "feature", label: "Feature Canvas", el: "#flower-feature-canvas" },
+      { key: "fog",     label: "Fog Canvas",     el: "#flower-fog-canvas" },
+      { key: "entity",  label: "Entity Canvas",  el: "#flower-entity-canvas" },
+      { key: "debug",   label: "Debug Canvas",   el: "#flower-debug-canvas" },
+      { key: "hud",     label: "HUD Overlay",    el: "#flower-hud" },
+    ];
+
+    flowerCanvases.forEach(({ key, label, el }) => {
+      const row = this._checkboxRow(
+        label, this.flowerLayers[key], (on) => {
+          this.flowerLayers[key] = on;
+          const target = document.querySelector(el);
+          if (target) target.style.display = on ? "" : "none";
+        },
+      );
+      frag.appendChild(row);
+    });
 
     return frag;
   },
