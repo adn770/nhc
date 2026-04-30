@@ -2626,6 +2626,7 @@ hex:
     nothing_to_enter: "There is nothing to enter here."
     panic_flee: "You bail out in a panic."
     blocks_way: "The {feature} blocks your way."
+    start_journey: "You begin your journey. Move with y/u/n/b/j/k. Press 'x' to enter a feature. Press 'L' to leave."
   time:
     morning: "Morning"
     midday: "Midday"

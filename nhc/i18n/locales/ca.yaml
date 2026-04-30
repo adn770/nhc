@@ -2960,6 +2960,7 @@ hex:
     nothing_to_enter: "Aquí no hi ha res on entrar."
     panic_flee: "Fuges en pànic."
     blocks_way: "{feature} et barra el pas."
+    start_journey: "Comences el teu viatge. Mou-te amb y/u/n/b/j/k. Prem 'x' per entrar en un lloc. Prem 'L' per sortir."
   biome:
     greenlands: "Terres verdes"
     drylands: "Terres seques"

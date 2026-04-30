@@ -256,10 +256,7 @@ class HexSession:
 
         # Enter flower view directly
         game.hex_world.enter_flower(macro, sub)
-        self.renderer.add_message(
-            "You begin your journey. Move with y/u/n/b/j/k. "
-            "Press 'x' to enter a feature. Press 'L' to leave."
-        )
+        self.renderer.add_message(t("hex.msg.start_journey"))
 
     # ── Turn processing ────────────────────────────────────────────
 

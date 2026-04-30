@@ -25,6 +25,7 @@ _KEYS = [
     "hex.msg.nothing_to_enter",
     "hex.msg.panic_flee",
     "hex.msg.enter_feature",                   # template "You enter the {feature}."
+    "hex.msg.start_journey",                   # opening flower-view tutorial
 ]
 
 

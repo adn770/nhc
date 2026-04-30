@@ -2679,6 +2679,7 @@ hex:
     nothing_to_enter: "Aquí no hay nada donde entrar."
     panic_flee: "Huyes presa del pánico."
     blocks_way: "{feature} te cierra el paso."
+    start_journey: "Comienzas tu viaje. Muévete con y/u/n/b/j/k. Pulsa 'x' para entrar en un lugar. Pulsa 'L' para salir."
   biome:
     greenlands: "Tierras verdes"
     drylands: "Tierras secas"
