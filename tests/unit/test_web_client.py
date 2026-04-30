@@ -67,6 +67,33 @@ class TestWebClientMessages:
             client.add_message(f"msg {i}")
         assert len(client.messages) == 200
 
+    def test_repeated_messages_are_throttled(self, client):
+        # 6 identical messages collapse to 2 visible: raw + (x5).
+        for _ in range(6):
+            client.add_message("you see a villager")
+        assert client.messages == [
+            "you see a villager",
+            "you see a villager (x5)",
+        ]
+        # WebSocket emissions match the in-memory buffer.
+        sent_texts = [m["text"] for m in _drain_queue(client)
+                      if m.get("type") == "message"]
+        assert sent_texts == [
+            "you see a villager",
+            "you see a villager (x5)",
+        ]
+
+    def test_throttle_flushes_rollup_on_break(self, client):
+        for _ in range(8):
+            client.add_message("you see a villager")
+        client.add_message("the door creaks open")
+        assert client.messages == [
+            "you see a villager",
+            "you see a villager (x5)",
+            "you see a villager (x2)",
+            "the door creaks open",
+        ]
+
 
 class TestWebClientRender:
     def test_render_queues_state_and_stats(self, client):

@@ -33,6 +33,7 @@ from nhc.i18n import t as tr
 from nhc.rendering.client import GameClient
 from nhc.rendering.ir_emitter import build_floor_ir
 from nhc.rendering.ir_to_svg import ir_to_svg
+from nhc.rendering.message_throttle import MessageThrottle
 
 if TYPE_CHECKING:
     from nhc.core.ecs import World
@@ -490,6 +491,7 @@ class WebClient(GameClient):
         # for *every* SVG render this client emits.
         self.vegetation = vegetation
         self.messages: list[str] = []
+        self._msg_throttle = MessageThrottle()
         self.floor_svg: str = ""
         self.floor_svg_id: str = ""
         self._last_static_stats: dict | None = None
@@ -1409,11 +1411,12 @@ class WebClient(GameClient):
         self._send({"type": "effect", "effect": effect, "x": x, "y": y})
 
     def add_message(self, text: str) -> None:
-        logger.info("MSG: %s", text)
-        self.messages.append(text)
-        if len(self.messages) > 200:
-            self.messages = self.messages[-200:]
-        self._send({"type": "message", "text": text})
+        for emit in self._msg_throttle.feed(text):
+            logger.info("MSG: %s", emit)
+            self.messages.append(emit)
+            if len(self.messages) > 200:
+                self.messages = self.messages[-200:]
+            self._send({"type": "message", "text": emit})
 
     def render_hex(
         self,
