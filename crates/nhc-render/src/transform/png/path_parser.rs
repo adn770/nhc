@@ -57,12 +57,31 @@ pub fn parse_path_d(s: &str) -> Option<tiny_skia::Path> {
                 }
             }
             Some('A') => {
-                // SVG arc: `A rx,ry rot large,sweep x,y` —
-                // NHC always emits rx == ry with rot == 0.
+                // SVG arc: `A rx,ry rot large sweep x,y`. The
+                // flag pair accepts both `0,1` (the form
+                // `_circle_with_gaps` emits) and `0 1` (the form
+                // the well/fountain keystone primitives emit) —
+                // SVG path syntax allows either.
                 let radii = parse_xy(strip_command(tok, 'A'));
                 let rot = tokens.next().and_then(|t| t.parse::<f32>().ok());
-                let flags = tokens.next().and_then(parse_xy);
-                let endpoint = tokens.next().and_then(parse_xy);
+                let next_tok = tokens.next();
+                let (flags, endpoint) = match next_tok
+                    .and_then(parse_xy)
+                {
+                    Some(pair) => (Some(pair), tokens.next().and_then(parse_xy)),
+                    None => {
+                        // Space-separated flags: `<large> <sweep>`.
+                        let large_f = next_tok.and_then(|t| t.parse::<f32>().ok());
+                        let sweep_f = tokens
+                            .next()
+                            .and_then(|t| t.parse::<f32>().ok());
+                        let endpoint = tokens.next().and_then(parse_xy);
+                        match (large_f, sweep_f) {
+                            (Some(l), Some(s)) => (Some((l, s)), endpoint),
+                            _ => (None, endpoint),
+                        }
+                    }
+                };
                 if let (
                     Some((rx, ry)),
                     Some(_rot),
@@ -287,5 +306,44 @@ mod tests {
         assert!(b.left() <= -7.0 && b.left() >= -10.0);
         assert!(b.bottom() >= 15.0);
         assert!(b.top() <= -15.0);
+    }
+
+    /// Space-separated arc flags — the form the well/fountain
+    /// keystone primitives emit (`A r,r 0 0 1 x,y` with no comma
+    /// between large_arc and sweep). SVG accepts both forms, so
+    /// the tiny-skia parser must too. Regression: keystone arcs
+    /// were silently dropping into degenerate `M…L…Z` triangles
+    /// because `parse_xy("0")` returned None for the flag pair.
+    #[test]
+    fn parse_path_d_handles_space_separated_arc_flags() {
+        let d = "M0.0,50.0 A50.0,50.0 0 0 1 100.0,50.0";
+        let p = parse_path_d(d).unwrap();
+        let b = p.bounds();
+        assert!(b.width() >= 99.0 && b.width() <= 101.0);
+        assert!(b.bottom() >= 49.0 && b.bottom() <= 51.0);
+        assert!(b.top() <= 1.0);
+    }
+
+    /// Keystone-shape replay — the exact path the well primitive
+    /// emits per arc segment: `M outer_start A outer_end L
+    /// inner_end A inner_start Z`. Both arcs use space-separated
+    /// flags. The bounds must wrap the trapezoidal wedge, not
+    /// collapse to the chord-line of a `M-L-Z` triangle.
+    #[test]
+    fn parse_path_d_handles_keystone_with_space_flags() {
+        // outer r=27.2, inner r=18.2, centred at (16,16),
+        // angles 0..π/8 → outer_start (43.2,16), outer_end
+        // (~25.13, 26.41), inner_end (~16.82, 22.97),
+        // inner_start (34.2,16).
+        let d = "M43.20,16.00 A27.20,27.20 0 0 1 25.13,26.41 \
+                 L16.82,22.97 A18.20,18.20 0 0 0 34.20,16.00 Z";
+        let p = parse_path_d(d).unwrap();
+        let b = p.bounds();
+        // Right edge sits at the outer-radius point (43.2).
+        assert!(b.right() >= 42.0);
+        // Apex of the outer arc is past the outer endpoint
+        // y (26.4) — degenerate triangle would only reach 26.4.
+        // The trapezoid+arc convex hull pushes bottom past 27.
+        assert!(b.bottom() >= 22.0);
     }
 }
