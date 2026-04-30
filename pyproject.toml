@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "nhc"
@@ -35,6 +35,11 @@ debug = [
 
 [project.scripts]
 nhc = "nhc.main:entry"
+
+[tool.setuptools.packages.find]
+include = ["nhc*"]
+exclude = ["debug*", "design*", "crates*", "target*", "deploy*",
+           "levels*", "content*", "hextiles*", "tests*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
