@@ -81,8 +81,10 @@ const Input = {
     { icon: "🔓", intent: "pick_lock",  labelKey: "toolbar_pick_lock" },
     { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
     { icon: "🚪", intent: "close_door", labelKey: "toolbar_close_door" },
-    { icon: "⛏️", intent: "dig",        labelKey: "toolbar_dig" },
-    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
+    { icon: "⛏️", intent: "dig",        labelKey: "toolbar_dig",
+      onContextMenu: () => Input._toggleAutodig() },
+    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook",
+      onContextMenu: () => Input._toggleAutolook() },
     { icon: "⬇️", intent: "descend",    labelKey: "toolbar_descend" },
     { icon: "⬆️", intent: "ascend",     labelKey: "toolbar_ascend" },
   ],
@@ -103,7 +105,8 @@ const Input = {
     { icon: "🔓", intent: "pick_lock",  labelKey: "toolbar_pick_lock" },
     { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
     { icon: "🚪", intent: "close_door", labelKey: "toolbar_close_door" },
-    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
+    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook",
+      onContextMenu: () => Input._toggleAutolook() },
     { icon: "⬇️", intent: "descend",    labelKey: "toolbar_descend" },
     { icon: "⬆️", intent: "ascend",     labelKey: "toolbar_ascend" },
   ],
@@ -127,7 +130,8 @@ const Input = {
     { icon: "🔓", intent: "pick_lock",  labelKey: "toolbar_pick_lock" },
     { icon: "💪", intent: "force_door", labelKey: "toolbar_force_door" },
     { icon: "🚪", intent: "close_door", labelKey: "toolbar_close_door" },
-    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook" },
+    { icon: "👁️", intent: "farlook",    labelKey: "toolbar_farlook",
+      onContextMenu: () => Input._toggleAutolook() },
     { icon: "🗺️", intent: "leave_site",  labelKey: "toolbar_leave_site" },
   ],
 
@@ -319,139 +323,171 @@ const Input = {
     }
   },
 
+  /**
+   * Right-side utility group, view-independent. Each entry is one
+   * of:
+   *   { kind: "button", icon, id?, labelKey?, title, classes?,
+   *     onClick, visible? }
+   *   { kind: "custom", visible?, render: () => HTMLElement }
+   *
+   * ``visible`` (optional) gates rendering on god/tester flags.
+   * The factory below appends in declaration order; CSS pushes the
+   * group right via ``margin-left:auto`` on ``#zoom-out-btn``.
+   */
+  UTILITY_BAR: [
+    { kind: "button", icon: "−", id: "zoom-out-btn",
+      labelKey: "toolbar_zoom_out", title: "Zoom Out",
+      onClick: () => { GameMap.zoom(-1); Input._updateZoomLabel(); } },
+    { kind: "custom", render: () => {
+        const el = document.createElement("span");
+        el.id = "zoom-label";
+        el.className = "zoom-label";
+        el.textContent = "1.0x";
+        return el;
+      } },
+    { kind: "button", icon: "+", id: "zoom-in-btn",
+      labelKey: "toolbar_zoom_in", title: "Zoom In",
+      onClick: () => { GameMap.zoom(1); Input._updateZoomLabel(); } },
+    // TTS toggle starts hidden; TTS.init reveals it when audio is
+    // available.
+    { kind: "button", icon: "🔇", id: "tts-btn",
+      title: "Text to Speech", classes: ["hidden"],
+      onClick: () => TTS.toggle() },
+    { kind: "custom", render: () => {
+        const el = document.createElement("input");
+        el.id = "tts-volume";
+        el.type = "range";
+        el.min = "0";
+        el.max = "100";
+        el.value = "80";
+        el.title = "TTS Volume";
+        el.classList.add("tts-volume", "hidden");
+        el.addEventListener("input", (e) => {
+          TTS.setVolume(parseInt(e.target.value, 10) / 100);
+        });
+        return el;
+      } },
+    { kind: "button", icon: "🔄", id: "restart-btn",
+      labelKey: "toolbar_restart", title: "Restart Game",
+      onClick: () => NHC.restartGame() },
+    // God-only: debug bundle + debug panel toggle. DebugPanel.enabled
+    // is set by NHC.init from window.NHC_GOD_MODE before Input.init
+    // builds the first toolbar.
+    { kind: "button", icon: "💾", id: "debug-bundle-btn",
+      title: "Download Debug Bundle (incl. layer PNGs)",
+      visible: () => typeof DebugPanel !== "undefined" && DebugPanel.enabled,
+      onClick: () => Input._downloadDebugBundle() },
+    { kind: "button", icon: "⚙", id: "god-mode-btn",
+      title: "Debug Panel (God Mode)",
+      visible: () => typeof DebugPanel !== "undefined" && DebugPanel.enabled,
+      onClick: () => DebugPanel._togglePanel() },
+    // Rightmost on every toolbar so god-mode's extra buttons don't
+    // shuffle its position. Visible for both god and tester roles.
+    { kind: "button", icon: "✉️", id: "report-issue-btn",
+      labelKey: "toolbar_report_issue", title: "Report Issue",
+      visible: () => window.NHC_GOD_MODE || window.NHC_TESTER_MODE,
+      onClick: () => Input._submitReport() },
+  ],
+
   _initToolbar() {
     const zone = document.getElementById("toolbar-zone");
     if (!zone) return;
     zone.innerHTML = "";
     this._toolbarButtons = [];
-    const actions = this._toolbarForView(this._currentToolbarMode);
 
-    // ── Action buttons (mode-specific) ──
-    actions.forEach(({ icon, intent, labelKey }) => {
-      const btn = document.createElement("button");
-      btn.textContent = icon;
-      btn.dataset.labelKey = labelKey;
-      btn.dataset.intent = intent;
-      btn.title = labelKey;
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (intent === "inventory") {
-          UI.showInventoryPanel();
-        } else {
-          Input._beforeSendAction(intent);
-          WS.send({ type: "action", intent, data: null });
-        }
-      });
-      if (intent === "dig") {
-        btn.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          Input._toggleAutodig();
-        });
-      }
-      if (intent === "farlook") {
-        btn.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          Input._toggleAutolook();
-        });
-      }
-      zone.appendChild(btn);
-      this._toolbarButtons.push(btn);
-    });
-
-    // ── Right-aligned utility group ──
-    // margin-left:auto on zoom-out (via CSS) pushes the rest right.
-
-    // Zoom
-    const zoomOut = this._toolbarBtn(
-      "\u2212", "zoom-out-btn", "toolbar_zoom_out", "Zoom Out",
-      () => { GameMap.zoom(-1); this._updateZoomLabel(); },
-    );
-    zone.appendChild(zoomOut);
-
-    const zoomLabel = document.createElement("span");
-    zoomLabel.id = "zoom-label";
-    zoomLabel.className = "zoom-label";
-    zoomLabel.textContent = "1.0x";
-    zone.appendChild(zoomLabel);
-
-    const zoomIn = this._toolbarBtn(
-      "+", "zoom-in-btn", "toolbar_zoom_in", "Zoom In",
-      () => { GameMap.zoom(1); this._updateZoomLabel(); },
-    );
-    zone.appendChild(zoomIn);
-
-    // TTS toggle (hidden until TTS.init checks availability)
-    const ttsBtn = this._toolbarBtn(
-      "\u{1F507}", "tts-btn", null, "Text to Speech",
-      () => TTS.toggle(),
-    );
-    ttsBtn.classList.add("hidden");
-    zone.appendChild(ttsBtn);
-
-    // TTS volume slider (hidden until TTS enabled)
-    const ttsVol = document.createElement("input");
-    ttsVol.id = "tts-volume";
-    ttsVol.type = "range";
-    ttsVol.min = "0";
-    ttsVol.max = "100";
-    ttsVol.value = "80";
-    ttsVol.title = "TTS Volume";
-    ttsVol.classList.add("tts-volume", "hidden");
-    ttsVol.addEventListener("input", (e) => {
-      TTS.setVolume(parseInt(e.target.value, 10) / 100);
-    });
-    zone.appendChild(ttsVol);
-
-    // Restart
-    const restart = this._toolbarBtn(
-      "\u{1F504}", "restart-btn", "toolbar_restart",
-      "Restart Game", () => NHC.restartGame(),
-    );
-    zone.appendChild(restart);
-
-    // God mode — only created when DebugPanel.enabled is set
-    // (from window.NHC_GOD_MODE, embedded in the HTML by the
-    // server before any JS runs).
-    if (typeof DebugPanel !== "undefined" && DebugPanel.enabled) {
-      const dlBtn = this._toolbarBtn(
-        "\uD83D\uDCBE", "debug-bundle-btn", null,
-        "Download Debug Bundle (incl. layer PNGs)",
-        () => this._downloadDebugBundle(),
-      );
-      zone.appendChild(dlBtn);
-
-      const gearBtn = this._toolbarBtn(
-        "\u2699", "god-mode-btn", null,
-        "Debug Panel (God Mode)",
-        () => DebugPanel._togglePanel(),
-      );
-      zone.appendChild(gearBtn);
+    // Left side: per-view action buttons. Click → _dispatchIntent.
+    for (const action of this._toolbarForView(this._currentToolbarMode)) {
+      zone.appendChild(this._makeButton({
+        icon: action.icon,
+        intent: action.intent,
+        labelKey: action.labelKey,
+        title: action.labelKey,
+        onClick: () => this._dispatchIntent(action.intent),
+        onContextMenu: action.onContextMenu,
+      }));
     }
 
-    // Report issue button — visible to god AND tester players on
-    // every toolbar (dungeon, hex, flower). Rightmost position so
-    // it doesn't shuffle when god-mode adds its own buttons.
-    if (window.NHC_GOD_MODE || window.NHC_TESTER_MODE) {
-      const reportBtn = this._toolbarBtn(
-        "\u2709\uFE0F", "report-issue-btn", "toolbar_report_issue",
-        "Report Issue",
-        () => this._submitReport(),
+    // Right side: declarative utility bar.
+    for (const item of this.UTILITY_BAR) {
+      if (item.visible && !item.visible()) continue;
+      if (item.kind === "custom") {
+        zone.appendChild(item.render());
+      } else {
+        zone.appendChild(this._makeButton(item));
+      }
+    }
+
+    // Reapply transient per-button state to the freshly-built DOM:
+    // TTS visibility/icon, autodig/autolook glow. Without this, a
+    // setToolbarMode rebuild would drop the un-hidden tts-btn and
+    // any active mode glow.
+    this._restoreToolbarState();
+  },
+
+  /**
+   * Re-apply transient per-button state after the toolbar DOM is
+   * rebuilt. Owns the bridge between long-lived module state
+   * (TTS.available/enabled, this.autodig, this.autolook) and the
+   * per-button class flags / icon text.
+   */
+  _restoreToolbarState() {
+    if (typeof TTS !== "undefined") TTS._updateUI();
+    if (this.autodig) {
+      const btn = this._toolbarButtons.find(
+        (b) => b.dataset.intent === "dig",
       );
-      zone.appendChild(reportBtn);
+      if (btn) btn.classList.add("autodig-active");
+    }
+    if (this.autolook) {
+      const btn = this._toolbarButtons.find(
+        (b) => b.dataset.intent === "farlook",
+      );
+      if (btn) btn.classList.add("autolook-active");
     }
   },
 
-  /** Create a toolbar button with consistent styling. */
-  _toolbarBtn(icon, id, labelKey, title, onClick) {
+  /**
+   * Single source of truth for action-button click behavior.
+   * Inventory pops the panel locally; everything else goes over the
+   * wire after the optional pre-send hook (e.g. stair loading
+   * overlay).
+   */
+  _dispatchIntent(intent) {
+    if (intent === "inventory") {
+      UI.showInventoryPanel();
+      return;
+    }
+    Input._beforeSendAction(intent);
+    WS.send({ type: "action", intent, data: null });
+  },
+
+  /**
+   * Build a toolbar <button> from a uniform definition. Owns DOM
+   * setup, dataset wiring, click stop-propagation, optional
+   * contextmenu, and registration into ``_toolbarButtons`` so the
+   * label-update + autodig/autolook lookups stay correct.
+   */
+  _makeButton({icon, id, labelKey, title, classes, intent,
+               onClick, onContextMenu}) {
     const btn = document.createElement("button");
     btn.textContent = icon;
     if (id) btn.id = id;
     if (labelKey) btn.dataset.labelKey = labelKey;
-    btn.title = title;
+    if (intent) btn.dataset.intent = intent;
+    btn.title = title || labelKey || "";
+    if (classes) {
+      for (const c of classes) btn.classList.add(c);
+    }
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       onClick();
     });
+    if (onContextMenu) {
+      btn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        onContextMenu();
+      });
+    }
     this._toolbarButtons.push(btn);
     return btn;
   },
