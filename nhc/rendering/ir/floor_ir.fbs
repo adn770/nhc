@@ -468,6 +468,7 @@ table FloorDetailOp {
   tiles: [TileCoord];
   seed: uint64;            // base_seed + 99
   theme: string;
+  // DEPRECATED — removed in 4.0.
   // Phase 1 transitional storage. _tile_detail and
   // _tile_thematic_detail share one rng stream interleaved across
   // 6 per-tile buckets per side (cracks / stones / scratches /
@@ -476,6 +477,9 @@ table FloorDetailOp {
   // ~200 lines of helpers into the handler. Pre-rendered <g>
   // groups travel here instead. Phase 4 refactors to per-tile
   // structured ops when the Rust port lands.
+  // Schema 3.1 (Phase 0.1 of plans/nhc_pure_ir_plan.md): the
+  // Python and Rust consumers stopped reading these fields; the
+  // schema slots stay declared until the 4.0 cut.
   room_groups: [string];
   corridor_groups: [string];
   clip_region: string;
@@ -607,6 +611,11 @@ table KV {
   value: string;
 }
 
+// DEPRECATED — removed in 4.0.
+// Schema 3.1 (Phase 0.2 of plans/nhc_pure_ir_plan.md): the
+// Python and Rust dispatchers stopped routing this op to a
+// handler; the table + op-union variant stay declared until the
+// 4.0 cut so older cached buffers still parse.
 table GenericProceduralOp {
   name: string;
   tiles: [TileCoord];

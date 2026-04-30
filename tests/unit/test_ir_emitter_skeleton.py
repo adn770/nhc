@@ -53,9 +53,12 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
 def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
     assert fir.major == 3
-    # Minor bumps as later commits add additive schema fields; the
-    # sentinel pins major only.
-    assert fir.minor >= 0
+    # Schema 3.1 (Phase 0.3 of plans/nhc_pure_ir_plan.md) bumped
+    # SCHEMA_MINOR to 1 to mark FloorDetailOp.{room,corridor}_groups
+    # and the GenericProceduralOp table as DEPRECATED — removed in
+    # 4.0. The (major, minor) cache gate evicts pre-3.1 cached IR
+    # artefacts on first boot post-upgrade.
+    assert fir.minor == 1
 
 
 def test_metadata_matches_inputs(emitted) -> None:
