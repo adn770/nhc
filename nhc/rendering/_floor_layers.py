@@ -362,17 +362,67 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 t.y = y
                 corridor_tiles_list.append(t)
 
+    # Wood floor base fill — emitted in WallsAndFloorsOp (structural
+    # layer, paints before BuildingInteriorWallOp + BuildingExteriorWallOp
+    # per design/map_ir.md §6.1) rather than in FloorDetailOp's wood
+    # branch. Two cases:
+    #
+    # - Building polygon known (rect / L / octagon / circle building
+    #   shapes via _perimeter_polygon): paint a single wood polygon
+    #   clipped to the chamfered / curved footprint so the fill
+    #   doesn't bleed past the building's actual perimeter.
+    # - No building polygon (cave / pill / hybrid building shapes):
+    #   per-FLOOR-tile wood rects, same coverage the legacy emitter
+    #   used before the polygon clip landed.
+    #
+    # When the building polygon is set, suppress the rect_rooms
+    # bbox fill — its bbox extends into the chamfered / curved
+    # corners outside the polygon and would show as white tiles
+    # past the wood polygon's edge.
+    #
+    # FloorDetailOp's wood branch keeps the per-room grain + plank
+    # seams (decoration on top of the base fill).
+    suppress_rect_rooms = (
+        ctx.interior_finish == "wood" and bool(ctx.building_polygon)
+    )
+    if ctx.interior_finish == "wood":
+        from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
+        if ctx.building_polygon:
+            pts = " ".join(
+                f"{px:.1f},{py:.1f}"
+                for (px, py) in ctx.building_polygon
+            )
+            smooth_fill_svg.append(
+                f'<polygon points="{pts}" '
+                f'fill="{WOOD_FLOOR_FILL}" stroke="none"/>'
+            )
+        else:
+            for y in range(level.height):
+                for x in range(level.width):
+                    tile = level.tiles[y][x]
+                    if tile.terrain is not Terrain.FLOOR:
+                        continue
+                    if (x, y) in cave_tiles:
+                        continue
+                    px, py = x * CELL, y * CELL
+                    smooth_fill_svg.append(
+                        f'<rect x="{px}" y="{py}" '
+                        f'width="{CELL}" height="{CELL}" '
+                        f'fill="{WOOD_FLOOR_FILL}" stroke="none"/>'
+                    )
+
     rect_rooms_list: list[RectRoomT] = []
-    for room in level.rooms:
-        if isinstance(room.shape, RectShape):
-            r = room.rect
-            rr = RectRoomT()
-            rr.x = r.x
-            rr.y = r.y
-            rr.w = r.width
-            rr.h = r.height
-            rr.regionRef = room.id
-            rect_rooms_list.append(rr)
+    if not suppress_rect_rooms:
+        for room in level.rooms:
+            if isinstance(room.shape, RectShape):
+                r = room.rect
+                rr = RectRoomT()
+                rr.x = r.x
+                rr.y = r.y
+                rr.w = r.width
+                rr.h = r.height
+                rr.regionRef = room.id
+                rect_rooms_list.append(rr)
 
     segments: list[str] = []
     if level.rooms:

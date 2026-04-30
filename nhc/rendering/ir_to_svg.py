@@ -734,7 +734,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     import random
 
     from nhc.rendering._floor_detail import (
-        WOOD_FLOOR_FILL, WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
+        WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
         WOOD_GRAIN_LINES_PER_STRIP, WOOD_GRAIN_OPACITY,
         WOOD_GRAIN_STROKE_WIDTH, WOOD_PLANK_LENGTH_MAX,
         WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
@@ -759,7 +759,15 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
             region.Polygon(), "wood-interior-clip",
         ))
 
+    # Wood base fill is emitted by WallsAndFloorsOp (structural
+    # layer) per design/map_ir.md §6.1; this handler only paints
+    # the per-room grain + plank seams (floor_detail layer). The
+    # ``wood_building_polygon`` is still carried so we can clip
+    # the grain/seam strokes to the building footprint — without
+    # the clip, octagon / circle / L buildings bleed grain lines
+    # past their chamfered corners.
     polygon = list(op.woodBuildingPolygon or [])
+    bldg_clip_attr = ""
     if polygon:
         poly_points = " ".join(
             f"{p.x:.1f},{p.y:.1f}" for p in polygon
@@ -769,39 +777,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
             f'<polygon points="{poly_points}"/>'
             '</clipPath></defs>'
         )
-        xs = [p.x for p in polygon]
-        ys = [p.y for p in polygon]
-        bx, by = min(xs), min(ys)
-        bw = max(xs) - bx
-        bh = max(ys) - by
-        out.append(
-            f'<rect x="{bx:.1f}" y="{by:.1f}" '
-            f'width="{bw:.1f}" height="{bh:.1f}" '
-            f'fill="{WOOD_FLOOR_FILL}" '
-            'clip-path="url(#wood-bldg-clip)"/>'
-        )
-    else:
-        # Per-tile rect fill — mirrors walk_and_paint's emit shape
-        # for the WOOD_FLOOR_FILL_DECORATOR with bucket="room".
-        tiles = list(op.woodTiles or [])
-        if tiles and has_dungeon_clip:
-            # walk_and_paint re-emits its own clip defs even when
-            # the caller already emitted one above; preserve the
-            # legacy duplicate to keep byte-equal SVG parity.
-            out.append(_dungeon_clip_defs(
-                region.Polygon(), "wood-interior-clip",
-            ))
-            out.append('<g clip-path="url(#wood-interior-clip)">')
-        for tile in tiles:
-            px = tile.x * CELL
-            py = tile.y * CELL
-            out.append(
-                f'<rect x="{px:.0f}" y="{py:.0f}" '
-                f'width="{CELL}" height="{CELL}" '
-                f'fill="{WOOD_FLOOR_FILL}"/>'
-            )
-        if tiles and has_dungeon_clip:
-            out.append("</g>")
+        bldg_clip_attr = ' clip-path="url(#wood-bldg-clip)"'
 
     rooms = list(op.woodRooms or [])
     if not rooms:
@@ -863,7 +839,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
         out.append(
             f'<g fill="none" stroke="{colour}" '
             f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
-            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
+            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}{bldg_clip_attr}>'
         )
         out.append("".join(group))
         out.append("</g>")
@@ -880,7 +856,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
         return out
     out.append(
         f'<g fill="none" stroke="{WOOD_SEAM_STROKE}" '
-        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}>'
+        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}{bldg_clip_attr}>'
     )
     out.append("".join(seams))
     out.append("</g>")

@@ -1,9 +1,9 @@
 {
   "layer_element_counts": {
-    "floor_detail": 985,
+    "floor_detail": 757,
     "floor_grid": 5,
     "stairs": 8,
-    "structural": 340,
+    "structural": 564,
     "surface_features": 0,
     "terrain_detail": 0,
     "terrain_tints": 0,

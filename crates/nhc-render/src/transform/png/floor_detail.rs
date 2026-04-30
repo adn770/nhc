@@ -22,7 +22,7 @@
 //! the fragment rasteriser still walks them so the parity gate
 //! catches any drift.
 
-use tiny_skia::{FillRule, Mask};
+use tiny_skia::{FillRule, Mask, PathBuilder};
 
 use crate::ir::{FloorDetailOp, FloorIR, OpEntry};
 use crate::primitives::floor_detail::draw_floor_detail;
@@ -83,7 +83,13 @@ pub(super) fn draw(
         let frags = draw_wood_floor(
             &wood_tiles, &wood_polygon, &wood_rooms, op.seed(),
         );
-        let clip_mask = build_clip_mask(&op, fir, ctx);
+        // The wood base fill now lives in WallsAndFloorsOp
+        // (structural layer); this op only paints grain + seam
+        // strokes. Clip them to the building polygon so they
+        // don't bleed past the chamfered / curved corners of
+        // octagon / circle / L-shape buildings, intersected
+        // with the dungeon clip when both are present.
+        let clip_mask = build_wood_clip_mask(&op, fir, &wood_polygon, ctx);
         paint_fragments(&frags, 1.0, clip_mask.as_ref(), ctx);
         return;
     }
@@ -140,5 +146,41 @@ fn build_clip_mask(
     let path = build_polygon_path(&polygon)?;
     let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
     mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
+    Some(mask)
+}
+
+/// Wood-floor clip mask: building polygon intersected with the
+/// dungeon clip when both are present. The grain + seam strokes
+/// from `draw_wood_floor` are bbox-aligned to each room rect, so
+/// without this mask they bleed past the chamfered corners of
+/// octagon / circle / L-shape building footprints.
+fn build_wood_clip_mask(
+    op: &FloorDetailOp<'_>,
+    fir: &FloorIR<'_>,
+    polygon: &[PolyVertex],
+    ctx: &RasterCtx<'_>,
+) -> Option<Mask> {
+    let dungeon = build_clip_mask(op, fir, ctx);
+    if polygon.len() < 3 {
+        return dungeon;
+    }
+    let mut pb = PathBuilder::new();
+    let first = polygon[0];
+    pb.move_to(first.x as f32, first.y as f32);
+    for v in &polygon[1..] {
+        pb.line_to(v.x as f32, v.y as f32);
+    }
+    pb.close();
+    let bldg_path = pb.finish()?;
+    if let Some(mut mask) = dungeon {
+        // Mask::intersect_path keeps only the pixels inside the
+        // building polygon AND the dungeon clip mask.
+        mask.intersect_path(
+            &bldg_path, FillRule::EvenOdd, true, ctx.transform,
+        );
+        return Some(mask);
+    }
+    let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
+    mask.fill_path(&bldg_path, FillRule::EvenOdd, true, ctx.transform);
     Some(mask)
 }

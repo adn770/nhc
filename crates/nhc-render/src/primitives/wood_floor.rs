@@ -20,7 +20,6 @@ use rand_pcg::Pcg64Mcg;
 
 const CELL: f64 = 32.0;
 
-const WOOD_FLOOR_FILL: &str = "#B58B5A";
 const WOOD_SEAM_STROKE: &str = "#8A5A2A";
 const WOOD_SEAM_WIDTH: f64 = 0.8;
 const WOOD_PLANK_WIDTH_PX: f64 = CELL / 4.0;
@@ -52,54 +51,26 @@ pub struct PolyVertex {
 
 /// Wood-floor painter entry point.
 ///
-/// `tiles`: FLOOR tiles in row-major order. Drives the per-tile
-/// rect fill when `polygon` is empty.
+/// Per design/map_ir.md §6.1, the wood **base fill** is now
+/// emitted by `WallsAndFloorsOp` (structural layer), so the
+/// per-tile / per-polygon fill rect that used to live here is
+/// gone. This handler only emits the per-room grain streaks and
+/// parquet plank seams (floor_detail layer, paints on top of
+/// the structural fill + walls).
 ///
-/// `polygon`: octagon / circle building outline. When non-empty,
-/// the rect fill collapses to a single bounding-box rect that
-/// would clip against the polygon in SVG; here it just paints the
-/// box (the handler's mask + the bounding rect together cover
-/// the same visible area).
+/// `tiles` and `polygon` are kept on the FFI for backwards
+/// compatibility; `polygon` still drives the per-room grain/
+/// seam clip mask in the PNG handler.
 ///
 /// `rooms`: per-room rects driving the grain streak generator and
 /// the parquet seam grid.
-///
-/// Returns a flat list of SVG fragments (`<rect>` + `<g>`
-/// envelopes) that `paint_fragments` rasterises with the dungeon-
-/// poly clip mask applied.
 pub fn draw_wood_floor(
-    tiles: &[(i32, i32)],
-    polygon: &[PolyVertex],
+    _tiles: &[(i32, i32)],
+    _polygon: &[PolyVertex],
     rooms: &[WoodRoom],
     seed: u64,
 ) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
-
-    if !polygon.is_empty() {
-        let xs: Vec<f64> = polygon.iter().map(|p| p.x).collect();
-        let ys: Vec<f64> = polygon.iter().map(|p| p.y).collect();
-        let bx = xs.iter().copied().fold(f64::INFINITY, f64::min);
-        let by = ys.iter().copied().fold(f64::INFINITY, f64::min);
-        let bw =
-            xs.iter().copied().fold(f64::NEG_INFINITY, f64::max) - bx;
-        let bh =
-            ys.iter().copied().fold(f64::NEG_INFINITY, f64::max) - by;
-        out.push(format!(
-            "<rect x=\"{bx:.1}\" y=\"{by:.1}\" \
-             width=\"{bw:.1}\" height=\"{bh:.1}\" \
-             fill=\"{WOOD_FLOOR_FILL}\"/>",
-        ));
-    } else {
-        for &(x, y) in tiles {
-            let px = f64::from(x) * CELL;
-            let py = f64::from(y) * CELL;
-            out.push(format!(
-                "<rect x=\"{px:.0}\" y=\"{py:.0}\" \
-                 width=\"{CELL}\" height=\"{CELL}\" \
-                 fill=\"{WOOD_FLOOR_FILL}\"/>",
-            ));
-        }
-    }
 
     if rooms.is_empty() {
         return out;
@@ -267,17 +238,21 @@ mod tests {
     }
 
     #[test]
-    fn rect_floor_emits_per_tile_fill() {
+    fn fill_emission_belongs_to_walls_and_floors() {
+        // Per design/map_ir.md §6.1, the wood base fill is
+        // emitted by WallsAndFloorsOp — this primitive only
+        // produces grain + seam decoration. Both `tiles` and
+        // `polygon` are passthroughs (only `polygon` is read by
+        // the PNG handler for the grain/seam clip mask).
         let t = tiles(3);
         let r = rooms(&[(0, 0, 3, 3)]);
         let out = draw_wood_floor(&t, &[], &r, 99);
         let n_rects = out.iter().filter(|f| f.starts_with("<rect")).count();
-        assert_eq!(n_rects, 9);
-        assert!(out[0].contains(WOOD_FLOOR_FILL));
+        assert_eq!(n_rects, 0);
     }
 
     #[test]
-    fn polygon_floor_emits_single_bounding_rect() {
+    fn polygon_passthrough_emits_no_fill() {
         let poly: Vec<PolyVertex> = [
             (32.0, 0.0), (96.0, 0.0), (128.0, 32.0),
             (128.0, 96.0), (96.0, 128.0), (32.0, 128.0),
@@ -285,12 +260,8 @@ mod tests {
         ].iter().map(|&(x, y)| PolyVertex { x, y }).collect();
         let r = rooms(&[(0, 0, 4, 4)]);
         let out = draw_wood_floor(&[], &poly, &r, 99);
-        // Exactly one rect (the bounding box) — per-tile rects
-        // skip when the polygon path is taken.
         let n_rects = out.iter().filter(|f| f.starts_with("<rect")).count();
-        assert_eq!(n_rects, 1);
-        assert!(out[0].contains("width=\"128.0\""));
-        assert!(out[0].contains("height=\"128.0\""));
+        assert_eq!(n_rects, 0);
     }
 
     #[test]
