@@ -914,16 +914,22 @@ def _draw_floor_detail_from_ir(
 ) -> list[str]:
     """Reproduce ``_render_floor_detail``.
 
-    Three modes:
+    Two modes:
 
     - Wood-floor short-circuit (``wood_tiles`` / ``wood_rooms`` /
       ``wood_building_polygon`` populated) → drive
       ``_draw_wood_floor_from_ir`` from the structured fields.
     - Otherwise: floor-detail-proper from Rust
-      (``nhc_render.draw_floor_detail``) plus thematic-detail
-      passthrough (``room_groups`` / ``corridor_groups``) under
-      the dungeon-interior clipPath envelope on the room side,
-      with ``corridor_groups`` appended unclipped.
+      (``nhc_render.draw_floor_detail``) under the dungeon-
+      interior clipPath envelope on the room side, with the
+      corridor side appended unclipped.
+
+    Schema 3.1 (Phase 0.1 of plans/nhc_pure_ir_plan.md) drops the
+    legacy thematic passthrough reads on ``room_groups`` /
+    ``corridor_groups``: those vectors haven't been populated
+    since schema 3.0 (ThematicDetailOp owns thematic detail), so
+    the defensive concat is dead code. The schema fields stay
+    declared until the 4.0 cut.
     """
     import nhc_render
 
@@ -933,10 +939,6 @@ def _draw_floor_detail_from_ir(
         return _draw_wood_floor_from_ir(op, fir)
 
     out: list[str] = []
-    thematic_room = [_to_str(g) for g in (op.roomGroups or [])]
-    thematic_corridor = [
-        _to_str(g) for g in (op.corridorGroups or [])
-    ]
 
     rust_room: list[str] = []
     rust_corridor: list[str] = []
@@ -957,8 +959,8 @@ def _draw_floor_detail_from_ir(
             tiles, int(op.seed), _to_str(op.theme), macabre,
         )
 
-    room_groups = rust_room + thematic_room
-    corridor_groups = rust_corridor + thematic_corridor
+    room_groups = rust_room
+    corridor_groups = rust_corridor
 
     if room_groups:
         clip_id = _to_str(op.clipRegion)

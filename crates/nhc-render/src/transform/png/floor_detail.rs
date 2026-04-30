@@ -2,7 +2,7 @@
 //! `plans/nhc_ir_migration_plan.md`, with the wood-floor short-
 //! circuit ported in Phase 9.2c.
 //!
-//! Mirrors `_draw_floor_detail_from_ir`. Three modes:
+//! Mirrors `_draw_floor_detail_from_ir`. Two modes:
 //!
 //! - Wood-floor short-circuit (`wood_tiles` / `wood_rooms` /
 //!   `wood_building_polygon` populated) — dispatch through
@@ -15,12 +15,11 @@
 //!   inside the dungeon-interior clip mask, corridor bundles
 //!   paint unclipped.
 //!
-//! Thematic passthrough (`room_groups` / `corridor_groups`) is
-//! a Phase 1 transitional artifact. As of schema 2.0 the
-//! ThematicDetailOp owns thematic detail and these vectors
-//! should be empty for the starter fixtures; if they aren't,
-//! the fragment rasteriser still walks them so the parity gate
-//! catches any drift.
+//! Schema 3.1 (Phase 0.1 of plans/nhc_pure_ir_plan.md) drops the
+//! legacy thematic passthrough reads on `room_groups` /
+//! `corridor_groups`: ThematicDetailOp has owned thematic detail
+//! since schema 2.0 and the fields haven't been populated since
+//! 3.0. The schema fields stay declared until the 4.0 cut.
 
 use tiny_skia::{FillRule, Mask, PathBuilder};
 
@@ -114,21 +113,10 @@ pub(super) fn draw(
         draw_floor_detail(&tiles, op.seed(), theme, macabre)
     };
 
-    let thematic_room: Vec<String> = op
-        .room_groups()
-        .map(|v| v.iter().map(String::from).collect())
-        .unwrap_or_default();
-    let thematic_corridor: Vec<String> = op
-        .corridor_groups()
-        .map(|v| v.iter().map(String::from).collect())
-        .unwrap_or_default();
-
     let clip_mask = build_clip_mask(&op, fir, ctx);
 
     paint_fragments(&rust_room, 1.0, clip_mask.as_ref(), ctx);
-    paint_fragments(&thematic_room, 1.0, clip_mask.as_ref(), ctx);
     paint_fragments(&rust_corridor, 1.0, None, ctx);
-    paint_fragments(&thematic_corridor, 1.0, None, ctx);
 }
 
 fn build_clip_mask(

@@ -96,3 +96,59 @@ def test_ir_to_svg_bare_default_off_matches_full_render() -> None:
     descriptor = next(iter(all_descriptors()))
     nir = (_FIXTURE_ROOT / descriptor / "floor.nir").read_bytes()
     assert ir_to_svg(nir) == ir_to_svg(nir, bare=False)
+
+
+# ── Phase 0.1: FloorDetailOp.{room,corridor}_groups reads dropped ──
+
+
+def test_floor_detail_ignores_legacy_group_strings() -> None:
+    """3.1: room_groups / corridor_groups consumer reads dropped.
+
+    Build a FloorIR (from the seed42 fixture) where one
+    FloorDetailOp's roomGroups / corridorGroups carry sentinel
+    strings, repack, then assert the rendered SVG does NOT contain
+    those sentinels.
+
+    Regression for the dead-code cleanup at Phase 0.1 of
+    plans/nhc_pure_ir_plan.md: the schema fields stay declared
+    until the 4.0 cut, but the Python and Rust consumers must
+    no longer concatenate them into the rendered output.
+    """
+    import flatbuffers
+
+    from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
+    from nhc.rendering.ir._fb import Op as OpModule
+    from nhc.rendering.ir_to_svg import ir_to_svg
+
+    fixture = _FIXTURE_ROOT / "seed42_rect_dungeon_dungeon"
+    nir = (fixture / "floor.nir").read_bytes()
+    fir_t = FloorIRT.InitFromObj(FloorIR.GetRootAs(nir, 0))
+
+    sentinel_room = "<g id=\"sentinel-room-poison\"/>"
+    sentinel_corridor = "<g id=\"sentinel-corridor-poison\"/>"
+
+    poisoned = False
+    for entry in fir_t.ops or []:
+        if entry.opType == OpModule.Op.FloorDetailOp:
+            entry.op.roomGroups = [sentinel_room]
+            entry.op.corridorGroups = [sentinel_corridor]
+            poisoned = True
+            break
+    assert poisoned, (
+        "fixture seed42_rect_dungeon_dungeon has no FloorDetailOp; "
+        "test setup is stale"
+    )
+
+    builder = flatbuffers.Builder(1024)
+    builder.Finish(fir_t.Pack(builder), b"NIR3")
+    poisoned_nir = bytes(builder.Output())
+
+    svg = ir_to_svg(poisoned_nir)
+    assert sentinel_room not in svg, (
+        "ir_to_svg leaked FloorDetailOp.roomGroups into the output; "
+        "the consumer must not read this field at 3.1+"
+    )
+    assert sentinel_corridor not in svg, (
+        "ir_to_svg leaked FloorDetailOp.corridorGroups into the "
+        "output; the consumer must not read this field at 3.1+"
+    )
