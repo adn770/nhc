@@ -177,6 +177,19 @@ def create_app(
     _hatch_svg = render_hatch_svg(seed=0)
     logger.info("Hatch SVG generated at startup: %d bytes", len(_hatch_svg))
 
+    # TTS availability — toolbar gates the speaker button on this.
+    from nhc.web.tts import PIPER_AVAILABLE, SUPPORTED_LANGUAGES
+    if PIPER_AVAILABLE:
+        logger.info(
+            "TTS available (piper-tts) — languages: %s",
+            ", ".join(SUPPORTED_LANGUAGES),
+        )
+    else:
+        logger.warning(
+            "TTS unavailable — piper-tts not importable; install with "
+            "`pip install piper-tts onnxruntime requests` to enable",
+        )
+
     _limiter = _RateLimiter(max_requests=5, window=60)
 
     def _check_rate_limit():
