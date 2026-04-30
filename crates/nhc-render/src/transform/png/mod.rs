@@ -37,7 +37,6 @@ mod enclosure;
 mod floor_detail;
 mod floor_grid;
 mod fountain;
-mod generic_procedural;
 mod hatch;
 mod roof;
 mod shadow;
@@ -154,7 +153,6 @@ fn layer_ops() -> &'static HashMap<&'static str, &'static [Op]> {
                 Op::FountainFeatureOp,
                 Op::TreeFeatureOp,
                 Op::BushFeatureOp,
-                Op::GenericProceduralOp,
             ],
         );
         m
@@ -181,7 +179,6 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
         m.insert(Op::TreeFeatureOp.0, tree::draw);
         m.insert(Op::BushFeatureOp.0, bush::draw);
         m.insert(Op::TerrainDetailOp.0, terrain_detail::draw);
-        m.insert(Op::GenericProceduralOp.0, generic_procedural::draw);
         m.insert(Op::RoofOp.0, roof::draw);
         m.insert(Op::EnclosureOp.0, enclosure::draw);
         m.insert(

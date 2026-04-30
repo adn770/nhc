@@ -152,3 +152,60 @@ def test_floor_detail_ignores_legacy_group_strings() -> None:
         "ir_to_svg leaked FloorDetailOp.corridorGroups into the "
         "output; the consumer must not read this field at 3.1+"
     )
+
+
+# ── Phase 0.2: GenericProceduralOp dispatch handler dropped ─────
+
+
+def test_generic_procedural_op_dispatch_dropped() -> None:
+    """3.1: GenericProceduralOp no longer routes to a handler.
+
+    Build a FloorIR carrying one GenericProceduralOp with a
+    sentinel ``groups`` entry; assert the rendered SVG fragment
+    list for the surface_features layer does NOT contain the
+    sentinel. The op-union variant + table stay declared in the
+    schema until the 4.0 cut, but the consumer no longer
+    dispatches it.
+
+    Regression for the dead-code cleanup at Phase 0.2 of
+    plans/nhc_pure_ir_plan.md.
+    """
+    import flatbuffers
+
+    from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
+    from nhc.rendering.ir._fb import Op as OpModule
+    from nhc.rendering.ir._fb.GenericProceduralOp import (
+        GenericProceduralOpT,
+    )
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir_to_svg import ir_to_svg, layer_to_svg
+
+    fixture = _FIXTURE_ROOT / "seed42_rect_dungeon_dungeon"
+    nir = (fixture / "floor.nir").read_bytes()
+    fir_t = FloorIRT.InitFromObj(FloorIR.GetRootAs(nir, 0))
+
+    sentinel = "<g id=\"sentinel-generic-procedural\"/>"
+    op_t = GenericProceduralOpT()
+    op_t.name = "surface_features"
+    op_t.groups = [sentinel]
+
+    entry_t = OpEntryT()
+    entry_t.opType = OpModule.Op.GenericProceduralOp
+    entry_t.op = op_t
+
+    fir_t.ops = (fir_t.ops or []) + [entry_t]
+
+    builder = flatbuffers.Builder(1024)
+    builder.Finish(fir_t.Pack(builder), b"NIR3")
+    poisoned_nir = bytes(builder.Output())
+
+    svg = ir_to_svg(poisoned_nir)
+    assert sentinel not in svg, (
+        "ir_to_svg dispatched GenericProceduralOp; the handler "
+        "must be retired at 3.1+"
+    )
+    surface_layer = layer_to_svg(poisoned_nir, layer="surface_features")
+    assert sentinel not in surface_layer, (
+        "surface_features layer leaked GenericProceduralOp groups; "
+        "the dispatcher must skip the op at 3.1+"
+    )

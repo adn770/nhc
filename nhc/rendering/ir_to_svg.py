@@ -115,12 +115,6 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
         Op.Op.FountainFeatureOp,
         Op.Op.TreeFeatureOp,
         Op.Op.BushFeatureOp,
-        # Phase 1 transitional — _emit_surface_features_ir
-        # produces a single GenericProceduralOp(name="surface_features")
-        # that carries the layer's pre-rendered groups. The four
-        # dedicated ops above stay schema-reserved for Phase 4's
-        # structured port.
-        Op.Op.GenericProceduralOp,
     }),
 }
 
@@ -1318,26 +1312,6 @@ def _draw_stairs_from_ir(
 
 
 _OP_HANDLERS[Op.Op.StairsOp] = _draw_stairs_from_ir
-
-
-def _draw_generic_procedural_from_ir(
-    entry: OpEntry, fir: FloorIR,
-) -> list[str]:
-    """Phase 1 escape hatch — emit ``op.groups`` verbatim.
-
-    Used by 1.m's surface_features passthrough (and any future
-    layer-level passthrough that doesn't yet have a structured
-    op). The handler is intentionally trivial: it just decodes
-    the FB string list and returns it. ``op.name`` selects which
-    layer slot the groups land in via ``_LAYER_OPS`` membership;
-    this handler stays neutral on the dispatch since the slot
-    decision is the dispatcher's job.
-    """
-    op = OpCreator(entry.OpType(), entry.Op())
-    return [_to_str(g) for g in (op.groups or [])]
-
-
-_OP_HANDLERS[Op.Op.GenericProceduralOp] = _draw_generic_procedural_from_ir
 
 
 def _draw_feature_groups(
