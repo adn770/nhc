@@ -14,6 +14,14 @@ This is a forward-looking reference. The first preparatory work
 stepping stone) can land incrementally; full IR cutover is gated by the
 preparatory tasks listed in `plans/nhc_ir_migration_plan.md`.
 
+> **v4 redesign in flight.** A successor design — `map_ir_v4.md` —
+> proposes schema 4.0 plus an all-Rust render path (Painter trait,
+> Rust `ir_to_svg`, no SVG strings in the IR). This document continues
+> to describe the 3.0 contract until 4.0 ships; once it does, §5
+> (FlatBuffers schema), §6 (Layer ordering), and §7 (Op catalogue) get
+> superseded by the v4 doc. New design work should reference
+> `map_ir_v4.md`.
+
 ## 1. Status & vision
 
 ### Status (2026-04-29)

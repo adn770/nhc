@@ -1,5 +1,15 @@
 # Floor IR — primitive determinism spec
 
+> **v4 note.** This doc tracks the 3.0 op catalogue. The v4 redesign
+> (`design/map_ir_v4.md`) reshuffles the structural ops
+> (`WallsAndFloorsOp` / `BuildingExteriorWallOp` / `BuildingInteriorWallOp` /
+> `EnclosureOp` retire; `FloorOp` / `InteriorWallOp` / `RoofOp` /
+> `ExteriorWallOp` replace them) and removes all SVG-fragment fields.
+> Determinism contracts for `HatchOp` / `FloorDetailOp` / `ThematicDetailOp` /
+> `TerrainDetailOp` / `DecoratorOp` / `StairsOp` / the four `*FeatureOp` ops
+> carry over unchanged; this doc gets a structural pass at 4.0 to add
+> the Outline-based ops and drop the retired ones.
+
 The companion to `design/map_ir.md`. Where `map_ir.md` describes
 the *shape* of the IR (FlatBuffers schema, op union, layer
 ordering), this doc pins down the *behaviour* of each op:
