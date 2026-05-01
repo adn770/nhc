@@ -108,11 +108,12 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
         # lines, slot 3) and ExteriorWallOp (perimeter walls, slot 5)
         # are dispatched here. When present, their legacy counterparts
         # (BuildingExteriorWallOp / BuildingInteriorWallOp /
-        # EnclosureOp) self-suppress. DungeonInk / CaveInk styles are
-        # deferred — they fall through to the legacy WallsAndFloorsOp
-        # wall_segments / smooth_walls path.
+        # EnclosureOp) self-suppress.
+        # Phase 1.16b-3: CorridorWallOp added for DungeonInk corridor
+        # walls; ExteriorWallOp DungeonInk now active.
         Op.Op.ExteriorWallOp,
         Op.Op.InteriorWallOp,
+        Op.Op.CorridorWallOp,
     }),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
@@ -831,6 +832,15 @@ def _draw_walls_and_floors_from_ir(
             len(consumed_floor_ops)
             >= len(rect_rooms) + len(corridor_tiles) + len(smooth_fills)
         )
+        # Phase 1.16b-3: suppress dungeon wall fields when the consumer
+        # owns all DungeonInk wall output (CorridorWallOp + DungeonInk
+        # ExteriorWallOps present).  The consumer emits:
+        #   - wall_segments via _draw_corridor_wall_op_from_ir
+        #   - smooth_walls via _draw_exterior_wall_op_from_ir DungeonInk
+        #   - wall_extensions_d via _smooth_corridor_stubs (returned below)
+        # Passing empty strings/lists prevents Rust from double-painting.
+        has_consumed_dungeon = _has_consumed_dungeon_exterior_wall_ops(fir)
+
         # Pass empty cave_region to Rust — cave fill is now emitted by
         # the CaveFloor FloorOp handler and cave stroke is emitted by
         # the CaveInk ExteriorWallOp handler.  Passing empty prevents
@@ -840,11 +850,25 @@ def _draw_walls_and_floors_from_ir(
             [],
             [] if floors_covered else smooth_fills,
             "" if has_cave_floor_op else cave_region,
-            smooth_walls,
-            wall_extensions_d,
-            wall_segments,
+            [] if has_consumed_dungeon else smooth_walls,
+            "" if has_consumed_dungeon else wall_extensions_d,
+            [] if has_consumed_dungeon else wall_segments,
         )
-        return floor_frags + wall_frags
+
+        # When the dungeon wall consumer is active, emit smooth-corridor
+        # stub extensions as a single <path> element with DungeonInk style.
+        extra_frags: list[str] = []
+        if has_consumed_dungeon:
+            stubs = _smooth_corridor_stubs(fir)
+            if stubs:
+                joined_stubs = " ".join(stubs)
+                extra_frags.append(
+                    f'<path d="{joined_stubs}" fill="none" '
+                    f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
+                    f'stroke-linecap="round" stroke-linejoin="round"/>'
+                )
+
+        return floor_frags + wall_frags + extra_frags
 
     # Legacy fallback — 3.x cached buffers without FloorOp.
     corridor_tiles = [
@@ -2635,15 +2659,16 @@ _OP_HANDLERS[Op.Op.BuildingInteriorWallOp] = (
 # The detection is done via a pre-scan helper (_collect_consumed_wall_ops)
 # that is called from each legacy handler's entry point.
 #
-# DungeonInk ExteriorWallOp is NOT in scope (deferred to Phase 1.16b):
-# the emitter still produces wall_segments / smooth_walls in
-# WallsAndFloorsOp for dungeon walls. Phase 1.16b / 1.19 will stop
-# populating those fields once the Rust side also reads ExteriorWallOp
-# (Phase 1.18).
+# Phase 1.16b-3: DungeonInk ExteriorWallOp is NOW in scope. The emitter
+# still populates wall_segments / smooth_walls / wall_extensions_d in
+# WallsAndFloorsOp for legacy fallback; _draw_walls_and_floors_from_ir
+# suppresses them when CorridorWallOp + DungeonInk ExteriorWallOps are
+# both present. Phase 1.19 will stop populating those fields.
 
 _EXTERIOR_WALL_IN_SCOPE = frozenset({
-    # Phase 1.16 in-scope ExteriorWallOp styles. DungeonInk (0) is
-    # still deferred (Phase 1.16b). CaveInk (1) added in Phase 1.15b.
+    # Phase 1.16 in-scope ExteriorWallOp styles. DungeonInk (0) added
+    # in Phase 1.16b-3 (consumer switch). CaveInk (1) added in 1.15b.
+    0,  # DungeonInk (Phase 1.16b-3)
     1,  # CaveInk (Phase 1.15b)
     2,  # MasonryBrick
     3,  # MasonryStone
@@ -2668,8 +2693,8 @@ def _collect_consumed_wall_ops(
     Scans the full op list and returns two lists:
     - ``exterior_wall_ops``: ``OpEntry`` objects whose type is
       ``ExteriorWallOp`` and whose style is in ``_EXTERIOR_WALL_IN_SCOPE``.
-      DungeonInk (0) is excluded (deferred to Phase 1.16b).
-      CaveInk (1) is included (Phase 1.15b).
+      DungeonInk (0) included (Phase 1.16b-3).
+      CaveInk (1) included (Phase 1.15b).
     - ``interior_wall_ops``: ``OpEntry`` objects whose type is
       ``InteriorWallOp`` and whose style is in ``_INTERIOR_WALL_IN_SCOPE``.
 
@@ -2965,9 +2990,13 @@ def _draw_exterior_wall_op_from_ir(
     paired seed via ``_get_legacy_seed`` so the masonry / palisade
     layout is byte-identical to the legacy output.
 
-    Deferred (returns ``[]``):
-    - ``DungeonInk`` (0): still handled via ``WallsAndFloorsOp``
-      ``wall_segments`` / ``smooth_walls``. Deferred to Phase 1.16b.
+    Phase 1.16b-3 (now active):
+    - ``DungeonInk`` (0): walks polygon outline with cuts via
+      ``_walk_polygon_with_cuts``, emits ``<path>`` with DungeonInk
+      stroke. Handles both rect (4-vertex) and smooth (8+ vertex)
+      room outlines. Suppression of legacy fields is coordinated
+      by ``_draw_walls_and_floors_from_ir`` via
+      ``_has_consumed_dungeon_exterior_wall_ops``.
     """
     import math
     from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
@@ -2981,9 +3010,138 @@ def _draw_exterior_wall_op_from_ir(
 
     style = int(op.style)
 
-    # DungeonInk is still deferred to Phase 1.16b.
     if style == WS.DungeonInk:
-        return []
+        # Phase 1.16b-3: emit polygon / circle / pill outline with cuts.
+        # Matches legacy smooth_wall_svg output per descriptor kind.
+        #
+        # Legacy rules (from _floor_layers.py / _room_outlines.py):
+        #   • Polygon rooms without corridor openings → <polygon points>
+        #   • Polygon rooms with corridor openings   → <path d="…"> with
+        #     gaps at None_ cut positions (doors are NOT gapped — they are
+        #     rendered as separate overlays, so the wall stroke is
+        #     unbroken at door positions).
+        #   • Circle rooms without corridor openings → <circle cx cy r/>
+        #   • Circle rooms with corridor openings   → <path d="…A…"> with
+        #     arc gaps at None_ cut positions.
+        #   • Pill rooms: treated as <rect rx ry/> (no gaps; pill rooms
+        #     do not currently generate None_ corridor-opening cuts).
+        #   • Rect rooms (4-vertex polygon): apply all cuts (the legacy
+        #     wall_segments algorithm also skips door-tile edges).
+        from nhc.rendering.ir._fb.CutStyle import CutStyle as _CS
+        from nhc.rendering.ir._fb import OutlineKind as _OKMod
+
+        _OK = _OKMod.OutlineKind
+        _stroke = (
+            f'fill="none" stroke="{INK}" '
+            f'stroke-width="{WALL_WIDTH}" '
+            f'stroke-linecap="round" stroke-linejoin="round"'
+        )
+
+        kind_di = outline.descriptorKind
+        cuts_di: list[Any] = list(outline.cuts or [])
+
+        if kind_di == _OK.Circle:
+            # Circle descriptor: cx / cy / rx == radius.
+            ccx_di = float(outline.cx)
+            ccy_di = float(outline.cy)
+            r_di = float(outline.rx)
+            if r_di <= 0:
+                return []
+            # Only None_ cuts matter (corridor openings; doors not gapped).
+            none_cuts_ci = [c for c in cuts_di if int(c.style) == _CS.None_]
+            if not none_cuts_ci:
+                # Closed circle: emit <circle> matching legacy format.
+                return [
+                    f'<circle cx="{ccx_di:.1f}" cy="{ccy_di:.1f}" '
+                    f'r="{r_di:.1f}" {_stroke}/>'
+                ]
+            # Gapped circle: arc path segments, mirroring _circle_with_gaps.
+            TWO_PI = 2.0 * math.pi
+            gap_intervals: list[tuple[float, float]] = []
+            for c in none_cuts_ci:
+                ax_c = float(c.start.x)
+                ay_c = float(c.start.y)
+                bx_c = float(c.end.x)
+                by_c = float(c.end.y)
+                a1_c = math.atan2(ay_c - ccy_di, ax_c - ccx_di) % TWO_PI
+                a2_c = math.atan2(by_c - ccy_di, bx_c - ccx_di) % TWO_PI
+                if a1_c > a2_c:
+                    a1_c, a2_c = a2_c, a1_c
+                span_c = a2_c - a1_c
+                if span_c > math.pi:
+                    gap_intervals.append((a2_c, a1_c + TWO_PI))
+                else:
+                    gap_intervals.append((a1_c, a2_c))
+            gap_intervals.sort()
+            n_gi = len(gap_intervals)
+            arc_parts: list[str] = []
+            for gi_idx in range(n_gi):
+                gap_end_a = gap_intervals[gi_idx][1]
+                next_start_a = gap_intervals[(gi_idx + 1) % n_gi][0]
+                if gi_idx == n_gi - 1:
+                    next_start_a += TWO_PI
+                if next_start_a <= gap_end_a:
+                    continue
+                sx_c = ccx_di + r_di * math.cos(gap_end_a)
+                sy_c = ccy_di + r_di * math.sin(gap_end_a)
+                ex_c = ccx_di + r_di * math.cos(next_start_a)
+                ey_c = ccy_di + r_di * math.sin(next_start_a)
+                sweep_c = (next_start_a - gap_end_a) % TWO_PI
+                large_c = 1 if sweep_c > math.pi else 0
+                arc_parts.append(
+                    f'M{sx_c:.1f},{sy_c:.1f} '
+                    f'A{r_di:.1f},{r_di:.1f} 0 {large_c},1 '
+                    f'{ex_c:.1f},{ey_c:.1f}'
+                )
+            if not arc_parts:
+                return []
+            d_ci = " ".join(arc_parts)
+            return [f'<path d="{d_ci}" {_stroke}/>']
+
+        if kind_di == _OK.Pill:
+            # Pill descriptor: emit <rect rx ry> matching legacy format.
+            # Pill rooms do not produce None_ corridor-opening cuts in
+            # current dungeons, so no gap handling is needed.
+            cx_p = float(outline.cx)
+            cy_p = float(outline.cy)
+            rx_p = float(outline.rx)
+            ry_p = float(outline.ry)
+            if rx_p <= 0 or ry_p <= 0:
+                return []
+            radius_p = min(rx_p, ry_p)
+            return [
+                f'<rect x="{cx_p - rx_p:.1f}" y="{cy_p - ry_p:.1f}" '
+                f'width="{2 * rx_p:.1f}" height="{2 * ry_p:.1f}" '
+                f'rx="{radius_p:.1f}" ry="{radius_p:.1f}" {_stroke}/>'
+            ]
+
+        # Polygon descriptor (default).
+        verts_di = outline.vertices
+        if not verts_di or len(verts_di) < 2:
+            return []
+        polygon_di: list[tuple[float, float]] = [
+            (float(v.x), float(v.y)) for v in verts_di
+        ]
+        n_verts_di = len(polygon_di)
+        if n_verts_di > 4:
+            # Smooth polygon: only apply corridor-opening cuts (None_).
+            none_cuts_di = [c for c in cuts_di if int(c.style) == _CS.None_]
+            if not none_cuts_di:
+                # No corridor openings: closed polygon matches legacy
+                # <polygon points="..."> format from smooth_wall_svg.
+                pts_di = " ".join(
+                    f"{x:.1f},{y:.1f}" for x, y in polygon_di
+                )
+                return [f'<polygon points="{pts_di}" {_stroke}/>']
+            d = _walk_polygon_with_cuts(polygon_di, none_cuts_di)
+            if not d:
+                return []
+            return [f'<path d="{d}" {_stroke}/>']
+        # Rect polygon (4 vertices): apply all cuts.
+        d = _walk_polygon_with_cuts(polygon_di, cuts_di)
+        if not d:
+            return []
+        return [f'<path d="{d}" {_stroke}/>']
 
     if style == WS.CaveInk:
         # Real consumer: run the buffer+jitter+smooth pipeline on
@@ -3182,8 +3340,8 @@ def _draw_interior_wall_op_from_ir(
 def _has_consumed_exterior_wall_ops(fir: FloorIR) -> bool:
     """Return True if the IR has any in-scope ExteriorWallOp entries.
 
-    In-scope set is ``_EXTERIOR_WALL_IN_SCOPE`` (CaveInk added in
-    Phase 1.15b; DungeonInk still deferred to Phase 1.16b).
+    In-scope set is ``_EXTERIOR_WALL_IN_SCOPE`` (DungeonInk added in
+    Phase 1.16b-3; CaveInk added in Phase 1.15b).
     Used by the legacy EnclosureOp and BuildingExteriorWallOp handlers
     to suppress themselves when the new handler is active.
     """
@@ -3213,3 +3371,573 @@ def _has_consumed_interior_wall_ops(fir: FloorIR) -> bool:
 
 _OP_HANDLERS[Op.Op.ExteriorWallOp] = _draw_exterior_wall_op_from_ir
 _OP_HANDLERS[Op.Op.InteriorWallOp] = _draw_interior_wall_op_from_ir
+
+
+# ── DungeonInk consumer helpers (Phase 1.16b-3) ─────────────────
+#
+# Three helpers derive wall geometry from structured IR ops rather
+# than the legacy WallsAndFloorsOp wall_segments / smooth_walls /
+# wall_extensions_d fields.
+#
+# _walkable_tiles_from_ir(fir) — union of all FloorOp tile coords
+# _building_footprint_tiles(fir) — Building region tiles (for
+#     the _draw_wall_to filter on corridor tiles)
+# _smooth_corridor_stubs(fir) — wall-extension paths from None_
+#     cuts on smooth DungeonInk ExteriorWallOps (mirrors legacy
+#     _outline_with_gaps extension geometry)
+#
+# Consumer:
+# _draw_corridor_wall_op_from_ir — tile-edge walk for corridor walls
+# _draw_exterior_wall_op_from_ir updated — DungeonInk now active
+#
+# Suppression:
+# _has_consumed_dungeon_exterior_wall_ops(fir) — True when all
+#     DungeonInk ExteriorWallOps are consumed (CorridorWallOp also
+#     present). Used by _draw_walls_and_floors_from_ir to suppress
+#     wall_segments / smooth_walls / wall_extensions_d.
+
+
+def _walkable_tiles_from_ir(
+    fir: FloorIR,
+) -> set[tuple[int, int]]:
+    """Return the set of walkable tile coords covered by FloorOps.
+
+    Scans all FloorOp entries in ``fir.ops[]``, rasterizes each
+    Polygon outline to integer tile coords, and returns their union.
+
+    For each Polygon FloorOp:
+    - 4-vertex axis-aligned bbox (rect room tile or corridor tile):
+      enumerate all (x, y) from ``(x0/CELL, y0/CELL)`` to
+      ``((x1/CELL)-1, (y1/CELL)-1)`` inclusive.
+    - Other polygon (smooth / cave multi-vertex): Shapely
+      point-in-polygon test against tile centres
+      ``(x*CELL + CELL/2, y*CELL + CELL/2)``.
+
+    Circle / Pill descriptors are handled via Shapely buffering.
+    Tiles with x < 0 or y < 0 are excluded (out-of-bounds guard).
+    """
+    from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
+    from nhc.rendering.ir._fb import OutlineKind as OutlineKindMod
+
+    FS = FloorStyleMod.FloorStyle
+    OK = OutlineKindMod.OutlineKind
+
+    width = fir.WidthTiles()
+    height = fir.HeightTiles()
+    result: set[tuple[int, int]] = set()
+
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() != Op.Op.FloorOp:
+            continue
+        op = OpCreator(entry.OpType(), entry.Op())
+        if op is None:
+            continue
+        # Only DungeonFloor and CaveFloor are walkable for wall
+        # derivation purposes.
+        if op.style not in (FS.DungeonFloor, FS.CaveFloor):
+            continue
+        outline = op.outline
+        if outline is None:
+            continue
+
+        kind = outline.descriptorKind
+
+        if kind == OK.Polygon:
+            verts = outline.vertices
+            if not verts:
+                continue
+            coords = [(float(v.x), float(v.y)) for v in verts]
+            n = len(coords)
+
+            if n == 4:
+                # Axis-aligned bbox: derive tile range directly.
+                xs = [c[0] for c in coords]
+                ys = [c[1] for c in coords]
+                x0 = int(min(xs))
+                y0 = int(min(ys))
+                x1 = int(max(xs))
+                y1 = int(max(ys))
+                tx0 = x0 // CELL
+                ty0 = y0 // CELL
+                tx1 = x1 // CELL
+                ty1 = y1 // CELL
+                for ty in range(ty0, ty1):
+                    for tx in range(tx0, tx1):
+                        if 0 <= tx < width and 0 <= ty < height:
+                            result.add((tx, ty))
+            else:
+                # Non-rectangular polygon: Shapely containment.
+                from shapely.geometry import Point, Polygon as ShPoly
+                poly_sh = ShPoly(coords)
+                if poly_sh.is_empty or not poly_sh.is_valid:
+                    continue
+                bx0, by0, bx1, by1 = poly_sh.bounds
+                tx0 = max(0, int(bx0 // CELL))
+                ty0 = max(0, int(by0 // CELL))
+                tx1 = min(width, int(bx1 // CELL) + 1)
+                ty1 = min(height, int(by1 // CELL) + 1)
+                for ty in range(ty0, ty1):
+                    for tx in range(tx0, tx1):
+                        cx = tx * CELL + CELL / 2
+                        cy = ty * CELL + CELL / 2
+                        if poly_sh.contains(Point(cx, cy)):
+                            result.add((tx, ty))
+
+        elif kind == OK.Circle:
+            from shapely.geometry import Point, Polygon as ShPoly
+            px = outline.cx
+            py_c = outline.cy
+            r = outline.rx
+            if r <= 0:
+                continue
+            circ = Point(px, py_c).buffer(r, resolution=32)
+            bx0, by0, bx1, by1 = circ.bounds
+            tx0 = max(0, int(bx0 // CELL))
+            ty0 = max(0, int(by0 // CELL))
+            tx1 = min(width, int(bx1 // CELL) + 1)
+            ty1 = min(height, int(by1 // CELL) + 1)
+            for ty in range(ty0, ty1):
+                for tx in range(tx0, tx1):
+                    cx_c = tx * CELL + CELL / 2
+                    cy_c = ty * CELL + CELL / 2
+                    if circ.contains(Point(cx_c, cy_c)):
+                        result.add((tx, ty))
+
+        elif kind == OK.Pill:
+            from shapely.geometry import Point
+            from shapely.geometry import box as ShBox
+            rx = outline.rx
+            ry = outline.ry
+            if rx <= 0 or ry <= 0:
+                continue
+            # Pill is a rounded rect; Shapely approximation via buffer.
+            from shapely.geometry import Polygon as ShPoly
+            cx2 = outline.cx
+            cy2 = outline.cy
+            rounding = min(rx, ry)
+            pill = ShBox(
+                cx2 - rx, cy2 - ry, cx2 + rx, cy2 + ry,
+            ).buffer(0).simplify(1)
+            # Use exact containment on the bounding box.
+            bx0, by0, bx1, by1 = cx2 - rx, cy2 - ry, cx2 + rx, cy2 + ry
+            tx0 = max(0, int(bx0 // CELL))
+            ty0 = max(0, int(by0 // CELL))
+            tx1 = min(width, int(bx1 // CELL) + 1)
+            ty1 = min(height, int(by1 // CELL) + 1)
+            for ty in range(ty0, ty1):
+                for tx in range(tx0, tx1):
+                    cx_p = tx * CELL + CELL / 2
+                    cy_p = ty * CELL + CELL / 2
+                    if (cx2 - rx <= cx_p <= cx2 + rx and
+                            cy2 - ry <= cy_p <= cy2 + ry):
+                        result.add((tx, ty))
+
+    return result
+
+
+def _building_footprint_tiles(
+    fir: FloorIR,
+) -> set[tuple[int, int]] | None:
+    """Return tile coords covered by Building regions, or None if none.
+
+    Scans ``fir.regions[]`` for entries with ``kind == Building``.
+    For each, runs a Shapely polygon-contains test against tile
+    centres. Returns the union of all building tile sets, or ``None``
+    when no Building regions are present (indicating that the
+    ``_draw_wall_to`` filter should not apply).
+    """
+    from nhc.rendering.ir._fb import RegionKind as RegionKindMod
+
+    RK = RegionKindMod.RegionKind
+    width = fir.WidthTiles()
+    height = fir.HeightTiles()
+    found_any = False
+    result: set[tuple[int, int]] = set()
+
+    for j in range(fir.RegionsLength()):
+        region = fir.Regions(j)
+        if region.Kind() != RK.Building:
+            continue
+        found_any = True
+        poly_fb = region.Polygon()
+        if poly_fb is None:
+            continue
+        coords = _polygon_paths_to_coords(poly_fb)
+        if len(coords) < 3:
+            continue
+        from shapely.geometry import Point, Polygon as ShPoly
+        poly_sh = ShPoly(coords)
+        if poly_sh.is_empty or not poly_sh.is_valid:
+            continue
+        bx0, by0, bx1, by1 = poly_sh.bounds
+        tx0 = max(0, int(bx0 // CELL))
+        ty0 = max(0, int(by0 // CELL))
+        tx1 = min(width, int(bx1 // CELL) + 1)
+        ty1 = min(height, int(by1 // CELL) + 1)
+        for ty in range(ty0, ty1):
+            for tx in range(tx0, tx1):
+                cx = tx * CELL + CELL / 2
+                cy = ty * CELL + CELL / 2
+                if poly_sh.contains(Point(cx, cy)):
+                    result.add((tx, ty))
+
+    return result if found_any else None
+
+
+def _smooth_corridor_stubs(
+    fir: FloorIR,
+    corridor_tiles: set[tuple[int, int]] | None = None,
+    walkable: set[tuple[int, int]] | None = None,
+) -> list[str]:
+    """Derive wall-extension stubs from None_ cuts on smooth ExteriorWallOps.
+
+    For each DungeonInk ExteriorWallOp that has CutStyle.None_ cuts
+    (doorless corridor openings on smooth rooms — octagon, circle, etc.),
+    emit two wall-extension path fragments per cut. Each fragment
+    extends from one cut endpoint perpendicular outward into the
+    adjacent corridor tile by one CELL, mirroring the legacy
+    ``_outline_with_gaps`` extension geometry stored in
+    ``WallsAndFloorsOp.wallExtensionsD``.
+
+    Cut endpoints are the hit_a / hit_b points where the corridor's
+    two side walls intersect the room outline. The extension direction
+    is determined by comparing the cut's midpoint to the polygon
+    centroid:
+    - Horizontal cut (N/S corridor): ``mid_y < centroid_y`` → North
+      (far_y = cut_y - CELL); else South (far_y = cut_y + CELL).
+    - Vertical cut (E/W corridor): ``mid_x < centroid_x`` → West
+      (far_x = cut_x - CELL); else East (far_x = cut_x + CELL).
+
+    Extension format: ``M{sx:.1f},{sy:.1f} L{tx:.1f},{ty:.1f}``
+    matching the ``.1f`` precision of ``_intersect_outline``.
+
+    Deduplication: a stub at (px, py)→(px±CELL, py) or (px, py)→(px,
+    py±CELL) is skipped when the corresponding corridor tile's void-
+    facing edge is already covered by ``_draw_corridor_wall_op_from_ir``.
+    This prevents double-painting at the junction between the last
+    corridor tile and the smooth room boundary.
+
+    ``corridor_tiles`` and ``walkable`` are pre-computed sets passed by
+    ``_draw_walls_and_floors_from_ir`` to avoid redundant traversal.
+    When None, they are derived from ``fir`` internally.
+
+    Returns an empty list for IRs with no smooth None_ cuts (e.g.
+    rect-only dungeon floors like seed42).
+    """
+    import math as _math
+
+    from nhc.rendering.ir._fb.CutStyle import CutStyle as CS
+    from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
+
+    if corridor_tiles is None or walkable is None:
+        # Derive corridor tiles from CorridorWallOp.
+        corridor_tiles_local: set[tuple[int, int]] = set()
+        for i in range(fir.OpsLength()):
+            entry = fir.Ops(i)
+            if entry.OpType() == Op.Op.CorridorWallOp:
+                cwop = OpCreator(entry.OpType(), entry.Op())
+                if cwop and cwop.tiles:
+                    for t in cwop.tiles:
+                        corridor_tiles_local.add((int(t.x), int(t.y)))
+                break
+        corridor_tiles = corridor_tiles_local
+        walkable = _walkable_tiles_from_ir(fir)
+
+    def _stub_covered_by_corridor(
+        stub_x0: float, stub_y0: float, stub_x1: float, stub_y1: float,
+    ) -> bool:
+        """Return True if CorridorWallOp already emits this stub segment.
+
+        The stub covers one tile-edge (horizontal or vertical, length
+        CELL). It is covered when the adjacent corridor tile would emit
+        the same edge facing into void.
+        """
+        # Horizontal stub: y0 == y1.
+        if abs(stub_y0 - stub_y1) < 1e-3:
+            y_edge = stub_y0
+            x_lo = min(stub_x0, stub_x1)
+            # The tile below this edge starts at (x_lo/CELL, y_edge/CELL).
+            tx = round(x_lo / CELL)
+            ty = round(y_edge / CELL)
+            # This edge is the TOP of tile (tx, ty).
+            # CorridorWallOp emits it when (tx, ty-1) not in walkable.
+            return (tx, ty) in corridor_tiles and (tx, ty - 1) not in walkable
+        # Vertical stub: x0 == x1.
+        if abs(stub_x0 - stub_x1) < 1e-3:
+            x_edge = stub_x0
+            y_lo = min(stub_y0, stub_y1)
+            # The tile to the right of this edge starts at (x_edge/CELL, y_lo/CELL).
+            tx = round(x_edge / CELL)
+            ty = round(y_lo / CELL)
+            # This edge is the LEFT side of tile (tx, ty).
+            # CorridorWallOp emits it when (tx-1, ty) not in walkable.
+            return (tx, ty) in corridor_tiles and (tx - 1, ty) not in walkable
+        return False
+
+    result: list[str] = []
+
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() != Op.Op.ExteriorWallOp:
+            continue
+        op = OpCreator(Op.Op.ExteriorWallOp, entry.Op())
+        if op is None:
+            continue
+        if int(op.style) != WS.DungeonInk:
+            continue
+        outline = op.outline
+        if outline is None:
+            continue
+        verts = outline.vertices
+        if not verts or len(verts) < 3:
+            continue
+        cuts = list(outline.cuts or [])
+        if not cuts:
+            continue
+
+        coords = [(float(v.x), float(v.y)) for v in verts]
+
+        # Only emit extensions for None_ cuts (doorless openings).
+        none_cuts = [c for c in cuts if int(c.style) == CS.None_]
+        if not none_cuts:
+            continue
+
+        # Centroid of the polygon to determine corridor direction.
+        centroid_x = sum(x for x, _ in coords) / len(coords)
+        centroid_y = sum(y for _, y in coords) / len(coords)
+
+        for cut in none_cuts:
+            sx = float(cut.start.x)
+            sy = float(cut.start.y)
+            ex = float(cut.end.x)
+            ey = float(cut.end.y)
+            mid_x = (sx + ex) / 2.0
+            mid_y = (sy + ey) / 2.0
+
+            if abs(sx - ex) < 1e-3:
+                # Vertical cut → E/W corridor.
+                # Both endpoints share the same x; corridor is East/West.
+                if mid_x < centroid_x:
+                    far_x = sx - CELL   # West
+                else:
+                    far_x = sx + CELL   # East
+                if not _stub_covered_by_corridor(sx, sy, far_x, sy):
+                    result.append(
+                        f'M{sx:.1f},{sy:.1f} L{far_x:.1f},{sy:.1f}'
+                    )
+                if not _stub_covered_by_corridor(ex, ey, far_x, ey):
+                    result.append(
+                        f'M{ex:.1f},{ey:.1f} L{far_x:.1f},{ey:.1f}'
+                    )
+            else:
+                # Horizontal cut → N/S corridor.
+                if mid_y < centroid_y:
+                    far_y = sy - CELL   # North
+                else:
+                    far_y = sy + CELL   # South
+                if not _stub_covered_by_corridor(sx, sy, sx, far_y):
+                    result.append(
+                        f'M{sx:.1f},{sy:.1f} L{sx:.1f},{far_y:.1f}'
+                    )
+                if not _stub_covered_by_corridor(ex, ey, ex, far_y):
+                    result.append(
+                        f'M{ex:.1f},{ey:.1f} L{ex:.1f},{far_y:.1f}'
+                    )
+
+    return result
+
+
+def _walk_polygon_with_cuts(
+    polygon: list[tuple[float, float]],
+    cuts: list[Any],
+) -> str:
+    """Walk a closed polygon, breaking the stroke at cut intervals.
+
+    Returns a ``d=`` string (M/L/M/L...) suitable for a ``<path>``
+    element. Edges with cuts are split: the uncut sub-segments are
+    emitted as ``M{x:.1f},{y:.1f} L{x:.1f},{y:.1f}`` moves; the cut
+    intervals are silently skipped (creating the gap in the stroke).
+
+    Coordinates use ``.1f`` precision to match the legacy smooth-wall
+    format (``_intersect_outline`` returns floats).
+    """
+    import math as _math
+
+    n = len(polygon)
+    if n < 2:
+        return ""
+
+    d_parts: list[str] = []
+    # Track whether we're in an active stroke run.
+    in_stroke = False
+    current_x = 0.0
+    current_y = 0.0
+
+    for i in range(n):
+        ax, ay = polygon[i]
+        bx, by = polygon[(i + 1) % n]
+        dx = bx - ax
+        dy = by - ay
+        edge_len = _math.hypot(dx, dy)
+        if edge_len < 1e-6:
+            continue
+
+        edge_cuts = _cuts_for_edge(ax, ay, bx, by, cuts)
+        # Sort by start t, merge overlapping intervals.
+        edge_cuts.sort(key=lambda c: c[0])
+        merged: list[tuple[float, float]] = []
+        for lo, hi in edge_cuts:
+            if merged and lo <= merged[-1][1] + 1e-6:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+            else:
+                merged.append((lo, hi))
+
+        # Walk from t=0 to t=1, skipping cut intervals.
+        t = 0.0
+        for lo_t, hi_t in merged:
+            if lo_t > t + 1e-6:
+                # Emit segment from t to lo_t.
+                x0 = ax + t * dx
+                y0 = ay + t * dy
+                x1 = ax + lo_t * dx
+                y1 = ay + lo_t * dy
+                if (not in_stroke or
+                        abs(x0 - current_x) > 1e-4 or
+                        abs(y0 - current_y) > 1e-4):
+                    d_parts.append(f'M{x0:.1f},{y0:.1f}')
+                d_parts.append(f'L{x1:.1f},{y1:.1f}')
+                current_x, current_y = x1, y1
+                in_stroke = True
+            # Skip from lo_t to hi_t.
+            t = hi_t
+            in_stroke = False
+
+        # Emit remaining segment from t to 1.0.
+        if t < 1.0 - 1e-6:
+            x0 = ax + t * dx
+            y0 = ay + t * dy
+            x1 = bx
+            y1 = by
+            if (not in_stroke or
+                    abs(x0 - current_x) > 1e-4 or
+                    abs(y0 - current_y) > 1e-4):
+                d_parts.append(f'M{x0:.1f},{y0:.1f}')
+            d_parts.append(f'L{x1:.1f},{y1:.1f}')
+            current_x, current_y = x1, y1
+            in_stroke = True
+        else:
+            in_stroke = False
+
+    return " ".join(d_parts)
+
+
+def _draw_corridor_wall_op_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Phase 1.16b-3: derive corridor wall edges from CorridorWallOp.
+
+    For each corridor tile in ``op.tiles``, checks its 4 cardinal
+    neighbours against the walkable tile set (``_walkable_tiles_from_ir``).
+    Emits a wall stroke for each non-walkable neighbour — i.e. each
+    tile edge that borders void space.
+
+    Building-footprint filter (``_building_footprint_tiles``): when
+    ``building_tiles`` is not None and the corridor tile is inside
+    the building footprint, the wall edge to a non-walkable neighbour
+    is only emitted when the neighbour is also inside the building
+    footprint. This mirrors the legacy ``_draw_wall_to(neighbor)``
+    predicate from ``_floor_layers.py``.
+
+    All wall segments are collected into a single ``<path>`` element
+    with the standard DungeonInk stroke style:
+    ``fill="none" stroke="{INK}" stroke-width="{WALL_WIDTH}"
+    stroke-linecap="round" stroke-linejoin="round"``.
+
+    Guard: only emits when ``_has_consumed_dungeon_exterior_wall_ops``
+    is True (i.e. the floor has CorridorWallOp + DungeonInk
+    ExteriorWallOps). When the DungeonInk consumer is NOT active
+    (e.g. a site IR whose only ExteriorWallOp is MasonryBrick),
+    the legacy ``wall_segments`` in ``WallsAndFloorsOp`` still cover
+    corridor walls and this handler must not double-paint them.
+    """
+    # Only emit when the DungeonInk consumer is fully active.
+    if not _has_consumed_dungeon_exterior_wall_ops(fir):
+        return []
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    if op is None:
+        return []
+    tiles_list = op.tiles
+    if not tiles_list:
+        return []
+
+    walkable = _walkable_tiles_from_ir(fir)
+    building_tiles = _building_footprint_tiles(fir)
+
+    segments: list[str] = []
+
+    for tile in tiles_list:
+        tx = int(tile.x)
+        ty = int(tile.y)
+        px = tx * CELL
+        py = ty * CELL
+
+        in_building = (
+            building_tiles is not None
+            and (tx, ty) in building_tiles
+        )
+
+        # (neighbor_x, neighbor_y, SVG segment string)
+        neighbors: list[tuple[int, int, str]] = [
+            (tx, ty - 1, f'M{px},{py} L{px + CELL},{py}'),
+            (tx, ty + 1, f'M{px},{py + CELL} L{px + CELL},{py + CELL}'),
+            (tx - 1, ty, f'M{px},{py} L{px},{py + CELL}'),
+            (tx + 1, ty, f'M{px + CELL},{py} L{px + CELL},{py + CELL}'),
+        ]
+
+        for nx, ny, seg in neighbors:
+            if (nx, ny) in walkable:
+                # Walkable neighbour — no wall on this edge.
+                continue
+            # Apply building-footprint filter.
+            if in_building:
+                if building_tiles is not None and (nx, ny) not in building_tiles:
+                    continue
+            segments.append(seg)
+
+    if not segments:
+        return []
+
+    joined = " ".join(segments)
+    return [
+        f'<path d="{joined}" fill="none" stroke="{INK}" '
+        f'stroke-width="{WALL_WIDTH}" '
+        f'stroke-linecap="round" stroke-linejoin="round"/>'
+    ]
+
+
+def _has_consumed_dungeon_exterior_wall_ops(fir: FloorIR) -> bool:
+    """Return True if all DungeonInk ExteriorWallOps are consumed.
+
+    Requires both a CorridorWallOp (to cover corridor tile edges) AND
+    at least one DungeonInk ExteriorWallOp (to cover room perimeters).
+    When both are present, the consumer owns all dungeon wall output
+    and the legacy WallsAndFloorsOp fields should be suppressed.
+
+    Returns False for IRs with no CorridorWallOp (3.x cached buffers).
+    """
+    has_corridor_wall_op = False
+    has_dungeon_ink_ext_wall_op = False
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() == Op.Op.CorridorWallOp:
+            has_corridor_wall_op = True
+        elif entry.OpType() == Op.Op.ExteriorWallOp:
+            op = OpCreator(Op.Op.ExteriorWallOp, entry.Op())
+            if op is not None and int(op.style) == 0:  # DungeonInk = 0
+                has_dungeon_ink_ext_wall_op = True
+    return has_corridor_wall_op and has_dungeon_ink_ext_wall_op
+
+
+_OP_HANDLERS[Op.Op.CorridorWallOp] = _draw_corridor_wall_op_from_ir
