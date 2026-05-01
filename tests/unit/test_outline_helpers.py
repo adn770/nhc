@@ -316,3 +316,80 @@ def test_cuts_for_room_doors_open_locked_closed_all_door_wood() -> None:
         assert cuts[0].style == CutStyle.DoorWood, (
             f"{feature!r} should map to DoorWood"
         )
+
+
+def test_cuts_for_room_doors_iron_maps_to_door_iron() -> None:
+    """door_iron resolves to CutStyle.DoorIron.
+
+    Forward-compat entry in :data:`_DOOR_FEATURE_TO_CUT_STYLE` — no
+    current dungeon generator emits ``door_iron``, but the v4 IR
+    reserves the style and the helper must round-trip it. Pinning the
+    mapping here guards against future emitters dropping the value.
+    """
+    from nhc.rendering._outline_helpers import cuts_for_room_doors
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    level, room = _make_room_with_door("door_iron", "west")
+    cuts = cuts_for_room_doors(room, level)
+
+    assert len(cuts) == 1
+    assert cuts[0].style == CutStyle.DoorIron
+
+
+def test_cuts_for_room_doors_stone_maps_to_door_stone() -> None:
+    """door_stone resolves to CutStyle.DoorStone.
+
+    Forward-compat counterpart to :func:`...iron_maps_to_door_iron` —
+    the schema reserves :enum:`CutStyle.DoorStone` for dungeon stone
+    doors; the helper rounds it out so future generators can adopt
+    the feature without re-walking ``_outline_helpers.py``.
+    """
+    from nhc.rendering._outline_helpers import cuts_for_room_doors
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    level, room = _make_room_with_door("door_stone", "north")
+    cuts = cuts_for_room_doors(room, level)
+
+    assert len(cuts) == 1
+    assert cuts[0].style == CutStyle.DoorStone
+
+
+def test_cuts_for_room_doors_position_at_tile_edges_per_side() -> None:
+    """Cut.start / Cut.end land on the shared tile-edge endpoints
+    in pixel coords, regardless of which side the door abuts.
+
+    Pins the position contract for north / south / east / west doors
+    on a 2x2 rect at (2, 2). Each side of the rect resolves to a
+    single tile-edge segment in pixel coords:
+
+    - north: (2*CELL, 2*CELL) → (3*CELL, 2*CELL)   (top edge of room tile (2,2))
+    - south: (2*CELL, 4*CELL) → (3*CELL, 4*CELL)   (bottom edge of room tile (2,3))
+    - west:  (2*CELL, 2*CELL) → (2*CELL, 3*CELL)   (left edge of room tile (2,2))
+    - east:  (4*CELL, 2*CELL) → (4*CELL, 3*CELL)   (right edge of room tile (3,2))
+
+    The endpoints are corners of the abutting room tile (NOT the
+    midpoint of the edge) — the renderer breaks the wall stroke on
+    the entire shared edge between room tile and door tile, which
+    spans CELL pixels.
+    """
+    from nhc.rendering._outline_helpers import cuts_for_room_doors
+
+    expected = {
+        "north": ((2 * CELL, 2 * CELL), (3 * CELL, 2 * CELL)),
+        "south": ((2 * CELL, 4 * CELL), (3 * CELL, 4 * CELL)),
+        "west":  ((2 * CELL, 2 * CELL), (2 * CELL, 3 * CELL)),
+        "east":  ((4 * CELL, 2 * CELL), (4 * CELL, 3 * CELL)),
+    }
+    for side, (exp_start, exp_end) in expected.items():
+        level, room = _make_room_with_door("door_closed", side)
+        cuts = cuts_for_room_doors(room, level)
+        assert len(cuts) == 1, f"expected 1 cut on {side} side"
+        cut = cuts[0]
+        assert (cut.start.x, cut.start.y) == exp_start, (
+            f"{side}: start mismatch (got "
+            f"{(cut.start.x, cut.start.y)})"
+        )
+        assert (cut.end.x, cut.end.y) == exp_end, (
+            f"{side}: end mismatch (got "
+            f"{(cut.end.x, cut.end.y)})"
+        )

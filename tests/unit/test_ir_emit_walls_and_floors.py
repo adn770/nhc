@@ -1657,3 +1657,76 @@ def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
         assert entry.op.outline.descriptorKind == OutlineKind.Polygon
         assert entry.op.outline.vertices is not None
         assert (entry.op.outline.cuts or []) == []
+
+
+def test_every_door_tile_in_every_fixture_has_a_cut() -> None:
+    """Cross-fixture invariant for plan §1.11: every door tile that
+    abuts a room's floor produces exactly one door-flavoured Cut on
+    that room's :type:`ExteriorWallOpT`.
+
+    Door resolution itself shipped earlier — :func:`cuts_for_room_doors`
+    landed in Phase 1.3 (commit ``3cea778``) and was wired into rect
+    ExteriorWallOps at 1.8 (``a6301bf``) and smooth-shape
+    ExteriorWallOps at 1.9 (``c18b93b``). The per-shape unit tests
+    pin the rect / smooth paths in isolation; this aggregate test
+    pins the contract across the fixture suite — a regression that
+    drops a door type from the helper or skips a room shape would
+    show up as a count mismatch here even if the per-shape tests
+    still pass (e.g. if a future shape added without being routed
+    through ``cuts_for_room_doors``).
+    """
+    DOOR_FEATURES = {
+        "door", "door_open", "door_closed", "door_locked",
+        "door_secret", "door_iron", "door_stone",
+    }
+    DOOR_CUT_STYLES = {
+        # Excludes CutStyle.None_ (== 0) — those are doorless gap
+        # cuts on smooth rooms (Phase 1.9), not door tiles.
+        3,  # CutStyle.DoorWood
+        4,  # CutStyle.DoorStone
+        5,  # CutStyle.DoorIron
+        6,  # CutStyle.DoorSecret
+    }
+
+    for descriptor in (
+        "seed42_rect_dungeon_dungeon",
+        "seed7_octagon_crypt_dungeon",
+        "seed99_cave_cave_cave",
+    ):
+        inputs = descriptor_inputs(descriptor)
+        level = inputs.level
+
+        # Count door tiles whose neighbour is a room floor — these
+        # are exactly the tiles ``cuts_for_room_doors`` resolves.
+        expected = 0
+        for room in level.rooms or []:
+            floor = room.floor_tiles()
+            for fx, fy in floor:
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    nx, ny = fx + dx, fy + dy
+                    if (nx, ny) in floor:
+                        continue
+                    tile = level.tile_at(nx, ny)
+                    if tile and tile.feature in DOOR_FEATURES:
+                        expected += 1
+
+        buf = build_floor_ir(
+            level, seed=inputs.seed,
+            hatch_distance=inputs.hatch_distance,
+            vegetation=inputs.vegetation,
+        )
+        fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+        actual = 0
+        for entry in fir.ops:
+            if entry.opType != Op.Op.ExteriorWallOp:
+                continue
+            for cut in (entry.op.outline.cuts or []):
+                if cut.style in DOOR_CUT_STYLES:
+                    actual += 1
+
+        assert actual == expected, (
+            f"{descriptor}: expected {expected} door-flavoured Cuts "
+            f"across all ExteriorWallOps (one per room-adjacent door "
+            f"tile), got {actual}"
+        )
