@@ -18,7 +18,8 @@ suppresses FloorOps the same way — the contract is "match legacy" so
 from __future__ import annotations
 
 from nhc.dungeon.model import (
-    Level, Rect, RectShape, Room, Terrain, Tile,
+    CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
+    RectShape, Room, TempleShape, Terrain, Tile,
 )
 from nhc.rendering._floor_layers import _emit_walls_and_floors_ir
 from nhc.rendering.ir._fb import Op
@@ -79,6 +80,31 @@ def _build_simple_rect_level(rects: list[Rect]) -> Level:
         for ry in range(rect.y, rect.y2):
             for rx in range(rect.x, rect.x2):
                 level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+    return level
+
+
+def _build_smooth_shape_level(
+    rooms: list[tuple[Rect, "RoomShape"]],
+) -> Level:
+    """Build a small Level seeded with smooth-shape rooms.
+
+    For each ``(rect, shape)`` tuple, allocates a Room whose
+    ``shape.floor_tiles(rect)`` populate as FLOOR; everything else is
+    VOID. Mirrors :func:`_build_simple_rect_level` but for the
+    smooth-shape variants exercised by Phase 1.5.
+    """
+    max_x = max(r.x2 for r, _ in rooms)
+    max_y = max(r.y2 for r, _ in rooms)
+    width = max_x + 2
+    height = max_y + 2
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=width, height=height,
+    )
+    for idx, (rect, shape) in enumerate(rooms, start=1):
+        room = Room(id=f"s{idx}", rect=rect, shape=shape)
+        level.rooms.append(room)
+        for tx, ty in shape.floor_tiles(rect):
+            level.tiles[ty][tx] = Tile(terrain=Terrain.FLOOR)
     return level
 
 
@@ -298,3 +324,243 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
         assert entry.op.outline.descriptorKind == OutlineKind.Polygon
         assert len(entry.op.outline.vertices) == 4
         assert entry.op.style == FloorStyle.DungeonFloor
+
+
+# ── Phase 1.5: per-shape FloorOp emission ──────────────────────
+
+
+def test_floor_op_for_octagon_room() -> None:
+    """An OctagonShape room emits one FloorOp with an 8-vertex Polygon
+    outline.
+
+    Mirrors :func:`test_floor_op_per_rect_room` for octagon rooms: the
+    descriptor stays Polygon (octagons walk via explicit vertices —
+    no Circle/Pill descriptor) and the style is DungeonFloor.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 6), OctagonShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == 1
+    outline = floor_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices is not None
+    assert len(outline.vertices) == 8
+    assert floor_ops[0].op.style == FloorStyle.DungeonFloor
+
+
+def test_floor_op_for_l_shape_room() -> None:
+    """An LShape room emits one FloorOp with a 6-vertex Polygon outline.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(1, 2, 6, 6), LShape(corner="nw")),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == 1
+    outline = floor_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices is not None
+    assert len(outline.vertices) == 6
+    assert floor_ops[0].op.style == FloorStyle.DungeonFloor
+
+
+def test_floor_op_for_temple_room() -> None:
+    """A TempleShape room emits one FloorOp with a Polygon outline.
+
+    Vertex count depends on the arc-segment discretisation
+    (``_temple_vertices``), so we only assert >0 vertices here — the
+    helper-level ``test_outline_from_temple_room`` pins the exact
+    coordinate sequence.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 9), TempleShape(flat_side="south")),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == 1
+    outline = floor_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices is not None
+    assert len(outline.vertices) > 0
+    assert floor_ops[0].op.style == FloorStyle.DungeonFloor
+
+
+def test_floor_op_for_circle_room_uses_circle_descriptor() -> None:
+    """A CircleShape room emits a FloorOp with a Circle-descriptor
+    outline.
+
+    Vertex list is empty; ``cx`` / ``cy`` is the rect bbox centre and
+    ``rx == ry`` is the diameter / 2. The rasterisers reproduce the
+    circle via their native primitives at consumption time.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 7, 7), CircleShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == 1
+    outline = floor_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Circle
+    assert not outline.vertices
+    assert outline.cx == 7 * CELL / 2
+    assert outline.cy == 7 * CELL / 2
+    assert outline.rx == outline.ry
+    assert floor_ops[0].op.style == FloorStyle.DungeonFloor
+
+
+def test_floor_op_for_pill_room_uses_pill_descriptor() -> None:
+    """A PillShape room emits a FloorOp with a Pill-descriptor outline.
+
+    Vertex list is empty; ``cx`` / ``cy`` / ``rx`` / ``ry`` carry the
+    bounding-box centre and half-extents the rasterisers consume.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(2, 1, 9, 5), PillShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == 1
+    outline = floor_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Pill
+    assert not outline.vertices
+    assert outline.rx > 0
+    assert outline.ry > 0
+    assert floor_ops[0].op.style == FloorStyle.DungeonFloor
+
+
+def test_floor_op_smooth_shapes_match_legacy_smooth_room_regions() -> None:
+    """One FloorOp per smooth room aligned with legacy
+    ``smoothRoomRegions``.
+
+    Phase 1.5 mirrors Phase 1.4's parallel-emission shape: every smooth
+    room that ships a legacy ``smooth_fill_svg`` entry gets a matching
+    FloorOp. The two walks must produce equal-length lists in the same
+    order so the consumer switch in 1.15 stays straightforward.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 6), OctagonShape()),
+        (Rect(11, 0, 7, 7), CircleShape()),
+        (Rect(0, 8, 9, 5), PillShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    walls_ops = [
+        e for e in ops if e.opType == Op.Op.WallsAndFloorsOp
+    ]
+    assert len(walls_ops) == 1
+    legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    # No RectShape rooms in this level → every FloorOp is from the
+    # smooth-shape pass.
+    assert len(floor_ops) == len(legacy_smooth_regions) == 3
+
+
+def test_floor_op_skipped_for_smooth_shapes_when_suppress_rect_rooms() -> None:
+    """Wood-floor + building polygon → smooth FloorOps suppressed.
+
+    Phase 1.4 mirrors the legacy ``suppress_rect_rooms`` short-circuit
+    for rect rooms; 1.5 extends it to smooth shapes for the same
+    reason: the wood polygon paints the base fill, so per-room
+    FloorOps would re-introduce the wood-floor leak the legacy
+    short-circuit prevents (bbox bleeds past the chamfered footprint).
+    """
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering.ir_emitter import (
+        _build_cave_wall_geometry, _build_dungeon_polygon,
+    )
+
+    level = _build_smooth_shape_level([
+        (Rect(1, 1, 6, 6), OctagonShape()),
+        (Rect(8, 1, 5, 5), CircleShape()),
+    ])
+    level.interior_floor = "wood"
+    ctx = build_render_context(
+        level,
+        seed=0,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=2.0,
+        vegetation=True,
+        building_polygon=[
+            (32.0, 32.0), (480.0, 32.0),
+            (480.0, 256.0), (32.0, 256.0),
+        ],
+    )
+    assert ctx.interior_finish == "wood"
+    assert ctx.building_polygon is not None
+    builder = FloorIRBuilder(ctx)
+    _emit_walls_and_floors_ir(builder)
+
+    floor_ops = [
+        e for e in builder.ops if e.opType == Op.Op.FloorOp
+    ]
+    assert floor_ops == [], (
+        "suppress_rect_rooms must also suppress smooth-shape FloorOps "
+        "so the wood-floor base fill stays the only base layer"
+    )
+
+
+def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
+    """Smooth-shape FloorOps survive the FB pack/unpack round-trip via
+    ``build_floor_ir``.
+
+    The seed7_octagon_crypt fixture mixes octagon + rect shapes; this
+    catches any FB binding gap that lets octagon polygon vertices
+    drop on the wire (e.g. the OutlineKind.Polygon descriptor branch
+    not being wired in :func:`OpCreator`).
+    """
+    inputs = descriptor_inputs("seed7_octagon_crypt_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    floor_ops = [
+        e for e in fir.ops if e.opType == Op.Op.FloorOp
+    ]
+    walls_ops = [
+        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
+    ]
+    assert len(walls_ops) == 1
+    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
+    legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
+    expected = len(legacy_rect_rooms) + len(legacy_smooth_regions)
+    assert len(floor_ops) == expected
+    # Sanity: there should be at least one Polygon outline beyond the
+    # rect rooms — an octagon room contributes 8 vertices, a rect 4.
+    polygon_outlines_with_8_plus_verts = [
+        e for e in floor_ops
+        if e.op.outline.descriptorKind == OutlineKind.Polygon
+        and len(e.op.outline.vertices) >= 6
+    ]
+    assert polygon_outlines_with_8_plus_verts, (
+        "seed7_octagon_crypt_dungeon mixes octagons + rects — at "
+        "least one FloorOp must carry an octagon (>=6 vertex) outline"
+    )
