@@ -278,6 +278,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         outline_from_l_shape, outline_from_octagon, outline_from_pill,
         outline_from_rect, outline_from_temple,
     )
+    from shapely.geometry import Polygon as _ShapelyPolygon
+    from shapely.ops import unary_union as _unary_union
     from nhc.rendering._room_outlines import (
         _outline_with_gaps, _room_svg_outline,
     )
@@ -535,27 +537,95 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     entry.op = op
     builder.add_op(entry)
 
-    # Phase 1.4 / 1.5 / 1.6 — parallel emission of FloorOp per dungeon
-    # room. The legacy ``rectRooms`` / ``smoothRoomRegions`` /
-    # ``caveRegion`` fields above still drive pixels (consumers do not
-    # read FloorOp until 1.15+); we emit the new ops alongside so the
-    # IR JSON dump shows the parallel emission together (easy to
-    # eyeball) and 1.15's consumer switch produces the correct paint
-    # order — FloorOp slots before every other layer per
-    # design/map_ir_v4.md §4.
+    # Phase 1.4 / 1.5 / 1.6 corrigendum — parallel emission of FloorOp.
+    # The legacy ``rectRooms`` / ``smoothRoomRegions`` / ``caveRegion``
+    # fields above still drive pixels (consumers do not read FloorOp
+    # until 1.15+); we emit the new ops alongside so the IR JSON dump
+    # shows the parallel emission and 1.15's consumer switch produces
+    # the correct paint order — FloorOp slots before every other layer
+    # per design/map_ir_v4.md §4.
     #
     # Phase 1.4 covered RectShape via ``outline_from_rect``; Phase 1.5
     # extends to the five smooth shape variants (octagon, l_shape,
-    # temple → polygon outlines; circle / pill → descriptor outlines)
-    # via the matching ``outline_from_*`` helpers from commit 3cea778.
-    # Phase 1.6 wires CaveShape rooms with style == CaveFloor: each
-    # cave room carries its pre-smoothing trace-boundary coords
-    # verbatim (``_trace_cave_boundary_coords``), and the rasteriser
-    # reproduces the centripetal Catmull-Rom curve via
-    # ``_centripetal_bezier_cps`` at consumption time. HybridShape and
-    # CrossShape are deferred — neither appears in current parity
-    # fixtures.
+    # temple → polygon outlines; circle / pill → descriptor outlines).
+    # HybridShape and CrossShape are deferred — neither appears in
+    # current parity fixtures.
     #
+    # Phase 1.6 corrigendum: cave FloorOps emit as ONE merged op per
+    # disjoint cave system — NOT one per CaveShape room. The legacy
+    # ``cave_wall_path`` is built from the unified tile set of every
+    # cave room (plus connected corridors, via ``_collect_cave_region``),
+    # then ``_trace_cave_boundary_coords(merged_tiles)`` → one bezier
+    # contour. Per-room emission (the Phase 1.6 error) produced 8 ops
+    # in seed99_cave with ridge artefacts along shared room edges — the
+    # merged path avoids those because ``unary_union`` dissolves the
+    # shared edges. The cave FloorOps emit BEFORE the per-room loop so
+    # cave rooms are skipped below.
+    #
+    # For the rare case where a floor contains multiple disconnected
+    # cave systems, Shapely's ``unary_union`` after tile boxing may
+    # produce a ``MultiPolygon``; we enumerate its ``geoms`` and emit
+    # one FloorOp per disjoint component.
+    if cave_tiles:
+        # Determine disjoint cave systems using Shapely. Usually the
+        # whole cave floor is one connected region (single Polygon).
+        # When multiple disconnected systems exist (rare) the union
+        # produces a MultiPolygon; we emit one FloorOp per component.
+        tile_boxes = [
+            _ShapelyPolygon([
+                (tx * CELL, ty * CELL),
+                ((tx + 1) * CELL, ty * CELL),
+                ((tx + 1) * CELL, (ty + 1) * CELL),
+                (tx * CELL, (ty + 1) * CELL),
+            ])
+            for tx, ty in cave_tiles
+        ]
+        merged_geom = _unary_union(tile_boxes)
+        is_multi = hasattr(merged_geom, 'geoms')
+        if not is_multi:
+            # Common path: single connected cave region.  Pass the
+            # original ``cave_tiles`` set directly so the Shapely ring
+            # starting-point is deterministic (same object → same hash
+            # iteration → same ``exterior.coords[0]`` every call).
+            tile_groups: list[set[tuple[int, int]]] = [cave_tiles]
+        else:
+            # Multiple disjoint cave systems on the same floor. For
+            # each component, reconstruct the tile subset by checking
+            # containment.  This changes hash iteration order but it
+            # only matters for correctness across disjoint groups —
+            # there is no per-component "reference" to match.
+            tile_groups = []
+            for component in merged_geom.geoms:
+                if component.is_empty:
+                    continue
+                comp_tiles: set[tuple[int, int]] = {
+                    (tx, ty)
+                    for tx, ty in cave_tiles
+                    if component.contains(
+                        _ShapelyPolygon([
+                            (tx * CELL, ty * CELL),
+                            ((tx + 1) * CELL, ty * CELL),
+                            ((tx + 1) * CELL, (ty + 1) * CELL),
+                            (tx * CELL, (ty + 1) * CELL),
+                        ])
+                    )
+                }
+                if comp_tiles:
+                    tile_groups.append(comp_tiles)
+        for tile_group in tile_groups:
+            coords = _trace_cave_boundary_coords(tile_group)
+            if not coords or len(coords) < 4:
+                # Degenerate cave boundary — _cave_svg_outline also
+                # returns None here. Skip to keep parity.
+                continue
+            floor_op = FloorOpT()
+            floor_op.outline = outline_from_cave(coords)
+            floor_op.style = FloorStyle.FloorStyle.CaveFloor
+            floor_entry = OpEntryT()
+            floor_entry.opType = Op.Op.FloorOp
+            floor_entry.op = floor_op
+            builder.add_op(floor_entry)
+
     # Mirror the wood-floor ``suppress_rect_rooms`` short-circuit for
     # smooth shapes too: when True the legacy ``rectRooms`` and
     # ``smoothRoomRegions`` lists go through (smoothRoomRegions still
@@ -564,27 +634,19 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # would re-introduce the bbox leak past the chamfered footprint.
     # Phase 1.15 will flip the consumer to the new ops; suppressing
     # the FloorOps here prevents the wood-floor regression at the
-    # switch. Cave rooms are exempt — caves never coexist with a
-    # building polygon, so the wood-floor short-circuit cannot trip
-    # for them; their FloorOps emit unconditionally.
+    # switch. Cave rooms are skipped — handled by the merged-emission
+    # block above.
     for idx, room in enumerate(level.rooms):
-        outline_obj = None
-        style_value = FloorStyle.FloorStyle.DungeonFloor
-        shape = room.shape
         if idx in cave_region_rooms:
-            coords = _trace_cave_boundary_coords(room.floor_tiles())
-            if not coords or len(coords) < 4:
-                # Degenerate cave boundary — _cave_svg_outline also
-                # returns None here, so the legacy caveRegion path
-                # ships nothing for this room. Skip to keep parity.
-                continue
-            outline_obj = outline_from_cave(coords)
-            style_value = FloorStyle.FloorStyle.CaveFloor
-        elif suppress_rect_rooms:
+            # Cave FloorOp already emitted in the merged block above.
+            continue
+        if suppress_rect_rooms:
             # Wood-floor + building polygon: both legacy lists and
             # FloorOps are suppressed for non-cave rooms.
             continue
-        elif isinstance(shape, RectShape):
+        outline_obj = None
+        shape = room.shape
+        if isinstance(shape, RectShape):
             outline_obj = outline_from_rect(room.rect)
         elif isinstance(shape, OctagonShape):
             outline_obj = outline_from_octagon(room)
@@ -603,7 +665,7 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             continue
         floor_op = FloorOpT()
         floor_op.outline = outline_obj
-        floor_op.style = style_value
+        floor_op.style = FloorStyle.FloorStyle.DungeonFloor
         floor_entry = OpEntryT()
         floor_entry.opType = Op.Op.FloorOp
         floor_entry.op = floor_op
@@ -730,46 +792,69 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             wall_entry.op = wall_op
             builder.add_op(wall_entry)
 
-    # Phase 1.10 — parallel emission of ExteriorWallOp per cave room.
-    # Mirrors Phase 1.6 (cave FloorOp) + Phase 1.9 (smooth
-    # ExteriorWallOp). Each cave room ships one
-    # ``ExteriorWallOp { outline = the same trace-boundary coords the
-    # cave FloorOp carries, style = CaveInk, corner_style = Merlon,
-    # cuts = [] }`` alongside the legacy
-    # ``WallsAndFloorsOp.caveRegion`` SVG path. CaveInk paints
-    # identically to DungeonInk today — the enum value is reserved for
-    # future divergence per design/map_ir_v4.md §3.
+    # Phase 1.10 corrigendum — parallel emission of ONE merged
+    # ExteriorWallOp per disjoint cave system. Mirrors the Phase 1.6
+    # corrigendum above: the legacy ``cave_wall_path`` is built from
+    # the merged tile set (all CaveShape rooms + connected corridors),
+    # so per-room ExteriorWallOps are wrong — they produce ridge
+    # artefacts along shared room edges when the 1.16+ consumer flips.
+    # ``suppress_rect_rooms`` doesn't apply (caves never coexist with
+    # a building polygon). ``cuts == []`` by contract per plan §1.10.
     #
-    # Caves don't carry door cuts at the static-IR layer per
-    # plan §1.10: cave-to-corridor transitions are handled outside the
-    # cave-wall outline (no door tiles abut the cave boundary in the
-    # current emitter), so ``cuts == []`` by contract. The
-    # ``suppress_rect_rooms`` short-circuit doesn't apply to caves —
-    # caves never coexist with a building polygon, mirroring the
-    # Phase 1.6 cave-FloorOp exemption.
-    #
-    # The renderer reproduces the centripetal Catmull-Rom curve from
-    # the outline vertices via :func:`_centripetal_bezier_cps` at
-    # consumption time (same as the matching cave FloorOp). The new
-    # ops emit additively so the 1.16+ consumer switch picks them up
-    # without reorganising ops[].
-    for idx, room in enumerate(level.rooms):
-        if idx not in cave_region_rooms:
-            continue
-        coords = _trace_cave_boundary_coords(room.floor_tiles())
-        if not coords or len(coords) < 4:
-            # Degenerate cave boundary — _cave_svg_outline returns None
-            # here; skip to keep parity with the legacy fall-through.
-            continue
-        wall_op = ExteriorWallOpT()
-        wall_op.outline = outline_from_cave(coords)
-        wall_op.outline.cuts = []
-        wall_op.style = WallStyle.WallStyle.CaveInk
-        wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
-        wall_entry = OpEntryT()
-        wall_entry.opType = Op.Op.ExteriorWallOp
-        wall_entry.op = wall_op
-        builder.add_op(wall_entry)
+    # The Shapely component enumeration here mirrors the cave FloorOp
+    # block above: tile boxes → unary_union → geoms → one
+    # ExteriorWallOp per disjoint component. The ``CELL``,
+    # ``_ShapelyPolygon``, and ``_unary_union`` names are already
+    # in scope from the imports at the top of this function.
+    if cave_tiles:
+        # Mirror the FloorOp cave block above: single-component path
+        # passes ``cave_tiles`` directly for deterministic ring
+        # starting-point; multi-component path reconstructs per-
+        # component tile subsets.
+        tile_boxes = [
+            _ShapelyPolygon([
+                (tx * CELL, ty * CELL),
+                ((tx + 1) * CELL, ty * CELL),
+                ((tx + 1) * CELL, (ty + 1) * CELL),
+                (tx * CELL, (ty + 1) * CELL),
+            ])
+            for tx, ty in cave_tiles
+        ]
+        merged_geom = _unary_union(tile_boxes)
+        if not hasattr(merged_geom, 'geoms'):
+            wall_tile_groups: list[set[tuple[int, int]]] = [cave_tiles]
+        else:
+            wall_tile_groups = []
+            for component in merged_geom.geoms:
+                if component.is_empty:
+                    continue
+                comp_tiles_w: set[tuple[int, int]] = {
+                    (tx, ty)
+                    for tx, ty in cave_tiles
+                    if component.contains(
+                        _ShapelyPolygon([
+                            (tx * CELL, ty * CELL),
+                            ((tx + 1) * CELL, ty * CELL),
+                            ((tx + 1) * CELL, (ty + 1) * CELL),
+                            (tx * CELL, (ty + 1) * CELL),
+                        ])
+                    )
+                }
+                if comp_tiles_w:
+                    wall_tile_groups.append(comp_tiles_w)
+        for tile_group in wall_tile_groups:
+            coords = _trace_cave_boundary_coords(tile_group)
+            if not coords or len(coords) < 4:
+                continue
+            wall_op = ExteriorWallOpT()
+            wall_op.outline = outline_from_cave(coords)
+            wall_op.outline.cuts = []
+            wall_op.style = WallStyle.WallStyle.CaveInk
+            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            wall_entry = OpEntryT()
+            wall_entry.opType = Op.Op.ExteriorWallOp
+            wall_entry.op = wall_op
+            builder.add_op(wall_entry)
 
 
 def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:

@@ -12,10 +12,10 @@
     "thematic_detail": 108
   },
   "op_counts": {
-    "ExteriorWallOp": 8,
+    "ExteriorWallOp": 1,
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
-    "FloorOp": 8,
+    "FloorOp": 1,
     "HatchOp": 1,
     "ShadowOp": 8,
     "StairsOp": 1,

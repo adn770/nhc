@@ -617,14 +617,13 @@ def _build_cave_shape_level(
 
 
 def test_floor_op_for_cave_carries_cave_floor_style() -> None:
-    """Each CaveShape room produces one FloorOp with style=CaveFloor.
+    """ONE merged FloorOp per disjoint cave system, style=CaveFloor.
 
-    Phase 1.6 mirrors Phase 1.4 / 1.5's parallel-emission shape: a
-    cave room ships one FloorOp alongside the legacy
-    ``WallsAndFloorsOp.caveRegion`` SVG path. Style is
-    :enum:`FloorStyle.CaveFloor`, distinct from DungeonFloor — the
-    value is reserved for the future renderer divergence pinned in
-    plan §1.6 (consumers currently paint both styles identically).
+    Corrigendum to Phase 1.6 (bfe2c69): the emitter now merges all
+    cave tiles before tracing — matching the legacy ``cave_wall_path``
+    which calls ``_trace_cave_boundary_coords(unary_union_of_all_cave_tiles)``.
+    A single CaveShape room → ONE FloorOp (merged == per-room here).
+    Style is :enum:`FloorStyle.CaveFloor`, distinct from DungeonFloor.
     """
     # Compact 4x4 cave room — small enough that
     # ``_trace_cave_boundary_coords`` returns a non-degenerate ring
@@ -637,7 +636,7 @@ def test_floor_op_for_cave_carries_cave_floor_style() -> None:
 
     floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
     assert len(floor_ops) == 1, (
-        f"expected one FloorOp for the single CaveShape room, "
+        f"expected one merged FloorOp for the single cave system, "
         f"got {len(floor_ops)}"
     )
     assert floor_ops[0].op.style == FloorStyle.CaveFloor, (
@@ -649,15 +648,13 @@ def test_floor_op_for_cave_carries_cave_floor_style() -> None:
 
 
 def test_cave_outline_vertices_match_legacy_path_input() -> None:
-    """The cave FloorOp.outline.vertices are the same coords list
-    that today feeds ``_smooth_closed_path``.
+    """The cave FloorOp.outline.vertices match the merged-tile boundary.
 
-    The renderer reproduces the centripetal Catmull-Rom curve from
-    these vertices via :func:`_centripetal_bezier_cps` at consumption
-    time (per design/map_ir_v4.md §3 risks, plan §1.6). Asserting the
-    pre-smoothing vertex list — not the smoothed bezier path — pins
-    the contract: rasterisers receive the trace-boundary coords
-    verbatim.
+    Corrigendum to Phase 1.6 (bfe2c69): the emitter now passes the
+    unified cave tile set to ``_trace_cave_boundary_coords``, matching
+    the legacy ``cave_wall_path`` semantics. For a single CaveShape room
+    (no corridor flood-fill) the merged set equals the room's floor
+    tiles; the coords are identical either way.
     """
     from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
 
@@ -665,34 +662,33 @@ def test_cave_outline_vertices_match_legacy_path_input() -> None:
         (x, y) for y in range(2, 6) for x in range(2, 6)
     }
     level = _build_cave_shape_level(cave_tiles)
-    ops, _ = _emit_into_builder(level)
+    ops, ctx = _emit_into_builder(level)
 
     floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
     assert len(floor_ops) == 1
     cave_op = floor_ops[0].op
 
-    expected_coords = _trace_cave_boundary_coords(
-        level.rooms[0].floor_tiles()
-    )
+    # Use the same merged tile set the emitter uses — ctx.cave_tiles is
+    # the unified set from _collect_cave_region (room tiles + corridors).
+    merged_tiles: set[tuple[int, int]] = set(ctx.cave_tiles)
+    expected_coords = _trace_cave_boundary_coords(merged_tiles)
     # The outline must carry the trace-boundary coords verbatim — same
     # length, same ordering, same pixel-space float values.
     assert len(cave_op.outline.vertices) == len(expected_coords) >= 4
     for got, (ex, ey) in zip(cave_op.outline.vertices, expected_coords):
         assert (float(got.x), float(got.y)) == (float(ex), float(ey)), (
             "cave outline vertex must equal _trace_cave_boundary_coords "
-            "output; the renderer rebuilds the bezier curve from these"
+            "output on the merged tile set; renderer rebuilds bezier curve"
         )
 
 
 def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
-    """The cave FloorOp survives the FB pack/unpack via
-    :func:`build_floor_ir`.
+    """ONE merged cave FloorOp per disjoint system via build_floor_ir.
 
-    seed99_cave_cave_cave is a pure-cave fixture (no rect / smooth
-    rooms); every FloorOp must be a CaveFloor with a Polygon outline.
-    Catches any FB binding gap that might drop the
-    ``descriptor_kind=Polygon`` branch on the wire when the only
-    populated outlines are cave rings.
+    Corrigendum to Phase 1.6 (bfe2c69): seed99_cave_cave_cave has 8
+    CaveShape rooms that form ONE connected cave system. After the fix
+    the emitter emits exactly 1 cave FloorOp (not 8). Catches any FB
+    binding gap on the merged outline wire.
     """
     inputs = descriptor_inputs("seed99_cave_cave_cave")
     buf = build_floor_ir(
@@ -707,16 +703,67 @@ def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
     assert len(walls_ops) == 1
     # The legacy caveRegion SVG path keeps shipping in parallel.
     assert walls_ops[0].op.caveRegion, (
-        "Phase 1.6 ships parallel emission — legacy caveRegion must "
-        "keep populating until 1.15+ flips the consumer"
+        "parallel emission — legacy caveRegion must keep populating "
+        "until 1.15+ flips the consumer"
     )
-    # Pure-cave fixture: every FloorOp is CaveFloor.
-    assert floor_ops, "seed99_cave fixture must carry at least one FloorOp"
-    for entry in floor_ops:
-        assert entry.op.style == FloorStyle.CaveFloor
-        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
-        assert entry.op.outline.vertices is not None
-        assert len(entry.op.outline.vertices) >= 4
+    # ONE merged FloorOp — seed99 has a single connected cave system.
+    assert len(floor_ops) == 1, (
+        f"expected 1 merged cave FloorOp, got {len(floor_ops)}; "
+        f"8 rooms but 1 connected system"
+    )
+    entry = floor_ops[0]
+    assert entry.op.style == FloorStyle.CaveFloor
+    assert entry.op.outline.descriptorKind == OutlineKind.Polygon
+    assert entry.op.outline.vertices is not None
+    assert len(entry.op.outline.vertices) >= 4
+
+
+def test_merged_cave_outline_matches_legacy_cave_wall_path_input() -> None:
+    """Merged cave FloorOp vertices == _trace_cave_boundary_coords(cave_tiles).
+
+    Pinning test for the corrigendum: the merged FloorOp outline must
+    carry exactly the coords that the legacy cave_wall_path pipeline
+    passes to ``_smooth_closed_path`` — i.e.
+    ``_trace_cave_boundary_coords(ctx.cave_tiles)`` where
+    ``ctx.cave_tiles`` is the full merged set from
+    ``_collect_cave_region`` (room floor tiles + connected corridors).
+
+    This is the invariant broken by Phase 1.6 (bfe2c69) which used
+    per-room tiles; the merged path is what the consumer needs to
+    reproduce pixel-identical bezier curves to the legacy render.
+    """
+    from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
+
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
+    assert len(floor_ops) == 1
+
+    # Reconstruct the merged tile set the same way build_render_context
+    # does: _collect_cave_region returns room floor tiles + corridors.
+    from nhc.rendering._cave_geometry import _collect_cave_region
+    merged_tiles = _collect_cave_region(inputs.level)
+    expected_coords = _trace_cave_boundary_coords(merged_tiles)
+
+    got_vertices = floor_ops[0].op.outline.vertices
+    assert len(got_vertices) == len(expected_coords) >= 4, (
+        f"merged cave FloorOp must have {len(expected_coords)} vertices "
+        f"(from _trace_cave_boundary_coords(merged_tiles)), "
+        f"got {len(got_vertices)}"
+    )
+    for got, (ex, ey) in zip(got_vertices, expected_coords):
+        assert (float(got.x), float(got.y)) == (float(ex), float(ey)), (
+            "merged cave FloorOp vertex must equal "
+            "_trace_cave_boundary_coords(merged_tiles) output; "
+            "this is the input the legacy cave_wall_path feeds to "
+            "_smooth_closed_path"
+        )
 
 
 # ── Phase 1.7 — corridor-tile FloorOp ──────────────────────────
@@ -1532,15 +1579,12 @@ def test_smooth_exterior_wall_op_count_in_octagon_crypt_fixture() -> None:
 
 
 def test_exterior_wall_op_for_cave_carries_cave_ink_style() -> None:
-    """Each CaveShape room produces one ExteriorWallOp with style=CaveInk.
+    """ONE merged ExteriorWallOp per disjoint cave system, style=CaveInk.
 
-    Phase 1.10 mirrors Phase 1.6's cave FloorOp emission: alongside the
-    legacy ``WallsAndFloorsOp.caveRegion`` SVG path, the emitter ships
-    one :type:`ExteriorWallOpT` per cave room with
-    ``style = WallStyle.CaveInk`` and an outline carrying the same
-    pre-smoothing trace-boundary coords as the matching FloorOp.
-    CaveInk paints identically to DungeonInk today — the enum value is
-    reserved for future divergence per design/map_ir_v4.md §3.
+    Corrigendum to Phase 1.10 (2fce120): the emitter now merges all
+    cave tiles before tracing — matching the legacy ``cave_wall_path``
+    semantics. A single CaveShape room → ONE ExteriorWallOp.
+    style=CaveInk, corner_style=Merlon.
     """
     cave_tiles = {
         (x, y) for y in range(2, 6) for x in range(2, 6)
@@ -1550,7 +1594,7 @@ def test_exterior_wall_op_for_cave_carries_cave_ink_style() -> None:
 
     wall_ops = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
     assert len(wall_ops) == 1, (
-        f"expected one ExteriorWallOp for the single CaveShape room, "
+        f"expected one merged ExteriorWallOp for the single cave system, "
         f"got {len(wall_ops)}"
     )
     assert wall_ops[0].op.style == WallStyle.CaveInk, (
@@ -1621,13 +1665,12 @@ def test_cave_exterior_wall_op_has_no_cuts() -> None:
 
 
 def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
-    """seed99_cave_cave_cave: ExteriorWallOp count == cave region count.
+    """seed99_cave_cave_cave: exactly 1 merged ExteriorWallOp + 1 FloorOp.
 
-    The fixture is pure-cave (no rect / smooth rooms), so every
-    ExteriorWallOp must be a CaveInk wall on a cave outline. After
-    Phase 1.10 the count matches the 8 cave FloorOps the fixture
-    already ships (Phase 1.6). Round-trips through ``build_floor_ir``
-    so any FB binding gap on the wire surfaces here.
+    Corrigendum to Phase 1.10 (2fce120): the fixture has 8 CaveShape
+    rooms forming ONE connected cave system; the emitter must emit ONE
+    merged ExteriorWallOp (not 8) and ONE merged FloorOp (not 8).
+    Round-trips through ``build_floor_ir`` so FB binding gaps surface.
     """
     inputs = descriptor_inputs("seed99_cave_cave_cave")
     buf = build_floor_ir(
@@ -1643,20 +1686,22 @@ def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
     assert len(walls_ops) == 1
     # Legacy caveRegion path keeps shipping in parallel.
     assert walls_ops[0].op.caveRegion, (
-        "Phase 1.10 ships parallel emission — legacy caveRegion must "
-        "keep populating until 1.16+ flips the consumer"
+        "parallel emission — legacy caveRegion must keep populating "
+        "until 1.16+ flips the consumer"
     )
-    assert floor_ops, "seed99_cave fixture must carry cave FloorOps"
-    assert len(wall_ops) == len(floor_ops), (
-        f"expected one ExteriorWallOp per cave FloorOp "
-        f"({len(floor_ops)}), got {len(wall_ops)}"
+    # ONE merged op per disjoint cave system; seed99 has 1 system.
+    assert len(floor_ops) == 1, (
+        f"expected 1 merged cave FloorOp, got {len(floor_ops)}"
     )
-    for entry in wall_ops:
-        assert entry.op.style == WallStyle.CaveInk
-        assert entry.op.cornerStyle == CornerStyle.Merlon
-        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
-        assert entry.op.outline.vertices is not None
-        assert (entry.op.outline.cuts or []) == []
+    assert len(wall_ops) == 1, (
+        f"expected 1 merged cave ExteriorWallOp, got {len(wall_ops)}"
+    )
+    entry = wall_ops[0]
+    assert entry.op.style == WallStyle.CaveInk
+    assert entry.op.cornerStyle == CornerStyle.Merlon
+    assert entry.op.outline.descriptorKind == OutlineKind.Polygon
+    assert entry.op.outline.vertices is not None
+    assert (entry.op.outline.cuts or []) == []
 
 
 def test_every_door_tile_in_every_fixture_has_a_cut() -> None:
