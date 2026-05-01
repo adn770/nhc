@@ -522,16 +522,48 @@ trait Painter {
     fn stroke_polyline(&mut self, vertices: &[Vec2], paint: &Paint, stroke: &Stroke);
     fn fill_path(&mut self, path: &PathOps, paint: &Paint, fill_rule: FillRule);
     fn stroke_path(&mut self, path: &PathOps, paint: &Paint, stroke: &Stroke);
+
+    // Group-opacity scope — paints rendered between begin_group
+    // and end_group composite as one unit at the group's opacity.
+    // Required for SVG-spec-compliant compositing of overlapping
+    // children inside a `<g opacity="…">` envelope. See note
+    // below on why per-element alpha is insufficient.
+    fn begin_group(&mut self, opacity: f32);
+    fn end_group(&mut self);
 }
 
 struct Paint { color: Color }
 struct Stroke { width: f32, line_cap: LineCap, line_join: LineJoin }
 ```
 
-The trait deliberately omits group / clip / opacity scope
-methods — those mechanisms are unused in v4 (stamp model,
-flat dispatch). When a primitive needs to paint at reduced
-opacity, the colour's alpha channel carries it.
+### Why group-opacity ops are required (and per-element alpha is not enough)
+
+An earlier draft of this design omitted `begin_group` /
+`end_group` on the reasoning that the stamp model with
+flat dispatch means each op stamps independently and per-
+element alpha covers any opacity need. **That reasoning is
+wrong.** Phase 5.10 of the parent IR migration plan
+(`plans/nhc_ir_migration_plan.md`, commit `8de4f57`)
+specifically replaced per-element alpha with offscreen-buffer
+compositing in `crates/nhc-render/src/transform/png/fragment.rs`
+because per-element alpha **over-darkens overlapping children
+inside a `<g opacity>` envelope** — the SVG spec composites the
+whole group as one image at the group opacity, not by
+multiplying alpha per child. Phase 5.10's bisect named the
+seed99 cave `terrain_detail` layer (water ripple paths overlap)
+as the worst offender; per-element alpha drifted the layer's
+parity gate by 0.66 % and the offscreen-buffer fix brought it to
+0.013 %.
+
+Twelve primitives in `crates/nhc-render/src/primitives/` emit
+`<g opacity>` envelopes today: `cobblestone`, `floor_detail`,
+`cart_tracks`, `flagstone`, `brick`, `opus_romano`,
+`field_stone`, `terrain_detail`, `thematic_detail`, `wood_floor`,
+`hatch`, `shadow`. The Painter port for each of these in
+Phase 2 wraps the relevant emit block in
+`painter.begin_group(opacity); ...; painter.end_group();`.
+Primitives that use only per-element opacity (`stairs`, `well`,
+`tree`, `bush`, `terrain_tints`) need no group calls.
 
 ### SkiaPainter
 
@@ -541,6 +573,18 @@ calls scattered across `transform/png/*.rs`; replaces
 path_parser}.rs` (which all retire because their only caller
 was the SVG-fragment round-trip).
 
+`begin_group` / `end_group` lift the existing
+`transform/png/fragment.rs::paint_offscreen_group` mechanism:
+allocate one same-size scratch pixmap once at
+`floor_ir_to_png` entry; `begin_group` pushes the active
+pixmap onto a stack and swaps to the scratch (cleared);
+`end_group` blits the scratch onto the previously-active
+pixmap via `Pixmap::draw_pixmap(0, 0, scratch, &PixmapPaint
+{ opacity, blend_mode: SourceOver, .. })` and pops the
+stack. Nested groups use a shallow Vec-based stack — the
+emitter never nests beyond one level today, but the mechanism
+supports it.
+
 ### SvgPainter
 
 Writes a String buffer with semantic SVG elements. Each
@@ -549,6 +593,10 @@ x="…" y="…" …/>`, `fill_circle` → `<circle cx="…" cy="…" …/>`).
 Replaces `nhc/rendering/ir_to_svg.py` and the per-handler
 `_draw_*_from_ir` Python functions.
 
+`begin_group(opacity)` writes `<g opacity="X">`; `end_group`
+writes `</g>`. Trivial — SVG carries the group-opacity
+semantics natively.
+
 ### CanvasPainter (Phase 3 / WASM)
 
 Drives an HTML5 Canvas2D context via `wasm-bindgen`. The
@@ -556,6 +604,13 @@ roughly-50-lines body the parent migration plan's Phase 11
 pencilled in for a Canvas opcode emitter becomes obsolete —
 Phase 2 already did the abstraction work; CanvasPainter
 implements the trait directly.
+
+`begin_group` / `end_group` use an `OffscreenCanvas` (also
+exposed via wasm-bindgen): redirect drawing to the offscreen
+context inside the group; `end_group` runs `ctx.drawImage(
+offscreen, 0, 0)` with `ctx.globalAlpha = opacity` against the
+parent context. Same shape as the Skia offscreen pattern, just
+with Canvas2D primitives.
 
 ## 6. Cross-rasteriser story
 
