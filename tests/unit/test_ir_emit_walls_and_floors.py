@@ -24,9 +24,11 @@ from nhc.dungeon.model import (
 )
 from nhc.rendering._floor_layers import _emit_walls_and_floors_ir
 from nhc.rendering.ir._fb import Op
+from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
 from nhc.rendering.ir._fb.FloorStyle import FloorStyle
 from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+from nhc.rendering.ir._fb.WallStyle import WallStyle
 from nhc.rendering.ir_emitter import FloorIRBuilder, build_floor_ir
 
 from tests.fixtures.floor_ir._inputs import descriptor_inputs
@@ -864,3 +866,296 @@ def test_corridor_floor_op_count_matches_legacy_corridor_tiles() -> None:
     # Sanity: total FloorOps >= rect_rooms + corridor_tiles (smooth /
     # cave shapes contribute the rest).
     assert len(floor_ops) >= len(legacy_rect_rooms) + len(legacy_corridor_tiles)
+
+
+# ── Phase 1.8 — rect-room ExteriorWallOp ───────────────────────
+
+
+def test_exterior_wall_op_per_rect_room() -> None:
+    """Every rect room produces one ExteriorWallOp.
+
+    Phase 1.8 of plans/nhc_pure_ir_plan.md — parallel emission of
+    ExteriorWallOp per :class:`RectShape` room alongside the legacy
+    :type:`WallsAndFloorsOpT.wallSegments` field. Each new op carries a
+    closed 4-vertex Polygon outline matching the room rect, ``style ==
+    WallStyle.DungeonInk``, and ``corner_style == CornerStyle.Merlon``
+    (the schema default; rect rooms aren't fortified, but the field is
+    required by the union variant).
+    """
+    level = _build_simple_rect_level([
+        Rect(2, 2, 4, 3),
+        Rect(8, 2, 5, 4),
+        Rect(2, 8, 6, 5),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 3
+    for entry in wall_ops:
+        outline = entry.op.outline
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
+        assert outline.vertices is not None
+        assert len(outline.vertices) == 4
+        assert outline.closed is True
+        assert entry.op.style == WallStyle.DungeonInk
+        assert entry.op.cornerStyle == CornerStyle.Merlon
+
+
+def test_exterior_wall_op_outlines_match_rect_room_floor_ops() -> None:
+    """Each rect room's ExteriorWallOp.outline.vertices equals its
+    FloorOp.outline.vertices.
+
+    Both ops draw the same 4-vertex closed rect polygon (the floor
+    paints the fill, the wall paints the stroke around it). Pinning
+    vertex equality avoids drift between the floor- and wall-emit
+    helpers and locks the contract: rect-room walls and floors share
+    the same outline geometry.
+    """
+    level = _build_simple_rect_level([
+        Rect(1, 1, 5, 4),
+        Rect(7, 2, 4, 3),
+        Rect(1, 7, 4, 4),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
+    wall_ops = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
+    # Filter floor_ops to only rect-room FloorOps (4 vertices, side >=
+    # 2*CELL since rooms are at least 2 tiles wide). No corridors /
+    # smooth shapes / caves in this level, so every floor op is a rect.
+    assert len(wall_ops) == len(floor_ops) == 3
+
+    for floor_entry, wall_entry in zip(floor_ops, wall_ops):
+        floor_verts = [
+            (v.x, v.y) for v in floor_entry.op.outline.vertices
+        ]
+        wall_verts = [
+            (v.x, v.y) for v in wall_entry.op.outline.vertices
+        ]
+        assert floor_verts == wall_verts, (
+            "rect-room ExteriorWallOp must share the same 4-vertex "
+            "outline as the matching FloorOp"
+        )
+
+
+def test_exterior_wall_op_count_matches_rect_floor_op_count() -> None:
+    """Count of rect ExteriorWallOps == count of rect FloorOps.
+
+    Phase 1.4 emits one FloorOp per rect room; Phase 1.8 emits one
+    ExteriorWallOp per rect room with the same suppression rules. The
+    two counts must match in lockstep so 1.15+ consumer switches don't
+    introduce drift.
+    """
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    walls_ops = [
+        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
+    ]
+    assert len(walls_ops) == 1
+    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
+    assert len(legacy_rect_rooms) > 0, (
+        "seed42_rect_dungeon_dungeon ships >0 rect rooms — the "
+        "test relies on this fixture having rect rooms"
+    )
+
+    wall_ops = [
+        e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == len(legacy_rect_rooms), (
+        f"rect ExteriorWallOps ({len(wall_ops)}) must match legacy "
+        f"rectRooms count ({len(legacy_rect_rooms)})"
+    )
+
+    # Cross-check: every rect ExteriorWallOp aligns by bbox with one
+    # legacy rect_room entry (the parallel-emission walks the same
+    # rooms list in the same order).
+    for wall_entry, rect_room in zip(wall_ops, legacy_rect_rooms):
+        verts = wall_entry.op.outline.vertices
+        xs = [v.x for v in verts]
+        ys = [v.y for v in verts]
+        bbox_x, bbox_y = min(xs), min(ys)
+        bbox_w, bbox_h = max(xs) - bbox_x, max(ys) - bbox_y
+        assert bbox_x == rect_room.x * CELL
+        assert bbox_y == rect_room.y * CELL
+        assert bbox_w == rect_room.w * CELL
+        assert bbox_h == rect_room.h * CELL
+
+
+def test_exterior_wall_op_skipped_when_suppress_rect_rooms() -> None:
+    """Wood-floor + building polygon → ExteriorWallOps suppressed.
+
+    Mirror of :func:`test_floor_op_skipped_when_suppress_rect_rooms`
+    for walls. When the wood-floor short-circuit suppresses rect
+    FloorOps (because the wood polygon paints the base fill and the
+    rect bbox would bleed past the chamfered footprint), the matching
+    ExteriorWallOps must drop out too — the building's own walls land
+    in :type:`BuildingExteriorWallOp` / :type:`BuildingInteriorWallOp`
+    instead, not on the per-rect-room outlines.
+    """
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering.ir_emitter import (
+        _build_cave_wall_geometry, _build_dungeon_polygon,
+    )
+
+    level = _build_simple_rect_level([
+        Rect(1, 1, 4, 4),
+        Rect(6, 1, 4, 4),
+    ])
+    level.interior_floor = "wood"
+    ctx = build_render_context(
+        level,
+        seed=0,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=2.0,
+        vegetation=True,
+        building_polygon=[
+            (32.0, 32.0), (320.0, 32.0),
+            (320.0, 160.0), (32.0, 160.0),
+        ],
+    )
+    assert ctx.interior_finish == "wood"
+    assert ctx.building_polygon is not None
+    builder = FloorIRBuilder(ctx)
+    _emit_walls_and_floors_ir(builder)
+
+    wall_ops = [
+        e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert wall_ops == [], (
+        "suppress_rect_rooms must suppress the rect-room "
+        "ExteriorWallOps to mirror the FloorOp short-circuit"
+    )
+
+
+def test_exterior_wall_op_cuts_empty_pending_phase_1_11() -> None:
+    """Phase 1.8 ships rect ExteriorWallOps with door cuts populated
+    via :func:`cuts_for_room_doors` (the helper landed in 1.3); levels
+    without door tiles must produce empty cut lists.
+
+    The plan's §1.11 makes door-resolution explicit, but the helper is
+    already complete and available, so 1.8 wires it in directly. This
+    guard test pins the no-door case: a rect-room level with VOID-only
+    surroundings yields ExteriorWallOps with ``cuts == []``.
+    """
+    level = _build_simple_rect_level([
+        Rect(2, 2, 4, 3),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    assert cuts == [], (
+        "rect room with no adjacent door tiles must produce an "
+        "ExteriorWallOp with empty cuts"
+    )
+
+
+def test_exterior_wall_op_door_resolves_to_cut() -> None:
+    """A door tile abutting a rect room produces one Cut on its
+    ExteriorWallOp at the shared tile-edge midpoints.
+
+    The door tile lives outside the room's floor tiles but adjacent
+    to one. ``cuts_for_room_doors`` walks the room perimeter and emits
+    one :class:`CutT` per door, with start / end at the pixel-space
+    endpoints of the shared tile edge. ``CutStyle`` is picked from the
+    door feature string (``"door"`` → ``DoorWood``).
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    # Rect room (2..6, 2..5); place a "door" tile north of (3, 2) at
+    # (3, 1). The door tile must exist in the level (not VOID) and
+    # carry feature == "door".
+    level = _build_simple_rect_level([Rect(2, 2, 4, 3)])
+    level.tiles[1][3] = Tile(terrain=Terrain.FLOOR, feature="door")
+
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    assert len(cuts) == 1, (
+        "expected one Cut for the single door tile north of room (3,2)"
+    )
+    cut = cuts[0]
+    assert cut.style == CutStyle.DoorWood
+    # Door is north of room tile (3, 2); the shared tile edge runs
+    # from (3*CELL, 2*CELL) to (4*CELL, 2*CELL) in pixel coords.
+    assert (cut.start.x, cut.start.y) == (3 * CELL, 2 * CELL)
+    assert (cut.end.x, cut.end.y) == (4 * CELL, 2 * CELL)
+
+
+def test_exterior_wall_op_placement_after_floor_op() -> None:
+    """ExteriorWallOps land **after** FloorOp emission for the same
+    room (paint order: floor before walls per design/map_ir_v4.md §4).
+
+    Rect ExteriorWallOps are emitted in their own pass after the
+    FloorOp pass. Pinning the relative slot positions guards the
+    paint-order contract for the 1.16+ consumer switch.
+    """
+    level = _build_simple_rect_level([
+        Rect(1, 1, 4, 4),
+        Rect(6, 1, 4, 4),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    op_types = [e.opType for e in ops]
+    floor_indices = [
+        i for i, t in enumerate(op_types) if t == Op.Op.FloorOp
+    ]
+    wall_indices = [
+        i for i, t in enumerate(op_types) if t == Op.Op.ExteriorWallOp
+    ]
+    assert floor_indices and wall_indices
+    # Every ExteriorWallOp must come after every FloorOp (floor
+    # paints the base, wall strokes on top).
+    assert min(wall_indices) > max(floor_indices), (
+        "ExteriorWallOps must land after FloorOps in ops[] for "
+        "correct paint order at the 1.16+ consumer switch"
+    )
+
+
+def test_exterior_wall_op_round_trips_through_build_floor_ir() -> None:
+    """Rect ExteriorWallOps survive the FlatBuffer pack/unpack
+    round-trip via :func:`build_floor_ir`.
+
+    Catches any FB binding gap between the Object-API write side and
+    the byte-buffer read side (e.g. the ``ExteriorWallOp`` union
+    variant not being wired in :func:`OpCreator`, or the
+    ``corner_style`` byte field not being preserved).
+    """
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    wall_ops = [
+        e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) > 0, (
+        "seed42_rect_dungeon_dungeon must carry at least one rect "
+        "ExteriorWallOp after Phase 1.8"
+    )
+    for entry in wall_ops:
+        assert entry.op.outline is not None
+        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
+        assert len(entry.op.outline.vertices) == 4
+        assert entry.op.style == WallStyle.DungeonInk
+        assert entry.op.cornerStyle == CornerStyle.Merlon

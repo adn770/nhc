@@ -273,9 +273,9 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     )
     from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
     from nhc.rendering._outline_helpers import (
-        outline_from_cave, outline_from_circle, outline_from_l_shape,
-        outline_from_octagon, outline_from_pill, outline_from_rect,
-        outline_from_temple,
+        cuts_for_room_doors, outline_from_cave, outline_from_circle,
+        outline_from_l_shape, outline_from_octagon, outline_from_pill,
+        outline_from_rect, outline_from_temple,
     )
     from nhc.rendering._room_outlines import (
         _outline_with_gaps, _room_svg_outline,
@@ -284,7 +284,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         CELL, FLOOR_COLOR, INK, WALL_WIDTH,
         _find_doorless_openings, _is_floor,
     )
-    from nhc.rendering.ir._fb import FloorStyle, Op
+    from nhc.rendering.ir._fb import CornerStyle, FloorStyle, Op, WallStyle
+    from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
     from nhc.rendering.ir._fb.FloorOp import FloorOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.RectRoom import RectRoomT
@@ -630,6 +631,44 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         floor_entry.opType = Op.Op.FloorOp
         floor_entry.op = floor_op
         builder.add_op(floor_entry)
+
+    # Phase 1.8 — parallel emission of ExteriorWallOp per rect room.
+    # The legacy ``wallSegments`` field above still drives pixels
+    # (consumers do not read ExteriorWallOp until 1.16+); we emit the
+    # new ops alongside so the IR JSON dump shows the parallel
+    # emission and 1.16's consumer switch produces the correct paint
+    # order — ExteriorWallOp paints **after** FloorOp per
+    # design/map_ir_v4.md §4 (floor base before wall stroke).
+    #
+    # Each rect room: ExteriorWallOp { outline = same 4-vertex closed
+    # polygon as the matching FloorOp, style = DungeonInk,
+    # corner_style = Merlon (the schema default; rect rooms aren't
+    # fortified, but the field is required by the union variant),
+    # cuts = cuts_for_room_doors(room) }. ``cuts_for_room_doors``
+    # resolves door-tile positions on the room perimeter to pixel-
+    # space Cut start/end pairs with the matching CutStyle (the
+    # mapping from tile.feature → CutStyle is pinned in
+    # _outline_helpers._DOOR_FEATURE_TO_CUT_STYLE per plan §1.11).
+    #
+    # Mirror the wood-floor ``suppress_rect_rooms`` short-circuit:
+    # when the wood polygon paints the base fill (and rect FloorOps
+    # are suppressed for the same reason), the rect ExteriorWallOps
+    # drop too. The building's own walls land in the legacy
+    # BuildingExteriorWallOp / BuildingInteriorWallOp ops; per-rect-
+    # room outline strokes would over-paint those.
+    if not suppress_rect_rooms:
+        for room in level.rooms:
+            if not isinstance(room.shape, RectShape):
+                continue
+            wall_op = ExteriorWallOpT()
+            wall_op.outline = outline_from_rect(room.rect)
+            wall_op.outline.cuts = cuts_for_room_doors(room, level)
+            wall_op.style = WallStyle.WallStyle.DungeonInk
+            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            wall_entry = OpEntryT()
+            wall_entry.opType = Op.Op.ExteriorWallOp
+            wall_entry.op = wall_op
+            builder.add_op(wall_entry)
 
 
 def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
