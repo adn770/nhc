@@ -65,6 +65,57 @@ struct TileCoord {
   y: int32;
 }
 
+// ── v4 outline geometry (Phase 1.1 of plans/nhc_pure_ir_plan.md)
+//
+// Schema 4.0's wall + floor ops carry a single-ring closed (or open)
+// polyline as an :type:`Outline`. The descriptor variants
+// (:enum:`OutlineKind`) discriminate between vertex-defined polygons
+// and parametric Circle / Pill shapes — the rasterisers reproduce
+// the latter via their native primitives rather than receiving a
+// pre-tessellated polyline. :type:`Cut` carries one opening on an
+// outline (a door, a doorless gap, an enclosure gate); the wall
+// renderer breaks the stroke between Cut.start and Cut.end and
+// optionally paints a door / gate visual indicated by
+// :enum:`CutStyle`.
+//
+// These entities are pure-additive at Phase 1.1 — no consumer reads
+// or emitter writes them yet. Phase 1.2 introduces the ops that
+// consume Outline; Phase 1.4 onwards wires the emitter to populate
+// them. See design/map_ir_v4.md §3 for the canonical contract.
+
+enum CutStyle : ubyte {
+  None = 0,
+  WoodGate = 1,
+  PortcullisGate = 2,
+  DoorWood = 3,
+  DoorStone = 4,
+  DoorIron = 5,
+  DoorSecret = 6,
+}
+
+table Cut {
+  start: Vec2;
+  end: Vec2;
+  style: CutStyle = None;
+}
+
+enum OutlineKind : ubyte {
+  Polygon = 0,            // vertices is the source of truth
+  Circle = 1,             // (cx, cy, rx) — rx == ry expected
+  Pill = 2,               // (cx, cy, rx, ry) rounded rect
+}
+
+table Outline {
+  vertices: [Vec2];       // populated when descriptor_kind == Polygon
+  cuts: [Cut];            // openings; [] for floors
+  closed: bool = true;    // false for open polylines (interior partitions)
+  descriptor_kind: OutlineKind = Polygon;
+  cx: float;
+  cy: float;
+  rx: float;
+  ry: float;
+}
+
 // ── Enums ────────────────────────────────────────────────────
 
 enum FloorKind: byte {
@@ -160,6 +211,34 @@ enum CornerStyle: byte {
 enum GateStyle: byte {
   Wood = 0,
   Portcullis = 1,
+}
+
+// Phase 1.1 of plans/nhc_pure_ir_plan.md — v4 wall paint style.
+// Classifies the visual treatment for every :type:`InteriorWallOp` /
+// :type:`ExteriorWallOp` outline. Subsumes :enum:`WallMaterial` /
+// :enum:`InteriorWallMaterial` / :enum:`EnclosureStyle` once the
+// 4.0 cut lands in Phase 1.22; declared additively here so the
+// per-op emitter commits (1.8 – 1.14) can ship before the legacy
+// enums retire. See design/map_ir_v4.md §3.
+enum WallStyle : ubyte {
+  DungeonInk = 0,
+  CaveInk = 1,
+  MasonryBrick = 2,
+  MasonryStone = 3,
+  PartitionStone = 4,
+  PartitionBrick = 5,
+  PartitionWood = 6,
+  Palisade = 7,
+  FortificationMerlon = 8,
+}
+
+// Phase 1.1 — v4 floor paint style. Classifies the fill colour
+// for every :type:`FloorOp` outline. CaveInk paints identically to
+// DungeonInk today; the enum value is reserved for future
+// divergence (per design/map_ir_v4.md §3).
+enum FloorStyle : ubyte {
+  DungeonFloor = 0,
+  CaveFloor = 1,
 }
 
 // Phase 8.3 — Building exterior wall material. Brick / Stone

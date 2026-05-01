@@ -17,6 +17,198 @@ pub mod _fb {
 
 
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_CUT_STYLE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_CUT_STYLE: u8 = 6;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_CUT_STYLE: [CutStyle; 7] = [
+  CutStyle::None,
+  CutStyle::WoodGate,
+  CutStyle::PortcullisGate,
+  CutStyle::DoorWood,
+  CutStyle::DoorStone,
+  CutStyle::DoorIron,
+  CutStyle::DoorSecret,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct CutStyle(pub u8);
+#[allow(non_upper_case_globals)]
+impl CutStyle {
+  pub const None: Self = Self(0);
+  pub const WoodGate: Self = Self(1);
+  pub const PortcullisGate: Self = Self(2);
+  pub const DoorWood: Self = Self(3);
+  pub const DoorStone: Self = Self(4);
+  pub const DoorIron: Self = Self(5);
+  pub const DoorSecret: Self = Self(6);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 6;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::None,
+    Self::WoodGate,
+    Self::PortcullisGate,
+    Self::DoorWood,
+    Self::DoorStone,
+    Self::DoorIron,
+    Self::DoorSecret,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::None => Some("None"),
+      Self::WoodGate => Some("WoodGate"),
+      Self::PortcullisGate => Some("PortcullisGate"),
+      Self::DoorWood => Some("DoorWood"),
+      Self::DoorStone => Some("DoorStone"),
+      Self::DoorIron => Some("DoorIron"),
+      Self::DoorSecret => Some("DoorSecret"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for CutStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for CutStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for CutStyle {
+    type Output = CutStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for CutStyle {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for CutStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for CutStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_OUTLINE_KIND: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_OUTLINE_KIND: u8 = 2;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_OUTLINE_KIND: [OutlineKind; 3] = [
+  OutlineKind::Polygon,
+  OutlineKind::Circle,
+  OutlineKind::Pill,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct OutlineKind(pub u8);
+#[allow(non_upper_case_globals)]
+impl OutlineKind {
+  pub const Polygon: Self = Self(0);
+  pub const Circle: Self = Self(1);
+  pub const Pill: Self = Self(2);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 2;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::Polygon,
+    Self::Circle,
+    Self::Pill,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::Polygon => Some("Polygon"),
+      Self::Circle => Some("Circle"),
+      Self::Pill => Some("Pill"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for OutlineKind {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for OutlineKind {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for OutlineKind {
+    type Output = OutlineKind;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for OutlineKind {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for OutlineKind {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for OutlineKind {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FLOOR_KIND: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MAX_FLOOR_KIND: i8 = 3;
@@ -1084,6 +1276,202 @@ impl<'a> ::flatbuffers::Verifiable for GateStyle {
 }
 
 impl ::flatbuffers::SimpleToVerifyInSlice for GateStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_WALL_STYLE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_WALL_STYLE: u8 = 8;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_WALL_STYLE: [WallStyle; 9] = [
+  WallStyle::DungeonInk,
+  WallStyle::CaveInk,
+  WallStyle::MasonryBrick,
+  WallStyle::MasonryStone,
+  WallStyle::PartitionStone,
+  WallStyle::PartitionBrick,
+  WallStyle::PartitionWood,
+  WallStyle::Palisade,
+  WallStyle::FortificationMerlon,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct WallStyle(pub u8);
+#[allow(non_upper_case_globals)]
+impl WallStyle {
+  pub const DungeonInk: Self = Self(0);
+  pub const CaveInk: Self = Self(1);
+  pub const MasonryBrick: Self = Self(2);
+  pub const MasonryStone: Self = Self(3);
+  pub const PartitionStone: Self = Self(4);
+  pub const PartitionBrick: Self = Self(5);
+  pub const PartitionWood: Self = Self(6);
+  pub const Palisade: Self = Self(7);
+  pub const FortificationMerlon: Self = Self(8);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 8;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::DungeonInk,
+    Self::CaveInk,
+    Self::MasonryBrick,
+    Self::MasonryStone,
+    Self::PartitionStone,
+    Self::PartitionBrick,
+    Self::PartitionWood,
+    Self::Palisade,
+    Self::FortificationMerlon,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::DungeonInk => Some("DungeonInk"),
+      Self::CaveInk => Some("CaveInk"),
+      Self::MasonryBrick => Some("MasonryBrick"),
+      Self::MasonryStone => Some("MasonryStone"),
+      Self::PartitionStone => Some("PartitionStone"),
+      Self::PartitionBrick => Some("PartitionBrick"),
+      Self::PartitionWood => Some("PartitionWood"),
+      Self::Palisade => Some("Palisade"),
+      Self::FortificationMerlon => Some("FortificationMerlon"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for WallStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for WallStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for WallStyle {
+    type Output = WallStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for WallStyle {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for WallStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for WallStyle {}
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MIN_FLOOR_STYLE: u8 = 0;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+pub const ENUM_MAX_FLOOR_STYLE: u8 = 1;
+#[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
+#[allow(non_camel_case_types)]
+pub const ENUM_VALUES_FLOOR_STYLE: [FloorStyle; 2] = [
+  FloorStyle::DungeonFloor,
+  FloorStyle::CaveFloor,
+];
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[repr(transparent)]
+pub struct FloorStyle(pub u8);
+#[allow(non_upper_case_globals)]
+impl FloorStyle {
+  pub const DungeonFloor: Self = Self(0);
+  pub const CaveFloor: Self = Self(1);
+
+  pub const ENUM_MIN: u8 = 0;
+  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_VALUES: &'static [Self] = &[
+    Self::DungeonFloor,
+    Self::CaveFloor,
+  ];
+  /// Returns the variant's name or "" if unknown.
+  pub fn variant_name(self) -> Option<&'static str> {
+    match self {
+      Self::DungeonFloor => Some("DungeonFloor"),
+      Self::CaveFloor => Some("CaveFloor"),
+      _ => None,
+    }
+  }
+}
+impl ::core::fmt::Debug for FloorStyle {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+    if let Some(name) = self.variant_name() {
+      f.write_str(name)
+    } else {
+      f.write_fmt(format_args!("<UNKNOWN {:?}>", self.0))
+    }
+  }
+}
+impl<'a> ::flatbuffers::Follow<'a> for FloorStyle {
+  type Inner = Self;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    let b = unsafe { ::flatbuffers::read_scalar_at::<u8>(buf, loc) };
+    Self(b)
+  }
+}
+
+impl ::flatbuffers::Push for FloorStyle {
+    type Output = FloorStyle;
+    #[inline]
+    unsafe fn push(&self, dst: &mut [u8], _written_len: usize) {
+        unsafe { ::flatbuffers::emplace_scalar::<u8>(dst, self.0) };
+    }
+}
+
+impl ::flatbuffers::EndianScalar for FloorStyle {
+  type Scalar = u8;
+  #[inline]
+  fn to_little_endian(self) -> u8 {
+    self.0.to_le()
+  }
+  #[inline]
+  #[allow(clippy::wrong_self_convention)]
+  fn from_little_endian(v: u8) -> Self {
+    let b = u8::from_le(v);
+    Self(b)
+  }
+}
+
+impl<'a> ::flatbuffers::Verifiable for FloorStyle {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    u8::run_verifier(v, pos)
+  }
+}
+
+impl ::flatbuffers::SimpleToVerifyInSlice for FloorStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_WALL_MATERIAL: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
@@ -3464,6 +3852,351 @@ impl ::core::fmt::Debug for Polygon<'_> {
     let mut ds = f.debug_struct("Polygon");
       ds.field("paths", &self.paths());
       ds.field("rings", &self.rings());
+      ds.finish()
+  }
+}
+pub enum CutOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Cut<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Cut<'a> {
+  type Inner = Cut<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Cut<'a> {
+  pub const VT_START: ::flatbuffers::VOffsetT = 4;
+  pub const VT_END: ::flatbuffers::VOffsetT = 6;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Cut { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CutArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Cut<'bldr>> {
+    let mut builder = CutBuilder::new(_fbb);
+    if let Some(x) = args.end { builder.add_end(x); }
+    if let Some(x) = args.start { builder.add_start(x); }
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn start(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(Cut::VT_START, None)}
+  }
+  #[inline]
+  pub fn end(&self) -> Option<&'a Vec2> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<Vec2>(Cut::VT_END, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> CutStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CutStyle>(Cut::VT_STYLE, Some(CutStyle::None)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Cut<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<Vec2>("start", Self::VT_START, false)?
+     .visit_field::<Vec2>("end", Self::VT_END, false)?
+     .visit_field::<CutStyle>("style", Self::VT_STYLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CutArgs<'a> {
+    pub start: Option<&'a Vec2>,
+    pub end: Option<&'a Vec2>,
+    pub style: CutStyle,
+}
+impl<'a> Default for CutArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CutArgs {
+      start: None,
+      end: None,
+      style: CutStyle::None,
+    }
+  }
+}
+
+pub struct CutBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CutBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_start(&mut self, start: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(Cut::VT_START, start);
+  }
+  #[inline]
+  pub fn add_end(&mut self, end: &Vec2) {
+    self.fbb_.push_slot_always::<&Vec2>(Cut::VT_END, end);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: CutStyle) {
+    self.fbb_.push_slot::<CutStyle>(Cut::VT_STYLE, style, CutStyle::None);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CutBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CutBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Cut<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Cut<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Cut");
+      ds.field("start", &self.start());
+      ds.field("end", &self.end());
+      ds.field("style", &self.style());
+      ds.finish()
+  }
+}
+pub enum OutlineOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Outline<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for Outline<'a> {
+  type Inner = Outline<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> Outline<'a> {
+  pub const VT_VERTICES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CLOSED: ::flatbuffers::VOffsetT = 8;
+  pub const VT_DESCRIPTOR_KIND: ::flatbuffers::VOffsetT = 10;
+  pub const VT_CX: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CY: ::flatbuffers::VOffsetT = 14;
+  pub const VT_RX: ::flatbuffers::VOffsetT = 16;
+  pub const VT_RY: ::flatbuffers::VOffsetT = 18;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    Outline { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args OutlineArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<Outline<'bldr>> {
+    let mut builder = OutlineBuilder::new(_fbb);
+    builder.add_ry(args.ry);
+    builder.add_rx(args.rx);
+    builder.add_cy(args.cy);
+    builder.add_cx(args.cx);
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
+    if let Some(x) = args.vertices { builder.add_vertices(x); }
+    builder.add_descriptor_kind(args.descriptor_kind);
+    builder.add_closed(args.closed);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn vertices(&self) -> Option<::flatbuffers::Vector<'a, Vec2>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, Vec2>>>(Outline::VT_VERTICES, None)}
+  }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(Outline::VT_CUTS, None)}
+  }
+  #[inline]
+  pub fn closed(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(Outline::VT_CLOSED, Some(true)).unwrap()}
+  }
+  #[inline]
+  pub fn descriptor_kind(&self) -> OutlineKind {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<OutlineKind>(Outline::VT_DESCRIPTOR_KIND, Some(OutlineKind::Polygon)).unwrap()}
+  }
+  #[inline]
+  pub fn cx(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Outline::VT_CX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn cy(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Outline::VT_CY, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn rx(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Outline::VT_RX, Some(0.0)).unwrap()}
+  }
+  #[inline]
+  pub fn ry(&self) -> f32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<f32>(Outline::VT_RY, Some(0.0)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for Outline<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("vertices", Self::VT_VERTICES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
+     .visit_field::<bool>("closed", Self::VT_CLOSED, false)?
+     .visit_field::<OutlineKind>("descriptor_kind", Self::VT_DESCRIPTOR_KIND, false)?
+     .visit_field::<f32>("cx", Self::VT_CX, false)?
+     .visit_field::<f32>("cy", Self::VT_CY, false)?
+     .visit_field::<f32>("rx", Self::VT_RX, false)?
+     .visit_field::<f32>("ry", Self::VT_RY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct OutlineArgs<'a> {
+    pub vertices: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
+    pub closed: bool,
+    pub descriptor_kind: OutlineKind,
+    pub cx: f32,
+    pub cy: f32,
+    pub rx: f32,
+    pub ry: f32,
+}
+impl<'a> Default for OutlineArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    OutlineArgs {
+      vertices: None,
+      cuts: None,
+      closed: true,
+      descriptor_kind: OutlineKind::Polygon,
+      cx: 0.0,
+      cy: 0.0,
+      rx: 0.0,
+      ry: 0.0,
+    }
+  }
+}
+
+pub struct OutlineBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OutlineBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_vertices(&mut self, vertices: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , Vec2>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Outline::VT_VERTICES, vertices);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Outline::VT_CUTS, cuts);
+  }
+  #[inline]
+  pub fn add_closed(&mut self, closed: bool) {
+    self.fbb_.push_slot::<bool>(Outline::VT_CLOSED, closed, true);
+  }
+  #[inline]
+  pub fn add_descriptor_kind(&mut self, descriptor_kind: OutlineKind) {
+    self.fbb_.push_slot::<OutlineKind>(Outline::VT_DESCRIPTOR_KIND, descriptor_kind, OutlineKind::Polygon);
+  }
+  #[inline]
+  pub fn add_cx(&mut self, cx: f32) {
+    self.fbb_.push_slot::<f32>(Outline::VT_CX, cx, 0.0);
+  }
+  #[inline]
+  pub fn add_cy(&mut self, cy: f32) {
+    self.fbb_.push_slot::<f32>(Outline::VT_CY, cy, 0.0);
+  }
+  #[inline]
+  pub fn add_rx(&mut self, rx: f32) {
+    self.fbb_.push_slot::<f32>(Outline::VT_RX, rx, 0.0);
+  }
+  #[inline]
+  pub fn add_ry(&mut self, ry: f32) {
+    self.fbb_.push_slot::<f32>(Outline::VT_RY, ry, 0.0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OutlineBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    OutlineBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<Outline<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for Outline<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("Outline");
+      ds.field("vertices", &self.vertices());
+      ds.field("cuts", &self.cuts());
+      ds.field("closed", &self.closed());
+      ds.field("descriptor_kind", &self.descriptor_kind());
+      ds.field("cx", &self.cx());
+      ds.field("cy", &self.cy());
+      ds.field("rx", &self.rx());
+      ds.field("ry", &self.ry());
       ds.finish()
   }
 }
