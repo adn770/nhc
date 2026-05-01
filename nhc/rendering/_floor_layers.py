@@ -276,8 +276,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         _trace_cave_boundary_coords,
     )
     from nhc.rendering._outline_helpers import (
-        cuts_for_doorless_openings, cuts_for_room_doors,
-        outline_from_cave, outline_from_circle,
+        cuts_for_doorless_openings, cuts_for_room_corridor_openings,
+        cuts_for_room_doors, outline_from_cave, outline_from_circle,
         outline_from_l_shape, outline_from_octagon, outline_from_pill,
         outline_from_rect, outline_from_temple,
     )
@@ -732,7 +732,10 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 continue
             wall_op = ExteriorWallOpT()
             wall_op.outline = outline_from_rect(room.rect)
-            wall_op.outline.cuts = cuts_for_room_doors(room, level)
+            wall_op.outline.cuts = (
+                cuts_for_room_doors(room, level)
+                + cuts_for_room_corridor_openings(room, level)
+            )
             wall_op.style = WallStyle.WallStyle.DungeonInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
             wall_entry = OpEntryT()

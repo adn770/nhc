@@ -41,7 +41,7 @@ from typing import Any
 
 from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
-    Room, TempleShape,
+    Room, SurfaceType, TempleShape, Terrain,
 )
 from nhc.rendering._room_outlines import (
     _intersect_outline, _temple_vertices,
@@ -551,5 +551,80 @@ def cuts_for_doorless_openings(
         cut.end = _vec2(*hit_b)
         cut.style = CutStyle.None_
         cuts.append(cut)
+
+    return cuts
+
+
+# ── Rect-room corridor-opening cut resolution ──────────────────
+
+
+def cuts_for_room_corridor_openings(
+    room: Room, level: Level,
+) -> list[CutT]:
+    """Walk a rect room's perimeter and emit one Cut per corridor tile.
+
+    Walks each floor tile of the room and checks its four cardinal
+    neighbours. For each neighbour that is a corridor tile
+    (``surface_type == SurfaceType.CORRIDOR``, ``terrain ==
+    Terrain.FLOOR``, no door feature), emits one :class:`CutT` whose
+    ``start`` / ``end`` are the pixel-space endpoints of the shared
+    tile edge between the room tile and the corridor tile. ``style``
+    is ``CutStyle.None_`` — a bare gap with no door visual.
+
+    The legacy ``wall_segments`` algorithm skips wall emission for any
+    walkable neighbour (``_is_floor`` or ``_is_door``); the door case
+    is already encoded by :func:`cuts_for_room_doors`. This helper
+    encodes the corridor case so the two helpers together cover every
+    position where ``wall_segments`` would skip a segment on a rect
+    room's perimeter. Phase 1.16b-3's consumer can then walk the rect
+    outline and break the stroke at *both* sets of cuts to reproduce
+    byte-equivalent walls to legacy.
+
+    Symmetric to :func:`cuts_for_doorless_openings` for smooth rooms
+    (Phase 1.9), which uses intersection geometry for non-axis-aligned
+    outlines. Rect rooms have axis-aligned edges so the tile-edge
+    pixel coords are computed directly — no intersection needed.
+
+    Door tiles are excluded: ``cuts_for_room_doors`` handles them.
+    The two helpers are mutually exclusive — a tile with a door feature
+    produces a door-flavoured cut from :func:`cuts_for_room_doors` and
+    zero cuts here.
+    """
+    floor = room.floor_tiles()
+    cuts: list[CutT] = []
+
+    for fx, fy in floor:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = fx + dx, fy + dy
+            if (nx, ny) in floor:
+                continue
+            nb = level.tile_at(nx, ny)
+            if (nb is None
+                    or nb.surface_type != SurfaceType.CORRIDOR
+                    or nb.terrain != Terrain.FLOOR
+                    or (nb.feature is not None
+                        and nb.feature in _DOOR_FEATURES)):
+                continue
+
+            # Pixel coords of the shared tile edge between the room
+            # tile (fx, fy) and the corridor tile (nx, ny).
+            if dy == -1:  # corridor is north of the room tile
+                start = (fx * CELL, fy * CELL)
+                end = ((fx + 1) * CELL, fy * CELL)
+            elif dy == 1:  # south
+                start = (fx * CELL, (fy + 1) * CELL)
+                end = ((fx + 1) * CELL, (fy + 1) * CELL)
+            elif dx == -1:  # west
+                start = (fx * CELL, fy * CELL)
+                end = (fx * CELL, (fy + 1) * CELL)
+            else:  # east, dx == 1
+                start = ((fx + 1) * CELL, fy * CELL)
+                end = ((fx + 1) * CELL, (fy + 1) * CELL)
+
+            cut = CutT()
+            cut.start = _vec2(*start)
+            cut.end = _vec2(*end)
+            cut.style = CutStyle.None_
+            cuts.append(cut)
 
     return cuts

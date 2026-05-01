@@ -19,7 +19,7 @@ import math
 
 from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
-    Room, TempleShape, Terrain, Tile,
+    Room, SurfaceType, TempleShape, Terrain, Tile,
 )
 
 
@@ -445,3 +445,164 @@ def test_cuts_for_room_doors_position_at_tile_edges_per_side() -> None:
             f"{side}: end mismatch (got "
             f"{(cut.end.x, cut.end.y)})"
         )
+
+
+# ── cuts_for_room_corridor_openings ─────────────────────────────
+
+
+def _make_room_with_corridor(
+    corridor_side: str,
+) -> tuple[Level, Room]:
+    """Build a 9x9 level with a 2x2 rect room at (3, 3) and a
+    single corridor tile flush to the room's edge per *corridor_side*.
+
+    The corridor tile has ``terrain=FLOOR``, ``surface_type=CORRIDOR``,
+    and no door feature — these are the conditions the helper checks.
+    """
+    level = Level.create_empty(
+        id="floor1", name="test", depth=1, width=9, height=9,
+    )
+    rect = Rect(3, 3, 2, 2)
+    room = Room(id="r1", rect=rect)
+    level.rooms = [room]
+
+    for ry in range(rect.y, rect.y2):
+        for rx in range(rect.x, rect.x2):
+            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+
+    if corridor_side == "north":
+        cx, cy = rect.x, rect.y - 1
+    elif corridor_side == "south":
+        cx, cy = rect.x, rect.y2
+    elif corridor_side == "west":
+        cx, cy = rect.x - 1, rect.y
+    else:  # east
+        cx, cy = rect.x2, rect.y
+
+    level.tiles[cy][cx] = Tile(
+        terrain=Terrain.FLOOR,
+        surface_type=SurfaceType.CORRIDOR,
+    )
+    return level, room
+
+
+def test_cuts_for_room_corridor_openings_finds_north_neighbor() -> None:
+    """A corridor tile at (room.x, room.y-1) produces one cut at
+    the top edge of the adjacent room tile.
+
+    Cut spans from (room.x * CELL, room.y * CELL) to
+    ((room.x+1) * CELL, room.y * CELL) — the full tile-edge width.
+    Style must be CutStyle.None_ (bare gap, no door visual).
+    """
+    from nhc.rendering._outline_helpers import (
+        cuts_for_room_corridor_openings,
+    )
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    level, room = _make_room_with_corridor("north")
+    cuts = cuts_for_room_corridor_openings(room, level)
+
+    assert len(cuts) == 1
+    cut = cuts[0]
+    assert cut.style == CutStyle.None_
+    # Corridor at (3, 2); shared edge with room tile (3, 3) is the
+    # top edge of (3, 3): x in [3*CELL, 4*CELL], y = 3*CELL.
+    assert (cut.start.x, cut.start.y) == (3 * CELL, 3 * CELL)
+    assert (cut.end.x, cut.end.y) == (4 * CELL, 3 * CELL)
+
+
+def test_cuts_for_room_corridor_openings_finds_all_four_directions() -> None:
+    """Corridors abutting the room from N/S/E/W each produce one cut
+    with correct tile-edge pixel coords and CutStyle.None_.
+
+    Rect room at (3,3) width 2 height 2; corridor on each side in
+    separate levels. Verifies all four cardinal directions are handled.
+    """
+    from nhc.rendering._outline_helpers import (
+        cuts_for_room_corridor_openings,
+    )
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    rect = Rect(3, 3, 2, 2)
+    # Expected tile-edge for the abutting room tile per direction:
+    # north: room tile (3,3), top edge → y=3*CELL, x in [3,4]*CELL
+    # south: room tile (3,4), bottom edge → y=5*CELL, x in [3,4]*CELL
+    # west:  room tile (3,3), left edge  → x=3*CELL, y in [3,4]*CELL
+    # east:  room tile (4,3), right edge → x=5*CELL, y in [3,4]*CELL
+    expected = {
+        "north": ((3 * CELL, 3 * CELL), (4 * CELL, 3 * CELL)),
+        "south": ((3 * CELL, 5 * CELL), (4 * CELL, 5 * CELL)),
+        "west":  ((3 * CELL, 3 * CELL), (3 * CELL, 4 * CELL)),
+        "east":  ((5 * CELL, 3 * CELL), (5 * CELL, 4 * CELL)),
+    }
+    for side, (exp_start, exp_end) in expected.items():
+        level, room = _make_room_with_corridor(side)
+        cuts = cuts_for_room_corridor_openings(room, level)
+        assert len(cuts) == 1, (
+            f"{side}: expected 1 corridor cut, got {len(cuts)}"
+        )
+        cut = cuts[0]
+        assert cut.style == CutStyle.None_, (
+            f"{side}: cut style must be None_, got {cut.style}"
+        )
+        assert (cut.start.x, cut.start.y) == exp_start, (
+            f"{side}: start mismatch (got "
+            f"{(cut.start.x, cut.start.y)})"
+        )
+        assert (cut.end.x, cut.end.y) == exp_end, (
+            f"{side}: end mismatch (got "
+            f"{(cut.end.x, cut.end.y)})"
+        )
+
+
+def test_cuts_for_room_corridor_openings_skips_void_neighbors() -> None:
+    """A non-walkable / void tile adjacent to the room produces zero
+    cuts.
+
+    Only corridor tiles (walkable + surface_type == CORRIDOR, no door
+    feature) should produce cuts. VOID tiles have terrain != FLOOR so
+    ``_is_floor`` returns False and no cut is emitted.
+    """
+    from nhc.rendering._outline_helpers import (
+        cuts_for_room_corridor_openings,
+    )
+
+    level = Level.create_empty(
+        id="floor1", name="test", depth=1, width=7, height=7,
+    )
+    rect = Rect(2, 2, 2, 2)
+    room = Room(id="r1", rect=rect)
+    level.rooms = [room]
+    for ry in range(rect.y, rect.y2):
+        for rx in range(rect.x, rect.x2):
+            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+
+    # All neighbors are VOID (default); no cuts expected.
+    cuts = cuts_for_room_corridor_openings(room, level)
+    assert cuts == [], (
+        "VOID neighbors must not produce corridor cuts"
+    )
+
+
+def test_cuts_for_room_corridor_openings_skips_door_tiles() -> None:
+    """A door tile adjacent to the room produces zero corridor cuts.
+
+    Door tiles are walkable (terrain=FLOOR) but ``cuts_for_room_doors``
+    handles them — :func:`cuts_for_room_corridor_openings` must skip
+    them so the two helpers are mutually exclusive on tile-edge
+    positions. A tile with a door feature is excluded by checking that
+    its feature is not in the door-feature set.
+    """
+    from nhc.rendering._outline_helpers import (
+        cuts_for_room_corridor_openings,
+    )
+
+    level, room = _make_room_with_door("door_closed", "north")
+    # The door tile is walkable (terrain=FLOOR) but has a door feature;
+    # it also lacks surface_type=CORRIDOR. Either check suffices;
+    # the helper must produce zero cuts for door tiles.
+    cuts = cuts_for_room_corridor_openings(room, level)
+    assert cuts == [], (
+        "door tiles must not produce corridor-opening cuts "
+        "(cuts_for_room_doors handles doors)"
+    )

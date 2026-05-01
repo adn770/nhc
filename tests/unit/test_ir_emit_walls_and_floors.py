@@ -1924,3 +1924,237 @@ def test_corridor_wall_op_round_trips_through_pack_unpack() -> None:
     assert op.style == WallStyle.DungeonInk, (
         f"style must survive pack/unpack as DungeonInk, got {op.style}"
     )
+
+
+# ── Phase 1.16b-2 — corridor-opening cuts on rect ExteriorWallOp ──
+
+
+def _build_rect_level_with_corridor(
+    rect: Rect,
+    corridor_tiles: list[tuple[int, int]],
+) -> Level:
+    """Build a level with one RectShape room and explicit corridor tiles.
+
+    Room floor tiles are FLOOR; corridor tiles are FLOOR +
+    surface_type=CORRIDOR. Everything else is VOID. Used to test
+    :func:`cuts_for_room_corridor_openings` wired into the rect
+    ExteriorWallOp emitter.
+    """
+    max_x = max(
+        rect.x2,
+        *(cx for cx, _ in corridor_tiles),
+    )
+    max_y = max(
+        rect.y2,
+        *(cy for _, cy in corridor_tiles),
+    )
+    width = max_x + 2
+    height = max_y + 2
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=width, height=height,
+    )
+    room = Room(id="r1", rect=rect, shape=RectShape())
+    level.rooms.append(room)
+    for ry in range(rect.y, rect.y2):
+        for rx in range(rect.x, rect.x2):
+            level.tiles[ry][rx] = Tile(terrain=Terrain.FLOOR)
+    for cx, cy in corridor_tiles:
+        level.tiles[cy][cx] = Tile(
+            terrain=Terrain.FLOOR,
+            surface_type=SurfaceType.CORRIDOR,
+        )
+    return level
+
+
+def test_rect_exterior_wall_op_cuts_include_corridor_openings() -> None:
+    """Rect rooms with corridor connections produce ExteriorWallOps
+    with len(cuts) == corridor_openings (no doors in this level).
+
+    Places a corridor tile adjacent to a rect room and verifies that
+    the resulting ExteriorWallOp carries one corridor-opening cut with
+    CutStyle.None_.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    rect = Rect(2, 2, 4, 3)
+    # Corridor tile north of room tile (2, 2).
+    level = _build_rect_level_with_corridor(rect, [(2, 1)])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    corridor_cuts = [c for c in cuts if c.style == CutStyle.None_]
+    assert len(corridor_cuts) == 1, (
+        f"expected 1 corridor-opening cut, got {len(corridor_cuts)}"
+    )
+
+
+def test_corridor_opening_cut_position_matches_tile_edge() -> None:
+    """Each corridor-opening cut spans exactly the corridor tile's
+    CELL-wide edge in pixel coordinates.
+
+    For a corridor tile directly north of room tile (rx, ry), the cut
+    must run from (rx*CELL, ry*CELL) to ((rx+1)*CELL, ry*CELL) —
+    the top edge of the room tile that abuts the corridor.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    rect = Rect(3, 3, 2, 2)
+    # Corridor north of room tile (3, 3) — at (3, 2).
+    level = _build_rect_level_with_corridor(rect, [(3, 2)])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    corridor_cuts = [c for c in cuts if c.style == CutStyle.None_]
+    assert len(corridor_cuts) == 1
+    cut = corridor_cuts[0]
+    # Top edge of room tile (3, 3): x in [3*CELL, 4*CELL], y = 3*CELL.
+    assert (cut.start.x, cut.start.y) == (3 * CELL, 3 * CELL), (
+        f"cut.start mismatch: got ({cut.start.x}, {cut.start.y})"
+    )
+    assert (cut.end.x, cut.end.y) == (4 * CELL, 3 * CELL), (
+        f"cut.end mismatch: got ({cut.end.x}, {cut.end.y})"
+    )
+
+
+def test_corridor_opening_cut_style_is_none() -> None:
+    """Corridor openings produce Cut { style: CutStyle.None_ }
+    (bare gap, no door visual).
+
+    Explicitly pins that corridor cuts use the zero-value None_ style
+    and not any door style — so the 1.16b-3 consumer can distinguish
+    corridor gaps from door openings when walking the cut list.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    rect = Rect(2, 2, 3, 3)
+    # Single corridor tile south of room tile (2, 4) — at (2, 5).
+    level = _build_rect_level_with_corridor(rect, [(2, 5)])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    assert len(cuts) == 1
+    assert cuts[0].style == CutStyle.None_, (
+        f"corridor cut must use CutStyle.None_, got {cuts[0].style}"
+    )
+
+
+def test_door_cuts_and_corridor_cuts_coexist() -> None:
+    """A rect room with both a door AND a corridor connection produces
+    ExteriorWallOp.cuts containing both kinds — a door cut
+    (DoorWood) and a corridor cut (None_).
+
+    Pins the composition of cuts_for_room_doors +
+    cuts_for_room_corridor_openings in the emitter.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    # Room at (2,2) 4x3; door tile north at (2,1); corridor south at (2,5).
+    rect = Rect(2, 2, 4, 3)
+    level = _build_rect_level_with_corridor(rect, [(2, 5)])
+    # Add a door tile north of (2, 2).
+    level.tiles[1][2] = Tile(terrain=Terrain.FLOOR, feature="door")
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+
+    door_cuts = [c for c in cuts if c.style == CutStyle.DoorWood]
+    corridor_cuts = [c for c in cuts if c.style == CutStyle.None_]
+    assert len(door_cuts) == 1, (
+        f"expected 1 DoorWood cut, got {len(door_cuts)}"
+    )
+    assert len(corridor_cuts) == 1, (
+        f"expected 1 corridor cut (None_), got {len(corridor_cuts)}"
+    )
+
+
+def test_seed42_rect_rooms_corridor_cut_count_matches_expected() -> None:
+    """End-to-end: seed42 rect ExteriorWallOps carry exactly the right
+    number of corridor-opening cuts.
+
+    Computes the expected count by walking each rect room's perimeter
+    for corridor-adjacent tiles (surface_type == CORRIDOR, walkable,
+    no door feature) and asserts the total CutStyle.None_ cuts on rect
+    ExteriorWallOps equals that expected count.
+
+    In seed42 all rect rooms connect to corridors via door tiles (no
+    doorless rect-room/corridor adjacency exists), so the expected
+    count is 0 — which means the helper runs cleanly and adds no
+    spurious cuts while door cuts are still present.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    DOOR_FEATURES = {
+        "door", "door_open", "door_closed", "door_locked",
+        "door_secret", "door_iron", "door_stone",
+    }
+
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    level = inputs.level
+    ops, _ = _emit_into_builder(level, seed=inputs.seed)
+
+    # Count ExteriorWallOps for rect rooms only (emitted first in the
+    # op sequence; smooth rooms come in the next pass).
+    rect_room_count = sum(
+        1 for r in level.rooms
+        if isinstance(r.shape, RectShape)
+    )
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ][:rect_room_count]
+
+    # Count expected corridor-opening cuts for each rect room.
+    total_corridor_cuts_expected = 0
+    for room in level.rooms:
+        if not isinstance(room.shape, RectShape):
+            continue
+        floor = room.floor_tiles()
+        for fx, fy in floor:
+            for ddx, ddy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                nx, ny = fx + ddx, fy + ddy
+                if (nx, ny) in floor:
+                    continue
+                tile = level.tile_at(nx, ny)
+                if (tile and tile.surface_type == SurfaceType.CORRIDOR
+                        and tile.terrain == Terrain.FLOOR
+                        and (tile.feature is None
+                             or tile.feature not in DOOR_FEATURES)):
+                    total_corridor_cuts_expected += 1
+
+    # Count actual CutStyle.None_ cuts on the rect ExteriorWallOps.
+    total_corridor_cuts_actual = sum(
+        sum(1 for c in (e.op.outline.cuts or [])
+            if c.style == CutStyle.None_)
+        for e in wall_ops
+    )
+    assert total_corridor_cuts_actual == total_corridor_cuts_expected, (
+        f"seed42 rect rooms: expected {total_corridor_cuts_expected} "
+        f"corridor-opening cuts (CutStyle.None_) on rect ExteriorWallOps, "
+        f"got {total_corridor_cuts_actual}"
+    )
+
+    # Door cuts must still be present (regression guard).
+    total_door_cuts = sum(
+        sum(1 for c in (e.op.outline.cuts or [])
+            if c.style != CutStyle.None_)
+        for e in wall_ops
+    )
+    assert total_door_cuts > 0, (
+        "seed42 rect rooms must still have door cuts after corridor "
+        "cut addition — regression guard"
+    )
