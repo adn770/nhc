@@ -12,7 +12,7 @@
   "op_counts": {
     "BuildingExteriorWallOp": 1,
     "BuildingInteriorWallOp": 1,
-    "ExteriorWallOp": 3,
+    "ExteriorWallOp": 4,
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
     "FloorOp": 6,

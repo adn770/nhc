@@ -31,6 +31,8 @@ output also leaves padding to the wrapping ``<svg>`` element).
 
 from __future__ import annotations
 
+from typing import Any
+
 from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
     Room, TempleShape,
@@ -307,6 +309,32 @@ def outline_from_cave(
     return _polygon_outline(list(coords))
 
 
+# ── Generic polygon outline (buildings, enclosures) ────────────
+
+
+def outline_from_polygon(
+    coords: list[tuple[float, float]],
+    *,
+    closed: bool = True,
+) -> OutlineT:
+    """Wrap a pre-computed pixel-space polygon as a closed Outline.
+
+    Phase 1.12 introduces this helper for buildings — the existing
+    :func:`nhc.rendering.ir_emitter._building_footprint_polygon_px`
+    returns the building footprint as a list of ``(x, y)`` pixel-coord
+    vertices, and the new ExteriorWallOp ships them as a closed Polygon
+    outline. The helper is shape-agnostic so future commits (1.14
+    enclosures, etc.) can reuse it for any consumer that already has
+    polygon coords in pixel space.
+
+    Vertices are passed through verbatim — no closing duplicate, no
+    reordering. ``closed`` defaults to True (the typical building /
+    enclosure case); future open-polyline consumers (1.13 partition
+    outlines) can flip it.
+    """
+    return _polygon_outline(list(coords), closed=closed)
+
+
 # ── Door cut resolution ────────────────────────────────────────
 
 
@@ -361,6 +389,34 @@ def cuts_for_room_doors(
             cuts.append(cut)
 
     return cuts
+
+
+# ── Building door cut resolution ───────────────────────────────
+
+
+def cuts_for_building_doors(
+    building: Any, level: Any,
+) -> list[CutT]:
+    """Walk the building's perimeter and emit one Cut per door tile.
+
+    Mirrors :func:`cuts_for_room_doors` but for :class:`Building`
+    instances. Buildings carry geometry on ``base_shape`` /
+    ``base_rect`` rather than the :class:`Room`-style ``floor_tiles``
+    method, so the helper derives the floor-tile set via
+    :meth:`RoomShape.floor_tiles` directly. Once a door tile is found,
+    the Cut's start / end / style resolution is identical to the
+    room helper — :func:`cuts_for_room_doors`'s walker is reused
+    after building a Room-like adapter object so the door-side /
+    pixel-edge logic stays in one place.
+
+    Used by :func:`emit_building_walls` (Phase 1.12) to populate
+    :type:`ExteriorWallOpT.outline.cuts` for masonry buildings.
+    """
+    from types import SimpleNamespace
+
+    floor = building.base_shape.floor_tiles(building.base_rect)
+    adapter = SimpleNamespace(floor_tiles=lambda: floor)
+    return cuts_for_room_doors(adapter, level)  # type: ignore[arg-type]
 
 
 # ── Doorless-gap cut resolution (smooth rooms) ─────────────────

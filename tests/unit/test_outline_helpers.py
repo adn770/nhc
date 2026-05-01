@@ -200,6 +200,58 @@ def test_outline_from_temple_room() -> None:
         assert math.isclose(got.y, ey)
 
 
+# ── outline_from_polygon ─────────────────────────────────────────
+
+
+def test_outline_from_polygon_carries_input_vertices() -> None:
+    """A polygon's vertex list passes through to ``Outline.vertices``
+    verbatim. Phase 1.12 introduces the helper for buildings: the
+    ``_building_footprint_polygon_px`` helper returns pixel-space
+    vertices for rect / octagon / circle / L-shape building footprints,
+    and the new ExteriorWallOp emits these as a closed Polygon outline.
+    The helper is shape-agnostic — buildings, future enclosures (1.14),
+    and any other consumer with pre-computed polygon coords share the
+    same wrapper rather than duplicating ``_polygon_outline`` calls.
+    """
+    from nhc.rendering._outline_helpers import outline_from_polygon
+    from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+
+    coords = [
+        (32.0, 32.0), (320.0, 32.0),
+        (320.0, 160.0), (32.0, 160.0),
+    ]
+    out = outline_from_polygon(coords)
+
+    assert out.descriptorKind == OutlineKind.Polygon
+    assert out.closed is True
+    assert out.vertices is not None and len(out.vertices) == 4
+    for got, (ex, ey) in zip(out.vertices, coords):
+        assert (got.x, got.y) == (ex, ey)
+    assert out.cuts == []
+
+
+def test_outline_from_polygon_handles_arbitrary_vertex_count() -> None:
+    """The helper round-trips polygons of any ring length — circle
+    buildings polygonise to 24-gons, octagons to 8 vertices, L-shape
+    buildings to 6 vertices. Pinning the helper for an 8-vertex octagon
+    catches regressions where the wrapper truncates / reorders the
+    input list.
+    """
+    from nhc.rendering._outline_helpers import outline_from_polygon
+
+    coords = [
+        (64.0, 0.0), (256.0, 0.0),
+        (320.0, 64.0), (320.0, 256.0),
+        (256.0, 320.0), (64.0, 320.0),
+        (0.0, 256.0), (0.0, 64.0),
+    ]
+    out = outline_from_polygon(coords)
+
+    assert len(out.vertices) == 8
+    for got, (ex, ey) in zip(out.vertices, coords):
+        assert (got.x, got.y) == (ex, ey)
+
+
 # ── outline_from_cave ─────────────────────────────────────────────
 
 

@@ -693,7 +693,15 @@ class TestEmitBuildingWalls:
     def test_brick_emits_interior_then_exterior(self) -> None:
         """Op-emit order is interior-then-exterior per
         design/map_ir.md §6.1; the curved exterior masonry
-        overlays partition extensions at the rim."""
+        overlays partition extensions at the rim.
+
+        Phase 1.12 added a parallel ExteriorWallOp emission so the
+        legacy interior+exterior pair grew to interior + legacy
+        exterior + new ExteriorWallOp. This test focuses on the
+        legacy ops; :class:`TestEmitBuildingExteriorWallOp` pins the
+        new-op contract.
+        """
+        from nhc.rendering.ir._fb import Op
         builder = self._builder()
         b = _StubBuildingForWalls(
             base_shape=RectShape(),
@@ -705,12 +713,19 @@ class TestEmitBuildingWalls:
             builder, b, _StubLevelWithEdges(),
             base_seed=42, building_index=0,
         )
-        # 1 interior + 1 exterior op = 2; interior first.
-        assert len(builder.ops) == 2
-        intr = builder.ops[0].op
+        legacy_ops = [
+            e for e in builder.ops
+            if e.opType in (
+                Op.Op.BuildingInteriorWallOp,
+                Op.Op.BuildingExteriorWallOp,
+            )
+        ]
+        # 1 interior + 1 legacy exterior; interior first.
+        assert len(legacy_ops) == 2
+        intr = legacy_ops[0].op
         assert intr.regionRef == "building.0"
         assert intr.material == InteriorWallMaterial.Stone
-        ext = builder.ops[1].op
+        ext = legacy_ops[1].op
         assert ext.regionRef == "building.0"
         assert ext.material == WallMaterial.Brick
         # rng_seed = base_seed + 0xBE71 + i.
@@ -719,7 +734,12 @@ class TestEmitBuildingWalls:
     def test_dungeon_material_skips_exterior(self) -> None:
         """Buildings tagged `wall_material == "dungeon"` flow
         through the existing WallsAndFloorsOp pass instead of
-        emitting a BuildingExteriorWallOp."""
+        emitting a BuildingExteriorWallOp.
+
+        Phase 1.12: ``wall_material == "dungeon"`` skips both the
+        legacy and new exterior wall ops, leaving only the interior
+        partition op.
+        """
         builder = self._builder()
         b = _StubBuildingForWalls(
             base_shape=RectShape(),
@@ -731,7 +751,8 @@ class TestEmitBuildingWalls:
             builder, b, _StubLevelWithEdges(),
             base_seed=0, building_index=0,
         )
-        # Only the interior op fires.
+        # Only the interior op fires; both legacy + new exterior
+        # ops skip for dungeon-walled buildings.
         assert len(builder.ops) == 1
         op = builder.ops[0].op
         assert op.regionRef == "building.0"
@@ -851,3 +872,367 @@ class TestBuildingWallIRToSvg:
         # No brick/stone palette markers.
         assert 'fill="#B4695A"' not in svg
         assert 'fill="#9A8E80"' not in svg
+
+
+# ── Phase 1.12 — building ExteriorWallOp ───────────────────────
+
+
+class TestEmitBuildingExteriorWallOp:
+    """Phase 1.12 of plans/nhc_pure_ir_plan.md.
+
+    For each :class:`Building` with ``wall_material in {"brick",
+    "stone"}`` the emitter ships one :type:`ExteriorWallOpT`
+    alongside the legacy :type:`BuildingExteriorWallOpT`. The new op
+    carries the building footprint as a closed Polygon outline,
+    style mapped from masonry source (``brick`` →
+    ``WallStyle.MasonryBrick``, ``stone`` → ``WallStyle.MasonryStone``),
+    ``corner_style = CornerStyle.Merlon`` (the schema default), and
+    door cuts resolved via :func:`cuts_for_room_doors` (the same
+    shape-agnostic helper rect / smooth ExteriorWallOps wire in at
+    1.8 / 1.9). Buildings with ``wall_material == "dungeon"`` skip
+    both ops, mirroring the legacy short-circuit. ``adobe`` / ``wood``
+    wall materials skip the new op too — Phase 1.12 explicitly scopes
+    to the masonry styles the v4 ``WallStyle`` enum reserves; future
+    phases extend the mapping when those materials gain dedicated
+    enum slots.
+    """
+
+    def _builder(self) -> FloorIRBuilder:
+        return FloorIRBuilder(
+            _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
+        )
+
+    def test_brick_emits_exterior_wall_op(self) -> None:
+        """A brick-walled rect Building produces one ExteriorWallOp
+        with style MasonryBrick alongside the legacy
+        BuildingExteriorWallOp."""
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(2, 2, 6, 6),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=42, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(wall_ops) == 1, (
+            "expected one ExteriorWallOp per brick Building"
+        )
+        wop = wall_ops[0].op
+        assert wop.style == WallStyle.MasonryBrick
+        assert wop.cornerStyle == CornerStyle.Merlon
+        assert wop.outline is not None
+        assert wop.outline.descriptorKind == OutlineKind.Polygon
+        assert wop.outline.closed is True
+
+    def test_stone_emits_exterior_wall_op(self) -> None:
+        """A stone-walled octagon Building produces one
+        ExteriorWallOp with style MasonryStone and an 8-vertex
+        Polygon outline matching the building footprint."""
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=OctagonShape(),
+            base_rect=Rect(0, 0, 9, 9),
+            wall_material="stone",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(wall_ops) == 1
+        wop = wall_ops[0].op
+        assert wop.style == WallStyle.MasonryStone
+        assert wop.outline.descriptorKind == OutlineKind.Polygon
+        # OctagonShape footprint is 8-vertex per
+        # _building_footprint_polygon_px.
+        assert len(wop.outline.vertices) == 8
+
+    def test_dungeon_material_skips_exterior_wall_op(self) -> None:
+        """``wall_material == "dungeon"`` buildings emit neither the
+        legacy BuildingExteriorWallOp nor the new ExteriorWallOp —
+        the dungeon-perimeter walls land on the WallsAndFloorsOp
+        pass instead, mirroring the §1.12 ``cuts: [doors]``
+        building-only contract."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 4, 4),
+            wall_material="dungeon",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert wall_ops == [], (
+            "dungeon-walled buildings must skip ExteriorWallOp; "
+            "their perimeter is handled by WallsAndFloorsOp"
+        )
+
+    def test_adobe_material_skips_exterior_wall_op(self) -> None:
+        """``wall_material == "adobe"`` (or any non-masonry value)
+        skips the new ExteriorWallOp.
+
+        The plan's §1.12 explicitly scopes the new op to the masonry
+        styles ``WallStyle`` reserves (``MasonryBrick`` /
+        ``MasonryStone``). Adobe / wood / future materials get their
+        own enum slot before the new op picks them up. The legacy
+        ``BuildingExteriorWallOp`` still ships for adobe in parallel
+        (``_WALL_MATERIAL_MAP.get(..., WallMaterial.Brick)`` falls
+        through to the brick palette) — this test pins ONLY the new-op
+        behaviour, leaving the legacy code path unchanged.
+        """
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 4, 4),
+            wall_material="adobe",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert wall_ops == [], (
+            "non-masonry wall materials must skip the new "
+            "ExteriorWallOp until WallStyle gains the matching enum"
+        )
+
+    def test_outline_vertices_match_building_footprint(self) -> None:
+        """ExteriorWallOp.outline.vertices equal the building's
+        footprint polygon verbatim.
+
+        Both the new op and the legacy
+        :func:`emit_building_regions` (which writes the Region
+        polygon) consume :func:`_building_footprint_polygon_px`
+        directly — the wall outline must round-trip those coords
+        without reordering or PADDING-baking. Pinning vertex
+        equality catches drift between the two emit paths.
+        """
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=LShape(corner="nw"),
+            base_rect=Rect(2, 3, 8, 6),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(wall_ops) == 1
+        outline_verts = [
+            (v.x, v.y) for v in wall_ops[0].op.outline.vertices
+        ]
+        expected = [
+            (float(x), float(y))
+            for x, y in _building_footprint_polygon_px(b)
+        ]
+        assert outline_verts == expected, (
+            "ExteriorWallOp outline must equal "
+            "_building_footprint_polygon_px output verbatim"
+        )
+
+    def test_exterior_wall_op_lands_after_legacy_ops(self) -> None:
+        """The new ExteriorWallOp lands AFTER both the legacy
+        BuildingInteriorWallOp + BuildingExteriorWallOp entries.
+
+        The current emit order is interior-then-exterior for the
+        legacy ops (per design/map_ir.md §6.1); the new ExteriorWallOp
+        appends after both so future consumer switches at 1.16+ can
+        prefer the new op without rearranging ops[]. Mirrors the
+        Phase 1.10 cave ExteriorWallOp post-WallsAndFloorsOp
+        placement.
+        """
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(2, 2, 6, 6),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+
+        op_types = [e.opType for e in builder.ops]
+        legacy_ext_idx = op_types.index(Op.Op.BuildingExteriorWallOp)
+        new_ext_idx = op_types.index(Op.Op.ExteriorWallOp)
+        assert new_ext_idx > legacy_ext_idx, (
+            "new ExteriorWallOp must land after the legacy "
+            "BuildingExteriorWallOp in ops[]"
+        )
+
+    def test_exterior_wall_op_no_doors_yields_empty_cuts(self) -> None:
+        """A building with no door tiles produces an ExteriorWallOp
+        with ``cuts == []``.
+
+        The shape-agnostic :func:`cuts_for_room_doors` helper from
+        Phase 1.3 only fires on door features adjacent to room floor
+        tiles. The synthetic test fixtures here use a stub level
+        whose ``tile_at`` always returns None, so no doors resolve;
+        the cut list must come back empty.
+        """
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(2, 2, 6, 6),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(wall_ops) == 1
+        cuts = wall_ops[0].op.outline.cuts or []
+        assert cuts == [], (
+            "stub level has no door tiles — cuts must be empty"
+        )
+
+    def test_legacy_building_exterior_wall_op_still_emitted(self) -> None:
+        """Phase 1.12 ships parallel emission — the legacy
+        BuildingExteriorWallOp keeps populating until 1.20 retires
+        it. Pinning the parallel-emission contract guards against
+        accidentally short-circuiting the legacy pass."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(2, 2, 6, 6),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=42, building_index=0,
+        )
+
+        legacy_ops = [
+            e for e in builder.ops
+            if e.opType == Op.Op.BuildingExteriorWallOp
+        ]
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(legacy_ops) == 1, (
+            "legacy BuildingExteriorWallOp must still ship"
+        )
+        assert len(new_ops) == 1, (
+            "new ExteriorWallOp must ship alongside the legacy op"
+        )
+        # Both ops share the same building region.
+        assert legacy_ops[0].op.regionRef == "building.0"
+
+    def test_door_tile_resolves_to_cut_on_exterior_wall(self) -> None:
+        """A door feature on a tile abutting the building's
+        floor produces one Cut on the new ExteriorWallOp.
+
+        Buildings reuse :func:`cuts_for_room_doors` — the helper
+        walks the building's interior tile floor (the rect's tiles
+        for a rect Building) and emits one Cut per adjacent door
+        tile. Cut style maps via ``_DOOR_FEATURE_TO_CUT_STYLE``.
+        """
+        from dataclasses import dataclass as _dc
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+        @_dc
+        class _DoorTile:
+            feature: str = "door_closed"
+            door_side: str | None = None
+
+        @_dc
+        class _LevelWithDoor:
+            width: int = 32
+            height: int = 32
+            interior_edges: list[tuple[int, int, str]] = (
+                None  # type: ignore[assignment]
+            )
+
+            def __post_init__(self) -> None:
+                if self.interior_edges is None:
+                    self.interior_edges = []
+
+            def tile_at(self, x: int, y: int):
+                # One door tile at (2, 1), directly north of the
+                # building's NW floor tile (2, 2).
+                if (x, y) == (2, 1):
+                    return _DoorTile(feature="door_closed")
+                return None
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(2, 2, 4, 3),
+            wall_material="brick",
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _LevelWithDoor(),
+            base_seed=0, building_index=0,
+        )
+
+        wall_ops = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(wall_ops) == 1
+        cuts = wall_ops[0].op.outline.cuts or []
+        assert len(cuts) == 1, (
+            "expected one Cut for the single door tile north of "
+            "the brick building"
+        )
+        cut = cuts[0]
+        assert cut.style == CutStyle.DoorWood
+        # Door is north of building tile (2, 2); the shared tile edge
+        # runs from (2*CELL, 2*CELL) to (3*CELL, 2*CELL) in pixel
+        # coords.
+        assert (cut.start.x, cut.start.y) == (2 * CELL, 2 * CELL)
+        assert (cut.end.x, cut.end.y) == (3 * CELL, 2 * CELL)

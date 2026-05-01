@@ -13,7 +13,8 @@
   },
   "op_counts": {
     "BuildingExteriorWallOp": 1,
-    "BuildingInteriorWallOp": 1
+    "BuildingInteriorWallOp": 1,
+    "ExteriorWallOp": 1
   },
   "region_count": 1,
   "region_polygon_rings": 1,

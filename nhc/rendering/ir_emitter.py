@@ -51,6 +51,7 @@ from nhc.rendering.ir._fb.BuildingInteriorWallOp import (
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
 from nhc.rendering.ir._fb.EnclosureOp import EnclosureOpT
 from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
+from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
 from nhc.rendering.ir._fb.Gate import GateT
 from nhc.rendering.ir._fb.GateStyle import GateStyle
 from nhc.rendering.ir._fb.InteriorEdge import InteriorEdgeT
@@ -64,6 +65,7 @@ from nhc.rendering.ir._fb.RoofStyle import RoofStyle
 from nhc.rendering.ir._fb.TileCorner import TileCorner
 from nhc.rendering.ir._fb.Vec2 import Vec2T
 from nhc.rendering.ir._fb.WallMaterial import WallMaterial
+from nhc.rendering.ir._fb.WallStyle import WallStyle
 
 
 # Schema version stamped on every emitted buffer. Bumped per the
@@ -725,6 +727,48 @@ def emit_building_walls(
         ext_entry.opType = 18  # Op.BuildingExteriorWallOp
         ext_entry.op = ext_op
         builder.add_op(ext_entry)
+
+    # Phase 1.12 — parallel emission of ExteriorWallOp for masonry
+    # buildings. Per Region(kind=Building) with wall_material in
+    # {"brick", "stone"} the emitter ships one ExteriorWallOp
+    # { outline = building footprint polygon, style = MasonryBrick |
+    # MasonryStone, corner_style = Merlon, cuts = [doors] } alongside
+    # the legacy BuildingExteriorWallOp. The masonry wall styles map
+    # 1:1 from the building's wall_material per design/map_ir_v4.md
+    # §3 / §7. ``wall_material == "dungeon"`` skips both ops (the
+    # dungeon perimeter walks the WallsAndFloorsOp pass instead);
+    # non-masonry materials (``adobe`` / ``wood``) skip the new op
+    # only — the v4 ``WallStyle`` enum reserves the masonry slots,
+    # and adobe / wood will get dedicated styles in a future phase.
+    #
+    # Door cuts ride on the shape-agnostic
+    # ``cuts_for_building_doors`` helper, which delegates to
+    # ``cuts_for_room_doors`` after wrapping the building's
+    # base_shape.floor_tiles(base_rect) in a Room-like adapter so the
+    # door-side / pixel-edge logic stays in one place.
+    #
+    # The new op lands AFTER the legacy BuildingExteriorWallOp so the
+    # 1.16+ consumer switch picks up the new path without reordering
+    # ops[]; mirrors the Phase 1.10 cave ExteriorWallOp placement.
+    _MASONRY_STYLE_MAP = {
+        "brick": WallStyle.MasonryBrick,
+        "stone": WallStyle.MasonryStone,
+    }
+    if wall_material in _MASONRY_STYLE_MAP:
+        from nhc.rendering._outline_helpers import (
+            cuts_for_building_doors, outline_from_polygon,
+        )
+        polygon = _building_footprint_polygon_px(building)
+        coords = [(float(x), float(y)) for x, y in polygon]
+        wall_op = ExteriorWallOpT()
+        wall_op.outline = outline_from_polygon(coords)
+        wall_op.outline.cuts = cuts_for_building_doors(building, level)
+        wall_op.style = _MASONRY_STYLE_MAP[wall_material]
+        wall_op.cornerStyle = CornerStyle.Merlon
+        wall_entry = OpEntryT()
+        wall_entry.opType = 22  # Op.ExteriorWallOp
+        wall_entry.op = wall_op
+        builder.add_op(wall_entry)
 
 
 def emit_building_regions(
