@@ -271,7 +271,10 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         CircleShape, LShape, OctagonShape, PillShape, Rect, RectShape,
         TempleShape,
     )
-    from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
+    from nhc.rendering._cave_geometry import (
+        _cave_raw_exterior_coords,
+        _trace_cave_boundary_coords,
+    )
     from nhc.rendering._outline_helpers import (
         cuts_for_doorless_openings, cuts_for_room_doors,
         outline_from_cave, outline_from_circle,
@@ -613,10 +616,14 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 if comp_tiles:
                     tile_groups.append(comp_tiles)
         for tile_group in tile_groups:
-            coords = _trace_cave_boundary_coords(tile_group)
+            # Use raw (un-simplified) exterior ring coords so the
+            # consumer can reconstruct the exact tile-union Polygon
+            # via Polygon(vertices) and apply the buffer+jitter
+            # pipeline to produce byte-identical cave geometry to
+            # _build_cave_wall_geometry.  See Phase 1.15b follow-up.
+            coords = _cave_raw_exterior_coords(tile_group)
             if not coords or len(coords) < 4:
-                # Degenerate cave boundary — _cave_svg_outline also
-                # returns None here. Skip to keep parity.
+                # Degenerate cave boundary — skip to keep parity.
                 continue
             floor_op = FloorOpT()
             floor_op.outline = outline_from_cave(coords)
@@ -843,7 +850,10 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 if comp_tiles_w:
                     wall_tile_groups.append(comp_tiles_w)
         for tile_group in wall_tile_groups:
-            coords = _trace_cave_boundary_coords(tile_group)
+            # Raw exterior ring — mirrors the cave FloorOp emit above.
+            # Consumer calls _cave_path_from_outline(vertices, base_seed)
+            # to produce the buffered+jittered wall stroke.
+            coords = _cave_raw_exterior_coords(tile_group)
             if not coords or len(coords) < 4:
                 continue
             wall_op = ExteriorWallOpT()

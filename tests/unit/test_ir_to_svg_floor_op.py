@@ -15,6 +15,11 @@ Tests are written first (TDD) and cover:
   WallsAndFloorsOp skips its legacy floor emission.
 - A legacy 3.x FloorIR (no FloorOp) still renders via
   WallsAndFloorsOp for full back-compat.
+
+Phase real-consumer (follow-up to 1.15b):
+- CaveFloor FloorOp consumer reads outline.vertices via
+  buffer+jitter+smooth pipeline (NOT legacy cave_region field).
+- Pipeline matches legacy _build_cave_wall_geometry output exactly.
 """
 
 from __future__ import annotations
@@ -343,4 +348,129 @@ def test_cave_floor_op_consumer_replaces_legacy_cave_region() -> None:
     # A bezier path 'd' attribute contains C (cubic bezier segment)
     assert re.search(r'<path[^>]+d="[^"]*\bC\b', svg), (
         "Expected Catmull-Rom bezier path (C command) for cave floor"
+    )
+
+
+# ── Real-consumer follow-up tests (Phase 1.15b → real pipeline) ───
+
+
+def test_cave_floor_op_consumer_reads_outline_vertices_not_legacy_field() -> None:
+    """When a CaveFloor FloorOp is present, the consumer renders cave
+    fill from outline.vertices via buffer+jitter+smooth_closed_path,
+    NOT from WallsAndFloorsOp.cave_region. Smoke-test: clear cave_region
+    in the IR (replace with empty string in the raw bytes) and assert
+    the cave fill still renders correctly.
+
+    The real consumer derives cave geometry from FloorOp.outline.vertices
+    using the buffer+jitter+smooth_closed_path pipeline seeded from
+    fir.BaseSeed() + 0x5A17E5. The WallsAndFloorsOp.cave_region field
+    is no longer read for cave geometry.
+    """
+    import random
+    from shapely.geometry import Polygon as ShapelyPolygon
+
+    from nhc.rendering.ir_emitter import build_floor_ir
+    from nhc.rendering.ir_to_svg import ir_to_svg
+    from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
+    from nhc.rendering.ir._fb.WallsAndFloorsOp import WallsAndFloorsOpT
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from tests.fixtures.floor_ir._inputs import descriptor_inputs
+
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed, hatch_distance=2.0, vegetation=True,
+    )
+
+    # Deserialise, clear cave_region in WallsAndFloorsOp, re-serialise.
+    fir_t = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+    for entry in (fir_t.ops or []):
+        if entry.opType == Op.Op.WallsAndFloorsOp:
+            entry.op.caveRegion = ""
+    import flatbuffers as _fb_module
+    _FILE_IDENTIFIER = b"NIR3"
+    builder = _fb_module.Builder(len(buf) + 64)
+    builder.Finish(fir_t.Pack(builder), _FILE_IDENTIFIER)
+    buf_no_cave_region = bytes(builder.Output())
+
+    svg = ir_to_svg(buf_no_cave_region)
+
+    # Even with cave_region cleared, the consumer must produce the cave fill.
+    assert CAVE_FLOOR_COLOR in svg, (
+        "CaveFloor FloorOp consumer must render cave fill from "
+        "outline.vertices (buffer+jitter pipeline), not from cave_region. "
+        "cave_region was cleared but cave fill is missing."
+    )
+    assert re.search(r'<path[^>]+d="[^"]*\bC\b', svg), (
+        "Expected Catmull-Rom bezier path from the buffer+jitter pipeline"
+    )
+
+
+def test_cave_floor_op_pipeline_matches_legacy_buffer_jitter_smooth() -> None:
+    """For seed99_cave: building the FloorOp via the new consumer
+    pipeline (FloorOp.outline → buffer → jitter → smooth) produces
+    the same SVG path string as the legacy cave_wall_path computed
+    via _build_cave_wall_geometry with the same seed.
+
+    This is the load-bearing parity test: if it passes, the consumer
+    produces byte-identical output to the legacy renderer and the
+    PSNR gate will hold.
+    """
+    import random
+    from nhc.rendering._cave_geometry import (
+        _build_cave_wall_geometry,
+        _collect_cave_region,
+    )
+    from nhc.rendering.ir_to_svg import _cave_path_from_outline
+    from nhc.rendering.ir_emitter import build_floor_ir
+    from nhc.rendering.ir._fb.FloorIR import FloorIR
+    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb.FloorStyle import FloorStyle
+    from tests.fixtures.floor_ir._inputs import descriptor_inputs
+
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    seed = inputs.seed
+    level = inputs.level
+
+    # Legacy pipeline: _build_cave_wall_geometry returns (svg_path, poly, tiles)
+    rng_legacy = random.Random(seed + 0x5A17E5)
+    legacy_path, _poly, _tiles = _build_cave_wall_geometry(level, rng_legacy)
+    assert legacy_path is not None, "Legacy cave_wall_path must be non-empty"
+
+    # Consumer pipeline: read FloorOp.outline.vertices and apply
+    # buffer+jitter+smooth via _cave_path_from_outline.
+    buf = build_floor_ir(
+        inputs.level, seed=seed, hatch_distance=2.0, vegetation=True,
+    )
+    fir = FloorIR.GetRootAs(buf, 0)
+    base_seed = fir.BaseSeed()
+
+    # Collect the CaveFloor FloorOp.
+    cave_floor_ops = []
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() != Op.Op.FloorOp:
+            continue
+        from nhc.rendering.ir._fb.Op import OpCreator
+        op = OpCreator(entry.OpType(), entry.Op())
+        if op.style == FloorStyle.CaveFloor:
+            cave_floor_ops.append(op)
+
+    assert len(cave_floor_ops) == 1, (
+        f"Expected exactly 1 CaveFloor FloorOp in seed99, got {len(cave_floor_ops)}"
+    )
+
+    cave_op = cave_floor_ops[0]
+    verts = cave_op.outline.vertices
+    assert verts and len(verts) >= 4
+
+    coords = [(float(v.x), float(v.y)) for v in verts]
+    consumer_path = _cave_path_from_outline(coords, base_seed)
+
+    assert consumer_path == legacy_path, (
+        "Consumer pipeline (FloorOp.outline → buffer+jitter+smooth) must "
+        "produce byte-identical SVG path to the legacy "
+        "_build_cave_wall_geometry. First 200 chars:\n"
+        f"  legacy:   {legacy_path[:200]}\n"
+        f"  consumer: {consumer_path[:200]}"
     )

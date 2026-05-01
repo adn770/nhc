@@ -514,23 +514,39 @@ def test_wall_op_fallback_to_legacy_when_absent() -> None:
 # ── Phase 1.15b: CaveInk consumer tests ───────────────────────────
 
 
-def test_cave_ink_exterior_wall_op_deferred_via_walls_and_floors() -> None:
-    """The ExteriorWallOp CaveInk standalone handler returns [] in
-    Phase 1.15b. Cave stroke is emitted by _draw_walls_and_floors_from_ir
-    using the pre-built cave_region path from WallsAndFloorsOp.
+def test_cave_ink_exterior_wall_op_renders_via_consumer_pipeline() -> None:
+    """CaveInk ExteriorWallOp now produces a real stroke (not empty
+    list) using the buffer+jitter+smooth pipeline. The handler must
+    emit a <path> with stroke=INK and stroke-width=WALL_WIDTH.
 
-    The handler is wired to emit directly once the emitter stores
-    the buffered+jittered geometry in the ExteriorWallOp (a later
-    phase). For now, returning [] prevents double-painting.
+    This test replaces the Phase 1.15b deferred test which expected
+    [] — the real consumer is now wired.
     """
-    # Simple triangle — CaveInk handler must return [] in this phase.
-    pts = [(64.0, 32.0), (128.0, 96.0), (32.0, 96.0)]
-    outline = _build_polygon_outline(pts)
-    frags = _call_exterior_wall_handler(outline, WallStyle.CaveInk)
-    assert frags == [], (
-        "CaveInk standalone handler must return [] in Phase 1.15b; "
-        "cave stroke is emitted via _draw_walls_and_floors_from_ir. "
-        f"Got: {frags}"
+    from nhc.rendering._svg_helpers import INK, WALL_WIDTH
+    from nhc.rendering.ir_emitter import build_floor_ir
+    from nhc.rendering.ir_to_svg import ir_to_svg
+    from tests.fixtures.floor_ir._inputs import descriptor_inputs
+
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed, hatch_distance=2.0, vegetation=True,
+    )
+    svg = ir_to_svg(buf)
+
+    # CaveInk ExteriorWallOp must produce real stroke output (not []).
+    assert f'stroke="{INK}"' in svg, (
+        "CaveInk ExteriorWallOp consumer must emit cave ink stroke "
+        f"(stroke=\"{INK}\") via buffer+jitter+smooth pipeline. "
+        "Handler must NOT return [] any longer."
+    )
+    assert f'stroke-width="{WALL_WIDTH}"' in svg, (
+        f"Expected cave wall stroke-width={WALL_WIDTH} in SVG output"
+    )
+    assert 'stroke-linecap="round"' in svg, (
+        "Expected stroke-linecap=round on cave ink path"
+    )
+    assert 'stroke-linejoin="round"' in svg, (
+        "Expected stroke-linejoin=round on cave ink path"
     )
 
 

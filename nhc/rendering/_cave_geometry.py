@@ -69,6 +69,41 @@ def _trace_cave_boundary_coords(
     return coords
 
 
+def _cave_raw_exterior_coords(
+    tiles: set[tuple[int, int]],
+) -> list[tuple[float, float]]:
+    """Return the raw (un-simplified) exterior ring of a tile set.
+
+    Like :func:`_trace_cave_boundary_coords` but skips the
+    Douglas-Peucker simplification step so the returned coords
+    exactly describe the tile-boundary polygon produced by
+    :func:`_build_cave_polygon`.  The consumer stores these coords
+    in ``FloorOp.outline.vertices`` / ``ExteriorWallOp.outline.vertices``
+    so that :func:`_cave_path_from_outline` can reconstruct the
+    original polygon via ``Polygon(vertices)`` and apply the
+    buffer+jitter pipeline to produce a byte-identical result to
+    :func:`_build_cave_wall_geometry`.
+    """
+    boxes = []
+    for tx, ty in tiles:
+        px, py = tx * CELL, ty * CELL
+        boxes.append(Polygon([
+            (px, py), (px + CELL, py),
+            (px + CELL, py + CELL), (px, py + CELL),
+        ]))
+    merged = unary_union(boxes)
+    if merged.is_empty:
+        return []
+
+    if hasattr(merged, 'geoms'):
+        merged = max(merged.geoms, key=lambda g: g.area)
+
+    coords = list(merged.exterior.coords)
+    if coords and coords[-1] == coords[0]:
+        coords = coords[:-1]
+    return coords
+
+
 def _smooth_closed_path(
     coords: list[tuple[float, float]],
 ) -> str:

@@ -24,6 +24,7 @@ Each handler returns a list of SVG element-line strings that are
 
 from __future__ import annotations
 
+import random
 import re
 
 from typing import Any, Callable
@@ -635,16 +636,12 @@ def _draw_floor_op_from_ir(
     coords = [(v.x, v.y) for v in verts]
 
     if style == FloorStyleMod.FloorStyle.CaveFloor:
-        # Reconstruct the centripetal Catmull-Rom bezier path — the
-        # same _smooth_closed_path the legacy cave-region emitter
-        # uses. The FloorOp carries the raw trace-boundary coords
-        # verbatim; the renderer reproduces the curve here at
-        # consumption time, producing byte-identical SVG to the
-        # legacy cave_region path inject.
-        from nhc.rendering._cave_geometry import _smooth_closed_path
-        path_el = _smooth_closed_path(coords)
-        # Inject fill/stroke (same inject the legacy WallsAndFloorsOp
-        # handler does via Rust's cave_region.replace("/>", ...)).
+        # Run the buffer+jitter+smooth pipeline on the raw exterior ring
+        # stored in FloorOp.outline.vertices.  The pipeline is seeded
+        # from fir.BaseSeed() + 0x5A17E5 — the same offset
+        # _render_context.py:117 uses — so the output is byte-identical
+        # to the legacy _build_cave_wall_geometry path.
+        path_el = _cave_path_from_outline(coords, fir.BaseSeed())
         return [
             path_el.replace(
                 "/>",
@@ -661,32 +658,123 @@ def _draw_floor_op_from_ir(
     ]
 
 
+def _cave_path_from_outline(
+    vertices: list[tuple[float, float]],
+    base_seed: int,
+) -> str:
+    """Reconstruct the cave SVG path from raw tile-boundary coords.
+
+    Applies the same buffer(0.3*CELL) + _densify_ring + _jitter_ring_outward
+    + _smooth_closed_path pipeline that :func:`_build_cave_wall_geometry`
+    uses.  ``vertices`` must be the raw (un-simplified) exterior ring
+    produced by :func:`_cave_raw_exterior_coords` and stored in
+    ``FloorOp.outline.vertices`` / ``ExteriorWallOp.outline.vertices``.
+
+    The RNG is seeded with ``base_seed + 0x5A17E5`` — the same offset
+    ``nhc/rendering/_render_context.py:117`` uses — so the jitter
+    sequence is deterministic and byte-identical to the legacy output.
+
+    Returns a ``<path d="…"/>`` string (no fill/stroke attrs); callers
+    inject the appropriate presentation attributes.
+
+    Both the CaveFloor FloorOp fill branch and the CaveInk ExteriorWallOp
+    stroke branch call this helper so fill and stroke share identical
+    geometry.
+    """
+    from shapely.geometry import Polygon as _ShPoly
+    from shapely.geometry.polygon import orient as _shapely_orient
+
+    from nhc.rendering._cave_geometry import (
+        _densify_ring,
+        _jitter_ring_outward,
+        _ring_to_subpath,
+    )
+
+    if len(vertices) < 4:
+        return '<path d=""/>'
+
+    poly = _ShPoly(vertices)
+    if not poly.is_valid or poly.is_empty:
+        return '<path d=""/>'
+
+    buffer_r = CELL * 0.3
+    simplify_tol = CELL * 0.15
+    step = CELL * 0.8
+
+    inflated = poly.buffer(buffer_r, join_style='round', quad_segs=8)
+    if inflated.is_empty:
+        return '<path d=""/>'
+    if hasattr(inflated, 'geoms'):
+        inflated = max(inflated.geoms, key=lambda g: g.area)
+
+    simp = inflated.simplify(simplify_tol, preserve_topology=True)
+    simp = _shapely_orient(simp, sign=1.0)
+    if simp.is_empty or not hasattr(simp, 'exterior'):
+        return '<path d=""/>'
+
+    rng = random.Random(base_seed + 0x5A17E5)
+
+    # Exterior ring (CCW after orient sign=1.0)
+    ext = list(simp.exterior.coords)
+    if ext and ext[0] == ext[-1]:
+        ext = ext[:-1]
+    ext_d = _densify_ring(ext, step)
+    ext_j = _jitter_ring_outward(
+        ext_d, poly, rng, is_hole=False,
+        direction_poly=simp,
+    )
+    subpaths = []
+    s = _ring_to_subpath(ext_j)
+    if s:
+        subpaths.append(s)
+
+    # Holes (for cave regions with interior voids)
+    jittered_holes: list[list[tuple[float, float]]] = []
+    for hole in simp.interiors:
+        h = list(hole.coords)
+        if h and h[0] == h[-1]:
+            h = h[:-1]
+        h_d = _densify_ring(h, step)
+        h_j = _jitter_ring_outward(
+            h_d, poly, rng, is_hole=True,
+            direction_poly=simp,
+        )
+        s = _ring_to_subpath(h_j)
+        if s:
+            subpaths.append(s)
+            jittered_holes.append(h_j)
+
+    if not subpaths:
+        return '<path d=""/>'
+    return f'<path d="{" ".join(subpaths)}"/>'
+
+
 def _draw_walls_and_floors_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Reproduce ``_render_walls_and_floors`` with Phase 1.15/1.15b floor switch.
+    """Reproduce ``_render_walls_and_floors`` with Phase 1.15 floor switch.
 
     Phase 1.15 — partial scope (rect rooms + corridors + smooth
-    DungeonFloor shapes). Phase 1.15b — extended to include CaveFloor.
+    DungeonFloor shapes). Extended in Phase 1.15b to include CaveFloor;
+    the real-consumer follow-up (Phase 1.15b→) replaces the provisional
+    cave_region shortcut with the genuine buffer+jitter+smooth pipeline.
 
     When consumed FloorOps (DungeonFloor or CaveFloor) are present:
 
     1. Collect all consumed FloorOp entries and emit their floor SVG
        **first** (floors-under-walls paint order keeps walls on top).
+       CaveFloor FloorOps are dispatched through ``_draw_floor_op_from_ir``
+       which calls ``_cave_path_from_outline`` for the full pipeline.
     2. Pass empty ``rect_rooms`` and ``corridor_tiles`` to Rust (the
        FloorOps cover these).
     3. ``smooth_fills`` passes through unchanged — it may contain
        non-FloorOp content (wood-floor tile rects in building floors)
-       that has no FloorOp equivalent. For smooth rooms whose content
-       IS covered by a FloorOp, the double-paint is harmless (same
-       colour).
-    4. Phase 1.15b: when a CaveFloor FloorOp is consumed, the cave
-       fill and stroke are emitted in Python directly from the
-       ``cave_region`` SVG path (the buffered+jittered path stored
-       in WallsAndFloorsOp). This keeps pixel-identical geometry with
-       the legacy render — the FloorOp vertices carry the raw tile
-       boundary, not the buffered+jittered polygon. An empty string
-       is passed for ``cave_region`` to Rust so it does not also emit.
+       that has no FloorOp equivalent.
+    4. Pass empty ``cave_region`` to Rust so it does not also emit cave
+       fill/stroke — the CaveFloor FloorOp consumer owns that output.
+       CaveInk stroke is emitted by the ``ExteriorWallOp`` CaveInk
+       handler (``_draw_exterior_wall_op_from_ir``) via the same
+       ``_cave_path_from_outline`` pipeline.
 
     ``FloorOp`` is NOT a standalone dispatch handler — it is consumed
     here so that the combined floor+wall emit sequence mirrors the
@@ -714,51 +802,25 @@ def _draw_walls_and_floors_from_ir(
 
     consumed_floor_ops = _collect_consumed_floor_ops(fir)
     if consumed_floor_ops:
-        # Separate DungeonFloor and CaveFloor ops.
         from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
         FS = FloorStyleMod.FloorStyle
-        dungeon_ops = [
-            e for e in consumed_floor_ops
-            if OpCreator(e.OpType(), e.Op()).style == FS.DungeonFloor
-        ]
-        has_cave_floor_op = len(dungeon_ops) < len(consumed_floor_ops)
+        has_cave_floor_op = any(
+            OpCreator(e.OpType(), e.Op()).style == FS.CaveFloor
+            for e in consumed_floor_ops
+        )
 
-        # Emit DungeonFloor shapes first via the FloorOp handler.
+        # Emit all consumed FloorOps (DungeonFloor and CaveFloor) via
+        # the FloorOp handler.  CaveFloor ops call _cave_path_from_outline
+        # internally — no separate cave_region shortcut needed.
         floor_frags: list[str] = []
-        for op_entry in dungeon_ops:
+        for op_entry in consumed_floor_ops:
             floor_frags.extend(_draw_floor_op_from_ir(op_entry, fir))
-
-        # Phase 1.15b: when a CaveFloor FloorOp is consumed, emit cave
-        # fill and stroke directly from the WallsAndFloorsOp.cave_region
-        # SVG path (the legacy buffered+jittered path). This preserves
-        # pixel-identical geometry — the FloorOp vertices carry the raw
-        # tile boundary, not the buffered+jittered polygon that the
-        # legacy cave_wall_path pipeline produces.
-        if has_cave_floor_op and cave_region:
-            floor_frags.append(
-                cave_region.replace(
-                    "/>",
-                    f' fill="{CAVE_FLOOR_COLOR}" stroke="none"'
-                    f' fill-rule="evenodd"/>',
-                )
-            )
-            floor_frags.append(
-                cave_region.replace(
-                    "/>",
-                    f' fill="none" stroke="{INK}"'
-                    f' stroke-width="{WALL_WIDTH}"'
-                    f' stroke-linecap="round"'
-                    f' stroke-linejoin="round"/>',
-                )
-            )
 
         # Suppress smooth_fills only when the consumed FloorOp count
         # covers all floor sources (rect_rooms + corridor_tiles +
         # smooth_fills). If the count is smaller, smooth_fills contains
         # content without a FloorOp equivalent (e.g. wood-floor tile
         # rects in building floors) and must pass through.
-        # Cave fill/stroke are now emitted above — suppress cave_region
-        # so Rust does not double-paint it.
         corridor_tiles = [
             (t.x, t.y) for t in (op.corridorTiles or [])
         ]
@@ -769,6 +831,10 @@ def _draw_walls_and_floors_from_ir(
             len(consumed_floor_ops)
             >= len(rect_rooms) + len(corridor_tiles) + len(smooth_fills)
         )
+        # Pass empty cave_region to Rust — cave fill is now emitted by
+        # the CaveFloor FloorOp handler and cave stroke is emitted by
+        # the CaveInk ExteriorWallOp handler.  Passing empty prevents
+        # Rust from double-painting the cave region.
         wall_frags = nhc_render.draw_walls_and_floors(
             [],
             [],
@@ -977,8 +1043,6 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     grain (per-strip jittered offsets) followed by seams (per-
     plank lengths).
     """
-    import random
-
     from nhc.rendering._floor_detail import (
         WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
         WOOD_GRAIN_LINES_PER_STRIP, WOOD_GRAIN_OPACITY,
@@ -1309,7 +1373,6 @@ def _terrain_detail_seeded_rng(seed: int, name: str):
     SVG output stays byte-equal to the historical fixture
     snapshots in ``tests/fixtures/floor_ir/<descriptor>/floor.svg``.
     """
-    import random
     name_seed = sum(
         (ord(c) * 31 ** i) for i, c in enumerate(name)
     ) & 0xFFFF_FFFF
@@ -2889,6 +2952,12 @@ def _draw_exterior_wall_op_from_ir(
       per-edge parametric intervals.
     - ``FortificationMerlon``: reproduce centered fortification chain +
       corner shapes from ``_draw_enclosure_from_ir``.
+    - ``CaveInk`` (1): buffer+jitter+smooth pipeline from
+      ``outline.vertices`` (raw tile-boundary ring stored by the emitter
+      via ``_cave_raw_exterior_coords``). RNG seeded from
+      ``fir.BaseSeed() + 0x5A17E5`` — same offset as
+      ``_render_context.py:117``. Shares geometry with the paired
+      CaveFloor FloorOp fill via ``_cave_path_from_outline``.
 
     RNG seed: ExteriorWallOpT carries no rngSeed field. Each new op
     is parallel-emitted alongside a legacy op (BuildingExteriorWallOp
@@ -2896,20 +2965,9 @@ def _draw_exterior_wall_op_from_ir(
     paired seed via ``_get_legacy_seed`` so the masonry / palisade
     layout is byte-identical to the legacy output.
 
-    Phase 1.15b — ``CaveInk`` (1) is in-scope (added to
-    ``_EXTERIOR_WALL_IN_SCOPE``) but this handler still returns ``[]``
-    for it. Cave stroke is emitted by
-    ``_draw_walls_and_floors_from_ir`` using the pre-built
-    ``cave_region`` SVG path from ``WallsAndFloorsOp`` (the legacy
-    buffered+jittered geometry). The ExteriorWallOp carries raw tile-
-    boundary vertices not yet equivalent to the jittered path; this
-    branch will be wired in a later commit once the emitter stores
-    the full jittered coords.
-
     Deferred (returns ``[]``):
     - ``DungeonInk`` (0): still handled via ``WallsAndFloorsOp``
       ``wall_segments`` / ``smooth_walls``. Deferred to Phase 1.16b.
-    - ``CaveInk`` (1): see above.
     """
     import math
     from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
@@ -2928,14 +2986,27 @@ def _draw_exterior_wall_op_from_ir(
         return []
 
     if style == WS.CaveInk:
-        # Phase 1.15b: the cave stroke is emitted by
-        # _draw_walls_and_floors_from_ir using the pre-built
-        # cave_region SVG path from WallsAndFloorsOp (the legacy
-        # buffered+jittered path). The ExteriorWallOp carries raw
-        # tile-boundary vertices which are not yet byte-equivalent
-        # to the jittered wall path — a later commit will store the
-        # full jittered coords in the op and wire this branch.
-        return []
+        # Real consumer: run the buffer+jitter+smooth pipeline on
+        # ExteriorWallOp.outline.vertices (the raw tile-boundary ring
+        # from _cave_raw_exterior_coords) to produce byte-identical
+        # cave stroke to the legacy _build_cave_wall_geometry path.
+        # Seeded from fir.BaseSeed() + 0x5A17E5 (same offset as
+        # _render_context.py:117).  Shares geometry with the CaveFloor
+        # FloorOp fill via the same helper.
+        cave_verts = outline.vertices
+        if not cave_verts or len(cave_verts) < 4:
+            return []
+        cave_coords = [(float(v.x), float(v.y)) for v in cave_verts]
+        path_el = _cave_path_from_outline(cave_coords, fir.BaseSeed())
+        return [
+            path_el.replace(
+                "/>",
+                f' fill="none" stroke="{INK}"'
+                f' stroke-width="{WALL_WIDTH}"'
+                f' stroke-linecap="round"'
+                f' stroke-linejoin="round"/>',
+            )
+        ]
 
     verts = outline.vertices
     if not verts or len(verts) < 2:

@@ -647,16 +647,18 @@ def test_floor_op_for_cave_carries_cave_floor_style() -> None:
     assert floor_ops[0].op.outline.closed is True
 
 
-def test_cave_outline_vertices_match_legacy_path_input() -> None:
-    """The cave FloorOp.outline.vertices match the merged-tile boundary.
+def test_cave_outline_vertices_match_raw_exterior_coords() -> None:
+    """The cave FloorOp.outline.vertices match the raw tile-union ring.
 
-    Corrigendum to Phase 1.6 (bfe2c69): the emitter now passes the
-    unified cave tile set to ``_trace_cave_boundary_coords``, matching
-    the legacy ``cave_wall_path`` semantics. For a single CaveShape room
-    (no corridor flood-fill) the merged set equals the room's floor
-    tiles; the coords are identical either way.
+    Phase 1.15b real-consumer follow-up: the emitter now stores
+    ``_cave_raw_exterior_coords(merged_tiles)`` (the un-simplified
+    Shapely unary_union exterior ring) instead of the Douglas-Peucker
+    simplified output from ``_trace_cave_boundary_coords``.  This
+    allows the consumer to reconstruct ``Polygon(vertices)`` exactly
+    and apply the buffer+jitter pipeline to produce byte-identical
+    output to ``_build_cave_wall_geometry``.
     """
-    from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
+    from nhc.rendering._cave_geometry import _cave_raw_exterior_coords
 
     cave_tiles = {
         (x, y) for y in range(2, 6) for x in range(2, 6)
@@ -671,14 +673,15 @@ def test_cave_outline_vertices_match_legacy_path_input() -> None:
     # Use the same merged tile set the emitter uses — ctx.cave_tiles is
     # the unified set from _collect_cave_region (room tiles + corridors).
     merged_tiles: set[tuple[int, int]] = set(ctx.cave_tiles)
-    expected_coords = _trace_cave_boundary_coords(merged_tiles)
-    # The outline must carry the trace-boundary coords verbatim — same
+    expected_coords = _cave_raw_exterior_coords(merged_tiles)
+    # The outline must carry the raw exterior coords verbatim — same
     # length, same ordering, same pixel-space float values.
     assert len(cave_op.outline.vertices) == len(expected_coords) >= 4
     for got, (ex, ey) in zip(cave_op.outline.vertices, expected_coords):
         assert (float(got.x), float(got.y)) == (float(ex), float(ey)), (
-            "cave outline vertex must equal _trace_cave_boundary_coords "
-            "output on the merged tile set; renderer rebuilds bezier curve"
+            "cave outline vertex must equal _cave_raw_exterior_coords "
+            "output on the merged tile set; consumer runs buffer+jitter "
+            "pipeline on Polygon(vertices) to reproduce cave geometry"
         )
 
 
@@ -718,21 +721,20 @@ def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
     assert len(entry.op.outline.vertices) >= 4
 
 
-def test_merged_cave_outline_matches_legacy_cave_wall_path_input() -> None:
-    """Merged cave FloorOp vertices == _trace_cave_boundary_coords(cave_tiles).
+def test_merged_cave_outline_matches_raw_exterior_coords() -> None:
+    """Merged cave FloorOp vertices == _cave_raw_exterior_coords(cave_tiles).
 
-    Pinning test for the corrigendum: the merged FloorOp outline must
-    carry exactly the coords that the legacy cave_wall_path pipeline
-    passes to ``_smooth_closed_path`` — i.e.
-    ``_trace_cave_boundary_coords(ctx.cave_tiles)`` where
-    ``ctx.cave_tiles`` is the full merged set from
-    ``_collect_cave_region`` (room floor tiles + connected corridors).
-
-    This is the invariant broken by Phase 1.6 (bfe2c69) which used
-    per-room tiles; the merged path is what the consumer needs to
-    reproduce pixel-identical bezier curves to the legacy render.
+    Phase 1.15b real-consumer follow-up: the emitter now stores the
+    un-simplified raw exterior ring from ``_cave_raw_exterior_coords``
+    so the consumer can reconstruct the exact tile-union Polygon and
+    apply the buffer+jitter pipeline for byte-identical cave geometry.
+    Previously stored ``_trace_cave_boundary_coords`` (simplified),
+    which prevented byte-identical reconstruction.
     """
-    from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
+    from nhc.rendering._cave_geometry import (
+        _cave_raw_exterior_coords,
+        _collect_cave_region,
+    )
 
     inputs = descriptor_inputs("seed99_cave_cave_cave")
     buf = build_floor_ir(
@@ -747,22 +749,21 @@ def test_merged_cave_outline_matches_legacy_cave_wall_path_input() -> None:
 
     # Reconstruct the merged tile set the same way build_render_context
     # does: _collect_cave_region returns room floor tiles + corridors.
-    from nhc.rendering._cave_geometry import _collect_cave_region
     merged_tiles = _collect_cave_region(inputs.level)
-    expected_coords = _trace_cave_boundary_coords(merged_tiles)
+    expected_coords = _cave_raw_exterior_coords(merged_tiles)
 
     got_vertices = floor_ops[0].op.outline.vertices
     assert len(got_vertices) == len(expected_coords) >= 4, (
         f"merged cave FloorOp must have {len(expected_coords)} vertices "
-        f"(from _trace_cave_boundary_coords(merged_tiles)), "
+        f"(from _cave_raw_exterior_coords(merged_tiles)), "
         f"got {len(got_vertices)}"
     )
     for got, (ex, ey) in zip(got_vertices, expected_coords):
         assert (float(got.x), float(got.y)) == (float(ex), float(ey)), (
             "merged cave FloorOp vertex must equal "
-            "_trace_cave_boundary_coords(merged_tiles) output; "
-            "this is the input the legacy cave_wall_path feeds to "
-            "_smooth_closed_path"
+            "_cave_raw_exterior_coords(merged_tiles) output; "
+            "consumer calls Polygon(vertices) to reconstruct the tile "
+            "union and applies buffer+jitter for byte-identical geometry"
         )
 
 
