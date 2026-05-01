@@ -56,6 +56,7 @@ from nhc.rendering.ir._fb.Gate import GateT
 from nhc.rendering.ir._fb.GateStyle import GateStyle
 from nhc.rendering.ir._fb.InteriorEdge import InteriorEdgeT
 from nhc.rendering.ir._fb.InteriorWallMaterial import InteriorWallMaterial
+from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
 from nhc.rendering.ir._fb.PathRange import PathRangeT
 from nhc.rendering.ir._fb.Polygon import PolygonT
@@ -628,6 +629,23 @@ def _edge_has_visible_door(
     return False
 
 
+def _tile_corner_delta(corner: int) -> tuple[int, int]:
+    """``TileCorner`` int -> (Δx, Δy) for corner-grid pixel coords.
+
+    Mirrors the rasteriser-side helper of the same name in
+    ``nhc.rendering.ir_to_svg``; both consumers convert
+    :type:`InteriorEdge` corner enums to integer offsets when
+    materialising partition endpoints into pixel coords.
+    """
+    if corner == TileCorner.NW:
+        return (0, 0)
+    if corner == TileCorner.NE:
+        return (1, 0)
+    if corner == TileCorner.SE:
+        return (1, 1)
+    return (0, 1)  # SW
+
+
 def _coalesced_interior_edges(
     level: Any,
 ) -> list[tuple[int, int, int, int, int, int]]:
@@ -712,6 +730,52 @@ def emit_building_walls(
     int_entry.opType = 19  # Op.BuildingInteriorWallOp
     int_entry.op = int_op
     builder.add_op(int_entry)
+
+    # Phase 1.13 — parallel emission of InteriorWallOp for partition
+    # lines. Per coalesced + door-filtered interior partition edge in
+    # ``edges`` the emitter ships one InteriorWallOp { outline:
+    # open-polyline (closed=False) with the two corner-grid endpoints
+    # in pixel coords, style: PartitionStone | PartitionBrick |
+    # PartitionWood, cuts: [] } alongside the legacy
+    # BuildingInteriorWallOp. Style maps 1:1 from the building's
+    # ``interior_wall_material`` per design/map_ir_v4.md §3 / §7.
+    #
+    # Door cuts on partitions are pre-filtered upstream by
+    # ``_edge_has_visible_door`` inside ``_coalesced_interior_edges``:
+    # a partition edge that coincides with a visible door tile is
+    # dropped from the coalesced list rather than emitted as a Cut
+    # interval. The partition line is therefore split at the door's
+    # tile edge — the gap is encoded as two separate InteriorWallOps
+    # with no Cut between them — so cuts stay empty by contract.
+    #
+    # The new ops land BEFORE both the legacy and new exterior wall
+    # ops to match the v4 paint order (slot 3 InteriorWallOp -> slot
+    # 5 ExteriorWallOp, per design/map_ir_v4.md §4).
+    _PARTITION_STYLE_MAP = {
+        InteriorWallMaterial.Stone: WallStyle.PartitionStone,
+        InteriorWallMaterial.Brick: WallStyle.PartitionBrick,
+        InteriorWallMaterial.Wood: WallStyle.PartitionWood,
+    }
+    if edges:
+        from nhc.rendering._outline_helpers import outline_from_polygon
+        partition_style = _PARTITION_STYLE_MAP.get(
+            interior_material, WallStyle.PartitionStone,
+        )
+        for (ax, ay, a_corner, bx, by, b_corner) in edges:
+            adx, ady = _tile_corner_delta(a_corner)
+            bdx, bdy = _tile_corner_delta(b_corner)
+            point_a = ((ax + adx) * CELL, (ay + ady) * CELL)
+            point_b = ((bx + bdx) * CELL, (by + bdy) * CELL)
+            wall_op = InteriorWallOpT()
+            wall_op.outline = outline_from_polygon(
+                [point_a, point_b], closed=False,
+            )
+            wall_op.style = partition_style
+            wall_entry = OpEntryT()
+            wall_entry.opType = 21  # Op.InteriorWallOp
+            wall_entry.op = wall_op
+            builder.add_op(wall_entry)
+
     # Exterior masonry pass — skipped for dungeon-walled buildings.
     wall_material = building.wall_material
     if wall_material != "dungeon":

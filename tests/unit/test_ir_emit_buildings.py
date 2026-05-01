@@ -1236,3 +1236,370 @@ class TestEmitBuildingExteriorWallOp:
         # coords.
         assert (cut.start.x, cut.start.y) == (2 * CELL, 2 * CELL)
         assert (cut.end.x, cut.end.y) == (3 * CELL, 2 * CELL)
+
+
+# ── Phase 1.13 — building InteriorWallOp for partitions ────────
+
+
+class TestEmitBuildingInteriorWallOp:
+    """Phase 1.13 of plans/nhc_pure_ir_plan.md.
+
+    For each interior partition line in
+    :func:`_coalesced_interior_edges` the emitter ships one
+    :type:`InteriorWallOpT` alongside the legacy
+    :type:`BuildingInteriorWallOpT`. The new op carries the
+    partition as an open polyline (``Outline.closed == False`` with
+    exactly 2 vertices — point-A → point-B in pixel coords), the
+    style mapped from the building's ``interior_wall_material``
+    (``stone`` → ``WallStyle.PartitionStone``, ``brick`` →
+    ``WallStyle.PartitionBrick``, ``wood`` → ``WallStyle.PartitionWood``)
+    and ``cuts == []``. Door cuts on partition edges are pre-filtered
+    by :func:`_coalesced_interior_edges` (via
+    :func:`_edge_has_visible_door`) — the partition line is split at
+    the door's tile-edge instead of carrying a Cut, so the cut list
+    is naturally empty for InteriorWallOp partitions.
+    """
+
+    def _builder(self) -> FloorIRBuilder:
+        return FloorIRBuilder(
+            _StubCtx(level=_StubLevel())  # type: ignore[arg-type]
+        )
+
+    def test_one_interior_wall_op_per_partition_line(self) -> None:
+        """Two coalesced partition runs (one north, one west) emit
+        two InteriorWallOps; each maps 1:1 from the underlying
+        coalesced edge."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 8, 8),
+            interior_wall_material="stone",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 4, "north"), (4, 4, "north"),
+            (6, 2, "west"), (6, 3, "west"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        # 2 coalesced edges (one north run, one west run).
+        assert len(new_ops) == 2
+
+    def test_interior_wall_op_outline_is_open_polyline(self) -> None:
+        """InteriorWallOp.outline.closed == False and the vertex
+        list contains exactly 2 entries (point-A, point-B in pixel
+        coords)."""
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 8, 8),
+            interior_wall_material="stone",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 4, "north"), (4, 4, "north"), (5, 4, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(new_ops) == 1
+        outline = new_ops[0].op.outline
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
+        assert outline.closed is False, (
+            "partition outlines must be open polylines"
+        )
+        assert outline.vertices is not None
+        assert len(outline.vertices) == 2, (
+            "open polyline carries exactly 2 vertices: point-A and "
+            "point-B"
+        )
+        # Point-A is the NW corner of tile (3, 4) in pixel coords;
+        # point-B is the NE corner of tile (5, 4).
+        assert (outline.vertices[0].x, outline.vertices[0].y) == (
+            3 * CELL, 4 * CELL,
+        )
+        assert (outline.vertices[1].x, outline.vertices[1].y) == (
+            6 * CELL, 4 * CELL,
+        )
+
+    def test_west_run_open_polyline_endpoints(self) -> None:
+        """West partition run -> NW corner of first tile to SW
+        corner of last tile (vertical line)."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 8, 8),
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (5, 2, "west"), (5, 3, "west"), (5, 4, "west"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(new_ops) == 1
+        outline = new_ops[0].op.outline
+        assert outline.closed is False
+        # NW(5, 2) -> SW(5, 4): vertical at x = 5*CELL, from
+        # y = 2*CELL to y = 5*CELL.
+        assert (outline.vertices[0].x, outline.vertices[0].y) == (
+            5 * CELL, 2 * CELL,
+        )
+        assert (outline.vertices[1].x, outline.vertices[1].y) == (
+            5 * CELL, 5 * CELL,
+        )
+
+    def test_partition_stone_maps_to_partition_stone_style(self) -> None:
+        """interior_wall_material='stone' -> WallStyle.PartitionStone."""
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 6, 6),
+            interior_wall_material="stone",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (2, 3, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(new_ops) == 1
+        assert new_ops[0].op.style == WallStyle.PartitionStone
+
+    def test_partition_brick_maps_to_partition_brick_style(self) -> None:
+        """interior_wall_material='brick' -> WallStyle.PartitionBrick."""
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 6, 6),
+            interior_wall_material="brick",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (2, 3, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(new_ops) == 1
+        assert new_ops[0].op.style == WallStyle.PartitionBrick
+
+    def test_partition_wood_maps_to_partition_wood_style(self) -> None:
+        """interior_wall_material='wood' -> WallStyle.PartitionWood."""
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 6, 6),
+            interior_wall_material="wood",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (2, 3, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(new_ops) == 1
+        assert new_ops[0].op.style == WallStyle.PartitionWood
+
+    def test_no_interior_edges_emits_no_interior_wall_op(self) -> None:
+        """A building with no partition edges emits zero
+        InteriorWallOps (the legacy BuildingInteriorWallOp still
+        ships with empty edges so the dispatch table sees one op
+        per building, but the new structured form drops the empty
+        case)."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 6, 6),
+        )
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, _StubLevelWithEdges(),
+            base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert new_ops == []
+
+    def test_interior_wall_op_lands_before_exterior_wall_op(self) -> None:
+        """Per design/map_ir_v4.md §4 paint order, InteriorWallOp
+        (slot 3) precedes RoofOp (slot 4) which precedes
+        ExteriorWallOp (slot 5). The emit order must reflect this
+        so the 1.16+ consumer switch reads ops[] in array order
+        without reshuffling."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 8, 8),
+            wall_material="brick",
+            interior_wall_material="stone",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 4, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        op_types = [e.opType for e in builder.ops]
+        new_int_idx = op_types.index(Op.Op.InteriorWallOp)
+        new_ext_idx = op_types.index(Op.Op.ExteriorWallOp)
+        assert new_int_idx < new_ext_idx, (
+            "InteriorWallOp must land before ExteriorWallOp in "
+            "ops[] (paint order: floor -> interior wall -> roof "
+            "-> exterior wall)"
+        )
+
+    def test_partition_door_cuts_deferred_for_now(self) -> None:
+        """Door cuts on partition edges are pre-filtered by
+        :func:`_edge_has_visible_door` inside
+        :func:`_coalesced_interior_edges`: a partition edge that
+        coincides with a visible door is dropped from the coalesced
+        list rather than emitted as a Cut interval. The partition
+        line is therefore split at the door's tile edge — the gap
+        is encoded as two separate InteriorWallOps with no Cut
+        between them.
+
+        This commit pins the natural consequence: every emitted
+        InteriorWallOp carries ``cuts == []``. Future commits may
+        revisit if the rasteriser benefits from a single op + cuts
+        instead of two ops, but the current pre-filter is simpler
+        and matches the legacy BuildingInteriorWallOp paint output
+        exactly."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 8, 8),
+            interior_wall_material="stone",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 4, "north"), (4, 4, "north"),
+            (6, 2, "west"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(new_ops) == 2
+        for entry in new_ops:
+            cuts = entry.op.outline.cuts or []
+            assert cuts == [], (
+                "partition cuts deferred — doors split the edge "
+                "list instead"
+            )
+
+    def test_interior_wall_op_count_matches_legacy_partition_count(
+        self,
+    ) -> None:
+        """Total InteriorWallOps emitted == number of coalesced
+        edges in the building's BuildingInteriorWallOp.edges list.
+        Pins the parallel-emission contract: every legacy
+        partition line gets a structured counterpart."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 12, 12),
+            interior_wall_material="brick",
+        )
+        # Three disjoint runs: two north, one west.
+        level = _StubLevelWithEdges(interior_edges=[
+            (2, 3, "north"), (3, 3, "north"),       # run 1 (north)
+            (5, 7, "north"),                          # run 2 (north)
+            (8, 2, "west"), (8, 3, "west"),         # run 3 (west)
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        legacy_ops = [
+            e for e in builder.ops
+            if e.opType == Op.Op.BuildingInteriorWallOp
+        ]
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(legacy_ops) == 1
+        legacy_edges = legacy_ops[0].op.edges or []
+        assert len(legacy_edges) == 3, (
+            "expected three coalesced edges across north + west runs"
+        )
+        assert len(new_ops) == len(legacy_edges)
+
+    def test_legacy_building_interior_wall_op_still_emitted(self) -> None:
+        """Phase 1.13 ships parallel emission — the legacy
+        BuildingInteriorWallOp keeps populating until 1.20 retires
+        it."""
+        from nhc.rendering.ir._fb import Op
+
+        builder = self._builder()
+        b = _StubBuildingForWalls(
+            base_shape=RectShape(),
+            base_rect=Rect(0, 0, 6, 6),
+            interior_wall_material="wood",
+        )
+        level = _StubLevelWithEdges(interior_edges=[
+            (2, 3, "north"),
+        ])
+        emit_building_regions(builder, [b])
+        emit_building_walls(
+            builder, b, level, base_seed=0, building_index=0,
+        )
+        legacy_ops = [
+            e for e in builder.ops
+            if e.opType == Op.Op.BuildingInteriorWallOp
+        ]
+        new_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(legacy_ops) == 1
+        assert len(new_ops) == 1

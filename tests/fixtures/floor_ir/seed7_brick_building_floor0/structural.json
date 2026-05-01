@@ -16,6 +16,7 @@
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
     "FloorOp": 6,
+    "InteriorWallOp": 4,
     "StairsOp": 1,
     "WallsAndFloorsOp": 1
   },
