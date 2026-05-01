@@ -175,10 +175,12 @@ enum FloorStyle : ubyte {
   // future: TempleFloor, CryptFloor, …
 }
 
-enum CornerStyle : ubyte {
-  Merlon = 0,                   // crenelated corner block (Fortification only)
-  Flat   = 1,                   // flat corner (Palisade and others)
-}
+// CornerStyle stays unchanged from the Phase 8.2 schema
+// (`enum CornerStyle: byte { Merlon = 0, Diamond = 1, Tower = 2 }`).
+// Per Q12 the corner-style field stays orthogonal on the wall op
+// (here ExteriorWallOp.corner_style) — no re-tagging needed.
+// Documented inline for reference; the live values are in
+// nhc/rendering/ir/floor_ir.fbs.
 
 // ── Floor / wall ops — Outline-based stamps ──────────────────
 
