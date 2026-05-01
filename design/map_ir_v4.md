@@ -65,6 +65,42 @@ Detail / hatch ops keep small structured tile lists (lookup
 table for the renderer to iterate); fixture ops carry placement
 coordinates; structural ops carry outlines.
 
+### Minimal IR, consumer-derived geometry
+
+When primary tile-membership data is enough to reconstruct a
+visual deterministically, the IR ships the primary data and the
+consumer derives the visual at consume time. Two examples in
+4.0:
+
+- **Cave fill / wall geometry** — the emitter ships the raw
+  `unary_union` exterior ring of the merged cave-tile set in
+  `FloorOp.outline.vertices` and `ExteriorWallOp.outline.vertices`.
+  The consumer applies `buffer(0.3 × CELL) + _jitter_ring_outward
+  + _smooth_closed_path` deterministically using
+  `random.Random(base_seed + 0x5A17E5)` to reproduce the legacy
+  cave-wall geometry. The IR carries no jitter coords, no
+  buffered polygon — those are visual artefacts of the renderer.
+- **Corridor walls** — the emitter ships only the corridor tile
+  list (`CorridorWallOp.tiles`); the consumer derives wall
+  edges by checking each tile's neighbours against the union
+  of every FloorOp's tile coverage. Edges facing walkable space
+  are openings; edges facing void are walls.
+
+The pattern preserves the spirit of "ops are paint stamps" —
+each op is still self-contained — but recognises that some
+visual artefacts (organic cave perimeter, per-tile-edge wall
+continuation) are cheaper to derive than to ship pre-computed.
+The primary data shipped is honest: tile sets, raw boundary
+coords. Pre-computed visual data (jittered rings, per-tile-edge
+bitmaps) lives only in the consumer.
+
+Trade-off resolved: when option (a) "ship pre-computed visual
+geometry in the IR" was weighed against option (b) "ship
+minimal data, derive in consumer", option (b) won because it
+keeps the IR conceptually clean and forces the algorithm to
+live in one place (the consumer) — no risk of emitter↔consumer
+drift in derived geometry.
+
 ### Cross-language contract
 
 The IR is a FlatBuffers binary blob with `file_identifier "NIR4"`.
@@ -187,6 +223,14 @@ enum FloorStyle : ubyte {
 table FloorOp {
   outline: Outline;             // closed; cuts ignored / always empty
   style: FloorStyle;
+  // For DungeonFloor (rect/smooth/corridor): outline is the
+  // axis-aligned bbox or smooth-room polygon; consumer renders
+  // directly. For CaveFloor: outline is the raw `unary_union`
+  // exterior ring of the merged cave-tile set (one merged op per
+  // disjoint cave system, NOT per cave room). The consumer
+  // applies `buffer(0.3 * CELL) + _jitter_ring_outward +
+  // _smooth_closed_path` with `random.Random(base_seed + 0x5A17E5)`
+  // to reproduce the legacy cave-wall geometry deterministically.
 }
 
 table InteriorWallOp {
@@ -195,9 +239,34 @@ table InteriorWallOp {
 }
 
 table ExteriorWallOp {
-  outline: Outline;             // closed; cuts = doors / gates
-  style: WallStyle;              // DungeonInk / MasonryBrick / Palisade / FortificationMerlon / …
+  outline: Outline;
+  // Cuts cover every wall opening on the perimeter. Door tiles
+  // become door-flavoured CutStyle entries; doorless openings
+  // (smooth-room corridor abutments) and rect-room corridor
+  // openings ship as CutStyle.None. Gate cuts on enclosures use
+  // WoodGate / PortcullisGate. The consumer walks the outline
+  // and breaks the stroke at every cut interval.
+  style: WallStyle;             // DungeonInk / CaveInk / MasonryBrick / MasonryStone / Palisade / FortificationMerlon / …
   corner_style: CornerStyle = Merlon;
+}
+
+// ── Corridor walls (consumer-derived) ────────────────────────
+
+// CorridorWallOp ships the bare set of corridor-floor tile
+// coordinates and lets the consumer derive wall edges by
+// checking each tile's four neighbours against the union of
+// every FloorOp's tile coverage. Edges facing walkable space
+// (room / door / another corridor tile) become openings; edges
+// facing void become walls. The building-footprint filter
+// (`_draw_wall_to`) is derived from `Region(kind=Building).polygon`
+// containment in the consumer.
+//
+// This minimal-IR + consumer-derivation pattern composes with
+// FloorOp's tile-coverage data already in the IR — no per-tile-
+// edge bitmap or pre-computed wall-segment list needed.
+table CorridorWallOp {
+  tiles: [TileCoord];           // corridor floor tile positions
+  style: WallStyle = DungeonInk;
 }
 
 // ── Roofs (separate paint slot) ──────────────────────────────
@@ -378,7 +447,8 @@ union Op {
   FloorOp,                      // NEW (replaces WallsAndFloorsOp's floor portion)
   InteriorWallOp,               // NEW (replaces BuildingInteriorWallOp + smooth-room interior walls)
   RoofOp,
-  ExteriorWallOp,               // NEW (replaces BuildingExteriorWallOp + EnclosureOp + dungeon-perimeter walls)
+  ExteriorWallOp,               // NEW (replaces BuildingExteriorWallOp + EnclosureOp + rect/smooth/cave outline walls)
+  CorridorWallOp,               // NEW (corridor-side walls, consumer-derived from tile membership)
   TerrainTintOp,
   FloorGridOp,
   FloorDetailOp,
@@ -480,7 +550,8 @@ The emitter populates `ops[]` in this sequence (by IR kind):
 | 2    | `FloorOp`(s)                  | every floor area, all kinds (dungeon, cave, building, corridor) |
 | 3    | `InteriorWallOp`(s)           | partitions, smooth-room interior walls             |
 | 4    | `RoofOp`(s)                   | building shingles                                  |
-| 5    | `ExteriorWallOp`(s)           | dungeon perimeter, building exteriors, palisades, fortifications |
+| 5    | `ExteriorWallOp`(s)           | rect-room / smooth-room / cave / building / enclosure outline walls |
+| 5b   | `CorridorWallOp`              | corridor-side walls, derived from tile membership  |
 | 6    | `TerrainTintOp`(s)            | water/lava/grass/chasm tints                       |
 | 7    | `FloorGridOp`(s)              | wobbly-grid overlay                                |
 | 8    | `FloorDetailOp`(s)            | cracks / scratches / stones / clusters              |
@@ -669,12 +740,13 @@ Reference table for migrating emitter and consumer code:
 
 | 3.0 op / field                                       | 4.0 equivalent                                         |
 | ---------------------------------------------------- | ------------------------------------------------------ |
-| `WallsAndFloorsOp.rect_rooms`                        | one `FloorOp { outline: rect-poly, style: DungeonFloor }` per room + `ExteriorWallOp { outline: rect-poly, style: DungeonInk, cuts: doors }` per room |
-| `WallsAndFloorsOp.corridor_tiles`                    | one `FloorOp` per corridor stretch (or per tile)       |
+| `WallsAndFloorsOp.rect_rooms`                        | one `FloorOp { outline: rect-poly, style: DungeonFloor }` per room + `ExteriorWallOp { outline: rect-poly, style: DungeonInk, cuts: doors + corridor-openings }` per room |
+| `WallsAndFloorsOp.corridor_tiles`                    | one `FloorOp` per corridor tile + one `CorridorWallOp { tiles, style: DungeonInk }` per floor |
 | `WallsAndFloorsOp.smooth_room_regions` + `smooth_fill_svg` | per-room `FloorOp { outline: smooth-poly / circle / pill descriptor, style: DungeonFloor }` |
-| `WallsAndFloorsOp.smooth_wall_svg` + `wall_extensions_d` | per-room `ExteriorWallOp { outline: smooth-poly / circle / pill, cuts: door + opening cuts, style: DungeonInk }` |
-| `WallsAndFloorsOp.cave_region`                        | `FloorOp { outline: cave-poly, style: CaveFloor }` + `ExteriorWallOp { outline: cave-poly, style: DungeonInk }` |
-| `WallsAndFloorsOp.wall_segments`                      | included in the per-room `ExteriorWallOp` outlines (rect-room outlines walked instead of per-tile edges) |
+| `WallsAndFloorsOp.smooth_wall_svg`                   | per-room `ExteriorWallOp { outline: smooth-poly / circle / pill, cuts: doors + doorless gaps, style: DungeonInk }` |
+| `WallsAndFloorsOp.wall_extensions_d`                 | derived in consumer from smooth `ExteriorWallOp` cuts + adjacent `CorridorWallOp.tiles`; not stored in IR |
+| `WallsAndFloorsOp.cave_region`                       | one merged `FloorOp { outline: raw-cave-exterior, style: CaveFloor }` + `ExteriorWallOp { outline: same, style: CaveInk }` per disjoint cave system; consumer applies buffer + jitter + smooth_closed_path with seed `base_seed + 0x5A17E5` |
+| `WallsAndFloorsOp.wall_segments`                     | rect-room edges → cuts on rect `ExteriorWallOp` (any cut breaks the perimeter stroke); corridor-side edges → derived from `CorridorWallOp.tiles` against the FloorOp tile-coverage union |
 | `BuildingExteriorWallOp { region_ref, wall_material }` | `ExteriorWallOp { outline: building-poly, style: MasonryBrick \| MasonryStone, cuts: doors }` |
 | `BuildingInteriorWallOp { lines, material }`          | one `InteriorWallOp` per partition: `{ outline: open-polyline, style: PartitionWood \| PartitionStone \| PartitionBrick, cuts: doors }` |
 | `EnclosureOp { polygon, style, gates, corner_style }` | `ExteriorWallOp { outline: enclosure-poly, style: Palisade \| FortificationMerlon, cuts: gates, corner_style }` |
@@ -907,6 +979,7 @@ Unchanged from 3.0:
 | `DecoratorOp`             | `+ 333`                 |
 | `RoofOp`                  | `+ 0xCAFE + bldg_idx`   |
 | `EnclosureOp` (legacy)    | `+ 0xE101 + edge_idx`   |
+| Cave consumer (buffer + jitter for `FloorOp { CaveFloor }` and `ExteriorWallOp { CaveInk }`) | `+ 0x5A17E5` (matches legacy `_render_context.py`'s cave RNG seed) |
 | `WellFeatureOp` etc.      | per-feature offsets     |
 
 Cross-rasteriser determinism: PSNR ≥ 50 dB at every fixture
