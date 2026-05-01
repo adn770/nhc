@@ -21335,6 +21335,754 @@
     },
     {
       "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 384.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 128.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 384.0,
+              "y": 384.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 384.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 256.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 256.0,
+              "y": 128.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 416.0,
+                "y": 224.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 416.0,
+                "y": 256.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 320.0,
+                "y": 384.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 352.0,
+                "y": 384.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 672.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 800.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 864.0,
+              "y": 160.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 864.0,
+              "y": 288.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 800.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 672.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 288.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 160.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 736.0,
+                "y": 352.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 768.0,
+                "y": 352.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 608.0,
+                "y": 224.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 608.0,
+                "y": 256.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 864.0,
+                "y": 192.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 864.0,
+                "y": 224.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 128.0,
+              "y": 960.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 224.0,
+              "y": 960.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 256.0,
+              "y": 992.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 256.0,
+              "y": 1152.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 224.0,
+              "y": 1184.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 128.0,
+              "y": 1184.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 96.0,
+              "y": 1152.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 96.0,
+              "y": 992.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 256.0,
+                "y": 1056.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 256.0,
+                "y": 1088.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 640.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 864.0,
+              "y": 640.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 896.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 896.0,
+              "y": 768.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 864.0,
+              "y": 800.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 800.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 768.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 672.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 896.0,
+                "y": 704.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 896.0,
+                "y": 736.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 768.0,
+                "y": 640.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 800.0,
+                "y": 640.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1152.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 160.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 224.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1152.0,
+              "y": 288.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 288.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 224.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 160.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1216.0,
+                "y": 192.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1216.0,
+                "y": 224.0
+              },
+              "style": 0
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1024.0,
+                "y": 192.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1024.0,
+                "y": 224.0
+              },
+              "style": 0
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1088.0,
+                "y": 288.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1120.0,
+                "y": 288.0
+              },
+              "style": 0
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1408.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1504.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 128.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 256.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1504.0,
+              "y": 288.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1408.0,
+              "y": 288.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 256.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 128.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1376.0,
+                "y": 192.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1376.0,
+                "y": 224.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1696.0,
+              "y": 416.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1792.0,
+              "y": 416.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 448.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 640.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1792.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1696.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 640.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 448.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1728.0,
+                "y": 416.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1760.0,
+                "y": 416.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1664.0,
+                "y": 544.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1664.0,
+                "y": 576.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1728.0,
+                "y": 672.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1760.0,
+                "y": 672.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "ExteriorWallOp",
+      "op": {
+        "__type": "ExteriorWallOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1056.0,
+              "y": 864.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1152.0,
+              "y": 864.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 896.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 992.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1152.0,
+              "y": 1024.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1056.0,
+              "y": 1024.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 992.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 896.0
+            }
+          ],
+          "cuts": [
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1088.0,
+                "y": 864.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1120.0,
+                "y": 864.0
+              },
+              "style": 3
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1024.0,
+                "y": 928.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1024.0,
+                "y": 960.0
+              },
+              "style": 6
+            },
+            {
+              "__type": "CutT",
+              "start": {
+                "__type": "Vec2T",
+                "x": 1184.0,
+                "y": 928.0
+              },
+              "end": {
+                "__type": "Vec2T",
+                "x": 1184.0,
+                "y": 960.0
+              },
+              "style": 3
+            }
+          ],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0,
+        "cornerStyle": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
       "opType": "TerrainTintOp",
       "op": {
         "__type": "TerrainTintOpT",

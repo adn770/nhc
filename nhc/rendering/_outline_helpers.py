@@ -35,7 +35,10 @@ from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
     Room, TempleShape,
 )
-from nhc.rendering._room_outlines import _temple_vertices
+from nhc.rendering._room_outlines import (
+    _intersect_outline, _temple_vertices,
+)
+from nhc.rendering._svg_helpers import _find_doorless_openings
 from nhc.rendering.ir._fb.Cut import CutT
 from nhc.rendering.ir._fb.CutStyle import CutStyle
 from nhc.rendering.ir._fb.Outline import OutlineT
@@ -356,5 +359,66 @@ def cuts_for_room_doors(
             cut.end = _vec2(*end)
             cut.style = _DOOR_FEATURE_TO_CUT_STYLE[tile.feature]
             cuts.append(cut)
+
+    return cuts
+
+
+# ── Doorless-gap cut resolution (smooth rooms) ─────────────────
+
+
+def cuts_for_doorless_openings(
+    room: Room, level: Level,
+) -> list[CutT]:
+    """Walk the room's perimeter and emit one ``Cut`` per doorless
+    corridor opening.
+
+    A doorless opening is a corridor tile (``surface_type ==
+    CORRIDOR``) that abuts the room without a door feature in
+    between. The legacy renderer lifts these via
+    :func:`_outline_with_gaps`, intersecting the corridor's two side
+    walls with the room outline at points ``hit_a`` / ``hit_b``; the
+    arc / polygon edge between those points is the gap. The v4
+    structured form represents the same gap as a single
+    :class:`CutT` with ``start = hit_a``, ``end = hit_b``,
+    ``style = CutStyle.None_`` — the renderer skips the stroke for
+    that interval.
+
+    Used by :func:`_emit_walls_and_floors_ir` for smooth-shape rooms
+    (Phase 1.9). Rect rooms have no doorless gaps in their renderer
+    path — corridors meet rect rooms via tile-edge segments handled
+    by the wall-segment walker — so this helper is only invoked for
+    OctagonShape / LShape / TempleShape / CircleShape / PillShape
+    rooms.
+
+    Returns an empty list for shapes that lack a meaningful
+    intersection (the legacy ``_intersect_outline`` returns ``None``
+    for unsupported shapes — we skip those silently).
+    """
+    shape = room.shape
+    rect = room.rect
+    openings = _find_doorless_openings(room, level)
+    cuts: list[CutT] = []
+
+    for fx, fy, cx, cy in openings:
+        dx, dy = cx - fx, cy - fy
+        if dy != 0:  # N/S corridor → vertical walls
+            wall_a = (fx * CELL, fy * CELL if dy == -1
+                      else (fy + 1) * CELL)
+            wall_b = ((fx + 1) * CELL, wall_a[1])
+        else:  # E/W corridor → horizontal walls
+            wall_a = (fx * CELL if dx == -1
+                      else (fx + 1) * CELL, fy * CELL)
+            wall_b = (wall_a[0], (fy + 1) * CELL)
+
+        hit_a = _intersect_outline(shape, rect, wall_a, dx, dy)
+        hit_b = _intersect_outline(shape, rect, wall_b, dx, dy)
+        if hit_a is None or hit_b is None:
+            continue
+
+        cut = CutT()
+        cut.start = _vec2(*hit_a)
+        cut.end = _vec2(*hit_b)
+        cut.style = CutStyle.None_
+        cuts.append(cut)
 
     return cuts

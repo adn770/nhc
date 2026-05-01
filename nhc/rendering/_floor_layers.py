@@ -273,7 +273,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     )
     from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
     from nhc.rendering._outline_helpers import (
-        cuts_for_room_doors, outline_from_cave, outline_from_circle,
+        cuts_for_doorless_openings, cuts_for_room_doors,
+        outline_from_cave, outline_from_circle,
         outline_from_l_shape, outline_from_octagon, outline_from_pill,
         outline_from_rect, outline_from_temple,
     )
@@ -663,6 +664,65 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             wall_op = ExteriorWallOpT()
             wall_op.outline = outline_from_rect(room.rect)
             wall_op.outline.cuts = cuts_for_room_doors(room, level)
+            wall_op.style = WallStyle.WallStyle.DungeonInk
+            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            wall_entry = OpEntryT()
+            wall_entry.opType = Op.Op.ExteriorWallOp
+            wall_entry.op = wall_op
+            builder.add_op(wall_entry)
+
+    # Phase 1.9 — parallel emission of ExteriorWallOp per smooth-shape
+    # dungeon room (octagon / l_shape / temple → polygon outlines;
+    # circle / pill → descriptor outlines). Mirrors Phase 1.8's rect
+    # ExteriorWallOp loop for the smooth-shape variants the
+    # ``outline_from_*`` helpers from commit 3cea778 cover. The legacy
+    # ``smoothWallSvg`` / ``wallExtensionsD`` fields above still drive
+    # pixels; the new ops emit additively so the 1.16+ consumer switch
+    # picks them up without reorganising the ops[] order.
+    #
+    # Each smooth room: ExteriorWallOp { outline = the same outline
+    # the matching FloorOp ships, style = DungeonInk, corner_style =
+    # Merlon, cuts = doors + doorless gaps }. Door cuts come from the
+    # shape-agnostic :func:`cuts_for_room_doors` (it walks the room's
+    # floor tiles and projects each adjacent door tile to a tile-edge
+    # midpoint — the same convention rect rooms use). Doorless gap
+    # cuts come from :func:`cuts_for_doorless_openings`, which lifts
+    # the legacy :func:`_outline_with_gaps` intersection logic and
+    # produces one Cut per opening with start/end at ``hit_a`` /
+    # ``hit_b`` and ``style = CutStyle.None_`` (the renderer skips the
+    # stroke for that interval).
+    #
+    # Mirror the wood-floor ``suppress_rect_rooms`` short-circuit and
+    # the ``cave_region_rooms`` skip from Phase 1.5: cave rooms ship
+    # their wall via Phase 1.10's CaveInk path; CrossShape /
+    # HybridShape lack parity-fixture coverage and defer to later
+    # phases.
+    if not suppress_rect_rooms:
+        for idx, room in enumerate(level.rooms):
+            if idx in cave_region_rooms:
+                continue
+            shape = room.shape
+            outline_obj = None
+            if isinstance(shape, OctagonShape):
+                outline_obj = outline_from_octagon(room)
+            elif isinstance(shape, LShape):
+                outline_obj = outline_from_l_shape(room)
+            elif isinstance(shape, TempleShape):
+                outline_obj = outline_from_temple(room)
+            elif isinstance(shape, CircleShape):
+                outline_obj = outline_from_circle(room)
+            elif isinstance(shape, PillShape):
+                outline_obj = outline_from_pill(room)
+            else:
+                # RectShape handled above; CrossShape / HybridShape /
+                # CaveShape skip — no parity fixture covers them today.
+                continue
+            wall_op = ExteriorWallOpT()
+            wall_op.outline = outline_obj
+            wall_op.outline.cuts = (
+                cuts_for_room_doors(room, level)
+                + cuts_for_doorless_openings(room, level)
+            )
             wall_op.style = WallStyle.WallStyle.DungeonInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
             wall_entry = OpEntryT()

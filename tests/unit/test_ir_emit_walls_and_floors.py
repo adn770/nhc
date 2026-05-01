@@ -1159,3 +1159,370 @@ def test_exterior_wall_op_round_trips_through_build_floor_ir() -> None:
         assert len(entry.op.outline.vertices) == 4
         assert entry.op.style == WallStyle.DungeonInk
         assert entry.op.cornerStyle == CornerStyle.Merlon
+
+
+# ── Phase 1.9 — smooth-room ExteriorWallOp ─────────────────────
+
+
+def test_exterior_wall_op_per_octagon_room() -> None:
+    """An OctagonShape room emits one ExteriorWallOp with an 8-vertex
+    closed Polygon outline, DungeonInk style, Merlon corner_style.
+
+    Phase 1.9 of plans/nhc_pure_ir_plan.md mirrors Phase 1.8 (rect
+    ExteriorWallOp) for the smooth-shape variants. Octagon outlines
+    walk via explicit vertices — the descriptor stays Polygon (no
+    Circle/Pill descriptor) and the rasterisers stroke straight
+    edges between successive pairs.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 6), OctagonShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    outline = wall_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices is not None
+    assert len(outline.vertices) == 8
+    assert outline.closed is True
+    assert wall_ops[0].op.style == WallStyle.DungeonInk
+    assert wall_ops[0].op.cornerStyle == CornerStyle.Merlon
+
+
+def test_exterior_wall_op_per_l_shape_room() -> None:
+    """An LShape room emits one ExteriorWallOp with a 6-vertex closed
+    Polygon outline.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(1, 2, 6, 6), LShape(corner="nw")),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    outline = wall_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices is not None
+    assert len(outline.vertices) == 6
+    assert wall_ops[0].op.style == WallStyle.DungeonInk
+    assert wall_ops[0].op.cornerStyle == CornerStyle.Merlon
+
+
+def test_exterior_wall_op_per_temple_room() -> None:
+    """A TempleShape room emits one ExteriorWallOp with an
+    arc-discretised Polygon outline.
+
+    Vertex count depends on the arc-segment discretisation
+    (``_temple_vertices``); we assert >0 vertices here. The
+    Phase 1.5 floor-pass test pins the exact coordinate sequence.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 9), TempleShape(flat_side="south")),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    outline = wall_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices is not None
+    assert len(outline.vertices) > 0
+    assert wall_ops[0].op.style == WallStyle.DungeonInk
+
+
+def test_exterior_wall_op_per_circle_room() -> None:
+    """A CircleShape room emits an ExteriorWallOp with a Circle
+    descriptor outline (cx/cy/rx==ry; empty vertex list).
+
+    The rasterisers reproduce the circle via their native primitives
+    at consumption time.
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 7, 7), CircleShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    outline = wall_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Circle
+    assert not outline.vertices
+    assert outline.cx == 7 * CELL / 2
+    assert outline.cy == 7 * CELL / 2
+    assert outline.rx == outline.ry
+    assert wall_ops[0].op.style == WallStyle.DungeonInk
+    assert wall_ops[0].op.cornerStyle == CornerStyle.Merlon
+
+
+def test_exterior_wall_op_per_pill_room() -> None:
+    """A PillShape room emits an ExteriorWallOp with a Pill
+    descriptor outline (cx/cy/rx/ry; empty vertex list).
+    """
+    level = _build_smooth_shape_level([
+        (Rect(2, 1, 9, 5), PillShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    outline = wall_ops[0].op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Pill
+    assert not outline.vertices
+    assert outline.rx > 0
+    assert outline.ry > 0
+    assert wall_ops[0].op.style == WallStyle.DungeonInk
+
+
+def test_smooth_exterior_wall_op_count_matches_smooth_floor_op_count() -> None:
+    """Smooth ExteriorWallOps == smooth FloorOps (same suppression).
+
+    Phase 1.5 emits one FloorOp per smooth room; Phase 1.9 emits one
+    ExteriorWallOp per smooth room with the same suppression rules.
+    The two counts must match in lockstep (both walks share
+    ``suppress_rect_rooms`` and skip CrossShape / HybridShape /
+    CaveShape identically).
+    """
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 6), OctagonShape()),
+        (Rect(11, 0, 7, 7), CircleShape()),
+        (Rect(0, 8, 9, 5), PillShape()),
+    ])
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    # No rect rooms or corridors → every FloorOp is from the smooth
+    # pass, every ExteriorWallOp is from the smooth pass.
+    assert len(floor_ops) == 3
+    assert len(wall_ops) == 3
+
+
+def test_exterior_wall_op_skipped_for_smooth_when_suppress_rect_rooms() -> None:
+    """Wood-floor + building polygon → smooth ExteriorWallOps suppressed.
+
+    Mirrors :func:`test_floor_op_skipped_for_smooth_shapes_when_suppress_rect_rooms`
+    for walls. Phase 1.5 dropped smooth FloorOps under the wood-floor
+    short-circuit; Phase 1.9 must drop the matching ExteriorWallOps the
+    same way — the building's own walls land in
+    :type:`BuildingExteriorWallOp` / :type:`BuildingInteriorWallOp`,
+    not on the per-smooth-room outlines.
+    """
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering.ir_emitter import (
+        _build_cave_wall_geometry, _build_dungeon_polygon,
+    )
+
+    level = _build_smooth_shape_level([
+        (Rect(1, 1, 6, 6), OctagonShape()),
+        (Rect(8, 1, 5, 5), CircleShape()),
+    ])
+    level.interior_floor = "wood"
+    ctx = build_render_context(
+        level,
+        seed=0,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=2.0,
+        vegetation=True,
+        building_polygon=[
+            (32.0, 32.0), (480.0, 32.0),
+            (480.0, 256.0), (32.0, 256.0),
+        ],
+    )
+    assert ctx.interior_finish == "wood"
+    assert ctx.building_polygon is not None
+    builder = FloorIRBuilder(ctx)
+    _emit_walls_and_floors_ir(builder)
+
+    wall_ops = [
+        e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert wall_ops == [], (
+        "suppress_rect_rooms must also suppress smooth-shape "
+        "ExteriorWallOps so the wood-floor base fill stays the only "
+        "structural layer for the building's interior"
+    )
+
+
+def test_doorless_gap_resolves_to_cut_style_none_on_smooth_wall() -> None:
+    """A smooth room with a doorless corridor opening produces an
+    ExteriorWallOp with one Cut { style: None } at the gap interval.
+
+    Mirrors the legacy ``_outline_with_gaps`` semantics: the corridor's
+    two side walls intersect the smooth outline at two points
+    (``hit_a`` and ``hit_b``); the gap between them becomes a Cut with
+    ``style == CutStyle.None_`` (the renderer skips the stroke for that
+    interval). Doorless openings are corridors that abut the room
+    without a door tile in between.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    # Octagon room (0..9, 0..6) — clip = max(1, min(9, 6) // 3) = 2.
+    # Place a corridor tile north of an interior floor tile of the
+    # octagon; the corridor must be SurfaceType.CORRIDOR and have no
+    # door feature for ``_find_doorless_openings`` to return it.
+    level = _build_smooth_shape_level([
+        (Rect(0, 0, 9, 6), OctagonShape()),
+    ])
+    # Octagon (0..9, 0..6) clip = 2 so the top-left corner is clipped.
+    # tile (4, 0) is on the top edge of the octagon (between the two
+    # clipped corners). Place a corridor tile north of (4, 0) at
+    # (4, -1) — but that is out of bounds. Instead, use a tile inside
+    # the floor set adjacent to the room border. The floor_tiles of
+    # an octagon at (0,0,9,6) include (4, 0) (top middle) — ensure it
+    # is a floor first by checking shape.floor_tiles.
+    floor = level.rooms[0].shape.floor_tiles(level.rooms[0].rect)
+    assert (4, 0) in floor, (
+        "test setup error: (4, 0) must be a floor tile of the octagon"
+    )
+    # Make tile (4, 0) the abutting room tile (already FLOOR). Place
+    # the corridor tile north of it. Since (4, 0) is at the top edge,
+    # we need a corridor at (4, -1) but that's out of bounds. Instead,
+    # use a wider level so the corridor lands inside bounds.
+
+    # Rebuild with a taller level: octagon at (0, 1, 9, 6), corridor
+    # tile at (4, 0) which is north of the octagon's top edge.
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=11, height=10,
+    )
+    rect = Rect(0, 1, 9, 6)
+    room = Room(id="o1", rect=rect, shape=OctagonShape())
+    level.rooms.append(room)
+    for tx, ty in room.shape.floor_tiles(rect):
+        level.tiles[ty][tx] = Tile(terrain=Terrain.FLOOR)
+    # Doorless corridor opening: the corridor tile abuts the octagon's
+    # top edge at (4, 1) (which is a floor tile of the octagon).
+    assert (4, 1) in room.shape.floor_tiles(rect), (
+        "test setup error: (4, 1) must be a floor tile of the octagon"
+    )
+    level.tiles[0][4] = Tile(
+        terrain=Terrain.FLOOR, surface_type=SurfaceType.CORRIDOR,
+    )
+
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    # The doorless opening produces exactly one Cut at the gap interval.
+    assert len(cuts) == 1, (
+        f"expected one Cut for the single doorless opening, "
+        f"got {len(cuts)}"
+    )
+    cut = cuts[0]
+    assert cut.style == CutStyle.None_, (
+        "doorless openings must produce Cut entries with style=None "
+        "(the renderer skips the stroke for that interval)"
+    )
+    # The corridor wall endpoints at room tile (4, 1) on the north edge
+    # are wall_a=(4*CELL, 1*CELL) and wall_b=((4+1)*CELL, 1*CELL). For
+    # an octagon with clip=2*CELL, the top edge runs from
+    # (clip, 1*CELL) = (2*CELL, 1*CELL) to (pw - clip, 1*CELL). Both
+    # corridor walls hit the straight top edge → start.y == end.y ==
+    # 1 * CELL.
+    assert cut.start.y == 1 * CELL
+    assert cut.end.y == 1 * CELL
+    assert cut.start.x == 4 * CELL
+    assert cut.end.x == 5 * CELL
+
+
+def test_door_tile_resolves_to_cut_on_smooth_exterior_wall() -> None:
+    """A door tile abutting a smooth room produces one Cut with the
+    appropriate door-flavoured CutStyle on its ExteriorWallOp.
+
+    ``cuts_for_room_doors`` is shape-agnostic — it walks the room's
+    floor tiles (regardless of shape) and resolves each adjacent door
+    tile to a Cut at the shared tile-edge midpoints in pixel coords.
+    Smooth rooms reuse the same helper, so door cuts ride on smooth
+    ExteriorWallOps without a separate code path.
+    """
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+
+    # Octagon room at (0, 1, 9, 6); place a "door" tile at (4, 0) north
+    # of the octagon's top floor tile (4, 1).
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=11, height=10,
+    )
+    rect = Rect(0, 1, 9, 6)
+    room = Room(id="o1", rect=rect, shape=OctagonShape())
+    level.rooms.append(room)
+    for tx, ty in room.shape.floor_tiles(rect):
+        level.tiles[ty][tx] = Tile(terrain=Terrain.FLOOR)
+    level.tiles[0][4] = Tile(terrain=Terrain.FLOOR, feature="door")
+
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [
+        e for e in ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    assert len(cuts) == 1, (
+        f"expected one Cut for the single door tile north of (4, 1), "
+        f"got {len(cuts)}"
+    )
+    cut = cuts[0]
+    assert cut.style == CutStyle.DoorWood
+    # Door is north of room tile (4, 1); shared edge runs from
+    # (4*CELL, 1*CELL) to (5*CELL, 1*CELL).
+    assert (cut.start.x, cut.start.y) == (4 * CELL, 1 * CELL)
+    assert (cut.end.x, cut.end.y) == (5 * CELL, 1 * CELL)
+
+
+def test_smooth_exterior_wall_op_count_in_octagon_crypt_fixture() -> None:
+    """seed7_octagon_crypt_dungeon carries one ExteriorWallOp per
+    smooth room alongside the per-rect-room ones from Phase 1.8.
+
+    The fixture mixes 10 rect + 8 octagon rooms; after Phase 1.9 the
+    ExteriorWallOp count is rect_rooms + smooth_rooms_with_outline ==
+    10 + 8 == 18. Pinning this in a fixture-level test catches any
+    drift between the smooth-shape dispatch table and the smooth
+    FloorOp dispatch.
+    """
+    inputs = descriptor_inputs("seed7_octagon_crypt_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    walls_ops = [
+        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
+    ]
+    assert len(walls_ops) == 1
+    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
+    legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
+    assert len(legacy_rect_rooms) == 10
+    assert len(legacy_smooth_regions) == 8
+
+    wall_ops = [
+        e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp
+    ]
+    expected = len(legacy_rect_rooms) + len(legacy_smooth_regions)
+    assert len(wall_ops) == expected, (
+        f"expected {expected} ExteriorWallOps (10 rect + 8 smooth) in "
+        f"seed7_octagon_crypt_dungeon, got {len(wall_ops)}"
+    )
