@@ -268,7 +268,7 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     """
     from nhc.dungeon.generators.cellular import CaveShape
     from nhc.dungeon.model import (
-        CircleShape, LShape, OctagonShape, PillShape, RectShape,
+        CircleShape, LShape, OctagonShape, PillShape, Rect, RectShape,
         TempleShape,
     )
     from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
@@ -602,6 +602,30 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         floor_op = FloorOpT()
         floor_op.outline = outline_obj
         floor_op.style = style_value
+        floor_entry = OpEntryT()
+        floor_entry.opType = Op.Op.FloorOp
+        floor_entry.op = floor_op
+        builder.add_op(floor_entry)
+
+    # Phase 1.7 — one FloorOp per corridor tile alongside the legacy
+    # ``corridorTiles`` field. No merging at this stage: each tile is
+    # its own 4-vertex Polygon outline with bbox
+    # ``(x*CELL, y*CELL, CELL, CELL)`` and ``style ==
+    # FloorStyle.DungeonFloor``. Paint perf is rect-fill regardless of
+    # op count; merging strategy is reserved for later if profiling
+    # surfaces overhead. The legacy ``corridor_tiles_list`` keeps
+    # populating in parallel — consumers do not read FloorOp until
+    # 1.15+.
+    #
+    # Mirrors the legacy walk: emits unconditionally (the corridor list
+    # itself is unconditional — wood-floor short-circuit only governs
+    # the rect / smooth room base fills, not corridor tiles, since
+    # corridors land outside any building polygon).
+    for tile in corridor_tiles_list:
+        rect = Rect(int(tile.x), int(tile.y), 1, 1)
+        floor_op = FloorOpT()
+        floor_op.outline = outline_from_rect(rect)
+        floor_op.style = FloorStyle.FloorStyle.DungeonFloor
         floor_entry = OpEntryT()
         floor_entry.opType = Op.Op.FloorOp
         floor_entry.op = floor_op

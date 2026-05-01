@@ -32,10 +32,12 @@ async def test_get_ir_buffer_returns_metadata() -> None:
     assert result["major"] == 3
     assert result["minor"] >= 0
     assert result["region_count"] == 19
-    # Phase 1.4 of plans/nhc_pure_ir_plan.md emits one FloorOp per
-    # rect room alongside the legacy WallsAndFloorsOp; the fixture
-    # has 18 rect rooms so the op count is 28 (legacy) + 18 (FloorOps).
-    assert result["op_count"] == 46
+    # Phase 1.4 / 1.7 of plans/nhc_pure_ir_plan.md emits one FloorOp
+    # per rect room and one per corridor tile alongside the legacy
+    # WallsAndFloorsOp; the fixture has 18 rect rooms + 165 corridor
+    # tiles so the op count is 28 (legacy) + 18 (rect FloorOps) + 165
+    # (corridor FloorOps) = 211.
+    assert result["op_count"] == 211
     assert result["size_bytes"] > 0
     assert result["file_identifier"] == "NIR3"
     assert "dump" not in result  # off by default
@@ -101,10 +103,12 @@ async def test_get_ir_ops_summary() -> None:
     from nhc.debug_tools.tools.ir_query import GetIROpsTool
     result = await GetIROpsTool().execute(path=str(_FIXTURE_RECT))
     assert "summary" in result
-    assert result["total"] == 46
-    assert sum(result["summary"].values()) == 46
+    assert result["total"] == 211
+    assert sum(result["summary"].values()) == 211
     assert "ShadowOp" in result["summary"]
-    assert result["summary"].get("FloorOp") == 18
+    # 18 rect-room FloorOps (Phase 1.4) + 165 corridor-tile FloorOps
+    # (Phase 1.7) = 183 total FloorOps in the seed42 fixture.
+    assert result["summary"].get("FloorOp") == 183
 
 
 @pytest.mark.asyncio

@@ -20,7 +20,7 @@ from __future__ import annotations
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
-    RectShape, Room, TempleShape, Terrain, Tile,
+    RectShape, Room, SurfaceType, TempleShape, Terrain, Tile,
 )
 from nhc.rendering._floor_layers import _emit_walls_and_floors_ir
 from nhc.rendering.ir._fb import Op
@@ -314,7 +314,12 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
     ]
     assert len(walls_ops) == 1
     legacy_rect_rooms = walls_ops[0].op.rectRooms or []
-    assert len(floor_ops) == len(legacy_rect_rooms)
+    legacy_corridor_tiles = walls_ops[0].op.corridorTiles or []
+    # Phase 1.4 covers rect rooms; Phase 1.7 adds one FloorOp per
+    # corridor tile. The fixture is rect-only (no smooth / cave
+    # rooms), so the FloorOp count is rect_rooms + corridor_tiles.
+    expected = len(legacy_rect_rooms) + len(legacy_corridor_tiles)
+    assert len(floor_ops) == expected
     assert len(floor_ops) > 0, (
         "seed42_rect_dungeon_dungeon ships >0 rect rooms — the "
         "parallel-emission contract requires the same count of "
@@ -552,7 +557,16 @@ def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
     assert len(walls_ops) == 1
     legacy_rect_rooms = walls_ops[0].op.rectRooms or []
     legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
-    expected = len(legacy_rect_rooms) + len(legacy_smooth_regions)
+    legacy_corridor_tiles = walls_ops[0].op.corridorTiles or []
+    # Phase 1.7 adds one FloorOp per corridor tile alongside the room
+    # FloorOps from 1.4 / 1.5; the seed7_octagon_crypt fixture mixes
+    # rects + octagons + corridors, so the total is rect_rooms +
+    # smooth_regions + corridor_tiles.
+    expected = (
+        len(legacy_rect_rooms)
+        + len(legacy_smooth_regions)
+        + len(legacy_corridor_tiles)
+    )
     assert len(floor_ops) == expected
     # Sanity: there should be at least one Polygon outline beyond the
     # rect rooms — an octagon room contributes 8 vertices, a rect 4.
@@ -701,3 +715,152 @@ def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
         assert entry.op.outline.descriptorKind == OutlineKind.Polygon
         assert entry.op.outline.vertices is not None
         assert len(entry.op.outline.vertices) >= 4
+
+
+# ── Phase 1.7 — corridor-tile FloorOp ──────────────────────────
+
+
+def _build_corridor_level(
+    corridor_tiles: list[tuple[int, int]],
+) -> Level:
+    """Build a Level with the given corridor tiles and no rooms.
+
+    Each tile is FLOOR with ``surface_type == CORRIDOR``; everything
+    else is VOID. Mirrors the corridor portion of
+    :func:`_build_simple_rect_level` so the emitter walks corridor tiles
+    in isolation (no room outlines, no smooth-room paths).
+    """
+    if not corridor_tiles:
+        raise ValueError("corridor_tiles must be non-empty")
+    xs = [x for x, _ in corridor_tiles]
+    ys = [y for _, y in corridor_tiles]
+    width = max(xs) + 2
+    height = max(ys) + 2
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=width, height=height,
+    )
+    for tx, ty in corridor_tiles:
+        level.tiles[ty][tx] = Tile(
+            terrain=Terrain.FLOOR,
+            surface_type=SurfaceType.CORRIDOR,
+        )
+    return level
+
+
+def test_floor_op_per_corridor_tile() -> None:
+    """Every corridor tile produces one FloorOp.
+
+    Phase 1.7 of plans/nhc_pure_ir_plan.md — parallel emission. Each
+    corridor tile becomes a FloorOp with a 4-vertex Polygon outline
+    (the tile's pixel-space bbox) and ``style ==
+    FloorStyle.DungeonFloor``. No merging at this stage; the emitter
+    ships one op per tile.
+    """
+    corridor_tiles = [(2, 2), (3, 2), (4, 2), (5, 5)]
+    level = _build_corridor_level(corridor_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == len(corridor_tiles)
+    for entry in floor_ops:
+        outline = entry.op.outline
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
+        assert outline.vertices is not None
+        assert len(outline.vertices) == 4
+        assert entry.op.style == FloorStyle.DungeonFloor
+
+
+def test_corridor_floor_op_outlines_align_with_tile_grid() -> None:
+    """Each corridor FloorOp outline is the tile's pixel-space bbox.
+
+    Vertex layout matches :func:`outline_from_rect`'s clockwise order
+    starting at the top-left corner: the bbox is
+    ``(x*CELL, y*CELL, CELL, CELL)``. Asserting the bbox per tile pins
+    the corridor → FloorOp coord convention before any consumer reads
+    the new ops in 1.15+.
+    """
+    corridor_tiles = [(3, 4), (7, 1), (0, 0)]
+    level = _build_corridor_level(corridor_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [
+        e for e in ops if e.opType == Op.Op.FloorOp
+    ]
+    assert len(floor_ops) == len(corridor_tiles)
+
+    # The emitter walks corridor tiles in y-major / x-minor order
+    # (lines 356-373 of _floor_layers.py); sort the expected list the
+    # same way to align with the FloorOp output order.
+    expected_sorted = sorted(corridor_tiles, key=lambda t: (t[1], t[0]))
+    for entry, (tx, ty) in zip(floor_ops, expected_sorted):
+        verts = entry.op.outline.vertices
+        xs = [v.x for v in verts]
+        ys = [v.y for v in verts]
+        assert min(xs) == tx * CELL
+        assert min(ys) == ty * CELL
+        assert max(xs) - min(xs) == CELL
+        assert max(ys) - min(ys) == CELL
+
+
+def test_corridor_floor_op_count_matches_legacy_corridor_tiles() -> None:
+    """Count of corridor FloorOps == ``len(WallsAndFloorsOp.corridorTiles)``.
+
+    The parallel-emission contract: legacy ``corridorTiles`` keeps
+    populating; the new FloorOps emit one per corridor tile alongside.
+    Asserting equal counts pins the symmetry that 1.15's consumer
+    switch will lean on (the legacy path drops, the new path takes
+    over without count drift).
+    """
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    walls_ops = [
+        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
+    ]
+    assert len(walls_ops) == 1
+    legacy_corridor_tiles = walls_ops[0].op.corridorTiles or []
+    assert len(legacy_corridor_tiles) > 0, (
+        "seed42_rect_dungeon_dungeon ships >0 corridor tiles — the "
+        "test relies on this fixture having corridors"
+    )
+
+    floor_ops = [
+        e for e in fir.ops if e.opType == Op.Op.FloorOp
+    ]
+    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
+    # FloorOps now cover both rect rooms (Phase 1.4) and corridor tiles
+    # (this commit). Each corridor FloorOp is a 4-vertex Polygon outline
+    # with side length == CELL; rect-room outlines have a side >= 2 *
+    # CELL (rooms are always ≥ 2 tiles wide). Filter on bbox side to
+    # split corridor FloorOps from rect-room FloorOps without depending
+    # on emit order.
+    corridor_floor_ops = []
+    for entry in floor_ops:
+        outline = entry.op.outline
+        if outline.descriptorKind != OutlineKind.Polygon:
+            continue
+        verts = outline.vertices
+        if not verts or len(verts) != 4:
+            continue
+        xs = [v.x for v in verts]
+        ys = [v.y for v in verts]
+        w = max(xs) - min(xs)
+        h = max(ys) - min(ys)
+        if w == CELL and h == CELL:
+            corridor_floor_ops.append(entry)
+
+    assert len(corridor_floor_ops) == len(legacy_corridor_tiles), (
+        f"corridor FloorOps ({len(corridor_floor_ops)}) must match "
+        f"legacy corridorTiles count ({len(legacy_corridor_tiles)})"
+    )
+    # Sanity: total FloorOps >= rect_rooms + corridor_tiles (smooth /
+    # cave shapes contribute the rest).
+    assert len(floor_ops) >= len(legacy_rect_rooms) + len(legacy_corridor_tiles)

@@ -15,6 +15,7 @@
     "DecoratorOp": 1,
     "EnclosureOp": 1,
     "FloorGridOp": 1,
+    "FloorOp": 6,
     "RoofOp": 6,
     "ShadowOp": 1,
     "TerrainTintOp": 1,
