@@ -215,6 +215,12 @@ impl PyRandom {
         }
     }
 
+    /// Reproduce `random.Random.uniform(a, b)` — uniform float in
+    /// `[a, b]`. Mirrors CPython's `a + (b-a)*random()` exactly.
+    pub fn uniform(&mut self, a: f64, b: f64) -> f64 {
+        a + (b - a) * self.random()
+    }
+
     /// Reproduce `random.Random.randint(a, b)` — uniform integer
     /// in the inclusive range `[a, b]`.
     pub fn randint(&mut self, a: i64, b: i64) -> i64 {
@@ -277,6 +283,37 @@ mod tests {
                  (bits {:#x})",
                 got.to_bits(),
                 w.to_bits(),
+            );
+        }
+    }
+
+    /// Cross-checked against `random.Random(41).uniform(0, 2*pi)`.
+    /// Locks `uniform()` = a + (b-a)*random() round-trip.
+    #[test]
+    fn seed_41_uniform_matches_cpython() {
+        use std::f64::consts::PI;
+        let mut r = PyRandom::from_seed(41);
+        // Captured from CPython 3.14:
+        //   import random, math
+        //   rng = random.Random(41)
+        //   [rng.uniform(0, 2*math.pi) for _ in range(4)]
+        // Captured from CPython 3.14:
+        //   import random, math
+        //   rng = random.Random(41)
+        //   [rng.uniform(0, 2*math.pi) for _ in range(4)]
+        let want: [u64; 4] = [
+            0x400326f5d8850e16, // 2.394023601112859
+            0x3ff731c5ab01677b, // 1.4496514015104072
+            0x3ff0b11be8b030c6, // 1.0432395066628017
+            0x4016f7966ff85421, // 5.741784810573365
+        ];
+        for (i, w) in want.iter().enumerate() {
+            let got = r.uniform(0.0, 2.0 * PI);
+            assert_eq!(
+                got.to_bits(),
+                *w,
+                "step {i}: got {got:?} (bits {:#x}), want bits {w:#x}",
+                got.to_bits(),
             );
         }
     }

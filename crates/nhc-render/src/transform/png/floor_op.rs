@@ -1,4 +1,4 @@
-//! FloorOp rasterisation — Phase 1.17 of
+//! FloorOp rasterisation — Phase 1.17 / 1.18 of
 //! `plans/nhc_pure_ir_plan.md`.
 //!
 //! Reads `FloorOp.outline` + `FloorOp.style` from the IR and
@@ -7,15 +7,11 @@
 //! Dispatch by `outline.descriptor_kind`:
 //! - `Polygon` + `DungeonFloor`: walk `outline.vertices`, build a
 //!   filled path (white floor colour, `FillRule::Winding`).
-//! - `Polygon` + `CaveFloor`: provisional bridge — extracts the
-//!   pre-rendered `cave_region` SVG-path from the companion
-//!   `WallsAndFloorsOp` in the same IR and parses it via the
-//!   existing `path_parser::parse_path_d` helper. Shapely
-//!   `buffer()` / `simplify()` / `orient()` are not available in
-//!   Rust; porting the full `_cave_path_from_outline` pipeline is
-//!   deferred to Phase 1.18. This bridge means Phase 1.19 (stop
-//!   legacy emit) is NOT yet unblocked for cave geometry; the
-//!   commit body documents this explicitly.
+//! - `Polygon` + `CaveFloor`: Phase 1.18 — runs the real cave
+//!   geometry pipeline (`cave_path_from_outline`) reading
+//!   `FloorOp.outline.vertices`. The 1.17 provisional bridge that
+//!   read the legacy `cave_region` SVG-path string is retired here.
+//!   Phase 1.19 (stop legacy emit) is now unblocked for cave geometry.
 //! - `Circle`: tiny-skia `PathBuilder::push_oval` centered on
 //!   `(cx, cy)` with radius `rx`.
 //! - `Pill`: tiny-skia `PathBuilder::push_rounded_rect` covering
@@ -23,13 +19,12 @@
 //!
 //! The `walls_and_floors.rs` legacy floor pass is gated off when
 //! FloorOps are present: `draw_corridor_tiles`, `draw_rect_rooms`,
-//! and `draw_cave_region` are all suppressed. The wall primitives
-//! (`draw_wall_segments`, `draw_smooth_fragments`,
-//! `draw_smooth_wall_fragments`, `draw_wall_extensions`) keep
-//! running because wall ops are not yet consumed (Phase 1.18).
+//! and `draw_cave_region` are all suppressed. Wall passes are gated
+//! off by Phase 1.18 wall-op handlers (see `exterior_wall_op.rs`).
 
 use tiny_skia::{Color, FillRule, Paint, PathBuilder, Rect};
 
+use crate::geometry::cave_path_from_outline;
 use crate::ir::{FloorIR, FloorStyle, Op, OpEntry, OutlineKind};
 
 use super::path_parser::parse_path_d;
@@ -116,7 +111,7 @@ pub(super) fn draw(
         OutlineKind::Pill => draw_pill(&outline, style, ctx),
         OutlineKind::Polygon => {
             if style == FloorStyle::CaveFloor {
-                draw_cave_floor(fir, ctx);
+                draw_cave_floor(&outline, fir, ctx);
             } else {
                 draw_polygon(&outline, style, ctx);
             }
@@ -245,42 +240,35 @@ fn draw_pill(
     );
 }
 
-/// CaveFloor — provisional bridge through the legacy `cave_region`
-/// SVG-path string in the companion `WallsAndFloorsOp`.
+/// CaveFloor — Phase 1.18 real consumer: runs the cave geometry
+/// pipeline from `FloorOp.outline.vertices`.
 ///
-/// The full `_cave_path_from_outline` pipeline (Shapely
-/// `buffer + simplify + orient + densify + jitter + smooth`) is
-/// not available in Rust without porting Shapely geometry; that
-/// port is deferred to Phase 1.18. This bridge reads the
-/// pre-computed `cave_region` path string from the legacy op so
-/// the floor fill is visually correct and parity holds, but it
-/// means Phase 1.19 (stop legacy emit) cannot yet drop
-/// `cave_region`. The commit body documents this dependency
-/// explicitly.
-fn draw_cave_floor(fir: &FloorIR<'_>, ctx: &mut RasterCtx<'_>) {
-    // Find the WallsAndFloorsOp and extract its cave_region string.
-    let ops = match fir.ops() {
-        Some(o) => o,
-        None => return,
+/// Replaces the Phase 1.17 provisional bridge that read the legacy
+/// `WallsAndFloorsOp.cave_region` SVG-path string. The pipeline
+/// mirrors `_cave_path_from_outline` from `ir_to_svg.py`:
+///   `Polygon(vertices) → buffer(0.3*CELL) → simplify → orient CCW
+///   → densify(0.8*CELL) → jitter_ring_outward(seed + 0x5A17E5)
+///   → smooth_closed_path`
+///
+/// Phase 1.19 (stop legacy emit) is now unblocked for cave geometry.
+fn draw_cave_floor(
+    outline: &crate::ir::Outline<'_>,
+    fir: &FloorIR<'_>,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let verts = match outline.vertices() {
+        Some(v) if v.len() >= 4 => v,
+        _ => return,
     };
-    let cave_region_svg = ops
+    let coords: Vec<(f64, f64)> = verts
         .iter()
-        .find_map(|entry| {
-            let waf = entry.op_as_walls_and_floors_op()?;
-            let region = waf.cave_region()?;
-            if region.is_empty() {
-                None
-            } else {
-                Some(region.to_owned())
-            }
-        });
-    let cave_region_svg = match cave_region_svg {
-        Some(s) => s,
-        None => return,
-    };
-    let d = match extract_d_from_path(&cave_region_svg) {
-        Some(d) => d,
-        None => return,
+        .map(|v| (v.x() as f64, v.y() as f64))
+        .collect();
+
+    let path_svg = cave_path_from_outline(&coords, fir.base_seed());
+    let d = match extract_d_from_path(path_svg.as_str()) {
+        Some(d) if !d.is_empty() => d,
+        _ => return,
     };
     let path = match parse_path_d(d) {
         Some(p) => p,
@@ -602,30 +590,26 @@ mod tests {
         fbb.finished_data().to_vec()
     }
 
-    /// Build an IR with a CaveFloor FloorOp AND a WallsAndFloorsOp
-    /// carrying a `cave_region` SVG path.
+    /// Build an IR with a CaveFloor FloorOp whose `outline.vertices`
+    /// hold a 6×6-tile square (raw tile-boundary ring).
     ///
-    /// The cave path is a simple square covering tiles [2,2]..[6,6]
-    /// in tile space (not canvas space). The `draw_cave_floor` helper
-    /// bridges through this legacy field for the fill geometry.
+    /// Phase 1.18: `draw_cave_floor` now runs the real cave geometry
+    /// pipeline (buffer+jitter+smooth) from `outline.vertices` rather
+    /// than the provisional bridge that read the legacy `cave_region`
+    /// string. No `WallsAndFloorsOp` is needed.
     fn build_cave_floor_op_buf() -> Vec<u8> {
         let cell = 32.0_f32;
-        // Tile-space square [2,2]..[6,6].
+        // Tile-space square [2,2]..[6,6] — raw tile-boundary ring.
+        // The pipeline will buffer outward by 0.3*CELL, simplify, and
+        // jitter before filling with cave-floor colour.
         let x0 = 2.0 * cell;
         let y0 = 2.0 * cell;
         let x1 = 6.0 * cell;
         let y1 = 6.0 * cell;
 
-        // Pre-rendered cave_region SVG path (simple closed rect).
-        // The FloorOp handler reads this from WallsAndFloorsOp.
-        // Coordinates are in tile space; the ctx.transform adds padding.
-        let cave_svg = format!(
-            "<path d=\"M{x0},{y0} L{x1},{y0} L{x1},{y1} L{x0},{y1} Z\"/>",
-        );
-
         let mut fbb = FlatBufferBuilder::new();
 
-        // FloorOp: CaveFloor polygon outline.
+        // FloorOp: CaveFloor polygon outline (raw tile ring, no WallsAndFloorsOp).
         let cave_verts = fbb.create_vector(&[
             Vec2::new(x0, y0),
             Vec2::new(x1, y0),
@@ -656,38 +640,19 @@ mod tests {
             },
         );
 
-        // WallsAndFloorsOp: carries cave_region SVG path.
-        let cave_region_str = fbb.create_string(&cave_svg);
-        let waf_op = WallsAndFloorsOp::create(
-            &mut fbb,
-            &WallsAndFloorsOpArgs {
-                cave_region: Some(cave_region_str),
-                ..Default::default()
-            },
-        );
-        let waf_entry = OpEntry::create(
-            &mut fbb,
-            &OpEntryArgs {
-                op_type: Op::WallsAndFloorsOp,
-                op: Some(waf_op.as_union_value()),
-            },
-        );
-
-        // WallsAndFloorsOp must appear before FloorOp in the op list
-        // so that `draw_cave_region` in `walls_and_floors.rs` is
-        // already suppressed by the time the FloorOp is dispatched.
-        let ops = fbb.create_vector(&[waf_entry, cave_floor_entry]);
+        let ops = fbb.create_vector(&[cave_floor_entry]);
         let theme = fbb.create_string("cave");
         let fir = FloorIR::create(
             &mut fbb,
             &FloorIRArgs {
                 major: 3,
                 minor: 1,
-                width_tiles: 8,
-                height_tiles: 8,
+                width_tiles: 10,
+                height_tiles: 10,
                 cell: 32,
                 padding: 32,
                 theme: Some(theme),
+                base_seed: 42,
                 ops: Some(ops),
                 ..Default::default()
             },
@@ -835,21 +800,27 @@ mod tests {
         );
     }
 
-    // ── CaveFloor FloorOp fill (bridge through cave_region) ────
+    // ── CaveFloor FloorOp fill (via cave geometry pipeline) ────────
 
+    /// Phase 1.18: CaveFloor FloorOp fill is painted via the real
+    /// cave geometry pipeline (buffer+jitter+smooth) reading
+    /// `FloorOp.outline.vertices`. The pipeline expands outward by
+    /// ~0.3*CELL + jitter, so the tile-centre of the original [2,2]
+    /// to [6,6] region remains inside the filled area.
     #[test]
-    fn floor_op_cave_floor_paints_cave_color() {
+    fn cave_floor_consumes_outline_vertices_via_pipeline() {
         let buf = build_cave_floor_op_buf();
         let png = floor_ir_to_png(&buf, 1.0, None).expect("render");
         let pixmap = decode(&png);
-        // Centre of [2,2]..[6,6] cave region at tile (4,4).
+        // Centre of the cave region at tile (4,4). The pipeline expands
+        // outward so the centre is well inside the filled cave area.
         let (px, py) = tile_centre_px(4, 4);
         let (r, g, b) = pixel_at(&pixmap, px, py);
         assert_eq!(
             (r, g, b),
             (CAVE_FLOOR_R, CAVE_FLOOR_G, CAVE_FLOOR_B),
             "pixel ({px},{py}) inside CaveFloor FloorOp should be \
-             cave-floor colour (#F5EBD8)"
+             cave-floor colour (#F5EBD8) after pipeline"
         );
     }
 

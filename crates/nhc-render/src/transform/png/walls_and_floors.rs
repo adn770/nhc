@@ -33,6 +33,7 @@ use tiny_skia::{
 
 use crate::ir::{FloorIR, OpEntry, WallsAndFloorsOp};
 
+use super::exterior_wall_op::has_dungeon_ink_wall_ops;
 use super::floor_op::{has_cave_floor_op, has_floor_ops};
 use super::fragment::paint_fragment;
 use super::path_parser::{parse_path_d, parse_xy};
@@ -99,6 +100,11 @@ pub(super) fn draw(
     // yet consumed (Phase 1.18).
     let floor_ops_present = has_floor_ops(fir);
     let cave_floor_present = floor_ops_present && has_cave_floor_op(fir);
+    // Phase 1.18: gate legacy wall passes when wall ops are consumed.
+    // `has_dungeon_ink_wall_ops` requires both a CorridorWallOp and a
+    // DungeonInk ExteriorWallOp — the same condition Python uses to
+    // suppress `wall_segments` / `smooth_walls` / `wall_extensions_d`.
+    let dungeon_ink_wall_ops = has_dungeon_ink_wall_ops(fir);
 
     if !floor_ops_present {
         // Legacy emit order for 3.x cached buffers without FloorOps.
@@ -106,12 +112,17 @@ pub(super) fn draw(
         draw_rect_rooms(&op, ctx);
         draw_smooth_fragments(&op, ctx);
     }
+    // `draw_cave_region` runs both fill and stroke passes. Suppress it when
+    // a CaveFloor FloorOp is present (Phase 1.17+): the new handlers cover
+    // both the fill (floor_op.rs) and the stroke (exterior_wall_op.rs).
     if !cave_floor_present {
         draw_cave_region(&op, ctx);
     }
-    draw_smooth_wall_fragments(&op, ctx);
-    draw_wall_extensions(&op, ctx);
-    draw_wall_segments(&op, ctx);
+    if !dungeon_ink_wall_ops {
+        draw_smooth_wall_fragments(&op, ctx);
+        draw_wall_extensions(&op, ctx);
+        draw_wall_segments(&op, ctx);
+    }
 }
 
 fn draw_corridor_tiles(op: &WallsAndFloorsOp<'_>, ctx: &mut RasterCtx<'_>) {
