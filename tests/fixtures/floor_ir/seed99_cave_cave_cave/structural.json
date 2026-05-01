@@ -14,6 +14,7 @@
   "op_counts": {
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
+    "FloorOp": 8,
     "HatchOp": 1,
     "ShadowOp": 8,
     "StairsOp": 1,

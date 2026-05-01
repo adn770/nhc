@@ -17,6 +17,7 @@ suppresses FloorOps the same way — the contract is "match legacy" so
 
 from __future__ import annotations
 
+from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
     CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
     RectShape, Room, TempleShape, Terrain, Tile,
@@ -564,3 +565,139 @@ def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
         "seed7_octagon_crypt_dungeon mixes octagons + rects — at "
         "least one FloorOp must carry an octagon (>=6 vertex) outline"
     )
+
+
+# ── Phase 1.6 — cave-region FloorOp ────────────────────────────
+
+
+def _build_cave_shape_level(
+    cave_tiles: set[tuple[int, int]],
+) -> Level:
+    """Build a small Level with a single CaveShape room covering the
+    given tile set.
+
+    Floor tiles are FLOOR; everything else is VOID. Mirrors
+    :func:`_build_smooth_shape_level` but for the cave variant — the
+    room's bbox is the tight bbox of *cave_tiles*.
+    """
+    if not cave_tiles:
+        raise ValueError("cave_tiles must be non-empty")
+    xs = [x for x, _ in cave_tiles]
+    ys = [y for _, y in cave_tiles]
+    x0, y0 = min(xs), min(ys)
+    x1, y1 = max(xs) + 1, max(ys) + 1
+    width = x1 + 2
+    height = y1 + 2
+    level = Level.create_empty(
+        id="floor1", name="t", depth=1, width=width, height=height,
+    )
+    level.metadata.theme = "cave"
+    rect = Rect(x0, y0, x1 - x0, y1 - y0)
+    room = Room(id="c1", rect=rect, shape=CaveShape(tiles=set(cave_tiles)))
+    level.rooms.append(room)
+    for tx, ty in cave_tiles:
+        level.tiles[ty][tx] = Tile(terrain=Terrain.FLOOR)
+    return level
+
+
+def test_floor_op_for_cave_carries_cave_floor_style() -> None:
+    """Each CaveShape room produces one FloorOp with style=CaveFloor.
+
+    Phase 1.6 mirrors Phase 1.4 / 1.5's parallel-emission shape: a
+    cave room ships one FloorOp alongside the legacy
+    ``WallsAndFloorsOp.caveRegion`` SVG path. Style is
+    :enum:`FloorStyle.CaveFloor`, distinct from DungeonFloor — the
+    value is reserved for the future renderer divergence pinned in
+    plan §1.6 (consumers currently paint both styles identically).
+    """
+    # Compact 4x4 cave room — small enough that
+    # ``_trace_cave_boundary_coords`` returns a non-degenerate ring
+    # (≥ 4 corners after Shapely simplification).
+    cave_tiles = {
+        (x, y) for y in range(2, 6) for x in range(2, 6)
+    }
+    level = _build_cave_shape_level(cave_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
+    assert len(floor_ops) == 1, (
+        f"expected one FloorOp for the single CaveShape room, "
+        f"got {len(floor_ops)}"
+    )
+    assert floor_ops[0].op.style == FloorStyle.CaveFloor, (
+        "cave-region FloorOp must carry FloorStyle.CaveFloor; "
+        "DungeonFloor is reserved for non-cave rooms"
+    )
+    assert floor_ops[0].op.outline.descriptorKind == OutlineKind.Polygon
+    assert floor_ops[0].op.outline.closed is True
+
+
+def test_cave_outline_vertices_match_legacy_path_input() -> None:
+    """The cave FloorOp.outline.vertices are the same coords list
+    that today feeds ``_smooth_closed_path``.
+
+    The renderer reproduces the centripetal Catmull-Rom curve from
+    these vertices via :func:`_centripetal_bezier_cps` at consumption
+    time (per design/map_ir_v4.md §3 risks, plan §1.6). Asserting the
+    pre-smoothing vertex list — not the smoothed bezier path — pins
+    the contract: rasterisers receive the trace-boundary coords
+    verbatim.
+    """
+    from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
+
+    cave_tiles = {
+        (x, y) for y in range(2, 6) for x in range(2, 6)
+    }
+    level = _build_cave_shape_level(cave_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
+    assert len(floor_ops) == 1
+    cave_op = floor_ops[0].op
+
+    expected_coords = _trace_cave_boundary_coords(
+        level.rooms[0].floor_tiles()
+    )
+    # The outline must carry the trace-boundary coords verbatim — same
+    # length, same ordering, same pixel-space float values.
+    assert len(cave_op.outline.vertices) == len(expected_coords) >= 4
+    for got, (ex, ey) in zip(cave_op.outline.vertices, expected_coords):
+        assert (float(got.x), float(got.y)) == (float(ex), float(ey)), (
+            "cave outline vertex must equal _trace_cave_boundary_coords "
+            "output; the renderer rebuilds the bezier curve from these"
+        )
+
+
+def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
+    """The cave FloorOp survives the FB pack/unpack via
+    :func:`build_floor_ir`.
+
+    seed99_cave_cave_cave is a pure-cave fixture (no rect / smooth
+    rooms); every FloorOp must be a CaveFloor with a Polygon outline.
+    Catches any FB binding gap that might drop the
+    ``descriptor_kind=Polygon`` branch on the wire when the only
+    populated outlines are cave rings.
+    """
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
+    walls_ops = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
+    assert len(walls_ops) == 1
+    # The legacy caveRegion SVG path keeps shipping in parallel.
+    assert walls_ops[0].op.caveRegion, (
+        "Phase 1.6 ships parallel emission — legacy caveRegion must "
+        "keep populating until 1.15+ flips the consumer"
+    )
+    # Pure-cave fixture: every FloorOp is CaveFloor.
+    assert floor_ops, "seed99_cave fixture must carry at least one FloorOp"
+    for entry in floor_ops:
+        assert entry.op.style == FloorStyle.CaveFloor
+        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
+        assert entry.op.outline.vertices is not None
+        assert len(entry.op.outline.vertices) >= 4

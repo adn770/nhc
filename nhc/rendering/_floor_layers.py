@@ -271,9 +271,11 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         CircleShape, LShape, OctagonShape, PillShape, RectShape,
         TempleShape,
     )
+    from nhc.rendering._cave_geometry import _trace_cave_boundary_coords
     from nhc.rendering._outline_helpers import (
-        outline_from_circle, outline_from_l_shape, outline_from_octagon,
-        outline_from_pill, outline_from_rect, outline_from_temple,
+        outline_from_cave, outline_from_circle, outline_from_l_shape,
+        outline_from_octagon, outline_from_pill, outline_from_rect,
+        outline_from_temple,
     )
     from nhc.rendering._room_outlines import (
         _outline_with_gaps, _room_svg_outline,
@@ -531,21 +533,26 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     entry.op = op
     builder.add_op(entry)
 
-    # Phase 1.4 / 1.5 — parallel emission of FloorOp per dungeon room.
-    # The legacy ``rectRooms`` / ``smoothRoomRegions`` lists above still
-    # drive pixels (consumers do not read FloorOp until 1.15+); we emit
-    # the new ops alongside so the IR JSON dump shows the parallel
-    # emission together (easy to eyeball) and 1.15's consumer switch
-    # produces the correct paint order — FloorOp slots before every
-    # other layer per design/map_ir_v4.md §4.
+    # Phase 1.4 / 1.5 / 1.6 — parallel emission of FloorOp per dungeon
+    # room. The legacy ``rectRooms`` / ``smoothRoomRegions`` /
+    # ``caveRegion`` fields above still drive pixels (consumers do not
+    # read FloorOp until 1.15+); we emit the new ops alongside so the
+    # IR JSON dump shows the parallel emission together (easy to
+    # eyeball) and 1.15's consumer switch produces the correct paint
+    # order — FloorOp slots before every other layer per
+    # design/map_ir_v4.md §4.
     #
     # Phase 1.4 covered RectShape via ``outline_from_rect``; Phase 1.5
     # extends to the five smooth shape variants (octagon, l_shape,
     # temple → polygon outlines; circle / pill → descriptor outlines)
     # via the matching ``outline_from_*`` helpers from commit 3cea778.
-    # CaveShape rooms ship through Phase 1.6 (cave region → CaveFloor
-    # style); HybridShape and CrossShape are deferred — neither
-    # appears in the current parity fixtures.
+    # Phase 1.6 wires CaveShape rooms with style == CaveFloor: each
+    # cave room carries its pre-smoothing trace-boundary coords
+    # verbatim (``_trace_cave_boundary_coords``), and the rasteriser
+    # reproduces the centripetal Catmull-Rom curve via
+    # ``_centripetal_bezier_cps`` at consumption time. HybridShape and
+    # CrossShape are deferred — neither appears in current parity
+    # fixtures.
     #
     # Mirror the wood-floor ``suppress_rect_rooms`` short-circuit for
     # smooth shapes too: when True the legacy ``rectRooms`` and
@@ -555,37 +562,50 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # would re-introduce the bbox leak past the chamfered footprint.
     # Phase 1.15 will flip the consumer to the new ops; suppressing
     # the FloorOps here prevents the wood-floor regression at the
-    # switch.
-    if not suppress_rect_rooms:
-        for idx, room in enumerate(level.rooms):
-            if idx in cave_region_rooms:
+    # switch. Cave rooms are exempt — caves never coexist with a
+    # building polygon, so the wood-floor short-circuit cannot trip
+    # for them; their FloorOps emit unconditionally.
+    for idx, room in enumerate(level.rooms):
+        outline_obj = None
+        style_value = FloorStyle.FloorStyle.DungeonFloor
+        shape = room.shape
+        if idx in cave_region_rooms:
+            coords = _trace_cave_boundary_coords(room.floor_tiles())
+            if not coords or len(coords) < 4:
+                # Degenerate cave boundary — _cave_svg_outline also
+                # returns None here, so the legacy caveRegion path
+                # ships nothing for this room. Skip to keep parity.
                 continue
-            outline_obj = None
-            shape = room.shape
-            if isinstance(shape, RectShape):
-                outline_obj = outline_from_rect(room.rect)
-            elif isinstance(shape, OctagonShape):
-                outline_obj = outline_from_octagon(room)
-            elif isinstance(shape, LShape):
-                outline_obj = outline_from_l_shape(room)
-            elif isinstance(shape, TempleShape):
-                outline_obj = outline_from_temple(room)
-            elif isinstance(shape, CircleShape):
-                outline_obj = outline_from_circle(room)
-            elif isinstance(shape, PillShape):
-                outline_obj = outline_from_pill(room)
-            else:
-                # CrossShape / HybridShape / CaveShape skip this pass.
-                # Cave rooms ship through Phase 1.6; the others have
-                # no parity fixture coverage today.
-                continue
-            floor_op = FloorOpT()
-            floor_op.outline = outline_obj
-            floor_op.style = FloorStyle.FloorStyle.DungeonFloor
-            floor_entry = OpEntryT()
-            floor_entry.opType = Op.Op.FloorOp
-            floor_entry.op = floor_op
-            builder.add_op(floor_entry)
+            outline_obj = outline_from_cave(coords)
+            style_value = FloorStyle.FloorStyle.CaveFloor
+        elif suppress_rect_rooms:
+            # Wood-floor + building polygon: both legacy lists and
+            # FloorOps are suppressed for non-cave rooms.
+            continue
+        elif isinstance(shape, RectShape):
+            outline_obj = outline_from_rect(room.rect)
+        elif isinstance(shape, OctagonShape):
+            outline_obj = outline_from_octagon(room)
+        elif isinstance(shape, LShape):
+            outline_obj = outline_from_l_shape(room)
+        elif isinstance(shape, TempleShape):
+            outline_obj = outline_from_temple(room)
+        elif isinstance(shape, CircleShape):
+            outline_obj = outline_from_circle(room)
+        elif isinstance(shape, PillShape):
+            outline_obj = outline_from_pill(room)
+        else:
+            # CrossShape / HybridShape skip this pass — no parity
+            # fixture covers them today; later phases extend the
+            # dispatch as those renderer paths port.
+            continue
+        floor_op = FloorOpT()
+        floor_op.outline = outline_obj
+        floor_op.style = style_value
+        floor_entry = OpEntryT()
+        floor_entry.opType = Op.Op.FloorOp
+        floor_entry.op = floor_op
+        builder.add_op(floor_entry)
 
 
 def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
