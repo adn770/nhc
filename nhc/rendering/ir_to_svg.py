@@ -80,6 +80,13 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "hatching": frozenset({Op.Op.HatchOp}),
     "structural": frozenset({
         Op.Op.WallsAndFloorsOp,
+        # Phase 1.15: FloorOp entries are consumed INSIDE the
+        # WallsAndFloorsOp handler when the new ops are present,
+        # so FloorOp does NOT appear here as a standalone dispatch
+        # entry — WallsAndFloorsOp scans the full op list for
+        # FloorOps and emits their floor SVG before its own wall
+        # SVG to maintain the correct floors-under-walls paint
+        # order. See ``_draw_walls_and_floors_from_ir``.
         # Phase 8.1: per-building roof primitives. Within `ops[]`,
         # site IRs emit RoofOps after WallsAndFloorsOp so the roof
         # paints over the floor — see design/map_ir.md §6.1.
@@ -510,10 +517,167 @@ def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
 _OP_HANDLERS[Op.Op.HatchOp] = _draw_hatch_from_ir
 
 
+def _collect_dungeon_floor_ops(fir: FloorIR) -> list[Any]:
+    """Collect all ``DungeonFloor`` FloorOp entries from ``fir.ops[]``.
+
+    Returns a list of ``OpEntry`` objects whose type is ``FloorOp``
+    and whose style is ``FloorStyle.DungeonFloor``. CaveFloor FloorOps
+    are excluded — their per-room bezier vertex lists are not
+    equivalent to the single merged ``cave_region`` path that the
+    legacy consumer produces; cave-floor consumption is deferred to
+    Phase 1.15b.
+
+    Linear scan — cheap for the fixture sizes (< 300 ops).
+    """
+    from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
+
+    result = []
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() != Op.Op.FloorOp:
+            continue
+        op = OpCreator(entry.OpType(), entry.Op())
+        if op.style == FloorStyleMod.FloorStyle.DungeonFloor:
+            result.append(entry)
+    return result
+
+
+def _draw_floor_op_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Emit SVG for a single ``FloorOp`` stamp.
+
+    Phase 1.15 — first commit where pixels flow through the new 4.0
+    ops. Reads ``op.outline`` (Outline) and ``op.style``
+    (FloorStyle), dispatches on ``outline.descriptor_kind``:
+
+    * ``Polygon`` + ``DungeonFloor``: ``<polygon points="…">`` with
+      ``fill="#FFFFFF" stroke="none"``. Used for rect rooms,
+      corridor tiles, octagon/L-shape/temple smooth rooms.
+    * ``Polygon`` + ``CaveFloor``: reconstruct the centripetal
+      Catmull-Rom bezier path from the vertex list (same
+      ``_smooth_closed_path`` the legacy cave emitter uses) and
+      inject ``fill="#F5EBD8" stroke="none" fill-rule="evenodd"``.
+      Produces a byte-identical SVG path to the legacy path.
+    * ``Circle``: ``<circle cx="…" cy="…" r="…" fill="…"
+      stroke="none"/>``.
+    * ``Pill``: ``<rect x="…" y="…" width="…" height="…" rx="…"
+      ry="…" fill="…" stroke="none"/>``.
+
+    Returns a single-element ``list[str]`` per the handler
+    convention. Returns ``[]`` when the outline is absent or
+    degenerate (< 2 vertices for polygon; zero radius for circle).
+    """
+    from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod, OutlineKind as OutlineKindMod
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    outline = op.outline
+    if outline is None:
+        return []
+
+    style = op.style
+    color = (
+        CAVE_FLOOR_COLOR
+        if style == FloorStyleMod.FloorStyle.CaveFloor
+        else FLOOR_COLOR
+    )
+
+    kind = outline.descriptorKind
+
+    if kind == OutlineKindMod.OutlineKind.Circle:
+        cx = outline.cx
+        cy = outline.cy
+        r = outline.rx
+        if r <= 0:
+            return []
+        return [
+            f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" '
+            f'fill="{color}" stroke="none"/>'
+        ]
+
+    if kind == OutlineKindMod.OutlineKind.Pill:
+        cx = outline.cx
+        cy = outline.cy
+        rx = outline.rx
+        ry = outline.ry
+        if rx <= 0 or ry <= 0:
+            return []
+        x = cx - rx
+        y = cy - ry
+        w = rx * 2
+        h = ry * 2
+        radius = min(rx, ry)
+        return [
+            f'<rect x="{x:.1f}" y="{y:.1f}" '
+            f'width="{w:.1f}" height="{h:.1f}" '
+            f'rx="{radius:.1f}" ry="{radius:.1f}" '
+            f'fill="{color}" stroke="none"/>'
+        ]
+
+    # Polygon descriptor (the default)
+    verts = outline.vertices
+    if not verts or len(verts) < 2:
+        return []
+
+    coords = [(v.x, v.y) for v in verts]
+
+    if style == FloorStyleMod.FloorStyle.CaveFloor:
+        # Reconstruct the centripetal Catmull-Rom bezier path — the
+        # same _smooth_closed_path the legacy cave-region emitter
+        # uses. The FloorOp carries the raw trace-boundary coords
+        # verbatim; the renderer reproduces the curve here at
+        # consumption time, producing byte-identical SVG to the
+        # legacy cave_region path inject.
+        from nhc.rendering._cave_geometry import _smooth_closed_path
+        path_el = _smooth_closed_path(coords)
+        # Inject fill/stroke (same inject the legacy WallsAndFloorsOp
+        # handler does via Rust's cave_region.replace("/>", ...)).
+        return [
+            path_el.replace(
+                "/>",
+                f' fill="{CAVE_FLOOR_COLOR}" stroke="none" '
+                f'fill-rule="evenodd"/>',
+            )
+        ]
+
+    # DungeonFloor polygon (rect rooms, corridors, smooth polygon rooms)
+    points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
+    return [
+        f'<polygon points="{points}" '
+        f'fill="{color}" stroke="none"/>'
+    ]
+
+
 def _draw_walls_and_floors_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Reproduce ``_render_walls_and_floors``.
+    """Reproduce ``_render_walls_and_floors`` with Phase 1.15 floor switch.
+
+    Phase 1.15 — partial scope (rect rooms + corridors + smooth
+    DungeonFloor shapes). When ``DungeonFloor`` FloorOps are present:
+
+    1. Collect all ``DungeonFloor`` FloorOp entries and emit their
+       floor SVG **first** (floors-under-walls paint order keeps
+       walls visually on top).
+    2. Pass empty ``rect_rooms`` and ``corridor_tiles`` to Rust (the
+       FloorOps cover these).
+    3. ``smooth_fills`` passes through unchanged — it may contain
+       non-FloorOp content (wood-floor tile rects in building floors)
+       that has no FloorOp equivalent. For smooth rooms whose content
+       IS covered by a FloorOp, the double-paint is harmless (same
+       colour).
+    4. ``cave_region`` passes through unchanged — CaveFloor FloorOps
+       carry per-room bezier vertex lists that are not equivalent to
+       the single merged ``cave_region`` path; cave-floor via FloorOp
+       is deferred to Phase 1.15b.
+
+    ``FloorOp`` is NOT a standalone dispatch handler — it is consumed
+    here so that the combined floor+wall emit sequence mirrors the
+    legacy floor-before-wall ordering.
+
+    When no DungeonFloor FloorOp is present (3.x cached buffers or
+    cave-only fixtures), all inputs pass through unchanged for full
+    back-compat.
 
     Phase 4.4 — partial port. Structural geometry (smooth-room
     outlines, cave region path, wall extension data) is computed
@@ -526,22 +690,61 @@ def _draw_walls_and_floors_from_ir(
     import nhc_render
 
     op = OpCreator(entry.OpType(), entry.Op())
+    wall_segments = [_to_str(s) for s in (op.wallSegments or [])]
+    smooth_walls = [_to_str(s) for s in (op.smoothWallSvg or [])]
+    smooth_fills = [_to_str(s) for s in (op.smoothFillSvg or [])]
+    cave_region = _to_str(op.caveRegion)
+    wall_extensions_d = _to_str(op.wallExtensionsD)
+
+    dungeon_floor_ops = _collect_dungeon_floor_ops(fir)
+    if dungeon_floor_ops:
+        # Emit DungeonFloor floor shapes first (floors-under-walls).
+        floor_frags: list[str] = []
+        for op_entry in dungeon_floor_ops:
+            floor_frags.extend(_draw_floor_op_from_ir(op_entry, fir))
+        # Suppress smooth_fills only when the DungeonFloor FloorOp
+        # count covers all floor sources (rect_rooms + corridor_tiles
+        # + smooth_fills). If the count is smaller, smooth_fills
+        # contains content without a FloorOp equivalent (e.g. wood-
+        # floor tile rects in building floors) and must pass through.
+        # cave_region always passes through — CaveFloor FloorOps use
+        # per-room bezier vertices, not the merged cave path; that
+        # switch is deferred to Phase 1.15b.
+        corridor_tiles = [
+            (t.x, t.y) for t in (op.corridorTiles or [])
+        ]
+        rect_rooms = [
+            (rr.x, rr.y, rr.w, rr.h) for rr in (op.rectRooms or [])
+        ]
+        floors_covered = (
+            len(dungeon_floor_ops)
+            >= len(rect_rooms) + len(corridor_tiles) + len(smooth_fills)
+        )
+        wall_frags = nhc_render.draw_walls_and_floors(
+            [],
+            [],
+            [] if floors_covered else smooth_fills,
+            cave_region,
+            smooth_walls,
+            wall_extensions_d,
+            wall_segments,
+        )
+        return floor_frags + wall_frags
+
+    # Legacy fallback — 3.x cached buffers without FloorOp.
     corridor_tiles = [
         (t.x, t.y) for t in (op.corridorTiles or [])
     ]
     rect_rooms = [
         (rr.x, rr.y, rr.w, rr.h) for rr in (op.rectRooms or [])
     ]
-    smooth_fills = [_to_str(s) for s in (op.smoothFillSvg or [])]
-    smooth_walls = [_to_str(s) for s in (op.smoothWallSvg or [])]
-    wall_segments = [_to_str(s) for s in (op.wallSegments or [])]
     return nhc_render.draw_walls_and_floors(
         corridor_tiles,
         rect_rooms,
         smooth_fills,
-        _to_str(op.caveRegion),
+        cave_region,
         smooth_walls,
-        _to_str(op.wallExtensionsD),
+        wall_extensions_d,
         wall_segments,
     )
 

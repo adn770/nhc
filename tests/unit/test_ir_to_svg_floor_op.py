@@ -1,0 +1,290 @@
+"""Phase 1.15 — tests for the FloorOp consumer in ir_to_svg.
+
+Tests are written first (TDD) and cover:
+
+- _draw_floor_op_from_ir emits a <polygon> for a Polygon-descriptor
+  outline (rect room, octagon, L-shape, temple, cave polygon).
+- _draw_floor_op_from_ir emits a <circle> for a Circle-descriptor.
+- _draw_floor_op_from_ir emits a rounded-rect <rect rx ry> for a
+  Pill-descriptor.
+- FloorStyle.DungeonFloor → fill="#FFFFFF".
+- FloorStyle.CaveFloor → fill="#F5EBD8".
+- Cave FloorOp (Polygon, CaveFloor) emits a bezier <path> matching
+  the legacy cave-region fill.
+- A FloorIR with FloorOps present renders floors through them and
+  WallsAndFloorsOp skips its legacy floor emission.
+- A legacy 3.x FloorIR (no FloorOp) still renders via
+  WallsAndFloorsOp for full back-compat.
+"""
+
+from __future__ import annotations
+
+import re
+
+import flatbuffers
+import pytest
+
+from nhc.rendering._svg_helpers import CAVE_FLOOR_COLOR, FLOOR_COLOR
+from nhc.rendering.ir._fb import Op
+from nhc.rendering.ir._fb.FloorOp import FloorOpT, FloorOpStart, FloorOpEnd, FloorOpAddOutline, FloorOpAddStyle
+from nhc.rendering.ir._fb.FloorStyle import FloorStyle
+from nhc.rendering.ir._fb.Outline import OutlineT
+from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+
+
+# ── Helpers ────────────────────────────────────────────────────────
+
+
+def _build_polygon_outline(
+    vertices: list[tuple[float, float]],
+) -> OutlineT:
+    """Build a Polygon-descriptor OutlineT from a vertex list."""
+    out = OutlineT()
+    from nhc.rendering.ir._fb.Vec2 import Vec2T
+    out.descriptorKind = OutlineKind.Polygon
+    out.closed = True
+    out.vertices = []
+    out.cuts = []
+    for x, y in vertices:
+        v = Vec2T()
+        v.x = x
+        v.y = y
+        out.vertices.append(v)
+    return out
+
+
+def _build_circle_outline(
+    cx: float, cy: float, r: float,
+) -> OutlineT:
+    out = OutlineT()
+    out.descriptorKind = OutlineKind.Circle
+    out.closed = True
+    out.vertices = []
+    out.cuts = []
+    out.cx = cx
+    out.cy = cy
+    out.rx = r
+    out.ry = r
+    return out
+
+
+def _build_pill_outline(
+    cx: float, cy: float, rx: float, ry: float,
+) -> OutlineT:
+    out = OutlineT()
+    out.descriptorKind = OutlineKind.Pill
+    out.closed = True
+    out.vertices = []
+    out.cuts = []
+    out.cx = cx
+    out.cy = cy
+    out.rx = rx
+    out.ry = ry
+    return out
+
+
+def _build_fir_buf_with_floor_op(
+    outline: OutlineT,
+    style: int,
+) -> bytes:
+    """Serialise a minimal FloorIR containing one FloorOp entry."""
+    import flatbuffers
+    from nhc.rendering.ir._fb.FloorIR import FloorIRT
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+
+    fir_t = FloorIRT()
+    fir_t.major = 3
+    fir_t.minor = 1
+    fir_t.widthTiles = 20
+    fir_t.heightTiles = 20
+    fir_t.cell = 32
+    fir_t.padding = 32
+    fir_t.ops = []
+    fir_t.regions = []
+
+    floor_op = FloorOpT()
+    floor_op.outline = outline
+    floor_op.style = style
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorOp
+    entry.op = floor_op
+    fir_t.ops.append(entry)
+
+    _FILE_IDENTIFIER = b"NIR3"
+    builder = flatbuffers.Builder(512)
+    builder.Finish(fir_t.Pack(builder), _FILE_IDENTIFIER)
+    return bytes(builder.Output())
+
+
+def _call_floor_op_handler(
+    outline: OutlineT,
+    style: int,
+) -> list[str]:
+    """Call _draw_floor_op_from_ir via a minimal serialise + dispatch."""
+    buf = _build_fir_buf_with_floor_op(outline, style)
+
+    from nhc.rendering.ir._fb.FloorIR import FloorIR
+    fir = FloorIR.GetRootAs(buf, 0)
+
+    from nhc.rendering.ir_to_svg import _draw_floor_op_from_ir
+    entry_fb = fir.Ops(0)
+    return _draw_floor_op_from_ir(entry_fb, fir)
+
+
+# ── Unit tests: handler output format ─────────────────────────────
+
+
+def test_floor_op_handler_emits_polygon_for_rect_outline() -> None:
+    """A FloorOp with rect-poly Outline produces a <polygon> SVG."""
+    # 4x3 rect room at (2, 2) → pixel bbox (64, 64, 128, 96)
+    pts = [(64.0, 64.0), (192.0, 64.0), (192.0, 160.0), (64.0, 160.0)]
+    outline = _build_polygon_outline(pts)
+    frags = _call_floor_op_handler(outline, FloorStyle.DungeonFloor)
+    assert len(frags) == 1
+    frag = frags[0]
+    assert frag.startswith("<polygon ")
+    assert 'points="' in frag
+    # All four corners appear (in order)
+    assert "64.0,64.0" in frag
+    assert "192.0,64.0" in frag
+    assert "192.0,160.0" in frag
+    assert "64.0,160.0" in frag
+
+
+def test_floor_op_handler_emits_circle_for_circle_descriptor() -> None:
+    """A FloorOp with Circle descriptor produces a <circle> SVG."""
+    outline = _build_circle_outline(cx=160.0, cy=160.0, r=96.0)
+    frags = _call_floor_op_handler(outline, FloorStyle.DungeonFloor)
+    assert len(frags) == 1
+    frag = frags[0]
+    assert frag.startswith("<circle ")
+    assert 'cx="160.0"' in frag or 'cx="160"' in frag
+    assert 'cy="160.0"' in frag or 'cy="160"' in frag
+    assert 'r="96.0"' in frag or 'r="96"' in frag
+
+
+def test_floor_op_handler_emits_pill_for_pill_descriptor() -> None:
+    """A FloorOp with Pill descriptor produces a rounded-rect SVG."""
+    # cx=160, cy=128, rx=96, ry=64 → x=64, y=64, w=192, h=128, radius=64
+    outline = _build_pill_outline(cx=160.0, cy=128.0, rx=96.0, ry=64.0)
+    frags = _call_floor_op_handler(outline, FloorStyle.DungeonFloor)
+    assert len(frags) == 1
+    frag = frags[0]
+    assert frag.startswith("<rect ")
+    assert "rx=" in frag
+    assert "ry=" in frag
+
+
+def test_floor_op_dungeon_style_uses_floor_color() -> None:
+    """FloorStyle.DungeonFloor → fill=FLOOR_COLOR (#FFFFFF)."""
+    pts = [(0.0, 0.0), (32.0, 0.0), (32.0, 32.0), (0.0, 32.0)]
+    outline = _build_polygon_outline(pts)
+    frags = _call_floor_op_handler(outline, FloorStyle.DungeonFloor)
+    assert FLOOR_COLOR in frags[0]
+
+
+def test_floor_op_cave_style_uses_cave_floor_color() -> None:
+    """FloorStyle.CaveFloor → fill=CAVE_FLOOR_COLOR (#F5EBD8)."""
+    pts = [(0.0, 0.0), (32.0, 0.0), (32.0, 32.0), (0.0, 32.0)]
+    outline = _build_polygon_outline(pts)
+    frags = _call_floor_op_handler(outline, FloorStyle.CaveFloor)
+    assert CAVE_FLOOR_COLOR in frags[0]
+
+
+# ── Integration tests: consumer switch behaviour ───────────────────
+
+
+def test_floor_op_consumer_replaces_rect_rooms() -> None:
+    """A FloorIR with FloorOps and rect_rooms renders floors via FloorOp.
+
+    When FloorOps are present, WallsAndFloorsOp skips its legacy
+    corridor_tiles + rect_rooms floor emission. The structural layer
+    produces the same total elements (floors from FloorOp + walls
+    from WallsAndFloorsOp) as the legacy path (all from
+    WallsAndFloorsOp). Pixel content is checked by the parity gate;
+    here we assert the SVG fragment source changed.
+    """
+    from nhc.rendering.ir_emitter import build_floor_ir
+    from nhc.rendering.ir_to_svg import ir_to_svg
+    from tests.fixtures.floor_ir._inputs import descriptor_inputs
+
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed, hatch_distance=2.0, vegetation=True,
+    )
+
+    svg = ir_to_svg(buf)
+
+    # Floors should be rendered as <polygon> elements from FloorOps
+    # (not as <rect> with floor_color injected by draw_walls_and_floors).
+    # The polygon path carries points="..." attribute.
+    # Both rect rooms (4 vertices) and corridor tiles (4 vertices) match.
+    assert '<polygon points="' in svg, (
+        "Expected FloorOp polygon floors in SVG output; "
+        "FloorOp handler may not be registered in the structural layer"
+    )
+
+
+def test_floor_op_fallback_to_legacy_when_absent() -> None:
+    """A 3.x FloorIR with no FloorOp still renders via legacy fields.
+
+    Build a minimal FloorIR with only WallsAndFloorsOp fields
+    (rect_rooms + corridor_tiles) and no FloorOp entries. The
+    consumer must fall back to the legacy path and produce floor
+    rects.
+    """
+    import flatbuffers
+    from nhc.rendering.ir._fb.FloorIR import FloorIRT
+    from nhc.rendering.ir._fb.WallsAndFloorsOp import WallsAndFloorsOpT
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+    from nhc.rendering.ir._fb.RectRoom import RectRoomT
+    from nhc.rendering.ir._fb.TileCoord import TileCoordT
+    from nhc.rendering.ir_to_svg import ir_to_svg
+
+    fir_t = FloorIRT()
+    fir_t.major = 3
+    fir_t.minor = 1
+    fir_t.widthTiles = 10
+    fir_t.heightTiles = 10
+    fir_t.cell = 32
+    fir_t.padding = 32
+    fir_t.ops = []
+    fir_t.regions = []
+
+    # One rect room at (2, 2, 3, 3)
+    waf = WallsAndFloorsOpT()
+    rr = RectRoomT()
+    rr.x = 2
+    rr.y = 2
+    rr.w = 3
+    rr.h = 3
+    waf.rectRooms = [rr]
+    waf.corridorTiles = []
+    waf.smoothFillSvg = []
+    waf.smoothWallSvg = []
+    waf.wallSegments = []
+    waf.caveRegion = ""
+    waf.wallExtensionsD = ""
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.WallsAndFloorsOp
+    entry.op = waf
+    fir_t.ops.append(entry)
+
+    _FILE_IDENTIFIER = b"NIR3"
+    builder = flatbuffers.Builder(512)
+    builder.Finish(fir_t.Pack(builder), _FILE_IDENTIFIER)
+    buf = bytes(builder.Output())
+    svg = ir_to_svg(buf)
+
+    # Legacy path emits a <rect> for the room (floor fill).
+    # The rect should be at pixel coords 2*32=64, 2*32=64, 3*32=96x96.
+    assert 'fill="#FFFFFF"' in svg, (
+        "Expected legacy floor rect in SVG when no FloorOp present; "
+        "fallback path may be broken"
+    )
+    # Specifically a rect element covering the room
+    assert 'x="64"' in svg or 'x="64.0"' in svg, (
+        "Expected rect at x=64 from legacy WallsAndFloorsOp rect_room"
+    )

@@ -150,10 +150,20 @@ class TestSmoothOutlines:
         assert len(points) == 12, f"Cross needs 12 vertices, got {len(points)}"
 
     def test_rect_room_no_smooth_outline(self):
+        # Rect rooms are now emitted as 4-vertex <polygon> FloorOps.
+        # They should NOT get a circle or a multi-vertex smooth polygon
+        # (those are for CircleShape / OctagonShape / etc.).
         level, _ = _make_shaped_level(RectShape())
         svg = render_floor_svg(level)
         assert "<circle " not in svg
-        assert "<polygon " not in svg
+        # All polygons for a rect room must be 4 vertices (the floor rect).
+        import re as _re
+        for m in _re.finditer(r'<polygon points="([^"]+)"', svg):
+            pts = m.group(1).split()
+            assert len(pts) == 4, (
+                f"Rect room polygon has {len(pts)} vertices; "
+                "expected 4 (not a smooth outline)"
+            )
 
     def test_temple_room_produces_polygon(self):
         level, _ = _make_shaped_level(TempleShape(flat_side="south"))
@@ -726,31 +736,40 @@ class TestFloorFillCoverage:
         assert f'fill="{FLOOR_COLOR}"' in svg
 
     def test_rect_room_has_floor_fill(self):
-        """Rect rooms have a FLOOR_COLOR-filled rect."""
+        """Rect rooms are filled with FLOOR_COLOR (as a FloorOp polygon)."""
         level, room = _make_shaped_level(RectShape())
         svg = render_floor_svg(level, seed=42)
         r = room.rect
-        fill_rect = (
-            f'x="{r.x * CELL}" y="{r.y * CELL}" '
-            f'width="{r.width * CELL}" height="{r.height * CELL}" '
-            f'fill="{FLOOR_COLOR}"'
+        # Phase 1.15+: rect rooms emit a 4-vertex <polygon> FloorOp.
+        x0, y0 = r.x * CELL, r.y * CELL
+        x1, y1 = (r.x + r.width) * CELL, (r.y + r.height) * CELL
+        expected_points = (
+            f"{x0:.1f},{y0:.1f} {x1:.1f},{y0:.1f} "
+            f"{x1:.1f},{y1:.1f} {x0:.1f},{y1:.1f}"
         )
-        assert fill_rect in svg
+        assert expected_points in svg, (
+            f"Rect room polygon {expected_points!r} not found in SVG"
+        )
+        assert f'fill="{FLOOR_COLOR}"' in svg
 
     def test_corridor_tile_has_floor_fill(self):
-        """Corridor tiles get individual FLOOR_COLOR rects."""
+        """Corridor tiles are filled with FLOOR_COLOR (as FloorOp polygons)."""
         level, room = _make_shaped_level(
             RectShape(), corridor_side="east")
         svg = render_floor_svg(level, seed=42)
-        floor = room.floor_tiles()
         cy = room.rect.y + room.rect.height // 2
         ex = room.rect.x2  # first corridor tile
-        tile_fill = (
-            f'x="{ex * CELL}" y="{cy * CELL}" '
-            f'width="{CELL}" height="{CELL}" '
-            f'fill="{FLOOR_COLOR}"'
+        # Phase 1.15+: corridor tiles emit 4-vertex <polygon> FloorOps.
+        x0, y0 = ex * CELL, cy * CELL
+        x1, y1 = (ex + 1) * CELL, (cy + 1) * CELL
+        expected_points = (
+            f"{x0:.1f},{y0:.1f} {x1:.1f},{y0:.1f} "
+            f"{x1:.1f},{y1:.1f} {x0:.1f},{y1:.1f}"
         )
-        assert tile_fill in svg
+        assert expected_points in svg, (
+            f"Corridor tile polygon {expected_points!r} not found in SVG"
+        )
+        assert f'fill="{FLOOR_COLOR}"' in svg
 
 
 # ── 8. Hatching / floor boundary ──────────────────────────────────
