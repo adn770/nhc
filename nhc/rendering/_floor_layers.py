@@ -268,6 +268,7 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     """
     from nhc.dungeon.generators.cellular import CaveShape
     from nhc.dungeon.model import RectShape
+    from nhc.rendering._outline_helpers import outline_from_rect
     from nhc.rendering._room_outlines import (
         _outline_with_gaps, _room_svg_outline,
     )
@@ -275,7 +276,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         CELL, FLOOR_COLOR, INK, WALL_WIDTH,
         _find_doorless_openings, _is_floor,
     )
-    from nhc.rendering.ir._fb import Op
+    from nhc.rendering.ir._fb import FloorStyle, Op
+    from nhc.rendering.ir._fb.FloorOp import FloorOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
     from nhc.rendering.ir._fb.RectRoom import RectRoomT
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
@@ -522,6 +524,28 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     entry.opType = Op.Op.WallsAndFloorsOp
     entry.op = op
     builder.add_op(entry)
+
+    # Phase 1.4 — parallel emission of FloorOp per rect room. The
+    # legacy ``rectRooms`` list above still drives pixels (consumers
+    # do not read FloorOp until 1.15+); we emit the new ops alongside
+    # so the IR JSON dump shows the parallel emission together (easy
+    # to eyeball) and 1.15's consumer switch produces the correct
+    # paint order — FloorOp slots before every other layer per
+    # design/map_ir_v4.md §4. Mirror the wood-floor ``suppress_rect_rooms``
+    # short-circuit: when True the legacy ``rectRooms`` list is empty
+    # (the bbox would bleed past the chamfered footprint), so the new
+    # FloorOps must be empty too.
+    if not suppress_rect_rooms:
+        for room in level.rooms:
+            if not isinstance(room.shape, RectShape):
+                continue
+            floor_op = FloorOpT()
+            floor_op.outline = outline_from_rect(room.rect)
+            floor_op.style = FloorStyle.FloorStyle.DungeonFloor
+            floor_entry = OpEntryT()
+            floor_entry.opType = Op.Op.FloorOp
+            floor_entry.op = floor_op
+            builder.add_op(floor_entry)
 
 
 def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:

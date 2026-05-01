@@ -9244,6 +9244,726 @@
     },
     {
       "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 128.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 256.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 128.0,
+              "y": 256.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 96.0,
+              "y": 384.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 384.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 544.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 96.0,
+              "y": 544.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 160.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 448.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 448.0,
+              "y": 896.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 160.0,
+              "y": 896.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 256.0,
+              "y": 1024.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 1024.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 1152.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 256.0,
+              "y": 1152.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 128.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 128.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 352.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 352.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 352.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 352.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 640.0,
+              "y": 480.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 768.0,
+              "y": 480.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 768.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 640.0,
+              "y": 672.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 480.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 480.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 608.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 608.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 832.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 800.0,
+              "y": 832.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 800.0,
+              "y": 992.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 992.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 832.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 832.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 1152.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 1152.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1344.0,
+              "y": 512.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 512.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 736.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1344.0,
+              "y": 736.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 1024.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1504.0,
+              "y": 1024.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1504.0,
+              "y": 1184.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 1184.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1792.0,
+              "y": 96.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1792.0,
+              "y": 224.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 224.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 384.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 384.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 544.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 544.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 672.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 800.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 800.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 992.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 992.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1824.0,
+              "y": 1152.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 1152.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
+      "opType": "FloorOp",
+      "op": {
+        "__type": "FloorOpT",
+        "outline": {
+          "__type": "OutlineT",
+          "vertices": [
+            {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 864.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 864.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 928.0
+            },
+            {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 928.0
+            }
+          ],
+          "cuts": [],
+          "closed": true,
+          "descriptorKind": 0,
+          "cx": 0.0,
+          "cy": 0.0,
+          "rx": 0.0,
+          "ry": 0.0
+        },
+        "style": 0
+      }
+    },
+    {
+      "__type": "OpEntryT",
       "opType": "TerrainTintOp",
       "op": {
         "__type": "TerrainTintOpT",
