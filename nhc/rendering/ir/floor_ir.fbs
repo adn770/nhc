@@ -820,6 +820,27 @@ table ExteriorWallOp {
   corner_style: CornerStyle = Merlon;
 }
 
+// Phase 1.16b-1 of plans/nhc_pure_ir_plan.md — corridor wall op.
+//
+// Carries the full set of corridor floor-tile positions for one
+// dungeon floor. The consumer (Phase 1.16b-3) derives wall edges by
+// checking each corridor tile's four cardinal neighbours against the
+// union of all FloorOp tile coverage. The emitter populates one
+// CorridorWallOp per floor with the same tile list it already
+// populates on WallsAndFloorsOp.corridor_tiles; ``style`` defaults to
+// DungeonInk and is reserved for future cave-corridor / themed
+// divergence. No cuts: corridor wall edges are derived at consume time,
+// not pre-resolved at emit time.
+//
+// Pure additive schema change — no NIR3 -> NIR4 bump (that happens
+// at Phase 1.22). Legacy WallsAndFloorsOp.corridor_tiles +
+// wall_segments still drive pixels; nothing reads CorridorWallOp
+// until Phase 1.16b-3.
+table CorridorWallOp {
+  tiles: [TileCoord];     // corridor floor tile positions
+  style: WallStyle = DungeonInk;  // future: cave-themed corridor walls
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
@@ -869,6 +890,7 @@ union Op {
   FloorOp,
   InteriorWallOp,
   ExteriorWallOp,
+  CorridorWallOp,          // Phase 1.16b-1 — additive, no consumer yet
 }
 
 table OpEntry {

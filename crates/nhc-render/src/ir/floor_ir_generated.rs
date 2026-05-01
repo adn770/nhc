@@ -1835,10 +1835,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 22;
+pub const ENUM_MAX_OP: u8 = 23;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 23] = [
+pub const ENUM_VALUES_OP: [Op; 24] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -1862,6 +1862,7 @@ pub const ENUM_VALUES_OP: [Op; 23] = [
   Op::FloorOp,
   Op::InteriorWallOp,
   Op::ExteriorWallOp,
+  Op::CorridorWallOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1892,9 +1893,10 @@ impl Op {
   pub const FloorOp: Self = Self(20);
   pub const InteriorWallOp: Self = Self(21);
   pub const ExteriorWallOp: Self = Self(22);
+  pub const CorridorWallOp: Self = Self(23);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 22;
+  pub const ENUM_MAX: u8 = 23;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -1919,6 +1921,7 @@ impl Op {
     Self::FloorOp,
     Self::InteriorWallOp,
     Self::ExteriorWallOp,
+    Self::CorridorWallOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1946,6 +1949,7 @@ impl Op {
       Self::FloorOp => Some("FloorOp"),
       Self::InteriorWallOp => Some("InteriorWallOp"),
       Self::ExteriorWallOp => Some("ExteriorWallOp"),
+      Self::CorridorWallOp => Some("CorridorWallOp"),
       _ => None,
     }
   }
@@ -9515,6 +9519,119 @@ impl ::core::fmt::Debug for ExteriorWallOp<'_> {
       ds.finish()
   }
 }
+pub enum CorridorWallOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CorridorWallOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for CorridorWallOp<'a> {
+  type Inner = CorridorWallOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> CorridorWallOp<'a> {
+  pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    CorridorWallOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CorridorWallOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<CorridorWallOp<'bldr>> {
+    let mut builder = CorridorWallOpBuilder::new(_fbb);
+    if let Some(x) = args.tiles { builder.add_tiles(x); }
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn tiles(&self) -> Option<::flatbuffers::Vector<'a, TileCoord>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, TileCoord>>>(CorridorWallOp::VT_TILES, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> WallStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<WallStyle>(CorridorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for CorridorWallOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CorridorWallOpArgs<'a> {
+    pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
+    pub style: WallStyle,
+}
+impl<'a> Default for CorridorWallOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CorridorWallOpArgs {
+      tiles: None,
+      style: WallStyle::DungeonInk,
+    }
+  }
+}
+
+pub struct CorridorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> CorridorWallOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_tiles(&mut self, tiles: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , TileCoord>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(CorridorWallOp::VT_TILES, tiles);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: WallStyle) {
+    self.fbb_.push_slot::<WallStyle>(CorridorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> CorridorWallOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CorridorWallOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<CorridorWallOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for CorridorWallOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("CorridorWallOp");
+      ds.field("tiles", &self.tiles());
+      ds.field("style", &self.style());
+      ds.finish()
+  }
+}
 pub enum OpEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -9894,6 +10011,21 @@ impl<'a> OpEntry<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_corridor_wall_op(&self) -> Option<CorridorWallOp<'a>> {
+    if self.op_type() == Op::CorridorWallOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { CorridorWallOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for OpEntry<'_> {
@@ -9926,6 +10058,7 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::FloorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloorOp>>("Op::FloorOp", pos),
           Op::InteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<InteriorWallOp>>("Op::InteriorWallOp", pos),
           Op::ExteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ExteriorWallOp>>("Op::ExteriorWallOp", pos),
+          Op::CorridorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<CorridorWallOp>>("Op::CorridorWallOp", pos),
           _ => Ok(()),
         }
      })?
@@ -10129,6 +10262,13 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::ExteriorWallOp => {
           if let Some(x) = self.op_as_exterior_wall_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::CorridorWallOp => {
+          if let Some(x) = self.op_as_corridor_wall_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")

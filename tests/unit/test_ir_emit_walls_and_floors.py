@@ -1776,3 +1776,151 @@ def test_every_door_tile_in_every_fixture_has_a_cut() -> None:
             f"across all ExteriorWallOps (one per room-adjacent door "
             f"tile), got {actual}"
         )
+
+
+# ── Phase 1.16b-1 — CorridorWallOp emission ─────────────────────
+
+
+def test_corridor_wall_op_emitted_once_per_floor() -> None:
+    """Every level with corridor tiles produces exactly one
+    CorridorWallOp; floors without corridors produce zero.
+
+    Phase 1.16b-1 of plans/nhc_pure_ir_plan.md: one op per floor
+    carries the full corridor tile list; the consumer derives wall
+    edges from FloorOp tile-coverage at consume time.
+    """
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+    # Level WITH corridors → expect exactly one CorridorWallOp.
+    corridor_tiles = [(2, 2), (3, 2), (4, 2), (5, 5)]
+    level_with = _build_corridor_level(corridor_tiles)
+    ops_with, _ = _emit_into_builder(level_with)
+
+    corridor_wall_ops_with = [
+        e for e in ops_with
+        if e.opType == Op.Op.CorridorWallOp
+    ]
+    assert len(corridor_wall_ops_with) == 1, (
+        f"expected exactly 1 CorridorWallOp for a level with corridors, "
+        f"got {len(corridor_wall_ops_with)}"
+    )
+
+    # Level WITHOUT corridors → expect zero CorridorWallOps.
+    level_none = Level.create_empty(
+        id="floor1", name="t", depth=1, width=10, height=10,
+    )
+    ops_none, _ = _emit_into_builder(level_none)
+
+    corridor_wall_ops_none = [
+        e for e in ops_none
+        if e.opType == Op.Op.CorridorWallOp
+    ]
+    assert len(corridor_wall_ops_none) == 0, (
+        f"expected 0 CorridorWallOps for a level with no corridors, "
+        f"got {len(corridor_wall_ops_none)}"
+    )
+
+
+def test_corridor_wall_op_tiles_match_legacy_corridor_tiles() -> None:
+    """CorridorWallOp.tiles is the same set as
+    WallsAndFloorsOp.corridorTiles (both hold corridor floor-tile
+    coords).
+
+    Pins the parity contract: the new op carries identical tile
+    coverage to the legacy field so Phase 1.16b-3's consumer switch
+    produces the same wall edges without count drift.
+    """
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    walls_ops = [
+        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
+    ]
+    assert len(walls_ops) == 1
+    legacy_tiles = {
+        (t.x, t.y)
+        for t in (walls_ops[0].op.corridorTiles or [])
+    }
+    assert len(legacy_tiles) > 0, (
+        "seed42_rect_dungeon_dungeon must have >0 corridor tiles"
+    )
+
+    corridor_wall_ops = [
+        e for e in fir.ops if e.opType == Op.Op.CorridorWallOp
+    ]
+    assert len(corridor_wall_ops) == 1
+    new_tiles = {
+        (t.x, t.y)
+        for t in (corridor_wall_ops[0].op.tiles or [])
+    }
+
+    assert new_tiles == legacy_tiles, (
+        f"CorridorWallOp.tiles ({len(new_tiles)}) does not match "
+        f"WallsAndFloorsOp.corridorTiles ({len(legacy_tiles)})"
+    )
+
+
+def test_corridor_wall_op_style_is_dungeon_ink() -> None:
+    """Style defaults to DungeonInk.
+
+    The style field is reserved for future cave-corridor / themed
+    divergence. Phase 1.16b-1 always emits DungeonInk.
+    """
+    corridor_tiles = [(2, 2), (3, 2)]
+    level = _build_corridor_level(corridor_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    corridor_wall_ops = [
+        e for e in ops if e.opType == Op.Op.CorridorWallOp
+    ]
+    assert len(corridor_wall_ops) == 1
+    assert corridor_wall_ops[0].op.style == WallStyle.DungeonInk, (
+        f"expected WallStyle.DungeonInk ({WallStyle.DungeonInk}), "
+        f"got {corridor_wall_ops[0].op.style}"
+    )
+
+
+def test_corridor_wall_op_round_trips_through_pack_unpack() -> None:
+    """Build-pack-unpack via the FlatBuffers boundary preserves the
+    tile list and style.
+
+    The seed42 fixture round-trip exercises the full
+    FloorIRBuilder.finish() → FlatBuffers pack → unpack path, so
+    any serialisation regression shows up here.
+    """
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    corridor_wall_ops = [
+        e for e in fir.ops if e.opType == Op.Op.CorridorWallOp
+    ]
+    assert len(corridor_wall_ops) == 1, (
+        "seed42_rect_dungeon_dungeon must produce exactly 1 "
+        "CorridorWallOp after pack/unpack"
+    )
+
+    op = corridor_wall_ops[0].op
+    tiles = op.tiles or []
+    assert len(tiles) > 0, "CorridorWallOp.tiles must be non-empty after round-trip"
+    # Every tile must have valid integer coords within the level bounds.
+    level = inputs.level
+    for tile in tiles:
+        assert 0 <= tile.x < level.width, (
+            f"tile.x={tile.x} out of bounds [0, {level.width})"
+        )
+        assert 0 <= tile.y < level.height, (
+            f"tile.y={tile.y} out of bounds [0, {level.height})"
+        )
+    assert op.style == WallStyle.DungeonInk, (
+        f"style must survive pack/unpack as DungeonInk, got {op.style}"
+    )

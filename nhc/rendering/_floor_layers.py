@@ -866,6 +866,30 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             wall_entry.op = wall_op
             builder.add_op(wall_entry)
 
+    # Phase 1.16b-1 — emit a single CorridorWallOp per floor with the
+    # tile list. The consumer (Phase 1.16b-3) derives wall edges by
+    # checking each corridor tile's four cardinal neighbours against the
+    # union of all FloorOp tile coverage; this op carries only the
+    # minimal tile-membership data required.
+    #
+    # Emits AFTER all ExteriorWallOps so the new op appears in the
+    # ExteriorWallOp slot (slot 5 of design/map_ir_v4.md §4 paint
+    # order) adjacent to the rect / smooth / cave ExteriorWallOps.
+    # Only emitted when corridor tiles exist — floors with no corridors
+    # (pure-room or cave-only levels) produce zero CorridorWallOps.
+    #
+    # Legacy WallsAndFloorsOp.corridor_tiles + wall_segments still
+    # drive pixels; nothing reads CorridorWallOp until Phase 1.16b-3.
+    if corridor_tiles_list:
+        from nhc.rendering.ir._fb.CorridorWallOp import CorridorWallOpT
+        corr_wall_op = CorridorWallOpT()
+        corr_wall_op.tiles = list(corridor_tiles_list)
+        corr_wall_op.style = WallStyle.WallStyle.DungeonInk
+        corr_wall_entry = OpEntryT()
+        corr_wall_entry.opType = Op.Op.CorridorWallOp
+        corr_wall_entry.op = corr_wall_op
+        builder.add_op(corr_wall_entry)
+
 
 def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the terrain-tints layer.

@@ -12,6 +12,7 @@
   },
   "op_counts": {
     "BushFeatureOp": 1,
+    "CorridorWallOp": 1,
     "DecoratorOp": 1,
     "EnclosureOp": 1,
     "ExteriorWallOp": 1,

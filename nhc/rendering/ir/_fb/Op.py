@@ -26,6 +26,7 @@ class Op(object):
     FloorOp = 20
     InteriorWallOp = 21
     ExteriorWallOp = 22
+    CorridorWallOp = 23
 
 def OpCreator(unionType, table):
     from flatbuffers.table import Table
@@ -97,4 +98,7 @@ def OpCreator(unionType, table):
     if unionType == Op.ExteriorWallOp:
         import nhc.rendering.ir._fb.ExteriorWallOp
         return nhc.rendering.ir._fb.ExteriorWallOp.ExteriorWallOpT.InitFromBuf(table.Bytes, table.Pos)
+    if unionType == Op.CorridorWallOp:
+        import nhc.rendering.ir._fb.CorridorWallOp
+        return nhc.rendering.ir._fb.CorridorWallOp.CorridorWallOpT.InitFromBuf(table.Bytes, table.Pos)
     return None

@@ -10,6 +10,7 @@ export { CartTracksVariant } from './fb/cart-tracks-variant.js';
 export { CobblePattern } from './fb/cobble-pattern.js';
 export { CobblestoneVariant } from './fb/cobblestone-variant.js';
 export { CornerStyle } from './fb/corner-style.js';
+export { CorridorWallOp } from './fb/corridor-wall-op.js';
 export { Cut } from './fb/cut.js';
 export { CutStyle } from './fb/cut-style.js';
 export { DecoratorOp } from './fb/decorator-op.js';
