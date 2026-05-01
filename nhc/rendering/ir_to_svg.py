@@ -103,6 +103,15 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
         # circle / octagon footprints).
         Op.Op.BuildingExteriorWallOp,
         Op.Op.BuildingInteriorWallOp,
+        # Phase 1.16: new 4.0 wall ops. InteriorWallOp (partition
+        # lines, slot 3) and ExteriorWallOp (perimeter walls, slot 5)
+        # are dispatched here. When present, their legacy counterparts
+        # (BuildingExteriorWallOp / BuildingInteriorWallOp /
+        # EnclosureOp) self-suppress. DungeonInk / CaveInk styles are
+        # deferred — they fall through to the legacy WallsAndFloorsOp
+        # wall_segments / smooth_walls path.
+        Op.Op.ExteriorWallOp,
+        Op.Op.InteriorWallOp,
     }),
     "terrain_tints": frozenset({Op.Op.TerrainTintOp}),
     "floor_grid": frozenset({Op.Op.FloorGridOp}),
@@ -2138,7 +2147,12 @@ def _draw_enclosure_from_ir(entry: OpEntry, fir: FloorIR) -> list[str]:
     dispatches each open sub-segment on EnclosureStyle. Per-edge
     palisade RNG state is `splitmix64(rng_seed + edge_idx)` so a
     gate edit on edge X leaves other edges' circle layouts pinned.
+
+    Phase 1.16: suppressed when in-scope ExteriorWallOp entries are
+    present in the IR (the new handler renders the same pixels).
     """
+    if _has_consumed_exterior_wall_ops(fir):
+        return []
     import math
     from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
 
@@ -2384,7 +2398,12 @@ def _draw_building_exterior_wall_from_ir(
     running-bond chain along each. Adjacent edges overlap by half
     the wall thickness at every vertex so the corner square paints
     fully (mirrors building.py:113-130).
+
+    Phase 1.16: suppressed when in-scope ExteriorWallOp entries are
+    present in the IR (the new handler renders the same pixels).
     """
+    if _has_consumed_exterior_wall_ops(fir):
+        return []
     import math
     op = OpCreator(entry.OpType(), entry.Op())
     region_ref = _to_str(op.regionRef)
@@ -2453,7 +2472,12 @@ def _draw_building_interior_wall_from_ir(
     InteriorEdge endpoints are corner-grid vertices `(tile + Δ)`.
     The op carries the pre-coalesced + door-suppression-filtered
     edge list — the rasteriser is a thin per-edge stroke pass.
+
+    Phase 1.16: suppressed when in-scope InteriorWallOp entries are
+    present in the IR (the new handler renders the same pixels).
     """
+    if _has_consumed_interior_wall_ops(fir):
+        return []
     op = OpCreator(entry.OpType(), entry.Op())
     edges = op.edges or []
     if not edges:
@@ -2480,3 +2504,574 @@ def _draw_building_interior_wall_from_ir(
 _OP_HANDLERS[Op.Op.BuildingInteriorWallOp] = (
     _draw_building_interior_wall_from_ir
 )
+
+
+# ── ExteriorWallOp + InteriorWallOp (Phase 1.16) ────────────────
+#
+# New 4.0 wall ops: each carries an ``Outline`` (polygon vertices or
+# Circle/Pill descriptor) plus a ``WallStyle`` enum. The consumer
+# reproduces the same SVG as the legacy handlers it shadows.
+#
+# In-scope styles for Phase 1.16:
+#   ExteriorWallOp: MasonryBrick, MasonryStone (buildings),
+#                   Palisade, FortificationMerlon (enclosures)
+#   InteriorWallOp: PartitionStone, PartitionBrick, PartitionWood
+#
+# Deferred to Phase 1.16b:
+#   ExteriorWallOp: DungeonInk (dungeon rect/smooth wall segments —
+#     still emitted via WallsAndFloorsOp wall_segments / smooth_walls).
+#   ExteriorWallOp: CaveInk (same blocker as CaveFloor; deferred with
+#     cave FloorOp consumer to Phase 1.15b / 1.16b).
+#
+# Suppression: when ExteriorWallOp entries are present in the IR, their
+# legacy counterparts (EnclosureOp for Palisade/FortificationMerlon,
+# BuildingExteriorWallOp for Masonry) are suppressed. Similarly,
+# BuildingInteriorWallOp is suppressed when InteriorWallOp is present.
+# The detection is done via a pre-scan helper (_collect_consumed_wall_ops)
+# that is called from each legacy handler's entry point.
+#
+# DungeonInk ExteriorWallOp is NOT in scope: the emitter still produces
+# wall_segments / smooth_walls in WallsAndFloorsOp for dungeon walls.
+# Phase 1.16b / 1.19 will stop populating those fields once the Rust
+# side also reads ExteriorWallOp (Phase 1.18).
+
+_EXTERIOR_WALL_IN_SCOPE = frozenset({
+    # Phase 1.16 in-scope ExteriorWallOp styles. DungeonInk (0) and
+    # CaveInk (1) are deferred.
+    2,  # MasonryBrick
+    3,  # MasonryStone
+    7,  # Palisade
+    8,  # FortificationMerlon
+})
+
+_INTERIOR_WALL_IN_SCOPE = frozenset({
+    # All Partition styles are in scope for Phase 1.16.
+    4,  # PartitionStone
+    5,  # PartitionBrick
+    6,  # PartitionWood
+    0,  # DungeonInk interior walls (future; safe to include now)
+})
+
+
+def _collect_consumed_wall_ops(
+    fir: FloorIR,
+) -> tuple[list[Any], list[Any]]:
+    """Return (exterior_wall_ops, interior_wall_ops) from ``fir.ops[]``.
+
+    Scans the full op list and returns two lists:
+    - ``exterior_wall_ops``: ``OpEntry`` objects whose type is
+      ``ExteriorWallOp`` and whose style is in ``_EXTERIOR_WALL_IN_SCOPE``.
+      DungeonInk (0) and CaveInk (1) are excluded (deferred to 1.16b).
+    - ``interior_wall_ops``: ``OpEntry`` objects whose type is
+      ``InteriorWallOp`` and whose style is in ``_INTERIOR_WALL_IN_SCOPE``.
+
+    Used both to drive the new handlers and as the legacy-suppression
+    discriminant: if ``exterior_wall_ops`` is non-empty, the matching
+    legacy handlers (EnclosureOp / BuildingExteriorWallOp) no-op.
+    """
+    ext_ops: list[Any] = []
+    int_ops: list[Any] = []
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        op_type = entry.OpType()
+        if op_type == Op.Op.ExteriorWallOp:
+            op = OpCreator(op_type, entry.Op())
+            if op is not None and int(op.style) in _EXTERIOR_WALL_IN_SCOPE:
+                ext_ops.append(entry)
+        elif op_type == Op.Op.InteriorWallOp:
+            op = OpCreator(op_type, entry.Op())
+            if op is not None and int(op.style) in _INTERIOR_WALL_IN_SCOPE:
+                int_ops.append(entry)
+    return ext_ops, int_ops
+
+
+def _build_legacy_seed_index(fir: FloorIR) -> dict[int, int]:
+    """Build a mapping: in-scope ExteriorWallOp position → RNG seed.
+
+    The emitter pairs each in-scope ExteriorWallOp with a legacy op
+    that carries the RNG seed (BuildingExteriorWallOp for masonry,
+    EnclosureOp for palisade/fortification). This helper walks the
+    ops list once, collecting legacy seeds in emission order, then
+    pairs them by index to the ExteriorWallOps of matching style
+    groups.
+
+    Masonry (MasonryBrick=2, MasonryStone=3): paired with
+      BuildingExteriorWallOp (one-to-one in emission order).
+    Enclosure (Palisade=7, FortificationMerlon=8): paired with
+      EnclosureOp (one-to-one in emission order).
+
+    Returns a dict mapping the ordinal index of each in-scope
+    ExteriorWallOp entry (counting from 0 across ALL in-scope
+    styles) to its rng_seed. Ops with no paired legacy seed map
+    to 0 (produces a plausible but non-matching pattern; only
+    reached for IRs generated without the parallel-emission rule).
+    """
+    masonry_seeds: list[int] = []
+    enclosure_seeds: list[int] = []
+
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        op_type = entry.OpType()
+        if op_type == Op.Op.BuildingExteriorWallOp:
+            op = OpCreator(op_type, entry.Op())
+            if op is not None:
+                masonry_seeds.append(int(op.rngSeed))
+        elif op_type == Op.Op.EnclosureOp:
+            op = OpCreator(op_type, entry.Op())
+            if op is not None:
+                enclosure_seeds.append(int(op.rngSeed))
+
+    # Walk the ExteriorWallOps in order and assign seeds.
+    masonry_idx = 0
+    enclosure_idx = 0
+    result: dict[int, int] = {}
+    slot = 0
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() != Op.Op.ExteriorWallOp:
+            continue
+        op = OpCreator(Op.Op.ExteriorWallOp, entry.Op())
+        if op is None:
+            slot += 1
+            continue
+        style = int(op.style)
+        if style not in _EXTERIOR_WALL_IN_SCOPE:
+            continue
+        if style in (2, 3):  # MasonryBrick, MasonryStone
+            seed = (
+                masonry_seeds[masonry_idx]
+                if masonry_idx < len(masonry_seeds) else 0
+            )
+            masonry_idx += 1
+        elif style in (7, 8):  # Palisade, FortificationMerlon
+            seed = (
+                enclosure_seeds[enclosure_idx]
+                if enclosure_idx < len(enclosure_seeds) else 0
+            )
+            enclosure_idx += 1
+        else:
+            seed = 0
+        result[slot] = seed
+        slot += 1
+    return result
+
+
+def _get_legacy_seed(fir: FloorIR, ext_wall_slot: int) -> int:
+    """Return the legacy RNG seed for the N-th in-scope ExteriorWallOp.
+
+    Builds the seed index on each call (no caching — the IR scan is
+    O(ops) which is cheap, and caching by id(fir) is unsafe due to
+    Python memory-address reuse for short-lived objects).
+    """
+    return _build_legacy_seed_index(fir).get(ext_wall_slot, 0)
+
+
+def _outline_vertices(entry: OpEntry) -> list[tuple[float, float]]:
+    """Extract the polygon vertex list from an ExteriorWallOp/InteriorWallOp
+    ``OpEntry``. Returns an empty list when the outline is absent or
+    the descriptor is not Polygon."""
+    from nhc.rendering.ir._fb import OutlineKind as OutlineKindMod
+    op = OpCreator(entry.OpType(), entry.Op())
+    if op is None:
+        return []
+    outline = op.outline
+    if outline is None:
+        return []
+    if outline.descriptorKind != OutlineKindMod.OutlineKind.Polygon:
+        return []
+    verts = outline.vertices
+    if not verts:
+        return []
+    return [(float(v.x), float(v.y)) for v in verts]
+
+
+def _outline_cuts(entry: OpEntry) -> list[Any]:
+    """Extract the Cut list from an ExteriorWallOp ``OpEntry``."""
+    op = OpCreator(entry.OpType(), entry.Op())
+    if op is None:
+        return []
+    outline = op.outline
+    if outline is None:
+        return []
+    return list(outline.cuts or [])
+
+
+def _cuts_for_edge(
+    ax: float, ay: float, bx: float, by: float,
+    cuts: list[Any],
+) -> list[tuple[float, float]]:
+    """Return parametric ``(lo_t, hi_t)`` cut intervals on edge (a→b).
+
+    Each ``Cut`` carries pixel-space ``start``/``end`` coords. This
+    helper projects those coords onto the edge's unit vector to compute
+    parametric t values (0.0 = vertex a, 1.0 = vertex b). Cuts that
+    don't land on this edge are rejected by two criteria:
+    1. Parametric t outside [0, 1] (± tolerance) — the cut is beyond
+       the edge endpoints.
+    2. Perpendicular distance from the cut's midpoint to the edge's
+       infinite line exceeds a pixel threshold — the cut belongs to a
+       parallel but offset edge, not this one.
+    """
+    import math
+    dx = bx - ax
+    dy = by - ay
+    edge_len = math.hypot(dx, dy)
+    if edge_len < 1e-6:
+        return []
+    ux = dx / edge_len
+    uy = dy / edge_len
+    # Perpendicular unit vector (rotated 90°).
+    px = -uy
+    py = ux
+    result: list[tuple[float, float]] = []
+    for cut in cuts:
+        if cut is None or cut.start is None or cut.end is None:
+            continue
+        sx, sy = float(cut.start.x), float(cut.start.y)
+        ex, ey = float(cut.end.x), float(cut.end.y)
+        # Midpoint of the cut.
+        mx = (sx + ex) / 2.0
+        my = (sy + ey) / 2.0
+        # Perpendicular distance from midpoint to the edge's infinite line.
+        perp_dist = abs((mx - ax) * px + (my - ay) * py)
+        # Accept only cuts within 2 pixels of the edge (pixel-space coords
+        # are integers × CELL so ≥ 16 px perp distance means a different
+        # edge). Use a generous 4 px threshold to handle float rounding.
+        if perp_dist > 4.0:
+            continue
+        # Project start/end onto the edge.
+        ts = ((sx - ax) * ux + (sy - ay) * uy) / edge_len
+        te = ((ex - ax) * ux + (ey - ay) * uy) / edge_len
+        lo_t = min(ts, te)
+        hi_t = max(ts, te)
+        # Accept only cuts that overlap [0, 1] (with a small tolerance).
+        _TOL = 0.05
+        if hi_t < -_TOL or lo_t > 1.0 + _TOL:
+            continue
+        lo_t = max(0.0, lo_t)
+        hi_t = min(1.0, hi_t)
+        if hi_t > lo_t:
+            result.append((lo_t, hi_t))
+    return result
+
+
+def _palisade_door_center(
+    ax: float, ay: float, bx: float, by: float,
+    cuts: list[Any],
+) -> list[tuple[float, float, float]]:
+    """Return gate centre (t_center, half_px) for palisade door rects.
+
+    Converts pixel-coord Cut entries on this edge to (t_center,
+    half_px) tuples for ``_enc_palisade_door_rect``. Only cuts whose
+    style is NOT ``CutStyle.None_`` and NOT ``CutStyle.DoorSecret``
+    are included (bare gaps / secret doors have no visible visual).
+    Cuts that don't lie on this edge (perpendicular distance > 4 px)
+    are silently skipped.
+    """
+    import math
+    from nhc.rendering.ir._fb.CutStyle import CutStyle as CS
+    dx = bx - ax
+    dy = by - ay
+    edge_len = math.hypot(dx, dy)
+    if edge_len < 1e-6:
+        return []
+    ux = dx / edge_len
+    uy = dy / edge_len
+    # Perpendicular unit vector.
+    px = -uy
+    py = ux
+    result: list[tuple[float, float, float]] = []
+    for cut in cuts:
+        if cut is None or cut.start is None or cut.end is None:
+            continue
+        style = int(cut.style)
+        if style == CS.None_ or style == CS.DoorSecret:
+            continue
+        sx, sy = float(cut.start.x), float(cut.start.y)
+        ex, ey = float(cut.end.x), float(cut.end.y)
+        # Perpendicular distance from cut midpoint to this edge's line.
+        mx = (sx + ex) / 2.0
+        my = (sy + ey) / 2.0
+        perp_dist = abs((mx - ax) * px + (my - ay) * py)
+        if perp_dist > 4.0:
+            continue
+        # Centre of the cut in edge-parametric t.
+        ts = ((sx - ax) * ux + (sy - ay) * uy) / edge_len
+        te = ((ex - ax) * ux + (ey - ay) * uy) / edge_len
+        t_center = (ts + te) / 2.0
+        half_px = abs(te - ts) * edge_len / 2.0
+        result.append((t_center, half_px, style))
+    return result
+
+
+def _ext_wall_op_slot(entry: OpEntry, fir: FloorIR) -> int:
+    """Return the ordinal index (0-based) of ``entry`` among in-scope
+    ExteriorWallOp entries in ``fir.ops[]``. Returns -1 if not found.
+
+    Used to look up the paired legacy RNG seed via
+    ``_get_legacy_seed(fir, slot)``. Identity is determined by
+    comparing the FlatBuffers table byte-offset (``entry._tab.Pos``).
+    """
+    target_pos = entry._tab.Pos  # type: ignore[attr-defined]
+    slot = 0
+    for i in range(fir.OpsLength()):
+        e = fir.Ops(i)
+        if e.OpType() != Op.Op.ExteriorWallOp:
+            continue
+        op = OpCreator(Op.Op.ExteriorWallOp, e.Op())
+        if op is None:
+            continue
+        if int(op.style) not in _EXTERIOR_WALL_IN_SCOPE:
+            continue
+        if e._tab.Pos == target_pos:  # type: ignore[attr-defined]
+            return slot
+        slot += 1
+    return -1
+
+
+def _draw_exterior_wall_op_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Phase 1.16: dispatch ExteriorWallOp on WallStyle.
+
+    In-scope styles:
+    - ``MasonryBrick`` / ``MasonryStone``: reproduce the 2-strip
+      running-bond chain from ``_draw_building_exterior_wall_from_ir``,
+      reading vertices from ``outline.vertices`` instead of the legacy
+      region polygon lookup.
+    - ``Palisade``: reproduce palisade circle chain from
+      ``_draw_enclosure_from_ir``, converting pixel-coord cuts to
+      per-edge parametric intervals.
+    - ``FortificationMerlon``: reproduce centered fortification chain +
+      corner shapes from ``_draw_enclosure_from_ir``.
+
+    RNG seed: ExteriorWallOpT carries no rngSeed field. Each new op
+    is parallel-emitted alongside a legacy op (BuildingExteriorWallOp
+    or EnclosureOp) that does carry the seed. The handler reads the
+    paired seed via ``_get_legacy_seed`` so the masonry / palisade
+    layout is byte-identical to the legacy output.
+
+    Deferred (returns ``[]``):
+    - ``DungeonInk`` (0): still handled via ``WallsAndFloorsOp``
+      ``wall_segments`` / ``smooth_walls``.
+    - ``CaveInk`` (1): deferred with cave floor consumer to Phase 1.15b.
+    """
+    import math
+    from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    if op is None:
+        return []
+    outline = op.outline
+    if outline is None:
+        return []
+
+    style = int(op.style)
+
+    # DungeonInk and CaveInk are deferred.
+    if style in (WS.DungeonInk, WS.CaveInk):
+        return []
+
+    verts = outline.vertices
+    if not verts or len(verts) < 2:
+        return []
+    polygon: list[tuple[float, float]] = [
+        (float(v.x), float(v.y)) for v in verts
+    ]
+    cuts: list[Any] = list(outline.cuts or [])
+
+    # Resolve the RNG seed from the paired legacy op.
+    slot = _ext_wall_op_slot(entry, fir)
+    rng_seed = _get_legacy_seed(fir, slot) if slot >= 0 else 0
+
+    if style in (WS.MasonryBrick, WS.MasonryStone):
+        # Mirror _draw_building_exterior_wall_from_ir: two-strip
+        # running-bond chain along each polygon edge with ±ext overlap
+        # at vertices.
+        fill, stroke = _masonry_palette(style - 2)  # MasonryBrick=2→0, Stone=3→1
+        ext = _MASONRY_WALL_THICKNESS / 2
+        out: list[str] = []
+        n = len(polygon)
+        for i in range(n):
+            ax, ay = polygon[i]
+            bx, by = polygon[(i + 1) % n]
+            dx = bx - ax
+            dy = by - ay
+            length = math.hypot(dx, dy)
+            if length < 1e-6:
+                continue
+            ux = dx / length
+            uy = dy / length
+            ax_ext = ax - ux * ext
+            ay_ext = ay - uy * ext
+            bx_ext = bx + ux * ext
+            by_ext = by + uy * ext
+            edge_rng = _SplitMix64(rng_seed + i)
+            out.extend(_render_masonry_wall_run(
+                ax_ext, ay_ext, bx_ext, by_ext,
+                rng=edge_rng, fill=fill, stroke=stroke,
+            ))
+        return out
+
+    if style == WS.Palisade:
+        # Mirror _draw_enclosure_from_ir Palisade branch.
+        n = len(polygon)
+        out_frags: list[str] = []
+        for i in range(n):
+            a = polygon[i]
+            b = polygon[(i + 1) % n]
+            ax2, ay2 = a
+            bx2, by2 = b
+            edge_cuts_t = _enc_merge_cuts(
+                _cuts_for_edge(ax2, ay2, bx2, by2, cuts)
+            )
+            subs = _enc_subsegments(a, b, edge_cuts_t)
+            edge_rng = _SplitMix64(rng_seed + i)
+            for sa, sb in subs:
+                out_frags.extend(_enc_palisade_circles([sa, sb], edge_rng))
+            # Gate visuals (door rect at cut centre).
+            for t_center, _half_px, _cs in _palisade_door_center(
+                ax2, ay2, bx2, by2, cuts,
+            ):
+                out_frags.append(_enc_palisade_door_rect(a, b, t_center))
+        return out_frags
+
+    if style == WS.FortificationMerlon:
+        # Mirror _draw_enclosure_from_ir Fortification branch.
+        corner_style_int = int(op.cornerStyle)
+        n = len(polygon)
+        inset = _enc_corner_inset()
+        out_fort: list[str] = []
+        for i in range(n):
+            a = polygon[i]
+            b = polygon[(i + 1) % n]
+            ax3, ay3 = a
+            bx3, by3 = b
+            edge_len = math.hypot(bx3 - ax3, by3 - ay3)
+            if edge_len <= 2 * inset + 1e-6:
+                continue
+            ux2 = (bx3 - ax3) / edge_len
+            uy2 = (by3 - ay3) / edge_len
+            a_in = (ax3 + ux2 * inset, ay3 + uy2 * inset)
+            b_in = (bx3 - ux2 * inset, by3 - uy2 * inset)
+            edge_cuts_t = _enc_merge_cuts(
+                _cuts_for_edge(ax3, ay3, bx3, by3, cuts)
+            )
+            t_inset = inset / edge_len
+            denom = 1.0 - 2.0 * t_inset
+            inset_cuts: list[tuple[float, float]] = []
+            if denom > 1e-9:
+                for lo, hi in edge_cuts_t:
+                    new_lo = max(0.0, (lo - t_inset) / denom)
+                    new_hi = min(1.0, (hi - t_inset) / denom)
+                    if new_hi > new_lo:
+                        inset_cuts.append((new_lo, new_hi))
+            subs2 = _enc_subsegments(a_in, b_in, inset_cuts)
+            for sa2, sb2 in subs2:
+                out_fort.extend(_enc_centered_fortification_chain(sa2, sb2))
+
+        # Wood gate visuals.
+        for i in range(n):
+            a = polygon[i]
+            b = polygon[(i + 1) % n]
+            ax4, ay4 = a
+            bx4, by4 = b
+            for t_center, _hp, _cs in _palisade_door_center(
+                ax4, ay4, bx4, by4, cuts,
+            ):
+                out_fort.append(_enc_palisade_door_rect(a, b, t_center))
+
+        # Corner blocks on top.
+        for x, y in polygon:
+            out_fort.append(_enc_corner_shape(x, y, corner_style_int))
+        return out_fort
+
+    # Any other deferred style: return empty.
+    return []
+
+
+def _draw_interior_wall_op_from_ir(
+    entry: OpEntry, fir: FloorIR,
+) -> list[str]:
+    """Phase 1.16: emit a <line> for each InteriorWallOp partition segment.
+
+    An ``InteriorWallOp`` carries a 2-vertex open polyline (two corner-
+    grid pixel coords) and a ``WallStyle`` (PartitionStone /
+    PartitionBrick / PartitionWood). The rasteriser emits one
+    ``<line>`` per op — the same stroke as the legacy
+    ``_draw_building_interior_wall_from_ir`` per-edge line, but reading
+    from the new op's ``outline.vertices`` rather than the edge table.
+    """
+    from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
+
+    op = OpCreator(entry.OpType(), entry.Op())
+    if op is None:
+        return []
+    outline = op.outline
+    if outline is None:
+        return []
+    verts = outline.vertices
+    if not verts or len(verts) < 2:
+        return []
+
+    style = int(op.style)
+    # Map WallStyle partition ints to the legacy color dict keys.
+    # PartitionStone=4 → key 0 (stone), Brick=5 → key 1, Wood=6 → key 2.
+    _STYLE_TO_MATERIAL: dict[int, int] = {
+        WS.PartitionStone: 0,
+        WS.PartitionBrick: 1,
+        WS.PartitionWood: 2,
+        WS.DungeonInk: 0,  # DungeonInk interior walls use stone colour
+    }
+    material_key = _STYLE_TO_MATERIAL.get(style, 0)
+    color = _INTERIOR_WALL_COLORS.get(material_key, _INTERIOR_WALL_COLORS[0])
+
+    out: list[str] = []
+    # Walk pairs of consecutive vertices (for a 2-vertex open polyline
+    # there is exactly one segment; for longer chains, all segments).
+    pts = [(float(v.x), float(v.y)) for v in verts]
+    for i in range(len(pts) - 1):
+        px0, py0 = pts[i]
+        px1, py1 = pts[i + 1]
+        out.append(
+            f'<line x1="{px0:.0f}" y1="{py0:.0f}" '
+            f'x2="{px1:.0f}" y2="{py1:.0f}" '
+            f'stroke="{color}" '
+            f'stroke-width="{_INTERIOR_WALL_STROKE_WIDTH}" '
+            f'stroke-linecap="round"/>'
+        )
+    return out
+
+
+def _has_consumed_exterior_wall_ops(fir: FloorIR) -> bool:
+    """Return True if the IR has any in-scope ExteriorWallOp entries.
+
+    Used by the legacy EnclosureOp and BuildingExteriorWallOp handlers
+    to suppress themselves when the new handler is active.
+    """
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() == Op.Op.ExteriorWallOp:
+            op = OpCreator(Op.Op.ExteriorWallOp, entry.Op())
+            if op is not None and int(op.style) in _EXTERIOR_WALL_IN_SCOPE:
+                return True
+    return False
+
+
+def _has_consumed_interior_wall_ops(fir: FloorIR) -> bool:
+    """Return True if the IR has any in-scope InteriorWallOp entries.
+
+    Used by the legacy BuildingInteriorWallOp handler to suppress
+    itself when the new handler is active.
+    """
+    for i in range(fir.OpsLength()):
+        entry = fir.Ops(i)
+        if entry.OpType() == Op.Op.InteriorWallOp:
+            op = OpCreator(Op.Op.InteriorWallOp, entry.Op())
+            if op is not None and int(op.style) in _INTERIOR_WALL_IN_SCOPE:
+                return True
+    return False
+
+
+_OP_HANDLERS[Op.Op.ExteriorWallOp] = _draw_exterior_wall_op_from_ir
+_OP_HANDLERS[Op.Op.InteriorWallOp] = _draw_interior_wall_op_from_ir
