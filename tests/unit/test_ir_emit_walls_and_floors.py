@@ -1526,3 +1526,134 @@ def test_smooth_exterior_wall_op_count_in_octagon_crypt_fixture() -> None:
         f"expected {expected} ExteriorWallOps (10 rect + 8 smooth) in "
         f"seed7_octagon_crypt_dungeon, got {len(wall_ops)}"
     )
+
+
+# ── Phase 1.10 — cave-wall ExteriorWallOp ──────────────────────
+
+
+def test_exterior_wall_op_for_cave_carries_cave_ink_style() -> None:
+    """Each CaveShape room produces one ExteriorWallOp with style=CaveInk.
+
+    Phase 1.10 mirrors Phase 1.6's cave FloorOp emission: alongside the
+    legacy ``WallsAndFloorsOp.caveRegion`` SVG path, the emitter ships
+    one :type:`ExteriorWallOpT` per cave room with
+    ``style = WallStyle.CaveInk`` and an outline carrying the same
+    pre-smoothing trace-boundary coords as the matching FloorOp.
+    CaveInk paints identically to DungeonInk today — the enum value is
+    reserved for future divergence per design/map_ir_v4.md §3.
+    """
+    cave_tiles = {
+        (x, y) for y in range(2, 6) for x in range(2, 6)
+    }
+    level = _build_cave_shape_level(cave_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
+    assert len(wall_ops) == 1, (
+        f"expected one ExteriorWallOp for the single CaveShape room, "
+        f"got {len(wall_ops)}"
+    )
+    assert wall_ops[0].op.style == WallStyle.CaveInk, (
+        "cave-wall ExteriorWallOp must carry WallStyle.CaveInk; "
+        "DungeonInk is reserved for non-cave dungeon rooms"
+    )
+    assert wall_ops[0].op.cornerStyle == CornerStyle.Merlon, (
+        "cave ExteriorWallOp must carry CornerStyle.Merlon (the schema "
+        "default required by the union variant)"
+    )
+    assert wall_ops[0].op.outline.descriptorKind == OutlineKind.Polygon
+    assert wall_ops[0].op.outline.closed is True
+
+
+def test_cave_exterior_wall_outline_matches_cave_floor_outline() -> None:
+    """Cave's ExteriorWallOp.outline.vertices equal its FloorOp.outline.vertices.
+
+    Both ops ship the same trace-boundary coords verbatim — the
+    rasteriser reproduces the centripetal Catmull-Rom curve from the
+    same input on the floor-fill and the wall-stroke passes. Pinning
+    vertex equality catches any drift between the two emit paths so
+    1.15+ / 1.16+ consumers paint floor and wall on the same outline.
+    """
+    cave_tiles = {
+        (x, y) for y in range(2, 6) for x in range(2, 6)
+    }
+    level = _build_cave_shape_level(cave_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
+    wall_ops = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
+    assert len(floor_ops) == 1
+    assert len(wall_ops) == 1
+
+    floor_vertices = floor_ops[0].op.outline.vertices
+    wall_vertices = wall_ops[0].op.outline.vertices
+    assert len(wall_vertices) == len(floor_vertices) >= 4, (
+        "cave ExteriorWallOp.outline.vertices must match the FloorOp "
+        "outline length — both share trace-boundary coords"
+    )
+    for fw, ww in zip(floor_vertices, wall_vertices):
+        assert (float(fw.x), float(fw.y)) == (float(ww.x), float(ww.y)), (
+            "cave ExteriorWallOp vertex must equal the matching FloorOp "
+            "vertex; both emit paths share the same coords source"
+        )
+
+
+def test_cave_exterior_wall_op_has_no_cuts() -> None:
+    """Caves don't have door cuts at the static-IR layer.
+
+    Per plans/nhc_pure_ir_plan.md §1.10: ``cuts: []`` for cave
+    ExteriorWallOps. Caves don't carry door tiles on their boundary in
+    today's emitter (cave-to-corridor transitions are handled outside
+    the cave-wall outline), so the cut list stays empty by contract.
+    """
+    cave_tiles = {
+        (x, y) for y in range(2, 6) for x in range(2, 6)
+    }
+    level = _build_cave_shape_level(cave_tiles)
+    ops, _ = _emit_into_builder(level)
+
+    wall_ops = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
+    assert len(wall_ops) == 1
+    cuts = wall_ops[0].op.outline.cuts or []
+    assert cuts == [], (
+        f"cave ExteriorWallOp must have empty cuts, got {len(cuts)} cut(s)"
+    )
+
+
+def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
+    """seed99_cave_cave_cave: ExteriorWallOp count == cave region count.
+
+    The fixture is pure-cave (no rect / smooth rooms), so every
+    ExteriorWallOp must be a CaveInk wall on a cave outline. After
+    Phase 1.10 the count matches the 8 cave FloorOps the fixture
+    already ships (Phase 1.6). Round-trips through ``build_floor_ir``
+    so any FB binding gap on the wire surfaces here.
+    """
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
+    wall_ops = [e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp]
+    walls_ops = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
+    assert len(walls_ops) == 1
+    # Legacy caveRegion path keeps shipping in parallel.
+    assert walls_ops[0].op.caveRegion, (
+        "Phase 1.10 ships parallel emission — legacy caveRegion must "
+        "keep populating until 1.16+ flips the consumer"
+    )
+    assert floor_ops, "seed99_cave fixture must carry cave FloorOps"
+    assert len(wall_ops) == len(floor_ops), (
+        f"expected one ExteriorWallOp per cave FloorOp "
+        f"({len(floor_ops)}), got {len(wall_ops)}"
+    )
+    for entry in wall_ops:
+        assert entry.op.style == WallStyle.CaveInk
+        assert entry.op.cornerStyle == CornerStyle.Merlon
+        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
+        assert entry.op.outline.vertices is not None
+        assert (entry.op.outline.cuts or []) == []

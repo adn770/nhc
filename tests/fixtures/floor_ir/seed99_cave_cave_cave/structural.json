@@ -12,6 +12,7 @@
     "thematic_detail": 108
   },
   "op_counts": {
+    "ExteriorWallOp": 8,
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
     "FloorOp": 8,

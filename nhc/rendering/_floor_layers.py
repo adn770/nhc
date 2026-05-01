@@ -730,6 +730,47 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             wall_entry.op = wall_op
             builder.add_op(wall_entry)
 
+    # Phase 1.10 — parallel emission of ExteriorWallOp per cave room.
+    # Mirrors Phase 1.6 (cave FloorOp) + Phase 1.9 (smooth
+    # ExteriorWallOp). Each cave room ships one
+    # ``ExteriorWallOp { outline = the same trace-boundary coords the
+    # cave FloorOp carries, style = CaveInk, corner_style = Merlon,
+    # cuts = [] }`` alongside the legacy
+    # ``WallsAndFloorsOp.caveRegion`` SVG path. CaveInk paints
+    # identically to DungeonInk today — the enum value is reserved for
+    # future divergence per design/map_ir_v4.md §3.
+    #
+    # Caves don't carry door cuts at the static-IR layer per
+    # plan §1.10: cave-to-corridor transitions are handled outside the
+    # cave-wall outline (no door tiles abut the cave boundary in the
+    # current emitter), so ``cuts == []`` by contract. The
+    # ``suppress_rect_rooms`` short-circuit doesn't apply to caves —
+    # caves never coexist with a building polygon, mirroring the
+    # Phase 1.6 cave-FloorOp exemption.
+    #
+    # The renderer reproduces the centripetal Catmull-Rom curve from
+    # the outline vertices via :func:`_centripetal_bezier_cps` at
+    # consumption time (same as the matching cave FloorOp). The new
+    # ops emit additively so the 1.16+ consumer switch picks them up
+    # without reorganising ops[].
+    for idx, room in enumerate(level.rooms):
+        if idx not in cave_region_rooms:
+            continue
+        coords = _trace_cave_boundary_coords(room.floor_tiles())
+        if not coords or len(coords) < 4:
+            # Degenerate cave boundary — _cave_svg_outline returns None
+            # here; skip to keep parity with the legacy fall-through.
+            continue
+        wall_op = ExteriorWallOpT()
+        wall_op.outline = outline_from_cave(coords)
+        wall_op.outline.cuts = []
+        wall_op.style = WallStyle.WallStyle.CaveInk
+        wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+        wall_entry = OpEntryT()
+        wall_entry.opType = Op.Op.ExteriorWallOp
+        wall_entry.op = wall_op
+        builder.add_op(wall_entry)
+
 
 def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the terrain-tints layer.
