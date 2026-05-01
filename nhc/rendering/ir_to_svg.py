@@ -526,19 +526,23 @@ def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
 _OP_HANDLERS[Op.Op.HatchOp] = _draw_hatch_from_ir
 
 
-def _collect_dungeon_floor_ops(fir: FloorIR) -> list[Any]:
-    """Collect all ``DungeonFloor`` FloorOp entries from ``fir.ops[]``.
+def _collect_consumed_floor_ops(fir: FloorIR) -> list[Any]:
+    """Collect all consumed FloorOp entries from ``fir.ops[]``.
 
     Returns a list of ``OpEntry`` objects whose type is ``FloorOp``
-    and whose style is ``FloorStyle.DungeonFloor``. CaveFloor FloorOps
-    are excluded — their per-room bezier vertex lists are not
-    equivalent to the single merged ``cave_region`` path that the
-    legacy consumer produces; cave-floor consumption is deferred to
-    Phase 1.15b.
+    and whose style is in {``FloorStyle.DungeonFloor``,
+    ``FloorStyle.CaveFloor``}. Phase 1.15b extends the original
+    DungeonFloor-only filter to include CaveFloor now that the
+    cave-emitter corrigendum (commit 41a04da) emits one merged
+    FloorOp whose vertex list matches the single ``cave_region``
+    path that the legacy consumer produces.
 
     Linear scan — cheap for the fixture sizes (< 300 ops).
     """
     from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
+
+    FS = FloorStyleMod.FloorStyle
+    _CONSUMED_FLOOR_STYLES = frozenset({FS.DungeonFloor, FS.CaveFloor})
 
     result = []
     for i in range(fir.OpsLength()):
@@ -546,7 +550,7 @@ def _collect_dungeon_floor_ops(fir: FloorIR) -> list[Any]:
         if entry.OpType() != Op.Op.FloorOp:
             continue
         op = OpCreator(entry.OpType(), entry.Op())
-        if op.style == FloorStyleMod.FloorStyle.DungeonFloor:
+        if op.style in _CONSUMED_FLOOR_STYLES:
             result.append(entry)
     return result
 
@@ -660,14 +664,15 @@ def _draw_floor_op_from_ir(
 def _draw_walls_and_floors_from_ir(
     entry: OpEntry, fir: FloorIR,
 ) -> list[str]:
-    """Reproduce ``_render_walls_and_floors`` with Phase 1.15 floor switch.
+    """Reproduce ``_render_walls_and_floors`` with Phase 1.15/1.15b floor switch.
 
     Phase 1.15 — partial scope (rect rooms + corridors + smooth
-    DungeonFloor shapes). When ``DungeonFloor`` FloorOps are present:
+    DungeonFloor shapes). Phase 1.15b — extended to include CaveFloor.
 
-    1. Collect all ``DungeonFloor`` FloorOp entries and emit their
-       floor SVG **first** (floors-under-walls paint order keeps
-       walls visually on top).
+    When consumed FloorOps (DungeonFloor or CaveFloor) are present:
+
+    1. Collect all consumed FloorOp entries and emit their floor SVG
+       **first** (floors-under-walls paint order keeps walls on top).
     2. Pass empty ``rect_rooms`` and ``corridor_tiles`` to Rust (the
        FloorOps cover these).
     3. ``smooth_fills`` passes through unchanged — it may contain
@@ -675,18 +680,20 @@ def _draw_walls_and_floors_from_ir(
        that has no FloorOp equivalent. For smooth rooms whose content
        IS covered by a FloorOp, the double-paint is harmless (same
        colour).
-    4. ``cave_region`` passes through unchanged — CaveFloor FloorOps
-       carry per-room bezier vertex lists that are not equivalent to
-       the single merged ``cave_region`` path; cave-floor via FloorOp
-       is deferred to Phase 1.15b.
+    4. Phase 1.15b: when a CaveFloor FloorOp is consumed, the cave
+       fill and stroke are emitted in Python directly from the
+       ``cave_region`` SVG path (the buffered+jittered path stored
+       in WallsAndFloorsOp). This keeps pixel-identical geometry with
+       the legacy render — the FloorOp vertices carry the raw tile
+       boundary, not the buffered+jittered polygon. An empty string
+       is passed for ``cave_region`` to Rust so it does not also emit.
 
     ``FloorOp`` is NOT a standalone dispatch handler — it is consumed
     here so that the combined floor+wall emit sequence mirrors the
     legacy floor-before-wall ordering.
 
-    When no DungeonFloor FloorOp is present (3.x cached buffers or
-    cave-only fixtures), all inputs pass through unchanged for full
-    back-compat.
+    When no consumed FloorOp is present (3.x cached buffers), all
+    inputs pass through unchanged for full back-compat.
 
     Phase 4.4 — partial port. Structural geometry (smooth-room
     outlines, cave region path, wall extension data) is computed
@@ -705,20 +712,53 @@ def _draw_walls_and_floors_from_ir(
     cave_region = _to_str(op.caveRegion)
     wall_extensions_d = _to_str(op.wallExtensionsD)
 
-    dungeon_floor_ops = _collect_dungeon_floor_ops(fir)
-    if dungeon_floor_ops:
-        # Emit DungeonFloor floor shapes first (floors-under-walls).
+    consumed_floor_ops = _collect_consumed_floor_ops(fir)
+    if consumed_floor_ops:
+        # Separate DungeonFloor and CaveFloor ops.
+        from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
+        FS = FloorStyleMod.FloorStyle
+        dungeon_ops = [
+            e for e in consumed_floor_ops
+            if OpCreator(e.OpType(), e.Op()).style == FS.DungeonFloor
+        ]
+        has_cave_floor_op = len(dungeon_ops) < len(consumed_floor_ops)
+
+        # Emit DungeonFloor shapes first via the FloorOp handler.
         floor_frags: list[str] = []
-        for op_entry in dungeon_floor_ops:
+        for op_entry in dungeon_ops:
             floor_frags.extend(_draw_floor_op_from_ir(op_entry, fir))
-        # Suppress smooth_fills only when the DungeonFloor FloorOp
-        # count covers all floor sources (rect_rooms + corridor_tiles
-        # + smooth_fills). If the count is smaller, smooth_fills
-        # contains content without a FloorOp equivalent (e.g. wood-
-        # floor tile rects in building floors) and must pass through.
-        # cave_region always passes through — CaveFloor FloorOps use
-        # per-room bezier vertices, not the merged cave path; that
-        # switch is deferred to Phase 1.15b.
+
+        # Phase 1.15b: when a CaveFloor FloorOp is consumed, emit cave
+        # fill and stroke directly from the WallsAndFloorsOp.cave_region
+        # SVG path (the legacy buffered+jittered path). This preserves
+        # pixel-identical geometry — the FloorOp vertices carry the raw
+        # tile boundary, not the buffered+jittered polygon that the
+        # legacy cave_wall_path pipeline produces.
+        if has_cave_floor_op and cave_region:
+            floor_frags.append(
+                cave_region.replace(
+                    "/>",
+                    f' fill="{CAVE_FLOOR_COLOR}" stroke="none"'
+                    f' fill-rule="evenodd"/>',
+                )
+            )
+            floor_frags.append(
+                cave_region.replace(
+                    "/>",
+                    f' fill="none" stroke="{INK}"'
+                    f' stroke-width="{WALL_WIDTH}"'
+                    f' stroke-linecap="round"'
+                    f' stroke-linejoin="round"/>',
+                )
+            )
+
+        # Suppress smooth_fills only when the consumed FloorOp count
+        # covers all floor sources (rect_rooms + corridor_tiles +
+        # smooth_fills). If the count is smaller, smooth_fills contains
+        # content without a FloorOp equivalent (e.g. wood-floor tile
+        # rects in building floors) and must pass through.
+        # Cave fill/stroke are now emitted above — suppress cave_region
+        # so Rust does not double-paint it.
         corridor_tiles = [
             (t.x, t.y) for t in (op.corridorTiles or [])
         ]
@@ -726,14 +766,14 @@ def _draw_walls_and_floors_from_ir(
             (rr.x, rr.y, rr.w, rr.h) for rr in (op.rectRooms or [])
         ]
         floors_covered = (
-            len(dungeon_floor_ops)
+            len(consumed_floor_ops)
             >= len(rect_rooms) + len(corridor_tiles) + len(smooth_fills)
         )
         wall_frags = nhc_render.draw_walls_and_floors(
             [],
             [],
             [] if floors_covered else smooth_fills,
-            cave_region,
+            "" if has_cave_floor_op else cave_region,
             smooth_walls,
             wall_extensions_d,
             wall_segments,
@@ -2517,11 +2557,13 @@ _OP_HANDLERS[Op.Op.BuildingInteriorWallOp] = (
 #                   Palisade, FortificationMerlon (enclosures)
 #   InteriorWallOp: PartitionStone, PartitionBrick, PartitionWood
 #
-# Deferred to Phase 1.16b:
+# Added in Phase 1.15b:
+#   ExteriorWallOp: CaveInk (cave perimeter stroke; paired with
+#     CaveFloor FloorOp from Phase 1.15b consumer switch).
+#
+# Deferred to Phase 1.16b (the only remaining deferred category):
 #   ExteriorWallOp: DungeonInk (dungeon rect/smooth wall segments —
 #     still emitted via WallsAndFloorsOp wall_segments / smooth_walls).
-#   ExteriorWallOp: CaveInk (same blocker as CaveFloor; deferred with
-#     cave FloorOp consumer to Phase 1.15b / 1.16b).
 #
 # Suppression: when ExteriorWallOp entries are present in the IR, their
 # legacy counterparts (EnclosureOp for Palisade/FortificationMerlon,
@@ -2530,14 +2572,16 @@ _OP_HANDLERS[Op.Op.BuildingInteriorWallOp] = (
 # The detection is done via a pre-scan helper (_collect_consumed_wall_ops)
 # that is called from each legacy handler's entry point.
 #
-# DungeonInk ExteriorWallOp is NOT in scope: the emitter still produces
-# wall_segments / smooth_walls in WallsAndFloorsOp for dungeon walls.
-# Phase 1.16b / 1.19 will stop populating those fields once the Rust
-# side also reads ExteriorWallOp (Phase 1.18).
+# DungeonInk ExteriorWallOp is NOT in scope (deferred to Phase 1.16b):
+# the emitter still produces wall_segments / smooth_walls in
+# WallsAndFloorsOp for dungeon walls. Phase 1.16b / 1.19 will stop
+# populating those fields once the Rust side also reads ExteriorWallOp
+# (Phase 1.18).
 
 _EXTERIOR_WALL_IN_SCOPE = frozenset({
-    # Phase 1.16 in-scope ExteriorWallOp styles. DungeonInk (0) and
-    # CaveInk (1) are deferred.
+    # Phase 1.16 in-scope ExteriorWallOp styles. DungeonInk (0) is
+    # still deferred (Phase 1.16b). CaveInk (1) added in Phase 1.15b.
+    1,  # CaveInk (Phase 1.15b)
     2,  # MasonryBrick
     3,  # MasonryStone
     7,  # Palisade
@@ -2561,7 +2605,8 @@ def _collect_consumed_wall_ops(
     Scans the full op list and returns two lists:
     - ``exterior_wall_ops``: ``OpEntry`` objects whose type is
       ``ExteriorWallOp`` and whose style is in ``_EXTERIOR_WALL_IN_SCOPE``.
-      DungeonInk (0) and CaveInk (1) are excluded (deferred to 1.16b).
+      DungeonInk (0) is excluded (deferred to Phase 1.16b).
+      CaveInk (1) is included (Phase 1.15b).
     - ``interior_wall_ops``: ``OpEntry`` objects whose type is
       ``InteriorWallOp`` and whose style is in ``_INTERIOR_WALL_IN_SCOPE``.
 
@@ -2851,10 +2896,20 @@ def _draw_exterior_wall_op_from_ir(
     paired seed via ``_get_legacy_seed`` so the masonry / palisade
     layout is byte-identical to the legacy output.
 
+    Phase 1.15b — ``CaveInk`` (1) is in-scope (added to
+    ``_EXTERIOR_WALL_IN_SCOPE``) but this handler still returns ``[]``
+    for it. Cave stroke is emitted by
+    ``_draw_walls_and_floors_from_ir`` using the pre-built
+    ``cave_region`` SVG path from ``WallsAndFloorsOp`` (the legacy
+    buffered+jittered geometry). The ExteriorWallOp carries raw tile-
+    boundary vertices not yet equivalent to the jittered path; this
+    branch will be wired in a later commit once the emitter stores
+    the full jittered coords.
+
     Deferred (returns ``[]``):
     - ``DungeonInk`` (0): still handled via ``WallsAndFloorsOp``
-      ``wall_segments`` / ``smooth_walls``.
-    - ``CaveInk`` (1): deferred with cave floor consumer to Phase 1.15b.
+      ``wall_segments`` / ``smooth_walls``. Deferred to Phase 1.16b.
+    - ``CaveInk`` (1): see above.
     """
     import math
     from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
@@ -2868,8 +2923,18 @@ def _draw_exterior_wall_op_from_ir(
 
     style = int(op.style)
 
-    # DungeonInk and CaveInk are deferred.
-    if style in (WS.DungeonInk, WS.CaveInk):
+    # DungeonInk is still deferred to Phase 1.16b.
+    if style == WS.DungeonInk:
+        return []
+
+    if style == WS.CaveInk:
+        # Phase 1.15b: the cave stroke is emitted by
+        # _draw_walls_and_floors_from_ir using the pre-built
+        # cave_region SVG path from WallsAndFloorsOp (the legacy
+        # buffered+jittered path). The ExteriorWallOp carries raw
+        # tile-boundary vertices which are not yet byte-equivalent
+        # to the jittered wall path — a later commit will store the
+        # full jittered coords in the op and wire this branch.
         return []
 
     verts = outline.vertices
@@ -3046,6 +3111,8 @@ def _draw_interior_wall_op_from_ir(
 def _has_consumed_exterior_wall_ops(fir: FloorIR) -> bool:
     """Return True if the IR has any in-scope ExteriorWallOp entries.
 
+    In-scope set is ``_EXTERIOR_WALL_IN_SCOPE`` (CaveInk added in
+    Phase 1.15b; DungeonInk still deferred to Phase 1.16b).
     Used by the legacy EnclosureOp and BuildingExteriorWallOp handlers
     to suppress themselves when the new handler is active.
     """

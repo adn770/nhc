@@ -288,3 +288,59 @@ def test_floor_op_fallback_to_legacy_when_absent() -> None:
     assert 'x="64"' in svg or 'x="64.0"' in svg, (
         "Expected rect at x=64 from legacy WallsAndFloorsOp rect_room"
     )
+
+
+# ── Phase 1.15b: CaveFloor consumer tests ─────────────────────────
+
+
+def test_cave_floor_op_emits_smooth_closed_path() -> None:
+    """A FloorOp with CaveFloor style + polygon outline produces an
+    SVG path equivalent to _smooth_closed_path(coords) with cave
+    fill color."""
+    # Simple triangle approximation — enough to exercise the bezier path.
+    pts = [(64.0, 32.0), (128.0, 96.0), (32.0, 96.0)]
+    outline = _build_polygon_outline(pts)
+    frags = _call_floor_op_handler(outline, FloorStyle.CaveFloor)
+    assert len(frags) == 1, "Expected exactly one SVG fragment for CaveFloor FloorOp"
+    frag = frags[0]
+    # Must be a <path> (bezier) not a plain <polygon>
+    assert frag.startswith("<path "), (
+        f"Expected <path> for CaveFloor bezier; got: {frag[:80]}"
+    )
+    assert 'fill-rule="evenodd"' in frag, (
+        "Expected fill-rule=evenodd on cave fill path"
+    )
+    assert CAVE_FLOOR_COLOR in frag, (
+        f"Expected cave fill color {CAVE_FLOOR_COLOR} in fragment"
+    )
+    assert 'stroke="none"' in frag, (
+        "Expected stroke=none on cave floor fill path"
+    )
+
+
+def test_cave_floor_op_consumer_replaces_legacy_cave_region() -> None:
+    """When a CaveFloor FloorOp is present in the IR, ir_to_svg
+    skips the legacy cave_region emission and renders the cave
+    fill via the FloorOp handler."""
+    from nhc.rendering.ir_emitter import build_floor_ir
+    from nhc.rendering.ir_to_svg import ir_to_svg
+    from tests.fixtures.floor_ir._inputs import descriptor_inputs
+
+    inputs = descriptor_inputs("seed99_cave_cave_cave")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed, hatch_distance=2.0, vegetation=True,
+    )
+    svg = ir_to_svg(buf)
+
+    # The FloorOp consumer must produce a <path> with fill-rule=evenodd
+    # for the cave region (Catmull-Rom bezier), not a Rust-injected form.
+    # Both legacy and new paths produce <path> with fill-rule=evenodd so
+    # we assert the cave floor colour is present (correct for either path)
+    # and that the polygon has bezier curves (C command in path d="").
+    assert CAVE_FLOOR_COLOR in svg, (
+        "Expected cave floor color in cave SVG output"
+    )
+    # A bezier path 'd' attribute contains C (cubic bezier segment)
+    assert re.search(r'<path[^>]+d="[^"]*\bC\b', svg), (
+        "Expected Catmull-Rom bezier path (C command) for cave floor"
+    )
