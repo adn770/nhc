@@ -544,6 +544,41 @@ def emit_site_enclosure(
     entry.op = op
     builder.add_op(entry)
 
+    # Phase 1.14 — parallel emission of ExteriorWallOp for enclosures.
+    # Per EnclosureStyle.Palisade / EnclosureStyle.Fortification the
+    # emitter ships one ExteriorWallOp { outline = closed polygon in
+    # pixel coords, style = WallStyle.Palisade |
+    # WallStyle.FortificationMerlon, corner_style = pass-through,
+    # cuts = gates-as-cuts } alongside the legacy EnclosureOp. Gate
+    # triples (edge_idx, t_center, half_px) are resolved to pixel-space
+    # Cut pairs via cuts_for_enclosure_gates; GateStyle.Wood /
+    # GateStyle.Portcullis map to CutStyle.WoodGate /
+    # CutStyle.PortcullisGate.
+    #
+    # The new op lands AFTER the legacy EnclosureOp so the 1.16+
+    # consumer switch can pick up the new path without reordering ops[];
+    # mirrors Phase 1.12 (building ExteriorWallOp) and Phase 1.13
+    # (InteriorWallOp).
+    _ENCLOSURE_WALL_STYLE_MAP = {
+        EnclosureStyle.Palisade: WallStyle.Palisade,
+        EnclosureStyle.Fortification: WallStyle.FortificationMerlon,
+    }
+    if style in _ENCLOSURE_WALL_STYLE_MAP:
+        from nhc.rendering._outline_helpers import (
+            cuts_for_enclosure_gates, outline_from_polygon,
+        )
+        wall_op = ExteriorWallOpT()
+        wall_op.outline = outline_from_polygon(coords_px)
+        wall_op.outline.cuts = cuts_for_enclosure_gates(
+            coords_px, list(gates or []), gate_style,
+        )
+        wall_op.style = _ENCLOSURE_WALL_STYLE_MAP[style]
+        wall_op.cornerStyle = corner_style
+        wall_entry = OpEntryT()
+        wall_entry.opType = 22  # Op.ExteriorWallOp
+        wall_entry.op = wall_op
+        builder.add_op(wall_entry)
+
 
 # ── Phase 8.3: Building wall ops ───────────────────────────────
 

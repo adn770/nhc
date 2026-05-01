@@ -447,6 +447,11 @@ class TestEmitSiteEnclosure:
         )
 
     def test_palisade_no_gates_emits_one_op(self) -> None:
+        """Phase 1.14: emit_site_enclosure now produces two ops —
+        one legacy EnclosureOp and one new ExteriorWallOp. The legacy
+        EnclosureOp is the first op and retains its existing contract.
+        """
+        from nhc.rendering.ir._fb import Op
         builder = self._builder()
         # 4×4 tile rect at (2, 2).
         emit_site_enclosure(
@@ -456,8 +461,12 @@ class TestEmitSiteEnclosure:
             gates=None,
             base_seed=42,
         )
-        assert len(builder.ops) == 1
-        op = builder.ops[0].op
+        # Phase 1.14: one EnclosureOp + one ExteriorWallOp.
+        assert len(builder.ops) == 2
+        enc_entry = next(
+            e for e in builder.ops if e.opType == Op.Op.EnclosureOp
+        )
+        op = enc_entry.op
         assert op.style == EnclosureStyle.Palisade
         assert op.cornerStyle == CornerStyle.Merlon
         # rng_seed = base_seed + 0xE101 (per design §10).

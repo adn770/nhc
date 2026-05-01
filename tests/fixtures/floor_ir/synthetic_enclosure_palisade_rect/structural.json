@@ -12,7 +12,8 @@
     "thematic_detail": 0
   },
   "op_counts": {
-    "EnclosureOp": 1
+    "EnclosureOp": 1,
+    "ExteriorWallOp": 1
   },
   "region_count": 1,
   "region_polygon_rings": 1,
