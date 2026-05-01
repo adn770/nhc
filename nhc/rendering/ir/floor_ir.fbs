@@ -794,6 +794,32 @@ table BuildingInteriorWallOp {
   edges: [InteriorEdge];
 }
 
+// ── v4 wall + floor ops (Phase 1.2 of plans/nhc_pure_ir_plan.md)
+//
+// FloorOp / InteriorWallOp / ExteriorWallOp are the 4.0 stamp model:
+// a single :type:`Outline` (closed polygon, open polyline, or
+// Circle / Pill descriptor) plus a paint style enum. Phase 1.4 –
+// 1.14 wires the emitter to populate these alongside the legacy
+// wall / floor ops; Phases 1.15 – 1.18 switch the consumers; the
+// 4.0 cut at 1.22 finally drops the legacy ops. See
+// design/map_ir_v4.md §3 for the canonical contract.
+
+table FloorOp {
+  outline: Outline;       // closed; cuts ignored / always empty
+  style: FloorStyle;
+}
+
+table InteriorWallOp {
+  outline: Outline;       // open or closed; cuts = doors
+  style: WallStyle;       // PartitionWood / PartitionStone / DungeonInk / ...
+}
+
+table ExteriorWallOp {
+  outline: Outline;       // closed; cuts = doors / gates
+  style: WallStyle;       // DungeonInk / MasonryBrick / Palisade / ...
+  corner_style: CornerStyle = Merlon;
+}
+
 // ── Op union ────────────────────────────────────────────────
 //
 // Order of variants is part of the schema major version — adding
@@ -815,6 +841,11 @@ table BuildingInteriorWallOp {
 // FeatureOps. GenericProceduralOp stays as a deliberate escape
 // hatch for future named primitives that haven't earned a
 // dedicated table yet.
+// Phase 1.2 of plans/nhc_pure_ir_plan.md appends FloorOp /
+// InteriorWallOp / ExteriorWallOp at the end of the union so the
+// pre-existing variant tags (1 – 19) keep their values; older
+// buffers continue to dispatch correctly while the 4.0 cut at
+// Phase 1.22 retires the legacy variants.
 union Op {
   ShadowOp,
   HatchOp,
@@ -835,6 +866,9 @@ union Op {
   EnclosureOp,
   BuildingExteriorWallOp,
   BuildingInteriorWallOp,
+  FloorOp,
+  InteriorWallOp,
+  ExteriorWallOp,
 }
 
 table OpEntry {

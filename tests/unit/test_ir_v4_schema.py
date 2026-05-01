@@ -252,3 +252,181 @@ def test_outline_kind_values_declared() -> None:
     assert OutlineKind.Polygon == 0
     assert OutlineKind.Circle == 1
     assert OutlineKind.Pill == 2
+
+
+# ── 1.2 — FloorOp / InteriorWallOp / ExteriorWallOp round-trip ──
+
+
+def _build_polygon_outline_t() -> "OutlineT":
+    """Helper: a 4-vertex closed polygon outline used by op tests."""
+    from nhc.rendering.ir._fb.Outline import OutlineT
+    from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+    from nhc.rendering.ir._fb.Vec2 import Vec2T
+
+    outline = OutlineT()
+    outline.descriptorKind = OutlineKind.Polygon
+    outline.closed = True
+    outline.vertices = [Vec2T() for _ in range(4)]
+    outline.vertices[0].x, outline.vertices[0].y = 0.0, 0.0
+    outline.vertices[1].x, outline.vertices[1].y = 64.0, 0.0
+    outline.vertices[2].x, outline.vertices[2].y = 64.0, 96.0
+    outline.vertices[3].x, outline.vertices[3].y = 0.0, 96.0
+    outline.cuts = []
+    return outline
+
+
+def _roundtrip_op_via_floor_ir(op_value: int, op_t):
+    """Wrap an op-table T value in a FloorIR root, serialise, parse
+    back, return the (op_type_tag, parsed_op_T)."""
+    from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
+    from nhc.rendering.ir._fb.OpEntry import OpEntryT
+
+    fir = FloorIRT()
+    fir.major = 3
+    fir.minor = 1
+    fir.widthTiles = 4
+    fir.heightTiles = 4
+    fir.theme = "dungeon"
+    fir.baseSeed = 1234
+
+    entry = OpEntryT()
+    entry.opType = op_value
+    entry.op = op_t
+    fir.ops = [entry]
+
+    builder = flatbuffers.Builder(0)
+    builder.Finish(fir.Pack(builder), b"NIR3")
+    parsed = FloorIR.GetRootAs(builder.Output(), 0)
+    parsed_t = FloorIRT.InitFromObj(parsed)
+    assert parsed_t.ops is not None
+    assert len(parsed_t.ops) == 1
+    return parsed_t.ops[0].opType, parsed_t.ops[0].op
+
+
+def test_floor_op_round_trip() -> None:
+    """A FloorIR carrying a FloorOp inside the op union round-trips
+    with outline + style preserved."""
+    from nhc.rendering.ir._fb.FloorOp import FloorOpT
+    from nhc.rendering.ir._fb.FloorStyle import FloorStyle
+    from nhc.rendering.ir._fb.Op import Op
+
+    src = FloorOpT()
+    src.outline = _build_polygon_outline_t()
+    src.style = FloorStyle.CaveFloor
+
+    tag, op = _roundtrip_op_via_floor_ir(Op.FloorOp, src)
+    assert tag == Op.FloorOp
+    assert op.style == FloorStyle.CaveFloor
+    assert op.outline is not None
+    assert op.outline.vertices is not None
+    assert len(op.outline.vertices) == 4
+    assert op.outline.vertices[2].x == 64.0
+    assert op.outline.vertices[2].y == 96.0
+
+
+def test_interior_wall_op_round_trip() -> None:
+    """An InteriorWallOp with an open polyline (closed=False) and a
+    cut round-trips through the op union."""
+    from nhc.rendering.ir._fb.Cut import CutT
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+    from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
+    from nhc.rendering.ir._fb.Op import Op
+    from nhc.rendering.ir._fb.Outline import OutlineT
+    from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+    from nhc.rendering.ir._fb.Vec2 import Vec2T
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+    outline = OutlineT()
+    outline.descriptorKind = OutlineKind.Polygon
+    outline.closed = False
+    outline.vertices = [Vec2T() for _ in range(2)]
+    outline.vertices[0].x, outline.vertices[0].y = 0.0, 32.0
+    outline.vertices[1].x, outline.vertices[1].y = 128.0, 32.0
+    cut = CutT()
+    cut.start = Vec2T()
+    cut.start.x, cut.start.y = 48.0, 32.0
+    cut.end = Vec2T()
+    cut.end.x, cut.end.y = 64.0, 32.0
+    cut.style = CutStyle.DoorWood
+    outline.cuts = [cut]
+
+    src = InteriorWallOpT()
+    src.outline = outline
+    src.style = WallStyle.PartitionWood
+
+    tag, op = _roundtrip_op_via_floor_ir(Op.InteriorWallOp, src)
+    assert tag == Op.InteriorWallOp
+    assert op.style == WallStyle.PartitionWood
+    assert op.outline.closed is False
+    assert len(op.outline.vertices) == 2
+    assert len(op.outline.cuts) == 1
+    assert op.outline.cuts[0].style == CutStyle.DoorWood
+
+
+def test_exterior_wall_op_round_trip() -> None:
+    """An ExteriorWallOp with corner_style, two cuts, and a closed
+    polygon outline round-trips."""
+    from nhc.rendering.ir._fb.CornerStyle import CornerStyle
+    from nhc.rendering.ir._fb.Cut import CutT
+    from nhc.rendering.ir._fb.CutStyle import CutStyle
+    from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
+    from nhc.rendering.ir._fb.Op import Op
+    from nhc.rendering.ir._fb.Vec2 import Vec2T
+    from nhc.rendering.ir._fb.WallStyle import WallStyle
+
+    outline = _build_polygon_outline_t()
+    cut = CutT()
+    cut.start = Vec2T()
+    cut.start.x, cut.start.y = 16.0, 0.0
+    cut.end = Vec2T()
+    cut.end.x, cut.end.y = 48.0, 0.0
+    cut.style = CutStyle.WoodGate
+    outline.cuts = [cut]
+
+    src = ExteriorWallOpT()
+    src.outline = outline
+    src.style = WallStyle.FortificationMerlon
+    src.cornerStyle = CornerStyle.Diamond
+
+    tag, op = _roundtrip_op_via_floor_ir(Op.ExteriorWallOp, src)
+    assert tag == Op.ExteriorWallOp
+    assert op.style == WallStyle.FortificationMerlon
+    assert op.cornerStyle == CornerStyle.Diamond
+    assert len(op.outline.cuts) == 1
+    assert op.outline.cuts[0].style == CutStyle.WoodGate
+
+
+def test_op_union_preserves_existing_variant_tags() -> None:
+    """Adding FloorOp / InteriorWallOp / ExteriorWallOp at the end
+    of the union must keep the pre-existing variant tags stable so
+    older buffers continue to dispatch correctly. Pin every legacy
+    tag value here as a regression guard."""
+    from nhc.rendering.ir._fb.Op import Op
+
+    # Pre-1.2 variants — these tags are part of the schema 3.x
+    # contract and must NOT shift.
+    assert Op.NONE == 0
+    assert Op.ShadowOp == 1
+    assert Op.HatchOp == 2
+    assert Op.WallsAndFloorsOp == 3
+    assert Op.TerrainTintOp == 4
+    assert Op.FloorGridOp == 5
+    assert Op.FloorDetailOp == 6
+    assert Op.ThematicDetailOp == 7
+    assert Op.TerrainDetailOp == 8
+    assert Op.StairsOp == 9
+    assert Op.TreeFeatureOp == 10
+    assert Op.BushFeatureOp == 11
+    assert Op.WellFeatureOp == 12
+    assert Op.FountainFeatureOp == 13
+    assert Op.GenericProceduralOp == 14
+    assert Op.DecoratorOp == 15
+    assert Op.RoofOp == 16
+    assert Op.EnclosureOp == 17
+    assert Op.BuildingExteriorWallOp == 18
+    assert Op.BuildingInteriorWallOp == 19
+
+    # New 1.2 variants — appended at the end so legacy tags stay put.
+    assert Op.FloorOp == 20
+    assert Op.InteriorWallOp == 21
+    assert Op.ExteriorWallOp == 22

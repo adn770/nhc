@@ -1835,10 +1835,10 @@ impl ::flatbuffers::SimpleToVerifyInSlice for TerrainKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_OP: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_OP: u8 = 19;
+pub const ENUM_MAX_OP: u8 = 22;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_OP: [Op; 20] = [
+pub const ENUM_VALUES_OP: [Op; 23] = [
   Op::NONE,
   Op::ShadowOp,
   Op::HatchOp,
@@ -1859,6 +1859,9 @@ pub const ENUM_VALUES_OP: [Op; 20] = [
   Op::EnclosureOp,
   Op::BuildingExteriorWallOp,
   Op::BuildingInteriorWallOp,
+  Op::FloorOp,
+  Op::InteriorWallOp,
+  Op::ExteriorWallOp,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1886,9 +1889,12 @@ impl Op {
   pub const EnclosureOp: Self = Self(17);
   pub const BuildingExteriorWallOp: Self = Self(18);
   pub const BuildingInteriorWallOp: Self = Self(19);
+  pub const FloorOp: Self = Self(20);
+  pub const InteriorWallOp: Self = Self(21);
+  pub const ExteriorWallOp: Self = Self(22);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 19;
+  pub const ENUM_MAX: u8 = 22;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::NONE,
     Self::ShadowOp,
@@ -1910,6 +1916,9 @@ impl Op {
     Self::EnclosureOp,
     Self::BuildingExteriorWallOp,
     Self::BuildingInteriorWallOp,
+    Self::FloorOp,
+    Self::InteriorWallOp,
+    Self::ExteriorWallOp,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -1934,6 +1943,9 @@ impl Op {
       Self::EnclosureOp => Some("EnclosureOp"),
       Self::BuildingExteriorWallOp => Some("BuildingExteriorWallOp"),
       Self::BuildingInteriorWallOp => Some("BuildingInteriorWallOp"),
+      Self::FloorOp => Some("FloorOp"),
+      Self::InteriorWallOp => Some("InteriorWallOp"),
+      Self::ExteriorWallOp => Some("ExteriorWallOp"),
       _ => None,
     }
   }
@@ -9147,6 +9159,362 @@ impl ::core::fmt::Debug for BuildingInteriorWallOp<'_> {
       ds.finish()
   }
 }
+pub enum FloorOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct FloorOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for FloorOp<'a> {
+  type Inner = FloorOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> FloorOp<'a> {
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    FloorOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args FloorOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<FloorOp<'bldr>> {
+    let mut builder = FloorOpBuilder::new(_fbb);
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(FloorOp::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> FloorStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<FloorStyle>(FloorOp::VT_STYLE, Some(FloorStyle::DungeonFloor)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for FloorOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<FloorStyle>("style", Self::VT_STYLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct FloorOpArgs<'a> {
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub style: FloorStyle,
+}
+impl<'a> Default for FloorOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    FloorOpArgs {
+      outline: None,
+      style: FloorStyle::DungeonFloor,
+    }
+  }
+}
+
+pub struct FloorOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(FloorOp::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: FloorStyle) {
+    self.fbb_.push_slot::<FloorStyle>(FloorOp::VT_STYLE, style, FloorStyle::DungeonFloor);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    FloorOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<FloorOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for FloorOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("FloorOp");
+      ds.field("outline", &self.outline());
+      ds.field("style", &self.style());
+      ds.finish()
+  }
+}
+pub enum InteriorWallOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct InteriorWallOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for InteriorWallOp<'a> {
+  type Inner = InteriorWallOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> InteriorWallOp<'a> {
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    InteriorWallOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args InteriorWallOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<InteriorWallOp<'bldr>> {
+    let mut builder = InteriorWallOpBuilder::new(_fbb);
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(InteriorWallOp::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> WallStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<WallStyle>(InteriorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for InteriorWallOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct InteriorWallOpArgs<'a> {
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub style: WallStyle,
+}
+impl<'a> Default for InteriorWallOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    InteriorWallOpArgs {
+      outline: None,
+      style: WallStyle::DungeonInk,
+    }
+  }
+}
+
+pub struct InteriorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InteriorWallOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(InteriorWallOp::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: WallStyle) {
+    self.fbb_.push_slot::<WallStyle>(InteriorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InteriorWallOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    InteriorWallOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<InteriorWallOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for InteriorWallOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("InteriorWallOp");
+      ds.field("outline", &self.outline());
+      ds.field("style", &self.style());
+      ds.finish()
+  }
+}
+pub enum ExteriorWallOpOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct ExteriorWallOp<'a> {
+  pub _tab: ::flatbuffers::Table<'a>,
+}
+
+impl<'a> ::flatbuffers::Follow<'a> for ExteriorWallOp<'a> {
+  type Inner = ExteriorWallOp<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: unsafe { ::flatbuffers::Table::new(buf, loc) } }
+  }
+}
+
+impl<'a> ExteriorWallOp<'a> {
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
+  pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
+    ExteriorWallOp { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: ::flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut ::flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args ExteriorWallOpArgs<'args>
+  ) -> ::flatbuffers::WIPOffset<ExteriorWallOp<'bldr>> {
+    let mut builder = ExteriorWallOpBuilder::new(_fbb);
+    if let Some(x) = args.outline { builder.add_outline(x); }
+    builder.add_corner_style(args.corner_style);
+    builder.add_style(args.style);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(ExteriorWallOp::VT_OUTLINE, None)}
+  }
+  #[inline]
+  pub fn style(&self) -> WallStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<WallStyle>(ExteriorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
+  }
+  #[inline]
+  pub fn corner_style(&self) -> CornerStyle {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<CornerStyle>(ExteriorWallOp::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
+  }
+}
+
+impl ::flatbuffers::Verifiable for ExteriorWallOp<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut ::flatbuffers::Verifier, pos: usize
+  ) -> Result<(), ::flatbuffers::InvalidFlatbuffer> {
+    v.visit_table(pos)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
+     .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct ExteriorWallOpArgs<'a> {
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
+    pub style: WallStyle,
+    pub corner_style: CornerStyle,
+}
+impl<'a> Default for ExteriorWallOpArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    ExteriorWallOpArgs {
+      outline: None,
+      style: WallStyle::DungeonInk,
+      corner_style: CornerStyle::Merlon,
+    }
+  }
+}
+
+pub struct ExteriorWallOpBuilder<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: ::flatbuffers::WIPOffset<::flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ExteriorWallOpBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(ExteriorWallOp::VT_OUTLINE, outline);
+  }
+  #[inline]
+  pub fn add_style(&mut self, style: WallStyle) {
+    self.fbb_.push_slot::<WallStyle>(ExteriorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
+  }
+  #[inline]
+  pub fn add_corner_style(&mut self, corner_style: CornerStyle) {
+    self.fbb_.push_slot::<CornerStyle>(ExteriorWallOp::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ExteriorWallOpBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    ExteriorWallOpBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> ::flatbuffers::WIPOffset<ExteriorWallOp<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    ::flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl ::core::fmt::Debug for ExteriorWallOp<'_> {
+  fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+    let mut ds = f.debug_struct("ExteriorWallOp");
+      ds.field("outline", &self.outline());
+      ds.field("style", &self.style());
+      ds.field("corner_style", &self.corner_style());
+      ds.finish()
+  }
+}
 pub enum OpEntryOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -9481,6 +9849,51 @@ impl<'a> OpEntry<'a> {
     }
   }
 
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_floor_op(&self) -> Option<FloorOp<'a>> {
+    if self.op_type() == Op::FloorOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { FloorOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_interior_wall_op(&self) -> Option<InteriorWallOp<'a>> {
+    if self.op_type() == Op::InteriorWallOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { InteriorWallOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
+  #[inline]
+  #[allow(non_snake_case)]
+  pub fn op_as_exterior_wall_op(&self) -> Option<ExteriorWallOp<'a>> {
+    if self.op_type() == Op::ExteriorWallOp {
+      self.op().map(|t| {
+       // Safety:
+       // Created from a valid Table for this object
+       // Which contains a valid union in this slot
+       unsafe { ExteriorWallOp::init_from_table(t) }
+     })
+    } else {
+      None
+    }
+  }
+
 }
 
 impl ::flatbuffers::Verifiable for OpEntry<'_> {
@@ -9510,6 +9923,9 @@ impl ::flatbuffers::Verifiable for OpEntry<'_> {
           Op::EnclosureOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<EnclosureOp>>("Op::EnclosureOp", pos),
           Op::BuildingExteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BuildingExteriorWallOp>>("Op::BuildingExteriorWallOp", pos),
           Op::BuildingInteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<BuildingInteriorWallOp>>("Op::BuildingInteriorWallOp", pos),
+          Op::FloorOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<FloorOp>>("Op::FloorOp", pos),
+          Op::InteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<InteriorWallOp>>("Op::InteriorWallOp", pos),
+          Op::ExteriorWallOp => v.verify_union_variant::<::flatbuffers::ForwardsUOffset<ExteriorWallOp>>("Op::ExteriorWallOp", pos),
           _ => Ok(()),
         }
      })?
@@ -9692,6 +10108,27 @@ impl ::core::fmt::Debug for OpEntry<'_> {
         },
         Op::BuildingInteriorWallOp => {
           if let Some(x) = self.op_as_building_interior_wall_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::FloorOp => {
+          if let Some(x) = self.op_as_floor_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::InteriorWallOp => {
+          if let Some(x) = self.op_as_interior_wall_op() {
+            ds.field("op", &x)
+          } else {
+            ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
+          }
+        },
+        Op::ExteriorWallOp => {
+          if let Some(x) = self.op_as_exterior_wall_op() {
             ds.field("op", &x)
           } else {
             ds.field("op", &"InvalidFlatbuffer: Union discriminant does not match value.")
