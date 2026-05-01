@@ -33,6 +33,7 @@ use tiny_skia::{
 
 use crate::ir::{FloorIR, OpEntry, WallsAndFloorsOp};
 
+use super::floor_op::{has_cave_floor_op, has_floor_ops};
 use super::fragment::paint_fragment;
 use super::path_parser::{parse_path_d, parse_xy};
 use super::RasterCtx;
@@ -76,22 +77,38 @@ fn wall_stroke() -> Stroke {
 
 pub(super) fn draw(
     entry: &OpEntry<'_>,
-    _fir: &FloorIR<'_>,
+    fir: &FloorIR<'_>,
     ctx: &mut RasterCtx<'_>,
 ) {
     let op = match entry.op_as_walls_and_floors_op() {
         Some(o) => o,
         None => return,
     };
-    // Legacy emit order (mirrors primitives::walls_and_floors's
-    // SVG output): corridor + rect-room fills, smooth-room fills,
-    // cave fill, cave stroke, smooth-room walls, wall extensions,
-    // wall segments. Layering matters — fills first, strokes
-    // last so wall outlines sit on top of floor colours.
-    draw_corridor_tiles(&op, ctx);
-    draw_rect_rooms(&op, ctx);
-    draw_smooth_fragments(&op, ctx);
-    draw_cave_region(&op, ctx);
+    // Phase 1.17: when FloorOps are present in the IR, the new
+    // `floor_op::draw` handler owns the floor surface for rect rooms,
+    // corridors, and smooth polygon fills. Gate those legacy passes off
+    // so floor pixels are not painted twice.
+    //
+    // The cave region is gated separately because a CaveFloor FloorOp
+    // may be absent even when non-cave FloorOps are present (e.g. a
+    // floor with rect rooms only). The gate is conservative: if ANY
+    // CaveFloor FloorOp exists, skip `draw_cave_region`.
+    //
+    // Wall primitives (draw_wall_segments, draw_smooth_wall_fragments,
+    // draw_wall_extensions) keep running regardless — wall ops are not
+    // yet consumed (Phase 1.18).
+    let floor_ops_present = has_floor_ops(fir);
+    let cave_floor_present = floor_ops_present && has_cave_floor_op(fir);
+
+    if !floor_ops_present {
+        // Legacy emit order for 3.x cached buffers without FloorOps.
+        draw_corridor_tiles(&op, ctx);
+        draw_rect_rooms(&op, ctx);
+        draw_smooth_fragments(&op, ctx);
+    }
+    if !cave_floor_present {
+        draw_cave_region(&op, ctx);
+    }
     draw_smooth_wall_fragments(&op, ctx);
     draw_wall_extensions(&op, ctx);
     draw_wall_segments(&op, ctx);

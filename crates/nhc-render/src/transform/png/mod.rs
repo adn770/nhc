@@ -36,6 +36,7 @@ mod decorator;
 mod enclosure;
 mod floor_detail;
 mod floor_grid;
+mod floor_op;
 mod fountain;
 mod hatch;
 mod roof;
@@ -166,6 +167,7 @@ fn op_handlers() -> &'static HashMap<u8, OpHandler> {
     HANDLERS.get_or_init(|| {
         let mut m: HashMap<u8, OpHandler> = HashMap::new();
         m.insert(Op::ShadowOp.0, shadow::draw);
+        m.insert(Op::FloorOp.0, floor_op::draw);
         m.insert(Op::WallsAndFloorsOp.0, walls_and_floors::draw);
         m.insert(Op::TerrainTintOp.0, terrain_tints::draw);
         m.insert(Op::FloorGridOp.0, floor_grid::draw);
