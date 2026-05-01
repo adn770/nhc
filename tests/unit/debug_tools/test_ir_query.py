@@ -167,3 +167,47 @@ async def test_get_ir_diff_detects_changes() -> None:
     # specifically so a future regression in the per-kind breakdown
     # is caught.
     assert result["ops_net_per_kind"].get("ShadowOp", 0) < 0
+
+
+# ---------------------------------------------------------------------------
+# Fixture shortcut tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_fixture_shortcut_resolves_to_correct_path() -> None:
+    """get_ir_buffer(fixture='seed42_rect_dungeon_dungeon') reads
+    the seed42 fixture's .nir, not debug/exports."""
+    from nhc.debug_tools.tools.ir_query import GetIRBufferTool
+    result = await GetIRBufferTool().execute(
+        fixture="seed42_rect_dungeon_dungeon",
+    )
+    assert "error" not in result
+    assert result["major"] == 3
+    assert result["op_count"] == 230
+    assert "seed42_rect_dungeon_dungeon" in result["path"]
+
+
+@pytest.mark.asyncio
+async def test_fixture_shortcut_unknown_fixture_lists_available() -> None:
+    """An unknown fixture name returns an error listing the
+    available fixture directory names."""
+    from nhc.debug_tools.tools.ir_query import GetIRBufferTool
+    result = await GetIRBufferTool().execute(fixture="no_such_fixture")
+    assert "error" in result
+    assert "no_such_fixture" in result["error"]
+    assert "available" in result
+    assert "seed42_rect_dungeon_dungeon" in result["available"]
+
+
+@pytest.mark.asyncio
+async def test_get_ir_diff_accepts_fixture_before_after() -> None:
+    """fixture_before='X' + fixture_after='Y' resolves both."""
+    from nhc.debug_tools.tools.ir_query import GetIRDiffTool
+    result = await GetIRDiffTool().execute(
+        fixture_before="seed42_rect_dungeon_dungeon",
+        fixture_after="seed99_cave_cave_cave",
+    )
+    assert "error" not in result
+    assert len(result["regions_removed"]) > 0
+    assert len(result["regions_added"]) > 0

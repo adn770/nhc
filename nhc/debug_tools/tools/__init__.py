@@ -40,6 +40,7 @@ from nhc.debug_tools.tools.ir_query import (
     GetIRDiffTool,
     GetIROpsTool,
     GetIRRegionTool,
+    GetWallCoverageTool,
 )
 
 ALL_TOOL_CLASSES = [
@@ -66,6 +67,7 @@ ALL_TOOL_CLASSES = [
     GetIRRegionTool,
     GetIROpsTool,
     GetIRDiffTool,
+    GetWallCoverageTool,
     # Hex-mode debug tools (M-4.1).
     ShowWorldStateTool,
     RevealAllHexesTool,
