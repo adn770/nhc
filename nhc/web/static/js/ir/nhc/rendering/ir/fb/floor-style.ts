@@ -4,5 +4,6 @@
 
 export enum FloorStyle {
   DungeonFloor = 0,
-  CaveFloor = 1
+  CaveFloor = 1,
+  WoodFloor = 2
 }

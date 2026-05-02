@@ -38,6 +38,12 @@ const FLOOR_B: u8 = 0xFF;
 const CAVE_FLOOR_R: u8 = 0xF5;
 const CAVE_FLOOR_G: u8 = 0xEB;
 const CAVE_FLOOR_B: u8 = 0xD8;
+// Phase 1.20b — wood-floor brown for buildings with
+// `interior_finish == "wood"`. Mirrors Python's
+// `nhc/rendering/_floor_detail.py:WOOD_FLOOR_FILL = "#B58B5A"`.
+const WOOD_FLOOR_R: u8 = 0xB5;
+const WOOD_FLOOR_G: u8 = 0x8B;
+const WOOD_FLOOR_B: u8 = 0x5A;
 
 fn dungeon_floor_paint() -> Paint<'static> {
     let mut p = Paint::default();
@@ -52,6 +58,18 @@ fn cave_floor_paint() -> Paint<'static> {
         CAVE_FLOOR_R,
         CAVE_FLOOR_G,
         CAVE_FLOOR_B,
+        0xFF,
+    ));
+    p.anti_alias = true;
+    p
+}
+
+fn wood_floor_paint() -> Paint<'static> {
+    let mut p = Paint::default();
+    p.set_color(Color::from_rgba8(
+        WOOD_FLOOR_R,
+        WOOD_FLOOR_G,
+        WOOD_FLOOR_B,
         0xFF,
     ));
     p.anti_alias = true;
@@ -286,10 +304,10 @@ fn draw_cave_floor(
 
 /// Select the fill paint by `FloorStyle`.
 fn floor_paint(style: FloorStyle) -> Paint<'static> {
-    if style == FloorStyle::CaveFloor {
-        cave_floor_paint()
-    } else {
-        dungeon_floor_paint()
+    match style {
+        FloorStyle::CaveFloor => cave_floor_paint(),
+        FloorStyle::WoodFloor => wood_floor_paint(),
+        _ => dungeon_floor_paint(),
     }
 }
 
@@ -324,6 +342,11 @@ mod tests {
     const CAVE_FLOOR_R: u8 = 0xF5;
     const CAVE_FLOOR_G: u8 = 0xEB;
     const CAVE_FLOOR_B: u8 = 0xD8;
+    // Phase 1.20b — wood-floor brown (#B58B5A); mirrors Python's
+    // `_floor_detail.WOOD_FLOOR_FILL`.
+    const WOOD_FLOOR_R: u8 = 0xB5;
+    const WOOD_FLOOR_G: u8 = 0x8B;
+    const WOOD_FLOOR_B: u8 = 0x5A;
 
     /// Canvas coords for the centre of tile (tx, ty).
     /// `padding = 32`, `cell = 32`.
@@ -717,6 +740,27 @@ mod tests {
             (r, g, b),
             (FLOOR_R, FLOOR_G, FLOOR_B),
             "pixel ({px},{py}) inside FloorOp rect should be white floor"
+        );
+    }
+
+    // ── Phase 1.20b — WoodFloor polygon paints brown ────────────
+
+    #[test]
+    fn floor_op_polygon_wood_floor_paints_brown() {
+        // FloorOp covering tiles [1,1]..[4,4] — centre at tile (2,2).
+        // WoodFloor must select the WOOD_FLOOR_FILL paint (#B58B5A),
+        // not the white DungeonFloor paint that the legacy
+        // smoothFillSvg path leaked when the Rust gate suppressed it.
+        let buf =
+            build_rect_floor_op_buf(1, 1, 3, 3, FloorStyle::WoodFloor);
+        let png = floor_ir_to_png(&buf, 1.0, None).expect("render");
+        let pixmap = decode(&png);
+        let (px, py) = tile_centre_px(2, 2);
+        let (r, g, b) = pixel_at(&pixmap, px, py);
+        assert_eq!(
+            (r, g, b),
+            (WOOD_FLOOR_R, WOOD_FLOOR_G, WOOD_FLOOR_B),
+            "pixel ({px},{py}) inside WoodFloor FloorOp should be brown"
         );
     }
 

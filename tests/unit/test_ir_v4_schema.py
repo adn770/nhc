@@ -240,9 +240,30 @@ def test_floor_style_values_declared() -> None:
     integer constant."""
     from nhc.rendering.ir._fb.FloorStyle import FloorStyle
 
-    expected = {"DungeonFloor": 0, "CaveFloor": 1}
+    expected = {"DungeonFloor": 0, "CaveFloor": 1, "WoodFloor": 2}
     for name, value in expected.items():
         assert getattr(FloorStyle, name) == value
+
+
+def test_floor_style_wood_floor_round_trips() -> None:
+    """A FloorOp carrying ``FloorStyle.WoodFloor`` round-trips
+    through the op union. Phase 1.20b: building wood-floor brown
+    fill replaces the legacy ``WallsAndFloorsOp.smoothFillSvg``
+    SVG-string path."""
+    from nhc.rendering.ir._fb.FloorOp import FloorOpT
+    from nhc.rendering.ir._fb.FloorStyle import FloorStyle
+    from nhc.rendering.ir._fb.Op import Op
+
+    src = FloorOpT()
+    src.outline = _build_polygon_outline_t()
+    src.style = FloorStyle.WoodFloor
+
+    tag, op = _roundtrip_op_via_floor_ir(Op.FloorOp, src)
+    assert tag == Op.FloorOp
+    assert op.style == FloorStyle.WoodFloor
+    assert op.outline is not None
+    assert op.outline.vertices is not None
+    assert len(op.outline.vertices) == 4
 
 
 def test_outline_kind_values_declared() -> None:

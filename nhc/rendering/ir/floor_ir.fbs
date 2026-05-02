@@ -236,9 +236,17 @@ enum WallStyle : ubyte {
 // for every :type:`FloorOp` outline. CaveInk paints identically to
 // DungeonInk today; the enum value is reserved for future
 // divergence (per design/map_ir_v4.md §3).
+//
+// Phase 1.20b — added ``WoodFloor`` for building interiors with
+// ``interior_finish == "wood"``. The corresponding FloorOp paints
+// AFTER the white DungeonFloor FloorOps in IR op-order, covering
+// the building footprint with the wood fill colour (#B58B5A).
+// Replaces the legacy ``WallsAndFloorsOp.smoothFillSvg`` brown-rect
+// SVG-string carrier.
 enum FloorStyle : ubyte {
   DungeonFloor = 0,
   CaveFloor = 1,
+  WoodFloor = 2,
 }
 
 // Phase 8.3 — Building exterior wall material. Brick / Stone

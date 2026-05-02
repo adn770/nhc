@@ -192,16 +192,17 @@ def test_floor_op_uses_dungeon_floor_style() -> None:
 
 
 def test_floor_op_skipped_when_suppress_rect_rooms() -> None:
-    """Wood-floor + building polygon → suppress both legacy and new.
+    """Wood-floor + building polygon → no DungeonFloor rect FloorOps,
+    WoodFloor FloorOps take their place.
 
     The wood-floor short-circuit lives in ``_emit_walls_and_floors_ir``
     when ``ctx.interior_finish == "wood"`` and a building polygon is
-    set; today it suppresses the legacy ``rectRooms`` list because the
-    bbox would extend past the chamfered footprint and bleed white
-    tiles past the wood polygon. The new FloorOps must mirror that
-    suppression — no FloorOp ships when ``suppress_rect_rooms`` is
-    True so 1.15's consumer switch can't accidentally reintroduce the
-    wood-floor leak.
+    set; it suppresses the legacy ``rectRooms`` list and the per-room
+    DungeonFloor FloorOp emission because either would bleed white
+    tiles past the chamfered footprint. Phase 1.20b replaces the
+    suppressed white fills with WoodFloor FloorOps that paint the
+    building polygon brown — so the only FloorOps emitted under this
+    short-circuit carry ``style = WoodFloor``.
     """
     from nhc.rendering._render_context import build_render_context
     from nhc.rendering.ir_emitter import (
@@ -242,10 +243,17 @@ def test_floor_op_skipped_when_suppress_rect_rooms() -> None:
     floor_ops = [
         e for e in builder.ops if e.opType == Op.Op.FloorOp
     ]
-    assert floor_ops == [], (
-        "suppress_rect_rooms should suppress the new FloorOps to "
-        "match the legacy short-circuit"
+    dungeon_ops = [e for e in floor_ops if e.op.style == FloorStyle.DungeonFloor]
+    wood_ops = [e for e in floor_ops if e.op.style == FloorStyle.WoodFloor]
+    assert dungeon_ops == [], (
+        "suppress_rect_rooms must suppress per-room DungeonFloor "
+        "FloorOps to match the legacy short-circuit"
     )
+    assert len(wood_ops) == 1, (
+        "suppress_rect_rooms must emit exactly one WoodFloor FloorOp "
+        "carrying the building polygon (Phase 1.20b)"
+    )
+    assert wood_ops[0].op.outline.descriptorKind == OutlineKind.Polygon
 
 
 def test_floor_op_placement_in_ops_array() -> None:
@@ -490,13 +498,15 @@ def test_floor_op_per_smooth_shape_room() -> None:
 
 
 def test_floor_op_skipped_for_smooth_shapes_when_suppress_rect_rooms() -> None:
-    """Wood-floor + building polygon → smooth FloorOps suppressed.
+    """Wood-floor + building polygon → smooth DungeonFloor FloorOps
+    suppressed; one WoodFloor FloorOp paints the building polygon.
 
     Phase 1.4 mirrors the legacy ``suppress_rect_rooms`` short-circuit
-    for rect rooms; 1.5 extends it to smooth shapes for the same
-    reason: the wood polygon paints the base fill, so per-room
-    FloorOps would re-introduce the wood-floor leak the legacy
-    short-circuit prevents (bbox bleeds past the chamfered footprint).
+    for rect rooms; 1.5 extended it to smooth shapes for the same
+    reason: a per-room DungeonFloor FloorOp would bleed white past
+    the chamfered building footprint. Phase 1.20b replaces the
+    suppressed white fills with one WoodFloor FloorOp covering the
+    building polygon.
     """
     from nhc.rendering._render_context import build_render_context
     from nhc.rendering.ir_emitter import (
@@ -528,9 +538,16 @@ def test_floor_op_skipped_for_smooth_shapes_when_suppress_rect_rooms() -> None:
     floor_ops = [
         e for e in builder.ops if e.opType == Op.Op.FloorOp
     ]
-    assert floor_ops == [], (
-        "suppress_rect_rooms must also suppress smooth-shape FloorOps "
-        "so the wood-floor base fill stays the only base layer"
+    dungeon_ops = [e for e in floor_ops if e.op.style == FloorStyle.DungeonFloor]
+    wood_ops = [e for e in floor_ops if e.op.style == FloorStyle.WoodFloor]
+    assert dungeon_ops == [], (
+        "suppress_rect_rooms must suppress smooth-shape DungeonFloor "
+        "FloorOps so the wood polygon stays the only base layer "
+        "inside the building"
+    )
+    assert len(wood_ops) == 1, (
+        "suppress_rect_rooms must emit exactly one WoodFloor FloorOp "
+        "carrying the building polygon (Phase 1.20b)"
     )
 
 
@@ -2218,10 +2235,9 @@ def _waf_op_from_fresh_ir(descriptor: str):
 
 # Descriptors used as drift canaries — one rect-only dungeon, one
 # smooth-shape dungeon, and the cave fixture. Each must report
-# every legacy field empty after Phase 1.19. The brick building
-# fixture is exercised separately in
-# ``test_smooth_fill_svg_retained_for_building`` because it keeps
-# ``smoothFillSvg`` populated for wood-floor (until 1.20).
+# every legacy field empty after Phase 1.19 with the exception of
+# ``smoothFillSvg`` (still carries CrossShape / HybridShape
+# smooth-room fills until Phase 1.20c migrates them).
 _PHASE_1_19_EMPTY_DESCRIPTORS = (
     "seed42_rect_dungeon_dungeon",
     "seed7_octagon_crypt_dungeon",
@@ -2237,15 +2253,14 @@ def test_legacy_walls_and_floors_fields_are_empty() -> None:
     ``smoothRoomRegions`` / ``rectRooms`` / ``corridorTiles``.
 
     ``smoothFillSvg`` stays populated as a transitional measure: it
-    carries smooth-room base fills (white) AND building wood-floor
-    rects (brown). Both are duplicate work — the dungeon FloorOp
-    paints over the white smooth-room fills (same colour, harmless),
-    and the Rust consumer's gate suppresses the legacy pass when
-    smooth ExteriorWallOps cover the area. Several SVG-shape smoke
-    tests still inspect the legacy SVG path strings; clearing
-    smoothFillSvg breaks them. Phase 1.20 retires ``smoothFillSvg``
-    entirely by emitting a building FloorOp (and the smooth-room
-    duplication can drop at the same time).
+    carries smooth-room base fills (white) for shapes Phase 1.5 did
+    not migrate (CrossShape / HybridShape) and the smoke tests in
+    test_svg_shapes.py still inspect those SVG path strings. Phase
+    1.20c retires the field entirely. Phase 1.20b already retired
+    the building wood-floor brown rects (now a WoodFloor FloorOp),
+    so the building fixture is exercised separately in
+    ``test_smooth_fill_svg_no_wood_floor_for_building`` rather than
+    here (its dungeon counterpart never had wood-floor entries).
     """
     for descriptor in _PHASE_1_19_EMPTY_DESCRIPTORS:
         op = _waf_op_from_fresh_ir(descriptor)
@@ -2279,14 +2294,18 @@ def test_legacy_walls_and_floors_fields_are_empty() -> None:
         )
 
 
-def test_smooth_fill_svg_retained_for_building() -> None:
-    """Phase 1.19: ``smoothFillSvg`` stays populated for buildings.
+# ── Phase 1.20b — building wood-floor migrates to WoodFloor FloorOp ──
 
-    Wood-floor brown rects have no FloorOp equivalent until Phase 1.20.
-    Until then the legacy ``smoothFillSvg`` field is the only source
-    for the building's wood-floor base fill — the emitter must keep
-    appending to it. Verify on the brick_building fixture which
-    triggers ``ctx.interior_finish == "wood"``.
+
+def test_smooth_fill_svg_no_wood_floor_for_building() -> None:
+    """Phase 1.20b: brick_building's ``smoothFillSvg`` no longer
+    carries wood-floor brown rects.
+
+    Phase 1.19 retained the brown ``<rect fill="#B58B5A">`` entries
+    because no FloorOp covered the building wood-floor base. 1.20b
+    migrates them to a ``FloorStyle.WoodFloor`` FloorOp. Any leftover
+    ``#B58B5A`` SVG string in ``smoothFillSvg`` would mean the legacy
+    path is double-emitting alongside the new FloorOp.
     """
     from tests.samples.regenerate_fixtures import (
         _BUILDING_FIXTURES, _build_building_inputs,
@@ -2301,19 +2320,130 @@ def test_smooth_fill_svg_retained_for_building() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
     waf = next(e.op for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp)
-    assert waf.smoothFillSvg, (
-        "brick_building: smoothFillSvg must stay populated (wood-floor "
-        "rects); Phase 1.20 retires it via a building FloorOp"
+    for entry in (waf.smoothFillSvg or []):
+        s = entry.decode() if isinstance(entry, bytes) else entry
+        assert '#B58B5A' not in s, (
+            f"smoothFillSvg must not retain wood-floor brown rects after "
+            f"Phase 1.20b — found: {s[:120]}"
+        )
+
+
+def _building_fir() -> "FloorIRT":
+    """Re-emit the brick_building fixture and return the parsed FloorIRT."""
+    from tests.samples.regenerate_fixtures import (
+        _BUILDING_FIXTURES, _build_building_inputs,
     )
-    # Sanity — every entry is a brown wood-floor `<rect>` (WOOD_FLOOR_FILL
-    # is `#B58B5A`). A future regression that swapped wood for cobblestone
-    # would surface as a colour mismatch here.
-    sample = waf.smoothFillSvg[0]
-    if isinstance(sample, bytes):
-        sample = sample.decode()
-    assert 'fill="#B58B5A"' in sample, (
-        f"smoothFillSvg[0] must carry the wood-floor fill color, got: "
-        f"{sample[:120]}"
+    fx = next(
+        f for f in _BUILDING_FIXTURES
+        if f.descriptor == "seed7_brick_building_floor0"
+    )
+    site, level = _build_building_inputs(fx)
+    buf = build_floor_ir(
+        level, seed=fx.seed, hatch_distance=2.0, site=site,
+    )
+    return FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
+
+
+def test_building_emits_wood_floor_floor_ops() -> None:
+    """Phase 1.20b: brick_building IR carries WoodFloor FloorOps,
+    replacing the legacy ``smoothFillSvg`` brown-rect path.
+
+    seed7 takes the per-tile branch (``ctx.building_polygon`` is
+    None for the IR-emitter pipeline — same as legacy emit, which
+    appended one ``<rect>`` per FLOOR tile). The migrated FloorOps
+    mirror that 1:1: one ``style=WoodFloor`` FloorOp per building
+    FLOOR tile not in ``cave_tiles``. Closes the building parity
+    xfail. A future commit may compact the per-tile emission into
+    a single polygon FloorOp once site → polygon resolution lands
+    in the IR-emitter path.
+    """
+    fir = _building_fir()
+    floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
+    wood_ops = [
+        e for e in floor_ops if e.op.style == FloorStyle.WoodFloor
+    ]
+    assert wood_ops, (
+        "brick_building: expected at least one WoodFloor FloorOp"
+    )
+    for entry in wood_ops:
+        wf = entry.op
+        assert wf.outline is not None
+        assert wf.outline.descriptorKind == OutlineKind.Polygon
+        assert wf.outline.vertices is not None
+        assert len(wf.outline.vertices) == 4
+
+
+def test_wood_floor_ops_paint_after_dungeon_floor_ops() -> None:
+    """WoodFloor FloorOps paint AFTER every white DungeonFloor /
+    CaveFloor FloorOp.
+
+    Op order is the paint order: the brown wood stamps must follow
+    the white floor stamps so they cover the building interior on
+    the final composite. The xfail this commit closes existed
+    because the legacy ``smoothFillSvg`` field painted in
+    ``WallsAndFloorsOp``'s slot — BEFORE the FloorOps — and the
+    Rust gate then suppressed the legacy pass entirely. Emitting
+    wood as FloorOps positioned after the white ones fixes both
+    halves.
+    """
+    fir = _building_fir()
+    floor_ops_indexed = [
+        (i, e) for i, e in enumerate(fir.ops) if e.opType == Op.Op.FloorOp
+    ]
+    wood_indices = [
+        i for i, e in floor_ops_indexed
+        if e.op.style == FloorStyle.WoodFloor
+    ]
+    other_indices = [
+        i for i, e in floor_ops_indexed
+        if e.op.style != FloorStyle.WoodFloor
+    ]
+    assert wood_indices, "no WoodFloor FloorOp found"
+    assert other_indices, (
+        "expected at least one DungeonFloor FloorOp before the "
+        "WoodFloor stamps (corridor or room fill)"
+    )
+    assert min(wood_indices) > max(other_indices), (
+        f"WoodFloor FloorOps must come AFTER every DungeonFloor / "
+        f"CaveFloor FloorOp; got wood min at {min(wood_indices)}, "
+        f"others max at {max(other_indices)}"
+    )
+
+
+def test_wood_floor_per_tile_count_matches_floor_terrain() -> None:
+    """Per-tile WoodFloor FloorOp count equals the number of
+    FLOOR-terrain tiles outside any cave region.
+
+    Mirrors the legacy ``smoothFillSvg`` per-tile rect emit, which
+    looped over every tile and emitted one ``<rect>`` for each
+    Terrain.FLOOR tile not in ``cave_tiles``. The new emit must
+    produce the same 1:1 coverage so the rendered building floor
+    is brown wherever the legacy output was brown.
+    """
+    from nhc.dungeon.model import Terrain
+    from tests.samples.regenerate_fixtures import (
+        _BUILDING_FIXTURES, _build_building_inputs,
+    )
+    fx = next(
+        f for f in _BUILDING_FIXTURES
+        if f.descriptor == "seed7_brick_building_floor0"
+    )
+    _, level = _build_building_inputs(fx)
+    expected_tiles = sum(
+        1
+        for y in range(level.height)
+        for x in range(level.width)
+        if level.tiles[y][x].terrain is Terrain.FLOOR
+    )
+    fir = _building_fir()
+    wood_ops = [
+        e for e in fir.ops
+        if e.opType == Op.Op.FloorOp
+        and e.op.style == FloorStyle.WoodFloor
+    ]
+    assert len(wood_ops) == expected_tiles, (
+        f"WoodFloor FloorOp count must match FLOOR-terrain tile "
+        f"count; got {len(wood_ops)} ops, expected {expected_tiles}"
     )
 
 

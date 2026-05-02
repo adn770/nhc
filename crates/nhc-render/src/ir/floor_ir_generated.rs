@@ -1391,12 +1391,13 @@ impl ::flatbuffers::SimpleToVerifyInSlice for WallStyle {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_FLOOR_STYLE: u8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_FLOOR_STYLE: u8 = 1;
+pub const ENUM_MAX_FLOOR_STYLE: u8 = 2;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_FLOOR_STYLE: [FloorStyle; 2] = [
+pub const ENUM_VALUES_FLOOR_STYLE: [FloorStyle; 3] = [
   FloorStyle::DungeonFloor,
   FloorStyle::CaveFloor,
+  FloorStyle::WoodFloor,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -1406,18 +1407,21 @@ pub struct FloorStyle(pub u8);
 impl FloorStyle {
   pub const DungeonFloor: Self = Self(0);
   pub const CaveFloor: Self = Self(1);
+  pub const WoodFloor: Self = Self(2);
 
   pub const ENUM_MIN: u8 = 0;
-  pub const ENUM_MAX: u8 = 1;
+  pub const ENUM_MAX: u8 = 2;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::DungeonFloor,
     Self::CaveFloor,
+    Self::WoodFloor,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
     match self {
       Self::DungeonFloor => Some("DungeonFloor"),
       Self::CaveFloor => Some("CaveFloor"),
+      Self::WoodFloor => Some("WoodFloor"),
       _ => None,
     }
   }

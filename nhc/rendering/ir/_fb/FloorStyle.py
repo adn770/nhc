@@ -5,3 +5,4 @@
 class FloorStyle(object):
     DungeonFloor = 0
     CaveFloor = 1
+    WoodFloor = 2

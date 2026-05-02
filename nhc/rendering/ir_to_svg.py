@@ -544,7 +544,9 @@ def _collect_consumed_floor_ops(fir: FloorIR) -> list[Any]:
     from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
 
     FS = FloorStyleMod.FloorStyle
-    _CONSUMED_FLOOR_STYLES = frozenset({FS.DungeonFloor, FS.CaveFloor})
+    _CONSUMED_FLOOR_STYLES = frozenset({
+        FS.DungeonFloor, FS.CaveFloor, FS.WoodFloor,
+    })
 
     result = []
     for i in range(fir.OpsLength()):
@@ -583,6 +585,7 @@ def _draw_floor_op_from_ir(
     convention. Returns ``[]`` when the outline is absent or
     degenerate (< 2 vertices for polygon; zero radius for circle).
     """
+    from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
     from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod, OutlineKind as OutlineKindMod
 
     op = OpCreator(entry.OpType(), entry.Op())
@@ -591,11 +594,12 @@ def _draw_floor_op_from_ir(
         return []
 
     style = op.style
-    color = (
-        CAVE_FLOOR_COLOR
-        if style == FloorStyleMod.FloorStyle.CaveFloor
-        else FLOOR_COLOR
-    )
+    if style == FloorStyleMod.FloorStyle.CaveFloor:
+        color = CAVE_FLOOR_COLOR
+    elif style == FloorStyleMod.FloorStyle.WoodFloor:
+        color = WOOD_FLOOR_FILL
+    else:
+        color = FLOOR_COLOR
 
     kind = outline.descriptorKind
 

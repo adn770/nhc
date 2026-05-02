@@ -197,6 +197,26 @@ def test_floor_op_cave_style_uses_cave_floor_color() -> None:
     assert CAVE_FLOOR_COLOR in frags[0]
 
 
+def test_floor_op_wood_style_uses_wood_floor_color() -> None:
+    """Phase 1.20b: FloorStyle.WoodFloor → fill="#B58B5A".
+
+    The consumer must accept the new style and emit the building
+    wood-floor brown polygon. Without this branch the WoodFloor
+    FloorOps emitted by the brick_building fixture would render as
+    white DungeonFloor — the same regression the legacy
+    ``smoothFillSvg`` path produced when the Rust gate suppressed
+    it for fresh IR.
+    """
+    from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
+
+    pts = [(0.0, 0.0), (32.0, 0.0), (32.0, 32.0), (0.0, 32.0)]
+    outline = _build_polygon_outline(pts)
+    frags = _call_floor_op_handler(outline, FloorStyle.WoodFloor)
+    assert len(frags) == 1
+    assert frags[0].startswith("<polygon ")
+    assert WOOD_FLOOR_FILL in frags[0]
+
+
 # ── Integration tests: consumer switch behaviour ───────────────────
 
 

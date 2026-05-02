@@ -14,7 +14,7 @@
     "ExteriorWallOp": 4,
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
-    "FloorOp": 6,
+    "FloorOp": 230,
     "InteriorWallOp": 4,
     "StairsOp": 1,
     "WallsAndFloorsOp": 1
