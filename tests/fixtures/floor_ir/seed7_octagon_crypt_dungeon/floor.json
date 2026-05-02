@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 3,
-  "minor": 4,
+  "minor": 5,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -24718,7 +24718,8 @@
             "opacity": 0.05999999865889549
           }
         ],
-        "clipRegion": "dungeon"
+        "clipRegion": "dungeon",
+        "regionRef": "dungeon"
       }
     },
     {
@@ -35162,7 +35163,8 @@
             "pad1": 0,
             "pad2": 0
           }
-        ]
+        ],
+        "regionRef": "dungeon"
       }
     },
     {
@@ -38570,7 +38572,8 @@
         "isCorridor": "array([False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False,  True,  True,  True,  True,  True, False, False,\n       False, False, False, False,  True,  True,  True,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n        True,  True,  True,  True,  True,  True, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False,  True,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True, False, False, False,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True, False, False, False,  True,  True,\n        True,  True,  True,  True, False, False, False, False, False,\n       False, False, False, False, False, False,  True,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True, False, False,\n       False, False,  True,  True, False, False, False, False, False,\n       False, False,  True,  True,  True, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n        True,  True,  True, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False,  True,\n        True,  True,  True,  True,  True,  True,  True, False, False,\n       False, False, False, False, False, False, False, False, False,\n        True, False, False, False, False, False, False, False, False,\n        True,  True,  True,  True,  True,  True,  True,  True, False,\n       False, False, False, False, False, False, False, False,  True,\n       False, False, False, False, False, False, False, False, False,\n       False,  True,  True,  True,  True,  True,  True, False, False,\n       False, False, False, False, False, False, False, False,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True, False,\n       False, False, False, False, False, False, False, False,  True,\n        True,  True,  True,  True,  True, False, False, False, False,\n        True, False, False, False, False,  True,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n       False, False, False, False,  True,  True,  True,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n       False, False, False,  True,  True,  True,  True,  True, False,\n       False, False,  True,  True,  True,  True, False, False, False,\n       False,  True,  True,  True,  True,  True, False, False, False,\n       False, False,  True,  True,  True, False, False, False, False,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True,  True,  True, False, False, False, False,\n       False, False,  True,  True,  True,  True,  True, False, False,\n       False, False, False, False, False, False, False, False, False,\n        True, False, False, False, False, False,  True, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False,  True,  True,\n        True,  True,  True,  True,  True,  True,  True,  True,  True,\n        True,  True,  True, False, False, False,  True,  True, False,\n       False, False, False, False,  True,  True, False, False, False,\n       False, False, False, False, False, False,  True, False, False,\n       False, False, False,  True, False, False, False, False, False,\n       False, False, False, False,  True,  True,  True,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False,  True, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False,  True,  True,  True,  True,  True,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False])",
         "woodTiles": null,
         "woodBuildingPolygon": null,
-        "woodRooms": null
+        "woodRooms": null,
+        "regionRef": "dungeon"
       }
     },
     {
@@ -41974,7 +41977,8 @@
         "wallCorners": "array([ 1,  0,  2,  1,  1,  2,  2,  1,  0,  0,  0,  2,  1,  0,  1,  0,  0,\n        2,  2,  0,  0,  0,  1,  0,  0,  2,  1,  0,  0,  0,  0,  2,  0,  1,\n        0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  4,  0,  0,  8,  4,  8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  8,  0,  8,  4,  0,  8,  4,  0,  0,  0,  8,\n        1,  2,  0,  0,  0,  0,  0,  4,  0,  0,  0,  0,  8,  0,  0,  0,  4,\n        8,  4,  0,  0,  0,  8,  4,  0,  0,  8, 12,  1,  0,  0,  0,  0,  0,\n        0,  0,  0,  4,  0,  8,  0,  0,  0,  0,  4,  2,  0,  0,  0,  0,  0,\n        0,  0,  2,  0,  0,  1,  0,  2,  1,  0,  0,  8,  0,  0,  1,  0,  0,\n        0,  0,  2,  1,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n       10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  1,  0,  0,  2,  0,  0,  0,  4,  0,  0,  8,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  4,  0,  0,  8,  0,  0,  0,  0,  0,\n        8,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  4,  0,  0,  0,\n        8,  0,  0,  0,  0,  0,  1,  0,  0,  2,  0,  1,  0,  0,  0,  0,  0,\n        0,  4,  0,  0,  0,  0,  8,  4,  0,  8, 12,  0,  0,  0,  0,  1,  0,\n        0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  2,  4,  0,  0,  8,  0,  0,  0,  0,  4,  0,\n        0,  0,  0,  0,  0,  0,  0,  4,  0,  0,  8,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  2,  1,  0,  0,  0,  0,  1,\n        0,  2,  0,  0,  5,  0,  0,  0,  0,  0,  0,  0,  8,  0,  0,  1,  0,\n        0,  0,  2,  0,  0,  2,  0,  0,  0,  0,  0,  0,  4,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,  0,\n        0,  0,  0,  0,  0,  1,  0,  2,  1,  0,  0,  2,  0,  4,  0,  0,  0,\n        8,  0,  1,  0,  0,  0,  2,  0,  0,  0,  0,  1,  0,  0,  0,  2,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  8,\n        4,  0,  8,  4,  0,  0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  4,  0,  0,\n        0,  8,  4,  0,  0,  8,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  0,\n        0,  8,  4,  0,  8,  4,  0,  0,  0,  0,  8,  4,  0,  0,  0],\n      dtype=uint8)",
         "seed": 206,
         "theme": "crypt",
-        "clipRegion": "dungeon"
+        "clipRegion": "dungeon",
+        "regionRef": "dungeon"
       }
     },
     {
@@ -42508,7 +42512,8 @@
         ],
         "seed": 207,
         "theme": "crypt",
-        "clipRegion": "dungeon"
+        "clipRegion": "dungeon",
+        "regionRef": "dungeon"
       }
     },
     {

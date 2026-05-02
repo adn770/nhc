@@ -213,8 +213,15 @@ class FloorDetailOp(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(22))
         return o == 0
 
+    # FloorDetailOp
+    def RegionRef(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(24))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def FloorDetailOpStart(builder):
-    builder.StartObject(10)
+    builder.StartObject(11)
 
 def Start(builder):
     FloorDetailOpStart(builder)
@@ -321,6 +328,12 @@ def FloorDetailOpStartWoodRoomsVector(builder, numElems):
 def StartWoodRoomsVector(builder, numElems):
     return FloorDetailOpStartWoodRoomsVector(builder, numElems)
 
+def FloorDetailOpAddRegionRef(builder, regionRef):
+    builder.PrependUOffsetTRelativeSlot(10, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+
+def AddRegionRef(builder, regionRef):
+    FloorDetailOpAddRegionRef(builder, regionRef)
+
 def FloorDetailOpEnd(builder):
     return builder.EndObject()
 
@@ -350,6 +363,7 @@ class FloorDetailOpT(object):
         woodTiles = None,
         woodBuildingPolygon = None,
         woodRooms = None,
+        regionRef = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.seed = seed  # type: int
@@ -361,6 +375,7 @@ class FloorDetailOpT(object):
         self.woodTiles = woodTiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.woodBuildingPolygon = woodBuildingPolygon  # type: Optional[List[nhc.rendering.ir._fb.Vec2.Vec2T]]
         self.woodRooms = woodRooms  # type: Optional[List[nhc.rendering.ir._fb.RectRoom.RectRoomT]]
+        self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -433,6 +448,7 @@ class FloorDetailOpT(object):
                 else:
                     rectRoom_ = nhc.rendering.ir._fb.RectRoom.RectRoomT.InitFromObj(floorDetailOp.WoodRooms(i))
                     self.woodRooms.append(rectRoom_)
+        self.regionRef = floorDetailOp.RegionRef()
 
     # FloorDetailOpT
     def Pack(self, builder):
@@ -487,6 +503,8 @@ class FloorDetailOpT(object):
             for i in reversed(range(len(self.woodRooms))):
                 builder.PrependUOffsetTRelative(woodRoomslist[i])
             woodRooms = builder.EndVector()
+        if self.regionRef is not None:
+            regionRef = builder.CreateString(self.regionRef)
         FloorDetailOpStart(builder)
         if self.tiles is not None:
             FloorDetailOpAddTiles(builder, tiles)
@@ -507,5 +525,7 @@ class FloorDetailOpT(object):
             FloorDetailOpAddWoodBuildingPolygon(builder, woodBuildingPolygon)
         if self.woodRooms is not None:
             FloorDetailOpAddWoodRooms(builder, woodRooms)
+        if self.regionRef is not None:
+            FloorDetailOpAddRegionRef(builder, regionRef)
         floorDetailOp = FloorDetailOpEnd(builder)
         return floorDetailOp

@@ -126,14 +126,19 @@ def _pack_floor_ir(regions: list[RegionT], ops: list[OpEntryT]) -> bytes:
 
 
 @pytest.mark.parametrize("descriptor", all_descriptors())
-def test_schema_minor_is_4(descriptor: str) -> None:
-    """1.24: SCHEMA_MINOR bumps to 4 for ExteriorWallOp.region_ref + op cuts."""
+def test_schema_minor_at_least_4(descriptor: str) -> None:
+    """1.24: SCHEMA_MINOR ≥ 4 (ExteriorWallOp.region_ref + op cuts at 1.24).
+
+    Subsequent v4e sub-phases bump the minor further additively
+    so this lower-bound check stays green across the migration.
+    The exact current minor is locked by the skeleton sentinel.
+    """
     fir = _build_emitted(descriptor)
     assert fir.major == 3
-    assert fir.minor == 4, (
-        f"expected schema minor 4 (Phase 1.24), got {fir.minor}; "
-        "this sub-phase adds ExteriorWallOp.region_ref + op-level "
-        "cuts (and InteriorWallOp.cuts)."
+    assert fir.minor >= 4, (
+        f"expected schema minor ≥ 4 (Phase 1.24 bumped to 4), got "
+        f"{fir.minor}; ExteriorWallOp.region_ref + op-level cuts are "
+        "required from 1.24 onward."
     )
 
 

@@ -234,7 +234,11 @@ fn build_clip_mask(
     fir: &FloorIR<'_>,
     ctx: &RasterCtx<'_>,
 ) -> Option<Mask> {
-    let region_id = op.clip_region()?;
+    // Phase 1.25 — prefer op.region_ref; fall back to clip_region.
+    let region_id = op
+        .region_ref()
+        .filter(|r| !r.is_empty())
+        .or_else(|| op.clip_region())?;
     if region_id.is_empty() {
         return None;
     }

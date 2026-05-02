@@ -84,8 +84,15 @@ clipRegion(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 16);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startThematicDetailOp(builder:flatbuffers.Builder) {
-  builder.startObject(6);
+  builder.startObject(7);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -140,12 +147,16 @@ static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.O
   builder.addFieldOffset(5, clipRegionOffset, 0);
 }
 
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(6, regionRefOffset, 0);
+}
+
 static endThematicDetailOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, wallCornersOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, isCorridorOffset:flatbuffers.Offset, wallCornersOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   ThematicDetailOp.startThematicDetailOp(builder);
   ThematicDetailOp.addTiles(builder, tilesOffset);
   ThematicDetailOp.addIsCorridor(builder, isCorridorOffset);
@@ -153,6 +164,7 @@ static createThematicDetailOp(builder:flatbuffers.Builder, tilesOffset:flatbuffe
   ThematicDetailOp.addSeed(builder, seed);
   ThematicDetailOp.addTheme(builder, themeOffset);
   ThematicDetailOp.addClipRegion(builder, clipRegionOffset);
+  ThematicDetailOp.addRegionRef(builder, regionRefOffset);
   return ThematicDetailOp.endThematicDetailOp(builder);
 }
 }

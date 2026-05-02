@@ -59,8 +59,15 @@ tilesLength():number {
   return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
 }
 
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startFloorGridOp(builder:flatbuffers.Builder) {
-  builder.startObject(5);
+  builder.startObject(6);
 }
 
 static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset) {
@@ -87,18 +94,23 @@ static startTilesVector(builder:flatbuffers.Builder, numElems:number) {
   builder.startVector(12, numElems, 4);
 }
 
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, regionRefOffset, 0);
+}
+
 static endFloorGridOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFloorGridOp(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, scale:number, tilesOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createFloorGridOp(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, scale:number, tilesOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorGridOp.startFloorGridOp(builder);
   FloorGridOp.addClipRegion(builder, clipRegionOffset);
   FloorGridOp.addSeed(builder, seed);
   FloorGridOp.addTheme(builder, themeOffset);
   FloorGridOp.addScale(builder, scale);
   FloorGridOp.addTiles(builder, tilesOffset);
+  FloorGridOp.addRegionRef(builder, regionRefOffset);
   return FloorGridOp.endFloorGridOp(builder);
 }
 }

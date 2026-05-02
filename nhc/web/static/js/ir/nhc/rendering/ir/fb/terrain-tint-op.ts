@@ -53,8 +53,15 @@ clipRegion(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startTerrainTintOp(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(4);
 }
 
 static addTiles(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset) {
@@ -85,16 +92,21 @@ static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.O
   builder.addFieldOffset(2, clipRegionOffset, 0);
 }
 
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(3, regionRefOffset, 0);
+}
+
 static endTerrainTintOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createTerrainTintOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, roomWashesOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTerrainTintOp(builder:flatbuffers.Builder, tilesOffset:flatbuffers.Offset, roomWashesOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   TerrainTintOp.startTerrainTintOp(builder);
   TerrainTintOp.addTiles(builder, tilesOffset);
   TerrainTintOp.addRoomWashes(builder, roomWashesOffset);
   TerrainTintOp.addClipRegion(builder, clipRegionOffset);
+  TerrainTintOp.addRegionRef(builder, regionRefOffset);
   return TerrainTintOp.endTerrainTintOp(builder);
 }
 }

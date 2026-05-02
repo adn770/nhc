@@ -472,6 +472,11 @@ table TerrainTintOp {
   tiles: [TerrainTintTile];
   room_washes: [RoomWash];
   clip_region: string;
+  // Phase 1.25 — canonical 4.0 name for the clip target.
+  // Mirrors ``clip_region`` until the 1.27 atomic cut retires
+  // the legacy field. Consumers prefer ``region_ref``; empty
+  // falls back to ``clip_region`` for 3.x cached buffers.
+  region_ref: string;
 }
 
 // Layer 400 — wobbly grid (Perlin-displaced).
@@ -486,6 +491,8 @@ table FloorGridOp {
   // routes the resulting segment to the room-bucket or
   // corridor-bucket via `is_corridor`.
   tiles: [FloorGridTile];
+  // Phase 1.25 — canonical 4.0 name for the clip target.
+  region_ref: string;
 }
 
 // ── Layer 500c — decorator pipeline (sub-step 5, Q2) ──────────
@@ -562,6 +569,8 @@ table DecoratorOp {
   seed: uint64;            // base_seed + 333 (decorator pipeline)
   theme: string;
   clip_region: string;     // dungeon clip when applicable
+  // Phase 1.25 — canonical 4.0 name for the clip target.
+  region_ref: string;
 }
 
 // Layer 500a — floor detail (cracks, scratches, stones, clusters).
@@ -617,6 +626,8 @@ table FloorDetailOp {
   wood_tiles: [TileCoord];
   wood_building_polygon: [Vec2];
   wood_rooms: [RectRoom];
+  // Phase 1.25 — canonical 4.0 name for the clip target.
+  region_ref: string;
 }
 
 // Layer 500b — thematic detail (webs, bone piles, skulls).
@@ -643,6 +654,8 @@ table ThematicDetailOp {
   seed: uint64;            // base_seed + 199 (sub-step 3.e split)
   theme: string;
   clip_region: string;     // dungeon clip; same shape as FloorDetailOp
+  // Phase 1.25 — canonical 4.0 name for the clip target.
+  region_ref: string;
 }
 
 // Layer 600 — terrain detail (water ripples, lava cracks, chasm).
@@ -655,6 +668,8 @@ table TerrainDetailOp {
   // `corridor_groups` passthrough fields have been deleted. Both
   // ir_to_svg and the tiny-skia handler drive water / lava /
   // chasm output from the structured `tiles[]` field above.
+  // Phase 1.25 — canonical 4.0 name for the clip target.
+  region_ref: string;
 }
 
 // Layer 700 — stairs.

@@ -941,7 +941,9 @@ def _draw_terrain_tint_from_ir(
         tiles, palette_map, washes,
     )
 
-    clip_id = _to_str(op.clipRegion)
+    # Phase 1.25 — prefer op.regionRef (canonical 4.0 name);
+    # fall back to op.clipRegion for 3.x cached buffers.
+    clip_id = _to_str(op.regionRef) or _to_str(op.clipRegion)
     if tint_rects:
         if clip_id:
             region = _find_region(fir, clip_id.encode())
@@ -1025,7 +1027,9 @@ def _draw_floor_grid_from_ir(
 
     out: list[str] = []
     if room_d:
-        clip_id = _to_str(op.clipRegion)
+        # Phase 1.25 — prefer op.regionRef (canonical 4.0 name);
+        # fall back to op.clipRegion for 3.x cached buffers.
+        clip_id = _to_str(op.regionRef) or _to_str(op.clipRegion)
         if clip_id:
             region = _find_region(fir, clip_id.encode())
             if region is not None:
@@ -1072,7 +1076,9 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     out: list[str] = []
     rng = random.Random(int(op.seed))
 
-    clip_id = _to_str(op.clipRegion)
+    # Phase 1.25 — prefer op.regionRef (canonical 4.0 name);
+    # fall back to op.clipRegion for 3.x cached buffers.
+    clip_id = _to_str(op.regionRef) or _to_str(op.clipRegion)
     region = (
         _find_region(fir, clip_id.encode()) if clip_id else None
     )
@@ -1291,7 +1297,9 @@ def _draw_floor_detail_from_ir(
     corridor_groups = rust_corridor
 
     if room_groups:
-        clip_id = _to_str(op.clipRegion)
+        # Phase 1.25 — prefer op.regionRef (canonical 4.0 name);
+        # fall back to op.clipRegion for 3.x cached buffers.
+        clip_id = _to_str(op.regionRef) or _to_str(op.clipRegion)
         if clip_id:
             region = _find_region(fir, clip_id.encode())
             if region is not None:
@@ -1360,7 +1368,9 @@ def _draw_thematic_detail_from_ir(
 
     out: list[str] = []
     if room_groups:
-        clip_id = _to_str(op.clipRegion)
+        # Phase 1.25 — prefer op.regionRef (canonical 4.0 name);
+        # fall back to op.clipRegion for 3.x cached buffers.
+        clip_id = _to_str(op.regionRef) or _to_str(op.clipRegion)
         if clip_id:
             region = _find_region(fir, clip_id.encode())
             if region is not None:
@@ -1495,7 +1505,8 @@ def _draw_terrain_detail_from_ir(
     has_any_room = any(
         buckets[kind]["room"] for kind, _, _, _ in active_in_z
     )
-    clip_id_str = _to_str(op.clipRegion)
+    # Phase 1.25 — prefer op.regionRef; fall back to clipRegion.
+    clip_id_str = _to_str(op.regionRef) or _to_str(op.clipRegion)
     region = (
         _find_region(fir, clip_id_str.encode())
         if (has_any_room and clip_id_str)

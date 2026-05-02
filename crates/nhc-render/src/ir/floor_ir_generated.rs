@@ -5670,6 +5670,7 @@ impl<'a> TerrainTintOp<'a> {
   pub const VT_TILES: ::flatbuffers::VOffsetT = 4;
   pub const VT_ROOM_WASHES: ::flatbuffers::VOffsetT = 6;
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 8;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5681,6 +5682,7 @@ impl<'a> TerrainTintOp<'a> {
     args: &'args TerrainTintOpArgs<'args>
   ) -> ::flatbuffers::WIPOffset<TerrainTintOp<'bldr>> {
     let mut builder = TerrainTintOpBuilder::new(_fbb);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.room_washes { builder.add_room_washes(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
@@ -5709,6 +5711,13 @@ impl<'a> TerrainTintOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainTintOp::VT_CLIP_REGION, None)}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainTintOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TerrainTintOp<'_> {
@@ -5720,6 +5729,7 @@ impl ::flatbuffers::Verifiable for TerrainTintOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TerrainTintTile>>>("tiles", Self::VT_TILES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RoomWash>>>>("room_washes", Self::VT_ROOM_WASHES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -5728,6 +5738,7 @@ pub struct TerrainTintOpArgs<'a> {
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TerrainTintTile>>>,
     pub room_washes: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RoomWash<'a>>>>>,
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for TerrainTintOpArgs<'a> {
   #[inline]
@@ -5736,6 +5747,7 @@ impl<'a> Default for TerrainTintOpArgs<'a> {
       tiles: None,
       room_washes: None,
       clip_region: None,
+      region_ref: None,
     }
   }
 }
@@ -5758,6 +5770,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TerrainTintOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainTintOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainTintOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TerrainTintOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TerrainTintOpBuilder {
@@ -5778,6 +5794,7 @@ impl ::core::fmt::Debug for TerrainTintOp<'_> {
       ds.field("tiles", &self.tiles());
       ds.field("room_washes", &self.room_washes());
       ds.field("clip_region", &self.clip_region());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }
@@ -5802,6 +5819,7 @@ impl<'a> FloorGridOp<'a> {
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
   pub const VT_SCALE: ::flatbuffers::VOffsetT = 10;
   pub const VT_TILES: ::flatbuffers::VOffsetT = 12;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -5814,6 +5832,7 @@ impl<'a> FloorGridOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorGridOp<'bldr>> {
     let mut builder = FloorGridOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
     builder.add_scale(args.scale);
     if let Some(x) = args.theme { builder.add_theme(x); }
@@ -5857,6 +5876,13 @@ impl<'a> FloorGridOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, FloorGridTile>>>(FloorGridOp::VT_TILES, None)}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorGridOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorGridOp<'_> {
@@ -5870,6 +5896,7 @@ impl ::flatbuffers::Verifiable for FloorGridOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<f32>("scale", Self::VT_SCALE, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, FloorGridTile>>>("tiles", Self::VT_TILES, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -5880,6 +5907,7 @@ pub struct FloorGridOpArgs<'a> {
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub scale: f32,
     pub tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, FloorGridTile>>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for FloorGridOpArgs<'a> {
   #[inline]
@@ -5890,6 +5918,7 @@ impl<'a> Default for FloorGridOpArgs<'a> {
       theme: None,
       scale: 1.0,
       tiles: None,
+      region_ref: None,
     }
   }
 }
@@ -5920,6 +5949,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorGridOpBuilder<'a, 'b, A>
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorGridOp::VT_TILES, tiles);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorGridOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorGridOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloorGridOpBuilder {
@@ -5942,6 +5975,7 @@ impl ::core::fmt::Debug for FloorGridOp<'_> {
       ds.field("theme", &self.theme());
       ds.field("scale", &self.scale());
       ds.field("tiles", &self.tiles());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }
@@ -6677,6 +6711,7 @@ impl<'a> DecoratorOp<'a> {
   pub const VT_SEED: ::flatbuffers::VOffsetT = 18;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 20;
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 22;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6689,6 +6724,7 @@ impl<'a> DecoratorOp<'a> {
   ) -> ::flatbuffers::WIPOffset<DecoratorOp<'bldr>> {
     let mut builder = DecoratorOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.ore_deposit { builder.add_ore_deposit(x); }
@@ -6772,6 +6808,13 @@ impl<'a> DecoratorOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DecoratorOp::VT_CLIP_REGION, None)}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(DecoratorOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for DecoratorOp<'_> {
@@ -6790,6 +6833,7 @@ impl ::flatbuffers::Verifiable for DecoratorOp<'_> {
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -6805,6 +6849,7 @@ pub struct DecoratorOpArgs<'a> {
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for DecoratorOpArgs<'a> {
   #[inline]
@@ -6820,6 +6865,7 @@ impl<'a> Default for DecoratorOpArgs<'a> {
       seed: 0,
       theme: None,
       clip_region: None,
+      region_ref: None,
     }
   }
 }
@@ -6870,6 +6916,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> DecoratorOpBuilder<'a, 'b, A>
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(DecoratorOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> DecoratorOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     DecoratorOpBuilder {
@@ -6897,6 +6947,7 @@ impl ::core::fmt::Debug for DecoratorOp<'_> {
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
       ds.field("clip_region", &self.clip_region());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }
@@ -6926,6 +6977,7 @@ impl<'a> FloorDetailOp<'a> {
   pub const VT_WOOD_TILES: ::flatbuffers::VOffsetT = 18;
   pub const VT_WOOD_BUILDING_POLYGON: ::flatbuffers::VOffsetT = 20;
   pub const VT_WOOD_ROOMS: ::flatbuffers::VOffsetT = 22;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 24;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -6938,6 +6990,7 @@ impl<'a> FloorDetailOp<'a> {
   ) -> ::flatbuffers::WIPOffset<FloorDetailOp<'bldr>> {
     let mut builder = FloorDetailOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.wood_rooms { builder.add_wood_rooms(x); }
     if let Some(x) = args.wood_building_polygon { builder.add_wood_building_polygon(x); }
     if let Some(x) = args.wood_tiles { builder.add_wood_tiles(x); }
@@ -7021,6 +7074,13 @@ impl<'a> FloorDetailOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RectRoom>>>>(FloorDetailOp::VT_WOOD_ROOMS, None)}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorDetailOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
@@ -7039,6 +7099,7 @@ impl ::flatbuffers::Verifiable for FloorDetailOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, TileCoord>>>("wood_tiles", Self::VT_WOOD_TILES, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, Vec2>>>("wood_building_polygon", Self::VT_WOOD_BUILDING_POLYGON, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<RectRoom>>>>("wood_rooms", Self::VT_WOOD_ROOMS, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -7054,6 +7115,7 @@ pub struct FloorDetailOpArgs<'a> {
     pub wood_tiles: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, TileCoord>>>,
     pub wood_building_polygon: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, Vec2>>>,
     pub wood_rooms: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<RectRoom<'a>>>>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for FloorDetailOpArgs<'a> {
   #[inline]
@@ -7069,6 +7131,7 @@ impl<'a> Default for FloorDetailOpArgs<'a> {
       wood_tiles: None,
       wood_building_polygon: None,
       wood_rooms: None,
+      region_ref: None,
     }
   }
 }
@@ -7119,6 +7182,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorDetailOpBuilder<'a, 'b, 
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_WOOD_ROOMS, wood_rooms);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorDetailOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorDetailOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     FloorDetailOpBuilder {
@@ -7146,6 +7213,7 @@ impl ::core::fmt::Debug for FloorDetailOp<'_> {
       ds.field("wood_tiles", &self.wood_tiles());
       ds.field("wood_building_polygon", &self.wood_building_polygon());
       ds.field("wood_rooms", &self.wood_rooms());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }
@@ -7171,6 +7239,7 @@ impl<'a> ThematicDetailOp<'a> {
   pub const VT_SEED: ::flatbuffers::VOffsetT = 10;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 12;
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 14;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 16;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7183,6 +7252,7 @@ impl<'a> ThematicDetailOp<'a> {
   ) -> ::flatbuffers::WIPOffset<ThematicDetailOp<'bldr>> {
     let mut builder = ThematicDetailOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.wall_corners { builder.add_wall_corners(x); }
@@ -7234,6 +7304,13 @@ impl<'a> ThematicDetailOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ThematicDetailOp::VT_CLIP_REGION, None)}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ThematicDetailOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ThematicDetailOp<'_> {
@@ -7248,6 +7325,7 @@ impl ::flatbuffers::Verifiable for ThematicDetailOp<'_> {
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -7259,6 +7337,7 @@ pub struct ThematicDetailOpArgs<'a> {
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for ThematicDetailOpArgs<'a> {
   #[inline]
@@ -7270,6 +7349,7 @@ impl<'a> Default for ThematicDetailOpArgs<'a> {
       seed: 0,
       theme: None,
       clip_region: None,
+      region_ref: None,
     }
   }
 }
@@ -7304,6 +7384,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ThematicDetailOpBuilder<'a, '
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ThematicDetailOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ThematicDetailOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ThematicDetailOpBuilder {
@@ -7327,6 +7411,7 @@ impl ::core::fmt::Debug for ThematicDetailOp<'_> {
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
       ds.field("clip_region", &self.clip_region());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }
@@ -7350,6 +7435,7 @@ impl<'a> TerrainDetailOp<'a> {
   pub const VT_SEED: ::flatbuffers::VOffsetT = 6;
   pub const VT_THEME: ::flatbuffers::VOffsetT = 8;
   pub const VT_CLIP_REGION: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -7362,6 +7448,7 @@ impl<'a> TerrainDetailOp<'a> {
   ) -> ::flatbuffers::WIPOffset<TerrainDetailOp<'bldr>> {
     let mut builder = TerrainDetailOpBuilder::new(_fbb);
     builder.add_seed(args.seed);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.clip_region { builder.add_clip_region(x); }
     if let Some(x) = args.theme { builder.add_theme(x); }
     if let Some(x) = args.tiles { builder.add_tiles(x); }
@@ -7397,6 +7484,13 @@ impl<'a> TerrainDetailOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainDetailOp::VT_CLIP_REGION, None)}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(TerrainDetailOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for TerrainDetailOp<'_> {
@@ -7409,6 +7503,7 @@ impl ::flatbuffers::Verifiable for TerrainDetailOp<'_> {
      .visit_field::<u64>("seed", Self::VT_SEED, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("theme", Self::VT_THEME, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("clip_region", Self::VT_CLIP_REGION, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -7418,6 +7513,7 @@ pub struct TerrainDetailOpArgs<'a> {
     pub seed: u64,
     pub theme: Option<::flatbuffers::WIPOffset<&'a str>>,
     pub clip_region: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for TerrainDetailOpArgs<'a> {
   #[inline]
@@ -7427,6 +7523,7 @@ impl<'a> Default for TerrainDetailOpArgs<'a> {
       seed: 0,
       theme: None,
       clip_region: None,
+      region_ref: None,
     }
   }
 }
@@ -7453,6 +7550,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> TerrainDetailOpBuilder<'a, 'b
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainDetailOp::VT_CLIP_REGION, clip_region);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(TerrainDetailOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> TerrainDetailOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TerrainDetailOpBuilder {
@@ -7474,6 +7575,7 @@ impl ::core::fmt::Debug for TerrainDetailOp<'_> {
       ds.field("seed", &self.seed());
       ds.field("theme", &self.theme());
       ds.field("clip_region", &self.clip_region());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }

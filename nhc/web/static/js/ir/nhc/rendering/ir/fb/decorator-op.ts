@@ -120,8 +120,15 @@ clipRegion(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 24);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startDecoratorOp(builder:flatbuffers.Builder) {
-  builder.startObject(10);
+  builder.startObject(11);
 }
 
 static addCobblestone(builder:flatbuffers.Builder, cobblestoneOffset:flatbuffers.Offset) {
@@ -248,12 +255,16 @@ static addClipRegion(builder:flatbuffers.Builder, clipRegionOffset:flatbuffers.O
   builder.addFieldOffset(9, clipRegionOffset, 0);
 }
 
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(10, regionRefOffset, 0);
+}
+
 static endDecoratorOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createDecoratorOp(builder:flatbuffers.Builder, cobblestoneOffset:flatbuffers.Offset, brickOffset:flatbuffers.Offset, flagstoneOffset:flatbuffers.Offset, opusRomanoOffset:flatbuffers.Offset, fieldStoneOffset:flatbuffers.Offset, cartTracksOffset:flatbuffers.Offset, oreDepositOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createDecoratorOp(builder:flatbuffers.Builder, cobblestoneOffset:flatbuffers.Offset, brickOffset:flatbuffers.Offset, flagstoneOffset:flatbuffers.Offset, opusRomanoOffset:flatbuffers.Offset, fieldStoneOffset:flatbuffers.Offset, cartTracksOffset:flatbuffers.Offset, oreDepositOffset:flatbuffers.Offset, seed:bigint, themeOffset:flatbuffers.Offset, clipRegionOffset:flatbuffers.Offset, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   DecoratorOp.startDecoratorOp(builder);
   DecoratorOp.addCobblestone(builder, cobblestoneOffset);
   DecoratorOp.addBrick(builder, brickOffset);
@@ -265,6 +276,7 @@ static createDecoratorOp(builder:flatbuffers.Builder, cobblestoneOffset:flatbuff
   DecoratorOp.addSeed(builder, seed);
   DecoratorOp.addTheme(builder, themeOffset);
   DecoratorOp.addClipRegion(builder, clipRegionOffset);
+  DecoratorOp.addRegionRef(builder, regionRefOffset);
   return DecoratorOp.endDecoratorOp(builder);
 }
 }

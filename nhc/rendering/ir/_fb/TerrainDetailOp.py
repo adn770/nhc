@@ -73,8 +73,15 @@ class TerrainDetailOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # TerrainDetailOp
+    def RegionRef(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def TerrainDetailOpStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     TerrainDetailOpStart(builder)
@@ -109,6 +116,12 @@ def TerrainDetailOpAddClipRegion(builder, clipRegion):
 def AddClipRegion(builder, clipRegion):
     TerrainDetailOpAddClipRegion(builder, clipRegion)
 
+def TerrainDetailOpAddRegionRef(builder, regionRef):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+
+def AddRegionRef(builder, regionRef):
+    TerrainDetailOpAddRegionRef(builder, regionRef)
+
 def TerrainDetailOpEnd(builder):
     return builder.EndObject()
 
@@ -130,11 +143,13 @@ class TerrainDetailOpT(object):
         seed = 0,
         theme = None,
         clipRegion = None,
+        regionRef = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TerrainDetailTile.TerrainDetailTileT]]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
         self.clipRegion = clipRegion  # type: Optional[str]
+        self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -168,6 +183,7 @@ class TerrainDetailOpT(object):
         self.seed = terrainDetailOp.Seed()
         self.theme = terrainDetailOp.Theme()
         self.clipRegion = terrainDetailOp.ClipRegion()
+        self.regionRef = terrainDetailOp.RegionRef()
 
     # TerrainDetailOpT
     def Pack(self, builder):
@@ -180,6 +196,8 @@ class TerrainDetailOpT(object):
             theme = builder.CreateString(self.theme)
         if self.clipRegion is not None:
             clipRegion = builder.CreateString(self.clipRegion)
+        if self.regionRef is not None:
+            regionRef = builder.CreateString(self.regionRef)
         TerrainDetailOpStart(builder)
         if self.tiles is not None:
             TerrainDetailOpAddTiles(builder, tiles)
@@ -188,5 +206,7 @@ class TerrainDetailOpT(object):
             TerrainDetailOpAddTheme(builder, theme)
         if self.clipRegion is not None:
             TerrainDetailOpAddClipRegion(builder, clipRegion)
+        if self.regionRef is not None:
+            TerrainDetailOpAddRegionRef(builder, regionRef)
         terrainDetailOp = TerrainDetailOpEnd(builder)
         return terrainDetailOp

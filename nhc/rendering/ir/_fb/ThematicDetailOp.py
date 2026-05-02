@@ -127,8 +127,15 @@ class ThematicDetailOp(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # ThematicDetailOp
+    def RegionRef(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def ThematicDetailOpStart(builder):
-    builder.StartObject(6)
+    builder.StartObject(7)
 
 def Start(builder):
     ThematicDetailOpStart(builder)
@@ -187,6 +194,12 @@ def ThematicDetailOpAddClipRegion(builder, clipRegion):
 def AddClipRegion(builder, clipRegion):
     ThematicDetailOpAddClipRegion(builder, clipRegion)
 
+def ThematicDetailOpAddRegionRef(builder, regionRef):
+    builder.PrependUOffsetTRelativeSlot(6, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+
+def AddRegionRef(builder, regionRef):
+    ThematicDetailOpAddRegionRef(builder, regionRef)
+
 def ThematicDetailOpEnd(builder):
     return builder.EndObject()
 
@@ -210,6 +223,7 @@ class ThematicDetailOpT(object):
         seed = 0,
         theme = None,
         clipRegion = None,
+        regionRef = None,
     ):
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.TileCoord.TileCoordT]]
         self.isCorridor = isCorridor  # type: Optional[List[bool]]
@@ -217,6 +231,7 @@ class ThematicDetailOpT(object):
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
         self.clipRegion = clipRegion  # type: Optional[str]
+        self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -264,6 +279,7 @@ class ThematicDetailOpT(object):
         self.seed = thematicDetailOp.Seed()
         self.theme = thematicDetailOp.Theme()
         self.clipRegion = thematicDetailOp.ClipRegion()
+        self.regionRef = thematicDetailOp.RegionRef()
 
     # ThematicDetailOpT
     def Pack(self, builder):
@@ -292,6 +308,8 @@ class ThematicDetailOpT(object):
             theme = builder.CreateString(self.theme)
         if self.clipRegion is not None:
             clipRegion = builder.CreateString(self.clipRegion)
+        if self.regionRef is not None:
+            regionRef = builder.CreateString(self.regionRef)
         ThematicDetailOpStart(builder)
         if self.tiles is not None:
             ThematicDetailOpAddTiles(builder, tiles)
@@ -304,5 +322,7 @@ class ThematicDetailOpT(object):
             ThematicDetailOpAddTheme(builder, theme)
         if self.clipRegion is not None:
             ThematicDetailOpAddClipRegion(builder, clipRegion)
+        if self.regionRef is not None:
+            ThematicDetailOpAddRegionRef(builder, regionRef)
         thematicDetailOp = ThematicDetailOpEnd(builder)
         return thematicDetailOp

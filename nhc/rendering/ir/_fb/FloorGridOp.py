@@ -80,8 +80,15 @@ class FloorGridOp(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         return o == 0
 
+    # FloorGridOp
+    def RegionRef(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def FloorGridOpStart(builder):
-    builder.StartObject(5)
+    builder.StartObject(6)
 
 def Start(builder):
     FloorGridOpStart(builder)
@@ -122,6 +129,12 @@ def FloorGridOpStartTilesVector(builder, numElems):
 def StartTilesVector(builder, numElems):
     return FloorGridOpStartTilesVector(builder, numElems)
 
+def FloorGridOpAddRegionRef(builder, regionRef):
+    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+
+def AddRegionRef(builder, regionRef):
+    FloorGridOpAddRegionRef(builder, regionRef)
+
 def FloorGridOpEnd(builder):
     return builder.EndObject()
 
@@ -144,12 +157,14 @@ class FloorGridOpT(object):
         theme = None,
         scale = 1.0,
         tiles = None,
+        regionRef = None,
     ):
         self.clipRegion = clipRegion  # type: Optional[str]
         self.seed = seed  # type: int
         self.theme = theme  # type: Optional[str]
         self.scale = scale  # type: float
         self.tiles = tiles  # type: Optional[List[nhc.rendering.ir._fb.FloorGridTile.FloorGridTileT]]
+        self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -184,6 +199,7 @@ class FloorGridOpT(object):
                 else:
                     floorGridTile_ = nhc.rendering.ir._fb.FloorGridTile.FloorGridTileT.InitFromObj(floorGridOp.Tiles(i))
                     self.tiles.append(floorGridTile_)
+        self.regionRef = floorGridOp.RegionRef()
 
     # FloorGridOpT
     def Pack(self, builder):
@@ -196,6 +212,8 @@ class FloorGridOpT(object):
             for i in reversed(range(len(self.tiles))):
                 self.tiles[i].Pack(builder)
             tiles = builder.EndVector()
+        if self.regionRef is not None:
+            regionRef = builder.CreateString(self.regionRef)
         FloorGridOpStart(builder)
         if self.clipRegion is not None:
             FloorGridOpAddClipRegion(builder, clipRegion)
@@ -205,5 +223,7 @@ class FloorGridOpT(object):
         FloorGridOpAddScale(builder, self.scale)
         if self.tiles is not None:
             FloorGridOpAddTiles(builder, tiles)
+        if self.regionRef is not None:
+            FloorGridOpAddRegionRef(builder, regionRef)
         floorGridOp = FloorGridOpEnd(builder)
         return floorGridOp

@@ -53,12 +53,14 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
 def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
     assert fir.major == 3
-    # Schema 3.4 (Phase 1.24 of plans/nhc_pure_ir_plan.md) added
-    # ExteriorWallOp.region_ref + op-level cuts on both
-    # ExteriorWallOp and InteriorWallOp. v4e migration sub-phase
-    # 1.25 bumps to 3.5 (per-tile op region_ref); the single atomic
-    # NIR3 → NIR4 cut at 1.27 finally bumps the major.
-    assert fir.minor == 4
+    # Schema 3.5 (Phase 1.25 of plans/nhc_pure_ir_plan.md) added
+    # region_ref to TerrainTintOp / FloorGridOp / FloorDetailOp /
+    # ThematicDetailOp / TerrainDetailOp / DecoratorOp parallel to
+    # their existing clip_region. The 1.26 emitter-only cleanup
+    # then drops legacy clip_region / Region.polygon /
+    # FloorOp.outline / ExteriorWallOp.outline / Outline.cuts; the
+    # single atomic NIR3 → NIR4 cut at 1.27 finally bumps the major.
+    assert fir.minor == 5
 
 
 def test_metadata_matches_inputs(emitted) -> None:

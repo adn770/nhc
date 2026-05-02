@@ -124,7 +124,12 @@ fn build_clip_mask(
     fir: &FloorIR<'_>,
     ctx: &RasterCtx<'_>,
 ) -> Option<Mask> {
-    let region_id = op.clip_region()?;
+    // Phase 1.25 — prefer op.region_ref (canonical 4.0 name);
+    // fall back to clip_region for 3.x cached buffers.
+    let region_id = op
+        .region_ref()
+        .filter(|r| !r.is_empty())
+        .or_else(|| op.clip_region())?;
     if region_id.is_empty() {
         return None;
     }
