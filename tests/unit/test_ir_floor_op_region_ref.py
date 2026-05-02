@@ -574,3 +574,121 @@ def test_building_wood_floor_op_region_ref_resolves() -> None:
             f"to a Building Region "
             f"(known: {sorted(building_region_ids)})."
         )
+
+
+# ── Phase 1.26e-1 — _walkable_tiles_from_ir bypass-reader tests ─
+
+
+def test_walkable_tiles_prefers_region_ref_over_op_outline() -> None:
+    """_walkable_tiles_from_ir must dispatch through region_ref.
+
+    Phase 1.26e-1: this helper rasterises FloorOp outlines to tile
+    coords and feeds them into the CorridorWallOp footprint filter.
+    Pre-1.26e-1 it bypassed region_ref and read ``op.outline``
+    directly — that bypass had to disappear before 1.26e-2 could
+    drop ``FloorOp.outline`` populating for ops with region_ref.
+
+    Test pattern mirrors :func:`test_floor_op_consumer_prefers_
+    region_ref_over_outline`: build a FloorIR where the FloorOp's
+    own outline is a deliberately-wrong tile (e.g. (0,0)) but the
+    matching Region's outline picks out a different tile (e.g.
+    (10,10)). A bypass reader returns the wrong tile; a region_ref-
+    aware reader returns the Region's tile.
+    """
+    from nhc.rendering.ir_to_svg import _walkable_tiles_from_ir
+
+    CELL = 32
+
+    # Decoy outline on the op: 1x1 tile at (0, 0)
+    bad = OutlineT()
+    bad.descriptorKind = OutlineKind.Polygon
+    bad.closed = True
+    bad.cuts = []
+    bad.rings = []
+    bad.vertices = [
+        _vec2(0, 0), _vec2(CELL, 0),
+        _vec2(CELL, CELL), _vec2(0, CELL),
+    ]
+
+    op = FloorOpT()
+    op.outline = bad
+    op.style = FloorStyle.DungeonFloor
+    op.regionRef = "room.elsewhere"
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorOp
+    entry.op = op
+
+    # Correct outline on the Region: 1x1 tile at (10, 10)
+    region_outline = OutlineT()
+    region_outline.descriptorKind = OutlineKind.Polygon
+    region_outline.closed = True
+    region_outline.cuts = []
+    region_outline.rings = []
+    region_outline.vertices = [
+        _vec2(10 * CELL, 10 * CELL),
+        _vec2(11 * CELL, 10 * CELL),
+        _vec2(11 * CELL, 11 * CELL),
+        _vec2(10 * CELL, 11 * CELL),
+    ]
+
+    region = RegionT()
+    region.id = "room.elsewhere"
+    region.kind = RegionKind.Room
+    region.shapeTag = "rect"
+    region.polygon = None
+    region.outline = region_outline
+
+    buf = _pack_floor_ir([region], [entry])
+    fir = FloorIR.GetRootAs(buf, 0)
+    tiles = _walkable_tiles_from_ir(fir)
+    assert tiles == {(10, 10)}, (
+        f"_walkable_tiles_from_ir must read the Region's outline, "
+        f"not the FloorOp's decoy outline. Got {sorted(tiles)}; "
+        "expected {(10, 10)}."
+    )
+
+
+def test_walkable_tiles_fallback_to_op_outline_when_no_region_ref() -> None:
+    """_walkable_tiles_from_ir falls back to ``op.outline`` when ``region_ref``
+    is empty.
+
+    Building wood-floor per-tile FloorOps have no Region today
+    (1.20b ships per-tile WoodFloor FloorOps because the IR-emitter
+    pipeline does not currently resolve the building polygon).
+    Those ops carry an empty ``regionRef`` and a populated
+    ``outline``; the consumer must read the op outline directly.
+    """
+    from nhc.rendering.ir_to_svg import _walkable_tiles_from_ir
+
+    CELL = 32
+
+    outline = OutlineT()
+    outline.descriptorKind = OutlineKind.Polygon
+    outline.closed = True
+    outline.cuts = []
+    outline.rings = []
+    outline.vertices = [
+        _vec2(5 * CELL, 5 * CELL),
+        _vec2(6 * CELL, 5 * CELL),
+        _vec2(6 * CELL, 6 * CELL),
+        _vec2(5 * CELL, 6 * CELL),
+    ]
+
+    op = FloorOpT()
+    op.outline = outline
+    op.style = FloorStyle.DungeonFloor
+    op.regionRef = ""  # no region_ref → fall back to op.outline
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorOp
+    entry.op = op
+
+    buf = _pack_floor_ir([], [entry])
+    fir = FloorIR.GetRootAs(buf, 0)
+    tiles = _walkable_tiles_from_ir(fir)
+    assert tiles == {(5, 5)}, (
+        f"_walkable_tiles_from_ir must fall back to op.outline when "
+        f"region_ref is empty. Got {sorted(tiles)}; "
+        "expected {(5, 5)}."
+    )

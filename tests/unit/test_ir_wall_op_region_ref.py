@@ -575,3 +575,100 @@ def test_building_masonry_wall_carries_region_ref() -> None:
             f"resolve to a Building Region "
             f"(known: {sorted(building_region_ids)})."
         )
+
+
+# ── Phase 1.26e-1 — _smooth_corridor_stubs bypass-reader tests ──
+
+
+def test_smooth_corridor_stubs_prefers_region_ref_over_op_outline() -> None:
+    """_smooth_corridor_stubs must dispatch through region_ref + op.cuts.
+
+    Phase 1.26e-1: this helper derives wall-extension fragments
+    from None_ cuts on smooth DungeonInk ExteriorWallOps. Pre-
+    1.26e-1 it bypassed region_ref (read ``op.outline``) and
+    op.cuts (read ``outline.cuts``) — that bypass had to disappear
+    before 1.26e-2 could drop ``ExteriorWallOp.outline`` populating
+    for ops with region_ref.
+
+    Test: the op carries a 4×4 decoy outline + a wrong outline.cuts
+    entry, while the Region carries the real 8-vertex octagon outline
+    and op.cuts carries the real None_ corridor opening. A bypass
+    reader returns an empty extension list (4×4 decoy has no smooth
+    edges); a region_ref + op.cuts reader returns 2 stubs (one per
+    cut endpoint).
+    """
+    from nhc.rendering.ir._fb.FloorIR import FloorIR
+    from nhc.rendering.ir_to_svg import _smooth_corridor_stubs
+
+    # Decoy outline on the op: 4×4 box (degenerate for stub derivation —
+    # too small for a "smooth" classification, no octagon edges).
+    bad_outline = OutlineT()
+    bad_outline.descriptorKind = OutlineKind.Polygon
+    bad_outline.closed = True
+    bad_outline.rings = []
+    bad_outline.vertices = [
+        _vec2(0, 0), _vec2(4, 0), _vec2(4, 4), _vec2(0, 4),
+    ]
+    # Decoy outline cut on the wrong location. A bypass-reader would
+    # mistake this for a corridor opening.
+    bad_outline.cuts = [
+        _cut((0, 0), (4, 0), CutStyle.None_),  # decoy on top edge
+    ]
+
+    op = ExteriorWallOpT()
+    op.outline = bad_outline
+    op.style = WallStyle.DungeonInk
+    op.regionRef = "room.octagon"
+    # Real op.cuts: corridor opening on the octagon's right edge.
+    op.cuts = [
+        _cut((1216, 192), (1216, 224), CutStyle.None_),
+    ]
+    op.rngSeed = 0
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.ExteriorWallOp
+    entry.op = op
+
+    # Real outline on the Region: octagon from seed7 ExtWallOp[14].
+    region_outline = OutlineT()
+    region_outline.descriptorKind = OutlineKind.Polygon
+    region_outline.closed = True
+    region_outline.cuts = []
+    region_outline.rings = []
+    region_outline.vertices = [
+        _vec2(1088, 96), _vec2(1152, 96), _vec2(1216, 160),
+        _vec2(1216, 224), _vec2(1152, 288), _vec2(1088, 288),
+        _vec2(1024, 224), _vec2(1024, 160),
+    ]
+
+    region = RegionT()
+    region.id = "room.octagon"
+    region.kind = RegionKind.Room
+    region.shapeTag = "octagon"
+    region.polygon = None
+    region.outline = region_outline
+
+    buf = _pack_floor_ir([region], [entry])
+    fir = FloorIR.GetRootAs(buf, 0)
+    stubs = _smooth_corridor_stubs(fir)
+
+    # The op.cuts cut at right edge (1216,192)–(1216,224) projects
+    # outward (perpendicular into the corridor) producing two
+    # extension stubs at the cut endpoints. Bypass reader yields
+    # zero stubs (decoy 4×4 outline has no matching None_ cut on
+    # the right edge).
+    assert len(stubs) == 2, (
+        f"expected 2 stubs from the op.cuts None_ cut on the "
+        f"region's right edge; got {len(stubs)} stubs: {stubs}. "
+        "_smooth_corridor_stubs must read the Region's outline + "
+        "op.cuts, not the op's decoy outline.cuts."
+    )
+    # Stubs extend perpendicular outward from the cut endpoints.
+    expected = {
+        "M1216.0,192.0 L1248.0,192.0",
+        "M1216.0,224.0 L1248.0,224.0",
+    }
+    assert set(stubs) == expected, (
+        f"stub coords mismatch — expected the right-edge "
+        f"perpendicular extensions {expected}; got {set(stubs)}."
+    )

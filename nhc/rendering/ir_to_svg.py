@@ -2851,36 +2851,6 @@ def _get_legacy_seed(fir: FloorIR, ext_wall_slot: int) -> int:
     return _build_legacy_seed_index(fir).get(ext_wall_slot, 0)
 
 
-def _outline_vertices(entry: OpEntry) -> list[tuple[float, float]]:
-    """Extract the polygon vertex list from an ExteriorWallOp/InteriorWallOp
-    ``OpEntry``. Returns an empty list when the outline is absent or
-    the descriptor is not Polygon."""
-    from nhc.rendering.ir._fb import OutlineKind as OutlineKindMod
-    op = OpCreator(entry.OpType(), entry.Op())
-    if op is None:
-        return []
-    outline = op.outline
-    if outline is None:
-        return []
-    if outline.descriptorKind != OutlineKindMod.OutlineKind.Polygon:
-        return []
-    verts = outline.vertices
-    if not verts:
-        return []
-    return [(float(v.x), float(v.y)) for v in verts]
-
-
-def _outline_cuts(entry: OpEntry) -> list[Any]:
-    """Extract the Cut list from an ExteriorWallOp ``OpEntry``."""
-    op = OpCreator(entry.OpType(), entry.Op())
-    if op is None:
-        return []
-    outline = op.outline
-    if outline is None:
-        return []
-    return list(outline.cuts or [])
-
-
 def _cuts_for_edge(
     ax: float, ay: float, bx: float, by: float,
     cuts: list[Any],
@@ -3493,9 +3463,18 @@ def _walkable_tiles_from_ir(
 
     Circle / Pill descriptors are handled via Shapely buffering.
     Tiles with x < 0 or y < 0 are excluded (out-of-bounds guard).
+
+    Phase 1.26e-1 — region-keyed dispatch: when ``op.region_ref`` is
+    non-empty AND resolves to a Region with a populated outline, the
+    geometry comes from ``region.outline`` instead of ``op.outline``.
+    Mirrors the FloorOp.region_ref dispatch from 1.23a. The
+    ``op.outline`` fallback covers building wood-floor per-tile
+    FloorOps (no per-tile Region) and 3.x cached buffers without
+    region_ref.
     """
     from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
     from nhc.rendering.ir._fb import OutlineKind as OutlineKindMod
+    from nhc.rendering.ir._fb.Outline import OutlineT
 
     FS = FloorStyleMod.FloorStyle
     OK = OutlineKindMod.OutlineKind
@@ -3516,6 +3495,13 @@ def _walkable_tiles_from_ir(
         if op.style not in (FS.DungeonFloor, FS.CaveFloor):
             continue
         outline = op.outline
+        region_ref = op.regionRef or b""
+        if region_ref:
+            region = _find_region(fir, region_ref)
+            if region is not None:
+                region_outline_fb = region.Outline()
+                if region_outline_fb is not None:
+                    outline = OutlineT.InitFromObj(region_outline_fb)
         if outline is None:
             continue
 
@@ -3788,6 +3774,8 @@ def _smooth_corridor_stubs(
 
     result: list[str] = []
 
+    from nhc.rendering.ir._fb.Outline import OutlineT
+
     for i in range(fir.OpsLength()):
         entry = fir.Ops(i)
         if entry.OpType() != Op.Op.ExteriorWallOp:
@@ -3797,13 +3785,28 @@ def _smooth_corridor_stubs(
             continue
         if int(op.style) != WS.DungeonInk:
             continue
+        # Phase 1.26e-1 — region-keyed dispatch + op-level cuts. When
+        # ``op.region_ref`` is non-empty AND resolves to a Region with
+        # a populated outline, the geometry comes from
+        # ``region.outline``. When ``op.cuts`` is populated, it
+        # supersedes the legacy ``outline.cuts`` for stroke break
+        # intervals. Mirrors the dispatch in
+        # ``_draw_exterior_wall_op_from_ir``.
         outline = op.outline
+        region_ref = op.regionRef or b""
+        if region_ref:
+            region = _find_region(fir, region_ref)
+            if region is not None:
+                region_outline_fb = region.Outline()
+                if region_outline_fb is not None:
+                    outline = OutlineT.InitFromObj(region_outline_fb)
         if outline is None:
             continue
         verts = outline.vertices
         if not verts or len(verts) < 3:
             continue
-        cuts = list(outline.cuts or [])
+        op_cuts = list(op.cuts or [])
+        cuts = op_cuts if op_cuts else list(outline.cuts or [])
         if not cuts:
             continue
 
