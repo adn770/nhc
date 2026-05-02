@@ -14,7 +14,7 @@ after the Rust ports.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
 
 from nhc.dungeon.model import SurfaceType, Terrain
 from nhc.rendering._render_context import RenderContext
@@ -25,6 +25,106 @@ if TYPE_CHECKING:
 
 
 # ── Shared helpers ────────────────────────────────────────────
+
+
+def _collect_corridor_tiles(
+    level: Any,
+    cave_tiles: set[tuple[int, int]],
+) -> set[tuple[int, int]]:
+    """Collect every corridor (or door) tile on ``level``.
+
+    Phase 1.26d-2 — shared between :func:`emit_regions` (which
+    registers ONE merged ``Region(kind=Corridor, id="corridor")`` per
+    floor with a multi-ring outline) and
+    :func:`_emit_walls_and_floors_ir` (which still emits one per-tile
+    FloorOp + a single CorridorWallOp per floor for the actual
+    pixel-level rendering at this commit). Both call this helper so
+    the corridor tile sets stay in lockstep.
+
+    Mirrors the inline walk in :func:`_emit_walls_and_floors_ir`:
+    walks the level row-major, picks tiles whose terrain is FLOOR /
+    WATER / GRASS / LAVA AND whose surface_type is CORRIDOR (or
+    whose feature carries ``"door"``), excluding any tile already
+    covered by ``cave_tiles``.
+    """
+    tiles: set[tuple[int, int]] = set()
+    for y in range(level.height):
+        for x in range(level.width):
+            if (x, y) in cave_tiles:
+                continue
+            tile = level.tiles[y][x]
+            if tile.terrain not in (
+                Terrain.FLOOR, Terrain.WATER,
+                Terrain.GRASS, Terrain.LAVA,
+            ):
+                continue
+            if (
+                tile.surface_type == SurfaceType.CORRIDOR
+                or (tile.feature and "door" in (tile.feature or ""))
+            ):
+                tiles.add((x, y))
+    return tiles
+
+
+def _collect_corridor_components(
+    corridor_tiles: set[tuple[int, int]] | Iterable[tuple[int, int]],
+) -> list[set[tuple[int, int]]]:
+    """Partition ``corridor_tiles`` into disjoint connected components.
+
+    Phase 1.26d-2 — mirrors :func:`_collect_cave_systems`'s pattern.
+    Builds a 32-pixel tile box per (tx, ty), unions them via
+    Shapely's ``unary_union``, and walks the resulting MultiPolygon
+    geoms (or single Polygon for a single-component corridor system).
+    Returns one ``set[(tx, ty)]`` per disjoint component, in Shapely
+    iteration order. The order matches the iteration order
+    :func:`emit_regions` walks the components in when building the
+    corridor Region's multi-ring outline.
+
+    Returns ``[]`` for an empty input set.
+    """
+    tiles_set = (
+        corridor_tiles
+        if isinstance(corridor_tiles, set)
+        else set(corridor_tiles)
+    )
+    if not tiles_set:
+        return []
+    from shapely.geometry import Polygon as _ShapelyPolygon
+    from shapely.ops import unary_union as _unary_union
+    from nhc.rendering._svg_helpers import CELL
+
+    tile_boxes = [
+        _ShapelyPolygon([
+            (tx * CELL, ty * CELL),
+            ((tx + 1) * CELL, ty * CELL),
+            ((tx + 1) * CELL, (ty + 1) * CELL),
+            (tx * CELL, (ty + 1) * CELL),
+        ])
+        for tx, ty in tiles_set
+    ]
+    merged_geom = _unary_union(tile_boxes)
+    if not hasattr(merged_geom, "geoms"):
+        return [tiles_set]
+
+    groups: list[set[tuple[int, int]]] = []
+    for component in merged_geom.geoms:
+        if component.is_empty:
+            continue
+        comp_tiles: set[tuple[int, int]] = {
+            (tx, ty)
+            for tx, ty in tiles_set
+            if component.contains(
+                _ShapelyPolygon([
+                    (tx * CELL, ty * CELL),
+                    ((tx + 1) * CELL, ty * CELL),
+                    ((tx + 1) * CELL, (ty + 1) * CELL),
+                    (tx * CELL, (ty + 1) * CELL),
+                ])
+            )
+        }
+        if comp_tiles:
+            groups.append(comp_tiles)
+    return groups
 
 
 def _collect_cave_systems(

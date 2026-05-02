@@ -148,6 +148,20 @@ enum RegionKind: byte {
   // gap from 1.24. See plan §"Deferred coverage gaps before 1.26"
   // and §1.26c.
   Enclosure = 5,
+  // Phase 1.26d-2 (scope-reduced) — merged corridor system. Emitted
+  // by ``emit_regions`` as ONE ``Region(kind=Corridor, id="corridor")``
+  // per floor when corridors exist; the outline is multi-ring with
+  // one ring per disjoint corridor connected component (rings[]
+  // populated per design/map_ir_v4e.md §4 multi-ring contract; all
+  // rings are exterior with ``is_hole = false``). Closes the
+  // structural "corridor system has no Region" gap from 1.24/1.26
+  // §"Deferred coverage gaps". The per-tile corridor FloorOps still
+  // ship ``region_ref = ""`` at this commit (preserves pixel parity:
+  // consumers continue to read each FloorOp's own bbox outline);
+  // a follow-up sub-phase migrates the per-tile FloorOps to a
+  // single merged FloorOp once the consumers gain multi-ring
+  // outline rendering. See plan §1.26 split strategy / §1.26d.
+  Corridor = 6,
 }
 
 enum ShadowKind: byte {

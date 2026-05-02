@@ -303,16 +303,17 @@ impl ::flatbuffers::SimpleToVerifyInSlice for FloorKind {}
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 pub const ENUM_MIN_REGION_KIND: i8 = 0;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
-pub const ENUM_MAX_REGION_KIND: i8 = 5;
+pub const ENUM_MAX_REGION_KIND: i8 = 6;
 #[deprecated(since = "2.0.0", note = "Use associated constants instead. This will no longer be generated in 2021.")]
 #[allow(non_camel_case_types)]
-pub const ENUM_VALUES_REGION_KIND: [RegionKind; 6] = [
+pub const ENUM_VALUES_REGION_KIND: [RegionKind; 7] = [
   RegionKind::Dungeon,
   RegionKind::Cave,
   RegionKind::Room,
   RegionKind::Building,
   RegionKind::Site,
   RegionKind::Enclosure,
+  RegionKind::Corridor,
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -326,9 +327,10 @@ impl RegionKind {
   pub const Building: Self = Self(3);
   pub const Site: Self = Self(4);
   pub const Enclosure: Self = Self(5);
+  pub const Corridor: Self = Self(6);
 
   pub const ENUM_MIN: i8 = 0;
-  pub const ENUM_MAX: i8 = 5;
+  pub const ENUM_MAX: i8 = 6;
   pub const ENUM_VALUES: &'static [Self] = &[
     Self::Dungeon,
     Self::Cave,
@@ -336,6 +338,7 @@ impl RegionKind {
     Self::Building,
     Self::Site,
     Self::Enclosure,
+    Self::Corridor,
   ];
   /// Returns the variant's name or "" if unknown.
   pub fn variant_name(self) -> Option<&'static str> {
@@ -346,6 +349,7 @@ impl RegionKind {
       Self::Building => Some("Building"),
       Self::Site => Some("Site"),
       Self::Enclosure => Some("Enclosure"),
+      Self::Corridor => Some("Corridor"),
       _ => None,
     }
   }

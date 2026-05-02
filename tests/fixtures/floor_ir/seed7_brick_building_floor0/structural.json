@@ -19,7 +19,7 @@
     "StairsOp": 1,
     "WallsAndFloorsOp": 1
   },
-  "region_count": 5,
-  "region_polygon_rings": 5,
-  "region_polygon_vertices": 25
+  "region_count": 6,
+  "region_polygon_rings": 8,
+  "region_polygon_vertices": 37
 }

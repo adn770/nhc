@@ -76,7 +76,7 @@ from nhc.rendering.ir._fb.WallStyle import WallStyle
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 3
-SCHEMA_MINOR = 6
+SCHEMA_MINOR = 7
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
@@ -271,6 +271,99 @@ def _coords_to_polygon(
     poly.rings = []
     _append_ring(poly, coords, is_hole=False)
     return poly
+
+
+def _corridor_component_exterior_coords(
+    tiles: set[tuple[int, int]],
+) -> list[tuple[float, float]]:
+    """Return the exterior ring of a corridor connected component.
+
+    Phase 1.26d-2 — mirrors :func:`_cave_raw_exterior_coords` for
+    corridor-tile groups. Builds a 32-pixel tile box per (tx, ty),
+    unions them, and returns the exterior ring of the merged
+    polygon as raw coords (no Douglas-Peucker simplification, no
+    closing duplicate). Returns ``[]`` for empty / degenerate
+    inputs.
+    """
+    if not tiles:
+        return []
+    from shapely.geometry import Polygon as _ShPoly
+    from shapely.ops import unary_union as _unary_union
+
+    boxes = []
+    for tx, ty in tiles:
+        px, py = tx * CELL, ty * CELL
+        boxes.append(_ShPoly([
+            (px, py), (px + CELL, py),
+            (px + CELL, py + CELL), (px, py + CELL),
+        ]))
+    merged = _unary_union(boxes)
+    if merged.is_empty:
+        return []
+    if hasattr(merged, "geoms"):
+        merged = max(merged.geoms, key=lambda g: g.area)
+    coords = list(merged.exterior.coords)
+    if coords and coords[-1] == coords[0]:
+        coords = coords[:-1]
+    return [(float(x), float(y)) for x, y in coords]
+
+
+def _multiring_polygon(
+    rings: list[list[tuple[float, float]]],
+) -> PolygonT:
+    """Pack one PolygonT carrying every input ring as exterior.
+
+    Phase 1.26d-2 helper — used to build the corridor Region's
+    multi-ring polygon (one ring per disjoint connected component;
+    every ring is exterior, no holes). Single-ring inputs collapse
+    to the v4e shorthand: one ``rings[0]`` entry covering the whole
+    flat ``paths`` list.
+    """
+    poly = PolygonT()
+    poly.paths = []
+    poly.rings = []
+    for ring_coords in rings:
+        _append_ring(poly, ring_coords, is_hole=False)
+    return poly
+
+
+def _multiring_outline(
+    rings: list[list[tuple[float, float]]],
+) -> OutlineT:
+    """Build a multi-ring OutlineT carrying every input ring as exterior.
+
+    Phase 1.26d-2 helper — companion to :func:`_multiring_polygon`
+    for the Region.outline field. Mirrors :func:`_polygon_to_outline`'s
+    convention (single-ring polygons leave ``rings = []`` per the
+    v4e shorthand; multi-ring polygons populate one ``PathRange``
+    per ring with ``is_hole = false``). The flat ``vertices`` list
+    contains every ring's points in iteration order so each ring
+    is addressable by ``(start, count)``.
+    """
+    out = OutlineT()
+    out.descriptorKind = OutlineKind.Polygon
+    out.closed = True
+    out.cuts = []
+    out.vertices = []
+    out.rings = []
+    for ring_coords in rings:
+        start = len(out.vertices)
+        for x, y in ring_coords:
+            v = Vec2T()
+            v.x = float(x)
+            v.y = float(y)
+            out.vertices.append(v)
+        rng = PathRangeT()
+        rng.start = start
+        rng.count = len(ring_coords)
+        rng.isHole = False
+        out.rings.append(rng)
+    # v4e single-ring shorthand: collapse rings to [] when there's
+    # only one ring (vertices IS the single ring per
+    # design/map_ir_v4e.md §4).
+    if len(out.rings) <= 1:
+        out.rings = []
+    return out
 
 
 def _room_region_data(
@@ -1148,6 +1241,44 @@ def emit_regions(builder: FloorIRBuilder) -> None:
                 kind=RegionKind.RegionKind.Cave,
                 polygon=_coords_to_polygon(coords),
                 shape_tag="cave",
+            )
+    # Phase 1.26d-2 (scope-reduced) — register ONE merged
+    # ``Region(kind=Corridor, id="corridor")`` per floor when corridor
+    # tiles exist. The Region's outline is multi-ring with one ring
+    # per disjoint corridor connected component (single-component
+    # corridors take the v4e single-ring shorthand: ``rings = []``,
+    # vertices IS the single exterior ring). All rings are exterior
+    # (``is_hole = false``) — corridors are not topologically
+    # annular.
+    #
+    # Per-tile corridor FloorOps still ship with ``region_ref = ""``
+    # at this commit (consumer continues reading each op's own
+    # bbox outline); the Region exists symbolically so the
+    # structural "corridor system has no Region" gap from
+    # 1.24/1.26 §"Deferred coverage gaps" closes here. A follow-up
+    # sub-phase migrates the per-tile FloorOps to one merged
+    # FloorOp once Python ir_to_svg + Rust floor_op gain multi-ring
+    # outline rendering.
+    from nhc.rendering._floor_layers import (
+        _collect_corridor_components, _collect_corridor_tiles,
+    )
+    corridor_tiles = _collect_corridor_tiles(ctx.level, cave_tiles)
+    if corridor_tiles:
+        components = _collect_corridor_components(corridor_tiles)
+        coords_per_component: list[list[tuple[float, float]]] = []
+        for comp in components:
+            ring = _corridor_component_exterior_coords(comp)
+            if ring and len(ring) >= 4:
+                coords_per_component.append(ring)
+        if coords_per_component:
+            polygon = _multiring_polygon(coords_per_component)
+            outline = _multiring_outline(coords_per_component)
+            builder.add_region(
+                id="corridor",
+                kind=RegionKind.RegionKind.Corridor,
+                polygon=polygon,
+                shape_tag="corridor",
+                outline=outline,
             )
     for room in ctx.level.rooms:
         data = _room_region_data(room)

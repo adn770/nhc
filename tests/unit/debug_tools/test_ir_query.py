@@ -31,7 +31,10 @@ async def test_get_ir_buffer_returns_metadata() -> None:
     assert "error" not in result
     assert result["major"] == 3
     assert result["minor"] >= 0
-    assert result["region_count"] == 19
+    # Phase 1.26d-2 (scope-reduced) added one
+    # ``Region(kind=Corridor, id="corridor")`` per floor when corridor
+    # tiles exist (18 rect rooms + 1 dungeon + 1 corridor = 20).
+    assert result["region_count"] == 20
     # Phase 1.4 / 1.7 of plans/nhc_pure_ir_plan.md emits one FloorOp
     # per rect room and one per corridor tile alongside the legacy
     # WallsAndFloorsOp; the fixture has 18 rect rooms + 165 corridor
@@ -71,7 +74,8 @@ async def test_get_ir_region_lists_all_when_no_id() -> None:
     from nhc.debug_tools.tools.ir_query import GetIRRegionTool
     result = await GetIRRegionTool().execute(path=str(_FIXTURE_RECT))
     assert "regions" in result
-    assert len(result["regions"]) == 19
+    # 18 rect rooms + 1 dungeon + 1 corridor (Phase 1.26d-2) = 20.
+    assert len(result["regions"]) == 20
     sample = result["regions"][0]
     assert "id" in sample and "kind" in sample
     # Polygon detail is suppressed in the listing to keep the

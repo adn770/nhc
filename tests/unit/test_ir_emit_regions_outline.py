@@ -517,3 +517,142 @@ def test_pill_room_emits_region_with_pill_descriptor() -> None:
     # the shadow handler consumes via ``region.Polygon()``.
     assert region.polygon is not None
     assert len(region.polygon.paths or []) >= 4
+
+
+# ── Phase 1.26d-2 (scope-reduced) — merged corridor Region ─────
+#
+# At 1.26d-2 the emitter additively registers ONE
+# ``Region(kind=Corridor, id="corridor")`` per floor when corridor
+# tiles exist. The Region's outline is multi-ring with one ring
+# per disjoint corridor connected component (computed via Shapely
+# ``unary_union`` on the corridor tile boxes — same partitioning
+# pattern :func:`_collect_cave_systems` uses for cave systems).
+# All rings are exterior (``is_hole = false``) — corridors are not
+# topologically annular.
+#
+# Scope reduction: per-tile corridor FloorOps still ship with
+# ``region_ref = ""`` and the consumers continue to read each op's
+# own bbox outline (preserves byte-equal pixel parity). The Region
+# closes the structural "corridor system has no Region" gap from
+# 1.24/1.26 §"Deferred coverage gaps" symbolically; a follow-up
+# sub-phase migrates the per-tile FloorOps to a single merged
+# FloorOp once the consumers (Python ir_to_svg + Rust floor_op)
+# gain multi-ring outline rendering. See plan §1.26 split strategy
+# / §1.26d.
+
+
+def test_corridor_region_emitted_when_corridors_exist() -> None:
+    """seed42 (rect dungeon w/ corridors): one ``Region(kind=Corridor)``."""
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level,
+        seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+    corridor_regions = [
+        r for r in (fir.regions or [])
+        if r.kind == RegionKind.Corridor
+    ]
+    assert len(corridor_regions) == 1, (
+        f"expected exactly one Region(kind=Corridor) on seed42; "
+        f"got {len(corridor_regions)}."
+    )
+    region = corridor_regions[0]
+    rid = region.id.decode() if isinstance(region.id, bytes) else region.id
+    assert rid == "corridor", (
+        f"corridor Region id must be 'corridor'; got {rid!r}."
+    )
+
+
+def test_corridor_region_carries_multiring_outline() -> None:
+    """seed42's ``Region(Corridor)`` outline carries one ring per component.
+
+    The rings are populated when corridors split into more than one
+    disjoint connected component (Shapely ``unary_union`` of the
+    corridor tile boxes). Single-component corridor systems take the
+    v4e single-ring shorthand: ``rings = []`` and ``vertices`` IS the
+    single exterior ring.
+
+    Either way the vertex count must exceed 4 (more than just one
+    tile rect), and every populated ring must be exterior
+    (``is_hole = False``).
+    """
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level,
+        seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+    corridor_regions = [
+        r for r in (fir.regions or [])
+        if r.kind == RegionKind.Corridor
+    ]
+    assert corridor_regions, "no Region(kind=Corridor) on seed42"
+    region = corridor_regions[0]
+    assert region.outline is not None, (
+        "Region(Corridor).outline must be populated"
+    )
+    assert region.outline.descriptorKind == OutlineKind.Polygon, (
+        "Region(Corridor).outline must carry the Polygon descriptor."
+    )
+    verts = region.outline.vertices or []
+    assert len(verts) > 4, (
+        f"Region(Corridor) must carry the merged corridor-system "
+        f"outline (more than a single tile rect's 4 vertices); got "
+        f"{len(verts)}."
+    )
+    # All rings (when populated) must be exterior. Multi-component
+    # corridors emit one ring per component; single-component
+    # corridors take the v4e shorthand (``rings = []``).
+    for ring in region.outline.rings or []:
+        assert not ring.isHole, (
+            "every ring of Region(Corridor).outline must be exterior; "
+            f"got is_hole=True for ring(start={ring.start}, "
+            f"count={ring.count})."
+        )
+
+
+def test_corridor_region_absent_when_no_corridor_tiles() -> None:
+    """Cave-only / pure-room levels emit zero Region(kind=Corridor).
+
+    A unit level with one rect room and no corridor tiles must not
+    register a corridor Region — the emit gate fires only when
+    corridors exist. Mirrors the same gate the per-tile FloorOp /
+    CorridorWallOp emit guards.
+    """
+    from nhc.dungeon.model import (
+        Level, Rect, RectShape, Room, Terrain, Tile,
+    )
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    rect = Rect(2, 2, 4, 4)
+    room = Room(id="r1", rect=rect, shape=RectShape())
+    level = Level(
+        id="d1", name="Dungeon Level 1", depth=1,
+        width=10, height=10, rooms=[room],
+        tiles=[
+            [Tile(terrain=Terrain.VOID) for _ in range(10)]
+            for _ in range(10)
+        ],
+    )
+    for fx, fy in room.floor_tiles():
+        level.tiles[fy][fx] = Tile(terrain=Terrain.FLOOR)
+
+    buf = build_floor_ir(level, seed=1, hatch_distance=2.0, vegetation=False)
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+    corridor_regions = [
+        r for r in (fir.regions or [])
+        if r.kind == RegionKind.Corridor
+    ]
+    assert not corridor_regions, (
+        "pure-room level (no corridor tiles) must not register a "
+        f"Region(kind=Corridor); got {len(corridor_regions)}."
+    )

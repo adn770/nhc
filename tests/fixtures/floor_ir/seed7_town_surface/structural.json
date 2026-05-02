@@ -24,7 +24,7 @@
     "WallsAndFloorsOp": 1,
     "WellFeatureOp": 1
   },
-  "region_count": 9,
-  "region_polygon_rings": 9,
-  "region_polygon_vertices": 36
+  "region_count": 10,
+  "region_polygon_rings": 14,
+  "region_polygon_vertices": 58
 }

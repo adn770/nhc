@@ -368,15 +368,20 @@ def test_cave_region_count_matches_cave_floor_op_count() -> None:
 
 
 def test_corridor_floor_ops_have_empty_region_ref() -> None:
-    """Per-tile corridor FloorOps don't claim a Region (no per-tile Region exists).
+    """Per-tile corridor FloorOps don't claim a Region.
 
     The plan keeps the per-tile corridor emission simple: each
     corridor tile is its own FloorOp with a 4-vertex bbox outline.
-    There is no per-tile Region (and adding one would balloon
-    region_count by a couple of orders of magnitude). Consumers
-    therefore fall back to the op's own outline for corridor
-    FloorOps. This test pins that contract: no corridor FloorOp
-    carries a non-empty region_ref.
+    Phase 1.26d-2 (scope-reduced) registers ONE merged
+    ``Region(kind=Corridor, id="corridor")`` per floor with a
+    multi-ring outline (one ring per disjoint component) but does
+    NOT set ``region_ref`` on the per-tile FloorOps — the consumer
+    rendering keeps falling back to each op's own bbox outline so
+    pixel parity is preserved. A follow-up sub-phase migrates the
+    per-tile FloorOps to a single merged FloorOp once the
+    consumers gain multi-ring outline rendering. This test pins
+    the scope-reduced contract: no corridor FloorOp carries a
+    non-empty region_ref.
     """
     fir = _build_emitted("seed42_rect_dungeon_dungeon")
     room_region_ids = {

@@ -9,3 +9,4 @@ class RegionKind(object):
     Building = 3
     Site = 4
     Enclosure = 5
+    Corridor = 6
