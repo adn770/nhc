@@ -1,9 +1,13 @@
 # Floor IR v4e — region-keyed pure-IR contract
 
-**Status:** Proposed evolution of `design/map_ir_v4.md`. Same major
-schema (4.x — `file_identifier "NIR4"`) reached through additive
-minor bumps; replaces v4.md once v4e lands. Pre-4.0 contract in
-`design/map_ir.md` remains the historical reference.
+**Status:** Proposed evolution of `design/map_ir_v4.md`. The v4e
+schema **is** schema 4.0 — there is no intermediate 4.x state.
+The migration runs within the 3.x development cycle as additive
+minor bumps (3.2 → 3.5), and a single atomic 4.0 cut at the end
+drops all legacy v3 ops + intermediate v4-prep fields together
+and bumps `file_identifier` from `"NIR3"` to `"NIR4"`. Replaces
+v4.md once v4e ships. Pre-3.0 contract in `design/map_ir.md`
+remains the historical reference.
 
 Two outcomes the v4 design does not reach but v4e does:
 
@@ -170,8 +174,9 @@ to a browser Canvas2D backend (Phase 3 / Painter trait).
 ```
 namespace nhc.ir;
 
-file_identifier "NIR4";          // NHC IR Floor v4 (minor versions
-                                 // 0..N evolve within this identifier)
+file_identifier "NIR4";          // NHC IR Floor v4 — set at the
+                                 // single atomic 4.0 cut after the
+                                 // 3.x → 4.0 migration completes
 file_extension "nir";
 
 // ── Geometric primitives ─────────────────────────────────────
@@ -967,66 +972,86 @@ target diverges from v4's plan in the following places:
 ### Schema bumps along the way
 
 The migration ladders through additive minor bumps within the
-4.x major:
+3.x major (`file_identifier "NIR3"` retained), and a **single
+atomic 4.0 cut** at the end drops everything legacy together
+and bumps to `"NIR4"`:
 
-- **4.0**: legacy ops drop, current v4 schema as documented in
-  `design/map_ir_v4.md` ships. `file_identifier` advances to
-  `"NIR4"`. Tag `ir-schema-4.0`.
-- **4.1**: `Region.outline: Outline` added (additive parallel to
+- **3.1** (current state at HEAD `7929cb3`): legacy v3 ops
+  (`WallsAndFloorsOp`, `BuildingExteriorWallOp`,
+  `BuildingInteriorWallOp`, `EnclosureOp`, `GenericProceduralOp`)
+  still in schema; v4-prep ops (`FloorOp`, `InteriorWallOp`,
+  `ExteriorWallOp`, `CorridorWallOp`) shipped with embedded
+  `outline: Outline`. Both populated in parallel.
+- **3.2**: `Region.outline: Outline` added (additive parallel to
   `Region.polygon`). Emitter populates both.
-- **4.2**: `FloorOp.region_ref: string` added. Emitter populates
+- **3.3**: `FloorOp.region_ref: string` added. Emitter populates
   both `region_ref` and `outline`.
-- **4.3**: `ExteriorWallOp.region_ref: string` added. Op-level
+- **3.4**: `ExteriorWallOp.region_ref: string` added. Op-level
   `cuts: [Cut]` added (additive — `Outline.cuts` still populated).
-- **4.4**: Per-tile ops add `region_ref: string` (additive
+  `InteriorWallOp.cuts` mirrors the op-level pattern.
+- **3.5**: Per-tile ops add `region_ref: string` (additive
   parallel to `clipRegion`).
-- **4.5**: Consumers prefer `region_ref` over embedded outline;
-  emitters can stop populating the deprecated outlines (they
-  remain in schema for back-compat).
-- **4.6**: Schema clean-up — remove deprecated `FloorOp.outline`,
-  `ExteriorWallOp.outline`, `Region.polygon`, `Outline.cuts`,
-  `clipRegion` aliases. `file_identifier` stays `"NIR4"` (no
-  major bump); minor advances to its final value.
+- **(no schema bump — emitter-only)**: Emitter stops populating
+  the deprecated outlines, `Outline.cuts`, `Region.polygon`,
+  `clipRegion`, and the legacy v3 ops. Consumers all on
+  region_ref path. Schema fields stay for back-compat readers
+  during this commit.
+- **4.0**: Single atomic schema cut. Drop legacy v3 ops AND
+  deprecated v4-prep fields together:
+  - `WallsAndFloorsOp`, `BuildingExteriorWallOp`,
+    `BuildingInteriorWallOp`, `EnclosureOp`,
+    `GenericProceduralOp`, `Gate`, `GateStyle`, `WallMaterial`,
+    `InteriorWallMaterial`, `EnclosureStyle` — gone.
+  - `Region.polygon`, `FloorOp.outline`,
+    `ExteriorWallOp.outline`, `Outline.cuts`, `clipRegion` on
+    every per-tile op — gone.
+  - Bump `file_identifier` from `"NIR3"` to `"NIR4"`.
+  - `SCHEMA_MAJOR = 4`, `SCHEMA_MINOR = 0`.
+  - Tag `ir-schema-4.0` placed at this commit.
 
-Each schema bump comes with the matching emitter / consumer
-change. See §10 for the per-bump execution ladder.
+Each 3.x bump comes with the matching emitter / consumer change.
+See §10 for the per-bump execution ladder. The 4.0 cut is the
+single atomic milestone that finalises the v4e schema; there are
+no intermediate 4.x states.
 
 ## 10. Phased migration
 
-The IR cut from 3.1 to 4.x is the structural change; the v4e
-work threads through Phase 1 minor bumps. Phase 2 (Painter trait)
-and Phase 3 (WASM Canvas) are renderer-only refactors that don't
-touch the schema.
+The v4e migration runs as additive minor bumps within the 3.x
+major; a single atomic 4.0 cut at the end ships the canonical
+v4e schema. Phase 2 (Painter trait) and Phase 3 (WASM Canvas)
+are renderer-only refactors that don't touch the schema.
 
 | Phase    | Schema | Net work                                                  | Atomicity |
 | -------- | ------ | --------------------------------------------------------- | --------- |
 | **0**    | 3.1    | Dead-code cleanup (`FloorDetailOp.{room,corridor}_groups` reads, `GenericProceduralOp` dispatch). No fixture changes; pixel-equivalent. | additive, zero risk |
-| **1.0–1.20c** | 3.1 | (current branch state) Outline + Cut + style enums + FloorOp / InteriorWallOp / ExteriorWallOp / CorridorWallOp parallel emission. WoodFloor migration. CrossShape / HybridShape migration. Building parity xfail closed. | additive, parallel emission |
-| **1.21a** | 3.1   | Drop hatch clip envelope; paint order covers bleed. Already shipped at `7929cb3`. | additive, zero risk |
-| **1.22** | 4.0    | Schema major cut. Drop legacy ops (`WallsAndFloorsOp`, `BuildingExteriorWallOp`, `BuildingInteriorWallOp`, `EnclosureOp`, `Gate`, `GenericProceduralOp`). `file_identifier` = `"NIR4"`. Tag `ir-schema-4.0`. | atomic break |
-| **2**    | 4.1    | Add `Region.outline: Outline` (additive parallel to `Region.polygon`). Emitter populates both. Region table emits `Outline` with descriptor support per-region kind. | additive |
-| **3**    | 4.2    | Add `FloorOp.region_ref`. Emitter populates both region_ref + outline. Consumer prefers region_ref. | additive |
-| **4**    | 4.3    | Add `ExteriorWallOp.region_ref` + op-level `cuts`. Emitter populates both. Consumer prefers region_ref + op cuts. | additive |
-| **5**    | 4.4    | Per-tile ops gain `region_ref` (renamed parallel of `clipRegion`). | additive |
-| **6**    | 4.5    | Stop populating deprecated outlines and `clipRegion`. All consumers on region_ref path. Schema fields stay for back-compat. | non-additive (consumer change) |
-| **7**    | 4.6    | Schema clean-up — drop deprecated outlines, `Region.polygon`, `Outline.cuts`, `clipRegion`. | breaking within 4.x major |
-| **8**    | (no bump) | Define `Painter` trait. Implement `SkiaPainter`. Port `crates/nhc-render/src/primitives/*.rs` from `Vec<String>` to `&mut dyn Painter`. | renderer-only refactor |
-| **9**    | (no bump) | Implement `SvgPainter`. Add `nhc_render.ir_to_svg(buf)` PyO3 export. Retire `nhc/rendering/ir_to_svg.py`. | renderer-only |
-| **10**   | (no bump) | Drop `<g clip-path>` wrappers + `<defs><clipPath>` from SvgPainter output. Clip via `push_clip` / `pop_clip` per-element. | renderer-only |
-| **11**   | (no bump) | `nhc-render-wasm` crate + `CanvasPainter` impl. ~50 lines of dispatcher + the trait impl. | renderer-only |
+| **1.0 – 1.20c** | 3.1 | Outline + Cut + style enums + FloorOp / InteriorWallOp / ExteriorWallOp / CorridorWallOp parallel emission. WoodFloor migration. CrossShape / HybridShape migration. Building parity xfail closed. | additive, parallel emission |
+| **1.21a** | 3.1   | Drop hatch clip envelope; paint order covers bleed. Shipped at `7929cb3`. | additive, zero risk |
+| **1.22** | 3.2    | Add `Region.outline: Outline` (additive parallel to `Region.polygon`). Emitter populates both. Region table emits `Outline` with descriptor support per-region kind. | additive |
+| **1.23** | 3.3    | Add `FloorOp.region_ref`. Emitter populates both region_ref + outline. Consumer prefers region_ref. | additive |
+| **1.24** | 3.4    | Add `ExteriorWallOp.region_ref` + op-level `cuts`. Emitter populates both. Consumer prefers region_ref + op cuts. `InteriorWallOp.cuts` op-level mirror. | additive |
+| **1.25** | 3.5    | Per-tile ops gain `region_ref` (additive parallel of `clipRegion`). | additive |
+| **1.26** | 3.5    | Emitter stops populating deprecated outlines, `Outline.cuts`, `Region.polygon`, `clipRegion`, AND the legacy v3 ops. All consumers on region_ref path. Schema fields stay for back-compat readers; emitter-only change, no schema bump. | non-additive (emitter behaviour change) |
+| **1.27** | 4.0    | Single atomic schema cut. Drop legacy v3 ops (`WallsAndFloorsOp`, `BuildingExteriorWallOp`, `BuildingInteriorWallOp`, `EnclosureOp`, `Gate`, `GateStyle`, `WallMaterial`, `InteriorWallMaterial`, `EnclosureStyle`, `GenericProceduralOp`) AND deprecated v4-prep fields (`Region.polygon`, `FloorOp.outline`, `ExteriorWallOp.outline`, `Outline.cuts`, `clipRegion`). Bump `file_identifier` from `"NIR3"` to `"NIR4"`. `SCHEMA_MAJOR = 4`, `SCHEMA_MINOR = 0`. Tag `ir-schema-4.0`. | atomic break |
+| **2**    | (no bump) | Define `Painter` trait. Implement `SkiaPainter`. Port `crates/nhc-render/src/primitives/*.rs` from `Vec<String>` to `&mut dyn Painter`. | renderer-only refactor |
+| **3**    | (no bump) | Implement `SvgPainter`. Add `nhc_render.ir_to_svg(buf)` PyO3 export. Retire `nhc/rendering/ir_to_svg.py`. | renderer-only |
+| **4**    | (no bump) | Drop `<g clip-path>` wrappers + `<defs><clipPath>` from SvgPainter output. Clip via `push_clip` / `pop_clip` per-element. | renderer-only |
+| **5**    | (no bump) | `nhc-render-wasm` crate + `CanvasPainter` impl. ~50 lines of dispatcher + the trait impl. | renderer-only |
 
-Phases 2-7 are independently shippable. Each phase ladder lands
-multiple commits, one per op kind. Phases 8-11 are sequential
-refactors that don't touch schema.
+Phases 1.22 – 1.26 are independently shippable. Each phase ladder
+lands one or two commits per op kind. Phase 1.27 is the single
+atomic schema cut that finalises v4e; there are no intermediate
+4.x minor states. Phases 2 – 5 are sequential refactors that
+don't touch schema.
 
 ### Determinism contract through migration
 
 `base_seed` and per-op seed offsets stay identical across all
-phases. Schema bumps are additive with default-valued fields, so
-3.1 caches can still parse 4.x readers (with default-zero values
-for new fields). The autosave eviction gate
-(`nhc/core/autosave.py`) fires once on the 4.0 cut (3.1 → 4.0)
-and stays unchanged through the 4.x minor bumps.
+phases. Schema bumps in 3.2 – 3.5 are additive with default-
+valued fields, so older 3.x caches can still parse newer 3.x
+readers (with default-zero values for the new fields). The
+autosave eviction gate (`nhc/core/autosave.py`) fires once on
+the atomic 4.0 cut at Phase 1.27 (3.5 → 4.0); 3.x minor bumps
+do not evict.
 
 ## 11. Test strategy
 
@@ -1071,7 +1096,7 @@ Per-fixture PSNR thresholds:
   at 4.0+ and asserts no field is typed as `[string]` carrying
   SVG markup.
 - `tests/unit/test_no_svg_strings_in_primitives.rs` (NEW after
-  Phase 8) walks every `crates/nhc-render/src/primitives/*.rs`
+  Phase 2) walks every `crates/nhc-render/src/primitives/*.rs`
   function and asserts the return type is unit / direct paint
   primitive, not `Vec<String>`.
 - `tests/unit/test_region_geometry_unique.py` asserts each
@@ -1123,21 +1148,21 @@ nhc/rendering/
 ├── ir_emitter.py                 # Level → FloorIR translator
 ├── _floor_layers.py              # per-op _emit_*_ir helpers
 ├── _outline_helpers.py           # outline_from_<shape> + cuts_for_*
-└── (ir_to_svg.py — RETIRED at Phase 9)
+└── (ir_to_svg.py — RETIRED at Phase 3)
 
 crates/nhc-render/
 ├── src/
 │   ├── ir/                       # generated FB bindings (Rust)
-│   ├── painter.rs                # Painter trait (NEW Phase 8)
+│   ├── painter.rs                # Painter trait (NEW Phase 2)
 │   ├── primitives/               # per-primitive emitters (call &mut dyn Painter)
 │   ├── transform/
 │   │   ├── png/                  # SkiaPainter dispatch (replaces fragment.rs)
-│   │   ├── svg/                  # SvgPainter dispatch (NEW Phase 9)
-│   │   └── canvas/               # CanvasPainter dispatch (NEW Phase 11)
+│   │   ├── svg/                  # SvgPainter dispatch (NEW Phase 3)
+│   │   └── canvas/               # CanvasPainter dispatch (NEW Phase 5)
 │   └── geometry.rs               # outline / path utilities
 └── Cargo.toml
 
-crates/nhc-render-wasm/           # NEW Phase 11
+crates/nhc-render-wasm/           # NEW Phase 5
 └── (CanvasPainter glue)
 
 tests/unit/
@@ -1168,22 +1193,25 @@ the region-keyed restructuring. RNG seed offsets per op kind:
 | `WellFeatureOp` etc.      | per-feature offsets     |
 
 Cross-rasteriser determinism: PSNR ≥ 50 dB at every fixture
-between SkiaPainter and SvgPainter→resvg paths (after Phase 9).
+between SkiaPainter and SvgPainter→resvg paths (after Phase 3).
 
 ## 15. Cross-references
 
 - `design/map_ir.md` — pre-3.0 contract; historical reference.
   Slated for retirement once v4e ships.
-- `design/map_ir_v4.md` — original v4 design. v4e supersedes;
-  retire once v4e ships.
+- `design/map_ir_v4.md` — original v4 design that pictured an
+  intermediate 4.x state. v4e supersedes by routing the same
+  end-state through 3.x additive bumps + a single 4.0 cut.
+  Retires once v4e ships.
 - `design/ir_primitives.md` — per-primitive determinism specs;
   needs section-level updates as primitives port to the Painter
-  trait (Phase 8).
+  trait (Phase 2).
 - `design/dungeon_generator.md` — door-position output; the
   generator continues to emit per-tile door features, the
   emitter resolves them to ExteriorWallOp cuts.
 - `design/sites.md` — site / building / enclosure assembly.
   v4e's `Site`, `Building`, `Enclosure` regions correspond
   one-to-one with the assembler's outputs.
-- `plans/nhc_pure_ir_plan.md` — execution plan; rewritten to
-  match v4e's phase ladder.
+- `~/src/plans/nhc_pure_ir_plan.md` — execution plan; rewritten
+  to match v4e's phase ladder. Plan file lives outside the repo
+  per the workspace convention for discardable execution plans.
