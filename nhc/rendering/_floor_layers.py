@@ -1041,7 +1041,13 @@ def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
     op = TerrainTintOpT()
     op.tiles = tiles
     op.roomWashes = washes
-    op.clipRegion = (
+    # Phase 1.26a — clipRegion populating retired; regionRef is the
+    # canonical 4.0 name. Consumers prefer regionRef (1.25) and fall
+    # back to clipRegion only for 3.x cached buffers; freshly-emitted
+    # IR ships clipRegion empty. The 1.27 atomic cut drops the
+    # clipRegion schema field entirely.
+    op.clipRegion = ""
+    op.regionRef = (
         "dungeon"
         if (
             ctx.dungeon_poly is not None
@@ -1049,9 +1055,6 @@ def _emit_terrain_tints_ir(builder: "FloorIRBuilder") -> None:
         )
         else ""
     )
-    # Phase 1.25 — region_ref mirrors clipRegion for v4e canonical
-    # naming. The 1.27 atomic cut retires clipRegion.
-    op.regionRef = op.clipRegion
     entry = OpEntryT()
     entry.opType = Op.Op.TerrainTintOp
     entry.op = op
@@ -1104,7 +1107,13 @@ def _emit_floor_grid_ir(builder: "FloorIRBuilder") -> None:
     op.seed = 41
     op.theme = ctx.theme
     op.tiles = tiles
-    op.clipRegion = (
+    # Phase 1.26a — clipRegion populating retired; regionRef is the
+    # canonical 4.0 name. Consumers prefer regionRef (1.25) and fall
+    # back to clipRegion only for 3.x cached buffers; freshly-emitted
+    # IR ships clipRegion empty. The 1.27 atomic cut drops the
+    # clipRegion schema field entirely.
+    op.clipRegion = ""
+    op.regionRef = (
         "dungeon"
         if (
             ctx.dungeon_poly is not None
@@ -1112,9 +1121,6 @@ def _emit_floor_grid_ir(builder: "FloorIRBuilder") -> None:
         )
         else ""
     )
-    # Phase 1.25 — region_ref mirrors clipRegion for v4e canonical
-    # naming. The 1.27 atomic cut retires clipRegion.
-    op.regionRef = op.clipRegion
     entry = OpEntryT()
     entry.opType = Op.Op.FloorGridOp
     entry.op = op
@@ -1247,7 +1253,11 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         op.woodTiles = wood_tiles
         op.woodBuildingPolygon = wood_polygon
         op.woodRooms = wood_rooms
-        op.clipRegion = (
+        # Phase 1.26a — clipRegion populating retired (canonical
+        # name is now regionRef). See top-level emit sites for
+        # the full migration note.
+        op.clipRegion = ""
+        op.regionRef = (
             "dungeon"
             if (
                 ctx.dungeon_poly is not None
@@ -1255,8 +1265,6 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
             )
             else ""
         )
-        # Phase 1.25 — region_ref mirrors clipRegion.
-        op.regionRef = op.clipRegion
         entry = OpEntryT()
         entry.opType = Op.Op.FloorDetailOp
         entry.op = op
@@ -1310,7 +1318,11 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         op.theme = theme
         op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
         op.isCorridor = [is_cor for _, _, is_cor in candidates]
-        op.clipRegion = (
+        # Phase 1.26a — clipRegion populating retired (canonical
+        # name is now regionRef). See top-level emit sites for
+        # the full migration note.
+        op.clipRegion = ""
+        op.regionRef = (
             "dungeon"
             if (
                 ctx.dungeon_poly is not None
@@ -1318,8 +1330,6 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
             )
             else ""
         )
-        # Phase 1.25 — region_ref mirrors clipRegion.
-        op.regionRef = op.clipRegion
         entry = OpEntryT()
         entry.opType = Op.Op.FloorDetailOp
         entry.op = op
@@ -1334,10 +1344,10 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         deco_op = DecoratorOpT()
         deco_op.seed = seed + 333
         deco_op.theme = theme
+        # Phase 1.26a — clipRegion retired; both fields empty for
+        # the decorator (it doesn't currently emit with a clip).
         deco_op.clipRegion = ""
-        # Phase 1.25 — region_ref mirrors clipRegion (empty here;
-        # decorators currently emit without a clip region).
-        deco_op.regionRef = deco_op.clipRegion
+        deco_op.regionRef = ""
         if cobble_tiles:
             deco_op.cobblestone = [CobblestoneVariantT(
                 tiles=[TileCoordT(x=x, y=y) for x, y in cobble_tiles],
@@ -1432,7 +1442,13 @@ def _emit_thematic_detail_ir(builder: "FloorIRBuilder") -> None:
     op.tiles = [TileCoordT(x=x, y=y) for x, y, _ in candidates]
     op.isCorridor = [is_cor for _, _, is_cor in candidates]
     op.wallCorners = wall_corners
-    op.clipRegion = (
+    # Phase 1.26a — clipRegion populating retired; regionRef is the
+    # canonical 4.0 name. Consumers prefer regionRef (1.25) and fall
+    # back to clipRegion only for 3.x cached buffers; freshly-emitted
+    # IR ships clipRegion empty. The 1.27 atomic cut drops the
+    # clipRegion schema field entirely.
+    op.clipRegion = ""
+    op.regionRef = (
         "dungeon"
         if (
             ctx.dungeon_poly is not None
@@ -1440,9 +1456,6 @@ def _emit_thematic_detail_ir(builder: "FloorIRBuilder") -> None:
         )
         else ""
     )
-    # Phase 1.25 — region_ref mirrors clipRegion for v4e canonical
-    # naming. The 1.27 atomic cut retires clipRegion.
-    op.regionRef = op.clipRegion
     entry = OpEntryT()
     entry.opType = Op.Op.ThematicDetailOp
     entry.op = op
@@ -1495,7 +1508,13 @@ def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
     op.tiles = tiles
     op.seed = ctx.seed + 200
     op.theme = ctx.theme
-    op.clipRegion = (
+    # Phase 1.26a — clipRegion populating retired; regionRef is the
+    # canonical 4.0 name. Consumers prefer regionRef (1.25) and fall
+    # back to clipRegion only for 3.x cached buffers; freshly-emitted
+    # IR ships clipRegion empty. The 1.27 atomic cut drops the
+    # clipRegion schema field entirely.
+    op.clipRegion = ""
+    op.regionRef = (
         "dungeon"
         if (
             ctx.dungeon_poly is not None
@@ -1503,9 +1522,6 @@ def _emit_terrain_detail_ir(builder: "FloorIRBuilder") -> None:
         )
         else ""
     )
-    # Phase 1.25 — region_ref mirrors clipRegion for v4e canonical
-    # naming. The 1.27 atomic cut retires clipRegion.
-    op.regionRef = op.clipRegion
     entry = OpEntryT()
     entry.opType = Op.Op.TerrainDetailOp
     entry.op = op

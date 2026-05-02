@@ -23193,7 +23193,7 @@
             "opacity": 0.05999999865889549
           }
         ],
-        "clipRegion": "dungeon",
+        "clipRegion": "",
         "regionRef": "dungeon"
       }
     },
@@ -23202,7 +23202,7 @@
       "opType": "FloorGridOp",
       "op": {
         "__type": "FloorGridOpT",
-        "clipRegion": "dungeon",
+        "clipRegion": "",
         "seed": 41,
         "theme": "cave",
         "scale": 1.0,
@@ -31801,7 +31801,7 @@
         "theme": "cave",
         "roomGroups": null,
         "corridorGroups": null,
-        "clipRegion": "dungeon",
+        "clipRegion": "",
         "isCorridor": "array([False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False, False, False, False, False, False,\n       False, False, False, False])",
         "woodTiles": null,
         "woodBuildingPolygon": null,
@@ -33100,7 +33100,7 @@
         "wallCorners": "array([ 1,  0,  2,  1,  2,  1,  0,  0,  0,  2,  1,  0,  0,  0,  0,  0,  8,\n        1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  1,  0,  0,  0,\n        0,  0,  1,  0,  0,  1,  0,  0,  2,  0,  0,  0,  1,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  0,  0,  0,  2,  1,  0,  0,  0,  0,  0,  0,  8,\n        0,  0,  0,  2,  1,  0,  0,  0,  0,  0,  0,  0,  0,  8,  4,  0,  0,\n        0,  8,  4,  0,  0,  8,  4,  0,  0,  0,  4,  0,  0,  0,  0,  4,  2,\n        0,  0,  4,  0,  0,  0,  0,  1,  0,  2,  0,  0,  2,  4,  0,  8,  0,\n        0,  0,  0,  0,  0,  0,  2,  0,  0,  0,  2,  0,  0,  0,  0,  0,  2,\n        4,  0,  0,  0,  2,  0,  0,  0,  0,  0,  0,  4,  0,  0,  8,  1,  0,\n        4,  0,  0,  8,  4,  0, 12,  0,  1,  0,  4,  0,  0,  0,  0,  4,  0,\n        0,  8,  0,  0,  0,  0,  0,  0,  0,  2,  1,  0,  0,  8,  0,  0,  0,\n        0,  0,  0,  0,  0,  4,  0,  0,  0,  0,  0,  0,  4,  0,  0,  0,  1,\n        0,  0,  0,  4,  8,  1,  0,  0,  0,  0,  0,  2,  0,  0,  0,  0,  0,\n        2,  0,  0,  1,  0,  0,  0,  0,  0,  8,  0,  0,  0,  0,  0,  0,  0,\n        0,  0,  0,  0,  0,  8,  4,  0,  0,  0,  0,  0,  0,  0,  0,  8,  4,\n        8], dtype=uint8)",
         "seed": 298,
         "theme": "cave",
-        "clipRegion": "dungeon",
+        "clipRegion": "",
         "regionRef": "dungeon"
       }
     },
@@ -34724,7 +34724,7 @@
         ],
         "seed": 299,
         "theme": "cave",
-        "clipRegion": "dungeon",
+        "clipRegion": "",
         "regionRef": "dungeon"
       }
     },

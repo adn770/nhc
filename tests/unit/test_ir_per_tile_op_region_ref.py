@@ -75,12 +75,13 @@ def test_schema_minor_is_5(descriptor: str) -> None:
 
 
 @pytest.mark.parametrize("descriptor", all_descriptors())
-def test_per_tile_op_region_ref_mirrors_clip_region(descriptor: str) -> None:
-    """Every per-tile op's ``region_ref`` ≡ ``clip_region`` post-1.25.
+def test_per_tile_op_clip_region_empty_post_1_26a(descriptor: str) -> None:
+    """Phase 1.26a — fresh IR no longer populates clip_region on per-tile ops.
 
-    The emitter populates both fields from the same source. Until
-    the 1.26 cleanup boundary drops ``clip_region`` populating,
-    they must match exactly.
+    The 1.25 emitter mirrored ``clip_region`` to ``region_ref``;
+    1.26a stops populating ``clip_region`` for fresh IR (consumers
+    already prefer ``region_ref``). The clipRegion schema field
+    stays declared until the 1.27 atomic cut.
     """
     fir = _build_emitted(descriptor)
     for entry in fir.ops or []:
@@ -88,11 +89,27 @@ def test_per_tile_op_region_ref_mirrors_clip_region(descriptor: str) -> None:
             continue
         op = entry.op
         clip_region = _decode(op.clipRegion)
+        assert clip_region == "", (
+            f"{descriptor}: {op.__class__.__name__}.clipRegion "
+            f"must be empty post-1.26a; got {clip_region!r}. "
+            "Consumers read region_ref (1.25) and fall back to "
+            "clipRegion only for 3.x cached buffers."
+        )
+
+
+@pytest.mark.parametrize("descriptor", all_descriptors())
+def test_per_tile_op_region_ref_carries_clip_target(descriptor: str) -> None:
+    """region_ref carries the clip target ("dungeon" or "")."""
+    fir = _build_emitted(descriptor)
+    for entry in fir.ops or []:
+        if entry.opType not in _PER_TILE_OP_TYPES:
+            continue
+        op = entry.op
         region_ref = _decode(op.regionRef)
-        assert region_ref == clip_region, (
-            f"{descriptor}: op.regionRef ({region_ref!r}) does not "
-            f"mirror op.clipRegion ({clip_region!r}) for "
-            f"{op.__class__.__name__}"
+        assert region_ref in ("", "dungeon"), (
+            f"{descriptor}: per-tile op {op.__class__.__name__} "
+            f"region_ref must be '' or 'dungeon'; got "
+            f"{region_ref!r}"
         )
 
 
