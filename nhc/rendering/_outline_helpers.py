@@ -40,11 +40,12 @@ import math
 from typing import Any
 
 from nhc.dungeon.model import (
-    CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
-    Room, SurfaceType, TempleShape, Terrain,
+    CircleShape, CrossShape, HybridShape, Level, LShape,
+    OctagonShape, PillShape, Rect, Room, SurfaceType, TempleShape,
+    Terrain,
 )
 from nhc.rendering._room_outlines import (
-    _intersect_outline, _temple_vertices,
+    _hybrid_vertices, _intersect_outline, _temple_vertices,
 )
 from nhc.rendering._svg_helpers import _find_doorless_openings
 from nhc.rendering.ir._fb.Cut import CutT
@@ -194,6 +195,73 @@ def outline_from_l_shape(room: Room) -> OutlineT:
             _tp(nx0, y1), _tp(x0, y1),
         ]
     return _polygon_outline(verts)
+
+
+def outline_from_cross(room: Room) -> OutlineT:
+    """Convert a cross-shape room into a 12-vertex closed polygon.
+
+    Mirrors :func:`_room_outlines._room_svg_outline`'s ``CrossShape``
+    branch: traces the + outline clockwise, with bar widths derived
+    from ``max(2, dim // 3)`` so the polygon is byte-identical to
+    the legacy SVG ``<polygon points>`` element.
+    """
+    rect = room.rect
+    shape = room.shape
+    if not isinstance(shape, CrossShape):
+        raise TypeError(
+            f"outline_from_cross: expected CrossShape, got "
+            f"{type(shape).__name__}"
+        )
+
+    px = rect.x * CELL
+    py = rect.y * CELL
+    pw = rect.width * CELL
+    ph = rect.height * CELL
+    bar_w = max(2, rect.width // 3) * CELL
+    bar_h = max(2, rect.height // 3) * CELL
+    cx_tile = rect.x + rect.width // 2
+    cy_tile = rect.y + rect.height // 2
+    vl = (cx_tile - max(2, rect.width // 3) // 2) * CELL
+    vr = vl + bar_w
+    ht = (cy_tile - max(2, rect.height // 3) // 2) * CELL
+    hb = ht + bar_h
+    verts = [
+        (vl, py), (vr, py),
+        (vr, ht), (px + pw, ht),
+        (px + pw, hb), (vr, hb),
+        (vr, py + ph), (vl, py + ph),
+        (vl, hb), (px, hb),
+        (px, ht), (vl, ht),
+    ]
+    return _polygon_outline(verts)
+
+
+def outline_from_hybrid(room: Room) -> OutlineT:
+    """Convert a hybrid room into a tessellated closed polygon.
+
+    Hybrid outlines combine a curved sub-shape with a rect side; the
+    legacy :func:`_room_outlines._hybrid_svg_outline` emits an SVG
+    ``<path>`` with arc commands. v4 ships pure data, so the v4
+    outline is the polygonised vertex list — the same dense polyline
+    :func:`_room_outlines._hybrid_vertices` produces. The Rust
+    consumer rasterises the polyline; the Python ExteriorWallOp
+    consumer feeds it through ``_walk_polygon_with_cuts`` so the
+    gapped wall pipeline (corridor openings) reuses the existing
+    polygon-with-cuts machinery.
+
+    The legacy ``smoothFillSvg`` arc-path FILL is unaffected by this
+    helper — it stays on the legacy SVG-string path until 1.20c (or
+    later) migrates the hybrid fill to a FloorOp with an arc-aware
+    descriptor.
+    """
+    rect = room.rect
+    shape = room.shape
+    if not isinstance(shape, HybridShape):
+        raise TypeError(
+            f"outline_from_hybrid: expected HybridShape, got "
+            f"{type(shape).__name__}"
+        )
+    return _polygon_outline(_hybrid_vertices(shape, rect))
 
 
 def outline_from_temple(room: Room) -> OutlineT:

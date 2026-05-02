@@ -18,8 +18,9 @@ from __future__ import annotations
 import math
 
 from nhc.dungeon.model import (
-    CircleShape, Level, LShape, OctagonShape, PillShape, Rect,
-    Room, SurfaceType, TempleShape, Terrain, Tile,
+    CircleShape, CrossShape, HybridShape, Level, LShape,
+    OctagonShape, PillShape, Rect, RectShape, Room, SurfaceType,
+    TempleShape, Terrain, Tile,
 )
 
 
@@ -194,6 +195,91 @@ def test_outline_from_temple_room() -> None:
 
     # Same geometry as the legacy SVG outline helper.
     expected = _temple_vertices(shape, rect)
+    assert len(out.vertices) == len(expected)
+    for got, (ex, ey) in zip(out.vertices, expected):
+        assert math.isclose(got.x, ex)
+        assert math.isclose(got.y, ey)
+
+
+# ── outline_from_cross ───────────────────────────────────────────
+
+
+def test_outline_from_cross_room() -> None:
+    """A CrossShape room becomes a 12-vertex closed polygon tracing
+    the + outline clockwise. Pin the vertex sequence so a later
+    refactor of the bar-width metric trips this test.
+
+    Phase 1.20c: ``outline_from_cross`` ports the legacy
+    :func:`_room_outlines._room_svg_outline` CrossShape branch into
+    the v4 outline pipeline. Same metric (max(2, dim // 3)) so the
+    rendered polygon is byte-identical to the legacy SVG path.
+    """
+    from nhc.rendering._outline_helpers import outline_from_cross
+    from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+
+    rect = Rect(2, 3, 9, 9)
+    shape = CrossShape()
+    room = Room(id="x1", rect=rect, shape=shape)
+    out = outline_from_cross(room)
+
+    assert out.descriptorKind == OutlineKind.Polygon
+    assert out.closed is True
+    assert out.vertices is not None and len(out.vertices) == 12
+
+    # Mirror the metric in `_room_svg_outline`'s CrossShape branch.
+    px, py = rect.x * CELL, rect.y * CELL
+    pw, ph = rect.width * CELL, rect.height * CELL
+    bar_w = max(2, rect.width // 3) * CELL
+    bar_h = max(2, rect.height // 3) * CELL
+    cx_tile = rect.x + rect.width // 2
+    cy_tile = rect.y + rect.height // 2
+    vl = (cx_tile - max(2, rect.width // 3) // 2) * CELL
+    vr = vl + bar_w
+    ht = (cy_tile - max(2, rect.height // 3) // 2) * CELL
+    hb = ht + bar_h
+    expected = [
+        (vl, py), (vr, py),
+        (vr, ht), (px + pw, ht),
+        (px + pw, hb), (vr, hb),
+        (vr, py + ph), (vl, py + ph),
+        (vl, hb), (px, hb),
+        (px, ht), (vl, ht),
+    ]
+    for got, (ex, ey) in zip(out.vertices, expected):
+        assert (got.x, got.y) == (ex, ey)
+
+
+# ── outline_from_hybrid ──────────────────────────────────────────
+
+
+def test_outline_from_hybrid_room_carries_tessellated_arc() -> None:
+    """A HybridShape (Circle + Rect halves) becomes a closed polygon
+    whose vertex list tessellates the arc into many short segments.
+
+    Phase 1.20c: hybrid outlines need polygon form so the gapped
+    wall pipeline (``_walk_polygon_with_cuts``) can apply
+    corridor-opening cuts uniformly. The legacy SVG ``<path>`` form
+    embedded an arc command ``A``; the v4 IR ships only vertices,
+    and the consumer reproduces curvature via a dense polyline.
+    The vertex set comes from
+    :func:`_room_outlines._hybrid_vertices` (which delegates to
+    Shapely's polygonization of the SVG path), so the contract is
+    "match the polygonized arc within Shapely's float precision."
+    """
+    from nhc.rendering._outline_helpers import outline_from_hybrid
+    from nhc.rendering._room_outlines import _hybrid_vertices
+    from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+
+    rect = Rect(0, 0, 10, 8)
+    shape = HybridShape(CircleShape(), RectShape(), "vertical")
+    room = Room(id="h1", rect=rect, shape=shape)
+    out = outline_from_hybrid(room)
+
+    assert out.descriptorKind == OutlineKind.Polygon
+    assert out.closed is True
+    expected = _hybrid_vertices(shape, rect)
+    assert expected, "fixture sanity: _hybrid_vertices must produce coords"
+    assert out.vertices is not None
     assert len(out.vertices) == len(expected)
     for got, (ex, ey) in zip(out.vertices, expected):
         assert math.isclose(got.x, ex)

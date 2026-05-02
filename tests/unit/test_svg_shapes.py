@@ -581,18 +581,6 @@ class TestHybridArcDirection:
         match = re.search(r'<path[^>]+d="([^"]+Z)"', svg)
         assert match, "Hybrid outline should be a closed path"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "Phase 1.19 cleared the legacy `smoothWallSvg` field that "
-            "Hybrid wall outlines flowed through. Phase 1.5 emits "
-            "ExteriorWallOps for the standard smooth shapes (octagon, "
-            "L-shape, temple, circle, pill) but skips Hybrid / Cross "
-            "— no parity fixture exercises them today. A future phase "
-            "extends the dispatch to Hybrid + Cross; remove the xfail "
-            "mark when that lands."
-        ),
-    )
     def test_hybrid_doorless_opening_gaps_outline(self):
         """Hybrid with doorless corridor has gapped wall outline.
 

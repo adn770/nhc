@@ -268,8 +268,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     """
     from nhc.dungeon.generators.cellular import CaveShape
     from nhc.dungeon.model import (
-        CircleShape, LShape, OctagonShape, PillShape, Rect, RectShape,
-        TempleShape,
+        CircleShape, CrossShape, HybridShape, LShape, OctagonShape,
+        PillShape, Rect, RectShape, TempleShape,
     )
     from nhc.rendering._cave_geometry import (
         _cave_raw_exterior_coords,
@@ -278,8 +278,9 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     from nhc.rendering._outline_helpers import (
         cuts_for_doorless_openings, cuts_for_room_corridor_openings,
         cuts_for_room_doors, outline_from_cave, outline_from_circle,
-        outline_from_l_shape, outline_from_octagon, outline_from_pill,
-        outline_from_polygon, outline_from_rect, outline_from_temple,
+        outline_from_cross, outline_from_hybrid, outline_from_l_shape,
+        outline_from_octagon, outline_from_pill, outline_from_polygon,
+        outline_from_rect, outline_from_temple,
     )
     from shapely.geometry import Polygon as _ShapelyPolygon
     from shapely.ops import unary_union as _unary_union
@@ -647,10 +648,18 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             outline_obj = outline_from_circle(room)
         elif isinstance(shape, PillShape):
             outline_obj = outline_from_pill(room)
+        elif isinstance(shape, CrossShape):
+            # Phase 1.20c: ports the legacy CrossShape SVG polygon
+            # to the FloorOp pipeline. 12-vertex closed polygon.
+            outline_obj = outline_from_cross(room)
         else:
-            # CrossShape / HybridShape skip this pass — no parity
-            # fixture covers them today; later phases extend the
-            # dispatch as those renderer paths port.
+            # HybridShape stays on the legacy ``smoothFillSvg`` path
+            # for FILL because v4's outline descriptor cannot ship the
+            # arc command the legacy ``<path d="…A…">`` carries; a
+            # tessellated polygon would diverge visibly. Phase 1.20c
+            # only ports the WALL outline (ExteriorWallOp emit below)
+            # so the gapped wall pipeline can apply corridor cuts to
+            # the polyline form.
             continue
         floor_op = FloorOpT()
         floor_op.outline = outline_obj
@@ -808,9 +817,19 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 outline_obj = outline_from_circle(room)
             elif isinstance(shape, PillShape):
                 outline_obj = outline_from_pill(room)
+            elif isinstance(shape, CrossShape):
+                # Phase 1.20c: 12-vertex polygon outline — same
+                # geometry as the legacy CrossShape SVG path.
+                outline_obj = outline_from_cross(room)
+            elif isinstance(shape, HybridShape):
+                # Phase 1.20c: tessellated polygon outline. Closes
+                # ``test_hybrid_doorless_opening_gaps_outline`` by
+                # routing the gapped wall stroke through
+                # ``_walk_polygon_with_cuts`` in the consumer.
+                outline_obj = outline_from_hybrid(room)
             else:
-                # RectShape handled above; CrossShape / HybridShape /
-                # CaveShape skip — no parity fixture covers them today.
+                # RectShape handled above; CaveShape skips — its
+                # ExteriorWallOp lands in the merged-cave block below.
                 continue
             wall_op = ExteriorWallOpT()
             wall_op.outline = outline_obj
