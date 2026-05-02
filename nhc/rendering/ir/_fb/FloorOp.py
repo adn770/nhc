@@ -46,8 +46,15 @@ class FloorOp(object):
             return self._tab.Get(flatbuffers.number_types.Uint8Flags, o + self._tab.Pos)
         return 0
 
+    # FloorOp
+    def RegionRef(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
+        if o != 0:
+            return self._tab.String(o + self._tab.Pos)
+        return None
+
 def FloorOpStart(builder):
-    builder.StartObject(2)
+    builder.StartObject(3)
 
 def Start(builder):
     FloorOpStart(builder)
@@ -63,6 +70,12 @@ def FloorOpAddStyle(builder, style):
 
 def AddStyle(builder, style):
     FloorOpAddStyle(builder, style)
+
+def FloorOpAddRegionRef(builder, regionRef):
+    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(regionRef), 0)
+
+def AddRegionRef(builder, regionRef):
+    FloorOpAddRegionRef(builder, regionRef)
 
 def FloorOpEnd(builder):
     return builder.EndObject()
@@ -83,9 +96,11 @@ class FloorOpT(object):
         self,
         outline = None,
         style = 0,
+        regionRef = None,
     ):
         self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
         self.style = style  # type: int
+        self.regionRef = regionRef  # type: Optional[str]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -111,14 +126,19 @@ class FloorOpT(object):
         if floorOp.Outline() is not None:
             self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(floorOp.Outline())
         self.style = floorOp.Style()
+        self.regionRef = floorOp.RegionRef()
 
     # FloorOpT
     def Pack(self, builder):
         if self.outline is not None:
             outline = self.outline.Pack(builder)
+        if self.regionRef is not None:
+            regionRef = builder.CreateString(self.regionRef)
         FloorOpStart(builder)
         if self.outline is not None:
             FloorOpAddOutline(builder, outline)
         FloorOpAddStyle(builder, self.style)
+        if self.regionRef is not None:
+            FloorOpAddRegionRef(builder, regionRef)
         floorOp = FloorOpEnd(builder)
         return floorOp

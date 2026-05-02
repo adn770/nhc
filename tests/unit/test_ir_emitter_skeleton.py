@@ -53,13 +53,11 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
 def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
     assert fir.major == 3
-    # Schema 3.2 (Phase 1.22 of plans/nhc_pure_ir_plan.md) bumped
-    # SCHEMA_MINOR to 2 for the v4e migration's first sub-phase:
-    # Region.outline added parallel to Region.polygon. The
-    # subsequent v4e sub-phases (1.23 – 1.25) bump to 3.3 – 3.5
-    # additively; the single atomic NIR3 → NIR4 cut at 1.27 finally
-    # bumps the major.
-    assert fir.minor == 2
+    # Schema 3.3 (Phase 1.23a of plans/nhc_pure_ir_plan.md) added
+    # FloorOp.region_ref parallel to FloorOp.outline. v4e migration
+    # sub-phases 1.24 – 1.25 bump to 3.4 – 3.5 additively; the
+    # single atomic NIR3 → NIR4 cut at 1.27 finally bumps the major.
+    assert fir.minor == 3
 
 
 def test_metadata_matches_inputs(emitted) -> None:

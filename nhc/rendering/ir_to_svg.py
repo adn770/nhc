@@ -547,15 +547,31 @@ def _draw_floor_op_from_ir(
     * ``Pill``: ``<rect x="…" y="…" width="…" height="…" rx="…"
       ry="…" fill="…" stroke="none"/>``.
 
+    Phase 1.23a — region-keyed dispatch: when ``op.region_ref`` is
+    non-empty AND resolves to a Region with a populated outline,
+    the geometry comes from ``region.outline`` instead of
+    ``op.outline``. This is the v4e canonical path; the
+    ``op.outline`` fallback covers per-tile corridor FloorOps
+    (no per-tile Region) and 3.x cached buffers that pre-date the
+    field.
+
     Returns a single-element ``list[str]`` per the handler
     convention. Returns ``[]`` when the outline is absent or
     degenerate (< 2 vertices for polygon; zero radius for circle).
     """
     from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
     from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod, OutlineKind as OutlineKindMod
+    from nhc.rendering.ir._fb.Outline import OutlineT
 
     op = OpCreator(entry.OpType(), entry.Op())
     outline = op.outline
+    region_ref = op.regionRef or b""
+    if region_ref:
+        region = _find_region(fir, region_ref)
+        if region is not None:
+            region_outline_fb = region.Outline()
+            if region_outline_fb is not None:
+                outline = OutlineT.InitFromObj(region_outline_fb)
     if outline is None:
         return []
 

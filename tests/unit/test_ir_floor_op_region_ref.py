@@ -1,0 +1,403 @@
+"""Phase 1.23a — FloorOp.region_ref parallel emission (schema 3.3).
+
+Pins the second sub-phase of the v4e migration: every emitted
+:class:`FloorOp` carries a ``region_ref: string`` parallel to its
+``outline``. Consumers (Python + Rust) prefer ``region_ref`` over
+``outline`` — when ``region_ref`` is non-empty the renderer
+resolves the geometry through ``Region.outline`` (shipped at 1.22)
+instead of reading ``op.outline`` directly. Empty ``region_ref``
+remains valid: the consumer falls back to ``op.outline`` (used by
+corridor FloorOps that have no per-tile Region, and by 3.x
+back-compat caches that pre-date the field).
+
+This sub-phase keeps HybridShape's arc-bearing FILL on the legacy
+``smoothFillSvg`` path; 1.23b finishes the migration by emitting a
+HybridShape FloorOp + Region and stops populating
+``smoothFillSvg``.
+
+No pixel change at 1.23a — both the new region_ref path and the
+old outline path resolve to identical geometry (the Region.outline
+mirrors the source polygon point-for-point per 1.22's contract).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import flatbuffers
+import pytest
+
+from nhc.rendering.ir._fb import Op
+from nhc.rendering.ir._fb.FloorIR import FloorIR, FloorIRT
+from nhc.rendering.ir._fb.FloorOp import FloorOpT
+from nhc.rendering.ir._fb.FloorStyle import FloorStyle
+from nhc.rendering.ir._fb.OpEntry import OpEntryT
+from nhc.rendering.ir._fb.Outline import OutlineT
+from nhc.rendering.ir._fb.OutlineKind import OutlineKind
+from nhc.rendering.ir._fb.Region import RegionT
+from nhc.rendering.ir._fb.RegionKind import RegionKind
+from nhc.rendering.ir._fb.Vec2 import Vec2T
+
+from tests.fixtures.floor_ir._inputs import (
+    all_descriptors,
+    descriptor_inputs,
+)
+
+
+_FIXTURE_ROOT = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "floor_ir"
+)
+
+
+# ── Helpers ────────────────────────────────────────────────────
+
+
+def _vec2(x: float, y: float) -> Vec2T:
+    v = Vec2T()
+    v.x = float(x)
+    v.y = float(y)
+    return v
+
+
+def _floor_ops(fir: FloorIRT) -> list[Any]:
+    """Return every FloorOp in op-order."""
+    return [
+        e.op for e in (fir.ops or [])
+        if e.opType == Op.Op.FloorOp
+    ]
+
+
+def _decode_id(rid: Any) -> str:
+    return rid.decode() if isinstance(rid, bytes) else (rid or "")
+
+
+def _region_ids(fir: FloorIRT) -> set[str]:
+    return {_decode_id(r.id) for r in (fir.regions or [])}
+
+
+def _build_emitted(descriptor: str) -> FloorIRT:
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    inputs = descriptor_inputs(descriptor)
+    buf = build_floor_ir(
+        inputs.level,
+        seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    return FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+
+def _pack_floor_ir(regions: list[RegionT], ops: list[OpEntryT]) -> bytes:
+    fir = FloorIRT()
+    fir.major = 3
+    fir.minor = 3
+    fir.widthTiles = 16
+    fir.heightTiles = 16
+    fir.cell = 32
+    fir.padding = 32
+    fir.floorKind = 0
+    fir.theme = "dungeon"
+    fir.baseSeed = 0
+    fir.regions = regions
+    fir.ops = ops
+
+    builder = flatbuffers.Builder(256)
+    builder.Finish(fir.Pack(builder), b"NIR3")
+    return bytes(builder.Output())
+
+
+# ── Schema bump ────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("descriptor", all_descriptors())
+def test_schema_minor_is_3(descriptor: str) -> None:
+    """1.23a: SCHEMA_MINOR bumps from 2 to 3 for the FloorOp.region_ref addition."""
+    fir = _build_emitted(descriptor)
+    assert fir.major == 3
+    assert fir.minor == 3, (
+        f"expected schema minor 3 (Phase 1.23a), got {fir.minor}; "
+        "this sub-phase adds FloorOp.region_ref parallel to "
+        "FloorOp.outline so consumers can resolve floor geometry "
+        "through Region.outline."
+    )
+
+
+# ── Round-trip ─────────────────────────────────────────────────
+
+
+def test_floor_op_region_ref_round_trips() -> None:
+    """region_ref ships through the FB pipeline and decodes back."""
+    op = FloorOpT()
+    op.outline = OutlineT()
+    op.outline.descriptorKind = OutlineKind.Polygon
+    op.outline.closed = True
+    op.outline.cuts = []
+    op.outline.rings = []
+    op.outline.vertices = [_vec2(0, 0), _vec2(32, 0), _vec2(32, 32), _vec2(0, 32)]
+    op.style = FloorStyle.DungeonFloor
+    op.regionRef = "room.synthetic.7"
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorOp
+    entry.op = op
+
+    region = RegionT()
+    region.id = "room.synthetic.7"
+    region.kind = RegionKind.Room
+    region.shapeTag = "rect"
+    region.polygon = None
+    region.outline = OutlineT()
+    region.outline.descriptorKind = OutlineKind.Polygon
+    region.outline.closed = True
+    region.outline.cuts = []
+    region.outline.rings = []
+    region.outline.vertices = list(op.outline.vertices)
+
+    buf = _pack_floor_ir([region], [entry])
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+    decoded = fir.ops[0].op
+    assert _decode_id(decoded.regionRef) == "room.synthetic.7"
+
+
+def test_floor_op_consumer_prefers_region_ref_over_outline() -> None:
+    """When region_ref resolves, the consumer reads geometry from the Region.
+
+    Build a synthetic IR where the FloorOp's own ``outline`` is a
+    deliberately-wrong tiny square (4×4) but the matching Region's
+    outline is the intended 64×64 square. A consumer that reads
+    ``op.outline`` would render a 4-pixel speck; a consumer that
+    prefers ``region_ref`` renders the full 64×64 fill.
+
+    Test calls ``_draw_floor_op_from_ir`` directly so it isolates
+    the consumer-preference logic from the surrounding
+    WallsAndFloorsOp dispatcher.
+    """
+    from nhc.rendering.ir_to_svg import _draw_floor_op_from_ir
+
+    # Wrong (decoy) outline on the op itself
+    bad = OutlineT()
+    bad.descriptorKind = OutlineKind.Polygon
+    bad.closed = True
+    bad.cuts = []
+    bad.rings = []
+    bad.vertices = [_vec2(0, 0), _vec2(4, 0), _vec2(4, 4), _vec2(0, 4)]
+
+    op = FloorOpT()
+    op.outline = bad
+    op.style = FloorStyle.DungeonFloor
+    op.regionRef = "room.bigger"
+
+    entry = OpEntryT()
+    entry.opType = Op.Op.FloorOp
+    entry.op = op
+
+    # Correct outline on the Region — 64x64 square
+    region_outline = OutlineT()
+    region_outline.descriptorKind = OutlineKind.Polygon
+    region_outline.closed = True
+    region_outline.cuts = []
+    region_outline.rings = []
+    region_outline.vertices = [
+        _vec2(0, 0), _vec2(64, 0), _vec2(64, 64), _vec2(0, 64),
+    ]
+
+    region = RegionT()
+    region.id = "room.bigger"
+    region.kind = RegionKind.Room
+    region.shapeTag = "rect"
+    region.polygon = None
+    region.outline = region_outline
+
+    buf = _pack_floor_ir([region], [entry])
+    fir = FloorIR.GetRootAs(buf, 0)
+    fb_entry = fir.Ops(0)
+    frags = _draw_floor_op_from_ir(fb_entry, fir)
+    assert len(frags) == 1
+    points_str = frags[0]
+
+    # Parse vertex coords from the rendered <polygon points="…"/>
+    import re
+    m = re.search(r'<polygon points="([^"]+)"', points_str)
+    assert m, f"expected <polygon> output; got: {points_str!r}"
+    coords: list[tuple[float, float]] = []
+    for pair in m.group(1).split():
+        x_s, _, y_s = pair.partition(",")
+        coords.append((float(x_s), float(y_s)))
+    xs = [c[0] for c in coords]
+    ys = [c[1] for c in coords]
+    width = max(xs) - min(xs)
+    height = max(ys) - min(ys)
+    assert (width, height) == (64.0, 64.0), (
+        f"expected the consumer to read the 64×64 region outline; "
+        f"got bbox {width}×{height}. The FloorOp's own outline (4×4 "
+        "decoy) must not have been used."
+    )
+
+
+# ── Fixture coverage: rect / smooth / cave / corridor ──────────
+
+
+def test_rect_room_floor_ops_carry_region_ref_pointing_at_room() -> None:
+    """seed42 (rect dungeon): every rect-room FloorOp has region_ref → Region."""
+    fir = _build_emitted("seed42_rect_dungeon_dungeon")
+    region_ids = _region_ids(fir)
+    room_region_ids = {
+        _decode_id(r.id) for r in fir.regions
+        if r.kind == RegionKind.Room
+    }
+    refs = {
+        _decode_id(op.regionRef) for op in _floor_ops(fir)
+        if _decode_id(op.regionRef)
+    }
+    # Every room region's id must appear as a FloorOp.region_ref
+    # (the rooms emit one FloorOp each whose region_ref points at
+    # the Room region).
+    missing = room_region_ids - refs
+    assert not missing, (
+        f"some Room regions have no FloorOp ref: {sorted(missing)}"
+    )
+    # And every non-empty ref must resolve to a known region.
+    unresolved = refs - region_ids
+    assert not unresolved, (
+        f"FloorOp.region_ref values do not resolve to a Region: "
+        f"{sorted(unresolved)}"
+    )
+
+
+def test_smooth_room_floor_ops_carry_region_ref_pointing_at_room() -> None:
+    """seed7 (octagon mix): smooth-room FloorOps ref the matching Room region."""
+    fir = _build_emitted("seed7_octagon_crypt_dungeon")
+    room_region_ids = {
+        _decode_id(r.id) for r in fir.regions
+        if r.kind == RegionKind.Room
+    }
+    refs = {
+        _decode_id(op.regionRef) for op in _floor_ops(fir)
+        if _decode_id(op.regionRef)
+    }
+    missing = room_region_ids - refs
+    assert not missing, (
+        f"some smooth-room Region ids have no FloorOp ref: "
+        f"{sorted(missing)}"
+    )
+
+
+def test_cave_floor_op_region_ref_deferred() -> None:
+    """seed99_cave: cave FloorOps leave region_ref empty (1.23a defers).
+
+    The cave Region's outline (multi-ring,
+    ``_shapely_to_polygon(ctx.cave_wall_poly)``) carries different
+    geometry from the cave FloorOp's outline (single-ring,
+    ``_cave_raw_exterior_coords(tile_group)`` for the buffer +
+    jitter + smooth pipeline). 1.23a routes cave FloorOps through
+    the op-outline fallback; the v4e multi-ring cave region
+    resolution lands at 1.24+. This test pins the deferred
+    coverage so the contract is explicit.
+    """
+    fir = _build_emitted("seed99_cave_cave_cave")
+    cave_floor_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.CaveFloor
+    ]
+    assert cave_floor_ops, "seed99_cave has no CaveFloor FloorOp"
+    refs = {_decode_id(op.regionRef) for op in cave_floor_ops}
+    assert refs == {""}, (
+        f"cave FloorOps must leave region_ref empty at 1.23a "
+        f"(falls back to op.outline); got region_refs={sorted(refs)}. "
+        "If a later phase populates these, update this test to "
+        "match the new contract."
+    )
+
+
+def test_corridor_floor_ops_have_empty_region_ref() -> None:
+    """Per-tile corridor FloorOps don't claim a Region (no per-tile Region exists).
+
+    The plan keeps the per-tile corridor emission simple: each
+    corridor tile is its own FloorOp with a 4-vertex bbox outline.
+    There is no per-tile Region (and adding one would balloon
+    region_count by a couple of orders of magnitude). Consumers
+    therefore fall back to the op's own outline for corridor
+    FloorOps. This test pins that contract: no corridor FloorOp
+    carries a non-empty region_ref.
+    """
+    fir = _build_emitted("seed42_rect_dungeon_dungeon")
+    room_region_ids = {
+        _decode_id(r.id) for r in fir.regions
+        if r.kind == RegionKind.Room
+    }
+    # Heuristic: a FloorOp whose outline has exactly 4 vertices and
+    # whose bbox is 32×32 (one-tile rect) is a corridor tile.
+    corridor_count = 0
+    for op in _floor_ops(fir):
+        if op.style != FloorStyle.DungeonFloor:
+            continue
+        if op.outline is None or not op.outline.vertices:
+            continue
+        if len(op.outline.vertices) != 4:
+            continue
+        xs = [v.x for v in op.outline.vertices]
+        ys = [v.y for v in op.outline.vertices]
+        w = max(xs) - min(xs)
+        h = max(ys) - min(ys)
+        if (w, h) != (32.0, 32.0):
+            continue
+        # Single-tile rect: corridor tile (rect rooms are bigger).
+        ref = _decode_id(op.regionRef)
+        # Note: a 1x1 ROOM whose bbox is exactly 32×32 is rare in the
+        # standard dungeon BSP; allow region_ref to point at a room
+        # if and only if it resolves to a Room region.
+        if ref and ref in room_region_ids:
+            continue
+        corridor_count += 1
+        assert ref == "", (
+            f"corridor FloorOp at "
+            f"({xs[0]:.0f},{ys[0]:.0f}) must have empty region_ref; "
+            f"got {ref!r}"
+        )
+    assert corridor_count > 0, (
+        "test heuristic found no corridor FloorOps in seed42; the "
+        "fixture should carry many."
+    )
+
+
+def test_building_wood_floor_op_region_ref_resolves() -> None:
+    """seed7_brick_building (post-regen): WoodFloor FloorOps that carry
+    a non-empty region_ref resolve to a Building Region.
+
+    When ``ctx.building_polygon`` is None (the current path for the
+    IR-emitter pipeline) the wood-floor emits per-tile FloorOps;
+    those leave ``region_ref`` empty (no per-tile Region exists).
+    When the polygon is known a single polygon FloorOp could carry
+    ``region_ref = "building.<i>"``. Either way, any non-empty ref
+    must resolve to a Building Region — the contract is "ref or
+    empty, never dangling".
+
+    Reads the committed ``floor.nir`` from disk so this test stays
+    green pre-regen (current bytes have no region_ref → all empty
+    → all pass) AND post-regen (refs populate → resolve check
+    bites). Pure positive assertion; no failure on empty refs.
+    """
+    p = _FIXTURE_ROOT / "seed7_brick_building_floor0" / "floor.nir"
+    if not p.exists():
+        pytest.skip("seed7_brick_building_floor0 fixture missing")
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
+    wood_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.WoodFloor
+    ]
+    assert wood_ops, "seed7_brick_building has no WoodFloor FloorOp"
+    building_region_ids = {
+        _decode_id(r.id) for r in fir.regions
+        if r.kind == RegionKind.Building
+    }
+    for op in wood_ops:
+        ref = _decode_id(op.regionRef)
+        if not ref:
+            continue
+        assert ref in building_region_ids, (
+            f"WoodFloor FloorOp region_ref {ref!r} does not resolve "
+            f"to a Building Region "
+            f"(known: {sorted(building_region_ids)})."
+        )

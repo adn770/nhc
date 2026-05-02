@@ -833,6 +833,17 @@ table BuildingInteriorWallOp {
 table FloorOp {
   outline: Outline;       // closed; cuts ignored / always empty
   style: FloorStyle;
+  // Phase 1.23a — region-keyed dispatch. When non-empty, the
+  // consumer resolves the floor geometry through Region.outline
+  // (shipped at 1.22) by id lookup, ignoring this op's ``outline``
+  // for geometry purposes (style still drives fill colour).
+  // Empty ``region_ref`` falls back to ``outline`` — used for
+  // per-tile corridor FloorOps that have no per-tile Region, and
+  // for 3.x cached buffers that pre-date this field. The 4.0 cut
+  // at Phase 1.27 retires ``outline`` and makes ``region_ref`` the
+  // sole source of geometry; until then both fields populate in
+  // parallel. See design/map_ir_v4e.md §3 / §5.
+  region_ref: string;
 }
 
 table InteriorWallOp {

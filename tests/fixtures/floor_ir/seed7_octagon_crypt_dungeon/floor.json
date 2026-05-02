@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 3,
-  "minor": 2,
+  "minor": 3,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -10209,7 +10209,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_1"
       }
     },
     {
@@ -10270,7 +10271,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_2"
       }
     },
     {
@@ -10311,7 +10313,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_3"
       }
     },
     {
@@ -10372,7 +10375,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_4"
       }
     },
     {
@@ -10413,7 +10417,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_5"
       }
     },
     {
@@ -10474,7 +10479,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_6"
       }
     },
     {
@@ -10515,7 +10521,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_7"
       }
     },
     {
@@ -10556,7 +10563,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_8"
       }
     },
     {
@@ -10617,7 +10625,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_9"
       }
     },
     {
@@ -10678,7 +10687,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_10"
       }
     },
     {
@@ -10719,7 +10729,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_11"
       }
     },
     {
@@ -10760,7 +10771,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_12"
       }
     },
     {
@@ -10801,7 +10813,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_13"
       }
     },
     {
@@ -10862,7 +10875,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_14"
       }
     },
     {
@@ -10923,7 +10937,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_15"
       }
     },
     {
@@ -10964,7 +10979,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_16"
       }
     },
     {
@@ -11005,7 +11021,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "room_17"
       }
     },
     {
@@ -11046,7 +11063,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": "vault_1"
       }
     },
     {
@@ -11087,7 +11105,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11128,7 +11147,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11169,7 +11189,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11210,7 +11231,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11251,7 +11273,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11292,7 +11315,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11333,7 +11357,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11374,7 +11399,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11415,7 +11441,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11456,7 +11483,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11497,7 +11525,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11538,7 +11567,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11579,7 +11609,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11620,7 +11651,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11661,7 +11693,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11702,7 +11735,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11743,7 +11777,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11784,7 +11819,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11825,7 +11861,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11866,7 +11903,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11907,7 +11945,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11948,7 +11987,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -11989,7 +12029,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12030,7 +12071,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12071,7 +12113,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12112,7 +12155,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12153,7 +12197,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12194,7 +12239,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12235,7 +12281,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12276,7 +12323,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12317,7 +12365,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12358,7 +12407,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12399,7 +12449,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12440,7 +12491,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12481,7 +12533,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12522,7 +12575,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12563,7 +12617,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12604,7 +12659,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12645,7 +12701,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12686,7 +12743,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12727,7 +12785,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12768,7 +12827,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12809,7 +12869,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12850,7 +12911,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12891,7 +12953,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12932,7 +12995,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -12973,7 +13037,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13014,7 +13079,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13055,7 +13121,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13096,7 +13163,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13137,7 +13205,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13178,7 +13247,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13219,7 +13289,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13260,7 +13331,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13301,7 +13373,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13342,7 +13415,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13383,7 +13457,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13424,7 +13499,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13465,7 +13541,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13506,7 +13583,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13547,7 +13625,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13588,7 +13667,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13629,7 +13709,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13670,7 +13751,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13711,7 +13793,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13752,7 +13835,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13793,7 +13877,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13834,7 +13919,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13875,7 +13961,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13916,7 +14003,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13957,7 +14045,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -13998,7 +14087,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14039,7 +14129,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14080,7 +14171,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14121,7 +14213,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14162,7 +14255,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14203,7 +14297,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14244,7 +14339,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14285,7 +14381,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14326,7 +14423,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14367,7 +14465,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14408,7 +14507,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14449,7 +14549,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14490,7 +14591,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14531,7 +14633,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14572,7 +14675,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14613,7 +14717,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14654,7 +14759,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14695,7 +14801,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14736,7 +14843,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14777,7 +14885,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14818,7 +14927,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14859,7 +14969,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14900,7 +15011,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14941,7 +15053,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -14982,7 +15095,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15023,7 +15137,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15064,7 +15179,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15105,7 +15221,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15146,7 +15263,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15187,7 +15305,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15228,7 +15347,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15269,7 +15389,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15310,7 +15431,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15351,7 +15473,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15392,7 +15515,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15433,7 +15557,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15474,7 +15599,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15515,7 +15641,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15556,7 +15683,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15597,7 +15725,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15638,7 +15767,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15679,7 +15809,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15720,7 +15851,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15761,7 +15893,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15802,7 +15935,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15843,7 +15977,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15884,7 +16019,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15925,7 +16061,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -15966,7 +16103,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16007,7 +16145,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16048,7 +16187,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16089,7 +16229,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16130,7 +16271,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16171,7 +16313,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16212,7 +16355,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16253,7 +16397,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16294,7 +16439,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16335,7 +16481,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16376,7 +16523,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16417,7 +16565,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16458,7 +16607,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16499,7 +16649,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16540,7 +16691,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16581,7 +16733,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16622,7 +16775,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16663,7 +16817,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16704,7 +16859,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16745,7 +16901,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16786,7 +16943,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16827,7 +16985,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16868,7 +17027,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16909,7 +17069,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16950,7 +17111,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -16991,7 +17153,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17032,7 +17195,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17073,7 +17237,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17114,7 +17279,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17155,7 +17321,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17196,7 +17363,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17237,7 +17405,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17278,7 +17447,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17319,7 +17489,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17360,7 +17531,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17401,7 +17573,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17442,7 +17615,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17483,7 +17657,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17524,7 +17699,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17565,7 +17741,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17606,7 +17783,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17647,7 +17825,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17688,7 +17867,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17729,7 +17909,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17770,7 +17951,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17811,7 +17993,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17852,7 +18035,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17893,7 +18077,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17934,7 +18119,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -17975,7 +18161,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18016,7 +18203,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18057,7 +18245,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18098,7 +18287,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18139,7 +18329,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18180,7 +18371,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18221,7 +18413,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18262,7 +18455,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18303,7 +18497,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18344,7 +18539,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18385,7 +18581,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18426,7 +18623,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18467,7 +18665,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18508,7 +18707,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18549,7 +18749,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18590,7 +18791,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18631,7 +18833,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18672,7 +18875,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18713,7 +18917,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18754,7 +18959,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18795,7 +19001,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18836,7 +19043,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18877,7 +19085,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18918,7 +19127,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -18959,7 +19169,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19000,7 +19211,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19041,7 +19253,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19082,7 +19295,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19123,7 +19337,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19164,7 +19379,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19205,7 +19421,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19246,7 +19463,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19287,7 +19505,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19328,7 +19547,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19369,7 +19589,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19410,7 +19631,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19451,7 +19673,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19492,7 +19715,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19533,7 +19757,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19574,7 +19799,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19615,7 +19841,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19656,7 +19883,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19697,7 +19925,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19738,7 +19967,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19779,7 +20009,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19820,7 +20051,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19861,7 +20093,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19902,7 +20135,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19943,7 +20177,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -19984,7 +20219,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20025,7 +20261,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20066,7 +20303,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20107,7 +20345,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20148,7 +20387,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20189,7 +20429,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20230,7 +20471,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20271,7 +20513,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20312,7 +20555,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20353,7 +20597,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {
@@ -20394,7 +20639,8 @@
           "ry": 0.0,
           "rings": null
         },
-        "style": 0
+        "style": 0,
+        "regionRef": null
       }
     },
     {

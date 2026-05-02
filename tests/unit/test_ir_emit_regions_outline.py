@@ -93,15 +93,19 @@ def _pack_floor_ir_with_region(region: RegionT) -> bytes:
 # ── Schema bump ────────────────────────────────────────────────
 
 
-def test_schema_minor_is_2(emitted) -> None:
-    """1.22: SCHEMA_MINOR bumps from 1 to 2 for the Region.outline addition."""
+def test_schema_minor_at_least_2(emitted) -> None:
+    """1.22: SCHEMA_MINOR is at least 2 (Region.outline added at 1.22).
+
+    Subsequent v4e sub-phases (1.23 → 1.25) bump the minor further
+    additively, so this lower-bound check stays green across the
+    migration. The exact current minor is locked by the skeleton
+    sentinel ``test_ir_emitter_skeleton::test_schema_major_is_three``.
+    """
     _, _, fir = emitted
     assert fir.major == 3
-    assert fir.minor == 2, (
-        f"expected schema minor 2 (Phase 1.22), got {fir.minor}; "
-        "the v4e migration's first sub-phase bumps SCHEMA_MINOR "
-        "to mark the Region.outline addition. file_identifier "
-        "stays NIR3 — the atomic NIR3 → NIR4 cut happens at 1.27."
+    assert fir.minor >= 2, (
+        f"expected schema minor ≥ 2 (Phase 1.22 bumped to 2), got "
+        f"{fir.minor}; Region.outline is required from 1.22 onward."
     )
 
 

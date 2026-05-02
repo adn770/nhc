@@ -9219,6 +9219,7 @@ impl<'a> ::flatbuffers::Follow<'a> for FloorOp<'a> {
 impl<'a> FloorOp<'a> {
   pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9230,6 +9231,7 @@ impl<'a> FloorOp<'a> {
     args: &'args FloorOpArgs<'args>
   ) -> ::flatbuffers::WIPOffset<FloorOp<'bldr>> {
     let mut builder = FloorOpBuilder::new(_fbb);
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.outline { builder.add_outline(x); }
     builder.add_style(args.style);
     builder.finish()
@@ -9250,6 +9252,13 @@ impl<'a> FloorOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<FloorStyle>(FloorOp::VT_STYLE, Some(FloorStyle::DungeonFloor)).unwrap()}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(FloorOp::VT_REGION_REF, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for FloorOp<'_> {
@@ -9260,6 +9269,7 @@ impl ::flatbuffers::Verifiable for FloorOp<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
      .visit_field::<FloorStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
      .finish();
     Ok(())
   }
@@ -9267,6 +9277,7 @@ impl ::flatbuffers::Verifiable for FloorOp<'_> {
 pub struct FloorOpArgs<'a> {
     pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
     pub style: FloorStyle,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
 }
 impl<'a> Default for FloorOpArgs<'a> {
   #[inline]
@@ -9274,6 +9285,7 @@ impl<'a> Default for FloorOpArgs<'a> {
     FloorOpArgs {
       outline: None,
       style: FloorStyle::DungeonFloor,
+      region_ref: None,
     }
   }
 }
@@ -9290,6 +9302,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> FloorOpBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_style(&mut self, style: FloorStyle) {
     self.fbb_.push_slot::<FloorStyle>(FloorOp::VT_STYLE, style, FloorStyle::DungeonFloor);
+  }
+  #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(FloorOp::VT_REGION_REF, region_ref);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> FloorOpBuilder<'a, 'b, A> {
@@ -9311,6 +9327,7 @@ impl ::core::fmt::Debug for FloorOp<'_> {
     let mut ds = f.debug_struct("FloorOp");
       ds.field("outline", &self.outline());
       ds.field("style", &self.style());
+      ds.field("region_ref", &self.region_ref());
       ds.finish()
   }
 }

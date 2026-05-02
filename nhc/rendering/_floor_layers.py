@@ -611,6 +611,16 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             floor_op = FloorOpT()
             floor_op.outline = outline_from_cave(coords)
             floor_op.style = FloorStyle.FloorStyle.CaveFloor
+            # Phase 1.23a — region_ref deliberately left empty for
+            # cave FloorOps. The cave Region's outline (built from
+            # ``_shapely_to_polygon(ctx.cave_wall_poly)``) is a
+            # multi-ring polygon, while the FloorOp's own outline
+            # is the single-ring raw boundary used by the cave
+            # geometry pipeline (buffer + jitter + smooth). Falling
+            # back to op.outline keeps the fill byte-identical to
+            # the legacy path. The v4e contract for multi-ring
+            # cave region resolution lands later (1.24+); 1.23a
+            # leaves room FloorOps as the primary region_ref user.
             floor_entry = OpEntryT()
             floor_entry.opType = Op.Op.FloorOp
             floor_entry.op = floor_op
@@ -664,6 +674,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         floor_op = FloorOpT()
         floor_op.outline = outline_obj
         floor_op.style = FloorStyle.FloorStyle.DungeonFloor
+        # Phase 1.23a — room FloorOps key off the matching Room
+        # Region by id. emit_regions registers a Region for shapes
+        # ``_room_region_data`` covers (rect / octagon / cave); for
+        # other shapes the ref still ships but the consumer falls
+        # back to the op's outline when the region lookup misses.
+        # The 4.0 cut at 1.27 retires the outline fallback.
+        floor_op.regionRef = room.id
         floor_entry = OpEntryT()
         floor_entry.opType = Op.Op.FloorOp
         floor_entry.op = floor_op

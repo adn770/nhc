@@ -110,6 +110,14 @@ pub(super) fn has_cave_floor_op(fir: &FloorIR<'_>) -> bool {
 
 /// `OpHandler` dispatch entry — registered against `Op::FloorOp`
 /// in `super::op_handlers`.
+///
+/// Phase 1.23a — region-keyed dispatch: when ``op.region_ref`` is
+/// non-empty AND resolves to a Region with a populated outline,
+/// the geometry comes from ``region.outline()`` instead of
+/// ``op.outline()``. The op's own outline survives as the fallback
+/// for per-tile corridor FloorOps (no per-tile Region) and for 3.x
+/// cached buffers that pre-date the field. Mirrors the Python
+/// consumer in ``ir_to_svg.py::_draw_floor_op_from_ir``.
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
@@ -119,7 +127,16 @@ pub(super) fn draw(
         Some(o) => o,
         None => return,
     };
-    let outline = match op.outline() {
+    // Resolve geometry: prefer the Region's outline when region_ref
+    // is non-empty AND points to a known Region; otherwise fall back
+    // to the op's own outline.
+    let region_outline = match op.region_ref() {
+        Some(rr) if !rr.is_empty() => {
+            find_region(fir, rr).and_then(|r| r.outline())
+        }
+        _ => None,
+    };
+    let outline = match region_outline.or_else(|| op.outline()) {
         Some(o) => o,
         None => return,
     };
@@ -136,6 +153,28 @@ pub(super) fn draw(
         }
         _ => {}
     }
+}
+
+/// Linear scan of `fir.regions()` for the Region with id matching
+/// `region_ref`. Mirrors `_find_region` in `ir_to_svg.py`. Cheap
+/// for the starter fixtures (~20 regions × ~20 room ops per parity
+/// test); revisit with a regions-by-id map if a fixture grows past
+/// a couple hundred regions and the lookup shows up in profiling.
+fn find_region<'a>(
+    fir: &FloorIR<'a>,
+    needle: &str,
+) -> Option<crate::ir::Region<'a>> {
+    if needle.is_empty() {
+        return None;
+    }
+    let regions = fir.regions()?;
+    for i in 0..regions.len() {
+        let r = regions.get(i);
+        if r.id() == needle {
+            return Some(r);
+        }
+    }
+    None
 }
 
 /// Polygon outline — walk `outline.vertices`, build a filled path.
@@ -392,6 +431,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(outline),
                 style,
+                region_ref: None,
             },
         );
         let op_entry = OpEntry::create(
@@ -448,6 +488,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(outline),
                 style,
+                region_ref: None,
             },
         );
         let op_entry = OpEntry::create(
@@ -505,6 +546,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(outline),
                 style,
+                region_ref: None,
             },
         );
         let op_entry = OpEntry::create(
@@ -571,6 +613,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(outline),
                 style: FloorStyle::DungeonFloor,
+                region_ref: None,
             },
         );
         let op_entry = OpEntry::create(
@@ -640,6 +683,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(cave_outline),
                 style: FloorStyle::CaveFloor,
+                region_ref: None,
             },
         );
         let cave_floor_entry = OpEntry::create(

@@ -392,6 +392,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(floor_outline),
                 style: FloorStyle::DungeonFloor,
+                region_ref: None,
             },
         );
         let floor_entry = OpEntry::create(
@@ -601,6 +602,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(floor_outline_a),
                 style: FloorStyle::DungeonFloor,
+                region_ref: None,
             },
         );
         let floor_entry_a = OpEntry::create(
@@ -633,6 +635,7 @@ mod tests {
             &FloorOpArgs {
                 outline: Some(floor_outline_b),
                 style: FloorStyle::DungeonFloor,
+                region_ref: None,
             },
         );
         let floor_entry_b = OpEntry::create(

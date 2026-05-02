@@ -36,8 +36,15 @@ style():FloorStyle {
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : FloorStyle.DungeonFloor;
 }
 
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
 static startFloorOp(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(3);
 }
 
 static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
@@ -48,15 +55,20 @@ static addStyle(builder:flatbuffers.Builder, style:FloorStyle) {
   builder.addFieldInt8(1, style, FloorStyle.DungeonFloor);
 }
 
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, regionRefOffset, 0);
+}
+
 static endFloorOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createFloorOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:FloorStyle):flatbuffers.Offset {
+static createFloorOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:FloorStyle, regionRefOffset:flatbuffers.Offset):flatbuffers.Offset {
   FloorOp.startFloorOp(builder);
   FloorOp.addOutline(builder, outlineOffset);
   FloorOp.addStyle(builder, style);
+  FloorOp.addRegionRef(builder, regionRefOffset);
   return FloorOp.endFloorOp(builder);
 }
 }
