@@ -8,3 +8,4 @@ class RegionKind(object):
     Room = 2
     Building = 3
     Site = 4
+    Enclosure = 5

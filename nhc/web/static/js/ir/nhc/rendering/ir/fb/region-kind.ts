@@ -7,5 +7,6 @@ export enum RegionKind {
   Cave = 1,
   Room = 2,
   Building = 3,
-  Site = 4
+  Site = 4,
+  Enclosure = 5
 }

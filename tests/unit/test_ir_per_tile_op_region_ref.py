@@ -59,15 +59,21 @@ def _build_emitted(descriptor: str) -> FloorIRT:
 
 
 @pytest.mark.parametrize("descriptor", all_descriptors())
-def test_schema_minor_is_5(descriptor: str) -> None:
-    """1.25: SCHEMA_MINOR bumps to 5 for per-tile op region_ref."""
+def test_schema_minor_at_least_5(descriptor: str) -> None:
+    """1.25: SCHEMA_MINOR ≥ 5 (per-tile op region_ref at 1.25).
+
+    Subsequent v4e sub-phases bump the minor further additively
+    so this lower-bound check stays green across the migration.
+    The exact current minor is locked by the skeleton sentinel.
+    """
     fir = _build_emitted(descriptor)
     assert fir.major == 3
-    assert fir.minor == 5, (
-        f"expected schema minor 5 (Phase 1.25), got {fir.minor}; "
-        "this sub-phase adds region_ref to TerrainTintOp / "
-        "FloorGridOp / FloorDetailOp / ThematicDetailOp / "
-        "TerrainDetailOp / DecoratorOp parallel to clip_region."
+    assert fir.minor >= 5, (
+        f"expected schema minor ≥ 5 (Phase 1.25 bumped to 5), got "
+        f"{fir.minor}; this sub-phase adds region_ref to "
+        "TerrainTintOp / FloorGridOp / FloorDetailOp / "
+        "ThematicDetailOp / TerrainDetailOp / DecoratorOp parallel "
+        "to clip_region."
     )
 
 

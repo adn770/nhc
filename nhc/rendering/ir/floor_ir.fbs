@@ -140,6 +140,14 @@ enum RegionKind: byte {
   Room = 2,
   Building = 3,
   Site = 4,
+  // Phase 1.26c — site enclosure rings (palisade / fortification).
+  // Emitted by ``emit_site_overlays`` so the corresponding
+  // ExteriorWallOp (WallStyle.Palisade / FortificationMerlon) can
+  // resolve geometry through ``region_ref = "enclosure"`` instead
+  // of ``op.outline``. Closes the deferred enclosure region_ref
+  // gap from 1.24. See plan §"Deferred coverage gaps before 1.26"
+  // and §1.26c.
+  Enclosure = 5,
 }
 
 enum ShadowKind: byte {

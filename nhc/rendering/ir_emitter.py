@@ -75,7 +75,7 @@ from nhc.rendering.ir._fb.WallStyle import WallStyle
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 3
-SCHEMA_MINOR = 5
+SCHEMA_MINOR = 6
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
@@ -630,10 +630,13 @@ def emit_site_enclosure(
         # reading the paired EnclosureOp (which Phase 1.20 stops
         # emitting). The salt + mask match the legacy emission above.
         wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
-        # Phase 1.24 — site enclosures have no Region today (no
-        # ``_emit_regions_ir`` registers an "enclosure" id); leave
-        # ``region_ref`` empty so the consumer falls back to
-        # ``op.outline``. Op-level cuts mirror outline.cuts.
+        # Phase 1.26c — site enclosures now have a
+        # Region(kind=Enclosure, id="enclosure") emitted upstream by
+        # ``emit_site_overlays``; reference it so the consumer can
+        # resolve geometry through ``Region.outline`` rather than the
+        # legacy ``op.outline`` path. Closes the deferred gap from
+        # 1.24. Op-level cuts mirror outline.cuts.
+        wall_op.regionRef = "enclosure"
         wall_op.cuts = list(wall_op.outline.cuts)
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
@@ -1209,6 +1212,21 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
         gates_param.append(
             (best_idx, best_t, float(length_tiles) * CELL / 2.0),
         )
+    # Phase 1.26c — register a Region(kind=Enclosure, id="enclosure")
+    # before the enclosure ExteriorWallOp emits so the new op can
+    # reference it. The polygon coordinates match the wall op's
+    # outline (bare tile-pixel coords, no PADDING — the renderer's
+    # outer translate adds PADDING once at paint time).
+    enclosure_coords_px = [
+        (float(x * CELL), float(y * CELL))
+        for (x, y) in enclosure.polygon
+    ]
+    builder.add_region(
+        id="enclosure",
+        kind=RegionKind.RegionKind.Enclosure,
+        polygon=_coords_to_polygon(enclosure_coords_px),
+        shape_tag="enclosure",
+    )
     emit_site_enclosure(
         builder,
         polygon_tiles=[

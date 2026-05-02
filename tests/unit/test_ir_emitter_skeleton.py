@@ -53,14 +53,15 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
 def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
     assert fir.major == 3
-    # Schema 3.5 (Phase 1.25 of plans/nhc_pure_ir_plan.md) added
-    # region_ref to TerrainTintOp / FloorGridOp / FloorDetailOp /
-    # ThematicDetailOp / TerrainDetailOp / DecoratorOp parallel to
-    # their existing clip_region. The 1.26 emitter-only cleanup
-    # then drops legacy clip_region / Region.polygon /
-    # FloorOp.outline / ExteriorWallOp.outline / Outline.cuts; the
-    # single atomic NIR3 → NIR4 cut at 1.27 finally bumps the major.
-    assert fir.minor == 5
+    # Schema 3.6 (Phase 1.26c of plans/nhc_pure_ir_plan.md) added
+    # ``RegionKind.Enclosure = 5`` so site enclosure walls
+    # (Palisade / FortificationMerlon) can resolve geometry through
+    # ``regionRef = "enclosure"`` instead of the legacy
+    # ``op.outline``. The 1.26 emitter-only cleanup then drops
+    # legacy clip_region / Region.polygon / FloorOp.outline /
+    # ExteriorWallOp.outline / Outline.cuts; the single atomic
+    # NIR3 → NIR4 cut at 1.27 finally bumps the major.
+    assert fir.minor == 6
 
 
 def test_metadata_matches_inputs(emitted) -> None:

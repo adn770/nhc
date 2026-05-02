@@ -435,6 +435,55 @@ def test_cave_exterior_wall_region_ref_deferred() -> None:
     )
 
 
+def test_enclosure_exterior_wall_carries_enclosure_region_ref() -> None:
+    """Phase 1.26c: enclosure walls ref a Region(kind=Enclosure, id="enclosure").
+
+    Reads the committed ``synthetic_enclosure_palisade_rect`` floor.nir
+    fixture from disk. Asserts that:
+
+    - the IR carries a ``Region(kind=Enclosure, id="enclosure")``;
+    - every ``ExteriorWallOp`` with ``style`` in ``{Palisade,
+      FortificationMerlon}`` carries ``regionRef = "enclosure"``.
+
+    Closes the deferred enclosure region_ref gap from 1.24 (where
+    site enclosures had no Region and so left ``regionRef`` empty).
+    """
+    p = _FIXTURE_ROOT / "synthetic_enclosure_palisade_rect" / "floor.nir"
+    if not p.exists():
+        pytest.skip("synthetic_enclosure_palisade_rect fixture missing")
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
+
+    enclosure_regions = [
+        r for r in (fir.regions or [])
+        if r.kind == RegionKind.Enclosure
+    ]
+    assert len(enclosure_regions) == 1, (
+        f"expected exactly one Region(kind=Enclosure); got "
+        f"{len(enclosure_regions)}"
+    )
+    assert _decode_id(enclosure_regions[0].id) == "enclosure", (
+        f"expected Enclosure region id == 'enclosure'; got "
+        f"{_decode_id(enclosure_regions[0].id)!r}"
+    )
+
+    enclosure_walls = [
+        op for op in _exterior_walls(fir)
+        if op.style in (
+            WallStyle.Palisade, WallStyle.FortificationMerlon,
+        )
+    ]
+    assert enclosure_walls, (
+        "synthetic_enclosure_palisade_rect has no Palisade / "
+        "FortificationMerlon ExteriorWallOp"
+    )
+    for op in enclosure_walls:
+        ref = _decode_id(op.regionRef)
+        assert ref == "enclosure", (
+            f"Palisade / FortificationMerlon ExteriorWallOp must "
+            f"carry regionRef='enclosure' at 1.26c; got {ref!r}"
+        )
+
+
 def test_op_cuts_mirror_outline_cuts_in_fixtures() -> None:
     """Parallel emission invariant — every wall op's op.cuts ≡ outline.cuts.
 
