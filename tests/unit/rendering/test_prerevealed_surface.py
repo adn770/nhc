@@ -58,26 +58,33 @@ class TestHatchingSuppressedOnPrerevealed:
     string nothing ever set — so towns shipped with hatching."""
 
     def test_prerevealed_level_has_no_hatch_clip(self) -> None:
+        from nhc.rendering._svg_helpers import HATCH_UNDERLAY
+
         site = assemble_site("town", "tnh", random.Random(11))
         svg = render_floor_svg(site.surface, seed=11)
-        # The hatching passes register a clipPath with id
-        # "hatch-clip" and emit elements using that clip. A
-        # prerevealed level must not include either.
-        assert 'id="hatch-clip"' not in svg
-        assert "clip-path=\"url(#hatch-clip)\"" not in svg
+        # Phase 1.21a dropped the `<g clip-path="url(#hatch-clip)">`
+        # wrapper; the prerevealed-suppression check now uses the
+        # hatch underlay colour as the "is hatching present?" proxy.
+        # A prerevealed level skips the hatching emit entirely so the
+        # underlay must not appear.
+        assert HATCH_UNDERLAY not in svg, (
+            "prerevealed level must not emit any hatching elements"
+        )
 
-    def test_regular_dungeon_still_has_hatch_clip(self) -> None:
-        """Guard: non-prerevealed dungeon levels continue to emit the
-        hatch-clip. If they don't, the new check is too broad."""
+    def test_regular_dungeon_still_emits_hatching(self) -> None:
+        """Guard: non-prerevealed dungeon levels continue to emit
+        hatching elements. If they don't, the new check is too broad."""
         from nhc.dungeon.pipeline import generate_level as gen_level
         from nhc.dungeon.generator import GenerationParams
+        from nhc.rendering._svg_helpers import HATCH_UNDERLAY
+
         params = GenerationParams(
             width=30, height=20, depth=1, seed=42,
             shape_variety=0.0, template="procedural:dungeon",
         )
         level = gen_level(params)
         svg = render_floor_svg(level, seed=42)
-        assert 'id="hatch-clip"' in svg, (
+        assert HATCH_UNDERLAY in svg, (
             "non-prerevealed dungeon lost its hatching"
         )
 

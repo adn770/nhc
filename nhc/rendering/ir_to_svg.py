@@ -448,20 +448,21 @@ def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
     filter to the emitter; sub-step 1.d ported the painting
     passes to Rust
     (``crates/nhc-render/src/primitives/hatch.rs::draw_hatch_room``).
-    This handler resolves the dungeon-region polygon for the
-    clipPath envelope, calls into Rust for the three SVG fragment
-    buckets, and wraps the result. The clipPath construction
-    stays Python-side because it depends on the IR's
-    ``op.regionOut`` polygon directly — exposing the FB Polygon
-    walker through PyO3 would buy nothing under the relaxed
-    parity gate. The Hole kind is unreachable at the dispatcher
-    level; this branch only handles Room.
+    This handler calls into Rust for the three SVG fragment
+    buckets and wraps each in its opacity envelope. The Hole kind
+    is unreachable at the dispatcher level; this branch only
+    handles Room.
+
+    Phase 1.21a: the legacy ``<g clip-path="url(#hatch-clip)">``
+    wrapper around the buckets is dropped — the stamp model
+    relies on paint order to cover any tile-bbox bleed at smooth-
+    room corners. ``HatchOp`` paints early in IR_STAGES (before
+    ``emit_walls_and_floors``) so floor / wall ops render OVER
+    the hatch and naturally clip its bleed inside the dungeon
+    polygon.
     """
     import nhc_render
 
-    region = _find_region(fir, op.regionOut)
-    if region is None:
-        return []
     tiles = [(t.x, t.y) for t in op.tiles]
     if not tiles:
         return []
@@ -480,48 +481,13 @@ def _draw_hatch_room(op: Any, fir: FloorIR) -> list[str]:
     if not (tile_fills or hatch_lines or hatch_stones):
         return []
 
-    # Outer rect + dungeon polygon path produces an evenodd clip
-    # that hatches everything outside the dungeon floor — see the
-    # rationale comment in `_render_hatching`. Holes inside cave
-    # walls flip back to "hatch" by re-including the hole rings.
-    width = fir.WidthTiles()
-    height = fir.HeightTiles()
-    map_w = width * CELL
-    map_h = height * CELL
-    margin = CELL * 2
-    clip_d = (
-        f"M{-margin},{-margin} "
-        f"H{map_w + margin} V{map_h + margin} "
-        f"H{-margin} Z "
-    )
-    poly = region.Polygon()
-    for i in range(poly.RingsLength()):
-        ring = poly.Rings(i)
-        start = ring.Start()
-        count = ring.Count()
-        coords = [
-            (poly.Paths(start + j).X(), poly.Paths(start + j).Y())
-            for j in range(count)
-        ]
-        clip_d += f"M{coords[0][0]:.0f},{coords[0][1]:.0f} "
-        clip_d += " ".join(
-            f"L{x:.0f},{y:.0f}" for x, y in coords[1:]
-        )
-        clip_d += " Z "
-
-    out: list[str] = [
-        f'<defs><clipPath id="hatch-clip">'
-        f'<path d="{clip_d}" clip-rule="evenodd"/>'
-        f'</clipPath></defs>',
-        '<g clip-path="url(#hatch-clip)">',
-    ]
+    out: list[str] = []
     if tile_fills:
         out.append(f'<g opacity="0.3">{"".join(tile_fills)}</g>')
     if hatch_lines:
         out.append(f'<g opacity="0.5">{"".join(hatch_lines)}</g>')
     if hatch_stones:
         out.append(f'<g>{"".join(hatch_stones)}</g>')
-    out.append("</g>")
     return out
 
 

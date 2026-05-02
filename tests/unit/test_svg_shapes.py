@@ -702,11 +702,17 @@ class TestBoundaryGridLines:
 class TestLayerOrder:
     """Walls and floor fills render together after hatching."""
 
-    def test_hatching_clipped_to_dungeon_exterior(self):
-        """Hatching is clipped to the dungeon exterior."""
+    def test_hatching_emitted(self):
+        """Hatching elements are present in the SVG.
+
+        Phase 1.21a dropped the explicit ``<g clip-path>`` wrapper;
+        the stamp model relies on paint order (hatch before
+        walls/floors) to bound the hatch to the dungeon exterior
+        instead of an SVG clipPath.
+        """
         level, _ = _make_shaped_level(CircleShape())
         svg = render_floor_svg(level, seed=42)
-        assert "hatch-clip" in svg
+        assert HATCH_UNDERLAY in svg
 
     def test_hatching_before_walls(self):
         """Hatching appears before wall strokes in the SVG."""
@@ -781,11 +787,18 @@ class TestHatchingFloorBoundary:
     everywhere, walls define the boundary, and floor fills cover
     hatching inside rooms.  No clip paths needed."""
 
-    def test_hatching_clipped_to_exterior(self):
-        """Hatching is clipped to dungeon exterior."""
+    def test_hatching_emitted(self):
+        """Hatching elements are present in the SVG.
+
+        Phase 1.21a dropped the explicit ``<g clip-path>`` wrapper.
+        The bound to the dungeon exterior is now an emitter-side
+        guarantee (per-tile candidate filter) plus a paint-order
+        guarantee (floors / walls paint after hatch and cover any
+        tile-bbox bleed at smooth-room corners).
+        """
         level, _ = _make_shaped_level(CircleShape())
         svg = render_floor_svg(level, seed=42)
-        assert "hatch-clip" in svg
+        assert HATCH_UNDERLAY in svg
 
     def test_hatching_exists(self):
         """Hatching is present in the SVG."""

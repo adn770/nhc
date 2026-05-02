@@ -6,24 +6,26 @@
 //! - **Corridor:** delegate to `primitives::hatch::draw_hatch_corridor`
 //!   for the three SVG fragment buckets (tile fills, hatch lines,
 //!   hatch stones), then rasterise each fragment into the pixmap.
-//!   No clip envelope.
-//! - **Room:** same delegate, plus a clip mask built from the
-//!   outer rect + dungeon polygon under `FillRule::EvenOdd` so
-//!   the hatch only paints in the void area outside the dungeon
-//!   (matches the SVG `clip-rule="evenodd"` envelope).
+//! - **Room:** same delegate.
+//!
+//! Phase 1.21a: the room-halo clip mask (outer rect XOR dungeon
+//! polygon under EvenOdd) is dropped. The stamp model relies on
+//! paint order to cover any tile-bbox bleed at smooth-room corners
+//! — `HatchOp` runs before `emit_walls_and_floors` in `IR_STAGES`,
+//! so floor / wall ops paint OVER the hatch and naturally clip
+//! its bleed inside the dungeon polygon.
 //!
 //! Bucket alphas mirror the SVG `<g opacity="...">` wrappers:
 //! `tile_fills` 0.3, `hatch_lines` 0.5, `hatch_stones` 1.0.
 
 use tiny_skia::{
-    Color, FillRule, LineCap, LineJoin, Mask, Paint, PathBuilder,
-    Rect, Stroke, Transform,
+    Color, FillRule, LineCap, LineJoin, Paint, PathBuilder, Rect,
+    Stroke, Transform,
 };
 
-use crate::ir::{FloorIR, HatchKind, HatchOp, OpEntry};
+use crate::ir::{HatchKind, HatchOp, OpEntry, FloorIR};
 use crate::primitives::hatch::{draw_hatch_corridor, draw_hatch_room};
 
-use super::polygon_path::build_polygon_path;
 use super::svg_attr::{extract_attr, extract_f32};
 use super::RasterCtx;
 
@@ -32,7 +34,7 @@ const HATCH_LINES_OPACITY: f32 = 0.5;
 
 pub(super) fn draw(
     entry: &OpEntry<'_>,
-    fir: &FloorIR<'_>,
+    _fir: &FloorIR<'_>,
     ctx: &mut RasterCtx<'_>,
 ) {
     let op = match entry.op_as_hatch_op() {
@@ -41,7 +43,7 @@ pub(super) fn draw(
     };
     match op.kind() {
         HatchKind::Corridor => draw_corridor(&op, ctx),
-        HatchKind::Room => draw_room(&op, fir, ctx),
+        HatchKind::Room => draw_room(&op, ctx),
         _ => {}
     }
 }
@@ -56,24 +58,10 @@ fn draw_corridor(op: &HatchOp<'_>, ctx: &mut RasterCtx<'_>) {
     }
     let (tile_fills, hatch_lines, hatch_stones) =
         draw_hatch_corridor(&tiles, op.seed());
-    paint_buckets(
-        &tile_fills,
-        &hatch_lines,
-        &hatch_stones,
-        None,
-        ctx,
-    );
+    paint_buckets(&tile_fills, &hatch_lines, &hatch_stones, ctx);
 }
 
-fn draw_room(
-    op: &HatchOp<'_>,
-    fir: &FloorIR<'_>,
-    ctx: &mut RasterCtx<'_>,
-) {
-    let region_id = match op.region_out() {
-        Some(r) => r,
-        None => return,
-    };
+fn draw_room(op: &HatchOp<'_>, ctx: &mut RasterCtx<'_>) {
     let tiles: Vec<(i32, i32)> = match op.tiles() {
         Some(t) => t.iter().map(|c| (c.x(), c.y())).collect(),
         None => return,
@@ -93,38 +81,29 @@ fn draw_room(
     {
         return;
     }
-    let mask = build_room_clip_mask(fir, region_id, ctx);
-    paint_buckets(
-        &tile_fills,
-        &hatch_lines,
-        &hatch_stones,
-        mask.as_ref(),
-        ctx,
-    );
+    paint_buckets(&tile_fills, &hatch_lines, &hatch_stones, ctx);
 }
 
 fn paint_buckets(
     tile_fills: &[String],
     hatch_lines: &[String],
     hatch_stones: &[String],
-    mask: Option<&Mask>,
     ctx: &mut RasterCtx<'_>,
 ) {
     for frag in tile_fills {
-        paint_rect(frag, TILE_FILLS_OPACITY, mask, ctx);
+        paint_rect(frag, TILE_FILLS_OPACITY, ctx);
     }
     for frag in hatch_lines {
-        paint_line(frag, HATCH_LINES_OPACITY, mask, ctx);
+        paint_line(frag, HATCH_LINES_OPACITY, ctx);
     }
     for frag in hatch_stones {
-        paint_ellipse(frag, mask, ctx);
+        paint_ellipse(frag, ctx);
     }
 }
 
 fn paint_rect(
     frag: &str,
     opacity: f32,
-    mask: Option<&Mask>,
     ctx: &mut RasterCtx<'_>,
 ) {
     let x = extract_f32(frag, "x").unwrap_or(0.0);
@@ -137,13 +116,12 @@ fn paint_rect(
         None => return,
     };
     let paint = paint_for_fill(fill, opacity);
-    ctx.pixmap.fill_rect(rect, &paint, ctx.transform, mask);
+    ctx.pixmap.fill_rect(rect, &paint, ctx.transform, None);
 }
 
 fn paint_line(
     frag: &str,
     opacity: f32,
-    mask: Option<&Mask>,
     ctx: &mut RasterCtx<'_>,
 ) {
     let x1 = extract_f32(frag, "x1").unwrap_or(0.0);
@@ -167,12 +145,11 @@ fn paint_line(
         ..Stroke::default()
     };
     ctx.pixmap
-        .stroke_path(&path, &paint, &stroke_def, ctx.transform, mask);
+        .stroke_path(&path, &paint, &stroke_def, ctx.transform, None);
 }
 
 fn paint_ellipse(
     frag: &str,
-    mask: Option<&Mask>,
     ctx: &mut RasterCtx<'_>,
 ) {
     let cx = extract_f32(frag, "cx").unwrap_or(0.0);
@@ -202,7 +179,7 @@ fn paint_ellipse(
         &fill_paint,
         FillRule::Winding,
         local_xform,
-        mask,
+        None,
     );
     if stroke != "none" {
         let stroke_paint = paint_for_fill(stroke, 1.0);
@@ -215,7 +192,7 @@ fn paint_ellipse(
             &stroke_paint,
             &stroke_def,
             local_xform,
-            mask,
+            None,
         );
     }
 }
@@ -271,40 +248,6 @@ fn paint_for_fill(hex: &str, opacity: f32) -> Paint<'static> {
     p.set_color(color);
     p.anti_alias = true;
     p
-}
-
-/// Outer-rect XOR dungeon polygon under EvenOdd → mask is white
-/// in the void area outside the dungeon, black inside. Mirrors
-/// the SVG `clipPath` from `_draw_hatch_room`.
-fn build_room_clip_mask(
-    fir: &FloorIR<'_>,
-    region_id: &str,
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
-    let regions = fir.regions()?;
-    let region = regions.iter().find(|r| r.id() == region_id)?;
-    let polygon = region.polygon()?;
-
-    let cell = fir.cell() as f32;
-    let map_w = fir.width_tiles() as f32 * cell;
-    let map_h = fir.height_tiles() as f32 * cell;
-    let margin = cell * 2.0;
-
-    let mut pb = PathBuilder::new();
-    pb.move_to(-margin, -margin);
-    pb.line_to(map_w + margin, -margin);
-    pb.line_to(map_w + margin, map_h + margin);
-    pb.line_to(-margin, map_h + margin);
-    pb.close();
-    if let Some(poly_path) = build_polygon_path(&polygon) {
-        // Append the dungeon rings as additional subpaths so the
-        // EvenOdd fill carves them out of the outer rect.
-        pb.push_path(&poly_path);
-    }
-    let path = pb.finish()?;
-    let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
-    mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
 }
 
 // Suppress dead-code on Transform — used implicitly via ctx.
