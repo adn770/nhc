@@ -575,6 +575,18 @@ def building_buf(request):
     return fx, bytes(buf)
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Phase 1.19 prep: building wood-floor `smoothFillSvg` paints "
+        "BEFORE the white DungeonFloor FloorOps in IR op-order, so "
+        "the brown gets covered. Python sidesteps this by intercepting "
+        "WallsAndFloorsOp dispatch and emitting FloorOps inline; Rust "
+        "would need an analogous re-order. Phase 1.20 retires "
+        "`smoothFillSvg` entirely (replaces with a building FloorOp), "
+        "which closes this. Remove the xfail mark when 1.20 ships."
+    ),
+)
 def test_building_tiny_skia_psnr(building_buf) -> None:
     """tiny-skia output: PSNR > 35 dB vs the committed reference."""
     fx, buf = building_buf

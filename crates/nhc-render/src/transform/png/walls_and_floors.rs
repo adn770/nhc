@@ -98,6 +98,16 @@ pub(super) fn draw(
     // Wall primitives (draw_wall_segments, draw_smooth_wall_fragments,
     // draw_wall_extensions) keep running regardless — wall ops are not
     // yet consumed (Phase 1.18).
+    //
+    // Building wood-floor (`smooth_fill_svg` brown rects) caveat: in IR
+    // op-order it paints here BEFORE the white DungeonFloor FloorOps
+    // dispatched at the next op slot, so the brown gets covered. Python
+    // sidesteps this by intercepting the WallsAndFloorsOp dispatch and
+    // emitting FloorOps inline so the legacy fields paint last (per
+    // `_draw_walls_and_floors_from_ir`). Rust would need an analogous
+    // re-order to match. Phase 1.20 retires `smoothFillSvg` entirely
+    // (replaces with a building FloorOp), so leaving this as-is until
+    // 1.20 lands. Building parity drift is xfailed in the meantime.
     let floor_ops_present = has_floor_ops(fir);
     let cave_floor_present = floor_ops_present && has_cave_floor_op(fir);
     // Phase 1.18: gate legacy wall passes when wall ops are consumed.
