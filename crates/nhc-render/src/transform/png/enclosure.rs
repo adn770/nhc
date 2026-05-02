@@ -369,10 +369,33 @@ pub(super) fn draw(
         return;
     }
 
-    // Group gates by edge and merge into per-edge cut spans.
+    // Group gates by edge into per-edge (lo, hi) cut spans + midpoints.
+    let (by_edge, midpoints) = gate_spans_per_edge(&polygon, op.gates());
+
+    render_enclosure_polygon(
+        &polygon,
+        &by_edge,
+        &midpoints,
+        op.style(),
+        op.corner_style().0,
+        op.rng_seed(),
+        ctx,
+    );
+}
+
+
+/// Convert a flat gate list into per-edge (lo, hi) span buckets +
+/// per-edge t_center midpoint buckets. Phase 1.20 splits this out so
+/// the new `ExteriorWallOp` Palisade / FortificationMerlon dispatch
+/// can call `render_enclosure_polygon` with already-grouped data.
+pub(super) fn gate_spans_per_edge(
+    polygon: &[(f32, f32)],
+    gates: Option<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<crate::ir::Gate<'_>>>>,
+) -> (Vec<Vec<(f32, f32)>>, Vec<Vec<f32>>) {
+    let n = polygon.len();
     let mut by_edge: Vec<Vec<(f32, f32)>> = vec![Vec::new(); n];
     let mut midpoints: Vec<Vec<f32>> = vec![Vec::new(); n];
-    if let Some(gates) = op.gates() {
+    if let Some(gates) = gates {
         for g in gates.iter() {
             let edge_idx = g.edge_idx() as usize;
             if edge_idx >= n {
@@ -395,10 +418,30 @@ pub(super) fn draw(
             }
         }
     }
+    (by_edge, midpoints)
+}
 
-    let style = op.style();
-    let rng_seed = op.rng_seed();
 
+/// Render a Palisade or Fortification chain along `polygon` edges.
+///
+/// Phase 1.20 entry point — used by both the legacy `EnclosureOp`
+/// handler (above) and the new `ExteriorWallOp` dispatch's
+/// Palisade / FortificationMerlon branches. The inputs are
+/// op-shape-agnostic so the byte-equal contract holds across both
+/// paths.
+pub(super) fn render_enclosure_polygon(
+    polygon: &[(f32, f32)],
+    by_edge: &[Vec<(f32, f32)>],
+    midpoints: &[Vec<f32>],
+    style: EnclosureStyle,
+    corner_style: i8,
+    rng_seed: u64,
+    ctx: &mut RasterCtx<'_>,
+) {
+    let n = polygon.len();
+    if n < 3 {
+        return;
+    }
     if style == EnclosureStyle::Palisade {
         for i in 0..n {
             let a = polygon[i];
@@ -460,8 +503,7 @@ pub(super) fn draw(
             palisade_door_rect(a, b, t_center, ctx);
         }
     }
-    let corner_style = op.corner_style().0;
-    for &(x, y) in &polygon {
+    for &(x, y) in polygon {
         corner_shape(x, y, corner_style, ctx);
     }
 }

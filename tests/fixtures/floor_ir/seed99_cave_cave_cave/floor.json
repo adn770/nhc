@@ -14487,7 +14487,8 @@
           "ry": 0.0
         },
         "style": 1,
-        "cornerStyle": 0
+        "cornerStyle": 0,
+        "rngSeed": 0
       }
     },
     {

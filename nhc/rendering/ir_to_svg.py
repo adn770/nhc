@@ -2795,6 +2795,11 @@ def _get_legacy_seed(fir: FloorIR, ext_wall_slot: int) -> int:
     Builds the seed index on each call (no caching — the IR scan is
     O(ops) which is cheap, and caching by id(fir) is unsafe due to
     Python memory-address reuse for short-lived objects).
+
+    Phase 1.20 fallback: this function is only called when the new
+    ExteriorWallOp's ``rng_seed`` field is 0 (3.x cached buffers).
+    Fresh IRs carry the seed on the new op directly — see the
+    ``op.rngSeed`` short-circuit in ``_draw_exterior_wall_op_from_ir``.
     """
     return _build_legacy_seed_index(fir).get(ext_wall_slot, 0)
 
@@ -3174,9 +3179,14 @@ def _draw_exterior_wall_op_from_ir(
     ]
     cuts: list[Any] = list(outline.cuts or [])
 
-    # Resolve the RNG seed from the paired legacy op.
-    slot = _ext_wall_op_slot(entry, fir)
-    rng_seed = _get_legacy_seed(fir, slot) if slot >= 0 else 0
+    # Resolve the RNG seed. Phase 1.20+: the new ExteriorWallOp
+    # carries `rng_seed` directly, so prefer it. Fall back to the
+    # paired-legacy-op lookup only when the new field is 0 (3.x
+    # cached buffers without rng_seed populated).
+    rng_seed = int(getattr(op, "rngSeed", 0) or 0)
+    if rng_seed == 0:
+        slot = _ext_wall_op_slot(entry, fir)
+        rng_seed = _get_legacy_seed(fir, slot) if slot >= 0 else 0
 
     if style in (WS.MasonryBrick, WS.MasonryStone):
         # Mirror _draw_building_exterior_wall_from_ir: two-strip

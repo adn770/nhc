@@ -42,8 +42,13 @@ cornerStyle():CornerStyle {
   return offset ? this.bb!.readInt8(this.bb_pos + offset) : CornerStyle.Merlon;
 }
 
+rngSeed():bigint {
+  const offset = this.bb!.__offset(this.bb_pos, 10);
+  return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
+}
+
 static startExteriorWallOp(builder:flatbuffers.Builder) {
-  builder.startObject(3);
+  builder.startObject(4);
 }
 
 static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
@@ -58,16 +63,21 @@ static addCornerStyle(builder:flatbuffers.Builder, cornerStyle:CornerStyle) {
   builder.addFieldInt8(2, cornerStyle, CornerStyle.Merlon);
 }
 
+static addRngSeed(builder:flatbuffers.Builder, rngSeed:bigint) {
+  builder.addFieldInt64(3, rngSeed, BigInt('0'));
+}
+
 static endExteriorWallOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createExteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle, cornerStyle:CornerStyle):flatbuffers.Offset {
+static createExteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle, cornerStyle:CornerStyle, rngSeed:bigint):flatbuffers.Offset {
   ExteriorWallOp.startExteriorWallOp(builder);
   ExteriorWallOp.addOutline(builder, outlineOffset);
   ExteriorWallOp.addStyle(builder, style);
   ExteriorWallOp.addCornerStyle(builder, cornerStyle);
+  ExteriorWallOp.addRngSeed(builder, rngSeed);
   return ExteriorWallOp.endExteriorWallOp(builder);
 }
 }

@@ -818,6 +818,14 @@ table ExteriorWallOp {
   outline: Outline;       // closed; cuts = doors / gates
   style: WallStyle;       // DungeonInk / MasonryBrick / Palisade / ...
   corner_style: CornerStyle = Merlon;
+  // Phase 1.20 — splitmix64 seed for procedural styles (Masonry*,
+  // Palisade, FortificationMerlon). Each style derives its per-edge
+  // sub-seed from this value (e.g. Palisade chains use rng_seed +
+  // edge_idx). DungeonInk / CaveInk ignore this field. Default 0
+  // keeps the change schema-additive; 3.x cached buffers (no
+  // rng_seed populated) still render via the legacy paired-op
+  // seed-lookup fallback.
+  rng_seed: ulong = 0;
 }
 
 // Phase 1.16b-1 of plans/nhc_pure_ir_plan.md — corridor wall op.

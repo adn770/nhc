@@ -53,8 +53,15 @@ class ExteriorWallOp(object):
             return self._tab.Get(flatbuffers.number_types.Int8Flags, o + self._tab.Pos)
         return 0
 
+    # ExteriorWallOp
+    def RngSeed(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
+        if o != 0:
+            return self._tab.Get(flatbuffers.number_types.Uint64Flags, o + self._tab.Pos)
+        return 0
+
 def ExteriorWallOpStart(builder):
-    builder.StartObject(3)
+    builder.StartObject(4)
 
 def Start(builder):
     ExteriorWallOpStart(builder)
@@ -77,6 +84,12 @@ def ExteriorWallOpAddCornerStyle(builder, cornerStyle):
 def AddCornerStyle(builder, cornerStyle):
     ExteriorWallOpAddCornerStyle(builder, cornerStyle)
 
+def ExteriorWallOpAddRngSeed(builder, rngSeed):
+    builder.PrependUint64Slot(3, rngSeed, 0)
+
+def AddRngSeed(builder, rngSeed):
+    ExteriorWallOpAddRngSeed(builder, rngSeed)
+
 def ExteriorWallOpEnd(builder):
     return builder.EndObject()
 
@@ -97,10 +110,12 @@ class ExteriorWallOpT(object):
         outline = None,
         style = 0,
         cornerStyle = 0,
+        rngSeed = 0,
     ):
         self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
         self.style = style  # type: int
         self.cornerStyle = cornerStyle  # type: int
+        self.rngSeed = rngSeed  # type: int
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -127,6 +142,7 @@ class ExteriorWallOpT(object):
             self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(exteriorWallOp.Outline())
         self.style = exteriorWallOp.Style()
         self.cornerStyle = exteriorWallOp.CornerStyle()
+        self.rngSeed = exteriorWallOp.RngSeed()
 
     # ExteriorWallOpT
     def Pack(self, builder):
@@ -137,5 +153,6 @@ class ExteriorWallOpT(object):
             ExteriorWallOpAddOutline(builder, outline)
         ExteriorWallOpAddStyle(builder, self.style)
         ExteriorWallOpAddCornerStyle(builder, self.cornerStyle)
+        ExteriorWallOpAddRngSeed(builder, self.rngSeed)
         exteriorWallOp = ExteriorWallOpEnd(builder)
         return exteriorWallOp

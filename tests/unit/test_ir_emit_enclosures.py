@@ -168,8 +168,10 @@ def _ext_wall_ops(builder: FloorIRBuilder) -> list:
     return [e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp]
 
 
-def test_palisade_emits_exterior_wall_op_alongside_enclosure_op() -> None:
-    """Palisade enclosure produces one EnclosureOp AND one ExteriorWallOp."""
+def test_palisade_emits_only_new_exterior_wall_op() -> None:
+    """Phase 1.20: a Palisade enclosure emits ONE op — the new
+    ExteriorWallOp; the legacy EnclosureOp is no longer shipped.
+    """
     from nhc.rendering.ir._fb import Op
 
     builder = _make_builder()
@@ -185,8 +187,12 @@ def test_palisade_emits_exterior_wall_op_alongside_enclosure_op() -> None:
         e for e in builder.ops if e.opType == Op.Op.EnclosureOp
     ]
     ext_ops = _ext_wall_ops(builder)
-    assert len(enclosure_ops) == 1, "legacy EnclosureOp must still emit"
-    assert len(ext_ops) == 1, "new ExteriorWallOp must emit alongside"
+    assert enclosure_ops == [], (
+        "Phase 1.20: legacy EnclosureOp must not be emitted"
+    )
+    assert len(ext_ops) == 1
+    # Seed propagates onto the new op directly (Phase 1.20 schema add).
+    assert ext_ops[0].op.rngSeed == (7 + 0xE101) & 0xFFFFFFFFFFFFFFFF
 
 
 def test_fortification_emits_exterior_wall_op_with_fortmerlon_style() -> None:
@@ -296,8 +302,10 @@ def test_portcullis_gate_resolves_to_portcullisgate_cut() -> None:
     assert cuts[0].style == CutStyle.PortcullisGate
 
 
-def test_exterior_wall_op_count_matches_enclosure_op_count() -> None:
-    """One ExteriorWallOp emitted per EnclosureOp (1:1 parallel emission)."""
+def test_exactly_one_exterior_wall_op_per_enclosure() -> None:
+    """Phase 1.20: emit_site_enclosure ships exactly one
+    ExteriorWallOp per call (no legacy EnclosureOp).
+    """
     from nhc.rendering.ir._fb import Op
 
     builder = _make_builder()
@@ -315,7 +323,8 @@ def test_exterior_wall_op_count_matches_enclosure_op_count() -> None:
     ext_count = sum(
         1 for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
     )
-    assert ext_count == enc_count
+    assert enc_count == 0
+    assert ext_count == 1
 
 
 def test_too_few_vertices_emits_no_exterior_wall_op() -> None:
@@ -354,9 +363,10 @@ def test_exterior_wall_op_outline_vertices_match_polygon_px() -> None:
         assert math.isclose(v.y, ty * CELL)
 
 
-def test_exterior_wall_op_emitted_after_enclosure_op() -> None:
-    """ExteriorWallOp appears AFTER EnclosureOp in ops[] to preserve
-    the 1.16+ consumer-switch invariant (new op lands after legacy op)."""
+def test_emit_site_enclosure_yields_only_exterior_wall_op() -> None:
+    """Phase 1.20: emit_site_enclosure no longer ships a legacy
+    EnclosureOp; only the new ExteriorWallOp lands in ops[].
+    """
     from nhc.rendering.ir._fb import Op
 
     builder = _make_builder()
@@ -368,14 +378,13 @@ def test_exterior_wall_op_emitted_after_enclosure_op() -> None:
         base_seed=7,
     )
 
-    enc_idx = next(
-        i for i, e in enumerate(builder.ops)
-        if e.opType == Op.Op.EnclosureOp
+    enc_count = sum(
+        1 for e in builder.ops if e.opType == Op.Op.EnclosureOp
     )
-    ext_idx = next(
-        i for i, e in enumerate(builder.ops)
-        if e.opType == Op.Op.ExteriorWallOp
+    ext_count = sum(
+        1 for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
     )
-    assert ext_idx > enc_idx, (
-        "ExteriorWallOp must follow EnclosureOp in ops[]"
+    assert enc_count == 0
+    assert ext_count == 1, (
+        "Phase 1.20 emits exactly one ExteriorWallOp per enclosure"
     )

@@ -447,13 +447,14 @@ class TestEmitSiteEnclosure:
         )
 
     def test_palisade_no_gates_emits_one_op(self) -> None:
-        """Phase 1.14: emit_site_enclosure now produces two ops —
-        one legacy EnclosureOp and one new ExteriorWallOp. The legacy
-        EnclosureOp is the first op and retains its existing contract.
+        """Phase 1.20: emit_site_enclosure produces ONE op — the new
+        ExteriorWallOp with WallStyle.Palisade. The legacy EnclosureOp
+        is no longer emitted; its rng_seed flows onto the new op
+        directly (Phase 1.20 schema additive).
         """
         from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
         builder = self._builder()
-        # 4×4 tile rect at (2, 2).
         emit_site_enclosure(
             builder,
             polygon_tiles=[(2, 2), (6, 2), (6, 6), (2, 6)],
@@ -461,22 +462,28 @@ class TestEmitSiteEnclosure:
             gates=None,
             base_seed=42,
         )
-        # Phase 1.14: one EnclosureOp + one ExteriorWallOp.
-        assert len(builder.ops) == 2
-        enc_entry = next(
-            e for e in builder.ops if e.opType == Op.Op.EnclosureOp
-        )
-        op = enc_entry.op
-        assert op.style == EnclosureStyle.Palisade
+        ops = builder.ops
+        # No legacy EnclosureOp.
+        assert not [
+            e for e in ops if e.opType == Op.Op.EnclosureOp
+        ]
+        # One new ExteriorWallOp.
+        ext = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
+        assert len(ext) == 1
+        op = ext[0].op
+        assert op.style == WallStyle.Palisade
         assert op.cornerStyle == CornerStyle.Merlon
         # rng_seed = base_seed + 0xE101 (per design §10).
         assert op.rngSeed == (42 + 0xE101) & 0xFFFFFFFFFFFFFFFF
-        # Polygon has 4 vertices in pixel coords.
-        assert len(op.polygon.paths) == 4
-        # No gates → empty list (or None, depending on builder).
-        assert not op.gates
+        # Polygon outline has 4 vertices in pixel coords.
+        assert len(op.outline.vertices) == 4
+        # No gates → no Cut entries.
+        assert not op.outline.cuts
 
     def test_fortification_with_gate_emits_gate_entry(self) -> None:
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.CutStyle import CutStyle
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
         builder = self._builder()
         emit_site_enclosure(
             builder,
@@ -486,14 +493,16 @@ class TestEmitSiteEnclosure:
             base_seed=7,
             corner_style=CornerStyle.Diamond,
         )
-        op = builder.ops[0].op
-        assert op.style == EnclosureStyle.Fortification
+        # Phase 1.20: one new ExteriorWallOp; gates encoded as Cuts.
+        ext = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        assert len(ext) == 1
+        op = ext[0].op
+        assert op.style == WallStyle.FortificationMerlon
         assert op.cornerStyle == CornerStyle.Diamond
-        assert len(op.gates) == 1
-        assert op.gates[0].edgeIdx == 0
-        assert op.gates[0].tCenter == pytest.approx(0.5)
-        assert op.gates[0].halfPx == pytest.approx(32.0)
-        assert op.gates[0].style == GateStyle.Wood
+        assert len(op.outline.cuts) == 1
+        assert op.outline.cuts[0].style == CutStyle.WoodGate
 
     def test_too_few_vertices_no_op(self) -> None:
         builder = self._builder()
@@ -704,13 +713,12 @@ class TestEmitBuildingWalls:
         design/map_ir.md §6.1; the curved exterior masonry
         overlays partition extensions at the rim.
 
-        Phase 1.12 added a parallel ExteriorWallOp emission so the
-        legacy interior+exterior pair grew to interior + legacy
-        exterior + new ExteriorWallOp. This test focuses on the
-        legacy ops; :class:`TestEmitBuildingExteriorWallOp` pins the
-        new-op contract.
+        Phase 1.20: legacy BuildingInteriorWallOp /
+        BuildingExteriorWallOp are no longer emitted; only the new
+        InteriorWallOp + ExteriorWallOp fire (interior first).
         """
         from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
         builder = self._builder()
         b = _StubBuildingForWalls(
             base_shape=RectShape(),
@@ -722,33 +730,42 @@ class TestEmitBuildingWalls:
             builder, b, _StubLevelWithEdges(),
             base_seed=42, building_index=0,
         )
-        legacy_ops = [
+        # No legacy building wall ops.
+        legacy = [
             e for e in builder.ops
             if e.opType in (
                 Op.Op.BuildingInteriorWallOp,
                 Op.Op.BuildingExteriorWallOp,
             )
         ]
-        # 1 interior + 1 legacy exterior; interior first.
-        assert len(legacy_ops) == 2
-        intr = legacy_ops[0].op
-        assert intr.regionRef == "building.0"
-        assert intr.material == InteriorWallMaterial.Stone
-        ext = legacy_ops[1].op
-        assert ext.regionRef == "building.0"
-        assert ext.material == WallMaterial.Brick
-        # rng_seed = base_seed + 0xBE71 + i.
-        assert ext.rngSeed == (42 + 0xBE71 + 0) & 0xFFFFFFFFFFFFFFFF
+        assert legacy == []
+        # New InteriorWallOps + one MasonryBrick ExteriorWallOp.
+        interiors = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        exteriors = [
+            e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
+        ]
+        # The stub level has no interior edges by default → 0 interior
+        # ops; the brick exterior emits 1.
+        assert len(exteriors) == 1
+        assert exteriors[0].op.style == WallStyle.MasonryBrick
+        # rng_seed = base_seed + 0xBE71 + building_index.
+        assert exteriors[0].op.rngSeed == (42 + 0xBE71 + 0) & 0xFFFFFFFFFFFFFFFF
+        # All interior ops carry PartitionStone (default material).
+        for e in interiors:
+            assert e.op.style == WallStyle.PartitionStone
 
     def test_dungeon_material_skips_exterior(self) -> None:
         """Buildings tagged `wall_material == "dungeon"` flow
         through the existing WallsAndFloorsOp pass instead of
-        emitting a BuildingExteriorWallOp.
+        emitting a building exterior wall op.
 
-        Phase 1.12: ``wall_material == "dungeon"`` skips both the
-        legacy and new exterior wall ops, leaving only the interior
-        partition op.
+        Phase 1.20: ``wall_material == "dungeon"`` skips both the
+        legacy and new exterior wall ops; only any interior
+        InteriorWallOps fire.
         """
+        from nhc.rendering.ir._fb import Op
         builder = self._builder()
         b = _StubBuildingForWalls(
             base_shape=RectShape(),
@@ -760,13 +777,17 @@ class TestEmitBuildingWalls:
             builder, b, _StubLevelWithEdges(),
             base_seed=0, building_index=0,
         )
-        # Only the interior op fires; both legacy + new exterior
-        # ops skip for dungeon-walled buildings.
-        assert len(builder.ops) == 1
-        op = builder.ops[0].op
-        assert op.regionRef == "building.0"
+        # No exterior op for dungeon-walled buildings, regardless of
+        # legacy / new path.
+        assert not [
+            e for e in builder.ops if e.opType in (
+                Op.Op.BuildingExteriorWallOp, Op.Op.ExteriorWallOp,
+            )
+        ]
 
     def test_interior_edges_threaded_to_op(self) -> None:
+        from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
         builder = self._builder()
         b = _StubBuildingForWalls(
             base_shape=RectShape(), base_rect=Rect(0, 0, 8, 8),
@@ -779,13 +800,19 @@ class TestEmitBuildingWalls:
         emit_building_walls(
             builder, b, level, base_seed=0, building_index=0,
         )
-        intr = builder.ops[0].op
-        assert intr.material == InteriorWallMaterial.Wood
-        assert len(intr.edges) == 1
-        e = intr.edges[0]
-        assert (e.ax, e.ay) == (3, 4)
-        assert e.aCorner == TileCorner.NW
-        assert e.bCorner == TileCorner.NE
+        # Phase 1.20: edges are threaded onto the new InteriorWallOps
+        # (one per coalesced edge). The two adjacent north-edge tiles
+        # coalesce into a single horizontal partition.
+        interior_ops = [
+            e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
+        ]
+        assert len(interior_ops) == 1
+        op = interior_ops[0].op
+        assert op.style == WallStyle.PartitionWood
+        # Open polyline (closed=False) with 2 vertices spanning the
+        # coalesced partition endpoints.
+        assert op.outline.closed is False
+        assert len(op.outline.vertices) == 2
 
 
 class TestBuildingWallIRToSvg:
@@ -1079,16 +1106,15 @@ class TestEmitBuildingExteriorWallOp:
             "_building_footprint_polygon_px output verbatim"
         )
 
-    def test_exterior_wall_op_lands_after_legacy_ops(self) -> None:
-        """The new ExteriorWallOp lands AFTER both the legacy
-        BuildingInteriorWallOp + BuildingExteriorWallOp entries.
+    def test_exterior_wall_op_lands_after_interior(self) -> None:
+        """The new ExteriorWallOp lands AFTER the new InteriorWallOp
+        entries, mirroring the legacy interior-then-exterior order
+        (design/map_ir.md §6.1) so the curved exterior masonry overlays
+        partition extensions at the rim.
 
-        The current emit order is interior-then-exterior for the
-        legacy ops (per design/map_ir.md §6.1); the new ExteriorWallOp
-        appends after both so future consumer switches at 1.16+ can
-        prefer the new op without rearranging ops[]. Mirrors the
-        Phase 1.10 cave ExteriorWallOp post-WallsAndFloorsOp
-        placement.
+        Phase 1.20: the legacy BuildingInteriorWallOp /
+        BuildingExteriorWallOp ops no longer ship; the order
+        invariant now holds across the new ops only.
         """
         from nhc.rendering.ir._fb import Op
 
@@ -1097,19 +1123,33 @@ class TestEmitBuildingExteriorWallOp:
             base_shape=RectShape(),
             base_rect=Rect(2, 2, 6, 6),
             wall_material="brick",
+            interior_wall_material="stone",
         )
+        # Add interior partition edges so the InteriorWallOp emits.
+        level = _StubLevelWithEdges(interior_edges=[
+            (3, 4, "north"), (4, 4, "north"),
+        ])
         emit_building_regions(builder, [b])
         emit_building_walls(
-            builder, b, _StubLevelWithEdges(),
-            base_seed=0, building_index=0,
+            builder, b, level, base_seed=0, building_index=0,
         )
 
         op_types = [e.opType for e in builder.ops]
-        legacy_ext_idx = op_types.index(Op.Op.BuildingExteriorWallOp)
-        new_ext_idx = op_types.index(Op.Op.ExteriorWallOp)
-        assert new_ext_idx > legacy_ext_idx, (
-            "new ExteriorWallOp must land after the legacy "
-            "BuildingExteriorWallOp in ops[]"
+        # No legacy ops.
+        assert Op.Op.BuildingExteriorWallOp not in op_types
+        assert Op.Op.BuildingInteriorWallOp not in op_types
+        # Interior before exterior.
+        last_interior = max(
+            (i for i, t in enumerate(op_types) if t == Op.Op.InteriorWallOp),
+            default=-1,
+        )
+        first_exterior = next(
+            (i for i, t in enumerate(op_types) if t == Op.Op.ExteriorWallOp),
+            -1,
+        )
+        assert last_interior >= 0 and first_exterior >= 0
+        assert first_exterior > last_interior, (
+            "ExteriorWallOp must land after all InteriorWallOps in ops[]"
         )
 
     def test_exterior_wall_op_no_doors_yields_empty_cuts(self) -> None:
@@ -1145,12 +1185,14 @@ class TestEmitBuildingExteriorWallOp:
             "stub level has no door tiles — cuts must be empty"
         )
 
-    def test_legacy_building_exterior_wall_op_still_emitted(self) -> None:
-        """Phase 1.12 ships parallel emission — the legacy
-        BuildingExteriorWallOp keeps populating until 1.20 retires
-        it. Pinning the parallel-emission contract guards against
-        accidentally short-circuiting the legacy pass."""
+    def test_legacy_building_exterior_wall_op_no_longer_emitted(self) -> None:
+        """Phase 1.20 retires BuildingExteriorWallOp; only the new
+        ExteriorWallOp ships. The new op carries `rngSeed` directly
+        (additive schema field) so the consumer no longer needs to
+        scan ops[] for the paired legacy op.
+        """
         from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir._fb.WallStyle import WallStyle
 
         builder = self._builder()
         b = _StubBuildingForWalls(
@@ -1171,14 +1213,16 @@ class TestEmitBuildingExteriorWallOp:
         new_ops = [
             e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
         ]
-        assert len(legacy_ops) == 1, (
-            "legacy BuildingExteriorWallOp must still ship"
+        assert legacy_ops == [], (
+            "Phase 1.20: legacy BuildingExteriorWallOp must not ship"
         )
         assert len(new_ops) == 1, (
-            "new ExteriorWallOp must ship alongside the legacy op"
+            "new ExteriorWallOp must ship for a brick building"
         )
-        # Both ops share the same building region.
-        assert legacy_ops[0].op.regionRef == "building.0"
+        op = new_ops[0].op
+        assert op.style == WallStyle.MasonryBrick
+        # rngSeed propagated onto the new op (Phase 1.20 schema add).
+        assert op.rngSeed == (42 + 0xBE71 + 0) & 0xFFFFFFFFFFFFFFFF
 
     def test_door_tile_resolves_to_cut_on_exterior_wall(self) -> None:
         """A door feature on a tile abutting the building's
@@ -1545,14 +1589,17 @@ class TestEmitBuildingInteriorWallOp:
                 "list instead"
             )
 
-    def test_interior_wall_op_count_matches_legacy_partition_count(
+    def test_interior_wall_op_count_matches_coalesced_edges(
         self,
     ) -> None:
         """Total InteriorWallOps emitted == number of coalesced
-        edges in the building's BuildingInteriorWallOp.edges list.
-        Pins the parallel-emission contract: every legacy
-        partition line gets a structured counterpart."""
+        edges across the building's interior partition runs.
+        Phase 1.20 retired BuildingInteriorWallOp; the assertion
+        now compares against the source coalesced-edge walk
+        directly.
+        """
         from nhc.rendering.ir._fb import Op
+        from nhc.rendering.ir_emitter import _coalesced_interior_edges
 
         builder = self._builder()
         b = _StubBuildingForWalls(
@@ -1570,24 +1617,18 @@ class TestEmitBuildingInteriorWallOp:
         emit_building_walls(
             builder, b, level, base_seed=0, building_index=0,
         )
-        legacy_ops = [
-            e for e in builder.ops
-            if e.opType == Op.Op.BuildingInteriorWallOp
-        ]
         new_ops = [
             e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
         ]
-        assert len(legacy_ops) == 1
-        legacy_edges = legacy_ops[0].op.edges or []
-        assert len(legacy_edges) == 3, (
+        coalesced = _coalesced_interior_edges(level)
+        assert len(coalesced) == 3, (
             "expected three coalesced edges across north + west runs"
         )
-        assert len(new_ops) == len(legacy_edges)
+        assert len(new_ops) == len(coalesced)
 
-    def test_legacy_building_interior_wall_op_still_emitted(self) -> None:
-        """Phase 1.13 ships parallel emission — the legacy
-        BuildingInteriorWallOp keeps populating until 1.20 retires
-        it."""
+    def test_legacy_building_interior_wall_op_no_longer_emitted(self) -> None:
+        """Phase 1.20 retires BuildingInteriorWallOp; only the new
+        InteriorWallOp ships."""
         from nhc.rendering.ir._fb import Op
 
         builder = self._builder()
@@ -1610,5 +1651,7 @@ class TestEmitBuildingInteriorWallOp:
         new_ops = [
             e for e in builder.ops if e.opType == Op.Op.InteriorWallOp
         ]
-        assert len(legacy_ops) == 1
+        assert legacy_ops == [], (
+            "Phase 1.20: legacy BuildingInteriorWallOp must not ship"
+        )
         assert len(new_ops) == 1

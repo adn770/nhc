@@ -9408,6 +9408,7 @@ impl<'a> ExteriorWallOp<'a> {
   pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
   pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 8;
+  pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9419,6 +9420,7 @@ impl<'a> ExteriorWallOp<'a> {
     args: &'args ExteriorWallOpArgs<'args>
   ) -> ::flatbuffers::WIPOffset<ExteriorWallOp<'bldr>> {
     let mut builder = ExteriorWallOpBuilder::new(_fbb);
+    builder.add_rng_seed(args.rng_seed);
     if let Some(x) = args.outline { builder.add_outline(x); }
     builder.add_corner_style(args.corner_style);
     builder.add_style(args.style);
@@ -9447,6 +9449,13 @@ impl<'a> ExteriorWallOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<CornerStyle>(ExteriorWallOp::VT_CORNER_STYLE, Some(CornerStyle::Merlon)).unwrap()}
   }
+  #[inline]
+  pub fn rng_seed(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ExteriorWallOp::VT_RNG_SEED, Some(0)).unwrap()}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ExteriorWallOp<'_> {
@@ -9458,6 +9467,7 @@ impl ::flatbuffers::Verifiable for ExteriorWallOp<'_> {
      .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
      .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
      .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
+     .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
      .finish();
     Ok(())
   }
@@ -9466,6 +9476,7 @@ pub struct ExteriorWallOpArgs<'a> {
     pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
     pub style: WallStyle,
     pub corner_style: CornerStyle,
+    pub rng_seed: u64,
 }
 impl<'a> Default for ExteriorWallOpArgs<'a> {
   #[inline]
@@ -9474,6 +9485,7 @@ impl<'a> Default for ExteriorWallOpArgs<'a> {
       outline: None,
       style: WallStyle::DungeonInk,
       corner_style: CornerStyle::Merlon,
+      rng_seed: 0,
     }
   }
 }
@@ -9496,6 +9508,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ExteriorWallOpBuilder<'a, 'b,
     self.fbb_.push_slot::<CornerStyle>(ExteriorWallOp::VT_CORNER_STYLE, corner_style, CornerStyle::Merlon);
   }
   #[inline]
+  pub fn add_rng_seed(&mut self, rng_seed: u64) {
+    self.fbb_.push_slot::<u64>(ExteriorWallOp::VT_RNG_SEED, rng_seed, 0);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ExteriorWallOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ExteriorWallOpBuilder {
@@ -9516,6 +9532,7 @@ impl ::core::fmt::Debug for ExteriorWallOp<'_> {
       ds.field("outline", &self.outline());
       ds.field("style", &self.style());
       ds.field("corner_style", &self.corner_style());
+      ds.field("rng_seed", &self.rng_seed());
       ds.finish()
   }
 }

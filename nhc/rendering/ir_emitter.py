@@ -524,25 +524,11 @@ def emit_site_enclosure(
         for x, y in polygon_tiles
     ]
     polygon = _coords_to_polygon(coords_px)
-    op = EnclosureOpT(
-        polygon=polygon,
-        style=style,
-        cornerStyle=corner_style,
-        gates=[
-            GateT(
-                edgeIdx=edge_idx,
-                tCenter=t_center,
-                halfPx=half_px,
-                style=gate_style,
-            )
-            for (edge_idx, t_center, half_px) in (gates or [])
-        ],
-        rngSeed=(base_seed + 0xE101) & _SM64_MASK,
-    )
-    entry = OpEntryT()
-    entry.opType = 17  # Op.EnclosureOp
-    entry.op = op
-    builder.add_op(entry)
+    # Phase 1.20 — legacy EnclosureOp no longer emitted; coverage
+    # moved to ExteriorWallOp (WallStyle.Palisade /
+    # FortificationMerlon, gates encoded as Cut entries) below.
+    # Schema declaration stays until 1.22; back-compat reader in
+    # transform/png/enclosure.rs keeps 3.x cached buffers rendering.
 
     # Phase 1.14 — parallel emission of ExteriorWallOp for enclosures.
     # Per EnclosureStyle.Palisade / EnclosureStyle.Fortification the
@@ -574,6 +560,11 @@ def emit_site_enclosure(
         )
         wall_op.style = _ENCLOSURE_WALL_STYLE_MAP[style]
         wall_op.cornerStyle = corner_style
+        # Phase 1.20 — propagate the splitmix64 seed onto the new op
+        # so the consumer can derive per-edge sub-seeds without
+        # reading the paired EnclosureOp (which Phase 1.20 stops
+        # emitting). The salt + mask match the legacy emission above.
+        wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
         wall_entry.op = wall_op
@@ -750,21 +741,11 @@ def emit_building_walls(
         InteriorWallMaterial.Stone,
     )
     edges = _coalesced_interior_edges(level)
-    int_op = BuildingInteriorWallOpT(
-        regionRef=region_id,
-        material=interior_material,
-        edges=[
-            InteriorEdgeT(
-                ax=ax, ay=ay, aCorner=a_corner,
-                bx=bx, by=by, bCorner=b_corner,
-            )
-            for (ax, ay, a_corner, bx, by, b_corner) in edges
-        ],
-    )
-    int_entry = OpEntryT()
-    int_entry.opType = 19  # Op.BuildingInteriorWallOp
-    int_entry.op = int_op
-    builder.add_op(int_entry)
+    # Phase 1.20 — legacy BuildingInteriorWallOp no longer emitted;
+    # coverage moved to InteriorWallOp (PartitionStone / Brick /
+    # Wood) below. Schema declaration stays until 1.22; back-compat
+    # reader in transform/png/building_interior_wall.rs keeps 3.x
+    # cached buffers rendering.
 
     # Phase 1.13 — parallel emission of InteriorWallOp for partition
     # lines. Per coalesced + door-filtered interior partition edge in
@@ -811,21 +792,14 @@ def emit_building_walls(
             wall_entry.op = wall_op
             builder.add_op(wall_entry)
 
-    # Exterior masonry pass — skipped for dungeon-walled buildings.
+    # Phase 1.20 — legacy BuildingExteriorWallOp no longer emitted;
+    # coverage moved to ExteriorWallOp (MasonryBrick / MasonryStone)
+    # below. Schema declaration stays until 1.22; back-compat reader
+    # in transform/png/building_exterior_wall.rs keeps 3.x cached
+    # buffers rendering. The "dungeon" wall_material short-circuit
+    # still applies — for dungeon-walled buildings the new
+    # ExteriorWallOp pass below also skips the exterior emit.
     wall_material = building.wall_material
-    if wall_material != "dungeon":
-        material_int = _WALL_MATERIAL_MAP.get(
-            wall_material, WallMaterial.Brick,
-        )
-        ext_op = BuildingExteriorWallOpT(
-            regionRef=region_id,
-            material=material_int,
-            rngSeed=(base_seed + 0xBE71 + building_index) & _SM64_MASK,
-        )
-        ext_entry = OpEntryT()
-        ext_entry.opType = 18  # Op.BuildingExteriorWallOp
-        ext_entry.op = ext_op
-        builder.add_op(ext_entry)
 
     # Phase 1.12 — parallel emission of ExteriorWallOp for masonry
     # buildings. Per Region(kind=Building) with wall_material in
@@ -864,6 +838,13 @@ def emit_building_walls(
         wall_op.outline.cuts = cuts_for_building_doors(building, level)
         wall_op.style = _MASONRY_STYLE_MAP[wall_material]
         wall_op.cornerStyle = CornerStyle.Merlon
+        # Phase 1.20 — propagate the splitmix64 seed onto the new op
+        # so the consumer can derive per-edge sub-seeds without
+        # reading the paired BuildingExteriorWallOp (which Phase 1.20
+        # stops emitting). Salt + mask match the legacy emission.
+        wall_op.rngSeed = (
+            base_seed + 0xBE71 + building_index
+        ) & _SM64_MASK
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
         wall_entry.op = wall_op

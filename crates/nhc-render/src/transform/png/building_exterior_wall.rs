@@ -251,12 +251,28 @@ pub(super) fn draw(
         None => return,
     };
     let polygon = polygon_coords(&region);
+    render_masonry_polygon(&polygon, op.material(), op.rng_seed(), ctx);
+}
+
+
+/// Render a masonry chain along each edge of the given polygon.
+///
+/// Phase 1.20 entry point — used by both the legacy
+/// `BuildingExteriorWallOp` handler (above) and the new
+/// `ExteriorWallOp` dispatch's MasonryBrick / MasonryStone branch.
+/// Both paths feed identical inputs (polygon + material + seed) so the
+/// output is byte-equivalent regardless of which op carries the data.
+pub(super) fn render_masonry_polygon(
+    polygon: &[(f32, f32)],
+    material: WallMaterial,
+    rng_seed: u64,
+    ctx: &mut RasterCtx<'_>,
+) {
     let n = polygon.len();
     if n < 3 {
         return;
     }
-    let (fill_rgb, seam_rgb) = material_palette(op.material());
-    let rng_seed = op.rng_seed();
+    let (fill_rgb, seam_rgb) = material_palette(material);
     let ext = WALL_THICKNESS / 2.0;
     for i in 0..n {
         let (ax, ay) = polygon[i];

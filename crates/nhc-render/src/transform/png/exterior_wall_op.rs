@@ -27,10 +27,13 @@ use tiny_skia::{Color, LineCap, LineJoin, Paint, PathBuilder, Rect, Stroke};
 
 use crate::geometry::cave_path_from_outline;
 use crate::ir::{
-    Cut, CutStyle, FloorIR, OpEntry, Outline, OutlineKind, WallStyle,
+    Cut, CutStyle, EnclosureStyle, FloorIR, OpEntry, Outline, OutlineKind,
+    WallMaterial, WallStyle,
 };
 use crate::transform::png::path_parser::parse_path_d;
 
+use super::building_exterior_wall::render_masonry_polygon;
+use super::enclosure::render_enclosure_polygon;
 use super::RasterCtx;
 
 const INK_R: u8 = 0x00;
@@ -78,10 +81,136 @@ pub(super) fn draw(
         WallStyle::CaveInk => {
             draw_cave_ink(&outline, fir, ctx);
         }
-        // Other styles (Masonry, Palisade, Fortification) are handled
-        // by the legacy BuildingExteriorWallOp / EnclosureOp handlers.
+        WallStyle::MasonryBrick | WallStyle::MasonryStone => {
+            // Phase 1.20 — Masonry coverage moved here from the legacy
+            // `BuildingExteriorWallOp` handler. Reuses the polygon
+            // chain helper so the byte-equal contract holds.
+            let material = if style == WallStyle::MasonryBrick {
+                WallMaterial::Brick
+            } else {
+                WallMaterial::Stone
+            };
+            let polygon = polygon_from_outline(&outline);
+            render_masonry_polygon(&polygon, material, op.rng_seed(), ctx);
+        }
+        WallStyle::Palisade | WallStyle::FortificationMerlon => {
+            // Phase 1.20 — Palisade / Fortification coverage moved here
+            // from the legacy `EnclosureOp` handler. The new outline
+            // carries gates as `Cut` entries with absolute-pixel
+            // start/end; reconstruct the per-edge (lo, hi) span buckets
+            // the chain renderer expects.
+            let polygon = polygon_from_outline(&outline);
+            let cuts: Vec<Cut<'_>> = outline
+                .cuts()
+                .map(|v| v.iter().collect())
+                .unwrap_or_default();
+            let (by_edge, midpoints) =
+                gate_spans_per_edge_from_cuts(&polygon, &cuts);
+            let enc_style = if style == WallStyle::Palisade {
+                EnclosureStyle::Palisade
+            } else {
+                EnclosureStyle::Fortification
+            };
+            render_enclosure_polygon(
+                &polygon,
+                &by_edge,
+                &midpoints,
+                enc_style,
+                op.corner_style().0,
+                op.rng_seed(),
+                ctx,
+            );
+        }
         _ => {}
     }
+}
+
+
+/// Convert an `Outline` polygon descriptor into a flat
+/// `Vec<(f32, f32)>` of edge vertices. Returns empty for
+/// non-polygon outlines (Circle / Pill descriptors).
+fn polygon_from_outline(outline: &Outline<'_>) -> Vec<(f32, f32)> {
+    if outline.descriptor_kind() != OutlineKind::Polygon {
+        return Vec::new();
+    }
+    let verts = match outline.vertices() {
+        Some(v) => v,
+        None => return Vec::new(),
+    };
+    verts.iter().map(|v| (v.x(), v.y())).collect()
+}
+
+
+/// Reconstruct per-edge (lo, hi) gate span buckets and per-edge
+/// `t_center` midpoint buckets from `Cut` entries with absolute-pixel
+/// start/end coordinates. Mirrors `gate_spans_per_edge` in
+/// `enclosure.rs` (which takes Gate triples) — Phase 1.20 adds this
+/// Cut-driven variant so the new ExteriorWallOp dispatch can feed
+/// the shared `render_enclosure_polygon` renderer.
+fn gate_spans_per_edge_from_cuts(
+    polygon: &[(f32, f32)],
+    cuts: &[Cut<'_>],
+) -> (Vec<Vec<(f32, f32)>>, Vec<Vec<f32>>) {
+    let n = polygon.len();
+    let mut by_edge: Vec<Vec<(f32, f32)>> = vec![Vec::new(); n];
+    let mut midpoints: Vec<Vec<f32>> = vec![Vec::new(); n];
+    if n < 2 {
+        return (by_edge, midpoints);
+    }
+    for cut in cuts.iter() {
+        let s = match cut.start() {
+            Some(p) => p,
+            None => continue,
+        };
+        let e = match cut.end() {
+            Some(p) => p,
+            None => continue,
+        };
+        let mx = (s.x() + e.x()) / 2.0;
+        let my = (s.y() + e.y()) / 2.0;
+        // Find the closest polygon edge to the midpoint.
+        let mut best_edge: Option<usize> = None;
+        let mut best_dist = f32::INFINITY;
+        let mut best_t = 0.5_f32;
+        let mut best_half_t = 0.0_f32;
+        for i in 0..n {
+            let a = polygon[i];
+            let b = polygon[(i + 1) % n];
+            let dx = b.0 - a.0;
+            let dy = b.1 - a.1;
+            let edge_len_sq = dx * dx + dy * dy;
+            if edge_len_sq < 1e-12 {
+                continue;
+            }
+            let t = ((mx - a.0) * dx + (my - a.1) * dy) / edge_len_sq;
+            if !(0.0..=1.0).contains(&t) {
+                continue;
+            }
+            let projx = a.0 + t * dx;
+            let projy = a.1 + t * dy;
+            let dist_sq =
+                (mx - projx).powi(2) + (my - projy).powi(2);
+            if dist_sq < best_dist {
+                best_dist = dist_sq;
+                best_edge = Some(i);
+                best_t = t;
+                let edge_len = edge_len_sq.sqrt();
+                let half_px = (
+                    (s.x() - mx).powi(2) + (s.y() - my).powi(2)
+                ).sqrt();
+                best_half_t = half_px / edge_len;
+            }
+        }
+        if let Some(edge_idx) = best_edge {
+            let lo = (best_t - best_half_t).max(0.0);
+            let hi = (best_t + best_half_t).min(1.0);
+            if hi > lo {
+                by_edge[edge_idx].push((lo, hi));
+                midpoints[edge_idx].push(best_t);
+            }
+        }
+    }
+    (by_edge, midpoints)
 }
 
 /// DungeonInk exterior wall — stroke the outline with optional Cut gaps.
