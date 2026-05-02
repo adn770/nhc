@@ -128,6 +128,7 @@ mod tests {
             &InteriorWallOpArgs {
                 outline: Some(outline),
                 style,
+                cuts: None,
             },
         );
         let op_entry = OpEntry::create(

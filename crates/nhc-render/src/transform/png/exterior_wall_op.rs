@@ -59,6 +59,14 @@ fn wall_stroke() -> Stroke {
 
 /// `OpHandler` dispatch entry — registered against `Op::ExteriorWallOp`
 /// in `super::op_handlers`.
+///
+/// Phase 1.24 — region-keyed dispatch + op-level cuts preference.
+/// When ``op.region_ref`` is non-empty AND resolves to a Region with a
+/// populated outline, the geometry comes from ``region.outline()``.
+/// When ``op.cuts`` is populated, those entries supersede the legacy
+/// ``outline.cuts`` for stroke break intervals. Both fields default
+/// empty; empty refs / cuts fall through to the legacy paths so 3.x
+/// cached buffers still render.
 pub(super) fn draw(
     entry: &OpEntry<'_>,
     fir: &FloorIR<'_>,
@@ -68,15 +76,17 @@ pub(super) fn draw(
         Some(o) => o,
         None => return,
     };
-    let outline = match op.outline() {
+    let outline = resolve_outline(&op, fir);
+    let outline = match outline {
         Some(o) => o,
         None => return,
     };
+    let cuts: Vec<Cut<'_>> = resolve_cuts(&op, &outline);
     let style = op.style();
 
     match style {
         WallStyle::DungeonInk => {
-            draw_dungeon_ink(&outline, ctx);
+            draw_dungeon_ink(&outline, &cuts, ctx);
         }
         WallStyle::CaveInk => {
             draw_cave_ink(&outline, fir, ctx);
@@ -100,10 +110,6 @@ pub(super) fn draw(
             // start/end; reconstruct the per-edge (lo, hi) span buckets
             // the chain renderer expects.
             let polygon = polygon_from_outline(&outline);
-            let cuts: Vec<Cut<'_>> = outline
-                .cuts()
-                .map(|v| v.iter().collect())
-                .unwrap_or_default();
             let (by_edge, midpoints) =
                 gate_spans_per_edge_from_cuts(&polygon, &cuts);
             let enc_style = if style == WallStyle::Palisade {
@@ -123,6 +129,63 @@ pub(super) fn draw(
         }
         _ => {}
     }
+}
+
+/// Resolve the wall geometry — prefer the Region's outline when
+/// ``op.region_ref`` resolves; otherwise fall back to ``op.outline``.
+/// Mirrors the FloorOp.region_ref dispatch in `floor_op.rs`.
+fn resolve_outline<'a>(
+    op: &crate::ir::ExteriorWallOp<'a>,
+    fir: &FloorIR<'a>,
+) -> Option<Outline<'a>> {
+    if let Some(rr) = op.region_ref() {
+        if !rr.is_empty() {
+            if let Some(region) = find_region(fir, rr) {
+                if let Some(o) = region.outline() {
+                    return Some(o);
+                }
+            }
+        }
+    }
+    op.outline()
+}
+
+/// Resolve the wall cuts — prefer ``op.cuts`` when populated; fall
+/// back to ``outline.cuts`` for 3.x cached buffers. Returns a Vec
+/// rather than a Vector borrow so subroutines have a stable
+/// `&[Cut]` slice regardless of which source resolved.
+fn resolve_cuts<'a>(
+    op: &crate::ir::ExteriorWallOp<'a>,
+    outline: &Outline<'a>,
+) -> Vec<Cut<'a>> {
+    if let Some(cv) = op.cuts() {
+        if cv.len() > 0 {
+            return cv.iter().collect();
+        }
+    }
+    outline
+        .cuts()
+        .map(|cv| cv.iter().collect())
+        .unwrap_or_default()
+}
+
+/// Linear scan of `fir.regions()` for the Region with id matching
+/// `region_ref`. Mirrors the helper in `floor_op.rs`.
+fn find_region<'a>(
+    fir: &FloorIR<'a>,
+    needle: &str,
+) -> Option<crate::ir::Region<'a>> {
+    if needle.is_empty() {
+        return None;
+    }
+    let regions = fir.regions()?;
+    for i in 0..regions.len() {
+        let r = regions.get(i);
+        if r.id() == needle {
+            return Some(r);
+        }
+    }
+    None
 }
 
 
@@ -216,12 +279,13 @@ fn gate_spans_per_edge_from_cuts(
 /// DungeonInk exterior wall — stroke the outline with optional Cut gaps.
 fn draw_dungeon_ink(
     outline: &Outline<'_>,
+    cuts: &[Cut<'_>],
     ctx: &mut RasterCtx<'_>,
 ) {
     match outline.descriptor_kind() {
-        OutlineKind::Circle => draw_dungeon_ink_circle(outline, ctx),
+        OutlineKind::Circle => draw_dungeon_ink_circle(outline, cuts, ctx),
         OutlineKind::Pill => draw_dungeon_ink_pill(outline, ctx),
-        OutlineKind::Polygon | _ => draw_dungeon_ink_polygon(outline, ctx),
+        OutlineKind::Polygon | _ => draw_dungeon_ink_polygon(outline, cuts, ctx),
     }
 }
 
@@ -232,6 +296,7 @@ fn draw_dungeon_ink(
 /// - > 4 vertices (smooth room): apply only `CutStyle::None` cuts.
 fn draw_dungeon_ink_polygon(
     outline: &Outline<'_>,
+    cuts: &[Cut<'_>],
     ctx: &mut RasterCtx<'_>,
 ) {
     let verts = match outline.vertices() {
@@ -245,21 +310,14 @@ fn draw_dungeon_ink_polygon(
         .collect();
     let n = coords.len();
 
-    // Collect cuts.
-    let all_cuts: Vec<_> = outline
-        .cuts()
-        .map(|cv| cv.iter().collect::<Vec<_>>())
-        .unwrap_or_default();
-
     // For smooth (> 4 vertex) polygons, only None_ cuts create gaps.
     let active_cuts: Vec<_> = if n > 4 {
-        all_cuts
-            .iter()
+        cuts.iter()
             .filter(|c| c.style() == CutStyle::None)
             .cloned()
             .collect()
     } else {
-        all_cuts.iter().cloned().collect()
+        cuts.to_vec()
     };
 
     let d = walk_polygon_with_cuts(&coords, &active_cuts);
@@ -276,6 +334,7 @@ fn draw_dungeon_ink_polygon(
 /// Circle DungeonInk — parametric arc with Cut gaps.
 fn draw_dungeon_ink_circle(
     outline: &Outline<'_>,
+    cuts: &[Cut<'_>],
     ctx: &mut RasterCtx<'_>,
 ) {
     let cx = outline.cx();
@@ -285,11 +344,7 @@ fn draw_dungeon_ink_circle(
         return;
     }
 
-    let all_cuts: Vec<_> = outline
-        .cuts()
-        .map(|cv| cv.iter().collect::<Vec<_>>())
-        .unwrap_or_default();
-    let none_cuts: Vec<_> = all_cuts
+    let none_cuts: Vec<_> = cuts
         .iter()
         .filter(|c| c.style() == CutStyle::None)
         .cloned()

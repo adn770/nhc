@@ -4,6 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { Cut } from '../../../../nhc/rendering/ir/fb/cut.js';
 import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
 import { WallStyle } from '../../../../nhc/rendering/ir/fb/wall-style.js';
 
@@ -36,8 +37,18 @@ style():WallStyle {
   return offset ? this.bb!.readUint8(this.bb_pos + offset) : WallStyle.DungeonInk;
 }
 
+cuts(index: number, obj?:Cut):Cut|null {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? (obj || new Cut()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+cutsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 8);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startInteriorWallOp(builder:flatbuffers.Builder) {
-  builder.startObject(2);
+  builder.startObject(3);
 }
 
 static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
@@ -48,15 +59,32 @@ static addStyle(builder:flatbuffers.Builder, style:WallStyle) {
   builder.addFieldInt8(1, style, WallStyle.DungeonInk);
 }
 
+static addCuts(builder:flatbuffers.Builder, cutsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(2, cutsOffset, 0);
+}
+
+static createCutsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCutsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endInteriorWallOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createInteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle):flatbuffers.Offset {
+static createInteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle, cutsOffset:flatbuffers.Offset):flatbuffers.Offset {
   InteriorWallOp.startInteriorWallOp(builder);
   InteriorWallOp.addOutline(builder, outlineOffset);
   InteriorWallOp.addStyle(builder, style);
+  InteriorWallOp.addCuts(builder, cutsOffset);
   return InteriorWallOp.endInteriorWallOp(builder);
 }
 }

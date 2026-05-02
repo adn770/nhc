@@ -112,15 +112,20 @@ def _pack_floor_ir(regions: list[RegionT], ops: list[OpEntryT]) -> bytes:
 
 
 @pytest.mark.parametrize("descriptor", all_descriptors())
-def test_schema_minor_is_3(descriptor: str) -> None:
-    """1.23a: SCHEMA_MINOR bumps from 2 to 3 for the FloorOp.region_ref addition."""
+def test_schema_minor_at_least_3(descriptor: str) -> None:
+    """1.23a: SCHEMA_MINOR ≥ 3 (FloorOp.region_ref added at 1.23a).
+
+    Subsequent v4e sub-phases (1.24 → 1.25) bump the minor further
+    additively, so this lower-bound check stays green across the
+    migration. The exact current minor is locked by the skeleton
+    sentinel ``test_ir_emitter_skeleton::test_schema_major_is_three``.
+    """
     fir = _build_emitted(descriptor)
     assert fir.major == 3
-    assert fir.minor == 3, (
-        f"expected schema minor 3 (Phase 1.23a), got {fir.minor}; "
-        "this sub-phase adds FloorOp.region_ref parallel to "
-        "FloorOp.outline so consumers can resolve floor geometry "
-        "through Region.outline."
+    assert fir.minor >= 3, (
+        f"expected schema minor ≥ 3 (Phase 1.23a bumped to 3), got "
+        f"{fir.minor}; FloorOp.region_ref is required from 1.23a "
+        "onward."
     )
 
 

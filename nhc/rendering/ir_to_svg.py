@@ -2998,14 +2998,35 @@ def _draw_exterior_wall_op_from_ir(
       ``_has_consumed_dungeon_exterior_wall_ops``.
     """
     import math
+    from nhc.rendering.ir._fb.Outline import OutlineT
     from nhc.rendering.ir._fb.WallStyle import WallStyle as WS
 
     op = OpCreator(entry.OpType(), entry.Op())
     if op is None:
         return []
     outline = op.outline
+    # Phase 1.24 — region-keyed dispatch + op-level cuts. When
+    # ``op.region_ref`` is non-empty AND resolves to a Region with a
+    # populated outline, the geometry comes from
+    # ``region.outline()``. When ``op.cuts`` is populated, it
+    # supersedes the legacy ``outline.cuts`` for stroke break
+    # intervals. Both fields default empty; empty refs / cuts fall
+    # through to the legacy path. Mirrors the FloorOp.region_ref
+    # dispatch from 1.23a. Mutating ``outline.cuts`` keeps the
+    # rest of the function's ``outline.cuts`` reads transparently
+    # working off the resolved cuts list.
+    region_ref = op.regionRef or b""
+    if region_ref:
+        region = _find_region(fir, region_ref)
+        if region is not None:
+            region_outline_fb = region.Outline()
+            if region_outline_fb is not None:
+                outline = OutlineT.InitFromObj(region_outline_fb)
     if outline is None:
         return []
+    op_cuts = list(op.cuts or [])
+    if op_cuts:
+        outline.cuts = op_cuts
 
     style = int(op.style)
 

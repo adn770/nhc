@@ -5,6 +5,7 @@
 import * as flatbuffers from 'flatbuffers';
 
 import { CornerStyle } from '../../../../nhc/rendering/ir/fb/corner-style.js';
+import { Cut } from '../../../../nhc/rendering/ir/fb/cut.js';
 import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
 import { WallStyle } from '../../../../nhc/rendering/ir/fb/wall-style.js';
 
@@ -47,8 +48,25 @@ rngSeed():bigint {
   return offset ? this.bb!.readUint64(this.bb_pos + offset) : BigInt('0');
 }
 
+regionRef():string|null
+regionRef(optionalEncoding:flatbuffers.Encoding):string|Uint8Array|null
+regionRef(optionalEncoding?:any):string|Uint8Array|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
+}
+
+cuts(index: number, obj?:Cut):Cut|null {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? (obj || new Cut()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
+}
+
+cutsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 14);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startExteriorWallOp(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(6);
 }
 
 static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
@@ -67,17 +85,39 @@ static addRngSeed(builder:flatbuffers.Builder, rngSeed:bigint) {
   builder.addFieldInt64(3, rngSeed, BigInt('0'));
 }
 
+static addRegionRef(builder:flatbuffers.Builder, regionRefOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, regionRefOffset, 0);
+}
+
+static addCuts(builder:flatbuffers.Builder, cutsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(5, cutsOffset, 0);
+}
+
+static createCutsVector(builder:flatbuffers.Builder, data:flatbuffers.Offset[]):flatbuffers.Offset {
+  builder.startVector(4, data.length, 4);
+  for (let i = data.length - 1; i >= 0; i--) {
+    builder.addOffset(data[i]!);
+  }
+  return builder.endVector();
+}
+
+static startCutsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(4, numElems, 4);
+}
+
 static endExteriorWallOp(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createExteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle, cornerStyle:CornerStyle, rngSeed:bigint):flatbuffers.Offset {
+static createExteriorWallOp(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset, style:WallStyle, cornerStyle:CornerStyle, rngSeed:bigint, regionRefOffset:flatbuffers.Offset, cutsOffset:flatbuffers.Offset):flatbuffers.Offset {
   ExteriorWallOp.startExteriorWallOp(builder);
   ExteriorWallOp.addOutline(builder, outlineOffset);
   ExteriorWallOp.addStyle(builder, style);
   ExteriorWallOp.addCornerStyle(builder, cornerStyle);
   ExteriorWallOp.addRngSeed(builder, rngSeed);
+  ExteriorWallOp.addRegionRef(builder, regionRefOffset);
+  ExteriorWallOp.addCuts(builder, cutsOffset);
   return ExteriorWallOp.endExteriorWallOp(builder);
 }
 }

@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 3,
-  "minor": 3,
+  "minor": 4,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -21487,7 +21487,9 @@
         },
         "style": 1,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": null,
+        "cuts": []
       }
     },
     {

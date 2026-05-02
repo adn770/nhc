@@ -1,7 +1,7 @@
 {
   "__type": "FloorIRT",
   "major": 3,
-  "minor": 3,
+  "minor": 4,
   "widthTiles": 60,
   "heightTiles": 40,
   "cell": 32,
@@ -16517,7 +16517,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_1",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 160.0,
+              "y": 256.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 192.0,
+              "y": 256.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 256.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 384.0,
+              "y": 256.0
+            },
+            "style": 6
+          }
+        ]
       }
     },
     {
@@ -16603,7 +16634,52 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_2",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 320.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 384.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 320.0,
+              "y": 384.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 416.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 352.0,
+              "y": 448.0
+            },
+            "style": 6
+          }
+        ]
       }
     },
     {
@@ -16675,7 +16751,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_3",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 192.0,
+              "y": 672.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 224.0,
+              "y": 672.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 384.0,
+              "y": 896.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 896.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -16747,7 +16854,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_4",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 288.0,
+              "y": 1024.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 320.0,
+              "y": 1024.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 1056.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 416.0,
+              "y": 1088.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -16833,7 +16971,52 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_5",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 672.0,
+              "y": 352.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 352.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 288.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 320.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 256.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -16933,7 +17116,66 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_6",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 288.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 320.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 128.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 160.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1216.0,
+              "y": 256.0
+            },
+            "style": 6
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1024.0,
+              "y": 256.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17019,7 +17261,52 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_7",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1440.0,
+              "y": 352.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1472.0,
+              "y": 352.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 288.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 320.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 256.0
+            },
+            "style": 6
+          }
+        ]
       }
     },
     {
@@ -17105,7 +17392,52 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_8",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 768.0,
+              "y": 512.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 768.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 672.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 672.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 672.0,
+              "y": 480.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 480.0
+            },
+            "style": 6
+          }
+        ]
       }
     },
     {
@@ -17191,7 +17523,52 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_9",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 576.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 512.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1184.0,
+              "y": 576.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17263,7 +17640,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_10",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 704.0,
+              "y": 832.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 736.0,
+              "y": 832.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 928.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 608.0,
+              "y": 960.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17335,7 +17743,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_11",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 1088.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 928.0,
+              "y": 1120.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 1088.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1088.0,
+              "y": 1120.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17435,7 +17874,66 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_12",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1440.0,
+              "y": 512.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1472.0,
+              "y": 512.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1344.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1344.0,
+              "y": 576.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1536.0,
+              "y": 576.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1376.0,
+              "y": 736.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1408.0,
+              "y": 736.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17507,7 +18005,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_13",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 1056.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1312.0,
+              "y": 1088.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1440.0,
+              "y": 1024.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1472.0,
+              "y": 1024.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17579,7 +18108,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_14",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 224.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 224.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 160.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 192.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17665,7 +18225,52 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_15",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 544.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 544.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 480.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1664.0,
+              "y": 512.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 384.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 384.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17737,7 +18342,38 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_16",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 672.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 672.0
+            },
+            "style": 3
+          },
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 800.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 800.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17795,7 +18431,24 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "room_17",
+        "cuts": [
+          {
+            "__type": "CutT",
+            "start": {
+              "__type": "Vec2T",
+              "x": 1728.0,
+              "y": 992.0
+            },
+            "end": {
+              "__type": "Vec2T",
+              "x": 1760.0,
+              "y": 992.0
+            },
+            "style": 3
+          }
+        ]
       }
     },
     {
@@ -17838,7 +18491,9 @@
         },
         "style": 0,
         "cornerStyle": 0,
-        "rngSeed": 0
+        "rngSeed": 0,
+        "regionRef": "vault_1",
+        "cuts": []
       }
     },
     {

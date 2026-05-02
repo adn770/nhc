@@ -792,6 +792,10 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             )
             wall_op.style = WallStyle.WallStyle.DungeonInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            # Phase 1.24 — region_ref keys off the matching Room
+            # Region; op-level cuts mirror outline.cuts.
+            wall_op.regionRef = room.id
+            wall_op.cuts = list(wall_op.outline.cuts)
             wall_entry = OpEntryT()
             wall_entry.opType = Op.Op.ExteriorWallOp
             wall_entry.op = wall_op
@@ -861,6 +865,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             )
             wall_op.style = WallStyle.WallStyle.DungeonInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            # Phase 1.24 — region_ref → room.id (consumer falls
+            # back to op.outline when no Region matches today: L,
+            # Temple, Circle, Pill, Cross still skip
+            # ``_room_region_data``). Op-level cuts mirror
+            # outline.cuts.
+            wall_op.regionRef = room.id
+            wall_op.cuts = list(wall_op.outline.cuts)
             wall_entry = OpEntryT()
             wall_entry.opType = Op.Op.ExteriorWallOp
             wall_entry.op = wall_op
@@ -928,6 +939,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             wall_op.outline.cuts = []
             wall_op.style = WallStyle.WallStyle.CaveInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            # Phase 1.24 — cave wall region_ref is deferred (the
+            # cave Region's outline carries multi-ring polygon
+            # geometry while the wall's outline is the single-ring
+            # raw boundary used by the buffer + jitter + smooth
+            # pipeline; mirroring would diverge fill / stroke).
+            # Multi-ring cave region resolution lands later.
+            wall_op.cuts = []
             wall_entry = OpEntryT()
             wall_entry.opType = Op.Op.ExteriorWallOp
             wall_entry.op = wall_op

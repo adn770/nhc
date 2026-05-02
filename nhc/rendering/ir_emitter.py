@@ -75,7 +75,7 @@ from nhc.rendering.ir._fb.WallStyle import WallStyle
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 3
-SCHEMA_MINOR = 3
+SCHEMA_MINOR = 4
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
@@ -630,6 +630,11 @@ def emit_site_enclosure(
         # reading the paired EnclosureOp (which Phase 1.20 stops
         # emitting). The salt + mask match the legacy emission above.
         wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
+        # Phase 1.24 — site enclosures have no Region today (no
+        # ``_emit_regions_ir`` registers an "enclosure" id); leave
+        # ``region_ref`` empty so the consumer falls back to
+        # ``op.outline``. Op-level cuts mirror outline.cuts.
+        wall_op.cuts = list(wall_op.outline.cuts)
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
         wall_entry.op = wall_op
@@ -852,6 +857,13 @@ def emit_building_walls(
                 [point_a, point_b], closed=False,
             )
             wall_op.style = partition_style
+            # Phase 1.24 — op-level cuts mirror outline.cuts.
+            # Building partitions split at door positions
+            # upstream (via ``_edge_has_visible_door`` filtering
+            # in ``_coalesced_interior_edges``) so this list is
+            # typically empty; the field is on the table for
+            # v4e symmetry with ExteriorWallOp.
+            wall_op.cuts = list(wall_op.outline.cuts or [])
             wall_entry = OpEntryT()
             wall_entry.opType = 21  # Op.InteriorWallOp
             wall_entry.op = wall_op
@@ -910,6 +922,12 @@ def emit_building_walls(
         wall_op.rngSeed = (
             base_seed + 0xBE71 + building_index
         ) & _SM64_MASK
+        # Phase 1.24 — region_ref keys off the matching Building
+        # Region (registered by emit_building_regions /
+        # emit_building_overlays). Op-level cuts mirror
+        # outline.cuts.
+        wall_op.regionRef = f"building.{building_index}"
+        wall_op.cuts = list(wall_op.outline.cuts)
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
         wall_entry.op = wall_op

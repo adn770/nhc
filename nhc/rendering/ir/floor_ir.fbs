@@ -849,6 +849,13 @@ table FloorOp {
 table InteriorWallOp {
   outline: Outline;       // open or closed; cuts = doors
   style: WallStyle;       // PartitionWood / PartitionStone / DungeonInk / ...
+  // Phase 1.24 — op-level cuts parallel to outline.cuts.
+  // Consumers prefer this list; outline.cuts retires at the 4.0
+  // cut at 1.27. Interior partitions split at door positions
+  // upstream (the coalesced edge generator drops doors before
+  // emit) so this list is typically empty in fresh IR — the
+  // field is on the table for v4e symmetry with ExteriorWallOp.
+  cuts: [Cut];
 }
 
 table ExteriorWallOp {
@@ -863,6 +870,18 @@ table ExteriorWallOp {
   // rng_seed populated) still render via the legacy paired-op
   // seed-lookup fallback.
   rng_seed: ulong = 0;
+  // Phase 1.24 — region-keyed dispatch + op-level cuts. When
+  // ``region_ref`` is non-empty the consumer resolves the wall
+  // perimeter through ``Region.outline`` (shipped at 1.22)
+  // instead of ``op.outline``. ``cuts`` parallels
+  // ``outline.cuts`` and supersedes it for stroke break
+  // intervals. Both fields default empty for back-compat —
+  // 3.x cached buffers fall through to the legacy outline /
+  // outline.cuts path. The 4.0 cut at 1.27 retires
+  // ``op.outline`` and ``outline.cuts``. See
+  // design/map_ir_v4e.md §3 / §5.
+  region_ref: string;
+  cuts: [Cut];
 }
 
 // Phase 1.16b-1 of plans/nhc_pure_ir_plan.md — corridor wall op.

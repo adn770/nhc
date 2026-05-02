@@ -9349,6 +9349,7 @@ impl<'a> ::flatbuffers::Follow<'a> for InteriorWallOp<'a> {
 impl<'a> InteriorWallOp<'a> {
   pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 4;
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9360,6 +9361,7 @@ impl<'a> InteriorWallOp<'a> {
     args: &'args InteriorWallOpArgs<'args>
   ) -> ::flatbuffers::WIPOffset<InteriorWallOp<'bldr>> {
     let mut builder = InteriorWallOpBuilder::new(_fbb);
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
     if let Some(x) = args.outline { builder.add_outline(x); }
     builder.add_style(args.style);
     builder.finish()
@@ -9380,6 +9382,13 @@ impl<'a> InteriorWallOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<WallStyle>(InteriorWallOp::VT_STYLE, Some(WallStyle::DungeonInk)).unwrap()}
   }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(InteriorWallOp::VT_CUTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for InteriorWallOp<'_> {
@@ -9390,6 +9399,7 @@ impl ::flatbuffers::Verifiable for InteriorWallOp<'_> {
     v.visit_table(pos)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
      .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
      .finish();
     Ok(())
   }
@@ -9397,6 +9407,7 @@ impl ::flatbuffers::Verifiable for InteriorWallOp<'_> {
 pub struct InteriorWallOpArgs<'a> {
     pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
     pub style: WallStyle,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
 }
 impl<'a> Default for InteriorWallOpArgs<'a> {
   #[inline]
@@ -9404,6 +9415,7 @@ impl<'a> Default for InteriorWallOpArgs<'a> {
     InteriorWallOpArgs {
       outline: None,
       style: WallStyle::DungeonInk,
+      cuts: None,
     }
   }
 }
@@ -9420,6 +9432,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> InteriorWallOpBuilder<'a, 'b,
   #[inline]
   pub fn add_style(&mut self, style: WallStyle) {
     self.fbb_.push_slot::<WallStyle>(InteriorWallOp::VT_STYLE, style, WallStyle::DungeonInk);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(InteriorWallOp::VT_CUTS, cuts);
   }
   #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> InteriorWallOpBuilder<'a, 'b, A> {
@@ -9441,6 +9457,7 @@ impl ::core::fmt::Debug for InteriorWallOp<'_> {
     let mut ds = f.debug_struct("InteriorWallOp");
       ds.field("outline", &self.outline());
       ds.field("style", &self.style());
+      ds.field("cuts", &self.cuts());
       ds.finish()
   }
 }
@@ -9464,6 +9481,8 @@ impl<'a> ExteriorWallOp<'a> {
   pub const VT_STYLE: ::flatbuffers::VOffsetT = 6;
   pub const VT_CORNER_STYLE: ::flatbuffers::VOffsetT = 8;
   pub const VT_RNG_SEED: ::flatbuffers::VOffsetT = 10;
+  pub const VT_REGION_REF: ::flatbuffers::VOffsetT = 12;
+  pub const VT_CUTS: ::flatbuffers::VOffsetT = 14;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -9476,6 +9495,8 @@ impl<'a> ExteriorWallOp<'a> {
   ) -> ::flatbuffers::WIPOffset<ExteriorWallOp<'bldr>> {
     let mut builder = ExteriorWallOpBuilder::new(_fbb);
     builder.add_rng_seed(args.rng_seed);
+    if let Some(x) = args.cuts { builder.add_cuts(x); }
+    if let Some(x) = args.region_ref { builder.add_region_ref(x); }
     if let Some(x) = args.outline { builder.add_outline(x); }
     builder.add_corner_style(args.corner_style);
     builder.add_style(args.style);
@@ -9511,6 +9532,20 @@ impl<'a> ExteriorWallOp<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u64>(ExteriorWallOp::VT_RNG_SEED, Some(0)).unwrap()}
   }
+  #[inline]
+  pub fn region_ref(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(ExteriorWallOp::VT_REGION_REF, None)}
+  }
+  #[inline]
+  pub fn cuts(&self) -> Option<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut>>>>(ExteriorWallOp::VT_CUTS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for ExteriorWallOp<'_> {
@@ -9523,6 +9558,8 @@ impl ::flatbuffers::Verifiable for ExteriorWallOp<'_> {
      .visit_field::<WallStyle>("style", Self::VT_STYLE, false)?
      .visit_field::<CornerStyle>("corner_style", Self::VT_CORNER_STYLE, false)?
      .visit_field::<u64>("rng_seed", Self::VT_RNG_SEED, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("region_ref", Self::VT_REGION_REF, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, ::flatbuffers::ForwardsUOffset<Cut>>>>("cuts", Self::VT_CUTS, false)?
      .finish();
     Ok(())
   }
@@ -9532,6 +9569,8 @@ pub struct ExteriorWallOpArgs<'a> {
     pub style: WallStyle,
     pub corner_style: CornerStyle,
     pub rng_seed: u64,
+    pub region_ref: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub cuts: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, ::flatbuffers::ForwardsUOffset<Cut<'a>>>>>,
 }
 impl<'a> Default for ExteriorWallOpArgs<'a> {
   #[inline]
@@ -9541,6 +9580,8 @@ impl<'a> Default for ExteriorWallOpArgs<'a> {
       style: WallStyle::DungeonInk,
       corner_style: CornerStyle::Merlon,
       rng_seed: 0,
+      region_ref: None,
+      cuts: None,
     }
   }
 }
@@ -9567,6 +9608,14 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> ExteriorWallOpBuilder<'a, 'b,
     self.fbb_.push_slot::<u64>(ExteriorWallOp::VT_RNG_SEED, rng_seed, 0);
   }
   #[inline]
+  pub fn add_region_ref(&mut self, region_ref: ::flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ExteriorWallOp::VT_REGION_REF, region_ref);
+  }
+  #[inline]
+  pub fn add_cuts(&mut self, cuts: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , ::flatbuffers::ForwardsUOffset<Cut<'b >>>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(ExteriorWallOp::VT_CUTS, cuts);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> ExteriorWallOpBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ExteriorWallOpBuilder {
@@ -9588,6 +9637,8 @@ impl ::core::fmt::Debug for ExteriorWallOp<'_> {
       ds.field("style", &self.style());
       ds.field("corner_style", &self.corner_style());
       ds.field("rng_seed", &self.rng_seed());
+      ds.field("region_ref", &self.region_ref());
+      ds.field("cuts", &self.cuts());
       ds.finish()
   }
 }
