@@ -175,50 +175,108 @@ fn walkable_tiles_from_ir(
                 };
                 let coords: Vec<(f32, f32)> =
                     verts.iter().map(|v| (v.x(), v.y())).collect();
-                let n = coords.len();
+                // Phase 1.26d-3 — multi-ring outlines (merged corridor
+                // FloorOp's disjoint connected components, plus
+                // interior holes for annular components that wrap a
+                // room) require ring-aware grouping. Group consecutive
+                // ``is_hole=true`` rings under their preceding
+                // exterior; build one geo polygon per exterior with
+                // its holes so containment correctly excludes hole
+                // regions.
+                let rings = outline.rings();
+                type Ring<'a> = &'a [(f32, f32)];
+                type Group<'a> = (Ring<'a>, Vec<Ring<'a>>);
+                let groups: Vec<Group<'_>> = match rings {
+                    Some(rs) if rs.len() > 0 => {
+                        let mut acc: Vec<Group<'_>> = Vec::new();
+                        for r in rs.iter() {
+                            let s = r.start() as usize;
+                            let c = r.count() as usize;
+                            if c < 2 || s + c > coords.len() {
+                                continue;
+                            }
+                            let ring_slice = &coords[s..s + c];
+                            if !r.is_hole() {
+                                acc.push((ring_slice, Vec::new()));
+                            } else if let Some(g) = acc.last_mut() {
+                                g.1.push(ring_slice);
+                            }
+                            // Orphan hole (no preceding exterior) is dropped.
+                        }
+                        acc
+                    }
+                    _ => vec![(&coords[..], Vec::new())],
+                };
 
-                if n == 4 {
-                    // Axis-aligned bbox: derive tile range directly.
-                    let xs: Vec<f32> = coords.iter().map(|c| c.0).collect();
-                    let ys: Vec<f32> = coords.iter().map(|c| c.1).collect();
-                    let x0 = xs.iter().cloned().fold(f32::MAX, f32::min) as i32;
-                    let y0 = ys.iter().cloned().fold(f32::MAX, f32::min) as i32;
-                    let x1 = xs.iter().cloned().fold(f32::MIN, f32::max) as i32;
-                    let y1 = ys.iter().cloned().fold(f32::MIN, f32::max) as i32;
-                    let tx0 = x0 / CELL as i32;
-                    let ty0 = y0 / CELL as i32;
-                    let tx1 = x1 / CELL as i32;
-                    let ty1 = y1 / CELL as i32;
-                    for ty in ty0..ty1 {
-                        for tx in tx0..tx1 {
-                            if tx >= 0 && tx < width && ty >= 0 && ty < height {
-                                result.insert((tx, ty));
+                for (ext_coords, hole_rings) in groups {
+                    let n = ext_coords.len();
+                    if n < 2 {
+                        continue;
+                    }
+
+                    if n == 4 && hole_rings.is_empty() {
+                        // Axis-aligned bbox with no holes: derive directly.
+                        let xs: Vec<f32> =
+                            ext_coords.iter().map(|c| c.0).collect();
+                        let ys: Vec<f32> =
+                            ext_coords.iter().map(|c| c.1).collect();
+                        let x0 = xs.iter().cloned().fold(f32::MAX, f32::min) as i32;
+                        let y0 = ys.iter().cloned().fold(f32::MAX, f32::min) as i32;
+                        let x1 = xs.iter().cloned().fold(f32::MIN, f32::max) as i32;
+                        let y1 = ys.iter().cloned().fold(f32::MIN, f32::max) as i32;
+                        let tx0 = x0 / CELL as i32;
+                        let ty0 = y0 / CELL as i32;
+                        let tx1 = x1 / CELL as i32;
+                        let ty1 = y1 / CELL as i32;
+                        for ty in ty0..ty1 {
+                            for tx in tx0..tx1 {
+                                if tx >= 0 && tx < width && ty >= 0 && ty < height {
+                                    result.insert((tx, ty));
+                                }
                             }
                         }
-                    }
-                } else {
-                    // Non-rectangular: containment test.
-                    let ring: Vec<Coord<f64>> = coords
-                        .iter()
-                        .map(|&(x, y)| Coord { x: x as f64, y: y as f64 })
-                        .collect();
-                    let poly = GeoPoly::new(LineString::from(ring), vec![]);
-                    let xs: Vec<f32> = coords.iter().map(|c| c.0).collect();
-                    let ys: Vec<f32> = coords.iter().map(|c| c.1).collect();
-                    let bx0 = xs.iter().cloned().fold(f32::MAX, f32::min);
-                    let by0 = ys.iter().cloned().fold(f32::MAX, f32::min);
-                    let bx1 = xs.iter().cloned().fold(f32::MIN, f32::max);
-                    let by1 = ys.iter().cloned().fold(f32::MIN, f32::max);
-                    let tx0 = ((bx0 / CELL) as i32).max(0);
-                    let ty0 = ((by0 / CELL) as i32).max(0);
-                    let tx1 = ((bx1 / CELL) as i32 + 1).min(width);
-                    let ty1 = ((by1 / CELL) as i32 + 1).min(height);
-                    for ty in ty0..ty1 {
-                        for tx in tx0..tx1 {
-                            let cx = tx as f64 * CELL as f64 + CELL as f64 / 2.0;
-                            let cy = ty as f64 * CELL as f64 + CELL as f64 / 2.0;
-                            if poly.contains(&Point::new(cx, cy)) {
-                                result.insert((tx, ty));
+                    } else {
+                        // Non-rectangular or with holes: containment test.
+                        let exterior: Vec<Coord<f64>> = ext_coords
+                            .iter()
+                            .map(|&(x, y)| Coord { x: x as f64, y: y as f64 })
+                            .collect();
+                        let interiors: Vec<LineString<f64>> = hole_rings
+                            .iter()
+                            .map(|hr| {
+                                LineString::from(
+                                    hr.iter()
+                                        .map(|&(x, y)| Coord {
+                                            x: x as f64,
+                                            y: y as f64,
+                                        })
+                                        .collect::<Vec<_>>(),
+                                )
+                            })
+                            .collect();
+                        let poly =
+                            GeoPoly::new(LineString::from(exterior), interiors);
+                        let xs: Vec<f32> =
+                            ext_coords.iter().map(|c| c.0).collect();
+                        let ys: Vec<f32> =
+                            ext_coords.iter().map(|c| c.1).collect();
+                        let bx0 = xs.iter().cloned().fold(f32::MAX, f32::min);
+                        let by0 = ys.iter().cloned().fold(f32::MAX, f32::min);
+                        let bx1 = xs.iter().cloned().fold(f32::MIN, f32::max);
+                        let by1 = ys.iter().cloned().fold(f32::MIN, f32::max);
+                        let tx0 = ((bx0 / CELL) as i32).max(0);
+                        let ty0 = ((by0 / CELL) as i32).max(0);
+                        let tx1 = ((bx1 / CELL) as i32 + 1).min(width);
+                        let ty1 = ((by1 / CELL) as i32 + 1).min(height);
+                        for ty in ty0..ty1 {
+                            for tx in tx0..tx1 {
+                                let cx = tx as f64 * CELL as f64
+                                    + CELL as f64 / 2.0;
+                                let cy = ty as f64 * CELL as f64
+                                    + CELL as f64 / 2.0;
+                                if poly.contains(&Point::new(cx, cy)) {
+                                    result.insert((tx, ty));
+                                }
                             }
                         }
                     }

@@ -814,29 +814,43 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         floor_entry.op = floor_op
         builder.add_op(floor_entry)
 
-    # Phase 1.7 — one FloorOp per corridor tile alongside the legacy
-    # ``corridorTiles`` field. No merging at this stage: each tile is
-    # its own 4-vertex Polygon outline with bbox
-    # ``(x*CELL, y*CELL, CELL, CELL)`` and ``style ==
-    # FloorStyle.DungeonFloor``. Paint perf is rect-fill regardless of
-    # op count; merging strategy is reserved for later if profiling
-    # surfaces overhead. The legacy ``corridor_tiles_list`` keeps
-    # populating in parallel — consumers do not read FloorOp until
-    # 1.15+.
+    # Phase 1.26d-3 — ONE merged ``FloorOp(DungeonFloor)`` per floor
+    # with ``region_ref = "corridor"``. Replaces the per-tile corridor
+    # FloorOp emission shipped at 1.7. Outline is built from the SAME
+    # ``_collect_corridor_components`` + ``_corridor_component_exterior_coords``
+    # + ``_multiring_outline`` helpers ``emit_regions`` calls, so the
+    # FloorOp's ``op.outline`` and the ``Region(kind=Corridor).outline``
+    # are byte-identical — the consumer's ``region_ref`` resolution path
+    # and the ``op.outline`` fallback resolve to the same geometry.
     #
-    # Mirrors the legacy walk: emits unconditionally (the corridor list
-    # itself is unconditional — wood-floor short-circuit only governs
-    # the rect / smooth room base fills, not corridor tiles, since
-    # corridors land outside any building polygon).
-    for tile in corridor_tiles_list:
-        rect = Rect(int(tile.x), int(tile.y), 1, 1)
-        floor_op = FloorOpT()
-        floor_op.outline = outline_from_rect(rect)
-        floor_op.style = FloorStyle.FloorStyle.DungeonFloor
-        floor_entry = OpEntryT()
-        floor_entry.opType = Op.Op.FloorOp
-        floor_entry.op = floor_op
-        builder.add_op(floor_entry)
+    # Single-component corridor systems take the v4e single-ring
+    # shorthand (``rings = []``, vertices IS the single exterior ring);
+    # multi-component systems populate one exterior ring per disjoint
+    # connected component. Both Python ``ir_to_svg`` and Rust
+    # ``floor_op.rs`` walk ``outline.rings`` when populated.
+    if corridor_tiles_list:
+        from nhc.rendering.ir_emitter import (
+            _corridor_component_rings,
+            _multiring_outline,
+        )
+        comp_tiles = {(int(t.x), int(t.y)) for t in corridor_tiles_list}
+        components = _collect_corridor_components(comp_tiles)
+        rings_for_outline: list[
+            tuple[list[tuple[float, float]], bool]
+        ] = []
+        for comp in components:
+            for ring_coords, is_hole in _corridor_component_rings(comp):
+                if ring_coords and len(ring_coords) >= 4:
+                    rings_for_outline.append((ring_coords, is_hole))
+        if rings_for_outline:
+            floor_op = FloorOpT()
+            floor_op.outline = _multiring_outline(rings_for_outline)
+            floor_op.style = FloorStyle.FloorStyle.DungeonFloor
+            floor_op.regionRef = "corridor"
+            floor_entry = OpEntryT()
+            floor_entry.opType = Op.Op.FloorOp
+            floor_entry.op = floor_op
+            builder.add_op(floor_entry)
 
     # Phase 1.20b — wood-floor base fill for buildings with
     # ``interior_finish == "wood"``. Emitted AFTER every white

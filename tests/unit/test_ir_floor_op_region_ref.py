@@ -367,60 +367,64 @@ def test_cave_region_count_matches_cave_floor_op_count() -> None:
     )
 
 
-def test_corridor_floor_ops_have_empty_region_ref() -> None:
-    """Per-tile corridor FloorOps don't claim a Region.
+def test_corridor_floor_op_carries_corridor_region_ref() -> None:
+    """Phase 1.26d-3 — the merged corridor FloorOp keys off ``"corridor"``.
 
-    The plan keeps the per-tile corridor emission simple: each
-    corridor tile is its own FloorOp with a 4-vertex bbox outline.
-    Phase 1.26d-2 (scope-reduced) registers ONE merged
-    ``Region(kind=Corridor, id="corridor")`` per floor with a
-    multi-ring outline (one ring per disjoint component) but does
-    NOT set ``region_ref`` on the per-tile FloorOps — the consumer
-    rendering keeps falling back to each op's own bbox outline so
-    pixel parity is preserved. A follow-up sub-phase migrates the
-    per-tile FloorOps to a single merged FloorOp once the
-    consumers gain multi-ring outline rendering. This test pins
-    the scope-reduced contract: no corridor FloorOp carries a
-    non-empty region_ref.
+    The per-tile corridor emission retired at 1.26d-3. A single
+    ``FloorOp(DungeonFloor, region_ref="corridor")`` per floor now
+    carries the multi-ring outline matching the
+    ``Region(kind=Corridor, id="corridor")`` registered by
+    :func:`emit_regions`. This test pins that contract: the merged
+    corridor FloorOp exists, claims the corridor region, and any
+    additional DungeonFloor FloorOp either ties to a Room region
+    or to a building/wood-floor region — never to a 1×1 anonymous
+    bbox.
     """
     fir = _build_emitted("seed42_rect_dungeon_dungeon")
     room_region_ids = {
         _decode_id(r.id) for r in fir.regions
         if r.kind == RegionKind.Room
     }
-    # Heuristic: a FloorOp whose outline has exactly 4 vertices and
-    # whose bbox is 32×32 (one-tile rect) is a corridor tile.
-    corridor_count = 0
+
+    corridor_floor_ops = [
+        op for op in _floor_ops(fir)
+        if _decode_id(op.regionRef) == "corridor"
+    ]
+    assert len(corridor_floor_ops) == 1, (
+        f"expected exactly one FloorOp with region_ref='corridor'; "
+        f"got {len(corridor_floor_ops)}"
+    )
+    corridor_op = corridor_floor_ops[0]
+    assert corridor_op.style == FloorStyle.DungeonFloor
+    assert corridor_op.outline is not None
+    assert corridor_op.outline.vertices, (
+        "merged corridor FloorOp must carry vertices"
+    )
+
+    # No 1×1 bbox FloorOp should remain with empty region_ref.
     for op in _floor_ops(fir):
         if op.style != FloorStyle.DungeonFloor:
             continue
         if op.outline is None or not op.outline.vertices:
             continue
+        if op.outline.descriptorKind != OutlineKind.Polygon:
+            continue
+        if op.outline.rings:
+            continue  # multi-ring outline (the merged corridor op)
         if len(op.outline.vertices) != 4:
             continue
         xs = [v.x for v in op.outline.vertices]
         ys = [v.y for v in op.outline.vertices]
-        w = max(xs) - min(xs)
-        h = max(ys) - min(ys)
-        if (w, h) != (32.0, 32.0):
+        if (max(xs) - min(xs), max(ys) - min(ys)) != (32.0, 32.0):
             continue
-        # Single-tile rect: corridor tile (rect rooms are bigger).
         ref = _decode_id(op.regionRef)
-        # Note: a 1x1 ROOM whose bbox is exactly 32×32 is rare in the
-        # standard dungeon BSP; allow region_ref to point at a room
-        # if and only if it resolves to a Room region.
         if ref and ref in room_region_ids:
-            continue
-        corridor_count += 1
-        assert ref == "", (
-            f"corridor FloorOp at "
-            f"({xs[0]:.0f},{ys[0]:.0f}) must have empty region_ref; "
-            f"got {ref!r}"
+            continue  # 1×1 rect room — fine
+        assert ref, (
+            f"1×1 DungeonFloor FloorOp at "
+            f"({xs[0]:.0f},{ys[0]:.0f}) with empty region_ref must "
+            f"not exist after 1.26d-3"
         )
-    assert corridor_count > 0, (
-        "test heuristic found no corridor FloorOps in seed42; the "
-        "fixture should carry many."
-    )
 
 
 def test_hybrid_room_emits_floor_op_with_region_ref() -> None:

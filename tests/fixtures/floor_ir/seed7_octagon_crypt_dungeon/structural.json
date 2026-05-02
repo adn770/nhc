@@ -5,7 +5,7 @@
     "hatching": 14249,
     "shadows": 251,
     "stairs": 16,
-    "structural": 266,
+    "structural": 39,
     "surface_features": 0,
     "terrain_detail": 155,
     "terrain_tints": 64,
@@ -16,7 +16,7 @@
     "ExteriorWallOp": 18,
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
-    "FloorOp": 246,
+    "FloorOp": 19,
     "HatchOp": 2,
     "ShadowOp": 19,
     "StairsOp": 1,
@@ -26,6 +26,6 @@
     "WallsAndFloorsOp": 1
   },
   "region_count": 20,
-  "region_polygon_rings": 52,
-  "region_polygon_vertices": 674
+  "region_polygon_rings": 53,
+  "region_polygon_vertices": 686
 }

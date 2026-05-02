@@ -178,6 +178,15 @@ fn find_region<'a>(
 }
 
 /// Polygon outline — walk `outline.vertices`, build a filled path.
+///
+/// Phase 1.26d-3 — multi-ring outlines (the merged corridor FloorOp's
+/// disjoint connected components, plus interior holes for annular
+/// corridors that wrap a room) walk one subpath per ring and fill
+/// with `FillRule::EvenOdd` so interior holes punch out. Single-ring
+/// outlines take the v4e shorthand (`rings()` empty or absent), walk
+/// the full vertex list as one subpath, and fill with
+/// `FillRule::Winding` (matches the per-shape rendering convention
+/// from 1.17).
 fn draw_polygon(
     outline: &crate::ir::Outline<'_>,
     style: FloorStyle,
@@ -187,24 +196,58 @@ fn draw_polygon(
         Some(v) if v.len() >= 3 => v,
         _ => return,
     };
+    let rings = outline.rings();
     let mut pb = PathBuilder::new();
-    let mut iter = verts.iter();
-    if let Some(v0) = iter.next() {
+    let mut any = false;
+    let mut multi_ring = false;
+
+    let push_ring = |pb: &mut PathBuilder, start: usize, count: usize| -> bool {
+        if count < 2 || start + count > verts.len() {
+            return false;
+        }
+        let v0 = verts.get(start);
         pb.move_to(v0.x(), v0.y());
+        for j in 1..count {
+            let v = verts.get(start + j);
+            pb.line_to(v.x(), v.y());
+        }
+        pb.close();
+        true
+    };
+
+    match rings {
+        Some(rs) if rs.len() > 0 => {
+            multi_ring = true;
+            for r in rs.iter() {
+                if push_ring(&mut pb, r.start() as usize, r.count() as usize) {
+                    any = true;
+                }
+            }
+        }
+        _ => {
+            if push_ring(&mut pb, 0, verts.len()) {
+                any = true;
+            }
+        }
     }
-    for v in iter {
-        pb.line_to(v.x(), v.y());
+
+    if !any {
+        return;
     }
-    pb.close();
     let path = match pb.finish() {
         Some(p) => p,
         None => return,
     };
     let paint = floor_paint(style);
+    let fill_rule = if multi_ring {
+        FillRule::EvenOdd
+    } else {
+        FillRule::Winding
+    };
     ctx.pixmap.fill_path(
         &path,
         &paint,
-        FillRule::Winding,
+        fill_rule,
         ctx.transform,
         None,
     );
@@ -916,6 +959,227 @@ mod tests {
             (FLOOR_R, FLOOR_G, FLOOR_B),
             "pixel ({px},{py}) should be white via legacy rect_rooms \
              (no FloorOps in IR)"
+        );
+    }
+
+    // ── Phase 1.26d-3: multi-ring polygon outline renders all rings ──
+
+    /// Build an IR with one polygon FloorOp whose outline carries
+    /// two disjoint exterior rings (mirrors the merged corridor
+    /// FloorOp emit at 1.26d-3 for a 2-component corridor system).
+    fn build_two_ring_floor_op_buf() -> Vec<u8> {
+        use crate::ir::PathRange;
+        let cell = 32.0_f32;
+        // Ring 0: tiles [1,1]..[2,2] (one tile)
+        let r0_x0 = 1.0 * cell;
+        let r0_y0 = 1.0 * cell;
+        let r0_x1 = 2.0 * cell;
+        let r0_y1 = 2.0 * cell;
+        // Ring 1: tiles [4,4]..[5,5] (one tile)
+        let r1_x0 = 4.0 * cell;
+        let r1_y0 = 4.0 * cell;
+        let r1_x1 = 5.0 * cell;
+        let r1_y1 = 5.0 * cell;
+
+        let mut fbb = FlatBufferBuilder::new();
+        let verts = fbb.create_vector(&[
+            // Ring 0
+            Vec2::new(r0_x0, r0_y0),
+            Vec2::new(r0_x1, r0_y0),
+            Vec2::new(r0_x1, r0_y1),
+            Vec2::new(r0_x0, r0_y1),
+            // Ring 1
+            Vec2::new(r1_x0, r1_y0),
+            Vec2::new(r1_x1, r1_y0),
+            Vec2::new(r1_x1, r1_y1),
+            Vec2::new(r1_x0, r1_y1),
+        ]);
+        let rings = fbb.create_vector(&[
+            PathRange::new(0, 4, false),
+            PathRange::new(4, 4, false),
+        ]);
+        let outline = Outline::create(
+            &mut fbb,
+            &OutlineArgs {
+                vertices: Some(verts),
+                rings: Some(rings),
+                closed: true,
+                descriptor_kind: OutlineKind::Polygon,
+                ..Default::default()
+            },
+        );
+        let floor_op = FloorOp::create(
+            &mut fbb,
+            &FloorOpArgs {
+                outline: Some(outline),
+                style: FloorStyle::DungeonFloor,
+                region_ref: None,
+            },
+        );
+        let op_entry = OpEntry::create(
+            &mut fbb,
+            &OpEntryArgs {
+                op_type: Op::FloorOp,
+                op: Some(floor_op.as_union_value()),
+            },
+        );
+        let ops = fbb.create_vector(&[op_entry]);
+        let theme = fbb.create_string("dungeon");
+        let fir = FloorIR::create(
+            &mut fbb,
+            &FloorIRArgs {
+                major: 3,
+                minor: 7,
+                width_tiles: 8,
+                height_tiles: 8,
+                cell: 32,
+                padding: 32,
+                theme: Some(theme),
+                ops: Some(ops),
+                ..Default::default()
+            },
+        );
+        finish_floor_ir_buffer(&mut fbb, fir);
+        fbb.finished_data().to_vec()
+    }
+
+    /// Build an IR with one polygon FloorOp whose outline carries
+    /// an exterior + one interior hole (annular polygon — a 4×4 tile
+    /// square with a 2×2 hole in the middle). Mirrors the merged
+    /// corridor FloorOp emit at 1.26d-3 when a corridor wraps a room.
+    fn build_annular_floor_op_buf() -> Vec<u8> {
+        use crate::ir::PathRange;
+        let cell = 32.0_f32;
+        // Exterior: tiles [1,1]..[5,5] (4×4 square)
+        let ex0 = 1.0 * cell;
+        let ey0 = 1.0 * cell;
+        let ex1 = 5.0 * cell;
+        let ey1 = 5.0 * cell;
+        // Hole: tiles [2,2]..[4,4] (2×2 inner square)
+        let hx0 = 2.0 * cell;
+        let hy0 = 2.0 * cell;
+        let hx1 = 4.0 * cell;
+        let hy1 = 4.0 * cell;
+
+        let mut fbb = FlatBufferBuilder::new();
+        let verts = fbb.create_vector(&[
+            // Exterior (CCW in screen-down coords)
+            Vec2::new(ex0, ey0),
+            Vec2::new(ex1, ey0),
+            Vec2::new(ex1, ey1),
+            Vec2::new(ex0, ey1),
+            // Hole
+            Vec2::new(hx0, hy0),
+            Vec2::new(hx1, hy0),
+            Vec2::new(hx1, hy1),
+            Vec2::new(hx0, hy1),
+        ]);
+        let rings = fbb.create_vector(&[
+            PathRange::new(0, 4, false),
+            PathRange::new(4, 4, true),
+        ]);
+        let outline = Outline::create(
+            &mut fbb,
+            &OutlineArgs {
+                vertices: Some(verts),
+                rings: Some(rings),
+                closed: true,
+                descriptor_kind: OutlineKind::Polygon,
+                ..Default::default()
+            },
+        );
+        let floor_op = FloorOp::create(
+            &mut fbb,
+            &FloorOpArgs {
+                outline: Some(outline),
+                style: FloorStyle::DungeonFloor,
+                region_ref: None,
+            },
+        );
+        let op_entry = OpEntry::create(
+            &mut fbb,
+            &OpEntryArgs {
+                op_type: Op::FloorOp,
+                op: Some(floor_op.as_union_value()),
+            },
+        );
+        let ops = fbb.create_vector(&[op_entry]);
+        let theme = fbb.create_string("dungeon");
+        let fir = FloorIR::create(
+            &mut fbb,
+            &FloorIRArgs {
+                major: 3,
+                minor: 7,
+                width_tiles: 8,
+                height_tiles: 8,
+                cell: 32,
+                padding: 32,
+                theme: Some(theme),
+                ops: Some(ops),
+                ..Default::default()
+            },
+        );
+        finish_floor_ir_buffer(&mut fbb, fir);
+        fbb.finished_data().to_vec()
+    }
+
+    #[test]
+    fn floor_op_annular_polygon_punches_hole_via_evenodd() {
+        // Annular polygon (exterior ring + one hole ring).
+        // Tile (1,1) (exterior, outside hole) → white floor.
+        // Tile (2,2) (inside hole) → parchment BG (hole punched).
+        let buf = build_annular_floor_op_buf();
+        let png = floor_ir_to_png(&buf, 1.0, None).expect("render");
+        let pixmap = decode(&png);
+
+        let (px_ext, py_ext) = tile_centre_px(1, 1);
+        let (r_ext, g_ext, b_ext) = pixel_at(&pixmap, px_ext, py_ext);
+        assert_eq!(
+            (r_ext, g_ext, b_ext),
+            (FLOOR_R, FLOOR_G, FLOOR_B),
+            "tile (1,1) on exterior, outside hole, must be white floor"
+        );
+
+        let (px_hole, py_hole) = tile_centre_px(2, 2);
+        let (r_h, g_h, b_h) = pixel_at(&pixmap, px_hole, py_hole);
+        assert_eq!(
+            (r_h, g_h, b_h),
+            (BG_R, BG_G, BG_B),
+            "tile (2,2) inside hole must remain parchment BG (evenodd \
+             punches the hole)"
+        );
+    }
+
+    #[test]
+    fn floor_op_multi_ring_paints_every_ring() {
+        // Multi-ring outline: both rings should fill independently.
+        // Pixel between the rings (tile (3,3)) stays parchment.
+        let buf = build_two_ring_floor_op_buf();
+        let png = floor_ir_to_png(&buf, 1.0, None).expect("render");
+        let pixmap = decode(&png);
+
+        let (px0, py0) = tile_centre_px(1, 1);
+        let (r0, g0, b0) = pixel_at(&pixmap, px0, py0);
+        assert_eq!(
+            (r0, g0, b0),
+            (FLOOR_R, FLOOR_G, FLOOR_B),
+            "ring 0 centre ({px0},{py0}) should be white floor"
+        );
+
+        let (px1, py1) = tile_centre_px(4, 4);
+        let (r1, g1, b1) = pixel_at(&pixmap, px1, py1);
+        assert_eq!(
+            (r1, g1, b1),
+            (FLOOR_R, FLOOR_G, FLOOR_B),
+            "ring 1 centre ({px1},{py1}) should be white floor"
+        );
+
+        let (pxg, pyg) = tile_centre_px(3, 3);
+        let (rg, gg, bg) = pixel_at(&pixmap, pxg, pyg);
+        assert_eq!(
+            (rg, gg, bg),
+            (BG_R, BG_G, BG_B),
+            "between rings ({pxg},{pyg}) must remain parchment BG"
         );
     }
 

@@ -830,21 +830,28 @@ class TestFloorFillCoverage:
         assert f'fill="{FLOOR_COLOR}"' in svg
 
     def test_corridor_tile_has_floor_fill(self):
-        """Corridor tiles are filled with FLOOR_COLOR (as FloorOp polygons)."""
+        """Corridor tiles are filled with FLOOR_COLOR via the merged FloorOp.
+
+        Phase 1.26d-3 — corridor tiles no longer emit per-tile
+        ``<polygon>`` rects. Instead, ONE merged
+        ``FloorOp(DungeonFloor, region_ref="corridor")`` per floor
+        ships the union polygon. Single-component corridors take the
+        v4e single-ring shorthand: the merged ``<polygon>`` covers
+        every connected corridor tile in one path. This test verifies
+        the FIRST corridor tile's pixel-space corner appears in the
+        SVG (it's a vertex of the merged corridor polygon).
+        """
         level, room = _make_shaped_level(
             RectShape(), corridor_side="east")
         svg = render_floor_svg(level, seed=42)
         cy = room.rect.y + room.rect.height // 2
         ex = room.rect.x2  # first corridor tile
-        # Phase 1.15+: corridor tiles emit 4-vertex <polygon> FloorOps.
+        # The corridor tile's NW corner (x0, y0) is a vertex on the
+        # merged polygon's outline (it's the corridor's top-left).
         x0, y0 = ex * CELL, cy * CELL
-        x1, y1 = (ex + 1) * CELL, (cy + 1) * CELL
-        expected_points = (
-            f"{x0:.1f},{y0:.1f} {x1:.1f},{y0:.1f} "
-            f"{x1:.1f},{y1:.1f} {x0:.1f},{y1:.1f}"
-        )
-        assert expected_points in svg, (
-            f"Corridor tile polygon {expected_points!r} not found in SVG"
+        assert f"{x0:.1f},{y0:.1f}" in svg, (
+            f"Corridor tile corner ({x0:.1f},{y0:.1f}) not found in "
+            f"merged corridor polygon"
         )
         assert f'fill="{FLOOR_COLOR}"' in svg
 

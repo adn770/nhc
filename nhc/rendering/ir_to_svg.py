@@ -657,7 +657,37 @@ def _draw_floor_op_from_ir(
             )
         ]
 
-    # DungeonFloor polygon (rect rooms, corridors, smooth polygon rooms)
+    # DungeonFloor polygon. Phase 1.26d-3 — multi-ring outlines (the
+    # merged corridor FloorOp's disjoint connected components, plus
+    # interior holes for annular corridors that wrap a room) build a
+    # single ``<path>`` with one ``M…L…Z`` subpath per ring and
+    # ``fill-rule="evenodd"`` so interior holes punch out correctly.
+    # Single-ring outlines (rect rooms, smooth polygon rooms,
+    # single-component corridors via the v4e shorthand) keep emitting
+    # one ``<polygon>`` (no fill-rule needed for a simple convex /
+    # non-self-intersecting fill).
+    rings = outline.rings or []
+    if rings:
+        subpaths: list[str] = []
+        for ring in rings:
+            start = int(ring.start)
+            count = int(ring.count)
+            if count < 2:
+                continue
+            ring_coords = coords[start:start + count]
+            d_parts = [f"M{ring_coords[0][0]:.1f},{ring_coords[0][1]:.1f}"]
+            for x, y in ring_coords[1:]:
+                d_parts.append(f"L{x:.1f},{y:.1f}")
+            d_parts.append("Z")
+            subpaths.append(" ".join(d_parts))
+        if not subpaths:
+            return []
+        d = " ".join(subpaths)
+        return [
+            f'<path d="{d}" fill="{color}" stroke="none" '
+            f'fill-rule="evenodd"/>'
+        ]
+
     points = " ".join(f"{x:.1f},{y:.1f}" for x, y in coords)
     return [
         f'<polygon points="{points}" '
@@ -3496,41 +3526,74 @@ def _walkable_tiles_from_ir(
             if not verts:
                 continue
             coords = [(float(v.x), float(v.y)) for v in verts]
-            n = len(coords)
-
-            if n == 4:
-                # Axis-aligned bbox: derive tile range directly.
-                xs = [c[0] for c in coords]
-                ys = [c[1] for c in coords]
-                x0 = int(min(xs))
-                y0 = int(min(ys))
-                x1 = int(max(xs))
-                y1 = int(max(ys))
-                tx0 = x0 // CELL
-                ty0 = y0 // CELL
-                tx1 = x1 // CELL
-                ty1 = y1 // CELL
-                for ty in range(ty0, ty1):
-                    for tx in range(tx0, tx1):
-                        if 0 <= tx < width and 0 <= ty < height:
-                            result.add((tx, ty))
+            # Phase 1.26d-3 — multi-ring outlines (merged corridor
+            # FloorOp's disjoint connected components, plus interior
+            # holes for annular components that wrap a room) require
+            # ring-aware iteration. Group rings by exterior + holes:
+            # consecutive ``is_hole=True`` rings belong to the most
+            # recent exterior. Build one Shapely polygon per exterior
+            # group (with its holes) so the containment test correctly
+            # excludes hole regions. Single-ring outlines take the
+            # v4e shorthand (rings = []) and walk the full vertex list
+            # as one exterior with no holes.
+            rings = outline.rings or []
+            if rings:
+                groups: list[
+                    tuple[list[tuple[float, float]],
+                          list[list[tuple[float, float]]]]
+                ] = []
+                for r in rings:
+                    start = int(r.start)
+                    count = int(r.count)
+                    if count < 2:
+                        continue
+                    ring_coords = coords[start:start + count]
+                    if not r.isHole:
+                        groups.append((ring_coords, []))
+                    elif groups:
+                        groups[-1][1].append(ring_coords)
+                    # Orphan hole (no preceding exterior): skip.
             else:
-                # Non-rectangular polygon: Shapely containment.
-                from shapely.geometry import Point, Polygon as ShPoly
-                poly_sh = ShPoly(coords)
-                if poly_sh.is_empty or not poly_sh.is_valid:
+                groups = [(coords, [])]
+
+            for ext_coords, hole_rings in groups:
+                n = len(ext_coords)
+                if n < 2:
                     continue
-                bx0, by0, bx1, by1 = poly_sh.bounds
-                tx0 = max(0, int(bx0 // CELL))
-                ty0 = max(0, int(by0 // CELL))
-                tx1 = min(width, int(bx1 // CELL) + 1)
-                ty1 = min(height, int(by1 // CELL) + 1)
-                for ty in range(ty0, ty1):
-                    for tx in range(tx0, tx1):
-                        cx = tx * CELL + CELL / 2
-                        cy = ty * CELL + CELL / 2
-                        if poly_sh.contains(Point(cx, cy)):
-                            result.add((tx, ty))
+
+                if n == 4 and not hole_rings:
+                    # Axis-aligned bbox with no holes: derive directly.
+                    xs = [c[0] for c in ext_coords]
+                    ys = [c[1] for c in ext_coords]
+                    x0 = int(min(xs))
+                    y0 = int(min(ys))
+                    x1 = int(max(xs))
+                    y1 = int(max(ys))
+                    tx0 = x0 // CELL
+                    ty0 = y0 // CELL
+                    tx1 = x1 // CELL
+                    ty1 = y1 // CELL
+                    for ty in range(ty0, ty1):
+                        for tx in range(tx0, tx1):
+                            if 0 <= tx < width and 0 <= ty < height:
+                                result.add((tx, ty))
+                else:
+                    # Non-rectangular or with holes: Shapely containment.
+                    from shapely.geometry import Point, Polygon as ShPoly
+                    poly_sh = ShPoly(ext_coords, holes=hole_rings)
+                    if poly_sh.is_empty or not poly_sh.is_valid:
+                        continue
+                    bx0, by0, bx1, by1 = poly_sh.bounds
+                    tx0 = max(0, int(bx0 // CELL))
+                    ty0 = max(0, int(by0 // CELL))
+                    tx1 = min(width, int(bx1 // CELL) + 1)
+                    ty1 = min(height, int(by1 // CELL) + 1)
+                    for ty in range(ty0, ty1):
+                        for tx in range(tx0, tx1):
+                            cx = tx * CELL + CELL / 2
+                            cy = ty * CELL + CELL / 2
+                            if poly_sh.contains(Point(cx, cy)):
+                                result.add((tx, ty))
 
         elif kind == OK.Circle:
             from shapely.geometry import Point, Polygon as ShPoly

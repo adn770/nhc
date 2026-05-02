@@ -8,13 +8,8 @@
 <rect x="771" y="867" width="32" height="32" fill="#000000" opacity="0.08"/>
 <rect x="1507" y="1251" width="32" height="32" fill="#000000" opacity="0.08"/>
 <rect x="1539" y="1251" width="32" height="32" fill="#000000" opacity="0.08"/>
-<!-- layer.structural: 6 elements, 592 bytes -->
-<polygon points="704.0,160.0 736.0,160.0 736.0,192.0 704.0,192.0" fill="#FFFFFF" stroke="none"/>
-<polygon points="800.0,160.0 832.0,160.0 832.0,192.0 800.0,192.0" fill="#FFFFFF" stroke="none"/>
-<polygon points="672.0,864.0 704.0,864.0 704.0,896.0 672.0,896.0" fill="#FFFFFF" stroke="none"/>
-<polygon points="768.0,864.0 800.0,864.0 800.0,896.0 768.0,896.0" fill="#FFFFFF" stroke="none"/>
-<polygon points="1504.0,1248.0 1536.0,1248.0 1536.0,1280.0 1504.0,1280.0" fill="#FFFFFF" stroke="none"/>
-<polygon points="1536.0,1248.0 1568.0,1248.0 1568.0,1280.0 1536.0,1280.0" fill="#FFFFFF" stroke="none"/>
+<!-- layer.structural: 1 elements, 368 bytes -->
+<path d="M704.0,160.0 L736.0,160.0 L736.0,192.0 L704.0,192.0 Z M800.0,160.0 L832.0,160.0 L832.0,192.0 L800.0,192.0 Z M672.0,864.0 L704.0,864.0 L704.0,896.0 L672.0,896.0 Z M768.0,864.0 L800.0,864.0 L800.0,896.0 L768.0,896.0 Z M1504.0,1248.0 L1504.0,1280.0 L1536.0,1280.0 L1568.0,1280.0 L1568.0,1248.0 L1536.0,1248.0 Z" fill="#FFFFFF" stroke="none" fill-rule="evenodd"/>
 <!-- layer.terrain_tints: 1584 elements, 120308 bytes -->
 <rect x="192" y="96" width="32" height="32" fill="#88C878" opacity="0.3"/>
 <rect x="224" y="96" width="32" height="32" fill="#88C878" opacity="0.3"/>

@@ -53,15 +53,14 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
 def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
     assert fir.major == 3
-    # Schema 3.7 (Phase 1.26d-2 of plans/nhc_pure_ir_plan.md, scope-
-    # reduced) added ``RegionKind.Corridor = 6`` so the merged
-    # corridor system has a Region (id ``"corridor"``) with a
-    # multi-ring outline. Closes the symbolic "corridor system has
-    # no Region" gap; per-tile corridor FloorOps still ride on
-    # ``op.outline`` at this commit (region_ref left empty),
-    # preserving byte-equal pixel parity. A follow-up sub-phase
-    # migrates the per-tile FloorOps to one merged FloorOp once the
-    # consumers gain multi-ring outline rendering.
+    # Schema 3.7 (Phase 1.26d-2 of plans/nhc_pure_ir_plan.md) added
+    # ``RegionKind.Corridor = 6`` so the merged corridor system has a
+    # Region (id ``"corridor"``) with a multi-ring outline. Phase
+    # 1.26d-3 retired the per-tile corridor FloorOps in favour of one
+    # merged ``FloorOp(DungeonFloor, region_ref="corridor")`` per
+    # floor; the consumers (Python ``ir_to_svg`` + Rust
+    # ``floor_op.rs``) walk ``outline.rings`` for multi-component
+    # corridors.
     #
     # Schema 3.6 (Phase 1.26c) added ``RegionKind.Enclosure = 5``
     # so site enclosure walls resolve geometry through

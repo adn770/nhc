@@ -284,6 +284,29 @@ def _corridor_component_exterior_coords(
     polygon as raw coords (no Douglas-Peucker simplification, no
     closing duplicate). Returns ``[]`` for empty / degenerate
     inputs.
+
+    NOTE: Use :func:`_corridor_component_rings` to capture interior
+    holes too. This helper is preserved for back-compat with callers
+    that only need the exterior boundary.
+    """
+    rings = _corridor_component_rings(tiles)
+    return rings[0][0] if rings else []
+
+
+def _corridor_component_rings(
+    tiles: set[tuple[int, int]],
+) -> list[tuple[list[tuple[float, float]], bool]]:
+    """Return every ring (exterior + interior holes) of a corridor component.
+
+    Phase 1.26d-3 — extends :func:`_corridor_component_exterior_coords`
+    to capture topological holes. A connected corridor component can
+    wrap around a room and form an annulus; the exterior ring alone
+    misrepresents that geometry. Returns one ``(coords, is_hole)``
+    tuple per ring: the exterior comes first (``is_hole = False``),
+    then any interior rings (``is_hole = True``). Both ring kinds drop
+    the closing duplicate point.
+
+    Returns ``[]`` for empty / degenerate inputs.
     """
     if not tiles:
         return []
@@ -302,43 +325,59 @@ def _corridor_component_exterior_coords(
         return []
     if hasattr(merged, "geoms"):
         merged = max(merged.geoms, key=lambda g: g.area)
-    coords = list(merged.exterior.coords)
-    if coords and coords[-1] == coords[0]:
-        coords = coords[:-1]
-    return [(float(x), float(y)) for x, y in coords]
+
+    def _ring_coords(seq: Any) -> list[tuple[float, float]]:
+        coords = list(seq)
+        if coords and coords[-1] == coords[0]:
+            coords = coords[:-1]
+        return [(float(x), float(y)) for x, y in coords]
+
+    out: list[tuple[list[tuple[float, float]], bool]] = []
+    out.append((_ring_coords(merged.exterior.coords), False))
+    for interior in merged.interiors:
+        ring = _ring_coords(interior.coords)
+        if len(ring) >= 4:
+            out.append((ring, True))
+    return out
 
 
 def _multiring_polygon(
-    rings: list[list[tuple[float, float]]],
+    rings: list[tuple[list[tuple[float, float]], bool] | list[tuple[float, float]]],
 ) -> PolygonT:
-    """Pack one PolygonT carrying every input ring as exterior.
+    """Pack one PolygonT carrying every input ring.
 
-    Phase 1.26d-2 helper — used to build the corridor Region's
-    multi-ring polygon (one ring per disjoint connected component;
-    every ring is exterior, no holes). Single-ring inputs collapse
-    to the v4e shorthand: one ``rings[0]`` entry covering the whole
+    Phase 1.26d-2 helper, extended at 1.26d-3 to support interior
+    holes. Each input is either ``(coords, is_hole)`` or a bare coord
+    list (treated as exterior). Single-exterior inputs collapse to
+    the v4e shorthand: one ``rings[0]`` entry covering the whole
     flat ``paths`` list.
     """
     poly = PolygonT()
     poly.paths = []
     poly.rings = []
-    for ring_coords in rings:
-        _append_ring(poly, ring_coords, is_hole=False)
+    for entry in rings:
+        if isinstance(entry, tuple):
+            ring_coords, is_hole = entry
+        else:
+            ring_coords, is_hole = entry, False
+        _append_ring(poly, ring_coords, is_hole=is_hole)
     return poly
 
 
 def _multiring_outline(
-    rings: list[list[tuple[float, float]]],
+    rings: list[tuple[list[tuple[float, float]], bool] | list[tuple[float, float]]],
 ) -> OutlineT:
-    """Build a multi-ring OutlineT carrying every input ring as exterior.
+    """Build a multi-ring OutlineT.
 
-    Phase 1.26d-2 helper — companion to :func:`_multiring_polygon`
-    for the Region.outline field. Mirrors :func:`_polygon_to_outline`'s
-    convention (single-ring polygons leave ``rings = []`` per the
-    v4e shorthand; multi-ring polygons populate one ``PathRange``
-    per ring with ``is_hole = false``). The flat ``vertices`` list
-    contains every ring's points in iteration order so each ring
-    is addressable by ``(start, count)``.
+    Phase 1.26d-2 helper, extended at 1.26d-3 to support interior
+    holes. Each input is either ``(coords, is_hole)`` or a bare coord
+    list (treated as exterior). The flat ``vertices`` list contains
+    every ring's points in iteration order so each ring is
+    addressable by ``(start, count)`` with the matching ``is_hole``
+    flag preserved on the ``PathRange``. Mirrors
+    :func:`_polygon_to_outline`'s convention: single-exterior outlines
+    leave ``rings = []`` per the v4e shorthand; outlines with multiple
+    rings (or any hole ring) populate one ``PathRange`` per ring.
     """
     out = OutlineT()
     out.descriptorKind = OutlineKind.Polygon
@@ -346,7 +385,11 @@ def _multiring_outline(
     out.cuts = []
     out.vertices = []
     out.rings = []
-    for ring_coords in rings:
+    for entry in rings:
+        if isinstance(entry, tuple):
+            ring_coords, is_hole = entry
+        else:
+            ring_coords, is_hole = entry, False
         start = len(out.vertices)
         for x, y in ring_coords:
             v = Vec2T()
@@ -356,12 +399,13 @@ def _multiring_outline(
         rng = PathRangeT()
         rng.start = start
         rng.count = len(ring_coords)
-        rng.isHole = False
+        rng.isHole = is_hole
         out.rings.append(rng)
     # v4e single-ring shorthand: collapse rings to [] when there's
-    # only one ring (vertices IS the single ring per
-    # design/map_ir_v4e.md §4).
-    if len(out.rings) <= 1:
+    # exactly one ring AND that ring is not a hole (per
+    # design/map_ir_v4e.md §4 — a single hole-only outline is
+    # nonsensical, so this is purely a no-hole single-exterior check).
+    if len(out.rings) == 1 and not out.rings[0].isHole:
         out.rings = []
     return out
 
@@ -1265,14 +1309,19 @@ def emit_regions(builder: FloorIRBuilder) -> None:
     corridor_tiles = _collect_corridor_tiles(ctx.level, cave_tiles)
     if corridor_tiles:
         components = _collect_corridor_components(corridor_tiles)
-        coords_per_component: list[list[tuple[float, float]]] = []
+        # Phase 1.26d-3 — capture interior holes (annular corridor
+        # components form when a corridor wraps a room). Each entry
+        # is (coords, is_hole); exterior comes first.
+        rings_per_component: list[
+            tuple[list[tuple[float, float]], bool]
+        ] = []
         for comp in components:
-            ring = _corridor_component_exterior_coords(comp)
-            if ring and len(ring) >= 4:
-                coords_per_component.append(ring)
-        if coords_per_component:
-            polygon = _multiring_polygon(coords_per_component)
-            outline = _multiring_outline(coords_per_component)
+            for ring_coords, is_hole in _corridor_component_rings(comp):
+                if ring_coords and len(ring_coords) >= 4:
+                    rings_per_component.append((ring_coords, is_hole))
+        if rings_per_component:
+            polygon = _multiring_polygon(rings_per_component)
+            outline = _multiring_outline(rings_per_component)
             builder.add_region(
                 id="corridor",
                 kind=RegionKind.RegionKind.Corridor,

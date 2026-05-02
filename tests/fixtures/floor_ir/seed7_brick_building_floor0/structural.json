@@ -3,7 +3,7 @@
     "floor_detail": 757,
     "floor_grid": 5,
     "stairs": 8,
-    "structural": 566,
+    "structural": 564,
     "surface_features": 0,
     "terrain_detail": 0,
     "terrain_tints": 0,
@@ -14,7 +14,7 @@
     "ExteriorWallOp": 4,
     "FloorDetailOp": 1,
     "FloorGridOp": 1,
-    "FloorOp": 230,
+    "FloorOp": 228,
     "InteriorWallOp": 4,
     "StairsOp": 1,
     "WallsAndFloorsOp": 1

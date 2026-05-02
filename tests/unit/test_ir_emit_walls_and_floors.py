@@ -315,29 +315,29 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
         e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
     ]
     assert len(walls_ops) == 1
-    # Phase 1.4 covers rect rooms; Phase 1.7 adds one FloorOp per
-    # corridor tile. The fixture is rect-only (no smooth / cave
-    # rooms), so the FloorOp count is len(level.rooms) + the number
-    # of corridor / door tiles iterated by `_emit_walls_and_floors_ir`.
+    # Phase 1.4 covers rect rooms; Phase 1.26d-3 collapses every
+    # corridor system to ONE merged FloorOp (region_ref="corridor")
+    # with a multi-ring outline matching Region(kind=Corridor). The
+    # fixture is rect-only (no smooth / cave rooms), so the FloorOp
+    # count is len(rect_rooms) + 1 (the merged corridor op) when
+    # corridor tiles exist.
     n_rect = sum(
         1 for r in inputs.level.rooms
         if isinstance(r.shape, RectShape)
     )
-    n_corridor = sum(
-        1
+    has_corridor = any(
+        inputs.level.tiles[y][x].terrain in (
+            Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
+        )
+        and (
+            inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+            or "door" in (inputs.level.tiles[y][x].feature or "")
+        )
         for y in range(inputs.level.height)
         for x in range(inputs.level.width)
-        if (
-            inputs.level.tiles[y][x].terrain in (
-                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
-            )
-            and (
-                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
-                or "door" in (inputs.level.tiles[y][x].feature or "")
-            )
-        )
     )
-    assert len(floor_ops) == n_rect + n_corridor
+    n_corridor_ops = 1 if has_corridor else 0
+    assert len(floor_ops) == n_rect + n_corridor_ops
     assert len(floor_ops) > 0, (
         "seed42_rect_dungeon_dungeon ships >0 rect rooms — the "
         "parallel-emission contract requires the same count of "
@@ -346,8 +346,11 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
     for entry in floor_ops:
         assert entry.op.outline is not None
         assert entry.op.outline.descriptorKind == OutlineKind.Polygon
-        assert len(entry.op.outline.vertices) == 4
         assert entry.op.style == FloorStyle.DungeonFloor
+        # Either a 4-vertex rect room or the merged corridor op
+        # (multi-vertex polygon, possibly multi-ring).
+        verts = entry.op.outline.vertices
+        assert verts and len(verts) >= 4
 
 
 # ── Phase 1.5: per-shape FloorOp emission ──────────────────────
@@ -585,21 +588,20 @@ def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
              CircleShape, PillShape),
         )
     )
-    n_corridor = sum(
-        1
+    # Phase 1.26d-3 — corridor tiles collapse to ONE merged FloorOp
+    # (region_ref="corridor"). Add 1 when corridor tiles exist.
+    has_corridor = any(
+        inputs.level.tiles[y][x].terrain in (
+            Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
+        )
+        and (
+            inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+            or "door" in (inputs.level.tiles[y][x].feature or "")
+        )
         for y in range(inputs.level.height)
         for x in range(inputs.level.width)
-        if (
-            inputs.level.tiles[y][x].terrain in (
-                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
-            )
-            and (
-                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
-                or "door" in (inputs.level.tiles[y][x].feature or "")
-            )
-        )
     )
-    expected = n_rooms + n_corridor
+    expected = n_rooms + (1 if has_corridor else 0)
     assert len(floor_ops) == expected
     # Sanity: there should be at least one Polygon outline beyond the
     # rect rooms — an octagon room contributes 8 vertices, a rect 4.
@@ -829,70 +831,50 @@ def _build_corridor_level(
     return level
 
 
-def test_floor_op_per_corridor_tile() -> None:
-    """Every corridor tile produces one FloorOp.
+def test_corridor_floor_op_emits_one_merged_op() -> None:
+    """Phase 1.26d-3 — every corridor system collapses to ONE FloorOp.
 
-    Phase 1.7 of plans/nhc_pure_ir_plan.md — parallel emission. Each
-    corridor tile becomes a FloorOp with a 4-vertex Polygon outline
-    (the tile's pixel-space bbox) and ``style ==
-    FloorStyle.DungeonFloor``. No merging at this stage; the emitter
-    ships one op per tile.
+    The emitter no longer ships per-tile corridor FloorOps. When any
+    corridor (or door) tiles exist, exactly one ``FloorOp(DungeonFloor)``
+    lands with ``region_ref = "corridor"`` and a multi-ring outline
+    matching the ``Region(kind=Corridor)`` registered by
+    :func:`emit_regions`. Single-component corridor systems take the
+    v4e single-ring shorthand (``rings = []``); multi-component
+    systems populate one exterior ring per disjoint component.
     """
     corridor_tiles = [(2, 2), (3, 2), (4, 2), (5, 5)]
     level = _build_corridor_level(corridor_tiles)
     ops, _ = _emit_into_builder(level)
 
-    floor_ops = [
-        e for e in ops if e.opType == Op.Op.FloorOp
-    ]
-    assert len(floor_ops) == len(corridor_tiles)
-    for entry in floor_ops:
-        outline = entry.op.outline
-        assert outline is not None
-        assert outline.descriptorKind == OutlineKind.Polygon
-        assert outline.vertices is not None
-        assert len(outline.vertices) == 4
-        assert entry.op.style == FloorStyle.DungeonFloor
+    floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
+    assert len(floor_ops) == 1, (
+        f"expected exactly one merged corridor FloorOp; got "
+        f"{len(floor_ops)}"
+    )
+    entry = floor_ops[0]
+    assert entry.op.style == FloorStyle.DungeonFloor
+    region_ref = entry.op.regionRef
+    if isinstance(region_ref, bytes):
+        region_ref = region_ref.decode()
+    assert region_ref == "corridor"
+    outline = entry.op.outline
+    assert outline is not None
+    assert outline.descriptorKind == OutlineKind.Polygon
+    assert outline.vertices, "merged corridor FloorOp must carry vertices"
+    # Every populated ring is exterior (corridors are not annular).
+    for ring in outline.rings or []:
+        assert not ring.isHole
 
 
-def test_corridor_floor_op_outlines_align_with_tile_grid() -> None:
-    """Each corridor FloorOp outline is the tile's pixel-space bbox.
+def test_corridor_floor_op_outline_matches_corridor_region() -> None:
+    """The merged corridor FloorOp's outline mirrors Region(Corridor).
 
-    Vertex layout matches :func:`outline_from_rect`'s clockwise order
-    starting at the top-left corner: the bbox is
-    ``(x*CELL, y*CELL, CELL, CELL)``. Asserting the bbox per tile pins
-    the corridor → FloorOp coord convention before any consumer reads
-    the new ops in 1.15+.
-    """
-    corridor_tiles = [(3, 4), (7, 1), (0, 0)]
-    level = _build_corridor_level(corridor_tiles)
-    ops, _ = _emit_into_builder(level)
-
-    floor_ops = [
-        e for e in ops if e.opType == Op.Op.FloorOp
-    ]
-    assert len(floor_ops) == len(corridor_tiles)
-
-    # The emitter walks corridor tiles in y-major / x-minor order
-    # (lines 356-373 of _floor_layers.py); sort the expected list the
-    # same way to align with the FloorOp output order.
-    expected_sorted = sorted(corridor_tiles, key=lambda t: (t[1], t[0]))
-    for entry, (tx, ty) in zip(floor_ops, expected_sorted):
-        verts = entry.op.outline.vertices
-        xs = [v.x for v in verts]
-        ys = [v.y for v in verts]
-        assert min(xs) == tx * CELL
-        assert min(ys) == ty * CELL
-        assert max(xs) - min(xs) == CELL
-        assert max(ys) - min(ys) == CELL
-
-
-def test_corridor_floor_op_count_matches_source_corridor_tiles() -> None:
-    """Count of corridor FloorOps == count of CORRIDOR-or-door tiles.
-
-    Phase 1.19 cleared ``corridorTiles``; pin the count against the
-    same tile-walk the emitter uses (CORRIDOR surface_type or door
-    feature on FLOOR / WATER / GRASS / LAVA terrain).
+    Phase 1.26d-3 contract — the consumer's ``region_ref`` resolution
+    path and the ``op.outline`` fallback must produce identical
+    geometry. Both are built from the same
+    ``_collect_corridor_components`` +
+    ``_corridor_component_exterior_coords`` + ``_multiring_outline``
+    helpers, so the vertices and ring slices match point-for-point.
     """
     inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
     buf = build_floor_ir(
@@ -902,58 +884,85 @@ def test_corridor_floor_op_count_matches_source_corridor_tiles() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
-    expected_corridor_tiles = sum(
-        1
-        for y in range(inputs.level.height)
-        for x in range(inputs.level.width)
-        if (
-            inputs.level.tiles[y][x].terrain in (
-                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
-            )
-            and (
-                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
-                or "door" in (inputs.level.tiles[y][x].feature or "")
-            )
-        )
-    )
-    assert expected_corridor_tiles > 0, (
-        "seed42_rect_dungeon_dungeon ships >0 corridor tiles"
-    )
-
     floor_ops = [
         e for e in fir.ops if e.opType == Op.Op.FloorOp
     ]
-    n_rect_rooms = sum(
-        1 for r in inputs.level.rooms
-        if isinstance(r.shape, RectShape)
-    )
-    # FloorOps now cover both rect rooms (Phase 1.4) and corridor tiles
-    # (Phase 1.7). Each corridor FloorOp is a 4-vertex Polygon outline
-    # with side length == CELL; rect-room outlines have a side >= 2 *
-    # CELL (rooms are always ≥ 2 tiles wide). Filter on bbox side to
-    # split corridor FloorOps from rect-room FloorOps without depending
-    # on emit order.
-    corridor_floor_ops = []
+    corridor_floor_op = None
     for entry in floor_ops:
+        ref = entry.op.regionRef
+        if isinstance(ref, bytes):
+            ref = ref.decode()
+        if ref == "corridor":
+            corridor_floor_op = entry
+            break
+    assert corridor_floor_op is not None, (
+        "seed42 must emit one FloorOp with region_ref='corridor'"
+    )
+
+    from nhc.rendering.ir._fb.RegionKind import RegionKind
+    corridor_regions = [
+        r for r in (fir.regions or []) if r.kind == RegionKind.Corridor
+    ]
+    assert len(corridor_regions) == 1
+    region = corridor_regions[0]
+    assert region.outline is not None
+
+    op_outline = corridor_floor_op.op.outline
+    op_verts = [(v.x, v.y) for v in (op_outline.vertices or [])]
+    rg_verts = [(v.x, v.y) for v in (region.outline.vertices or [])]
+    assert op_verts == rg_verts
+    op_rings = [
+        (r.start, r.count, r.isHole) for r in (op_outline.rings or [])
+    ]
+    rg_rings = [
+        (r.start, r.count, r.isHole)
+        for r in (region.outline.rings or [])
+    ]
+    assert op_rings == rg_rings
+
+
+def test_no_per_tile_corridor_floor_ops_remain() -> None:
+    """No 1×1 bbox FloorOp with empty region_ref survives 1.26d-3.
+
+    The per-tile corridor emit path is gone. Heuristic check:
+    every DungeonFloor FloorOp is either (a) a rect/smooth/cave room
+    (which will carry ``region_ref = room.id`` after 1.23a), (b) the
+    one merged corridor FloorOp (``region_ref = "corridor"``), or
+    (c) a wood-floor / building-derived op. None should be a 1-tile
+    rect with empty region_ref.
+    """
+    inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
+    buf = build_floor_ir(
+        inputs.level, seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
+    for entry in floor_ops:
+        if entry.op.style != FloorStyle.DungeonFloor:
+            continue
         outline = entry.op.outline
+        if outline is None or not outline.vertices:
+            continue
         if outline.descriptorKind != OutlineKind.Polygon:
             continue
         verts = outline.vertices
-        if not verts or len(verts) != 4:
+        if len(verts) != 4 or (outline.rings or []):
             continue
         xs = [v.x for v in verts]
         ys = [v.y for v in verts]
-        w = max(xs) - min(xs)
-        h = max(ys) - min(ys)
-        if w == CELL and h == CELL:
-            corridor_floor_ops.append(entry)
-
-    assert len(corridor_floor_ops) == expected_corridor_tiles, (
-        f"corridor FloorOps ({len(corridor_floor_ops)}) must match "
-        f"source corridor-tile count ({expected_corridor_tiles})"
-    )
-    # Sanity: total FloorOps >= rect_rooms + corridor_tiles.
-    assert len(floor_ops) >= n_rect_rooms + expected_corridor_tiles
+        if (max(xs) - min(xs), max(ys) - min(ys)) != (CELL, CELL):
+            continue
+        ref = entry.op.regionRef
+        if isinstance(ref, bytes):
+            ref = ref.decode()
+        assert ref, (
+            f"1×1 DungeonFloor FloorOp at "
+            f"({xs[0]:.0f},{ys[0]:.0f}) with empty region_ref must "
+            f"not exist after 1.26d-3"
+        )
 
 
 # ── Phase 1.8 — rect-room ExteriorWallOp ───────────────────────

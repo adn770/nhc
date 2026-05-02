@@ -35,14 +35,13 @@ async def test_get_ir_buffer_returns_metadata() -> None:
     # ``Region(kind=Corridor, id="corridor")`` per floor when corridor
     # tiles exist (18 rect rooms + 1 dungeon + 1 corridor = 20).
     assert result["region_count"] == 20
-    # Phase 1.4 / 1.7 of plans/nhc_pure_ir_plan.md emits one FloorOp
-    # per rect room and one per corridor tile alongside the legacy
-    # WallsAndFloorsOp; the fixture has 18 rect rooms + 165 corridor
-    # tiles so the op count is 28 (legacy) + 18 (rect FloorOps) + 165
-    # (corridor FloorOps) = 211. Phase 1.8 adds one ExteriorWallOp per
-    # rect room (+18) → 229. Phase 1.16b-1 adds one CorridorWallOp
-    # (+1) → 230 total.
-    assert result["op_count"] == 230
+    # Phase 1.4 / 1.7 / 1.26d-3 of plans/nhc_pure_ir_plan.md: one
+    # FloorOp per rect room + ONE merged FloorOp(region_ref="corridor")
+    # per floor (1.26d-3 retired the per-tile corridor FloorOps). The
+    # fixture has 18 rect rooms; ops = 28 (legacy) + 18 (rect FloorOps)
+    # + 1 (merged corridor FloorOp) + 18 (ExteriorWallOps, Phase 1.8)
+    # + 1 (CorridorWallOp, Phase 1.16b-1) = 66.
+    assert result["op_count"] == 66
     assert result["size_bytes"] > 0
     assert result["file_identifier"] == "NIR3"
     assert "dump" not in result  # off by default
@@ -109,12 +108,12 @@ async def test_get_ir_ops_summary() -> None:
     from nhc.debug_tools.tools.ir_query import GetIROpsTool
     result = await GetIROpsTool().execute(path=str(_FIXTURE_RECT))
     assert "summary" in result
-    assert result["total"] == 230
-    assert sum(result["summary"].values()) == 230
+    assert result["total"] == 66
+    assert sum(result["summary"].values()) == 66
     assert "ShadowOp" in result["summary"]
-    # 18 rect-room FloorOps (Phase 1.4) + 165 corridor-tile FloorOps
-    # (Phase 1.7) = 183 total FloorOps in the seed42 fixture.
-    assert result["summary"].get("FloorOp") == 183
+    # 18 rect-room FloorOps (Phase 1.4) + 1 merged corridor FloorOp
+    # (Phase 1.26d-3) = 19 total FloorOps in the seed42 fixture.
+    assert result["summary"].get("FloorOp") == 19
     # Phase 1.8: 18 rect-room ExteriorWallOps (one per rect room) —
     # the fixture is rect-only so this matches the FloorOp rect-room
     # count exactly.
@@ -188,7 +187,7 @@ async def test_fixture_shortcut_resolves_to_correct_path() -> None:
     )
     assert "error" not in result
     assert result["major"] == 3
-    assert result["op_count"] == 230
+    assert result["op_count"] == 66
     assert "seed42_rect_dungeon_dungeon" in result["path"]
 
 

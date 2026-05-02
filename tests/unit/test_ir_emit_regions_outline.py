@@ -530,15 +530,13 @@ def test_pill_room_emits_region_with_pill_descriptor() -> None:
 # All rings are exterior (``is_hole = false``) — corridors are not
 # topologically annular.
 #
-# Scope reduction: per-tile corridor FloorOps still ship with
-# ``region_ref = ""`` and the consumers continue to read each op's
-# own bbox outline (preserves byte-equal pixel parity). The Region
-# closes the structural "corridor system has no Region" gap from
-# 1.24/1.26 §"Deferred coverage gaps" symbolically; a follow-up
-# sub-phase migrates the per-tile FloorOps to a single merged
-# FloorOp once the consumers (Python ir_to_svg + Rust floor_op)
-# gain multi-ring outline rendering. See plan §1.26 split strategy
-# / §1.26d.
+# Phase 1.26d-3 closed the loop: per-tile corridor FloorOps retired,
+# replaced by ONE merged ``FloorOp(DungeonFloor)`` per floor with
+# ``region_ref = "corridor"`` and the same multi-ring outline as the
+# Region. Both Python ``ir_to_svg`` and Rust ``floor_op.rs`` now walk
+# ``outline.rings`` for multi-component corridors (single-component
+# systems take the v4e single-ring shorthand). See plan §1.26 split
+# strategy / §1.26d.
 
 
 def test_corridor_region_emitted_when_corridors_exist() -> None:
