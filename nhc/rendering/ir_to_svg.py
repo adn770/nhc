@@ -351,11 +351,23 @@ def _draw_room_shadow(op: Any, fir: FloorIR) -> str:  # type: ignore[name-define
     # any polygon-shaped room.
     if shape_tag == b"hybrid":
         return nhc_render.draw_room_shadow_octagon(coords)
+    # Phase 1.26d-1 — L / Temple / Cross / Circle / Pill rooms
+    # all route through the polygon-shadow primitive. The Circle
+    # and Pill descriptor outlines can't be passed to a polygon
+    # primitive, so the shadow handler reads the polygonised
+    # ``Region.polygon`` (24-sample circle / bbox quad) — produced
+    # by ``_room_region_data`` alongside the canonical descriptor
+    # outline.
+    if shape_tag in (
+        b"l_shape", b"temple", b"cross", b"circle", b"pill",
+    ):
+        return nhc_render.draw_room_shadow_octagon(coords)
 
     raise NotImplementedError(
         f"Room shadow handler for shape_tag {shape_tag!r} not "
         "implemented; the starter fixtures only exercise rect / "
-        "octagon / cave / hybrid"
+        "octagon / cave / hybrid / l_shape / temple / cross / "
+        "circle / pill"
     )
 
 

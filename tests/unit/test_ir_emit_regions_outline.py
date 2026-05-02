@@ -344,3 +344,176 @@ def test_polygon_outline_with_multiring_round_trips() -> None:
             decoded.rings[0].isHole) == (0, 4, False)
     assert (decoded.rings[1].start, decoded.rings[1].count,
             decoded.rings[1].isHole) == (4, 4, True)
+
+
+# ── Phase 1.26d-1 — L / Temple / Cross / Circle / Pill rooms ───
+#
+# At 1.26b the emitter only registered Region(kind=Room) for
+# Rect / Octagon / Cave / Hybrid rooms; the other five shapes
+# returned ``None`` from ``_room_region_data`` and therefore
+# emitted no Region. Phase 1.26d-1 closes that gap so every room
+# kind has a Region the consumer can resolve via ``region_ref``
+# (a precondition for 1.26e dropping ``FloorOp.outline`` /
+# ``ExteriorWallOp.outline`` populating).
+#
+# Polygon-variant shapes (LShape / TempleShape / CrossShape) ship
+# the legacy vertex list under ``Outline.descriptorKind = Polygon``.
+# Descriptor variants (CircleShape / PillShape) ship a Circle /
+# Pill descriptor on ``Region.outline`` so the rasteriser can use
+# its native primitive — but ``Region.polygon`` still carries a
+# polygonised approximation (the shadow handler reads
+# ``region.Polygon()``, not ``region.Outline()``, and the
+# polygon-shadow primitive needs vertices).
+
+
+def _build_shaped_room_ir(shape, room_id: str = "shaped_test_room"):
+    """Build a unit-level IR with a single shaped room.
+
+    Mirrors the builder pattern used by
+    ``test_ir_floor_op_region_ref::test_hybrid_room_emits_floor_op_with_region_ref``
+    so the new shape coverage tests share the same structure as
+    the 1.23b hybrid-region test.
+    """
+    from nhc.dungeon.model import (
+        Level, Rect, Room, Terrain, Tile,
+    )
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    rect = Rect(3, 3, 10, 8)
+    room = Room(id=room_id, rect=rect, shape=shape)
+    level = Level(
+        id="d1", name="Dungeon Level 1", depth=1,
+        width=18, height=14, rooms=[room],
+        tiles=[
+            [Tile(terrain=Terrain.VOID) for _ in range(18)]
+            for _ in range(14)
+        ],
+    )
+    for fx, fy in room.floor_tiles():
+        level.tiles[fy][fx] = Tile(terrain=Terrain.FLOOR)
+
+    buf = build_floor_ir(
+        level, seed=1, hatch_distance=2.0, vegetation=False,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+    return fir, room.id
+
+
+def _find_region_by_id(fir: FloorIRT, room_id: str):
+    for r in fir.regions or []:
+        rid = r.id.decode() if isinstance(r.id, bytes) else r.id
+        if rid == room_id:
+            return r
+    return None
+
+
+def _decode_shape_tag(region) -> str:
+    tag = region.shapeTag
+    return tag.decode() if isinstance(tag, bytes) else (tag or "")
+
+
+def test_l_shape_room_emits_region_with_polygon_outline() -> None:
+    """1.26d-1 — LShape rooms emit a Region(shape_tag='l_shape')."""
+    from nhc.dungeon.model import LShape
+
+    fir, room_id = _build_shaped_room_ir(LShape(corner="nw"))
+    region = _find_region_by_id(fir, room_id)
+    assert region is not None, (
+        "LShape room must emit a Region; 1.26d-1 closes the gap "
+        "for L / Temple / Cross / Circle / Pill rooms."
+    )
+    assert _decode_shape_tag(region) == "l_shape", (
+        f"LShape Region.shape_tag must be 'l_shape'; got "
+        f"{_decode_shape_tag(region)!r}"
+    )
+    assert region.outline is not None
+    assert region.outline.descriptorKind == OutlineKind.Polygon
+    assert len(region.outline.vertices) >= 6, (
+        f"LShape outline needs ≥ 6 vertices (notch L); got "
+        f"{len(region.outline.vertices)}"
+    )
+
+
+def test_temple_room_emits_region_with_polygon_outline() -> None:
+    """1.26d-1 — TempleShape rooms emit a Region(shape_tag='temple')."""
+    from nhc.dungeon.model import TempleShape
+
+    fir, room_id = _build_shaped_room_ir(TempleShape(flat_side="south"))
+    region = _find_region_by_id(fir, room_id)
+    assert region is not None, (
+        "TempleShape room must emit a Region (1.26d-1 closes the gap)."
+    )
+    assert _decode_shape_tag(region) == "temple"
+    assert region.outline is not None
+    assert region.outline.descriptorKind == OutlineKind.Polygon
+    # Temple has ~3 arc caps tessellated at 12 segs each + flat side.
+    assert len(region.outline.vertices) >= 6
+
+
+def test_cross_room_emits_region_with_polygon_outline() -> None:
+    """1.26d-1 — CrossShape rooms emit a Region(shape_tag='cross')."""
+    from nhc.dungeon.model import CrossShape
+
+    fir, room_id = _build_shaped_room_ir(CrossShape())
+    region = _find_region_by_id(fir, room_id)
+    assert region is not None, (
+        "CrossShape room must emit a Region (1.26d-1 closes the gap)."
+    )
+    assert _decode_shape_tag(region) == "cross"
+    assert region.outline is not None
+    assert region.outline.descriptorKind == OutlineKind.Polygon
+    assert len(region.outline.vertices) == 12, (
+        f"CrossShape outline must carry the 12-vertex + polygon; got "
+        f"{len(region.outline.vertices)}"
+    )
+
+
+def test_circle_room_emits_region_with_circle_descriptor() -> None:
+    """1.26d-1 — CircleShape rooms emit Region with Circle descriptor outline."""
+    from nhc.dungeon.model import CircleShape
+
+    fir, room_id = _build_shaped_room_ir(CircleShape())
+    region = _find_region_by_id(fir, room_id)
+    assert region is not None, (
+        "CircleShape room must emit a Region (1.26d-1 closes the gap)."
+    )
+    assert _decode_shape_tag(region) == "circle"
+    assert region.outline is not None
+    assert region.outline.descriptorKind == OutlineKind.Circle, (
+        "CircleShape Region.outline must carry the Circle descriptor "
+        "(rasterisers prefer the native primitive over a polygonised "
+        "approximation)."
+    )
+    assert region.outline.cx > 0.0
+    assert region.outline.cy > 0.0
+    assert region.outline.rx > 0.0
+    assert region.outline.ry > 0.0
+    # Region.polygon is the polygonised approximation (shadow handler
+    # reads ``region.Polygon()``); it must carry vertices so the
+    # polygon-shadow primitive has something to draw.
+    assert region.polygon is not None
+    assert len(region.polygon.paths or []) >= 8
+
+
+def test_pill_room_emits_region_with_pill_descriptor() -> None:
+    """1.26d-1 — PillShape rooms emit Region with Pill descriptor outline."""
+    from nhc.dungeon.model import PillShape
+
+    fir, room_id = _build_shaped_room_ir(PillShape())
+    region = _find_region_by_id(fir, room_id)
+    assert region is not None, (
+        "PillShape room must emit a Region (1.26d-1 closes the gap)."
+    )
+    assert _decode_shape_tag(region) == "pill"
+    assert region.outline is not None
+    assert region.outline.descriptorKind == OutlineKind.Pill, (
+        "PillShape Region.outline must carry the Pill descriptor."
+    )
+    assert region.outline.cx > 0.0
+    assert region.outline.cy > 0.0
+    assert region.outline.rx > 0.0
+    assert region.outline.ry > 0.0
+    # ``Region.polygon`` carries a polygonised approximation that
+    # the shadow handler consumes via ``region.Polygon()``.
+    assert region.polygon is not None
+    assert len(region.polygon.paths or []) >= 4

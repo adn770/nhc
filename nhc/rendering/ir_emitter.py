@@ -28,7 +28,8 @@ import flatbuffers
 
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
-    CircleShape, HybridShape, LShape, OctagonShape, RectShape,
+    CircleShape, CrossShape, HybridShape, LShape, OctagonShape,
+    PillShape, RectShape, TempleShape,
 )
 from nhc.rendering._cave_geometry import (
     _build_cave_wall_geometry, _trace_cave_boundary_coords,
@@ -274,8 +275,10 @@ def _coords_to_polygon(
 
 def _room_region_data(
     room: Any,
-) -> tuple[list[tuple[float, float]], str] | None:
-    """Compute polygon coords + shape_tag for one room's region.
+) -> tuple[
+    list[tuple[float, float]], str, OutlineT | None,
+] | None:
+    """Compute polygon coords + shape_tag (+ optional outline) for a room.
 
     Mirrors the shape dispatch in
     ``_room_outlines._room_svg_outline`` /
@@ -293,12 +296,29 @@ def _room_region_data(
       is ``"cave"``. The handler runs ``_smooth_closed_path``.
       Caves with degenerate boundaries fall back to ``"rect"`` so
       the legacy ``_room_shadow_svg`` rect-fallback path matches.
+    - Hybrid / LShape / TempleShape / CrossShape rooms: polygon is
+      the tessellated vertex list from the matching
+      ``outline_from_*`` helper, shape_tag is the shape name.
+    - CircleShape / PillShape rooms: polygon is a polygonised
+      approximation (24-sample circle / rounded-rect bbox) so the
+      polygon-shadow primitive has vertices to draw, AND the
+      explicit Circle / Pill descriptor outline is returned in the
+      third tuple element so ``Region.outline`` carries the
+      canonical descriptor (rasterisers use the native primitive).
 
-    Returns ``None`` only when the shape isn't yet supported by
-    1.b.2 — Pill / Temple / LShape / Cross / Hybrid / Circle. The
-    starter fixtures don't exercise those, so no parity test
-    triggers this branch; later commits add them when fixtures land.
+    The third tuple element is the explicit outline override: when
+    not ``None`` the caller passes it to ``add_region`` so the
+    auto-derived polygon outline is bypassed for descriptor variants.
+
+    Returns ``None`` only when the room shape is not in the
+    supported set above (defensive — every room shape currently in
+    use is covered by 1.26d-1).
     """
+    from nhc.rendering._outline_helpers import (
+        outline_from_circle, outline_from_cross, outline_from_l_shape,
+        outline_from_pill, outline_from_temple,
+    )
+
     rect = room.rect
     px = rect.x * CELL
     py = rect.y * CELL
@@ -315,16 +335,24 @@ def _room_region_data(
     if isinstance(shape, CaveShape):
         coords = _trace_cave_boundary_coords(room.floor_tiles())
         if coords and len(coords) >= 4:
-            return [(float(x), float(y)) for x, y in coords], "cave"
+            return (
+                [(float(x), float(y)) for x, y in coords],
+                "cave",
+                None,
+            )
         # legacy falls back to room.rect — match that
-        return bbox, "rect"
+        return bbox, "rect", None
 
     if isinstance(shape, OctagonShape):
         verts = _polygon_vertices(shape, rect)
-        return [(float(x), float(y)) for x, y in verts], "octagon"
+        return (
+            [(float(x), float(y)) for x, y in verts],
+            "octagon",
+            None,
+        )
 
     if isinstance(shape, RectShape):
-        return bbox, "rect"
+        return bbox, "rect", None
 
     # Phase 1.23b — HybridShape Region carries the tessellated
     # polyline outline (matches what ``outline_from_hybrid`` ships
@@ -336,11 +364,64 @@ def _room_region_data(
     if isinstance(shape, HybridShape):
         verts = _hybrid_vertices(shape, rect)
         if verts:
-            return [(float(x), float(y)) for x, y in verts], "hybrid"
+            return (
+                [(float(x), float(y)) for x, y in verts],
+                "hybrid",
+                None,
+            )
         return None
 
-    # Pill / Temple / LShape / Cross / Circle — still unsupported;
-    # the starter fixtures do not include them.
+    # Phase 1.26d-1 — polygon-variant shapes (L / Temple / Cross)
+    # tessellate via the existing outline helpers; the resulting
+    # vertex list serves both ``Region.polygon`` and the
+    # auto-derived Polygon outline (no explicit override needed).
+    if isinstance(shape, LShape):
+        outline = outline_from_l_shape(room)
+        verts = [(float(v.x), float(v.y)) for v in outline.vertices]
+        return verts, "l_shape", None
+
+    if isinstance(shape, TempleShape):
+        outline = outline_from_temple(room)
+        verts = [(float(v.x), float(v.y)) for v in outline.vertices]
+        return verts, "temple", None
+
+    if isinstance(shape, CrossShape):
+        outline = outline_from_cross(room)
+        verts = [(float(v.x), float(v.y)) for v in outline.vertices]
+        return verts, "cross", None
+
+    # Phase 1.26d-1 — descriptor variants (Circle / Pill). The
+    # canonical Region.outline carries the descriptor (cx/cy/rx/ry)
+    # so rasterisers use their native circle / pill primitive; the
+    # parallel Region.polygon carries a polygonised approximation
+    # so the shadow handler (which reads region.Polygon()) has
+    # vertices for the polygon-shadow primitive.
+    if isinstance(shape, CircleShape):
+        import math
+        d = shape._diameter(rect)
+        radius_px = (d / 2.0) * CELL
+        cx_px = (rect.x + rect.width / 2.0) * CELL
+        cy_px = (rect.y + rect.height / 2.0) * CELL
+        n = _CIRCLE_FOOTPRINT_VERTICES
+        verts = [
+            (
+                cx_px + radius_px * math.cos(2 * math.pi * i / n),
+                cy_px + radius_px * math.sin(2 * math.pi * i / n),
+            )
+            for i in range(n)
+        ]
+        return verts, "circle", outline_from_circle(room)
+
+    if isinstance(shape, PillShape):
+        # Polygonised pill bbox — the rounded corners are not
+        # tessellated here (the polygon is for the shadow primitive
+        # only; the canonical descriptor outline rasterises the
+        # rounded section natively). Using the bbox quad keeps the
+        # polygonisation cheap; if a parity test ever shows the
+        # shadow's rect bbox is too coarse, swap in a 24-sample
+        # rounded-rect tessellation.
+        return bbox, "pill", outline_from_pill(room)
+
     return None
 
 
@@ -1072,12 +1153,13 @@ def emit_regions(builder: FloorIRBuilder) -> None:
         data = _room_region_data(room)
         if data is None:
             continue
-        coords, shape_tag = data
+        coords, shape_tag, outline_override = data
         builder.add_region(
             id=room.id,
             kind=RegionKind.RegionKind.Room,
             polygon=_coords_to_polygon(coords),
             shape_tag=shape_tag,
+            outline=outline_override,
         )
 
 
