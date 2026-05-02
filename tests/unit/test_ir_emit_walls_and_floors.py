@@ -1051,7 +1051,7 @@ def test_exterior_wall_op_per_rect_room() -> None:
     ]
     assert len(wall_ops) == 3
     for entry in wall_ops:
-        outline = entry.op.outline
+        outline = _outline_for_op(entry.op)
         assert outline is not None
         assert outline.descriptorKind == OutlineKind.Polygon
         assert outline.vertices is not None
@@ -1133,7 +1133,9 @@ def test_exterior_wall_op_count_matches_rect_floor_op_count() -> None:
     # Cross-check: every rect ExteriorWallOp aligns by bbox with one
     # rect-room entry (the emit walk traverses the rooms list in order).
     for wall_entry, room in zip(wall_ops, rect_rooms):
-        verts = wall_entry.op.outline.vertices
+        outline = _outline_for_op(wall_entry.op, fir.regions)
+        assert outline is not None
+        verts = outline.vertices
         xs = [v.x for v in verts]
         ys = [v.y for v in verts]
         bbox_x, bbox_y = min(xs), min(ys)
@@ -1210,7 +1212,7 @@ def test_exterior_wall_op_cuts_empty_pending_phase_1_11() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     assert cuts == [], (
         "rect room with no adjacent door tiles must produce an "
         "ExteriorWallOp with empty cuts"
@@ -1241,7 +1243,7 @@ def test_exterior_wall_op_door_resolves_to_cut() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     assert len(cuts) == 1, (
         "expected one Cut for the single door tile north of room (3,2)"
     )
@@ -1308,9 +1310,10 @@ def test_exterior_wall_op_round_trips_through_build_floor_ir() -> None:
         "ExteriorWallOp after Phase 1.8"
     )
     for entry in wall_ops:
-        assert entry.op.outline is not None
-        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
-        assert len(entry.op.outline.vertices) == 4
+        outline = _outline_for_op(entry.op, fir.regions)
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
+        assert len(outline.vertices) == 4
         assert entry.op.style == WallStyle.DungeonInk
         assert entry.op.cornerStyle == CornerStyle.Merlon
 
@@ -1579,7 +1582,7 @@ def test_doorless_gap_resolves_to_cut_style_none_on_smooth_wall() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     # The doorless opening produces exactly one Cut at the gap interval.
     assert len(cuts) == 1, (
         f"expected one Cut for the single doorless opening, "
@@ -1632,7 +1635,7 @@ def test_door_tile_resolves_to_cut_on_smooth_exterior_wall() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     assert len(cuts) == 1, (
         f"expected one Cut for the single door tile north of (4, 1), "
         f"got {len(cuts)}"
@@ -1717,8 +1720,10 @@ def test_exterior_wall_op_for_cave_carries_cave_ink_style() -> None:
         "cave ExteriorWallOp must carry CornerStyle.Merlon (the schema "
         "default required by the union variant)"
     )
-    assert wall_ops[0].op.outline.descriptorKind == OutlineKind.Polygon
-    assert wall_ops[0].op.outline.closed is True
+    cave_wall_outline = _outline_for_op(wall_ops[0].op)
+    assert cave_wall_outline is not None
+    assert cave_wall_outline.descriptorKind == OutlineKind.Polygon
+    assert cave_wall_outline.closed is True
 
 
 def test_cave_exterior_wall_outline_matches_cave_floor_outline() -> None:
@@ -1775,7 +1780,7 @@ def test_cave_exterior_wall_op_has_no_cuts() -> None:
 
     wall_ops = [e for e in ops if e.opType == Op.Op.ExteriorWallOp]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     assert cuts == [], (
         f"cave ExteriorWallOp must have empty cuts, got {len(cuts)} cut(s)"
     )
@@ -1816,9 +1821,11 @@ def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
     entry = wall_ops[0]
     assert entry.op.style == WallStyle.CaveInk
     assert entry.op.cornerStyle == CornerStyle.Merlon
-    assert entry.op.outline.descriptorKind == OutlineKind.Polygon
-    assert entry.op.outline.vertices is not None
-    assert (entry.op.outline.cuts or []) == []
+    cave_wall_outline = _outline_for_op(entry.op, fir.regions)
+    assert cave_wall_outline is not None
+    assert cave_wall_outline.descriptorKind == OutlineKind.Polygon
+    assert cave_wall_outline.vertices is not None
+    assert (entry.op.cuts or []) == []
 
 
 def test_every_door_tile_in_every_fixture_has_a_cut() -> None:
@@ -1883,7 +1890,7 @@ def test_every_door_tile_in_every_fixture_has_a_cut() -> None:
         for entry in fir.ops:
             if entry.opType != Op.Op.ExteriorWallOp:
                 continue
-            for cut in (entry.op.outline.cuts or []):
+            for cut in (entry.op.cuts or []):
                 if cut.style in DOOR_CUT_STYLES:
                     actual += 1
 
@@ -2105,7 +2112,7 @@ def test_rect_exterior_wall_op_cuts_include_corridor_openings() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     corridor_cuts = [c for c in cuts if c.style == CutStyle.None_]
     assert len(corridor_cuts) == 1, (
         f"expected 1 corridor-opening cut, got {len(corridor_cuts)}"
@@ -2131,7 +2138,7 @@ def test_corridor_opening_cut_position_matches_tile_edge() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     corridor_cuts = [c for c in cuts if c.style == CutStyle.None_]
     assert len(corridor_cuts) == 1
     cut = corridor_cuts[0]
@@ -2163,7 +2170,7 @@ def test_corridor_opening_cut_style_is_none() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
     assert len(cuts) == 1
     assert cuts[0].style == CutStyle.None_, (
         f"corridor cut must use CutStyle.None_, got {cuts[0].style}"
@@ -2191,7 +2198,7 @@ def test_door_cuts_and_corridor_cuts_coexist() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    cuts = wall_ops[0].op.outline.cuts or []
+    cuts = wall_ops[0].op.cuts or []
 
     door_cuts = [c for c in cuts if c.style == CutStyle.DoorWood]
     corridor_cuts = [c for c in cuts if c.style == CutStyle.None_]
@@ -2258,7 +2265,7 @@ def test_seed42_rect_rooms_corridor_cut_count_matches_expected() -> None:
 
     # Count actual CutStyle.None_ cuts on the rect ExteriorWallOps.
     total_corridor_cuts_actual = sum(
-        sum(1 for c in (e.op.outline.cuts or [])
+        sum(1 for c in (e.op.cuts or [])
             if c.style == CutStyle.None_)
         for e in wall_ops
     )
@@ -2270,7 +2277,7 @@ def test_seed42_rect_rooms_corridor_cut_count_matches_expected() -> None:
 
     # Door cuts must still be present (regression guard).
     total_door_cuts = sum(
-        sum(1 for c in (e.op.outline.cuts or [])
+        sum(1 for c in (e.op.cuts or [])
             if c.style != CutStyle.None_)
         for e in wall_ops
     )

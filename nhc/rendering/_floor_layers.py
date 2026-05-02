@@ -442,10 +442,7 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     )
     from nhc.rendering._outline_helpers import (
         cuts_for_doorless_openings, cuts_for_room_corridor_openings,
-        cuts_for_room_doors, outline_from_cave, outline_from_circle,
-        outline_from_cross, outline_from_hybrid, outline_from_l_shape,
-        outline_from_octagon, outline_from_pill, outline_from_polygon,
-        outline_from_rect, outline_from_temple,
+        cuts_for_room_doors, outline_from_polygon, outline_from_rect,
     )
     from nhc.rendering._room_outlines import (
         _outline_with_gaps, _room_svg_outline,
@@ -898,17 +895,17 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             if not isinstance(room.shape, RectShape):
                 continue
             wall_op = ExteriorWallOpT()
-            wall_op.outline = outline_from_rect(room.rect)
-            wall_op.outline.cuts = (
+            # Phase 1.26e-2b — op.outline retired; the matching Room
+            # Region carries the canonical outline. Op-level cuts
+            # (Phase 1.24) stay populated for stroke break intervals.
+            wall_op.outline = None
+            wall_op.style = WallStyle.WallStyle.DungeonInk
+            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            wall_op.regionRef = room.id
+            wall_op.cuts = (
                 cuts_for_room_doors(room, level)
                 + cuts_for_room_corridor_openings(room, level)
             )
-            wall_op.style = WallStyle.WallStyle.DungeonInk
-            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
-            # Phase 1.24 — region_ref keys off the matching Room
-            # Region; op-level cuts mirror outline.cuts.
-            wall_op.regionRef = room.id
-            wall_op.cuts = list(wall_op.outline.cuts)
             wall_entry = OpEntryT()
             wall_entry.opType = Op.Op.ExteriorWallOp
             wall_entry.op = wall_op
@@ -945,46 +942,26 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             if idx in cave_region_rooms:
                 continue
             shape = room.shape
-            outline_obj = None
-            if isinstance(shape, OctagonShape):
-                outline_obj = outline_from_octagon(room)
-            elif isinstance(shape, LShape):
-                outline_obj = outline_from_l_shape(room)
-            elif isinstance(shape, TempleShape):
-                outline_obj = outline_from_temple(room)
-            elif isinstance(shape, CircleShape):
-                outline_obj = outline_from_circle(room)
-            elif isinstance(shape, PillShape):
-                outline_obj = outline_from_pill(room)
-            elif isinstance(shape, CrossShape):
-                # Phase 1.20c: 12-vertex polygon outline — same
-                # geometry as the legacy CrossShape SVG path.
-                outline_obj = outline_from_cross(room)
-            elif isinstance(shape, HybridShape):
-                # Phase 1.20c: tessellated polygon outline. Closes
-                # ``test_hybrid_doorless_opening_gaps_outline`` by
-                # routing the gapped wall stroke through
-                # ``_walk_polygon_with_cuts`` in the consumer.
-                outline_obj = outline_from_hybrid(room)
-            else:
+            if not isinstance(shape, (
+                OctagonShape, LShape, TempleShape, CircleShape, PillShape,
+                CrossShape, HybridShape,
+            )):
                 # RectShape handled above; CaveShape skips — its
                 # ExteriorWallOp lands in the merged-cave block below.
                 continue
             wall_op = ExteriorWallOpT()
-            wall_op.outline = outline_obj
-            wall_op.outline.cuts = (
+            # Phase 1.26e-2b — op.outline retired; the matching Room
+            # Region (1.26d-1 covers all 8 shapes) carries the
+            # canonical outline. Op-level cuts (Phase 1.24) stay
+            # populated for stroke break intervals.
+            wall_op.outline = None
+            wall_op.style = WallStyle.WallStyle.DungeonInk
+            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
+            wall_op.regionRef = room.id
+            wall_op.cuts = (
                 cuts_for_room_doors(room, level)
                 + cuts_for_doorless_openings(room, level)
             )
-            wall_op.style = WallStyle.WallStyle.DungeonInk
-            wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
-            # Phase 1.24 — region_ref → room.id (consumer falls
-            # back to op.outline when no Region matches today: L,
-            # Temple, Circle, Pill, Cross still skip
-            # ``_room_region_data``). Op-level cuts mirror
-            # outline.cuts.
-            wall_op.regionRef = room.id
-            wall_op.cuts = list(wall_op.outline.cuts)
             wall_entry = OpEntryT()
             wall_entry.opType = Op.Op.ExteriorWallOp
             wall_entry.op = wall_op
@@ -1018,16 +995,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             if not coords or len(coords) < 4:
                 continue
             wall_op = ExteriorWallOpT()
-            wall_op.outline = outline_from_cave(coords)
-            wall_op.outline.cuts = []
+            # Phase 1.26e-2b — op.outline retired; the per-system cave
+            # Region (1.26b) carries the same single-ring raw-boundary
+            # outline. Consumer reads ``region.outline`` via regionRef
+            # per 1.24 / 1.26e-1.
+            wall_op.outline = None
             wall_op.style = WallStyle.WallStyle.CaveInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
-            # Phase 1.26b — closes the 1.24 region_ref deferral.
-            # The per-system cave Region (emitted in
-            # :func:`emit_regions`) carries the same single-ring
-            # raw-boundary outline so consumer dispatch via
-            # ``regionRef`` produces identical geometry to falling
-            # back on ``op.outline``.
             wall_op.regionRef = f"cave.{i}"
             wall_op.cuts = []
             wall_entry = OpEntryT()

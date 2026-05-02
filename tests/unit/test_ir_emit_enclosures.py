@@ -163,6 +163,22 @@ def _make_builder() -> FloorIRBuilder:
     )
 
 
+def _outline_for_region_ref(builder: FloorIRBuilder, region_ref) -> "OutlineT | None":
+    """Resolve op outline via region_ref → Region.outline (1.26e-2b)."""
+    needle = (
+        region_ref.decode()
+        if isinstance(region_ref, bytes)
+        else (region_ref or "")
+    )
+    if not needle:
+        return None
+    for r in builder.regions:
+        rid = r.id.decode() if isinstance(r.id, bytes) else (r.id or "")
+        if rid == needle:
+            return r.outline
+    return None
+
+
 def _ext_wall_ops(builder: FloorIRBuilder) -> list:
     from nhc.rendering.ir._fb import Op
     return [e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp]
@@ -267,11 +283,12 @@ def test_wood_gate_resolves_to_woodgate_cut_at_edge_midpoint() -> None:
 
     ext_ops = _ext_wall_ops(builder)
     assert len(ext_ops) == 1
-    outline = ext_ops[0].op.outline
+    # Phase 1.26e-2b: outline lives on Region(kind=Enclosure); cuts on op.
+    outline = _outline_for_region_ref(builder, ext_ops[0].op.regionRef)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.closed is True
-    cuts = outline.cuts
+    cuts = ext_ops[0].op.cuts or []
     assert len(cuts) == 1
     cut = cuts[0]
     assert cut.style == CutStyle.WoodGate
@@ -297,7 +314,7 @@ def test_portcullis_gate_resolves_to_portcullisgate_cut() -> None:
 
     ext_ops = _ext_wall_ops(builder)
     assert len(ext_ops) == 1
-    cuts = ext_ops[0].op.outline.cuts
+    cuts = ext_ops[0].op.cuts or []
     assert len(cuts) == 1
     assert cuts[0].style == CutStyle.PortcullisGate
 
@@ -356,7 +373,10 @@ def test_exterior_wall_op_outline_vertices_match_polygon_px() -> None:
 
     ext_ops = _ext_wall_ops(builder)
     assert len(ext_ops) == 1
-    verts = ext_ops[0].op.outline.vertices
+    # Phase 1.26e-2b: outline lives on Region(kind=Enclosure).outline.
+    outline = _outline_for_region_ref(builder, ext_ops[0].op.regionRef)
+    assert outline is not None
+    verts = outline.vertices
     assert len(verts) == 4
     for v, (tx, ty) in zip(verts, polygon_tiles):
         assert math.isclose(v.x, tx * CELL)

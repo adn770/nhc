@@ -453,14 +453,16 @@ def test_cave_exterior_wall_carries_cave_region_ref() -> None:
             f"CaveInk ExteriorWallOp.regionRef={ref!r} does not "
             f"resolve; known cave regions: {sorted(cave_regions)}"
         )
-        assert op.outline is not None
+        # Phase 1.26e-2b: op.outline retired; Region.outline is canonical.
+        assert op.outline is None or not (op.outline.vertices or []), (
+            "ExteriorWallOp.outline retired at 1.26e-2b — "
+            "Region.outline is canonical."
+        )
         assert region.outline is not None
-        op_vs = [(v.x, v.y) for v in (op.outline.vertices or [])]
         region_vs = [(v.x, v.y) for v in (region.outline.vertices or [])]
-        assert op_vs == region_vs, (
-            f"ExteriorWallOp.outline must mirror Region.outline "
-            f"vertex-for-vertex; len(op)={len(op_vs)} "
-            f"len(region)={len(region_vs)}"
+        assert region_vs and len(region_vs) >= 4, (
+            f"Region(kind=Cave).outline must carry the cave system "
+            f"boundary; got {len(region_vs)} vertices."
         )
 
 
@@ -513,33 +515,44 @@ def test_enclosure_exterior_wall_carries_enclosure_region_ref() -> None:
         )
 
 
-def test_op_cuts_mirror_outline_cuts_in_fixtures() -> None:
-    """Parallel emission invariant — every wall op's op.cuts ≡ outline.cuts.
+def test_op_cuts_canonical_when_outline_retired() -> None:
+    """Phase 1.26e-2b: ExteriorWallOp/InteriorWallOp ``op.cuts`` is canonical.
 
-    The 1.24 emitter mirrors ``outline.cuts`` to ``op.cuts`` for
-    every ExteriorWallOp + InteriorWallOp. Walks every fixture
-    and asserts the two cut lists are equal point-for-point.
+    Pre-1.26e-2b the emitter mirrored ``outline.cuts`` to ``op.cuts`` for
+    every wall op (Phase 1.24 contract). Post-1.26e-2b ``outline.cuts``
+    drops alongside ``op.outline``: the Region carries the geometry,
+    and ``op.cuts`` carries the stroke break intervals. This test
+    asserts the new canonical-cuts path: every wall op with cuts
+    carries them on ``op.cuts``, and ``op.outline`` (if present) does
+    not double up.
+
+    InteriorWallOp keeps its op-level outline (interior walls aren't
+    region perimeters), so its ``outline.cuts`` may be populated as
+    the legacy path; tests for InteriorWallOp focus on ``op.cuts``.
     """
     for desc in all_descriptors():
         fir = _build_emitted(desc)
-        for op in _exterior_walls(fir) + _interior_walls(fir):
-            outline_cuts = list(op.outline.cuts or []) if op.outline else []
+        for op in _exterior_walls(fir):
+            outline_cuts = (
+                list(op.outline.cuts or []) if op.outline else []
+            )
+            assert not outline_cuts, (
+                f"{desc}: ExteriorWallOp.outline.cuts retired at "
+                f"1.26e-2b; got {len(outline_cuts)} cuts on outline"
+            )
+        # InteriorWallOp.cuts: still synced with outline.cuts in
+        # the emitter (interior walls have no Region; they keep
+        # their op-level outline so the legacy mirror stays valid).
+        for op in _interior_walls(fir):
+            outline_cuts = (
+                list(op.outline.cuts or []) if op.outline else []
+            )
             op_cuts = list(op.cuts or [])
             assert len(outline_cuts) == len(op_cuts), (
-                f"{desc}: wall op cut count mismatch — "
+                f"{desc}: InteriorWallOp cut count mismatch — "
                 f"outline.cuts={len(outline_cuts)} vs "
                 f"op.cuts={len(op_cuts)}"
             )
-            for i, (oc, pc) in enumerate(zip(outline_cuts, op_cuts)):
-                assert (oc.start.x, oc.start.y) == (pc.start.x, pc.start.y), (
-                    f"{desc}: cut {i} start mismatch"
-                )
-                assert (oc.end.x, oc.end.y) == (pc.end.x, pc.end.y), (
-                    f"{desc}: cut {i} end mismatch"
-                )
-                assert oc.style == pc.style, (
-                    f"{desc}: cut {i} style mismatch"
-                )
 
 
 def test_building_masonry_wall_carries_region_ref() -> None:
@@ -672,3 +685,149 @@ def test_smooth_corridor_stubs_prefers_region_ref_over_op_outline() -> None:
         f"stub coords mismatch — expected the right-edge "
         f"perpendicular extensions {expected}; got {set(stubs)}."
     )
+
+
+# ── Phase 1.26e-2b — ExteriorWallOp.outline retired when region_ref set ──
+
+
+def test_rect_room_exterior_wall_outline_dropped_when_region_ref_set() -> None:
+    """seed42 (rect dungeon): rect-room ExteriorWallOps drop op.outline.
+
+    Phase 1.26e-2b — emitter retires ``ExteriorWallOp.outline`` for
+    ops that carry a non-empty ``region_ref``. The
+    Region(kind=Room).outline registered by ``emit_regions`` is the
+    canonical geometry source; consumers prefer ``region_ref`` per
+    1.24, and the bypass-readers migrated at 1.26e-1 also walk
+    ``region_ref`` before falling back to op.outline.
+
+    Op-level ``cuts`` (Phase 1.24) stay populated — they're the
+    canonical source for stroke break intervals; ``outline.cuts``
+    retired alongside ``op.outline``.
+    """
+    fir = _build_emitted("seed42_rect_dungeon_dungeon")
+    rect_walls = [
+        op for op in _exterior_walls(fir)
+        if op.style == WallStyle.DungeonInk
+        and _decode_id(op.regionRef).startswith("room_")
+    ]
+    assert rect_walls, "seed42 has no rect-room ExteriorWallOp"
+    for op in rect_walls:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            f"rect-room ExteriorWallOp.regionRef={_decode_id(op.regionRef)!r} "
+            f"must not carry op.outline; got vertices count = "
+            f"{len(op.outline.vertices or []) if op.outline else 0}."
+        )
+
+
+def test_smooth_room_exterior_wall_outline_dropped_when_region_ref_set() -> None:
+    """seed7_octagon: smooth-room ExteriorWallOps drop op.outline.
+
+    Phase 1.26e-2b — same contract as rect rooms: smooth shapes
+    (octagon / L / temple / circle / pill / cross / hybrid) all have
+    Regions per 1.26d-1, so their ExteriorWallOps drop op.outline.
+    """
+    fir = _build_emitted("seed7_octagon_crypt_dungeon")
+    smooth_walls = [
+        op for op in _exterior_walls(fir)
+        if op.style == WallStyle.DungeonInk
+        and _decode_id(op.regionRef).startswith("room_")
+    ]
+    if not smooth_walls:
+        pytest.skip("seed7_octagon has no smooth-room ExteriorWallOp")
+    for op in smooth_walls:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            f"smooth-room ExteriorWallOp.regionRef="
+            f"{_decode_id(op.regionRef)!r} must not carry op.outline."
+        )
+
+
+def test_cave_exterior_wall_outline_dropped_when_region_ref_set() -> None:
+    """seed99_cave: cave ExteriorWallOps drop op.outline.
+
+    Phase 1.26e-2b — per-system ``ExteriorWallOp(region_ref=
+    "cave.<i>")`` drops op.outline; Region(kind=Cave).outline is
+    canonical (also single-ring raw boundary per 1.26b).
+    """
+    fir = _build_emitted("seed99_cave_cave_cave")
+    cave_walls = [
+        op for op in _exterior_walls(fir)
+        if op.style == WallStyle.CaveInk
+        and _decode_id(op.regionRef).startswith("cave.")
+    ]
+    assert cave_walls, "seed99_cave has no cave ExteriorWallOp"
+    for op in cave_walls:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            f"cave ExteriorWallOp.regionRef={_decode_id(op.regionRef)!r} "
+            f"must not carry op.outline."
+        )
+
+
+def test_enclosure_exterior_wall_outline_dropped_when_region_ref_set() -> None:
+    """Synthetic enclosure: ExteriorWallOp drops op.outline.
+
+    Phase 1.26e-2b — site enclosures (palisade / fortification) have
+    Region(kind=Enclosure, id="enclosure") per 1.26c; the
+    ExteriorWallOp drops op.outline.
+    """
+    p = _FIXTURE_ROOT / "synthetic_enclosure_palisade_rect" / "floor.nir"
+    if not p.exists():
+        pytest.skip("synthetic_enclosure_palisade_rect fixture missing")
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
+    enclosure_walls = [
+        op for op in _exterior_walls(fir)
+        if _decode_id(op.regionRef) == "enclosure"
+    ]
+    assert enclosure_walls, "enclosure fixture has no enclosure ExteriorWallOp"
+    for op in enclosure_walls:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            "enclosure ExteriorWallOp.regionRef='enclosure' must not "
+            "carry op.outline."
+        )
+
+
+def test_building_masonry_outline_dropped_when_region_ref_set() -> None:
+    """seed7_brick_building: masonry ExteriorWallOps drop op.outline.
+
+    Phase 1.26e-2b — building masonry walls reference
+    Region(kind=Building, id="building.<i>") per 1.24/1.26.
+    """
+    p = _FIXTURE_ROOT / "seed7_brick_building_floor0" / "floor.nir"
+    if not p.exists():
+        pytest.skip("seed7_brick_building_floor0 fixture missing")
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
+    masonry_walls = [
+        op for op in _exterior_walls(fir)
+        if op.style in (WallStyle.MasonryBrick, WallStyle.MasonryStone)
+        and _decode_id(op.regionRef).startswith("building.")
+    ]
+    if not masonry_walls:
+        pytest.skip("seed7_brick_building has no masonry ExteriorWallOp")
+    for op in masonry_walls:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            f"masonry ExteriorWallOp.regionRef="
+            f"{_decode_id(op.regionRef)!r} must not carry op.outline."
+        )
+
+
+def test_interior_wall_op_keeps_outline_by_design() -> None:
+    """InteriorWallOp.outline stays populated past 1.26e-2b.
+
+    Phase 1.26e-2b — interior walls (PartitionStone/Brick/Wood) are
+    NOT region perimeters; they ship their own 2-vertex polyline
+    outline on the op. The schema docstring at 1.24 documents this:
+    ``interior walls keep their op-level outline because they are
+    not region perimeters``.
+    """
+    p = _FIXTURE_ROOT / "synthetic_building_wall_brick_with_interior" / "floor.nir"
+    if not p.exists():
+        pytest.skip("synthetic_building_wall_brick_with_interior fixture missing")
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
+    interior_walls = _interior_walls(fir)
+    assert interior_walls, (
+        "synthetic_building_wall_brick_with_interior has no InteriorWallOp"
+    )
+    for op in interior_walls:
+        assert op.outline is not None and op.outline.vertices, (
+            "InteriorWallOp must keep op.outline populated — interior "
+            "walls are not region perimeters"
+        )

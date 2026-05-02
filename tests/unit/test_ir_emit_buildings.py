@@ -41,6 +41,23 @@ from nhc.rendering.ir_emitter import (
 )
 
 
+def _outline_for_op(op, regions):
+    """Resolve op outline via region_ref → Region.outline.
+
+    Phase 1.26e-2b: ExteriorWallOps with non-empty region_ref carry
+    their outline on the matching Region. Falls back to op.outline
+    for ops without region_ref (or when the Region is missing).
+    """
+    rr = getattr(op, "regionRef", None)
+    needle = rr.decode() if isinstance(rr, bytes) else (rr or "")
+    if needle:
+        for r in regions or []:
+            rid = r.id.decode() if isinstance(r.id, bytes) else (r.id or "")
+            if rid == needle and r.outline is not None:
+                return r.outline
+    return op.outline
+
+
 @dataclass
 class _StubBuilding:
     """Minimal Building stand-in for footprint-polygon tests."""
@@ -475,10 +492,12 @@ class TestEmitSiteEnclosure:
         assert op.cornerStyle == CornerStyle.Merlon
         # rng_seed = base_seed + 0xE101 (per design §10).
         assert op.rngSeed == (42 + 0xE101) & 0xFFFFFFFFFFFFFFFF
-        # Polygon outline has 4 vertices in pixel coords.
-        assert len(op.outline.vertices) == 4
+        # Phase 1.26e-2b: polygon outline lives on
+        # Region(kind=Enclosure).outline.
+        outline = _outline_for_op(op, builder.regions)
+        assert outline is not None and len(outline.vertices) == 4
         # No gates → no Cut entries.
-        assert not op.outline.cuts
+        assert not (op.cuts or [])
 
     def test_fortification_with_gate_emits_gate_entry(self) -> None:
         from nhc.rendering.ir._fb import Op
@@ -501,8 +520,10 @@ class TestEmitSiteEnclosure:
         op = ext[0].op
         assert op.style == WallStyle.FortificationMerlon
         assert op.cornerStyle == CornerStyle.Diamond
-        assert len(op.outline.cuts) == 1
-        assert op.outline.cuts[0].style == CutStyle.WoodGate
+        # Phase 1.26e-2b: cuts on op (canonical), not on outline.
+        cuts = op.cuts or []
+        assert len(cuts) == 1
+        assert cuts[0].style == CutStyle.WoodGate
 
     def test_too_few_vertices_no_op(self) -> None:
         builder = self._builder()
@@ -967,9 +988,10 @@ class TestEmitBuildingExteriorWallOp:
         wop = wall_ops[0].op
         assert wop.style == WallStyle.MasonryBrick
         assert wop.cornerStyle == CornerStyle.Merlon
-        assert wop.outline is not None
-        assert wop.outline.descriptorKind == OutlineKind.Polygon
-        assert wop.outline.closed is True
+        outline = _outline_for_op(wop, builder.regions)
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
+        assert outline.closed is True
 
     def test_stone_emits_exterior_wall_op(self) -> None:
         """A stone-walled octagon Building produces one
@@ -997,10 +1019,12 @@ class TestEmitBuildingExteriorWallOp:
         assert len(wall_ops) == 1
         wop = wall_ops[0].op
         assert wop.style == WallStyle.MasonryStone
-        assert wop.outline.descriptorKind == OutlineKind.Polygon
+        outline = _outline_for_op(wop, builder.regions)
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
         # OctagonShape footprint is 8-vertex per
         # _building_footprint_polygon_px.
-        assert len(wop.outline.vertices) == 8
+        assert len(outline.vertices) == 8
 
     def test_dungeon_material_skips_exterior_wall_op(self) -> None:
         """``wall_material == "dungeon"`` buildings emit neither the
@@ -1094,15 +1118,15 @@ class TestEmitBuildingExteriorWallOp:
             e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
         ]
         assert len(wall_ops) == 1
-        outline_verts = [
-            (v.x, v.y) for v in wall_ops[0].op.outline.vertices
-        ]
+        outline = _outline_for_op(wall_ops[0].op, builder.regions)
+        assert outline is not None
+        outline_verts = [(v.x, v.y) for v in outline.vertices]
         expected = [
             (float(x), float(y))
             for x, y in _building_footprint_polygon_px(b)
         ]
         assert outline_verts == expected, (
-            "ExteriorWallOp outline must equal "
+            "ExteriorWallOp Region.outline must equal "
             "_building_footprint_polygon_px output verbatim"
         )
 
@@ -1180,7 +1204,7 @@ class TestEmitBuildingExteriorWallOp:
             e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
         ]
         assert len(wall_ops) == 1
-        cuts = wall_ops[0].op.outline.cuts or []
+        cuts = wall_ops[0].op.cuts or []
         assert cuts == [], (
             "stub level has no door tiles — cuts must be empty"
         )
@@ -1277,7 +1301,7 @@ class TestEmitBuildingExteriorWallOp:
             e for e in builder.ops if e.opType == Op.Op.ExteriorWallOp
         ]
         assert len(wall_ops) == 1
-        cuts = wall_ops[0].op.outline.cuts or []
+        cuts = wall_ops[0].op.cuts or []
         assert len(cuts) == 1, (
             "expected one Cut for the single door tile north of "
             "the brick building"

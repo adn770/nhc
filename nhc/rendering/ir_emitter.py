@@ -834,13 +834,28 @@ def emit_site_enclosure(
     }
     if style in _ENCLOSURE_WALL_STYLE_MAP:
         from nhc.rendering._outline_helpers import (
-            cuts_for_enclosure_gates, outline_from_polygon,
+            cuts_for_enclosure_gates,
         )
+        # Phase 1.26e-2b — register the canonical
+        # Region(kind=Enclosure, id="enclosure") here so the new
+        # ExteriorWallOp's region_ref resolves without a separate
+        # caller. ``emit_site_overlays`` no longer registers it
+        # itself (it just calls into this helper).
+        if not any(
+            (r.id.decode() if isinstance(r.id, bytes) else r.id) == "enclosure"
+            for r in builder.regions
+        ):
+            builder.add_region(
+                id="enclosure",
+                kind=RegionKind.RegionKind.Enclosure,
+                polygon=polygon,
+                shape_tag="enclosure",
+            )
         wall_op = ExteriorWallOpT()
-        wall_op.outline = outline_from_polygon(coords_px)
-        wall_op.outline.cuts = cuts_for_enclosure_gates(
-            coords_px, list(gates or []), gate_style,
-        )
+        # Phase 1.26e-2b — op.outline retired; Region.outline
+        # (registered above) carries the canonical outline. Op-level
+        # cuts (Phase 1.24) stay populated.
+        wall_op.outline = None
         wall_op.style = _ENCLOSURE_WALL_STYLE_MAP[style]
         wall_op.cornerStyle = corner_style
         # Phase 1.20 — propagate the splitmix64 seed onto the new op
@@ -848,14 +863,10 @@ def emit_site_enclosure(
         # reading the paired EnclosureOp (which Phase 1.20 stops
         # emitting). The salt + mask match the legacy emission above.
         wall_op.rngSeed = (base_seed + 0xE101) & _SM64_MASK
-        # Phase 1.26c — site enclosures now have a
-        # Region(kind=Enclosure, id="enclosure") emitted upstream by
-        # ``emit_site_overlays``; reference it so the consumer can
-        # resolve geometry through ``Region.outline`` rather than the
-        # legacy ``op.outline`` path. Closes the deferred gap from
-        # 1.24. Op-level cuts mirror outline.cuts.
         wall_op.regionRef = "enclosure"
-        wall_op.cuts = list(wall_op.outline.cuts)
+        wall_op.cuts = cuts_for_enclosure_gates(
+            coords_px, list(gates or []), gate_style,
+        )
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
         wall_entry.op = wall_op
@@ -1126,14 +1137,13 @@ def emit_building_walls(
         "stone": WallStyle.MasonryStone,
     }
     if wall_material in _MASONRY_STYLE_MAP:
-        from nhc.rendering._outline_helpers import (
-            cuts_for_building_doors, outline_from_polygon,
-        )
-        polygon = _building_footprint_polygon_px(building)
-        coords = [(float(x), float(y)) for x, y in polygon]
+        from nhc.rendering._outline_helpers import cuts_for_building_doors
         wall_op = ExteriorWallOpT()
-        wall_op.outline = outline_from_polygon(coords)
-        wall_op.outline.cuts = cuts_for_building_doors(building, level)
+        # Phase 1.26e-2b — op.outline retired; Region(kind=Building,
+        # id="building.<i>") (registered by emit_building_regions /
+        # emit_building_overlays) carries the canonical footprint.
+        # Op-level cuts (Phase 1.24) stay populated.
+        wall_op.outline = None
         wall_op.style = _MASONRY_STYLE_MAP[wall_material]
         wall_op.cornerStyle = CornerStyle.Merlon
         # Phase 1.20 — propagate the splitmix64 seed onto the new op
@@ -1143,12 +1153,8 @@ def emit_building_walls(
         wall_op.rngSeed = (
             base_seed + 0xBE71 + building_index
         ) & _SM64_MASK
-        # Phase 1.24 — region_ref keys off the matching Building
-        # Region (registered by emit_building_regions /
-        # emit_building_overlays). Op-level cuts mirror
-        # outline.cuts.
         wall_op.regionRef = f"building.{building_index}"
-        wall_op.cuts = list(wall_op.outline.cuts)
+        wall_op.cuts = cuts_for_building_doors(building, level)
         wall_entry = OpEntryT()
         wall_entry.opType = 22  # Op.ExteriorWallOp
         wall_entry.op = wall_op
@@ -1491,21 +1497,9 @@ def emit_site_overlays(builder: FloorIRBuilder) -> None:
         gates_param.append(
             (best_idx, best_t, float(length_tiles) * CELL / 2.0),
         )
-    # Phase 1.26c — register a Region(kind=Enclosure, id="enclosure")
-    # before the enclosure ExteriorWallOp emits so the new op can
-    # reference it. The polygon coordinates match the wall op's
-    # outline (bare tile-pixel coords, no PADDING — the renderer's
-    # outer translate adds PADDING once at paint time).
-    enclosure_coords_px = [
-        (float(x * CELL), float(y * CELL))
-        for (x, y) in enclosure.polygon
-    ]
-    builder.add_region(
-        id="enclosure",
-        kind=RegionKind.RegionKind.Enclosure,
-        polygon=_coords_to_polygon(enclosure_coords_px),
-        shape_tag="enclosure",
-    )
+    # Phase 1.26e-2b — Region(kind=Enclosure, id="enclosure") is now
+    # registered inside :func:`emit_site_enclosure`; no separate
+    # add_region call here.
     emit_site_enclosure(
         builder,
         polygon_tiles=[
