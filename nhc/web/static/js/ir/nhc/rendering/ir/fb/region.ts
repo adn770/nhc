@@ -4,6 +4,7 @@
 
 import * as flatbuffers from 'flatbuffers';
 
+import { Outline } from '../../../../nhc/rendering/ir/fb/outline.js';
 import { Polygon } from '../../../../nhc/rendering/ir/fb/polygon.js';
 import { RegionKind } from '../../../../nhc/rendering/ir/fb/region-kind.js';
 
@@ -50,8 +51,13 @@ shapeTag(optionalEncoding?:any):string|Uint8Array|null {
   return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
 }
 
+outline(obj?:Outline):Outline|null {
+  const offset = this.bb!.__offset(this.bb_pos, 12);
+  return offset ? (obj || new Outline()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
+}
+
 static startRegion(builder:flatbuffers.Builder) {
-  builder.startObject(4);
+  builder.startObject(5);
 }
 
 static addId(builder:flatbuffers.Builder, idOffset:flatbuffers.Offset) {
@@ -68,6 +74,10 @@ static addPolygon(builder:flatbuffers.Builder, polygonOffset:flatbuffers.Offset)
 
 static addShapeTag(builder:flatbuffers.Builder, shapeTagOffset:flatbuffers.Offset) {
   builder.addFieldOffset(3, shapeTagOffset, 0);
+}
+
+static addOutline(builder:flatbuffers.Builder, outlineOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(4, outlineOffset, 0);
 }
 
 static endRegion(builder:flatbuffers.Builder):flatbuffers.Offset {

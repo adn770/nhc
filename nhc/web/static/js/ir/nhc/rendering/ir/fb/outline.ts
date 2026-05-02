@@ -6,6 +6,7 @@ import * as flatbuffers from 'flatbuffers';
 
 import { Cut } from '../../../../nhc/rendering/ir/fb/cut.js';
 import { OutlineKind } from '../../../../nhc/rendering/ir/fb/outline-kind.js';
+import { PathRange } from '../../../../nhc/rendering/ir/fb/path-range.js';
 import { Vec2 } from '../../../../nhc/rendering/ir/fb/vec2.js';
 
 
@@ -77,8 +78,18 @@ ry():number {
   return offset ? this.bb!.readFloat32(this.bb_pos + offset) : 0.0;
 }
 
+rings(index: number, obj?:PathRange):PathRange|null {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? (obj || new PathRange()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 12, this.bb!) : null;
+}
+
+ringsLength():number {
+  const offset = this.bb!.__offset(this.bb_pos, 20);
+  return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
+}
+
 static startOutline(builder:flatbuffers.Builder) {
-  builder.startObject(8);
+  builder.startObject(9);
 }
 
 static addVertices(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Offset) {
@@ -129,12 +140,20 @@ static addRy(builder:flatbuffers.Builder, ry:number) {
   builder.addFieldFloat32(7, ry, 0.0);
 }
 
+static addRings(builder:flatbuffers.Builder, ringsOffset:flatbuffers.Offset) {
+  builder.addFieldOffset(8, ringsOffset, 0);
+}
+
+static startRingsVector(builder:flatbuffers.Builder, numElems:number) {
+  builder.startVector(12, numElems, 4);
+}
+
 static endOutline(builder:flatbuffers.Builder):flatbuffers.Offset {
   const offset = builder.endObject();
   return offset;
 }
 
-static createOutline(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Offset, cutsOffset:flatbuffers.Offset, closed:boolean, descriptorKind:OutlineKind, cx:number, cy:number, rx:number, ry:number):flatbuffers.Offset {
+static createOutline(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Offset, cutsOffset:flatbuffers.Offset, closed:boolean, descriptorKind:OutlineKind, cx:number, cy:number, rx:number, ry:number, ringsOffset:flatbuffers.Offset):flatbuffers.Offset {
   Outline.startOutline(builder);
   Outline.addVertices(builder, verticesOffset);
   Outline.addCuts(builder, cutsOffset);
@@ -144,6 +163,7 @@ static createOutline(builder:flatbuffers.Builder, verticesOffset:flatbuffers.Off
   Outline.addCy(builder, cy);
   Outline.addRx(builder, rx);
   Outline.addRy(builder, ry);
+  Outline.addRings(builder, ringsOffset);
   return Outline.endOutline(builder);
 }
 }

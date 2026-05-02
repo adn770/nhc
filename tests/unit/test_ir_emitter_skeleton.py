@@ -53,12 +53,13 @@ def test_buffer_carries_nirf_identifier(emitted) -> None:
 def test_schema_major_is_three(emitted) -> None:
     _, _, fir = emitted
     assert fir.major == 3
-    # Schema 3.1 (Phase 0.3 of plans/nhc_pure_ir_plan.md) bumped
-    # SCHEMA_MINOR to 1 to mark FloorDetailOp.{room,corridor}_groups
-    # and the GenericProceduralOp table as DEPRECATED — removed in
-    # 4.0. The (major, minor) cache gate evicts pre-3.1 cached IR
-    # artefacts on first boot post-upgrade.
-    assert fir.minor == 1
+    # Schema 3.2 (Phase 1.22 of plans/nhc_pure_ir_plan.md) bumped
+    # SCHEMA_MINOR to 2 for the v4e migration's first sub-phase:
+    # Region.outline added parallel to Region.polygon. The
+    # subsequent v4e sub-phases (1.23 – 1.25) bump to 3.3 – 3.5
+    # additively; the single atomic NIR3 → NIR4 cut at 1.27 finally
+    # bumps the major.
+    assert fir.minor == 2
 
 
 def test_metadata_matches_inputs(emitted) -> None:

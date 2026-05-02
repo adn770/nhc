@@ -60,8 +60,19 @@ class Region(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
+    # Region
+    def Outline(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
+        if o != 0:
+            x = self._tab.Indirect(o + self._tab.Pos)
+            from nhc.rendering.ir._fb.Outline import Outline
+            obj = Outline()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
 def RegionStart(builder):
-    builder.StartObject(4)
+    builder.StartObject(5)
 
 def Start(builder):
     RegionStart(builder)
@@ -90,12 +101,19 @@ def RegionAddShapeTag(builder, shapeTag):
 def AddShapeTag(builder, shapeTag):
     RegionAddShapeTag(builder, shapeTag)
 
+def RegionAddOutline(builder, outline):
+    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(outline), 0)
+
+def AddOutline(builder, outline):
+    RegionAddOutline(builder, outline)
+
 def RegionEnd(builder):
     return builder.EndObject()
 
 def End(builder):
     return RegionEnd(builder)
 
+import nhc.rendering.ir._fb.Outline
 import nhc.rendering.ir._fb.Polygon
 try:
     from typing import Optional
@@ -111,11 +129,13 @@ class RegionT(object):
         kind = 0,
         polygon = None,
         shapeTag = None,
+        outline = None,
     ):
         self.id = id  # type: Optional[str]
         self.kind = kind  # type: int
         self.polygon = polygon  # type: Optional[nhc.rendering.ir._fb.Polygon.PolygonT]
         self.shapeTag = shapeTag  # type: Optional[str]
+        self.outline = outline  # type: Optional[nhc.rendering.ir._fb.Outline.OutlineT]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -143,6 +163,8 @@ class RegionT(object):
         if region.Polygon() is not None:
             self.polygon = nhc.rendering.ir._fb.Polygon.PolygonT.InitFromObj(region.Polygon())
         self.shapeTag = region.ShapeTag()
+        if region.Outline() is not None:
+            self.outline = nhc.rendering.ir._fb.Outline.OutlineT.InitFromObj(region.Outline())
 
     # RegionT
     def Pack(self, builder):
@@ -152,6 +174,8 @@ class RegionT(object):
             polygon = self.polygon.Pack(builder)
         if self.shapeTag is not None:
             shapeTag = builder.CreateString(self.shapeTag)
+        if self.outline is not None:
+            outline = self.outline.Pack(builder)
         RegionStart(builder)
         if self.id is not None:
             RegionAddId(builder, id)
@@ -160,5 +184,7 @@ class RegionT(object):
             RegionAddPolygon(builder, polygon)
         if self.shapeTag is not None:
             RegionAddShapeTag(builder, shapeTag)
+        if self.outline is not None:
+            RegionAddOutline(builder, outline)
         region = RegionEnd(builder)
         return region

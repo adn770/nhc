@@ -58,6 +58,8 @@ from nhc.rendering.ir._fb.InteriorEdge import InteriorEdgeT
 from nhc.rendering.ir._fb.InteriorWallMaterial import InteriorWallMaterial
 from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
 from nhc.rendering.ir._fb.OpEntry import OpEntryT
+from nhc.rendering.ir._fb.Outline import OutlineT
+from nhc.rendering.ir._fb.OutlineKind import OutlineKind
 from nhc.rendering.ir._fb.PathRange import PathRangeT
 from nhc.rendering.ir._fb.Polygon import PolygonT
 from nhc.rendering.ir._fb.Region import RegionT
@@ -73,7 +75,7 @@ from nhc.rendering.ir._fb.WallStyle import WallStyle
 # §"Schema-evolution discipline" checklist in the migration plan
 # whenever floor_ir.fbs changes (additive → minor, breaking → major).
 SCHEMA_MAJOR = 3
-SCHEMA_MINOR = 1
+SCHEMA_MINOR = 2
 # Legacy aliases — Phase 2.3 promoted the constants to public names so
 # the floor-artefact cache can validate disk-loaded IR against the
 # running build's schema. Kept until the next IR refactor sweep.
@@ -121,12 +123,23 @@ class FloorIRBuilder:
         kind: int,
         polygon: PolygonT,
         shape_tag: str = "",
+        outline: OutlineT | None = None,
     ) -> None:
         region = RegionT()
         region.id = id
         region.kind = kind
         region.polygon = polygon
         region.shapeTag = shape_tag
+        # Phase 1.22 of plans/nhc_pure_ir_plan.md — Region.outline
+        # ships parallel to Region.polygon. When the caller hasn't
+        # supplied an explicit outline (e.g. a Circle / Pill
+        # descriptor variant), derive one from the polygon: the
+        # vertex list mirrors ``polygon.paths`` and the multi-ring
+        # partitioning mirrors ``polygon.rings`` only when the
+        # polygon has more than one ring (single-ring outlines leave
+        # ``rings`` empty per design/map_ir_v4e.md §4 — the v4e
+        # shorthand: vertices IS the single ring).
+        region.outline = outline or _polygon_to_outline(polygon)
         self.regions.append(region)
 
     def add_op(self, op_entry: Any) -> None:
@@ -197,6 +210,45 @@ def _append_ring(poly: PolygonT, coords: Any, *, is_hole: bool) -> None:
     ring.count = len(pts)
     ring.isHole = is_hole
     poly.rings.append(ring)
+
+
+def _polygon_to_outline(polygon: PolygonT | None) -> OutlineT:
+    """Mirror a :class:`PolygonT` into an :class:`OutlineT`.
+
+    Phase 1.22 — emitter-side helper for the Region.outline parallel
+    population. Three contracts:
+
+    - ``outline.vertices`` shares the same ``Vec2T`` list as
+      ``polygon.paths`` (point-for-point; no closing duplicate
+      added or removed — both fields preserve whatever the source
+      coords carried).
+    - ``outline.rings`` mirrors ``polygon.rings`` ONLY when the
+      polygon has more than one ring (multi-ring dungeon polygon
+      with cave-wall holes, or a multi-room cave system with inner
+      cavities). Single-ring polygons collapse to the v4e
+      shorthand: ``rings = []`` means "vertices IS the single
+      ring" (see design/map_ir_v4e.md §4).
+    - ``descriptor_kind = Polygon`` and ``closed = True`` — Region
+      outlines are never open polylines (open partitions belong on
+      ``InteriorWallOp``).
+
+    Returns an :class:`OutlineT` with empty ``cuts`` (regions never
+    carry cuts; cuts live on wall ops only). When ``polygon`` is
+    ``None`` (defensive — no current call-site passes None), the
+    returned Outline carries empty vertices / rings.
+    """
+    out = OutlineT()
+    out.descriptorKind = OutlineKind.Polygon
+    out.closed = True
+    out.cuts = []
+    if polygon is None:
+        out.vertices = []
+        out.rings = []
+        return out
+    out.vertices = list(polygon.paths or [])
+    legacy_rings = list(polygon.rings or [])
+    out.rings = list(legacy_rings) if len(legacy_rings) > 1 else []
+    return out
 
 
 def _coords_to_polygon(

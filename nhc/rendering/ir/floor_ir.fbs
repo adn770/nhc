@@ -114,6 +114,15 @@ table Outline {
   cy: float;
   rx: float;
   ry: float;
+  // Phase 1.22 — multi-ring partitioning into ``vertices``. Empty
+  // for single-ring outlines (the v4e shorthand: vertices IS the
+  // single ring). Multi-ring outlines (Dungeon with cave-wall holes,
+  // multi-room cave systems with inner cavities) populate one
+  // PathRange per ring; ring 0 is the exterior, subsequent rings
+  // with ``is_hole = true`` are interior holes. Renderers use
+  // FillRule::EvenOdd to compose the fill. See design/map_ir_v4e.md
+  // §4 "Multi-ring polygons".
+  rings: [PathRange];
 }
 
 // ── Enums ────────────────────────────────────────────────────
@@ -359,6 +368,15 @@ table Region {
   kind: RegionKind;
   polygon: Polygon;
   shape_tag: string;      // "rect"|"octagon"|"circle"|"pill"|"temple"|"hybrid"|"cave"
+  // Phase 1.22 of plans/nhc_pure_ir_plan.md — region geometry
+  // restated as an :type:`Outline`. Parallel to ``polygon`` until
+  // the atomic NIR3 → NIR4 cut at 1.27, after which ``polygon``
+  // retires and ``outline`` is the sole source of truth. The
+  // Outline supports Polygon (multi-ring via ``rings``), Circle
+  // (cx/cy/rx — descriptor for circle rooms), and Pill (cx/cy/rx/ry
+  // — descriptor for pill rooms). See design/map_ir_v4e.md §3 and
+  // §4 for the canonical contract.
+  outline: Outline;
 }
 
 table RectRoom {

@@ -4029,6 +4029,7 @@ impl<'a> Outline<'a> {
   pub const VT_CY: ::flatbuffers::VOffsetT = 14;
   pub const VT_RX: ::flatbuffers::VOffsetT = 16;
   pub const VT_RY: ::flatbuffers::VOffsetT = 18;
+  pub const VT_RINGS: ::flatbuffers::VOffsetT = 20;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4040,6 +4041,7 @@ impl<'a> Outline<'a> {
     args: &'args OutlineArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Outline<'bldr>> {
     let mut builder = OutlineBuilder::new(_fbb);
+    if let Some(x) = args.rings { builder.add_rings(x); }
     builder.add_ry(args.ry);
     builder.add_rx(args.rx);
     builder.add_cy(args.cy);
@@ -4108,6 +4110,13 @@ impl<'a> Outline<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<f32>(Outline::VT_RY, Some(0.0)).unwrap()}
   }
+  #[inline]
+  pub fn rings(&self) -> Option<::flatbuffers::Vector<'a, PathRange>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'a, PathRange>>>(Outline::VT_RINGS, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Outline<'_> {
@@ -4124,6 +4133,7 @@ impl ::flatbuffers::Verifiable for Outline<'_> {
      .visit_field::<f32>("cy", Self::VT_CY, false)?
      .visit_field::<f32>("rx", Self::VT_RX, false)?
      .visit_field::<f32>("ry", Self::VT_RY, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<::flatbuffers::Vector<'_, PathRange>>>("rings", Self::VT_RINGS, false)?
      .finish();
     Ok(())
   }
@@ -4137,6 +4147,7 @@ pub struct OutlineArgs<'a> {
     pub cy: f32,
     pub rx: f32,
     pub ry: f32,
+    pub rings: Option<::flatbuffers::WIPOffset<::flatbuffers::Vector<'a, PathRange>>>,
 }
 impl<'a> Default for OutlineArgs<'a> {
   #[inline]
@@ -4150,6 +4161,7 @@ impl<'a> Default for OutlineArgs<'a> {
       cy: 0.0,
       rx: 0.0,
       ry: 0.0,
+      rings: None,
     }
   }
 }
@@ -4192,6 +4204,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> OutlineBuilder<'a, 'b, A> {
     self.fbb_.push_slot::<f32>(Outline::VT_RY, ry, 0.0);
   }
   #[inline]
+  pub fn add_rings(&mut self, rings: ::flatbuffers::WIPOffset<::flatbuffers::Vector<'b , PathRange>>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Outline::VT_RINGS, rings);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> OutlineBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OutlineBuilder {
@@ -4217,6 +4233,7 @@ impl ::core::fmt::Debug for Outline<'_> {
       ds.field("cy", &self.cy());
       ds.field("rx", &self.rx());
       ds.field("ry", &self.ry());
+      ds.field("rings", &self.rings());
       ds.finish()
   }
 }
@@ -4240,6 +4257,7 @@ impl<'a> Region<'a> {
   pub const VT_KIND: ::flatbuffers::VOffsetT = 6;
   pub const VT_POLYGON: ::flatbuffers::VOffsetT = 8;
   pub const VT_SHAPE_TAG: ::flatbuffers::VOffsetT = 10;
+  pub const VT_OUTLINE: ::flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: ::flatbuffers::Table<'a>) -> Self {
@@ -4251,6 +4269,7 @@ impl<'a> Region<'a> {
     args: &'args RegionArgs<'args>
   ) -> ::flatbuffers::WIPOffset<Region<'bldr>> {
     let mut builder = RegionBuilder::new(_fbb);
+    if let Some(x) = args.outline { builder.add_outline(x); }
     if let Some(x) = args.shape_tag { builder.add_shape_tag(x); }
     if let Some(x) = args.polygon { builder.add_polygon(x); }
     if let Some(x) = args.id { builder.add_id(x); }
@@ -4297,6 +4316,13 @@ impl<'a> Region<'a> {
     // which contains a valid value in this slot
     unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<&str>>(Region::VT_SHAPE_TAG, None)}
   }
+  #[inline]
+  pub fn outline(&self) -> Option<Outline<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<::flatbuffers::ForwardsUOffset<Outline>>(Region::VT_OUTLINE, None)}
+  }
 }
 
 impl ::flatbuffers::Verifiable for Region<'_> {
@@ -4309,6 +4335,7 @@ impl ::flatbuffers::Verifiable for Region<'_> {
      .visit_field::<RegionKind>("kind", Self::VT_KIND, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<Polygon>>("polygon", Self::VT_POLYGON, false)?
      .visit_field::<::flatbuffers::ForwardsUOffset<&str>>("shape_tag", Self::VT_SHAPE_TAG, false)?
+     .visit_field::<::flatbuffers::ForwardsUOffset<Outline>>("outline", Self::VT_OUTLINE, false)?
      .finish();
     Ok(())
   }
@@ -4318,6 +4345,7 @@ pub struct RegionArgs<'a> {
     pub kind: RegionKind,
     pub polygon: Option<::flatbuffers::WIPOffset<Polygon<'a>>>,
     pub shape_tag: Option<::flatbuffers::WIPOffset<&'a str>>,
+    pub outline: Option<::flatbuffers::WIPOffset<Outline<'a>>>,
 }
 impl<'a> Default for RegionArgs<'a> {
   #[inline]
@@ -4327,6 +4355,7 @@ impl<'a> Default for RegionArgs<'a> {
       kind: RegionKind::Dungeon,
       polygon: None,
       shape_tag: None,
+      outline: None,
     }
   }
 }
@@ -4353,6 +4382,10 @@ impl<'a: 'b, 'b, A: ::flatbuffers::Allocator + 'a> RegionBuilder<'a, 'b, A> {
     self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<_>>(Region::VT_SHAPE_TAG, shape_tag);
   }
   #[inline]
+  pub fn add_outline(&mut self, outline: ::flatbuffers::WIPOffset<Outline<'b >>) {
+    self.fbb_.push_slot_always::<::flatbuffers::WIPOffset<Outline>>(Region::VT_OUTLINE, outline);
+  }
+  #[inline]
   pub fn new(_fbb: &'b mut ::flatbuffers::FlatBufferBuilder<'a, A>) -> RegionBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RegionBuilder {
@@ -4375,6 +4408,7 @@ impl ::core::fmt::Debug for Region<'_> {
       ds.field("kind", &self.kind());
       ds.field("polygon", &self.polygon());
       ds.field("shape_tag", &self.shape_tag());
+      ds.field("outline", &self.outline());
       ds.finish()
   }
 }

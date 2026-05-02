@@ -119,8 +119,32 @@ class Outline(object):
             return self._tab.Get(flatbuffers.number_types.Float32Flags, o + self._tab.Pos)
         return 0.0
 
+    # Outline
+    def Rings(self, j):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            x = self._tab.Vector(o)
+            x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 12
+            from nhc.rendering.ir._fb.PathRange import PathRange
+            obj = PathRange()
+            obj.Init(self._tab.Bytes, x)
+            return obj
+        return None
+
+    # Outline
+    def RingsLength(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        if o != 0:
+            return self._tab.VectorLen(o)
+        return 0
+
+    # Outline
+    def RingsIsNone(self):
+        o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(20))
+        return o == 0
+
 def OutlineStart(builder):
-    builder.StartObject(8)
+    builder.StartObject(9)
 
 def Start(builder):
     OutlineStart(builder)
@@ -185,6 +209,18 @@ def OutlineAddRy(builder, ry):
 def AddRy(builder, ry):
     OutlineAddRy(builder, ry)
 
+def OutlineAddRings(builder, rings):
+    builder.PrependUOffsetTRelativeSlot(8, flatbuffers.number_types.UOffsetTFlags.py_type(rings), 0)
+
+def AddRings(builder, rings):
+    OutlineAddRings(builder, rings)
+
+def OutlineStartRingsVector(builder, numElems):
+    return builder.StartVector(12, numElems, 4)
+
+def StartRingsVector(builder, numElems):
+    return OutlineStartRingsVector(builder, numElems)
+
 def OutlineEnd(builder):
     return builder.EndObject()
 
@@ -192,6 +228,7 @@ def End(builder):
     return OutlineEnd(builder)
 
 import nhc.rendering.ir._fb.Cut
+import nhc.rendering.ir._fb.PathRange
 import nhc.rendering.ir._fb.Vec2
 try:
     from typing import List
@@ -211,6 +248,7 @@ class OutlineT(object):
         cy = 0.0,
         rx = 0.0,
         ry = 0.0,
+        rings = None,
     ):
         self.vertices = vertices  # type: Optional[List[nhc.rendering.ir._fb.Vec2.Vec2T]]
         self.cuts = cuts  # type: Optional[List[nhc.rendering.ir._fb.Cut.CutT]]
@@ -220,6 +258,7 @@ class OutlineT(object):
         self.cy = cy  # type: float
         self.rx = rx  # type: float
         self.ry = ry  # type: float
+        self.rings = rings  # type: Optional[List[nhc.rendering.ir._fb.PathRange.PathRangeT]]
 
     @classmethod
     def InitFromBuf(cls, buf, pos):
@@ -264,6 +303,14 @@ class OutlineT(object):
         self.cy = outline.Cy()
         self.rx = outline.Rx()
         self.ry = outline.Ry()
+        if not outline.RingsIsNone():
+            self.rings = []
+            for i in range(outline.RingsLength()):
+                if outline.Rings(i) is None:
+                    self.rings.append(None)
+                else:
+                    pathRange_ = nhc.rendering.ir._fb.PathRange.PathRangeT.InitFromObj(outline.Rings(i))
+                    self.rings.append(pathRange_)
 
     # OutlineT
     def Pack(self, builder):
@@ -280,6 +327,11 @@ class OutlineT(object):
             for i in reversed(range(len(self.cuts))):
                 builder.PrependUOffsetTRelative(cutslist[i])
             cuts = builder.EndVector()
+        if self.rings is not None:
+            OutlineStartRingsVector(builder, len(self.rings))
+            for i in reversed(range(len(self.rings))):
+                self.rings[i].Pack(builder)
+            rings = builder.EndVector()
         OutlineStart(builder)
         if self.vertices is not None:
             OutlineAddVertices(builder, vertices)
@@ -291,5 +343,7 @@ class OutlineT(object):
         OutlineAddCy(builder, self.cy)
         OutlineAddRx(builder, self.rx)
         OutlineAddRy(builder, self.ry)
+        if self.rings is not None:
+            OutlineAddRings(builder, rings)
         outline = OutlineEnd(builder)
         return outline
