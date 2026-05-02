@@ -47,6 +47,11 @@ flatbuffers = "25.2"
 # `rand_pcg::Pcg64Mcg` is the per-primitive RNG; `rand` exposes
 # the `Rng` / `SeedableRng` traits the PCG variant implements.
 geo = "0.28"
+# Phase 1.19 cave fix — Shapely-style polygon buffer with rounded
+# corners. Fixes the cave-wall "knots" the hand-rolled buffer_ring
+# produced at concave inflections (self-intersections were not
+# dissolved). Uses straight-skeleton + rounded-corner offset.
+geo-buffer = "0.2"
 rand = "0.8"
 rand_pcg = "0.3"
 # Phase 5.1: `tiny-skia` drives the IR → PNG raster path. Default
