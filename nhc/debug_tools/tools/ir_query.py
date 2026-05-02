@@ -467,7 +467,11 @@ class GetWallCoverageTool(BaseTool):
                 wall_segments = len(op.get("wallSegments") or [])
                 smooth_walls = len(op.get("smoothRoomRegions") or [])
                 wall_ext_d = len(op.get("wallExtensionsDChars") or [])
-                cave_region = op.get("caveRegion") is not None
+                # Phase 1.19: caveRegion is the empty string in fresh
+                # IR; treat it as "absent" so the report reflects the
+                # consumer-facing reality (the new pipeline reads
+                # CaveFloor FloorOp.outline.vertices instead).
+                cave_region = bool(op.get("caveRegion"))
 
             elif op_type == "ExteriorWallOp":
                 outline = op.get("outline") or {}

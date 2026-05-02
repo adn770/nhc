@@ -140,43 +140,35 @@ def test_floor_op_per_rect_room() -> None:
         assert entry.op.style == FloorStyle.DungeonFloor
 
 
-def test_floor_op_matches_legacy_rect_rooms() -> None:
-    """FloorOp outlines align tile-for-tile with legacy ``rectRooms``.
+def test_floor_op_outlines_match_source_rect_rooms() -> None:
+    """FloorOp outlines align tile-for-tile with the source rect rooms.
 
-    The emitter walks ``level.rooms`` once when populating
-    ``rectRooms`` and again when emitting FloorOps; both walks must
-    produce ordered lists of equal length whose entries reference the
-    same room (compared by pixel-space bbox of outline vs.
-    rect_room.{x,y,w,h} * CELL).
+    Phase 1.19 cleared ``rectRooms`` from the legacy WallsAndFloorsOp;
+    this test pins the same invariant against ``level.rooms`` directly.
+    Both the emitter's room walk and the FloorOp emit must produce the
+    same N rooms in the same order at pixel-equivalent bbox.
     """
-    level = _build_simple_rect_level([
+    rects = [
         Rect(1, 1, 5, 4),
         Rect(7, 2, 4, 3),
         Rect(1, 7, 4, 4),
-    ])
+    ]
+    level = _build_simple_rect_level(rects)
     ops, _ = _emit_into_builder(level)
 
-    walls_ops = [
-        e for e in ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert len(walls_ops) == 1
-    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
+    floor_ops = [e for e in ops if e.opType == Op.Op.FloorOp]
+    assert len(floor_ops) == len(rects)
 
-    floor_ops = [
-        e for e in ops if e.opType == Op.Op.FloorOp
-    ]
-    assert len(floor_ops) == len(legacy_rect_rooms)
-
-    for floor_entry, rect_room in zip(floor_ops, legacy_rect_rooms):
+    for floor_entry, rect in zip(floor_ops, rects):
         verts = floor_entry.op.outline.vertices
         xs = [v.x for v in verts]
         ys = [v.y for v in verts]
         bbox_x, bbox_y = min(xs), min(ys)
         bbox_w, bbox_h = max(xs) - bbox_x, max(ys) - bbox_y
-        assert bbox_x == rect_room.x * CELL
-        assert bbox_y == rect_room.y * CELL
-        assert bbox_w == rect_room.w * CELL
-        assert bbox_h == rect_room.h * CELL
+        assert bbox_x == rect.x * CELL
+        assert bbox_y == rect.y * CELL
+        assert bbox_w == rect.width * CELL
+        assert bbox_h == rect.height * CELL
 
 
 def test_floor_op_uses_dungeon_floor_style() -> None:
@@ -315,13 +307,29 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
         e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
     ]
     assert len(walls_ops) == 1
-    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
-    legacy_corridor_tiles = walls_ops[0].op.corridorTiles or []
     # Phase 1.4 covers rect rooms; Phase 1.7 adds one FloorOp per
     # corridor tile. The fixture is rect-only (no smooth / cave
-    # rooms), so the FloorOp count is rect_rooms + corridor_tiles.
-    expected = len(legacy_rect_rooms) + len(legacy_corridor_tiles)
-    assert len(floor_ops) == expected
+    # rooms), so the FloorOp count is len(level.rooms) + the number
+    # of corridor / door tiles iterated by `_emit_walls_and_floors_ir`.
+    n_rect = sum(
+        1 for r in inputs.level.rooms
+        if isinstance(r.shape, RectShape)
+    )
+    n_corridor = sum(
+        1
+        for y in range(inputs.level.height)
+        for x in range(inputs.level.width)
+        if (
+            inputs.level.tiles[y][x].terrain in (
+                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
+            )
+            and (
+                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+                or "door" in (inputs.level.tiles[y][x].feature or "")
+            )
+        )
+    )
+    assert len(floor_ops) == n_rect + n_corridor
     assert len(floor_ops) > 0, (
         "seed42_rect_dungeon_dungeon ships >0 rect rooms — the "
         "parallel-emission contract requires the same count of "
@@ -458,34 +466,27 @@ def test_floor_op_for_pill_room_uses_pill_descriptor() -> None:
     assert floor_ops[0].op.style == FloorStyle.DungeonFloor
 
 
-def test_floor_op_smooth_shapes_match_legacy_smooth_room_regions() -> None:
-    """One FloorOp per smooth room aligned with legacy
-    ``smoothRoomRegions``.
+def test_floor_op_per_smooth_shape_room() -> None:
+    """One FloorOp per smooth-shape room.
 
-    Phase 1.5 mirrors Phase 1.4's parallel-emission shape: every smooth
-    room that ships a legacy ``smooth_fill_svg`` entry gets a matching
-    FloorOp. The two walks must produce equal-length lists in the same
-    order so the consumer switch in 1.15 stays straightforward.
+    Phase 1.5 mirrors Phase 1.4's emission shape: every smooth room
+    gets one FloorOp. Phase 1.19 cleared ``smoothRoomRegions``; the
+    invariant is now pinned against ``level.rooms`` directly.
     """
-    level = _build_smooth_shape_level([
+    smooth_rooms = [
         (Rect(0, 0, 9, 6), OctagonShape()),
         (Rect(11, 0, 7, 7), CircleShape()),
         (Rect(0, 8, 9, 5), PillShape()),
-    ])
-    ops, _ = _emit_into_builder(level)
-
-    walls_ops = [
-        e for e in ops if e.opType == Op.Op.WallsAndFloorsOp
     ]
-    assert len(walls_ops) == 1
-    legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
+    level = _build_smooth_shape_level(smooth_rooms)
+    ops, _ = _emit_into_builder(level)
 
     floor_ops = [
         e for e in ops if e.opType == Op.Op.FloorOp
     ]
     # No RectShape rooms in this level → every FloorOp is from the
     # smooth-shape pass.
-    assert len(floor_ops) == len(legacy_smooth_regions) == 3
+    assert len(floor_ops) == len(smooth_rooms) == 3
 
 
 def test_floor_op_skipped_for_smooth_shapes_when_suppress_rect_rooms() -> None:
@@ -557,18 +558,31 @@ def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
         e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
     ]
     assert len(walls_ops) == 1
-    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
-    legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
-    legacy_corridor_tiles = walls_ops[0].op.corridorTiles or []
-    # Phase 1.7 adds one FloorOp per corridor tile alongside the room
-    # FloorOps from 1.4 / 1.5; the seed7_octagon_crypt fixture mixes
-    # rects + octagons + corridors, so the total is rect_rooms +
-    # smooth_regions + corridor_tiles.
-    expected = (
-        len(legacy_rect_rooms)
-        + len(legacy_smooth_regions)
-        + len(legacy_corridor_tiles)
+    # Phase 1.19 cleared the legacy WallsAndFloorsOp counters; pin
+    # against the source ``level.rooms`` + corridor-tile walk instead.
+    n_rooms = sum(
+        1 for r in inputs.level.rooms
+        if isinstance(
+            r.shape,
+            (RectShape, OctagonShape, LShape, TempleShape,
+             CircleShape, PillShape),
+        )
     )
+    n_corridor = sum(
+        1
+        for y in range(inputs.level.height)
+        for x in range(inputs.level.width)
+        if (
+            inputs.level.tiles[y][x].terrain in (
+                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
+            )
+            and (
+                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+                or "door" in (inputs.level.tiles[y][x].feature or "")
+            )
+        )
+    )
+    expected = n_rooms + n_corridor
     assert len(floor_ops) == expected
     # Sanity: there should be at least one Polygon outline beyond the
     # rect rooms — an octagon room contributes 8 vertices, a rect 4.
@@ -704,10 +718,11 @@ def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
     floor_ops = [e for e in fir.ops if e.opType == Op.Op.FloorOp]
     walls_ops = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
     assert len(walls_ops) == 1
-    # The legacy caveRegion SVG path keeps shipping in parallel.
-    assert walls_ops[0].op.caveRegion, (
-        "parallel emission — legacy caveRegion must keep populating "
-        "until 1.15+ flips the consumer"
+    # Phase 1.19 cleared caveRegion; the cave consumer now drives
+    # geometry from FloorOp.outline.vertices end-to-end.
+    assert not walls_ops[0].op.caveRegion, (
+        "Phase 1.19: legacy caveRegion must be empty (cave geometry "
+        "lives on FloorOp.outline.vertices)"
     )
     # ONE merged FloorOp — seed99 has a single connected cave system.
     assert len(floor_ops) == 1, (
@@ -855,14 +870,12 @@ def test_corridor_floor_op_outlines_align_with_tile_grid() -> None:
         assert max(ys) - min(ys) == CELL
 
 
-def test_corridor_floor_op_count_matches_legacy_corridor_tiles() -> None:
-    """Count of corridor FloorOps == ``len(WallsAndFloorsOp.corridorTiles)``.
+def test_corridor_floor_op_count_matches_source_corridor_tiles() -> None:
+    """Count of corridor FloorOps == count of CORRIDOR-or-door tiles.
 
-    The parallel-emission contract: legacy ``corridorTiles`` keeps
-    populating; the new FloorOps emit one per corridor tile alongside.
-    Asserting equal counts pins the symmetry that 1.15's consumer
-    switch will lean on (the legacy path drops, the new path takes
-    over without count drift).
+    Phase 1.19 cleared ``corridorTiles``; pin the count against the
+    same tile-walk the emitter uses (CORRIDOR surface_type or door
+    feature on FLOOR / WATER / GRASS / LAVA terrain).
     """
     inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
     buf = build_floor_ir(
@@ -872,22 +885,33 @@ def test_corridor_floor_op_count_matches_legacy_corridor_tiles() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
-    walls_ops = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert len(walls_ops) == 1
-    legacy_corridor_tiles = walls_ops[0].op.corridorTiles or []
-    assert len(legacy_corridor_tiles) > 0, (
-        "seed42_rect_dungeon_dungeon ships >0 corridor tiles — the "
-        "test relies on this fixture having corridors"
+    expected_corridor_tiles = sum(
+        1
+        for y in range(inputs.level.height)
+        for x in range(inputs.level.width)
+        if (
+            inputs.level.tiles[y][x].terrain in (
+                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
+            )
+            and (
+                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+                or "door" in (inputs.level.tiles[y][x].feature or "")
+            )
+        )
+    )
+    assert expected_corridor_tiles > 0, (
+        "seed42_rect_dungeon_dungeon ships >0 corridor tiles"
     )
 
     floor_ops = [
         e for e in fir.ops if e.opType == Op.Op.FloorOp
     ]
-    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
+    n_rect_rooms = sum(
+        1 for r in inputs.level.rooms
+        if isinstance(r.shape, RectShape)
+    )
     # FloorOps now cover both rect rooms (Phase 1.4) and corridor tiles
-    # (this commit). Each corridor FloorOp is a 4-vertex Polygon outline
+    # (Phase 1.7). Each corridor FloorOp is a 4-vertex Polygon outline
     # with side length == CELL; rect-room outlines have a side >= 2 *
     # CELL (rooms are always ≥ 2 tiles wide). Filter on bbox side to
     # split corridor FloorOps from rect-room FloorOps without depending
@@ -907,13 +931,12 @@ def test_corridor_floor_op_count_matches_legacy_corridor_tiles() -> None:
         if w == CELL and h == CELL:
             corridor_floor_ops.append(entry)
 
-    assert len(corridor_floor_ops) == len(legacy_corridor_tiles), (
+    assert len(corridor_floor_ops) == expected_corridor_tiles, (
         f"corridor FloorOps ({len(corridor_floor_ops)}) must match "
-        f"legacy corridorTiles count ({len(legacy_corridor_tiles)})"
+        f"source corridor-tile count ({expected_corridor_tiles})"
     )
-    # Sanity: total FloorOps >= rect_rooms + corridor_tiles (smooth /
-    # cave shapes contribute the rest).
-    assert len(floor_ops) >= len(legacy_rect_rooms) + len(legacy_corridor_tiles)
+    # Sanity: total FloorOps >= rect_rooms + corridor_tiles.
+    assert len(floor_ops) >= n_rect_rooms + expected_corridor_tiles
 
 
 # ── Phase 1.8 — rect-room ExteriorWallOp ───────────────────────
@@ -1005,12 +1028,11 @@ def test_exterior_wall_op_count_matches_rect_floor_op_count() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
-    walls_ops = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
+    rect_rooms = [
+        r for r in inputs.level.rooms
+        if isinstance(r.shape, RectShape)
     ]
-    assert len(walls_ops) == 1
-    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
-    assert len(legacy_rect_rooms) > 0, (
+    assert len(rect_rooms) > 0, (
         "seed42_rect_dungeon_dungeon ships >0 rect rooms — the "
         "test relies on this fixture having rect rooms"
     )
@@ -1018,24 +1040,23 @@ def test_exterior_wall_op_count_matches_rect_floor_op_count() -> None:
     wall_ops = [
         e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp
     ]
-    assert len(wall_ops) == len(legacy_rect_rooms), (
-        f"rect ExteriorWallOps ({len(wall_ops)}) must match legacy "
-        f"rectRooms count ({len(legacy_rect_rooms)})"
+    assert len(wall_ops) == len(rect_rooms), (
+        f"rect ExteriorWallOps ({len(wall_ops)}) must match rect "
+        f"room count ({len(rect_rooms)})"
     )
 
     # Cross-check: every rect ExteriorWallOp aligns by bbox with one
-    # legacy rect_room entry (the parallel-emission walks the same
-    # rooms list in the same order).
-    for wall_entry, rect_room in zip(wall_ops, legacy_rect_rooms):
+    # rect-room entry (the emit walk traverses the rooms list in order).
+    for wall_entry, room in zip(wall_ops, rect_rooms):
         verts = wall_entry.op.outline.vertices
         xs = [v.x for v in verts]
         ys = [v.y for v in verts]
         bbox_x, bbox_y = min(xs), min(ys)
         bbox_w, bbox_h = max(xs) - bbox_x, max(ys) - bbox_y
-        assert bbox_x == rect_room.x * CELL
-        assert bbox_y == rect_room.y * CELL
-        assert bbox_w == rect_room.w * CELL
-        assert bbox_h == rect_room.h * CELL
+        assert bbox_x == room.rect.x * CELL
+        assert bbox_y == room.rect.y * CELL
+        assert bbox_w == room.rect.width * CELL
+        assert bbox_h == room.rect.height * CELL
 
 
 def test_exterior_wall_op_skipped_when_suppress_rect_rooms() -> None:
@@ -1557,19 +1578,24 @@ def test_smooth_exterior_wall_op_count_in_octagon_crypt_fixture() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
-    walls_ops = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert len(walls_ops) == 1
-    legacy_rect_rooms = walls_ops[0].op.rectRooms or []
-    legacy_smooth_regions = walls_ops[0].op.smoothRoomRegions or []
-    assert len(legacy_rect_rooms) == 10
-    assert len(legacy_smooth_regions) == 8
+    n_rect = sum(
+        1 for r in inputs.level.rooms
+        if isinstance(r.shape, RectShape)
+    )
+    n_smooth = sum(
+        1 for r in inputs.level.rooms
+        if isinstance(
+            r.shape,
+            (OctagonShape, LShape, TempleShape, CircleShape, PillShape),
+        )
+    )
+    assert n_rect == 10
+    assert n_smooth == 8
 
     wall_ops = [
         e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp
     ]
-    expected = len(legacy_rect_rooms) + len(legacy_smooth_regions)
+    expected = n_rect + n_smooth
     assert len(wall_ops) == expected, (
         f"expected {expected} ExteriorWallOps (10 rect + 8 smooth) in "
         f"seed7_octagon_crypt_dungeon, got {len(wall_ops)}"
@@ -1685,10 +1711,10 @@ def test_seed99_cave_carries_one_exterior_wall_op_per_cave_region() -> None:
     wall_ops = [e for e in fir.ops if e.opType == Op.Op.ExteriorWallOp]
     walls_ops = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
     assert len(walls_ops) == 1
-    # Legacy caveRegion path keeps shipping in parallel.
-    assert walls_ops[0].op.caveRegion, (
-        "parallel emission — legacy caveRegion must keep populating "
-        "until 1.16+ flips the consumer"
+    # Phase 1.19 cleared caveRegion; cave geometry now lives on
+    # FloorOp.outline.vertices end-to-end.
+    assert not walls_ops[0].op.caveRegion, (
+        "Phase 1.19: legacy caveRegion must be empty"
     )
     # ONE merged op per disjoint cave system; seed99 has 1 system.
     assert len(floor_ops) == 1, (
@@ -1821,14 +1847,12 @@ def test_corridor_wall_op_emitted_once_per_floor() -> None:
     )
 
 
-def test_corridor_wall_op_tiles_match_legacy_corridor_tiles() -> None:
-    """CorridorWallOp.tiles is the same set as
-    WallsAndFloorsOp.corridorTiles (both hold corridor floor-tile
-    coords).
+def test_corridor_wall_op_tiles_match_source_corridor_tiles() -> None:
+    """CorridorWallOp.tiles == the source CORRIDOR-or-door tile set.
 
-    Pins the parity contract: the new op carries identical tile
-    coverage to the legacy field so Phase 1.16b-3's consumer switch
-    produces the same wall edges without count drift.
+    Phase 1.19 cleared ``corridorTiles``; pin the new op against the
+    same tile-walk the emitter uses (CORRIDOR surface_type or door
+    feature on FLOOR / WATER / GRASS / LAVA terrain).
     """
     inputs = descriptor_inputs("seed42_rect_dungeon_dungeon")
     buf = build_floor_ir(
@@ -1838,15 +1862,21 @@ def test_corridor_wall_op_tiles_match_legacy_corridor_tiles() -> None:
     )
     fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
 
-    walls_ops = [
-        e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp
-    ]
-    assert len(walls_ops) == 1
-    legacy_tiles = {
-        (t.x, t.y)
-        for t in (walls_ops[0].op.corridorTiles or [])
+    expected_tiles = {
+        (x, y)
+        for y in range(inputs.level.height)
+        for x in range(inputs.level.width)
+        if (
+            inputs.level.tiles[y][x].terrain in (
+                Terrain.FLOOR, Terrain.WATER, Terrain.GRASS, Terrain.LAVA,
+            )
+            and (
+                inputs.level.tiles[y][x].surface_type == SurfaceType.CORRIDOR
+                or "door" in (inputs.level.tiles[y][x].feature or "")
+            )
+        )
     }
-    assert len(legacy_tiles) > 0, (
+    assert len(expected_tiles) > 0, (
         "seed42_rect_dungeon_dungeon must have >0 corridor tiles"
     )
 
@@ -1859,9 +1889,9 @@ def test_corridor_wall_op_tiles_match_legacy_corridor_tiles() -> None:
         for t in (corridor_wall_ops[0].op.tiles or [])
     }
 
-    assert new_tiles == legacy_tiles, (
+    assert new_tiles == expected_tiles, (
         f"CorridorWallOp.tiles ({len(new_tiles)}) does not match "
-        f"WallsAndFloorsOp.corridorTiles ({len(legacy_tiles)})"
+        f"source corridor-tile set ({len(expected_tiles)})"
     )
 
 
@@ -2157,4 +2187,226 @@ def test_seed42_rect_rooms_corridor_cut_count_matches_expected() -> None:
     assert total_door_cuts > 0, (
         "seed42 rect rooms must still have door cuts after corridor "
         "cut addition — regression guard"
+    )
+
+
+# ── Phase 1.19 — legacy WallsAndFloorsOp fields cleared ──────────
+
+
+def _waf_op_from_fresh_ir(descriptor: str):
+    """Build a fresh IR from a fixture descriptor and return the
+    WallsAndFloorsOpT from the (sole) WallsAndFloorsOp entry.
+
+    Re-emits via ``build_floor_ir`` rather than reading the committed
+    ``floor.nir`` so the test catches an emitter regression even when
+    the committed fixture is stale.
+    """
+    inputs = descriptor_inputs(descriptor)
+    buf = build_floor_ir(
+        inputs.level,
+        seed=inputs.seed,
+        hatch_distance=inputs.hatch_distance,
+        vegetation=inputs.vegetation,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
+    waf_entries = [e for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp]
+    assert len(waf_entries) == 1, (
+        f"{descriptor}: expected 1 WallsAndFloorsOp, got {len(waf_entries)}"
+    )
+    return waf_entries[0].op
+
+
+# Descriptors used as drift canaries — one rect-only dungeon, one
+# smooth-shape dungeon, and the cave fixture. Each must report
+# every legacy field empty after Phase 1.19. The brick building
+# fixture is exercised separately in
+# ``test_smooth_fill_svg_retained_for_building`` because it keeps
+# ``smoothFillSvg`` populated for wood-floor (until 1.20).
+_PHASE_1_19_EMPTY_DESCRIPTORS = (
+    "seed42_rect_dungeon_dungeon",
+    "seed7_octagon_crypt_dungeon",
+    "seed99_cave_cave_cave",
+)
+
+
+def test_legacy_walls_and_floors_fields_are_empty() -> None:
+    """Phase 1.19: emitter clears the six fields with new-op coverage.
+
+    Every freshly-emitted IR has empty ``wallSegments`` /
+    ``smoothWallSvg`` / ``wallExtensionsD`` / ``caveRegion`` /
+    ``smoothRoomRegions`` / ``rectRooms`` / ``corridorTiles``.
+
+    ``smoothFillSvg`` stays populated as a transitional measure: it
+    carries smooth-room base fills (white) AND building wood-floor
+    rects (brown). Both are duplicate work — the dungeon FloorOp
+    paints over the white smooth-room fills (same colour, harmless),
+    and the Rust consumer's gate suppresses the legacy pass when
+    smooth ExteriorWallOps cover the area. Several SVG-shape smoke
+    tests still inspect the legacy SVG path strings; clearing
+    smoothFillSvg breaks them. Phase 1.20 retires ``smoothFillSvg``
+    entirely by emitting a building FloorOp (and the smooth-room
+    duplication can drop at the same time).
+    """
+    for descriptor in _PHASE_1_19_EMPTY_DESCRIPTORS:
+        op = _waf_op_from_fresh_ir(descriptor)
+        assert not op.wallSegments, (
+            f"{descriptor}: wallSegments must be empty (driven by "
+            f"ExteriorWallOp + CorridorWallOp)"
+        )
+        assert not op.smoothWallSvg, (
+            f"{descriptor}: smoothWallSvg must be empty (driven by "
+            f"smooth-shape ExteriorWallOps)"
+        )
+        assert not op.wallExtensionsD, (
+            f"{descriptor}: wallExtensionsD must be empty (derived by "
+            f"the consumer from CorridorWallOp + smooth ExteriorWallOps)"
+        )
+        assert not op.caveRegion, (
+            f"{descriptor}: caveRegion must be empty (cave geometry "
+            f"derived from CaveFloor FloorOp.outline.vertices)"
+        )
+        assert not op.smoothRoomRegions, (
+            f"{descriptor}: smoothRoomRegions must be empty (metadata "
+            f"unused by any consumer)"
+        )
+        assert not op.rectRooms, (
+            f"{descriptor}: rectRooms must be empty (driven by "
+            f"DungeonFloor FloorOp)"
+        )
+        assert not op.corridorTiles, (
+            f"{descriptor}: corridorTiles must be empty (driven by "
+            f"per-tile DungeonFloor FloorOp)"
+        )
+
+
+def test_smooth_fill_svg_retained_for_building() -> None:
+    """Phase 1.19: ``smoothFillSvg`` stays populated for buildings.
+
+    Wood-floor brown rects have no FloorOp equivalent until Phase 1.20.
+    Until then the legacy ``smoothFillSvg`` field is the only source
+    for the building's wood-floor base fill — the emitter must keep
+    appending to it. Verify on the brick_building fixture which
+    triggers ``ctx.interior_finish == "wood"``.
+    """
+    from tests.samples.regenerate_fixtures import (
+        _BUILDING_FIXTURES, _build_building_inputs,
+    )
+    fx = next(
+        f for f in _BUILDING_FIXTURES
+        if f.descriptor == "seed7_brick_building_floor0"
+    )
+    site, level = _build_building_inputs(fx)
+    buf = build_floor_ir(
+        level, seed=fx.seed, hatch_distance=2.0, site=site,
+    )
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(bytes(buf), 0))
+    waf = next(e.op for e in fir.ops if e.opType == Op.Op.WallsAndFloorsOp)
+    assert waf.smoothFillSvg, (
+        "brick_building: smoothFillSvg must stay populated (wood-floor "
+        "rects); Phase 1.20 retires it via a building FloorOp"
+    )
+    # Sanity — every entry is a brown wood-floor `<rect>` (WOOD_FLOOR_FILL
+    # is `#B58B5A`). A future regression that swapped wood for cobblestone
+    # would surface as a colour mismatch here.
+    sample = waf.smoothFillSvg[0]
+    if isinstance(sample, bytes):
+        sample = sample.decode()
+    assert 'fill="#B58B5A"' in sample, (
+        f"smoothFillSvg[0] must carry the wood-floor fill color, got: "
+        f"{sample[:120]}"
+    )
+
+
+def test_back_compat_render_for_pre_119_cache() -> None:
+    """A synthetic 3.x-style IR (only legacy fields, no new ops) still
+    renders pixels through the back-compat reader in
+    ``walls_and_floors.rs``.
+
+    This pins the contract that Phase 1.19's emitter change does not
+    break players' existing autosaves — the gates in
+    ``transform_walls_and_floors`` only suppress legacy passes when
+    the corresponding new op is present. With no FloorOp /
+    ExteriorWallOp / CorridorWallOp in the IR, every legacy pass
+    runs. The output must contain non-background pixels.
+    """
+    import nhc_render
+    from flatbuffers import Builder
+    from nhc.rendering.ir._fb.FloorIR import (
+        FloorIR as _FloorIR,
+        FloorIRStart, FloorIRAddMajor, FloorIRAddMinor,
+        FloorIRAddWidthTiles, FloorIRAddHeightTiles,
+        FloorIRAddCell, FloorIRAddPadding, FloorIRAddTheme,
+        FloorIRAddOps, FloorIRAddBaseSeed, FloorIREnd,
+        FloorIRStartOpsVector,
+    )
+    from nhc.rendering.ir._fb.WallsAndFloorsOp import (
+        WallsAndFloorsOpStart, WallsAndFloorsOpAddRectRooms,
+        WallsAndFloorsOpEnd, WallsAndFloorsOpStartRectRoomsVector,
+    )
+    from nhc.rendering.ir._fb.RectRoom import (
+        RectRoomStart, RectRoomAddX, RectRoomAddY,
+        RectRoomAddW, RectRoomAddH, RectRoomEnd,
+    )
+    from nhc.rendering.ir._fb.OpEntry import (
+        OpEntryStart, OpEntryAddOpType, OpEntryAddOp, OpEntryEnd,
+    )
+
+    # Build a 3.x-style IR with one RectRoom and nothing else — the
+    # legacy ``draw_rect_rooms`` pass should paint a white rect.
+    b = Builder(1024)
+    theme = b.CreateString("dungeon")
+
+    RectRoomStart(b)
+    RectRoomAddX(b, 1)
+    RectRoomAddY(b, 1)
+    RectRoomAddW(b, 4)
+    RectRoomAddH(b, 4)
+    rect = RectRoomEnd(b)
+
+    WallsAndFloorsOpStartRectRoomsVector(b, 1)
+    b.PrependUOffsetTRelative(rect)
+    rect_rooms_vec = b.EndVector()
+
+    WallsAndFloorsOpStart(b)
+    WallsAndFloorsOpAddRectRooms(b, rect_rooms_vec)
+    waf = WallsAndFloorsOpEnd(b)
+
+    OpEntryStart(b)
+    OpEntryAddOpType(b, Op.Op.WallsAndFloorsOp)
+    OpEntryAddOp(b, waf)
+    entry = OpEntryEnd(b)
+
+    FloorIRStartOpsVector(b, 1)
+    b.PrependUOffsetTRelative(entry)
+    ops_vec = b.EndVector()
+
+    FloorIRStart(b)
+    FloorIRAddMajor(b, 3)
+    FloorIRAddMinor(b, 1)
+    FloorIRAddWidthTiles(b, 6)
+    FloorIRAddHeightTiles(b, 6)
+    FloorIRAddCell(b, 32)
+    FloorIRAddPadding(b, 32)
+    FloorIRAddTheme(b, theme)
+    FloorIRAddOps(b, ops_vec)
+    FloorIRAddBaseSeed(b, 0)
+    fir = FloorIREnd(b)
+    b.Finish(fir, file_identifier=b"NIR3")
+    buf = bytes(b.Output())
+
+    png = bytes(nhc_render.ir_to_png(buf, 1.0, None))
+    assert len(png) > 100, "PNG output too small — handler crashed?"
+    # Decode and assert non-background pixels exist (the legacy
+    # draw_rect_rooms pass painted FLOOR_COLOR=white inside the rect).
+    import io
+    import numpy as np
+    from PIL import Image
+    arr = np.asarray(
+        Image.open(io.BytesIO(png)).convert("RGB"), dtype=np.uint8
+    )
+    bg = np.array([0xF5, 0xED, 0xE0], dtype=np.uint8)
+    non_bg = int(np.any(arr != bg, axis=-1).sum())
+    assert non_bg > 100, (
+        f"legacy back-compat path didn't paint anything visible "
+        f"({non_bg} non-bg pixels)"
     )

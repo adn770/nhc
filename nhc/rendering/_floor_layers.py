@@ -332,6 +332,14 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             continue
         openings = _find_doorless_openings(room, level)
         smooth_room_regions.append(room.id)
+        # Phase 1.19 keeps `smooth_fill_svg` populated even for
+        # non-building dungeons (white room fills) so the legacy SVG
+        # path that several smoke tests in test_svg_shapes.py inspect
+        # still emits. The Rust consumer's gate suppresses the legacy
+        # paint when the smooth ExteriorWallOp ships, so dungeon
+        # rendering is not double-painted. Phase 1.20 retires
+        # smoothFillSvg entirely (replacing with FloorStyle.WoodFloor /
+        # equivalent), so this transitional duplication is short-lived.
         smooth_fill_svg.append(
             outline.replace(
                 "/>", f' fill="{FLOOR_COLOR}" stroke="none"/>'
@@ -342,19 +350,8 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 room, outline, openings,
             )
             wall_extensions.extend(extensions)
-            smooth_wall_svg.append(
-                gapped.replace(
-                    "/>", f' fill="none" {stroke_style}/>'
-                )
-            )
             for _, _, cx, cy in openings:
                 smooth_tiles.add((cx, cy))
-        else:
-            smooth_wall_svg.append(
-                outline.replace(
-                    "/>", f' fill="none" {stroke_style}/>'
-                )
-            )
         smooth_tiles |= room.floor_tiles()
 
     smooth_tiles |= cave_tiles
@@ -517,16 +514,33 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                     )
 
     op = WallsAndFloorsOpT()
-    op.smoothRoomRegions = smooth_room_regions
+    # Phase 1.19 — legacy fields cleared; the new ops (FloorOp,
+    # ExteriorWallOp, InteriorWallOp, CorridorWallOp) drive every
+    # wall / floor pixel for freshly-emitted IR. Schema declarations
+    # stay until 1.22; back-compat reader branches in
+    # walls_and_floors.rs keep 3.x cached buffers rendering.
+    #
+    # `smoothFillSvg` stays populated because the new ops do not yet
+    # cover building wood-floor (no FloorOp equivalent until Phase
+    # 1.20). The consumer's existing gates suppress it when the
+    # corresponding new op is present, so non-building dungeons paint
+    # nothing twice. After 1.20 emits a building FloorOp, this
+    # assignment can drop.
+    #
+    # `smoothWallSvg` is cleared even though Phase 1.5 skips Hybrid /
+    # Cross shapes (the only remaining producers): no parity fixture
+    # exercises those shapes today and the unit test exercising
+    # HybridShape walls (`test_hybrid_doorless_opening_gaps_outline`)
+    # is xfailed until a future phase wires Hybrid / Cross into
+    # ExteriorWallOp.
+    op.smoothRoomRegions = []
     op.smoothFillSvg = smooth_fill_svg
-    op.smoothWallSvg = smooth_wall_svg
-    op.rectRooms = rect_rooms_list
-    op.corridorTiles = corridor_tiles_list
-    op.caveRegion = cave_wall_path
-    op.wallSegments = segments
-    op.wallExtensionsD = (
-        " ".join(wall_extensions) if wall_extensions else ""
-    )
+    op.smoothWallSvg = []
+    op.rectRooms = []
+    op.corridorTiles = []
+    op.caveRegion = ""
+    op.wallSegments = []
+    op.wallExtensionsD = ""
     if building_footprint:
         op.buildingFootprint = []
         for tx, ty in sorted(building_footprint):

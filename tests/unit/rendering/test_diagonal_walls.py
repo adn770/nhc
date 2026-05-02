@@ -104,25 +104,36 @@ def _wall_segment_count(svg: str) -> int:
 
 class TestOctagonWallRendering:
     def test_octagon_floor_svg_omits_clipped_corner_walls(self):
-        """The octagon's diagonal step tiles should NOT stamp
-        tile-edge walls at the chamfer. The masonry pass owns
-        the diagonal; the floor SVG should restrict its thick-
-        wall segments to the building footprint's inner edges
-        (between rooms / to corridors)."""
+        """No per-tile wall stamps inside the octagon chamfer.
+
+        Phase 1.19 cleared the legacy ``wallSegments`` field, which
+        is what the per-tile wall pass populated. After 1.19 the
+        smooth-shape ExteriorWallOp owns the octagon outline as a
+        single closed polygon, so per-tile chamfer-corner stamps
+        cannot happen by construction (no SVG path with the
+        wall-segment 5px stroke-width gets emitted from this
+        fixture). Pin both branches at zero and assert equivalence
+        — the footprint hint is now a no-op for smooth-shape rooms
+        because the wall geometry is consolidated.
+        """
         building, level = _make_octagon_floor()
         footprint = building.base_shape.floor_tiles(building.base_rect)
         svg_with = render_floor_svg(
             level, seed=0, building_footprint=footprint,
         )
         svg_without = render_floor_svg(level, seed=0)
-        # Without the footprint hint, more wall segments are
-        # stamped (the legacy behaviour). Passing the footprint
-        # should reduce the count.
         with_count = _wall_segment_count(svg_with)
         without_count = _wall_segment_count(svg_without)
-        assert with_count < without_count, (
-            f"footprint-aware rendering ({with_count} segs) "
-            f"should be sparser than unaware ({without_count})"
+        assert with_count == without_count, (
+            f"footprint hint should be a no-op for smooth-shape rooms "
+            f"after Phase 1.19 (counts diverged: {with_count} with "
+            f"footprint vs {without_count} without). The smooth "
+            f"ExteriorWallOp owns the octagon outline as a single "
+            f"polygon regardless of the legacy footprint optimisation."
+        )
+        assert with_count >= 1, (
+            f"expected ≥ 1 wall path for the octagon ExteriorWallOp, "
+            f"got {with_count}"
         )
 
     def test_render_building_floor_svg_uses_footprint(self):
