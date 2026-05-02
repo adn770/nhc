@@ -481,10 +481,34 @@ def test_cave_floor_op_pipeline_matches_legacy_buffer_jitter_smooth() -> None:
     )
 
     cave_op = cave_floor_ops[0]
-    verts = cave_op.outline.vertices
+    # Phase 1.26e-2a: cave geometry now lives on Region(kind=Cave).outline;
+    # FloorOp.outline retired. Resolve via region_ref.
+    region_ref = (
+        cave_op.regionRef.decode()
+        if isinstance(cave_op.regionRef, bytes)
+        else (cave_op.regionRef or "")
+    )
+    assert region_ref.startswith("cave."), (
+        f"cave FloorOp must carry region_ref='cave.<i>', got {region_ref!r}"
+    )
+    region_outline = None
+    for ri in range(fir.RegionsLength()):
+        r = fir.Regions(ri)
+        rid_bytes = r.Id() or b""
+        rid = rid_bytes.decode() if isinstance(rid_bytes, bytes) else rid_bytes
+        if rid == region_ref:
+            region_outline = r.Outline()
+            break
+    assert region_outline is not None, (
+        f"Region {region_ref!r} not found in fir.regions"
+    )
+    verts = [
+        region_outline.Vertices(j)
+        for j in range(region_outline.VerticesLength())
+    ]
     assert verts and len(verts) >= 4
 
-    coords = [(float(v.x), float(v.y)) for v in verts]
+    coords = [(float(v.X()), float(v.Y())) for v in verts]
     consumer_path = _cave_path_from_outline(coords, base_seed)
 
     assert consumer_path == legacy_path, (

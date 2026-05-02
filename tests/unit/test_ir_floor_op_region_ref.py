@@ -324,16 +324,18 @@ def test_cave_floor_op_carries_cave_region_ref() -> None:
             f"cave FloorOp.regionRef={ref!r} does not resolve to "
             f"any Region(kind=Cave); known: {sorted(cave_regions)}"
         )
-        # Vertex-for-vertex match between op.outline and
-        # region.outline (both derived from the same
-        # _cave_raw_exterior_coords(tile_group) input).
-        assert op.outline is not None
+        # Phase 1.26e-2a: op.outline retired. Region.outline carries
+        # the canonical single-ring raw boundary derived from
+        # ``_cave_raw_exterior_coords(tile_group)``.
+        assert op.outline is None or not (op.outline.vertices or []), (
+            "FloorOp.outline retired at 1.26e-2a — Region.outline is "
+            "canonical."
+        )
         assert region.outline is not None
-        op_vs = [(v.x, v.y) for v in (op.outline.vertices or [])]
         region_vs = [(v.x, v.y) for v in (region.outline.vertices or [])]
-        assert op_vs == region_vs, (
-            f"FloorOp.outline must mirror Region.outline vertex-for-"
-            f"vertex; len(op)={len(op_vs)} len(region)={len(region_vs)}"
+        assert region_vs and len(region_vs) >= 4, (
+            f"Region.outline must carry the cave system boundary; "
+            f"got {len(region_vs)} vertices."
         )
 
 
@@ -396,34 +398,36 @@ def test_corridor_floor_op_carries_corridor_region_ref() -> None:
     )
     corridor_op = corridor_floor_ops[0]
     assert corridor_op.style == FloorStyle.DungeonFloor
-    assert corridor_op.outline is not None
-    assert corridor_op.outline.vertices, (
-        "merged corridor FloorOp must carry vertices"
+    # Phase 1.26e-2a: op.outline retired; Region(kind=Corridor) carries
+    # the multi-ring outline.
+    assert corridor_op.outline is None or not (
+        corridor_op.outline.vertices or []
+    ), "merged corridor FloorOp.outline retired at 1.26e-2a"
+
+    corridor_regions = [
+        r for r in fir.regions
+        if r.kind == RegionKind.Corridor and _decode_id(r.id) == "corridor"
+    ]
+    assert len(corridor_regions) == 1, (
+        f"expected exactly one Region(kind=Corridor, id='corridor'); "
+        f"got {len(corridor_regions)}"
+    )
+    corridor_region = corridor_regions[0]
+    assert corridor_region.outline is not None
+    assert corridor_region.outline.vertices, (
+        "Region(kind=Corridor).outline must carry vertices"
     )
 
-    # No 1×1 bbox FloorOp should remain with empty region_ref.
+    # Phase 1.26e-2a: with op.outline retired, every DungeonFloor
+    # FloorOp must carry a non-empty region_ref. No anonymous bbox
+    # FloorOps remain.
     for op in _floor_ops(fir):
         if op.style != FloorStyle.DungeonFloor:
             continue
-        if op.outline is None or not op.outline.vertices:
-            continue
-        if op.outline.descriptorKind != OutlineKind.Polygon:
-            continue
-        if op.outline.rings:
-            continue  # multi-ring outline (the merged corridor op)
-        if len(op.outline.vertices) != 4:
-            continue
-        xs = [v.x for v in op.outline.vertices]
-        ys = [v.y for v in op.outline.vertices]
-        if (max(xs) - min(xs), max(ys) - min(ys)) != (32.0, 32.0):
-            continue
         ref = _decode_id(op.regionRef)
-        if ref and ref in room_region_ids:
-            continue  # 1×1 rect room — fine
         assert ref, (
-            f"1×1 DungeonFloor FloorOp at "
-            f"({xs[0]:.0f},{ys[0]:.0f}) with empty region_ref must "
-            f"not exist after 1.26d-3"
+            "DungeonFloor FloorOp without region_ref must not exist "
+            "after 1.26e-2a"
         )
 
 
@@ -692,3 +696,112 @@ def test_walkable_tiles_fallback_to_op_outline_when_no_region_ref() -> None:
         f"region_ref is empty. Got {sorted(tiles)}; "
         "expected {(5, 5)}."
     )
+
+
+# ── Phase 1.26e-2a — FloorOp.outline retired when region_ref set ──
+
+
+def test_rect_room_floor_op_outline_dropped_when_region_ref_set() -> None:
+    """seed42 (rect dungeon): rect-room FloorOps drop op.outline when
+    region_ref resolves.
+
+    Phase 1.26e-2a — emitter retires the parallel ``FloorOp.outline``
+    population for ops that carry a non-empty ``region_ref``. The
+    Region(kind=Room).outline registered by ``emit_regions`` is now
+    the canonical geometry source; consumers prefer ``region_ref``
+    per 1.23a, and the bypass-readers migrated at 1.26e-1 also walk
+    region_ref before falling back to op.outline.
+    """
+    fir = _build_emitted("seed42_rect_dungeon_dungeon")
+    rect_room_floor_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.DungeonFloor
+        and _decode_id(op.regionRef).startswith("room_")
+    ]
+    assert rect_room_floor_ops, "seed42 has no rect-room FloorOp"
+    for op in rect_room_floor_ops:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            f"rect-room FloorOp.regionRef={_decode_id(op.regionRef)!r} "
+            f"must not carry op.outline (Region.outline is now the "
+            f"canonical source); got op.outline.vertices count = "
+            f"{len(op.outline.vertices or []) if op.outline else 0}."
+        )
+
+
+def test_corridor_floor_op_outline_dropped_when_region_ref_set() -> None:
+    """seed42 + seed7_octagon: merged corridor FloorOp drops op.outline.
+
+    Phase 1.26e-2a — the ONE merged ``FloorOp(region_ref="corridor")``
+    per floor (shipped at 1.26d-3) drops its op.outline. The
+    Region(kind=Corridor).outline carries the multi-ring geometry.
+    """
+    for descriptor in (
+        "seed42_rect_dungeon_dungeon",
+        "seed7_octagon_crypt_dungeon",
+    ):
+        fir = _build_emitted(descriptor)
+        corridor_ops = [
+            op for op in _floor_ops(fir)
+            if _decode_id(op.regionRef) == "corridor"
+        ]
+        if not corridor_ops:
+            continue
+        for op in corridor_ops:
+            assert op.outline is None or not (op.outline.vertices or []), (
+                f"{descriptor}: corridor FloorOp must not carry "
+                f"op.outline (Region(kind=Corridor).outline is canonical); "
+                f"got op.outline.vertices count = "
+                f"{len(op.outline.vertices or []) if op.outline else 0}."
+            )
+
+
+def test_cave_floor_op_outline_dropped_when_region_ref_set() -> None:
+    """seed99_cave: cave FloorOps drop op.outline when region_ref resolves.
+
+    Phase 1.26e-2a — per-system ``FloorOp(regionRef="cave.<i>")``
+    drops op.outline; Region(kind=Cave).outline (also single-ring raw
+    boundary per 1.26b) is canonical.
+    """
+    fir = _build_emitted("seed99_cave_cave_cave")
+    cave_floor_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.CaveFloor
+        and _decode_id(op.regionRef).startswith("cave.")
+    ]
+    assert cave_floor_ops, "seed99_cave has no cave FloorOp"
+    for op in cave_floor_ops:
+        assert op.outline is None or not (op.outline.vertices or []), (
+            f"cave FloorOp.regionRef={_decode_id(op.regionRef)!r} must "
+            f"not carry op.outline; got op.outline.vertices count = "
+            f"{len(op.outline.vertices or []) if op.outline else 0}."
+        )
+
+
+def test_wood_floor_op_keeps_outline_when_no_region_ref() -> None:
+    """seed7_brick_building: WoodFloor FloorOps keep op.outline.
+
+    Phase 1.26e-2a — building wood-floor per-tile FloorOps carry no
+    region_ref today (the IR-emitter pipeline doesn't currently
+    resolve the building polygon from site + level). Those ops must
+    keep op.outline populated; the consumer falls back to it.
+    """
+    p = _FIXTURE_ROOT / "seed7_brick_building_floor0" / "floor.nir"
+    if not p.exists():
+        pytest.skip("seed7_brick_building_floor0 fixture missing")
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(p.read_bytes(), 0))
+    wood_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.WoodFloor
+        and not _decode_id(op.regionRef)
+    ]
+    assert wood_ops, (
+        "seed7_brick_building has no WoodFloor FloorOp without region_ref"
+    )
+    for op in wood_ops:
+        assert op.outline is not None, (
+            "WoodFloor FloorOp without region_ref must carry op.outline"
+        )
+        assert op.outline.vertices, (
+            "WoodFloor FloorOp without region_ref must carry "
+            "non-empty op.outline.vertices"
+        )

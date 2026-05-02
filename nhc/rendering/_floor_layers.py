@@ -735,14 +735,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 # Degenerate cave boundary — skip to keep parity.
                 continue
             floor_op = FloorOpT()
-            floor_op.outline = outline_from_cave(coords)
+            # Phase 1.26e-2a — op.outline retired; the per-system
+            # Region(kind=Cave) registered by ``emit_regions`` carries
+            # the SAME single-ring raw-boundary outline (also derived
+            # from :func:`_cave_raw_exterior_coords`). Consumers read
+            # ``region.outline`` via ``regionRef`` per 1.23a / 1.26e-1.
+            floor_op.outline = None
             floor_op.style = FloorStyle.FloorStyle.CaveFloor
-            # Phase 1.26b — closes the 1.23a region_ref deferral.
-            # ``emit_regions`` registers a per-system Region with the
-            # SAME single-ring raw-boundary geometry (``coords`` above
-            # comes from the same :func:`_cave_raw_exterior_coords`
-            # call). Consumer reads ``region.outline`` and the result
-            # is byte-identical to reading ``op.outline``.
             floor_op.regionRef = f"cave.{i}"
             floor_entry = OpEntryT()
             floor_entry.opType = Op.Op.FloorOp
@@ -767,47 +766,19 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             # Wood-floor + building polygon: both legacy lists and
             # FloorOps are suppressed for non-cave rooms.
             continue
-        outline_obj = None
         shape = room.shape
-        if isinstance(shape, RectShape):
-            outline_obj = outline_from_rect(room.rect)
-        elif isinstance(shape, OctagonShape):
-            outline_obj = outline_from_octagon(room)
-        elif isinstance(shape, LShape):
-            outline_obj = outline_from_l_shape(room)
-        elif isinstance(shape, TempleShape):
-            outline_obj = outline_from_temple(room)
-        elif isinstance(shape, CircleShape):
-            outline_obj = outline_from_circle(room)
-        elif isinstance(shape, PillShape):
-            outline_obj = outline_from_pill(room)
-        elif isinstance(shape, CrossShape):
-            # Phase 1.20c: ports the legacy CrossShape SVG polygon
-            # to the FloorOp pipeline. 12-vertex closed polygon.
-            outline_obj = outline_from_cross(room)
-        elif isinstance(shape, HybridShape):
-            # Phase 1.23b: HybridShape FILL migrates to a tessellated
-            # FloorOp polygon (the same dense polyline
-            # ``outline_from_hybrid`` produces, mirroring the legacy
-            # ``_hybrid_svg_outline`` arc-path discretised). The
-            # polygon-rasteriser PSNR is parity-equivalent to the
-            # legacy `<path d="…A…">` arc fill — no fixture exercises
-            # HybridShape so the parity gate is unit-level only (see
-            # ``tests/unit/test_svg_shapes.py::TestHybridArcDirection``
-            # which infers bulge direction from the polygon vertex
-            # cluster rather than literal SVG ``A`` syntax).
-            outline_obj = outline_from_hybrid(room)
-        else:
+        if not isinstance(shape, (
+            RectShape, OctagonShape, LShape, TempleShape,
+            CircleShape, PillShape, CrossShape, HybridShape,
+        )):
             continue
         floor_op = FloorOpT()
-        floor_op.outline = outline_obj
+        # Phase 1.26e-2a — op.outline retired; the matching Room
+        # Region (registered by ``emit_regions`` / 1.26d-1 covers all
+        # 8 shapes) carries the canonical outline. Consumers read it
+        # via ``regionRef`` per 1.23a.
+        floor_op.outline = None
         floor_op.style = FloorStyle.FloorStyle.DungeonFloor
-        # Phase 1.23a — room FloorOps key off the matching Room
-        # Region by id. emit_regions registers a Region for shapes
-        # ``_room_region_data`` covers (rect / octagon / cave); for
-        # other shapes the ref still ships but the consumer falls
-        # back to the op's outline when the region lookup misses.
-        # The 4.0 cut at 1.27 retires the outline fallback.
         floor_op.regionRef = room.id
         floor_entry = OpEntryT()
         floor_entry.opType = Op.Op.FloorOp
@@ -829,22 +800,27 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # connected component. Both Python ``ir_to_svg`` and Rust
     # ``floor_op.rs`` walk ``outline.rings`` when populated.
     if corridor_tiles_list:
-        from nhc.rendering.ir_emitter import (
-            _corridor_component_rings,
-            _multiring_outline,
-        )
+        from nhc.rendering.ir_emitter import _corridor_component_rings
         comp_tiles = {(int(t.x), int(t.y)) for t in corridor_tiles_list}
         components = _collect_corridor_components(comp_tiles)
-        rings_for_outline: list[
-            tuple[list[tuple[float, float]], bool]
-        ] = []
-        for comp in components:
-            for ring_coords, is_hole in _corridor_component_rings(comp):
-                if ring_coords and len(ring_coords) >= 4:
-                    rings_for_outline.append((ring_coords, is_hole))
-        if rings_for_outline:
+        # Mirror the gating in ``emit_regions``: the merged
+        # ``Region(kind=Corridor)`` registers iff any component
+        # produces a ring with ≥ 4 vertices. Without that gate the
+        # FloorOp could emit with ``regionRef = "corridor"`` pointing
+        # at a missing Region.
+        has_valid_ring = any(
+            ring_coords and len(ring_coords) >= 4
+            for comp in components
+            for ring_coords, _ in _corridor_component_rings(comp)
+        )
+        if has_valid_ring:
             floor_op = FloorOpT()
-            floor_op.outline = _multiring_outline(rings_for_outline)
+            # Phase 1.26e-2a — op.outline retired; the merged
+            # ``Region(kind=Corridor, id="corridor")`` registered by
+            # 1.26d-2 carries the multi-ring outline (exterior +
+            # interior holes for annular components). Consumers read
+            # it via ``regionRef`` per 1.23a / 1.26e-1.
+            floor_op.outline = None
             floor_op.style = FloorStyle.FloorStyle.DungeonFloor
             floor_op.regionRef = "corridor"
             floor_entry = OpEntryT()

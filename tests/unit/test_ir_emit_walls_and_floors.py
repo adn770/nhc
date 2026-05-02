@@ -37,17 +37,21 @@ from tests.fixtures.floor_ir._inputs import descriptor_inputs
 CELL = 32  # mirrors nhc.rendering._svg_helpers.CELL
 
 
-def _emit_into_builder(level, *, seed: int = 0, theme: str = "dungeon"):
-    """Run only ``_emit_walls_and_floors_ir`` against a level and
-    return ``(builder.ops, ctx)``.
+_LAST_BUILDER: "FloorIRBuilder | None" = None
 
-    Bypasses the full ``build_floor_ir`` pipeline so the test isolates
-    the parallel-emission contract — only the WallsAndFloorsOp and the
-    new FloorOp entries should land in ``ops[]``.
+
+def _emit_into_builder(level, *, seed: int = 0, theme: str = "dungeon"):
+    """Run ``emit_regions`` + ``_emit_walls_and_floors_ir`` and return
+    ``(builder.ops, ctx)``.
+
+    Builds the regions alongside the ops so post-1.26e-2a tests can
+    resolve ``op.regionRef`` through ``_LAST_BUILDER.regions`` for
+    outline reads.
     """
+    global _LAST_BUILDER
     from nhc.rendering._render_context import build_render_context
     from nhc.rendering.ir_emitter import (
-        _build_cave_wall_geometry, _build_dungeon_polygon,
+        _build_cave_wall_geometry, _build_dungeon_polygon, emit_regions,
     )
 
     ctx = build_render_context(
@@ -59,8 +63,39 @@ def _emit_into_builder(level, *, seed: int = 0, theme: str = "dungeon"):
         vegetation=True,
     )
     builder = FloorIRBuilder(ctx)
+    emit_regions(builder)
     _emit_walls_and_floors_ir(builder)
+    _LAST_BUILDER = builder
     return builder.ops, ctx
+
+
+def _outline_for_op(op, regions=None) -> "OutlineT | None":
+    """Resolve the canonical outline for a FloorOp / ExteriorWallOp.
+
+    Phase 1.26e-2a: ops with non-empty ``regionRef`` carry their
+    outline on the matching Region (via ``emit_regions``). Tests
+    that previously read ``op.outline`` walk the region by id from
+    the most recent ``_emit_into_builder`` call (or a caller-
+    supplied region list).
+
+    Falls back to ``op.outline`` for ops without ``regionRef`` (e.g.
+    building wood-floor per-tile FloorOps).
+    """
+    rr = getattr(op, "regionRef", None)
+    needle = (
+        rr.decode() if isinstance(rr, bytes) else (rr or "")
+    )
+    if needle:
+        scan_regions = regions
+        if scan_regions is None and _LAST_BUILDER is not None:
+            scan_regions = _LAST_BUILDER.regions
+        for r in scan_regions or []:
+            rid = (
+                r.id.decode() if isinstance(r.id, bytes) else (r.id or "")
+            )
+            if rid == needle and r.outline is not None:
+                return r.outline
+    return op.outline
 
 
 def _build_simple_rect_level(rects: list[Rect]) -> Level:
@@ -132,7 +167,7 @@ def test_floor_op_per_rect_room() -> None:
     ]
     assert len(floor_ops) == 3
     for entry in floor_ops:
-        outline = entry.op.outline
+        outline = _outline_for_op(entry.op)
         assert outline is not None
         assert outline.descriptorKind == OutlineKind.Polygon
         assert outline.vertices is not None
@@ -160,7 +195,9 @@ def test_floor_op_outlines_match_source_rect_rooms() -> None:
     assert len(floor_ops) == len(rects)
 
     for floor_entry, rect in zip(floor_ops, rects):
-        verts = floor_entry.op.outline.vertices
+        outline = _outline_for_op(floor_entry.op)
+        assert outline is not None
+        verts = outline.vertices
         xs = [v.x for v in verts]
         ys = [v.y for v in verts]
         bbox_x, bbox_y = min(xs), min(ys)
@@ -344,12 +381,13 @@ def test_floor_op_round_trips_through_build_floor_ir() -> None:
         "FloorOps"
     )
     for entry in floor_ops:
-        assert entry.op.outline is not None
-        assert entry.op.outline.descriptorKind == OutlineKind.Polygon
+        outline = _outline_for_op(entry.op, fir.regions)
+        assert outline is not None
+        assert outline.descriptorKind == OutlineKind.Polygon
         assert entry.op.style == FloorStyle.DungeonFloor
         # Either a 4-vertex rect room or the merged corridor op
         # (multi-vertex polygon, possibly multi-ring).
-        verts = entry.op.outline.vertices
+        verts = outline.vertices
         assert verts and len(verts) >= 4
 
 
@@ -373,7 +411,7 @@ def test_floor_op_for_octagon_room() -> None:
         e for e in ops if e.opType == Op.Op.FloorOp
     ]
     assert len(floor_ops) == 1
-    outline = floor_ops[0].op.outline
+    outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.vertices is not None
@@ -393,7 +431,7 @@ def test_floor_op_for_l_shape_room() -> None:
         e for e in ops if e.opType == Op.Op.FloorOp
     ]
     assert len(floor_ops) == 1
-    outline = floor_ops[0].op.outline
+    outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.vertices is not None
@@ -418,7 +456,7 @@ def test_floor_op_for_temple_room() -> None:
         e for e in ops if e.opType == Op.Op.FloorOp
     ]
     assert len(floor_ops) == 1
-    outline = floor_ops[0].op.outline
+    outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.vertices is not None
@@ -443,7 +481,7 @@ def test_floor_op_for_circle_room_uses_circle_descriptor() -> None:
         e for e in ops if e.opType == Op.Op.FloorOp
     ]
     assert len(floor_ops) == 1
-    outline = floor_ops[0].op.outline
+    outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Circle
     assert not outline.vertices
@@ -468,7 +506,7 @@ def test_floor_op_for_pill_room_uses_pill_descriptor() -> None:
         e for e in ops if e.opType == Op.Op.FloorOp
     ]
     assert len(floor_ops) == 1
-    outline = floor_ops[0].op.outline
+    outline = _outline_for_op(floor_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Pill
     assert not outline.vertices
@@ -607,8 +645,11 @@ def test_floor_op_round_trips_through_build_floor_ir_with_octagons() -> None:
     # rect rooms — an octagon room contributes 8 vertices, a rect 4.
     polygon_outlines_with_8_plus_verts = [
         e for e in floor_ops
-        if e.op.outline.descriptorKind == OutlineKind.Polygon
-        and len(e.op.outline.vertices) >= 6
+        if (
+            (o := _outline_for_op(e.op, fir.regions))
+            and o.descriptorKind == OutlineKind.Polygon
+            and len(o.vertices or []) >= 6
+        )
     ]
     assert polygon_outlines_with_8_plus_verts, (
         "seed7_octagon_crypt_dungeon mixes octagons + rects — at "
@@ -676,8 +717,10 @@ def test_floor_op_for_cave_carries_cave_floor_style() -> None:
         "cave-region FloorOp must carry FloorStyle.CaveFloor; "
         "DungeonFloor is reserved for non-cave rooms"
     )
-    assert floor_ops[0].op.outline.descriptorKind == OutlineKind.Polygon
-    assert floor_ops[0].op.outline.closed is True
+    cave_outline = _outline_for_op(floor_ops[0].op)
+    assert cave_outline is not None
+    assert cave_outline.descriptorKind == OutlineKind.Polygon
+    assert cave_outline.closed is True
 
 
 def test_cave_outline_vertices_match_raw_exterior_coords() -> None:
@@ -703,14 +746,18 @@ def test_cave_outline_vertices_match_raw_exterior_coords() -> None:
     assert len(floor_ops) == 1
     cave_op = floor_ops[0].op
 
-    # Use the same merged tile set the emitter uses — ctx.cave_tiles is
-    # the unified set from _collect_cave_region (room tiles + corridors).
+    # Phase 1.26e-2a: cave geometry now lives on Region(kind=Cave).outline;
+    # op.outline retired. Use the same merged tile set the emitter uses —
+    # ctx.cave_tiles is the unified set from _collect_cave_region (room
+    # tiles + corridors).
     merged_tiles: set[tuple[int, int]] = set(ctx.cave_tiles)
     expected_coords = _cave_raw_exterior_coords(merged_tiles)
+    cave_outline = _outline_for_op(cave_op)
+    assert cave_outline is not None
     # The outline must carry the raw exterior coords verbatim — same
     # length, same ordering, same pixel-space float values.
-    assert len(cave_op.outline.vertices) == len(expected_coords) >= 4
-    for got, (ex, ey) in zip(cave_op.outline.vertices, expected_coords):
+    assert len(cave_outline.vertices) == len(expected_coords) >= 4
+    for got, (ex, ey) in zip(cave_outline.vertices, expected_coords):
         assert (float(got.x), float(got.y)) == (float(ex), float(ey)), (
             "cave outline vertex must equal _cave_raw_exterior_coords "
             "output on the merged tile set; consumer runs buffer+jitter "
@@ -750,9 +797,11 @@ def test_floor_op_for_cave_round_trips_through_build_floor_ir() -> None:
     )
     entry = floor_ops[0]
     assert entry.op.style == FloorStyle.CaveFloor
-    assert entry.op.outline.descriptorKind == OutlineKind.Polygon
-    assert entry.op.outline.vertices is not None
-    assert len(entry.op.outline.vertices) >= 4
+    cave_outline = _outline_for_op(entry.op, fir.regions)
+    assert cave_outline is not None
+    assert cave_outline.descriptorKind == OutlineKind.Polygon
+    assert cave_outline.vertices is not None
+    assert len(cave_outline.vertices) >= 4
 
 
 def test_merged_cave_outline_matches_raw_exterior_coords() -> None:
@@ -786,9 +835,12 @@ def test_merged_cave_outline_matches_raw_exterior_coords() -> None:
     merged_tiles = _collect_cave_region(inputs.level)
     expected_coords = _cave_raw_exterior_coords(merged_tiles)
 
-    got_vertices = floor_ops[0].op.outline.vertices
+    cave_outline = _outline_for_op(floor_ops[0].op, fir.regions)
+    assert cave_outline is not None
+    got_vertices = cave_outline.vertices
     assert len(got_vertices) == len(expected_coords) >= 4, (
-        f"merged cave FloorOp must have {len(expected_coords)} vertices "
+        f"merged cave FloorOp Region.outline must have "
+        f"{len(expected_coords)} vertices "
         f"(from _cave_raw_exterior_coords(merged_tiles)), "
         f"got {len(got_vertices)}"
     )
@@ -857,10 +909,10 @@ def test_corridor_floor_op_emits_one_merged_op() -> None:
     if isinstance(region_ref, bytes):
         region_ref = region_ref.decode()
     assert region_ref == "corridor"
-    outline = entry.op.outline
+    outline = _outline_for_op(entry.op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
-    assert outline.vertices, "merged corridor FloorOp must carry vertices"
+    assert outline.vertices, "merged corridor Region.outline must carry vertices"
     # Every populated ring is exterior (corridors are not annular).
     for ring in outline.rings or []:
         assert not ring.isHole
@@ -907,18 +959,26 @@ def test_corridor_floor_op_outline_matches_corridor_region() -> None:
     region = corridor_regions[0]
     assert region.outline is not None
 
-    op_outline = corridor_floor_op.op.outline
-    op_verts = [(v.x, v.y) for v in (op_outline.vertices or [])]
+    # Phase 1.26e-2a: op.outline retired; the merged corridor FloorOp
+    # resolves geometry exclusively through Region(kind=Corridor).
+    assert (
+        corridor_floor_op.op.outline is None
+        or not (corridor_floor_op.op.outline.vertices or [])
+    ), "corridor FloorOp.outline retired at 1.26e-2a"
     rg_verts = [(v.x, v.y) for v in (region.outline.vertices or [])]
-    assert op_verts == rg_verts
-    op_rings = [
-        (r.start, r.count, r.isHole) for r in (op_outline.rings or [])
-    ]
+    assert rg_verts and len(rg_verts) >= 4, (
+        "Region(kind=Corridor).outline must carry the multi-ring "
+        "vertex list"
+    )
     rg_rings = [
         (r.start, r.count, r.isHole)
         for r in (region.outline.rings or [])
     ]
-    assert op_rings == rg_rings
+    # Single-component corridor systems use the v4e shorthand
+    # (rings = []); multi-component systems populate one entry per
+    # exterior ring (and possibly per hole). Either shape is valid.
+    for _, _, is_hole in rg_rings:
+        assert isinstance(is_hole, bool)
 
 
 def test_no_per_tile_corridor_floor_ops_remain() -> None:
@@ -1026,15 +1086,14 @@ def test_exterior_wall_op_outlines_match_rect_room_floor_ops() -> None:
     assert len(wall_ops) == len(floor_ops) == 3
 
     for floor_entry, wall_entry in zip(floor_ops, wall_ops):
-        floor_verts = [
-            (v.x, v.y) for v in floor_entry.op.outline.vertices
-        ]
-        wall_verts = [
-            (v.x, v.y) for v in wall_entry.op.outline.vertices
-        ]
+        floor_outline = _outline_for_op(floor_entry.op)
+        wall_outline = _outline_for_op(wall_entry.op)
+        assert floor_outline is not None and wall_outline is not None
+        floor_verts = [(v.x, v.y) for v in floor_outline.vertices]
+        wall_verts = [(v.x, v.y) for v in wall_outline.vertices]
         assert floor_verts == wall_verts, (
             "rect-room ExteriorWallOp must share the same 4-vertex "
-            "outline as the matching FloorOp"
+            "outline as the matching FloorOp (Region.outline at 1.26e-2a)"
         )
 
 
@@ -1278,7 +1337,7 @@ def test_exterior_wall_op_per_octagon_room() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    outline = wall_ops[0].op.outline
+    outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.vertices is not None
@@ -1301,7 +1360,7 @@ def test_exterior_wall_op_per_l_shape_room() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    outline = wall_ops[0].op.outline
+    outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.vertices is not None
@@ -1327,7 +1386,7 @@ def test_exterior_wall_op_per_temple_room() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    outline = wall_ops[0].op.outline
+    outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Polygon
     assert outline.vertices is not None
@@ -1351,7 +1410,7 @@ def test_exterior_wall_op_per_circle_room() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    outline = wall_ops[0].op.outline
+    outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Circle
     assert not outline.vertices
@@ -1375,7 +1434,7 @@ def test_exterior_wall_op_per_pill_room() -> None:
         e for e in ops if e.opType == Op.Op.ExteriorWallOp
     ]
     assert len(wall_ops) == 1
-    outline = wall_ops[0].op.outline
+    outline = _outline_for_op(wall_ops[0].op)
     assert outline is not None
     assert outline.descriptorKind == OutlineKind.Pill
     assert not outline.vertices
@@ -1682,16 +1741,21 @@ def test_cave_exterior_wall_outline_matches_cave_floor_outline() -> None:
     assert len(floor_ops) == 1
     assert len(wall_ops) == 1
 
-    floor_vertices = floor_ops[0].op.outline.vertices
-    wall_vertices = wall_ops[0].op.outline.vertices
+    # Phase 1.26e-2a: both ops resolve geometry through
+    # Region(kind=Cave).outline; op.outline retired.
+    floor_outline = _outline_for_op(floor_ops[0].op)
+    wall_outline = _outline_for_op(wall_ops[0].op)
+    assert floor_outline is not None and wall_outline is not None
+    floor_vertices = floor_outline.vertices
+    wall_vertices = wall_outline.vertices
     assert len(wall_vertices) == len(floor_vertices) >= 4, (
-        "cave ExteriorWallOp.outline.vertices must match the FloorOp "
-        "outline length — both share trace-boundary coords"
+        "cave ExteriorWallOp Region.outline must match the FloorOp "
+        "outline length — both reference the same Region(kind=Cave)"
     )
     for fw, ww in zip(floor_vertices, wall_vertices):
         assert (float(fw.x), float(fw.y)) == (float(ww.x), float(ww.y)), (
             "cave ExteriorWallOp vertex must equal the matching FloorOp "
-            "vertex; both emit paths share the same coords source"
+            "vertex; both ops reference the same Region(kind=Cave)"
         )
 
 
