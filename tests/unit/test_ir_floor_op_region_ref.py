@@ -289,17 +289,16 @@ def test_smooth_room_floor_ops_carry_region_ref_pointing_at_room() -> None:
     )
 
 
-def test_cave_floor_op_region_ref_deferred() -> None:
-    """seed99_cave: cave FloorOps leave region_ref empty (1.23a defers).
+def test_cave_floor_op_carries_cave_region_ref() -> None:
+    """seed99_cave: cave FloorOps ref a per-system Region(kind=Cave).
 
-    The cave Region's outline (multi-ring,
-    ``_shapely_to_polygon(ctx.cave_wall_poly)``) carries different
-    geometry from the cave FloorOp's outline (single-ring,
-    ``_cave_raw_exterior_coords(tile_group)`` for the buffer +
-    jitter + smooth pipeline). 1.23a routes cave FloorOps through
-    the op-outline fallback; the v4e multi-ring cave region
-    resolution lands at 1.24+. This test pins the deferred
-    coverage so the contract is explicit.
+    Phase 1.26b closes the 1.23a / 1.24 deferral. Each cave FloorOp
+    (``style=CaveFloor``) emits with ``regionRef = "cave.<i>"`` for
+    the i-th disjoint cave system. The matching Region carries an
+    outline whose vertices mirror the FloorOp's outline vertex-for-
+    vertex (both come from ``_cave_raw_exterior_coords(tile_group)``
+    so the consumer sees identical geometry whether it dispatches
+    through ``regionRef`` or falls back to ``op.outline``).
     """
     fir = _build_emitted("seed99_cave_cave_cave")
     cave_floor_ops = [
@@ -307,12 +306,64 @@ def test_cave_floor_op_region_ref_deferred() -> None:
         if op.style == FloorStyle.CaveFloor
     ]
     assert cave_floor_ops, "seed99_cave has no CaveFloor FloorOp"
-    refs = {_decode_id(op.regionRef) for op in cave_floor_ops}
-    assert refs == {""}, (
-        f"cave FloorOps must leave region_ref empty at 1.23a "
-        f"(falls back to op.outline); got region_refs={sorted(refs)}. "
-        "If a later phase populates these, update this test to "
-        "match the new contract."
+
+    cave_regions = {
+        _decode_id(r.id): r for r in (fir.regions or [])
+        if r.kind == RegionKind.Cave
+    }
+    assert cave_regions, "seed99_cave has no Region(kind=Cave)"
+
+    for op in cave_floor_ops:
+        ref = _decode_id(op.regionRef)
+        assert ref.startswith("cave."), (
+            f"cave FloorOp.regionRef must follow 'cave.<i>' format; "
+            f"got {ref!r}"
+        )
+        region = cave_regions.get(ref)
+        assert region is not None, (
+            f"cave FloorOp.regionRef={ref!r} does not resolve to "
+            f"any Region(kind=Cave); known: {sorted(cave_regions)}"
+        )
+        # Vertex-for-vertex match between op.outline and
+        # region.outline (both derived from the same
+        # _cave_raw_exterior_coords(tile_group) input).
+        assert op.outline is not None
+        assert region.outline is not None
+        op_vs = [(v.x, v.y) for v in (op.outline.vertices or [])]
+        region_vs = [(v.x, v.y) for v in (region.outline.vertices or [])]
+        assert op_vs == region_vs, (
+            f"FloorOp.outline must mirror Region.outline vertex-for-"
+            f"vertex; len(op)={len(op_vs)} len(region)={len(region_vs)}"
+        )
+
+
+def test_cave_region_count_matches_cave_floor_op_count() -> None:
+    """Phase 1.26b invariant: one cave Region per disjoint cave system,
+    matching the per-system CaveFloor FloorOp emission.
+
+    Mirrors the per-system invariant for ExteriorWallOp(CaveInk) too —
+    every cave system emits exactly one Region, one FloorOp, one
+    ExteriorWallOp.
+    """
+    from nhc.rendering.ir._fb import WallStyle as WallStyleMod
+    fir = _build_emitted("seed99_cave_cave_cave")
+    cave_regions = [
+        r for r in (fir.regions or [])
+        if r.kind == RegionKind.Cave
+    ]
+    cave_floor_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.CaveFloor
+    ]
+    cave_wall_ops = [
+        e.op for e in (fir.ops or [])
+        if e.opType == Op.Op.ExteriorWallOp
+        and e.op.style == WallStyleMod.WallStyle.CaveInk
+    ]
+    assert len(cave_regions) == len(cave_floor_ops) == len(cave_wall_ops), (
+        f"per-system cave invariant violated: "
+        f"regions={len(cave_regions)} floor_ops={len(cave_floor_ops)} "
+        f"wall_ops={len(cave_wall_ops)}"
     )
 
 

@@ -1044,13 +1044,30 @@ def emit_regions(builder: FloorIRBuilder) -> None:
             polygon=_shapely_to_polygon(ctx.dungeon_poly),
             shape_tag="dungeon",
         )
-    if ctx.cave_wall_poly is not None:
-        builder.add_region(
-            id="cave",
-            kind=RegionKind.RegionKind.Cave,
-            polygon=_shapely_to_polygon(ctx.cave_wall_poly),
-            shape_tag="cave",
-        )
+    # Phase 1.26b — emit one ``Region(kind=Cave, id="cave.<i>")`` per
+    # disjoint cave system, mirroring the per-system FloorOp +
+    # ExteriorWallOp emission in :func:`_emit_walls_and_floors_ir`.
+    # Both call :func:`_collect_cave_systems` so the iteration order
+    # matches and each system's ``regionRef = f"cave.{i}"`` resolves
+    # cleanly. The Region's polygon and outline both come from the
+    # SAME ``_cave_raw_exterior_coords(tile_group)`` data the cave
+    # FloorOp / WallOp consume — so consumer dispatch via
+    # ``regionRef`` produces byte-identical geometry to the
+    # ``op.outline`` fallback (closing the 1.23a / 1.24 deferral).
+    cave_tiles = ctx.cave_tiles or set()
+    if cave_tiles:
+        from nhc.rendering._cave_geometry import _cave_raw_exterior_coords
+        from nhc.rendering._floor_layers import _collect_cave_systems
+        for i, tile_group in enumerate(_collect_cave_systems(cave_tiles)):
+            coords = _cave_raw_exterior_coords(tile_group)
+            if not coords or len(coords) < 4:
+                continue
+            builder.add_region(
+                id=f"cave.{i}",
+                kind=RegionKind.RegionKind.Cave,
+                polygon=_coords_to_polygon(coords),
+                shape_tag="cave",
+            )
     for room in ctx.level.rooms:
         data = _room_region_data(room)
         if data is None:

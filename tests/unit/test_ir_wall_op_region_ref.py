@@ -419,20 +419,49 @@ def test_smooth_room_exterior_wall_carries_region_ref() -> None:
     )
 
 
-def test_cave_exterior_wall_region_ref_deferred() -> None:
-    """seed99_cave: CaveInk walls leave region_ref empty (mirrors FloorOp deferral)."""
+def test_cave_exterior_wall_carries_cave_region_ref() -> None:
+    """seed99_cave: CaveInk walls ref a per-system Region(kind=Cave).
+
+    Phase 1.26b mirror of the cave FloorOp realignment. Each cave
+    ExteriorWallOp (``style=CaveInk``) emits with
+    ``regionRef = "cave.<i>"`` for the i-th disjoint cave system.
+    The matching Region carries an outline whose vertices mirror
+    the ExteriorWallOp's outline vertex-for-vertex (both come from
+    ``_cave_raw_exterior_coords(tile_group)``).
+    """
     fir = _build_emitted("seed99_cave_cave_cave")
     cave_walls = [
         op for op in _exterior_walls(fir)
         if op.style == WallStyle.CaveInk
     ]
     assert cave_walls, "seed99_cave has no CaveInk ExteriorWallOp"
-    refs = {_decode_id(op.regionRef) for op in cave_walls}
-    assert refs == {""}, (
-        f"CaveInk ExteriorWallOps must leave region_ref empty at "
-        f"1.24 (multi-ring cave Region resolution lands later); "
-        f"got: {sorted(refs)}"
-    )
+
+    cave_regions = {
+        _decode_id(r.id): r for r in (fir.regions or [])
+        if r.kind == RegionKind.Cave
+    }
+    assert cave_regions, "seed99_cave has no Region(kind=Cave)"
+
+    for op in cave_walls:
+        ref = _decode_id(op.regionRef)
+        assert ref.startswith("cave."), (
+            f"CaveInk ExteriorWallOp.regionRef must follow "
+            f"'cave.<i>' format; got {ref!r}"
+        )
+        region = cave_regions.get(ref)
+        assert region is not None, (
+            f"CaveInk ExteriorWallOp.regionRef={ref!r} does not "
+            f"resolve; known cave regions: {sorted(cave_regions)}"
+        )
+        assert op.outline is not None
+        assert region.outline is not None
+        op_vs = [(v.x, v.y) for v in (op.outline.vertices or [])]
+        region_vs = [(v.x, v.y) for v in (region.outline.vertices or [])]
+        assert op_vs == region_vs, (
+            f"ExteriorWallOp.outline must mirror Region.outline "
+            f"vertex-for-vertex; len(op)={len(op_vs)} "
+            f"len(region)={len(region_vs)}"
+        )
 
 
 def test_enclosure_exterior_wall_carries_enclosure_region_ref() -> None:

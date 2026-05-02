@@ -24,6 +24,71 @@ if TYPE_CHECKING:
     from nhc.rendering.ir_emitter import FloorIRBuilder
 
 
+# ── Shared helpers ────────────────────────────────────────────
+
+
+def _collect_cave_systems(
+    cave_tiles: set[tuple[int, int]],
+) -> list[set[tuple[int, int]]]:
+    """Partition ``cave_tiles`` into disjoint cave systems.
+
+    Phase 1.26b — shared between :func:`emit_regions` (which emits
+    one ``Region(kind=Cave, id="cave.<i>")`` per system) and
+    :func:`_emit_walls_and_floors_ir` (which emits one
+    ``FloorOp(CaveFloor)`` + one ``ExteriorWallOp(CaveInk)`` per
+    system). Both call this helper so the system iteration order
+    matches and the per-system Region / FloorOp / WallOp ids align.
+
+    Determinism contract: for the common single-component path,
+    return ``[cave_tiles]`` UNCHANGED. A containment-filtered subset
+    of the same set may iterate in different hash order and produce
+    a different ``exterior.coords[0]`` from Shapely's ``unary_union``
+    even though the full vertex set is identical — see plan
+    "Lessons learned" §"Per-room cave emission was wrong".
+    """
+    if not cave_tiles:
+        return []
+    from shapely.geometry import Polygon as _ShapelyPolygon
+    from shapely.ops import unary_union as _unary_union
+    from nhc.rendering._svg_helpers import CELL
+
+    tile_boxes = [
+        _ShapelyPolygon([
+            (tx * CELL, ty * CELL),
+            ((tx + 1) * CELL, ty * CELL),
+            ((tx + 1) * CELL, (ty + 1) * CELL),
+            (tx * CELL, (ty + 1) * CELL),
+        ])
+        for tx, ty in cave_tiles
+    ]
+    merged_geom = _unary_union(tile_boxes)
+    if not hasattr(merged_geom, "geoms"):
+        # Single connected cave region — the common path. Pass the
+        # original ``cave_tiles`` set directly so the Shapely ring
+        # starting-point is deterministic across all callers.
+        return [cave_tiles]
+
+    groups: list[set[tuple[int, int]]] = []
+    for component in merged_geom.geoms:
+        if component.is_empty:
+            continue
+        comp_tiles: set[tuple[int, int]] = {
+            (tx, ty)
+            for tx, ty in cave_tiles
+            if component.contains(
+                _ShapelyPolygon([
+                    (tx * CELL, ty * CELL),
+                    ((tx + 1) * CELL, ty * CELL),
+                    ((tx + 1) * CELL, (ty + 1) * CELL),
+                    (tx * CELL, (ty + 1) * CELL),
+                ])
+            )
+        }
+        if comp_tiles:
+            groups.append(comp_tiles)
+    return groups
+
+
 # ── Bespoke layer paint wrappers ─────────────────────────────
 
 
@@ -282,8 +347,6 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         outline_from_octagon, outline_from_pill, outline_from_polygon,
         outline_from_rect, outline_from_temple,
     )
-    from shapely.geometry import Polygon as _ShapelyPolygon
-    from shapely.ops import unary_union as _unary_union
     from nhc.rendering._room_outlines import (
         _outline_with_gaps, _room_svg_outline,
     )
@@ -553,52 +616,15 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # produce a ``MultiPolygon``; we enumerate its ``geoms`` and emit
     # one FloorOp per disjoint component.
     if cave_tiles:
-        # Determine disjoint cave systems using Shapely. Usually the
-        # whole cave floor is one connected region (single Polygon).
-        # When multiple disconnected systems exist (rare) the union
-        # produces a MultiPolygon; we emit one FloorOp per component.
-        tile_boxes = [
-            _ShapelyPolygon([
-                (tx * CELL, ty * CELL),
-                ((tx + 1) * CELL, ty * CELL),
-                ((tx + 1) * CELL, (ty + 1) * CELL),
-                (tx * CELL, (ty + 1) * CELL),
-            ])
-            for tx, ty in cave_tiles
-        ]
-        merged_geom = _unary_union(tile_boxes)
-        is_multi = hasattr(merged_geom, 'geoms')
-        if not is_multi:
-            # Common path: single connected cave region.  Pass the
-            # original ``cave_tiles`` set directly so the Shapely ring
-            # starting-point is deterministic (same object → same hash
-            # iteration → same ``exterior.coords[0]`` every call).
-            tile_groups: list[set[tuple[int, int]]] = [cave_tiles]
-        else:
-            # Multiple disjoint cave systems on the same floor. For
-            # each component, reconstruct the tile subset by checking
-            # containment.  This changes hash iteration order but it
-            # only matters for correctness across disjoint groups —
-            # there is no per-component "reference" to match.
-            tile_groups = []
-            for component in merged_geom.geoms:
-                if component.is_empty:
-                    continue
-                comp_tiles: set[tuple[int, int]] = {
-                    (tx, ty)
-                    for tx, ty in cave_tiles
-                    if component.contains(
-                        _ShapelyPolygon([
-                            (tx * CELL, ty * CELL),
-                            ((tx + 1) * CELL, ty * CELL),
-                            ((tx + 1) * CELL, (ty + 1) * CELL),
-                            (tx * CELL, (ty + 1) * CELL),
-                        ])
-                    )
-                }
-                if comp_tiles:
-                    tile_groups.append(comp_tiles)
-        for tile_group in tile_groups:
+        # Phase 1.26b — disjoint-system enumeration moved to the
+        # shared :func:`_collect_cave_systems` helper so
+        # :func:`emit_regions` can emit one ``Region(kind=Cave,
+        # id="cave.<i>")`` per system using the same iteration order.
+        # The helper preserves the deterministic "pass the original
+        # set unchanged for the single-component case" contract that
+        # keeps Shapely's ring start-point byte-stable.
+        tile_groups = _collect_cave_systems(cave_tiles)
+        for i, tile_group in enumerate(tile_groups):
             # Use raw (un-simplified) exterior ring coords so the
             # consumer can reconstruct the exact tile-union Polygon
             # via Polygon(vertices) and apply the buffer+jitter
@@ -611,16 +637,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             floor_op = FloorOpT()
             floor_op.outline = outline_from_cave(coords)
             floor_op.style = FloorStyle.FloorStyle.CaveFloor
-            # Phase 1.23a — region_ref deliberately left empty for
-            # cave FloorOps. The cave Region's outline (built from
-            # ``_shapely_to_polygon(ctx.cave_wall_poly)``) is a
-            # multi-ring polygon, while the FloorOp's own outline
-            # is the single-ring raw boundary used by the cave
-            # geometry pipeline (buffer + jitter + smooth). Falling
-            # back to op.outline keeps the fill byte-identical to
-            # the legacy path. The v4e contract for multi-ring
-            # cave region resolution lands later (1.24+); 1.23a
-            # leaves room FloorOps as the primary region_ref user.
+            # Phase 1.26b — closes the 1.23a region_ref deferral.
+            # ``emit_regions`` registers a per-system Region with the
+            # SAME single-ring raw-boundary geometry (``coords`` above
+            # comes from the same :func:`_cave_raw_exterior_coords`
+            # call). Consumer reads ``region.outline`` and the result
+            # is byte-identical to reading ``op.outline``.
+            floor_op.regionRef = f"cave.{i}"
             floor_entry = OpEntryT()
             floor_entry.opType = Op.Op.FloorOp
             floor_entry.op = floor_op
@@ -886,48 +909,18 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     # ``suppress_rect_rooms`` doesn't apply (caves never coexist with
     # a building polygon). ``cuts == []`` by contract per plan §1.10.
     #
-    # The Shapely component enumeration here mirrors the cave FloorOp
-    # block above: tile boxes → unary_union → geoms → one
-    # ExteriorWallOp per disjoint component. The ``CELL``,
-    # ``_ShapelyPolygon``, and ``_unary_union`` names are already
-    # in scope from the imports at the top of this function.
+    # The disjoint-system partition (formerly inline tile-box →
+    # unary_union → geoms enumeration) lives in
+    # :func:`_collect_cave_systems` per Phase 1.26b — shared with
+    # ``emit_regions`` for matching iteration order.
     if cave_tiles:
-        # Mirror the FloorOp cave block above: single-component path
-        # passes ``cave_tiles`` directly for deterministic ring
-        # starting-point; multi-component path reconstructs per-
-        # component tile subsets.
-        tile_boxes = [
-            _ShapelyPolygon([
-                (tx * CELL, ty * CELL),
-                ((tx + 1) * CELL, ty * CELL),
-                ((tx + 1) * CELL, (ty + 1) * CELL),
-                (tx * CELL, (ty + 1) * CELL),
-            ])
-            for tx, ty in cave_tiles
-        ]
-        merged_geom = _unary_union(tile_boxes)
-        if not hasattr(merged_geom, 'geoms'):
-            wall_tile_groups: list[set[tuple[int, int]]] = [cave_tiles]
-        else:
-            wall_tile_groups = []
-            for component in merged_geom.geoms:
-                if component.is_empty:
-                    continue
-                comp_tiles_w: set[tuple[int, int]] = {
-                    (tx, ty)
-                    for tx, ty in cave_tiles
-                    if component.contains(
-                        _ShapelyPolygon([
-                            (tx * CELL, ty * CELL),
-                            ((tx + 1) * CELL, ty * CELL),
-                            ((tx + 1) * CELL, (ty + 1) * CELL),
-                            (tx * CELL, (ty + 1) * CELL),
-                        ])
-                    )
-                }
-                if comp_tiles_w:
-                    wall_tile_groups.append(comp_tiles_w)
-        for tile_group in wall_tile_groups:
+        # Phase 1.26b — share the disjoint-system partition with the
+        # cave FloorOp emit above (and with ``emit_regions``) via
+        # :func:`_collect_cave_systems`. Iteration order matches so
+        # the i-th cave system's ``regionRef = f"cave.{i}"`` resolves
+        # to the same Region the i-th FloorOp references.
+        wall_tile_groups = _collect_cave_systems(cave_tiles)
+        for i, tile_group in enumerate(wall_tile_groups):
             # Raw exterior ring — mirrors the cave FloorOp emit above.
             # Consumer calls _cave_path_from_outline(vertices, base_seed)
             # to produce the buffered+jittered wall stroke.
@@ -939,12 +932,13 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             wall_op.outline.cuts = []
             wall_op.style = WallStyle.WallStyle.CaveInk
             wall_op.cornerStyle = CornerStyle.CornerStyle.Merlon
-            # Phase 1.24 — cave wall region_ref is deferred (the
-            # cave Region's outline carries multi-ring polygon
-            # geometry while the wall's outline is the single-ring
-            # raw boundary used by the buffer + jitter + smooth
-            # pipeline; mirroring would diverge fill / stroke).
-            # Multi-ring cave region resolution lands later.
+            # Phase 1.26b — closes the 1.24 region_ref deferral.
+            # The per-system cave Region (emitted in
+            # :func:`emit_regions`) carries the same single-ring
+            # raw-boundary outline so consumer dispatch via
+            # ``regionRef`` produces identical geometry to falling
+            # back on ``op.outline``.
+            wall_op.regionRef = f"cave.{i}"
             wall_op.cuts = []
             wall_entry = OpEntryT()
             wall_entry.opType = Op.Op.ExteriorWallOp
