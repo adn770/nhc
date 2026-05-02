@@ -28,7 +28,7 @@ import flatbuffers
 
 from nhc.dungeon.generators.cellular import CaveShape
 from nhc.dungeon.model import (
-    CircleShape, LShape, OctagonShape, RectShape,
+    CircleShape, HybridShape, LShape, OctagonShape, RectShape,
 )
 from nhc.rendering._cave_geometry import (
     _build_cave_wall_geometry, _trace_cave_boundary_coords,
@@ -37,7 +37,7 @@ from nhc.rendering._dungeon_polygon import _build_dungeon_polygon
 from nhc.rendering._render_context import (
     RenderContext, build_render_context,
 )
-from nhc.rendering._room_outlines import _polygon_vertices
+from nhc.rendering._room_outlines import _hybrid_vertices, _polygon_vertices
 from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
@@ -326,8 +326,21 @@ def _room_region_data(
     if isinstance(shape, RectShape):
         return bbox, "rect"
 
-    # Pill / Temple / LShape / Cross / Hybrid / Circle — unsupported
-    # in 1.b.2; the starter fixtures don't include them.
+    # Phase 1.23b — HybridShape Region carries the tessellated
+    # polyline outline (matches what ``outline_from_hybrid`` ships
+    # to the FloorOp / ExteriorWallOp). The legacy
+    # ``smoothFillSvg`` arc-path FILL is retired by the same
+    # commit; consumers reading region_ref now resolve the Hybrid
+    # FILL through ``Region.outline.vertices`` polygon-rasteriser
+    # instead of the SVG arc string.
+    if isinstance(shape, HybridShape):
+        verts = _hybrid_vertices(shape, rect)
+        if verts:
+            return [(float(x), float(y)) for x, y in verts], "hybrid"
+        return None
+
+    # Pill / Temple / LShape / Cross / Circle — still unsupported;
+    # the starter fixtures do not include them.
     return None
 
 

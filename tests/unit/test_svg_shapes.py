@@ -531,55 +531,125 @@ class TestWallExtensions:
 
 
 class TestHybridArcDirection:
+    """Phase 1.23b — Hybrid FILL ships as a tessellated FloorOp polygon.
+
+    Pre-1.23b the legacy ``smoothFillSvg`` carried a literal SVG
+    ``A`` arc command; the bulge direction was readable directly
+    from the arc's sweep flag. After 1.23b the FILL is a
+    ``<polygon points="…"/>`` from the FloorOp consumer, with the
+    arc tessellated into many short straight segments. The bulge
+    direction is now inferred from the polygon's vertex
+    distribution: the curved half of a hybrid (circle sub-shape)
+    has dense vertex tessellation; the straight half (rect
+    sub-shape) has only the bbox corners. Counting vertices in
+    each half of the bbox yields a robust bulge-direction signal.
+    """
+
     def _make_hybrid_level(self, split, circle_side):
         """Create a hybrid room and return (level, room, svg)."""
-        if split == "vertical":
-            if circle_side == "left":
-                shape = HybridShape(CircleShape(), RectShape(), split)
-            else:
-                shape = HybridShape(RectShape(), CircleShape(), split)
+        if circle_side == "left":
+            shape = HybridShape(CircleShape(), RectShape(), split)
         else:
-            if circle_side == "left":
-                shape = HybridShape(CircleShape(), RectShape(), split)
-            else:
-                shape = HybridShape(RectShape(), CircleShape(), split)
+            shape = HybridShape(RectShape(), CircleShape(), split)
         level, room = _make_shaped_level(
             shape, room_w=10, room_h=8)
         svg = render_floor_svg(level)
         return level, room, svg
 
-    def _extract_arc_params(self, svg):
-        """Extract (sweep_flag, end_x, end_y) from the first arc."""
-        match = re.search(
-            r'A[\d.]+,[\d.]+ \d+ (\d+),(\d+) ([\d.]+),([\d.]+)',
-            svg)
-        assert match, "No arc found in SVG"
-        large = int(match.group(1))
-        sweep = int(match.group(2))
-        ex = float(match.group(3))
-        ey = float(match.group(4))
-        return large, sweep, ex, ey
+    def _extract_floor_op_polygon(self, svg):
+        """Extract the white-fill FloorOp polygon vertices.
 
-    def test_vertical_circle_left_arc_bulges_left(self):
-        """Circle on left of vertical split bulges leftward."""
-        _, room, svg = self._make_hybrid_level("vertical", "left")
-        _, sweep, _, _ = self._extract_arc_params(svg)
-        # sweep=0 (CCW in SVG) makes the arc bulge left
-        assert sweep == 0
+        Returns ``[(x, y), ...]`` for the rendered hybrid room
+        FILL. The room's FloorOp emits a ``<polygon points="…"
+        fill="#FFFFFF" stroke="none"/>`` element; we parse the
+        first one whose vertex count exceeds the rect-room
+        baseline (4) so we match the Hybrid tessellation rather
+        than any rect corridor or sub-room polygon.
+        """
+        polygons = re.findall(
+            r'<polygon points="([^"]*)"[^>]*fill="#FFFFFF"', svg,
+        )
+        assert polygons, "No white-fill polygon found in SVG"
+        for points_str in polygons:
+            coords = []
+            for pair in points_str.split():
+                x_s, _, y_s = pair.partition(",")
+                if x_s and y_s:
+                    coords.append((float(x_s), float(y_s)))
+            if len(coords) > 4:  # tessellated, not a rect
+                return coords
+        # Fall through — no tessellated polygon found.
+        raise AssertionError(
+            f"No tessellated Hybrid polygon found among {len(polygons)} "
+            "white-fill polygons (rect rooms / corridors emit 4-vertex "
+            "polygons; the Hybrid outline has many)."
+        )
 
-    def test_horizontal_circle_top_arc_bulges_up(self):
-        """Circle on top of horizontal split bulges upward."""
-        _, room, svg = self._make_hybrid_level("horizontal", "left")
-        _, sweep, _, _ = self._extract_arc_params(svg)
-        # sweep=1 (CW in SVG) makes the arc bulge up
-        assert sweep == 1
+    def _bulge_side(self, coords, axis):
+        """Return the bbox side where vertex density is highest.
 
-    def test_hybrid_outline_is_single_path(self):
-        """A hybrid room without corridors is a single closed path."""
+        ``axis`` is ``"x"`` for vertical splits (test left vs right)
+        or ``"y"`` for horizontal splits (test top vs bottom).
+        Returns ``"min"`` when the lower-coord half has more
+        vertices, ``"max"`` otherwise.
+        """
+        idx = 0 if axis == "x" else 1
+        vals = [c[idx] for c in coords]
+        mid = (min(vals) + max(vals)) / 2.0
+        below = sum(1 for v in vals if v < mid)
+        above = sum(1 for v in vals if v > mid)
+        return "min" if below > above else "max"
+
+    def test_vertical_circle_left_polygon_dense_on_left(self):
+        """Vertical-split + circle on left → dense tessellation on left."""
         _, _, svg = self._make_hybrid_level("vertical", "left")
-        # Should have a <path d="...Z"/> element
-        match = re.search(r'<path[^>]+d="([^"]+Z)"', svg)
-        assert match, "Hybrid outline should be a closed path"
+        coords = self._extract_floor_op_polygon(svg)
+        assert self._bulge_side(coords, axis="x") == "min", (
+            "Vertical-split hybrid with circle on left must have "
+            "more polygon vertices in the left half of the bbox "
+            "(curve tessellation density)."
+        )
+
+    def test_vertical_circle_right_polygon_dense_on_right(self):
+        """Vertical-split + circle on right → dense tessellation on right."""
+        _, _, svg = self._make_hybrid_level("vertical", "right")
+        coords = self._extract_floor_op_polygon(svg)
+        assert self._bulge_side(coords, axis="x") == "max", (
+            "Vertical-split hybrid with circle on right must have "
+            "more polygon vertices in the right half of the bbox."
+        )
+
+    def test_horizontal_circle_top_polygon_dense_on_top(self):
+        """Horizontal-split + circle on top → dense tessellation on top."""
+        _, _, svg = self._make_hybrid_level("horizontal", "left")
+        coords = self._extract_floor_op_polygon(svg)
+        assert self._bulge_side(coords, axis="y") == "min", (
+            "Horizontal-split hybrid with circle on top must have "
+            "more polygon vertices in the top half of the bbox."
+        )
+
+    def test_hybrid_outline_is_single_polygon(self):
+        """A hybrid room without corridors emits a single closed FloorOp polygon.
+
+        Phase 1.23b — the FILL is a ``<polygon>`` element rather
+        than the legacy ``<path d="…Z"/>`` arc-bearing path. The
+        SVG ``<polygon>`` is implicitly closed.
+        """
+        _, _, svg = self._make_hybrid_level("vertical", "left")
+        # The Hybrid FILL is a tessellated white polygon with
+        # > 4 vertices; rect rooms / corridors emit 4-vertex
+        # polygons. Extract the Hybrid polygon by vertex count.
+        polygons = re.findall(
+            r'<polygon points="([^"]*)"[^>]*fill="#FFFFFF"', svg,
+        )
+        tessellated = [
+            p for p in polygons if len(p.split()) > 4
+        ]
+        assert len(tessellated) >= 1, (
+            f"Expected at least one tessellated Hybrid polygon; "
+            f"found {len(tessellated)} among {len(polygons)} "
+            "white-fill polygons."
+        )
 
     def test_hybrid_doorless_opening_gaps_outline(self):
         """Hybrid with doorless corridor has gapped wall outline.

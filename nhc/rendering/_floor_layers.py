@@ -338,15 +338,15 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         # smoke tests in test_svg_shapes.py inspect still emits.
         # The Rust consumer's gate suppresses the legacy paint when the
         # smooth ExteriorWallOp ships, so dungeon rendering is not
-        # double-painted. CrossShape / HybridShape rooms keep relying
-        # on this path because Phase 1.5 explicitly skipped them; the
-        # Phase 1.20c follow-up migrates them to FloorOp +
-        # ExteriorWallOp and clears this branch entirely.
-        smooth_fill_svg.append(
-            outline.replace(
-                "/>", f' fill="{FLOOR_COLOR}" stroke="none"/>'
+        # double-painted. CrossShape rooms keep relying on this path;
+        # HybridShape migrated to a tessellated FloorOp at 1.23b so
+        # ``smoothFillSvg`` no longer carries its arc-path FILL.
+        if not isinstance(room.shape, HybridShape):
+            smooth_fill_svg.append(
+                outline.replace(
+                    "/>", f' fill="{FLOOR_COLOR}" stroke="none"/>'
+                )
             )
-        )
         if openings:
             gapped, extensions = _outline_with_gaps(
                 room, outline, openings,
@@ -662,14 +662,19 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             # Phase 1.20c: ports the legacy CrossShape SVG polygon
             # to the FloorOp pipeline. 12-vertex closed polygon.
             outline_obj = outline_from_cross(room)
+        elif isinstance(shape, HybridShape):
+            # Phase 1.23b: HybridShape FILL migrates to a tessellated
+            # FloorOp polygon (the same dense polyline
+            # ``outline_from_hybrid`` produces, mirroring the legacy
+            # ``_hybrid_svg_outline`` arc-path discretised). The
+            # polygon-rasteriser PSNR is parity-equivalent to the
+            # legacy `<path d="…A…">` arc fill — no fixture exercises
+            # HybridShape so the parity gate is unit-level only (see
+            # ``tests/unit/test_svg_shapes.py::TestHybridArcDirection``
+            # which infers bulge direction from the polygon vertex
+            # cluster rather than literal SVG ``A`` syntax).
+            outline_obj = outline_from_hybrid(room)
         else:
-            # HybridShape stays on the legacy ``smoothFillSvg`` path
-            # for FILL because v4's outline descriptor cannot ship the
-            # arc command the legacy ``<path d="…A…">`` carries; a
-            # tessellated polygon would diverge visibly. Phase 1.20c
-            # only ports the WALL outline (ExteriorWallOp emit below)
-            # so the gapped wall pipeline can apply corridor cuts to
-            # the polyline form.
             continue
         floor_op = FloorOpT()
         floor_op.outline = outline_obj

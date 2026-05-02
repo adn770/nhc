@@ -343,11 +343,19 @@ def _draw_room_shadow(op: Any, fir: FloorIR) -> str:  # type: ignore[name-define
         return nhc_render.draw_room_shadow_octagon(coords)
     if shape_tag == b"cave":
         return nhc_render.draw_room_shadow_cave(coords)
+    # Phase 1.23b — HybridShape Region carries a tessellated
+    # polygon (the same dense polyline ``outline_from_hybrid``
+    # produces). Routes to the polygon-shadow primitive used by
+    # octagons; the legacy ``_shadows._room_shadow_svg`` path
+    # emits the same `<g><polygon points=…/></g>` structure for
+    # any polygon-shaped room.
+    if shape_tag == b"hybrid":
+        return nhc_render.draw_room_shadow_octagon(coords)
 
     raise NotImplementedError(
         f"Room shadow handler for shape_tag {shape_tag!r} not "
         "implemented; the starter fixtures only exercise rect / "
-        "octagon / cave"
+        "octagon / cave / hybrid"
     )
 
 

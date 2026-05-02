@@ -362,6 +362,114 @@ def test_corridor_floor_ops_have_empty_region_ref() -> None:
     )
 
 
+def test_hybrid_room_emits_floor_op_with_region_ref() -> None:
+    """Phase 1.23b — HybridShape rooms emit a FloorOp + Region.
+
+    Builds a unit-level Hybrid room and asserts the IR carries:
+    - one Region with kind=Room and shape_tag = "hybrid".
+    - one DungeonFloor FloorOp whose ``region_ref`` matches the
+      room's id.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, HybridShape, Level, Rect, RectShape, Room,
+        SurfaceType, Terrain, Tile,
+    )
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    shape = HybridShape(CircleShape(), RectShape(), "vertical")
+    rect = Rect(3, 3, 10, 8)
+    room = Room(id="hybrid_test_room", rect=rect, shape=shape)
+    level = Level(
+        id="d1", name="Dungeon Level 1", depth=1,
+        width=18, height=14, rooms=[room],
+        tiles=[
+            [Tile(terrain=Terrain.VOID) for _ in range(18)]
+            for _ in range(14)
+        ],
+    )
+    for fx, fy in room.floor_tiles():
+        level.tiles[fy][fx] = Tile(terrain=Terrain.FLOOR)
+
+    buf = build_floor_ir(level, seed=1, hatch_distance=2.0, vegetation=False)
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    region_ids = {_decode_id(r.id): r for r in fir.regions}
+    assert "hybrid_test_room" in region_ids, (
+        f"HybridShape room must emit a Region; got region ids: "
+        f"{sorted(region_ids)}"
+    )
+    region = region_ids["hybrid_test_room"]
+    assert _decode_id(region.shapeTag) == "hybrid", (
+        f"Hybrid Region shape_tag must be 'hybrid'; got "
+        f"{_decode_id(region.shapeTag)!r}"
+    )
+    assert region.outline is not None and len(region.outline.vertices) >= 8, (
+        "Hybrid Region outline must carry the tessellated polyline "
+        f"(≥ 8 vertices); got "
+        f"{len(region.outline.vertices) if region.outline else 0}"
+    )
+
+    dungeon_floor_ops = [
+        op for op in _floor_ops(fir)
+        if op.style == FloorStyle.DungeonFloor
+    ]
+    hybrid_refs = [
+        op for op in dungeon_floor_ops
+        if _decode_id(op.regionRef) == "hybrid_test_room"
+    ]
+    assert hybrid_refs, (
+        "HybridShape must emit a DungeonFloor FloorOp with "
+        "region_ref pointing at the Hybrid Region."
+    )
+
+
+def test_hybrid_room_smoothfillsvg_no_longer_carries_arc_fill() -> None:
+    """Phase 1.23b — HybridShape FILL retired from smoothFillSvg.
+
+    The pre-1.23b emitter appended a ``<path d="…A…">`` arc-fill
+    string for every HybridShape room. After 1.23b that branch
+    skips, and the HybridShape FILL ships through a FloorOp
+    instead. Asserts that no ``smoothFillSvg`` entry contains an
+    SVG ``A`` arc command for a Hybrid-only level.
+    """
+    from nhc.dungeon.model import (
+        CircleShape, HybridShape, Level, Rect, RectShape, Room,
+        Terrain, Tile,
+    )
+    from nhc.rendering.ir._fb import Op as OpMod
+    from nhc.rendering.ir_emitter import build_floor_ir
+
+    shape = HybridShape(CircleShape(), RectShape(), "vertical")
+    rect = Rect(3, 3, 10, 8)
+    room = Room(id="hybrid_test_room", rect=rect, shape=shape)
+    level = Level(
+        id="d1", name="Dungeon Level 1", depth=1,
+        width=18, height=14, rooms=[room],
+        tiles=[
+            [Tile(terrain=Terrain.VOID) for _ in range(18)]
+            for _ in range(14)
+        ],
+    )
+    for fx, fy in room.floor_tiles():
+        level.tiles[fy][fx] = Tile(terrain=Terrain.FLOOR)
+
+    buf = build_floor_ir(level, seed=1, hatch_distance=2.0, vegetation=False)
+    fir = FloorIRT.InitFromObj(FloorIR.GetRootAs(buf, 0))
+
+    arc_fills: list[str] = []
+    for entry in fir.ops or []:
+        if entry.opType == OpMod.Op.WallsAndFloorsOp:
+            wf = entry.op
+            for fragment in (wf.smoothFillSvg or []):
+                s = fragment.decode() if isinstance(fragment, bytes) else fragment
+                if "A" in s:  # SVG arc command
+                    arc_fills.append(s)
+    assert not arc_fills, (
+        "HybridShape FILL must not ride on smoothFillSvg arc-paths "
+        f"after 1.23b; got: {arc_fills}"
+    )
+
+
 def test_building_wood_floor_op_region_ref_resolves() -> None:
     """seed7_brick_building (post-regen): WoodFloor FloorOps that carry
     a non-empty region_ref resolve to a Building Region.
