@@ -23,6 +23,9 @@ pub mod python_random;
 pub mod rng;
 pub mod transform;
 
+#[cfg(test)]
+mod test_util;
+
 #[cfg(feature = "pyo3")]
 pub mod ffi;
 

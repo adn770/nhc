@@ -590,24 +590,14 @@ pub(super) fn has_interior_wall_ops(fir: &FloorIR<'_>) -> bool {
 #[cfg(test)]
 mod tests {
     use flatbuffers::FlatBufferBuilder;
-    use tiny_skia::Pixmap;
 
     use crate::ir::{
         finish_floor_ir_buffer, Cut, CutArgs, CutStyle, ExteriorWallOp,
         ExteriorWallOpArgs, FloorIR, FloorIRArgs, Op, OpEntry, OpEntryArgs,
         Outline, OutlineArgs, OutlineKind, Vec2, WallStyle,
     };
+    use crate::test_util::{decode, pixel_at};
     use crate::transform::png::{floor_ir_to_png, BG_B, BG_G, BG_R};
-
-    fn decode(png: &[u8]) -> Pixmap {
-        Pixmap::decode_png(png).expect("decode PNG")
-    }
-
-    fn pixel_at(pixmap: &Pixmap, px_x: u32, px_y: u32) -> (u8, u8, u8) {
-        let idx = (px_y * pixmap.width() + px_x) as usize;
-        let p = pixmap.pixels()[idx];
-        (p.red(), p.green(), p.blue())
-    }
 
     /// Build an IR with a single DungeonInk ExteriorWallOp covering a
     /// 4-vertex (rect) polygon outline in tile-pixel space.

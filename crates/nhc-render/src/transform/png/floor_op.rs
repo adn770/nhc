@@ -308,7 +308,6 @@ fn extract_d_from_path(s: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use flatbuffers::FlatBufferBuilder;
-    use tiny_skia::Pixmap;
 
     use crate::ir::{
         finish_floor_ir_buffer, FloorIRArgs, FloorOp, FloorOpArgs,
@@ -316,6 +315,7 @@ mod tests {
         OutlineArgs, OutlineKind, RectRoom, RectRoomArgs, Vec2,
         WallsAndFloorsOp, WallsAndFloorsOpArgs,
     };
+    use crate::test_util::{decode, pixel_at};
     use crate::transform::png::{floor_ir_to_png, BG_B, BG_G, BG_R};
 
     const FLOOR_R: u8 = 0xFF;
@@ -324,19 +324,6 @@ mod tests {
     const CAVE_FLOOR_R: u8 = 0xF5;
     const CAVE_FLOOR_G: u8 = 0xEB;
     const CAVE_FLOOR_B: u8 = 0xD8;
-
-    /// Decode PNG bytes → `Pixmap` for pixel inspection.
-    fn decode(png: &[u8]) -> Pixmap {
-        Pixmap::decode_png(png).expect("decode PNG")
-    }
-
-    /// Sample the pixel at canvas coords (px_x, px_y).
-    fn pixel_at(pixmap: &Pixmap, px_x: u32, px_y: u32) -> (u8, u8, u8) {
-        let idx = (px_y * pixmap.width() + px_x) as usize;
-        let pixels = pixmap.pixels();
-        let p = pixels[idx];
-        (p.red(), p.green(), p.blue())
-    }
 
     /// Canvas coords for the centre of tile (tx, ty).
     /// `padding = 32`, `cell = 32`.
