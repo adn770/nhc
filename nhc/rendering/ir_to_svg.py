@@ -1890,7 +1890,15 @@ def _roof_shingle_region(
     x: float, y: float, w: float, h: float,
     shades: list[str], rng: _SplitMix64,
 ) -> list[str]:
-    """Running-bond rows of shingle rects filling a bounding box."""
+    """Running-bond rows of shingle rects filling a bounding box.
+
+    Each shingle's drawn width is clamped to ``[x, x + w]`` so the
+    last shingle of a row never bleeds past the region's right edge
+    and odd rows' running-bond offset shingle (which starts at
+    ``x - sw / 2``) is trimmed at the left edge. Without the clamp,
+    gable roofs with a vertical ridge show shadow shingles crossing
+    the ridge into the sunlit side (and vice versa).
+    """
     sw = _ROOF_SHINGLE_WIDTH
     sh = _ROOF_SHINGLE_HEIGHT
     jitter = _ROOF_SHINGLE_JITTER
@@ -1902,14 +1910,19 @@ def _roof_shingle_region(
         while sx < x + w:
             sw_j = sw + rng.uniform(-jitter, jitter)
             shade = rng.choice(shades)
-            frags.append(
-                f'<rect x="{sx:.1f}" y="{cy:.1f}" '
-                f'width="{sw_j:.1f}" height="{sh:.1f}" '
-                f'fill="{shade}" '
-                f'stroke="{_ROOF_SHINGLE_STROKE}" '
-                f'stroke-opacity="{_ROOF_SHINGLE_STROKE_OPACITY}" '
-                f'stroke-width="{_ROOF_SHINGLE_STROKE_WIDTH}"/>'
-            )
+            # Clamp the shingle to the region bbox.
+            vx = max(sx, x)
+            vr = min(sx + sw_j, x + w)
+            vw = vr - vx
+            if vw > 0:
+                frags.append(
+                    f'<rect x="{vx:.1f}" y="{cy:.1f}" '
+                    f'width="{vw:.1f}" height="{sh:.1f}" '
+                    f'fill="{shade}" '
+                    f'stroke="{_ROOF_SHINGLE_STROKE}" '
+                    f'stroke-opacity="{_ROOF_SHINGLE_STROKE_OPACITY}" '
+                    f'stroke-width="{_ROOF_SHINGLE_STROKE_WIDTH}"/>'
+                )
             sx += sw_j
         cy += sh
         row += 1

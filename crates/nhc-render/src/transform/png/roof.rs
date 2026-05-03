@@ -177,22 +177,31 @@ fn draw_shingle_region(
         while sx < x + w {
             let sw_j = SHINGLE_WIDTH + rng.uniform(-SHINGLE_JITTER, SHINGLE_JITTER);
             let shade = *rng.choice(shades);
-            if let Some(rect) = Rect::from_xywh(sx, cy, sw_j, SHINGLE_HEIGHT) {
-                let fill = rgb_paint(shade, 1.0);
-                ctx.pixmap.fill_rect(rect, &fill, ctx.transform, mask);
-                // Stroke around the shingle — tiny-skia has no
-                // stroke_rect, so build a 4-segment path.
-                let mut pb = PathBuilder::new();
-                pb.move_to(sx, cy);
-                pb.line_to(sx + sw_j, cy);
-                pb.line_to(sx + sw_j, cy + SHINGLE_HEIGHT);
-                pb.line_to(sx, cy + SHINGLE_HEIGHT);
-                pb.close();
-                if let Some(path) = pb.finish() {
-                    ctx.pixmap.stroke_path(
-                        &path, &stroke_paint, &stroke,
-                        ctx.transform, mask,
-                    );
+            // Clamp the shingle's drawn rect to the region bbox so
+            // it never bleeds past a vertical ridge into the
+            // opposite-shaded side of a gable. Mirror of the
+            // Python ``_roof_shingle_region`` clamp.
+            let vx = sx.max(x);
+            let vr = (sx + sw_j).min(x + w);
+            let vw = vr - vx;
+            if vw > 0.0 {
+                if let Some(rect) = Rect::from_xywh(vx, cy, vw, SHINGLE_HEIGHT) {
+                    let fill = rgb_paint(shade, 1.0);
+                    ctx.pixmap.fill_rect(rect, &fill, ctx.transform, mask);
+                    // Stroke around the shingle — tiny-skia has no
+                    // stroke_rect, so build a 4-segment path.
+                    let mut pb = PathBuilder::new();
+                    pb.move_to(vx, cy);
+                    pb.line_to(vx + vw, cy);
+                    pb.line_to(vx + vw, cy + SHINGLE_HEIGHT);
+                    pb.line_to(vx, cy + SHINGLE_HEIGHT);
+                    pb.close();
+                    if let Some(path) = pb.finish() {
+                        ctx.pixmap.stroke_path(
+                            &path, &stroke_paint, &stroke,
+                            ctx.transform, mask,
+                        );
+                    }
                 }
             }
             sx += sw_j;
