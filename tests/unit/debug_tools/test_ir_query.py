@@ -35,13 +35,13 @@ async def test_get_ir_buffer_returns_metadata() -> None:
     # ``Region(kind=Corridor, id="corridor")`` per floor when corridor
     # tiles exist (18 rect rooms + 1 dungeon + 1 corridor = 20).
     assert result["region_count"] == 20
-    # Phase 1.4 / 1.7 / 1.26d-3 of plans/nhc_pure_ir_plan.md: one
-    # FloorOp per rect room + ONE merged FloorOp(region_ref="corridor")
-    # per floor (1.26d-3 retired the per-tile corridor FloorOps). The
-    # fixture has 18 rect rooms; ops = 28 (legacy) + 18 (rect FloorOps)
-    # + 1 (merged corridor FloorOp) + 18 (ExteriorWallOps, Phase 1.8)
-    # + 1 (CorridorWallOp, Phase 1.16b-1) = 66.
-    assert result["op_count"] == 66
+    # Phase 1.4 / 1.7 / 1.26d-3 / 1.26f of plans/nhc_pure_ir_plan.md:
+    # one FloorOp per rect room + ONE merged FloorOp(region_ref=
+    # "corridor") + 18 rect-room ExteriorWallOps + 1 CorridorWallOp.
+    # Phase 1.26f retired WallsAndFloorsOp; ops = 27 (legacy minus
+    # WAF) + 18 (rect FloorOps) + 1 (merged corridor FloorOp) + 18
+    # (ExteriorWallOps) + 1 (CorridorWallOp) = 65.
+    assert result["op_count"] == 65
     assert result["size_bytes"] > 0
     assert result["file_identifier"] == "NIR3"
     assert "dump" not in result  # off by default
@@ -108,8 +108,8 @@ async def test_get_ir_ops_summary() -> None:
     from nhc.debug_tools.tools.ir_query import GetIROpsTool
     result = await GetIROpsTool().execute(path=str(_FIXTURE_RECT))
     assert "summary" in result
-    assert result["total"] == 66
-    assert sum(result["summary"].values()) == 66
+    assert result["total"] == 65
+    assert sum(result["summary"].values()) == 65
     assert "ShadowOp" in result["summary"]
     # 18 rect-room FloorOps (Phase 1.4) + 1 merged corridor FloorOp
     # (Phase 1.26d-3) = 19 total FloorOps in the seed42 fixture.
@@ -187,7 +187,7 @@ async def test_fixture_shortcut_resolves_to_correct_path() -> None:
     )
     assert "error" not in result
     assert result["major"] == 3
-    assert result["op_count"] == 66
+    assert result["op_count"] == 65
     assert "seed42_rect_dungeon_dungeon" in result["path"]
 
 

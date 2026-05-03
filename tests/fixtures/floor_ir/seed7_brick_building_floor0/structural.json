@@ -16,8 +16,7 @@
     "FloorGridOp": 1,
     "FloorOp": 228,
     "InteriorWallOp": 4,
-    "StairsOp": 1,
-    "WallsAndFloorsOp": 1
+    "StairsOp": 1
   },
   "region_count": 6,
   "region_polygon_rings": 8,

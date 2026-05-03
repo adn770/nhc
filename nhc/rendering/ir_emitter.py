@@ -43,19 +43,10 @@ from nhc.rendering._svg_helpers import CELL, PADDING
 from nhc.rendering.ir._fb import FloorKind, RegionKind
 from nhc.rendering.ir._fb.FeatureFlags import FeatureFlagsT
 from nhc.rendering.ir._fb.FloorIR import FloorIRT
-from nhc.rendering.ir._fb.BuildingExteriorWallOp import (
-    BuildingExteriorWallOpT,
-)
-from nhc.rendering.ir._fb.BuildingInteriorWallOp import (
-    BuildingInteriorWallOpT,
-)
 from nhc.rendering.ir._fb.CornerStyle import CornerStyle
-from nhc.rendering.ir._fb.EnclosureOp import EnclosureOpT
 from nhc.rendering.ir._fb.EnclosureStyle import EnclosureStyle
 from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
-from nhc.rendering.ir._fb.Gate import GateT
 from nhc.rendering.ir._fb.GateStyle import GateStyle
-from nhc.rendering.ir._fb.InteriorEdge import InteriorEdgeT
 from nhc.rendering.ir._fb.InteriorWallMaterial import InteriorWallMaterial
 from nhc.rendering.ir._fb.InteriorWallOp import InteriorWallOpT
 from nhc.rendering.ir._fb.OpEntry import OpEntryT

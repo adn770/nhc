@@ -21,7 +21,6 @@
     "ShadowOp": 1,
     "TerrainTintOp": 1,
     "TreeFeatureOp": 1,
-    "WallsAndFloorsOp": 1,
     "WellFeatureOp": 1
   },
   "region_count": 10,

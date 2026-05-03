@@ -14955,35 +14955,6 @@
     },
     {
       "__type": "OpEntryT",
-      "opType": "WallsAndFloorsOp",
-      "op": {
-        "__type": "WallsAndFloorsOpT",
-        "smoothRoomRegions": [],
-        "rectRooms": [],
-        "corridorTiles": [],
-        "caveRegion": "",
-        "wallSegments": [],
-        "floorColor": null,
-        "caveFloorColor": null,
-        "wallColor": null,
-        "wallWidth": 1.0,
-        "buildingFootprint": null,
-        "smoothFillSvg": [
-          "<polygon points=\"288.0,96.0 384.0,96.0 416.0,128.0 416.0,352.0 384.0,384.0 288.0,384.0 256.0,352.0 256.0,128.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"672.0,96.0 800.0,96.0 864.0,160.0 864.0,288.0 800.0,352.0 672.0,352.0 608.0,288.0 608.0,160.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"128.0,960.0 224.0,960.0 256.0,992.0 256.0,1152.0 224.0,1184.0 128.0,1184.0 96.0,1152.0 96.0,992.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"736.0,640.0 864.0,640.0 896.0,672.0 896.0,768.0 864.0,800.0 736.0,800.0 704.0,768.0 704.0,672.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"1088.0,96.0 1152.0,96.0 1216.0,160.0 1216.0,224.0 1152.0,288.0 1088.0,288.0 1024.0,224.0 1024.0,160.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"1408.0,96.0 1504.0,96.0 1536.0,128.0 1536.0,256.0 1504.0,288.0 1408.0,288.0 1376.0,256.0 1376.0,128.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"1696.0,416.0 1792.0,416.0 1824.0,448.0 1824.0,640.0 1792.0,672.0 1696.0,672.0 1664.0,640.0 1664.0,448.0\" fill=\"#FFFFFF\" stroke=\"none\"/>",
-          "<polygon points=\"1056.0,864.0 1152.0,864.0 1184.0,896.0 1184.0,992.0 1152.0,1024.0 1056.0,1024.0 1024.0,992.0 1024.0,896.0\" fill=\"#FFFFFF\" stroke=\"none\"/>"
-        ],
-        "smoothWallSvg": [],
-        "wallExtensionsD": ""
-      }
-    },
-    {
-      "__type": "OpEntryT",
       "opType": "FloorOp",
       "op": {
         "__type": "FloorOpT",

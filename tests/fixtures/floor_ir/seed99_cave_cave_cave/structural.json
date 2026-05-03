@@ -21,8 +21,7 @@
     "StairsOp": 1,
     "TerrainDetailOp": 1,
     "TerrainTintOp": 1,
-    "ThematicDetailOp": 1,
-    "WallsAndFloorsOp": 1
+    "ThematicDetailOp": 1
   },
   "region_count": 10,
   "region_polygon_rings": 11,

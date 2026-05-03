@@ -15768,26 +15768,6 @@
     },
     {
       "__type": "OpEntryT",
-      "opType": "WallsAndFloorsOp",
-      "op": {
-        "__type": "WallsAndFloorsOpT",
-        "smoothRoomRegions": [],
-        "rectRooms": [],
-        "corridorTiles": [],
-        "caveRegion": "",
-        "wallSegments": [],
-        "floorColor": null,
-        "caveFloorColor": null,
-        "wallColor": null,
-        "wallWidth": 1.0,
-        "buildingFootprint": null,
-        "smoothFillSvg": [],
-        "smoothWallSvg": [],
-        "wallExtensionsD": ""
-      }
-    },
-    {
-      "__type": "OpEntryT",
       "opType": "FloorOp",
       "op": {
         "__type": "FloorOpT",

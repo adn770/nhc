@@ -417,19 +417,18 @@ def _emit_hatch_ir(builder: "FloorIRBuilder") -> None:
 def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
     """Emit the IR ops for the walls + floors layer.
 
-    Deterministic — no RNG, no Perlin. The challenge is data shape:
-    ``_render_walls_and_floors`` calls ``_room_svg_outline`` and
-    ``_outline_with_gaps`` which need the live :class:`Room` and
-    :class:`Level` (per-room openings, shape-specific gap geometry).
-    This emitter pre-renders those into the schema-additive
-    ``smooth_fill_svg`` / ``smooth_wall_svg`` / ``wall_extensions_d``
-    fields on :class:`WallsAndFloorsOp` (Phase 1 transitional —
-    Phase 4 refactors to structured geometry when porting to Rust).
+    Phase 1.26f retired the legacy ``WallsAndFloorsOp`` carrier;
+    the function now ships only structured ops:
 
-    The handler then walks the IR data in legacy output order:
-    corridor / door rects, rect-room rects, smooth fills, cave
-    region (fill + wall), smooth walls, wall extensions, tile-edge
-    walls.
+    - ``FloorOp`` — one per dungeon room (DungeonFloor), one merged
+      per disjoint cave system (CaveFloor), one merged per floor
+      with corridor tiles (DungeonFloor, ``regionRef = "corridor"``),
+      and either one polygon op or per-tile ops for buildings with
+      ``interior_finish == "wood"`` (WoodFloor).
+    - ``ExteriorWallOp`` — one per room (DungeonInk), one merged
+      per disjoint cave system (CaveInk).
+    - ``CorridorWallOp`` — at most one per floor, carrying corridor
+      tile coords for the consumer-derived edge walk.
     """
     from nhc.dungeon.generators.cellular import CaveShape
     from nhc.dungeon.model import (
@@ -444,79 +443,24 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
         cuts_for_doorless_openings, cuts_for_room_corridor_openings,
         cuts_for_room_doors, outline_from_polygon, outline_from_rect,
     )
-    from nhc.rendering._room_outlines import (
-        _outline_with_gaps, _room_svg_outline,
-    )
-    from nhc.rendering._svg_helpers import (
-        CELL, FLOOR_COLOR, INK, WALL_WIDTH,
-        _find_doorless_openings, _is_floor,
-    )
+    from nhc.rendering._svg_helpers import CELL
     from nhc.rendering.ir._fb import CornerStyle, FloorStyle, Op, WallStyle
     from nhc.rendering.ir._fb.ExteriorWallOp import ExteriorWallOpT
     from nhc.rendering.ir._fb.FloorOp import FloorOpT
     from nhc.rendering.ir._fb.OpEntry import OpEntryT
-    from nhc.rendering.ir._fb.RectRoom import RectRoomT
     from nhc.rendering.ir._fb.TileCoord import TileCoordT
-    from nhc.rendering.ir._fb.WallsAndFloorsOp import WallsAndFloorsOpT
 
     ctx = builder.ctx
     level = ctx.level
     cave_tiles: set[tuple[int, int]] = (
         set(ctx.cave_tiles) if ctx.cave_tiles else set()
     )
-    cave_wall_path = ctx.cave_wall_path or ""
-    building_footprint = ctx.building_footprint
 
     cave_region_rooms: set[int] = set()
     if cave_tiles:
         for idx, room in enumerate(level.rooms):
             if isinstance(room.shape, CaveShape):
                 cave_region_rooms.add(idx)
-
-    smooth_room_regions: list[str] = []
-    smooth_fill_svg: list[str] = []
-    smooth_wall_svg: list[str] = []
-    wall_extensions: list[str] = []
-    smooth_tiles: set[tuple[int, int]] = set()
-
-    stroke_style = (
-        f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-        f'stroke-linecap="round" stroke-linejoin="round"'
-    )
-
-    for idx, room in enumerate(level.rooms):
-        if idx in cave_region_rooms:
-            smooth_tiles |= room.floor_tiles()
-            continue
-        outline = _room_svg_outline(room)
-        if not outline:
-            continue
-        openings = _find_doorless_openings(room, level)
-        smooth_room_regions.append(room.id)
-        # Phase 1.19 keeps `smooth_fill_svg` populated for non-building
-        # dungeons (white room fills) so the legacy SVG path that the
-        # smoke tests in test_svg_shapes.py inspect still emits.
-        # The Rust consumer's gate suppresses the legacy paint when the
-        # smooth ExteriorWallOp ships, so dungeon rendering is not
-        # double-painted. CrossShape rooms keep relying on this path;
-        # HybridShape migrated to a tessellated FloorOp at 1.23b so
-        # ``smoothFillSvg`` no longer carries its arc-path FILL.
-        if not isinstance(room.shape, HybridShape):
-            smooth_fill_svg.append(
-                outline.replace(
-                    "/>", f' fill="{FLOOR_COLOR}" stroke="none"/>'
-                )
-            )
-        if openings:
-            gapped, extensions = _outline_with_gaps(
-                room, outline, openings,
-            )
-            wall_extensions.extend(extensions)
-            for _, _, cx, cy in openings:
-                smooth_tiles.add((cx, cy))
-        smooth_tiles |= room.floor_tiles()
-
-    smooth_tiles |= cave_tiles
 
     corridor_tiles_list: list[TileCoordT] = []
     for y in range(level.height):
@@ -538,150 +482,14 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 t.y = y
                 corridor_tiles_list.append(t)
 
-    # Wood floor base fill — Phase 1.20b emits this as a WoodFloor
-    # FloorOp positioned AFTER every white DungeonFloor / CaveFloor
-    # FloorOp in op-order, so the brown polygon paints over the white
-    # floor stamps inside the building footprint. The legacy
-    # ``smoothFillSvg`` brown-rect carrier is retired by the same
-    # commit; no SVG strings are appended here. See the FloorOp
-    # emission block further down for the actual emit; this site
-    # only computes the ``suppress_rect_rooms`` flag that gates the
-    # legacy ``rectRooms`` bbox list (still required by the 3.x
-    # back-compat reader path until 1.22).
+    # Wood-floor wraps the building footprint as a WoodFloor FloorOp
+    # (Phase 1.20b). When the building polygon is set, we suppress
+    # the per-room rect FloorOps (the wood polygon paints over them
+    # anyway) — see the FloorOp emit block below. Otherwise rooms
+    # emit their own FloorOps with the dungeon-floor base fill.
     suppress_rect_rooms = (
         ctx.interior_finish == "wood" and bool(ctx.building_polygon)
     )
-
-    rect_rooms_list: list[RectRoomT] = []
-    if not suppress_rect_rooms:
-        for room in level.rooms:
-            if isinstance(room.shape, RectShape):
-                r = room.rect
-                rr = RectRoomT()
-                rr.x = r.x
-                rr.y = r.y
-                rr.w = r.width
-                rr.h = r.height
-                rr.regionRef = room.id
-                rect_rooms_list.append(rr)
-
-    segments: list[str] = []
-    if level.rooms:
-        def _walkable(x: int, y: int) -> bool:
-            return _is_floor(level, x, y) or _is_door(level, x, y)
-
-        def _draw_wall_to(nx: int, ny: int) -> bool:
-            if building_footprint is None:
-                return True
-            return (nx, ny) in building_footprint
-
-        for y in range(level.height):
-            for x in range(level.width):
-                if not _walkable(x, y):
-                    continue
-                if (x, y) in smooth_tiles:
-                    px, py = x * CELL, y * CELL
-                    for nx, ny, seg in [
-                        (x, y - 1,
-                         f'M{px},{py} L{px + CELL},{py}'),
-                        (x, y + 1,
-                         f'M{px},{py + CELL} '
-                         f'L{px + CELL},{py + CELL}'),
-                        (x - 1, y,
-                         f'M{px},{py} L{px},{py + CELL}'),
-                        (x + 1, y,
-                         f'M{px + CELL},{py} '
-                         f'L{px + CELL},{py + CELL}'),
-                    ]:
-                        nb = level.tile_at(nx, ny)
-                        if (
-                            nb
-                            and nb.surface_type == SurfaceType.CORRIDOR
-                            and not _walkable(nx, ny)
-                        ):
-                            segments.append(seg)
-                    continue
-                tile = level.tiles[y][x]
-                if tile.surface_type in (
-                    SurfaceType.STREET,
-                    SurfaceType.FIELD,
-                    SurfaceType.GARDEN,
-                ):
-                    continue
-                px, py = x * CELL, y * CELL
-                if (
-                    not _walkable(x, y - 1)
-                    and _draw_wall_to(x, y - 1)
-                ):
-                    segments.append(
-                        f'M{px},{py} L{px + CELL},{py}'
-                    )
-                if (
-                    not _walkable(x, y + 1)
-                    and _draw_wall_to(x, y + 1)
-                ):
-                    segments.append(
-                        f'M{px},{py + CELL} '
-                        f'L{px + CELL},{py + CELL}'
-                    )
-                if (
-                    not _walkable(x - 1, y)
-                    and _draw_wall_to(x - 1, y)
-                ):
-                    segments.append(
-                        f'M{px},{py} L{px},{py + CELL}'
-                    )
-                if (
-                    not _walkable(x + 1, y)
-                    and _draw_wall_to(x + 1, y)
-                ):
-                    segments.append(
-                        f'M{px + CELL},{py} '
-                        f'L{px + CELL},{py + CELL}'
-                    )
-
-    op = WallsAndFloorsOpT()
-    # Phase 1.19 / 1.20b — every legacy WallsAndFloorsOp field except
-    # ``smoothFillSvg`` is cleared; the new ops (FloorOp incl.
-    # WoodFloor, ExteriorWallOp, InteriorWallOp, CorridorWallOp) drive
-    # every wall / floor pixel for freshly-emitted IR. Schema
-    # declarations stay until 1.22; back-compat reader branches in
-    # walls_and_floors.rs keep 3.x cached buffers rendering.
-    #
-    # ``smoothFillSvg`` stays populated as a transitional measure for
-    # CrossShape / HybridShape smooth-room fills (Phase 1.5 skipped
-    # those shapes, so they still ride on the legacy SVG path). Phase
-    # 1.20c retires this branch entirely once Cross / Hybrid migrate
-    # to FloorOp + ExteriorWallOp. Phase 1.20b already retired the
-    # building wood-floor brown rects that 1.19 had retained — those
-    # now ship as ``FloorStyle.WoodFloor`` FloorOps.
-    #
-    # `smoothWallSvg` is cleared even though Phase 1.5 skips Hybrid /
-    # Cross shapes (the only remaining producers): no parity fixture
-    # exercises those shapes today and the unit test exercising
-    # HybridShape walls (`test_hybrid_doorless_opening_gaps_outline`)
-    # is xfailed until a future phase wires Hybrid / Cross into
-    # ExteriorWallOp.
-    op.smoothRoomRegions = []
-    op.smoothFillSvg = smooth_fill_svg
-    op.smoothWallSvg = []
-    op.rectRooms = []
-    op.corridorTiles = []
-    op.caveRegion = ""
-    op.wallSegments = []
-    op.wallExtensionsD = ""
-    if building_footprint:
-        op.buildingFootprint = []
-        for tx, ty in sorted(building_footprint):
-            t = TileCoordT()
-            t.x = tx
-            t.y = ty
-            op.buildingFootprint.append(t)
-
-    entry = OpEntryT()
-    entry.opType = Op.Op.WallsAndFloorsOp
-    entry.op = op
-    builder.add_op(entry)
 
     # Phase 1.4 / 1.5 / 1.6 corrigendum — parallel emission of FloorOp.
     # The legacy ``rectRooms`` / ``smoothRoomRegions`` / ``caveRegion``

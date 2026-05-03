@@ -80,35 +80,27 @@ _LAYER_OPS: dict[str, frozenset[int]] = {
     "shadows": frozenset({Op.Op.ShadowOp}),
     "hatching": frozenset({Op.Op.HatchOp}),
     "structural": frozenset({
+        # Phase 1.26f — fresh IR ships only the new ops here. The
+        # legacy ops (WallsAndFloorsOp / EnclosureOp /
+        # BuildingExteriorWallOp / BuildingInteriorWallOp) stay in
+        # the filter so 3.x cached buffers continue rendering via
+        # their back-compat handlers.
         Op.Op.WallsAndFloorsOp,
-        # Phase 1.15: FloorOp entries are consumed INSIDE the
-        # WallsAndFloorsOp handler when the new ops are present,
-        # so FloorOp does NOT appear here as a standalone dispatch
-        # entry — WallsAndFloorsOp scans the full op list for
-        # FloorOps and emits their floor SVG before its own wall
-        # SVG to maintain the correct floors-under-walls paint
-        # order. See ``_draw_walls_and_floors_from_ir``.
-        # Phase 8.1: per-building roof primitives. Within `ops[]`,
-        # site IRs emit RoofOps after WallsAndFloorsOp so the roof
-        # paints over the floor — see design/map_ir.md §6.1.
+        # Phase 1.26f — FloorOp dispatches as a standalone op handler
+        # (was previously consumed inside the WallsAndFloorsOp
+        # handler). Each FloorOp emits its fill fragment(s) in IR
+        # op-order so the floors-under-walls paint sequence holds.
+        Op.Op.FloorOp,
+        # Phase 8.1: per-building roof primitives. Site IRs emit
+        # RoofOps after the floor + wall ops so the roof paints
+        # over them — see design/map_ir.md §6.1.
         Op.Op.RoofOp,
-        # Phase 8.2: site enclosure primitive (palisade /
-        # fortification). Site IRs emit one EnclosureOp after
-        # the per-building RoofOps so the enclosure perimeter
-        # overlays roof corners but stays beneath atmospherics.
         Op.Op.EnclosureOp,
-        # Phase 8.3: per-building wall primitives. Building IRs
-        # emit BuildingInteriorWallOp before BuildingExteriorWallOp
-        # so the curved exterior masonry overlays any partition
-        # extension into the rim zone (cleans up T-junctions for
-        # circle / octagon footprints).
         Op.Op.BuildingExteriorWallOp,
         Op.Op.BuildingInteriorWallOp,
         # Phase 1.16: new 4.0 wall ops. InteriorWallOp (partition
         # lines, slot 3) and ExteriorWallOp (perimeter walls, slot 5)
-        # are dispatched here. When present, their legacy counterparts
-        # (BuildingExteriorWallOp / BuildingInteriorWallOp /
-        # EnclosureOp) self-suppress.
+        # are dispatched here.
         # Phase 1.16b-3: CorridorWallOp added for DungeonInk corridor
         # walls; ExteriorWallOp DungeonInk now active.
         Op.Op.ExteriorWallOp,
@@ -695,6 +687,9 @@ def _draw_floor_op_from_ir(
     ]
 
 
+_OP_HANDLERS[Op.Op.FloorOp] = _draw_floor_op_from_ir
+
+
 def _cave_path_from_outline(
     vertices: list[tuple[float, float]],
     base_seed: int,
@@ -839,6 +834,13 @@ def _draw_walls_and_floors_from_ir(
 
     consumed_floor_ops = _collect_consumed_floor_ops(fir)
     if consumed_floor_ops:
+        # Phase 1.26f — FloorOp / ExteriorWallOp / InteriorWallOp /
+        # CorridorWallOp dispatch as standalone handlers; this branch
+        # only runs for 3.x cached buffers that ship a parallel-
+        # emission WAF alongside the new ops. Skip the floor /
+        # stub emission (the standalone handlers own them) and let
+        # the WAF emit only what its still-populated legacy fields
+        # carry — typically nothing for fresh-but-cached buffers.
         from nhc.rendering.ir._fb import FloorStyle as FloorStyleMod
         FS = FloorStyleMod.FloorStyle
         has_cave_floor_op = any(
@@ -846,42 +848,18 @@ def _draw_walls_and_floors_from_ir(
             for e in consumed_floor_ops
         )
 
-        # Emit all consumed FloorOps (DungeonFloor and CaveFloor) via
-        # the FloorOp handler.  CaveFloor ops call _cave_path_from_outline
-        # internally — no separate cave_region shortcut needed.
-        floor_frags: list[str] = []
-        for op_entry in consumed_floor_ops:
-            floor_frags.extend(_draw_floor_op_from_ir(op_entry, fir))
-
-        # Suppress smooth_fills only when the consumed FloorOp count
-        # covers all floor sources (rect_rooms + corridor_tiles +
-        # smooth_fills). If the count is smaller, smooth_fills contains
-        # content without a FloorOp equivalent (e.g. wood-floor tile
-        # rects in building floors) and must pass through.
-        corridor_tiles = [
-            (t.x, t.y) for t in (op.corridorTiles or [])
-        ]
         rect_rooms = [
             (rr.x, rr.y, rr.w, rr.h) for rr in (op.rectRooms or [])
         ]
         floors_covered = (
             len(consumed_floor_ops)
-            >= len(rect_rooms) + len(corridor_tiles) + len(smooth_fills)
+            >= len(rect_rooms)
+            + len(op.corridorTiles or [])
+            + len(smooth_fills)
         )
-        # Phase 1.16b-3: suppress dungeon wall fields when the consumer
-        # owns all DungeonInk wall output (CorridorWallOp + DungeonInk
-        # ExteriorWallOps present).  The consumer emits:
-        #   - wall_segments via _draw_corridor_wall_op_from_ir
-        #   - smooth_walls via _draw_exterior_wall_op_from_ir DungeonInk
-        #   - wall_extensions_d via _smooth_corridor_stubs (returned below)
-        # Passing empty strings/lists prevents Rust from double-painting.
         has_consumed_dungeon = _has_consumed_dungeon_exterior_wall_ops(fir)
 
-        # Pass empty cave_region to Rust — cave fill is now emitted by
-        # the CaveFloor FloorOp handler and cave stroke is emitted by
-        # the CaveInk ExteriorWallOp handler.  Passing empty prevents
-        # Rust from double-painting the cave region.
-        wall_frags = nhc_render.draw_walls_and_floors(
+        return nhc_render.draw_walls_and_floors(
             [],
             [],
             [] if floors_covered else smooth_fills,
@@ -890,21 +868,6 @@ def _draw_walls_and_floors_from_ir(
             "" if has_consumed_dungeon else wall_extensions_d,
             [] if has_consumed_dungeon else wall_segments,
         )
-
-        # When the dungeon wall consumer is active, emit smooth-corridor
-        # stub extensions as a single <path> element with DungeonInk style.
-        extra_frags: list[str] = []
-        if has_consumed_dungeon:
-            stubs = _smooth_corridor_stubs(fir)
-            if stubs:
-                joined_stubs = " ".join(stubs)
-                extra_frags.append(
-                    f'<path d="{joined_stubs}" fill="none" '
-                    f'stroke="{INK}" stroke-width="{WALL_WIDTH}" '
-                    f'stroke-linecap="round" stroke-linejoin="round"/>'
-                )
-
-        return floor_frags + wall_frags + extra_frags
 
     # Legacy fallback — 3.x cached buffers without FloorOp.
     corridor_tiles = [
@@ -4020,15 +3983,28 @@ def _draw_corridor_wall_op_from_ir(
                     continue
             segments.append(seg)
 
-    if not segments:
-        return []
-
-    joined = " ".join(segments)
-    return [
-        f'<path d="{joined}" fill="none" stroke="{INK}" '
-        f'stroke-width="{WALL_WIDTH}" '
-        f'stroke-linecap="round" stroke-linejoin="round"/>'
-    ]
+    out: list[str] = []
+    if segments:
+        joined = " ".join(segments)
+        out.append(
+            f'<path d="{joined}" fill="none" stroke="{INK}" '
+            f'stroke-width="{WALL_WIDTH}" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+    # Phase 1.26f — smooth-corridor stubs (extension fragments derived
+    # from None_ cuts on smooth DungeonInk ExteriorWallOps) emit here
+    # in CorridorWallOp's slot. Pre-1.26f, the WallsAndFloorsOp
+    # dispatcher batched the stubs after its corridor-edge segments;
+    # keeping that ordering here preserves the resvg paint sequence.
+    stubs = _smooth_corridor_stubs(fir)
+    if stubs:
+        joined_stubs = " ".join(stubs)
+        out.append(
+            f'<path d="{joined_stubs}" fill="none" stroke="{INK}" '
+            f'stroke-width="{WALL_WIDTH}" '
+            f'stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+    return out
 
 
 def _has_consumed_dungeon_exterior_wall_ops(fir: FloorIR) -> bool:
