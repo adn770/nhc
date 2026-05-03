@@ -1113,8 +1113,13 @@ def _emit_floor_detail_ir(builder: "FloorIRBuilder") -> None:
         wood_rooms: list[RectRoomT] = []
         for room in ctx.level.rooms:
             r = room.rect
+            # Pass the room id through as ``regionRef`` so the
+            # consumer's ``_wood_palette_for_room`` hash resolves
+            # to a stable per-room tone variant within the
+            # building's species.
             wood_rooms.append(RectRoomT(
                 x=r.x, y=r.y, w=r.width, h=r.height,
+                regionRef=room.id,
             ))
         wood_polygon: list[Vec2T] = []
         if building_polygon is not None:

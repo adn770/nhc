@@ -27,6 +27,25 @@ def _blank_level(w: int = 10, h: int = 10) -> Level:
     return level
 
 
+def _wood_palette_for_test(
+    seed: int, room_id: str = "r1",
+) -> tuple[str, str, str, str]:
+    """Resolve the wood palette ``_draw_wood_floor_from_ir`` will
+    pick for a given ``seed`` + ``room_id``.
+
+    Phase 1.26h: wood floors use a 5-species × 3-tone palette
+    rather than a single hard-coded colour. The species index is
+    ``(seed + 99) % 5`` (the +99 salt is added by
+    ``_emit_floor_detail_ir``) and the tone is picked from a
+    stable FNV-1a hash of the room id. Use this helper in tests
+    so assertions track the palette actually emitted.
+
+    Returns ``(fill, grain_light, grain_dark, seam)``.
+    """
+    from nhc.rendering._floor_detail import _wood_palette_for_room
+    return _wood_palette_for_room(seed + 99, room_id)
+
+
 class TestSurfaceTypeStreetRendering:
     def test_surface_type_street_triggers_cobblestone(self):
         level = _blank_level()
@@ -204,21 +223,20 @@ class TestWoodInteriorFloor:
         assert WOOD_FLOOR_FILL in svg
 
     def test_wood_floor_emits_seam_stroke(self):
-        from nhc.rendering._floor_detail import WOOD_SEAM_STROKE
+        seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level(30, 30)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
-        assert WOOD_SEAM_STROKE in svg
+        assert seam_stroke in svg
 
     def test_stone_floor_has_no_wood_colors(self):
-        from nhc.rendering._floor_detail import (
-            WOOD_FLOOR_FILL, WOOD_SEAM_STROKE,
-        )
+        from nhc.rendering._floor_detail import WOOD_FLOOR_FILL
+        seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level()
         assert level.interior_floor == "stone"
         svg = render_floor_svg(level, seed=42)
         assert WOOD_FLOOR_FILL not in svg
-        assert WOOD_SEAM_STROKE not in svg
+        assert seam_stroke not in svg
 
     def test_wood_floor_suppresses_crack_detail(self):
         """Wood floors have no dungeon-style crack scratches."""
@@ -262,30 +280,30 @@ class TestWoodParquetConstants:
 
 class TestWoodGrainEffect:
     def test_grain_light_colour_present(self):
-        from nhc.rendering._floor_detail import WOOD_GRAIN_LIGHT
+        grain_light = _wood_palette_for_test(seed=42)[1]
         level = _blank_level(20, 6)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
-        assert WOOD_GRAIN_LIGHT in svg
+        assert grain_light in svg
 
     def test_grain_dark_colour_present(self):
-        from nhc.rendering._floor_detail import WOOD_GRAIN_DARK
+        grain_dark = _wood_palette_for_test(seed=42)[2]
         level = _blank_level(20, 6)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
-        assert WOOD_GRAIN_DARK in svg
+        assert grain_dark in svg
 
-    def test_grain_colours_differ_from_base_and_seam(self):
-        from nhc.rendering._floor_detail import (
-            WOOD_FLOOR_FILL, WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
-            WOOD_SEAM_STROKE,
-        )
-        # Distinct from base fill and from the seam stroke so the
-        # grain layer is visually separate.
-        assert WOOD_GRAIN_LIGHT != WOOD_FLOOR_FILL
-        assert WOOD_GRAIN_DARK != WOOD_FLOOR_FILL
-        assert WOOD_GRAIN_LIGHT != WOOD_SEAM_STROKE
-        assert WOOD_GRAIN_DARK != WOOD_SEAM_STROKE
+    def test_grain_colours_differ_from_fill_and_seam(self):
+        # Phase 1.26h — every species' three tones keep the grain
+        # colours distinct from that tone's fill + seam, so the
+        # grain layer reads as a visually separate detail.
+        from nhc.rendering._floor_detail import _WOOD_SPECIES
+        for species in _WOOD_SPECIES:
+            for fill, grain_light, grain_dark, seam in species:
+                assert grain_light != fill
+                assert grain_dark != fill
+                assert grain_light != seam
+                assert grain_dark != seam
 
     def test_grain_uses_low_opacity(self):
         from nhc.rendering._floor_detail import WOOD_GRAIN_OPACITY
@@ -310,12 +328,12 @@ class TestWoodParquetRandomLengths:
         and MAX."""
         from nhc.rendering._floor_detail import (
             WOOD_PLANK_LENGTH_MAX, WOOD_PLANK_LENGTH_MIN,
-            WOOD_SEAM_STROKE,
         )
+        seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level(40, 6)  # wide so many planks fit
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
-        start = svg.find(f'stroke="{WOOD_SEAM_STROKE}"')
+        start = svg.find(f'stroke="{seam_stroke}"')
         assert start > 0
         end = svg.find("</g>", start)
         segment = svg[start:end]
@@ -353,13 +371,12 @@ class TestWoodParquetRandomLengths:
     def test_plank_ends_do_not_align_across_strips(self):
         """Adjacent strips shouldn't have plank-end x-coords at the
         same positions (stagger via random lengths)."""
-        from nhc.rendering._floor_detail import (
-            WOOD_PLANK_WIDTH_PX, WOOD_SEAM_STROKE,
-        )
+        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
+        seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level(40, 6)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
-        start = svg.find(f'stroke="{WOOD_SEAM_STROKE}"')
+        start = svg.find(f'stroke="{seam_stroke}"')
         end = svg.find("</g>", start)
         segment = svg[start:end]
 
@@ -402,15 +419,14 @@ class TestWoodParquetPattern:
     def test_parquet_strips_use_plank_width(self):
         """Distance between consecutive horizontal seam y-coords
         inside the wood-seam group equals the plank width."""
-        from nhc.rendering._floor_detail import (
-            WOOD_PLANK_WIDTH_PX, WOOD_SEAM_STROKE,
-        )
+        from nhc.rendering._floor_detail import WOOD_PLANK_WIDTH_PX
+        seam_stroke = _wood_palette_for_test(seed=42)[3]
         level = _blank_level(20, 6)
         level.interior_floor = "wood"
         svg = render_floor_svg(level, seed=42)
         # Restrict scan to the wood-seam <g ...> ... </g> block so
         # unrelated floor-grid lines don't leak in.
-        group_start = svg.find(f'stroke="{WOOD_SEAM_STROKE}"')
+        group_start = svg.find(f'stroke="{seam_stroke}"')
         assert group_start > 0
         group_end = svg.find("</g>", group_start)
         segment = svg[group_start:group_end]

@@ -56,6 +56,7 @@ pub(super) fn draw(
                     y: r.y(),
                     w: r.w(),
                     h: r.h(),
+                    region_ref: r.region_ref().unwrap_or("").to_string(),
                 })
                 .collect()
         })

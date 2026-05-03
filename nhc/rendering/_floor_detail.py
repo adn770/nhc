@@ -211,6 +211,11 @@ def _is_field_overlay_tile(level: "Level", x: int, y: int) -> bool:
 
 # ── Wood interior floors (tunable constants) ──────────────────
 
+# Neutral building-wide base. Painted by the WoodFloor FloorOp on
+# the entire building polygon so chamfered-corner triangles and
+# inter-room passages keep a coherent base colour. Per-room
+# overlays (see ``_WOOD_SPECIES`` below) paint the room's tone
+# variant on top inside ``_draw_wood_floor_from_ir``.
 WOOD_FLOOR_FILL = "#B58B5A"
 WOOD_SEAM_STROKE = "#8A5A2A"
 WOOD_SEAM_WIDTH = 0.8
@@ -230,6 +235,94 @@ WOOD_GRAIN_DARK = "#8F6540"
 WOOD_GRAIN_STROKE_WIDTH = 0.4
 WOOD_GRAIN_OPACITY = 0.35
 WOOD_GRAIN_LINES_PER_STRIP = 2
+
+# Wood-species palette — five species, each with three tone
+# variants (light / medium / dark). The medium tone is the
+# "canonical" species colour; light and dark are ±1 step
+# variants that read as "same wood, different cut / patina"
+# rather than a different species. A building picks ONE species
+# from ``FloorDetailOp.seed`` and each room inside picks one of
+# the species' three tones from ``hash(room.regionRef) % 3``,
+# so a manor reads as a coherent material with per-room nuance
+# instead of a wood-sample catalog. Each tone carries the full
+# render quartet:
+#
+#   (fill, grain_light, grain_dark, seam)
+#
+# - ``fill`` paints the per-room rect overlay.
+# - ``grain_light`` / ``grain_dark`` paint the parquet grain
+#   streaks (two per plank strip, alternating).
+# - ``seam`` paints the plank-edge stroke.
+#
+# Order of species: oak (warm tan), walnut (cocoa), cherry
+# (red-brown), pine (pale honey), weathered (silvered grey).
+_WOOD_SPECIES: tuple[tuple[tuple[str, str, str, str], ...], ...] = (
+    # Oak — warm tan, the "default" species closest to the legacy
+    # WOOD_FLOOR_FILL palette. Light / medium / dark.
+    (
+        ("#C4A076", "#D4B690", "#A88058", "#8A5A2A"),  # light
+        ("#B58B5A", "#C4A076", "#8F6540", "#8A5A2A"),  # medium (legacy)
+        ("#9B7548", "#AC8A60", "#7A5530", "#683E1E"),  # dark
+    ),
+    # Walnut — deep cocoa, redder hue.
+    (
+        ("#8C6440", "#A07A55", "#684A2C", "#553820"),  # light
+        ("#6E4F32", "#8B6446", "#523820", "#3F2818"),  # medium
+        ("#553820", "#6E4F32", "#3F2818", "#2A1A10"),  # dark
+    ),
+    # Cherry — reddish brown, slight orange.
+    (
+        ("#B07A55", "#C49075", "#8E5C3A", "#683C20"),  # light
+        ("#9B6442", "#B07A55", "#7A4D2E", "#553820"),  # medium
+        ("#7E4F32", "#955F44", "#5F3820", "#42261A"),  # dark
+    ),
+    # Pine — pale honey, the lightest species.
+    (
+        ("#D8B888", "#E6CDA8", "#B8966C", "#9A7A50"),  # light
+        ("#C4A176", "#D8B888", "#A48458", "#856A40"),  # medium
+        ("#A88556", "#BFA070", "#88683C", "#6A5028"),  # dark
+    ),
+    # Weathered grey — silvered teak / driftwood.
+    (
+        ("#8A8478", "#A09A8E", "#6E695F", "#544F46"),  # light
+        ("#6E695F", "#8A8478", "#544F46", "#3D3932"),  # medium
+        ("#544F46", "#6E695F", "#3D3932", "#2A2723"),  # dark
+    ),
+)
+
+
+def _wood_palette_for_room(
+    building_seed: int,
+    region_ref: str | bytes | None,
+) -> tuple[str, str, str, str]:
+    """Pick (fill, grain_light, grain_dark, seam) for a wood room.
+
+    Building species derives from ``building_seed`` (the
+    FloorDetailOp.seed field — same per IR build, varies per
+    building); room tone derives from a stable hash of the
+    room's ``regionRef``. Without a ``regionRef`` the room falls
+    back to the building's medium tone — the legacy single-colour
+    look.
+    """
+    species_idx = building_seed % len(_WOOD_SPECIES)
+    species = _WOOD_SPECIES[species_idx]
+    if region_ref is None:
+        return species[1]  # medium
+    if isinstance(region_ref, bytes):
+        ref = region_ref.decode() if region_ref else ""
+    else:
+        ref = region_ref or ""
+    if not ref:
+        return species[1]
+    # Stable, fast string hash — the standard library's hash() is
+    # randomised per process so we can't use it; fall back to a
+    # simple FNV-1a 32-bit hash. Distribution across 3 buckets is
+    # plenty for 1-6 rooms per building.
+    h = 2166136261
+    for ch in ref.encode("utf-8"):
+        h ^= ch
+        h = (h * 16777619) & 0xFFFFFFFF
+    return species[h % 3]
 
 
 # ── Mine cart tracks ─────────────────────────────────────────

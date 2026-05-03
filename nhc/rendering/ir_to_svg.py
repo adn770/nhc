@@ -1096,11 +1096,10 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     plank lengths).
     """
     from nhc.rendering._floor_detail import (
-        WOOD_GRAIN_DARK, WOOD_GRAIN_LIGHT,
         WOOD_GRAIN_LINES_PER_STRIP, WOOD_GRAIN_OPACITY,
         WOOD_GRAIN_STROKE_WIDTH, WOOD_PLANK_LENGTH_MAX,
         WOOD_PLANK_LENGTH_MIN, WOOD_PLANK_WIDTH_PX,
-        WOOD_SEAM_STROKE, WOOD_SEAM_WIDTH,
+        WOOD_SEAM_WIDTH, _wood_palette_for_room,
     )
 
     out: list[str] = []
@@ -1151,9 +1150,43 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
     if not rooms:
         return out
 
-    lines_light: list[str] = []
-    lines_dark: list[str] = []
-    for room in rooms:
+    # Resolve each room's palette ONCE — the same palette feeds
+    # the per-room overlay rect, the grain stroke colours, and
+    # the seam stroke colour. Palette derives from the building's
+    # ``op.seed`` (species pick) plus the room's ``regionRef``
+    # (tone variant within the species).
+    seed_int = int(op.seed)
+    room_palettes: list[tuple[str, str, str, str]] = [
+        _wood_palette_for_room(seed_int, _to_str(room.regionRef))
+        for room in rooms
+    ]
+
+    # Per-room base overlay rects — paint the species' tone over
+    # the building-wide ``WoodFloor`` FloorOp base. Room rects
+    # never extend past the building polygon thanks to the clip
+    # group around them. Emitted as one ``<g>`` so the clip-path
+    # binds once.
+    out.append(f'<g{clip_attr}>')
+    for room, palette in zip(rooms, room_palettes):
+        fill = palette[0]
+        out.append(
+            f'<rect x="{room.x * CELL:.1f}" y="{room.y * CELL:.1f}" '
+            f'width="{room.w * CELL:.1f}" '
+            f'height="{room.h * CELL:.1f}" '
+            f'fill="{fill}" stroke="none"/>'
+        )
+    out.append('</g>')
+
+    # Grain lines — bucket per (light-colour, dark-colour) pair so
+    # rooms sharing a tone share groups (compact SVG output). RNG
+    # draw order matches the legacy walk: rooms outer, plank
+    # strips inner, two grain lines per strip.
+    grain_buckets: dict[tuple[str, str], tuple[list[str], list[str]]] = {}
+    for room, palette in zip(rooms, room_palettes):
+        _, grain_light, grain_dark, _ = palette
+        light_lines, dark_lines = grain_buckets.setdefault(
+            (grain_light, grain_dark), ([], []),
+        )
         x0 = room.x * CELL
         y0 = room.y * CELL
         x1 = (room.x + room.w) * CELL
@@ -1173,7 +1206,7 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
                     gy = rng.uniform(
                         y + span * 0.15, strip_bot - span * 0.15,
                     )
-                    dest = lines_light if i % 2 == 0 else lines_dark
+                    dest = light_lines if i % 2 == 0 else dark_lines
                     dest.append(
                         f'<line x1="{x0:.1f}" y1="{gy:.1f}" '
                         f'x2="{x1:.1f}" y2="{gy:.1f}"/>'
@@ -1191,43 +1224,57 @@ def _draw_wood_floor_from_ir(op, fir: FloorIR) -> list[str]:
                     gx = rng.uniform(
                         x + span * 0.15, strip_right - span * 0.15,
                     )
-                    dest = lines_light if i % 2 == 0 else lines_dark
+                    dest = light_lines if i % 2 == 0 else dark_lines
                     dest.append(
                         f'<line x1="{gx:.1f}" y1="{y0:.1f}" '
                         f'x2="{gx:.1f}" y2="{y1:.1f}"/>'
                     )
                 x += width
 
-    for colour, group in (
-        (WOOD_GRAIN_LIGHT, lines_light),
-        (WOOD_GRAIN_DARK, lines_dark),
+    # Emit per-tone grain groups — light then dark, matching the
+    # legacy two-group emission shape. Insertion-ordered iteration
+    # keeps SVG output stable across runs.
+    for (light_colour, dark_colour), (light_lines, dark_lines) in (
+        grain_buckets.items()
     ):
-        if not group:
-            continue
-        out.append(
-            f'<g fill="none" stroke="{colour}" '
-            f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
-            f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
-        )
-        out.append("".join(group))
-        out.append("</g>")
+        if light_lines:
+            out.append(
+                f'<g fill="none" stroke="{light_colour}" '
+                f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
+                f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
+            )
+            out.append("".join(light_lines))
+            out.append("</g>")
+        if dark_lines:
+            out.append(
+                f'<g fill="none" stroke="{dark_colour}" '
+                f'stroke-width="{WOOD_GRAIN_STROKE_WIDTH}" '
+                f'opacity="{WOOD_GRAIN_OPACITY}"{clip_attr}>'
+            )
+            out.append("".join(dark_lines))
+            out.append("</g>")
 
-    seams: list[str] = []
-    for room in rooms:
-        seams.extend(_parquet_seams_from_room_ir(
+    # Plank seams — bucket per seam colour, mirroring the grain
+    # bucket pattern.
+    seam_buckets: dict[str, list[str]] = {}
+    for room, palette in zip(rooms, room_palettes):
+        seam_colour = palette[3]
+        seam_bucket = seam_buckets.setdefault(seam_colour, [])
+        seam_bucket.extend(_parquet_seams_from_room_ir(
             room, rng,
             WOOD_PLANK_WIDTH_PX,
             WOOD_PLANK_LENGTH_MIN,
             WOOD_PLANK_LENGTH_MAX,
         ))
-    if not seams:
-        return out
-    out.append(
-        f'<g fill="none" stroke="{WOOD_SEAM_STROKE}" '
-        f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}>'
-    )
-    out.append("".join(seams))
-    out.append("</g>")
+    for seam_colour, seam_lines in seam_buckets.items():
+        if not seam_lines:
+            continue
+        out.append(
+            f'<g fill="none" stroke="{seam_colour}" '
+            f'stroke-width="{WOOD_SEAM_WIDTH}"{clip_attr}>'
+        )
+        out.append("".join(seam_lines))
+        out.append("</g>")
     return out
 
 
