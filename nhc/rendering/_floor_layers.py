@@ -482,24 +482,19 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
                 t.y = y
                 corridor_tiles_list.append(t)
 
-    # Wood-floor wraps the building footprint as a WoodFloor FloorOp
-    # (Phase 1.20b). When the building polygon is set, we suppress
-    # the per-room rect FloorOps (the wood polygon paints over them
-    # anyway) — see the FloorOp emit block below. Otherwise rooms
-    # emit their own FloorOps with the dungeon-floor base fill.
-    suppress_rect_rooms = (
-        ctx.interior_finish == "wood" and bool(ctx.building_polygon)
-    )
-    # Rooms inside any building (wood / stone / brick / palisade)
-    # never emit their own DungeonInk perimeter strokes. The
-    # building's masonry / palisade ExteriorWallOp owns the
-    # building's outline; per-room rect outlines would protrude
-    # past clipped corners (octagon / circle / hybrid footprints)
-    # producing a black square frame, and per-room partition strokes
-    # would double-paint the InteriorWallOp partitions. The legacy
+    # Buildings own their own floor + perimeter + partitions
+    # through (a) a single FloorOp shaped to the building polygon —
+    # WoodFloor for wood interiors, DungeonFloor otherwise — (b)
+    # the building's masonry / palisade ExteriorWallOp, and (c) the
+    # InteriorWallOp partition strokes. Per-room rect FloorOps and
+    # per-room ExteriorWallOps would protrude past the building's
+    # clipped corners (octagon / circle / hybrid footprints) and
+    # double-paint the partitions, so they drop whenever the
+    # building polygon is set. The legacy
     # ``WallsAndFloorsOp.wallSegments`` builder handled this
-    # implicitly via the ``_draw_wall_to(building_footprint)``
-    # filter retired at 1.26f; this flag restores the same intent.
+    # implicitly via ``_draw_wall_to(building_footprint)`` retired
+    # at 1.26f; the new flags restore the same intent.
+    suppress_rect_rooms = bool(ctx.building_polygon)
     suppress_room_walls = bool(ctx.building_polygon)
 
     # Phase 1.4 / 1.5 / 1.6 corrigendum — parallel emission of FloorOp.
@@ -644,46 +639,53 @@ def _emit_walls_and_floors_ir(builder: "FloorIRBuilder") -> None:
             floor_entry.op = floor_op
             builder.add_op(floor_entry)
 
-    # Phase 1.20b — wood-floor base fill for buildings with
-    # ``interior_finish == "wood"``. Emitted AFTER every white
-    # DungeonFloor / CaveFloor FloorOp so the brown polygon paints
-    # last and covers the building footprint on the final composite.
-    # Two cases match the legacy ``smoothFillSvg`` wood path that
-    # this commit retires:
+    # Building base fill — every building (wood / stone / brick)
+    # emits ONE FloorOp shaped to the building polygon so the
+    # interior is uniformly filled within the chamfered footprint
+    # (octagon / circle / hybrid clipped corners stay BG, not white).
+    # Per-room rect FloorOps drop via ``suppress_rect_rooms`` for
+    # the same reason.
     #
-    # - Building polygon known (rect / L / octagon / circle building
-    #   shapes via ``_perimeter_polygon``): one FloorOp whose outline
-    #   carries the chamfered / curved footprint vertices.
-    # - No building polygon (cave / pill / hybrid building shapes):
-    #   one FloorOp per FLOOR tile not in ``cave_tiles``, mirroring
-    #   the legacy per-tile rect coverage. No parity fixture
-    #   exercises this path today; it ships for completeness.
-    if ctx.interior_finish == "wood":
-        if ctx.building_polygon:
-            wood_op = FloorOpT()
-            wood_op.outline = outline_from_polygon(
-                list(ctx.building_polygon)
-            )
-            wood_op.style = FloorStyle.FloorStyle.WoodFloor
-            wood_entry = OpEntryT()
-            wood_entry.opType = Op.Op.FloorOp
-            wood_entry.op = wood_op
-            builder.add_op(wood_entry)
-        else:
-            for y in range(level.height):
-                for x in range(level.width):
-                    tile = level.tiles[y][x]
-                    if tile.terrain is not Terrain.FLOOR:
-                        continue
-                    if (x, y) in cave_tiles:
-                        continue
-                    wood_op = FloorOpT()
-                    wood_op.outline = outline_from_rect(Rect(x, y, 1, 1))
-                    wood_op.style = FloorStyle.FloorStyle.WoodFloor
-                    wood_entry = OpEntryT()
-                    wood_entry.opType = Op.Op.FloorOp
-                    wood_entry.op = wood_op
-                    builder.add_op(wood_entry)
+    # Style follows ``ctx.interior_finish``: wood → WoodFloor (brown),
+    # else DungeonFloor (white). Emitted AFTER every per-room
+    # FloorOp slot so the building's polygon-shape paints over any
+    # leftover per-room bleed (defensive — when
+    # ``suppress_rect_rooms`` is correctly set, there's nothing to
+    # paint over).
+    #
+    # No-polygon fallback (wood + cave / pill / hybrid building
+    # shape): per-tile WoodFloor FloorOps mirror the legacy per-tile
+    # rect coverage. No parity fixture exercises this path; it
+    # ships for completeness.
+    is_wood = ctx.interior_finish == "wood"
+    if ctx.building_polygon:
+        base_op = FloorOpT()
+        base_op.outline = outline_from_polygon(
+            list(ctx.building_polygon)
+        )
+        base_op.style = (
+            FloorStyle.FloorStyle.WoodFloor if is_wood
+            else FloorStyle.FloorStyle.DungeonFloor
+        )
+        base_entry = OpEntryT()
+        base_entry.opType = Op.Op.FloorOp
+        base_entry.op = base_op
+        builder.add_op(base_entry)
+    elif is_wood:
+        for y in range(level.height):
+            for x in range(level.width):
+                tile = level.tiles[y][x]
+                if tile.terrain is not Terrain.FLOOR:
+                    continue
+                if (x, y) in cave_tiles:
+                    continue
+                wood_op = FloorOpT()
+                wood_op.outline = outline_from_rect(Rect(x, y, 1, 1))
+                wood_op.style = FloorStyle.FloorStyle.WoodFloor
+                wood_entry = OpEntryT()
+                wood_entry.opType = Op.Op.FloorOp
+                wood_entry.op = wood_op
+                builder.add_op(wood_entry)
 
     # Phase 1.8 — parallel emission of ExteriorWallOp per rect room.
     # The legacy ``wallSegments`` field above still drives pixels

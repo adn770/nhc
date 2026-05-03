@@ -1204,6 +1204,74 @@ def test_exterior_wall_op_skipped_when_suppress_rect_rooms() -> None:
     )
 
 
+def test_non_wood_building_emits_polygon_shaped_dungeon_floor() -> None:
+    """Stone / brick buildings emit a single DungeonFloor FloorOp
+    shaped to the building polygon (no per-room rect FloorOps).
+
+    Pre-fix, per-room rect DungeonFloor FloorOps painted into VOID
+    tiles in the building's clipped corner triangles (octagon /
+    circle / hybrid footprints), bleeding white pixels past the
+    masonry. The fix mirrors the wood-floor short-circuit: emit
+    ONE building-shaped DungeonFloor FloorOp and suppress per-room
+    floors. The masonry exterior wall paints the perimeter; the
+    polygon-shaped floor stays inside the building's footprint.
+    """
+    from nhc.rendering._render_context import build_render_context
+    from nhc.rendering.ir_emitter import (
+        _build_cave_wall_geometry, _build_dungeon_polygon,
+    )
+
+    level = _build_simple_rect_level([
+        Rect(1, 1, 4, 4),
+        Rect(6, 1, 4, 4),
+    ])
+    octagon_polygon = [
+        # 8-vertex octagon clipped from a 12×7-tile bbox.
+        (96.0, 32.0), (288.0, 32.0),
+        (352.0, 96.0), (352.0, 160.0),
+        (288.0, 224.0), (96.0, 224.0),
+        (32.0, 160.0), (32.0, 96.0),
+    ]
+    ctx = build_render_context(
+        level,
+        seed=0,
+        cave_geometry_builder=_build_cave_wall_geometry,
+        dungeon_polygon_builder=_build_dungeon_polygon,
+        hatch_distance=2.0,
+        vegetation=True,
+        building_polygon=octagon_polygon,
+    )
+    assert ctx.interior_finish != "wood"
+    assert ctx.building_polygon is not None
+    builder = FloorIRBuilder(ctx)
+    _emit_walls_and_floors_ir(builder)
+
+    floor_ops = [
+        e for e in builder.ops if e.opType == Op.Op.FloorOp
+    ]
+    dungeon_floor_ops = [
+        e for e in floor_ops if e.op.style == FloorStyle.DungeonFloor
+    ]
+    assert len(dungeon_floor_ops) == 1, (
+        f"expected exactly one DungeonFloor FloorOp shaped to the "
+        f"building polygon; got {len(dungeon_floor_ops)}"
+    )
+    op = dungeon_floor_ops[0].op
+    assert op.outline is not None, (
+        "building DungeonFloor FloorOp must carry op.outline (the "
+        "octagonal building polygon — no Building Region exists in "
+        "the building-floor IR to resolve via region_ref)"
+    )
+    assert op.outline.descriptorKind == OutlineKind.Polygon
+    verts = [(v.x, v.y) for v in (op.outline.vertices or [])]
+    assert verts == [
+        (float(x), float(y)) for x, y in octagon_polygon
+    ], (
+        f"DungeonFloor FloorOp outline must mirror the building "
+        f"polygon vertex-for-vertex; got {verts}"
+    )
+
+
 def test_rect_room_walls_suppressed_inside_non_wood_building() -> None:
     """A stone / brick building with a polygon set must suppress
     per-room DungeonInk ExteriorWallOps — the masonry exterior walls
