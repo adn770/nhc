@@ -1,19 +1,27 @@
-//! Terrain-detail op rasterisation — Phase 9.1c port.
+//! Terrain-detail op rasterisation — Phase 9.1c port, ported to
+//! the Painter trait in Phase 2.12 of `plans/nhc_pure_ir_plan.md`.
 //!
 //! Reads the structured ``tiles[]`` directly: water / lava /
-//! chasm tiles are bucketed by `is_corridor`, dispatched through
-//! the per-kind `primitives::terrain_detail::draw_*` painter to
-//! get one `<g>` envelope per (kind, bucket), then routed
-//! through `paint_fragments`. The room bucket is rasterised under
-//! the `clip_region` mask; the corridor bucket renders unclipped.
+//! chasm tiles are bucketed by `is_corridor`, then painted via
+//! the per-kind `primitives::terrain_detail::paint_*` Painter-
+//! trait emitters. The room buckets paint inside a
+//! `push_clip(region_outline, EvenOdd)` / `pop_clip` envelope;
+//! the corridor buckets paint unclipped.
+//!
+//! Unlike floor_detail / thematic_detail (Phases 2.10 / 2.11),
+//! the terrain_detail primitive has **no FFI export** — only this
+//! handler consumes it. So Phase 2.12 REPLACES the legacy
+//! `draw_water` / `draw_lava` / `draw_chasm` SVG-string emitters
+//! with the new `paint_*` Painter-trait emitters outright; no
+//! dual path is required. Python SVG output flows through its
+//! own `nhc.rendering._terrain_detail` module.
 
-use tiny_skia::{FillRule, Mask};
+use crate::ir::{FloorIR, OpEntry, Outline, TerrainDetailOp, TerrainKind};
+use crate::painter::{FillRule, PathOps, Painter, SkiaPainter, Vec2};
+use crate::primitives::terrain_detail::{
+    paint_chasm, paint_lava, paint_water,
+};
 
-use crate::ir::{FloorIR, OpEntry, TerrainDetailOp, TerrainKind};
-use crate::primitives;
-
-use super::fragment::paint_fragments;
-use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -51,30 +59,49 @@ pub(super) fn draw(
         dest.push(coord);
     }
 
-    let seed = op.seed();
-    let ember_ink = lava_ember_ink(op.theme());
-
-    let mut room: Vec<String> = Vec::new();
-    room.extend(primitives::terrain_detail::draw_water(&water_room, seed));
-    room.extend(primitives::terrain_detail::draw_lava(
-        &lava_room, seed, ember_ink,
-    ));
-    room.extend(primitives::terrain_detail::draw_chasm(&chasm_room, seed));
-
-    let mut corridor: Vec<String> = Vec::new();
-    corridor.extend(primitives::terrain_detail::draw_water(&water_corr, seed));
-    corridor.extend(primitives::terrain_detail::draw_lava(
-        &lava_corr, seed, ember_ink,
-    ));
-    corridor.extend(primitives::terrain_detail::draw_chasm(&chasm_corr, seed));
-
-    if room.is_empty() && corridor.is_empty() {
+    let room_empty = water_room.is_empty()
+        && lava_room.is_empty()
+        && chasm_room.is_empty();
+    let corr_empty = water_corr.is_empty()
+        && lava_corr.is_empty()
+        && chasm_corr.is_empty();
+    if room_empty && corr_empty {
         return;
     }
 
-    let clip_mask = build_clip_mask(&op, fir, ctx);
-    paint_fragments(&room, 1.0, clip_mask.as_ref(), ctx);
-    paint_fragments(&corridor, 1.0, None, ctx);
+    let seed = op.seed();
+    let ember_ink = lava_ember_ink(op.theme());
+
+    let clip = build_clip_pathops(&op, fir);
+
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+
+    // Room: clipped inside the dungeon-interior outline (when
+    // present). Each kind wraps its own `<g opacity>` envelope
+    // through begin_group / end_group.
+    if !room_empty {
+        match &clip {
+            Some(clip_path) => {
+                painter.push_clip(clip_path, FillRule::EvenOdd);
+                paint_water(&mut painter, &water_room, seed);
+                paint_lava(&mut painter, &lava_room, seed, ember_ink);
+                paint_chasm(&mut painter, &chasm_room, seed);
+                painter.pop_clip();
+            }
+            None => {
+                paint_water(&mut painter, &water_room, seed);
+                paint_lava(&mut painter, &lava_room, seed, ember_ink);
+                paint_chasm(&mut painter, &chasm_room, seed);
+            }
+        }
+    }
+
+    // Corridor: unclipped.
+    if !corr_empty {
+        paint_water(&mut painter, &water_corr, seed);
+        paint_lava(&mut painter, &lava_corr, seed, ember_ink);
+        paint_chasm(&mut painter, &chasm_corr, seed);
+    }
 }
 
 /// Theme-specific lava ember `fill` colour. Mirrors
@@ -92,17 +119,55 @@ fn lava_ember_ink(theme: Option<&str>) -> &'static str {
     }
 }
 
-fn build_clip_mask(
+/// Walk the terrain-detail op's `region_ref` outline into a
+/// `PathOps` clip path. Returns `None` when the region is missing
+/// / has no outline; the caller drops the clip and paints the
+/// room buckets unclipped (matching the legacy `Mask::new` falling
+/// back to `None`).
+fn build_clip_pathops(
     op: &TerrainDetailOp<'_>,
     fir: &FloorIR<'_>,
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
+) -> Option<PathOps> {
     let region_id = op.region_ref().filter(|r| !r.is_empty())?;
     let regions = fir.regions()?;
     let region = regions.iter().find(|r| r.id() == region_id)?;
     let outline = region.outline()?;
-    let path = build_outline_path(&outline)?;
-    let mut mask = Mask::new(ctx.pixmap.width(), ctx.pixmap.height())?;
-    mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
+    outline_to_pathops(&outline)
+}
+
+fn outline_to_pathops(outline: &Outline<'_>) -> Option<PathOps> {
+    let verts = outline.vertices()?;
+    if verts.is_empty() {
+        return None;
+    }
+    let rings = outline.rings();
+    let ring_iter: Vec<(usize, usize)> = match rings {
+        Some(r) if r.len() > 0 => r
+            .iter()
+            .map(|pr| (pr.start() as usize, pr.count() as usize))
+            .collect(),
+        _ => vec![(0, verts.len())],
+    };
+    let mut path = PathOps::new();
+    let mut any = false;
+    for (start, count) in ring_iter {
+        if count < 2 {
+            continue;
+        }
+        for j in 0..count {
+            let v = verts.get(start + j);
+            let p = Vec2::new(v.x(), v.y());
+            if j == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+        path.close();
+        any = true;
+    }
+    if !any {
+        return None;
+    }
+    Some(path)
 }
