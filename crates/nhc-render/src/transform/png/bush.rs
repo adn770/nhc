@@ -1,14 +1,20 @@
 //! Bush surface feature — Phase 5.4.11 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, ported to the Painter trait
+//! in Phase 2.14d of `plans/nhc_pure_ir_plan.md` (the **fourth
+//! and last** of four fixture ports — well / fountain / tree /
+//! bush).
 //!
-//! Mirrors `_draw_bush_from_ir`: walks `op.tiles` and delegates
-//! to `primitives::bush::draw_bush` for the multi-lobe canopy +
-//! shadow with HLS-jittered fill colour.
+//! Walks `op.tiles` and dispatches the per-tile multi-lobe canopy
+//! + shadow + volume-mark geometry through
+//! `primitives::bush::paint_bush` via a `SkiaPainter` constructed
+//! for the dispatch scope. Fixtures are NO group-opacity (plan
+//! §2.14), so `paint_bush` composites stamps directly without a
+//! `begin_group` / `end_group` envelope.
 
 use crate::ir::{FloorIR, OpEntry};
+use crate::painter::SkiaPainter;
 use crate::primitives;
 
-use super::fragment::paint_fragments;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -27,6 +33,6 @@ pub(super) fn draw(
     if tiles.is_empty() {
         return;
     }
-    let frags = primitives::bush::draw_bush(&tiles);
-    paint_fragments(&frags, 1.0, None, ctx);
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    primitives::bush::paint_bush(&mut painter, &tiles);
 }
