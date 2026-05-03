@@ -53,23 +53,35 @@ impl Rect {
     }
 }
 
-/// Premultiplication-agnostic RGBA colour. Backends are
-/// responsible for matching the underlying raster's expectation
-/// (tiny-skia stores premultiplied; SVG strings carry straight).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+/// Premultiplication-agnostic RGBA colour. RGB are u8; alpha is
+/// f32 in `[0.0, 1.0]` so primitives that need sub-percent
+/// opacity (shadow's `0.08`, hatch's `0.04`) preserve precision
+/// across the SkiaPainter (tiny-skia takes f32 alpha) /
+/// SvgPainter (SVG `fill-opacity` is float) backends. A u8 alpha
+/// would round 0.08 to 20 → 20/255 = 0.0784, drifting tiny-skia
+/// pixel output and the SVG output's opacity attribute.
+///
+/// `Eq` / `Hash` are not implemented because f32 lacks them.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
-    pub a: u8,
+    pub a: f32,
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Self { r: 0, g: 0, b: 0, a: 0.0 }
+    }
 }
 
 impl Color {
     pub const fn rgb(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b, a: 255 }
+        Self { r, g, b, a: 1.0 }
     }
 
-    pub const fn rgba(r: u8, g: u8, b: u8, a: u8) -> Self {
+    pub const fn rgba(r: u8, g: u8, b: u8, a: f32) -> Self {
         Self { r, g, b, a }
     }
 }
@@ -100,7 +112,7 @@ pub enum FillRule {
 /// Solid-colour paint. Future extensions (gradients, patterns)
 /// land as additional variants without breaking the existing
 /// trait surface.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Paint {
     pub color: Color,
 }
@@ -476,9 +488,9 @@ mod tests {
     #[test]
     fn paint_constructors_set_color_and_alpha() {
         let opaque = Paint::solid(Color::rgb(10, 20, 30));
-        assert_eq!(opaque.color, Color { r: 10, g: 20, b: 30, a: 255 });
-        let translucent = Paint::solid(Color::rgba(10, 20, 30, 64));
-        assert_eq!(translucent.color, Color { r: 10, g: 20, b: 30, a: 64 });
+        assert_eq!(opaque.color, Color { r: 10, g: 20, b: 30, a: 1.0 });
+        let translucent = Paint::solid(Color::rgba(10, 20, 30, 0.25));
+        assert_eq!(translucent.color, Color { r: 10, g: 20, b: 30, a: 0.25 });
     }
 
     #[test]

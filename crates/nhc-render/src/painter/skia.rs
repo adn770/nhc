@@ -280,7 +280,18 @@ fn active_surface<'p>(
 fn build_paint(paint: &Paint) -> SkPaint<'static> {
     let mut p = SkPaint::default();
     let Color { r, g, b, a } = paint.color;
-    p.set_color(SkColor::from_rgba8(r, g, b, a));
+    let alpha = a.clamp(0.0, 1.0);
+    // f32 alpha preserves sub-percent opacity precision (e.g.
+    // shadow's 0.08). u8 alpha would round to 20 → 0.0784,
+    // drifting the cross-rasteriser parity gate.
+    let color = SkColor::from_rgba(
+        r as f32 / 255.0,
+        g as f32 / 255.0,
+        b as f32 / 255.0,
+        alpha,
+    )
+    .unwrap_or(SkColor::TRANSPARENT);
+    p.set_color(color);
     p.anti_alias = true;
     p
 }

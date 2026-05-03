@@ -228,18 +228,18 @@ fn fmt_hex(color: Color) -> String {
 }
 
 fn fmt_fill_opacity(color: Color) -> String {
-    if color.a == 255 {
+    if color.a >= 1.0 {
         String::new()
     } else {
-        format!(" fill-opacity=\"{}\"", fmt_num(color.a as f32 / 255.0))
+        format!(" fill-opacity=\"{}\"", fmt_num(color.a))
     }
 }
 
 fn fmt_stroke_opacity(color: Color) -> String {
-    if color.a == 255 {
+    if color.a >= 1.0 {
         String::new()
     } else {
-        format!(" stroke-opacity=\"{}\"", fmt_num(color.a as f32 / 255.0))
+        format!(" stroke-opacity=\"{}\"", fmt_num(color.a))
     }
 }
 
@@ -327,7 +327,7 @@ mod tests {
     }
 
     fn translucent_blue() -> PPaint {
-        PPaint::solid(PColor::rgba(0, 0, 255, 128))
+        PPaint::solid(PColor::rgba(0, 0, 255, 0.5))
     }
 
     #[test]
@@ -576,8 +576,23 @@ mod tests {
         // The painter does not skip alpha=0 paints; that's the
         // primitive's call, not the painter's.
         let mut p = SvgPainter::new();
-        let paint = PPaint::solid(PColor::rgba(0, 0, 0, 0));
+        let paint = PPaint::solid(PColor::rgba(0, 0, 0, 0.0));
         p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &paint);
         assert!(p.body().contains("fill-opacity=\"0\""));
+    }
+
+    #[test]
+    fn fill_opacity_emits_for_subpercent_alpha() {
+        // Shadow's 0.08 must round-trip through SvgPainter as
+        // fill-opacity="0.08", not 0.0784 (which a u8-alpha
+        // round-trip would have produced).
+        let mut p = SvgPainter::new();
+        let paint = PPaint::solid(PColor::rgba(0, 0, 0, 0.08));
+        p.fill_rect(Rect::new(0.0, 0.0, 1.0, 1.0), &paint);
+        assert!(
+            p.body().contains("fill-opacity=\"0.08\""),
+            "subpercent alpha must round-trip exactly: {}",
+            p.body()
+        );
     }
 }
