@@ -1,16 +1,20 @@
 //! Tree surface feature — Phase 5.4.10 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, ported to the Painter trait
+//! in Phase 2.14c of `plans/nhc_pure_ir_plan.md` (the third of
+//! four fixture ports — well / fountain / tree / bush).
 //!
-//! Mirrors `_draw_tree_from_ir`: walks `op.tiles` (free trees)
-//! plus `op.grove_tiles` + `op.grove_sizes` (groves of size ≥ 3
-//! flattened across both arrays) and delegates to
-//! `primitives::tree::draw_tree`. The fragment helper handles
-//! the resulting per-tree + per-grove SVG fragments.
+//! Walks `op.tiles` (free trees) plus `op.grove_tiles` +
+//! `op.grove_sizes` (groves of size ≥ 3 flattened across both
+//! arrays) and dispatches the per-tree + per-grove geometry
+//! through `primitives::tree::paint_tree` via a `SkiaPainter`
+//! constructed for the dispatch scope. Fixtures are NO group-
+//! opacity (plan §2.14), so `paint_tree` composites stamps
+//! directly without a `begin_group` / `end_group` envelope.
 
 use crate::ir::{FloorIR, OpEntry};
+use crate::painter::SkiaPainter;
 use crate::primitives;
 
-use super::fragment::paint_fragments;
 use super::RasterCtx;
 
 pub(super) fn draw(
@@ -50,6 +54,6 @@ pub(super) fn draw(
         cursor += n;
     }
 
-    let frags = primitives::tree::draw_tree(&free_trees, &groves);
-    paint_fragments(&frags, 1.0, None, ctx);
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+    primitives::tree::paint_tree(&mut painter, &free_trees, &groves);
 }
