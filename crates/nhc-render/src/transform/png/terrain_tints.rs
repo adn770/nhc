@@ -1,5 +1,6 @@
 //! Terrain-tints op rasterisation — Phase 5.2.3 of
-//! `plans/nhc_ir_migration_plan.md`.
+//! `plans/nhc_ir_migration_plan.md`, ported to the Painter trait
+//! in Phase 2.8 of `plans/nhc_pure_ir_plan.md`.
 //!
 //! Mirrors `_draw_terrain_tint_from_ir` in
 //! `nhc/rendering/ir_to_svg.py`:
@@ -7,28 +8,30 @@
 //! - Per-tile WATER / GRASS / LAVA / CHASM rects, palette-keyed
 //!   by the floor's theme. Painted inside the dungeon-interior
 //!   clip mask (built from the region named by
-//!   `op.clip_region()`).
+//!   `op.region_ref()`).
 //! - Per-room `ROOM_TYPE_TINTS` washes, painted unclipped on top
 //!   of the tile rects.
 //!
 //! The palette table mirrors `THEME_PALETTES` in
 //! `nhc/rendering/terrain_palette.py` — only the `(tint,
 //! tint_opacity)` pairs travel with the rasteriser; `detail_ink`
-//! belongs to the terrain-detail layer.
+//! belongs to the terrain-detail layer. The PNG handler keeps the
+//! palette table inline (PNG-only theme dispatch) and converts the
+//! IR's `TerrainKind` discriminant into the `(hex, opacity)` pairs
+//! that the Painter primitive consumes.
 
-use tiny_skia::{Color, FillRule, Mask, Paint, Rect, Transform};
+use std::collections::HashMap;
 
-use crate::ir::{FloorIR, OpEntry, TerrainKind, TerrainTintOp};
+use crate::ir::{FloorIR, Outline, OpEntry, TerrainKind, TerrainTintOp};
+use crate::painter::{FillRule, Painter, PathOps, SkiaPainter, Vec2};
+use crate::primitives::terrain_tints::paint_terrain_tints;
 
-use super::polygon_path::build_outline_path;
 use super::RasterCtx;
 
-const CELL: f32 = 32.0;
-
 /// `(tint_hex, opacity)` pair for one terrain kind in one theme.
-type TerrainStyle = (&'static str, f32);
+type TerrainStyle = (&'static str, f64);
 
-/// `(water, grass, lava, chasm)`. Indexes match the
+/// `(water, lava, chasm, grass)`. Indexes match the
 /// `TerrainKind` enum from `floor_ir.fbs` minus 1 (Water=1 →
 /// idx 0, Grass=4 → idx 3).
 type ThemeRow = [TerrainStyle; 4];
@@ -126,41 +129,108 @@ fn palette_for(theme: &str) -> &'static ThemeRow {
     }
 }
 
-fn style_for(palette: &ThemeRow, kind: TerrainKind) -> Option<TerrainStyle> {
-    let idx = match kind {
-        TerrainKind::Water => 0,
-        TerrainKind::Lava => 1,
-        TerrainKind::Chasm => 2,
-        TerrainKind::Grass => 3,
-        _ => return None,
-    };
-    Some(palette[idx])
+/// Build the discriminant-keyed palette map that
+/// `paint_terrain_tints` consumes. Only the kinds present in the
+/// theme row land in the map; unknown discriminants short-circuit
+/// at the primitive level via `palette.get(&kind).is_none()`.
+fn build_palette_map(palette: &ThemeRow) -> HashMap<u8, (String, f64)> {
+    let mut map = HashMap::with_capacity(4);
+    map.insert(TerrainKind::Water.0 as u8, (palette[0].0.to_string(), palette[0].1));
+    map.insert(TerrainKind::Lava.0 as u8, (palette[1].0.to_string(), palette[1].1));
+    map.insert(TerrainKind::Chasm.0 as u8, (palette[2].0.to_string(), palette[2].1));
+    map.insert(TerrainKind::Grass.0 as u8, (palette[3].0.to_string(), palette[3].1));
+    map
 }
 
-fn parse_hex_rgb(s: &str) -> Option<(u8, u8, u8)> {
-    let s = s.strip_prefix('#')?;
-    if s.len() != 6 {
+/// Walk an IR `Outline` (single-ring or multi-ring) into a
+/// `PathOps` clip path. Each ring contributes `MoveTo` + `LineTo*`
+/// + `Close`. Mirrors the helper introduced in Phase 2.7 (see
+/// `transform/png/floor_grid.rs::outline_to_pathops`); duplicated
+/// here intentionally — Phase 2.20 will tidy when the legacy
+/// `polygon_path` / `path_parser` modules retire and a shared
+/// helper home opens up.
+fn outline_to_pathops(outline: &Outline<'_>) -> Option<PathOps> {
+    let verts = outline.vertices()?;
+    if verts.is_empty() {
         return None;
     }
-    let r = u8::from_str_radix(&s[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&s[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&s[4..6], 16).ok()?;
-    Some((r, g, b))
+    let rings = outline.rings();
+    let ring_iter: Vec<(usize, usize)> = match rings {
+        Some(r) if r.len() > 0 => r
+            .iter()
+            .map(|pr| (pr.start() as usize, pr.count() as usize))
+            .collect(),
+        _ => vec![(0, verts.len())],
+    };
+    let mut path = PathOps::new();
+    let mut any = false;
+    for (start, count) in ring_iter {
+        if count < 2 {
+            continue;
+        }
+        for j in 0..count {
+            let v = verts.get(start + j);
+            let p = Vec2::new(v.x(), v.y());
+            if j == 0 {
+                path.move_to(p);
+            } else {
+                path.line_to(p);
+            }
+        }
+        path.close();
+        any = true;
+    }
+    if !any {
+        return None;
+    }
+    Some(path)
 }
 
-fn paint_for(hex: &str, opacity: f32) -> Paint<'static> {
-    let mut p = Paint::default();
-    let (r, g, b) = parse_hex_rgb(hex).unwrap_or((0, 0, 0));
-    let color = Color::from_rgba(
-        r as f32 / 255.0,
-        g as f32 / 255.0,
-        b as f32 / 255.0,
-        opacity.clamp(0.0, 1.0),
-    )
-    .unwrap_or(Color::TRANSPARENT);
-    p.set_color(color);
-    p.anti_alias = true;
-    p
+fn build_clip(
+    op: &TerrainTintOp<'_>,
+    fir: &FloorIR<'_>,
+) -> Option<PathOps> {
+    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
+    let regions = fir.regions()?;
+    let region = regions.iter().find(|r| r.id() == region_id)?;
+    let outline = region.outline()?;
+    outline_to_pathops(&outline)
+}
+
+/// Collect the IR's tile array into the `(x, y, kind_disc)`
+/// triples that `paint_terrain_tints` consumes.
+fn collect_tiles(op: &TerrainTintOp<'_>) -> Vec<(i32, i32, u8)> {
+    let Some(tiles) = op.tiles() else {
+        return Vec::new();
+    };
+    tiles
+        .iter()
+        .map(|t| (t.x(), t.y(), t.kind().0 as u8))
+        .collect()
+}
+
+/// Collect the IR's room-wash array into the `(x, y, w, h, color,
+/// opacity)` tuples that `paint_terrain_tints` consumes.
+/// `RoomWash.opacity` is f32 in the IR; widen to f64 to match the
+/// Painter primitive's signature, which mirrors the legacy
+/// SVG-string emitter's `(String, f64)` API.
+fn collect_washes(op: &TerrainTintOp<'_>) -> Vec<(i32, i32, i32, i32, String, f64)> {
+    let Some(washes) = op.room_washes() else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(washes.len());
+    for wash in washes.iter() {
+        let Some(color) = wash.color() else { continue };
+        out.push((
+            wash.x(),
+            wash.y(),
+            wash.w(),
+            wash.h(),
+            color.to_string(),
+            wash.opacity() as f64,
+        ));
+    }
+    out
 }
 
 pub(super) fn draw(
@@ -174,78 +244,34 @@ pub(super) fn draw(
     };
     let theme = fir.theme().unwrap_or("dungeon");
     let palette = palette_for(theme);
+    let palette_map = build_palette_map(palette);
 
-    let clip_mask = build_clip_mask(&op, fir, ctx);
-    draw_tiles(&op, palette, ctx, clip_mask.as_ref());
-    draw_washes(&op, ctx);
-}
+    let tiles = collect_tiles(&op);
+    let washes = collect_washes(&op);
+    let clip = build_clip(&op, fir);
 
-fn draw_tiles(
-    op: &TerrainTintOp<'_>,
-    palette: &ThemeRow,
-    ctx: &mut RasterCtx<'_>,
-    mask: Option<&Mask>,
-) {
-    let tiles = match op.tiles() {
-        Some(t) => t,
-        None => return,
-    };
-    for tile in tiles.iter() {
-        let style = match style_for(palette, tile.kind()) {
-            Some(s) => s,
-            None => continue,
-        };
-        let px = tile.x() as f32 * CELL;
-        let py = tile.y() as f32 * CELL;
-        let rect = match Rect::from_xywh(px, py, CELL, CELL) {
-            Some(r) => r,
-            None => continue,
-        };
-        let paint = paint_for(style.0, style.1);
-        ctx.pixmap.fill_rect(rect, &paint, ctx.transform, mask);
+    let mut painter = SkiaPainter::with_transform(ctx.pixmap, ctx.transform);
+
+    // Tile tints: clipped to the dungeon-interior outline when the
+    // op carries a region_ref. Mirrors the legacy
+    // `Mask::new` + `mask.fill_path(EvenOdd)` envelope the prior
+    // direct-call handler applied around the per-tile fill_rect
+    // calls. Washes (below) run unclipped — the legacy handler
+    // passed `None` as the mask there.
+    if !tiles.is_empty() {
+        match &clip {
+            Some(clip_path) => {
+                painter.push_clip(clip_path, FillRule::EvenOdd);
+                paint_terrain_tints(&mut painter, &tiles, &palette_map, &[]);
+                painter.pop_clip();
+            }
+            None => {
+                paint_terrain_tints(&mut painter, &tiles, &palette_map, &[]);
+            }
+        }
+    }
+    // Washes layered on top, unclipped.
+    if !washes.is_empty() {
+        paint_terrain_tints(&mut painter, &[], &palette_map, &washes);
     }
 }
-
-fn draw_washes(op: &TerrainTintOp<'_>, ctx: &mut RasterCtx<'_>) {
-    let washes = match op.room_washes() {
-        Some(w) => w,
-        None => return,
-    };
-    for wash in washes.iter() {
-        let color = match wash.color() {
-            Some(c) => c,
-            None => continue,
-        };
-        let px = wash.x() as f32 * CELL;
-        let py = wash.y() as f32 * CELL;
-        let pw = wash.w() as f32 * CELL;
-        let ph = wash.h() as f32 * CELL;
-        let rect = match Rect::from_xywh(px, py, pw, ph) {
-            Some(r) => r,
-            None => continue,
-        };
-        let paint = paint_for(color, wash.opacity());
-        ctx.pixmap.fill_rect(rect, &paint, ctx.transform, None);
-    }
-}
-
-fn build_clip_mask(
-    op: &TerrainTintOp<'_>,
-    fir: &FloorIR<'_>,
-    ctx: &RasterCtx<'_>,
-) -> Option<Mask> {
-    let region_id = op.region_ref().filter(|r| !r.is_empty())?;
-    let regions = fir.regions()?;
-    let region = regions.iter().find(|r| r.id() == region_id)?;
-    let outline = region.outline()?;
-    let path = build_outline_path(&outline)?;
-    let (w, h) = (ctx.pixmap.width(), ctx.pixmap.height());
-    let mut mask = Mask::new(w, h)?;
-    mask.fill_path(&path, FillRule::EvenOdd, true, ctx.transform);
-    Some(mask)
-}
-
-// Suppress dead-code on Transform import — used by tests + future
-// sub-phases; current handler reaches it via ctx.transform.
-#[allow(dead_code)]
-const _UNUSED: Option<Transform> = None;
